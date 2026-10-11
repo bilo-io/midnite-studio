@@ -46,6 +46,17 @@ export type AiModelTier = {
 };
 
 /**
+ * Model info descriptor for an agent (Phase 111 Theme A).
+ * Unifies loop models, cheap/fast model tiers, and local Ollama models.
+ */
+export type AgentModelInfo = {
+  id: string;
+  label: string;
+  cliModel?: string | null;
+  tier?: 'fast' | 'cheap' | 'default';
+};
+
+/**
  * Claude: `haiku` is the CLI's own documented model alias (`claude --model
  * haiku`), not a full model id — using the alias means this table tracks
  * Anthropic's own "the current haiku" pointer instead of a specific
@@ -94,3 +105,257 @@ export function fastModelFor(agentId: string): string | null {
 export function modelArgsFor(_agentId: string, model: string): string[] {
   return ['--model', model];
 }
+
+import { LOOP_MODELS } from './loops';
+import { BUILTIN_AGENTS, type AgentDefinition } from './terminal';
+import { editDistance } from './companion';
+
+/**
+ * Models available for `agentId`, unifying `LOOP_MODELS`, `cheapModelFor`/`fastModelFor`,
+ * and local Ollama model lists.
+ */
+export function modelsForAgent(agentId: string, ollamaModels?: string[]): AgentModelInfo[] {
+  const result: AgentModelInfo[] = [];
+  const seenIds = new Set<string>();
+
+  // 1. Loop models for Claude
+  if (agentId === 'claude') {
+    for (const lm of LOOP_MODELS) {
+      const tier = lm.id === 'default' ? 'default' : lm.id.startsWith('haiku') ? 'cheap' : undefined;
+      result.push({
+        id: lm.id,
+        label: lm.label,
+        cliModel: lm.cliModel,
+        ...(tier ? { tier } : {}),
+      });
+      seenIds.add(lm.id);
+    }
+  }
+
+  // 2. cheap/fast tier models for this agent
+  const cheap = cheapModelFor(agentId);
+  const fast = fastModelFor(agentId);
+  if (cheap && !seenIds.has(cheap)) {
+    result.push({
+      id: cheap,
+      label: cheap,
+      cliModel: cheap,
+      tier: 'cheap',
+    });
+    seenIds.add(cheap);
+  }
+  if (fast && !seenIds.has(fast)) {
+    result.push({
+      id: fast,
+      label: fast,
+      cliModel: fast,
+      tier: 'fast',
+    });
+    seenIds.add(fast);
+  }
+
+  // 3. Ollama models if provided
+  if (ollamaModels && ollamaModels.length > 0) {
+    for (const om of ollamaModels) {
+      const trimmed = om.trim();
+      if (!trimmed || seenIds.has(trimmed)) continue;
+      result.push({
+        id: trimmed,
+        label: trimmed,
+        cliModel: trimmed,
+      });
+      seenIds.add(trimmed);
+    }
+  }
+
+  return result;
+}
+
+const AGENT_ALIASES: Record<string, string[]> = {
+  claude: ['claude', 'claude code', 'anthropic'],
+  codex: ['codex', 'openai'],
+  agy: ['agy', 'antigravity', 'gemini', 'google'],
+  cursor: ['cursor', 'cursor-agent'],
+  copilot: ['copilot', 'github copilot'],
+  openclaude: ['openclaude'],
+  opencode: ['opencode'],
+  kilo: ['kilo', 'kilo code', 'kilocode'],
+  aider: ['aider'],
+  cline: ['cline'],
+  grok: ['grok', 'grok build', 'xai'],
+  goose: ['goose'],
+  ollama: ['ollama'],
+};
+
+function normalizeString(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeKey(str: string): string {
+  return normalizeString(str).replace(/\s+/g, '');
+}
+
+/**
+ * Matches an agent input string against available agents (canonical id, label, or known aliases).
+ * Returns the matching AgentDefinition or null.
+ */
+function matchAgent(input: string, agents: readonly AgentDefinition[]): AgentDefinition | null {
+  const norm = normalizeString(input);
+  const key = normalizeKey(input);
+  if (!key) return null;
+
+  // Exact ID match
+  for (const a of agents) {
+    if (a.id.toLowerCase() === norm || a.id.toLowerCase() === key) return a;
+  }
+
+  // Exact label match
+  for (const a of agents) {
+    if (normalizeString(a.label) === norm || normalizeKey(a.label) === key) return a;
+  }
+
+  // Known aliases match
+  for (const [canonicalId, aliases] of Object.entries(AGENT_ALIASES)) {
+    for (const alias of aliases) {
+      if (normalizeString(alias) === norm || normalizeKey(alias) === key) {
+        const found = agents.find((a) => a.id === canonicalId);
+        if (found) return found;
+      }
+    }
+  }
+
+  // Substring or prefix match
+  for (const a of agents) {
+    const aKey = normalizeKey(a.id);
+    const aLabelKey = normalizeKey(a.label);
+    if (aKey.startsWith(key) || key.startsWith(aKey) || aLabelKey.startsWith(key) || key.startsWith(aLabelKey)) {
+      return a;
+    }
+  }
+
+  // Levenshtein fuzzy match
+  let bestAgent: AgentDefinition | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const a of agents) {
+    const candidates = [a.id, a.label, ...(AGENT_ALIASES[a.id] ?? [])];
+    for (const cand of candidates) {
+      const candKey = normalizeKey(cand);
+      const dist = editDistance(key, candKey);
+      const maxAllowed = candKey.length >= 5 ? 2 : candKey.length >= 4 ? 1 : 0;
+      if (dist <= maxAllowed && dist < bestDist) {
+        bestDist = dist;
+        bestAgent = a;
+      }
+    }
+  }
+
+  return bestAgent;
+}
+
+/**
+ * Matches a model input string against known models for an agent.
+ */
+function matchModel(modelInput: string, models: AgentModelInfo[]): string | null {
+  const norm = normalizeString(modelInput);
+  const key = normalizeKey(modelInput);
+  if (!key) return null;
+
+    // Exact ID or label or cliModel match (prefer loop model aliases if present)
+  const modelAliases: Record<string, string[]> = {
+    'haiku-4-5': ['haiku', 'haiku 4.5', 'haiku-4.5', 'claude-haiku-4-5'],
+    'sonnet-5': ['sonnet 5', 'sonnet-5', 'sonnet', 'claude-sonnet-5'],
+    'sonnet-5-5': ['sonnet 5.5', 'sonnet-5.5', 'sonnet 5 5', 'claude-sonnet-5-5'],
+    'opus-4-8': ['opus 4.8', 'opus-4.8', 'claude-opus-4-8'],
+    'opus-5': ['opus 5', 'opus-5', 'opus', 'claude-opus-5'],
+    'opus-5-5': ['opus 5.5', 'opus-5.5', 'opus 5 5', 'claude-opus-5-5'],
+    'fable-5': ['fable 5', 'fable-5', 'fable', 'claude-fable-5'],
+    'fable-5-1': ['fable 5.1', 'fable-5.1', 'claude-fable-5-1'],
+  };
+
+  for (const [targetId, aliases] of Object.entries(modelAliases)) {
+    if (models.some((m) => m.id === targetId)) {
+      for (const alias of aliases) {
+        if (normalizeString(alias) === norm || normalizeKey(alias) === key) {
+          return targetId;
+        }
+      }
+    }
+  }
+
+  for (const m of models) {
+    if (m.id.toLowerCase() === norm || normalizeKey(m.id) === key) return m.id;
+    if (normalizeString(m.label) === norm || normalizeKey(m.label) === key) return m.id;
+    if (m.cliModel && (m.cliModel.toLowerCase() === norm || normalizeKey(m.cliModel) === key)) return m.id;
+  }
+
+  // Prefix or substring match in model ID / label / cliModel
+  for (const m of models) {
+    const mKey = normalizeKey(m.id);
+    const mLabelKey = normalizeKey(m.label);
+    if (mKey.includes(key) || key.includes(mKey) || mLabelKey.includes(key) || key.includes(mLabelKey)) {
+      return m.id;
+    }
+  }
+
+  // Levenshtein fuzzy match
+  let bestModelId: string | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const m of models) {
+    const candidates = [m.id, m.label, ...(m.cliModel ? [m.cliModel] : []), ...(modelAliases[m.id] ?? [])];
+    for (const cand of candidates) {
+      const candKey = normalizeKey(cand);
+      const dist = editDistance(key, candKey);
+      const maxAllowed = candKey.length >= 6 ? 2 : candKey.length >= 4 ? 1 : 0;
+      if (dist <= maxAllowed && dist < bestDist) {
+        bestDist = dist;
+        bestModelId = m.id;
+      }
+    }
+  }
+
+  return bestModelId;
+}
+
+/**
+ * Resolves an agent and optional model input string against available agents and their models.
+ * Returns `{ agentId, modelId }` or `{ error }`.
+ */
+export function resolveAgentAndModel(
+  agentInput: string,
+  modelInput?: string,
+  availableAgents?: readonly AgentDefinition[],
+): { agentId: string; modelId: string | null } | { error: string } {
+  const trimmedAgent = agentInput.trim();
+  if (!trimmedAgent) {
+    return { error: 'Agent name is required' };
+  }
+
+  const agents = availableAgents ?? BUILTIN_AGENTS;
+  const agent = matchAgent(trimmedAgent, agents);
+  if (!agent) {
+    return { error: `Unknown agent: ${trimmedAgent}` };
+  }
+
+  if (!modelInput || !modelInput.trim()) {
+    return { agentId: agent.id, modelId: null };
+  }
+
+  const trimmedModel = modelInput.trim();
+  const knownModels = modelsForAgent(agent.id);
+  const matchedModelId = matchModel(trimmedModel, knownModels);
+
+  if (!matchedModelId) {
+    // If the agent accepts Ollama models and the input looks like an Ollama model name,
+    // or if the agent has no fixed model catalogue, we can still validate or report unknown.
+    return { error: `Unknown model: ${trimmedModel} for agent: ${agent.label}` };
+  }
+
+  return { agentId: agent.id, modelId: matchedModelId };
+}
+

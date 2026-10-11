@@ -22,6 +22,7 @@ describe('MCP_TOOLS', () => {
   const writeTools = new Set<McpToolId>([
     'ui.navigate',
     'ui.command',
+    'ui.reveal',
     'workflow_gate_decide',
     'model_open',
     'model_set_spec',
@@ -91,6 +92,11 @@ describe('MCP_TOOLS', () => {
     'music_add_pitchbends',
     'music_add_track',
     'music_save',
+    'companion_settings_set',
+    'companion_profile_save',
+    'companion_profile_switch',
+    'companion_profile_delete',
+    'companion_agent_set',
   ]);
 
   it('every entry has the readOnly flag its own kind calls for', () => {
@@ -175,8 +181,11 @@ describe('MCP_TOOLS', () => {
       repoPath: null,
       locked: false,
       uiToolsEnabled: false,
+      lastRevealed: null,
     },
     'ui.navigate': { did: 'navigated', view: 'graph' },
+    'ui.reveal': { did: 'revealed', label: 'PR 1' },
+    'ui.find': { matches: [] },
     'ui.command': { did: 'ran', label: 'Fetch' },
     workflow_gates_list: [],
     workflow_gate_decide: { decided: true },
@@ -304,6 +313,16 @@ describe('MCP_TOOLS', () => {
     music_add_track: { ok: true, trackId: 't2', trackIndex: 1, unsaved: true },
     music_save: { ok: true, size: 120 },
     music_render_preview: { _content: [] },
+    companion_settings_get: { settings: [], locked: false },
+    companion_settings_set: { status: 'applied', key: 'companionVolume', previous: 0.5, next: 0.8 },
+    companion_voices_list: { local: [], system: [], selected: { local: null, system: null } },
+    companion_profile_list: { profiles: [], active: null, max: 20, locked: false },
+    companion_profile_save: { status: 'applied', name: 'Narrator', overwritten: false },
+    companion_profile_switch: { status: 'refused', name: 'Pirate', reason: 'notFound', message: 'No such profile.' },
+    companion_profile_delete: { status: 'timeout', name: 'Narrator' },
+    companion_agent_get: { primaryAgent: 'claude', model: null, agents: [], locked: false },
+    companion_agent_set: { status: 'applied', next: { agentId: 'codex', modelId: null } },
+    companion_models_list: { agentId: 'claude', models: [], selected: null },
   };
 
   it('every output schema parses a minimal well-formed value', () => {
@@ -324,6 +343,8 @@ describe('MCP_TOOLS', () => {
       'ui.state': {},
       'ui.navigate': { view: 'graph' },
       'ui.command': { id: 'sync.fetch' },
+      'ui.reveal': { ref: { kind: 'note', id: 'n1' } },
+      'ui.find': { query: 'auth' },
       // Workflows are global, not repo-scoped (`workflow.ts`'s own doc
       // comment) — neither gate tool extends `McpRepoTarget`.
       workflow_gates_list: {},
@@ -401,6 +422,11 @@ describe('MCP_TOOLS', () => {
       music_add_track: { ...base, project: 'p', name: 'intro', trackName: 'Lead', program: 80 },
       music_save: { ...base, project: 'p', name: 'intro' },
       music_render_preview: { ...base, project: 'p', name: 'intro', fromBar: 1, bars: 4 },
+      companion_settings_set: { key: 'companionVolume', value: 0.8 },
+      companion_profile_save: { name: 'Narrator' },
+      companion_profile_switch: { name: 'Narrator' },
+      companion_profile_delete: { name: 'Narrator' },
+      companion_agent_set: { agent: 'claude', model: 'opus-5' },
       terrain_open: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_get_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000' },
       terrain_set_spec: { ...base, project: 'p', terrain: 'dunes-20261004-120000', patch: { resolution: 129 } },

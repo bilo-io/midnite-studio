@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuSend } from 'react-icons/lu';
 
 import { useUiStore } from '../../../store/ui-store';
@@ -24,7 +24,7 @@ export function ApiClientPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Requests" icon={<LuSend className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Requests" icon={<LuSend className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field
             label="Request timeout"
@@ -61,7 +61,7 @@ export function ApiClientPage() {
             </p>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

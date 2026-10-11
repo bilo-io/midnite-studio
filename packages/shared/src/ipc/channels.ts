@@ -1390,6 +1390,13 @@ export const CHANNELS = {
    */
   companionTtsReload: 'mstudio:companion:tts-reload',
   /**
+   * Whether the local voice's model is on disk (Phase 109 Theme F) — the
+   * voice audition's "local or system voices?" check. Read off disk in main,
+   * never by asking the worker, which would start the download a check only
+   * asked about. Always `{ok:true}`.
+   */
+  companionTtsModelOnDisk: 'mstudio:companion:tts-model-on-disk',
+  /**
    * One utterance in, its transcript out.
    *
    * The audio is a `Uint8Array`, structured-cloned exactly as `pty:data` and

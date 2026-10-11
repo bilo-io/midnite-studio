@@ -5,6 +5,7 @@ import { useUiStore } from '../store/ui-store';
 import { useToastStore } from '../store/toast-store';
 import { bridge } from './bridge';
 import { useOpenRepo } from './queries';
+import { revealResource } from '../features/companion/reveal/reveal';
 
 /**
  * Subscribes to `mstudio:protocol:deep-link` and enforces the consent gate
@@ -52,6 +53,18 @@ export function useDeepLinks(): void {
               },
             });
           },
+        });
+        return;
+      }
+
+      if (link.kind === 'reveal') {
+        // Phase 112 Theme I — a ref that failed validation is a toast, never a throw.
+        if (link.ref === null) {
+          addToast({ message: "That link doesn't point at anything I can open.", status: 'error' });
+          return;
+        }
+        void revealResource(link.ref, { caller: 'link' }).then((outcome) => {
+          if (!outcome.ok) addToast({ message: outcome.say, status: 'error' });
         });
         return;
       }

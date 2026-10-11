@@ -225,7 +225,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Raised 476 -> 478 for Phase 101 Theme E's `piano-roll.spec.ts` (2 tests): drawing, moving, resizing and
 // deleting notes by real pointer drag on the piano roll's canvas, which has no DOM to hit-test in jsdom. The edit
 // maths, history, keymap and track controls all have vitest suites.
-export const MAX_DECLARED_E2E = 478;
+//
+// Raised 478 -> 479 for Phase 112 Theme C's `reveal-commit.spec.ts` (1 test): revealing a commit 450 rows
+// down must scroll the virtualizer for real and land the row inside the scroller's box, which needs layout
+// (`getBoundingClientRect`); jsdom has none. The store transitions around it are vitest.
+export const MAX_DECLARED_E2E = 479;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

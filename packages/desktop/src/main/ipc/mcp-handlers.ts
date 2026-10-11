@@ -1,7 +1,7 @@
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { getMcpCallLog } from '../mcp/audit';
-import { getMcpStatus, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowMaps, setMcpAllowModels, setMcpAllowMusic, setMcpAllowSprites, setMcpAllowTerrains, setMcpAllowUi, setMcpEnabled } from '../mcp';
+import { getMcpStatus, setMcpAllowCompanionSettings, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowMaps, setMcpAllowModels, setMcpAllowMusic, setMcpAllowSprites, setMcpAllowTerrains, setMcpAllowUi, setMcpEnabled } from '../mcp';
 import { handle, handleBare } from './handle';
 
 /**
@@ -27,7 +27,18 @@ export function registerMcpHandlers(): void {
   handle(
     CHANNELS.mcpSet,
     schemas.McpSetRequest,
-    async ({ enabled, allowUi, allowGateDecide, allowModels, allowGames, allowTerrains, allowSprites, allowMaps, allowMusic }) => {
+    async ({
+      enabled,
+      allowUi,
+      allowGateDecide,
+      allowModels,
+      allowGames,
+      allowTerrains,
+      allowSprites,
+      allowMaps,
+      allowMusic,
+      allowCompanionSettings,
+    }) => {
       if (enabled !== undefined) {
         const result = await setMcpEnabled(enabled);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
@@ -62,6 +73,10 @@ export function registerMcpHandlers(): void {
       }
       if (allowMusic !== undefined) {
         const result = await setMcpAllowMusic(allowMusic);
+        if (!result.ok) return { ...getMcpStatus(), error: result.message };
+      }
+      if (allowCompanionSettings !== undefined) {
+        const result = await setMcpAllowCompanionSettings(allowCompanionSettings);
         if (!result.ok) return { ...getMcpStatus(), error: result.message };
       }
       return getMcpStatus();

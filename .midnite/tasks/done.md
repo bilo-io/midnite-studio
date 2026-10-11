@@ -27,6 +27,188 @@ then into a 40-turn thread scrolled to its top. In this morning's DMG (`f0a50181
 stayed 0 of 617 and the spoken turn was never rendered. In this branch, the field scrolled to
 457 of 617, the thread came back to the bottom, and the spoken turn was on screen. Screenshots:
 `docs/screenshots/voice-autoscroll/`.
+## 2026-10-11 — Phase 112 Theme I — MCP `ui.reveal`/`ui.find` and the deep link
+
+[PR #827](https://github.com/bilo-io/midnite-studio/pull/827). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Theme I: an MCP agent (or a pasted link) can open any resource by `ref`, and can search for one.
+
+- **tools:** `ui.reveal` and `ui.find` behind `allowUi`; `ui.find` adds a deep `link` per match and returns titles and ids only. `ui.navigate.url`, `ui.state.lastRevealed`.
+- **link:** `midnite-studio://reveal?ref=<base64url JSON>`, built by `resourceRefLink`, validated by `ResourceRefSchema`; invalid is a toast.
+- **deferred:** `ui.state.selection`; the `issue` navigate path onto the table.
+## 2026-10-11 — Phase 112 Theme G — The resolver
+
+[PR #826](https://github.com/bilo-io/midnite-studio/pull/826). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Theme G: free text ("the commit about the lock screen", "my last chat", "PR 812") now resolves to ranked `ResourceRef`s, and the `find` UI action answers instead of refusing.
+
+- **parse:** `parseResourceQuery` in `shared` — head-noun kind words (and media tabs), recency (`latest`/`previous`), exact ids (sha, `#n`, `PR n`, `issue n`), required terms and soft kind words. Theme H reuses it.
+- **rank:** `findResources` — exact ids win outright, recency orders by time, fuzzy titles with a noise floor, substring text, all terms required, a bounded frecency/reveal-history nudge, ties to the newer; 300 ms and 20 results per source, limit ≤ 20.
+- **sources:** commits (`git log --grep`, cancelled on timeout), refs, stashes, PRs, issues, CI runs, chats, sessions, councils, workflows (+ runs), boards and cards, notes, each media tab, games, DB connections and tables, API requests, browser tabs, settings pages and sections — every one a list that already exists.
+- **wire:** `ui-requests.ts` answers `find` with `{did:'found', matches}`; the main window's `QueryClient` moved to `services/query-client.ts` so sources read cached forge lists without fetching.
+## 2026-10-11 — Phase 112 Themes C, D — Git, forge and agent-work revealers
+
+[PR #825](https://github.com/bilo-io/midnite-studio/pull/825). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Themes C and D: the companion and MCP agents can now open a specific commit, ref, stash, file (at a line), a file's diff in a
+commit, a PR, an issue, a CI run or job, and a chat, session, council, workflow run, board or kanban card.
+
+- **Git + forge:** `revealCommit` always lands (resolve short sha, wait for the stream, clear a hiding ref filter, cap message,
+  centre and pulse). `files-store.revealLine`, a `commit-file-request` store, and the `issue` shorthand moved onto the table.
+- **Agent work:** lifted the open workflow into `useWorkflowRevealStore` and the selected card into `board-selection-store`;
+  `pushCouncilEntry` over the council history store; `BoardView` scrolls and pulses a revealed card.
+- **Tests:** per-revealer vitest against store fakes, `reveal-commit.test.ts`, a reveal-before-mount workflow test, and one
+  Playwright spec (e2e cap 478 to 479).
+## 2026-10-11 — Phase 112 Themes E, F — Notes, media, tools and settings revealers
+
+[PR #824](https://github.com/bilo-io/midnite-studio/pull/824). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Themes E and F: the notes, media, database, API-client, browser and settings kinds now open for real instead of answering `unavailable`.
+
+- **notes + media:** `selectNote(id)` lifted into `notes-store`; a generic `useMediaOpenRequest` store for doc, image, video, audio, map and game; app-level `music_open` / `map_goto` / `game_open` listeners routed through `revealResource` (so they work from any view).
+- **tools + settings:** `dbTable` (preview tab, not run), `apiRequest` (focus or open, never send), `browserTab` (focus or open), `setting` (page plus section scroll and highlight). `SettingsAccordion` anchors and the `SETTINGS_SECTIONS` table.
+## 2026-10-10 — Phase 109 Theme H — "Tune me" and quick tweaks
+
+[PR #816](https://github.com/bilo-io/midnite-studio/pull/816). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme H: personality and About me change by voice through a short interview or a one-line tweak,
+read back and confirmed. They are never dictated.
+
+- **Interview:** "tune yourself" asks four questions (tone, how much to say, humour, what to avoid),
+  and "let me tell you about me" asks three (name, work, updates). "Skip", "start over" and "cancel"
+  work throughout. The pure machine is `app/features/companion/tune-interview.ts`, and `tune.ts` runs the flow.
+- **Writing:** a new `'persona'` mode in `ask.ts` returns `{text ≤4000, summary ≤200}`, validated by
+  `parseAskReply(stdout, 'persona')`. With no CLI or a bad reply, `buildPersonaFromAnswers` fills a
+  labelled template (Decision 6).
+- **Tweaks:** "be more sarcastic", "talk less" and "stop being so formal" revise the current
+  personality through the CLI. With no CLI the companion offers Settings ▸ Companion. Honorific
+  phrasings stay C's `setting`.
+- **Confirm:** the companion speaks the summary, posts the whole draft, and asks "Want to hear all of
+  it?" (Decision 11). The replace question uses the pending slot, and a yes applies with
+  `tuned: true` and `confirmed: true`.
+- **No raw dictation:** `tune`/`tweak` intents carry no text, a `setting` intent for either field is
+  schema-invalid, and `persona` is stripped from router replies. The page gains "Try: …" hints for both fields.
+
+
+## 2026-10-11 — Phase 112 Themes A, B — ResourceRef and the revealResource engine
+
+[PR #823](https://github.com/bilo-io/midnite-studio/pull/823). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Themes A and B: one shape that names any thing in the app, and one engine that opens it. This is the
+foundation the per-kind revealers (C–F), the resolver (G), follow-ups (H) and MCP/deep link (I) build on.
+
+- **shared:** `domain/resource-ref.ts`, with `ResourceRefSchema` (20 kinds in four families), `RESOURCE_KINDS`, `MediaKind`,
+  `resourceRefLabel`, `resourceRefKey`/`resourceRefsEqual`/`resourceRefRepoId`. `navigate.target`/`reference`. `reveal`/`find`
+  UI actions and `revealed`/`found` results.
+- **app:** `features/companion/reveal/`, with `revealResource` (relay → lock → repo switch → view via `resolveNavigation` →
+  reveal → record), a total `REVEALERS` table spread from per-family stub files, and the `useRevealHistory` slot (last 20).
+  `navigateCompanion` routes `target`. The relay result carries `ok`/`reason`. `ui-requests.ts` answers `reveal`.
+## 2026-10-10 — Phase 111 Themes D, E — Title bar model pill and MCP agent tools
+
+[PR #822](https://github.com/bilo-io/midnite-studio/pull/822). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Themes D and E: the title bar shows which model the primary agent is on and lets you change it, and a background
+agent can read and switch the agent and model over MCP.
+
+- **app:** `TitleBarPrimaryAgent` gets a model pill (only for a non-default model) and a Model section in the picker, in one keyboard walk with the agent rows. `agent-switch.ts` answers the three new `ui-requests` arms.
+- **shared:** `companion_agent_get`, `companion_agent_set`, `companion_models_list` in `MCP_TOOLS`; schemas in `companion-mcp.ts`; `agentState`/`agentSet`/`modelsList` arms on the companion UI action and result.
+- **desktop:** three handlers in `companion-tools.ts`, registered in `MCP_HANDLERS`; same `allowCompanionSettings` switch as the rest of the family.
+## 2026-10-10 — Phase 109 Theme F — Voice audition
+
+[PR #820](https://github.com/bilo-io/midnite-studio/pull/820). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme F: "try some British voices" plays three or four numbered samples, each in the voice it names. "Number
+two", "that one", "next", "again" and "none" answer it, and the pick is read back in the new voice and can be
+undone.
+
+- **shared:** `companion-audition.ts` (phrase matcher, deterministic grade-ordered selection with female and
+  male alternating, even 3–4 batches, a system-voice filter, and the reply grammar). An `audition` intent
+  arm, parsed inside the vocabulary gate. The `companionTtsModelOnDisk` channel and its schemas.
+- **app:** `audition.ts` is the turn state machine, intercepting in `submitInput`. A pick goes through
+  `proposeSetting` → E's read-back and the undo slot. Falls back to system voices (said once). Barge-in
+  through `bargeInAudition()` from `voice-ports.ts` and from `conversation.ts`, which un-gates only for local
+  samples. The wake trigger passes a bare reply through. `CompanionSpeakOptions.voice` is a one-off voice.
+- **desktop:** a `companionTtsModelOnDisk` handler that reads the model off disk without spawning the worker.
+## 2026-10-10 — Phase 111 Theme B — Companion Intent Schema & Grammar
+
+[PR #819](https://github.com/bilo-io/midnite-studio/pull/819). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Theme B: Companion intent extension and phrase grammar for switching agents and models by voice.
+- **shared:** Extended `CompanionIntentSchema` with `switchAgent` variant (`{ kind: 'switchAgent', agentId, modelId }`), added `agents` list to `CompanionVocabularySchema`, implemented deterministic `trySwitchAgent` phrase grammar in `parseIntent` matching natural expressions ("switch to <agent>", "use <agent> with <model>", "set model to <model>", composite phrases, spoken aliases), and added `switchAgent` tests in `companion.test.ts`.
+- **desktop:** Extended router prompt in `buildAskPrompt` (`ask.ts`) with `switchAgent` intent instruction and vocabulary lines listing available agents/models.
+
+## 2026-10-10 — Phase 109 Theme G — Persona profiles
+
+[PR #818](https://github.com/bilo-io/midnite-studio/pull/818). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme G: named bundles of the companion's voice, personality and what it calls you, never its names, so a
+switch can't change the wake word. You can save, switch and delete them by voice, from Settings ▸
+Companion ▸ Profiles, or over MCP.
+
+- **shared:** `companion-profiles.ts` (find, modified, name checks), a `profile` intent arm with its
+  anchored grammar, `CompanionVocabulary.profiles`, the `companion_profile_*` schemas in
+  `companion-mcp.ts`, four `MCP_TOOLS` entries, and four `CompanionUiActionSchema` arms.
+- **app:** `profiles.ts`. A switch is one undoable change through `applyCompanionSettings`; editing marks
+  the active profile *modified* (derived) and never rewrites it; only a switch may write
+  `companionActiveProfile`. `profile-handoff.ts` is the voice arm, which asks before an overwrite or a
+  delete. The `ui-requests.ts` MCP arms wait on the generalised `askToConfirmMcpProfile`. The Profiles
+  section has an Active badge, a Modified dot, Save current as…, Rename, Delete (confirm dialog) and Set
+  active. The two keys leave `KNOWN_ORPHANS`.
+- **desktop:** `companionProfileList`/`Save`/`Switch`/`Delete` behind `allowCompanionSettings`. A save
+  or a delete gets the 30 s confirm wait plus its grace, and the route prompt learns profile names.
+
+## 2026-10-10 — Phase 111 Theme A — Global agent and model state contract
+
+[PR #817](https://github.com/bilo-io/midnite-studio/pull/817). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Theme A. Global `primaryModelByAgent` map and actions in `ui-store`, store migration v32 → v33, and model catalog resolution helpers (`modelsForAgent`, `resolveAgentAndModel`) in `shared/src/ai-models.ts`.
+
+## 2026-10-10 — Phase 109 Themes C + E — The companion changes its own settings, says so, and undoes it
+
+[PR #815](https://github.com/bilo-io/midnite-studio/pull/815). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Themes C and E. You can tell the companion to change itself, by voice or typing: "use voice Bella", "volume 50",
+"louder", "call me boss", "I'll call you Nova", "stop talking out loud", "push to talk", "conversation mode
+on", "turn elevator music off". It reads the change back, and "undo that" reverts it.
+
+- **C (shared, app, desktop):** a `setting` intent arm restricted to non-`never` keys, with a per-key, per-op
+  value refinement, plus `pageOnlySetting` and `undoSetting`. An anchored settings grammar sits in
+  `parseIntent`; a 40+-phrase table, whisper-style variants and a collision set run against the app's real
+  vocabulary. `act()` arms apply direct changes, ask before confirm-tier ones (`PendingAction` of kind
+  `setting`), refuse never-tier ones with an offer to open the page, and ask "Bella or Isabella?" when a
+  name is ambiguous. `CompanionVocabulary.settings` feeds the router prompt. Settings ▸ Companion gets
+  "Try: …" hints, and `help` mentions settings.
+- **E (app):** `settings-announce.ts`. The read-back comes after the write, or before it for a mute or a
+  rename. Phrasings vary per key. MCP changes lead with "Your agent changed…". `undoSetting` reads the
+  restored value back. Voice and MCP changes get an Undo toast for the rest of the 60 s window, via a new
+  `showToast` outside React.
+
+## 2026-10-10 — Phase 109 Theme D — `companion_settings_*` on `midnite`
+
+[PR #814](https://github.com/bilo-io/midnite-studio/pull/814). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme D: an agent in a terminal can read and change the companion's settings for the user, through
+the same spec table and setter the companion's voice and the Settings page use.
+
+- **Tools:** `companion_settings_get`, `companion_settings_set` and `companion_voices_list`, behind a
+  new default-off `Settings ▸ MCP ▸ Let agents change companion settings` switch
+  (`allowCompanionSettings`, `mcp.json` v10) that refuses all three, reads included. Schemas and the
+  pure listing are in a new `shared/src/companion-mcp.ts`; handlers in
+  `desktop/src/main/mcp/companion-tools.ts`.
+- **Wire:** `setting`, `settingsState` and `voices` arms on `CompanionUiActionSchema` and its result
+  union. `requestUiAction` takes a per-action `timeoutMs` (5 s stays the default).
+- **Consent:** a `direct` change applies at once; a `never` key, or one the guards or schema would
+  refuse, is refused without asking; a `confirm` key asks in the app — the companion's chip and
+  voice when it is on in this window (`PendingAction` gains an `onConfirm` arm), `confirm-dialog.tsx`
+  otherwise — and the call waits up to 30 s for `approved`, `declined` or `timeout`. Nothing applies
+  after the deadline; a late "yes" hears "Too late — ask your agent again."
+- **Visibility:** each agent change takes the one-step undo slot and posts a toast and a transcript
+  line. Theme E's spoken read-back replaces that announcement. `outstanding.md` records this
+  family's consent answer.
+
+## 2026-10-10 — Phase 109 Themes A + B — One companion settings list, and one setter
+
+[PR #813](https://github.com/bilo-io/midnite-studio/pull/813). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Themes A and B: the base that the voice intent (C), the MCP tools (D) and the four experience
+layers (E–H) build on. Nothing looks different on screen.
+
+- **A (shared):** `CompanionSettingsSchema` for the companion slice, plus `COMPANION_SETTING_SPECS`
+  over 17 `CompanionSettingKey`s with aliases, value kind, tier, guards, read-back and example.
+  Also `checkCompanionGuard` (`lastName`, `wakeWord`, `muteLast`, `tunedText`), spoken aliases
+  for every Kokoro voice, and a fuzzy `matchVoice` that asks between equally close names.
+- **B (app):** `applyCompanionSetting`/`applyCompanionSettings`/`previewCompanionSetting` with lock
+  refusal, tier enforcement for voice and MCP, guards for everyone, and a one-step 60 s
+  `undoLastCompanionSetting`. The Settings ▸ Companion page writes through the setter.
+  `broadcast-sync` carries the popout's companion keys. The STT provider is persisted and sent
+  with `transcribe`. A v31 → v32 migration seeds `companionSttProvider`, `companionProfiles` and
+  `companionActiveProfile`.
 
 ## 2026-10-10 — Ad hoc — Conversation mode: hands-free voice turns, optional wake word
 
@@ -1126,7 +1308,7 @@ something honest and deterministic to call.
       `/:collection[/:id]` store: `echo`, `delay?ms=` (capped at `WORKFLOW_DELAY_MAX_MS`, the same
       constant the `delay` node uses), `fail-n?key=&n=` (fails the first *n* calls per key, then
       passes — what makes a loop template genuinely loop), `flaky?rate=&seed=` (a seeded mulberry32
-      PRNG, so a seed always replays the same pass/fail sequence), `classify?risk=`,
+      822G, so a seed always replays the same pass/fail sequence), `classify?risk=`,
       `research/:lane`, and `verify?key=&passAfter=`. `fail-n`/`verify` counters are module state,
       reset by `resetScriptedRoutes()` wired into `store.ts`'s `resetDemoStore()` so a demo-API stop
       clears both halves of server memory together. `/demo/delay`'s cap is unit-tested as a pure

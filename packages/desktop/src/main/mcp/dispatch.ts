@@ -11,11 +11,25 @@ import {
   repoResolve,
   statusGet,
   uiCommand,
+  uiFind,
+  uiReveal,
   uiNavigate,
   uiState,
   workflowGateDecide,
   workflowGatesList,
 } from './tools';
+import {
+  companionAgentGet,
+  companionAgentSet,
+  companionModelsList,
+  companionProfileDelete,
+  companionProfileList,
+  companionProfileSave,
+  companionProfileSwitch,
+  companionSettingsGet,
+  companionSettingsSet,
+  companionVoicesList,
+} from './companion-tools';
 import { McpToolError } from './errors';
 import {
   gameCreate,
@@ -130,6 +144,8 @@ export const MCP_HANDLERS: {
   'ui.state': uiState,
   'ui.navigate': uiNavigate,
   'ui.command': uiCommand,
+  'ui.reveal': uiReveal,
+  'ui.find': uiFind,
   workflow_gates_list: workflowGatesList,
   workflow_gate_decide: workflowGateDecide,
   model_list: modelList,
@@ -233,6 +249,16 @@ export const MCP_HANDLERS: {
   music_add_track: musicAddTrack,
   music_save: musicSave,
   music_render_preview: musicRenderPreview,
+  companion_settings_get: companionSettingsGet,
+  companion_settings_set: companionSettingsSet,
+  companion_voices_list: companionVoicesList,
+  companion_profile_list: companionProfileList,
+  companion_profile_save: companionProfileSave,
+  companion_profile_switch: companionProfileSwitch,
+  companion_profile_delete: companionProfileDelete,
+  companion_agent_get: companionAgentGet,
+  companion_agent_set: companionAgentSet,
+  companion_models_list: companionModelsList,
 };
 
 export type McpDispatchResult =

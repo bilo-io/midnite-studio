@@ -30,8 +30,24 @@ import {
   MarketTimescaleSchema,
 } from '../markets';
 import { MarketPortfolioOpSchema } from '../markets-portfolio';
+import {
+  CompanionAgentGetOutputSchema,
+  CompanionAgentSetInputSchema,
+  CompanionAgentSetOutputSchema,
+  CompanionModelsListInputSchema,
+  CompanionModelsListOutputSchema,
+  CompanionProfileListOutputSchema,
+  CompanionProfileNameInputSchema,
+  CompanionProfileOpOutputSchema,
+  CompanionSettingKeySchema,
+  CompanionSettingsSetOutputSchema,
+  CompanionSystemVoiceSchema,
+} from '../companion-mcp';
+
+import { CompanionPersonaRequestSchema } from '../companion-tune';
 
 import {
+  COMPANION_ASK_KINDS,
   CompanionAboutUserSchema,
   CompanionAskReplySchema,
   CompanionLocalVoiceIdSchema,
@@ -164,6 +180,8 @@ import {
   TestTrustStatusSchema,
   TrashSummarySchema,
   VIEW_IDS,
+  ResourceKindSchema,
+  ResourceRefSchema,
   WatchEventSchema,
   WindowDescriptorSchema,
   WindowRoleSchema,
@@ -2903,6 +2921,8 @@ export const OptimizerSystemReclaimResponse = OptimizerResultOf(
 export const DeepLinkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('open'), repo: z.string() }),
   z.object({ kind: z.literal('clone'), url: z.string() }),
+  /** Phase 112 Theme I — `ref` is `null` for a link whose payload failed validation, so the renderer can toast it. */
+  z.object({ kind: z.literal('reveal'), ref: ResourceRefSchema.nullable() }),
 ]);
 export type DeepLink = z.infer<typeof DeepLinkSchema>;
 export const DeepLinkEventSchema = z.object({
@@ -4001,6 +4021,8 @@ export const McpGetResponse = z.object({
   allowMaps: z.boolean(),
   /** Phase 101 Theme H's ninth switch — whether the `music_*` tools that change a song may act. */
   allowMusic: z.boolean(),
+  /** Phase 109 Theme D's tenth switch — whether any `companion_*` tool answers, reads included. */
+  allowCompanionSettings: z.boolean(),
 });
 /**
  * All three fields optional so the master switch and the two narrower
@@ -4019,6 +4041,7 @@ export const McpSetRequest = z.object({
   allowSprites: z.boolean().optional(),
   allowMaps: z.boolean().optional(),
   allowMusic: z.boolean().optional(),
+  allowCompanionSettings: z.boolean().optional(),
 });
 /** `error` is set when turning a switch on failed to bind (e.g. the 104-byte `sun_path` ceiling) — the flags are still persisted either way. */
 export const McpSetResponse = McpGetResponse.extend({ error: z.string().optional() });
@@ -4100,7 +4123,7 @@ export const CompanionDigestRequest = z.object({
  * or absent value as "not set" rather than assuming a validated caller.
  */
 export const CompanionAskRequest = z.object({
-  kind: z.enum(['route', 'summarise']),
+  kind: z.enum(COMPANION_ASK_KINDS),
   text: z.string().min(1),
   /** Where to run the CLI. `null` runs it in the home directory — no repo is open. */
   repoPath: z.string().min(1).nullable(),
@@ -4115,6 +4138,13 @@ export const CompanionAskRequest = z.object({
    * treats an absent vocabulary as "say nothing about it", not as an empty one.
    */
   vocabulary: CompanionVocabularySchema.optional(),
+  /**
+   * What a `'persona'` ask writes from (Phase 109 Theme H): an interview's
+   * answers or a tweak's instruction, the target field and its current text.
+   * Required by that kind and ignored by the others — `askCompanion` answers a
+   * `'persona'` ask without it with a `{ok:false}` rather than a guess.
+   */
+  persona: CompanionPersonaRequestSchema.optional(),
 });
 
 /**
@@ -4157,6 +4187,43 @@ export const CompanionUiActionSchema = z.discriminatedUnion('kind', [
     kind: z.literal('command'),
     id: z.string().refine(isCommandId, 'not a known command id'),
   }),
+  /*
+   * Phase 109 Theme D — the `companion_*` MCP tools. `setting` goes through
+   * `settings-apply.ts`'s `applyCompanionSetting` with `source: 'mcp'`, so its
+   * tier, guards and value schema are checked in the renderer — never here,
+   * and never in main. `value` stays `unknown` on the wire for that reason.
+   */
+  z.object({ kind: z.literal('setting'), key: CompanionSettingKeySchema, value: z.unknown() }),
+  /** `companion_settings_get`'s request — every settable key's current value. */
+  z.object({ kind: z.literal('settingsState') }),
+  /** `companion_voices_list`'s request — the system voices, which only the renderer can list. */
+  z.object({ kind: z.literal('voices') }),
+  /*
+   * Phase 109 Theme G — the `companion_profile_*` tools. Profiles live in the
+   * renderer's store like every companion setting, so each tool is one of
+   * these arms; the renderer's `profiles.ts` does the work, and asks the user
+   * before a delete or an overwrite.
+   */
+  z.object({ kind: z.literal('profileList') }),
+  CompanionProfileNameInputSchema.extend({ kind: z.literal('profileSave') }),
+  CompanionProfileNameInputSchema.extend({ kind: z.literal('profileSwitch') }),
+  CompanionProfileNameInputSchema.extend({ kind: z.literal('profileDelete') }),
+  /* Phase 111 Theme E — the `companion_agent_*` tools and `companion_models_list`, answered by the renderer's `ui-requests.ts`. */
+  z.object({ kind: z.literal('agentState') }),
+  CompanionAgentSetInputSchema.extend({ kind: z.literal('agentSet') }),
+  CompanionModelsListInputSchema.extend({ kind: z.literal('modelsList') }),
+  /*
+   * Phase 112 Theme A — reveal one resource, or find candidates for a
+   * description. Both ride `companionUiRequest`; no new channel. The MCP tools
+   * that send them (`ui.reveal`/`ui.find`) are Theme I's.
+   */
+  z.object({ kind: z.literal('reveal'), ref: ResourceRefSchema }),
+  z.object({
+    kind: z.literal('find'),
+    query: z.string().min(1),
+    kinds: z.array(ResourceKindSchema).optional(),
+    limit: z.number().int().positive().max(20).optional(),
+  }),
 ]);
 export type CompanionUiAction = z.infer<typeof CompanionUiActionSchema>;
 
@@ -4175,9 +4242,36 @@ export const CompanionUiResultValueSchema = z.union([
     detached: z.array(WindowRoleSchema),
     repoPath: z.string().nullable(),
     locked: z.boolean(),
+    lastRevealed: ResourceRefSchema.nullable().optional(),
   }),
   z.object({ did: z.enum(['navigated', 'focused-window']), view: z.enum(VIEW_IDS) }),
   z.object({ did: z.literal('ran'), label: z.string() }),
+  /** A `setting` action's outcome — the `companion_settings_set` answer as it stands. */
+  CompanionSettingsSetOutputSchema.extend({ did: z.literal('setting') }),
+  z.object({
+    did: z.literal('settingsState'),
+    values: z.record(CompanionSettingKeySchema, z.unknown()),
+    locked: z.boolean(),
+  }),
+  z.object({
+    did: z.literal('voices'),
+    system: z.array(CompanionSystemVoiceSchema),
+    selected: z.object({ local: CompanionLocalVoiceIdSchema.nullable(), system: z.string().nullable() }),
+  }),
+  /** `companion_profile_list`'s answer, built in the renderer (Phase 109 Theme G). */
+  CompanionProfileListOutputSchema.extend({ did: z.literal('profileList') }),
+  /** A profile write's outcome — `companion_profile_save`/`_switch`/`_delete`'s answer as it stands. */
+  CompanionProfileOpOutputSchema.extend({ did: z.enum(['profileSave', 'profileSwitch', 'profileDelete']) }),
+  CompanionAgentGetOutputSchema.extend({ did: z.literal('agentState') }),
+  CompanionAgentSetOutputSchema.extend({ did: z.literal('agentSet') }),
+  CompanionModelsListOutputSchema.extend({ did: z.literal('modelsList') }),
+  /* Phase 112 — a `reveal` that landed, and a `find`'s candidates (titles and ids only, never bodies). */
+  /* `did` stays `revealed` even when a detached page was focused — `focused-window` is `navigate`'s own arm, keyed on `view`. */
+  z.object({ did: z.literal('revealed'), ref: ResourceRefSchema, label: z.string(), focusedWindow: z.boolean() }),
+  z.object({
+    did: z.literal('found'),
+    matches: z.array(z.object({ ref: ResourceRefSchema, title: z.string(), detail: z.string().optional() })),
+  }),
 ]);
 export type CompanionUiResultValue = z.infer<typeof CompanionUiResultValueSchema>;
 
@@ -4290,6 +4384,10 @@ export const CompanionTtsCancelRequest = z.object({});
  * rather than a payload of its own.
  */
 export const CompanionTtsReloadRequest = z.object({});
+
+/** No payload — `companionTtsModelOnDisk` (Phase 109 Theme F) is a bare question, like `companionTtsReload`. */
+export const CompanionTtsModelOnDiskRequest = z.object({});
+export const CompanionTtsModelOnDiskResponse = GitOpResultOf(z.object({ onDisk: z.boolean() }));
 
 /**
  * Always `{ok:true}` — this is a query, not an operation with a failure of

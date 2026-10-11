@@ -8,7 +8,10 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [109 · Companion settings by voice](phases/phase-109-companion-settings-by-voice.md) | 🔄 WIP | — | 0/64 | `░░░░░░░░░░` | 0% | A B | C D E F G H |
+| [112 · Companion deep navigation: open any resource](phases/phase-112-companion-deep-navigation.md) | 🔄 WIP | — | 34/48 | `███████░░░` | 71% | H | — |
+| [111 · Voice agent and model switching](phases/phase-111-voice-agent-and-model-switching.md) | 🔄 WIP | — | 11/23 | `█████░░░░░` | 48% | C, F | — |
+| [110 · Prompt & Context Lab](phases/phase-110-prompt-and-context-lab.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C D E F |
+| [109 · Companion settings by voice](phases/phase-109-companion-settings-by-voice.md) | 🔄 WIP | — | 52/64 | `████████░░` | 81% | — | — |
 | [108 · Maps](phases/phase-108-maps.md) | ✅ DONE | x1 | 54/54 | `██████████` | 100% | — | — |
 | [107 · Games](phases/phase-107-games.md) | 🔄 WIP | x1 | 81/90 | `█████████░` | 90% | — | Q |
 | [106 · 2D Assets: sprites, animation and environments](phases/phase-106-2d-assets.md) | 🔄 WIP | x1 | 62/68 | `█████████░` | 91% | — | L |

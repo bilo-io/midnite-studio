@@ -998,7 +998,7 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
-  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean };
+  mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean; allowCompanionSettings?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
    * canned run result. This field existed in `mock-bridge.ts`'s own reads
@@ -5369,6 +5369,8 @@ export function buildMockBridge(data: MockFixtures) {
       // rather than pretending the reload fixed anything. A spec wanting
       // to photograph a *successful* reload monkeypatches this the same
       // way `companion-shots.spec.ts` patches `ttsStatus`.
+      // Phase 109 Theme F's audition check — no model in this harness.
+      ttsModelOnDisk: async () => ({ ok: true as const, value: { onDisk: false } }),
       ttsReload: async () => ({
         ok: true as const,
         value: {
@@ -5406,6 +5408,7 @@ export function buildMockBridge(data: MockFixtures) {
         allowSprites: mcpAllowSprites,
         allowMaps: mcpAllowMaps,
         allowMusic: mcpAllowMusic,
+        allowCompanionSettings: mcpAllowCompanionSettings,
       }),
       set: async (req: {
         enabled?: boolean;
@@ -5417,6 +5420,7 @@ export function buildMockBridge(data: MockFixtures) {
         allowSprites?: boolean;
         allowMaps?: boolean;
         allowMusic?: boolean;
+        allowCompanionSettings?: boolean;
       }) => {
         if (req.enabled !== undefined) mcpEnabled = req.enabled;
         if (req.allowUi !== undefined) mcpAllowUi = req.allowUi;
@@ -5427,6 +5431,7 @@ export function buildMockBridge(data: MockFixtures) {
         if (req.allowSprites !== undefined) mcpAllowSprites = req.allowSprites;
         if (req.allowMaps !== undefined) mcpAllowMaps = req.allowMaps;
         if (req.allowMusic !== undefined) mcpAllowMusic = req.allowMusic;
+        if (req.allowCompanionSettings !== undefined) mcpAllowCompanionSettings = req.allowCompanionSettings;
         return {
           enabled: mcpEnabled,
           running: mcpEnabled,
@@ -5443,6 +5448,7 @@ export function buildMockBridge(data: MockFixtures) {
           allowSprites: mcpAllowSprites,
           allowMaps: mcpAllowMaps,
           allowMusic: mcpAllowMusic,
+          allowCompanionSettings: mcpAllowCompanionSettings,
         };
       },
       calls: async () => ({
@@ -5663,6 +5669,9 @@ export function buildMockBridge(data: MockFixtures) {
   var mcpAllowMaps = data.mcp?.allowMaps ?? false;
   // eslint-disable-next-line no-var
   var mcpAllowMusic = data.mcp?.allowMusic ?? false;
+  // Phase 109 Theme D's tenth switch — gates every companion_* tool, reads included.
+  // eslint-disable-next-line no-var
+  var mcpAllowCompanionSettings = data.mcp?.allowCompanionSettings ?? false;
   // Phase 101 Theme H: whether Midnite is registered in Antigravity's MCP config (Settings ▸ MCP).
   // eslint-disable-next-line no-var
   var musicAgyRegistered = false;

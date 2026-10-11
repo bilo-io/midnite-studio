@@ -19,6 +19,7 @@ let allowTerrains = false;
 let allowSprites = false;
 let allowMaps = false;
 let allowMusic = false;
+let allowCompanionSettings = false;
 
 /** Read synchronously by `tools.ts`'s `ui.navigate`/`ui.command` handlers before doing anything else — the gate that must run before any IPC is sent. */
 export function getMcpAllowUi(): boolean {
@@ -100,6 +101,16 @@ export function setMcpAllowMusicState(next: boolean): void {
   allowMusic = next;
 }
 
+/** Read synchronously by every `companion_*` tool (Phase 109 Theme D) — reads included — before any IPC is sent. */
+export function getMcpAllowCompanionSettings(): boolean {
+  return allowCompanionSettings;
+}
+
+/** Written by `main/mcp/index.ts` after `mcp-store.ts` has persisted the new value. */
+export function setMcpAllowCompanionSettingsState(next: boolean): void {
+  allowCompanionSettings = next;
+}
+
 /** Test-only: module state otherwise survives across a suite's test cases. */
 export function resetMcpAllowUiStateForTests(): void {
   allowUi = false;
@@ -110,4 +121,5 @@ export function resetMcpAllowUiStateForTests(): void {
   allowSprites = false;
   allowMaps = false;
   allowMusic = false;
+  allowCompanionSettings = false;
 }

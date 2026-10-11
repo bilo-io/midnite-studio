@@ -1,4 +1,5 @@
 import {
+  agentHeadlessArgs,
   emptyCompanionSnapshot,
   type AgentDefinition,
   type CompanionSnapshot,
@@ -18,8 +19,25 @@ import {
   type HandoffDeps,
 } from './handoff';
 import { navigateCompanion } from './navigate';
+import { companionTtsSpeaker } from './speaker';
 import { silentSpeaker, type Speaker } from './ports';
-import { vocabularyFor } from './vocabulary';
+import {
+  announceCompanionProfileSwitch,
+  applyAndAnnounceCompanionSetting,
+  defaultAnnounceDeps,
+  liveCompanionSpeaker,
+  undoAndAnnounceCompanionSetting,
+} from './settings-announce';
+import { previewCompanionSetting, readCompanionSetting } from './settings-apply';
+import {
+  deleteCompanionProfile,
+  previewDeleteCompanionProfile,
+  previewSaveCompanionProfile,
+  readCompanionProfiles,
+  saveCompanionProfile,
+  switchCompanionProfile,
+} from './profiles';
+import { vocabularyFor, withCompanionProfiles } from './vocabulary';
 import { skillHandoff } from '../agent/use-skill-handoff';
 import { startAgent } from '../terminal/start-agent';
 import { useTerminalStore } from '../terminal/terminal-store';
@@ -187,7 +205,7 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
         // flow's own cache, same as `snapshot` above: fetching it fresh per
         // `ask` would be an IPC round trip (`repos.list`) this request does
         // not otherwise need.
-        vocabulary: vocabularyCache ?? undefined,
+        vocabulary: vocabularyCache ? withCompanionProfiles(vocabularyCache) : undefined,
       });
       return result ?? { ok: false, kind: 'error', message: 'The companion is not connected.' };
     },
@@ -217,8 +235,76 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
     setActiveHandoff: (handoff) => useCompanionStore.getState().setActiveHandoff(handoff),
     pendingAction: () => useCompanionStore.getState().pendingAction,
     setPendingAction: (action) => useCompanionStore.getState().setPendingAction(action),
-    vocabulary: () => vocabularyCache ?? vocabularyFor([]),
+    vocabulary: () => withCompanionProfiles(vocabularyCache ?? vocabularyFor([])),
     navigate: (intent) => navigateCompanion(intent),
+    // Phase 109 Themes C and E: the companion's voice as a third way into the
+    // one settings setter, with the read-back and Undo toast around it.
+    companionSettings: {
+      read: (key) => readCompanionSetting(useUiStore.getState(), key),
+      preview: (change) => previewCompanionSetting(change, 'voice'),
+      applyAndAnnounce: (change, speak) =>
+        applyAndAnnounceCompanionSetting(change, 'voice', { ...defaultAnnounceDeps(), speak }),
+      undoAndAnnounce: (speak) => undoAndAnnounceCompanionSetting({ ...defaultAnnounceDeps(), speak }),
+      systemVoices: () =>
+        (typeof window === 'undefined' ? [] : (window.speechSynthesis?.getVoices() ?? [])).map((voice) => ({
+          uri: voice.voiceURI,
+          name: voice.name,
+          lang: voice.lang,
+        })),
+      // Phase 109 Theme G — persona profiles over `profiles.ts`.
+      profiles: {
+        state: () => readCompanionProfiles(),
+        previewSave: (name) => previewSaveCompanionProfile(name),
+        save: (name, overwrite) => saveCompanionProfile(name, { overwrite }),
+        switchAndAnnounce: async (name, speak) => {
+          const result = switchCompanionProfile(name, 'voice');
+          if (result.ok && result.op === 'switch') {
+            await announceCompanionProfileSwitch(result, 'voice', { ...defaultAnnounceDeps(), speak });
+          }
+          return result;
+        },
+        previewDelete: (name) => previewDeleteCompanionProfile(name),
+        delete: (name) => deleteCompanionProfile(name),
+      },
+      // The registered speaker while speech is on (a test's double included);
+      // the store's answer the moment a change has just turned it on or off.
+      liveSpeaker: () => (speaker.available === false ? liveCompanionSpeaker() : speaker),
+      // Phase 109 Theme F — the audition plays voices nobody has chosen yet,
+      // so it reaches the engine directly with a one-off voice, never through
+      // the registered speaker's stored selection.
+      audition: {
+        localReady: async () => {
+          try {
+            const answer = await api?.companion.ttsModelOnDisk?.();
+            // No answer (no bridge, or a preload older than the channel):
+            // try the local engine anyway — a failed sample falls back.
+            return answer === undefined ? api !== undefined : answer.ok && answer.value.onDisk;
+          } catch {
+            return false;
+          }
+        },
+        playSample: (engine, voice, text, signal) =>
+          companionTtsSpeaker.speakWithEngine(engine, text, { voice, signal }),
+      },
+    },
+    // Phase 109 Theme H — "tune me" and tweaks. The same `ask` channel in its
+    // `'persona'` mode; a reply that is not the `{text, summary}` pair is a
+    // failure here, which an interview answers with its template.
+    persona: async (request) => {
+      const result = await api?.companion.ask({
+        kind: 'persona',
+        text: request.mode === 'tweak' ? request.instruction : `interview: ${request.target}`,
+        repoPath: repo.path,
+        agentId: useUiStore.getState().primaryAgent,
+        persona: request,
+      });
+      if (!result) return { ok: false, kind: 'error', message: 'The companion is not connected.' };
+      if (!result.ok) return result;
+      return result.value.persona
+        ? { ok: true, value: result.value.persona }
+        : { ok: false, kind: 'error', message: "The agent's answer wasn't something I could use." };
+    },
+    hasAgentCli: () => rosterCache.some((agent) => agentHeadlessArgs(agent.id) !== null),
   };
 }
 

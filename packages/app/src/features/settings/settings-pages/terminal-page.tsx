@@ -1,5 +1,5 @@
 import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/studio-shared';
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuActivity, LuBot, LuMonitor, LuSquareTerminal, LuTimer, LuType } from 'react-icons/lu';
 
 import {
@@ -162,7 +162,7 @@ export function TerminalPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="General" icon={<LuSquareTerminal className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="General" icon={<LuSquareTerminal className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Choice<TerminalSidebarSide>
             label="Session list"
@@ -182,9 +182,9 @@ export function TerminalPage() {
             <code className="w-fit rounded bg-muted px-1.5 py-0.5 font-mono text-xs">Ctrl+`</code>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Memory" icon={<LuTimer className="h-4 w-4" />}>
+      <SettingsAccordion title="Memory" icon={<LuTimer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <Field
             label="Keep recent sessions mounted"
@@ -229,9 +229,9 @@ export function TerminalPage() {
             </div>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Appearance" icon={<LuType className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Appearance" icon={<LuType className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field
             label="Font family"
@@ -303,9 +303,9 @@ export function TerminalPage() {
           </div>
           <p className="text-[11px] text-muted-foreground">Default {DEFAULT_TERMINAL_LINE_HEIGHT.toFixed(2)}</p>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion
+      <SettingsAccordion
         title="Agents"
         icon={<LuBot className="h-4 w-4" />}
         count={agents.length}
@@ -339,9 +339,9 @@ export function TerminalPage() {
             </ul>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion
+      <SettingsAccordion
         title="Agent activity"
         icon={<LuActivity className="h-4 w-4" />}
         count={rows.length}
@@ -381,9 +381,9 @@ export function TerminalPage() {
               : `Has a detector: ${detectedAgentLabels.join(', ')}.`}
           </p>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion
+      <SettingsAccordion
         title="Renderer"
         icon={<LuMonitor className="h-4 w-4" />}
         count={rendererRowsList.length}
@@ -416,7 +416,7 @@ export function TerminalPage() {
             )}
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

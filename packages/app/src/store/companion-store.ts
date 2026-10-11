@@ -4,6 +4,7 @@ import {
   type CommandId,
   type CompanionEvent,
   type CompanionPhraseKind,
+  type CompanionSettingKey,
   type CompanionState,
   type CompanionTurn,
 } from '@midnite/studio-shared';
@@ -43,10 +44,68 @@ export type CompanionHandoff = {
  * shown, `id` is what actually runs once confirmed. `at` is what the 60-second
  * expiry (`PENDING_ACTION_MEMORY_MS` in `handoff.ts`) is measured against.
  */
-export type PendingAction = {
+export type PendingAction =
+  | PendingCommandAction
+  | PendingExternalAction
+  | PendingSettingAction
+  | PendingOpenSettingsAction;
+
+/** A palette command waiting on a yes. `kind` is optional so the Phase 81 shape still reads as one. */
+export type PendingCommandAction = {
+  kind?: 'command';
   id: CommandId;
   label: string;
   at: number;
+  onConfirm?: undefined;
+};
+
+/**
+ * A yes for something other than a palette command (Phase 109 Theme D): an
+ * agent's confirm-tier `companion_settings_set`, waiting on the user through
+ * the same "yes" / Return / Run chip. `handoff.ts`'s `resolvePending` calls
+ * `onConfirm` *before* clearing the slot, so the asker can tell a yes from a
+ * dismissal, and speaks whatever sentence it returns (`null`: nothing).
+ * Theme G's voice asks through it too — "Delete the Narrator profile?", "Save
+ * over the Narrator profile?" — with an `onConfirm` that does it and says so.
+ */
+export type PendingExternalAction = {
+  kind?: undefined;
+  id?: undefined;
+  label: string;
+  at: number;
+  onConfirm: () => string | null;
+};
+
+/**
+ * A `confirm`-tier settings change the companion's own voice asked for
+ * (Phase 109 Theme C) — "Answer to "Nova" from now on?". `label` is the
+ * question, shown on the pending bar and spoken; a yes applies `value` to
+ * `key` with `confirmed: true`. An agent's change asks through
+ * {@link PendingExternalAction} instead, since the MCP call applies it.
+ */
+export type PendingSettingAction = {
+  kind: 'setting';
+  id?: undefined;
+  key: CompanionSettingKey;
+  value: unknown;
+  label: string;
+  at: number;
+  onConfirm?: undefined;
+  /**
+   * Personality or About me text from Theme H's interview or tweak, already
+   * read back — the yes applies it with `tuned: true`, the only voice path
+   * past the `tunedText` guard.
+   */
+  tuned?: true;
+};
+
+/** The offer after a `never`-tier request: "That one's in Settings, Companion — want me to open it?" */
+export type PendingOpenSettingsAction = {
+  kind: 'openSettings';
+  id?: undefined;
+  label: string;
+  at: number;
+  onConfirm?: undefined;
 };
 
 export type CompanionStoreState = {

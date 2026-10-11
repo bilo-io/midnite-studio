@@ -23,6 +23,7 @@ import {
 } from '../companion/stt';
 import {
   cancelQueuedSynthesis,
+  companionTtsModelOnDisk,
   getCompanionTtsStatusAsync,
   reloadCompanionTtsBroker,
   synthesizeSpeechAsync,
@@ -80,6 +81,7 @@ export function registerCompanionHandlers(): void {
         personality: req.personality,
         aboutUser: req.aboutUser,
         vocabulary: req.vocabulary,
+        persona: req.persona,
       }),
     (issue) => failure(issue),
   );
@@ -199,6 +201,12 @@ export function registerCompanionHandlers(): void {
   */
   handleOp(CHANNELS.companionTtsReload, schemas.CompanionTtsReloadRequest, async () =>
     ok(await reloadCompanionTtsBroker()),
+  );
+
+  // Phase 109 Theme F: the audition's "is the local voice downloaded?" — from
+  // disk, so asking never spawns the worker or starts the download.
+  handleOp(CHANNELS.companionTtsModelOnDisk, schemas.CompanionTtsModelOnDiskRequest, async () =>
+    ok({ onDisk: companionTtsModelOnDisk() }),
   );
 }
 

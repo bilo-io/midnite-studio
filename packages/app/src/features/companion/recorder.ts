@@ -8,6 +8,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { bridge } from '../../services/bridge';
+import { useUiStore } from '../../store/ui-store';
 
 /**
  * Voice-in: capture here, recognition in main (Phase 79 Theme F).
@@ -337,7 +338,13 @@ export const stopRecording = (): Promise<Blob> => companionRecorder.stopRecordin
 export const cancelRecording = (): void => companionRecorder.cancelRecording();
 export const isRecording = (): boolean => companionRecorder.isRecording();
 export const getActiveStream = (): MediaStream | null => companionRecorder.getStream();
+/**
+ * Transcribe with the provider Settings ▸ Companion ▸ Microphone pinned
+ * (`companionSttProvider`, Phase 109 Theme B), read at the moment of the call
+ * so a change applies to the very next phrase. `null` — automatic — sends no
+ * `providerId` at all, which is main's `resolveProviderId` path unchanged.
+ */
 export const transcribe = (
   blob: Blob,
-  providerId?: SttProviderId,
+  providerId: SttProviderId | undefined = useUiStore.getState().companionSttProvider ?? undefined,
 ): Promise<GitOpResult<{ text: string }>> => companionRecorder.transcribe(blob, providerId);

@@ -18,7 +18,6 @@ import {
   type NavLinkComponent,
 } from '@bilo-io/shell';
 import { pickForgeRemote, type ForgeCapability, type ForgeKind } from '@midnite/studio-shared';
-import { QueryClient } from '@tanstack/react-query';
 import { CiPower } from 'react-icons/ci';
 import { LuChevronLeft, LuSettings } from 'react-icons/lu';
 
@@ -54,10 +53,12 @@ import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
 import { CompanionPanelSlot } from './features/companion/companion-panel';
 import { setCommandRuntime } from './features/companion/command-runtime';
+import { McpSettingConfirmHost } from './features/companion/mcp-setting-confirm';
 import { useCompanionUiRequests } from './features/companion/ui-requests';
 import { useModelOpenListener } from './features/media/model/use-model-agent-events';
 import { useSpriteRenderHost } from './features/media/sprite/render/sprite-render-host';
 import { useTerrainOpenListener } from './features/media/terrain/use-terrain-agent-events';
+import { useMediaOpenListeners } from './features/media/media-open-request';
 import { useSpriteOpenListener } from './features/media/sprite/use-sprite-agent-events';
 /*
   Side-effect import: Phase 79 Themes F and G register their four members of
@@ -116,6 +117,7 @@ import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
 import { markOnce } from './lib/perf';
 import { bridge } from './services/bridge';
+import { appQueryClient } from './services/query-client';
 import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
@@ -188,24 +190,6 @@ function IssueModalSlot() {
   );
 }
 
-/**
- * A QueryClient tuned for a desktop app talking to its own main process.
- *
- * No network is involved, so the usual web defaults are wrong: refetching on
- * window focus would re-run `git status` every time the user alts back into the
- * app, and retrying a failed call three times just delays an error the UI wants
- * to show. Freshness comes from the repo watcher invalidating precisely what
- * changed (Phase 10), not from polling.
- */
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: false,
-      staleTime: Number.POSITIVE_INFINITY,
-    },
-  },
-});
 
 /**
  * AppFrame is router-agnostic: it takes an `activePath` string and renders links
@@ -815,6 +799,8 @@ function Shell() {
   useModelOpenListener();
   // Media ▸ Terrain — an agent's `terrain_open` does the same for a terrain.
   useTerrainOpenListener();
+  // Media ▸ Audio / Maps / Games — `music_open`, `map_goto`, `game_open` now work from any view (Phase 112 Theme E).
+  useMediaOpenListeners();
   // Media ▸ Sprites — an agent's `sprite_open` does the same for a sprite asset (Phase 106 Theme K).
   useSpriteOpenListener();
   // Rendered-from-3D sprite jobs (Phase 106 Theme E): three.js loads only on the first request.
@@ -2168,7 +2154,7 @@ export function App() {
   // Workflows view unmounted.
   useWaitingGateToasts();
   return (
-    <ShellProviders queryClient={queryClient}>
+    <ShellProviders queryClient={appQueryClient}>
       <DialogHost>
         <ToastHost>
           <PaletteHost>
@@ -2186,6 +2172,8 @@ export function App() {
               </Suspense>
             </ErrorBoundary>
             <IssueModalSlot />
+            {/* Phase 109 Theme D — an agent's companion change waiting on the user, while the companion itself is off or popped out. */}
+            <McpSettingConfirmHost />
           </PaletteHost>
         </ToastHost>
       </DialogHost>

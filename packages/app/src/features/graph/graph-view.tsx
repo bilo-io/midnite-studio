@@ -537,6 +537,57 @@ export function GraphView() {
   }, [expandedSha, expandedIndex >= 0]);
 
   /*
+    `revealCommit` (Phase 112 Theme C): centre the commit the companion or an
+    MCP agent asked for and pulse it once. Declared after the effect above so
+    that effect's align-to-start (it only fires for a row out of range) is
+    overruled by the centring. Handled once per request; `rows.length` is a
+    dependency because a row that streams in a moment later still lands.
+    The pulse is script-driven (Web Animations), so the motion policy is
+    checked here rather than by a stylesheet guard.
+  */
+  const revealPulse = useGraphStore((s) => s.revealPulse);
+  const handledPulse = useRef(revealPulse?.nonce ?? 0);
+  useEffect(() => {
+    if (!visible || !revealPulse || handledPulse.current === revealPulse.nonce) return;
+    const index = rows.findIndex((row) => row.commit.sha === revealPulse.sha);
+    if (index < 0) return;
+    handledPulse.current = revealPulse.nonce;
+    virtualizer.scrollToIndex(index, { align: 'center' });
+    if (isReducedMotion()) return;
+    let tries = 0;
+    const play = () => {
+      const rowEl = scrollRef.current?.querySelector<HTMLElement>(`[data-index="${index}"] [role="row"]`);
+      // The virtualizer mounts the row a frame or two after the scroll lands.
+      if (!rowEl) {
+        if (tries++ < 30) requestAnimationFrame(play);
+        return;
+      }
+      rowEl.animate?.(
+        [
+          { backgroundColor: 'hsl(var(--primary) / 0.35)' },
+          { backgroundColor: 'hsl(var(--primary) / 0)' },
+        ],
+        { duration: 1100, easing: 'ease-out' },
+      );
+      if (revealPulse.refFullName !== null) {
+        rowEl
+          .querySelector<HTMLElement>(`[data-ref="${CSS.escape(revealPulse.refFullName)}"]`)
+          ?.animate?.(
+            [
+              { boxShadow: '0 0 0 0 hsl(var(--primary) / 0.8)' },
+              { boxShadow: '0 0 0 6px hsl(var(--primary) / 0)' },
+            ],
+            { duration: 1100, easing: 'ease-out', iterations: 2 },
+          );
+      }
+    };
+    // Not cancelled on cleanup: a batch arriving re-runs this effect, and the
+    // request is already marked handled. The loop is bounded by `tries`.
+    requestAnimationFrame(play);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, revealPulse, rowCount]);
+
+  /*
     `openWorkingCopyInGraph` — every former way into the Changes view (Mod+2,
     the palette, the status bar, a sidebar "View all changes") — asks for the
     working copy to be brought into view. The row sits above the scroller, so

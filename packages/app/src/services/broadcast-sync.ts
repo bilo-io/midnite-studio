@@ -30,8 +30,9 @@ import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
  *
  * The allowlist is deliberately narrow, not a whole-store mirror: `ui-store`
  * persists ~60 fields, and syncing all of them would have two windows fighting
- * over pane sizes. Only `selectedRepoId`, `selectedWorktreePath`, the four
- * `*Detached` flags, the whole of `appearance-store`, `browser-store` (tabs,
+ * over pane sizes. Only `selectedRepoId`, `selectedWorktreePath`, the
+ * `*Detached` flags, the companion settings the popout speaks with
+ * (`COMPANION_SYNC_KEYS`), the whole of `appearance-store`, `browser-store` (tabs,
  * groups, `activeTabId` — both windows can render the strip after Theme D), and
  * theme flips travel. `terminal-store` does NOT sync — it is deliberately
  * unpersisted, main owns terminal durability via `terminals.json`, and a synced
@@ -258,6 +259,31 @@ function applyIncoming(message: SyncMessage, client: QueryClient): void {
   }
 }
 
+/**
+ * The companion settings the detached companion popout reads per utterance
+ * (Phase 109 Theme B, Decision 15). Before this the popout kept whatever it
+ * rehydrated at open, so a voice changed in the main window — by the page, by
+ * voice, by an agent — was not the voice the popout spoke its next line in.
+ * Every window already persists the same `midnite-studio.ui` key; this list is
+ * the mechanism built for exactly "keep these few in step", where relaying the
+ * writes through main would be a second one.
+ *
+ * `companionSttProvider` rides along beyond the doc's list: the popout's own
+ * composer transcribes too, and a stale provider there is the same bug.
+ */
+export const COMPANION_SYNC_KEYS = [
+  'companionVoices',
+  'companionVolume',
+  'companionSpeakAloud',
+  'companionNames',
+  'companionHonorifics',
+  'companionPersonality',
+  'companionAboutUser',
+  'companionProfiles',
+  'companionActiveProfile',
+  'companionSttProvider',
+] as const satisfies readonly (keyof UiState)[];
+
 type UiSlice = Pick<
   UiState,
   | 'selectedRepoId'
@@ -267,6 +293,7 @@ type UiSlice = Pick<
   | 'fabDetached'
   | 'companionDetached'
   | 'browserDetached'
+  | (typeof COMPANION_SYNC_KEYS)[number]
 >;
 
 function pickUi(state: UiState): UiSlice {
@@ -278,6 +305,16 @@ function pickUi(state: UiState): UiSlice {
     fabDetached: state.fabDetached,
     companionDetached: state.companionDetached,
     browserDetached: state.browserDetached,
+    companionVoices: state.companionVoices,
+    companionVolume: state.companionVolume,
+    companionSpeakAloud: state.companionSpeakAloud,
+    companionNames: state.companionNames,
+    companionHonorifics: state.companionHonorifics,
+    companionPersonality: state.companionPersonality,
+    companionAboutUser: state.companionAboutUser,
+    companionProfiles: state.companionProfiles,
+    companionActiveProfile: state.companionActiveProfile,
+    companionSttProvider: state.companionSttProvider,
   };
 }
 

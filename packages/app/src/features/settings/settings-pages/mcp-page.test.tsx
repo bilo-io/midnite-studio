@@ -215,6 +215,32 @@ describe('McpSettingsPage', () => {
     await waitFor(() => expect(set).toHaveBeenCalledWith({ allowMusic: true }));
   });
 
+  it('toggling the companion settings switch calls mcp.set with allowCompanionSettings, and it is disabled with the server off (Phase 109 Theme D)', async () => {
+    const off = installBridge();
+    const first = render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents change companion settings' }));
+    expect(((await screen.findByTestId('mcp-allow-companion-settings')) as HTMLInputElement).disabled).toBe(true);
+    expect(off.set).not.toHaveBeenCalled();
+    first.unmount();
+
+    const { set } = installBridge({
+      get: vi.fn().mockResolvedValue({
+        enabled: true,
+        running: true,
+        socketPath: '/tmp/x.sock',
+        shimPath: '/app/mcp-shim.js',
+        allowCompanionSettings: false,
+      }),
+    });
+    render(<McpSettingsPage />, { wrapper: createWrapper() });
+    fireEvent.click(await screen.findByRole('button', { name: 'Let agents change companion settings' }));
+    const checkbox = await screen.findByTestId('mcp-allow-companion-settings');
+    await waitFor(() => expect((checkbox as HTMLInputElement).disabled).toBe(false));
+    expect((checkbox as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(checkbox);
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ allowCompanionSettings: true }));
+  });
+
   it('registers Midnite in Antigravity only after an explicit confirmation, and can unregister', async () => {
     const agyState = { registered: false };
     const agy = {

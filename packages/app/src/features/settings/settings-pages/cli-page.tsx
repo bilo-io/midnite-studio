@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LuTerminal } from 'react-icons/lu';
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { Field } from './controls';
 import { useToastStore } from '../../../store/toast-store';
 import type { CliStatusResponse } from '@midnite/studio-shared';
@@ -75,7 +75,7 @@ export function CliPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Command line integration" icon={<LuTerminal className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Command line integration" icon={<LuTerminal className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field
             label="midnite CLI"
@@ -163,7 +163,7 @@ export function CliPage() {
             </div>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

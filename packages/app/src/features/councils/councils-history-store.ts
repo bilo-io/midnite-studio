@@ -63,7 +63,7 @@ type StoreState = PanelHistoryState<CouncilEntry> & {
   reset: (entry?: CouncilEntry) => void;
 };
 
-const useCouncilsHistoryStore = create<StoreState>((set) => ({
+export const useCouncilsHistoryStore = create<StoreState>((set) => ({
   entries: [INITIAL],
   index: 0,
   push: (entry) => set((prev) => pushHistoryState(prev, entry, isSameCouncilEntry)),
@@ -100,4 +100,17 @@ export function useCouncilsHistory(): PanelHistory<CouncilEntry> {
     canGoBack: index > 0,
     canGoForward: index < entries.length - 1,
   };
+}
+
+/**
+ * Open a council (or one of its runs) without a hook — Phase 112 Theme D.
+ *
+ * The same `push` the view's own list/detail clicks make, so a reveal lands
+ * on the stack a click would have built (back goes to the council, then the
+ * list) and works before the view has mounted: the store outlives it.
+ */
+export function pushCouncilEntry(councilId: string, runId?: string): void {
+  const { push } = useCouncilsHistoryStore.getState();
+  push({ kind: 'council', id: councilId });
+  if (runId !== undefined) push({ kind: 'run', id: runId, councilId });
 }

@@ -2051,6 +2051,12 @@ export type MidniteStudioBridge = {
     ttsReload: (
       req: In<typeof S.CompanionTtsReloadRequest>,
     ) => Promise<z.infer<typeof S.CompanionTtsStatusResponse>>;
+    /**
+     * Whether the local voice's model is downloaded (Phase 109 Theme F's
+     * audition), answered from disk without spawning the TTS worker. Reached
+     * with `?.()` like `ttsReload`, so an older preload reads as "unknown".
+     */
+    ttsModelOnDisk: () => Promise<z.infer<typeof S.CompanionTtsModelOnDiskResponse>>;
 
     /**
      * Phase 81 Theme F's one new pair — the tree's first main→renderer

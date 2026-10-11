@@ -1000,8 +1000,10 @@ describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
         allowSprites: false,
         allowMaps: false,
         allowMusic: false,
+        allowCompanionSettings: false,
       }).success,
     ).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({ allowCompanionSettings: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowModels: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowGames: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowTerrains: true }).success).toBe(true);

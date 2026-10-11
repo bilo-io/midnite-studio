@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { LuCopy, LuServer } from 'react-icons/lu';
@@ -41,6 +41,7 @@ export function McpSettingsPage() {
         allowSprites: false,
         allowMaps: false,
         allowMusic: false,
+        allowCompanionSettings: false,
       },
   });
 
@@ -128,6 +129,15 @@ export function McpSettingsPage() {
     onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
   });
 
+  /**
+   * Phase 109 Theme D's tenth switch — whether any `companion_*` tool answers. Unlike the media
+   * switches it gates the reads too, because About me is personal (Decision 13). Off by default.
+   */
+  const setAllowCompanionSettings = useMutation({
+    mutationFn: async (next: boolean) => bridge()?.mcp.set({ allowCompanionSettings: next }),
+    onSettled: () => void client.invalidateQueries({ queryKey: MCP_STATUS_KEY }),
+  });
+
   const agy = useQuery({
     queryKey: AGY_STATUS_KEY,
     queryFn: async () => {
@@ -165,11 +175,12 @@ export function McpSettingsPage() {
   const allowSprites = status.data?.allowSprites ?? false;
   const allowMaps = status.data?.allowMaps ?? false;
   const allowMusic = status.data?.allowMusic ?? false;
+  const allowCompanionSettings = status.data?.allowCompanionSettings ?? false;
   const shimCommand = status.data?.shimPath ? `claude mcp add midnite -- node ${status.data.shimPath}` : null;
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="MCP Server" icon={<LuServer className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="MCP Server" icon={<LuServer className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="mcp-enabled"
@@ -229,9 +240,9 @@ export function McpSettingsPage() {
             </div>
           )}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Let agents steer the UI" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Let agents steer the UI" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="mcp-allow-ui"
@@ -262,9 +273,9 @@ export function McpSettingsPage() {
             </ul>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Let agents decide workflow gates" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Let agents decide workflow gates" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="mcp-allow-gate-decide"
@@ -281,9 +292,9 @@ export function McpSettingsPage() {
             <div className="text-xs text-destructive">{setAllowGateDecide.data.error}</div>
           )}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Let agents edit 3D models" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Let agents edit 3D models" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="mcp-allow-models"
@@ -306,9 +317,9 @@ export function McpSettingsPage() {
             </p>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Let agents edit terrains" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Let agents edit terrains" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="mcp-allow-terrains"
@@ -323,9 +334,9 @@ export function McpSettingsPage() {
 
           {setAllowTerrains.data?.error && <div className="text-xs text-destructive">{setAllowTerrains.data.error}</div>}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Let agents edit sprites and maps" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Let agents edit sprites and maps" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="mcp-allow-sprites"
@@ -340,9 +351,9 @@ export function McpSettingsPage() {
 
           {setAllowSprites.data?.error && <div className="text-xs text-destructive">{setAllowSprites.data.error}</div>}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Let agents capture maps" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Let agents capture maps" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="mcp-allow-maps"
@@ -357,9 +368,9 @@ export function McpSettingsPage() {
 
           {setAllowMaps.data?.error && <div className="text-xs text-destructive">{setAllowMaps.data.error}</div>}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Let agents edit music" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Let agents edit music" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="mcp-allow-music"
@@ -422,9 +433,9 @@ export function McpSettingsPage() {
             )}
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Let agents run and edit games" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Let agents run and edit games" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="mcp-allow-games"
@@ -439,9 +450,28 @@ export function McpSettingsPage() {
 
           {setAllowGames.data?.error && <div className="text-xs text-destructive">{setAllowGames.data.error}</div>}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Tools" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Let agents change companion settings" icon={<LuServer className="h-4 w-4" />}>
+        <div className="flex flex-col gap-4 p-3">
+          <SettingsSwitchRow
+            id="mcp-allow-companion-settings"
+            label="Let agents change companion settings"
+            description="A tenth switch — off by default, and disabled until the master switch is on. Unlike the switches above it gates reads too, because the settings include what you told the companion about yourself: companion_settings_get, companion_settings_set, companion_voices_list, the four companion_profile_* tools and the primary-agent tools companion_agent_get, companion_agent_set and companion_models_list all refuse while it is off. A voice, the volume, what it calls you, a profile switch or an agent or model switch changes at once. A change to its name, the mic, conversation mode or speaking aloud — and deleting a profile or saving over one — waits up to 30 seconds for you to allow it in the app, and nothing changes if you don’t. Enabling it, the speech engine and hands-free stay in Settings ▸ Companion only."
+            on={allowCompanionSettings}
+            onToggle={(_id, next) => setAllowCompanionSettings.mutate(next)}
+            testId="mcp-allow-companion-settings"
+            disabled={!enabled}
+            title={!enabled ? 'Enable the MCP server first.' : undefined}
+          />
+
+          {setAllowCompanionSettings.data?.error && (
+            <div className="text-xs text-destructive">{setAllowCompanionSettings.data.error}</div>
+          )}
+        </div>
+      </SettingsAccordion>
+
+      <SettingsAccordion title="Tools" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-2 p-3">
           {MCP_TOOL_IDS.map((id) => (
             <div key={id} className="rounded border border-border/60 bg-card/50 p-2">
@@ -453,9 +483,9 @@ export function McpSettingsPage() {
             </div>
           ))}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Recent calls" icon={<LuServer className="h-4 w-4" />}>
+      <SettingsAccordion title="Recent calls" icon={<LuServer className="h-4 w-4" />}>
         <div className="flex flex-col gap-1.5 p-3">
           {!calls.data || calls.data.length === 0 ? (
             <p className="text-xs text-muted-foreground">No tool calls yet.</p>
@@ -475,7 +505,7 @@ export function McpSettingsPage() {
             ))
           )}
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

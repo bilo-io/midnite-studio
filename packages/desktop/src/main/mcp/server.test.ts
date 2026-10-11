@@ -138,6 +138,7 @@ describe('startMcpServer', () => {
         repoPath: null,
         locked: false,
         uiToolsEnabled: false,
+      lastRevealed: null,
       },
     });
     expect(sent).toHaveLength(1);

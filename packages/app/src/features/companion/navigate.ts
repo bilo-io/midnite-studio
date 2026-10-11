@@ -16,6 +16,7 @@ import { useGameRunStore } from '../media/game/game-run-store';
 import { openIssueModal } from '../../store/issue-modal-store';
 import { PAGE_ROLE_TITLE } from '../../components/page-detach-mark';
 import { VIEW_LABELS } from '../../services/palette/providers';
+import { revealResource, revealSay } from './reveal/reveal';
 
 /**
  * Phase 81 Theme B — "take me to the graph," and the window that is already
@@ -109,7 +110,7 @@ export function resolveNavigation(
  * for the union this function actually holds.
  */
 const PAGE_ROLE_SET: ReadonlySet<string> = new Set(PAGE_WINDOW_ROLES);
-function isPageRoleView(view: ViewId): view is PageWindowRole {
+export function isPageRoleView(view: ViewId): view is PageWindowRole {
   return PAGE_ROLE_SET.has(view);
 }
 
@@ -128,24 +129,14 @@ function speakableHost(url: string): string {
 }
 
 /**
- * Execute one `navigate` intent in the CURRENT window and say what happened.
- *
- * Reads everything it needs from live stores and `bridge()` — no parameters
- * beyond the intent itself, matching `resolveNavigation`'s `state.repoId`
- * against whatever this window's own `ui-store` currently holds. That is
- * correct for both callers: a popout never gets past `resolveNavigation`'s
- * `relay` branch (so `repoId` is never even read there), and the main
- * window's own selection is what a relayed action is meant to act against
- * anyway — it already travels cross-window on the existing `ui` relay kind,
- * so there is nothing to thread through a second time.
+ * The live snapshot {@link resolveNavigation} decides against — this window's
+ * own role, detached pages/panels, lock and selected repo. Exported for the
+ * Phase 112 reveal engine (`reveal/reveal.ts`), which plans the same way.
  */
-export async function navigateCompanion(
-  intent: Extract<CompanionIntent, { kind: 'navigate' }>,
-): Promise<{ say: string }> {
-  const api = bridge();
+export function liveNavigationState(): NavigationState {
   const ui = useUiStore.getState();
-  const state: NavigationState = {
-    windowRole: api?.windowRole ?? 'main',
+  return {
+    windowRole: bridge()?.windowRole ?? 'main',
     detachedPages: ui.detachedPages,
     panelDetached: {
       terminal: ui.terminalDetached,
@@ -169,6 +160,43 @@ export async function navigateCompanion(
     locked: ui.screensaverLocked,
     repoId: ui.selectedRepoId,
   };
+}
+
+/**
+ * Execute one `navigate` intent in the CURRENT window and say what happened.
+ *
+ * Reads everything it needs from live stores and `bridge()` — no parameters
+ * beyond the intent itself, matching `resolveNavigation`'s `state.repoId`
+ * against whatever this window's own `ui-store` currently holds. That is
+ * correct for both callers: a popout never gets past `resolveNavigation`'s
+ * `relay` branch (so `repoId` is never even read there), and the main
+ * window's own selection is what a relayed action is meant to act against
+ * anyway — it already travels cross-window on the existing `ui` relay kind,
+ * so there is nothing to thread through a second time.
+ */
+export async function navigateCompanion(
+  intent: Extract<CompanionIntent, { kind: 'navigate' }>,
+): Promise<{ say: string }> {
+  const api = bridge();
+  // Phase 112 Theme B: a specific resource goes through the reveal engine,
+  // which plans the window/popout/lock/unsaved cases the same way below does.
+  if (intent.target !== undefined) {
+    return { say: revealSay(await revealResource(intent.target, { caller: 'companion' })) };
+  }
+
+  const state = liveNavigationState();
+
+  // Phase 112 Theme C: the plain `issue` shorthand is a ref now — "open issue
+  // 812" is `{ kind: 'issue' }` on the table, like every other resource. With
+  // no repo open it falls through to `resolveNavigation`'s own refusal, which
+  // names the missing repo.
+  if (intent.issue !== undefined && state.repoId !== null) {
+    const outcome = await revealResource(
+      { kind: 'issue', repoId: state.repoId, number: intent.issue },
+      { caller: 'companion' },
+    );
+    return { say: revealSay(outcome) };
+  }
 
   const plan = resolveNavigation(intent, state);
 
@@ -237,7 +265,10 @@ export async function navigateCompanion(
  * flow in flight at a time (the same "one controller" rule `runtime.ts`
  * enforces), so one map, subscribed once, is all this ever needs to hold.
  */
-const pendingRelays = new Map<string, (say: string) => void>();
+const pendingRelays = new Map<string, (result: RelayResult) => void>();
+
+/** What main relays back — `reason` only rides along for a refused reveal (Phase 112). */
+export type RelayResult = { ok: boolean; say: string; reason?: string };
 let relayListenerBound = false;
 
 function ensureRelayListenerBound(): void {
@@ -245,12 +276,12 @@ function ensureRelayListenerBound(): void {
   relayListenerBound = true;
   bridge()?.window.onRelayed((message) => {
     if (message.kind !== 'companion') return;
-    const payload = message.payload as { result?: { ok: boolean; say: string }; replyTo?: string };
+    const payload = message.payload as { result?: RelayResult; replyTo?: string };
     if (payload.replyTo === undefined || payload.result === undefined) return;
     const resolve = pendingRelays.get(payload.replyTo);
     if (!resolve) return;
     pendingRelays.delete(payload.replyTo);
-    resolve(payload.result.say);
+    resolve(payload.result);
   });
 }
 
@@ -260,20 +291,29 @@ const newRelayId = (): string =>
   typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
 /** A popout hands the intent to main and waits for what it said. */
-function relayNavigateToMain(intent: Extract<CompanionIntent, { kind: 'navigate' }>): Promise<string> {
+async function relayNavigateToMain(intent: Extract<CompanionIntent, { kind: 'navigate' }>): Promise<string> {
+  return (await relayIntentToMain(intent)).say;
+}
+
+/**
+ * The relay with its whole result — `ok` and, for a refused reveal, the
+ * reason. Exported for the Phase 112 reveal engine, whose popout path relays
+ * a `navigate { target }` and needs to know whether main actually landed it.
+ */
+export function relayIntentToMain(intent: Extract<CompanionIntent, { kind: 'navigate' }>): Promise<RelayResult> {
   const api = bridge();
-  if (!api) return Promise.resolve('I cannot reach the main window from here.');
+  if (!api) return Promise.resolve({ ok: false, say: 'I cannot reach the main window from here.' });
   ensureRelayListenerBound();
 
   const replyTo = newRelayId();
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       pendingRelays.delete(replyTo);
-      resolve('The main window did not answer.');
+      resolve({ ok: false, say: 'The main window did not answer.' });
     }, RELAY_TIMEOUT_MS);
-    pendingRelays.set(replyTo, (say) => {
+    pendingRelays.set(replyTo, (result) => {
       clearTimeout(timer);
-      resolve(say);
+      resolve(result);
     });
     api.window.relay({
       id: newRelayId(),
@@ -306,6 +346,22 @@ export function handleCompanionRelayAction(action: CompanionIntent, replyTo: str
       origin: 'main-companion-relay',
       kind: 'companion',
       payload: { result: { ok: false, say: '' }, replyTo },
+    });
+    return;
+  }
+  if (action.target !== undefined) {
+    // Phase 112: a reveal answers with its real outcome, so the popout can
+    // tell a landed reveal from a refused one rather than assuming success.
+    void revealResource(action.target, { caller: 'companion' }).then((outcome) => {
+      api?.window.relay({
+        id: newRelayId(),
+        origin: 'main-companion-relay',
+        kind: 'companion',
+        payload: {
+          result: { ok: outcome.ok, say: revealSay(outcome), ...(outcome.ok ? {} : { reason: outcome.reason }) },
+          replyTo,
+        },
+      });
     });
     return;
   }

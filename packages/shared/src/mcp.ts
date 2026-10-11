@@ -13,6 +13,21 @@ import {
   VIEW_IDS,
   WindowRoleSchema,
 } from './domain';
+import {
+  CompanionAgentGetOutputSchema,
+  CompanionAgentSetInputSchema,
+  CompanionAgentSetOutputSchema,
+  CompanionModelsListInputSchema,
+  CompanionModelsListOutputSchema,
+  CompanionProfileListOutputSchema,
+  CompanionProfileNameInputSchema,
+  CompanionProfileOpOutputSchema,
+  CompanionSettingsGetOutputSchema,
+  CompanionSettingsSetInputSchema,
+  CompanionSettingsSetOutputSchema,
+  CompanionVoicesListOutputSchema,
+} from './companion-mcp';
+import { ResourceKindSchema, ResourceRefSchema } from './domain/resource-ref';
 import { isCommandId } from './keybindings';
 import {
   GameCreateInputSchema,
@@ -211,6 +226,8 @@ type McpToolEntry = {
     | 'ui.state'
     | 'ui.navigate'
     | 'ui.command'
+    | 'ui.reveal'
+    | 'ui.find'
     | 'workflow_gates_list'
     | 'workflow_gate_decide'
     | 'model_list'
@@ -313,7 +330,17 @@ type McpToolEntry = {
     | 'music_add_pitchbends'
     | 'music_add_track'
     | 'music_save'
-    | 'music_render_preview';
+    | 'music_render_preview'
+    | 'companion_settings_get'
+    | 'companion_settings_set'
+    | 'companion_voices_list'
+    | 'companion_profile_list'
+    | 'companion_profile_save'
+    | 'companion_profile_switch'
+    | 'companion_profile_delete'
+    | 'companion_agent_get'
+    | 'companion_agent_set'
+    | 'companion_models_list';
   title: string;
   /**
    * The text a model actually reads to decide whether to call this tool.
@@ -449,6 +476,8 @@ export const MCP_TOOLS = {
       locked: z.boolean(),
       /** Whether `ui.navigate`/`ui.command` will actually run — the reason to check this before calling either. */
       uiToolsEnabled: z.boolean(),
+      /** The last resource a reveal landed on (Phase 112 Theme I), or `null` before any. */
+      lastRevealed: ResourceRefSchema.nullable(),
     }),
     readOnly: true,
   },
@@ -458,11 +487,14 @@ export const MCP_TOOLS = {
     description:
       'Opens a view or settings page, or focuses its window if already detached — call `ui.state` first to see what the user can already see.',
     input: z.object({
-      view: z.enum(VIEW_IDS),
+      /** Required unless `url` is given — checked in the handler, so `tools/list` keeps a plain `view` enum. */
+      view: z.enum(VIEW_IDS).optional(),
       page: z.enum(SETTINGS_PAGE_IDS).optional(),
       issue: z.number().int().positive().optional(),
+      /** Opens this URL in the browser panel (Phase 112 Theme I). */
+      url: z.string().url().optional(),
     }),
-    output: z.object({ did: z.enum(['navigated', 'focused-window']), view: z.enum(VIEW_IDS) }),
+    output: z.object({ did: z.enum(['navigated', 'focused-window']), view: z.enum(VIEW_IDS).optional() }),
     readOnly: false,
   },
   'ui.command': {
@@ -476,6 +508,38 @@ export const MCP_TOOLS = {
     }),
     output: z.object({ did: z.literal('ran'), label: z.string() }),
     readOnly: false,
+  },
+  'ui.reveal': {
+    id: 'ui.reveal',
+    title: 'Reveal a resource',
+    description:
+      'Opens one thing in the app — a commit, PR, chat, note, file, setting — from a `ref`, such as one `ui.find` returned, if the UI switch is on.',
+    input: z.object({ ref: ResourceRefSchema }),
+    output: z.object({ did: z.literal('revealed'), label: z.string() }),
+    readOnly: false,
+  },
+  'ui.find': {
+    id: 'ui.find',
+    title: 'Find resources by description',
+    description:
+      'Finds things the user could open by a description — pass a result\'s `ref` to `ui.reveal`; returns refs, titles and links only, never bodies, while the UI switch is on.',
+    input: z.object({
+      query: z.string().min(1),
+      kinds: z.array(ResourceKindSchema).optional(),
+      limit: z.number().int().positive().max(20).optional(),
+    }),
+    output: z.object({
+      matches: z.array(
+        z.object({
+          ref: ResourceRefSchema,
+          title: z.string(),
+          detail: z.string().optional(),
+          /** `midnite-studio://reveal?ref=…` — pasteable, opens the same thing. */
+          link: z.string(),
+        }),
+      ),
+    }),
+    readOnly: true,
   },
   /*
    * Phase 97 Theme D — a workflow's own human gate, over MCP. `workflow_gate_decide`
@@ -1483,6 +1547,117 @@ export const MCP_TOOLS = {
       'Renders a bar range as a piano-roll PNG, all tracks colour-coded — use instead of judging `music_get_notes` numbers; returns image content, read-only.',
     input: MusicRenderPreviewInputSchema,
     output: MusicRenderPreviewResultSchema,
+    readOnly: true,
+  },
+  /*
+   * The companion's own settings (Phase 109 Theme D), so an agent can change
+   * the companion for the user. One switch gates all three, reads included —
+   * `Settings ▸ MCP ▸ Let agents change companion settings`
+   * (`allowCompanionSettings`), off by default (Decision 13). A confirm-tier
+   * `companion_settings_set` waits for the user's answer in the app
+   * (Decision 3). Schemas and the full flow: `companion-mcp.ts`.
+   */
+  companion_settings_get: {
+    id: 'companion_settings_get',
+    title: 'Read the companion settings',
+    description:
+      'Reads every companion setting with its value, tier and allowed values — call before `companion_settings_set` instead of guessing a key; refused unless its Settings switch is on.',
+    input: z.object({}),
+    output: CompanionSettingsGetOutputSchema,
+    readOnly: true,
+  },
+  companion_settings_set: {
+    id: 'companion_settings_set',
+    title: 'Change a companion setting',
+    description:
+      'Changes one companion setting by key, waiting up to 30 s for the user to answer in the app when the key needs a yes — call `companion_settings_get` first to see what is settable.',
+    input: CompanionSettingsSetInputSchema,
+    output: CompanionSettingsSetOutputSchema,
+    readOnly: false,
+  },
+  companion_voices_list: {
+    id: 'companion_voices_list',
+    title: 'List the companion voices',
+    description:
+      'Lists the companion’s local Kokoro voices and the system voices with their ids — call before `companion_settings_set` to pick a voice by id; read-only.',
+    input: z.object({}),
+    output: CompanionVoicesListOutputSchema,
+    readOnly: true,
+  },
+  /*
+   * Persona profiles (Phase 109 Theme G) — named bundles of voice,
+   * personality and what it calls you, never names. Behind the same
+   * `allowCompanionSettings` switch as the three above. A delete, and a save
+   * over an existing name, wait for the user's yes in the app like a
+   * confirm-tier `companion_settings_set`.
+   */
+  companion_profile_list: {
+    id: 'companion_profile_list',
+    title: 'List the companion profiles',
+    description:
+      'Lists the saved companion persona profiles with which is active and whether it was edited since — call before `companion_profile_switch` instead of guessing a name; read-only.',
+    input: z.object({}),
+    output: CompanionProfileListOutputSchema,
+    readOnly: true,
+  },
+  companion_profile_save: {
+    id: 'companion_profile_save',
+    title: 'Save a companion profile',
+    description:
+      'Saves the companion’s current voice, personality and honorifics as a named profile, waiting up to 30 s for a yes when the name exists — see `companion_profile_list` for names.',
+    input: CompanionProfileNameInputSchema,
+    output: CompanionProfileOpOutputSchema,
+    readOnly: false,
+  },
+  companion_profile_switch: {
+    id: 'companion_profile_switch',
+    title: 'Switch the companion profile',
+    description:
+      'Switches the companion to a saved profile by name, applying its voice, personality and honorifics as one undoable change — call `companion_profile_list` first.',
+    input: CompanionProfileNameInputSchema,
+    output: CompanionProfileOpOutputSchema,
+    readOnly: false,
+  },
+  companion_profile_delete: {
+    id: 'companion_profile_delete',
+    title: 'Delete a companion profile',
+    description:
+      'Deletes a saved companion profile by name, waiting up to 30 s for the user’s yes in the app — call `companion_profile_list` first to see the names.',
+    input: CompanionProfileNameInputSchema,
+    output: CompanionProfileOpOutputSchema,
+    readOnly: false,
+  },
+  /*
+   * The active agent and model (Phase 111 Theme E) — the same choice the
+   * title bar's picker and the companion's `switchAgent` intent write. Behind
+   * the same `allowCompanionSettings` switch as the rest of the family, reads
+   * included. Writes go through the renderer's `setPrimaryAgentAndModel`.
+   */
+  companion_agent_get: {
+    id: 'companion_agent_get',
+    title: 'Read the primary agent and model',
+    description:
+      'Reads the primary agent, its chosen model and every agent with its install state — call before `companion_agent_set` instead of guessing an id; read-only.',
+    input: z.object({}),
+    output: CompanionAgentGetOutputSchema,
+    readOnly: true,
+  },
+  companion_agent_set: {
+    id: 'companion_agent_set',
+    title: 'Switch the primary agent or model',
+    description:
+      'Switches the primary agent, and optionally its model, by name or id — refused for an unknown or uninstalled agent or an unknown model; see `companion_models_list`.',
+    input: CompanionAgentSetInputSchema,
+    output: CompanionAgentSetOutputSchema,
+    readOnly: false,
+  },
+  companion_models_list: {
+    id: 'companion_models_list',
+    title: 'List the models for an agent',
+    description:
+      'Lists the models an agent can use, including the models Ollama has pulled when its daemon is running — call before `companion_agent_set` to pick a model id; defaults to the primary agent.',
+    input: CompanionModelsListInputSchema,
+    output: CompanionModelsListOutputSchema,
     readOnly: true,
   },
 } satisfies Record<string, McpToolEntry>;

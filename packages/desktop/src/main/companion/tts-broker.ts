@@ -5,6 +5,7 @@ import { failure, type GitOpResult } from '@midnite/studio-shared';
 import { utilityProcess } from 'electron';
 
 import type { CompanionTtsStatusValue } from './tts';
+import { kokoroModelOnDisk } from './tts-model-files';
 
 /**
  * Ad Hoc "TTS synthesis blocks the UI" — the main-process broker for the
@@ -205,6 +206,16 @@ function pumpSynthQueue(): void {
 export function configureCompanionTtsBroker(directory: string, overrides: Partial<TtsBrokerDeps> = {}): void {
   configuredDirectory = directory;
   if (overrides.spawn) deps = { ...deps, ...overrides };
+}
+
+/**
+ * Whether the local voice's model is on disk (Phase 109 Theme D's
+ * `companion_voices_list`). Answered here, in main, from the directory this
+ * broker was configured with — never by asking the worker, which would spawn
+ * it and, on a first call, start the download an agent only asked about.
+ */
+export function companionTtsModelOnDisk(): boolean {
+  return configuredDirectory !== null && kokoroModelOnDisk(configuredDirectory);
 }
 
 /**

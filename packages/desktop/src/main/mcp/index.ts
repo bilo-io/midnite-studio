@@ -9,6 +9,7 @@ import {
   getMcpAllowTerrains,
   getMcpAllowMaps,
   getMcpAllowMusic,
+  getMcpAllowCompanionSettings,
   getMcpAllowSprites,
   getMcpAllowModels,
   getMcpAllowUi,
@@ -18,12 +19,13 @@ import {
   setMcpAllowTerrainsState,
   setMcpAllowMapsState,
   setMcpAllowMusicState,
+  setMcpAllowCompanionSettingsState,
   setMcpAllowSpritesState,
   setMcpAllowModelsState,
   setMcpAllowUiState,
 } from './ui-gate';
 
-export { getMcpAllowGames, getMcpAllowGateDecide, getMcpAllowMaps, getMcpAllowModels, getMcpAllowMusic, getMcpAllowSprites, getMcpAllowTerrains, getMcpAllowUi } from './ui-gate';
+export { getMcpAllowCompanionSettings, getMcpAllowGames, getMcpAllowGateDecide, getMcpAllowMaps, getMcpAllowModels, getMcpAllowMusic, getMcpAllowSprites, getMcpAllowTerrains, getMcpAllowUi } from './ui-gate';
 
 /**
  * Where this build's stdio shim lives on disk (Theme F). Same resolution
@@ -65,6 +67,8 @@ export type McpStatus = {
   allowSprites: boolean;
   allowMaps: boolean;
   allowMusic: boolean;
+  /** Phase 109 Theme D's tenth switch — whether any `companion_*` tool answers, reads included. */
+  allowCompanionSettings: boolean;
 };
 
 export type SetMcpEnabledResult = { ok: true; status: McpStatus } | { ok: false; message: string };
@@ -112,6 +116,7 @@ export async function registerMcpServer(opts: RegisterMcpServerOptions): Promise
   setMcpAllowSpritesState(settings.allowSprites);
   setMcpAllowMapsState(settings.allowMaps);
   setMcpAllowMusicState(settings.allowMusic);
+  setMcpAllowCompanionSettingsState(settings.allowCompanionSettings);
   if (!enabled) return null;
 
   const result = await startMcpServer({ ...opts, log: boundLog });
@@ -143,6 +148,7 @@ export function getMcpStatus(): McpStatus {
     allowSprites: getMcpAllowSprites(),
     allowMaps: getMcpAllowMaps(),
     allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
 }
 
@@ -160,7 +166,7 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
   }
 
   const settings: McpSettings = {
-    version: 9,
+    version: 10,
     enabled: next,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
@@ -170,6 +176,7 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
     allowSprites: getMcpAllowSprites(),
     allowMaps: getMcpAllowMaps(),
     allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   enabled = next;
@@ -204,7 +211,7 @@ export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult>
   }
 
   const settings: McpSettings = {
-    version: 9,
+    version: 10,
     enabled,
     allowUi: next,
     allowGateDecide: getMcpAllowGateDecide(),
@@ -214,6 +221,7 @@ export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult>
     allowSprites: getMcpAllowSprites(),
     allowMaps: getMcpAllowMaps(),
     allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowUiState(next);
@@ -232,7 +240,7 @@ export async function setMcpAllowGateDecide(next: boolean): Promise<SetMcpEnable
   }
 
   const settings: McpSettings = {
-    version: 9,
+    version: 10,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: next,
@@ -242,6 +250,7 @@ export async function setMcpAllowGateDecide(next: boolean): Promise<SetMcpEnable
     allowSprites: getMcpAllowSprites(),
     allowMaps: getMcpAllowMaps(),
     allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowGateDecideState(next);
@@ -260,7 +269,7 @@ export async function setMcpAllowModels(next: boolean): Promise<SetMcpEnabledRes
   }
 
   const settings: McpSettings = {
-    version: 9,
+    version: 10,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
@@ -270,6 +279,7 @@ export async function setMcpAllowModels(next: boolean): Promise<SetMcpEnabledRes
     allowSprites: getMcpAllowSprites(),
     allowMaps: getMcpAllowMaps(),
     allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowModelsState(next);
@@ -288,7 +298,7 @@ export async function setMcpAllowGames(next: boolean): Promise<SetMcpEnabledResu
   }
 
   const settings: McpSettings = {
-    version: 9,
+    version: 10,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
@@ -298,6 +308,7 @@ export async function setMcpAllowGames(next: boolean): Promise<SetMcpEnabledResu
     allowSprites: getMcpAllowSprites(),
     allowMaps: getMcpAllowMaps(),
     allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowGamesState(next);
@@ -316,7 +327,7 @@ export async function setMcpAllowTerrains(next: boolean): Promise<SetMcpEnabledR
   }
 
   const settings: McpSettings = {
-    version: 9,
+    version: 10,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
@@ -326,6 +337,7 @@ export async function setMcpAllowTerrains(next: boolean): Promise<SetMcpEnabledR
     allowSprites: getMcpAllowSprites(),
     allowMaps: getMcpAllowMaps(),
     allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowTerrainsState(next);
@@ -344,7 +356,7 @@ export async function setMcpAllowSprites(next: boolean): Promise<SetMcpEnabledRe
   }
 
   const settings: McpSettings = {
-    version: 9,
+    version: 10,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
@@ -354,6 +366,7 @@ export async function setMcpAllowSprites(next: boolean): Promise<SetMcpEnabledRe
     allowSprites: next,
     allowMaps: getMcpAllowMaps(),
     allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowSpritesState(next);
@@ -371,7 +384,7 @@ export async function setMcpAllowMaps(next: boolean): Promise<SetMcpEnabledResul
   }
 
   const settings: McpSettings = {
-    version: 9,
+    version: 10,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
@@ -381,6 +394,7 @@ export async function setMcpAllowMaps(next: boolean): Promise<SetMcpEnabledResul
     allowSprites: getMcpAllowSprites(),
     allowMaps: next,
     allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowMapsState(next);
@@ -398,7 +412,7 @@ export async function setMcpAllowMusic(next: boolean): Promise<SetMcpEnabledResu
   }
 
   const settings: McpSettings = {
-    version: 9,
+    version: 10,
     enabled,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
@@ -408,9 +422,38 @@ export async function setMcpAllowMusic(next: boolean): Promise<SetMcpEnabledResu
     allowSprites: getMcpAllowSprites(),
     allowMaps: getMcpAllowMaps(),
     allowMusic: next,
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowMusicState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 109 Theme D's tenth Settings switch. Same shape as the others — never starts or stops the
+ * socket — but it gates every `companion_*` tool, the reads as well as `companion_settings_set`.
+ */
+export async function setMcpAllowCompanionSettings(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: next,
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowCompanionSettingsState(next);
 
   return { ok: true, status: getMcpStatus() };
 }

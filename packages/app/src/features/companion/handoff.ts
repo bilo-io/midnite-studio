@@ -1,13 +1,24 @@
 import {
+  BUILTIN_AGENTS,
   COMPANION_COMMAND_IDS,
+  COMPANION_LOCAL_VOICES,
   COMPANION_NEVER_AUTOSEND,
   COMPANION_READBACK_TAIL_CHARS,
+  companionSettingQuestion,
+  companionSettingSpec,
+  describeCompanionSettingValue,
   extractLastAgentTurn,
+  matchVoice,
+  modelsForAgent,
   parseIntent,
   type CommandId,
   type CompanionAskReply,
   type CompanionCommandId,
   type CompanionIntent,
+  type CompanionSettingIntent,
+  type CompanionSettingKey,
+  type CompanionPersonaReply,
+  type CompanionPersonaRequest,
   type CompanionVocabulary,
   type GitOpResult,
   type RepoDescriptor,
@@ -16,9 +27,25 @@ import {
 
 import { overlayDepth } from '../../components/dialog-host';
 import type { PendingAction } from '../../store/companion-store';
+import {
+  continueAudition,
+  resetAuditionState,
+  startAudition,
+  type AuditionDeps,
+  type AuditionPort,
+} from './audition';
 import { runCommand } from './command-runtime';
 import { phrase, say, matchRepoByName, type ConciergeDeps } from './concierge';
-import type { AgentCommandId } from '../../store/ui-store';
+import { actOnProfile, type CompanionProfilesPort } from './profile-handoff';
+import { continueTune, startTuneInterview, startTuneTweak, type TuneDeps } from './tune';
+import type { Speaker } from './ports';
+import {
+  COMPANION_UNDO_WINDOW_MS,
+  type CompanionSettingChange,
+  type CompanionSettingResult,
+  type CompanionUndoResult,
+} from './settings-apply';
+import { useUiStore, type AgentCommandId } from '../../store/ui-store';
 
 /**
  * From "start a swarm" to hearing what the swarm did — Phase 79 Theme E.
@@ -97,6 +124,54 @@ export type HandoffDeps = ConciergeDeps & {
   navigate: (
     intent: Extract<CompanionIntent, { kind: 'navigate' }>,
   ) => Promise<{ say: string }>;
+  /**
+   * The settings setter and Theme E's read-back, assembled in `runtime.ts`
+   * over `settings-apply.ts` and `settings-announce.ts` (Phase 109 Theme C) —
+   * a port for the reason `navigate` is one: this file never touches a store.
+   */
+  companionSettings: CompanionSettingsPort;
+  /**
+   * `window.midniteStudio.companion.ask` in `'persona'` mode (Phase 109 Theme
+   * H): personality or About me text from an interview or a tweak, or why
+   * there is none. A reply that was not the `{text, summary}` shape comes back
+   * as a failure, so the interview falls back to its template.
+   */
+  persona: (request: CompanionPersonaRequest) => Promise<GitOpResult<CompanionPersonaReply>>;
+  /** Whether the agent roster has anything with a headless mode — without one a tweak points to the page. */
+  hasAgentCli: () => boolean;
+};
+
+/**
+ * What the `setting` and `undoSetting` arms need (Phase 109 Themes C and E).
+ *
+ * `applyAndAnnounce` and `undoAndAnnounce` take the `speak` to use rather than
+ * owning one, so the read-back goes through {@link say} — into the thread,
+ * through this turn's interrupt token — exactly like every other line here.
+ */
+export type CompanionSettingsPort = {
+  /** The current value — "louder" and "call me boss" change what is already there. */
+  read: (key: CompanionSettingKey) => unknown;
+  /** Every check the setter makes for a `voice` change, writing nothing. */
+  preview: (change: CompanionSettingChange) => CompanionSettingResult;
+  /** Write a `voice` change and read it back — before the write for a mute or a rename — with an Undo toast. */
+  applyAndAnnounce: (
+    change: CompanionSettingChange,
+    speak: (text: string) => Promise<void>,
+  ) => Promise<CompanionSettingResult>;
+  /** "Undo that": restore the last change and read back what came back, or say why not. */
+  undoAndAnnounce: (speak: (text: string) => Promise<void>) => Promise<CompanionUndoResult>;
+  /** `speechSynthesis`'s voices, which exist only in the renderer. */
+  systemVoices: () => readonly { uri: string; name: string; lang?: string }[];
+  /** Persona profiles (Phase 109 Theme G): save, switch, delete and list — `profiles.ts` behind a port. */
+  profiles: CompanionProfilesPort;
+  /** The voice audition's samples (Phase 109 Theme F): is the local model there, and play one voice. */
+  audition: AuditionPort;
+  /**
+   * The speaker to read back with once the write has landed — "speak out
+   * loud" turns speech on mid-turn, after this turn's `deps.speaker` was
+   * captured as the silent one. Absent means `deps.speaker`.
+   */
+  liveSpeaker?: () => Speaker;
 };
 
 /**
@@ -113,8 +188,41 @@ let declined: { intent: CompanionIntent; at: number } | null = null;
 /** How long a declined command stays available to "anyway". */
 export const DECLINE_MEMORY_MS = 5 * 60 * 1000;
 
+/** One side of "Bella or Isabella?" — the value to write and the names it answers to. */
+type VoiceOption = { value: string; name: string; spoken: readonly string[] };
+
+/**
+ * The question "Bella or Isabella?" is waiting on (Phase 109 Decision 10).
+ * Module state for the reason `declined` is: a one-exchange scrap, not
+ * something to persist. The next line is checked against the two names before
+ * it is parsed; anything else drops the question.
+ */
+let voiceChoice: {
+  key: 'companionVoices.local' | 'companionVoices.system';
+  options: readonly [VoiceOption, VoiceOption];
+  at: number;
+} | null = null;
+
+/** How long "Bella or Isabella?" waits for an answer — the same minute a confirm does. */
+export const VOICE_CHOICE_MEMORY_MS = 60 * 1000;
+
+/**
+ * The last primary agent/model switch (Phase 111 Theme C).
+ * Kept so "undo that" / `undoSetting` reverts the agent and model selection.
+ */
+let lastAgentSwitchChange: {
+  previousAgent: string;
+  previousModel: string | null;
+  newAgent: string;
+  newModel: string | null;
+  at: number;
+} | null = null;
+
 export function resetHandoffState(): void {
   declined = null;
+  voiceChoice = null;
+  resetAuditionState();
+  lastAgentSwitchChange = null;
 }
 
 /**
@@ -129,6 +237,18 @@ export async function submitInput(text: string, deps: HandoffDeps): Promise<void
   if (trimmed === '') return;
 
   deps.store.addTurn({ role: 'user', text: trimmed, spoken: false });
+
+  // Phase 109 Theme F: mid-audition, "number two" is a reply, not a request.
+  if (await continueAudition(trimmed, auditionDeps(deps))) return;
+  // Phase 109 Theme H: mid-interview, the line is an answer, not a request.
+  if (await continueTune(trimmed, tuneDeps(deps))) return;
+
+  const chosen = takeVoiceChoice(trimmed);
+  if (chosen) {
+    await proposeSetting(chosen, deps);
+    return;
+  }
+
   await act(parseIntent(trimmed, deps.vocabulary()), deps, trimmed);
 }
 
@@ -153,7 +273,7 @@ async function act(
       // companion is asking "push? say yes…" has to mean "no", not "keep
       // asking after the next sentence".
       if (deps.pendingAction()) {
-        deps.setPendingAction(null);
+        replacePending(deps, null);
         deps.speaker.cancel();
         deps.store.send('interrupt');
         await say(deps, 'Left it.');
@@ -168,7 +288,7 @@ async function act(
 
     case 'dismiss':
       if (deps.pendingAction()) {
-        deps.setPendingAction(null);
+        replacePending(deps, null);
         await say(deps, 'Left it.');
         return;
       }
@@ -213,6 +333,39 @@ async function act(
 
     case 'help':
       return speakHelp(deps);
+
+    // Phase 109 Theme G — persona profiles, in `profile-handoff.ts`.
+    case 'profile':
+      return actOnProfile(intent, deps);
+
+    // Phase 111 Theme C — Voice execution of primary agent and model switching.
+    case 'switchAgent':
+      return switchAgent(intent, deps);
+
+    // Phase 109 — the companion changes itself.
+    case 'setting':
+      return changeSetting(intent, deps);
+
+    case 'undoSetting':
+      if (lastAgentSwitchChange && Date.now() - lastAgentSwitchChange.at <= COMPANION_UNDO_WINDOW_MS) {
+        return undoAgentSwitch(deps);
+      }
+      await deps.companionSettings.undoAndAnnounce(speakLive(deps));
+      return;
+
+    case 'pageOnlySetting':
+      return offerSettingsPage(deps);
+
+    // Phase 109 Theme F — "try some British voices", in `audition.ts`.
+    case 'audition':
+      return startAudition(intent, auditionDeps(deps));
+
+    // Phase 109 Theme H — personality and About me, by interview or tweak only.
+    case 'tune':
+      return startTuneInterview(intent.target, tuneDeps(deps));
+
+    case 'tweak':
+      return startTuneTweak(intent.instruction, tuneDeps(deps));
 
     case 'freeform':
       return route(intent.text || original, deps, depth);
@@ -388,14 +541,35 @@ async function runById(id: string, deps: HandoffDeps): Promise<void> {
   return runAndReport(cmd, deps);
 }
 
+/**
+ * Set, replace or clear the one pending action, returning what it replaced.
+ * An agent's question (Theme D) watches the slot itself and reads a replaced
+ * or cleared slot as a "no", so nothing more is owed to it here.
+ */
+function replacePending(deps: HandoffDeps, next: PendingAction | null): PendingAction | null {
+  const previous = deps.pendingAction();
+  deps.setPendingAction(next);
+  return previous;
+}
+
+/**
+ * How a replaced question is named in "Never mind …". A palette command keeps
+ * its label ("Never mind Push"); a question that is a sentence ("Answer to
+ * "Nova" from now on", an agent's "Let your agent set …") reads mid-sentence.
+ */
+function neverMind(previous: PendingAction): string {
+  if (previous.kind === undefined && previous.onConfirm === undefined) return previous.label;
+  if (previous.kind === 'command') return previous.label;
+  return `${previous.label.charAt(0).toLowerCase()}${previous.label.slice(1)}`;
+}
+
 /** Set (or replace) the one pending `confirm`-tier command, and ask for a yes. */
 async function askToConfirm(cmd: VocabCommand, deps: HandoffDeps): Promise<void> {
-  const previous = deps.pendingAction();
-  deps.setPendingAction({ id: cmd.id as CommandId, label: cmd.label, at: Date.now() });
+  const previous = replacePending(deps, { id: cmd.id as CommandId, label: cmd.label, at: Date.now() });
   await say(
     deps,
     previous
-      ? `Never mind ${previous.label} — ${cmd.label}? Say yes, press Return, or tap Run.`
+      ? `Never mind ${neverMind(previous)} — ${cmd.label}? Say yes, press Return, or tap Run.`
       : `${cmd.label}? Say yes, press Return, or tap Run.`,
   );
 }
@@ -408,11 +582,33 @@ async function askToConfirm(cmd: VocabCommand, deps: HandoffDeps): Promise<void>
 async function resolvePending(deps: HandoffDeps): Promise<void> {
   const pending = deps.pendingAction();
   if (!pending || Date.now() - pending.at > PENDING_ACTION_MEMORY_MS) {
-    if (pending) deps.setPendingAction(null);
+    if (pending) replacePending(deps, null);
     await say(deps, "Nothing's waiting.");
     return;
   }
+  // Phase 109 Theme D: an agent's change waiting on this yes. Asked before the
+  // slot clears, so the asker reads it as a yes rather than a dismissal.
+  if (pending.onConfirm !== undefined) {
+    const line = pending.onConfirm();
+    deps.setPendingAction(null);
+    if (line !== null) await say(deps, line);
+    return;
+  }
   deps.setPendingAction(null);
+
+  if (pending.kind === 'setting') {
+    return applySetting(
+      { key: pending.key, value: pending.value, confirmed: true, ...(pending.tuned ? { tuned: true } : {}) },
+      deps,
+    );
+  }
+
+  if (pending.kind === 'openSettings') {
+    const outcome = await deps.navigate({ kind: 'navigate', view: 'settings', page: 'companion' });
+    await say(deps, outcome.say);
+    return;
+  }
+
   // The vocabulary's own row if it is still there (labels/tiers can only
   // change on the next release, so this is almost always a hit); the pending
   // action's own id/label cover the same-turn edge case where it is not.
@@ -467,13 +663,20 @@ async function speakHelp(deps: HandoffDeps): Promise<void> {
   const examples = vocabulary.commands.slice(0, 3).map((cmd) => cmd.label.toLowerCase());
   const skillNames = vocabulary.skills.map((skill) => skill.label);
 
+  const settings = vocabulary.settings ?? [];
+
   const summary =
     `I can take you to any view or settings page, run ${commandCount} palette command` +
     `${commandCount === 1 ? '' : 's'}` +
     (examples.length > 0 ? ` — ${examples.join(', ')}` : '') +
     ` — and start ${skillNames.length} skill${skillNames.length === 1 ? '' : 's'}` +
     (skillNames.length > 0 ? `: ${skillNames.join(', ')}` : '') +
-    `. Say "what can you do" any time.`;
+    '.' +
+    // Phase 109 Theme C: the settings the companion can change by voice.
+    (settings.length > 0
+      ? ' You can tell me to change my voice, what I call you, or how loud I am — or say "tune yourself".'
+      : '') +
+    ` Say "what can you do" any time.`;
 
   const markdown = [
     '**Views**',
@@ -484,9 +687,306 @@ async function speakHelp(deps: HandoffDeps): Promise<void> {
     '',
     '**Skills**',
     ...vocabulary.skills.map((skill) => `- ${skill.label} — ${skill.hint}`),
+    ...(settings.length > 0
+      ? ['', '**Settings**', ...settings.map((row) => `- ${row.label} — "${row.example}"`)]
+      : []),
   ].join('\n');
 
   await say(deps, markdown, 'companion', summary);
+}
+
+// --- switching primary agent & model (Phase 111 Theme C) -------------------
+
+/**
+ * Switch the primary agent and optional model by voice.
+ * Speaks feedback e.g.:
+ * - "Switched primary agent to Claude Sonnet 5.5."
+ * - "Switched primary agent to Codex."
+ * - If unknown agent: "I don't recognize the agent <id>."
+ */
+async function switchAgent(
+  intent: Extract<CompanionIntent, { kind: 'switchAgent' }>,
+  deps: HandoffDeps,
+): Promise<void> {
+  const agent = BUILTIN_AGENTS.find((a) => a.id.toLowerCase() === intent.agentId.toLowerCase());
+  if (!agent) {
+    await say(deps, `I don't recognize the agent ${intent.agentId}.`);
+    return;
+  }
+
+  let modelLabel: string | null = null;
+  if (intent.modelId !== undefined && intent.modelId !== null) {
+    const knownModels = modelsForAgent(agent.id);
+    const foundModel = knownModels.find(
+      (m) =>
+        m.id.toLowerCase() === intent.modelId!.toLowerCase() ||
+        (m.cliModel && m.cliModel.toLowerCase() === intent.modelId!.toLowerCase()),
+    );
+    modelLabel = foundModel ? foundModel.label : intent.modelId;
+  }
+
+  const currentUi = useUiStore.getState();
+  const previousAgent = currentUi.primaryAgent;
+  const previousModel = currentUi.primaryModelByAgent[previousAgent] ?? null;
+
+  useUiStore.getState().setPrimaryAgentAndModel(agent.id, intent.modelId);
+
+  lastAgentSwitchChange = {
+    previousAgent,
+    previousModel,
+    newAgent: agent.id,
+    newModel: intent.modelId ?? null,
+    at: Date.now(),
+  };
+
+  const response = modelLabel
+    ? `Switched primary agent to ${agent.label} ${modelLabel}.`
+    : `Switched primary agent to ${agent.label}.`;
+
+  await say(deps, response);
+}
+
+/**
+ * Undo the last agent/model switch ("undo that").
+ */
+async function undoAgentSwitch(deps: HandoffDeps): Promise<void> {
+  if (!lastAgentSwitchChange) {
+    await say(deps, 'Nothing to undo.');
+    return;
+  }
+
+  const { previousAgent, previousModel } = lastAgentSwitchChange;
+  lastAgentSwitchChange = null;
+
+  useUiStore.getState().setPrimaryAgentAndModel(previousAgent, previousModel);
+
+  const prevAgentDef = BUILTIN_AGENTS.find((a) => a.id === previousAgent);
+  const prevAgentLabel = prevAgentDef ? prevAgentDef.label : previousAgent;
+
+  let prevModelLabel: string | null = null;
+  if (previousModel) {
+    const knownModels = modelsForAgent(previousAgent);
+    const foundModel = knownModels.find((m) => m.id === previousModel);
+    prevModelLabel = foundModel ? foundModel.label : previousModel;
+  }
+
+  const response = prevModelLabel
+    ? `Put it back. Switched primary agent to ${prevAgentLabel} ${prevModelLabel}.`
+    : `Put it back. Switched primary agent to ${prevAgentLabel}.`;
+
+  await say(deps, response);
+}
+
+// --- changing its own settings (Phase 109 Themes C and E) -------------------
+
+/** {@link say}, but with the speaker as it is *after* a write — see {@link CompanionSettingsPort.liveSpeaker}. */
+function speakLive(deps: HandoffDeps): (text: string) => Promise<void> {
+  return async (text) => {
+    const speaker = deps.companionSettings.liveSpeaker?.() ?? deps.speaker;
+    await say({ ...deps, speaker }, text);
+  };
+}
+
+/** What a `setting` intent's `op` resolves to against the current value. */
+type ResolvedSetting =
+  | { kind: 'value'; value: unknown }
+  | { kind: 'say'; text: string }
+  | { kind: 'choose'; key: 'companionVoices.local' | 'companionVoices.system'; options: readonly [VoiceOption, VoiceOption] };
+
+const sameWord = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Turn "louder", "call me boss" or "Bella" into the whole new value. The
+ * grammar cannot know the current volume or list, and only the renderer has
+ * the system voices, so this is where an `op` becomes a value.
+ */
+function resolveSettingValue(intent: CompanionSettingIntent, deps: HandoffDeps): ResolvedSetting {
+  const op = intent.op ?? 'set';
+  const current = deps.companionSettings.read(intent.key);
+
+  switch (op) {
+    case 'set':
+      return { kind: 'value', value: intent.value };
+
+    case 'step': {
+      const spec = companionSettingSpec(intent.key);
+      const step = Number(intent.value);
+      const from = typeof current === 'number' ? current : 0;
+      const min = spec.value.kind === 'number' ? spec.value.min : 0;
+      const max = spec.value.kind === 'number' ? spec.value.max : 1;
+      const next = Math.min(max, Math.max(min, Math.round((from + step) * 100) / 100));
+      if (next === from) {
+        return { kind: 'say', text: step > 0 ? "That's as loud as I go." : "That's as quiet as I go." };
+      }
+      return { kind: 'value', value: next };
+    }
+
+    case 'add':
+    case 'remove': {
+      const list = Array.isArray(current) ? (current as string[]) : [];
+      const word = String(intent.value).trim();
+      const names = intent.key === 'companionNames';
+      const present = list.some((entry) => sameWord(entry, word));
+      if (op === 'add') {
+        if (present) return { kind: 'say', text: names ? `I already answer to ${word}.` : `I already call you ${word}.` };
+        return { kind: 'value', value: [...list, word] };
+      }
+      if (!present) return { kind: 'say', text: names ? `I don't answer to ${word}.` : `I don't call you ${word}.` };
+      return { kind: 'value', value: list.filter((entry) => !sameWord(entry, word)) };
+    }
+
+    case 'match': {
+      const heard = String(intent.value);
+      const local = intent.key === 'companionVoices.local';
+      const options: VoiceOption[] = local
+        ? COMPANION_LOCAL_VOICES.map((voice) => ({ value: voice.id, name: voice.name, spoken: voice.spoken }))
+        : systemVoiceOptions(deps);
+      const match = matchVoice(heard, options);
+      if (match.kind === 'match') return { kind: 'value', value: match.match.value };
+      if (match.kind === 'ambiguous') {
+        return { kind: 'choose', key: local ? 'companionVoices.local' : 'companionVoices.system', options: match.ambiguous };
+      }
+      return { kind: 'say', text: `I don't know a voice called ${heard}.` };
+    }
+  }
+}
+
+/** System voices as options, a shared display name told apart by its locale ("Daniel (en-GB)"). */
+function systemVoiceOptions(deps: HandoffDeps): VoiceOption[] {
+  const voices = deps.companionSettings.systemVoices();
+  return voices.map((voice) => {
+    const twin = voices.some((other) => other !== voice && other.name === voice.name);
+    return {
+      value: voice.uri,
+      name: twin && voice.lang ? `${voice.name} (${voice.lang})` : voice.name,
+      spoken: [voice.name],
+    };
+  });
+}
+
+/** "use voice Bella", "louder", "call me boss" — resolve the value, then propose it. */
+async function changeSetting(intent: CompanionSettingIntent, deps: HandoffDeps): Promise<void> {
+  const resolved = resolveSettingValue(intent, deps);
+  if (resolved.kind === 'say') {
+    await say(deps, resolved.text);
+    return;
+  }
+  if (resolved.kind === 'choose') {
+    voiceChoice = { key: resolved.key, options: resolved.options, at: Date.now() };
+    await say(deps, `${resolved.options[0].name} or ${resolved.options[1].name}?`);
+    return;
+  }
+  return proposeSetting({ key: intent.key, value: resolved.value }, deps);
+}
+
+/**
+ * The answer to "Bella or Isabella?", if this line is one — a name, or "the
+ * first one" / "the second one". Anything else drops the question and the
+ * line is parsed as usual.
+ */
+function takeVoiceChoice(text: string): CompanionSettingChange | null {
+  const pending = voiceChoice;
+  voiceChoice = null;
+  if (!pending || Date.now() - pending.at > VOICE_CHOICE_MEMORY_MS) return null;
+  const [first, second] = pending.options;
+  if (/\b(?:first|former)\b/i.test(text)) return { key: pending.key, value: first.value };
+  if (/\b(?:second|latter|last)\b/i.test(text)) return { key: pending.key, value: second.value };
+  const picked = matchVoice(text, pending.options);
+  return picked.kind === 'match' ? { key: pending.key, value: picked.match.value } : null;
+}
+
+/**
+ * Run the setter's checks, then apply, ask, or refuse — by tier.
+ *
+ * The guards are checked *as if* already confirmed first, so a change that
+ * would be refused anyway ("stop answering to Nova" when Nova is the only
+ * name) is refused at once, rather than after the user has said yes to it.
+ */
+async function proposeSetting(change: CompanionSettingChange, deps: HandoffDeps): Promise<void> {
+  const checked = deps.companionSettings.preview({ ...change, confirmed: true });
+  if (!checked.ok) {
+    if (checked.reason === 'never') return offerSettingsPage(deps);
+    await say(deps, checked.message);
+    return;
+  }
+
+  const tiered = deps.companionSettings.preview(change);
+  if (!tiered.ok && tiered.reason === 'confirm') {
+    const question = companionSettingQuestion(change.key, checked.previous, checked.next);
+    const previous = replacePending(deps, {
+      kind: 'setting',
+      key: change.key,
+      value: checked.next,
+      label: question,
+      at: Date.now(),
+      ...(change.tuned ? { tuned: true as const } : {}),
+    });
+    await say(
+      deps,
+      previous
+        ? `Never mind ${neverMind(previous)} — ${question}? Say yes, press Return, or tap Run.`
+        : `${question}? Say yes, press Return, or tap Run.`,
+    );
+    return;
+  }
+
+  return applySetting(change, deps);
+}
+
+/** Write it and read it back — `settings-announce.ts` owns the order of the two. */
+async function applySetting(change: CompanionSettingChange, deps: HandoffDeps): Promise<void> {
+  const result = await deps.companionSettings.applyAndAnnounce(change, speakLive(deps));
+  if (!result.ok) {
+    await say(deps, result.message);
+    return;
+  }
+  if (JSON.stringify(result.previous) === JSON.stringify(result.next)) {
+    await say(deps, `No change — it's already ${describeCompanionSettingValue(result.key, result.next)}.`);
+    return;
+  }
+  // Switching the offer off also ends whatever is playing now: "turn elevator
+  // music off" said over the music means both.
+  if (result.key === 'companionMusicOffer' && result.next === false) deps.onMusic?.(false);
+}
+
+/** The audition's deps: these, plus the tiered setter for the pick (Phase 109 Theme F). */
+function auditionDeps(deps: HandoffDeps): AuditionDeps {
+  return { ...deps, pick: (change) => proposeSetting(change, deps) };
+}
+
+/**
+ * A `never`-tier setting asked for out loud. Refused, with the page offered
+ * as a pending action — "yes", Return or the Run chip opens it.
+ */
+async function offerSettingsPage(
+  deps: HandoffDeps,
+  line = "That one's in Settings, Companion — want me to open it?",
+): Promise<void> {
+  replacePending(deps, { kind: 'openSettings', label: 'Open Settings ▸ Companion', at: Date.now() });
+  await say(deps, line);
+}
+
+/**
+ * The tune flow's ports over this file's own (Phase 109 Theme H): the CLI and
+ * roster from `runtime.ts`, the current text from the settings port, and the
+ * confirm and the page offer through the one pending slot — so a tuned change
+ * asks exactly the way every other confirm-tier change does, and carries
+ * `tuned` through to the setter on the yes.
+ */
+function tuneDeps(deps: HandoffDeps): TuneDeps {
+  return {
+    ...deps,
+    tune: {
+      persona: deps.persona,
+      hasAgentCli: deps.hasAgentCli,
+      currentText: (target) => {
+        const current = deps.companionSettings.read(target);
+        return typeof current === 'string' ? current : '';
+      },
+      askToReplace: (target, text) => proposeSetting({ key: target, value: text, tuned: true }, deps),
+      offerSettingsPage: (line) => offerSettingsPage(deps, line),
+    },
+  };
 }
 
 /**

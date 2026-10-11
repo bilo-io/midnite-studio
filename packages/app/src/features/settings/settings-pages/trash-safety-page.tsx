@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuTrash2 } from 'react-icons/lu';
 
 import { useDialogs } from '../../../components/dialog-host';
@@ -54,7 +54,7 @@ export function TrashSafetyPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Empty Trash" icon={<LuTrash2 className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Empty Trash" icon={<LuTrash2 className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="allow-trash-empty"
@@ -76,7 +76,7 @@ export function TrashSafetyPage() {
             </ul>
           </div>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

@@ -141,6 +141,11 @@ export const PREFERENCE_KEYS = [
   'companionSttEngine', // companion-page.tsx (Microphone ▸ recognition engine, Ad Hoc)
   'voiceConversation', // companion-page.tsx (Microphone ▸ Conversation mode, Ad Hoc)
   'voiceConversationTrigger', // companion-page.tsx (Microphone ▸ Conversation mode, Ad Hoc)
+  'companionSttProvider', // companion-page.tsx (Microphone ▸ Provider, Phase 109 Theme B — was local state)
+  // Phase 109 Theme B seeded these two in the phase's one v32 migration and
+  // parked them in `KNOWN_ORPHANS`; Theme G's Profiles section took them out.
+  'companionProfiles', // companion-profiles-section.tsx (Profiles ▸ the list, Save current as…, Rename, Delete)
+  'companionActiveProfile', // companion-profiles-section.tsx (Profiles ▸ the Active badge, Set active)
   // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
   // real control already — the Knowledge view's own pill bar
   // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
@@ -179,6 +184,7 @@ export const SESSION_STATE_KEYS = [
   'mediaLastDoc', // current selection — Docs reopens the last edited doc
   'mediaLastVideoProject', // current selection — Video reselects the last selected project, per repo
   'mediaVideoPanelTab', // current selection — Video's right panel tab (Edit / Brief / Versions)
+  'primaryModelByAgent', // current selection — model per agent, toggled from TitleBar / companion / views
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
   'audioTabByRepo', // Media > Audio: Editor or Generator, per repo
@@ -220,7 +226,9 @@ export const SESSION_STATE_KEYS = [
  * intended lifecycle for an entry in this list, and the one worth naming: an
  * orphan is parked here with a named page and leaves when that page ships.
  * `enabledApps` (Phase 83 Theme A/B, resolved by Theme E's `apps-page.tsx`)
- * is the identical shape a third time.
+ * is the identical shape a third time, and Phase 109's `companionProfiles` and
+ * `companionActiveProfile` (seeded by Theme B, resolved by Theme G's
+ * `companion-profiles-section.tsx`) a fourth.
  */
 export const KNOWN_ORPHANS = [
   'browserLayout',

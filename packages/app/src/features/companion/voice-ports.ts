@@ -10,6 +10,7 @@ import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 import { setCompanionVolume } from './audio/context';
 import { toWavBlob } from './audio/wav';
+import { bargeInAudition } from './audition';
 import { companionPorts, setCompanionPorts } from './companion-ports';
 import { stopCompanionPersonality } from './filler';
 import {
@@ -299,7 +300,9 @@ async function micPressStart(): Promise<void> {
   if (isRecording() || webSpeechSession !== null) return;
 
   // A press is the user taking the floor — the same rule the textarea's first
-  // keystroke follows.
+  // keystroke follows. Mid-audition that ends the batch, not just the sample
+  // (Phase 109 Theme F's barge-in): the reply is about to be said.
+  bargeInAudition();
   companionTtsSpeaker.cancel();
   stopCompanionPersonality();
   useCompanionStore.getState().send('listen');
@@ -529,6 +532,7 @@ export function watchCompanionSilence(): () => void {
 
 function stopAll(): void {
   nextTranscriptSink = null;
+  bargeInAudition();
   companionTtsSpeaker.cancel();
   stopCompanionPersonality();
   if (captureStarting) abandonPendingStart = true;

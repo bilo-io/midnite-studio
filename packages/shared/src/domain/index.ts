@@ -46,3 +46,5 @@ export * from './notes';
 export * from './provenance';
 export * from './session-history';
 export * from './window';
+export * from './resource-ref';
+export * from './resource-query';

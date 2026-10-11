@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../services/bridge', () => ({
+  // `speaker.ts` (Phase 109 Theme D's voice listing) reads it at import.
+  hasBridge: () => false,
   bridge: () =>
     ({
       windowRole: 'main',
@@ -26,6 +28,9 @@ vi.mock('../../services/bridge', () => ({
 }));
 
 import { resolveUiAction } from './ui-requests';
+import { REVEALERS } from './reveal/revealers';
+import { unavailableRevealer } from './reveal/revealers/stub';
+import { useRevealHistory } from './reveal/reveal-history';
 import { runCommand, setCommandRuntime } from './command-runtime';
 import { useCompanionStore } from '../../store/companion-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
@@ -81,6 +86,7 @@ describe('resolveUiAction — ui.state', () => {
         detached: [],
         repoPath: null,
         locked: true,
+      lastRevealed: null,
       },
     });
   });
@@ -197,5 +203,67 @@ describe('resolveUiAction — ui.command', () => {
     } as never);
     const result = await resolveUiAction(command('sync.fetch'));
     expect(result).toEqual({ ok: false, kind: 'error', message: 'Open a repository first' });
+  });
+});
+
+describe('resolveUiAction — reveal / find (Phase 112 Themes B, G)', () => {
+  const chat: CompanionUiAction = { kind: 'reveal', ref: { kind: 'chat', id: 'c1' } };
+
+  it('lands on the page and refuses plainly while the kind is still a stub', async () => {
+    const original = REVEALERS.chat;
+    // Chats has an opener now (Theme D); the stub is what any kind without one answers.
+    REVEALERS.chat = unavailableRevealer('chats');
+    try {
+      const result = await resolveUiAction(chat);
+      expect(useUiStore.getState().activeView).toBe('chats');
+      expect(result).toMatchObject({ ok: false, message: "I can't pick out that chat yet." });
+    } finally {
+      REVEALERS.chat = original;
+    }
+  });
+
+  it('answers revealed, posts the toast and records lastRevealed when a revealer lands', async () => {
+    useRevealHistory.getState().clear();
+    const original = REVEALERS.chat;
+    REVEALERS.chat = { view: 'chats', reveal: async () => ({ ok: true, did: 'revealed', label: 'the Auth chat' }) };
+    try {
+      const result = await resolveUiAction(chat);
+      expect(result).toEqual({
+        ok: true,
+        value: { did: 'revealed', ref: { kind: 'chat', id: 'c1' }, label: 'the Auth chat', focusedWindow: false },
+      });
+      expect(useToastStore.getState().toasts.map((t) => t.message)).toContain('Agent: opened the Auth chat.');
+      expect(useRevealHistory.getState().entries[0]?.ref).toEqual({ kind: 'chat', id: 'c1' });
+    } finally {
+      REVEALERS.chat = original;
+    }
+  });
+
+  it('refuses a reveal while locked', async () => {
+    useUiStore.setState({ screensaverLocked: true });
+    const result = await resolveUiAction(chat);
+    expect(result).toMatchObject({ ok: false, message: 'The screen is locked — unlock it first.' });
+    expect(useUiStore.getState().activeView).toBe('dashboard');
+  });
+
+  // Phase 112 Theme G — `find` runs the resolver. A settings query asks only the static settings
+  // source, so the mocked bridge needs nothing more.
+  it('answers find with ranked titles and ids, never a score', async () => {
+    const result = await resolveUiAction({ kind: 'find', query: 'appearance settings theme', limit: 3 });
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.value.did !== 'found') throw new Error('expected found');
+    expect(result.value.matches[0]).toEqual({
+      ref: { kind: 'setting', page: 'appearance', section: 'theme' },
+      title: 'Appearance settings — Theme',
+      detail: 'Appearance settings section',
+    });
+    expect(result.value.matches.length).toBeLessThanOrEqual(3);
+    expect(result.value.matches.every((match) => !('score' in match))).toBe(true);
+  });
+
+  it('refuses a find while locked — it enumerates the user’s work', async () => {
+    useUiStore.setState({ screensaverLocked: true });
+    const result = await resolveUiAction({ kind: 'find', query: 'appearance settings' });
+    expect(result).toMatchObject({ ok: false, message: 'The screen is locked — unlock it first.' });
   });
 });

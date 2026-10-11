@@ -96,46 +96,46 @@ Scope guardrails:
 
 ## Headlines
 
-**Theme A — One settings list.** ◻ Not started. A zod `CompanionSettingsSchema` for the companion slice, plus `COMPANION_SETTING_SPECS`: aliases, value kind, tier, guard, read-back and example phrase for every key. Kokoro voices get spoken aliases and a fuzzy `matchVoice`.
+**Theme A — One settings list.** ✅ Done ([PR #813](https://github.com/bilo-io/midnite-studio/pull/813)). `shared/src/companion.ts` now has `CompanionSettingsSchema` for the whole companion slice, built from per-key `COMPANION_SETTING_VALUE_SCHEMAS`, with the store's own defaults and clamps; an app vitest checks the two agree. `COMPANION_SETTING_SPECS` covers all 17 `CompanionSettingKey`s, with the voice selection split into `companionVoices.local`/`.system`. Each spec has aliases, a value kind, a tier, guards, a read-back and an example phrase. Type assertions tie the key list to the slice schema and the store's persisted `companion*` keys, so a key added without a spec doesn't compile. `COMPANION_SETTING_KEYS` and `COMPANION_SETTING_TIERS` sit above `CompanionIntentSchema` so Theme C's intent arm can use them. `checkCompanionGuard` implements `lastName`, `wakeWord`, `muteLast` and `tunedText`; the last one lets the page and tuned changes through. Kokoro voices gain `spoken` aliases ("British Emma"). `matchVoice` allows two edits for names of six letters or more, one for four or five, and none for three, and asks between equally close names.
 
-**Theme B — One setter.** ◻ Not started. `applyCompanionSetting(change, source)` with tiers, guards, lock refusal and a one-step 60 s undo. The page writes through it too. Popout sync goes through `broadcast-sync`, and a persist v32 bump carries `companionSttProvider` and the profile fields.
+**Theme B — One setter.** ✅ Done ([PR #813](https://github.com/bilo-io/midnite-studio/pull/813)). `app/features/companion/settings-apply.ts` adds `applyCompanionSetting`, `applyCompanionSettings` (several keys as one undoable change), `previewCompanionSetting` (checks without writing, for Theme E's read-back-first) and `undoLastCompanionSetting` (one step, 60 s). Writes are refused while the screen is locked. A `never` key from voice or MCP is refused, and so is a `confirm` key unless the change carries `confirmed`. Guards apply to every source. Every persisted control on Settings ▸ Companion now writes through the setter as `page`; rapid page edits to one key within 5 s count as one undo step. A voice change from outside the page also updates the live volume. `broadcast-sync.ts` gains `COMPANION_SYNC_KEYS`, so the popout no longer speaks in a stale voice. The STT provider is now persisted: `null` means automatic, the select shows what that resolves to via a shared `pickSttProvider`, and the mic sends the choice with `transcribe`. The one v31 → v32 bump seeds `companionSttProvider`, `companionProfiles` and `companionActiveProfile`. The two profile keys sit in `KNOWN_ORPHANS` until Theme G builds the page section.
 
-**Theme C — The companion learns `setting`.** ◻ Not started. A `setting` intent across schema, grammar, `act()`, router vocabulary and `parseAskReply`. Confirm-tier changes use `pendingAction`, and never-tier ones are refused with an offer to open the page. The page gets "Try: …" hints.
+**Theme C — The companion learns `setting`.** ✅ Done ([PR #815](https://github.com/bilo-io/midnite-studio/pull/815)). `CompanionIntentSchema` gains `setting` (`key` ∈ `COMPANION_INTENT_SETTING_KEYS`, the non-`never` keys; an optional `op` of `set`/`add`/`remove`/`step`/`match`, with the value checked per key and op by a refinement on the union) and `pageOnlySetting` for a `never`-tier key asked for by name. `parseIntent`, behind the same vocabulary gate as Phase 81's arms, recognises anchored phrases for voice, volume (digits, number words, ±0.1 steps), what it calls you, names, speaking aloud, the elevator-music offer, the mic button and conversation mode. They run before `navigate`, and a bare "switch to Bella" runs only after `navigate` and `run` pass and only when Bella is a voice. "Turn elevator music off" beats the `music` intent. In `act()`, a `CompanionSettingsPort` resolves the op against the current value (a system voice is matched in the renderer). Direct changes apply. A confirm-tier change becomes a `PendingAction` of kind `setting` (the union also gains `openSettings`, beside D's `onConfirm` arm for an agent's change). A never-tier request offers Settings ▸ Companion, and "yes" opens it. An ambiguous voice asks "Bella or Isabella?". `CompanionVocabulary.settings` comes from `companionSettingsVocabulary()`, which leaves out personality, About me (H) and the active profile (G). `ask.ts` lists those settings in the route prompt. The page shows "Try: …" hints, and `help` mentions settings.
 
-**Theme D — `companion_settings_*` on `midnite`.** ◻ Not started. `companion_settings_get`/`_set` and `companion_voices_list` behind a default-off `allowCompanionSettings` switch, through a `setting` arm on `CompanionUiActionSchema`. Confirm-tier writes wait up to 30 s for the in-app answer.
+**Theme D — `companion_settings_*` on `midnite`.** ✅ Done ([PR #814](https://github.com/bilo-io/midnite-studio/pull/814)). `companion_settings_get`, `companion_settings_set` and `companion_voices_list` are on the `midnite` MCP server behind one default-off `Settings ▸ MCP ▸ Let agents change companion settings` switch (`allowCompanionSettings`, `mcp.json` v10) that refuses all three, reads included. Their schemas and the pure `_get` listing live in a new `shared/src/companion-mcp.ts`; the handlers in `desktop/src/main/mcp/companion-tools.ts` reach the renderer through new `setting`/`settingsState`/`voices` arms on `CompanionUiActionSchema`, and `ui-requests.ts` calls B's setter with `source: 'mcp'`, so tiers, guards and values are only ever checked there. `_get` lists every key with its tier and allowed values; never-tier keys, and personality and About me (whose `tunedText` guard refuses any agent), come back `settable: false` with a note. `requestUiAction` takes a per-action `timeoutMs`: a confirm-tier `_set` waits 35 s in main against the renderer's own 30 s prompt, which asks through the companion's `pendingAction` chip and voice when it is on in this window (a new `onConfirm` arm on `PendingAction`, called by `resolvePending` before it clears) and through `confirm-dialog.tsx` otherwise. Answers are checked against the wall clock, so nothing applies after the deadline, and a late "yes" hears "Too late — ask your agent again." A change the guards or schema would refuse is refused without asking. `companion_voices_list`'s `downloaded` flag reads the Kokoro model off disk in main (`tts-model-files.ts`) without spawning the TTS worker. Every agent change takes the undo slot and posts a toast and transcript line; E's spoken read-back replaces that announcement.
 
-**Theme E — Read-back and spoken undo.** ◻ Not started. Every change is spoken back in the new voice, but before a mute takes effect. "Undo that" works for 60 s, and voice- and MCP-originated changes get an Undo toast.
+**Theme E — Read-back and spoken undo.** ✅ Done ([PR #815](https://github.com/bilo-io/midnite-studio/pull/815)). `app/features/companion/settings-announce.ts` exports `announceCompanionSettingChange(result, source)`, the contract with Theme D, plus `applyAndAnnounceCompanionSetting`, which writes and then speaks (so a new voice confirms itself in that voice) and, for `readBackBeforeApply` (mute, rename), speaks first. It also exports `undoAndAnnounceCompanionSetting`. Read-backs are drawn from `companionSettingReadBacks(key, next)` (shared), never repeating the last pick for a key. MCP changes lead with "Your agent changed …". The `undoSetting` intent ("undo that", "put it back", "change it back") restores the last change and reads it back, or says "Nothing to undo" / "That was too long ago". Voice and MCP changes get an Undo toast for whatever is left of the 60 s window, through a new `showToast` that works outside React and a `durationMs` on `ToastRequest`. Page changes get no read-back and no toast.
 
-**Theme F — Voice audition.** ◻ Not started. "Try some British voices" plays 3–4 numbered samples, and you pick with "number two", "that one" or "next". It falls back to system voices when Kokoro is unavailable.
+**Theme F — Voice audition.** ✅ Done ([PR #820](https://github.com/bilo-io/midnite-studio/pull/820)). "Try some British voices", "let me hear female voices" or "try a different voice" parse to a new `audition { accent?, gender? }` intent. The phrase has to end in "voice(s)", so "use voice Bella" stays a voice change. The new `shared/src/companion-audition.ts` picks the voices: best Kokoro grade first, female and male alternating when no gender is asked for, never the current voice, in batches of three or four split evenly. Each sample says its number in its own voice ("Hi, I'm number two — George."), through a new one-off `CompanionSpeakOptions.voice`. The turn state machine is in `app/features/companion/audition.ts` rather than `conversation.ts`, because replies arrive through `submitInput` from every mic mode. It handles "number two"/"two"/"too", "that one" (the last sample played), "next" (which wraps), "again" and "none"/"stop". A number past the batch gets a question, and the audition lapses after 2 minutes. A line it can't place keeps the audition and asks again; any other recognised request ends it and runs. A pick goes through `proposeSetting`, so E's read-back is spoken in the new voice and the pick takes the undo slot. If the Kokoro model is missing (a new `mstudio:companion:tts-model-on-disk` channel reads it off disk in main, never spawning the worker), or a local sample fails, it auditions `speechSynthesis` voices and says so once. A gender filter can't apply to system voices, and it says that too. For barge-in, `bargeInAudition()` aborts the batch: from a mic press or `stopAll` in push and toggle mode, and in conversation mode from speech starting over a sample. `conversation.ts` un-gates the mic only during local-engine samples, which Chromium's echo canceller hears, and the wake trigger lets a bare "two" through while an audition waits.
 
-**Theme G — Persona profiles.** ◻ Not started. Named bundles of voice, personality and honorifics; names stay global. Save, switch and delete them by voice, from a Profiles section on the page, or over `companion_profile_*` MCP tools.
+**Theme G — Persona profiles.** ✅ Done ([PR #818](https://github.com/bilo-io/midnite-studio/pull/818)). A profile bundles voice (local and system), personality and honorifics, never names, so a switch can't change the wake word. The new `app/features/companion/profiles.ts` saves, switches, deletes and renames them. A switch writes all five keys through `applyCompanionSettings` as one undo step; personality goes in with `confirmed` and `tuned`, because the switch is the consent and the text was never dictation. "Undo that" restores the whole bundle and says "Pirate again." Save, rename and delete edit the list directly; saving makes that profile active, and the store holds at most 20. Editing a bundled field marks the active profile *modified* (`isCompanionProfileModified`, derived, never stored) and never rewrites it. `companionActiveProfile` can now only be written by a switch, so `companion_settings_set` refuses it and points at `companion_profile_switch`. By voice, a new `profile` intent (`save`/`switch`/`delete`/`list`) handles "save this as Narrator" (which asks first when it would overwrite), "switch to Narrator"/"be Narrator" (only when Narrator is a saved name), "delete the Narrator profile" (always asks) and "what profiles do I have?". The questions go through the pending slot's `onConfirm` arm. The router learns the names, live through `withCompanionProfiles`. Settings ▸ Companion ▸ Profiles lists them with an Active badge and a Modified dot, and offers Save current as… (prefilled with the active name), Rename, Delete via `confirm-dialog.tsx`, and Set active (Revert on a modified active row). `companionProfiles` and `companionActiveProfile` left `KNOWN_ORPHANS`. On MCP, `companion_profile_list`, `_save`, `_switch` and `_delete` sit behind `allowCompanionSettings`. A delete, and a save over a taken name, wait up to 30 s through the generalised `askToConfirmMcpProfile`.
 
-**Theme H — "Tune me" and quick tweaks.** ◻ Not started. A spoken interview plus one-line tweaks. A new `'persona'` mode in `ask.ts` writes the text and a summary; you hear the summary and confirm. With no CLI, the interview fills a local template. Raw dictation is never accepted.
+**Theme H — "Tune me" and quick tweaks.** ✅ Done ([PR #816](https://github.com/bilo-io/midnite-studio/pull/816)). "Tune yourself" and "let me tell you about me" start a spoken interview: three or four fixed questions per target (`COMPANION_TUNE_QUESTIONS` in a new `shared/src/companion-tune.ts`), with "skip", "start over" and "cancel" at any point. The pure state machine is a new `app/features/companion/tune-interview.ts`, not `conversation.ts`, because that file owns the mic and its imports would drag device code into `handoff.ts`. `tune.ts` runs the flow: `ask.ts`'s new `'persona'` mode writes `{text ≤4000, summary ≤200}` from the answers, or from a one-line tweak ("be more sarcastic") applied to the current text. With no agent CLI, or a failed or out-of-shape reply, the interview fills `buildPersonaFromAnswers`'s labelled template. A tweak instead says "I need an agent CLI for that — want me to open Settings, Companion?". The companion speaks the summary, posts the draft, and asks "Want to hear all of it?". The replace question then goes through C's pending slot; `PendingSettingAction.tuned` carries `tuned: true` to the setter, and E's read-back and Undo follow. No raw dictation: `CompanionIntentSchema` has `tune`/`tweak` arms that carry no text, `companionSettingIntentProblem` refuses a `setting` for either field, and `parseAskReply` strips `persona` from every non-persona reply. The page gains "Try: …" hints for both fields.
 
 ## Deliverables
 
 ### A — One settings list (M)
 
-- [ ] **`CompanionSettingsSchema`** in [`companion.ts`](../../../packages/shared/src/companion.ts): a zod object covering every persisted companion key, including this phase's new `companionSttProvider`, `companionProfiles` and `companionActiveProfile`. It uses the same defaults and clamps the store applies today: volume clamped 0–1, names via `CompanionNamesSchema` (≥1), personality and About me trimmed ≤4000. The store keeps its own partialize and migrate code. A vitest asserts that the store's default companion state parses under the schema and that the two agree on every default.
-- [ ] **`COMPANION_SETTING_SPECS: Record<CompanionSettingKey, CompanionSettingSpec>`**, total over the settable-key union, so a companion key added to the store without a spec is a type error. Each spec holds:
+- [x] **`CompanionSettingsSchema`** in [`companion.ts`](../../../packages/shared/src/companion.ts): a zod object covering every persisted companion key, including this phase's new `companionSttProvider`, `companionProfiles` and `companionActiveProfile`. It uses the same defaults and clamps the store applies today: volume clamped 0–1, names via `CompanionNamesSchema` (≥1), personality and About me trimmed ≤4000. The store keeps its own partialize and migrate code. A vitest asserts that the store's default companion state parses under the schema and that the two agree on every default.
+- [x] **`COMPANION_SETTING_SPECS: Record<CompanionSettingKey, CompanionSettingSpec>`**, total over the settable-key union, so a companion key added to the store without a spec is a type error. Each spec holds:
   - `label` and `aliases: string[]`, the words people use for the setting;
   - `value`, one of `bool`, `enum {values, spoken}`, `number {min, max, step, spokenUnit}`, `text {max}` or `list {min}`;
   - `tier: 'direct' | 'confirm' | 'never'`;
   - an optional `guard`;
   - `readBack(next) → string` and an `example` phrase, used by C's page hints.
-- [ ] **The tier table, as settled in the brainstorm** (Decision 2):
+- [x] **The tier table, as settled in the brainstorm** (Decision 2):
   - **`never`**: `companionEnabled`, `companionSttEngine`, `companionSttProvider`, `companionHandsFree`.
   - **`confirm`**: `companionSpeakAloud` (only → `false`; → `true` is direct), `companionNames`, `companionMicMode`, `voiceConversation` / `voiceConversationTrigger`, `companionPersonality`, `companionAboutUser`.
   - **`direct`**: `companionVoices.local`, `companionVoices.system`, `companionVolume`, `companionHonorifics`, `companionMusicOffer`, `companionActiveProfile`.
 
   The STT API key is not a store key and gets no spec.
-- [ ] **Guards as pure functions** in shared: `checkCompanionGuard(spec, current, next) → { ok: true, effect?: 'readBackBeforeApply' } | { ok: false, reason }`.
+- [x] **Guards as pure functions** in shared: `checkCompanionGuard(spec, current, next) → { ok: true, effect?: 'readBackBeforeApply' } | { ok: false, reason }`.
   - **`lastName`**: refuses to empty the names list.
   - **`wakeWord`**: a names change speaks the new wake word *before* applying.
   - **`muteLast`**: `companionSpeakAloud → false` reads back first, then writes.
   - Text keys refuse anything that didn't come from H's `tune`/`tweak` flow (Decision 4).
-- [ ] **Spoken voice aliases.** `CompanionLocalVoiceInfo` gains `spoken: string[]` ("Heart", "Bella", "British Emma", …) beside the accent and gender descriptors it already carries. `matchVoice(text, voices) → { match } | { ambiguous: [a, b] } | { none }` normalises tokens and allows an edit distance ≤ 2, so whisper-tiny's "bela" or "hart" still resolve. System voices are matched by display name at runtime in the renderer, the only place that list exists.
-- [ ] **Unit tests (vitest, shared):**
+- [x] **Spoken voice aliases.** `CompanionLocalVoiceInfo` gains `spoken: string[]` ("Heart", "Bella", "British Emma", …) beside the accent and gender descriptors it already carries. `matchVoice(text, voices) → { match } | { ambiguous: [a, b] } | { none }` normalises tokens and allows an edit distance ≤ 2, so whisper-tiny's "bela" or "hart" still resolve. System voices are matched by display name at runtime in the renderer, the only place that list exists.
+- [x] **Unit tests (vitest, shared):**
   - the spec table is total;
   - every tier assignment above;
   - `matchVoice` against a table of mistranscriptions, including an ambiguous pair;
@@ -143,13 +143,13 @@ Scope guardrails:
 
 ### B — One setter (M)
 
-- [ ] **`applyCompanionSetting(change, source: 'voice' | 'mcp' | 'page')`** in a new `app/features/companion/settings-apply.ts`. It is a plain function over `useUiStore.getState()`, keeping [`runtime.ts`](../../../packages/app/src/features/companion/runtime.ts)'s no-hooks rule, because a turn outlives the render that started it. It validates against A's spec and schema, refuses while `screensaverLocked` (the check `ui-requests.ts` already makes), and refuses `never` keys from `voice` and `mcp`. It returns a typed `CompanionSettingResult`: `{ ok: true, previous, next }`, or `{ ok: false, reason: 'locked' | 'never' | 'guard' | 'invalid' }` with the guard's spoken reason.
-- [ ] **One-step undo.** A `lastChange { keys, previous, at, source }` slot (one change may touch several keys; see G), replaced by any change from any source. `undoLastCompanionSetting()` restores it within 60 s and otherwise reports `expired` or `nothing` (Decision 9).
-- [ ] **The page writes through the setter.** Every persisted control in [`companion-page.tsx`](../../../packages/app/src/features/settings/settings-pages/companion-page.tsx) (L68-96) calls `applyCompanionSetting(…, 'page')`. Tiers don't apply to `page`, because the click is the consent, but the guards do. A page change is therefore undoable by voice and reaches the popout.
-- [ ] **Popout sync.** Add the keys the companion popout reads to the [`broadcast-sync.ts`](../../../packages/app/src/services/broadcast-sync.ts) allowlist (L268): voices, volume, speak aloud, names, honorifics, personality, About me, profiles and active profile. The detached popout then never reads back a stale voice (Decision 15).
-- [ ] **Persist the STT provider.** Add `companionSttProvider: 'whisper-local' | 'openai-whisper' | 'deepgram' | null` to the store. `null` keeps today's automatic resolution. Send it with the `transcribe` request so main's `resolveProviderId` ([`stt/index.ts`](../../../packages/desktop/src/main/companion/stt/index.ts) :100) honours it, and delete the page's local `useState` (L1060). The tier stays `never`.
-- [ ] **The phase's one persist bump, v31 → v32.** It adds `companionSttProvider` (null), `companionProfiles` (`[]`) and `companionActiveProfile` (null), so G lands without a second migration.
-- [ ] **Tests:**
+- [x] **`applyCompanionSetting(change, source: 'voice' | 'mcp' | 'page')`** in a new `app/features/companion/settings-apply.ts`. It is a plain function over `useUiStore.getState()`, keeping [`runtime.ts`](../../../packages/app/src/features/companion/runtime.ts)'s no-hooks rule, because a turn outlives the render that started it. It validates against A's spec and schema, refuses while `screensaverLocked` (the check `ui-requests.ts` already makes), and refuses `never` keys from `voice` and `mcp`. It returns a typed `CompanionSettingResult`: `{ ok: true, previous, next }`, or `{ ok: false, reason: 'locked' | 'never' | 'guard' | 'invalid' }` with the guard's spoken reason.
+- [x] **One-step undo.** A `lastChange { keys, previous, at, source }` slot (one change may touch several keys; see G), replaced by any change from any source. `undoLastCompanionSetting()` restores it within 60 s and otherwise reports `expired` or `nothing` (Decision 9).
+- [x] **The page writes through the setter.** Every persisted control in [`companion-page.tsx`](../../../packages/app/src/features/settings/settings-pages/companion-page.tsx) (L68-96) calls `applyCompanionSetting(…, 'page')`. Tiers don't apply to `page`, because the click is the consent, but the guards do. A page change is therefore undoable by voice and reaches the popout.
+- [x] **Popout sync.** Add the keys the companion popout reads to the [`broadcast-sync.ts`](../../../packages/app/src/services/broadcast-sync.ts) allowlist (L268): voices, volume, speak aloud, names, honorifics, personality, About me, profiles and active profile. The detached popout then never reads back a stale voice (Decision 15).
+- [x] **Persist the STT provider.** Add `companionSttProvider: 'whisper-local' | 'openai-whisper' | 'deepgram' | null` to the store. `null` keeps today's automatic resolution. Send it with the `transcribe` request so main's `resolveProviderId` ([`stt/index.ts`](../../../packages/desktop/src/main/companion/stt/index.ts) :100) honours it, and delete the page's local `useState` (L1060). The tier stays `never`.
+- [x] **The phase's one persist bump, v31 → v32.** It adds `companionSttProvider` (null), `companionProfiles` (`[]`) and `companionActiveProfile` (null), so G lands without a second migration.
+- [x] **Tests:**
   - setter result per tier, guard and lock;
   - undo replace and expiry (fake timers);
   - a page toggle routes through the setter (RTL);
@@ -158,8 +158,8 @@ Scope guardrails:
 
 ### C — The companion learns `setting` (M)
 
-- [ ] **`CompanionIntentSchema`** ([`companion.ts:2532`](../../../packages/shared/src/companion.ts)) gains `{ kind: 'setting', key, value }`. Its `key` is restricted to non-`never` keys, so neither the grammar nor the router can express a never-tier change. C establishes the pattern that E–H's intent arms follow.
-- [ ] **`parseIntent` grammar** ([`companion.ts:2674`](../../../packages/shared/src/companion.ts)) runs deterministic phrases before the router:
+- [x] **`CompanionIntentSchema`** ([`companion.ts:2532`](../../../packages/shared/src/companion.ts)) gains `{ kind: 'setting', key, value }`. Its `key` is restricted to non-`never` keys, so neither the grammar nor the router can express a never-tier change. C establishes the pattern that E–H's intent arms follow.
+- [x] **`parseIntent` grammar** ([`companion.ts:2674`](../../../packages/shared/src/companion.ts)) runs deterministic phrases before the router:
   - **voice:** "use / switch to / change your voice to ⟨voice⟩", resolved through `matchVoice`;
   - **volume:** "volume ⟨n⟩", "louder", "quieter" (±0.1);
   - **honorifics:** "call me ⟨x⟩" (add) and "stop calling me ⟨x⟩" (remove);
@@ -170,32 +170,32 @@ Scope guardrails:
   - **conversation mode:** "conversation mode on / off".
 
   A collision test runs every phrase against the existing vocabulary. "Stop" stays the `stop` intent, and "call me" must not shadow navigation or `switchRepo`.
-- [ ] **`act()` arm** ([`handoff.ts:144`](../../../packages/app/src/features/companion/handoff.ts)):
+- [x] **`act()` arm** ([`handoff.ts:144`](../../../packages/app/src/features/companion/handoff.ts)):
   - `direct` applies the change and hands off to E's read-back.
   - `confirm` sets `pendingAction` with a spoken question ("Answer to 'Nova' from now on? Say yes."), reusing the 60 s / yes / Return / Run-chip path (handoff.ts:392-424).
   - A never-tier request reaching `act()` from free speech gets "That one's in Settings, Companion — want me to open it?", and "yes" navigates there.
   - An ambiguous voice asks "Bella or Isabella?" (Decision 10).
-- [ ] **The router learns the settings.** `CompanionVocabulary` gains `settings`: key, aliases, allowed values and tier for non-`never` keys only. `routeVocabularyLines` ([`ask.ts:178`](../../../packages/desktop/src/main/companion/ask.ts)) lists them, so "make your voice a bit more British" routes to a `setting`. `parseAskReply` (`companion.ts:3077`) fixtures cover a valid `setting` reply, an unknown key, an out-of-range value and a `never`-tier key, each of which must be dropped.
-- [ ] **"Try: …" hints on the page.** One muted line under each voice-settable control, taken from `COMPANION_SETTING_SPECS[key].example` (for example "Try: 'use voice Bella'"). Never-tier controls get no hint.
-- [ ] **`help` mentions settings**, for example "You can tell me to change my voice, what I call you, or how loud I am."
-- [ ] **Tests:**
+- [x] **The router learns the settings.** `CompanionVocabulary` gains `settings`: key, aliases, allowed values and tier for non-`never` keys only. `routeVocabularyLines` ([`ask.ts:178`](../../../packages/desktop/src/main/companion/ask.ts)) lists them, so "make your voice a bit more British" routes to a `setting`. `parseAskReply` (`companion.ts:3077`) fixtures cover a valid `setting` reply, an unknown key, an out-of-range value and a `never`-tier key, each of which must be dropped.
+- [x] **"Try: …" hints on the page.** One muted line under each voice-settable control, taken from `COMPANION_SETTING_SPECS[key].example` (for example "Try: 'use voice Bella'"). Never-tier controls get no hint.
+- [x] **`help` mentions settings**, for example "You can tell me to change my voice, what I call you, or how loud I am."
+- [x] **Tests:**
   - a `parseIntent` table of ≥30 phrasings, including whisper-style mistranscriptions and the collision set;
   - `act()` per tier, with ports;
   - the router fixtures.
 
 ### D — `companion_settings_*` on `midnite` (M)
 
-- [ ] **`MCP_TOOLS`** ([`mcp.ts:335`](../../../packages/shared/src/mcp.ts)) gains three tools, each with a description ≤220 chars:
+- [x] **`MCP_TOOLS`** ([`mcp.ts:335`](../../../packages/shared/src/mcp.ts)) gains three tools, each with a description ≤220 chars:
   - **`companion_settings_get`** (`readOnly: true`): every spec'd key's value, tier and allowed values. Never-tier keys are returned with `settable: false`, and no secret is ever included.
   - **`companion_settings_set`** (`{ key, value }`): returns `{ status: 'applied' | 'approved' | 'declined' | 'timeout' | 'refused', reason?, previous?, next? }`.
   - **`companion_voices_list`** (`readOnly: true`): the local Kokoro list with spoken names and a `downloaded` flag, plus the system voices fetched from the renderer.
-- [ ] **`CompanionUiActionSchema`** ([`schemas.ts:4147`](../../../packages/shared/src/ipc/schemas.ts)) gains `setting`, `settingsState` and `voices` arms, each with its own result arm in `CompanionUiResultValueSchema`. [`ui-requests.ts`](../../../packages/app/src/features/companion/ui-requests.ts) handles them by calling B's setter with `source: 'mcp'`.
-- [ ] **A per-action timeout on `requestUiAction`** ([`ui-bridge.ts:60`](../../../packages/desktop/src/main/companion/ui-bridge.ts)). 5 s stays the default. A confirm-tier `setting` waits **30 s** for the in-app answer: the companion asks aloud and shows the Run/Cancel chip when enabled; when disabled, `confirm-dialog.tsx` asks with no speech (Decision 3). On timeout the tool returns `timeout`, and **nothing applies afterwards**: a late "yes" gets "Too late — ask your agent again."
-- [ ] **A new Settings ▸ MCP switch, `allowCompanionSettings`.** It lands in the next `mcp-store.ts` version, defaults to false, is read with `=== true` like `allowUi`, and is mirrored in [`ui-gate.ts`](../../../packages/desktop/src/main/mcp/ui-gate.ts). It gates the **whole** `companion_*` family, reads included, because About me is personal (Decision 13). With the switch off, every tool returns a refusal that names the switch.
-- [ ] **MCP changes are visible and undoable.** Every MCP-originated change is announced by E's read-back, prefixed "Your agent changed…", and takes the undo slot, so "undo that" reverts an agent's change.
-- [ ] **Handlers** in `desktop/src/main/mcp/companion-tools.ts`, wired into `MCP_HANDLERS` ([`dispatch.ts:119`](../../../packages/desktop/src/main/mcp/dispatch.ts)); its mapped type makes a missing handler a type error.
-- [ ] **Docs.** A paragraph in [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md)'s MCP section, and a note in [`outstanding.md`](../../outstanding.md) (L265-290) recording that this family settles the consent question as switch + tier + in-app confirm. The general MCP-write question stays open for other families.
-- [ ] **Tests:**
+- [x] **`CompanionUiActionSchema`** ([`schemas.ts:4147`](../../../packages/shared/src/ipc/schemas.ts)) gains `setting`, `settingsState` and `voices` arms, each with its own result arm in `CompanionUiResultValueSchema`. [`ui-requests.ts`](../../../packages/app/src/features/companion/ui-requests.ts) handles them by calling B's setter with `source: 'mcp'`.
+- [x] **A per-action timeout on `requestUiAction`** ([`ui-bridge.ts:60`](../../../packages/desktop/src/main/companion/ui-bridge.ts)). 5 s stays the default. A confirm-tier `setting` waits **30 s** for the in-app answer: the companion asks aloud and shows the Run/Cancel chip when enabled; when disabled, `confirm-dialog.tsx` asks with no speech (Decision 3). On timeout the tool returns `timeout`, and **nothing applies afterwards**: a late "yes" gets "Too late — ask your agent again."
+- [x] **A new Settings ▸ MCP switch, `allowCompanionSettings`.** It lands in the next `mcp-store.ts` version, defaults to false, is read with `=== true` like `allowUi`, and is mirrored in [`ui-gate.ts`](../../../packages/desktop/src/main/mcp/ui-gate.ts). It gates the **whole** `companion_*` family, reads included, because About me is personal (Decision 13). With the switch off, every tool returns a refusal that names the switch.
+- [x] **MCP changes are visible and undoable.** Every MCP-originated change is announced by E's read-back, prefixed "Your agent changed…", and takes the undo slot, so "undo that" reverts an agent's change. *(D lands the undo slot (the setter's `source: 'mcp'`) and a toast plus transcript line, "Your agent changed my …", from `ui-requests.ts`; E's spoken read-back with Undo toast replaces that announcement through `announceCompanionSettingChange(result, 'mcp')`, which was not on main when D merged. **Completed by C + E ([PR #815](https://github.com/bilo-io/midnite-studio/pull/815))**: `resolveSettingAction` now calls it for both `applied` and `approved` changes, and D's local `announceSetting` is gone.)*
+- [x] **Handlers** in `desktop/src/main/mcp/companion-tools.ts`, wired into `MCP_HANDLERS` ([`dispatch.ts:119`](../../../packages/desktop/src/main/mcp/dispatch.ts)); its mapped type makes a missing handler a type error.
+- [x] **Docs.** A paragraph in [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md)'s MCP section, and a note in [`outstanding.md`](../../outstanding.md) (L265-290) recording that this family settles the consent question as switch + tier + in-app confirm. The general MCP-write question stays open for other families. *(Done as `outstanding.md`'s note only: `INITIAL_PLAN.md` has no MCP section — Phase 81 Theme F recorded the same finding and declined to add one to the frozen MVP doc.)*
+- [x] **Tests:**
   - handler per tool;
   - switch off → refused;
   - locked → refused;
@@ -205,11 +205,11 @@ Scope guardrails:
 
 ### E — Read-back and spoken undo (S)
 
-- [ ] **Spoken read-back.** Each applied change speaks `spec.readBack(next)` through [`speaker.ts`](../../../packages/app/src/features/companion/speaker.ts) *after* the store write. Because `speaker.ts` reads `companionVoices.local` per utterance (L437), a voice change is confirmed in the new voice ("This is Bella now."). The `readBackBeforeApply` effect reverses the order for `companionSpeakAloud → false` and for name changes.
-- [ ] **Phrasing is varied**, drawn from a small pool per key in the style of Phase 80's phrase tables, so ten volume changes don't all sound the same.
-- [ ] **An `undoSetting` intent.** "Undo that", "put it back" and "change it back" call `undoLastCompanionSetting()` and read back the restored value. "Nothing to undo" and "That was too long ago" cover the empty and expired cases.
-- [ ] **An Undo toast** for `voice`- and `mcp`-originated changes, showing the same 60 s window. Page changes get none, since the control is right there.
-- [ ] **Tests:**
+- [x] **Spoken read-back.** Each applied change speaks `spec.readBack(next)` through [`speaker.ts`](../../../packages/app/src/features/companion/speaker.ts) *after* the store write. Because `speaker.ts` reads `companionVoices.local` per utterance (L437), a voice change is confirmed in the new voice ("This is Bella now."). The `readBackBeforeApply` effect reverses the order for `companionSpeakAloud → false` and for name changes.
+- [x] **Phrasing is varied**, drawn from a small pool per key in the style of Phase 80's phrase tables, so ten volume changes don't all sound the same.
+- [x] **An `undoSetting` intent.** "Undo that", "put it back" and "change it back" call `undoLastCompanionSetting()` and read back the restored value. "Nothing to undo" and "That was too long ago" cover the empty and expired cases.
+- [x] **An Undo toast** for `voice`- and `mcp`-originated changes, showing the same 60 s window. Page changes get none, since the control is right there.
+- [x] **Tests:**
   - write-then-speak order, and the reverse for mute;
   - undo after a voice change and after an MCP change;
   - expiry;
@@ -217,8 +217,8 @@ Scope guardrails:
 
 ### F — Voice audition (M)
 
-- [ ] **An `audition` intent:** "try some voices", "audition British voices", "let me hear female voices". It filters `COMPANION_LOCAL_VOICES` by the accent and gender descriptors and picks 3–4 voices in a deterministic order, never the current one.
-- [ ] **Playback.** Each sample goes through `ttsSynthesize` with a fixed, numbered line ("Hi, I'm number two — Bella."). A turn state machine in [`conversation.ts`](../../../packages/app/src/features/companion/conversation.ts) handles the replies:
+- [x] **An `audition` intent:** "try some voices", "audition British voices", "let me hear female voices". It filters `COMPANION_LOCAL_VOICES` by the accent and gender descriptors and picks 3–4 voices in a deterministic order, never the current one.
+- [x] **Playback.** Each sample goes through `ttsSynthesize` with a fixed, numbered line ("Hi, I'm number two — Bella."). A turn state machine in [`conversation.ts`](../../../packages/app/src/features/companion/conversation.ts) handles the replies:
   - "number two" / "two": picks that voice;
   - "that one": the last voice played;
   - "next": the next batch;
@@ -226,9 +226,9 @@ Scope guardrails:
   - "none" / "stop": ends the audition.
 
   A pick applies through B's setter (direct tier), and E's read-back follows.
-- [ ] **Fallback.** If the Kokoro model isn't downloaded, or the tts-broker fails, it auditions system voices from `speechSynthesis.getVoices()` and says so once.
-- [ ] **Barge-in.** Speaking during a sample cancels it, reusing `stop`. The audition works in push, toggle and conversation mode.
-- [ ] **Tests:**
+- [x] **Fallback.** If the Kokoro model isn't downloaded, or the tts-broker fails, it auditions system voices from `speechSynthesis.getVoices()` and says so once.
+- [x] **Barge-in.** Speaking during a sample cancels it, reusing `stop`. The audition works in push, toggle and conversation mode.
+- [x] **Tests:**
   - filter and selection;
   - every state-machine transition;
   - the system-voice fallback;
@@ -236,16 +236,16 @@ Scope guardrails:
 
 ### G — Persona profiles (M)
 
-- [ ] **`CompanionProfileSchema`** `{ id, name, voices: { local, system }, personality, honorifics, createdAt }` in [`companion.ts`](../../../packages/shared/src/companion.ts). It deliberately excludes names, so the wake word never changes on a profile switch (Decision 5). The store holds `companionProfiles` (≤20) and `companionActiveProfile` (id or null), both added by B's v32 migration.
-- [ ] **Switching is one change.** A switch writes the profile's voice, personality and honorifics through the setter as a single change, and undo restores all of them. Editing any of those fields while a profile is active marks it *modified* rather than silently rewriting it.
-- [ ] **Voice commands:**
+- [x] **`CompanionProfileSchema`** `{ id, name, voices: { local, system }, personality, honorifics, createdAt }` in [`companion.ts`](../../../packages/shared/src/companion.ts). It deliberately excludes names, so the wake word never changes on a profile switch (Decision 5). The store holds `companionProfiles` (≤20) and `companionActiveProfile` (id or null), both added by B's v32 migration.
+- [x] **Switching is one change.** A switch writes the profile's voice, personality and honorifics through the setter as a single change, and undo restores all of them. Editing any of those fields while a profile is active marks it *modified* rather than silently rewriting it.
+- [x] **Voice commands:**
   - "save this as Narrator" (confirm if the name exists, since it overwrites);
   - "switch to Narrator" / "be Narrator" (direct);
   - "delete the Narrator profile" (confirm);
   - "what profiles do I have?" (lists them).
-- [ ] **A Profiles section on the page.** It shows the list with an active badge and a modified dot, and offers Save current as…, Rename, Delete (via `confirm-dialog.tsx`) and Set active.
-- [ ] **MCP:** `companion_profile_list` (read), and `companion_profile_save`, `_switch` and `_delete`. Delete is confirm-tier and waits like D. All four are behind `allowCompanionSettings`.
-- [ ] **Tests:**
+- [x] **A Profiles section on the page.** It shows the list with an active badge and a modified dot, and offers Save current as…, Rename, Delete (via `confirm-dialog.tsx`) and Set active.
+- [x] **MCP:** `companion_profile_list` (read), and `companion_profile_save`, `_switch` and `_delete`. Delete is confirm-tier and waits like D. All four are behind `allowCompanionSettings`.
+- [x] **Tests:**
   - schema;
   - switch-as-one-undo;
   - overwrite confirm;
@@ -255,18 +255,18 @@ Scope guardrails:
 
 ### H — "Tune me" and quick tweaks (L)
 
-- [ ] **A `tune` intent:** "let's change your personality", "tune yourself", and "let me tell you about me" (target: About me). It runs a guided state machine in [`conversation.ts`](../../../packages/app/src/features/companion/conversation.ts) with 3–4 fixed questions:
+- [x] **A `tune` intent:** "let's change your personality", "tune yourself", and "let me tell you about me" (target: About me). It runs a guided state machine in [`conversation.ts`](../../../packages/app/src/features/companion/conversation.ts) with 3–4 fixed questions:
   - **personality:** tone, how much it talks, humour, what to avoid;
   - **About me:** what to call you, what you work on, how you like updates.
 
   "Skip", "start over" and "cancel" work at any point.
-- [ ] **A `'persona'` mode in [`ask.ts`](../../../packages/desktop/src/main/companion/ask.ts)** beside `'route'`. The prompt carries the answers, the current text and `personaLines`' constraints (L214), and the mode returns `{ text ≤ 4000, summary ≤ 200 }`. The reply is validated by a `parseAskReply` extension and keeps the existing 30 s timeout. On failure it falls back to the template.
-- [ ] **The template fallback** for no CLI or a failed ask: a deterministic `buildPersonaFromAnswers(target, answers)` in shared fills a fixed template, and its summary is the first sentence (Decision 6).
-- [ ] **Read-back, then confirm.** The companion speaks the summary and asks "Want to hear all of it?", reading the full text on yes. It then applies through the confirm tier, and the change is undoable (Decision 11).
-- [ ] **A `tweak` intent:** "be more sarcastic", "talk less", "stop being so formal". It sends `{ instruction, current }` to the `'persona'` mode and gets back revised text and a summary, which it reads before asking you to confirm. Honorific phrasings ("don't call me boss") stay C's `setting` intent. With no CLI it says: "I need an agent CLI for that — want me to open Settings, Companion?"
-- [ ] **No raw dictation.** Only `tune` and `tweak` can produce a personality or About me write: A's guard refuses text keys from any other origin, and a test asserts that `parseIntent` and the router can't.
-- [ ] **Interview answers are ordinary turns** in the companion thread, with no new persistence.
-- [ ] **Tests:**
+- [x] **A `'persona'` mode in [`ask.ts`](../../../packages/desktop/src/main/companion/ask.ts)** beside `'route'`. The prompt carries the answers, the current text and `personaLines`' constraints (L214), and the mode returns `{ text ≤ 4000, summary ≤ 200 }`. The reply is validated by a `parseAskReply` extension and keeps the existing 30 s timeout. On failure it falls back to the template.
+- [x] **The template fallback** for no CLI or a failed ask: a deterministic `buildPersonaFromAnswers(target, answers)` in shared fills a fixed template, and its summary is the first sentence (Decision 6).
+- [x] **Read-back, then confirm.** The companion speaks the summary and asks "Want to hear all of it?", reading the full text on yes. It then applies through the confirm tier, and the change is undoable (Decision 11).
+- [x] **A `tweak` intent:** "be more sarcastic", "talk less", "stop being so formal". It sends `{ instruction, current }` to the `'persona'` mode and gets back revised text and a summary, which it reads before asking you to confirm. Honorific phrasings ("don't call me boss") stay C's `setting` intent. With no CLI it says: "I need an agent CLI for that — want me to open Settings, Companion?"
+- [x] **No raw dictation.** Only `tune` and `tweak` can produce a personality or About me write: A's guard refuses text keys from any other origin, and a test asserts that `parseIntent` and the router can't.
+- [x] **Interview answers are ordinary turns** in the companion thread, with no new persistence.
+- [x] **Tests:**
   - every interview state transition;
   - a snapshot of the `'persona'` prompt;
   - `parseAskReply` fixtures for persona replies;

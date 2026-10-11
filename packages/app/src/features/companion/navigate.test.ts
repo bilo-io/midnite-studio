@@ -32,7 +32,7 @@ vi.mock('../../services/bridge', () => ({
     }) as unknown,
 }));
 
-import { navigateCompanion, resolveNavigation, type NavigationState } from './navigate';
+import { handleCompanionRelayAction, navigateCompanion, resolveNavigation, type NavigationState } from './navigate';
 import { useBrowserStore } from '../../store/browser-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useIssueModalStore } from '../../store/issue-modal-store';
@@ -175,7 +175,7 @@ describe('navigateCompanion', () => {
     const outcome = await navigateCompanion(navigate({ view: 'tasks', issue: 212 }));
     expect(useUiStore.getState().activeView).toBe('tasks');
     expect(useIssueModalStore.getState().target).toEqual({ repoId: 'r1', number: 212 });
-    expect(outcome.say).toBe('Here\'s the Tasks.');
+    expect(outcome.say).toBe("Here's issue 212.");
   });
 
   it('focuses an already-detached page instead of opening a second copy', async () => {
@@ -253,5 +253,29 @@ describe('navigateCompanion', () => {
     const outcome = await promise;
     expect(outcome.say).toBe('The main window did not answer.');
     vi.useRealTimers();
+  });
+});
+
+describe('navigate { target } (Phase 112 Theme B)', () => {
+  beforeEach(() => {
+    mocks.windowRole = 'main';
+    mocks.relay.mockClear();
+    useUiStore.setState({ activeView: 'dashboard', detachedPages: [], screensaverLocked: false, selectedRepoId: 'r1' });
+    useFileEditorStore.setState({ target: null, content: '', savedContent: '', pendingNav: null });
+  });
+
+  it('goes through the reveal engine and speaks its sentence', async () => {
+    const outcome = await navigateCompanion(navigate({ target: { kind: 'note', id: 'n1' } }));
+    expect(useUiStore.getState().activeView).toBe('notes');
+    expect(outcome.say).toBe("I couldn't find that note.");
+  });
+
+  it('answers a relayed reveal with its real outcome and reason', async () => {
+    handleCompanionRelayAction({ kind: 'navigate', target: { kind: 'note', id: 'n1' } }, 'reply-1');
+    await vi.waitFor(() => expect(mocks.relay).toHaveBeenCalled());
+    expect(mocks.relay.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'companion',
+      payload: { replyTo: 'reply-1', result: { ok: false, reason: 'not-found' } },
+    });
   });
 });
