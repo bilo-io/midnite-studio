@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-11 — Phase 112 Themes C, D — Git, forge and agent-work revealers
 
-[PR #PRNUM](https://github.com/bilo-io/midnite-studio/pull/PRNUM). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+[PR #825](https://github.com/bilo-io/midnite-studio/pull/825). [Phase 112](phases/phase-112-companion-deep-navigation.md)
 Themes C and D: the companion and MCP agents can now open a specific commit, ref, stash, file (at a line), a file's diff in a
 commit, a PR, an issue, a CI run or job, and a chat, session, council, workflow run, board or kanban card.
 
