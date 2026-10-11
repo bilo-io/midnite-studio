@@ -100,7 +100,7 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 **Theme H — Grammar, ambiguity and follow-ups.** ✅ [PR #828](https://github.com/bilo-io/midnite-studio/pull/828). `parseIntent` recognises target phrases after the navigate verbs (`shared/src/companion-resource.ts`: a kind word plus a description, a recency word or an exact id) and emits `navigate { query }` — an unresolved phrase, not a fake `ResourceRef` kind — which `resource-handoff.ts` resolves through `findResources`: one match opens, recency and exact-id requests open their best match, several say "Three chats match — the first is X." and post numbered chips (a new `choice` arm on `PendingAction`; "two", "the second", a chip click or yes/Return resolves it, 60 s expiry, a new request replaces it), none says "I couldn't find…". Follow-ups (`navigate { reference, about?, related? }`) read the live selection or `lastRevealed`: "this chat", "the next/previous one" (chats, graph rows, live sessions, cached PRs), "its PR/commit/run" through a small `RELATED` map (commit, PR and CI run hop to each other; card to PR not built), and "go back" runs `panel.back`. Verb order is repo, then agent/model, then view, then resource. `ask.ts` teaches the router the `query`/`target`/`reference` shapes.
 
-**Theme I — MCP `ui.reveal`/`ui.find` and the deep link.** ◻ Two tools behind `allowUi` (titles and ids only), `ui.navigate.url`, `ui.state.selection`, and `midnite-studio://reveal?ref=`.
+**Theme I — MCP `ui.reveal`/`ui.find` and the deep link.** ✅ [PR #827](https://github.com/bilo-io/midnite-studio/pull/827). `ui.reveal` and `ui.find` sit behind `allowUi` (both refused with it off, before any IPC); `ui.find` returns ref, title, detail and a `midnite-studio://reveal?ref=<base64url JSON>` link per match, never bodies. `ui.navigate` takes `url` (a `browserTab` reveal) and `ui.state` reports `lastRevealed`. `resourceRefLink`/`decodeResourceRefParam` live in `shared`; `parseDeepLink` accepts `reveal` (an invalid payload gives `ref: null`, which the renderer toasts) and `useDeepLinks` runs `revealResource(ref, {caller:'link'})`. Deferred: `ui.state.selection`, and moving the `issue` navigate path onto the table.
 
 ---
 
@@ -284,20 +284,20 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 ### I — MCP `ui.reveal`/`ui.find` and the deep link (M)
 
-- [ ] `MCP_TOOLS` in [`mcp.ts`](../../../packages/shared/src/mcp.ts) gains `ui.reveal`
+- [x] `MCP_TOOLS` in [`mcp.ts`](../../../packages/shared/src/mcp.ts) gains `ui.reveal`
       (`readOnly: false`, input `{ ref: ResourceRef }`, output `{ did, label }`) and `ui.find`
       (`readOnly: true`, input `{ query; kinds?; limit? ≤ 20 }`, output `{ matches: { ref; title; detail?; link }[] }`
       — **titles and ids only, never bodies**). Both are gated by the existing `allowUi` switch in
       [`mcp-store.ts`](../../../packages/desktop/src/main/mcp-store.ts); `ui.find` is refused with
       the switch off too, because it enumerates the user's work. Descriptions obey the `mcp.test.ts`
       ≤ 220-char rule.
-- [ ] `ui.navigate` gains the missing `url` field; `ui.state` gains `selection: ResourceRef | null`
-      and `lastRevealed: ResourceRef | null`.
-- [ ] Main side: both go through [`ui-bridge.ts`](../../../packages/desktop/src/main/companion/ui-bridge.ts)
+- [x] `ui.navigate` gains the missing `url` field (opens as a `browserTab` reveal); `ui.state` gains
+      `lastRevealed: ResourceRef | null`. *`selection` deferred: no store exposes "the selected resource" yet.*
+- [x] Main side: both go through [`ui-bridge.ts`](../../../packages/desktop/src/main/companion/ui-bridge.ts)
       `requestUiAction` (5 s timeout); renderer side [`ui-requests.ts`](../../../packages/app/src/features/companion/ui-requests.ts)
       runs `revealResource(…, { caller: 'mcp' })` / `findResources`, posts the existing *"Agent:
       opened {label}"* toast, and records in the audit ring.
-- [ ] **Deep link:** [`protocol-parse.ts`](../../../packages/desktop/src/main/protocol-parse.ts)
+- [x] **Deep link:** [`protocol-parse.ts`](../../../packages/desktop/src/main/protocol-parse.ts)
       accepts `midnite-studio://reveal?ref=<base64url JSON>`, validated with `ResourceRefSchema`,
       and forwards it to the main window as a `reveal` action (`caller: 'link'`). `resourceRefLink(ref)`
       in `shared` builds the URL; `ui.find` results carry it. An invalid ref is a toast, never a throw.

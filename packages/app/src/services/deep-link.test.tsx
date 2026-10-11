@@ -10,6 +10,7 @@ import { DialogHost } from '../components/dialog-host';
 import { ToastHost } from '../components/toast-host';
 import { useToastStore } from '../store/toast-store';
 import { useUiStore } from '../store/ui-store';
+import { revealResource } from '../features/companion/reveal/reveal';
 import { useDeepLinks } from './deep-link';
 
 const mocks = vi.hoisted(() => ({
@@ -60,6 +61,8 @@ const emit = (link: DeepLink, known: boolean) => {
     mocks.onDeepLink?.({ link, known });
   });
 };
+
+vi.mock('../features/companion/reveal/reveal', () => ({ revealResource: vi.fn() }));
 
 describe('useDeepLinks', () => {
   beforeEach(() => {
@@ -122,5 +125,18 @@ describe('useDeepLinks', () => {
     expect(screen.getByRole('dialog')).toBeDefined();
     expect(screen.getByText(/https:\/\/github\.com\/foo\/bar\.git/)).toBeDefined();
     expect(useUiStore.getState().selectedRepoId).toBeNull();
+  });
+
+  it('a reveal link runs the engine with caller: link; an invalid ref is a toast', async () => {
+    vi.mocked(revealResource).mockResolvedValue({ ok: true, did: 'revealed', label: 'PR 7' } as never);
+    render(<Harness />, { wrapper });
+    const ref = { kind: 'pull', repoId: 'repo:/r', number: 7 } as const;
+    emit({ kind: 'reveal', ref }, false);
+    expect(revealResource).toHaveBeenCalledWith(ref, { caller: 'link' });
+
+    vi.mocked(revealResource).mockClear();
+    emit({ kind: 'reveal', ref: null }, false);
+    expect(revealResource).not.toHaveBeenCalled();
+    expect(useToastStore.getState().toasts.length).toBeGreaterThan(0);
   });
 });

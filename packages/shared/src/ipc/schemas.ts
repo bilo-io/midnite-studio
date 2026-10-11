@@ -2921,6 +2921,8 @@ export const OptimizerSystemReclaimResponse = OptimizerResultOf(
 export const DeepLinkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('open'), repo: z.string() }),
   z.object({ kind: z.literal('clone'), url: z.string() }),
+  /** Phase 112 Theme I — `ref` is `null` for a link whose payload failed validation, so the renderer can toast it. */
+  z.object({ kind: z.literal('reveal'), ref: ResourceRefSchema.nullable() }),
 ]);
 export type DeepLink = z.infer<typeof DeepLinkSchema>;
 export const DeepLinkEventSchema = z.object({
@@ -4240,6 +4242,7 @@ export const CompanionUiResultValueSchema = z.union([
     detached: z.array(WindowRoleSchema),
     repoPath: z.string().nullable(),
     locked: z.boolean(),
+    lastRevealed: ResourceRefSchema.nullable().optional(),
   }),
   z.object({ did: z.enum(['navigated', 'focused-window']), view: z.enum(VIEW_IDS) }),
   z.object({ did: z.literal('ran'), label: z.string() }),

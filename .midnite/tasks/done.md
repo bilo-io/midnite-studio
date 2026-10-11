@@ -12,6 +12,14 @@ Theme H: "open my chat about auth" resolves through Theme G, asks which one when
 - **router:** `ask.ts` documents the new shapes; `parseAskReply` fixtures for each.
 - **e2e:** one `companion-panel.spec.ts` spec (budget 479 to 480); chip screenshots in `docs/screenshots/p112-h/`.
 
+## 2026-10-11 — Phase 112 Theme I — MCP `ui.reveal`/`ui.find` and the deep link
+
+[PR #827](https://github.com/bilo-io/midnite-studio/pull/827). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Theme I: an MCP agent (or a pasted link) can open any resource by `ref`, and can search for one.
+
+- **tools:** `ui.reveal` and `ui.find` behind `allowUi`; `ui.find` adds a deep `link` per match and returns titles and ids only. `ui.navigate.url`, `ui.state.lastRevealed`.
+- **link:** `midnite-studio://reveal?ref=<base64url JSON>`, built by `resourceRefLink`, validated by `ResourceRefSchema`; invalid is a toast.
+- **deferred:** `ui.state.selection`; the `issue` navigate path onto the table.
 ## 2026-10-11 — Phase 112 Theme G — The resolver
 
 [PR #826](https://github.com/bilo-io/midnite-studio/pull/826). [Phase 112](phases/phase-112-companion-deep-navigation.md)

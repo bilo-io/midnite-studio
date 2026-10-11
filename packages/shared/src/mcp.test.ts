@@ -22,6 +22,7 @@ describe('MCP_TOOLS', () => {
   const writeTools = new Set<McpToolId>([
     'ui.navigate',
     'ui.command',
+    'ui.reveal',
     'workflow_gate_decide',
     'model_open',
     'model_set_spec',
@@ -180,8 +181,11 @@ describe('MCP_TOOLS', () => {
       repoPath: null,
       locked: false,
       uiToolsEnabled: false,
+      lastRevealed: null,
     },
     'ui.navigate': { did: 'navigated', view: 'graph' },
+    'ui.reveal': { did: 'revealed', label: 'PR 1' },
+    'ui.find': { matches: [] },
     'ui.command': { did: 'ran', label: 'Fetch' },
     workflow_gates_list: [],
     workflow_gate_decide: { decided: true },
@@ -339,6 +343,8 @@ describe('MCP_TOOLS', () => {
       'ui.state': {},
       'ui.navigate': { view: 'graph' },
       'ui.command': { id: 'sync.fetch' },
+      'ui.reveal': { ref: { kind: 'note', id: 'n1' } },
+      'ui.find': { query: 'auth' },
       // Workflows are global, not repo-scoped (`workflow.ts`'s own doc
       // comment) — neither gate tool extends `McpRepoTarget`.
       workflow_gates_list: {},

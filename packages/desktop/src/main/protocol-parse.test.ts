@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resourceRefLink } from '@midnite/studio-shared';
 import { parseDeepLink } from './protocol-parse';
 
 describe('parseDeepLink', () => {
@@ -21,5 +22,17 @@ describe('parseDeepLink', () => {
     expect(parseDeepLink('midnite-studio://open?repo=relative/path')).toBeNull();
     expect(parseDeepLink('midnite-studio://open?repo=/tmp%00foo')).toBeNull();
     expect(parseDeepLink('midnite-studio://clone?url=file%3A%2F%2Fetc%2Fpasswd')).toBeNull();
+  });
+
+  it('parses a reveal link carrying a ResourceRef', () => {
+    const ref = { kind: 'pull', repoId: 'repo:/r', number: 812 } as const;
+    expect(parseDeepLink(resourceRefLink(ref))).toEqual({ kind: 'reveal', ref });
+  });
+
+  it('answers a malformed or schema-failing reveal ref with ref: null, never a throw', () => {
+    expect(parseDeepLink('midnite-studio://reveal?ref=***')).toEqual({ kind: 'reveal', ref: null });
+    expect(parseDeepLink('midnite-studio://reveal')).toEqual({ kind: 'reveal', ref: null });
+    const bad = btoa(JSON.stringify({ kind: 'pull', number: -1 })).replace(/=+$/, '');
+    expect(parseDeepLink(`midnite-studio://reveal?ref=${bad}`)).toEqual({ kind: 'reveal', ref: null });
   });
 });

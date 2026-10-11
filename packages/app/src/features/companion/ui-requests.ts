@@ -52,6 +52,7 @@ import { announceCompanionProfileSwitch, announceCompanionSettingChange } from '
 import { loadCompanionVoices } from './speaker';
 import { buildAgentStateReply, buildModelsListReply, resolveAgentSet } from './agent-switch';
 import { revealResource } from './reveal/reveal';
+import { lastRevealed } from './reveal/reveal-history';
 import { findResources } from './reveal/resolve';
 
 /**
@@ -206,6 +207,7 @@ async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: 
     detached,
     repoPath: await selectedRepoPath(),
     locked: ui.screensaverLocked,
+    lastRevealed: lastRevealed(),
   };
 }
 
