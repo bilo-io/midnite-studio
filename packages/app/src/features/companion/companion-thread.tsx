@@ -110,10 +110,38 @@ export function CompanionThread({ turns }: { turns: readonly CompanionTurn[] }) 
     existing turn replaces the array identity without adding anything to scroll
     to (`companion-store.ts`).
   */
+  /*
+    One exception to "only while already at the bottom": a turn the user just
+    said or sent themselves. Their own words are the thing they are looking
+    for, wherever they had scrolled to — the same rule the Chats thread
+    follows (`chat-thread.tsx`). Setting `pinned` re-runs this effect, which
+    then scrolls like any other pinned arrival.
+  */
+  const lastRole = turns[turns.length - 1]?.role;
+  const seenCount = useRef(turns.length);
   useLayoutEffect(() => {
+    const grew = turns.length > seenCount.current;
+    seenCount.current = turns.length;
+    if (grew && lastRole === 'user' && !pinned) {
+      setPinned(true);
+      return;
+    }
     if (!pinned || turns.length === 0) return;
     virtualizer.scrollToIndex(turns.length - 1, { align: 'end' });
-  }, [turns.length, pinned, virtualizer]);
+  }, [turns.length, lastRole, pinned, virtualizer]);
+
+  /*
+    `scrollToIndex` aims at the *estimated* end of the last row; the row is
+    measured after it renders, and a wrapped turn taller than the estimate
+    would otherwise leave the newest words below the fold. While pinned, the
+    measured total size changing is followed to the true bottom.
+  */
+  const totalSize = virtualizer.getTotalSize();
+  useLayoutEffect(() => {
+    if (!pinned) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [totalSize, pinned]);
 
   if (turns.length === 0) {
     return (

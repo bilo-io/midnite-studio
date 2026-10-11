@@ -39,6 +39,13 @@ export type ComposerMic = {
    * sends when it moves, once the text it carried is in the field.
    */
   autoSendSeq?: number;
+  /**
+   * Bumped each time *any* spoken phrase lands in this composer — a held press
+   * or a conversation-mode phrase alike. `AiComposer` scrolls the field to the
+   * end and puts the caret after it, so what was just said is what is on
+   * screen even when the draft has grown past the field's height.
+   */
+  dictationSeq?: number;
 };
 
 /**
@@ -58,6 +65,7 @@ export function useComposerMic(
   const { onTranscript, onInterrupt } = options;
   const [held, setHeld] = useState(false);
   const [autoSendSeq, setAutoSendSeq] = useState(0);
+  const [dictationSeq, setDictationSeq] = useState(0);
   const available = useSyncExternalStore(
     (listener) => companionPorts().onMicAvailabilityChange(listener),
     () => companionPorts().micAvailable(),
@@ -76,6 +84,7 @@ export function useComposerMic(
   const deliverRef = useRef<(text: string) => void>(() => {});
   deliverRef.current = (text) => {
     (onTranscript ?? companionPorts().transcriptSink)(text);
+    setDictationSeq((seq) => seq + 1);
     setAutoSendSeq((seq) => seq + 1);
   };
   const owner = useMemo<ConversationOwner>(() => ({ deliver: (text) => deliverRef.current(text) }), []);
@@ -110,7 +119,13 @@ export function useComposerMic(
     if (!companionPorts().micAvailable()) return;
     (onInterrupt ?? (() => companionPorts().interrupt()))();
     setHeld(true);
-    setNextTranscriptSink(onTranscript ?? null);
+    // Wrapped rather than handed over bare, so this composer hears that its
+    // dictation landed (`dictationSeq`); where the text goes is unchanged —
+    // the caller's sink, or the companion's own input bar's.
+    setNextTranscriptSink((text) => {
+      (onTranscript ?? companionPorts().transcriptSink)(text);
+      setDictationSeq((seq) => seq + 1);
+    });
     companionPorts().micPressStart();
   }, [onInterrupt, onTranscript, toggleListening]);
 
@@ -152,5 +167,6 @@ export function useComposerMic(
     toggleConversation,
     toggleListening,
     autoSendSeq,
+    dictationSeq,
   };
 }
