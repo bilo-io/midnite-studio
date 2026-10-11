@@ -263,7 +263,10 @@ export async function findResources(query: string, opts: FindOptions = {}): Prom
   const hasText = parsed.terms.length > 0 || parsed.softTerms.length > 0;
   if (!hasText && parsed.exact.length === 0 && kinds.length === 0) return [];
 
-  const allowed: readonly ResourceKind[] = kinds.length > 0 ? kinds : RESOURCE_KINDS;
+  // A bare id asks only the sources that could own it — "a1b2c3d" is a commit, "#812" a PR or issue.
+  const exactOnly = parsed.exact.length > 0 && parsed.terms.length === 0;
+  const exactKinds = [...new Set(parsed.exact.flatMap((id): ResourceKind[] => (id.type === 'sha' ? ['commit'] : [...id.kinds])))];
+  const allowed: readonly ResourceKind[] = kinds.length > 0 ? kinds : exactOnly ? exactKinds : RESOURCE_KINDS;
   const allowedSet = new Set(allowed);
   const repoId = opts.repoId !== undefined ? opts.repoId : useUiStore.getState().selectedRepoId;
   const sources = (opts.sources ?? DEFAULT_SOURCES).filter(
@@ -284,7 +287,8 @@ export async function findResources(query: string, opts: FindOptions = {}): Prom
   if (parsed.exact.length > 0) {
     const found = answers.flatMap((answer) => answer ?? []).filter((c) => c.exact && admissible(c));
     const exacts = dedupe([...found, ...syntheticExacts(parsed, found, repoId, allowedSet)].map((c) => ({ candidate: c, score: EXACT_SCORE })));
-    if (exacts.length > 0) return exacts.slice(0, limit).map(({ candidate, score }) => toMatch(candidate, score));
+    // An id that names nothing answers nothing, rather than a fuzzy guess at something else.
+    if (exacts.length > 0 || exactOnly) return exacts.slice(0, limit).map(({ candidate, score }) => toMatch(candidate, score));
   }
 
   const boost = opts.boost ?? defaultBoost;

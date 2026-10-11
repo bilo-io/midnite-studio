@@ -197,6 +197,9 @@ export function resourceKindWord(token: string): KindWord | undefined {
   return Object.hasOwn(RESOURCE_KIND_WORDS, token) ? RESOURCE_KIND_WORDS[token] : undefined;
 }
 
+/** Holds a phrase's words together while the string is split. A no-break space never survives the `\s+` collapse above it. */
+const PHRASE_JOIN = '\u00a0';
+
 const SHA = /^[0-9a-f]{7,40}$/;
 const SHORT_SHA = /^[0-9a-f]{4,40}$/;
 
@@ -233,11 +236,11 @@ export function parseResourceQuery(query: string): ParsedResourceQuery {
   }
 
   // Phrases become single tokens so "pull request" is one kind word and "pull up" one stopword.
-  for (const phrase of PHRASES) s = s.split(` ${phrase} `).join(` ${phrase.replace(/ /g, '\u0000')} `);
+  for (const phrase of PHRASES) s = s.split(` ${phrase} `).join(` ${phrase.replace(/ /g, PHRASE_JOIN)} `);
   const tokens = s
     .split(' ')
     .filter((token) => token !== '')
-    .map((token) => token.replace(/\u0000/g, ' ').replace(/^[#.\-/]+|[.\-/]+$/g, ''))
+    .map((token) => token.split(PHRASE_JOIN).join(' ').replace(/^[#.\-/]+|[.\-/]+$/g, ''))
     .filter((token) => token !== '');
 
   // The head noun is the last kind word before the first preposition — or the last overall.

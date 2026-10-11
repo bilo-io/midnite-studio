@@ -132,6 +132,14 @@ describe('findResources', () => {
       ]);
     });
 
+    it('an id that names nothing answers nothing, and asks only sources that could own it', async () => {
+      const commits = source('commits', ['commit'], []);
+      const chats = source('chats', ['chat'], [chat('c', 'deadbee1 notes', 1)]);
+      expect(await findResources('commit deadbee1', { sources: [commits, chats], repoId: R })).toEqual([]);
+      expect(await findResources('deadbee1', { sources: [commits, chats], repoId: R })).toEqual([]);
+      expect(chats.load).not.toHaveBeenCalled();
+    });
+
     it('needs a repo to synthesise a forge ref', async () => {
       expect(await findResources('PR 812', { sources: [], repoId: null })).toEqual([]);
     });
