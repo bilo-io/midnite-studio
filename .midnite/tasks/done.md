@@ -12,6 +12,14 @@ Theme H: "open my chat about auth" resolves through Theme G, asks which one when
 - **router:** `ask.ts` documents the new shapes; `parseAskReply` fixtures for each.
 - **e2e:** one `companion-panel.spec.ts` spec (budget 479 to 480); chip screenshots in `docs/screenshots/p112-h/`.
 
+## 2026-10-11 — Phase 111 Theme F — View synchronization
+
+[PR #829](https://github.com/bilo-io/midnite-studio/pull/829). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Theme F: a global agent/model change reaches the Chats composer and the Media generators.
+
+- **sync:** `useFollowPrimaryAgent` writes a changed selection into the Chats draft and the Models tab engine prefs (Sprites' map layout reads those); startup leaves remembered choices alone.
+- **tracker:** Theme C's boxes ticked (merged in #821); the suite item is satisfied by CI.
+- **open:** the manual mic pass; the title-bar picker cannot select Ollama (see outstanding.md).
 ## 2026-10-11 — Phase 112 Theme I — MCP `ui.reveal`/`ui.find` and the deep link
 
 [PR #827](https://github.com/bilo-io/midnite-studio/pull/827). [Phase 112](phases/phase-112-companion-deep-navigation.md)
