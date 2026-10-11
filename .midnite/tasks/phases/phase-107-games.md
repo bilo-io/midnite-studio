@@ -613,7 +613,7 @@ Lands early so every later theme is built with the agent able to play.
 
 ## G — Perspective base starters (M)
 
-> **Landed (PR #TBD).** The e2e half of the last item (`game-starters.spec.ts`) moves to Theme Q: all six bases were booted in SwiftShader Chromium (kit-vendored engines, `__midnite.step(180)` under held input) and moved as the smoke replay asserts, but a committed spec waits for Q's e2e budget raise. The replay's shape (`playtests/smoke.json`: `input`/`assert` with `equals`, `increasedFromFrame`, `decreasedFromFrame`) is Theme O's to finalise; 3D bases assert `position[2]` decreasing, because forward is -z.
+> **Landed (PR #829).** The e2e half of the last item (`game-starters.spec.ts`) moves to Theme Q: all six bases were booted in SwiftShader Chromium (kit-vendored engines, `__midnite.step(180)` under held input) and moved as the smoke replay asserts, but a committed spec waits for Q's e2e budget raise. The replay's shape (`playtests/smoke.json`: `input`/`assert` with `equals`, `increasedFromFrame`, `decreasedFromFrame`) is Theme O's to finalise; 3D bases assert `position[2]` decreasing, because forward is -z.
 
 One minimal, playable starter per perspective. These are the bases the genres and the gallery compose
 on.
@@ -669,7 +669,7 @@ on.
 
 ## I — 3D genre starters, part one: shooter, fighter, soulslike (L)
 
-> **Landed (PR #TBD).** As with H, the per-starter e2e smoke run waits for Theme O's replay runner and Theme Q's budget raise: each starter ships a provisional `playtests/smoke.json` (genre state under `$.shooter`, `$.fighter`, `$.souls`; 3D forward is -z) and was driven by hand in SwiftShader Chromium. Differences from the plan: the soulslike's engine-free folder is `kit/core/genre/soulslike/` (the genre id), not `souls/`; the versus camera keeps Theme F's framing (`max(4, 0.9 × separation + 2)`), not `max(4, 1.2 × separation)`; the engine-free tests live in `kit-genres-3d.test.ts`.
+> **Landed (PR #829).** As with H, the per-starter e2e smoke run waits for Theme O's replay runner and Theme Q's budget raise: each starter ships a provisional `playtests/smoke.json` (genre state under `$.shooter`, `$.fighter`, `$.souls`; 3D forward is -z) and was driven by hand in SwiftShader Chromium. Differences from the plan: the soulslike's engine-free folder is `kit/core/genre/soulslike/` (the genre id), not `souls/`; the versus camera keeps Theme F's framing (`max(4, 0.9 × separation + 2)`), not `max(4, 1.2 × separation)`; the engine-free tests live in `kit-genres-3d.test.ts`.
 
 - [x] **Shooter**: first- and third-person (camera presets switchable), hitscan and projectile weapons, recoil and spread, ammo and reload, AI enemies on the navmesh with cover-lite (seek line-of-sight breakers), and damage numbers
   - `genres/shooter/`; engine-free `kit/core/genre/shooter/{weapons.js,spread.js,cover.js}`
@@ -715,7 +715,7 @@ on.
 
 ## K — Template gallery: the perspective × genre matrix (M)
 
-> **Landed (PR #TBD).** Genre cells ship as *not available yet* until Themes H-J add `templates/media-game/genres/<genre>/` and list the genre in `GAME_GENRES_AVAILABLE`; `composeStarter` and the gallery pick it up with no further change. Differences from the plan: the genre id stays `crime` (shipped in Theme A's `GAME_GENRES`), not `topdown-crime`; cells show a per-perspective glyph rather than a PNG, so `gamesThumbnail` was not added; the e2e for `rts@isometric` / `rpg@first-person` waits on H/J and Theme Q.
+> **Landed (PR #829).** Genre cells ship as *not available yet* until Themes H-J add `templates/media-game/genres/<genre>/` and list the genre in `GAME_GENRES_AVAILABLE`; `composeStarter` and the gallery pick it up with no further change. Differences from the plan: the genre id stays `crime` (shipped in Theme A's `GAME_GENRES`), not `topdown-crime`; cells show a per-perspective glyph rather than a PNG, so `gamesThumbnail` was not added; the e2e for `rts@isometric` / `rpg@first-person` waits on H/J and Theme Q.
 
 Every valid combination instantiates and runs, composed from the kits rather than copied.
 
