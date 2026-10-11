@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   LuArrowDown,
   LuArrowUp,
@@ -42,6 +42,7 @@ import { bridge } from '../../services/bridge';
 import { CASCADE_MAX_STEPS } from '../../lib/cascade';
 import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import { BoardView } from './board/board-view';
+import { selectedCardFor, useBoardSelectionStore } from './board-selection-store';
 import { taskGlowClass } from './board/glow-state';
 import { StatusRule } from './board/status-border';
 import { CardPanelStack } from './board/card-panel-stack';
@@ -142,7 +143,14 @@ export function TasksView() {
    * opened in board mode and a node opened in graph mode are the same
    * panel, so switching modes keeps it open on the same item.
    */
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  // Phase 112 Theme D: held in `board-selection-store.ts` so a reveal can
+  // select a card before this view has mounted; same shape, same behaviour.
+  const selectedItemId = useBoardSelectionStore(selectedCardFor(repoId));
+  const selectItem = useBoardSelectionStore((s) => s.select);
+  const setSelectedItemId = useCallback(
+    (itemId: string | null) => selectItem(repoId, itemId),
+    [repoId, selectItem],
+  );
   // Local state, not the persisted `layout` store its sibling panels use
   // (`filesTreeWidth` etc.) — deliberately: this width is shared between two
   // mount sites in the SAME component (Board mode's own and Graph mode's,

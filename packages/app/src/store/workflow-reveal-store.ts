@@ -11,9 +11,16 @@ import { create } from 'zustand';
  * because the Sessions view has no reference to a mounted `WorkflowEditor`
  * to call through — it may not even be mounted yet.
  */
-export type WorkflowRevealRequest = { workflowId: string; runId: string };
+export type WorkflowRevealRequest = { workflowId: string; runId?: string };
 
 type WorkflowRevealState = {
+  /**
+   * Which workflow the Workflows view has open (Phase 112 Theme D) — lifted
+   * out of `WorkflowsView`'s local `useState` so a reveal can select one
+   * before the view has mounted. Not persisted.
+   */
+  selectedId: string | null;
+  select: (id: string | null) => void;
   pending: WorkflowRevealRequest | null;
   reveal: (request: WorkflowRevealRequest) => void;
   /** Consumed once `WorkflowsView`/`WorkflowEditor` has acted on it. */
@@ -21,6 +28,8 @@ type WorkflowRevealState = {
 };
 
 export const useWorkflowRevealStore = create<WorkflowRevealState>()((set) => ({
+  selectedId: null,
+  select: (selectedId) => set({ selectedId }),
   pending: null,
   reveal: (request) => set({ pending: request }),
   consume: () => set({ pending: null }),

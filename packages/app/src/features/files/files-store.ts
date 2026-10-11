@@ -63,6 +63,12 @@ type FilesState = {
   nav: PanelHistoryState<FileNavEntry>;
   /** Scroll target for the open preview; set by every navigation. */
   restore: ScrollRestore;
+  /**
+   * The line a reveal (Phase 112 Theme C) asked the preview to scroll to and
+   * highlight — `FilePreview`'s `targetLine`. Cleared by every other way of
+   * selecting a file, so browsing away never leaves a stale highlight.
+   */
+  revealLine: number | null;
 
   /**
    * Opens `relPath` (revealing it in the tree) and pushes a history entry —
@@ -81,8 +87,8 @@ type FilesState = {
   toggleDir: (relPath: string) => void;
   expandDirs: (relPaths: string[]) => void;
   selectFile: (relPath: string | null) => void;
-  /** Selects a file and ensures all its parent directories are expanded. */
-  revealFile: (relPath: string) => void;
+  /** Selects a file and ensures all its parent directories are expanded; `line` scrolls to and highlights it. */
+  revealFile: (relPath: string, line?: number) => void;
   startRename: (relPath: string, initialName: string) => void;
   /** Also force-expands `parentPath` so the new inline row is visible immediately. */
   startCreate: (parentPath: string, entryKind: 'file' | 'directory', initialName: string) => void;
@@ -98,6 +104,7 @@ export const useFilesStore = create<FilesState>()((set, get) => ({
   editing: null,
   nav: { entries: [], index: -1 },
   restore: { anchor: null, scrollTop: null, nonce: 0 },
+  revealLine: null,
 
   navigate: (relPath, anchor = null) =>
     set((state) => {
@@ -109,6 +116,7 @@ export const useFilesStore = create<FilesState>()((set, get) => ({
       return {
         nav,
         selectedPath: relPath,
+        revealLine: null,
         expanded: parentsOf(relPath, state.expanded),
         restore: { anchor, scrollTop: null, nonce: state.restore.nonce + 1 },
       };
@@ -139,6 +147,7 @@ export const useFilesStore = create<FilesState>()((set, get) => ({
       return {
         nav,
         selectedPath: entry.relPath,
+        revealLine: null,
         expanded: parentsOf(entry.relPath, state.expanded),
         restore: {
           anchor: entry.anchor,
@@ -156,6 +165,7 @@ export const useFilesStore = create<FilesState>()((set, get) => ({
       selectedPath: null,
       editing: null,
       nav: { entries: [], index: -1 },
+      revealLine: null,
     });
   },
 
@@ -177,11 +187,17 @@ export const useFilesStore = create<FilesState>()((set, get) => ({
     }),
 
   selectFile: (selectedPath) => {
-    if (selectedPath === null) set({ selectedPath });
-    else get().navigate(selectedPath);
+    if (selectedPath === null) set({ selectedPath, revealLine: null });
+    else {
+      get().navigate(selectedPath);
+      set({ revealLine: null });
+    }
   },
 
-  revealFile: (relPath) => get().navigate(relPath),
+  revealFile: (relPath, line) => {
+    get().navigate(relPath);
+    set({ revealLine: line ?? null });
+  },
 
   startRename: (relPath, initialName) =>
     set({ editing: { kind: 'rename', relPath, initialName } }),

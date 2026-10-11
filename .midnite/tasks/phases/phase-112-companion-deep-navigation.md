@@ -88,9 +88,9 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 **Theme B — `revealResource`, the engine.** ✅ [PR #823](https://github.com/bilo-io/midnite-studio/pull/823). `reveal/reveal.ts` takes injected `RevealDeps` (live by default) and runs Phase 81's steps in order: relay from a popout, refuse when locked, switch repo first (`no-repo` if it isn't open), run `resolveNavigation` on the revealer's view (focus a detached page or `setActiveView`; `blocked-unsaved` if the guard holds it), then reveal and record. The total `REVEALERS` table is spread from four per-family files (`revealers/{git,agent,notes-media,tools}.ts`), so Themes C–F each edit only their own file. Every entry is still an `unavailable` stub. `reveal-history.ts` keeps the last 20. `navigateCompanion` handles `target`, so `handoff.ts` is untouched. The relay back from main now carries `ok` and `reason`. `ui-requests.ts` answers `reveal` and refuses `find` until Theme G.
 
-**Theme C — Git + forge revealers.** ◻ Commit reveal that always lands (page in, unfilter, scroll, pulse), branch/tag/stash, file + line, file diff within a commit, PR, issue, CI run/job.
+**Theme C — Git + forge revealers.** ✅ [PR #825](https://github.com/bilo-io/midnite-studio/pull/825). `revealers/git.ts` fills all eight kinds. `revealCommit` (`features/graph/reveal-commit.ts`) expands a short sha with `resolveRevision`, waits for the row to stream in (the graph streams its log rather than paging, so "paging in" is waiting, bounded), clears a ref filter that hides it and says so, and gives up past the row cap with the search hint; landing is `selectCommit` plus a one-shot pulse (`graph-store` `revealPulse`, Web Animations, skipped under reduced motion) that `GraphView` centres. `ref` reveals the tip and pulses the badge; `stash` selects the stash after checking the list; `file` goes through `revealFile(path, line)`, with the line lifted into `files-store.revealLine` and fed to `FilePreview`'s existing `targetLine`; `commitFile` asks the inspector for the file via a new one-shot `commit-file-request` store that `CommitDetail` consumes once its file list loads. `pull`, `issue` and `ciRun` select through their existing stores. The plain `issue` shorthand on `navigate` now routes through the table as `{kind:'issue'}`. One Playwright spec (`reveal-commit.spec.ts`) scrolls the real virtualizer 450 rows; the e2e cap moves 478 to 479.
 
-**Theme D — Agent-work revealers.** ◻ Chat, live/closed session, council (out of the hook-only history), workflow + run, kanban board + card (out of component state).
+**Theme D — Agent-work revealers.** ✅ [PR #825](https://github.com/bilo-io/midnite-studio/pull/825). `revealers/agent.ts` fills all six kinds, each writing to a store the page reads so a reveal issued before the view mounts is honoured on mount. `chat` selects through `useChatsStore` (not-found if the bridge cannot load it); `session` is `revealSession` for a live one and Sessions plus `selectClosedSession` for a closed one; `council` uses a new hook-free `pushCouncilEntry` over the now-exported history store; `workflow` lifts `selectedId` out of `WorkflowsView` into `useWorkflowRevealStore` (its `runId` is now optional) and queues the run as the existing pending request; `board`/`card` lift the selected card out of `TasksView` into `board-selection-store`, force board mode, and `BoardView` scrolls the card into view and pulses it on a `revealNonce` bump. A global vitest `afterEach` resets the two lifted selections so every view suite starts blank as it did with local state.
 
 **Theme E — Notes + media revealers.** ✅ [PR #824](https://github.com/bilo-io/midnite-studio/pull/824). `selectedNoteId`/`selectNote` now live in `notes-store` (session-only, not persisted or synced); the view clears a selection only when its note is gone or belongs to another repo, so a reveal that switches repo first survives the mount. Doc, image, video, audio, map and game share one one-shot `useMediaOpenRequest` store (`features/media/media-open-request.ts`), consumed by each `*-tab.tsx` on mount and on change; model, terrain and sprite keep their existing stores. `music_open`, `map_goto` and `game_open` are now heard by an app-level `useMediaOpenListeners` and routed through `revealResource`, so they work from any view.
 
@@ -172,20 +172,20 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 ### C — Git + forge revealers (M)
 
-- [ ] **A commit reveal that always lands.** `revealCommit(repoId, sha)` in
+- [x] **A commit reveal that always lands.** `revealCommit(repoId, sha)` in
       [`features/graph/`](../../../packages/app/src/features/graph/): resolve a short sha with
       `resolveRevision`; if the row is not loaded, page the graph in until it is (bounded — give
       up past the existing history cap with `not-found` and *"That commit is older than the graph
       has loaded — search for it instead."*); if a ref filter hides it, clear the filter and say
       so; `selectCommit(sha)`; scroll the virtualizer to centre it; pulse the row once (respecting
       the Phase 46 motion policy).
-- [ ] `ref` → reveal its tip commit and highlight the ref badge; `stash` → `graphSelection
+- [x] `ref` → reveal its tip commit and highlight the ref badge; `stash` → `graphSelection
       {kind:'stash'}`; `file` → `useFilesStore.revealFile(path)` plus a `line` that the preview
       scrolls to and highlights (new optional `line` on the files store's reveal — closes the gap
       noted in `knowledge-node-panel.tsx`).
-- [ ] `commitFile` → reveal the commit, then expand that file's diff in the commit inspector
+- [x] `commitFile` → reveal the commit, then expand that file's diff in the commit inspector
       through a new store-level `expandFile(sha, path)` lifted out of `changes/expansion.ts`.
-- [ ] `pull` → `useReviewsStore.selectPull`; `issue` → `openIssueModal` (moves Phase 81's issue
+- [x] `pull` → `useReviewsStore.selectPull`; `issue` → `openIssueModal` (moves Phase 81's issue
       path onto the table); `ciRun` → `useActionsStore.selectRun`, then `selectJob` when given.
   - *Acceptance:* vitest per revealer against store fakes; one Playwright spec (real virtualizer
     scroll + `getBoundingClientRect`) that reveals a commit outside the loaded window and asserts
@@ -193,15 +193,15 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 ### D — Agent-work revealers (M)
 
-- [ ] `chat` → `setActiveView('chats')` + `useChatsStore.select(id)` (the
+- [x] `chat` → `setActiveView('chats')` + `useChatsStore.select(id)` (the
       `ref-agent-avatar.tsx` sequence).
-- [ ] `session` → live: `revealSession(id)`; closed: Sessions view + `selectClosedSession(id)`.
-- [ ] `council` → lift the history in `councils-history-store.ts` so a plain function can
+- [x] `session` → live: `revealSession(id)`; closed: Sessions view + `selectClosedSession(id)`.
+- [x] `council` → lift the history in `councils-history-store.ts` so a plain function can
       `push({ kind: 'council' | 'run', id })` without the hook; the view consumes the same store.
-- [ ] `workflow` → `useWorkflowRevealStore.reveal({ workflowId, runId })`; move the
+- [x] `workflow` → `useWorkflowRevealStore.reveal({ workflowId, runId })`; move the
       `workflows-view.tsx` `selectedId` into that store so a reveal works when the view is not
       yet mounted.
-- [ ] `board`/`card` → `setProjectBoard(repoId, projectId)`; lift the selected card out of
+- [x] `board`/`card` → `setProjectBoard(repoId, projectId)`; lift the selected card out of
       `tasks-view.tsx` `useState` into a store field, open the card and scroll it into view.
   - *Acceptance:* each lifted selection keeps its existing click behaviour (the view's own vitest
     suites stay green unchanged) and a reveal issued **before** the view mounts is honoured on mount.

@@ -93,7 +93,9 @@ const SAVE_DEBOUNCE_MS = 500;
  * visible and there is nothing to go "back" from.
  */
 export function WorkflowsView() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Phase 112 Theme D: lifted into `workflow-reveal-store.ts`, same behaviour.
+  const selectedId = useWorkflowRevealStore((s) => s.selectedId);
+  const setSelectedId = useWorkflowRevealStore((s) => s.select);
   const workflows = useWorkflows();
   const selected = workflows.data?.find((workflow) => workflow.id === selectedId) ?? null;
 
@@ -109,7 +111,7 @@ export function WorkflowsView() {
     if (!revealPending) return;
     if (!workflows.data?.some((workflow) => workflow.id === revealPending.workflowId)) return;
     setSelectedId(revealPending.workflowId);
-  }, [revealPending, workflows.data]);
+  }, [revealPending, workflows.data, setSelectedId]);
 
   const layout = useUiStore((s) => s.layout);
   const setLayout = useUiStore((s) => s.setLayout);
