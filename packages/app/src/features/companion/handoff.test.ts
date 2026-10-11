@@ -16,7 +16,7 @@ import {
 } from './handoff';
 import type { PendingAction } from '../../store/companion-store';
 import { fakeHandoffDeps, fakeSpeaker, fakeStore, repoFixture, vocabularyFixture } from './test-doubles';
-import { DEFAULT_AGENT_SKILLS } from '../../store/ui-store';
+import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../store/ui-store';
 
 // `overlayDepth` is real module state (`dialog-host.tsx`) that only changes
 // when a dialog actually opens — nothing in these fakes opens one, so it is
@@ -819,6 +819,83 @@ describe('submitInput — Theme C, doing things there', () => {
       expect(posted?.text).toContain('- Push');
       expect(posted?.text).toContain('**Skills**');
       expect(posted?.text).toContain('- Ad Hoc Task — A one-off task.');
+    });
+  });
+
+  describe('Phase 111 Theme C: switchAgent and undo', () => {
+    it('switches primary agent and speaks spoken read-back', async () => {
+      useUiStore.setState({ primaryAgent: 'claude', primaryModelByAgent: {} });
+      const store = fakeStore();
+      await submitInput('switch to codex', fakeHandoffDeps({ store }));
+
+      expect(useUiStore.getState().primaryAgent).toBe('codex');
+      expect(store.lines().at(-1)).toBe('companion: Switched primary agent to Codex.');
+    });
+
+    it('switches primary agent and model together and speaks friendly labels', async () => {
+      useUiStore.setState({ primaryAgent: 'codex', primaryModelByAgent: {} });
+      const store = fakeStore();
+      await submitInput('switch to claude sonnet 5.5', fakeHandoffDeps({ store }));
+
+      expect(useUiStore.getState().primaryAgent).toBe('claude');
+      expect(useUiStore.getState().primaryModelByAgent['claude']).toBe('sonnet-5-5');
+      expect(store.lines().at(-1)).toBe('companion: Switched primary agent to Claude Sonnet 5.5.');
+    });
+
+    it('refuses an unknown or unrecognized agent with polite feedback', async () => {
+      useUiStore.setState({ primaryAgent: 'claude', primaryModelByAgent: {} });
+      const store = fakeStore();
+      await submitInput(
+        'mumble',
+        fakeHandoffDeps({
+          store,
+          ask: async () => ({
+            ok: true,
+            value: {
+              say: 'Trying unknown agent.',
+              intent: { kind: 'switchAgent', agentId: 'nonexistent-agent' },
+            },
+          }),
+        }),
+      );
+
+      expect(useUiStore.getState().primaryAgent).toBe('claude');
+      expect(store.lines().at(-1)).toBe("companion: I don't recognize the agent nonexistent-agent.");
+    });
+
+    it('reverts both agent and model on "undo that"', async () => {
+      useUiStore.setState({
+        primaryAgent: 'claude',
+        primaryModelByAgent: { claude: 'haiku-4-5', codex: 'gpt-5-mini' },
+      });
+      const store = fakeStore();
+      const deps = fakeHandoffDeps({ store });
+
+      await submitInput('switch to codex', deps);
+      expect(useUiStore.getState().primaryAgent).toBe('codex');
+      expect(store.lines().at(-1)).toBe('companion: Switched primary agent to Codex.');
+
+      await submitInput('undo that', deps);
+      expect(useUiStore.getState().primaryAgent).toBe('claude');
+      expect(useUiStore.getState().primaryModelByAgent['claude']).toBe('haiku-4-5');
+      expect(store.lines().at(-1)).toBe('companion: Put it back. Switched primary agent to Claude Haiku 4.5.');
+    });
+
+    it('reverts agent and model without model label when prior model was null', async () => {
+      useUiStore.setState({
+        primaryAgent: 'codex',
+        primaryModelByAgent: {},
+      });
+      const store = fakeStore();
+      const deps = fakeHandoffDeps({ store });
+
+      await submitInput('switch to claude opus 5', deps);
+      expect(useUiStore.getState().primaryAgent).toBe('claude');
+      expect(useUiStore.getState().primaryModelByAgent['claude']).toBe('opus-5');
+
+      await submitInput('undo that', deps);
+      expect(useUiStore.getState().primaryAgent).toBe('codex');
+      expect(store.lines().at(-1)).toBe('companion: Put it back. Switched primary agent to Codex.');
     });
   });
 });
