@@ -54,15 +54,19 @@ test('revealing a commit far outside the rendered window selects it and brings i
   await expect(row(page, 1)).toBeVisible();
   await expect(row(page, TARGET)).toHaveCount(0);
 
-  const repoId = await page.evaluate(
-    async () => (await (await import('/src/store/ui-store.ts')).useUiStore.getState()).selectedRepoId,
-  );
+  // The app's own module instances, served by the Vite dev server — a variable
+  // specifier keeps tsc from trying to resolve a URL path.
   const result = await page.evaluate(
-    async ([repo, rev]) => {
-      const mod = await import('/src/features/graph/reveal-commit.ts');
-      return mod.revealCommit(repo!, rev!);
+    async ([storePath, revealPath, rev]) => {
+      const ui = (await import(/* @vite-ignore */ storePath!)) as {
+        useUiStore: { getState: () => { selectedRepoId: string } };
+      };
+      const reveal = (await import(/* @vite-ignore */ revealPath!)) as {
+        revealCommit: (repoId: string, rev: string) => Promise<unknown>;
+      };
+      return reveal.revealCommit(ui.useUiStore.getState().selectedRepoId, rev!);
     },
-    [repoId, sha(TARGET).slice(0, 7)],
+    ['/src/store/ui-store.ts', '/src/features/graph/reveal-commit.ts', sha(TARGET).slice(0, 7)],
   );
   expect(result).toMatchObject({ ok: true, sha: sha(TARGET) });
 
