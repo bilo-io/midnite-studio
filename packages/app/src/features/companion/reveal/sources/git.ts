@@ -37,7 +37,10 @@ export function searchCommits(repoId: string, grep: readonly string[], cap: numb
   const requestId = `resolve-${Date.now()}-${searchSeq}`;
   const commits: Commit[] = [];
   return new Promise<Commit[]>((resolve) => {
+    let finished = false;
     const finish = (): void => {
+      if (finished) return;
+      finished = true;
       offBatch();
       offDone();
       signal.removeEventListener('abort', onAbort);
