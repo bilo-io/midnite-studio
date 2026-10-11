@@ -18,6 +18,7 @@ export * from './companion';
 export * from './companion-audition';
 export * from './companion-profiles';
 export * from './companion-mcp';
+export * from './companion-tune';
 export * from './council';
 export * from './domain';
 export * from './fs';

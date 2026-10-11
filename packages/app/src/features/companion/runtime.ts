@@ -1,4 +1,5 @@
 import {
+  agentHeadlessArgs,
   emptyCompanionSnapshot,
   type AgentDefinition,
   type CompanionSnapshot,
@@ -286,6 +287,24 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
           companionTtsSpeaker.speakWithEngine(engine, text, { voice, signal }),
       },
     },
+    // Phase 109 Theme H — "tune me" and tweaks. The same `ask` channel in its
+    // `'persona'` mode; a reply that is not the `{text, summary}` pair is a
+    // failure here, which an interview answers with its template.
+    persona: async (request) => {
+      const result = await api?.companion.ask({
+        kind: 'persona',
+        text: request.mode === 'tweak' ? request.instruction : `interview: ${request.target}`,
+        repoPath: repo.path,
+        agentId: useUiStore.getState().primaryAgent,
+        persona: request,
+      });
+      if (!result) return { ok: false, kind: 'error', message: 'The companion is not connected.' };
+      if (!result.ok) return result;
+      return result.value.persona
+        ? { ok: true, value: result.value.persona }
+        : { ok: false, kind: 'error', message: "The agent's answer wasn't something I could use." };
+    },
+    hasAgentCli: () => rosterCache.some((agent) => agentHeadlessArgs(agent.id) !== null),
   };
 }
 
