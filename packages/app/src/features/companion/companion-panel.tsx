@@ -207,7 +207,7 @@ function CompanionChoiceBar({
       data-testid="companion-choice"
     >
       <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-muted-foreground">{label} — pick one, or say a number.</span>
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">{label.charAt(0).toUpperCase() + label.slice(1)} — pick one, or say a number.</span>
         <button
           type="button"
           data-testid="companion-pending-cancel"

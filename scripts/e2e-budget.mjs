@@ -229,7 +229,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Raised 478 -> 479 for Phase 112 Theme C's `reveal-commit.spec.ts` (1 test): revealing a commit 450 rows
 // down must scroll the virtualizer for real and land the row inside the scroller's box, which needs layout
 // (`getBoundingClientRect`); jsdom has none. The store transitions around it are vitest.
-export const MAX_DECLARED_E2E = 479;
+// Raised 479 -> 480 for Phase 112 Theme H's one companion-panel spec: typing "open my chat about auth"
+// with two seeded matches posts real numbered chips in the panel, and "two" opens the second chat in a
+// real Chats view across a view switch — the chip bar's layout and the focus staying in the input are
+// browser behaviour. Chip resolution, expiry and replacement are `handoff-resource.test.ts` (vitest).
+export const MAX_DECLARED_E2E = 480;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four
