@@ -55,6 +55,7 @@ import { CompanionPanelSlot } from './features/companion/companion-panel';
 import { setCommandRuntime } from './features/companion/command-runtime';
 import { McpSettingConfirmHost } from './features/companion/mcp-setting-confirm';
 import { useCompanionUiRequests } from './features/companion/ui-requests';
+import { useFollowPrimaryAgent } from './features/agent/follow-primary-agent';
 import { useModelOpenListener } from './features/media/model/use-model-agent-events';
 import { useSpriteRenderHost } from './features/media/sprite/render/sprite-render-host';
 import { useTerrainOpenListener } from './features/media/terrain/use-terrain-agent-events';
@@ -636,6 +637,7 @@ function Shell() {
   // a hand-off runs unattended, so its answer has to arrive with the
   // companion panel closed (Phase 79 Theme E).
   useCompanionHandoffWatch();
+  useFollowPrimaryAgent();
   useCompanionSpeakerWiring();
   // Cross-window sync (Theme E) — mounted here too, not just in
   // `DetachedRoot`, so a change made in the main window reaches every popout.

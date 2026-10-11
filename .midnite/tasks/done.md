@@ -27,6 +27,14 @@ then into a 40-turn thread scrolled to its top. In this morning's DMG (`f0a50181
 stayed 0 of 617 and the spoken turn was never rendered. In this branch, the field scrolled to
 457 of 617, the thread came back to the bottom, and the spoken turn was on screen. Screenshots:
 `docs/screenshots/voice-autoscroll/`.
+## 2026-10-11 — Phase 111 Theme F — View synchronization
+
+[PR #829](https://github.com/bilo-io/midnite-studio/pull/829). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Theme F: a global agent/model change reaches the Chats composer and the Media generators.
+
+- **sync:** `useFollowPrimaryAgent` writes a changed selection into the Chats draft and the Models tab engine prefs (Sprites' map layout reads those); startup leaves remembered choices alone.
+- **tracker:** Theme C's boxes ticked (merged in #821); the suite item is satisfied by CI.
+- **open:** the manual mic pass; the title-bar picker cannot select Ollama (see outstanding.md).
 ## 2026-10-11 — Phase 112 Theme I — MCP `ui.reveal`/`ui.find` and the deep link
 
 [PR #827](https://github.com/bilo-io/midnite-studio/pull/827). [Phase 112](phases/phase-112-companion-deep-navigation.md)
