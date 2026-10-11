@@ -96,7 +96,7 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 **Theme F — Tools + settings revealers.** ✅ [PR #824](https://github.com/bilo-io/midnite-studio/pull/824). `dbTable` selects the connection and opens or refocuses a query tab holding the table's preview SELECT, unrun. `apiRequest` finds the item in the loaded collection and focuses or opens its tab, never sending. `browserTab` shows the panel (or focuses its window) and activates the tab with that URL, else opens one. `setting` selects the page, then scrolls to, opens and rings a section. `SettingsAccordion` stamps `data-settings-section` (the heading slug) on every settings page that uses an accordion, plus the Browser and Search headings; `SETTINGS_SECTIONS` in `features/settings/settings-sections.ts` lists them, and a test keeps the table and the pages in step.
 
-**Theme G — The resolver.** ◻ `findResources(query, kinds?)` scanning existing lists with fuzzy ranking, recency words ("latest", "previous") and a cap; no new index.
+**Theme G — The resolver.** ✅ [PR #826](https://github.com/bilo-io/midnite-studio/pull/826). `findResources(query, {kinds, limit})` in `reveal/resolve.ts` reads the query once with `parseResourceQuery` (in `shared/src/domain/resource-query.ts`, so Theme H's grammar reads phrases the same way: head noun = last kind word before the first preposition, recency, exact ids, required terms and soft kind words), asks every source whose kinds the query allows, and ranks everything with one scorer — exact ids win outright (an id that names nothing answers nothing), recency words order by time, titles fuzzy-match with a noise floor, other text by substring, all terms required, a ×1.25 nudge from palette frecency and reveal history, ties to the newer. Sources (`reveal/sources/{git,agent,notes-media,tools}.ts`) read lists that already exist — `git log --grep` over the Search stream (cancelled on timeout), cached forge listings via the main window's `appQueryClient` (now its own module), the stores and `*.list` calls; each gets 300 ms and contributes at most 20. `ui-requests.ts` answers `find` with `{did:'found', matches}` (titles and ids, never a score or matching-only text). `file`/`commitFile` have no source.
 
 **Theme H — Grammar, ambiguity and follow-ups.** ◻ Target phrases in `parseIntent`, numbered-chip disambiguation as one pending choice, "this / next / its PR / back", and the `ask.ts` router taught the target shape.
 
@@ -237,20 +237,20 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 ### G — The resolver (L)
 
-- [ ] New [`packages/app/src/features/companion/reveal/resolve.ts`](../../../packages/app/src/features/companion/reveal/resolve.ts):
+- [x] New [`packages/app/src/features/companion/reveal/resolve.ts`](../../../packages/app/src/features/companion/reveal/resolve.ts):
       `findResources(query, opts?: { kinds?: ResourceKind[]; limit?: number }) => Promise<ResourceMatch[]>`
       with `ResourceMatch = { ref; title; detail?; score }`. Plain function, no index: it asks one
       **source** per family and merges.
-- [ ] Sources, each `(query) => Promise<ResourceMatch[]>`, reading lists that already exist:
+- [x] Sources, each `(query) => Promise<ResourceMatch[]>`, reading lists that already exist:
       commits (`graph.log` message search, capped), refs, PRs (`forge.pulls`), loaded issues,
       chats (`chats.list` titles + previews), live and closed sessions, councils, workflows and
       runs, boards and cards, notes (titles + in-memory bodies), media (each `*_list`), DB
       connections and tables, API collections, settings pages + `SETTINGS_SECTIONS`.
-- [ ] Ranking reuses the palette's [`fuzzy-match.ts`](../../../packages/app/src/services/palette/fuzzy-match.ts)
+- [x] Ranking reuses the palette's [`fuzzy-match.ts`](../../../packages/app/src/services/palette/fuzzy-match.ts)
       and frecency store; recency words resolve without fuzzy matching — "latest/last/most recent
       {kind}", "previous {kind}", "the one before". A kind word in the query ("chat", "commit",
       "model", "note") narrows `kinds`. Exact ids win outright (a sha prefix, `#812`, `PR 812`).
-- [ ] Budget: each source has a timeout (300 ms) and a result cap; a slow source is dropped from
+- [x] Budget: each source has a timeout (300 ms) and a result cap; a slow source is dropped from
       that answer, never blocks it.
   - *Acceptance:* `resolve.test.ts` with fake sources — kind narrowing, exact-id win, recency
     words, a timed-out source omitted, ties broken by recency. No wall-clock assertions.

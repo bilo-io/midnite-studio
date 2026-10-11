@@ -1,6 +1,15 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-11 — Phase 112 Theme G — The resolver
+
+[PR #826](https://github.com/bilo-io/midnite-studio/pull/826). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Theme G: free text ("the commit about the lock screen", "my last chat", "PR 812") now resolves to ranked `ResourceRef`s, and the `find` UI action answers instead of refusing.
+
+- **parse:** `parseResourceQuery` in `shared` — head-noun kind words (and media tabs), recency (`latest`/`previous`), exact ids (sha, `#n`, `PR n`, `issue n`), required terms and soft kind words. Theme H reuses it.
+- **rank:** `findResources` — exact ids win outright, recency orders by time, fuzzy titles with a noise floor, substring text, all terms required, a bounded frecency/reveal-history nudge, ties to the newer; 300 ms and 20 results per source, limit ≤ 20.
+- **sources:** commits (`git log --grep`, cancelled on timeout), refs, stashes, PRs, issues, CI runs, chats, sessions, councils, workflows (+ runs), boards and cards, notes, each media tab, games, DB connections and tables, API requests, browser tabs, settings pages and sections — every one a list that already exists.
+- **wire:** `ui-requests.ts` answers `find` with `{did:'found', matches}`; the main window's `QueryClient` moved to `services/query-client.ts` so sources read cached forge lists without fetching.
 ## 2026-10-11 — Phase 112 Themes E, F — Notes, media, tools and settings revealers
 
 [PR #824](https://github.com/bilo-io/midnite-studio/pull/824). [Phase 112](phases/phase-112-companion-deep-navigation.md)
