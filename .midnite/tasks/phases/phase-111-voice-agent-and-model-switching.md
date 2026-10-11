@@ -28,7 +28,7 @@ Scope guardrails:
 
 **Theme E — MCP Agent & Model Tools.** ✅ Landed in PR #822. `companion_agent_get`, `companion_agent_set` and `companion_models_list` on the `midnite` MCP server, behind the existing `allowCompanionSettings` switch; the renderer half (`agent-switch.ts`) validates agent aliases, models, install state and Ollama's daemon, and writes through `setPrimaryAgentAndModel`.
 
-**Theme F — View Synchronization & End-to-End Verification.** ✅ Landed in PR #TBD. `useFollowPrimaryAgent` (mounted in `app.tsx`) writes a *changed* global agent/model into the Chats composer draft and the Media Models tab's engine prefs (which Sprites' map layout and Model 3D read); Video already resolves the primary agent and Music's thread uses `pickEngine`'s primary fallback. Startup leaves remembered choices alone. The manual mic pass stays open.
+**Theme F — View Synchronization & End-to-End Verification.** ✅ Landed in PR #829. `useFollowPrimaryAgent` (mounted in `app.tsx`) writes a *changed* global agent/model into the Chats composer draft and the Media Models tab's engine prefs (which Sprites' map layout and Model 3D read); Video already resolves the primary agent and Music's thread uses `pickEngine`'s primary fallback. Startup leaves remembered choices alone. The manual mic pass stays open.
 
 ---
 

@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-11 — Phase 111 Theme F — View synchronization
 
-[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+[PR #829](https://github.com/bilo-io/midnite-studio/pull/829). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
 Theme F: a global agent/model change reaches the Chats composer and the Media generators.
 
 - **sync:** `useFollowPrimaryAgent` writes a changed selection into the Chats draft and the Models tab engine prefs (Sprites' map layout reads those); startup leaves remembered choices alone.
