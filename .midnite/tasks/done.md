@@ -13,6 +13,28 @@ commit, a PR, an issue, a CI run or job, and a chat, session, council, workflow 
   `pushCouncilEntry` over the council history store; `BoardView` scrolls and pulses a revealed card.
 - **Tests:** per-revealer vitest against store fakes, `reveal-commit.test.ts`, a reveal-before-mount workflow test, and one
   Playwright spec (e2e cap 478 to 479).
+## 2026-10-10 — Phase 109 Theme H — "Tune me" and quick tweaks
+
+[PR #816](https://github.com/bilo-io/midnite-studio/pull/816). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme H: personality and About me change by voice through a short interview or a one-line tweak,
+read back and confirmed. They are never dictated.
+
+- **Interview:** "tune yourself" asks four questions (tone, how much to say, humour, what to avoid),
+  and "let me tell you about me" asks three (name, work, updates). "Skip", "start over" and "cancel"
+  work throughout. The pure machine is `app/features/companion/tune-interview.ts`, and `tune.ts` runs the flow.
+- **Writing:** a new `'persona'` mode in `ask.ts` returns `{text ≤4000, summary ≤200}`, validated by
+  `parseAskReply(stdout, 'persona')`. With no CLI or a bad reply, `buildPersonaFromAnswers` fills a
+  labelled template (Decision 6).
+- **Tweaks:** "be more sarcastic", "talk less" and "stop being so formal" revise the current
+  personality through the CLI. With no CLI the companion offers Settings ▸ Companion. Honorific
+  phrasings stay C's `setting`.
+- **Confirm:** the companion speaks the summary, posts the whole draft, and asks "Want to hear all of
+  it?" (Decision 11). The replace question uses the pending slot, and a yes applies with
+  `tuned: true` and `confirmed: true`.
+- **No raw dictation:** `tune`/`tweak` intents carry no text, a `setting` intent for either field is
+  schema-invalid, and `persona` is stripped from router replies. The page gains "Try: …" hints for both fields.
+
+
 ## 2026-10-11 — Phase 112 Themes A, B — ResourceRef and the revealResource engine
 
 [PR #823](https://github.com/bilo-io/midnite-studio/pull/823). [Phase 112](phases/phase-112-companion-deep-navigation.md)
