@@ -4,6 +4,9 @@ import { CompanionIntentSchema } from '../companion';
 import { CompanionUiActionSchema } from '../ipc/schemas';
 import {
   RESOURCE_KINDS,
+  RESOURCE_LINK_PREFIX,
+  decodeResourceRefParam,
+  resourceRefLink,
   ResourceRefSchema,
   resourceRefKey,
   resourceRefLabel,
@@ -129,5 +132,19 @@ describe('the contract around it', () => {
     expect(CompanionUiActionSchema.parse(find)).toEqual(find);
     expect(CompanionUiActionSchema.safeParse({ ...find, limit: 21 }).success).toBe(false);
     expect(CompanionUiActionSchema.safeParse({ ...find, kinds: ['nope'] }).success).toBe(false);
+  });
+});
+
+describe('resourceRefLink (Phase 112 Theme I)', () => {
+  it('round-trips a ref through its deep link, including non-ASCII ids', () => {
+    const ref = { kind: 'note', id: 'naïve ☃' } as const;
+    const link = resourceRefLink(ref);
+    expect(link.startsWith(RESOURCE_LINK_PREFIX)).toBe(true);
+    expect(decodeResourceRefParam(link.slice(RESOURCE_LINK_PREFIX.length))).toEqual(ref);
+  });
+
+  it('decodes malformed input to null', () => {
+    expect(decodeResourceRefParam('%%%')).toBeNull();
+    expect(decodeResourceRefParam('e30')).toBeNull();
   });
 });

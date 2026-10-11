@@ -27,6 +27,7 @@ import {
   CompanionSettingsSetOutputSchema,
   CompanionVoicesListOutputSchema,
 } from './companion-mcp';
+import { ResourceKindSchema, ResourceRefSchema } from './domain/resource-ref';
 import { isCommandId } from './keybindings';
 import {
   GameCreateInputSchema,
@@ -225,6 +226,8 @@ type McpToolEntry = {
     | 'ui.state'
     | 'ui.navigate'
     | 'ui.command'
+    | 'ui.reveal'
+    | 'ui.find'
     | 'workflow_gates_list'
     | 'workflow_gate_decide'
     | 'model_list'
@@ -473,6 +476,8 @@ export const MCP_TOOLS = {
       locked: z.boolean(),
       /** Whether `ui.navigate`/`ui.command` will actually run — the reason to check this before calling either. */
       uiToolsEnabled: z.boolean(),
+      /** The last resource a reveal landed on (Phase 112 Theme I), or `null` before any. */
+      lastRevealed: ResourceRefSchema.nullable(),
     }),
     readOnly: true,
   },
@@ -482,11 +487,14 @@ export const MCP_TOOLS = {
     description:
       'Opens a view or settings page, or focuses its window if already detached — call `ui.state` first to see what the user can already see.',
     input: z.object({
-      view: z.enum(VIEW_IDS),
+      /** Required unless `url` is given — checked in the handler, so `tools/list` keeps a plain `view` enum. */
+      view: z.enum(VIEW_IDS).optional(),
       page: z.enum(SETTINGS_PAGE_IDS).optional(),
       issue: z.number().int().positive().optional(),
+      /** Opens this URL in the browser panel (Phase 112 Theme I). */
+      url: z.string().url().optional(),
     }),
-    output: z.object({ did: z.enum(['navigated', 'focused-window']), view: z.enum(VIEW_IDS) }),
+    output: z.object({ did: z.enum(['navigated', 'focused-window']), view: z.enum(VIEW_IDS).optional() }),
     readOnly: false,
   },
   'ui.command': {
@@ -500,6 +508,38 @@ export const MCP_TOOLS = {
     }),
     output: z.object({ did: z.literal('ran'), label: z.string() }),
     readOnly: false,
+  },
+  'ui.reveal': {
+    id: 'ui.reveal',
+    title: 'Reveal a resource',
+    description:
+      'Opens one thing in the app — a commit, PR, chat, note, file, setting — from a `ref`, such as one `ui.find` returned, if the UI switch is on.',
+    input: z.object({ ref: ResourceRefSchema }),
+    output: z.object({ did: z.literal('revealed'), label: z.string() }),
+    readOnly: false,
+  },
+  'ui.find': {
+    id: 'ui.find',
+    title: 'Find resources by description',
+    description:
+      'Finds things the user could open by a description — pass a result\'s `ref` to `ui.reveal`; returns refs, titles and links only, never bodies, while the UI switch is on.',
+    input: z.object({
+      query: z.string().min(1),
+      kinds: z.array(ResourceKindSchema).optional(),
+      limit: z.number().int().positive().max(20).optional(),
+    }),
+    output: z.object({
+      matches: z.array(
+        z.object({
+          ref: ResourceRefSchema,
+          title: z.string(),
+          detail: z.string().optional(),
+          /** `midnite-studio://reveal?ref=…` — pasteable, opens the same thing. */
+          link: z.string(),
+        }),
+      ),
+    }),
+    readOnly: true,
   },
   /*
    * Phase 97 Theme D — a workflow's own human gate, over MCP. `workflow_gate_decide`

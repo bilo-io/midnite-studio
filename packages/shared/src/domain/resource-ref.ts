@@ -222,3 +222,33 @@ export function resourceRefLabel(ref: ResourceRef, names?: ResourceNames): strin
     }
   }
 }
+
+/**
+ * Phase 112 Theme I — the deep link for a ref: `midnite-studio://reveal?ref=<base64url JSON>`.
+ * `ui.find` results carry it, and the protocol handler reads it back with
+ * {@link decodeResourceRefParam}. The ref rides as JSON so it stays exactly the
+ * `ResourceRef` shape, validated on the way back in.
+ */
+export const RESOURCE_LINK_PREFIX = 'midnite-studio://reveal?ref=';
+
+export function resourceRefLink(ref: ResourceRef): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(ref));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  const b64url = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${RESOURCE_LINK_PREFIX}${b64url}`;
+}
+
+/** The inverse of {@link resourceRefLink}'s payload; `null` for malformed base64, bad JSON or a schema failure — never throws. */
+export function decodeResourceRefParam(param: string): ResourceRef | null {
+  try {
+    if (!/^[A-Za-z0-9_-]+$/.test(param)) return null;
+    const b64 = param.replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='));
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const parsed = ResourceRefSchema.safeParse(JSON.parse(new TextDecoder().decode(bytes)));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}

@@ -86,6 +86,7 @@ describe('resolveUiAction — ui.state', () => {
         detached: [],
         repoPath: null,
         locked: true,
+      lastRevealed: null,
       },
     });
   });
