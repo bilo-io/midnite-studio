@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import * as uiBridge from '../companion/ui-bridge';
 import { McpToolError } from './errors';
-import { uiCommand, uiNavigate, uiState } from './tools';
+import { uiCommand, uiFind, uiNavigate, uiReveal, uiState } from './tools';
 import { resetMcpAllowUiStateForTests, setMcpAllowUiState } from './ui-gate';
 
 /**
@@ -45,6 +45,7 @@ describe('uiState', () => {
       repoPath: null,
       locked: false,
       uiToolsEnabled: false,
+      lastRevealed: null,
     });
   });
 
@@ -150,5 +151,57 @@ describe('uiCommand', () => {
       expect((err as McpToolError).kind).toBe('refused');
       expect((err as McpToolError).message).toBe('boom');
     }
+  });
+});
+
+describe('uiReveal / uiFind (Phase 112 Theme I)', () => {
+  const ref = { kind: 'pull', repoId: 'repo:/r', number: 7 } as const;
+
+  it('both refuse before any request is sent while allowUi is off', async () => {
+    setMcpAllowUiState(false);
+    await expect(uiReveal({ ref })).rejects.toMatchObject({ kind: 'refused' });
+    await expect(uiFind({ query: 'auth' })).rejects.toMatchObject({ kind: 'refused' });
+    expect(requestUiAction).not.toHaveBeenCalled();
+  });
+
+  it('ui.reveal sends the reveal action and answers { did, label }', async () => {
+    setMcpAllowUiState(true);
+    requestUiAction.mockResolvedValue({
+      ok: true,
+      value: { did: 'revealed', ref, label: 'PR 7', focusedWindow: false },
+    });
+    expect(await uiReveal({ ref })).toEqual({ did: 'revealed', label: 'PR 7' });
+    expect(requestUiAction).toHaveBeenCalledWith({ kind: 'reveal', ref });
+  });
+
+  it('ui.find forwards the find action and adds a deep link per match, titles and ids only', async () => {
+    setMcpAllowUiState(true);
+    requestUiAction.mockResolvedValue({
+      ok: true,
+      value: { did: 'found', matches: [{ ref, title: 'Fix auth', detail: 'open' }] },
+    });
+    const result = await uiFind({ query: 'auth', limit: 5 });
+    expect(requestUiAction).toHaveBeenCalledWith({ kind: 'find', query: 'auth', limit: 5 });
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]?.link.startsWith('midnite-studio://reveal?ref=')).toBe(true);
+    expect(Object.keys(result.matches[0] ?? {}).sort()).toEqual(['detail', 'link', 'ref', 'title']);
+  });
+
+  it('ui.navigate with a url reveals a browserTab instead of navigating a view', async () => {
+    setMcpAllowUiState(true);
+    requestUiAction.mockResolvedValue({
+      ok: true,
+      value: { did: 'revealed', ref, label: 'example.com', focusedWindow: false },
+    });
+    expect(await uiNavigate({ url: 'https://example.com' })).toEqual({ did: 'navigated' });
+    expect(requestUiAction).toHaveBeenCalledWith({
+      kind: 'reveal',
+      ref: { kind: 'browserTab', url: 'https://example.com' },
+    });
+  });
+
+  it('ui.navigate with neither view nor url is refused', async () => {
+    setMcpAllowUiState(true);
+    await expect(uiNavigate({})).rejects.toMatchObject({ kind: 'refused' });
   });
 });

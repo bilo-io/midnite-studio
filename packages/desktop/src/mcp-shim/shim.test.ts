@@ -174,6 +174,13 @@ describe('mcp stdio shim', () => {
       const uiNavigate = tools.find((t) => t.name === 'ui.navigate');
       const viewProperty = uiNavigate?.inputSchema?.properties?.['view'] as { enum?: string[] } | undefined;
       expect(viewProperty?.enum?.slice().sort()).toEqual([...VIEW_IDS].sort());
+
+      // Phase 112 Theme I: both new tools are listed, and `ref` is a discriminated union (`oneOf`/`anyOf`).
+      expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['ui.reveal', 'ui.find']));
+      const refProperty = tools.find((t) => t.name === 'ui.reveal')?.inputSchema?.properties?.['ref'] as
+        | { oneOf?: unknown[]; anyOf?: unknown[] }
+        | undefined;
+      expect((refProperty?.oneOf ?? refProperty?.anyOf)?.length).toBeGreaterThan(1);
     } finally {
       await rm(home, { recursive: true, force: true });
     }
