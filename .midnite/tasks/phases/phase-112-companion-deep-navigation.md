@@ -98,7 +98,7 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 **Theme G — The resolver.** ✅ [PR #826](https://github.com/bilo-io/midnite-studio/pull/826). `findResources(query, {kinds, limit})` in `reveal/resolve.ts` reads the query once with `parseResourceQuery` (in `shared/src/domain/resource-query.ts`, so Theme H's grammar reads phrases the same way: head noun = last kind word before the first preposition, recency, exact ids, required terms and soft kind words), asks every source whose kinds the query allows, and ranks everything with one scorer — exact ids win outright (an id that names nothing answers nothing), recency words order by time, titles fuzzy-match with a noise floor, other text by substring, all terms required, a ×1.25 nudge from palette frecency and reveal history, ties to the newer. Sources (`reveal/sources/{git,agent,notes-media,tools}.ts`) read lists that already exist — `git log --grep` over the Search stream (cancelled on timeout), cached forge listings via the main window's `appQueryClient` (now its own module), the stores and `*.list` calls; each gets 300 ms and contributes at most 20. `ui-requests.ts` answers `find` with `{did:'found', matches}` (titles and ids, never a score or matching-only text). `file`/`commitFile` have no source.
 
-**Theme H — Grammar, ambiguity and follow-ups.** ◻ Target phrases in `parseIntent`, numbered-chip disambiguation as one pending choice, "this / next / its PR / back", and the `ask.ts` router taught the target shape.
+**Theme H — Grammar, ambiguity and follow-ups.** ✅ [PR #828](https://github.com/bilo-io/midnite-studio/pull/828). `parseIntent` recognises target phrases after the navigate verbs (`shared/src/companion-resource.ts`: a kind word plus a description, a recency word or an exact id) and emits `navigate { query }` — an unresolved phrase, not a fake `ResourceRef` kind — which `resource-handoff.ts` resolves through `findResources`: one match opens, recency and exact-id requests open their best match, several say "Three chats match — the first is X." and post numbered chips (a new `choice` arm on `PendingAction`; "two", "the second", a chip click or yes/Return resolves it, 60 s expiry, a new request replaces it), none says "I couldn't find…". Follow-ups (`navigate { reference, about?, related? }`) read the live selection or `lastRevealed`: "this chat", "the next/previous one" (chats, graph rows, live sessions, cached PRs), "its PR/commit/run" through a small `RELATED` map (commit, PR and CI run hop to each other; card to PR not built), and "go back" runs `panel.back`. Verb order is repo, then agent/model, then view, then resource. `ask.ts` teaches the router the `query`/`target`/`reference` shapes.
 
 **Theme I — MCP `ui.reveal`/`ui.find` and the deep link.** ◻ Two tools behind `allowUi` (titles and ids only), `ui.navigate.url`, `ui.state.selection`, and `midnite-studio://reveal?ref=`.
 
@@ -257,25 +257,25 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 ### H — Grammar, ambiguity and follow-ups (M)
 
-- [ ] `parseIntent` ([`companion.ts`](../../../packages/shared/src/companion.ts)) learns target
+- [x] `parseIntent` ([`companion.ts`](../../../packages/shared/src/companion.ts)) learns target
       phrases after `NAVIGATE_VERBS` ("open/show/pull up/go to/take me to") — a kind word plus a
       description, an exact id, or a recency word — and emits `navigate { target: { kind: 'query', … } }`
       as an **unresolved** form that the app resolves through Theme G. (`shared` stays free of the
       resolver; it only recognises the shape.)
-- [ ] **Ambiguity:** one match → reveal. Several → the companion says *"Three chats match — the
+- [x] **Ambiguity:** one match → reveal. Several → the companion says *"Three chats match — the
       first is {title}."* and posts numbered chips; "two", "the second", a chip click or Return on
       the first resolves it. One pending choice at a time, expiring like Phase 81's confirm tier
       (60 s); a new request replaces it. None → *"I couldn't find a {kind} matching {query}."*
-- [ ] **Follow-ups** from `lastRevealed` and the live selection: "this {kind}" → the current
+- [x] **Follow-ups** from `lastRevealed` and the live selection: "this {kind}" → the current
       selection; "the next/previous one" → the adjacent item in the same list (graph row, chat
       list, session list); "its PR" / "its commit" / "its run" → a small `RELATED` map
       (commit → PR via `forge.pulls` head sha, PR → head commit, CI run → commit, card → PR if
       linked); "go back" → `panel.back` history.
-- [ ] The `ask.ts` route prompt ([`ask.ts`](../../../packages/desktop/src/main/companion/ask.ts)
+- [x] The `ask.ts` route prompt ([`ask.ts`](../../../packages/desktop/src/main/companion/ask.ts)
       `buildAskPrompt`) documents the `target` and `reference` shapes and the resource kinds, so a
       phrasing the regex misses still comes back as a validated `navigate` intent. `parseAskReply`
       fixtures for each.
-- [ ] **Verb precedence** with Phase 111's planned `switchAgent`, written into `parseIntent`'s
+- [x] **Verb precedence** with Phase 111's planned `switchAgent`, written into `parseIntent`'s
       order and tested: repo → agent/model → view → resource.
   - *Acceptance:* `companion.test.ts` phrase fixtures (≥ 40, spanning all four families),
     `handoff.test.ts` for chip resolution and expiry, one e2e in

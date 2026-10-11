@@ -1,6 +1,17 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-11 — Phase 112 Theme H — Grammar, ambiguity and follow-ups
+
+[PR #828](https://github.com/bilo-io/midnite-studio/pull/828). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Theme H: "open my chat about auth" resolves through Theme G, asks which one when several match, and "this / the next one / its PR / go back" follow what is on screen.
+
+- **grammar:** `matchFollowUp`/`matchGoBack`/`describesResource` in `shared/src/companion-resource.ts`; `navigate` gains `query`, `about`, `related`; "pull up" joins the navigate verbs; precedence repo → agent/model → view → resource, tested (60 cases).
+- **chips:** `choice` pending action, numbered chips in the panel, "two"/"the second"/click/yes, 60 s expiry, replaced by a newer request; recency and exact-id requests never ask.
+- **follow-ups:** `reveal/follow-up.ts` — live selection or `lastRevealed`, next/previous over chats, graph rows, sessions and PRs, a `RELATED` map for commit, PR and CI run.
+- **router:** `ask.ts` documents the new shapes; `parseAskReply` fixtures for each.
+- **e2e:** one `companion-panel.spec.ts` spec (budget 479 to 480); chip screenshots in `docs/screenshots/p112-h/`.
+
 ## 2026-10-11 — Phase 112 Theme G — The resolver
 
 [PR #826](https://github.com/bilo-io/midnite-studio/pull/826). [Phase 112](phases/phase-112-companion-deep-navigation.md)
