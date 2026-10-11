@@ -100,7 +100,7 @@ or setting — not just the page it lives on.* Planned 2026-10-10.
 
 **Theme H — Grammar, ambiguity and follow-ups.** ◻ Target phrases in `parseIntent`, numbered-chip disambiguation as one pending choice, "this / next / its PR / back", and the `ask.ts` router taught the target shape.
 
-**Theme I — MCP `ui.reveal`/`ui.find` and the deep link.** ✅ [PR #PRN](https://github.com/bilo-io/midnite-studio/pull/PRN). `ui.reveal` and `ui.find` sit behind `allowUi` (both refused with it off, before any IPC); `ui.find` returns ref, title, detail and a `midnite-studio://reveal?ref=<base64url JSON>` link per match, never bodies. `ui.navigate` takes `url` (a `browserTab` reveal) and `ui.state` reports `lastRevealed`. `resourceRefLink`/`decodeResourceRefParam` live in `shared`; `parseDeepLink` accepts `reveal` (an invalid payload gives `ref: null`, which the renderer toasts) and `useDeepLinks` runs `revealResource(ref, {caller:'link'})`. Deferred: `ui.state.selection`, and moving the `issue` navigate path onto the table.
+**Theme I — MCP `ui.reveal`/`ui.find` and the deep link.** ✅ [PR #827](https://github.com/bilo-io/midnite-studio/pull/827). `ui.reveal` and `ui.find` sit behind `allowUi` (both refused with it off, before any IPC); `ui.find` returns ref, title, detail and a `midnite-studio://reveal?ref=<base64url JSON>` link per match, never bodies. `ui.navigate` takes `url` (a `browserTab` reveal) and `ui.state` reports `lastRevealed`. `resourceRefLink`/`decodeResourceRefParam` live in `shared`; `parseDeepLink` accepts `reveal` (an invalid payload gives `ref: null`, which the renderer toasts) and `useDeepLinks` runs `revealResource(ref, {caller:'link'})`. Deferred: `ui.state.selection`, and moving the `issue` navigate path onto the table.
 
 ---
 
