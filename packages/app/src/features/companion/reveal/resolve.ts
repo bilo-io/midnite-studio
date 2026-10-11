@@ -95,6 +95,8 @@ export type FindOptions = {
 
 /** A scattered subsequence match below this many points per needle character is noise, not a match. */
 const FUZZY_FLOOR_PER_CHAR = 18;
+/** …and one whose matched letters spread wider than this many times the needle is too. */
+const FUZZY_MAX_SPAN = 2;
 
 function titleScore(term: string, title: string): number | null {
   const lower = title.toLowerCase();
@@ -102,6 +104,9 @@ function titleScore(term: string, title: string): number | null {
   if (!hit) return null;
   if (lower.includes(term)) return hit.score;
   if (term.length < 3 || hit.score < FUZZY_FLOOR_PER_CHAR * term.length) return null;
+  // A typo or a dropped letter ("lcok", "scren") stays tight; letters picked from across a sentence do not.
+  const span = (hit.indices.at(-1) ?? 0) - (hit.indices[0] ?? 0) + 1;
+  if (span > FUZZY_MAX_SPAN * term.length) return null;
   return hit.score;
 }
 
