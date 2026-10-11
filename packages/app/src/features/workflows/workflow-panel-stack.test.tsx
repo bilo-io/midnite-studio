@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
+import { useWorkflowRevealStore } from '../../store/workflow-reveal-store';
 import { WorkflowsView } from './workflows-view';
 
 /**
@@ -94,6 +95,24 @@ describe('the workflow editor\'s right-hand panel-stack (Phase 52 Theme F)', () 
 
     expect(await screen.findByText('Inspector')).toBeDefined();
     expect(screen.getByLabelText('Back')).toHaveProperty('disabled', true);
+  });
+
+  it('honours a reveal issued before the view mounted (Phase 112 Theme D)', async () => {
+    installBridge();
+    // What the `workflow` revealer writes while Workflows is not on screen.
+    useWorkflowRevealStore.getState().select('w2');
+    renderView();
+    expect(await screen.findByText('Inspector')).toBeDefined();
+    expect(screen.getAllByText('Second workflow').length).toBeGreaterThan(0);
+  });
+
+  it('opens straight onto a revealed run when the view mounts', async () => {
+    installBridge();
+    useWorkflowRevealStore.getState().select('w1');
+    useWorkflowRevealStore.getState().reveal({ workflowId: 'w1', runId: 'r1' });
+    renderView();
+    expect(await screen.findByText('Run')).toBeDefined();
+    expect(useWorkflowRevealStore.getState().pending).toBeNull();
   });
 
   it('pushes History, then a run, and Back walks it back one step at a time', async () => {

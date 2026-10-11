@@ -186,6 +186,18 @@ export async function navigateCompanion(
 
   const state = liveNavigationState();
 
+  // Phase 112 Theme C: the plain `issue` shorthand is a ref now — "open issue
+  // 812" is `{ kind: 'issue' }` on the table, like every other resource. With
+  // no repo open it falls through to `resolveNavigation`'s own refusal, which
+  // names the missing repo.
+  if (intent.issue !== undefined && state.repoId !== null) {
+    const outcome = await revealResource(
+      { kind: 'issue', repoId: state.repoId, number: intent.issue },
+      { caller: 'companion' },
+    );
+    return { say: revealSay(outcome) };
+  }
+
   const plan = resolveNavigation(intent, state);
 
   switch (plan.kind) {

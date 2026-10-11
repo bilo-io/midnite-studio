@@ -10,6 +10,18 @@ Theme G: free text ("the commit about the lock screen", "my last chat", "PR 812"
 - **rank:** `findResources` — exact ids win outright, recency orders by time, fuzzy titles with a noise floor, substring text, all terms required, a bounded frecency/reveal-history nudge, ties to the newer; 300 ms and 20 results per source, limit ≤ 20.
 - **sources:** commits (`git log --grep`, cancelled on timeout), refs, stashes, PRs, issues, CI runs, chats, sessions, councils, workflows (+ runs), boards and cards, notes, each media tab, games, DB connections and tables, API requests, browser tabs, settings pages and sections — every one a list that already exists.
 - **wire:** `ui-requests.ts` answers `find` with `{did:'found', matches}`; the main window's `QueryClient` moved to `services/query-client.ts` so sources read cached forge lists without fetching.
+## 2026-10-11 — Phase 112 Themes C, D — Git, forge and agent-work revealers
+
+[PR #825](https://github.com/bilo-io/midnite-studio/pull/825). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Themes C and D: the companion and MCP agents can now open a specific commit, ref, stash, file (at a line), a file's diff in a
+commit, a PR, an issue, a CI run or job, and a chat, session, council, workflow run, board or kanban card.
+
+- **Git + forge:** `revealCommit` always lands (resolve short sha, wait for the stream, clear a hiding ref filter, cap message,
+  centre and pulse). `files-store.revealLine`, a `commit-file-request` store, and the `issue` shorthand moved onto the table.
+- **Agent work:** lifted the open workflow into `useWorkflowRevealStore` and the selected card into `board-selection-store`;
+  `pushCouncilEntry` over the council history store; `BoardView` scrolls and pulses a revealed card.
+- **Tests:** per-revealer vitest against store fakes, `reveal-commit.test.ts`, a reveal-before-mount workflow test, and one
+  Playwright spec (e2e cap 478 to 479).
 ## 2026-10-11 — Phase 112 Themes E, F — Notes, media, tools and settings revealers
 
 [PR #824](https://github.com/bilo-io/midnite-studio/pull/824). [Phase 112](phases/phase-112-companion-deep-navigation.md)

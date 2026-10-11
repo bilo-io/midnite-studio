@@ -51,6 +51,7 @@ import { imageDiffSources } from '../diff/image-sources';
 import { useCommitFileDiff } from '../diff/use-file-diff';
 import { formatDate } from '../graph/graph-row';
 import { CommitAllChanges } from './commit-all-changes';
+import { useCommitFileRequest } from './commit-file-request';
 /*
   `react-markdown` + `remark-gfm` out of the entry chunk — Phase 36 Theme C.
 
@@ -276,6 +277,26 @@ export function CommitDetail({
         : { ...current, sha, showAll: current.sha === sha ? !current.showAll : true },
     );
   }, [sha, split]);
+
+  /*
+    A reveal asked for one file's diff (Phase 112 Theme C, `commitFile`):
+    pick it once this commit's file list has loaded, exactly as a click on it
+    would. A request for another commit waits for that commit; one naming a
+    file the commit does not have is dropped rather than left pending.
+  */
+  const fileRequest = useCommitFileRequest((s) => s.request);
+  useEffect(() => {
+    if (!fileRequest || !data || fileRequest.sha !== data.sha) return;
+    useCommitFileRequest.getState().consume(fileRequest.nonce);
+    const file = data.files.find((candidate) => candidate.path === fileRequest.path);
+    if (!file) return;
+    setState((current) => ({
+      ...current,
+      sha,
+      files: [{ path: file.path, oldPath: file.oldPath }],
+      showAll: false,
+    }));
+  }, [fileRequest, data, sha]);
 
   const diff = useCommitFileDiff({
     repoId,

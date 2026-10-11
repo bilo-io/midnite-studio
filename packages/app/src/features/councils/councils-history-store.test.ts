@@ -1,7 +1,13 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { councilIdOf, isSameCouncilEntry, useCouncilsHistory, type CouncilEntry } from './councils-history-store';
+import {
+  councilIdOf,
+  isSameCouncilEntry,
+  pushCouncilEntry,
+  useCouncilsHistory,
+  type CouncilEntry,
+} from './councils-history-store';
 
 function resetStore(): void {
   const { result } = renderHook(() => useCouncilsHistory());
@@ -73,5 +79,24 @@ describe('useCouncilsHistory — module-level survival (Theme E)', () => {
 
     act(() => result.current.forward());
     expect(result.current.current).toEqual({ kind: 'run', id: 'r1', councilId: 'c1' });
+  });
+});
+
+describe('pushCouncilEntry (Phase 112 Theme D)', () => {
+  beforeEach(resetStore);
+
+  it('opens a council without a hook, on the stack a click would have built', () => {
+    pushCouncilEntry('c1');
+    const { result } = renderHook(() => useCouncilsHistory());
+    expect(result.current.current).toEqual({ kind: 'council', id: 'c1' });
+    expect(result.current.canGoBack).toBe(true);
+  });
+
+  it('opens a run on top of its council', () => {
+    pushCouncilEntry('c1', 'run9');
+    const { result } = renderHook(() => useCouncilsHistory());
+    expect(result.current.current).toEqual({ kind: 'run', id: 'run9', councilId: 'c1' });
+    act(() => result.current.back());
+    expect(result.current.current).toEqual({ kind: 'council', id: 'c1' });
   });
 });

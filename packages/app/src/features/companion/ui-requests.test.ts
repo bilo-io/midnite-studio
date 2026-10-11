@@ -29,6 +29,7 @@ vi.mock('../../services/bridge', () => ({
 
 import { resolveUiAction } from './ui-requests';
 import { REVEALERS } from './reveal/revealers';
+import { unavailableRevealer } from './reveal/revealers/stub';
 import { useRevealHistory } from './reveal/reveal-history';
 import { runCommand, setCommandRuntime } from './command-runtime';
 import { useCompanionStore } from '../../store/companion-store';
@@ -208,9 +209,16 @@ describe('resolveUiAction — reveal / find (Phase 112 Themes B, G)', () => {
   const chat: CompanionUiAction = { kind: 'reveal', ref: { kind: 'chat', id: 'c1' } };
 
   it('lands on the page and refuses plainly while the kind is still a stub', async () => {
-    const result = await resolveUiAction(chat);
-    expect(useUiStore.getState().activeView).toBe('chats');
-    expect(result).toMatchObject({ ok: false, message: "I can't pick out that chat yet." });
+    const original = REVEALERS.chat;
+    // Chats has an opener now (Theme D); the stub is what any kind without one answers.
+    REVEALERS.chat = unavailableRevealer('chats');
+    try {
+      const result = await resolveUiAction(chat);
+      expect(useUiStore.getState().activeView).toBe('chats');
+      expect(result).toMatchObject({ ok: false, message: "I can't pick out that chat yet." });
+    } finally {
+      REVEALERS.chat = original;
+    }
   });
 
   it('answers revealed, posts the toast and records lastRevealed when a revealer lands', async () => {

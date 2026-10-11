@@ -175,7 +175,7 @@ describe('navigateCompanion', () => {
     const outcome = await navigateCompanion(navigate({ view: 'tasks', issue: 212 }));
     expect(useUiStore.getState().activeView).toBe('tasks');
     expect(useIssueModalStore.getState().target).toEqual({ repoId: 'r1', number: 212 });
-    expect(outcome.say).toBe('Here\'s the Tasks.');
+    expect(outcome.say).toBe("Here's issue 212.");
   });
 
   it('focuses an already-detached page instead of opening a second copy', async () => {
