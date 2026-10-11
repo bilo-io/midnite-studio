@@ -511,3 +511,54 @@ test('a navigate that would leave a dirty file defers to the unsaved-file guard,
   await expect(dialog).toBeVisible();
   await expect(page.getByTitle('Unsaved changes')).toBeVisible();
 });
+
+/*
+  Phase 112 Theme H — ambiguity chips. Real browser because the chip bar is
+  layout in the panel and the pick crosses a view switch into the Chats page;
+  the resolution rules (one/several/none, ordinals, expiry, replacement) are
+  `handoff-resource.test.ts`.
+*/
+test('"open my chat about auth" with two matches posts chips, and "two" opens the second', async ({ page }) => {
+  const NOW = Date.now();
+  const chat = (id: string, title: string, age: number) => ({
+    id,
+    title,
+    engine: 'claude',
+    model: null,
+    mode: 'ask',
+    repoId: null,
+    repoName: null,
+    repoPath: null,
+    pinned: false,
+    createdAt: NOW - age - 1000,
+    updatedAt: NOW - age,
+    session: null,
+    messages: [
+      { id: `${id}-m`, role: 'user', text: `Question for ${title}`, createdAt: NOW - age, status: 'done' },
+    ],
+  });
+  await seedCompanionEnabled(page);
+  await stubSpeechAndAudio(page);
+  await installMockBridge(page, {
+    ...fixtures,
+    chats: { seed: [chat('c-1', 'Auth rewrite plan', 5000), chat('c-2', 'Auth token bug', 9000)], reply: 'ok' },
+  });
+  await page.goto('/');
+  await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
+  await expect(page.getByTestId('companion-state-label')).toHaveText('Ready');
+
+  await submit(page, 'open my chat about auth');
+
+  await expect(page.getByTestId('companion-thread')).toContainText('Two chats match');
+  await expect(page.getByTestId('companion-choice')).toBeVisible();
+  await expect(page.getByTestId('companion-choice-1')).toContainText('Auth rewrite plan');
+  await expect(page.getByTestId('companion-choice-2')).toContainText('Auth token bug');
+
+  await submit(page, 'two');
+
+  await expect(page.getByTestId('companion-choice')).toHaveCount(0);
+  await expect(page.getByTestId('companion-thread')).toContainText('Here');
+  await expect(page.getByText('Question for Auth token bug').first()).toBeVisible();
+});

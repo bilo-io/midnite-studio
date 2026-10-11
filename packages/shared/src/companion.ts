@@ -17,11 +17,14 @@ import {
   SETTINGS_PAGE_IDS,
   VIEW_IDS,
   RepoDescriptorSchema,
+  ResourceKindSchema,
   ResourceRefSchema,
   type Ref,
   type SettingsPageId,
   type ViewId,
 } from './domain';
+import { parseResourceQuery } from './domain/resource-query';
+import { describesResource, matchFollowUp, matchGoBack, RESOURCE_RELATED_KINDS } from './companion-resource';
 import { isCommandId } from './keybindings';
 import { parseConventionalCommit } from './version';
 import { resolveAgentAndModel } from './ai-models';
@@ -2582,6 +2585,7 @@ const NAVIGATE_VERBS = [
   'show me',
   'show',
   'go to',
+  'pull up',
   'open',
 ] as const;
 
@@ -2700,6 +2704,36 @@ function matchingRepoName(name: string, repos: readonly string[]): string | null
   return contained ?? null;
 }
 
+/** "switch to <repo>" — a repo name wins over every other reading of "switch to". */
+function tryRepoSwitch(
+  bare: string,
+  vocabulary: CompanionVocabulary,
+): Extract<CompanionIntent, { kind: 'switchRepo' }> | null {
+  const span = phraseSpan(bare, 'switch to');
+  if (span === null) return null;
+  const remainder = bare
+    .slice(span.end)
+    .replace(/^\s*(?:me|over|the|to)\b\s*/i, '')
+    .trim();
+  const repo = remainder === '' ? null : matchingRepoName(remainder, vocabulary.repos);
+  return repo ? { kind: 'switchRepo', name: repo } : null;
+}
+
+/**
+ * Whether every content word of `remainder` is one of the matched view's own
+ * words — "the commit graph" is the Graph view, "the latest commit graph" is
+ * not. A phrase with a recency word or an exact id is never a view phrase.
+ */
+function isViewPhrase(remainder: string, viewId: ViewId | undefined, views: CompanionVocabulary['views']): boolean {
+  if (viewId === undefined) return false;
+  const query = parseResourceQuery(remainder);
+  if (query.exact.length > 0 || query.recency !== null) return false;
+  const view = views.find((candidate) => candidate.id === viewId);
+  if (!view) return false;
+  const words = new Set(`${view.label} ${view.id} ${view.keywords}`.toLowerCase().split(/[^\p{L}\p{N}]+/u));
+  return query.terms.every((term) => words.has(term));
+}
+
 /**
  * The `navigate` intent, tried per {@link NAVIGATE_VERBS} entry in order. Each
  * verb strips itself (plus a leading "me"/"the"/connective) off the front of
@@ -2745,7 +2779,14 @@ function tryNavigate(
       return page ? { kind: 'navigate', view: 'settings', page } : { kind: 'navigate', view: 'settings' };
     }
 
+    // Phase 112 Theme H — verb precedence is repo → agent/model → view →
+    // resource, so a phrase that is only a view's own words ("the commit
+    // graph") stays that view, and one that says *which* thing ("my last
+    // chat", "PR 812") is a resource the app resolves.
     const view = longestViewMatch(remainder, vocabulary.views);
+    if (describesResource(remainder) && !isViewPhrase(remainder, view?.id, vocabulary.views)) {
+      return { kind: 'navigate', query: remainder.slice(0, 200) };
+    }
     if (view) return { kind: 'navigate', view: view.id };
 
     // A verb matched but nothing recognisable followed it — try the next
@@ -2827,6 +2868,17 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
     target: ResourceRefSchema.optional(),
     /** Phase 112 — a follow-up ("this one", "the next one", "go back"); Theme H fills it. */
     reference: z.enum(['this', 'next', 'previous', 'parent', 'back']).optional(),
+    /**
+     * Phase 112 Theme H — a target phrase the grammar recognised but did not
+     * resolve ("my last chat about auth"). `shared` only spots the shape; the
+     * app resolves it through `findResources`, so a phrase that names several
+     * things becomes numbered chips rather than a guess.
+     */
+    query: z.string().min(1).max(200).optional(),
+    /** "this chat", "the next commit" — the kind a follow-up has to be about. */
+    about: ResourceKindSchema.optional(),
+    /** "its PR", "the run for this commit" — hop from the current thing to this kind. */
+    related: z.enum(RESOURCE_RELATED_KINDS).optional(),
   }),
   /**
    * "Push." "Fetch." "New terminal." `id` is `z.string().refine(isCommandId)`
@@ -3096,6 +3148,20 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
     if (tuneTarget) return { kind: 'tune', target: tuneTarget };
     const tweak = matchTweakPhrase(bare);
     if (tweak) return { kind: 'tweak', instruction: tweak };
+
+    // Phase 112 Theme H. "Go back" and the follow-ups ("this chat", "the next
+    // one", "its PR") are whole-line shapes, so they cannot be read as a view.
+    if (matchGoBack(bare)) return { kind: 'navigate', reference: 'back' };
+    const followUp = matchFollowUp(bare);
+    if (followUp) return { kind: 'navigate', ...followUp };
+
+    // Verb precedence, written down: repo → agent/model → view → resource.
+    // `tryNavigate` owns the last two; the first two are answered here first so
+    // "switch to claude" is never a phrase the resource arm gets to read.
+    const repoSwitch = tryRepoSwitch(bare, vocabulary);
+    if (repoSwitch) return repoSwitch;
+    const agentFirst = trySwitchAgent(settingsCore(bare));
+    if (agentFirst) return agentFirst;
 
     const navigated = tryNavigate(bare, vocabulary);
     if (navigated) return navigated;
