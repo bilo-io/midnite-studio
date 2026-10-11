@@ -19,6 +19,8 @@ import {
   type HandoffDeps,
 } from './handoff';
 import { navigateCompanion } from './navigate';
+import { resolveFollowUp, liveFollowUpDeps } from './reveal/follow-up';
+import { EXACT_SCORE, findResources } from './reveal/resolve';
 import { companionTtsSpeaker } from './speaker';
 import { silentSpeaker, type Speaker } from './ports';
 import {
@@ -237,6 +239,11 @@ function handoffDeps(signal: AbortSignal, repo: RepoSnapshot): HandoffDeps {
     setPendingAction: (action) => useCompanionStore.getState().setPendingAction(action),
     vocabulary: () => withCompanionProfiles(vocabularyCache ?? vocabularyFor([])),
     navigate: (intent) => navigateCompanion(intent),
+    resource: {
+      find: (query, limit) => findResources(query, { limit }),
+      followUp: (request) => resolveFollowUp(request, liveFollowUpDeps()),
+      exactScore: EXACT_SCORE,
+    },
     // Phase 109 Themes C and E: the companion's voice as a third way into the
     // one settings setter, with the read-back and Undo toast around it.
     companionSettings: {

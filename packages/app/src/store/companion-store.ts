@@ -7,6 +7,7 @@ import {
   type CompanionSettingKey,
   type CompanionState,
   type CompanionTurn,
+  type ResourceRef,
 } from '@midnite/studio-shared';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -48,7 +49,8 @@ export type PendingAction =
   | PendingCommandAction
   | PendingExternalAction
   | PendingSettingAction
-  | PendingOpenSettingsAction;
+  | PendingOpenSettingsAction
+  | PendingChoiceAction;
 
 /** A palette command waiting on a yes. `kind` is optional so the Phase 81 shape still reads as one. */
 export type PendingCommandAction = {
@@ -106,6 +108,22 @@ export type PendingOpenSettingsAction = {
   label: string;
   at: number;
   onConfirm?: undefined;
+};
+
+/**
+ * Several things matched what the user asked to open (Phase 112 Theme H) —
+ * numbered chips, one pending choice at a time. "two", "the second", a chip
+ * click, or a yes (the first) resolves it; a newer request replaces it and it
+ * expires with the rest of the slot (`PENDING_ACTION_MEMORY_MS`). `options` is
+ * the list the user was told about, so "two" means what the chips say.
+ */
+export type PendingChoiceAction = {
+  kind: 'choice';
+  id?: undefined;
+  label: string;
+  at: number;
+  onConfirm?: undefined;
+  options: readonly { ref: ResourceRef; title: string; detail?: string | undefined }[];
 };
 
 export type CompanionStoreState = {

@@ -307,6 +307,17 @@ describe('buildAskPrompt', () => {
       expect(prompt).toContain('never guess an id that is not listed');
     });
 
+    it('teaches the resource shapes: query, target, reference, related, and every kind (Phase 112 H)', () => {
+      const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
+      expect(prompt).toContain('{"kind":"navigate","query":"my last chat about auth"}');
+      expect(prompt).toContain('"target":{"kind":"<kind>"');
+      expect(prompt).toContain('"reference":"this"|"next"|"previous"|"back"');
+      expect(prompt).toContain('"related":"pull"|"commit"|"ciRun"|"card"');
+      for (const kind of ['commit', 'pull', 'ciRun', 'chat', 'session', 'note', 'media', 'dbTable', 'setting']) {
+        expect(prompt).toContain(kind);
+      }
+    });
+
     it('lists available agents and models when vocabulary includes them (Phase 111 Theme B)', () => {
       const prompt = buildAskPrompt({
         kind: 'route',

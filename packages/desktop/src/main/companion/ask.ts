@@ -9,6 +9,7 @@ import {
   failure,
   ok,
   parseAskReply,
+  RESOURCE_KINDS,
   toAgentPrompt,
   type AgentDefinition,
   type CompanionAskKind,
@@ -212,6 +213,7 @@ function routeVocabularyLines(vocabulary: CompanionVocabulary): string[] {
     'Use {"kind":"navigate","view":"<a view id above>","page":"<a settings id above>",',
     '"issue":<number>,"url":"<url>"} to go somewhere — include only the fields that apply,',
     'and never both a view and a url.',
+    ...resourceNavigateLines(),
     'Use {"kind":"run","id":"<a command id above>"} to run a palette command.',
     'Use {"kind":"confirm"} for a bare confirmation of something already asked.',
     'Use {"kind":"help"} if it asks what you can do.',
@@ -219,6 +221,23 @@ function routeVocabularyLines(vocabulary: CompanionVocabulary): string[] {
     ...agentVocabularyLines(vocabulary.agents),
     ...settingsVocabularyLines(vocabulary.settings),
     ...profileVocabularyLines(vocabulary.profiles),
+  ];
+}
+
+/**
+ * Phase 112 Theme H — opening a specific thing, not just a page. The router has
+ * no ids to look up, so it hands over the person's own description as `query`
+ * (the app resolves it, and asks which when several match); `target` is for the
+ * rare reply that already carries a full ref, and `reference` for a follow-up.
+ */
+function resourceNavigateLines(): string[] {
+  return [
+    '',
+    'To open a specific thing, describe it in their words (never invent ids):',
+    '{"kind":"navigate","query":"my last chat about auth"}',
+    `Kinds: ${RESOURCE_KINDS.join(', ')}. A known ref: "target":{"kind":"<kind>", …fields}.`,
+    'A follow-up: "reference":"this"|"next"|"previous"|"back", with "about":"<kind>"',
+    'or "related":"pull"|"commit"|"ciRun"|"card" ("its PR").',
   ];
 }
 

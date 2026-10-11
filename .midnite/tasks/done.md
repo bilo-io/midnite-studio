@@ -27,6 +27,17 @@ then into a 40-turn thread scrolled to its top. In this morning's DMG (`f0a50181
 stayed 0 of 617 and the spoken turn was never rendered. In this branch, the field scrolled to
 457 of 617, the thread came back to the bottom, and the spoken turn was on screen. Screenshots:
 `docs/screenshots/voice-autoscroll/`.
+## 2026-10-11 — Phase 112 Theme H — Grammar, ambiguity and follow-ups
+
+[PR #828](https://github.com/bilo-io/midnite-studio/pull/828). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Theme H: "open my chat about auth" resolves through Theme G, asks which one when several match, and "this / the next one / its PR / go back" follow what is on screen.
+
+- **grammar:** `matchFollowUp`/`matchGoBack`/`describesResource` in `shared/src/companion-resource.ts`; `navigate` gains `query`, `about`, `related`; "pull up" joins the navigate verbs; precedence repo → agent/model → view → resource, tested (60 cases).
+- **chips:** `choice` pending action, numbered chips in the panel, "two"/"the second"/click/yes, 60 s expiry, replaced by a newer request; recency and exact-id requests never ask.
+- **follow-ups:** `reveal/follow-up.ts` — live selection or `lastRevealed`, next/previous over chats, graph rows, sessions and PRs, a `RELATED` map for commit, PR and CI run.
+- **router:** `ask.ts` documents the new shapes; `parseAskReply` fixtures for each.
+- **e2e:** one `companion-panel.spec.ts` spec (budget 479 to 480); chip screenshots in `docs/screenshots/p112-h/`.
+
 ## 2026-10-11 — Phase 111 Theme F — View synchronization
 
 [PR #829](https://github.com/bilo-io/midnite-studio/pull/829). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
