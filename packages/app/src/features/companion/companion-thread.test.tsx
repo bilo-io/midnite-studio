@@ -6,9 +6,41 @@
  */
 import type { CompanionTurn } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { CompanionThread } from './companion-thread';
+
+beforeAll(() => {
+  if (!('ResizeObserver' in globalThis)) {
+    class StubResizeObserver {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    Object.defineProperty(globalThis, 'ResizeObserver', {
+      configurable: true,
+      value: StubResizeObserver,
+    });
+  }
+  for (const prop of ['clientHeight', 'offsetHeight'] as const) {
+    Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, get: () => 600 });
+  }
+  for (const prop of ['clientWidth', 'offsetWidth'] as const) {
+    Object.defineProperty(HTMLElement.prototype, prop, { configurable: true, get: () => 360 });
+  }
+  HTMLElement.prototype.getBoundingClientRect = () =>
+    ({
+      width: 360,
+      height: 600,
+      top: 0,
+      left: 0,
+      right: 360,
+      bottom: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }) as DOMRect;
+});
 
 afterEach(cleanup);
 
@@ -64,3 +96,29 @@ describe('CompanionThread scrolling', () => {
     expect(screen.getByTestId('companion-jump-latest')).toBeTruthy();
   });
 });
+
+describe('CompanionThread avatars', () => {
+  it('renders companion avatar for companion turns and user avatar for user turns', () => {
+    render(<CompanionThread turns={history} />);
+    const thread = screen.getByTestId('companion-thread');
+
+    const agentAvatars = thread.querySelectorAll('[data-testid="companion-agent-avatar"]');
+    expect(agentAvatars).toHaveLength(2); // turn 0 and turn 2 are companion
+
+    const userAvatars = thread.querySelectorAll('[data-testid="companion-user-avatar"]');
+    expect(userAvatars).toHaveLength(1); // turn 1 is user
+  });
+
+  it('renders agent avatar for agent output turns', () => {
+    const turnsWithAgent: CompanionTurn[] = [
+      turn(0, 'companion'),
+      turn(1, 'agent'),
+    ];
+    render(<CompanionThread turns={turnsWithAgent} />);
+    const thread = screen.getByTestId('companion-thread');
+
+    const agentAvatars = thread.querySelectorAll('[data-testid="companion-agent-avatar"]');
+    expect(agentAvatars).toHaveLength(2); // both companion and agent turns have agent/companion avatars
+  });
+});
+
