@@ -4,6 +4,8 @@ import type { ChatMessage as ChatMessageData } from '@midnite/studio-shared';
 import { LuCheck, LuCopy, LuFileText, LuPencil, LuRotateCcw, LuTriangleAlert } from 'react-icons/lu';
 
 import { IconButton } from '../../components/icon-button';
+import { UserAvatar } from '../../components/user-avatar';
+import { useUiStore } from '../../store/ui-store';
 import { useToastStore } from '../../store/toast-store';
 import { MarkdownBody } from '../markdown/markdown-body';
 import { ChatChangesCard } from './chat-changes-card';
@@ -77,8 +79,11 @@ export const UserMessage = memo(function UserMessage({
     if (text.length > 0 && text !== message.text) onEdit(message.id, text);
   };
 
+  const account = useUiStore((s) => s.forgeAccounts.find((a) => a.id === s.forgeActiveAccountId) ?? s.forgeAccounts[0]);
+
   return (
-    <article className="group flex flex-col items-end" data-testid="chat-message-user" data-message-id={message.id} aria-label="You">
+    <article className="group flex items-start justify-end gap-3" data-testid="chat-message-user" data-message-id={message.id} aria-label="You">
+      <div className="flex min-w-0 flex-1 flex-col items-end">
       {editing ? (
         <div className="w-full max-w-[85%] rounded-2xl border border-primary/40 bg-background p-2">
           <textarea
@@ -138,6 +143,10 @@ export const UserMessage = memo(function UserMessage({
           </div>
         </>
       )}
+      </div>
+      <span aria-hidden data-testid="chat-user-avatar" className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center">
+        <UserAvatar login={account?.login} name={account?.displayName ?? 'You'} src={account?.avatarUrl} size={24} withTooltip={false} />
+      </span>
     </article>
   );
 });
@@ -151,8 +160,11 @@ export const AssistantMessage = memo(function AssistantMessage({
   onOpenChanges,
   onResolveAll,
   resolving,
+  hideThinking = false,
 }: {
   message: ChatMessageData;
+  /** The thinking line is docked above the composer instead of inline. */
+  hideThinking?: boolean;
   engine: ChatEngine | undefined;
   isLast: boolean;
   canRetry: boolean;
@@ -176,7 +188,7 @@ export const AssistantMessage = memo(function AssistantMessage({
         {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
       </span>
       <div className="min-w-0 flex-1">
-        <ThinkingPanel message={message} />
+        {hideThinking ? null : <ThinkingPanel message={message} />}
         {message.activity && message.activity.length > 0 ? (
           <ul className="mb-1.5 flex flex-wrap gap-1" aria-label="What the agent did" data-testid="chat-activity">
             {message.activity.slice(-8).map((line, i) => (

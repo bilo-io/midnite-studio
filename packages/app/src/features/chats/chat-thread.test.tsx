@@ -158,19 +158,18 @@ describe('ChatThread', () => {
   describe('docking the live turn', () => {
     const live = (text = 'live text') => chat([m('u', 'user', 'q'), m('a1', 'assistant', 'earlier', { status: 'done' }), m('u2', 'user', 'q2'), m('a', 'assistant', text, { status: 'streaming' })]);
 
-    it('renders the live turn in the dock, not inline', () => {
+    it('keeps the live reply in the thread and docks only its thinking line', () => {
       render(<ChatThread chat={live()} streaming {...props} />);
       const dock = screen.getByTestId('chat-dock');
       const thread = screen.getByTestId('chat-thread');
       expect(within(dock).getByTestId('thinking-panel')).toBeTruthy();
-      expect(within(dock).getByText('live text')).toBeTruthy();
-      expect(within(thread).queryByText('live text')).toBeNull();
+      expect(within(dock).queryByText('live text')).toBeNull();
+      expect(within(thread).getByText('live text')).toBeTruthy();
       expect(thread.contains(dock)).toBe(false);
-      // The finished turn keeps its inline record.
       expect(within(thread).getByText('earlier')).toBeTruthy();
     });
 
-    it('never duplicates the live turn', () => {
+    it('never duplicates the live turn or its thinking line', () => {
       render(<ChatThread chat={live()} streaming {...props} />);
       expect(screen.getAllByText('live text')).toHaveLength(1);
       expect(screen.getAllByTestId('thinking-panel')).toHaveLength(1);
@@ -181,26 +180,32 @@ describe('ChatThread', () => {
       expect(within(screen.getByTestId('chat-dock')).getByTestId('thinking-panel')).toBeTruthy();
     });
 
-    it('moves the turn inline and removes the dock once it finishes', () => {
-      const { rerender } = render(<ChatThread chat={live()} streaming {...props} />);
-      rerender(
-        <ChatThread
-          chat={chat([m('u', 'user', 'q'), m('a1', 'assistant', 'earlier'), m('u2', 'user', 'q2'), m('a', 'assistant', 'live text', { status: 'done' })])}
-          streaming={false}
-          {...props}
-        />,
-      );
-      expect(screen.queryByTestId('chat-dock')).toBeNull();
-      expect(within(screen.getByTestId('chat-thread')).getByText('live text')).toBeTruthy();
-      expect(screen.getAllByText('live text')).toHaveLength(1);
+    it('keeps the thinking line docked after the turn finishes, if it has one', () => {
+      const done = chat([m('u', 'user', 'q'), m('a', 'assistant', 'answer', { status: 'done', thinking: 'hmm', thinkingMs: 2000 })]);
+      render(<ChatThread chat={done} streaming={false} {...props} />);
+      expect(within(screen.getByTestId('chat-dock')).getByTestId('thinking-panel')).toBeTruthy();
+      expect(within(screen.getByTestId('chat-thread')).getByText('answer')).toBeTruthy();
+      expect(screen.getAllByTestId('thinking-panel')).toHaveLength(1);
     });
 
-    it('has no dock when nothing is streaming, and shares the composer column', () => {
+    it('has no dock when there is nothing to show, and the thread is wider than the composer column', () => {
       render(<ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'r')])} streaming={false} {...props} />);
       expect(screen.queryByTestId('chat-dock')).toBeNull();
       const column = screen.getByTestId('chat-thread').firstElementChild!.firstElementChild!;
-      expect(column.className).toContain('max-w-2xl');
+      expect(column.className).toContain('max-w-[calc(42rem+4.5rem)]');
+      expect(column.className).not.toContain('max-w-2xl');
       expect(screen.getByTestId('chat-thread').firstElementChild!.className).toContain('px-16');
+    });
+  });
+
+  describe('avatars', () => {
+    it('puts the user avatar to the right of their prompt, after the text in DOM order', () => {
+      render(<ChatThread chat={chat([m('u', 'user', 'hello there')])} streaming={false} {...props} />);
+      const article = screen.getByTestId('chat-message-user');
+      const avatar = within(article).getByTestId('chat-user-avatar');
+      expect(article.className).toContain('justify-end');
+      expect(article.lastElementChild).toBe(avatar);
+      expect(within(article).getByText('hello there').compareDocumentPosition(avatar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 

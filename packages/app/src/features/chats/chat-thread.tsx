@@ -4,7 +4,8 @@ import type { Chat } from '@midnite/studio-shared';
 import { LuArrowDown } from 'react-icons/lu';
 
 import { AssistantMessage, UserMessage } from './chat-message';
-import { CHAT_COLUMN, CHAT_GUTTER } from './chat-column';
+import { CHAT_GUTTER, CHAT_THREAD_COLUMN } from './chat-column';
+import { ThinkingPanel } from './thinking-panel';
 import type { ChatEngine } from './use-chat-engines';
 
 /**
@@ -122,7 +123,8 @@ export function ChatThread({
   const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
   const lastMessage = messages[messages.length - 1];
   const isLastStreaming = streaming && lastMessage?.role === 'assistant';
-  const liveMessage = isLastStreaming ? lastMessage : null;
+  // The thinking line of the newest assistant turn is docked above the composer; the reply stays in the thread.
+  const dockedMessage = lastMessage?.role === 'assistant' && (isLastStreaming || lastMessage.thinking?.trim() || lastMessage.usage) ? lastMessage : null;
   const engineById = (id: string | undefined) => engines.find((e) => e.id === (id ?? chat.engine));
   const dock = useRef<HTMLDivElement>(null);
 
@@ -154,16 +156,15 @@ export function ChatThread({
         className="min-h-0 flex-1 overflow-y-auto"
       >
         <div className={`${CHAT_GUTTER} py-6`}>
-         <div className={`${CHAT_COLUMN} flex flex-col gap-6`}>
+         <div className={`${CHAT_THREAD_COLUMN} flex flex-col gap-6`}>
           {messages.map((message) => {
-            // Skip the live message in the inline view; it's docked below.
-            if (isLastStreaming && message.id === lastMessage?.id) return null;
             return message.role === 'user' ? (
               <UserMessage key={message.id} message={message} canEdit={editable} onEdit={onEdit} />
             ) : (
               <AssistantMessage
                 key={message.id}
                 message={message}
+                hideThinking={message.id === dockedMessage?.id}
                 engine={engineById(message.engine)}
                 isLast={message.id === lastAssistantId}
                 canRetry={!streaming}
@@ -177,20 +178,16 @@ export function ChatThread({
          </div>
         </div>
       </div>
-      {liveMessage ? (
-        <div ref={dock} className={`max-h-[55%] shrink-0 overflow-y-auto ${CHAT_GUTTER} pb-3 pt-3`} data-testid="chat-dock">
-         <div className={CHAT_COLUMN}>
-          <AssistantMessage
-            message={liveMessage}
-            engine={engineById(liveMessage.engine)}
-            isLast={true}
-            canRetry={false}
-            onRetry={onRetry}
-            onOpenChanges={onOpenChanges}
-            onResolveAll={onResolveAll}
-            resolving={liveMessage.changeSet?.id === resolvingChangeSetId}
-          />
-         </div>
+      {dockedMessage ? (
+        <div ref={dock} className={`shrink-0 ${CHAT_GUTTER} pb-1 pt-2`} data-testid="chat-dock">
+          <div className={`${CHAT_THREAD_COLUMN} pr-9`}>
+            <div className="flex gap-3">
+              <span aria-hidden className="w-6 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <ThinkingPanel message={dockedMessage} />
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
       {away ? (

@@ -13,7 +13,13 @@ describe('Chats composer pills (styles.css)', () => {
   });
 
   it('gives AI skill pills the brand gradient and file pills plain primary', () => {
-    expect(rule('.composer-pill--skill')).toContain('var(--rainbow-ramp)');
+    const skill = rule('.composer-pill--skill');
+    expect(skill).toContain('var(--rainbow-ramp)');
+    // The gradient is the glyphs' fill, not a border: clipped to text, bold, no padding-box/border-box paint.
+    expect(skill).toContain('background-clip: text');
+    expect(skill).toContain('-webkit-text-fill-color: transparent');
+    expect(skill).toContain('font-weight: 700');
+    expect(skill).not.toContain('border-box');
     const file = rule('.composer-pill--file');
     expect(file).toContain('hsl(var(--primary))');
     expect(file).not.toContain('gradient');
