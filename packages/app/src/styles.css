@@ -6039,9 +6039,8 @@ html[data-motion='reduced'] .thinking-ring[data-live='true']::after {
  *
  * Two faces, by what the token is. A skill is AI — it wears the brand
  * gradient (`--rainbow-ramp`, left to right, as `.brand-gradient-button` does)
- * twice over: full strength in the 1px border, and seen through an 82%
- * `--background` wash in the padding box, which reads as a semi-transparent
- * gradient fill without a second copy of the stops. A file is not — it wears
+ * on the glyphs themselves (`background-clip: text`), in bold, with no border
+ * or fill. A file is not — it wears
  * plain `--primary`: a solid border over a 15% primary fill.
  *
  * Both are painted on the textarea's mirror overlay, so neither may add
@@ -6060,11 +6059,13 @@ html[data-motion='reduced'] .thinking-ring[data-live='true']::after {
 
 .composer-pill--skill {
   --brand-gradient: linear-gradient(90deg, var(--rainbow-ramp));
-  background-image:
-    linear-gradient(hsl(var(--background) / 0.82), hsl(var(--background) / 0.82)),
-    var(--brand-gradient);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
+  border-color: transparent;
+  background-image: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 700;
 }
 
 .composer-pill--file {

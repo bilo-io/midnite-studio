@@ -10,3 +10,10 @@ export const CHAT_GUTTER = 'px-16';
 
 /** Centered column layout applied to thread, dock, and composer. */
 export const CHAT_COLUMN = 'mx-auto w-full max-w-2xl';
+
+/**
+ * The thread column is wider than the composer's by one avatar plus its gap
+ * (24px + 12px) on each side, so the avatars sit just outside the composer's
+ * edges while message bodies line up with it. The composer keeps `CHAT_COLUMN`.
+ */
+export const CHAT_THREAD_COLUMN = 'mx-auto w-full max-w-[calc(42rem+4.5rem)]';
