@@ -50,7 +50,7 @@
     "lowlight": "3.3.0",
     "maplibre-gl": "^5",
     "mdast-util-to-string": "^4.0.0",
-    "monaco-editor": "0.56.0",
+    "monaco-editor": "0.57.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-grid-layout": "^2.2.4",
