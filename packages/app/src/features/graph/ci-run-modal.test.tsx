@@ -80,39 +80,50 @@ const mixed = aggregateCommitRuns([
   run({ id: '10', name: 'lint', workflowName: 'Lint', conclusion: 'success' }),
   run({ id: '20', name: 'test', workflowName: 'Test', conclusion: 'failure' }),
   run({ id: '30', name: 'build', workflowName: 'Build', status: 'in_progress', conclusion: null }),
+  run({ id: '40', name: 'deploy', workflowName: 'Deploy', conclusion: 'skipped' }),
 ])!;
 
 describe('CiRunModal', () => {
-  it('opens on the failed run and lists every run as a tab, most relevant first', async () => {
+  it('opens on the failed run and lists runs under status accordions, in progress first', async () => {
     renderWith(<CiRunModal repoId="r" sha={SHA} subject="feat: x" ci={mixed} onClose={() => {}} />);
 
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((tab) => tab.getAttribute('aria-label'))).toEqual([
-      'Test: Failed',
-      'Build: Running',
-      'Lint: Passed',
+    const nav = screen.getByRole('navigation', { name: 'Workflow runs for this commit' });
+    const phases = [...nav.querySelectorAll('[data-run-phase]')];
+    expect(phases.map((el) => el.getAttribute('data-run-phase'))).toEqual([
+      'running',
+      'skipped',
+      'done',
     ]);
-    expect(tabs[0]?.getAttribute('aria-selected')).toBe('true');
+    const labels = (el: Element) =>
+      [...el.querySelectorAll('li button')].map((b) => b.getAttribute('aria-label'));
+    expect(labels(phases[0]!)).toEqual(['Build: Running']);
+    expect(labels(phases[1]!)).toEqual(['Deploy: Skipped']);
+    expect(labels(phases[2]!)).toEqual(['Test: Failed', 'Lint: Passed']);
+    expect(screen.getByRole('button', { name: 'Test: Failed' }).getAttribute('aria-current')).toBe(
+      'true',
+    );
     // The shared RunDetail, not a lookalike: its landmark and its job tree.
     const detail = screen.getByRole('region', { name: 'Run detail' });
     await waitFor(() => expect(runDetailFn).toHaveBeenCalledWith({ repoId: 'r', runId: '20' }));
     expect(await within(detail).findByRole('button', { name: 'test' })).toBeTruthy();
   });
 
-  it('switches to another run from its tab, and with the arrow keys', async () => {
+  it('switches to another run from its row, and a status accordion collapses', async () => {
     renderWith(<CiRunModal repoId="r" sha={SHA} subject={null} ci={mixed} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Build: Running' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Build: Running' }));
     await waitFor(() => expect(runDetailFn).toHaveBeenCalledWith({ repoId: 'r', runId: '30' }));
-    expect(screen.getByRole('tab', { name: 'Build: Running' }).getAttribute('aria-selected')).toBe('true');
+    expect(
+      screen.getByRole('button', { name: 'Build: Running' }).getAttribute('aria-current'),
+    ).toBe('true');
 
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Build: Running' }), { key: 'ArrowRight' });
-    expect(screen.getByRole('tab', { name: 'Lint: Passed' }).getAttribute('aria-selected')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: /^Completed/ }));
+    expect(screen.queryByRole('button', { name: 'Lint: Passed' })).toBeNull();
   });
 
   it('shows no tab strip for a commit with one run', () => {
     const single = aggregateCommitRuns([run({ id: '10', conclusion: 'failure' })])!;
     renderWith(<CiRunModal repoId="r" sha={SHA} subject={null} ci={single} onClose={() => {}} />);
-    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.queryByRole('navigation')).toBeNull();
     expect(screen.getByRole('region', { name: 'Run detail' })).toBeTruthy();
   });
 
@@ -144,7 +155,11 @@ describe('CiCell', () => {
 
   it('draws nothing for a commit with no CI — but still carries the connector', () => {
     const { container } = render(
-      <CiCell sha={SHA} ci={undefined} connector={{ color: 'red', opacity: 0.45, strokeWidth: 2, glow: false }} />,
+      <CiCell
+        sha={SHA}
+        ci={undefined}
+        connector={{ color: 'red', opacity: 0.45, strokeWidth: 2, glow: false }}
+      />,
     );
     expect(screen.queryByRole('button')).toBeNull();
     const line = container.querySelector('[data-graph-connector]') as HTMLElement;

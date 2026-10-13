@@ -46,7 +46,7 @@ test('the ref connector runs underneath the CI mark, unbroken from chip to gutte
   // Clicking it opens that commit's run, on the failed one.
   await button.click();
   const modal = page.getByTestId('ci-run-modal');
-  await expect(modal.getByRole('tab', { name: 'CI: Failed' })).toHaveAttribute('aria-selected', 'true');
+  await expect(modal.getByRole('button', { name: 'CI: Failed' })).toHaveAttribute('aria-current', 'true');
   await page.keyboard.press('Escape');
   await expect(modal).toHaveCount(0);
 });

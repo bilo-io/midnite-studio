@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 import type { CommitCi } from '@midnite/studio-shared';
 import { LuX } from 'react-icons/lu';
@@ -9,6 +9,8 @@ import { usePageVisible } from '../../lib/use-page-visible';
 import { useWindowFocused } from '../../lib/use-window-focus';
 import { RunDetailPanel } from '../actions/run-detail-panel';
 import { getActionItemStyle } from '../actions/action-status-styles';
+import { groupRunsByPhase } from '../actions/run-groups';
+import { RunPhaseSection } from '../actions/run-phase-section';
 import { runStatus, StatusGlyph } from '../forge/forge-status';
 import { CI_POLL_MS } from './commit-ci';
 
@@ -19,7 +21,7 @@ import { CI_POLL_MS } from './commit-ci';
  * accordions, running-step shimmer, status glow and log pane, not a lookalike.
  * This file adds only what a modal needs around it: a title, a close button,
  * and — when the commit ran more than one workflow — a tab strip to pick
- * between them.
+ * between them — grouped under In progress / Skipped / Completed accordions.
  *
  * Tabs are ordered by `aggregateCommitRuns`' own precedence (failed, running,
  * queued, …, then newest), and the modal opens on the first: the run the
@@ -51,72 +53,66 @@ export function CiRunModal({
   const visible = usePageVisible();
   const pollMs = focused && visible ? CI_POLL_MS : false;
 
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const focusTab = (index: number) => {
-    const count = ci.runs.length;
-    const next = ((index % count) + count) % count;
-    const target = ci.runs[next];
-    if (!target) return;
-    setPicked(target.id);
-    tabRefs.current[next]?.focus();
-  };
-
   return (
-    <Modal open onClose={onClose} title={`CI for ${sha.slice(0, 7)}`} size="lg" testId="ci-run-modal">
+    <Modal
+      open
+      onClose={onClose}
+      title={`CI for ${sha.slice(0, 7)}`}
+      size="lg"
+      testId="ci-run-modal"
+    >
       <div className="flex h-[min(80vh,720px)] min-h-0 flex-col">
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">CI</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            CI
+          </h2>
           <span className="font-mono text-xs text-muted-foreground">{sha.slice(0, 7)}</span>
-          {subject ? <span className="min-w-0 truncate text-xs text-foreground/80">{subject}</span> : null}
+          {subject ? (
+            <span className="min-w-0 truncate text-xs text-foreground/80">{subject}</span>
+          ) : null}
           <IconButton icon={LuX} label="Close" size="sm" className="ml-auto" onClick={onClose} />
         </div>
 
         {ci.runs.length > 1 ? (
-          <div
-            role="tablist"
+          <nav
             aria-label="Workflow runs for this commit"
-            className="hide-scrollbar flex shrink-0 gap-1 overflow-x-auto border-b border-border px-2 py-1"
+            className="hide-scrollbar max-h-48 shrink-0 overflow-y-auto border-b border-border py-1"
           >
-            {ci.runs.map((candidate, index) => {
-              const status = runStatus(candidate);
-              const style = getActionItemStyle(status);
-              const selected = candidate.id === run.id;
-              return (
-                <button
-                  key={candidate.id}
-                  ref={(node) => {
-                    tabRefs.current[index] = node;
-                  }}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  aria-label={`${candidate.workflowName ?? candidate.name}: ${status.label}`}
-                  tabIndex={selected ? 0 : -1}
-                  onClick={() => setPicked(candidate.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'ArrowRight') {
-                      event.preventDefault();
-                      focusTab(index + 1);
-                    } else if (event.key === 'ArrowLeft') {
-                      event.preventDefault();
-                      focusTab(index - 1);
-                    }
-                  }}
-                  className={`flex shrink-0 items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors ${
-                    selected ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/40'
-                  } ${style.rowClass}`}
-                >
-                  <StatusGlyph status={status} />
-                  <span className={`truncate ${selected ? style.textClass : ''}`}>
-                    {candidate.workflowName ?? candidate.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+            {groupRunsByPhase(ci.runs).map((group) => (
+              <RunPhaseSection key={group.phase} phase={group.phase} count={group.runs.length}>
+                <ul className="px-1">
+                  {group.runs.map((candidate) => {
+                    const status = runStatus(candidate);
+                    const style = getActionItemStyle(status);
+                    const selected = candidate.id === run.id;
+                    return (
+                      <li key={candidate.id}>
+                        <button
+                          type="button"
+                          aria-current={selected ? 'true' : undefined}
+                          aria-label={`${candidate.workflowName ?? candidate.name}: ${status.label}`}
+                          onClick={() => setPicked(candidate.id)}
+                          className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs transition-colors ${
+                            selected
+                              ? 'bg-accent text-foreground'
+                              : 'text-muted-foreground hover:bg-accent/40'
+                          } ${style.rowClass}`}
+                        >
+                          <StatusGlyph status={status} />
+                          <span className={`truncate ${selected ? style.textClass : ''}`}>
+                            {candidate.workflowName ?? candidate.name}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </RunPhaseSection>
+            ))}
+          </nav>
         ) : null}
 
-        <div role={ci.runs.length > 1 ? 'tabpanel' : undefined} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col">
           <RunDetailPanel key={run.id} repoId={repoId} run={run} pollMs={pollMs} />
         </div>
       </div>

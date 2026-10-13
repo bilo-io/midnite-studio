@@ -180,7 +180,10 @@ describe('ActionsView, assembled through the real bridge', () => {
   it('runs are sectioned by workflow, newest section first', async () => {
     await open();
 
-    const sections = within(runList()).getAllByRole('button', { expanded: true });
+    // Status accordions on top (Completed here), workflow sections inside them.
+    const all = within(runList()).getAllByRole('button', { expanded: true });
+    expect(all[0]?.textContent).toContain('Completed');
+    const sections = all.slice(1);
     expect(sections[0]?.textContent).toContain('CI');
     expect(sections).toHaveLength(2);
 

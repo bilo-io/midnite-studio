@@ -316,7 +316,8 @@ describe('ActionsSection, assembled through the real bridge', () => {
     // Top-level runs in ActionsSection
     await screen.findByRole('button', { name: 'Jobs in CI #128' });
 
-    const [failRunTitle, okRunTitle, runningRunTitle] = screen.getAllByText('CI');
+    // Sorted by status: in progress first, then the completed ones in forge order.
+    const [runningRunTitle, failRunTitle, okRunTitle] = screen.getAllByText('CI');
     expect(failRunTitle?.className).toContain('actions-glow-fail');
     expect(failRunTitle?.className).toContain('text-red-500');
     expect(okRunTitle?.className).toContain('actions-glow-ok');
