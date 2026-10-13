@@ -172,11 +172,16 @@ function ringMean(raster: Raster, depth: number): number {
  * why CI scored `idle` at 1.07 where this machine scored 1.22. This patch sits
  * below the last turn and above the input bar, so it is panel fill in every
  * state and every run.
+ *
+ * It starts at 70% of the height, not 55%: the greeting grew an overview turn
+ * (bullets, links, a second bubble) that reaches ~66%, and a patch that
+ * overlapped its bubbles measured bubble fill as "ground", dragging `idle`
+ * to ~1.04 with a glow that was visibly fine.
  */
 function groundMean(raster: Raster): number {
   let sum = 0;
   let n = 0;
-  for (let y = Math.round(raster.height * 0.55); y < Math.round(raster.height * 0.85); y += 3) {
+  for (let y = Math.round(raster.height * 0.7); y < Math.round(raster.height * 0.86); y += 3) {
     for (let x = 120; x < raster.width - 120; x += 3) {
       const [r, g, b] = pixelAt(raster, x, y);
       sum += r + g + b;
