@@ -150,14 +150,9 @@ describe('composeCardPrompt', () => {
     fieldValues: {},
   };
 
-  it('carries title, number, url, assignees, labels, repo path and body', () => {
+  it('copies just the issue link for a GitHub issue, not the description', () => {
     const prompt = composeCardPrompt(issue, '/repo/widgets');
-    expect(prompt).toContain('Fix the flaky test (#42)');
-    expect(prompt).toContain('https://github.com/acme/widgets/issues/42');
-    expect(prompt).toContain('Assignees: octocat');
-    expect(prompt).toContain('Labels: bug, flaky');
-    expect(prompt).toContain('Repo: /repo/widgets');
-    expect(prompt).toContain('Steps to reproduce…');
+    expect(prompt).toBe('https://github.com/acme/widgets/issues/42');
   });
 
   it('a draft has no number, url or labels line', () => {
@@ -168,25 +163,31 @@ describe('composeCardPrompt', () => {
     };
     const prompt = composeCardPrompt(draftItem, '/repo/widgets');
     expect(prompt).toContain('Untriaged idea');
+    expect(prompt).toContain('Repo: /repo/widgets');
     expect(prompt).not.toContain('Labels:');
     expect(prompt).not.toContain('https://');
   });
 
-  it('caps the body at 4 000 characters with a visible truncation notice', () => {
+  it('caps the draft body at 4 000 characters with a visible truncation notice', () => {
     const longBody = 'x'.repeat(4500);
-    const withLongBody: ForgeProjectItem = {
-      ...issue,
-      content: { ...issue.content, body: longBody },
+    const draftWithLongBody: ForgeProjectItem = {
+      id: 'item3',
+      content: { type: 'draft', id: 'DI_2', title: 'Long draft', assignees: [], body: longBody },
+      fieldValues: {},
     };
-    const prompt = composeCardPrompt(withLongBody, '/repo/widgets');
+    const prompt = composeCardPrompt(draftWithLongBody, '/repo/widgets');
     expect(prompt).toContain('x'.repeat(4000));
     expect(prompt).not.toContain('x'.repeat(4001));
     expect(prompt).toContain('truncated — 500 more characters omitted');
   });
 
-  it('omits the body section entirely when there is no body', () => {
-    const noBody: ForgeProjectItem = { ...issue, content: { ...issue.content, body: '' } };
-    const prompt = composeCardPrompt(noBody, '/repo/widgets');
+  it('omits the body section entirely when there is no draft body', () => {
+    const draftNoBody: ForgeProjectItem = {
+      id: 'item4',
+      content: { type: 'draft', id: 'DI_3', title: 'No body', assignees: [], body: '' },
+      fieldValues: {},
+    };
+    const prompt = composeCardPrompt(draftNoBody, '/repo/widgets');
     expect(prompt.trim().endsWith('Repo: /repo/widgets')).toBe(true);
   });
 });
