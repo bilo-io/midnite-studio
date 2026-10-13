@@ -77,6 +77,14 @@ export function CompanionThread({ turns }: { turns: readonly CompanionTurn[] }) 
     count: turns.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ESTIMATED_TURN_HEIGHT,
+    /*
+      Key the measurement cache by turn id, matching the React `key` on each
+      row. The default key is the index, so when turns are replaced or trimmed
+      from the front, a row inherits the *previous* occupant's measured height
+      and the rows below it are laid out over its overflow — bubbles drawn on
+      top of each other.
+    */
+    getItemKey: (index) => turns[index]?.id ?? index,
     overscan: 8,
   });
 
