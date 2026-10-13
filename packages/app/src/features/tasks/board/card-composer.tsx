@@ -7,7 +7,7 @@ import {
   type ForgeProjectItem,
   type LoopModel,
 } from '@midnite/studio-shared';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { LuCircleStop, LuPlay, LuSquareTerminal, LuX, LuZap } from 'react-icons/lu';
 
 import { useDialogs } from '../../../components/dialog-host';
@@ -88,6 +88,7 @@ export function CardComposer({
   worktreePath,
   item,
   blockers,
+  taskContent,
 }: {
   projectId: string;
   repoId: string;
@@ -102,6 +103,8 @@ export function CardComposer({
    * wrong, and a wrong parse must never lock a user out of their own card.
    */
   blockers?: readonly ForgeIssueRef[];
+  /** Optional task fields and assignees rendered above the description in the Task tab. */
+  taskContent?: ReactNode;
 }) {
   const { agents } = useAgents();
   const sessions = useTerminalStore((s) => s.sessions);
@@ -144,6 +147,7 @@ export function CardComposer({
   const [prompt, setPrompt] = useState(() => composeCardPrompt(item, worktreePath));
   /** A `LoopModel` token, or an `ollama:<name>` pick (Phase 96 Theme I). */
   const [model, setModel] = useState<string>('default');
+  const [tab, setTab] = useState<'task' | 'agent'>('task');
 
   // A model chosen for one agent means nothing for another — `loopModelArgs`
   // is Claude-only and an Ollama pick is per-agent-capability, so switching
@@ -241,99 +245,109 @@ export function CardComposer({
   }
 
   return (
-    <section className="border-t border-border/50 px-3 py-2.5" data-testid="card-composer">
-      <h3 className="mb-2 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Launch agent
-      </h3>
+    <section className="flex min-h-0 flex-1 flex-col" data-testid="card-composer">
+      <div
+        role="tablist"
+        aria-label="Card composer tabs"
+        className="flex shrink-0 border-b border-border px-3"
+      >
+        <button
+          type="button"
+          role="tab"
+          id="tab-task"
+          aria-label="Task tab"
+          aria-selected={tab === 'task'}
+          aria-controls="panel-task"
+          onClick={() => setTab('task')}
+          className={`-mb-px border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
+            tab === 'task'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Task
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-agent"
+          aria-label="Agent tab"
+          aria-selected={tab === 'agent'}
+          aria-controls="panel-agent"
+          onClick={() => setTab('agent')}
+          className={`-mb-px border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
+            tab === 'agent'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Agent
+        </button>
+      </div>
 
-      {anySession ? (
-        <p className="mb-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-          <span>{phase === 'live' ? 'Running' : phase === 'asleep' ? 'Asleep' : 'Ended'}</span>
-          <span className="flex items-center gap-2.5">
-            {/*
-              Where the session actually is. Offered for an ENDED or asleep
-              session too, not just a live one: the panel keeps the pane and
-              its scrollback either way, and "what did it do before it
-              stopped" is the commoner question of the two.
-            */}
-            <button
-              type="button"
-              onClick={() => revealSession(anySession.id)}
-              data-testid="composer-reveal-terminal"
-              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              <LuSquareTerminal aria-hidden className="h-3 w-3" />
-              Terminal
-            </button>
-            {isLive ? (
-              <button
-                type="button"
-                onClick={handleStop}
-                data-testid="card-stop"
-                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                <LuCircleStop aria-hidden className="h-3 w-3" />
-                Stop
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleDismiss}
-                data-testid="card-dismiss"
-                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                <LuX aria-hidden className="h-3 w-3" />
-                Dismiss
-              </button>
-            )}
-          </span>
-        </p>
-      ) : null}
-
-      {!anySession ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <p className="mb-1 text-[10px] font-medium text-muted-foreground">Agent</p>
-              <IconSelect
-                ariaLabel="Agent"
-                options={agents.map((agent) => ({
-                  id: agent.id,
-                  label: agent.label,
-                  icon: resolveAgentIcon(agent),
-                  iconColor: agent.accent,
-                }))}
-                value={agentId}
-                onChange={setAgentId}
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="mb-1 text-[10px] font-medium text-muted-foreground">Model</p>
-              <IconSelect
-                ariaLabel="Model"
-                options={modelOptions}
-                value={model}
-                onChange={setModel}
-                isDisabled={modelOptions.length <= 1}
-              />
-              {ollamaFit && !ollamaFit.fit ? (
-                <p
-                  title={ollamaFit.reasons.join('; ')}
-                  className="mt-1 text-[10px] font-medium text-amber-600 dark:text-amber-400"
-                >
-                  ⚠ not agent-ready
-                </p>
-              ) : null}
-            </div>
-          </div>
+      <div
+        role="tabpanel"
+        id="panel-task"
+        className={`min-h-0 flex-1 overflow-y-auto p-3 flex flex-col gap-3 ${tab === 'task' ? 'flex' : 'hidden'}`}
+      >
+        {taskContent}
+        <div className="flex flex-1 min-h-0 flex-col">
+          <label htmlFor="card-prompt-input" className="mb-1 text-[11px] font-medium text-muted-foreground">
+            Description
+          </label>
           <textarea
+            id="card-prompt-input"
             aria-label="Prompt"
             value={prompt}
             spellCheck={false}
-            rows={6}
+            rows={10}
             onChange={(event) => setPrompt(event.target.value)}
-            className="min-h-[6rem] w-full resize-y rounded border border-border bg-background px-2 py-1.5 text-[11px] leading-relaxed outline-none"
+            className="min-h-[14rem] flex-1 w-full resize-y rounded border border-border bg-background px-2 py-1.5 text-[11px] leading-relaxed outline-none"
           />
+        </div>
+      </div>
+
+      <div
+        role="tabpanel"
+        id="panel-agent"
+        className={`min-h-0 flex-1 overflow-y-auto p-3 flex flex-col gap-3 ${tab === 'agent' ? 'flex' : 'hidden'}`}
+      >
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="mb-1 text-[10px] font-medium text-muted-foreground">Agent</p>
+            <IconSelect
+              ariaLabel="Agent"
+              options={agents.map((agent) => ({
+                id: agent.id,
+                label: agent.label,
+                icon: resolveAgentIcon(agent),
+                iconColor: agent.accent,
+              }))}
+              value={agentId}
+              onChange={setAgentId}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="mb-1 text-[10px] font-medium text-muted-foreground">Model</p>
+            <IconSelect
+              ariaLabel="Model"
+              options={modelOptions}
+              value={model}
+              onChange={setModel}
+              isDisabled={modelOptions.length <= 1}
+            />
+            {ollamaFit && !ollamaFit.fit ? (
+              <p
+                title={ollamaFit.reasons.join('; ')}
+                className="mt-1 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+              >
+                ⚠ not agent-ready
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <div>
+          <p className="mb-1 text-[10px] font-medium text-muted-foreground">Command</p>
           <p
             title={commandPreview}
             data-testid="card-command-preview"
@@ -341,7 +355,54 @@ export function CardComposer({
           >
             {commandPreview}
           </p>
-          <div className="flex items-center gap-2 self-start">
+        </div>
+      </div>
+
+      <div className="shrink-0 border-t border-border/50 px-3 py-2.5">
+        {anySession ? (
+          <p className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+            <span>{phase === 'live' ? 'Running' : phase === 'asleep' ? 'Asleep' : 'Ended'}</span>
+            <span className="flex items-center gap-2.5">
+              {/*
+                Where the session actually is. Offered for an ENDED or asleep
+                session too, not just a live one: the panel keeps the pane and
+                its scrollback either way, and "what did it do before it
+                stopped" is the commoner question of the two.
+              */}
+              <button
+                type="button"
+                onClick={() => revealSession(anySession.id)}
+                data-testid="composer-reveal-terminal"
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                <LuSquareTerminal aria-hidden className="h-3 w-3" />
+                Terminal
+              </button>
+              {isLive ? (
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  data-testid="card-stop"
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  <LuCircleStop aria-hidden className="h-3 w-3" />
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleDismiss}
+                  data-testid="card-dismiss"
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  <LuX aria-hidden className="h-3 w-3" />
+                  Dismiss
+                </button>
+              )}
+            </span>
+          </p>
+        ) : (
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleStart}
@@ -369,8 +430,8 @@ export function CardComposer({
               </button>
             ) : null}
           </div>
-        </div>
-      ) : null}
+        )}
+      </div>
     </section>
   );
 }

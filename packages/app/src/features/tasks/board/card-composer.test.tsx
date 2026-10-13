@@ -85,12 +85,12 @@ describe('CardComposer', () => {
     useToastStore.setState({ toasts: [] });
   });
 
-  it('seeds the prompt from the card and shows the composed command above Start', () => {
+  it('seeds the prompt from the card as the issue link for GitHub issues and shows the composed command above Start', () => {
     renderComposer();
 
     const textarea = screen.getByLabelText('Prompt') as HTMLTextAreaElement;
-    expect(textarea.value).toContain('Fix the flaky test (#42)');
-    expect(textarea.value).toContain('Steps to reproduce…');
+    expect(textarea.value).toBe('https://github.com/acme/widgets/issues/42');
+    expect(textarea.value).not.toContain('Steps to reproduce…');
 
     // Theme B (Phase 50) wraps Start alongside a conditional "Launch and
     // run" button in its own row div, so the composed-command preview is no
@@ -113,7 +113,7 @@ describe('CardComposer', () => {
     expect(created.cwd).toBe('/repo/widgets');
 
     const queued = useTerminalStore.getState().pendingInput[created.id];
-    expect(queued).toContain('Fix the flaky test (#42)');
+    expect(queued).toContain('https://github.com/acme/widgets/issues/42');
     expect(queued?.endsWith('\r')).toBe(false); // autoSend: false — typed, not sent
   });
 
@@ -390,8 +390,50 @@ describe('CardComposer', () => {
       expect(created.taskRef).toEqual({ projectId: 'PVT_1', itemId: 'item1' });
 
       const queued = useTerminalStore.getState().pendingInput[created.id];
-      expect(queued).toContain('Fix the flaky test (#42)');
+      expect(queued).toContain('https://github.com/acme/widgets/issues/42');
       expect(queued?.endsWith('\r')).toBe(true); // autoSend: true — sent, not just typed
+    });
+  });
+
+  describe('tabs (Task and Agent)', () => {
+    it('defaults to Task tab and allows switching between Task and Agent tabs', () => {
+      renderComposer();
+
+      const taskTab = screen.getByRole('tab', { name: /Task/ });
+      const agentTab = screen.getByRole('tab', { name: /Agent/ });
+
+      expect(taskTab.getAttribute('aria-selected')).toBe('true');
+      expect(agentTab.getAttribute('aria-selected')).toBe('false');
+
+      // Start button is visible on Task tab
+      expect(screen.getByTestId('card-start')).toBeDefined();
+
+      // Switch to Agent tab
+      fireEvent.click(agentTab);
+      expect(taskTab.getAttribute('aria-selected')).toBe('false');
+      expect(agentTab.getAttribute('aria-selected')).toBe('true');
+
+      // Start button is still visible on Agent tab
+      expect(screen.getByTestId('card-start')).toBeDefined();
+    });
+
+    it('shows Launch and run button on both tabs when enabled', () => {
+      useUiStore.setState({ launchAndRunEnabled: true });
+      renderComposer();
+
+      const taskTab = screen.getByRole('tab', { name: /Task/ });
+      const agentTab = screen.getByRole('tab', { name: /Agent/ });
+
+      // On Task tab
+      expect(screen.getByTestId('card-launch-and-run')).toBeDefined();
+
+      // On Agent tab
+      fireEvent.click(agentTab);
+      expect(screen.getByTestId('card-launch-and-run')).toBeDefined();
+
+      // Back to Task tab
+      fireEvent.click(taskTab);
+      expect(screen.getByTestId('card-launch-and-run')).toBeDefined();
     });
   });
 

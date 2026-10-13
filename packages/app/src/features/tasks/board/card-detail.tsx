@@ -94,6 +94,47 @@ export function CardDetail({
   const { capability } = useActiveForgeCapability(repoId);
   const isIssue = item.content.type === 'issue';
 
+  const taskContent = (
+    <>
+      {item.content.assignees.length > 0 ? (
+        <div>
+          <p className="mb-1 text-[11px] font-medium text-muted-foreground">Assignees</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {item.content.assignees.map((login) => (
+              <div key={login} className="flex items-center gap-1.5 text-xs">
+                <UserAvatar login={login} size={16} detail="Assignee" />
+                <span>{login}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div>
+        <p className="mb-1 text-[11px] font-medium text-muted-foreground">Skill</p>
+        <CardSkillPicker
+          value={skillText}
+          suggestions={skillSuggestions}
+          onCommit={(text) => setCardSkill(taskKey, text)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        {fields.map((field) => (
+          <div key={field.id}>
+            <p className="mb-1 text-[11px] font-medium text-muted-foreground">{field.name}</p>
+            <ProjectFieldCell
+              projectId={projectId}
+              itemId={item.id}
+              field={field}
+              value={item.fieldValues[field.id]}
+            />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
   return (
     <div className="flex h-full flex-col" data-testid="card-detail">
       <header className="flex shrink-0 items-start gap-2 border-b border-border px-3 py-2.5">
@@ -158,45 +199,6 @@ export function CardDetail({
         />
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {item.content.assignees.length > 0 ? (
-          <div className="mb-3">
-            <p className="mb-1 text-[11px] font-medium text-muted-foreground">Assignees</p>
-            <div className="flex flex-wrap items-center gap-2">
-              {item.content.assignees.map((login) => (
-                <div key={login} className="flex items-center gap-1.5 text-xs">
-                  <UserAvatar login={login} size={16} detail="Assignee" />
-                  <span>{login}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        <div className="mb-3">
-          <p className="mb-1 text-[11px] font-medium text-muted-foreground">Skill</p>
-          <CardSkillPicker
-            value={skillText}
-            suggestions={skillSuggestions}
-            onCommit={(text) => setCardSkill(taskKey, text)}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2.5">
-          {fields.map((field) => (
-            <div key={field.id}>
-              <p className="mb-1 text-[11px] font-medium text-muted-foreground">{field.name}</p>
-              <ProjectFieldCell
-                projectId={projectId}
-                itemId={item.id}
-                field={field}
-                value={item.fieldValues[field.id]}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
       {repoId && worktreePath ? (
         <CardComposer
           projectId={projectId}
@@ -204,11 +206,17 @@ export function CardDetail({
           worktreePath={worktreePath}
           item={item}
           blockers={blockers}
+          taskContent={taskContent}
         />
       ) : (
-        <p className="border-t border-border/50 px-3 py-2.5 text-[11px] text-muted-foreground">
-          Select a repo checkout to launch an agent from this card.
-        </p>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+            {taskContent}
+          </div>
+          <p className="border-t border-border/50 px-3 py-2.5 text-[11px] text-muted-foreground">
+            Select a repo checkout to launch an agent from this card.
+          </p>
+        </div>
       )}
     </div>
   );

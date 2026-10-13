@@ -106,26 +106,20 @@ function deriveIterationColumns(
 const BODY_CHAR_CAP = 4000;
 
 /**
- * The card composer's prompt (Phase 41 Theme G) — title, url, assignees,
- * labels and the repo path, plus the item's body capped at
- * {@link BODY_CHAR_CAP} characters with a visible truncation notice.
- *
- * **Pure and exported** so the composition — including the cap — is a unit
- * test rather than something only visible by opening a card. Shown to the
- * user in full and editable before Start, never sent unread: this is the
- * seed text, not the final prompt.
+ * The card composer's prompt — for a GitHub issue or pull request, it copies
+ * just the issue link into the prompt rather than the entire description.
+ * For a draft item with no URL, it composes the title and body capped at
+ * {@link BODY_CHAR_CAP} characters.
  */
 export function composeCardPrompt(item: ForgeProjectItem, repoPath: string): string {
   const content = item.content;
-  const lines: string[] = [];
-
-  lines.push(content.type === 'draft' ? content.title : `${content.title} (#${content.number})`);
-  if (content.type !== 'draft') lines.push(content.url);
-  if (content.assignees.length > 0) lines.push(`Assignees: ${content.assignees.join(', ')}`);
-  if (content.type !== 'draft' && content.labels.length > 0) {
-    lines.push(`Labels: ${content.labels.join(', ')}`);
+  if (content.type !== 'draft' && content.url) {
+    return content.url;
   }
-  lines.push(`Repo: ${repoPath}`);
+
+  const lines: string[] = [];
+  lines.push(content.title);
+  if (repoPath) lines.push(`Repo: ${repoPath}`);
 
   const body = content.body.trim();
   if (body.length > 0) {
