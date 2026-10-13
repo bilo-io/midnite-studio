@@ -124,3 +124,56 @@ export function relativeAge(iso: string, now: number): string {
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86_400)}d ago`;
 }
+
+/**
+ * Where a run is in its life, coarsely — the axis the Actions page, the commit
+ * CI modal and the sidebar all order by.
+ *
+ * Three buckets, not the forge's dozen statuses: a person scanning for "what is
+ * still moving" and "what finished" does not care whether a pending run is
+ * `queued` or `waiting`. `skipped` is its own bucket, between the other two,
+ * because it is neither something to watch nor a result worth reading — and
+ * dropping it in with "completed" would bury a real pass under a dozen
+ * `if:`-gated no-ops.
+ */
+export type RunPhase = 'running' | 'skipped' | 'done';
+
+/** Top to bottom. Unfinished work first, results last. */
+export const RUN_PHASE_ORDER: readonly RunPhase[] = ['running', 'skipped', 'done'];
+
+export const RUN_PHASE_LABEL: Record<RunPhase, string> = {
+  running: 'In progress',
+  skipped: 'Skipped',
+  done: 'Completed',
+};
+
+export function runPhase(run: Pick<ForgeRun, 'status' | 'conclusion'>): RunPhase {
+  if (run.status !== 'completed') return 'running';
+  return run.conclusion === 'skipped' ? 'skipped' : 'done';
+}
+
+/**
+ * Order by phase, keeping the incoming order within one.
+ *
+ * Array sort is stable, so "secondarily by whatever order the list already had"
+ * is free — newest first for the sidebar, `aggregateCommitRuns`' precedence for
+ * the modal — rather than a second comparator that could disagree with it.
+ */
+export function sortRunsByPhase<T extends Pick<ForgeRun, 'status' | 'conclusion'>>(
+  runs: readonly T[],
+): T[] {
+  const rank = (run: T) => RUN_PHASE_ORDER.indexOf(runPhase(run));
+  return [...runs].sort((a, b) => rank(a) - rank(b));
+}
+
+export type RunPhaseGroup<T> = { phase: RunPhase; label: string; runs: T[] };
+
+/** The non-empty phases, in display order, each holding its runs in incoming order. */
+export function groupRunsByPhase<T extends Pick<ForgeRun, 'status' | 'conclusion'>>(
+  runs: readonly T[],
+): RunPhaseGroup<T>[] {
+  return RUN_PHASE_ORDER.flatMap((phase) => {
+    const inPhase = runs.filter((run) => runPhase(run) === phase);
+    return inPhase.length === 0 ? [] : [{ phase, label: RUN_PHASE_LABEL[phase], runs: inPhase }];
+  });
+}

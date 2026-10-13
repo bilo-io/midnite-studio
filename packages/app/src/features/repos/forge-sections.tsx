@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 
 import { GoGitPullRequest, GoIssueOpened, GoPlay } from 'react-icons/go';
 import {
@@ -38,7 +38,7 @@ import {
   type ForgeStatus,
 } from '../forge/forge-status';
 import { findRunPrNumber, getActionItemStyle, RunPrLink } from '../actions/action-status-styles';
-import { duration, relativeAge } from '../actions/run-groups';
+import { duration, relativeAge, sortRunsByPhase } from '../actions/run-groups';
 import { REVIEW_GROUPS, type ReviewGroup } from '../reviews/review-groups';
 
 /**
@@ -83,7 +83,8 @@ export function ActionsSection({
   const setActiveView = useUiStore((s) => s.setActiveView);
   const dialogs = useDialogs();
 
-  const runs = data?.runs ?? [];
+  // In progress, then skipped, then completed; the forge's own order within each.
+  const runs = useMemo(() => sortRunsByPhase(data?.runs ?? []), [data?.runs]);
   const now = Date.now();
   /*
     Theme K.2: this section stays mounted across a collapse/expand (`open`
@@ -131,7 +132,9 @@ export function ActionsSection({
         const took = run.status === 'completed' ? duration(run.startedAt, run.updatedAt) : null;
         const age = relativeAge(run.createdAt, now);
         const stamp = took ? `${took} · ${age}` : age;
-        const subtitle = [run.headBranch ?? 'detached', run.event, stamp].filter(Boolean).join(' · ');
+        const subtitle = [run.headBranch ?? 'detached', run.event, stamp]
+          .filter(Boolean)
+          .join(' · ');
 
         return (
           <ForgeRow
@@ -267,7 +270,9 @@ function RunJobs({
               the Actions view.
             */}
             {job.steps.length > 0 ? (
-              <span className={`shrink-0 text-[10px] tabular-nums ${jStyle.subtextClass} ${jStyle.glowClass}`}>
+              <span
+                className={`shrink-0 text-[10px] tabular-nums ${jStyle.subtextClass} ${jStyle.glowClass}`}
+              >
                 {job.steps.length} steps
               </span>
             ) : null}

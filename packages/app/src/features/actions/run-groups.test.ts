@@ -4,10 +4,12 @@ import { describe, expect, it } from 'vitest';
 import {
   duration,
   groupRuns,
+  groupRunsByPhase,
   isFailure,
   pickInitialRun,
   relativeAge,
   shouldExpandJob,
+  sortRunsByPhase,
 } from './run-groups';
 
 /* Through the schema, so every field the contract grows arrives with its own
@@ -168,5 +170,32 @@ describe('relativeAge', () => {
 
   it('says nothing rather than NaN for an unparseable stamp', () => {
     expect(relativeAge('whenever', now)).toBe('');
+  });
+});
+
+describe('run phases', () => {
+  const r = (id: string, status: string, conclusion: string | null) =>
+    ({ id, status, conclusion }) as Pick<ForgeRun, 'status' | 'conclusion'> & { id: string };
+  const mixed = [
+    r('a', 'completed', 'success'),
+    r('b', 'completed', 'skipped'),
+    r('c', 'in_progress', null),
+    r('d', 'completed', 'failure'),
+    r('e', 'queued', null),
+  ];
+
+  it('sorts running, then skipped, then completed, keeping incoming order within each', () => {
+    expect(sortRunsByPhase(mixed).map((x) => x.id)).toEqual(['c', 'e', 'b', 'a', 'd']);
+  });
+
+  it('groups into non-empty phases in display order', () => {
+    expect(groupRunsByPhase(mixed).map((g) => [g.label, g.runs.map((x) => x.id)])).toEqual([
+      ['In progress', ['c', 'e']],
+      ['Skipped', ['b']],
+      ['Completed', ['a', 'd']],
+    ]);
+    expect(groupRunsByPhase([r('a', 'completed', 'success')]).map((g) => g.phase)).toEqual([
+      'done',
+    ]);
   });
 });

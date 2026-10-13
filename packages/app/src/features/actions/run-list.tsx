@@ -9,7 +9,8 @@ import { useCascadeReveal } from '../../lib/use-cascade-reveal';
 import { useActionsStore } from '../../store/actions-store';
 import { runStatus, StatusPill } from '../forge/forge-status';
 import { findRunPrNumber, getActionItemStyle, RunPrLink } from './action-status-styles';
-import { duration, groupRuns, relativeAge } from './run-groups';
+import { duration, groupRuns, groupRunsByPhase, relativeAge } from './run-groups';
+import { RunPhaseSection } from './run-phase-section';
 
 /** One shared empty, so an un-customised repo's selector result is stable too. */
 const NONE_COLLAPSED: readonly string[] = [];
@@ -67,7 +68,7 @@ export function RunList({
   */
   const cascade = useCascadeReveal({ revealKey: repoId });
 
-  const groups = groupRuns(runs);
+  const phases = groupRunsByPhase(runs);
   let row = 0;
 
   return (
@@ -77,52 +78,60 @@ export function RunList({
       — and a test — say WHICH "CI" they mean.
     */
     <ul aria-label="Workflow runs" className="hide-scrollbar min-h-0 flex-1 overflow-y-auto py-1">
-      {groups.map((group) => {
-        const open = !collapsed.includes(group.key);
-        return (
-          <li key={group.key}>
-            <button
-              type="button"
-              onClick={() => toggleWorkflow(repoId, group.key)}
-              aria-expanded={open}
-              className="flex w-full items-center gap-1 px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-accent/30"
-            >
-              {open ? (
-                <LuChevronDown aria-hidden className="h-3 w-3 shrink-0" />
-              ) : (
-                <LuChevronRight aria-hidden className="h-3 w-3 shrink-0" />
-              )}
-              <span className="truncate">{group.label}</span>
-              <span className="ml-auto shrink-0 tabular-nums font-normal">
-                {formatNumber(group.runs.length)}
-              </span>
-            </button>
+      {phases.map((phase) => (
+        <li key={phase.phase}>
+          <RunPhaseSection phase={phase.phase} count={phase.runs.length}>
+            <ul>
+              {groupRuns(phase.runs).map((group) => {
+                const open = !collapsed.includes(group.key);
+                return (
+                  <li key={group.key}>
+                    <button
+                      type="button"
+                      onClick={() => toggleWorkflow(repoId, group.key)}
+                      aria-expanded={open}
+                      className="flex w-full items-center gap-1 px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-accent/30"
+                    >
+                      {open ? (
+                        <LuChevronDown aria-hidden className="h-3 w-3 shrink-0" />
+                      ) : (
+                        <LuChevronRight aria-hidden className="h-3 w-3 shrink-0" />
+                      )}
+                      <span className="truncate">{group.label}</span>
+                      <span className="ml-auto shrink-0 tabular-nums font-normal">
+                        {formatNumber(group.runs.length)}
+                      </span>
+                    </button>
 
-            {open ? (
-              <ul>
-                {group.runs.map((run) => {
-                  row += 1;
-                  const prNumber = findRunPrNumber(run, pulls);
-                  return (
-                    <li key={run.id}>
-                      <RunRow
-                        run={run}
-                        now={now}
-                        selected={run.id === selectedRunId}
-                        onSelect={() => selectRun(repoId, run.id)}
-                        cascading={cascade.active}
-                        cascadeStyle={cascade.styleFor(row)}
-                        prNumber={prNumber}
-                        repoId={repoId}
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-          </li>
-        );
-      })}
+                    {open ? (
+                      <ul>
+                        {group.runs.map((run) => {
+                          row += 1;
+                          const prNumber = findRunPrNumber(run, pulls);
+                          return (
+                            <li key={run.id}>
+                              <RunRow
+                                run={run}
+                                now={now}
+                                selected={run.id === selectedRunId}
+                                onSelect={() => selectRun(repoId, run.id)}
+                                cascading={cascade.active}
+                                cascadeStyle={cascade.styleFor(row)}
+                                prNumber={prNumber}
+                                repoId={repoId}
+                              />
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </RunPhaseSection>
+        </li>
+      ))}
     </ul>
   );
 }
@@ -192,4 +201,3 @@ function RunRow({
     </button>
   );
 }
-
