@@ -46,6 +46,12 @@ export type LauncherApp = {
   section: AppSection;
   /** A hex accent — the number chip and the coloured half of the wordmark. */
   accent: string;
+  /**
+   * `'brand'` wears the midnite brand gradient (blue → violet → a touch of
+   * pink) instead of its accent — on the logo, the number chip and the
+   * wordmark. Studio only: it is the whole brand, not one app in it.
+   */
+  gradient?: 'brand';
   /** One line under the name. */
   tagline: string;
   /** The tools it stands beside, for orientation — never a claim of parity. */
@@ -208,7 +214,8 @@ export const APPS: readonly LauncherApp[] = [
     id: 'studio',
     name: 'Studio',
     section: 'all-in-one',
-    accent: '#a855f7',
+    accent: '#8b5cf6',
+    gradient: 'brand',
     tagline: 'Every midnite app in one window',
     like: 'The whole suite, for power users',
     vision:

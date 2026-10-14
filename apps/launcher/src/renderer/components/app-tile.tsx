@@ -29,7 +29,7 @@ export function AppTile({ app, studio, handlers, menuItems }: TileProps) {
   return (
     <article className="tile" style={{ ['--accent' as string]: app.accent }} aria-labelledby={`tile-${app.id}`}>
       <header className="tile-head">
-        <span className="chip-number">{appNumber(app)}</span>
+        <span className="chip-number" data-brand={app.gradient === 'brand' || undefined}>{appNumber(app)}</span>
         <div className="tile-head-links">
           {app.runsIn === 'studio' && app.id !== 'studio' && <span className="caption">Runs in Studio</span>}
           <button type="button" className="link" onClick={() => handlers.onDetails(app)}>

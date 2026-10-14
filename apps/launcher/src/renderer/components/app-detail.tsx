@@ -47,7 +47,7 @@ export function AppDetail({
         style={{ ['--accent' as string]: app.accent }}
       >
         <header className="sheet-head">
-          <span className="chip-number">{appNumber(app)}</span>
+          <span className="chip-number" data-brand={app.gradient === 'brand' || undefined}>{appNumber(app)}</span>
           <button ref={closeRef} type="button" className="btn btn-icon" aria-label="Close" onClick={onClose}>
             <LuX size={16} />
           </button>

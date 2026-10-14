@@ -175,9 +175,18 @@ button:disabled {
 }
 
 .launcher-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   white-space: nowrap;
   line-height: 1;
   font-size: 17px;
+}
+
+.launcher-logo {
+  display: block;
+  border-radius: 22.5%;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08);
 }
 
 .launcher-wordmark-brand {
@@ -388,6 +397,10 @@ button:disabled {
   border: 0;
   background: hsl(217 95% 58%);
   color: #fff;
+}
+
+.chip-number[data-brand] {
+  background: linear-gradient(90deg, hsl(217 95% 58%), hsl(258 90% 66%), hsl(308 78% 58%));
 }
 
 .chip-number {

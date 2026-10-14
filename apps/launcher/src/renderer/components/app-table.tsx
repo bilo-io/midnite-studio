@@ -37,7 +37,7 @@ export function AppTable({
         {apps.map((app) => (
           <tr key={app.id} style={{ ['--accent' as string]: app.accent }}>
             <td>
-              <span className="chip-number">{appNumber(app)}</span>
+              <span className="chip-number" data-brand={app.gradient === 'brand' || undefined}>{appNumber(app)}</span>
             </td>
             <td>
               <button type="button" className="table-app" onClick={() => handlers.onDetails(app)}>
