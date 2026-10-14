@@ -152,5 +152,18 @@ describe('useDeepLinks', () => {
     expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/locked/);
     useUiStore.setState({ screensaverLocked: false });
   });
+
+  it('a settings link with a page selects that Settings page; a locked screen leaves it alone', () => {
+    useUiStore.setState({ screensaverLocked: false, activeView: 'landing', settingsPage: 'appearance' });
+    emit({ kind: 'view', view: 'settings', page: 'mcp' }, false);
+    expect(useUiStore.getState().activeView).toBe('settings');
+    expect(useUiStore.getState().settingsPage).toBe('mcp');
+
+    useUiStore.setState({ screensaverLocked: true, activeView: 'landing' });
+    emit({ kind: 'view', view: 'settings', page: 'monitor' }, false);
+    expect(useUiStore.getState().activeView).toBe('landing');
+    expect(useUiStore.getState().settingsPage).toBe('mcp');
+    useUiStore.setState({ screensaverLocked: false });
+  });
 });
 
