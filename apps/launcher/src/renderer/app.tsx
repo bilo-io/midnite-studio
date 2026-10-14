@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuX } from 'react-icons/lu';
 
 import type { ThemeSource } from '../common/bridge';
-import { APPS, SECTION_LABELS, type LauncherApp } from '../common/catalog';
+import { APPS, SECTION_LABELS, type AppId, type LauncherApp } from '../common/catalog';
 import { getBridge } from './bridge';
 import { AppDetail } from './components/app-detail';
 import type { MenuItem } from './components/app-menu';
@@ -54,6 +54,15 @@ export function App() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [confirmUninstall, setConfirmUninstall] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: 'error' | 'info' } | null>(null);
+
+  // A `midnite://` link for an app that cannot open yet lands here: its detail sheet, which is where Install lives.
+  useEffect(() => {
+    const show = (id: AppId) => setDetail(APPS.find((a) => a.id === id) ?? null);
+    void bridge.apps.takePending().then((id) => {
+      if (id !== null) show(id);
+    });
+    return bridge.apps.onShow(show);
+  }, [bridge]);
 
   useEffect(() => {
     if (toast === null) return;

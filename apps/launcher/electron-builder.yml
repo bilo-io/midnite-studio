@@ -37,3 +37,10 @@ mac:
   entitlementsInherit: resources/entitlements.mac.inherit.plist
   notarize: false
 afterSign: scripts/notarize.cjs
+
+# The `midnite://open?app=…` router (Phase 113 Theme D): the launcher is the registered handler.
+protocols:
+  - name: Midnite Apps
+    schemes:
+      - midnite
+    role: Viewer

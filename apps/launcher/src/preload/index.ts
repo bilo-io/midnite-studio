@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+import type { AppId } from '../common/catalog';
 import { LAUNCHER_CHANNELS, type InstallProgress, type LauncherBridge } from '../common/bridge';
 
 /** Main passes its version as `--launcher-version=…` (`additionalArguments`) — no sync IPC for one string. */
@@ -21,6 +22,12 @@ const bridge: LauncherBridge = {
   },
   apps: {
     open: (id, featureId) => ipcRenderer.invoke(LAUNCHER_CHANNELS.appOpen, { id, featureId }),
+    onShow: (listener) => {
+      const handler = (_event: unknown, id: AppId) => listener(id);
+      ipcRenderer.on(LAUNCHER_CHANNELS.appShow, handler);
+      return () => ipcRenderer.removeListener(LAUNCHER_CHANNELS.appShow, handler);
+    },
+    takePending: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.appPending),
   },
   links: {
     open: (link) => ipcRenderer.invoke(LAUNCHER_CHANNELS.linkOpen, link),

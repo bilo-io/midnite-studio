@@ -19,6 +19,10 @@ export const LAUNCHER_CHANNELS = {
   studioReveal: 'launcher:studio:reveal',
   studioProgress: 'launcher:studio:progress',
   appOpen: 'launcher:app:open',
+  /** main → renderer: a `midnite://` link wants this app's detail sheet. */
+  appShow: 'launcher:app:show',
+  /** renderer → main: the app a link asked for before the renderer was listening, once. */
+  appPending: 'launcher:app:pending',
   linkOpen: 'launcher:link:open',
   themeSet: 'launcher:theme:set',
 } as const;
@@ -70,6 +74,10 @@ export type LauncherBridge = {
   };
   apps: {
     open(id: AppId, featureId?: string): Promise<LauncherResult>;
+    /** Fires when a `midnite://` link could not open the app and wants its detail sheet. */
+    onShow(listener: (id: AppId) => void): () => void;
+    /** An app a link asked for before the renderer mounted, consumed once. */
+    takePending(): Promise<AppId | null>;
   };
   links: {
     open(link: ExternalLink): Promise<LauncherResult>;
