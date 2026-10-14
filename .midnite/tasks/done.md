@@ -1,6 +1,15 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme L (slice) — `apps/browser` shell and the app-layer lint rule
+
+[PR #853](https://github.com/bilo-io/midnite-studio/pull/853). A first `apps/browser` composed over
+`packages/frame`: a `BrowserHost` port, a shell with tab strip, toolbar, web-apps dock and an
+agent-session bar, and the frame's chrome port satisfied. eslint now treats `apps/**` as the app
+layer — an app may not import another app, the runtime, desktop or electron-updater. `docs/APPS.md`
+says what the Browser app adds over the frame's panel. Studio's own `browser`/`web-apps` code is not
+yet extracted into features, so the two do not share code yet.
+
 ## 2026-10-14 — Phase 113 Theme D (slice) — one runtime vault and a shared pty broker
 
 [PR #852](https://github.com/bilo-io/midnite-studio/pull/852). The three credential vaults now bind

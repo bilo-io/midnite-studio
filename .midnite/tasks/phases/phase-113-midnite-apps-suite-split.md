@@ -47,7 +47,7 @@ Studio kept as the superset build every feature is still composed into.
 **Theme I — App 2: Monitor.** ◻ A Monitor view built from the status-bar readouts, System Health, Diagnostics and the crash log.
 **Theme J — App 3: Vault.** ◻ The UI over the runtime's single vault.
 **Theme K — App 4: Capture.** ◻ The first app built new rather than extracted.
-**Theme L — App 5: Browser.** ◻ The browser plus the web-apps rail, with a reason to exist beyond the frame's browser panel.
+**Theme L — App 5: Browser.** 🔄 The browser plus the web-apps rail, with a reason to exist beyond the frame's browser panel. First slice in [PR #853](https://github.com/bilo-io/midnite-studio/pull/853) (built by a separate session, ahead of the simplest-first order): `apps/browser` (`@midnite/app-browser`, moon project `app-browser`, tags `layer-app`/`app-browser`) with a Vite + vitest setup, a `BrowserHost` port (tabs, full-window web-apps dock, agent-session hooks, profile partitions), a `BrowserShell` composing `WebAppsDock`, `BrowserTabStrip`, `BrowserToolbar`, `AgentSessionBar` and `BrowserCanvas`, and a `BrowserChrome` satisfying the frame's chrome port. `eslint.config.mjs` now covers `**/apps/**` as the app layer: a suite app may import frame, features and shared, never another app, the runtime, desktop or electron-updater (59 layer-boundary cases). `docs/APPS.md` records what the app adds over the frame's browser panel: full-window multi-tab browsing, a persistent-partition web-apps dock, agent-driven sessions and profile isolation. Still open: Studio's `browser` and `web-apps` code was not extracted into `packages/features/*`, so the app does not yet compose the same feature Studio uses.
 **Theme M — App 6: Mind.** ◻ Notes, the Review feature and the notes quick-capture.
 **Theme N — App 7: Agents.** ◻ Chats, councils, workflows, automation, models and MCP tools.
 **Theme O — App 8: Coder.** ◻ Sessions, tasks, forge, reviews, actions, tests, API client and database.
@@ -157,8 +157,8 @@ Studio kept as the superset build every feature is still composed into.
 - [ ] Send a capture to an agent chat, a PR comment or a Creator project through the link router.
 
 ### Theme L — App 5: Browser `[S]`
-- [ ] Compose `apps/browser` from the `browser` feature and the `web-apps` rail.
-- [ ] Settle what the app adds over the frame's browser panel (full-window browsing, agent-driven sessions, web apps) and write it in `docs/APPS.md`.
+- [ ] ◐ PARTIAL ([PR #853](https://github.com/bilo-io/midnite-studio/pull/853): `apps/browser` exists as a composed app over `packages/frame` with its own shell, tab strip, toolbar, web-apps dock and agent-session bar behind a `BrowserHost` port — but the `browser` and `web-apps` code in `packages/app` was not extracted into `packages/features/*`, so the app is new components beside Studio's, not a composition of the same feature) Compose `apps/browser` from the `browser` feature and the `web-apps` rail.
+- [x] Settle what the app adds over the frame's browser panel (full-window browsing, agent-driven sessions, web apps) and write it in `docs/APPS.md`.
 
 ### Theme M — App 6: Mind `[M]`
 - [ ] Extract `notes` into a feature; compose `apps/mind` with Notes and the frame's Knowledge.
