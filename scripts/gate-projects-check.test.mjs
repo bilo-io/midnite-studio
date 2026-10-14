@@ -33,9 +33,10 @@ describe('checkGateCoverage', () => {
   it('the real NODE_PROJECTS/NATIVE_PROJECTS lists cover the repo today, with no overlap', () => {
     const overlap = NODE_PROJECTS.filter((p) => NATIVE_PROJECTS.includes(p));
     expect(overlap).toEqual([]);
-    // git-engine and desktop are the only two that need dugite's bundled git /
-    // node-pty; everything else is platform-agnostic and belongs on the 1x runner.
-    expect(NATIVE_PROJECTS.sort()).toEqual(['desktop', 'git-engine']);
+    // git-engine and desktop need dugite's bundled git / node-pty; runtime is
+    // the main-process layer the safeStorage vault moves into (Phase 113).
+    // Everything else is platform-agnostic and belongs on the 1x runner.
+    expect(NATIVE_PROJECTS.sort()).toEqual(['desktop', 'git-engine', 'runtime']);
     expect(NODE_PROJECTS.sort()).toEqual(['app', 'db-engine', 'knowledge', 'shared', 'website']);
   });
 });

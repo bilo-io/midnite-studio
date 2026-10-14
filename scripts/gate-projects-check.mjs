@@ -29,7 +29,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // invocations, add its project id here too — that symmetry is what this script
 // checks.
 export const NODE_PROJECTS = ['shared', 'knowledge', 'app', 'website', 'db-engine'];
-export const NATIVE_PROJECTS = ['git-engine', 'desktop'];
+// `runtime` (Phase 113 Theme C) is on gate-native ahead of need: it is the
+// main-process layer Theme D moves the safeStorage vault and the pty broker
+// into, and platform behaviour is only validated on the platform.
+export const NATIVE_PROJECTS = ['git-engine', 'desktop', 'runtime'];
 
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult
