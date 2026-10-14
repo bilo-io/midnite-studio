@@ -25,6 +25,7 @@ export * from './domain';
 export * from './fs';
 export * from './git-identity';
 export * from './install-command';
+export * from './studio-link';
 export * from './ipc';
 export * from './keybindings';
 export * from './loops';

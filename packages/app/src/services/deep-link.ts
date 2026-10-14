@@ -6,6 +6,7 @@ import { useToastStore } from '../store/toast-store';
 import { bridge } from './bridge';
 import { useOpenRepo } from './queries';
 import { revealResource } from '../features/companion/reveal/reveal';
+import { liveNavigationState, resolveNavigation } from '../features/companion/navigate';
 
 /**
  * Subscribes to `mstudio:protocol:deep-link` and enforces the consent gate
@@ -66,6 +67,29 @@ export function useDeepLinks(): void {
         void revealResource(link.ref, { caller: 'link' }).then((outcome) => {
           if (!outcome.ok) addToast({ message: outcome.say, status: 'error' });
         });
+        return;
+      }
+
+      if (link.kind === 'view') {
+        // The launcher's tiles. Planned by the same resolver the companion and
+        // `ui.navigate` use, so a locked screen or a popped-out page is handled
+        // the way every other navigation handles it, not bypassed by a link.
+        const plan = resolveNavigation({ kind: 'navigate', view: link.view }, liveNavigationState());
+        if (plan.kind === 'refused') {
+          addToast({
+            message: plan.reason === 'locked' ? 'The screen is locked — unlock it first.' : "That link doesn't point at anything I can open.",
+            status: 'error',
+          });
+          return;
+        }
+        if (plan.kind === 'focus-window') {
+          b.window.focusRole({ role: plan.role });
+          return;
+        }
+        if (plan.kind === 'view') {
+          if (link.tab !== undefined) useUiStore.getState().setMediaTab(link.tab);
+          useUiStore.getState().setActiveView(plan.view);
+        }
         return;
       }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resourceRefLink } from '@midnite/studio-shared';
+import { resourceRefLink, studioViewLink } from '@midnite/studio-shared';
 import { parseDeepLink } from './protocol-parse';
 
 describe('parseDeepLink', () => {
@@ -34,5 +34,17 @@ describe('parseDeepLink', () => {
     expect(parseDeepLink('midnite-studio://reveal')).toEqual({ kind: 'reveal', ref: null });
     const bad = btoa(JSON.stringify({ kind: 'pull', number: -1 })).replace(/=+$/, '');
     expect(parseDeepLink(`midnite-studio://reveal?ref=${bad}`)).toEqual({ kind: 'reveal', ref: null });
+  });
+
+  it('parses a view link built by studioViewLink, with a media tab', () => {
+    expect(parseDeepLink(studioViewLink('sessions'))).toEqual({ kind: 'view', view: 'sessions' });
+    expect(parseDeepLink(studioViewLink('media', 'game'))).toEqual({ kind: 'view', view: 'media', tab: 'game' });
+  });
+
+  it('rejects an unknown view and drops a tab that does not belong', () => {
+    expect(parseDeepLink('midnite-studio://view?id=nowhere')).toBeNull();
+    expect(parseDeepLink('midnite-studio://view')).toBeNull();
+    expect(parseDeepLink('midnite-studio://view?id=media&tab=nope')).toEqual({ kind: 'view', view: 'media' });
+    expect(parseDeepLink('midnite-studio://view?id=sessions&tab=game')).toEqual({ kind: 'view', view: 'sessions' });
   });
 });

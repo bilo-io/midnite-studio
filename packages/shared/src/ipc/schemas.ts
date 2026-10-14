@@ -2923,6 +2923,8 @@ export const DeepLinkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('clone'), url: z.string() }),
   /** Phase 112 Theme I — `ref` is `null` for a link whose payload failed validation, so the renderer can toast it. */
   z.object({ kind: z.literal('reveal'), ref: ResourceRefSchema.nullable() }),
+  /** `midnite-studio://view?id=…` — the Midnite Apps launcher's tiles (`studio-link.ts`). */
+  z.object({ kind: z.literal('view'), view: z.enum(VIEW_IDS), tab: MediaTabSchema.optional() }),
 ]);
 export type DeepLink = z.infer<typeof DeepLinkSchema>;
 export const DeepLinkEventSchema = z.object({

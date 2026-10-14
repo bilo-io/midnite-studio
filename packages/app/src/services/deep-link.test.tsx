@@ -139,4 +139,18 @@ describe('useDeepLinks', () => {
     expect(revealResource).not.toHaveBeenCalled();
     expect(useToastStore.getState().toasts.length).toBeGreaterThan(0);
   });
+
+  it('a view link (the launcher\'s tiles) lands on the view and media tab; a locked screen is a toast', () => {
+    useUiStore.setState({ screensaverLocked: false, activeView: 'landing', mediaTab: 'doc' });
+    emit({ kind: 'view', view: 'media', tab: 'game' }, false);
+    expect(useUiStore.getState().activeView).toBe('media');
+    expect(useUiStore.getState().mediaTab).toBe('game');
+
+    useUiStore.setState({ screensaverLocked: true });
+    emit({ kind: 'view', view: 'sessions' }, false);
+    expect(useUiStore.getState().activeView).toBe('media');
+    expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/locked/);
+    useUiStore.setState({ screensaverLocked: false });
+  });
 });
+
