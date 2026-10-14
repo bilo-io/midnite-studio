@@ -13,7 +13,8 @@
 //
 // When Theme G lands, the second entry goes, and this test is what says it is gone.
 
-import { readdir, readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -22,28 +23,30 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 
 const ALLOWED = ['apps/launcher/src/main/updater.ts', 'packages/desktop/src/main/update-service.ts'];
 
-/** Workspace source roots: every `apps/*` and `packages/**` package's src (features nest one deeper). */
-const SKIP = new Set(['node_modules', 'dist', 'out', 'build', 'release', 'coverage', '.moon', 'e2e', 'resources']);
+const IMPORTS_UPDATER = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"]electron-updater(?:\/[^'"]*)?['"]/;
 
-async function* sources(dir) {
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    if (SKIP.has(entry.name) || entry.name.startsWith('.')) continue;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) yield* sources(full);
-    else if (/\.(c|m)?[jt]sx?$/.test(entry.name) && !/\.test\.[cm]?[jt]sx?$/.test(entry.name)) yield full;
+/**
+ * Tracked source files that mention electron-updater at all — `git grep` narrows thousands of
+ * files to a handful in milliseconds (a directory walk timed out under a loaded gate), then the
+ * import pattern decides. `--untracked` sees a new file before it is added; ignored paths
+ * (node_modules, build output) are skipped for free.
+ */
+function candidates() {
+  try {
+    const out = execFileSync('git', ['grep', '--untracked', '-l', '-F', 'electron-updater', '--', 'apps', 'packages'], { cwd: repoRoot, encoding: 'utf8' });
+    return out.split('\n').filter((f) => /\.(c|m)?[jt]sx?$/.test(f) && !/\.test\.[cm]?[jt]sx?$/.test(f));
+  } catch (error) {
+    if (error.status === 1) return []; // git grep: no match
+    throw error;
   }
 }
-
-const IMPORTS_UPDATER = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"]electron-updater(?:\/[^'"]*)?['"]/;
 
 describe('one updater in the suite (Phase 113 Theme E)', () => {
   it('only the launcher and Studio import electron-updater', async () => {
     const found = [];
-    for (const top of ['apps', 'packages']) {
-      for await (const file of sources(path.join(repoRoot, top))) {
-        if (IMPORTS_UPDATER.test(await readFile(file, 'utf8'))) found.push(path.relative(repoRoot, file).split(path.sep).join('/'));
-      }
+    for (const file of candidates()) {
+      if (IMPORTS_UPDATER.test(await readFile(path.join(repoRoot, file), 'utf8'))) found.push(file);
     }
     expect(found.sort()).toEqual([...ALLOWED].sort());
-  });
+  }, 30_000);
 });
