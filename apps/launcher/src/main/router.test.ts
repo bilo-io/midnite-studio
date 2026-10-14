@@ -1,6 +1,11 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
-import { findAppBundle, handleMidniteLink, linkFromArgv, routeTarget, studioUrlFor, type RouterDeps } from './router';
+import { recordInstall } from './bundles/state';
+import { handleMidniteLink, installedBundleFinder, linkFromArgv, routeTarget, studioUrlFor, type RouterDeps } from './router';
 
 const deps = (over: Partial<RouterDeps> = {}): RouterDeps => ({
   findAppBundle: async () => null,
@@ -19,8 +24,25 @@ describe('studioUrlFor', () => {
 });
 
 describe('routeTarget', () => {
-  it('has no per-app bundle yet', async () => {
-    expect(await findAppBundle('coder')).toBeNull();
+  it("finds an app's bundle through the installed-state record, and nothing without one", async () => {
+    const root = await mkdtemp(join(tmpdir(), 'launcher-router-test-'));
+    try {
+      const find = installedBundleFinder(root);
+      expect(await find('cleaner')).toBeNull();
+      await recordInstall(root, {
+        id: 'cleaner',
+        version: '0.1.0',
+        sha256: 'a'.repeat(64),
+        bundlePath: join(root, 'cleaner'),
+        stubPath: '/stubs/Midnite Cleaner.app',
+        runtimeVersion: '0.1.0',
+        installedAt: '2026-10-14T00:00:00.000Z',
+      });
+      expect(await find('cleaner')).toBe('/stubs/Midnite Cleaner.app');
+      expect(await find('coder')).toBeNull();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
   it('prefers an installed app bundle', async () => {
     const d = deps({ findAppBundle: async () => '/Applications/Midnite Coder.app' });

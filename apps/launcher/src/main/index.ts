@@ -1,13 +1,19 @@
 import { join, resolve } from 'node:path';
 
 import { app, BrowserWindow, Menu, shell } from 'electron';
+import { autoUpdater } from 'electron-updater';
 
 import { LAUNCHER_CHANNELS } from '../common/bridge';
 import type { AppId } from '../common/catalog';
+import { productionBundleRoots } from './bundles/layout';
+import { identityForApp, productionBundleDeps } from './bundles/production';
+import { updateInstalledBundles } from './bundles/updates';
+import { fetchCatalog } from './feed';
 import { applyDevIdentity } from './identity';
 import { registerIpc, takePendingApp } from './ipc';
-import { findAppBundle, handleMidniteLink, linkFromArgv } from './router';
+import { handleMidniteLink, installedBundleFinder, linkFromArgv } from './router';
 import { findStudio } from './studio';
+import { isAdHocSigned, runLauncherUpdates } from './updater';
 
 /**
  * Midnite Apps — main process.
@@ -18,6 +24,12 @@ import { findStudio } from './studio';
  */
 
 let mainWindow: BrowserWindow | null = null;
+
+/**
+ * Per-app bundles under userData, their Dock stubs in /Applications (`bundles/layout.ts`).
+ * Resolved on use, after `applyDevIdentity` has named the app.
+ */
+const bundleRoots = () => productionBundleRoots(app.getPath('userData'));
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -88,9 +100,8 @@ function openLink(raw: string): void {
   }
   void handleMidniteLink(
     raw,
-    { findAppBundle, isStudioInstalled: async () => (await findStudio()) !== null },
+    { findAppBundle: installedBundleFinder(bundleRoots().installRoot), isStudioInstalled: async () => (await findStudio()) !== null },
     {
-      // No per-app bundle exists yet (`findAppBundle` is null), so this branch is for later.
       openBundle: (path) => shell.openPath(path).then((error) => (error === '' ? undefined : Promise.reject(new Error(error)))),
       openStudioUrl: (url) => shell.openExternal(url),
       showDetail: (id: AppId) => {
@@ -102,6 +113,26 @@ function openLink(raw: string): void {
       },
     },
   );
+}
+
+/**
+ * The suite's one updater: the launcher itself on its `generic` feed, then every installed app
+ * bundle from `catalog.json` (`updater.ts`, `bundles/updates.ts`). Packaged builds only.
+ */
+async function startUpdates(): Promise<void> {
+  const deps = productionBundleDeps(bundleRoots(), {
+    isPackaged: app.isPackaged,
+    execPath: process.execPath,
+    version: app.getVersion(),
+  });
+  await runLauncherUpdates({
+    updater: autoUpdater,
+    isPackaged: app.isPackaged,
+    adHocSigned: app.isPackaged && isAdHocSigned(process.execPath),
+    updateBundles: async () => {
+      if (deps !== null) await updateInstalledBundles(await fetchCatalog(), identityForApp, deps);
+    },
+  });
 }
 
 app.on('open-url', (event, url) => {
@@ -143,6 +174,7 @@ if (!app.requestSingleInstanceLock()) {
     const first = pendingLink ?? linkFromArgv(process.argv);
     pendingLink = null;
     if (first !== undefined && first !== null) openLink(first);
+    void startUpdates();
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

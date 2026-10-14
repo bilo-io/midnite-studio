@@ -3,14 +3,15 @@ import { MEDIA_TABS } from '@midnite/studio-shared/media';
 import { parseMidniteLink, type MidniteAppId, type MidniteLinkTarget } from '@midnite/studio-shared/midnite-link';
 import { studioSettingsLink, studioViewLink } from '@midnite/studio-shared/studio-link';
 
+import { findInstalled } from './bundles/state';
 import { appLink } from './links';
 
 /**
  * The `midnite://open?app=…` router (Phase 113 Theme D). A link names an app; what opening it
  * means depends on what is installed, in this order:
  *
- *  1. the app's own bundle — none exist yet, so `findAppBundle` is the seam that returns `null`
- *     until per-app bundles ship;
+ *  1. the app's own bundle — its Dock stub, as `installed.json` records it (Theme E,
+ *     `bundles/state.ts`); no app ships as a bundle yet, so today this finds nothing;
  *  2. Midnite Studio, which hosts every app today — forwarded as a `midnite-studio://` link;
  *  3. neither — the launcher comes forward with that app's detail sheet open, which is where
  *     Install lives.
@@ -24,13 +25,15 @@ export type RouteDecision =
   | { kind: 'detail'; app: MidniteAppId };
 
 export type RouterDeps = {
-  /** Path of the installed per-app bundle, or `null`. Always `null` until apps ship on their own. */
+  /** Path of the installed per-app bundle's Dock stub, or `null`. */
   findAppBundle(app: MidniteAppId): Promise<string | null>;
   isStudioInstalled(): Promise<boolean>;
 };
 
-/** The seam for step 1: no per-app bundle exists yet. */
-export const findAppBundle: RouterDeps['findAppBundle'] = async () => null;
+/** Step 1, from the installed-state record under `installRoot`. */
+export function installedBundleFinder(installRoot: string): RouterDeps['findAppBundle'] {
+  return async (app) => (await findInstalled(installRoot, app))?.stubPath ?? null;
+}
 
 /** The `midnite-studio://` link a target lands on when Studio hosts it. */
 export function studioUrlFor(target: MidniteLinkTarget): string {

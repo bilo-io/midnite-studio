@@ -50,6 +50,9 @@ importers:
 
   apps/launcher:
     dependencies:
+      electron-updater:
+        specifier: ^6.3.9
+        version: 6.8.9
       react:
         specifier: ^19.0.0
         version: 19.2.8

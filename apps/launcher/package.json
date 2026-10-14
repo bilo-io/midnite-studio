@@ -2,7 +2,7 @@
   "name": "@midnite/launcher",
   "version": "0.0.1",
   "private": true,
-  "description": "Midnite Apps — the launcher that lists, installs and opens every midnite app. Electron main + preload, Vite + React renderer.",
+  "description": "Midnite Apps \u2014 the launcher that lists, installs and opens every midnite app. Electron main + preload, Vite + React renderer.",
   "main": "dist/main.cjs",
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -12,6 +12,7 @@
     "dist": "vite build && node scripts/bundle.mjs && electron-builder --mac --config electron-builder.yml --publish never"
   },
   "dependencies": {
+    "electron-updater": "^6.3.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.7.0",

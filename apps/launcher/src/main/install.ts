@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { access, constants, mkdtemp, rename, rm, stat } from 'node:fs/promises';
+import { access, constants, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -15,6 +15,7 @@ import {
   studioZipUrl,
 } from './constants';
 import { fetchStudioRelease } from './feed';
+import { swapIntoPlace } from './swap';
 
 /**
  * Install (or update) Midnite Studio in-process — `install.sh`'s steps, in the
@@ -40,7 +41,7 @@ export type InstallDeps = {
   fetchImpl?: typeof fetch;
 };
 
-function run(cmd: string, args: readonly string[]): Promise<void> {
+export function run(cmd: string, args: readonly string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     execFile(cmd, args, (error) => (error ? reject(error) : resolve()));
   });
@@ -76,7 +77,7 @@ export async function verifyBundle(bundle: string): Promise<string | null> {
   return null;
 }
 
-async function canWrite(dir: string, bundle: string): Promise<boolean> {
+export async function canWrite(dir: string, bundle: string): Promise<boolean> {
   try {
     await access(dir, constants.W_OK);
   } catch {
@@ -152,31 +153,15 @@ export async function installStudio(deps: InstallDeps): Promise<LauncherResult> 
     // ── Stage on the destination volume, then swap ─────────────────────────
     deps.onProgress({ phase: 'install', received, total });
     await rm(staged, { recursive: true, force: true });
-    await rm(backup, { recursive: true, force: true });
     await run('ditto', [join(extracted, STUDIO_BUNDLE), staged]);
     if ((await verifyBundle(staged)) !== null) {
       await rm(staged, { recursive: true, force: true });
       return fail(`The staged copy is incomplete — ${installDir} was left untouched.`);
     }
 
-    let hadPrevious = true;
-    try {
-      await rename(dest, backup);
-    } catch {
-      hadPrevious = false;
-    }
-    try {
-      await rename(staged, dest);
-    } catch {
-      if (hadPrevious) await rename(backup, dest);
-      return fail('Could not move the new app into place — the previous copy was restored.');
-    }
-    if ((await verifyBundle(dest)) !== null) {
-      await rm(dest, { recursive: true, force: true });
-      if (hadPrevious) await rename(backup, dest);
-      return fail('The installed app failed verification — the previous copy was restored.');
-    }
-    await rm(backup, { recursive: true, force: true });
+    const swapped = await swapIntoPlace({ staged, dest, backup }, verifyBundle);
+    if (!swapped.ok) return fail(swapped.message);
+    await swapped.commit();
     // The launcher's own download is never quarantined, but clear it defensively, as install.sh does.
     await run('xattr', ['-dr', 'com.apple.quarantine', dest]).catch(() => undefined);
 
