@@ -1,6 +1,15 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-14 — Phase 113 Theme D (slice) — one runtime vault and a shared pty broker
+
+[PR #852](https://github.com/bilo-io/midnite-studio/pull/852). The three credential vaults now bind
+namespaces of one vault service in `packages/runtime`, reading and writing the same files so nothing
+migrates, with every access tagged by app id for Theme J's grants later. The pty broker client moved
+into the runtime as a service any app attaches to, keeping the build-fingerprinted socket and the
+stale-broker retire order. Tested with two apps sharing one vault and one broker. The CLI/MCP owner
+and cross-app hand-off are still to come.
+
 ## 2026-10-14 — Phase 113 Theme E (slice) — per-app bundle install and launcher-owned updates
 
 [PR #851](https://github.com/bilo-io/midnite-studio/pull/851). The launcher installs, updates and
