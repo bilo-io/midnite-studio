@@ -44,3 +44,13 @@ protocols:
     schemes:
       - midnite
     role: Viewer
+
+# The launcher's own updates (Phase 113 Theme E, `src/main/updater.ts`): electron-updater reads
+# the app-update.yml this generates. `generic`, never `github` — bilo-io/midnite-apps hosts every
+# midnite app, so its latest release is not necessarily this one — and namespaced under
+# `midnite-launcher/feed`, beside Studio's `midnite-studio/feed`. Nothing here publishes:
+# `dist` runs with `--publish never`; the release skills write the feed (Theme F).
+publish:
+  - provider: generic
+    url: https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-launcher/feed
+    channel: latest

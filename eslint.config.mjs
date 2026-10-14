@@ -131,6 +131,19 @@ const LAYER_DESKTOP = {
   message:
     'Desktop is Studio\'s main-side composer, above every feature and the runtime. What a lower layer needs from it belongs in the runtime (Theme D) or behind the feature\'s services port.',
 };
+/*
+  Phase 113 Theme E (Decision 6) — the launcher owns updates. A composed app is the frame, its
+  features and the runtime library; its stub runs the same Electron framework as the launcher,
+  so an updater pulled in by any of those layers would run once per open app, each racing the
+  launcher to replace bundles under it. `apps/launcher/src/main/updater.ts` is the suite's one;
+  Studio's `packages/desktop/src/main/update-service.ts` stays until Theme G repoints it.
+  `scripts/single-updater.test.mjs` pins that list of two.
+*/
+const NO_APP_UPDATER = {
+  group: ['electron-updater', 'electron-updater/*'],
+  message:
+    'No app runs its own updater (Phase 113 Decision 6): the launcher updates the runtime and every installed bundle from catalog.json — apps/launcher/src/main/updater.ts and bundles/updates.ts.',
+};
 /** App-only extras: the main half of a feature and the runtime are main-process code. */
 const APP_LAYER_PATTERNS = [
   LAYER_RUNTIME_FROM_RENDERER,
@@ -271,6 +284,7 @@ export default tseslint.config(
   {
     files: ['packages/frame/src/**/*.{ts,tsx}'],
     rules: deny([
+      NO_APP_UPDATER,
       ...APP_PATTERNS,
       MAPLIBRE_LAZY,
       LAYER_APP,
@@ -285,6 +299,7 @@ export default tseslint.config(
   {
     files: ['packages/features/*/renderer/**/*.{ts,tsx}'],
     rules: deny([
+      NO_APP_UPDATER,
       ...APP_PATTERNS,
       MAPLIBRE_LAZY,
       LAYER_APP,
@@ -303,6 +318,7 @@ export default tseslint.config(
   {
     files: ['packages/features/*/main/**/*.ts'],
     rules: deny([
+      NO_APP_UPDATER,
       {
         group: ['electron', 'electron/*'],
         message:
@@ -336,6 +352,7 @@ export default tseslint.config(
   {
     files: ['packages/runtime/src/**/*.ts'],
     rules: deny([
+      NO_APP_UPDATER,
       LAYER_APP,
       {
         ...LAYER_FEATURE_FROM_FRAME,
