@@ -40,8 +40,8 @@ Studio kept as the superset build every feature is still composed into.
 **Theme B — Process model and Dock identity spike.** ◻ Prove how a small app gets its own Dock icon without its own Chromium, and pick the mechanism.
 **Theme C — Package extraction scaffolding.** ◻ `packages/runtime`, `packages/frame`, the feature-package template and the eslint/moon rules that keep `app ← feature ← frame ← shared`.
 **Theme D — Shared runtime services.** ◻ One vault, one broker, one CLI/MCP owner with app-contributed tools, one link router for every app.
-**Theme E — Launcher becomes the runtime host.** ◻ `catalog.json`, per-app bundle install/update/uninstall, Dock stubs, launcher-owned updates, lockstep versions.
-**Theme F — CI and release.** ◻ Affected-only bundle builds, one notarized runtime job, the release skills taught about bundles.
+**Theme E — Launcher becomes the runtime host.** ◻ `catalog.json`, per-app bundle install/update/uninstall, Dock stubs, its own Dock icon, launcher-owned updates, lockstep versions.
+**Theme F — CI and release.** ◻ Affected-only bundle builds, one notarized runtime job, the release skills taught about bundles, the website installs the launcher.
 **Theme G — Studio as superset, and the migration.** ◻ `apps/studio` composes every feature; existing Studio users move to the runtime with nothing lost.
 **Theme H — App 1: Cleaner (pilot).** ◻ The first real bundle, end to end.
 **Theme I — App 2: Monitor.** ◻ A Monitor view built from the status-bar readouts, System Health, Diagnostics and the crash log.
@@ -122,11 +122,13 @@ Studio kept as the superset build every feature is still composed into.
 - [ ] The launcher owns updates: one electron-updater in the runtime ([`update-service.ts`](../../../packages/desktop/src/main/update-service.ts)'s `generic` feed), app bundles updated with it. No app runs its own updater.
 - [ ] Lockstep versions: runtime and every bundle share one version; the launcher refuses a bundle whose version does not match the runtime.
 - [ ] The tile states (Installed / Update / Not installed) come from installed bundles, not from detecting Studio; "Move to Trash…" removes one app, not the suite.
+- [ ] The launcher keeps its **own Dock icon and name** (`Midnite Apps`, [`resources/icon.icns`](../../../apps/launcher/resources/icon.icns)), distinct from every app stub, packaged and in `moon run launcher:start` (no stock Electron icon in dev either).
 
 ### Theme F — CI and release `[M]`
 - [ ] One notarized macOS `dist` job for the runtime; app bundles built as artifacts only when `moon query projects --affected` names them. Count the macOS jobs against the cap of 5 before adding any.
 - [ ] Teach [`/midnite-release-complete`](../../../.claude/skills/midnite-release-complete/SKILL.md) and `/midnite-release-prep` to publish bundles and `catalog.json` beside the existing namespaced tags, keeping lockstep.
 - [ ] The launcher and every public app keep Damion, never Quick Kiss; add a check that no app bundle ships `quick-kiss.ttf`.
+- [ ] The website's install link installs **the launcher**, not Studio: a launcher DMG and install script published in `bilo-io/midnite-apps`, [`download-page.tsx`](../../../packages/website/src/pages/download-page.tsx) and [`use-latest-version.ts`](../../../packages/website/src/pages/use-latest-version.ts) pointed at it, and the verbatim `public/install.sh` copy plus [`website-sync-install.mjs`](../../../scripts/website-sync-install.mjs) guard following the new script.
 
 ### Theme G — Studio as superset, and the migration `[M]`
 - [ ] `apps/studio` composes every feature and the frame and replaces today's direct [`packages/app`](../../../packages/app/) entry; it is the dev harness (`moon run studio:start`) and stays installable for power users.
