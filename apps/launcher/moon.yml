@@ -54,6 +54,15 @@ tasks:
     command: 'pnpm exec vite'
     preset: 'server'
 
+  # Regenerate each app's logo (src/renderer/assets/app-logos, resources/app-logos)
+  # from Studio's icon, the catalog's accents and the glyph map. macOS-only
+  # (`iconutil`), never in CI; the PNGs are committed.
+  logos:
+    command: 'node scripts/run-electron.mjs scripts/generate-app-logos.cjs'
+    options:
+      runInCI: false
+      cache: false
+
   # macOS arm64 dmg + zip. Never in CI, never cached — same reasoning as
   # `desktop:dist`.
   dist:
