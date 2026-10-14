@@ -13,6 +13,7 @@ import {
 import { ThemeProvider } from '@bilo-io/ui/theme';
 
 import { DialogHost } from '../src/components/dialog-host';
+import { StudioProviders } from '../src/compose/studio-providers';
 import { ToastHost } from '../src/components/toast-host';
 import { useUiStore, type UiState } from '../src/store/ui-store';
 import { installMockBridgeJsdom } from './mock-bridge';
@@ -82,7 +83,9 @@ function wrap(queryClient: QueryClient) {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <ToastHost>
-            <DialogHost>{children}</DialogHost>
+            <DialogHost>
+              <StudioProviders>{children}</StudioProviders>
+            </DialogHost>
           </ToastHost>
         </ThemeProvider>
       </QueryClientProvider>

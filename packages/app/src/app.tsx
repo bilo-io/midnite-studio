@@ -19,7 +19,7 @@ import {
 } from '@bilo-io/shell';
 import { pickForgeRemote, type ForgeCapability, type ForgeKind } from '@midnite/studio-shared';
 import { CiPower } from 'react-icons/ci';
-import { LuChevronLeft, LuSettings } from 'react-icons/lu';
+import { LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandHomeButton, BrandMark } from './components/brand';
 import { BrowserLauncher } from './features/browser/browser-launcher';
@@ -31,8 +31,11 @@ import { BrowserPane } from './features/browser/browser-pane';
 import { WebAppsFlyoutPanel } from './features/web-apps/web-apps-flyout-panel';
 import { WebAppsRailRow } from './features/web-apps/web-apps-rail-row';
 import { useWebAppsSync } from './features/web-apps/use-web-apps-sync';
-import { DelayedFallback } from './components/delayed-fallback';
+// The frame (Phase 113 Theme C): the chrome every app wears. The layout
+// pieces below are the first to leave this file for it.
+import { CONTENT_BOX, DelayedFallback, NavLockToggle } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
+import { StudioProviders } from './compose/studio-providers';
 import { useContentBoundsSync } from './store/content-bounds-store';
 import { ErrorBoundary } from './components/error-boundary';
 import { ToastHost } from './components/toast-host';
@@ -148,7 +151,6 @@ import {
   TERMINAL_VIEW_RESERVE,
   useUiStore,
   viewForPath,
-  type NavMode,
   type ViewId,
 } from './store/ui-store';
 import { useRefetchModelsOnPullDone } from './features/models/use-models';
@@ -327,33 +329,6 @@ function RailLockButton({ expanded }: { expanded: boolean }) {
   );
 }
 
-/**
- * The app's box: the whole viewport, with the title bar's height held clear at
- * the top. `--titlebar-h` is published by <TitleBar> while mounted and is
- * absent in a framed window, where the fallback of 0 is exactly right.
- *
- * PADDING, not a top margin — the distinction is the whole of a bug that made
- * the app unusable. A margin here collapses straight out through `<main>` and
- * `#root`, both of which are plain blocks with no border or padding of their
- * own, so it stops being space INSIDE the page and becomes the page's own
- * offset: a 100vh document sitting 48px down, i.e. 48px taller than the window.
- *
- * `body { overflow: hidden }` hides that from the wheel but not from the
- * platform. `focus()` and `scrollIntoView()` scroll an overflow-hidden viewport
- * quite happily, and clicking into a terminal focuses xterm's hidden textarea —
- * so one click scrolled the whole app up under the fixed title bar, where the
- * bar's own controls then answered every click meant for what was behind them.
- * A maximized terminal, whose header is the topmost thing in the column, lost
- * its restore button that way and could not be put back. Nothing scrolled it
- * home either: an overflow-hidden viewport takes no user gesture.
- *
- * Padding is inside the border box, so this box is exactly 100vh however tall
- * the bar is, and the document has nothing left to scroll.
- */
-const CONTENT_BOX = {
-  height: '100vh',
-  paddingTop: 'var(--titlebar-h, 0px)',
-} as const;
 
 /**
  * Rail icons come from react-icons, which fronts several icon sets at once —
@@ -538,43 +513,6 @@ function useForgeViewAvailability(repoId: string | null): (view: ViewId) => bool
   );
 }
 
-/**
- * Locks the nav rail open, or hands it back to hover.
- *
- * The two modes differ in more than persistence: `auto` hover-expands as an
- * OVERLAY, while `expanded` is the only mode that shifts the page content
- * (AppFrame sets `--nav-offset` from it). That asymmetry is what makes the lock
- * feel like a lock rather than a preference — mirroring midnite's own rail.
- *
- * `collapsed` is deliberately not reachable from here: a two-state pin is a
- * pin, a three-state one is a menu wearing a pin's clothes.
- */
-function NavLockToggle({
-  navMode,
-  onChange,
-}: {
-  navMode: NavMode;
-  onChange: (mode: NavMode) => void;
-}) {
-  const locked = navMode === 'expanded';
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(locked ? 'auto' : 'expanded')}
-      aria-pressed={locked}
-      aria-label={locked ? 'Unlock navigation' : 'Keep navigation expanded'}
-      title={locked ? 'Unlock navigation' : 'Keep navigation expanded'}
-      className="ml-auto shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-    >
-      <LuChevronLeft
-        aria-hidden
-        className={`h-4 w-4 transition-transform duration-200 ease-in-out ${
-          locked ? '' : 'rotate-180'
-        }`}
-      />
-    </button>
-  );
-}
 
 function Shell() {
   useDeepLinks();
@@ -2160,7 +2098,9 @@ export function App() {
       <DialogHost>
         <ToastHost>
           <PaletteHost>
-            <Shell />
+            <StudioProviders>
+              <Shell />
+            </StudioProviders>
             {/*
               Silent, like Slides below: an overlay whose chunk fails to load
               must not paint an error card over the app it was optional to. It

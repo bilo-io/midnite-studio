@@ -16,6 +16,8 @@
     { "path": "../shared" },
     { "path": "../git-engine" },
     { "path": "../db-engine" },
-    { "path": "../knowledge" }
+    { "path": "../knowledge" },
+    { "path": "../runtime" },
+    { "path": "../features/optimizer/tsconfig.main.json" }
   ]
 }

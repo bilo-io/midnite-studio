@@ -2,6 +2,13 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 language: 'typescript'
 
+# Phase 113 Theme C: Studio's main-side composer (`scripts/affected-apps.mjs`
+# reads `app-*`). git-engine and db-engine carry no app tag of their own — they
+# reach Studio through this project, as moon's downstream dependents.
+tags:
+  - 'layer-app'
+  - 'app-studio'
+
 # All four are `development` scope so moon's package.json sync keeps them in
 # devDependencies. None is a RUNTIME dependency of the packaged app:
 #
@@ -20,6 +27,12 @@ dependsOn:
   - id: 'db-engine'
     scope: 'development'
   - id: 'knowledge'
+    scope: 'development'
+  # Phase 113 Theme C: the runtime layer and the optimizer feature's main half,
+  # both inlined into the bundle like the engines above.
+  - id: 'runtime'
+    scope: 'development'
+  - id: 'feature-optimizer'
     scope: 'development'
   - id: 'app'
     scope: 'development'
@@ -40,6 +53,8 @@ tasks:
       - 'git-engine:build'
       - 'db-engine:build'
       - 'knowledge:build'
+      - 'runtime:build'
+      - 'feature-optimizer:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
@@ -48,6 +63,9 @@ tasks:
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
       - '/packages/knowledge/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/optimizer/main/**/*'
+      - '/packages/features/optimizer/manifest.ts'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -61,6 +79,8 @@ tasks:
       - 'git-engine:build'
       - 'db-engine:build'
       - 'knowledge:build'
+      - 'runtime:build'
+      - 'feature-optimizer:build'
       - '~:bundle'
     inputs:
       - 'src/**/*'
@@ -75,6 +95,9 @@ tasks:
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
       - '/packages/knowledge/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/optimizer/main/**/*'
+      - '/packages/features/optimizer/manifest.ts'
 
   lint:
     inputs:
@@ -106,6 +129,9 @@ tasks:
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
       - '/packages/knowledge/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/optimizer/main/**/*'
+      - '/packages/features/optimizer/manifest.ts'
     outputs:
       - 'dist/bundle'
 

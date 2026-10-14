@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { SETTINGS_SECTIONS, settingsSectionId } from './settings-sections';
 
-const pages = import.meta.glob('./settings-pages/*-page.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+/*
+  Stays in packages/app though `settings-sections.ts` moved to the frame
+  (Phase 113 Theme C): it cross-checks the frame's section registry against the
+  pages Studio actually renders, and those pages are the app's.
+*/
+const pages = import.meta.glob(['./settings-pages/*-page.tsx', '../../../../features/*/renderer/settings/*-page.tsx'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const source = Object.values(pages).join('\n');
 
 describe('SETTINGS_SECTIONS', () => {

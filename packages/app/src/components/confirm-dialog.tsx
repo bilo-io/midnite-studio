@@ -7,20 +7,12 @@ import { useContentOverlay } from '../store/content-bounds-store';
 import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
-/**
- * Confirmation for a destructive operation, with its blast radius.
- *
- * The number is the entire point. "Are you sure?" is a question nobody can
- * answer — it asks the user to re-derive what the app already knows. "This will
- * orphan 14 commits, including 'fix the parser'" is a decision.
- *
- * Rendered in-app rather than as a native dialog for the same reason as the
- * context menu: it has to carry the app's own tokens and its own content.
- */
-export type BlastRadius = {
-  count: number;
-  sample: { sha: string; subject: string }[];
-};
+import type { BlastRadiusKind, ConfirmRequest } from '@midnite/studio-frame';
+
+// `BlastRadius` and `ConfirmRequest` live in the frame (Phase 113 Theme C) so
+// a feature package can raise a confirm through its chrome port; re-exported
+// here so no existing import path moves.
+export type { BlastRadius } from '@midnite/studio-frame';
 
 /**
  * `BlastRadius.sample` is `{sha, subject}[]` — git-only, since it exists to
@@ -96,58 +88,9 @@ const BLAST_RADIUS_COPY = {
       'will come off the board when it is deleted — this cannot be undone. The issues and pull requests themselves are not deleted.',
     noEffect: 'The board has no items on it.',
   },
-} as const;
+} as const satisfies Record<BlastRadiusKind, { subject: (n: number) => string; consequence: string; noEffect: string }>;
 
-export type ConfirmRequest = {
-  title: string;
-  body?: string;
-  confirmLabel: string;
-  danger?: boolean;
-  /** Absent while still being counted; null when there is nothing to lose. */
-  blastRadius?: BlastRadius | null;
-  /** Which `BLAST_RADIUS_COPY` entry renders `blastRadius`'s count. Defaults to `'commits'` — every pre-Phase-59 caller is a git op. */
-  blastRadiusKind?: keyof typeof BLAST_RADIUS_COPY;
-  /**
-   * Consequences that are not measured in commits.
-   *
-   * `blastRadius` speaks one sentence — "N commits will no longer be reachable"
-   * — which is exactly right for a delete or a reset and exactly wrong for
-   * "this checkout has 3 uncommitted files" or "the branch is 2 ahead of its
-   * upstream". Rather than bend that sentence, a destructive op can hand over
-   * its own lines; they render in the same alarming box, so the user reads one
-   * warning region either way.
-   */
-  warnings?: string[];
-  /**
-   * When present, renders a checkbox with this exact label between the
-   * warnings box and the button row, and the Confirm button stays `disabled`
-   * until it is checked. The first friction beyond a plain button click in
-   * this dialog — reserved for the one operation in the app with true
-   * no-undo (emptying the Trash).
-   */
-  requireAck?: string;
-  /**
-   * Drop the Cancel button, for a dialog with nothing to cancel.
-   *
-   * A notice — "this is not built yet" — has one way out, and offering both
-   * Cancel and OK asks the reader to choose between two words that mean the
-   * same thing here. See `notify` in `dialog-host`.
-   */
-  hideCancel?: boolean;
-  /**
-   * Render inside this (positioned) element rather than over the window — the
-   * scrim covers only it and the dialog centres in it. See `Modal`'s `container`.
-   */
-  container?: HTMLElement | null;
-  onConfirm: () => void;
-  /**
-   * A third way out, between Cancel and the primary action — Discard beside
-   * Save/Cancel on the unsaved-changes guard, the only caller today. Absent
-   * everywhere else, which keeps every existing two-button confirm unchanged.
-   */
-  secondaryLabel?: string;
-  onSecondary?: () => void;
-};
+export type { ConfirmRequest } from '@midnite/studio-frame';
 
 export function ConfirmDialog({
   request,

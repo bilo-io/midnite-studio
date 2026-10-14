@@ -2,6 +2,13 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 language: 'typescript'
 
+# Phase 113 Theme C: `layer-*` names the layer, `app-*` the apps a change here
+# reaches (`scripts/affected-apps.mjs` reads them). Until Themes G/H give each
+# app its own composition, packages/app is Studio's renderer composer only.
+tags:
+  - 'layer-app'
+  - 'app-studio'
+
 dependsOn:
   - 'shared'
 

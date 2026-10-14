@@ -1,123 +1,12 @@
-import type { ComponentType, CSSProperties, MouseEventHandler, ReactNode, Ref } from 'react';
+import type { IconButtonProps } from '@midnite/studio-frame';
 
 import { Spinner } from './skeleton';
 import { Tooltip } from './tooltip';
 
-/**
- * A component taking `className`, `strokeWidth` and `style` — the shape every
- * `react-icons` set already has, and the app's own hand-held marks along with
- * them.
- *
- * Declared structurally rather than importing react-icons' `IconType` so this
- * file has no opinion about which set it is handed. That was load-bearing
- * through Phase 36's migration off `lucide-react`: the whole renderer swapped
- * families without this type, `IconButton`, `Tooltip` or the context menus
- * being adapted at all.
- *
- * `style` is here for one reason: an agent's `accent` is roster data, which
- * means it is a colour Tailwind has never seen and can only reach an icon
- * inline. It was already being passed that way before this type admitted it —
- * `SessionIcon` styled `ClaudeIcon` directly, which typechecked only because it
- * named the concrete component rather than the registry it now resolves from.
- */
-export type IconComponent = ComponentType<{
-  className?: string;
-  strokeWidth?: number;
-  style?: CSSProperties;
-}>;
-
-export type IconButtonProps = {
-  icon: IconComponent;
-  /**
-   * The button's accessible name AND its tooltip text.
-   *
-   * One prop for both on purpose: an icon-only control whose label is optional
-   * is an icon-only control that ships without one. Making the tooltip the
-   * label means the visible affordance and the screen-reader name cannot drift.
-   */
-  label: string;
-  onClick?: MouseEventHandler<HTMLButtonElement>;
-  disabled?: boolean;
-  /**
-   * Why the button is dead — appended to the tooltip, and the reason the
-   * control is marked `aria-disabled` rather than `disabled`.
-   *
-   * A real `disabled` attribute suppresses mouse events entirely in every
-   * engine, so a disabled button cannot raise a tooltip: the one state that
-   * most needs explaining is the one state that cannot explain itself. With a
-   * reason to give, the button stays hoverable and focusable and swallows the
-   * click instead.
-   */
-  disabledReason?: string;
-  /**
-   * Swaps the icon for the app's sweeping-ring spinner and blocks the click,
-   * without collapsing the layout.
-   *
-   * The icon used to be spun in place instead, and that reads as the wrong
-   * thing on most of the glyphs this button is handed. A rotating trash can,
-   * chevron or cloud is not a busy indicator — it is the same symbol, wobbling
-   * — and on a radially symmetric mark (a circle, a dot) the rotation is
-   * invisible outright, so the one state the user needs to see is the one
-   * state that doesn't show. Only `LuRefreshCw` ever looked deliberate, and it
-   * looked deliberate because it happens to depict rotation. The spinner is a
-   * mark that means exactly one thing, at every call site, whatever glyph the
-   * button rests on.
-   */
-  busy?: boolean;
-  /** Rendered after the icon — an ahead/behind count, a chevron. */
-  children?: ReactNode;
-  /**
-   * `danger` tints hover destructive; `ghost` is the quiet toolbar default.
-   *
-   * `brand` is the odd one out: it rests in `--primary` rather than the muted
-   * grey and goes to plain foreground under the pointer — the app's own mark
-   * behaving the way the mark does, coloured with the UI at rest and white on
-   * dark / black on light when you reach for it. `--primary` because that is
-   * already this app's word for "the accent": it is what the selected
-   * repository's name takes. With an accent chosen the two states are the
-   * accent and then the foreground; with the default accentless theme
-   * `--primary` IS the full-contrast colour, so they differ only by the hover
-   * tint — which is still the mark standing out from its two grey neighbours,
-   * and is the behaviour the accent picker exists to change.
-   *
-   * Deliberately a tone rather than a `className`: both halves are text
-   * colours, so passing them in would put `text-primary` and the base
-   * `text-muted-foreground` in the same slot and leave the winner to whichever
-   * Tailwind emitted last.
-   *
-   * `git` is `brand`'s sibling for a mark that isn't this app's own: the Git
-   * logo's actual colour rather than a theme token, because it identifies
-   * *git* specifically and has to stay recognisable as that regardless of
-   * which accent the user has picked.
-   */
-  tone?: 'ghost' | 'danger' | 'brand' | 'git';
-  size?: 'sm' | 'md';
-  tooltipSide?: 'top' | 'bottom';
-  className?: string;
-  'aria-pressed'?: boolean;
-  'aria-expanded'?: boolean;
-  /**
-   * Forwarded onto the `<button>` alongside the `aria-*` pair below.
-   *
-   * Every call site before Phase 79's Clear-conversation control was reachable
-   * from its `label` alone — `getByRole('button', {name})` — so this was never
-   * needed. A header whose controls are all icon-only and whose labels are
-   * sentences is the case that wants a stable hook instead, and the rest spread
-   * already put it on the DOM node; only the type was refusing it.
-   */
-  'data-testid'?: string;
-  /**
-   * Forwarded straight to the underlying `<button>` — React 19 needs no
-   * `forwardRef` wrapper for this. `Tooltip` clones its child to install its
-   * own measuring ref and already merges it with whatever ref the child
-   * carried (`assignRef`, `tooltip.tsx`) precisely so a caller here can still
-   * get the real node, the way `code-editor.tsx`'s "leaving edit mode returns
-   * focus to the Edit button" needs (`file-preview.tsx`'s Edit button is
-   * unmounted and remounted across the toggle, not kept in place, so nothing
-   * upstream can hold a stable reference to it without this).
-   */
-  ref?: Ref<HTMLButtonElement>;
-};
+// `IconComponent` and `IconButtonProps` live in the frame (Phase 113 Theme C)
+// so a feature package can type its chrome port against them; re-exported
+// here so no existing import path moves.
+export type { IconComponent, IconButtonProps } from '@midnite/studio-frame';
 
 export function IconButton({
   icon: Icon,

@@ -250,6 +250,8 @@ jobs:
           app:typecheck app:lint
           website:typecheck website:lint website:test
           db-engine:typecheck db-engine:lint db-engine:test
+          frame:typecheck frame:lint frame:test
+          feature-optimizer:typecheck feature-optimizer:lint feature-optimizer:test
           root:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -365,11 +367,14 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Typecheck, lint, test (git-engine, desktop)
+      # `runtime` (Phase 113 Theme C) is the main-process layer the vault and
+      # the pty broker move into (Theme D), so it lives here from day one.
+      - name: Typecheck, lint, test (git-engine, desktop, runtime)
         run: >-
           pnpm exec moon run
           git-engine:typecheck git-engine:lint git-engine:test
           desktop:typecheck desktop:lint desktop:test
+          runtime:typecheck runtime:lint runtime:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # The integration tests create commits; git refuses without an identity.

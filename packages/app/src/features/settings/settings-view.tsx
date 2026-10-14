@@ -1,6 +1,8 @@
 import { Collapse } from '@bilo-io/ui';
 import { LuChevronDown } from 'react-icons/lu';
 
+import { optimizerSettingsPages } from '@midnite/studio-feature-optimizer/renderer';
+
 import { SETTINGS_PAGE_ICON } from '../../components/nav-icons';
 import { ResizeHandle } from '../../components/resizable/resize-handle';
 import { useResizable } from '../../components/resizable/use-resizable';
@@ -28,7 +30,6 @@ import { HealthPage } from './settings-pages/health-page';
 import { McpSettingsPage } from './settings-pages/mcp-page';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { OllamaSettingsPage } from './settings-pages/ollama-page';
-import { OptimizerSettingsPage } from './settings-pages/optimizer-settings-page';
 import { PrivacyPage } from './settings-pages/privacy-page';
 import { ProjectsPage } from './settings-pages/projects-page';
 import { ReviewsPage } from './settings-pages/reviews-page';
@@ -36,7 +37,6 @@ import { ScreenLockPage } from './settings-pages/screen-lock-page';
 import { SearchSettingsPage } from './settings-pages/search-page';
 import { SidebarPage } from './settings-pages/sidebar-page';
 import { TerminalPage } from './settings-pages/terminal-page';
-import { TrashSafetyPage } from './settings-pages/trash-safety-page';
 import { UpdatesPage } from './settings-pages/updates-page';
 import { MediaSettingsPage } from './settings-pages/media-page';
 import { WorkflowsPage } from './settings-pages/workflows-page';
@@ -66,7 +66,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   media: () => <MediaSettingsPage />,
   ollama: () => <OllamaSettingsPage />,
   gitSafety: () => <GitSafetyPage />,
-  trashSafety: () => <TrashSafetyPage />,
+  trashSafety: () => <optimizerSettingsPages.trashSafety />,
   apiClient: () => <ApiClientPage />,
   mcp: () => <McpSettingsPage />,
   companion: () => <CompanionPage />,
@@ -77,7 +77,8 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   cli: () => <CliPage />,
   updates: () => <UpdatesPage />,
   health: () => <HealthPage />,
-  optimizer: () => <OptimizerSettingsPage />,
+  // Contributed by the optimizer feature package (Phase 113 Theme C).
+  optimizer: () => <optimizerSettingsPages.optimizer />,
 };
 
 function PageLink({ id, label }: { id: SettingsPageId; label: string }) {

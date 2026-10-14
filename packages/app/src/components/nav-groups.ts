@@ -1,5 +1,7 @@
 import type { IconType } from 'react-icons';
 
+import { optimizerManifest } from '@midnite/studio-feature-optimizer/renderer';
+
 import type { ViewId } from '../store/ui-store';
 import { VIEW_ICON } from './nav-icons';
 
@@ -63,12 +65,9 @@ export const WORKSPACE_NAV_ITEMS: RailNavItem[] = [
     icon: VIEW_ICON.search,
     description: 'Search commits by message, author or pickaxe',
   },
-  {
-    view: 'optimizer',
-    label: 'Optimizer',
-    icon: VIEW_ICON.optimizer,
-    description: 'Scan memory, GPU and storage use and reclaim space',
-  },
+  // Label and description come from the optimizer feature's manifest
+  // (Phase 113 Theme C); the glyph stays here, because it is a component.
+  { ...optimizerManifest.views[0].rail, view: 'optimizer', icon: VIEW_ICON.optimizer },
   {
     view: 'tests',
     label: 'Tests',

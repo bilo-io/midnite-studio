@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
  * (Phase 30 Theme A) so a hardcoded Tailwind `duration-200` and the JS
  * constant it used to be "paired by hand" with can no longer drift apart.
  *
- * The one exception is the nav-lock chevron in `app.tsx` — a plain
+ * The one exception is the nav-lock chevron (`NavLockToggle`, which left
+ * `app.tsx` for the frame in Phase 113 Theme C, so the frame is scanned too) — a plain
  * `transition-transform`, not a reveal, so it keeps its own literal. This
  * test is the standing form of the phase doc's own verification note ("grep
  * -rn 'duration-200' packages/app/src prints exactly one line"), so a future
@@ -16,14 +17,14 @@ import { describe, expect, it } from 'vitest';
  * `packages/app` is the renderer, and no file in it may import a node
  * builtin — see `eslint.config.mjs`'s per-package `no-restricted-imports`.
  */
-const sourceFiles = import.meta.glob('../**/*.{ts,tsx}', {
+const sourceFiles = import.meta.glob(['../**/*.{ts,tsx}', '../../../frame/src/**/*.{ts,tsx}', '../../../features/*/renderer/**/*.{ts,tsx}'], {
   query: '?raw',
   import: 'default',
   eager: true,
 }) as Record<string, string>;
 
 describe('duration-200 literal', () => {
-  it('appears exactly once in packages/app/src, on the nav-lock chevron', () => {
+  it('appears exactly once in the renderer sources, on the nav-lock chevron', () => {
     const matches = Object.entries(sourceFiles)
       .filter(([path]) => !path.endsWith('.test.ts') && !path.endsWith('.test.tsx'))
       .flatMap(([path, content]) =>
@@ -35,7 +36,7 @@ describe('duration-200 literal', () => {
       );
 
     expect(matches).toHaveLength(1);
-    expect(matches[0]?.path.endsWith('app.tsx')).toBe(true);
+    expect(matches[0]?.path.endsWith('nav-lock-toggle.tsx')).toBe(true);
     expect(matches[0]?.text).toContain('transition-transform');
   });
 });

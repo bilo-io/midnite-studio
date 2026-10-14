@@ -9,6 +9,7 @@ import { DetachedWindowFrame } from './components/detached-window-frame';
 import { PAGE_ROLE_TITLE } from './components/page-detach-mark';
 import { VIEW_COMPONENT } from './components/view-registry';
 import { DialogHost } from './components/dialog-host';
+import { StudioProviders } from './compose/studio-providers';
 import { ErrorBoundary } from './components/error-boundary';
 import { PaletteHost } from './components/palette-host';
 import { ToastHost } from './components/toast-host';
@@ -282,7 +283,9 @@ export function DetachedRoot({ role }: { role: WindowRole }) {
               have.
             */}
             <ErrorBoundary label={ROLE_TITLE[popoutRole]}>
-              <DetachedShell role={popoutRole} />
+              <StudioProviders>
+                <DetachedShell role={popoutRole} />
+              </StudioProviders>
             </ErrorBoundary>
           </PaletteHost>
         </ToastHost>

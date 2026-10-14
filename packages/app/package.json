@@ -21,6 +21,8 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@floating-ui/dom": "^1.8.0",
+    "@midnite/studio-feature-optimizer": "workspace:*",
+    "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@monaco-editor/react": "4.7.0",
     "@react-symbols/icons": "^1.4.1",

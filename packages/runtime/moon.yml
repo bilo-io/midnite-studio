@@ -1,0 +1,37 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# The runtime layer (Phase 113 Theme C) — main-process services no window
+# owns: today the contract a feature's main half registers against; Theme D
+# moves the vault, the pty broker, the CLI/MCP server and the link router in.
+# See docs/APPS.md ("Packages") for where it sits in the layer graph.
+language: 'typescript'
+layer: 'library'
+
+# `layer-*` names the Phase 113 layer; `app-*` the apps a change here reaches.
+# The runtime is beneath every app, so it reaches them all
+# (`scripts/affected-apps.mjs` reads these).
+tags:
+  - 'layer-runtime'
+  - 'app-all'
+
+dependsOn:
+  - 'shared'
+
+tasks:
+  # Same shape as knowledge: tsc --noEmit resolves shared through a project
+  # reference but does not build it.
+  typecheck:
+    deps:
+      - '^:build'
+    inputs:
+      - 'src/**/*'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'

@@ -1,11 +1,21 @@
 $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
 projects:
-  # `packages/*` and `apps/*` are globbed; the workspace root is registered explicitly as the
+  # `packages/*` (by moon.yml) and `apps/*` are globbed; the workspace root is registered explicitly as the
   # `root` project so workspace-wide tasks (install) exist as a dependency target
   # without moon inheriting the per-package build/test/typecheck/lint tasks there.
   globs:
-    - 'packages/*'
+    # Phase 113 Theme C: a project is any `packages/<x>` or
+    # `packages/features/<name>` that carries a moon.yml. Globbing the moon.yml
+    # file (not the folder) is deliberate: `packages/features` is only the
+    # feature packages' folder, and the folder-glob form
+    # (`packages/*` + `!packages/features` + `packages/features/*`) makes both
+    # moon 1.41 (CI's `pnpm exec moon`) and moon 2.5 register a phantom,
+    # task-less `packages` project. Every package already has a moon.yml, and
+    # one without would fail its own `moon run <id>:…` in ci.yml, which
+    # scripts/gate-projects-check.mjs requires for every packages/* folder.
+    - 'packages/*/moon.yml'
+    - 'packages/features/*/moon.yml'
     # `apps/*` holds whole installable products built from `packages/*` — the
     # Midnite Apps launcher first. Same task inheritance as a package.
     - 'apps/*'

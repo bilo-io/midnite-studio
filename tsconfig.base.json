@@ -25,7 +25,9 @@
       "@midnite/studio-db-engine": ["./packages/db-engine/src/index.ts"],
       "@midnite/studio-db-engine/*": ["./packages/db-engine/src/*"],
       "@midnite/studio-knowledge": ["./packages/knowledge/src/index.ts"],
-      "@midnite/studio-knowledge/*": ["./packages/knowledge/src/*"]
+      "@midnite/studio-knowledge/*": ["./packages/knowledge/src/*"],
+      "@midnite/studio-runtime": ["./packages/runtime/src/index.ts"],
+      "@midnite/studio-feature-optimizer/main": ["./packages/features/optimizer/main/index.ts"]
     }
   }
 }
