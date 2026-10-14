@@ -1,6 +1,16 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-14 — Phase 113 Theme D (slice) — the `midnite://` link router
+
+[PR #849](https://github.com/bilo-io/midnite-studio/pull/849). Every app now has one link form,
+`midnite://open?app=<id>[&view=…][&tab=…|&page=…]`, built and parsed by
+`packages/shared/src/midnite-link.ts` (zod-free so the launcher imports it by source path). The
+launcher owns the scheme: it opens an installed app bundle (a seam that returns nothing until bundles
+exist), else forwards to Studio as `midnite-studio://view?…`, else brings itself forward on that
+app's detail sheet. Studio's own `midnite-studio://` links are unchanged. The rest of Theme D — one
+vault, the shared broker, the CLI/MCP owner and cross-app hand-off — is still to come.
+
 ## 2026-10-14 — Phase 113 Theme C — Package extraction scaffolding
 
 [PR #850](https://github.com/bilo-io/midnite-studio/pull/850). The layers the suite split needs now
