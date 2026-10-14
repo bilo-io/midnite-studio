@@ -244,3 +244,23 @@ project `feature-<name>`. A new feature therefore fails CI until it is added to 
    to `NODE_PROJECTS`.
 6. Composition tests that render the feature inside Studio stay in `app/src/compose/<name>/` and import
    `/renderer/testing`. Tests of the feature alone move with it and use its in-memory test host.
+
+## App compositions
+
+Each app in `apps/` composes the frame, its assigned features, and its host ports into an installable desktop product.
+
+### App 5: Browser (`apps/browser`)
+
+The Browser app (`apps/browser`) composes the frame's `browser` feature and the `web-apps` rail.
+
+**What the app adds over the frame's browser panel:**
+1. **Full-window browsing canvas**: In Studio, the browser is an auxiliary panel (overlay or side-by-side) sharing space with git graphs, terminals, and editor panes. `apps/browser` gives browsing the full window with full-bleed page viewports, dedicated tabs, search, history, bookmarks, and keyboard navigation without git/editor chrome.
+2. **First-class web-apps rail dock**: Integrates the Phase 83 `web-apps` rail as a primary dock surface alongside ephemeral browser tabs. Pinned web apps (Slack, Notion, Linear, Spotify, GitHub) retain persistent, isolated session partitions (`persist:app-<id>`) with fast switching and flyout management.
+3. **Agent-driven browsing sessions**: Native hooks for AI agents to steer, inspect, and test web pages. Autonomous sessions support agent automation, step-by-step navigation, DOM snapshot inspection, and companion interaction directly from the browser window.
+4. **Independent profile & workspace isolation**: Dedicated session storage, cookies, and cache independent of code repository checkouts.
+
+**Package architecture & ports:**
+- **Moon tags**: `layer-app`, `app-browser`.
+- **Imports**: Composes `@midnite/studio-frame` and features; reaches main via bridge; never imports other apps or desktop directly.
+- **Ports**: Implements the frame's chrome port (`FrameChromeProvider`) and the `BrowserHost` port (managing tab state, web-apps dock state, agent session mode, and browser settings).
+

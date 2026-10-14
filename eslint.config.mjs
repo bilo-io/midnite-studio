@@ -96,7 +96,7 @@ const NO_ELECTRON = {
   where a relative path could reach around the package name, by path.
 */
 const LAYER_APP = {
-  group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/app-*', '@midnite/launcher', '@midnite/launcher/*', '**/app/src/**'],
+  group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/app-*', '@midnite/launcher', '@midnite/launcher/*', '**/app/src/**', '**/apps/**'],
   message:
     'Nothing below an app imports one (docs/APPS.md): an app composes features and the frame, never the other way round. If an app owns something a lower layer needs, move it down — into the frame, a feature, or shared.',
 };
@@ -490,6 +490,39 @@ export default tseslint.config(
       {
         group: ['lucide-react', 'lucide-react/*'],
         message: 'react-icons is the only icon family here too — import from react-icons/lu.',
+      },
+    ]),
+  },
+
+  // --- Boundary: suite apps (Phase 113 Theme L: apps/browser, etc.) ----------
+  // An installable suite app composes features and the frame:
+  // - May import `@midnite/studio-frame`, `@midnite/studio-shared`, and features.
+  // - May NOT import another app (@midnite/studio-app, @midnite/launcher, other apps).
+  // - May NOT import the runtime directly in renderer code.
+  // - May NOT import desktop.
+  // - May NOT import a feature's main half (renderer code composes /renderer).
+  {
+    files: ['apps/!(launcher)/src/**/*.{ts,tsx}'],
+    rules: deny([
+      NO_APP_UPDATER,
+      ...APP_PATTERNS,
+      ...APP_LAYER_PATTERNS,
+      APP_FEATURE_TESTING,
+      {
+        group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/launcher', '@midnite/launcher/*'],
+        message: 'An app never imports another app: compose from features, the frame and shared.',
+      },
+    ]),
+  },
+  {
+    files: ['apps/!(launcher)/src/**/*.test.{ts,tsx}'],
+    rules: deny([
+      NO_APP_UPDATER,
+      ...APP_PATTERNS,
+      ...APP_LAYER_PATTERNS,
+      {
+        group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/launcher', '@midnite/launcher/*'],
+        message: 'An app never imports another app: compose from features, the frame and shared.',
       },
     ]),
   },

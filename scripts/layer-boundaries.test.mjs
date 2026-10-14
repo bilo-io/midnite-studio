@@ -47,6 +47,7 @@ const FRAME = 'packages/frame/src/layout/content-box.ts';
 const RUNTIME = 'packages/runtime/src/feature-main.ts';
 const APP = 'packages/app/src/compose/studio-providers.tsx';
 const APP_TEST = 'packages/app/src/compose/optimizer/storage-tab.test.tsx';
+const SUITE_APP = 'apps/browser/src/browser-app.tsx';
 const DESKTOP = 'packages/desktop/src/main/ipc/optimizer-handlers.ts';
 
 /** [description, file, import specifier, substring the firing message must contain] */
@@ -90,12 +91,22 @@ const REJECTED = [
   ['a feature renderer imports electron-updater', FEATURE_RENDERER, 'electron-updater', 'No app runs its own updater'],
   ['the frame imports electron-updater', FRAME, 'electron-updater', 'No app runs its own updater'],
   ['the runtime imports electron-updater', RUNTIME, 'electron-updater', 'No app runs its own updater'],
+
+  // --- Phase 113 suite apps boundary rules ---------------------------------
+  ['a suite app imports electron-updater', SUITE_APP, 'electron-updater', 'No app runs its own updater'],
+  ['a suite app imports another app', SUITE_APP, '@midnite/studio-app', 'An app never imports another app'],
+  ['a suite app imports the runtime', SUITE_APP, '@midnite/studio-runtime', 'main-process only'],
+  ["a suite app imports a feature's main half", SUITE_APP, '@midnite/studio-feature-optimizer/main', "feature's main half runs in the main process"],
+  ['a feature imports a suite app (relative path)', FEATURE_RENDERER, '../../../../apps/browser/src/index', 'Nothing below an app imports one'],
 ];
 
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */
 const ALLOWED = [
   ['an app imports a feature renderer half', APP, '@midnite/studio-feature-optimizer/renderer'],
   ['an app imports the frame', APP, '@midnite/studio-frame'],
+  ['a suite app imports the frame', SUITE_APP, '@midnite/studio-frame'],
+  ['a suite app imports a feature renderer half', SUITE_APP, '@midnite/studio-feature-optimizer/renderer'],
+  ['a suite app imports shared', SUITE_APP, '@midnite/studio-shared'],
   ["an app's composition test imports a feature's testing entry", APP_TEST, '@midnite/studio-feature-optimizer/renderer/testing'],
   ['a feature renderer imports the frame', FEATURE_RENDERER, '@midnite/studio-frame'],
   ['a feature renderer imports shared', FEATURE_RENDERER, '@midnite/studio-shared'],
