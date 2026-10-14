@@ -1,6 +1,19 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-14 — Phase 113 Theme C — Package extraction scaffolding
+
+[PR #850](https://github.com/bilo-io/midnite-studio/pull/850). The layers the suite split needs now
+exist as packages: `packages/runtime` (the main-process context a feature registers against),
+`packages/frame` (the cross-app chrome, starting with the bridge, toasts, metrics and settings
+helpers plus two pieces out of `app.tsx`, with a chrome port the app supplies), and
+`packages/features/optimizer` — the first feature package, with `manifest.ts`, `renderer/` and
+`main/`, composed back into Studio with no stored setting moved. `VIEW_IDS` and
+`SETTINGS_PAGE_IDS` are built from per-feature registrations and pinned to the old lists. eslint
+enforces app ← feature ← frame ← shared (45 fixture cases); moon finds projects by `moon.yml`
+files, `gate-projects-check` knows `feature-*`, and `scripts/affected-apps.mjs` names the apps a
+change touches. `docs/APPS.md` documents the packages and how to extract the next feature.
+
 ## 2026-10-14 — Phase 113 Theme E (slice) — catalog.json schema and the launcher's dev identity
 
 [PR #848](https://github.com/bilo-io/midnite-studio/pull/848). The launcher has a zod schema for
