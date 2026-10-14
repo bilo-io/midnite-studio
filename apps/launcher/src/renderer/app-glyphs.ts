@@ -37,9 +37,10 @@ export const APP_GLYPHS: Record<AppId, IconType> = {
 };
 
 /**
- * The launcher's own mark — a grid of apps, on the moon in Studio's former
- * purple. Drawn top-left in the title bar and built into the launcher's
- * `resources/icon.icns`.
+ * The launcher's own mark — a grid of apps on the moon, in the brand gradient
+ * like Studio (it is the suite's front door, not one app in it). Drawn top-left
+ * in the title bar and built into the launcher's `resources/icon.icns`.
+ * `LAUNCHER_ACCENT` is only the fallback a single-colour surface would use.
  */
 export const LAUNCHER_GLYPH: IconType = PiSquaresFourFill;
 export const LAUNCHER_ACCENT = '#a855f7';

@@ -25,6 +25,6 @@ export function logoData(): LogoSpec[] {
       brand: app.gradient === 'brand',
       svg: whiteSvg(APP_GLYPHS[app.id]),
     })),
-    { id: 'launcher', accent: LAUNCHER_ACCENT, brand: false, svg: whiteSvg(LAUNCHER_GLYPH) },
+    { id: 'launcher', accent: LAUNCHER_ACCENT, brand: true, svg: whiteSvg(LAUNCHER_GLYPH) },
   ];
 }

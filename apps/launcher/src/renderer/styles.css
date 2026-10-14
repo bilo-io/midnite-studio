@@ -563,6 +563,13 @@ button:disabled {
     var(--accent) 50%,
     color-mix(in srgb, var(--accent) 75%, black)
   );
+  /* The glow's colours as a closed loop (first stop = last), for the conic ring. */
+  --app-ring:
+    color-mix(in srgb, var(--accent) 55%, white),
+    var(--accent),
+    color-mix(in srgb, var(--accent) 70%, black),
+    var(--accent),
+    color-mix(in srgb, var(--accent) 55%, white);
   position: relative;
   z-index: 0;
   display: flex;
@@ -571,7 +578,8 @@ button:disabled {
   border-bottom: 1px solid var(--line);
 }
 
-.tile[data-brand] {
+.tile[data-brand],
+.app-table tr[data-brand] {
   --app-gradient: linear-gradient(
     135deg,
     hsl(217 95% 58%),
@@ -580,6 +588,9 @@ button:disabled {
     hsl(271 91% 65%) 78%,
     hsl(308 78% 58%)
   );
+  --app-ring:
+    hsl(217 95% 58%), hsl(235 88% 68%), hsl(258 90% 66%), hsl(271 91% 65%), hsl(308 78% 58%),
+    hsl(217 95% 58%);
 }
 
 .tile::before {
@@ -591,15 +602,46 @@ button:disabled {
   transition: background 0.15s;
 }
 
+/*
+  The glow is a conic gradient of the app's colours whose start angle turns
+  (`--glow-angle`, registered so it can be animated), so the colour runs round
+  the tile; on top of that it breathes — opacity and a slight scale — while the
+  pointer stays on it.
+*/
+@property --glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 .tile-glow {
   position: absolute;
   inset: 0;
   z-index: -2;
-  background: var(--app-gradient);
+  background: conic-gradient(from var(--glow-angle), var(--app-ring));
   filter: blur(26px);
   opacity: 0;
   transition: opacity 0.2s ease-out;
   pointer-events: none;
+}
+
+@keyframes glow-turn {
+  to {
+    --glow-angle: 360deg;
+  }
+}
+
+@keyframes glow-breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(0.99);
+  }
+
+  50% {
+    opacity: 0.95;
+    transform: scale(1.03);
+  }
 }
 
 .tile:hover {
@@ -612,10 +654,37 @@ button:disabled {
 
 .tile:hover .tile-glow {
   opacity: 0.85;
+  animation:
+    glow-turn 4s linear infinite,
+    glow-breathe 2.4s ease-in-out infinite;
 }
 
-/* Studio's frame: a 1 px ring of the brand gradient over the hairline grid. */
-.tile[data-brand]::after {
+/*
+  Studio's frame: a 1 px ring of the brand gradient over the hairlines — the
+  same treatment on its grid tile and its table row.
+
+  A row cannot carry it as a pseudo-element: Chromium turns a `tr::after` into
+  an extra table column. So the row's first cell holds an absolutely-placed
+  `.row-frame` as wide as the table (`100cqw` of `.table-wrap`).
+*/
+.table-wrap {
+  container-type: inline-size;
+}
+
+.app-table tr[data-brand] td:first-child {
+  position: relative;
+}
+
+.row-frame {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: -1px;
+  width: 100cqw;
+}
+
+.tile[data-brand]::after,
+.row-frame {
   content: '';
   position: absolute;
   inset: -1px;
@@ -1032,8 +1101,10 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tile-glow {
+  .tile-glow,
+  .tile:hover .tile-glow {
     transition: none;
+    animation: none;
   }
 
   .rainbow-text,
