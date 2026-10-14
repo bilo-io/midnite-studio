@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LauncherBridge } from '../common/bridge';
+import { APPS } from '../common/catalog';
 import { App } from './app';
 import { createMockBridge } from './mock-bridge';
 
@@ -21,11 +22,11 @@ afterEach(() => {
 });
 
 describe('<App>', () => {
-  it('lists all seven apps with Install while Studio is missing', async () => {
+  it('lists every app with Install while Studio is missing', async () => {
     mount(null);
-    await waitFor(() => expect(screen.getAllByLabelText(/^Install Midnite /)).toHaveLength(7));
-    expect(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: 'All 7' })).toBeDefined();
-    expect(screen.getAllByText('Runs in Studio')).toHaveLength(6);
+    await waitFor(() => expect(screen.getAllByLabelText(/^Install Midnite /)).toHaveLength(APPS.length));
+    expect(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: `All ${APPS.length}` })).toBeDefined();
+    expect(screen.getAllByText('Runs in Studio')).toHaveLength(APPS.length - 1);
   });
 
   it('opens an app in Studio on its own view once Studio is installed', async () => {
@@ -38,8 +39,8 @@ describe('<App>', () => {
   it('shows the update banner and the Updates filter count when Studio is behind', async () => {
     mount('update');
     expect(await screen.findByText('Midnite Studio 0.4.1 is available.')).toBeDefined();
-    fireEvent.click(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: 'Updates 7' }));
-    expect(screen.getAllByRole('article')).toHaveLength(7);
+    fireEvent.click(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: `Updates ${APPS.length}` }));
+    expect(screen.getAllByRole('article')).toHaveLength(APPS.length);
   });
 
   it('filters by search and says so when nothing matches', async () => {
@@ -80,12 +81,12 @@ describe('<App>', () => {
     fireEvent.click(screen.getByLabelText('More for Midnite Coder'));
     fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Move Midnite Studio to Trash/ }));
     const dialog = screen.getByRole('alertdialog');
-    expect(within(dialog).getByText(/all 7 of them go with it/)).toBeDefined();
+    expect(within(dialog).getByText(`all ${APPS.length} of them go with it`, { exact: false })).toBeDefined();
     expect(uninstall).not.toHaveBeenCalled();
     await act(async () => {
       fireEvent.click(within(dialog).getByRole('button', { name: 'Move to Trash' }));
     });
     expect(uninstall).toHaveBeenCalled();
-    expect(await screen.findAllByLabelText(/^Install Midnite /)).toHaveLength(7);
+    expect(await screen.findAllByLabelText(/^Install Midnite /)).toHaveLength(APPS.length);
   });
 });

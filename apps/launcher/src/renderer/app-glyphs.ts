@@ -1,5 +1,5 @@
 import type { IconType } from 'react-icons';
-import { LuBot, LuCode, LuGamepad2, LuGlobe, LuLayoutGrid, LuPalette, LuSparkles } from 'react-icons/lu';
+import { LuBot, LuCode, LuGamepad2, LuGlobe, LuLayoutGrid, LuMonitorPlay, LuPalette, LuSparkles } from 'react-icons/lu';
 
 import type { AppId } from '../common/catalog';
 
@@ -13,6 +13,7 @@ export const APP_GLYPHS: Record<AppId, IconType> = {
   coder: LuCode,
   gamer: LuGamepad2,
   creator: LuPalette,
+  media: LuMonitorPlay,
   browser: LuGlobe,
   cleaner: LuSparkles,
   studio: LuLayoutGrid,

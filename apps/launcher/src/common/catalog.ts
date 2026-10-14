@@ -59,7 +59,7 @@ export type LauncherApp = {
   runsIn: 'studio';
 };
 
-export const APP_IDS = ['agents', 'coder', 'gamer', 'creator', 'browser', 'cleaner', 'studio'] as const;
+export const APP_IDS = ['agents', 'coder', 'gamer', 'creator', 'media', 'browser', 'cleaner', 'studio'] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 const view = (v: ViewId, tab?: MediaTab): StudioTarget =>
@@ -149,6 +149,23 @@ export const APPS: readonly LauncherApp[] = [
       { id: 'images', label: 'Images', blurb: 'Prompts, providers and variations', target: view('media', 'image') },
       { id: 'audio', label: 'Audio', blurb: 'Songs, loops and soundtracks', target: view('media', 'audio') },
       { id: 'video', label: 'Video', blurb: 'Editorial scripts into cuts', target: view('media', 'video') },
+    ],
+    runsIn: 'studio',
+  },
+  {
+    id: 'media',
+    name: 'Media',
+    section: 'suite',
+    accent: '#facc15',
+    tagline: 'Your own media server — films, shows, music and photos',
+    like: 'Like Plex and Jellyfin',
+    vision:
+      'Point it at your folders and it becomes a library: films and shows with artwork and watch progress, music, and photos, streamed to every screen in the house — transcoded on the fly, with nothing leaving your network unless you ask it to.',
+    home: view('media', 'video'),
+    features: [
+      { id: 'library', label: 'Movies & Shows', blurb: 'A browsable library with progress', target: view('media', 'video') },
+      { id: 'music', label: 'Music', blurb: 'Albums, artists and playlists', target: view('media', 'audio') },
+      { id: 'photos', label: 'Photos', blurb: 'Albums from your folders', target: view('media', 'image') },
     ],
     runsIn: 'studio',
   },

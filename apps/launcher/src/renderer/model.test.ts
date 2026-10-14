@@ -18,8 +18,9 @@ describe('launcher model', () => {
   });
 
   it('counts and groups by section, dropping empty ones', () => {
-    expect(filterCounts(() => 'not-installed')).toEqual({ all: 7, installed: 0, updates: 0, 'not-installed': 7 });
-    expect(filterCounts(() => 'update')).toEqual({ all: 7, installed: 7, updates: 7, 'not-installed': 0 });
+    const n = APPS.length;
+    expect(filterCounts(() => 'not-installed')).toEqual({ all: n, installed: 0, updates: 0, 'not-installed': n });
+    expect(filterCounts(() => 'update')).toEqual({ all: n, installed: n, updates: n, 'not-installed': 0 });
 
     const all = visibleSections({ filter: 'all', query: '', sort: 'suite', stateOf: () => 'installed' });
     expect(all.map((g) => g.section)).toEqual(['suite', 'utilities', 'all-in-one']);
@@ -30,6 +31,6 @@ describe('launcher model', () => {
     expect(visibleSections({ filter: 'updates', query: '', sort: 'suite', stateOf: () => 'installed' })).toEqual([]);
 
     const byName = visibleSections({ filter: 'all', query: '', sort: 'name', stateOf: () => 'installed' });
-    expect(byName[0]!.apps.map((a) => a.name)).toEqual(['Agents', 'Coder', 'Creator', 'Gamer']);
+    expect(byName[0]!.apps.map((a) => a.name)).toEqual(['Agents', 'Coder', 'Creator', 'Gamer', 'Media']);
   });
 });
