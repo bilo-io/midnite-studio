@@ -282,7 +282,7 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `mcp__midnite__*` allowlist or Codex `mcp_servers.midnite.*` key derive from it, so they cannot drift).
   `midnite-studio` stays as a forwarding alias for one release (removal is tracked in
   `outstanding.md`). The original midnite app ships its own `midnite` CLI, so the installer
-  (`main/ipc/cli-handlers.ts`) only replaces a `midnite` whose symlink resolves into this app's bundle;
+  (`runtime/src/cli/cli-installer.ts` since Phase 113 Theme D, bound by `main/ipc/cli-handlers.ts`; the MCP tool list is filtered per installed app by `shared/src/mcp-tool-owners.ts`) only replaces a `midnite` whose symlink resolves into this app's bundle;
   a foreign one is left untouched, only the alias is installed, and the reason comes back in
   `CliStatusResponse.notice`. The app name, the `midnite-studio://` protocol and release tags are unchanged.
 - **Public downloads and issues live in
