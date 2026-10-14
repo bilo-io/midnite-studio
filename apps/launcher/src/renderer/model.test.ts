@@ -46,6 +46,7 @@ describe('launcher model', () => {
       'Browser',
       'Capture',
       'Cleaner',
+      'Monitor',
       'Vault',
     ]);
   });

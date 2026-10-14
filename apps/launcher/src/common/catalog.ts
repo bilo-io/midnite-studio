@@ -64,7 +64,7 @@ export type LauncherApp = {
   runsIn: 'studio';
 };
 
-export const APP_IDS = ['studio', 'agents', 'coder', 'gamer', 'creator', 'media', 'money', 'mind', 'browser', 'cleaner', 'vault', 'capture'] as const;
+export const APP_IDS = ['studio', 'agents', 'coder', 'gamer', 'creator', 'media', 'money', 'mind', 'browser', 'cleaner', 'vault', 'capture', 'monitor'] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 const view = (v: ViewId, tab?: MediaTab): StudioTarget =>
@@ -108,7 +108,7 @@ export const APPS: readonly LauncherApp[] = [
     name: 'Agents',
     section: 'suite',
     accent: '#8b5cf6',
-    tagline: 'Chats, councils and agent graphs',
+    tagline: 'Chats, councils, graphs and local models',
     like: 'Like ChatGPT Desktop and LangGraph Studio',
     vision:
       'One place to talk to every agent CLI you have, put several of them on a question at once, and wire them into graphs that run on their own. Conversations keep their changes reviewable, and a council answers with a synthesis rather than five tabs.',
@@ -117,6 +117,8 @@ export const APPS: readonly LauncherApp[] = [
       { id: 'chats', label: 'Chats', blurb: 'Agent-CLI conversations with reviewable changes', target: view('chats') },
       { id: 'councils', label: 'Councils', blurb: 'Several agents on one question, one synthesis', target: view('councils') },
       { id: 'graphs', label: 'Graphs', blurb: 'Agent workflows as runnable graphs', target: view('workflows') },
+      { id: 'models', label: 'Models', blurb: 'Local models, run on your own machine', target: view('models') },
+      { id: 'tools', label: 'Tools (MCP)', blurb: 'MCP servers your agents can call', target: view('settings') },
     ],
     runsIn: 'studio',
   },
@@ -224,6 +226,7 @@ export const APPS: readonly LauncherApp[] = [
       { id: 'notes', label: 'Notes', blurb: 'Quick capture, linked and searchable', target: view('notes') },
       { id: 'tasks', label: 'Tasks', blurb: 'Boards, issues and what is next', target: view('tasks') },
       { id: 'knowledge', label: 'Knowledge', blurb: 'The graph that ties it all together', target: view('knowledge') },
+      { id: 'review', label: 'Review', blurb: 'Notes into flashcards, on a schedule', target: view('notes') },
     ],
     runsIn: 'studio',
   },
@@ -291,6 +294,23 @@ export const APPS: readonly LauncherApp[] = [
     features: [
       { id: 'screenshots', label: 'Screenshots', blurb: 'Regions and windows, annotated', target: view('media', 'image') },
       { id: 'recordings', label: 'Recordings', blurb: 'Screen captures into clips', target: view('media', 'video') },
+    ],
+    runsIn: 'studio',
+  },
+  {
+    id: 'monitor',
+    name: 'Monitor',
+    section: 'utilities',
+    accent: '#ef4444',
+    tagline: 'Live runtime state for your machine',
+    like: 'Like iStat Menus and Activity Monitor, for developers',
+    vision:
+      'Watch what your workspace is doing right now — CPU and memory, the processes and open ports your dev servers hold, the agent sessions still running, the terminal broker, and what the tokens are costing — and catch the runaway before it catches you.',
+    home: view('settings'),
+    features: [
+      { id: 'health', label: 'System health', blurb: 'CPU, memory, processes and open ports', target: view('settings') },
+      { id: 'sessions', label: 'Agent sessions', blurb: 'What is running, and for how long', target: view('sessions') },
+      { id: 'diagnostics', label: 'Diagnostics', blurb: 'The terminal broker and token spend', target: view('settings') },
     ],
     runsIn: 'studio',
   },
