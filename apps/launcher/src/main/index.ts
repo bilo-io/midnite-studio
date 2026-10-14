@@ -1,9 +1,13 @@
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { app, BrowserWindow, Menu, shell } from 'electron';
 
+import { LAUNCHER_CHANNELS } from '../common/bridge';
+import type { AppId } from '../common/catalog';
 import { applyDevIdentity } from './identity';
-import { registerIpc } from './ipc';
+import { registerIpc, takePendingApp } from './ipc';
+import { findAppBundle, handleMidniteLink, linkFromArgv } from './router';
+import { findStudio } from './studio';
 
 /**
  * Midnite Apps — main process.
@@ -50,10 +54,68 @@ function createWindow(): void {
   void mainWindow.loadFile(join(__dirname, 'renderer', 'index.html'));
 }
 
+/**
+ * `midnite://open?app=…` (Phase 113 Theme D). Registered for dev (so the link finds this
+ * checkout's Electron) and packaged runs; the scheme is also declared in electron-builder.yml
+ * so a packaged build's Info.plist claims it.
+ */
+function registerProtocol(): void {
+  if (!app.isPackaged) {
+    const mainScript = process.argv[1] ? resolve(process.argv[1]) : process.cwd();
+    app.setAsDefaultProtocolClient('midnite', process.execPath, [mainScript]);
+  } else {
+    app.setAsDefaultProtocolClient('midnite');
+  }
+}
+
+let pendingLink: string | null = null;
+let ready = false;
+
+function bringForward(): void {
+  if (mainWindow === null) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function openLink(raw: string): void {
+  if (!ready) {
+    pendingLink = raw;
+    return;
+  }
+  void handleMidniteLink(
+    raw,
+    { findAppBundle, isStudioInstalled: async () => (await findStudio()) !== null },
+    {
+      // No per-app bundle exists yet (`findAppBundle` is null), so this branch is for later.
+      openBundle: (path) => shell.openPath(path).then((error) => (error === '' ? undefined : Promise.reject(new Error(error)))),
+      openStudioUrl: (url) => shell.openExternal(url),
+      showDetail: (id: AppId) => {
+        bringForward();
+        const send = () => mainWindow?.webContents.send(LAUNCHER_CHANNELS.appShow, id);
+        // A window still loading has no listener yet: park it for the renderer to take on mount.
+        if (mainWindow === null || mainWindow.webContents.isLoading()) takePendingApp(id);
+        else send();
+      },
+    },
+  );
+}
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  openLink(url);
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  registerProtocol();
+  app.on('second-instance', (_event, argv) => {
+    const link = linkFromArgv(argv);
+    if (link !== undefined) openLink(link);
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
@@ -77,6 +139,10 @@ if (!app.requestSingleInstanceLock()) {
     }
     registerIpc(() => mainWindow);
     createWindow();
+    ready = true;
+    const first = pendingLink ?? linkFromArgv(process.argv);
+    pendingLink = null;
+    if (first !== undefined && first !== null) openLink(first);
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });

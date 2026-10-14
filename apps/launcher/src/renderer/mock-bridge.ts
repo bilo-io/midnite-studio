@@ -55,7 +55,7 @@ export function createMockBridge(mode: string | null): LauncherBridge {
         return () => listeners.delete(listener);
       },
     },
-    apps: { open: ok },
+    apps: { open: ok, onShow: () => () => undefined, takePending: async () => null },
     links: { open: ok },
     theme: { set: () => undefined },
   };

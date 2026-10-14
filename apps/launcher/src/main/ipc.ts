@@ -2,7 +2,7 @@ import { ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron';
 import { z } from 'zod';
 
 import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherResult } from '../common/bridge';
-import { APP_IDS } from '../common/catalog';
+import { APP_IDS, type AppId } from '../common/catalog';
 import { DOWNLOAD_URL, GITHUB_URL, RELEASES_URL, SITE_URL } from './constants';
 import { fetchStudioRelease } from './feed';
 import { installStudio } from './install';
@@ -12,6 +12,19 @@ import { findStudio, isStudioRunning, studioStatus } from './studio';
 const AppOpenSchema = z.object({ id: z.enum(APP_IDS), featureId: z.string().max(64).optional() });
 const LinkSchema = z.enum(EXTERNAL_LINKS);
 const ThemeSchema = z.enum(THEME_SOURCES);
+
+let pendingApp: AppId | null = null;
+
+/** Parks the app a `midnite://` link asked for until the renderer mounts and takes it. */
+export function takePendingApp(id?: AppId): AppId | null {
+  if (id !== undefined) {
+    pendingApp = id;
+    return null;
+  }
+  const taken = pendingApp;
+  pendingApp = null;
+  return taken;
+}
 
 const failure = (message: string): LauncherResult => ({ ok: false, message });
 
@@ -49,6 +62,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     shell.showItemInFolder(installed.path);
     return { ok: true };
   });
+
+  ipcMain.handle(LAUNCHER_CHANNELS.appPending, () => takePendingApp());
 
   ipcMain.handle(LAUNCHER_CHANNELS.appOpen, async (_event, raw: unknown): Promise<LauncherResult> => {
     const parsed = AppOpenSchema.safeParse(raw);

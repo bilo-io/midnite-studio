@@ -37,6 +37,21 @@ describe('<App>', () => {
     expect(open).toHaveBeenCalledWith('coder', undefined);
   });
 
+  it('opens an app\'s detail sheet when a midnite:// link asks for one (live and parked)', async () => {
+    const bridge = createMockBridge(null);
+    let show: (id: 'money') => void = () => undefined;
+    bridge.apps.onShow = (listener) => {
+      show = listener as typeof show;
+      return () => undefined;
+    };
+    bridge.apps.takePending = async () => 'coder';
+    window.midniteLauncher = bridge as LauncherBridge;
+    render(<App />);
+    expect(await screen.findByText(/Midnite Coder/, { selector: '[role="dialog"] *' })).toBeDefined();
+    act(() => show('money'));
+    expect(await screen.findByText(/Midnite Money/, { selector: '[role="dialog"] *' })).toBeDefined();
+  });
+
   it('shows the update banner and the Updates filter count when Studio is behind', async () => {
     mount('update');
     expect(await screen.findByText('Midnite Studio 0.4.1 is available.')).toBeDefined();
