@@ -21,9 +21,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 /** @type {ESLint} */
 let eslint;
 
-beforeAll(() => {
+// The first lint loads the config and typescript-eslint cold (~5-10 s); warm it here, under a
+// hook timeout sized for that, so the first case is not the one that pays it against 5 s.
+beforeAll(async () => {
   eslint = new ESLint({ cwd: repoRoot });
-});
+  await eslint.lintText('export {};\n', { filePath: path.join(repoRoot, 'packages/frame/src/warm-up.ts'), warnIgnored: true });
+}, 60_000);
 
 /**
  * Lint `import … from '<specifier>'` as if it sat at `file` (repo-relative) and
@@ -80,6 +83,12 @@ const REJECTED = [
   ["an app's production code imports a feature's testing entry", APP, '@midnite/studio-feature-optimizer/renderer/testing', 'composition tests only'],
   ['desktop imports the frame', DESKTOP, '@midnite/studio-frame', 'never imports renderer code'],
   ["desktop imports a feature's renderer half", DESKTOP, '@midnite/studio-feature-optimizer/renderer', 'never imports renderer code'],
+
+  // --- Phase 113 Theme E: no app runs its own updater ----------------------
+  ['a feature main half imports electron-updater', FEATURE_MAIN, 'electron-updater', 'No app runs its own updater'],
+  ['a feature renderer imports electron-updater', FEATURE_RENDERER, 'electron-updater', 'No app runs its own updater'],
+  ['the frame imports electron-updater', FRAME, 'electron-updater', 'No app runs its own updater'],
+  ['the runtime imports electron-updater', RUNTIME, 'electron-updater', 'No app runs its own updater'],
 ];
 
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */
@@ -100,6 +109,9 @@ const ALLOWED = [
   ['the runtime imports shared', RUNTIME, '@midnite/studio-shared'],
   ["desktop imports a feature's main half", DESKTOP, '@midnite/studio-feature-optimizer/main'],
   ['desktop imports the runtime', DESKTOP, '@midnite/studio-runtime'],
+  // The suite's one updater, and Studio's until Theme G repoints it.
+  ['the launcher imports electron-updater', 'apps/launcher/src/main/updater.ts', 'electron-updater'],
+  ["Studio's update service imports electron-updater", 'packages/desktop/src/main/update-service.ts', 'electron-updater'],
 ];
 
 describe('eslint layer boundaries (Phase 113 Theme C)', () => {

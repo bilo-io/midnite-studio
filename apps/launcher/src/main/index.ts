@@ -1,7 +1,6 @@
 import { join, resolve } from 'node:path';
 
 import { app, BrowserWindow, Menu, shell } from 'electron';
-import { autoUpdater } from 'electron-updater';
 
 import { LAUNCHER_CHANNELS } from '../common/bridge';
 import type { AppId } from '../common/catalog';
@@ -13,7 +12,7 @@ import { applyDevIdentity } from './identity';
 import { registerIpc, takePendingApp } from './ipc';
 import { handleMidniteLink, installedBundleFinder, linkFromArgv } from './router';
 import { findStudio } from './studio';
-import { isAdHocSigned, runLauncherUpdates } from './updater';
+import { isAdHocSigned, loadAutoUpdater, runLauncherUpdates } from './updater';
 
 /**
  * Midnite Apps — main process.
@@ -125,8 +124,9 @@ async function startUpdates(): Promise<void> {
     execPath: process.execPath,
     version: app.getVersion(),
   });
+  if (!app.isPackaged) return;
   await runLauncherUpdates({
-    updater: autoUpdater,
+    updater: await loadAutoUpdater(),
     isPackaged: app.isPackaged,
     adHocSigned: app.isPackaged && isAdHocSigned(process.execPath),
     updateBundles: async () => {

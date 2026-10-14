@@ -26,6 +26,14 @@ export const LAUNCHER_FEED_URL = `https://raw.githubusercontent.com/${RELEASES_R
 
 export const LAUNCHER_UPDATE_FEED = { provider: 'generic', url: LAUNCHER_FEED_URL, channel: 'latest' } as const;
 
+/**
+ * electron-updater's singleton — the suite's only import of it (`scripts/single-updater.test.mjs`
+ * holds that list). Loaded on demand so a dev run and the unit tests never construct it.
+ */
+export async function loadAutoUpdater(): Promise<UpdaterLike> {
+  return (await import('electron-updater')).autoUpdater;
+}
+
 /** The slice of electron-updater's `AppUpdater` this module drives — a fake in tests. */
 export type UpdaterLike = {
   autoDownload: boolean;
