@@ -251,6 +251,7 @@ jobs:
           website:typecheck website:lint website:test
           db-engine:typecheck db-engine:lint db-engine:test
           frame:typecheck frame:lint frame:test
+          feature-optimizer:typecheck feature-optimizer:lint feature-optimizer:test
           root:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}

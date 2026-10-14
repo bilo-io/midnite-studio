@@ -65,6 +65,7 @@ tasks:
     inputs:
       - 'scripts/gate-projects-check.mjs'
       - 'packages/*/package.json'
+      - 'packages/features/*/package.json'
     options:
       cache: false
 

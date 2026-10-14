@@ -28,7 +28,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // gate job actually runs. If you add a target to one of the jobs' moon
 // invocations, add its project id here too — that symmetry is what this script
 // checks.
-export const NODE_PROJECTS = ['shared', 'knowledge', 'app', 'website', 'db-engine', 'frame'];
+export const NODE_PROJECTS = ['shared', 'knowledge', 'app', 'website', 'db-engine', 'frame', 'feature-optimizer'];
 // `runtime` (Phase 113 Theme C) is on gate-native ahead of need: it is the
 // main-process layer Theme D moves the safeStorage vault and the pty broker
 // into, and platform behaviour is only validated on the platform.
@@ -37,6 +37,11 @@ export const NATIVE_PROJECTS = ['git-engine', 'desktop', 'runtime'];
 /**
  * @typedef {{ ok: boolean, message: string }} CheckResult
  */
+
+/** Where project `id` lives on disk — the inverse of `discoverProjectIds`. */
+function projectDir(id) {
+  return id.startsWith('feature-') ? `packages/features/${id.slice('feature-'.length)}` : `packages/${id}`;
+}
 
 /**
  * Pure check: every id in `discovered` must appear in exactly one of
@@ -76,7 +81,7 @@ export function checkGateCoverage(discovered, nodeProjects, nativeProjects) {
   for (const id of [...nodeProjects, ...nativeProjects]) {
     if (!discoveredSet.has(id)) {
       issues.push(
-        `  ${id}: listed in scripts/gate-projects-check.mjs but no packages/${id} directory exists — stale entry, or a typo.`,
+        `  ${id}: listed in scripts/gate-projects-check.mjs but no ${projectDir(id)} directory exists — stale entry, or a typo.`,
       );
     }
   }
@@ -96,10 +101,47 @@ export function checkGateCoverage(discovered, nodeProjects, nativeProjects) {
   };
 }
 
+/**
+ * The folder under packages/ that holds feature packages rather than being one
+ * (Phase 113 Theme C). `.moon/workspace.yml` globs `packages/features/*` and
+ * negates `packages/features` itself; this mirrors that.
+ */
+export const FEATURES_DIR = 'features';
+
+/**
+ * Map the directories found on disk to moon project ids, the same way
+ * `.moon/workspace.yml` does: every `packages/<x>` is project `<x>`, except the
+ * `packages/features` container, whose children `packages/features/<name>` are
+ * projects `feature-<name>` (the id each feature's own moon.yml declares).
+ * Pure, so the mapping is testable without a filesystem.
+ *
+ * @param {string[]} packageDirs — directory names directly under packages/
+ * @param {string[]} featureDirs — directory names directly under packages/features/
+ * @returns {string[]}
+ */
+export function discoverProjectIds(packageDirs, featureDirs) {
+  return [
+    ...packageDirs.filter((name) => name !== FEATURES_DIR),
+    ...featureDirs.map((name) => `feature-${name}`),
+  ];
+}
+
+async function listDirs(dir) {
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch (err) {
+    if (err && err.code === 'ENOENT') return [];
+    throw err;
+  }
+}
+
 async function main() {
   const packagesDir = path.join(repoRoot, 'packages');
-  const entries = await readdir(packagesDir, { withFileTypes: true });
-  const discovered = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  const discovered = discoverProjectIds(
+    await listDirs(packagesDir),
+    await listDirs(path.join(packagesDir, FEATURES_DIR)),
+  );
 
   const result = checkGateCoverage(discovered, NODE_PROJECTS, NATIVE_PROJECTS);
   if (result.ok) {
