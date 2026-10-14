@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resourceRefLink, studioViewLink } from '@midnite/studio-shared';
+import { resourceRefLink, studioSettingsLink, studioViewLink } from '@midnite/studio-shared';
 import { parseDeepLink } from './protocol-parse';
 
 describe('parseDeepLink', () => {
@@ -39,6 +39,14 @@ describe('parseDeepLink', () => {
   it('parses a view link built by studioViewLink, with a media tab', () => {
     expect(parseDeepLink(studioViewLink('sessions'))).toEqual({ kind: 'view', view: 'sessions' });
     expect(parseDeepLink(studioViewLink('media', 'game'))).toEqual({ kind: 'view', view: 'media', tab: 'game' });
+  });
+
+  it('parses a settings page, dropping an unknown page or one on another view', () => {
+    expect(parseDeepLink(studioSettingsLink('mcp'))).toEqual({ kind: 'view', view: 'settings', page: 'mcp' });
+    expect(parseDeepLink('midnite-studio://view?id=settings&page=nope')).toEqual({ kind: 'view', view: 'settings' });
+    expect(parseDeepLink('midnite-studio://view?id=settings')).toEqual({ kind: 'view', view: 'settings' });
+    expect(parseDeepLink('midnite-studio://view?id=sessions&page=mcp')).toEqual({ kind: 'view', view: 'sessions' });
+    expect(parseDeepLink('midnite-studio://view?id=settings&tab=game&page=mcp')).toEqual({ kind: 'view', view: 'settings', page: 'mcp' });
   });
 
   it('rejects an unknown view and drops a tab that does not belong', () => {

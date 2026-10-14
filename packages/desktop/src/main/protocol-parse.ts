@@ -1,9 +1,11 @@
 import {
   decodeResourceRefParam,
   MEDIA_TABS,
+  SETTINGS_PAGE_IDS,
   VIEW_IDS,
   type MediaTab,
   type ResourceRef,
+  type SettingsPageId,
   type ViewId,
 } from '@midnite/studio-shared';
 
@@ -11,7 +13,7 @@ export type DeepLink =
   | { kind: 'open'; repo: string }
   | { kind: 'clone'; url: string }
   | { kind: 'reveal'; ref: ResourceRef | null }
-  | { kind: 'view'; view: ViewId; tab?: MediaTab };
+  | { kind: 'view'; view: ViewId; tab?: MediaTab; page?: SettingsPageId };
 
 /**
  * Pure deep-link URL parser (Phase 33 Theme C).
@@ -21,9 +23,9 @@ export type DeepLink =
  * - midnite-studio://clone?url=<encoded-repo-url>
  * - midnite-studio://reveal?ref=<base64url JSON ResourceRef> (Phase 112 Theme I) —
  *   a payload that fails validation yields `ref: null`, which the renderer toasts.
- * - midnite-studio://view?id=<ViewId>[&tab=<MediaTab>] — the Midnite Apps launcher's
+ * - midnite-studio://view?id=<ViewId>[&tab=<MediaTab>|&page=<SettingsPageId>] — the Midnite Apps launcher's
  *   tiles (`studioViewLink`). An unknown view is `null`; an unknown or misplaced
- *   `tab` is dropped rather than failing the whole link.
+ *   `tab` (or `page`, valid only on `settings`) is dropped rather than failing the whole link.
  *
  * Returns `null` on any malformed input, invalid scheme/host, non-absolute repo path,
  * path with NUL bytes, or clone URL scheme other than https/ssh/git.
@@ -67,6 +69,10 @@ export function parseDeepLink(raw: string): DeepLink | null {
       const tab = parsed.searchParams.get('tab');
       if (view === 'media' && tab !== null && (MEDIA_TABS as readonly string[]).includes(tab)) {
         return { kind: 'view', view, tab: tab as MediaTab };
+      }
+      const page = parsed.searchParams.get('page');
+      if (view === 'settings' && page !== null && (SETTINGS_PAGE_IDS as readonly string[]).includes(page)) {
+        return { kind: 'view', view, page: page as SettingsPageId };
       }
       return { kind: 'view', view };
     }

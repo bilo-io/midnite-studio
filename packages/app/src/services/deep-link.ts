@@ -88,6 +88,7 @@ export function useDeepLinks(): void {
         }
         if (plan.kind === 'view') {
           if (link.tab !== undefined) useUiStore.getState().setMediaTab(link.tab);
+          if (link.page !== undefined && plan.view === 'settings') useUiStore.getState().setSettingsPage(link.page);
           useUiStore.getState().setActiveView(plan.view);
         }
         return;

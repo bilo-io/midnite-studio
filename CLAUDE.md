@@ -119,7 +119,7 @@ shared ◀ desktop
   website, off the graph: it reaches Studio only through `midnite-studio://` links and the public
   midnite-apps feed, and takes `shared` one file at a time by source path
   (`@midnite/studio-shared/studio-link`), never the barrel. Every tile resolves to Studio for now
-  — `midnite-studio://view?id=<ViewId>[&tab=<MediaTab>]` lands it on that app's view.
+  — `midnite-studio://view?id=<ViewId>[&tab=<MediaTab>|&page=<SettingsPageId>]` lands it on that app's view.
 
 `eslint.config.mjs` encodes these as per-package `no-restricted-imports` groups with
 explanatory messages. If a boundary rule fires, the fix is an IPC channel, not an exception.
