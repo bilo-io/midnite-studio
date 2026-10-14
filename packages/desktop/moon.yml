@@ -2,6 +2,13 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 language: 'typescript'
 
+# Phase 113 Theme C: Studio's main-side composer (`scripts/affected-apps.mjs`
+# reads `app-*`). git-engine and db-engine carry no app tag of their own — they
+# reach Studio through this project, as moon's downstream dependents.
+tags:
+  - 'layer-app'
+  - 'app-studio'
+
 # All four are `development` scope so moon's package.json sync keeps them in
 # devDependencies. None is a RUNTIME dependency of the packaged app:
 #
