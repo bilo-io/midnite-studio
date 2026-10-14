@@ -11,6 +11,7 @@ export * from './feature-main';
 export * from './window-events';
 export * from './testing';
 export * from './app-id';
+export * from './data-directory';
 export * from './vault';
 export * from './broker';
 export * from './cli';
