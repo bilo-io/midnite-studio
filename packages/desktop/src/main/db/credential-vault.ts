@@ -1,13 +1,7 @@
 import { join } from 'node:path';
 
+import { VAULT_NAMESPACES, type VaultClient } from '@midnite/studio-runtime';
 import type { ConnectionConfig } from '@midnite/studio-shared';
-
-import {
-  createSecureJsonStore,
-  decryptSecret,
-  encryptSecret,
-  isSafeStorageAvailable,
-} from '../secure-store';
 
 /**
  * Where a saved connection's password actually lives — `safeStorage` keyed per
@@ -15,7 +9,9 @@ import {
  * `db-connections.json` (a separate `db-connections.vault.json`).
  *
  * The app secrets vault (`secrets-vault.ts`) uses the same `secure-store`
- * helpers for the Twelve Data key (Phase 76 Theme D).
+ * helpers for the Twelve Data key (Phase 76 Theme D). Since Phase 113 Theme D
+ * both are bindings over the runtime vault — this one over its
+ * `db-credentials` namespace, which reads and writes the same file.
  *
  * **Degrades rather than blocks** when encryption is unavailable: the
  * connection still saves, and the password is prompted per session instead.
@@ -30,9 +26,8 @@ export type CredentialVault = {
   reconcile: (config: ConnectionConfig) => Promise<void>;
 };
 
-type VaultEntry = { fingerprint: string; encrypted: string };
-
-const FILE_NAME = 'db-connections.vault.json';
+const FILE_NAME = VAULT_NAMESPACES['db-credentials'].fileName;
+const NS = 'db-credentials';
 
 /**
  * NUL-joined for the same reason `diagnostics/trust-store.ts`'s
@@ -50,50 +45,20 @@ export function connectionFingerprint(config: ConnectionConfig): string {
   ].join('\0');
 }
 
-function parseVaultState(value: unknown): Record<string, VaultEntry> {
-  if (typeof value !== 'object' || value === null) return {};
-  const entries = (value as { entries?: unknown }).entries;
-  if (typeof entries !== 'object' || entries === null) return {};
-
-  const out: Record<string, VaultEntry> = {};
-  for (const [id, raw] of Object.entries(entries as Record<string, unknown>)) {
-    if (!id || typeof raw !== 'object' || raw === null) continue;
-    const row = raw as Record<string, unknown>;
-    if (typeof row['fingerprint'] === 'string' && typeof row['encrypted'] === 'string') {
-      out[id] = { fingerprint: row['fingerprint'], encrypted: row['encrypted'] };
-    }
-  }
-  return out;
-}
-
-export function createCredentialVault(directory: string): CredentialVault {
-  const store = createSecureJsonStore<VaultEntry>(directory, FILE_NAME, parseVaultState);
-
+export function createCredentialVault(vault: VaultClient): CredentialVault {
   return {
-    isAvailable: isSafeStorageAvailable,
+    isAvailable: () => vault.isAvailable(),
 
-    get: async (id) => {
-      const entry = await store.get(id);
-      if (!entry) return null;
-      return decryptSecret(entry.encrypted);
-    },
+    get: (id) => vault.get(NS, id),
 
-    set: async (config, password) => {
-      if (!isSafeStorageAvailable()) return;
-      await store.set(config.id, {
-        fingerprint: connectionFingerprint(config),
-        encrypted: encryptSecret(password),
-      });
-    },
+    set: (config, password) => vault.set(NS, config.id, password, { fingerprint: connectionFingerprint(config) }),
 
-    delete: async (id) => {
-      await store.delete(id);
-    },
+    delete: (id) => vault.delete(NS, id),
 
     reconcile: async (config) => {
-      const entry = await store.get(config.id);
-      if (entry && entry.fingerprint !== connectionFingerprint(config)) {
-        await store.delete(config.id);
+      const stored = await vault.fingerprint(NS, config.id);
+      if (stored !== null && stored !== connectionFingerprint(config)) {
+        await vault.delete(NS, config.id);
       }
     },
   };

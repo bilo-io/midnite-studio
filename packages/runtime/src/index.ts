@@ -2,10 +2,13 @@
  * `@midnite/studio-runtime` — the runtime layer (Phase 113, `docs/APPS.md`).
  *
  * Main-only: it may import `electron`, and nothing renderer-side may import
- * it. Today it holds the contract a feature's main half registers against;
- * Theme D moves the services every app shares (the vault, the pty broker, the
- * `midnite` CLI and MCP server, the link router) in behind the same seam.
+ * it. It holds the contract a feature's main half registers against and the
+ * services every app shares (Theme D): the vault (`vault/`) and the pty
+ * broker client (`broker/`). The `midnite` CLI and MCP server follow.
  */
 export * from './feature-main';
 export * from './window-events';
 export * from './testing';
+export * from './app-id';
+export * from './vault';
+export * from './broker';

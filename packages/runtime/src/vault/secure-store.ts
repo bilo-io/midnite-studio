@@ -1,25 +1,38 @@
 import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { safeStorage } from 'electron';
+/**
+ * The encryption primitive under every vault — Phase 76 Theme D's
+ * `desktop/src/main/secure-store.ts`, moved into the runtime by Phase 113
+ * Theme D.
+ *
+ * **The cipher is injected, never imported.** The runtime may import
+ * `electron`, but the vault does not: the composer hands it
+ * `electron.safeStorage` (which satisfies {@link VaultCipher} structurally),
+ * and tests hand it a fake. That keeps every vault test under bare vitest with
+ * no `vi.mock('electron')`, and it makes the one thing that decides which key
+ * encrypts the data — *which process* composed the service — visible at the
+ * call site rather than hidden in an import. See `vault-service.ts` for why
+ * that has to be the runtime's process.
+ */
+export interface VaultCipher {
+  isEncryptionAvailable(): boolean;
+  encryptString(plaintext: string): Buffer;
+  decryptString(encrypted: Buffer): string;
+}
 
 const VAULT_MODE = 0o600;
 
-/** Whether OS-backed encryption is available for this session. */
-export function isSafeStorageAvailable(): boolean {
-  return safeStorage.isEncryptionAvailable();
-}
-
 /** Encrypt a string for disk storage; throws when encryption is unavailable. */
-export function encryptSecret(plaintext: string): string {
-  return safeStorage.encryptString(plaintext).toString('base64');
+export function encryptSecret(cipher: VaultCipher, plaintext: string): string {
+  return cipher.encryptString(plaintext).toString('base64');
 }
 
 /** Decrypt a stored blob; returns null when unreadable or encryption is off. */
-export function decryptSecret(encrypted: string): string | null {
-  if (!safeStorage.isEncryptionAvailable()) return null;
+export function decryptSecret(cipher: VaultCipher, encrypted: string): string | null {
+  if (!cipher.isEncryptionAvailable()) return null;
   try {
-    return safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
+    return cipher.decryptString(Buffer.from(encrypted, 'base64'));
   } catch {
     return null;
   }
@@ -32,9 +45,9 @@ export type SecureJsonStore<TEntry> = {
 };
 
 /**
- * A JSON file of encrypted entries under `userData`, with a fixed `0o600`
- * mode on every write — shared by the DB credential vault and the app secrets
- * vault (Phase 76 Theme D).
+ * A JSON file of encrypted entries, with a fixed `0o600` mode on every write.
+ * The file is `{ version: 1, entries }` — the shape every vault file on disk
+ * already has, which is what lets the runtime's service open them unchanged.
  */
 export function createSecureJsonStore<TEntry>(
   directory: string,

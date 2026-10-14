@@ -4,6 +4,7 @@ import { resolve, dirname, join } from 'node:path';
 import { totalmem } from 'node:os';
 
 import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-engine';
+import { createVaultService } from '@midnite/studio-runtime';
 import {
   EVENT_CHANNELS,
   CHANNELS,
@@ -13,7 +14,7 @@ import {
   SetupProbeRequest,
   SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, session, shell } from 'electron';
+import { BrowserWindow, app, safeStorage, session, shell } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -781,15 +782,24 @@ if (!app.requestSingleInstanceLock()) {
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
-    configureDb(createConnectionsStore(userData), createCredentialVault(userData));
-    configureSecrets(createSecretsVault(userData));
+    /*
+      The runtime vault (Phase 113 Theme D): one service over the three vault
+      files that already sit in `userData`, encrypted with this process's
+      `safeStorage` — Studio's main process is the runtime today. Studio
+      reads through it as the `studio` app; the three bindings below keep the
+      shapes their handlers always had, and the wire still says only
+      `hasToken`.
+    */
+    const studioVault = createVaultService({ directory: userData, cipher: safeStorage }).forApp('studio');
+    configureDb(createConnectionsStore(userData), createCredentialVault(studioVault));
+    configureSecrets(createSecretsVault(studioVault));
     /*
       The account registry (Phase 90 Theme B) — wired here beside every other
       userData store. `configureForgeAccounts` itself kicks off the on-disk
       load without blocking boot on it; `forge-accounts.ts`'s own `ensureLoaded`
       is what a handler awaits if it fires before that resolves.
     */
-    configureForgeAccounts(createForgeAccountsStore(userData), createForgeAccountVault(userData));
+    configureForgeAccounts(createForgeAccountsStore(userData), createForgeAccountVault(studioVault));
     /*
       The Knowledge view's layout cache — keyed on `built_at_commit` plus the
       projection format version (Phase 87, Decision 2). Its own subdirectory
