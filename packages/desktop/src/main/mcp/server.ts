@@ -10,6 +10,8 @@ import {
   type McpResponse,
 } from '@midnite/studio-shared';
 
+import { createMcpToolListing, studioInstalledApps, type McpToolListing } from '@midnite/studio-runtime';
+
 import { createFrameDecoder, encodeJsonFrame } from '../../broker/protocol';
 import { defaultLogger, type Logger } from '../log';
 import { isSocketPathTooLong, mcpSocketName } from '../socket-name';
@@ -47,6 +49,12 @@ export type StartMcpServerOptions = {
    */
   socketPath?: string;
   dispatch?: (tool: string, input: unknown) => Promise<McpDispatchResult>;
+  /**
+   * Which tools this server serves (Phase 113 Theme D): a tool whose app is not installed is refused
+   * as well as unlisted. Defaults to Studio's — every app installed — so nothing is refused today.
+   * Applies to the default tool registry only; a private `dispatch` answers for itself.
+   */
+  listing?: McpToolListing;
 };
 
 export type StartMcpServerResult = { ok: true; handle: McpServerHandle } | { ok: false; message: string };
@@ -73,7 +81,13 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
 
   const socketPath = opts.socketPath ?? join(userDataDir, 'mcp', mcpSocketName(appVersion, buildId, isPackaged));
   const socketDir = dirname(socketPath);
-  const dispatch = opts.dispatch ?? dispatchMcpCall;
+  const listing = opts.listing ?? createMcpToolListing({ installed: studioInstalledApps });
+  const dispatch =
+    opts.dispatch ??
+    (async (tool: string, input: unknown): Promise<McpDispatchResult> =>
+      isMcpToolId(tool) && !listing.isListed(tool)
+        ? { ok: false, kind: 'refused', message: `"${tool}" belongs to an app that is not installed.` }
+        : dispatchMcpCall(tool, input));
 
   // Refused outright, never silently not-listening — a Settings page (Theme
   // F) renders this as "path too long for a Unix socket".

@@ -7,6 +7,8 @@ import { MCP_MAX_REQUEST_BYTES, type McpRequest, type McpResponse } from '@midni
 import type { BrowserWindow } from 'electron';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { createMcpToolListing, installedAppsFromIds } from '@midnite/studio-runtime';
+
 import { createFrameDecoder, encodeJsonFrame } from '../../broker/protocol';
 import { resetRegistry } from '../repo-registry';
 import { configureUiBridge, resetUiBridgeForTests, resolveUiReply } from '../companion/ui-bridge';
@@ -282,5 +284,25 @@ describe('startMcpServer', () => {
       ['repo.list', false],
       ['model_get_spec', true],
     ]);
+  });
+
+  it('refuses a tool whose app is not installed, and still serves frame tools (Phase 113 Theme D)', async () => {
+    const result = await startMcpServer({
+      userDataDir: tempDir(),
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+      listing: createMcpToolListing({ installed: installedAppsFromIds(['coder']) }),
+    });
+    if (!result.ok) throw new Error(result.message);
+    handles.push(result.handle);
+    const socket = await connect(result.handle.socketPath);
+    expect(await call(socket, { id: 'a', tool: 'model_list', input: { repoPath: '/r' } })).toMatchObject({
+      ok: false,
+      kind: 'refused',
+      message: expect.stringContaining('not installed'),
+    });
+    expect(await call(socket, { id: 'b', tool: 'repo.list', input: {} })).toEqual({ id: 'b', ok: true, value: [] });
+    socket.destroy();
   });
 });

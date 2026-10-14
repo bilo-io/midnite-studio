@@ -22,7 +22,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOL_IDS, MCP_TOOLS, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, isTerrainSlowToolId, TERRAIN_CALL_TIMEOUT_MS, isSpriteSlowToolId, isMapSlowToolId, MAP_CALL_TIMEOUT_MS, McpContentBlockSchema } from '@midnite/studio-shared';
+import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOLS, ALL_APPS_INSTALLED, listMcpToolIds, type IsAppInstalled, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, isTerrainSlowToolId, TERRAIN_CALL_TIMEOUT_MS, isSpriteSlowToolId, isMapSlowToolId, MAP_CALL_TIMEOUT_MS, McpContentBlockSchema } from '@midnite/studio-shared';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { callMcpTool, SLOW_CALL_TIMEOUT_MS } from './client';
@@ -41,18 +41,32 @@ function logToStderr(message: string): void {
   process.stderr.write(`[mcp-shim] ${message}\n`);
 }
 
+/**
+ * Which apps are installed — SEAM (Phase 113 Theme D). The runtime's
+ * `InstalledAppsSource` (`packages/runtime/src/mcp/installed-apps.ts`) is the
+ * app-side twin; this shim runs under plain `node` and may import only
+ * `shared`, so it carries its own read. Today every app counts as installed
+ * (Studio is the superset build), so `tools/list` is the full registry. When
+ * the launcher hosts the runtime, replace this body with a read of the
+ * launcher's `installed.json` (`apps/launcher/src/common/installed-state.ts`);
+ * nothing below changes.
+ */
+function readInstalledApps(): IsAppInstalled {
+  return ALL_APPS_INSTALLED;
+}
+
 const server = new Server(
   { name: MCP_SERVER_NAME, version: '1.0.0' },
   { capabilities: { tools: {} } },
 );
 
 /**
- * `tools/list` is answered from `MCP_TOOLS` alone, socket or no socket — an
+ * `tools/list` is answered from `MCP_TOOLS` alone (filtered to the installed apps' tools), socket or no socket — an
  * agent should be able to discover what this server offers even while
  * Midnite Studio is closed or the setting is off.
  */
 server.setRequestHandler(ListToolsRequestSchema, () => ({
-  tools: MCP_TOOL_IDS.map((id) => {
+  tools: listMcpToolIds(readInstalledApps()).map((id) => {
     const tool = MCP_TOOLS[id];
     /*
      * `tool.input` is a union of eight distinct `ZodObject` types across the
