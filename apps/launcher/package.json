@@ -1,0 +1,36 @@
+{
+  "name": "@midnite/launcher",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Midnite Apps — the launcher that lists, installs and opens every midnite app. Electron main + preload, Vite + React renderer.",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "vite build && node scripts/bundle.mjs",
+    "start": "vite build && node scripts/bundle.mjs && node scripts/start-electron.mjs",
+    "dist": "vite build && node scripts/bundle.mjs && electron-builder --mac --config electron-builder.yml --publish never"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.7.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@electron/notarize": "^2.5.0",
+    "@midnite/studio-shared": "workspace:*",
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5",
+    "vitest": "^3.2.4"
+  }
+}

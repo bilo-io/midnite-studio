@@ -113,6 +113,13 @@ shared ◀ desktop
   app, and an import across that line is what would make it impossible to move out of this repo
   later. See [`docs/WEBSITE.md`](docs/WEBSITE.md); it is served from the *public*
   `bilo-io/midnite-apps` repo's `gh-pages` branch, so **nothing on it may link to this one**.
+- **`apps/launcher`** — Midnite Apps, the launcher that lists, installs and opens every midnite
+  app. **`apps/` holds installable products; `packages/` holds what they are built from.** It is
+  its own Electron app (main + preload bundled by esbuild, a Vite + React renderer) and, like the
+  website, off the graph: it reaches Studio only through `midnite-studio://` links and the public
+  midnite-apps feed, and takes `shared` one file at a time by source path
+  (`@midnite/studio-shared/studio-link`), never the barrel. Every tile resolves to Studio for now
+  — `midnite-studio://view?id=<ViewId>[&tab=<MediaTab>]` lands it on that app's view.
 
 `eslint.config.mjs` encodes these as per-package `no-restricted-imports` groups with
 explanatory messages. If a boundary rule fires, the fix is an IPC channel, not an exception.

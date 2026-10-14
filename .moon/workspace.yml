@@ -1,11 +1,14 @@
 $schema: 'https://moonrepo.dev/schemas/workspace.json'
 
 projects:
-  # `packages/*` are globbed; the workspace root is registered explicitly as the
+  # `packages/*` and `apps/*` are globbed; the workspace root is registered explicitly as the
   # `root` project so workspace-wide tasks (install) exist as a dependency target
   # without moon inheriting the per-package build/test/typecheck/lint tasks there.
   globs:
     - 'packages/*'
+    # `apps/*` holds whole installable products built from `packages/*` — the
+    # Midnite Apps launcher first. Same task inheritance as a package.
+    - 'apps/*'
   sources:
     root: '.'
 
