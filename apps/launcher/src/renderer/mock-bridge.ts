@@ -57,5 +57,6 @@ export function createMockBridge(mode: string | null): LauncherBridge {
     },
     apps: { open: ok },
     links: { open: ok },
+    theme: { set: () => undefined },
   };
 }

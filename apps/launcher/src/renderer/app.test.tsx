@@ -19,6 +19,7 @@ afterEach(() => {
   cleanup();
   delete window.midniteLauncher;
   localStorage.clear();
+  delete document.documentElement.dataset['theme'];
 });
 
 describe('<App>', () => {
@@ -88,5 +89,23 @@ describe('<App>', () => {
     });
     expect(uninstall).toHaveBeenCalled();
     expect(await screen.findAllByLabelText(/^Install Midnite /)).toHaveLength(APPS.length);
+  });
+
+  it('switches theme from the top bar, remembers it, and tells main', async () => {
+    const { bridge } = mount('installed');
+    const setNative = vi.spyOn(bridge.theme, 'set');
+    await screen.findByLabelText('Open Midnite Coder');
+    const themes = screen.getByLabelText('Theme');
+    expect(within(themes).getByLabelText('System theme').getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(within(themes).getByLabelText('Light theme'));
+    expect(document.documentElement.dataset['theme']).toBe('light');
+    expect(localStorage.getItem('midnite-launcher.theme')).toBe('light');
+    expect(setNative).toHaveBeenLastCalledWith('light');
+
+    fireEvent.click(within(themes).getByLabelText('System theme'));
+    expect(document.documentElement.dataset['theme']).toBeUndefined();
+    expect(localStorage.getItem('midnite-launcher.theme')).toBeNull();
+    expect(setNative).toHaveBeenLastCalledWith('system');
   });
 });

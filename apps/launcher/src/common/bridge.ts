@@ -20,6 +20,7 @@ export const LAUNCHER_CHANNELS = {
   studioProgress: 'launcher:studio:progress',
   appOpen: 'launcher:app:open',
   linkOpen: 'launcher:link:open',
+  themeSet: 'launcher:theme:set',
 } as const;
 
 /** An installed copy of Midnite Studio. `version` is `null` when its Info.plist would not say. */
@@ -54,6 +55,9 @@ export type LauncherResult = { ok: true } | { ok: false; message: string };
 export const EXTERNAL_LINKS = ['website', 'github', 'releases', 'notes', 'download'] as const;
 export type ExternalLink = (typeof EXTERNAL_LINKS)[number];
 
+export const THEME_SOURCES = ['system', 'light', 'dark'] as const;
+export type ThemeSource = (typeof THEME_SOURCES)[number];
+
 export type LauncherBridge = {
   launcherVersion: string;
   platform: { os: string; arch: string };
@@ -69,5 +73,9 @@ export type LauncherBridge = {
   };
   links: {
     open(link: ExternalLink): Promise<LauncherResult>;
+  };
+  theme: {
+    /** Fire-and-forget: sets Electron's `nativeTheme.themeSource`. */
+    set(source: ThemeSource): void;
   };
 };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LuLayoutGrid, LuRefreshCw, LuSearch, LuTable, LuX } from 'react-icons/lu';
+import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuX } from 'react-icons/lu';
 
+import type { ThemeSource } from '../common/bridge';
 import { APPS, SECTION_LABELS, type LauncherApp } from '../common/catalog';
 import { getBridge } from './bridge';
 import { AppDetail } from './components/app-detail';
@@ -9,9 +10,16 @@ import { AppTable } from './components/app-table';
 import { AppTile } from './components/app-tile';
 import { LauncherWordmark } from './components/wordmark';
 import { FILTER_LABELS, FILTERS, filterCounts, visibleSections, type Filter, type SortKey } from './model';
+import { applyTheme, readTheme } from './theme';
 import { useStudio } from './use-studio';
 
 type Layout = 'grid' | 'table';
+
+const THEME_OPTIONS: readonly { value: ThemeSource; label: string; Icon: typeof LuSun }[] = [
+  { value: 'system', label: 'System theme', Icon: LuMonitor },
+  { value: 'light', label: 'Light theme', Icon: LuSun },
+  { value: 'dark', label: 'Dark theme', Icon: LuMoon },
+];
 const LAYOUT_KEY = 'midnite-launcher.layout';
 
 function readLayout(): Layout {
@@ -34,6 +42,11 @@ export function App() {
   const studio = useStudio();
   const bridge = getBridge();
   const [layout, setLayoutState] = useState<Layout>(readLayout);
+  const [theme, setThemeState] = useState<ThemeSource>(readTheme);
+  const setTheme = (next: ThemeSource) => {
+    setThemeState(next);
+    applyTheme(next);
+  };
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<SortKey>('suite');
   const [query, setQuery] = useState('');
@@ -111,6 +124,21 @@ export function App() {
             <button type="button" className="tab" aria-pressed={layout === 'table'} onClick={() => setLayout('table')}>
               <LuTable size={13} aria-hidden="true" /> Table
             </button>
+          </div>
+          <div className="segmented theme-switch" role="group" aria-label="Theme">
+            {THEME_OPTIONS.map(({ value, label, Icon }) => (
+              <button
+                key={value}
+                type="button"
+                className="tab"
+                aria-label={label}
+                title={label}
+                aria-pressed={theme === value}
+                onClick={() => setTheme(value)}
+              >
+                <Icon size={14} aria-hidden="true" />
+              </button>
+            ))}
           </div>
           <button
             type="button"

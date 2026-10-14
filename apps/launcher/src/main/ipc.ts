@@ -1,7 +1,7 @@
-import { ipcMain, shell, type BrowserWindow } from 'electron';
+import { ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron';
 import { z } from 'zod';
 
-import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, type LauncherResult } from '../common/bridge';
+import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherResult } from '../common/bridge';
 import { APP_IDS } from '../common/catalog';
 import { DOWNLOAD_URL, GITHUB_URL, RELEASES_URL, SITE_URL, STUDIO_FEED_URL } from './constants';
 import { fetchLatestRelease } from './feed';
@@ -11,10 +11,16 @@ import { findStudio, isStudioRunning, studioStatus } from './studio';
 
 const AppOpenSchema = z.object({ id: z.enum(APP_IDS), featureId: z.string().max(64).optional() });
 const LinkSchema = z.enum(EXTERNAL_LINKS);
+const ThemeSchema = z.enum(THEME_SOURCES);
 
 const failure = (message: string): LauncherResult => ({ ok: false, message });
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
+  ipcMain.on(LAUNCHER_CHANNELS.themeSet, (_event, raw: unknown) => {
+    const parsed = ThemeSchema.safeParse(raw);
+    if (parsed.success) nativeTheme.themeSource = parsed.data;
+  });
+
   ipcMain.handle(LAUNCHER_CHANNELS.studioStatus, () => studioStatus());
 
   ipcMain.handle(LAUNCHER_CHANNELS.studioInstall, () =>

@@ -42,8 +42,13 @@
   --titlebar-inset: 84px;
 }
 
+/*
+  Light tokens. The theme switcher sets `data-theme` on <html>: `light` forces
+  these, `dark` forces the defaults above, and no attribute (System) follows
+  `prefers-color-scheme`. `theme.ts` owns the attribute.
+*/
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme='dark']) {
     color-scheme: light;
     --bg: hsl(240 20% 99%);
     --bg-elevated: hsl(240 24% 96%);
@@ -55,6 +60,19 @@
     --line-strong: hsl(240 10% 74%);
     --ok: hsl(152 60% 30%);
   }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: hsl(240 20% 99%);
+  --bg-elevated: hsl(240 24% 96%);
+  --bg-sunken: hsl(240 22% 93%);
+  --fg: hsl(240 20% 10%);
+  --fg-muted: hsl(240 8% 34%);
+  --fg-subtle: hsl(240 6% 48%);
+  --line: hsl(240 12% 88%);
+  --line-strong: hsl(240 10% 74%);
+  --ok: hsl(152 60% 30%);
 }
 
 * {
@@ -235,6 +253,10 @@ button:disabled {
 .tab[aria-pressed='true'] {
   background: var(--fg);
   color: var(--bg);
+}
+
+.theme-switch .tab {
+  padding: 6px 8px;
 }
 
 .topbar-refresh {
