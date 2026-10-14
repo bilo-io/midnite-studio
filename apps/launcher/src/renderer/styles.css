@@ -545,17 +545,89 @@ button:disabled {
   border-left: 1px solid var(--line);
 }
 
+/*
+  A tile is its own stacking context, layered back to front:
+
+    .tile-glow  (z -2)  the app's gradient, blurred — the hover glow
+    ::before    (z -1)  the tile's opaque fill, so the glow only shows *outside* it
+    content
+    ::after     (z  1)  Studio's brand-gradient frame (data-brand only)
+
+  The hovered tile is raised over its neighbours so its glow spills onto them
+  rather than being painted under the next tile in the grid.
+*/
 .tile {
+  --app-gradient: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 55%, white),
+    var(--accent) 50%,
+    color-mix(in srgb, var(--accent) 75%, black)
+  );
+  position: relative;
+  z-index: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+}
+
+.tile[data-brand] {
+  --app-gradient: linear-gradient(
+    135deg,
+    hsl(217 95% 58%),
+    hsl(235 88% 68%) 30%,
+    hsl(258 90% 66%) 55%,
+    hsl(271 91% 65%) 78%,
+    hsl(308 78% 58%)
+  );
+}
+
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: var(--bg);
   transition: background 0.15s;
 }
 
+.tile-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: var(--app-gradient);
+  filter: blur(26px);
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+  pointer-events: none;
+}
+
 .tile:hover {
+  z-index: 2;
+}
+
+.tile:hover::before {
   background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+}
+
+.tile:hover .tile-glow {
+  opacity: 0.85;
+}
+
+/* Studio's frame: a 1 px ring of the brand gradient over the hairline grid. */
+.tile[data-brand]::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  padding: 1px;
+  background: var(--app-gradient);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 .tile-head {
@@ -960,6 +1032,10 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .tile-glow {
+    transition: none;
+  }
+
   .rainbow-text,
   .spin,
   .sheet {

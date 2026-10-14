@@ -27,7 +27,13 @@ export function versionLine(studio: StudioController): string {
 
 export function AppTile({ app, studio, handlers, menuItems }: TileProps) {
   return (
-    <article className="tile" style={{ ['--accent' as string]: app.accent }} aria-labelledby={`tile-${app.id}`}>
+    <article
+      className="tile"
+      data-brand={app.gradient === 'brand' || undefined}
+      style={{ ['--accent' as string]: app.accent }}
+      aria-labelledby={`tile-${app.id}`}
+    >
+      <span className="tile-glow" aria-hidden="true" />
       <header className="tile-head">
         <span className="chip-number" data-brand={app.gradient === 'brand' || undefined}>{appNumber(app)}</span>
         <div className="tile-head-links">

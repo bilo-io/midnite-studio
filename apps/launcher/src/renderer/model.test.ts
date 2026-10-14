@@ -23,7 +23,8 @@ describe('launcher model', () => {
     expect(filterCounts(() => 'update')).toEqual({ all: n, installed: n, updates: n, 'not-installed': 0 });
 
     const all = visibleSections({ filter: 'all', query: '', sort: 'suite', stateOf: () => 'installed' });
-    expect(all.map((g) => g.section)).toEqual(['all-in-one', 'suite', 'utilities']);
+    expect(all.map((g) => g.section)).toEqual(['suite', 'utilities']);
+    expect(all[0]!.apps[0]!.id).toBe('studio');
 
     const found = visibleSections({ filter: 'all', query: 'sprites', sort: 'suite', stateOf: () => 'installed' });
     expect(found).toEqual([{ section: 'suite', apps: [app('gamer')] }]);
@@ -38,6 +39,7 @@ describe('launcher model', () => {
       'Gamer',
       'Media',
       'Money',
+      'Studio',
     ]);
   });
 });

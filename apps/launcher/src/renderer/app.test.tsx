@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { LauncherBridge } from '../common/bridge';
-import { APPS } from '../common/catalog';
+import { APPS, SECTION_ORDER } from '../common/catalog';
 import { App } from './app';
 import { createMockBridge } from './mock-bridge';
 
@@ -70,7 +70,7 @@ describe('<App>', () => {
     mount('installed');
     await screen.findByLabelText('Open Midnite Coder');
     fireEvent.click(within(screen.getByLabelText('Layout')).getByRole('button', { name: 'Table' }));
-    expect(screen.getAllByRole('table')).toHaveLength(3);
+    expect(screen.getAllByRole('table')).toHaveLength(SECTION_ORDER.length);
     expect(localStorage.getItem('midnite-launcher.layout')).toBe('table');
   });
 

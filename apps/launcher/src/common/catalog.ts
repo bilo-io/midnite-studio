@@ -29,15 +29,14 @@ export type AppFeature = {
   target: StudioTarget;
 };
 
-export type AppSection = 'suite' | 'utilities' | 'all-in-one';
+export type AppSection = 'suite' | 'utilities';
 
 export const SECTION_LABELS: Record<AppSection, string> = {
   suite: 'Midnite Apps',
   utilities: 'Utilities',
-  'all-in-one': 'All-in-one',
 };
 
-export const SECTION_ORDER: readonly AppSection[] = ['all-in-one', 'suite', 'utilities'];
+export const SECTION_ORDER: readonly AppSection[] = ['suite', 'utilities'];
 
 export type LauncherApp = {
   id: AppId;
@@ -89,13 +88,13 @@ export const APPS: readonly LauncherApp[] = [
   {
     id: 'studio',
     name: 'Studio',
-    section: 'all-in-one',
+    section: 'suite',
     accent: '#8b5cf6',
     gradient: 'brand',
     tagline: 'Every midnite app in one window',
     like: 'The whole suite, for power users',
     vision:
-      'The master tool: every app below, in one desktop application with one rail. It is what the suite is built from today, and it stays the place for anyone who would rather have all of it at once.',
+      'The master tool: every app beside it, in one desktop application with one rail. It is what the suite is built from today, and it stays the place for anyone who would rather have all of it at once.',
     home: view('landing'),
     features: [
       { id: 'home', label: 'Home', blurb: 'The landing page', target: view('landing') },
