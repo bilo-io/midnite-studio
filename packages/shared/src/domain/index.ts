@@ -22,6 +22,7 @@ export * from './knowledge';
 export * from './metrics';
 export * from './optimizer';
 export * from './placement';
+export * from './feature-registrations';
 export * from './rebase';
 export * from './ref';
 export * from './reflog';
