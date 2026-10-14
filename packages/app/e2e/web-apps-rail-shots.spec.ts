@@ -4,7 +4,7 @@ import { fixtures } from '../test-support/fixtures';
 import {
   installMockBridge,
   type MockFixtures,
-  seedEnabledApps,
+  seedEnabledWebApps,
   seedUiState,
   setTheme,
   settle,
@@ -18,7 +18,7 @@ import {
  *
  * `navMode: 'expanded'` is seeded everywhere a rail icon is clicked, not just
  * screenshotted. `@bilo-io/shell`'s rail hover-previews the collapsed state
- * into a wider ROW-layout overlay (see `apps-rail-row.tsx`'s `expanded`
+ * into a wider ROW-layout overlay (see `web-apps-rail-row.tsx`'s `expanded`
  * prop), drawn at the rail's own `z-40` — BELOW this flyout's `z-popover`
  * (85). With the flyout already open and the rail merely hover-expanded
  * (not locked), the flyout paints over the newly-widened rail region, and a
@@ -43,27 +43,27 @@ const OUT = '../../docs/screenshots/phase-83-apps-rail';
 
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
-async function openWithAllAppsEnabled(page: import('@playwright/test').Page): Promise<void> {
-  await seedEnabledApps(page, ['spotify', 'google-calendar', 'youtube']);
+async function openWithAllWebAppsEnabled(page: import('@playwright/test').Page): Promise<void> {
+  await seedEnabledWebApps(page, ['spotify', 'google-calendar', 'youtube']);
   await seedUiState(page, { navMode: 'expanded' });
   await installMockBridge(page, fixtures as MockFixtures);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  // `enabledApps` is persisted state, hydrated from localStorage a tick after
+  // `enabledWebApps` is persisted state, hydrated from localStorage a tick after
   // first mount — a disabled app has no rail button at all, so waiting for it
   // to become visible is what keeps a click below from racing that hydration
   // and landing on an element that does not exist yet.
-  await expect(page.getByTestId('apps-rail-spotify')).toBeVisible();
+  await expect(page.getByTestId('web-apps-rail-spotify')).toBeVisible();
 }
 
 test('rail row — all three apps enabled, light', async ({ page }) => {
-  await openWithAllAppsEnabled(page);
+  await openWithAllWebAppsEnabled(page);
   await settle(page, 200);
   await page.getByRole('group', { name: 'Apps' }).screenshot({ path: shotPath(OUT, 'rail-row-light.png') });
 });
 
 test('rail row — all three apps enabled, dark', async ({ page }) => {
-  await openWithAllAppsEnabled(page);
+  await openWithAllWebAppsEnabled(page);
   await setTheme(page, 'dark');
   await settle(page, 200);
   await page.getByRole('group', { name: 'Apps' }).screenshot({ path: shotPath(OUT, 'rail-row-dark.png') });
@@ -74,14 +74,14 @@ test('rail row — no apps enabled renders no Apps group at all', async ({ page 
   await installMockBridge(page, fixtures as MockFixtures);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await expect(page.getByTestId('apps-rail-spotify')).toHaveCount(0);
+  await expect(page.getByTestId('web-apps-rail-spotify')).toHaveCount(0);
   await expect(page.getByRole('group', { name: 'Apps' })).toHaveCount(0);
 });
 
 test('flyout open on one app', async ({ page }) => {
-  await openWithAllAppsEnabled(page);
-  await page.getByTestId('apps-rail-spotify').click();
-  const flyout = page.getByTestId('apps-flyout');
+  await openWithAllWebAppsEnabled(page);
+  await page.getByTestId('web-apps-rail-spotify').click();
+  const flyout = page.getByTestId('web-apps-flyout');
   await expect(flyout).toBeVisible();
   await expect(flyout).toHaveAttribute('aria-label', 'Spotify');
   await settle(page, 200);
@@ -89,12 +89,12 @@ test('flyout open on one app', async ({ page }) => {
 });
 
 test('flyout switches its active app on a second rail click', async ({ page }) => {
-  await openWithAllAppsEnabled(page);
-  await page.getByTestId('apps-rail-spotify').click();
-  await expect(page.getByTestId('apps-flyout')).toHaveAttribute('aria-label', 'Spotify');
+  await openWithAllWebAppsEnabled(page);
+  await page.getByTestId('web-apps-rail-spotify').click();
+  await expect(page.getByTestId('web-apps-flyout')).toHaveAttribute('aria-label', 'Spotify');
 
-  await page.getByTestId('apps-rail-youtube').click();
-  const flyout = page.getByTestId('apps-flyout');
+  await page.getByTestId('web-apps-rail-youtube').click();
+  const flyout = page.getByTestId('web-apps-flyout');
   await expect(flyout).toHaveAttribute('aria-label', 'YouTube');
   await settle(page, 200);
   await flyout.screenshot({ path: shotPath(OUT, 'flyout-switched-youtube.png') });

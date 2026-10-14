@@ -8,8 +8,8 @@ import type { ViewId } from './view';
  * becomes the only copy of that panel.
  *
  * The three `apps-*` roles (Phase 83) are one literal per third-party app
- * rather than a single shared `apps` role — see `domain/apps.ts`'s
- * `AppIdSchema`. That is what lets Spotify and Calendar each become their own
+ * rather than a single shared `apps` role — see `domain/web-apps.ts`'s
+ * `WebAppIdSchema`. That is what lets Spotify and Calendar each become their own
  * independent floating window at the same time (Theme D): `windowForRole`
  * already enforces at most one window per role, so one role per app makes
  * "one popout per app, any subset open at once" fall out for free instead of

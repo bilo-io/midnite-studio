@@ -89,9 +89,9 @@ describe('persisted-keys partition', () => {
         // Phase 79 Theme A's five `companion*` preferences sat here for
         // exactly one phase slice and are gone: Theme H built
         // `companion-page.tsx`, which is what leaving this list is supposed to
-        // look like. Phase 83 Theme A's `enabledApps` sat here the same way,
+        // look like. Phase 83 Theme A's `enabledWebApps` sat here the same way,
         // for exactly one phase slice, and is gone the same way: Theme E
-        // built `apps-page.tsx`.
+        // built `web-apps-page.tsx`.
         // Phase 89 Theme A's own: `rendererVariant` has a real control (the
         // Knowledge view's pill bar) but no settings page.
         'rendererVariant',

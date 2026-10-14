@@ -57,16 +57,16 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // both — which edges a collapsed community folds into, what lights up, the
 // tree rows, the bounce curve — are pure functions with their own vitest
 // suites; only the pixel-level outcome needs the browser.
-// Raised 438 -> 439 for the apps switcher's reveal (`apps-rail-reveal.spec.ts`,
+// Raised 438 -> 439 for the apps switcher's reveal (`web-apps-rail-reveal.spec.ts`,
 // one test): the switcher's hover region is nested inside `AppFrame`'s own
 // hover-expanding rail, so the two hover surfaces overlap and only a real
 // pointer can show the composed result — a `page.mouse.move` to a coordinate
 // outside the group collapsing it back, and a real `hover()` landing on the
 // group rather than being swallowed by the rail around it. jsdom has no
 // pointer; it can only be told `mouseenter` fired. Everything else about the
-// feature — which icons render for a given `lastOpenedAppId`, when the labels
+// feature — which icons render for a given `lastOpenedWebAppId`, when the labels
 // appear, the store transitions that set it, the disabled-app fallback — is in
-// `apps-rail-row.test.tsx` under vitest, which is why this is one test.
+// `web-apps-rail-row.test.tsx` under vitest, which is why this is one test.
 // Raised 439 -> 440 for the rail's overflow row height (`nav-shell.spec.ts`,
 // one test): flex-shrink against a column taller than the window is pure
 // layout, and jsdom reports every box as 0x0, so the only way to see a row

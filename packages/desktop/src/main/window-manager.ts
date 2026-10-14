@@ -6,7 +6,7 @@ import {
   APP_VERSION_ARG,
   HOME_DIR_ARG,
   HOSTNAME_ARG,
-  appIdForRole,
+  webAppIdForRole,
   EVENT_CHANNELS,
   WINDOW_FRAMELESS_ARG,
   WINDOW_ROLE_ARG,
@@ -16,7 +16,7 @@ import {
 import { BrowserWindow, app, screen, shell, type Display, type WebContents } from 'electron';
 
 import { bindAppNavigationGuard } from './app-navigation';
-import { reparentAppView } from './apps-service';
+import { reparentWebAppView } from './web-apps-service';
 import { reparentBrowserTabs } from './browser-service';
 import type { Logger } from './log';
 import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
@@ -419,11 +419,11 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
   // shown) for the same reason `window-handlers.ts`'s explicit dock IPC
   // hides it — the main window's flyout may already have a different app
   // active, and a popout closing on its own traffic light must not steal it.
-  const closingAppId = appIdForRole(role);
+  const closingAppId = webAppIdForRole(role);
   if (closingAppId) {
     win.on('close', () => {
       const main = windowForRole('main');
-      if (main && !main.isDestroyed()) reparentAppView(closingAppId, main, { visible: false });
+      if (main && !main.isDestroyed()) reparentWebAppView(closingAppId, main, { visible: false });
     });
   }
 

@@ -1,6 +1,6 @@
-import type { AppId } from '@midnite/studio-shared';
+import type { WebAppId } from '@midnite/studio-shared';
 
-import { useAppsBounds } from './use-apps-bounds';
+import { useWebAppsBounds } from './use-web-apps-bounds';
 
 /**
  * The host div a third-party app's `WebContentsView` floats over — the exact
@@ -15,7 +15,7 @@ import { useAppsBounds } from './use-apps-bounds';
  * div (the flyout's own chrome-less frame vs. `DetachedWindowFrame`'s title
  * bar).
  */
-export function AppPane({ appId }: { appId: AppId }) {
-  const { ref } = useAppsBounds(appId, true);
+export function WebAppPane({ appId }: { appId: WebAppId }) {
+  const { ref } = useWebAppsBounds(appId, true);
   return <div ref={ref} className="h-full w-full" />;
 }

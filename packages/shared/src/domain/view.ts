@@ -108,7 +108,7 @@ export const SETTINGS_PAGE_IDS = [
   'optimizer',
   'mcp',
   'companion',
-  'apps',
+  'web-apps',
   'accounts',
 ] as const;
 export type SettingsPageId = (typeof SETTINGS_PAGE_IDS)[number];

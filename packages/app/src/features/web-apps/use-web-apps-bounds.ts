@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import type { AppId } from '@midnite/studio-shared';
+import type { WebAppId } from '@midnite/studio-shared';
 
 import { bridge } from '../../services/bridge';
 import { boundsFromRect } from '../browser/use-browser-bounds';
@@ -19,7 +19,7 @@ import { boundsFromRect } from '../browser/use-browser-bounds';
  * only gates whether bounds are pushed at all — an occluded or closed flyout
  * has nothing worth measuring.
  */
-export function useAppsBounds(activeAppId: AppId | null, visible: boolean) {
+export function useWebAppsBounds(activeAppId: WebAppId | null, visible: boolean) {
   const ref = useRef<HTMLDivElement>(null);
 
   const latest = useRef({ activeAppId, visible });
@@ -33,7 +33,7 @@ export function useAppsBounds(activeAppId: AppId | null, visible: boolean) {
     if (!el) return;
     const bounds = boundsFromRect(el.getBoundingClientRect());
     if (!bounds) return;
-    bridge()?.apps.setBounds({ id: activeAppId, bounds });
+    bridge()?.webApps.setBounds({ id: activeAppId, bounds });
   }, []);
 
   useEffect(() => {

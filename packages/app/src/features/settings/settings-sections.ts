@@ -146,7 +146,7 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('Memory'),
     section('Data'),
   ],
-  apps: [
+  'web-apps': [
     section('Third-party apps'),
   ],
   accounts: [

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { ShellProviders } from '@bilo-io/shell';
 import { QueryClient } from '@tanstack/react-query';
-import type { AppId, WindowRole } from '@midnite/studio-shared';
+import type { WebAppId, WindowRole } from '@midnite/studio-shared';
 
 import { DelayedFallback } from './components/delayed-fallback';
 import { DetachedWindowFrame } from './components/detached-window-frame';
@@ -12,7 +12,7 @@ import { DialogHost } from './components/dialog-host';
 import { ErrorBoundary } from './components/error-boundary';
 import { PaletteHost } from './components/palette-host';
 import { ToastHost } from './components/toast-host';
-import { AppPane } from './features/apps/app-pane';
+import { WebAppPane } from './features/web-apps/web-app-pane';
 import { BrowserPane } from './features/browser/browser-pane';
 import { FabPanel } from './components/fab-panel';
 import { CompanionPanel } from './features/companion/companion-panel';
@@ -152,13 +152,13 @@ function DetachedContent({ role }: { role: Exclude<WindowRole, 'main'> }) {
 
   if (role === 'apps-spotify' || role === 'apps-google-calendar' || role === 'apps-youtube') {
     // Phase 83 Theme D: the same host-div-and-native-view split `browser`
-    // uses above, via the shared `AppPane` (also used by the flyout, Theme
+    // uses above, via the shared `WebAppPane` (also used by the flyout, Theme
     // C) — `window-handlers.ts`'s `windowDetach` already reparented the
     // `WebContentsView` itself into this popout before this even mounts, so
     // there is nothing to construct here beyond the measured host div.
-    const appId: AppId =
+    const appId: WebAppId =
       role === 'apps-spotify' ? 'spotify' : role === 'apps-google-calendar' ? 'google-calendar' : 'youtube';
-    return <AppPane appId={appId} />;
+    return <WebAppPane appId={appId} />;
   }
 
   if (role === 'game') {

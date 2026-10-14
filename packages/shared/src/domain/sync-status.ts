@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { AgentOllamaBindingSchema } from '../ollama-launch';
-import { AppIdSchema } from './apps';
+import { WebAppIdSchema } from './web-apps';
 
 /**
  * Phase 84 Themes B (auto-fetch) and C (the forge poller) — both timers now
@@ -62,7 +62,7 @@ export type SyncStatusEvent = z.infer<typeof SyncStatusEventSchema>;
 export const SettingsSyncPayloadSchema = z.object({
   autoFetchEnabled: z.boolean(),
   autoFetchIntervalMs: z.number().int(),
-  appDiscardIdle: z.record(AppIdSchema, z.boolean()).optional(),
+  webAppDiscardIdle: z.record(WebAppIdSchema, z.boolean()).optional(),
   browserDiscardMs: z.number().int().optional(),
   /**
    * Phase 90 Theme C: whether switching the active GitHub account also runs

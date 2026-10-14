@@ -18,7 +18,7 @@ import { useUiStore } from '../store/ui-store';
 export function useSettingsSync(): void {
   const autoFetchEnabled = useUiStore((s) => s.autoFetchEnabled);
   const autoFetchIntervalMs = useUiStore((s) => s.autoFetchIntervalMs);
-  const appDiscardIdle = useUiStore((s) => s.appDiscardIdle);
+  const webAppDiscardIdle = useUiStore((s) => s.webAppDiscardIdle);
   const browserDiscardMs = useUiStore((s) => s.browserDiscardMs);
   // Phase 90 Theme C: the account-switch handler that reads this lives in
   // main (`forge-account-handlers.ts`), so the setting has to cross the same
@@ -39,7 +39,7 @@ export function useSettingsSync(): void {
       // (`MIN_AUTO_FETCH_INTERVAL_MS`) re-applies the same rule, so a raw
       // fallback here just keeps the payload's type honest.
       autoFetchIntervalMs: autoFetchIntervalMs ?? 60_000,
-      appDiscardIdle,
+      webAppDiscardIdle,
       browserDiscardMs,
       forgeSyncGhAuthSwitch,
       agentBackends,
@@ -47,7 +47,7 @@ export function useSettingsSync(): void {
   }, [
     autoFetchEnabled,
     autoFetchIntervalMs,
-    appDiscardIdle,
+    webAppDiscardIdle,
     browserDiscardMs,
     forgeSyncGhAuthSwitch,
     agentBackends,

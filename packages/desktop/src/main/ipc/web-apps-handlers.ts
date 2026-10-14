@@ -2,7 +2,7 @@ import type { BrowserWindow } from 'electron';
 
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
-import { activateApp, disableApp, enableApp, setAppBounds } from '../apps-service';
+import { activateWebApp, disableWebApp, enableWebApp, setWebAppBounds } from '../web-apps-service';
 import { defaultLogger } from '../log';
 import { handle, handleSend } from './handle';
 
@@ -11,7 +11,7 @@ const warnInvalid = (issue: string): void => {
 };
 
 /**
- * Registers the `mstudio:apps:*` channels over `apps-service.ts`.
+ * Registers the `mstudio:web-apps:*` channels over `web-apps-service.ts`.
  *
  * `enable` and `activate` both target `getMainWindow()` explicitly rather
  * than the sender — unlike the browser's `create` (Phase 55's
@@ -19,38 +19,38 @@ const warnInvalid = (issue: string): void => {
  * flyout, which is a main-window-only surface (Theme C). `window.detach`
  * (Theme D) is the one thing that moves an already-enabled app's view
  * somewhere else, and it goes through `window-handlers.ts`'s own
- * `reparentAppView` call, not through this file. `disable`/`setBounds` are
+ * `reparentWebAppView` call, not through this file. `disable`/`setBounds` are
  * one-way, matching `browser.close`/`browser.setBounds`: a bounds push fires
  * every resize frame, and a round trip would only add latency.
  */
-export function registerAppsHandlers(getMainWindow: () => BrowserWindow | null): void {
+export function registerWebAppsHandlers(getMainWindow: () => BrowserWindow | null): void {
   handle(
-    CHANNELS.appsEnable,
-    schemas.AppsEnableRequest,
+    CHANNELS.webAppsEnable,
+    schemas.WebAppsEnableRequest,
     ({ id }) => {
       const win = getMainWindow();
       if (!win) return { ok: false as const, message: 'No window' };
-      enableApp(win, id);
+      enableWebApp(win, id);
       return { ok: true as const };
     },
     (issue) => ({ ok: false as const, message: issue }),
   );
 
-  handleSend(CHANNELS.appsDisable, schemas.AppsDisableRequest, ({ id }) => disableApp(id), warnInvalid);
+  handleSend(CHANNELS.webAppsDisable, schemas.WebAppsDisableRequest, ({ id }) => disableWebApp(id), warnInvalid);
 
   handleSend(
-    CHANNELS.appsSetBounds,
-    schemas.AppsSetBoundsRequest,
-    ({ id, bounds }) => setAppBounds(id, bounds),
+    CHANNELS.webAppsSetBounds,
+    schemas.WebAppsSetBoundsRequest,
+    ({ id, bounds }) => setWebAppBounds(id, bounds),
     warnInvalid,
   );
 
   handleSend(
-    CHANNELS.appsActivate,
-    schemas.AppsActivateRequest,
+    CHANNELS.webAppsActivate,
+    schemas.WebAppsActivateRequest,
     ({ id }) => {
       const win = getMainWindow();
-      if (win) activateApp(win, id);
+      if (win) activateWebApp(win, id);
     },
     warnInvalid,
   );

@@ -12,30 +12,30 @@ import { z } from 'zod';
  * (the IPC schemas, `PANEL_WINDOW_ROLES`, the rail's icon map) a closed,
  * exhaustively-checkable union rather than an open string.
  */
-export const AppIdSchema = z.enum(['spotify', 'google-calendar', 'youtube']);
-export type AppId = z.infer<typeof AppIdSchema>;
+export const WebAppIdSchema = z.enum(['spotify', 'google-calendar', 'youtube']);
+export type WebAppId = z.infer<typeof WebAppIdSchema>;
 
 /**
  * A static, hardcoded definition — never persisted, never user-edited.
  * `partition` is the literal `persist:app-<id>` string, computed once here
  * rather than re-derived (string-concatenated) at each call site, so
- * `apps-service.ts` and any future consumer read the same value instead of
+ * `web-apps-service.ts` and any future consumer read the same value instead of
  * trusting a naming convention to stay in sync.
  */
-export const AppDefinitionSchema = z.object({
-  id: AppIdSchema,
+export const WebAppDefinitionSchema = z.object({
+  id: WebAppIdSchema,
   label: z.string(),
   launchUrl: z.string().url(),
   partition: z.string(),
 });
-export type AppDefinition = z.infer<typeof AppDefinitionSchema>;
+export type WebAppDefinition = z.infer<typeof WebAppDefinitionSchema>;
 
 /**
- * The three in-scope apps, keyed by id — main (`apps-service.ts`) and the
+ * The three in-scope apps, keyed by id — main (`web-apps-service.ts`) and the
  * renderer (the rail row, Theme C) both read this instead of each hardcoding
  * labels/URLs of their own.
  */
-export const APP_DEFINITIONS: Readonly<Record<AppId, AppDefinition>> = {
+export const WEB_APP_DEFINITIONS: Readonly<Record<WebAppId, WebAppDefinition>> = {
   spotify: {
     id: 'spotify',
     label: 'Spotify',
@@ -57,11 +57,11 @@ export const APP_DEFINITIONS: Readonly<Record<AppId, AppDefinition>> = {
 } as const;
 
 /** Every in-scope app id, in the rail's own display order. */
-export const APP_IDS = AppIdSchema.options;
+export const WEB_APP_IDS = WebAppIdSchema.options;
 
 /**
  * The literal `apps-<id>` `PanelWindowRole` for each app (Theme D) — computed
- * once here, the same reasoning `AppDefinition.partition` gives for not
+ * once here, the same reasoning `WebAppDefinition.partition` gives for not
  * string-concatenating it again at each call site (`window-manager.ts`,
  * `window-handlers.ts`, the rail row's `focusRole` call). Typed as a template
  * literal rather than importing `PanelWindowRole` from `domain/window.ts`: the
@@ -69,21 +69,21 @@ export const APP_IDS = AppIdSchema.options;
  * a plain string keeps this module free of a dependency on `window.ts`,
  * keeping the edge one-directional.
  */
-export const APP_ROLE: Readonly<Record<AppId, `apps-${AppId}`>> = {
+export const WEB_APP_ROLE: Readonly<Record<WebAppId, `apps-${WebAppId}`>> = {
   spotify: 'apps-spotify',
   'google-calendar': 'apps-google-calendar',
   youtube: 'apps-youtube',
 };
 
-const ROLE_TO_APP_ID = new Map<string, AppId>(APP_IDS.map((id) => [APP_ROLE[id], id]));
+const ROLE_TO_APP_ID = new Map<string, WebAppId>(WEB_APP_IDS.map((id) => [WEB_APP_ROLE[id], id]));
 
 /**
- * The reverse of {@link APP_ROLE} — the app id for one of the three `apps-*`
+ * The reverse of {@link WEB_APP_ROLE} — the app id for one of the three `apps-*`
  * window roles, or `null` for any other role (`main`, a panel, a page).
  * Takes a plain `string` rather than `WindowRole` for the same
- * no-cross-import reason `APP_ROLE` does; every real call site already has a
+ * no-cross-import reason `WEB_APP_ROLE` does; every real call site already has a
  * `WindowRole` value, which is a `string` structurally.
  */
-export function appIdForRole(role: string): AppId | null {
+export function webAppIdForRole(role: string): WebAppId | null {
   return ROLE_TO_APP_ID.get(role) ?? null;
 }

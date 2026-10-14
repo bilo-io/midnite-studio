@@ -12,7 +12,7 @@ import {
   type ProcessRow,
   type PsParse,
 } from '../agent-process';
-import { getAppOwners } from '../apps-service';
+import { getWebAppOwners } from '../web-apps-service';
 import { getBrowserTabOwners } from '../browser-service';
 import { probeDetailedMemory } from '../metrics/memory';
 import { activePtyPids, getPtySessionOwners } from '../pty-service';
@@ -88,7 +88,7 @@ function collectActiveOwners(rows: readonly ProcessRow[]): Map<number, string> {
 
   // 3. Embedded apps
   try {
-    for (const [pid, label] of getAppOwners()) {
+    for (const [pid, label] of getWebAppOwners()) {
       owners.set(pid, label);
     }
   } catch {

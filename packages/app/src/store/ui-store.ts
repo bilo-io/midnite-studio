@@ -12,7 +12,7 @@ import {
   type AgentCommandId,
   type AgentMode,
   type AgentOllamaBinding,
-  type AppId,
+  type WebAppId,
   type CompanionMicMode,
   type CompanionProfile,
   type CompanionSttEngine,
@@ -80,6 +80,7 @@ import {
 import { cycleBrowserLayout } from '../features/browser/browser-layouts';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
+import { migrateAppsToWebApps } from './migrate-web-apps';
 import {
   INITIAL_SETUP_STATE,
   migrateSetupState,
@@ -288,7 +289,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'agent', label: 'Agent', group: 'ai' },
   { id: 'companion', label: 'Companion', group: 'ai' },
   { id: 'mcp', label: 'MCP Server', group: 'ai' },
-  { id: 'apps', label: 'Apps', group: 'ai' },
+  { id: 'web-apps', label: 'Web apps', group: 'ai' },
   { id: 'accounts', label: 'Accounts', group: 'general' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
   { id: 'updates', label: 'App Updates', group: 'system' },
@@ -2126,16 +2127,16 @@ export type UiState = {
    * `WebContentsView` and login flow the moment it is enabled, which is not
    * something to opt a user into silently. Default `[]`.
    */
-  enabledApps: AppId[];
-  setAppEnabled: (id: AppId, enabled: boolean) => void;
+  enabledWebApps: WebAppId[];
+  setWebAppEnabled: (id: WebAppId, enabled: boolean) => void;
   /**
    * Per-app opt-in to idle discard (Phase 84 Theme F.4).
    * Apps are excluded from discard by default so background music/playback
    * continues. When true for an app, it is discarded after being hidden past
    * the discard threshold.
    */
-  appDiscardIdle: Record<AppId, boolean>;
-  setAppDiscardIdle: (id: AppId, discard: boolean) => void;
+  webAppDiscardIdle: Record<WebAppId, boolean>;
+  setWebAppDiscardIdle: (id: WebAppId, discard: boolean) => void;
   /**
    * Which of the three apps rail roles currently have a popout of their own
    * (Phase 83 Theme D) — the `detachedPages` shape, not the four-panel
@@ -2148,8 +2149,8 @@ export type UiState = {
    * the popout" for a window that no longer exists — `use-window-sync.ts`
    * corrects it from main's own registry on the first round trip regardless.
    */
-  detachedApps: readonly AppId[];
-  setAppDetached: (id: AppId, detached: boolean) => void;
+  detachedWebApps: readonly WebAppId[];
+  setWebAppDetached: (id: WebAppId, detached: boolean) => void;
   /**
    * Which enabled app the rail's flyout is currently showing, or `null` when
    * it is closed — the flyout has no tab strip (Theme C), so the rail icons
@@ -2158,7 +2159,7 @@ export type UiState = {
    * resizable layout slot of its own starts fresh every launch, the same as
    * `companionPanelOpen`.
    */
-  appsFlyoutAppId: AppId | null;
+  webAppsFlyoutAppId: WebAppId | null;
   /**
    * The app most recently opened from the rail, retained after its flyout
    * closes so the collapsed switcher can keep that one app visible.
@@ -2166,9 +2167,9 @@ export type UiState = {
    * Runtime-only: app views are reconstructed on launch and there is no
    * useful promise in restoring yesterday's flyout selection.
    */
-  lastOpenedAppId: AppId | null;
-  openAppsFlyout: (id: AppId) => void;
-  closeAppsFlyout: () => void;
+  lastOpenedWebAppId: WebAppId | null;
+  openWebAppsFlyout: (id: WebAppId) => void;
+  closeWebAppsFlyout: () => void;
   passcode: string | null;
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
@@ -2389,8 +2390,8 @@ export type PersistedUi = Pick<
   | 'allowTrashEmpty'
   | 'trashEmptyConsentGiven'
   | 'disabledEcosystems'
-  | 'enabledApps'
-  | 'appDiscardIdle'
+  | 'enabledWebApps'
+  | 'webAppDiscardIdle'
   | 'terminalDetached'
   | 'reposDetached'
   | 'fabDetached'
@@ -2673,15 +2674,15 @@ export const useUiStore = create<UiState>()(
       // Disabled set, not the enabled one — see the interface docblock.
       disabledEcosystems: [],
       // Enabled set, not a disabled one — see the interface docblock.
-      enabledApps: [],
-      appDiscardIdle: {
+      enabledWebApps: [],
+      webAppDiscardIdle: {
         spotify: false,
         'google-calendar': false,
         youtube: false,
       },
-      detachedApps: [],
-      appsFlyoutAppId: null,
-      lastOpenedAppId: null,
+      detachedWebApps: [],
+      webAppsFlyoutAppId: null,
+      lastOpenedWebAppId: null,
       passcode: null,
       setPasscode: (passcode) => set({ passcode }),
       passcodeOnlyWhenLocked: false,
@@ -3221,33 +3222,33 @@ export const useUiStore = create<UiState>()(
       // shows a view; disable tears it down), so the caller — Theme E's
       // settings switch, or Theme C's rail icon — already knows which one it
       // means and should not have to read current state first to pick it.
-      setAppEnabled: (id, enabled) =>
+      setWebAppEnabled: (id, enabled) =>
         set((state) => ({
-          enabledApps: enabled
-            ? state.enabledApps.includes(id)
-              ? state.enabledApps
-              : [...state.enabledApps, id]
-            : state.enabledApps.filter((entry) => entry !== id),
+          enabledWebApps: enabled
+            ? state.enabledWebApps.includes(id)
+              ? state.enabledWebApps
+              : [...state.enabledWebApps, id]
+            : state.enabledWebApps.filter((entry) => entry !== id),
         })),
-      setAppDiscardIdle: (id, discard) =>
+      setWebAppDiscardIdle: (id, discard) =>
         set((state) => ({
-          appDiscardIdle: {
-            ...state.appDiscardIdle,
+          webAppDiscardIdle: {
+            ...state.webAppDiscardIdle,
             [id]: discard,
           },
         })),
       // Mirrors `setPageDetached` — add/remove from the array rather than a
       // per-role boolean field, since all three roles behave identically.
-      setAppDetached: (id, detached) =>
+      setWebAppDetached: (id, detached) =>
         set((state) => ({
-          detachedApps: detached
-            ? state.detachedApps.includes(id)
-              ? state.detachedApps
-              : [...state.detachedApps, id]
-            : state.detachedApps.filter((entry) => entry !== id),
+          detachedWebApps: detached
+            ? state.detachedWebApps.includes(id)
+              ? state.detachedWebApps
+              : [...state.detachedWebApps, id]
+            : state.detachedWebApps.filter((entry) => entry !== id),
         })),
-      openAppsFlyout: (id) => set({ appsFlyoutAppId: id, lastOpenedAppId: id }),
-      closeAppsFlyout: () => set({ appsFlyoutAppId: null }),
+      openWebAppsFlyout: (id) => set({ webAppsFlyoutAppId: id, lastOpenedWebAppId: id }),
+      closeWebAppsFlyout: () => set({ webAppsFlyoutAppId: null }),
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setAutoFetchEnabled: (autoFetchEnabled) => set({ autoFetchEnabled }),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
@@ -3346,7 +3347,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 33,
+      version: 34,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         mediaTab: state.mediaTab,
@@ -3493,8 +3494,8 @@ export const useUiStore = create<UiState>()(
         allowTrashEmpty: state.allowTrashEmpty,
         trashEmptyConsentGiven: state.trashEmptyConsentGiven,
         disabledEcosystems: state.disabledEcosystems,
-        enabledApps: state.enabledApps,
-        appDiscardIdle: state.appDiscardIdle,
+        enabledWebApps: state.enabledWebApps,
+        webAppDiscardIdle: state.webAppDiscardIdle,
         terminalDetached: state.terminalDetached,
         reposDetached: state.reposDetached,
         fabDetached: state.fabDetached,
@@ -3545,7 +3546,7 @@ export const useUiStore = create<UiState>()(
        * `companionAboutUser` `''` — a plain seed, not a migration off some
        * prior shape: neither field existed in any earlier version, so a
        * fresh install and a pre-v17 blob land on the identical default.
-       * v17 → v18: seed `enabledApps = []` (Phase 83 Theme A). No prior
+       * v17 → v18: seed `enabledWebApps = []` (Phase 83 Theme A). No prior
        * shape to carry forward — the apps rail did not exist before this
        * version — and `[]` is also the fresh-install default, per the
        * interface docblock's "opt in, not opt out" reasoning.
@@ -3593,10 +3594,12 @@ export const useUiStore = create<UiState>()(
        * profile seeded straight into the persist key may already hold them.
        * v32 → v33: seed `primaryModelByAgent = {}` and preserve `primaryAgent`
        * (Phase 111 Theme A) — global agent and model state contract.
+       * v33 → v34: rename the Phase 83 apps-rail fields and the `apps` Settings
+       * page to `web-apps` (Phase 113 Theme A) — see `migrate-web-apps.ts`.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
-          enabledApps?: AppId[];
+          enabledWebApps?: WebAppId[];
           graphColumns?: Record<string, number>;
           collapsedRepoSections?: Record<string, string[]>;
           repoGroups?: unknown[];
@@ -3725,7 +3728,7 @@ export const useUiStore = create<UiState>()(
           state.companionAboutUser = '';
         }
         if (version < 18) {
-          state.enabledApps = [];
+          state.enabledWebApps = [];
         }
         if (version < 19) {
           state.agentModes = {};
@@ -3781,6 +3784,9 @@ export const useUiStore = create<UiState>()(
         if (version < 33) {
           state.primaryModelByAgent ??= {};
         }
+        // Runs after every arm that can seed a legacy name (v<18 seeds the
+        // apps list), so one rename covers a blob from any earlier version.
+        if (version < 34) migrateAppsToWebApps(state);
         return state as PersistedUi;
       },
       /**

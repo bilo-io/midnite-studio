@@ -1504,10 +1504,10 @@ export function buildMockBridge(data: MockFixtures) {
   const browserKeepAwakeCalls: Array<{ tabId: string; keepAwake: boolean }> = [];
   /** Every `browser.setDiscardMs` call, in order (Phase 84 Theme F) — pushed on mount and on Settings change. */
   const browserDiscardMsCalls: Array<{ ms: number }> = [];
-  /** Every `apps.enable`/`disable`/`activate` call, in order (Phase 83 Theme C) — the apps-rail e2e spec's assertion surface. */
-  const appsEnableCalls: string[] = [];
-  const appsDisableCalls: string[] = [];
-  const appsActivateCalls: (string | null)[] = [];
+  /** Every `webApps.enable`/`disable`/`activate` call, in order (Phase 83 Theme C) — the apps-rail e2e spec's assertion surface. */
+  const webAppsEnableCalls: string[] = [];
+  const webAppsDisableCalls: string[] = [];
+  const webAppsActivateCalls: (string | null)[] = [];
 
   /** Live install state for Theme E's stamp hook, seeded from the fixture and mutated by install/uninstall. */
   const hookInstalledRepos = new Set<string>(data.hookInstalledRepos ?? []);
@@ -1516,7 +1516,7 @@ export function buildMockBridge(data: MockFixtures) {
   const settingsSyncCalls: Array<{
     autoFetchEnabled: boolean;
     autoFetchIntervalMs: number;
-    appDiscardIdle?: Record<string, boolean>;
+    webAppDiscardIdle?: Record<string, boolean>;
     browserDiscardMs?: number;
   }> = [];
   const syncStatusHandlers: ((e: unknown) => void)[] = [];
@@ -3058,17 +3058,17 @@ export function buildMockBridge(data: MockFixtures) {
         keep a log a spec CAN assert against, the same posture `browser`'s
         `setVisible` above takes for `browserVisibleCalls`.
       */
-    apps: {
+    webApps: {
       enable: async (req: { id: string }) => {
-        appsEnableCalls.push(req.id);
+        webAppsEnableCalls.push(req.id);
         return { ok: true as const };
       },
       disable: (req: { id: string }) => {
-        appsDisableCalls.push(req.id);
+        webAppsDisableCalls.push(req.id);
       },
       setBounds: noop,
       activate: (req: { id: string | null }) => {
-        appsActivateCalls.push(req.id);
+        webAppsActivateCalls.push(req.id);
       },
     },
     /*
@@ -4605,7 +4605,7 @@ export function buildMockBridge(data: MockFixtures) {
       sync: (req: {
         autoFetchEnabled: boolean;
         autoFetchIntervalMs: number;
-        appDiscardIdle?: Record<string, boolean>;
+        webAppDiscardIdle?: Record<string, boolean>;
         browserDiscardMs?: number;
       }) => {
         settingsSyncCalls.push(req);
@@ -6182,14 +6182,14 @@ export function buildMockBridge(data: MockFixtures) {
   (
     window as unknown as { __mstudioBrowserDiscardMsCalls: unknown }
   ).__mstudioBrowserDiscardMsCalls = () => [...browserDiscardMsCalls];
-  (window as unknown as { __mstudioAppsEnableCalls: unknown }).__mstudioAppsEnableCalls = () => [
-    ...appsEnableCalls,
+  (window as unknown as { __mstudioWebAppsEnableCalls: unknown }).__mstudioWebAppsEnableCalls = () => [
+    ...webAppsEnableCalls,
   ];
-  (window as unknown as { __mstudioAppsDisableCalls: unknown }).__mstudioAppsDisableCalls = () => [
-    ...appsDisableCalls,
+  (window as unknown as { __mstudioWebAppsDisableCalls: unknown }).__mstudioWebAppsDisableCalls = () => [
+    ...webAppsDisableCalls,
   ];
-  (window as unknown as { __mstudioAppsActivateCalls: unknown }).__mstudioAppsActivateCalls =
-    () => [...appsActivateCalls];
+  (window as unknown as { __mstudioWebAppsActivateCalls: unknown }).__mstudioWebAppsActivateCalls =
+    () => [...webAppsActivateCalls];
   (window as unknown as { __mstudioSettingsSyncCalls: unknown }).__mstudioSettingsSyncCalls =
     () => [...settingsSyncCalls];
   (window as unknown as { __mstudioEmitSyncStatus: unknown }).__mstudioEmitSyncStatus = (

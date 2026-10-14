@@ -187,11 +187,11 @@ async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: 
     fab: ui.fabDetached,
     companion: ui.companionDetached,
     browser: ui.browserDetached,
-    // The apps-rail roles track detached-ness as an array (`detachedApps`,
+    // The apps-rail roles track detached-ness as an array (`detachedWebApps`,
     // Theme D), mirroring `detachedPages` — see its own doc.
-    'apps-spotify': ui.detachedApps.includes('spotify'),
-    'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
-    'apps-youtube': ui.detachedApps.includes('youtube'),
+    'apps-spotify': ui.detachedWebApps.includes('spotify'),
+    'apps-google-calendar': ui.detachedWebApps.includes('google-calendar'),
+    'apps-youtube': ui.detachedWebApps.includes('youtube'),
     // A popped-out game (Phase 107 Theme B) — tracked by the Games tab's run store.
     game: useGameRunStore.getState().popped !== null,
   };
@@ -238,9 +238,9 @@ function resolveNavigateAction(
       companion: ui.companionDetached,
       browser: ui.browserDetached,
       // See `navigate.ts`'s identical note.
-      'apps-spotify': ui.detachedApps.includes('spotify'),
-      'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
-      'apps-youtube': ui.detachedApps.includes('youtube'),
+      'apps-spotify': ui.detachedWebApps.includes('spotify'),
+      'apps-google-calendar': ui.detachedWebApps.includes('google-calendar'),
+      'apps-youtube': ui.detachedWebApps.includes('youtube'),
       // A popped-out game (Phase 107 Theme B) — tracked by the Games tab's run store.
       game: useGameRunStore.getState().popped !== null,
     },

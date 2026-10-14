@@ -35,7 +35,7 @@ import { LogRingBuffer, clipLogText } from './ring-buffer';
  * true`, `contextIsolation`, no preload — on a partition no other view shares,
  * served from `mstudio-game://<gameId>/` by a handler installed on THAT session
  * only. It never shares a process with `window.midniteStudio`. Modelled on
- * `apps-service.ts`, with three differences: the partition is per run and
+ * `web-apps-service.ts`, with three differences: the partition is per run and
  * in-memory (so Restart starts clean), the page is the user's own repo rather
  * than a third party's site, and every capability is denied unless a game
  * needs it to be a game (fullscreen, pointer lock, audio).
@@ -531,7 +531,7 @@ export function createGameRunner(deps: GameRunnerDeps): GameRunner {
 }
 
 /**
- * CSS px → device px by the window's zoom factor, exactly as `setAppBounds`
+ * CSS px → device px by the window's zoom factor, exactly as `setWebAppBounds`
  * does: the renderer cannot import `electron`, so it cannot read the factor.
  */
 function applyBounds(run: Run, bounds: BrowserBounds): void {
