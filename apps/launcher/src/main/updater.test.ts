@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { LAUNCHER_FEED_URL, LAUNCHER_UPDATE_FEED, runLauncherUpdates, type UpdaterLike } from './updater';
@@ -21,6 +23,12 @@ describe('the launcher feed', () => {
       channel: 'latest',
     });
     expect(LAUNCHER_FEED_URL).not.toMatch(/releases\/latest/);
+  });
+
+  it('is the feed electron-builder.yml writes into app-update.yml', () => {
+    const yml = readFileSync(new URL('../../electron-builder.yml', import.meta.url), 'utf8');
+    expect(yml).toContain(`provider: generic\n    url: ${LAUNCHER_FEED_URL}\n    channel: latest`);
+    expect(yml).not.toMatch(/provider:\s*github/);
   });
 });
 

@@ -21,9 +21,28 @@ Layout:
 | Path | What |
 | --- | --- |
 | `src/common/` | The catalog, the bridge contract, version + status helpers — shared by main and renderer |
-| `src/main/` | Window, IPC (zod-validated), Studio detection, the release feed, install |
+| `src/main/` | Window, IPC (zod-validated), Studio detection, the release feed, install, the suite's one updater (`updater.ts`) |
+| `src/main/bundles/` | Per-app bundles (Phase 113 Theme E): install/update/uninstall, the Dock stub, `installed.json` |
 | `src/preload/` | `window.midniteLauncher` |
 | `src/renderer/` | The UI; `mock-bridge.ts` stands in outside Electron |
 
 It is ~100 MB packaged, not the 17 MB of a native/Tauri launcher: that is the Electron framework,
 kept so the launcher can share a runtime with the apps later.
+
+## Per-app bundles and updates (Phase 113 Theme E)
+
+`src/main/bundles/` installs one app as a **bundle** (its own code, never an Electron build) plus a
+**Dock stub**: `Midnite <Name>.app`, whose Electron framework, main binary and helpers are APFS-cloned
+(`cp -c`) from the running launcher, with its own `Info.plist` name, bundle id
+(`io.bilo.midnite-<id>`) and icon, ad-hoc signed — the mechanism `docs/spikes/dock-identity.md` chose.
+The download is checked against `catalog.json`'s size and SHA-256 before anything is touched, and the
+bundle and stub swap in together or not at all (`swap.ts`, shared with Studio's install).
+`installed.json` under the bundle root records what is installed; uninstall removes exactly one
+app's bundle, stub and record. Both roots are parameters — only `bundles/production.ts` names
+`/Applications` and userData, and every test runs on temp dirs.
+
+The launcher owns updates: `updater.ts` runs electron-updater on its own `generic`,
+namespaced feed (`midnite-launcher/feed`), then `bundles/updates.ts` re-clones stubs left on an
+older runtime and reinstalls bundles the catalog has moved past. No app runs an updater —
+`eslint.config.mjs` (`NO_APP_UPDATER`) and `scripts/single-updater.test.mjs` keep electron-updater
+to this launcher and Studio's own (until Phase 113 Theme G).
