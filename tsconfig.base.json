@@ -27,6 +27,7 @@
       "@midnite/studio-knowledge": ["./packages/knowledge/src/index.ts"],
       "@midnite/studio-knowledge/*": ["./packages/knowledge/src/*"],
       "@midnite/studio-runtime": ["./packages/runtime/src/index.ts"],
+      "@midnite/studio-runtime/broker/*": ["./packages/runtime/src/broker/*"],
       "@midnite/studio-feature-optimizer/main": ["./packages/features/optimizer/main/index.ts"]
     }
   }

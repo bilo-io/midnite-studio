@@ -2,6 +2,7 @@ import { mkdtemp, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { createVaultService } from '@midnite/studio-runtime';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { encryptString, decryptString, isEncryptionAvailable } = vi.hoisted(() => ({
@@ -9,9 +10,10 @@ const { encryptString, decryptString, isEncryptionAvailable } = vi.hoisted(() =>
   decryptString: vi.fn((buf: Buffer) => buf.toString('utf8').replace(/^enc:/, '')),
   isEncryptionAvailable: vi.fn(() => true),
 }));
-vi.mock('electron', () => ({
-  safeStorage: { encryptString, decryptString, isEncryptionAvailable },
-}));
+// Phase 113 Theme D: the vault is the runtime's, with `safeStorage` injected
+// as its cipher — these mocks are that cipher, so no `vi.mock('electron')`.
+const vaultIn = (directory: string) =>
+  createVaultService({ directory, cipher: { encryptString, decryptString, isEncryptionAvailable } }).forApp('studio');
 
 let createSecretsVault: typeof import('./secrets-vault').createSecretsVault;
 let secretsVaultPath: typeof import('./secrets-vault').secretsVaultPath;
@@ -27,13 +29,13 @@ beforeEach(async () => {
 
 describe('createSecretsVault', () => {
   it('encrypts on save and decrypts on read', async () => {
-    const vault = createSecretsVault(dir);
+    const vault = createSecretsVault(vaultIn(dir));
     await vault.set('finance.twelveData', 'td-key-123');
     expect(await vault.get('finance.twelveData')).toBe('td-key-123');
   });
 
   it('stores secrets.vault.json at 0o600 without plaintext', async () => {
-    const vault = createSecretsVault(dir);
+    const vault = createSecretsVault(vaultIn(dir));
     await vault.set('finance.twelveData', 'td-key-123');
     const file = secretsVaultPath(dir);
     const mode = (await stat(file)).mode & 0o777;

@@ -237,7 +237,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   one.** The pty broker (`desktop/src/broker/`) is spawned detached so terminals survive
   reloads, window closes and relaunches, which also means a `desktop:dist` + reinstall replaces
   the bundle under a running broker. Its socket name carries a build fingerprint
-  (`brokerSocketName` in `main/broker-client.ts`), so a new build starts its own broker and
+  (`brokerSocketName` in `runtime/src/broker/socket-name.ts`; the client every app attaches
+  with is the runtime's `broker/client.ts` since Phase 113 Theme D), so a new build starts its own broker and
   finds the previous one as a *legacy* peer whose sessions stay reachable until they end. The
   broker also watches its own script and node-pty's `spawn-helper` (`broker/staleness.ts`):
   when either changes on disk it answers `create` with `stale-broker` instead of node-pty's
@@ -364,8 +365,9 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 - **A forge credential lives in `main/forge/forge-account-vault.ts`, never in renderer
   `localStorage`.** Phase 90 Theme B gave the app its first logged-in identity — a GitHub, GitLab,
   Bitbucket or Azure DevOps personal access token, encrypted behind Electron `safeStorage` and
-  keyed `${provider}:${host}:${login}`, the third binding over `main/secure-store.ts` beside
-  `db/credential-vault.ts` and `secrets-vault.ts` (Phase 76 Theme D). `ForgeAccountSchema`'s
+  keyed `${provider}:${host}:${login}`, the third binding beside
+  `db/credential-vault.ts` and `secrets-vault.ts` (Phase 76 Theme D) — since Phase 113 Theme D all
+  three bind namespaces of the runtime's one vault service (`runtime/src/vault/`, over the same files). `ForgeAccountSchema`'s
   `hasToken` is a boolean on the wire — the renderer is told a credential exists, never what it
   is. A GitHub account discovered from `gh auth status` holds no token at all (`delegated: 'gh'`):
   `gh` remains its credential, unchanged. The one plaintext forge-token slot this app ever had —

@@ -1,13 +1,19 @@
 import { join } from 'node:path';
 
+import { VAULT_NAMESPACES, type VaultClient } from '@midnite/studio-runtime';
 import type { ForgeAccountVaultKey } from '@midnite/studio-shared';
-
-import { createSecureJsonStore, decryptSecret, encryptSecret, isSafeStorageAvailable } from '../secure-store';
 
 /**
  * Where a forge account's PAT lives — the third binding over
  * `main/secure-store.ts`, beside `db/credential-vault.ts` and
  * `secrets-vault.ts` (both Phase 76 Theme D).
+ *
+ * **Since Phase 113 Theme D** all three are bindings over one runtime vault
+ * (`@midnite/studio-runtime`'s `createVaultService`), this one over its
+ * `forge-accounts` namespace; `secure-store.ts` moved into the runtime with
+ * it. The file, the key format and the session-only fallback below are
+ * unchanged — the fallback is now the namespace's `whenUnavailable:
+ * 'session'`, held by the service so every app sees the same token.
  *
  * **Phase 90's own doc named a collision here that no longer exists.** The
  * phase's plan called for extracting `credential-vault.ts`'s `safeStorage`
@@ -38,56 +44,15 @@ export type ForgeAccountVault = {
   delete: (key: ForgeAccountVaultKey) => Promise<void>;
 };
 
-type VaultEntry = { encrypted: string };
+const FILE_NAME = VAULT_NAMESPACES['forge-accounts'].fileName;
+const NS = 'forge-accounts';
 
-const FILE_NAME = 'forge-accounts.vault.json';
-
-function parseVaultState(value: unknown): Record<string, VaultEntry> {
-  if (typeof value !== 'object' || value === null) return {};
-  const entries = (value as { entries?: unknown }).entries;
-  if (typeof entries !== 'object' || entries === null) return {};
-
-  const out: Record<string, VaultEntry> = {};
-  for (const [id, raw] of Object.entries(entries as Record<string, unknown>)) {
-    if (!id || typeof raw !== 'object' || raw === null) continue;
-    const encrypted = (raw as Record<string, unknown>)['encrypted'];
-    if (typeof encrypted === 'string') out[id] = { encrypted };
-  }
-  return out;
-}
-
-export function createForgeAccountVault(directory: string): ForgeAccountVault {
-  const store = createSecureJsonStore<VaultEntry>(directory, FILE_NAME, parseVaultState);
-  // Only ever written on the `!isSafeStorageAvailable()` branch — see the
-  // module docblock. Not a cache in front of the file: a decrypt costs
-  // microseconds and happens once per account action, so caching plaintext
-  // tokens in main for the process lifetime would be risk with no upside.
-  const sessionOnly = new Map<ForgeAccountVaultKey, string>();
-
+export function createForgeAccountVault(vault: VaultClient): ForgeAccountVault {
   return {
-    isAvailable: isSafeStorageAvailable,
-
-    get: async (key) => {
-      const inMemory = sessionOnly.get(key);
-      if (inMemory !== undefined) return inMemory;
-      const entry = await store.get(key);
-      if (!entry) return null;
-      return decryptSecret(entry.encrypted);
-    },
-
-    set: async (key, token) => {
-      if (!isSafeStorageAvailable()) {
-        sessionOnly.set(key, token);
-        return;
-      }
-      sessionOnly.delete(key);
-      await store.set(key, { encrypted: encryptSecret(token) });
-    },
-
-    delete: async (key) => {
-      sessionOnly.delete(key);
-      await store.delete(key);
-    },
+    isAvailable: () => vault.isAvailable(),
+    get: (key) => vault.get(NS, key),
+    set: (key, token) => vault.set(NS, key, token),
+    delete: (key) => vault.delete(NS, key),
   };
 }
 

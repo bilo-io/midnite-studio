@@ -78,6 +78,7 @@ const REJECTED = [
   ['the runtime imports the frame', RUNTIME, '@midnite/studio-frame', 'no renderer'],
   ['the runtime imports an app', RUNTIME, '@midnite/studio-app', 'Nothing below an app imports one'],
   ['the runtime imports desktop', RUNTIME, '@midnite/studio-desktop', 'Desktop is Studio'],
+  ['the runtime imports node-pty (Theme D)', RUNTIME, 'node-pty', 'only in the broker process'],
   ["an app imports a feature's main half", APP, '@midnite/studio-feature-optimizer/main', "feature's main half runs in the main process"],
   ['an app imports the runtime', APP, '@midnite/studio-runtime', 'main-process only'],
   ["an app's production code imports a feature's testing entry", APP, '@midnite/studio-feature-optimizer/renderer/testing', 'composition tests only'],
@@ -112,6 +113,7 @@ const ALLOWED = [
   // The suite's one updater, and Studio's until Theme G repoints it.
   ['the launcher imports electron-updater', 'apps/launcher/src/main/updater.ts', 'electron-updater'],
   ["Studio's update service imports electron-updater", 'packages/desktop/src/main/update-service.ts', 'electron-updater'],
+  ["desktop imports one of the runtime's broker files (Theme D)", DESKTOP, '@midnite/studio-runtime/broker/protocol'],
 ];
 
 describe('eslint layer boundaries (Phase 113 Theme C)', () => {
