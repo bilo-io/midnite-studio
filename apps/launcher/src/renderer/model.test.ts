@@ -38,8 +38,15 @@ describe('launcher model', () => {
       'Creator',
       'Gamer',
       'Media',
+      'Mind',
       'Money',
       'Studio',
+    ]);
+    expect(byName.find((g) => g.section === 'utilities')!.apps.map((a) => a.name)).toEqual([
+      'Browser',
+      'Capture',
+      'Cleaner',
+      'Vault',
     ]);
   });
 });
