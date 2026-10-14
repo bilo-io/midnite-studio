@@ -148,7 +148,7 @@ async function compose({ base, svg, accent, brand }) {
   // both the black and the coloured halves.
   const glyph = await load(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
   // Small enough that the crescent still reads around it.
-  const size = S * 0.22;
+  const size = S * 0.27;
   ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
   ctx.shadowBlur = S * 0.03;
   ctx.shadowOffsetY = S * 0.008;
