@@ -1,6 +1,16 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-14 — Phase 113 Theme E (slice) — per-app bundle install and launcher-owned updates
+
+[PR #851](https://github.com/bilo-io/midnite-studio/pull/851). The launcher installs, updates and
+uninstalls one app bundle at a time: verified against the catalog's size and SHA-256, staged, given a
+Dock stub whose Electron framework is APFS-cloned from the runtime and ad-hoc signed, then swapped in
+with rollback. Installed bundles are recorded in `installed.json`, which the `midnite://` router now
+reads. The launcher runs the suite's one electron-updater on its own `generic` feed; a lint rule and a
+repo-wide test keep every app, the frame and the runtime from adding another. One manual check stays
+open: a packaged stub's renamed helpers and its Dock name.
+
 ## 2026-10-14 — Phase 113 Theme D (slice) — the `midnite://` link router
 
 [PR #849](https://github.com/bilo-io/midnite-studio/pull/849). Every app now has one link form,
