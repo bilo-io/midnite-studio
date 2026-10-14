@@ -1,0 +1,33 @@
+{
+  "name": "@midnite/app-browser",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Midnite Browser — full-window browsing, web apps, and agent-driven sessions.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-shared": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.7.0",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5",
+    "vitest": "^3.2.4"
+  }
+}

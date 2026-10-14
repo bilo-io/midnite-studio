@@ -1,0 +1,44 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+id: 'app-browser'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-browser'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
