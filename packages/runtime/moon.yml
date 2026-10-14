@@ -1,8 +1,9 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
 # The runtime layer (Phase 113 Theme C) — main-process services no window
-# owns: today the contract a feature's main half registers against; Theme D
-# moves the vault, the pty broker, the CLI/MCP server and the link router in.
+# owns: the contract a feature's main half registers against, and (Theme D)
+# the one vault service and the pty broker client every app attaches with.
+# The CLI/MCP server follows.
 # See docs/APPS.md ("Packages") for where it sits in the layer graph.
 language: 'typescript'
 layer: 'library'

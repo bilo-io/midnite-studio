@@ -360,6 +360,14 @@ export default tseslint.config(
       },
       LAYER_FRAME_FROM_MAIN,
       LAYER_DESKTOP,
+      // Phase 113 Theme D: the runtime holds the broker *client*. node-pty is
+      // a native module built against one ABI and loaded only by the broker
+      // process desktop bundles and spawns; the runtime speaks its socket.
+      {
+        group: ['node-pty', 'node-pty/*'],
+        message:
+          "The runtime never loads node-pty: it loads only in the broker process (desktop/src/broker/), which the runtime's broker client reaches over its socket.",
+      },
     ]),
   },
 
