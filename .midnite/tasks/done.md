@@ -1,6 +1,17 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-14 — Phase 113 Theme E (slice) — catalog.json schema and the launcher's dev identity
+
+[PR #848](https://github.com/bilo-io/midnite-studio/pull/848). The launcher has a zod schema for
+`catalog.json` (runtime version plus per-app version, bundle URL, size, sha256 and minimum runtime
+version) and fetches it from `bilo-io/midnite-apps` first, falling back to today's
+`midnite-studio/version.json` path when the catalog is missing, malformed, offline or lacks a Studio
+entry — which is every case today, since nothing is published yet. `catalog.example.json` is tested
+against the schema. In `moon run launcher:start` the launcher now sets its own Dock icon and app name;
+the Dock label still reads "Electron" because LaunchServices takes it from the stock Electron.app
+bundle, which only a cloned `Midnite Apps.app` stub will fix. Both Theme E items stay open (◐).
+
 ## 2026-10-14 — Phase 113 Theme A — Placement map and vocabulary
 
 [PR #847](https://github.com/bilo-io/midnite-studio/pull/847). Every folder in
