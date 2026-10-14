@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fetchLatestRelease, parseFeed } from './feed';
+import { fetchLatestRelease, fetchStudioRelease, parseFeed } from './feed';
 
 const fakeFetch = (body: unknown, status = 200) =>
   (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
@@ -41,5 +41,53 @@ describe('fetchLatestRelease', () => {
 
   it('returns the release', async () => {
     expect((await fetchLatestRelease('x', fakeFetch({ version: '1.2.3' }))).release?.version).toBe('1.2.3');
+  });
+});
+
+describe('fetchStudioRelease', () => {
+  const catalog = {
+    schemaVersion: 1,
+    runtimeVersion: '0.2.0',
+    apps: [
+      {
+        id: 'studio',
+        version: '0.2.0',
+        bundleUrl: 'https://example.com/studio.zip',
+        size: 10,
+        sha256: 'a'.repeat(64),
+        minimumRuntimeVersion: '0.2.0',
+        notesUrl: 'https://example.com/notes',
+      },
+    ],
+  };
+  const byUrl = (routes: Record<string, { body: unknown; status?: number }>) =>
+    (async (url: string) => {
+      const route = routes[url];
+      return route ? new Response(JSON.stringify(route.body), { status: route.status ?? 200 }) : new Response('', { status: 404 });
+    }) as unknown as typeof fetch;
+
+  it('prefers a valid catalog that lists Studio', async () => {
+    const fetchImpl = byUrl({ cat: { body: catalog }, feed: { body: { version: '0.1.0' } } });
+    const result = await fetchStudioRelease({ catalogUrl: 'cat', feedUrl: 'feed', fetchImpl });
+    expect(result.release).toEqual({ version: '0.2.0', releasedAt: null, notesUrl: 'https://example.com/notes' });
+  });
+
+  it('falls back to version.json when the catalog is missing, malformed or lacks Studio', async () => {
+    const feed = { body: { version: '0.1.0' } };
+    for (const cat of [{ body: {}, status: 404 }, { body: { nope: 1 } }, { body: { ...catalog, apps: [] } }]) {
+      const result = await fetchStudioRelease({ catalogUrl: 'cat', feedUrl: 'feed', fetchImpl: byUrl({ cat, feed }) });
+      expect(result.release?.version).toBe('0.1.0');
+    }
+  });
+
+  it('falls back when the catalog request itself fails, and reports a dead feed', async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      calls.push(url);
+      throw new TypeError('fetch failed');
+    }) as unknown as typeof fetch;
+    const result = await fetchStudioRelease({ catalogUrl: 'cat', feedUrl: 'feed', fetchImpl });
+    expect(calls).toEqual(['cat', 'feed']);
+    expect(result.error).toMatch(/offline/);
   });
 });

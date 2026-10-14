@@ -9,6 +9,8 @@ import { join } from 'node:path';
 
 export const RELEASES_REPO = 'bilo-io/midnite-apps';
 export const STUDIO_FEED_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/midnite-studio/version.json`;
+/** The suite's distribution catalog — see `common/catalog-feed.ts`. Not published yet; the launcher falls back to the feed above. */
+export const CATALOG_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/catalog.json`;
 export const STUDIO_BUNDLE = 'Midnite Studio.app';
 export const STUDIO_EXE = 'Midnite Studio';
 export const INSTALL_DIR = '/Applications';
