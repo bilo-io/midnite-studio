@@ -1,6 +1,19 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-14 — Phase 113 Theme B — Process model and Dock identity spike
+
+[PR #846](https://github.com/bilo-io/midnite-studio/pull/846). Measured how a small app on a shared
+runtime gets its own Dock icon without its own Chromium (Electron 33.4.11, macOS arm64). A stub that
+forwards to one runtime process cannot own the window, so the Dock and ⌘-Tab show the runtime. A
+per-app process whose `Frameworks/` is a symlink to the runtime's dies with SIGTRAP and fails
+`codesign --verify --deep --strict`. A per-app process whose framework is an APFS clone (or a
+hardlink) works: own name, bundle id and Dock/⌘-Tab entry, ~0 extra disk, 2.3 s to a window,
+~320 MB idle RSS per running app, two apps on one socket daemon at once. Decision 10 resolved to
+APFS-cloned stubs signed at install time. Gatekeeper rejects every ad-hoc bundle, so notarization of
+locally created stubs moves to Theme F. Findings: `docs/spikes/dock-identity.md`; scripts:
+`scripts/spikes/dock-identity/`.
+
 ## 2026-10-10 — Ad hoc — What was just said scrolls into view
 
 [PR #812](https://github.com/bilo-io/midnite-studio/pull/812). Not phase-tracked. The user asked that, after they speak, the composer and the views around the

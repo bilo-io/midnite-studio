@@ -37,7 +37,7 @@ Studio kept as the superset build every feature is still composed into.
 *One runtime, many small apps, Studio as the superset.* Planned 2026-10-14.
 
 **Theme A — Placement map and vocabulary.** ◻ Every Studio feature assigned to the frame or one app; `runtime` / `frame` / `app` / `feature` named; the Phase 83 `apps` rail renamed `web-apps`.
-**Theme B — Process model and Dock identity spike.** ◻ Prove how a small app gets its own Dock icon without its own Chromium, and pick the mechanism.
+**Theme B — Process model and Dock identity spike.** ✅ [PR #846](https://github.com/bilo-io/midnite-studio/pull/846). Measured on Electron 33.4.11 ([`docs/spikes/dock-identity.md`](../../../docs/spikes/dock-identity.md), reproducible via [`scripts/spikes/dock-identity/`](../../../scripts/spikes/dock-identity/)). Spike 1 (one runtime, a stub that forwards) is ruled out: the window belongs to the runtime's pid, so the Dock and ⌘-Tab show the runtime. Spike 2 with a **symlinked** framework is ruled out twice — Electron dies with SIGTRAP and `codesign --verify --deep --strict` rejects "invalid destination for symbolic link in bundle". Spike 2 with **APFS clones** (or hardlinks) works: own name, bundle id and Dock/⌘-Tab entry per app, ~0 extra disk, 2.3 s to a window, ~320 MB idle RSS per running app, and two apps reached one socket daemon at once. Decision: per-app processes from stubs whose framework is APFS-cloned at install time, services in a runtime daemon. Still open: a human look at the Dock rendering (2-minute pass in the doc), and Gatekeeper/notarization of locally created stubs (all ad-hoc bundles are `rejected` by `spctl`) — carried to Theme F.
 **Theme C — Package extraction scaffolding.** ◻ `packages/runtime`, `packages/frame`, the feature-package template and the eslint/moon rules that keep `app ← feature ← frame ← shared`.
 **Theme D — Shared runtime services.** ◻ One vault, one broker, one CLI/MCP owner with app-contributed tools, one link router for every app.
 **Theme E — Launcher becomes the runtime host.** ◻ `catalog.json`, per-app bundle install/update/uninstall, Dock stubs, its own Dock icon, launcher-owned updates, lockstep versions.
@@ -96,10 +96,10 @@ Studio kept as the superset build every feature is still composed into.
 - [ ] A vitest that fails when a folder in `features/` is missing from the map in `docs/APPS.md`'s machine-readable twin (`apps/placement.json` or similar).
 
 ### Theme B — Process model and Dock identity spike `[M]`
-- [ ] Spike 1: one runtime process, app windows inside it, a stub `.app` that forwards to it. Measure whether macOS shows the *stub's* icon and name in the Dock and ⌘-Tab.
-- [ ] Spike 2: one process per app from a stub `.app` whose `Frameworks/` symlinks to the runtime's Electron framework, with shared services reached over a socket. Measure Dock identity, disk per app, and idle memory per running app (`scripts/perf/idle-cpu.mjs`-style, from outside).
-- [ ] Check code signing and notarization for each spike: does a stub with a symlinked framework pass `codesign --verify --deep` and Gatekeeper?
-- [ ] Pick one and record it in Decisions with the measured numbers. Recommended default if both work: **Spike 2** (own Dock icon, crash isolation), with services in a runtime daemon.
+- [x] Spike 1: one runtime process, app windows inside it, a stub `.app` that forwards to it. Measure whether macOS shows the *stub's* icon and name in the Dock and ⌘-Tab.
+- [x] Spike 2: one process per app from a stub `.app` whose `Frameworks/` symlinks to the runtime's Electron framework, with shared services reached over a socket. Measure Dock identity, disk per app, and idle memory per running app (`scripts/perf/idle-cpu.mjs`-style, from outside).
+- [x] Check code signing and notarization for each spike: does a stub with a symlinked framework pass `codesign --verify --deep` and Gatekeeper?
+- [x] Pick one and record it in Decisions with the measured numbers. Recommended default if both work: **Spike 2** (own Dock icon, crash isolation), with services in a runtime daemon.
 
 ### Theme C — Package extraction scaffolding `[L]`
 - [ ] Create `packages/runtime` (main-only, may import `electron`) and `packages/frame` (renderer chrome, bridge-only), and move the first frame pieces out of [`app.tsx`](../../../packages/app/src/app.tsx) behind them.
@@ -235,7 +235,7 @@ Studio kept as the superset build every feature is still composed into.
 7. **Versioning?** Resolved: **lockstep**, matching today's release skills.
 8. **CI?** Resolved: **affected-only** bundle builds, one notarized runtime job, within the 5-concurrent-macOS-job cap.
 9. **Naming?** Resolved: **runtime / frame / app / feature**; the Phase 83 rail becomes **`web-apps`**; "shell" is never used for our own layer.
-10. **Dock identity mechanism?** Open until Theme B: recommended **one process per app from a stub with a symlinked Electron framework**, services in a runtime daemon, if signing and notarization allow it.
+10. **Dock identity mechanism?** Resolved by Theme B ([PR #846](https://github.com/bilo-io/midnite-studio/pull/846)): **one process per app from a stub `.app` whose Electron framework is APFS-cloned (`cp -c`) from the runtime at install time**, signed by the launcher, with shared services in a runtime daemon. Symlinks fail (SIGTRAP + codesign), a forwarding stub cannot own the window. Cost: ~320 MB RSS per running app. Notarization of locally created stubs is unverified → Theme F.
 11. **Notes quick-capture?** Recommended: stays in the frame and writes into Mind when Mind is installed.
 12. **Money trading?** Recommended: deferred; this phase ships read-only accounts.
 13. **Media streaming?** Recommended: local playback in scope; LAN streaming with transcoding is the stretch item.
