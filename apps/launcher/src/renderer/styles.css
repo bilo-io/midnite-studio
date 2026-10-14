@@ -53,6 +53,7 @@
     --fg-subtle: hsl(240 6% 48%);
     --line: hsl(240 12% 88%);
     --line-strong: hsl(240 10% 74%);
+    --ok: hsl(152 60% 30%);
   }
 }
 
@@ -694,8 +695,29 @@ button:disabled {
 
 .app-table {
   width: 100%;
+  table-layout: fixed; /* every section's table shares one set of column widths */
   border-collapse: collapse;
   border: 1px solid var(--line);
+}
+
+.app-table th:nth-child(1) {
+  width: 72px;
+}
+
+.app-table th:nth-child(2) {
+  width: 32%;
+}
+
+.app-table th:nth-child(4) {
+  width: 170px;
+}
+
+.app-table th:nth-child(5) {
+  width: 210px;
+}
+
+.app-table th:nth-child(6) {
+  width: 170px;
 }
 
 .app-table th {

@@ -237,6 +237,66 @@ export default tseslint.config(
     ]),
   },
 
+  // --- Boundary: launcher (apps/launcher — the Midnite Apps launcher) ---------
+  // Its own Electron app, off the Studio graph the same way the website is: it
+  // reaches Studio only through `midnite-studio://` links and the public
+  // midnite-apps feed, never through a workspace import. From `shared` it takes
+  // single source files by path (`@midnite/studio-shared/studio-link`, and
+  // type-only `domain/view` / `media`) — never the barrel, which would bundle
+  // every zod schema in the wire contract into a launcher that needs none.
+  {
+    files: ['apps/launcher/src/**/*.{ts,tsx}'],
+    rules: deny([
+      {
+        group: [
+          '@midnite/studio-app',
+          '@midnite/studio-app/*',
+          '@midnite/studio-git-engine',
+          '@midnite/studio-git-engine/*',
+          '@midnite/studio-db-engine',
+          '@midnite/studio-db-engine/*',
+          '@midnite/studio-knowledge',
+          '@midnite/studio-knowledge/*',
+          '@midnite/studio-desktop',
+          '@midnite/studio-desktop/*',
+        ],
+        message:
+          'The launcher shares no runtime with Studio. Open Studio with a midnite-studio:// link (shared/src/studio-link.ts) instead.',
+      },
+      {
+        regex: '^@midnite/studio-shared$',
+        message: 'Import the one shared file you need by path (@midnite/studio-shared/studio-link), not the barrel.',
+      },
+      {
+        group: ['lucide-react', 'lucide-react/*'],
+        message: 'react-icons is the only icon family here too — import from react-icons/lu.',
+      },
+    ]),
+  },
+  // The launcher's renderer is sandboxed: everything goes through `window.midniteLauncher`.
+  {
+    files: ['apps/launcher/src/renderer/**/*.{ts,tsx}'],
+    ignores: ['apps/launcher/src/renderer/**/*.test.{ts,tsx}'],
+    rules: deny([
+      {
+        group: ['electron', 'electron/*'],
+        message: 'The launcher renderer is sandboxed. Reach main through window.midniteLauncher (src/common/bridge.ts).',
+      },
+      {
+        group: ['node:*', 'fs', 'path', 'child_process', '**/main/*', '**/preload/*'],
+        message: 'No node builtins or main-process modules in the launcher renderer.',
+      },
+      {
+        regex: '^@midnite/studio-shared$',
+        message: 'Import the one shared file you need by path, not the barrel.',
+      },
+      {
+        group: ['lucide-react', 'lucide-react/*'],
+        message: 'react-icons is the only icon family here too — import from react-icons/lu.',
+      },
+    ]),
+  },
+
   // --- Boundary: broker ------------------------------------------------------
   // The broker is a Node process running under ELECTRON_RUN_AS_NODE and never
   // imports Electron modules.
