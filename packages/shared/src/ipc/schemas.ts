@@ -72,7 +72,7 @@ import {
   PostmanEnvironmentSchema,
   PostmanVariableSchema,
   SaveEnvironmentOutcomeSchema,
-  AppIdSchema,
+  WebAppIdSchema,
   BlameResultSchema,
   BrowserBoundsSchema,
   BrowserEventSchema,
@@ -2593,15 +2593,15 @@ export type BrowserNavErrorType = z.infer<typeof BrowserNavErrorSchema>;
 
 // --- third-party apps rail (Phase 83 Themes A/B) ----------------------------
 
-export const AppsEnableRequest = z.object({ id: AppIdSchema });
-export const AppsEnableResponse = z.discriminatedUnion('ok', [
+export const WebAppsEnableRequest = z.object({ id: WebAppIdSchema });
+export const WebAppsEnableResponse = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true) }),
   z.object({ ok: z.literal(false), message: z.string() }),
 ]);
-export const AppsDisableRequest = z.object({ id: AppIdSchema });
+export const WebAppsDisableRequest = z.object({ id: WebAppIdSchema });
 /** Reuses `BrowserBoundsSchema` — the same CSS-pixel rect shape, scaled the same way in main. */
-export const AppsSetBoundsRequest = z.object({
-  id: AppIdSchema,
+export const WebAppsSetBoundsRequest = z.object({
+  id: WebAppIdSchema,
   bounds: BrowserBoundsSchema,
 });
 /**
@@ -2612,7 +2612,7 @@ export const AppsSetBoundsRequest = z.object({
  * rather than leaving a native view floating over the window with no React
  * chrome left to explain it.
  */
-export const AppsActivateRequest = z.object({ id: AppIdSchema.nullable() });
+export const WebAppsActivateRequest = z.object({ id: WebAppIdSchema.nullable() });
 
 // --- watch -----------------------------------------------------------------
 

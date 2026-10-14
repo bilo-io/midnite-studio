@@ -346,9 +346,9 @@ export async function seedUiState(page: Page, state: Record<string, unknown>): P
   }, state);
 }
 
-/** Seeds `enabledApps` (Phase 83) — see {@link seedUiState}. */
-export async function seedEnabledApps(page: Page, ids: readonly string[]): Promise<void> {
-  await seedUiState(page, { enabledApps: ids });
+/** Seeds `enabledWebApps` (Phase 83) — see {@link seedUiState}. */
+export async function seedEnabledWebApps(page: Page, ids: readonly string[]): Promise<void> {
+  await seedUiState(page, { enabledWebApps: ids });
 }
 
 /* ─── Screenshot Path & Capture Helpers ────────────────────────────────── */

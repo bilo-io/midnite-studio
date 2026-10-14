@@ -131,7 +131,7 @@ const bridge: Pick<
   | 'sessions'
   | 'notes'
   | 'browser'
-  | 'apps'
+  | 'webApps'
   | 'agent'
   | 'council'
   | 'loopRuns'
@@ -410,12 +410,12 @@ const bridge: Pick<
     setDiscardMs: (req) => ipcRenderer.send(CHANNELS.browserSetDiscardMs, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },
-  apps: {
-    enable: (req) => call(CHANNELS.appsEnable, req),
-    disable: (req) => ipcRenderer.send(CHANNELS.appsDisable, req),
+  webApps: {
+    enable: (req) => call(CHANNELS.webAppsEnable, req),
+    disable: (req) => ipcRenderer.send(CHANNELS.webAppsDisable, req),
     // Fires per resize frame — same reasoning as browser.setBounds above.
-    setBounds: (req) => ipcRenderer.send(CHANNELS.appsSetBounds, req),
-    activate: (req) => ipcRenderer.send(CHANNELS.appsActivate, req),
+    setBounds: (req) => ipcRenderer.send(CHANNELS.webAppsSetBounds, req),
+    activate: (req) => ipcRenderer.send(CHANNELS.webAppsActivate, req),
   },
   agent: {
     list: () => call(CHANNELS.agentList),

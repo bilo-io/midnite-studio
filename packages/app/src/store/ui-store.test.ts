@@ -1475,14 +1475,14 @@ describe('v16 -> v17 migration (Ad Hoc: companion personality free-text fields)'
   });
 });
 
-describe('v17 -> v18 migration (Phase 83 Theme A: enabledApps)', () => {
-  it('seeds enabledApps as an empty array — no prior shape to carry forward', () => {
+describe('v17 -> v18 migration (Phase 83 Theme A: enabledWebApps)', () => {
+  it('seeds enabledWebApps as an empty array — no prior shape to carry forward', () => {
     const migrate = useUiStore.persist.getOptions().migrate;
-    const migrated = migrate?.({}, 17) as { enabledApps: string[] };
-    expect(migrated.enabledApps).toEqual([]);
+    const migrated = migrate?.({}, 17) as { enabledWebApps: string[] };
+    expect(migrated.enabledWebApps).toEqual([]);
   });
 
-  it('a persisted v17 blob round-trips through the real store with enabledApps seeded empty', () => {
+  it('a persisted v17 blob round-trips through the real store with enabledWebApps seeded empty', () => {
     localStorage.setItem(
       'midnite-studio.ui',
       JSON.stringify({
@@ -1491,27 +1491,27 @@ describe('v17 -> v18 migration (Phase 83 Theme A: enabledApps)', () => {
       }),
     );
     void useUiStore.persist.rehydrate();
-    expect(useUiStore.getState().enabledApps).toEqual([]);
+    expect(useUiStore.getState().enabledWebApps).toEqual([]);
     // Untouched by this migration.
     expect(useUiStore.getState().companionPersonality).toBe('droll');
   });
 });
 
-describe('setAppEnabled (Phase 83 Theme A)', () => {
+describe('setWebAppEnabled (Phase 83 Theme A)', () => {
   it('adds an app id once, is a no-op if already enabled, and removes it on disable', () => {
-    useUiStore.setState({ enabledApps: [] });
+    useUiStore.setState({ enabledWebApps: [] });
 
-    useUiStore.getState().setAppEnabled('spotify', true);
-    expect(useUiStore.getState().enabledApps).toEqual(['spotify']);
+    useUiStore.getState().setWebAppEnabled('spotify', true);
+    expect(useUiStore.getState().enabledWebApps).toEqual(['spotify']);
 
-    useUiStore.getState().setAppEnabled('spotify', true);
-    expect(useUiStore.getState().enabledApps).toEqual(['spotify']);
+    useUiStore.getState().setWebAppEnabled('spotify', true);
+    expect(useUiStore.getState().enabledWebApps).toEqual(['spotify']);
 
-    useUiStore.getState().setAppEnabled('youtube', true);
-    expect(useUiStore.getState().enabledApps).toEqual(['spotify', 'youtube']);
+    useUiStore.getState().setWebAppEnabled('youtube', true);
+    expect(useUiStore.getState().enabledWebApps).toEqual(['spotify', 'youtube']);
 
-    useUiStore.getState().setAppEnabled('spotify', false);
-    expect(useUiStore.getState().enabledApps).toEqual(['youtube']);
+    useUiStore.getState().setWebAppEnabled('spotify', false);
+    expect(useUiStore.getState().enabledWebApps).toEqual(['youtube']);
   });
 });
 
@@ -1752,7 +1752,7 @@ describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
     expect(state.companionNames).toEqual(['Nova', 'Companion']);
     expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
     expect(state.voiceConversationTrigger).toBe('wake');
-    expect(useUiStore.persist.getOptions().version).toBe(33);
+    expect(useUiStore.persist.getOptions().version).toBe(34);
   });
 
   it('migrates a v32 payload to v33', () => {
@@ -1785,12 +1785,37 @@ describe('v32 -> v33 migration (Phase 111 Theme A)', () => {
     const state = useUiStore.getState();
     expect(state.primaryAgent).toBe('codex');
     expect(state.primaryModelByAgent).toEqual({});
-    expect(useUiStore.persist.getOptions().version).toBe(33);
+    expect(useUiStore.persist.getOptions().version).toBe(34);
   });
 
-  it('leaves a v33 payload alone', () => {
+  it('leaves a v34 payload alone', () => {
     const payload = { primaryAgent: 'claude', primaryModelByAgent: { claude: 'sonnet-5-5' } };
-    expect(useUiStore.persist.getOptions().migrate?.(payload, 33)).toBe(payload);
+    expect(useUiStore.persist.getOptions().migrate?.(payload, 34)).toBe(payload);
+  });
+});
+
+describe('v33 -> v34 migration (Phase 113 Theme A: apps -> web-apps)', () => {
+  it('moves the renamed fields and the Settings page id', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.(
+      { enabledApps: ['spotify'], appDiscardIdle: { spotify: true }, lastOpenedAppId: 'spotify', settingsPage: 'apps' },
+      33,
+    ) as Record<string, unknown>;
+    expect(migrated.enabledWebApps).toEqual(['spotify']);
+    expect(migrated.webAppDiscardIdle).toEqual({ spotify: true });
+    expect(migrated.lastOpenedWebAppId).toBe('spotify');
+    expect(migrated.settingsPage).toBe('web-apps');
+    expect('enabledApps' in migrated).toBe(false);
+  });
+
+  it('a persisted v33 blob keeps its enabled web apps through the real store', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({ state: { enabledApps: ['spotify', 'youtube'], settingsPage: 'apps' }, version: 33 }),
+    );
+    void useUiStore.persist.rehydrate();
+    const state = useUiStore.getState();
+    expect(state.enabledWebApps).toEqual(['spotify', 'youtube']);
+    expect(state.settingsPage).toBe('web-apps');
   });
 });
 

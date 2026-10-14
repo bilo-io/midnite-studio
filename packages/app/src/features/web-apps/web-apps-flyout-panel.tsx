@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { APP_DEFINITIONS, APP_ROLE } from '@midnite/studio-shared';
+import { WEB_APP_DEFINITIONS, WEB_APP_ROLE } from '@midnite/studio-shared';
 import { GoX } from 'react-icons/go';
 import { LuSquareArrowOutUpRight } from 'react-icons/lu';
 
@@ -10,7 +10,7 @@ import { useDismiss } from '../../components/use-dismiss';
 import { useFocusTrap } from '../../components/use-focus-trap';
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
-import { AppPane } from './app-pane';
+import { WebAppPane } from './web-app-pane';
 
 /**
  * The apps rail's dismiss-on-click-away flyout (Phase 83 Theme C).
@@ -27,16 +27,16 @@ import { AppPane } from './app-pane';
  *
  * There is no tab strip: the rail icons themselves are the switcher (Theme
  * C's own decision), so this panel only ever draws whichever app
- * `appsFlyoutAppId` names.
+ * `webAppsFlyoutAppId` names.
  */
-export function AppsFlyoutPanel() {
-  const appId = useUiStore((s) => s.appsFlyoutAppId);
+export function WebAppsFlyoutPanel() {
+  const appId = useUiStore((s) => s.webAppsFlyoutAppId);
   const open = appId !== null;
   const containerRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => {
-    useUiStore.getState().closeAppsFlyout();
-    bridge()?.apps.activate({ id: null });
+    useUiStore.getState().closeWebAppsFlyout();
+    bridge()?.webApps.activate({ id: null });
   }, []);
 
   useFocusTrap(containerRef, open);
@@ -49,7 +49,7 @@ export function AppsFlyoutPanel() {
   // `useDismiss` only ever answers Escape (see its own doc) — click-away is
   // this component's own job, the same `pointerdown` pattern `Popover` uses.
   // Rail icon clicks are excluded rather than raced against: a click on a
-  // DIFFERENT enabled app's icon should switch the flyout (`apps-rail-row.tsx`'s
+  // DIFFERENT enabled app's icon should switch the flyout (`web-apps-rail-row.tsx`'s
   // own `onClick`), not close it out from under that click's own effect, and a
   // click on the CURRENTLY active app's icon already toggles it closed there.
   useEffect(() => {
@@ -59,7 +59,7 @@ export function AppsFlyoutPanel() {
       const target = event.target as Node | null;
       if (!target) return;
       if (containerRef.current?.contains(target)) return;
-      if (target instanceof Element && target.closest('[data-testid^="apps-rail-"]')) return;
+      if (target instanceof Element && target.closest('[data-testid^="web-apps-rail-"]')) return;
       close();
     };
 
@@ -69,7 +69,7 @@ export function AppsFlyoutPanel() {
 
   if (!open) return null;
 
-  const definition = APP_DEFINITIONS[appId];
+  const definition = WEB_APP_DEFINITIONS[appId];
   const Icon = APP_ICON[appId];
 
   return (
@@ -78,7 +78,7 @@ export function AppsFlyoutPanel() {
       tabIndex={-1}
       role="dialog"
       aria-label={definition.label}
-      data-testid="apps-flyout"
+      data-testid="web-apps-flyout"
       className="absolute inset-y-0 left-0 z-popover flex w-[380px] flex-col border-r border-border bg-background shadow-2xl outline-none"
     >
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
@@ -94,14 +94,14 @@ export function AppsFlyoutPanel() {
             // (`window-handlers.ts`), which shows it there — closing the
             // flyout AND telling main to hide it would race the very move
             // that is meant to keep it visible, just somewhere else.
-            useUiStore.getState().closeAppsFlyout();
-            bridge()?.window.detach({ role: APP_ROLE[appId] });
+            useUiStore.getState().closeWebAppsFlyout();
+            bridge()?.window.detach({ role: WEB_APP_ROLE[appId] });
           }}
         />
         <IconButton icon={GoX} label={`Close ${definition.label}`} size="sm" onClick={close} />
       </div>
       <div className="relative min-h-0 flex-1">
-        <AppPane appId={appId} />
+        <WebAppPane appId={appId} />
       </div>
     </div>
   );

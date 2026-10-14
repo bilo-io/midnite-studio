@@ -794,25 +794,25 @@ export type MidniteStudioBridge = {
   /**
    * The third-party apps rail (Phase 83 Themes A/B) — one `WebContentsView`
    * per enabled app, each in its own `persist:app-<id>` partition, owned by
-   * main's `apps-service.ts`. Detach/re-dock reuse `window.detach`/
+   * main's `web-apps-service.ts`. Detach/re-dock reuse `window.detach`/
    * `window.dock`/`window.focusRole` above against the three literal
    * `apps-*` `PanelWindowRole`s (Theme D) rather than inventing app-specific
    * verbs — this namespace only ever turns a view on/off and resizes it.
    */
-  apps: {
+  webApps: {
     /** Constructs the view if needed, and shows it. */
-    enable: (req: In<typeof S.AppsEnableRequest>) => Promise<z.infer<typeof S.AppsEnableResponse>>;
+    enable: (req: In<typeof S.WebAppsEnableRequest>) => Promise<z.infer<typeof S.WebAppsEnableResponse>>;
     /** Tears down the view only — the partition's on-disk session data survives. */
-    disable: (req: In<typeof S.AppsDisableRequest>) => void;
+    disable: (req: In<typeof S.WebAppsDisableRequest>) => void;
     /** Fires every resize frame, same as `browser.setBounds` — no round trip. */
-    setBounds: (req: In<typeof S.AppsSetBoundsRequest>) => void;
+    setBounds: (req: In<typeof S.WebAppsSetBoundsRequest>) => void;
     /**
      * Which enabled app is on top in the flyout (Theme C) — only one view is
      * ever attached-and-visible per window, mirroring `browser.activate`.
      * `id: null` hides every app in the (main) window: the flyout closing
      * with no other app taking its place.
      */
-    activate: (req: In<typeof S.AppsActivateRequest>) => void;
+    activate: (req: In<typeof S.WebAppsActivateRequest>) => void;
   };
 
   /** Built-in agents merged with the user's `agents.json`, plus the Claude CLI. */

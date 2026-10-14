@@ -1,22 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  activateApp,
-  destroyAllApps,
-  disableApp,
-  discardApp,
-  enableApp,
-  isAppDiscarded,
-  isAppDiscardEligible,
-  reparentAppView,
-  resetAppsServiceForTests,
-  runAppsDiscardSweep,
-  setAppBounds,
-} from './apps-service';
+  activateWebApp,
+  destroyAllWebApps,
+  disableWebApp,
+  discardWebApp,
+  enableWebApp,
+  isWebAppDiscarded,
+  isWebAppDiscardEligible,
+  reparentWebAppView,
+  resetWebAppsServiceForTests,
+  runWebAppsDiscardSweep,
+  setWebAppBounds,
+} from './web-apps-service';
 import { applySettingsSync, resetSettingsMirrorForTests } from './settings-mirror';
 
 /**
- * `apps-service.ts` is the second file (after `browser-service.ts`) to
+ * `web-apps-service.ts` is the second file (after `browser-service.ts`) to
  * construct a `WebContentsView`, so this fakes one the identical way
  * `browser-service.test.ts` does.
  */
@@ -109,9 +109,9 @@ function fakeWindow() {
   return win as unknown as import('electron').BrowserWindow;
 }
 
-describe('apps-service lifecycle', () => {
+describe('web-apps-service lifecycle', () => {
   beforeEach(() => {
-    resetAppsServiceForTests();
+    resetWebAppsServiceForTests();
     resetSettingsMirrorForTests();
     fakeSessions.clear();
   });
@@ -119,7 +119,7 @@ describe('apps-service lifecycle', () => {
 
   it('enabling an app creates exactly one WebContentsView with its own persist:app-<id> partition', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
+    enableWebApp(win, 'spotify');
 
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(1);
     const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
@@ -136,16 +136,16 @@ describe('apps-service lifecycle', () => {
 
   it('is idempotent: enabling the same app twice does not attach a second view', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
-    enableApp(win, 'spotify');
+    enableWebApp(win, 'spotify');
+    enableWebApp(win, 'spotify');
 
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(1);
   });
 
   it('two different apps get two different partitions, never sharing one', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
-    enableApp(win, 'youtube');
+    enableWebApp(win, 'spotify');
+    enableWebApp(win, 'youtube');
 
     const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
     const spotifyView = calls[0]?.[0] as FakeView;
@@ -160,18 +160,18 @@ describe('apps-service lifecycle', () => {
 
   it('disabling destroys the view and detaches it from the window', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
+    enableWebApp(win, 'spotify');
     const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
 
-    disableApp('spotify');
+    disableWebApp('spotify');
 
     expect(win.contentView.removeChildView).toHaveBeenCalledWith(view);
     expect(view.webContents.close).toHaveBeenCalledTimes(1);
   });
 
   it('disabling an app that was never enabled is a no-op', () => {
-    expect(() => disableApp('spotify')).not.toThrow();
+    expect(() => disableWebApp('spotify')).not.toThrow();
   });
 
   it('a disable -> enable round trip against the same partition preserves session data', () => {
@@ -180,11 +180,11 @@ describe('apps-service lifecycle', () => {
     // clearStorageData/clearCache, so re-enabling resolves the identical
     // `session.fromPartition` object, proving nothing was wiped in between.
     const win = fakeWindow();
-    enableApp(win, 'spotify');
+    enableWebApp(win, 'spotify');
     const sessionBeforeDisable = fakeSessions.get('persist:app-spotify');
 
-    disableApp('spotify');
-    enableApp(win, 'spotify');
+    disableWebApp('spotify');
+    enableWebApp(win, 'spotify');
     const sessionAfterReEnable = fakeSessions.get('persist:app-spotify');
 
     expect(sessionAfterReEnable).toBe(sessionBeforeDisable);
@@ -193,19 +193,19 @@ describe('apps-service lifecycle', () => {
     expect(sessionAfterReEnable?.setPermissionRequestHandler).toHaveBeenCalledTimes(1);
   });
 
-  it('quit (destroyAllApps) tears every tracked app down', () => {
+  it('quit (destroyAllWebApps) tears every tracked app down', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
-    enableApp(win, 'youtube');
+    enableWebApp(win, 'spotify');
+    enableWebApp(win, 'youtube');
 
-    destroyAllApps();
+    destroyAllWebApps();
 
     expect(win.contentView.removeChildView).toHaveBeenCalledTimes(2);
   });
 
   it('configures the partition session to deny every permission', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
+    enableWebApp(win, 'spotify');
 
     const appSession = fakeSessions.get('persist:app-spotify');
     expect(appSession?.setPermissionRequestHandler).toHaveBeenCalledTimes(1);
@@ -213,16 +213,16 @@ describe('apps-service lifecycle', () => {
   });
 });
 
-describe('apps-service navigation policy', () => {
+describe('web-apps-service navigation policy', () => {
   beforeEach(() => {
-    resetAppsServiceForTests();
+    resetWebAppsServiceForTests();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
 
   function createAndGetView(id: 'spotify' | 'google-calendar' | 'youtube' = 'spotify') {
     const win = fakeWindow();
-    enableApp(win, id);
+    enableWebApp(win, id);
     const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
     return { win, view };
@@ -269,48 +269,48 @@ describe('apps-service navigation policy', () => {
   });
 });
 
-describe('apps-service bounds', () => {
+describe('web-apps-service bounds', () => {
   beforeEach(() => {
-    resetAppsServiceForTests();
+    resetWebAppsServiceForTests();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
 
   it('scales an incoming bounds push by the host window zoom factor', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
+    enableWebApp(win, 'spotify');
     const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
     (win.webContents as unknown as { getZoomFactor: ReturnType<typeof vi.fn> }).getZoomFactor.mockReturnValue(
       1.5,
     );
 
-    setAppBounds('spotify', { x: 10, y: 20, width: 100, height: 200 });
+    setWebAppBounds('spotify', { x: 10, y: 20, width: 100, height: 200 });
 
     expect(view.bounds).toEqual({ x: 15, y: 30, width: 150, height: 300 });
   });
 
   it('setting bounds for an app that was never enabled is a no-op', () => {
-    expect(() => setAppBounds('spotify', { x: 0, y: 0, width: 10, height: 10 })).not.toThrow();
+    expect(() => setWebAppBounds('spotify', { x: 0, y: 0, width: 10, height: 10 })).not.toThrow();
   });
 });
 
-describe('apps-service activation (Theme C)', () => {
+describe('web-apps-service activation (Theme C)', () => {
   beforeEach(() => {
-    resetAppsServiceForTests();
+    resetWebAppsServiceForTests();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
 
   it('activating an app hides every other enabled app in the SAME window', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
-    enableApp(win, 'youtube');
+    enableWebApp(win, 'spotify');
+    enableWebApp(win, 'youtube');
     const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
     const spotifyView = calls[0]?.[0] as FakeView;
     const youtubeView = calls[1]?.[0] as FakeView;
 
-    activateApp(win, 'youtube');
+    activateWebApp(win, 'youtube');
 
     expect(spotifyView.visible).toBe(false);
     expect(youtubeView.visible).toBe(true);
@@ -319,14 +319,14 @@ describe('apps-service activation (Theme C)', () => {
   it('never touches a same-id app enabled in a DIFFERENT window', () => {
     const mainWin = fakeWindow();
     const popoutWin = fakeWindow();
-    enableApp(mainWin, 'spotify');
-    enableApp(popoutWin, 'youtube');
+    enableWebApp(mainWin, 'spotify');
+    enableWebApp(popoutWin, 'youtube');
     const spotifyView = (mainWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
     const youtubeView = (popoutWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
 
-    activateApp(mainWin, 'spotify');
+    activateWebApp(mainWin, 'spotify');
 
     expect(spotifyView.visible).toBe(true);
     // youtube lives in a different window entirely — activating spotify must
@@ -336,13 +336,13 @@ describe('apps-service activation (Theme C)', () => {
 
   it('a null id hides every app tracked against that window', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
-    enableApp(win, 'youtube');
+    enableWebApp(win, 'spotify');
+    enableWebApp(win, 'youtube');
     const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
     const spotifyView = calls[0]?.[0] as FakeView;
     const youtubeView = calls[1]?.[0] as FakeView;
 
-    activateApp(win, null);
+    activateWebApp(win, null);
 
     expect(spotifyView.visible).toBe(false);
     expect(youtubeView.visible).toBe(false);
@@ -351,24 +351,24 @@ describe('apps-service activation (Theme C)', () => {
   it('a null id never touches a different window', () => {
     const mainWin = fakeWindow();
     const popoutWin = fakeWindow();
-    enableApp(popoutWin, 'youtube');
+    enableWebApp(popoutWin, 'youtube');
     const youtubeView = (popoutWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
 
-    activateApp(mainWin, null);
+    activateWebApp(mainWin, null);
 
     expect(youtubeView.visible).toBe(true);
   });
 
   it('activating on a window with no tracked apps is a no-op', () => {
     const win = fakeWindow();
-    expect(() => activateApp(win, 'spotify')).not.toThrow();
+    expect(() => activateWebApp(win, 'spotify')).not.toThrow();
   });
 });
 
-describe('apps-service reparenting (Theme D)', () => {
+describe('web-apps-service reparenting (Theme D)', () => {
   beforeEach(() => {
-    resetAppsServiceForTests();
+    resetWebAppsServiceForTests();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -376,12 +376,12 @@ describe('apps-service reparenting (Theme D)', () => {
   it('moves the view to the next window and shows it there by default', () => {
     const main = fakeWindow();
     const popout = fakeWindow();
-    enableApp(main, 'spotify');
+    enableWebApp(main, 'spotify');
     const view = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
     view.setVisible(false);
 
-    reparentAppView('spotify', popout);
+    reparentWebAppView('spotify', popout);
 
     expect(main.contentView.removeChildView).toHaveBeenCalledWith(view);
     expect(popout.contentView.addChildView).toHaveBeenCalledWith(view);
@@ -391,11 +391,11 @@ describe('apps-service reparenting (Theme D)', () => {
   it('honours an explicit visible:false — re-docking must not steal the flyout', () => {
     const main = fakeWindow();
     const popout = fakeWindow();
-    enableApp(popout, 'spotify');
+    enableWebApp(popout, 'spotify');
     const view = (popout.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
 
-    reparentAppView('spotify', main, { visible: false });
+    reparentWebAppView('spotify', main, { visible: false });
 
     expect(main.contentView.addChildView).toHaveBeenCalledWith(view);
     expect(view.visible).toBe(false);
@@ -403,11 +403,11 @@ describe('apps-service reparenting (Theme D)', () => {
 
   it('a same-window reparent is a no-op move but still applies the requested visibility', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
+    enableWebApp(win, 'spotify');
     const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as FakeView;
 
-    reparentAppView('spotify', win, { visible: false });
+    reparentWebAppView('spotify', win, { visible: false });
 
     expect(win.contentView.removeChildView).not.toHaveBeenCalled();
     expect(view.visible).toBe(false);
@@ -415,11 +415,11 @@ describe('apps-service reparenting (Theme D)', () => {
 
   it('reparenting an app that was never enabled is a no-op', () => {
     const win = fakeWindow();
-    expect(() => reparentAppView('spotify', win)).not.toThrow();
+    expect(() => reparentWebAppView('spotify', win)).not.toThrow();
   });
 });
 
-describe('isAppDiscardEligible', () => {
+describe('isWebAppDiscardEligible', () => {
   const base = {
     effectiveVisible: false,
     audible: false,
@@ -430,27 +430,27 @@ describe('isAppDiscardEligible', () => {
   };
 
   it('eligible when opted-in, hidden past threshold, not audible, and not visible', () => {
-    expect(isAppDiscardEligible(base)).toBe(true);
+    expect(isWebAppDiscardEligible(base)).toBe(true);
   });
 
   it('excluded by default when discardOptIn is false (Phase 84 Theme F.4)', () => {
-    expect(isAppDiscardEligible({ ...base, discardOptIn: false })).toBe(false);
+    expect(isWebAppDiscardEligible({ ...base, discardOptIn: false })).toBe(false);
   });
 
   it('never discards when effectively visible', () => {
-    expect(isAppDiscardEligible({ ...base, effectiveVisible: true })).toBe(false);
+    expect(isWebAppDiscardEligible({ ...base, effectiveVisible: true })).toBe(false);
   });
 
   it('never discards when audible (e.g. background music playing)', () => {
-    expect(isAppDiscardEligible({ ...base, audible: true })).toBe(false);
+    expect(isWebAppDiscardEligible({ ...base, audible: true })).toBe(false);
   });
 
   it('never discards when threshold is 0 (disabled)', () => {
-    expect(isAppDiscardEligible({ ...base, discardMs: 0 })).toBe(false);
+    expect(isWebAppDiscardEligible({ ...base, discardMs: 0 })).toBe(false);
   });
 
   it('never discards when hidden duration has not yet reached threshold', () => {
-    expect(isAppDiscardEligible({ ...base, now: base.hiddenSinceMs + 300_000 })).toBe(false);
+    expect(isWebAppDiscardEligible({ ...base, now: base.hiddenSinceMs + 300_000 })).toBe(false);
   });
 });
 
@@ -460,37 +460,37 @@ describe('apps idle discard and wake', () => {
     applySettingsSync({
       autoFetchEnabled: true,
       autoFetchIntervalMs: 60_000,
-      appDiscardIdle: { spotify: true, 'google-calendar': false, youtube: false },
+      webAppDiscardIdle: { spotify: true, 'google-calendar': false, youtube: false },
       browserDiscardMs: 100, // 100ms for test
     });
 
-    enableApp(win, 'spotify');
-    setAppBounds('spotify', { x: 10, y: 20, width: 300, height: 400 });
+    enableWebApp(win, 'spotify');
+    setWebAppBounds('spotify', { x: 10, y: 20, width: 300, height: 400 });
 
     const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
 
     // Initially active in flyout
-    activateApp(win, 'spotify');
-    expect(isAppDiscarded('spotify')).toBe(false);
+    activateWebApp(win, 'spotify');
+    expect(isWebAppDiscarded('spotify')).toBe(false);
 
     // Close flyout (id: null) -> app becomes hidden
-    activateApp(win, null);
+    activateWebApp(win, null);
     expect(view.visible).toBe(false);
 
     // Advance time past threshold
     const now = Date.now();
     vi.spyOn(Date, 'now').mockReturnValue(now + 200);
 
-    runAppsDiscardSweep();
+    runWebAppsDiscardSweep();
 
     // App is now discarded to free memory
-    expect(isAppDiscarded('spotify')).toBe(true);
+    expect(isWebAppDiscarded('spotify')).toBe(true);
     expect(win.contentView.removeChildView).toHaveBeenCalledWith(view);
     expect(view.webContents.close).toHaveBeenCalled();
 
     // Next time user clicks the rail toggle / activates Spotify
-    activateApp(win, 'spotify');
-    expect(isAppDiscarded('spotify')).toBe(false);
+    activateWebApp(win, 'spotify');
+    expect(isWebAppDiscarded('spotify')).toBe(false);
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(2);
 
     const recreatedView = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
@@ -504,26 +504,26 @@ describe('apps idle discard and wake', () => {
     applySettingsSync({
       autoFetchEnabled: true,
       autoFetchIntervalMs: 60_000,
-      appDiscardIdle: { spotify: false, 'google-calendar': false, youtube: false },
+      webAppDiscardIdle: { spotify: false, 'google-calendar': false, youtube: false },
       browserDiscardMs: 100,
     });
 
-    enableApp(win, 'spotify');
-    activateApp(win, null);
+    enableWebApp(win, 'spotify');
+    activateWebApp(win, null);
 
     const now = Date.now();
     vi.spyOn(Date, 'now').mockReturnValue(now + 200);
 
-    runAppsDiscardSweep();
-    expect(isAppDiscarded('spotify')).toBe(false);
+    runWebAppsDiscardSweep();
+    expect(isWebAppDiscarded('spotify')).toBe(false);
   });
 
-  it('discards an app directly via discardApp', () => {
+  it('discards an app directly via discardWebApp', () => {
     const win = fakeWindow();
-    enableApp(win, 'spotify');
-    expect(isAppDiscarded('spotify')).toBe(false);
-    discardApp('spotify');
-    expect(isAppDiscarded('spotify')).toBe(true);
+    enableWebApp(win, 'spotify');
+    expect(isWebAppDiscarded('spotify')).toBe(false);
+    discardWebApp('spotify');
+    expect(isWebAppDiscarded('spotify')).toBe(true);
   });
 });
 

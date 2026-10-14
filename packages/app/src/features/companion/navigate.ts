@@ -145,15 +145,15 @@ export function liveNavigationState(): NavigationState {
       companion: ui.companionDetached,
       browser: ui.browserDetached,
       // The three apps-rail roles (Theme D) track detached-ness as an array
-      // (`detachedApps`) rather than a boolean field each, mirroring
+      // (`detachedWebApps`) rather than a boolean field each, mirroring
       // `detachedPages` — see its own doc. Nothing in `resolveNavigation`
       // actually reads these three today (apps are panels, not `ViewId`s, so
       // `isPageRoleView` never matches one), but wiring the real values here
       // rather than a permanent `false` is what keeps this object honest if
       // that ever changes.
-      'apps-spotify': ui.detachedApps.includes('spotify'),
-      'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
-      'apps-youtube': ui.detachedApps.includes('youtube'),
+      'apps-spotify': ui.detachedWebApps.includes('spotify'),
+      'apps-google-calendar': ui.detachedWebApps.includes('google-calendar'),
+      'apps-youtube': ui.detachedWebApps.includes('youtube'),
       // A popped-out game (Phase 107 Theme B) — tracked by the Games tab's run store.
       game: useGameRunStore.getState().popped !== null,
     },

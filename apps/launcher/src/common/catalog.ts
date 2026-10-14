@@ -71,10 +71,10 @@ const view = (v: ViewId, tab?: MediaTab): StudioTarget =>
   tab === undefined ? { kind: 'view', view: v } : { kind: 'view', view: v, tab };
 
 /**
- * The shell every midnite app is built on — present in each of them, never an
+ * The frame every midnite app is built on — present in each of them, never an
  * app of its own. Listed once here so the detail sheet can say so.
  */
-export const SHELL_PARTS: readonly { label: string; blurb: string }[] = [
+export const FRAME_PARTS: readonly { label: string; blurb: string }[] = [
   { label: 'Layout', blurb: 'Title bar with breadcrumbs, nav rail, status bar' },
   { label: 'Terminal', blurb: 'Integrated terminals that survive restarts' },
   { label: 'Companion', blurb: 'The voice-and-chat assistant docked on the right' },
@@ -82,6 +82,7 @@ export const SHELL_PARTS: readonly { label: string; blurb: string }[] = [
   { label: 'Browser', blurb: 'An embedded browser panel' },
   { label: 'Explorer', blurb: 'Files, search and the workspace tree' },
   { label: 'Git Graph', blurb: 'The commit graph, for any repo you open' },
+  { label: 'Knowledge', blurb: 'The graph linking code, notes and conversations' },
 ];
 
 export const APPS: readonly LauncherApp[] = [
@@ -127,13 +128,14 @@ export const APPS: readonly LauncherApp[] = [
     name: 'Coder',
     section: 'suite',
     accent: '#2e7cfa',
-    tagline: 'Sessions, forge, APIs and databases',
+    tagline: 'Sessions, tasks, forge, APIs and databases',
     like: 'Like GitKraken, Postman and TablePlus',
     vision:
-      'The loop around a repository in one window: agent sessions working in worktrees, the forge — pull requests, checks, reviews — beside the graph they change, and the API and database you are building against one tab away.',
+      'The loop around a repository in one window: agent sessions working in worktrees, the tasks they pick up, the forge — pull requests, checks, reviews — beside the graph they change, and the API and database you are building against one tab away.',
     home: view('sessions'),
     features: [
       { id: 'sessions', label: 'Sessions', blurb: 'Agent sessions across your worktrees', target: view('sessions') },
+      { id: 'tasks', label: 'Tasks', blurb: 'Boards, issues and what is next', target: view('tasks') },
       { id: 'forge', label: 'Git Forge', blurb: 'Pull requests, checks and reviews', target: view('reviews') },
       { id: 'api', label: 'API Explorer', blurb: 'Requests, collections and environments', target: view('apiClient') },
       { id: 'db', label: 'DB Explorer', blurb: 'Browse and query your databases', target: view('database') },
@@ -217,15 +219,13 @@ export const APPS: readonly LauncherApp[] = [
     name: 'Mind',
     section: 'suite',
     accent: '#0ea5e9',
-    tagline: 'Notes, tasks and a knowledge graph',
-    like: 'Like Obsidian, Things and Logseq',
+    tagline: 'Notes and spaced review',
+    like: 'Like Obsidian and Anki',
     vision:
-      'A second brain that stays on your disk: notes you capture in a keystroke, the tasks they turn into, and a knowledge graph that links both to the code, docs and conversations they came from — so finding the thing you half-remember is a search, not an afternoon.',
+      'A second brain that stays on your disk: notes you capture in a keystroke, then turned into flashcards and brought back on a schedule — so what you wrote down is still something you know a month later.',
     home: view('notes'),
     features: [
       { id: 'notes', label: 'Notes', blurb: 'Quick capture, linked and searchable', target: view('notes') },
-      { id: 'tasks', label: 'Tasks', blurb: 'Boards, issues and what is next', target: view('tasks') },
-      { id: 'knowledge', label: 'Knowledge', blurb: 'The graph that ties it all together', target: view('knowledge') },
       { id: 'review', label: 'Review', blurb: 'Notes into flashcards, on a schedule', target: view('notes') },
     ],
     runsIn: 'studio',

@@ -1,6 +1,6 @@
 import { WebContentsView, session, shell, type BrowserWindow } from 'electron';
 
-import { APP_DEFINITIONS, type AppId, type BrowserBounds } from '@midnite/studio-shared';
+import { WEB_APP_DEFINITIONS, type WebAppId, type BrowserBounds } from '@midnite/studio-shared';
 
 import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
 import { defaultLogger } from './log';
@@ -9,35 +9,35 @@ import { currentSettings } from './settings-mirror';
 /**
  * The main-process half of the third-party apps rail (Phase 83 Themes A/B).
  *
- * Structured like `browser-service.ts` — a `Map<AppId, Tracked>` of one entry
- * per ENABLED app, lazily created on `enableApp` and torn down on
- * `disableApp` — but where the browser shares one `persist:browser`
+ * Structured like `browser-service.ts` — a `Map<WebAppId, Tracked>` of one entry
+ * per ENABLED app, lazily created on `enableWebApp` and torn down on
+ * `disableWebApp` — but where the browser shares one `persist:browser`
  * partition across every tab, each app here gets its OWN
- * `persist:app-<id>` partition (`AppDefinition.partition`), so a Spotify
+ * `persist:app-<id>` partition (`WebAppDefinition.partition`), so a Spotify
  * login can never read a Calendar cookie or a general browser tab's session.
  *
  * No preload, no bridge, no chrome events: these apps have no tab strip and
  * nothing for the renderer to reflect back — the only main→renderer contract
- * is "is it on screen" (`enableApp`/`disableApp`) and "where" (`setAppBounds`).
+ * is "is it on screen" (`enableWebApp`/`disableWebApp`) and "where" (`setWebAppBounds`).
  */
 
 type Tracked = { view: WebContentsView; win: BrowserWindow };
 
-const apps = new Map<AppId, Tracked>();
+const apps = new Map<WebAppId, Tracked>();
 
 /** Timestamps when each app became hidden in its window or window minimized. */
-const hiddenSince = new Map<AppId, number>();
+const hiddenSince = new Map<WebAppId, number>();
 
 /** Apps whose WebContentsView was torn down to free memory while idle (Phase 84 Theme F.4). */
-const discardedApps = new Map<AppId, { win: BrowserWindow; bounds?: BrowserBounds }>();
+const discardedApps = new Map<WebAppId, { win: BrowserWindow; bounds?: BrowserBounds }>();
 
 /** The last bounds set for each app — restored when an idle-discarded app wakes up. */
-const lastBounds = new Map<AppId, BrowserBounds>();
+const lastBounds = new Map<WebAppId, BrowserBounds>();
 
 /** Which apps are currently marked visible in their window — mirrors setVisible calls. */
-const visibleAppIds = new Set<AppId>();
+const visibleAppIds = new Set<WebAppId>();
 
-function markAppVisible(id: AppId, view: WebContentsView, visible: boolean): void {
+function markAppVisible(id: WebAppId, view: WebContentsView, visible: boolean): void {
   view.setVisible(visible);
   if (visible) visibleAppIds.add(id);
   else visibleAppIds.delete(id);
@@ -54,8 +54,8 @@ const securedPartitions = new Set<string>();
  * AND check), and cancel any download loudly rather than starting one
  * nobody asked for a destination for.
  */
-function ensureAppSessionConfigured(id: AppId): void {
-  const partition = APP_DEFINITIONS[id].partition;
+function ensureAppSessionConfigured(id: WebAppId): void {
+  const partition = WEB_APP_DEFINITIONS[id].partition;
   if (securedPartitions.has(partition)) return;
   securedPartitions.add(partition);
   const appSession = session.fromPartition(partition);
@@ -72,12 +72,12 @@ function ensureAppSessionConfigured(id: AppId): void {
  * `win`, attach it, and show it. Idempotent — enabling an already-enabled
  * app is a no-op, matching `createBrowserTab`'s own guard.
  */
-export function enableApp(win: BrowserWindow, id: AppId): void {
+export function enableWebApp(win: BrowserWindow, id: WebAppId): void {
   ensureAppSessionConfigured(id);
   discardedApps.delete(id);
   if (apps.has(id)) return;
 
-  const definition = APP_DEFINITIONS[id];
+  const definition = WEB_APP_DEFINITIONS[id];
   const view = new WebContentsView({
     webPreferences: {
       partition: definition.partition,
@@ -128,7 +128,7 @@ export function enableApp(win: BrowserWindow, id: AppId): void {
  * lives in Electron's session-partition store, not in this view instance's
  * lifetime, so re-enabling later restores the same session.
  */
-export function disableApp(id: AppId): void {
+export function disableWebApp(id: WebAppId): void {
   discardedApps.delete(id);
   hiddenSince.delete(id);
   lastBounds.delete(id);
@@ -151,18 +151,18 @@ export function disableApp(id: AppId): void {
  *
  * `id: null` means "nothing is active" — hides every app tracked against
  * `win` rather than resolving a target from `apps.get(id)` the way a plain
- * `AppId` would. That is also why this takes `win` explicitly rather than
- * deriving it from the activating app the way the old single-`AppId` form
- * did: `apps-handlers.ts` always resolves `win` to `getMainWindow()` (the
+ * `WebAppId` would. That is also why this takes `win` explicitly rather than
+ * deriving it from the activating app the way the old single-`WebAppId` form
+ * did: `web-apps-handlers.ts` always resolves `win` to `getMainWindow()` (the
  * flyout is a main-window-only surface), and a `null` id has no app of its
  * own to read a window out of.
  */
-export function activateApp(win: BrowserWindow, id: AppId | null): void {
+export function activateWebApp(win: BrowserWindow, id: WebAppId | null): void {
   if (id !== null && discardedApps.has(id)) {
     const saved = discardedApps.get(id);
     discardedApps.delete(id);
-    enableApp(win, id);
-    if (saved?.bounds) setAppBounds(id, saved.bounds);
+    enableWebApp(win, id);
+    if (saved?.bounds) setWebAppBounds(id, saved.bounds);
   }
 
   const now = Date.now();
@@ -194,7 +194,7 @@ export function activateApp(win: BrowserWindow, id: AppId | null): void {
  * flyout leaves it hidden, and the next `apps.activate` (a rail click, or
  * `use-window-sync.ts`'s reconciliation) is what decides which one shows.
  */
-export function reparentAppView(id: AppId, next: BrowserWindow, opts?: { visible?: boolean }): void {
+export function reparentWebAppView(id: WebAppId, next: BrowserWindow, opts?: { visible?: boolean }): void {
   const tracked = apps.get(id);
   if (!tracked) return;
   if (tracked.win !== next) {
@@ -211,7 +211,7 @@ export function reparentAppView(id: AppId, next: BrowserWindow, opts?: { visible
  * identical reason: the renderer measures in CSS pixels and may not import
  * `electron`, so it has no legal way to read the window's zoom factor.
  */
-export function setAppBounds(id: AppId, bounds: BrowserBounds): void {
+export function setWebAppBounds(id: WebAppId, bounds: BrowserBounds): void {
   lastBounds.set(id, bounds);
   const tracked = apps.get(id);
   if (!tracked) return;
@@ -235,7 +235,7 @@ export function setAppBounds(id: AppId, bounds: BrowserBounds): void {
  * 3. It is not currently playing audio (`audible === false`)
  * 4. The threshold is > 0 and the app has been hidden for at least `discardMs`
  */
-export function isAppDiscardEligible(input: {
+export function isWebAppDiscardEligible(input: {
   effectiveVisible: boolean;
   audible: boolean;
   discardOptIn: boolean;
@@ -253,9 +253,9 @@ export function isAppDiscardEligible(input: {
 
 /**
  * Discard an app: tear down its WebContentsView and renderer process while
- * remembering it was enabled, so the next `activateApp` transparently restores it.
+ * remembering it was enabled, so the next `activateWebApp` transparently restores it.
  */
-export function discardApp(id: AppId): void {
+export function discardWebApp(id: WebAppId): void {
   const tracked = apps.get(id);
   if (!tracked) return;
   discardedApps.set(id, { win: tracked.win, bounds: lastBounds.get(id) });
@@ -274,11 +274,11 @@ export function discardApp(id: AppId): void {
  * One pass over every enabled app: check if any has aged past the discard
  * threshold with opt-in enabled.
  */
-export function runAppsDiscardSweep(): void {
+export function runWebAppsDiscardSweep(): void {
   const now = Date.now();
   const settings = currentSettings();
   const discardMs = settings.browserDiscardMs ?? 10 * 60 * 1000;
-  const optInMap = settings.appDiscardIdle ?? {};
+  const optInMap = settings.webAppDiscardIdle ?? {};
 
   for (const [id, tracked] of apps) {
     const { win, view } = tracked;
@@ -291,7 +291,7 @@ export function runAppsDiscardSweep(): void {
     }
     if (!hiddenSince.has(id)) hiddenSince.set(id, now);
 
-    const eligible = isAppDiscardEligible({
+    const eligible = isWebAppDiscardEligible({
       effectiveVisible,
       audible: view.webContents.isCurrentlyAudible(),
       discardOptIn: Boolean(optInMap[id]),
@@ -299,25 +299,25 @@ export function runAppsDiscardSweep(): void {
       now,
       discardMs,
     });
-    if (eligible) discardApp(id);
+    if (eligible) discardWebApp(id);
   }
 }
 
 /** Start the periodic idle discard sweep. */
-export function startAppsDiscardSweep(intervalMs = 60_000): void {
+export function startWebAppsDiscardSweep(intervalMs = 60_000): void {
   if (appsDiscardSweepTimer) return;
-  appsDiscardSweepTimer = setInterval(runAppsDiscardSweep, intervalMs);
+  appsDiscardSweepTimer = setInterval(runWebAppsDiscardSweep, intervalMs);
   appsDiscardSweepTimer.unref?.();
 }
 
 /** Stop the periodic idle discard sweep. */
-export function stopAppsDiscardSweep(): void {
+export function stopWebAppsDiscardSweep(): void {
   if (appsDiscardSweepTimer) clearInterval(appsDiscardSweepTimer);
   appsDiscardSweepTimer = null;
 }
 
 /** Query whether an app is currently in a discarded (sleeping) state. */
-export function isAppDiscarded(id: AppId): boolean {
+export function isWebAppDiscarded(id: WebAppId): boolean {
   return discardedApps.has(id);
 }
 
@@ -325,14 +325,14 @@ export function isAppDiscarded(id: AppId): boolean {
  * Maps OS renderer PIDs of active embedded app views to human-readable labels
  * (Phase 85 Theme E).
  */
-export function getAppOwners(): Map<number, string> {
+export function getWebAppOwners(): Map<number, string> {
   const result = new Map<number, string>();
   for (const [id, tracked] of apps) {
     if (!tracked.view.webContents.isDestroyed()) {
       try {
         const pid = tracked.view.webContents.getOSProcessId();
         if (pid > 0) {
-          result.set(pid, `App: ${APP_DEFINITIONS[id]?.label ?? id}`);
+          result.set(pid, `App: ${WEB_APP_DEFINITIONS[id]?.label ?? id}`);
         }
       } catch {
         // webContents destroyed
@@ -343,19 +343,19 @@ export function getAppOwners(): Map<number, string> {
 }
 
 /** Window close, `before-quit`: destroy every tracked app view — nothing survives past the process. */
-export function destroyAllApps(): void {
-  stopAppsDiscardSweep();
-  for (const [id] of apps) disableApp(id);
+export function destroyAllWebApps(): void {
+  stopWebAppsDiscardSweep();
+  for (const [id] of apps) disableWebApp(id);
 }
 
 /** Test-only: drop every tracked app without tearing down real Electron state. */
-export function resetAppsServiceForTests(): void {
+export function resetWebAppsServiceForTests(): void {
   apps.clear();
   securedPartitions.clear();
   hiddenSince.clear();
   discardedApps.clear();
   lastBounds.clear();
   visibleAppIds.clear();
-  stopAppsDiscardSweep();
+  stopWebAppsDiscardSweep();
 }
 

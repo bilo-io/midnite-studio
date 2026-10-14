@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { LuArrowUpRight, LuX } from 'react-icons/lu';
 
-import { SHELL_PARTS, type LauncherApp } from '../../common/catalog';
+import { FRAME_PARTS, type LauncherApp } from '../../common/catalog';
 import { appNumber } from '../model';
 import type { StudioController } from '../use-studio';
 import { AppIcon } from './app-icon';
@@ -11,7 +11,7 @@ import { AppWordmark } from './wordmark';
 
 /**
  * The full sheet for one app: the vision, every feature (each one opens Studio
- * straight onto it), and the shared shell it is built on.
+ * straight onto it), and the shared frame it is built on.
  */
 export function AppDetail({
   app,
@@ -98,9 +98,9 @@ export function AppDetail({
         </section>
 
         <section className="sheet-section">
-          <h3 className="eyebrow">Built on the Midnite shell</h3>
+          <h3 className="eyebrow">Built on the Midnite frame</h3>
           <ul className="shell-list">
-            {SHELL_PARTS.map((part) => (
+            {FRAME_PARTS.map((part) => (
               <li key={part.label} title={part.blurb}>
                 {part.label}
               </li>

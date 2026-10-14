@@ -94,9 +94,9 @@ vi.mock('./window-chrome', () => ({
   TRAFFIC_LIGHT_POSITION: { x: 16, y: 13 },
 }));
 vi.mock('./browser-service', () => ({ reparentBrowserTabs: vi.fn() }));
-vi.mock('./apps-service', () => ({ reparentAppView: vi.fn() }));
+vi.mock('./web-apps-service', () => ({ reparentWebAppView: vi.fn() }));
 
-import { reparentAppView } from './apps-service';
+import { reparentWebAppView } from './web-apps-service';
 import { TRAFFIC_LIGHT_POSITION } from './window-chrome';
 import {
   boundsWithinAnyDisplay,
@@ -204,7 +204,7 @@ describe('window-manager (Phase 55)', () => {
 
       win.close();
 
-      expect(reparentAppView).toHaveBeenCalledWith('spotify', main, { visible: false });
+      expect(reparentWebAppView).toHaveBeenCalledWith('spotify', main, { visible: false });
       main.close();
     });
 
@@ -217,7 +217,7 @@ describe('window-manager (Phase 55)', () => {
 
       win.close();
 
-      expect(reparentAppView).not.toHaveBeenCalled();
+      expect(reparentWebAppView).not.toHaveBeenCalled();
       main.close();
     });
   });

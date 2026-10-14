@@ -28,9 +28,9 @@ import { TerminalSwitcherOverlay } from './features/terminal/terminal-switcher-o
 import { NotesModal } from './features/notes/notes-modal';
 import { QuickAccessMenu } from './features/quick-access/quick-access-menu';
 import { BrowserPane } from './features/browser/browser-pane';
-import { AppsFlyoutPanel } from './features/apps/apps-flyout-panel';
-import { AppsRailRow } from './features/apps/apps-rail-row';
-import { useAppsSync } from './features/apps/use-apps-sync';
+import { WebAppsFlyoutPanel } from './features/web-apps/web-apps-flyout-panel';
+import { WebAppsRailRow } from './features/web-apps/web-apps-rail-row';
+import { useWebAppsSync } from './features/web-apps/use-web-apps-sync';
 import { DelayedFallback } from './components/delayed-fallback';
 import { DialogHost } from './components/dialog-host';
 import { useContentBoundsSync } from './store/content-bounds-store';
@@ -624,9 +624,9 @@ function Shell() {
   // Tells main which repo THIS window is showing (Phase 84 Theme D.1) — see
   // the hook's own doc.
   useReportWindowRepo();
-  // Reconciles `enabledApps` against main's apps-service on mount and on
+  // Reconciles `enabledWebApps` against main's web-apps-service on mount and on
   // every change (Phase 83 Theme C) — see the hook's own doc.
-  useAppsSync();
+  useWebAppsSync();
   /*
     Keeps the companion's state machine in step with its master switch. At the
     root rather than in the panel: the FAB, the mini FAB and the quick-access
@@ -1368,7 +1368,7 @@ function Shell() {
         <div className="flex w-full flex-col gap-1 pb-3">
           <AccountSwitcherSlot slot="rail-bottom" expanded={expanded} />
           <RailLockButton expanded={expanded} />
-          <AppsRailRow expanded={expanded} />
+          <WebAppsRailRow expanded={expanded} />
           <button
             type="button"
             onClick={() => useUiStore.getState().setActiveView('settings')}
@@ -1897,9 +1897,9 @@ function Shell() {
             positioned overlay in this same row, at the rail's own left edge
             rather than anchored to one rail icon's rect (see the component's
             own doc for why `Popover` doesn't fit). Always rendered: it draws
-            nothing while `appsFlyoutAppId` is `null`.
+            nothing while `webAppsFlyoutAppId` is `null`.
           */}
-          <AppsFlyoutPanel />
+          <WebAppsFlyoutPanel />
 
           {/*
             Companion panel (Phase 79 Theme C) — docked on the right, and

@@ -4,7 +4,7 @@ import { fixtures } from '../test-support/fixtures';
 import {
   installMockBridge,
   type MockFixtures,
-  seedEnabledApps,
+  seedEnabledWebApps,
   seedUiState,
   settle,
   shotPath,
@@ -16,11 +16,11 @@ import {
  * app) and hovered (all three).
  *
  * `MSTUDIO_SHOT_PREFIX` exists so the same spec can also photograph the OLD
- * behaviour for a side-by-side: check `apps-rail-row.tsx` back out at the
+ * behaviour for a side-by-side: check `web-apps-rail-row.tsx` back out at the
  * parent commit (it simply ignores the `expanded` prop it does not declare —
  * Vite does not typecheck), then
  * `MSTUDIO_SHOTS=1 MSTUDIO_SHOT_PREFIX=before pnpm exec playwright test
- * e2e/apps-rail-reveal-shots.spec.ts`. Without it the files land as `after-*`.
+ * e2e/web-apps-rail-reveal-shots.spec.ts`. Without it the files land as `after-*`.
  *
  * Run with `MSTUDIO_SHOTS=1 … --workers=1`; skipped otherwise so the normal
  * suite stays fast. The serial flag is not optional here: four Vite-backed
@@ -34,17 +34,17 @@ test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screensho
 
 /**
  * Opens the app with all three apps enabled and the rail in `navMode`, having
- * opened and closed Spotify's flyout — which is what leaves `lastOpenedAppId`
+ * opened and closed Spotify's flyout — which is what leaves `lastOpenedWebAppId`
  * set, the precondition for the collapsed switcher having one app to keep.
  */
 async function openWithSpotifyAsRecent(page: Page, navMode: 'expanded' | 'collapsed'): Promise<void> {
-  await seedEnabledApps(page, ['spotify', 'google-calendar', 'youtube']);
+  await seedEnabledWebApps(page, ['spotify', 'google-calendar', 'youtube']);
   await seedUiState(page, { navMode });
   await installMockBridge(page, fixtures as MockFixtures);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  const spotify = page.getByTestId('apps-rail-spotify');
-  // `enabledApps` hydrates from localStorage a tick after first mount; before
+  const spotify = page.getByTestId('web-apps-rail-spotify');
+  // `enabledWebApps` hydrates from localStorage a tick after first mount; before
   // that tick a disabled app has no rail button at all, so wait for it to
   // exist rather than clicking a not-yet-rendered element.
   await expect(spotify).toBeVisible();

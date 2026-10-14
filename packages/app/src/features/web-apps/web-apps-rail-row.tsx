@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { APP_DEFINITIONS, APP_IDS, APP_ROLE, type AppId } from '@midnite/studio-shared';
+import { WEB_APP_DEFINITIONS, WEB_APP_IDS, WEB_APP_ROLE, type WebAppId } from '@midnite/studio-shared';
 
 import { IconButton } from '../../components/icon-button';
 import { APP_ICON } from '../../components/icons';
@@ -12,7 +12,7 @@ import { useUiStore } from '../../store/ui-store';
  * opened app visible; hovering or moving keyboard focus into the region
  * reveals the complete set. Before any app has been opened, every enabled app
  * remains visible so the switcher is discoverable. A disabled app (not in
- * `enabledApps`) has no icon here at all — Settings ▸ Apps is the only place
+ * `enabledWebApps`) has no icon here at all — Settings ▸ Apps is the only place
  * to turn one on — so the rail never shows a control that only points
  * elsewhere.
  *
@@ -39,11 +39,11 @@ import { useUiStore } from '../../store/ui-store';
  * many apps are enabled, even when only the recent app is rendered — keeping
  * the rest of the footer still as the switcher reveals and collapses.
  */
-export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
-  const enabledApps = useUiStore((s) => s.enabledApps);
-  const detachedApps = useUiStore((s) => s.detachedApps);
-  const flyoutAppId = useUiStore((s) => s.appsFlyoutAppId);
-  const lastOpenedAppId = useUiStore((s) => s.lastOpenedAppId);
+export function WebAppsRailRow({ expanded = false }: { expanded?: boolean }) {
+  const enabledWebApps = useUiStore((s) => s.enabledWebApps);
+  const detachedWebApps = useUiStore((s) => s.detachedWebApps);
+  const flyoutAppId = useUiStore((s) => s.webAppsFlyoutAppId);
+  const lastOpenedWebAppId = useUiStore((s) => s.lastOpenedWebAppId);
   /*
     Hover and focus are tracked as two independent booleans, not one `revealed`
     flag either can clear.
@@ -53,7 +53,7 @@ export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
     this group while the pointer has never left it. A single flag meant that
     blur collapsed the switcher out from under the pointer, and the very next
     click (on a second app's icon, to switch the flyout) landed on an element
-    that no longer existed. `apps-rail-shots.spec.ts`'s "flyout switches its
+    that no longer existed. `web-apps-rail-shots.spec.ts`'s "flyout switches its
     active app on a second rail click" is what caught it.
   */
   const [hovered, setHovered] = useState(false);
@@ -63,33 +63,33 @@ export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
   // Disabling an app (Settings, Theme E) while its flyout is open must close
   // the flyout — there is no view left in this window to show. Detaching it
   // (Theme D) moves it out of this window's flyout the same way; main hides
-  // the view on its own (`reparentAppView`'s `visible: false`), so this only
+  // the view on its own (`reparentWebAppView`'s `visible: false`), so this only
   // has to stop the flyout claiming a view that is no longer here.
   useEffect(() => {
     if (flyoutAppId === null) return;
-    const stillDocked = enabledApps.includes(flyoutAppId) && !detachedApps.includes(flyoutAppId);
-    if (!stillDocked) useUiStore.getState().closeAppsFlyout();
-  }, [flyoutAppId, enabledApps, detachedApps]);
+    const stillDocked = enabledWebApps.includes(flyoutAppId) && !detachedWebApps.includes(flyoutAppId);
+    if (!stillDocked) useUiStore.getState().closeWebAppsFlyout();
+  }, [flyoutAppId, enabledWebApps, detachedWebApps]);
 
-  const onClick = (id: AppId) => {
-    if (detachedApps.includes(id)) {
-      useUiStore.setState({ lastOpenedAppId: id });
-      bridge()?.window.focusRole({ role: APP_ROLE[id] });
+  const onClick = (id: WebAppId) => {
+    if (detachedWebApps.includes(id)) {
+      useUiStore.setState({ lastOpenedWebAppId: id });
+      bridge()?.window.focusRole({ role: WEB_APP_ROLE[id] });
       return;
     }
     if (flyoutAppId === id) {
-      useUiStore.getState().closeAppsFlyout();
-      bridge()?.apps.activate({ id: null });
+      useUiStore.getState().closeWebAppsFlyout();
+      bridge()?.webApps.activate({ id: null });
       return;
     }
-    useUiStore.getState().openAppsFlyout(id);
+    useUiStore.getState().openWebAppsFlyout(id);
     void bridge()
-      ?.apps.enable({ id })
-      .then(() => bridge()?.apps.activate({ id }));
+      ?.webApps.enable({ id })
+      .then(() => bridge()?.webApps.activate({ id }));
   };
 
   // Disabled apps are filtered out of the rail entirely (below), so
-  // `lastOpenedAppId` can still name one it just disabled in Settings — the
+  // `lastOpenedWebAppId` can still name one it just disabled in Settings — the
   // recent app is only worth collapsing to while it remains in that set.
   // Falling through to `null` here, rather than trusting the stale id, is
   // what stops a since-disabled app from being the switcher's single
@@ -97,8 +97,8 @@ export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
   // `visibleAppIds` filter keyed on an absent id renders nothing rather than
   // falling back to the discoverable all-apps state.
   const recentAppId =
-    lastOpenedAppId !== null && enabledApps.includes(lastOpenedAppId) ? lastOpenedAppId : null;
-  const railAppIds = APP_IDS.filter((id) => enabledApps.includes(id));
+    lastOpenedWebAppId !== null && enabledWebApps.includes(lastOpenedWebAppId) ? lastOpenedWebAppId : null;
+  const railAppIds = WEB_APP_IDS.filter((id) => enabledWebApps.includes(id));
   if (railAppIds.length === 0) return null;
   const visibleAppIds =
     revealed || recentAppId === null ? railAppIds : railAppIds.filter((id) => id === recentAppId);
@@ -132,8 +132,8 @@ export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
       }}
     >
       {visibleAppIds.map((id) => {
-        const definition = APP_DEFINITIONS[id];
-        const detached = detachedApps.includes(id);
+        const definition = WEB_APP_DEFINITIONS[id];
+        const detached = detachedWebApps.includes(id);
         const label = detached
           ? `Focus the detached ${definition.label} window`
           : flyoutAppId === id
@@ -146,7 +146,7 @@ export function AppsRailRow({ expanded = false }: { expanded?: boolean }) {
             label={label}
             size="sm"
             aria-pressed={!detached && flyoutAppId === id}
-            data-testid={`apps-rail-${id}`}
+            data-testid={`web-apps-rail-${id}`}
             className={expanded ? 'w-full justify-start px-2' : ''}
             onClick={() => onClick(id)}
           >

@@ -24,9 +24,9 @@ import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
 import { allowAppAudioOnly } from './browser-security';
 import { installCsp } from './csp';
-import { destroyAllApps, startAppsDiscardSweep } from './apps-service';
+import { destroyAllWebApps, startWebAppsDiscardSweep } from './web-apps-service';
 import { destroyAllBrowserTabs, startBrowserDiscardSweep } from './browser-service';
-import { registerAppsHandlers } from './ipc/apps-handlers';
+import { registerWebAppsHandlers } from './ipc/web-apps-handlers';
 import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
@@ -465,8 +465,8 @@ if (!app.requestSingleInstanceLock()) {
     // state at tick time, so there is nothing to reconcile per repo or per
     // window the way `watch-service.ts`'s watchers are.
     startBrowserDiscardSweep();
-    startAppsDiscardSweep();
-    registerAppsHandlers(getMainWindow);
+    startWebAppsDiscardSweep();
+    registerWebAppsHandlers(getMainWindow);
     registerWindowHandlers(getMainWindow, defaultLogger);
     // Phase 81 Theme F: `ui-bridge.ts` targets `getMainWindow()` explicitly,
     // never the focused window — registered here, once, the same way every
@@ -1034,7 +1034,7 @@ if (!app.requestSingleInstanceLock()) {
     stopAllWatchers();
     stopMediaWatchers();
     destroyAllBrowserTabs();
-    destroyAllApps();
+    destroyAllWebApps();
     // A `remotion studio` or an in-flight render surviving the app is a port
     // leak / an orphaned headless Chrome the user cannot see — Theme C's own
     // doc names this exact wiring as its one open item, owned by Theme H.
@@ -1083,7 +1083,7 @@ if (!app.requestSingleInstanceLock()) {
     stopAllWatchers();
     stopMediaWatchers();
     destroyAllBrowserTabs();
-    destroyAllApps();
+    destroyAllWebApps();
     // macOS apps conventionally stay alive with no windows; everywhere else,
     // closing the last window quits.
     if (process.platform !== 'darwin') app.quit();

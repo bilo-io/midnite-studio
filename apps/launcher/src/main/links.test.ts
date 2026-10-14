@@ -37,7 +37,10 @@ describe('catalog → midnite-studio links', () => {
     expect(appLink('gamer')).toBe('midnite-studio://view?id=media&tab=game');
     expect(appLink('gamer', 'nope')).toBe('midnite-studio://view?id=media&tab=game');
     expect(appLink('cleaner')).toBe('midnite-studio://view?id=optimizer');
-    expect(appLink('mind', 'knowledge')).toBe('midnite-studio://view?id=knowledge');
+    expect(appLink('coder', 'tasks')).toBe('midnite-studio://view?id=tasks');
+    // Knowledge lives in the frame now (Phase 113 placement map), not in Mind.
+    expect(appLink('mind', 'knowledge')).toBe('midnite-studio://view?id=notes');
+    expect(appLink('mind', 'tasks')).toBe('midnite-studio://view?id=notes');
     expect(appLink('vault')).toBe('midnite-studio://view?id=settings');
     expect(appLink('capture', 'recordings')).toBe('midnite-studio://view?id=media&tab=video');
     expect(appLink('agents', 'models')).toBe('midnite-studio://view?id=models');

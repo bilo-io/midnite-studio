@@ -116,8 +116,8 @@ export const PREFERENCE_KEYS = [
   'editorTabSize',
   'editorWordWrap',
 
-  'enabledApps', // apps-page.tsx
-  'appDiscardIdle', // apps-page.tsx (Phase 84 Theme F.4)
+  'enabledWebApps', // web-apps-page.tsx
+  'webAppDiscardIdle', // web-apps-page.tsx (Phase 84 Theme F.4)
 
   // Phase 79 Theme H's page. Registered orphans between Theme A (which added
   // the five preferences) and Theme H (which built the page) — and no longer
@@ -225,7 +225,7 @@ export const SESSION_STATE_KEYS = [
  * one phase slice, and Theme H's `companion-page.tsx` removed them — the
  * intended lifecycle for an entry in this list, and the one worth naming: an
  * orphan is parked here with a named page and leaves when that page ships.
- * `enabledApps` (Phase 83 Theme A/B, resolved by Theme E's `apps-page.tsx`)
+ * `enabledWebApps` (Phase 83 Theme A/B, resolved by Theme E's `web-apps-page.tsx`)
  * is the identical shape a third time, and Phase 109's `companionProfiles` and
  * `companionActiveProfile` (seeded by Theme B, resolved by Theme G's
  * `companion-profiles-section.tsx`) a fourth.
