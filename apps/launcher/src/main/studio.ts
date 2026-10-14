@@ -3,8 +3,8 @@ import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { StudioInstall, StudioStatus } from '../common/bridge';
-import { STUDIO_EXE, STUDIO_FEED_URL, studioSearchPaths } from './constants';
-import { fetchLatestRelease } from './feed';
+import { STUDIO_EXE, studioSearchPaths } from './constants';
+import { fetchStudioRelease } from './feed';
 import { bundleVersionFromPlist } from './plist';
 
 /** The first installed copy of Studio on the search path, or `null`. */
@@ -36,7 +36,7 @@ export function isStudioRunning(): Promise<boolean> {
 export async function studioStatus(): Promise<StudioStatus> {
   const [installed, feed, running] = await Promise.all([
     findStudio(),
-    fetchLatestRelease(STUDIO_FEED_URL),
+    fetchStudioRelease(),
     isStudioRunning(),
   ]);
   return { installed, latest: feed.release, feedError: feed.error, running, checkedAt: Date.now() };

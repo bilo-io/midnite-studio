@@ -3,8 +3,8 @@ import { z } from 'zod';
 
 import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherResult } from '../common/bridge';
 import { APP_IDS } from '../common/catalog';
-import { DOWNLOAD_URL, GITHUB_URL, RELEASES_URL, SITE_URL, STUDIO_FEED_URL } from './constants';
-import { fetchLatestRelease } from './feed';
+import { DOWNLOAD_URL, GITHUB_URL, RELEASES_URL, SITE_URL } from './constants';
+import { fetchStudioRelease } from './feed';
 import { installStudio } from './install';
 import { appLink } from './links';
 import { findStudio, isStudioRunning, studioStatus } from './studio';
@@ -80,7 +80,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
         url = DOWNLOAD_URL;
         break;
       case 'notes':
-        url = (await fetchLatestRelease(STUDIO_FEED_URL)).release?.notesUrl ?? RELEASES_URL;
+        url = (await fetchStudioRelease()).release?.notesUrl ?? RELEASES_URL;
         break;
     }
     await shell.openExternal(url);

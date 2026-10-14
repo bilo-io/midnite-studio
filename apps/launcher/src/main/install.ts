@@ -12,10 +12,9 @@ import {
   MIN_FRAMEWORK_BYTES,
   STUDIO_BUNDLE,
   STUDIO_EXE,
-  STUDIO_FEED_URL,
   studioZipUrl,
 } from './constants';
-import { fetchLatestRelease } from './feed';
+import { fetchStudioRelease } from './feed';
 
 /**
  * Install (or update) Midnite Studio in-process — `install.sh`'s steps, in the
@@ -37,6 +36,7 @@ export type InstallDeps = {
   isRunning: () => Promise<boolean>;
   installDir?: string;
   feedUrl?: string;
+  catalogUrl?: string;
   fetchImpl?: typeof fetch;
 };
 
@@ -117,7 +117,7 @@ export async function installStudio(deps: InstallDeps): Promise<LauncherResult> 
       return fail(`${installDir} isn't writable by this account. Install from Terminal instead — the download page has the one-line command.`);
     }
 
-    const feed = await fetchLatestRelease(deps.feedUrl ?? STUDIO_FEED_URL, deps.fetchImpl);
+    const feed = await fetchStudioRelease({ feedUrl: deps.feedUrl, catalogUrl: deps.catalogUrl, fetchImpl: deps.fetchImpl });
     if (feed.release === null) return fail(feed.error);
     const { version } = feed.release;
 

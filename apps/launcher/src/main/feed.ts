@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 import type { StudioRelease } from '../common/bridge';
+import { parseCatalog, type Catalog } from '../common/catalog-feed';
+import { CATALOG_URL, STUDIO_FEED_URL } from './constants';
 
 /** `midnite-studio/version.json` in bilo-io/midnite-apps — written per release by /midnite-release-complete. */
 const FeedSchema = z.object({
@@ -31,4 +33,33 @@ export async function fetchLatestRelease(url: string, fetchImpl: typeof fetch = 
   } catch {
     return { release: null, error: 'Could not reach the release feed — offline?' };
   }
+}
+
+/** The validated catalog, or `null` when it is missing (404 today), malformed or unreachable — never throws. */
+export async function fetchCatalog(url: string = CATALOG_URL, fetchImpl: typeof fetch = fetch): Promise<Catalog | null> {
+  try {
+    const res = await fetchImpl(url, { cache: 'no-store', signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return null;
+    return parseCatalog(await res.json());
+  } catch {
+    return null;
+  }
+}
+
+export type ReleaseSources = { catalogUrl?: string; feedUrl?: string; fetchImpl?: typeof fetch };
+
+/**
+ * Studio's latest release: `catalog.json` when it is published, valid and lists
+ * Studio; otherwise the per-app `version.json` feed, exactly as before.
+ */
+export async function fetchStudioRelease(sources: ReleaseSources = {}): Promise<FeedResult> {
+  const catalog = await fetchCatalog(sources.catalogUrl, sources.fetchImpl);
+  const studio = catalog?.apps.find((a) => a.id === 'studio');
+  if (studio) {
+    return {
+      release: { version: studio.version, releasedAt: studio.releasedAt ?? null, notesUrl: studio.notesUrl ?? null },
+      error: null,
+    };
+  }
+  return fetchLatestRelease(sources.feedUrl ?? STUDIO_FEED_URL, sources.fetchImpl);
 }

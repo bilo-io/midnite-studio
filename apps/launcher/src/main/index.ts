@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, Menu, shell } from 'electron';
 
+import { applyDevIdentity } from './identity';
 import { registerIpc } from './ipc';
 
 /**
@@ -58,6 +59,9 @@ if (!app.requestSingleInstanceLock()) {
       mainWindow.focus();
     }
   });
+
+  // Dev runs the stock Electron binary — give it the launcher's own name and Dock icon.
+  applyDevIdentity(app, __dirname);
 
   void app.whenReady().then(() => {
     // The default menu minus the developer items a launcher has no use for.
