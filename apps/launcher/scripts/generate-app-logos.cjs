@@ -76,15 +76,20 @@ async function compose({ base, svg, accent }) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = S;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(await load(base), 0, 0, S, S);
+  // The moon is drawn larger than Studio's icon has it — MARK_SCALE about the
+  // centre — so it fills more of the rounded square. Studio's background is a
+  // full-bleed gradient, so scaling it up only crops more of the same.
+  const MARK_SCALE = 1.22;
+  const drawn = S * MARK_SCALE;
+  ctx.drawImage(await load(base), (S - drawn) / 2, (S - drawn) / 2, drawn, drawn);
 
   // Recolour by luminance: near-white becomes the gradient, dark stays as it
   // was, and the anti-aliased edges between them blend rather than fringe.
   const image = ctx.getImageData(0, 0, S, S);
   const d = image.data;
-  const cx = S * 0.4;
-  const cy = S * 0.34;
-  const radius = S * 0.5;
+  const cx = S / 2 - S * 0.1 * MARK_SCALE;
+  const cy = S / 2 - S * 0.16 * MARK_SCALE;
+  const radius = S * 0.5 * MARK_SCALE;
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       const i = (y * S + x) * 4;
@@ -101,7 +106,8 @@ async function compose({ base, svg, accent }) {
   // The glyph, white, centred on the moon, with a soft shadow so it reads over
   // both the black and the coloured halves.
   const glyph = await load(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
-  const size = S * 0.34;
+  // Small enough that the crescent still reads around it.
+  const size = S * 0.22;
   ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
   ctx.shadowBlur = S * 0.03;
   ctx.shadowOffsetY = S * 0.008;
