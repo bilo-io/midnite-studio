@@ -12,7 +12,15 @@ import { describe, expect, it } from 'vitest';
  * matching, so a vacuous pass is impossible.
  */
 const featureFiles = Object.keys(import.meta.glob('./features/*/**/*.{ts,tsx}'));
-const folders = [...new Set(featureFiles.map((path) => path.split('/')[2] as string))].sort();
+// Phase 113 Theme C: a feature extracted into its own package
+// (`packages/features/<name>/`) is still a placed feature folder.
+const packagedFeatureFiles = Object.keys(import.meta.glob('../../features/*/manifest.ts'));
+const folders = [
+  ...new Set([
+    ...featureFiles.map((path) => path.split('/')[2] as string),
+    ...packagedFeatureFiles.map((path) => path.split('/')[3] as string),
+  ]),
+].sort();
 
 const docs = import.meta.glob('../../../docs/APPS.md', { query: '?raw', import: 'default', eager: true });
 const appsDoc = Object.values(docs)[0] as string | undefined;

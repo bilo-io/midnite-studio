@@ -4,14 +4,17 @@ import { KNOWN_ORPHANS, PREFERENCE_KEYS, SESSION_STATE_KEYS } from './persisted-
 import { useUiStore } from './ui-store';
 
 /**
- * Every non-test `.ts`/`.tsx` source file under `features/settings/`, as text.
+ * Every non-test `.ts`/`.tsx` source file under `features/settings/`, as text —
+ * plus the settings pages feature packages contribute (Phase 113 Theme C:
+ * Settings ▸ Workspace Optimizer and Trash Safety moved to
+ * `packages/features/optimizer/renderer/settings/`).
  *
  * `import.meta.glob` (Vite, not `node:fs`) — the same instrument
  * `icon-names.test.ts` uses, and for the same reason: the renderer's own
  * eslint boundary forbids node builtins under `src/`, `.test.ts` files
  * included.
  */
-const SETTINGS_SOURCES = import.meta.glob('../features/settings/**/*.{ts,tsx}', {
+const SETTINGS_SOURCES = import.meta.glob(['../features/settings/**/*.{ts,tsx}', '../../../features/*/renderer/settings/**/*.{ts,tsx}'], {
   query: '?raw',
   import: 'default',
   eager: true,

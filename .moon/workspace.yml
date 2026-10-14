@@ -6,6 +6,12 @@ projects:
   # without moon inheriting the per-package build/test/typecheck/lint tasks there.
   globs:
     - 'packages/*'
+    # Phase 113 Theme C: feature packages, one per extracted feature
+    # (`packages/features/optimizer` is the first). `packages/features` itself
+    # is only their folder, so the `packages/*` glob above must not make it a
+    # project — the negation does that.
+    - '!packages/features'
+    - 'packages/features/*'
     # `apps/*` holds whole installable products built from `packages/*` — the
     # Midnite Apps launcher first. Same task inheritance as a package.
     - 'apps/*'

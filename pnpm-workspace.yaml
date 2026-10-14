@@ -1,3 +1,5 @@
 packages:
   - 'packages/*'
+  # Phase 113 Theme C — one package per extracted feature.
+  - 'packages/features/*'
   - 'apps/*'

@@ -1,5 +1,7 @@
 import { lazy, type ComponentType } from 'react';
 
+import { optimizerManifest, optimizerViews } from '@midnite/studio-feature-optimizer/renderer';
+
 import { GraphView } from '../features/graph/graph-view';
 import type { ViewId } from '../store/ui-store';
 
@@ -66,8 +68,10 @@ const loadTasksView = () => import('../features/tasks/tasks-view');
 const TasksView = lazy(() => loadTasksView().then((m) => ({ default: m.TasksView })));
 const loadHistoryView = () => import('../features/history/history-view');
 const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.HistoryView })));
-const loadOptimizerPage = () => import('../features/optimizer/optimizer-page');
-const OptimizerPage = lazy(() => loadOptimizerPage().then((m) => ({ default: m.OptimizerPage })));
+// Phase 113 Theme C — the first view composed from a feature package rather
+// than imported from `features/`: the package hands over a loader, so the view
+// keeps its own lazy chunk exactly as before.
+const OptimizerPage = lazy(() => optimizerViews.optimizer().then((Component) => ({ default: Component })));
 const loadSessionsView = () => import('../features/sessions/sessions-view');
 const SessionsView = lazy(() => loadSessionsView().then((m) => ({ default: m.SessionsView })));
 const loadApiClientView = () => import('../features/api-client/api-client-view');
@@ -209,7 +213,9 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
     dressed as fidelity to a stale list. `view-registry.test.ts` asserts the six,
     which is what makes any further widening a deliberate test change.
   */
-  optimizer: { Component: OptimizerPage, global: true },
+  // `global` comes from the feature's manifest (Phase 113 Theme C) — the
+  // package, not this table, now says whether its view needs a repo.
+  optimizer: { Component: OptimizerPage, global: optimizerManifest.views[0].global },
   // Not global: its collections live under `.midnite/api/` in an open repo, so
   // it yields to `EmptyWorkspace` exactly like Files or Graph.
   apiClient: { Component: ApiClientView },

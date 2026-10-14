@@ -37,6 +37,6 @@ describe('checkGateCoverage', () => {
     // the main-process layer the safeStorage vault moves into (Phase 113).
     // Everything else is platform-agnostic and belongs on the 1x runner.
     expect(NATIVE_PROJECTS.sort()).toEqual(['desktop', 'git-engine', 'runtime']);
-    expect(NODE_PROJECTS.sort()).toEqual(['app', 'db-engine', 'knowledge', 'shared', 'website']);
+    expect(NODE_PROJECTS.sort()).toEqual(['app', 'db-engine', 'frame', 'knowledge', 'shared', 'website']);
   });
 });

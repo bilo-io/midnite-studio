@@ -23,6 +23,7 @@ export * from './metrics';
 export * from './optimizer';
 export * from './placement';
 export * from './feature-registrations';
+export * from './feature-manifest';
 export * from './rebase';
 export * from './ref';
 export * from './reflog';

@@ -21,6 +21,12 @@ dependsOn:
     scope: 'development'
   - id: 'knowledge'
     scope: 'development'
+  # Phase 113 Theme C: the runtime layer and the optimizer feature's main half,
+  # both inlined into the bundle like the engines above.
+  - id: 'runtime'
+    scope: 'development'
+  - id: 'feature-optimizer'
+    scope: 'development'
   - id: 'app'
     scope: 'development'
 
@@ -40,6 +46,8 @@ tasks:
       - 'git-engine:build'
       - 'db-engine:build'
       - 'knowledge:build'
+      - 'runtime:build'
+      - 'feature-optimizer:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
@@ -48,6 +56,9 @@ tasks:
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
       - '/packages/knowledge/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/optimizer/main/**/*'
+      - '/packages/features/optimizer/manifest.ts'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -61,6 +72,8 @@ tasks:
       - 'git-engine:build'
       - 'db-engine:build'
       - 'knowledge:build'
+      - 'runtime:build'
+      - 'feature-optimizer:build'
       - '~:bundle'
     inputs:
       - 'src/**/*'
@@ -75,6 +88,9 @@ tasks:
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
       - '/packages/knowledge/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/optimizer/main/**/*'
+      - '/packages/features/optimizer/manifest.ts'
 
   lint:
     inputs:
@@ -106,6 +122,9 @@ tasks:
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
       - '/packages/knowledge/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/optimizer/main/**/*'
+      - '/packages/features/optimizer/manifest.ts'
     outputs:
       - 'dist/bundle'
 

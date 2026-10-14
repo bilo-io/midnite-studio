@@ -30,6 +30,22 @@ import globals from 'globals';
  * Enforced with `no-restricted-imports` rather than a boundaries plugin so the
  * rule set stays dependency-free and the message explains the *why* at the
  * point of failure.
+ *
+ * Phase 113 Theme C adds the app-suite layers (docs/APPS.md):
+ *
+ *   shared ◀ runtime ◀ feature main half ◀ desktop (the Studio composer, main side)
+ *   shared ◀ frame ◀ feature renderer half ◀ app (the Studio composer, renderer side)
+ *
+ * - An app may import features and the frame.
+ * - A feature may import the frame (renderer half) or the runtime (main half),
+ *   and shared — never an app, and never another feature.
+ * - The frame never imports a feature, an app or the runtime.
+ * - The runtime never imports a feature, the frame, an app or desktop.
+ *
+ * Flat config does not MERGE `no-restricted-imports` across blocks — the last
+ * block matching a file replaces the rule wholesale — so each layer's block
+ * below spells out its complete pattern list. `scripts/layer-boundaries.test.mjs`
+ * lints one fixture per rule and fails if any of them stops firing.
  */
 const APP_PATTERNS = [
     {
@@ -73,6 +89,61 @@ const NO_ELECTRON = {
   group: ['electron', 'electron/*'],
   message:
     'This package must stay runnable outside Electron (plain vitest). Move electron-specific code to packages/desktop.',
+};
+
+/*
+  Phase 113 Theme C — the layer patterns. Each names a layer by package and,
+  where a relative path could reach around the package name, by path.
+*/
+const LAYER_APP = {
+  group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/app-*', '@midnite/launcher', '@midnite/launcher/*', '**/app/src/**'],
+  message:
+    'Nothing below an app imports one (docs/APPS.md): an app composes features and the frame, never the other way round. If an app owns something a lower layer needs, move it down — into the frame, a feature, or shared.',
+};
+const LAYER_FEATURE_FROM_FRAME = {
+  group: ['@midnite/studio-feature-*', '@midnite/studio-feature-*/**', '**/features/*/renderer/**', '**/features/*/main/**', '**/features/*/manifest'],
+  message:
+    'The frame never imports a feature: every app wears the frame, so a feature in it would be in every app. Give the frame a seam (a port, a slot, a prop) and let the composing app plug the feature in.',
+};
+const LAYER_OTHER_FEATURE = [
+  {
+    group: ['@midnite/studio-feature-*', '@midnite/studio-feature-*/**'],
+    message:
+      'A feature never imports another feature (docs/APPS.md) — each must install without the others. Hand off through the link router or shared ids; if both need the code, it belongs in the frame or shared.',
+  },
+  {
+    // A relative climb out of this package into a sibling: `../../notes/renderer/…`.
+    regex: '^(\\.\\./)+[a-z0-9-]+/(renderer|main)(/|$)',
+    message: 'A feature never imports another feature, by package name or by relative path.',
+  },
+];
+const LAYER_RUNTIME_FROM_RENDERER = {
+  group: ['@midnite/studio-runtime', '@midnite/studio-runtime/*'],
+  message:
+    'The runtime is main-process only. The renderer reaches it through `window.midniteStudio` (the bridge), never by import.',
+};
+const LAYER_FRAME_FROM_MAIN = {
+  group: ['@midnite/studio-frame', '@midnite/studio-frame/*', 'react', 'react-dom', 'react/*', 'react-dom/*'],
+  message: 'A main-process module has no renderer: the frame and React belong to the renderer half.',
+};
+const LAYER_DESKTOP = {
+  group: ['@midnite/studio-desktop', '@midnite/studio-desktop/*', '**/desktop/src/**'],
+  message:
+    'Desktop is Studio\'s main-side composer, above every feature and the runtime. What a lower layer needs from it belongs in the runtime (Theme D) or behind the feature\'s services port.',
+};
+/** App-only extras: the main half of a feature and the runtime are main-process code. */
+const APP_LAYER_PATTERNS = [
+  LAYER_RUNTIME_FROM_RENDERER,
+  {
+    group: ['@midnite/studio-feature-*/main', '@midnite/studio-feature-*/main/*'],
+    message: "A feature's main half runs in the main process — the renderer composes `@midnite/studio-feature-<name>/renderer`.",
+  },
+];
+/** Outside tests, an app composes a feature through `/renderer` only. */
+const APP_FEATURE_TESTING = {
+  group: ['@midnite/studio-feature-*/renderer/testing'],
+  message:
+    "A feature's `/renderer/testing` entry exposes internals for composition tests only. Production code composes through `/renderer`.",
 };
 
 export default tseslint.config(
@@ -177,14 +248,115 @@ export default tseslint.config(
     files: ['packages/app/src/**/*.{ts,tsx}'],
     rules: deny([
       ...APP_PATTERNS,
+      ...APP_LAYER_PATTERNS,
+      APP_FEATURE_TESTING,
       MAPLIBRE_LAZY,
     ]),
+  },
+  // Studio's composition tests may reach a feature's internals (Phase 113 Theme C).
+  {
+    files: ['packages/app/src/**/*.test.{ts,tsx}'],
+    rules: deny([...APP_PATTERNS, ...APP_LAYER_PATTERNS, MAPLIBRE_LAZY]),
   },
 
   // map-canvas.tsx is the one file allowed to import MapLibre (Phase 108 Theme A).
   {
     files: ['packages/app/src/features/media/map/map-canvas.tsx', 'packages/app/src/features/media/map/map-canvas.test.tsx'],
-    rules: deny([...APP_PATTERNS]),
+    rules: deny([...APP_PATTERNS, ...APP_LAYER_PATTERNS]),
+  },
+
+  // --- Boundary: frame (Phase 113 Theme C) ------------------------------------
+  // The renderer chrome every app wears. Renderer rules (bridge-only), and it
+  // sits below every feature and app.
+  {
+    files: ['packages/frame/src/**/*.{ts,tsx}'],
+    rules: deny([
+      ...APP_PATTERNS,
+      MAPLIBRE_LAZY,
+      LAYER_APP,
+      LAYER_FEATURE_FROM_FRAME,
+      LAYER_RUNTIME_FROM_RENDERER,
+    ]),
+  },
+
+  // --- Boundary: feature renderer half (Phase 113 Theme C) --------------------
+  // Compiled into whichever app composes it, so renderer rules apply in full;
+  // above the frame and shared, below every app, beside every other feature.
+  {
+    files: ['packages/features/*/renderer/**/*.{ts,tsx}'],
+    rules: deny([
+      ...APP_PATTERNS,
+      MAPLIBRE_LAZY,
+      LAYER_APP,
+      ...LAYER_OTHER_FEATURE,
+      LAYER_RUNTIME_FROM_RENDERER,
+      {
+        regex: '^(\\.\\./)+main(/|$)',
+        message: "The renderer half never imports its own main half — that runs in another process. Share data through `manifest.ts` or shared.",
+      },
+    ]),
+  },
+
+  // --- Boundary: feature main half (Phase 113 Theme C) ------------------------
+  // Registers against the runtime's FeatureMainContext; never imports electron
+  // itself, so it runs under bare vitest like git-engine.
+  {
+    files: ['packages/features/*/main/**/*.ts'],
+    rules: deny([
+      {
+        group: ['electron', 'electron/*'],
+        message:
+          "A feature's main half reaches Electron only through the FeatureMainContext its composer hands it (`@midnite/studio-runtime`), so it stays testable under plain vitest.",
+      },
+      LAYER_APP,
+      ...LAYER_OTHER_FEATURE,
+      LAYER_FRAME_FROM_MAIN,
+      LAYER_DESKTOP,
+      {
+        regex: '^(\\.\\./)+renderer(/|$)',
+        message: 'The main half never imports its own renderer half. Share data through `manifest.ts` or shared.',
+      },
+    ]),
+  },
+
+  // --- Boundary: feature manifest (Phase 113 Theme C) -------------------------
+  // Pure data both halves read: shared, and nothing else.
+  {
+    files: ['packages/features/*/manifest.ts'],
+    rules: deny([
+      {
+        regex: '^(?!@midnite/studio-shared$)',
+        message: "A feature manifest is pure data both halves read — it imports `@midnite/studio-shared` and nothing else.",
+      },
+    ]),
+  },
+
+  // --- Boundary: runtime (Phase 113 Theme C) ----------------------------------
+  // Main-only (electron allowed), beneath every feature and app.
+  {
+    files: ['packages/runtime/src/**/*.ts'],
+    rules: deny([
+      LAYER_APP,
+      {
+        ...LAYER_FEATURE_FROM_FRAME,
+        message: 'The runtime never imports a feature: features register against it (FeatureMainContext), not the other way round.',
+      },
+      LAYER_FRAME_FROM_MAIN,
+      LAYER_DESKTOP,
+    ]),
+  },
+
+  // --- Boundary: desktop's layer edges (Phase 113 Theme C) --------------------
+  // Studio's main-side composer may take the runtime and a feature's main half
+  // and manifest — never the frame or a feature's renderer half.
+  {
+    files: ['packages/desktop/src/**/*.ts'],
+    rules: deny([
+      {
+        group: ['@midnite/studio-frame', '@midnite/studio-frame/*', '@midnite/studio-feature-*/renderer', '@midnite/studio-feature-*/renderer/*'],
+        message: 'The main process never imports renderer code: the frame and a feature\'s renderer half run in the window. Compose the feature\'s `/main` half.',
+      },
+    ]),
   },
 
   // --- Boundary: website (the public marketing site) --------------------------
@@ -302,7 +474,13 @@ export default tseslint.config(
   // imports Electron modules.
   {
     files: ['packages/desktop/src/broker/**/*.ts'],
-    rules: deny([NO_ELECTRON]),
+    rules: deny([
+      NO_ELECTRON,
+      {
+        group: ['@midnite/studio-frame', '@midnite/studio-frame/*', '@midnite/studio-feature-*', '@midnite/studio-feature-*/**'],
+        message: 'The broker is a bare Node process; it composes nothing from the app layers.',
+      },
+    ]),
   },
 
   // --- Subprocess locale pin (Phase 85 Theme A) ------------------------------

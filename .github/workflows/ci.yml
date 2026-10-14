@@ -250,6 +250,7 @@ jobs:
           app:typecheck app:lint
           website:typecheck website:lint website:test
           db-engine:typecheck db-engine:lint db-engine:test
+          frame:typecheck frame:lint frame:test
           root:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
