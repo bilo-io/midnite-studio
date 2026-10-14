@@ -1,6 +1,7 @@
 import type { IconType } from 'react-icons';
 import { LuCode } from 'react-icons/lu';
 import {
+  PiChartLineUpFill,
   PiGameControllerFill,
   PiGlobeFill,
   PiMonitorPlayFill,
@@ -29,6 +30,7 @@ export const APP_GLYPHS: Record<AppId, IconType> = {
   gamer: PiGameControllerFill,
   creator: PiPaletteFill,
   media: PiMonitorPlayFill,
+  money: PiChartLineUpFill,
   browser: PiGlobeFill,
   cleaner: PiSparkleFill,
   studio: PiRocketLaunchFill,

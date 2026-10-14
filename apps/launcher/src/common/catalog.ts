@@ -37,7 +37,7 @@ export const SECTION_LABELS: Record<AppSection, string> = {
   'all-in-one': 'All-in-one',
 };
 
-export const SECTION_ORDER: readonly AppSection[] = ['suite', 'utilities', 'all-in-one'];
+export const SECTION_ORDER: readonly AppSection[] = ['all-in-one', 'suite', 'utilities'];
 
 export type LauncherApp = {
   id: AppId;
@@ -65,7 +65,7 @@ export type LauncherApp = {
   runsIn: 'studio';
 };
 
-export const APP_IDS = ['agents', 'coder', 'gamer', 'creator', 'media', 'browser', 'cleaner', 'studio'] as const;
+export const APP_IDS = ['studio', 'agents', 'coder', 'gamer', 'creator', 'media', 'money', 'browser', 'cleaner'] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 const view = (v: ViewId, tab?: MediaTab): StudioTarget =>
@@ -86,6 +86,24 @@ export const SHELL_PARTS: readonly { label: string; blurb: string }[] = [
 ];
 
 export const APPS: readonly LauncherApp[] = [
+  {
+    id: 'studio',
+    name: 'Studio',
+    section: 'all-in-one',
+    accent: '#8b5cf6',
+    gradient: 'brand',
+    tagline: 'Every midnite app in one window',
+    like: 'The whole suite, for power users',
+    vision:
+      'The master tool: every app below, in one desktop application with one rail. It is what the suite is built from today, and it stays the place for anyone who would rather have all of it at once.',
+    home: view('landing'),
+    features: [
+      { id: 'home', label: 'Home', blurb: 'The landing page', target: view('landing') },
+      { id: 'graph', label: 'Git Graph', blurb: 'The commit graph', target: view('graph') },
+      { id: 'dashboard', label: 'Dashboard', blurb: 'Everything at a glance', target: view('dashboard') },
+    ],
+    runsIn: 'studio',
+  },
   {
     id: 'agents',
     name: 'Agents',
@@ -176,6 +194,24 @@ export const APPS: readonly LauncherApp[] = [
     runsIn: 'studio',
   },
   {
+    id: 'money',
+    name: 'Money',
+    section: 'suite',
+    accent: '#84cc16',
+    tagline: 'Stocks, investments, crypto and trading',
+    like: 'Like Robinhood, Yahoo Finance and Delta',
+    vision:
+      'Every account you hold in one view — brokerage, crypto and cash — with live prices, allocation and performance over time, and the trades themselves a click away, with an agent to explain what moved and why.',
+    home: view('dashboard'),
+    features: [
+      { id: 'stocks', label: 'Stocks', blurb: 'Watchlists, quotes and charts', target: view('dashboard') },
+      { id: 'investments', label: 'Investments', blurb: 'Portfolio, allocation and returns', target: view('dashboard') },
+      { id: 'crypto', label: 'Crypto', blurb: 'Coins and wallets beside everything else', target: view('dashboard') },
+      { id: 'trading', label: 'Trading', blurb: 'Place and track orders', target: view('dashboard') },
+    ],
+    runsIn: 'studio',
+  },
+  {
     id: 'browser',
     name: 'Browser',
     section: 'utilities',
@@ -207,24 +243,6 @@ export const APPS: readonly LauncherApp[] = [
     home: view('optimizer'),
     features: [
       { id: 'optimizer', label: 'Workspace optimizer', blurb: 'Reclaim space from caches and stale trees', target: view('optimizer') },
-    ],
-    runsIn: 'studio',
-  },
-  {
-    id: 'studio',
-    name: 'Studio',
-    section: 'all-in-one',
-    accent: '#8b5cf6',
-    gradient: 'brand',
-    tagline: 'Every midnite app in one window',
-    like: 'The whole suite, for power users',
-    vision:
-      'The master tool: every app above, in one desktop application with one rail. It is what the suite is built from today, and it stays the place for anyone who would rather have all of it at once.',
-    home: view('landing'),
-    features: [
-      { id: 'home', label: 'Home', blurb: 'The landing page', target: view('landing') },
-      { id: 'graph', label: 'Git Graph', blurb: 'The commit graph', target: view('graph') },
-      { id: 'dashboard', label: 'Dashboard', blurb: 'Everything at a glance', target: view('dashboard') },
     ],
     runsIn: 'studio',
   },
