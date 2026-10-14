@@ -1,6 +1,18 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-14 — Phase 113 Theme A — Placement map and vocabulary
+
+[PR #847](https://github.com/bilo-io/midnite-studio/pull/847). Every folder in
+`packages/app/src/features/` now has an owner: the frame (the cross-app chrome — never "shell", which
+is `@bilo-io/shell`) or one of the twelve apps, in `packages/shared/src/domain/placement.ts`.
+`docs/APPS.md` is generated from that const and a vitest keeps folders, map and doc in step. The
+Phase 83 third-party rail was renamed `apps` → `web-apps` in code, channels, bridge and settings page,
+with ui-store v34 migrating five persisted fields; the `persist:app-<id>` partitions and `apps-<id>`
+window roles keep their names so no one is signed out and no on-disk window state moves. The
+launcher's tiles follow the map: Coder gains Tasks, Mind is Notes and Review, and the detail sheet
+names the frame.
+
 ## 2026-10-14 — Phase 113 Theme B — Process model and Dock identity spike
 
 [PR #846](https://github.com/bilo-io/midnite-studio/pull/846). Measured how a small app on a shared
