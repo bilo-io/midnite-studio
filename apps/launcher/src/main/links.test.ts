@@ -40,5 +40,9 @@ describe('catalog → midnite-studio links', () => {
     expect(appLink('mind', 'knowledge')).toBe('midnite-studio://view?id=knowledge');
     expect(appLink('vault')).toBe('midnite-studio://view?id=settings');
     expect(appLink('capture', 'recordings')).toBe('midnite-studio://view?id=media&tab=video');
+    expect(appLink('agents', 'models')).toBe('midnite-studio://view?id=models');
+    expect(appLink('monitor')).toBe('midnite-studio://view?id=settings');
+    expect(appLink('monitor', 'sessions')).toBe('midnite-studio://view?id=sessions');
+    expect(appLink('mind', 'review')).toBe('midnite-studio://view?id=notes');
   });
 });

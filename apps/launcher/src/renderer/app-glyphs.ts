@@ -8,6 +8,7 @@ import {
   PiGlobeFill,
   PiMonitorPlayFill,
   PiPaletteFill,
+  PiPulseFill,
   PiRobotFill,
   PiRocketLaunchFill,
   PiSparkleFill,
@@ -39,6 +40,7 @@ export const APP_GLYPHS: Record<AppId, IconType> = {
   cleaner: PiSparkleFill,
   vault: PiVaultFill,
   capture: PiCameraFill,
+  monitor: PiPulseFill,
   studio: PiRocketLaunchFill,
 };
 
