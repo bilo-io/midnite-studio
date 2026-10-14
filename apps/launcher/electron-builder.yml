@@ -1,0 +1,39 @@
+# Midnite Apps — the launcher's own macOS arm64 build.
+#
+# Deliberately small: no native modules, no extraResources, no node_modules at
+# runtime (main + preload are esbuild bundles with everything but `electron`
+# inlined, and the renderer is a static Vite build). What is left is the
+# Electron framework itself, which is why this is ~100 MB and not ArtCraft's
+# 17 MB — see the PR that added it for that trade-off.
+#
+# Publishing is never electron-builder's job here either; a release goes to
+# bilo-io/midnite-apps under a namespaced `midnite-launcher/vX.Y.Z` tag, the
+# same scheme `packages/desktop` follows.
+appId: io.bilo.midnite-launcher
+productName: Midnite Apps
+directories:
+  output: release
+  buildResources: resources
+artifactName: midnite-launcher-${version}-${arch}.${ext}
+files:
+  - dist/**/*
+  - package.json
+  - '!node_modules/**'
+asar: true
+npmRebuild: false
+mac:
+  category: public.app-category.developer-tools
+  icon: resources/icon.icns
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.inherit.plist
+  notarize: false
+afterSign: scripts/notarize.cjs

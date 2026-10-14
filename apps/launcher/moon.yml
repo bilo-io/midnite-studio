@@ -1,0 +1,65 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+language: 'typescript'
+
+# Midnite Apps — the launcher. Its own Electron app, off the Studio graph: it
+# imports no workspace package bar ONE file of `shared` (`studio-link.ts`, by
+# source alias), and talks to Studio only through `midnite-studio://` links and
+# the public bilo-io/midnite-apps feed. See eslint.config.mjs's launcher block.
+
+tasks:
+  # Vite builds the renderer, esbuild bundles main + preload. `mergeArgs:
+  # replace` so the inherited `tsc -b` args are not appended.
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'scripts/bundle.mjs'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/studio-link.ts'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - '/packages/shared/src/studio-link.ts'
+      - '/packages/shared/src/domain/view.ts'
+      - '/packages/shared/src/media.ts'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/studio-link.ts'
+
+  # Build, then run the built launcher in Electron.
+  start:
+    command: 'node scripts/start-electron.mjs'
+    preset: 'server'
+    deps:
+      - '~:build'
+
+  # The renderer alone in a browser, against `mock-bridge.ts` — for UI work
+  # and screenshots without an Electron window.
+  dev:
+    command: 'pnpm exec vite'
+    preset: 'server'
+
+  # macOS arm64 dmg + zip. Never in CI, never cached — same reasoning as
+  # `desktop:dist`.
+  dist:
+    command: 'pnpm exec electron-builder --mac --config electron-builder.yml --publish never'
+    deps:
+      - '~:build'
+    options:
+      runInCI: false
+      cache: false

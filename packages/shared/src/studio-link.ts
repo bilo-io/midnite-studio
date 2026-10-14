@@ -25,3 +25,17 @@ export function studioViewLink(view: ViewId, tab?: MediaTab): string {
   if (tab !== undefined && view === 'media') params.set('tab', tab);
   return `${STUDIO_PROTOCOL}//view?${params.toString()}`;
 }
+
+/**
+ * Opens `url` in Studio's browser panel — a `reveal` link carrying a
+ * `browserTab` ref, byte-for-byte what `resourceRefLink` builds for one. Spelled
+ * here without it because `resource-ref.ts` imports zod and this file may not;
+ * `studio-link.test.ts` holds the two to the same output.
+ */
+export function studioBrowserLink(url: string): string {
+  const bytes = new TextEncoder().encode(JSON.stringify({ kind: 'browserTab', url }));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  const b64url = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${STUDIO_PROTOCOL}//reveal?ref=${b64url}`;
+}
