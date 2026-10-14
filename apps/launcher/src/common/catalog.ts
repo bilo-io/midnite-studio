@@ -64,7 +64,7 @@ export type LauncherApp = {
   runsIn: 'studio';
 };
 
-export const APP_IDS = ['studio', 'agents', 'coder', 'gamer', 'creator', 'media', 'money', 'browser', 'cleaner'] as const;
+export const APP_IDS = ['studio', 'agents', 'coder', 'gamer', 'creator', 'media', 'money', 'mind', 'browser', 'cleaner', 'vault', 'capture'] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 const view = (v: ViewId, tab?: MediaTab): StudioTarget =>
@@ -211,6 +211,23 @@ export const APPS: readonly LauncherApp[] = [
     runsIn: 'studio',
   },
   {
+    id: 'mind',
+    name: 'Mind',
+    section: 'suite',
+    accent: '#0ea5e9',
+    tagline: 'Notes, tasks and a knowledge graph',
+    like: 'Like Obsidian, Things and Logseq',
+    vision:
+      'A second brain that stays on your disk: notes you capture in a keystroke, the tasks they turn into, and a knowledge graph that links both to the code, docs and conversations they came from — so finding the thing you half-remember is a search, not an afternoon.',
+    home: view('notes'),
+    features: [
+      { id: 'notes', label: 'Notes', blurb: 'Quick capture, linked and searchable', target: view('notes') },
+      { id: 'tasks', label: 'Tasks', blurb: 'Boards, issues and what is next', target: view('tasks') },
+      { id: 'knowledge', label: 'Knowledge', blurb: 'The graph that ties it all together', target: view('knowledge') },
+    ],
+    runsIn: 'studio',
+  },
+  {
     id: 'browser',
     name: 'Browser',
     section: 'utilities',
@@ -242,6 +259,38 @@ export const APPS: readonly LauncherApp[] = [
     home: view('optimizer'),
     features: [
       { id: 'optimizer', label: 'Workspace optimizer', blurb: 'Reclaim space from caches and stale trees', target: view('optimizer') },
+    ],
+    runsIn: 'studio',
+  },
+  {
+    id: 'vault',
+    name: 'Vault',
+    section: 'utilities',
+    accent: '#6366f1',
+    tagline: 'Secrets and credentials for every app',
+    like: 'Like 1Password, for keys and tokens',
+    vision:
+      'One encrypted home for the API keys, forge tokens, database logins and model-provider keys every midnite app needs — unlocked once, shared with the apps you allow, and never written into a settings file in plain text.',
+    home: view('settings'),
+    features: [
+      { id: 'secrets', label: 'Secrets', blurb: 'API keys and provider tokens', target: view('settings') },
+      { id: 'accounts', label: 'Accounts', blurb: 'Forge and database logins', target: view('settings') },
+    ],
+    runsIn: 'studio',
+  },
+  {
+    id: 'capture',
+    name: 'Capture',
+    section: 'utilities',
+    accent: '#f97316',
+    tagline: 'Screenshots, recordings and clipboard',
+    like: 'Like CleanShot X and Raycast clipboard',
+    vision:
+      'Grab a region, a window or a whole screen recording — then send it straight where it is needed: an agent chat, a pull-request comment or a Creator project — with a clipboard history so nothing you copied is ever one paste away from gone.',
+    home: view('media', 'image'),
+    features: [
+      { id: 'screenshots', label: 'Screenshots', blurb: 'Regions and windows, annotated', target: view('media', 'image') },
+      { id: 'recordings', label: 'Recordings', blurb: 'Screen captures into clips', target: view('media', 'video') },
     ],
     runsIn: 'studio',
   },

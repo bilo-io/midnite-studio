@@ -37,5 +37,8 @@ describe('catalog → midnite-studio links', () => {
     expect(appLink('gamer')).toBe('midnite-studio://view?id=media&tab=game');
     expect(appLink('gamer', 'nope')).toBe('midnite-studio://view?id=media&tab=game');
     expect(appLink('cleaner')).toBe('midnite-studio://view?id=optimizer');
+    expect(appLink('mind', 'knowledge')).toBe('midnite-studio://view?id=knowledge');
+    expect(appLink('vault')).toBe('midnite-studio://view?id=settings');
+    expect(appLink('capture', 'recordings')).toBe('midnite-studio://view?id=media&tab=video');
   });
 });
