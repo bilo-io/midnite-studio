@@ -36,6 +36,7 @@ import { StateDot, type DotState } from '../../components/state-dot';
 import { Tooltip } from '../../components/tooltip';
 import { useDialogs } from '../../components/dialog-host';
 import { bridge } from '../../services/bridge';
+import { requestHandoff } from '../../services/handoff';
 import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
@@ -885,7 +886,9 @@ function WorkflowRunSessionsGroup({
   const reveal = (event: React.MouseEvent) => {
     event.stopPropagation();
     useWorkflowRevealStore.getState().reveal({ workflowId: group.workflowId, runId: group.runId });
-    useUiStore.getState().setActiveView('workflows');
+    // Workflows belong to the Agents app; Coder's sessions view reaches it through the hand-off
+    // seam (in Studio: in-process navigation) rather than by owning the destination view.
+    void requestHandoff({ app: 'agents', view: 'workflows' });
   };
 
   const kill = (event: React.MouseEvent) => {

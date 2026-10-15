@@ -1,7 +1,7 @@
 import { SETTINGS_PAGE_IDS, VIEW_IDS } from '@midnite/studio-shared/domain/view';
 import { MEDIA_TABS } from '@midnite/studio-shared/media';
 import { parseMidniteLink, type MidniteAppId, type MidniteLinkTarget } from '@midnite/studio-shared/midnite-link';
-import { studioSettingsLink, studioViewLink } from '@midnite/studio-shared/studio-link';
+import { studioRevealLinkFromParam, studioSettingsLink, studioViewLink } from '@midnite/studio-shared/studio-link';
 
 import { findInstalled } from './bundles/state';
 import { appLink } from './links';
@@ -37,6 +37,8 @@ export function installedBundleFinder(installRoot: string): RouterDeps['findAppB
 
 /** The `midnite-studio://` link a target lands on when Studio hosts it. */
 export function studioUrlFor(target: MidniteLinkTarget): string {
+  // A hand-off's resource wins: Studio's reveal engine selects the thing, and opens its view itself.
+  if (target.ref !== undefined) return studioRevealLinkFromParam(target.ref);
   if (target.page !== undefined) return studioSettingsLink(target.page);
   if (target.view !== undefined) return studioViewLink(target.view, target.tab);
   return appLink(target.app);
