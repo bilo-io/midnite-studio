@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme D (slice) — cross-app hand-off and router-fallback tests
+
+[PR #860](https://github.com/bilo-io/midnite-studio/pull/860). Apps hand off to one another through
+the link router with an opaque `ref` on `midnite://` links, never a direct import; Sessions' "reveal
+workflow" is the first caller. The cross-process transport waits on the runtime daemon. Every router
+fallback is now tested.
+
 ## 2026-10-15 — Phase 113 Theme E (slice) — tile states from installed bundles
 
 [PR #859](https://github.com/bilo-io/midnite-studio/pull/859). Launcher tiles now read Installed /
