@@ -1,0 +1,59 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Cleaner (Phase 113 Theme H1) — the first app that ships as its own bundle:
+# `packages/features/optimizer` + `packages/frame` + `shared`, composed in src/.
+# `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+id: 'app-cleaner'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-cleaner'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'feature-optimizer'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/optimizer/renderer/**/*'
+      - '/packages/features/optimizer/manifest.ts'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/optimizer/renderer/**/*'
+      - '/packages/features/optimizer/manifest.ts'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/optimizer/renderer/**/*'
+      - '/packages/features/optimizer/manifest.ts'
