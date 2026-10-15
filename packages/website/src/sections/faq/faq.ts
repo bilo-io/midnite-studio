@@ -54,7 +54,7 @@ export const FAQ: readonly FaqEntry[] = [
       'macOS on Apple silicon, and only that, today. The published build is an arm64 dmg/zip; the installer refuses anything else rather than downloading a binary that cannot run.',
       'Nothing in the app is macOS-specific by design: it is Electron, and the git layer is the real git CLI, so Intel Macs, Linux and Windows are a build-and-test problem rather than a porting one. There is no date for them.',
     ],
-    links: [{ label: 'Read install.sh before you pipe it into sh', href: `${APPS_REPO}/blob/main/midnite-studio/install.sh` }],
+    links: [{ label: 'Read install.sh before you pipe it into sh', href: `${APPS_REPO}/blob/main/midnite-launcher/install.sh` }],
   },
   {
     slug: 'agents',
@@ -99,7 +99,7 @@ export const FAQ: readonly FaqEntry[] = [
       'From a generic update feed published alongside the builds: a `latest-mac.yml` manifest in the public releases repo, which electron-updater reads directly. Deliberately not GitHub’s own release provider: that repo distributes several apps, and "the latest release" there is whichever app shipped most recently, which would happily hand Midnite Studio a sibling’s update.',
       'Builds are ad-hoc signed rather than notarized today, so re-running the one-line installer is the reliable update path. It installs the newest version over the old one, verifying the new bundle before anything in /Applications is touched and keeping the previous copy until it does.',
     ],
-    links: [{ label: 'The install command', href: `${APPS_REPO}/blob/main/midnite-studio/install.sh` }],
+    links: [{ label: 'The install command', href: `${APPS_REPO}/blob/main/midnite-launcher/install.sh` }],
   },
   {
     slug: 'pricing',
