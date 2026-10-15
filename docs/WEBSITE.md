@@ -68,6 +68,15 @@ takes that one file by a source alias (`vite.config.ts`, `vitest.config.ts`,
 
 ## `install.sh`, served from the site
 
+**Phase 113 Theme F item 4: `/install.sh` installs the launcher (Midnite Apps), not Studio.**
+The page offers the launcher's `.dmg` and `curl … | sh`; the launcher installs the apps. Its
+script lives at [`apps/launcher/install.sh`](../apps/launcher/install.sh) and `release.yml`'s
+`publish-suite` copies it to `midnite-launcher/install.sh` upstream; the version feed is
+`midnite-launcher/version.json`. Studio's own script stays on the site as `/install-studio.sh`
+(also a verbatim copy, also checked) because the app's "Update Midnite Studio" action must keep
+reinstalling Studio (`MIDNITE_INSTALL_COMMAND`). Until the first suite release publishes
+`midnite-launcher/install.sh`, `website:sync-install --check` reports a 404 for it.
+
 The download page's one command curls **this site's** `/install.sh`
 ([`packages/website/public/install.sh`](../packages/website/public/install.sh)),
 not `raw.githubusercontent.com`. Shorter, which matters for the one line anybody

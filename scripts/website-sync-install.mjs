@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// website-sync-install: keep packages/website/public/install.sh identical to the
-// upstream installer in the PUBLIC bilo-io/midnite-apps repo.
+// website-sync-install: keep packages/website/public/install.sh (launcher) and
+// install-studio.sh identical to the upstream installers in the PUBLIC bilo-io/midnite-apps repo.
 //
 // The download page tells visitors to pipe the *site's* copy into `sh`
 // (src/pages/download-page.tsx), which is shorter and served from the host they
@@ -28,13 +28,17 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** The canonical installer. Public, so no credential is involved. */
-const UPSTREAM_URL =
-  'https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/install.sh';
+const RAW = 'https://raw.githubusercontent.com/bilo-io/midnite-apps/main';
 
-/** The site's copy, served at `<origin>/install.sh` by any static host. */
-const LOCAL_PATH = path.join(repoRoot, 'packages/website/public/install.sh');
-const LOCAL_LABEL = 'packages/website/public/install.sh';
+/**
+ * The site's copies, each served at `<origin>/<file>` by any static host. Upstream is public, so no
+ * credential is involved. `install.sh` is the LAUNCHER's installer (what the download page pipes
+ * into sh); `install-studio.sh` is Studio's, kept for the app's own "Update Midnite Studio".
+ */
+const TARGETS = [
+  { upstream: `${RAW}/midnite-launcher/install.sh`, label: 'packages/website/public/install.sh' },
+  { upstream: `${RAW}/midnite-studio/install.sh`, label: 'packages/website/public/install-studio.sh' },
+].map((t) => ({ ...t, local: path.join(repoRoot, t.label) }));
 
 /**
  * A minimal unified diff — enough to see *what* changed in a CI log.
@@ -49,7 +53,7 @@ const LOCAL_LABEL = 'packages/website/public/install.sh';
  * @param {string} after
  * @returns {string}
  */
-function unifiedDiff(before, after) {
+function unifiedDiff(before, after, label, upstreamUrl) {
   const a = before.split('\n');
   const b = after.split('\n');
 
@@ -93,7 +97,7 @@ function unifiedDiff(before, after) {
     }
   });
 
-  const lines = [`--- ${LOCAL_LABEL}`, `+++ ${UPSTREAM_URL}`];
+  const lines = [`--- ${label}`, `+++ ${upstreamUrl}`];
   let elided = false;
   ops.forEach((op, index) => {
     if (!keep[index]) {
@@ -115,18 +119,18 @@ function unifiedDiff(before, after) {
  *
  * @returns {Promise<string>}
  */
-async function fetchUpstream() {
-  const response = await fetch(UPSTREAM_URL, { redirect: 'follow' });
+async function fetchUpstream(url) {
+  const response = await fetch(url, { redirect: 'follow' });
   if (!response.ok) {
-    throw new Error(`${UPSTREAM_URL} responded ${response.status} ${response.statusText}`);
+    throw new Error(`${url} responded ${response.status} ${response.statusText}`);
   }
   return response.text();
 }
 
-/** @returns {Promise<string>} */
-async function readLocal() {
+/** @param {string} file @returns {Promise<string>} */
+async function readLocal(file) {
   try {
-    return await readFile(LOCAL_PATH, 'utf8');
+    return await readFile(file, 'utf8');
   } catch {
     return '';
   }
@@ -135,30 +139,30 @@ async function readLocal() {
 async function main() {
   const args = process.argv.slice(2);
   const write = args.includes('--write');
-  const check = args.includes('--check') || !write;
 
   if (write && args.includes('--check')) {
     console.error('website-sync-install: pass --check or --write, not both.');
     process.exit(2);
   }
 
-  const upstream = await fetchUpstream();
-  const local = await readLocal();
+  let drifted = false;
+  for (const { upstream: url, label, local: file } of TARGETS) {
+    const upstream = await fetchUpstream(url);
+    const local = await readLocal(file);
 
-  if (upstream === local) {
-    console.log(`website-sync-install: ${LOCAL_LABEL} matches upstream.`);
-    return;
+    if (upstream === local) {
+      console.log(`website-sync-install: ${label} matches upstream.`);
+    } else if (write) {
+      await writeFile(file, upstream, { mode: 0o755 });
+      console.log(`website-sync-install: wrote ${label} from upstream.`);
+    } else {
+      drifted = true;
+      console.error(`website-sync-install: ${label} has DRIFTED from upstream.\n`);
+      console.error(unifiedDiff(local, upstream, label, url));
+    }
   }
 
-  if (write) {
-    await writeFile(LOCAL_PATH, upstream, { mode: 0o755 });
-    console.log(`website-sync-install: wrote ${LOCAL_LABEL} from upstream.`);
-    return;
-  }
-
-  if (check) {
-    console.error(`website-sync-install: ${LOCAL_LABEL} has DRIFTED from upstream.\n`);
-    console.error(unifiedDiff(local, upstream));
+  if (drifted) {
     console.error(
       '\nRe-sync with:  node scripts/website-sync-install.mjs --write\n' +
         'Then check the download page still describes what the script does\n' +
