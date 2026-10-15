@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme F (slice) — the release build includes the launcher
+
+[PR #861](https://github.com/bilo-io/midnite-studio/pull/861). A tag build now also produces the
+launcher's dmg/zip/blockmaps and its own feed file in the same macOS job as Studio, plus per-app
+bundle artifacts for affected apps on ubuntu. Publishing is unchanged — still Studio only.
+
 ## 2026-10-15 — Phase 113 Theme D (slice) — cross-app hand-off and router-fallback tests
 
 [PR #860](https://github.com/bilo-io/midnite-studio/pull/860). Apps hand off to one another through
