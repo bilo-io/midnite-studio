@@ -1,7 +1,7 @@
 #!/bin/sh
-# Midnite Studio installer — macOS (Apple Silicon)
+# Midnite Apps installer — macOS (Apple Silicon)
 #
-#   curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-launcher/install.sh | sh
 #
 # Downloads the latest release .zip with curl and installs it to /Applications.
 # Because curl (unlike a browser) never sets the com.apple.quarantine attribute,
@@ -14,20 +14,20 @@
 # /Applications — the exact failure that a plain `ditto` install can silently
 # produce (missing Frameworks → dyld "Library not loaded" crash on launch).
 #
-# Version resolution reads midnite-studio/version.json rather than
+# Version resolution reads midnite-launcher/version.json rather than
 # releases/latest: this repo distributes several apps, so `releases/latest` is
 # whichever app shipped most recently and is not necessarily this one.
 #
 # Options (environment variables):
-#   MIDNITE_STUDIO_VERSION=0.3.1   install a specific version instead of the latest
-#   MIDNITE_STUDIO_NO_OPEN=1       don't launch the app after installing
+#   MIDNITE_LAUNCHER_VERSION=0.3.1   install a specific version instead of the latest
+#   MIDNITE_LAUNCHER_NO_OPEN=1       don't launch the app after installing
 
 set -eu
 
 REPO="bilo-io/midnite-apps"
-FEED="https://raw.githubusercontent.com/$REPO/main/midnite-studio/version.json"
-APP="Midnite Studio.app"
-EXE="Midnite Studio"
+FEED="https://raw.githubusercontent.com/$REPO/main/midnite-launcher/version.json"
+APP="Midnite Apps.app"
+EXE="Midnite Apps"
 DEST="/Applications"
 # The framework binary is ~150MB; a truncated copy is the failure we guard
 # against, so treat anything under 100MB as incomplete.
@@ -54,29 +54,29 @@ verify_bundle() {
 }
 
 # ── Preflight ────────────────────────────────────────────────────────────────
-[ "$(uname -s)" = "Darwin" ] || fail "Midnite Studio is macOS-only."
-[ "$(uname -m)" = "arm64" ] || fail "Midnite Studio ships Apple Silicon (arm64) builds only, and this Mac reports $(uname -m)."
+[ "$(uname -s)" = "Darwin" ] || fail "Midnite Apps is macOS-only."
+[ "$(uname -m)" = "arm64" ] || fail "Midnite Apps ships Apple Silicon (arm64) builds only, and this Mac reports $(uname -m)."
 command -v curl >/dev/null 2>&1 || fail "curl is required."
 
 # ── Resolve version ──────────────────────────────────────────────────────────
-if [ -n "${MIDNITE_STUDIO_VERSION:-}" ]; then
-  version="${MIDNITE_STUDIO_VERSION#v}"
+if [ -n "${MIDNITE_LAUNCHER_VERSION:-}" ]; then
+  version="${MIDNITE_LAUNCHER_VERSION#v}"
 else
   # The per-app update feed. Parsed with sed rather than jq so the installer has
   # no dependency beyond curl — the file is generated, so its shape is stable.
   feed=$(curl -fsSL "$FEED") || fail "could not reach github.com to resolve the latest version."
   version=$(printf '%s' "$feed" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
   [ -n "$version" ] ||
-    fail "Midnite Studio has no published release yet. Watch https://github.com/$REPO/releases for the first one."
+    fail "Midnite Apps has no published release yet. Watch https://github.com/$REPO/releases for the first one."
 fi
 
-tag="midnite-studio/v${version}"
-asset="midnite-studio-${version}-arm64.zip"
+tag="midnite-launcher/v${version}"
+asset="midnite-launcher-${version}-arm64.zip"
 url="https://github.com/$REPO/releases/download/${tag}/${asset}"
 
 tmp=$(mktemp -d)
-staged="$DEST/.midnite-studio.new.$$"
-backup="$DEST/.midnite-studio.old.$$"
+staged="$DEST/.midnite-launcher.new.$$"
+backup="$DEST/.midnite-launcher.old.$$"
 # Best-effort cleanup of the temp dir and any staging leftovers on exit.
 cleanup() {
   rm -rf "$tmp" 2>/dev/null || true
@@ -84,7 +84,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-say "Downloading Midnite Studio v${version} …"
+say "Downloading Midnite Apps v${version} …"
 curl -fL --progress-bar "$url" -o "$tmp/$asset" || fail "download failed: $url"
 
 # ditto (not unzip/cp) preserves the code-signing seal and extended attributes.
@@ -100,7 +100,7 @@ verify_bundle "$tmp/extracted/$APP" ||
 # ── Install (staged + atomic) ────────────────────────────────────────────────
 # Quit a running copy so the bundle can be replaced (best-effort).
 if pgrep -xq "$EXE" 2>/dev/null; then
-  say "Quitting the running Midnite Studio …"
+  say "Quitting the running Midnite Apps …"
   osascript -e "tell application \"$EXE\" to quit" >/dev/null 2>&1 || true
   sleep 2
 fi
@@ -141,8 +141,8 @@ run rm -rf "$backup"
 run xattr -dr com.apple.quarantine "$DEST/$APP" 2>/dev/null || true
 
 say ""
-say "✓ Midnite Studio v${version} installed."
-if [ -z "${MIDNITE_STUDIO_NO_OPEN:-}" ]; then
+say "✓ Midnite Apps v${version} installed."
+if [ -z "${MIDNITE_LAUNCHER_NO_OPEN:-}" ]; then
   open "$DEST/$APP"
 else
   say "Launch it with: open -a \"$EXE\""

@@ -46,15 +46,26 @@ describe('DownloadPage', () => {
     expect(installCommand(SITE_ORIGIN)).toBe(`curl -fsSL ${SITE_ORIGIN}/install.sh | sh`);
   });
 
-  /**
-   * The app's "Update Midnite Studio" action runs `MIDNITE_INSTALL_COMMAND`
-   * outside the Midnite Studio checkout. With no `WEBSITE_ORIGIN` override
-   * (pinned empty in `vitest.config.ts`) the page must print that exact string,
-   * or the app and the published page would be curling different things.
-   */
-  it('prints the same command the app runs', () => {
+  /** The in-app Studio update keeps its own script, so `install.sh` can be the launcher's. */
+  it('prints the launcher command, not the Studio update command', () => {
     render(<DownloadPage />);
-    expect(screen.getByTestId('install-command').textContent).toBe(MIDNITE_INSTALL_COMMAND);
+    const text = screen.getByTestId('install-command').textContent;
+    expect(text).not.toBe(MIDNITE_INSTALL_COMMAND);
+    expect(MIDNITE_INSTALL_COMMAND).toContain('/install-studio.sh');
+    expect(text).toMatch(/\/install\.sh \| sh$/);
+  });
+
+  it('says it installs Midnite Apps, and offers the launcher dmg once a version is known', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ version: '1.2.3' }) })),
+    );
+    render(<DownloadPage />);
+    expect(screen.getByText(/Midnite Apps installs to/)).toBeTruthy();
+    const dmg = await screen.findByTestId('dmg-link');
+    expect(dmg.getAttribute('href')).toBe(
+      'https://github.com/bilo-io/midnite-apps/releases/download/midnite-launcher/v1.2.3/midnite-launcher-1.2.3-arm64.dmg',
+    );
   });
 
   it('offers the same URL to read as the one it pipes into sh', () => {

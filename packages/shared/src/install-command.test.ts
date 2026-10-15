@@ -9,11 +9,16 @@ import {
 
 describe('install command', () => {
   it('curls the live site root by default', () => {
-    expect(MIDNITE_INSTALL_COMMAND).toBe(
+    expect(installCommand()).toBe(
       'curl -fsSL https://midnite-studio-website.vercel.app/install.sh | sh',
     );
-    expect(installCommand()).toBe(MIDNITE_INSTALL_COMMAND);
     expect(installerUrl()).toBe(`${MIDNITE_SITE_ORIGIN}/install.sh`);
+  });
+
+  it('keeps the in-app Studio update on the Studio installer', () => {
+    expect(MIDNITE_INSTALL_COMMAND).toBe(
+      'curl -fsSL https://midnite-studio-website.vercel.app/install-studio.sh | sh',
+    );
   });
 
   it('builds against another site root without a double slash', () => {

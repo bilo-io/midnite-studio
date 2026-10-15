@@ -71,7 +71,7 @@ const FooterVersion = () => {
   const state = useLatestVersion();
   const text =
     state.status === 'released'
-      ? `midnite-studio/v${state.version}`
+      ? `midnite-launcher/v${state.version}`
       : state.status === 'unreleased'
         ? 'no public release yet'
         : state.status === 'unavailable'
