@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Themes E + F (slice) — the release publishes the launcher, bundles and catalog.json
+
+[PR #862](https://github.com/bilo-io/midnite-studio/pull/862). A tag release now also publishes Midnite
+Apps as `midnite-launcher/vX.Y.Z` with the app bundles attached, commits a lockstep `catalog.json` built
+from the uploaded files and the launcher's own updater feed, and the release skills verify and tear
+all of it down. Nothing is published until the first suite release is signed off.
+
 ## 2026-10-15 — Phase 113 Theme F (slice) — the release build includes the launcher
 
 [PR #861](https://github.com/bilo-io/midnite-studio/pull/861). A tag build now also produces the
