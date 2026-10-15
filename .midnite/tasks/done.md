@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme G (slice) — `apps/studio` and the layer rule in the agent docs
+
+[PR #855](https://github.com/bilo-io/midnite-studio/pull/855). `apps/studio` is now Studio's
+composition: it lists every feature it composes (a test catches a forgotten one), and
+`studio:start`/`studio:bundle`/`studio:dist` delegate to the existing `desktop:*` tasks. The
+renderer/Electron entry has not moved yet. `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` now spell out the
+app → feature → frame → shared layer rule and the runtime's limits.
+
 ## 2026-10-15 — Phase 113 Theme D (slice) — the runtime owns the `midnite` CLI and per-app MCP tools
 
 [PR #854](https://github.com/bilo-io/midnite-studio/pull/854). Every MCP tool now has an owner — the
