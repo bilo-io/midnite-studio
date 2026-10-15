@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme I (groundwork) — the suite app kit
+
+[PR #872](https://github.com/bilo-io/midnite-studio/pull/872). Before Monitor, the pieces every extracted app was copying moved into one kit: frame chrome, a real blast-radius dialog, persisted app settings and a Tailwind preset in `packages/frame`, and `createIpcContext`/`createBridgeSlice` in `packages/runtime`. Cleaner and Browser use it (Browser gains a real confirm), and Cleaner's preload shrinks from ~1 MB to ~95 KB.
+
 ## 2026-10-15 — Phase 113 Theme H (H3) — the friction list, and the launcher's data directory
 
 [PR #871](https://github.com/bilo-io/midnite-studio/pull/871). Every friction point from the Cleaner pilot and the 0.0.1 ephemeral release is written into the phase doc's Theme H Headline, split into what to fix before the next app, inside a theme, at release, and in tooling. Checking the real install turned up a bug: the packaged launcher kept its bundles under Electron's default `@midnite/launcher` userData while the runtime read `Midnite Apps/bundles/installed.json`. The name now lives in `shared/launcher-data-dir.ts`; the launcher pins userData before its single-instance lock (`Midnite Apps`, or `Midnite Apps Dev` from source) and the runtime imports the same constant.
