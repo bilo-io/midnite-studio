@@ -21,7 +21,7 @@ export function CleanerHome() {
   const { trashSafety: TrashSafety, optimizer: OptimizerSettings } = optimizerSettingsPages;
 
   return (
-    <div className="flex h-full flex-col" style={{ ['--accent-cleaner' as string]: CLEANER_APP.accent }}>
+    <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3">
         <span
           aria-hidden
