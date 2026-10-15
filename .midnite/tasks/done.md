@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme H (slice) — Cleaner's bundle runs on its own
+
+[PR #868](https://github.com/bilo-io/midnite-studio/pull/868). Cleaner's bundle now carries its own Electron
+main and preload, the release packs them, and a temp-root proof installs, starts and uninstalls it through
+the launcher's real install code; its scanners still answer "not available yet" until they leave desktop.
+
 ## 2026-10-15 — Phase 113 Theme H (slice) — apps/cleaner, the first standalone app
 
 [PR #867](https://github.com/bilo-io/midnite-studio/pull/867). Cleaner is composed from the optimizer
