@@ -46,7 +46,9 @@ describe('NoHeightmapDialog', () => {
       expect(within(dialog).getByRole('button', { name })).toBeTruthy();
     }
     // Focus starts on the safe, productive choice.
-    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Use noise' }));
+    await waitFor(() => {
+      expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Use noise' }));
+    });
   });
 
   it('Use noise saves a noise block on the spec and then builds', async () => {

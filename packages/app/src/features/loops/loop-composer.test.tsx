@@ -486,4 +486,66 @@ describe('LoopComposer — running', () => {
     expect(stop.className).toContain('is-waiting');
     expect(stop.className).not.toContain('is-thinking');
   });
+
+  it('renders Check routine checkbox and reports toggle', () => {
+    const onToggle = vi.fn();
+    renderComposer({ onToggle });
+    const checkRoutine = screen.getByRole('checkbox', { name: 'Check routine' });
+    expect(checkRoutine).toBeDefined();
+    fireEvent.click(checkRoutine);
+    expect(onToggle).toHaveBeenCalledWith('check-routine', true);
+  });
+
+  it('renders auto-rotate slider with range 10-100 and step 5', () => {
+    const onAutoRotate = vi.fn();
+    renderComposer({ autoRotatePercent: 45, onAutoRotate });
+    const slider = screen.getByLabelText('Auto-rotate subagents threshold') as HTMLInputElement;
+    expect(slider).toBeDefined();
+    expect(slider.min).toBe('10');
+    expect(slider.max).toBe('100');
+    expect(slider.step).toBe('5');
+    expect(slider.value).toBe('45');
+    expect(screen.getByText('45%')).toBeDefined();
+
+    fireEvent.change(slider, { target: { value: '55' } });
+    expect(onAutoRotate).toHaveBeenCalledWith(55);
+  });
+
+  it('renders specific users review multi-select and reports changes', () => {
+    const onReviewUsers = vi.fn();
+    const contributorOptions = [
+      { id: 'bilo-ekko', label: 'bilo-ekko', display: 'Bilo Ekko' },
+      { id: 'alice', label: 'alice', display: 'Alice Smith' },
+    ];
+    renderComposer({
+      reviewUsers: ['bilo-ekko'],
+      contributorOptions,
+      onReviewUsers,
+    });
+    expect(screen.getByText('Review for specific users')).toBeDefined();
+    expect(screen.getByText('bilo-ekko')).toBeDefined();
+  });
+
+  it('renders Loop switch in run section and reports onLoopEnabled', () => {
+    const onLoopEnabled = vi.fn();
+    renderComposer({ loopEnabled: true, onLoopEnabled });
+    const loopSwitch = screen.getByRole('switch', { name: 'Loop' }) as HTMLInputElement;
+    expect(loopSwitch).toBeDefined();
+    expect(loopSwitch.checked).toBe(true);
+
+    fireEvent.click(loopSwitch);
+    expect(onLoopEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it('displays chips in running strip for non-default autoRotate, reviewUsers, and once-off mode', () => {
+    renderComposer({
+      running: true,
+      autoRotatePercent: 45,
+      reviewUsers: ['bilo-ekko'],
+      loopEnabled: false,
+    });
+    expect(screen.getByText('Rotate: 45%')).toBeDefined();
+    expect(screen.getByText('Users: bilo-ekko')).toBeDefined();
+    expect(screen.getByText('Once-off')).toBeDefined();
+  });
 });

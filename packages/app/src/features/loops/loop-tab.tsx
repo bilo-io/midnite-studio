@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   DEFAULT_LOOP_SCHEDULE,
@@ -15,7 +15,7 @@ import { loopFormRange, resolveLoopFormHeight } from './loop-form-size';
 import { LoopHistory } from './loop-history';
 import { useLoopStatus } from './loop-status';
 import { useLoopSession } from './use-loop-session';
-import { useRepos } from '../../services/queries';
+import { useRepos, useRepoStats } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { agentInitialInput } from '../terminal/terminal-panel';
 import { useTerminalStore } from '../terminal/terminal-store';
@@ -80,12 +80,34 @@ export function LoopTab({
   const model = useUiStore((s) => s.loopModels[loop.id] ?? 'default');
   const schedule = useUiStore((s) => s.loopSchedules[loop.id] ?? DEFAULT_LOOP_SCHEDULE);
   const extras = useUiStore((s) => s.loopExtras[loop.id] ?? '');
+  const reviewUsers = useUiStore((s) => s.loopReviewUsers[loop.id] ?? []);
+  const autoRotate = useUiStore((s) => s.loopAutoRotate[loop.id] ?? 30);
+  const isLoop = useUiStore((s) => s.loopEnabled[loop.id] ?? true);
   const setCheck = useUiStore((s) => s.setLoopModifierCheck);
   const setChoice = useUiStore((s) => s.setLoopChoice);
   const setAgent = useUiStore((s) => s.setLoopAgent);
   const setModel = useUiStore((s) => s.setLoopModel);
   const setSchedule = useUiStore((s) => s.setLoopSchedule);
   const setExtras = useUiStore((s) => s.setLoopExtras);
+  const setReviewUsers = useUiStore((s) => s.setLoopReviewUsers);
+  const setAutoRotate = useUiStore((s) => s.setLoopAutoRotate);
+  const setLoopEnabled = useUiStore((s) => s.setLoopEnabled);
+
+  const stats = useRepoStats(selectedRepoId, 'all', false);
+  const contributorOptions = useMemo(() => {
+    const list = stats.data?.contributors ?? [];
+    return list.map((c) => {
+      const match = c.email.match(/(?:\d+\+)?([^@]+)@users\.noreply\.github\.com/);
+      const username = match ? match[1]! : (c.email.split('@')[0] || c.name.toLowerCase().replace(/\s+/g, '-'));
+      const displayName = c.name || username;
+      return {
+        id: username,
+        label: username,
+        display: displayName !== username ? `${displayName} (${username})` : displayName,
+        hint: `${c.commits} commit${c.commits === 1 ? '' : 's'}`,
+      };
+    });
+  }, [stats.data?.contributors]);
 
   /*
     Three layers, resolved here rather than written into the store: the
@@ -142,6 +164,9 @@ export function LoopTab({
     agentId,
     model,
     extras,
+    reviewUsers,
+    autoRotatePercent: autoRotate,
+    loopEnabled: isLoop,
     command,
   });
 
@@ -228,6 +253,13 @@ export function LoopTab({
             model={model}
             schedule={schedule}
             extras={extras}
+            reviewUsers={reviewUsers}
+            onReviewUsers={(users) => setReviewUsers(loop.id, users)}
+            contributorOptions={contributorOptions}
+            autoRotatePercent={autoRotate}
+            onAutoRotate={(percent) => setAutoRotate(loop.id, percent)}
+            loopEnabled={isLoop}
+            onLoopEnabled={(on) => setLoopEnabled(loop.id, on)}
             disabled={!repo || (loop.requiresModifier && !hasTask)}
             disabledReason={
               repo

@@ -109,6 +109,13 @@ export function LoopComposer({
   extras,
   disabled,
   disabledReason,
+  reviewUsers,
+  onReviewUsers,
+  contributorOptions,
+  autoRotatePercent = 30,
+  onAutoRotate,
+  loopEnabled = true,
+  onLoopEnabled,
   onToggle,
   onChoice,
   onAgent,
@@ -133,6 +140,17 @@ export function LoopComposer({
   model: LoopModel;
   schedule: LoopSchedule;
   extras: string;
+  /** Specific contributor usernames to review for. */
+  reviewUsers?: readonly string[];
+  onReviewUsers?: (users: string[]) => void;
+  /** Available contributor options from the repository. */
+  contributorOptions?: readonly IconSelectOption[];
+  /** Auto-rotate subagents threshold percentage (10 - 100). */
+  autoRotatePercent?: number;
+  onAutoRotate?: (percent: number) => void;
+  /** Whether the loop runs as a continuous loop or a once-off session. */
+  loopEnabled?: boolean;
+  onLoopEnabled?: (on: boolean) => void;
   /** No repo selected — there is nowhere to run. */
   disabled: boolean;
   disabledReason: string | undefined;
@@ -194,6 +212,9 @@ export function LoopComposer({
           agentId={agentId}
           model={model}
           schedule={schedule}
+          reviewUsers={reviewUsers}
+          autoRotatePercent={autoRotatePercent}
+          loopEnabled={loopEnabled}
           waiting={waiting}
           thinking={thinking}
           onStop={onStop}
@@ -222,6 +243,11 @@ export function LoopComposer({
                 choiceIds={choiceIds}
                 onModifierToggle={onToggle}
                 onChoice={onChoice}
+                reviewUsers={reviewUsers}
+                onReviewUsers={onReviewUsers}
+                contributorOptions={contributorOptions}
+                loopEnabled={loopEnabled}
+                onLoopEnabled={onLoopEnabled}
               />
             ))}
           </div>
@@ -247,6 +273,27 @@ export function LoopComposer({
               onAgent={onAgent}
               onModel={onModel}
             />
+            <div className="flex flex-col gap-1 border-t border-border/40 pt-1.5" data-testid="auto-rotate-field">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <label htmlFor="auto-rotate-slider" className="font-medium">
+                  Auto-rotate subagents
+                </label>
+                <span className="font-mono text-[10px] font-semibold text-foreground">
+                  {autoRotatePercent}%
+                </span>
+              </div>
+              <input
+                id="auto-rotate-slider"
+                type="range"
+                min={10}
+                max={100}
+                step={5}
+                value={autoRotatePercent}
+                onChange={(e) => onAutoRotate?.(Number(e.target.value))}
+                className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-secondary accent-primary"
+                aria-label="Auto-rotate subagents threshold"
+              />
+            </div>
           </ComposerSection>
 
           <ComposerSection
@@ -384,6 +431,11 @@ function SettingsGroup({
   choiceIds,
   onModifierToggle,
   onChoice,
+  reviewUsers,
+  onReviewUsers,
+  contributorOptions,
+  loopEnabled,
+  onLoopEnabled,
 }: {
   loop: LoopDefinition;
   group: LoopGroup;
@@ -396,6 +448,11 @@ function SettingsGroup({
   /** Reports a control being switched — named apart from the section's own. */
   onModifierToggle: (modifierId: string, on: boolean) => void;
   onChoice: (choiceId: string, optionId: string) => void;
+  reviewUsers?: readonly string[];
+  onReviewUsers?: (users: string[]) => void;
+  contributorOptions?: readonly IconSelectOption[];
+  loopEnabled?: boolean;
+  onLoopEnabled?: (on: boolean) => void;
 }) {
   const modifiers = loop.modifiers.filter((m) => m.group === group);
   const boxes = modifiers.filter((m) => m.control === 'checkbox');
@@ -419,6 +476,15 @@ function SettingsGroup({
       open={open}
       onToggle={onToggle}
     >
+      {group === 'run' && onLoopEnabled !== undefined ? (
+        <SwitchRow
+          id="loop-mode"
+          label="Loop"
+          title="Run on a loop (/loop), or turn off for a single one-off session"
+          on={loopEnabled ?? true}
+          onToggle={(_, on) => onLoopEnabled(on)}
+        />
+      ) : null}
       {boxes.length > 0 ? (
         <div className="grid grid-cols-2 gap-x-3 gap-y-1">
           {boxes.map((modifier) => (
@@ -450,6 +516,21 @@ function SettingsGroup({
           onChoice={onChoice}
         />
       ))}
+      {group === 'scope' ? (
+        <div className="flex flex-col gap-1 border-t border-border/40 pt-1.5" data-testid="review-users-field">
+          <label className="text-[11px] font-medium text-muted-foreground">
+            Review for specific users
+          </label>
+          <MultiIconSelect
+            ariaLabel="Specific users to review for"
+            options={contributorOptions ?? []}
+            values={reviewUsers ?? []}
+            onChange={onReviewUsers ?? (() => {})}
+            placeholder="All contributors…"
+            menuInPortal
+          />
+        </div>
+      ) : null}
     </ComposerSection>
   );
 }
@@ -740,6 +821,9 @@ function RunningStrip({
   agentId,
   model,
   schedule,
+  reviewUsers,
+  autoRotatePercent,
+  loopEnabled,
   waiting,
   thinking,
   onStop,
@@ -751,6 +835,9 @@ function RunningStrip({
   agentId: string;
   model: LoopModel;
   schedule: LoopSchedule;
+  reviewUsers?: readonly string[];
+  autoRotatePercent?: number;
+  loopEnabled?: boolean;
   waiting: boolean;
   thinking: boolean;
   onStop: () => void;
@@ -770,6 +857,10 @@ function RunningStrip({
       if (option.promptFragment === undefined) continue;
       chips.push({ key: choice.id, label: option.label, title: option.promptFragment });
     }
+  }
+
+  if (reviewUsers && reviewUsers.length > 0) {
+    chips.push({ key: 'reviewUsers', label: `Users: ${reviewUsers.join(', ')}` });
   }
 
   /*
@@ -792,6 +883,12 @@ function RunningStrip({
   const modelLabel = loopModelsFor(agentId).find((entry) => entry.id === model);
   if (modelLabel && modelLabel.cliModel !== null) {
     chips.push({ key: 'model', label: modelLabel.label });
+  }
+  if (autoRotatePercent !== undefined && autoRotatePercent !== 30) {
+    chips.push({ key: 'autoRotate', label: `Rotate: ${autoRotatePercent}%` });
+  }
+  if (loopEnabled === false) {
+    chips.push({ key: 'loopMode', label: 'Once-off' });
   }
   /*
     One chip for the whole schedule, and the same neutrality rule the composed

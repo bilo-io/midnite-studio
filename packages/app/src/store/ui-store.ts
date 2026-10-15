@@ -1057,6 +1057,12 @@ export type UiState = {
   /** Per-loop free-text extras — ephemeral, on the same reasoning as above. */
   loopExtras: Record<string, string>;
   setLoopExtras: (loopId: string, text: string) => void;
+  /** Specific contributor usernames to review for, per loop tab. */
+  loopReviewUsers: Record<string, string[]>;
+  setLoopReviewUsers: (loopId: string, users: string[]) => void;
+  /** Auto-rotate subagents threshold percent (10 - 100), per loop tab. */
+  loopAutoRotate: Record<string, number>;
+  setLoopAutoRotate: (loopId: string, percent: number) => void;
   /**
    * The FAB tab bar's "Loop" switch, per loop — off by default. Persisted
    * alongside the model/schedule/agent choices above: it is a standing
@@ -2209,8 +2215,8 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   refine: '/midnite-refine',
   verifyPhase: '/midnite-verify',
   execSwarm: '/midnite-swarm',
-  prReview: '/pr-review',
-  prFeedback: '/pr-feedback',
+  prReview: '/midnite-pr-review',
+  prFeedback: '/midnite-pr-feedback',
   prAudit: '/midnite-pr-audit',
   triage: '/midnite-triage',
   releasePrep: '/midnite-release-prep',
@@ -2220,12 +2226,12 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
   // Guard: security sweeps — secret scanning, dep audit, vuln review. No trailing
   // skill: the modifiers themselves name what runs (same pattern as loopPatrol).
   loopGuard: '/loop /midnite-address-issue',
-  // Bare on purpose: the FAB's Patrol tab appends `/pr-review`, `/pr-feedback`
-  // or `/midnite-triage` from its own checkboxes, so a skill named here would
+  // Bare on purpose: the FAB's Patrol tab appends `/midnite-pr-review`, `/midnite-pr-feedback`
+  // or `/midnite-sitrep` from its own checkboxes, so a skill named here would
   // be a fifth one every run carried whether or not a box was ticked.
   loopPatrol: '/loop',
-  loopPrReview: '/loop /pr-review',
-  loopPrFeedback: '/loop /pr-feedback',
+  loopPrReview: '/loop /midnite-pr-review',
+  loopPrFeedback: '/loop /midnite-pr-feedback',
   loopExecBacklog: '/loop /midnite-create',
   loopExecAdhoc: '/loop /midnite-create-adhoc',
   loopAddressIssue: '/loop /midnite-address-issue',
@@ -2806,6 +2812,12 @@ export const useUiStore = create<UiState>()(
       loopExtras: {},
       setLoopExtras: (loopId, text) =>
         set((state) => ({ loopExtras: { ...state.loopExtras, [loopId]: text } })),
+      loopReviewUsers: {},
+      setLoopReviewUsers: (loopId, users) =>
+        set((state) => ({ loopReviewUsers: { ...state.loopReviewUsers, [loopId]: users } })),
+      loopAutoRotate: {},
+      setLoopAutoRotate: (loopId, percent) =>
+        set((state) => ({ loopAutoRotate: { ...state.loopAutoRotate, [loopId]: percent } })),
       loopEnabled: {},
       setLoopEnabled: (loopId, on) =>
         set((state) => ({ loopEnabled: { ...state.loopEnabled, [loopId]: on } })),
