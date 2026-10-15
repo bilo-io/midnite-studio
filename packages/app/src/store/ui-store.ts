@@ -978,6 +978,12 @@ export type UiState = {
   /** Per-loop free-text extras — ephemeral, on the same reasoning as above. */
   loopExtras: Record<string, string>;
   setLoopExtras: (loopId: string, text: string) => void;
+  /** Specific contributor usernames to review for, per loop tab. */
+  loopReviewUsers: Record<string, string[]>;
+  setLoopReviewUsers: (loopId: string, users: string[]) => void;
+  /** Auto-rotate subagents threshold percent (10 - 100), per loop tab. */
+  loopAutoRotate: Record<string, number>;
+  setLoopAutoRotate: (loopId: string, percent: number) => void;
   /**
    * The FAB tab bar's "Loop" switch, per loop — off by default. Persisted
    * alongside the model/schedule/agent choices above: it is a standing
@@ -2724,6 +2730,12 @@ export const useUiStore = create<UiState>()(
       loopExtras: {},
       setLoopExtras: (loopId, text) =>
         set((state) => ({ loopExtras: { ...state.loopExtras, [loopId]: text } })),
+      loopReviewUsers: {},
+      setLoopReviewUsers: (loopId, users) =>
+        set((state) => ({ loopReviewUsers: { ...state.loopReviewUsers, [loopId]: users } })),
+      loopAutoRotate: {},
+      setLoopAutoRotate: (loopId, percent) =>
+        set((state) => ({ loopAutoRotate: { ...state.loopAutoRotate, [loopId]: percent } })),
       loopEnabled: {},
       setLoopEnabled: (loopId, on) =>
         set((state) => ({ loopEnabled: { ...state.loopEnabled, [loopId]: on } })),
