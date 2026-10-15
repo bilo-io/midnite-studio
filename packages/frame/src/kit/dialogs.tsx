@@ -44,18 +44,26 @@ export function ConfirmDialog({
       >
         <div className="space-y-2 p-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
-            {request.danger ? <LuTriangleAlert aria-hidden className="h-4 w-4 text-destructive" /> : null}
+            {request.danger ? (
+              <LuTriangleAlert aria-hidden className="h-4 w-4 text-destructive" />
+            ) : null}
             <span className={request.danger ? 'text-destructive' : ''}>{request.title}</span>
           </h2>
           {request.body ? <p className="text-xs text-muted-foreground">{request.body}</p> : null}
           {radius ? (
-            <p role="status" className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs">
+            <p
+              role="status"
+              className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs"
+            >
               {radius.count} {copy.noun}
               {radius.count === 1 ? '' : 's'} {copy.consequence}
             </p>
           ) : null}
           {request.warnings?.map((w) => (
-            <p key={w} className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs">
+            <p
+              key={w}
+              className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs"
+            >
               {w}
             </p>
           ))}
@@ -68,12 +76,20 @@ export function ConfirmDialog({
         </div>
         <div className="flex justify-end gap-2 border-t border-border p-3">
           {request.hideCancel ? null : (
-            <button type="button" onClick={onCancel} className="rounded px-3 py-1.5 text-xs hover:bg-accent">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded px-3 py-1.5 text-xs hover:bg-accent"
+            >
               Cancel
             </button>
           )}
           {request.secondaryLabel ? (
-            <button type="button" onClick={request.onSecondary} className="rounded px-3 py-1.5 text-xs hover:bg-accent">
+            <button
+              type="button"
+              onClick={request.onSecondary}
+              className="rounded px-3 py-1.5 text-xs hover:bg-accent"
+            >
               {request.secondaryLabel}
             </button>
           ) : null}
@@ -82,7 +98,9 @@ export function ConfirmDialog({
             disabled={Boolean(request.requireAck) && !acked}
             onClick={onConfirm ?? request.onConfirm}
             className={`rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
-              request.danger ? 'bg-destructive text-destructive-foreground' : 'bg-primary text-primary-foreground'
+              request.danger
+                ? 'bg-destructive text-destructive-foreground'
+                : 'bg-primary text-primary-foreground'
             }`}
           >
             {request.confirmLabel}

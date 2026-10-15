@@ -43,7 +43,12 @@ describe('createDialogs', () => {
     const { useDialogs, DialogHost } = createDialogs();
     render(<DialogHost />);
     act(() =>
-      useDialogs().confirm({ title: 'Trash', confirmLabel: 'Trash', blastRadiusKind: 'files', onConfirm: () => {} }),
+      useDialogs().confirm({
+        title: 'Trash',
+        confirmLabel: 'Trash',
+        blastRadiusKind: 'files',
+        onConfirm: () => {},
+      }),
     );
     expect(screen.queryByRole('status')).toBeNull();
     act(() => useDialogs().setBlastRadius({ count: 3, sample: [] }, ['careful']));
@@ -55,7 +60,14 @@ describe('createDialogs', () => {
 describe('KitIconButton', () => {
   it('disabledReason keeps hover title and swallows the click', () => {
     const onClick = vi.fn();
-    render(<KitIconButton icon={LuTrash2} label="Clean" onClick={onClick} disabledReason="nothing selected" />);
+    render(
+      <KitIconButton
+        icon={LuTrash2}
+        label="Clean"
+        onClick={onClick}
+        disabledReason="nothing selected"
+      />,
+    );
     const btn = screen.getByRole('button', { name: 'Clean' });
     expect(btn.getAttribute('title')).toBe('Clean (nothing selected)');
     expect(btn.getAttribute('aria-disabled')).toBe('true');
