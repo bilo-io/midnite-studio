@@ -139,6 +139,7 @@ test('the FAB panel drags out to 60% of the window, and past its minimum it clos
   // The FAB opens the quick-access menu (Phase 58 Theme E); its `L` row opens
   // the Loops panel this spec is actually after.
   await page.getByRole('button', { name: 'Open quick access panel' }).click();
+  await expect(page.getByTestId('quick-access-menu')).toBeVisible();
   await page.keyboard.press('l');
   await expect(fabPanel(page)).toBeVisible();
   await page.waitForTimeout(SETTLE_WAIT_MS);
