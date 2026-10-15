@@ -269,3 +269,24 @@ The Browser app (`apps/browser`) composes the frame's `browser` feature and the 
 - **Imports**: Composes `@midnite/studio-frame` and features; reaches main via bridge; never imports other apps or desktop directly.
 - **Ports**: Implements the frame's chrome port (`FrameChromeProvider`) and the `BrowserHost` port (managing tab state, web-apps dock state, agent session mode, and browser settings).
 
+
+### App 6: Cleaner (`apps/cleaner`) — the first app that ships as its own bundle
+
+Cleaner (`apps/cleaner`, Phase 113 Theme H1) composes one feature, `packages/features/optimizer`
+(`FEATURE_PLACEMENT.optimizer` = `cleaner`), over the frame and `shared`. It is the first app with the
+three things a release needs to pack it as `midnite-cleaner-X.Y.Z-bundle.zip`: a moon project
+(`apps/cleaner/moon.yml`, id `app-cleaner`), a `vite build` that writes `dist/`, and
+`resources/icon.icns`. An app without the icon is skipped by `release.yml`'s `bundles` job.
+
+- **Home view**: `views/cleaner-home.tsx` — the optimizer's lazy view framed with Cleaner's accent
+  (`#14b8a6`, the launcher catalog's) and name, plus a Settings toggle that shows the feature's two settings
+  pages (Trash safety, Optimizer). `cleaner-manifest.ts` is the app's own pure-data manifest.
+- **Ports it implements**: the frame chrome (`compose/cleaner-chrome.tsx`, with a real confirm dialog showing
+  the blast radius — every Cleaner action is destructive — in `compose/dialogs.tsx`) and `OptimizerHost`
+  (`compose/cleaner-host.ts`: the optimizer's settings, persisted in Cleaner's own localStorage, every
+  destructive switch off by default).
+- **Styling**: its own `tailwind.config.ts` (Studio's token map, own `content` globs over the frame and the
+  optimizer renderer) and `@bilo-io/ui`'s token CSS.
+- **Icon**: `node apps/cleaner/scripts/make-icon.mjs` regenerates `resources/icon.icns` from the catalog glyph
+  (`CHROMIUM_PATH=<chrome-headless-shell>` to use an installed browser). The `.icns` is committed.
+- **Not here yet**: the Electron main for Cleaner and its IPC wiring (H2 ships it end to end through the launcher).
