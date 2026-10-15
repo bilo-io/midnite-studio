@@ -1,5 +1,6 @@
-import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime';
-import { CHANNELS, EVENT_CHANNELS, type MidniteStudioBridge } from '@midnite/studio-shared';
+import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
+import type { MidniteStudioBridge } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
 
 /**
  * The slice of `window.midniteStudio` Cleaner exposes — exactly what the optimizer renderer and
