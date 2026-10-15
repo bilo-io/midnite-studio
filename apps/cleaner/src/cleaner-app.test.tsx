@@ -8,7 +8,7 @@ import { FEATURE_PLACEMENT, FEATURE_VIEWS, placementOwners } from '@midnite/stud
 import { CleanerApp } from './cleaner-app';
 import { CLEANER_APP } from './cleaner-manifest';
 import { CLEANER_SETTINGS_KEY, createCleanerHost } from './compose/cleaner-host';
-import { dialogStore } from './compose/dialogs';
+import { dialogStore } from './compose/cleaner-chrome';
 
 afterEach(() => {
   cleanup();

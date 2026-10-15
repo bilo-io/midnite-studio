@@ -92,3 +92,6 @@ export type {
   IconButtonProps,
   IconComponent,
 } from './chrome/types';
+
+// The suite app kit — what an extracted app composes instead of writing its own chrome.
+export * from './kit';

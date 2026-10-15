@@ -3,9 +3,8 @@ import { useState } from 'react';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 import { OptimizerHostProvider, type OptimizerHost } from '@midnite/studio-feature-optimizer/renderer';
 
-import { CLEANER_CHROME } from './compose/cleaner-chrome';
+import { CLEANER_CHROME, CleanerDialogHost } from './compose/cleaner-chrome';
 import { createCleanerHost } from './compose/cleaner-host';
-import { CleanerDialogHost } from './compose/dialogs';
 import { CleanerHome } from './views/cleaner-home';
 
 /**

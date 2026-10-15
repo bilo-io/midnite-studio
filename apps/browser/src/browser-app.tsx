@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FrameChromeProvider } from '@midnite/studio-frame';
-import { BROWSER_CHROME } from './compose/browser-chrome';
+import { BROWSER_CHROME, BrowserDialogHost } from './compose/browser-chrome';
 import { BrowserHostProvider, createDefaultBrowserHost, type BrowserHost } from './ports/browser-host';
 import { BrowserShell } from './components/browser-shell';
 
@@ -12,6 +12,7 @@ export function BrowserApp({ host }: { host?: BrowserHost }) {
     <FrameChromeProvider chrome={BROWSER_CHROME}>
       <BrowserHostProvider host={activeHost}>
         <BrowserShell />
+        <BrowserDialogHost />
       </BrowserHostProvider>
     </FrameChromeProvider>
   );
