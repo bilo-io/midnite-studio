@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuX } from 'react-icons/lu';
 
 import type { ThemeSource } from '../common/bridge';
-import { APPS, SECTION_LABELS, type AppId, type LauncherApp } from '../common/catalog';
+import { APPS, SECTION_LABELS, appById, type AppId, type LauncherApp } from '../common/catalog';
 import { getBridge } from './bridge';
 import { AppDetail } from './components/app-detail';
 import type { MenuItem } from './components/app-menu';
@@ -11,9 +11,10 @@ import { AppTile } from './components/app-tile';
 import { LauncherWordmark } from './components/wordmark';
 import { FILTER_LABELS, FILTERS, filterCounts, visibleSections, type Filter, type SortKey } from './model';
 import { applyTheme, readTheme } from './theme';
-import { useStudio } from './use-studio';
+import { useApps } from './use-apps';
 
 type Layout = 'grid' | 'table';
+const STUDIO_APP = appById('studio');
 
 const THEME_OPTIONS: readonly { value: ThemeSource; label: string; Icon: typeof LuSun }[] = [
   { value: 'system', label: 'System theme', Icon: LuMonitor },
@@ -39,7 +40,8 @@ function checkedAgo(checkedAt: number | undefined, now: number): string {
 }
 
 export function App() {
-  const studio = useStudio();
+  const apps = useApps();
+  const { studio } = apps;
   const bridge = getBridge();
   const [layout, setLayoutState] = useState<Layout>(readLayout);
   const [theme, setThemeState] = useState<ThemeSource>(readTheme);
@@ -52,7 +54,7 @@ export function App() {
   const [query, setQuery] = useState('');
   const [detail, setDetail] = useState<LauncherApp | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [confirmUninstall, setConfirmUninstall] = useState(false);
+  const [confirmUninstall, setConfirmUninstall] = useState<LauncherApp | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: 'error' | 'info' } | null>(null);
 
   // A `midnite://` link for an app that cannot open yet lands here: its detail sheet, which is where Install lives.
@@ -79,7 +81,8 @@ export function App() {
     }
   };
 
-  const stateOf = useCallback(() => studio.state, [studio.state]);
+  const { viewOf } = apps;
+  const stateOf = useCallback((app: LauncherApp) => viewOf(app).state, [viewOf]);
   const counts = useMemo(() => filterCounts(stateOf), [stateOf]);
   const sections = useMemo(() => visibleSections({ filter, query, sort, stateOf }), [filter, query, sort, stateOf]);
 
@@ -92,28 +95,59 @@ export function App() {
     onOpen: (app: LauncherApp, featureId?: string) => {
       void bridge.apps.open(app.id, featureId).then((r) => report(r));
     },
-    onInstall: () => {
-      void studio.install().then((r) => report(r, 'Midnite Studio is installed.'));
+    onInstall: (app: LauncherApp) => {
+      const hosted = app.id === 'studio' || viewOf(app).source === 'studio';
+      void apps.install(app).then((r) => report(r, hosted ? 'Midnite Studio is installed.' : `Midnite ${app.name} is installed.`));
     },
     onDetails: (app: LauncherApp) => setDetail(app),
   };
 
-  const installed = studio.state === 'installed' || studio.state === 'update';
-  const menuItemsFor = (app: LauncherApp): MenuItem[] => [
-    { id: 'details', label: 'About this app', onSelect: () => setDetail(app) },
-    { id: 'notes', label: 'Release notes', onSelect: () => void bridge.links.open('notes') },
-    ...(installed
-      ? [
-          { id: 'reveal', label: 'Show Midnite Studio in Finder', onSelect: () => void bridge.studio.reveal().then((r) => report(r)) },
-          ...(studio.state === 'update'
-            ? [{ id: 'update', label: 'Update Midnite Studio', onSelect: handlers.onInstall, disabled: studio.installing }]
+  const menuItemsFor = (app: LauncherApp): MenuItem[] => {
+    const view = viewOf(app);
+    const base: MenuItem[] = [
+      { id: 'details', label: 'About this app', onSelect: () => setDetail(app) },
+      { id: 'notes', label: 'Release notes', onSelect: () => void bridge.links.open('notes') },
+    ];
+    if (view.source === 'bundle') {
+      // Its own bundle: every action here touches this one app and nothing else.
+      const has = view.state === 'installed' || view.state === 'update';
+      return [
+        ...base,
+        ...(has
+          ? [
+              ...(view.state === 'update'
+                ? [{ id: 'update', label: `Update Midnite ${app.name}`, onSelect: () => handlers.onInstall(app), disabled: view.installing }]
+                : []),
+              { id: 'uninstall', label: `Move Midnite ${app.name} to Trash…`, danger: true, onSelect: () => setConfirmUninstall(app) },
+            ]
+          : view.studioFallback
+            ? [{ id: 'open-studio', label: `Open in Midnite Studio`, onSelect: () => handlers.onOpen(app) }]
             : []),
-          { id: 'uninstall', label: 'Move Midnite Studio to Trash…', danger: true, onSelect: () => setConfirmUninstall(true) },
-        ]
-      : [{ id: 'download', label: 'Download page', onSelect: () => void bridge.links.open('download') }]),
-  ];
+      ];
+    }
+    // Hosted by Studio: the Studio install is what these act on, exactly as before.
+    const hosted = view.state === 'installed' || view.state === 'update';
+    return [
+      ...base,
+      ...(hosted
+        ? [
+            { id: 'reveal', label: 'Show Midnite Studio in Finder', onSelect: () => void bridge.studio.reveal().then((r) => report(r)) },
+            ...(view.state === 'update'
+              ? [{ id: 'update', label: 'Update Midnite Studio', onSelect: () => handlers.onInstall(app), disabled: view.installing }]
+              : []),
+            {
+              id: 'uninstall',
+              label: 'Move Midnite Studio to Trash…',
+              danger: true,
+              onSelect: () => setConfirmUninstall(STUDIO_APP),
+            },
+          ]
+        : [{ id: 'download', label: 'Download page', onSelect: () => void bridge.links.open('download') }]),
+    ];
+  };
 
-  const showBanner = studio.state === 'update' && !bannerDismissed && studio.status?.latest;
+  const studioView = viewOf(STUDIO_APP);
+  const showBanner = studioView.state === 'update' && !bannerDismissed && studio.status?.latest;
 
   return (
     <div className="shell">
@@ -153,10 +187,10 @@ export function App() {
             type="button"
             className="btn btn-icon topbar-refresh"
             aria-label="Check again"
-            onClick={() => void studio.refresh()}
-            disabled={studio.refreshing}
+            onClick={() => void apps.refresh()}
+            disabled={apps.refreshing}
           >
-            <LuRefreshCw size={15} className={studio.refreshing ? 'spin' : undefined} />
+            <LuRefreshCw size={15} className={apps.refreshing ? 'spin' : undefined} />
           </button>
         </div>
       </header>
@@ -170,7 +204,7 @@ export function App() {
               <button type="button" className="link" onClick={() => void bridge.links.open('notes')}>
                 What’s new ↗
               </button>
-              <button type="button" className="btn btn-primary btn-compact" onClick={handlers.onInstall} disabled={studio.installing}>
+              <button type="button" className="btn btn-primary btn-compact" onClick={() => handlers.onInstall(STUDIO_APP)} disabled={studio.installing}>
                 {studio.installing ? 'Updating…' : 'Update'}
               </button>
               <button type="button" className="btn btn-icon" aria-label="Dismiss" onClick={() => setBannerDismissed(true)}>
@@ -224,11 +258,11 @@ export function App() {
             {layout === 'grid' ? (
               <div className="grid">
                 {group.apps.map((app) => (
-                  <AppTile key={app.id} app={app} studio={studio} handlers={handlers} menuItems={menuItemsFor(app)} />
+                  <AppTile key={app.id} app={app} view={viewOf(app)} handlers={handlers} menuItems={menuItemsFor(app)} />
                 ))}
               </div>
             ) : (
-              <AppTable apps={group.apps} studio={studio} handlers={handlers} menuItemsFor={menuItemsFor} />
+              <AppTable apps={group.apps} viewOf={viewOf} handlers={handlers} menuItemsFor={menuItemsFor} />
             )}
           </section>
         ))}
@@ -251,28 +285,30 @@ export function App() {
         </span>
       </footer>
 
-      {detail && <AppDetail app={detail} studio={studio} handlers={handlers} onClose={() => setDetail(null)} />}
+      {detail && <AppDetail app={detail} view={viewOf(detail)} handlers={handlers} onClose={() => setDetail(null)} />}
 
       {confirmUninstall && (
         <div className="sheet-backdrop sheet-backdrop-center">
           <div className="dialog" role="alertdialog" aria-modal="true" aria-labelledby="uninstall-title">
             <h2 id="uninstall-title" className="dialog-title">
-              Move Midnite Studio to the Trash?
+              Move Midnite {confirmUninstall.name} to the Trash?
             </h2>
             <p className="dialog-body">
-              Every app in this launcher runs in Midnite Studio today, so all {APPS.length} of them go with it. Your
-              settings, repositories and media stay where they are, and you can put it back from the Trash.
+              {confirmUninstall.id === 'studio'
+                ? `Every app in this launcher runs in Midnite Studio today, so all ${APPS.length} of them go with it. Your settings, repositories and media stay where they are, and you can put it back from the Trash.`
+                : `Only Midnite ${confirmUninstall.name} is removed — its app and its Dock icon. The other apps and Midnite Studio stay, your data stays where it is, and you can put it back from the Trash.`}
             </p>
             <div className="dialog-actions">
-              <button type="button" className="btn" onClick={() => setConfirmUninstall(false)} autoFocus>
+              <button type="button" className="btn" onClick={() => setConfirmUninstall(null)} autoFocus>
                 Cancel
               </button>
               <button
                 type="button"
                 className="btn btn-danger"
                 onClick={() => {
-                  setConfirmUninstall(false);
-                  void studio.uninstall().then((r) => report(r, 'Midnite Studio moved to the Trash.'));
+                  const target = confirmUninstall;
+                  setConfirmUninstall(null);
+                  void apps.uninstall(target).then((r) => report(r, `Midnite ${target.name} moved to the Trash.`));
                 }}
               >
                 Move to Trash

@@ -1,6 +1,6 @@
 import type { LauncherApp } from '../../common/catalog';
 import { appNumber } from '../model';
-import type { StudioController } from '../use-studio';
+import type { AppView } from '../use-apps';
 import { AppIcon } from './app-icon';
 import { AppMenu, type MenuItem } from './app-menu';
 import { versionLine } from './app-tile';
@@ -10,12 +10,12 @@ import { AppWordmark } from './wordmark';
 
 export function AppTable({
   apps,
-  studio,
+  viewOf,
   handlers,
   menuItemsFor,
 }: {
   apps: readonly LauncherApp[];
-  studio: StudioController;
+  viewOf: (app: LauncherApp) => AppView;
   handlers: ActionHandlers & { onDetails: (app: LauncherApp) => void };
   menuItemsFor: (app: LauncherApp) => readonly MenuItem[];
 }) {
@@ -35,40 +35,47 @@ export function AppTable({
           </tr>
         </thead>
         <tbody>
-          {apps.map((app) => (
-            <tr
-              key={app.id}
-              data-brand={app.gradient === 'brand' || undefined}
-              style={{ ['--accent' as string]: app.accent }}
-            >
-              <td>
-                {app.gradient === 'brand' && <span className="row-frame" aria-hidden="true" />}
-                <span className="chip-number" data-brand={app.gradient === 'brand' || undefined}>
-                  {appNumber(app)}
-                </span>
-              </td>
-              <td>
-                <button type="button" className="table-app" onClick={() => handlers.onDetails(app)}>
-                  <AppIcon app={app} size={32} />
-                  <span>
-                    <AppWordmark app={app} />
-                    <span className="table-tagline">{app.tagline}</span>
+          {apps.map((app) => {
+            const view = viewOf(app);
+            return (
+              <tr
+                key={app.id}
+                data-brand={app.gradient === 'brand' || undefined}
+                style={{ ['--accent' as string]: app.accent }}
+              >
+                <td>
+                  {app.gradient === 'brand' && <span className="row-frame" aria-hidden="true" />}
+                  <span className="chip-number" data-brand={app.gradient === 'brand' || undefined}>
+                    {appNumber(app)}
                   </span>
-                </button>
-              </td>
-              <td className="table-features">{app.features.map((f) => f.label).join(' · ')}</td>
-              <td>
-                <StatusPill state={studio.state} installing={studio.installing} />
-              </td>
-              <td className="table-version">{versionLine(studio)}</td>
-              <td>
-                <div className="table-actions">
-                  <PrimaryAction app={app} studio={studio} handlers={handlers} compact />
-                  <AppMenu app={app} items={menuItemsFor(app)} />
-                </div>
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="table-app"
+                    onClick={() => handlers.onDetails(app)}
+                  >
+                    <AppIcon app={app} size={32} />
+                    <span>
+                      <AppWordmark app={app} />
+                      <span className="table-tagline">{app.tagline}</span>
+                    </span>
+                  </button>
+                </td>
+                <td className="table-features">{app.features.map((f) => f.label).join(' · ')}</td>
+                <td>
+                  <StatusPill state={view.state} installing={view.installing} />
+                </td>
+                <td className="table-version">{versionLine(view)}</td>
+                <td>
+                  <div className="table-actions">
+                    <PrimaryAction app={app} view={view} handlers={handlers} compact />
+                    <AppMenu app={app} items={menuItemsFor(app)} />
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

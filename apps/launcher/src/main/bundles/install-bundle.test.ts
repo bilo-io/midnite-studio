@@ -174,6 +174,15 @@ describe('uninstallAppBundle', () => {
     expect((await readInstalledState(roots.installRoot)).apps.map((a) => a.id)).toEqual(['monitor']);
   });
 
+  it('hands each path to the injected remover (the launcher passes the Trash) instead of deleting', async () => {
+    expect(await install('0.2.0')).toEqual({ ok: true });
+    const removed: string[] = [];
+    const result = await uninstallAppBundle(cleaner, { ...(await deps()), remove: async (path) => void removed.push(path) });
+    expect(result).toEqual({ ok: true });
+    expect(removed.map((p) => p.replace(root, ''))).toEqual(['/Applications/Midnite Cleaner.app', '/support/bundles/cleaner']);
+    expect((await readInstalledState(roots.installRoot)).apps).toEqual([]);
+  });
+
   it('refuses an app that is not installed, or is running', async () => {
     expect(await uninstallAppBundle(cleaner, await deps())).toEqual({ ok: false, message: 'Midnite Cleaner is not installed.' });
     expect(await install('0.2.0')).toEqual({ ok: true });

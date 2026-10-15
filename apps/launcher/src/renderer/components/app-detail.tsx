@@ -3,7 +3,7 @@ import { LuArrowUpRight, LuX } from 'react-icons/lu';
 
 import { FRAME_PARTS, type LauncherApp } from '../../common/catalog';
 import { appNumber } from '../model';
-import type { StudioController } from '../use-studio';
+import type { AppView } from '../use-apps';
 import { AppIcon } from './app-icon';
 import { PrimaryAction, type ActionHandlers } from './primary-action';
 import { StatusPill } from './status-pill';
@@ -15,17 +15,17 @@ import { AppWordmark } from './wordmark';
  */
 export function AppDetail({
   app,
-  studio,
+  view,
   handlers,
   onClose,
 }: {
   app: LauncherApp;
-  studio: StudioController;
+  view: AppView;
   handlers: ActionHandlers;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const canOpen = studio.state === 'installed' || studio.state === 'update';
+  const canOpen = view.state === 'installed' || view.state === 'update';
   const homeFeature = app.features.find((f) => JSON.stringify(f.target) === JSON.stringify(app.home));
 
   useEffect(() => {
@@ -65,8 +65,8 @@ export function AppDetail({
         </div>
 
         <div className="sheet-actions">
-          <StatusPill state={studio.state} installing={studio.installing} />
-          <PrimaryAction app={app} studio={studio} handlers={handlers} />
+          <StatusPill state={view.state} installing={view.installing} />
+          <PrimaryAction app={app} view={view} handlers={handlers} />
         </div>
 
         <section className="sheet-section">
@@ -108,7 +108,7 @@ export function AppDetail({
           </ul>
         </section>
 
-        {app.id !== 'studio' && (
+        {app.id !== 'studio' && view.source === 'studio' && (
           <p className="sheet-note">
             Midnite {app.name} runs inside Midnite Studio for now. Open lands on
             {homeFeature ? ` ${homeFeature.label}` : ' its home'} in Studio; once Midnite {app.name} ships on its
