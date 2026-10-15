@@ -6,11 +6,18 @@ import {
   isMcpToolId,
   MCP_MAX_REQUEST_BYTES,
   MCP_MAX_RESPONSE_BYTES,
+  PLACEMENT_APP_IDS,
   type McpRequest,
   type McpResponse,
 } from '@midnite/studio-shared';
 
-import { createMcpToolListing, studioInstalledApps, type McpToolListing } from '@midnite/studio-runtime';
+import {
+  createMcpToolListing,
+  installedAppsFromLauncherFile,
+  launcherInstalledFile,
+  studioInstalledApps,
+  type McpToolListing,
+} from '@midnite/studio-runtime';
 
 import { createFrameDecoder, encodeJsonFrame } from '../../broker/protocol';
 import { defaultLogger, type Logger } from '../log';
@@ -55,6 +62,12 @@ export type StartMcpServerOptions = {
    * Applies to the default tool registry only; a private `dispatch` answers for itself.
    */
   listing?: McpToolListing;
+  /**
+   * The OS appData dir (`~/Library/Application Support`) the launcher's `installed.json` lives under.
+   * When set, the default listing is Studio's composed apps plus the bundles recorded there
+   * (re-read on change); when unset (tests, private servers) it is Studio's every-app default.
+   */
+  launcherAppDataDir?: string;
 };
 
 export type StartMcpServerResult = { ok: true; handle: McpServerHandle } | { ok: false; message: string };
@@ -81,7 +94,17 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
 
   const socketPath = opts.socketPath ?? join(userDataDir, 'mcp', mcpSocketName(appVersion, buildId, isPackaged));
   const socketDir = dirname(socketPath);
-  const listing = opts.listing ?? createMcpToolListing({ installed: studioInstalledApps });
+  const listing =
+    opts.listing ??
+    createMcpToolListing({
+      installed: opts.launcherAppDataDir
+        ? installedAppsFromLauncherFile({
+            file: launcherInstalledFile(opts.launcherAppDataDir),
+            // Studio composes every app, so it provides every app itself.
+            provided: PLACEMENT_APP_IDS,
+          })
+        : studioInstalledApps,
+    });
   const dispatch =
     opts.dispatch ??
     (async (tool: string, input: unknown): Promise<McpDispatchResult> =>
