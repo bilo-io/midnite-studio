@@ -77,7 +77,9 @@ export function UpdatesPage() {
           <Field
             label="Status & Installation"
             hint={
-              updateState.phase === 'checking'
+              updateState.managedBy === 'midnite-apps'
+                ? 'Updates are managed by Midnite Apps. Check for Updates opens it.'
+                : updateState.phase === 'checking'
                 ? 'Checking for updates...'
                 : updateState.phase === 'available'
                   ? `Update version ${updateState.version} is available.`
@@ -121,6 +123,12 @@ export function UpdatesPage() {
                   </button>
                 )}
               </div>
+
+              {updateState.offerLauncher && (
+                <div className="mt-2 rounded bg-muted/40 p-2 text-xs text-muted-foreground">
+                  Midnite Apps keeps every midnite app up to date in one place. Until it is installed, Studio updates itself.
+                </div>
+              )}
 
               {updateState.manualInstall && updateState.phase === 'available' && (
                 <div className="mt-2 flex flex-col gap-1 rounded bg-muted/40 p-2 text-xs">

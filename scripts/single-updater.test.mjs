@@ -8,10 +8,10 @@
 // this list.
 //
 //  - apps/launcher/src/main/updater.ts       — the suite's one updater (runtime + bundles)
-//  - packages/desktop/src/main/update-service.ts — Studio's own, until Theme G repoints
-//                                                  existing installs at the runtime build
-//
-// When Theme G lands, the second entry goes, and this test is what says it is gone.
+//  - packages/desktop/src/main/update-service.ts — Studio's legacy self-updater (Theme G3). It
+//    stays only as the fallback for an install with no Midnite Apps launcher: once the launcher
+//    is installed, `updates/update-handover.ts` switches it off and the launcher owns updates.
+//    It goes when the `midnite-studio/feed` is retired; this test is what says it is gone.
 
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
