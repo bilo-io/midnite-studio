@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme D (slice) — the runtime owns the `midnite` CLI and per-app MCP tools
+
+[PR #854](https://github.com/bilo-io/midnite-studio/pull/854). Every MCP tool now has an owner — the
+frame or one app — and the tool list is filtered by which apps are installed, with calls to an unlisted
+tool refused. Studio counts as every app installed, so its 126-tool list is unchanged and pinned. The
+CLI installer moved into `packages/runtime` with injected paths and the same `midnite`/alias rules. The
+installed set is a seam for now; reading the launcher's `installed.json` comes later.
+
 ## 2026-10-15 — Phase 113 Theme L (slice) — `apps/browser` shell and the app-layer lint rule
 
 [PR #853](https://github.com/bilo-io/midnite-studio/pull/853). A first `apps/browser` composed over
