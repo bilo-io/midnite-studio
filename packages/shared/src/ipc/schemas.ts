@@ -2696,6 +2696,10 @@ export const UpdateStateSchema = z.object({
   percent: z.number().nullable(),
   error: z.string().nullable(),
   manualInstall: z.boolean().optional(),
+  /** Phase 113 G3: the Midnite Apps launcher owns updates for this install; Studio's own updater is off. */
+  managedBy: z.literal('midnite-apps').optional(),
+  /** Phase 113 G3: no launcher installed — Settings suggests Midnite Apps while Studio self-updates. */
+  offerLauncher: z.boolean().optional(),
 });
 export type UpdateState = z.infer<typeof UpdateStateSchema>;
 

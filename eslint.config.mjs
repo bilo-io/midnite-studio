@@ -136,7 +136,8 @@ const LAYER_DESKTOP = {
   features and the runtime library; its stub runs the same Electron framework as the launcher,
   so an updater pulled in by any of those layers would run once per open app, each racing the
   launcher to replace bundles under it. `apps/launcher/src/main/updater.ts` is the suite's one;
-  Studio's `packages/desktop/src/main/update-service.ts` stays until Theme G repoints it.
+  Studio's `packages/desktop/src/main/update-service.ts` stays as the legacy fallback for installs without
+  the launcher (Theme G3 — it defers to the launcher once that is installed).
   `scripts/single-updater.test.mjs` pins that list of two.
 */
 const NO_APP_UPDATER = {

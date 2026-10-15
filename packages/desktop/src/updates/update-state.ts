@@ -6,6 +6,8 @@ export type UpdateState = {
   percent: number | null;
   error: string | null;
   manualInstall?: boolean;
+  managedBy?: 'midnite-apps';
+  offerLauncher?: boolean;
 };
 
 export const IDLE_STATE: UpdateState = {

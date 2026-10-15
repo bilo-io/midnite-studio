@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
-import { app, BrowserWindow } from 'electron';
+import { existsSync } from 'node:fs';
+import { app, BrowserWindow, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
 import {
@@ -13,6 +14,7 @@ import {
   type UpdateState,
 } from '../updates/update-state.js';
 import { feedChannelFor, type UpdateChannel } from '../updates/feed-channel.js';
+import { decideUpdateOwner, launcherSearchPaths } from '../updates/update-handover.js';
 import { defaultLogger } from './log';
 import { handleSend } from './ipc/handle';
 
@@ -32,15 +34,35 @@ const warnInvalid = (issue: string): void => {
 
 export function registerUpdater(getWindow: () => BrowserWindow | null): void {
   const manualInstall = isAdHocSigned();
-  let currentState: UpdateState = { ...IDLE_STATE, manualInstall };
+  // Phase 113 G3: the launcher owns updates once it is installed (Decision 6).
+  const handover = decideUpdateOwner({ exists: existsSync, searchPaths: launcherSearchPaths(), offerDismissed: false });
+  const managed = handover.owner === 'managed';
+  const ownership: Partial<UpdateState> = managed ? { managedBy: 'midnite-apps' } : handover.offerLauncher ? { offerLauncher: true } : {};
+  let currentState: UpdateState = { ...IDLE_STATE, manualInstall, ...ownership };
 
   const pushState = (state: UpdateState) => {
-    currentState = { ...state, manualInstall };
+    currentState = { ...state, manualInstall, ...ownership };
     const win = getWindow();
     if (win && !win.isDestroyed()) {
       win.webContents.send(EVENT_CHANNELS.updateState, currentState);
     }
   };
+
+  if (managed) {
+    // Studio's own updater stays off: a check just opens Midnite Apps, which updates Studio and the runtime.
+    handleSend(
+      CHANNELS.updateCheck,
+      schemas.SendVoidSchema,
+      () => {
+        pushState(currentState);
+        if (handover.launcherPath) void shell.openPath(handover.launcherPath);
+      },
+      warnInvalid,
+    );
+    for (const ch of [CHANNELS.updateDownload, CHANNELS.updateRestart]) handleSend(ch, schemas.SendVoidSchema, () => {}, warnInvalid);
+    handleSend(CHANNELS.updateSetChannel, schemas.SendVoidSchema, () => {}, warnInvalid);
+    return;
+  }
 
   if (!app.isPackaged) {
     handleSend(CHANNELS.updateCheck, schemas.SendVoidSchema, () => pushState(currentState), warnInvalid);
