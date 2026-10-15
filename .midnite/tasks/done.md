@@ -1,6 +1,18 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme H (slice) — apps/cleaner, the first standalone app
+
+[PR #867](https://github.com/bilo-io/midnite-studio/pull/867). Cleaner is composed from the optimizer
+feature over the frame with its own home view, accent and icon, so a release packs its bundle; it has no
+Electron main side yet (H2).
+
+## 2026-10-15 — Phase 113 Theme D (slice) — the installed set reads installed.json
+
+[PR #866](https://github.com/bilo-io/midnite-studio/pull/866). The runtime's MCP installed-apps set now
+reads the launcher's `installed.json` (never throwing, re-read on change), so a launcher-hosted runtime
+lists only installed apps' tools; Studio still lists everything.
+
 ## 2026-10-15 — Phase 113 Theme E (slice) — the launcher's own Dock name in dev
 
 [PR #865](https://github.com/bilo-io/midnite-studio/pull/865). `moon run launcher:start` now runs from an
