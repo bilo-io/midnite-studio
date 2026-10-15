@@ -55,6 +55,12 @@ export type MidniteLinkTarget = {
   tab?: MediaTab;
   /** Only with `view: 'settings'` (implied when `view` is absent). */
   page?: SettingsPageId;
+  /**
+   * A hand-off's resource: the base64url JSON of a `ResourceRef` (`encodeRefParam`), opaque here.
+   * The router never reads it — it rides through to `midnite-studio://reveal?ref=…`, where Studio
+   * validates it against `ResourceRefSchema`. Optional, so every older link still parses.
+   */
+  ref?: string;
 };
 
 /** The lists the parser filters `view`/`tab`/`page` against; each optional. */
@@ -69,9 +75,12 @@ export function midniteOpenLink(target: MidniteLinkTarget): string {
   if (target.view !== undefined) params.set('view', target.view);
   if (target.page !== undefined) params.set('page', target.page);
   else if (target.tab !== undefined && target.view === 'media') params.set('tab', target.tab);
+  if (target.ref !== undefined && REF_PARAM.test(target.ref)) params.set('ref', target.ref);
   return `${MIDNITE_PROTOCOL}//open?${params.toString()}`;
 }
 
+/** base64url, at most 4 KB — a ref is a few dozen bytes; anything bigger is not one. */
+const REF_PARAM = /^[A-Za-z0-9_-]{1,4096}$/;
 const SLUG = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
 /**
@@ -103,6 +112,9 @@ export function parseMidniteLink(raw: unknown, vocabulary: MidniteLinkVocabulary
   const view = pick('view', vocabulary.views);
   const tab = pick('tab', vocabulary.tabs);
   const page = pick('page', vocabulary.pages);
+
+  const ref = url.searchParams.get('ref');
+  if (ref !== null && REF_PARAM.test(ref)) target.ref = ref;
 
   if (view !== undefined) target.view = view as ViewId;
   if (page !== undefined && (view === undefined || view === 'settings')) target.page = page as SettingsPageId;

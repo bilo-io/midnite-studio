@@ -39,9 +39,22 @@ export function studioSettingsLink(page: SettingsPageId): string {
  * `studio-link.test.ts` holds the two to the same output.
  */
 export function studioBrowserLink(url: string): string {
-  const bytes = new TextEncoder().encode(JSON.stringify({ kind: 'browserTab', url }));
+  return studioRevealLinkFromParam(encodeRefParam({ kind: 'browserTab', url }));
+}
+
+/**
+ * base64url of a ref's JSON — the `ref=` parameter of `midnite-studio://reveal` and of
+ * `midnite://open`. The same bytes `resourceRefLink` produces; kept here zod-free so the
+ * launcher can take it by source path.
+ */
+export function encodeRefParam(ref: object): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(ref));
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  const b64url = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${STUDIO_PROTOCOL}//reveal?ref=${b64url}`;
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** `midnite-studio://reveal?ref=<param>` from an already-encoded ref (Studio validates it on arrival). */
+export function studioRevealLinkFromParam(param: string): string {
+  return `${STUDIO_PROTOCOL}//reveal?ref=${param}`;
 }
