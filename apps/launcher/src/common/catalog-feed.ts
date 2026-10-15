@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { catalogLockstepViolations } from './lockstep';
+
 /**
  * `catalog.json` in bilo-io/midnite-apps — the suite's *distribution* data and
  * nothing else: which version of each app is published, where its bundle is,
@@ -39,8 +41,13 @@ export const CatalogSchema = z.object({
 export type CatalogApp = z.infer<typeof CatalogAppSchema>;
 export type Catalog = z.infer<typeof CatalogSchema>;
 
-/** `null` for anything that is not a well-formed catalog. */
+/**
+ * `null` for anything that is not a well-formed catalog — including one whose app versions
+ * disagree with its own `runtimeVersion` (lockstep, `lockstep.ts`): the launcher then falls back
+ * to `version.json` rather than offering a bundle it would refuse to install.
+ */
 export function parseCatalog(json: unknown): Catalog | null {
   const parsed = CatalogSchema.safeParse(json);
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) return null;
+  return catalogLockstepViolations(parsed.data).length === 0 ? parsed.data : null;
 }

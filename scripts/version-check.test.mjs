@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { checkLockstep } from './version-check.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { checkLockstep, collectWorkspaceVersions } from './version-check.mjs';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+describe('this repo', () => {
+  it('has the runtime, the launcher and every app in lockstep (apps/* included)', async () => {
+    const packages = await collectWorkspaceVersions(repoRoot);
+    const names = packages.map((p) => p.name);
+    expect(names).toEqual(expect.arrayContaining(['@midnite/studio-runtime', '@midnite/launcher', '@midnite/app-studio', '@midnite/app-browser']));
+    expect(checkLockstep(packages)).toMatchObject({ ok: true });
+  });
+});
 
 describe('checkLockstep', () => {
   it('passes when every package shares one MAJOR.MINOR', () => {

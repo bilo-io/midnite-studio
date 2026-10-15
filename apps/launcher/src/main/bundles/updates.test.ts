@@ -68,7 +68,7 @@ describe('updateInstalledBundles', () => {
   });
 
   it('re-clones a stale stub after a runtime update, then pulls the newer bundle', async () => {
-    expect(await installAppBundle(catalogEntry('cleaner', '0.2.0', zip('0.2.0')), cleaner, await deps('0.1.0', '0.2.0'))).toEqual({ ok: true });
+    expect(await installAppBundle(catalogEntry('cleaner', '0.2.0', zip('0.2.0')), cleaner, await deps('0.2.0', '0.2.0'))).toEqual({ ok: true });
 
     const catalog = { schemaVersion: 1 as const, runtimeVersion: '0.3.0', apps: [catalogEntry('cleaner', '0.3.0', zip('0.3.0'))] };
     const outcomes = await updateInstalledBundles(catalog, (id) => (id === 'cleaner' ? cleaner : null), await deps('0.3.0', '0.3.0'));
@@ -82,9 +82,19 @@ describe('updateInstalledBundles', () => {
   });
 
   it('with no catalog (offline, unpublished) still re-stubs, and updates nothing', async () => {
-    expect(await installAppBundle(catalogEntry('cleaner', '0.2.0', zip('0.2.0')), cleaner, await deps('0.1.0', '0.2.0'))).toEqual({ ok: true });
+    expect(await installAppBundle(catalogEntry('cleaner', '0.2.0', zip('0.2.0')), cleaner, await deps('0.2.0', '0.2.0'))).toEqual({ ok: true });
     const outcomes = await updateInstalledBundles(null, () => cleaner, await deps('0.3.0', '0.3.0'));
-    expect(outcomes.map((o) => o.action)).toEqual(['restub']);
+    // The re-stub happens, but the 0.2.0 bundle on a 0.3.0 runtime is reported, never left to open.
+    expect(outcomes.map((o) => o.action)).toEqual(['restub', 'blocked']);
+    expect(outcomes[1]?.result).toMatchObject({ ok: false, reason: 'bundle-behind' });
     expect((await readInstalledState(roots.installRoot)).apps[0]).toMatchObject({ version: '0.2.0', runtimeVersion: '0.3.0' });
+  });
+
+  it('ignores a catalog that disagrees with its own runtimeVersion, and reports the stale bundle', async () => {
+    expect(await installAppBundle(catalogEntry('cleaner', '0.2.0', zip('0.2.0')), cleaner, await deps('0.2.0', '0.2.0'))).toEqual({ ok: true });
+    const bad = { schemaVersion: 1 as const, runtimeVersion: '0.3.0', apps: [catalogEntry('cleaner', '0.2.5', zip('0.3.0'))] };
+    const outcomes = await updateInstalledBundles(bad, () => cleaner, await deps('0.3.0', '0.3.0'));
+    expect(outcomes.map((o) => o.action)).toEqual(['restub', 'blocked']);
+    expect((await readInstalledState(roots.installRoot)).apps[0]).toMatchObject({ version: '0.2.0' });
   });
 });
