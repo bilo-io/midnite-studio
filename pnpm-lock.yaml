@@ -282,6 +282,9 @@ importers:
       '@floating-ui/dom':
         specifier: ^1.8.0
         version: 1.8.0
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../features/monitor
       '@midnite/studio-feature-optimizer':
         specifier: workspace:*
         version: link:../features/optimizer

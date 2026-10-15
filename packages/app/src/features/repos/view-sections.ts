@@ -227,6 +227,7 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   models: WORK_IN_PROGRESS,
   sessions: WORK_IN_PROGRESS,
   optimizer: WORK_IN_PROGRESS,
+  monitor: WORK_IN_PROGRESS,
   // No dedicated sidebar section (its collections live under `.midnite/api/`
   // in the tree, not the sidebar) — same reasoning as `tasks` above.
   apiClient: WORK_IN_PROGRESS,

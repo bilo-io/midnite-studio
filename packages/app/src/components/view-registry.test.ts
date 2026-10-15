@@ -50,6 +50,8 @@ describe('VIEW_COMPONENT', () => {
         'media',
         'models',
         'optimizer',
+        // Phase 113 Theme I: the machine's readouts, not one checkout's.
+        'monitor',
         'database',
         'sessions',
         'notes',

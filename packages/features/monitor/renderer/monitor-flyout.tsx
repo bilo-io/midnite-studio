@@ -1,11 +1,18 @@
 import { METRIC_IDS } from '@midnite/studio-shared';
 
-import { useMetricsStore } from '../../store/metrics-store';
-import { formatUsage } from './format-bytes';
-import { ChartLegend, MetricChart, type ChartSeries } from './metric-chart';
-import { GAUGE_GEOMETRY, TIMELINE_METRICS } from './metric-geometry';
-import { METRIC_ICONS } from './metric-icons';
-import { METRIC_LABELS, metricColor, metricFill } from './metric-palette';
+import {
+  ChartLegend,
+  formatUsage,
+  GAUGE_GEOMETRY,
+  METRIC_ICONS,
+  METRIC_LABELS,
+  metricColor,
+  MetricChart,
+  metricFill,
+  TIMELINE_METRICS,
+  useMetricsStore,
+  type ChartSeries,
+} from '@midnite/studio-frame';
 
 /**
  * The panel behind the footer cluster: three timelines and a capacity gauge.

@@ -1,9 +1,6 @@
 import type { MetricId } from '@midnite/studio-shared';
 
-import type { MetricPoint } from '../../store/metrics-store';
-import { SPARKLINE_GEOMETRY } from './metric-geometry';
-import { metricColor, metricFill } from './metric-palette';
-import { areaPath, linePath } from './metric-path';
+import { SPARKLINE_GEOMETRY, areaPath, linePath, metricColor, metricFill, type MetricPoint } from '@midnite/studio-frame';
 
 /**
  * The inline form: ~28×12, no axis, no legend, no cadence rules.
