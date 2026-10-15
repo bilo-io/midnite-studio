@@ -2,20 +2,10 @@ import { useState } from 'react';
 import { createStore, useStore } from 'zustand';
 import { LuTriangleAlert } from 'react-icons/lu';
 
-import type { BlastRadiusKind, ConfirmRequest, FrameDialogs } from '@midnite/studio-frame';
+import type { BlastRadiusKind, ConfirmRequest, FrameDialogs } from '../chrome/types';
 
-/**
- * Cleaner's dialogs: the frame's `useDialogs()` port, backed by a real confirm.
- *
- * Every Cleaner action is destructive, and CLAUDE.md requires a confirm showing
- * the blast radius before one runs — so unlike a stub, `confirm` here parks the
- * request in a store and `CleanerDialogHost` renders it. `onConfirm` fires only
- * from the dialog's own button.
- */
-type DialogState = { request: ConfirmRequest | null };
-export const dialogStore = createStore<DialogState>(() => ({ request: null }));
-
-const COPY: Record<BlastRadiusKind, { noun: string; consequence: string }> = {
+/** What the blast-radius line says, per kind of thing about to be lost. */
+export const BLAST_RADIUS_COPY: Record<BlastRadiusKind, { noun: string; consequence: string }> = {
   commits: { noun: 'commit', consequence: 'will no longer be reachable from any branch.' },
   files: { noun: 'item', consequence: 'will be moved to the trash.' },
   trash: { noun: 'item', consequence: 'will be permanently deleted — this cannot be undone.' },
@@ -25,40 +15,7 @@ const COPY: Record<BlastRadiusKind, { noun: string; consequence: string }> = {
   project: { noun: 'project', consequence: 'will be affected.' },
 };
 
-export function useCleanerDialogs(): FrameDialogs {
-  return {
-    confirm: (request) => dialogStore.setState({ request }),
-    notify: (notice) =>
-      dialogStore.setState({
-        request: {
-          title: notice.title,
-          body: notice.body,
-          confirmLabel: notice.okLabel ?? 'OK',
-          hideCancel: true,
-          onConfirm: () => {},
-        },
-      }),
-    setBlastRadius: (blastRadius, warnings) =>
-      dialogStore.setState((s) => (s.request ? { request: { ...s.request, blastRadius, warnings } } : s)),
-    close: () => dialogStore.setState({ request: null }),
-  };
-}
-
-export function CleanerDialogHost() {
-  const request = useStore(dialogStore, (s) => s.request);
-  if (!request) return null;
-  const close = () => dialogStore.setState({ request: null });
-  return (
-    <ConfirmDialog
-      request={request}
-      onCancel={close}
-      onConfirm={() => {
-        close();
-        request.onConfirm();
-      }}
-    />
-  );
-}
+type DialogState = { request: ConfirmRequest | null };
 
 export function ConfirmDialog({
   request,
@@ -70,7 +27,7 @@ export function ConfirmDialog({
   onConfirm?: () => void;
 }) {
   const [acked, setAcked] = useState(false);
-  const copy = COPY[request.blastRadiusKind ?? 'commits'];
+  const copy = BLAST_RADIUS_COPY[request.blastRadiusKind ?? 'commits'];
   const radius = request.blastRadius;
   return (
     <div
@@ -87,18 +44,26 @@ export function ConfirmDialog({
       >
         <div className="space-y-2 p-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
-            {request.danger ? <LuTriangleAlert aria-hidden className="h-4 w-4 text-destructive" /> : null}
+            {request.danger ? (
+              <LuTriangleAlert aria-hidden className="h-4 w-4 text-destructive" />
+            ) : null}
             <span className={request.danger ? 'text-destructive' : ''}>{request.title}</span>
           </h2>
           {request.body ? <p className="text-xs text-muted-foreground">{request.body}</p> : null}
           {radius ? (
-            <p role="status" className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs">
+            <p
+              role="status"
+              className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs"
+            >
               {radius.count} {copy.noun}
               {radius.count === 1 ? '' : 's'} {copy.consequence}
             </p>
           ) : null}
           {request.warnings?.map((w) => (
-            <p key={w} className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs">
+            <p
+              key={w}
+              className="rounded border border-destructive/40 bg-destructive/10 p-2 text-xs"
+            >
               {w}
             </p>
           ))}
@@ -111,12 +76,20 @@ export function ConfirmDialog({
         </div>
         <div className="flex justify-end gap-2 border-t border-border p-3">
           {request.hideCancel ? null : (
-            <button type="button" onClick={onCancel} className="rounded px-3 py-1.5 text-xs hover:bg-accent">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded px-3 py-1.5 text-xs hover:bg-accent"
+            >
               Cancel
             </button>
           )}
           {request.secondaryLabel ? (
-            <button type="button" onClick={request.onSecondary} className="rounded px-3 py-1.5 text-xs hover:bg-accent">
+            <button
+              type="button"
+              onClick={request.onSecondary}
+              className="rounded px-3 py-1.5 text-xs hover:bg-accent"
+            >
               {request.secondaryLabel}
             </button>
           ) : null}
@@ -125,7 +98,9 @@ export function ConfirmDialog({
             disabled={Boolean(request.requireAck) && !acked}
             onClick={onConfirm ?? request.onConfirm}
             className={`rounded px-3 py-1.5 text-xs font-medium disabled:opacity-40 ${
-              request.danger ? 'bg-destructive text-destructive-foreground' : 'bg-primary text-primary-foreground'
+              request.danger
+                ? 'bg-destructive text-destructive-foreground'
+                : 'bg-primary text-primary-foreground'
             }`}
           >
             {request.confirmLabel}
@@ -134,4 +109,47 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+}
+
+/**
+ * One dialog store per app, with the real confirm: `confirm` parks the request and
+ * `DialogHost` renders it; `onConfirm` fires only from the dialog's own button.
+ */
+export function createDialogs() {
+  const store = createStore<DialogState>(() => ({ request: null }));
+  const close = () => store.setState({ request: null });
+  const dialogs: FrameDialogs = {
+    confirm: (request) => store.setState({ request }),
+    notify: (notice) =>
+      store.setState({
+        request: {
+          title: notice.title,
+          body: notice.body,
+          confirmLabel: notice.okLabel ?? 'OK',
+          hideCancel: true,
+          onConfirm: () => {},
+        },
+      }),
+    setBlastRadius: (blastRadius, warnings) =>
+      store.setState((s) => (s.request ? { request: { ...s.request, blastRadius, warnings } } : s)),
+    close,
+  };
+  function useDialogs(): FrameDialogs {
+    return dialogs;
+  }
+  function DialogHost() {
+    const request = useStore(store, (s) => s.request);
+    if (!request) return null;
+    return (
+      <ConfirmDialog
+        request={request}
+        onCancel={close}
+        onConfirm={() => {
+          close();
+          request.onConfirm();
+        }}
+      />
+    );
+  }
+  return { useDialogs, DialogHost, ConfirmDialog, store };
 }

@@ -250,6 +250,23 @@ project `feature-<name>`. A new feature therefore fails CI until it is added to 
 6. Composition tests that render the feature inside Studio stay in `app/src/compose/<name>/` and import
    `/renderer/testing`. Tests of the feature alone move with it and use its in-memory test host.
 
+### Building a new app on the kit
+
+A new suite app (`apps/<id>`) writes its composition, not its chrome:
+
+- **Chrome:** `createFrameChrome()` from the frame gives a complete `FrameChrome` and the `DialogHost`
+  to mount beside `FrameChromeProvider` (real blast-radius confirm, `KitIconButton`, no detach mark).
+- **Settings:** `createPersistedStore({ key, defaults, pick, state })` loads and writes through a slice,
+  swallowing storage errors; Cleaner's `compose/cleaner-host.ts` is the example.
+- **Styles:** `tailwind.config.ts` is `{ presets: [frameTailwindPreset], content: frameContent(__dirname, ['<feature>']) }`
+  from `packages/frame/tailwind-preset.ts`, so the frame and each feature's classes are scanned.
+- **Main:** `createIpcContext(el)` builds the zod-parsing `FeatureMainContext` from injected electron
+  shapes; register each feature's `main` against it.
+- **Preload:** list channels over `createBridgeSlice(ipcRenderer)` (`call`/`send`/`subscribe`). Import
+  `@midnite/studio-shared/ipc/channels` and `@midnite/studio-runtime/app-main/bridge-slice` by source
+  path (alias both in `bundle-main.mjs`), never the barrels: that took Cleaner's preload from
+  426 KB to 24 KB.
+
 ## App compositions
 
 Each app in `apps/` composes the frame, its assigned features, and its host ports into an installable desktop product.

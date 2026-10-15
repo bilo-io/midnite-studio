@@ -19,7 +19,13 @@ const common = {
   logLevel: 'warning',
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
-  alias: { '@midnite/studio-feature-optimizer/main': at('../../../packages/features/optimizer/main/index.ts') },
+  alias: {
+    '@midnite/studio-feature-optimizer/main': at('../../../packages/features/optimizer/main/index.ts'),
+    // The channel names alone, by source path: the shared barrel drags every zod schema (~400 KB) into the preload.
+    '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
+    // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.
+    '@midnite/studio-runtime/app-main/bridge-slice': at('../../../packages/runtime/src/app-main/bridge-slice.ts'),
+  },
 };
 
 await Promise.all([

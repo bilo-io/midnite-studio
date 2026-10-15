@@ -1,6 +1,11 @@
-import { createStore, useStore } from 'zustand';
+import { useStore } from 'zustand';
 
-import type { OptimizerHost, OptimizerSettingsState } from '@midnite/studio-feature-optimizer/renderer';
+import { createPersistedStore, safeLocalStorage } from '@midnite/studio-frame';
+
+import type {
+  OptimizerHost,
+  OptimizerSettingsState,
+} from '@midnite/studio-feature-optimizer/renderer';
 
 /**
  * Cleaner's {@link OptimizerHost}: the optimizer's settings as Cleaner's own
@@ -31,58 +36,45 @@ const DEFAULTS: Persisted = {
   trashEmptyConsentGiven: false,
 };
 
-function load(storage: Storage | undefined): Persisted {
-  try {
-    const raw = storage?.getItem(CLEANER_SETTINGS_KEY);
-    return raw ? { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Persisted>) } : DEFAULTS;
-  } catch {
-    return DEFAULTS;
-  }
+function pickPersisted(s: OptimizerSettingsState): Persisted {
+  return {
+    optimizerEnabled: s.optimizerEnabled,
+    disabledEcosystems: s.disabledEcosystems,
+    allowSystemCacheClean: s.allowSystemCacheClean,
+    systemCacheConsentGiven: s.systemCacheConsentGiven,
+    allowTrashEmpty: s.allowTrashEmpty,
+    trashEmptyConsentGiven: s.trashEmptyConsentGiven,
+  };
 }
 
-export function createCleanerHost(storage: Storage | undefined = safeLocalStorage()): OptimizerHost {
-  const store = createStore<OptimizerSettingsState>((set) => ({
-    ...load(storage),
-    setOptimizerEnabled: (optimizerEnabled) => set({ optimizerEnabled }),
-    toggleEcosystem: (id) =>
-      set((s) => ({
-        disabledEcosystems: s.disabledEcosystems.includes(id)
-          ? s.disabledEcosystems.filter((e) => e !== id)
-          : [...s.disabledEcosystems, id],
-      })),
-    setAllowSystemCacheClean: (allowSystemCacheClean) => set({ allowSystemCacheClean }),
-    setSystemCacheConsentGiven: (systemCacheConsentGiven) => set({ systemCacheConsentGiven }),
-    setAllowTrashEmpty: (allowTrashEmpty) => set({ allowTrashEmpty }),
-    setTrashEmptyConsentGiven: (trashEmptyConsentGiven) => set({ trashEmptyConsentGiven }),
-    metricsIdleIntervalMs: 5_000,
-    // Cleaner has no repository selection; Storage's "open this repository" is a no-op here.
-    selectRepo: () => {},
-  }));
-  store.subscribe((s) => {
-    const persisted: Persisted = {
-      optimizerEnabled: s.optimizerEnabled,
-      disabledEcosystems: s.disabledEcosystems,
-      allowSystemCacheClean: s.allowSystemCacheClean,
-      systemCacheConsentGiven: s.systemCacheConsentGiven,
-      allowTrashEmpty: s.allowTrashEmpty,
-      trashEmptyConsentGiven: s.trashEmptyConsentGiven,
-    };
-    try {
-      storage?.setItem(CLEANER_SETTINGS_KEY, JSON.stringify(persisted));
-    } catch {
-      /* storage full or blocked — settings just do not persist */
-    }
+export function createCleanerHost(
+  storage: Storage | undefined = safeLocalStorage(),
+): OptimizerHost {
+  const store = createPersistedStore<OptimizerSettingsState, Persisted>({
+    key: CLEANER_SETTINGS_KEY,
+    defaults: DEFAULTS,
+    storage,
+    pick: pickPersisted,
+    state: (set, initial) => ({
+      ...initial,
+      setOptimizerEnabled: (optimizerEnabled) => set({ optimizerEnabled }),
+      toggleEcosystem: (id) =>
+        set((s) => ({
+          disabledEcosystems: s.disabledEcosystems.includes(id)
+            ? s.disabledEcosystems.filter((e) => e !== id)
+            : [...s.disabledEcosystems, id],
+        })),
+      setAllowSystemCacheClean: (allowSystemCacheClean) => set({ allowSystemCacheClean }),
+      setSystemCacheConsentGiven: (systemCacheConsentGiven) => set({ systemCacheConsentGiven }),
+      setAllowTrashEmpty: (allowTrashEmpty) => set({ allowTrashEmpty }),
+      setTrashEmptyConsentGiven: (trashEmptyConsentGiven) => set({ trashEmptyConsentGiven }),
+      metricsIdleIntervalMs: 5_000,
+      // Cleaner has no repository selection; Storage's "open this repository" is a no-op here.
+      selectRepo: () => {},
+    }),
   });
   return {
     useSettings: (selector) => useStore(store, selector),
     getSettings: () => store.getState(),
   };
-}
-
-function safeLocalStorage(): Storage | undefined {
-  try {
-    return typeof localStorage === 'undefined' ? undefined : localStorage;
-  } catch {
-    return undefined;
-  }
 }

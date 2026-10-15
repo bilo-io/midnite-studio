@@ -16,3 +16,4 @@ export * from './vault';
 export * from './broker';
 export * from './cli';
 export * from './mcp';
+export * from './app-main';

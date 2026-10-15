@@ -11,13 +11,13 @@
     "composite": false,
     "declaration": false,
     "declarationMap": false,
-    "types": ["vite/client"],
+    "types": ["node", "vite/client"],
     "paths": {
       // Source, not dist — the same resolution packages/app uses, so the frame
       // and the app it is compiled into typecheck against one contract.
       "@midnite/studio-shared": ["../shared/src/index.ts"]
     }
   },
-  "include": ["src/**/*", "vitest.config.ts"],
+  "include": ["src/**/*", "tailwind-preset.ts", "tailwind-preset.test.ts", "vitest.config.ts"],
   "exclude": ["node_modules"]
 }
