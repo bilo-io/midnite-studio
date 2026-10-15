@@ -21,15 +21,34 @@
 /** The public site's live root, and the default every builder below falls back to. */
 export const MIDNITE_SITE_ORIGIN = 'https://midnite-studio-website.vercel.app';
 
-/** `<origin>/install.sh` — the site's byte-for-byte copy of the upstream installer. */
-export function installerUrl(origin: string = MIDNITE_SITE_ORIGIN): string {
-  return `${origin.replace(/\/+$/, '')}/install.sh`;
+/** The site's two installers, each a byte-for-byte copy of its upstream script. */
+export type InstallerFile = 'install.sh' | 'install-studio.sh';
+
+/**
+ * `<origin>/install.sh` — the **launcher** installer (Midnite Apps), which is what the download
+ * page offers; pass `'install-studio.sh'` for the Studio one the in-app update re-runs.
+ */
+export function installerUrl(
+  origin: string = MIDNITE_SITE_ORIGIN,
+  file: InstallerFile = 'install.sh',
+): string {
+  return `${origin.replace(/\/+$/, '')}/${file}`;
 }
 
-/** `curl -fsSL <origin>/install.sh | sh`, exactly as the download page prints it. */
-export function installCommand(origin: string = MIDNITE_SITE_ORIGIN): string {
-  return `curl -fsSL ${installerUrl(origin)} | sh`;
+/** `curl -fsSL <origin>/install.sh | sh` — installs the launcher, as the download page prints it. */
+export function installCommand(
+  origin: string = MIDNITE_SITE_ORIGIN,
+  file: InstallerFile = 'install.sh',
+): string {
+  return `curl -fsSL ${installerUrl(origin, file)} | sh`;
 }
 
-/** The command against the live site — what the app runs. */
-export const MIDNITE_INSTALL_COMMAND: string = installCommand();
+/**
+ * The command against the live site that re-installs **Midnite Studio** — what the app's "Update
+ * Midnite Studio" action runs. It stays on Studio's own script so updating Studio never swaps in the
+ * launcher now that `install.sh` is the launcher's.
+ */
+export const MIDNITE_INSTALL_COMMAND: string = installCommand(
+  MIDNITE_SITE_ORIGIN,
+  'install-studio.sh',
+);

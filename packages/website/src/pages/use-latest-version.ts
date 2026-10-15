@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 
 /**
- * The per-app update feed in the public releases repo.
+ * The launcher's per-app update feed in the public releases repo. The site installs Midnite Apps
+ * (the launcher), which installs the apps, so this is the version the page shows.
  *
  * Deliberately this file and not `releases/latest`: `bilo-io/midnite-apps`
  * distributes several apps, so its newest release is whichever one shipped most
@@ -9,7 +10,7 @@ import { useEffect, useState } from 'react';
  * the same way, from the same URL — see the header of `install.sh` there.
  */
 const FEED =
-  'https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/version.json';
+  'https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-launcher/version.json';
 
 export type VersionState =
   /** The fetch is in flight. */
