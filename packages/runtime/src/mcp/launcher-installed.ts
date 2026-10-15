@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { installedSet, PlacementAppIdSchema, type PlacementAppId } from '@midnite/studio-shared';
+import { installedSet, LAUNCHER_DATA_DIR_NAME, PlacementAppIdSchema, type PlacementAppId } from '@midnite/studio-shared';
 import { z } from 'zod';
 
 import type { InstalledAppsSource } from './installed-apps';
@@ -20,10 +20,10 @@ const LauncherStateSchema = z.object({
   apps: z.array(z.object({ id: z.string() }).passthrough()),
 });
 
-/** `<launcher userData>/bundles/installed.json` — the launcher's `productionBundleRoots` + `STATE_FILE`. */
-export const LAUNCHER_DATA_DIR_NAME = 'Midnite Apps';
-
-/** Pure: the launcher's `installed.json` under an injected appData dir (`~/Library/Application Support`). */
+/**
+ * Pure: the launcher's `installed.json` under an injected appData dir (`~/Library/Application Support`) —
+ * the launcher's pinned userData (`shared/launcher-data-dir.ts`) + `productionBundleRoots` + `STATE_FILE`.
+ */
 export function launcherInstalledFile(appDataDir: string): string {
   return join(appDataDir, LAUNCHER_DATA_DIR_NAME, 'bundles', 'installed.json');
 }
