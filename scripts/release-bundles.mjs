@@ -7,8 +7,9 @@
 // `dist` tasks, and an app id from the placement map that has not been extracted yet has nothing to build.
 //
 // Usage: node scripts/affected-apps.mjs --base <prev-tag> --json | node scripts/release-bundles.mjs
+//        node scripts/release-bundles.mjs --all   (a release: every extracted app — see allApps)
 // Prints the matrix JSON a workflow feeds to `strategy.matrix`: {"include":[{"app","project","dir"}]}.
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,8 +37,22 @@ async function readStdin() {
   return data;
 }
 
+/**
+ * Every app with a moon project of its own. A release builds ALL of them, not the affected set
+ * (Themes E1 + F2): `catalog.json` is lockstep — the launcher rejects the whole file when one app's
+ * version differs from `runtimeVersion` — so an unchanged bundle left at the previous tag's version
+ * could never be listed. Affected-only still decides what a PR builds.
+ * @param {string[]} dirs entries of `apps/`
+ */
+export function allApps(dirs, hasProject) {
+  return dirs.filter((d) => hasProject(`apps/${d}`)).sort();
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { apps = [] } = JSON.parse(await readStdin());
-  const matrix = bundleMatrix(apps, (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml')));
+  const hasProject = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
+  const { apps = [] } = process.argv.includes('--all')
+    ? { apps: allApps(readdirSync(path.join(repoRoot, 'apps')), hasProject) }
+    : JSON.parse(await readStdin());
+  const matrix = bundleMatrix(apps, hasProject);
   console.log(JSON.stringify(matrix));
 }
