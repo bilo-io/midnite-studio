@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme G (slice) — Studio profile migration to the runtime
+
+[PR #856](https://github.com/bilo-io/midnite-studio/pull/856). A flag-gated, off-by-default migration
+moves a Studio user's settings, sessions, windows and vault entries into the runtime's own data
+directory: backup first, non-overwriting copies, verification, and a marker written last so a failed
+run retries. Vault entries are re-encrypted for the runtime's keychain identity, and any that cannot
+be carried are reported, never dropped. The human check on a real profile is still open.
+
 ## 2026-10-15 — Phase 113 Theme G (slice) — `apps/studio` and the layer rule in the agent docs
 
 [PR #855](https://github.com/bilo-io/midnite-studio/pull/855). `apps/studio` is now Studio's
