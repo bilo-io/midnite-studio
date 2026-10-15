@@ -49,6 +49,15 @@ describe('deriveAppState', () => {
     expect(deriveAppState('cleaner', studio('0.4.1'), older).state).toBe('update');
   });
 
+  it('is Update with the lockstep reason when the bundle is not the runtime version, even with no catalog', () => {
+    const behind = apps({ catalog: null, installed: [{ id: 'cleaner', version: '0.4.0', runtimeVersion: '0.4.1' }] });
+    expect(deriveAppState('cleaner', null, behind)).toMatchObject({ state: 'update', lockstep: 'bundle-behind' });
+    const ahead = apps({ catalog: null, installed: [{ id: 'cleaner', version: '0.5.0', runtimeVersion: '0.4.1' }] });
+    expect(deriveAppState('cleaner', null, ahead)).toMatchObject({ state: 'update', lockstep: 'bundle-ahead' });
+    const ok = apps({ installed: [{ id: 'cleaner', version: '0.4.1', runtimeVersion: '0.4.1' }] });
+    expect(deriveAppState('cleaner', null, ok).lockstep).toBeNull();
+  });
+
   it('is Update when its stub was cloned from another runtime', () => {
     const stale = apps({ installed: [{ id: 'cleaner', version: '0.4.1', runtimeVersion: '0.4.0' }] });
     expect(deriveAppState('cleaner', null, stale).state).toBe('update');

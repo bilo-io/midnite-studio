@@ -1,5 +1,6 @@
 import type { AppsStatus, StudioStatus } from './bridge';
 import type { AppId } from './catalog';
+import { checkLockstep, type LockstepReason } from './lockstep';
 import { compareVersions } from './version';
 
 /**
@@ -34,6 +35,8 @@ export type AppState = {
   releasedAt: string | null;
   /** Studio is installed and will open this app when its own bundle is absent. */
   studioFallback: boolean;
+  /** Why the recorded bundle is out of lockstep with the runtime (`lockstep.ts`), when it is. */
+  lockstep: LockstepReason | null;
 };
 
 /**
@@ -54,28 +57,32 @@ export function deriveAppState(id: AppId, studio: StudioStatus | null, apps: App
       latest: studio?.latest?.version ?? null,
       releasedAt: studio?.latest?.releasedAt ?? null,
       studioFallback: false,
+      lockstep: null,
     };
   }
   const studioFallback = studio?.installed != null;
   if (apps === null) {
-    return { state: 'checking', source: 'bundle', version: null, latest: null, releasedAt: null, studioFallback };
+    return { state: 'checking', source: 'bundle', version: null, latest: null, releasedAt: null, studioFallback, lockstep: null };
   }
   const record = apps.installed.find((a) => a.id === id);
   const entry = apps.catalog?.apps.find((a) => a.id === id);
   if (record !== undefined) {
     const behind = entry !== undefined && entry.version !== record.version;
     const staleStub = record.runtimeVersion !== (apps.catalog?.runtimeVersion ?? apps.runtimeVersion);
+    // Lockstep: a bundle that is not exactly the runtime's version will not open, so it reads as Update.
+    const verdict = checkLockstep({ runtimeVersion: apps.runtimeVersion, bundleVersion: record.version });
     return {
-      state: behind || staleStub ? 'update' : 'installed',
+      state: behind || staleStub || !verdict.ok ? 'update' : 'installed',
       source: 'bundle',
       version: record.version,
       latest: entry?.version ?? null,
       releasedAt: null,
       studioFallback,
+      lockstep: verdict.ok ? null : verdict.reason,
     };
   }
   if (entry !== undefined) {
-    return { state: 'not-installed', source: 'bundle', version: null, latest: entry.version, releasedAt: null, studioFallback };
+    return { state: 'not-installed', source: 'bundle', version: null, latest: entry.version, releasedAt: null, studioFallback, lockstep: null };
   }
   const hosted = installState(studio);
   return {
@@ -85,5 +92,6 @@ export function deriveAppState(id: AppId, studio: StudioStatus | null, apps: App
     latest: studio?.latest?.version ?? null,
     releasedAt: studio?.latest?.releasedAt ?? null,
     studioFallback,
+    lockstep: null,
   };
 }

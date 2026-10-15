@@ -185,7 +185,7 @@ if (!app.requestSingleInstanceLock()) {
         uninstall: (identity, deps) => uninstallAppBundle(identity, { ...deps, remove: (path) => shell.trashItem(path) }),
         onProgress: (event) => mainWindow?.webContents.send(LAUNCHER_CHANNELS.appProgress, event),
       }),
-      findBundle: (id) => installedBundleFinder(bundleRoots().installRoot)(id),
+      findBundle: (id) => lockstepBundleFinder(bundleRoots().installRoot, app.getVersion())(id),
     });
     createWindow();
     ready = true;
