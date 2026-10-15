@@ -85,6 +85,16 @@ never a bare `vX.Y.Z`, which would collide with another app's.
     log or the commit's parent) — this is the job that most silently no-ops if
     `RELEASES_REPO_TOKEN` is missing or expired, since a failed cross-repo push here still leaves
     the Release itself looking published.
+  - **The launcher release `midnite-launcher/vX.Y.Z`** (Phase 113 E1/F2, `release.yml`'s
+    `publish-suite` job, after `publish-feed`): its assets are the launcher dmg/zip/blockmaps,
+    `latest-mac.yml` and one `midnite-<app>-X.Y.Z-bundle.zip` per packed app bundle.
+  - **`catalog.json`** at midnite-apps' root, committed by the same job and built by
+    `scripts/build-catalog.mjs` from the uploaded files: `runtimeVersion` and every app's `version`
+    read `X.Y.Z` and every `bundleUrl` downloads (the launcher rejects the whole file otherwise and
+    falls back to `version.json`).
+  - **`midnite-launcher/feed/latest-mac.yml`** (the launcher's own `generic` updater feed) and
+    **`midnite-launcher/version.json`** — the latter written by midnite-apps' `release-feed.yml`,
+    which only happens when `midnite-launcher` is registered in its `apps.json`.
   - **`midnite-studio/CHANGELOG.md`:** the same job's changelog-mirror step. If this version's
     section was genuinely empty (a patch of docs/chore-only commits), `has_section=false` in the
     job's own output is the expected outcome, not a failure to chase.
@@ -120,7 +130,17 @@ never a bare `vX.Y.Z`, which would collide with another app's.
     # 3. Delete tag from midnite-studio (local and remote):
     git tag -d vX.Y.Z
     git push origin :refs/tags/vX.Y.Z
+
+    # 4. The suite (Phase 113): the launcher release + bundles, and the files publish-suite committed.
+    gh release delete midnite-launcher/vX.Y.Z --repo bilo-io/midnite-apps --yes --cleanup-tag
+    for f in catalog.json midnite-launcher/feed/latest-mac.yml midnite-launcher/version.json; do
+      sha=$(gh api "repos/bilo-io/midnite-apps/contents/$f" --jq .sha 2>/dev/null) || continue
+      gh api "repos/bilo-io/midnite-apps/contents/$f" -X DELETE \
+        -f message="chore: remove $f after ephemeral test release" -f sha="$sha"
+    done
     ```
+    With `catalog.json` gone the launcher falls back to `midnite-studio/version.json`, exactly as
+    before the suite shipped.
   - **Heads-up for other clones:** step 3 only deletes `vX.Y.Z` in *this* clone. Any other clone
     or worktree that already fetched the old `vX.Y.Z` keeps a stale local ref, and since the tag
     name is always `vX.Y.Z`, the next ephemeral release recreates it on a different commit and

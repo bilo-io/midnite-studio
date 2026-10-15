@@ -87,6 +87,7 @@ Honour an explicit `$ARGUMENTS` override but still show what auto-detect picked.
   - Flag any **breaking** change prominently in the section.
   - Re-seed an empty `## [Unreleased]` stub above it, and update the compare/tag link refs at the bottom (`[Unreleased]: …compare/vX.Y.Z...HEAD`, add `[X.Y.Z]: …/releases/tag/vX.Y.Z`).
   - Keep this separate from `.midnite/tasks/done.md` (phase tracker, not release notes).
+- **The suite is stricter than the packages (Phase 113 E4/F2):** the launcher (`apps/launcher`) and every app bundle under `apps/*` share the release's *exact* version — `catalog.json` is rejected by the launcher if one app differs from `runtimeVersion` — so a patch release bumps all of `apps/*` together with Studio, never one alone.
 - **Sanity-check:** the lockstep invariant still holds — patches may differ, `MAJOR.MINOR` must not. Run `moon run root:version-check`.
 - **Commit the draft:** `chore(release): prepare vX.Y.Z` (changelog + version bumps), with no attribution trailer. Do **not** tag, do **not** push.
 

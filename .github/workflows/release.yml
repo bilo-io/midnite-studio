@@ -174,9 +174,10 @@ jobs:
             apps/launcher/release/latest-mac.yml
           if-no-files-found: error
 
-  # Phase 113 Theme F1: which app bundles does this tag touch? The base is the previous `v*` tag;
-  # `scripts/affected-apps.mjs` maps moon's affected projects to apps and `release-bundles.mjs` keeps
-  # the ones that have a project of their own. Ubuntu: a node script, no platform behaviour.
+  # Phase 113 Theme F1, revised by E1+F2: which app bundles does a release build? EVERY extracted app
+  # (`apps/<id>/moon.yml`), not the affected set — `catalog.json` is lockstep and the launcher rejects
+  # the whole file if one bundle sits at an older version, so a bundle left unbuilt could never be
+  # listed. `release-bundles.mjs --all` decides; ubuntu, a node script with no platform behaviour.
   plan:
     name: Plan app bundles
     runs-on: ubuntu-24.04
@@ -185,36 +186,24 @@ jobs:
       any: ${{ steps.matrix.outputs.any }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.9
+      # node builtins only — no install needed.
       - uses: actions/setup-node@v7
         with:
           node-version: 22.23.3
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-        env:
-          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Compute the affected bundle matrix
+      - name: Compute the bundle matrix
         id: matrix
         shell: bash
         run: |
           set -euo pipefail
-          # The previous lockstep tag; the very first release has none, so every app counts as affected.
-          base=$(git describe --tags --abbrev=0 --match 'v*' "${GITHUB_REF_NAME}^" 2>/dev/null || true)
-          if [ -z "$base" ]; then base=$(git rev-list --max-parents=0 HEAD | tail -1); fi
-          echo "affected base: $base"
-          matrix=$(node scripts/affected-apps.mjs --base "$base" --head HEAD --json | node scripts/release-bundles.mjs)
+          matrix=$(node scripts/release-bundles.mjs --all)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           if [ "$matrix" = '{"include":[]}' ]; then echo "any=false" >> "$GITHUB_OUTPUT"; else echo "any=true" >> "$GITHUB_OUTPUT"; fi
           echo "$matrix"
 
-  # One job per affected app bundle, uploaded as a workflow artifact (`bundle-<app>`) for the next slice
-  # to publish. Never macOS: a bundle is a static build, and the cap of 5 concurrent macOS jobs is spent
-  # on the runtime's `dist`. Skipped when nothing is affected.
+  # One job per app bundle, packed as the zip the launcher installs (`install-bundle.ts`: a top-level
+  # `package.json` whose version is the release's, and `icon.icns`) and uploaded as `bundle-<app>` for
+  # `publish-suite` to release. Never macOS: a bundle is a static build, and the cap of 5 concurrent
+  # macOS jobs is spent on the runtime's `dist`. Skipped when no app has been extracted yet.
   bundles:
     name: Bundle ${{ matrix.app }}
     needs: plan
@@ -240,12 +229,31 @@ jobs:
         run: pnpm exec moon run ${{ matrix.project }}:build
       - name: Check the bundle ships no Quick Kiss
         run: node scripts/no-quick-kiss.mjs ${{ matrix.dir }}/dist
+      # An app with no `resources/icon.icns` yet cannot pass the launcher's bundle check, so it is not
+      # packed: a warning, not a failure — the catalog simply does not list it this release.
+      - name: Pack the bundle zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p bundle-out
+          if [ ! -f "${{ matrix.dir }}/resources/icon.icns" ]; then
+            echo "::warning::${{ matrix.app }} has no resources/icon.icns — not packed, not in catalog.json"
+            exit 0
+          fi
+          stage="$RUNNER_TEMP/stage-${{ matrix.app }}"
+          mkdir -p "$stage"
+          cp -R "${{ matrix.dir }}/dist/." "$stage/"
+          cp "${{ matrix.dir }}/resources/icon.icns" "$stage/icon.icns"
+          node -e 'const [id, v, out] = process.argv.slice(1); require("fs").writeFileSync(out, JSON.stringify({ name: `midnite-${id}`, version: v }, null, 2) + "\n")' \
+            "${{ matrix.app }}" "$version" "$stage/package.json"
+          (cd "$stage" && zip -qr "$GITHUB_WORKSPACE/bundle-out/midnite-${{ matrix.app }}-$version-bundle.zip" .)
       - name: Upload the bundle
         uses: actions/upload-artifact@v7
         with:
           name: bundle-${{ matrix.app }}
-          path: ${{ matrix.dir }}/dist
-          if-no-files-found: error
+          path: bundle-out/*.zip
+          if-no-files-found: warn
 
   release:
     name: Publish release
@@ -268,8 +276,8 @@ jobs:
       source_tag: ${{ steps.version.outputs.source_tag }}
       version: ${{ steps.version.outputs.version }}
     steps:
-      # By NAME: `launcher-mac-arm64` and `bundle-*` are build outputs for the next slice to publish,
-      # and downloading everything would put the launcher's `latest-mac.yml` into this release.
+      # By NAME: the launcher and the bundles are published by `publish-suite` to their own release,
+      # and downloading everything would put the launcher's `latest-mac.yml` into this one.
       - name: Download installers
         uses: actions/download-artifact@v8
         with:
@@ -448,4 +456,127 @@ jobs:
             exit 0
           fi
           git commit -m "chore(midnite-studio): publish feed manifest + changelog for v${{ needs.release.outputs.version }}"
+          git push
+
+  # Phase 113 Themes E1 + F2 — the rest of the suite, beside Studio:
+  #   1. the launcher (Midnite Apps) as its own namespaced release, `midnite-launcher/v<version>`, with
+  #      every app bundle zip attached to it (the runtime release is what bundles are lockstep with);
+  #   2. `catalog.json` at midnite-apps' root, built by `scripts/build-catalog.mjs` from the files
+  #      actually uploaded (sizes + SHA-256 computed, one version everywhere) — the launcher reads it
+  #      before `midnite-studio/version.json` (`apps/launcher/src/main/feed.ts`);
+  #   3. the launcher's own `generic` updater feed, `midnite-launcher/feed/latest-mac.yml`.
+  # `midnite-launcher/version.json` is NOT written here: midnite-apps' own release-feed.yml writes
+  # `<app>/version.json` for every release whose app is registered in its apps.json — so
+  # `midnite-launcher` must be registered there once (docs/RELEASING.md).
+  #
+  # `needs: publish-feed` serialises the two pushes to midnite-apps' main; `needs: bundles` waits for
+  # the zips (skipped when no app is extracted, which `!cancelled()` tolerates). Like `publish-feed`,
+  # the commit comes only after the release assets it names are downloadable.
+  publish-suite:
+    name: Publish launcher, bundles + catalog.json
+    needs: [release, publish-feed, bundles]
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-feed-midnite-apps-suite
+      cancel-in-progress: false
+    steps:
+      - name: Checkout this repo (for scripts/build-catalog.mjs)
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.23.3
+
+      - name: Download the launcher
+        uses: actions/download-artifact@v8
+        with:
+          name: launcher-mac-arm64
+          path: launcher
+
+      - name: Download Studio (hashed for its catalog entry)
+        uses: actions/download-artifact@v8
+        with:
+          name: mac-arm64
+          path: studio
+
+      # `bundle-*` may match nothing (no extracted app has an icon yet): an empty dir, not a failure.
+      - name: Download the app bundles
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bundle-*
+          path: bundles
+          merge-multiple: true
+
+      - name: Check the launcher asset set
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bundles
+          ls -la launcher bundles
+          v="${{ needs.release.outputs.version }}"
+          for f in "launcher/midnite-launcher-$v-arm64.zip" "launcher/midnite-launcher-$v-arm64.dmg" launcher/latest-mac.yml \
+                   "studio/midnite-studio-$v-arm64.zip"; do
+            [ -f "$f" ] || { echo "::error::missing $f — refusing to publish the launcher"; exit 1; }
+          done
+
+      - name: Publish the launcher release to bilo-io/midnite-apps
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: bilo-io/midnite-apps
+          tag_name: midnite-launcher/v${{ needs.release.outputs.version }}
+          token: ${{ secrets.RELEASES_REPO_TOKEN }}
+          draft: false
+          generate_release_notes: false
+          body: Midnite Apps ${{ needs.release.outputs.version }} — the launcher and the app bundles, lockstep with midnite-studio/v${{ needs.release.outputs.version }}.
+          files: |
+            launcher/*.dmg
+            launcher/*.zip
+            launcher/*.blockmap
+            launcher/latest-mac.yml
+            bundles/*.zip
+
+      - name: Build catalog.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          v="${{ needs.release.outputs.version }}"
+          base=https://github.com/bilo-io/midnite-apps/releases/download
+          args=(--version "$v" --released-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                --app "studio=studio/midnite-studio-$v-arm64.zip=$base/midnite-studio/v$v/midnite-studio-$v-arm64.zip")
+          for zip in bundles/*.zip; do
+            [ -e "$zip" ] || continue
+            name=$(basename "$zip")                      # midnite-<id>-<v>-bundle.zip
+            id=${name#midnite-}; id=${id%-"$v"-bundle.zip}
+            args+=(--app "$id=$zip=$base/midnite-launcher/v$v/$name")
+          done
+          node scripts/build-catalog.mjs "${args[@]}" --out catalog.json
+          cat catalog.json
+
+      - name: Checkout bilo-io/midnite-apps
+        uses: actions/checkout@v7
+        with:
+          repository: bilo-io/midnite-apps
+          token: ${{ secrets.RELEASES_REPO_TOKEN }}
+          path: midnite-apps
+
+      - name: Commit catalog.json + the launcher feed
+        working-directory: midnite-apps
+        run: |
+          set -euo pipefail
+          mkdir -p midnite-launcher/feed
+          cp ../launcher/latest-mac.yml midnite-launcher/feed/latest-mac.yml
+          cp ../catalog.json catalog.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add catalog.json midnite-launcher/feed/latest-mac.yml
+          if git diff --cached --quiet; then
+            echo "::notice::catalog.json + launcher feed already current for ${{ needs.release.outputs.version }}"
+            exit 0
+          fi
+          git commit -m "chore(midnite-launcher): publish catalog.json + feed for v${{ needs.release.outputs.version }}"
+          # release-feed.yml in midnite-apps pushes version.json on the same release events.
+          git pull --rebase --quiet origin main
           git push

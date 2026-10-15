@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { bundleMatrix } from './release-bundles.mjs';
+import { allApps, bundleMatrix } from './release-bundles.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => readFileSync(path.join(repoRoot, f), 'utf8');
@@ -33,6 +33,10 @@ describe('bundleMatrix', () => {
   it('is empty when nothing is affected', () => {
     expect(bundleMatrix([], has).include).toEqual([]);
   });
+  it('lists every extracted app for a release (lockstep), sorted', () => {
+    expect(allApps(['studio', 'launcher', 'browser', 'cleaner'], has)).toEqual(['browser', 'launcher', 'studio']);
+    expect(bundleMatrix(allApps(['studio', 'browser'], has), has).include.map((e) => e.app)).toEqual(['browser']);
+  });
 });
 
 describe('release.yml', () => {
@@ -47,11 +51,27 @@ describe('release.yml', () => {
   it('publishes only the Studio artifact', () => {
     expect(job(release, 'release')).toMatch(/download-artifact@v\d+\s+with:\s+name: mac-arm64/);
   });
-  it('builds bundles only for the affected set, off macOS', () => {
+  it('builds every extracted bundle (lockstep), packs the installable zip, off macOS', () => {
+    expect(job(release, 'plan')).toContain('release-bundles.mjs --all');
     const bundles = job(release, 'bundles');
     expect(bundles).toContain('fromJSON(needs.plan.outputs.matrix)');
     expect(bundles).toContain('no-quick-kiss.mjs');
+    expect(bundles).toContain('icon.icns');
+    expect(bundles).toContain('-bundle.zip');
     expect(bundles).not.toMatch(/runs-on:\s*macos-/);
+  });
+  it('publishes the launcher, bundles and catalog.json only after Studio and its feed', () => {
+    const suite = job(release, 'publish-suite');
+    expect(suite).toContain('needs: [release, publish-feed, bundles]');
+    expect(suite).toContain('tag_name: midnite-launcher/v');
+    expect(suite).toContain('name: launcher-mac-arm64');
+    expect(suite).toContain('pattern: bundle-*');
+    expect(suite).toContain('node scripts/build-catalog.mjs');
+    expect(suite).toContain('midnite-launcher/feed/latest-mac.yml');
+    expect(suite).toContain('git add catalog.json midnite-launcher/feed/latest-mac.yml');
+    expect(suite).not.toMatch(/runs-on:\s*macos-/);
+    // The Studio release itself still takes only Studio's artifact.
+    expect(job(release, 'release')).not.toContain('launcher-mac-arm64');
   });
   it('uses one macOS job, and CI stays at or under the cap of 5 concurrent', () => {
     expect(macosJobs(release)).toBe(1);
