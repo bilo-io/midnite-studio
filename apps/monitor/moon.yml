@@ -1,0 +1,64 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Monitor (Phase 113 Theme I) — the second app that ships as its own bundle:
+# `packages/features/monitor` + `packages/frame` + `shared`, composed in src/.
+# `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+id: 'app-monitor'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-monitor'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-monitor'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/monitor/renderer/**/*'
+      - '/packages/features/monitor/manifest.ts'
+      - '/packages/features/monitor/main/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/monitor/renderer/**/*'
+      - '/packages/features/monitor/manifest.ts'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/monitor/renderer/**/*'
+      - '/packages/features/monitor/manifest.ts'
