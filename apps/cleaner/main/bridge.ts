@@ -1,4 +1,5 @@
-import { CHANNELS, EVENT_CHANNELS, type MidniteStudioBridge, type Unsubscribe } from '@midnite/studio-shared';
+import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime';
+import { CHANNELS, EVENT_CHANNELS, type MidniteStudioBridge } from '@midnite/studio-shared';
 
 /**
  * The slice of `window.midniteStudio` Cleaner exposes — exactly what the optimizer renderer and
@@ -13,24 +14,10 @@ export type CleanerBridge = {
   repos: Pick<MidniteStudioBridge['repos'], 'pickDirectory'>;
 };
 
-/** The `ipcRenderer` members the bridge uses — injected so the shape is testable without electron. */
-export type RendererIpc = {
-  invoke(channel: string, req?: unknown): Promise<unknown>;
-  send(channel: string, req?: unknown): void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- electron's own listener signature
-  on(channel: string, listener: (event: any, ...args: any[]) => void): unknown;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- electron's own listener signature
-  removeListener(channel: string, listener: (event: any, ...args: any[]) => void): unknown;
-};
+export type { RendererIpc };
 
 export function createCleanerBridge(ipc: RendererIpc): CleanerBridge {
-  const call = <Req, Res>(channel: string, req?: Req): Promise<Res> => ipc.invoke(channel, req) as Promise<Res>;
-  // Every subscription returns its teardown — StrictMode double-mounts otherwise stack listeners.
-  const subscribe = <T>(channel: string, handler: (payload: T) => void): Unsubscribe => {
-    const listener = (_event: unknown, payload: T): void => handler(payload);
-    ipc.on(channel, listener);
-    return () => void ipc.removeListener(channel, listener);
-  };
+  const { call, send, subscribe } = createBridgeSlice(ipc);
   return {
     optimizer: {
       scan: (req) => call(CHANNELS.optimizerScan, req),
@@ -43,13 +30,14 @@ export function createCleanerBridge(ipc: RendererIpc): CleanerBridge {
       emptyTrash: () => call(CHANNELS.optimizerTrashEmpty),
       systemCatalogue: () => call(CHANNELS.optimizerSystemCatalogue),
       systemScan: (req) => call(CHANNELS.optimizerSystemScan, req),
-      onSystemScanProgress: (handler) => subscribe(EVENT_CHANNELS.optimizerSystemScanProgress, handler),
+      onSystemScanProgress: (handler) =>
+        subscribe(EVENT_CHANNELS.optimizerSystemScanProgress, handler),
       systemClean: (req) => call(CHANNELS.optimizerSystemClean, req),
       systemReclaim: (req) => call(CHANNELS.optimizerSystemReclaim, req),
     },
     metrics: {
-      start: (req) => ipc.send(CHANNELS.metricsStart, req),
-      stop: () => ipc.send(CHANNELS.metricsStop),
+      start: (req) => send(CHANNELS.metricsStart, req),
+      stop: () => send(CHANNELS.metricsStop),
       onSample: (handler) => subscribe(EVENT_CHANNELS.metricsSample, handler),
     },
     repos: { pickDirectory: () => call(CHANNELS.repoPickDirectory) },
