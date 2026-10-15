@@ -289,4 +289,15 @@ three things a release needs to pack it as `midnite-cleaner-X.Y.Z-bundle.zip`: a
   optimizer renderer) and `@bilo-io/ui`'s token CSS.
 - **Icon**: `node apps/cleaner/scripts/make-icon.mjs` regenerates `resources/icon.icns` from the catalog glyph
   (`CHROMIUM_PATH=<chrome-headless-shell>` to use an installed browser). The `.icns` is committed.
-- **Not here yet**: the Electron main for Cleaner and its IPC wiring (H2 ships it end to end through the launcher).
+- **Main side** (`apps/cleaner/main/`, Theme H2): `index.ts` (single instance, userData under the runtime's data
+  directory, one window over `dist/index.html`), `preload.ts` + `bridge.ts` (exposes only `optimizer`, `metrics`
+  and `repos.pickDirectory` on `window.midniteStudio`), `context.ts` (a `FeatureMainContext` from the runtime and
+  an injected `ipcMain`, registering the optimizer's handlers) and `services.ts`. `scripts/bundle-main.mjs`
+  esbuilds main and preload to `dist/main.cjs` / `dist/preload.cjs`; `scripts/pack-bundle.mjs` (the release's pack
+  step) names `main.cjs` as the bundle's `main`, which the stub's Electron runs from `Resources/app`, and
+  `verifyAppBundle` refuses a declared `main` the bundle does not carry. `MIDNITE_CLEANER_SMOKE=1` makes main print
+  `midnite-cleaner:ready` and quit once the window has loaded (no window shown, hidden from the Dock) — the
+  opt-in proof `apps/launcher/src/main/bundles/cleaner-install.proof.test.ts` uses it.
+- **Not here yet**: the optimizer's scanners and process table are Studio-only today (they live in
+  `packages/desktop` and reach the repo registry, browser and pty), so Cleaner's `services.ts` answers those
+  operations with a plain "not available yet" message. Porting them behind runtime ports is Theme H3.
