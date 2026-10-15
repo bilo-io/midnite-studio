@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme F (slice) — no public app ships Quick Kiss
+
+[PR #857](https://github.com/bilo-io/midnite-studio/pull/857). A gate test fails if the Quick Kiss
+font file is tracked or referenced in the launcher, any suite app other than Studio, the website, the
+frame or a feature, and checks the launcher and website still declare Damion. A bundle-scanning
+script is ready for the release build to call.
+
 ## 2026-10-15 — Phase 113 Theme G (slice) — Studio profile migration to the runtime
 
 [PR #856](https://github.com/bilo-io/midnite-studio/pull/856). A flag-gated, off-by-default migration
