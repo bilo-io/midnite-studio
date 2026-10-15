@@ -18,6 +18,7 @@
     { "path": "../db-engine" },
     { "path": "../knowledge" },
     { "path": "../runtime" },
-    { "path": "../features/optimizer/tsconfig.main.json" }
+    { "path": "../features/optimizer/tsconfig.main.json" },
+    { "path": "../features/monitor/tsconfig.main.json" }
   ]
 }

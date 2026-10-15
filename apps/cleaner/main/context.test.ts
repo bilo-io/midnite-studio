@@ -13,7 +13,7 @@ function fake() {
   const send = vi.fn();
   const trashItem = vi.fn(async () => undefined);
   const el: CleanerElectron = {
-    ipcMain: { handle: (channel, listener) => void handlers.set(channel, listener) },
+    ipcMain: { handle: (channel, listener) => void handlers.set(channel, listener), on: () => undefined },
     trashItem,
     send,
     pickDirectory: async () => '/picked',

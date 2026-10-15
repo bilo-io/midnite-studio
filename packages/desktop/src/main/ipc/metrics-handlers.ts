@@ -1,60 +1,40 @@
-import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
+import { monitorMain, type MetricsService } from '@midnite/studio-feature-monitor/main';
+import { sendToLiveWindow, type FeatureMainContext } from '@midnite/studio-runtime';
 import type { BrowserWindow } from 'electron';
 
 import { defaultLogger } from '../log';
-import { createMetricsService, type MetricsService } from '../metrics/metrics-service';
-import { handleSend } from './handle';
-
-const warnInvalid = (issue: string): void => {
-  defaultLogger.warn(issue);
-};
+import { DESKTOP_OLLAMA } from '../system-health';
+import { handle, handleBare, handleSend } from './handle';
 
 /**
- * System-metrics IPC.
- *
- * `ipcMain.on`, not `handle`: both verbs are one-way and there is nothing to
- * report back — matching `pty.input`. The renderer re-sends `start` with a new
- * `intervalMs` whenever the flyout opens or closes, and the service treats that
- * as a re-arm rather than a second sampler.
- *
- * This module is the only one in `metrics/` that imports `electron`. The
- * probes and the sampler take their window lifecycle as `pause()`/`resume()`
- * calls, so all of them stay unit-testable under bare vitest — the same split
- * `repo-store.ts` gets by taking its directory as an argument.
+ * System-metrics IPC, system health included — the handlers themselves are the
+ * monitor feature's main half (Phase 113 Theme I); this is Studio's
+ * composition of it. The sampler stays electron-free: it takes its window
+ * lifecycle as `pause()`/`resume()` calls from {@link bindMetricsToWindow}.
  */
 export function registerMetricsHandlers(getWindow: () => BrowserWindow | null): MetricsService {
-  const service = createMetricsService({
-    emit: (sample) => {
-      const win = getWindow();
-      // A destroyed window still answers `getWindow()` for a tick during
-      // teardown; sending to its webContents then throws.
-      if (!win || win.isDestroyed()) return;
-      win.webContents.send(EVENT_CHANNELS.metricsSample, sample);
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    emit: (channel, payload) => sendToLiveWindow(getWindow, channel, payload),
+    trashItem: () => Promise.reject(new Error('monitor never trashes')),
+  };
+  let service: MetricsService | undefined;
+  monitorMain.register(ctx, {
+    ollama: DESKTOP_OLLAMA,
+    warn: (issue) => defaultLogger.warn(issue),
+    onMetricsService: (s) => {
+      service = s;
     },
   });
-
-  handleSend(
-    CHANNELS.metricsStart,
-    schemas.MetricsStartRequest,
-    ({ intervalMs, freshDisk }) => service.start(intervalMs, { freshDisk: freshDisk ?? false }),
-    warnInvalid,
-  );
-
-  handleSend(CHANNELS.metricsStop, schemas.SendVoidSchema, () => service.stop(), warnInvalid);
-
+  if (!service) throw new Error('monitor feature did not hand back its sampler');
   return service;
 }
 
 /**
- * Tie sampling to whether anyone can see the footer.
- *
- * Blur and hide both stop it outright. This is the single largest saving in
- * the feature: idling in the background with the flyout closed would otherwise
- * spawn an `ioreg` every five seconds for hours, which is a measurable battery
- * cost to redraw a sparkline nobody is looking at.
- *
- * Separate from `registerMetricsHandlers` because the window does not exist
- * when the handlers are registered — `main/index.ts` creates it afterwards.
+ * Tie sampling to whether anyone can see the footer. Blur and hide stop it
+ * outright — the single largest saving in the feature (an `ioreg` every five
+ * seconds for hours, for a sparkline nobody is looking at). Separate from
+ * `registerMetricsHandlers` because the window does not exist yet then.
  */
 export function bindMetricsToWindow(service: MetricsService, win: BrowserWindow): void {
   win.on('blur', () => service.pause());

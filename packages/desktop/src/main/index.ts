@@ -19,7 +19,6 @@ import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
-import { readSystemHealth, startSshAgent } from './system-health';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
@@ -532,8 +531,6 @@ if (!app.requestSingleInstanceLock()) {
     registerCompanionHandlers();
     registerUpdater(getMainWindow);
     registerReleaseNotesHandlers();
-    handleBare(CHANNELS.systemHealth, () => readSystemHealth());
-    handleBare(CHANNELS.systemHealthStartSshAgent, () => startSshAgent());
     handle(
       CHANNELS.setupProbe,
       SetupProbeRequest,

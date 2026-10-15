@@ -252,6 +252,7 @@ jobs:
           db-engine:typecheck db-engine:lint db-engine:test
           frame:typecheck frame:lint frame:test
           feature-optimizer:typecheck feature-optimizer:lint feature-optimizer:test
+          feature-monitor:typecheck feature-monitor:lint feature-monitor:test
           root:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
