@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Themes E + F (slice) — the first suite release; the website installs the launcher
+
+[PR #863](https://github.com/bilo-io/midnite-studio/pull/863). After the ephemeral `v0.0.1` release published
+Midnite Apps, the Cleaner bundle and `catalog.json` to bilo-io/midnite-apps, the website's install link and
+download page switched to the launcher; Studio's in-app update keeps its own installer.
+
 ## 2026-10-15 — Phase 113 Theme H (slice) — Cleaner's bundle runs on its own
 
 [PR #868](https://github.com/bilo-io/midnite-studio/pull/868). Cleaner's bundle now carries its own Electron
