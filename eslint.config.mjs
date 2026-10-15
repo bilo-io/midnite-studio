@@ -528,6 +528,22 @@ export default tseslint.config(
     ]),
   },
 
+  // --- Boundary: a suite app's main side (apps/<id>/main) ---------------------
+  // The Electron half of an installable app. It may use `electron`, the runtime and a feature's
+  // main half (it is the composer), and nothing renderer-side or Studio-side.
+  {
+    files: ['apps/!(launcher)/main/**/*.ts'],
+    rules: deny([
+      NO_APP_UPDATER,
+      LAYER_FRAME_FROM_MAIN,
+      LAYER_DESKTOP,
+      {
+        group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/launcher', '@midnite/launcher/*', '@midnite/app-*', '**/apps/**'],
+        message: 'An app never imports another app: compose from features, the runtime and shared.',
+      },
+    ]),
+  },
+
   // --- Boundary: broker ------------------------------------------------------
   // The broker is a Node process running under ELECTRON_RUN_AS_NODE and never
   // imports Electron modules.
