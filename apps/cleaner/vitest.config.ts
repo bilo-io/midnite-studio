@@ -10,12 +10,14 @@ export default defineConfig({
     alias: {
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
+      '@midnite/studio-runtime': at('../../packages/runtime/src/index.ts'),
+      '@midnite/studio-feature-optimizer/main': at('../../packages/features/optimizer/main/index.ts'),
       '@midnite/studio-feature-optimizer/renderer/testing': at('../../packages/features/optimizer/renderer/testing.ts'),
       '@midnite/studio-feature-optimizer/renderer': at('../../packages/features/optimizer/renderer/index.ts'),
     },
   },
   test: {
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'main/**/*.test.ts'],
     environment: 'jsdom',
   },
 });
