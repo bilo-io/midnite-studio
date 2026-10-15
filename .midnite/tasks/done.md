@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme E (slice) — lockstep versions
+
+[PR #858](https://github.com/bilo-io/midnite-studio/pull/858). The launcher now refuses to install,
+update into or open an app bundle whose version differs from the runtime's, with a typed reason, and
+ignores a catalog whose app versions disagree with its own runtime version. The source version check
+covers every `apps/*` package.
+
 ## 2026-10-15 — Phase 113 Theme F (slice) — no public app ships Quick Kiss
 
 [PR #857](https://github.com/bilo-io/midnite-studio/pull/857). A gate test fails if the Quick Kiss
