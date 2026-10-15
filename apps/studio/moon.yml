@@ -1,0 +1,59 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+id: 'studio'
+language: 'typescript'
+
+# Phase 113 Theme G: Studio as a composition. `packages/desktop` already
+# carries `app-studio` for the affected-apps mapping; this project is the
+# app-layer name for the same thing.
+tags:
+  - 'layer-app'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'app'
+  - 'desktop'
+
+# `packages/app` (renderer) and `packages/desktop` (Electron main) are this
+# app's internals. The tasks below DELEGATE to theirs rather than duplicate
+# them, so `desktop:start` / `desktop:dist` — which CI, the release skills and
+# the docs name — keep working unchanged.
+tasks:
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vitest.config.ts'
+      - '/packages/features/*/package.json'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/features/*/package.json'
+      - '/packages/app/package.json'
+      - '/packages/desktop/package.json'
+      - '/packages/shared/src/**/*'
+
+  # Dev harness: Vite dev server + Electron main (what `desktop:start` is).
+  start:
+    command: 'noop'
+    preset: 'server'
+    deps:
+      - 'desktop:start'
+
+  bundle:
+    command: 'noop'
+    deps:
+      - 'desktop:bundle'
+
+  # macOS arm64 dmg/zip.
+  dist:
+    command: 'noop'
+    deps:
+      - 'desktop:dist'
+    options:
+      runInCI: false
+      cache: false

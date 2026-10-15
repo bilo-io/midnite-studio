@@ -96,7 +96,29 @@ export GITHUB_PACKAGES_TOKEN=$(gh auth token)
 shared ◀ git-engine ◀ desktop
 shared ◀ app
 shared ◀ desktop
+
+                 renderer side                                main side
+shared ◀ frame ◀ feature/renderer ◀ app          shared ◀ runtime ◀ feature/main ◀ desktop
 ```
+
+**The layer rule (Phase 113)** — the suite is built in layers, and eslint holds each to it
+(`eslint.config.mjs`, proven case by case in
+[`scripts/layer-boundaries.test.mjs`](scripts/layer-boundaries.test.mjs); the layers, the placement
+map and a guide to extracting the next feature are in [`docs/APPS.md`](docs/APPS.md)):
+
+- **An app** (`apps/<id>`) composes features + the frame + `shared`. It never imports another app.
+- **A feature** (`packages/features/<name>`) imports the frame + `shared`, never an app and never
+  another feature — features reach each other through the link router and `shared` ids.
+- **The frame** (`packages/frame`) never imports a feature.
+- **The runtime** (`packages/runtime`) is main-process only and imports no `electron`, `node-pty`
+  or `electron-updater` (the host injects what it needs); the launcher alone updates apps.
+- **The launcher** (`apps/launcher`) stays off the graph, as below.
+
+**Studio is the superset app, `apps/studio`** (`moon run studio:start`, `studio:bundle`,
+`studio:dist`): it declares every feature and the frame it composes, and `packages/app` (renderer) and
+`packages/desktop` (Electron main) are its internals — the tasks delegate to `desktop:start` /
+`desktop:bundle` / `desktop:dist`, which keep working. A new feature package must be listed in
+`apps/studio/src/composition.ts` (a test fails otherwise).
 
 - **`packages/shared`** — the wire contract. zod only; imports no other workspace package and
   never `electron`. Domain types, IPC channel constants, payload schemas, the preload bridge type.
@@ -113,6 +135,7 @@ shared ◀ desktop
   app, and an import across that line is what would make it impossible to move out of this repo
   later. See [`docs/WEBSITE.md`](docs/WEBSITE.md); it is served from the *public*
   `bilo-io/midnite-apps` repo's `gh-pages` branch, so **nothing on it may link to this one**.
+- **`apps/studio`** — Studio's composition (above); `apps/browser` is the first extracted suite app.
 - **`apps/launcher`** — Midnite Apps, the launcher that lists, installs and opens every midnite
   app. **`apps/` holds installable products; `packages/` holds what they are built from.** It is
   its own Electron app (main + preload bundled by esbuild, a Vite + React renderer) and, like the

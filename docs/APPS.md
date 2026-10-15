@@ -107,6 +107,11 @@ Theme C of Phase 113 adds the packages the suite is built from. Studio is still 
 `packages/app` and `packages/desktop` now act as **Studio's composers**: they put the packages below
 together, and until Themes G and H give every app its own composition, they are the only ones.
 
+**Studio is `apps/studio`** (`moon run studio:start`): the composition of every feature and the frame, the
+dev harness, and still installable for power users. `packages/app` and `packages/desktop` are its renderer
+and main internals; `studio:start`/`bundle`/`dist` delegate to the `desktop:*` tasks, which keep working.
+`apps/studio/src/composition.ts` lists the features it composes and a test holds that list to `packages/features/*`.
+
 ### The layer graph
 
 ```
