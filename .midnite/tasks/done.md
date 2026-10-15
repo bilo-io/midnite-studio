@@ -1,6 +1,13 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme E (slice) — tile states from installed bundles
+
+[PR #859](https://github.com/bilo-io/midnite-studio/pull/859). Launcher tiles now read Installed /
+Update / Not installed from the app's installed bundle against the catalog (with lockstep refusals
+surfacing as Update), install and update one app per tile, and "Move to Trash…" removes exactly one
+app's bundle, stub and record via the Finder trash. Unpublished apps keep Studio's state.
+
 ## 2026-10-15 — Phase 113 Theme E (slice) — lockstep versions
 
 [PR #858](https://github.com/bilo-io/midnite-studio/pull/858). The launcher now refuses to install,
