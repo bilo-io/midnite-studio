@@ -452,6 +452,15 @@ test('the terminal header is never painted over by a squeezed detail pane', asyn
     await page.keyboard.press('Control+`');
     const header = page.locator('[data-terminal-header]');
     await expect(header).toBeVisible();
+    /*
+    The frame opens on a 200ms height transition, and the header is "visible" from
+    its first frame — when the panel is a few pixels tall and the header's centre
+    still sits under the status bar. Probe only once the frame has stopped growing.
+  */
+    const frame = page.locator('[data-terminal-frame]');
+    await expect
+      .poll(() => frame.evaluate((el) => Math.round(el.getBoundingClientRect().height)))
+      .toBe(288);
 
     const box = await header.boundingBox();
     expect(box).not.toBeNull();
