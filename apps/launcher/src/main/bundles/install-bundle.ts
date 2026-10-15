@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { access, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
@@ -49,9 +49,9 @@ export type BundleOpsDeps = {
 
 /** The bundle zip's top level: `package.json` (whose `version` must match the catalog) and `icon.icns`. */
 export async function verifyAppBundle(dir: string, expectVersion?: string): Promise<string | null> {
-  let pkg: { version?: unknown };
+  let pkg: { version?: unknown; main?: unknown };
   try {
-    pkg = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')) as { version?: unknown };
+    pkg = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')) as { version?: unknown; main?: unknown };
   } catch {
     return 'missing or unreadable package.json';
   }
@@ -62,6 +62,18 @@ export async function verifyAppBundle(dir: string, expectVersion?: string): Prom
     await access(join(dir, 'icon.icns'));
   } catch {
     return 'missing icon.icns';
+  }
+  // An app with an Electron side names it as `main` — the file the stub's Electron runs. A bundle that
+  // names one it does not carry would install a stub that dies on launch, so it is refused here.
+  if (pkg.main !== undefined) {
+    if (typeof pkg.main !== 'string' || pkg.main === '' || isAbsolute(pkg.main) || pkg.main.split(/[\\/]/).includes('..')) {
+      return 'package.json has an invalid main';
+    }
+    try {
+      await access(join(dir, pkg.main));
+    } catch {
+      return `missing ${pkg.main} (named as main)`;
+    }
   }
   return null;
 }
