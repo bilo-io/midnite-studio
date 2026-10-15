@@ -84,6 +84,10 @@ Apple/CSC secrets stay unset, until one exists. Every build ships ad-hoc signed
 `manualInstall` — the curl-installer / `brew upgrade` route rather than the in-app updater's
 "Restart to install" — is the permanent update path until then, not a placeholder for one.
 
+## What a tag build produces beyond Studio (Phase 113 Theme F1)
+
+`release.yml`'s one macOS job runs `desktop:dist` and then `launcher:dist` (same signing/notarizing env), uploading the launcher as the separate artifact `launcher-mac-arm64` (dmg, zip, blockmaps and its own `latest-mac.yml` for the `midnite-launcher/feed` generic feed). Per-app bundles are built by a `plan` job (previous `v*` tag, `scripts/affected-apps.mjs`, `scripts/release-bundles.mjs`) and a `bundles` matrix on Ubuntu, one `bundle-<app>` artifact each. **Nothing here publishes them**: `release` and `publish-feed` download only `mac-arm64`, so the Studio release is unchanged until the publishing slice lands.
+
 ## The unsigned path is the one that runs today
 
 `.github/workflows/release.yml`'s "Configure macOS code-signing" step writes `CSC_LINK` etc. into

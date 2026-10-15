@@ -129,6 +129,23 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Phase 113 Theme F1: the launcher (Midnite Apps) is built in THIS job, beside Studio, so a
+      # release stays ONE macOS job (the runtime's `dist`) against the cap of 5 concurrent. Signing and
+      # notarizing reuse the env the "Configure macOS code-signing" step wrote to $GITHUB_ENV, exactly as
+      # Studio does: with a certificate it signs and `scripts/notarize.cjs` notarizes, without one it is
+      # a clean unsigned build. `launcher:dist` bakes `--publish never` in too. Its output carries its own
+      # `latest-mac.yml` for the generic feed `midnite-launcher/feed` — built here, NOT published: this
+      # workflow still publishes only the `mac-arm64` artifact below (the launcher publish is the next slice).
+      - name: Package launcher
+        run: pnpm exec moon run launcher:dist
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # No public bundle may carry the personal-use Quick Kiss face (Theme F item 3). The launcher wears
+      # Damion; scan its built renderer, not just the source.
+      - name: Check the launcher ships no Quick Kiss
+        run: node scripts/no-quick-kiss.mjs apps/launcher/dist
+
       # The explicit allowlist below is what `release` actually publishes;
       # this upload only needs to be a superset of it plus the dmg (a human
       # download target, not an updater input, but worth carrying along).
@@ -141,6 +158,93 @@ jobs:
             packages/desktop/release/*.zip
             packages/desktop/release/*.blockmap
             packages/desktop/release/latest-mac.yml
+          if-no-files-found: error
+
+      # The launcher's installers + feed manifest, as a SEPARATE artifact: both apps emit a file
+      # named `latest-mac.yml`, so merging them would collide, and `release`/`publish-feed` below
+      # download only `mac-arm64` by name so nothing of the launcher is published by this slice.
+      - name: Upload launcher installers + feed manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: launcher-mac-arm64
+          path: |
+            apps/launcher/release/*.dmg
+            apps/launcher/release/*.zip
+            apps/launcher/release/*.blockmap
+            apps/launcher/release/latest-mac.yml
+          if-no-files-found: error
+
+  # Phase 113 Theme F1: which app bundles does this tag touch? The base is the previous `v*` tag;
+  # `scripts/affected-apps.mjs` maps moon's affected projects to apps and `release-bundles.mjs` keeps
+  # the ones that have a project of their own. Ubuntu: a node script, no platform behaviour.
+  plan:
+    name: Plan app bundles
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      any: ${{ steps.matrix.outputs.any }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.23.3
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute the affected bundle matrix
+        id: matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The previous lockstep tag; the very first release has none, so every app counts as affected.
+          base=$(git describe --tags --abbrev=0 --match 'v*' "${GITHUB_REF_NAME}^" 2>/dev/null || true)
+          if [ -z "$base" ]; then base=$(git rev-list --max-parents=0 HEAD | tail -1); fi
+          echo "affected base: $base"
+          matrix=$(node scripts/affected-apps.mjs --base "$base" --head HEAD --json | node scripts/release-bundles.mjs)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          if [ "$matrix" = '{"include":[]}' ]; then echo "any=false" >> "$GITHUB_OUTPUT"; else echo "any=true" >> "$GITHUB_OUTPUT"; fi
+          echo "$matrix"
+
+  # One job per affected app bundle, uploaded as a workflow artifact (`bundle-<app>`) for the next slice
+  # to publish. Never macOS: a bundle is a static build, and the cap of 5 concurrent macOS jobs is spent
+  # on the runtime's `dist`. Skipped when nothing is affected.
+  bundles:
+    name: Bundle ${{ matrix.app }}
+    needs: plan
+    if: ${{ needs.plan.outputs.any == 'true' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.23.3
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the bundle
+        run: pnpm exec moon run ${{ matrix.project }}:build
+      - name: Check the bundle ships no Quick Kiss
+        run: node scripts/no-quick-kiss.mjs ${{ matrix.dir }}/dist
+      - name: Upload the bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: bundle-${{ matrix.app }}
+          path: ${{ matrix.dir }}/dist
           if-no-files-found: error
 
   release:
@@ -164,9 +268,12 @@ jobs:
       source_tag: ${{ steps.version.outputs.source_tag }}
       version: ${{ steps.version.outputs.version }}
     steps:
+      # By NAME: `launcher-mac-arm64` and `bundle-*` are build outputs for the next slice to publish,
+      # and downloading everything would put the launcher's `latest-mac.yml` into this release.
       - name: Download installers
         uses: actions/download-artifact@v8
         with:
+          name: mac-arm64
           path: artifacts
 
       # Guards both ways the publishable set can be wrong before uploading

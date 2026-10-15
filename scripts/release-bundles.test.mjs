@@ -1,0 +1,61 @@
+// Phase 113 Theme F1 — what a tag-push release builds, and that it stays inside the macOS cap.
+// Plain vitest/node: reads release.yml and ci.yml as text, no browser needed.
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { bundleMatrix } from './release-bundles.mjs';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = (f) => readFileSync(path.join(repoRoot, f), 'utf8');
+
+/** Count job-level `runs-on: macos-*` lines. */
+const macosJobs = (yml) => (yml.match(/^\s{4}runs-on:\s*macos-/gm) ?? []).length;
+/** The text of one top-level job (from `  <id>:` to the next job). */
+function job(yml, id) {
+  const start = yml.search(new RegExp(`^  ${id}:$`, 'm'));
+  expect(start, `job ${id}`).toBeGreaterThanOrEqual(0);
+  const rest = yml.slice(start + 1);
+  const next = rest.search(/^  [a-z][a-z0-9-]*:$/m);
+  return next < 0 ? rest : rest.slice(0, next);
+}
+
+describe('bundleMatrix', () => {
+  const has = (dir) => ['apps/browser', 'apps/studio', 'apps/launcher'].includes(dir);
+  it('keeps affected apps that have a project of their own', () => {
+    expect(bundleMatrix(['cleaner', 'browser'], has)).toEqual({
+      include: [{ app: 'browser', project: 'app-browser', dir: 'apps/browser' }],
+    });
+  });
+  it('never makes a bundle of studio or the launcher', () => {
+    expect(bundleMatrix(['studio', 'launcher'], has).include).toEqual([]);
+  });
+  it('is empty when nothing is affected', () => {
+    expect(bundleMatrix([], has).include).toEqual([]);
+  });
+});
+
+describe('release.yml', () => {
+  const release = read('.github/workflows/release.yml');
+  it('builds Studio and the launcher in one macOS job', () => {
+    const build = job(release, 'build');
+    expect(build).toContain('moon run desktop:dist');
+    expect(build).toContain('moon run launcher:dist');
+    expect(build).toContain('apps/launcher/release/latest-mac.yml');
+    expect(build).toContain('name: launcher-mac-arm64');
+  });
+  it('publishes only the Studio artifact', () => {
+    expect(job(release, 'release')).toMatch(/download-artifact@v\d+\s+with:\s+name: mac-arm64/);
+  });
+  it('builds bundles only for the affected set, off macOS', () => {
+    const bundles = job(release, 'bundles');
+    expect(bundles).toContain('fromJSON(needs.plan.outputs.matrix)');
+    expect(bundles).toContain('no-quick-kiss.mjs');
+    expect(bundles).not.toMatch(/runs-on:\s*macos-/);
+  });
+  it('uses one macOS job, and CI stays at or under the cap of 5 concurrent', () => {
+    expect(macosJobs(release)).toBe(1);
+    // ci.yml's count is the baseline this slice did not raise (gate-native, gate-locale, e2e, package).
+    expect(macosJobs(read('.github/workflows/ci.yml'))).toBeLessThanOrEqual(5);
+  });
+});
