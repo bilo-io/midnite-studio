@@ -478,7 +478,7 @@ test.describe('Setup and Update', () => {
     */
     await expect
       .poll(() => ptyInputs(page))
-      .toEqual(['curl -fsSL https://midnite-studio-website.vercel.app/install.sh | sh\r']);
+      .toEqual(['curl -fsSL https://midnite-studio-website.vercel.app/install-studio.sh | sh\r']);
   });
 
   test('Update types and runs the install command on the Midnite Studio checkout', async ({
