@@ -14,6 +14,8 @@ import type { IconComponent } from '../icon-button';
 export type IconSelectOption = {
   id: string;
   label: string;
+  /** Display label in the dropdown menu when different from the chip label. */
+  display?: string;
   icon?: IconComponent;
   /** Roster `accent` — a colour Tailwind has never seen, same reasoning as `IconButton`'s `style` prop. */
   iconColor?: string;
@@ -84,14 +86,21 @@ function classNamesFor<IsMulti extends boolean>(): ClassNamesConfig<IconSelectOp
   return BASE_CLASS_NAMES as ClassNamesConfig<IconSelectOption, IsMulti>;
 }
 
-function OptionLabel({ option }: { option: IconSelectOption }) {
+function OptionLabel({
+  option,
+  context,
+}: {
+  option: IconSelectOption;
+  context?: 'menu' | 'value';
+}) {
   const Icon = option.icon;
+  const text = context === 'menu' ? (option.display ?? option.label) : option.label;
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={option.disabledReason ?? option.hint}>
       {Icon ? (
         <Icon aria-hidden className="size-3.5 shrink-0" style={{ color: option.iconColor }} />
       ) : null}
-      <span className="truncate">{option.label}</span>
+      <span className="truncate">{text}</span>
     </span>
   );
 }
@@ -165,7 +174,7 @@ export function IconSelect({
       isOptionDisabled={(option) => option.isDisabled === true}
       getOptionValue={(option) => option.id}
       getOptionLabel={(option) => option.label}
-      formatOptionLabel={(option) => <OptionLabel option={option} />}
+      formatOptionLabel={(option, meta) => <OptionLabel option={option} context={meta.context} />}
       onChange={(next) => {
         onChange(next?.id ?? '');
       }}
@@ -235,7 +244,7 @@ export function MultiIconSelect({
       isOptionDisabled={(option) => option.isDisabled === true}
       getOptionValue={(option) => option.id}
       getOptionLabel={(option) => option.label}
-      formatOptionLabel={(option) => <OptionLabel option={option} />}
+      formatOptionLabel={(option, meta) => <OptionLabel option={option} context={meta.context} />}
       onChange={(next) => onChange(next.map((option) => option.id))}
     />
   );

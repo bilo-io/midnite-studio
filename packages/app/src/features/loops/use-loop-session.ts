@@ -61,6 +61,12 @@ export function useLoopSession(
     /** Which Claude to launch — a `--model` flag, never a prompt fragment. */
     model: LoopModel;
     extras: string;
+    /** Specific contributor usernames to review for. */
+    reviewUsers?: readonly string[];
+    /** Auto-rotate subagents threshold percent. */
+    autoRotatePercent?: number;
+    /** Whether the loop runs as a loop or a once-off session. */
+    loopEnabled?: boolean;
     /**
      * What the loop's agent is actually typed as at the shell.
      *
@@ -84,6 +90,9 @@ export function useLoopSession(
     agentId,
     model,
     extras,
+    reviewUsers,
+    autoRotatePercent,
+    loopEnabled,
     command,
   } = options;
   const tab = loop.id as FabTab;
@@ -113,6 +122,9 @@ export function useLoopSession(
       choiceIds,
       schedule,
       extras,
+      reviewUsers,
+      autoRotatePercent,
+      loopEnabled,
     });
 
     /*
@@ -159,6 +171,9 @@ export function useLoopSession(
     agentId,
     model,
     extras,
+    reviewUsers,
+    autoRotatePercent,
+    loopEnabled,
     command,
     loop,
     tab,

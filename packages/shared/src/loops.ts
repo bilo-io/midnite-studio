@@ -577,6 +577,20 @@ export const LoopRunRecordSchema = z.object({
 export type LoopRunRecord = z.infer<typeof LoopRunRecordSchema>;
 
 /**
+ * Check routine modifier — quick review routine PRs with auto-approval unless critical.
+ */
+export const CHECK_ROUTINE_MODIFIER: LoopModifier = {
+  id: 'check-routine',
+  label: 'Check routine',
+  promptFragment:
+    'Quickly review routine PRs: auto-approve unless there is a critical issue, leaving any non-critical findings as nits.',
+  group: 'tasks',
+  control: 'checkbox',
+  providesTask: true,
+  defaultOn: false,
+};
+
+/**
  * The standing switches *every* loop offers, in the `run` group.
  *
  * Spread into each loop's `modifiers`, and their group puts them at the tail of
@@ -663,6 +677,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     fallbackPrompt: '/loop /midnite-address-issue',
     requiresModifier: false,
     modifiers: [
+      CHECK_ROUTINE_MODIFIER,
       {
         id: 'secret-scan',
         label: 'Scan for secrets',
@@ -743,6 +758,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     fallbackPrompt: '/loop /midnite-ideate',
     requiresModifier: false,
     modifiers: [
+      CHECK_ROUTINE_MODIFIER,
       {
         id: 'refine-existing',
         label: 'Refine existing phases',
@@ -813,6 +829,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     fallbackPrompt: '/loop /midnite-create',
     requiresModifier: false,
     modifiers: [
+      CHECK_ROUTINE_MODIFIER,
       {
         id: 'ship-tests',
         label: 'Tests with every change',
@@ -881,10 +898,11 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     fallbackPrompt: '/loop',
     requiresModifier: true,
     modifiers: [
+      CHECK_ROUTINE_MODIFIER,
       {
         id: 'pr-review',
         label: 'Review PRs',
-        promptFragment: '/pr-review',
+        promptFragment: '/midnite-pr-review',
         group: 'tasks',
         control: 'checkbox',
         providesTask: true,
@@ -893,7 +911,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'pr-feedback',
         label: 'Answer feedback',
-        promptFragment: '/pr-feedback',
+        promptFragment: '/midnite-pr-feedback',
         group: 'tasks',
         control: 'checkbox',
         providesTask: true,
@@ -912,7 +930,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'triage-only',
         label: 'Triage only',
         promptFragment:
-          'Triage only: ignore any review or feedback skill named above — run /midnite-triage instead and report only its summary table. Leave no reviews, merge nothing and push no fixes.',
+          'Triage only: ignore any review or feedback skill named above — run /midnite-sitrep instead and report only its summary table. Leave no reviews, merge nothing and push no fixes.',
         group: 'run',
         control: 'switch',
         providesTask: true,
@@ -961,6 +979,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     fallbackPrompt: '/loop /midnite-address-issue',
     requiresModifier: false,
     modifiers: [
+      CHECK_ROUTINE_MODIFIER,
       {
         id: 'dependabot',
         label: 'Dependabot PRs',
@@ -1001,7 +1020,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'triage-only',
         label: 'Triage only',
         promptFragment:
-          'Triage only: run /midnite-triage and report its summary table — merge nothing and push no fixes.',
+          'Triage only: run /midnite-sitrep and report its summary table — merge nothing and push no fixes.',
         group: 'run',
         control: 'switch',
         defaultOn: false,
@@ -1041,6 +1060,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     fallbackPrompt: '/loop /midnite-create',
     requiresModifier: false,
     modifiers: [
+      CHECK_ROUTINE_MODIFIER,
       {
         id: 'perf-profile',
         label: 'Profile startup & idle CPU',
@@ -1144,6 +1164,12 @@ export interface LoopSelection {
   schedule?: LoopSchedule | null;
   /** Free text, appended last. */
   extras?: string;
+  /** Specific contributor usernames to review for. */
+  reviewUsers?: readonly string[];
+  /** Auto-rotate subagents context percentage (10 - 100). */
+  autoRotatePercent?: number;
+  /** Whether the loop runs as a loop (/loop) or a once-off session. Default true. */
+  loopEnabled?: boolean;
 }
 
 /**
@@ -1176,12 +1202,23 @@ export function composeLoopPrompt(
       const fragment = resolveLoopChoice(choice, selection.choiceIds?.[choice.id]).promptFragment;
       if (fragment !== undefined) fragments.push(fragment);
     }
+    if (group.id === 'scope' && selection.reviewUsers && selection.reviewUsers.length > 0) {
+      fragments.push(`Review PRs for these users only: ${selection.reviewUsers.join(', ')}.`);
+    }
+    if (group.id === 'run' && selection.autoRotatePercent !== undefined) {
+      fragments.push(`Auto-rotate subagents at ${selection.autoRotatePercent}% context.`);
+    }
   }
 
   const schedule = loopScheduleFragment(selection.schedule);
   if (schedule !== null) fragments.push(schedule);
 
-  return [basePrompt.trim(), ...fragments, selection.extras?.trim() ?? '']
+  let prefix = basePrompt.trim();
+  if (selection.loopEnabled === false) {
+    prefix = prefix.replace(/^\/loop\b\s*/, '').trim();
+  }
+
+  return [prefix, ...fragments, selection.extras?.trim() ?? '']
     .filter((part) => part.length > 0)
     .join(' ');
 }

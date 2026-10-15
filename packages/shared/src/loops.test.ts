@@ -577,8 +577,9 @@ describe('DEFAULT_LOOPS', () => {
     expect(patrol?.agentCommandId).toBe('loopPatrol');
 
     const fragments = new Map(patrol?.modifiers.map((m) => [m.id, m.promptFragment]));
-    expect(fragments.get('pr-review')).toBe('/pr-review');
-    expect(fragments.get('pr-feedback')).toBe('/pr-feedback');
+    expect(fragments.get('check-routine')).toContain('Quickly review routine PRs');
+    expect(fragments.get('pr-review')).toBe('/midnite-pr-review');
+    expect(fragments.get('pr-feedback')).toBe('/midnite-pr-feedback');
     expect(fragments.get('security-review')).toBe('/security-review');
 
     // Review is the tab's resting job; the others are extra passes.
@@ -586,11 +587,22 @@ describe('DEFAULT_LOOPS', () => {
     expect(patrol?.modifiers.find((m) => m.id === 'pr-feedback')?.defaultOn).toBe(false);
   });
 
+  it('includes check-routine on all six default loops', () => {
+    for (const loop of DEFAULT_LOOPS) {
+      const modifier = loop.modifiers.find((m) => m.id === 'check-routine');
+      expect(modifier, loop.id).toBeDefined();
+      expect(modifier?.label).toBe('Check routine');
+      expect(modifier?.control).toBe('checkbox');
+      expect(modifier?.group).toBe('tasks');
+    }
+  });
+
   it('gives Medic the dependency bots and the failing-test sweep over the issue backlog', () => {
     const medic = DEFAULT_LOOPS.find((l) => l.id === 'medic');
     expect(medic?.fallbackPrompt).toBe('/loop /midnite-address-issue');
     expect(medic?.agentCommandId).toBe('loopAddressIssue');
     expect(medic?.modifiers.filter((m) => m.group === 'tasks').map((m) => m.id)).toEqual([
+      'check-routine',
       'dependabot',
       'renovate',
       'failing-tests',
@@ -614,6 +626,7 @@ describe('DEFAULT_LOOPS', () => {
     // modifier and marked none of them would be unstartable.
     for (const entry of DEFAULT_LOOPS.filter((l) => l.requiresModifier)) {
       expect(entry.modifiers.filter((m) => m.providesTask).map((m) => m.id), entry.id).toEqual([
+        'check-routine',
         'pr-review',
         'pr-feedback',
         'security-review',
@@ -625,13 +638,13 @@ describe('DEFAULT_LOOPS', () => {
 
   it('has Patrol override its own default-on skill when triage is switched on', () => {
     // `pr-review` is `defaultOn`, so the composed triage line still carries
-    // `/pr-review`. The fragment must therefore *name* what it overrides — a
-    // bare "do not review" beside `/pr-review` is a contradiction, not an order.
+    // `/midnite-pr-review`. The fragment must therefore *name* what it overrides — a
+    // bare "do not review" beside `/midnite-pr-review` is a contradiction, not an order.
     const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
     const line = composeLoopPrompt(patrol.fallbackPrompt, patrol, {
       modifierIds: ['pr-review', 'triage-only'],
     });
-    expect(line).toContain('/pr-review');
+    expect(line).toContain('/midnite-pr-review');
     expect(line).toContain('ignore any review or feedback skill named above');
   });
 
@@ -654,7 +667,7 @@ describe('DEFAULT_LOOPS', () => {
     for (const modifier of triage) {
       expect(modifier.label).toBe('Triage only');
       expect(modifier.control).toBe('switch');
-      expect(modifier.promptFragment).toContain('/midnite-triage');
+      expect(modifier.promptFragment).toContain('/midnite-sitrep');
       expect(modifier.promptFragment).toMatch(/push no fixes/);
     }
   });
@@ -667,7 +680,28 @@ describe('DEFAULT_LOOPS', () => {
         choiceIds: { 'pr-scope': 'ready', autonomy: 'fastest' },
       }),
     ).toBe(
-      '/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. Never stop to ask: keep advancing and always take the most performant option.',
+      '/loop /midnite-pr-review /midnite-pr-feedback Look only at PRs that are ready for review — skip drafts. Never stop to ask: keep advancing and always take the most performant option.',
+    );
+  });
+
+  it('composes prompt with reviewUsers, autoRotatePercent, and loopEnabled', () => {
+    const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
+    const lineWithAll = composeLoopPrompt(patrol.fallbackPrompt, patrol, {
+      modifierIds: ['check-routine'],
+      reviewUsers: ['bilo-ekko', 'alice'],
+      autoRotatePercent: 35,
+      loopEnabled: true,
+    });
+    expect(lineWithAll).toBe(
+      '/loop Quickly review routine PRs: auto-approve unless there is a critical issue, leaving any non-critical findings as nits. Review PRs for these users only: bilo-ekko, alice. Auto-rotate subagents at 35% context.',
+    );
+
+    const onceOffLine = composeLoopPrompt('/loop /midnite-create', patrol, {
+      modifierIds: ['check-routine'],
+      loopEnabled: false,
+    });
+    expect(onceOffLine).toBe(
+      '/midnite-create Quickly review routine PRs: auto-approve unless there is a critical issue, leaving any non-critical findings as nits.',
     );
   });
 });
