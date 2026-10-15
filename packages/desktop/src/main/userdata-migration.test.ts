@@ -151,7 +151,7 @@ describe('migrateStudioToRuntime', () => {
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'midnite-runtime-migration-'));
     studio = join(root, 'Midnite Studio');
-    runtime = join(root, 'Midnite Runtime');
+    runtime = runtimeDataDirectory(root);
     await mkdir(join(studio, 'Local Storage', 'leveldb'), { recursive: true });
     await writeFile(join(studio, 'Local Storage', 'leveldb', '000003.log'), 'settings-blob');
     await writeFile(join(studio, 'repos.json'), '{"version":1,"paths":["/tmp/one"]}\n');
