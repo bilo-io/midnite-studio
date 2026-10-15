@@ -1,3 +1,4 @@
+/* eslint-disable no-console -- a proof prints what it observed */
 // Opt-in end-to-end proof (Phase 113 Theme H2), darwin only: builds Cleaner, packs the zip the way a
 // release does (scripts/pack-bundle.mjs), installs it with the launcher's real installAppBundle into TEMP
 // roots, checks the stub, runs Cleaner's main headlessly once, then uninstalls. Never touches
