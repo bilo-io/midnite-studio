@@ -78,3 +78,6 @@ graphify-out/
 
 # Vendored game engines (Phase 107 Theme C) — generated at bundle time
 packages/desktop/resources/game-engines/
+
+# launcher:start dev stub (scripts/dev-app.mjs)
+.dev-app/

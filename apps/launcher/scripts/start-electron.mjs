@@ -12,11 +12,38 @@
  *
  * A moon task can set env vars but not unset them, hence this launcher.
  */
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const electron = require('electron');
+
+/**
+ * On macOS run from the cloned `Midnite Apps.app` stub (scripts/dev-app.mjs) so the Dock reads
+ * "Midnite Apps" with the launcher's icon — LaunchServices takes both from the bundle, not from
+ * `app.setName`. Any failure falls back to the stock binary: a wrong Dock label beats no launcher.
+ */
+function devExecutable() {
+  if (process.platform !== 'darwin') return require('electron');
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [
+        '--experimental-strip-types',
+        '--disable-warning=ExperimentalWarning',
+        '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
+        fileURLToPath(new URL('./dev-app.mjs', import.meta.url)),
+      ],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
+    );
+    return out.trim().split('\n').pop();
+  } catch (e) {
+    process.stderr.write(`[start] dev stub failed (${e.message}); using stock Electron\n`);
+    return require('electron');
+  }
+}
+
+const electron = devExecutable();
 
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
