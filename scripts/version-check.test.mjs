@@ -9,7 +9,7 @@ describe('this repo', () => {
   it('has the runtime, the launcher and every app in lockstep (apps/* included)', async () => {
     const packages = await collectWorkspaceVersions(repoRoot);
     const names = packages.map((p) => p.name);
-    expect(names).toEqual(expect.arrayContaining(['@midnite/studio-runtime', '@midnite/launcher', '@midnite/app-studio', '@midnite/app-browser']));
+    expect(names).toEqual(expect.arrayContaining(['@midnite/studio-runtime', '@midnite/launcher', '@midnite/app-studio', '@midnite/app-browser', '@midnite/app-cleaner']));
     expect(checkLockstep(packages)).toMatchObject({ ok: true });
   });
 });

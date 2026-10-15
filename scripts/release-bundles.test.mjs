@@ -1,6 +1,6 @@
 // Phase 113 Theme F1 — what a tag-push release builds, and that it stays inside the macOS cap.
 // Plain vitest/node: reads release.yml and ci.yml as text, no browser needed.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -36,6 +36,23 @@ describe('bundleMatrix', () => {
   it('lists every extracted app for a release (lockstep), sorted', () => {
     expect(allApps(['studio', 'launcher', 'browser', 'cleaner'], has)).toEqual(['browser', 'launcher', 'studio']);
     expect(bundleMatrix(allApps(['studio', 'browser'], has), has).include.map((e) => e.app)).toEqual(['browser']);
+  });
+});
+
+describe('the real apps/ tree (Theme H1)', () => {
+  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
+  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
+  it('puts cleaner in the --all matrix, as app-cleaner', () => {
+    expect(apps).toContain('cleaner');
+    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'cleaner', project: 'app-cleaner', dir: 'apps/cleaner' });
+  });
+  it('gives cleaner the icon a release needs to pack it (an app without one is skipped)', () => {
+    const icns = readFileSync(path.join(repoRoot, 'apps/cleaner/resources/icon.icns'));
+    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
+  });
+  it('stamps cleaner at the lockstep version', () => {
+    const version = (f) => JSON.parse(read(f)).version;
+    expect(version('apps/cleaner/package.json').split('.').slice(0, 2)).toEqual(version('package.json').split('.').slice(0, 2));
   });
 });
 
