@@ -12,7 +12,7 @@ import { readInstalledState } from './bundles/state';
 import { identityForApp, productionBundleDeps } from './bundles/production';
 import { updateInstalledBundles } from './bundles/updates';
 import { fetchCatalog } from './feed';
-import { applyDevIdentity } from './identity';
+import { applyDevIdentity, pinDataDir } from './identity';
 import { registerIpc, takePendingApp } from './ipc';
 import { handleMidniteLink, linkFromArgv } from './router';
 import { findStudio } from './studio';
@@ -30,7 +30,7 @@ let mainWindow: BrowserWindow | null = null;
 
 /**
  * Per-app bundles under userData, their Dock stubs in /Applications (`bundles/layout.ts`).
- * Resolved on use, after `applyDevIdentity` has named the app.
+ * Resolved on use, after `pinDataDir` has pinned userData.
  */
 const bundleRoots = () => productionBundleRoots(app.getPath('userData'));
 
@@ -143,6 +143,9 @@ app.on('open-url', (event, url) => {
   event.preventDefault();
   openLink(url);
 });
+
+// Before the lock, which Electron keys on userData — and before anything reads that path.
+pinDataDir(app);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();

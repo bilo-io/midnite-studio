@@ -1,5 +1,7 @@
 import { join } from 'node:path';
 
+import { launcherDataDirName } from '@midnite/studio-shared/launcher-data-dir';
+
 /** What the launcher calls itself, in the Dock and the menu bar. */
 export const LAUNCHER_NAME = 'Midnite Apps';
 
@@ -24,4 +26,23 @@ export function applyDevIdentity(app: IdentityApp, bundleDir: string): boolean {
   app.setName(LAUNCHER_NAME);
   app.dock?.setIcon(join(bundleDir, '..', 'resources', 'app-logos', 'launcher.png'));
   return true;
+}
+
+type DataDirApp = {
+  isPackaged: boolean;
+  getPath: (name: 'appData') => string;
+  setPath: (name: 'userData', path: string) => void;
+};
+
+/**
+ * Pins `userData` to `<appData>/Midnite Apps` (`Midnite Apps Dev` from source) and returns it.
+ *
+ * Electron's default is the package.json `name`, `@midnite/launcher` — so the 0.0.1 launcher
+ * kept its bundles where the runtime, reading `Midnite Apps/bundles/installed.json`, never
+ * looked. Must run before `requestSingleInstanceLock`, which is keyed on this directory.
+ */
+export function pinDataDir(app: DataDirApp): string {
+  const dir = join(app.getPath('appData'), launcherDataDirName(app.isPackaged));
+  app.setPath('userData', dir);
+  return dir;
 }
