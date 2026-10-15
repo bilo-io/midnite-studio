@@ -40,7 +40,7 @@ function runStep(step, state) {
       const flags = step.dir ? '-cR' : '-c';
       try {
         execFileSync('cp', [flags, step.from, step.to], { stdio: 'pipe' });
-      } catch (e) {
+      } catch {
         // Not APFS (or another volume): a full copy is ~230 MB but still correct.
         if (!state.warned) log('WARNING: APFS clone failed, falling back to a full copy');
         state.warned = true;
