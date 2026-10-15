@@ -241,13 +241,8 @@ jobs:
             echo "::warning::${{ matrix.app }} has no resources/icon.icns — not packed, not in catalog.json"
             exit 0
           fi
-          stage="$RUNNER_TEMP/stage-${{ matrix.app }}"
-          mkdir -p "$stage"
-          cp -R "${{ matrix.dir }}/dist/." "$stage/"
-          cp "${{ matrix.dir }}/resources/icon.icns" "$stage/icon.icns"
-          node -e 'const [id, v, out] = process.argv.slice(1); require("fs").writeFileSync(out, JSON.stringify({ name: `midnite-${id}`, version: v }, null, 2) + "\n")' \
-            "${{ matrix.app }}" "$version" "$stage/package.json"
-          (cd "$stage" && zip -qr "$GITHUB_WORKSPACE/bundle-out/midnite-${{ matrix.app }}-$version-bundle.zip" .)
+          node scripts/pack-bundle.mjs --app "${{ matrix.app }}" --dir "${{ matrix.dir }}" \
+            --version "$version" --out bundle-out --stage "$RUNNER_TEMP/stage-${{ matrix.app }}"
       - name: Upload the bundle
         uses: actions/upload-artifact@v7
         with:

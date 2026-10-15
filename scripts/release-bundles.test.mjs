@@ -1,9 +1,12 @@
 // Phase 113 Theme F1 — what a tag-push release builds, and that it stays inside the macOS cap.
 // Plain vitest/node: reads release.yml and ci.yml as text, no browser needed.
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { packBundle } from './pack-bundle.mjs';
 import { allApps, bundleMatrix } from './release-bundles.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -74,7 +77,8 @@ describe('release.yml', () => {
     expect(bundles).toContain('fromJSON(needs.plan.outputs.matrix)');
     expect(bundles).toContain('no-quick-kiss.mjs');
     expect(bundles).toContain('icon.icns');
-    expect(bundles).toContain('-bundle.zip');
+    expect(bundles).toContain('scripts/pack-bundle.mjs');
+    expect(read('scripts/pack-bundle.mjs')).toContain('-bundle.zip');
     expect(bundles).not.toMatch(/runs-on:\s*macos-/);
   });
   it('publishes the launcher, bundles and catalog.json only after Studio and its feed', () => {
@@ -94,5 +98,38 @@ describe('release.yml', () => {
     expect(macosJobs(release)).toBe(1);
     // ci.yml's count is the baseline this slice did not raise (gate-native, gate-locale, e2e, package).
     expect(macosJobs(read('.github/workflows/ci.yml'))).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('packBundle (Theme H2)', () => {
+  const mk = (withMain) => {
+    const root = mkdtempSync(path.join(tmpdir(), 'pack-test-'));
+    mkdirSync(path.join(root, 'dist'), { recursive: true });
+    mkdirSync(path.join(root, 'resources'));
+    writeFileSync(path.join(root, 'dist', 'index.html'), '<html></html>');
+    if (withMain) writeFileSync(path.join(root, 'dist', 'main.cjs'), '');
+    writeFileSync(path.join(root, 'resources', 'icon.icns'), 'icns');
+    return root;
+  };
+  const listing = (zip) => execFileSync('unzip', ['-Z1', zip]).toString().split('\n').filter(Boolean).sort();
+  const manifest = (zip) => JSON.parse(execFileSync('unzip', ['-p', zip, 'package.json']).toString());
+
+  it('names main.cjs as `main` when the build wrote one, and packs it', () => {
+    const root = mk(true);
+    const zip = packBundle({ app: 'x', dir: root, version: '1.2.3', out: path.join(root, 'out') });
+    expect(listing(zip)).toEqual(['icon.icns', 'index.html', 'main.cjs', 'package.json']);
+    expect(manifest(zip)).toEqual({ name: 'midnite-x', version: '1.2.3', main: 'main.cjs' });
+  });
+  it('leaves `main` off an app with no Electron side', () => {
+    const root = mk(false);
+    expect(manifest(packBundle({ app: 'x', dir: root, version: '1.2.3', out: path.join(root, 'out') }))).toEqual({
+      name: 'midnite-x',
+      version: '1.2.3',
+    });
+  });
+  it('refuses an app with no icon', () => {
+    const root = mk(true);
+    rmSync(path.join(root, 'resources', 'icon.icns'));
+    expect(() => packBundle({ app: 'x', dir: root, version: '1', out: root })).toThrow(/icon\.icns/);
   });
 });

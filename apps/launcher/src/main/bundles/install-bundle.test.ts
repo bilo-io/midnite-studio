@@ -201,6 +201,19 @@ describe('verifyAppBundle', () => {
     await rm(join(payloads, '0.2.0', 'icon.icns'));
     expect(await verifyAppBundle(join(payloads, '0.2.0'))).toBe('missing icon.icns');
   });
+
+  it('requires a declared main to exist, and to stay inside the bundle', async () => {
+    const dir = join(payloads, '0.3.0');
+    const declare = (main: unknown) => writeFile(join(dir, 'package.json'), JSON.stringify({ version: '0.3.0', main }));
+    await declare('main.cjs');
+    expect(await verifyAppBundle(dir, '0.3.0')).toBe('missing main.cjs (named as main)');
+    await writeFile(join(dir, 'main.cjs'), '');
+    expect(await verifyAppBundle(dir, '0.3.0')).toBeNull();
+    await declare('../escape.cjs');
+    expect(await verifyAppBundle(dir, '0.3.0')).toBe('package.json has an invalid main');
+    await declare('/abs.cjs');
+    expect(await verifyAppBundle(dir, '0.3.0')).toBe('package.json has an invalid main');
+  });
 });
 
 describe('readInstalledState', () => {
