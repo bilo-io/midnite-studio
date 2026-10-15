@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme E (slice) — the launcher's own Dock name in dev
+
+[PR #865](https://github.com/bilo-io/midnite-studio/pull/865). `moon run launcher:start` now runs from an
+APFS-cloned, re-badged `Midnite Apps.app`, so the dev Dock shows Midnite Apps and its icon instead of
+Electron.
+
 ## 2026-10-15 — Phase 113 Theme G (slice) — existing installs keep updating
 
 [PR #864](https://github.com/bilo-io/midnite-studio/pull/864). Today's Studio installs keep updating
