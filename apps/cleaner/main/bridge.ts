@@ -17,8 +17,10 @@ export type CleanerBridge = {
 export type RendererIpc = {
   invoke(channel: string, req?: unknown): Promise<unknown>;
   send(channel: string, req?: unknown): void;
-  on(channel: string, listener: (event: unknown, payload: never) => void): void;
-  removeListener(channel: string, listener: (event: unknown, payload: never) => void): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- electron's own listener signature
+  on(channel: string, listener: (event: any, ...args: any[]) => void): unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- electron's own listener signature
+  removeListener(channel: string, listener: (event: any, ...args: any[]) => void): unknown;
 };
 
 export function createCleanerBridge(ipc: RendererIpc): CleanerBridge {
@@ -26,8 +28,8 @@ export function createCleanerBridge(ipc: RendererIpc): CleanerBridge {
   // Every subscription returns its teardown — StrictMode double-mounts otherwise stack listeners.
   const subscribe = <T>(channel: string, handler: (payload: T) => void): Unsubscribe => {
     const listener = (_event: unknown, payload: T): void => handler(payload);
-    ipc.on(channel, listener as (event: unknown, payload: never) => void);
-    return () => ipc.removeListener(channel, listener as (event: unknown, payload: never) => void);
+    ipc.on(channel, listener);
+    return () => void ipc.removeListener(channel, listener);
   };
   return {
     optimizer: {

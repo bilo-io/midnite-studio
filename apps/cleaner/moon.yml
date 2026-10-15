@@ -13,6 +13,7 @@ tags:
 dependsOn:
   - 'shared'
   - 'frame'
+  - 'runtime'
   - 'feature-optimizer'
 
 tasks:
@@ -24,6 +25,8 @@ tasks:
       - 'root:install'
     inputs:
       - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
       - 'vite.config.ts'
       - 'tailwind.config.ts'
       - 'postcss.config.js'
@@ -33,6 +36,8 @@ tasks:
       - '/packages/frame/src/**/*'
       - '/packages/features/optimizer/renderer/**/*'
       - '/packages/features/optimizer/manifest.ts'
+      - '/packages/features/optimizer/main/**/*'
+      - '/packages/runtime/src/**/*'
     outputs:
       - 'dist'
 
