@@ -1,6 +1,6 @@
 import type { LauncherApp } from '../../common/catalog';
 import { appNumber } from '../model';
-import type { StudioController } from '../use-studio';
+import type { AppView } from '../use-apps';
 import { AppIcon } from './app-icon';
 import { AppMenu, type MenuItem } from './app-menu';
 import { PrimaryAction, type ActionHandlers } from './primary-action';
@@ -9,23 +9,21 @@ import { AppWordmark } from './wordmark';
 
 export type TileProps = {
   app: LauncherApp;
-  studio: StudioController;
+  view: AppView;
   handlers: ActionHandlers & { onDetails: (app: LauncherApp) => void };
   menuItems: readonly MenuItem[];
 };
 
-export function versionLine(studio: StudioController): string {
-  const { status } = studio;
-  if (status === null) return '—';
-  const version = status.installed?.version ?? status.latest?.version;
-  if (!version) return status.feedError ?? '—';
-  const date = status.latest?.releasedAt ? new Date(status.latest.releasedAt) : null;
+export function versionLine(view: AppView): string {
+  const version = view.version ?? view.latest;
+  if (!version) return view.feedError ?? '—';
+  const date = view.releasedAt ? new Date(view.releasedAt) : null;
   return date
     ? `Version ${version} · ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
     : `Version ${version}`;
 }
 
-export function AppTile({ app, studio, handlers, menuItems }: TileProps) {
+export function AppTile({ app, view, handlers, menuItems }: TileProps) {
   return (
     <article
       className="tile"
@@ -37,7 +35,7 @@ export function AppTile({ app, studio, handlers, menuItems }: TileProps) {
       <header className="tile-head">
         <span className="chip-number" data-brand={app.gradient === 'brand' || undefined}>{appNumber(app)}</span>
         <div className="tile-head-links">
-          {app.runsIn === 'studio' && app.id !== 'studio' && <span className="caption">Runs in Studio</span>}
+          {app.runsIn === 'studio' && app.id !== 'studio' && view.source === 'studio' && <span className="caption">Runs in Studio</span>}
           <button type="button" className="link" onClick={() => handlers.onDetails(app)}>
             Details ↗
           </button>
@@ -60,12 +58,12 @@ export function AppTile({ app, studio, handlers, menuItems }: TileProps) {
       </ul>
 
       <div className="tile-meta">
-        <StatusPill state={studio.state} installing={studio.installing} />
-        <span className="tile-version">{versionLine(studio)}</span>
+        <StatusPill state={view.state} installing={view.installing} />
+        <span className="tile-version">{versionLine(view)}</span>
       </div>
 
       <footer className="tile-actions">
-        <PrimaryAction app={app} studio={studio} handlers={handlers} />
+        <PrimaryAction app={app} view={view} handlers={handlers} />
         <AppMenu app={app} items={menuItems} />
       </footer>
     </article>

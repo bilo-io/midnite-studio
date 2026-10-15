@@ -1,4 +1,4 @@
-import type { InstallProgress, LauncherBridge, StudioStatus } from '../common/bridge';
+import type { AppInstallProgress, AppsStatus, InstallProgress, InstalledBundle, LauncherBridge, StudioStatus } from '../common/bridge';
 
 /**
  * A stand-in bridge for the renderer running outside Electron. It never
@@ -18,6 +18,25 @@ export function createMockBridge(mode: string | null): LauncherBridge {
     running: false,
     checkedAt: Date.now(),
   };
+  // `?studio=bundles` seeds the per-app states: cleaner Installed, monitor Update (catalog newer),
+  // vault published but Not installed, the rest hosted by Studio. Studio itself is installed.
+  const runtimeVersion = '0.4.1';
+  const bundles = mode === 'bundles';
+  if (bundles) status = { ...status, installed: { path: '/Applications/Midnite Studio.app', version: '0.4.1' } };
+  let installed: InstalledBundle[] = bundles
+    ? [
+        { id: 'cleaner', version: '0.4.1', runtimeVersion },
+        { id: 'monitor', version: '0.4.0', runtimeVersion },
+      ]
+    : [];
+  const published = bundles ? ['cleaner', 'monitor', 'vault'] : [];
+  const appsStatus = (): AppsStatus => ({
+    runtimeVersion,
+    canManageBundles: true,
+    installed,
+    catalog: bundles ? { runtimeVersion, apps: published.map((id) => ({ id, version: '0.4.1' })) } : null,
+  });
+  const appListeners = new Set<(e: AppInstallProgress) => void>();
   const listeners = new Set<(p: InstallProgress) => void>();
   const emit = (p: InstallProgress) => listeners.forEach((l) => l(p));
   const ok = async () => ({ ok: true as const });
@@ -55,7 +74,30 @@ export function createMockBridge(mode: string | null): LauncherBridge {
         return () => listeners.delete(listener);
       },
     },
-    apps: { open: ok, onShow: () => () => undefined, takePending: async () => null },
+    apps: {
+      open: ok,
+      status: async () => appsStatus(),
+      install: async (id) => {
+        if (!published.includes(id)) return { ok: false, message: `Midnite ${id} has no published build yet.` };
+        const total = 40 * 1024 * 1024;
+        for (let i = 1; i <= 5; i++) {
+          appListeners.forEach((l) => l({ id, progress: { phase: 'download', received: (total * i) / 5, total } }));
+          await new Promise((r) => setTimeout(r, 120));
+        }
+        installed = [...installed.filter((a) => a.id !== id), { id, version: '0.4.1', runtimeVersion }];
+        return { ok: true };
+      },
+      uninstall: async (id) => {
+        installed = installed.filter((a) => a.id !== id);
+        return { ok: true };
+      },
+      onProgress: (listener) => {
+        appListeners.add(listener);
+        return () => appListeners.delete(listener);
+      },
+      onShow: () => () => undefined,
+      takePending: async () => null,
+    },
     links: { open: ok },
     theme: { set: () => undefined },
   };

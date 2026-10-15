@@ -6,6 +6,9 @@ import { LAUNCHER_CHANNELS } from '../common/bridge';
 import type { AppId } from '../common/catalog';
 import { lockstepBundleFinder } from './bundles/open';
 import { productionBundleRoots } from './bundles/layout';
+import { createAppsOps } from './bundles/apps-ops';
+import { installAppBundle, uninstallAppBundle } from './bundles/install-bundle';
+import { readInstalledState } from './bundles/state';
 import { identityForApp, productionBundleDeps } from './bundles/production';
 import { updateInstalledBundles } from './bundles/updates';
 import { fetchCatalog } from './feed';
@@ -169,7 +172,21 @@ if (!app.requestSingleInstanceLock()) {
         ]),
       );
     }
-    registerIpc(() => mainWindow);
+    registerIpc(() => mainWindow, {
+      ops: createAppsOps({
+        runtimeVersion: app.getVersion(),
+        fetchCatalog: () => fetchCatalog(),
+        readState: () => readInstalledState(bundleRoots().installRoot),
+        identityFor: identityForApp,
+        bundleDeps: () =>
+          productionBundleDeps(bundleRoots(), { isPackaged: app.isPackaged, execPath: process.execPath, version: app.getVersion() }),
+        install: installAppBundle,
+        // To the Trash, never rm: removing an app from a launcher should be undoable from Finder.
+        uninstall: (identity, deps) => uninstallAppBundle(identity, { ...deps, remove: (path) => shell.trashItem(path) }),
+        onProgress: (event) => mainWindow?.webContents.send(LAUNCHER_CHANNELS.appProgress, event),
+      }),
+      findBundle: (id) => installedBundleFinder(bundleRoots().installRoot)(id),
+    });
     createWindow();
     ready = true;
     const first = pendingLink ?? linkFromArgv(process.argv);

@@ -265,8 +265,20 @@ export async function restubAppBundle(record: InstalledApp, identity: StubIdenti
  */
 export async function uninstallAppBundle(
   identity: StubIdentity,
-  deps: Pick<BundleOpsDeps, 'roots' | 'isRunning'>,
+  deps: Pick<BundleOpsDeps, 'roots' | 'isRunning'> & {
+    /** How a path leaves the disk. Default `rm -rf`; the launcher passes the Trash so it is undoable from Finder. */
+    remove?: (path: string) => Promise<void>;
+  },
 ): Promise<LauncherResult> {
+  const remove = deps.remove ?? ((path: string) => rm(path, { recursive: true, force: true }));
+  const removeIfPresent = async (path: string) => {
+    try {
+      await access(path);
+    } catch {
+      return;
+    }
+    await remove(path);
+  };
   return exclusive(identity.id, async () => {
     try {
       if ((await findInstalled(deps.roots.installRoot, identity.id)) === null) {
@@ -274,8 +286,8 @@ export async function uninstallAppBundle(
       }
       if (await deps.isRunning(identity)) return { ok: false, message: `${identity.displayName} is running — quit it first.` };
       // The stub first: once it is gone the app cannot be launched mid-removal from the Dock.
-      await rm(stubPathFor(deps.roots, identity), { recursive: true, force: true });
-      await rm(bundlePathFor(deps.roots, identity.id), { recursive: true, force: true });
+      await removeIfPresent(stubPathFor(deps.roots, identity));
+      await removeIfPresent(bundlePathFor(deps.roots, identity.id));
       await recordUninstall(deps.roots.installRoot, identity.id);
       return { ok: true };
     } catch (error) {

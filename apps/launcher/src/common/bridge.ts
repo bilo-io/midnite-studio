@@ -20,6 +20,11 @@ export const LAUNCHER_CHANNELS = {
   studioReveal: 'launcher:studio:reveal',
   studioProgress: 'launcher:studio:progress',
   appOpen: 'launcher:app:open',
+  /** Installed bundles vs `catalog.json` — what the tile states are derived from. */
+  appsStatus: 'launcher:apps:status',
+  appInstall: 'launcher:app:install',
+  appUninstall: 'launcher:app:uninstall',
+  appProgress: 'launcher:app:progress',
   /** main → renderer: a `midnite://` link wants this app's detail sheet. */
   appShow: 'launcher:app:show',
   /** renderer → main: the app a link asked for before the renderer was listening, once. */
@@ -58,6 +63,24 @@ export type InstallProgress = {
 /** `reason` is set when lockstep (`lockstep.ts`) refused the operation, so a tile can offer the right fix. */
 export type LauncherResult = { ok: true } | { ok: false; message: string; reason?: LockstepReason };
 
+/** One installed app bundle, as `installed.json` records it. */
+export type InstalledBundle = { id: string; version: string; runtimeVersion: string };
+
+/**
+ * The installed-bundle record against the published catalog. `catalog` is `null` when it could
+ * not be fetched or is not published yet; the tiles then fall back to Studio.
+ */
+export type AppsStatus = {
+  /** The running runtime's (launcher's) version. */
+  runtimeVersion: string;
+  installed: InstalledBundle[];
+  catalog: { runtimeVersion: string; apps: { id: string; version: string }[] } | null;
+  /** `false` in an unpackaged launcher, which cannot build a Dock stub from the stock Electron. */
+  canManageBundles: boolean;
+};
+
+export type AppInstallProgress = { id: AppId; progress: InstallProgress };
+
 export const EXTERNAL_LINKS = ['website', 'github', 'releases', 'notes', 'download'] as const;
 export type ExternalLink = (typeof EXTERNAL_LINKS)[number];
 
@@ -76,6 +99,12 @@ export type LauncherBridge = {
   };
   apps: {
     open(id: AppId, featureId?: string): Promise<LauncherResult>;
+    status(): Promise<AppsStatus>;
+    /** Installs or updates one app's bundle and Dock stub. Never throws. */
+    install(id: AppId): Promise<LauncherResult>;
+    /** Removes exactly this app's bundle, stub and record (to the Trash). Never throws. */
+    uninstall(id: AppId): Promise<LauncherResult>;
+    onProgress(listener: (event: AppInstallProgress) => void): () => void;
     /** Fires when a `midnite://` link could not open the app and wants its detail sheet. */
     onShow(listener: (id: AppId) => void): () => void;
     /** An app a link asked for before the renderer mounted, consumed once. */
