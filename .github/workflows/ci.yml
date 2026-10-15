@@ -697,10 +697,12 @@ jobs:
     # Measure it on an uncontended main push before quoting it as fact.
     runs-on: macos-14
     # Raised from 15: a third of the suite per shard instead of a quarter.
-    # Measured 3-way shards are 9m02s-10m03s (run 35102704143), so 20 leaves
-    # roughly 2x headroom on the worst one. The paragraph below is why a number
-    # is set at all rather than inheriting GitHub's 6-hour default.
-    timeout-minutes: 20
+    # Measured 3-way shards were 9m02s-10m03s (run 35102704143). Raised again to 30
+    # (2026-10-15): shards now run 157 tests in ~17m plus ~3m setup, and main's run
+    # 38726701008 and PR #865's e2e (1) were cancelled at 20m with every test passed.
+    # The paragraph below is why a number is set at all rather than inheriting
+    # GitHub's 6-hour default.
+    timeout-minutes: 30
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
       # three quarters of a broken suite behind whichever shard happened to fail.
