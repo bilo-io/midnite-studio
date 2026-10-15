@@ -1,4 +1,5 @@
 import type { AppId } from './catalog';
+import type { LockstepReason } from './lockstep';
 
 /**
  * The launcher's own IPC contract — `window.midniteLauncher`.
@@ -54,7 +55,8 @@ export type InstallProgress = {
 };
 
 /** Ops never throw across the bridge — the same envelope rule Studio's IPC keeps. */
-export type LauncherResult = { ok: true } | { ok: false; message: string };
+/** `reason` is set when lockstep (`lockstep.ts`) refused the operation, so a tile can offer the right fix. */
+export type LauncherResult = { ok: true } | { ok: false; message: string; reason?: LockstepReason };
 
 export const EXTERNAL_LINKS = ['website', 'github', 'releases', 'notes', 'download'] as const;
 export type ExternalLink = (typeof EXTERNAL_LINKS)[number];

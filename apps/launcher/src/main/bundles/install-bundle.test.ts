@@ -32,10 +32,11 @@ const cleaner = stubIdentity('cleaner', 'Cleaner');
 const monitor = stubIdentity('monitor', 'Monitor');
 const zip = (version: string) => Buffer.from(`zip-of-${version}`);
 
-async function deps(over: Partial<BundleOpsDeps> & { io?: FakeIo } = {}): Promise<BundleOpsDeps & { io: FakeIo }> {
+/** The runtime defaults to 0.2.0: lockstep means a bundle installs only onto a runtime of its own version. */
+async function deps(over: Partial<BundleOpsDeps> & { io?: FakeIo } = {}, runtimeVersion = '0.2.0'): Promise<BundleOpsDeps & { io: FakeIo }> {
   return {
     roots,
-    runtime: await fakeRuntime(join(root, 'runtime')),
+    runtime: await fakeRuntime(join(root, 'runtime'), runtimeVersion),
     isRunning: async () => false,
     io: fakeIo(),
     // The "zip" is fixed bytes (so the checksum is real); extracting it lays down that version's payload.
@@ -50,7 +51,7 @@ async function deps(over: Partial<BundleOpsDeps> & { io?: FakeIo } = {}): Promis
 
 async function install(version: string, d?: BundleOpsDeps, identity = cleaner) {
   const entry = catalogEntry(identity.id, version, zip(version));
-  const dd = d ?? (await deps());
+  const dd = d ?? (await deps({}, version));
   return installAppBundle(entry, identity, { ...dd, fetchImpl: dd.fetchImpl ?? serve(zip(version)) });
 }
 
@@ -73,7 +74,7 @@ describe('installAppBundle', () => {
         sha256: catalogEntry('cleaner', '0.2.0', zip('0.2.0')).sha256,
         bundlePath: join(roots.installRoot, 'cleaner'),
         stubPath: stubPath(),
-        runtimeVersion: '0.1.0',
+        runtimeVersion: '0.2.0',
         installedAt: '2026-10-14T12:00:00.000Z',
       },
     ]);
@@ -115,7 +116,7 @@ describe('installAppBundle', () => {
 
   it('keeps the previous install when the new stub fails to sign', async () => {
     expect(await install('0.2.0')).toEqual({ ok: true });
-    const d = await deps({ io: fakeIo((cmd) => cmd === 'codesign') });
+    const d = await deps({ io: fakeIo((cmd) => cmd === 'codesign') }, '0.3.0');
     expect(await install('0.3.0', d)).toEqual({ ok: false, message: expect.stringMatching(/codesign failed/) });
     expect(JSON.parse(await readFile(join(roots.installRoot, 'cleaner', 'package.json'), 'utf8')).version).toBe('0.2.0');
     expect(await readFile(join(stubPath(), 'Contents', 'Resources', 'app', 'main.js'), 'utf8')).toContain('cleaner 0.2.0');
@@ -135,6 +136,20 @@ describe('installAppBundle', () => {
     const d = await deps({ io });
     expect(await install('0.2.0', d)).toEqual({ ok: false, message: expect.stringMatching(/same APFS volume/) });
     expect(await readdir(roots.stubRoot)).toEqual(['Unrelated.app']);
+  });
+
+  it('refuses a bundle whose version is not the runtime’s, before downloading anything', async () => {
+    let fetched = false;
+    const fetchImpl = (async () => { fetched = true; return new Response(''); }) as unknown as typeof fetch;
+    // Runtime 0.2.0, bundle 0.3.0: the launcher must update first.
+    const ahead = await install('0.3.0', await deps({ fetchImpl }, '0.2.0'));
+    expect(ahead).toEqual({ ok: false, reason: 'bundle-ahead', message: expect.stringMatching(/update Midnite Apps first/) });
+    // Runtime 0.3.0, bundle 0.2.0: a stale bundle is never installed fresh onto a newer runtime.
+    const behind = await install('0.2.0', await deps({ fetchImpl }, '0.3.0'));
+    expect(behind).toEqual({ ok: false, reason: 'bundle-behind', message: expect.stringMatching(/needs updating/) });
+    expect(fetched).toBe(false);
+    expect(await readdir(roots.stubRoot)).toEqual(['Unrelated.app']);
+    expect(await readdir(roots.installRoot).catch(() => [])).toEqual([]);
   });
 
   it('never installs Studio as a bundle', async () => {

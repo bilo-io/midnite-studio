@@ -4,13 +4,14 @@ import { app, BrowserWindow, Menu, shell } from 'electron';
 
 import { LAUNCHER_CHANNELS } from '../common/bridge';
 import type { AppId } from '../common/catalog';
+import { lockstepBundleFinder } from './bundles/open';
 import { productionBundleRoots } from './bundles/layout';
 import { identityForApp, productionBundleDeps } from './bundles/production';
 import { updateInstalledBundles } from './bundles/updates';
 import { fetchCatalog } from './feed';
 import { applyDevIdentity } from './identity';
 import { registerIpc, takePendingApp } from './ipc';
-import { handleMidniteLink, installedBundleFinder, linkFromArgv } from './router';
+import { handleMidniteLink, linkFromArgv } from './router';
 import { findStudio } from './studio';
 import { isAdHocSigned, loadAutoUpdater, runLauncherUpdates } from './updater';
 
@@ -99,7 +100,7 @@ function openLink(raw: string): void {
   }
   void handleMidniteLink(
     raw,
-    { findAppBundle: installedBundleFinder(bundleRoots().installRoot), isStudioInstalled: async () => (await findStudio()) !== null },
+    { findAppBundle: lockstepBundleFinder(bundleRoots().installRoot, app.getVersion()), isStudioInstalled: async () => (await findStudio()) !== null },
     {
       openBundle: (path) => shell.openPath(path).then((error) => (error === '' ? undefined : Promise.reject(new Error(error)))),
       openStudioUrl: (url) => shell.openExternal(url),

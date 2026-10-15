@@ -7,6 +7,7 @@ import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 import type { InstallProgress, LauncherResult } from '../../common/bridge';
+import { checkLockstep } from '../../common/lockstep';
 import type { CatalogApp } from '../../common/catalog-feed';
 import type { InstalledApp } from '../../common/installed-state';
 import { canWrite } from '../install';
@@ -115,6 +116,13 @@ export async function installAppBundle(
   if (entry.id !== identity.id) return { ok: false, message: `Catalog entry ${entry.id} is not ${identity.id}.` };
   // Studio is a full Electron app with its own install path (`install.ts`), not a bundle.
   if (entry.id === 'studio') return { ok: false, message: 'Studio installs as a full app, not a bundle.' };
+
+  // Lockstep: a bundle that is not the runtime's version is refused before anything is downloaded.
+  const lockstep = checkLockstep({ runtimeVersion: deps.runtime.version, bundleVersion: entry.version, label: `${identity.displayName} ${entry.version}` });
+  if (!lockstep.ok) {
+    deps.onProgress?.({ phase: 'error', received: 0, total: entry.size, message: lockstep.message });
+    return { ok: false, message: lockstep.message, reason: lockstep.reason };
+  }
 
   return exclusive(entry.id, async () => {
     const progress = deps.onProgress ?? (() => undefined);

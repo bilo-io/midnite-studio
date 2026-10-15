@@ -1,5 +1,6 @@
 import type { LauncherResult } from '../../common/bridge';
 import type { Catalog, CatalogApp } from '../../common/catalog-feed';
+import { catalogLockstepViolations, checkLockstep } from '../../common/lockstep';
 import type { InstalledApp, InstalledState } from '../../common/installed-state';
 import { installAppBundle, restubAppBundle, type BundleOpsDeps } from './install-bundle';
 import type { StubIdentity } from './layout';
@@ -15,7 +16,10 @@ import { readInstalledState } from './state';
  *    APFS clone keeps the framework it was cloned from (Theme B's "clones go stale" risk).
  *
  * Both plans are pure, so which apps an update touches is a unit test; refusing a bundle whose
- * version does not match the runtime is lockstep's job (item 4), not this file's.
+ * version does not match the runtime is `common/lockstep.ts`'s job; this file only routes its
+ * refusals: an update to a version the runtime would refuse comes back as that refusal, and a
+ * bundle the runtime left behind that no catalog entry can fix comes back as a `blocked` outcome
+ * rather than being left to open silently.
  */
 
 /** Installed apps whose catalog entry is a different version — the ones to reinstall. */
@@ -31,7 +35,7 @@ export function planRestubs(state: InstalledState, runtimeVersion: string): Inst
   return state.apps.filter((a) => a.runtimeVersion !== runtimeVersion);
 }
 
-export type UpdateOutcome = { id: string; action: 'update' | 'restub'; result: LauncherResult };
+export type UpdateOutcome = { id: string; action: 'update' | 'restub' | 'blocked'; result: LauncherResult };
 
 /**
  * One pass: re-clone stale stubs first (cheap, local, and what makes an app launchable on the
@@ -51,13 +55,27 @@ export async function updateInstalledBundles(
     if (identity === null) continue;
     outcomes.push({ id: record.id, action: 'restub', result: await restubAppBundle(record, identity, deps) });
   }
-  if (catalog === null) return outcomes;
-
   // Re-read: a restub rewrote records, and an update must start from what is on disk now.
-  for (const { entry } of planBundleUpdates(catalog, await readInstalledState(deps.roots.installRoot))) {
-    const identity = identityFor(entry.id);
-    if (identity === null) continue;
-    outcomes.push({ id: entry.id, action: 'update', result: await installAppBundle(entry, identity, deps) });
+  const fresh = await readInstalledState(deps.roots.installRoot);
+  // An internally inconsistent catalog is not installed from at all (`parseCatalog` already
+  // rejects one; this is the same check for a catalog that arrived another way).
+  const usable = catalog !== null && catalogLockstepViolations(catalog).length === 0 ? catalog : null;
+  const attempted = new Set<string>();
+  if (usable !== null) {
+    for (const { entry } of planBundleUpdates(usable, fresh)) {
+      const identity = identityFor(entry.id);
+      if (identity === null) continue;
+      attempted.add(entry.id);
+      outcomes.push({ id: entry.id, action: 'update', result: await installAppBundle(entry, identity, deps) });
+    }
+  }
+
+  // Whatever is still out of lockstep after that (no newer catalog entry, offline, or the update
+  // failed) is reported, never silently launched against a different runtime.
+  for (const record of (await readInstalledState(deps.roots.installRoot)).apps) {
+    if (attempted.has(record.id)) continue;
+    const verdict = checkLockstep({ runtimeVersion: deps.runtime.version, bundleVersion: record.version, label: `${record.id} ${record.version}` });
+    if (!verdict.ok) outcomes.push({ id: record.id, action: 'blocked', result: { ok: false, message: verdict.message, reason: verdict.reason } });
   }
   return outcomes;
 }
