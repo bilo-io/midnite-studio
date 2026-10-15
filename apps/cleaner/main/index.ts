@@ -14,6 +14,8 @@ const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
 
 app.setName(CLEANER_NAME);
+// A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
+if (smoke) app.dock?.hide();
 app.setPath('userData', cleanerUserData(app.getPath('appData'), process.env[USER_DATA_ENV]));
 
 // A smoke run is one-shot and must not collide with a real Cleaner's lock.
