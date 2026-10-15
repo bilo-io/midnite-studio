@@ -1,6 +1,12 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-15 — Phase 113 Theme G (slice) — existing installs keep updating
+
+[PR #864](https://github.com/bilo-io/midnite-studio/pull/864). Today's Studio installs keep updating
+from their own feed and, once Midnite Apps is installed, hand updates over to it (Studio's self-updater
+switches off and points at the launcher); without the launcher nothing changes but a passive offer.
+
 ## 2026-10-15 — Phase 113 Themes E + F (slice) — the release publishes the launcher, bundles and catalog.json
 
 [PR #862](https://github.com/bilo-io/midnite-studio/pull/862). A tag release now also publishes Midnite
