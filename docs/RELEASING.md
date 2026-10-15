@@ -84,9 +84,20 @@ Apple/CSC secrets stay unset, until one exists. Every build ships ad-hoc signed
 `manualInstall` — the curl-installer / `brew upgrade` route rather than the in-app updater's
 "Restart to install" — is the permanent update path until then, not a placeholder for one.
 
-## What a tag build produces beyond Studio (Phase 113 Theme F1)
+## What a tag build publishes beyond Studio (Phase 113 Themes F1, E1, F2)
 
-`release.yml`'s one macOS job runs `desktop:dist` and then `launcher:dist` (same signing/notarizing env), uploading the launcher as the separate artifact `launcher-mac-arm64` (dmg, zip, blockmaps and its own `latest-mac.yml` for the `midnite-launcher/feed` generic feed). Per-app bundles are built by a `plan` job (previous `v*` tag, `scripts/affected-apps.mjs`, `scripts/release-bundles.mjs`) and a `bundles` matrix on Ubuntu, one `bundle-<app>` artifact each. **Nothing here publishes them**: `release` and `publish-feed` download only `mac-arm64`, so the Studio release is unchanged until the publishing slice lands.
+`release.yml`'s one macOS job runs `desktop:dist` and then `launcher:dist` (same signing/notarizing env), uploading the launcher as the separate artifact `launcher-mac-arm64` (dmg, zip, blockmaps and its own `latest-mac.yml`). A `plan` job lists **every** extracted app (`scripts/release-bundles.mjs --all` — every `apps/<id>/moon.yml` but Studio and the launcher) and a `bundles` matrix on Ubuntu builds each one and packs it as the zip the launcher installs: the built `dist/`, an `icon.icns` and a `package.json` stamped with the release version. An app with no `resources/icon.icns` yet is skipped with a warning (today that is `browser`, so no bundle ships yet).
+
+Why every app and not the affected set: `catalog.json` is lockstep — the launcher rejects the whole file when one app's version differs from `runtimeVersion` — so a bundle left at an older tag's version could never be listed. Affected-only remains the rule for what a PR builds.
+
+After Studio's `release` and `publish-feed`, the `publish-suite` job:
+
+| Writes in `bilo-io/midnite-apps` | What |
+|---|---|
+| Release `midnite-launcher/vX.Y.Z` | launcher dmg/zip/blockmaps, `latest-mac.yml`, every `midnite-<app>-X.Y.Z-bundle.zip` |
+| `catalog.json` (repo root) | `scripts/build-catalog.mjs` over the uploaded files: one version everywhere, real sizes and SHA-256; Studio's entry points at its own release's zip |
+| `midnite-launcher/feed/latest-mac.yml` | the launcher's `generic` updater feed (`apps/launcher/electron-builder.yml`) |
+| `midnite-launcher/version.json` | **not this job** — midnite-apps' `release-feed.yml` writes it, and only for apps registered in its `apps.json`. Register `midnite-launcher` there once before the first suite release. |
 
 ## The unsigned path is the one that runs today
 
@@ -145,7 +156,16 @@ can be published without bumping versions or modifying `CHANGELOG.md`:
    # Delete tag in midnite-studio (local & remote)
    git tag -d v0.0.1
    git push origin :refs/tags/v0.0.1
+
+   # The suite: the launcher release + bundles, and what publish-suite committed
+   gh release delete midnite-launcher/v0.0.1 --repo bilo-io/midnite-apps --yes --cleanup-tag
+   for f in catalog.json midnite-launcher/feed/latest-mac.yml midnite-launcher/version.json; do
+     sha=$(gh api "repos/bilo-io/midnite-apps/contents/$f" --jq .sha 2>/dev/null) || continue
+     gh api "repos/bilo-io/midnite-apps/contents/$f" -X DELETE \
+       -f message="chore: remove $f after ephemeral test release" -f sha="$sha"
+   done
    ```
+   Without `catalog.json` the launcher falls back to `midnite-studio/version.json`.
 5. **Other clones go stale, and the next ephemeral tag will reject on fetch.** Step 4 only deletes
    `v0.0.1` in the clone that runs it. Any other clone or worktree that had already fetched the old
    `v0.0.1` keeps its local ref pointing at the torn-down commit. Because the tag name is always
