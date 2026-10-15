@@ -642,6 +642,7 @@ if (!app.requestSingleInstanceLock()) {
       buildId: fingerprintFile(join(__dirname, 'main.js')),
       isPackaged: app.isPackaged,
       log: defaultLogger,
+      launcherAppDataDir: app.getPath('appData'),
     });
     // Not awaited: nothing reads this until a user detaches a panel, long
     // after boot — awaiting it here would serialize a disk read ahead of the

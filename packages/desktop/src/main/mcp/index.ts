@@ -46,6 +46,8 @@ export type RegisterMcpServerOptions = {
   buildId: string;
   isPackaged: boolean;
   log?: Logger;
+  /** Forwarded to the server: where the launcher's `installed.json` is read from. */
+  launcherAppDataDir?: string;
 };
 
 export type McpStatus = {
