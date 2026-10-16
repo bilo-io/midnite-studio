@@ -3618,6 +3618,12 @@ export const DbSaveConnectionRequest = z.object({
 });
 export const DbSaveConnectionResponse = DbOpResultOf(ConnectionConfigSchema);
 
+/**
+ * `dbListConnections` answers the plain metadata array — name, provider, host, user; never a
+ * password (`ConnectionConfigSchema` has no such field). Named here so the Vault's no-value test can hold it.
+ */
+export const DbListConnectionsResponse = z.array(ConnectionConfigSchema);
+
 export const DbDeleteConnectionRequest = z.object({ id: z.string().min(1) });
 export const DbDeleteConnectionResponse = DbOpResultSchema;
 
@@ -4537,6 +4543,8 @@ export const SecretsSetRequest = z.object({
  */
 export const SecretsHasRequest = z.object({ key: SecretKeySchema });
 export const SecretsHasResponse = z.object({ hasKey: z.boolean() });
+/** `secretsSet` answers nothing — written once so the Vault's no-value test can name it (Phase 113 Theme J). */
+export const SecretsSetResponse = z.void();
 
 // --- finance proxy (Phase 76 Theme D) -----------------------------------------
 

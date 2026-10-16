@@ -136,6 +136,11 @@ export interface VaultClient {
    */
   set(namespace: VaultNamespace, key: string, value: string, options?: { fingerprint?: string }): Promise<void>;
   delete(namespace: VaultNamespace, key: string): Promise<void>;
+  /**
+   * The entry ids of a namespace that the app may read — names only, never a
+   * value. What a metadata-only list (the Vault app's) is built from.
+   */
+  keys(namespace: VaultNamespace): Promise<string[]>;
   /** The stored fingerprint for a fingerprinted namespace's entry, or `null`. */
   fingerprint(namespace: VaultNamespace, key: string): Promise<string | null>;
 }
@@ -270,6 +275,12 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
           demand(namespace, key, 'delete');
           sessionOnly.get(namespace)?.delete(key);
           await storeFor(namespace).delete(key);
+        },
+
+        keys: async (namespace) => {
+          const ids = new Set(await storeFor(namespace).keys());
+          for (const id of sessionOnly.get(namespace)?.keys() ?? []) ids.add(id);
+          return [...ids].filter((id) => allowed(namespace, id, 'read'));
         },
 
         fingerprint: async (namespace, key) => {

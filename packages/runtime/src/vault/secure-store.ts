@@ -42,6 +42,8 @@ export type SecureJsonStore<TEntry> = {
   get: (id: string) => Promise<TEntry | null>;
   set: (id: string, entry: TEntry) => Promise<void>;
   delete: (id: string) => Promise<void>;
+  /** The entry ids — never a value. */
+  keys: () => Promise<string[]>;
 };
 
 /**
@@ -78,6 +80,7 @@ export function createSecureJsonStore<TEntry>(
 
   return {
     get: async (id) => (await load())[id] ?? null,
+    keys: async () => Object.keys(await load()),
     set: async (id, entry) => {
       const entries = await load();
       entries[id] = entry;
