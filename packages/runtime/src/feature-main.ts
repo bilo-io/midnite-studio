@@ -34,6 +34,16 @@ export interface RuntimeIpc {
   ): void;
   /** An `invoke` handler that takes no payload. */
   handleBare<R>(channel: string, handler: () => Promise<R> | R): void;
+  /**
+   * A one-way (`ipcRenderer.send`) channel: nothing is answered, so `onInvalid` only reports.
+   * A throwing handler is reported through `onInvalid` too, not rethrown into main.
+   */
+  send<S extends z.ZodTypeAny>(
+    channel: string,
+    schema: S,
+    handler: (payload: z.output<S>) => void,
+    onInvalid: (issue: string) => void,
+  ): void;
 }
 
 export interface FeatureMainContext {

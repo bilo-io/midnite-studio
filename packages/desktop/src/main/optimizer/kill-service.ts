@@ -14,7 +14,7 @@ import {
 } from '../agent-process';
 import { getWebAppOwners } from '../web-apps-service';
 import { getBrowserTabOwners } from '../browser-service';
-import { probeDetailedMemory } from '../metrics/memory';
+import { probeDetailedMemory } from '@midnite/studio-feature-monitor/main';
 import { activePtyPids, getPtySessionOwners } from '../pty-service';
 import { getWindowOwners } from '../window-manager';
 import {

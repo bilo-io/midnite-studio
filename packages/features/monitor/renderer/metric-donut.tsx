@@ -1,8 +1,6 @@
 import type { MetricId } from '@midnite/studio-shared';
 
-import { DONUT_GEOMETRY } from './metric-geometry';
-import { metricColor, metricFill } from './metric-palette';
-import { ringGeometry } from './metric-path';
+import { DONUT_GEOMETRY, metricColor, metricFill, ringGeometry } from '@midnite/studio-frame';
 
 /**
  * A level, as a ring: how much of a fixed capacity is in use.

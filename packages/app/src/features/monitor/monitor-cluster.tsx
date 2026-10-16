@@ -5,12 +5,10 @@ import { Popover } from '../../components/popover';
 import { Tooltip } from '../../components/tooltip';
 import { useMetricsStore, type MetricPoint } from '../../store/metrics-store';
 import { useUiStore } from '../../store/ui-store';
-import { MetricDonut } from './metric-donut';
+import { MetricDonut, MonitorFlyout, Sparkline } from '@midnite/studio-feature-monitor/renderer';
 import { METRIC_ICONS } from './metric-icons';
 import { isLevelMetric } from './metric-geometry';
 import { METRIC_LABELS, metricColor } from './metric-palette';
-import { MonitorFlyout } from './monitor-flyout';
-import { Sparkline } from './sparkline';
 import { useMetricsStream } from './use-metrics-stream';
 
 /**

@@ -7,7 +7,10 @@ import type { FeatureMainContext } from '../feature-main';
  * never imports `electron`, so this registers under bare vitest.
  */
 export type IpcContextElectron = {
-  ipcMain: { handle(channel: string, listener: (event: unknown, raw: unknown) => unknown): void };
+  ipcMain: {
+    handle(channel: string, listener: (event: unknown, raw: unknown) => unknown): void;
+    on(channel: string, listener: (event: unknown, raw: unknown) => void): void;
+  };
   /** `shell.trashItem`. */
   trashItem(path: string): Promise<void>;
   /** The live window's `webContents.send`, or a no-op when there is none. */
@@ -34,6 +37,25 @@ export function createIpcContext(el: IpcContextElectron): FeatureMainContext {
       },
       handleBare<R>(channel: string, handler: () => Promise<R> | R) {
         el.ipcMain.handle(channel, () => handler());
+      },
+      send<S extends z.ZodTypeAny>(
+        channel: string,
+        schema: S,
+        handler: (payload: z.output<S>) => void,
+        onInvalid: (issue: string) => void,
+      ) {
+        el.ipcMain.on(channel, (_event, raw) => {
+          const parsed = schema.safeParse(raw);
+          if (!parsed.success) {
+            onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
+            return;
+          }
+          try {
+            handler(parsed.data);
+          } catch (error) {
+            onInvalid(`${channel}: handler threw: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        });
       },
     },
     emit: (channel, payload) => el.send(channel, payload),

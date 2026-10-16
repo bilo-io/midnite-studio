@@ -28,7 +28,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // gate job actually runs. If you add a target to one of the jobs' moon
 // invocations, add its project id here too — that symmetry is what this script
 // checks.
-export const NODE_PROJECTS = ['shared', 'knowledge', 'app', 'website', 'db-engine', 'frame', 'feature-optimizer'];
+export const NODE_PROJECTS = ['shared', 'knowledge', 'app', 'website', 'db-engine', 'frame', 'feature-optimizer', 'feature-monitor'];
 // `runtime` (Phase 113 Theme C) is on gate-native ahead of need: it is the
 // main-process layer Theme D moves the safeStorage vault and the pty broker
 // into, and platform behaviour is only validated on the platform.

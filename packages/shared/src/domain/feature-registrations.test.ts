@@ -28,6 +28,8 @@ const LEGACY_VIEW_IDS = [
   'files',
   'search',
   'optimizer',
+  // Phase 113 Theme I: Monitor became a view (it was Settings pages and a status-bar flyout).
+  'monitor',
   'tests',
   'database',
   'tasks',

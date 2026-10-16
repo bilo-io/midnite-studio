@@ -11,7 +11,7 @@ function ctx() {
   const send = vi.fn();
   const trashItem = vi.fn(async () => undefined);
   const context = createIpcContext({
-    ipcMain: { handle: (c, l) => void handlers.set(c, l) },
+    ipcMain: { handle: (c, l) => void handlers.set(c, l), on: () => undefined },
     send,
     trashItem,
   });

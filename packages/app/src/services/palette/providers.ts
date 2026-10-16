@@ -63,6 +63,7 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   models: 'Models',
   sessions: 'Agent Sessions',
   optimizer: 'Workspace Optimizer',
+  monitor: 'System Monitor',
   apiClient: 'API Client',
   settings: 'Settings',
 };
@@ -95,6 +96,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   models: 'ollama models local cloud pull install download llm',
   sessions: 'agent session past closed transcripts',
   optimizer: 'clean scan storage memory gpu disk space node_modules trash',
+  monitor: 'cpu ram memory gpu disk battery health toolchain crash log diagnostics metrics',
   apiClient: 'api client http request postman collection rest graphql send response',
   settings: 'preferences configuration options theme',
 };

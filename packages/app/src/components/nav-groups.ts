@@ -1,5 +1,6 @@
 import type { IconType } from 'react-icons';
 
+import { monitorManifest } from '@midnite/studio-feature-monitor/renderer';
 import { optimizerManifest } from '@midnite/studio-feature-optimizer/renderer';
 
 import type { ViewId } from '../store/ui-store';
@@ -68,6 +69,8 @@ export const WORKSPACE_NAV_ITEMS: RailNavItem[] = [
   // Label and description come from the optimizer feature's manifest
   // (Phase 113 Theme C); the glyph stays here, because it is a component.
   { ...optimizerManifest.views[0].rail, view: 'optimizer', icon: VIEW_ICON.optimizer },
+  // Phase 113 Theme I: the same, for the Monitor view.
+  { ...monitorManifest.views[0].rail, view: 'monitor', icon: VIEW_ICON.monitor },
   {
     view: 'tests',
     label: 'Tests',

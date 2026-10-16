@@ -54,6 +54,18 @@ export function createRecordingContext(): RecordingContext {
       handleBare<R>(channel: string, handler: () => Promise<R> | R) {
         register(channel, async () => handler());
       },
+      send<S extends z.ZodTypeAny>(
+        channel: string,
+        schema: S,
+        handler: (payload: z.output<S>) => void,
+        onInvalid: (issue: string) => void,
+      ) {
+        register(channel, async (raw) => {
+          const parsed = schema.safeParse(raw);
+          if (!parsed.success) return onInvalid(`${channel}: ${parsed.error.issues[0]?.message ?? 'invalid payload'}`);
+          handler(parsed.data);
+        });
+      },
     },
     emit(channel, payload) {
       emitted.push({ channel, payload });

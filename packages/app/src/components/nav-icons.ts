@@ -107,6 +107,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   // `SETTINGS_PAGE_ICON.terminal`'s plain `LuTerminal` at rail size.
   sessions: PiTerminalDuotone,
   optimizer: LuGauge,
+  monitor: LuActivity,
   apiClient: LuSend,
   settings: LuSettings,
 };

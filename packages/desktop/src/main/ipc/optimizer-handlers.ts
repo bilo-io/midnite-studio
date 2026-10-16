@@ -12,7 +12,7 @@ import {
   runReclaimCommand,
   scanSystemCaches,
 } from '../optimizer/system-cache-service';
-import { handle, handleBare } from './handle';
+import { handle, handleBare, handleSend } from './handle';
 
 /**
  * The Workspace Optimizer's IPC surface (Phase 59 Themes C, D, E) — since
@@ -51,7 +51,7 @@ export const DESKTOP_OPTIMIZER_SERVICES: OptimizerMainServices = {
 
 export function registerOptimizerHandlers(getWindow: () => BrowserWindow | null): void {
   const ctx: FeatureMainContext = {
-    ipc: { handle, handleBare },
+    ipc: { handle, handleBare, send: handleSend },
     emit: (channel, payload) => sendToLiveWindow(getWindow, channel, payload),
     trashItem: (path) => shell.trashItem(path),
   };

@@ -52,6 +52,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   models: 'Models',
   sessions: 'Sessions',
   optimizer: 'Optimizer',
+  monitor: 'Monitor',
   apiClient: 'API Client',
   settings: 'Settings',
 };
