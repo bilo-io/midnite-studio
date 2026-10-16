@@ -35,6 +35,15 @@ export async function readOllamaApiKey(): Promise<string | null> {
   return vault.get('ollama.apiKey');
 }
 
+/**
+ * Keys that never cross the bridge, whatever asks. `secretsGet` used to hand
+ * `finance.twelveData` to Settings so it could tell whether one was set; that
+ * is `secretsHas`'s job now (Phase 113 Theme P), and the finance handlers read
+ * the key in main. Refusing it here makes "the renderer never receives the
+ * market-data key" a property of the channel, not of the callers.
+ */
+export const MAIN_ONLY_SECRETS: readonly SecretKey[] = ['finance.twelveData'];
+
 export function registerSecretsHandlers(): void {
   registerVaultGrantHandlers({ handle, handleBare, send: handleSend }, () => grants);
 
@@ -42,7 +51,7 @@ export function registerSecretsHandlers(): void {
     CHANNELS.secretsGet,
     schemas.SecretsGetRequest,
     async ({ key }) => {
-      if (!vault) return { value: null };
+      if (!vault || MAIN_ONLY_SECRETS.includes(key)) return { value: null };
       return { value: await vault.get(key) };
     },
     () => ({ value: null }),

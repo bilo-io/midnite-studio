@@ -82,9 +82,11 @@ export const useFinanceStore = create<FinanceState>()(
           return;
         }
         await migrateFinanceKeyFromLocalStorage(api);
-        const { value } = await api.secrets.get({ key: 'finance.twelveData' });
+        // `has`, never `get`: main answers whether a key is set, and the key itself
+        // never reaches the renderer (Phase 113 Theme P).
+        const { hasKey } = await api.secrets.has({ key: 'finance.twelveData' });
         set({
-          twelveDataKeyConfigured: Boolean(value?.trim()),
+          twelveDataKeyConfigured: hasKey,
           secretsHydrated: true,
         });
       },

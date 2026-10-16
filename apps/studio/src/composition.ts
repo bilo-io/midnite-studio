@@ -13,7 +13,7 @@
  */
 
 /** Feature packages (`packages/features/<name>`) Studio composes. */
-export const STUDIO_FEATURES = ['optimizer', 'monitor', 'vault', 'notes'] as const;
+export const STUDIO_FEATURES = ['optimizer', 'monitor', 'vault', 'notes', 'finance'] as const;
 
 export const STUDIO_COMPOSITION = {
   id: 'studio',

@@ -48,3 +48,17 @@ describe('setApiKey', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('hydrateSecrets', () => {
+  it('asks main whether a key is set and never reads one back', async () => {
+    const get = vi.fn(async () => ({ value: 'must-not-be-read' }));
+    const has = vi.fn(async () => ({ hasKey: true }));
+    vi.stubGlobal('window', { midniteStudio: { secrets: { set: vi.fn(async () => {}), get, has }, finance: {} } });
+    useFinanceStore.setState({ secretsHydrated: false, twelveDataKeyConfigured: false });
+    await useFinanceStore.getState().hydrateSecrets();
+    expect(has).toHaveBeenCalledWith({ key: 'finance.twelveData' });
+    expect(get).not.toHaveBeenCalled();
+    expect(useFinanceStore.getState().twelveDataKeyConfigured).toBe(true);
+    vi.unstubAllGlobals();
+  });
+});

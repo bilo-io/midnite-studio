@@ -2,6 +2,8 @@
  * Finance provider fetches — run in main so API keys and third-party hosts
  * never cross into the renderer (Phase 76 Theme D).
  */
+import { defaultFetcher, type Fetcher } from './markets/http';
+
 const TWELVE_DATA_BASE = 'https://api.twelvedata.com';
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
 const FETCH_TIMEOUT_MS = 5000;
@@ -26,10 +28,10 @@ export type FinanceQuote = {
 
 export type FinanceHistoryPoint = { t: number; c: number };
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return (await res.json()) as T;
+async function fetchJson<T>(fetcher: Fetcher, url: string): Promise<T> {
+  const res = await fetcher(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`${res.status} request failed`);
+  return JSON.parse(await res.text()) as T;
 }
 
 const num = (v: unknown): number => {
@@ -77,10 +79,12 @@ export async function searchFinanceAssets(
   kind: FinanceAssetKind,
   query: string,
   twelveDataKey: string | null,
+  fetcher: Fetcher = defaultFetcher,
 ): Promise<FinanceSearchResult[]> {
   if (kind === 'stock') {
     const apiKey = requireStockKey(twelveDataKey);
     const raw = await fetchJson<TdSearchResponse>(
+      fetcher,
       `${TWELVE_DATA_BASE}/symbol_search?symbol=${encodeURIComponent(query)}&outputsize=10&apikey=${apiKey}`,
     );
     return (raw.data ?? []).slice(0, 10).map((d) => ({
@@ -92,6 +96,7 @@ export async function searchFinanceAssets(
   }
 
   const raw = await fetchJson<CgSearchResponse>(
+    fetcher,
     `${COINGECKO_BASE}/search?query=${encodeURIComponent(query)}`,
   );
   return (raw.coins ?? []).slice(0, 10).map((c) => ({
@@ -105,10 +110,12 @@ export async function getFinanceQuote(
   kind: FinanceAssetKind,
   symbol: string,
   twelveDataKey: string | null,
+  fetcher: Fetcher = defaultFetcher,
 ): Promise<FinanceQuote> {
   if (kind === 'stock') {
     const apiKey = requireStockKey(twelveDataKey);
     const raw = await fetchJson<TdQuoteResponse>(
+      fetcher,
       `${TWELVE_DATA_BASE}/quote?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`,
     );
     if (raw.status === 'error') throw new Error(raw.message ?? 'quote unavailable');
@@ -116,6 +123,7 @@ export async function getFinanceQuote(
   }
 
   const raw = await fetchJson<CgCoinResponse>(
+    fetcher,
     `${COINGECKO_BASE}/coins/${encodeURIComponent(symbol)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`,
   );
   return { price: num(raw.market_data?.current_price?.usd), currency: 'USD' };
@@ -125,10 +133,12 @@ export async function getFinanceHistory(
   kind: FinanceAssetKind,
   symbol: string,
   twelveDataKey: string | null,
+  fetcher: Fetcher = defaultFetcher,
 ): Promise<FinanceHistoryPoint[]> {
   if (kind === 'stock') {
     const apiKey = requireStockKey(twelveDataKey);
     const raw = await fetchJson<TdTimeSeriesResponse>(
+      fetcher,
       `${TWELVE_DATA_BASE}/time_series?symbol=${encodeURIComponent(symbol)}&interval=${STOCK_HISTORY_INTERVAL}&outputsize=${STOCK_HISTORY_OUTPUTSIZE}&apikey=${apiKey}`,
     );
     if (raw.status === 'error') throw new Error(raw.message ?? 'history unavailable');
@@ -138,6 +148,7 @@ export async function getFinanceHistory(
   }
 
   const raw = await fetchJson<CgMarketChartResponse>(
+    fetcher,
     `${COINGECKO_BASE}/coins/${encodeURIComponent(symbol)}/market_chart?vs_currency=usd&days=${HISTORY_DAYS}`,
   );
   return (raw.prices ?? []).map(([t, c]) => ({ t, c }));

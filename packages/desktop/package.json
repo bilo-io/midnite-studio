@@ -33,6 +33,7 @@
     "@electron/rebuild": "^3.7.0",
     "@midnite/studio-app": "workspace:*",
     "@midnite/studio-db-engine": "workspace:*",
+    "@midnite/studio-feature-finance": "workspace:*",
     "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-feature-notes": "workspace:*",
     "@midnite/studio-feature-optimizer": "workspace:*",
