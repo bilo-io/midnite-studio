@@ -2,6 +2,7 @@ import { useMetricsStream } from '@midnite/studio-frame';
 
 import { CapacitySection } from './capacity-section';
 import { CrashLogSection } from './crash-log-section';
+import { SessionsSection } from './sessions-section';
 import { SystemHealthSection } from './system-health-section';
 import { TimelinesSection } from './timelines-section';
 
@@ -21,6 +22,7 @@ export function MonitorPage() {
       </header>
       <TimelinesSection />
       <CapacitySection />
+      <SessionsSection />
       <SystemHealthSection />
       <CrashLogSection />
     </div>
