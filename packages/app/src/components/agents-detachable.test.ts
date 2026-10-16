@@ -9,7 +9,8 @@ import { PAGE_ROLE_TITLE } from './page-detach-mark';
 const SOURCES = import.meta.glob<string>(
   [
     '../../../features/councils/renderer/councils-view.tsx',
-    '../features/workflows/workflow-list.tsx',
+    // Workflows moved into its feature package (Phase 113 Theme N).
+    '../../../features/workflows/renderer/workflow-list.tsx',
     '../../../features/media-core/renderer/media-shell.tsx',
     // Models moved into its feature package (Phase 113 Theme N).
     '../../../features/models/renderer/models-view.tsx',

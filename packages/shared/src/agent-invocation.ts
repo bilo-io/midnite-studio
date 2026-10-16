@@ -12,6 +12,8 @@
 
 import { z } from 'zod';
 
+import type { AgentDefinition } from './terminal';
+
 export const SkillExecutionModeSchema = z.enum(['interactive', 'headless']);
 export type SkillExecutionMode = z.infer<typeof SkillExecutionModeSchema>;
 export const DEFAULT_SKILL_EXECUTION_MODE: SkillExecutionMode = 'interactive';
@@ -141,3 +143,26 @@ export function shellQuote(text: string): string {
   return `'${text.replace(/\s+/g, ' ').trim().replace(/'/g, String.raw`'\''`)}'`;
 }
 
+/**
+ * Which roster entry to actually run.
+ *
+ * The renderer's `primaryAgent` first, because that is the user's stated
+ * choice; then anything on the roster with a known print mode, because a
+ * companion that refuses to think because the *primary* agent happens to be
+ * Cursor is worse than one that quietly uses the Claude CLI sitting right
+ * there. `null` when nothing qualifies, which is the "no CLI installed" arm.
+ */
+export function resolveHeadlessAgent(
+  agents: readonly AgentDefinition[],
+  preferredId?: string,
+): { agent: AgentDefinition; args: string[] } | null {
+  const preferred = agents.find((agent) => agent.id === preferredId);
+  const preferredArgs = preferred ? agentHeadlessArgs(preferred.id) : null;
+  if (preferred && preferredArgs) return { agent: preferred, args: preferredArgs };
+
+  for (const agent of agents) {
+    const args = agentHeadlessArgs(agent.id);
+    if (args) return { agent, args };
+  }
+  return null;
+}

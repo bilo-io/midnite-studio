@@ -2,6 +2,7 @@ import { lazy, type ComponentType } from 'react';
 
 import { chatsViews } from '@midnite/studio-feature-chats/renderer';
 import { councilsViews } from '@midnite/studio-feature-councils/renderer';
+import { workflowsViews } from '@midnite/studio-feature-workflows/renderer';
 import { modelsViews } from '@midnite/studio-feature-models/renderer';
 import { notesViews } from '@midnite/studio-feature-notes/renderer';
 import { monitorManifest, monitorViews } from '@midnite/studio-feature-monitor/renderer';
@@ -50,8 +51,8 @@ const loadLandingView = () => import('../features/landing/landing-view');
 const LandingView = lazy(() => loadLandingView().then((m) => ({ default: m.LandingView })));
 const loadCouncilsView = () => councilsViews.councils();
 const CouncilsView = lazy(() => loadCouncilsView().then((Component) => ({ default: Component })));
-const loadWorkflowsView = () => import('../features/workflows/workflows-view');
-const WorkflowsView = lazy(() => loadWorkflowsView().then((m) => ({ default: m.WorkflowsView })));
+const loadWorkflowsView = () => workflowsViews.workflows();
+const WorkflowsView = lazy(() => loadWorkflowsView().then((Component) => ({ default: Component })));
 const loadMediaView = () => import('../features/media/media-view');
 const MediaView = lazy(() => loadMediaView().then((m) => ({ default: m.MediaView })));
 const loadModelsView = () => modelsViews.models();

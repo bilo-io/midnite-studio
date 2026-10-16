@@ -18,6 +18,8 @@ export default defineConfig({
       '@midnite/studio-feature-chats/renderer': at('../../packages/features/chats/renderer/index.ts'),
       '@midnite/studio-feature-councils/renderer': at('../../packages/features/councils/renderer/index.ts'),
       '@midnite/studio-feature-models/renderer': at('../../packages/features/models/renderer/index.ts'),
+      '@midnite/studio-feature-workflows/renderer': at('../../packages/features/workflows/renderer/index.ts'),
+      '@midnite/studio-feature-mcp-tools/renderer': at('../../packages/features/mcp-tools/renderer/index.ts'),
     },
   },
   server: { port: 5190, strictPort: true },

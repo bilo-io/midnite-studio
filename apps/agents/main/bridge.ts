@@ -3,15 +3,20 @@ import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
 
 /**
- * The slice of `window.midniteStudio` Agents exposes — exactly what the chats, councils and models
- * features' renderers call, and nothing else: `chats.*`, `council.*`, `ollama.*`, `agent.list` (the
- * roster) and `secrets.has` (a boolean about the Ollama cloud key, never its value). Every other
+ * The slice of `window.midniteStudio` Agents exposes — exactly what the chats, councils, workflows,
+ * models and MCP tools features' renderers call, and nothing else: `chats.*`, `council.*`, `workflow.*`
+ * and `demoApi.*` (bar the terminal-session event and the Settings push, which are Studio's), `ollama.*`,
+ * `mcp.*`, `agent.list` (the roster) and `secrets.has` (a boolean about the Ollama cloud key, never its value). Every other
  * bridge namespace is deliberately absent, and so is `secrets.get`/`secrets.set` — no LLM key ever
  * reaches this window (`bridge.test.ts` holds the list).
  */
 export type AgentsBridge = {
   chats: MidniteStudioBridge['chats'];
   council: MidniteStudioBridge['council'];
+  /** No `onNodeSessionStarted` (Agents has no terminal to adopt a session into) and no `setDefaults` (no Settings page). */
+  workflow: Omit<MidniteStudioBridge['workflow'], 'onNodeSessionStarted' | 'setDefaults'>;
+  demoApi: MidniteStudioBridge['demoApi'];
+  mcp: MidniteStudioBridge['mcp'];
   ollama: MidniteStudioBridge['ollama'];
   agent: Pick<MidniteStudioBridge['agent'], 'list'>;
   secrets: Pick<MidniteStudioBridge['secrets'], 'has'>;
@@ -49,6 +54,35 @@ export function createAgentsBridge(ipc: RendererIpc): AgentsBridge {
         skipMember: (req) => call(CHANNELS.councilRunSkipMember, req),
         retryMember: (req) => call(CHANNELS.councilRunRetryMember, req),
       },
+    },
+    workflow: {
+      list: () => call(CHANNELS.workflowList),
+      save: (req) => call(CHANNELS.workflowSave, req),
+      delete: (req) => call(CHANNELS.workflowDelete, req),
+      run: (req) => call(CHANNELS.workflowRun, req),
+      cancel: (req) => call(CHANNELS.workflowCancel, req),
+      resume: (req) => call(CHANNELS.workflowResume, req),
+      gateDecide: (req) => call(CHANNELS.workflowGateDecide, req),
+      templates: {
+        list: () => call(CHANNELS.workflowTemplatesList),
+        save: (req) => call(CHANNELS.workflowTemplateSave, req),
+        delete: (req) => call(CHANNELS.workflowTemplateDelete, req),
+      },
+      runs: {
+        list: (req) => call(CHANNELS.workflowRunsList, req),
+        get: (req) => call(CHANNELS.workflowRunsGet, req),
+      },
+      onRunChanged: (handler) => subscribe(EVENT_CHANNELS.workflowRunChanged, handler),
+    },
+    demoApi: {
+      start: () => call(CHANNELS.demoApiStart),
+      stop: () => call(CHANNELS.demoApiStop),
+      status: () => call(CHANNELS.demoApiStatus),
+    },
+    mcp: {
+      get: () => call(CHANNELS.mcpGet),
+      set: (req) => call(CHANNELS.mcpSet, req),
+      calls: () => call(CHANNELS.mcpCalls),
     },
     ollama: {
       status: () => call(CHANNELS.ollamaStatus),

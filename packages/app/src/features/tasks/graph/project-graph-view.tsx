@@ -4,7 +4,6 @@ import { LuChevronDown, LuChevronUp, LuGitFork } from 'react-icons/lu';
 
 import { EmptyState } from '../../../components/empty-state';
 import { useWindowFocusGate } from '../../../lib/use-window-focus-gate';
-import type { Viewport } from '../../workflows/canvas/workflow-geometry';
 import {
   edgePath,
   panBy,
@@ -12,7 +11,8 @@ import {
   viewportRect,
   zoomAtPointer,
   type Rect,
-} from '../../workflows/canvas/workflow-path';
+  type Viewport,
+} from '@midnite/studio-frame';
 import { findStatusField, itemStatusStroke, type StatusStroke } from '../status-stroke';
 import { edgeAppearance } from './edge-appearance';
 import { blockedItemIds } from './graph-blockers';

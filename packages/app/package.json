@@ -31,6 +31,8 @@
     "@midnite/studio-feature-slides": "workspace:*",
     "@midnite/studio-feature-media-video": "workspace:*",
     "@midnite/studio-feature-media-audio": "workspace:*",
+    "@midnite/studio-feature-workflows": "workspace:*",
+    "@midnite/studio-feature-mcp-tools": "workspace:*",
     "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-feature-notes": "workspace:*",
     "@midnite/studio-feature-optimizer": "workspace:*",

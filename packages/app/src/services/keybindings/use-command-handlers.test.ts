@@ -15,7 +15,7 @@ import { useTerminalStore } from '../../features/terminal/terminal-store';
 import { keys } from '../queries';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useUiStore } from '../../store/ui-store';
-import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
+import { useWorkflowRunCommandStore } from '@midnite/studio-feature-workflows/renderer';
 import { useCommandHandlers } from './use-command-handlers';
 
 const BRANCH_CLEAN: BranchStatus = {

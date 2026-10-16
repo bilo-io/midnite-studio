@@ -1,7 +1,7 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
-# Midnite Agents (Phase 113 Theme N) — chats, councils and models as their own app:
-# `packages/features/{chats,councils,models}` + `packages/frame` + `shared`, composed in src/.
+# Midnite Agents (Phase 113 Theme N) — chats, councils, workflows (Graphs), models and the MCP Tools view as their own app:
+# `packages/features/{chats,councils,workflows,models,mcp-tools}` + `packages/frame` + `shared`, composed in src/.
 # `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
 id: 'app-agents'
 language: 'typescript'
@@ -17,6 +17,8 @@ dependsOn:
   - 'feature-chats'
   - 'feature-councils'
   - 'feature-models'
+  - 'feature-workflows'
+  - 'feature-mcp-tools'
 
 tasks:
   build:
@@ -41,10 +43,16 @@ tasks:
       - '/packages/features/councils/renderer/**/*'
       - '/packages/features/councils/manifest.ts'
       - '/packages/features/models/renderer/**/*'
+      - '/packages/features/workflows/renderer/**/*'
+      - '/packages/features/mcp-tools/renderer/**/*'
       - '/packages/features/models/manifest.ts'
+      - '/packages/features/workflows/manifest.ts'
+      - '/packages/features/mcp-tools/manifest.ts'
       - '/packages/features/chats/main/**/*'
       - '/packages/features/councils/main/**/*'
       - '/packages/features/models/main/**/*'
+      - '/packages/features/workflows/main/**/*'
+      - '/packages/features/mcp-tools/main/**/*'
       - '/packages/runtime/src/**/*'
     outputs:
       - 'dist'
@@ -63,11 +71,17 @@ tasks:
       - '/packages/features/councils/renderer/**/*'
       - '/packages/features/councils/manifest.ts'
       - '/packages/features/models/renderer/**/*'
+      - '/packages/features/workflows/renderer/**/*'
+      - '/packages/features/mcp-tools/renderer/**/*'
       - '/packages/features/models/manifest.ts'
+      - '/packages/features/workflows/manifest.ts'
+      - '/packages/features/mcp-tools/manifest.ts'
       - 'main/**/*'
       - '/packages/features/chats/main/**/*'
       - '/packages/features/councils/main/**/*'
       - '/packages/features/models/main/**/*'
+      - '/packages/features/workflows/main/**/*'
+      - '/packages/features/mcp-tools/main/**/*'
       - '/packages/runtime/src/**/*'
 
   test:
@@ -82,9 +96,15 @@ tasks:
       - '/packages/features/councils/renderer/**/*'
       - '/packages/features/councils/manifest.ts'
       - '/packages/features/models/renderer/**/*'
+      - '/packages/features/workflows/renderer/**/*'
+      - '/packages/features/mcp-tools/renderer/**/*'
       - '/packages/features/models/manifest.ts'
+      - '/packages/features/workflows/manifest.ts'
+      - '/packages/features/mcp-tools/manifest.ts'
       - 'main/**/*'
       - '/packages/features/chats/main/**/*'
       - '/packages/features/councils/main/**/*'
       - '/packages/features/models/main/**/*'
+      - '/packages/features/workflows/main/**/*'
+      - '/packages/features/mcp-tools/main/**/*'
       - '/packages/runtime/src/**/*'

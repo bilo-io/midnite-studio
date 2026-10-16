@@ -4,8 +4,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { BODY_MODES, type ApiRequestDraft, type BodyMode } from '@midnite/studio-shared';
 
-import { startFixtureServer, type FixtureServer } from '../demo-api/fixture-server';
-import { HTTP_RESPONSE_CAP_BYTES } from '../workflow/executors/http';
+import {
+  HTTP_RESPONSE_CAP_BYTES,
+  startFixtureServer,
+  type FixtureServer,
+} from '@midnite/studio-feature-workflows/main';
 import { cancelRequest, pendingRequestCount, sendApiRequest, type ApiSendRequest } from './send';
 
 /**

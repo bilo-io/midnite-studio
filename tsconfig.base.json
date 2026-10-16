@@ -42,7 +42,9 @@
       "@midnite/studio-feature-councils/main": ["./packages/features/councils/main/index.ts"],
       "@midnite/studio-feature-media-video/main": ["./packages/features/media-video/main/index.ts"],
       "@midnite/studio-feature-media-audio/main": ["./packages/features/media-audio/main/index.ts"],
-      "@midnite/studio-feature-media-audio/music-worker": ["./packages/features/media-audio/main/musicgen/worker-entry.ts"]
+      "@midnite/studio-feature-media-audio/music-worker": ["./packages/features/media-audio/main/musicgen/worker-entry.ts"],
+      "@midnite/studio-feature-workflows/main": ["./packages/features/workflows/main/index.ts"],
+      "@midnite/studio-feature-mcp-tools/main": ["./packages/features/mcp-tools/main/index.ts"]
     }
   }
 }

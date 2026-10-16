@@ -10,10 +10,16 @@ function fakeIpc(): RendererIpc {
 }
 
 describe('createAgentsBridge', () => {
-  it('exposes exactly chats, council, ollama, agent.list and secrets.has', () => {
+  it('exposes exactly chats, council, workflow, demoApi, mcp, ollama, agent.list and secrets.has', () => {
     const bridge = createAgentsBridge(fakeIpc());
-    expect(Object.keys(bridge).sort()).toEqual(['agent', 'chats', 'council', 'ollama', 'secrets']);
+    expect(Object.keys(bridge).sort()).toEqual(['agent', 'chats', 'council', 'demoApi', 'mcp', 'ollama', 'secrets', 'workflow']);
     expect(Object.keys(bridge.agent)).toEqual(['list']);
+  });
+
+  it('leaves out what is Studio\'s: the terminal-session event and the Settings push', () => {
+    const { workflow } = createAgentsBridge(fakeIpc());
+    expect('onNodeSessionStarted' in workflow).toBe(false);
+    expect('setDefaults' in workflow).toBe(false);
   });
 
   it('can never read or write a secret: only `has` is exposed, so no LLM key can reach the window', () => {
@@ -31,21 +37,30 @@ describe('createAgentsBridge', () => {
     await bridge.ollama.status();
     await bridge.agent.list();
     await bridge.secrets.has({ key: 'ollama.apiKey' });
+    await bridge.workflow.runs.list({ workflowId: 'w' });
+    await bridge.mcp.get();
     expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([
       CHANNELS.chatsList,
       CHANNELS.councilRunStart,
       CHANNELS.ollamaStatus,
       CHANNELS.agentList,
       CHANNELS.secretsHas,
+      CHANNELS.workflowRunsList,
+      CHANNELS.mcpGet,
     ]);
   });
 
-  it('subscribes to the chat and pull-progress events, and tears each down', () => {
+  it('subscribes to the chat, run-change and pull-progress events, and tears each down', () => {
     const ipc = fakeIpc();
     const bridge = createAgentsBridge(ipc);
     const off = bridge.chats.onEvent(() => undefined);
+    bridge.workflow.onRunChanged(() => undefined);
     bridge.ollama.onPullProgress(() => undefined);
-    expect(vi.mocked(ipc.on).mock.calls.map((c) => c[0])).toEqual([EVENT_CHANNELS.chatsEvent, EVENT_CHANNELS.ollamaPullProgress]);
+    expect(vi.mocked(ipc.on).mock.calls.map((c) => c[0])).toEqual([
+      EVENT_CHANNELS.chatsEvent,
+      EVENT_CHANNELS.workflowRunChanged,
+      EVENT_CHANNELS.ollamaPullProgress,
+    ]);
     off();
     expect(ipc.removeListener).toHaveBeenCalledWith(EVENT_CHANNELS.chatsEvent, expect.any(Function));
   });

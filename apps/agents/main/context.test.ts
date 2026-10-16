@@ -1,14 +1,16 @@
 // @vitest-environment node
 // vitest, not Playwright: handler registration is logic over an injected ipcMain and a temp vault.
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { chatsManifest } from '@midnite/studio-feature-chats/main';
+import { mcpToolsManifest } from '@midnite/studio-feature-mcp-tools/main';
 import { councilsManifest, resetCouncilsForTest } from '@midnite/studio-feature-councils/main';
 import { modelsManifest, resetOllamaSettingsState } from '@midnite/studio-feature-models/main';
+import { workflowsManifest } from '@midnite/studio-feature-workflows/main';
 import { createFakeCipher, createVaultGrants, createVaultService, type VaultAuthorize } from '@midnite/studio-runtime';
 import { CHANNELS } from '@midnite/studio-shared';
 
@@ -18,12 +20,15 @@ const KEY = 'ollama.apiKey';
 const SECRET = 'OLLAMA-VAULT-SECRET';
 
 let dir: string;
+const disposers: (() => Promise<void>)[] = [];
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'agents-main-'));
   mkdirSync(join(dir, 'runtime'));
   resetCouncilsForTest();
 });
-afterEach(() => {
+afterEach(async () => {
+  // Stops the demo API and any in-flight run, and kills the shells a script node started.
+  for (const dispose of disposers.splice(0)) await dispose();
   rmSync(dir, { recursive: true, force: true });
   resetOllamaSettingsState();
   vi.unstubAllGlobals();
@@ -42,22 +47,33 @@ async function setup(authorize?: VaultAuthorize) {
     }),
   );
   const handlers = new Map<string, (event: unknown, raw: unknown) => unknown>();
-  registerAgentsHandlers({
-    ipcMain: { handle: (c, l) => void handlers.set(c, l), on: () => undefined },
+  const registered = registerAgentsHandlers({
+    ipcMain: { handle: (c, l) => void handlers.set(c, l), on: (c, l) => void handlers.set(c, (_e, raw) => l(_e, raw)) },
     trashItem: async () => undefined,
     send: () => undefined,
     userData: join(dir, 'userData'),
     vaultDirectory: join(dir, 'runtime'),
     cipher,
+    // A real shell, so a script node really runs — under a temp dir, never the user's home.
+    shell: '/bin/sh',
     ...(authorize ? { authorize } : {}),
   });
+  disposers.push(registered.dispose);
   return { handlers, requests };
 }
 
 describe('registerAgentsHandlers', () => {
-  it('registers the three features’ channels, the roster and secretsHas — and nothing else', async () => {
+  it('registers the five features’ channels, the roster and secretsHas — and nothing else', async () => {
     const { handlers } = await setup();
-    const expected = [...modelsManifest.ipc, ...councilsManifest.ipc, ...chatsManifest.ipc, CHANNELS.agentList, CHANNELS.secretsHas];
+    const expected = [
+      ...modelsManifest.ipc,
+      ...councilsManifest.ipc,
+      ...chatsManifest.ipc,
+      ...workflowsManifest.ipc,
+      ...mcpToolsManifest.ipc,
+      CHANNELS.agentList,
+      CHANNELS.secretsHas,
+    ];
     expect([...handlers.keys()].sort()).toEqual(expected.sort());
     expect(handlers.has(CHANNELS.secretsGet)).toBe(false);
     expect(handlers.has(CHANNELS.secretsSet)).toBe(false);
@@ -113,5 +129,69 @@ describe('registerAgentsHandlers', () => {
     expect(await handlers.get(CHANNELS.chatsCreate)?.({}, { engine: 'claude' })).toMatchObject({ ok: true });
     const listed = (await handlers.get(CHANNELS.chatsList)?.({}, undefined)) as { chats: unknown[] };
     expect(listed.chats).toHaveLength(1);
+  });
+
+  describe('workflows', () => {
+    const graph = (id: string, nodes: unknown[]) => ({ id, name: `Graph ${id}`, nodes, edges: [], createdAt: 1, updatedAt: 1 });
+    const script = (command: string) => ({
+      id: 'n1',
+      kind: 'script',
+      label: 'Say hi',
+      x: 0,
+      y: 0,
+      config: { command, cwd: tmpdir(), env: {} },
+    });
+
+    type RunView = { status: string; nodes: { status: string; error?: string; output?: unknown }[] };
+
+    async function runToEnd(handlers: Map<string, (event: unknown, raw: unknown) => unknown>, workflowId: string): Promise<RunView> {
+      const started = (await handlers.get(CHANNELS.workflowRun)?.({}, { workflowId })) as { ok: boolean };
+      expect(started).toMatchObject({ ok: true });
+      return vi.waitFor(async () => {
+        const { runs } = (await handlers.get(CHANNELS.workflowRunsList)?.({}, { workflowId })) as { runs: RunView[] };
+        const run = runs[0];
+        expect(run).toBeDefined();
+        expect(run?.status).not.toBe('running');
+        return run as RunView;
+      });
+    }
+
+    it('runs a script node in a piped login shell and captures its output', async () => {
+      const { handlers } = await setup();
+      await handlers.get(CHANNELS.workflowSave)?.({}, { workflow: graph('w1', [script('echo hello-from-agents')]) });
+      const run = await runToEnd(handlers, 'w1');
+      expect(run.status).toBe('completed');
+      expect(JSON.stringify(run.nodes[0]?.output)).toContain('hello-from-agents');
+    });
+
+    it('fails an agent node with a plain message instead of hanging — Agents has no terminal yet', async () => {
+      const { handlers } = await setup();
+      const agent = { id: 'n1', kind: 'agent', label: 'Ask', x: 0, y: 0, config: { agentId: 'claude', prompt: 'hi' } };
+      await handlers.get(CHANNELS.workflowSave)?.({}, { workflow: graph('w2', [agent]) });
+      const run = await runToEnd(handlers, 'w2');
+      expect(run.status).toBe('failed');
+      expect(JSON.stringify(run)).toContain('need a terminal session');
+    });
+
+    it('fails a git or forge step on its own, with no repository registry to read', async () => {
+      const { handlers } = await setup();
+      const git = { id: 'n1', kind: 'git-status', label: 'Status', x: 0, y: 0, config: { repoId: 'r1' } };
+      await handlers.get(CHANNELS.workflowSave)?.({}, { workflow: graph('w3', [git]) });
+      const run = await runToEnd(handlers, 'w3');
+      expect(run.status).toBe('failed');
+    });
+
+    it('stores its graphs under its own userData', async () => {
+      const { handlers } = await setup();
+      await handlers.get(CHANNELS.workflowSave)?.({}, { workflow: graph('w4', [script('true')]) });
+      expect(readdirSync(join(dir, 'userData'))).toContain('workflows.json');
+    });
+  });
+
+  it('answers the MCP tools channels as a server that is not running, and refuses to start one', async () => {
+    const { handlers } = await setup();
+    expect(await handlers.get(CHANNELS.mcpGet)?.({}, undefined)).toMatchObject({ enabled: false, running: false, shimPath: null });
+    expect(await handlers.get(CHANNELS.mcpSet)?.({}, { enabled: true })).toMatchObject({ enabled: false, error: expect.stringContaining('Midnite Studio') });
+    expect(await handlers.get(CHANNELS.mcpCalls)?.({}, undefined)).toEqual({ calls: [] });
   });
 });

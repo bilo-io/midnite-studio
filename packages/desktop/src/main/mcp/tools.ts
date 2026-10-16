@@ -32,7 +32,7 @@ import {
 import { requestUiAction } from '../companion/ui-bridge';
 import { listPulls, listRuns } from '../forge/github/gh-cli';
 import { listRepos } from '../repo-registry';
-import { decideGate, listWaitingGates } from '../workflow-service';
+import { decideGate, listWaitingGates } from '@midnite/studio-feature-workflows/main';
 import { McpToolError } from './errors';
 import { getMcpAllowGateDecide, getMcpAllowUi } from './ui-gate';
 

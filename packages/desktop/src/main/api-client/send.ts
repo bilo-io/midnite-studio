@@ -16,7 +16,7 @@ import type { z } from 'zod';
 
 import { confineTree } from '../fs-scope-write';
 import { resolveWorkdir } from '../repo-registry';
-import { readCapped } from '../workflow/executors/http';
+import { readCapped } from '@midnite/studio-feature-workflows/main';
 import { readEnvironment } from './environment-io';
 import { recordHistoryEntry } from './history';
 import { interpolateTiered } from './interpolate';

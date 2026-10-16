@@ -116,7 +116,7 @@ import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
 import { useSessionExits } from './features/terminal/use-session-exits';
 import { useWorkflowNodeSessions } from './features/terminal/use-workflow-node-sessions';
-import { useWaitingGateToasts } from './features/workflows/use-waiting-gate-toasts';
+import { useWaitingGateToasts } from '@midnite/studio-feature-workflows/renderer';
 import { RailVersion } from './features/version/rail-version';
 import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
@@ -2068,6 +2068,9 @@ function useUnsavedCloseGuard(): void {
   }, []);
 }
 
+/** What the waiting-gate toast's "Review" does once it has asked the Graphs view to reveal the run. */
+const openGraphsView = (): void => useUiStore.getState().setActiveView('workflows');
+
 export function App() {
   useWindowBackgroundSync();
   useMotionPreference();
@@ -2098,7 +2101,7 @@ export function App() {
   // Phase 97 Theme D — the notification bell's "workflow waiting on you"
   // entry, for the identical reason: a gate can start waiting with the
   // Workflows view unmounted.
-  useWaitingGateToasts();
+  useWaitingGateToasts(openGraphsView);
   return (
     <ShellProviders queryClient={appQueryClient}>
       <DialogHost>

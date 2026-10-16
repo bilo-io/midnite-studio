@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 
 import { chatsMain, createChatsRuntime, type ChatsRuntimeDeps } from '@midnite/studio-feature-chats/main';
@@ -7,6 +8,7 @@ import {
   createCouncilsRunsStore,
   createCouncilsStore,
 } from '@midnite/studio-feature-councils/main';
+import { createNoMcpServer, mcpToolsMain } from '@midnite/studio-feature-mcp-tools/main';
 import {
   configureOllamaSettings,
   createOllamaSettingsStore,
@@ -14,7 +16,14 @@ import {
   modelsMain,
   ollamaChatStream,
   resolveOllamaBaseUrl,
+  runOllamaPrompt,
 } from '@midnite/studio-feature-models/main';
+import {
+  disposeWorkflows,
+  silentWorkflowLogger,
+  workflowsMain,
+  type WorkflowLogger,
+} from '@midnite/studio-feature-workflows/main';
 import {
   createIpcContext,
   createVaultGrants,
@@ -25,6 +34,7 @@ import {
 } from '@midnite/studio-runtime';
 import { BUILTIN_AGENTS, CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
 
+import { createNodeSessionStarter } from './node-session';
 import { createShellRunner } from './shell-runner';
 
 /** The one secret Agents reads, and nothing else: the Ollama cloud key (the `secrets` namespace). */
@@ -43,24 +53,28 @@ export type AgentsElectron = IpcContextElectron & {
    * Ollama key until the user grants it, never handed it by the runtime's allow-all default.
    */
   authorize?: VaultAuthorize;
-  /** The shell a council member runs in; the user's login shell by default. */
+  /** The shell a council member or script node runs in; the user's login shell by default. */
   shell?: string;
+  /** Where the workflow engine logs. Silent by default. */
+  log?: WorkflowLogger;
 };
 
 /**
- * Registers every channel Agents' renderer can call: the models, councils and chats features', the
- * agent roster, and `secretsHas` narrowed to the Ollama key. **The key is read here, from the runtime
+ * Registers every channel Agents' renderer can call: the models, councils, chats, workflows and MCP
+ * tools features', the agent roster, and `secretsHas` narrowed to the Ollama key. **The key is read here, from the runtime
  * vault as `agents`, and answers no channel** — when the vault refuses Agents (no grant) the cloud
  * catalogue is fetched unauthenticated and a cloud-bound council member runs without a token, and the
  * renderer's `has` answers false. No chat engine reads a key: each agent CLI brings its own login.
  */
-export function registerAgentsHandlers(el: AgentsElectron): { dispose(): void } {
+export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise<void> } {
   const vault = createVaultService({
     directory: el.vaultDirectory,
     cipher: el.cipher,
     authorize: el.authorize ?? createVaultGrants({ directory: el.vaultDirectory }).authorize,
   }).forApp('agents');
   const ollamaKey = (): Promise<string | null> => vault.get('secrets', OLLAMA_KEY);
+  // The stores write straight into `userData` and treat a missing directory as read-only; Electron creates it lazily.
+  mkdirSync(el.userData, { recursive: true });
   const ctx = createIpcContext(el);
 
   // Models — the Ollama client, pull queue and the persisted host override.
@@ -102,6 +116,31 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): void } 
     },
   });
 
+  // Workflows — the graph engine over Agents' ports: the builtin roster, the Ollama daemon and key, and
+  // a piped login shell for script nodes (see node-session.ts). No repository registry, forge or
+  // terminal sessions, so git, forge, gate-comment and agent-node steps report their own failure.
+  workflowsMain.register(ctx, {
+    dataDirectory: el.userData,
+    ports: {
+      log: el.log ?? silentWorkflowLogger,
+      listAgents: async () => [...BUILTIN_AGENTS],
+      agentBinding: () => undefined,
+      ollamaBaseUrl: () => resolveOllamaBaseUrl(),
+      ollamaApiKey: ollamaKey,
+      ollamaPrompt: (model, prompt, timeoutMs) => runOllamaPrompt(model, prompt, timeoutMs),
+      pty: {
+        onPty: shellRunner.onPty,
+        offPty: shellRunner.offPty,
+        killPty: shellRunner.killPty,
+        activityFor: () => null,
+        startNodeSession: createNodeSessionStarter(shellRunner),
+      },
+    },
+  });
+
+  // MCP tools — the Tools tab. The `midnite` server is Studio's, so this one reports itself as off.
+  mcpToolsMain.register(ctx, { server: createNoMcpServer('Midnite Agents does not run the MCP server — Midnite Studio does.') });
+
   // The roster, as the renderer's `useAgents` asks for it. Install status is unknown here (no probe),
   // which the renderer reads as "assume it works" — a missing CLI surfaces as the turn's own error.
   el.ipcMain.handle(CHANNELS.agentList, () => ({ agents: [...BUILTIN_AGENTS], status: [], probe: 'unknown' as const }));
@@ -113,5 +152,12 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): void } 
     return { hasKey: await vault.has('secrets', OLLAMA_KEY) };
   });
 
-  return { dispose: () => shellRunner.killAll() };
+  return {
+    // A council member's or script node's shell is its own process group and would outlive Agents; an
+    // in-flight run is cancelled so its node's process group dies with it, and the demo API closes.
+    dispose: async () => {
+      shellRunner.killAll();
+      await disposeWorkflows();
+    },
+  };
 }
