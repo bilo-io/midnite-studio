@@ -152,7 +152,8 @@ describe('an SF3D-style mesh imported as an asset part', () => {
     const boneOf = (v: number) => rig.bones[skin!.joints[v * MAX_INFLUENCES]!]!.name;
     expect(boneOf(nearest(0.12, 0.12, 0))).toMatch(/^left(LowerLeg|Foot)$/);
     expect(boneOf(nearest(0, 1.79, 0))).toBe('head');
-  });
+    // Auto-rigging a whole imported mesh is CPU-bound: it times out at the default 5 s under a full, loaded gate.
+  }, 30_000);
 
   it('poses: a walk clip moves the vertices, the rest pose does not', async () => {
     const { kit, target } = await imported();
