@@ -1,0 +1,64 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Mind (Phase 113 Theme I) — the second app that ships as its own bundle:
+# `packages/features/notes` + `packages/frame` + `shared`, composed in src/.
+# `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+id: 'app-mind'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-mind'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-notes'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/notes/renderer/**/*'
+      - '/packages/features/notes/manifest.ts'
+      - '/packages/features/notes/main/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/notes/renderer/**/*'
+      - '/packages/features/notes/manifest.ts'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/notes/renderer/**/*'
+      - '/packages/features/notes/manifest.ts'
