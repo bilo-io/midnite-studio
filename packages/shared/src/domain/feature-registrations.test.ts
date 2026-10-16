@@ -30,6 +30,8 @@ const LEGACY_VIEW_IDS = [
   'optimizer',
   // Phase 113 Theme I: Monitor became a view (it was Settings pages and a status-bar flyout).
   'monitor',
+  // Phase 113 Theme J: the Vault, a metadata-only view over the stored secrets.
+  'vault',
   'tests',
   'database',
   'tasks',

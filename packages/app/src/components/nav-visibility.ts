@@ -17,6 +17,7 @@ export const RAIL_VIEW_IDS: readonly ViewId[] = [
   'search',
   'optimizer',
   'monitor',
+  'vault',
   'tests',
   'database',
   'apiClient',

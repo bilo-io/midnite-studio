@@ -2,6 +2,7 @@ import type { IconType } from 'react-icons';
 
 import { monitorManifest } from '@midnite/studio-feature-monitor/renderer';
 import { optimizerManifest } from '@midnite/studio-feature-optimizer/renderer';
+import { vaultManifest } from '@midnite/studio-feature-vault/renderer';
 
 import type { ViewId } from '../store/ui-store';
 import { VIEW_ICON } from './nav-icons';
@@ -71,6 +72,8 @@ export const WORKSPACE_NAV_ITEMS: RailNavItem[] = [
   { ...optimizerManifest.views[0].rail, view: 'optimizer', icon: VIEW_ICON.optimizer },
   // Phase 113 Theme I: the same, for the Monitor view.
   { ...monitorManifest.views[0].rail, view: 'monitor', icon: VIEW_ICON.monitor },
+  // Phase 113 Theme J: and for the Vault view.
+  { ...vaultManifest.views[0].rail, view: 'vault', icon: VIEW_ICON.vault },
   {
     view: 'tests',
     label: 'Tests',

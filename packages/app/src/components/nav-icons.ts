@@ -16,6 +16,7 @@ import {
   LuGitCommitVertical,
   LuHistory,
   LuHouse,
+  LuKeyRound,
   LuLayoutDashboard,
   LuLayoutGrid,
   LuLock,
@@ -108,6 +109,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   sessions: PiTerminalDuotone,
   optimizer: LuGauge,
   monitor: LuActivity,
+  vault: LuKeyRound,
   apiClient: LuSend,
   settings: LuSettings,
 };

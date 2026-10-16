@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme J (slice 1) — the Vault feature, view and app
+
+[PR #875](https://github.com/bilo-io/midnite-studio/pull/875). Secrets, forge accounts and database logins are listed, set, rotated and removed from one Vault view in Studio and from `apps/vault`, with no stored value ever sent back to a renderer — enforced by a schema walk over every channel the feature uses.
+
 ## 2026-10-16 — Phase 113 Theme I (slice 2) — Monitor's sessions and token spend; Theme I done
 
 [PR #874](https://github.com/bilo-io/midnite-studio/pull/874). Monitor lists live terminal sessions with their uptime and the broker's state, and sums token spend per agent and per session from each agent's own transcript; the status bar's monitor flyout hands off to the Monitor view.

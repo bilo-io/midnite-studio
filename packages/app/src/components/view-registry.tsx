@@ -2,6 +2,7 @@ import { lazy, type ComponentType } from 'react';
 
 import { monitorManifest, monitorViews } from '@midnite/studio-feature-monitor/renderer';
 import { optimizerManifest, optimizerViews } from '@midnite/studio-feature-optimizer/renderer';
+import { vaultManifest, vaultViews } from '@midnite/studio-feature-vault/renderer';
 
 import { GraphView } from '../features/graph/graph-view';
 import type { ViewId } from '../store/ui-store';
@@ -74,6 +75,7 @@ const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.Histo
 // keeps its own lazy chunk exactly as before.
 const OptimizerPage = lazy(() => optimizerViews.optimizer().then((Component) => ({ default: Component })));
 const MonitorPage = lazy(() => monitorViews.monitor().then((Component) => ({ default: Component })));
+const VaultPage = lazy(() => vaultViews.vault().then((Component) => ({ default: Component })));
 const loadSessionsView = () => import('../features/sessions/sessions-view');
 const SessionsView = lazy(() => loadSessionsView().then((m) => ({ default: m.SessionsView })));
 const loadApiClientView = () => import('../features/api-client/api-client-view');
@@ -219,6 +221,7 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // package, not this table, now says whether its view needs a repo.
   optimizer: { Component: OptimizerPage, global: optimizerManifest.views[0].global },
   monitor: { Component: MonitorPage, global: monitorManifest.views[0].global },
+  vault: { Component: VaultPage, global: vaultManifest.views[0].global },
   // Not global: its collections live under `.midnite/api/` in an open repo, so
   // it yields to `EmptyWorkspace` exactly like Files or Graph.
   apiClient: { Component: ApiClientView },

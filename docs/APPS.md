@@ -98,6 +98,7 @@ The apps, grouped by owner:
 | `finance-dashboard` | money | listed with Money in the map |
 | `diagnostics` | monitor | problem list and crash log; the status-bar segment stays in the frame |
 | `monitor` | monitor | full view; the status-bar segment stays in the frame |
+| `vault` | vault | the metadata-only view of stored secrets, forge accounts and database logins |
 
 A tuple layer (`media`) lists the owner first; the others reuse the folder.
 

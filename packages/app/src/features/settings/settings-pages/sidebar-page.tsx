@@ -59,6 +59,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   sessions: 'Sessions',
   optimizer: 'Optimizer',
   monitor: 'Monitor',
+  vault: 'Vault',
   apiClient: 'API Client',
   settings: 'Settings',
 };

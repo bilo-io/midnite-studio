@@ -64,6 +64,7 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   sessions: 'Agent Sessions',
   optimizer: 'Workspace Optimizer',
   monitor: 'System Monitor',
+  vault: 'Vault',
   apiClient: 'API Client',
   settings: 'Settings',
 };
@@ -97,6 +98,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   sessions: 'agent session past closed transcripts',
   optimizer: 'clean scan storage memory gpu disk space node_modules trash',
   monitor: 'cpu ram memory gpu disk battery health toolchain crash log diagnostics metrics',
+  vault: 'secrets credentials key token password forge account login keychain',
   apiClient: 'api client http request postman collection rest graphql send response',
   settings: 'preferences configuration options theme',
 };

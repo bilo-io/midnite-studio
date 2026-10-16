@@ -253,6 +253,7 @@ jobs:
           frame:typecheck frame:lint frame:test
           feature-optimizer:typecheck feature-optimizer:lint feature-optimizer:test
           feature-monitor:typecheck feature-monitor:lint feature-monitor:test
+          feature-vault:typecheck feature-vault:lint feature-vault:test
           root:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}

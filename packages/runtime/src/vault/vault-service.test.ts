@@ -164,3 +164,20 @@ describe('runtime vault — two apps, one store', () => {
     expect(await service.forApp('gamer').get('secrets', 'k')).toBeNull();
   });
 });
+
+describe('runtime vault — keys', () => {
+  it('lists entry ids only, honouring the authorize seam and session-only entries', async () => {
+    cipher.setAvailable(true);
+    const open = createVaultService({ directory: dir, cipher }).forApp('vault');
+    await open.set('secrets', 'ollama.apiKey', 'sk-secret-value');
+    expect(await open.keys('secrets')).toEqual(['ollama.apiKey']);
+    expect(JSON.stringify(await open.keys('secrets'))).not.toContain('sk-secret-value');
+
+    const gated = createVaultService({ directory: dir, cipher, authorize: ({ key }) => key !== 'ollama.apiKey' });
+    expect(await gated.forApp('vault').keys('secrets')).toEqual([]);
+
+    cipher.setAvailable(false);
+    await open.set('forge-accounts', 'github:github.com:me', 'token');
+    expect(await open.keys('forge-accounts')).toEqual(['github:github.com:me']);
+  });
+});

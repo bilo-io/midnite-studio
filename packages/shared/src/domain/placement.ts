@@ -87,6 +87,7 @@ export const FEATURE_PLACEMENT = {
   optimizer: 'cleaner',
   monitor: 'monitor',
   diagnostics: 'monitor',
+  vault: 'vault',
   'web-apps': 'browser',
   notes: 'mind',
   agent: 'agents',
