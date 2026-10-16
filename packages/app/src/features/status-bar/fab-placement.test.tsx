@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { useRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { StudioProviders } from '../../compose/studio-providers';
 import { fabPlacementFor, useFabPlacementFlip, type FabPlacement } from './fab-placement';
 import { StatusBar } from './status-bar';
 
@@ -68,7 +69,9 @@ describe('useFabPlacementFlip', () => {
 describe('StatusBar fab slot', () => {
   it('renders the FAB inside the footer when handed one, and nothing otherwise', () => {
     const wrap = (ui: React.ReactElement) => (
-      <QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>
+      <StudioProviders>
+        <QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>
+      </StudioProviders>
     );
     const { rerender } = render(wrap(<StatusBar />));
     expect(screen.queryByTestId('status-bar-fab')).toBeNull();
