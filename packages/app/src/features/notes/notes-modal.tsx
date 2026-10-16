@@ -2,6 +2,8 @@ import { KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { LuEllipsisVertical, LuX } from 'react-icons/lu';
 import { MdOutlineEditNote } from 'react-icons/md';
 
+import { NoteRow, spliceVisibleOrder } from '@midnite/studio-feature-notes/renderer';
+
 import { useDialogs } from '../../components/dialog-host';
 import { EmptyState } from '../../components/empty-state';
 import { IconButton } from '../../components/icon-button';
@@ -10,8 +12,6 @@ import { SortableList } from '../../components/sortable-list';
 import { notesForRepo, useNotesStore } from '../../store/notes-store';
 import { useUiStore } from '../../store/ui-store';
 import { useRepos } from '../../services/queries';
-import { NoteRow } from './note-row';
-import { spliceVisibleOrder } from './notes-reorder';
 
 /**
  * The composer's resize range, in lines of its own `leading-5` (20px) text.

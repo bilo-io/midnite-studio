@@ -2,11 +2,10 @@ import type { RepoDescriptor } from '@midnite/studio-shared';
 import { KeyboardEvent, MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LuGripVertical, LuLightbulb, LuTrash2, LuZap } from 'react-icons/lu';
 
-import { useDialogs } from '../../components/dialog-host';
-import { IconButton } from '../../components/icon-button';
-import { useSortableRow } from '../../components/sortable-list';
-import { Note, NoteStatus, useNotesStore } from '../../store/notes-store';
-import { useSkillHandoff } from '../agent/use-skill-handoff';
+import { useFrameChrome, useSortableRow } from '@midnite/studio-frame';
+
+import { useNotesHost } from './host';
+import { Note, NoteStatus, useNotesStore } from './notes-store';
 
 /**
  * Exported for `notes-view.tsx` (Phase 86 Theme G) — the page's own status
@@ -54,8 +53,9 @@ export function NoteRow({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(note.body);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { IconButton, useDialogs } = useFrameChrome();
   const dialogs = useDialogs();
-  const handoff = useSkillHandoff();
+  const handoff = useNotesHost().useHandoff();
   const drag = useSortableRow(note.id);
   const isCard = variant === 'card';
 
@@ -125,14 +125,14 @@ export function NoteRow({
   };
 
   const handleDraftPlan = () => {
-    if (!repo) return;
+    if (!repo || !handoff) return;
     handoff({ skillId: 'brainstorm', repo, body: note.body });
     useNotesStore.getState().setStatus(note.id, 'planned');
     onHandoff?.();
   };
 
   const handleAdhocTask = () => {
-    if (!repo) return;
+    if (!repo || !handoff) return;
     handoff({ skillId: 'execAdhoc', repo, body: note.body });
     useNotesStore.getState().setStatus(note.id, 'planned');
     onHandoff?.();
@@ -148,7 +148,7 @@ export function NoteRow({
     });
   };
 
-  const repoMissing = !repo;
+  const repoMissing = !repo || !handoff;
 
   const stopRowClick = (e: MouseEvent) => {
     if (isCard) e.stopPropagation();
@@ -178,7 +178,7 @@ export function NoteRow({
         label="Draft plan"
         size="sm"
         disabled={repoMissing}
-        disabledReason={repoMissing ? 'Repository is no longer available' : undefined}
+        disabledReason={repoMissing ? (handoff ? 'Repository is no longer available' : 'No agents in this app') : undefined}
         onClick={(e) => {
           stopRowClick(e);
           handleDraftPlan();
@@ -190,7 +190,7 @@ export function NoteRow({
         label="Adhoc task"
         size="sm"
         disabled={repoMissing}
-        disabledReason={repoMissing ? 'Repository is no longer available' : undefined}
+        disabledReason={repoMissing ? (handoff ? 'Repository is no longer available' : 'No agents in this app') : undefined}
         onClick={(e) => {
           stopRowClick(e);
           handleAdhocTask();

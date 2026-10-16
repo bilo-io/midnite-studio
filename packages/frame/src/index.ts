@@ -100,6 +100,7 @@ export type {
   BlastRadiusKind,
   ConfirmRequest,
   FrameDialogs,
+  FrameMenuItem,
   IconButtonProps,
   IconComponent,
 } from './chrome/types';

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import {
   LuCode,
@@ -10,30 +10,18 @@ import {
 } from 'react-icons/lu';
 import { MdOutlineEditNote } from 'react-icons/md';
 
-import { EmptyState } from '../../components/empty-state';
-import { PageDetachMark } from '../../components/page-detach-mark';
-import { IconButton } from '../../components/icon-button';
-import { ResizeHandle } from '../../components/resizable/resize-handle';
-import { useResizable } from '../../components/resizable/use-resizable';
-import { SortableList } from '../../components/sortable-list';
-import { useDialogs } from '../../components/dialog-host';
-import { useRepos } from '../../services/queries';
-import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
-import { notesForRepo, useNotesStore, type Note } from '../../store/notes-store';
-import { useSkillHandoff } from '../agent/use-skill-handoff';
-import { MarkdownPreview } from '../files/preview/markdown-preview';
+import {
+  EmptyState,
+  ResizeHandle,
+  SortableList,
+  useFrameChrome,
+  useResizable,
+} from '@midnite/studio-frame';
+
+import { useNotesHost } from './host';
+import { notesForRepo, useNotesStore, type Note } from './notes-store';
 import { NoteRow, NEXT_STATUS, STATUS_CLASSES } from './note-row';
 import { spliceVisibleOrder } from './notes-reorder';
-
-/**
- * Monaco — lazy-loaded so this third Monaco surface (after file-preview and
- * the diff pane) adds no weight to the initial bundle. Phase 77 shrinks all
- * three at once; the lazy boundary here is what makes that possible without
- * touching every call site.
- */
-const CodeEditor = lazy(() =>
-  import('../files/preview/code-editor').then((m) => ({ default: m.CodeEditor })),
-);
 
 /** Composer line-height arithmetic, matching notes-modal.tsx. */
 const COMPOSER_LINE_HEIGHT = 20;
@@ -54,27 +42,27 @@ const COMPOSER_MAX_HEIGHT = 10 * COMPOSER_LINE_HEIGHT + COMPOSER_PADDING;
  * whole view shows a single empty-state rather than two half-empty panes.
  */
 export function NotesView() {
+  const host = useNotesHost();
+  const { Editor, Preview } = host;
+  const { IconButton, PageDetachMark, useDialogs } = useFrameChrome();
   // ── hydration ──────────────────────────────────────────────────────────────
   useEffect(() => {
     void useNotesStore.getState().hydrate();
   }, []);
 
   // ── layout ─────────────────────────────────────────────────────────────────
-  const layout = useUiStore((s) => s.layout);
-  const setLayout = useUiStore((s) => s.setLayout);
-
+  const listWidth = host.useListWidth();
   const list = useResizable({
-    size: layout.notesListWidth,
-    onSize: (value) => setLayout('notesListWidth', value),
-    initial: DEFAULT_LAYOUT.notesListWidth,
+    size: listWidth.width,
+    onSize: listWidth.setWidth,
+    initial: listWidth.initial,
     axis: 'x',
-    ...LAYOUT_BOUNDS.notesListWidth,
+    min: listWidth.min,
+    max: listWidth.max,
   });
 
   // ── repo / notes state ─────────────────────────────────────────────────────
-  const selectedRepoId = useUiStore((s) => s.selectedRepoId);
-  const reposQuery = useRepos();
-  const repos = reposQuery.data ?? [];
+  const { selectedRepoId, repos } = host.useRepoContext();
   const activeRepo = repos.find((r) => r.id === selectedRepoId);
 
   const allNotesRecord = useNotesStore((s) => s.notes);
@@ -109,7 +97,7 @@ export function NotesView() {
 
   const selectedNote: Note | null = selectedNoteId ? (allNotesRecord[selectedNoteId] ?? null) : null;
 
-  const handoff = useSkillHandoff();
+  const handoff = host.useHandoff();
 
   // ── derived ────────────────────────────────────────────────────────────────
   const doneCount = repoNotes.filter((n) => n.done).length;
@@ -149,43 +137,47 @@ export function NotesView() {
     const staleNotes = allNotes.filter((n) => !validRepoIds.includes(n.repoId));
     const staleCount = staleNotes.length;
 
-    dialogs.openMenu(
-      { clientX: event.clientX, clientY: event.clientY },
-      [
-        {
-          label: 'Remove notes for removed repositories',
-          description:
-            staleCount > 0
-              ? `${staleCount} orphaned note${staleCount === 1 ? '' : 's'}`
-              : 'No orphaned notes found',
-          disabled: staleCount === 0,
-          onSelect: () => {
-            dialogs.confirm({
-              title: 'Remove notes for removed repositories',
-              body: `Remove ${staleCount} note${
-                staleCount === 1 ? '' : 's'
-              } belonging to repositories no longer present in your workspace?`,
-              confirmLabel: 'Remove notes',
-              danger: true,
-              onConfirm: () => {
-                useNotesStore.getState().pruneMissingRepos(validRepoIds);
-              },
-            });
-          },
+    const confirmPrune = () =>
+      dialogs.confirm({
+        title: 'Remove notes for removed repositories',
+        body: `Remove ${staleCount} note${
+          staleCount === 1 ? '' : 's'
+        } belonging to repositories no longer present in your workspace?`,
+        confirmLabel: 'Remove notes',
+        danger: true,
+        onConfirm: () => {
+          useNotesStore.getState().pruneMissingRepos(validRepoIds);
         },
-      ],
-    );
+      });
+
+    // An app without a menu host skips straight to the confirm (or says there is nothing to do).
+    if (!dialogs.openMenu) {
+      if (staleCount > 0) confirmPrune();
+      else dialogs.notify({ title: 'Nothing to remove', body: 'No orphaned notes found' });
+      return;
+    }
+    dialogs.openMenu({ clientX: event.clientX, clientY: event.clientY }, [
+      {
+        label: 'Remove notes for removed repositories',
+        description:
+          staleCount > 0
+            ? `${staleCount} orphaned note${staleCount === 1 ? '' : 's'}`
+            : 'No orphaned notes found',
+        disabled: staleCount === 0,
+        onSelect: confirmPrune,
+      },
+    ]);
   };
 
   // Content-pane action handlers — only callable when selectedNote is non-null
   const handleBrainstorm = useCallback(() => {
-    if (!selectedNote || !activeRepo) return;
+    if (!selectedNote || !activeRepo || !handoff) return;
     handoff({ skillId: 'brainstorm', repo: activeRepo, body: selectedNote.body });
     useNotesStore.getState().setStatus(selectedNote.id, 'planned');
   }, [selectedNote, activeRepo, handoff]);
 
   const handleExecAdhoc = useCallback(() => {
-    if (!selectedNote || !activeRepo) return;
+    if (!selectedNote || !activeRepo || !handoff) return;
     handoff({ skillId: 'execAdhoc', repo: activeRepo, body: selectedNote.body });
     useNotesStore.getState().setStatus(selectedNote.id, 'planned');
   }, [selectedNote, activeRepo, handoff]);
@@ -227,7 +219,7 @@ export function NotesView() {
       <EmptyState
         icon={MdOutlineEditNote}
         title="No repository open"
-        body="Open a repository to see its notes here, or capture one from anywhere with Mod+L then N."
+        body={host.noRepoHint ?? 'Open a repository to see its notes here, or capture one from anywhere with Mod+L then N.'}
       />
     );
   }
@@ -293,7 +285,7 @@ export function NotesView() {
             <EmptyState
               icon={MdOutlineEditNote}
               title="Nothing captured yet"
-              body="Write the thought you'd otherwise lose."
+              body={host.emptyHint ?? "Write the thought you'd otherwise lose."}
             />
           ) : visibleNotes.length === 0 ? (
             <div className="flex h-full items-center justify-center p-6 text-center text-xs text-muted-foreground">
@@ -377,8 +369,8 @@ export function NotesView() {
                 icon={LuLightbulb}
                 label="Draft plan"
                 size="sm"
-                disabled={!activeRepo}
-                disabledReason={!activeRepo ? 'No repository open' : undefined}
+                disabled={!activeRepo || !handoff}
+                disabledReason={!activeRepo ? 'No repository open' : !handoff ? 'No agents in this app' : undefined}
                 onClick={handleBrainstorm}
               />
 
@@ -387,8 +379,8 @@ export function NotesView() {
                 icon={LuZap}
                 label="Adhoc task"
                 size="sm"
-                disabled={!activeRepo}
-                disabledReason={!activeRepo ? 'No repository open' : undefined}
+                disabled={!activeRepo || !handoff}
+                disabledReason={!activeRepo ? 'No repository open' : !handoff ? 'No agents in this app' : undefined}
                 onClick={handleExecAdhoc}
               />
 
@@ -414,7 +406,7 @@ export function NotesView() {
             */}
             <div data-testid="notes-content-pane" className="flex min-h-0 flex-1 flex-col">
               {showPreview ? (
-                <MarkdownPreview content={selectedNote.body} />
+                <Preview content={selectedNote.body} />
               ) : (
                 /*
                   `key={selectedNote.id}` force-remounts CodeEditor each time
@@ -434,7 +426,7 @@ export function NotesView() {
                     </div>
                   }
                 >
-                  <CodeEditor
+                  <Editor
                     key={selectedNote.id}
                     fileName={`${selectedNote.id}.md`}
                     value={selectedNote.body}

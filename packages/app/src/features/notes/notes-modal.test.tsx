@@ -5,6 +5,7 @@ import { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
+import { StudioProviders } from '../../compose/studio-providers';
 import { useNotesStore } from '../../store/notes-store';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../store/ui-store';
@@ -39,7 +40,9 @@ function withProviders(ui: ReactNode) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <DialogHost>{ui}</DialogHost>
+      <DialogHost>
+        <StudioProviders>{ui}</StudioProviders>
+      </DialogHost>
     </QueryClientProvider>
   );
 }
