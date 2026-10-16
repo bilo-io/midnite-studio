@@ -41,6 +41,7 @@ export const FINANCE_WIDGET_IDS = [
   'fin-markets',
   'fin-transactions',
   'fin-news',
+  'fin-accounts',
 ] as const;
 
 /** Repository-independent utility cards, ported from midnite's catalogue. */
@@ -112,6 +113,7 @@ export const WIDGET_DEFAULT_SIZE: Record<WidgetId, { w: number; h: number }> = {
   'fin-markets': { w: 4, h: 12 },
   'fin-transactions': { w: 7, h: 11 },
   'fin-news': { w: 5, h: 11 },
+  'fin-accounts': { w: 5, h: 14 },
   clock: { w: 3, h: 5 },
   date: { w: 3, h: 5 },
   scratchpad: { w: 4, h: 7 },

@@ -11,6 +11,7 @@ import {
   LuChartColumn,
   LuChartCandlestick,
   LuChartPie,
+  LuLandmark,
   LuCircleDot,
   LuClock,
   LuCoins,
@@ -34,6 +35,7 @@ import {
 import GridLayout, { useContainerWidth, type LayoutItem } from 'react-grid-layout';
 
 import {
+  AccountsWidget,
   AllocationWidget,
   AssetListWidget,
   AssetStackWidget,
@@ -135,6 +137,7 @@ const WIDGET_ICON: Record<WidgetId, IconComponent> = {
   'fin-bank-cards': LuCreditCard,
   'fin-assets': LuCoins,
   'fin-allocation': LuChartPie,
+  'fin-accounts': LuLandmark,
   'fin-chart': LuChartCandlestick,
   'fin-watchlist': LuStar,
   'fin-markets': LuLayoutGrid,
@@ -418,6 +421,8 @@ export function DashboardView() {
               return <AssetStackWidget />;
             case 'fin-allocation':
               return <AllocationWidget />;
+            case 'fin-accounts':
+              return <AccountsWidget />;
             case 'fin-chart':
               return <BigChartWidget />;
             case 'fin-watchlist':

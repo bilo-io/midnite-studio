@@ -15,6 +15,7 @@ import {
   AccountEnvironmentSchema,
   AccountIdSchema,
   AccountSnapshotSchema,
+  AllocationSliceSchema,
   BrokerAccountSchema,
 } from '../finance-accounts';
 import {
@@ -4697,7 +4698,11 @@ export const FinanceAccountSnapshotsRequest = z.object({
   id: AccountIdSchema.optional(),
 });
 export const FinanceAccountSnapshotsResponse = GitOpResultOf(
-  z.object({ snapshots: z.array(AccountSnapshotSchema) }),
+  z.object({
+    snapshots: z.array(AccountSnapshotSchema),
+    /** Allocation across the accounts returned, one slice per account (errored accounts drop out). */
+    byAccount: z.array(AllocationSliceSchema),
+  }),
 );
 
 // --- markets: the Finance dashboard (key-free, USD-denominated) -----------------

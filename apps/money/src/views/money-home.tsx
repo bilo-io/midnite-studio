@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { PiChartLineUpFill } from 'react-icons/pi';
 
 import {
+  AccountsWidget,
   AllocationWidget,
   AssetListWidget,
   BankCardsWidget,
@@ -73,6 +74,9 @@ export function MoneyHome() {
           </Card>
           <Card label="Markets">
             <AssetListWidget list="markets" />
+          </Card>
+          <Card label="Accounts" className="min-h-[380px] lg:col-span-2">
+            <AccountsWidget />
           </Card>
           <Card label="Allocation">
             <AllocationWidget />

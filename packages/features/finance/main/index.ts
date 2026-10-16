@@ -3,6 +3,7 @@ import { CHANNELS, failure, schemas, type GitOpResult } from '@midnite/studio-sh
 
 import { financeManifest } from '../manifest';
 import type { AccountsService } from './accounts/accounts-service';
+import { allocationByAccount } from './accounts/derive';
 import { getFinanceHistory, getFinanceQuote, searchFinanceAssets } from './finance-service';
 import { defaultFetcher, type Fetcher } from './markets/http';
 import { RATES_TTL_MS } from './markets/markets-service';
@@ -150,7 +151,9 @@ export const financeMain = defineFeatureMain<FinanceMainServices>({
     ipc.handle(CHANNELS.financeAccountSnapshots, schemas.FinanceAccountSnapshotsRequest, async (req) => {
       if (!accounts) return failure(NO_ACCOUNTS);
       try {
-        return ok({ snapshots: await accounts.snapshots(req) });
+        const snapshots = await accounts.snapshots(req);
+        const byAccount = allocationByAccount(snapshots.map((s) => ({ label: s.account.label, totalUsd: s.totalUsd })));
+        return ok({ snapshots, byAccount });
       } catch (err) {
         return accountsFailure(err);
       }
