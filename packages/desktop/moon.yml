@@ -36,6 +36,8 @@ dependsOn:
     scope: 'development'
   - id: 'feature-monitor'
     scope: 'development'
+  - id: 'feature-notes'
+    scope: 'development'
   - id: 'app'
     scope: 'development'
 
@@ -58,6 +60,7 @@ tasks:
       - 'runtime:build'
       - 'feature-optimizer:build'
       - 'feature-monitor:build'
+      - 'feature-notes:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
@@ -71,6 +74,8 @@ tasks:
       - '/packages/features/optimizer/manifest.ts'
       - '/packages/features/monitor/main/**/*'
       - '/packages/features/monitor/manifest.ts'
+      - '/packages/features/notes/main/**/*'
+      - '/packages/features/notes/manifest.ts'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -87,6 +92,7 @@ tasks:
       - 'runtime:build'
       - 'feature-optimizer:build'
       - 'feature-monitor:build'
+      - 'feature-notes:build'
       - '~:bundle'
     inputs:
       - 'src/**/*'
@@ -106,6 +112,8 @@ tasks:
       - '/packages/features/optimizer/manifest.ts'
       - '/packages/features/monitor/main/**/*'
       - '/packages/features/monitor/manifest.ts'
+      - '/packages/features/notes/main/**/*'
+      - '/packages/features/notes/manifest.ts'
 
   lint:
     inputs:
@@ -142,6 +150,8 @@ tasks:
       - '/packages/features/optimizer/manifest.ts'
       - '/packages/features/monitor/main/**/*'
       - '/packages/features/monitor/manifest.ts'
+      - '/packages/features/notes/main/**/*'
+      - '/packages/features/notes/manifest.ts'
     outputs:
       - 'dist/bundle'
 

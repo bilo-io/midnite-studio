@@ -254,6 +254,7 @@ jobs:
           feature-optimizer:typecheck feature-optimizer:lint feature-optimizer:test
           feature-monitor:typecheck feature-monitor:lint feature-monitor:test
           feature-vault:typecheck feature-vault:lint feature-vault:test
+          feature-notes:typecheck feature-notes:lint feature-notes:test
           root:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}

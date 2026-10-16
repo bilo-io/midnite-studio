@@ -22,6 +22,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@floating-ui/dom": "^1.8.0",
     "@midnite/studio-feature-monitor": "workspace:*",
+    "@midnite/studio-feature-notes": "workspace:*",
     "@midnite/studio-feature-optimizer": "workspace:*",
     "@midnite/studio-feature-vault": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
