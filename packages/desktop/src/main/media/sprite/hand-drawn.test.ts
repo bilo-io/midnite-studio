@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { createRgba, hexToRgb, ok, failure, SPRITE_APPROVE_FIRST, SPRITE_POSE_TABLES, type SpriteFramesFile } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ImageBytesRequest } from '../image/image-service';
+import type { ImageBytesRequest } from '@midnite/studio-feature-media-images/main';
 import type { VisionCall } from '../model/engines';
 import { encodePngRgba8 } from '../png/png-codec';
 import { consistencyUnchecked, createHandDrawnRunner, handDrawnPreflight } from './hand-drawn';

@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme Q (slice 1) — the shared media feature, Docs and Images, and apps/creator
+
+[PR #879](https://github.com/bilo-io/midnite-studio/pull/879). Media's shell and plumbing are one feature Creator, Media and Gamer can share, behind a tab-registry contract in the frame; Docs and Images are features of their own; Midnite Creator opens on them; and a test now keeps every app's vault behind the user's grants.
+
 ## 2026-10-16 — Phase 113 Theme P (slice 1) — the Finance feature and apps/money
 
 [PR #878](https://github.com/bilo-io/midnite-studio/pull/878). Finance and the finance dashboard are one feature package Studio composes unchanged, the market-data key never reaches a renderer, and Midnite Money is its own app with its own home, denied that key until the user grants it in Vault; trading is recorded as deferred.

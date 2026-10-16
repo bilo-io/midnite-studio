@@ -49,6 +49,11 @@ const APP = 'packages/app/src/compose/studio-providers.tsx';
 const APP_TEST = 'packages/app/src/compose/optimizer/storage-tab.test.tsx';
 const SUITE_APP = 'apps/browser/src/browser-app.tsx';
 const DESKTOP = 'packages/desktop/src/main/ipc/optimizer-handlers.ts';
+// Phase 113 Theme Q: media is one folder split into a shell and tab packages that never import each other.
+const MEDIA_CORE = 'packages/features/media-core/renderer/media-shell.tsx';
+const MEDIA_DOCS = 'packages/features/media-docs/renderer/docs-tab.tsx';
+const MEDIA_IMAGES = 'packages/features/media-images/renderer/image-tab.tsx';
+const MEDIA_DOCS_MAIN = 'packages/features/media-docs/main/index.ts';
 
 /** [description, file, import specifier, substring the firing message must contain] */
 const REJECTED = [
@@ -98,6 +103,14 @@ const REJECTED = [
   ['a suite app imports the runtime', SUITE_APP, '@midnite/studio-runtime', 'main-process only'],
   ["a suite app imports a feature's main half", SUITE_APP, '@midnite/studio-feature-optimizer/main', "feature's main half runs in the main process"],
   ['a feature imports a suite app (relative path)', FEATURE_RENDERER, '../../../../apps/browser/src/index', 'Nothing below an app imports one'],
+  // --- Theme Q: the media tab-registry contract lives in the frame, not in media-core --------
+  ['a media tab imports the media shell (package name)', MEDIA_DOCS, '@midnite/studio-feature-media-core/renderer', 'never imports another feature'],
+  ['a media tab imports the media shell (relative path)', MEDIA_DOCS, '../../media-core/renderer/kit', 'never imports another feature'],
+  ['a media tab imports a sibling tab (package name)', MEDIA_IMAGES, '@midnite/studio-feature-media-docs/renderer', 'never imports another feature'],
+  ['a media tab imports a sibling tab (relative path)', MEDIA_IMAGES, '../../media-docs/renderer/docs-tab', 'never imports another feature'],
+  ['the media shell imports a tab (package name)', MEDIA_CORE, '@midnite/studio-feature-media-images/renderer', 'never imports another feature'],
+  ['the media shell imports a tab (relative path)', MEDIA_CORE, '../../media-images/renderer/index', 'never imports another feature'],
+  ["a media tab's main half imports media-core's main half", MEDIA_DOCS_MAIN, '@midnite/studio-feature-media-core/main', 'never imports another feature'],
 ];
 
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */
@@ -125,6 +138,10 @@ const ALLOWED = [
   ['the launcher imports electron-updater', 'apps/launcher/src/main/updater.ts', 'electron-updater'],
   ["Studio's update service imports electron-updater", 'packages/desktop/src/main/update-service.ts', 'electron-updater'],
   ["desktop imports one of the runtime's broker files (Theme D)", DESKTOP, '@midnite/studio-runtime/broker/protocol'],
+  // Theme Q: what a media tab composes instead — the frame's registry contract and kit port.
+  ['a media tab imports the frame (descriptor type + media kit)', MEDIA_DOCS, '@midnite/studio-frame'],
+  ['the media shell imports the frame (the contract it implements)', MEDIA_CORE, '@midnite/studio-frame'],
+  ['an app imports the media shell and a media tab', APP, '@midnite/studio-feature-media-docs/renderer'],
 ];
 
 describe('eslint layer boundaries (Phase 113 Theme C)', () => {

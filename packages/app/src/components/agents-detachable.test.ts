@@ -10,7 +10,7 @@ const SOURCES = import.meta.glob<string>(
   [
     '../features/councils/councils-view.tsx',
     '../features/workflows/workflow-list.tsx',
-    '../features/media/media-view.tsx',
+    '../../../features/media-core/renderer/media-shell.tsx',
     '../features/models/models-view.tsx',
   ],
   { query: '?raw', import: 'default', eager: true },

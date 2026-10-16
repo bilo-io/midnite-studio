@@ -8,7 +8,6 @@ import {
   type ImageProviderId,
   type ImageProviderStatus,
 } from '@midnite/studio-shared';
-import type { Dispatch } from 'react';
 import { LuKeyRound, LuSquare } from 'react-icons/lu';
 import { SiGooglegemini, SiOllama } from 'react-icons/si';
 
@@ -21,7 +20,7 @@ import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-pan
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
-import { generateBlockedReason, type CreateAction, type CreateState } from './create-panel-state';
+import { generateBlockedReason, type ImageCreatePanelProps } from '@midnite/studio-feature-media-images/renderer';
 
 /** One glyph per provider — shown in the list and on the chosen value. */
 export const IMAGE_PROVIDER_ICONS: Record<ImageProviderId, IconComponent> = {
@@ -72,17 +71,7 @@ export function CreatePanel({
   onGenerate,
   onCancel,
   onPick,
-}: {
-  state: CreateState;
-  dispatch: Dispatch<CreateAction>;
-  statuses: readonly ImageProviderStatus[];
-  running: boolean;
-  error: string | null;
-  onGenerate: () => void;
-  onCancel: () => void;
-  /** Fired after the picker changes provider/model, e.g. to remember it as the default. */
-  onPick?: (provider: ImageProviderId, model: string) => void;
-}) {
+}: ImageCreatePanelProps) {
   const voice = useVoiceThread();
   const mic = useComposerMic({ onTranscript: (text) => dispatch({ type: 'prompt', prompt: appendDictation(state.prompt, text) }) });
   useSpeakOutcome(voice, running, error, 'Your image is ready.');

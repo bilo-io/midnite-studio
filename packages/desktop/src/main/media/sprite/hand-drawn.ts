@@ -21,8 +21,7 @@ import {
   type SpriteGenerateRequest,
 } from '@midnite/studio-shared';
 
-import type { ImageBytesRequest } from '../image/image-service';
-import type { GeneratedImage } from '../image/types';
+import type { GeneratedImage, ImageBytesRequest } from '@midnite/studio-feature-media-images/main';
 import type { VisionCall } from '../model/engines';
 import type { SpriteJobRunner } from './sprite-service';
 

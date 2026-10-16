@@ -5,8 +5,7 @@ import { dirname, join } from 'node:path';
 import { SPRITE_ONE_SHOT_TOO_MANY, type GitOpResult, type SpriteSheetSpec } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ImageBytesRequest } from '../image/image-service';
-import type { GeneratedImage } from '../image/types';
+import type { GeneratedImage, ImageBytesRequest } from '@midnite/studio-feature-media-images/main';
 import { encodePngRgba8 } from '../png/png-codec';
 import { createOneShotRunner, ONE_SHOT_SHEET_FILE, oneShotPreflight } from './one-shot';
 import { createSpriteService, type SpriteJobRunner } from './sprite-service';

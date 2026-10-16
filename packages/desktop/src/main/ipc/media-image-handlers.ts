@@ -1,14 +1,19 @@
-import { CHANNELS, EVENT_CHANNELS, failure, MediaTabSchema, ok, schemas } from '@midnite/studio-shared';
-
-import { agyImageProvider, isAgyInstalled } from '../media/image/agy';
-import { geminiImageProvider } from '../media/image/gemini';
-import { createImageService } from '../media/image/image-service';
-import { createOllamaImageProvider, imageCapableModels } from '../media/image/ollama';
-import { openaiImageProvider } from '../media/image/openai';
+import {
+  agyImageProvider,
+  createImageService,
+  createOllamaImageProvider,
+  geminiImageProvider,
+  imageCapableModels,
+  isAgyInstalled,
+  mediaImagesMain,
+  openaiImageProvider,
+} from '@midnite/studio-feature-media-images/main';
+import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { EVENT_CHANNELS, failure, MediaTabSchema, ok } from '@midnite/studio-shared';
 import { ollamaShow, ollamaTags, resolveOllamaBaseUrl } from '../ollama/client';
 import { getConfiguredOllamaHost } from '../ollama/settings-service';
 import { broadcastToAllWindows } from '../window-manager';
-import { handle, handleBare } from './handle';
+import { handle, handleBare, handleSend } from './handle';
 import { mediaStore } from './media-handlers';
 import { readSecret } from './secrets-handlers';
 
@@ -60,24 +65,12 @@ export const imageService = createImageService({
   },
 });
 
+/** Studio's composition of the Images feature's main half (Phase 113 Theme Q). */
 export function registerMediaImageHandlers(): void {
-  handleBare(CHANNELS.mediaImageProviders, async () => ({ providers: await imageService.providerStatuses() }));
-  handle(
-    CHANNELS.mediaImageGenerate,
-    schemas.MediaImageGenerateRequest,
-    async (req) => {
-      try {
-        return await imageService.generate(req);
-      } catch (error) {
-        return failure(error instanceof Error ? error.message : String(error));
-      }
-    },
-    (issue) => failure(issue),
-  );
-  handle(
-    CHANNELS.mediaImageCancel,
-    schemas.MediaImageCancelRequest,
-    ({ generationId }) => imageService.cancel(generationId),
-    (issue) => failure(issue),
-  );
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    emit: broadcastToAllWindows,
+    trashItem: () => Promise.reject(new Error('images never trash through this context')),
+  };
+  mediaImagesMain.register(ctx, { images: imageService });
 }

@@ -21,6 +21,29 @@ describe('createDialogs', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('prompt asks for a value, validates it and confirms it (Theme Q)', () => {
+    const { useDialogs, DialogHost } = createDialogs();
+    const onConfirm = vi.fn();
+    render(<DialogHost />);
+    act(() =>
+      useDialogs().prompt?.({
+        title: 'New project',
+        label: 'Name',
+        confirmLabel: 'Create',
+        validate: (v) => (v.includes('/') ? 'Use a single folder name.' : null),
+        onConfirm,
+      }),
+    );
+    const input = screen.getByLabelText('Name');
+    fireEvent.change(input, { target: { value: 'a/b' } });
+    expect(screen.getByRole('alert').textContent).toBe('Use a single folder name.');
+    expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(input, { target: { value: 'drafts' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    expect(onConfirm).toHaveBeenCalledWith('drafts');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('cancel closes without confirming', () => {
     const { useDialogs, DialogHost } = createDialogs();
     const onConfirm = vi.fn();

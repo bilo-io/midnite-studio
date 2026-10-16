@@ -11,7 +11,7 @@ import { createIterativeHost } from '../media/model/iterative-host';
 import { createLlmCall } from '../media/model/engines';
 import { createMusicAgents } from '../media/music/music-agents';
 import { createMusicTools } from '../media/music/music-mcp';
-import { runFfmpegExport } from '../media/export-service';
+import { runFfmpegExport } from '@midnite/studio-feature-media-core/main';
 import { createMusicExporter } from '../media/music/music-export';
 import { createMusicService } from '../media/music/music-service';
 import { getMcpAllowMusic, getMcpStatus, mcpShimScriptPath } from '../mcp';

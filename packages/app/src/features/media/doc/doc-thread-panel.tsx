@@ -2,6 +2,8 @@ import { agentHeadlessArgs, loopModelsFor, type DocThreadMessage, type LoopModel
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LuCheck, LuCopy, LuSparkles, LuX } from 'react-icons/lu';
 
+import { applyProposal, lineDiff, useDocThread, type DocThreadPanelProps } from '@midnite/studio-feature-media-docs/renderer';
+
 import { AiComposer, AiThreadFrame, ThinkingIndicator, useComposerMic } from '../../../components/ai-thread';
 import { EmptyState } from '../../../components/empty-state';
 import { useToastStore } from '../../../store/toast-store';
@@ -9,16 +11,14 @@ import { useUiStore } from '../../../store/ui-store';
 import { useAgents } from '../../terminal/use-agents';
 import { AgentModelPicker } from '../agent-model-picker';
 import { MEDIA_PROMPT_BOX } from '../prompt-input';
-import { applyProposal } from './doc-thread';
-import { lineDiff } from './line-diff';
 import { useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
-import type { DocSession } from './use-doc-session';
-import { useDocThread } from './use-doc-thread';
-import type { DocRef } from './use-doc-session';
 
 /**
  * The right pane of Docs (Phase 99 Theme B): the doc's own AI thread.
+ * Studio's half of the Docs host port (Phase 113 Theme Q) — it is built on
+ * Studio's agent roster, ai-thread composer and voice, so it stays here while
+ * the thread's model (`useDocThread`, `applyProposal`) is the feature's.
  *
  * A prompt runs headless through the picked agent (the primary agent by
  * default). With a selection pending (`selection`), the edit is scoped to it;
@@ -33,16 +33,7 @@ export function DocThreadPanel({
   onClearSelection,
   getMarkdown,
   focusToken,
-}: {
-  doc: DocRef | null;
-  session: DocSession;
-  /** Markdown of the selection Ask AI was invoked on, if any. */
-  selection: string | undefined;
-  onClearSelection: () => void;
-  getMarkdown: () => string;
-  /** Changes whenever Ask AI is invoked — focuses the prompt. */
-  focusToken: number;
-}) {
+}: DocThreadPanelProps) {
   const thread = useDocThread(doc);
   const primaryAgent = useUiStore((s) => s.primaryAgent);
   const { agents } = useAgents();

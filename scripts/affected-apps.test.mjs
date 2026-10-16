@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { FEATURE_PLACEMENT, PLACEMENT_APP_IDS } from '../packages/shared/src/domain/placement.ts';
+import { featurePackagePlacement, PLACEMENT_APP_IDS } from '../packages/shared/src/domain/placement.ts';
 import {
   ALL_APPS,
   PLACEMENT_APPS,
@@ -116,8 +116,8 @@ describe('the repo', () => {
       const file = path.join(dir, name, 'moon.yml');
       if (!existsSync(file)) continue;
       const tags = [...readFileSync(file, 'utf8').matchAll(/^\s+-\s+'(app-[a-z-]+)'/gm)].map((m) => m[1]);
-      const placement = FEATURE_PLACEMENT[name];
-      expect(placement, `packages/features/${name} has no FEATURE_PLACEMENT entry`).toBeDefined();
+      const placement = featurePackagePlacement(name);
+      expect(placement, `packages/features/${name} has no FEATURE_PLACEMENT (or FEATURE_PACKAGE_SPLITS) entry`).toBeDefined();
       // A frame feature reaches every app; an app feature its owner(s) and Studio.
       const expected =
         placement === 'frame' ? ['app-all'] : [...[placement].flat().map((app) => `app-${app}`), 'app-studio'];

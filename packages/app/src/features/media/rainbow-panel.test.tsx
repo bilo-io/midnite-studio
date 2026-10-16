@@ -1,7 +1,8 @@
-import { cleanup, render } from '@testing-library/react';
+import { cleanup } from '@testing-library/react';
 import css from 'virtual:midnite-styles-raw';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { renderView as render } from '../../../test-support/render';
 import { MediaLayout } from './media-layout';
 import { MEDIA_TABS } from '@midnite/studio-shared';
 
