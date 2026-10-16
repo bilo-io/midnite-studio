@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme P (slice 2) — read-only brokerage and exchange accounts
+
+[PR #884](https://github.com/bilo-io/midnite-studio/pull/884). Alpaca and Kraken accounts in Money and Studio's finance dashboard — balances, positions, allocation, performance — through connectors that cannot build an order request, with credentials only main can read. Theme P is done.
+
 ## 2026-10-16 — Phase 113 (fix) — every suite app window refuses to navigate away from itself
 
 [PR #882](https://github.com/bilo-io/midnite-studio/pull/882). Only Money and Agents handled `window.open`, and no suite app handled a plain link, so a link in a doc, deck or chat could load a remote page into a window carrying the preload bridge; the runtime's `guardAppWindow` now blocks both and sends http(s) to the system browser, held by `scripts/app-window-guard.test.mjs`.
