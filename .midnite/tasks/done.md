@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme I (slice 2) — Monitor's sessions and token spend; Theme I done
+
+[PR #874](https://github.com/bilo-io/midnite-studio/pull/874). Monitor lists live terminal sessions with their uptime and the broker's state, and sums token spend per agent and per session from each agent's own transcript; the status bar's monitor flyout hands off to the Monitor view.
+
 ## 2026-10-16 — Phase 113 Theme I (slice 1) — the Monitor feature, view and app
 
 [PR #873](https://github.com/bilo-io/midnite-studio/pull/873). Monitor is a feature package (metrics and system health moved out of desktop), a real view in Studio rather than two Settings pages, and `apps/monitor`, an installable bundle built on the app kit.
