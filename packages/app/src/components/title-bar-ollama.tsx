@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { OllamaRunningModel } from '@midnite/studio-shared';
 
 import { formatBytes } from '../features/monitor/format-bytes';
-import { useOllamaRunning, useOllamaStatus } from '../features/models/use-models';
+import { useOllamaRunning, useOllamaStatus } from '@midnite/studio-feature-models/renderer';
 import { useSetupProbe } from '../features/setup/install-runner';
 import { submitCommand } from '../features/terminal/submit-command';
 import { bridge } from '../services/bridge';

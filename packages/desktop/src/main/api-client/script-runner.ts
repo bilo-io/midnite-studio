@@ -2,7 +2,7 @@ import vm from 'node:vm';
 
 import { COUNCIL_OUTPUT_CAP_BYTES, type AssertionResult, type ScriptContext, type ScriptRun } from '@midnite/studio-shared';
 
-import { appendCapped } from '../council-output';
+import { appendCapped } from '@midnite/studio-runtime';
 
 /**
  * Phase 70 Theme B — the sandboxed `pm.*` runner.

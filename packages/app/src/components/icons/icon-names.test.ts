@@ -27,9 +27,9 @@ import { describe, expect, it } from 'vitest';
  */
 const SOURCES = {
   ...import.meta.glob('../../**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }),
-  // The finance feature's renderer (Phase 113 Theme P) — it moved out of `features/`, and
-  // its ~23 Simple Icons coin and company marks are still names that must really exist.
-  ...import.meta.glob('../../../../features/finance/renderer/**/*.{ts,tsx}', {
+  // The feature packages' renderers (Phase 113 Themes N, P) — they moved out of `features/`, and
+  // their icon names (finance's ~23 Simple Icons marks, models' Ollama glyph) must still really exist.
+  ...import.meta.glob('../../../../features/{finance,models,councils,chats}/renderer/**/*.{ts,tsx}', {
     query: '?raw',
     import: 'default',
     eager: true,

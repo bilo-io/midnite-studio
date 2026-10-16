@@ -94,6 +94,9 @@ The apps, grouped by owner:
 | `slides` | creator |  |
 | `media` | creator, media, gamer | tabs split: doc/image/audio/video to Creator, map/terrain/model/sprite/game to Gamer, players reused by Media |
 | `notes` | mind |  |
+| `chats` | agents | the Chats view, composer and change review; the turn service and engines in main. Optional host members (companion toggle, open in graph) are Studio's |
+| `councils` | agents | the Councils view and run orchestration; its runner takes the pty, roster and Ollama key as ports |
+| `models` | agents | the Models view and the Ollama client, pull queue and settings; terminal-backed actions (launch with, `ollama serve`) are optional host members |
 | `finance` | money | the panel, status-bar segment and dashboard widgets (once two folders, `finance` and `finance-dashboard`) as one package |
 | `diagnostics` | monitor | problem list and crash log; the status-bar segment stays in the frame |
 | `monitor` | monitor | full view; the status-bar segment stays in the frame |
@@ -176,6 +179,16 @@ packages/features/<name>/
   the repo registry. That keeps it testable under plain vitest against `createRecordingContext()`.
   Desktop's `ipc/optimizer-handlers.ts` is now only that adapter: it builds the real services and context,
   then calls `optimizerMain.register`.
+
+### What an app without a terminal leaves out
+
+A host port may declare a member **optional** and the feature drops the affordance when it is absent: models'
+`terminal` (launch an agent on a model, run `ollama serve`), chats' `CompanionToggle` and
+`openWorkingCopyInGraph`. Agents (`apps/agents`) leaves those out and supplies plain chrome for the rest
+(`src/compose/plain-ui.tsx`, `plain-composer.tsx`). Its councils run each member as a piped login shell
+(`main/shell-runner.ts`) rather than through the pty broker, and `dugite` is stubbed in its bundle: it has no
+repository registry yet, so every chat runs in its scratch directory. Both arrive with Coder and the
+Sessions integration (slice 2).
 
 ### Ports: how a feature reaches what it does not own
 

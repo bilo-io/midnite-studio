@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { Spinner } from '../../components/skeleton';
-import { useCouncilRun, useStartCouncilRun } from '../councils/use-council-run';
+import { useCouncilRun, useStartCouncilRun } from '@midnite/studio-feature-councils/renderer';
 
 /**
  * "Suggest a resolution" for one region (Phase 47 Theme E) — unchanged

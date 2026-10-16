@@ -1,6 +1,6 @@
 import { MUSIC_AGY_AGENT_ID, MUSIC_PASSES_DEFAULT, agentIteratesMusic, type LoopModel, type MusicAgentMode, type MusicEngine } from '@midnite/studio-shared';
 
-import type { ChatEngine } from '../../../chats/use-chat-engines';
+import type { ChatEngine } from '@midnite/studio-feature-chats/renderer';
 
 /**
  * Which of the Chats page's engines the song chat offers, and how each one writes (Phase 101

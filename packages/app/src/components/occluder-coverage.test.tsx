@@ -14,7 +14,8 @@ import { BrowserLauncher } from '../features/browser/browser-launcher';
 import { BrowserSwitcherOverlay } from '../features/browser/browser-switcher-overlay';
 import { TerminalSwitcherOverlay } from '../features/terminal/terminal-switcher-overlay';
 import { SlidesModal } from '../features/slides/slides-modal';
-import { CouncilCreateDialog } from '../features/councils/council-create-dialog';
+import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer';
+import { CouncilCreateDialog } from '@midnite/studio-feature-councils/renderer/testing';
 import { SetupOverlay } from '../features/setup/setup-overlay';
 import { INITIAL_SETUP_STATE } from '../store/setup-state';
 import { MergeDialog } from '../features/reviews/merge-dialog';
@@ -30,6 +31,7 @@ import { StudioProviders } from '../compose/studio-providers';
 import { StudioMediaTabHosts } from '../features/media/media-view';
 import { IssueModal } from '../features/tasks/issue/issue-modal';
 
+import { STUDIO_COUNCILS_HOST } from '../compose/councils-host';
 import { DialogHost } from './dialog-host';
 import { ToastHost } from './toast-host';
 
@@ -138,7 +140,11 @@ describe('occluder coverage across overlays', () => {
 
   it('7. CouncilCreateDialog registers as an occluder', () => {
     assertOccluderLifecycle(() =>
-      render(<CouncilCreateDialog onCancel={() => {}} onCreate={() => {}} />),
+      render(
+        <CouncilsHostProvider host={STUDIO_COUNCILS_HOST}>
+          <CouncilCreateDialog onCancel={() => {}} onCreate={() => {}} />
+        </CouncilsHostProvider>,
+      ),
     );
   });
 

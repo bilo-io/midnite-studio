@@ -1,13 +1,19 @@
 import type { ReactNode } from 'react';
 
+import { ChatsHostProvider } from '@midnite/studio-feature-chats/renderer';
+import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer';
 import { FinanceHostProvider } from '@midnite/studio-feature-finance/renderer';
 import { MediaHostProvider } from '@midnite/studio-feature-media-core/renderer';
+import { ModelsHostProvider } from '@midnite/studio-feature-models/renderer';
 import { NotesHostProvider } from '@midnite/studio-feature-notes/renderer';
 import { OptimizerHostProvider } from '@midnite/studio-feature-optimizer/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 
+import { STUDIO_CHATS_HOST } from './chats-host';
+import { STUDIO_COUNCILS_HOST } from './councils-host';
 import { STUDIO_FINANCE_HOST } from './finance-host';
 import { STUDIO_MEDIA_HOST } from './media-host';
+import { STUDIO_MODELS_HOST } from './models-host';
 import { STUDIO_NOTES_HOST } from './notes-host';
 import { STUDIO_OPTIMIZER_HOST } from './optimizer-host';
 import { STUDIO_CHROME } from './studio-chrome';
@@ -31,7 +37,13 @@ export function StudioProviders({ children }: { children: ReactNode }) {
       <OptimizerHostProvider host={STUDIO_OPTIMIZER_HOST}>
         <NotesHostProvider host={STUDIO_NOTES_HOST}>
           <FinanceHostProvider host={STUDIO_FINANCE_HOST}>
-            <MediaHostProvider host={STUDIO_MEDIA_HOST}>{children}</MediaHostProvider>
+            <MediaHostProvider host={STUDIO_MEDIA_HOST}>
+              <ModelsHostProvider host={STUDIO_MODELS_HOST}>
+                <CouncilsHostProvider host={STUDIO_COUNCILS_HOST}>
+                  <ChatsHostProvider host={STUDIO_CHATS_HOST}>{children}</ChatsHostProvider>
+                </CouncilsHostProvider>
+              </ModelsHostProvider>
+            </MediaHostProvider>
           </FinanceHostProvider>
         </NotesHostProvider>
       </OptimizerHostProvider>

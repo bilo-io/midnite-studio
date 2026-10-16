@@ -26,6 +26,10 @@ export { DelayedFallback } from './layout/delayed-fallback';
 export { Spinner, WidgetLoader, type SpinnerMode, type SpinnerVariant } from './layout/spinner';
 export { EmptyState, EmptyStateButton } from './layout/empty-state';
 export { MARKDOWN_PROSE_CLASSES } from './layout/markdown-prose';
+export { motionMs, REVEAL_MS } from './layout/motion';
+export { ExplorerGroup, ExplorerNotice, ExplorerSearch } from './layout/explorer';
+export { StateDot, type DotState } from './layout/state-dot';
+export { LoadingRegion, Skeleton, Spinner as RingSpinner } from './layout/skeleton';
 export { SortableList, useSortableRow } from './layout/sortable-list';
 export {
   clampSize,
@@ -74,7 +78,31 @@ export { METRIC_ICONS } from './metrics/metric-icons';
 export { ChartLegend, MetricChart, type ChartSeries } from './metrics/metric-chart';
 export { useMetricsStream } from './metrics/use-metrics-stream';
 
+// Panels — the navigation stack a pane steps through, and its header.
+export { PanelStack } from './panel-stack/panel-stack';
+export { PanelHeader } from './panel-stack/panel-header';
+export {
+  activePanelBack,
+  activePanelForward,
+  useRegisterActivePanel,
+} from './panel-stack/active-panel';
+export {
+  backHistoryState,
+  DEFAULT_MAX_DEPTH,
+  forwardHistoryState,
+  pushHistoryState,
+  replaceHistoryState,
+  usePanelHistory,
+  type PanelHistory,
+  type PanelHistoryOptions,
+  type PanelHistoryState,
+} from './panel-stack/use-panel-history';
+
 // Small shared behaviour.
+export { useFocusTrap } from './lib/use-focus-trap';
+export { relativeAge } from './lib/relative-age';
+export { MODE_TINT, nextRandomIndex, WORD_SETS, type Mode } from './lib/words';
+export { useFlushableSave } from './lib/use-flushable-save';
 export { useWindowFocusGate } from './lib/use-window-focus-gate';
 export {
   EXPAND_ALL_LIMIT,
@@ -88,6 +116,7 @@ export {
 export { adoptRenamedPersistKey } from './lib/persist-rename';
 
 // Form controls.
+export { SelectField } from './form/select-field';
 export { Choice, Field, TextArea, TextField } from './form/field';
 export { FilterInput, type FilterInputProps } from './form/filter-input';
 export { SettingsSwitchRow } from './form/settings-switch-row';
@@ -104,6 +133,7 @@ export type {
   BlastRadiusKind,
   ConfirmRequest,
   FrameDialogs,
+  FramePromptRequest,
   FrameMenuItem,
   FramePromptRequest,
   IconButtonProps,

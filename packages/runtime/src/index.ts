@@ -18,3 +18,6 @@ export * from './broker';
 export * from './cli';
 export * from './mcp';
 export * from './app-main';
+export * from './capture-output';
+export * from './process-runner';
+export * from './repo-skills';

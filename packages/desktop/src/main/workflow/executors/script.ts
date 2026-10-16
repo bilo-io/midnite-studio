@@ -1,6 +1,6 @@
 import { homedir } from 'node:os';
 
-import { appendCapped, cleanCapturedOutput } from '../../council-output';
+import { appendCapped, cleanCapturedOutput } from '@midnite/studio-runtime';
 import type { NodeExecutor, NodeOutcome } from '../executor-registry';
 import { defaultNodePtyDeps, NODE_PTY_POLL_MS, type NodePtyDeps } from './node-pty-deps';
 

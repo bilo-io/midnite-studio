@@ -37,6 +37,7 @@ dependsOn:
   - id: 'feature-monitor'
     scope: 'development'
   - id: 'feature-notes'
+    scope: 'development'
   - id: 'feature-finance'
     scope: 'development'
   - id: 'feature-media-core'
@@ -44,6 +45,12 @@ dependsOn:
   - id: 'feature-media-images'
     scope: 'development'
   - id: 'feature-media-docs'
+    scope: 'development'
+  - id: 'feature-models'
+    scope: 'development'
+  - id: 'feature-councils'
+    scope: 'development'
+  - id: 'feature-chats'
     scope: 'development'
   - id: 'app'
     scope: 'development'
@@ -72,6 +79,9 @@ tasks:
       - 'feature-media-core:build'
       - 'feature-media-docs:build'
       - 'feature-media-images:build'
+      - 'feature-models:build'
+      - 'feature-councils:build'
+      - 'feature-chats:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
@@ -95,6 +105,12 @@ tasks:
       - '/packages/features/media-docs/manifest.ts'
       - '/packages/features/media-images/main/**/*'
       - '/packages/features/media-images/manifest.ts'
+      - '/packages/features/models/main/**/*'
+      - '/packages/features/models/manifest.ts'
+      - '/packages/features/councils/main/**/*'
+      - '/packages/features/councils/manifest.ts'
+      - '/packages/features/chats/main/**/*'
+      - '/packages/features/chats/manifest.ts'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -116,6 +132,9 @@ tasks:
       - 'feature-media-core:build'
       - 'feature-media-docs:build'
       - 'feature-media-images:build'
+      - 'feature-models:build'
+      - 'feature-councils:build'
+      - 'feature-chats:build'
       - '~:bundle'
     inputs:
       - 'src/**/*'
@@ -145,6 +164,12 @@ tasks:
       - '/packages/features/media-docs/manifest.ts'
       - '/packages/features/media-images/main/**/*'
       - '/packages/features/media-images/manifest.ts'
+      - '/packages/features/models/main/**/*'
+      - '/packages/features/models/manifest.ts'
+      - '/packages/features/councils/main/**/*'
+      - '/packages/features/councils/manifest.ts'
+      - '/packages/features/chats/main/**/*'
+      - '/packages/features/chats/manifest.ts'
 
   lint:
     inputs:
@@ -191,6 +216,12 @@ tasks:
       - '/packages/features/media-docs/manifest.ts'
       - '/packages/features/media-images/main/**/*'
       - '/packages/features/media-images/manifest.ts'
+      - '/packages/features/models/main/**/*'
+      - '/packages/features/models/manifest.ts'
+      - '/packages/features/councils/main/**/*'
+      - '/packages/features/councils/manifest.ts'
+      - '/packages/features/chats/main/**/*'
+      - '/packages/features/chats/manifest.ts'
     outputs:
       - 'dist/bundle'
 

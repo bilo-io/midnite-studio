@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { renderHook } from '@testing-library/react';
 
 import { useUiStore } from '../../store/ui-store';
-import { useChatsStore } from '../chats/chats-store';
+import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { useModelPrefs } from '../media/model/use-model';
 import { chatDraftFor, modelPrefsFor, primarySelection, useFollowPrimaryAgent } from './follow-primary-agent';
 

@@ -1,178 +1,27 @@
-import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
+import { modelsMain } from '@midnite/studio-feature-models/main';
+import type { FeatureMainContext } from '@midnite/studio-runtime';
 
-import {
-  ollamaCloudTags,
-  ollamaCreate,
-  ollamaDelete,
-  ollamaPs,
-  ollamaShow,
-  ollamaSignedIn,
-  ollamaTags,
-  ollamaUnload,
-  ollamaVersion,
-  resolveOllamaBaseUrl,
-} from '../ollama/client';
-import { searchOllamaLibrary } from '../ollama/library-search';
-import { cancelOllamaPull, startOllamaPull } from '../ollama/pull-queue';
-import { getConfiguredOllamaHost, getOllamaSettings, setOllamaSettings } from '../ollama/settings-service';
-import { handle, handleBare } from './handle';
+import type { BrowserWindow } from 'electron';
+
+import { handle, handleBare, handleSend } from './handle';
 import { readOllamaApiKey } from './secrets-handlers';
 
-/** The configured override (Theme C) wins; an unset override falls back to
- *  Theme B's env-only `resolveOllamaBaseUrl()`. */
-async function resolveHost(): Promise<string> {
-  return (await getConfiguredOllamaHost()) ?? resolveOllamaBaseUrl();
-}
-
 /**
- * Ollama (Phase 96 Theme B/C) — thin `handle`/`handleBare` forwarding onto
- * `ollama/client.ts`, `ollama/pull-queue.ts` and `ollama/settings-service.ts`,
- * mirroring `video-handlers.ts`'s own shape: every decision (mapping,
- * throttling, one-pull-per-model, host resolution) lives in those modules,
- * not here.
+ * Ollama (Phase 96 Theme B/C) is the models feature's main half (Phase 113
+ * Theme N); this is Studio's composition of it. The client, the pull queue and
+ * the persisted host override moved into `packages/features/models/main`; the
+ * settings file stays under `userData` (`index.ts` configures it), and the
+ * cloud key is read here from the vault and handed over as a function — it is
+ * never an answer to any channel.
  */
-export function registerOllamaHandlers(): void {
-  // Plain data, never a `GitOpResult` — an unreachable daemon is an ordinary
-  // state the Health page and Models view both render, not a failure.
-  handleBare(CHANNELS.ollamaStatus, async () => {
-    const host = await resolveHost();
-    try {
-      const version = await ollamaVersion({ baseUrl: host });
-      return { reachable: true, version, host };
-    } catch {
-      return { reachable: false, version: null, host };
-    }
-  });
-
-  handleBare(CHANNELS.ollamaList, async () => {
-    try {
-      return ok({ models: await ollamaTags({ baseUrl: await resolveHost() }) });
-    } catch (error) {
-      return failure(errorMessage(error));
-    }
-  });
-
-  handle(
-    CHANNELS.ollamaShow,
-    schemas.OllamaShowRequest,
-    async ({ model, verbose }) => {
-      try {
-        return ok(await ollamaShow(model, { verbose, baseUrl: await resolveHost() }));
-      } catch (error) {
-        return failure(errorMessage(error));
-      }
+export function registerOllamaHandlers(getMainWindow: () => BrowserWindow | null): void {
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    emit: (channel, payload) => {
+      const win = getMainWindow();
+      if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
     },
-    (issue) => failure(issue),
-  );
-
-  handleBare(CHANNELS.ollamaPs, async () => {
-    try {
-      return ok({ models: await ollamaPs({ baseUrl: await resolveHost() }) });
-    } catch (error) {
-      return failure(errorMessage(error));
-    }
-  });
-
-  handle(
-    CHANNELS.ollamaPull,
-    schemas.OllamaPullRequest,
-    async ({ model }) => ok(startOllamaPull(model, await resolveHost())),
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.ollamaPullCancel,
-    schemas.OllamaPullCancelRequest,
-    // A cancel on an id that already finished is a normal race, not a
-    // failure — always resolves `ok`, mirroring `api-client/send.ts`'s own
-    // `cancelRequest`.
-    async ({ pullId }) => {
-      cancelOllamaPull(pullId);
-      return ok();
-    },
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.ollamaDelete,
-    schemas.OllamaDeleteRequest,
-    async ({ model }) => {
-      try {
-        await ollamaDelete(model, { baseUrl: await resolveHost() });
-        return ok();
-      } catch (error) {
-        return failure(errorMessage(error));
-      }
-    },
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.ollamaCreate,
-    schemas.OllamaCreateRequest,
-    async ({ from, name, parameters }) => {
-      try {
-        await ollamaCreate({ from, name, parameters }, { baseUrl: await resolveHost() });
-        return ok({ name });
-      } catch (error) {
-        return failure(errorMessage(error));
-      }
-    },
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.ollamaUnload,
-    schemas.OllamaUnloadRequest,
-    async ({ model }) => {
-      try {
-        await ollamaUnload(model, { baseUrl: await resolveHost() });
-        return ok();
-      } catch (error) {
-        return failure(errorMessage(error));
-      }
-    },
-    (issue) => failure(issue),
-  );
-
-  handleBare(CHANNELS.ollamaSettingsGet, async () => getOllamaSettings());
-
-  handle(
-    CHANNELS.ollamaSettingsSet,
-    schemas.OllamaSettingsSetRequest,
-    async (patch) => {
-      try {
-        return ok(await setOllamaSettings(patch));
-      } catch (error) {
-        return failure(errorMessage(error));
-      }
-    },
-    (issue) => failure(issue),
-  );
-
-  // --- search + cloud (Phase 96 Themes D, F) ---------------------------------
-
-  handle(
-    CHANNELS.ollamaSearch,
-    schemas.OllamaSearchRequest,
-    async ({ query, scope }) => searchOllamaLibrary(query, scope),
-    (issue) => failure(issue),
-  );
-
-  handleBare(CHANNELS.ollamaCloudList, async () => {
-    try {
-      const apiKey = (await readOllamaApiKey()) ?? undefined;
-      return ok({ models: await ollamaCloudTags({ apiKey }) });
-    } catch (error) {
-      return failure(errorMessage(error));
-    }
-  });
-
-  handleBare(CHANNELS.ollamaSignInStatus, async () => {
-    return { signedIn: await ollamaSignedIn({ baseUrl: await resolveHost() }) };
-  });
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+    trashItem: () => Promise.reject(new Error('models never trashes')),
+  };
+  modelsMain.register(ctx, { cloudApiKey: readOllamaApiKey });
 }

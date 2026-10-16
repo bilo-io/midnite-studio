@@ -10,8 +10,7 @@ import {
 } from '@midnite/studio-feature-media-images/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS, failure, MediaTabSchema, ok } from '@midnite/studio-shared';
-import { ollamaShow, ollamaTags, resolveOllamaBaseUrl } from '../ollama/client';
-import { getConfiguredOllamaHost } from '../ollama/settings-service';
+import { getConfiguredOllamaHost, ollamaShow, ollamaTags, resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleSend } from './handle';
 import { mediaStore } from './media-handlers';

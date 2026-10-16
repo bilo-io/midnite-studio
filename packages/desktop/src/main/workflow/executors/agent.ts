@@ -12,9 +12,9 @@ import {
   type WorkflowLoopFailure,
 } from '@midnite/studio-shared';
 
-import { appendCapped, cleanCapturedOutput } from '../../council-output';
+import { appendCapped, cleanCapturedOutput } from '@midnite/studio-runtime';
 import { readOllamaApiKey } from '../../ipc/secrets-handlers';
-import { resolveOllamaBaseUrl } from '../../ollama/client';
+import { resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 import { currentSettings } from '../../settings-mirror';
 import type { NodeExecutor, NodeOutcome } from '../executor-registry';
 import { defaultNodePtyDeps, NODE_PTY_POLL_MS, type NodePtyDeps } from './node-pty-deps';

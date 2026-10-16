@@ -1,6 +1,6 @@
 import { COUNCIL_OUTPUT_CAP_BYTES } from '@midnite/studio-shared';
 
-import { appendCapped } from '../../council-output';
+import { appendCapped } from '@midnite/studio-runtime';
 import type { NodeExecutor, NodeOutcome } from '../executor-registry';
 import { interpolate, interpolateRecord } from '../interpolate';
 

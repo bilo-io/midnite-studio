@@ -7,7 +7,7 @@ import { resolveAgentIcon } from '../../components/icons';
 import { Tooltip } from '../../components/tooltip';
 import { useOccluder } from '../../components/use-occluder';
 import { useUiStore } from '../../store/ui-store';
-import { useChatsStore } from '../chats/chats-store';
+import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { revealSession } from '../terminal/reveal-session';
 import { useAgents } from '../terminal/use-agents';
 import { useHoverGroup } from './ref-badge';

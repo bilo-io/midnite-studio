@@ -8,7 +8,7 @@ import {
   type ModelProviders,
 } from '@midnite/studio-shared';
 
-import type { OllamaChatMessage } from '../../ollama/client';
+import type { OllamaChatMessage } from '@midnite/studio-feature-models/main';
 import { DESCRIBE_IMAGE_PROMPT } from './prompts';
 import type { DescribeImageCall, LlmCall } from './model-service';
 

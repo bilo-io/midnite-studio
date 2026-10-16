@@ -13,7 +13,7 @@ import { keys } from '../../../services/queries';
 import { useReviewsStore } from '../../../store/reviews-store';
 import { useSessionsStore } from '../../../store/sessions-store';
 import { useUiStore } from '../../../store/ui-store';
-import { useChatsStore } from '../../chats/chats-store';
+import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { useGraphStore } from '../../graph/graph-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { REVEAL_HISTORY_LIMIT, useRevealHistory } from './reveal-history';
