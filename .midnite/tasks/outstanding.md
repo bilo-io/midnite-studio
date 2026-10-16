@@ -724,3 +724,11 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
 
 ## The title-bar agent picker has no Ollama row (Phase 111 Theme F)
 Ollama is not in `BUILTIN_AGENTS`, so `PrimaryAgentPickerPanel` lists no Ollama agent row to select. Voice and MCP can already set it (`agent-switch.ts` synthesises an Ollama agent), and the model section lists Ollama's pulled models once it is primary, but the pill itself cannot get you there. Fix: add a synthesised Ollama row to the picker, gated on the daemon.
+
+## Trading from Money (Phase 113 Theme P)
+
+Midnite Money is read-only by design: brokerage and exchange accounts show balances, positions,
+allocation and performance, and nothing places, amends or cancels an order. Trading is deferred,
+not forgotten — it needs its own decision on order confirmation (a blast-radius-style confirm with
+the order's notional and fees), per-connector write scopes held in the vault separately from the
+read-only keys, and what an agent may ever do there (the default should be: nothing).

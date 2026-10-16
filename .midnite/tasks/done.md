@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme P (slice 1) — the Finance feature and apps/money
+
+[PR #878](https://github.com/bilo-io/midnite-studio/pull/878). Finance and the finance dashboard are one feature package Studio composes unchanged, the market-data key never reaches a renderer, and Midnite Money is its own app with its own home, denied that key until the user grants it in Vault; trading is recorded as deferred.
+
 ## 2026-10-16 — Phase 113 Theme J (slice 2) — LLM keys in the vault, per-app grants
 
 [PR #877](https://github.com/bilo-io/midnite-studio/pull/877). The renderer no longer holds any LLM key — each moves into the vault, confirmed before the plaintext is dropped — and the runtime vault denies every app but Studio and Vault until the user grants it access from Vault's App access section.

@@ -6,7 +6,7 @@ import { installMockBridge } from '../test-support/mock-bridge';
 /**
  * The Finance board's two real-browser behaviours; everything else about it
  * (the cards, the portfolio rules, sorting, the summary, the modals) is vitest
- * in `src/features/finance-dashboard/`.
+ * in `packages/features/finance/renderer/dashboard/`.
  *
  * Needs a real browser because both are layout and pointer facts jsdom cannot
  * produce: a card genuinely growing under a pointer drag on its resize handle

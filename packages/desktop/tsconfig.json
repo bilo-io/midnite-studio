@@ -20,6 +20,7 @@
     { "path": "../runtime" },
     { "path": "../features/optimizer/tsconfig.main.json" },
     { "path": "../features/monitor/tsconfig.main.json" },
-    { "path": "../features/notes/tsconfig.main.json" }
+    { "path": "../features/notes/tsconfig.main.json" },
+    { "path": "../features/finance/tsconfig.main.json" }
   ]
 }

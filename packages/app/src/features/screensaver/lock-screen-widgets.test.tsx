@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { useMetricsStore } from '../../store/metrics-store';
-import { useFinanceStore } from '../finance/finance-store';
+import { useFinanceStore } from '@midnite/studio-feature-finance/renderer';
 import { useWeatherStore } from '../weather/weather-store';
 import { LockScreenChrome } from './lock-screen-chrome';
 import { LockScreenBatteryWidget, LockScreenWeatherWidget, LockScreenWidgets } from './lock-screen-widgets';

@@ -25,11 +25,16 @@ import { describe, expect, it } from 'vitest';
  * boundary forbids node builtins under `src/`) reads every source file as text
  * at transform time.
  */
-const SOURCES = import.meta.glob('../../**/*.{ts,tsx}', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
+const SOURCES = {
+  ...import.meta.glob('../../**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }),
+  // The finance feature's renderer (Phase 113 Theme P) — it moved out of `features/`, and
+  // its ~23 Simple Icons coin and company marks are still names that must really exist.
+  ...import.meta.glob('../../../../features/finance/renderer/**/*.{ts,tsx}', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }),
+} as Record<string, string>;
 
 /**
  * Matches an import of one set, single- or multi-line, aliased or not — the two

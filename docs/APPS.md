@@ -94,8 +94,7 @@ The apps, grouped by owner:
 | `slides` | creator |  |
 | `media` | creator, media, gamer | tabs split: doc/image/audio/video to Creator, map/terrain/model/sprite/game to Gamer, players reused by Media |
 | `notes` | mind |  |
-| `finance` | money |  |
-| `finance-dashboard` | money | listed with Money in the map |
+| `finance` | money | the panel, status-bar segment and dashboard widgets (once two folders, `finance` and `finance-dashboard`) as one package |
 | `diagnostics` | monitor | problem list and crash log; the status-bar segment stays in the frame |
 | `monitor` | monitor | full view; the status-bar segment stays in the frame |
 | `vault` | vault | the metadata-only view of stored secrets, forge accounts and database logins |
