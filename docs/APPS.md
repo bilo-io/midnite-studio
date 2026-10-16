@@ -353,3 +353,19 @@ root through the runtime's path jail, and reads image provider keys from the run
 `creator`. The preload exposes only `media` — no `secrets` namespace. Docs has no Ask AI pane
 (Creator has no agents yet) and Images uses the feature's plain create form. `MIDNITE_CREATOR_SMOKE=1`
 with `MIDNITE_CREATOR_USER_DATA=<tmp>` prints `midnite-creator:ready` and quits.
+
+## Knowledge's host port (decision, Phase 113 Theme M)
+
+Knowledge is frame-owned, so it moves to `packages/frame/src/knowledge/` behind a `KnowledgeHost` port rather than
+into a feature package. What its renderer reads from Studio today, and so what the port must carry (measured over
+`packages/app/src/features/knowledge`, ~60 files):
+
+- `useWindowFocused()` and `useActiveWorktree()` (`knowledge-view.tsx`) -> `host.useFocus()`, `host.useWorktree()`.
+- `ui-store`: the persisted renderer variant, the layout bounds and panel widths (`knowledge-filters-store.ts`,
+  `knowledge-view.tsx`) -> `host.useSettings()` with a setter.
+- `appearance-store`'s resolved motion (`use-sigma-graph.tsx`) -> `host.resolveMotion()`.
+- the query-key constants (`use-knowledge-graph.ts`, `use-knowledge-layout-switch.ts`) -> move with the hooks into the frame.
+- `icon-button`, `popover`, `skeleton`, `empty-state`, resizable pair -> already frame chrome.
+
+Its main half (`packages/knowledge`, graphify) needs the repo path injected, which an app with one notebook does not have;
+Mind keeps its labelled placeholder until the port and the move land together.

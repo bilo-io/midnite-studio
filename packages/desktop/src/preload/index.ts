@@ -388,6 +388,9 @@ const bridge: Pick<
     save: (req) => ipcRenderer.send(CHANNELS.notesSave, req),
     delete: (req) => ipcRenderer.send(CHANNELS.notesDelete, req),
     reorder: (req) => ipcRenderer.send(CHANNELS.notesReorder, req),
+    reviewDue: (req) => call(CHANNELS.notesReviewDue, req),
+    reviewGrade: (req) => call(CHANNELS.notesReviewGrade, req),
+    capture: (req) => call(CHANNELS.notesCapture, req),
   },
   browser: {
     create: (req) => call(CHANNELS.browserCreate, req),

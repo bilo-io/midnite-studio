@@ -11,6 +11,7 @@ import { Modal } from '../../components/modal';
 import { SortableList } from '../../components/sortable-list';
 import { notesForRepo, useNotesStore } from '../../store/notes-store';
 import { useUiStore } from '../../store/ui-store';
+import { bridge } from '../../services/bridge';
 import { useRepos } from '../../services/queries';
 
 /**
@@ -53,6 +54,28 @@ export function NotesModal() {
   const dialogs = useDialogs();
 
   const onClose = () => useUiStore.getState().setNotesOpen(false);
+
+  // Quick capture: main decides where it lands (Mind when installed, a local Inbox otherwise), so
+  // this strip says where it went and never sees a path.
+  const [captureText, setCaptureText] = useState('');
+  const [captureStatus, setCaptureStatus] = useState<string | null>(null);
+  const handleCaptureKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const body = captureText.trim();
+    if (body === '') return;
+    void (async () => {
+      try {
+        const result = await bridge()?.notes.capture({ body });
+        if (result?.ok) {
+          setCaptureText('');
+          setCaptureStatus(result.target === 'mind' ? 'Saved to Mind' : 'Saved to Inbox');
+        } else setCaptureStatus('Could not save that capture');
+      } catch {
+        setCaptureStatus('Could not save that capture');
+      }
+    })();
+  };
 
   const doneCount = repoNotes.filter((n) => n.done).length;
   const totalCount = repoNotes.length;
@@ -164,6 +187,28 @@ export function NotesModal() {
 
             <IconButton icon={LuX} label="Close notes" size="sm" onClick={onClose} />
           </div>
+        </div>
+
+        {/* Quick capture */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-border/50 px-4 py-2">
+          <input
+            type="text"
+            data-testid="quick-capture-input"
+            aria-label="Quick capture"
+            value={captureText}
+            placeholder="Quick capture — to Mind, or your Inbox (Enter)"
+            onChange={(e) => {
+              setCaptureText(e.target.value);
+              setCaptureStatus(null);
+            }}
+            onKeyDown={handleCaptureKeyDown}
+            className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs outline-none placeholder:text-muted-foreground/60"
+          />
+          {captureStatus ? (
+            <span role="status" data-testid="quick-capture-status" className="shrink-0 text-xs text-muted-foreground">
+              {captureStatus}
+            </span>
+          ) : null}
         </div>
 
         {/* Composer */}

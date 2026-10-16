@@ -38,10 +38,11 @@ export {
 } from './notes-store';
 export { NoteRow, NEXT_STATUS, STATUS_CLASSES } from './note-row';
 export { spliceVisibleOrder } from './notes-reorder';
+export { ReviewView } from './review-view';
 
 type ViewIds = NotesManifest['views'][number]['id'];
 
 /** Each view as a loader, so the composer keeps it in its own lazy chunk. */
 export const notesViews = {
-  notes: () => import('./notes-view').then((m) => m.NotesView),
+  notes: () => import('./notes-workspace').then((m) => m.NotesWorkspace),
 } satisfies Record<ViewIds, () => Promise<ComponentType>>;

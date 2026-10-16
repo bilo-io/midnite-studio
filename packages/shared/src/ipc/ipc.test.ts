@@ -1545,6 +1545,33 @@ describe('terminal and pty schemas', () => {
       valid: { repoId: 'r1', noteIds: ['n1', 'n2'] },
       invalid: [['empty note id in list', { repoId: 'r1', noteIds: ['n1', ''] }]],
     },
+    {
+      name: 'NotesReviewGradeRequest',
+      schema: schemas.NotesReviewGradeRequest,
+      valid: { repoId: 'r1', cardId: 'n1#ab', grade: 'good' },
+      invalid: [
+        ['an unknown grade', { repoId: 'r1', cardId: 'c', grade: 'perfect' }],
+        ['an empty card id', { repoId: 'r1', cardId: '', grade: 'good' }],
+      ],
+    },
+    {
+      name: 'NotesReviewGradeResponse',
+      schema: schemas.NotesReviewGradeResponse,
+      valid: { ok: true, nextDue: 5 },
+      invalid: [['ok without a due date', { ok: true }]],
+    },
+    {
+      name: 'NotesCaptureRequest',
+      schema: schemas.NotesCaptureRequest,
+      valid: { body: 'a thought' },
+      invalid: [['an empty body', { body: '' }]],
+    },
+    {
+      name: 'NotesCaptureResponse',
+      schema: schemas.NotesCaptureResponse,
+      valid: { ok: true, target: 'inbox', noteId: 'n1' },
+      invalid: [['a target that is a path', { ok: true, target: '/tmp/x' }]],
+    },
   ];
 
   for (const { name, schema, valid, invalid } of CASES) {

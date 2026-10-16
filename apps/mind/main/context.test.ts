@@ -45,4 +45,14 @@ describe('registerMindHandlers', () => {
     await store.flush();
     expect(await handlers.get(CHANNELS.notesList)?.({}, { repoId: 'mind' })).toEqual({ notes: [note] });
   });
+
+  it('captures into the one notebook and serves review cards from it', async () => {
+    const { handlers } = await setup();
+    const captured = (await handlers.get(CHANNELS.notesCapture)?.({}, { body: 'Q: why\nA: because' })) as { target: string };
+    expect(captured.target).toBe('mind');
+    const due = (await handlers.get(CHANNELS.notesReviewDue)?.({}, { repoId: 'mind' })) as { cards: { id: string }[]; total: number };
+    expect(due.total).toBe(1);
+    const graded = await handlers.get(CHANNELS.notesReviewGrade)?.({}, { repoId: 'mind', cardId: due.cards[0]?.id, grade: 'good' });
+    expect(graded).toMatchObject({ ok: true });
+  });
 });

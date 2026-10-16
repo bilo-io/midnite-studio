@@ -18,7 +18,7 @@ describe('createMindBridge', () => {
   it('exposes only notes, and only its four calls', () => {
     const bridge = createMindBridge(fakeIpc());
     expect(Object.keys(bridge)).toEqual(['notes']);
-    expect(Object.keys(bridge.notes).sort()).toEqual(['delete', 'list', 'reorder', 'save']);
+    expect(Object.keys(bridge.notes).sort()).toEqual(['capture', 'delete', 'list', 'reorder', 'reviewDue', 'reviewGrade', 'save']);
   });
 
   it('lists over invoke and writes one-way', async () => {

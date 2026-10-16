@@ -31,7 +31,15 @@ export const notesManifest = defineFeatureManifest({
     },
   ],
   settingsPages: [],
-  ipc: [CHANNELS.notesList, CHANNELS.notesSave, CHANNELS.notesDelete, CHANNELS.notesReorder],
+  ipc: [
+    CHANNELS.notesList,
+    CHANNELS.notesSave,
+    CHANNELS.notesDelete,
+    CHANNELS.notesReorder,
+    CHANNELS.notesReviewDue,
+    CHANNELS.notesReviewGrade,
+    CHANNELS.notesCapture,
+  ],
   events: [],
   mcpTools: [],
 });

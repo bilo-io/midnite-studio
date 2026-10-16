@@ -811,7 +811,7 @@ if (!app.requestSingleInstanceLock()) {
       --purge` deleting our cache or an incremental update misreading it.
     */
     configureKnowledge(join(userData, 'knowledge-cache'));
-    configureNotes(createNotesStore(userData));
+    configureNotes(createNotesStore(userData), { userData, appData: app.getPath('appData') });
     configureChats(userData);
     /*
       The companion's per-repo "last greeted" mark (Phase 79 Theme B, Decision

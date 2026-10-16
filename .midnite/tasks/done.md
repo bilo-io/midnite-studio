@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme M (slice 2) — Review and the quick capture into Mind
+
+[PR #880](https://github.com/bilo-io/midnite-studio/pull/880). Notes become spaced-practice cards (SM-2, state beside the notes), and the quick-access capture lands in Mind's notebook when Mind is installed, otherwise in a local Inbox — decided in main, no path reaches the renderer.
+
 ## 2026-10-16 — Phase 113 Theme Q (slice 1) — the shared media feature, Docs and Images, and apps/creator
 
 [PR #879](https://github.com/bilo-io/midnite-studio/pull/879). Media's shell and plumbing are one feature Creator, Media and Gamer can share, behind a tab-registry contract in the frame; Docs and Images are features of their own; Midnite Creator opens on them; and a test now keeps every app's vault behind the user's grants.

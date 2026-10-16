@@ -1,6 +1,4 @@
-import { join } from 'node:path';
-
-import { runtimeDataDirectory } from '@midnite/studio-runtime';
+import { appDataDirectory } from '@midnite/studio-runtime';
 
 /** The identity the launcher's stub stamps (`apps/launcher/src/main/bundles/layout.ts`). */
 export const MIND_NAME = 'Midnite Mind';
@@ -18,7 +16,7 @@ export const SMOKE_READY_LINE = 'midnite-mind:ready';
  */
 export function mindUserData(appData: string, override?: string): string {
   if (override !== undefined && override !== '') return override;
-  return join(runtimeDataDirectory(appData), 'apps', 'mind');
+  return appDataDirectory(appData, 'mind');
 }
 
 export const isSmoke = (env: NodeJS.ProcessEnv): boolean => env[SMOKE_ENV] === '1';

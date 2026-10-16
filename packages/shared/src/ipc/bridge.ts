@@ -748,6 +748,9 @@ export type MidniteStudioBridge = {
     save: (req: In<typeof S.NotesSaveRequest>) => void;
     delete: (req: In<typeof S.NotesDeleteRequest>) => void;
     reorder: (req: In<typeof S.NotesReorderRequest>) => void;
+    reviewDue: (req: In<typeof S.NotesReviewDueRequest>) => Promise<z.infer<typeof S.NotesReviewDueResponse>>;
+    reviewGrade: (req: In<typeof S.NotesReviewGradeRequest>) => Promise<z.infer<typeof S.NotesReviewGradeResponse>>;
+    capture: (req: In<typeof S.NotesCaptureRequest>) => Promise<z.infer<typeof S.NotesCaptureResponse>>;
   };
 
   /**

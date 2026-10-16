@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { NoteSchema, type Note } from '@midnite/studio-shared';
@@ -97,11 +97,33 @@ export function createNotesStore(directory: string, options?: NotesStoreOptions)
   const debounceTimers = new Map<string, NodeJS.Timeout>();
   const writeChains = new Map<string, Promise<void>>();
   const debounceMs = options?.debounceMs ?? 25;
+  // The file's mtime as this store last saw it (read or wrote). A different mtime with nothing of
+  // ours pending means another process (Studio's quick capture into Mind's notebook) wrote the
+  // file, and the cache must not be saved back over it.
+  const stamps = new Map<string, number>();
+  const dirty = new Set<string>();
+  const mtimeOf = async (file: string): Promise<number | null> => {
+    try {
+      return (await stat(file)).mtimeMs;
+    } catch {
+      return null;
+    }
+  };
 
   const loadRepo = (repoId: string): Promise<Note[]> => {
     const key = safeRepoId(repoId);
     const cached = cache.get(key);
-    if (cached) return Promise.resolve(cached);
+    if (cached && dirty.has(key)) return Promise.resolve(cached);
+    if (cached) {
+      return (async () => {
+        const seen = stamps.get(key);
+        const now = await mtimeOf(repoNotesPath(directory, repoId));
+        // Missing file or unchanged: the cache stands. Changed under us: read it again.
+        if (now === null || seen === undefined || now === seen || dirty.has(key)) return cache.get(key) ?? cached;
+        cache.delete(key);
+        return loadRepo(repoId);
+      })();
+    }
 
     const inFlight = loadPromises.get(key);
     if (inFlight) return inFlight;
@@ -112,6 +134,8 @@ export function createNotesStore(directory: string, options?: NotesStoreOptions)
       try {
         const content = await readFile(file, 'utf8');
         loaded = parseNotesState(JSON.parse(content));
+        const at = await mtimeOf(file);
+        if (at !== null) stamps.set(key, at);
       } catch {
         // File missing (first run) or corrupt. A corrupt file must leave the
         // app bootable; degradation is starting empty rather than crashing.
@@ -164,8 +188,12 @@ export function createNotesStore(directory: string, options?: NotesStoreOptions)
     const state: StoredNotesState = { version: 1, notes };
     try {
       await writeAtomic(file, `${JSON.stringify(state, null, 2)}\n`);
+      const at = await mtimeOf(file);
+      if (at !== null) stamps.set(key, at);
     } catch {
       // Read-only filesystem or write error degrades gracefully.
+    } finally {
+      if (!debounceTimers.has(key)) dirty.delete(key);
     }
   };
 
@@ -179,6 +207,7 @@ export function createNotesStore(directory: string, options?: NotesStoreOptions)
 
   const scheduleWrite = (repoId: string) => {
     const key = safeRepoId(repoId);
+    dirty.add(key);
     const existing = debounceTimers.get(key);
     if (existing) {
       clearTimeout(existing);

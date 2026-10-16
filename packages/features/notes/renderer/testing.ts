@@ -10,3 +10,5 @@ export { NoteRow } from './note-row';
 export { NotesView } from './notes-view';
 export { useNotesStore } from './notes-store';
 export { createTestNotesHost } from './test-host';
+export { NotesWorkspace } from './notes-workspace';
+export { ReviewView } from './review-view';

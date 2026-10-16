@@ -4,7 +4,7 @@ import { CHANNELS } from '@midnite/studio-shared/ipc/channels';
 
 /**
  * The slice of `window.midniteStudio` Mind exposes — exactly what the notes feature's store reads
- * (`notes.list/save/delete/reorder`), and nothing else. Every other bridge namespace is
+ * (`notes.list/save/delete/reorder/reviewDue/reviewGrade/capture`), and nothing else. Every other bridge namespace is
  * deliberately absent, so a Mind renderer cannot reach git, the pty or the browser even by
  * accident (`bridge.test.ts` holds the list).
  */
@@ -22,6 +22,9 @@ export function createMindBridge(ipc: RendererIpc): MindBridge {
       save: (req) => send(CHANNELS.notesSave, req),
       delete: (req) => send(CHANNELS.notesDelete, req),
       reorder: (req) => send(CHANNELS.notesReorder, req),
+      reviewDue: (req) => call(CHANNELS.notesReviewDue, req),
+      reviewGrade: (req) => call(CHANNELS.notesReviewGrade, req),
+      capture: (req) => call(CHANNELS.notesCapture, req),
     },
   };
 }
