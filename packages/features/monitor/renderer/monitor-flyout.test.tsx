@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMetricsStore } from '@midnite/studio-frame';
 import { MonitorFlyout } from './monitor-flyout';
 
@@ -43,5 +43,14 @@ describe('MonitorFlyout', () => {
     expect(diskIcon.style.color).toBe(diskLabel.style.color);
     expect(diskValue.style.color).toBe(diskLabel.style.color);
     expect(diskBar.style.backgroundColor).toBe(diskLabel.style.color);
+  });
+
+  it('offers Open Monitor only when the host passes a handler', () => {
+    const onOpenMonitor = vi.fn();
+    const { rerender } = render(<MonitorFlyout />);
+    expect(screen.queryByRole('button', { name: 'Open Monitor' })).toBeNull();
+    rerender(<MonitorFlyout onOpenMonitor={onOpenMonitor} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open Monitor' }));
+    expect(onOpenMonitor).toHaveBeenCalledTimes(1);
   });
 });
