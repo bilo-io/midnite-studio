@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
+import { AGENT_SECRET_IDS } from '@midnite/studio-shared';
 
 import { VaultPage } from './vault-page';
 
@@ -31,7 +32,19 @@ function mount() {
     listConnections: vi.fn(async () => [{ id: 'c1', name: 'Prod', provider: 'postgres', host: 'db.example', database: 'app', username: 'svc' }]),
     deleteConnection: vi.fn(async () => ({ ok: true })),
   };
-  window.midniteStudio = { secrets, forgeAccounts, db } as unknown as typeof window.midniteStudio;
+  let granted: Record<string, Record<string, '*'>> = {};
+  const vaultGrants = {
+    list: vi.fn(async () => ({ grants: granted, corrupt: false })),
+    set: vi.fn(async (req: { appId: string; namespace: string }) => {
+      granted = { ...granted, [req.appId]: { ...granted[req.appId], [req.namespace]: '*' } };
+      return { ok: true };
+    }),
+    revoke: vi.fn(async (_req: { appId: string; namespace?: string }) => {
+      granted = {};
+      return { ok: true };
+    }),
+  };
+  window.midniteStudio = { secrets, forgeAccounts, db, vaultGrants } as unknown as typeof window.midniteStudio;
   const kit = createFrameChrome();
   render(
     <FrameChromeProvider chrome={kit.chrome}>
@@ -39,7 +52,7 @@ function mount() {
       <kit.DialogHost />
     </FrameChromeProvider>,
   );
-  return { secrets, forgeAccounts, db };
+  return { secrets, forgeAccounts, db, vaultGrants };
 }
 
 describe('VaultPage', () => {
@@ -49,7 +62,7 @@ describe('VaultPage', () => {
     expect(screen.getByText('Token stored')).toBeTruthy();
     expect(screen.getByText('Prod')).toBeTruthy();
     expect(screen.getByText(/postgres · db.example · svc/)).toBeTruthy();
-    await waitFor(() => expect(screen.getAllByText('Not set')).toHaveLength(5));
+    await waitFor(() => expect(screen.getAllByText('Not set')).toHaveLength(5 + AGENT_SECRET_IDS.length));
     expect(screen.getAllByText('Set', { selector: 'span' })).toHaveLength(1);
     expect(secrets.get).not.toHaveBeenCalled();
   });
@@ -75,8 +88,25 @@ describe('VaultPage', () => {
     expect(secrets.set).toHaveBeenCalledWith({ key: 'ollama.apiKey', value: '' });
   });
 
-  it('says LLM keys and web-app sign-ins are not in the vault yet', async () => {
+  it('grants an app a namespace, and revokes only after the confirm', async () => {
+    const { vaultGrants } = mount();
+    const box = (await screen.findByLabelText('Allow browser to use Secrets')) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    expect(screen.queryByLabelText('Allow vault to use Secrets')).toBeNull();
+    await act(async () => fireEvent.click(box));
+    expect(vaultGrants.set).toHaveBeenCalledWith({ appId: 'browser', namespace: 'secrets', scope: '*' });
+    await waitFor(() => expect((screen.getByLabelText('Allow browser to use Secrets') as HTMLInputElement).checked).toBe(true));
+    fireEvent.click(screen.getByLabelText('Allow browser to use Secrets'));
+    expect(vaultGrants.revoke).not.toHaveBeenCalled();
+    await act(async () => fireEvent.click(screen.getAllByRole('button', { name: 'Revoke' }).at(-1)!));
+    expect(vaultGrants.revoke).toHaveBeenCalledWith({ appId: 'browser', namespace: 'secrets' });
+  });
+
+  it('lists LLM keys under their own heading and notes web-app sign-ins are not in the vault', async () => {
     mount();
     expect(await screen.findByText('Not in the vault yet')).toBeTruthy();
+    expect(screen.getByText('LLM keys')).toBeTruthy();
+    expect(screen.getByText('Claude API key')).toBeTruthy();
+    expect(screen.queryByText(/LLM provider keys/)).toBeNull();
   });
 });

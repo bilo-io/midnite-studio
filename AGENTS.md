@@ -395,8 +395,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   is. A GitHub account discovered from `gh auth status` holds no token at all (`delegated: 'gh'`):
   `gh` remains its credential, unchanged. The one plaintext forge-token slot this app ever had —
   `ui-store.ts`'s `agentApiKeys['github']` — is migrated into the vault on first run and removed
-  from the persisted blob; the five LLM keys beside it are untouched, and stay `agentApiKeys`'
-  problem, not this one's.
+  from the persisted blob; the LLM keys beside it moved into the vault too (Phase 113 Theme J — `agent.<id>.apiKey`,
+  write-only from the renderer, which now holds none).
 
 ## Sitrep — the standing format when the user asks for status
 

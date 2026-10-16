@@ -1,5 +1,10 @@
 import { bridge, useFrameChrome } from '@midnite/studio-frame';
-import { SECRET_KEYS, type SecretKey } from '@midnite/studio-shared';
+import {
+  BUILTIN_AGENTS,
+  SECRET_KEYS,
+  agentSecretKey,
+  type SecretKey,
+} from '@midnite/studio-shared';
 import { useCallback, useEffect, useState } from 'react';
 
 /** What each stored secret is for — the label the list shows. */
@@ -10,7 +15,23 @@ export const SECRET_LABELS = {
   'media.openaiApiKey': 'OpenAI API key',
   'media.huggingFaceToken': 'Hugging Face token',
   'media.mapTilerApiKey': 'MapTiler API key',
-} as const satisfies Record<SecretKey, string>;
+} as const satisfies Partial<Record<SecretKey, string>>;
+
+/** The LLM agent keys (`agent.<id>.apiKey`), labelled by the agent they belong to. */
+const AGENT_KEYS: { key: SecretKey; label: string }[] = BUILTIN_AGENTS.flatMap((a) => {
+  const key = agentSecretKey(a.id);
+  return key ? [{ key, label: `${a.label} API key` }] : [];
+});
+const LLM_KEYS = new Set<SecretKey>(AGENT_KEYS.map((a) => a.key));
+const OTHER_KEYS = SECRET_KEYS.filter((k) => !LLM_KEYS.has(k));
+
+function labelOf(key: SecretKey): string {
+  return (
+    (SECRET_LABELS as Partial<Record<SecretKey, string>>)[key] ??
+    AGENT_KEYS.find((a) => a.key === key)?.label ??
+    key
+  );
+}
 
 /**
  * Every app secret: set or not, and a way to write a new value or remove it.
@@ -47,7 +68,7 @@ export function SecretsSection() {
 
   const remove = (key: SecretKey) =>
     dialogs.confirm({
-      title: `Remove ${SECRET_LABELS[key]}?`,
+      title: `Remove ${labelOf(key)}?`,
       body: 'Anything that uses it stops working until you set it again.',
       confirmLabel: 'Remove',
       danger: true,
@@ -59,40 +80,68 @@ export function SecretsSection() {
       },
     });
 
+  const renderList = (keys: readonly SecretKey[]) => (
+    <ul className="divide-y divide-border">
+      {keys.map((key) => (
+        <li key={key} className="flex items-center gap-3 py-2 text-xs">
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">{labelOf(key)}</span>
+            <span className="block text-muted-foreground">{key}</span>
+          </span>
+          {editing === key ? (
+            <>
+              <input
+                type="password"
+                autoComplete="off"
+                aria-label={`New value for ${labelOf(key)}`}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="w-56 rounded border border-border bg-background px-2 py-1"
+              />
+              <button type="button" onClick={() => void save(key)}>
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(null);
+                  setDraft('');
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <span>{isSet === null ? '…' : isSet[key] ? 'Set' : 'Not set'}</span>
+              <button type="button" onClick={() => setEditing(key)}>
+                {isSet?.[key] ? 'Rotate' : 'Set'}
+              </button>
+              {isSet?.[key] ? (
+                <button type="button" onClick={() => remove(key)}>
+                  Remove
+                </button>
+              ) : null}
+            </>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <section aria-labelledby="vault-secrets" className="rounded-lg border border-border p-4">
-      <h2 id="vault-secrets" className="mb-1 text-sm font-medium">Secrets</h2>
-      <p className="mb-3 text-xs text-muted-foreground">Values are write-only: they are never shown again once saved.</p>
-      <ul className="divide-y divide-border">
-        {SECRET_KEYS.map((key) => (
-          <li key={key} className="flex items-center gap-3 py-2 text-xs">
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">{SECRET_LABELS[key]}</span>
-              <span className="block text-muted-foreground">{key}</span>
-            </span>
-            {editing === key ? (
-              <>
-                <input
-                  type="password"
-                  autoComplete="off"
-                  aria-label={`New value for ${SECRET_LABELS[key]}`}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  className="w-56 rounded border border-border bg-background px-2 py-1"
-                />
-                <button type="button" onClick={() => void save(key)}>Save</button>
-                <button type="button" onClick={() => { setEditing(null); setDraft(''); }}>Cancel</button>
-              </>
-            ) : (
-              <>
-                <span>{isSet === null ? '…' : isSet[key] ? 'Set' : 'Not set'}</span>
-                <button type="button" onClick={() => setEditing(key)}>{isSet?.[key] ? 'Rotate' : 'Set'}</button>
-                {isSet?.[key] ? <button type="button" onClick={() => remove(key)}>Remove</button> : null}
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
+      <h2 id="vault-secrets" className="mb-1 text-sm font-medium">
+        Secrets
+      </h2>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Values are write-only: they are never shown again once saved.
+      </p>
+      {renderList(OTHER_KEYS)}
+      <h3 id="vault-llm-keys" className="mb-1 mt-4 text-xs font-medium">
+        LLM keys
+      </h3>
+      {renderList(AGENT_KEYS.map((a) => a.key))}
     </section>
   );
 }

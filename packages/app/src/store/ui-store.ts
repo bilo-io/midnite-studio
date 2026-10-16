@@ -1722,10 +1722,12 @@ export type UiState = {
   agentModes: Record<string, AgentMode>;
   setAgentMode: (agentId: string, mode: AgentMode) => void;
   /**
-   * Provider API keys entered in settings, keyed by agent id.
+   * LEGACY. Provider API keys used to be entered here; they now live in the vault
+   * (`agent.<id>.apiKey`, Phase 113 Theme J slice 2) and nothing writes this map any
+   * more. It only holds what `migrate-agent-api-keys.ts` has not yet moved (a key
+   * whose vault write has not landed) and empties as it does.
    */
   agentApiKeys: Record<string, string>;
-  setAgentApiKey: (agentId: string, apiKey: string) => void;
   /** Drops the key entirely rather than setting it to `''` — used by the
    *  `agentApiKeys['github']` → forge-account-vault migration (Phase 90
    *  Theme B), which absorbs that one slot and wants it gone, not blank. */
@@ -2529,8 +2531,6 @@ export const useUiStore = create<UiState>()(
       setAgentMode: (agentId, mode) =>
         set((state) => ({ agentModes: { ...state.agentModes, [agentId]: mode } })),
       agentApiKeys: {},
-      setAgentApiKey: (agentId, apiKey) =>
-        set((state) => ({ agentApiKeys: { ...state.agentApiKeys, [agentId]: apiKey } })),
       removeAgentApiKey: (agentId) =>
         set((state) => {
           const { [agentId]: _dropped, ...rest } = state.agentApiKeys;

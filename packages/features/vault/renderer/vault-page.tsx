@@ -1,5 +1,6 @@
 import { DbLoginsSection } from './db-logins-section';
 import { ForgeAccountsSection } from './forge-accounts-section';
+import { GrantsSection } from './grants-section';
 import { SecretsSection } from './secrets-section';
 
 /**
@@ -17,11 +18,11 @@ export function VaultPage() {
       <SecretsSection />
       <ForgeAccountsSection />
       <DbLoginsSection />
+      <GrantsSection />
       <section aria-labelledby="vault-later" className="rounded-lg border border-border p-4">
         <h2 id="vault-later" className="mb-1 text-sm font-medium">Not in the vault yet</h2>
         <p className="text-xs text-muted-foreground">
-          LLM provider keys and web-app sign-ins still live in the app&apos;s renderer storage and browser
-          partitions; moving them here comes later.
+          Web-app sign-ins live in the browser&apos;s own partitions, not in the vault, so they are not listed here.
         </p>
       </section>
     </div>

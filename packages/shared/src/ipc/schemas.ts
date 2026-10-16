@@ -381,6 +381,7 @@ import {
   WorkflowSchema,
 } from '../workflow';
 import { WorkflowTemplateSchema } from '../workflow-templates/types';
+import { PLACEMENT_APP_IDS } from '../domain/placement';
 import { SECRET_KEYS } from '../domain/secrets';
 
 /**
@@ -4545,6 +4546,35 @@ export const SecretsHasRequest = z.object({ key: SecretKeySchema });
 export const SecretsHasResponse = z.object({ hasKey: z.boolean() });
 /** `secretsSet` answers nothing — written once so the Vault's no-value test can name it (Phase 113 Theme J). */
 export const SecretsSetResponse = z.void();
+
+// --- vault grants (Phase 113 Theme J slice 2) ---------------------------------
+// Metadata only: an app id, a namespace and entry *names*. No schema here carries a stored value.
+
+export const VaultNamespaceSchema = z.enum(['secrets', 'forge-accounts', 'db-credentials']);
+/** `'*'` = every entry in the namespace; otherwise the entry names the app may use. */
+export const VaultGrantScopeSchema = z.union([z.literal('*'), z.array(z.string().min(1)).max(500)]);
+/** Apps that need no grant (Studio, Vault) are never grantees. */
+export const VaultGranteeSchema = z.enum(PLACEMENT_APP_IDS).exclude(['vault']);
+export const VaultGrantsSchema = z.record(z.string(), z.record(VaultNamespaceSchema, VaultGrantScopeSchema));
+
+export const VaultGrantsListRequest = z.object({});
+export const VaultGrantsListResponse = z.object({
+  grants: VaultGrantsSchema,
+  /** The grants file exists but is unreadable — every non-Studio app is denied until a grant is set again. */
+  corrupt: z.boolean(),
+});
+export const VaultGrantSetRequest = z.object({
+  appId: VaultGranteeSchema,
+  namespace: VaultNamespaceSchema,
+  scope: VaultGrantScopeSchema,
+});
+export const VaultGrantSetResponse = z.object({ ok: z.boolean() });
+export const VaultGrantRevokeRequest = z.object({
+  appId: VaultGranteeSchema,
+  /** Omitted: every grant the app holds. */
+  namespace: VaultNamespaceSchema.optional(),
+});
+export const VaultGrantRevokeResponse = z.object({ ok: z.boolean() });
 
 // --- finance proxy (Phase 76 Theme D) -----------------------------------------
 

@@ -1,6 +1,7 @@
 import { vaultMain } from '@midnite/studio-feature-vault/main';
 import {
   createIpcContext,
+  createVaultGrants,
   createVaultService,
   type IpcContextElectron,
   type VaultCipher,
@@ -19,6 +20,8 @@ export type VaultElectron = IpcContextElectron & {
  * the only channels Vault's renderer can call. Nothing here reads a stored value.
  */
 export function registerVaultHandlers(el: VaultElectron): void {
-  const service = createVaultService({ directory: el.directory, cipher: el.cipher });
-  vaultMain.register(createIpcContext(el), { vault: service.forApp('vault') });
+  // Grants live beside the namespace files; Vault is trusted, but it is also where they are edited.
+  const grants = createVaultGrants({ directory: el.directory });
+  const service = createVaultService({ directory: el.directory, cipher: el.cipher, authorize: grants.authorize });
+  vaultMain.register(createIpcContext(el), { vault: service.forApp('vault'), grants });
 }

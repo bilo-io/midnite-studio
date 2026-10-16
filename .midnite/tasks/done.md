@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme J (slice 2) — LLM keys in the vault, per-app grants
+
+[PR #877](https://github.com/bilo-io/midnite-studio/pull/877). The renderer no longer holds any LLM key — each moves into the vault, confirmed before the plaintext is dropped — and the runtime vault denies every app but Studio and Vault until the user grants it access from Vault's App access section.
+
 ## 2026-10-16 — Phase 113 Theme M (slice 1) — the Notes feature and apps/mind
 
 [PR #876](https://github.com/bilo-io/midnite-studio/pull/876). Notes is a feature package (its store and handlers out of desktop, its view behind a host port) that Studio composes with no visible change, and Midnite Mind is its own app opening on Notes; Knowledge waits on a host port of its own.

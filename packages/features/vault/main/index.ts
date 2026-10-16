@@ -1,4 +1,4 @@
-import { defineFeatureMain, type VaultClient } from '@midnite/studio-runtime';
+import { defineFeatureMain, registerVaultGrantHandlers, type VaultClient, type VaultGrants } from '@midnite/studio-runtime';
 import {
   CHANNELS,
   SupportedForgeKindSchema,
@@ -35,6 +35,8 @@ export type VaultMainServices = {
    * answers an honest error instead of storing an unchecked token.
    */
   addForgeAccount?: (kind: string, host: string, token: string | undefined) => Promise<ForgeAccountAddResult>;
+  /** The runtime's per-app grants (`createVaultGrants`) — the same store the vault service authorizes with. */
+  grants: VaultGrants;
   /** Saved connections' non-secret metadata. Absent, there is none to list. */
   listConnections?: () => Promise<ConnectionConfig[]>;
 };
@@ -110,6 +112,8 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
       },
       () => ({ ok: false }),
     );
+
+    registerVaultGrantHandlers(ipc, () => services.grants);
 
     ipc.handleBare(CHANNELS.dbListConnections, async () => (await services.listConnections?.()) ?? []);
     ipc.handle(

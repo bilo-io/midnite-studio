@@ -139,6 +139,7 @@ const bridge: Pick<
   | 'workflow'
   | 'demoApi'
   | 'secrets'
+  | 'vaultGrants'
   | 'finance'
   | 'markets'
   | 'apiClient'
@@ -471,6 +472,11 @@ const bridge: Pick<
     get: (req) => call(CHANNELS.secretsGet, req),
     set: (req) => call(CHANNELS.secretsSet, req),
     has: (req) => call(CHANNELS.secretsHas, req),
+  },
+  vaultGrants: {
+    list: (req) => call(CHANNELS.vaultGrantsList, req),
+    set: (req) => call(CHANNELS.vaultGrantSet, req),
+    revoke: (req) => call(CHANNELS.vaultGrantRevoke, req),
   },
   finance: {
     search: (req) => call(CHANNELS.financeSearch, req),

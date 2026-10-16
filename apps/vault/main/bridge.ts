@@ -12,6 +12,7 @@ export type VaultBridge = {
   secrets: Pick<MidniteStudioBridge['secrets'], 'has' | 'set'>;
   forgeAccounts: Pick<MidniteStudioBridge['forgeAccounts'], 'list' | 'add' | 'remove'>;
   db: Pick<MidniteStudioBridge['db'], 'listConnections' | 'deleteConnection'>;
+  vaultGrants: MidniteStudioBridge['vaultGrants'];
 };
 
 export type { RendererIpc };
@@ -31,6 +32,11 @@ export function createVaultBridge(ipc: RendererIpc): VaultBridge {
     db: {
       listConnections: () => call(CHANNELS.dbListConnections),
       deleteConnection: (req) => call(CHANNELS.dbDeleteConnection, req),
+    },
+    vaultGrants: {
+      list: (req) => call(CHANNELS.vaultGrantsList, req),
+      set: (req) => call(CHANNELS.vaultGrantSet, req),
+      revoke: (req) => call(CHANNELS.vaultGrantRevoke, req),
     },
   };
 }
