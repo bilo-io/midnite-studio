@@ -3,16 +3,20 @@ import {
   workflowsMain,
   type WorkflowsPorts,
 } from '@midnite/studio-feature-workflows/main';
+import {
+  activeAccountFor,
+  githubWhoami,
+  listPulls,
+  repoForge,
+  resolveAdapter,
+  type ForgePoller,
+} from '@midnite/studio-feature-forge/main';
 import { resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 import { currentBranch, readStatusCounts, revParse } from '@midnite/studio-git-engine';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
 import { Notification, clipboard, type BrowserWindow } from 'electron';
 
 import { runOllamaPrompt } from '../ai/ollama-headless';
-import { listPulls } from '../forge/github/gh-cli';
-import { activeAccountFor } from '../forge/forge-accounts';
-import type { ForgePoller } from '../forge/forge-poller';
-import { githubWhoami } from '../forge/whoami';
 import { defaultLogger } from '../log';
 import { activityFor, killPty, offPty, onPty } from '../pty-service';
 import { resolveWorkdir } from '../repo-registry';
@@ -20,7 +24,6 @@ import { currentSettings } from '../settings-mirror';
 import { listAgents } from '../terminal-service';
 import { configureWorkflowNodeSessions, startNodeSession } from '../workflow-node-sessions';
 import { handle, handleBare, handleSend } from './handle';
-import { repoForge, resolveAdapter } from './forge-handlers';
 import { readOllamaApiKey } from './secrets-handlers';
 
 /**
