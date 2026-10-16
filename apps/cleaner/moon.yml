@@ -52,6 +52,9 @@ tasks:
       - '/packages/frame/src/**/*'
       - '/packages/features/optimizer/renderer/**/*'
       - '/packages/features/optimizer/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/optimizer/main/**/*'
+      - '/packages/runtime/src/**/*'
 
   test:
     inputs:
@@ -62,3 +65,6 @@ tasks:
       - '/packages/frame/src/**/*'
       - '/packages/features/optimizer/renderer/**/*'
       - '/packages/features/optimizer/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/optimizer/main/**/*'
+      - '/packages/runtime/src/**/*'

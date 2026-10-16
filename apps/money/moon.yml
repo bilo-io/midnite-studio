@@ -52,6 +52,9 @@ tasks:
       - '/packages/frame/src/**/*'
       - '/packages/features/finance/renderer/**/*'
       - '/packages/features/finance/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/finance/main/**/*'
+      - '/packages/runtime/src/**/*'
 
   test:
     inputs:
@@ -62,3 +65,6 @@ tasks:
       - '/packages/frame/src/**/*'
       - '/packages/features/finance/renderer/**/*'
       - '/packages/features/finance/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/finance/main/**/*'
+      - '/packages/runtime/src/**/*'

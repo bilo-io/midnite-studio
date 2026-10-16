@@ -133,7 +133,6 @@ export type {
   BlastRadiusKind,
   ConfirmRequest,
   FrameDialogs,
-  FramePromptRequest,
   FrameMenuItem,
   FramePromptRequest,
   IconButtonProps,

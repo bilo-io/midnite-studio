@@ -54,6 +54,9 @@ tasks:
       - '/packages/features/vault/renderer/**/*'
       - '/packages/features/vault/manifest.ts'
       - '/packages/features/vault/response-schemas.ts'
+      - 'main/**/*'
+      - '/packages/features/vault/main/**/*'
+      - '/packages/runtime/src/**/*'
 
   test:
     inputs:
@@ -65,3 +68,6 @@ tasks:
       - '/packages/features/vault/renderer/**/*'
       - '/packages/features/vault/manifest.ts'
       - '/packages/features/vault/response-schemas.ts'
+      - 'main/**/*'
+      - '/packages/features/vault/main/**/*'
+      - '/packages/runtime/src/**/*'

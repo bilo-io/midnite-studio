@@ -64,6 +64,11 @@ tasks:
       - '/packages/features/councils/manifest.ts'
       - '/packages/features/models/renderer/**/*'
       - '/packages/features/models/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/chats/main/**/*'
+      - '/packages/features/councils/main/**/*'
+      - '/packages/features/models/main/**/*'
+      - '/packages/runtime/src/**/*'
 
   test:
     inputs:
@@ -78,3 +83,8 @@ tasks:
       - '/packages/features/councils/manifest.ts'
       - '/packages/features/models/renderer/**/*'
       - '/packages/features/models/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/chats/main/**/*'
+      - '/packages/features/councils/main/**/*'
+      - '/packages/features/models/main/**/*'
+      - '/packages/runtime/src/**/*'

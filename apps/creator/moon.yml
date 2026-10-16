@@ -64,6 +64,11 @@ tasks:
       - '/packages/features/media-docs/manifest.ts'
       - '/packages/features/media-images/renderer/**/*'
       - '/packages/features/media-images/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/runtime/src/**/*'
 
   test:
     inputs:
@@ -78,3 +83,8 @@ tasks:
       - '/packages/features/media-docs/manifest.ts'
       - '/packages/features/media-images/renderer/**/*'
       - '/packages/features/media-images/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/runtime/src/**/*'
