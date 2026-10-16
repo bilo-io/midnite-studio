@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme I (slice 1) — the Monitor feature, view and app
+
+[PR #873](https://github.com/bilo-io/midnite-studio/pull/873). Monitor is a feature package (metrics and system health moved out of desktop), a real view in Studio rather than two Settings pages, and `apps/monitor`, an installable bundle built on the app kit.
+
 ## 2026-10-15 — Phase 113 Theme I (groundwork) — the suite app kit
 
 [PR #872](https://github.com/bilo-io/midnite-studio/pull/872). Before Monitor, the pieces every extracted app was copying moved into one kit: frame chrome, a real blast-radius dialog, persisted app settings and a Tailwind preset in `packages/frame`, and `createIpcContext`/`createBridgeSlice` in `packages/runtime`. Cleaner and Browser use it (Browser gains a real confirm), and Cleaner's preload shrinks from ~1 MB to ~95 KB.
