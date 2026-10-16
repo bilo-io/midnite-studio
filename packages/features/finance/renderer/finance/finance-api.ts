@@ -1,6 +1,6 @@
 import type { GitOpResult } from '@midnite/studio-shared';
 
-import { bridge } from '../../services/bridge';
+import { bridge } from '@midnite/studio-frame';
 import type { AssetKind, AssetSearchResult, FinanceQuote, HistoryPoint } from './finance-types';
 
 /**

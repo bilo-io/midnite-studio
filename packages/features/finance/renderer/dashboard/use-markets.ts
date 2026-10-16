@@ -17,7 +17,7 @@ import {
   type MarketTimescale,
 } from '@midnite/studio-shared';
 
-import { bridge } from '../../services/bridge';
+import { bridge } from '@midnite/studio-frame';
 import { formatUsd } from './finance-format';
 import { useFinanceUiStore } from './finance-ui-store';
 

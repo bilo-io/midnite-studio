@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { bridge } from '../../services/bridge';
-import { adoptRenamedPersistKey } from '../../store/persist-rename';
+import { adoptRenamedPersistKey, bridge } from '@midnite/studio-frame';
 import { assetKey, type FinanceAsset } from './finance-types';
 
 /** Mirrors the source app's `MARKET_WATCHLIST_MAX` — keeps the poll fan-out bounded. */

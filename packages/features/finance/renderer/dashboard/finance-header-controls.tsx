@@ -3,7 +3,7 @@ import { LuRefreshCw } from 'react-icons/lu';
 import { MARKET_CURRENCIES, MARKET_TIMESCALES, type MarketTimescale } from '@midnite/studio-shared';
 import { useIsFetching } from '@tanstack/react-query';
 
-import { IconButton } from '../../components/icon-button';
+import { IconButton } from '../ui';
 import { formatAge } from './finance-format';
 import { Segmented, StaleHint } from './finance-parts';
 import { useFinanceUiStore } from './finance-ui-store';

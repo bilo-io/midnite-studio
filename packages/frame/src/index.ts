@@ -83,6 +83,8 @@ export {
   type ExpansionState,
 } from './lib/expansion';
 
+export { adoptRenamedPersistKey } from './lib/persist-rename';
+
 // Form controls.
 export { Choice, Field, TextArea, TextField } from './form/field';
 export { FilterInput, type FilterInputProps } from './form/filter-input';

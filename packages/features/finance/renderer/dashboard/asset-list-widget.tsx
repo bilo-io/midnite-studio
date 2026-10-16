@@ -4,8 +4,7 @@ import { LuArrowDown, LuArrowUp, LuStar } from 'react-icons/lu';
 
 import { MARKET_TIMESCALE_LABEL, usdToCurrency, type MarketAsset } from '@midnite/studio-shared';
 
-import { EmptyState } from '../../components/empty-state';
-import { Skeleton } from '../../components/skeleton';
+import { EmptyState, Skeleton } from '../ui';
 import { AssetIcon } from './asset-icon';
 import { formatMoney } from './finance-format';
 import { SORT_LABELS, sortRows, type AssetRow, type SortKey } from './finance-math';

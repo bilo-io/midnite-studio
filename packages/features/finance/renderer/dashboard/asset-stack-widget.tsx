@@ -4,8 +4,7 @@ import { LuCoins } from 'react-icons/lu';
 
 import { MARKET_TIMESCALE_LABEL, assetColor, usdToCurrency } from '@midnite/studio-shared';
 
-import { EmptyState } from '../../components/empty-state';
-import { Skeleton } from '../../components/skeleton';
+import { EmptyState, Skeleton } from '../ui';
 import { AssetIcon } from './asset-icon';
 import { FanStack } from './fan-stack';
 import { formatMoney, formatQuantity } from './finance-format';

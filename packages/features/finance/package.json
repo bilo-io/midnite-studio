@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./renderer": "./renderer/index.ts",
+    "./renderer/testing": "./renderer/testing.ts",
     "./main": {
       "types": "./dist/main/index.d.ts",
       "default": "./dist/main/index.js"

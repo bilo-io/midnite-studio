@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderView } from '../../../test-support/render';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { DEFAULT_TABS, FINANCE_DASHBOARD_ID, useDashboardStore } from '../../store/dashboard-store';
-import { DashboardView } from '../dashboard/dashboard-view';
-import { DEFAULT_NEWS, useFinanceUiStore } from './finance-ui-store';
+import { DashboardView } from '../../features/dashboard/dashboard-view';
+import { DEFAULT_NEWS, useFinanceUiStore } from '@midnite/studio-feature-finance/renderer/testing';
 
 /**
  * The Finance dashboard, assembled through the mock bridge — jsdom, vitest.
@@ -18,7 +18,7 @@ import { DEFAULT_NEWS, useFinanceUiStore } from './finance-ui-store';
  * price on screen comes from the mock bridge's seeded generator — there is no
  * network anywhere in this file.
  */
-vi.mock('./price-chart', () => ({
+vi.mock('../../../../features/finance/renderer/dashboard/price-chart', () => ({
   default: ({ type, candles, up }: { type: string; candles: unknown[]; up: boolean }) => (
     <div data-testid="price-chart-stub" data-type={type} data-points={candles.length} data-up={String(up)} />
   ),

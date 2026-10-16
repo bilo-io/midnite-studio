@@ -4,7 +4,7 @@ import { LuMinus, LuPlus } from 'react-icons/lu';
 
 import { marketCurrency } from '@midnite/studio-shared';
 
-import { Modal } from '../../components/modal';
+import { Modal } from '../ui';
 import { formatMoney } from './finance-format';
 
 /**

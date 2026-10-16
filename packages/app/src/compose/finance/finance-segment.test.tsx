@@ -2,8 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FinanceSegment } from './finance-segment';
-import { useFinanceStore } from './finance-store';
+import { FinanceSegment, useFinanceStore } from '@midnite/studio-feature-finance/renderer';
+
+import { StudioProviders } from '../studio-providers';
 
 function stubFinance(options?: {
   quote?: { price: number; currency: string };
@@ -45,7 +46,9 @@ function renderSegment() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <FinanceSegment />
+      <StudioProviders>
+        <FinanceSegment />
+      </StudioProviders>
     </QueryClientProvider>,
   );
 }

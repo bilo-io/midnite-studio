@@ -12,7 +12,7 @@ import {
   LuZap,
 } from 'react-icons/lu';
 
-import type { IconComponent } from '../../components/icon-button';
+import type { IconComponent } from '@midnite/studio-frame';
 import type { DescribedSummary, SummaryIcon, SummaryLine, SummaryTone } from './series-summary';
 
 /**

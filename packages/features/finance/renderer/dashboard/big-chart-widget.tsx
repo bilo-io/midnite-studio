@@ -4,9 +4,7 @@ import { LuArrowLeftRight, LuChevronUp, LuRotateCw, LuSparkles, LuStar } from 'r
 
 import { MARKET_TIMESCALE_LABEL, MARKET_TIMESCALE_MS, type MarketAsset } from '@midnite/studio-shared';
 
-import { EmptyState } from '../../components/empty-state';
-import { Skeleton } from '../../components/skeleton';
-import { ExternalLink } from '../markdown/external-link';
+import { EmptyState, ExternalLink, Skeleton } from '../ui';
 import { AssetIcon } from './asset-icon';
 import { AssetSearch } from './asset-search';
 import { formatMoney } from './finance-format';

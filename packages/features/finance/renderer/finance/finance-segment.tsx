@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { LuArrowDown, LuArrowUp, LuChartLine } from 'react-icons/lu';
 
-import { Popover } from '../../components/popover';
-import { useTitleTypewriter } from '../slides/use-title-typewriter';
+import { Popover } from '../ui';
+import { useFinanceHost } from '../host';
 import { assetTicker, fmtPct, fmtPrice, historyChange } from './finance-derive';
 import { useFinanceHistory, useFinanceQuote } from './finance-queries';
 import { FinancePanel } from './finance-panel';
@@ -51,9 +51,10 @@ export function FinanceSegment() {
   const rawPrice = hasData ? fmtPrice(price, quote?.currency) : '';
   const rawPct = pct != null ? fmtPct(pct) : '';
 
-  const { typed: typedTicker } = useTitleTypewriter(rawTicker, false);
-  const { typed: typedPrice } = useTitleTypewriter(rawPrice, false);
-  const { typed: typedPct } = useTitleTypewriter(rawPct, false);
+  const { useTypewriter } = useFinanceHost();
+  const typedTicker = useTypewriter(rawTicker);
+  const typedPrice = useTypewriter(rawPrice);
+  const typedPct = useTypewriter(rawPct);
 
   const colorClass = hasData
     ? up

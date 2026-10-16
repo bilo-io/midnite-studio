@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { LuChevronsUpDown } from 'react-icons/lu';
 
-import { IconButton } from '../../components/icon-button';
+import { IconButton } from '../ui';
 
 /**
  * A stack of cards that fans out.

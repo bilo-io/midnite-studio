@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { LuChartPie } from 'react-icons/lu';
 
-import { EmptyState } from '../../components/empty-state';
-import { Skeleton } from '../../components/skeleton';
+import { EmptyState, Skeleton } from '../ui';
 import { AssetIcon } from './asset-icon';
 import { allocation, portfolioValue } from './finance-math';
 import { formatPct } from './finance-format';

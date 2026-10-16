@@ -4,8 +4,7 @@ import { LuArrowDown, LuArrowUp, LuCreditCard, LuReceipt, LuSearch } from 'react
 
 import { usdToCurrency, type MarketTransaction, type MarketTxType } from '@midnite/studio-shared';
 
-import { EmptyState } from '../../components/empty-state';
-import { Skeleton } from '../../components/skeleton';
+import { EmptyState, Skeleton } from '../ui';
 import { AssetIcon } from './asset-icon';
 import { formatMoney, formatQuantity } from './finance-format';
 import {

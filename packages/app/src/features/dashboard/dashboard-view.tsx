@@ -33,6 +33,17 @@ import {
 } from 'react-icons/lu';
 import GridLayout, { useContainerWidth, type LayoutItem } from 'react-grid-layout';
 
+import {
+  AllocationWidget,
+  AssetListWidget,
+  AssetStackWidget,
+  BankCardsWidget,
+  BigChartWidget,
+  FinanceHeaderControls,
+  NewsWidget,
+  TransactionsWidget,
+} from '@midnite/studio-feature-finance/renderer';
+
 import { BrandMark } from '../../components/brand';
 import type { MenuItem } from '../../components/context-menu';
 import { EmptyState } from '../../components/empty-state';
@@ -76,14 +87,6 @@ import { ContributorsWidget } from './widgets/contributors-widget';
 import { IssuesWidget, PullsWidget, RunsWidget } from './widgets/forge-widgets';
 import { HealthWidget } from './widgets/health-widget';
 import { PageDetachMark } from '../../components/page-detach-mark';
-import { AllocationWidget } from '../finance-dashboard/allocation-widget';
-import { AssetListWidget } from '../finance-dashboard/asset-list-widget';
-import { AssetStackWidget } from '../finance-dashboard/asset-stack-widget';
-import { BankCardsWidget } from '../finance-dashboard/bank-cards-widget';
-import { BigChartWidget } from '../finance-dashboard/big-chart-widget';
-import { FinanceHeaderControls } from '../finance-dashboard/finance-header-controls';
-import { NewsWidget } from '../finance-dashboard/news-widget';
-import { TransactionsWidget } from '../finance-dashboard/transactions-widget';
 
 /**
  * The repository's front page.

@@ -1,7 +1,8 @@
 import type { ComponentType } from 'react';
 
+import { FinanceSegment } from '@midnite/studio-feature-finance/renderer';
+
 import { DiagnosticsSegment } from '../diagnostics/diagnostics-segment';
-import { FinanceSegment } from '../finance/finance-segment';
 import { MonitorCluster } from '../monitor/monitor-cluster';
 
 import { ActivityToggle } from './activity-toggle';

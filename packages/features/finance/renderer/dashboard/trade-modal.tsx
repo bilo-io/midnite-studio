@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { holdingQuantity, usdToCurrency, type MarketAsset, type MarketPortfolio } from '@midnite/studio-shared';
 
-import { Modal } from '../../components/modal';
+import { Modal } from '../ui';
 import { AssetIcon } from './asset-icon';
 import { formatMoney, formatQuantity } from './finance-format';
 import { Segmented } from './finance-parts';

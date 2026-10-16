@@ -2,7 +2,7 @@ import { useId, useMemo, type ReactNode } from 'react';
 
 import { LuArrowDownRight, LuArrowUpRight, LuMinus, LuTriangleAlert } from 'react-icons/lu';
 
-import { Tooltip } from '../../components/tooltip';
+import { Tooltip } from '../ui';
 import { formatAge, formatSignedPct } from './finance-format';
 import type { AllocationSlice, Direction } from './finance-math';
 

@@ -105,7 +105,6 @@ export const FEATURE_PLACEMENT = {
   tasks: 'coder',
   tests: 'coder',
   finance: 'money',
-  'finance-dashboard': 'money',
   slides: 'creator',
   media: ['creator', 'media', 'gamer'],
 } as const satisfies Readonly<Record<string, Placement>>;

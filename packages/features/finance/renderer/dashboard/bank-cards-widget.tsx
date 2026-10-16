@@ -4,8 +4,7 @@ import { LuCreditCard, LuMinus, LuNfc, LuPlus } from 'react-icons/lu';
 
 import { MARKET_CURRENCIES, cardLastFour, marketCurrency, usdToCurrency } from '@midnite/studio-shared';
 
-import { EmptyState } from '../../components/empty-state';
-import { Skeleton } from '../../components/skeleton';
+import { EmptyState, Skeleton } from '../ui';
 import { AmountModal, type AmountMode } from './amount-modal';
 import { FanStack } from './fan-stack';
 import { formatMoney, maskedCard } from './finance-format';

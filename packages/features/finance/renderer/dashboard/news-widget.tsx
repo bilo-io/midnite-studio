@@ -4,11 +4,8 @@ import { LuAppWindow, LuExternalLink, LuNewspaper, LuPlus, LuRotateCcw, LuSettin
 
 import { catalogueAsset, type MarketNewsSource } from '@midnite/studio-shared';
 
-import { EmptyState } from '../../components/empty-state';
-import { IconButton } from '../../components/icon-button';
-import { Popover } from '../../components/popover';
-import { Skeleton } from '../../components/skeleton';
-import { openInMidnite, openLinkFromEvent } from '../../services/open-in-midnite';
+import { useFinanceHost } from '../host';
+import { EmptyState, IconButton, Popover, Skeleton } from '../ui';
 import { AssetIcon } from './asset-icon';
 import { formatAge } from './finance-format';
 import { StaleHint } from './finance-parts';
@@ -44,6 +41,7 @@ export function newsSources(
 }
 
 export function NewsWidget() {
+  const { openLink, openLinkFromEvent } = useFinanceHost();
   const { data: portfolio } = usePortfolio();
   const known = useKnownAssets(portfolio);
   const config = useFinanceUiStore((s) => s.news);
@@ -120,13 +118,13 @@ export function NewsWidget() {
                   icon={LuAppWindow}
                   label="Open in Midnite browser"
                   size="sm"
-                  onClick={() => openInMidnite(item.link, { target: 'in-app' })}
+                  onClick={() => openLink(item.link, 'in-app')}
                 />
                 <IconButton
                   icon={LuExternalLink}
                   label="Open in system browser"
                   size="sm"
-                  onClick={() => openInMidnite(item.link, { target: 'system' })}
+                  onClick={() => openLink(item.link, 'system')}
                 />
               </div>
             </li>

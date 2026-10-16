@@ -5,6 +5,11 @@ import { OptimizerHostProvider } from '@midnite/studio-feature-optimizer/rendere
 import { FrameChromeProvider } from '@midnite/studio-frame';
 
 import { STUDIO_NOTES_HOST } from './notes-host';
+import { FinanceHostProvider } from '@midnite/studio-feature-finance/renderer';
+import { OptimizerHostProvider } from '@midnite/studio-feature-optimizer/renderer';
+import { FrameChromeProvider } from '@midnite/studio-frame';
+
+import { STUDIO_FINANCE_HOST } from './finance-host';
 import { STUDIO_OPTIMIZER_HOST } from './optimizer-host';
 import { STUDIO_CHROME } from './studio-chrome';
 
@@ -26,6 +31,7 @@ export function StudioProviders({ children }: { children: ReactNode }) {
     <FrameChromeProvider chrome={STUDIO_CHROME}>
       <OptimizerHostProvider host={STUDIO_OPTIMIZER_HOST}>
         <NotesHostProvider host={STUDIO_NOTES_HOST}>{children}</NotesHostProvider>
+        <FinanceHostProvider host={STUDIO_FINANCE_HOST}>{children}</FinanceHostProvider>
       </OptimizerHostProvider>
     </FrameChromeProvider>
   );

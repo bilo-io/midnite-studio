@@ -1,6 +1,16 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { LuArrowDown, LuArrowUp, LuZap } from 'react-icons/lu';
 import { type MetricId } from '@midnite/studio-shared';
+import {
+  assetTicker,
+  fmtPct,
+  fmtPrice,
+  historyChange,
+  Sparkline,
+  useFinanceHistory,
+  useFinanceQuote,
+  useFinanceStore,
+} from '@midnite/studio-feature-finance/renderer';
 
 import { BatteryIcon } from '../battery/battery-icon';
 import {
@@ -12,10 +22,6 @@ import {
 import { useMetricsStore } from '../../store/metrics-store';
 import { METRIC_LABELS, metricColor, metricFill } from '../monitor/metric-palette';
 import { MetricChart } from '../monitor/metric-chart';
-import { useFinanceStore } from '../finance/finance-store';
-import { useFinanceHistory, useFinanceQuote } from '../finance/finance-queries';
-import { assetTicker, fmtPct, fmtPrice, historyChange } from '../finance/finance-derive';
-import { Sparkline } from '../finance/sparkline';
 import { useTitleTypewriter } from '../slides/use-title-typewriter';
 import { fmtLocationName, fmtTemperature, weatherCondition } from '../weather/weather-derive';
 import { useCurrentWeather } from '../weather/weather-queries';

@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
-import { FinanceSegment } from './finance-segment';
-import { useFinanceStore } from './finance-store';
+import { FinanceSegment, useFinanceStore } from '@midnite/studio-feature-finance/renderer';
 
 beforeEach(() => {
   useFinanceStore.setState({ assets: [], twelveDataKeyConfigured: false, secretsHydrated: true });

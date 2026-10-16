@@ -27,14 +27,14 @@ import {
   SiAmd,
 } from 'react-icons/si';
 
-import type { IconComponent } from '../../components/icon-button';
+import type { IconComponent } from '@midnite/studio-frame';
 import {
   AmazonMark,
   AvalancheMark,
   IndexFundMark,
   MicrosoftMark,
   TechFundMark,
-} from '../../components/icons/market-marks';
+} from './market-marks';
 
 /**
  * Official brand marks, by symbol: Simple Icons (CC0, via `react-icons/si`)
