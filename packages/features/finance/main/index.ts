@@ -2,6 +2,7 @@ import { defineFeatureMain } from '@midnite/studio-runtime';
 import { CHANNELS, failure, schemas, type GitOpResult } from '@midnite/studio-shared';
 
 import { financeManifest } from '../manifest';
+import type { AccountsService } from './accounts/accounts-service';
 import { getFinanceHistory, getFinanceQuote, searchFinanceAssets } from './finance-service';
 import { defaultFetcher, type Fetcher } from './markets/http';
 import { RATES_TTL_MS } from './markets/markets-service';
@@ -22,6 +23,14 @@ export { defaultFetcher, type Fetcher } from './markets/http';
 export { createMarketsService, RATES_TTL_MS, type MarketsService } from './markets/markets-service';
 export { createPortfolioStore, type PortfolioStore } from './markets/portfolio-store';
 export { createNewsService } from './markets/rss';
+export {
+  createAccountsService,
+  scrub,
+  SNAPSHOT_TTL_MS,
+  type AccountsService,
+  type CredentialStore,
+} from './accounts/accounts-service';
+export { CONNECTORS } from './accounts/registry';
 export { createMarketsRuntime, type MarketsRuntime } from './runtime';
 
 /**
@@ -44,6 +53,12 @@ export type FinanceMainServices = {
    * answer {@link StockApiKeyMissingError}'s message.
    */
   twelveDataKey: () => Promise<string | null>;
+  /**
+   * Read-only brokerage and exchange accounts (Phase 113 Theme P slice 2). Built by the composer over
+   * its vault, so a credential is written and read in main only; absent, every account channel
+   * answers that accounts are unavailable here instead of throwing.
+   */
+  accounts?: AccountsService;
   /** The provider transport; the real network by default, a fixture in tests. */
   fetcher?: Fetcher;
   /** Where a malformed payload is reported (desktop's logger); dropped when absent. */
@@ -60,7 +75,7 @@ export const financeMain = defineFeatureMain<FinanceMainServices>({
   channels: financeManifest.ipc,
   register(ctx, services) {
     const { ipc } = ctx;
-    const { runtime: rt } = services;
+    const { runtime: rt, accounts } = services;
     const fetcher = services.fetcher ?? defaultFetcher;
     const warn = (issue: string): GitOpResult<never> => {
       services.warn?.(issue);
@@ -90,6 +105,54 @@ export const financeMain = defineFeatureMain<FinanceMainServices>({
         return ok(await getFinanceHistory(req.kind, req.symbol, await services.twelveDataKey(), fetcher));
       } catch (err) {
         return providerFailure(err);
+      }
+    }, warn);
+
+    const NO_ACCOUNTS = 'Brokerage accounts are not available in this app.';
+    const accountsFailure = (err: unknown): GitOpResult<never> => asFailure(err, 'account request failed');
+
+    ipc.handleBare(CHANNELS.financeAccountsList, async () => {
+      if (!accounts) return failure(NO_ACCOUNTS);
+      try {
+        return ok(await accounts.list());
+      } catch (err) {
+        return accountsFailure(err);
+      }
+    });
+
+    ipc.handle(CHANNELS.financeAccountTest, schemas.FinanceAccountTestRequest, async (req) => {
+      if (!accounts) return failure(NO_ACCOUNTS);
+      try {
+        return ok({ summary: await accounts.test(req) });
+      } catch (err) {
+        return accountsFailure(err);
+      }
+    }, warn);
+
+    ipc.handle(CHANNELS.financeAccountAdd, schemas.FinanceAccountAddRequest, async (req) => {
+      if (!accounts) return failure(NO_ACCOUNTS);
+      try {
+        return ok({ account: await accounts.add(req) });
+      } catch (err) {
+        return accountsFailure(err);
+      }
+    }, warn);
+
+    ipc.handle(CHANNELS.financeAccountRemove, schemas.FinanceAccountRemoveRequest, async (req) => {
+      if (!accounts) return failure(NO_ACCOUNTS);
+      try {
+        return ok({ removed: await accounts.remove(req.id) });
+      } catch (err) {
+        return accountsFailure(err);
+      }
+    }, warn);
+
+    ipc.handle(CHANNELS.financeAccountSnapshots, schemas.FinanceAccountSnapshotsRequest, async (req) => {
+      if (!accounts) return failure(NO_ACCOUNTS);
+      try {
+        return ok({ snapshots: await accounts.snapshots(req) });
+      } catch (err) {
+        return accountsFailure(err);
       }
     }, warn);
 

@@ -26,6 +26,21 @@ async function readTwelveDataKey(): Promise<string | null> {
 export { readTwelveDataKey };
 
 /**
+ * The brokerage accounts' credential store (Phase 113 Theme P slice 2): main-only, read by the
+ * accounts service to sign a request and by nothing else. A write with no vault is dropped, like
+ * every other secret's, and reads as absent — the account then reports its credentials missing.
+ */
+export const accountCredentials = {
+  get: async (name: string): Promise<string | null> => (vault ? vault.getEntry(name) : null),
+  set: async (name: string, value: string): Promise<void> => {
+    if (vault) await vault.setEntry(name, value);
+  },
+  delete: async (name: string): Promise<void> => {
+    if (vault) await vault.deleteEntry(name);
+  },
+};
+
+/**
  * Exposed for `ollama-handlers.ts` (the cloud catalogue fetch) and
  * `pty-service.ts`'s `useOllamaKey` marker resolution (Phase 96 Theme F) —
  * the key never crosses back to the renderer either way.

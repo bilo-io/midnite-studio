@@ -5,7 +5,7 @@
  */
 export type Fetcher = (
   url: string,
-  init?: { headers?: Record<string, string>; signal?: AbortSignal },
+  init?: { headers?: Record<string, string>; signal?: AbortSignal; method?: string; body?: string },
 ) => Promise<{
   ok: boolean;
   status: number;

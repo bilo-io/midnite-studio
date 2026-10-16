@@ -141,6 +141,7 @@ const bridge: Pick<
   | 'secrets'
   | 'vaultGrants'
   | 'finance'
+  | 'financeAccounts'
   | 'markets'
   | 'apiClient'
   | 'video'
@@ -485,6 +486,13 @@ const bridge: Pick<
     search: (req) => call(CHANNELS.financeSearch, req),
     quote: (req) => call(CHANNELS.financeQuote, req),
     history: (req) => call(CHANNELS.financeHistory, req),
+  },
+  financeAccounts: {
+    list: () => call(CHANNELS.financeAccountsList),
+    test: (req) => call(CHANNELS.financeAccountTest, req),
+    add: (req) => call(CHANNELS.financeAccountAdd, req),
+    remove: (req) => call(CHANNELS.financeAccountRemove, req),
+    snapshots: (req) => call(CHANNELS.financeAccountSnapshots, req),
   },
   markets: {
     series: (req) => call(CHANNELS.marketsSeries, req),

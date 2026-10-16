@@ -1,13 +1,13 @@
 import { join } from 'node:path';
 
-import { createMarketsRuntime, financeMain, startRatesRefresh } from '@midnite/studio-feature-finance/main';
+import { createAccountsService, createMarketsRuntime, financeMain, startRatesRefresh } from '@midnite/studio-feature-finance/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
 
 import { app } from 'electron';
 
 import { defaultLogger } from '../log';
 import { handle, handleBare, handleSend } from './handle';
-import { readTwelveDataKey } from './secrets-handlers';
+import { accountCredentials, readTwelveDataKey } from './secrets-handlers';
 
 /**
  * The Finance IPC — provider proxy and markets — is the finance feature's main
@@ -22,9 +22,11 @@ export function registerFinanceHandlers(): void {
     emit: () => undefined,
     trashItem: () => Promise.reject(new Error('finance never trashes')),
   };
-  const runtime = createMarketsRuntime(join(app.getPath('userData'), 'finance'));
+  const directory = join(app.getPath('userData'), 'finance');
+  const runtime = createMarketsRuntime(directory);
   financeMain.register(ctx, {
     runtime,
+    accounts: createAccountsService({ directory, credentials: accountCredentials }),
     twelveDataKey: readTwelveDataKey,
     warn: (issue) => defaultLogger.warn(issue),
   });

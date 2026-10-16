@@ -1088,6 +1088,20 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * Read-only brokerage and exchange accounts (Phase 113 Theme P slice 2). Credentials go in through
+   * `add`/`test` once and never come back: no method here returns one, and none places an order.
+   */
+  financeAccounts: {
+    list: () => Promise<z.infer<typeof S.FinanceAccountsListResponse>>;
+    test: (req: In<typeof S.FinanceAccountTestRequest>) => Promise<z.infer<typeof S.FinanceAccountTestResponse>>;
+    add: (req: In<typeof S.FinanceAccountAddRequest>) => Promise<z.infer<typeof S.FinanceAccountAddResponse>>;
+    remove: (req: In<typeof S.FinanceAccountRemoveRequest>) => Promise<z.infer<typeof S.FinanceAccountRemoveResponse>>;
+    snapshots: (
+      req: In<typeof S.FinanceAccountSnapshotsRequest>,
+    ) => Promise<z.infer<typeof S.FinanceAccountSnapshotsResponse>>;
+  };
+
+  /**
    * The Finance dashboard's data (key-free, fetched in main, USD-denominated)
    * and its simulated portfolio. Every op resolves with a `GitOpResult` — a
    * rate-limited provider or a refused withdrawal is an outcome, not a throw.

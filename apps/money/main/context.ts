@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import { createMarketsRuntime, financeMain, startRatesRefresh } from '@midnite/studio-feature-finance/main';
+import { createAccountsService, createMarketsRuntime, financeMain, startRatesRefresh } from '@midnite/studio-feature-finance/main';
 import {
   createIpcContext,
   createVaultGrants,
@@ -46,9 +46,22 @@ export function registerMoneyHandlers(el: MoneyElectron): () => void {
     cipher: el.cipher,
     authorize: el.authorize ?? createVaultGrants({ directory: el.vaultDirectory }).authorize,
   }).forApp('money');
-  const runtime = createMarketsRuntime(join(el.userData, 'finance'), el.fetcher);
+  const financeDirectory = join(el.userData, 'finance');
+  const runtime = createMarketsRuntime(financeDirectory, el.fetcher);
+  // Brokerage credentials live in the same vault namespace, under `finance.account.*` names no
+  // channel can name (`SecretKey` is an enum). Main reads them to sign a request; nothing returns one.
+  const accounts = createAccountsService({
+    directory: financeDirectory,
+    credentials: {
+      set: (name, value) => vault.set('secrets', name, value),
+      get: (name) => vault.get('secrets', name),
+      delete: (name) => vault.delete('secrets', name),
+    },
+    ...(el.fetcher ? { fetcher: el.fetcher } : {}),
+  });
   financeMain.register(createIpcContext(el), {
     runtime,
+    accounts,
     twelveDataKey: () => vault.get('secrets', MARKET_DATA_KEY),
     ...(el.fetcher ? { fetcher: el.fetcher } : {}),
     ...(el.warn ? { warn: el.warn } : {}),

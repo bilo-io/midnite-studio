@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { schemas } from '@midnite/studio-shared';
+import { accountSecretName, CHANNELS, schemas } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 
@@ -43,5 +43,56 @@ describe('finance and markets wire schemas', () => {
         .map((property) => `${name}.${property}`),
     );
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('finance account wire schemas', () => {
+  const entries = Object.entries(schemas).filter(([name]) => /^FinanceAccount/.test(name));
+  const names = (schema: unknown) => propertyNames(schema as z.ZodTypeAny);
+
+  it('guard: the filter finds every account schema, and the walker reaches the snapshot fields', () => {
+    expect(entries.length).toBeGreaterThanOrEqual(9);
+    expect(names(schemas.FinanceAccountSnapshotsResponse)).toEqual(
+      expect.arrayContaining(['balances', 'positions', 'allocation', 'performance', 'account']),
+    );
+  });
+
+  it('no RESPONSE carries any field a credential could ride in', () => {
+    const offenders = entries
+      .filter(([name]) => name.endsWith('Response'))
+      .flatMap(([name, schema]) =>
+        names(schema)
+          .filter((property) => /key|token|secret|password|credential|signature|nonce|fields/i.test(property))
+          .map((property) => `${name}.${property}`),
+      );
+    expect(offenders).toEqual([]);
+  });
+
+  it('a request carries credentials only in the write-only `fields` bag of test/add', () => {
+    const offenders = entries
+      .filter(([name]) => name.endsWith('Request'))
+      .flatMap(([name, schema]) =>
+        names(schema)
+          .filter((property) => /key|token|secret|password|credential/i.test(property))
+          .map((property) => `${name}.${property}`),
+      );
+    expect(offenders).toEqual([]);
+    expect(names(schemas.FinanceAccountAddRequest)).toContain('fields');
+    expect(names(schemas.FinanceAccountRemoveRequest)).not.toContain('fields');
+    expect(names(schemas.FinanceAccountSnapshotsRequest)).not.toContain('fields');
+  });
+
+  it('no account channel is a trading verb', () => {
+    const channels = Object.values(CHANNELS).filter((c) => c.startsWith('mstudio:finance:account'));
+    expect(channels.length).toBe(5);
+    for (const channel of channels) expect(channel).not.toMatch(/order|trade|withdraw|transfer|buy|sell|cancel/i);
+  });
+
+  it('a stored account credential name cannot be asked for through the secrets channels', () => {
+    const name = accountSecretName('alpaca', 'alpaca-1', 'apiSecret');
+    for (const schema of [schemas.SecretsGetRequest, schemas.SecretsHasRequest]) {
+      expect(schema.safeParse({ key: name }).success).toBe(false);
+    }
+    expect(schemas.SecretsSetRequest.safeParse({ key: name, value: 'x' }).success).toBe(false);
   });
 });
