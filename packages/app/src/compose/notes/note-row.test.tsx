@@ -5,10 +5,11 @@ import { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
-import { Note, useNotesStore } from '../../store/notes-store';
-import { useTerminalStore } from '../terminal/terminal-store';
+import { StudioProviders } from '../studio-providers';
+import { NoteRow, useNotesStore } from '@midnite/studio-feature-notes/renderer/testing';
+import type { Note } from '@midnite/studio-feature-notes/renderer';
+import { useTerminalStore } from '../../features/terminal/terminal-store';
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../store/ui-store';
-import { NoteRow } from './note-row';
 
 const MOCK_REPO: RepoDescriptor = {
   id: 'repo-1',
@@ -35,7 +36,9 @@ function withProviders(ui: ReactNode) {
   });
   return (
     <QueryClientProvider client={queryClient}>
-      <DialogHost>{ui}</DialogHost>
+      <DialogHost>
+        <StudioProviders>{ui}</StudioProviders>
+      </DialogHost>
     </QueryClientProvider>
   );
 }

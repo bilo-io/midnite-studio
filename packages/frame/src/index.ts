@@ -23,6 +23,17 @@ export { CONTENT_BOX } from './layout/content-box';
 export { NavLockToggle, type FrameNavMode } from './layout/nav-lock-toggle';
 export { DelayedFallback } from './layout/delayed-fallback';
 export { Spinner, WidgetLoader, type SpinnerMode, type SpinnerVariant } from './layout/spinner';
+export { EmptyState, EmptyStateButton } from './layout/empty-state';
+export { SortableList, useSortableRow } from './layout/sortable-list';
+export {
+  clampSize,
+  useResizable,
+  type Resizable,
+  type ResizeAxis,
+  type SnapIntent,
+  type UseResizableOptions,
+} from './layout/resizable/use-resizable';
+export { ResizeHandle } from './layout/resizable/resize-handle';
 
 // Metrics — the status bar's monitor segment and the charts it draws with.
 export { formatBytes, formatUsage } from './metrics/format-bytes';
@@ -89,6 +100,7 @@ export type {
   BlastRadiusKind,
   ConfirmRequest,
   FrameDialogs,
+  FrameMenuItem,
   IconButtonProps,
   IconComponent,
 } from './chrome/types';

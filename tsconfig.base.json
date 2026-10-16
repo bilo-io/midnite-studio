@@ -31,7 +31,8 @@
       "@midnite/studio-runtime/app-main/*": ["./packages/runtime/src/app-main/*"],
       "@midnite/studio-feature-optimizer/main": ["./packages/features/optimizer/main/index.ts"],
       "@midnite/studio-feature-monitor/main": ["./packages/features/monitor/main/index.ts"],
-      "@midnite/studio-feature-vault/main": ["./packages/features/vault/main/index.ts"]
+      "@midnite/studio-feature-vault/main": ["./packages/features/vault/main/index.ts"],
+      "@midnite/studio-feature-notes/main": ["./packages/features/notes/main/index.ts"]
     }
   }
 }

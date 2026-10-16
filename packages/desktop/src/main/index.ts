@@ -55,7 +55,7 @@ import { configureSessions, registerSessionsHandlers } from './ipc/sessions-hand
 import { configureChats, disposeChats, registerChatsHandlers } from './ipc/chats-handlers';
 import { configureNotes, registerNotesHandlers } from './ipc/notes-handlers';
 import { createSessionHistoryStore } from './session-history-store';
-import { createNotesStore } from './notes-store';
+import { createNotesStore } from '@midnite/studio-feature-notes/main';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { handle, handleBare } from './ipc/handle';
 import { probeSetupItems } from './setup-probe';

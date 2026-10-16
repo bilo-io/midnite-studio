@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme M (slice 1) — the Notes feature and apps/mind
+
+[PR #876](https://github.com/bilo-io/midnite-studio/pull/876). Notes is a feature package (its store and handlers out of desktop, its view behind a host port) that Studio composes with no visible change, and Midnite Mind is its own app opening on Notes; Knowledge waits on a host port of its own.
+
 ## 2026-10-16 — Phase 113 Theme J (slice 1) — the Vault feature, view and app
 
 [PR #875](https://github.com/bilo-io/midnite-studio/pull/875). Secrets, forge accounts and database logins are listed, set, rotated and removed from one Vault view in Studio and from `apps/vault`, with no stored value ever sent back to a renderer — enforced by a schema walk over every channel the feature uses.

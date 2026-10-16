@@ -1,5 +1,6 @@
 import { lazy, type ComponentType } from 'react';
 
+import { notesViews } from '@midnite/studio-feature-notes/renderer';
 import { monitorManifest, monitorViews } from '@midnite/studio-feature-monitor/renderer';
 import { optimizerManifest, optimizerViews } from '@midnite/studio-feature-optimizer/renderer';
 import { vaultManifest, vaultViews } from '@midnite/studio-feature-vault/renderer';
@@ -80,8 +81,8 @@ const loadSessionsView = () => import('../features/sessions/sessions-view');
 const SessionsView = lazy(() => loadSessionsView().then((m) => ({ default: m.SessionsView })));
 const loadApiClientView = () => import('../features/api-client/api-client-view');
 const ApiClientView = lazy(() => loadApiClientView().then((m) => ({ default: m.ApiClientView })));
-const loadNotesView = () => import('../features/notes/notes-view');
-const NotesView = lazy(() => loadNotesView().then((m) => ({ default: m.NotesView })));
+const loadNotesView = () => notesViews.notes();
+const NotesView = lazy(() => loadNotesView().then((Component) => ({ default: Component })));
 const loadChatsView = () => import('../features/chats/chats-view');
 const ChatsView = lazy(() => loadChatsView().then((m) => ({ default: m.ChatsView })));
 const loadKnowledgeView = () => import('../features/knowledge/knowledge-view');

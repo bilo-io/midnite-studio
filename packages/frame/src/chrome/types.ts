@@ -208,7 +208,20 @@ export type ConfirmRequest = {
  * chrome port. A subset on purpose: menus and prompts stay off the port until
  * a feature needs them, so the promise a composer must keep stays small.
  */
+/** One row of an {@link FrameDialogs.openMenu} menu — the subset every app's menu supports. */
+export type FrameMenuItem = {
+  label: string;
+  description?: string;
+  disabled?: boolean;
+  onSelect: () => void;
+};
+
 export type FrameDialogs = {
+  /**
+   * A small menu at a point. Optional: only an app with a context-menu host
+   * (Studio) provides it; a feature falls back to acting directly without it.
+   */
+  openMenu?: (point: { clientX: number; clientY: number }, items: FrameMenuItem[]) => void;
   confirm: (request: ConfirmRequest) => void;
   notify: (notice: { title: string; body?: string; okLabel?: string }) => void;
   setBlastRadius: (radius: ConfirmRequest['blastRadius'], warnings?: string[]) => void;

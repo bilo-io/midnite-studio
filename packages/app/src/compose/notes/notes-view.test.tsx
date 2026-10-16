@@ -16,15 +16,15 @@ import { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
-import { useNotesStore } from '../../store/notes-store';
+import { StudioProviders } from '../studio-providers';
+import { NotesView, useNotesStore } from '@midnite/studio-feature-notes/renderer/testing';
 import { useUiStore } from '../../store/ui-store';
-import { NotesView } from './notes-view';
 
 // ── Monaco mock ──────────────────────────────────────────────────────────────
 // The real CodeEditor mounts a Monaco worker that jsdom cannot handle.
 // A controlled-value shim is enough to verify the content-pane rendering,
 // the `key` remount, and the preview toggle.
-vi.mock('../files/preview/code-editor', () => ({
+vi.mock('../../features/files/preview/code-editor', () => ({
   CodeEditor: ({
     value,
     onChange,
@@ -77,7 +77,9 @@ function withProviders(ui: ReactNode) {
   queryClient.setQueryData(['repos'], MOCK_REPOS);
   return (
     <QueryClientProvider client={queryClient}>
-      <DialogHost>{ui}</DialogHost>
+      <DialogHost>
+        <StudioProviders>{ui}</StudioProviders>
+      </DialogHost>
     </QueryClientProvider>
   );
 }
