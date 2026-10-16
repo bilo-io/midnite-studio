@@ -1,6 +1,6 @@
 // Phase 113 — every relative `vi.mock` names a module that exists.
 //
-// A `vi.mock('./moved-module')` whose target has moved does not fail: vitest registers a mock for a
+// A relative `vi.mock` whose target module has moved does not fail: vitest registers a mock for a
 // path nobody imports, and the test then runs the real module. While features were being moved out
 // of `packages/app` and `packages/desktop`, exactly that let a test run the real `createAppIssue`
 // and open a public GitHub issue. This walks every test file and fails on a relative mock path that
