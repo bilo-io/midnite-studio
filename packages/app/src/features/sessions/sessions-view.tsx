@@ -41,7 +41,7 @@ import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
 import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useSessionsStore } from '../../store/sessions-store';
-import { useWorkflowRevealStore } from '../../store/workflow-reveal-store';
+import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
 import { useActivityGlow, type ActivityGlowSessionInput } from '../activity/use-activity-glow';
 import { useGraphStore } from '../graph/graph-store';
 import { closeSessionWithConfirm } from '../terminal/close-session';
@@ -59,7 +59,7 @@ import { useAgents } from '../terminal/use-agents';
 import { loopIcon } from '../loops/loop-icons';
 import { useLoopRuns } from '../loops/use-loop-runs';
 import { LiveSessionTerminal } from './live-session-terminal';
-import { useWorkflows } from '../workflows/use-workflow';
+import { useWorkflows } from '@midnite/studio-feature-workflows/renderer';
 import {
   formatDuration,
   groupSessionsByRepo,

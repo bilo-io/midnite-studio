@@ -4,24 +4,49 @@ import { PiRobotFill } from 'react-icons/pi';
 import { chatsViews } from '@midnite/studio-feature-chats/renderer';
 import { councilsViews } from '@midnite/studio-feature-councils/renderer';
 import { modelsViews } from '@midnite/studio-feature-models/renderer';
+import { workflowsViews } from '@midnite/studio-feature-workflows/renderer';
 import { RingSpinner } from '@midnite/studio-frame';
+import { installedSet } from '@midnite/studio-shared';
 
 import { AGENTS_APP } from '../agents-manifest';
 
 type ViewId = (typeof AGENTS_APP.views)[number];
 
-const LABEL: Record<ViewId, string> = { chats: 'Chats', councils: 'Councils', models: 'Models' };
+const LABEL: Record<ViewId, string> = {
+  chats: 'Chats',
+  councils: 'Councils',
+  workflows: 'Graphs',
+  models: 'Models',
+  tools: 'Tools',
+};
+
+/** Agents' own tools and the frame's: no Gamer, Creator or Coder tool is offered by an app that is not installed. */
+const INSTALLED = installedSet(['agents']);
+
+/** The Tools view, loaded the way the other views are — in its own chunk. */
+const McpToolsView = lazy(() => import('@midnite/studio-feature-mcp-tools/renderer').then((m) => ({ default: m.McpToolsView })));
+
+/** The MCP server's Tools view as a tab: the suite's server is Studio's, so the switches are left out. */
+function ToolsTab() {
+  return (
+    <div className="h-full overflow-auto p-4">
+      <McpToolsView isAppInstalled={INSTALLED} serverAvailable={false} />
+    </div>
+  );
+}
 
 /** Each view as a lazy chunk, loaded the way Studio's registry loads it. */
 const VIEWS: Record<ViewId, ComponentType> = {
   chats: lazy(() => chatsViews.chats().then((Component) => ({ default: Component }))),
   councils: lazy(() => councilsViews.councils().then((Component) => ({ default: Component }))),
+  workflows: lazy(() => workflowsViews.workflows().then((Component) => ({ default: Component }))),
   models: lazy(() => modelsViews.models().then((Component) => ({ default: Component }))),
+  tools: ToolsTab,
 };
 
 /**
- * What Agents shows on open — Chats, with Councils and Models beside it as tabs: the accent mark and
- * name, the three view tabs, then the active feature's own view. Each view fills the window below the
+ * What Agents shows on open — Chats, with Councils, Graphs, Models and Tools beside it as tabs: the accent mark and
+ * name, the five view tabs, then the active feature's own view. Each view fills the window below the
  * header exactly as it fills Studio's content area.
  */
 export function AgentsHome({ initial = AGENTS_APP.home }: { initial?: ViewId }) {

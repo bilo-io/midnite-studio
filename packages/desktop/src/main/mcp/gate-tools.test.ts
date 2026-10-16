@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import * as workflowService from '../workflow-service';
+import * as workflowService from '@midnite/studio-feature-workflows/main';
 import { McpToolError } from './errors';
 import { workflowGateDecide, workflowGatesList } from './tools';
 import { resetMcpAllowUiStateForTests, setMcpAllowGateDecideState } from './ui-gate';
@@ -11,7 +11,7 @@ import { resetMcpAllowUiStateForTests, setMcpAllowGateDecideState } from './ui-g
  * `ui-tools.test.ts`'s own shape exactly: mock the one call underneath,
  * assert the `allowGateDecide` gate and the McpToolError mapping.
  */
-vi.mock('../workflow-service', () => ({ listWaitingGates: vi.fn(), decideGate: vi.fn() }));
+vi.mock('@midnite/studio-feature-workflows/main', () => ({ listWaitingGates: vi.fn(), decideGate: vi.fn() }));
 
 const listWaitingGates = vi.mocked(workflowService.listWaitingGates);
 const decideGate = vi.mocked(workflowService.decideGate);

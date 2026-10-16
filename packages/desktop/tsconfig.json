@@ -29,6 +29,8 @@
     { "path": "../features/chats/tsconfig.main.json" },
     { "path": "../features/councils/tsconfig.main.json" },
     { "path": "../features/media-video/tsconfig.main.json" },
-    { "path": "../features/media-audio/tsconfig.main.json" }
+    { "path": "../features/media-audio/tsconfig.main.json" },
+    { "path": "../features/workflows/tsconfig.main.json" },
+    { "path": "../features/mcp-tools/tsconfig.main.json" }
   ]
 }

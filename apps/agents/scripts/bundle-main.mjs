@@ -23,6 +23,8 @@ const common = {
     '@midnite/studio-feature-chats/main': at('../../../packages/features/chats/main/index.ts'),
     '@midnite/studio-feature-councils/main': at('../../../packages/features/councils/main/index.ts'),
     '@midnite/studio-feature-models/main': at('../../../packages/features/models/main/index.ts'),
+    '@midnite/studio-feature-workflows/main': at('../../../packages/features/workflows/main/index.ts'),
+    '@midnite/studio-feature-mcp-tools/main': at('../../../packages/features/mcp-tools/main/index.ts'),
     // git-engine from source, with `dugite` (a native git) stubbed: Agents has no repository registry, so
     // chats run in scratch directories and nothing here ever reaches git. See main/dugite-stub.ts.
     '@midnite/studio-git-engine': at('../../../packages/git-engine/src/index.ts'),

@@ -75,12 +75,12 @@ The apps, grouped by owner:
 
 | Folder | Layer | Notes |
 |---|---|---|
-| `agent` | agents | agent roster, probes, midnite menu: Agents owns the roster; the frame renders only its title-bar entry |
-| `automate` | agents |  |
+| `agent` | agents | agent roster, probes, midnite menu: Agents owns the roster; the frame renders only its title-bar entry. The install probe and status predicate moved to the frame; the MCP tools view is the `mcp-tools` package; the menu, project actions and setup dialog stay in `packages/app` |
+| `automate` | agents | the kill switch stays in `packages/app` (see "Agents: workflows, tools and what stayed behind") |
 | `chats` | agents |  |
 | `councils` | agents |  |
 | `models` | agents |  |
-| `workflows` | agents | user decision |
+| `workflows` | agents | user decision; the engine, executors, stores, trigger scheduler and demo API (main) and the Graphs view (renderer) are the `workflows` package |
 | `web-apps` | browser | Phase 83 third-party rail, renamed from `apps` |
 | `optimizer` | cleaner | Cleaner |
 | `actions` | coder |  |
@@ -189,6 +189,47 @@ A host port may declare a member **optional** and the feature drops the affordan
 (`main/shell-runner.ts`) rather than through the pty broker, and `dugite` is stubbed in its bundle: it has no
 repository registry yet, so every chat runs in its scratch directory. Both arrive with Coder and the
 Sessions integration (slice 2).
+
+### Agents: workflows, tools and what stayed behind (Phase 113 Theme N, slice 2)
+
+Agents now composes five packages: chats, councils, **workflows**, models and **mcp-tools**.
+
+- **`packages/features/workflows`** — the Graphs view and canvas (renderer) and the whole graph engine
+  (main): the run engine and its loop controller, every node executor, the workflow, run-history and
+  template stores, the trigger scheduler, the gate approval poll and the demo API. Everything a node reaches
+  outside the engine is one `WorkflowsPorts` object (`main/ports.ts`): the pty and terminal session a node
+  runs in, the agent roster and Ollama binding and key, the forge a gate and trigger watch, the repository
+  registry a `git-status` node reads, Electron's notification and clipboard. Studio fills all of it
+  (`packages/desktop/src/main/ipc/workflow-handlers.ts`); Agents fills the roster, the Ollama daemon and key,
+  and a **piped login shell for script nodes** (`apps/agents/main/node-session.ts`) and leaves the rest
+  absent, so a `git-status`, forge or gate-comment step reports its own failure and an **agent node fails
+  with a plain message** — it drives an interactive CLI to idle, which needs a pty, and Agents ships no
+  broker until the Sessions integration. `ai-prompt`/`ai-extract` run the same CLI headlessly and work.
+  The renderer reads app state through `WorkflowsHost` (persisted pane sizes and collapse flags, the dismiss
+  stack, `Modal`/`Popover`/`MultiSelectMenu`/`TreeSection`, a run's node sessions); Studio's host keeps every
+  `ui-store` key, so no stored value moved. The graph list's Duplicate/Export/Delete row menu needs a context
+  menu host; without one (Agents) the same three actions are hover buttons on the row.
+- **`automate` is not a feature package.** The kill switch (`kill-switch-modal`, `kill-scope`) stops
+  terminal sessions, task boards, repositories and forge accounts across the *whole app*; every scope but
+  `flow` names something Agents does not have, and the `flow` scope is only a filter on terminal sessions.
+  It stays in `packages/app` as Studio chrome. A graph run is cancelled from its own panel in both apps.
+- **`packages/features/mcp-tools`** — a package out of the `agent` folder (`FEATURE_PACKAGE_SPLITS`): the
+  `McpToolsView` (the tool list filtered by `listMcpToolIds(isAppInstalled)`, the master and allow switches, the
+  shim command, the call log) and the three `mcp` channels over an `McpToolsServer` port. Studio renders it as
+  Settings ▸ MCP Server, unchanged (same switches, same test ids; `isAppInstalled` defaults to every app).
+  Agents renders it as its Tools tab with `serverAvailable={false}` and `installedSet(['agents'])`: it lists
+  the frame's and Agents' tools and says the `midnite` server is Studio's. **The server itself did not move** —
+  it reaches the repo registry, git and the media services — so Agents answers the channels with
+  `createNoMcpServer()`; serving one `midnite` socket for the whole suite is the runtime daemon's job.
+- **The `agent` folder, split.** What had a second consumer or no Studio coupling moved to the frame:
+  `agent-probe-store` and `agent-install-status` (`frame/src/agents/`), and `resolveHeadlessAgent` (shared).
+  What stayed in `packages/app/src/features/agent/` is Studio chrome or is welded to it: the title-bar midnite
+  menu, project actions and setup dialog (the title bar and the repository lifecycle), `agent-commands` (the
+  menu's skill table), `use-skill-handoff` and `repo-capability` (the terminal and the repo registry) and
+  `follow-primary-agent` (`ui-store`, chats and media prefs). They move when those surfaces do.
+- **Quit.** Agents holds `will-quit` once to run `disposeWorkflows()` (kills script shells as a process group,
+  cancels in-flight runs so each node's child process group dies, closes the demo API), then finishes with
+  `app.exit` — a second `app.quit()` after a prevented `will-quit` is ignored by Electron.
 
 ### Ports: how a feature reaches what it does not own
 

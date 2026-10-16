@@ -20,6 +20,7 @@ import { getConfiguredOllamaHost, getOllamaSettings, setOllamaSettings } from '.
 
 export { modelsManifest, type ModelsManifest } from '../manifest';
 export * from './client';
+export { runOllamaPrompt, type OllamaHeadlessDeps } from './ollama-headless';
 export { searchOllamaLibrary } from './library-search';
 export { cancelOllamaPull, configureOllamaPullQueue, resetOllamaPullQueueState, startOllamaPull } from './pull-queue';
 export {

@@ -1,7 +1,7 @@
 import { afterEach } from 'vitest';
 
 import { useBoardSelectionStore } from './features/tasks/board-selection-store';
-import { useWorkflowRevealStore } from './store/workflow-reveal-store';
+import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
 
 /**
  * jsdom environment gap-filling for every component test in this package.

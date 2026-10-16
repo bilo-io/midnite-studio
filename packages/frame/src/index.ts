@@ -41,6 +41,31 @@ export {
 } from './layout/resizable/use-resizable';
 export { ResizeHandle } from './layout/resizable/resize-handle';
 
+// Graph geometry — the pan/zoom and edge-path maths a node canvas draws with (the project graph reuses it).
+export {
+  WORKFLOW_CULL_MARGIN,
+  WORKFLOW_DEFAULT_VIEWPORT,
+  WORKFLOW_GRID_STEP,
+  WORKFLOW_NODE_GEOMETRY,
+  WORKFLOW_UNDO_LIMIT,
+  WORKFLOW_ZOOM_BOUNDS,
+  type Viewport,
+} from './graph/workflow-geometry';
+export {
+  clientToGraph,
+  dragDeltaToGraph,
+  edgePath,
+  inPort,
+  nodeBounds,
+  outPort,
+  panBy,
+  rectsIntersect,
+  snapToGrid,
+  viewportRect,
+  zoomAtPointer,
+  type Rect,
+} from './graph/workflow-path';
+
 // Metrics — the status bar's monitor segment and the charts it draws with.
 export { formatBytes, formatUsage } from './metrics/format-bytes';
 export {
@@ -98,7 +123,28 @@ export {
   type PanelHistoryState,
 } from './panel-stack/use-panel-history';
 
+// Agents — the roster's install probe and the predicate every agent dropdown greys a row against.
+export {
+  ensureAgentProbeSubscription,
+  recheckAgents,
+  resetAgentProbeStore,
+  useAgentProbeStore,
+} from './agents/agent-probe-store';
+export { agentInstallHint, isAgentUnconfigured } from './agents/agent-install-status';
+
+// Activity — the status-to-colour seam and the glow resolver every live-session surface reads.
+export { activityStatusVar } from './activity/activity-status-color';
+export {
+  resolveActivityGlow,
+  useActivityGlow,
+  type ActivityGlow,
+  type ActivityGlowBadge,
+  type ActivityGlowInput,
+  type ActivityGlowSessionInput,
+} from './activity/use-activity-glow';
+
 // Small shared behaviour.
+export { isEditableTarget, useEditableFocus } from './lib/use-editable-focus';
 export { useFocusTrap } from './lib/use-focus-trap';
 export { relativeAge } from './lib/relative-age';
 export { MODE_TINT, nextRandomIndex, WORD_SETS, type Mode } from './lib/words';
@@ -133,6 +179,7 @@ export type {
   BlastRadiusKind,
   ConfirmRequest,
   FrameDialogs,
+  FrameMenuEntry,
   FrameMenuItem,
   FramePromptRequest,
   IconButtonProps,

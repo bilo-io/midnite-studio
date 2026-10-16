@@ -5,10 +5,10 @@ import {
   COMPANION_COMMAND_IDS,
   COMPANION_PERSONA_SUMMARY_MAX,
   COMPANION_PERSONA_TEXT_MAX,
-  agentHeadlessArgs,
   failure,
   ok,
   parseAskReply,
+  resolveHeadlessAgent,
   RESOURCE_KINDS,
   toAgentPrompt,
   type AgentDefinition,
@@ -22,6 +22,9 @@ import {
 
 import { OUTPUT_TAIL_CAP, runProcess, type ProcessSink, type SpawnFn } from '../process-runner';
 import { listAgents } from '../terminal-service';
+
+/** Lives in `shared` since Phase 113 Theme N (the workflows feature resolves a headless CLI too); kept importable from here. */
+export { resolveHeadlessAgent };
 
 /**
  * The companion's one headless question — Phase 79 Theme E, Decision 9.
@@ -389,30 +392,6 @@ function personaLines(input: CompanionAskInput): string[] {
 /** Keep the tail — an agent's conclusion is at the end of its answer, not the start. */
 function capHead(text: string, cap: number): string {
   return text.length <= cap ? text : `…${text.slice(-cap)}`;
-}
-
-/**
- * Which roster entry to actually run.
- *
- * The renderer's `primaryAgent` first, because that is the user's stated
- * choice; then anything on the roster with a known print mode, because a
- * companion that refuses to think because the *primary* agent happens to be
- * Cursor is worse than one that quietly uses the Claude CLI sitting right
- * there. `null` when nothing qualifies, which is the "no CLI installed" arm.
- */
-export function resolveHeadlessAgent(
-  agents: readonly AgentDefinition[],
-  preferredId?: string,
-): { agent: AgentDefinition; args: string[] } | null {
-  const preferred = agents.find((agent) => agent.id === preferredId);
-  const preferredArgs = preferred ? agentHeadlessArgs(preferred.id) : null;
-  if (preferred && preferredArgs) return { agent: preferred, args: preferredArgs };
-
-  for (const agent of agents) {
-    const args = agentHeadlessArgs(agent.id);
-    if (args) return { agent, args };
-  }
-  return null;
 }
 
 /**

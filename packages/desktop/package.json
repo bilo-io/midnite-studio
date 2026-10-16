@@ -42,6 +42,8 @@
     "@midnite/studio-feature-models": "workspace:*",
     "@midnite/studio-feature-chats": "workspace:*",
     "@midnite/studio-feature-councils": "workspace:*",
+    "@midnite/studio-feature-workflows": "workspace:*",
+    "@midnite/studio-feature-mcp-tools": "workspace:*",
     "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-feature-notes": "workspace:*",
     "@midnite/studio-feature-optimizer": "workspace:*",

@@ -32,7 +32,7 @@ import {
 } from '../../components/account-switcher-store';
 import { usePaletteStore } from '../../store/palette-store';
 import { isCompanionPanelDocked, isFabPanelDocked, useUiStore, type ViewId } from '../../store/ui-store';
-import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
+import { useWorkflowRunCommandStore } from '@midnite/studio-feature-workflows/renderer';
 import { bridge } from '../bridge';
 import { openInMidnite } from '../open-in-midnite';
 import { useCloseRepo, usePickAndOpenRepo, useRepos } from '../queries';

@@ -220,6 +220,9 @@ export type FrameMenuItem = {
   onSelect: () => void;
 };
 
+/** A menu row, or a divider between groups (Phase 113 Theme N — the Graphs list's row menu). */
+export type FrameMenuEntry = FrameMenuItem | { type: 'separator' };
+
 /** A one-field text prompt ("New project" → a name) — the subset of Studio's `PromptRequest` a feature uses. */
 export type FramePromptRequest = {
   title: string;
@@ -243,7 +246,7 @@ export type FrameDialogs = {
    * A small menu at a point. Optional: only an app with a context-menu host
    * (Studio) provides it; a feature falls back to acting directly without it.
    */
-  openMenu?: (point: { clientX: number; clientY: number }, items: FrameMenuItem[]) => void;
+  openMenu?: (point: { clientX: number; clientY: number }, items: FrameMenuEntry[]) => void;
   confirm: (request: ConfirmRequest) => void;
   notify: (notice: { title: string; body?: string; okLabel?: string }) => void;
   setBlastRadius: (radius: ConfirmRequest['blastRadius'], warnings?: string[]) => void;

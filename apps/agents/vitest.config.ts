@@ -23,6 +23,11 @@ export default defineConfig({
       '@midnite/studio-feature-models/main': at('../../packages/features/models/main/index.ts'),
       '@midnite/studio-feature-models/renderer': at('../../packages/features/models/renderer/index.ts'),
       '@midnite/studio-feature-models/renderer/testing': at('../../packages/features/models/renderer/testing.ts'),
+      '@midnite/studio-feature-workflows/main': at('../../packages/features/workflows/main/index.ts'),
+      '@midnite/studio-feature-workflows/renderer': at('../../packages/features/workflows/renderer/index.ts'),
+      '@midnite/studio-feature-workflows/renderer/testing': at('../../packages/features/workflows/renderer/testing.ts'),
+      '@midnite/studio-feature-mcp-tools/main': at('../../packages/features/mcp-tools/main/index.ts'),
+      '@midnite/studio-feature-mcp-tools/renderer': at('../../packages/features/mcp-tools/renderer/index.ts'),
     },
   },
   test: {

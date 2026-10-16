@@ -10,7 +10,8 @@ import { AGENTS_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, agentsUserData, 
 
 /**
  * Midnite Agents's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
- * the launcher's stub as `Resources/app`. One window over the chats, councils and models features; the Ollama
+ * the launcher's stub as `Resources/app`. One window over the chats, councils, workflows and models features and the
+ * MCP Tools view; the Ollama
  * cloud key is read here from the runtime vault, as `agents`, and never leaves this process.
  */
 const smoke = isSmoke(process.env);
@@ -46,8 +47,17 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       // A smoke run must never reach the keychain: encryption reads as unavailable, so nothing is read.
       cipher: smoke ? NO_KEYCHAIN : safeStorage,
     });
-    // A council member's shell is its own process group, so it would outlive Agents unless killed here.
-    app.on('will-quit', () => handlers.dispose());
+    // A council member's or script node's shell is its own process group, so it would outlive Agents unless
+    // killed here, and an in-flight workflow run must be cancelled so its node's process group dies with it.
+    // Quit is held once while that finishes (a few ms; the run's own cancel poll is bounded), then finished
+    // with `app.exit` — a second `app.quit()` after a prevented `will-quit` is ignored by Electron.
+    let disposed = false;
+    app.on('will-quit', (event) => {
+      if (disposed) return;
+      event.preventDefault();
+      disposed = true;
+      void handlers.dispose().finally(() => app.exit(0));
+    });
     openWindow();
   });
 

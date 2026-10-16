@@ -194,3 +194,49 @@ export function DiffView({
     </div>
   );
 }
+
+/**
+ * A labelled, collapsible group of rows — the sidebar grammar the node palette uses. The body stays
+ * mounted while folded and is marked `inert`, so nothing inside it stays in the tab order.
+ */
+export function TreeSection({
+  title,
+  count,
+  collapsible = false,
+  open = true,
+  onToggle,
+  children,
+}: {
+  title: string;
+  count?: number;
+  collapsible?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <section className="border-b border-border/50">
+      <div className="flex items-center gap-1.5 px-2 py-1.5">
+        {collapsible ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={onToggle}
+            className="flex flex-1 items-center gap-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+          >
+            <span aria-hidden className={`inline-block transition-transform ${open ? 'rotate-90' : ''}`}>
+              ▸
+            </span>
+            {title}
+          </button>
+        ) : (
+          <h3 className="flex-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+        )}
+        {count === undefined ? null : <span className="tabular-nums text-[11px] text-muted-foreground/70">{count}</span>}
+      </div>
+      <div hidden={!open} inert={!open}>
+        {children}
+      </div>
+    </section>
+  );
+}

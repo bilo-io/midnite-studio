@@ -3,7 +3,7 @@ import { resourceRefLabel, type ResourceRef } from '@midnite/studio-shared';
 import { bridge } from '../../../../services/bridge';
 import { useSessionsStore } from '../../../../store/sessions-store';
 import { useUiStore } from '../../../../store/ui-store';
-import { useWorkflowRevealStore } from '../../../../store/workflow-reveal-store';
+import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
 import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { pushCouncilEntry } from '@midnite/studio-feature-councils/renderer';
 import { useBoardSelectionStore } from '../../../tasks/board-selection-store';

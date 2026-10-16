@@ -33,7 +33,6 @@ import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
 import { registerApiClientHandlers } from './ipc/api-client-handlers';
 import { disposeScriptRunner } from './api-client/script-runner-broker';
-import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
 import { configureSecrets, configureVaultGrants, registerSecretsHandlers } from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
@@ -93,8 +92,6 @@ import {
   setAgentWatcher,
 } from './pty-service';
 import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
-import { registerWorkflowHandlers } from './ipc/workflow-handlers';
-import { configureWorkflowNodeSessions } from './workflow/node-sessions';
 import { configureLoopRuns, noteSessionExit } from './loop-runs';
 import { createLoopRunsStore } from './loop-runs-store';
 import { createTerminalStore } from './terminal-store';
@@ -120,17 +117,8 @@ import { getMcpServerHandle, registerMcpServer } from './mcp';
 import { registerMcpHandlers } from './ipc/mcp-handlers';
 import { fingerprintFile } from './socket-name';
 import { configureCouncils, createCouncilsRunsStore, createCouncilsStore } from '@midnite/studio-feature-councils/main';
-import {
-  configureWorkflows,
-  getWorkflowRunHistoryCap,
-  listWorkflows,
-  onWorkflowsChanged,
-  pollWorkflowGateApprovals,
-} from './workflow-service';
-import { configureWorkflowTemplates, createWorkflowTemplatesStore } from './workflow-templates-store';
-import { createWorkflowsStore } from './workflows-store';
-import { createWorkflowRunsStore } from './workflow-runs-store';
-import { initTriggerScheduler, reconcileTriggerScheduler } from './workflow/trigger-scheduler';
+import { stopDemoApi } from '@midnite/studio-feature-workflows/main';
+import { registerWorkflowHandlers } from './ipc/workflow-handlers';
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
@@ -150,7 +138,6 @@ import {
 } from '@midnite/studio-feature-media-video/main';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
 import { configureOllamaSettings, createOllamaSettingsStore } from '@midnite/studio-feature-models/main';
-import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerPrivilegedSchemes, setVideoFileRootProvider } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
@@ -508,7 +495,6 @@ if (!app.requestSingleInstanceLock()) {
     registerCliHandlers();
     registerCouncilHandlers();
     registerLoopRunsHandlers();
-    registerWorkflowHandlers();
     registerVideoHandlers();
     registerMediaHandlers();
     registerMediaImageHandlers();
@@ -521,7 +507,6 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaSpriteHandlers();
     registerMediaMapHandlers();
     registerOllamaHandlers(getMainWindow);
-    registerDemoApiHandlers();
     registerSecretsHandlers();
     registerFinanceHandlers();
     registerApiClientHandlers(getMainWindow);
@@ -662,42 +647,14 @@ if (!app.requestSingleInstanceLock()) {
     /*
       Wired here beside councils rather than in a boot chain: it is synchronous
       module-state assignment, and a `workflow:list` can arrive on the
-      renderer's first paint. The `getMainWindow` thunk is what a run's
-      `workflowRunChanged` ping is sent through — see `loop-runs.ts` for the
-      same pattern and the same destroyed-window guard.
+      renderer's first paint. The workflows feature configures its own stores,
+      arms `trigger` nodes (cron schedules, forge-pr subscriptions over the SAME
+      `forgePoller` instance above — Phase 97 Theme H) and starts the gate
+      approval poll (Phase 97 Theme D: the PR/issue comment channel, at
+      `forge-poller.ts`'s own cadence, unconditional rather than
+      subscription-gated — it costs nothing with nothing waiting).
     */
-    configureWorkflows(
-      createWorkflowsStore(userData),
-      createWorkflowRunsStore(userData, getWorkflowRunHistoryCap),
-      getMainWindow,
-    );
-    // Phase 97 Theme L — the template gallery's user section.
-    configureWorkflowTemplates(createWorkflowTemplatesStore(userData));
-    // Phase 95 Theme J — where an `agent`/`script` node's executor announces
-    // the real terminal session it just started (`workflowNodeSessionStarted`).
-    configureWorkflowNodeSessions(getMainWindow);
-    /*
-      Phase 97 Theme H — arms `trigger` nodes (cron schedules, forge-pr
-      subscriptions over the SAME `forgePoller` instance above) for every
-      enabled workflow, reconciled now and again whenever a workflow is
-      saved/deleted (`onWorkflowsChanged`, so editing a schedule takes effect
-      immediately rather than only on next launch).
-    */
-    initTriggerScheduler(forgePoller, defaultLogger);
-    void listWorkflows().then((workflows) => reconcileTriggerScheduler(workflows));
-    onWorkflowsChanged(() => {
-      void listWorkflows().then((workflows) => reconcileTriggerScheduler(workflows));
-    });
-    /*
-      Phase 97 Theme D — the PR/issue comment approval channel's own poll.
-      Same cadence as `forge-poller.ts`'s `FORGE_POLL_MS`, but unconditional
-      rather than subscription-gated: a waiting gate is worth checking
-      whether or not any window has a matching forge view open. Costs
-      nothing when there is nothing waiting — `pollWorkflowGateApprovals`'s
-      own early return, `waitingLinkedGates()`, is what keeps this idle.
-    */
-    const gateApprovalTimer = setInterval(() => void pollWorkflowGateApprovals(), FORGE_POLL_MS);
-    gateApprovalTimer.unref();
+    registerWorkflowHandlers({ userData, forgePoller, getMainWindow, gateApprovalPollMs: FORGE_POLL_MS });
     configureVideo(createVideoProjectsStore(userData), {
       emit: (channel, payload) => {
         const win = getMainWindow();

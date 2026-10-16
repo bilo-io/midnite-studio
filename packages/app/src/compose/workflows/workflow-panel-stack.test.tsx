@@ -1,0 +1,193 @@
+import type { MidniteStudioBridge, Workflow, WorkflowRun } from '@midnite/studio-shared';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+import { DialogHost } from '../../components/dialog-host';
+import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
+import {
+  WorkflowsView,
+} from '@midnite/studio-feature-workflows/renderer/testing';
+import { render } from './render-with-studio';
+
+/**
+ * The right-hand `panel-stack`'s own navigation (Phase 52 Theme F) — push
+ * (Inspector → History → Run), back/forward through `PanelHeader`'s
+ * chevrons, and a reset on switching workflow. `card-panel-stack.test.tsx`
+ * would be the closer sibling to crib from, but that panel has only one
+ * entry kind (a card); this one is the first with three, so its own
+ * `sameWorkflowPanelEntry`/label-switch logic is what earns a test here.
+ */
+
+/** jsdom implements no `ResizeObserver` — `workflow-canvas.tsx` reads one to
+ *  size itself, the same gap `workflow-canvas.test.tsx` stubs. */
+beforeAll(() => {
+  class StubResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  vi.stubGlobal('ResizeObserver', StubResizeObserver);
+  // `@xyflow/react`'s first mount in a file (Phase 95 Theme I) pays a real
+  // one-time cost under jsdom — its own store/CSS setup, not a hang; later
+  // tests in this file are fast because the module is already resolved. The
+  // default 5s test timeout is tuned for logic tests, not a heavy canvas
+  // library's cold mount, so this file raises it rather than the flaky "add
+  // a retry" fix.
+  vi.setConfig({ testTimeout: 15000 });
+});
+
+function run(over: Partial<WorkflowRun> = {}): WorkflowRun {
+  return {
+    id: 'r1',
+    workflowId: 'w1',
+    workflowName: 'Fetch and log',
+    status: 'completed',
+    nodes: [],
+    edges: [],
+    startedAt: Date.now() - 5000,
+    endedAt: Date.now() - 2000,
+    ...over,
+  };
+}
+
+function installBridge(runs: WorkflowRun[] = [run()]) {
+  const workflows: Workflow[] = [
+    { id: 'w1', name: 'Fetch and log', nodes: [], edges: [], createdAt: 1, updatedAt: 1 },
+    { id: 'w2', name: 'Second workflow', nodes: [], edges: [], createdAt: 1, updatedAt: 1 },
+  ];
+  const runsById = new Map(runs.map((r) => [r.id, r]));
+  (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
+    workflow: {
+      list: vi.fn().mockResolvedValue({ workflows }),
+      save: vi.fn().mockResolvedValue({ ok: true, value: workflows[0] }),
+      delete: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+      run: vi.fn(),
+      cancel: vi.fn(),
+      runs: {
+        list: vi.fn().mockResolvedValue({ runs }),
+        get: vi.fn(async ({ runId }: { runId: string }) => ({ run: runsById.get(runId) ?? null })),
+      },
+      onRunChanged: vi.fn(() => () => {}),
+    } as unknown as MidniteStudioBridge['workflow'],
+  } as Partial<MidniteStudioBridge>;
+}
+
+function renderView() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <DialogHost>
+        <WorkflowsView />
+      </DialogHost>
+    </QueryClientProvider>,
+  );
+}
+
+describe('the workflow editor\'s right-hand panel-stack (Phase 52 Theme F)', () => {
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+  });
+
+  it('starts on the inspector, with no back to take', async () => {
+    installBridge();
+    renderView();
+
+    fireEvent.click(await screen.findByText('Fetch and log'));
+
+    expect(await screen.findByText('Inspector')).toBeDefined();
+    expect(screen.getByLabelText('Back')).toHaveProperty('disabled', true);
+  });
+
+  it('honours a reveal issued before the view mounted (Phase 112 Theme D)', async () => {
+    installBridge();
+    // What the `workflow` revealer writes while Workflows is not on screen.
+    useWorkflowRevealStore.getState().select('w2');
+    renderView();
+    expect(await screen.findByText('Inspector')).toBeDefined();
+    expect(screen.getAllByText('Second workflow').length).toBeGreaterThan(0);
+  });
+
+  it('opens straight onto a revealed run when the view mounts', async () => {
+    installBridge();
+    useWorkflowRevealStore.getState().select('w1');
+    useWorkflowRevealStore.getState().reveal({ workflowId: 'w1', runId: 'r1' });
+    renderView();
+    expect(await screen.findByText('Run')).toBeDefined();
+    expect(useWorkflowRevealStore.getState().pending).toBeNull();
+  });
+
+  it('pushes History, then a run, and Back walks it back one step at a time', async () => {
+    installBridge();
+    renderView();
+    fireEvent.click(await screen.findByText('Fetch and log'));
+    await screen.findByText('Inspector');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run history' }));
+    expect(await screen.findByText('History')).toBeDefined();
+    expect(screen.getByLabelText('Back')).toHaveProperty('disabled', false);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Completed/ }));
+    expect(await screen.findByText('Run')).toBeDefined();
+
+    fireEvent.click(screen.getByLabelText('Back'));
+    expect(await screen.findByText('History')).toBeDefined();
+
+    fireEvent.click(screen.getByLabelText('Back'));
+    expect(await screen.findByText('Inspector')).toBeDefined();
+    expect(screen.getByLabelText('Back')).toHaveProperty('disabled', true);
+  });
+
+  it('Forward retraces a Back, and pushing a new entry truncates the forward tail', async () => {
+    installBridge();
+    renderView();
+    fireEvent.click(await screen.findByText('Fetch and log'));
+    await screen.findByText('Inspector');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run history' }));
+    await screen.findByText('History');
+    expect(screen.getByLabelText('Forward')).toHaveProperty('disabled', true);
+
+    fireEvent.click(screen.getByLabelText('Back'));
+    await screen.findByText('Inspector');
+    expect(screen.getByLabelText('Forward')).toHaveProperty('disabled', false);
+
+    fireEvent.click(screen.getByLabelText('Forward'));
+    expect(await screen.findByText('History')).toBeDefined();
+    expect(screen.getByLabelText('Forward')).toHaveProperty('disabled', true);
+  });
+
+  it('"Back to editing" resets the whole stack, not just one step', async () => {
+    installBridge();
+    renderView();
+    fireEvent.click(await screen.findByText('Fetch and log'));
+    await screen.findByText('Inspector');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run history' }));
+    await screen.findByText('History');
+    fireEvent.click(await screen.findByRole('button', { name: /Completed/ }));
+    await screen.findByText('Run');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to editing' }));
+
+    expect(await screen.findByText('Inspector')).toBeDefined();
+    expect(screen.getByLabelText('Back')).toHaveProperty('disabled', true);
+    expect(screen.getByLabelText('Forward')).toHaveProperty('disabled', true);
+  });
+
+  it('switching workflow remounts the editor, resetting the panel-stack to Inspector', async () => {
+    installBridge();
+    renderView();
+    fireEvent.click(await screen.findByText('Fetch and log'));
+    await screen.findByText('Inspector');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run history' }));
+    await screen.findByText('History');
+
+    fireEvent.click(screen.getByText('Second workflow'));
+
+    expect(await screen.findByText('Inspector')).toBeDefined();
+    expect(screen.getByLabelText('Back')).toHaveProperty('disabled', true);
+  });
+});

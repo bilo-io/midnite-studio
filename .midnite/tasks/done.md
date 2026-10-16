@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme N (slice 2) — Workflows and the MCP Tools view as features; Agents gains Graphs and Tools
+
+[PR #885](https://github.com/bilo-io/midnite-studio/pull/885). The workflow runner and Graphs view behind ports, the MCP Tools view shared by Studio's Settings and Agents' Tools tab, and Agents cancelling every in-flight run on quit.
+
 ## 2026-10-16 — Phase 113 Theme Q (slice 2) — Audio, Video and Slides as features; Creator gains them
 
 [PR #883](https://github.com/bilo-io/midnite-studio/pull/883). Three more media features behind host ports, Studio unchanged, and Midnite Creator with Audio, Video and Present-from-a-doc.
