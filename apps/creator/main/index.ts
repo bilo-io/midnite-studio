@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } from 'electron';
 
 import type { MediaService } from '@midnite/studio-feature-media-core/main';
-import { createVaultGrants, createVaultService, runtimeDataDirectory } from '@midnite/studio-runtime';
+import { createVaultGrants, createVaultService, guardAppWindow, runtimeDataDirectory } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
 import { creatorMediaRoot, registerCreatorHandlers } from './context';
@@ -122,6 +122,8 @@ function openWindow(): void {
       sandbox: true,
     },
   });
+  // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
+  guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   win.on('closed', () => {
     win = null;
   });

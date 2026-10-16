@@ -2,6 +2,8 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 
+import { guardAppWindow } from '@midnite/studio-runtime';
+
 import type { MetricsService } from '@midnite/studio-feature-monitor/main';
 
 import { registerMonitorHandlers } from './context';
@@ -73,6 +75,8 @@ function openWindow(): void {
       sandbox: true,
     },
   });
+  // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
+  guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   // Sampling is tied to whether anyone can see the window: a hidden Monitor must not spawn `ioreg` for hours.
   win.on('blur', () => metrics?.pause());
   win.on('focus', () => metrics?.resume());

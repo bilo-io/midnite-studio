@@ -2,6 +2,8 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 
+import { guardAppWindow } from '@midnite/studio-runtime';
+
 import { registerCleanerHandlers } from './context';
 import { CLEANER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, cleanerUserData, isSmoke } from './identity';
 
@@ -64,6 +66,8 @@ function openWindow(): void {
       sandbox: true,
     },
   });
+  // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
+  guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   win.on('closed', () => {
     win = null;
   });
