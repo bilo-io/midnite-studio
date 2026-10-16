@@ -16,7 +16,7 @@ const health: SystemHealth = {
 };
 
 const sample = (t: number): MetricSample => ({
-  t,
+  at: t,
   cpu: 40,
   memory: 60,
   gpu: 10,
