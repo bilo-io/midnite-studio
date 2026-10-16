@@ -335,7 +335,7 @@ test('switching the primary agent in Settings changes which binary and prefix th
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Agent', exact: true }).click();
-  await page.getByRole('button', { name: 'Codex' }).click();
+  await page.getByRole('button', { name: 'Codex', exact: true }).click();
 
   await clickRailLink(page, 'Timeline');
   await openMidniteMenu(page);
