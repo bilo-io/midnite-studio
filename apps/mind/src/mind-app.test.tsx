@@ -42,12 +42,29 @@ describe('Mind composition', () => {
 });
 
 describe('Mind home view', () => {
-  it('opens the notes view framed as Mind, with an honest empty notebook and a labelled Knowledge placeholder', async () => {
+  it('opens the notes view framed as Mind, with an honest empty notebook and a Knowledge tab', async () => {
     render(<MindApp />);
     expect(screen.getByText('Midnite Mind')).toBeDefined();
     await waitFor(() => expect(screen.getByText(/your notebook is empty/i)).toBeDefined());
     expect(notes.list).toHaveBeenCalled();
-    expect(screen.getByTestId('mind-knowledge-placeholder').textContent).toMatch(/coming/i);
+    expect(screen.getByTestId('mind-tab-notes').getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByTestId('mind-tab-knowledge').getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('the Knowledge tab graphs the notebook through the frame view, and says so when there is nothing to graph', async () => {
+    const knowledge = {
+      getGraph: vi.fn().mockResolvedValue({ ok: false, kind: 'absent' }),
+      getNodeDetail: vi.fn(),
+      checkGraph: vi.fn().mockResolvedValue({ exists: false }),
+      onLayoutProgress: vi.fn(() => () => {}),
+    };
+    window.midniteStudio = { notes, knowledge } as unknown as typeof window.midniteStudio;
+    render(<MindApp />);
+    fireEvent.click(screen.getByTestId('mind-tab-knowledge'));
+    expect(await screen.findByText(/nothing to graph yet/i)).toBeDefined();
+    expect(knowledge.getGraph).toHaveBeenCalledWith(expect.objectContaining({ repoId: 'mind' }));
+    // The frame's graphify instructions are for a repository; a notebook never shows them.
+    expect(screen.queryByText(/hasn't been graphified/i)).toBeNull();
   });
 
   it('captures a note into the one notebook and writes it through the bridge', async () => {

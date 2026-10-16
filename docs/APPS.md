@@ -50,7 +50,7 @@ The frame:
 | `geo` | frame |  |
 | `graph` | frame |  |
 | `history` | frame |  |
-| `knowledge` | frame | user decision: tools every app wants, so the frame, not Mind |
+| `knowledge` | frame | user decision: tools every app wants, so the frame, not Mind; now `packages/frame/src/knowledge/` |
 | `landing` | frame | each app's home |
 | `loops` | frame |  |
 | `markdown` | frame |  |
@@ -463,18 +463,46 @@ and error text is scrubbed of the credential values it was built from. Snapshots
 main for 60 seconds; a failing account answers its own `error` and keeps its last good numbers, and
 never blanks another account.
 
-## Knowledge's host port (decision, Phase 113 Theme M)
+## Knowledge's host port (Phase 113 Theme M)
 
-Knowledge is frame-owned, so it moves to `packages/frame/src/knowledge/` behind a `KnowledgeHost` port rather than
-into a feature package. What its renderer reads from Studio today, and so what the port must carry (measured over
-`packages/app/src/features/knowledge`, ~60 files):
+Knowledge is frame-owned: the view, its sigma canvas, its filters store and its hooks live in
+`packages/frame/src/knowledge/` and read everything Studio-specific through one port, `KnowledgeHost`
+(`knowledge-host.tsx`), installed once at an app's root with `<KnowledgeHostProvider host={...}>`. The port is a list,
+not a service locator; a member exists only because the view reads it:
 
-- `useWindowFocused()` and `useActiveWorktree()` (`knowledge-view.tsx`) -> `host.useFocus()`, `host.useWorktree()`.
-- `ui-store`: the persisted renderer variant, the layout bounds and panel widths (`knowledge-filters-store.ts`,
-  `knowledge-view.tsx`) -> `host.useSettings()` with a setter.
-- `appearance-store`'s resolved motion (`use-sigma-graph.tsx`) -> `host.resolveMotion()`.
-- the query-key constants (`use-knowledge-graph.ts`, `use-knowledge-layout-switch.ts`) -> move with the hooks into the frame.
-- `icon-button`, `popover`, `skeleton`, `empty-state`, resizable pair -> already frame chrome.
+| Member | What it carries | Studio (`compose/knowledge-host.tsx`) | Mind (`compose/knowledge-host.tsx`) |
+|---|---|---|---|
+| `useFocus()` | window focus, gating the canvas's animation | `useWindowFocused` | `focus`/`blur` listeners |
+| `useCorpus()` | `{ repoId, worktreePath? }` - what the graph is of | the active worktree | the fixed notebook id, no worktree |
+| `useSettings()` / `getSettings()` / `setSettings(patch)` | renderer variant, layout id, detail id, the two panel widths | `ui-store` | a persisted store under `midnite-mind.knowledge` |
+| `prefersReducedMotion()` | motion, read imperatively by the canvas | `appearance-store` | `prefers-reduced-motion` |
+| `panelBounds` | min / max / initial of the two panels | `LAYOUT_BOUNDS`, `DEFAULT_LAYOUT` | its own |
+| `Popover` | the variant pills' overflow menu | Studio's `Popover` | the frame's `SimplePopover` |
+| `SourcePreview` | what a node's detail panel shows for its source | `FilePreview` on the file and line | the note itself |
+| `Absent?` | what shows when there is no graph | omitted: the "graphify this repo" instructions | "Nothing to graph yet" |
 
-Its main half (`packages/knowledge`, graphify) needs the repo path injected, which an app with one notebook does not have;
-Mind keeps its labelled placeholder until the port and the move land together.
+`IconButton` is not on this port: the view takes it from the frame's chrome port (`useFrameChrome`) through
+`knowledge-icon-button.tsx`. The query keys (`knowledgeKeys`) moved into the frame with the hooks; Studio's
+`services/queries.ts` spreads them into its `keys`, so no call site changed. The filters store seeds its three
+persisted preferences from the host when the provider first renders (`bindKnowledgeSettings`) and writes each change
+back, in place of reading `ui-store` at module init.
+
+**Two entries.** The light half (the host port, `knowledgeKeys`, `useKnowledgeGraphExists`, `SimplePopover`) is on the
+frame barrel. The view is its own entry, `@midnite/studio-frame/knowledge`, because it pulls sigma and graphology; an app
+loads it with `React.lazy`, so neither is in any entry chunk (Mind's `dist/` shows it: the sigma code is its own 189 KB
+chunk). A suite app that composes it needs an explicit vite/vitest alias for that subpath, placed before the
+`@midnite/studio-frame` one.
+
+**Mind's corpus is its notebook, and it needs no external tool.** Studio answers the three Knowledge channels from a
+repository's `graphify-out/graph.json`, which the user builds with graphify - the app never runs it. Mind has no
+repository and nothing to run, so its main (`apps/mind/main/knowledge.ts`) builds the same `graph.json` shape from the
+notes (`notes-graph.ts`: a node per note, a node per `#tag`, a `references` link per `[[first line]]`, communities by
+note status) and runs it through `@midnite/studio-knowledge`'s projection and layout. The layout runs in-process (a
+notebook is hundreds of nodes) and is cached under `<userData>/knowledge-cache` by a content hash, so an unchanged
+notebook never lays out twice. An empty notebook answers `absent`, which the view shows as Mind's own empty state. Because
+nothing is spawned there is no missing-tool state to show; if a later version wants graphify's richer extraction over
+exported notes, that would be a host-injected runner behind the same channels, never a download.
+
+The app mounts the view inside `QueryClientProvider` (the view's reads are react-query queries) within the two host
+providers; nothing sits outside them. In Studio the provider nests in `compose/studio-providers.tsx`, which both the main
+window and the popout root render.

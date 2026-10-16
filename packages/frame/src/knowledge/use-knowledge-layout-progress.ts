@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { bridge } from '../../services/bridge';
+import { bridge } from '../bridge';
 
 export type KnowledgeLayoutProgress = { done: number; total: number } | null;
 

@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { keys } from '../../services/queries';
+import { knowledgeKeys as keys } from './knowledge-query-keys';
 import { useKnowledgeLayoutSwitch } from './use-knowledge-layout-switch';
 
 type Envelope = KnowledgeResult<KnowledgeGraphPayload>;

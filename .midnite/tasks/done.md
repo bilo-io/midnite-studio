@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme M (slice 3) — Knowledge in the frame; Mind graphs its own notebook
+
+[PR #886](https://github.com/bilo-io/midnite-studio/pull/886). Knowledge behind a `KnowledgeHost` port in the frame, Studio unchanged, and Midnite Mind with a Knowledge tab built from its notes. Theme M is done.
+
 ## 2026-10-17 — Phase 113 Theme N (slice 2) — Workflows and the MCP Tools view as features; Agents gains Graphs and Tools
 
 [PR #885](https://github.com/bilo-io/midnite-studio/pull/885). The workflow runner and Graphs view behind ports, the MCP Tools view shared by Studio's Settings and Agents' Tools tab, and Agents cancelling every in-flight run on quit.

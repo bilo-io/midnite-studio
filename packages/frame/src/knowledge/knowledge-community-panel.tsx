@@ -4,7 +4,7 @@ import { LuEye, LuEyeOff, LuMaximize2, LuX } from 'react-icons/lu';
 
 import type { KnowledgeGraphNode } from '@midnite/studio-shared';
 
-import { IconButton } from '../../components/icon-button';
+import { IconButton } from './knowledge-icon-button';
 
 /** How many members the panel lists — the rest is "and N more"; the tree list is where the full roster lives. */
 const MEMBER_LIST_CAP = 60;

@@ -12,7 +12,7 @@ import {
 
 import type { KnowledgeGraphNode } from '@midnite/studio-shared';
 
-import { IconButton } from '../../components/icon-button';
+import { IconButton } from './knowledge-icon-button';
 import { flattenCommunityTree, type CommunityTreeRow } from './knowledge-community-tree';
 import type { CommunityListMode } from './knowledge-filters-store';
 

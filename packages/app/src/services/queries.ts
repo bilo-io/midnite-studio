@@ -1,3 +1,5 @@
+import { knowledgeKeys } from '@midnite/studio-frame';
+
 import type {
   AiPlanBlueprint,
   AppIssueSubmitRequest,
@@ -366,29 +368,8 @@ export const keys = {
    * `forgeCli` has with `useRefreshForge`.
    */
   sessionsHistory: ['sessions', 'history'] as const,
-  /**
-   * Theme F's cheap existence check — the rail row's own "should I grey
-   * myself out" question. Deliberately NOT nested under {@link
-   * knowledgeGraph}: it is answered by a `stat` (`knowledgeCheckGraph`), not
-   * the `knowledgeGetGraph` read/layout, so the two must never share a key —
-   * invalidating one must never imply the other was ever fetched.
-   */
-  knowledgeStatus: (repoId: string) => ['repos', repoId, 'knowledge', 'status'] as const,
-  /**
-   * The active repo's lean, laid-out graph (Phase 87 Themes A/B/D/E/F) —
-   * `staleTime: Infinity` means this fires the cold layout pass at most once
-   * per repo per session for the INITIAL load, which is exactly why nothing
-   * calls it outside the Knowledge view itself. Deliberately NOT keyed on
-   * `layoutId` (Phase 89 Theme E): a layout switch after the view is already
-   * open goes through `use-knowledge-layout-switch.ts`, which writes the new
-   * positions into this SAME cache entry via `setQueryData` rather than
-   * fetching under a new key — the point being that switching layouts must
-   * never present as this query going back to `isLoading`, which would tear
-   * down and rebuild the whole ready-state view (filters panel, canvas,
-   * detail panel) for what is, underneath, a coordinate change on an
-   * unchanged graph.
-   */
-  knowledgeGraph: (repoId: string) => ['repos', repoId, 'knowledge', 'graph'] as const,
+  // Moved to the frame with the Knowledge view (Phase 113 Theme M); spread so every call site is unchanged.
+  ...knowledgeKeys,
 };
 
 /**

@@ -4,10 +4,10 @@
 // filter selects." None of this needs a real browser.
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useUiStore } from '../../store/ui-store';
+import { makeTestHost, render, resetTestHost, TestKnowledgeProviders, testCorpus } from './test-host';
 import { useKnowledgeFiltersStore } from './knowledge-filters-store';
 import { KNOWLEDGE_SLOW_LOAD_MS, KnowledgeView } from './knowledge-view';
 
@@ -86,11 +86,11 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   afterEach(() => {
     cleanup();
     delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
-    useUiStore.setState({ selectedRepoId: null, selectedWorktreePath: null });
+    resetTestHost();
   });
 
   it('shows a loading state while the graph is being fetched', () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({ getGraph: vi.fn().mockReturnValue(new Promise(() => {})) });
 
     renderView();
@@ -99,7 +99,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('renders instructions, not an error, for the un-graphified repo (absent)', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: false, kind: 'absent' }) });
 
     renderView();
@@ -110,8 +110,27 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
     expect(screen.queryByText(/error/i)).toBeNull();
   });
 
+  it("shows the host's own empty state for absent when it supplies one, never the graphify instructions", async () => {
+    testCorpus.repoId = 'repo:1';
+    installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: false, kind: 'absent' }) });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <TestKnowledgeProviders host={makeTestHost({ Absent: () => <p>Write a note first</p> })}>
+        <QueryClientProvider client={client}>
+          <KnowledgeView />
+        </QueryClientProvider>
+      </TestKnowledgeProviders>,
+      // The default wrapper is replaced by the explicit provider above.
+      { wrapper: ({ children }) => <>{children}</> },
+    );
+
+    await waitFor(() => expect(screen.getByText('Write a note first')).toBeDefined());
+    expect(screen.queryByText(/graphified/i)).toBeNull();
+  });
+
   it('renders malformed distinctly from absent', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({
       getGraph: vi
         .fn()
@@ -126,7 +145,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('renders unreadable with its own message, distinct from absent and malformed', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({
       getGraph: vi.fn().mockResolvedValue({ ok: false, kind: 'unreadable', message: 'EACCES' }),
     });
@@ -138,7 +157,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('shows a staleness banner with the real count when commitsBehind is positive', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({
       getGraph: vi.fn().mockResolvedValue({
         ok: true,
@@ -152,7 +171,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('shows no staleness banner when commitsBehind is 0', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({
       getGraph: vi.fn().mockResolvedValue({
         ok: true,
@@ -167,7 +186,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('shows no staleness banner when commitsBehind could not be determined (null)', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({
       getGraph: vi.fn().mockResolvedValue({
         ok: true,
@@ -182,7 +201,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('renders the canvas and filter panel once the graph loads', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: true, value: READY_PAYLOAD }) });
 
     renderView();
@@ -197,7 +216,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('opens the node panel once a node is selected in the filters store', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: true, value: READY_PAYLOAD }) });
 
     renderView();
@@ -210,7 +229,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('offers a Retry on the error state that re-asks main, so a one-off failure is not pinned for the session', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     const getGraph = vi
       .fn()
       .mockResolvedValueOnce({ ok: false, kind: 'error', message: 'worker crashed' })
@@ -231,7 +250,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   it('shows no Retry while a load is fresh, and offers one once it has run long', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      useUiStore.setState({ selectedRepoId: 'repo:1' });
+      testCorpus.repoId = 'repo:1';
       installBridge({ getGraph: vi.fn().mockReturnValue(new Promise(() => {})) });
 
       renderView();
@@ -251,7 +270,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('opens the community panel, not the node panel, when a community meta-node is selected', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: true, value: READY_PAYLOAD }) });
 
     renderView();
@@ -265,7 +284,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('renders resize handle for filters when ready', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: true, value: READY_PAYLOAD }) });
 
     renderView();
@@ -276,7 +295,7 @@ describe('KnowledgeView (Phase 87 Themes D, E, F)', () => {
   });
 
   it('renders resize handle for detail panel when a node or community is selected', async () => {
-    useUiStore.setState({ selectedRepoId: 'repo:1' });
+    testCorpus.repoId = 'repo:1';
     installBridge({ getGraph: vi.fn().mockResolvedValue({ ok: true, value: READY_PAYLOAD }) });
 
     renderView();

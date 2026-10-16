@@ -89,7 +89,7 @@ const loadNotesView = () => notesViews.notes();
 const NotesView = lazy(() => loadNotesView().then((Component) => ({ default: Component })));
 const loadChatsView = () => chatsViews.chats();
 const ChatsView = lazy(() => loadChatsView().then((Component) => ({ default: Component })));
-const loadKnowledgeView = () => import('../features/knowledge/knowledge-view');
+const loadKnowledgeView = () => import('@midnite/studio-frame/knowledge');
 const KnowledgeView = lazy(() =>
   loadKnowledgeView().then((m) => ({ default: m.KnowledgeView })),
 );

@@ -6,9 +6,10 @@
 // same trap for `@tanstack/react-virtual`. A synchronous `getByText` right
 // after `render`/`fireEvent` races that microtask and finds nothing, so every
 // assertion here that reads a rendered row uses `findByText`/`waitFor`.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { render } from './test-host';
 import { KnowledgeCommunityFilter } from './knowledge-community-filter';
 
 describe('KnowledgeCommunityFilter', () => {

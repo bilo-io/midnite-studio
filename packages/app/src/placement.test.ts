@@ -21,9 +21,13 @@ const featureFiles = Object.keys(import.meta.glob('./features/*/**/*.{ts,tsx}'))
 // Phase 113 Theme C: a feature extracted into its own package
 // (`packages/features/<name>/`) is still a placed feature folder.
 const packagedFeatureFiles = Object.keys(import.meta.glob('../../features/*/manifest.ts'));
+// Phase 113 Theme M: a feature that moved into the frame itself (`packages/frame/src/<name>/index.ts`)
+// keeps its placement row and its registered view - it is just no longer a folder of `features/`.
+const frameResidentFiles = Object.keys(import.meta.glob('../../frame/src/knowledge/index.ts'));
 const folders = [
   ...new Set([
     ...featureFiles.map((path) => path.split('/')[2] as string),
+    ...frameResidentFiles.map((path) => path.split('/')[4] as string),
     // A split package (`media-core`, `media-docs`, …) counts as the folder it came from.
     ...packagedFeatureFiles.map((path) => {
       const name = path.split('/')[3] as string;

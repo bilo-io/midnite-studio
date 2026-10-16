@@ -1,18 +1,11 @@
 // vitest/jsdom: DOM text/roles over a mocked bridge and a mocked FilePreview
 // (Monaco-adjacent, its own bridge test coverage elsewhere) — no canvas here.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ getNodeDetail: vi.fn() }));
 
-vi.mock('../files/preview/file-preview', () => ({
-  FilePreview: ({ relPath, targetLine }: { relPath: string; targetLine?: number }) => (
-    <div data-testid="file-preview-stub">
-      {relPath}:{targetLine ?? 'no-line'}
-    </div>
-  ),
-}));
-
+import { render } from './test-host';
 import { KnowledgeNodePanel } from './knowledge-node-panel';
 
 describe('KnowledgeNodePanel', () => {

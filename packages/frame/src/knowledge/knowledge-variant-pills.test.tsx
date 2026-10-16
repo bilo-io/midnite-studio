@@ -1,9 +1,10 @@
 // Layer: vitest/jsdom — DOM text/role/aria-pressed assertions, no canvas
 // involved (the pills are plain buttons; sigma is behind a separate,
 // un-unit-testable-under-jsdom seam).
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { render } from './test-host';
 import { KnowledgeVariantPills } from './knowledge-variant-pills';
 
 afterEach(cleanup);

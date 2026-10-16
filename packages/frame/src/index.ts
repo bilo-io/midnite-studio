@@ -216,3 +216,24 @@ export {
 
 // The suite app kit — what an extracted app composes instead of writing its own chrome.
 export * from './kit';
+
+// Knowledge - the host port, the query keys and the cheap existence check. The view itself (sigma,
+// graphology) is its own entry, `@midnite/studio-frame/knowledge`, so it stays out of every entry chunk.
+export {
+  KnowledgeHostProvider,
+  useKnowledgeHost,
+  type KnowledgeCorpus,
+  type KnowledgeHost,
+  type KnowledgePopoverProps,
+  type KnowledgeSettings,
+  type KnowledgeSourcePreviewProps,
+} from './knowledge/knowledge-host';
+export { knowledgeKeys } from './knowledge/knowledge-query-keys';
+export { useKnowledgeGraphExists } from './knowledge/use-knowledge-graph';
+export {
+  DEFAULT_KNOWLEDGE_DETAIL,
+  DEFAULT_KNOWLEDGE_LAYOUT,
+  DEFAULT_KNOWLEDGE_VARIANT,
+} from './knowledge/knowledge-filters-store';
+export { TAB_GROUP_COLORS as KNOWLEDGE_TAB_GROUP_COLORS } from './knowledge/knowledge-community-colors';
+export { SimplePopover } from './knowledge/simple-popover';

@@ -1,15 +1,26 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { PiBrainFill } from 'react-icons/pi';
 
 import { notesViews } from '@midnite/studio-feature-notes/renderer';
 
 import { MIND_APP } from '../mind-manifest';
 
-// The notes view, kept in its own lazy chunk as the feature intends.
+// Each tab is its own lazy chunk: Knowledge pulls sigma and graphology (~0.5 MB), which a notes-only
+// session never pays for.
 const NotesPage = lazy(() => notesViews.notes().then((component) => ({ default: component })));
+const KnowledgePage = lazy(() =>
+  import('@midnite/studio-frame/knowledge').then((m) => ({ default: m.KnowledgeView })),
+);
 
-/** What Mind shows on open: the accent mark and name on top, the feature's view below. */
+type Tab = 'notes' | 'knowledge';
+const TABS: readonly { id: Tab; label: string }[] = [
+  { id: 'notes', label: 'Notes' },
+  { id: 'knowledge', label: 'Knowledge' },
+];
+
+/** What Mind shows on open: the accent mark and name on top, then a Notes tab and a Knowledge tab. */
 export function MindHome() {
+  const [tab, setTab] = useState<Tab>('notes');
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-4 py-3">
@@ -21,22 +32,27 @@ export function MindHome() {
           <PiBrainFill className="h-4 w-4" />
         </span>
         <p className="text-sm font-semibold leading-tight">{MIND_APP.name}</p>
-        {/*
-          Knowledge is the frame's graph view, and it is not composable here yet: its renderer still
-          lives in packages/app and reads that app's stores (ui-store, appearance, status), so
-          composing it would drag Studio's renderer in. A labelled placeholder, not a broken tab.
-        */}
-        <span
-          data-testid="mind-knowledge-placeholder"
-          title="Knowledge needs the frame's graph view, which has not been extracted from Studio yet."
-          className="ml-auto rounded-md border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground"
-        >
-          Knowledge — coming
-        </span>
+        <div role="tablist" aria-label="Mind" className="ml-auto flex items-center gap-1">
+          {TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              data-testid={`mind-tab-${id}`}
+              onClick={() => setTab(id)}
+              className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+                tab === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </header>
-      <main className="flex min-h-0 flex-1 flex-col" aria-label="Notes">
-        <Suspense fallback={<p className="p-4 text-xs text-muted-foreground">Loading your notes…</p>}>
-          <NotesPage />
+      <main className="flex min-h-0 flex-1 flex-col" aria-label={tab === 'notes' ? 'Notes' : 'Knowledge'}>
+        <Suspense fallback={<p className="p-4 text-xs text-muted-foreground">Loading…</p>}>
+          {tab === 'notes' ? <NotesPage /> : <KnowledgePage />}
         </Suspense>
       </main>
     </div>

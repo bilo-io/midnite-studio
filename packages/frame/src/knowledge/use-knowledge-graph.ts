@@ -1,8 +1,8 @@
 import type { KnowledgeGraphPayload, KnowledgeResult, MidniteStudioBridge } from '@midnite/studio-shared';
 import { useQuery } from '@tanstack/react-query';
 
-import { bridge } from '../../services/bridge';
-import { keys } from '../../services/queries';
+import { bridge } from '../bridge';
+import { knowledgeKeys as keys } from './knowledge-query-keys';
 import { resolveKnowledgeViewState, type KnowledgeViewState } from './knowledge-state';
 
 /**

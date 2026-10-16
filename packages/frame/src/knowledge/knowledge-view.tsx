@@ -3,13 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LuCircleAlert, LuClock } from 'react-icons/lu';
 import { SiGrapheneos } from 'react-icons/si';
 
-import { EmptyState } from '../../components/empty-state';
-import { ResizeHandle } from '../../components/resizable/resize-handle';
-import { useResizable } from '../../components/resizable/use-resizable';
-import { Spinner } from '../../components/skeleton';
-import { useWindowFocused } from '../../lib/use-window-focus';
-import { useActiveWorktree } from '../../services/use-status';
-import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
+import { EmptyState } from '../layout/empty-state';
+import { ResizeHandle } from '../layout/resizable/resize-handle';
+import { useResizable } from '../layout/resizable/use-resizable';
+import { Spinner } from '../layout/skeleton';
+import { useKnowledgeHost } from './knowledge-host';
 import { KnowledgeCanvas } from './knowledge-canvas';
 import {
   communityNameFromNodeId,
@@ -54,7 +52,8 @@ import { type KnowledgeLayoutProgress } from './use-knowledge-layout-progress';
  * still exactly Theme F's, untouched.
  */
 export function KnowledgeView() {
-  const { repoId, worktreePath } = useActiveWorktree();
+  const host = useKnowledgeHost();
+  const { repoId, worktreePath } = host.useCorpus();
   // `layoutId` is read here only for the INITIAL fetch — a later pill click
   // goes through `switchLayout` below, not a change to this value (Theme E:
   // `use-knowledge-graph.ts`'s own docblock on its `layoutId` param).
@@ -115,32 +114,34 @@ export function KnowledgeView() {
     [setLayoutId, switchLayout],
   );
 
-  const layout = useUiStore((s) => s.layout);
-  const setLayout = useUiStore((s) => s.setLayout);
+  const settings = host.useSettings();
+  const bounds = host.panelBounds;
 
   const filtersResizable = useResizable({
-    size: layout.knowledgeFiltersWidth,
-    onSize: (value) => setLayout('knowledgeFiltersWidth', value),
-    initial: DEFAULT_LAYOUT.knowledgeFiltersWidth,
+    size: settings.filtersWidth,
+    onSize: (value) => host.setSettings({ filtersWidth: value }),
+    initial: bounds.filtersWidth.initial,
     axis: 'x',
     edge: 'start',
-    ...LAYOUT_BOUNDS.knowledgeFiltersWidth,
+    min: bounds.filtersWidth.min,
+    max: bounds.filtersWidth.max,
   });
 
   const detailResizable = useResizable({
-    size: layout.knowledgeDetailWidth,
-    onSize: (value) => setLayout('knowledgeDetailWidth', value),
-    initial: DEFAULT_LAYOUT.knowledgeDetailWidth,
+    size: settings.detailWidth,
+    onSize: (value) => host.setSettings({ detailWidth: value }),
+    initial: bounds.detailWidth.initial,
     axis: 'x',
     edge: 'end',
-    ...LAYOUT_BOUNDS.knowledgeDetailWidth,
+    min: bounds.detailWidth.min,
+    max: bounds.detailWidth.max,
   });
 
   // Phase 84's visibility gate: `KnowledgeView` isn't `global: true` (Theme
   // C), so it fully unmounts on a view switch already — the one thing left
   // to gate is a blurred-but-still-the-active-view window, which this
   // reactive hook answers safely (it is not a permanently-mounted host).
-  const focused = useWindowFocused();
+  const focused = host.useFocus();
 
   const payload = state.kind === 'ready' ? state.graph : null;
 
@@ -202,7 +203,7 @@ export function KnowledgeView() {
       return <LoadingState progress={layoutProgress} onRetry={refetch} />;
 
     case 'absent':
-      return <KnowledgeInstructions />;
+      return host.Absent ? <host.Absent /> : <KnowledgeInstructions />;
 
     case 'unreadable':
       return (

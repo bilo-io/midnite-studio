@@ -4,8 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import type { KnowledgeGraphPayload, KnowledgeResult } from '@midnite/studio-shared';
 
-import { bridge } from '../../services/bridge';
-import { keys } from '../../services/queries';
+import { bridge } from '../bridge';
+import { knowledgeKeys as keys } from './knowledge-query-keys';
 
 /**
  * Switches the active repo's Knowledge layout without re-loading the view

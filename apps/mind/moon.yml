@@ -15,6 +15,7 @@ dependsOn:
   - 'frame'
   - 'runtime'
   - 'feature-notes'
+  - 'knowledge'
 
 tasks:
   build:
@@ -38,6 +39,7 @@ tasks:
       - '/packages/features/notes/manifest.ts'
       - '/packages/features/notes/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/knowledge/src/**/*'
     outputs:
       - 'dist'
 
@@ -55,6 +57,7 @@ tasks:
       - 'main/**/*'
       - '/packages/features/notes/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/knowledge/src/**/*'
 
   test:
     inputs:
@@ -68,3 +71,4 @@ tasks:
       - 'main/**/*'
       - '/packages/features/notes/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/knowledge/src/**/*'

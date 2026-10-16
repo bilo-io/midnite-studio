@@ -1,4 +1,18 @@
-import { TAB_GROUP_COLORS } from '../browser/tab-group-colors';
+/**
+ * The eight tab-group colour tokens (`styles.css` carries their HSL values, light and dark). Declared here
+ * rather than imported from Studio's browser feature, which the frame cannot reach; `packages/app` holds a
+ * test that this list and `features/browser/tab-group-colors.ts` never drift.
+ */
+export const TAB_GROUP_COLORS = [
+  '--tab-group-1',
+  '--tab-group-2',
+  '--tab-group-3',
+  '--tab-group-4',
+  '--tab-group-5',
+  '--tab-group-6',
+  '--tab-group-7',
+  '--tab-group-8',
+] as const;
 import { hslTripleToRgbString } from './knowledge-color-math';
 
 /**

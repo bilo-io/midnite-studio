@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 
 import { LuX } from 'react-icons/lu';
 
-import { IconButton } from '../../components/icon-button';
-import { bridge } from '../../services/bridge';
-import { FilePreview } from '../files/preview/file-preview';
+import { bridge } from '../bridge';
+import { useKnowledgeHost } from './knowledge-host';
+import { IconButton } from './knowledge-icon-button';
 import { parseSourceLocationLine } from './knowledge-source-location';
 
 type DetailState =
@@ -39,6 +39,7 @@ export function KnowledgeNodePanel({
   style?: React.CSSProperties;
   className?: string;
 }) {
+  const { SourcePreview } = useKnowledgeHost();
   const [detail, setDetail] = useState<DetailState>({ status: 'loading' });
 
   useEffect(() => {
@@ -97,10 +98,11 @@ export function KnowledgeNodePanel({
         ) : detail.status === 'error' ? (
           <div className="p-4 text-xs text-muted-foreground">{detail.message}</div>
         ) : (
-          <FilePreview
-            scope={{ scope: 'repo', repoId, ...(worktreePath ? { worktreePath } : {}) }}
-            relPath={detail.sourceFile}
-            targetLine={detail.targetLine}
+          <SourcePreview
+            repoId={repoId}
+            worktreePath={worktreePath ?? null}
+            sourceFile={detail.sourceFile}
+            targetLine={detail.targetLine ?? null}
           />
         )}
       </div>
