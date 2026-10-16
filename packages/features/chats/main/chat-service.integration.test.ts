@@ -58,7 +58,7 @@ describe('chats against a fake CLI and a real repo', () => {
     }
     await repo.cleanup();
     await rm(scratch, { recursive: true, force: true });
-  });
+  }, 20_000);
 
   function make() {
     const events: ChatEvent[] = [];
@@ -203,7 +203,10 @@ describe('chats against a fake CLI and a real repo', () => {
     const created = await service.create({ engine: 'claude', model: null, mode: 'edit', repoId: 'r' });
     if (!created.ok) throw new Error('create failed');
     await service.send({ chatId: created.value.chat.id, text: 'go' });
-    for (let i = 0; i < 100 && !events.some((e) => e.kind === 'delta'); i += 1) await new Promise((r) => setTimeout(r, 20));
+    // Stop only once the CLI is really running: under CI load the first delta can take seconds, and a Stop sent
+    // before the process exists has nothing to kill — the 30 s sleep then outlives the test.
+    for (let i = 0; i < 750 && !events.some((e) => e.kind === 'delta'); i += 1) await new Promise((r) => setTimeout(r, 20));
+    expect(events.some((e) => e.kind === 'delta')).toBe(true);
 
     await service.cancel(created.value.chat.id);
     await service.idle();
@@ -214,5 +217,6 @@ describe('chats against a fake CLI and a real repo', () => {
     expect(got.value.chat.messages[1]!.changeSet!.files.map((f) => f.path)).toEqual(['half-done.txt']);
     // Reaching here at all proves the kill: the script sleeps 30 s, far past the test timeout.
     expect(existsSync(join(repo.path, 'half-done.txt'))).toBe(false);
-  });
+    // 20 s: room for a loaded runner to create the worktree and start the CLI, still well short of its 30 s sleep.
+  }, 20_000);
 });
