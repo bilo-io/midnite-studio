@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
-import { useChatsStore } from '../chats/chats-store';
+import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { RefAgentAvatar } from './ref-agent-avatar';
 
 const revealSessionMock = vi.fn((_sessionId: string) => true);

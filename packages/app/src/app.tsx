@@ -154,7 +154,7 @@ import {
   viewForPath,
   type ViewId,
 } from './store/ui-store';
-import { useRefetchModelsOnPullDone } from './features/models/use-models';
+import { useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/renderer';
 
 /*
   The views themselves live in `components/view-registry.tsx` — Phase 60 Theme

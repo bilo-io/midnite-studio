@@ -25,7 +25,7 @@ import { useToastStore } from '../../store/toast-store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
 import { useWorkflowRevealStore } from '../../store/workflow-reveal-store';
 import { useWorkflowRunCommandStore, type WorkflowRunHandle } from '../../store/workflow-run-command-store';
-import { useFlushableSave } from '../councils/use-flushable-save';
+import { useFlushableSave } from '@midnite/studio-frame';
 import { DemoApiOfferBanner } from './demo-api-offer-banner';
 import { DemoApiPill } from './demo-api-pill';
 import { IterationScrubber } from './canvas/iteration-scrubber';

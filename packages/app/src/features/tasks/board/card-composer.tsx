@@ -34,7 +34,7 @@ import {
   ollamaModelFromOption,
   useOllamaLaunchFit,
   useOllamaLaunchOptions,
-} from '../../models/launch-options';
+} from '@midnite/studio-feature-models/renderer';
 import { composeCardPrompt, CONCURRENT_CARD_SESSION_SOFT_LIMIT, countLiveCardSessions } from './board-derive';
 
 /**

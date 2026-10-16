@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react';
 
 import { bridge } from '../../services/bridge';
 import { useRepos } from '../../services/queries';
-import { useChatsStore } from '../chats/chats-store';
+import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import {
   isAgentRow,
   resolveSessionAgentId,

@@ -22,8 +22,7 @@ import {
 import { EmptyStateButton } from '../../../components/empty-state';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
-import { useModelsPullQueueStore } from '../../models/models-pull-queue-store';
-import { useOllamaModels, useOllamaStatus } from '../../models/use-models';
+import { useModelsPullQueueStore, useOllamaModels, useOllamaStatus } from '@midnite/studio-feature-models/renderer';
 import { submitCommand } from '../../terminal/submit-command';
 import { useInstallRunner, useSetupProbe } from '../install-runner';
 import { resolveSetupItemIcon } from '../setup-icons';

@@ -10,7 +10,7 @@ import { LuCheck, LuSearch } from 'react-icons/lu';
 
 import { agentInstallHint, isAgentUnconfigured } from '../features/agent/agent-install-status';
 import { PROPRIETARY_IDS } from '../features/terminal/new-session-menu';
-import { useOllamaModels } from '../features/models/use-models';
+import { useOllamaModels } from '@midnite/studio-feature-models/renderer';
 import { useAgents } from '../features/terminal/use-agents';
 import { fuzzyMatch } from '../services/palette/fuzzy-match';
 import { useUiStore } from '../store/ui-store';

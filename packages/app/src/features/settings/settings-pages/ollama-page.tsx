@@ -8,7 +8,7 @@ import {
   useOllamaStatus,
   useSetOllamaApiKey,
   useSetOllamaSettings,
-} from '../../models/use-models';
+} from '@midnite/studio-feature-models/renderer';
 import { openExternal } from '../../../services/queries';
 import { DefaultModelRow } from './default-model-row';
 import { submitCommand } from '../../terminal/submit-command';

@@ -52,6 +52,9 @@ tasks:
       - '/packages/frame/src/**/*'
       - '/packages/features/monitor/renderer/**/*'
       - '/packages/features/monitor/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/monitor/main/**/*'
+      - '/packages/runtime/src/**/*'
 
   test:
     inputs:
@@ -62,3 +65,6 @@ tasks:
       - '/packages/frame/src/**/*'
       - '/packages/features/monitor/renderer/**/*'
       - '/packages/features/monitor/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/monitor/main/**/*'
+      - '/packages/runtime/src/**/*'

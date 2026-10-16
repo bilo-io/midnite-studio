@@ -8,10 +8,11 @@ import { PAGE_ROLE_TITLE } from './page-detach-mark';
 // bridge mock apiece for a one-line assertion.
 const SOURCES = import.meta.glob<string>(
   [
-    '../features/councils/councils-view.tsx',
+    '../../../features/councils/renderer/councils-view.tsx',
     '../features/workflows/workflow-list.tsx',
     '../../../features/media-core/renderer/media-shell.tsx',
-    '../features/models/models-view.tsx',
+    // Models moved into its feature package (Phase 113 Theme N).
+    '../../../features/models/renderer/models-view.tsx',
   ],
   { query: '?raw', import: 'default', eager: true },
 );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ChatEngine } from '../../../chats/use-chat-engines';
+import type { ChatEngine } from '@midnite/studio-feature-chats/renderer';
 import { engineMode, modeHint, toMusicEngine } from './engine-mode';
 
 const agent = (id: string, available = true): ChatEngine =>

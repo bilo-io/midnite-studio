@@ -8,7 +8,7 @@ import {
 } from '@midnite/studio-feature-monitor/main';
 import type { SystemHealth, ToolchainBinary } from '@midnite/studio-shared';
 
-import { ollamaVersion, resolveOllamaBaseUrl } from './ollama/client';
+import { ollamaVersion, resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 
 /**
  * The toolchain/ssh-agent/Ollama probes moved into the monitor feature's main

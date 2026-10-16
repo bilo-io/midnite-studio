@@ -36,7 +36,10 @@
       "@midnite/studio-feature-finance/main": ["./packages/features/finance/main/index.ts"],
       "@midnite/studio-feature-media-core/main": ["./packages/features/media-core/main/index.ts"],
       "@midnite/studio-feature-media-docs/main": ["./packages/features/media-docs/main/index.ts"],
-      "@midnite/studio-feature-media-images/main": ["./packages/features/media-images/main/index.ts"]
+      "@midnite/studio-feature-media-images/main": ["./packages/features/media-images/main/index.ts"],
+      "@midnite/studio-feature-models/main": ["./packages/features/models/main/index.ts"],
+      "@midnite/studio-feature-chats/main": ["./packages/features/chats/main/index.ts"],
+      "@midnite/studio-feature-councils/main": ["./packages/features/councils/main/index.ts"]
     }
   }
 }

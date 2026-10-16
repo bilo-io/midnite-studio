@@ -1,18 +1,7 @@
 import type { ClosedSession, TerminalSession, TerminalSessionKind, TerminalSurface } from '@midnite/studio-shared';
 
-/**
- * Coarse relative age — copied from `workflows/run-history-list.tsx`, not
- * imported. The phase doc is explicit that the four status-dot/relative-time
- * implementations across this app stay unconsolidated (a genuine tidy, and a
- * different phase); this is the fourth on purpose.
- */
-export function relativeAge(ms: number, now: number): string {
-  const seconds = Math.max(0, Math.round((now - ms) / 1000));
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86_400)}d ago`;
-}
+/** Coarse relative age — lives in the frame now (Phase 113 Theme N); re-exported for this file's importers. */
+export { relativeAge } from '@midnite/studio-frame';
 
 /** Also copied from `run-history-list.tsx` — see `relativeAge`'s own note. */
 export function formatDuration(ms: number): string {

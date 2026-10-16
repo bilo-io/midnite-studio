@@ -1,5 +1,4 @@
-import { ollamaChat, resolveOllamaBaseUrl } from '../ollama/client';
-import { getConfiguredOllamaHost } from '../ollama/settings-service';
+import { getConfiguredOllamaHost, ollamaChat, resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 
 /**
  * The wand's and Plan with AI's Ollama path (Phase 96 Theme I) — one prompt,

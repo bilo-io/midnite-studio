@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useModelsPullQueueStore } from '../../models/models-pull-queue-store';
+import { useModelsPullQueueStore } from '@midnite/studio-feature-models/renderer';
 import { OllamaPage } from './ollama-page';
 
 /** Phase 98 Theme I — RAM badges and pull starts on the Ollama page. */

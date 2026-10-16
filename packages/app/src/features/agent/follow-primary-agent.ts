@@ -2,7 +2,7 @@ import { loopModelsFor, type LoopModel } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 
 import { useModelPrefs } from '../media/model/use-model';
-import { useChatsStore } from '../chats/chats-store';
+import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { useUiStore } from '../../store/ui-store';
 
 /**

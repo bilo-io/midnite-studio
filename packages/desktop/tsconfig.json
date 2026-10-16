@@ -24,6 +24,9 @@
     { "path": "../features/finance/tsconfig.main.json" },
     { "path": "../features/media-core/tsconfig.main.json" },
     { "path": "../features/media-docs/tsconfig.main.json" },
-    { "path": "../features/media-images/tsconfig.main.json" }
+    { "path": "../features/media-images/tsconfig.main.json" },
+    { "path": "../features/models/tsconfig.main.json" },
+    { "path": "../features/chats/tsconfig.main.json" },
+    { "path": "../features/councils/tsconfig.main.json" }
   ]
 }

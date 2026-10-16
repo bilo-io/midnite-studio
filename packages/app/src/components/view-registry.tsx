@@ -1,5 +1,8 @@
 import { lazy, type ComponentType } from 'react';
 
+import { chatsViews } from '@midnite/studio-feature-chats/renderer';
+import { councilsViews } from '@midnite/studio-feature-councils/renderer';
+import { modelsViews } from '@midnite/studio-feature-models/renderer';
 import { notesViews } from '@midnite/studio-feature-notes/renderer';
 import { monitorManifest, monitorViews } from '@midnite/studio-feature-monitor/renderer';
 import { optimizerManifest, optimizerViews } from '@midnite/studio-feature-optimizer/renderer';
@@ -45,14 +48,14 @@ const loadSettingsView = () => import('../features/settings/settings-view');
 const SettingsView = lazy(() => loadSettingsView().then((m) => ({ default: m.SettingsView })));
 const loadLandingView = () => import('../features/landing/landing-view');
 const LandingView = lazy(() => loadLandingView().then((m) => ({ default: m.LandingView })));
-const loadCouncilsView = () => import('../features/councils/councils-view');
-const CouncilsView = lazy(() => loadCouncilsView().then((m) => ({ default: m.CouncilsView })));
+const loadCouncilsView = () => councilsViews.councils();
+const CouncilsView = lazy(() => loadCouncilsView().then((Component) => ({ default: Component })));
 const loadWorkflowsView = () => import('../features/workflows/workflows-view');
 const WorkflowsView = lazy(() => loadWorkflowsView().then((m) => ({ default: m.WorkflowsView })));
 const loadMediaView = () => import('../features/media/media-view');
 const MediaView = lazy(() => loadMediaView().then((m) => ({ default: m.MediaView })));
-const loadModelsView = () => import('../features/models/models-view');
-const ModelsView = lazy(() => loadModelsView().then((m) => ({ default: m.ModelsView })));
+const loadModelsView = () => modelsViews.models();
+const ModelsView = lazy(() => loadModelsView().then((Component) => ({ default: Component })));
 const loadDatabaseView = () => import('../features/database/database-view');
 const DatabaseView = lazy(() => loadDatabaseView().then((m) => ({ default: m.DatabaseView })));
 const loadDashboardView = () => import('../features/dashboard/dashboard-view');
@@ -83,8 +86,8 @@ const loadApiClientView = () => import('../features/api-client/api-client-view')
 const ApiClientView = lazy(() => loadApiClientView().then((m) => ({ default: m.ApiClientView })));
 const loadNotesView = () => notesViews.notes();
 const NotesView = lazy(() => loadNotesView().then((Component) => ({ default: Component })));
-const loadChatsView = () => import('../features/chats/chats-view');
-const ChatsView = lazy(() => loadChatsView().then((m) => ({ default: m.ChatsView })));
+const loadChatsView = () => chatsViews.chats();
+const ChatsView = lazy(() => loadChatsView().then((Component) => ({ default: Component })));
 const loadKnowledgeView = () => import('../features/knowledge/knowledge-view');
 const KnowledgeView = lazy(() =>
   loadKnowledgeView().then((m) => ({ default: m.KnowledgeView })),

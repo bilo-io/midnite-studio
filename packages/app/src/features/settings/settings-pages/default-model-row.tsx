@@ -9,7 +9,7 @@ import {
   useOllamaSettings,
   useOllamaStatus,
   useSetOllamaSettings,
-} from '../../models/use-models';
+} from '@midnite/studio-feature-models/renderer';
 
 /** Installed-model options for the default-model picker, plus a stale saved name when needed. */
 export function buildDefaultModelOptions(

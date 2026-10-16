@@ -1,0 +1,90 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Agents (Phase 113 Theme N) — chats, councils and models as their own app:
+# `packages/features/{chats,councils,models}` + `packages/frame` + `shared`, composed in src/.
+# `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+id: 'app-agents'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-agents'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-chats'
+  - 'feature-councils'
+  - 'feature-models'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/chats/renderer/**/*'
+      - '/packages/features/chats/manifest.ts'
+      - '/packages/features/councils/renderer/**/*'
+      - '/packages/features/councils/manifest.ts'
+      - '/packages/features/models/renderer/**/*'
+      - '/packages/features/models/manifest.ts'
+      - '/packages/features/chats/main/**/*'
+      - '/packages/features/councils/main/**/*'
+      - '/packages/features/models/main/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/chats/renderer/**/*'
+      - '/packages/features/chats/manifest.ts'
+      - '/packages/features/councils/renderer/**/*'
+      - '/packages/features/councils/manifest.ts'
+      - '/packages/features/models/renderer/**/*'
+      - '/packages/features/models/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/chats/main/**/*'
+      - '/packages/features/councils/main/**/*'
+      - '/packages/features/models/main/**/*'
+      - '/packages/runtime/src/**/*'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/chats/renderer/**/*'
+      - '/packages/features/chats/manifest.ts'
+      - '/packages/features/councils/renderer/**/*'
+      - '/packages/features/councils/manifest.ts'
+      - '/packages/features/models/renderer/**/*'
+      - '/packages/features/models/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/chats/main/**/*'
+      - '/packages/features/councils/main/**/*'
+      - '/packages/features/models/main/**/*'
+      - '/packages/runtime/src/**/*'

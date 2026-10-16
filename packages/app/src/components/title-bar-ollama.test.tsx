@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../test-support/fixtures';
 import { renderView } from '../../test-support/render';
-import * as modelsModule from '../features/models/use-models';
+import * as modelsModule from '@midnite/studio-feature-models/renderer';
 import * as installRunnerModule from '../features/setup/install-runner';
 import { useUiStore } from '../store/ui-store';
 import { TitleBarOllama } from './title-bar-ollama';

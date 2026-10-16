@@ -119,9 +119,7 @@ import { createRepoStore } from './repo-store';
 import { getMcpServerHandle, registerMcpServer } from './mcp';
 import { registerMcpHandlers } from './ipc/mcp-handlers';
 import { fingerprintFile } from './socket-name';
-import { configureCouncils } from './council-service';
-import { createCouncilsRunsStore } from './councils-runs-store';
-import { createCouncilsStore } from './councils-store';
+import { configureCouncils, createCouncilsRunsStore, createCouncilsStore } from '@midnite/studio-feature-councils/main';
 import {
   configureWorkflows,
   getWorkflowRunHistoryCap,
@@ -146,9 +144,7 @@ import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-
 import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
 import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
-import { configureOllamaPullQueue } from './ollama/pull-queue';
-import { configureOllamaSettings } from './ollama/settings-service';
-import { createOllamaSettingsStore } from './ollama/settings-store';
+import { configureOllamaSettings, createOllamaSettingsStore } from '@midnite/studio-feature-models/main';
 import { createProjectsStore as createVideoProjectsStore } from './video/projects-store';
 import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
@@ -520,7 +516,7 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaTerrainHandlers();
     registerMediaSpriteHandlers();
     registerMediaMapHandlers();
-    registerOllamaHandlers();
+    registerOllamaHandlers(getMainWindow);
     registerDemoApiHandlers();
     registerSecretsHandlers();
     registerFinanceHandlers();
@@ -774,7 +770,6 @@ if (!app.requestSingleInstanceLock()) {
       gamePlaytests,
       createGameExport({ resolve: (gameId) => mcpGameService.resolve(gameId) }),
     );
-    configureOllamaPullQueue(getMainWindow);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));
