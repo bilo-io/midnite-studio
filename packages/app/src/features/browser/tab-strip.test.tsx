@@ -13,7 +13,8 @@ const mocks = vi.hoisted(() => ({
   setKeepAwake: vi.fn(),
 }));
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ windowRole: mocks.windowRole, browser: { setKeepAwake: mocks.setKeepAwake } }),
 }));
 

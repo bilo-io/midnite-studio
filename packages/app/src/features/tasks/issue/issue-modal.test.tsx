@@ -7,7 +7,8 @@ import { DialogHost } from '../../../components/dialog-host';
 import { openIssueModal, useIssueModalStore } from '../../../store/issue-modal-store';
 import { IssueModalHost } from './issue-modal';
 
-vi.mock('../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     forge: {
       issueDetail: vi.fn(() => new Promise(() => {})),

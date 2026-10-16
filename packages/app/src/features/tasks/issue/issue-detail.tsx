@@ -4,7 +4,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { useForgeIssueComments, useForgeIssueDetail } from '../../../services/queries';
-import { issueStatus, StatusPill } from '../../forge/forge-status';
+import { issueStatus, StatusPill } from '@midnite/studio-feature-forge/renderer';
 import { ExternalLink } from '../../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
 import { PresentButton, useSlidesStore } from '@midnite/studio-feature-slides/renderer';

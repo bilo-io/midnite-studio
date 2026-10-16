@@ -53,7 +53,8 @@ const loopRunsList = vi.fn().mockResolvedValue({ runs: [] });
 // here so `hydrate()` has something to resolve against instead of throwing
 // on a bridge that doesn't implement it.
 const listSessions = vi.fn().mockResolvedValue({ sessions: [], broker: { mode: 'broker' } });
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     sessions: { purge },
     terminal: { save, forget, list: listSessions },

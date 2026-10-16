@@ -1,0 +1,18 @@
+/* Design tokens (HSL custom properties + the `.dark` block) from @bilo-io/ui, the same
+ * token source Studio uses, so the forge and tests features wear identical colours here. */
+@import '@bilo-io/ui/styles';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Coder's accent — the launcher catalog's `coder` tile colour. */
+  --coder-accent: #2e7cfa;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}

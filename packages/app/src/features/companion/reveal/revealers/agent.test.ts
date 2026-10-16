@@ -15,7 +15,8 @@ const mocks = vi.hoisted(() => ({
   revealSession: vi.fn(),
 }));
 
-vi.mock('../../../../services/bridge', () => ({ bridge: () => mocks.bridge }));
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()), bridge: () => mocks.bridge }));
 vi.mock('../../../terminal/reveal-session', () => ({ revealSession: mocks.revealSession }));
 
 const ctx: RevealContext = { caller: 'companion', focusedWindow: false };

@@ -13,7 +13,8 @@ import { GIT_REVEALERS } from './git';
 const mocks = vi.hoisted(() => ({ revealCommit: vi.fn(), refs: vi.fn(), stashList: vi.fn() }));
 
 vi.mock('../../../graph/reveal-commit', () => ({ revealCommit: mocks.revealCommit }));
-vi.mock('../../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ repos: { refs: mocks.refs }, stash: { list: mocks.stashList } }),
 }));
 

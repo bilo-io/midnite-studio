@@ -38,7 +38,8 @@ function capability(overrides: Partial<ForgeCapability['ops']> = {}): ForgeCapab
   };
 }
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     forgeProject: { create, edit, delete: del },
     forgeAccounts: { capabilities },

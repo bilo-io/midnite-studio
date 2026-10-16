@@ -66,7 +66,8 @@ const setField = vi.fn();
 // fixtures `board-view.test.tsx`/`card-composer.test.tsx` already use.
 const remotesList = vi.fn<() => Promise<Remote[]>>(async () => []);
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     forgeProject: { list, fields, items, setField },
     // Phase 84 Theme C: `useForgeSubscription('projects')` mounts unconditionally now.

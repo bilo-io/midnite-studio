@@ -18,5 +18,7 @@ export default defineConfig({
   test: {
     include: ['scripts/**/*.test.mjs'],
     environment: 'node',
+    // No test can act as the user on GitHub (a stale mock once let the real `gh` open an issue).
+    setupFiles: ['scripts/vitest-isolate-gh.mjs'],
   },
 });

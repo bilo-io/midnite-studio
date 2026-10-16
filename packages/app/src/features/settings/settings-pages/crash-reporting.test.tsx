@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
   writeText: vi.fn(),
 }));
 
-vi.mock('../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     report: { logPath: mocks.logPath, bundle: mocks.bundle, reveal: mocks.reveal },
   }),

@@ -56,7 +56,7 @@ import {
   type CascadeReveal,
 } from '../../lib/use-cascade-reveal';
 import { useNow } from '../../lib/use-now';
-import { relativeAge } from '../actions/run-groups';
+import { relativeAgeFromIso as relativeAge } from '@midnite/studio-frame';
 import {
   useForgeRuns,
   useRefs,
@@ -80,7 +80,7 @@ import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health
 import { checksVerdict } from './checks-verdict';
 import { ActionsSection, IssuesSection, ReviewsSection } from './forge-sections';
 import { useAccountScopedRepos } from './forge-account-scope';
-import { TestsSection } from '../tests/tests-section';
+import { TestsSection } from './tests-section';
 import {
   ALL_SECTIONS,
   SECTION_TREE,

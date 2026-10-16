@@ -7,7 +7,8 @@ import { WandField } from './wand-field';
 
 const improveFieldFn = vi.fn();
 
-vi.mock('../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ ai: { improveField: improveFieldFn } }),
   hasBridge: () => true,
 }));

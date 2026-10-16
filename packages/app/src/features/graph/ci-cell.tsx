@@ -1,7 +1,7 @@
 import type { CommitCi } from '@midnite/studio-shared';
 
 import { Tooltip } from '../../components/tooltip';
-import { runStatus, StatusGlyph } from '../forge/forge-status';
+import { runStatus, StatusGlyph } from '@midnite/studio-feature-forge/renderer';
 import { ROW_GAP } from './graph-themes';
 
 /**

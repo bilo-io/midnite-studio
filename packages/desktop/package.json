@@ -39,6 +39,8 @@
     "@midnite/studio-app": "workspace:*",
     "@midnite/studio-db-engine": "workspace:*",
     "@midnite/studio-feature-finance": "workspace:*",
+    "@midnite/studio-feature-tests": "workspace:*",
+    "@midnite/studio-feature-forge": "workspace:*",
     "@midnite/studio-feature-models": "workspace:*",
     "@midnite/studio-feature-chats": "workspace:*",
     "@midnite/studio-feature-councils": "workspace:*",

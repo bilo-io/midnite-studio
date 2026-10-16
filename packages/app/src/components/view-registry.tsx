@@ -1,6 +1,8 @@
 import { lazy, type ComponentType } from 'react';
 
 import { chatsViews } from '@midnite/studio-feature-chats/renderer';
+import { forgeViews } from '@midnite/studio-feature-forge/renderer';
+import { testsViews } from '@midnite/studio-feature-tests/renderer';
 import { councilsViews } from '@midnite/studio-feature-councils/renderer';
 import { workflowsViews } from '@midnite/studio-feature-workflows/renderer';
 import { modelsViews } from '@midnite/studio-feature-models/renderer';
@@ -65,12 +67,12 @@ const loadFilesView = () => import('../features/files/files-view');
 const FilesView = lazy(() => loadFilesView().then((m) => ({ default: m.FilesView })));
 const loadSearchView = () => import('../features/search/search-view');
 const SearchView = lazy(() => loadSearchView().then((m) => ({ default: m.SearchView })));
-const loadActionsView = () => import('../features/actions/actions-view');
-const ActionsView = lazy(() => loadActionsView().then((m) => ({ default: m.ActionsView })));
-const loadTestsView = () => import('../features/tests/tests-view');
-const TestsView = lazy(() => loadTestsView().then((m) => ({ default: m.TestsView })));
-const loadReviewsView = () => import('../features/reviews/reviews-view');
-const ReviewsView = lazy(() => loadReviewsView().then((m) => ({ default: m.ReviewsView })));
+const loadActionsView = () => forgeViews.actions();
+const ActionsView = lazy(() => loadActionsView().then((Component) => ({ default: Component })));
+const loadTestsView = () => testsViews.tests();
+const TestsView = lazy(() => loadTestsView().then((Component) => ({ default: Component })));
+const loadReviewsView = () => forgeViews.reviews();
+const ReviewsView = lazy(() => loadReviewsView().then((Component) => ({ default: Component })));
 const loadTasksView = () => import('../features/tasks/tasks-view');
 const TasksView = lazy(() => loadTasksView().then((m) => ({ default: m.TasksView })));
 const loadHistoryView = () => import('../features/history/history-view');

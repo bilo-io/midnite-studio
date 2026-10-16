@@ -7,11 +7,8 @@ import { IconButton } from '../../components/icon-button';
 import { Modal } from '../../components/modal';
 import { usePageVisible } from '../../lib/use-page-visible';
 import { useWindowFocused } from '../../lib/use-window-focus';
-import { RunDetailPanel } from '../actions/run-detail-panel';
-import { getActionItemStyle } from '../actions/action-status-styles';
-import { groupRunsByPhase } from '../actions/run-groups';
-import { RunPhaseSection } from '../actions/run-phase-section';
-import { runStatus, StatusGlyph } from '../forge/forge-status';
+import { getActionItemStyle, groupRunsByPhase, RunDetailPanel, RunPhaseSection } from '@midnite/studio-feature-forge/renderer';
+import { runStatus, StatusGlyph } from '@midnite/studio-feature-forge/renderer';
 import { CI_POLL_MS } from './commit-ci';
 
 /**

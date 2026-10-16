@@ -9,8 +9,10 @@ import { useUiStore } from '../../../store/ui-store';
 import { AgentPage } from './agent-page';
 
 // Mock openInMidnite so we can assert on docs link clicks.
+// `openLinkFromEvent` too: Studio's forge host (installed by `StudioProviders`) binds it at import.
 vi.mock('../../../services/open-in-midnite', () => ({
   openInMidnite: vi.fn(),
+  openLinkFromEvent: vi.fn(),
 }));
 
 import { openInMidnite } from '../../../services/open-in-midnite';

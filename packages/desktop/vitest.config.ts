@@ -10,5 +10,7 @@ export default defineConfig({
     // `moon run desktop:dist` build, not unit-proven against a fake one.
     include: ['src/**/*.test.ts', 'scripts/**/*.test.mjs'],
     environment: 'node',
+    // No test can act as the user on GitHub (a stale mock once let the real `gh` open an issue).
+    setupFiles: ['../../scripts/vitest-isolate-gh.mjs'],
   },
 });

@@ -19,7 +19,7 @@ import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer'
 import { CouncilCreateDialog } from '@midnite/studio-feature-councils/renderer/testing';
 import { SetupOverlay } from '../features/setup/setup-overlay';
 import { INITIAL_SETUP_STATE } from '../store/setup-state';
-import { MergeDialog } from '../features/reviews/merge-dialog';
+import { MergeDialog } from '@midnite/studio-feature-forge/renderer/testing';
 import { StashPushDialog } from '../features/status/stash-push-dialog';
 import { SetupDialog } from '../features/agent/setup-dialog';
 import { LockScreen } from '../features/screensaver/lock-screen';
@@ -171,16 +171,18 @@ describe('occluder coverage across overlays', () => {
   it('9. MergeDialog registers as an occluder', () => {
     assertOccluderLifecycle(() =>
       render(
-        <MergeDialog
-          pullNumber={42}
-          title="Add feature"
-          baseBranch="main"
-          detail={null}
-          pending={false}
-          error={null}
-          onCancel={() => {}}
-          onMerge={() => {}}
-        />,
+        <StudioProviders>
+          <MergeDialog
+            pullNumber={42}
+            title="Add feature"
+            baseBranch="main"
+            detail={null}
+            pending={false}
+            error={null}
+            onCancel={() => {}}
+            onMerge={() => {}}
+          />
+        </StudioProviders>,
       ),
     );
   });

@@ -20,7 +20,8 @@ const mocks = vi.hoisted(() => ({
   listCollections: vi.fn(),
 }));
 
-vi.mock('../../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   hasBridge: () => true,
   bridge: () => ({
     windowRole: 'main',

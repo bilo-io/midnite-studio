@@ -23,7 +23,8 @@ vi.mock('./settings-announce', async (importOriginal) => {
   return { ...actual, announceCompanionSettingChange: vi.fn(actual.announceCompanionSettingChange) };
 });
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   hasBridge: () => false,
   bridge: () => ({ windowRole: 'main' }) as unknown,
 }));

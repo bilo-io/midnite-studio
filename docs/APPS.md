@@ -430,6 +430,82 @@ copies `templates/media-video` into the bundle for Setup, and — with no termin
 `npm install` to run. `MIDNITE_CREATOR_SMOKE=1`
 with `MIDNITE_CREATOR_USER_DATA=<tmp>` prints `midnite-creator:ready` and quits.
 
+### App 8: Coder (`apps/coder`) — Phase 113 Theme O slice 1
+
+Coder composes two feature packages: **`packages/features/forge`** (Reviews and Actions over every forge
+provider) and **`packages/features/tests`** (the Tests view), over the frame. It opens on Reviews, with Actions
+and Tests as tabs beside it, and a small repository list on the left. The git graph, sessions, tasks, the API
+client and the database are later slices.
+
+**Decision 1 — how the renderer folders split into packages.** Four placement folders (`forge`, `reviews`,
+`actions`, `tests`) became **two** packages, not four:
+
+- `features/forge` holds `forge`, `reviews` and `actions` (`FEATURE_PACKAGE_FOLDERS.forge` in
+  `shared/src/domain/placement.ts`, the opposite direction from media's `FEATURE_PACKAGE_SPLITS`). Its main half
+  is every forge provider, the account registry, the poller and their handlers; its renderer is the forge status
+  vocabulary, the forge query hooks, Reviews and Actions.
+- `features/tests` holds `tests`: discovery, per-suite trust and the runner in main, the Tests view in the
+  renderer.
+
+Why: Reviews renders Actions' run detail in its Checks tab, and both draw the status vocabulary
+(`StatusPill`, `runStatus`, …) and the forge query hooks (`useForgePulls`, `useForgeRuns`, …). Split per
+folder, `reviews` would import `actions` and both would import `forge` — the feature→feature import the layer
+rules forbid — or that whole data layer would have to move into the frame, which every app wears (Cleaner and
+Money included) for the sake of one app. No app composes Reviews without Actions, so a split would buy no
+install-time choice either. Tests touches none of it, so it stays its own package. Each folder keeps its
+placement row and its own view registrations, so Studio's view and settings-page order is unchanged. What
+Studio's frame-placed surfaces need from the forge (the repos sidebar's forge sections, the graph's CI column,
+the status-bar chip, the issue modal) they import from `@midnite/studio-feature-forge/renderer` — an app may
+import a feature; when those surfaces move into the frame (slice 2), the status vocabulary moves with them.
+
+Each package sits behind a host port: `ForgeHost` (chrome over app state, the diff kit, the selected repository,
+pane sizes, link routing, and optional Studio-only members — Present, the agent hand-off, preview deployments,
+"Fetch to compare", applying a suggestion) and `TestsHost` (selected repository, list width, optional "Run in
+terminal"). Studio's adapters are `app/src/compose/forge-host.tsx` and `tests-host.ts`, nested in
+`StudioProviders`; the issue modal, which `app.tsx` mounts outside `StudioProviders`, gets the forge host
+installed around it too, because it draws status pills. The status vocabulary's tooltip falls back to a native
+`title` where no host is installed, so a pill never throws. Any other app uses
+`createStandaloneForgeHost({ useActiveRepo, useForgeKind, openExternal })` — plain chrome and a plain diff.
+Reviews' Present button belongs to the slides feature, so it reaches the forge through the host, not an import.
+`formatNumber`, the review-thread anchoring (`threadsForFile`, `positionForLine`) and `relativeAgeFromIso`
+moved into the frame on the way.
+
+**Decision 2 — how Coder reads a repository's forge remote: `.git/config`, read-only, in main.** Studio asks
+git (`git config -z --get-regexp`, git-engine's `listRemotes`) through dugite's bundled binary. Coder does not
+bundle git: `scripts/pack-bundle.mjs` packs `dist/` with everything inlined by esbuild, and dugite resolves its
+git binary from its own package directory at run time, so carrying it means shipping that directory (42 MB for
+dugite 2.7.1's darwin-arm64 git) beside the bundle and pointing dugite at it — machinery the bundle format does not have, for
+one read. Instead `readGitConfigRemotes` (the forge feature's `main/git-config-remotes.ts`) reads the checkout's
+config file (following a linked worktree's `.git` file to its `commondir`), applies `url.<base>.insteadOf`, and
+hands the same `key\nvalue\0` records to git-engine's own `parseRemoteConfig`, so both apps derive a forge
+identically. It never writes and never runs anything. Not honoured: `include`/`includeIf` and the global or
+system config — a remote defined only there reads as "no forge", the honest answer. The forge feature's main
+half takes the remotes through a `remotes(repoId)` port, so it never knows which way they were read. git-engine
+is still bundled for its pure parsers (diff parsing, test discovery over the filesystem), with `dugite` stubbed
+as Agents does.
+
+**Coder's repositories.** No Studio repo registry: `main/repos.ts` keeps `{ id, path }` rows in Coder's userData.
+A folder joins only through main's native dialog — `repos.pickDirectory` offers the chosen path once, and
+`repos.open` admits only a path that was offered, resolves it to its real path and requires a `.git`. After that
+every channel takes a `repoId`. The renderer's bridge is `forge`, `forgeProject`, `forgeAccounts`, `tests`,
+`remotes.list` and four `repos` members (`main/bridge.ts`); there is no `secrets`, `fs`, `pty` or `ops` namespace.
+
+**Forge tokens stay in main, behind the grants.** The account registry's vault is the runtime vault as `coder`,
+built with `createVaultGrants({ directory }).authorize` (`scripts/app-vault-grants.test.mjs`). Without a grant to
+the `forge-accounts` namespace a token-backed account reads as having no token — the HTTP providers send nothing
+and report `not-authenticated`, while a `gh`-delegated GitHub account still works through `gh` — and adding an
+account fails with a sentence instead of storing anything. Granted (Vault ▸ App access), the token reaches the
+forge's HTTP API in main and never an answer: `apps/coder/main/context.test.ts` walks both cases, and the forge
+feature's no-token-wire test holds the accounts channel to `hasToken`. Account records live in Coder's own
+`forge-accounts.json`, so an account added in Studio shows in Coder only once added there too (the token itself
+is shared through the vault). Review writes are behind Coder's own "Review actions" switch, off by default as in
+Studio. `MIDNITE_CODER_SMOKE=1` with `MIDNITE_CODER_USER_DATA=<tmp>` prints `midnite-coder:ready` and quits.
+
+**Left out in this slice:** the plain diff has no split layout, syntax colour or image diff (Studio's diff view
+moves into the frame with the graph); no Present, agent hand-off, preview deployments, "Fetch to compare",
+suggestion apply or "Run in terminal" (each an optional host member Coder does not have yet); no Settings pages
+(Reviews, Accounts) — those stay in Studio's Settings view.
+
 ### Money's brokerage and exchange accounts (Phase 113 Theme P slice 2)
 
 Read-only accounts live in the finance feature (`packages/features/finance/main/accounts/`). Trading is
