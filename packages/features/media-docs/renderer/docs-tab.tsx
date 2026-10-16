@@ -105,12 +105,17 @@ export function DocsTab() {
     <MediaLayout
       tab="doc"
       toolbar={
-        <ExportToolbar
-          formats={MEDIA_TAB_EXPORT_FORMATS.doc}
-          hasSelection={doc !== null && session.ready}
-          onExport={(format) => void onExport(format)}
-          busy={exporting}
-        />
+        <>
+          {host.PresentButton && doc && session.ready ? (
+            <host.PresentButton content={session.draft} label={doc.path.split('/').pop() ?? doc.path} />
+          ) : null}
+          <ExportToolbar
+            formats={MEDIA_TAB_EXPORT_FORMATS.doc}
+            hasSelection={doc !== null && session.ready}
+            onExport={(format) => void onExport(format)}
+            busy={exporting}
+          />
+        </>
       }
       explorer={
         <DocsExplorer

@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 
 import { ExternalLink } from '../../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
-import { PresentButton } from '../../slides/present-button';
+import { PresentButton } from '@midnite/studio-feature-slides/renderer';
 import { UserAvatar } from '../../../components/user-avatar';
 
 /**

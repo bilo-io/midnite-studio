@@ -1,4 +1,4 @@
-import type { MediaFileEntry, MediaProject, MediaTab } from '@midnite/studio-shared';
+import type { FfmpegStatus, MediaFileEntry, MediaProject, MediaTab } from '@midnite/studio-shared';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 
@@ -12,6 +12,7 @@ import type {
   MediaOpenRequest,
   MediaPane,
   MediaProjectsAccordionProps,
+  MediaTooltipProps,
 } from './media-kit-types';
 
 /**
@@ -41,6 +42,8 @@ export type MediaKit = {
   ExportToolbar: ComponentType<ExportToolbarProps>;
   /** The app's collapsible explorer sections (Studio persists which are collapsed). */
   Accordion: ComponentType<MediaAccordionProps>;
+  /** The app's tooltip, for a tab's own controls (the strip and the export toolbar use the same one). */
+  Tooltip: ComponentType<MediaTooltipProps>;
   /** React Query keys — `tab(...)` prefixes the rest, so invalidating it refreshes the tab. */
   keys: MediaQueryKeys;
   useMediaProjects: (repoId: string | null, tab: MediaTab) => UseQueryResult<MediaProject[]>;
@@ -53,6 +56,8 @@ export type MediaKit = {
   ) => UseQueryResult<string>;
   useMediaMutations: (repoId: string | null, tab: MediaTab) => MediaMutations;
   useMediaExport: () => MediaExporter;
+  /** Whether ffmpeg is installed (the export and transcode controls need it). */
+  useFfmpegStatus: () => UseQueryResult<FfmpegStatus>;
   revealMedia: (repoId: string, tab: MediaTab, project: string, path?: string) => void;
   /** Reopens a collapsed side pane and focuses into it (Images' "+" tile). A hook returning the opener. */
   useOpenMediaPane: () => (tab: MediaTab, pane: MediaPane, options?: { focus?: boolean }) => void;

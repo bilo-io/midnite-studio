@@ -168,7 +168,7 @@ import { useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/rende
   a modal's chunk arrives would be a worse frame than the modal simply appearing
   a beat later.
 */
-const loadSlidesModal = () => import('./features/slides/slides-modal');
+const loadSlidesModal = () => import('@midnite/studio-feature-slides/renderer/modal');
 const SlidesModal = lazy(() => loadSlidesModal().then((m) => ({ default: m.SlidesModal })));
 const loadIssueModal = () => import('./features/tasks/issue/issue-modal');
 const IssueModalHost = lazy(() => loadIssueModal().then((m) => ({ default: m.IssueModalHost })));

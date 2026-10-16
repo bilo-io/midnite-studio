@@ -11,7 +11,7 @@ import { useDevServer } from '../../features/browser/use-dev-server';
 import { toggleNotes } from '../../features/notes/notes-window';
 import { useGraphStore } from '../../features/graph/graph-store';
 import { useSetupStore } from '../../features/setup/setup-store';
-import { useSlidesStore } from '../../features/slides/slides-store';
+import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { syncAffordances } from '../../features/status/sync-availability';
 import { closeSessionWithConfirm } from '../../features/terminal/close-session';
 import { onMainSurface, useTerminalStore } from '../../features/terminal/terminal-store';

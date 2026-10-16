@@ -3,8 +3,7 @@ import { LuFolderOpen, LuX } from 'react-icons/lu';
 
 import { VIDEO_ENGINE_INFO } from '@midnite/studio-shared';
 
-import { VideoEnginePicker } from '../../media/video/video-engine-picker';
-import { useSetVideoEngine, useVideoEngine } from '../../media/video/use-video';
+import { useSetVideoEngine, useVideoEngine, VideoEnginePicker } from '@midnite/studio-feature-media-video/renderer';
 import { bridge } from '../../../services/bridge';
 
 const VIDEO_ROOT_KEY = ['video-root'] as const;

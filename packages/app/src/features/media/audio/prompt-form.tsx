@@ -11,22 +11,27 @@ import {
   AUDIO_PROVIDERS,
   DEFAULT_AUDIO_PROVIDER,
   audioProviderInfo,
-  type AudioEngineStatus,
   type AudioProviderId,
   type AudioProviderStatus,
 } from '@midnite/studio-shared';
-import { useRef, useState, type Dispatch } from 'react';
+import { useRef, useState } from 'react';
 import { LuDownload, LuImport, LuInfo, LuMusic, LuWandSparkles, LuX } from 'react-icons/lu';
 
+import {
+  formatDuration,
+  insertLyricSection,
+  toPrompt,
+  useAudioEngineInstall,
+  useAudioPrefs,
+  useExpandPrompt,
+  type AudioPromptFormProps,
+} from '@midnite/studio-feature-media-audio/renderer';
+import { MEDIA_PROMPT_BOX, MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '@midnite/studio-frame';
+
 import type { IconComponent } from '../../../components/icon-button';
-import { insertLyricSection, toPrompt, type PromptFormAction, type PromptFormState } from './prompt-form-state';
-import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '../media-panel-layout';
-import { MEDIA_PROMPT_BOX } from '../prompt-input';
 import { AiComposer, AttachMenu, ProviderModelPicker, useComposerMic, type PickerProvider } from '../../../components/ai-thread';
 import { appendDictation, useSpeakOutcome, useVoiceThread } from '../voice/use-voice-thread';
 import { SpeechToggle } from '../voice/voice-controls';
-import { useAudioEngineInstall, useAudioPrefs, useExpandPrompt, type PendingImport } from './use-audio';
-import { formatDuration } from './waveform';
 
 export const AUDIO_PROVIDER_ICONS: Record<AudioProviderId, IconComponent> = { musicgen: LuMusic, import: LuImport };
 
@@ -75,19 +80,7 @@ export function PromptForm({
   onImport,
   onGenerate,
   onCancel,
-}: {
-  state: PromptFormState;
-  dispatch: Dispatch<PromptFormAction>;
-  statuses: readonly AudioProviderStatus[];
-  engine: AudioEngineStatus | null | undefined;
-  importing: boolean;
-  generating: boolean;
-  progress: PendingImport | null;
-  error: string | null;
-  onImport: () => void;
-  onGenerate: () => void;
-  onCancel: () => void;
-}) {
+}: AudioPromptFormProps) {
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const voice = useVoiceThread();

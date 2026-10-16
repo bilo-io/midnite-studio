@@ -1,4 +1,4 @@
-import type { MediaAccordionProps, MediaKit } from '@midnite/studio-frame';
+import type { MediaAccordionProps, MediaKit, MediaTooltipProps } from '@midnite/studio-frame';
 
 import { ExportToolbar } from './export-toolbar';
 import { useMediaHost } from './host';
@@ -9,6 +9,7 @@ import { NoRepoMediaState } from './repo-media-tab';
 import {
   MEDIA_KEYS,
   revealMedia,
+  useFfmpegStatus,
   useMediaExport,
   useMediaFiles,
   useMediaFileText,
@@ -20,6 +21,12 @@ import {
 function HostAccordion(props: MediaAccordionProps) {
   const { Accordion } = useMediaHost();
   return <Accordion {...props} />;
+}
+
+/** The app's tooltip, through the host. */
+function HostTooltip(props: MediaTooltipProps) {
+  const { Tooltip } = useMediaHost();
+  return <Tooltip {...props} />;
 }
 
 function useMediaRepoId(): string | null {
@@ -46,12 +53,14 @@ export const mediaKit = {
   NoRepoMediaState,
   ExportToolbar,
   Accordion: HostAccordion,
+  Tooltip: HostTooltip,
   keys: MEDIA_KEYS,
   useMediaProjects,
   useMediaFiles,
   useMediaFileText,
   useMediaMutations,
   useMediaExport,
+  useFfmpegStatus,
   revealMedia,
   useOpenMediaPane,
   useMediaOpenFor,

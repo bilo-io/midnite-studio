@@ -27,6 +27,8 @@
     { "path": "../features/media-images/tsconfig.main.json" },
     { "path": "../features/models/tsconfig.main.json" },
     { "path": "../features/chats/tsconfig.main.json" },
-    { "path": "../features/councils/tsconfig.main.json" }
+    { "path": "../features/councils/tsconfig.main.json" },
+    { "path": "../features/media-video/tsconfig.main.json" },
+    { "path": "../features/media-audio/tsconfig.main.json" }
   ]
 }

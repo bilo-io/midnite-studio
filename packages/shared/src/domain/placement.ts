@@ -124,6 +124,8 @@ export const FEATURE_PACKAGE_SPLITS = {
   'media-core': { folder: 'media', placement: ['creator', 'media', 'gamer'] },
   'media-docs': { folder: 'media', placement: 'creator' },
   'media-images': { folder: 'media', placement: 'creator' },
+  'media-video': { folder: 'media', placement: 'creator' },
+  'media-audio': { folder: 'media', placement: 'creator' },
 } as const satisfies Readonly<Record<string, { folder: PlacedFeature; placement: Placement }>>;
 
 /** The placement of the package `packages/features/<name>`, split or not; undefined for an unknown name. */

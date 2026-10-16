@@ -8,13 +8,20 @@ import type {
   MediaTab,
 } from '@midnite/studio-shared';
 import type { UseMutationResult } from '@tanstack/react-query';
-import type { MouseEvent, ReactNode } from 'react';
+import type { MouseEvent, ReactElement, ReactNode } from 'react';
 
 /*
   The prop and result shapes of the media kit (`media-kit.tsx`) — Phase 113
   Theme Q. media-core's components and hooks are type-checked against these
   (`mediaKit satisfies MediaKit`), so a tab feature and the shell cannot drift.
 */
+
+/** A tooltip around one focusable element — the app's own (`side` defaults to the app's). */
+export type MediaTooltipProps = {
+  label: ReactNode;
+  side?: 'top' | 'bottom' | 'right';
+  children: ReactElement<Record<string, unknown>>;
+};
 
 /** A Media side pane: the explorer on the left, the detail (composer) on the right. */
 export type MediaPane = 'explorer' | 'detail';

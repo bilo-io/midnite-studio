@@ -16,8 +16,7 @@ import { UserAvatar } from '../../components/user-avatar';
 import { formatNumber } from '../../lib/format-number';
 import { useBrowserStore } from '../../store/browser-store';
 import { matchPreviewDeploy } from '../browser/preview-deploy';
-import { useSlidesStore } from '../slides/slides-store';
-import { PresentButton } from '../slides/present-button';
+import { PresentButton, useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import {
   useActiveForgeCapability,
   useAddReviewComment,

@@ -7,8 +7,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { GmInstrumentLibrary } from '../music-editor/gm-instrument-library';
-import { useAudioEngine, useAudioPrefs } from './use-audio';
-import { formatDuration } from './waveform';
+import { formatDuration, useAudioEngine, useAudioPrefs } from '@midnite/studio-feature-media-audio/renderer';
 
 const field = 'flex flex-col gap-1 text-[11px] font-medium text-muted-foreground';
 const select = 'h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground';

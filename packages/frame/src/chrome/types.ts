@@ -213,6 +213,10 @@ export type FrameMenuItem = {
   label: string;
   description?: string;
   disabled?: boolean;
+  /** A leading glyph, where the app's menu draws one. */
+  icon?: IconComponent;
+  /** Tints the row destructive. */
+  danger?: boolean;
   onSelect: () => void;
 };
 

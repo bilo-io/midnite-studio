@@ -13,6 +13,7 @@ export * from './testing';
 export * from './app-id';
 export * from './data-directory';
 export * from './fs-jail';
+export * from './login-shell';
 export * from './vault';
 export * from './broker';
 export * from './cli';

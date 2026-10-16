@@ -1,7 +1,17 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { createMediaService, mediaCoreMain, type MediaService } from '@midnite/studio-feature-media-core/main';
+import {
+  createAudioEngineServices,
+  createAudioService,
+  createMusicBroker,
+  createMusicgenProvider,
+  importAudioProvider,
+  mediaAudioMain,
+  unavailableMusicWorker,
+} from '@midnite/studio-feature-media-audio/main';
+import { configureVideo, createProjectsStore, mediaVideoMain, resolveHandoffPath } from '@midnite/studio-feature-media-video/main';
 import { mediaDocsMain } from '@midnite/studio-feature-media-docs/main';
 import {
   agyImageProvider,
@@ -31,6 +41,14 @@ export type CreatorElectron = IpcContextElectron & {
   pickSavePath: (options: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>;
   printToPdf: (htmlFile: string) => Promise<Buffer>;
   ffmpegStatus: () => Promise<FfmpegStatus>;
+  /** Audio's native "Import audio" picker — absolute paths, or null when dismissed. Main's, never the renderer's. */
+  pickImportFiles: (options: { title: string; filters: { name: string; extensions: string[] }[] }) => Promise<string[] | null>;
+  /** Where the Video service keeps its one setting (`video-settings.json`): Creator's userData. */
+  videoSettingsDir: string;
+  /** The packaged `templates/media-video` tree Setup Video copies from. */
+  videoTemplateRoot: string;
+  /** The OS default app for a file (`shell.openPath`): '' on success, else an error message. */
+  openPath: (absPath: string) => Promise<string>;
   /** A provider key, read in main from the runtime vault. Never sent to the renderer. */
   readKey: (key: SecretKey) => Promise<string | null>;
   /** `fetch` for the provider APIs; a test passes one that refuses the network. */
@@ -48,7 +66,7 @@ const noOllama: ImageProvider = {
 
 /**
  * Registers every channel Creator's renderer can call: media-core's store, watcher and export,
- * Docs' export (no Ask AI — Creator has no agents), and Images' generation. Returns the media
+ * Docs' export (no Ask AI — Creator has no agents), Images' generation, Audio's import, and Video's projects, studio and renders (and a generator that reports its local engine as unavailable). Returns the media
  * service so the caller can stop its watchers on quit.
  */
 export function registerCreatorHandlers(el: CreatorElectron): MediaService {
@@ -67,6 +85,10 @@ export function registerCreatorHandlers(el: CreatorElectron): MediaService {
     revealPath: el.revealPath,
     ffmpegStatus: el.ffmpegStatus,
     pickSavePath: el.pickSavePath,
+    resolveVideoExportInput: async (projectId, name) => {
+      const resolved = await resolveHandoffPath(projectId, 'output', name);
+      return resolved.ok ? resolved.path : null;
+    },
   });
   mediaDocsMain.register(ctx, { pickSavePath: el.pickSavePath, printToPdf: el.printToPdf });
   const images = createImageService({
@@ -79,6 +101,37 @@ export function registerCreatorHandlers(el: CreatorElectron): MediaService {
     agyAvailable: isAgyInstalled,
   });
   mediaImagesMain.register(ctx, { images });
+  // Audio: Import and the engine status work; the local MusicGen worker is not bundled with Creator
+  // (its ONNX runtime lives in Studio's desktop package), so Create reports "unavailable" rather than
+  // downloading a model it cannot run. No Ollama either — Expand fails inline.
+  const musicBroker = createMusicBroker({ spawn: () => unavailableMusicWorker() });
+  const audio = createAudioService({
+    providers: { musicgen: createMusicgenProvider(musicBroker.engine), import: importAudioProvider },
+    writeBytes: (req) => media.store.writeBytes(req),
+    readText: (req) => media.store.readFile({ ...req, encoding: 'utf8' }),
+    readFile: (absPath) => readFile(absPath),
+    emit: (event) => el.send(EVENT_CHANNELS.mediaAudioProgress, event),
+  });
+  mediaAudioMain.register(ctx, {
+    audio,
+    engine: createAudioEngineServices({ broker: musicBroker }),
+    installEngine: (onProgress) => musicBroker.install(onProgress),
+    pickImportFiles: el.pickImportFiles,
+  });
+  // Video: the engine's projects live under Creator's one media root (`<media>/.midnite/media/video`).
+  configureVideo(createProjectsStore(el.videoSettingsDir), {
+    emit: el.send,
+    showItemInFolder: el.revealPath,
+    openPath: el.openPath,
+  });
+  mediaVideoMain.register(ctx, {
+    resolveWorkdir: async (repoId) => {
+      if (repoId !== CREATOR_REPO_ID) return null;
+      await mkdir(el.mediaRoot, { recursive: true });
+      return el.mediaRoot;
+    },
+    templateRoot: () => el.videoTemplateRoot,
+  });
   return media;
 }
 

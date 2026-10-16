@@ -18,6 +18,7 @@ export {
   DocsHostProvider,
   useDocsHost,
   type DocsHost,
+  type DocPresentButtonProps,
   type DocThreadPanelProps,
   type LastDoc,
 } from './host';

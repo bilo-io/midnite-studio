@@ -7,6 +7,7 @@ import { MediaHostProvider } from '@midnite/studio-feature-media-core/renderer';
 import { ModelsHostProvider } from '@midnite/studio-feature-models/renderer';
 import { NotesHostProvider } from '@midnite/studio-feature-notes/renderer';
 import { OptimizerHostProvider } from '@midnite/studio-feature-optimizer/renderer';
+import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 
 import { STUDIO_CHATS_HOST } from './chats-host';
@@ -16,6 +17,7 @@ import { STUDIO_MEDIA_HOST } from './media-host';
 import { STUDIO_MODELS_HOST } from './models-host';
 import { STUDIO_NOTES_HOST } from './notes-host';
 import { STUDIO_OPTIMIZER_HOST } from './optimizer-host';
+import { STUDIO_SLIDES_HOST } from './slides-host';
 import { STUDIO_CHROME } from './studio-chrome';
 
 /**
@@ -40,7 +42,9 @@ export function StudioProviders({ children }: { children: ReactNode }) {
             <MediaHostProvider host={STUDIO_MEDIA_HOST}>
               <ModelsHostProvider host={STUDIO_MODELS_HOST}>
                 <CouncilsHostProvider host={STUDIO_COUNCILS_HOST}>
-                  <ChatsHostProvider host={STUDIO_CHATS_HOST}>{children}</ChatsHostProvider>
+                  <ChatsHostProvider host={STUDIO_CHATS_HOST}>
+                    <SlidesHostProvider host={STUDIO_SLIDES_HOST}>{children}</SlidesHostProvider>
+                  </ChatsHostProvider>
                 </CouncilsHostProvider>
               </ModelsHostProvider>
             </MediaHostProvider>

@@ -22,7 +22,7 @@ import {
 import { useMetricsStore } from '../../store/metrics-store';
 import { METRIC_LABELS, metricColor, metricFill } from '../monitor/metric-palette';
 import { MetricChart } from '../monitor/metric-chart';
-import { useTitleTypewriter } from '../slides/use-title-typewriter';
+import { useTitleTypewriter } from '@midnite/studio-feature-slides/renderer';
 import { fmtLocationName, fmtTemperature, weatherCondition } from '../weather/weather-derive';
 import { useCurrentWeather } from '../weather/weather-queries';
 import { useWeatherStore } from '../weather/weather-store';

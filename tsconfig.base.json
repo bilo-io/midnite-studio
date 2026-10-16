@@ -39,7 +39,10 @@
       "@midnite/studio-feature-media-images/main": ["./packages/features/media-images/main/index.ts"],
       "@midnite/studio-feature-models/main": ["./packages/features/models/main/index.ts"],
       "@midnite/studio-feature-chats/main": ["./packages/features/chats/main/index.ts"],
-      "@midnite/studio-feature-councils/main": ["./packages/features/councils/main/index.ts"]
+      "@midnite/studio-feature-councils/main": ["./packages/features/councils/main/index.ts"],
+      "@midnite/studio-feature-media-video/main": ["./packages/features/media-video/main/index.ts"],
+      "@midnite/studio-feature-media-audio/main": ["./packages/features/media-audio/main/index.ts"],
+      "@midnite/studio-feature-media-audio/music-worker": ["./packages/features/media-audio/main/musicgen/worker-entry.ts"]
     }
   }
 }

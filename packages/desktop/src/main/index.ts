@@ -142,10 +142,14 @@ import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
 import { disposeMapCaptureBroker, installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
 import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
 import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
-import { configureVideo, effectiveVideoRoot, stopAllVideoProcesses } from './video-service';
+import {
+  configureVideo,
+  createProjectsStore as createVideoProjectsStore,
+  effectiveVideoRoot,
+  stopAllVideoProcesses,
+} from '@midnite/studio-feature-media-video/main';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
 import { configureOllamaSettings, createOllamaSettingsStore } from '@midnite/studio-feature-models/main';
-import { createProjectsStore as createVideoProjectsStore } from './video/projects-store';
 import { stopDemoApi } from './demo-api/server';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerPrivilegedSchemes, setVideoFileRootProvider } from './fs-protocol';
@@ -694,7 +698,14 @@ if (!app.requestSingleInstanceLock()) {
     */
     const gateApprovalTimer = setInterval(() => void pollWorkflowGateApprovals(), FORGE_POLL_MS);
     gateApprovalTimer.unref();
-    configureVideo(createVideoProjectsStore(userData), getMainWindow);
+    configureVideo(createVideoProjectsStore(userData), {
+      emit: (channel, payload) => {
+        const win = getMainWindow();
+        if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+      },
+      showItemInFolder: (path) => shell.showItemInFolder(path),
+      openPath: (path) => shell.openPath(path),
+    });
     setVideoFileRootProvider(effectiveVideoRoot);
     // Media ▸ Games (Phase 107): one service over the runner, the settings
     // file and the repo registry. Registering a game repo is the same path

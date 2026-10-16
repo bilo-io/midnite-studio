@@ -5,7 +5,7 @@ import { Modal } from '../components/modal';
 import { Popover } from '../components/popover';
 import { Tooltip } from '../components/tooltip';
 import { ExternalLink } from '../features/markdown/external-link';
-import { useTitleTypewriter } from '../features/slides/use-title-typewriter';
+import { useTitleTypewriter } from '@midnite/studio-feature-slides/renderer';
 import { openInMidnite, openLinkFromEvent } from '../services/open-in-midnite';
 
 /**

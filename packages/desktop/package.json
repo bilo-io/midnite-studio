@@ -17,6 +17,8 @@
     "@midnite/studio-feature-media-core": "workspace:*",
     "@midnite/studio-feature-media-docs": "workspace:*",
     "@midnite/studio-feature-media-images": "workspace:*",
+    "@midnite/studio-feature-media-video": "workspace:*",
+    "@midnite/studio-feature-media-audio": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@tonejs/midi": "^2.0.28",
     "better-sqlite3": "^11.8.1",

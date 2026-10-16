@@ -5,7 +5,7 @@ import { ThemeProvider } from '@bilo-io/ui/theme';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { useUiStore } from '../store/ui-store';
-import { useSlidesStore } from '../features/slides/slides-store';
+import { HelpOverlay, SlidesHostProvider, useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { Modal } from './modal';
 import { ConfirmDialog } from './confirm-dialog';
 import { PromptDialog } from './prompt-dialog';
@@ -13,13 +13,13 @@ import { Palette } from './palette';
 import { BrowserLauncher } from '../features/browser/browser-launcher';
 import { BrowserSwitcherOverlay } from '../features/browser/browser-switcher-overlay';
 import { TerminalSwitcherOverlay } from '../features/terminal/terminal-switcher-overlay';
-import { SlidesModal } from '../features/slides/slides-modal';
+import { SlidesModal } from '@midnite/studio-feature-slides/renderer/modal';
+import { STUDIO_SLIDES_HOST } from '../compose/slides-host';
 import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer';
 import { CouncilCreateDialog } from '@midnite/studio-feature-councils/renderer/testing';
 import { SetupOverlay } from '../features/setup/setup-overlay';
 import { INITIAL_SETUP_STATE } from '../store/setup-state';
 import { MergeDialog } from '../features/reviews/merge-dialog';
-import { HelpOverlay } from '../features/slides/help-overlay';
 import { StashPushDialog } from '../features/status/stash-push-dialog';
 import { SetupDialog } from '../features/agent/setup-dialog';
 import { LockScreen } from '../features/screensaver/lock-screen';
@@ -134,7 +134,13 @@ describe('occluder coverage across overlays', () => {
 
   it('6. SlidesModal registers as an occluder', () => {
     useSlidesStore.setState({ deck: { label: 'Demo', content: '# Slide' } });
-    assertOccluderLifecycle(() => render(<SlidesModal />));
+    assertOccluderLifecycle(() =>
+      render(
+        <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
+          <SlidesModal />
+        </SlidesHostProvider>,
+      ),
+    );
     useSlidesStore.setState({ deck: null });
   });
 
@@ -180,7 +186,13 @@ describe('occluder coverage across overlays', () => {
   });
 
   it('10. HelpOverlay registers as an occluder', () => {
-    assertOccluderLifecycle(() => render(<HelpOverlay onClose={() => {}} />));
+    assertOccluderLifecycle(() =>
+      render(
+        <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
+          <HelpOverlay onClose={() => {}} />
+        </SlidesHostProvider>,
+      ),
+    );
   });
 
   it('11. StashPushDialog registers as an occluder', () => {

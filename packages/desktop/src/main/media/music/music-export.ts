@@ -17,7 +17,7 @@ import {
   type Song,
 } from '@midnite/studio-shared';
 
-import { audioSlug, audioTimeStamp } from '../audio/audio-service';
+import { audioSlug, audioTimeStamp } from '@midnite/studio-feature-media-audio/main';
 import { songToMidi } from './midi-io';
 
 /**

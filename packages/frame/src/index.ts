@@ -127,7 +127,7 @@ export { SettingsAccordion } from './settings/settings-section';
 export { SETTINGS_SECTIONS, settingsSectionId, type SettingsSection } from './settings/settings-sections';
 
 // The chrome port — chrome still implemented in packages/app, reached through context.
-export { FrameChromeProvider, useFrameChrome, type FrameChrome } from './chrome/chrome-port';
+export { FrameChromeProvider, useFrameChrome, useOptionalFrameChrome, type FrameChrome } from './chrome/chrome-port';
 export type {
   BlastRadius,
   BlastRadiusKind,
@@ -155,6 +155,7 @@ export type {
   MediaPane,
   MediaProjectsAccordionProps,
   MediaSelection,
+  MediaTooltipProps,
 } from './media/media-kit-types';
 export { MEDIA_PROMPT_BOX, MEDIA_PROMPT_CONTROL, PromptTextarea } from './media/prompt-input';
 export {

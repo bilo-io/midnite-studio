@@ -1,4 +1,7 @@
 import { createStandaloneMediaHost } from '@midnite/studio-feature-media-core/renderer';
+import type { AudioHost } from '@midnite/studio-feature-media-audio/renderer';
+import { PresentButton, type SlidesHost } from '@midnite/studio-feature-slides/renderer';
+import type { VideoHost } from '@midnite/studio-feature-media-video/renderer';
 import type { DocsHost, LastDoc } from '@midnite/studio-feature-media-docs/renderer';
 import type { ImagesHost } from '@midnite/studio-feature-media-images/renderer';
 import { createPersistedStore } from '@midnite/studio-frame';
@@ -33,10 +36,22 @@ const lastDocs = createPersistedStore<LastDocs & { set: (repoId: string, doc: La
   }),
 });
 
+/** "Present as slides" beside a doc's export: the Slides feature's own button over the draft as it stands. */
+function PresentDoc({ content, label }: { content: string; label: string }) {
+  return <PresentButton source={{ content, label }} />;
+}
+
 export const CREATOR_DOCS_HOST: DocsHost = {
   getLastDoc: (repoId) => lastDocs.getState().lastDoc[repoId],
   setLastDoc: (repoId, doc) => lastDocs.getState().set(repoId, doc),
+  PresentButton: PresentDoc,
 };
+
+/**
+ * Slides over Creator's own overlay rules: the feature's defaults — Escape closes the topmost overlay, the
+ * dialog takes focus, links are plain anchors, code stays unhighlighted — plus the dark theme Creator ships in.
+ */
+export const CREATOR_SLIDES_HOST: SlidesHost = { useIsDark: () => true };
 
 /** Escape closes the lightbox, and focus moves into it while it is open. */
 function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void): void {
@@ -51,3 +66,27 @@ function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void): void
 }
 
 export const CREATOR_IMAGES_HOST: ImagesHost = { useModal };
+
+/** Audio's plain prompt form, no music editor (Studio's code for now), the sub-tab held in memory. */
+export const CREATOR_AUDIO_HOST: AudioHost = {};
+
+type LastVideoProjects = { lastProject: Record<string, string> };
+const lastVideoProjects = createPersistedStore<LastVideoProjects & { set: (repoId: string, id: string) => void }, LastVideoProjects>({
+  key: 'midnite-creator.video',
+  defaults: { lastProject: {} },
+  pick: ({ lastProject }) => ({ lastProject }),
+  state: (set, initial) => ({
+    ...initial,
+    set: (repoId, id) => set((s) => ({ lastProject: { ...s.lastProject, [repoId]: id } })),
+  }),
+});
+
+/**
+ * Video with what Creator has: it remembers the last project, hosts the studio in an iframe (the
+ * feature's default) and draws with its plain chrome. No terminal — Setup Video shows the
+ * `npm install` to run instead — and no agents, so no Edit thread or skill buttons.
+ */
+export const CREATOR_VIDEO_HOST: VideoHost = {
+  getLastProject: (repoId) => lastVideoProjects.getState().lastProject[repoId],
+  setLastProject: (repoId, id) => lastVideoProjects.getState().set(repoId, id),
+};

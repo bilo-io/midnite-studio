@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } from 'electron';
 
 import type { MediaService } from '@midnite/studio-feature-media-core/main';
+import { effectiveVideoRoot, stopAllVideoProcesses } from '@midnite/studio-feature-media-video/main';
 import { createVaultGrants, createVaultService, guardAppWindow, runtimeDataDirectory } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
@@ -13,7 +14,7 @@ import { CREATOR_NAME, SMOKE_READY_LINE, USER_DATA_ENV, creatorUserData, isSmoke
 
 /**
  * Midnite Creator's main process — the entry the bundle's `package.json` names (`main.cjs`), run
- * by the launcher's stub as `Resources/app`. One window over media-core with the Docs and Images
+ * by the launcher's stub as `Resources/app`. One window over media-core with the Docs, Images, Video and Audio
  * tabs, registered through a `FeatureMainContext` built from the runtime; no desktop, no other
  * app. Media lives under Creator's own userData (`Midnite Runtime/apps/creator/media/`), never in
  * Studio's repositories. Image provider keys are read here, from the runtime vault, as `creator`.
@@ -45,6 +46,12 @@ async function ffmpegStatus(): Promise<FfmpegStatus> {
 async function pickSavePath(options: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) {
   const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
   return picked.canceled || !picked.filePath ? null : picked.filePath;
+}
+
+async function pickImportFiles(options: { title: string; filters: { name: string; extensions: string[] }[] }) {
+  const dialogOptions = { ...options, properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'> };
+  const picked = win ? await dialog.showOpenDialog(win, dialogOptions) : await dialog.showOpenDialog(dialogOptions);
+  return picked.canceled ? null : picked.filePaths;
 }
 
 /** A hidden, script-less window prints a doc's standalone HTML. */
@@ -83,7 +90,11 @@ if (!smoke && !app.requestSingleInstanceLock()) {
           cipher: safeStorage,
           authorize: createVaultGrants({ directory: vaultDirectory }).authorize,
         }).forApp('creator');
-    installCreatorFileProtocol({ handle: (scheme, handler) => protocol.handle(scheme, handler), fetchFile: (u) => net.fetch(u) }, mediaRoot);
+    installCreatorFileProtocol(
+      { handle: (scheme, handler) => protocol.handle(scheme, handler), fetchFile: (u) => net.fetch(u) },
+      mediaRoot,
+      effectiveVideoRoot,
+    );
     media = registerCreatorHandlers({
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
@@ -91,8 +102,12 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
       },
       mediaRoot,
+      videoSettingsDir: app.getPath('userData'),
+      videoTemplateRoot: join(__dirname, 'templates', 'media-video'),
+      openPath: (target) => shell.openPath(target),
       revealPath: (target) => shell.showItemInFolder(target),
       pickSavePath,
+      pickImportFiles,
       printToPdf,
       ffmpegStatus,
       readKey: async (key) => (vault ? vault.get('secrets', key) : null),
@@ -100,7 +115,10 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     openWindow();
   });
 
-  app.on('before-quit', () => media?.stopWatchers());
+  app.on('before-quit', () => {
+    media?.stopWatchers();
+    stopAllVideoProcesses();
+  });
   app.on('window-all-closed', () => app.quit());
   app.on('activate', () => {
     if (win === null) openWindow();
