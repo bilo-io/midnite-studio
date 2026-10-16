@@ -274,10 +274,10 @@ export const APPS: readonly LauncherApp[] = [
     like: 'Like 1Password, for keys and tokens',
     vision:
       'One encrypted home for the API keys, forge tokens, database logins and model-provider keys every midnite app needs — unlocked once, shared with the apps you allow, and never written into a settings file in plain text.',
-    home: view('settings'),
+    home: view('vault'),
     features: [
-      { id: 'secrets', label: 'Secrets', blurb: 'API keys and provider tokens', target: view('settings') },
-      { id: 'accounts', label: 'Accounts', blurb: 'Forge and database logins', target: view('settings') },
+      { id: 'secrets', label: 'Secrets', blurb: 'API keys and provider tokens', target: view('vault') },
+      { id: 'accounts', label: 'Accounts', blurb: 'Forge and database logins', target: view('vault') },
     ],
     runsIn: 'studio',
   },
