@@ -5,6 +5,7 @@ import { CrashLogSection } from './crash-log-section';
 import { SessionsSection } from './sessions-section';
 import { SystemHealthSection } from './system-health-section';
 import { TimelinesSection } from './timelines-section';
+import { TokenSpendSection } from './token-spend-section';
 
 /**
  * The Monitor view (Phase 113 Theme I): the machine's readouts in one place —
@@ -23,6 +24,7 @@ export function MonitorPage() {
       <TimelinesSection />
       <CapacitySection />
       <SessionsSection />
+      <TokenSpendSection />
       <SystemHealthSection />
       <CrashLogSection />
     </div>

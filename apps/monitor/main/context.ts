@@ -1,4 +1,4 @@
-import { monitorMain, type MetricsService } from '@midnite/studio-feature-monitor/main';
+import { monitorMain, type MetricsService, type UsageSession } from '@midnite/studio-feature-monitor/main';
 import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
 import { CHANNELS, type schemas } from '@midnite/studio-shared';
 import type { z } from 'zod';
@@ -15,6 +15,12 @@ export type MonitorElectron = IpcContextElectron & {
    * none; the runtime daemon (Theme D) is what will hand it Studio's real list.
    */
   listSessions?: () => Promise<TerminalList>;
+  /**
+   * The runtime-injected home directory agent transcripts are read under, and the live agent
+   * sessions to read them for. Absent both, token spend is an honest empty list.
+   */
+  homeDir?: string;
+  agentSessions?: () => Promise<readonly UsageSession[]>;
 };
 
 type TerminalList = z.infer<typeof schemas.TerminalListResponse>;
@@ -32,6 +38,8 @@ const NO_BROKER: TerminalList = {
 export function registerMonitorHandlers(el: MonitorElectron): void {
   monitorMain.register(createIpcContext(el), {
     onMetricsService: el.onMetricsService,
+    ...(el.homeDir ? { homeDir: el.homeDir } : {}),
+    ...(el.agentSessions ? { agentSessions: el.agentSessions } : {}),
     warn: (issue) => el.log.write('warn', issue),
   });
   el.ipcMain.handle(CHANNELS.terminalList, () => el.listSessions?.() ?? NO_BROKER);

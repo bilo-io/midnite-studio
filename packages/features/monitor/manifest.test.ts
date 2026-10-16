@@ -23,7 +23,7 @@ describe('monitor manifest', () => {
     const known = new Set<string>(Object.values(CHANNELS));
     for (const channel of monitorManifest.ipc) {
       expect(known.has(channel), channel).toBe(true);
-      expect(/^mstudio:(metrics|system):/.test(channel), channel).toBe(true);
+      expect(/^mstudio:(metrics|system|monitor):/.test(channel), channel).toBe(true);
     }
   });
 });

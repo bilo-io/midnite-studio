@@ -13,6 +13,7 @@ export type MonitorBridge = {
   metrics: MidniteStudioBridge['metrics'];
   systemHealth: MidniteStudioBridge['systemHealth'];
   systemHealthStartSshAgent: NonNullable<MidniteStudioBridge['systemHealthStartSshAgent']>;
+  monitorAgentUsage: NonNullable<MidniteStudioBridge['monitorAgentUsage']>;
   terminal: Pick<MidniteStudioBridge['terminal'], 'list'>;
   report: Pick<MidniteStudioBridge['report'], 'logPath' | 'bundle'>;
 };
@@ -29,6 +30,7 @@ export function createMonitorBridge(ipc: RendererIpc): MonitorBridge {
     },
     systemHealth: () => call(CHANNELS.systemHealth),
     systemHealthStartSshAgent: () => call(CHANNELS.systemHealthStartSshAgent),
+    monitorAgentUsage: () => call(CHANNELS.monitorAgentUsage),
     terminal: { list: () => call(CHANNELS.terminalList) },
     report: {
       logPath: () => call(CHANNELS.reportLogPath),

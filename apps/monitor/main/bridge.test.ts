@@ -19,7 +19,7 @@ function fakeIpc() {
 describe('createMonitorBridge', () => {
   it('exposes exactly metrics, system health and the two crash-log reads', () => {
     const bridge = createMonitorBridge(fakeIpc().ipc);
-    expect(Object.keys(bridge).sort()).toEqual(['metrics', 'report', 'systemHealth', 'systemHealthStartSshAgent', 'terminal']);
+    expect(Object.keys(bridge).sort()).toEqual(['metrics', 'monitorAgentUsage', 'report', 'systemHealth', 'systemHealthStartSshAgent', 'terminal']);
     expect(Object.keys(bridge.terminal)).toEqual(['list']);
     expect(Object.keys(bridge.report).sort()).toEqual(['bundle', 'logPath']);
     expect(Object.keys(bridge.metrics).sort()).toEqual(['onSample', 'start', 'stop']);

@@ -1,9 +1,12 @@
 import { monitorMain, type MetricsService } from '@midnite/studio-feature-monitor/main';
 import { sendToLiveWindow, type FeatureMainContext } from '@midnite/studio-runtime';
+import { homedir } from 'node:os';
+
 import type { BrowserWindow } from 'electron';
 
 import { defaultLogger } from '../log';
 import { DESKTOP_OLLAMA } from '../system-health';
+import { listTerminals } from '../terminal-service';
 import { handle, handleBare, handleSend } from './handle';
 
 /**
@@ -22,6 +25,14 @@ export function registerMetricsHandlers(getWindow: () => BrowserWindow | null): 
   monitorMain.register(ctx, {
     ollama: DESKTOP_OLLAMA,
     warn: (issue) => defaultLogger.warn(issue),
+    // Live agent sessions only; Monitor reads each one's own transcript under the real home.
+    homeDir: homedir(),
+    agentSessions: async () =>
+      (await listTerminals()).flatMap(({ session, live }) =>
+        live !== null && session.kind === 'agent' && session.agentId
+          ? [{ id: session.id, agentId: session.agentId, title: session.name ?? session.title, cwd: session.cwd, agentConversationId: session.agentConversationId }]
+          : [],
+      ),
     onMetricsService: (s) => {
       service = s;
     },

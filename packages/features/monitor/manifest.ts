@@ -37,7 +37,7 @@ export const monitorManifest = defineFeatureManifest({
     },
   ],
   settingsPages: [],
-  ipc: [CHANNELS.metricsStart, CHANNELS.metricsStop, CHANNELS.systemHealth, CHANNELS.systemHealthStartSshAgent],
+  ipc: [CHANNELS.metricsStart, CHANNELS.metricsStop, CHANNELS.systemHealth, CHANNELS.systemHealthStartSshAgent, CHANNELS.monitorAgentUsage],
   events: [EVENT_CHANNELS.metricsSample],
   mcpTools: [],
 });

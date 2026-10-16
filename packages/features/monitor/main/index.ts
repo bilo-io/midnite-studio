@@ -2,10 +2,19 @@ import { defineFeatureMain } from '@midnite/studio-runtime';
 import { CHANNELS, EVENT_CHANNELS, schemas, type SystemHealth } from '@midnite/studio-shared';
 
 import { monitorManifest } from '../manifest';
+import { buildAgentUsage, type UsageSession } from './agent-usage';
 import { createMetricsService, type MetricsService } from './metrics/metrics-service';
 import { readSystemHealth, startSshAgent, type OllamaPort } from './system-health';
 
 export { monitorManifest, type MonitorManifest } from '../manifest';
+export {
+  addTotals,
+  buildAgentUsage,
+  locateTranscript,
+  readTranscriptUsage,
+  slugifyCwd,
+  type UsageSession,
+} from './agent-usage';
 export { createGpuProbe, type GpuProbe } from './metrics/gpu';
 export { probeDetailedMemory } from './metrics/memory';
 export { createMetricsService, type MetricsService } from './metrics/metrics-service';
@@ -34,6 +43,12 @@ export type MonitorMainServices = {
   ollama?: OllamaPort;
   /** Where a malformed one-way payload is reported (desktop's logger); dropped when absent. */
   warn?: (issue: string) => void;
+  /**
+   * The live agent sessions and the home directory their transcripts sit under. Desktop passes its
+   * terminal list; a standalone app has no sessions of its own, so the channel answers empty.
+   */
+  agentSessions?: () => Promise<readonly UsageSession[]>;
+  homeDir?: string;
 };
 
 export const monitorMain = defineFeatureMain<MonitorMainServices>({
@@ -57,6 +72,10 @@ export const monitorMain = defineFeatureMain<MonitorMainServices>({
     ipc.send(CHANNELS.metricsStop, schemas.SendVoidSchema, () => service.stop(), warn);
     ipc.handleBare(CHANNELS.systemHealth, (): Promise<SystemHealth> => readSystemHealth(services.ollama));
     ipc.handleBare(CHANNELS.systemHealthStartSshAgent, () => startSshAgent());
+    ipc.handleBare(CHANNELS.monitorAgentUsage, async () => {
+      const sessions = (await services.agentSessions?.()) ?? [];
+      return buildAgentUsage(services.homeDir ?? '', services.homeDir ? sessions : []);
+    });
     services.onMetricsService?.(service);
   },
 });
