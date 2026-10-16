@@ -1,0 +1,54 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Slides (Phase 113 Theme Q) — the markdown deck presenter, its fullscreen modal and the shared
+# "Present as slides" button, as a renderer-only feature. Placed with Creator (`FEATURE_PLACEMENT.slides`);
+# Studio composes every feature. It composes no media-core plumbing: a deck is a viewer over markdown
+# the app hands it, and what the app owns (the dismiss stack, the focus trap, the highlighter, link
+# opening) comes through its host port, never by import.
+id: 'feature-slides'
+language: 'typescript'
+layer: 'library'
+
+# `app-<id>` names the apps that compose this feature, from the placement map; Studio composes every
+# feature. `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
+tags:
+  - 'layer-feature'
+  - 'app-creator'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+
+tasks:
+  # No main half, so nothing emits: `build` is the typecheck's prerequisite only where a dep needs it.
+  typecheck:
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

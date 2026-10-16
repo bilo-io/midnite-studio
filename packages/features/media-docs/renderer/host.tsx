@@ -24,6 +24,9 @@ export type DocThreadPanelProps = {
   focusToken: number;
 };
 
+/** What the host's Present button is given: the draft as it stands, and the doc's name. */
+export type DocPresentButtonProps = { content: string; label: string };
+
 export type LastDoc = { project: string; path: string };
 
 export type DocsHost = {
@@ -33,6 +36,11 @@ export type DocsHost = {
   setLastDoc: (repoId: string, doc: LastDoc) => void;
   /** The right pane: the doc's AI thread. Absent → Docs has no detail pane and no "Ask AI". */
   ThreadPanel?: ComponentType<DocThreadPanelProps>;
+  /**
+   * "Present as slides" for the open doc, in the toolbar. Absent → no button. Studio leaves it out (its Docs
+   * toolbar has never had one); Creator composes the Slides feature's button here.
+   */
+  PresentButton?: ComponentType<DocPresentButtonProps>;
 };
 
 const DocsHostContext = createContext<DocsHost | null>(null);

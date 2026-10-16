@@ -9,7 +9,7 @@ import type { FfmpegStatus, MediaTab } from '@midnite/studio-shared';
 
 import { runDocEdit } from '../ai/doc-edit';
 import { resolveWorkdir } from '../repo-registry';
-import { resolveHandoffPath } from '../video-service';
+import { resolveHandoffPath } from '@midnite/studio-feature-media-video/main';
 import { probeBinary } from '../system-health';
 import { broadcastToAllWindows } from '../window-manager';
 import { handleBare, handleFromSender, handleSend } from './handle';

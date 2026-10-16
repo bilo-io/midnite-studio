@@ -7,8 +7,7 @@ import { useForgeIssueComments, useForgeIssueDetail } from '../../../services/qu
 import { issueStatus, StatusPill } from '../../forge/forge-status';
 import { ExternalLink } from '../../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
-import { PresentButton } from '../../slides/present-button';
-import { useSlidesStore } from '../../slides/slides-store';
+import { PresentButton, useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { IssueActionBar } from './issue-action-bar';
 import { IssueConversation } from './issue-conversation';
 import { IssueDetailSkeleton } from './issue-skeleton';

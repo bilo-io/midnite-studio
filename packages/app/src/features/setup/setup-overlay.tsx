@@ -11,7 +11,7 @@ import { useDismiss } from '../../components/use-dismiss';
 import { useFocusTrap } from '../../components/use-focus-trap';
 import { isFirstRun } from '../../store/setup-state';
 import { isCompanionPanelDocked, isFabPanelDocked, useUiStore } from '../../store/ui-store';
-import { useTitleTypewriter } from '../slides/use-title-typewriter';
+import { useTitleTypewriter } from '@midnite/studio-feature-slides/renderer';
 import { chordFor, displayChord } from '../status-bar/chord-hint';
 import {
   CHOREO,

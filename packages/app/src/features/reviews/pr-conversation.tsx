@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { reviewStatus, StatusPill } from '../forge/forge-status';
-import { PresentButton } from '../slides/present-button';
+import { PresentButton } from '@midnite/studio-feature-slides/renderer';
 import { UserAvatar } from '../../components/user-avatar';
 import { Thread } from './comment-thread';
 import { buildConversationTimeline } from './conversation-timeline';

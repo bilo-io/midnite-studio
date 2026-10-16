@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 Theme Q (slice 2) — Audio, Video and Slides as features; Creator gains them
+
+[PR #883](https://github.com/bilo-io/midnite-studio/pull/883). Three more media features behind host ports, Studio unchanged, and Midnite Creator with Audio, Video and Present-from-a-doc.
+
 ## 2026-10-16 — Phase 113 Theme P (slice 2) — read-only brokerage and exchange accounts
 
 [PR #884](https://github.com/bilo-io/midnite-studio/pull/884). Alpaca and Kraken accounts in Money and Studio's finance dashboard — balances, positions, allocation, performance — through connectors that cannot build an order request, with credentials only main can read. Theme P is done.

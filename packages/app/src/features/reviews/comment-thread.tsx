@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm';
 
 import { bridge, hasBridge } from '../../services/bridge';
 import { keys } from '../../services/queries';
-import { PresentButton } from '../slides/present-button';
+import { PresentButton } from '@midnite/studio-feature-slides/renderer';
 import { RESOLVED_STATUS, StatusPill } from '../forge/forge-status';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';

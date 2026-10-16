@@ -15,7 +15,7 @@ import { useRepoStatus } from '../../../services/use-status';
 import { useFileEditorStore } from '../../../store/file-editor-store';
 import { IMAGE_CHECKERBOARD, ImageDiff } from '../../diff/image-diff';
 import { differsFromHead, headToWorktreeImage } from '../../diff/image-sources';
-import { PresentButton } from '../../slides/present-button';
+import { PresentButton } from '@midnite/studio-feature-slides/renderer';
 import { type FsScopeInput } from '../file-tree';
 import { useBlameStore } from './blame-store';
 import { CodePreview } from './code-preview';

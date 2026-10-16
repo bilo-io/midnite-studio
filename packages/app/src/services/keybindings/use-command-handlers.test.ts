@@ -10,7 +10,7 @@ import { useAccountSwitcherStore } from '../../components/account-switcher-store
 import { useSetupStore } from '../../features/setup/setup-store';
 import { DialogHost } from '../../components/dialog-host';
 import { ToastHost } from '../../components/toast-host';
-import { useSlidesStore } from '../../features/slides/slides-store';
+import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { useTerminalStore } from '../../features/terminal/terminal-store';
 import { keys } from '../queries';
 import { useFileEditorStore } from '../../store/file-editor-store';

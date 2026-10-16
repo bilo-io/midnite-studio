@@ -1,5 +1,4 @@
-import { createMusicRuntime } from '../main/media/audio/musicgen/runtime';
-import type { MusicWorkerIn, MusicWorkerOut } from '../main/media/audio/musicgen/worker-protocol';
+import { createMusicRuntime, type MusicWorkerIn, type MusicWorkerOut } from '@midnite/studio-feature-media-audio/music-worker';
 
 /**
  * `utilityProcess` entry point `music-broker.ts` forks — the same shape as

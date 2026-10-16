@@ -35,6 +35,7 @@ import { useWebAppsSync } from './features/web-apps/use-web-apps-sync';
 // pieces below are the first to leave this file for it.
 import { CONTENT_BOX, DelayedFallback, NavLockToggle } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
+import { STUDIO_SLIDES_HOST } from './compose/slides-host';
 import { StudioProviders } from './compose/studio-providers';
 import { useContentBoundsSync } from './store/content-bounds-store';
 import { ErrorBoundary } from './components/error-boundary';
@@ -155,6 +156,7 @@ import {
   type ViewId,
 } from './store/ui-store';
 import { useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/renderer';
+import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
 
 /*
   The views themselves live in `components/view-registry.tsx` — Phase 60 Theme
@@ -168,7 +170,7 @@ import { useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/rende
   a modal's chunk arrives would be a worse frame than the modal simply appearing
   a beat later.
 */
-const loadSlidesModal = () => import('./features/slides/slides-modal');
+const loadSlidesModal = () => import('@midnite/studio-feature-slides/renderer/modal');
 const SlidesModal = lazy(() => loadSlidesModal().then((m) => ({ default: m.SlidesModal })));
 const loadIssueModal = () => import('./features/tasks/issue/issue-modal');
 const IssueModalHost = lazy(() => loadIssueModal().then((m) => ({ default: m.IssueModalHost })));
@@ -2125,9 +2127,12 @@ export function App() {
       </DialogHost>
       <FileEditorGuard />
       <ErrorBoundary label="Slides" silent>
-        <Suspense fallback={null}>
-          <SlidesModal />
-        </Suspense>
+        {/* Outside <StudioProviders> (which sits inside DialogHost), so the deck gets its host here. */}
+        <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
+          <Suspense fallback={null}>
+            <SlidesModal />
+          </Suspense>
+        </SlidesHostProvider>
       </ErrorBoundary>
       <ScreensaverHost />
       <KillSwitchModal />

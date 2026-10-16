@@ -347,6 +347,23 @@ maps each to the folder it came from and the apps that compose it:
   `MediaTabDescriptor` (`mediaDocsTab`, `mediaImagesTab`), a host port for what differs per app (Studio's
   AI thread pane and create panel, which are built on its ai-thread composer and voice), and a main
   half (doc export and Ask AI; image generation, with provider keys read in main only).
+- **`packages/features/media-audio`**, **`media-video`** (Creator, Studio) — the next two tabs, same
+  shape. Audio's host port carries Studio's Suno-style prompt form (ai-thread + voice), the music
+  editor sub-tab (still Studio's code until the music slice) and the remembered sub-tab; the feature's
+  `BasicPromptForm` is what an app without them shows. Its main half is the audio service, Import and
+  the engine status; the local MusicGen worker's fork is injected (`createMusicBroker({ spawn })`), so
+  the feature never imports `electron` — an app with no engine passes `unavailableMusicWorker()`. Video's
+  main half is the whole video service (project discovery, the studio dev server, the render queue,
+  toolchain probe, Setup), spawning the engine CLIs through the runtime's `process-runner` and
+  `login-shell` (moved there for it); its window events, OS handoffs, repo lookup and template path are
+  injected. Its host port carries the integrated terminal, the embedded studio view, the agent surfaces
+  (Edit thread, editorial skills) and a handful of chrome pieces — all optional, with plain defaults
+  (an iframe studio, plain markdown, a "run `npm install` in …" hint).
+- **`packages/features/slides`** (Creator, Studio) — not a tab: the markdown deck, its modal and the
+  shared Present button, renderer-only. Its host port is the overlay rules the deck lives by (dismiss
+  stack, focus trap, occluder, link opener, highlighter). The modal has its own entry
+  (`@midnite/studio-feature-slides/renderer/modal`) so an app can `import()` it lazily; the barrel is
+  what an entry chunk may import.
 
 **The registry contract lives in the frame** (`packages/frame/src/media/`): the descriptor type, and
 the **media kit port** — the shell's plumbing a tab composes (`MediaLayout`, the explorer, the export
@@ -359,12 +376,17 @@ same shape.
 
 ### App 10: Creator (`apps/creator`)
 
-Creator composes media-core with Docs and Images. Its main (`apps/creator/main/`) scopes media to
+Creator composes media-core with Docs, Images, Video and Audio (Slides is not a tab: a doc's Present button opens its deck). Its main (`apps/creator/main/`) scopes media to
 one repository id, `creator`, resolved to `<userData>/media` (userData under
 `Midnite Runtime/apps/creator`), serves the gallery's `mstudio-file://repo/creator/…` URLs from that
 root through the runtime's path jail, and reads image provider keys from the runtime vault as
-`creator`. The preload exposes only `media` — no `secrets` namespace. Docs has no Ask AI pane
-(Creator has no agents yet) and Images uses the feature's plain create form. `MIDNITE_CREATOR_SMOKE=1`
+`creator`. The preload exposes `media` and `video` — no `secrets` namespace, so a provider key is read
+in main and never reachable from the renderer. Docs has no Ask AI pane (Creator has no agents yet) and
+Images and Audio use the features' plain forms. Audio imports files and reports the local engine as
+unavailable (its ONNX worker lives in Studio's desktop package); Video keeps its workspace under the
+media root (`<media>/.midnite/media/video`), serves iterations from it as `mstudio-file://video/-/…`,
+copies `templates/media-video` into the bundle for Setup, and — with no terminal — shows the
+`npm install` to run. `MIDNITE_CREATOR_SMOKE=1`
 with `MIDNITE_CREATOR_USER_DATA=<tmp>` prints `midnite-creator:ready` and quits.
 
 ### Money's brokerage and exchange accounts (Phase 113 Theme P slice 2)

@@ -1,10 +1,14 @@
+import { AudioHostProvider } from '@midnite/studio-feature-media-audio/renderer';
 import { DocsHostProvider } from '@midnite/studio-feature-media-docs/renderer';
 import { ImagesHostProvider } from '@midnite/studio-feature-media-images/renderer';
+import { VideoHostProvider } from '@midnite/studio-feature-media-video/renderer';
 import { MediaShell } from '@midnite/studio-feature-media-core/renderer';
 import type { ReactNode } from 'react';
 
+import { STUDIO_AUDIO_HOST } from '../../compose/media-audio-host';
 import { STUDIO_DOCS_HOST } from '../../compose/media-docs-host';
 import { STUDIO_IMAGES_HOST } from '../../compose/media-images-host';
+import { STUDIO_VIDEO_HOST } from '../../compose/media-video-host';
 import { STUDIO_MEDIA_TABS } from '../../compose/media-tabs';
 
 /**
@@ -16,7 +20,11 @@ import { STUDIO_MEDIA_TABS } from '../../compose/media-tabs';
 export function StudioMediaTabHosts({ children }: { children: ReactNode }) {
   return (
     <DocsHostProvider host={STUDIO_DOCS_HOST}>
-      <ImagesHostProvider host={STUDIO_IMAGES_HOST}>{children}</ImagesHostProvider>
+      <ImagesHostProvider host={STUDIO_IMAGES_HOST}>
+        <AudioHostProvider host={STUDIO_AUDIO_HOST}>
+          <VideoHostProvider host={STUDIO_VIDEO_HOST}>{children}</VideoHostProvider>
+        </AudioHostProvider>
+      </ImagesHostProvider>
     </DocsHostProvider>
   );
 }

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { useSlidesStore } from '../../slides/slides-store';
+import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { ExternalLink } from '../../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
 import { type FsScopeInput } from '../file-tree';

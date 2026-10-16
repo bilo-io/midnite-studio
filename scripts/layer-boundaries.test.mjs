@@ -54,6 +54,9 @@ const MEDIA_CORE = 'packages/features/media-core/renderer/media-shell.tsx';
 const MEDIA_DOCS = 'packages/features/media-docs/renderer/docs-tab.tsx';
 const MEDIA_IMAGES = 'packages/features/media-images/renderer/image-tab.tsx';
 const MEDIA_DOCS_MAIN = 'packages/features/media-docs/main/index.ts';
+const MEDIA_AUDIO = 'packages/features/media-audio/renderer/audio-tab.tsx';
+const MEDIA_VIDEO_MAIN = 'packages/features/media-video/main/video-service.ts';
+const SLIDES = 'packages/features/slides/renderer/deck.tsx';
 
 /** [description, file, import specifier, substring the firing message must contain] */
 const REJECTED = [
@@ -111,6 +114,11 @@ const REJECTED = [
   ['the media shell imports a tab (package name)', MEDIA_CORE, '@midnite/studio-feature-media-images/renderer', 'never imports another feature'],
   ['the media shell imports a tab (relative path)', MEDIA_CORE, '../../media-images/renderer/index', 'never imports another feature'],
   ["a media tab's main half imports media-core's main half", MEDIA_DOCS_MAIN, '@midnite/studio-feature-media-core/main', 'never imports another feature'],
+  // --- Theme Q slice 2: Audio, Video and Slides keep to the same rules ----------------------
+  ['the audio tab imports a sibling tab (package name)', MEDIA_AUDIO, '@midnite/studio-feature-media-video/renderer', 'never imports another feature'],
+  ["the video service imports electron (it is injected)", MEDIA_VIDEO_MAIN, 'electron', 'FeatureMainContext'],
+  ['the deck imports an app (its overlay rules come through the host port)', SLIDES, '@midnite/studio-app/components/use-dismiss', 'Nothing below an app imports one'],
+  ['the deck imports a feature (package name)', SLIDES, '@midnite/studio-feature-media-docs/renderer', 'never imports another feature'],
 ];
 
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */

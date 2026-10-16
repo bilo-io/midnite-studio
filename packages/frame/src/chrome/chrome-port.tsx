@@ -44,6 +44,11 @@ export function FrameChromeProvider({ chrome, children }: { chrome: FrameChrome;
  * a composed app is a wiring bug, and a silent fallback (a plain `<button>`
  * standing in for `IconButton`) would ship it.
  */
+/** The installed chrome, or null outside a provider — for a control that can degrade to a plain element. */
+export function useOptionalFrameChrome(): FrameChrome | null {
+  return useContext(FrameChromeContext);
+}
+
 export function useFrameChrome(): FrameChrome {
   const chrome = useContext(FrameChromeContext);
   if (!chrome) throw new Error('useFrameChrome must be used inside <FrameChromeProvider>');

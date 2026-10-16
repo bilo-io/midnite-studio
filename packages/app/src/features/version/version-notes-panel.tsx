@@ -9,8 +9,7 @@ import { ReportIssueDialog } from '../../components/report-issue-dialog';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { openExternal } from '../../services/queries';
-import { PresentButton } from '../slides/present-button';
-import { useSlidesStore } from '../slides/slides-store';
+import { PresentButton, useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { useReleaseNotes } from './release-notes';
 
 export function VersionNotesPanel({ version }: { version: string }) {
