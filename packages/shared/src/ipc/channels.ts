@@ -603,6 +603,15 @@ export const CHANNELS = {
   notesDelete: 'mstudio:notes:delete',
   /** Rewrite a repository's manual order. */
   notesReorder: 'mstudio:notes:reorder',
+  /** The review cards that are due now for a notebook, built from its notes (Phase 113 Theme M). */
+  notesReviewDue: 'mstudio:notes:review-due',
+  /** Grade one review card; main reschedules it and answers when it is next due. */
+  notesReviewGrade: 'mstudio:notes:review-grade',
+  /**
+   * Quick capture: append a note. Main picks the target (Mind's notebook when the
+   * launcher lists Mind as installed, a local Inbox otherwise) and says where it went.
+   */
+  notesCapture: 'mstudio:notes:capture',
 
   // --- browser (Phase 32) ---------------------------------------------------
   // A `WebContentsView` per tab, owned by `browser-service.ts`. Chrome state

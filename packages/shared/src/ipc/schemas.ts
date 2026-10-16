@@ -2014,6 +2014,49 @@ export const NotesReorderRequest = z.object({
   noteIds: z.array(z.string().min(1)),
 });
 
+// --- notes review + capture (Phase 113 Theme M) -----------------------------
+
+export const ReviewGradeSchema = z.enum(['again', 'hard', 'good', 'easy']);
+export type ReviewGrade = z.infer<typeof ReviewGradeSchema>;
+
+/** One flashcard cut from a note. `id` is stable for the same note and front. */
+export const ReviewCardSchema = z.object({
+  id: z.string().min(1),
+  noteId: z.string().min(1),
+  front: z.string(),
+  back: z.string(),
+  /** Never graded yet. */
+  isNew: z.boolean(),
+});
+export type ReviewCard = z.infer<typeof ReviewCardSchema>;
+
+export const NotesReviewDueRequest = z.object({ repoId: z.string() });
+export const NotesReviewDueResponse = z.object({
+  /** Due now, most overdue first (new cards last). */
+  cards: z.array(ReviewCardSchema),
+  /** Every card the notebook's notes produce, due or not. */
+  total: z.number().int().nonnegative(),
+});
+
+export const NotesReviewGradeRequest = z.object({
+  repoId: z.string(),
+  cardId: z.string().min(1),
+  grade: ReviewGradeSchema,
+});
+export const NotesReviewGradeResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), nextDue: z.number().int().nonnegative() }),
+  z.object({ ok: z.literal(false), reason: z.string() }),
+]);
+
+export const NotesCaptureRequest = z.object({ body: z.string().min(1) });
+/** Where a capture went — never a path. */
+export const NotesCaptureTargetSchema = z.enum(['mind', 'inbox']);
+export const NotesCaptureResponse = z.object({
+  ok: z.boolean(),
+  target: NotesCaptureTargetSchema,
+  noteId: z.string().optional(),
+});
+
 /**
  * The roster, plus what main could learn about it on this machine.
  *

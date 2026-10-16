@@ -2,7 +2,7 @@ import { useStore } from 'zustand';
 
 import { createPersistedStore, safeLocalStorage } from '@midnite/studio-frame';
 import type { NotesEditorProps, NotesHost } from '@midnite/studio-feature-notes/renderer';
-import type { RepoDescriptor } from '@midnite/studio-shared';
+import { MIND_NOTEBOOK_ID, type RepoDescriptor } from '@midnite/studio-shared';
 
 /**
  * Mind's {@link NotesHost}: one notebook, a plain textarea and no agents.
@@ -13,7 +13,7 @@ import type { RepoDescriptor } from '@midnite/studio-shared';
  * runtime's data directory is switched on, which is why the empty state says
  * the notebook starts empty.
  */
-export const MIND_NOTEBOOK_ID = 'mind';
+export { MIND_NOTEBOOK_ID };
 
 export const MIND_NOTEBOOK: RepoDescriptor = {
   id: MIND_NOTEBOOK_ID,

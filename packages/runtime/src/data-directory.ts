@@ -17,3 +17,12 @@ export const RUNTIME_DATA_DIRECTORY_NAME = 'Midnite Runtime';
 export function runtimeDataDirectory(appDataBase: string): string {
   return join(appDataBase, RUNTIME_DATA_DIRECTORY_NAME);
 }
+
+/**
+ * `<appData>/Midnite Runtime/apps/<appId>` — one app's own data directory. The single definition:
+ * the app that owns it (`apps/mind`'s userData) and any other process that must write into it (Studio's
+ * quick capture into Mind's notebook) both come here, so the two cannot name different folders.
+ */
+export function appDataDirectory(appDataBase: string, appId: string): string {
+  return join(runtimeDataDirectory(appDataBase), 'apps', appId);
+}
