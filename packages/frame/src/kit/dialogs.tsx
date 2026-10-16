@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { createStore, useStore } from 'zustand';
 import { LuTriangleAlert } from 'react-icons/lu';
 
-import type { BlastRadiusKind, ConfirmRequest, FrameDialogs } from '../chrome/types';
+import type { BlastRadiusKind, ConfirmRequest, FrameDialogs, FramePromptRequest } from '../chrome/types';
+import { KitPromptDialog } from './prompt-dialog';
 
 /** What the blast-radius line says, per kind of thing about to be lost. */
 export const BLAST_RADIUS_COPY: Record<BlastRadiusKind, { noun: string; consequence: string }> = {
@@ -15,7 +16,7 @@ export const BLAST_RADIUS_COPY: Record<BlastRadiusKind, { noun: string; conseque
   project: { noun: 'project', consequence: 'will be affected.' },
 };
 
-type DialogState = { request: ConfirmRequest | null };
+type DialogState = { request: ConfirmRequest | null; prompt?: FramePromptRequest | null };
 
 export function ConfirmDialog({
   request,
@@ -117,9 +118,10 @@ export function ConfirmDialog({
  */
 export function createDialogs() {
   const store = createStore<DialogState>(() => ({ request: null }));
-  const close = () => store.setState({ request: null });
+  const close = () => store.setState({ request: null, prompt: null });
   const dialogs: FrameDialogs = {
     confirm: (request) => store.setState({ request }),
+    prompt: (prompt) => store.setState({ prompt }),
     notify: (notice) =>
       store.setState({
         request: {
@@ -139,6 +141,8 @@ export function createDialogs() {
   }
   function DialogHost() {
     const request = useStore(store, (s) => s.request);
+    const prompt = useStore(store, (s) => s.prompt ?? null);
+    if (prompt) return <KitPromptDialog request={prompt} onCancel={close} />;
     if (!request) return null;
     return (
       <ConfirmDialog

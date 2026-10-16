@@ -10,7 +10,7 @@ export { geminiImageProvider } from './gemini';
 export { createImageService, type ImageBytesRequest, type ImageService, type ImageServiceDeps } from './image-service';
 export { createOllamaImageProvider, imageCapableModels } from './ollama';
 export { openaiImageProvider } from './openai';
-export type { GeneratedImage, ImageProvider } from './types';
+export { ImageProviderError, type GeneratedImage, type ImageProvider } from './types';
 
 /**
  * The Images feature's main half (Phase 113 Theme Q): provider status, image

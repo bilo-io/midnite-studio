@@ -318,3 +318,38 @@ three things a release needs to pack it as `midnite-cleaner-X.Y.Z-bundle.zip`: a
 - **Not here yet**: the optimizer's scanners and process table are Studio-only today (they live in
   `packages/desktop` and reach the repo registry, browser and pty), so Cleaner's `services.ts` answers those
   operations with a plain "not available yet" message. Porting them behind runtime ports is Theme H3.
+
+### Media: one folder, several packages, one tab registry (Phase 113 Theme Q)
+
+`media` is the one placement folder three apps share (Creator, Media, Gamer), so it is split into
+packages that never import each other — `FEATURE_PACKAGE_SPLITS` (`shared/src/domain/placement.ts`)
+maps each to the folder it came from and the apps that compose it:
+
+- **`packages/features/media-core`** (Creator, Media, Gamer, Studio) — `MediaShell({ tabs })`, the tab
+  strip and layout, the projects explorer, the export toolbar, the `use-media` data hooks, and the
+  main-side media store, watcher and ffmpeg export (`createMediaService`, `mediaCoreMain`). It reads
+  app state through its `MediaHost` port; `createStandaloneMediaHost` is a complete host for any app
+  that is not Studio.
+- **`packages/features/media-docs`**, **`media-images`** (Creator, Studio) — one tab each: a
+  `MediaTabDescriptor` (`mediaDocsTab`, `mediaImagesTab`), a host port for what differs per app (Studio's
+  AI thread pane and create panel, which are built on its ai-thread composer and voice), and a main
+  half (doc export and Ask AI; image generation, with provider keys read in main only).
+
+**The registry contract lives in the frame** (`packages/frame/src/media/`): the descriptor type, and
+the **media kit port** — the shell's plumbing a tab composes (`MediaLayout`, the explorer, the export
+toolbar, the data hooks) as types plus `MediaKitProvider`/`useMediaKit()`. A tab feature imports only
+that; `MediaShell` installs media-core's implementation (`mediaKit`) around the tabs it renders; the
+app lists the descriptors in strip order. Shared cannot hold it (a descriptor carries a React
+component), and the frame implements none of it. `scripts/layer-boundaries.test.mjs` proves a tab
+cannot reach the shell or a sibling tab, by name or by relative path. Theme R and S tabs follow the
+same shape.
+
+### App 10: Creator (`apps/creator`)
+
+Creator composes media-core with Docs and Images. Its main (`apps/creator/main/`) scopes media to
+one repository id, `creator`, resolved to `<userData>/media` (userData under
+`Midnite Runtime/apps/creator`), serves the gallery's `mstudio-file://repo/creator/…` URLs from that
+root through the runtime's path jail, and reads image provider keys from the runtime vault as
+`creator`. The preload exposes only `media` — no `secrets` namespace. Docs has no Ask AI pane
+(Creator has no agents yet) and Images uses the feature's plain create form. `MIDNITE_CREATOR_SMOKE=1`
+with `MIDNITE_CREATOR_USER_DATA=<tmp>` prints `midnite-creator:ready` and quits.

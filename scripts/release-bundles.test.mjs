@@ -99,6 +99,16 @@ describe('apps/money (Theme P)', () => {
   });
 });
 
+describe('apps/creator (Theme Q)', () => {
+  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
+  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
+  it('is in the --all matrix, as app-creator, with the icon a release needs to pack it', () => {
+    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'creator', project: 'app-creator', dir: 'apps/creator' });
+    const icns = readFileSync(path.join(repoRoot, 'apps/creator/resources/icon.icns'));
+    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
+  });
+});
+
 describe('release.yml', () => {
   const release = read('.github/workflows/release.yml');
   it('builds Studio and the launcher in one macOS job', () => {
