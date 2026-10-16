@@ -1,9 +1,8 @@
 import { docThreadPath, type DocThread, type DocThreadMessage, type LoopModel } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { bridge } from '../../../services/bridge';
-import { noBridge } from '../../../services/bridge-result';
-import { MEDIA_KEYS } from '../use-media';
+import { bridge, noBridge, useMediaKit } from '@midnite/studio-frame';
+
 import {
   appendMessage,
   newMessageId,
@@ -21,6 +20,7 @@ import type { DocRef } from './use-doc-session';
  */
 export function useDocThread(doc: DocRef | null) {
   const client = useQueryClient();
+  const { keys: MEDIA_KEYS } = useMediaKit();
   const threadPath = doc ? docThreadPath(doc.path) : '';
   const queryKey = MEDIA_KEYS.file(doc?.repoId ?? '', 'doc', doc?.project ?? '', threadPath);
 

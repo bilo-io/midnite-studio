@@ -41,6 +41,10 @@ dependsOn:
     scope: 'development'
   - id: 'feature-media-core'
     scope: 'development'
+  - id: 'feature-media-images'
+    scope: 'development'
+  - id: 'feature-media-docs'
+    scope: 'development'
   - id: 'app'
     scope: 'development'
 
@@ -66,6 +70,8 @@ tasks:
       - 'feature-notes:build'
       - 'feature-finance:build'
       - 'feature-media-core:build'
+      - 'feature-media-docs:build'
+      - 'feature-media-images:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
@@ -85,6 +91,10 @@ tasks:
       - '/packages/features/finance/manifest.ts'
       - '/packages/features/media-core/main/**/*'
       - '/packages/features/media-core/manifest.ts'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-docs/manifest.ts'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-images/manifest.ts'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -104,6 +114,8 @@ tasks:
       - 'feature-notes:build'
       - 'feature-finance:build'
       - 'feature-media-core:build'
+      - 'feature-media-docs:build'
+      - 'feature-media-images:build'
       - '~:bundle'
     inputs:
       - 'src/**/*'
@@ -129,6 +141,10 @@ tasks:
       - '/packages/features/finance/manifest.ts'
       - '/packages/features/media-core/main/**/*'
       - '/packages/features/media-core/manifest.ts'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-docs/manifest.ts'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-images/manifest.ts'
 
   lint:
     inputs:
@@ -171,6 +187,10 @@ tasks:
       - '/packages/features/finance/manifest.ts'
       - '/packages/features/media-core/main/**/*'
       - '/packages/features/media-core/manifest.ts'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-docs/manifest.ts'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-images/manifest.ts'
     outputs:
       - 'dist/bundle'
 

@@ -4,8 +4,8 @@ import { BubbleMenu } from '@tiptap/react/menus';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { LuBold, LuCode, LuItalic, LuLink, LuSparkles } from 'react-icons/lu';
 
-import { useOptionalDialogs } from '../../../components/dialog-host';
-import { MARKDOWN_PROSE_CLASSES } from '../../markdown/prose';
+import { MARKDOWN_PROSE_CLASSES, useFrameChrome } from '@midnite/studio-frame';
+
 import { BlockDragHandle } from './block-drag-handle';
 import { docExtensions } from './doc-extensions';
 import { normalizeMarkdown } from './doc-thread';
@@ -51,7 +51,7 @@ export default function DocEditor({ markdown, onChange, onReady, onAskAi }: DocE
   askRef.current = onAskAi;
   const changeRef = useRef(onChange);
   changeRef.current = onChange;
-  const dialogs = useOptionalDialogs();
+  const dialogs = useFrameChrome().useDialogs();
   const dialogsRef = useRef(dialogs);
   dialogsRef.current = dialogs;
   // One context for the `/` menu and the "+" inserter; read through refs so the
@@ -60,7 +60,7 @@ export default function DocEditor({ markdown, onChange, onReady, onAskAi }: DocE
     () => ({
       onAskAi: () => askRef.current(undefined),
       promptImage: (insert) =>
-        dialogsRef.current?.prompt({
+        dialogsRef.current.prompt?.({
           title: 'Image',
           label: 'Image URL',
           placeholder: 'https://',
@@ -117,7 +117,7 @@ export default function DocEditor({ markdown, onChange, onReady, onAskAi }: DocE
 }
 
 function SelectionBubble({ editor, onAskAi }: { editor: Editor; onAskAi: (selection: string | undefined) => void }) {
-  const dialogs = useOptionalDialogs();
+  const dialogs = useFrameChrome().useDialogs();
   const marks = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -135,7 +135,7 @@ function SelectionBubble({ editor, onAskAi }: { editor: Editor; onAskAi: (select
       if (href.trim() === '') chain.unsetLink().run();
       else chain.setLink({ href: href.trim() }).run();
     };
-    if (!dialogs) return;
+    if (!dialogs.prompt) return;
     dialogs.prompt({
       title: 'Link',
       label: 'URL',

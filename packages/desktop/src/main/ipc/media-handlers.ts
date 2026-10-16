@@ -3,24 +3,16 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { BrowserWindow, dialog, shell } from 'electron';
 
 import { createMediaService, mediaCoreMain } from '@midnite/studio-feature-media-core/main';
+import { mediaDocsMain } from '@midnite/studio-feature-media-docs/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
-import {
-  CHANNELS,
-  failure,
-  MEDIA_EXPORT_FORMAT_INFO,
-  schemas,
-  type FfmpegStatus,
-  type GitOpResult,
-  type MediaTab,
-} from '@midnite/studio-shared';
+import type { FfmpegStatus, MediaTab } from '@midnite/studio-shared';
 
 import { runDocEdit } from '../ai/doc-edit';
-import { exportDoc } from '../media/doc-export';
 import { resolveWorkdir } from '../repo-registry';
 import { resolveHandoffPath } from '../video-service';
 import { probeBinary } from '../system-health';
 import { broadcastToAllWindows } from '../window-manager';
-import { handle, handleBare, handleFromSender, handleSend } from './handle';
+import { handleBare, handleFromSender, handleSend } from './handle';
 
 /**
  * Media page (Phase 99 Theme A) — Studio's composition of media-core's main
@@ -50,14 +42,6 @@ export function notifyMediaChanged(repoId: string, tab: MediaTab): void {
 export function stopMediaWatchers(): void {
   media.stopWatchers();
 }
-
-const guard = async <R extends GitOpResult<unknown> | GitOpResult>(run: () => Promise<R>): Promise<R | GitOpResult> => {
-  try {
-    return await run();
-  } catch (error) {
-    return failure(error instanceof Error ? error.message : String(error));
-  }
-};
 
 const FFMPEG_CANDIDATES = ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'];
 
@@ -99,43 +83,22 @@ export function registerMediaHandlers(): void {
     },
   });
 
-  // --- Docs (Theme B) --------------------------------------------------------
-  handle(
-    CHANNELS.mediaDocEdit,
-    schemas.MediaDocEditRequest,
-    (req) =>
-      guard(async () =>
-        runDocEdit({
-          docName: req.path,
-          markdown: req.markdown,
-          selection: req.selection,
-          prompt: req.prompt,
-          agentId: req.agentId,
-          model: req.model,
-          ollamaModel: req.ollamaModel,
-          repoPath: (await resolveWorkdir(req.repoId)) ?? null,
-        }),
-      ),
-    (issue) => failure(issue),
-  );
-
-  handleFromSender(
-    CHANNELS.mediaDocExport,
-    schemas.MediaDocExportRequest,
-    (req, win) =>
-      guard(() =>
-        exportDoc(req, {
-          pickDest: async (defaultPath, format) => {
-            const { ext, label } = MEDIA_EXPORT_FORMAT_INFO[format];
-            const options = { defaultPath, filters: [{ name: label, extensions: [ext] }] };
-            const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
-            return picked.canceled || !picked.filePath ? null : picked.filePath;
-          },
-          printToPdf: printHtmlFileToPdf,
-        }),
-      ),
-    (issue) => failure(issue),
-  );
+  // --- Docs (Theme B) — the Docs feature's main half (Phase 113 Theme Q) ------
+  mediaDocsMain.register(ctx, {
+    pickSavePath,
+    printToPdf: printHtmlFileToPdf,
+    runDocEdit: async (req) =>
+      runDocEdit({
+        docName: req.path,
+        markdown: req.markdown,
+        selection: req.selection,
+        prompt: req.prompt,
+        agentId: req.agentId,
+        model: req.model,
+        ollamaModel: req.ollamaModel,
+        repoPath: (await resolveWorkdir(req.repoId)) ?? null,
+      }),
+  });
 }
 
 /**

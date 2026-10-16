@@ -3,15 +3,10 @@ import { useQueries } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { LuFileText, LuFolderOpen, LuPencil, LuPlus, LuSearch, LuTrash2 } from 'react-icons/lu';
 
-import { Accordion } from '../../../components/accordion/accordion';
-import { useDialogs } from '../../../components/dialog-host';
-import { EmptyState } from '../../../components/empty-state';
-import { IconButton } from '../../../components/icon-button';
-import { bridge } from '../../../services/bridge';
-import { useUiStore } from '../../../store/ui-store';
-import type { MediaSelection } from '../media-projects-accordion';
+import { bridge, EmptyState, useFrameChrome, useMediaKit, type MediaSelection } from '@midnite/studio-frame';
+
+import { useDocsHost } from './host';
 import { pickInitialDoc } from './last-doc';
-import { MEDIA_KEYS, revealMedia, useMediaMutations, useMediaProjects } from '../use-media';
 
 /**
  * Docs' left pane (Phase 99 Theme B): one `Accordion` section per project
@@ -55,6 +50,9 @@ export function DocsExplorer({
   /** Bumped by the empty state's CTA: opens the "new doc" (or, with no project yet, "new project") prompt. */
   createRequest?: number;
 }) {
+  const { Accordion, keys: MEDIA_KEYS, revealMedia, useMediaMutations, useMediaProjects } = useMediaKit();
+  const { IconButton, useDialogs } = useFrameChrome();
+  const { getLastDoc } = useDocsHost();
   const projects = useMediaProjects(repoId, 'doc');
   const mutations = useMediaMutations(repoId, 'doc');
   const dialogs = useDialogs();
@@ -91,7 +89,7 @@ export function DocsExplorer({
         .map((f) => ({ project: project.name, path: f.path, mtimeMs: f.mtimeMs })),
     );
     candidates.sort((a, b) => a.project.localeCompare(b.project) || a.path.localeCompare(b.path));
-    const pick = pickInitialDoc(candidates, useUiStore.getState().mediaLastDoc[repoId]);
+    const pick = pickInitialDoc(candidates, getLastDoc(repoId));
     if (pick) onSelect(pick);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on first load.
   }, [loaded]);
@@ -105,7 +103,7 @@ export function DocsExplorer({
   };
 
   const createProject = () =>
-    dialogs.prompt({
+    dialogs.prompt?.({
       title: 'New docs project',
       label: 'Name',
       confirmLabel: 'Create',
@@ -128,7 +126,7 @@ export function DocsExplorer({
   }, [createRequest]);
 
   const renameProject = (project: string) =>
-    dialogs.prompt({
+    dialogs.prompt?.({
       title: `Rename "${project}"`,
       label: 'Name',
       initialValue: project,
@@ -160,7 +158,7 @@ export function DocsExplorer({
     });
 
   const createDoc = (project: string) =>
-    dialogs.prompt({
+    dialogs.prompt?.({
       title: `New doc in ${project}`,
       label: 'Name',
       confirmLabel: 'Create',
@@ -183,7 +181,7 @@ export function DocsExplorer({
   };
 
   const renameDoc = (project: string, path: string) =>
-    dialogs.prompt({
+    dialogs.prompt?.({
       title: `Rename "${path}"`,
       label: 'Name',
       initialValue: path.replace(/\.md$/i, ''),

@@ -16,8 +16,7 @@ import {
 } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ImageBytesRequest } from '../image/image-service';
-import type { GeneratedImage } from '../image/types';
+import type { GeneratedImage, ImageBytesRequest } from '@midnite/studio-feature-media-images/main';
 import { decodePng, encodePngGrey8 as encodeGrey8Test, encodePngRgba8 } from '../png/png-codec';
 import { backgroundPreflight, createBackgroundRunner, createPropsRunner, propsPreflight } from './environment';
 import { createSpriteService, type SpriteJobRunner } from './sprite-service';

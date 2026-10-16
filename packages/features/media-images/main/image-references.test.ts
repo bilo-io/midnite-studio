@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { failure, imageReferenceUnsupportedReason, ok, type ImageProviderId } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 

@@ -34,7 +34,9 @@
       "@midnite/studio-feature-vault/main": ["./packages/features/vault/main/index.ts"],
       "@midnite/studio-feature-notes/main": ["./packages/features/notes/main/index.ts"],
       "@midnite/studio-feature-finance/main": ["./packages/features/finance/main/index.ts"],
-      "@midnite/studio-feature-media-core/main": ["./packages/features/media-core/main/index.ts"]
+      "@midnite/studio-feature-media-core/main": ["./packages/features/media-core/main/index.ts"],
+      "@midnite/studio-feature-media-docs/main": ["./packages/features/media-docs/main/index.ts"],
+      "@midnite/studio-feature-media-images/main": ["./packages/features/media-images/main/index.ts"]
     }
   }
 }

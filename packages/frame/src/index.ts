@@ -25,6 +25,7 @@ export { NavLockToggle, type FrameNavMode } from './layout/nav-lock-toggle';
 export { DelayedFallback } from './layout/delayed-fallback';
 export { Spinner, WidgetLoader, type SpinnerMode, type SpinnerVariant } from './layout/spinner';
 export { EmptyState, EmptyStateButton } from './layout/empty-state';
+export { MARKDOWN_PROSE_CLASSES } from './layout/markdown-prose';
 export { SortableList, useSortableRow } from './layout/sortable-list';
 export {
   clampSize,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 
-import { useMediaFileText, useMediaMutations } from '../use-media';
+import { useMediaKit } from '@midnite/studio-frame';
 import { docSessionReducer, INITIAL_DOC_SESSION, isDirty } from './doc-session';
 
 /** Debounce between the last keystroke and the write. */
@@ -17,6 +17,7 @@ export type DocRef = { repoId: string; project: string; path: string };
 export function useDocSession(doc: DocRef | null) {
   const key = doc ? `${doc.project}/${doc.path}` : null;
   const [state, dispatch] = useReducer(docSessionReducer, INITIAL_DOC_SESSION);
+  const { useMediaFileText, useMediaMutations } = useMediaKit();
   const file = useMediaFileText(doc?.repoId ?? null, 'doc', doc?.project ?? null, doc?.path ?? null);
   const { writeFile } = useMediaMutations(doc?.repoId ?? null, 'doc');
   const write = useRef(writeFile.mutateAsync);

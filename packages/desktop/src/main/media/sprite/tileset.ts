@@ -24,8 +24,7 @@ import {
   type TilesetSpec,
 } from '@midnite/studio-shared';
 
-import type { ImageBytesRequest } from '../image/image-service';
-import type { GeneratedImage } from '../image/types';
+import type { GeneratedImage, ImageBytesRequest } from '@midnite/studio-feature-media-images/main';
 import { decodePng, encodePngRgba8 } from '../png/png-codec';
 import { decodeFrame, type FrameTranscode } from './frame-pipeline';
 import type { SpriteJobContext, SpriteJobRunner } from './sprite-service';

@@ -3,18 +3,17 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { LuChevronLeft, LuChevronRight, LuFolderOpen, LuRefreshCw, LuTrash2, LuX } from 'react-icons/lu';
 
-import { IconButton } from '../../../components/icon-button';
-import { useDismiss } from '../../../components/use-dismiss';
-import { useFocusTrap } from '../../../components/use-focus-trap';
-import { useMediaFileText } from '../use-media';
+import { useFrameChrome, useMediaKit } from '@midnite/studio-frame';
+
+import { useImagesHost } from './host';
 import { positionLabel, stepIndex } from './lightbox-nav';
 import type { GalleryImage } from './masonry-gallery';
 
 /**
- * Full-window image viewer (Phase 99 Theme C). Escape closes it (through the
- * shared dismiss stack, which also counts it as an occluder so a browser
- * pane underneath hides), ←/→ step with wrap-around, and focus is trapped
- * inside. The side strip shows the sidecar a generation wrote, when there is
+ * Full-window image viewer (Phase 99 Theme C). Escape closes it and focus
+ * is trapped inside (the host's `useModal` — in Studio the shared dismiss
+ * stack, which also counts it as an occluder so a browser pane underneath
+ * hides), and ←/→ step with wrap-around. The side strip shows the sidecar a generation wrote, when there is
  * one.
  */
 export function Lightbox({
@@ -37,8 +36,9 @@ export function Lightbox({
   onDelete: (image: GalleryImage) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  useDismiss(true, onClose, { layer: 'dialog' });
-  useFocusTrap(ref, true);
+  const { IconButton } = useFrameChrome();
+  const { useMediaFileText } = useMediaKit();
+  useImagesHost().useModal(ref, onClose);
 
   const image = images[index];
   const step = (delta: number) => {

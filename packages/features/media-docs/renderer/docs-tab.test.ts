@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
  * The lazy-chunk boundary (Phase 99 Theme B): nothing the Docs tab imports
  * eagerly may import Tiptap, ProseMirror, lowlight or react-dom/server — they
  * belong to `doc-editor.tsx` / `doc-export-html.tsx`, reached only through
- * `import()`. Walks the static (non-type) import graph from `docs-tab.tsx`.
+ * `import()`. Walks the static (non-type) import graph from `docs-tab.tsx` and
+ * from the package's own barrel, `index.ts`.
  */
 const SOURCES = import.meta.glob(['./*.ts', './*.tsx', '!./*.test.ts', '!./*.test.tsx'], {
   query: '?raw',
@@ -16,7 +17,8 @@ const LAZY = new Set(['doc-editor.tsx', 'doc-export-html.tsx', 'doc-extensions.t
 
 function staticImports(file: string): string[] {
   const src = SOURCES[file] ?? '';
-  return [...src.matchAll(/^import\s+(?!type\b)[^'"]*?from\s+'([^']+)';/gms)].map((m) => m[1]!);
+  // `export … from` too: a barrel's re-export loads its module as surely as an import does.
+  return [...src.matchAll(/^(?:import|export)\s+(?!type\b)[^'"]*?from\s+'([^']+)';/gms)].map((m) => m[1]!);
 }
 
 function resolveLocal(spec: string): string | null {
@@ -39,7 +41,10 @@ describe('Docs lazy boundary', () => {
       }
     };
     walk('./docs-tab.tsx');
-    expect(seen.has('./doc-thread-panel.tsx')).toBe(true);
+    // The package's barrel is what an app imports: it must be as light as the tab.
+    walk('./index.ts');
+    expect(seen.has('./docs-explorer.tsx')).toBe(true);
+    expect(seen.has('./use-doc-thread.ts')).toBe(true);
     expect(heavy).toEqual([]);
     for (const file of seen) expect(LAZY.has(file.split('/').pop()!)).toBe(false);
   });

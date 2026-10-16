@@ -24,8 +24,7 @@ import {
   type SpriteGenerateRequest,
 } from '@midnite/studio-shared';
 
-import type { ImageBytesRequest } from '../image/image-service';
-import type { GeneratedImage } from '../image/types';
+import type { GeneratedImage, ImageBytesRequest } from '@midnite/studio-feature-media-images/main';
 import { encodePngRgba8 } from '../png/png-codec';
 import { decodeFrame, type FrameTranscode } from './frame-pipeline';
 import type { SpriteJobRunner } from './sprite-service';

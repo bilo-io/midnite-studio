@@ -1,11 +1,11 @@
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { fixtures } from '../../../../test-support/fixtures';
-import type { MockFixtures } from '../../../../test-support/mock-bridge';
-import { renderView } from '../../../../test-support/render';
-import { useUiStore } from '../../../store/ui-store';
-import { MediaView } from '../media-view';
+import { fixtures } from '../../../test-support/fixtures';
+import type { MockFixtures } from '../../../test-support/mock-bridge';
+import { renderView } from '../../../test-support/render';
+import { useUiStore } from '../../store/ui-store';
+import { MediaView } from '../../features/media/media-view';
 
 /**
  * Phase 99 Theme C — the Images tab through the mock bridge: the "+" tile

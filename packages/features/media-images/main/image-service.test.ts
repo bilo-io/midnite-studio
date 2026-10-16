@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { ok, parseImageSidecar, type ImageGenerateProgressEvent, type ImageProviderId } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 

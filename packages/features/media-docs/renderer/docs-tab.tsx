@@ -3,20 +3,21 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { LuFilePlus, LuFileText } from 'react-icons/lu';
 import { PiFilePlusFill } from 'react-icons/pi';
 
-import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
-import { bridge } from '../../../services/bridge';
-import { noBridge, reportFailure } from '../../../services/bridge-result';
-import { useToastStore } from '../../../store/toast-store';
-import { useUiStore } from '../../../store/ui-store';
-import { ExportToolbar } from '../export-toolbar';
-import { MediaLayout } from '../media-layout';
-import type { MediaSelection } from '../media-projects-accordion';
-import { NoRepoMediaState } from '../repo-media-tab';
+import {
+  bridge,
+  EmptyState,
+  EmptyStateButton,
+  noBridge,
+  reportFailure,
+  useMediaKit,
+  useToastStore,
+  type MediaSelection,
+} from '@midnite/studio-frame';
+
 import type { DocEditorHandle } from './doc-editor';
-import { DocThreadPanel } from './doc-thread-panel';
 import { DocsExplorer } from './docs-explorer';
+import { useDocsHost } from './host';
 import { useDocSession, type DocRef } from './use-doc-session';
-import { useMediaOpenFor, useMediaOpenRequest } from '../media-open-request';
 
 /**
  * Media ▸ Docs (Phase 99 Theme B): project accordion, the Tiptap editor over
@@ -32,8 +33,12 @@ export const loadDocEditor = () => import('./doc-editor');
 const DocEditor = lazy(loadDocEditor);
 
 export function DocsTab() {
-  const repoId = useUiStore((s) => s.selectedRepoId);
-  const exportDir = useUiStore((s) => s.mediaExportDir);
+  const kit = useMediaKit();
+  const { MediaLayout, ExportToolbar, NoRepoMediaState } = kit;
+  const host = useDocsHost();
+  const ThreadPanel = host.ThreadPanel;
+  const repoId = kit.useMediaRepoId();
+  const exportDir = kit.useMediaExportDir();
   const [selection, setSelection] = useState<MediaSelection | null>(null);
   const [aiSelection, setAiSelection] = useState<string | undefined>(undefined);
   const [focusToken, setFocusToken] = useState(0);
@@ -41,18 +46,19 @@ export function DocsTab() {
   const [createRequest, setCreateRequest] = useState(0);
   const handle = useRef<DocEditorHandle | null>(null);
   // Phase 112 Theme E — a reveal selects a doc (or a project) the same way a click in the explorer does.
-  const openRequest = useMediaOpenFor('doc', repoId ?? null);
+  const openRequest = kit.useMediaOpenFor('doc', repoId ?? null);
+  const { clearMediaOpenRequest } = kit;
   useEffect(() => {
     if (!openRequest) return;
     setSelection({ project: openRequest.project, path: openRequest.path ?? null });
     setAiSelection(undefined);
-    useMediaOpenRequest.getState().clear();
-  }, [openRequest]);
+    clearMediaOpenRequest();
+  }, [openRequest, clearMediaOpenRequest]);
 
   const doc: DocRef | null =
     repoId && selection?.path ? { repoId, project: selection.project, path: selection.path } : null;
   const session = useDocSession(doc);
-  const setLastDoc = useUiStore((s) => s.setMediaLastDoc);
+  const setLastDoc = host.setLastDoc;
   // "Last edited" is by edit, not selection: only a real change records it.
   const onEdit = useCallback(
     (text: string) => {
@@ -159,16 +165,20 @@ export function DocsTab() {
           </div>
         )
       }
-      detail={
-        <DocThreadPanel
-          doc={doc}
-          session={session}
-          selection={aiSelection}
-          onClearSelection={() => setAiSelection(undefined)}
-          getMarkdown={() => session.draft}
-          focusToken={focusToken}
-        />
-      }
+      {...(ThreadPanel
+        ? {
+            detail: (
+              <ThreadPanel
+                doc={doc}
+                session={session}
+                selection={aiSelection}
+                onClearSelection={() => setAiSelection(undefined)}
+                getMarkdown={() => session.draft}
+                focusToken={focusToken}
+              />
+            ),
+          }
+        : {})}
     />
   );
 }

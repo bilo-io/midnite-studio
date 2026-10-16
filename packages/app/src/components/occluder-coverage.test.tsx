@@ -23,7 +23,11 @@ import { StashPushDialog } from '../features/status/stash-push-dialog';
 import { SetupDialog } from '../features/agent/setup-dialog';
 import { LockScreen } from '../features/screensaver/lock-screen';
 import { ActivityTooltip } from './commit-activity-timeline/activity-tooltip';
-import { Lightbox } from '../features/media/image/lightbox';
+import { mediaKit } from '@midnite/studio-feature-media-core/renderer';
+import { Lightbox } from '@midnite/studio-feature-media-images/renderer';
+import { MediaKitProvider } from '@midnite/studio-frame';
+import { StudioProviders } from '../compose/studio-providers';
+import { StudioMediaTabHosts } from '../features/media/media-view';
 import { IssueModal } from '../features/tasks/issue/issue-modal';
 
 import { DialogHost } from './dialog-host';
@@ -223,16 +227,24 @@ describe('occluder coverage across overlays', () => {
     assertOccluderLifecycle(() =>
       render(
         withProviders(
-          <Lightbox
-            images={[{ key: 'k', project: 'p', path: 'a.png', url: 'mstudio-file://repo/r/a.png' }]}
-            index={0}
-            repoId="r"
-            onIndex={() => {}}
-            onClose={() => {}}
-            onRerun={() => {}}
-            onReveal={() => {}}
-            onDelete={() => {}}
-          />,
+          <StudioProviders>
+            <MediaKitProvider kit={mediaKit}>
+              <StudioMediaTabHosts>
+                <Lightbox
+                  images={[
+                    { key: 'k', project: 'p', path: 'a.png', url: 'mstudio-file://repo/r/a.png' },
+                  ]}
+                  index={0}
+                  repoId="r"
+                  onIndex={() => {}}
+                  onClose={() => {}}
+                  onRerun={() => {}}
+                  onReveal={() => {}}
+                  onDelete={() => {}}
+                />
+              </StudioMediaTabHosts>
+            </MediaKitProvider>
+          </StudioProviders>,
         ),
       ),
     );

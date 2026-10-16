@@ -10,22 +10,14 @@ import { useEffect, useMemo, useReducer, useState } from 'react';
 import { LuImage, LuSparkles } from 'react-icons/lu';
 import { PiSparkleFill } from 'react-icons/pi';
 
-import { useDialogs } from '../../../components/dialog-host';
-import { EmptyState, EmptyStateButton } from '../../../components/empty-state';
-import { previewKindForFile } from '../../../lib/languages';
-import { useRepoFiles } from '../../../services/queries';
-import { useUiStore } from '../../../store/ui-store';
-import { ExportToolbar } from '../export-toolbar';
-import { MediaLayout, openMediaPane } from '../media-layout';
-import { MediaProjectsAccordion, type MediaSelection } from '../media-projects-accordion';
-import { NoRepoMediaState } from '../repo-media-tab';
-import { revealMedia, useMediaExport, useMediaFiles, useMediaMutations, useMediaProjects } from '../use-media';
-import { CreatePanel } from './create-panel';
+import { EmptyState, EmptyStateButton, useFrameChrome, useMediaKit, type MediaSelection } from '@midnite/studio-frame';
+
+import { BasicCreatePanel } from './basic-create-panel';
 import { createPanelReducer, initialCreateState } from './create-panel-state';
+import { useImagesHost } from './host';
 import { Lightbox } from './lightbox';
 import { MasonryGallery, type GalleryImage } from './masonry-gallery';
 import { useImageGeneration, useImagePrefs, useImageProviders } from './use-images';
-import { useMediaOpenFor, useMediaOpenRequest } from '../media-open-request';
 
 /** Where a Generate lands when the repo has no image project yet. */
 export const DEFAULT_IMAGE_PROJECT = 'generated';
@@ -37,24 +29,44 @@ export const DEFAULT_IMAGE_PROJECT = 'generated';
  * `.midnite/media/image/<project>/` with a `<name>.json` sidecar each.
  */
 export function ImageTab() {
-  const repoId = useUiStore((s) => s.selectedRepoId);
+  const { useMediaRepoId, NoRepoMediaState } = useMediaKit();
+  const repoId = useMediaRepoId();
   if (!repoId) return <NoRepoMediaState tab="image" />;
   return <ImageTabBody repoId={repoId} />;
 }
 
+/** An app with no repository file list offers no "All images in repo" (the toggle is hidden). */
+const noRepoImages = (): readonly string[] | undefined => undefined;
+
 function ImageTabBody({ repoId }: { repoId: string }) {
+  const kit = useMediaKit();
+  const {
+    MediaLayout,
+    ExportToolbar,
+    MediaProjectsAccordion,
+    revealMedia,
+    useMediaExport,
+    useMediaFiles,
+    useMediaMutations,
+    useMediaProjects,
+    clearMediaOpenRequest,
+  } = kit;
+  const openMediaPane = kit.useOpenMediaPane();
+  const host = useImagesHost();
+  const CreatePanel = host.CreatePanel ?? BasicCreatePanel;
+  const useRepoImagePaths = host.useRepoImagePaths ?? noRepoImages;
   const [selection, setSelection] = useState<MediaSelection | null>(null);
   const [allInRepo, setAllInRepo] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [quality, setQuality] = useState(85);
   // Phase 112 Theme E — a reveal selects an image (or its project) the way an explorer click does.
-  const openRequest = useMediaOpenFor('image', repoId);
+  const openRequest = kit.useMediaOpenFor('image', repoId);
   useEffect(() => {
     if (!openRequest) return;
     setAllInRepo(false);
     setSelection({ project: openRequest.project, path: openRequest.path ?? null });
-    useMediaOpenRequest.getState().clear();
-  }, [openRequest]);
+    clearMediaOpenRequest();
+  }, [openRequest, clearMediaOpenRequest]);
   const prefs = useImagePrefs();
   const [form, dispatch] = useReducer(createPanelReducer, undefined, () =>
     initialCreateState(prefs.provider, prefs.model),
@@ -63,18 +75,16 @@ function ImageTabBody({ repoId }: { repoId: string }) {
   const projects = useMediaProjects(repoId, 'image');
   const activeProject = selection?.project ?? projects.data?.[0]?.name ?? null;
   const files = useMediaFiles(repoId, 'image', allInRepo ? null : activeProject);
-  const repoFiles = useRepoFiles(repoId, null, undefined, { enabled: allInRepo });
+  const repoImages = useRepoImagePaths(repoId, allInRepo);
   const providers = useImageProviders();
   const generation = useImageGeneration(repoId);
   const mutations = useMediaMutations(repoId, 'image');
   const exporter = useMediaExport();
-  const dialogs = useDialogs();
+  const dialogs = useFrameChrome().useDialogs();
 
   const images = useMemo<GalleryImage[]>(() => {
     if (allInRepo) {
-      return (repoFiles.data?.files ?? [])
-        .filter((path) => previewKindForFile(path) === 'image')
-        .map((path) => ({ key: `repo:${path}`, project: null, path, url: mstudioFileUrl('repo', repoId, path) }));
+      return (repoImages ?? []).map((path) => ({ key: `repo:${path}`, project: null, path, url: mstudioFileUrl('repo', repoId, path) }));
     }
     if (!activeProject) return [];
     return [...(files.data ?? [])]
@@ -86,7 +96,7 @@ function ImageTabBody({ repoId }: { repoId: string }) {
         path: file.path,
         url: mstudioFileUrl('repo', repoId, `${MEDIA_ROOT_DIR}/image/${activeProject}/${file.path}`),
       }));
-  }, [allInRepo, repoFiles.data, files.data, activeProject, repoId]);
+  }, [allInRepo, repoImages, files.data, activeProject, repoId]);
 
   const selectedKey =
     lightbox !== null
@@ -181,15 +191,17 @@ function ImageTabBody({ repoId }: { repoId: string }) {
                 fileFilter={isImagePath}
               />
             </div>
-            <label className="flex h-8 shrink-0 items-center gap-2 border-t border-border px-2 text-[11px] text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={allInRepo}
-                onChange={(event) => setAllInRepo(event.target.checked)}
-                className="accent-primary"
-              />
-              All images in repo
-            </label>
+            {host.useRepoImagePaths ? (
+              <label className="flex h-8 shrink-0 items-center gap-2 border-t border-border px-2 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={allInRepo}
+                  onChange={(event) => setAllInRepo(event.target.checked)}
+                  className="accent-primary"
+                />
+                All images in repo
+              </label>
+            ) : null}
           </div>
         }
         content={

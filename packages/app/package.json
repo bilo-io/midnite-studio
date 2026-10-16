@@ -23,6 +23,8 @@
     "@floating-ui/dom": "^1.8.0",
     "@midnite/studio-feature-finance": "workspace:*",
     "@midnite/studio-feature-media-core": "workspace:*",
+    "@midnite/studio-feature-media-docs": "workspace:*",
+    "@midnite/studio-feature-media-images": "workspace:*",
     "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-feature-notes": "workspace:*",
     "@midnite/studio-feature-optimizer": "workspace:*",
