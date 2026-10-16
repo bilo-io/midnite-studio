@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } from 'electron';
 
 import type { MediaService } from '@midnite/studio-feature-media-core/main';
-import { createVaultService, runtimeDataDirectory } from '@midnite/studio-runtime';
+import { createVaultGrants, createVaultService, runtimeDataDirectory } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
 import { creatorMediaRoot, registerCreatorHandlers } from './context';
@@ -73,9 +73,16 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     const mediaRoot = creatorMediaRoot(app.getPath('userData'));
     // A smoke run never touches the keychain or the shared runtime directory.
+    // Denied until the user grants Creator access in Vault — the grants file decides, never the
+    // runtime's allow-all default.
+    const vaultDirectory = runtimeDataDirectory(app.getPath('appData'));
     const vault = smoke
       ? null
-      : createVaultService({ directory: runtimeDataDirectory(app.getPath('appData')), cipher: safeStorage }).forApp('creator');
+      : createVaultService({
+          directory: vaultDirectory,
+          cipher: safeStorage,
+          authorize: createVaultGrants({ directory: vaultDirectory }).authorize,
+        }).forApp('creator');
     installCreatorFileProtocol({ handle: (scheme, handler) => protocol.handle(scheme, handler), fetchFile: (u) => net.fetch(u) }, mediaRoot);
     media = registerCreatorHandlers({
       ipcMain,
