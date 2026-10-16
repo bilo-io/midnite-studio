@@ -1,7 +1,8 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
+import { renderView as render } from '../../../test-support/render';
 import { MediaLayout } from './media-layout';
 
 /** vitest/jsdom: structure, labels, aria and store state only; no browser capability is needed. */

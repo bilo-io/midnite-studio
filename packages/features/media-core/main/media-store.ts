@@ -2,7 +2,6 @@ import { constants as fsConstants, type Dirent } from 'node:fs';
 import { lstat, mkdir, open, readdir, readFile, realpath, rename, stat } from 'node:fs/promises';
 import { join, sep } from 'node:path';
 
-import { WriteQueue } from '@midnite/studio-git-engine';
 import {
   failure,
   MEDIA_LARGE_FILE_BYTES,
@@ -14,7 +13,9 @@ import {
   type MediaTab,
 } from '@midnite/studio-shared';
 
-import { confineToRoot, joinWithin } from '../fs-scope';
+import { confineToRoot, joinWithin } from '@midnite/studio-runtime';
+
+import { createSerialQueue } from './serial-queue';
 
 /**
  * The repo-scoped media store (Phase 99 Theme A): projects and files under
@@ -30,7 +31,7 @@ import { confineToRoot, joinWithin } from '../fs-scope';
  *   segment that is a symlink — including `.midnite`, `.midnite/media` and the
  *   tab root themselves — so nothing is ever created *through* a link, and the
  *   final file opens with `O_NOFOLLOW`;
- * - every write runs through a per-root `WriteQueue`, so two writers on one
+ * - every write runs through a per-root serial queue, so two writers on one
  *   tab root never interleave.
  *
  * Every op answers a `GitOpResult`; nothing throws across IPC.
@@ -59,7 +60,7 @@ const within = (parent: string, child: string): boolean =>
 const rootSegments = (tab: MediaTab): string[] => [...MEDIA_ROOT_DIR.split('/'), tab];
 
 export function createMediaStore(deps: MediaStoreDeps) {
-  const queue = new WriteQueue();
+  const queue = createSerialQueue();
 
   /**
    * Walk `segments` below `base` (already real), creating missing directories

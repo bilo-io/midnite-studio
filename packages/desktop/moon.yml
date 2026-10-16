@@ -39,6 +39,8 @@ dependsOn:
   - id: 'feature-notes'
   - id: 'feature-finance'
     scope: 'development'
+  - id: 'feature-media-core'
+    scope: 'development'
   - id: 'app'
     scope: 'development'
 
@@ -63,6 +65,7 @@ tasks:
       - 'feature-monitor:build'
       - 'feature-notes:build'
       - 'feature-finance:build'
+      - 'feature-media-core:build'
     inputs:
       - 'src/**/*'
       - 'tsconfig.json'
@@ -80,6 +83,8 @@ tasks:
       - '/packages/features/notes/manifest.ts'
       - '/packages/features/finance/main/**/*'
       - '/packages/features/finance/manifest.ts'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-core/manifest.ts'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -98,6 +103,7 @@ tasks:
       - 'feature-monitor:build'
       - 'feature-notes:build'
       - 'feature-finance:build'
+      - 'feature-media-core:build'
       - '~:bundle'
     inputs:
       - 'src/**/*'
@@ -121,6 +127,8 @@ tasks:
       - '/packages/features/notes/manifest.ts'
       - '/packages/features/finance/main/**/*'
       - '/packages/features/finance/manifest.ts'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-core/manifest.ts'
 
   lint:
     inputs:
@@ -161,6 +169,8 @@ tasks:
       - '/packages/features/notes/manifest.ts'
       - '/packages/features/finance/main/**/*'
       - '/packages/features/finance/manifest.ts'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-core/manifest.ts'
     outputs:
       - 'dist/bundle'
 

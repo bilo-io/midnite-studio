@@ -111,6 +111,27 @@ export const FEATURE_PLACEMENT = {
 
 export type PlacedFeature = keyof typeof FEATURE_PLACEMENT;
 
+/**
+ * Feature packages split out of one placement folder (Phase 113 Theme Q):
+ * `media` is one folder whose tabs go to three apps, so it becomes several
+ * packages — the shared shell every media app composes, and one package per
+ * tab group that only its own app (and Studio) composes. Each entry names the
+ * folder it came from and the apps that compose that package, owner first.
+ * A package under `packages/features/` not listed here is named after its
+ * folder and takes the folder's placement.
+ */
+export const FEATURE_PACKAGE_SPLITS = {
+  'media-core': { folder: 'media', placement: ['creator', 'media', 'gamer'] },
+  'media-docs': { folder: 'media', placement: 'creator' },
+  'media-images': { folder: 'media', placement: 'creator' },
+} as const satisfies Readonly<Record<string, { folder: PlacedFeature; placement: Placement }>>;
+
+/** The placement of the package `packages/features/<name>`, split or not; undefined for an unknown name. */
+export function featurePackagePlacement(name: string): Placement | undefined {
+  const split = (FEATURE_PACKAGE_SPLITS as Readonly<Record<string, { placement: Placement }>>)[name];
+  return split ? split.placement : (FEATURE_PLACEMENT as Readonly<Record<string, Placement>>)[name];
+}
+
 /** The layer(s) that own a feature, owner first. */
 export function placementOwners(placement: Placement): readonly PlacementLayer[] {
   return typeof placement === 'string' ? [placement] : placement;

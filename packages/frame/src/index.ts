@@ -14,6 +14,7 @@
 
 // Main-process access.
 export { bridge, hasBridge } from './bridge';
+export { noBridge, reportFailure } from './bridge-result';
 
 // Notifications.
 export { useToastStore, type Toast, type ToastAction, type ToastState, type ToastStatus } from './toast-store';
@@ -103,9 +104,37 @@ export type {
   ConfirmRequest,
   FrameDialogs,
   FrameMenuItem,
+  FramePromptRequest,
   IconButtonProps,
   IconComponent,
 } from './chrome/types';
+
+// Media — the tab-registry contract and the kit port media tabs compose (Phase 113 Theme Q).
+export { mediaPanelId, mediaTabId, type MediaTabDescriptor } from './media/media-tab';
+export { MediaKitProvider, useMediaKit, type MediaKit, type MediaQueryKeys } from './media/media-kit';
+export type {
+  ExportToolbarProps,
+  MediaAccordionProps,
+  MediaAccordionSection,
+  MediaExporter,
+  MediaLayoutProps,
+  MediaMutation,
+  MediaMutations,
+  MediaOpenKind,
+  MediaOpenRequest,
+  MediaPane,
+  MediaProjectsAccordionProps,
+  MediaSelection,
+} from './media/media-kit-types';
+export { MEDIA_PROMPT_BOX, MEDIA_PROMPT_CONTROL, PromptTextarea } from './media/prompt-input';
+export {
+  MEDIA_PANEL_BODY,
+  MEDIA_PANEL_FOOTER,
+  MEDIA_PANEL_ROOT,
+  MediaPanelBody,
+  MediaPanelFooter,
+  MediaPanelLayout,
+} from './media/media-panel-layout';
 
 // The suite app kit — what an extracted app composes instead of writing its own chrome.
 export * from './kit';

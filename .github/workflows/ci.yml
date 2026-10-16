@@ -256,6 +256,7 @@ jobs:
           feature-vault:typecheck feature-vault:lint feature-vault:test
           feature-notes:typecheck feature-notes:lint feature-notes:test
           feature-finance:typecheck feature-finance:lint feature-finance:test
+          feature-media-core:typecheck feature-media-core:lint feature-media-core:test
           root:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -16,5 +16,5 @@ export const MEDIA_TAB_META: Record<MediaTab, { label: string; icon: IconCompone
   game: { label: 'Games', icon: LuGamepad2 },
 };
 
-export const mediaTabId = (tab: MediaTab): string => `media-tab-${tab}`;
-export const mediaPanelId = (tab: MediaTab): string => `media-panel-${tab}`;
+// The strip ↔ panel ids moved to the frame with the registry contract (Phase 113 Theme Q).
+export { mediaPanelId, mediaTabId } from '@midnite/studio-frame';

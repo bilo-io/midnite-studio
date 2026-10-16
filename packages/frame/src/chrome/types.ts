@@ -216,7 +216,25 @@ export type FrameMenuItem = {
   onSelect: () => void;
 };
 
+/** A one-field text prompt ("New project" → a name) — the subset of Studio's `PromptRequest` a feature uses. */
+export type FramePromptRequest = {
+  title: string;
+  label: string;
+  initialValue?: string;
+  confirmLabel: string;
+  placeholder?: string;
+  /** Returns an error message, or null when the value is acceptable. */
+  validate?: (value: string) => string | null;
+  onConfirm: (value: string) => void;
+};
+
 export type FrameDialogs = {
+  /**
+   * A one-field text prompt. Optional like `openMenu`: Studio's host and the
+   * suite kit's `createDialogs` provide it; a control that needs it hides
+   * without it (Phase 113 Theme Q — media's "New project").
+   */
+  prompt?: (request: FramePromptRequest) => void;
   /**
    * A small menu at a point. Optional: only an app with a context-menu host
    * (Studio) provides it; a feature falls back to acting directly without it.

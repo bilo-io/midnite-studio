@@ -1,41 +1,47 @@
-import { MEDIA_TABS, type MediaTab } from '@midnite/studio-shared';
+import type { MediaTab } from '@midnite/studio-shared';
 import { useRef, type KeyboardEvent } from 'react';
 
-import { Tooltip } from '../../components/tooltip';
-import { MEDIA_TAB_META, mediaPanelId, mediaTabId } from './media-tabs';
+import { mediaPanelId, mediaTabId, type MediaTabDescriptor } from '@midnite/studio-frame';
+
+import { useMediaHost } from './host';
 
 /**
  * The Media page's tab strip (Phase 99 Theme A): icon buttons, each with a
  * tooltip, and the active one also shows its label inline. A WAI-ARIA
  * `tablist` with roving focus — ←/→ move and select, Home/End jump.
+ *
+ * Draws the tabs its app registered, in the order it registered them.
  */
 export function MediaTabStrip({
+  tabs,
   active,
   onSelect,
 }: {
+  tabs: readonly MediaTabDescriptor[];
   active: MediaTab;
   onSelect: (tab: MediaTab) => void;
 }) {
+  const { Tooltip } = useMediaHost();
+  const order = tabs.map((t) => t.id);
   const refs = useRef<Partial<Record<MediaTab, HTMLButtonElement | null>>>({});
 
   const move = (event: KeyboardEvent<HTMLDivElement>) => {
-    const index = MEDIA_TABS.indexOf(active);
+    const index = order.indexOf(active);
     let next: number | null = null;
-    if (event.key === 'ArrowRight') next = (index + 1) % MEDIA_TABS.length;
-    else if (event.key === 'ArrowLeft') next = (index - 1 + MEDIA_TABS.length) % MEDIA_TABS.length;
+    if (event.key === 'ArrowRight') next = (index + 1) % order.length;
+    else if (event.key === 'ArrowLeft') next = (index - 1 + order.length) % order.length;
     else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = MEDIA_TABS.length - 1;
+    else if (event.key === 'End') next = order.length - 1;
     if (next === null) return;
     event.preventDefault();
-    const tab = MEDIA_TABS[next]!;
+    const tab = order[next]!;
     onSelect(tab);
     refs.current[tab]?.focus();
   };
 
   return (
     <div role="tablist" aria-label="Media" className="flex items-center gap-1" onKeyDown={move}>
-      {MEDIA_TABS.map((tab) => {
-        const { label, icon: Icon } = MEDIA_TAB_META[tab];
+      {tabs.map(({ id: tab, label, icon: Icon }) => {
         const selected = tab === active;
         return (
           <Tooltip key={tab} label={label}>

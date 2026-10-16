@@ -1,4 +1,10 @@
-import { FEATURE_PLACEMENT, placementOwners, PLACEMENT_APP_IDS, type Placement } from '@midnite/studio-shared';
+import {
+  FEATURE_PACKAGE_SPLITS,
+  FEATURE_PLACEMENT,
+  placementOwners,
+  PLACEMENT_APP_IDS,
+  type Placement,
+} from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -18,7 +24,11 @@ const packagedFeatureFiles = Object.keys(import.meta.glob('../../features/*/mani
 const folders = [
   ...new Set([
     ...featureFiles.map((path) => path.split('/')[2] as string),
-    ...packagedFeatureFiles.map((path) => path.split('/')[3] as string),
+    // A split package (`media-core`, `media-docs`, …) counts as the folder it came from.
+    ...packagedFeatureFiles.map((path) => {
+      const name = path.split('/')[3] as string;
+      return (FEATURE_PACKAGE_SPLITS as Readonly<Record<string, { folder: string }>>)[name]?.folder ?? name;
+    }),
   ]),
 ].sort();
 
