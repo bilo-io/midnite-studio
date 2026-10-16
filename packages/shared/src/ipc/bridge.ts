@@ -1067,6 +1067,13 @@ export type MidniteStudioBridge = {
     has: (req: In<typeof S.SecretsHasRequest>) => Promise<z.infer<typeof S.SecretsHasResponse>>;
   };
 
+  /** Per-app vault grants (Phase 113 Theme J slice 2) — names only, never a stored value. */
+  vaultGrants: {
+    list: (req: In<typeof S.VaultGrantsListRequest>) => Promise<z.infer<typeof S.VaultGrantsListResponse>>;
+    set: (req: In<typeof S.VaultGrantSetRequest>) => Promise<z.infer<typeof S.VaultGrantSetResponse>>;
+    revoke: (req: In<typeof S.VaultGrantRevokeRequest>) => Promise<z.infer<typeof S.VaultGrantRevokeResponse>>;
+  };
+
   /**
    * Finance provider fetches proxied through main (Phase 76 Theme D) so API
    * keys and CoinGecko/Twelve Data hosts stay out of the renderer.

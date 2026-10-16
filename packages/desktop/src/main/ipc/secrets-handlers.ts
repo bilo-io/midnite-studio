@@ -1,12 +1,20 @@
+import { registerVaultGrantHandlers, type VaultGrants } from '@midnite/studio-runtime';
 import { CHANNELS, schemas, type SecretKey } from '@midnite/studio-shared';
 
 import type { SecretsVault } from '../secrets-vault';
-import { handle } from './handle';
+import { handle, handleBare, handleSend } from './handle';
 
 let vault: SecretsVault | null = null;
 
 export function configureSecrets(next: SecretsVault): void {
   vault = next;
+}
+
+let grants: VaultGrants | null = null;
+
+/** The runtime's per-app grants (Phase 113 Theme J slice 2), configured beside the vault service. */
+export function configureVaultGrants(next: VaultGrants): void {
+  grants = next;
 }
 
 async function readTwelveDataKey(): Promise<string | null> {
@@ -28,6 +36,8 @@ export async function readOllamaApiKey(): Promise<string | null> {
 }
 
 export function registerSecretsHandlers(): void {
+  registerVaultGrantHandlers({ handle, handleBare, send: handleSend }, () => grants);
+
   handle(
     CHANNELS.secretsGet,
     schemas.SecretsGetRequest,

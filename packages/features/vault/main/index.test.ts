@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
-import { createFakeCipher, createRecordingContext, createVaultService } from '@midnite/studio-runtime';
+import { createFakeCipher, createRecordingContext, createVaultGrants, createVaultService } from '@midnite/studio-runtime';
 import { CHANNELS } from '@midnite/studio-shared';
 
 import { accountFromKey, vaultMain } from './index';
@@ -14,8 +14,9 @@ async function setup() {
   const dir = await mkdtemp(join(tmpdir(), 'mstudio-vault-feature-'));
   const vault = createVaultService({ directory: dir, cipher: createFakeCipher() }).forApp('vault');
   const ctx = createRecordingContext();
-  vaultMain.register(ctx, { vault });
-  return { ctx, vault };
+  const grants = createVaultGrants({ directory: dir });
+  vaultMain.register(ctx, { vault, grants });
+  return { ctx, vault, grants };
 }
 
 describe('vault main', () => {
@@ -63,6 +64,20 @@ describe('vault main', () => {
     await vault.set('db-credentials', 'conn-1', 'pw', { fingerprint: 'f' });
     expect(await ctx.invoke(CHANNELS.dbDeleteConnection, { id: 'conn-1' })).toEqual({ ok: true });
     expect(await vault.has('db-credentials', 'conn-1')).toBe(false);
+  });
+
+  it('lists, sets and revokes grants — names only — and refuses to grant a trusted app', async () => {
+    const { ctx, vault } = await setup();
+    await vault.set('secrets', 'ollama.apiKey', 'sk-never-listed');
+    expect(await ctx.invoke(CHANNELS.vaultGrantsList, {})).toEqual({ grants: {}, corrupt: false });
+    expect(await ctx.invoke(CHANNELS.vaultGrantSet, { appId: 'browser', namespace: 'secrets', scope: '*' })).toEqual({ ok: true });
+    const listed = await ctx.invoke(CHANNELS.vaultGrantsList, {});
+    expect(listed).toEqual({ grants: { browser: { secrets: '*' } }, corrupt: false });
+    expect(JSON.stringify(listed)).not.toContain('sk-never-listed');
+    expect(await ctx.invoke(CHANNELS.vaultGrantRevoke, { appId: 'browser' })).toEqual({ ok: true });
+    expect(await ctx.invoke(CHANNELS.vaultGrantsList, {})).toEqual({ grants: {}, corrupt: false });
+    // `vault` is not a valid grantee: the request fails validation and answers the fallback.
+    expect(await ctx.invoke(CHANNELS.vaultGrantSet, { appId: 'vault', namespace: 'secrets', scope: '*' })).toEqual({ ok: false });
   });
 
   it('parses account keys, skipping what is not one', () => {

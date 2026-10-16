@@ -4,7 +4,7 @@ import { resolve, dirname, join } from 'node:path';
 import { totalmem } from 'node:os';
 
 import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-engine';
-import { createVaultService } from '@midnite/studio-runtime';
+import { createVaultGrants, createVaultService } from '@midnite/studio-runtime';
 import {
   EVENT_CHANNELS,
   CHANNELS,
@@ -36,7 +36,7 @@ import { disposeScriptRunner } from './api-client/script-runner-broker';
 import { registerDemoApiHandlers } from './ipc/demo-api-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
 import { registerMarketsHandlers } from './ipc/markets-handlers';
-import { configureSecrets, registerSecretsHandlers } from './ipc/secrets-handlers';
+import { configureSecrets, configureVaultGrants, registerSecretsHandlers } from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
 import { createForgeAccountVault } from './forge/forge-account-vault';
 import { createForgeAccountsStore } from './forge/forge-accounts-store';
@@ -788,7 +788,14 @@ if (!app.requestSingleInstanceLock()) {
       shapes their handlers always had, and the wire still says only
       `hasToken`.
     */
-    const studioVault = createVaultService({ directory: userData, cipher: safeStorage }).forApp('studio');
+    // Grants (Phase 113 Theme J slice 2): Studio is always allowed; the grants only gate other apps' services.
+    const vaultGrants = createVaultGrants({ directory: userData });
+    configureVaultGrants(vaultGrants);
+    const studioVault = createVaultService({
+      directory: userData,
+      cipher: safeStorage,
+      authorize: vaultGrants.authorize,
+    }).forApp('studio');
     configureDb(createConnectionsStore(userData), createCredentialVault(studioVault));
     configureSecrets(createSecretsVault(studioVault));
     /*

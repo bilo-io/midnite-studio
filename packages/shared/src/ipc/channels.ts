@@ -1432,6 +1432,14 @@ export const CHANNELS = {
    */
   secretsHas: 'mstudio:secrets:has',
 
+  // --- vault grants (Phase 113 Theme J slice 2) -----------------------------
+  /** Which apps may read which vault namespaces/entries — names only, never a value. */
+  vaultGrantsList: 'mstudio:vault:grants:list',
+  /** Grant an app a namespace (every entry, or the named ones). Studio and Vault need none. */
+  vaultGrantSet: 'mstudio:vault:grants:set',
+  /** Take a grant back — one namespace, or every grant the app holds. */
+  vaultGrantRevoke: 'mstudio:vault:grants:revoke',
+
   // --- finance proxy (Phase 76 Theme D) -------------------------------------
   /** Search crypto/stock symbols — provider fetches run in main. */
   financeSearch: 'mstudio:finance:search',

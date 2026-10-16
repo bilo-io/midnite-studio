@@ -2969,6 +2969,11 @@ export function buildMockBridge(data: MockFixtures) {
       set: async () => {},
       has: async () => ({ hasKey: false }),
     },
+    vaultGrants: {
+      list: async () => ({ grants: {}, corrupt: false }),
+      set: async () => ({ ok: true }),
+      revoke: async () => ({ ok: true }),
+    },
     finance: {
       search: async () => ({ ok: true as const, value: [] }),
       quote: async () => ({ ok: true as const, value: { price: 0, currency: 'USD' } }),

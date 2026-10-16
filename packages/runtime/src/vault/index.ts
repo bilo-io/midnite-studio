@@ -5,3 +5,6 @@
 export * from './secure-store';
 export * from './vault-service';
 export { createFakeCipher, type FakeCipher } from './testing';
+
+export * from './grants';
+export * from './grants-handlers';

@@ -17,4 +17,7 @@ export const vaultResponseSchemas: Readonly<Record<VaultChannel, ZodTypeAny>> = 
   [CHANNELS.forgeAccountRemove]: schemas.ForgeAccountRemoveResponse,
   [CHANNELS.dbListConnections]: schemas.DbListConnectionsResponse,
   [CHANNELS.dbDeleteConnection]: schemas.DbDeleteConnectionResponse,
+  [CHANNELS.vaultGrantsList]: schemas.VaultGrantsListResponse,
+  [CHANNELS.vaultGrantSet]: schemas.VaultGrantSetResponse,
+  [CHANNELS.vaultGrantRevoke]: schemas.VaultGrantRevokeResponse,
 };
