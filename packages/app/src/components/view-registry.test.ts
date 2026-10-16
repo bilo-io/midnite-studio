@@ -52,6 +52,8 @@ describe('VIEW_COMPONENT', () => {
         'optimizer',
         // Phase 113 Theme I: the machine's readouts, not one checkout's.
         'monitor',
+        // Phase 113 Theme J: the machine's stored credentials, not one checkout's.
+        'vault',
         'database',
         'sessions',
         'notes',

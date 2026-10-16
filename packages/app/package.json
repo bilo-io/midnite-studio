@@ -23,6 +23,7 @@
     "@floating-ui/dom": "^1.8.0",
     "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-feature-optimizer": "workspace:*",
+    "@midnite/studio-feature-vault": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@monaco-editor/react": "4.7.0",

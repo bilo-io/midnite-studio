@@ -364,6 +364,9 @@ importers:
       '@midnite/studio-feature-optimizer':
         specifier: workspace:*
         version: link:../features/optimizer
+      '@midnite/studio-feature-vault':
+        specifier: workspace:*
+        version: link:../features/vault
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../frame
