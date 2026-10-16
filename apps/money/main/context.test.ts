@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { financeManifest } from '@midnite/studio-feature-finance/main';
-import { createFakeCipher, createVaultService, type VaultAuthorize } from '@midnite/studio-runtime';
+import { createFakeCipher, createVaultGrants, createVaultService, type VaultAuthorize } from '@midnite/studio-runtime';
 import { CHANNELS } from '@midnite/studio-shared';
 
 import { registerMoneyHandlers } from './context';
@@ -53,8 +53,21 @@ describe('registerMoneyHandlers', () => {
     expect(handlers.has(CHANNELS.secretsSet)).toBe(false);
   });
 
-  it('reads the market-data key from the vault as money, and no answer contains it', async () => {
+  it('is denied the key by default — no grant, no key', async () => {
     const { handlers, urls } = await setup();
+    expect(await handlers.get(CHANNELS.secretsHas)?.({}, { key: KEY })).toEqual({ hasKey: false });
+    await handlers.get(CHANNELS.financeQuote)?.({}, { kind: 'stock', symbol: 'AAPL' });
+    expect(urls.filter((u) => u.includes('twelvedata'))).toEqual([]);
+  });
+
+  it('reads the key once the user grants Money the secrets namespace in Vault', async () => {
+    expect(createVaultGrants({ directory: join(dir, 'runtime') }).set('money', 'secrets', [KEY])).toBe(true);
+    const { handlers } = await setup();
+    expect(await handlers.get(CHANNELS.secretsHas)?.({}, { key: KEY })).toEqual({ hasKey: true });
+  });
+
+  it('reads the market-data key from the vault as money, and no answer contains it', async () => {
+    const { handlers, urls } = await setup(() => true);
     const quote = await handlers.get(CHANNELS.financeQuote)?.({}, { kind: 'stock', symbol: 'AAPL' });
     expect(quote).toEqual({ ok: true, value: { price: 10, currency: 'USD' } });
     expect(urls.some((u) => u.includes(`apikey=${SECRET}`))).toBe(true);

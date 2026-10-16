@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { createMarketsRuntime, financeMain, startRatesRefresh } from '@midnite/studio-feature-finance/main';
 import {
   createIpcContext,
+  createVaultGrants,
   createVaultService,
   type IpcContextElectron,
   type VaultAuthorize,
@@ -21,7 +22,10 @@ export type MoneyElectron = IpcContextElectron & {
   vaultDirectory: string;
   /** `safeStorage` in the app, a fake in tests — never the real keychain under test. */
   cipher: VaultCipher;
-  /** The per-app grants (Vault); absent, the runtime's default applies. */
+  /**
+   * Who may read what. Absent, the grants file the Vault app edits decides — so Money is denied the
+   * market-data key until the user grants it, never handed it by the runtime's allow-all default.
+   */
   authorize?: VaultAuthorize;
   /** The market transport: the real network in the app, a fixture in tests. */
   fetcher?: Parameters<typeof createMarketsRuntime>[1];
@@ -40,7 +44,7 @@ export function registerMoneyHandlers(el: MoneyElectron): () => void {
   const vault = createVaultService({
     directory: el.vaultDirectory,
     cipher: el.cipher,
-    ...(el.authorize ? { authorize: el.authorize } : {}),
+    authorize: el.authorize ?? createVaultGrants({ directory: el.vaultDirectory }).authorize,
   }).forApp('money');
   const runtime = createMarketsRuntime(join(el.userData, 'finance'), el.fetcher);
   financeMain.register(createIpcContext(el), {
