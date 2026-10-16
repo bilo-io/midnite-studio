@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
 
+import { guardAppWindow } from '@midnite/studio-runtime';
+
 import { registerVaultHandlers } from './context';
 import { VAULT_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, vaultDirectory, vaultUserData } from './identity';
 
@@ -73,6 +75,8 @@ function openWindow(): void {
       sandbox: true,
     },
   });
+  // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
+  guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   win.on('closed', () => {
     win = null;
   });

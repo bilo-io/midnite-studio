@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
 
+import { guardAppWindow } from '@midnite/studio-runtime';
+
 import { registerMoneyHandlers } from './context';
 import { MONEY_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, moneyUserData, moneyVaultDirectory } from './identity';
 
@@ -76,11 +78,8 @@ function openWindow(): void {
       sandbox: true,
     },
   });
-  // Money has no embedded browser: a link the renderer opens goes to the system browser, https only.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
-    return { action: 'deny' };
-  });
+  // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
+  guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   win.on('closed', () => {
     win = null;
   });

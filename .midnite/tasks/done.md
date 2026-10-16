@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-16 — Phase 113 (fix) — every suite app window refuses to navigate away from itself
+
+[PR #882](https://github.com/bilo-io/midnite-studio/pull/882). Only Money and Agents handled `window.open`, and no suite app handled a plain link, so a link in a doc, deck or chat could load a remote page into a window carrying the preload bridge; the runtime's `guardAppWindow` now blocks both and sends http(s) to the system browser, held by `scripts/app-window-guard.test.mjs`.
+
 ## 2026-10-16 — Phase 113 Theme N (slice 1) — Chats, Councils and Models as features, and apps/agents
 
 [PR #881](https://github.com/bilo-io/midnite-studio/pull/881). Three features with their main halves behind host ports, Midnite Agents composing them, the Ollama cloud key read only in main and behind the grants — and every app's moon `typecheck`/`test` now re-runs on a main-side change.
