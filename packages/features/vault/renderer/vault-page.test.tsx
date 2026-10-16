@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
+import { AGENT_SECRET_IDS } from '@midnite/studio-shared';
 
 import { VaultPage } from './vault-page';
 
@@ -49,7 +50,7 @@ describe('VaultPage', () => {
     expect(screen.getByText('Token stored')).toBeTruthy();
     expect(screen.getByText('Prod')).toBeTruthy();
     expect(screen.getByText(/postgres · db.example · svc/)).toBeTruthy();
-    await waitFor(() => expect(screen.getAllByText('Not set')).toHaveLength(5));
+    await waitFor(() => expect(screen.getAllByText('Not set')).toHaveLength(5 + AGENT_SECRET_IDS.length));
     expect(screen.getAllByText('Set', { selector: 'span' })).toHaveLength(1);
     expect(secrets.get).not.toHaveBeenCalled();
   });
@@ -75,8 +76,11 @@ describe('VaultPage', () => {
     expect(secrets.set).toHaveBeenCalledWith({ key: 'ollama.apiKey', value: '' });
   });
 
-  it('says LLM keys and web-app sign-ins are not in the vault yet', async () => {
+  it('lists LLM keys under their own heading and notes web-app sign-ins are not in the vault', async () => {
     mount();
     expect(await screen.findByText('Not in the vault yet')).toBeTruthy();
+    expect(screen.getByText('LLM keys')).toBeTruthy();
+    expect(screen.getByText('Claude API key')).toBeTruthy();
+    expect(screen.queryByText(/LLM provider keys/)).toBeNull();
   });
 });

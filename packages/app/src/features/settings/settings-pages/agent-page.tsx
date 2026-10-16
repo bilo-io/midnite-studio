@@ -4,8 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   LuBot,
   LuExternalLink,
-  LuEye,
-  LuEyeOff,
   LuFolder,
   LuFolderTree,
   LuGitCommitVertical,
@@ -48,6 +46,7 @@ import { submitCommand } from '../../terminal/submit-command';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { FileTree } from '../../files/file-tree';
 import { FilePreview } from '../../files/preview/file-preview';
+import { AgentKeyField } from './agent-key-field';
 import { Choice, Field } from './controls';
 
 /**
@@ -168,8 +167,6 @@ function AgentCard({
   onSetPrimary,
   mode,
   onModeChange,
-  apiKey,
-  onApiKeyChange,
   highlighted,
 }: {
   agent: AgentDefinition;
@@ -180,12 +177,9 @@ function AgentCard({
   onSetPrimary: () => void;
   mode: AgentMode;
   onModeChange: (mode: AgentMode) => void;
-  apiKey: string;
-  onApiKeyChange: (key: string) => void;
   /** Briefly true right after a dropdown routed a click on this row here. */
   highlighted?: boolean;
 }) {
-  const [showKey, setShowKey] = useState(false);
   const Icon = resolveAgentIcon(agent);
   const isInstalled = status?.installed === true;
   const isChecking = !status && probe === 'checking';
@@ -314,44 +308,7 @@ function AgentCard({
           </div>
         </div>
 
-        <div className="flex flex-1 min-w-[220px] items-center gap-2">
-          <span className="text-[11px] font-medium text-muted-foreground shrink-0">
-            {agent.apiKeyEnvVar ?? 'API Key'}:
-          </span>
-          <div className="relative flex-1">
-            <input
-              type={showKey ? 'text' : 'password'}
-              value={apiKey}
-              placeholder={agent.apiKeyEnvVar ? `Enter ${agent.apiKeyEnvVar}` : 'Enter API Key'}
-              onChange={(e) => onApiKeyChange(e.target.value)}
-              spellCheck={false}
-              aria-label={`${agent.label} API Key`}
-              className="h-7 w-full rounded border border-input bg-background pl-2 pr-14 font-mono text-xs outline-none focus-visible:border-primary"
-            />
-            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-              {apiKey ? (
-                <button
-                  type="button"
-                  onClick={() => onApiKeyChange('')}
-                  title="Clear key"
-                  aria-label={`Clear ${agent.label} API Key`}
-                  className="px-1 text-[11px] text-muted-foreground hover:text-foreground"
-                >
-                  ✕
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setShowKey((s) => !s)}
-                title={showKey ? 'Hide key' : 'Show key'}
-                aria-label={showKey ? 'Hide key' : 'Show key'}
-                className="p-1 text-muted-foreground hover:text-foreground"
-              >
-                {showKey ? <LuEyeOff className="h-3 w-3" /> : <LuEye className="h-3 w-3" />}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AgentKeyField agent={agent} />
       </div>
 
       {agent.backends?.includes('ollama') ? <OllamaBackendRow agent={agent} /> : null}
@@ -597,8 +554,6 @@ function AgentsRoster() {
   const setPrimaryAgent = useUiStore((s) => s.setPrimaryAgent);
   const agentModes = useUiStore((s) => s.agentModes);
   const setAgentMode = useUiStore((s) => s.setAgentMode);
-  const agentApiKeys = useUiStore((s) => s.agentApiKeys);
-  const setAgentApiKey = useUiStore((s) => s.setAgentApiKey);
 
   // An agent dropdown's "Configure" click lands here — scroll its card into
   // view and outline it briefly, then let it fade back into the roster.
@@ -632,8 +587,6 @@ function AgentsRoster() {
           onSetPrimary={() => setPrimaryAgent(agent.id)}
           mode={agentModes[agent.id] ?? DEFAULT_AGENT_MODE}
           onModeChange={(mode) => setAgentMode(agent.id, mode)}
-          apiKey={agentApiKeys[agent.id] ?? ''}
-          onApiKeyChange={(key) => setAgentApiKey(agent.id, key)}
           highlighted={agent.id === highlightedId}
         />
       ))}

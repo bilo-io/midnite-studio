@@ -131,6 +131,7 @@ import { useSyncRepoForgeRegistry } from './services/repo-forge-registry';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useReportWindowRepo } from './services/use-report-window-repo';
 import { useSettingsSync } from './services/use-settings-sync';
+import { migrateLegacyAgentApiKeys } from './store/migrate-agent-api-keys';
 import { migrateLegacyGithubAgentKey } from './store/migrate-forge-github-key';
 import { useWindowSync } from './services/use-window-sync';
 import { useTestsStream } from './features/tests/use-tests-stream';
@@ -714,6 +715,9 @@ function Shell() {
   // beyond React's own "runs once per mount" for an empty dependency array.
   useEffect(() => {
     void migrateLegacyGithubAgentKey();
+    // Phase 113 Theme J slice 2: the LLM keys beside it move into the vault too — a key leaves
+    // `agentApiKeys` only once the vault confirms it holds it.
+    void migrateLegacyAgentApiKeys();
   }, []);
 
   // Every shortcut, every native menu item and (Theme C+) the palette dispatch

@@ -34,7 +34,6 @@ export const PREFERENCE_KEYS = [
   'activityTimelineStyle', // activity-timeline-settings.tsx
   'agentSkills', // agent-page.tsx
   'agentModes', // agent-page.tsx
-  'agentApiKeys', // agent-page.tsx
   'agentBackends', // agent-page.tsx (Phase 96 Theme H)
   'headlessAiOllamaModel', // agent-page.tsx (Phase 96 Theme I)
   'skillExecutionMode', // agent-page.tsx
@@ -160,6 +159,7 @@ export const PREFERENCE_KEYS = [
 ] as const;
 
 export const SESSION_STATE_KEYS = [
+  'agentApiKeys', // legacy plaintext LLM keys awaiting migration into the vault (Phase 113 Theme J); no control, drains to {}
   'activityTimelineOpen', // whether a panel is currently showing
   'browserDetached', // runtime popout state, corrected from main's window registry
   'browserOpen', // whether a panel is currently showing
