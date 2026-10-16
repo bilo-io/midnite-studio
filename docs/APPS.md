@@ -367,6 +367,39 @@ root through the runtime's path jail, and reads image provider keys from the run
 (Creator has no agents yet) and Images uses the feature's plain create form. `MIDNITE_CREATOR_SMOKE=1`
 with `MIDNITE_CREATOR_USER_DATA=<tmp>` prints `midnite-creator:ready` and quits.
 
+### Money's brokerage and exchange accounts (Phase 113 Theme P slice 2)
+
+Read-only accounts live in the finance feature (`packages/features/finance/main/accounts/`). Trading is
+deferred (`outstanding.md`); nothing here can place, amend or cancel an order, withdraw or transfer.
+
+**The connector contract** (`accounts/connector.ts`). A connector is one file implementing
+`AccountConnector`: `id`, `label`, `assetClass`, the credential `fields` its form asks for,
+`supportsEnvironment`, a `readOnlyHint`, `allowedEndpoints` (an allowlist of `{method, path}`),
+`baseUrl(environment)`, and exactly three read methods, `balances()`, `positions()` and `history()`
+(equity points), each returning the normalised `Balance`, `Position` and `PerformancePoint` of
+`shared/src/finance-accounts.ts`. Adding one is a file: implement it, add its id to
+`ACCOUNT_CONNECTOR_IDS`, register it in `accounts/registry.ts`, add a recorded-fixture test.
+Shipped: **Alpaca** (stocks; paper or live) and **Kraken** (crypto; `API-Sign` is a pure,
+known-answer-tested function).
+
+**Read-only is enforced, not hoped for.** A connector never sees the transport: it is handed a
+`ReadOnlyRequester` built from its own allowlist, so any other `(method, path)` throws before the
+fetcher is called; a second guard refuses any path containing an order, trade, withdraw, transfer,
+cancel, deposit or wallet word even if allowlisted. `connectors.test.ts` asserts that sixteen
+order/withdraw/transfer paths cannot be built and that a connector exposes only read verbs. The add form
+tells the user to create a read-only key at the provider as the second lock.
+
+**Keys stay in main.** Credentials are stored in the runtime vault's `secrets` namespace as
+`finance.account.<connector>.<accountId>.<field>`: names no channel can ask for (`SecretKey` is an
+enum, so `secretsGet`/`secretsHas`/`secretsSet` reject them), set through `financeAccountAdd` (a
+write-only `fields` bag that is verified first and never echoed), read by main for one call, deleted
+by `financeAccountRemove`. Money's vault is behind the grants as before: without a grant to the
+`secrets` namespace an add fails and stores nothing. Non-secret metadata (`accounts.json`) lives
+beside the finance cache. Responses are walked by `response-schemas.test.ts` for key-like fields,
+and error text is scrubbed of the credential values it was built from. Snapshots are cached in
+main for 60 seconds; a failing account answers its own `error` and keeps its last good numbers, and
+never blanks another account.
+
 ## Knowledge's host port (decision, Phase 113 Theme M)
 
 Knowledge is frame-owned, so it moves to `packages/frame/src/knowledge/` behind a `KnowledgeHost` port rather than
