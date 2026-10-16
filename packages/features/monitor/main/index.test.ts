@@ -35,4 +35,10 @@ describe('monitor main', () => {
     const health = (await ctx.invoke(CHANNELS.systemHealth)) as { ollamaDaemon: { reachable: boolean; host: string } };
     expect(health.ollamaDaemon).toMatchObject({ reachable: false, host: 'http://127.0.0.1:1' });
   }, 20_000);
+
+  it('answers agent usage empty without sessions or a home dir', async () => {
+    const ctx = createRecordingContext();
+    monitorMain.register(ctx, {});
+    expect(await ctx.invoke(CHANNELS.monitorAgentUsage)).toEqual({ sessions: [], agents: [] });
+  });
 });

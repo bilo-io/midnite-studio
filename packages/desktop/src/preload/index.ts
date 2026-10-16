@@ -164,6 +164,7 @@ const bridge: Pick<
   | 'update'
   | 'systemHealth'
   | 'systemHealthStartSshAgent'
+  | 'monitorAgentUsage'
   | 'setup'
   | 'ollama'
   | 'gitIdentity'
@@ -871,6 +872,7 @@ const bridge: Pick<
   },
   systemHealth: () => call(CHANNELS.systemHealth),
   systemHealthStartSshAgent: () => call(CHANNELS.systemHealthStartSshAgent),
+  monitorAgentUsage: () => call(CHANNELS.monitorAgentUsage),
   setup: {
     probe: (req) => call(CHANNELS.setupProbe, req),
     reveal: (req) => call(CHANNELS.setupReveal, req),

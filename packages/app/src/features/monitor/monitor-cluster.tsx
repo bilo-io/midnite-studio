@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { Popover } from '../../components/popover';
 import { Tooltip } from '../../components/tooltip';
+import { requestHandoff } from '../../services/handoff';
 import { useMetricsStore, type MetricPoint } from '../../store/metrics-store';
 import { useUiStore } from '../../store/ui-store';
 import { MetricDonut, MonitorFlyout, Sparkline } from '@midnite/studio-feature-monitor/renderer';
@@ -58,7 +59,12 @@ export function MonitorCluster() {
         <MetricReadout key={id} id={id} value={latest![id]!} points={series[id]} />
       ))}
     >
-      <MonitorFlyout />
+      <MonitorFlyout
+        onOpenMonitor={() => {
+          setOpen(false);
+          void requestHandoff({ app: 'monitor', view: 'monitor' });
+        }}
+      />
     </Popover>
   );
 }

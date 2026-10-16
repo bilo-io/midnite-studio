@@ -1625,6 +1625,8 @@ export type MidniteStudioBridge = {
   };
 
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;
+  /** Per-session and per-agent token totals from the agents' own transcripts (Monitor). */
+  monitorAgentUsage?: () => Promise<z.infer<typeof S.MonitorAgentUsageResponse>>;
   systemHealthStartSshAgent?: () => Promise<z.infer<typeof S.SystemHealthStartSshAgentResponse>>;
 
   /**

@@ -46,6 +46,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       onMetricsService: (service) => {
         metrics = service;
       },
+      homeDir: app.getPath('home'),
       log,
     });
     openWindow();

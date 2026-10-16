@@ -27,10 +27,17 @@ describe('registerMonitorHandlers', () => {
   it('registers the feature channels plus the two crash-log reads, and nothing else', () => {
     const { handlers, on } = setup();
     expect([...handlers.keys(), ...on].sort()).toEqual(
-      [...monitorManifest.ipc, CHANNELS.reportLogPath, CHANNELS.reportBundle].sort(),
+      [...monitorManifest.ipc, CHANNELS.terminalList, CHANNELS.reportLogPath, CHANNELS.reportBundle].sort(),
     );
     // metrics start/stop are one-way sends
     expect(on).toEqual(new Set([CHANNELS.metricsStart, CHANNELS.metricsStop]));
+  });
+
+  it('lists no sessions without a broker, and says why', async () => {
+    const { handlers } = setup();
+    const res = (await handlers.get(CHANNELS.terminalList)?.({}, undefined)) as { sessions: unknown[]; broker: { mode: string } };
+    expect(res.sessions).toEqual([]);
+    expect(res.broker.mode).toBe('inproc');
   });
 
   it('hands main the sampler so it can pause on blur', () => {

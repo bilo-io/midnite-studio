@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as handoff from '../../services/handoff';
 import { useMetricsStore } from '../../store/metrics-store';
 import { useUiStore } from '../../store/ui-store';
 import { MonitorCluster } from './monitor-cluster';
@@ -104,5 +105,15 @@ describe('MonitorCluster', () => {
 
     const tooltip = await screen.findByRole('tooltip');
     expect(tooltip.textContent).toBe('HDD');
+  });
+
+  it('hands off to the Monitor app from the flyout and closes it', async () => {
+    const spy = vi.spyOn(handoff, 'requestHandoff').mockResolvedValue({ ok: true, via: 'local' });
+    useMetricsStore.getState().push({ at: Date.now(), cpu: 25, memory: 50, gpu: 15, disk: 80 });
+    render(<MonitorCluster />);
+    fireEvent.click(screen.getByTestId('monitor-cluster'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Monitor' }));
+    expect(spy).toHaveBeenCalledWith({ app: 'monitor', view: 'monitor' });
+    spy.mockRestore();
   });
 });

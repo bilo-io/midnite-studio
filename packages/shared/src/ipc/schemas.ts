@@ -2752,6 +2752,31 @@ export const SystemHealthResponse = z.object({
 });
 export type SystemHealth = z.infer<typeof SystemHealthResponse>;
 
+/** Summed token counts of one agent transcript. Tokens only — Monitor shows no prices. */
+export const AgentTokenTotalsSchema = z.object({
+  input: z.number().int().nonnegative(),
+  output: z.number().int().nonnegative(),
+  cacheRead: z.number().int().nonnegative(),
+  cacheCreate: z.number().int().nonnegative(),
+  model: z.string().optional(),
+});
+export type AgentTokenTotals = z.infer<typeof AgentTokenTotalsSchema>;
+
+/** Per-session totals for the live agent sessions, plus a per-agent roll-up. */
+export const MonitorAgentUsageResponse = z.object({
+  sessions: z.array(
+    z.object({
+      sessionId: z.string().min(1),
+      agentId: z.string().min(1),
+      title: z.string(),
+      /** `null`: no transcript could be matched to this session (yet). */
+      totals: AgentTokenTotalsSchema.nullable(),
+    }),
+  ),
+  agents: z.array(z.object({ agentId: z.string().min(1), sessions: z.number().int().nonnegative(), totals: AgentTokenTotalsSchema })),
+});
+export type MonitorAgentUsage = z.infer<typeof MonitorAgentUsageResponse>;
+
 // --- ollama (Phase 96 Theme B) -----------------------------------------------
 
 /** Plain, not `GitOpResult` — an unreachable daemon is data, not a failure. */

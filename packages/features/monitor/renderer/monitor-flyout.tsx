@@ -27,7 +27,7 @@ import {
  * on one set of axes invites a comparison ("the GPU is above the CPU") that
  * means nothing.
  */
-export function MonitorFlyout() {
+export function MonitorFlyout({ onOpenMonitor }: { onOpenMonitor?: () => void } = {}) {
   const series = useMetricsStore((state) => state.series);
   const latest = useMetricsStore((state) => state.latest);
 
@@ -138,6 +138,15 @@ export function MonitorFlyout() {
       >
         Sampling every 2s while this is open. A dashed rule marks where the interval changed.
       </p>
+      {onOpenMonitor ? (
+        <button
+          type="button"
+          onClick={onOpenMonitor}
+          className="mt-2 w-full rounded border border-border px-2 py-1 text-[11px] hover:bg-accent hover:text-foreground"
+        >
+          Open Monitor
+        </button>
+      ) : null}
     </div>
   );
 }

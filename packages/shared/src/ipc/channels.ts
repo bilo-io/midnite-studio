@@ -426,6 +426,8 @@ export const CHANNELS = {
   updateReleaseNotes: 'mstudio:update:release-notes',
   systemHealth: 'mstudio:system:health',
   systemHealthStartSshAgent: 'mstudio:system:health:start-ssh-agent',
+  /** Token totals read from each live agent session's own transcript (Phase 113 Theme I). */
+  monitorAgentUsage: 'mstudio:monitor:agent-usage',
   /** Probe setup-catalogue items by id (Phase 98 Theme D) — main owns the binary names, see `setup.ts`. */
   setupProbe: 'mstudio:setup:probe',
   /** Reveal a probed catalogue tool's binary in Finder, by catalogue id. */
