@@ -1,6 +1,6 @@
 import { LuCircleDot, LuExpand, LuListTree, LuMagnet } from 'react-icons/lu';
 
-import type { IconComponent } from '../../components/icon-button';
+import type { IconComponent } from '../chrome/types';
 
 /**
  * The layout pill row (Phase 89 Theme E) — one pressable pill per

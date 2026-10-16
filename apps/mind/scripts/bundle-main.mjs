@@ -21,6 +21,8 @@ const common = {
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
     '@midnite/studio-feature-notes/main': at('../../../packages/features/notes/main/index.ts'),
+    // The knowledge engine's `main` is tsc output; bundle its source, so no prior tsc build is needed.
+    '@midnite/studio-knowledge': at('../../../packages/knowledge/src/index.ts'),
     // The channel names alone, by source path: the shared barrel drags every zod schema (~400 KB) into the preload.
     '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
     // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.

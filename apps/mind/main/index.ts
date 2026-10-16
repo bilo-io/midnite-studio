@@ -43,6 +43,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
       },
       notesDirectory: app.getPath('userData'),
+      knowledgeCacheDirectory: join(app.getPath('userData'), 'knowledge-cache'),
       // eslint-disable-next-line no-console
       warn: (issue) => console.warn(`[mind] ${issue}`),
     });

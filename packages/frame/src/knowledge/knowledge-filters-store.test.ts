@@ -1,14 +1,15 @@
 // Layer: vitest — a zustand store, no DOM/canvas involved.
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { DEFAULT_RELATIONS } from './knowledge-filters';
 import {
+  bindKnowledgeSettings,
   DEFAULT_KNOWLEDGE_DETAIL,
   DEFAULT_KNOWLEDGE_LAYOUT,
   DEFAULT_KNOWLEDGE_VARIANT,
-  useUiStore,
-} from '../../store/ui-store';
-import { DEFAULT_RELATIONS } from './knowledge-filters';
-import { useKnowledgeFiltersStore } from './knowledge-filters-store';
+  useKnowledgeFiltersStore,
+} from './knowledge-filters-store';
+import { makeTestHost, resetTestHost, testPersisted } from './test-host';
 
 describe('useKnowledgeFiltersStore', () => {
   beforeEach(() => {
@@ -29,11 +30,8 @@ describe('useKnowledgeFiltersStore', () => {
       layoutId: DEFAULT_KNOWLEDGE_LAYOUT,
       detailId: DEFAULT_KNOWLEDGE_DETAIL,
     });
-    useUiStore.setState({
-      rendererVariant: DEFAULT_KNOWLEDGE_VARIANT,
-      layoutId: DEFAULT_KNOWLEDGE_LAYOUT,
-      knowledgeDetailId: DEFAULT_KNOWLEDGE_DETAIL,
-    });
+    resetTestHost();
+    bindKnowledgeSettings(makeTestHost());
   });
 
   it('resets to defaults on a scope (repo) change', () => {
@@ -156,18 +154,18 @@ describe('useKnowledgeFiltersStore', () => {
     expect(useKnowledgeFiltersStore.getState().rendererVariant).toBe('force-graph');
   });
 
-  it('setRendererVariant writes through to ui-store.ts, the actual persisted source', () => {
+  it('setRendererVariant writes through to the host, the actual persisted source', () => {
     useKnowledgeFiltersStore.getState().setRendererVariant('cytoscape');
     expect(useKnowledgeFiltersStore.getState().rendererVariant).toBe('cytoscape');
-    expect(useUiStore.getState().rendererVariant).toBe('cytoscape');
+    expect(testPersisted.settings.rendererVariant).toBe('cytoscape');
   });
 
-  it('detailId is not reset by ensureScope, and writes through to ui-store.ts', () => {
+  it('detailId is not reset by ensureScope, and writes through to the host', () => {
     useKnowledgeFiltersStore.getState().ensureScope('repo:1');
     useKnowledgeFiltersStore.getState().setDetailId('all');
     useKnowledgeFiltersStore.getState().ensureScope('repo:2');
     expect(useKnowledgeFiltersStore.getState().detailId).toBe('all');
-    expect(useUiStore.getState().knowledgeDetailId).toBe('all');
+    expect(testPersisted.settings.detailId).toBe('all');
   });
 
   it('layoutId is not reset by ensureScope — a UI preference, not repo-scoped state (Theme E)', () => {
@@ -177,9 +175,9 @@ describe('useKnowledgeFiltersStore', () => {
     expect(useKnowledgeFiltersStore.getState().layoutId).toBe('circlepack');
   });
 
-  it('setLayoutId writes through to ui-store.ts, the actual persisted source (Theme E)', () => {
+  it('setLayoutId writes through to the host, the actual persisted source (Theme E)', () => {
     useKnowledgeFiltersStore.getState().setLayoutId('hierarchical');
     expect(useKnowledgeFiltersStore.getState().layoutId).toBe('hierarchical');
-    expect(useUiStore.getState().layoutId).toBe('hierarchical');
+    expect(testPersisted.settings.layoutId).toBe('hierarchical');
   });
 });

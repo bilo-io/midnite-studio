@@ -10,6 +10,7 @@ import { notesManifest } from '@midnite/studio-feature-notes/main';
 import { CHANNELS } from '@midnite/studio-shared';
 
 import { registerMindHandlers } from './context';
+import { MIND_KNOWLEDGE_CHANNELS } from './knowledge';
 
 const dirs: string[] = [];
 afterEach(async () => {
@@ -26,14 +27,15 @@ async function setup() {
     trashItem: async () => undefined,
     send: () => undefined,
     notesDirectory: dir,
+    knowledgeCacheDirectory: join(dir, 'knowledge-cache'),
   });
   return { handlers, on, store };
 }
 
 describe('registerMindHandlers', () => {
-  it('registers exactly the notes feature channels', async () => {
+  it('registers exactly the notes feature channels and the three Knowledge ones', async () => {
     const { handlers, on } = await setup();
-    expect([...handlers.keys(), ...on.keys()].sort()).toEqual([...notesManifest.ipc].sort());
+    expect([...handlers.keys(), ...on.keys()].sort()).toEqual([...notesManifest.ipc, ...MIND_KNOWLEDGE_CHANNELS].sort());
     expect(new Set(on.keys())).toEqual(new Set([CHANNELS.notesSave, CHANNELS.notesDelete, CHANNELS.notesReorder]));
   });
 

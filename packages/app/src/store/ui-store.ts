@@ -103,7 +103,7 @@ export type NavMode = 'auto' | 'expanded' | 'collapsed';
 /**
  * A Knowledge canvas renderer's persisted id (Phase 89 Theme A).
  *
- * Declared here, not imported from `features/knowledge/renderer-contract.ts`,
+ * Declared here, not imported from `frame/src/knowledge/renderer-contract.ts`,
  * for the same reason as `NavMode` above is declared rather than imported —
  * except the constraint here is a bundling one, not a packaging one: that
  * file is reached only through `KnowledgeCanvas`'s own `React.lazy`/dynamic
@@ -130,7 +130,7 @@ export const DEFAULT_KNOWLEDGE_LAYOUT: KnowledgeLayoutId = 'force-atlas2';
 
 /**
  * How much of a large knowledge graph the canvas mounts up front — one of
- * `features/knowledge/knowledge-detail.ts`'s `DETAIL_LEVELS` (`core`,
+ * `frame/src/knowledge/knowledge-detail.ts`'s `DETAIL_LEVELS` (`core`,
  * `extended`, `all`). A plain `string` for the same reason the two ids
  * above are: `resolveDetailLevel` there is the validation, falling back to
  * the smallest budget for an unknown or removed id.
@@ -1210,7 +1210,7 @@ export type UiState = {
    * Phase 89 Theme A: which Knowledge canvas renderer is active — sigma
    * today, one alternative library per later theme. A plain `string`, not
    * the feature's own `KnowledgeVariantId` union, so this store never has
-   * to statically import `features/knowledge/renderer-contract.ts` — that
+   * to statically import `frame/src/knowledge/renderer-contract.ts` — that
    * file's whole point is staying behind a `Suspense`/`lazy` boundary, and
    * `ui-store.ts` is part of the app's entry bundle. `resolveVariant` (in
    * that file) is what actually validates an id against the live registry

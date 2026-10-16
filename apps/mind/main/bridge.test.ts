@@ -15,9 +15,10 @@ function fakeIpc(): RendererIpc {
 }
 
 describe('createMindBridge', () => {
-  it('exposes only notes, and only its four calls', () => {
+  it('exposes only notes and knowledge, and only their calls', () => {
     const bridge = createMindBridge(fakeIpc());
-    expect(Object.keys(bridge)).toEqual(['notes']);
+    expect(Object.keys(bridge)).toEqual(['notes', 'knowledge']);
+    expect(Object.keys(bridge.knowledge).sort()).toEqual(['checkGraph', 'getGraph', 'getNodeDetail', 'onLayoutProgress']);
     expect(Object.keys(bridge.notes).sort()).toEqual(['capture', 'delete', 'list', 'reorder', 'reviewDue', 'reviewGrade', 'save']);
   });
 

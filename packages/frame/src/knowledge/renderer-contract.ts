@@ -4,7 +4,7 @@ import { LuBoxes, LuNetwork, LuOrbit, LuSparkles } from 'react-icons/lu';
 
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
-import type { IconComponent } from '../../components/icon-button';
+import type { IconComponent } from '../chrome/types';
 import type { KnowledgeFilterState } from './knowledge-filters';
 
 /**

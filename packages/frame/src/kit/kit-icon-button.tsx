@@ -13,6 +13,10 @@ export function KitIconButton({
   disabledReason,
   busy,
   children,
+  className = '',
+  'aria-pressed': ariaPressed,
+  'aria-expanded': ariaExpanded,
+  'data-testid': testId,
 }: IconButtonProps) {
   const isDisabled = Boolean(disabled || disabledReason || busy);
   return (
@@ -23,8 +27,11 @@ export function KitIconButton({
       aria-disabled={isDisabled}
       aria-busy={busy || undefined}
       disabled={disabled || undefined}
+      aria-pressed={ariaPressed}
+      aria-expanded={ariaExpanded}
+      data-testid={testId}
       onClick={isDisabled ? undefined : onClick}
-      className="inline-flex items-center justify-center gap-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+      className={`inline-flex items-center justify-center gap-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-40 ${className}`}
     >
       <Icon className="h-4 w-4" />
       {children}

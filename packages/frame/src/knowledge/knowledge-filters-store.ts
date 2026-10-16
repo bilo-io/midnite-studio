@@ -1,14 +1,6 @@
 import { create } from 'zustand';
 
-import {
-  DEFAULT_KNOWLEDGE_DETAIL,
-  DEFAULT_KNOWLEDGE_LAYOUT,
-  DEFAULT_KNOWLEDGE_VARIANT,
-  useUiStore,
-  type KnowledgeDetailId,
-  type KnowledgeLayoutId,
-  type KnowledgeVariantId,
-} from '../../store/ui-store';
+import type { KnowledgeHost } from './knowledge-host';
 import { defaultFilterState, type KnowledgeFilterState } from './knowledge-filters';
 
 /**
@@ -28,14 +20,11 @@ import { defaultFilterState, type KnowledgeFilterState } from './knowledge-filte
  * shape below — a field, a setter, left out of `ensureScope`'s reset — but
  * unlike `communityListMode` it also needs to survive an app restart
  * (Decision 1), which this store's own `create()` has no `persist`
- * middleware for. `ui-store.ts` is the actual persisted source of truth
- * (alongside `graphTheme`); this store's copy is seeded from it once at
- * module init (`useUiStore`'s `persist` middleware hydrates from
- * `localStorage` synchronously, before this module's own top-level code
- * runs) and its setter writes through to `ui-store.ts` on every change, so
- * every reader in the Knowledge feature can keep using this store's own
- * selectors — the same as every other UI-state field here — without
- * reaching into `ui-store.ts` directly.
+ * middleware for. The host (`knowledge-host.tsx`) is the actual persisted
+ * source of truth — Studio's `ui-store.ts`; this store's copy is seeded from
+ * it when the host binds (`bindKnowledgeSettings`) and its setter writes
+ * through to the host on every change, so every reader in the Knowledge view
+ * can keep using this store's own selectors without reaching for the host.
  */
 export type CommunityListMode = 'list' | 'tree';
 
@@ -55,7 +44,7 @@ type KnowledgeFiltersState = {
   flyToNodeId: string | null;
   communityListMode: CommunityListMode;
   /** Which Knowledge canvas renderer is active — persisted globally via `ui-store.ts`, see the docblock above. */
-  rendererVariant: KnowledgeVariantId;
+  rendererVariant: string;
   /**
    * Which worker-computed layout is active (Phase 89 Theme E) — the same
    * "persisted globally via `ui-store.ts`, seeded once at module init, writes
@@ -63,13 +52,13 @@ type KnowledgeFiltersState = {
    * and for the identical reason: a UI preference, not per-repo scope, so it
    * is deliberately outside `ensureScope`'s reset.
    */
-  layoutId: KnowledgeLayoutId;
+  layoutId: string;
   /**
    * The detail budget (`knowledge-detail.ts`) — how much of a large graph the
    * canvas mounts before anything is searched for or expanded. Same persisted
    * shape and reasoning as `layoutId` directly above.
    */
-  detailId: KnowledgeDetailId;
+  detailId: string;
 
   ensureScope: (scopeKey: string) => void;
   setQuery: (query: string) => void;
@@ -88,10 +77,37 @@ type KnowledgeFiltersState = {
   collapseAllCommunities: (communityNames: readonly string[]) => void;
   expandAllCommunities: () => void;
   setCommunityListMode: (mode: CommunityListMode) => void;
-  setRendererVariant: (variant: KnowledgeVariantId) => void;
-  setLayoutId: (layoutId: KnowledgeLayoutId) => void;
-  setDetailId: (detailId: KnowledgeDetailId) => void;
+  setRendererVariant: (variant: string) => void;
+  setLayoutId: (layoutId: string) => void;
+  setDetailId: (detailId: string) => void;
 };
+
+export const DEFAULT_KNOWLEDGE_VARIANT = 'atlas';
+export const DEFAULT_KNOWLEDGE_LAYOUT = 'force-atlas2';
+export const DEFAULT_KNOWLEDGE_DETAIL = 'core';
+
+/** The host currently bound (Phase 113 Theme M): where a preference change is persisted to. */
+let boundHost: KnowledgeHost | null = null;
+
+function writeSetting(patch: Parameters<KnowledgeHost['setSettings']>[0]): void {
+  boundHost?.setSettings(patch);
+}
+
+/**
+ * Seeds the store's three persisted preferences from the host and routes every later change back
+ * to it. Idempotent per host: `KnowledgeHostProvider` calls it on every render, and only a new
+ * host re-seeds. Called during the provider's render, before any child reads the store.
+ */
+export function bindKnowledgeSettings(host: KnowledgeHost): void {
+  if (boundHost === host) return;
+  boundHost = host;
+  const settings = host.getSettings();
+  useKnowledgeFiltersStore.setState({
+    rendererVariant: settings.rendererVariant || DEFAULT_KNOWLEDGE_VARIANT,
+    layoutId: settings.layoutId || DEFAULT_KNOWLEDGE_LAYOUT,
+    detailId: settings.detailId || DEFAULT_KNOWLEDGE_DETAIL,
+  });
+}
 
 export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, get) => ({
   scopeKey: null,
@@ -100,13 +116,10 @@ export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, ge
   collapsedCommunities: new Set(),
   flyToNodeId: null,
   communityListMode: 'list',
-  // `useUiStore`'s `persist` middleware hydrates synchronously from
-  // `localStorage` (no custom async storage, no `skipHydration`), so this
-  // read — at this store's own module-init time — already sees the
-  // restored value, not the default.
-  rendererVariant: useUiStore.getState().rendererVariant || DEFAULT_KNOWLEDGE_VARIANT,
-  layoutId: useUiStore.getState().layoutId || DEFAULT_KNOWLEDGE_LAYOUT,
-  detailId: useUiStore.getState().knowledgeDetailId || DEFAULT_KNOWLEDGE_DETAIL,
+  // Defaults until `bindKnowledgeSettings` seeds them from the host's persisted values.
+  rendererVariant: DEFAULT_KNOWLEDGE_VARIANT,
+  layoutId: DEFAULT_KNOWLEDGE_LAYOUT,
+  detailId: DEFAULT_KNOWLEDGE_DETAIL,
 
   ensureScope: (scopeKey) => {
     if (get().scopeKey === scopeKey) return;
@@ -182,16 +195,16 @@ export const useKnowledgeFiltersStore = create<KnowledgeFiltersState>()((set, ge
 
   setRendererVariant: (variant) => {
     set({ rendererVariant: variant });
-    useUiStore.getState().setRendererVariant(variant);
+    writeSetting({ rendererVariant: variant });
   },
 
   setLayoutId: (layoutId) => {
     set({ layoutId });
-    useUiStore.getState().setLayoutId(layoutId);
+    writeSetting({ layoutId });
   },
 
   setDetailId: (detailId) => {
     set({ detailId });
-    useUiStore.getState().setKnowledgeDetailId(detailId);
+    writeSetting({ detailId });
   },
 }));

@@ -9,11 +9,12 @@ import { NotesHostProvider } from '@midnite/studio-feature-notes/renderer';
 import { OptimizerHostProvider } from '@midnite/studio-feature-optimizer/renderer';
 import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
 import { WorkflowsHostProvider } from '@midnite/studio-feature-workflows/renderer';
-import { FrameChromeProvider } from '@midnite/studio-frame';
+import { FrameChromeProvider, KnowledgeHostProvider } from '@midnite/studio-frame';
 
 import { STUDIO_CHATS_HOST } from './chats-host';
 import { STUDIO_COUNCILS_HOST } from './councils-host';
 import { STUDIO_FINANCE_HOST } from './finance-host';
+import { STUDIO_KNOWLEDGE_HOST } from './knowledge-host';
 import { STUDIO_MEDIA_HOST } from './media-host';
 import { STUDIO_MODELS_HOST } from './models-host';
 import { STUDIO_NOTES_HOST } from './notes-host';
@@ -46,7 +47,9 @@ export function StudioProviders({ children }: { children: ReactNode }) {
                 <CouncilsHostProvider host={STUDIO_COUNCILS_HOST}>
                   <ChatsHostProvider host={STUDIO_CHATS_HOST}>
                     <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
-                      <WorkflowsHostProvider host={STUDIO_WORKFLOWS_HOST}>{children}</WorkflowsHostProvider>
+                      <WorkflowsHostProvider host={STUDIO_WORKFLOWS_HOST}>
+                        <KnowledgeHostProvider host={STUDIO_KNOWLEDGE_HOST}>{children}</KnowledgeHostProvider>
+                      </WorkflowsHostProvider>
                     </SlidesHostProvider>
                   </ChatsHostProvider>
                 </CouncilsHostProvider>

@@ -1,6 +1,6 @@
 import { LuGlobe, LuLayers, LuTarget } from 'react-icons/lu';
 
-import type { IconComponent } from '../../components/icon-button';
+import type { IconComponent } from '../chrome/types';
 import {
   formatNodeCount,
   mountedNodeCount,

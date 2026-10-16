@@ -14,5 +14,6 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.{ts,tsx}', 'tailwind-preset.test.ts'],
     environment: 'jsdom',
+    setupFiles: ['./src/vitest-setup.ts'],
   },
 });

@@ -11,6 +11,8 @@ export default defineConfig({
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
+      '@midnite/studio-frame/knowledge': at('../../packages/frame/src/knowledge/index.ts'),
+      '@midnite/studio-knowledge': at('../../packages/knowledge/src/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
       '@midnite/studio-runtime': at('../../packages/runtime/src/index.ts'),
       '@midnite/studio-feature-notes/main': at('../../packages/features/notes/main/index.ts'),

@@ -439,12 +439,18 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-knowledge':
+        specifier: workspace:*
+        version: link:../../packages/knowledge
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
       '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@tanstack/react-query':
+        specifier: ^5.62.0
+        version: 5.102.3(react@19.2.8)
       react:
         specifier: ^19.0.0
         version: 19.2.8
@@ -2227,9 +2233,18 @@ importers:
       '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../shared
+      '@tanstack/react-virtual':
+        specifier: ^3.11.2
+        version: 3.14.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      graphology:
+        specifier: ^0.26.0
+        version: 0.26.0(graphology-types@0.24.8)
       react-icons:
         specifier: ^5.7.0
         version: 5.7.0(react@19.2.8)
+      sigma:
+        specifier: ^3.0.3
+        version: 3.0.3(graphology-types@0.24.8)
       zustand:
         specifier: ^5.0.2
         version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))

@@ -1,7 +1,8 @@
 // vitest/jsdom: DOM text/roles, no canvas involved.
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { render } from './test-host';
 import { KnowledgeFiltersPanel } from './knowledge-filters-panel';
 import { defaultFilterState } from './knowledge-filters';
 

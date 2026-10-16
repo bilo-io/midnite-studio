@@ -33,7 +33,7 @@ import { WebAppsRailRow } from './features/web-apps/web-apps-rail-row';
 import { useWebAppsSync } from './features/web-apps/use-web-apps-sync';
 // The frame (Phase 113 Theme C): the chrome every app wears. The layout
 // pieces below are the first to leave this file for it.
-import { CONTENT_BOX, DelayedFallback, NavLockToggle } from '@midnite/studio-frame';
+import { CONTENT_BOX, DelayedFallback, NavLockToggle, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
 import { STUDIO_SLIDES_HOST } from './compose/slides-host';
 import { StudioProviders } from './compose/studio-providers';
@@ -105,7 +105,6 @@ import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
 import { usePruneClosedRepos } from './features/repos/use-prune-closed-repos';
 import { primaryTarget } from './features/repos/use-repo-actions';
-import { useKnowledgeGraphExists } from './features/knowledge/use-knowledge-graph';
 
 import { SyncActions } from './features/status/sync-actions';
 import { useDeepLinks } from './services/deep-link';

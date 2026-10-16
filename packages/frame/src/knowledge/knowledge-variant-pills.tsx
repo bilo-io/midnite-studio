@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
 import { LuEllipsis } from 'react-icons/lu';
 
-import { Popover } from '../../components/popover';
+import { useKnowledgeHost } from './knowledge-host';
 import { VARIANTS, type KnowledgeVariant, type KnowledgeVariantId } from './renderer-contract';
 
 /**
@@ -27,6 +27,7 @@ export function KnowledgeVariantPills({
   activeId: KnowledgeVariantId;
   onSelect: (id: KnowledgeVariantId) => void;
 }) {
+  const { Popover } = useKnowledgeHost();
   const { containerRef, measureRef, visible, overflow } = useOverflowVariants(VARIANTS);
   const [menuOpen, setMenuOpen] = useState(false);
 

@@ -6,8 +6,8 @@ import type { EdgeProgramType } from 'sigma/rendering';
 
 import type { KnowledgeGraphNode, KnowledgeGraphPayload } from '@midnite/studio-shared';
 
-import { resolveSystemMotion, useAppearanceStore } from '../../store/appearance-store';
 import { PULSES, PulseTracker } from './knowledge-bounce';
+import { useKnowledgeHost } from './knowledge-host';
 import {
   ALPHA_RAMP_MS,
   AlphaRampTracker,
@@ -290,12 +290,6 @@ type LiveState = {
   alphaRamp: AlphaRampTracker;
 };
 
-/** Mirrors `useResolvedMotion()` (`appearance-store.ts`) without the hook machinery — `mount()` is called imperatively, outside React's render, so it reads the store directly instead of subscribing to it. */
-function resolveReducedMotion(): boolean {
-  const motion = useAppearanceStore.getState().motion;
-  return motion === 'system' ? resolveSystemMotion() === 'reduced' : motion === 'reduced';
-}
-
 function initialLiveState(): LiveState {
   return {
     filters: {
@@ -346,6 +340,8 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
   private payload: KnowledgeGraphPayload | null = null;
   private callbacks: KnowledgeRendererCallbacks | null = null;
   private live: LiveState = initialLiveState();
+  /** The host's motion answer (Phase 113 Theme M) - read imperatively, since `mount()` runs outside React's render. */
+  private readonly prefersReducedMotion: () => boolean;
   private pulseFrame: number | null = null;
   /** Theme B — the intro burst's own rAF loop, cancelled in `dispose()` exactly like `pulseFrame`. */
   private introFrame: number | null = null;
@@ -369,6 +365,10 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
   private linksByNode: ReadonlyMap<string, number[]> = new Map();
   private degrees: ReadonlyMap<string, number> = new Map();
   private membersByCommunity: ReadonlyMap<string, KnowledgeGraphNode[]> = new Map();
+
+  constructor(prefersReducedMotion: () => boolean = () => false) {
+    this.prefersReducedMotion = prefersReducedMotion;
+  }
 
   mount(
     container: HTMLDivElement,
@@ -397,7 +397,7 @@ export class SigmaKnowledgeRenderer implements KnowledgeRenderer {
     this.live = initialLiveState();
     const live = this.live;
     live.theme = readThemeColors();
-    live.reducedMotion = resolveReducedMotion();
+    live.reducedMotion = this.prefersReducedMotion();
 
     // Constellation's glow threshold — the payload's own 95th-percentile
     // degree, so "high-degree" scales with the repo instead of a fixed
@@ -1500,7 +1500,8 @@ export default function SigmaKnowledgeCanvas({
 }: KnowledgeVariantProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<SigmaKnowledgeRenderer | null>(null);
-  if (rendererRef.current === null) rendererRef.current = new SigmaKnowledgeRenderer();
+  const host = useKnowledgeHost();
+  if (rendererRef.current === null) rendererRef.current = new SigmaKnowledgeRenderer(host.prefersReducedMotion);
 
   const look = normalizeLook(useKnowledgeFiltersStore((s) => s.rendererVariant));
 
