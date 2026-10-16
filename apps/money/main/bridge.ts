@@ -4,12 +4,13 @@ import { CHANNELS } from '@midnite/studio-shared/ipc/channels';
 
 /**
  * The slice of `window.midniteStudio` Money exposes — exactly what the finance feature's renderer
- * calls, and nothing else: `finance.*`, `markets.*` and `secrets.has` (a boolean about the
+ * calls, and nothing else: `finance.*`, `financeAccounts.*`, `markets.*` and `secrets.has` (a boolean about the
  * market-data key, never its value). Every other bridge namespace is deliberately absent, and so
  * is `secrets.get`/`secrets.set` (`bridge.test.ts` holds the list).
  */
 export type MoneyBridge = {
   finance: MidniteStudioBridge['finance'];
+  financeAccounts: MidniteStudioBridge['financeAccounts'];
   markets: MidniteStudioBridge['markets'];
   secrets: Pick<MidniteStudioBridge['secrets'], 'has'>;
 };
@@ -23,6 +24,13 @@ export function createMoneyBridge(ipc: RendererIpc): MoneyBridge {
       search: (req) => call(CHANNELS.financeSearch, req),
       quote: (req) => call(CHANNELS.financeQuote, req),
       history: (req) => call(CHANNELS.financeHistory, req),
+    },
+    financeAccounts: {
+      list: () => call(CHANNELS.financeAccountsList),
+      test: (req) => call(CHANNELS.financeAccountTest, req),
+      add: (req) => call(CHANNELS.financeAccountAdd, req),
+      remove: (req) => call(CHANNELS.financeAccountRemove, req),
+      snapshots: (req) => call(CHANNELS.financeAccountSnapshots, req),
     },
     markets: {
       series: (req) => call(CHANNELS.marketsSeries, req),

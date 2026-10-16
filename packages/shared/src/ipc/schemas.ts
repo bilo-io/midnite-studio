@@ -10,6 +10,15 @@ import { MapOpenEventSchema } from '../media-map-mcp';
 
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
 import {
+  AccountConnectorIdSchema,
+  AccountConnectorInfoSchema,
+  AccountEnvironmentSchema,
+  AccountIdSchema,
+  AccountSnapshotSchema,
+  AllocationSliceSchema,
+  BrokerAccountSchema,
+} from '../finance-accounts';
+import {
   ChatAttachmentSchema,
   ChatChangeDecisionSchema,
   ChatChangeSetSchema,
@@ -4658,6 +4667,43 @@ export const FinanceHistoryRequest = z.object({
 export const FinanceSearchResponse = GitOpResultOf(z.array(FinanceSearchResultSchema));
 export const FinanceQuoteResponse = GitOpResultOf(FinanceQuoteSchema);
 export const FinanceHistoryResponse = GitOpResultOf(z.array(FinanceHistoryPointSchema));
+
+// --- finance accounts: read-only brokerage and exchange connectors (Phase 113 Theme P slice 2) -----
+
+/** The write-only credential bag: keyed by the connector's declared field names, values never echoed. */
+const AccountFieldsSchema = z.record(z.string().min(1).max(40), z.string().min(1).max(4096));
+
+export const FinanceAccountsListResponse = GitOpResultOf(
+  z.object({
+    connectors: z.array(AccountConnectorInfoSchema),
+    accounts: z.array(BrokerAccountSchema),
+  }),
+);
+export const FinanceAccountTestRequest = z.object({
+  connector: AccountConnectorIdSchema,
+  environment: AccountEnvironmentSchema.default('paper'),
+  fields: AccountFieldsSchema,
+});
+export const FinanceAccountTestResponse = GitOpResultOf(z.object({ summary: z.string() }));
+export const FinanceAccountAddRequest = FinanceAccountTestRequest.extend({
+  label: z.string().trim().min(1).max(60),
+});
+export const FinanceAccountAddResponse = GitOpResultOf(z.object({ account: BrokerAccountSchema }));
+export const FinanceAccountRemoveRequest = z.object({ id: AccountIdSchema });
+export const FinanceAccountRemoveResponse = GitOpResultOf(z.object({ removed: z.boolean() }));
+export const FinanceAccountSnapshotsRequest = z.object({
+  /** Bypass the TTL cache once. */
+  refresh: z.boolean().optional(),
+  /** Limit to one account. */
+  id: AccountIdSchema.optional(),
+});
+export const FinanceAccountSnapshotsResponse = GitOpResultOf(
+  z.object({
+    snapshots: z.array(AccountSnapshotSchema),
+    /** Allocation across the accounts returned, one slice per account (errored accounts drop out). */
+    byAccount: z.array(AllocationSliceSchema),
+  }),
+);
 
 // --- markets: the Finance dashboard (key-free, USD-denominated) -----------------
 

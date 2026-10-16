@@ -136,3 +136,45 @@ describe('finance main — the market-data key', () => {
     expect(urls[0]).not.toContain('apikey');
   });
 });
+
+describe('finance main — accounts', () => {
+  const account = { id: 'alpaca-1', connector: 'alpaca', label: 'Paper', environment: 'paper', createdAt: 1 };
+  const services = (accounts?: unknown) => {
+    const ctx = createRecordingContext();
+    financeMain.register(ctx, { runtime: runtime() as unknown as MarketsRuntime, twelveDataKey: async () => null, ...(accounts ? { accounts: accounts as never } : {}) });
+    return ctx;
+  };
+
+  it('answers every account channel with an error envelope when the composer gave no accounts', async () => {
+    const ctx = services();
+    expect(await ctx.invoke(CHANNELS.financeAccountsList)).toMatchObject({ ok: false, kind: 'error' });
+    expect(await ctx.invoke(CHANNELS.financeAccountSnapshots, {})).toMatchObject({ ok: false });
+  });
+
+  it('wraps the service answers and turns a throw into a failure envelope', async () => {
+    const accounts = {
+      list: vi.fn(async () => ({ connectors: [], accounts: [account] })),
+      test: vi.fn(async () => 'Connected — 1 balance found.'),
+      add: vi.fn(async () => account),
+      remove: vi.fn(async () => true),
+      snapshots: vi.fn(async () => []),
+    };
+    const ctx = services(accounts);
+    expect(await ctx.invoke(CHANNELS.financeAccountsList)).toMatchObject({ ok: true, value: { accounts: [account] } });
+    const fields = { apiKeyId: 'a', apiSecret: 'b' };
+    expect(await ctx.invoke(CHANNELS.financeAccountTest, { connector: 'alpaca', fields })).toMatchObject({ ok: true });
+    expect(accounts.test).toHaveBeenCalledWith({ connector: 'alpaca', environment: 'paper', fields });
+    expect(await ctx.invoke(CHANNELS.financeAccountAdd, { connector: 'alpaca', fields, label: 'Paper' })).toEqual({ ok: true, value: { account } });
+    expect(await ctx.invoke(CHANNELS.financeAccountRemove, { id: 'alpaca-1' })).toEqual({ ok: true, value: { removed: true } });
+    accounts.snapshots.mockRejectedValueOnce(new Error('boom'));
+    expect(await ctx.invoke(CHANNELS.financeAccountSnapshots, { refresh: true })).toEqual({ ok: false, kind: 'error', message: 'boom' });
+  });
+
+  it('rejects a malformed request before it reaches the service', async () => {
+    const accounts = { add: vi.fn() };
+    const ctx = services(accounts);
+    expect(await ctx.invoke(CHANNELS.financeAccountAdd, { connector: 'binance', fields: {}, label: 'x' })).toMatchObject({ ok: false });
+    expect(await ctx.invoke(CHANNELS.financeAccountRemove, { id: '../../etc' })).toMatchObject({ ok: false });
+    expect(accounts.add).not.toHaveBeenCalled();
+  });
+});

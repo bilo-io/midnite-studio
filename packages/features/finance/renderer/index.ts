@@ -29,6 +29,7 @@ export { Sparkline } from './finance/sparkline';
 export { FINANCE_PERSIST_KEY, FINANCE_WATCHLIST_MAX, useFinanceStore } from './finance/finance-store';
 
 // Dashboard widgets.
+export { AccountsWidget } from './accounts/accounts-widget';
 export { AllocationWidget } from './dashboard/allocation-widget';
 export { AssetListWidget } from './dashboard/asset-list-widget';
 export { AssetStackWidget } from './dashboard/asset-stack-widget';

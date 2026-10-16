@@ -168,6 +168,15 @@ export const WIDGETS: Record<WidgetId, WidgetSpec> = {
     minW: 3,
     minH: 6,
   },
+  'fin-accounts': {
+    id: 'fin-accounts',
+    title: 'Accounts',
+    description: 'Read-only brokerage and exchange accounts: balances, positions, allocation and performance.',
+    source: 'none',
+    category: 'finance',
+    minW: 4,
+    minH: 9,
+  },
   'fin-chart': {
     id: 'fin-chart',
     title: 'Chart',

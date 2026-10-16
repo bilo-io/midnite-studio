@@ -1475,6 +1475,19 @@ export const CHANNELS = {
   /** Headlines from RSS feeds and Google News searches. */
   marketsNews: 'mstudio:markets:news',
 
+  // --- finance accounts: read-only brokerage and exchange connectors (Phase 113 Theme P slice 2) ---
+  // No channel here places, amends or cancels an order, withdraws or transfers; no response carries a credential.
+  /** The connectors the add form offers, and the saved accounts' non-secret metadata. */
+  financeAccountsList: 'mstudio:finance:accounts-list',
+  /** Check a credential set against its provider without saving it. Values never answer back. */
+  financeAccountTest: 'mstudio:finance:account-test',
+  /** Verify, then save an account; its credential goes into the vault, write-only. */
+  financeAccountAdd: 'mstudio:finance:account-add',
+  /** Forget an account and delete its stored credential. */
+  financeAccountRemove: 'mstudio:finance:account-remove',
+  /** Balances, positions, allocation and performance for every account (or one), cached with a TTL. */
+  financeAccountSnapshots: 'mstudio:finance:account-snapshots',
+
   // --- knowledge (Phase 87) ---------------------------------------------------
   // The Knowledge view's read-only surface over `graphify-out/graph.json`. The
   // app never runs graphify (phase doc, Decision 4) — every channel below only
