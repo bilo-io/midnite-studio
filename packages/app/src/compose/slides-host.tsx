@@ -13,7 +13,8 @@ import { ExternalLink } from '../features/markdown/external-link';
  * The deck joins Studio's overlay machinery exactly as it did when it lived here: two entries on the
  * dismissal stack (Escape closes the help overlay first, then the deck), the shared focus trap, the
  * occluder registry that hides the browser pane, the guarded external-link opener, and the one shiki
- * instance. Installed by `StudioProviders`, because `SlidesModal` is mounted at the app's root.
+ * instance. `StudioProviders` installs it, and `app.tsx` installs it again around `SlidesModal`, which is
+ * mounted at the app's root, outside `StudioProviders` — a deck with no host throws into a silent boundary.
  *
  * shiki is imported on the first highlighted block (`import()` below), not here: this module is in the
  * entry chunk, and the highlighter's engine was always part of the lazy deck chunk.

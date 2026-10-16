@@ -35,6 +35,7 @@ import { useWebAppsSync } from './features/web-apps/use-web-apps-sync';
 // pieces below are the first to leave this file for it.
 import { CONTENT_BOX, DelayedFallback, NavLockToggle } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
+import { STUDIO_SLIDES_HOST } from './compose/slides-host';
 import { StudioProviders } from './compose/studio-providers';
 import { useContentBoundsSync } from './store/content-bounds-store';
 import { ErrorBoundary } from './components/error-boundary';
@@ -155,6 +156,7 @@ import {
   type ViewId,
 } from './store/ui-store';
 import { useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/renderer';
+import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
 
 /*
   The views themselves live in `components/view-registry.tsx` — Phase 60 Theme
@@ -2125,9 +2127,12 @@ export function App() {
       </DialogHost>
       <FileEditorGuard />
       <ErrorBoundary label="Slides" silent>
-        <Suspense fallback={null}>
-          <SlidesModal />
-        </Suspense>
+        {/* Outside <StudioProviders> (which sits inside DialogHost), so the deck gets its host here. */}
+        <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
+          <Suspense fallback={null}>
+            <SlidesModal />
+          </Suspense>
+        </SlidesHostProvider>
       </ErrorBoundary>
       <ScreensaverHost />
       <KillSwitchModal />
