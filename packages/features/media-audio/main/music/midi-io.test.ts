@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { Midi } from '@tonejs/midi';
 import { SongSchema, type Song } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';

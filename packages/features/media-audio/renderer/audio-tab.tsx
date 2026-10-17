@@ -5,7 +5,7 @@ import {
   type MusicSendToGeneratorResult,
 } from '@midnite/studio-shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { Suspense, useEffect, useMemo, useReducer, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useReducer, useState } from 'react';
 
 import { useMediaKit } from '@midnite/studio-frame';
 
@@ -16,6 +16,7 @@ import { BottomPlayer } from './bottom-player';
 import { useAudioHost } from './host';
 import { usePlayer } from './player-store';
 import { initialPromptForm, promptFormReducer, toPrompt } from './prompt-form-state';
+import { EditorExportBar } from './music-editor/editor-export-bar';
 import { SessionList } from './session-list';
 import {
   useAudioEngine,
@@ -24,6 +25,9 @@ import {
   useAudioProviders,
   useAudioSessions,
 } from './use-audio';
+
+/** Tone.js stays out of the Media chunk until the Editor sub-tab opens (Phase 101). */
+const EditorTab = lazy(() => import('./music-editor/editor-tab').then((m) => ({ default: m.EditorTab })));
 
 /** Where an Import lands when the repo has no audio project yet. */
 export const DEFAULT_AUDIO_PROJECT = 'imports';
@@ -62,7 +66,6 @@ function AudioTabBody({ repoId }: { repoId: string }) {
   const openMediaPane = kit.useOpenMediaPane();
   const host = useAudioHost();
   const PromptForm = host.PromptForm ?? BasicPromptForm;
-  const editor = host.Editor;
   const prefs = useAudioPrefs();
   const [form, dispatch] = useReducer(promptFormReducer, undefined, () =>
     initialPromptForm({ provider: prefs.provider, durationS: prefs.durationS, count: prefs.count }),
@@ -71,8 +74,7 @@ function AudioTabBody({ repoId }: { repoId: string }) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [bitrate, setBitrate] = useState(prefs.mp3BitrateKbps);
   const [savedMode, setAudioMode] = (host.useAudioMode ?? useLocalAudioMode)(repoId);
-  // Without an editor from the host there is only the Generator.
-  const mode: AudioMode = editor ? savedMode : 'generator';
+  const mode: AudioMode = savedMode;
   const [requestedSong, setRequestedSong] = useState<{ name: string; seq: number } | null>(null);
 
   // An agent's `music_open` brings the Editor up on that song (Phase 101 Theme H). Heard by the app
@@ -84,12 +86,12 @@ function AudioTabBody({ repoId }: { repoId: string }) {
     if (!openRequest) return;
     setProject(openRequest.project);
     if (openRequest.path) {
-      if (editor) setAudioMode('editor');
+      setAudioMode('editor');
       const name = openRequest.path;
       setRequestedSong((cur) => ({ name, seq: (cur?.seq ?? 0) + 1 }));
     }
     clearMediaOpenRequest();
-  }, [openRequest, editor, setAudioMode, clearMediaOpenRequest]);
+  }, [openRequest, setAudioMode, clearMediaOpenRequest]);
 
   const projects = useMediaProjects(repoId, 'audio');
   const activeProject =
@@ -184,7 +186,7 @@ function AudioTabBody({ repoId }: { repoId: string }) {
           detailLabel="Resize prompt panel"
           toolbar={
             <>
-              {editor ? <AudioSubTabs mode={mode} onChange={setAudioMode} /> : null}
+              <AudioSubTabs mode={mode} onChange={setAudioMode} />
               {mode === 'generator' ? (
                 <>
                   <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -209,14 +211,14 @@ function AudioTabBody({ repoId }: { repoId: string }) {
                     busy={exporter.progress?.status === 'running'}
                   />
                 </>
-              ) : editor ? (
-                <editor.ExportBar
+              ) : (
+                <EditorExportBar
                   repoId={repoId}
                   project={activeProject}
                   defaultBitrate={bitrate}
                   onSent={onSent}
                 />
-              ) : null}
+              )}
             </>
           }
           explorer={
@@ -235,9 +237,9 @@ function AudioTabBody({ repoId }: { repoId: string }) {
             />
           }
           content={
-            mode === 'editor' && editor ? (
+            mode === 'editor' ? (
               <Suspense fallback={null}>
-                <editor.Tab repoId={repoId} project={activeProject} requested={requestedSong} />
+                <EditorTab repoId={repoId} project={activeProject} requested={requestedSong} />
               </Suspense>
             ) : (
               <SessionList

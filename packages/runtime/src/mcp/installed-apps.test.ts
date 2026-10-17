@@ -24,7 +24,9 @@ describe('createMcpToolListing', () => {
 
   it('re-reads the source, so an install shows up without a restart', () => {
     let installed: Parameters<typeof installedAppsFromIds>[0] = [];
-    const listing = createMcpToolListing({ installed: () => installedAppsFromIds(installed)() });
+    // Audio's manifest is what claims `music_list` for Creator; the runtime cannot import a feature, so a stub says the same.
+    const manifests = [{ owner: 'creator', mcpTools: ['music_list'] }] as const;
+    const listing = createMcpToolListing({ installed: () => installedAppsFromIds(installed)(), manifests });
     expect(listing.isListed('music_list')).toBe(false);
     installed = ['creator'];
     expect(listing.isListed('music_list')).toBe(true);

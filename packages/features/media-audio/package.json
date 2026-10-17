@@ -5,6 +5,7 @@
   "description": "Media ▸ Audio as a feature (Phase 113 Theme Q): the generator, sessions, player and import — composed through media-core's tab registry.",
   "sideEffects": false,
   "exports": {
+    "./manifest": "./manifest.ts",
     "./renderer": "./renderer/index.ts",
     "./music-worker": {
       "types": "./dist/main/musicgen/worker-entry.d.ts",
@@ -24,7 +25,9 @@
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
+    "@tonejs/midi": "^2.0.28",
     "react-icons": "^5.7.0",
+    "tone": "^15.1.22",
     "zod": "^3.23.8",
     "zustand": "^5.0.2"
   },

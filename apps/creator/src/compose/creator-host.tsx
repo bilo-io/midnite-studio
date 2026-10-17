@@ -67,7 +67,11 @@ function useModal(ref: RefObject<HTMLElement | null>, onClose: () => void): void
 
 export const CREATOR_IMAGES_HOST: ImagesHost = { useModal };
 
-/** Audio's plain prompt form, no music editor (Studio's code for now), the sub-tab held in memory. */
+/**
+ * Audio's plain prompt form and the sub-tab held in memory. The music editor is the feature's own, so
+ * Creator has it too — arrangement, piano roll, mixer, GM sampler, export — with no song chat (that
+ * needs agents, which Creator does not have) and the frame's simple popover for the instrument picker.
+ */
 export const CREATOR_AUDIO_HOST: AudioHost = {};
 
 type LastVideoProjects = { lastProject: Record<string, string> };

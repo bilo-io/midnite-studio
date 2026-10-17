@@ -2,13 +2,13 @@ import { SongSchema } from '@midnite/studio-shared';
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fixtures } from '../../../../../test-support/fixtures';
-import { renderView } from '../../../../../test-support/render';
-import { useUiStore } from '../../../../store/ui-store';
-import { MediaView } from '../../media-view';
+import { fixtures } from '../../../../test-support/fixtures';
+import { renderView } from '../../../../test-support/render';
+import { useUiStore } from '../../../store/ui-store';
+import { MediaView } from '../../../features/media/media-view';
 
 // Tone.js needs a real AudioContext; the engine has its own tests.
-vi.mock('../engine/use-music-engine', () => ({ useMusicEngine: () => ({ engine: null, state: 'stopped' }) }));
+vi.mock('../../../../../features/media-audio/renderer/music-editor/engine/use-music-engine', () => ({ useMusicEngine: () => ({ engine: null, state: 'stopped' }) }));
 
 /**
  * Phase 101 Theme I — the song chat in the Editor. The composer, thread and picker are the Chats

@@ -13,16 +13,29 @@ import {
 
 // Vitest/jsdom: pure logic, no browser capability needed.
 
-const FRAME_TOOLS: McpToolId[] = MCP_TOOL_IDS.filter((id) => defaultMcpToolOwner(id) === 'frame');
-const ownedBy = (app: string): McpToolId[] => MCP_TOOL_IDS.filter((id) => defaultMcpToolOwner(id) === app);
+/**
+ * Audio's manifest (`packages/features/media-audio/manifest.ts`) is where the `music_*` tools are
+ * claimed for Creator; `shared` cannot import a feature, so this is the same claim by prefix and
+ * the feature's own test (`manifest.test.ts`) pins that the real manifest lists exactly these.
+ */
+const MUSIC_TOOLS = MCP_TOOL_IDS.filter((id) => id.startsWith('music_'));
+const CREATOR_MANIFEST = { owner: 'creator', mcpTools: MUSIC_TOOLS } as const;
+const MANIFESTS = [CREATOR_MANIFEST];
+
+/** What an app lists with the Studio manifests passed, as every consumer does. */
+const ownerOf = (id: McpToolId) => mcpToolOwner(id, MANIFESTS);
+const FRAME_TOOLS: McpToolId[] = MCP_TOOL_IDS.filter((id) => ownerOf(id) === 'frame');
+const ownedBy = (app: string): McpToolId[] => MCP_TOOL_IDS.filter((id) => ownerOf(id) === app);
 
 describe('tool listing per installed set', () => {
   it("Studio's full set lists exactly today's registry, in order", () => {
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, MANIFESTS)).toEqual([...MCP_TOOL_IDS]);
+    // Without the manifest the music tools fall to the frame (always listed): nothing is lost, only mis-owned.
     expect(listMcpToolIds(ALL_APPS_INSTALLED)).toEqual([...MCP_TOOL_IDS]);
     // Pinned count: a new tool must be deliberately placed (and this number bumped).
     expect(MCP_TOOL_IDS).toHaveLength(126);
     const histogram: Record<string, number> = {};
-    for (const id of MCP_TOOL_IDS) histogram[defaultMcpToolOwner(id)] = (histogram[defaultMcpToolOwner(id)] ?? 0) + 1;
+    for (const id of MCP_TOOL_IDS) histogram[ownerOf(id)] = (histogram[ownerOf(id)] ?? 0) + 1;
     expect(histogram).toMatchInlineSnapshot(`
       {
         "agents": 2,
@@ -35,8 +48,9 @@ describe('tool listing per installed set', () => {
   });
 
   it('an empty install lists only the frame tools', () => {
-    const listed = listMcpToolIds(installedSet([]));
+    const listed = listMcpToolIds(installedSet([]), MANIFESTS);
     expect(listed).toEqual(FRAME_TOOLS);
+    expect(listed.some((id) => id.startsWith('music_'))).toBe(false);
     expect(listed).toEqual(
       expect.arrayContaining(['repo.list', 'status.get', 'graph.log', 'ui.state', 'companion_settings_get']),
     );
@@ -44,7 +58,7 @@ describe('tool listing per installed set', () => {
   });
 
   it('{gamer} adds the media-for-games tools and nothing of coder or agents', () => {
-    const listed = listMcpToolIds(installedSet(['gamer']));
+    const listed = listMcpToolIds(installedSet(['gamer']), MANIFESTS);
     expect(listed).toEqual(MCP_TOOL_IDS.filter((id) => FRAME_TOOLS.includes(id) || ownedBy('gamer').includes(id)));
     expect(listed).toContain('model_list');
     expect(listed).toContain('map_goto');
@@ -54,11 +68,18 @@ describe('tool listing per installed set', () => {
   });
 
   it('{coder, agents} lists forge and workflow-gate tools but no media tools', () => {
-    const listed = listMcpToolIds(installedSet(['coder', 'agents']));
+    const listed = listMcpToolIds(installedSet(['coder', 'agents']), MANIFESTS);
     expect(listed).toContain('forge.pulls');
     expect(listed).toContain('forge.checks');
     expect(listed).toContain('workflow_gate_decide');
     expect(listed.some((id) => /^(model|game|terrain|sprite|music)_/.test(id))).toBe(false);
+  });
+
+  it('{creator} lists the music tools and nothing of gamer, coder or agents', () => {
+    const listed = listMcpToolIds(installedSet(['creator']), MANIFESTS);
+    expect(listed).toEqual(MCP_TOOL_IDS.filter((id) => FRAME_TOOLS.includes(id) || MUSIC_TOOLS.includes(id)));
+    expect(listed).toContain('music_add_notes');
+    expect(listed).not.toContain('model_list');
   });
 
   it('two different installed sets give two different lists', () => {
@@ -67,10 +88,12 @@ describe('tool listing per installed set', () => {
 
   it('every tool resolves to the frame or a real app', () => {
     for (const id of MCP_TOOL_IDS) {
-      const owner = defaultMcpToolOwner(id);
+      const owner = ownerOf(id);
       expect(owner === 'frame' || (PLACEMENT_APP_IDS as readonly string[]).includes(owner)).toBe(true);
     }
-    expect([...MCP_TOOL_OWNING_APPS].sort()).toEqual(['agents', 'coder', 'creator', 'gamer']);
+    // The default table names the apps whose tools no manifest claims yet; Creator's left it for Audio's manifest.
+    expect([...MCP_TOOL_OWNING_APPS].sort()).toEqual(['agents', 'coder', 'gamer']);
+    expect(MUSIC_TOOLS.every((id) => defaultMcpToolOwner(id) === 'frame')).toBe(true);
   });
 });
 

@@ -7,7 +7,7 @@ type Media = MidniteStudioBridge['media'];
 /**
  * The slice of `window.midniteStudio` Creator exposes — what media-core, Docs, Images, Video and Audio read, and
  * nothing else: the media store, its change and export events, Docs' export, Images' generation,
- * Audio's generate/import and Video's own `video` namespace. No `secrets` namespace at all, so a provider key cannot be read from the renderer
+ * Audio's generate/import, the music editor's songs and Video's own `video` namespace. No `secrets` namespace at all, so a provider key cannot be read from the renderer
  * even by accident; no git, pty or browser (`bridge.test.ts` holds the list).
  */
 export type CreatorBridge = {
@@ -15,11 +15,13 @@ export type CreatorBridge = {
   video: MidniteStudioBridge['video'];
   media: Pick<Media, 'project' | 'file' | 'reveal' | 'ffmpegStatus' | 'export' | 'cancelExport' | 'onChanged' | 'onExportProgress'> & {
     image: Pick<Media['image'], 'providers' | 'generate' | 'cancel' | 'onProgress'>;
-    // No `gm` — the General MIDI library belongs to the music editor, which Creator does not have yet.
     audio: Pick<
       Media['audio'],
-      'providers' | 'import' | 'onProgress' | 'generate' | 'cancel' | 'engine' | 'installEngine' | 'onEngineProgress' | 'expand'
+      'providers' | 'import' | 'onProgress' | 'generate' | 'cancel' | 'engine' | 'installEngine' | 'onEngineProgress' | 'expand' | 'gm'
     >;
+    // The editor's song store and exports. No agent engines, chat thread or Antigravity (Creator has no
+    // agents); `onChanged`/`onOpen` are the MCP server's, which Creator does not run, so they never fire.
+    music: Pick<Media['music'], 'list' | 'read' | 'write' | 'import' | 'delete' | 'export' | 'sendToGenerator' | 'onChanged' | 'onOpen'>;
     doc: Pick<Media['doc'], 'export'>;
   };
 };
@@ -94,6 +96,23 @@ export function createCreatorBridge(ipc: RendererIpc): CreatorBridge {
         installEngine: () => call(CHANNELS.mediaAudioEngineInstall),
         onEngineProgress: (handler) => subscribe(EVENT_CHANNELS.mediaAudioEngineProgress, handler),
         expand: (req) => call(CHANNELS.mediaAudioExpand, req),
+        gm: {
+          status: () => call(CHANNELS.mediaGmStatus),
+          ensure: (req) => call(CHANNELS.mediaGmEnsure, req),
+          load: (req) => call(CHANNELS.mediaGmLoad, req),
+          onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaGmProgress, handler),
+        },
+      },
+      music: {
+        list: (req) => call(CHANNELS.mediaMusicList, req),
+        read: (req) => call(CHANNELS.mediaMusicRead, req),
+        write: (req) => call(CHANNELS.mediaMusicWrite, req),
+        import: (req) => call(CHANNELS.mediaMusicImport, req),
+        delete: (req) => call(CHANNELS.mediaMusicDelete, req),
+        export: (req) => call(CHANNELS.mediaMusicExport, req),
+        sendToGenerator: (req) => call(CHANNELS.mediaMusicSendToGenerator, req),
+        onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaMusicChanged, handler),
+        onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaMusicOpen, handler),
       },
       reveal: (req) => call(CHANNELS.mediaReveal, req),
       ffmpegStatus: () => call(CHANNELS.mediaFfmpegStatus),

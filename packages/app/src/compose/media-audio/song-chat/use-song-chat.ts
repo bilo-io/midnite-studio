@@ -9,7 +9,7 @@ import {
 } from '@midnite/studio-shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { bridge } from '../../../../services/bridge';
+import { bridge } from '../../../services/bridge';
 import { buildChangeSummary, replyText } from './change-summary';
 import { reduceProgress, startRun, type RunProgress } from './run-progress';
 

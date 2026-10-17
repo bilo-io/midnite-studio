@@ -19,6 +19,8 @@ import { getConfiguredOllamaHost, ollamaChat, ollamaTags, resolveOllamaBaseUrl }
 import { broadcastToAllWindows } from '../window-manager';
 import { handle, handleBare, handleSend } from './handle';
 import { mediaStore } from './media-handlers';
+import { gmCache } from './media-music-gm-handlers';
+import { musicExporter, musicSongService } from './media-music-handlers';
 
 /**
  * Media ▸ Audio (Phase 99 Theme E) — the `AudioProvider` catalogue and Import,
@@ -79,5 +81,15 @@ export function registerMediaAudioHandlers(): void {
     engine,
     installEngine: (onProgress) => musicBroker.install(onProgress),
     pickImportFiles,
+    music: {
+      service: musicSongService,
+      exporter: musicExporter,
+      // Lazy: `app.getPath('userData')` is not ready when this module loads.
+      gm: {
+        status: () => gmCache().status(),
+        ensure: (program, onProgress) => gmCache().ensure(program, onProgress),
+        load: (program) => gmCache().load(program),
+      },
+    },
   });
 }

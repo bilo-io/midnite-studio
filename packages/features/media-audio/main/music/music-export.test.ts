@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { MUSIC_PPQ, SongSchema, parseAudioProjectFile, parseAudioSidecar, ok } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 

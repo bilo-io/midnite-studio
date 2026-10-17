@@ -17,8 +17,13 @@ import { PLACEMENT_APP_IDS, type PlacementAppId, type PlacementLayer } from './d
  * 1. A feature manifest's `mcpTools` (`FeatureManifest`, e.g. the optimizer
  *    template in `packages/features/optimizer`) — the owner is the manifest's
  *    `owner`. This is where a tool lives once its feature is extracted.
- * 2. {@link DEFAULT_MCP_TOOL_OWNER}, for every tool whose feature has not
- *    been extracted into a package yet (all of them today bar none).
+ * 2. {@link defaultMcpToolOwner}, for every tool whose feature has not
+ *    been extracted into a package yet. The `music_*` tools left this table for Media ▸ Audio's
+ *    manifest (Phase 113 Theme Q), owner `creator`; the rest of Creator's media has no tools.
+ *
+ * Every consumer that lists tools passes the manifests — the server (`desktop/src/main/mcp/
+ * tool-manifests.ts`), the stdio shim and the Tools pages — because a tool no manifest claims and
+ * the table does not name is a `frame` tool, which is always listed.
  *
  * Lives in `shared`, not the runtime, because the MCP stdio shim answers
  * `tools/list` under plain `node` and may import nothing else; the runtime
@@ -41,13 +46,12 @@ export function installedSet(apps: Iterable<PlacementAppId>): IsAppInstalled {
 /**
  * The owner of a tool no manifest claims yet. `frame` tools (repo, git read,
  * UI steering, the companion) belong to every app and are always listed.
- * Media's tabs split per `docs/APPS.md`: audio to Creator; map, terrain,
- * model, sprite and game to Gamer.
+ * Media's tabs split per `docs/APPS.md`: map, terrain, model, sprite and game to Gamer. Audio's
+ * `music_*` tools are Creator's, declared by Audio's manifest rather than named here.
  */
 export function defaultMcpToolOwner(id: McpToolId): PlacementLayer {
   if (id.startsWith('forge.')) return 'coder';
   if (id.startsWith('workflow_')) return 'agents';
-  if (id.startsWith('music_')) return 'creator';
   if (/^(model|game|terrain|sprite|map)_/.test(id) || id === 'tileset_generate' || id === 'background_generate') {
     return 'gamer';
   }

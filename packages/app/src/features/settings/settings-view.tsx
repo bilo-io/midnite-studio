@@ -27,6 +27,7 @@ import { DiffPage } from './settings-pages/diff-page';
 import { GitSafetyPage } from './settings-pages/git-safety-page';
 import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
+import { mediaAudioManifest } from '@midnite/studio-feature-media-audio/renderer';
 import { McpToolsView } from '@midnite/studio-feature-mcp-tools/renderer';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { OllamaSettingsPage } from './settings-pages/ollama-page';
@@ -68,7 +69,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   gitSafety: () => <GitSafetyPage />,
   trashSafety: () => <optimizerSettingsPages.trashSafety />,
   apiClient: () => <ApiClientPage />,
-  mcp: () => <McpToolsView />,
+  mcp: () => <McpToolsView manifests={[mediaAudioManifest]} />,
   companion: () => <CompanionPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { SongSchema, failure, ok, type GitOpResult, type MediaFileEntry } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 

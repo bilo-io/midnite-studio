@@ -28,6 +28,7 @@ export default defineConfig({
       '@midnite/studio-feature-workflows/renderer/testing': at('../../packages/features/workflows/renderer/testing.ts'),
       '@midnite/studio-feature-mcp-tools/main': at('../../packages/features/mcp-tools/main/index.ts'),
       '@midnite/studio-feature-mcp-tools/renderer': at('../../packages/features/mcp-tools/renderer/index.ts'),
+      '@midnite/studio-feature-media-audio/manifest': at('../../packages/features/media-audio/manifest.ts'),
     },
   },
   test: {

@@ -41,6 +41,23 @@ const media = {
     installEngine: vi.fn(),
     onEngineProgress: vi.fn(() => () => undefined),
     expand: vi.fn(),
+    gm: {
+      status: vi.fn().mockResolvedValue({ cached: [] }),
+      ensure: vi.fn(),
+      load: vi.fn(),
+      onProgress: vi.fn(() => () => undefined),
+    },
+  },
+  music: {
+    list: vi.fn().mockResolvedValue(ok([])),
+    read: vi.fn(),
+    write: vi.fn(),
+    import: vi.fn(),
+    delete: vi.fn(),
+    export: vi.fn(),
+    sendToGenerator: vi.fn(),
+    onChanged: vi.fn(() => () => undefined),
+    onOpen: vi.fn(() => () => undefined),
   },
   reveal: vi.fn(),
   ffmpegStatus: vi.fn().mockResolvedValue({ ffmpeg: { found: false, reason: 'no ffmpeg' } }),
@@ -133,12 +150,15 @@ describe('Creator home view', () => {
     expect(hint.textContent).toContain('/media/.midnite/media/video/video-editor');
   });
 
-  it('Audio: the plain prompt form, with Import offered and no editor sub-tab', async () => {
+  it('Audio: the plain prompt form with Import offered, and the music editor as a sub-tab with no song chat', async () => {
     render(<CreatorApp />);
     fireEvent.click(screen.getByRole('tab', { name: 'Audio' }));
     expect(await screen.findByRole('form', { name: 'Create audio' })).toBeDefined();
-    expect(screen.queryByRole('tab', { name: 'Editor' })).toBeNull();
     await waitFor(() => expect(media.audio.providers).toHaveBeenCalled());
+    // The editor is the feature's own, so Creator has it; the chat needs agents, which Creator lacks.
+    fireEvent.click(screen.getByRole('tab', { name: 'Editor' }));
+    expect(await screen.findByTestId('music-editor-empty')).toBeDefined();
+    expect(screen.queryByRole('button', { name: /chat/i })).toBeNull();
   });
 
   it('Slides: presenting a doc opens its deck over the shell, and Escape closes it', async () => {

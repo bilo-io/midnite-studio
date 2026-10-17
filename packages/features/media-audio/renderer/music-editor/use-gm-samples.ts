@@ -2,8 +2,7 @@ import type { GmProgress } from '@midnite/studio-shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState } from 'react';
 
-import { bridge } from '../../../services/bridge';
-import { noBridge } from '../../../services/bridge-result';
+import { bridge, noBridge } from '@midnite/studio-frame';
 
 /** GM instrument sample state for the picker (Phase 101 Theme D): what is cached, what is downloading. */
 export const GM_STATUS_KEY = ['media-music-gm-status'] as const;

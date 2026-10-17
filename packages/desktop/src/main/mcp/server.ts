@@ -24,6 +24,7 @@ import { defaultLogger, type Logger } from '../log';
 import { isSocketPathTooLong, mcpSocketName } from '../socket-name';
 import { recordMcpCall } from './audit';
 import { dispatchMcpCall, type McpDispatchResult } from './dispatch';
+import { MCP_TOOL_MANIFESTS } from './tool-manifests';
 
 /**
  * The Unix-socket server behind Midnite Studio's MCP tools (Phase 57 Theme
@@ -104,6 +105,7 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
             provided: PLACEMENT_APP_IDS,
           })
         : studioInstalledApps,
+      manifests: MCP_TOOL_MANIFESTS,
     });
   const dispatch =
     opts.dispatch ??

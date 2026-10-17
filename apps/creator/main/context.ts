@@ -1,11 +1,15 @@
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createMediaService, mediaCoreMain, type MediaService } from '@midnite/studio-feature-media-core/main';
+import { createMediaService, mediaCoreMain, runFfmpegExport, type MediaService } from '@midnite/studio-feature-media-core/main';
 import {
   createAudioEngineServices,
   createAudioService,
+  createGmSampleCache,
   createMusicBroker,
+  createMusicExporter,
+  createMusicService,
   createMusicgenProvider,
   importAudioProvider,
   mediaAudioMain,
@@ -24,7 +28,7 @@ import {
   type ImageProvider,
 } from '@midnite/studio-feature-media-images/main';
 import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
-import { EVENT_CHANNELS, type FfmpegStatus, type SecretKey } from '@midnite/studio-shared';
+import { EVENT_CHANNELS, MUSIC_MIDI_FILE_EXTENSIONS, failure, ok, type FfmpegStatus, type SecretKey } from '@midnite/studio-shared';
 
 /**
  * The one "repository" Creator's media is scoped to. The renderer's media store addresses
@@ -112,11 +116,52 @@ export function registerCreatorHandlers(el: CreatorElectron): MediaService {
     readFile: (absPath) => readFile(absPath),
     emit: (event) => el.send(EVENT_CHANNELS.mediaAudioProgress, event),
   });
+  const musicService = createMusicService({
+    listFiles: (scope) => media.store.listFiles(scope),
+    readFile: (req) => media.store.readFile(req),
+    writeBytes: (req) => media.store.writeBytes(req),
+    removeFile: (req) => media.store.removeFile(req),
+    readLocal: (absPath) => readFile(absPath),
+    pickFiles: () =>
+      el.pickImportFiles({ title: 'Import MIDI', filters: [{ name: 'MIDI', extensions: [...MUSIC_MIDI_FILE_EXTENSIONS] }] }),
+  });
+  // The editor's export: the save dialog and ffmpeg are the same ones Docs and media-core use.
+  const musicExporter = createMusicExporter({
+    pickSavePath: (_window, req) =>
+      el.pickSavePath({
+        defaultPath: join(req.defaultDir ?? '', req.defaultName),
+        filters: [{ name: req.label, extensions: [req.ext] }],
+      }),
+    writeLocal: (path, data) => writeFile(path, data),
+    transcodeMp3: async ({ exportId, wav, dest, bitrateKbps }) => {
+      const ffmpeg = await el.ffmpegStatus();
+      if (!ffmpeg.found) return failure(ffmpeg.reason);
+      const input = join(tmpdir(), `midnite-music-${exportId}.wav`);
+      await writeFile(input, wav);
+      try {
+        return await runFfmpegExport(
+          { exportId, format: 'mp3', input, dest, options: { bitrateKbps } },
+          { ffmpegPath: ffmpeg.path, emit: (event) => el.send(EVENT_CHANNELS.mediaExportProgress, event) },
+        );
+      } finally {
+        await rm(input, { force: true });
+      }
+    },
+    writeBytes: (req) => media.store.writeBytes(req),
+    readText: (req) => media.store.readFile({ ...req, encoding: 'utf8' }),
+    ensureSong: async (repoId, project, name, song) => {
+      const existing = await musicService.read(repoId, project, name);
+      if (existing.ok) return ok();
+      const written = await musicService.write(repoId, project, name, song);
+      return written.ok ? ok() : written;
+    },
+  });
   mediaAudioMain.register(ctx, {
     audio,
     engine: createAudioEngineServices({ broker: musicBroker }),
     installEngine: (onProgress) => musicBroker.install(onProgress),
     pickImportFiles: el.pickImportFiles,
+    music: { service: musicService, exporter: musicExporter, gm: createGmSampleCache({ directory: el.videoSettingsDir }) },
   });
   // Video: the engine's projects live under Creator's one media root (`<media>/.midnite/media/video`).
   configureVideo(createProjectsStore(el.videoSettingsDir), {

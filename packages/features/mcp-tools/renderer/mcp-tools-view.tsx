@@ -7,6 +7,7 @@ import {
   ALL_APPS_INSTALLED,
   listMcpToolIds,
   MCP_TOOLS,
+  type FeatureManifest,
   type IsAppInstalled,
   type PlacementAppId,
 } from '@midnite/studio-shared';
@@ -26,6 +27,12 @@ export type McpToolsViewProps = {
    */
   isAppInstalled?: IsAppInstalled;
   /**
+   * The feature manifests that own tools (`FeatureManifest.mcpTools`), which take precedence over the
+   * default ownership table — the same list the MCP server and shim list from. An app composing a feature
+   * that owns tools passes its manifest; a tool no manifest claims falls to the default table.
+   */
+  manifests?: readonly Pick<FeatureManifest, 'owner' | 'mcpTools'>[];
+  /**
    * Whether this app runs the MCP server. `false` (Agents) keeps the Tools list and drops the
    * switches, the socket and the connect command, none of which mean anything without a server.
    */
@@ -39,11 +46,11 @@ export type McpToolsViewProps = {
  * any process on the machine a parsed view of every open repository) gets a
  * page a user has to go looking for, plus a diagnostics readout underneath it.
  */
-export function McpToolsView({ isAppInstalled = ALL_APPS_INSTALLED, serverAvailable = true }: McpToolsViewProps = {}) {
+export function McpToolsView({ isAppInstalled = ALL_APPS_INSTALLED, serverAvailable = true, manifests = [] }: McpToolsViewProps = {}) {
   const client = useQueryClient();
   // The allow switches belong to the app whose tools they gate; the frame's are everyone's.
   const owns = (app: PlacementAppId): boolean => serverAvailable && isAppInstalled(app);
-  const toolIds = listMcpToolIds(isAppInstalled);
+  const toolIds = listMcpToolIds(isAppInstalled, manifests);
 
   const status = useQuery({
     queryKey: MCP_STATUS_KEY,

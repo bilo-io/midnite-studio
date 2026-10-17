@@ -14,10 +14,10 @@ export { mediaAudioManifest, type MediaAudioManifest } from '../manifest';
 export {
   AudioHostProvider,
   useAudioHost,
-  type AudioEditorExportBarProps,
-  type AudioEditorTabProps,
   type AudioHost,
+  type AudioPopoverProps,
   type AudioPromptFormProps,
+  type AudioSongChatProps,
 } from './host';
 export { BasicPromptForm } from './basic-prompt-form';
 export { AudioSubTabs, type AudioMode } from './audio-sub-tabs';
@@ -60,3 +60,10 @@ export const mediaAudioTab = {
   icon: LuAudioLines,
   Component: AudioTab,
 } as const satisfies MediaTabDescriptor;
+
+// The music editor (Audio ▸ Editor) — mounted by Audio's own tab. Studio's Settings ▸ Audio
+// lists the same General MIDI instrument library, and the app's e2e and tests reach the session.
+export { GmInstrumentLibrary } from './music-editor/gm-instrument-library';
+export { EditorExportBar } from './music-editor/editor-export-bar';
+export { publishEditorSong, publishLoopRegion, useEditorSession } from './music-editor/editor-session';
+export { barTicks } from './music-editor/model/song-edit';

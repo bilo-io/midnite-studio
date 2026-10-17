@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { dialog, type BrowserWindow } from 'electron';
+import { BrowserWindow, dialog } from 'electron';
 
 import { CHANNELS, EVENT_CHANNELS, MUSIC_MIDI_FILE_EXTENSIONS, failure, loopModelArgs, ok, schemas } from '@midnite/studio-shared';
 
@@ -12,14 +12,13 @@ import { createLlmCall } from '../media/model/engines';
 import { createMusicAgents } from '../media/music/music-agents';
 import { createMusicTools } from '../media/music/music-mcp';
 import { runFfmpegExport } from '@midnite/studio-feature-media-core/main';
-import { createMusicExporter } from '../media/music/music-export';
-import { createMusicService } from '../media/music/music-service';
+import { createMusicExporter, createMusicService } from '@midnite/studio-feature-media-audio/main';
 import { getMcpAllowMusic, getMcpStatus, mcpShimScriptPath } from '../mcp';
 import { setMusicTools } from '../mcp/music-tools';
 import { resolveWorkdir } from '../repo-registry';
 import { resolveRegisteredRepo } from '../mcp/tools';
 import { broadcastToAllWindows } from '../window-manager';
-import { handle, handleFromSender } from './handle';
+import { handle } from './handle';
 import { ffmpegStatus, mediaStore } from './media-handlers';
 import { engines } from './media-model-handlers';
 
@@ -27,13 +26,14 @@ import { engines } from './media-model-handlers';
  * Music editor (Phase 101 Theme B) — songs as `.mid` + `.song.json` inside an Audio project. File
  * access goes through the media store's jail; Import's files come from main's own native dialog.
  */
-const service = createMusicService<BrowserWindow>({
+export const musicSongService = createMusicService({
   listFiles: (scope) => mediaStore.listFiles(scope),
   readFile: (req) => mediaStore.readFile(req),
   writeBytes: (req) => mediaStore.writeBytes(req),
   removeFile: (req) => mediaStore.removeFile(req),
   readLocal: (absPath) => readFile(absPath),
-  pickFiles: async (win) => {
+  pickFiles: async () => {
+    const win = BrowserWindow.getFocusedWindow();
     const options = {
       title: 'Import MIDI',
       properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'>,
@@ -57,15 +57,13 @@ export const musicTools = createMusicTools({
     return { ok: false, kind: resolved.error.kind === 'not-found' ? 'not-found' : 'refused', message: resolved.error.message };
   },
   listProjects: (repoId) => mediaStore.listProjects({ repoId, tab: 'audio' }),
-  listSongs: (repoId, project) => service.list(repoId, project),
-  readSong: (repoId, project, name) => service.read(repoId, project, name),
-  writeSong: (repoId, project, name, song) => service.write(repoId, project, name, song),
+  listSongs: (repoId, project) => musicSongService.list(repoId, project),
+  readSong: (repoId, project, name) => musicSongService.read(repoId, project, name),
+  writeSong: (repoId, project, name, song) => musicSongService.write(repoId, project, name, song),
   emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMusicChanged, event),
   emitOpen: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMusicOpen, event),
 });
 setMusicTools(musicTools);
-
-export const musicService = service;
 
 /**
  * Antigravity's own MCP config: there is no per-run flag, so Midnite's server has to be listed there
@@ -89,8 +87,9 @@ export const agyRegistration = createAgyRegistration({
 });
 
 /** Themes J/K: save dialog + ffmpeg live here; the song/session logic is `music-export.ts`. */
-const exporter = createMusicExporter<BrowserWindow>({
-  pickSavePath: async (win, req) => {
+export const musicExporter = createMusicExporter({
+  pickSavePath: async (_window, req) => {
+    const win = BrowserWindow.getFocusedWindow();
     const options = {
       defaultPath: join(req.defaultDir ?? '', req.defaultName),
       filters: [{ name: req.label, extensions: [req.ext] }],
@@ -118,9 +117,9 @@ const exporter = createMusicExporter<BrowserWindow>({
   writeBytes: (req) => mediaStore.writeBytes(req),
   readText: (req) => mediaStore.readFile({ ...req, encoding: 'utf8' }),
   ensureSong: async (repoId, project, name, song) => {
-    const existing = await service.read(repoId, project, name);
+    const existing = await musicSongService.read(repoId, project, name);
     if (existing.ok) return ok();
-    const written = await service.write(repoId, project, name, song);
+    const written = await musicSongService.write(repoId, project, name, song);
     return written.ok ? ok() : written;
   },
 });
@@ -138,44 +137,30 @@ const musicAgents = createMusicAgents({
   },
   globalMusicReady: () => getMcpStatus().running && getMcpAllowMusic(),
   ensureSong: async (repoId, project, name, song) => {
-    const existing = await service.read(repoId, project, name);
+    const existing = await musicSongService.read(repoId, project, name);
     if (existing.ok) return ok({ existed: true });
-    const written = await service.write(repoId, project, name, song);
+    const written = await musicSongService.write(repoId, project, name, song);
     return written.ok ? ok({ existed: false }) : written;
   },
   emitProgress: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaMusicAgentProgress, event),
 });
 
+/**
+ * Studio-only music channels: the agent engines, the song's chat thread and Antigravity's
+ * registration. The song store, exports and GM samples are the Audio feature's, registered by
+ * `registerMediaAudioHandlers` over the services this file builds.
+ */
 export function registerMediaMusicHandlers(): void {
   const invalid = (issue: string) => failure(issue);
-  handle(CHANNELS.mediaMusicList, schemas.MediaMusicListRequest, (r) => service.list(r.repoId, r.project), invalid);
-  handle(CHANNELS.mediaMusicRead, schemas.MediaMusicReadRequest, (r) => service.read(r.repoId, r.project, r.name), invalid);
-  handle(
-    CHANNELS.mediaMusicWrite,
-    schemas.MediaMusicWriteRequest,
-    (r) => service.write(r.repoId, r.project, r.name, r.song),
-    invalid,
-  );
-  handleFromSender(
-    CHANNELS.mediaMusicImport,
-    schemas.MediaMusicImportRequest,
-    (r, win) => service.importFiles(r.repoId, r.project, win ?? undefined),
-    invalid,
-  );
-  handle(CHANNELS.mediaMusicDelete, schemas.MediaMusicDeleteRequest, (r) => service.remove(r.repoId, r.project, r.name), invalid);
-  handleFromSender(
-    CHANNELS.mediaMusicExport,
-    schemas.MediaMusicExportRequest,
-    (r, win) => exporter.exportSong(r, win ?? undefined),
-    invalid,
-  );
-  handle(CHANNELS.mediaMusicSendToGenerator, schemas.MediaMusicSendToGeneratorRequest, (r) => exporter.sendToGenerator(r), invalid);
   handle(CHANNELS.mediaMusicAgentRun, schemas.MediaMusicAgentRunRequest, (r) => musicAgents.run(r), invalid);
   handle(CHANNELS.mediaMusicAgentCancel, schemas.MediaMusicAgentCancelRequest, (r) => musicAgents.cancel(r.runId), invalid);
   handle(
     CHANNELS.mediaMusicChat,
     schemas.MediaMusicChatRequest,
-    (r) => (r.op === 'write' ? service.writeChat(r.repoId, r.project, r.name, r.chat) : service.readChat(r.repoId, r.project, r.name)),
+    (r) =>
+      r.op === 'write'
+        ? musicSongService.writeChat(r.repoId, r.project, r.name, r.chat)
+        : musicSongService.readChat(r.repoId, r.project, r.name),
     invalid,
   );
   handle(
