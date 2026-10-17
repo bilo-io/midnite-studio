@@ -6,10 +6,18 @@
  * users. This file is the one declaration of *what* it composes; the *how*
  * stays where it already lives — `packages/app` is the renderer
  * (`src/compose/` wires each feature in) and `packages/desktop` the Electron
- * main — and those two are now this app's internals, not separate entry points.
+ * main — and those two are this app's internals, not entry points of their own.
+ *
+ * Studio's entries are this app's: `entry/renderer.ts` is what `index.html`
+ * loads and `entry/main.ts` is what `dist/bundle/main.js` is built from. Each
+ * hands over to its internal through one seam (`@midnite/studio-app/boot`,
+ * `@midnite/studio-desktop/main`). The page, the Vite config, the esbuild script
+ * and electron-builder's config stay in the internals, where the packaged app,
+ * the perf scripts and the e2e harness read them.
  *
  * Imports no workspace package: it is data the composition test holds against
- * `packages/features/*` so a newly extracted feature cannot be forgotten here.
+ * `packages/features/*` and the two builds, so a newly extracted feature cannot
+ * be forgotten here and neither build can stop booting these entries unnoticed.
  */
 
 /** Feature packages (`packages/features/<name>`) Studio composes. */
@@ -21,5 +29,7 @@ export const STUDIO_COMPOSITION = {
   renderer: '@midnite/studio-app',
   /** The Electron main + preload internals: `packages/desktop`. */
   main: '@midnite/studio-desktop',
+  /** Studio's entries, relative to this app: what the renderer and the main process boot. */
+  entries: { renderer: 'entry/renderer.ts', main: 'entry/main.ts' },
   features: STUDIO_FEATURES,
 } as const;

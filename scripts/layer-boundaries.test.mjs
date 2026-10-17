@@ -61,6 +61,10 @@ const SLIDES = 'packages/features/slides/renderer/deck.tsx';
 const FRAME_GRAPH = 'packages/frame/src/graph/ci-cell.tsx';
 const FRAME_DIFF = 'packages/frame/src/diff/diff-cell.tsx';
 const CODER_MAIN = 'apps/coder/main/git.ts';
+// Phase 113 Theme G: Studio's composition, and the two entries that hand over to its internals.
+const STUDIO_COMPOSITION = 'apps/studio/src/composition.ts';
+const STUDIO_RENDERER_ENTRY = 'apps/studio/entry/renderer.ts';
+const STUDIO_MAIN_ENTRY = 'apps/studio/entry/main.ts';
 
 /** [description, file, import specifier, substring the firing message must contain] */
 const REJECTED = [
@@ -128,6 +132,20 @@ const REJECTED = [
   ["the frame graph imports Studio's ui-store (relative path)", FRAME_GRAPH, '../../../app/src/store/ui-store', 'Nothing below an app imports one'],
   ["the frame diff imports Studio's highlighter (package name)", FRAME_DIFF, '@midnite/studio-app/lib/highlighter', 'Nothing below an app imports one'],
   ['the frame graph imports the runtime', FRAME_GRAPH, '@midnite/studio-runtime', 'main-process only'],
+  // --- Theme G: Studio's entries take one seam each; its composition takes none ------------------
+  ["Studio's composition imports its renderer internals", STUDIO_COMPOSITION, '@midnite/studio-app/boot', 'An app never imports another app'],
+  ["Studio's renderer entry reaches past the boot seam", STUDIO_RENDERER_ENTRY, '@midnite/studio-app/store/ui-store', 'nothing deeper'],
+  ["Studio's renderer entry reaches past the boot seam (relative path)", STUDIO_RENDERER_ENTRY, '../../../packages/app/src/app', 'nothing deeper'],
+  ["Studio's renderer entry imports another app", STUDIO_RENDERER_ENTRY, '@midnite/app-browser', 'never imports another app'],
+  ["Studio's renderer entry imports the main seam", STUDIO_RENDERER_ENTRY, '@midnite/studio-desktop/main', 'never imports the git/database/knowledge engine'],
+  ["Studio's renderer entry imports electron", STUDIO_RENDERER_ENTRY, 'electron', 'no node integration'],
+  ["Studio's renderer entry imports the runtime", STUDIO_RENDERER_ENTRY, '@midnite/studio-runtime', 'main-process only'],
+  ["Studio's main entry reaches past the main seam", STUDIO_MAIN_ENTRY, '@midnite/studio-desktop/ipc/handle', 'nothing deeper'],
+  ["Studio's main entry reaches past the main seam (relative path)", STUDIO_MAIN_ENTRY, '../../../packages/desktop/src/main/window', 'nothing deeper'],
+  ["Studio's main entry imports the renderer seam", STUDIO_MAIN_ENTRY, '@midnite/studio-app/boot', 'nothing deeper'],
+  ["Studio's main entry imports another app", STUDIO_MAIN_ENTRY, '@midnite/app-coder', 'never imports another app'],
+  ["Studio's main entry imports the frame", STUDIO_MAIN_ENTRY, '@midnite/studio-frame', 'A main-process module has no renderer'],
+  ["Studio's main entry imports electron-updater", STUDIO_MAIN_ENTRY, 'electron-updater', 'No app runs its own updater'],
 ];
 
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */
@@ -164,6 +182,9 @@ const ALLOWED = [
   ['a suite app imports the frame diff entry', SUITE_APP, '@midnite/studio-frame/diff'],
   ["Coder's git main imports git-engine", CODER_MAIN, '@midnite/studio-git-engine'],
   ["Coder's git main imports the runtime", CODER_MAIN, '@midnite/studio-runtime'],
+  // Theme G: the one seam each Studio entry hands over through.
+  ["Studio's renderer entry mounts its shell", STUDIO_RENDERER_ENTRY, '@midnite/studio-app/boot'],
+  ["Studio's main entry starts its main process", STUDIO_MAIN_ENTRY, '@midnite/studio-desktop/main'],
 ];
 
 describe('eslint layer boundaries (Phase 113 Theme C)', () => {

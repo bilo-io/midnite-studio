@@ -16,20 +16,36 @@ dependsOn:
   - 'desktop'
 
 # `packages/app` (renderer) and `packages/desktop` (Electron main) are this
-# app's internals. The tasks below DELEGATE to theirs rather than duplicate
-# them, so `desktop:start` / `desktop:dist` — which CI, the release skills and
-# the docs name — keep working unchanged.
+# app's internals. Studio's two entries live here (`entry/renderer.ts`,
+# `entry/main.ts`) and are what those internals' builds start from, but the
+# build tooling — Vite's config and index.html, the esbuild script,
+# electron-builder — stays beside the code it builds. So the tasks below
+# DELEGATE to theirs rather than duplicate them, and `desktop:start` /
+# `desktop:dist` — which CI, the release skills and the docs name — keep
+# working unchanged.
 tasks:
   typecheck:
     inputs:
       - '@group(sources)'
       - '@group(configs)'
+      - 'entry/**/*'
       - 'vitest.config.ts'
       - '/packages/features/*/package.json'
+      # tsconfig.json maps each entry's seam to the contract it is typed against.
+      - '/packages/app/src/boot-contract.ts'
+      - '/packages/desktop/src/main/main-contract.ts'
+
+  lint:
+    inputs:
+      - 'entry/**/*'
 
   test:
     inputs:
       - 'src/**/*'
+      - 'entry/**/*'
+      # composition.test.ts asserts the builds start from entry/.
+      - '/packages/app/index.html'
+      - '/packages/desktop/scripts/bundle.mjs'
       - 'vitest.config.ts'
       - 'package.json'
       - '/packages/features/*/package.json'

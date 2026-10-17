@@ -2,13 +2,21 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    
     "noEmit": true,
     "composite": false,
     "declaration": false,
     "declarationMap": false,
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client"],
+    // Studio's two entries (entry/) each import one seam of its internals. The bundlers resolve them to
+    // the real modules (packages/app/vite.config.ts, packages/desktop/scripts/bundle.mjs); the typecheck
+    // reads the contracts those modules are typed against, so it neither compiles the whole renderer
+    // and main a second time nor needs their built feature declarations. `paths` replaces the base's
+    // map wholesale: nothing here imports another workspace package.
+    "paths": {
+      "@midnite/studio-app/boot": ["../../packages/app/src/boot-contract.ts"],
+      "@midnite/studio-desktop/main": ["../../packages/desktop/src/main/main-contract.ts"]
+    }
   },
-  "include": ["src/**/*", "vitest.config.ts"],
+  "include": ["src/**/*", "entry/**/*", "vitest.config.ts"],
   "exclude": ["dist", "node_modules"]
 }
