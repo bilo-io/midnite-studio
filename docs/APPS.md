@@ -862,16 +862,57 @@ header's **Review actions** box (off by default; every board and issue write obe
 per repository is the one Reviews' "Add to project" writes (`midnite-coder.forge.projectBoardByRepo`). The card
 skill list is the built-in `DEFAULT_AGENT_SKILLS` (moved to the frame so both composers seed from one list).
 
-**Left out in Coder:** `terminal` (no Play, Stop, live session or composer on a card; a drop into a skill-mapped
-column only moves the card), `openIssue` (an issue keeps its plain link), `runCommand` (Reload only refetches; the
-copy button beside `gh auth refresh -s project` stays), Plan with AI, repo skills and slides. **The card → Agents
-hand-off is not built**: how a card's run would reach Agents (what crosses, how "installed" is known, where confirm
-happens, what a hostile link does) is an open design decision, so Coder offers no way to start an agent from a card.
+**Left out in Coder:** `terminal` (no Stop, live session or composer on a card; a drop into a skill-mapped column
+only moves the card), `openIssue` (an issue keeps its plain link), `runCommand` (Reload only refetches; the copy
+button beside `gh auth refresh -s project` stays), Plan with AI, repo skills and slides. A card's Play is the
+agent-run hand-off instead (below).
+
+#### The agent-run hand-off: a Coder card's run, started in Studio
+
+Coder starts no terminal, so its task card's **Run in an agent** button (the Tasks host's optional `cardHandoff`,
+drawn only when there is no `terminal`) hands the card's run to an app that can start an agent. The rules:
+
+- **Data only.** What crosses is `{ issueUrl, skill }`, strict (`AgentRunHandoffSchema`,
+  `shared/src/agent-run-handoff.ts`), and never a prompt, an agent, a command, a flag, a path or a repository id.
+  `issueUrl` is `https://<dns-host>/<owner>/<repo>/(issues|pull)/<n>` exactly: no credentials, port, query, fragment
+  or trailing path, no IP or single-label host, and the raw string must equal its normalised form (so `..`, `%2e`
+  and `%2F` are refused). `skill` is one `/command` and at most four plain words, none starting with `-`, with no
+  quotes, metacharacters or newline. The feature builds it (`agentRunFor`, the card's URL and the skill its picker
+  shows); a draft card or a skill that is not plain gives no run and a disabled button that says why.
+- **Gated.** Play is enabled only while Coder's **Review actions** switch is on (off by default), and Coder's
+  `send` (`apps/coder/src/compose/agent-handoff.ts`) checks the switch again rather than trusting the button.
+- **How a receiver is known.** Coder's main answers `handoff.runReceiver` (`registerRunReceiver`,
+  `runtime/src/app-main/handoff.ts`) with a name or null, never a path or pid: `studio` when the runtime host record
+  names Studio as the host. Agents joins once it can take a run itself, known then by the launcher's
+  `installed.json`. **With no receiver** — or when the link could not be opened — Coder opens nothing and offers
+  the prompt (`<skill> <url>`) to copy instead.
+- **The route.** The link is `midnite://open?app=agents&run=<base64url JSON>`, opened by main's hand-off opener,
+  which re-parses it and opens only a `midnite://open` link. The launcher's router sends any run-bearing link to
+  Studio as `midnite-studio://run?req=…` — it skips an installed Agents bundle, which cannot take one yet, and with
+  no Studio installed shows the Agents detail sheet. Studio's protocol parser decodes it to `{ kind: 'run', run }`,
+  `run` null when anything about it fails.
+- **Studio re-validates, on receipt** (`app/src/services/agent-run-receiver.ts`). A link is remote-triggerable —
+  any web page can open one — so arriving proves nothing. A malformed or hostile run is refused with a toast; so is
+  any run while the screen is locked.
+- **Known repositories only.** The issue's `host/owner/repo` must match a repository the user already has open in
+  Studio (its forge remote). **An unknown one is refused with a toast, exactly like a malformed link — Studio never
+  resolves, clones or opens an unknown owner/name**, and a failed lookup is a refusal, not a guess.
+- **Always confirmed.** The dialog shows the exact command line and the checkout it runs in; nothing starts until
+  its button is pressed. The agent, its flags and the prompt are Studio's own (the repository's most recent agent,
+  else the roster's first; `<skill> <url>`, exactly what Studio's own Play types). Confirmed, the prompt is typed
+  into a new terminal and **sent only when Settings ▸ Projects ▸ Launch and run is on**; otherwise the user presses
+  Return there.
 
 Proven by `packages/features/tasks/manifest.test.ts`, the moved component suites under
 `packages/features/tasks/renderer/`, Studio's assembled suites in `app/src/compose/tasks/` (rendered through
 `test-support/tasks-render.tsx`, the two ports only), and `apps/coder/src/coder-app.test.tsx` (a board's items over
-Coder's bridge; no Start, Stop or terminal on a card; task writes follow Review actions).
+Coder's bridge; no Start, Stop or terminal on a card; task writes follow Review actions; the right link for a card;
+nothing sent with Review actions off; copy-prompt with no receiver). The hand-off's own proofs:
+`shared/src/agent-run-handoff.test.ts` (hostile URLs and skills, extra fields, the link round trip),
+`apps/launcher/src/main/router.test.ts` (run links go to Studio), `desktop/src/main/protocol-parse.test.ts`,
+`runtime/src/app-main/handoff.test.ts`, `apps/coder/main/context.test.ts` (the receiver name, the opener) and
+`app/src/services/agent-run-receiver.test.ts` + `deep-link.test.tsx` (hostile and malformed runs, a well-formed link
+to an unknown repository, the locked screen — all refused; the confirm-gated start; send only with Launch and run).
 
 ### Money's brokerage and exchange accounts (Phase 113 Theme P slice 2)
 
