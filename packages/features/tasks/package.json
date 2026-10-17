@@ -1,0 +1,46 @@
+{
+  "name": "@midnite/studio-feature-tasks",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Tasks as a feature (Phase 113 Theme O): the forge's issues and ProjectV2 boards as a table, a board and a dependency graph, with the issue detail, the issue and project dialogs and Plan with AI. Renderer-only; what an app owns (its stores, its terminals, its agent launch) comes through the TasksHost port. One of Coder's features.",
+  "sideEffects": false,
+  "exports": {
+    "./renderer": "./renderer/index.ts",
+    "./renderer/state": "./renderer/state.ts",
+    "./renderer/issue": "./renderer/issue.ts",
+    "./renderer/testing": "./renderer/testing.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-shared": "workspace:*",
+    "@tanstack/react-virtual": "^3.11.2",
+    "react-icons": "^5.7.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "zustand": "^5.0.2"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5",
+    "vitest": "^3.2.4"
+  }
+}

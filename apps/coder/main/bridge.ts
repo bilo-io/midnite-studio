@@ -8,8 +8,9 @@ import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
  * nothing else: `forge.*`, `forgeProject.*`, `forgeAccounts.*` (records with a `hasToken` boolean, never
  * a token), `tests.*`, `apiClient.*`, `db.*` (connection metadata — a password goes in on a save and
  * nothing answers one), `remotes.list`, five `repos` members, the `log` stream and four read-only
- * `status` reads, plus the Sessions tab's `terminal.list` and an attach-only `pty` (snapshot, stream,
- * input, resize — no `create`, no `kill`). There is no `secrets`, `fs` or `ops` namespace: a forge token
+ * `status` reads, plus the Sessions tab's `terminal.list`, an attach-only `pty` (snapshot, stream,
+ * input, resize — no `create`, no `kill`) and the Tasks card's agent-run `handoff` (`open` a
+ * `midnite://open` link, ask `runReceiver`). There is no `secrets`, `fs` or `ops` namespace: a forge token
  * or a database password is read in main only, and nothing here can write to a checkout
  * (`bridge.test.ts` holds the list). The API client writes only its own `.midnite/api/` files, in main, confined to a checkout
  * Coder's list holds.
@@ -33,6 +34,11 @@ export type CoderBridge = {
   terminal: Pick<MidniteStudioBridge['terminal'], 'list'>;
   /** Attach to one: snapshot, stream, type and resize. No `create` and no `kill` — Coder starts nothing. */
   pty: Pick<MidniteStudioBridge['pty'], 'snapshot' | 'input' | 'resize' | 'subscribe' | 'unsubscribe' | 'onData' | 'onExit'>;
+  /**
+   * The agent-run hand-off (slice 5): who can receive a run (a name, or null) and open the
+   * `midnite://open` link main re-parses before it opens anything. A task card's Play is this.
+   */
+  handoff: { open: NonNullable<MidniteStudioBridge['handoff']>['open']; runReceiver: NonNullable<NonNullable<MidniteStudioBridge['handoff']>['runReceiver']> };
 };
 
 export type { RendererIpc };
@@ -169,6 +175,10 @@ export function createCoderBridge(ipc: RendererIpc): CoderBridge {
       unsubscribe: (req) => send(CHANNELS.ptyUnsubscribe, req),
       onData: (handler) => subscribe(EVENT_CHANNELS.ptyData, handler),
       onExit: (handler) => subscribe(EVENT_CHANNELS.ptyExit, handler),
+    },
+    handoff: {
+      open: (req) => call(CHANNELS.handoffOpen, req),
+      runReceiver: () => call(CHANNELS.handoffRunReceiver),
     },
   };
 }

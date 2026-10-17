@@ -68,6 +68,7 @@ export {
   type GraphColumns,
   type GraphSelection,
 } from '@midnite/studio-frame';
+import { DEFAULT_AGENT_SKILLS } from '@midnite/studio-frame';
 import {
   DEFAULT_TERMINAL_FONT_SIZE,
   DEFAULT_TERMINAL_LINE_HEIGHT,
@@ -77,13 +78,14 @@ import {
   DEFAULT_SESSION_DISPOSE_AFTER_MS,
 } from '../features/terminal/session-mount-policy';
 import { DEFAULT_EDITOR_FONT_SIZE, DEFAULT_EDITOR_TAB_SIZE } from '../lib/monaco/editor-prefs';
-import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../features/tasks/filter';
-import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from '../features/tasks/graph/graph-filter';
-import { touchProjectView } from '../features/tasks/project-view-lru';
-import { touchCardSkill } from '../features/tasks/board/card-skill-lru';
-import { columnSkillKey } from '../features/tasks/board/board-derive';
-import type { SortState } from '../features/tasks/sort';
-import { REPO_ISSUES_SOURCE_ID } from '../features/tasks/repo-issues-source';
+import {
+  columnSkillKey,
+  DEFAULT_PROJECT_VIEW,
+  REPO_ISSUES_SOURCE_ID,
+  touchCardSkill,
+  touchProjectView,
+  type ProjectViewState,
+} from '@midnite/studio-feature-tasks/renderer/state';
 import { useFileEditorStore } from './file-editor-store';
 
 import { cycleBrowserLayout } from '../features/browser/browser-layouts';
@@ -640,39 +642,11 @@ export const TERMINAL_VIEW_RESERVE = 88;
 
 
 /**
- * One project board's view state (Phase 52 Theme D) — everything that
- * answers "how am I looking at this board" rather than "which board".
+ * One project board's view state (Phase 52 Theme D) — declared by the Tasks
+ * feature since Phase 113 Theme O, re-exported so this store's importers do not
+ * move. The persisted shape is unchanged.
  */
-export type ProjectViewState = {
-  filter: ProjectItemFilterState;
-  /** `null` means "let `resolveGroupField` pick" — no choice has been made. */
-  groupFieldId: string | null;
-  sort: SortState;
-  collapsedColumns: readonly string[];
-  /**
-   * The dependency graph's own facets (Phase 75 Theme H) — kept on this same
-   * project-keyed record rather than a repo-keyed one, since a facet
-   * describing the board's own shape should follow the board across every
-   * repo that reaches it, exactly like `filter` already does. Only ever read
-   * while `projectsMode` is `'graph'`.
-   *
-   * **Optional, deliberately:** a `ProjectViewState` persisted before this
-   * theme landed has no `graph` at all, and `projectViewByProject`'s own
-   * persisted merge (`merge` below) replaces one project's whole record
-   * rather than re-spreading it field by field. A reader defaults this at
-   * the point of use (`view.graph ?? DEFAULT_GRAPH_FACETS`) rather than
-   * trusting this object's own presence.
-   */
-  graph?: ProjectGraphFacets;
-};
-
-export const DEFAULT_PROJECT_VIEW: ProjectViewState = {
-  filter: EMPTY_PROJECT_ITEM_FILTER,
-  groupFieldId: null,
-  sort: null,
-  collapsedColumns: [],
-  graph: DEFAULT_GRAPH_FACETS,
-};
+export { DEFAULT_PROJECT_VIEW, type ProjectViewState };
 
 /**
  * UI state: what's selected, what's open, how the panes are sized.
@@ -2148,40 +2122,11 @@ export type RepoGroup = {
 };
 
 /**
- * What each entry invokes out of the box — the skills this repo and its author
- * actually have. Settings → Agent can point any of them somewhere else.
+ * What each entry invokes out of the box — declared beside `AGENT_COMMANDS` in
+ * the frame since Phase 113 Theme O (Coder's Tasks seeds its card skills with
+ * it too); re-exported so this store's importers do not move.
  */
-export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
-  execBacklog: '/midnite-create',
-  execAdhoc: '/midnite-create-adhoc',
-  addressIssue: '/midnite-address-issue',
-  brainstorm: '/midnite-ideate',
-  refine: '/midnite-refine',
-  verifyPhase: '/midnite-verify',
-  execSwarm: '/midnite-swarm',
-  prReview: '/pr-review',
-  prFeedback: '/pr-feedback',
-  prAudit: '/midnite-pr-audit',
-  triage: '/midnite-triage',
-  releasePrep: '/midnite-release-prep',
-  releaseComplete: '/midnite-release-complete',
-  gitReport: '/midnite-git-report',
-  gitCleanup: '/midnite-git-cleanup',
-  // Guard: security sweeps — secret scanning, dep audit, vuln review. No trailing
-  // skill: the modifiers themselves name what runs (same pattern as loopPatrol).
-  loopGuard: '/loop /midnite-address-issue',
-  // Bare on purpose: the FAB's Patrol tab appends `/pr-review`, `/pr-feedback`
-  // or `/midnite-triage` from its own checkboxes, so a skill named here would
-  // be a fifth one every run carried whether or not a box was ticked.
-  loopPatrol: '/loop',
-  loopPrReview: '/loop /pr-review',
-  loopPrFeedback: '/loop /pr-feedback',
-  loopExecBacklog: '/loop /midnite-create',
-  loopExecAdhoc: '/loop /midnite-create-adhoc',
-  loopAddressIssue: '/loop /midnite-address-issue',
-  loopBrainstorm: '/loop /midnite-ideate',
-  loopOverhaul: '/loop /midnite-create',
-};
+export { DEFAULT_AGENT_SKILLS };
 
 /**
  * The slice that reaches localStorage — the return type `partialize` produces

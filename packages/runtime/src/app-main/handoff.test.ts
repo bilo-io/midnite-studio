@@ -2,7 +2,7 @@ import { CHANNELS, handoffLink } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { createRecordingContext } from '../testing';
-import { registerHandoffOpener } from './handoff';
+import { registerHandoffOpener, registerRunReceiver } from './handoff';
 
 function setup(fail = false) {
   const ctx = createRecordingContext();
@@ -33,8 +33,37 @@ describe('registerHandoffOpener', () => {
     expect(opened).toEqual([]);
   });
 
+  it('opens the link as parsed, never the string as sent — a dropped parameter stays dropped', async () => {
+    const { ctx, opened } = setup();
+    const link = 'midnite://open?app=agents&run=not%20base64!&extra=1&view=../../etc';
+    expect(await ctx.invoke(CHANNELS.handoffOpen, { link })).toEqual({ ok: true });
+    expect(opened).toEqual(['midnite://open?app=agents']);
+  });
+
   it('answers ok:false when the OS cannot open it, rather than throwing over IPC', async () => {
     const { ctx } = setup(true);
     expect(await ctx.invoke(CHANNELS.handoffOpen, { link: handoffLink({ app: 'coder' }) })).toEqual({ ok: false });
+  });
+});
+
+describe('registerRunReceiver', () => {
+  const receiver = async (hostApp: () => string | null) => {
+    const ctx = createRecordingContext();
+    registerRunReceiver(ctx.ipc, { hostApp });
+    return ctx.invoke(CHANNELS.handoffRunReceiver, undefined);
+  };
+
+  it('names Studio when the runtime host record does', async () => {
+    expect(await receiver(() => 'studio')).toEqual({ receiver: 'studio' });
+  });
+
+  it('names nothing with no host record, another host, or an unreadable record', async () => {
+    expect(await receiver(() => null)).toEqual({ receiver: null });
+    expect(await receiver(() => 'monitor')).toEqual({ receiver: null });
+    expect(
+      await receiver(() => {
+        throw new Error('EACCES');
+      }),
+    ).toEqual({ receiver: null });
   });
 });

@@ -6,6 +6,7 @@ import { apiClientViews } from '@midnite/studio-feature-api-client/renderer';
 import { databaseViews } from '@midnite/studio-feature-database/renderer';
 import { forgeViews } from '@midnite/studio-feature-forge/renderer';
 import { sessionsViews } from '@midnite/studio-feature-sessions/renderer';
+import { tasksViews } from '@midnite/studio-feature-tasks/renderer';
 import { testsViews } from '@midnite/studio-feature-tests/renderer';
 import { bridge, RingSpinner } from '@midnite/studio-frame';
 import type { RepoDescriptor } from '@midnite/studio-shared';
@@ -16,6 +17,7 @@ import { useCoderStore } from '../coder-store';
 const LABEL: Record<CoderViewId, string> = {
   reviews: 'Reviews',
   actions: 'Actions',
+  tasks: 'Tasks',
   tests: 'Tests',
   graph: 'Graph',
   apiClient: 'API',
@@ -27,6 +29,8 @@ const LABEL: Record<CoderViewId, string> = {
 const VIEWS: Record<CoderViewId, ComponentType> = {
   reviews: lazy(() => forgeViews.reviews().then((Component) => ({ default: Component }))),
   actions: lazy(() => forgeViews.actions().then((Component) => ({ default: Component }))),
+  // The forge's issues and boards, over Coder's forge channels and its own Tasks memory (`compose/tasks-host.tsx`).
+  tasks: lazy(() => tasksViews.tasks().then((Component) => ({ default: Component }))),
   tests: lazy(() => testsViews.tests().then((Component) => ({ default: Component }))),
   // The frame's git graph, over Coder's read-only git host (`compose/git-host.tsx`).
   graph: lazy(() => import('@midnite/studio-frame/graph').then((m) => ({ default: m.GraphView }))),

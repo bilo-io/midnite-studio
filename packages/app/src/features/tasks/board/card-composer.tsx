@@ -35,7 +35,7 @@ import {
   useOllamaLaunchFit,
   useOllamaLaunchOptions,
 } from '@midnite/studio-feature-models/renderer';
-import { composeCardPrompt, CONCURRENT_CARD_SESSION_SOFT_LIMIT, countLiveCardSessions } from './board-derive';
+import { composeCardPrompt, CONCURRENT_CARD_SESSION_SOFT_LIMIT, countLiveCardSessions } from '@midnite/studio-feature-tasks/renderer/state';
 
 /**
  * `LOOP_MODELS` is Claude-only today — see `loopModelArgs`'s own comment:

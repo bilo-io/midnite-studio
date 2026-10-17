@@ -5,8 +5,7 @@ import { Modal } from '../../../components/modal';
 import { useForgeIssueDetail } from '../../../services/queries';
 import { useActiveWorktree } from '../../../services/use-status';
 import { useIssueModalStore, type IssueModalTarget } from '../../../store/issue-modal-store';
-import { IssueDetail } from './issue-detail';
-import { IssueDetailSkeleton } from './issue-skeleton';
+import { IssueDetail, IssueDetailSkeleton } from '@midnite/studio-feature-tasks/renderer/issue';
 
 /**
  * The app-wide issue modal — mounted once, from `app.tsx`, and opened through

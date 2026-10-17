@@ -34,6 +34,7 @@
     "@midnite/studio-feature-chats": "workspace:*",
     "@midnite/studio-feature-councils": "workspace:*",
     "@midnite/studio-feature-slides": "workspace:*",
+    "@midnite/studio-feature-tasks": "workspace:*",
     "@midnite/studio-feature-media-video": "workspace:*",
     "@midnite/studio-feature-media-map": "workspace:*",
     "@midnite/studio-feature-media-terrain": "workspace:*",

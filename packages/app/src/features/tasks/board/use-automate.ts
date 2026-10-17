@@ -13,8 +13,13 @@ import { useUiStore } from '../../../store/ui-store';
 import { resolveSessionAttribution } from '../../terminal/session-attribution';
 import { startAgent } from '../../terminal/start-agent';
 import { sessionPhase, useTerminalStore } from '../../terminal/terminal-store';
-import { findTodoColumn, nextUnblockedCard } from './automate-derive';
-import { decideColumnSkillAction, deriveColumns, resolveMostRecentAgentId } from './board-derive';
+import {
+  decideColumnSkillAction,
+  deriveColumns,
+  findTodoColumn,
+  nextUnblockedCard,
+  resolveMostRecentAgentId,
+} from '@midnite/studio-feature-tasks/renderer/state';
 
 /**
  * Auto-mate (Phase 95 Theme H) — opt-in, keeps a project board's Todo column

@@ -7,8 +7,12 @@ import { resolveSessionAttribution } from '../../terminal/session-attribution';
 import { revealSession } from '../../terminal/reveal-session';
 import { startAgent } from '../../terminal/start-agent';
 import { useTerminalStore } from '../../terminal/terminal-store';
-import { composeCardPrompt, composeSkillLaunchPrompt, resolveMostRecentAgentId } from './board-derive';
-import { defaultCardSkill } from './card-skill';
+import {
+  composeCardPrompt,
+  composeSkillLaunchPrompt,
+  defaultCardSkill,
+  resolveMostRecentAgentId,
+} from '@midnite/studio-feature-tasks/renderer/state';
 
 /**
  * The Play button's whole logic (Phase 92 Theme A) — one hook shared by

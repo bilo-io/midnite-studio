@@ -1,4 +1,4 @@
-import { CHANNELS, parseMidniteLink, schemas } from '@midnite/studio-shared';
+import { CHANNELS, midniteOpenLink, parseMidniteLink, schemas } from '@midnite/studio-shared';
 
 import type { FeatureMainContext } from '../feature-main';
 
@@ -12,7 +12,8 @@ import type { FeatureMainContext } from '../feature-main';
  *
  * Only a `midnite://open` link is ever opened: the request schema refuses anything else, and the
  * handler parses it again before it reaches `openExternal` — this channel can never be turned into
- * "open this URL".
+ * "open this URL". What is opened is the link rebuilt from that parse, never the string as sent, so
+ * a parameter the parser dropped (a malformed `run=`, an unknown key) never reaches the router.
  */
 export function registerHandoffOpener(
   ipc: FeatureMainContext['ipc'],
@@ -22,9 +23,10 @@ export function registerHandoffOpener(
     CHANNELS.handoffOpen,
     schemas.HandoffOpenRequest,
     async ({ link }) => {
-      if (parseMidniteLink(link) === null) return { ok: false };
+      const target = parseMidniteLink(link);
+      if (target === null) return { ok: false };
       try {
-        await deps.openExternal(link);
+        await deps.openExternal(midniteOpenLink(target));
         return { ok: true };
       } catch {
         return { ok: false };
@@ -32,4 +34,29 @@ export function registerHandoffOpener(
     },
     () => ({ ok: false }),
   );
+}
+
+/**
+ * Who on this machine can receive an agent-run hand-off (Phase 113 Theme O) — asked by an app with
+ * no terminal (Coder) before it sends one, so it can offer the prompt to copy instead of a link that
+ * lands nowhere.
+ *
+ * Studio is the only receiver today: it is known by the runtime host record naming it (`host:
+ * 'studio'`, written by Studio when it runs). Agents joins once it can take a run itself — then the
+ * launcher's `installed.json` listing `agents` is what says so. Names only: no path, pid or socket
+ * crosses to the renderer.
+ */
+export function registerRunReceiver(
+  ipc: FeatureMainContext['ipc'],
+  deps: { hostApp: () => string | null },
+): void {
+  ipc.handleBare(CHANNELS.handoffRunReceiver, () => {
+    let host: string | null = null;
+    try {
+      host = deps.hostApp();
+    } catch {
+      host = null;
+    }
+    return { receiver: host === 'studio' ? ('studio' as const) : null };
+  });
 }

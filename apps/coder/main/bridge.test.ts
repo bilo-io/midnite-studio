@@ -16,7 +16,7 @@ function fakeIpc(): RendererIpc {
 }
 
 describe('createCoderBridge', () => {
-  it('exposes exactly forge, forgeProject, forgeAccounts, tests, apiClient, db, remotes, five repos members, log, four status reads and the attach-only sessions pair', () => {
+  it('exposes exactly forge, forgeProject, forgeAccounts, tests, apiClient, db, remotes, five repos members, log, four status reads, the attach-only sessions pair and the hand-off', () => {
     const bridge = createCoderBridge(fakeIpc());
     expect(Object.keys(bridge).sort()).toEqual([
       'apiClient',
@@ -24,6 +24,7 @@ describe('createCoderBridge', () => {
       'forge',
       'forgeAccounts',
       'forgeProject',
+      'handoff',
       'log',
       'pty',
       'remotes',
@@ -38,6 +39,8 @@ describe('createCoderBridge', () => {
     expect(Object.keys(bridge.repos).sort()).toEqual(['close', 'list', 'open', 'pickDirectory', 'refs']);
     // Reads only: no `fileDiff` of the working tree, no conflict regions, nothing staged or written.
     expect(Object.keys(bridge.status).sort()).toEqual(['commitDetail', 'commitFileDiff', 'commitStats', 'get']);
+    // The agent-run hand-off: open a link main re-parses, and ask who could receive it — nothing that runs.
+    expect(Object.keys(bridge.handoff).sort()).toEqual(['open', 'runReceiver']);
   });
 
   it('has no secrets, fs or ops namespace, and its pty cannot start or end a session', () => {
@@ -79,10 +82,20 @@ describe('createCoderBridge', () => {
       bridge.status,
       bridge.terminal,
       bridge.pty,
+      bridge.handoff,
     ]) {
       for (const member of Object.values(group)) if (typeof member === 'function') await (member as (req?: unknown) => unknown)({});
     }
-    const own = [CHANNELS.repoList, CHANNELS.repoPickDirectory, CHANNELS.repoOpen, CHANNELS.repoClose, CHANNELS.remotesList, ...CODER_GIT_CHANNELS];
+    const own = [
+      CHANNELS.repoList,
+      CHANNELS.repoPickDirectory,
+      CHANNELS.repoOpen,
+      CHANNELS.repoClose,
+      CHANNELS.remotesList,
+      CHANNELS.handoffOpen,
+      CHANNELS.handoffRunReceiver,
+      ...CODER_GIT_CHANNELS,
+    ];
     const allowed = new Set<string>([...forgeManifest.ipc, ...testsManifest.ipc, ...apiClientManifest.ipc, ...databaseManifest.ipc, ...sessionsManifest.ipc, ...own]);
     const invoked = vi.mocked(ipc.invoke).mock.calls.map((c) => c[0]);
     expect(invoked.filter((c) => !allowed.has(c))).toEqual([]);

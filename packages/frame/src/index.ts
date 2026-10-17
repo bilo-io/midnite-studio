@@ -133,6 +133,14 @@ export {
   useAgentProbeStore,
 } from './agents/agent-probe-store';
 export { agentInstallHint, isAgentUnconfigured } from './agents/agent-install-status';
+export {
+  AGENT_COMMAND_GROUPS,
+  AGENT_COMMANDS,
+  DEFAULT_AGENT_SKILLS,
+  type AgentCommand,
+  type AgentCommandCategory,
+  type AgentCommandGroup,
+} from './agents/agent-commands';
 
 // Activity — the status-to-colour seam and the glow resolver every live-session surface reads.
 export { activityStatusVar } from './activity/activity-status-color';
@@ -144,6 +152,14 @@ export {
   type ActivityGlowInput,
   type ActivityGlowSessionInput,
 } from './activity/use-activity-glow';
+export {
+  findAnyCardSession,
+  findCardSession,
+  resolveSessionAgentId,
+  sessionPhase,
+  type ConnectionState,
+  type SessionPhase,
+} from './activity/session-phase';
 
 // Small shared behaviour.
 export { isEditableTarget, useEditableFocus } from './lib/use-editable-focus';

@@ -33,9 +33,11 @@ import { WebAppsRailRow } from './features/web-apps/web-apps-rail-row';
 import { useWebAppsSync } from './features/web-apps/use-web-apps-sync';
 // The frame (Phase 113 Theme C): the chrome every app wears. The layout
 // pieces below are the first to leave this file for it.
-import { CONTENT_BOX, DelayedFallback, NavLockToggle, useKnowledgeGraphExists } from '@midnite/studio-frame';
+import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
 import { STUDIO_FORGE_HOST } from './compose/forge-host';
+import { STUDIO_CHROME } from './compose/studio-chrome';
+import { STUDIO_TASKS_HOST } from './compose/tasks-host';
 import { STUDIO_SLIDES_HOST } from './compose/slides-host';
 import { StudioProviders } from './compose/studio-providers';
 import { useContentBoundsSync } from './store/content-bounds-store';
@@ -159,6 +161,7 @@ import {
 import { useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/renderer';
 import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
 import { ForgeHostProvider } from '@midnite/studio-feature-forge/renderer';
+import { TasksHostProvider } from '@midnite/studio-feature-tasks/renderer';
 
 /*
   The views themselves live in `components/view-registry.tsx` — Phase 60 Theme
@@ -2124,10 +2127,18 @@ export function App() {
                 <SetupOverlay />
               </Suspense>
             </ErrorBoundary>
-            {/* Outside <StudioProviders> too: the issue modal draws the forge's status pills, so it gets the forge host here. */}
-            <ForgeHostProvider host={STUDIO_FORGE_HOST}>
-              <IssueModalSlot />
-            </ForgeHostProvider>
+            {/*
+              Outside <StudioProviders> too: the issue modal is the Tasks feature's issue
+              detail (Phase 113 Theme O), which draws through the frame chrome and the
+              Tasks host, and the forge's status pills — so it gets all three here.
+            */}
+            <FrameChromeProvider chrome={STUDIO_CHROME}>
+              <ForgeHostProvider host={STUDIO_FORGE_HOST}>
+                <TasksHostProvider host={STUDIO_TASKS_HOST}>
+                  <IssueModalSlot />
+                </TasksHostProvider>
+              </ForgeHostProvider>
+            </FrameChromeProvider>
             {/* Phase 109 Theme D — an agent's companion change waiting on the user, while the companion itself is off or popped out. */}
             <McpSettingConfirmHost />
           </PaletteHost>

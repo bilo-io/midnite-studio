@@ -37,7 +37,7 @@ import { isNavViewVisible } from '../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, SETTINGS_PAGES, type ViewId } from '../../store/ui-store';
 import { chordOf, groupCommands } from '../../store/palette-store';
 import { openIssueModal } from '../../store/issue-modal-store';
-import { REPO_ISSUES_SOURCE_ID } from '../../features/tasks/repo-issues-source';
+import { REPO_ISSUES_SOURCE_ID } from '@midnite/studio-feature-tasks/renderer/state';
 import { useFilesStore } from '../../features/files/files-store';
 import type { PaletteItem, PaletteSource } from './source';
 import type { IconComponent } from '../../components/icon-button';

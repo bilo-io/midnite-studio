@@ -11,8 +11,17 @@ import { connectionFingerprint, databaseManifest } from '@midnite/studio-feature
 import { __resetForgeAccountsForTests, forgeManifest } from '@midnite/studio-feature-forge/main';
 import { sessionsManifest } from '@midnite/studio-feature-sessions/main';
 import { testsManifest } from '@midnite/studio-feature-tests/main';
-import { createFakeCipher, createVaultGrants, startTestVaultHost, testPairingIdentity, type PairingIdentity, type TestVaultHost, type VaultAuthorize } from '@midnite/studio-runtime';
-import { CHANNELS, forgeAccountVaultKey, type ForgeAccount } from '@midnite/studio-shared';
+import {
+  createFakeCipher,
+  createVaultGrants,
+  startTestVaultHost,
+  testPairingIdentity,
+  writeRuntimeHostRecord,
+  type PairingIdentity,
+  type TestVaultHost,
+  type VaultAuthorize,
+} from '@midnite/studio-runtime';
+import { CHANNELS, encodeAgentRunParam, forgeAccountVaultKey, handoffLink, type ForgeAccount } from '@midnite/studio-shared';
 
 import { registerCoderHandlers } from './context';
 import { CODER_GIT_CHANNELS } from './git';
@@ -108,7 +117,9 @@ class FakeWorker implements ScriptWorkerHandle {
   }
 }
 
-async function setup(options: { authorize?: VaultAuthorize; picked?: string | null; importFile?: string; pairing?: PairingIdentity } = {}) {
+async function setup(
+  options: { authorize?: VaultAuthorize; picked?: string | null; importFile?: string; pairing?: PairingIdentity; openExternal?: (url: string) => Promise<void> } = {},
+) {
   await runtimeHost(options.authorize);
   const workers: FakeWorker[] = [];
   const requests: { url: string; authorization: string | undefined }[] = [];
@@ -140,6 +151,7 @@ async function setup(options: { authorize?: VaultAuthorize; picked?: string | nu
       workers.push(worker);
       return worker;
     },
+    ...(options.openExternal ? { openExternal: options.openExternal } : {}),
   });
   const invoke = (channel: string, payload?: unknown) => handlers.get(channel)?.({}, payload);
   return { handlers, sends, invoke, requests, repos, shutdown, workers };
@@ -148,7 +160,16 @@ async function setup(options: { authorize?: VaultAuthorize; picked?: string | nu
 describe('registerCoderHandlers', () => {
   it('registers the forge, tests, API client, database and sessions features’ channels, its own repository list and the read-only git — and nothing else', async () => {
     const { handlers, sends } = await setup();
-    const own = [CHANNELS.repoList, CHANNELS.repoPickDirectory, CHANNELS.repoOpen, CHANNELS.repoClose, CHANNELS.remotesList, ...CODER_GIT_CHANNELS];
+    const own = [
+      CHANNELS.repoList,
+      CHANNELS.repoPickDirectory,
+      CHANNELS.repoOpen,
+      CHANNELS.repoClose,
+      CHANNELS.remotesList,
+      CHANNELS.handoffOpen,
+      CHANNELS.handoffRunReceiver,
+      ...CODER_GIT_CHANNELS,
+    ];
     expect([...handlers.keys()].sort()).toEqual(
       [...forgeManifest.ipc, ...testsManifest.ipc, ...apiClientManifest.ipc, ...databaseManifest.ipc, ...sessionsManifest.ipc, ...own].sort(),
     );
@@ -156,6 +177,34 @@ describe('registerCoderHandlers', () => {
     for (const channel of [CHANNELS.secretsGet, CHANNELS.secretsSet, CHANNELS.secretsHas]) expect(handlers.has(channel)).toBe(false);
     // Coder starts no terminal session and ends none.
     for (const channel of [CHANNELS.ptyCreate, CHANNELS.ptyKill]) expect(handlers.has(channel) || sends.has(channel)).toBe(false);
+  });
+
+  it('names Studio as the run receiver only when the runtime host record says Studio hosts — names, never a path or pid', async () => {
+    const { invoke } = await setup();
+    expect(await invoke(CHANNELS.handoffRunReceiver)).toEqual({ receiver: null });
+    const record = { version: 1 as const, pid: 4242, writtenAt: 1, broker: null };
+    writeRuntimeHostRecord(join(dir, 'runtime'), { ...record, host: 'monitor' });
+    expect(await invoke(CHANNELS.handoffRunReceiver)).toEqual({ receiver: null });
+    writeRuntimeHostRecord(join(dir, 'runtime'), { ...record, host: 'studio' });
+    expect(await invoke(CHANNELS.handoffRunReceiver)).toEqual({ receiver: 'studio' });
+  });
+
+  it('opens only a midnite://open link — the run link a card sends, never a URL the renderer names', async () => {
+    const opened: string[] = [];
+    const { invoke } = await setup({ openExternal: async (url) => void opened.push(url) });
+    const run = { issueUrl: 'https://gitlab.example.com/team/widgets/issues/3', skill: '/midnite-create' };
+    const link = handoffLink({ app: 'agents', run });
+    expect(await invoke(CHANNELS.handoffOpen, { link })).toEqual({ ok: true });
+    expect(opened).toEqual([`midnite://open?app=agents&run=${encodeAgentRunParam(run)}`]);
+    for (const hostile of ['https://evil.example/x', 'file:///etc/passwd', 'midnite-studio://run?req=x', 'midnite://open?app=not-an-app']) {
+      expect(await invoke(CHANNELS.handoffOpen, { link: hostile })).toEqual({ ok: false });
+    }
+    expect(opened).toHaveLength(1);
+  });
+
+  it('opens nothing when it was given no way to open a link', async () => {
+    const { invoke } = await setup();
+    expect(await invoke(CHANNELS.handoffOpen, { link: handoffLink({ app: 'agents' }) })).toEqual({ ok: false });
   });
 
   it('lists no sessions, plainly, when no runtime host has a broker running', async () => {

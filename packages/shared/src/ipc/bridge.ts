@@ -1661,7 +1661,11 @@ export type MidniteStudioBridge = {
    * Hand the user to another app (Phase 113): main opens the `midnite://open` link for the
    * launcher's router. Optional — an app whose preload does not carry it hands off nothing.
    */
-  handoff?: { open: (req: In<typeof S.HandoffOpenRequest>) => Promise<z.infer<typeof S.HandoffOpenResponse>> };
+  handoff?: {
+    open: (req: In<typeof S.HandoffOpenRequest>) => Promise<z.infer<typeof S.HandoffOpenResponse>>;
+    /** Coder's agent-run hand-off (Phase 113 Theme O): who could receive it. Absent where nothing sends one. */
+    runReceiver?: () => Promise<z.infer<typeof S.HandoffRunReceiverResponse>>;
+  };
   systemHealthStartSshAgent?: () => Promise<z.infer<typeof S.SystemHealthStartSshAgentResponse>>;
 
   /**

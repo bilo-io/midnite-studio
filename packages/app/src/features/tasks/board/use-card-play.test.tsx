@@ -6,7 +6,7 @@ import { DialogHost } from '../../../components/dialog-host';
 import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { useCardPlay } from './use-card-play';
-import { issueItem } from '../__fixtures__/project-item';
+import { issueItem } from '@midnite/studio-feature-tasks/renderer/testing';
 
 const TASK_REF = { projectId: 'proj-1', itemId: 'item-1' };
 const TASK_KEY = `${TASK_REF.projectId}:${TASK_REF.itemId}`;

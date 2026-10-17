@@ -311,6 +311,9 @@ importers:
       '@midnite/studio-feature-sessions':
         specifier: workspace:*
         version: link:../../packages/features/sessions
+      '@midnite/studio-feature-tasks':
+        specifier: workspace:*
+        version: link:../../packages/features/tasks
       '@midnite/studio-feature-tests':
         specifier: workspace:*
         version: link:../../packages/features/tests
@@ -1088,6 +1091,9 @@ importers:
       '@midnite/studio-feature-slides':
         specifier: workspace:*
         version: link:../features/slides
+      '@midnite/studio-feature-tasks':
+        specifier: workspace:*
+        version: link:../features/tasks
       '@midnite/studio-feature-tests':
         specifier: workspace:*
         version: link:../features/tests
@@ -2962,6 +2968,70 @@ importers:
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.5(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.3(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.3(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@1.21.7)(jsdom@25.0.1)(tsx@4.23.12)
+
+  packages/features/tasks:
+    dependencies:
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-frame':
+        specifier: workspace:*
+        version: link:../../frame
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../shared
+      '@tanstack/react-virtual':
+        specifier: ^3.11.2
+        version: 3.14.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react-icons:
+        specifier: ^5.7.0
+        version: 5.7.0(react@19.2.8)
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.2.18)(react@19.2.8)
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+    devDependencies:
+      '@tanstack/react-query':
+        specifier: ^5.62.0
+        version: 5.102.3(react@19.2.8)
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@types/node':
         specifier: ^22.10.2
         version: 22.20.1

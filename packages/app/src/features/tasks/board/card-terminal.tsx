@@ -6,7 +6,7 @@ import { LazyTerminalView } from '../../terminal/lazy-terminal-view';
 import { revealSession } from '../../terminal/reveal-session';
 import { useMountedSessionIds } from '../../terminal/session-mount-policy';
 import { useTerminalStore, type SessionActivity } from '../../terminal/terminal-store';
-import { CardActivityLine } from './card-activity-line';
+import { CardActivityLine } from '@midnite/studio-feature-tasks/renderer';
 
 /**
  * The terminal inside a running card (Phase 41 Theme E) — through

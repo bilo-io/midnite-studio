@@ -32,6 +32,9 @@ export default defineConfig({
       '@midnite/studio-feature-forge/renderer/testing': at('../../packages/features/forge/renderer/testing.ts'),
       '@midnite/studio-feature-sessions/main': at('../../packages/features/sessions/main/index.ts'),
       '@midnite/studio-feature-sessions/renderer': at('../../packages/features/sessions/renderer/index.ts'),
+      // Tasks' state entry before its barrel, for the same reason as the frame's.
+      '@midnite/studio-feature-tasks/renderer/state': at('../../packages/features/tasks/renderer/state.ts'),
+      '@midnite/studio-feature-tasks/renderer': at('../../packages/features/tasks/renderer/index.ts'),
       '@midnite/studio-feature-tests/main': at('../../packages/features/tests/main/index.ts'),
       '@midnite/studio-feature-tests/renderer': at('../../packages/features/tests/renderer/index.ts'),
       '@midnite/studio-feature-tests/renderer/testing': at('../../packages/features/tests/renderer/testing.ts'),

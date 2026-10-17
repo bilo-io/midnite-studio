@@ -13,6 +13,7 @@
  * receiving end (`decodeResourceRefParam`).
  */
 
+import type { AgentRunHandoff } from './agent-run-handoff';
 import type { ResourceRef } from './domain/resource-ref';
 import type { SettingsPageId, ViewId } from './domain/view';
 import type { MediaTab } from './media';
@@ -27,6 +28,11 @@ export type HandoffRequest = {
   page?: SettingsPageId;
   /** The specific thing to select once there — a commit, a workflow run, a session. */
   ref?: ResourceRef;
+  /**
+   * An agent run to start there (Phase 113 Theme O) — `{ issueUrl, skill }` and nothing else. Only
+   * an app with a terminal can receive one; the receiver validates it again and always confirms.
+   */
+  run?: AgentRunHandoff;
 };
 
 export type HandoffPlan =
@@ -40,6 +46,8 @@ export function handoffLink(request: HandoffRequest): string {
   if (request.tab !== undefined) target.tab = request.tab;
   if (request.page !== undefined) target.page = request.page;
   if (request.ref !== undefined) target.ref = encodeRefParam(request.ref);
+  // Field by field, so nothing a caller added to the object rides along (`encodeAgentRunParam`'s bytes).
+  if (request.run !== undefined) target.run = encodeRefParam({ issueUrl: request.run.issueUrl, skill: request.run.skill });
   return midniteOpenLink(target);
 }
 

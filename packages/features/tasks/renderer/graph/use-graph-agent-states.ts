@@ -1,0 +1,118 @@
+import { useEffect, useMemo } from 'react';
+
+import { cardGlowStateFromActivity, type CardGlowState } from '../board/glow-state';
+import { resolveActivityGlow, resolveSessionAgentId, sessionPhase, type ActivityGlowBadge } from '@midnite/studio-frame';
+
+import { useTasksTerminal } from '../terminal';
+
+/** One node's resolved ring plus its identity badge(s) — Phase 95 Theme C. */
+export type GraphNodeActivity = {
+  glow: CardGlowState;
+  badges: ActivityGlowBadge[];
+};
+
+const IDLE_ACTIVITY: GraphNodeActivity = { glow: 'idle', badges: [] };
+
+/**
+ * One `agent-run-glow` state per graph node, for the whole dependency canvas
+ * in a single subscription (Phase 75 Theme F) — not one `useCardStatus` per
+ * node the way `TaskCard` does it.
+ *
+ * `useCardStatus` (`board/use-card-status.ts`) takes three whole-slice
+ * selectors and calls `findAnyCardSession`, a linear scan over every open
+ * session (`terminal-store.ts`). That is fine for a column of tens of
+ * cards; at the graph's 300-node cap it would be 300 subscriptions each
+ * doing O(sessions) work on every store tick. This hook takes the same
+ * three slices — `sessions`, `states`, `activity` — exactly once, walks
+ * `sessions` a single time building `Map<itemId, CardGlowState>` through
+ * the same `deriveCardGlowState` the card uses, and hands each node its own
+ * entry as a plain prop. An agent started from the card composer lights the
+ * node and the card simultaneously by construction, not coincidence.
+ *
+ * The board is **not** migrated onto this — `TaskCard` keeps `useCardStatus`;
+ * a column holds tens of cards, not hundreds, and rewriting a working
+ * surface is not this theme's business.
+ *
+ * Mirrors `findAnyCardSession`'s own "first match wins" semantics: a card
+ * can have more than one `kanban` session bound to it over its lifetime (an
+ * ended one, then a fresh one), and this walks `sessions` in the same order
+ * `useCardStatus` would, taking the first bound to each item rather than
+ * layering a different tie-break the board does not have.
+ *
+ * `isOpen` is always `false` here — the graph has no lifted card-selection
+ * concept yet (that is Phase 75 Theme G, which needs the canvas on screen
+ * first). A node whose pane is the one currently open will pick that up
+ * once a future theme threads it through; until then this hook only ever
+ * answers "is an agent running or waiting on this node", which is exactly
+ * what is renderable before any node exists to render it on.
+ *
+ * `useActivityGlow`'s `resolveActivityGlow` (Phase 95 Theme C) is now what
+ * decides the ring — this hook's own job shrank to "one cheap whole-canvas
+ * pass building its input", the same relationship `TaskCard` has to it. The
+ * ring itself is still painted through the legacy `CardGlowState`/
+ * `.agent-run-glow` family (`cardGlowStateFromActivity`'s own doc comment
+ * explains why the paint is not migrating in this theme); what is new here
+ * is each node's identity badge, read straight off `resolveActivityGlow`'s
+ * own badge list.
+ */
+export function useGraphAgentStates(projectId: string): ReadonlyMap<string, GraphNodeActivity> {
+  const { useSlice, getState } = useTasksTerminal();
+  const sessions = useSlice((s) => s.sessions);
+  const states = useSlice((s) => s.states);
+  const activity = useSlice((s) => s.activity);
+  const liveAgentId = useSlice((s) => s.liveAgentId);
+
+  /*
+    Without this, this hook's glow is inert on a fresh boot — `board-view.tsx`
+    hits the exact same trap and names it precisely: `useTerminalStore` only
+    learns about restored (and live-reattached) sessions once something calls
+    `hydrate()`, and until Theme D's canvas existed, only `TerminalPanel` and
+    the FAB ever did. `BoardView`'s own call stays where it is (this hook does
+    not replace it — the board's glow still needs it whether or not the graph
+    was ever opened this session); this is graph mode's equivalent, since
+    `ProjectGraphView` can be the very first thing a session mounts. Costs
+    nothing the second time — `hydrate()` returns immediately once `hydrated`
+    is already set.
+  */
+  useEffect(() => {
+    getState()
+      .hydrate()
+      .catch(() => {});
+  }, [getState]);
+
+  return useMemo(() => {
+    const map = new Map<string, GraphNodeActivity>();
+    const seen = new Set<string>();
+
+    for (const session of sessions) {
+      if (session.surface !== 'kanban') continue;
+      const taskRef = session.taskRef;
+      if (taskRef === undefined || taskRef.projectId !== projectId) continue;
+      if (seen.has(taskRef.itemId)) continue;
+      seen.add(taskRef.itemId);
+
+      const running = sessionPhase(session, states[session.id]) === 'live';
+      const activityGlow = resolveActivityGlow({
+        sessions: [
+          {
+            sessionId: session.id,
+            agentId: resolveSessionAgentId(session, liveAgentId),
+            activity: activity[session.id],
+            running,
+          },
+        ],
+      });
+      map.set(taskRef.itemId, {
+        glow: cardGlowStateFromActivity(activityGlow.status, false),
+        badges: activityGlow.badges,
+      });
+    }
+
+    return map;
+  }, [sessions, states, activity, liveAgentId, projectId]);
+}
+
+/** The idle entry every unmapped node falls back to — a stable reference so `ProjectGraphNode` never re-renders off a fresh `{glow:'idle', badges:[]}` literal. */
+export function idleGraphNodeActivity(): GraphNodeActivity {
+  return IDLE_ACTIVITY;
+}

@@ -61,6 +61,13 @@ export type MidniteLinkTarget = {
    * validates it against `ResourceRefSchema`. Optional, so every older link still parses.
    */
   ref?: string;
+  /**
+   * An agent-run hand-off (Phase 113 Theme O): the base64url JSON of `{ issueUrl, skill }`
+   * (`encodeAgentRunParam`), opaque here like `ref`. The router sends it to whichever app can start
+   * an agent from it — Studio today — never to a bundle that would drop it, and the receiver
+   * validates it against `AgentRunHandoffSchema` on arrival.
+   */
+  run?: string;
 };
 
 /** The lists the parser filters `view`/`tab`/`page` against; each optional. */
@@ -76,11 +83,14 @@ export function midniteOpenLink(target: MidniteLinkTarget): string {
   if (target.page !== undefined) params.set('page', target.page);
   else if (target.tab !== undefined && target.view === 'media') params.set('tab', target.tab);
   if (target.ref !== undefined && REF_PARAM.test(target.ref)) params.set('ref', target.ref);
+  if (target.run !== undefined && RUN_PARAM.test(target.run)) params.set('run', target.run);
   return `${MIDNITE_PROTOCOL}//open?${params.toString()}`;
 }
 
 /** base64url, at most 4 KB — a ref is a few dozen bytes; anything bigger is not one. */
 const REF_PARAM = /^[A-Za-z0-9_-]{1,4096}$/;
+/** base64url, at most 2 KB — `{ issueUrl, skill }` is a few hundred bytes at most. */
+const RUN_PARAM = /^[A-Za-z0-9_-]{1,2048}$/;
 const SLUG = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 
 /**
@@ -115,6 +125,8 @@ export function parseMidniteLink(raw: unknown, vocabulary: MidniteLinkVocabulary
 
   const ref = url.searchParams.get('ref');
   if (ref !== null && REF_PARAM.test(ref)) target.ref = ref;
+  const run = url.searchParams.get('run');
+  if (run !== null && RUN_PARAM.test(run)) target.run = run;
 
   if (view !== undefined) target.view = view as ViewId;
   if (page !== undefined && (view === undefined || view === 'settings')) target.page = page as SettingsPageId;

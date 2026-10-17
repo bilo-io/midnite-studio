@@ -24,6 +24,8 @@ import {
   createIpcContext,
   createSharedBroker,
   readRuntimeHostRecord,
+  registerHandoffOpener,
+  registerRunReceiver,
   vaultHostSocketPath,
   type IpcContextElectron,
   type PairingIdentity,
@@ -64,6 +66,11 @@ export type CoderElectron = IpcContextElectron & {
    * app" and nothing runs. The child is killed on a cancelled run, a timeout and quit.
    */
   scriptWorker?: () => ScriptWorkerHandle;
+  /**
+   * Opens a `midnite://open` link with the OS (`shell.openExternal`) — the agent-run hand-off's only
+   * way out. Absent, the hand-off opens nothing and the card offers its prompt to copy.
+   */
+  openExternal?: (url: string) => Promise<void>;
   warn?: (message: string) => void;
 };
 
@@ -155,6 +162,14 @@ export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos; s
     broker: createSharedBroker({ runtimeDirectory: el.vaultDirectory, appId: 'coder' }),
     hostSessions: () => readHostSessions(readRuntimeHostRecord(el.vaultDirectory)?.sessionsFile),
   });
+
+  // The agent-run hand-off (slice 5): a task card's run goes out as a `midnite://open` link the opener
+  // re-parses before the OS sees it, and only once main says something can receive it — Studio, named by
+  // the runtime host record. Coder starts nothing itself; the receiver confirms.
+  registerHandoffOpener(ctx.ipc, {
+    openExternal: el.openExternal ?? (async () => Promise.reject(new Error('Coder cannot open links here.'))),
+  });
+  registerRunReceiver(ctx.ipc, { hostApp: () => readRuntimeHostRecord(el.vaultDirectory)?.host ?? null });
 
   // Coder's repositories.
   ctx.ipc.handleBare(CHANNELS.repoList, () => repos.list());

@@ -7,6 +7,7 @@ import { bridge } from './bridge';
 import { useOpenRepo } from './queries';
 import { revealResource } from '../features/companion/reveal/reveal';
 import { liveNavigationState, resolveNavigation } from '../features/companion/navigate';
+import { liveAgentRunDeps, receiveAgentRun } from './agent-run-receiver';
 
 /**
  * Subscribes to `mstudio:protocol:deep-link` and enforces the consent gate
@@ -67,6 +68,16 @@ export function useDeepLinks(): void {
         void revealResource(link.ref, { caller: 'link' }).then((outcome) => {
           if (!outcome.ok) addToast({ message: outcome.say, status: 'error' });
         });
+        return;
+      }
+
+      if (link.kind === 'run') {
+        // Phase 113 Theme O — an agent run handed off from Coder. Re-validated, known repositories
+        // only, and always confirmed before anything starts (`agent-run-receiver.ts`).
+        void receiveAgentRun(
+          link.run,
+          liveAgentRunDeps({ confirm, refuse: (message) => addToast({ message, status: 'error' }) }),
+        );
         return;
       }
 

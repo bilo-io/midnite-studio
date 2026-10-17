@@ -89,7 +89,7 @@ The apps, grouped by owner:
 | `forge` | coder |  |
 | `reviews` | coder |  |
 | `sessions` | coder |  |
-| `tasks` | coder | user decision |
+| `tasks` | coder | user decision; now `packages/features/tasks` behind `TasksHost`. Studio's terminal-backed card parts (live session, Play, composer, Auto-mate), the issue modal and Plan with AI stay in `packages/app` as optional host members |
 | `tests` | coder |  |
 | `slides` | creator |  |
 | `media` | creator, media, gamer | tabs split: doc/image/audio/video to Creator, map/terrain/model/sprite/game to Gamer, players reused by Media |
@@ -184,7 +184,8 @@ packages/features/<name>/
 
 A host port may declare a member **optional** and the feature drops the affordance when it is absent: models'
 `terminal` (launch an agent on a model, run `ollama serve`), chats' `CompanionToggle` and
-`openWorkingCopyInGraph`. Agents (`apps/agents`) leaves those out and supplies plain chrome for the rest
+`openWorkingCopyInGraph`, tasks' `terminal` (a card's live session, Play, Stop, composer and Auto-mate).
+Agents (`apps/agents`) leaves those out and supplies plain chrome for the rest
 (`src/compose/plain-ui.tsx`, `plain-composer.tsx`). Its councils run each member as a piped login shell
 (`main/shell-runner.ts`) rather than through the pty broker, and `dugite` is stubbed in its bundle: it has no
 repository registry yet, so every chat runs in its scratch directory. Its workflow **agent nodes** do use a pty —
@@ -578,7 +579,7 @@ with `MIDNITE_CREATOR_USER_DATA=<tmp>` prints `midnite-creator:ready` and quits.
 Coder composes two feature packages: **`packages/features/forge`** (Reviews and Actions over every forge
 provider) and **`packages/features/tests`** (the Tests view), over the frame. It opens on Reviews, with Actions
 and Tests as tabs beside it, and a small repository list on the left. The git graph is slice 2, the API client
-and the database slice 3 and Sessions slice 4 (below); tasks are a later slice.
+and the database slice 3, Sessions slice 4 and Tasks slice 5 (below).
 
 **Decision 1 — how the renderer folders split into packages.** Four placement folders (`forge`, `reviews`,
 `actions`, `tests`) became **two** packages, not four:
@@ -792,7 +793,7 @@ jail; its file pickers (import, export, a body file) open in main.
 editor is a textarea until a shared editor lives in the frame); **no SQLite in Coder** (`better-sqlite3` is a native
 module the bundle format cannot carry, so its connections answer the driver's own "Failed to load better-sqlite3"
 while Postgres, MySQL, MariaDB and MSSQL, which are pure JS, work); no detach-to-window mark. Sessions is slice 4;
-tasks and the Tasks → Agents hand-off are the next. `MIDNITE_CODER_SMOKE=1` still prints `midnite-coder:ready`.
+Tasks is slice 5 (below). `MIDNITE_CODER_SMOKE=1` still prints `midnite-coder:ready`.
 
 ### Coder slice 4: Sessions, and Agents' sessions on the shared broker (Phase 113 Theme O)
 
@@ -827,6 +828,91 @@ control the view does not draw.
 Proven by `packages/features/sessions/main/guest-sessions.test.ts`, `renderer/guest-sessions-view.test.tsx`,
 `apps/agents/main/broker-sessions.test.ts`, `apps/coder/src/coder-app.test.tsx`, and end to end on Studio's real
 broker server by `packages/desktop/src/main/broker-sessions-guest.test.ts`.
+
+### Coder slice 5: Tasks (Phase 113 Theme O)
+
+**`packages/features/tasks`** — the Tasks view (the repository's issues and its forge boards: table, board and
+dependency graph; filters, grouping, the field editors, the issue drawer and its dialogs) as a renderer-only
+feature. Everything it reads that it does not own comes through **`TasksHost`** (`renderer/host.tsx`):
+
+- `useUi`/`getUi` over a `TasksUiState` slice — the board per repository, the view mode, each board's filter,
+  grouping, sort and collapsed columns, the dependency field's name, each card's skill, the forge-writes switch
+  and the agent skills. Studio passes `useUiStore`, so no persisted key moved; the LRU helpers and defaults moved
+  with the feature (`renderer/state.ts`) and `ui-store` re-exports them.
+- `data` — the forge hooks (issues, boards, fields, items and their writes). The feature imports no forge code:
+  Studio passes `app/src/services/queries`, Coder the forge feature's renderer hooks.
+- Chrome: avatars, links, the multi-select menu, a modal, dismiss, cascade reveal, toasts, `copyText`.
+- **Optional** members, each a control the view drops when absent: `terminal` (a card's live session and badge,
+  Play/Stop, the inline composer, Auto-mate, and the skill-mapped column drop that starts an agent), `openIssue`
+  (the app-wide issue modal), `runCommand` (run `gh auth refresh` in a terminal), `usePlanBlueprint`/`WandField`
+  (Plan with AI), `useRepoSkills`, `PresentButton`/`setActiveMarkdown` (slides).
+
+**Studio** (`app/src/compose/tasks-host.tsx`, `STUDIO_TASKS_HOST`) fills every member with exactly what the view
+imported before. Phase 92's card agent start is unchanged: `terminal.startCardAgent` is `startAgent` with
+`surface: 'kanban'`, the card's `taskRef` and the session attribution, so cards, sessions and their test ids
+behave as they did. The terminal-backed pieces stay in Studio (`features/tasks/`: `card-terminal`, `card-composer`,
+`use-card-play`, `use-automate`, the issue modal), the same split Sessions made for its live pane.
+
+**Coder** (`apps/coder/src/compose/tasks-host.tsx`, `CODER_TASKS_HOST`) reads its own repository list and forge
+channels — answered by the forge feature's main half in Coder's main, which reaches a stored forge token only
+through the paired, granted runtime vault (`connectRuntimeVault`). No new channel or secret path: the renderer
+sees boards and issues, never a stored value. Its `TasksUiState` is `compose/tasks-store.ts` (`midnite-coder.tasks`
+in its own localStorage), with two values read from where Coder already keeps them: the forge-writes switch is the
+header's **Review actions** box (off by default; every board and issue write obeys it, as Reviews' do), and the board
+per repository is the one Reviews' "Add to project" writes (`midnite-coder.forge.projectBoardByRepo`). The card
+skill list is the built-in `DEFAULT_AGENT_SKILLS` (moved to the frame so both composers seed from one list).
+
+**Left out in Coder:** `terminal` (no Stop, live session or composer on a card; a drop into a skill-mapped column
+only moves the card), `openIssue` (an issue keeps its plain link), `runCommand` (Reload only refetches; the copy
+button beside `gh auth refresh -s project` stays), Plan with AI, repo skills and slides. A card's Play is the
+agent-run hand-off instead (below).
+
+#### The agent-run hand-off: a Coder card's run, started in Studio
+
+Coder starts no terminal, so its task card's **Run in an agent** button (the Tasks host's optional `cardHandoff`,
+drawn only when there is no `terminal`) hands the card's run to an app that can start an agent. The rules:
+
+- **Data only.** What crosses is `{ issueUrl, skill }`, strict (`AgentRunHandoffSchema`,
+  `shared/src/agent-run-handoff.ts`), and never a prompt, an agent, a command, a flag, a path or a repository id.
+  `issueUrl` is `https://<dns-host>/<owner>/<repo>/(issues|pull)/<n>` exactly: no credentials, port, query, fragment
+  or trailing path, no IP or single-label host, and the raw string must equal its normalised form (so `..`, `%2e`
+  and `%2F` are refused). `skill` is one `/command` and at most four plain words, none starting with `-`, with no
+  quotes, metacharacters or newline. The feature builds it (`agentRunFor`, the card's URL and the skill its picker
+  shows); a draft card or a skill that is not plain gives no run and a disabled button that says why.
+- **Gated.** Play is enabled only while Coder's **Review actions** switch is on (off by default), and Coder's
+  `send` (`apps/coder/src/compose/agent-handoff.ts`) checks the switch again rather than trusting the button.
+- **How a receiver is known.** Coder's main answers `handoff.runReceiver` (`registerRunReceiver`,
+  `runtime/src/app-main/handoff.ts`) with a name or null, never a path or pid: `studio` when the runtime host record
+  names Studio as the host. Agents joins once it can take a run itself, known then by the launcher's
+  `installed.json`. **With no receiver** — or when the link could not be opened — Coder opens nothing and offers
+  the prompt (`<skill> <url>`) to copy instead.
+- **The route.** The link is `midnite://open?app=agents&run=<base64url JSON>`, opened by main's hand-off opener,
+  which re-parses it and opens only a `midnite://open` link. The launcher's router sends any run-bearing link to
+  Studio as `midnite-studio://run?req=…` — it skips an installed Agents bundle, which cannot take one yet, and with
+  no Studio installed shows the Agents detail sheet. Studio's protocol parser decodes it to `{ kind: 'run', run }`,
+  `run` null when anything about it fails.
+- **Studio re-validates, on receipt** (`app/src/services/agent-run-receiver.ts`). A link is remote-triggerable —
+  any web page can open one — so arriving proves nothing. A malformed or hostile run is refused with a toast; so is
+  any run while the screen is locked.
+- **Known repositories only.** The issue's `host/owner/repo` must match a repository the user already has open in
+  Studio (its forge remote). **An unknown one is refused with a toast, exactly like a malformed link — Studio never
+  resolves, clones or opens an unknown owner/name**, and a failed lookup is a refusal, not a guess.
+- **Always confirmed.** The dialog shows the exact command line and the checkout it runs in; nothing starts until
+  its button is pressed. The agent, its flags and the prompt are Studio's own (the repository's most recent agent,
+  else the roster's first; `<skill> <url>`, exactly what Studio's own Play types). Confirmed, the prompt is typed
+  into a new terminal and **sent only when Settings ▸ Projects ▸ Launch and run is on**; otherwise the user presses
+  Return there.
+
+Proven by `packages/features/tasks/manifest.test.ts`, the moved component suites under
+`packages/features/tasks/renderer/`, Studio's assembled suites in `app/src/compose/tasks/` (rendered through
+`test-support/tasks-render.tsx`, the two ports only), and `apps/coder/src/coder-app.test.tsx` (a board's items over
+Coder's bridge; no Start, Stop or terminal on a card; task writes follow Review actions; the right link for a card;
+nothing sent with Review actions off; copy-prompt with no receiver). The hand-off's own proofs:
+`shared/src/agent-run-handoff.test.ts` (hostile URLs and skills, extra fields, the link round trip),
+`apps/launcher/src/main/router.test.ts` (run links go to Studio), `desktop/src/main/protocol-parse.test.ts`,
+`runtime/src/app-main/handoff.test.ts`, `apps/coder/main/context.test.ts` (the receiver name, the opener) and
+`app/src/services/agent-run-receiver.test.ts` + `deep-link.test.tsx` (hostile and malformed runs, a well-formed link
+to an unknown repository, the locked screen — all refused; the confirm-gated start; send only with Launch and run).
 
 ### Money's brokerage and exchange accounts (Phase 113 Theme P slice 2)
 
