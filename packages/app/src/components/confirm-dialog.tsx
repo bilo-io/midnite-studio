@@ -98,6 +98,22 @@ const BLAST_RADIUS_COPY = {
     consequence: 'will be cleared with the rest of the app’s site data — you will be signed out.',
     noEffect: 'No cookies are stored; any other site data the app kept is cleared.',
   },
+  /**
+   * Removing a credential from the vault — a secret, an LLM key, a forge token, a database login or a
+   * money account's API key. `secrets` above is the opposite case (bytes about to be *written* to a
+   * gitignored file), which these confirms had borrowed, so they told the user the wrong thing.
+   */
+  credentials: {
+    subject: (n: number) => `${n} stored credential${n === 1 ? '' : 's'}`,
+    consequence: 'will be deleted from the vault — this cannot be undone.',
+    noEffect: 'Nothing is stored for it — only the record is forgotten.',
+  },
+  /** Revoking an app's grant or pairing: the app loses access; no stored entry is touched. */
+  vaultAccess: {
+    subject: (n: number) => `${n} app${n === 1 ? '' : 's'}`,
+    consequence: 'will lose its access to the vault. Nothing stored is deleted.',
+    noEffect: 'No app holds access to these entries.',
+  },
 } as const satisfies Record<BlastRadiusKind, { subject: (n: number) => string; consequence: string; noEffect: string }>;
 
 export type { ConfirmRequest } from '@midnite/studio-frame';

@@ -131,7 +131,7 @@ export function AccountsWidget() {
       body: 'The stored API key is deleted from the vault and the account is forgotten here. Nothing changes at the broker.',
       confirmLabel: 'Remove',
       danger: true,
-      blastRadiusKind: 'secrets',
+      blastRadiusKind: 'credentials',
       blastRadius: { count: 1, sample: [] },
       onConfirm: () => {
         setSelected('all');

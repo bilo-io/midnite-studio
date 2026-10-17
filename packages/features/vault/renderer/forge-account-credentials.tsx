@@ -1,4 +1,4 @@
-import { Field, TextField } from '@midnite/studio-frame';
+import { Field, TextField, useFrameChrome } from '@midnite/studio-frame';
 import type { ForgeAccount } from '@midnite/studio-shared';
 import { useState, type CSSProperties, type FormEvent, type Ref } from 'react';
 import { LuTrash2 } from 'react-icons/lu';
@@ -132,13 +132,31 @@ function ForgeProviderPicker({
   );
 }
 
-/** An account row's trash button: deletes the stored token (and the account record) through the kit. */
+/**
+ * An account row's trash button: deletes the stored token (and the account record) through the kit —
+ * after the same destructive confirm the Vault view's own Remove shows. A delegated GitHub account
+ * holds no token, so its confirm says only the record is forgotten.
+ */
 export function ForgeAccountRemoveButton({ account }: { account: ForgeAccount }) {
   const removeAccount = useVaultForgeKit().useRemoveAccount();
+  const dialogs = useFrameChrome().useDialogs();
+  const name = account.displayName || account.login;
+  const confirmRemove = () =>
+    dialogs.confirm({
+      title: `Remove ${name} on ${account.host}?`,
+      body: account.hasToken
+        ? 'The stored token is deleted and the account is forgotten here. The account stays on the provider.'
+        : 'The account is forgotten here. gh keeps its own login.',
+      confirmLabel: 'Remove',
+      danger: true,
+      blastRadiusKind: 'credentials',
+      blastRadius: { count: account.hasToken ? 1 : 0, sample: [] },
+      onConfirm: () => removeAccount.mutate(account.id),
+    });
   return (
     <button
       type="button"
-      onClick={() => removeAccount.mutate(account.id)}
+      onClick={confirmRemove}
       aria-label={`Remove ${account.displayName || account.login}`}
       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
     >

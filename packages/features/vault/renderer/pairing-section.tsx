@@ -31,7 +31,7 @@ export function PairingSection() {
       body: `${appId} loses access until it next opens, when it pairs again with whatever key it then presents. Do this when you trust the ${appId} you are about to open.`,
       confirmLabel: 'Unpair',
       danger: true,
-      blastRadiusKind: 'secrets',
+      blastRadiusKind: 'vaultAccess',
       blastRadius: { count: 1, sample: [] },
       onConfirm: () => {
         void bridge()

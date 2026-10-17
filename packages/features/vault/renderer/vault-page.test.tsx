@@ -123,7 +123,7 @@ describe('VaultPage', () => {
     const { secrets } = mount();
     fireEvent.click((await screen.findAllByRole('button', { name: 'Remove' }))[0]!);
     expect(secrets.set).not.toHaveBeenCalled();
-    expect(screen.getByRole('status').textContent).toMatch(/secret value/);
+    expect(screen.getByRole('status').textContent).toBe('1 stored credential will be deleted from the vault — this cannot be undone.');
     await act(async () => fireEvent.click(screen.getAllByRole('button', { name: 'Remove' }).at(-1)!));
     expect(secrets.set).toHaveBeenCalledWith({ key: 'ollama.apiKey', value: '' });
   });

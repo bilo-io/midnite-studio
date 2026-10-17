@@ -162,7 +162,7 @@ describe('AccountsWidget', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Remove Alpha' }));
     expect(api.remove).not.toHaveBeenCalled();
     const request = confirm.mock.calls[0]?.[0] as { danger: boolean; blastRadiusKind: string; body: string; onConfirm: () => void };
-    expect(request).toMatchObject({ danger: true, blastRadiusKind: 'secrets' });
+    expect(request).toMatchObject({ danger: true, blastRadiusKind: 'credentials' });
     expect(request.body).toMatch(/deleted from the vault/);
     request.onConfirm();
     await waitFor(() => expect(api.remove).toHaveBeenCalledWith({ id: 'a' }));

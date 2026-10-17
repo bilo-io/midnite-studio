@@ -90,10 +90,16 @@ describe('ForgeAccountAddForm', () => {
 });
 
 describe('ForgeAccountRemoveButton', () => {
-  it('removes the account through the host kit', () => {
+  it('removes the account through the host kit, only after the confirm', async () => {
     const { kit, remove } = fakeKit({ ok: true, account });
     mount(<ForgeAccountRemoveButton account={account} />, { openWebApp: null, forge: kit });
     fireEvent.click(screen.getByRole('button', { name: 'Remove Octo' }));
+    expect(remove).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('status').textContent).toBe(
+      '1 stored credential will be deleted from the vault — this cannot be undone.',
+    );
+    await act(async () => fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' })));
     expect(remove).toHaveBeenCalledWith('gitlab:gitlab.com:octo');
   });
 });
