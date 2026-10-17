@@ -20,7 +20,7 @@ import './voice-ports';
  * static import in `main.tsx` regardless of `role`.
  *
  * Its own module, loaded behind `React.lazy`, so a non-companion popout's
- * bundle never evaluates it — same reason `main.tsx` itself now branches on
+ * bundle never evaluates it — same reason `boot.tsx` itself now branches on
  * `role` before importing `App` or `DetachedRoot`.
  */
 export function CompanionBootstrap(): null {
