@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { fixtures } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
-import { SessionsView } from './sessions-view';
+import { SessionsView } from '@midnite/studio-feature-sessions/renderer/testing';
 
 /**
  * Migrated from `e2e/sessions-view.spec.ts` (Phase 82 Theme C, wave 5) — the

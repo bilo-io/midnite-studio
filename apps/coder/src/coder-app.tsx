@@ -4,11 +4,18 @@ import { useState } from 'react';
 import { ApiClientHostProvider } from '@midnite/studio-feature-api-client/renderer';
 import { DatabaseHostProvider } from '@midnite/studio-feature-database/renderer';
 import { ForgeHostProvider } from '@midnite/studio-feature-forge/renderer';
+import { SessionsHostProvider } from '@midnite/studio-feature-sessions/renderer';
 import { TestsHostProvider, useTestsStream } from '@midnite/studio-feature-tests/renderer';
 import { FrameChromeProvider, GitHostProvider } from '@midnite/studio-frame';
 
 import { CODER_CHROME, CoderDialogHost } from './compose/coder-chrome';
-import { CODER_API_CLIENT_HOST, CODER_DATABASE_HOST, CODER_FORGE_HOST, CODER_TESTS_HOST } from './compose/coder-hosts';
+import {
+  CODER_API_CLIENT_HOST,
+  CODER_DATABASE_HOST,
+  CODER_FORGE_HOST,
+  CODER_SESSIONS_HOST,
+  CODER_TESTS_HOST,
+} from './compose/coder-hosts';
 import { CODER_GIT_HOST } from './compose/git-host';
 import { CoderHome } from './views/coder-home';
 
@@ -19,8 +26,8 @@ function TestsStream() {
 }
 
 /**
- * Midnite Coder — the forge, tests, API client and Database features composed over the frame as their own
- * app: the frame chrome, each feature's host port, the frame's git host (the read-only Graph tab) and the
+ * Midnite Coder — the forge, tests, API client, Database and Sessions features composed over the frame as
+ * their own app: the frame chrome, each feature's host port, the frame's git host (the read-only Graph tab) and the
  * query client their hooks read through. The host providers nest rather than sit side by side — siblings
  * would each render `{children}`, mounting the app twice.
  */
@@ -34,9 +41,11 @@ export function CoderApp() {
             <ApiClientHostProvider host={CODER_API_CLIENT_HOST}>
               <DatabaseHostProvider host={CODER_DATABASE_HOST}>
                 <GitHostProvider host={CODER_GIT_HOST}>
-                  <TestsStream />
-                  <CoderHome />
-                  <CoderDialogHost />
+                  <SessionsHostProvider host={CODER_SESSIONS_HOST}>
+                    <TestsStream />
+                    <CoderHome />
+                    <CoderDialogHost />
+                  </SessionsHostProvider>
                 </GitHostProvider>
               </DatabaseHostProvider>
             </ApiClientHostProvider>

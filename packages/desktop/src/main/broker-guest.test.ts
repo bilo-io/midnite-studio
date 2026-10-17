@@ -3,9 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  attachSharedBroker,
   createBrokerService,
   createSharedBroker,
-  GUEST_CANNOT_CREATE,
+  GUEST_NO_SHARED_BROKER,
   writeRuntimeHostRecord,
   type BrokerService,
 } from '@midnite/studio-runtime';
@@ -77,14 +78,14 @@ function startServer(socketPath: string, dir: string, buildId: string, pty: IPty
 
 const temp = (prefix: string) => mkdtempSync(join(tmpdir(), prefix));
 
-function guestOf(runtimeDir: string, appId: 'monitor' | 'coder') {
+function guestOf(runtimeDir: string, appId: 'monitor' | 'coder' | 'agents') {
   const shared = createSharedBroker({ runtimeDirectory: runtimeDir, appId });
   cleanups.push(() => shared.dispose());
   return shared;
 }
 
 describe('shared broker — a terminal Studio opened, reached from another app', () => {
-  it('lists, streams, writes to, resizes and snapshots the host’s session; creating and killing stay the host’s', async () => {
+  it('lists, streams, writes to, resizes and snapshots the host’s session; it never kills the host’s', async () => {
     const studioData = temp('mbg-s-');
     const runtimeDir = temp('mbg-r-');
     const fake = fakePty(5150);
@@ -96,7 +97,11 @@ describe('shared broker — a terminal Studio opened, reached from another app',
     const monitor = guestOf(runtimeDir, 'monitor');
     const listed = await monitor.listSessions();
     expect(listed.status).toEqual({ mode: 'broker' });
-    expect(listed.sessions).toEqual([expect.objectContaining({ ptyId, sessionId: 'studio-sess', pid: 5150, cwd: studioData, legacy: false })]);
+    expect(listed.sessions).toEqual([
+      expect.objectContaining({ ptyId, sessionId: 'studio-sess', pid: 5150, cwd: studioData, legacy: false, owner: 'studio' }),
+    ]);
+    // A listing carries names, never a session's environment.
+    expect(Object.keys(listed.sessions[0]!).sort()).toEqual(['cols', 'cwd', 'legacy', 'owner', 'pid', 'ptyId', 'rows', 'sessionId']);
 
     const guest = (await monitor.client())!;
     const seen: string[] = [];
@@ -108,9 +113,58 @@ describe('shared broker — a terminal Studio opened, reached from another app',
     expect(await guest.resizePty(ptyId, 100, 30)).toBe(true);
     expect(new TextDecoder().decode(await guest.snapshot('studio-sess'))).toContain('build ok');
 
-    expect(await guest.createPty({ sessionId: 'x', cwd: studioData, cols: 80, rows: 24, env: {} })).toEqual({ ok: false, message: GUEST_CANNOT_CREATE });
     expect(await guest.killPty(ptyId)).toBe(false);
     expect(server.sessionCount()).toBe(1);
+  });
+
+  it('starts a session of its own on the host’s broker, stamped with its app id, and kills only that', async () => {
+    const studioData = temp('mbg-s-');
+    const runtimeDir = temp('mbg-r-');
+    const ptys = [fakePty(7001), fakePty(7002)];
+    let next = 0;
+    const brokerScriptPath = join(studioData, 'broker.js');
+    writeFileSync(brokerScriptPath, '// stand-in\n');
+    const service = createBrokerService({ dataDir: studioData, appVersion: '0.30.0', isPackaged: false, brokerScriptPath });
+    const server = createBrokerServer({
+      socketPath: service.socketPath,
+      userDataDir: studioData,
+      buildId: service.buildId,
+      spawnPty: () => ptys[next++]!.pty,
+    });
+    cleanups.push(() => server.close());
+    await waitFor(() => server.server.listening);
+    writeRuntimeHostRecord(runtimeDir, { version: 1, host: 'studio', pid: process.pid, writtenAt: Date.now(), broker: { socketPath: service.socketPath, directory: join(studioData, 'broker') } });
+    const studio = service.attach('studio');
+    await studio.init();
+    cleanups.push(() => studio.disconnect());
+    const studioPty = (await studio.createPty({ sessionId: 'studio-sess', cwd: studioData, cols: 80, rows: 24, env: {} })) as { ptyId: string };
+
+    const agents = (await guestOf(runtimeDir, 'agents').client())!;
+    const created = await agents.createPty({ sessionId: 'agents-sess', cwd: studioData, cols: 80, rows: 24, env: {} });
+    expect(created).toMatchObject({ ok: true, pid: 7002 });
+    const agentsPty = (created as { ptyId: string }).ptyId;
+
+    // Studio — and any other guest — sees whose it is.
+    const fromStudio = await studio.listSessions();
+    expect(fromStudio.map((s) => [s.sessionId, s.owner])).toEqual([['studio-sess', 'studio'], ['agents-sess', 'agents']]);
+    const coder = (await guestOf(runtimeDir, 'coder').client())!;
+    await coder.listSessions();
+    expect(await coder.killPty(agentsPty)).toBe(false);
+    expect(await agents.killPty(studioPty.ptyId)).toBe(false);
+    expect(server.sessionCount()).toBe(2);
+
+    expect(await agents.killPty(agentsPty)).toBe(true);
+    expect(server.sessionCount()).toBe(1);
+    expect((await studio.listSessions()).map((s) => s.sessionId)).toEqual(['studio-sess']);
+  });
+
+  it('reports plainly when no host broker is reachable, and starts nothing', async () => {
+    const agents = guestOf(temp('mbg-r-'), 'agents');
+    expect(await agents.client()).toBeNull();
+    const direct = attachSharedBroker({ socketPath: join(temp('mbg-x-'), 'none.sock'), directory: temp('mbg-d-'), appId: 'agents' });
+    await direct.init();
+    cleanups.push(() => direct.disconnect());
+    expect(await direct.createPty({ sessionId: 'x', cwd: '/tmp', cols: 80, rows: 24, env: {} })).toEqual({ ok: false, message: GUEST_NO_SHARED_BROKER });
   });
 
   it('never shuts down an empty broker or unlinks a dead socket it finds — that is the host’s call', async () => {

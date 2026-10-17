@@ -171,7 +171,7 @@ describe('registerAgentsHandlers', () => {
       expect(JSON.stringify(run.nodes[0]?.output)).toContain('hello-from-agents');
     });
 
-    it('fails an agent node with a plain message instead of hanging — Agents has no terminal yet', async () => {
+    it('fails an agent node with a plain message instead of hanging when no host broker is running', async () => {
       const { handlers } = await setup();
       const agent = { id: 'n1', kind: 'agent', label: 'Ask', x: 0, y: 0, config: { agentId: 'claude', prompt: 'hi' } };
       await handlers.get(CHANNELS.workflowSave)?.({}, { workflow: graph('w2', [agent]) });

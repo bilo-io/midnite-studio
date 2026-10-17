@@ -30,6 +30,8 @@ export default defineConfig({
       '@midnite/studio-feature-forge/main': at('../../packages/features/forge/main/index.ts'),
       '@midnite/studio-feature-forge/renderer': at('../../packages/features/forge/renderer/index.ts'),
       '@midnite/studio-feature-forge/renderer/testing': at('../../packages/features/forge/renderer/testing.ts'),
+      '@midnite/studio-feature-sessions/main': at('../../packages/features/sessions/main/index.ts'),
+      '@midnite/studio-feature-sessions/renderer': at('../../packages/features/sessions/renderer/index.ts'),
       '@midnite/studio-feature-tests/main': at('../../packages/features/tests/main/index.ts'),
       '@midnite/studio-feature-tests/renderer': at('../../packages/features/tests/renderer/index.ts'),
       '@midnite/studio-feature-tests/renderer/testing': at('../../packages/features/tests/renderer/testing.ts'),

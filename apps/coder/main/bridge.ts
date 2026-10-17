@@ -8,9 +8,10 @@ import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
  * nothing else: `forge.*`, `forgeProject.*`, `forgeAccounts.*` (records with a `hasToken` boolean, never
  * a token), `tests.*`, `apiClient.*`, `db.*` (connection metadata — a password goes in on a save and
  * nothing answers one), `remotes.list`, five `repos` members, the `log` stream and four read-only
- * `status` reads. There is no `secrets`, `fs`, `pty` or `ops` namespace: a forge token or a database
- * password is read in main only, and nothing here can write to a checkout (`bridge.test.ts` holds the
- * list). The API client writes only its own `.midnite/api/` files, in main, confined to a checkout
+ * `status` reads, plus the Sessions tab's `terminal.list` and an attach-only `pty` (snapshot, stream,
+ * input, resize — no `create`, no `kill`). There is no `secrets`, `fs` or `ops` namespace: a forge token
+ * or a database password is read in main only, and nothing here can write to a checkout
+ * (`bridge.test.ts` holds the list). The API client writes only its own `.midnite/api/` files, in main, confined to a checkout
  * Coder's list holds.
  */
 export type CoderBridge = {
@@ -28,6 +29,10 @@ export type CoderBridge = {
   log: MidniteStudioBridge['log'];
   /** Read-only: HEAD and the working copy, one commit, its file diffs and diff stats. */
   status: Pick<MidniteStudioBridge['status'], 'get' | 'commitDetail' | 'commitFileDiff' | 'commitStats'>;
+  /** Sessions (slice 4): the runtime host's terminal sessions, listed — no save, forget or reorder. */
+  terminal: Pick<MidniteStudioBridge['terminal'], 'list'>;
+  /** Attach to one: snapshot, stream, type and resize. No `create` and no `kill` — Coder starts nothing. */
+  pty: Pick<MidniteStudioBridge['pty'], 'snapshot' | 'input' | 'resize' | 'subscribe' | 'unsubscribe' | 'onData' | 'onExit'>;
 };
 
 export type { RendererIpc };
@@ -154,6 +159,16 @@ export function createCoderBridge(ipc: RendererIpc): CoderBridge {
       commitDetail: (req) => call(CHANNELS.commitDetail, req),
       commitFileDiff: (req) => call(CHANNELS.commitFileDiff, req),
       commitStats: (req) => call(CHANNELS.commitStats, req),
+    },
+    terminal: { list: () => call(CHANNELS.terminalList) },
+    pty: {
+      snapshot: (req) => call(CHANNELS.ptySnapshot, req),
+      input: (req) => send(CHANNELS.ptyInput, req),
+      resize: (req) => send(CHANNELS.ptyResize, req),
+      subscribe: (req) => send(CHANNELS.ptySubscribe, req),
+      unsubscribe: (req) => send(CHANNELS.ptyUnsubscribe, req),
+      onData: (handler) => subscribe(EVENT_CHANNELS.ptyData, handler),
+      onExit: (handler) => subscribe(EVENT_CHANNELS.ptyExit, handler),
     },
   };
 }

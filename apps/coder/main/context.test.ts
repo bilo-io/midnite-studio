@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClientManifest, type ScriptWorkerHandle } from '@midnite/studio-feature-api-client/main';
 import { connectionFingerprint, databaseManifest } from '@midnite/studio-feature-database/main';
 import { __resetForgeAccountsForTests, forgeManifest } from '@midnite/studio-feature-forge/main';
+import { sessionsManifest } from '@midnite/studio-feature-sessions/main';
 import { testsManifest } from '@midnite/studio-feature-tests/main';
 import { createFakeCipher, createVaultGrants, startTestVaultHost, testPairingIdentity, type PairingIdentity, type TestVaultHost, type VaultAuthorize } from '@midnite/studio-runtime';
 import { CHANNELS, forgeAccountVaultKey, type ForgeAccount } from '@midnite/studio-shared';
@@ -145,12 +146,21 @@ async function setup(options: { authorize?: VaultAuthorize; picked?: string | nu
 }
 
 describe('registerCoderHandlers', () => {
-  it('registers the forge, tests, API client and database features’ channels, its own repository list and the read-only git — and nothing else', async () => {
+  it('registers the forge, tests, API client, database and sessions features’ channels, its own repository list and the read-only git — and nothing else', async () => {
     const { handlers, sends } = await setup();
     const own = [CHANNELS.repoList, CHANNELS.repoPickDirectory, CHANNELS.repoOpen, CHANNELS.repoClose, CHANNELS.remotesList, ...CODER_GIT_CHANNELS];
-    expect([...handlers.keys()].sort()).toEqual([...forgeManifest.ipc, ...testsManifest.ipc, ...apiClientManifest.ipc, ...databaseManifest.ipc, ...own].sort());
-    expect([...sends.keys()].sort()).toEqual([...forgeManifest.sends, ...testsManifest.sends].sort());
+    expect([...handlers.keys()].sort()).toEqual(
+      [...forgeManifest.ipc, ...testsManifest.ipc, ...apiClientManifest.ipc, ...databaseManifest.ipc, ...sessionsManifest.ipc, ...own].sort(),
+    );
+    expect([...sends.keys()].sort()).toEqual([...forgeManifest.sends, ...testsManifest.sends, ...sessionsManifest.sends].sort());
     for (const channel of [CHANNELS.secretsGet, CHANNELS.secretsSet, CHANNELS.secretsHas]) expect(handlers.has(channel)).toBe(false);
+    // Coder starts no terminal session and ends none.
+    for (const channel of [CHANNELS.ptyCreate, CHANNELS.ptyKill]) expect(handlers.has(channel) || sends.has(channel)).toBe(false);
+  });
+
+  it('lists no sessions, plainly, when no runtime host has a broker running', async () => {
+    const { invoke } = await setup();
+    expect(await invoke(CHANNELS.terminalList)).toMatchObject({ sessions: [], broker: { mode: 'inproc' } });
   });
 
   it('adds only a folder the dialog itself returned, and refuses a path the renderer made up', async () => {

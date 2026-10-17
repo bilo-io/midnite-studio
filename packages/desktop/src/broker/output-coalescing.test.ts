@@ -81,7 +81,7 @@ async function client(socketPath: string): Promise<{
   });
 
   socket.write(
-    encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.1.0', pid: process.pid }),
+    encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.1.0', pid: process.pid, role: 'host' }),
   );
   await new Promise((r) => setTimeout(r, 20));
 

@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme O (slice 4a) — Sessions as a feature; guest rules in the broker; Agents' sessions in Coder
+
+[PR #894](https://github.com/bilo-io/midnite-studio/pull/894). The broker enforces guest rules on the server, `sessions` is a feature, Agents runs agent nodes on Studio's broker, and Coder's Sessions tab shows them.
+
 ## 2026-10-17 — Phase 113 Theme S (slice 2) — the Model tab as a feature; Gamer's MCP tools owned by its manifests
 
 [PR #893](https://github.com/bilo-io/midnite-studio/pull/893). `media-model` is a feature, the Gamer tools are owned by their feature manifests, and Gamer gains the Models tab with its keys only through the paired, granted runtime vault.

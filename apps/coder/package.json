@@ -16,6 +16,7 @@
     "@midnite/studio-feature-api-client": "workspace:*",
     "@midnite/studio-feature-database": "workspace:*",
     "@midnite/studio-feature-forge": "workspace:*",
+    "@midnite/studio-feature-sessions": "workspace:*",
     "@midnite/studio-feature-tests": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-db-engine": "workspace:*",

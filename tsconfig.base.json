@@ -38,6 +38,7 @@
       "@midnite/studio-feature-forge/main": ["./packages/features/forge/main/index.ts"],
       "@midnite/studio-feature-api-client/main": ["./packages/features/api-client/main/index.ts"],
       "@midnite/studio-feature-database/main": ["./packages/features/database/main/index.ts"],
+      "@midnite/studio-feature-sessions/main": ["./packages/features/sessions/main/index.ts"],
       "@midnite/studio-feature-api-client/script-runner-worker": ["./packages/features/api-client/main/script-runner-worker.ts"],
       "@midnite/studio-feature-media-core/main": ["./packages/features/media-core/main/index.ts"],
       "@midnite/studio-feature-media-docs/main": ["./packages/features/media-docs/main/index.ts"],

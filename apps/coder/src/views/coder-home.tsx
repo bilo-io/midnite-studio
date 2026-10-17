@@ -5,6 +5,7 @@ import { LuCode, LuFolderPlus, LuX } from 'react-icons/lu';
 import { apiClientViews } from '@midnite/studio-feature-api-client/renderer';
 import { databaseViews } from '@midnite/studio-feature-database/renderer';
 import { forgeViews } from '@midnite/studio-feature-forge/renderer';
+import { sessionsViews } from '@midnite/studio-feature-sessions/renderer';
 import { testsViews } from '@midnite/studio-feature-tests/renderer';
 import { bridge, RingSpinner } from '@midnite/studio-frame';
 import type { RepoDescriptor } from '@midnite/studio-shared';
@@ -19,6 +20,7 @@ const LABEL: Record<CoderViewId, string> = {
   graph: 'Graph',
   apiClient: 'API',
   database: 'Database',
+  sessions: 'Sessions',
 };
 
 /** Each view as a lazy chunk, loaded the way Studio's registry loads it. */
@@ -30,6 +32,8 @@ const VIEWS: Record<CoderViewId, ComponentType> = {
   graph: lazy(() => import('@midnite/studio-frame/graph').then((m) => ({ default: m.GraphView }))),
   apiClient: lazy(() => apiClientViews.apiClient().then((Component) => ({ default: Component }))),
   database: lazy(() => databaseViews.database().then((Component) => ({ default: Component }))),
+  // The runtime host's terminal sessions, attached as a broker guest (`compose/coder-hosts.ts`).
+  sessions: lazy(() => sessionsViews.sessions().then((Component) => ({ default: Component }))),
 };
 
 const REPOS_KEY = ['repos'] as const;
@@ -159,8 +163,8 @@ export function CoderHome() {
       <div className="flex min-h-0 flex-1">
         <RepoList />
         <main className="min-w-0 flex-1" aria-label={LABEL[view]}>
-          {/* The Database tool is global, as in Studio: a connection is not a property of a repository. */}
-          {selected === null && view !== 'database' ? (
+          {/* The Database tool and Sessions are global, as in Studio: neither belongs to one repository. */}
+          {selected === null && view !== 'database' && view !== 'sessions' ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No repository selected.</div>
           ) : (
             <Suspense

@@ -1,7 +1,6 @@
 import { PiTerminalDuotone } from 'react-icons/pi';
 
-import type { IconComponent } from '../../components/icon-button';
-import { LoadingRegion, Skeleton } from '../../components/skeleton';
+import { LoadingRegion, Skeleton, type IconComponent } from '@midnite/studio-frame';
 
 /**
  * What the Sessions list looks like before its fetch lands (Phase 67 Theme C).

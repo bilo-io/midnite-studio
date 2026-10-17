@@ -8,10 +8,12 @@ import { SCROLLBACK_BYTES, perfEnabled } from '@midnite/studio-shared';
 
 import { startHeapSampler } from '../heap-sampler';
 import {
+  BROKER_APP_ID_PATTERN,
   createFrameDecoder,
   encodeControl,
   encodeData,
   PROTOCOL,
+  type BrokerRole,
   type ControlMessage,
 } from './protocol';
 import { createQueuedSocketWriter, type QueuedSocketWriter } from './socket-write-queue';
@@ -75,7 +77,26 @@ type Session = {
   cols: number;
   rows: number;
   cwd: string;
+  /** The app id of the connection that created it (`null` when it declared none) — see {@link Identity}. */
+  owner: string | null;
 };
+
+/**
+ * Who a connection said it is in `hello` (Phase 113 Theme O). Default-deny: until a hello declares
+ * `role: 'host'`, a connection is a guest with no app id — it can list, snapshot, stream, write and
+ * resize, and nothing else. A guest with an app id may also create sessions (stamped with that id)
+ * and kill those it owns. Retire, shutdown and forget stay the host's. Declared, not proven — a
+ * same-user peer cannot be authenticated beyond its uid — so this holds a guest to its word, which
+ * is what keeps a guest's bug (or a client written to the guest protocol) off Studio's sessions.
+ */
+type Identity = { role: BrokerRole; appId: string | null; declared: boolean };
+
+const UNDECLARED: Identity = { role: 'guest', appId: null, declared: false };
+
+function identityFrom(msg: { role?: unknown; appId?: unknown }): Identity {
+  const appId = typeof msg.appId === 'string' && BROKER_APP_ID_PATTERN.test(msg.appId) ? msg.appId : null;
+  return { role: msg.role === 'host' ? 'host' : 'guest', appId, declared: true };
+}
 
 const RESET_SEQUENCE = new Uint8Array([0x1b, 0x5b, 0x30, 0x6d]);
 
@@ -140,6 +161,15 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
   const sessions = new Map<string, Session>();
   const scrollbackBySession = new Map<string, Uint8Array>();
   const clients = new Set<net.Socket>();
+  /** Each connection's declared identity; absent means {@link UNDECLARED}. Dropped on close. */
+  const identities = new Map<net.Socket, Identity>();
+  const identityOf = (socket: net.Socket): Identity => identities.get(socket) ?? UNDECLARED;
+
+  function forbid(socket: net.Socket, id: number | undefined, what: string): void {
+    const who = identityOf(socket);
+    log(`[broker] refused ${what} from guest ${who.appId ?? '(no app id)'}`);
+    socket.write(encodeControl({ t: 'reply', id, ok: false, code: 'forbidden', message: `A guest connection cannot ${what}.` }));
+  }
   /** One bounded, drain-aware write queue per client (Phase 51 Theme F). */
   const clientQueues = new Map<net.Socket, QueuedSocketWriter>();
   /** Control frames are small and infrequent; a few hundred KB is generous headroom. */
@@ -411,6 +441,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
 
     socket.on('close', () => {
       clients.delete(socket);
+      identities.delete(socket);
       clientQueues.get(socket)?.dispose();
       clientQueues.delete(socket);
       checkIdle();
@@ -418,6 +449,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
 
     socket.on('error', () => {
       clients.delete(socket);
+      identities.delete(socket);
       clientQueues.get(socket)?.dispose();
       clientQueues.delete(socket);
       checkIdle();
@@ -479,6 +511,14 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
           });
           return;
         }
+        // Identity is fixed by the first hello: a guest cannot re-introduce itself as the host.
+        const declared = identityFrom(msg);
+        const current = identities.get(socket);
+        if (current && (current.role !== declared.role || current.appId !== declared.appId)) {
+          forbid(socket, msg.id, 'change the identity it declared');
+          return;
+        }
+        identities.set(socket, declared);
         socket.write(
           encodeControl({
             t: 'reply',
@@ -505,6 +545,8 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
           cols: s.cols,
           rows: s.rows,
           cwd: s.cwd,
+          // Never the env: a session's environment can carry a resolved secret, and every client lists.
+          owner: s.owner,
         }));
         socket.write(
           encodeControl({
@@ -518,6 +560,12 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       }
 
       case 'create': {
+        const creator = identityOf(socket);
+        // A guest may start a session, but only as an app the session can be stamped with.
+        if (creator.role === 'guest' && creator.appId === null) {
+          forbid(socket, msg.id, 'create a session without naming its app');
+          return;
+        }
         if (!spawnPty) {
           socket.write(
             encodeControl({
@@ -587,6 +635,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             cols,
             rows,
             cwd,
+            owner: creator.appId,
           };
           sessions.set(id, session);
 
@@ -695,6 +744,12 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
 
       case 'kill': {
         const session = sessions.get(msg.ptyId);
+        const killer = identityOf(socket);
+        // A guest ends only what it started: owner is the app id it created the session as.
+        if (session && killer.role === 'guest' && (killer.appId === null || session.owner !== killer.appId)) {
+          forbid(socket, msg.id, 'kill a session another app started');
+          return;
+        }
         if (session) {
           flushPtyOutput(msg.ptyId);
           // Same reasoning as the `onExit` handler above: a killed session
@@ -770,6 +825,10 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
         // Phase 45 Theme C: the one control message that clears the leak —
         // `scrollbackBySession` otherwise keeps every session ever opened,
         // forever, in the one process that deliberately outlives the app.
+        if (identityOf(socket).role === 'guest') {
+          forbid(socket, msg.id, 'forget scrollback');
+          return;
+        }
         for (const sessionId of msg.sessionIds) scrollbackBySession.delete(sessionId);
         socket.write(encodeControl({ t: 'reply', id: msg.id, ok: true }));
         break;
@@ -791,12 +850,20 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       }
 
       case 'retire': {
+        if (identityOf(socket).role === 'guest') {
+          forbid(socket, msg.id, 'retire the broker');
+          return;
+        }
         const retiredPath = retire();
         socket.write(encodeControl({ t: 'reply', id: msg.id, ok: true, socketPath: retiredPath }));
         break;
       }
 
       case 'shutdown': {
+        if (identityOf(socket).role === 'guest') {
+          forbid(socket, msg.id, 'shut the broker down');
+          return;
+        }
         socket.write(encodeControl({ t: 'reply', id: msg.id, ok: true }));
         void closeServer();
         break;

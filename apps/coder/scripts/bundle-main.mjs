@@ -38,6 +38,7 @@ const common = {
     // The engine from source too, so no prior tsc build is needed (its drivers are pure JS but sqlite).
     '@midnite/studio-db-engine': at('../../../packages/db-engine/src/index.ts'),
     '@midnite/studio-feature-tests/main': at('../../../packages/features/tests/main/index.ts'),
+    '@midnite/studio-feature-sessions/main': at('../../../packages/features/sessions/main/index.ts'),
     // git-engine from source, with `dugite` swapped for the system git behind dugite's own API: Coder
     // bundles no 42 MB git of its own, and only ever reads. See main/system-git.ts and docs/APPS.md.
     '@midnite/studio-git-engine': at('../../../packages/git-engine/src/index.ts'),

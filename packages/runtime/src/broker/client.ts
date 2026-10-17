@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, openSync, readdirSync, unlinkSync } from 'node:f
 import * as net from 'node:net';
 import { basename, join } from 'node:path';
 
+import type { RuntimeAppId } from '../app-id';
 import {
   createFrameDecoder,
   encodeControl,
@@ -76,16 +77,20 @@ export type BrokerClientOptions = BrokerIdentity & {
    * `host` (the default) owns the broker: it spawns one when none answers, retires a stale one and
    * shuts down empty legacy peers. A `guest` is another app attached to a broker it did not start
    * (`attachSharedBroker`): it connects to {@link socketPath} and to any live peer in `brokerDir`,
-   * and never spawns, retires, unlinks, shuts down or creates — a guest that tidied up would stop
-   * the host's own broker the first time it found it empty.
+   * and never spawns, retires, unlinks or shuts down — a guest that tidied up would stop the host's
+   * own broker the first time it found it empty. It may create a session on the host's broker (stamped
+   * with {@link appId}) and kill only the sessions stamped with its own id; the broker server enforces
+   * both (`desktop/src/broker/server.ts`), this client only avoids asking.
    */
   role?: 'host' | 'guest';
+  /** Which app this connection speaks for — declared in `hello`, the `owner` of what it creates. */
+  appId?: RuntimeAppId;
   /** The socket to connect to, overriding the name derived from version and build — a guest's. */
   socketPath?: string;
 };
 
-/** What a guest's `createPty` says: starting a terminal stays with the app that ships the pty server. */
-export const GUEST_CANNOT_CREATE = 'This app attaches to terminals another app started; it cannot start one.';
+/** What a guest's `createPty` says when no host broker is reachable — it never starts one itself. */
+export const GUEST_NO_SHARED_BROKER = 'No shared terminal broker is running — open Midnite Studio to start one.';
 
 export type BrokerSessionInfo = {
   ptyId: string;
@@ -107,6 +112,11 @@ export type BrokerSessionInfo = {
    * offering a live pane over a process the current build no longer owns.
    */
   legacy: boolean;
+  /**
+   * The app id the session was created as, read off the wire — `null` from a broker that predates
+   * owners or a creator that named none. A guest may kill a session only when this is its own id.
+   */
+  owner: string | null;
 };
 
 export type BrokerClient = {
@@ -189,6 +199,8 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
   const ptyOwner = new Map<string, Peer>();
   const sessionOwner = new Map<string, Peer>();
   const ptySession = new Map<string, string>();
+  /** The app each pty was created as, from `list` and `create` — a guest kills only its own. */
+  const ptyApp = new Map<string, string | null>();
 
   let nextRequestId = 1;
   const pendingRequests = new Map<
@@ -259,10 +271,12 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     ptyOwner.delete(ptyId);
     const sessionId = ptySession.get(ptyId);
     ptySession.delete(ptyId);
+    ptyApp.delete(ptyId);
     if (sessionId !== undefined && sessionOwner.get(sessionId) === owner) sessionOwner.delete(sessionId);
   }
 
-  function recordPty(peer: Peer, ptyId: string, sessionId: string): void {
+  function recordPty(peer: Peer, ptyId: string, sessionId: string, app: string | null): void {
+    ptyApp.set(ptyId, app);
     peer.ptys.add(ptyId);
     ptyOwner.set(ptyId, peer);
     ptySession.set(ptyId, sessionId);
@@ -398,6 +412,8 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
             appVersion,
             pid: process.pid,
             buildId,
+            role: guest ? 'guest' : 'host',
+            ...(deps.appId ? { appId: deps.appId } : {}),
           }),
         );
       } catch {
@@ -588,12 +604,14 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     try {
       const reply = await sendRequest({ t: 'list' }, 5000, peer);
       const raw =
-        (reply.ok ? (reply['sessions'] as Omit<BrokerSessionInfo, 'legacy'>[] | undefined) : undefined) ??
-        [];
+        (reply.ok
+          ? (reply['sessions'] as (Omit<BrokerSessionInfo, 'legacy' | 'owner'> & { owner?: unknown })[] | undefined)
+          : undefined) ?? [];
       // The wire reply carries no `legacy` bit — the server doesn't know it
       // is a legacy peer, only this client does, from which `Peer` answered.
-      const list = raw.map((s) => ({ ...s, legacy: peer.legacy }));
-      for (const s of list) recordPty(peer, s.ptyId, s.sessionId);
+      // `owner` is absent from a broker that predates it: that reads as nobody's.
+      const list = raw.map((s) => ({ ...s, legacy: peer.legacy, owner: typeof s.owner === 'string' ? s.owner : null }));
+      for (const s of list) recordPty(peer, s.ptyId, s.sessionId, s.owner);
       return list;
     } catch {
       return [];
@@ -702,7 +720,8 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     },
 
     async createPty(options): Promise<{ ok: true; ptyId: string; pid: number } | { ok: false; message: string }> {
-      if (guest) return { ok: false, message: GUEST_CANNOT_CREATE };
+      // A guest starts sessions only on the host's broker; it never spawns one of its own.
+      if (guest && (!primary || primary.socket.destroyed)) return { ok: false, message: GUEST_NO_SHARED_BROKER };
       if (!primary && !(await spawnFresh())) {
         return { ok: false, message: 'The terminal backend is not running and could not be restarted.' };
       }
@@ -740,7 +759,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
 
         if (reply.ok) {
           const ptyId = reply['ptyId'] as string;
-          if (primary) recordPty(primary, ptyId, options.sessionId);
+          if (primary) recordPty(primary, ptyId, options.sessionId, deps.appId ?? null);
           return { ok: true, ptyId, pid: reply['pid'] as number };
         }
         return { ok: false, message: reply.message };
@@ -775,8 +794,9 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     },
 
     async killPty(ptyId: string): Promise<boolean> {
-      // Ending a session is its owner's call; a guest only attaches.
-      if (guest) return false;
+      // Ending a session is its owner's call: a guest asks only for its own (the server refuses the
+      // rest anyway). An older broker stamps no owner, so a guest never kills on one that cannot check.
+      if (guest && (deps.appId === undefined || ptyApp.get(ptyId) !== deps.appId)) return false;
       try {
         const reply = await sendRequest({ t: 'kill', ptyId }, 5000, ptyOwner.get(ptyId) ?? primary);
         return reply.ok === true;
@@ -865,6 +885,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
       ptyOwner.clear();
       sessionOwner.clear();
       ptySession.clear();
+      ptyApp.clear();
     },
 
     onData(listener: (ptyId: string, bytes: Uint8Array) => void): () => void {

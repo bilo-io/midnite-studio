@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import {
+  EmptyState,
+  ExplorerGroup,
+  ExplorerNotice as Notice,
+  ExplorerSearch,
+  ResizeHandle,
+  StateDot,
+  useActivityGlow,
+  useFrameChrome,
+  useResizable,
+  type ActivityGlowSessionInput,
+  type DotState,
+  type GitMultiSelectOption as MultiSelectOption,
+} from '@midnite/studio-frame';
+import {
   buildResumeCommand,
   commitsForLiveSession,
   commitsForSession,
@@ -9,7 +23,7 @@ import {
   type AgentDefinition,
   type ClosedSession,
   type Commit,
-  type TerminalSession,
+  type SessionActivity,
 } from '@midnite/studio-shared';
 import {
   LuActivity,
@@ -24,42 +38,13 @@ import {
   LuX,
 } from 'react-icons/lu';
 
-import { resolveAgentIcon } from '../../components/icons';
-import { EmptyState } from '../../components/empty-state';
-import { ExplorerGroup, ExplorerNotice as Notice, ExplorerSearch } from '../../components/explorer';
-import { IconButton } from '../../components/icon-button';
-import { MultiSelectMenu, type MultiSelectOption } from '../../components/multi-select-menu';
-import { PageDetachMark } from '../../components/page-detach-mark';
-import { ResizeHandle } from '../../components/resizable/resize-handle';
-import { useResizable } from '../../components/resizable/use-resizable';
-import { StateDot, type DotState } from '../../components/state-dot';
-import { Tooltip } from '../../components/tooltip';
-import { useDialogs } from '../../components/dialog-host';
-import { bridge } from '../../services/bridge';
-import { requestHandoff } from '../../services/handoff';
-import { useCascadeReveal, useRevealCount } from '../../lib/use-cascade-reveal';
-import { useRefreshSessionHistory, useSessionHistory } from '../../services/queries';
-import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
-import { useSessionsStore } from '../../store/sessions-store';
-import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
-import { useActivityGlow, type ActivityGlowSessionInput } from '../activity/use-activity-glow';
-import { useGraphStore } from '@midnite/studio-frame';
-import { closeSessionWithConfirm } from '../terminal/close-session';
-import { revealFabSession, revealSession } from '../terminal/reveal-session';
 import {
-  agentLabelFor,
-  inMainPanel,
-  resolveSessionAgentId,
-  useTerminalStore,
-  type ConnectionState,
-  type SessionActivity,
-} from '../terminal/terminal-store';
-import { startAgent } from '../terminal/start-agent';
-import { useAgents } from '../terminal/use-agents';
-import { loopIcon } from '../loops/loop-icons';
-import { useLoopRuns } from '../loops/use-loop-runs';
-import { LiveSessionTerminal } from './live-session-terminal';
-import { useWorkflows } from '@midnite/studio-feature-workflows/renderer';
+  useSessionsHost,
+  type SessionConnectionState as ConnectionState,
+  type SessionsGraphPort,
+  type SessionsHistoryPort,
+  type SessionsLoopsPort,
+} from './host';
 import {
   formatDuration,
   groupSessionsByRepo,
@@ -75,8 +60,22 @@ import {
   type WorkflowRunSessionGroup,
 } from './session-order';
 import { NO_SESSIONS_EMPTY, SessionListSkeleton } from './sessions-skeletons';
-import { TranscriptView } from './transcript-view';
-import { VIEW_ICON } from '../../components/nav-icons';
+
+/** The plain answers for a capability an app leaves out — so every hook below is called unconditionally. */
+const EMPTY_HISTORY: SessionsHistoryPort['useHistory'] = () => ({ data: [], isPending: false, isError: false, error: null });
+const NO_REFRESH = () => undefined;
+const NO_COMMITS: readonly Commit[] = [];
+const NO_LOOP_RUNS: ReadonlyMap<string, string> = new Map();
+const NO_GRAPH: SessionsGraphPort = { useCommits: () => NO_COMMITS, showCommits: () => undefined };
+const NO_LOOPS: Pick<SessionsLoopsPort, 'useLoopIdBySession'> = { useLoopIdBySession: () => NO_LOOP_RUNS };
+const NO_WORKFLOW_NAMES = () => undefined;
+const NO_KILL = () => null;
+
+/** An agent's display label, or `undefined` for a plain terminal or an agent the roster does not know. */
+function agentLabelFor(agentId: string | undefined, agents: readonly AgentDefinition[]): string | undefined {
+  if (agentId === undefined) return undefined;
+  return agents.find((a) => a.id === agentId)?.label;
+}
 
 const REASON_OPTIONS: MultiSelectOption[] = [
   { value: 'closed', label: 'Closed' },
@@ -180,78 +179,54 @@ export function SessionsView({
 }: {
   onResume?: (session: ManagedSession) => void;
 } = {}) {
-  const layout = useUiStore((s) => s.layout);
-  const setLayout = useUiStore((s) => s.setLayout);
-  const dialogs = useDialogs();
+  const host = useSessionsHost();
+  const chrome = useFrameChrome();
+  const { IconButton, PageDetachMark } = chrome;
+  const dialogs = chrome.useDialogs();
+  const MultiSelectMenu = host.MultiSelectMenu;
 
-  // Restore saved sessions once, on first mount — `terminal-panel.tsx` and
-  // `fab-panel.tsx` each do the identical thing on THEIR own mount, but
-  // neither one is guaranteed to have ever mounted: a user who opens the
-  // Sessions page straight from launch, without first opening the terminal
-  // drawer or the Loops panel, would otherwise read `useTerminalStore`
-  // before anything populated it, and every still-live session below would
-  // render as if it did not exist — the exact case this page exists to
-  // cover. `hydrate()` itself guards against a second call doing the fetch
-  // twice (`if (get().hydrated) return`), so racing whichever panel gets
-  // there first costs nothing.
-  useEffect(() => {
-    void useTerminalStore.getState().hydrate();
-  }, []);
-
+  // Live sessions come from the app (Studio's terminal store hydrates on this first read, so a user who
+  // opens Sessions straight from launch still sees every live one; Coder's are the host broker's).
+  const width = host.useListWidth();
   const list = useResizable({
-    size: layout.sessionsListWidth,
-    onSize: (value) => setLayout('sessionsListWidth', value),
-    initial: DEFAULT_LAYOUT.sessionsListWidth,
+    size: width.size,
+    onSize: width.setSize,
+    initial: width.initial,
     axis: 'x',
-    ...LAYOUT_BOUNDS.sessionsListWidth,
+    min: width.min,
+    max: width.max,
   });
 
-  const groupCascade = useCascadeReveal({ revealKey: 'sessions' });
+  const groupCascade = host.useCascadeReveal({ revealKey: 'sessions' });
 
-  const history = useSessionHistory();
-  const refresh = useRefreshSessionHistory();
-  const { agents } = useAgents();
-  const liveSessions = useTerminalStore((s) => s.sessions);
-  const loopRuns = useLoopRuns();
-
-  /**
-   * `sessionId → loopId` for every session a loop ever launched — the same
-   * ledger the FAB tab strip's own icon (`fab-launchers.tsx`) reads off
-   * `DEFAULT_LOOPS`, so a row here draws the identical glyph rather than a
-   * second, invented "this came from a loop" mark. One run per session
-   * (`useLoopSession.start` mints a fresh session id every Start press), so
-   * last-write-wins during the `Map` build is never actually a choice.
-   */
-  const loopIdBySession = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const run of loopRuns.data) map.set(run.sessionId, run.loopId);
-    return map;
-  }, [loopRuns.data]);
-
-  const rowCount = useGraphStore((s) => s.rows.length);
-  const commits = useMemo(
-    () => useGraphStore.getState().rows.map((r) => r.commit),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rowCount],
-  );
-
-  const navigateToGraph = (session: ManagedSession, sessionCommits: Commit[]) => {
-    useUiStore.getState().setGraphSessionFilter(session.id);
-    useUiStore.getState().setGraphShaFilter(sessionCommits.map((c) => c.sha));
-    useUiStore.getState().setActiveView('graph');
-  };
+  const historyPort = host.history;
+  const history = (historyPort?.useHistory ?? EMPTY_HISTORY)();
+  const refresh = (historyPort?.useRefresh ?? (() => NO_REFRESH))();
+  const agents = host.useAgents();
+  const liveSessions = host.useLiveSessions();
 
   /**
-   * Kill a live session from the list — the same termination path the
-   * terminal panel's own close button uses (`closeSessionWithConfirm`), so
-   * the confirm behaviour (only asked when a foreground command is still
-   * running) stays the one the user already knows rather than a second rule
-   * invented for this surface.
+   * `sessionId → loopId` for every session a loop ever launched — the same ledger the FAB tab strip's
+   * own icon reads off `DEFAULT_LOOPS`, so a row here draws the identical glyph rather than a second,
+   * invented "this came from a loop" mark.
    */
-  const killSession = (session: ManagedLiveSession) => {
-    const raw = liveSessions.find((s) => s.id === session.id);
-    if (raw) closeSessionWithConfirm(dialogs, raw);
-  };
+  const loopIdBySession = (host.loops ?? NO_LOOPS).useLoopIdBySession();
+
+  const commits = (host.graph ?? NO_GRAPH).useCommits();
+  const navigateToGraph = host.graph?.showCommits;
+
+  /**
+   * Kill a live session from the list — the app's own termination path (Studio: the terminal panel's
+   * close button, `closeSessionWithConfirm`, so the confirm stays the one the user already knows). An app
+   * that may not end a session (Coder starts none, so it ends none) answers null and the row has no `X`.
+   */
+  const kill = (host.useKill ?? NO_KILL)();
+  const killSession = kill
+    ? (session: ManagedLiveSession) => {
+        const raw = liveSessions.find((s) => s.id === session.id);
+        if (raw) kill(raw);
+      }
+    : undefined;
 
   const [reasons, setReasons] = useState<ClosedSession['reason'][]>([]);
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
@@ -285,10 +260,12 @@ export function SessionsView({
     });
   };
 
-  const storedClosed = useSessionsStore((s) => s.selectedClosedSessionId);
-  const selectClosedSession = useSessionsStore((s) => s.selectClosedSession);
-  const storedLive = useSessionsStore((s) => s.selectedLiveSessionId);
-  const selectLiveSession = useSessionsStore((s) => s.selectLiveSession);
+  const {
+    closedId: storedClosed,
+    selectClosed: selectClosedSession,
+    liveId: storedLive,
+    selectLive: selectLiveSession,
+  } = host.useSelection();
 
   const closedAll = useMemo(() => history.data ?? [], [history.data]);
   const all = useMemo(
@@ -316,7 +293,7 @@ export function SessionsView({
     for (const agentId of agentIds) {
       const agentDef = agents.find((a) => a.id === agentId);
       const label = agentDef?.label ?? agentId;
-      const Icon = resolveAgentIcon({ id: agentId, icon: agentDef?.icon });
+      const Icon = host.resolveAgentIcon({ id: agentId, icon: agentDef?.icon });
       options.push({
         value: agentId,
         label,
@@ -345,7 +322,7 @@ export function SessionsView({
     }
 
     return options;
-  }, [all, agents]);
+  }, [all, agents, host]);
 
   // Filter rows by liveness, reasons, providers, and the search query
   const rows = useMemo(() => {
@@ -442,7 +419,8 @@ export function SessionsView({
     () => groupSessionsByRepo(rows.filter((row) => row.repoId !== WORKFLOW_SESSION_REPO_ID)),
     [rows],
   );
-  const workflows = useWorkflows();
+  const workflowNames = (host.workflows?.useWorkflowNames ?? NO_WORKFLOW_NAMES)();
+  const purge = historyPort?.purge ?? (async () => undefined);
 
   const purgeOne = (record: ClosedSession) => {
     dialogs.confirm({
@@ -452,8 +430,7 @@ export function SessionsView({
       blastRadius: null,
       warnings: ['The transcript is deleted from disk. This cannot be undone.'],
       onConfirm: () => {
-        void bridge()
-          ?.sessions.purge({ sessionId: record.id })
+        void purge(record.id)
           .then(() => {
             setSelectedIds((prev) => {
               if (!prev.has(record.id)) return prev;
@@ -476,8 +453,7 @@ export function SessionsView({
       blastRadius: null,
       warnings: ['The transcripts are deleted from disk. This cannot be undone.'],
       onConfirm: () => {
-        const client = bridge();
-        void Promise.all(ids.map((id) => client?.sessions.purge({ sessionId: id }))).then(() => {
+        void Promise.all(ids.map((id) => purge(id))).then(() => {
           setSelectedIds(new Set());
           return refresh();
         });
@@ -493,8 +469,7 @@ export function SessionsView({
       blastRadius: null,
       warnings: [`${closedAll.length} sessions and their transcripts are deleted from disk. This cannot be undone.`],
       onConfirm: () => {
-        void bridge()
-          ?.sessions.purge({ sessionId: null })
+        void purge(null)
           .then(() => {
             setSelectedIds(new Set());
             return refresh();
@@ -540,25 +515,31 @@ export function SessionsView({
               label="Filter sessions by provider"
               summarise={(n) => `${n} providers`}
             />
-            <MultiSelectMenu
-              options={REASON_OPTIONS}
-              selected={reasons}
-              onChange={(next) => setReasons(next as ClosedSession['reason'][])}
-              icon={<LuFilter aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-              allLabel="All endings"
-              searchPlaceholder="Filter endings…"
-              emptyLabel="No ending matches."
-              label="Filter sessions by how they ended"
-              summarise={(n) => `${n} endings`}
-            />
-            <IconButton icon={LuRefreshCw} label="Refresh sessions" size="sm" onClick={refresh} />
-            <IconButton
-              icon={LuTrash2}
-              label="Clear history"
-              size="sm"
-              disabled={closedAll.length === 0}
-              onClick={clearHistory}
-            />
+            {historyPort ? (
+              <MultiSelectMenu
+                options={REASON_OPTIONS}
+                selected={reasons}
+                onChange={(next) => setReasons(next as ClosedSession['reason'][])}
+                icon={<LuFilter aria-hidden className="h-3.5 w-3.5 shrink-0" />}
+                allLabel="All endings"
+                searchPlaceholder="Filter endings…"
+                emptyLabel="No ending matches."
+                label="Filter sessions by how they ended"
+                summarise={(n) => `${n} endings`}
+              />
+            ) : null}
+            {historyPort ? (
+              <>
+                <IconButton icon={LuRefreshCw} label="Refresh sessions" size="sm" onClick={refresh} />
+                <IconButton
+                  icon={LuTrash2}
+                  label="Clear history"
+                  size="sm"
+                  disabled={closedAll.length === 0}
+                  onClick={clearHistory}
+                />
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -623,7 +604,7 @@ export function SessionsView({
                 <WorkflowRunSessionsGroup
                   key={key}
                   group={group}
-                  workflowName={workflows.data?.find((w) => w.id === group.workflowId)?.name}
+                  workflowName={workflowNames?.get(group.workflowId)}
                   open={!collapsedWorkflowRuns.has(key)}
                   bodyId={`sessions-workflow-run-group-${key}`}
                   onToggleCollapse={() => toggleWorkflowRunCollapse(key)}
@@ -670,169 +651,15 @@ export function SessionsView({
       <ResizeHandle resizable={list} axis="x" label="Resize the sessions list" />
 
       {selected === null ? (
-        <Notice>Select a session to read its transcript.</Notice>
+        <Notice>{historyPort ? 'Select a session to read its transcript.' : 'Select a session to attach to it.'}</Notice>
       ) : isClosedManagedSession(selected) ? (
-        <TranscriptView sessionId={selected.id} />
+        historyPort ? <historyPort.TranscriptPane sessionId={selected.id} /> : null
       ) : (
-        <LiveSessionDetail
+        <host.LivePane
           session={selected}
           rawSession={liveSessions.find((s) => s.id === selected.id) ?? null}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * The detail pane's live half (Phase 86 Theme D, reworked by an ad hoc
- * follow-up) — closed rows go through `TranscriptView` above and are
- * untouched.
- *
- * Every still-live session — plain terminal, Kanban-card agent, or a Loop
- * running on the FAB surface — can render here, in `LiveSessionTerminal`.
- * The one rule is mutual exclusion, not a surface distinction: two live
- * xterms racing the same pty over `pty.resize` (not the read side —
- * `pty:data` already fans out to any number of subscribers, see
- * `live-session-terminal.tsx`'s own doc) is a real bug, so a session's xterm
- * is mounted in exactly one host at a time. `terminal-store`'s
- * `sessionsPaneSessionId` is the lock: while this pane holds it, the
- * terminal panel and the Loops tab render `YieldedToSessionsPage` in that
- * session's slot instead of their own `LazyTerminalView`, and their "Focus
- * it here" button hands it back.
- *
- * Whether this pane takes the lock is the user's call, made once per
- * selected session (`LiveSessionHost`, keyed by session id):
- * - Owning panel closed (`terminalOpen` / `fabPanelOpen` false) — nothing
- *   else has the session mounted, so the pane embeds straight away and holds
- *   the claim; opening the panel later yields to the pane, not the reverse.
- * - Owning panel open and docked — the pane offers **Focus it here** (primary,
- *   takes the claim and embeds) beside the older **Focus it there** /
- *   **Reveal in Loops** (secondary, `revealSession`/`revealFabSession`).
- * - Owning panel detached into its own window (`terminalDetached` /
- *   `fabDetached`) — that window has its own store and cannot be told to
- *   yield, so only the reveal button is offered there.
- *
- * Four shapes, in order of precedence:
- * 1. Asleep — no process to show at all; unchanged from before this theme.
- * 2. No raw session — a stale/removed store entry the merged row hasn't
- *    caught up with yet; nothing to attach to.
- * 3. Not (yet) claimed — the hand-off card above.
- * 4. Claimed — embeds the real terminal, full read/write, whichever surface
- *    it's on. A loop-driven session gets no reduced, read-only mode: the
- *    mutual-exclusion rule is what makes a second writer safe (it never
- *    coexists with the first), not a permissions distinction.
- */
-function LiveSessionDetail({
-  session,
-  rawSession,
-}: {
-  session: ManagedLiveSession;
-  rawSession: TerminalSession | null;
-}) {
-  const terminalOpen = useUiStore((s) => s.terminalOpen);
-  const terminalDetached = useUiStore((s) => s.terminalDetached);
-  const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
-  const fabDetached = useUiStore((s) => s.fabDetached);
-
-  if (session.liveness === 'asleep') {
-    return <Notice>This session is asleep — no live process to show. Wake it from the terminal panel.</Notice>;
-  }
-
-  if (!rawSession) {
-    return <Notice>This session is running — open the terminal panel to interact with it.</Notice>;
-  }
-
-  const isFabSession = !inMainPanel(rawSession);
-  const ownerDetached = isFabSession ? fabDetached : terminalDetached;
-  const ownerDocked = !ownerDetached && (isFabSession ? fabPanelOpen : terminalOpen);
-
-  return (
-    <LiveSessionHost
-      key={rawSession.id}
-      session={rawSession}
-      isFabSession={isFabSession}
-      ownerDocked={ownerDocked}
-      ownerDetached={ownerDetached}
-    />
-  );
-}
-
-/**
- * One selected live session's stay in the pane — keyed by session id from
- * `LiveSessionDetail`, so the "did the user pull it in here?" latch starts
- * over for every row they select.
- *
- * The latch starts `true` when no panel has the session mounted (nothing to
- * hand off to) and `false` otherwise; the buttons flip it. While it is set
- * the store claim is held for exactly as long as this component is mounted
- * for this session — the effect's cleanup releases it, scoped to the id so a
- * late cleanup cannot clear a claim a newer selection just made. The store
- * subscription inside the same effect is the reverse channel: when the
- * owning panel's own "Focus it here" clears the claim, the latch drops and
- * the pane falls back to the hand-off card without a second render cycle
- * of embedding.
- */
-function LiveSessionHost({
-  session,
-  isFabSession,
-  ownerDocked,
-  ownerDetached,
-}: {
-  session: TerminalSession;
-  isFabSession: boolean;
-  /** The owning panel is open in this window and would mount the session itself. */
-  ownerDocked: boolean;
-  /** The owning panel lives in another window, out of this store's reach. */
-  ownerDetached: boolean;
-}) {
-  const [focusHere, setFocusHere] = useState(() => !ownerDocked && !ownerDetached);
-  const embedding = focusHere && !ownerDetached;
-
-  useEffect(() => {
-    if (!embedding) return undefined;
-    const sessionId = session.id;
-    useTerminalStore.getState().claimSessionsPane(sessionId);
-    const unsubscribe = useTerminalStore.subscribe((s) => {
-      if (s.sessionsPaneSessionId !== sessionId) setFocusHere(false);
-    });
-    return () => {
-      unsubscribe();
-      useTerminalStore.getState().releaseSessionsPane(sessionId);
-    };
-  }, [embedding, session.id]);
-
-  if (embedding) {
-    return <LiveSessionTerminal key={session.id} session={session} />;
-  }
-
-  const where = isFabSession ? 'the Loops panel' : 'the terminal panel';
-  return (
-    <div className="grid min-h-0 flex-1 place-items-center p-8">
-      <div className="max-w-md text-center text-sm leading-relaxed text-muted-foreground">
-        <p>
-          {ownerDetached
-            ? `This session's terminal is open in ${where}, in its own window.`
-            : `This session's terminal is already open in ${where}.`}
-        </p>
-        <div className="mt-3 flex items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => (isFabSession ? revealFabSession(session.id) : revealSession(session.id))}
-            className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            {isFabSession ? 'Reveal in Loops' : 'Focus it there'}
-          </button>
-          {ownerDetached ? null : (
-            <button
-              type="button"
-              onClick={() => setFocusHere(true)}
-              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              Focus it here
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -873,7 +700,7 @@ function WorkflowRunSessionsGroup({
   agents: readonly AgentDefinition[];
   selectedId: string | null;
   onSelect: (session: ManagedSession) => void;
-  onKill: (session: ManagedLiveSession) => void;
+  onKill: ((session: ManagedLiveSession) => void) | undefined;
   onResume?: ((session: ManagedSession) => void) | undefined;
   loopIdBySession: ReadonlyMap<string, string>;
   selectedIds: ReadonlySet<string>;
@@ -881,20 +708,25 @@ function WorkflowRunSessionsGroup({
   commits?: readonly Commit[] | undefined;
   onNavigateToGraph?: ((session: ManagedSession, sessionCommits: Commit[]) => void) | undefined;
 }) {
+  const host = useSessionsHost();
+  const { IconButton } = useFrameChrome();
+  const workflows = host.workflows;
   const title = workflowName ?? 'Workflow';
+  const ref = { workflowId: group.workflowId, runId: group.runId };
 
+  // Workflows belong to the Agents app; the host reveals the run (Studio: its Workflows view, through
+  // the hand-off seam) rather than this view owning the destination.
   const reveal = (event: React.MouseEvent) => {
     event.stopPropagation();
-    useWorkflowRevealStore.getState().reveal({ workflowId: group.workflowId, runId: group.runId });
-    // Workflows belong to the Agents app; Coder's sessions view reaches it through the hand-off
-    // seam (in Studio: in-process navigation) rather than by owning the destination view.
-    void requestHandoff({ app: 'agents', view: 'workflows' });
+    workflows?.revealRun(ref);
   };
 
+  const openKillSwitch = workflows?.openKillSwitch;
   const kill = (event: React.MouseEvent) => {
     event.stopPropagation();
-    useUiStore.getState().openKillSwitch({ workflowId: group.workflowId, runId: group.runId });
+    openKillSwitch?.(ref);
   };
+  const WorkflowIcon = workflows?.Icon;
 
   return (
     <ExplorerGroup
@@ -903,12 +735,16 @@ function WorkflowRunSessionsGroup({
       open={open}
       onToggle={onToggleCollapse}
       bodyId={bodyId}
-      leading={<VIEW_ICON.workflows className="h-3 w-3 shrink-0" />}
+      leading={WorkflowIcon ? <WorkflowIcon className="h-3 w-3 shrink-0" /> : undefined}
       meta={<span className="shrink-0 text-muted-foreground/70">{relativeAge(group.startedAt, Date.now())}</span>}
       trailing={
         <>
-          <IconButton icon={LuExternalLink} label="Reveal this run in the Workflows view" size="sm" onClick={reveal} />
-          <IconButton icon={LuOctagonX} label="Kill switch for this workflow" size="sm" onClick={kill} />
+          {workflows ? (
+            <IconButton icon={LuExternalLink} label="Reveal this run in the Workflows view" size="sm" onClick={reveal} />
+          ) : null}
+          {openKillSwitch ? (
+            <IconButton icon={LuOctagonX} label="Kill switch for this workflow" size="sm" onClick={kill} />
+          ) : null}
         </>
       }
     >
@@ -921,7 +757,7 @@ function WorkflowRunSessionsGroup({
             selected={record.id === selectedId}
             onSelect={() => onSelect(record)}
             onPurge={undefined}
-            onKill={() => onKill(record)}
+            onKill={onKill ? () => onKill(record) : undefined}
             onResume={onResume ? () => onResume(record) : undefined}
             loopId={loopIdBySession.get(record.id)}
             checked={selectedIds.has(record.id)}
@@ -963,7 +799,7 @@ function RepoSessionsGroup({
   selectedId: string | null;
   onSelect: (session: ManagedSession) => void;
   purgeOne: (record: ClosedSession) => void;
-  onKill: (session: ManagedLiveSession) => void;
+  onKill: ((session: ManagedLiveSession) => void) | undefined;
   onResume?: ((session: ManagedSession) => void) | undefined;
   loopIdBySession: ReadonlyMap<string, string>;
   selectedIds: ReadonlySet<string>;
@@ -973,8 +809,9 @@ function RepoSessionsGroup({
   commits?: readonly Commit[] | undefined;
   onNavigateToGraph?: ((session: ManagedSession, sessionCommits: Commit[]) => void) | undefined;
 }) {
-  const revealCount = useRevealCount(open);
-  const sessionCascade = useCascadeReveal({ revealKey: `${group.repoId}:${revealCount}` });
+  const host = useSessionsHost();
+  const revealCount = host.useRevealCount(open);
+  const sessionCascade = host.useCascadeReveal({ revealKey: `${group.repoId}:${revealCount}` });
 
   return (
     <ExplorerGroup
@@ -995,7 +832,7 @@ function RepoSessionsGroup({
             selected={record.id === selectedId}
             onSelect={() => onSelect(record)}
             onPurge={isClosedManagedSession(record) ? () => purgeOne(record) : undefined}
-            onKill={isClosedManagedSession(record) ? undefined : () => onKill(record)}
+            onKill={isClosedManagedSession(record) || !onKill ? undefined : () => onKill(record)}
             onResume={onResume ? () => onResume(record) : undefined}
             loopId={loopIdBySession.get(record.id)}
             checked={selectedIds.has(record.id)}
@@ -1047,23 +884,26 @@ function SessionRow({
   commits?: readonly Commit[] | undefined;
   onNavigateToGraph?: ((session: ManagedSession, sessionCommits: Commit[]) => void) | undefined;
 }) {
-  const connectionState = useTerminalStore((s) => s.states[record.id]);
-  const activity = useTerminalStore((s) => s.activity[record.id]);
-  const liveAgentId = useTerminalStore((s) => s.liveAgentId);
+  const host = useSessionsHost();
+  const { IconButton } = useFrameChrome();
+  const Tooltip = host.Tooltip;
+  const { connectionState, activity, agentId: liveAgentId } = host.useLiveStatus(record);
 
   const label = managedSessionLabel(record, agentLabel);
   const closed = isClosedManagedSession(record);
+  // Commit counts need the graph's commits; an app without the graph draws none rather than "0 commits".
+  const countsCommits = record.kind === 'agent' && host.graph !== undefined;
 
   const sessionCommits = useMemo(() => {
-    if (record.kind !== 'agent') return [];
+    if (!countsCommits) return [];
     const list = commits ?? [];
     if (closed) {
       return commitsForSession(list, record as ClosedSession);
     }
     return commitsForLiveSession(list, record);
-  }, [record, closed, commits]);
+  }, [record, closed, commits, countsCommits]);
 
-  const commitCount = record.kind === 'agent' ? sessionCommits.length : null;
+  const commitCount = countsCommits ? sessionCommits.length : null;
 
   const [pulsing, setPulsing] = useState(false);
   const prevCountRef = useRef<number | null>(null);
@@ -1084,7 +924,7 @@ function SessionRow({
   }, [commitCount, closed]);
   const AgentIcon =
     record.kind === 'agent' && record.agentId
-      ? resolveAgentIcon({ id: record.agentId, icon: agent?.icon })
+      ? host.resolveAgentIcon({ id: record.agentId, icon: agent?.icon })
       : LuTerminal;
   const dotState = dotStateFor(record, connectionState);
   const dotTooltip = dotTooltipFor(record, connectionState, activity);
@@ -1101,7 +941,7 @@ function SessionRow({
           sessions: [
             {
               sessionId: record.id,
-              agentId: resolveSessionAgentId(record, liveAgentId),
+              agentId: liveAgentId,
               activity,
               running: record.liveness === 'running',
             },
@@ -1110,12 +950,14 @@ function SessionRow({
   );
 
   const loop = loopId ? DEFAULT_LOOPS.find((l) => l.id === loopId) : undefined;
-  const LoopIcon = loop ? loopIcon(loop.icon) : null;
+  const LoopIcon = loop && host.loops ? host.loops.loopIcon(loop.icon) : null;
   const loopTooltip = loop ? `Started by the ${loop.label} loop` : '';
 
   const conversationId = record.agentConversationId?.trim();
+  // Resume starts an agent, so it is offered only where the app may start one (Coder starts nothing).
+  const resume = host.resume;
   const resumeArgs =
-    agent && record.kind === 'agent'
+    agent && record.kind === 'agent' && (resume || onResume)
       ? buildResumeCommand(agent, conversationId)
       : null;
 
@@ -1136,16 +978,8 @@ function SessionRow({
       onResume();
       return;
     }
-    if (!agent || !resumeArgs) return;
-    startAgent({
-      repoId: record.repoId,
-      cwd: record.cwd,
-      title: record.title,
-      agentId: agent.id,
-      command: agent.command,
-      extraArgs: resumeArgs,
-      autoSend: true,
-    });
+    if (!agent || !resumeArgs || !resume) return;
+    resume({ repoId: record.repoId, cwd: record.cwd, title: record.title, agent, args: resumeArgs });
   };
 
   return (
