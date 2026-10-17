@@ -1,10 +1,9 @@
-import type { BrowserWindow } from 'electron';
-
+import type { RuntimeIpc } from '@midnite/studio-runtime';
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
-import { activateWebApp, disableWebApp, enableWebApp, setWebAppBounds } from '../web-apps-service';
-import { defaultLogger } from '../log';
-import { handle, handleSend } from './handle';
+import type { BrowserHostWindow as BrowserWindow } from './browser-electron';
+import { defaultLogger } from './browser-main-deps';
+import { activateWebApp, disableWebApp, enableWebApp, setWebAppBounds } from './web-apps-service';
 
 const warnInvalid = (issue: string): void => {
   defaultLogger.warn(issue);
@@ -23,8 +22,8 @@ const warnInvalid = (issue: string): void => {
  * one-way, matching `browser.close`/`browser.setBounds`: a bounds push fires
  * every resize frame, and a round trip would only add latency.
  */
-export function registerWebAppsHandlers(getMainWindow: () => BrowserWindow | null): void {
-  handle(
+export function registerWebAppsHandlers(ipc: RuntimeIpc, getMainWindow: () => BrowserWindow | null): void {
+  ipc.handle(
     CHANNELS.webAppsEnable,
     schemas.WebAppsEnableRequest,
     ({ id }) => {
@@ -36,16 +35,16 @@ export function registerWebAppsHandlers(getMainWindow: () => BrowserWindow | nul
     (issue) => ({ ok: false as const, message: issue }),
   );
 
-  handleSend(CHANNELS.webAppsDisable, schemas.WebAppsDisableRequest, ({ id }) => disableWebApp(id), warnInvalid);
+  ipc.send(CHANNELS.webAppsDisable, schemas.WebAppsDisableRequest, ({ id }) => disableWebApp(id), warnInvalid);
 
-  handleSend(
+  ipc.send(
     CHANNELS.webAppsSetBounds,
     schemas.WebAppsSetBoundsRequest,
     ({ id, bounds }) => setWebAppBounds(id, bounds),
     warnInvalid,
   );
 
-  handleSend(
+  ipc.send(
     CHANNELS.webAppsActivate,
     schemas.WebAppsActivateRequest,
     ({ id }) => {

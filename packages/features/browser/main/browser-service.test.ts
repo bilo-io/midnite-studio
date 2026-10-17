@@ -16,12 +16,15 @@ import {
   setBrowserKeepAwake,
   setBrowserZoom,
 } from './browser-service';
+import type { BrowserElectron, BrowserHostWindow } from './browser-electron';
+import { installBrowserMain, type BrowserLog } from './browser-main-deps';
 
 /**
  * `browser-service.ts` is the only file that constructs a `WebContentsView`,
- * so testing its lifecycle means faking one — following the same
- * `vi.mock('electron', ...)` pattern `fs-write-handlers.test.ts` uses for
- * `shell.trashItem`.
+ * so testing its lifecycle means faking one. Since Phase 113 Theme L the
+ * service reaches Electron only through the port its composer installs
+ * (`installBrowserMain`), so the fakes below are installed there instead of
+ * through `vi.mock('electron', ...)` — the same fakes, the same assertions.
  */
 
 /**
@@ -103,20 +106,20 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
   return { FakeWebContents, FakeWebContentsView, fakeSessions, makeFakeSession };
 });
 
-vi.mock('electron', () => ({
-  WebContentsView: FakeWebContentsView,
-  session: {
-    fromPartition: vi.fn((name: string) => {
-      const existing = fakeSessions.get(name);
-      if (existing) return existing;
-      const created = makeFakeSession();
-      fakeSessions.set(name, created);
-      return created;
-    }),
-  },
-  screen: { on: vi.fn() },
-  shell: { openExternal: vi.fn() },
-}));
+const electron = {
+  createView: vi.fn((options: Record<string, unknown>) => new FakeWebContentsView(options)),
+  sessionFromPartition: vi.fn((name: string) => {
+    const existing = fakeSessions.get(name);
+    if (existing) return existing;
+    const created = makeFakeSession();
+    fakeSessions.set(name, created);
+    return created;
+  }),
+  onDisplayMetricsChanged: vi.fn(),
+  openExternal: vi.fn(async () => undefined),
+};
+const log = Object.assign(vi.fn(), { warn: vi.fn(), error: vi.fn() }) as unknown as BrowserLog;
+installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}) });
 
 /** The hoisted class is a value binding, so its instance type needs naming explicitly. */
 type FakeView = InstanceType<typeof FakeWebContentsView>;
@@ -147,7 +150,7 @@ function fakeWindow() {
       for (const handler of handlers.get(event) ?? []) handler();
     },
   };
-  return win as unknown as import('electron').BrowserWindow & {
+  return win as unknown as BrowserHostWindow & {
     emit: (event: string) => void;
     isVisible: ReturnType<typeof vi.fn>;
     isMinimized: ReturnType<typeof vi.fn>;

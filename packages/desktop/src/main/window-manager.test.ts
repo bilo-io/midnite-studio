@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * `window-manager.ts` constructs real `BrowserWindow`s, so it is faked the
- * same way `browser-service.test.ts` fakes `WebContentsView` and
+ * same way the browser feature's `browser-service.test.ts` fakes `WebContentsView` and
  * `pty-subscribers.test.ts` fakes `BrowserWindow` itself — a minimal class
  * with just the surface `createRoleWindow`/`closeAllPopouts` touch.
  */
@@ -93,10 +93,9 @@ vi.mock('./window-chrome', () => ({
   windowFrameless: vi.fn(() => false),
   TRAFFIC_LIGHT_POSITION: { x: 16, y: 13 },
 }));
-vi.mock('./browser-service', () => ({ reparentBrowserTabs: vi.fn() }));
-vi.mock('./web-apps-service', () => ({ reparentWebAppView: vi.fn() }));
+vi.mock('./browser-port', () => ({ reparentBrowserTabs: vi.fn(), reparentWebAppView: vi.fn() }));
 
-import { reparentWebAppView } from './web-apps-service';
+import { reparentWebAppView } from './browser-port';
 import { TRAFFIC_LIGHT_POSITION } from './window-chrome';
 import {
   boundsWithinAnyDisplay,

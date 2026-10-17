@@ -2,8 +2,7 @@ import { webAppIdForRole, CHANNELS, schemas, type WindowRole } from '@midnite/st
 import type { BrowserWindow } from 'electron';
 
 import type { Logger } from '../log';
-import { reparentWebAppView } from '../web-apps-service';
-import { reparentBrowserTabs } from '../browser-service';
+import { reparentBrowserTabs, reparentWebAppView } from '../browser-port';
 import {
   closePopoutForRedock,
   createRoleWindow,

@@ -28,7 +28,7 @@ import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from
  * **Default session only.** `protocol.handle` on the module-level `protocol`
  * object registers against `session.defaultSession`, never against a named
  * partition — so a `WebContentsView` on Phase 32's `persist:browser`
- * partition (`main/browser-service.ts`) cannot resolve an `mstudio-file:` URL
+ * partition (`packages/features/browser/main/browser-service.ts`) cannot resolve an `mstudio-file:` URL
  * at all, and the renderer's media path stays unreachable from a remote
  * page. Phase 32 Theme B depends on that staying true; `fs-protocol.test.ts`
  * asserts it.

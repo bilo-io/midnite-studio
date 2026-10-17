@@ -1,5 +1,3 @@
-import { WebContentsView, screen, session, shell, type BrowserWindow, type Input } from 'electron';
-
 import {
   DEFAULT_BROWSER_DISCARD_MS,
   EVENT_CHANNELS,
@@ -8,8 +6,9 @@ import {
   type CommandId,
 } from '@midnite/studio-shared';
 
+import type { BrowserHostWindow as BrowserWindow, BrowserInput as Input, BrowserView as WebContentsView } from './browser-electron';
+import { browserMainDeps, defaultLogger } from './browser-main-deps';
 import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
-import { defaultLogger } from './log';
 
 /**
  * The main-process half of the embedded browser (Phase 32 Theme A/B).
@@ -198,7 +197,7 @@ function ensureFullScreenReapply(win: BrowserWindow): void {
 function ensureDisplayMetricsReapply(): void {
   if (displayMetricsReapplyWired) return;
   displayMetricsReapplyWired = true;
-  screen.on('display-metrics-changed', () => {
+  browserMainDeps().electron.onDisplayMetricsChanged(() => {
     const windows = new Set([...tabs.values()].map((tracked) => tracked.win));
     for (const win of windows) reapplyBoundsForWindow(win);
   });
@@ -216,7 +215,7 @@ let securityConfigured = false;
 function ensureSessionConfigured(): void {
   if (securityConfigured) return;
   securityConfigured = true;
-  const browserSession = session.fromPartition(PARTITION);
+  const browserSession = browserMainDeps().electron.sessionFromPartition(PARTITION);
   denyAllPermissions(browserSession);
   browserSession.on('will-download', (_event, item, webContents) => {
     // Session-level, so the item arrives with the `webContents` that asked
@@ -266,7 +265,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   ensureSessionConfigured();
   if (tabs.has(tabId)) return;
 
-  const view = new WebContentsView({
+  const view = browserMainDeps().electron.createView({
     webPreferences: {
       partition: PARTITION,
       contextIsolation: true,
@@ -594,14 +593,14 @@ export function reparentBrowserTabs(next: BrowserWindow): void {
 }
 
 export async function clearBrowserData(): Promise<void> {
-  const browserSession = session.fromPartition(PARTITION);
+  const browserSession = browserMainDeps().electron.sessionFromPartition(PARTITION);
   await browserSession.clearStorageData();
   await browserSession.clearCache();
 }
 
 /** External-link fallback for a scheme this session refuses to load in-place. */
 export function openInSystemBrowser(url: string): void {
-  void shell.openExternal(url);
+  void browserMainDeps().electron.openExternal(url);
 }
 
 /** Window close, `before-quit`: destroy every tracked view — nothing survives past the process. */

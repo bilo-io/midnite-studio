@@ -96,7 +96,8 @@ export function createWindow(): BrowserWindow {
       // arbitrary web pages, but each one lives in its own `WebContentsView`
       // on the `persist:browser` partition — never this window's own
       // WebContents — with `sandbox: true` and NO preload of its own. See
-      // `browser-service.ts`, the only file that constructs one.
+      // the browser feature's `main/browser-service.ts`, the only file that
+      // constructs one (through `browser-port.ts`'s `createView`).
       sandbox: true,
       // Single-sourced from the window options above so the preload never
       // re-derives it. See WINDOW_FRAMELESS_ARG.

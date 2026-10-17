@@ -1,10 +1,8 @@
-import { WebContentsView, session, shell, type BrowserWindow } from 'electron';
-
 import { WEB_APP_DEFINITIONS, type WebAppId, type BrowserBounds } from '@midnite/studio-shared';
 
+import type { BrowserHostWindow as BrowserWindow, BrowserView as WebContentsView } from './browser-electron';
+import { browserMainDeps, defaultLogger } from './browser-main-deps';
 import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
-import { defaultLogger } from './log';
-import { currentSettings } from './settings-mirror';
 
 /**
  * The main-process half of the third-party apps rail (Phase 83 Themes A/B).
@@ -58,7 +56,7 @@ function ensureAppSessionConfigured(id: WebAppId): void {
   const partition = WEB_APP_DEFINITIONS[id].partition;
   if (securedPartitions.has(partition)) return;
   securedPartitions.add(partition);
-  const appSession = session.fromPartition(partition);
+  const appSession = browserMainDeps().electron.sessionFromPartition(partition);
   denyAllPermissions(appSession);
   appSession.on('will-download', (_event, item) => {
     cancelDownload(item, (filename) => {
@@ -78,7 +76,7 @@ export function enableWebApp(win: BrowserWindow, id: WebAppId): void {
   if (apps.has(id)) return;
 
   const definition = WEB_APP_DEFINITIONS[id];
-  const view = new WebContentsView({
+  const view = browserMainDeps().electron.createView({
     webPreferences: {
       partition: definition.partition,
       contextIsolation: true,
@@ -109,7 +107,7 @@ export function enableWebApp(win: BrowserWindow, id: WebAppId): void {
   // app's own view either: these are single-surface embeds, not a tab
   // model, so an allowed request goes straight to the system browser.
   wc.setWindowOpenHandler(({ url: requestedUrl }) => {
-    if (checkNavigationUrl(requestedUrl).allowed) void shell.openExternal(requestedUrl);
+    if (checkNavigationUrl(requestedUrl).allowed) void browserMainDeps().electron.openExternal(requestedUrl);
     return { action: 'deny' };
   });
 
@@ -276,7 +274,7 @@ export function discardWebApp(id: WebAppId): void {
  */
 export function runWebAppsDiscardSweep(): void {
   const now = Date.now();
-  const settings = currentSettings();
+  const settings = browserMainDeps().readDiscardSettings();
   const discardMs = settings.browserDiscardMs ?? 10 * 60 * 1000;
   const optInMap = settings.webAppDiscardIdle ?? {};
 

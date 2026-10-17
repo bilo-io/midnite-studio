@@ -12,8 +12,7 @@ import {
   type ProcessRow,
   type PsParse,
 } from '../agent-process';
-import { getWebAppOwners } from '../web-apps-service';
-import { getBrowserTabOwners } from '../browser-service';
+import { getBrowserTabOwners, getWebAppOwners } from '@midnite/studio-feature-browser/main';
 import { probeDetailedMemory } from '@midnite/studio-feature-monitor/main';
 import { activePtyPids, getPtySessionOwners } from '../pty-service';
 import { getWindowOwners } from '../window-manager';

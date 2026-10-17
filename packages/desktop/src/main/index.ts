@@ -28,12 +28,9 @@ import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
-import { allowAppAudioOnly } from './browser-security';
+import { allowAppAudioOnly, destroyAllBrowserTabs, destroyAllWebApps, startBrowserDiscardSweep, startWebAppsDiscardSweep } from '@midnite/studio-feature-browser/main';
 import { installCsp } from './csp';
-import { destroyAllWebApps, startWebAppsDiscardSweep } from './web-apps-service';
-import { destroyAllBrowserTabs, startBrowserDiscardSweep } from './browser-service';
-import { registerWebAppsHandlers } from './ipc/web-apps-handlers';
-import { registerBrowserHandlers } from './ipc/browser-handlers';
+import { registerBrowserFeatureHandlers } from './ipc/browser-feature-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
@@ -240,7 +237,7 @@ function bindRenderProcessGone(win: BrowserWindow, log: Logger): void {
   });
   /*
     A hung main window — recorded, not acted on. Until this, `unresponsive` was
-    bound only for embedded browser tabs (`browser-service.ts`), so the failure
+    bound only for embedded browser tabs (the browser feature's `browser-service.ts`), so the failure
     a user is most likely to actually report was the one that left no trace.
     Electron recovers from most of these unaided, so killing the window would be
     a worse bug than the one being logged; the `responsive` line is what tells a
@@ -451,14 +448,14 @@ if (!app.requestSingleInstanceLock()) {
     registerScaffoldHandlers();
     registerTestsFeatureHandlers(getMainWindow);
     registerPtyHandlers(getMainWindow);
-    registerBrowserHandlers();
+    // The browser feature's channels (Phase 113 Theme L) — browser tabs and the web-apps rail, one registration.
+    registerBrowserFeatureHandlers(getMainWindow);
     // Phase 84 Theme F: one process-wide idle sweep, started once — every
     // discard eligibility check reads live `WebContentsView`/`BrowserWindow`
     // state at tick time, so there is nothing to reconcile per repo or per
     // window the way `watch-service.ts`'s watchers are.
     startBrowserDiscardSweep();
     startWebAppsDiscardSweep();
-    registerWebAppsHandlers(getMainWindow);
     registerWindowHandlers(getMainWindow, defaultLogger);
     // Phase 81 Theme F: `ui-bridge.ts` targets `getMainWindow()` explicitly,
     // never the focused window — registered here, once, the same way every

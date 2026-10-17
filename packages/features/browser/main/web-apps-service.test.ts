@@ -13,7 +13,8 @@ import {
   runWebAppsDiscardSweep,
   setWebAppBounds,
 } from './web-apps-service';
-import { applySettingsSync, resetSettingsMirrorForTests } from './settings-mirror';
+import type { BrowserElectron, BrowserHostWindow } from './browser-electron';
+import { installBrowserMain, type BrowserDiscardSettings, type BrowserLog } from './browser-main-deps';
 
 /**
  * `web-apps-service.ts` is the second file (after `browser-service.ts`) to
@@ -82,19 +83,30 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
   return { FakeWebContents, FakeWebContentsView, fakeSessions, makeFakeSession };
 });
 
-vi.mock('electron', () => ({
-  WebContentsView: FakeWebContentsView,
-  session: {
-    fromPartition: vi.fn((name: string) => {
-      const existing = fakeSessions.get(name);
-      if (existing) return existing;
-      const created = makeFakeSession();
-      fakeSessions.set(name, created);
-      return created;
-    }),
-  },
-  shell: { openExternal: vi.fn() },
-}));
+// Phase 113 Theme L: the service reaches Electron and the settings mirror through the port its
+// composer installs, so the same fakes are installed there rather than through `vi.mock('electron')`.
+const electron = {
+  createView: vi.fn((options: Record<string, unknown>) => new FakeWebContentsView(options)),
+  sessionFromPartition: vi.fn((name: string) => {
+    const existing = fakeSessions.get(name);
+    if (existing) return existing;
+    const created = makeFakeSession();
+    fakeSessions.set(name, created);
+    return created;
+  }),
+  onDisplayMetricsChanged: vi.fn(),
+  openExternal: vi.fn(async () => undefined),
+};
+let discardSettings: BrowserDiscardSettings = {};
+/** What desktop's `applySettingsSync` used to feed the sweep — only the two fields it reads. */
+const applySettingsSync = (next: BrowserDiscardSettings & Record<string, unknown>): void => {
+  discardSettings = { browserDiscardMs: next.browserDiscardMs, webAppDiscardIdle: next.webAppDiscardIdle };
+};
+const resetSettingsMirrorForTests = (): void => {
+  discardSettings = {};
+};
+const log = Object.assign(vi.fn(), { warn: vi.fn(), error: vi.fn() }) as unknown as BrowserLog;
+installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => discardSettings });
 
 type FakeView = InstanceType<typeof FakeWebContentsView>;
 
@@ -106,7 +118,7 @@ function fakeWindow() {
     contentView: { addChildView: vi.fn(), removeChildView: vi.fn() },
     webContents: { getZoomFactor: vi.fn(() => 1) } as unknown,
   };
-  return win as unknown as import('electron').BrowserWindow;
+  return win as unknown as BrowserHostWindow;
 }
 
 describe('web-apps-service lifecycle', () => {
@@ -249,23 +261,21 @@ describe('web-apps-service navigation policy', () => {
   });
 
   it('denies every window-open request and routes an allowed one to the system browser', async () => {
-    const electron = await import('electron');
     const { view } = createAndGetView();
     const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as (details: unknown) => { action: string };
 
     expect(handler({ url: 'https://opened.example' })).toEqual({ action: 'deny' });
-    expect(electron.shell.openExternal).toHaveBeenCalledWith('https://opened.example');
+    expect(electron.openExternal).toHaveBeenCalledWith('https://opened.example');
   });
 
   it('does not open externally for a blocked scheme', async () => {
-    const electron = await import('electron');
     const { view } = createAndGetView();
     const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock
       .calls[0]?.[0] as (details: unknown) => { action: string };
 
     expect(handler({ url: 'file:///etc/passwd' })).toEqual({ action: 'deny' });
-    expect(electron.shell.openExternal).not.toHaveBeenCalled();
+    expect(electron.openExternal).not.toHaveBeenCalled();
   });
 });
 
