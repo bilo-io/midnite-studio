@@ -21,6 +21,9 @@ export const SECRET_KEYS = [
   // Phase 108 Theme B — an optional MapTiler key unlocking its satellite, Terrain-RGB and styles. Read
   // only by main's `mstudio-tile:` protocol, which expands it into the upstream URL; never the renderer.
   'media.mapTilerApiKey',
+  // Phase 113 Theme R — the opt-in online metadata provider for Media ▸ Library (TMDB). Read only by main's
+  // library service, and only while the user has the online provider switched on; never the renderer.
+  'media.tmdbApiKey',
   // Phase 113 Theme J slice 2 — LLM agent API keys, moved out of the renderer's `agentApiKeys`. Write-only
   // from the renderer (`secretsHas`/`secretsSet`); `copilot`'s GITHUB_TOKEN is a forge credential, not here.
   'agent.claude.apiKey',

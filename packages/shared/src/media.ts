@@ -16,8 +16,11 @@ import type { SecretKey } from './domain/secrets';
 
 // --- tabs --------------------------------------------------------------------
 
-/** Tab order is render order in the strip. `doc` is first by decision. */
-export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'map', 'terrain', 'model', 'sprite', 'game'] as const;
+/**
+ * Tab order is render order in the strip. `doc` is first by decision. `library` (Phase 113 Theme R, the Media
+ * app's local library) is appended, so no earlier tab's position or persisted id moved.
+ */
+export const MEDIA_TABS = ['doc', 'image', 'video', 'audio', 'map', 'terrain', 'model', 'sprite', 'game', 'library'] as const;
 export const MediaTabSchema = z.enum(MEDIA_TABS);
 export type MediaTab = z.infer<typeof MediaTabSchema>;
 
@@ -123,6 +126,8 @@ export const MEDIA_TAB_EXPORT_FORMATS: Record<MediaTab, readonly MediaExportForm
   game: ['game-html', 'game-zip', 'game-folder'],
   // Phase 108: the split button exports the selected layer (Theme H).
   map: ['geojson', 'kml'],
+  // The library plays files where they are; it exports nothing (LAN streaming is Theme R's second slice).
+  library: [],
 };
 
 /** The Audio ▸ Editor's menu (Phase 101 Theme J): the .mid, the offline WAV render, and its MP3. */

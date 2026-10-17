@@ -15,6 +15,7 @@ export const SECRET_LABELS = {
   'media.openaiApiKey': 'OpenAI API key',
   'media.huggingFaceToken': 'Hugging Face token',
   'media.mapTilerApiKey': 'MapTiler API key',
+  'media.tmdbApiKey': 'TMDB API key',
 } as const satisfies Partial<Record<SecretKey, string>>;
 
 /** The LLM agent keys (`agent.<id>.apiKey`), labelled by the agent they belong to. */

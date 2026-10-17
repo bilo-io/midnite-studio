@@ -131,6 +131,8 @@ export const FEATURE_PACKAGE_SPLITS = {
   'media-sprite': { folder: 'media', placement: 'gamer' },
   'media-model': { folder: 'media', placement: 'gamer' },
   'media-game': { folder: 'media', placement: 'gamer' },
+  // Phase 113 Theme R: the Media app's local library — a tab, so it splits out of `media` like the others.
+  'media-library': { folder: 'media', placement: 'media' },
   // The MCP server's Tools view (Phase 113 Theme N): a package out of the `agent` folder, which the Agents app owns.
   'mcp-tools': { folder: 'agent', placement: 'agents' },
 } as const satisfies Readonly<Record<string, { folder: PlacedFeature; placement: Placement }>>;

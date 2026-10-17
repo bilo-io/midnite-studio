@@ -7,6 +7,21 @@ import {
   MapCaptureResultSchema,
 } from '../media-map-capture';
 import { MapOpenEventSchema } from '../media-map-mcp';
+import {
+  LibraryChangedSchema,
+  LibraryClearProgressRequestSchema,
+  LibraryItemsRequestSchema,
+  LibraryItemsResponseSchema,
+  LibraryProgressRequestSchema,
+  LibraryRemoveRootRequestSchema,
+  LibraryRootSchema,
+  LibraryRootsResponseSchema,
+  LibraryScanProgressSchema,
+  LibraryScanRequestSchema,
+  LibraryScanSummarySchema,
+  LibrarySettingsResponseSchema,
+  LibrarySettingsSchema,
+} from '../media-library';
 
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
 import {
@@ -3412,6 +3427,27 @@ export const MediaImageGenerateResponse = GitOpResultOf(z.object({ files: z.arra
 export const MediaImageCancelRequest = z.object({ generationId: z.string().min(1) });
 export const MediaImageCancelResponse = GitOpResultSchema;
 export const MediaImageProgressPayload = ImageGenerateProgressEventSchema;
+
+// Library (Phase 113 Theme R) — the local media library (`media-library.ts`).
+export const MediaLibraryRootsResponse = LibraryRootsResponseSchema;
+/** The folder picker runs in main; a dismissed picker answers `ok` with `root: null`. */
+export const MediaLibraryAddRootResponse = GitOpResultOf(z.object({ root: LibraryRootSchema.nullable() }));
+export const MediaLibraryRemoveRootRequest = LibraryRemoveRootRequestSchema;
+export const MediaLibraryRemoveRootResponse = GitOpResultSchema;
+/** Resolves once the scan finished; progress streams on `mediaLibraryScanProgress`. */
+export const MediaLibraryScanRequest = LibraryScanRequestSchema;
+export const MediaLibraryScanResponse = GitOpResultOf(LibraryScanSummarySchema);
+export const MediaLibraryItemsRequest = LibraryItemsRequestSchema;
+export const MediaLibraryItemsResponse = LibraryItemsResponseSchema;
+export const MediaLibraryProgressRequest = LibraryProgressRequestSchema;
+export const MediaLibraryProgressResponse = GitOpResultSchema;
+export const MediaLibraryClearProgressRequest = LibraryClearProgressRequestSchema;
+export const MediaLibraryClearProgressResponse = GitOpResultSchema;
+export const MediaLibrarySettingsResponse = LibrarySettingsResponseSchema;
+export const MediaLibrarySettingsSetRequest = LibrarySettingsSchema.partial();
+export const MediaLibrarySettingsSetResponse = GitOpResultSchema;
+export const MediaLibraryChangedPayload = LibraryChangedSchema;
+export const MediaLibraryScanProgressPayload = LibraryScanProgressSchema;
 
 // Audio (Theme E)
 export const MediaAudioProvidersResponse = z.object({ providers: z.array(AudioProviderStatusSchema) });
