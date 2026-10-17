@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme S (slice 3) — the play-test loop inside Gamer
+
+[PR #895](https://github.com/bilo-io/midnite-studio/pull/895). Play-tests and create-and-iterate move into the games feature; Gamer runs both, the agent on a private per-run MCP server through its own game-only shim, confined exactly as in Studio. Theme S ✅.
+
 ## 2026-10-17 — Phase 113 Theme O (slice 4a) — Sessions as a feature; guest rules in the broker; Agents' sessions in Coder
 
 [PR #894](https://github.com/bilo-io/midnite-studio/pull/894). The broker enforces guest rules on the server, `sessions` is a feature, Agents runs agent nodes on Studio's broker, and Coder's Sessions tab shows them.
