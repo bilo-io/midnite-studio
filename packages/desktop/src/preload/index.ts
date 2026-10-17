@@ -424,6 +424,8 @@ const bridge: Pick<
     // Fires per resize frame — same reasoning as browser.setBounds above.
     setBounds: (req) => ipcRenderer.send(CHANNELS.webAppsSetBounds, req),
     activate: (req) => ipcRenderer.send(CHANNELS.webAppsActivate, req),
+    signIns: (req) => call(CHANNELS.webAppsSignIns, req),
+    signOut: (req) => call(CHANNELS.webAppsSignOut, req),
   },
   agent: {
     list: () => call(CHANNELS.agentList),

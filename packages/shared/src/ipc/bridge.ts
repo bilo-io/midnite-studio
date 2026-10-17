@@ -816,6 +816,13 @@ export type MidniteStudioBridge = {
      * with no other app taking its place.
      */
     activate: (req: In<typeof S.WebAppsActivateRequest>) => void;
+    /**
+     * Which partitions hold a sign-in (Phase 113 Theme J slice 3): cookie counts and the sites they
+     * belong to — never a cookie value, a token or the partition's storage.
+     */
+    signIns: (req: In<typeof S.WebAppsSignInsRequest>) => Promise<z.infer<typeof S.WebAppsSignInsResponse>>;
+    /** Clears one app's partition storage — the user signs out of it there. Confirmed by the caller. */
+    signOut: (req: In<typeof S.WebAppsSignOutRequest>) => Promise<z.infer<typeof S.WebAppsSignOutResponse>>;
   };
 
   /** Built-in agents merged with the user's `agents.json`, plus the Claude CLI. */

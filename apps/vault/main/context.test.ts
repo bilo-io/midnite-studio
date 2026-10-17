@@ -116,6 +116,14 @@ describe('registerVaultHandlers', () => {
     expect(host?.pairings.list().apps.map((a) => a.appId)).toEqual(['coder']);
   });
 
+  it('cannot see Studio’s web-app partitions from its own userData: the sign-ins answer "needs Studio"', async () => {
+    const { handlers } = await setup();
+    const signIns = (await handlers.get(CHANNELS.webAppsSignIns)?.({}, {})) as { available: boolean; reason: string; apps: unknown[] };
+    expect(signIns).toMatchObject({ available: false, apps: [] });
+    expect(signIns.reason).toMatch(/Midnite Studio/);
+    expect(await handlers.get(CHANNELS.webAppsSignOut)?.({}, { id: 'spotify' })).toMatchObject({ ok: false });
+  });
+
   it('with no runtime host running, lists nothing and refuses quietly rather than throwing', async () => {
     const { handlers } = await setup({ host: false });
     expect(await handlers.get(CHANNELS.forgeAccounts)?.({}, {})).toEqual([]);

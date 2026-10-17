@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { createFakeCipher, createRecordingContext, createVaultGrants, createVaultService } from '@midnite/studio-runtime';
 import { CHANNELS } from '@midnite/studio-shared';
 
-import { accountFromKey, vaultMain } from './index';
+import { accountFromKey, NEEDS_STUDIO_SIGN_INS, vaultMain } from './index';
 import { vaultManifest } from '../manifest';
 
 async function setup() {
@@ -57,6 +57,32 @@ describe('vault main', () => {
     };
     expect(added.ok).toBe(false);
     expect(await ctx.invoke(CHANNELS.dbListConnections)).toEqual([]);
+  });
+
+  it('answers "needs Studio" for web-app sign-ins without a port, and signs nobody out', async () => {
+    const { ctx } = await setup();
+    expect(await ctx.invoke(CHANNELS.webAppsSignIns, {})).toEqual({ available: false, reason: NEEDS_STUDIO_SIGN_INS, apps: [] });
+    expect(await ctx.invoke(CHANNELS.webAppsSignOut, { id: 'spotify' })).toEqual({ ok: false, message: NEEDS_STUDIO_SIGN_INS });
+  });
+
+  it('passes the sign-in pair to a port when one is composed', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'mstudio-vault-feature-'));
+    const ctx = createRecordingContext();
+    const signOuts: string[] = [];
+    vaultMain.register(ctx, {
+      vault: createVaultService({ directory: dir, cipher: createFakeCipher() }).forApp('vault'),
+      grants: createVaultGrants({ directory: dir }),
+      webAppSignIns: {
+        list: async () => ({ available: true, apps: [{ id: 'spotify', label: 'Spotify', partition: 'persist:app-spotify', cookieCount: 2, origins: ['spotify.com'] }] }),
+        signOut: async (id) => {
+          signOuts.push(id);
+          return { ok: true };
+        },
+      },
+    });
+    expect(await ctx.invoke(CHANNELS.webAppsSignIns, {})).toMatchObject({ available: true, apps: [{ cookieCount: 2 }] });
+    expect(await ctx.invoke(CHANNELS.webAppsSignOut, { id: 'spotify' })).toEqual({ ok: true });
+    expect(signOuts).toEqual(['spotify']);
   });
 
   it('deletes a saved database password', async () => {

@@ -204,6 +204,16 @@ export function reparentWebAppView(id: WebAppId, next: BrowserWindow, opts?: { v
 }
 
 /**
+ * Reload one app's live view, if it has one (Phase 113 Theme J slice 3) — after its partition's storage
+ * was cleared, so the page shows the signed-out state instead of what it still holds in memory. An app
+ * with no view (disabled, or idle-discarded) loads fresh on its next enable anyway.
+ */
+export function reloadWebApp(id: WebAppId): void {
+  const tracked = apps.get(id);
+  if (tracked && !tracked.view.webContents.isDestroyed()) tracked.view.webContents.reload();
+}
+
+/**
  * Bounds arrive in CSS pixels; `WebContentsView.setBounds` wants device
  * pixels — the same zoom-factor scaling `setBrowserBounds` does, for the
  * identical reason: the renderer measures in CSS pixels and may not import

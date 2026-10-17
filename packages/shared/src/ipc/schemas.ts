@@ -82,6 +82,7 @@ import {
   PostmanVariableSchema,
   SaveEnvironmentOutcomeSchema,
   WebAppIdSchema,
+  WebAppSignInSchema,
   BlameResultSchema,
   BrowserBoundsSchema,
   BrowserEventSchema,
@@ -2668,6 +2669,25 @@ export const WebAppsSetBoundsRequest = z.object({
  * chrome left to explain it.
  */
 export const WebAppsActivateRequest = z.object({ id: WebAppIdSchema.nullable() });
+
+/**
+ * Web-app sign-ins (Phase 113 Theme J slice 3) — which `persist:app-<id>` partitions hold cookies,
+ * listed by the Vault. `available: false` (with the reason as a sentence) where the answering process
+ * cannot see the partitions: the standalone Vault runs under its own userData, so the sign-ins it
+ * would list live in Midnite Studio's. Metadata only — see `WebAppSignInSchema`.
+ */
+export const WebAppsSignInsRequest = z.object({});
+export const WebAppsSignInsResponse = z.object({
+  available: z.boolean(),
+  reason: z.string().optional(),
+  apps: z.array(WebAppSignInSchema),
+});
+/** Sign out of one web app: clear that one partition's storage and cache. Nothing else is touched. */
+export const WebAppsSignOutRequest = z.object({ id: WebAppIdSchema });
+export const WebAppsSignOutResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true) }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
 
 // --- watch -----------------------------------------------------------------
 

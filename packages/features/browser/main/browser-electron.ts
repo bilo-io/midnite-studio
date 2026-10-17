@@ -85,13 +85,22 @@ export type BrowserHostWindow = {
 };
 
 /**
+ * The one field of an Electron `Cookie` anything here reads (Phase 113 Theme J slice 3): which site it
+ * belongs to. Electron hands back the whole cookie — name, value, path, flags — but the port names only
+ * `domain`, so code written against it cannot reach a value without a cast.
+ */
+export type BrowserCookieDomain = { domain?: string };
+
+/**
  * A partition's `Session` — what `denyAllPermissions` (`browser-security.ts`'s own structural
- * `PermissionSession`), the download refusal and "clear data" use.
+ * `PermissionSession`), the download refusal, "clear data" and the Vault's sign-in listing use.
  */
 export type BrowserSession = PermissionSession & {
   on(event: 'will-download', listener: (event: unknown, item: DownloadItemLike, webContents: unknown) => void): void;
   clearStorageData(): Promise<void>;
   clearCache(): Promise<void>;
+  /** `session.cookies` — `get({})` is every cookie in the partition. */
+  cookies: { get(filter: Record<string, never>): Promise<readonly BrowserCookieDomain[]> };
 };
 
 /** The webPreferences a view is created with — the services own the table, the composer only forwards it. */
