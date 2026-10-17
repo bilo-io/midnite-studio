@@ -3,6 +3,7 @@ import { PiRobotFill } from 'react-icons/pi';
 
 import { chatsViews } from '@midnite/studio-feature-chats/renderer';
 import { councilsViews } from '@midnite/studio-feature-councils/renderer';
+import { mediaAudioManifest } from '@midnite/studio-feature-media-audio/manifest';
 import { modelsViews } from '@midnite/studio-feature-models/renderer';
 import { workflowsViews } from '@midnite/studio-feature-workflows/renderer';
 import { RingSpinner } from '@midnite/studio-frame';
@@ -30,7 +31,7 @@ const McpToolsView = lazy(() => import('@midnite/studio-feature-mcp-tools/render
 function ToolsTab() {
   return (
     <div className="h-full overflow-auto p-4">
-      <McpToolsView isAppInstalled={INSTALLED} serverAvailable={false} />
+      <McpToolsView isAppInstalled={INSTALLED} serverAvailable={false} manifests={[mediaAudioManifest]} />
     </div>
   );
 }

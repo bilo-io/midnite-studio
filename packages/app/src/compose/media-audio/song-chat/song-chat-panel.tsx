@@ -2,11 +2,11 @@ import type { ChatMessage, Song, SongChatChange, SongChatMessage } from '@midnit
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LuMousePointerClick, LuTrash2 } from 'react-icons/lu';
 
-import { AiComposer, ProviderModelPicker, type PickerProvider } from '../../../../components/ai-thread';
-import { IconButton } from '../../../../components/icon-button';
-import { bridge } from '../../../../services/bridge';
+import { AiComposer, ProviderModelPicker, type PickerProvider } from '../../../components/ai-thread';
+import { IconButton } from '../../../components/icon-button';
+import { bridge } from '../../../services/bridge';
 import { AssistantMessage, UserMessage, pickEngine, pickerModel, useChatEngines, wireModel } from '@midnite/studio-feature-chats/renderer';
-import { MEDIA_PROMPT_BOX } from '../../prompt-input';
+import { MEDIA_PROMPT_BOX } from '../../../features/media/prompt-input';
 import { barRange } from './change-summary';
 import { engineMode, modeHint, toMusicEngine } from './engine-mode';
 import { progressLabel } from './run-progress';

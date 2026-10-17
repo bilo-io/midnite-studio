@@ -16,6 +16,7 @@
     "@midnite/studio-feature-chats": "workspace:*",
     "@midnite/studio-feature-councils": "workspace:*",
     "@midnite/studio-feature-mcp-tools": "workspace:*",
+    "@midnite/studio-feature-media-audio": "workspace:*",
     "@midnite/studio-feature-models": "workspace:*",
     "@midnite/studio-feature-workflows": "workspace:*",
     "@midnite/studio-frame": "workspace:*",

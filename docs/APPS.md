@@ -389,11 +389,24 @@ maps each to the folder it came from and the apps that compose it:
   AI thread pane and create panel, which are built on its ai-thread composer and voice), and a main
   half (doc export and Ask AI; image generation, with provider keys read in main only).
 - **`packages/features/media-audio`**, **`media-video`** (Creator, Studio) — the next two tabs, same
-  shape. Audio's host port carries Studio's Suno-style prompt form (ai-thread + voice), the music
-  editor sub-tab (still Studio's code until the music slice) and the remembered sub-tab; the feature's
-  `BasicPromptForm` is what an app without them shows. Its main half is the audio service, Import and
-  the engine status; the local MusicGen worker's fork is injected (`createMusicBroker({ spawn })`), so
-  the feature never imports `electron` — an app with no engine passes `unavailableMusicWorker()`. Video's
+  shape. **The music editor is Audio's own sub-tab, not a package of its own**: it opens Audio's
+  projects, sends its renders to the Generator through Audio's export code, and a `media-music` package
+  could not import `media-audio` (features never import one another) — so it lives in
+  `renderer/music-editor/` and `main/music/` (song store, `.mid` I/O, exports, the General MIDI sample
+  cache). Tone.js loads only when the Editor sub-tab opens (`React.lazy`). Audio's host port carries
+  what needs Studio: the Suno-style prompt form (ai-thread + voice), the song's agent chat (built on the
+  chats feature and the agent engines — absent in Creator, which then shows no chat button), the
+  instrument picker's `Popover` (the frame's `SimplePopover` otherwise) and the remembered sub-tab;
+  the feature's `BasicPromptForm` is what an app without them shows. Its main half is the audio
+  service, Import, the engine status and the editor's songs, exports and GM samples (the composer
+  injects the native pickers and ffmpeg, so no window crosses the port: dialogs use the focused one);
+  the agent runs, the chat thread and Antigravity registration stay Studio's main. the local MusicGen worker's fork is injected (`createMusicBroker({ spawn })`), so
+  the feature never imports `electron` — an app with no engine passes `unavailableMusicWorker()`.
+  **Its manifest owns the `music_*` MCP tools** (`mcpTools`, owner `creator`): `mcpToolOwner` reads the
+  manifest before `defaultMcpToolOwner`, so a Creator-only install lists them and an Agents-only one does
+  not. Every tool-listing consumer passes the manifests — the server and shim from
+  `desktop/src/main/mcp/tool-manifests.ts`, `McpToolsView` through its `manifests` prop (Studio and Agents
+  both pass Audio's); the handlers stay in Studio's `main/mcp`. Video's
   main half is the whole video service (project discovery, the studio dev server, the render queue,
   toolchain probe, Setup), spawning the engine CLIs through the runtime's `process-runner` and
   `login-shell` (moved there for it); its window events, OS handoffs, repo lookup and template path are

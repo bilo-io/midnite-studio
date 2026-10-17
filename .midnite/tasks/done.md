@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme Q (slice 3) — the music editor joins Audio; music MCP tools owned by its manifest
+
+[PR #888](https://github.com/bilo-io/midnite-studio/pull/888). Midnite Creator gains the music editor, and the `music_*` MCP tools are declared by Audio's manifest. Theme Q is done.
+
 ## 2026-10-17 — Phase 113 Theme O (slice 1) — the forge as features, and apps/coder
 
 [PR #887](https://github.com/bilo-io/midnite-studio/pull/887). Reviews, Actions and Tests as features over a forge main half, Midnite Coder on its own repository list with forge tokens only from the runtime vault behind its grants — and two test guards after a stale mock let a test open a real public issue.

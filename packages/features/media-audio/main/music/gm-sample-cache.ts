@@ -144,3 +144,5 @@ export function createGmSampleCache(deps: GmCacheDeps) {
 
   return { status, ensure, load };
 }
+
+export type GmSampleCache = ReturnType<typeof createGmSampleCache>;

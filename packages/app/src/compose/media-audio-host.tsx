@@ -1,8 +1,8 @@
 import { usePlayer, type AudioHost } from '@midnite/studio-feature-media-audio/renderer';
-import { lazy } from 'react';
 
 import { PromptForm } from '../features/media/audio/prompt-form';
-import { EditorExportBar } from '../features/media/music-editor/editor-export-bar';
+import { SongChatPanel } from './media-audio/song-chat/song-chat-panel';
+import { Popover } from '../components/popover';
 import { useUiStore } from '../store/ui-store';
 
 /**
@@ -17,10 +17,6 @@ import { useUiStore } from '../store/ui-store';
  * Installed by Studio's Media view (`features/media/media-view.tsx`), not by `StudioProviders`,
  * for the same entry-chunk reason as the Docs host.
  */
-const EditorTab = lazy(() =>
-  import('../features/media/music-editor/editor-tab').then((m) => ({ default: m.EditorTab })),
-);
-
 function useAudioMode(repoId: string) {
   const mode = useUiStore((s) => s.audioTabByRepo[repoId]) ?? 'generator';
   const setAudioTab = useUiStore((s) => s.setAudioTab);
@@ -29,7 +25,8 @@ function useAudioMode(repoId: string) {
 
 export const STUDIO_AUDIO_HOST = {
   PromptForm,
-  Editor: { Tab: EditorTab, ExportBar: EditorExportBar },
+  SongChat: SongChatPanel,
+  Popover,
   useAudioMode,
 } satisfies AudioHost;
 

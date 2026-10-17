@@ -1,7 +1,8 @@
 import { gmProgram, type SongTrack } from '@midnite/studio-shared';
 import { LuTrash2 } from 'react-icons/lu';
 
-import { Popover } from '../../../components/popover';
+import { useAudioHost } from '../host';
+import { DefaultPopover } from '../default-popover';
 import { GmInstrumentPicker } from './gm-instrument-picker';
 import { instrumentOf, type InstrumentChoice } from './model/song-edit';
 
@@ -26,6 +27,7 @@ type Props = {
 
 /** One arrangement track header: name, instrument (Theme D's picker), colour, mute, solo. */
 export function TrackRow({ track, active, onSelect, onName, onColor, onInstrument, onMute, onSolo, onRemove }: Props) {
+  const Popover = useAudioHost().Popover ?? DefaultPopover;
   const pill = (on: boolean, tone: string) =>
     `h-5 w-5 rounded text-[10px] font-semibold ${on ? tone : 'bg-muted text-muted-foreground hover:bg-accent'}`;
   return (

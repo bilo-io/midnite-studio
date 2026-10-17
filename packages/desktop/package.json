@@ -20,7 +20,6 @@
     "@midnite/studio-feature-media-video": "workspace:*",
     "@midnite/studio-feature-media-audio": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@tonejs/midi": "^2.0.28",
     "better-sqlite3": "^11.8.1",
     "dugite": "^2.7.1",
     "electron-updater": "^6.3.9",

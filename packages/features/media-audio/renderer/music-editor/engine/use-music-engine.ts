@@ -1,8 +1,7 @@
 import type { Song } from '@midnite/studio-shared';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
-import { bridge } from '../../../../services/bridge';
-import { usePageVisible } from '../../../../lib/use-page-visible';
+import { bridge, usePageVisible } from '@midnite/studio-frame';
 import type { MusicEngine } from './engine';
 
 /**

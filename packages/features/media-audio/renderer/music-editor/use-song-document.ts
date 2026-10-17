@@ -1,7 +1,7 @@
 import { SongSchema, type MusicSongEntry, type Song } from '@midnite/studio-shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { bridge } from '../../../services/bridge';
+import { bridge } from '@midnite/studio-frame';
 import {
   canRedo, canUndo, commit as commitStep, commitExternal, redo as redoStep, reset, undo as undoStep,
   type History,

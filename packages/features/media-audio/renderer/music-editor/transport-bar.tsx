@@ -2,7 +2,8 @@ import type { Song } from '@midnite/studio-shared';
 import { useEffect, useState } from 'react';
 import { LuPause, LuPlay, LuRepeat, LuSquare, LuTimer } from 'react-icons/lu';
 
-import { IconButton } from '../../../components/icon-button';
+import { useFrameChrome } from '@midnite/studio-frame';
+
 import { publishLoopRegion } from './editor-session';
 import type { EngineState, MusicEngine } from './engine/engine';
 
@@ -20,6 +21,7 @@ export function TransportBar({
   state: EngineState;
   song: Song;
 }) {
+  const { IconButton } = useFrameChrome();
   const [seconds, setSeconds] = useState(0);
   const [loop, setLoop] = useState(false);
   const [click, setClick] = useState(false);

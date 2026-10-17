@@ -19,6 +19,8 @@ dependsOn:
   - 'feature-models'
   - 'feature-workflows'
   - 'feature-mcp-tools'
+  # Its manifest only: it owns the `music_*` tools, which the Tools view needs to know are Creator's.
+  - 'feature-media-audio'
 
 tasks:
   build:
@@ -48,6 +50,7 @@ tasks:
       - '/packages/features/models/manifest.ts'
       - '/packages/features/workflows/manifest.ts'
       - '/packages/features/mcp-tools/manifest.ts'
+      - '/packages/features/media-audio/manifest.ts'
       - '/packages/features/chats/main/**/*'
       - '/packages/features/councils/main/**/*'
       - '/packages/features/models/main/**/*'
@@ -76,6 +79,7 @@ tasks:
       - '/packages/features/models/manifest.ts'
       - '/packages/features/workflows/manifest.ts'
       - '/packages/features/mcp-tools/manifest.ts'
+      - '/packages/features/media-audio/manifest.ts'
       - 'main/**/*'
       - '/packages/features/chats/main/**/*'
       - '/packages/features/councils/main/**/*'
@@ -101,6 +105,7 @@ tasks:
       - '/packages/features/models/manifest.ts'
       - '/packages/features/workflows/manifest.ts'
       - '/packages/features/mcp-tools/manifest.ts'
+      - '/packages/features/media-audio/manifest.ts'
       - 'main/**/*'
       - '/packages/features/chats/main/**/*'
       - '/packages/features/councils/main/**/*'

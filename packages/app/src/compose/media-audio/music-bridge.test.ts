@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { fixtures } from '../../../../test-support/fixtures';
-import { buildMockBridge } from '../../../../test-support/mock-bridge';
+import { fixtures } from '../../../test-support/fixtures';
+import { buildMockBridge } from '../../../test-support/mock-bridge';
 
 /** Phase 101 Theme B — the mock bridge answers the same `music.*` envelopes main does. */
 describe('mock bridge music', () => {

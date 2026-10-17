@@ -15,6 +15,7 @@
 // Main-process access.
 export { bridge, hasBridge } from './bridge';
 export { noBridge, reportFailure } from './bridge-result';
+export { usePageVisible } from './lib/use-page-visible';
 
 // Notifications.
 export { useToastStore, type Toast, type ToastAction, type ToastState, type ToastStatus } from './toast-store';

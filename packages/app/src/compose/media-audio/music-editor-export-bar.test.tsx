@@ -2,10 +2,11 @@ import { MUSIC_PPQ, SongSchema } from '@midnite/studio-shared';
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fixtures } from '../../../../test-support/fixtures';
-import { renderView } from '../../../../test-support/render';
-import { EditorExportBar } from './editor-export-bar';
-import { publishEditorSong, publishLoopRegion } from './editor-session';
+import { fixtures } from '../../../test-support/fixtures';
+import { renderView } from '../../../test-support/render';
+import { EditorExportBar, publishEditorSong, publishLoopRegion } from '@midnite/studio-feature-media-audio/renderer';
+import { mediaKit } from '@midnite/studio-feature-media-core/renderer';
+import { MediaKitProvider } from '@midnite/studio-frame';
 
 /** Phase 101 Themes J/K — the Editor's export controls, in jsdom (the .mid path needs no render). */
 const song = SongSchema.parse({
@@ -22,10 +23,15 @@ afterEach(() => {
 });
 
 const open = () =>
-  renderView(<EditorExportBar repoId="repo-1" project="album" defaultBitrate={192} onSent={vi.fn()} />, {
-    fixtures,
-    uiState: { selectedRepoId: 'repo-1' },
-  });
+  renderView(
+    <MediaKitProvider kit={mediaKit}>
+      <EditorExportBar repoId="repo-1" project="album" defaultBitrate={192} onSent={vi.fn()} />
+    </MediaKitProvider>,
+    {
+      fixtures,
+      uiState: { selectedRepoId: 'repo-1' },
+    },
+  );
 
 describe('EditorExportBar', () => {
   it('is disabled until the editor holds a song with notes', () => {

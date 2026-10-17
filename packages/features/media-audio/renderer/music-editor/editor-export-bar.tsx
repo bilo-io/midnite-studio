@@ -9,10 +9,8 @@ import {
 import { useState } from 'react';
 import { LuWand } from 'react-icons/lu';
 
-import { bridge } from '../../../services/bridge';
-import { noBridge, reportFailure } from '../../../services/bridge-result';
-import { useUiStore } from '../../../store/ui-store';
-import { ExportToolbar } from '../export-toolbar';
+import { bridge, noBridge, reportFailure, useMediaKit } from '@midnite/studio-frame';
+
 import { useEditorSession } from './editor-session';
 import { exportSong, sendSongToGenerator, songHasNotes } from './song-export';
 
@@ -33,7 +31,8 @@ export function EditorExportBar({
   onSent: (project: string, result: MusicSendToGeneratorResult) => void;
 }) {
   const { song, loopRegion } = useEditorSession();
-  const exportDir = useUiStore((s) => s.mediaExportDir);
+  const { ExportToolbar, useMediaExportDir } = useMediaKit();
+  const exportDir = useMediaExportDir();
   const [range, setRange] = useState<MusicExportRange>('song');
   const [bitrate, setBitrate] = useState(defaultBitrate);
   const [busy, setBusy] = useState<'export' | 'send' | null>(null);

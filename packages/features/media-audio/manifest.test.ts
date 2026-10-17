@@ -1,8 +1,19 @@
 import { createRecordingContext } from '@midnite/studio-runtime';
-import { CHANNELS, EVENT_CHANNELS, FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
+import {
+  ALL_APPS_INSTALLED,
+  CHANNELS,
+  EVENT_CHANNELS,
+  FEATURE_PACKAGE_SPLITS,
+  FEATURE_PLACEMENT,
+  installedSet,
+  listMcpToolIds,
+  MCP_TOOL_IDS,
+  mcpToolOwner,
+  placementOwners,
+} from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
-import { mediaAudioMain as mediaMain, type AudioEngineServices, type AudioService, type MediaAudioMainServices } from './main';
+import { mediaAudioMain as mediaMain, type AudioEngineServices, type AudioService, type MediaAudioMainServices, type MusicMainServices } from './main';
 import { mediaAudioManifest } from './manifest';
 
 const services = (over: Partial<MediaAudioMainServices> = {}): MediaAudioMainServices => ({
@@ -10,6 +21,7 @@ const services = (over: Partial<MediaAudioMainServices> = {}): MediaAudioMainSer
   engine: {} as AudioEngineServices,
   installEngine: vi.fn(),
   pickImportFiles: vi.fn(),
+  music: { service: {}, exporter: {}, gm: {} } as MusicMainServices,
   ...over,
 });
 
@@ -36,6 +48,22 @@ describe('media-audio manifest', () => {
     const ctx = createRecordingContext();
     mediaMain.register(ctx, services());
     expect([...ctx.channels].sort()).toEqual([...mediaAudioManifest.ipc].sort());
+  });
+});
+
+describe('media-audio MCP ownership', () => {
+  const music = MCP_TOOL_IDS.filter((id) => id.startsWith('music_'));
+
+  it('declares exactly the music_* tools, owned by Creator', () => {
+    expect([...mediaAudioManifest.mcpTools]).toEqual(music);
+    for (const id of music) expect(mcpToolOwner(id, [mediaAudioManifest])).toBe('creator');
+  });
+
+  it('Studio lists every tool, a Creator-only install lists the music ones, an Agents-only one none', () => {
+    const manifests = [mediaAudioManifest];
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual([...MCP_TOOL_IDS]);
+    expect(listMcpToolIds(installedSet(['creator']), manifests)).toEqual(expect.arrayContaining(music));
+    expect(listMcpToolIds(installedSet(['agents']), manifests).some((id) => music.includes(id))).toBe(false);
   });
 });
 
@@ -67,5 +95,31 @@ describe('media-audio main half', () => {
     );
     await ctx.invoke(CHANNELS.mediaAudioEngineInstall);
     expect(ctx.emitted).toEqual([{ channel: EVENT_CHANNELS.mediaAudioEngineProgress, payload: { phase: 'download', fraction: 0.5 } }]);
+  });
+});
+
+describe('media-audio music editor main half', () => {
+  it('serves the song store and exports without a window, and the GM samples over the context', async () => {
+    const list = vi.fn(async () => ({ ok: true, value: [] }));
+    const exportSong = vi.fn(async () => ({ ok: true, value: { dest: '/x.mid' } }));
+    const ensure = vi.fn(async (_program: number, onProgress: (event: never) => void) => {
+      onProgress({ program: 0, fraction: 1 } as never);
+      return { ok: true as const };
+    });
+    const ctx = createRecordingContext();
+    mediaMain.register(
+      ctx,
+      services({
+        music: {
+          service: { list } as unknown as MusicMainServices['service'],
+          exporter: { exportSong } as unknown as MusicMainServices['exporter'],
+          gm: { ensure } as unknown as MusicMainServices['gm'],
+        },
+      }),
+    );
+    expect(await ctx.invoke(CHANNELS.mediaMusicList, { repoId: 'r', project: 'p' })).toEqual({ ok: true, value: [] });
+    expect(list).toHaveBeenCalledWith('r', 'p');
+    await ctx.invoke(CHANNELS.mediaGmEnsure, { program: 0 });
+    expect(ctx.emitted.map((e) => e.channel)).toEqual([EVENT_CHANNELS.mediaGmProgress]);
   });
 });

@@ -2,9 +2,10 @@ import { MUSIC_DRUM_CHANNEL, emptySong, type Song } from '@midnite/studio-shared
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LuFileUp, LuMessageSquare, LuMusic, LuPlus, LuRedo2, LuUndo2, LuWand } from 'react-icons/lu';
 
-import { IconButton } from '../../../components/icon-button';
+import { useFrameChrome } from '@midnite/studio-frame';
+
+import { useAudioHost } from '../host';
 import { Arrangement } from './arrangement';
-import { SongChatPanel } from './chat/song-chat-panel';
 import { DrumGrid } from './drum-grid';
 import { publishEditorSong, publishLoopRegion } from './editor-session';
 import { AutomationPanel } from './automation-panel';
@@ -47,6 +48,8 @@ export function EditorTab({
   /** A song an agent's `music_open` asked to show. `seq` makes a repeat request a new one. */
   requested?: { name: string; seq: number } | null;
 }) {
+  const { IconButton } = useFrameChrome();
+  const SongChat = useAudioHost().SongChat;
   const doc = useSongDocument(repoId, project, requested);
   const blank = useMemo(() => emptySong(), []);
   const song: Song = doc.song ?? blank;
@@ -170,7 +173,9 @@ export function EditorTab({
             </button>
           ))}
         </div>
-        <IconButton icon={LuMessageSquare} label={chatOpen ? 'Hide chat' : 'Show chat'} onClick={() => setChatOpen((o) => !o)} />
+        {SongChat ? (
+          <IconButton icon={LuMessageSquare} label={chatOpen ? 'Hide chat' : 'Show chat'} onClick={() => setChatOpen((o) => !o)} />
+        ) : null}
         <span data-testid="song-save-state" className="ml-auto text-muted-foreground">
           {doc.error ?? SAVE_LABEL[doc.save]}
         </span>
@@ -265,9 +270,9 @@ export function EditorTab({
         </Empty>
       )}
     </div>
-    {chatOpen && doc.status === 'ready' ? (
+    {SongChat && chatOpen && doc.status === 'ready' ? (
       <div className="h-full w-80 shrink-0">
-        <SongChatPanel repoId={repoId} project={project} name={doc.name} getSong={getSong} flush={flushDoc} onShowChange={showChange} />
+        <SongChat repoId={repoId} project={project} name={doc.name} getSong={getSong} flush={flushDoc} onShowChange={showChange} />
       </div>
     ) : null}
     </div>

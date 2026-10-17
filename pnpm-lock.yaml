@@ -62,6 +62,9 @@ importers:
       '@midnite/studio-feature-mcp-tools':
         specifier: workspace:*
         version: link:../../packages/features/mcp-tools
+      '@midnite/studio-feature-media-audio':
+        specifier: workspace:*
+        version: link:../../packages/features/media-audio
       '@midnite/studio-feature-models':
         specifier: workspace:*
         version: link:../../packages/features/models
@@ -1057,9 +1060,6 @@ importers:
       three:
         specifier: ^0.186.1
         version: 0.186.1
-      tone:
-        specifier: ^15.1.22
-        version: 15.1.22
       unified:
         specifier: ^11.0.5
         version: 11.0.5
@@ -1194,9 +1194,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(zod@3.25.76)
-      '@tonejs/midi':
-        specifier: ^2.0.28
-        version: 2.0.28
       better-sqlite3:
         specifier: ^11.8.1
         version: 11.10.0
@@ -1659,9 +1656,15 @@ importers:
       '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../../shared
+      '@tonejs/midi':
+        specifier: ^2.0.28
+        version: 2.0.28
       react-icons:
         specifier: ^5.7.0
         version: 5.7.0(react@19.2.8)
+      tone:
+        specifier: ^15.1.22
+        version: 15.1.22
       zod:
         specifier: ^3.23.8
         version: 3.25.76

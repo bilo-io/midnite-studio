@@ -19,16 +19,19 @@ describe('createCreatorBridge', () => {
     const bridge = createCreatorBridge(fakeIpc());
     expect(Object.keys(bridge).sort()).toEqual(['media', 'video']);
     expect(Object.keys(bridge.media).sort()).toEqual(
-      ['audio', 'cancelExport', 'doc', 'export', 'ffmpegStatus', 'file', 'image', 'onChanged', 'onExportProgress', 'project', 'reveal'].sort(),
+      ['audio', 'cancelExport', 'doc', 'export', 'ffmpegStatus', 'file', 'image', 'music', 'onChanged', 'onExportProgress', 'project', 'reveal'].sort(),
+    );
+    expect(Object.keys(bridge.media.music).sort()).toEqual(
+      ['delete', 'export', 'import', 'list', 'onChanged', 'onOpen', 'read', 'sendToGenerator', 'write'].sort(),
     );
     expect(Object.keys(bridge.media.image).sort()).toEqual(['cancel', 'generate', 'onProgress', 'providers']);
     expect(Object.keys(bridge.media.doc)).toEqual(['export']);
     expect(Object.keys(bridge.video).sort()).toEqual(
       ['engine', 'files', 'onRenderProgress', 'onStudioChanged', 'openFile', 'project', 'readFile', 'render', 'revealFile', 'root', 'setup', 'studio', 'toolchain'].sort(),
     );
-    // No `gm` (the music editor's instrument library): Audio's generator and import only.
+    // The generator, import and the editor's General MIDI instrument library.
     expect(Object.keys(bridge.media.audio).sort()).toEqual(
-      ['cancel', 'engine', 'expand', 'generate', 'import', 'installEngine', 'onEngineProgress', 'onProgress', 'providers'].sort(),
+      ['cancel', 'engine', 'expand', 'generate', 'gm', 'import', 'installEngine', 'onEngineProgress', 'onProgress', 'providers'].sort(),
     );
   });
 

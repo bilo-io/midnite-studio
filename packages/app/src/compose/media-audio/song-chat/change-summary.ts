@@ -1,6 +1,6 @@
 import { MUSIC_CHAT_MAX_SELECTION, type Song, type SongChatChange, type SongNote } from '@midnite/studio-shared';
 
-import { barTicks } from '../model/song-edit';
+import { barTicks } from '@midnite/studio-feature-media-audio/renderer';
 
 /**
  * What an agent turn did to a song, in the terms a musician uses: which tracks, which bars, how many

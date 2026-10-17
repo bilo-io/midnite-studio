@@ -23,6 +23,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOLS, ALL_APPS_INSTALLED, listMcpToolIds, type IsAppInstalled, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, isTerrainSlowToolId, TERRAIN_CALL_TIMEOUT_MS, isSpriteSlowToolId, isMapSlowToolId, MAP_CALL_TIMEOUT_MS, McpContentBlockSchema } from '@midnite/studio-shared';
+import { MCP_TOOL_MANIFESTS } from '../main/mcp/tool-manifests';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { callMcpTool, SLOW_CALL_TIMEOUT_MS } from './client';
@@ -66,7 +67,7 @@ const server = new Server(
  * Midnite Studio is closed or the setting is off.
  */
 server.setRequestHandler(ListToolsRequestSchema, () => ({
-  tools: listMcpToolIds(readInstalledApps()).map((id) => {
+  tools: listMcpToolIds(readInstalledApps(), MCP_TOOL_MANIFESTS).map((id) => {
     const tool = MCP_TOOLS[id];
     /*
      * `tool.input` is a union of eight distinct `ZodObject` types across the

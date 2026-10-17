@@ -6,7 +6,7 @@ import {
   AUDIO_MP3_BITRATES,
 } from '@midnite/studio-shared';
 
-import { GmInstrumentLibrary } from '../music-editor/gm-instrument-library';
+import { GmInstrumentLibrary } from '@midnite/studio-feature-media-audio/renderer';
 import { formatDuration, useAudioEngine, useAudioPrefs } from '@midnite/studio-feature-media-audio/renderer';
 
 const field = 'flex flex-col gap-1 text-[11px] font-medium text-muted-foreground';
