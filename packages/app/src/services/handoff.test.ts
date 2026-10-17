@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { handoffLink, type HandoffRequest, type ResourceRef } from '@midnite/studio-shared';
 
-import { requestHandoff, STUDIO_HOSTED_APPS, type HandoffDeps } from './handoff';
+import { bridgeHandoffTransport, requestHandoff, STUDIO_HOSTED_APPS, type HandoffDeps } from './handoff';
 import { useUiStore } from '../store/ui-store';
 
 const deps = (over: Partial<HandoffDeps> = {}): HandoffDeps => ({
@@ -58,5 +58,20 @@ describe('requestHandoff', () => {
     useUiStore.getState().setActiveView('graph');
     void requestHandoff({ app: 'agents', view: 'workflows' });
     expect(useUiStore.getState().activeView).toBe('workflows');
+  });
+
+  it('wires the external transport to the bridge’s handoff.open, carrying the midnite://open link', async () => {
+    const open = vi.fn(async () => ({ ok: true }));
+    const previous = window.midniteStudio;
+    window.midniteStudio = { ...previous, handoff: { open } } as typeof window.midniteStudio;
+    try {
+      const d = deps({ hosted: new Set(['coder'] as const), external: bridgeHandoffTransport });
+      expect(await requestHandoff({ app: 'agents', view: 'workflows' }, d)).toEqual({ ok: true, via: 'external' });
+      expect(open).toHaveBeenCalledWith({ link: handoffLink({ app: 'agents', view: 'workflows' }) });
+      window.midniteStudio = previous;
+      expect(await bridgeHandoffTransport('midnite://open?app=agents')).toBe(previous?.handoff !== undefined);
+    } finally {
+      window.midniteStudio = previous;
+    }
   });
 });

@@ -1,16 +1,17 @@
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron';
 
 import type { MediaService } from '@midnite/studio-feature-media-core/main';
 import { effectiveVideoRoot, stopAllVideoProcesses } from '@midnite/studio-feature-media-video/main';
-import { createVaultGrants, createVaultService, guardAppWindow, runtimeDataDirectory } from '@midnite/studio-runtime';
+import { connectRuntimeVault, guardAppWindow, runtimeDataDirectory, vaultHostSocketPath } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
 import { creatorMediaRoot, registerCreatorHandlers } from './context';
 import { installCreatorFileProtocol } from './file-protocol';
 import { CREATOR_NAME, SMOKE_READY_LINE, USER_DATA_ENV, creatorUserData, isSmoke } from './identity';
+import { creatorPairing } from './pairing';
 
 /**
  * Midnite Creator's main process — the entry the bundle's `package.json` names (`main.cjs`), run
@@ -79,17 +80,16 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     const mediaRoot = creatorMediaRoot(app.getPath('userData'));
-    // A smoke run never touches the keychain or the shared runtime directory.
-    // Denied until the user grants Creator access in Vault — the grants file decides, never the
-    // runtime's allow-all default.
-    const vaultDirectory = runtimeDataDirectory(app.getPath('appData'));
+    // The runtime host's vault (Studio), over its socket: Creator never touches the keychain, and the
+    // host's grants deny it until the user grants Creator access in Vault. A smoke run reaches no host.
+    const runtimeDirectory = override ? join(override, 'runtime') : runtimeDataDirectory(app.getPath('appData'));
     const vault = smoke
       ? null
-      : createVaultService({
-          directory: vaultDirectory,
-          cipher: safeStorage,
-          authorize: createVaultGrants({ directory: vaultDirectory }).authorize,
-        }).forApp('creator');
+      : connectRuntimeVault({
+          socketPath: vaultHostSocketPath(runtimeDirectory),
+          appId: 'creator',
+          identity: creatorPairing(app.getPath('userData'), smoke),
+        });
     installCreatorFileProtocol(
       { handle: (scheme, handler) => protocol.handle(scheme, handler), fetchFile: (u) => net.fetch(u) },
       mediaRoot,

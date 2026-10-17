@@ -2,12 +2,11 @@ import { join } from 'node:path';
 
 import { createAccountsService, createMarketsRuntime, financeMain, startRatesRefresh } from '@midnite/studio-feature-finance/main';
 import {
+  connectRuntimeVault,
   createIpcContext,
-  createVaultGrants,
-  createVaultService,
+  vaultHostSocketPath,
   type IpcContextElectron,
-  type VaultAuthorize,
-  type VaultCipher,
+  type PairingIdentity,
 } from '@midnite/studio-runtime';
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
@@ -18,15 +17,14 @@ const MARKET_DATA_KEY = 'finance.twelveData';
 export type MoneyElectron = IpcContextElectron & {
   /** Money's own userData: the market cache and the portfolio live under `<userData>/finance`. */
   userData: string;
-  /** The runtime's data directory, where the vault's namespace files live. */
-  vaultDirectory: string;
-  /** `safeStorage` in the app, a fake in tests — never the real keychain under test. */
-  cipher: VaultCipher;
   /**
-   * Who may read what. Absent, the grants file the Vault app edits decides — so Money is denied the
-   * market-data key until the user grants it, never handed it by the runtime's allow-all default.
+   * The runtime's data directory, where the runtime host (Studio) serves the vault on a socket.
+   * Money holds no cipher: the host decrypts, and the host's grants decide — so Money is denied the
+   * market-data key until the user grants it in Vault (docs/APPS.md, "The shared data plane").
    */
-  authorize?: VaultAuthorize;
+  vaultDirectory: string;
+  /** Money's pairing key (`pairing.ts`): the host serves nothing to a connection that has not proved it. */
+  pairing: () => PairingIdentity | null;
   /** The market transport: the real network in the app, a fixture in tests. */
   fetcher?: Parameters<typeof createMarketsRuntime>[1];
   /** Where a warning goes; dropped when absent. */
@@ -41,11 +39,7 @@ export type MoneyElectron = IpcContextElectron & {
  * access in Vault". Returns what stops the background rate refresh.
  */
 export function registerMoneyHandlers(el: MoneyElectron): () => void {
-  const vault = createVaultService({
-    directory: el.vaultDirectory,
-    cipher: el.cipher,
-    authorize: el.authorize ?? createVaultGrants({ directory: el.vaultDirectory }).authorize,
-  }).forApp('money');
+  const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.vaultDirectory), appId: 'money', identity: el.pairing });
   const financeDirectory = join(el.userData, 'finance');
   const runtime = createMarketsRuntime(financeDirectory, el.fetcher);
   // Brokerage credentials live in the same vault namespace, under `finance.account.*` names no

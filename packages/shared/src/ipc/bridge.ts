@@ -1077,6 +1077,12 @@ export type MidniteStudioBridge = {
     revoke: (req: In<typeof S.VaultGrantRevokeRequest>) => Promise<z.infer<typeof S.VaultGrantRevokeResponse>>;
   };
 
+  /** Guest pairing with the vault host (Phase 113): who paired, conflicts, and Unpair. Never a key. */
+  vaultPairings?: {
+    list: (req: In<typeof S.VaultPairingsListRequest>) => Promise<z.infer<typeof S.VaultPairingsListResponse>>;
+    unpair: (req: In<typeof S.VaultPairingUnpairRequest>) => Promise<z.infer<typeof S.VaultPairingUnpairResponse>>;
+  };
+
   /**
    * Finance provider fetches proxied through main (Phase 76 Theme D) so API
    * keys and CoinGecko/Twelve Data hosts stay out of the renderer.
@@ -1651,6 +1657,11 @@ export type MidniteStudioBridge = {
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;
   /** Per-session and per-agent token totals from the agents' own transcripts (Monitor). */
   monitorAgentUsage?: () => Promise<z.infer<typeof S.MonitorAgentUsageResponse>>;
+  /**
+   * Hand the user to another app (Phase 113): main opens the `midnite://open` link for the
+   * launcher's router. Optional — an app whose preload does not carry it hands off nothing.
+   */
+  handoff?: { open: (req: In<typeof S.HandoffOpenRequest>) => Promise<z.infer<typeof S.HandoffOpenResponse>> };
   systemHealthStartSshAgent?: () => Promise<z.infer<typeof S.SystemHealthStartSshAgentResponse>>;
 
   /**

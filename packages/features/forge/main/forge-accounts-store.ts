@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { ForgeAccountSchema, type ForgeAccount } from '@midnite/studio-shared';
+import { ForgeAccountSchema, forgeAccountFromVaultKey, type ForgeAccount } from '@midnite/studio-shared';
 
 /**
  * The non-secret half of the account registry, persisted across launches —
@@ -48,6 +48,40 @@ export function createForgeAccountsStore(directory: string): ForgeAccountsStore 
         // work for this session, they just won't be remembered.
       }
     },
+  };
+}
+
+/**
+ * A guest app's registry (`docs/APPS.md`, "The shared data plane"): its own records, plus every
+ * token-backed account the runtime host's vault lets it see that it has no record of — so a forge
+ * login Studio stored shows up in Coder once Coder is granted it. `vaultKeys` is the guest's
+ * `vault.keys('forge-accounts')` (names only, already filtered by the host's grants); a vault that
+ * cannot answer adds nothing. The first adopted account becomes active only when none is.
+ */
+export function withVaultForgeAccounts(store: ForgeAccountsStore, vaultKeys: () => Promise<string[]>): ForgeAccountsStore {
+  // Adopted records are re-derived on every load, never written into this app's own file — so an
+  // account removed where it was stored does not linger here as a record with no token.
+  const adoptedIds = new Set<string>();
+  return {
+    load: async () => {
+      const state = await store.load();
+      const known = new Set(state.accounts.map((a) => a.id));
+      let keys: string[] = [];
+      try {
+        keys = await vaultKeys();
+      } catch {
+        // No host, no adoption: the app's own records stand.
+      }
+      const adopted = keys
+        .filter((key) => !known.has(key))
+        .map(forgeAccountFromVaultKey)
+        .filter((a): a is ForgeAccount => a !== null);
+      adoptedIds.clear();
+      for (const a of adopted) adoptedIds.add(a.id);
+      return { accounts: [...state.accounts, ...adopted], activeAccountId: state.activeAccountId ?? adopted[0]?.id ?? null };
+    },
+    // An adopted record is the minimal one (`addedAt: 0`); one the user re-added here is their own.
+    save: (state) => store.save({ ...state, accounts: state.accounts.filter((a) => !(adoptedIds.has(a.id) && a.addedAt === 0)) }),
   };
 }
 

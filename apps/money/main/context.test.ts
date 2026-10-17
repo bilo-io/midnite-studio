@@ -7,25 +7,39 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { financeManifest } from '@midnite/studio-feature-finance/main';
-import { createFakeCipher, createVaultGrants, createVaultService, type VaultAuthorize } from '@midnite/studio-runtime';
+import { createFakeCipher, createVaultGrants, startTestVaultHost, testPairingIdentity, type TestVaultHost, type VaultAuthorize } from '@midnite/studio-runtime';
 import { CHANNELS } from '@midnite/studio-shared';
 
 import { registerMoneyHandlers } from './context';
 
 const KEY = 'finance.twelveData';
 const SECRET = 'TD-VAULT-SECRET';
+/** Money's own pairing key — each test's host is fresh, so it binds on the first connection. */
+const PAIRING_KEY = testPairingIdentity();
 
 let dir: string;
+let host: TestVaultHost | null = null;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'money-main-'));
   mkdirSync(join(dir, 'runtime'));
 });
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(async () => {
+  await host?.close();
+  host = null;
+  rmSync(dir, { recursive: true, force: true });
+});
 
-/** Registers Money over a temp vault holding the key, with a transport that records every URL. */
+/**
+ * Registers Money over the runtime host (Studio's side, its own fake cipher) holding the key, with a
+ * transport that records every URL. Money itself holds no cipher.
+ */
 async function setup(authorize?: VaultAuthorize, fetcherOverride?: Parameters<typeof registerMoneyHandlers>[0]['fetcher']) {
-  const cipher = createFakeCipher();
-  await createVaultService({ directory: join(dir, 'runtime'), cipher }).forApp('studio').set('secrets', KEY, SECRET);
+  host = await startTestVaultHost({
+    runtimeDirectory: join(dir, 'runtime'),
+    cipher: createFakeCipher(),
+    ...(authorize ? { authorize } : {}),
+  });
+  await host.studio.set('secrets', KEY, SECRET);
   const handlers = new Map<string, (event: unknown, raw: unknown) => unknown>();
   const urls: string[] = [];
   const stop = registerMoneyHandlers({
@@ -34,15 +48,15 @@ async function setup(authorize?: VaultAuthorize, fetcherOverride?: Parameters<ty
     send: () => undefined,
     userData: join(dir, 'userData'),
     vaultDirectory: join(dir, 'runtime'),
-    cipher,
-    ...(authorize ? { authorize } : {}),
+    // This app's pairing key, as its own pairing.ts would keep it — a random seed, no keychain.
+    pairing: () => PAIRING_KEY,
     fetcher: fetcherOverride ?? (async (url) => {
       urls.push(url);
       return { ok: true, status: 200, text: async () => JSON.stringify({ close: '10', currency: 'USD', base: 'USD', rates: {} }) };
     }),
   });
   stop();
-  return { handlers, urls, cipher };
+  return { handlers, urls, studio: host.studio };
 }
 
 describe('registerMoneyHandlers', () => {
@@ -111,7 +125,7 @@ describe('brokerage accounts in Money', () => {
   });
 
   it('with a grant: stores the credential encrypted, answers without it, and removal deletes it', async () => {
-    const { handlers, cipher } = await setup(undefined, alpacaFetcher);
+    const { handlers, studio } = await setup(undefined, alpacaFetcher);
     expect(createVaultGrants({ directory: join(dir, 'runtime') }).set('money', 'secrets', '*')).toBe(true);
     const added = await handlers.get(CHANNELS.financeAccountAdd)?.({}, { connector: 'alpaca', fields, label: 'Paper' });
     expect(added).toMatchObject({ ok: true });
@@ -120,14 +134,12 @@ describe('brokerage accounts in Money', () => {
     expect(snaps).toMatchObject({ ok: true, value: { snapshots: [{ totalUsd: 500, error: null }] } });
     // Nothing the renderer is told contains the secret; the vault file holds ciphertext only.
     expect(JSON.stringify([added, snaps, await handlers.get(CHANNELS.financeAccountsList)?.({}, undefined)])).not.toContain(ALPACA_SECRET);
-    const vault = createVaultService({ directory: join(dir, 'runtime'), cipher }).forApp('studio');
-    expect(await vault.has('secrets', `finance.account.alpaca.${id}.apiSecret`)).toBe(true);
+    // It landed in the host's vault — the one Studio reads — as ciphertext.
+    expect(await studio.has('secrets', `finance.account.alpaca.${id}.apiSecret`)).toBe(true);
     expect(readFileSync(join(dir, 'runtime', 'secrets.vault.json'), 'utf8')).not.toContain(ALPACA_SECRET);
 
     expect(await handlers.get(CHANNELS.financeAccountRemove)?.({}, { id })).toEqual({ ok: true, value: { removed: true } });
-    // A vault service caches its file, so read the deletion through a fresh one.
-    const fresh = createVaultService({ directory: join(dir, 'runtime'), cipher }).forApp('studio');
-    expect(await fresh.has('secrets', `finance.account.alpaca.${id}.apiSecret`)).toBe(false);
+    expect(await studio.has('secrets', `finance.account.alpaca.${id}.apiSecret`)).toBe(false);
   });
 
   it('the secrets channel still cannot name an account credential', async () => {

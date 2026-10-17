@@ -1,6 +1,7 @@
 import { DbLoginsSection } from './db-logins-section';
 import { ForgeAccountsSection } from './forge-accounts-section';
 import { GrantsSection } from './grants-section';
+import { PairingSection } from './pairing-section';
 import { SecretsSection } from './secrets-section';
 
 /**
@@ -19,6 +20,7 @@ export function VaultPage() {
       <ForgeAccountsSection />
       <DbLoginsSection />
       <GrantsSection />
+      <PairingSection />
       <section aria-labelledby="vault-later" className="rounded-lg border border-border p-4">
         <h2 id="vault-later" className="mb-1 text-sm font-medium">Not in the vault yet</h2>
         <p className="text-xs text-muted-foreground">

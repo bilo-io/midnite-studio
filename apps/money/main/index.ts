@@ -1,12 +1,13 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 
 import { guardAppWindow } from '@midnite/studio-runtime';
 
 import { registerMoneyHandlers } from './context';
 import { MONEY_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, moneyUserData, moneyVaultDirectory } from './identity';
+import { moneyPairing } from './pairing';
 
 /**
  * Midnite Money's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
@@ -42,9 +43,9 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
       },
       userData: app.getPath('userData'),
+      // The runtime host's vault, over its socket: Money never reaches the keychain itself.
       vaultDirectory,
-      // A smoke run must never reach the keychain: encryption reads as unavailable, so nothing is read.
-      cipher: smoke ? NO_KEYCHAIN : safeStorage,
+      pairing: moneyPairing(app.getPath('userData'), smoke),
       // eslint-disable-next-line no-console
       warn: (message) => console.warn(message),
     });
@@ -56,12 +57,6 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     if (win === null) openWindow();
   });
 }
-
-const NO_KEYCHAIN = {
-  isEncryptionAvailable: () => false,
-  encryptString: () => Buffer.alloc(0),
-  decryptString: () => '',
-};
 
 function openWindow(): void {
   win = new BrowserWindow({

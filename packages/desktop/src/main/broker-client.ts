@@ -50,6 +50,23 @@ export function studioBrokerScriptPath(): string {
   return join(__dirname, 'broker.js').replace('app.asar', 'app.asar.unpacked');
 }
 
+/**
+ * Where Studio's current broker listens and where its legacy peers sit — what the runtime host
+ * record tells a guest app (`runtime-host.ts`), computed exactly as the client below computes it.
+ */
+export function studioBrokerLocation(
+  deps: Pick<BrokerClientDeps, 'userDataDir' | 'appVersion' | 'isPackaged' | 'buildId'>,
+): { socketPath: string; directory: string } {
+  const service = createBrokerService({
+    dataDir: deps.userDataDir,
+    appVersion: deps.appVersion,
+    isPackaged: deps.isPackaged,
+    brokerScriptPath: studioBrokerScriptPath(),
+    ...(deps.buildId !== undefined ? { buildId: deps.buildId } : {}),
+  });
+  return { socketPath: service.socketPath, directory: join(deps.userDataDir, 'broker') };
+}
+
 export function createBrokerClient(deps: BrokerClientDeps): BrokerClient {
   const { userDataDir, ...rest } = deps;
   return createBrokerService({

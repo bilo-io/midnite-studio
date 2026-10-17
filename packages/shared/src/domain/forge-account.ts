@@ -122,6 +122,23 @@ export function forgeAccountId(kind: ForgeKind, host: string, login: string): st
 }
 
 /**
+ * {@link forgeAccountId}'s inverse, as the minimal record a vault entry name stands for: a
+ * token-backed account (`hasToken: true`) whose display fields are the login, until a `whoami`
+ * says more. `null` for a name that is not `kind:host:login` of a supported kind (a host has no
+ * colon). What the Vault app lists, and how a guest app adopts an account another app stored.
+ */
+export function forgeAccountFromVaultKey(key: string): ForgeAccount | null {
+  const first = key.indexOf(':');
+  const second = key.indexOf(':', first + 1);
+  if (first < 1 || second < 0) return null;
+  const kind = SupportedForgeKindSchema.safeParse(key.slice(0, first));
+  const host = key.slice(first + 1, second);
+  const login = key.slice(second + 1);
+  if (!kind.success || !host || !login) return null;
+  return { id: key, kind: kind.data, host, login, displayName: login, avatarUrl: null, addedAt: 0, hasToken: true, delegated: null };
+}
+
+/**
  * The forge-account vault's key — constrained, not `z.string()`, so the
  * vault this schema keys into cannot become a general-purpose KV store by
  * accident (Phase 90 Theme B, grounded against the Phase 91 audit). Same

@@ -17,9 +17,10 @@ function fakeIpc() {
 }
 
 describe('createMonitorBridge', () => {
-  it('exposes exactly metrics, system health and the two crash-log reads', () => {
+  it('exposes exactly metrics, system health, the two crash-log reads and the hand-off', () => {
     const bridge = createMonitorBridge(fakeIpc().ipc);
-    expect(Object.keys(bridge).sort()).toEqual(['metrics', 'monitorAgentUsage', 'report', 'systemHealth', 'systemHealthStartSshAgent', 'terminal']);
+    expect(Object.keys(bridge).sort()).toEqual(['handoff', 'metrics', 'monitorAgentUsage', 'report', 'systemHealth', 'systemHealthStartSshAgent', 'terminal']);
+    expect(Object.keys(bridge.handoff)).toEqual(['open']);
     expect(Object.keys(bridge.terminal)).toEqual(['list']);
     expect(Object.keys(bridge.report).sort()).toEqual(['bundle', 'logPath']);
     expect(Object.keys(bridge.metrics).sort()).toEqual(['onSample', 'start', 'stop']);
@@ -30,8 +31,9 @@ describe('createMonitorBridge', () => {
     const bridge = createMonitorBridge(ipc);
     await bridge.systemHealth();
     await bridge.report.bundle();
+    await bridge.handoff.open({ link: 'midnite://open?app=studio' });
     const channels = vi.mocked(ipc.invoke).mock.calls.map((call) => call[0]);
-    expect(channels).toEqual([CHANNELS.systemHealth, CHANNELS.reportBundle]);
+    expect(channels).toEqual([CHANNELS.systemHealth, CHANNELS.reportBundle, CHANNELS.handoffOpen]);
   });
 
   it('sends metrics start one-way and returns a teardown that removes the sample listener', () => {

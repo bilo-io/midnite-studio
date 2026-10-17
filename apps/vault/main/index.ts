@@ -1,17 +1,19 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 
 import { guardAppWindow } from '@midnite/studio-runtime';
 
 import { registerVaultHandlers } from './context';
 import { VAULT_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, vaultDirectory, vaultUserData } from './identity';
+import { vaultPairing } from './pairing';
 
 /**
  * Midnite Vault's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
  * the launcher's stub as `Resources/app`. One window over the vault feature; the runtime vault is
- * composed here over the runtime's data directory, with `safeStorage` as its cipher.
+ * reached here as the runtime host's (Studio's, over its socket under the runtime's data directory);
+ * Vault holds no cipher of its own.
  */
 const smoke = isSmoke(process.env);
 const override = process.env[USER_DATA_ENV];
@@ -41,9 +43,9 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       send: (channel, payload) => {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
       },
+      // The runtime host's vault, over its socket: Vault never reaches the keychain itself.
       directory,
-      // A smoke run must never reach the keychain: encryption reads as unavailable, so nothing is stored.
-      cipher: smoke ? NO_KEYCHAIN : safeStorage,
+      pairing: vaultPairing(app.getPath('userData'), smoke),
     });
     openWindow();
   });
@@ -53,12 +55,6 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     if (win === null) openWindow();
   });
 }
-
-const NO_KEYCHAIN = {
-  isEncryptionAvailable: () => false,
-  encryptString: () => Buffer.alloc(0),
-  decryptString: () => '',
-};
 
 function openWindow(): void {
   win = new BrowserWindow({

@@ -16,6 +16,8 @@ export type MonitorBridge = {
   monitorAgentUsage: NonNullable<MidniteStudioBridge['monitorAgentUsage']>;
   terminal: Pick<MidniteStudioBridge['terminal'], 'list'>;
   report: Pick<MidniteStudioBridge['report'], 'logPath' | 'bundle'>;
+  /** "Open in Studio" on a session: a `midnite://open` link main hands to the launcher's router. */
+  handoff: NonNullable<MidniteStudioBridge['handoff']>;
 };
 
 export type { RendererIpc };
@@ -36,5 +38,6 @@ export function createMonitorBridge(ipc: RendererIpc): MonitorBridge {
       logPath: () => call(CHANNELS.reportLogPath),
       bundle: () => call(CHANNELS.reportBundle),
     },
+    handoff: { open: (req) => call(CHANNELS.handoffOpen, req) },
   };
 }

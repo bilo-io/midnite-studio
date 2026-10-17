@@ -1,5 +1,5 @@
 import { monitorMain, type MetricsService, type UsageSession } from '@midnite/studio-feature-monitor/main';
-import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
+import { createIpcContext, registerHandoffOpener, type IpcContextElectron } from '@midnite/studio-runtime';
 import { CHANNELS, type schemas } from '@midnite/studio-shared';
 import type { z } from 'zod';
 
@@ -11,8 +11,8 @@ export type MonitorElectron = IpcContextElectron & {
   onMetricsService(service: MetricsService): void;
   log: CrashLog;
   /**
-   * The live terminal sessions, read-only. Monitor owns no pty broker, so absent this it lists
-   * none; the runtime daemon (Theme D) is what will hand it Studio's real list.
+   * The live terminal sessions, read-only. Monitor owns no pty broker: main composes this over the
+   * runtime host's broker as a guest (`shared-sessions.ts`); absent it, Monitor lists none.
    */
   listSessions?: () => Promise<TerminalList>;
   /**
@@ -21,6 +21,8 @@ export type MonitorElectron = IpcContextElectron & {
    */
   homeDir?: string;
   agentSessions?: () => Promise<readonly UsageSession[]>;
+  /** `shell.openExternal`, for a `midnite://open` hand-off only (`registerHandoffOpener` checks). */
+  openExternal?: (url: string) => Promise<void>;
 };
 
 type TerminalList = z.infer<typeof schemas.TerminalListResponse>;
@@ -36,7 +38,10 @@ const NO_BROKER: TerminalList = {
  * sink is the composer's, not the feature's.
  */
 export function registerMonitorHandlers(el: MonitorElectron): void {
-  monitorMain.register(createIpcContext(el), {
+  const ctx = createIpcContext(el);
+  // A session lives in Studio: "Open in Studio" leaves through the launcher's router.
+  registerHandoffOpener(ctx.ipc, { openExternal: el.openExternal ?? (async () => Promise.reject(new Error('no opener'))) });
+  monitorMain.register(ctx, {
     onMetricsService: el.onMetricsService,
     ...(el.homeDir ? { homeDir: el.homeDir } : {}),
     ...(el.agentSessions ? { agentSessions: el.agentSessions } : {}),

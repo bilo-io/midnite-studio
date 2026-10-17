@@ -1,10 +1,11 @@
 import { shell } from 'electron';
 
 import { listRemotes } from '@midnite/studio-git-engine';
+import { registerHandoffOpener } from '@midnite/studio-runtime';
 import { CHANNELS, schemas, type Remote } from '@midnite/studio-shared';
 
 import { resolveWorkdir } from '../repo-registry';
-import { handle } from './handle';
+import { handle, handleBare, handleSend } from './handle';
 
 /** Remote listing, and the guarded hand-off to the OS browser. */
 export function registerRemoteHandlers(): void {
@@ -64,4 +65,11 @@ export function registerRemoteHandlers(): void {
     },
     (issue) => ({ ok: false, message: issue }),
   );
+
+  /*
+    Cross-app hand-off (Phase 113, docs/APPS.md "The shared data plane"): a `midnite://open` link,
+    and only that, for the launcher's router. Studio hosts every app, so its own renderer plans
+    every hand-off local today; the channel is what `setExternalHandoffTransport` is wired to.
+  */
+  registerHandoffOpener({ handle, handleBare, send: handleSend }, { openExternal: (url) => shell.openExternal(url) });
 }

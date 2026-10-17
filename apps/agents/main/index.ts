@@ -1,12 +1,13 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 
 import { guardAppWindow } from '@midnite/studio-runtime';
 
 import { registerAgentsHandlers } from './context';
 import { AGENTS_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, agentsUserData, agentsVaultDirectory } from './identity';
+import { agentsPairing } from './pairing';
 
 /**
  * Midnite Agents's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
@@ -43,9 +44,9 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
       },
       userData: app.getPath('userData'),
+      // The runtime host's vault, over its socket: Agents never reaches the keychain itself.
       vaultDirectory,
-      // A smoke run must never reach the keychain: encryption reads as unavailable, so nothing is read.
-      cipher: smoke ? NO_KEYCHAIN : safeStorage,
+      pairing: agentsPairing(app.getPath('userData'), smoke),
     });
     // A council member's or script node's shell is its own process group, so it would outlive Agents unless
     // killed here, and an in-flight workflow run must be cancelled so its node's process group dies with it.
@@ -66,12 +67,6 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     if (win === null) openWindow();
   });
 }
-
-const NO_KEYCHAIN = {
-  isEncryptionAvailable: () => false,
-  encryptString: () => Buffer.alloc(0),
-  decryptString: () => '',
-};
 
 function openWindow(): void {
   win = new BrowserWindow({

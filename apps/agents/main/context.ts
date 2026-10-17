@@ -25,12 +25,11 @@ import {
   type WorkflowLogger,
 } from '@midnite/studio-feature-workflows/main';
 import {
+  connectRuntimeVault,
   createIpcContext,
-  createVaultGrants,
-  createVaultService,
+  vaultHostSocketPath,
   type IpcContextElectron,
-  type VaultAuthorize,
-  type VaultCipher,
+  type PairingIdentity,
 } from '@midnite/studio-runtime';
 import { BUILTIN_AGENTS, CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
 
@@ -44,15 +43,14 @@ const OLLAMA_KEY = 'ollama.apiKey';
 export type AgentsElectron = IpcContextElectron & {
   /** Agents' own userData: chats, councils and the Ollama settings live under it. */
   userData: string;
-  /** The runtime's data directory, where the vault's namespace files live. */
-  vaultDirectory: string;
-  /** `safeStorage` in the app, a fake in tests — never the real keychain under test. */
-  cipher: VaultCipher;
   /**
-   * Who may read what. Absent, the grants file the Vault app edits decides — so Agents is denied the
-   * Ollama key until the user grants it, never handed it by the runtime's allow-all default.
+   * The runtime's data directory, where the runtime host (Studio) serves the vault on a socket.
+   * Agents holds no cipher: the host decrypts, and the host's grants decide — so Agents is denied the
+   * Ollama key until the user grants it in Vault (docs/APPS.md, "The shared data plane").
    */
-  authorize?: VaultAuthorize;
+  vaultDirectory: string;
+  /** Agents' pairing key (`pairing.ts`): the host serves nothing to a connection that has not proved it. */
+  pairing: () => PairingIdentity | null;
   /** The shell a council member or script node runs in; the user's login shell by default. */
   shell?: string;
   /** Where the workflow engine logs. Silent by default. */
@@ -67,11 +65,7 @@ export type AgentsElectron = IpcContextElectron & {
  * renderer's `has` answers false. No chat engine reads a key: each agent CLI brings its own login.
  */
 export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise<void> } {
-  const vault = createVaultService({
-    directory: el.vaultDirectory,
-    cipher: el.cipher,
-    authorize: el.authorize ?? createVaultGrants({ directory: el.vaultDirectory }).authorize,
-  }).forApp('agents');
+  const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.vaultDirectory), appId: 'agents', identity: el.pairing });
   const ollamaKey = (): Promise<string | null> => vault.get('secrets', OLLAMA_KEY);
   // The stores write straight into `userData` and treat a missing directory as read-only; Electron creates it lazily.
   mkdirSync(el.userData, { recursive: true });
@@ -158,6 +152,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
     dispose: async () => {
       shellRunner.killAll();
       await disposeWorkflows();
+      vault.close();
     },
   };
 }

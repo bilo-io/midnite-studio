@@ -140,6 +140,7 @@ const bridge: Pick<
   | 'demoApi'
   | 'secrets'
   | 'vaultGrants'
+  | 'vaultPairings'
   | 'finance'
   | 'financeAccounts'
   | 'markets'
@@ -167,6 +168,7 @@ const bridge: Pick<
   | 'systemHealth'
   | 'systemHealthStartSshAgent'
   | 'monitorAgentUsage'
+  | 'handoff'
   | 'setup'
   | 'ollama'
   | 'gitIdentity'
@@ -481,6 +483,10 @@ const bridge: Pick<
     list: (req) => call(CHANNELS.vaultGrantsList, req),
     set: (req) => call(CHANNELS.vaultGrantSet, req),
     revoke: (req) => call(CHANNELS.vaultGrantRevoke, req),
+  },
+  vaultPairings: {
+    list: (req) => call(CHANNELS.vaultPairingsList, req),
+    unpair: (req) => call(CHANNELS.vaultPairingUnpair, req),
   },
   finance: {
     search: (req) => call(CHANNELS.financeSearch, req),
@@ -890,6 +896,8 @@ const bridge: Pick<
   systemHealth: () => call(CHANNELS.systemHealth),
   systemHealthStartSshAgent: () => call(CHANNELS.systemHealthStartSshAgent),
   monitorAgentUsage: () => call(CHANNELS.monitorAgentUsage),
+  // A `midnite://open` link for the launcher's router — the external hand-off transport.
+  handoff: { open: (req) => call(CHANNELS.handoffOpen, req) },
   setup: {
     probe: (req) => call(CHANNELS.setupProbe, req),
     reveal: (req) => call(CHANNELS.setupReveal, req),

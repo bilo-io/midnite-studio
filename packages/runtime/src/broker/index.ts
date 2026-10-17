@@ -6,5 +6,6 @@
 export * from './client';
 export * from './protocol';
 export * from './service';
+export * from './shared';
 export * from './socket-name';
 export * from './socket-write-queue';

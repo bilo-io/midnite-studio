@@ -8,7 +8,8 @@ import type { MetricsService } from '@midnite/studio-feature-monitor/main';
 
 import { registerMonitorHandlers } from './context';
 import { createCrashLog } from './crash-log';
-import { MONITOR_NAME, SMOKE_READY_LINE, USER_DATA_ENV, monitorUserData, isSmoke } from './identity';
+import { MONITOR_NAME, SMOKE_READY_LINE, USER_DATA_ENV, monitorRuntimeDirectory, monitorUserData, isSmoke } from './identity';
+import { createMonitorSessions } from './shared-sessions';
 
 /**
  * Midnite Monitor's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
@@ -49,6 +50,9 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         metrics = service;
       },
       homeDir: app.getPath('home'),
+      openExternal: (url) => shell.openExternal(url),
+      // The runtime host's broker, attached read-only: Studio's live terminals and their agents.
+      ...createMonitorSessions(monitorRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV])),
       log,
     });
     openWindow();

@@ -1,5 +1,5 @@
 // vitest/jsdom: DOM text, roles and the one-way write over a mock bridge.
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
@@ -44,7 +44,15 @@ function mount() {
       return { ok: true };
     }),
   };
-  window.midniteStudio = { secrets, forgeAccounts, db, vaultGrants } as unknown as typeof window.midniteStudio;
+  let paired = [{ appId: 'coder', pairedAt: 1, conflict: { at: 2, count: 3 } as { at: number; count: number } | null }];
+  const vaultPairings = {
+    list: vi.fn(async () => ({ apps: paired })),
+    unpair: vi.fn(async (req: { appId: string }) => {
+      paired = paired.filter((p) => p.appId !== req.appId);
+      return { ok: true };
+    }),
+  };
+  window.midniteStudio = { secrets, forgeAccounts, db, vaultGrants, vaultPairings } as unknown as typeof window.midniteStudio;
   const kit = createFrameChrome();
   render(
     <FrameChromeProvider chrome={kit.chrome}>
@@ -52,8 +60,21 @@ function mount() {
       <kit.DialogHost />
     </FrameChromeProvider>,
   );
-  return { secrets, forgeAccounts, db, vaultGrants };
+  return { secrets, forgeAccounts, db, vaultGrants, vaultPairings };
 }
+
+describe('VaultPage — paired apps', () => {
+  it('shows a pairing conflict, and Unpair (confirmed) clears it', async () => {
+    const { vaultPairings } = mount();
+    const section = await screen.findByRole('region', { name: 'Paired apps' });
+    await waitFor(() => expect(within(section).getByRole('alert').textContent).toMatch(/Pairing conflict — 3 refused/));
+    fireEvent.click(within(section).getByRole('button', { name: 'Unpair' }));
+    const confirm = await screen.findByRole('dialog');
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Unpair' }));
+    await waitFor(() => expect(vaultPairings.unpair).toHaveBeenCalledWith({ appId: 'coder' }));
+    await waitFor(() => expect(within(section).getByText('No app has paired yet.')).toBeDefined());
+  });
+});
 
 describe('VaultPage', () => {
   it('lists secrets, accounts and logins as metadata, and never calls secrets.get', async () => {
