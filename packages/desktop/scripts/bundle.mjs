@@ -56,6 +56,20 @@ await vendorGameEngines();
  */
 const wantSourcemap = process.env['MSTUDIO_SOURCEMAP'] === '1';
 
+/*
+  `main` is built from Studio's entry, `apps/studio/entry/main.ts` (Phase 113
+  Theme G): the app that composes Studio is what starts this package's main
+  (`src/main/index.ts`'s `startStudioMain`). The output path and name are
+  unchanged — `package.json`'s `main`, the asar and the perf scripts read them.
+*/
+const entryOf = (name) => {
+  if (name === 'main') return resolve(root, '../../apps/studio/entry/main.ts');
+  return resolve(root, `src/${name}/index.ts`);
+};
+
+/** The entry's one import, resolved to this package's source (it has no `exports`). */
+const alias = { '@midnite/studio-desktop/main': resolve(root, 'src/main/index.ts') };
+
 const common = {
   bundle: true,
   platform: 'node',
@@ -85,6 +99,7 @@ const common = {
     'sherpa-onnx-node',
   ],
   logLevel: 'info',
+  alias,
 };
 
 /*
@@ -112,7 +127,7 @@ const outfiles = [
   'map-capture-worker',
   'knowledge-layout-worker',
 ].map((name) => ({
-  entry: resolve(root, `src/${name === 'main' ? 'main/index.ts' : `${name}/index.ts`}`),
+  entry: entryOf(name),
   out: resolve(root, `dist/bundle/${name}.js`),
 }));
 
