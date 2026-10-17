@@ -732,3 +732,24 @@ allocation and performance, and nothing places, amends or cancels an order. Trad
 not forgotten — it needs its own decision on order confirmation (a blast-radius-style confirm with
 the order's notional and fees), per-connector write scopes held in the vault separately from the
 read-only keys, and what an agent may ever do there (the default should be: nothing).
+
+## The shared data plane with Studio closed (Phase 113 Verification V5)
+
+V5 holds while Studio runs: Studio hosts the one vault and broker, so a login is seen by every paired
+app and its terminals are reachable by broker guests. With Studio closed there is no host. Agents
+then fails plainly on agent nodes, and Coder's vault reads find nothing to connect to. Closing this
+needs the runtime host to live in the launcher (or a runtime daemon it starts), which is Theme F/H
+territory — the launcher is not yet published.
+
+## Suite apps render no toasts (Phase 113 Theme O)
+
+The frame's `useToastStore` has no renderer in any suite app, so a feature that reports through it is
+silent outside Studio. Coder's Tasks tab works around it with its frame dialog store. The fix is one
+toast host in the frame's app shell, mounted by every app.
+
+## Two load-sensitive tests seen on CI (2026-10-17)
+
+`feature-media-map` `capture-service.test.ts` ("satellite and roads") timed out at vitest's 5 s
+default, and `feature-chats` `chat-service.integration.test.ts` ("Stop kills the real process")
+read an undefined `changeSet` at line 217 — a race between the stop and the change event. Both
+passed on rerun; both want hardening rather than a longer timeout.
