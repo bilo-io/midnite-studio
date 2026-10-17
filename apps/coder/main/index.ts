@@ -1,8 +1,9 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, dialog, ipcMain, powerMonitor, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, powerMonitor, shell, utilityProcess } from 'electron';
 
+import type { ScriptWorkerHandle } from '@midnite/studio-feature-api-client/main';
 import { guardAppWindow } from '@midnite/studio-runtime';
 
 import { registerCoderHandlers } from './context';
@@ -19,6 +20,8 @@ import { coderPairing } from './pairing';
 const smoke = isSmoke(process.env);
 const override = process.env[USER_DATA_ENV];
 let win: BrowserWindow | null = null;
+/** Quit hook from the handlers: abort running collection runs, kill the script worker, drop database connections. */
+let shutdownHandlers: (() => Promise<void>) | null = null;
 
 app.setName(CODER_NAME);
 // A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
@@ -38,7 +41,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     const vaultDirectory = coderVaultDirectory(app.getPath('appData'), override);
     mkdirSync(vaultDirectory, { recursive: true });
-    registerCoderHandlers({
+    const registered = registerCoderHandlers({
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
@@ -62,10 +65,35 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         anyWindowVisible: () => BrowserWindow.getAllWindows().some((w) => w.isVisible() && !w.isMinimized()),
         idleState: () => powerMonitor.getSystemIdleState(60),
       },
+      dialogs: {
+        // The native pickers; the renderer never names a path, only an outcome comes back.
+        pickFile: async ({ title, filters }) => {
+          const options = { title, properties: ['openFile' as const], ...(filters ? { filters } : {}) };
+          const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+          return picked.canceled ? null : (picked.filePaths[0] ?? null);
+        },
+        pickSavePath: async ({ title, defaultPath }) => {
+          const options = { title, ...(defaultPath ? { defaultPath } : {}) };
+          const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+          return picked.canceled || !picked.filePath ? null : picked.filePath;
+        },
+      },
+      // The sandboxed `pm.*` script runner is its own OS process — no Electron APIs, no main-process
+      // privileges — built beside this bundle as `script-runner-worker.cjs` and killed on quit.
+      scriptWorker: () =>
+        utilityProcess.fork(join(__dirname, 'script-runner-worker.cjs'), [], {
+          serviceName: 'midnite-coder-script-runner',
+          stdio: 'ignore',
+        }) as unknown as ScriptWorkerHandle,
       // eslint-disable-next-line no-console
       warn: (message) => console.warn(`[coder] ${message}`),
     });
+    shutdownHandlers = registered.shutdown;
     openWindow();
+  });
+
+  app.on('before-quit', () => {
+    void shutdownHandlers?.();
   });
 
   app.on('window-all-closed', () => app.quit());

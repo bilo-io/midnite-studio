@@ -13,7 +13,7 @@ import { useBrowserStore, type BrowserTab, type BrowserTabGroup } from '../store
 import { applyNotesDelta, diffNotes, useNotesStore, type NotesDelta } from '../store/notes-store';
 import { useSessionsStore, type SessionsState } from '../store/sessions-store';
 import { useUiStore, type UiState } from '../store/ui-store';
-import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
+import { useWorkbenchStore, type WorkbenchTab } from '@midnite/studio-feature-database/renderer';
 
 /**
  * Cross-window state synchronization (Theme E).

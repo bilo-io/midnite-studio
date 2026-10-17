@@ -1,11 +1,13 @@
 // @vitest-environment node
 // vitest, not Playwright: handler registration is logic over an injected ipcMain, a temp vault and temp repos.
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { apiClientManifest, type ScriptWorkerHandle } from '@midnite/studio-feature-api-client/main';
+import { connectionFingerprint, databaseManifest } from '@midnite/studio-feature-database/main';
 import { __resetForgeAccountsForTests, forgeManifest } from '@midnite/studio-feature-forge/main';
 import { testsManifest } from '@midnite/studio-feature-tests/main';
 import { createFakeCipher, createVaultGrants, startTestVaultHost, testPairingIdentity, type PairingIdentity, type TestVaultHost, type VaultAuthorize } from '@midnite/studio-runtime';
@@ -14,7 +16,40 @@ import { CHANNELS, forgeAccountVaultKey, type ForgeAccount } from '@midnite/stud
 import { registerCoderHandlers } from './context';
 import { CODER_GIT_CHANNELS } from './git';
 
+/**
+ * The database engine is faked: no database server (or container) starts here. What the test needs
+ * from it is the password the feature's handlers hand `driverFor` / the pool — the one place a
+ * credential leaves main's vault read, and where it must be exactly what the vault granted.
+ */
+const { passwordsSeen } = vi.hoisted(() => ({ passwordsSeen: [] as { id: string; password: string | undefined }[] }));
+vi.mock('@midnite/studio-db-engine', () => {
+  const driver = (id: string) => ({
+    connect: async () => undefined,
+    disconnect: async () => undefined,
+    introspect: async () => ({ connectionId: id, tables: [] }),
+    query: async () => ({ rowCount: 0 }),
+  });
+  return {
+    driverFor: (config: { id: string }, password: string | undefined) => {
+      passwordsSeen.push({ id: config.id, password });
+      return driver(config.id);
+    },
+    createConnectionPool: () => ({
+      get: async (config: { id: string }, password: string | undefined) => {
+        passwordsSeen.push({ id: config.id, password });
+        return driver(config.id);
+      },
+      touch: () => undefined,
+      evict: async () => undefined,
+      evictIdle: async () => undefined,
+      evictAll: async () => undefined,
+      size: () => 0,
+    }),
+  };
+});
+
 const TOKEN = 'glpat-CODER-VAULT-SECRET';
+const DB_PASSWORD = 'pg-CODER-VAULT-PASSWORD';
 /** Coder's own pairing key — each test's host is fresh, so it binds on the first connection. */
 const PAIRING_KEY = testPairingIdentity();
 
@@ -24,6 +59,7 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'coder-main-'));
   mkdirSync(join(dir, 'runtime'));
   __resetForgeAccountsForTests();
+  passwordsSeen.length = 0;
 });
 afterEach(async () => {
   await host?.close();
@@ -52,8 +88,28 @@ function makeRepo(name: string): string {
 }
 
 /** Registers Coder over a temp vault and userData; every outbound request lands on the injected fetch. */
-async function setup(options: { authorize?: VaultAuthorize; picked?: string | null; pairing?: PairingIdentity } = {}) {
+/** A script worker that is only a recording: nothing is forked, and a test can see it killed. */
+class FakeWorker implements ScriptWorkerHandle {
+  killed = false;
+  posted: { runId: string }[] = [];
+  private onMessage: ((message: unknown) => void) | null = null;
+  postMessage = (message: unknown): void => {
+    this.posted.push(message as { runId: string });
+  };
+  on(event: 'message' | 'exit', listener: ((message: unknown) => void) | ((code: number) => void)): void {
+    if (event === 'message') this.onMessage = listener as (message: unknown) => void;
+  }
+  kill = (): void => {
+    this.killed = true;
+  };
+  reply(): void {
+    this.onMessage?.({ runId: this.posted[0]?.runId, run: { results: [], logs: [], mutations: { environment: {}, collectionVariables: {} }, error: null } });
+  }
+}
+
+async function setup(options: { authorize?: VaultAuthorize; picked?: string | null; importFile?: string; pairing?: PairingIdentity } = {}) {
   await runtimeHost(options.authorize);
+  const workers: FakeWorker[] = [];
   const requests: { url: string; authorization: string | undefined }[] = [];
   const fetch = vi.fn(async (url: URL | string, init: RequestInit) => {
     const headers = init.headers as Record<string, string>;
@@ -64,7 +120,7 @@ async function setup(options: { authorize?: VaultAuthorize; picked?: string | nu
   });
   const handlers = new Map<string, (event: unknown, raw: unknown) => unknown>();
   const sends = new Map<string, (event: unknown, raw: unknown) => void>();
-  const { repos } = registerCoderHandlers({
+  const { repos, shutdown } = registerCoderHandlers({
     ipcMain: { handle: (c, l) => void handlers.set(c, l), on: (c, l) => void sends.set(c, l) },
     trashItem: async () => undefined,
     send: () => undefined,
@@ -77,16 +133,22 @@ async function setup(options: { authorize?: VaultAuthorize; picked?: string | nu
     onWindowClosed: () => undefined,
     windows: { anyWindowVisible: () => false, idleState: () => 'active' },
     fetch,
+    dialogs: { pickFile: async () => options.importFile ?? null, pickSavePath: async () => null },
+    scriptWorker: () => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker;
+    },
   });
   const invoke = (channel: string, payload?: unknown) => handlers.get(channel)?.({}, payload);
-  return { handlers, sends, invoke, requests, repos };
+  return { handlers, sends, invoke, requests, repos, shutdown, workers };
 }
 
 describe('registerCoderHandlers', () => {
-  it('registers the forge and tests features’ channels, its own repository list and the read-only git — and nothing else', async () => {
+  it('registers the forge, tests, API client and database features’ channels, its own repository list and the read-only git — and nothing else', async () => {
     const { handlers, sends } = await setup();
     const own = [CHANNELS.repoList, CHANNELS.repoPickDirectory, CHANNELS.repoOpen, CHANNELS.repoClose, CHANNELS.remotesList, ...CODER_GIT_CHANNELS];
-    expect([...handlers.keys()].sort()).toEqual([...forgeManifest.ipc, ...testsManifest.ipc, ...own].sort());
+    expect([...handlers.keys()].sort()).toEqual([...forgeManifest.ipc, ...testsManifest.ipc, ...apiClientManifest.ipc, ...databaseManifest.ipc, ...own].sort());
     expect([...sends.keys()].sort()).toEqual([...forgeManifest.sends, ...testsManifest.sends].sort());
     for (const channel of [CHANNELS.secretsGet, CHANNELS.secretsSet, CHANNELS.secretsHas]) expect(handlers.has(channel)).toBe(false);
   });
@@ -224,5 +286,145 @@ describe('registerCoderHandlers', () => {
     const added = await invoke(CHANNELS.forgeAccountAdd, { kind: 'gitlab', host: 'gitlab.example.com', token: TOKEN });
     expect(added).toMatchObject({ ok: false, error: expect.stringMatching(/Open Studio/) });
     expect(await invoke(CHANNELS.forgeAccounts, {})).toEqual([]);
+  });
+});
+
+/** A SQL connection — the engine is faked above, so nothing connects anywhere. */
+const PG = { id: 'pg1', name: 'Local Postgres', provider: 'postgres', host: 'localhost', port: 5432, database: 'app', username: 'app' } as const;
+
+describe('Coder’s Database tool: a password is read from the vault behind the grants, in main, and never answered', () => {
+  /** Studio's side: the password stored under Studio's key for `PG`, fingerprinted as the feature does. */
+  async function studioStoresPassword(): Promise<void> {
+    await (await runtimeHost()).studio.set('db-credentials', PG.id, DB_PASSWORD, { fingerprint: connectionFingerprint({ ...PG }) });
+  }
+
+  it('is denied a database password by default — the connection opens with none', async () => {
+    await studioStoresPassword();
+    const { invoke } = await setup();
+    await invoke(CHANNELS.dbSaveConnection, { connection: PG });
+
+    await invoke(CHANNELS.dbGetSchema, { connectionId: PG.id });
+
+    expect(passwordsSeen).toEqual([{ id: PG.id, password: undefined }]);
+  });
+
+  it('reads the password once Vault grants Coder db-credentials — it reaches the driver and nothing else', async () => {
+    expect(createVaultGrants({ directory: join(dir, 'runtime') }).set('coder', 'db-credentials', '*')).toBe(true);
+    await studioStoresPassword();
+    const { invoke } = await setup();
+    await invoke(CHANNELS.dbSaveConnection, { connection: PG });
+
+    const schema = await invoke(CHANNELS.dbGetSchema, { connectionId: PG.id });
+    const list = await invoke(CHANNELS.dbListConnections);
+
+    expect(passwordsSeen).toEqual([{ id: PG.id, password: DB_PASSWORD }]);
+    expect(JSON.stringify(schema)).not.toContain(DB_PASSWORD);
+    expect(JSON.stringify(list)).not.toContain(DB_PASSWORD);
+    expect(list).toMatchObject([{ id: PG.id, name: 'Local Postgres' }]);
+  });
+
+  it('refuses to store a password it holds no grant for: a sentence, the connection saved, no value anywhere', async () => {
+    const deny: VaultAuthorize = (access) => access.appId !== 'coder';
+    const { invoke } = await setup({ authorize: deny });
+
+    const saved = await invoke(CHANNELS.dbSaveConnection, { connection: PG, password: DB_PASSWORD });
+
+    expect(saved).toMatchObject({ ok: false, message: expect.stringMatching(/password could not be stored/) });
+    expect(JSON.stringify(saved)).not.toContain(DB_PASSWORD);
+    expect(await (await runtimeHost()).studio.get('db-credentials', PG.id)).toBeNull();
+    expect(await invoke(CHANNELS.dbListConnections)).toMatchObject([{ id: PG.id }]);
+  });
+
+  it('stores a granted password in the host’s vault — Studio reads it, the answer does not carry it', async () => {
+    expect(createVaultGrants({ directory: join(dir, 'runtime') }).set('coder', 'db-credentials', '*')).toBe(true);
+    const { invoke } = await setup();
+
+    const saved = await invoke(CHANNELS.dbSaveConnection, { connection: PG, password: DB_PASSWORD });
+
+    expect(saved).toMatchObject({ ok: true });
+    expect(JSON.stringify(saved)).not.toContain(DB_PASSWORD);
+    expect(await (await runtimeHost()).studio.get('db-credentials', PG.id)).toBe(DB_PASSWORD);
+    // Connections persist in Coder's own userData; the password is in no file there.
+    const stored = readFileSync(join(dir, 'userData', 'db-connections.json'), 'utf8');
+    expect(stored).toContain('Local Postgres');
+    expect(stored).not.toContain(DB_PASSWORD);
+  });
+});
+
+describe('Coder’s API client: collections are confined to a checkout Coder holds, and the script worker is killed on quit', () => {
+  /** A repository Coder admitted through its dialog, and its id. */
+  async function openRepo(invoke: (channel: string, payload?: unknown) => unknown, repo: string): Promise<string> {
+    await invoke(CHANNELS.repoPickDirectory);
+    const { repo: added } = (await invoke(CHANNELS.repoOpen, { path: repo })) as { repo: { id: string } };
+    return added.id;
+  }
+
+  const COLLECTION = 'api.postman_collection.json';
+  const scriptRequest = (repoId: string, collectionId: string) => ({
+    repoId,
+    collectionId,
+    source: "pm.test('x', () => {})",
+    environmentId: null,
+    collectionVariables: [],
+    request: { method: 'GET', url: 'http://x', headers: {} },
+    response: null,
+  });
+
+  /** A Postman collection on disk outside any checkout — what the user picks in the import dialog. */
+  function collectionFile(name: string): string {
+    const file = join(dir, COLLECTION);
+    writeFileSync(file, JSON.stringify({ info: { name, schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json' }, item: [] }));
+    return file;
+  }
+
+  it('refuses a repository id Coder’s list does not hold, and writes nothing', async () => {
+    const { invoke } = await setup({ importFile: collectionFile('x') });
+    expect(await invoke(CHANNELS.apiImportCollection, { repoId: 'repo:/etc' })).toMatchObject({ ok: false });
+    expect(await invoke(CHANNELS.apiListCollections, { repoId: 'repo:/etc' })).toMatchObject({ ok: false });
+  });
+
+  it('keeps collections under .midnite/api/ in the checkout, and lists them back', async () => {
+    const repo = makeRepo('widgets');
+    const { invoke } = await setup({ picked: repo, importFile: collectionFile('Widgets API') });
+    const repoId = await openRepo(invoke, repo);
+
+    const imported = (await invoke(CHANNELS.apiImportCollection, { repoId })) as { ok: true; value: { id: string } };
+    expect(imported).toMatchObject({ ok: true });
+
+    // Import names the file from the collection (not the picked file), inside the checkout's `.midnite/api/`.
+    expect(readFileSync(join(repo, '.midnite', 'api', 'collections', imported.value.id), 'utf8')).toContain('Widgets API');
+    expect(await invoke(CHANNELS.apiListCollections, { repoId })).toMatchObject({ ok: true, value: [{ id: imported.value.id }] });
+  });
+
+  it('runs no script until the collection is trusted — the worker is not even forked', async () => {
+    const repo = makeRepo('widgets');
+    const { invoke, workers } = await setup({ picked: repo, importFile: collectionFile('x') });
+    const repoId = await openRepo(invoke, repo);
+    const imported = (await invoke(CHANNELS.apiImportCollection, { repoId })) as { value: { id: string } };
+
+    const outcome = await invoke(CHANNELS.apiRunScript, scriptRequest(repoId, imported.value.id));
+
+    expect(outcome).toEqual({ ok: true, value: { status: 'needs-consent' } });
+    expect(workers).toHaveLength(0);
+  });
+
+  it('runs a trusted script in the forked worker, and kills that worker on quit', async () => {
+    const repo = makeRepo('widgets');
+    const { invoke, workers, shutdown } = await setup({ picked: repo, importFile: collectionFile('x') });
+    const repoId = await openRepo(invoke, repo);
+    const imported = (await invoke(CHANNELS.apiImportCollection, { repoId })) as { value: { id: string } };
+    const collectionId = imported.value.id;
+    expect(await invoke(CHANNELS.apiSetScriptTrust, { repoId, collectionId, trusted: true })).toMatchObject({ ok: true });
+
+    const pending = invoke(CHANNELS.apiRunScript, scriptRequest(repoId, collectionId)) as Promise<unknown>;
+    await vi.waitFor(() => expect(workers).toHaveLength(1));
+    await vi.waitFor(() => expect(workers[0]?.posted).toHaveLength(1));
+    workers[0]?.reply();
+    expect(await pending).toMatchObject({ ok: true, value: { status: 'ran' } });
+    expect(workers[0]?.killed).toBe(false);
+
+    await shutdown();
+
+    expect(workers[0]?.killed).toBe(true);
   });
 });

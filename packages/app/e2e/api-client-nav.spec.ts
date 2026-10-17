@@ -19,7 +19,7 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * the only navigation this spec can assert — which is exactly why it matters.
  *
  * Phase 82 Theme C wave 5 moved both of this file's assertions to
- * `src/features/api-client/api-client-view.bridge.test.tsx`, mounting
+ * `src/compose/api-client/api-client-view.bridge.test.tsx`, mounting
  * `ApiClientView` directly. **One smoke test stays here** — reached through
  * the real rail navigation rather than a direct mount, so the suite still
  * proves the view is reachable end to end in a real browser at least once.

@@ -389,7 +389,7 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   feature's main half since Phase 113 Theme O), never in renderer `localStorage`.** Phase 90 Theme B gave the app its first logged-in identity — a GitHub, GitLab,
   Bitbucket or Azure DevOps personal access token, encrypted behind Electron `safeStorage` and
   keyed `${provider}:${host}:${login}`, the third binding beside
-  `db/credential-vault.ts` and `secrets-vault.ts` (Phase 76 Theme D) — since Phase 113 Theme D all
+  `features/database/main/credential-vault.ts` (Phase 113 Theme O) and `secrets-vault.ts` (Phase 76 Theme D) — since Phase 113 Theme D all
   three bind namespaces of the runtime's one vault service (`runtime/src/vault/`, over the same files). `ForgeAccountSchema`'s
   `hasToken` is a boolean on the wire — the renderer is told a credential exists, never what it
   is. A GitHub account discovered from `gh auth status` holds no token at all (`delegated: 'gh'`):

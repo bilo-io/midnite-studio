@@ -46,7 +46,7 @@ vi.mock('@midnite/studio-frame', async (importOriginal) => ({
 
 import { keys } from '../../../../services/queries';
 import { appQueryClient } from '../../../../services/query-client';
-import { useApiClientStore } from '../../../../store/api-client-store';
+import { useApiClientStore } from '@midnite/studio-feature-api-client/renderer';
 import { useNotesStore } from '../../../../store/notes-store';
 import type { ResourceSource, SourceQuery } from '../resolve';
 import { GIT_SOURCES } from './git';

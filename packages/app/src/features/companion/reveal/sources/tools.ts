@@ -2,9 +2,9 @@ import type { ApiCollectionSummary, PostmanItem, SchemaTree } from '@midnite/stu
 
 import { bridge } from '../../../../services/bridge';
 import { keys } from '../../../../services/queries';
-import { useApiClientStore } from '../../../../store/api-client-store';
+import { useApiClientStore } from '@midnite/studio-feature-api-client/renderer';
 import { useBrowserStore } from '../../../../store/browser-store';
-import { useDatabaseConnectionsStore } from '../../../../store/database-connections-store';
+import { useDatabaseConnectionsStore } from '@midnite/studio-feature-database/renderer';
 import { SETTINGS_PAGES } from '../../../../store/ui-store';
 import { SETTINGS_SECTIONS } from '../../../settings/settings-sections';
 import type { ResourceCandidate, ResourceSource } from '../resolve';

@@ -33,7 +33,6 @@ import type {
   Remote,
   RepoDescriptor,
   RepoStats,
-  SchemaTree,
   StashEntry,
   StatsWindow,
   Worktree,
@@ -46,6 +45,7 @@ import { useToasts } from '../components/toast-host';
 import { countHiddenReposForAccount } from '../features/repos/repo-visibility';
 import { useUiStore } from '../store/ui-store';
 import { bridge } from './bridge';
+import { dbSchemaKey } from '@midnite/studio-feature-database/renderer';
 import { testsKeys } from '@midnite/studio-feature-tests/renderer';
 
 // The Tests view's hooks live in the tests feature (Phase 113 Theme O);
@@ -280,7 +280,8 @@ export const keys = {
    * `repos` prefix on purpose — a database connection is not repo-scoped, so
    * there is no repo close to drop it on.
    */
-  dbSchema: (connectionId: string) => ['db', connectionId, 'schema'] as const,
+  // The Database feature's own key (Phase 113 Theme O) — the companion's cache peek reads the same entry.
+  dbSchema: dbSchemaKey,
   /**
    * The sessions you closed (Phase 67 Theme C). Outside the `repos` prefix on
    * purpose — history spans every repo in one list (Theme E's `global: true`),
@@ -592,40 +593,6 @@ export function useRemoveWorktree(repoId: string | null) {
       return api.repos.worktreeRemove({ repoId, path: vars.path, force: vars.force });
     },
     onSuccess: () => client.invalidateQueries({ queryKey: keys.repos }),
-  });
-}
-
-/**
- * How long a connection's schema tree stays fresh (Phase 61 Theme F).
- *
- * There is no watcher for a database's own catalog the way `repo-watcher.ts`
- * watches `.git` — a schema change (a migration run outside the app) is
- * invisible to us either way, so this is a plain re-fetch-on-remount window
- * rather than a claim of freshness. A minute matches the forge listings'
- * own reasoning: short enough that reopening a connection after a migration
- * shows it, long enough that re-expanding a tree node mid-session does not
- * re-run `dbGetSchema`.
- */
-const DB_SCHEMA_STALE_MS = 60_000;
-
-/**
- * One connection's introspected schema tree, fetched only while its tree
- * section is expanded — `enabled` is the caller's own fold-AND gate
- * (`connection-tree.tsx`'s `sectionOpen && open`), mirroring
- * `useForgePulls`'s `enabled` above.
- */
-export function useSchemaTree(connectionId: string | null, enabled: boolean) {
-  return useQuery<SchemaTree>({
-    queryKey: keys.dbSchema(connectionId ?? ''),
-    queryFn: async () => {
-      const api = bridge();
-      if (!api || !connectionId) throw new Error('No connection to the app.');
-      const result = await api.db.getSchema({ connectionId });
-      if (!result.ok) throw new Error(result.message);
-      return result.data;
-    },
-    enabled: enabled && connectionId !== null,
-    staleTime: DB_SCHEMA_STALE_MS,
   });
 }
 

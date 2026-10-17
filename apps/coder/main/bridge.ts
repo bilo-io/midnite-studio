@@ -3,18 +3,25 @@ import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
 
 /**
- * The slice of `window.midniteStudio` Coder exposes — exactly what the forge and tests features'
- * renderers, the frame's git graph and diff, and Coder's repository list call, and nothing else:
- * `forge.*`, `forgeProject.*`, `forgeAccounts.*` (records with a `hasToken` boolean, never a token),
- * `tests.*`, `remotes.list`, five `repos` members, the `log` stream and four read-only `status` reads.
- * There is no `secrets`, `fs`, `pty` or `ops` namespace: a forge token is read in main only, and
- * nothing here can write to a checkout (`bridge.test.ts` holds the list).
+ * The slice of `window.midniteStudio` Coder exposes — exactly what the forge, tests, API client and
+ * Database features' renderers, the frame's git graph and diff, and Coder's repository list call, and
+ * nothing else: `forge.*`, `forgeProject.*`, `forgeAccounts.*` (records with a `hasToken` boolean, never
+ * a token), `tests.*`, `apiClient.*`, `db.*` (connection metadata — a password goes in on a save and
+ * nothing answers one), `remotes.list`, five `repos` members, the `log` stream and four read-only
+ * `status` reads. There is no `secrets`, `fs`, `pty` or `ops` namespace: a forge token or a database
+ * password is read in main only, and nothing here can write to a checkout (`bridge.test.ts` holds the
+ * list). The API client writes only its own `.midnite/api/` files, in main, confined to a checkout
+ * Coder's list holds.
  */
 export type CoderBridge = {
   forge: MidniteStudioBridge['forge'];
   forgeProject: MidniteStudioBridge['forgeProject'];
   forgeAccounts: MidniteStudioBridge['forgeAccounts'];
   tests: MidniteStudioBridge['tests'];
+  /** The API client's collections, environments, history, sends, runs and scripts (slice 3). */
+  apiClient: MidniteStudioBridge['apiClient'];
+  /** The Database tool's connections (metadata only — a save carries a password in, nothing returns one), schema and query stream (slice 3). */
+  db: MidniteStudioBridge['db'];
   remotes: MidniteStudioBridge['remotes'];
   repos: Pick<MidniteStudioBridge['repos'], 'list' | 'pickDirectory' | 'open' | 'close' | 'refs'>;
   /** The git graph's log stream — rows laid out in main (`main/git.ts`). */
@@ -93,6 +100,40 @@ export function createCoderBridge(ipc: RendererIpc): CoderBridge {
       cancel: (req) => send(CHANNELS.testsCancel, req),
       onOutput: (handler) => subscribe(EVENT_CHANNELS.testsOutput, handler),
       onResult: (handler) => subscribe(EVENT_CHANNELS.testsResult, handler),
+    },
+    apiClient: {
+      listCollections: (req) => call(CHANNELS.apiListCollections, req),
+      readCollection: (req) => call(CHANNELS.apiReadCollection, req),
+      saveCollection: (req) => call(CHANNELS.apiSaveCollection, req),
+      importCollection: (req) => call(CHANNELS.apiImportCollection, req),
+      deleteCollection: (req) => call(CHANNELS.apiDeleteCollection, req),
+      exportCollection: (req) => call(CHANNELS.apiExportCollection, req),
+      sendRequest: (req) => call(CHANNELS.apiSendRequest, req),
+      cancelRequest: (req) => call(CHANNELS.apiCancelRequest, req),
+      pickBinaryFile: () => call(CHANNELS.apiPickBinaryFile),
+      listEnvironments: (req) => call(CHANNELS.apiListEnvironments, req),
+      readEnvironment: (req) => call(CHANNELS.apiReadEnvironment, req),
+      saveEnvironment: (req) => call(CHANNELS.apiSaveEnvironment, req),
+      deleteEnvironment: (req) => call(CHANNELS.apiDeleteEnvironment, req),
+      listHistory: (req) => call(CHANNELS.apiListHistory, req),
+      clearHistory: (req) => call(CHANNELS.apiClearHistory, req),
+      runScript: (req) => call(CHANNELS.apiRunScript, req),
+      setScriptTrust: (req) => call(CHANNELS.apiSetScriptTrust, req),
+      runCollection: (req) => call(CHANNELS.apiRunCollection, req),
+      cancelRun: (req) => call(CHANNELS.apiCancelRun, req),
+      onRunProgress: (handler) => subscribe(EVENT_CHANNELS.apiRunProgress, handler),
+      onRunDone: (handler) => subscribe(EVENT_CHANNELS.apiRunDone, handler),
+    },
+    db: {
+      listConnections: () => call(CHANNELS.dbListConnections),
+      saveConnection: (req) => call(CHANNELS.dbSaveConnection, req),
+      deleteConnection: (req) => call(CHANNELS.dbDeleteConnection, req),
+      testConnection: (req) => call(CHANNELS.dbTestConnection, req),
+      getSchema: (req) => call(CHANNELS.dbGetSchema, req),
+      queryStart: (req) => call(CHANNELS.dbQueryStart, req),
+      queryCancel: (req) => call(CHANNELS.dbQueryCancel, req),
+      onQueryBatch: (handler) => subscribe(EVENT_CHANNELS.dbQueryBatch, handler),
+      onQueryDone: (handler) => subscribe(EVENT_CHANNELS.dbQueryDone, handler),
     },
     remotes: { list: (req) => call(CHANNELS.remotesList, req) },
     repos: {

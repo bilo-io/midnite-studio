@@ -8,7 +8,7 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * dirty tab prompts before discarding.
  *
  * Phase 82 Theme C wave 5 moved this file's assertions to
- * `src/features/api-client/request-tab-strip.bridge.test.tsx`, mounting
+ * `src/compose/api-client/request-tab-strip.bridge.test.tsx`, mounting
  * `ApiClientView` directly with the same fixture. **One smoke test stays
  * here** — the simplest of the two, reached through the real rail navigation
  * rather than a direct mount, so the suite still proves the tab strip's

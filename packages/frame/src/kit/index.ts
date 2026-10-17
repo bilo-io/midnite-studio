@@ -7,3 +7,4 @@ export {
   safeLocalStorage,
   type PersistedStoreOptions,
 } from './persisted-store';
+export { KitPopover, KitTreeSection, useEscapeDismiss, type KitPopoverProps, type KitTreeSectionProps } from './kit-ui';

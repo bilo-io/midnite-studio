@@ -1,12 +1,10 @@
 import { resourceRefLabel, type SettingsPageId } from '@midnite/studio-shared';
 
 import { bridge } from '../../../../services/bridge';
-import { apiTabId, useApiClientStore } from '../../../../store/api-client-store';
+import { apiTabId, useApiClientStore } from '@midnite/studio-feature-api-client/renderer';
 import { useBrowserStore } from '../../../../store/browser-store';
-import { useDatabaseConnectionsStore } from '../../../../store/database-connections-store';
+import { openQueryTab, previewSql, useDatabaseConnectionsStore } from '@midnite/studio-feature-database/renderer';
 import { useUiStore } from '../../../../store/ui-store';
-import { previewSql } from '../../../database/connection-tree';
-import { openQueryTab } from '../../../database/use-database-tabs';
 import { SETTINGS_SECTIONS } from '../../../settings/settings-sections';
 import { liveNavigationState } from '../../navigate';
 import type { FamilyRevealers, RevealOutcome } from '../types';

@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 
+import { createStandaloneApiClientHost, type ApiClientHost } from '@midnite/studio-feature-api-client/renderer';
+import { createStandaloneDatabaseHost, type DatabaseHost } from '@midnite/studio-feature-database/renderer';
 import { createStandaloneForgeHost, type ForgeHost } from '@midnite/studio-feature-forge/renderer';
 import type { TestsHost } from '@midnite/studio-feature-tests/renderer';
 import { bridge } from '@midnite/studio-frame';
@@ -49,6 +51,24 @@ export const CODER_FORGE_HOST: ForgeHost = createStandaloneForgeHost({
   },
   storageKey: 'midnite-coder.forge',
 });
+
+/**
+ * The API client's host: the feature's standalone one — plain popovers and tree sections, a textarea for
+ * the code fields (no Monaco, so no autocomplete for `pm.*` and no Beautify) — given the one thing only
+ * Coder knows, which repository is selected. Pane sizes and each repository's chosen environment persist
+ * in this window's localStorage under `midnite-coder.api`.
+ */
+export const CODER_API_CLIENT_HOST: ApiClientHost = createStandaloneApiClientHost({
+  useActiveRepo,
+  storageKey: 'midnite-coder.api',
+});
+
+/**
+ * The Database tool's host: the feature's standalone one — a textarea for the SQL editor (`Mod+Enter`
+ * runs it), native-title tooltips, the connections list's width under `midnite-coder.database`.
+ * Connections live in Coder's userData (main); a password goes to the runtime vault behind the grants.
+ */
+export const CODER_DATABASE_HOST: DatabaseHost = createStandaloneDatabaseHost({ storageKey: 'midnite-coder.database' });
 
 const TESTS_WIDTH = { initial: 320, min: 240, max: 640 };
 const TESTS_WIDTH_KEY = 'midnite-coder.testsListWidth';
