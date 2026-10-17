@@ -2,7 +2,7 @@ import * as sharedModule from '@midnite/studio-shared';
 import { expect, type Page, test } from '@playwright/test';
 
 import { writeTexturedGlb } from '../../features/media-model/main/model/sf3d/glb-textured';
-import { encodePng } from '../../features/media-model/main/model/sf3d/png';
+import { encodePngRgba8 as encodePng } from '../../runtime/src/media/png-codec';
 import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle, shotPath } from './shots-helper';
 
 /**
