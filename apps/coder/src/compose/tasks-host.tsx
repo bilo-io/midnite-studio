@@ -37,6 +37,7 @@ import { bridge, useToastStore } from '@midnite/studio-frame';
 import { pickForgeRemote, type Remote } from '@midnite/studio-shared';
 
 import { useCoderStore } from '../coder-store';
+import { CODER_CARD_HANDOFF } from './agent-handoff';
 import { CODER_FORGE_HOST } from './coder-hosts';
 import { coderTasksStore, useCoderTasksUi } from './tasks-store';
 
@@ -54,8 +55,9 @@ import { coderTasksStore, useCoderTasksUi } from './tasks-store';
  *
  * **Left out, on purpose** — each a control that would start or reach something Coder does not have:
  * - `terminal`: Coder starts no terminal and has no agent roster, so a card shows no live session, no
- *   Play, no Stop, no composer and no Auto-mate, and a drop into a column with a mapped skill only
- *   moves the card. How a card's run reaches Agents is the agent hand-off, which is not built here.
+ *   Stop, no composer and no Auto-mate, and a drop into a column with a mapped skill only moves the
+ *   card. Its Play is `cardHandoff` instead (`agent-handoff.ts`): the card's `{ issueUrl, skill }`
+ *   handed to Studio, behind the Review actions switch, confirmed there before anything runs.
  * - `openIssue`: Coder has no app-wide issue modal; an issue keeps its plain link.
  * - `runCommand`: no terminal to run `gh auth refresh` in; Reload only refetches, and the copy button
  *   beside the command stays.
@@ -214,6 +216,7 @@ export const CODER_TASKS_HOST: TasksHost = {
   useDismissable,
   useCascadeReveal: () => NO_CASCADE,
   useToasts,
+  cardHandoff: CODER_CARD_HANDOFF,
   // Coder's bridge carries no clipboard channel; the renderer's own clipboard writes plain text.
   copyText: async (text) => {
     try {

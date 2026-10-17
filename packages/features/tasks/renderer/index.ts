@@ -18,6 +18,7 @@ export {
   useTasksHost,
   type TasksAutomateInput,
   type TasksCardComposerProps,
+  type TasksCardHandoff,
   type TasksCardPlay,
   type TasksCardPlayInput,
   type TasksCascadeReveal,

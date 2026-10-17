@@ -51,6 +51,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       // The runtime host's vault, over its socket: Coder never reaches the keychain itself.
       vaultDirectory,
       pairing: coderPairing(app.getPath('userData'), smoke),
+      // The agent-run hand-off's link: main's opener only ever passes a re-parsed `midnite://open` here.
+      openExternal: (url) => shell.openExternal(url),
       pickDirectory: async () => {
         const options = { title: 'Add a repository', properties: ['openDirectory' as const] };
         const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);

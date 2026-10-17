@@ -11,6 +11,7 @@ import { IssuePills, useOpenIssue } from '../issue-pills';
 import type { StatusStroke } from '../status-stroke';
 import { StatusBorder } from './status-border';
 import { cardGlowStateFromActivity, taskGlowClass } from './glow-state';
+import { useCardHandoff } from './use-card-handoff';
 import { useCardStatus } from './use-card-status';
 import { useCardVisible } from './use-card-visible';
 
@@ -150,6 +151,8 @@ export function TaskCard({
   const { useSlice, port: terminal } = useTasksTerminal();
   const session = useSlice((s) => (sessionId ? s.sessions.find((row) => row.id === sessionId) : undefined));
   const dialogs = useDialogs();
+  // No terminal here (Coder): Play hands the card's run to an app that can start an agent, or nothing.
+  const handoff = useCardHandoff(item, `${projectId ?? ''}:${item.id}`);
 
   return (
     <div
@@ -258,6 +261,20 @@ export function TaskCard({
             </button>
           )}
         </div>
+        ) : handoff ? (
+          <div className="absolute bottom-0 right-0 flex items-center gap-0.5">
+            <button
+              type="button"
+              data-testid="card-handoff-agent"
+              aria-label="Run in an agent"
+              title={handoff.title}
+              disabled={handoff.disabled}
+              onClick={handoff.onClick}
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <LuPlay aria-hidden className="h-3 w-3 fill-current" />
+            </button>
+          </div>
         ) : null}
       </div>
 

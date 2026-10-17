@@ -3,6 +3,7 @@ import { createContext, useContext, type ComponentType, type CSSProperties, type
 
 import type {
   AgentCommandId,
+  AgentRunHandoff,
   AiPlanBlueprint,
   ForgeCapability,
   ForgeIssue,
@@ -329,6 +330,24 @@ export type TasksHost = {
     }
   >;
   terminal?: TasksTerminalPort;
+  /**
+   * For an app with no terminal (Coder): hand a card's run to an app that can start an agent
+   * (Phase 113 Theme O). Ignored when `terminal` is present — that app runs the card itself.
+   * Absent: a card offers no Play at all.
+   */
+  cardHandoff?: TasksCardHandoff;
+};
+
+/**
+ * The agent-run hand-off, as Tasks sees it. The feature builds the run — `{ issueUrl, skill }`, the
+ * card's URL and the skill its picker shows, validated by `agentRunFor` — and the app decides where
+ * it goes, how the outcome reads and whether it may be sent at all.
+ */
+export type TasksCardHandoff = {
+  /** Whether a run may be sent now — a hook. `reason` titles the disabled button while it may not. */
+  useGate: () => { open: boolean; reason: string };
+  /** Send it. Never throws; the app reports the outcome itself. */
+  send: (run: AgentRunHandoff) => void;
 };
 
 const TasksHostContext = createContext<TasksHost | null>(null);
