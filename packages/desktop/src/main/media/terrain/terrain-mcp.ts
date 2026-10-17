@@ -21,8 +21,8 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { confineToRoot, joinWithin } from '../../fs-scope';
 import { McpToolError } from '../../mcp/errors';
-import type { TerrainService } from './terrain-service';
-import { renderTerrainPreviews } from './terrain-preview';
+import type { TerrainService } from '@midnite/studio-feature-media-terrain/main';
+import { renderTerrainPreviews } from '@midnite/studio-feature-media-terrain/main';
 
 /**
  * The `terrain_*` MCP tools' implementations (Media ▸ Terrain, Phase 105 Theme J).

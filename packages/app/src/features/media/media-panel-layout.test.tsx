@@ -4,11 +4,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { fixtures } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
-import { GameCreatePanel } from './game/game-create-panel';
-import { GameDetailPanel } from './game/game-detail-panel';
-import { GameIteratePanel } from './game/game-iterate-panel';
+import { GameCreatePanel, GameDetailPanel } from '@midnite/studio-feature-media-game/renderer';
+import { GameIteratePanel } from '../../compose/media-game/game-iterate-panel';
 import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from './media-panel-layout';
-import { SpriteCreatePanel } from './sprite/sprite-create-panel';
+import { SpriteCreatePanel } from '@midnite/studio-feature-media-sprite/renderer';
+import { StudioTabHarness } from '../../compose/media-tab-harness';
 
 /**
  * Structure of the Media detail-panel layout (vitest/jsdom: classes and DOM position only; the real
@@ -57,7 +57,12 @@ describe('MediaPanelLayout', () => {
 
 describe('composer panels keep the composer in the non-scrolling footer', () => {
   it('Games: create', () => {
-    const { container } = renderView(<GameCreatePanel onCreated={() => {}} />, { fixtures });
+    const { container } = renderView(
+      <StudioTabHarness>
+        <GameCreatePanel onCreated={() => {}} />
+      </StudioTabHarness>,
+      { fixtures },
+    );
     expectPinnedComposer(container, screen.getByLabelText('First prompt'));
   });
 
@@ -67,14 +72,24 @@ describe('composer panels keep the composer in the non-scrolling footer', () => 
   });
 
   it('Games: detail (summary scrolls with the thread, prompt pinned)', () => {
-    const { container } = renderView(<GameDetailPanel game={GAME} />, { fixtures });
+    const { container } = renderView(
+      <StudioTabHarness>
+        <GameDetailPanel game={GAME} />
+      </StudioTabHarness>,
+      { fixtures },
+    );
     expectPinnedComposer(container, screen.getByLabelText('Prompt'));
     const body = container.querySelector('[data-media-panel-body]') as HTMLElement;
     expect(body.textContent).toContain('Moon Rover');
   });
 
   it('Sprites: create', () => {
-    const { container } = renderView(<SpriteCreatePanel repoId="r1" onCreated={() => {}} onJob={() => {}} />, { fixtures });
+    const { container } = renderView(
+      <StudioTabHarness>
+        <SpriteCreatePanel repoId="r1" onCreated={() => {}} onJob={() => {}} />
+      </StudioTabHarness>,
+      { fixtures },
+    );
     expectPinnedComposer(container, screen.getByLabelText('Prompt'));
   });
 });

@@ -1,33 +1,31 @@
 import { nativeImage, shell, utilityProcess } from 'electron';
 
-import { CHANNELS, EVENT_CHANNELS, failure, schemas } from '@midnite/studio-shared';
+import {
+  createTerrainRuntime,
+  mediaTerrainMain,
+  terrainWorkerScriptPath,
+  type TerrainWorkerHandle,
+} from '@midnite/studio-feature-media-terrain/main';
+import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { EVENT_CHANNELS, failure } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
 import { setTerrainTools } from '../mcp/terrain-tools';
 import { resolveRegisteredRepo } from '../mcp/tools';
-import { createTerrainBroker, terrainWorkerScriptPath, type TerrainWorkerHandle } from '../media/terrain/terrain-broker';
 import { createTerrainTools } from '../media/terrain/terrain-mcp';
-import { createTerrainService } from '../media/terrain/terrain-service';
 import { broadcastToAllWindows } from '../window-manager';
-import { handle } from './handle';
+import { handle, handleBare, handleSend } from './handle';
 import { imageService } from './media-image-handlers';
 import { mediaStore, notifyMediaChanged } from './media-handlers';
 
 /**
- * Media ▸ Terrain (Phase 105): a heightfield from up to three optional images. The build runs in
- * `terrain-worker`, a utility process, so a 4097² terrain never blocks a frame; everything here is
- * the thin Electron-bound shell around `main/media/terrain/terrain-service.ts`.
+ * Media ▸ Terrain (Phase 105): a heightfield from up to three optional images, composed here from the
+ * `media-terrain` feature (Phase 113 Theme S). The build runs in `terrain-worker`, a utility process, so a
+ * 4097² terrain never blocks a frame. The feature owns the service and the nine channels; this is Studio's
+ * Electron-bound half of them — the Trash, `nativeImage`, the worker fork, the Images hand-off for a
+ * prompted heightmap and the media store — which Gamer wires its own way.
  */
-const broker = createTerrainBroker({
-  spawn: () => utilityProcess.fork(terrainWorkerScriptPath(), [], { serviceName: 'mstudio-terrain', stdio: 'ignore' }) as TerrainWorkerHandle,
-});
-
-/** Ends the worker on quit, failing any build still outstanding. */
-export function disposeTerrainBroker(): void {
-  broker.dispose();
-}
-
-const service = createTerrainService({
+const runtime = createTerrainRuntime({
   rootFor: (repoId) => mediaStore.rootFor({ repoId, tab: 'terrain' }),
   writeBytes: (req) => mediaStore.writeBytes({ repoId: req.repoId, tab: 'terrain', project: req.project, path: req.path, data: req.data }),
   trash: (absPath) => shell.trashItem(absPath),
@@ -53,12 +51,19 @@ const service = createTerrainService({
     if (!read.ok) return read;
     return { ok: true, value: { bytes: Buffer.from(read.value, 'base64'), name: file } };
   },
-  broker,
+  spawnWorker: () => utilityProcess.fork(terrainWorkerScriptPath(), [], { serviceName: 'mstudio-terrain', stdio: 'ignore' }) as TerrainWorkerHandle,
   onChanged: (repoId) => notifyMediaChanged(repoId, 'terrain'),
   emitProgress: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaTerrainProgress, event),
   emitChanged: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaTerrainChanged, event),
   log: (line) => defaultLogger.info(line),
 });
+
+const service = runtime.service;
+
+/** Ends the worker on quit, failing any build still outstanding. */
+export function disposeTerrainBroker(): void {
+  runtime.dispose();
+}
 
 /** The one terrain service, for main-side callers (the Maps capture hand-off) that must not round-trip the renderer. */
 export function terrainService(): typeof service {
@@ -85,14 +90,10 @@ setTerrainTools(
 );
 
 export function registerMediaTerrainHandlers(): void {
-  const invalid = (issue: string) => failure(issue);
-  handle(CHANNELS.mediaTerrainLibrary, schemas.MediaTerrainLibraryRequest, (req) => service.library(req), invalid);
-  handle(CHANNELS.mediaTerrainGet, schemas.MediaTerrainGetRequest, (req) => service.get(req), invalid);
-  handle(CHANNELS.mediaTerrainSetSpec, schemas.MediaTerrainSetSpecRequest, (req) => service.setSpec(req), invalid);
-  handle(CHANNELS.mediaTerrainSetInput, schemas.MediaTerrainSetInputRequest, (req) => service.setInput(req), invalid);
-  handle(CHANNELS.mediaTerrainBuild, schemas.MediaTerrainBuildRequest, (req) => service.build(req), invalid);
-  handle(CHANNELS.mediaTerrainCancel, schemas.MediaTerrainCancelRequest, ({ buildId }) => service.cancel(buildId), invalid);
-  handle(CHANNELS.mediaTerrainPaint, schemas.MediaTerrainPaintRequest, (req) => service.paint(req), invalid);
-  handle(CHANNELS.mediaTerrainRoadKey, schemas.MediaTerrainRoadKeyRequest, (req) => service.roadKey(req), invalid);
-  handle(CHANNELS.mediaTerrainExport, schemas.MediaTerrainExportRequest, (req) => service.export(req), invalid);
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    emit: broadcastToAllWindows,
+    trashItem: () => Promise.reject(new Error('terrain trashes through its own dependency, not this context')),
+  };
+  mediaTerrainMain.register(ctx, { service });
 }

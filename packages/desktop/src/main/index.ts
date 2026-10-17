@@ -20,7 +20,7 @@ import {
   SetupProbeRequest,
   SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, safeStorage, session, shell } from 'electron';
+import { BrowserWindow, app, safeStorage, session, shell, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -168,19 +168,16 @@ import {
 } from './window-manager';
 import { registerWindowHandlers } from './ipc/window-handlers';
 import { registerGamesHandlers } from './ipc/games-handlers';
-import { createGameRunner } from './games/game-runner';
+import { createGamesRuntime, type GameService } from '@midnite/studio-feature-media-game/main';
+import { asGameWindow, asPopoutWindow, createStudioGameElectron } from './games/game-electron';
 import { createGameMcpTools } from './games/game-mcp';
 import { createPlaytests } from './games/playtest';
-import { createGameExport } from './games/game-export';
-import { createGamePopout } from './games/game-popout';
-import { createGameService } from './games/game-service';
-import { createAssetBridge } from './games/asset-bridge';
 import { createGameAgentService } from './games/game-agent-service';
 import { createIterativeHost } from './media/model/iterative-host';
 import { createLlmCall } from './media/model/engines';
 import { setGameTools } from './mcp/game-tools';
-import { createGamesSettingsStore } from './games/games-settings-store';
-import { mediaGameTemplateRoot } from './template-path';
+import { exportTerrain } from '@midnite/studio-feature-media-terrain/main';
+import { gameEnginesDir, mediaGameTemplateRoot } from './template-path';
 import { createReopenStore, createWindowsStore } from './windows-store';
 
 /**
@@ -195,7 +192,7 @@ let mainWindow: BrowserWindow | null = null;
 const getMainWindow = (): BrowserWindow | null => mainWindow;
 
 /** Media ▸ Games' service, created at boot (Phase 107); read at quit to stop every run. */
-let gameService: ReturnType<typeof createGameService> | null = null;
+let gameService: GameService | null = null;
 let gameAgentService: ReturnType<typeof createGameAgentService> | null = null;
 
 /** The vault host other apps read through (`runtime-host.ts`); closed at quit so its socket goes with it. */
@@ -675,11 +672,16 @@ if (!app.requestSingleInstanceLock()) {
     // Media ▸ Games (Phase 107): one service over the runner, the settings
     // file and the repo registry. Registering a game repo is the same path
     // `repoClone` takes — `openRepo`, then reconcile the watchers.
-    const gameRunner = createGameRunner({ getWindow: getMainWindow, log: defaultLogger, send: broadcastToAllWindows });
-    gameService = createGameService({
-      settings: createGamesSettingsStore(userData),
-      runner: gameRunner,
+    // The services and their wiring are the `media-game` feature's (`createGamesRuntime`); this hands it
+    // Studio's Electron, repo registry and popout window.
+    const games = createGamesRuntime<WebContentsView>({
+      userData,
+      log: defaultLogger,
+      send: broadcastToAllWindows,
+      getWindow: asGameWindow(getMainWindow),
+      electron: createStudioGameElectron(),
       templateDir: mediaGameTemplateRoot(),
+      enginesDir: gameEnginesDir(),
       registerRepo: async (path) => {
         const opened = await openRepo(path);
         if (!opened.ok) return { ok: false, kind: 'error', message: opened.message };
@@ -689,27 +691,17 @@ if (!app.requestSingleInstanceLock()) {
         return { ok: true };
       },
       listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
-      send: broadcastToAllWindows,
-      log: defaultLogger,
+      repoIdOf: async (path) => (await listRepos()).find((repo) => repo.path === path)?.id ?? null,
       // Pop out (Theme B): the `game` role window hosts one game's view.
-      popout: createGamePopout({
-        runner: gameRunner,
-        openWindow: () => createRoleWindow('game', defaultLogger),
-        send: broadcastToAllWindows,
-        log: defaultLogger,
-      }),
+      openPopoutWindow: asPopoutWindow(() => createRoleWindow('game', defaultLogger)),
+      // A terrain pack imported as a game asset is exported by the Terrain feature's own code.
+      exportTerrain,
     });
+    const gameRunner = games.runner;
+    gameService = games.service;
     // The `game_*` MCP tools (Theme D) answer from the same service; the consent gate is `mcp/game-tools.ts`.
     const mcpGameService = gameService;
-    // The asset bridge (Theme N): copies media into a game's assets/, one commit per import.
-    const gameAssets = createAssetBridge({
-      resolve: (gameId) => mcpGameService.resolve(gameId),
-      listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
-      gamesRoot: async () => (await mcpGameService.settings.get()).resolvedRoot,
-      repoIdOf: async (path) => (await listRepos()).find((repo) => repo.path === path)?.id ?? null,
-      send: broadcastToAllWindows,
-      log: defaultLogger,
-    });
+    const gameAssets = games.assets;
     // Play-test depth (Theme O): deterministic restarts, replays and assertions through the kit hook.
     const gamePlaytests = createPlaytests({
       resolve: (target) => mcpGameService.resolve(target),
@@ -739,13 +731,7 @@ if (!app.requestSingleInstanceLock()) {
       send: broadcastToAllWindows,
       log: defaultLogger,
     });
-    registerGamesHandlers(
-      gameService,
-      gameAgentService,
-      gameAssets,
-      gamePlaytests,
-      createGameExport({ resolve: (gameId) => mcpGameService.resolve(gameId) }),
-    );
+    registerGamesHandlers(games, gameAgentService, gamePlaytests);
     configureOllamaSettings(createOllamaSettingsStore(userData));
     configureDiagnostics(createTrustStore(userData));
     configureTests(createTestTrustStore(userData));

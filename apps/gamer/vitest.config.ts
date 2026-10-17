@@ -1,0 +1,37 @@
+import { fileURLToPath } from 'node:url';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
+
+const at = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+const feature = (name: string, entry: string) => at(`../../packages/features/${name}/${entry}`);
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    dedupe: ['react', 'react-dom', '@tanstack/react-query'],
+    alias: {
+      '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
+      '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
+      '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
+      '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
+      '@midnite/studio-runtime': at('../../packages/runtime/src/index.ts'),
+      '@midnite/studio-git-engine': at('../../packages/git-engine/src/index.ts'),
+      '@midnite/studio-feature-media-core/main': feature('media-core', 'main/index.ts'),
+      '@midnite/studio-feature-media-map/main': feature('media-map', 'main/index.ts'),
+      '@midnite/studio-feature-media-map/map-capture-worker': feature('media-map', 'main/map/worker-entry.ts'),
+      '@midnite/studio-feature-media-terrain/main': feature('media-terrain', 'main/index.ts'),
+      '@midnite/studio-feature-media-terrain/terrain-worker': feature('media-terrain', 'main/terrain/worker-entry.ts'),
+      '@midnite/studio-feature-media-sprite/main': feature('media-sprite', 'main/index.ts'),
+      '@midnite/studio-feature-media-game/main': feature('media-game', 'main/index.ts'),
+      '@midnite/studio-feature-media-core/renderer': feature('media-core', 'renderer/index.ts'),
+      '@midnite/studio-feature-media-map/renderer': feature('media-map', 'renderer/index.ts'),
+      '@midnite/studio-feature-media-terrain/renderer': feature('media-terrain', 'renderer/index.ts'),
+      '@midnite/studio-feature-media-sprite/renderer': feature('media-sprite', 'renderer/index.ts'),
+      '@midnite/studio-feature-media-game/renderer': feature('media-game', 'renderer/index.ts'),
+    },
+  },
+  test: {
+    include: ['src/**/*.test.{ts,tsx}', 'main/**/*.test.ts'],
+    environment: 'jsdom',
+  },
+});

@@ -126,6 +126,10 @@ export const FEATURE_PACKAGE_SPLITS = {
   'media-images': { folder: 'media', placement: 'creator' },
   'media-video': { folder: 'media', placement: 'creator' },
   'media-audio': { folder: 'media', placement: 'creator' },
+  'media-map': { folder: 'media', placement: 'gamer' },
+  'media-terrain': { folder: 'media', placement: 'gamer' },
+  'media-sprite': { folder: 'media', placement: 'gamer' },
+  'media-game': { folder: 'media', placement: 'gamer' },
   // The MCP server's Tools view (Phase 113 Theme N): a package out of the `agent` folder, which the Agents app owns.
   'mcp-tools': { folder: 'agent', placement: 'agents' },
 } as const satisfies Readonly<Record<string, { folder: PlacedFeature; placement: Placement }>>;

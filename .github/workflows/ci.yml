@@ -269,6 +269,10 @@ jobs:
           feature-slides:typecheck feature-slides:lint feature-slides:test
           feature-media-video:typecheck feature-media-video:lint feature-media-video:test
           feature-media-audio:typecheck feature-media-audio:lint feature-media-audio:test
+          feature-media-map:typecheck feature-media-map:lint feature-media-map:test
+          feature-media-terrain:typecheck feature-media-terrain:lint feature-media-terrain:test
+          feature-media-sprite:typecheck feature-media-sprite:lint feature-media-sprite:test
+          feature-media-game:typecheck feature-media-game:lint feature-media-game:test
           root:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -31,6 +31,10 @@
     { "path": "../features/chats/tsconfig.main.json" },
     { "path": "../features/councils/tsconfig.main.json" },
     { "path": "../features/media-video/tsconfig.main.json" },
+    { "path": "../features/media-map/tsconfig.main.json" },
+    { "path": "../features/media-terrain/tsconfig.main.json" },
+    { "path": "../features/media-sprite/tsconfig.main.json" },
+    { "path": "../features/media-game/tsconfig.main.json" },
     { "path": "../features/media-audio/tsconfig.main.json" },
     { "path": "../features/workflows/tsconfig.main.json" },
     { "path": "../features/mcp-tools/tsconfig.main.json" }

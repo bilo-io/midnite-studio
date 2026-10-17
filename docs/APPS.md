@@ -418,6 +418,34 @@ maps each to the folder it came from and the apps that compose it:
   stack, focus trap, occluder, link opener, highlighter). The modal has its own entry
   (`@midnite/studio-feature-slides/renderer/modal`) so an app can `import()` it lazily; the barrel is
   what an entry chunk may import.
+- **`packages/features/media-map`**, **`media-terrain`**, **`media-sprite`**, **`media-game`** (Gamer,
+  Studio; Phase 113 Theme S slice 1) — one package per tab, not one `media-gamer`. **Why four, though
+  they hand work to each other:** every hand-off crosses a seam that is a function, not an import, so
+  nothing forced a merge. Terrain's "Show on map" is `TerrainHost.showOnMap` (the app posts to Maps'
+  focus store and switches tab); a Maps capture hands its heightmap to Terrain through the structural
+  `CaptureTerrainPort`, which Terrain's own service satisfies; Sprites' terrain-to-tiles job takes
+  Terrain's `bakeSplat`, and Games' terrain-pack import takes `exportTerrain`, as injected deps the
+  composer fills from `@midnite/studio-feature-media-terrain/main`. One package would have made Studio's
+  imports shorter and Gamer's bundle no smaller — and the next app to want Maps alone (Media) could not
+  have it. Each follows the Images/Video shape: a `MediaTabDescriptor`, an optional-everything host port
+  (`MapHost`, `TerrainHost`, `SpriteHost`, `GameHost` — a tab rendered with none still works), `chrome.tsx`
+  wrappers over the frame's chrome port, a manifest, and a main half whose `create<X>Runtime(deps)` wires
+  the services from injected Electron pieces (`net.fetch`, `nativeImage`, `utilityProcess`, the media
+  store, `userData`) so `mediaXMain.register(ctx, …)` and the whole half run under bare vitest.
+  **The Model tab stays in `packages/app`** (slice 2): what Sprites and Games need from it is a host
+  member (`useRiggedModels`, `useMapEngine`, `loadRenderJob`, the agent panel) that is simply absent in
+  Gamer today. The pure encoders every one of them reads — PNG/APNG, OBJ/glTF writers, the software
+  preview renderer, `extractJson` — moved to **`@midnite/studio-runtime`'s media kernel**
+  (`runtime/src/media/`), with one-line re-exports left at the desktop's old paths. **What stays in the
+  desktop:** the `*_mcp` tool files (`map-mcp`, `terrain-mcp`, `sprite-mcp`, `game-mcp`; slice 2), the
+  play-test code and the game agent (`game-agent*`, which need the Model tab's iterative harness and the
+  MCP server — they reach the feature as `GameAgentsPort`/`GamePlaytestsPort`, and the channels answer "not
+  available" without them), and Studio's Electron shells (`ipc/media-*-handlers.ts`, `games/game-electron.ts`).
+  **Processes:** the map-capture and terrain-build workers are `utilityProcess`es forked lazily by the
+  features' brokers and killed on cancel or quit (`dispose()`); the game runs as a sandboxed
+  `WebContentsView` in its own partition, closed by `stopAll()` on quit. Each worker has its own small
+  entry export (`./map-capture-worker`, `./terrain-worker`) so the worker bundle does not inline the
+  feature's main half.
 
 **The registry contract lives in the frame** (`packages/frame/src/media/`): the descriptor type, and
 the **media kit port** — the shell's plumbing a tab composes (`MediaLayout`, the explorer, the export
@@ -427,6 +455,23 @@ app lists the descriptors in strip order. Shared cannot hold it (a descriptor ca
 component), and the frame implements none of it. `scripts/layer-boundaries.test.mjs` proves a tab
 cannot reach the shell or a sibling tab, by name or by relative path. Theme R and S tabs follow the
 same shape.
+
+### App 11: Gamer (`apps/gamer`) — Phase 113 Theme S slice 1
+
+Gamer composes media-core with Games (home), Maps, Terrain and Sprites. Its main (`apps/gamer/main/`)
+scopes media to one repository id, `gamer`, resolved to `<userData>/media` (userData under
+`Midnite Runtime/apps/gamer`), serves `mstudio-file://repo/gamer/…` from that root through the runtime's
+path jail, registers `mstudio-file`, `mstudio-game` and `mstudio-tile` in **one**
+`registerSchemesAsPrivileged` call (Electron keeps only the last list), and answers `mstudio-tile:` through
+the Maps runtime's one fetcher. Games live under `~/Midnite Games` (the feature's default; there is no repo
+list, so a game is found by scanning the root). The preload exposes `media` and `games` only. **Gamer has no
+vault** — the shared data plane's pairing is not wired here yet — so there is no MapTiler key (keyless tile
+sources only), and Sprites' generating methods, Terrain's prompted heightmap and Games' agent and play-test
+loop answer "not available". Rendering sprites from 3D needs the Model tab (slice 2): no window takes the
+request. The bundle carries `templates/media-game`, the vendored `game-engines` (copied when
+`packages/desktop/resources/game-engines` exists — `scripts/vendor-game-engines.mjs` produces it, a copy from
+node_modules with no download) and `terrain-materials`, plus the two worker scripts beside `main.cjs`.
+`MIDNITE_GAMER_SMOKE=1` with `MIDNITE_GAMER_USER_DATA=<tmp>` prints `midnite-gamer:ready` and quits.
 
 ### App 10: Creator (`apps/creator`)
 

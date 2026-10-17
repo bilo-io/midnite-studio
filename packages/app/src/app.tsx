@@ -62,10 +62,11 @@ import { McpSettingConfirmHost } from './features/companion/mcp-setting-confirm'
 import { useCompanionUiRequests } from './features/companion/ui-requests';
 import { useFollowPrimaryAgent } from './features/agent/follow-primary-agent';
 import { useModelOpenListener } from './features/media/model/use-model-agent-events';
-import { useSpriteRenderHost } from './features/media/sprite/render/sprite-render-host';
-import { useTerrainOpenListener } from './features/media/terrain/use-terrain-agent-events';
+import { useSpriteRenderHost } from '@midnite/studio-feature-media-sprite/events';
+import { useStudioTerrainOpenListener } from './compose/media-terrain/use-terrain-open-listener';
 import { useMediaOpenListeners } from './features/media/media-open-request';
-import { useSpriteOpenListener } from './features/media/sprite/use-sprite-agent-events';
+import { useSpriteOpenListener } from './compose/media-sprite/use-sprite-open-listener';
+import { loadSpriteRenderJob } from './compose/media-sprite/load-render-job';
 /*
   Side-effect import: Phase 79 Themes F and G register their four members of
   `companion-ports` (interrupt, the two mic gestures, mic availability) at
@@ -745,13 +746,13 @@ function Shell() {
   // Media ▸ Models — an agent's `model_open` brings the tab up on that model.
   useModelOpenListener();
   // Media ▸ Terrain — an agent's `terrain_open` does the same for a terrain.
-  useTerrainOpenListener();
+  useStudioTerrainOpenListener();
   // Media ▸ Audio / Maps / Games — `music_open`, `map_goto`, `game_open` now work from any view (Phase 112 Theme E).
   useMediaOpenListeners();
   // Media ▸ Sprites — an agent's `sprite_open` does the same for a sprite asset (Phase 106 Theme K).
   useSpriteOpenListener();
   // Rendered-from-3D sprite jobs (Phase 106 Theme E): three.js loads only on the first request.
-  useSpriteRenderHost();
+  useSpriteRenderHost(loadSpriteRenderJob);
 
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.

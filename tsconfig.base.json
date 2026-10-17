@@ -46,6 +46,12 @@
       "@midnite/studio-feature-media-audio/manifest": ["./packages/features/media-audio/manifest.ts"],
       "@midnite/studio-feature-media-audio/main": ["./packages/features/media-audio/main/index.ts"],
       "@midnite/studio-feature-media-audio/music-worker": ["./packages/features/media-audio/main/musicgen/worker-entry.ts"],
+      "@midnite/studio-feature-media-map/main": ["./packages/features/media-map/main/index.ts"],
+      "@midnite/studio-feature-media-map/map-capture-worker": ["./packages/features/media-map/main/map/worker-entry.ts"],
+      "@midnite/studio-feature-media-terrain/main": ["./packages/features/media-terrain/main/index.ts"],
+      "@midnite/studio-feature-media-terrain/terrain-worker": ["./packages/features/media-terrain/main/terrain/worker-entry.ts"],
+      "@midnite/studio-feature-media-sprite/main": ["./packages/features/media-sprite/main/index.ts"],
+      "@midnite/studio-feature-media-game/main": ["./packages/features/media-game/main/index.ts"],
       "@midnite/studio-feature-workflows/main": ["./packages/features/workflows/main/index.ts"],
       "@midnite/studio-feature-mcp-tools/main": ["./packages/features/mcp-tools/main/index.ts"]
     }

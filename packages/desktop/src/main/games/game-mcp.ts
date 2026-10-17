@@ -15,7 +15,7 @@ import type { WebContents } from 'electron';
 
 import { McpToolError } from '../mcp/errors';
 import { clipError, readGameState } from './game-state';
-import type { GameService } from './game-service';
+import type { GameService } from '@midnite/studio-feature-media-game/main';
 import type { Playtests } from './playtest';
 
 /**

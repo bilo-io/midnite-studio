@@ -12,9 +12,8 @@ import {
 } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { encodePngGrey8, encodePngRgba8 } from '../media/png/png-codec';
-import { runTerrainBuild } from '../media/terrain/build-pipeline';
-import { exportTerrain } from '../media/terrain/terrain-export';
+import { encodePngGrey8, encodePngRgba8 } from '@midnite/studio-runtime';
+import { exportTerrain, runTerrainBuild } from '@midnite/studio-feature-media-terrain/main';
 
 /**
  * The open-world starter's committed terrain pack (Phase 107 Theme J):
