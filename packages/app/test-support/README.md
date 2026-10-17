@@ -59,9 +59,11 @@ bump flips one, that test goes red and this list gets revisited.
    const row = rows.find((r) => /Toggle Terminal/.test(r.textContent ?? ''));
    ```
 
-6. **Stub `MonacoField` in any test that imports the API Client.**
-   `features/api-client/monaco-field.tsx` calls the real `getMonaco()` at **module scope** —
-   not when its tab mounts. Importing `ApiClientView` for an unrelated tab still loads Monaco
-   for real, and the resulting unhandled rejection surfaces as noise attributed to whichever
-   *other* file vitest is running when the import settles. `vi.mock('./monaco-field', …)`
-   with a plain stub; every API Client test already does.
+6. **Stub the API Client's code field in any test that mounts it under `StudioProviders`.**
+   `compose/api-client/api-client-code-field.tsx` (Studio's Monaco field, which the host loads
+   lazily) calls the real `getMonaco()` at **module scope** — not when its tab mounts. Mounting
+   `ApiClientView` for an unrelated tab still loads Monaco for real once the lazy chunk resolves,
+   and the resulting unhandled rejection surfaces as noise attributed to whichever *other* file
+   vitest is running when the import settles. `vi.mock('./api-client-code-field', …)` with a
+   plain stub; every API Client composition test already does (the feature's own tests use the
+   plain `TestCodeField` from its test host and never load Monaco).

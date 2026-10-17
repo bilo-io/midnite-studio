@@ -2,6 +2,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { apiClientManifest } from '@midnite/studio-feature-api-client/renderer';
+import { databaseManifest } from '@midnite/studio-feature-database/renderer';
 import { forgeManifest } from '@midnite/studio-feature-forge/renderer';
 import { testsManifest } from '@midnite/studio-feature-tests/renderer';
 import { FEATURE_PACKAGE_FOLDERS, FEATURE_PLACEMENT, placementOwners, type GraphRow } from '@midnite/studio-shared';
@@ -13,9 +15,31 @@ import { coderStore } from './coder-store';
 const CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
 const REPO = { id: 'r1', path: '/Users/me/widgets', name: 'widgets', headRef: 'main', worktrees: [] };
 
+const CONNECTION = { id: 'pg1', name: 'Local Postgres', provider: 'postgres', host: 'localhost', port: 5432, database: 'app', username: 'app' };
+const COLLECTION = {
+  id: 'api.postman_collection.json',
+  fileName: 'api.postman_collection.json',
+  collection: { info: { name: 'Widgets API' }, item: [{ name: 'List widgets', request: { method: 'GET', url: 'https://example.test/widgets' } }] },
+};
+
 function stubBridge() {
   const discover = vi.fn(async () => ({ repoId: 'r1', packages: [], generatedAt: 1 }));
+  const listCollections = vi.fn(async () => ({ ok: true, value: [COLLECTION] }));
+  const listConnections = vi.fn(async () => [CONNECTION]);
   window.midniteStudio = {
+    apiClient: {
+      listCollections,
+      listEnvironments: async () => ({ ok: true, value: [] }),
+      listHistory: async () => ({ ok: true, value: [] }),
+      onRunProgress: () => () => undefined,
+      onRunDone: () => () => undefined,
+    },
+    db: {
+      listConnections,
+      getSchema: async () => ({ ok: true, data: { connectionId: 'pg1', tables: [] } }),
+      onQueryBatch: () => () => undefined,
+      onQueryDone: () => () => undefined,
+    },
     repos: { list: async () => [REPO], pickDirectory: async () => null, open: vi.fn(), close: vi.fn() },
     remotes: { list: async () => [{ name: 'origin', fetchUrl: '', pushUrl: '', forge: { kind: 'github', host: 'github.com', owner: 'me', repo: 'widgets' } }] },
     forge: {
@@ -37,7 +61,7 @@ function stubBridge() {
     status: { get: async () => STATUS, commitDetail: async () => null, commitStats: async () => ({ stats: {} }) },
   } as unknown as typeof window.midniteStudio;
   (window.midniteStudio as unknown as { repos: Record<string, unknown> }).repos['refs'] = async () => [];
-  return { discover };
+  return { discover, listCollections, listConnections };
 }
 
 const STATUS = {
@@ -86,11 +110,11 @@ afterEach(() => {
 });
 
 describe('Coder composition', () => {
-  it('is the owner the placement map names for forge, reviews, actions and tests', () => {
-    for (const folder of [...FEATURE_PACKAGE_FOLDERS.forge, 'tests'] as const) {
+  it('is the owner the placement map names for forge, reviews, actions, tests, the API client and the database', () => {
+    for (const folder of [...FEATURE_PACKAGE_FOLDERS.forge, 'tests', 'api-client', 'database'] as const) {
       expect(placementOwners(FEATURE_PLACEMENT[folder])[0]).toBe(CODER_APP.id);
     }
-    expect(CODER_APP.features).toEqual([forgeManifest.feature, testsManifest.feature]);
+    expect(CODER_APP.features).toEqual([forgeManifest.feature, testsManifest.feature, apiClientManifest.feature, databaseManifest.feature]);
   });
 
   it("wears the launcher catalog's accent and opens on Reviews", () => {
@@ -116,10 +140,28 @@ describe('Coder composition', () => {
     render(<CoderApp />);
     await screen.findByText('widgets');
     fireEvent.click(screen.getByTestId('coder-tab-graph'));
-    expect(await screen.findByText('Initial import')).toBeTruthy();
+    expect(await screen.findByText('Initial import', undefined, { timeout: 5000 })).toBeTruthy();
     expect(logStart).toHaveBeenCalledWith(expect.objectContaining({ repoId: 'r1' }));
     fireEvent.contextMenu(screen.getByText('Initial import'));
     expect(document.querySelector('[role="menu"]')).toBeNull();
+  });
+
+  it('shows the selected repository’s API collections in the API tab', async () => {
+    render(<CoderApp />);
+    await screen.findByText('widgets');
+    fireEvent.click(screen.getByTestId('coder-tab-apiClient'));
+    expect(await screen.findByText('Widgets API', undefined, { timeout: 5000 })).toBeTruthy();
+    expect(bridge.listCollections).toHaveBeenCalledWith({ repoId: 'r1' });
+    expect(coderStore.getState().view).toBe('apiClient');
+  });
+
+  it('shows the Database tab even with no repository selected — a connection is not a property of one', async () => {
+    window.midniteStudio = { ...window.midniteStudio, repos: { list: async () => [], pickDirectory: async () => null, open: vi.fn(), close: vi.fn() } } as unknown as typeof window.midniteStudio;
+    coderStore.setState({ view: 'database' });
+    render(<CoderApp />);
+    expect(await screen.findByText('Local Postgres', undefined, { timeout: 5000 })).toBeTruthy();
+    expect(screen.queryByText('No repository selected.')).toBeNull();
+    expect(bridge.listConnections).toHaveBeenCalled();
   });
 
   it('keeps review actions off until the switch is turned on', () => {

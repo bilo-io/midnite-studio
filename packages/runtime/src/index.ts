@@ -14,6 +14,8 @@ export * from './app-id';
 export * from './data-directory';
 export * from './host';
 export * from './fs-jail';
+export * from './fs-jail-write';
+export * from './read-capped';
 export * from './login-shell';
 export * from './vault';
 export * from './broker';

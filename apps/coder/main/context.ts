@@ -1,4 +1,12 @@
 import {
+  apiClientMain,
+  createScriptRunnerBroker,
+  shutdownApiClient,
+  type ApiClientDialogs,
+  type ScriptWorkerHandle,
+} from '@midnite/studio-feature-api-client/main';
+import { createConnectionsStore, createCredentialVault, databaseMain, shutdownDb } from '@midnite/studio-feature-database/main';
+import {
   configureForgeAccounts,
   createForgeAccountsStore,
   createForgeAccountVault,
@@ -43,20 +51,35 @@ export type CoderElectron = IpcContextElectron & {
   windows: Omit<ForgePollerWindows, 'broadcastOnRepo'>;
   /** The forge's HTTP transport; the global `fetch` when absent. */
   fetch?: ForgeFetch;
+  /** The API client's HTTP transport; the global `fetch` when absent. Tests hand a fake. */
+  apiFetch?: typeof fetch;
+  /** The native open and save dialogs the API client's import, export and file pickers open. */
+  dialogs: ApiClientDialogs;
+  /**
+   * Forks the sandboxed script worker as its own OS process (Electron's `utilityProcess` at
+   * `script-runner-worker.cjs`, beside the main bundle). Absent, scripts answer "cannot run in this
+   * app" and nothing runs. The child is killed on a cancelled run, a timeout and quit.
+   */
+  scriptWorker?: () => ScriptWorkerHandle;
   warn?: (message: string) => void;
 };
 
 /**
  * Registers every channel Coder's renderer can call: the forge feature's (listings, writes, accounts,
- * projects, poll subscriptions), the tests feature's, and Coder's own small repository list
- * (`repos.list`/`pickDirectory`/`open`/`close`) plus `remotes.list` read from `.git/config`.
+ * projects, poll subscriptions), the tests feature's, the API client's, the Database tool's, and Coder's
+ * own small repository list (`repos.list`/`pickDirectory`/`open`/`close`) plus `remotes.list` read from
+ * `.git/config`.
  *
- * **Forge tokens never leave main.** The account registry's vault is the runtime vault as `coder`,
- * behind the grants: without a grant to `forge-accounts`, a token-backed account reads as having no
- * token (requests go unauthenticated, and a `gh`-delegated GitHub account still works through `gh`),
- * and adding one fails with a sentence instead of storing anything. No channel here answers a token.
+ * **Forge tokens and database passwords never leave main.** The account registry's vault and the
+ * database credential vault are the runtime vault as `coder`, behind the grants: without a grant to
+ * `forge-accounts`, a token-backed account reads as having no token (requests go unauthenticated, and a
+ * `gh`-delegated GitHub account still works through `gh`), and adding one fails with a sentence instead
+ * of storing anything; without a grant to `db-credentials`, a connection opens with no password and saving
+ * a password fails with a sentence, the connection itself saved. No channel here answers a token or a
+ * password. The API client's collection files are read and written in main, confined to a checkout
+ * Coder's own list holds; its script worker is a separate process, killed on quit (`shutdown`).
  */
-export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos } {
+export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos; shutdown: () => Promise<void> } {
   const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.vaultDirectory), appId: 'coder', identity: el.pairing });
   const ctx = createIpcContext(el);
   const warn = el.warn ?? (() => undefined);
@@ -103,6 +126,21 @@ export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos } 
   configureTests(createTestTrustStore(el.userData));
   testsMain.register(ctx, { workdir: async (repoId) => repos.pathOf(repoId), warn });
 
+  // The API client — collections under `.midnite/api/` in a checkout Coder's list holds; scripts run
+  // only in the forked worker, and only once the user has trusted the collection.
+  apiClientMain.register(ctx, {
+    workdir: async (repoId) => repos.pathOf(repoId),
+    dialogs: el.dialogs,
+    ...(el.scriptWorker ? { scriptRunner: createScriptRunnerBroker({ spawn: el.scriptWorker }) } : {}),
+    ...(el.apiFetch ? { fetch: el.apiFetch } : {}),
+  });
+
+  // The Database tool — connections in Coder's own userData, passwords in the runtime vault behind the grants.
+  databaseMain.register(ctx, {
+    connections: createConnectionsStore(el.userData),
+    credentials: createCredentialVault(vault),
+  });
+
   // The git graph and diff — read-only, in the checkouts Coder's own list holds (`main/git.ts`).
   registerCoderGit(ctx, { pathOf: (repoId) => repos.pathOf(repoId) });
 
@@ -132,5 +170,12 @@ export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos } 
     () => [],
   );
 
-  return { repos };
+  return {
+    repos,
+    // Quit: abort running collection runs, kill the script worker, disconnect every pooled database connection.
+    shutdown: async () => {
+      shutdownApiClient();
+      await shutdownDb();
+    },
+  };
 }

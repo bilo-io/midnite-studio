@@ -1,6 +1,8 @@
 import { lazy, type ComponentType } from 'react';
 
+import { apiClientViews } from '@midnite/studio-feature-api-client/renderer';
 import { chatsViews } from '@midnite/studio-feature-chats/renderer';
+import { databaseViews } from '@midnite/studio-feature-database/renderer';
 import { forgeViews } from '@midnite/studio-feature-forge/renderer';
 import { testsViews } from '@midnite/studio-feature-tests/renderer';
 import { councilsViews } from '@midnite/studio-feature-councils/renderer';
@@ -59,8 +61,8 @@ const loadMediaView = () => import('../features/media/media-view');
 const MediaView = lazy(() => loadMediaView().then((m) => ({ default: m.MediaView })));
 const loadModelsView = () => modelsViews.models();
 const ModelsView = lazy(() => loadModelsView().then((Component) => ({ default: Component })));
-const loadDatabaseView = () => import('../features/database/database-view');
-const DatabaseView = lazy(() => loadDatabaseView().then((m) => ({ default: m.DatabaseView })));
+const loadDatabaseView = () => databaseViews.database();
+const DatabaseView = lazy(() => loadDatabaseView().then((Component) => ({ default: Component })));
 const loadDashboardView = () => import('../features/dashboard/dashboard-view');
 const DashboardView = lazy(() => loadDashboardView().then((m) => ({ default: m.DashboardView })));
 const loadFilesView = () => import('../features/files/files-view');
@@ -85,8 +87,8 @@ const MonitorPage = lazy(() => monitorViews.monitor().then((Component) => ({ def
 const VaultPage = lazy(() => vaultViews.vault().then((Component) => ({ default: Component })));
 const loadSessionsView = () => import('../features/sessions/sessions-view');
 const SessionsView = lazy(() => loadSessionsView().then((m) => ({ default: m.SessionsView })));
-const loadApiClientView = () => import('../features/api-client/api-client-view');
-const ApiClientView = lazy(() => loadApiClientView().then((m) => ({ default: m.ApiClientView })));
+const loadApiClientView = () => apiClientViews.apiClient();
+const ApiClientView = lazy(() => loadApiClientView().then((Component) => ({ default: Component })));
 const loadNotesView = () => notesViews.notes();
 const NotesView = lazy(() => loadNotesView().then((Component) => ({ default: Component })));
 const loadChatsView = () => chatsViews.chats();

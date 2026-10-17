@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme O (slice 3) — the API client and Database tool as features; Coder gains them
+
+[PR #892](https://github.com/bilo-io/midnite-studio/pull/892). `api-client` and `database` are features; Coder gains API and Database tabs, with DB passwords only through the paired, granted runtime vault and the script runner still sandboxed in its own worker.
+
 ## 2026-10-17 — Phase 113 Theme S (slice 1) — Maps, Terrain, Sprites and Games as features, and apps/gamer
 
 [PR #891](https://github.com/bilo-io/midnite-studio/pull/891). Four media features over a runtime media kernel, Studio unchanged, and Midnite Gamer opening on Games.

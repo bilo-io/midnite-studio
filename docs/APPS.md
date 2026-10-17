@@ -492,8 +492,8 @@ with `MIDNITE_CREATOR_USER_DATA=<tmp>` prints `midnite-creator:ready` and quits.
 
 Coder composes two feature packages: **`packages/features/forge`** (Reviews and Actions over every forge
 provider) and **`packages/features/tests`** (the Tests view), over the frame. It opens on Reviews, with Actions
-and Tests as tabs beside it, and a small repository list on the left. The git graph, sessions, tasks, the API
-client and the database are later slices.
+and Tests as tabs beside it, and a small repository list on the left. The git graph is slice 2 and the API client
+and the database slice 3 (below); sessions and tasks are a later slice.
 
 **Decision 1 — how the renderer folders split into packages.** Four placement folders (`forge`, `reviews`,
 `actions`, `tests`) became **two** packages, not four:
@@ -640,6 +640,74 @@ expansion included), in its own lazy chunk. The graph code is a 122 KB chunk of 
 syntax colour or image diffs in a commit's diff (shiki and Studio's file protocol stay in Studio), no agent
 provenance marks (no roster), no live refresh (no watcher: a switch of tab or repository restreams), and Reviews
 still wears the forge's plain diff — swapping in the frame's `DiffView` is a forge-host change for a later slice.
+
+### Coder slice 3: the API client and the Database tool (Phase 113 Theme O)
+
+Two more features, each a package of its own, composed by Studio exactly as before and by Coder as two new tabs
+(**API** and **Database**): **`packages/features/api-client`** and **`packages/features/database`**. Each follows
+the forge's shape — `manifest.ts`, a `main/` half registered against the runtime's `FeatureMainContext`, a
+`renderer/` half behind a host port, a moon project (listed in `composition.ts`, `NODE_PROJECTS`, `ci.yml`'s
+gate-node line, `tsconfig.base.json` and the desktop's moon/tsconfig/package lists).
+
+**What moved where.**
+
+| From | To |
+|---|---|
+| `desktop/src/main/api-client/*`, `ipc/api-client-handlers.ts`, `script-runner-worker/` | `features/api-client/main/` (collections, environments, history, send, runner, the sandbox, the broker) |
+| `app/src/features/api-client/*`, `store/api-client-store.ts` | `features/api-client/renderer/` (the monaco field stays in the app, below) |
+| `desktop/src/main/db/*`, `ipc/database.ts` | `features/database/main/` (connections store, credential binding, query service, handlers) |
+| `app/src/features/database/*`, the workbench / connections / query-results stores | `features/database/renderer/` (the Monaco query editor stays in the app) |
+| `desktop/src/main/fs-scope-write.ts` | `runtime/src/fs-jail-write.ts` (the confining jail, a re-export shim left behind) |
+| `readCapped`, `HTTP_RESPONSE_CAP_BYTES` out of the workflows feature's `http` executor | `runtime/src/read-capped.ts` (the workflows executor re-exports them) |
+| `TREE_INDENT` | the frame; the frame's kit gained `KitPopover`, `KitTreeSection`, `useEscapeDismiss` |
+
+**The API client's script runner executes user code, and it moved without gaining a privilege.** The `vm`
+sandbox — the allow-list, the context flags, `pm.expect` — is still `script-runner.ts`, byte for byte; it runs
+only in a worker, never in main. The feature's main never imports `electron`, so it cannot fork anything itself:
+`createScriptRunnerBroker({ spawn })` takes the fork from its composer (Studio: `utilityProcess.fork` of
+`script-runner-worker.js` from `desktop/src/script-runner-worker`; Coder: of `script-runner-worker.cjs`, a third
+esbuild entry beside `main.cjs`). The worker's own entry, `startScriptRunnerWorker(process.parentPort)`, is the
+feature's `./script-runner-worker` export — deliberately **not** on its `./main` export, so the sandbox is not in
+any main bundle. **The child is killed** on a timeout (parent side, past `vm`'s own), on a cancelled run (the run's
+`AbortSignal` reaches the broker, which kills the process and answers "Script cancelled."; the next run forks a
+fresh one) and on quit (`shutdownApiClient()`, called from each app's quit hook). A collection's scripts still run
+only once the user has trusted it on this machine (`collection-trust.ts`; `needs-consent` forks nothing —
+`apps/coder/main/context.test.ts` holds both). HTTP goes through `configureApiClient({ fetch })`, defaulting to the
+global `fetch`, so tests hold the transport.
+
+**Database passwords are credentials, and the renderer never receives one.** The wire carries a password once, on
+`dbSaveConnection` (renderer to main, write-only); `ConnectionConfig` has no password field, the list is plain
+metadata, and a connect reads the password from the vault in main. In Studio the vault is its own
+(`createCredentialVault(studioVault)`, the same `db-credentials` namespace file as before). **In Coder it is the
+runtime host's**, over `connectRuntimeVault` — the same paired, granted client that serves the forge accounts: without
+a grant to `db-credentials`, a connection opens with no password and saving one answers a sentence (the connection
+itself is saved), and nothing in any answer carries the value (`apps/coder/main/context.test.ts` walks denied and
+granted for both directions, with the engine faked: no database server or container starts anywhere). Coder's
+connection list lives in its own userData (`db-connections.json`), so connections added in Studio show in Coder only
+once added there too; the password is shared through the vault, as the forge token is. In-flight query streams are
+tracked through a `QueryStreams` port: Studio backs it with its per-window stream registry (shared with the commit
+log and the search), Coder with a plain in-memory one.
+
+**The host ports.** Each renderer takes a host (`ApiClientHost`, `DatabaseHost`) for what only the app knows — the
+selected repository, persisted pane sizes (Studio: `ui-store`'s `layout`, so no stored key moved) and the active
+environment of each repository (`activeEnvironmentByRepo`) — and for chrome over app state (tooltips, tree sections,
+popovers, dismissal). The code editors are host members too: **Studio's are Monaco** (`compose/api-client/api-client-code-field.tsx`,
+`compose/database/database-query-editor.tsx`, each loaded lazily by the Studio host so Monaco stays out of the entry
+chunk exactly as before), and the feature's standalone host — what Coder uses — **draws a textarea**. Each feature
+ships `createStandalone…Host`, so Coder composes a tab with one line over the frame kit. Studio's composition tests
+(the four API Client and three Database `.bridge.test.tsx`) moved to `packages/app/src/compose/` and mount the real
+features through `StudioProviders`; the features' own tests use a test host (`renderer/test-host.tsx`).
+
+**Coder's bridge** gains exactly `apiClient.*` and `db.*` (`main/bridge.ts`); there is still no `secrets`, `fs`,
+`pty` or `ops` namespace. The Database tab is global, as in Studio — it shows with no repository selected. The
+API tab's collections live under `.midnite/api/` in a checkout Coder's own list holds, confined by the runtime's
+jail; its file pickers (import, export, a body file) open in main.
+
+**Left out in this slice:** no Monaco in Coder (so no `pm.*` autocomplete, no Beautify, no SQL highlighting — each
+editor is a textarea until a shared editor lives in the frame); **no SQLite in Coder** (`better-sqlite3` is a native
+module the bundle format cannot carry, so its connections answer the driver's own "Failed to load better-sqlite3"
+while Postgres, MySQL, MariaDB and MSSQL, which are pure JS, work); no detach-to-window mark. Sessions, tasks and
+the Tasks → Agents hand-off are the next slice. `MIDNITE_CODER_SMOKE=1` still prints `midnite-coder:ready`.
 
 ### Money's brokerage and exchange accounts (Phase 113 Theme P slice 2)
 

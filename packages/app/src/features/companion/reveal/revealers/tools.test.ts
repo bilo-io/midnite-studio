@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useBrowserStore } from '../../../../store/browser-store';
-import { useDatabaseConnectionsStore } from '../../../../store/database-connections-store';
+import { useDatabaseConnectionsStore, useWorkbenchStore } from '@midnite/studio-feature-database/renderer';
 import { useUiStore } from '../../../../store/ui-store';
-import { useWorkbenchStore } from '../../../../store/workbench-store';
 import { TOOLS_REVEALERS } from './tools';
 
 const ctx = { caller: 'companion', focusedWindow: false } as const;

@@ -4,7 +4,9 @@ import { Spinner } from '../../../components/skeleton';
 import { useMediaFileText } from '../use-media';
 
 /** Monaco is heavy and only this pane wants it, so it loads on first use — the API client's field, read-only. */
-const MonacoField = lazy(() => import('../../api-client/monaco-field').then((m) => ({ default: m.MonacoField })));
+const MonacoField = lazy(() =>
+  import('../../../compose/api-client/api-client-code-field').then((m) => ({ default: m.ApiClientCodeField })),
+);
 
 /** `{"a":1}` → two-space indented; text that is not JSON is shown as it is rather than hidden. */
 export function prettyJson(text: string): string {

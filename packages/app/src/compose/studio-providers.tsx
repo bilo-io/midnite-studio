@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 
+import { ApiClientHostProvider } from '@midnite/studio-feature-api-client/renderer';
 import { ChatsHostProvider } from '@midnite/studio-feature-chats/renderer';
+import { DatabaseHostProvider } from '@midnite/studio-feature-database/renderer';
 import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer';
 import { FinanceHostProvider } from '@midnite/studio-feature-finance/renderer';
 import { ForgeHostProvider } from '@midnite/studio-feature-forge/renderer';
@@ -13,8 +15,10 @@ import { TestsHostProvider } from '@midnite/studio-feature-tests/renderer';
 import { WorkflowsHostProvider } from '@midnite/studio-feature-workflows/renderer';
 import { FrameChromeProvider, GitHostProvider, KnowledgeHostProvider } from '@midnite/studio-frame';
 
+import { STUDIO_API_CLIENT_HOST } from './api-client-host';
 import { STUDIO_CHATS_HOST } from './chats-host';
 import { STUDIO_COUNCILS_HOST } from './councils-host';
+import { STUDIO_DATABASE_HOST } from './database-host';
 import { STUDIO_FINANCE_HOST } from './finance-host';
 import { STUDIO_FORGE_HOST } from './forge-host';
 import { STUDIO_GIT_HOST } from './git-host';
@@ -56,7 +60,11 @@ export function StudioProviders({ children }: { children: ReactNode }) {
                         <KnowledgeHostProvider host={STUDIO_KNOWLEDGE_HOST}>
                           <ForgeHostProvider host={STUDIO_FORGE_HOST}>
                             <TestsHostProvider host={STUDIO_TESTS_HOST}>
-                              <GitHostProvider host={STUDIO_GIT_HOST}>{children}</GitHostProvider>
+                              <ApiClientHostProvider host={STUDIO_API_CLIENT_HOST}>
+                                <DatabaseHostProvider host={STUDIO_DATABASE_HOST}>
+                                  <GitHostProvider host={STUDIO_GIT_HOST}>{children}</GitHostProvider>
+                                </DatabaseHostProvider>
+                              </ApiClientHostProvider>
                             </TestsHostProvider>
                           </ForgeHostProvider>
                         </KnowledgeHostProvider>

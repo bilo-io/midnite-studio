@@ -59,7 +59,17 @@ describe('createShellRunner', () => {
     const pid = Number(/pid:(\d+)/.exec(out)?.[1]);
     runner.killPty(created.ptyId);
     await exited;
-    expect(() => process.kill(pid, 0)).toThrow();
+    // A SIGKILLed orphan lingers as a zombie until launchd reaps it, and `kill(pid, 0)` succeeds on a zombie — so poll.
+    const alive = () => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    for (let i = 0; i < 100 && alive(); i++) await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(alive()).toBe(false);
   });
 
   it('killAll ends every member still running', async () => {

@@ -30,6 +30,7 @@ export { MARKDOWN_PROSE_CLASSES } from './layout/markdown-prose';
 export { motionMs, REVEAL_MS } from './layout/motion';
 export { ExplorerGroup, ExplorerNotice, ExplorerSearch } from './layout/explorer';
 export { StateDot, type DotState } from './layout/state-dot';
+export { TREE_INDENT } from './layout/tree-indent';
 export { LoadingRegion, Skeleton, Spinner as RingSpinner } from './layout/skeleton';
 export { SortableList, useSortableRow } from './layout/sortable-list';
 export {

@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect, useMemo, type ComponentType } from 'react';
 import { LuCode, LuFolderPlus, LuX } from 'react-icons/lu';
 
+import { apiClientViews } from '@midnite/studio-feature-api-client/renderer';
+import { databaseViews } from '@midnite/studio-feature-database/renderer';
 import { forgeViews } from '@midnite/studio-feature-forge/renderer';
 import { testsViews } from '@midnite/studio-feature-tests/renderer';
 import { bridge, RingSpinner } from '@midnite/studio-frame';
@@ -10,7 +12,14 @@ import type { RepoDescriptor } from '@midnite/studio-shared';
 import { CODER_APP, type CoderViewId } from '../coder-manifest';
 import { useCoderStore } from '../coder-store';
 
-const LABEL: Record<CoderViewId, string> = { reviews: 'Reviews', actions: 'Actions', tests: 'Tests', graph: 'Graph' };
+const LABEL: Record<CoderViewId, string> = {
+  reviews: 'Reviews',
+  actions: 'Actions',
+  tests: 'Tests',
+  graph: 'Graph',
+  apiClient: 'API',
+  database: 'Database',
+};
 
 /** Each view as a lazy chunk, loaded the way Studio's registry loads it. */
 const VIEWS: Record<CoderViewId, ComponentType> = {
@@ -19,6 +28,8 @@ const VIEWS: Record<CoderViewId, ComponentType> = {
   tests: lazy(() => testsViews.tests().then((Component) => ({ default: Component }))),
   // The frame's git graph, over Coder's read-only git host (`compose/git-host.tsx`).
   graph: lazy(() => import('@midnite/studio-frame/graph').then((m) => ({ default: m.GraphView }))),
+  apiClient: lazy(() => apiClientViews.apiClient().then((Component) => ({ default: Component }))),
+  database: lazy(() => databaseViews.database().then((Component) => ({ default: Component }))),
 };
 
 const REPOS_KEY = ['repos'] as const;
@@ -148,7 +159,8 @@ export function CoderHome() {
       <div className="flex min-h-0 flex-1">
         <RepoList />
         <main className="min-w-0 flex-1" aria-label={LABEL[view]}>
-          {selected === null ? (
+          {/* The Database tool is global, as in Studio: a connection is not a property of a repository. */}
+          {selected === null && view !== 'database' ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No repository selected.</div>
           ) : (
             <Suspense

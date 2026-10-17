@@ -10,7 +10,7 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * one.
  *
  * Phase 82 Theme C wave 5 moved this file's assertions to
- * `src/features/api-client/api-client-environments.bridge.test.tsx`,
+ * `src/compose/api-client/api-client-environments.bridge.test.tsx`,
  * mounting `ApiClientView` directly with the same fixtures. **One smoke
  * test stays here** — the simplest "the view renders and the switcher
  * works" case, reached through real rail navigation, so the suite still

@@ -13,7 +13,7 @@ import { useAppearanceStore } from '../store/appearance-store';
 import { useBrowserStore } from '../store/browser-store';
 import { useSessionsStore } from '../store/sessions-store';
 import { useUiStore } from '../store/ui-store';
-import { useWorkbenchStore } from '../store/workbench-store';
+import { useWorkbenchStore } from '@midnite/studio-feature-database/renderer';
 import { COMPANION_SYNC_KEYS, useBroadcastSync } from './broadcast-sync';
 
 type RelayMessage = { id: string; origin: string; kind: string; payload: Record<string, unknown> };

@@ -44,6 +44,8 @@
     "@midnite/studio-feature-finance": "workspace:*",
     "@midnite/studio-feature-tests": "workspace:*",
     "@midnite/studio-feature-forge": "workspace:*",
+    "@midnite/studio-feature-api-client": "workspace:*",
+    "@midnite/studio-feature-database": "workspace:*",
     "@midnite/studio-feature-models": "workspace:*",
     "@midnite/studio-feature-chats": "workspace:*",
     "@midnite/studio-feature-councils": "workspace:*",

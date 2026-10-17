@@ -5,16 +5,17 @@
  *
  * Two very different consumers read this same list:
  *
- * - `main/api-client/script-runner.ts` (desktop) is the **implementation** —
+ * - `packages/features/api-client/main/script-runner.ts` is the **implementation** —
  *   the sandbox's allow-list is real JS values, which this file (zod-only,
  *   no runtime behaviour) cannot express, so that module does not import
  *   from here at all. What keeps the two from drifting apart is
  *   `script-runner.test.ts`'s "every pinned method, exercised individually"
  *   requirement: a method this file's `.d.ts` advertises but the sandbox
  *   does not implement fails that suite the moment a test tries to call it.
- * - `features/api-client/test-editor.tsx` (app) is the **typing** — it
- *   registers `PM_AMBIENT_DTS` with Monaco's JavaScript language service via
- *   `addExtraLib`, so the pinned surface autocompletes in the Scripts tab
+ * - `packages/features/api-client/renderer/test-editor.tsx` is the **typing** — it
+ *   hands `PM_AMBIENT_DTS` to the code field, which Studio's Monaco field
+ *   (`compose/api-client/api-client-code-field.tsx`) registers with the
+ *   JavaScript language service via `addExtraLib`, so the pinned surface autocompletes in the Scripts tab
  *   and an unsupported call (`pm.sendRequest`, chained requests are out of
  *   scope entirely — see the phase doc's scope guardrails) red-squiggles at
  *   author time instead of only failing at run time with a `TypeError`.

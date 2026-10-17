@@ -37,8 +37,7 @@ import { registerBrowserHandlers } from './ipc/browser-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
-import { registerApiClientHandlers } from './ipc/api-client-handlers';
-import { disposeScriptRunner } from './api-client/script-runner-broker';
+import { registerApiClientFeatureHandlers, shutdownApiClientFeature } from './ipc/api-client-feature-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
 import { configureSecrets, configureVaultGrants, registerSecretsHandlers } from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
@@ -50,7 +49,7 @@ import {
   createGitlabLanguageCacheStore,
   FORGE_POLL_MS,
 } from '@midnite/studio-feature-forge/main';
-import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
+import { registerDatabaseFeatureHandlers, shutdownDatabaseFeature } from './ipc/database-feature-handlers';
 import { configureKnowledge, registerKnowledgeHandlers } from './ipc/knowledge-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { createCompanionStore } from './companion/companion-store';
@@ -118,8 +117,7 @@ import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-reg
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { initFetchScheduler, reconcileFetchScheduler } from './fetch-scheduler';
 import { registerSettingsHandlers } from './ipc/settings-handlers';
-import { createConnectionsStore } from './db/connections-store';
-import { createCredentialVault } from './db/credential-vault';
+import { createConnectionsStore, createCredentialVault } from '@midnite/studio-feature-database/main';
 import { createTrustStore } from './diagnostics/trust-store';
 import { createRepoStore } from './repo-store';
 import { getMcpServerHandle, registerMcpServer } from './mcp';
@@ -446,7 +444,7 @@ if (!app.requestSingleInstanceLock()) {
     registerSessionsHandlers();
     registerNotesHandlers();
     registerChatsHandlers();
-    registerDbHandlers(getMainWindow);
+    // The Database feature's channels (Phase 113 Theme O) register below, beside its stores and the vault.
     registerKnowledgeHandlers();
     registerScaffoldHandlers();
     registerTestsFeatureHandlers(getMainWindow);
@@ -514,7 +512,7 @@ if (!app.requestSingleInstanceLock()) {
     registerOllamaHandlers(getMainWindow);
     registerSecretsHandlers();
     registerFinanceHandlers();
-    registerApiClientHandlers(getMainWindow);
+    registerApiClientFeatureHandlers(getMainWindow);
     registerMcpHandlers();
     registerCompanionHandlers();
     registerUpdater(getMainWindow);
@@ -755,7 +753,11 @@ if (!app.requestSingleInstanceLock()) {
       authorize: vaultGrants.authorize,
     });
     const studioVault = vaultService.forApp('studio');
-    configureDb(createConnectionsStore(userData), createCredentialVault(studioVault));
+    // Passwords live in this vault's `db-credentials` namespace and are read here, in main, to open a connection.
+    registerDatabaseFeatureHandlers(getMainWindow, {
+      connections: createConnectionsStore(userData),
+      credentials: createCredentialVault(studioVault),
+    });
     configureSecrets(createSecretsVault(studioVault));
     /*
       The account registry (Phase 90 Theme B) — wired here beside every other
@@ -1049,7 +1051,7 @@ if (!app.requestSingleInstanceLock()) {
     // The pm.* script runner's utilityProcess (Phase 70 Theme B) — same
     // reasoning as the two calls below: nothing in it is worth flushing,
     // only worth not leaving behind.
-    disposeScriptRunner();
+    shutdownApiClientFeature();
     // The local voice engine's own utilityProcess (Ad Hoc "TTS synthesis
     // blocks the UI") — the identical reasoning, one call below it.
     disposeCompanionTtsBroker();
@@ -1066,7 +1068,7 @@ if (!app.requestSingleInstanceLock()) {
     void stopDemoApi();
     // Fire-and-forget, same reasoning: a pooled DB connection holds no state
     // worth flushing across a restart, so closing the socket is the whole job.
-    void shutdownDb();
+    void shutdownDatabaseFeature();
 
     if (flushed) {
       detachAll();

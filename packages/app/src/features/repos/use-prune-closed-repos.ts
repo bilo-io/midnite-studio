@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 import { useRepos } from '../../services/queries';
-import { useApiClientStore } from '../../store/api-client-store';
+import { useApiClientStore } from '@midnite/studio-feature-api-client/renderer';
 import { useUiStore } from '../../store/ui-store';
 
 /**

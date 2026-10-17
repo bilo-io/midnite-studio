@@ -9,7 +9,7 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * aggregate summary plus a mid-run Stop.
  *
  * Phase 82 Theme C wave 5 moved this file's assertions to
- * `src/features/api-client/api-client-scripts.bridge.test.tsx`, mounting
+ * `src/compose/api-client/api-client-scripts.bridge.test.tsx`, mounting
  * `ApiClientView` directly with the same fixtures (Monaco mocked away, the
  * same stand-in `request-builder.test.tsx` already uses for it). **One
  * smoke test stays here** — the simplest "the view renders and shows X"

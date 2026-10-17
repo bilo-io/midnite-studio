@@ -1,7 +1,8 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
-# Midnite Coder (Phase 113 Theme O) — the forge (Reviews, Actions) and Tests as their own app:
-# `packages/features/{forge,tests}` + `packages/frame` + `shared`, composed in src/.
+# Midnite Coder (Phase 113 Theme O) — the forge (Reviews, Actions), Tests, the API client and the
+# Database tool as their own app: `packages/features/{forge,tests,api-client,database}` +
+# `packages/frame` + `shared`, composed in src/.
 # `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
 id: 'app-coder'
 language: 'typescript'
@@ -15,8 +16,11 @@ dependsOn:
   - 'frame'
   - 'runtime'
   - 'git-engine'
+  - 'db-engine'
   - 'feature-forge'
   - 'feature-tests'
+  - 'feature-api-client'
+  - 'feature-database'
 
 tasks:
   build:
@@ -40,10 +44,17 @@ tasks:
       - '/packages/features/forge/manifest.ts'
       - '/packages/features/tests/renderer/**/*'
       - '/packages/features/tests/manifest.ts'
+      - '/packages/features/api-client/renderer/**/*'
+      - '/packages/features/api-client/manifest.ts'
+      - '/packages/features/database/renderer/**/*'
+      - '/packages/features/database/manifest.ts'
       - '/packages/features/forge/main/**/*'
       - '/packages/features/tests/main/**/*'
+      - '/packages/features/api-client/main/**/*'
+      - '/packages/features/database/main/**/*'
       - '/packages/runtime/src/**/*'
       - '/packages/git-engine/src/**/*'
+      - '/packages/db-engine/src/**/*'
     outputs:
       - 'dist'
 
@@ -60,11 +71,18 @@ tasks:
       - '/packages/features/forge/manifest.ts'
       - '/packages/features/tests/renderer/**/*'
       - '/packages/features/tests/manifest.ts'
+      - '/packages/features/api-client/renderer/**/*'
+      - '/packages/features/api-client/manifest.ts'
+      - '/packages/features/database/renderer/**/*'
+      - '/packages/features/database/manifest.ts'
       - 'main/**/*'
       - '/packages/features/forge/main/**/*'
       - '/packages/features/tests/main/**/*'
+      - '/packages/features/api-client/main/**/*'
+      - '/packages/features/database/main/**/*'
       - '/packages/runtime/src/**/*'
       - '/packages/git-engine/src/**/*'
+      - '/packages/db-engine/src/**/*'
 
   test:
     inputs:
@@ -77,8 +95,15 @@ tasks:
       - '/packages/features/forge/manifest.ts'
       - '/packages/features/tests/renderer/**/*'
       - '/packages/features/tests/manifest.ts'
+      - '/packages/features/api-client/renderer/**/*'
+      - '/packages/features/api-client/manifest.ts'
+      - '/packages/features/database/renderer/**/*'
+      - '/packages/features/database/manifest.ts'
       - 'main/**/*'
       - '/packages/features/forge/main/**/*'
       - '/packages/features/tests/main/**/*'
+      - '/packages/features/api-client/main/**/*'
+      - '/packages/features/database/main/**/*'
       - '/packages/runtime/src/**/*'
       - '/packages/git-engine/src/**/*'
+      - '/packages/db-engine/src/**/*'
