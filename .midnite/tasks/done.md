@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme S (slice 1) — Maps, Terrain, Sprites and Games as features, and apps/gamer
+
+[PR #891](https://github.com/bilo-io/midnite-studio/pull/891). Four media features over a runtime media kernel, Studio unchanged, and Midnite Gamer opening on Games.
+
 ## 2026-10-17 — Phase 113 — the shared data plane
 
 [PR #890](https://github.com/bilo-io/midnite-studio/pull/890). Studio hosts one vault and broker for every suite app — a guest is served only when paired (Ed25519 over a host nonce) and granted — Monitor shows Studio's live terminals, and `midnite://open` carries cross-app hand-off.
