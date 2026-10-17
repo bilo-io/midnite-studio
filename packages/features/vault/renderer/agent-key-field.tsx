@@ -46,7 +46,7 @@ export function AgentKeyField({ agent }: { agent: AgentDefinition }) {
       body: 'The key is deleted from the vault. Anything that used it stops working until you set it again.',
       confirmLabel: 'Remove',
       danger: true,
-      blastRadiusKind: 'secrets',
+      blastRadiusKind: 'credentials',
       blastRadius: { count: 1, sample: [] },
       onConfirm: () => {
         // An empty value clears the entry (the `secretsSet` contract).

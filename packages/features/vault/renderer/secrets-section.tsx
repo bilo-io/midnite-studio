@@ -72,7 +72,7 @@ export function SecretsSection() {
       body: 'Anything that uses it stops working until you set it again.',
       confirmLabel: 'Remove',
       danger: true,
-      blastRadiusKind: 'secrets',
+      blastRadiusKind: 'credentials',
       blastRadius: { count: 1, sample: [] },
       onConfirm: () => {
         // An empty value clears the entry (the `secretsSet` contract).

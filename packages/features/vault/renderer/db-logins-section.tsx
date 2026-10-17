@@ -27,7 +27,7 @@ export function DbLoginsSection() {
       body: 'The connection and its saved password are deleted.',
       confirmLabel: 'Remove',
       danger: true,
-      blastRadiusKind: 'secrets',
+      blastRadiusKind: 'credentials',
       blastRadius: { count: 1, sample: [] },
       onConfirm: () => {
         void bridge()?.db.deleteConnection({ id: connection.id }).then(refresh);

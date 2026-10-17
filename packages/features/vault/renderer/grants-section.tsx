@@ -50,7 +50,7 @@ export function GrantsSection() {
       body: `${appId} can no longer read or change them until you grant access again.`,
       confirmLabel: 'Revoke',
       danger: true,
-      blastRadiusKind: 'secrets',
+      blastRadiusKind: 'vaultAccess',
       blastRadius: { count: 1, sample: [] },
       onConfirm: () => {
         void bridge()

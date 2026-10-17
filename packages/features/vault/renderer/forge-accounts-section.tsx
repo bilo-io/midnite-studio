@@ -47,7 +47,7 @@ export function ForgeAccountsSection() {
       body: 'The stored token is deleted. The account stays on the provider.',
       confirmLabel: 'Remove',
       danger: true,
-      blastRadiusKind: 'secrets',
+      blastRadiusKind: 'credentials',
       blastRadius: { count: account.hasToken ? 1 : 0, sample: [] },
       onConfirm: () => {
         void bridge()?.forgeAccounts.remove({ id: account.id }).then(refresh);
