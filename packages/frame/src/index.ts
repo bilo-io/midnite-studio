@@ -144,6 +144,14 @@ export {
   type ActivityGlowInput,
   type ActivityGlowSessionInput,
 } from './activity/use-activity-glow';
+export {
+  findAnyCardSession,
+  findCardSession,
+  resolveSessionAgentId,
+  sessionPhase,
+  type ConnectionState,
+  type SessionPhase,
+} from './activity/session-phase';
 
 // Small shared behaviour.
 export { isEditableTarget, useEditableFocus } from './lib/use-editable-focus';

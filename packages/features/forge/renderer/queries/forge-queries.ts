@@ -1,16 +1,27 @@
 import { bridge } from '@midnite/studio-frame';
 import type {
   ForgeCapability,
+  ForgeIssueCommentsResult,
+  ForgeIssueCreateResult,
+  ForgeIssueDetailResult,
+  ForgeIssuesResult,
   ForgeKind,
+  ForgeLinkKind,
+  ForgeLinkWriteResult,
   ForgeMergeMethod,
-  ForgeProjectsResult,
+  ForgeProjectCreateResult,
+  ForgeProjectFieldValue,
+  ForgeProjectFieldsResult,
+  ForgeProjectItem,
+  ForgeProjectReadKind,
   ForgeProjectWriteResult,
+  ForgeProjectsResult,
   ForgePullCommentsResult,
   ForgePullDetailResult,
   ForgePullFilesResult,
   ForgePullScope,
-  ForgePullsResult,
   ForgePullThreadsResult,
+  ForgePullsResult,
   ForgeReviewEvent,
   ForgeRunDetailResult,
   ForgeRunLogResult,
@@ -21,6 +32,7 @@ import type {
 } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+
 
 /*
   The forge's renderer data layer (Phase 113 Theme O): the query keys and the
@@ -36,20 +48,6 @@ import { useEffect } from 'react';
  * them back in, so every key tuple is exactly what it was.
  */
 export const forgeKeys = {
-  /**
-   * A repo's GitHub listings.
-   *
-   * Under the repo prefix so closing one drops them, but deliberately NOT
-   * under `status`: the watcher fires `status` invalidations on every index
-   * and worktree event, and a local edit tells us nothing new about what CI
-   * concluded ten minutes ago. These refresh on their own clock and on the
-   * section's own refresh button.
-   */
-  forge: (repoId: string) => ['repos', repoId, 'forge'] as const,
-  forgeRuns: (repoId: string, branch?: string) =>
-    ['repos', repoId, 'forge', 'runs', branch ?? 'all'] as const,
-  forgePulls: (repoId: string, limit = 20, state = 'open', scope: ForgePullScope = 'all') =>
-    ['repos', repoId, 'forge', 'pulls', limit, state, scope] as const,
   forgeIssues: (repoId: string, limit = 20, state = 'open') =>
     ['repos', repoId, 'forge', 'issues', limit, state] as const,
   /**
@@ -65,6 +63,43 @@ export const forgeKeys = {
     ['repos', repoId, 'forge', 'issue-detail', number] as const,
   forgeIssueComments: (repoId: string, number: number) =>
     ['repos', repoId, 'forge', 'issue-comments', number] as const,
+  /**
+   * The ProjectV2 boards visible to the open repo's owner (Phase 40 Theme C).
+   *
+   * Under the repo prefix, like every other forge listing, so closing the
+   * repo drops it. Deliberately NOT under `forge` (`keys.forge(repoId)`): a
+   * board belongs to the owner, not to the repository's runs/pulls/issues, and
+   * this phase's field-write invalidation (Theme E) needs to drop exactly one
+   * board's fields/items without touching the run listing beside it.
+   */
+  forgeProjects: (repoId: string) => ['repos', repoId, 'forge-project', 'list'] as const,
+  /**
+   * One board's field definitions.
+   *
+   * Keyed by `projectId` alone, outside the `repos/<id>` prefix — a ProjectV2
+   * board belongs to a user or an organization, never to a repository (see
+   * `forge-project-handlers.ts`'s own note), so nothing about which repo is
+   * open bears on its fields. Closing the repo therefore does not drop this;
+   * it simply stops being asked for until another repo's Projects view picks
+   * the same board again, at which point `FORGE_STALE_MS` decides freshness.
+   */
+  forgeProjectFields: (projectId: string) => ['forge-project', projectId, 'fields'] as const,
+  /** One board's items — see `forgeProjectFields` for why this is not repo-scoped. */
+  forgeProjectItems: (projectId: string) => ['forge-project', projectId, 'items'] as const,
+  /**
+   * A repo's GitHub listings.
+   *
+   * Under the repo prefix so closing one drops them, but deliberately NOT
+   * under `status`: the watcher fires `status` invalidations on every index
+   * and worktree event, and a local edit tells us nothing new about what CI
+   * concluded ten minutes ago. These refresh on their own clock and on the
+   * section's own refresh button.
+   */
+  forge: (repoId: string) => ['repos', repoId, 'forge'] as const,
+  forgeRuns: (repoId: string, branch?: string) =>
+    ['repos', repoId, 'forge', 'runs', branch ?? 'all'] as const,
+  forgePulls: (repoId: string, limit = 20, state = 'open', scope: ForgePullScope = 'all') =>
+    ['repos', repoId, 'forge', 'pulls', limit, state, scope] as const,
   /**
    * One run's job tree.
    *
@@ -124,31 +159,7 @@ export const forgeKeys = {
    *  not repo-scoped, like `forgeAccounts` above. */
   forgeAccountReachableRepos: (accountId: string) =>
     ['forge', 'accounts', accountId, 'reachable-repos'] as const,
-  /**
-   * The ProjectV2 boards visible to the open repo's owner (Phase 40 Theme C).
-   *
-   * Under the repo prefix, like every other forge listing, so closing the
-   * repo drops it. Deliberately NOT under `forge` (`keys.forge(repoId)`): a
-   * board belongs to the owner, not to the repository's runs/pulls/issues, and
-   * this phase's field-write invalidation (Theme E) needs to drop exactly one
-   * board's fields/items without touching the run listing beside it.
-   */
-  forgeProjects: (repoId: string) => ['repos', repoId, 'forge-project', 'list'] as const,
-  /**
-   * One board's field definitions.
-   *
-   * Keyed by `projectId` alone, outside the `repos/<id>` prefix — a ProjectV2
-   * board belongs to a user or an organization, never to a repository (see
-   * `forge-project-handlers.ts`'s own note), so nothing about which repo is
-   * open bears on its fields. Closing the repo therefore does not drop this;
-   * it simply stops being asked for until another repo's Projects view picks
-   * the same board again, at which point `FORGE_STALE_MS` decides freshness.
-   */
-  forgeProjectFields: (projectId: string) => ['forge-project', projectId, 'fields'] as const,
-  /** One board's items — see `forgeProjectFields` for why this is not repo-scoped. */
-  forgeProjectItems: (projectId: string) => ['forge-project', projectId, 'items'] as const,
 };
-
 
 /**
  * How long a forge listing stays fresh.
@@ -248,50 +259,6 @@ export function useForgeRuns(repoId: string | null, enabled: boolean, branch?: s
     },
     enabled: enabled && repoId !== null,
     staleTime: FORGE_STALE_MS,
-  });
-}
-
-/**
- * The ProjectV2 boards visible to the open repo's owner (Phase 40 Theme C).
- *
- * `enabled` carries the same promise every forge read does: a human opened
- * the Projects view. No fetch happens on arrival — the acceptance test this
- * phase ships (`tasks-view.test.tsx`) is built on exactly that gate.
- */
-export function useForgeProjects(repoId: string | null, enabled: boolean) {
-  return useQuery<ForgeProjectsResult>({
-    queryKey: forgeKeys.forgeProjects(repoId ?? ''),
-    queryFn: async () => {
-      const api = bridge();
-      if (!api || !repoId) return EMPTY_PROJECTS;
-      return api.forgeProject.list({ repoId });
-    },
-    enabled: enabled && repoId !== null,
-    staleTime: FORGE_STALE_MS,
-  });
-}
-
-/**
- * Attach an existing pull request to a ProjectV2 board (Phase 50 Theme E).
- *
- * Unlike its two siblings above, this one takes no bound `projectId` — "Add
- * to project" from the Reviews page picks the board at call time, from
- * whichever one the user selects in the menu, so `projectId` travels with
- * each `mutate()` call instead of being fixed for the hook's lifetime.
- */
-export function useAddProjectItem() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { projectId: string; contentId: string }): Promise<ForgeProjectWriteResult> => {
-      const api = bridge();
-      if (!api) return NO_FORGE_PROJECT_WRITE;
-      return api.forgeProject.addItem(input);
-    },
-    onSuccess: (result, input) => {
-      if (result.ok) {
-        void client.invalidateQueries({ queryKey: forgeKeys.forgeProjectItems(input.projectId) });
-      }
-    },
   });
 }
 
@@ -778,6 +745,7 @@ export const EMPTY_PROJECTS: ForgeProjectsResult = { cli: EMPTY_CLI, projects: [
 export const NO_FORGE_WRITE: ForgeWriteResult = { ok: false, cli: EMPTY_CLI, error: null };
 /** Same reasoning as `NO_FORGE_WRITE`, for the `ForgeProjectWriteResult` shape. */
 export const NO_FORGE_PROJECT_WRITE: ForgeProjectWriteResult = { ok: false, kind: 'error', message: '' };
+/** Same reasoning as `NO_FORGE_WRITE`, for the `ForgeProjectWriteResult` shape. */
 
 /** Re-run the forge listings for one repo, on the user's say-so. */
 export function useRefreshForge(repoId: string | null) {
@@ -815,4 +783,470 @@ export function useForgeSubscription(repoId: string | null, kind: ForgeSubscript
       api.forge.unsubscribe({ repoId, kind });
     };
   }, [repoId, kind, enabled, client]);
+}
+
+/*
+  ─── Issues and boards (Phase 113 Theme O) ───────────────────────────────────
+
+  Moved verbatim out of the app's `services/queries.ts` (which re-exports them) so
+  Midnite Coder can hand the same hooks to the Tasks feature's host port: a
+  feature never imports another feature, so Tasks reads these through
+  `TasksHost.data`, which Studio and Coder both fill from here.
+*/
+
+const EMPTY_ISSUES: ForgeIssuesResult = {
+  cli: EMPTY_CLI,
+  issues: [],
+  // Not `disabled`: with no bridge there is no repository to have issues
+  // switched off, and claiming otherwise would render a definite answer to a
+  // question nobody asked.
+  disabled: false,
+  error: null,
+};
+const EMPTY_ISSUE_DETAIL: ForgeIssueDetailResult = { cli: EMPTY_CLI, issue: null, error: null };
+const EMPTY_ISSUE_COMMENTS: ForgeIssueCommentsResult = { cli: EMPTY_CLI, comments: [], error: null };
+const EMPTY_PROJECT_FIELDS: ForgeProjectFieldsResult = {
+  cli: EMPTY_CLI,
+  fields: [],
+  error: null,
+  kind: 'ok',
+};
+const EMPTY_PROJECT_ITEMS_PAGE: ForgeProjectItemsPage = {
+  cli: EMPTY_CLI,
+  items: [],
+  truncated: false,
+  error: null,
+  kind: 'ok',
+};
+const NO_FORGE_ISSUE_CREATE: ForgeIssueCreateResult = { ok: false, cli: EMPTY_CLI, error: null };
+const NO_FORGE_PROJECT_CREATE: ForgeProjectCreateResult = { ok: false, kind: 'error', message: '' };
+
+/**
+ * The ProjectV2 boards visible to the open repo's owner (Phase 40 Theme C).
+ *
+ * `enabled` carries the same promise every forge read does: a human opened
+ * the Projects view. No fetch happens on arrival — the acceptance test this
+ * phase ships (`tasks-view.test.tsx`) is built on exactly that gate.
+ */
+export function useForgeProjects(repoId: string | null, enabled: boolean) {
+  return useQuery<ForgeProjectsResult>({
+    queryKey: forgeKeys.forgeProjects(repoId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return EMPTY_PROJECTS;
+      return api.forgeProject.list({ repoId });
+    },
+    enabled: enabled && repoId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * Attach an existing pull request to a ProjectV2 board (Phase 50 Theme E).
+ *
+ * Unlike its two siblings above, this one takes no bound `projectId` — "Add
+ * to project" from the Reviews page picks the board at call time, from
+ * whichever one the user selects in the menu, so `projectId` travels with
+ * each `mutate()` call instead of being fixed for the hook's lifetime.
+ */
+export function useAddProjectItem() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { projectId: string; contentId: string }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.addItem(input);
+    },
+    onSuccess: (result, input) => {
+      if (result.ok) {
+        void client.invalidateQueries({ queryKey: forgeKeys.forgeProjectItems(input.projectId) });
+      }
+    },
+  });
+}
+
+/**
+ * Issues. `enabled` carries the same promise as the runs query — a human
+ * opened the section — for the same subprocess-and-rate-limit reason.
+ *
+ * Defaults match the sidebar section's and dashboard widget's original
+ * "what's open right now" ask; the Issues view (Phase 54 Theme C) is the one
+ * caller that raises `limit` and passes `state: 'all'` — its own filter
+ * toolbar (Theme E) is what narrows it back down, the same relationship
+ * `useForgePulls`'s `state` param has with the Reviews view's status tabs.
+ */
+export function useForgeIssues(
+  repoId: string | null,
+  enabled: boolean,
+  limit = 20,
+  state: 'open' | 'closed' | 'all' = 'open',
+) {
+  return useQuery<ForgeIssuesResult>({
+    queryKey: forgeKeys.forgeIssues(repoId ?? '', limit, state),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId) return EMPTY_ISSUES;
+      return api.forge.issues({ repoId, limit, state });
+    },
+    enabled: enabled && repoId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * One issue's metadata and body, fetched when it is opened and never for a list.
+ *
+ * `enabled` carries the same promise as its PR-detail sibling — every one of
+ * these is a `gh` subprocess against the user's rate limit.
+ */
+export function useForgeIssueDetail(repoId: string | null, number: number | null, enabled = true) {
+  return useQuery<ForgeIssueDetailResult>({
+    queryKey: forgeKeys.forgeIssueDetail(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_ISSUE_DETAIL;
+      return api.forge.issueDetail({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+export function useForgeIssueComments(
+  repoId: string | null,
+  number: number | null,
+  enabled: boolean,
+) {
+  return useQuery<ForgeIssueCommentsResult>({
+    queryKey: forgeKeys.forgeIssueComments(repoId ?? '', number ?? 0),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return EMPTY_ISSUE_COMMENTS;
+      return api.forge.issueComments({ repoId, number });
+    },
+    enabled: enabled && repoId !== null && number !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+export function useForgeProjectFields(projectId: string | null, enabled: boolean) {
+  return useQuery<ForgeProjectFieldsResult>({
+    queryKey: forgeKeys.forgeProjectFields(projectId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !projectId) return EMPTY_PROJECT_FIELDS;
+      return api.forgeProject.fields({ projectId });
+    },
+    enabled: enabled && projectId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+const PROJECT_ITEMS_PAGE_CEILING = 10;
+
+export type ForgeProjectItemsPage = {
+  cli: ForgeProjectsResult['cli'];
+  items: ForgeProjectItem[];
+  /** Hit the 1 000-item ceiling with more still on the board — see the phase doc. */
+  truncated: boolean;
+  error: string | null;
+  kind: ForgeProjectReadKind;
+};
+
+/**
+ * A board's items, walked sequentially to a documented ceiling.
+ *
+ * `mstudio:forge-project:items` is a *page* channel — one `gh` subprocess per
+ * call, cursor in, cursor out (Theme A's own request/response shape). The
+ * sequential walk the phase doc asks for ("fetch pages sequentially… never
+ * per-row") lives here rather than in main, because a cursor forces
+ * sequential fetching anyway and this is the one place react-query already
+ * owns staleness for the combined result. Capped at
+ * `PROJECT_ITEMS_PAGE_CEILING` pages (1 000 items at 100/page) — past it the
+ * walk stops and `truncated` is set, which `TasksView` renders rather than
+ * silently dropping the rest of the board.
+ */
+export function useForgeProjectItems(projectId: string | null, enabled: boolean) {
+  return useQuery<ForgeProjectItemsPage>({
+    queryKey: forgeKeys.forgeProjectItems(projectId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api || !projectId) return EMPTY_PROJECT_ITEMS_PAGE;
+
+      let cursor: string | undefined;
+      let items: ForgeProjectItem[] = [];
+      let truncated = false;
+      let page: ForgeProjectItemsPage = EMPTY_PROJECT_ITEMS_PAGE;
+
+      for (let pageIndex = 0; pageIndex < PROJECT_ITEMS_PAGE_CEILING; pageIndex += 1) {
+        const result = await api.forgeProject.items({ projectId, ...(cursor ? { cursor } : {}) });
+        page = { cli: result.cli, items: [], truncated: false, error: result.error, kind: result.kind };
+        if (result.error) break;
+
+        items = [...items, ...result.items];
+        if (result.nextCursor === null) break;
+
+        cursor = result.nextCursor;
+        if (pageIndex === PROJECT_ITEMS_PAGE_CEILING - 1) truncated = true;
+      }
+
+      return { ...page, items, truncated };
+    },
+    enabled: enabled && projectId !== null,
+    staleTime: FORGE_STALE_MS,
+  });
+}
+
+/**
+ * Set one item's field value (Phase 40 Theme E).
+ *
+ * **Not optimistic** — the house rule `useSetThreadResolved` already follows:
+ * the mutation never throws, so `onSuccess` fires on a refusal too, and only
+ * `result.ok` decides whether to invalidate. Invalidated narrowly: this
+ * board's items (what the edited cell renders from) — never the whole forge,
+ * and never `forgeProjectFields`, which a field-*value* write never changes.
+ */
+export function useSetProjectItemField(projectId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      itemId: string;
+      fieldId: string;
+      value: ForgeProjectFieldValue;
+    }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api || !projectId) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.setField({ projectId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && projectId) {
+        void client.invalidateQueries({ queryKey: forgeKeys.forgeProjectItems(projectId) });
+      }
+    },
+  });
+}
+
+/**
+ * Clear one item's field value entirely (Phase 50 Theme C) — a sibling to
+ * `useSetProjectItemField` rather than a branch inside it: `clearField` takes
+ * no `value` at all, so folding the two into one mutation would mean an
+ * input shape that is sometimes wrong for the channel it calls. Same "not
+ * optimistic, invalidate narrowly" posture as its sibling.
+ */
+export function useClearProjectItemField(projectId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { itemId: string; fieldId: string }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api || !projectId) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.clearField({ projectId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && projectId) {
+        void client.invalidateQueries({ queryKey: forgeKeys.forgeProjectItems(projectId) });
+      }
+    },
+  });
+}
+
+function invalidateIssueState(
+  client: QueryClient,
+  repoId: string | null,
+  number: number | null,
+): void {
+  if (!repoId) return;
+  if (number !== null) {
+    void client.invalidateQueries({ queryKey: forgeKeys.forgeIssueDetail(repoId, number) });
+  }
+  // Prefix-matched: `forgeKeys.forgeIssues` is keyed by limit AND state, and the
+  // sidebar section, the dashboard widget and the Issues view each ask with
+  // different values.
+  void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'issues'] });
+}
+
+/**
+ * Post a top-level comment on an issue's conversation.
+ *
+ * Invalidates the conversation only — a discussion comment carries no state
+ * change, so the row's status pill is the same as it was.
+ */
+export function useCommentIssue(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { body: string }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.issueComment({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (!result.ok || !repoId || number === null) return;
+      void client.invalidateQueries({ queryKey: forgeKeys.forgeIssueComments(repoId, number) });
+    },
+  });
+}
+
+export function useSetIssueState(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { state: 'open' | 'closed' }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.issueSetState({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok) invalidateIssueState(client, repoId, number);
+    },
+  });
+}
+
+/**
+ * Create an issue (`IssueDialog`'s create mode). Invalidates every listing
+ * key for this repo — `forgeKeys.forgeIssues` is keyed by limit AND state, and the
+ * sidebar section, dashboard widget and Issues view each ask with different
+ * values, the same prefix match `invalidateIssueState` above already uses.
+ */
+export function useCreateIssue(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      title: string;
+      body?: string;
+      labels?: string[];
+      assignees?: string[];
+      milestone?: string;
+    }): Promise<ForgeIssueCreateResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_ISSUE_CREATE;
+      return api.forge.issueCreate({ repoId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'issues'] });
+      }
+    },
+  });
+}
+
+export function useEditIssue(repoId: string | null, number: number | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      title?: string;
+      body?: string;
+      labels?: string[];
+      assignees?: string[];
+      milestone?: string | null;
+    }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId || number === null) return NO_FORGE_WRITE;
+      return api.forge.issueEdit({ repoId, number, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId && number !== null) invalidateIssueState(client, repoId, number);
+    },
+  });
+}
+
+/**
+ * Delete an issue outright — the caller (`IssueDialog`) is the one that
+ * raised the blast-radius confirm; this mutation only ever runs once a human
+ * has already agreed to it.
+ */
+export function useDeleteIssue(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { number: number }): Promise<ForgeWriteResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_WRITE;
+      return api.forge.issueDelete({ repoId, number: input.number });
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: ['repos', repoId, 'forge', 'issues'] });
+      }
+    },
+  });
+}
+
+export function useCreateProject(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { title: string }): Promise<ForgeProjectCreateResult> => {
+      const api = bridge();
+      if (!api || !repoId) return NO_FORGE_PROJECT_CREATE;
+      return api.forgeProject.create({ repoId, ...input });
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: forgeKeys.forgeProjects(repoId) });
+      }
+    },
+  });
+}
+
+export function useEditProject(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      projectId: string;
+      title?: string;
+      closed?: boolean;
+    }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.edit(input);
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: forgeKeys.forgeProjects(repoId) });
+      }
+    },
+  });
+}
+
+/**
+ * Delete a board outright. The caller (`ProjectDialog`) raised the
+ * blast-radius confirm (item count) before this ever runs — GitHub's own
+ * project deletion is irreversible.
+ */
+export function useDeleteProject(repoId: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { projectId: string }): Promise<ForgeProjectWriteResult> => {
+      const api = bridge();
+      if (!api) return NO_FORGE_PROJECT_WRITE;
+      return api.forgeProject.delete(input);
+    },
+    onSuccess: (result) => {
+      if (result.ok && repoId) {
+        void client.invalidateQueries({ queryKey: forgeKeys.forgeProjects(repoId) });
+      }
+    },
+  });
+}
+
+/**
+ * A `blockedBy`/`subIssue` dependency edge between two issues (Phase 95
+ * Theme F's Confirm step) — `IssueDialog`/`ProjectDialog`'s siblings had no
+ * reason to add this hook before Plan with AI's confirm sequencer needed it.
+ * No repo-scoped cache key bound at the hook's lifetime, matching
+ * `useAddProjectItem`'s own reasoning: the confirm sequencer calls this once
+ * per edge across potentially several repos in one sitting (a cross-repo
+ * `targetRepo`), so `repoId`/`number`/`targetNumber` all travel with each
+ * `mutate()` call instead.
+ */
+export function useLinkIssues() {
+  return useMutation({
+    mutationFn: async (input: {
+      repoId: string;
+      kind: ForgeLinkKind;
+      number: number;
+      targetNumber: number;
+      targetRepo?: string;
+    }): Promise<ForgeLinkWriteResult> => {
+      const api = bridge();
+      if (!api) return { ok: false, cli: EMPTY_CLI, error: null };
+      return api.forge.issuesLink(input);
+    },
+  });
 }
