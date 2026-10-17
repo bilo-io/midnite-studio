@@ -138,8 +138,15 @@ test('markdown renders, toggles source, and navigates internal relative links', 
     ),
   ).toHaveLength(0);
   // The browser pane the click just raised covers the file preview underneath
-  // it — close it before continuing, the same way a user would.
+  // it — close it before continuing, the same way a user would. Not before it
+  // has finished revealing: `useReveal` mounts it hidden and flips it shown on a
+  // later quiet frame, and its Escape layer registers only once shown — an
+  // Escape pressed in between is lost, and the pane then fades in over the
+  // preview (main run 39070210839, failing all three attempts on a slow runner).
+  const pane = page.getByRole('dialog', { name: 'Browser' });
+  await expect(pane).toHaveCSS('opacity', '1');
   await page.keyboard.press('Escape');
+  await expect(pane).toHaveCount(0);
 
   // Internal relative link navigates to docs/ARCH.md and expands docs directory in tree
   const archLink = page.getByRole('link', { name: 'Architecture doc' });
