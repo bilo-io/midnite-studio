@@ -94,11 +94,8 @@ confines agents.**
    recommendation, rather than improvising around it.
 3. **Finish themes before starting new ones.** Close 🔄 WIP themes before opening a ◻ TODO theme. The one
    exception is a TODO theme that unblocks a WIP one; anything else is asked about.
-4. **Guarded PRs wait for human review.** A PR touching the guardrails waits for Bilo's approval after CI
-   passes instead of being merged on green alone: the vault, broker, MCP server and shims, agent confinement
-   and argv builders, preload, CSP, window guard, hand-off links, publish and feed scripts, and anything that
-   publishes or calls the network. The sitrep marks it ⏳ "needs your review" and names the one to three files
-   most worth reading.
+4. **Merging continues as before.** The agent reviews its own PRs, with a security pass on guardrail paths,
+   and merges once CI passes. *(See "Suggestions considered, not adopted" below.)*
 5. **Things outside the repo go dry-run first.** Bundles are built locally and shown before anything is
    published to `bilo-io/midnite-apps`, and the real publish gets its own approval.
 6. **Real data is only ever touched by the human.** The V6 migration pass is a script the agent writes, and
@@ -117,7 +114,6 @@ how little human review it gets. Worst first:
    guest rules (#894), the confinement and MCP server for game agents (#895), and vault pairing (#890). The
    reviewer is the same kind of model, with the same blind spots: correlated blind spots are the core problem.
 2. **Self-merging on green CI.** A passing gate shows the tests pass, not that the change is right.
-   *(Agreement 4 now covers the guarded paths.)*
 3. **The same agent writes the code and its tests.** The tests tend to check what the code does, not what it
    should do.
 4. **What happens outside the repo can't be undone.** Issue midnite-apps#5 was opened by an agent-written test
@@ -129,13 +125,20 @@ how little human review it gets. Worst first:
    there damages the tools building the fix.
 8. **Phase 91 (Security hardening and CVE readiness) is 0/95 TODO** while the loop keeps adding attack surface.
 
-**Mitigations, cheapest first:**
-- Paths that need human approval to merge. *(Done: Agreement 4.)*
+**Mitigations, cheapest first (suggestions; none adopted beyond Agreement 3 yet):**
+- Paths that need human approval to merge. *(Considered, not adopted for now: see below.)*
 - For guarded paths, a review from a different source: a human, or a different model briefed to break the
   change rather than confirm it.
 - For confinement, tests written from the spec before the code exists.
 - New dependencies listed in the PR body for sign-off.
 - A cap on open themes *(Agreement 3)*, and Phase 91 scheduled before the next feature phase.
+
+#### Suggestions considered, not adopted (for now)
+
+- **Hold guardrail PRs for human review.** PRs touching the vault, broker, MCP server and shims, agent
+  confinement, preload, CSP, window guard, hand-off links or publishing would wait for Bilo's approval
+  instead of merging on green. Bilo was asking for suggestions rather than changing the process, so we keep
+  operating as before: self-review with a security pass, then merge on green. Revisit in a later review.
 
 #### Questions owed to the human, settled in this session
 
