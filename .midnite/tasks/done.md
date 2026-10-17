@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme L (slice 2) — Browser as a feature; apps/browser composes it with its own main and icon
+
+[PR #900](https://github.com/bilo-io/midnite-studio/pull/900). `packages/features/browser` takes the browser and web-apps renderer and main half (`browser-security.ts` byte-for-byte), Studio composes it unchanged, and `apps/browser` composes the same feature with its own Electron main and icon, so its bundle packs. Theme L ✅.
+
 ## 2026-10-17 — Phase 113 Theme O (slice 5) — Tasks as a feature; Coder's Tasks tab and the agent-run hand-off
 
 [PR #898](https://github.com/bilo-io/midnite-studio/pull/898). `tasks` is a feature, Coder gains a gated Tasks tab, and a Coder card hands `{issueUrl, skill}` to Studio, which refuses unknown repositories and always confirms. Theme O ✅; Verification V5 ticked (Studio closed deferred) and V7 recorded: disk 253 MB vs 794 MB, idle memory 862 MB vs 627 MB.

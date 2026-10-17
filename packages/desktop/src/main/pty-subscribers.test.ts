@@ -6,7 +6,7 @@ import { registerMainWindow } from './window-manager';
 /**
  * `pty-service.ts` needs a real `BrowserWindow` value (`BrowserWindow.fromId`)
  * for the per-ptyId subscriber registry (Phase 55), so it is faked the same
- * way `browser-service.test.ts` fakes `WebContentsView` — a minimal class
+ * way the browser feature's `browser-service.test.ts` fakes `WebContentsView` — a minimal class
  * with an `id`, a `fromId` registry, `once`/`isDestroyed`.
  */
 const { FakeBrowserWindow } = vi.hoisted(() => {

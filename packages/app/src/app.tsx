@@ -22,15 +22,17 @@ import { CiPower } from 'react-icons/ci';
 import { LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandHomeButton, BrandMark } from './components/brand';
-import { BrowserLauncher } from './features/browser/browser-launcher';
-import { BrowserSwitcherOverlay } from './features/browser/browser-switcher-overlay';
 import { TerminalSwitcherOverlay } from './features/terminal/terminal-switcher-overlay';
 import { NotesModal } from './features/notes/notes-modal';
 import { QuickAccessMenu } from './features/quick-access/quick-access-menu';
-import { BrowserPane } from './features/browser/browser-pane';
-import { WebAppsFlyoutPanel } from './features/web-apps/web-apps-flyout-panel';
-import { WebAppsRailRow } from './features/web-apps/web-apps-rail-row';
-import { useWebAppsSync } from './features/web-apps/use-web-apps-sync';
+import {
+  BrowserLauncher,
+  BrowserPane,
+  BrowserSwitcherOverlay,
+  useWebAppsSync,
+  WebAppsFlyoutPanel,
+  WebAppsRailRow,
+} from '@midnite/studio-feature-browser/renderer';
 // The frame (Phase 113 Theme C): the chrome every app wears. The layout
 // pieces below are the first to leave this file for it.
 import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, useKnowledgeGraphExists } from '@midnite/studio-frame';

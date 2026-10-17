@@ -2,7 +2,7 @@ import { net, session, WebContentsView, type BrowserWindow } from 'electron';
 
 import type { GameElectron, GamePopoutWindow, GameSession, GameViewOptions, GameWindow } from '@midnite/studio-feature-media-game/main';
 
-import { cancelDownload } from '../browser-security';
+import { cancelDownload } from '@midnite/studio-feature-browser/main';
 
 /**
  * The Electron pieces Studio hands the games feature's runner (Phase 113 Theme S): a game's sandboxed

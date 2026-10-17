@@ -34,7 +34,7 @@ vi.mock('@midnite/studio-frame', async (importOriginal) => ({
 }));
 
 import { handleCompanionRelayAction, navigateCompanion, resolveNavigation, type NavigationState } from './navigate';
-import { useBrowserStore } from '../../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useIssueModalStore } from '../../store/issue-modal-store';
 import { useUiStore } from '../../store/ui-store';

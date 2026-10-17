@@ -8,8 +8,8 @@ import { buildMenu } from './menu';
  * `menu.ts` imports `electron` for `Menu` alone, and builds its template from
  * the shared keymap. Faking `Menu.buildFromTemplate` to hand the template back
  * is enough to assert the labels and accelerators the user actually sees —
- * following the `vi.mock('electron', …)` pattern `browser-service.test.ts` and
- * `fs-write-handlers.test.ts` already use.
+ * following the `vi.mock('electron', …)` pattern `fs-write-handlers.test.ts`
+ * already uses.
  */
 vi.mock('electron', () => ({
   Menu: {

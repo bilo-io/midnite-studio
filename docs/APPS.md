@@ -38,7 +38,7 @@ The frame:
 |---|---|---|
 | `activity` | frame |  |
 | `battery` | frame |  |
-| `browser` | frame | the panel; the Browser app composes this folder, and the full-window app adds `web-apps` |
+| `browser` | frame | the panel; now `packages/features/browser` together with `web-apps` (`FEATURE_PACKAGE_FOLDERS.browser`), which the Browser app composes full-window |
 | `changes` | frame | working-tree changes belong to the git graph |
 | `commit` | frame |  |
 | `companion` | frame |  |
@@ -327,21 +327,76 @@ A new suite app (`apps/<id>`) writes its composition, not its chrome:
 
 Each app in `apps/` composes the frame, its assigned features, and its host ports into an installable desktop product.
 
-### App 5: Browser (`apps/browser`)
+### App 5: Browser (`apps/browser`) — Phase 113 Theme L
 
-The Browser app (`apps/browser`) composes the frame's `browser` feature and the `web-apps` rail.
+Browser composes one feature package, **`packages/features/browser`**, over the frame and `shared`: the
+same pane, tabs, toolbar, new-tab page, find bar, launcher, switcher and web-apps rail that Studio's
+browser panel is, given the whole window. It is a real bundle: `resources/icon.icns`, an Electron main
+and a `pack-bundle` zip, like Cleaner and Coder.
 
-**What the app adds over the frame's browser panel:**
-1. **Full-window browsing canvas**: In Studio, the browser is an auxiliary panel (overlay or side-by-side) sharing space with git graphs, terminals, and editor panes. `apps/browser` gives browsing the full window with full-bleed page viewports, dedicated tabs, search, history, bookmarks, and keyboard navigation without git/editor chrome.
-2. **First-class web-apps rail dock**: Integrates the Phase 83 `web-apps` rail as a primary dock surface alongside ephemeral browser tabs. Pinned web apps (Slack, Notion, Linear, Spotify, GitHub) retain persistent, isolated session partitions (`persist:app-<id>`) with fast switching and flyout management.
-3. **Agent-driven browsing sessions**: Native hooks for AI agents to steer, inspect, and test web pages. Autonomous sessions support agent automation, step-by-step navigation, DOM snapshot inspection, and companion interaction directly from the browser window.
-4. **Independent profile & workspace isolation**: Dedicated session storage, cookies, and cache independent of code repository checkouts.
+**Decision 1 — one package for two folders.** `browser` and `web-apps` became one package
+(`FEATURE_PACKAGE_FOLDERS.browser = ['browser', 'web-apps']`, the forge's direction). The web-apps rail
+measures its native view with the pane's `boundsFromRect`, and both ride the same `WebContentsView`
+services in main; split, `web-apps` would import `browser`, the feature→feature import the layer rules
+forbid. The package takes `browser`'s placement (the frame, so its moon tag is `app-all`); `web-apps`
+keeps its own placement row (the Browser app). Each folder keeps its registrations, so Studio's view
+order is unchanged.
 
-**Package architecture & ports:**
-- **Moon tags**: `layer-app`, `app-browser`.
-- **Imports**: Composes `@midnite/studio-frame` and features; reaches main via bridge; never imports other apps or desktop directly.
-- **Ports**: Implements the frame's chrome port (`FrameChromeProvider`) and the `BrowserHost` port (managing tab state, web-apps dock state, agent session mode, and browser settings).
+**The renderer half** (`renderer/`) reaches the app through the **`BrowserHost` port**
+(`renderer/host.tsx`): a zustand-shaped `ui` store (the layout, launcher and switcher state, the
+discard threshold, the occluder count, the selected repository and the web apps' enabled, detached and
+on-screen state — names matching Studio's `ui-store`, whose persisted keys did not move), the repository
+and remote hooks, Studio's modal, tooltip, context menu and Escape stack, the occluder hook, the popout
+header slots, the brand marks and each web app's glyph. `standalone` is true in an app that *is* the
+browser: the pane offers no layout picker, no "Close browser" and no Escape-to-close, and neither the tab
+strip nor a web app offers Detach. Studio's adapter is `packages/app/src/compose/browser-host.tsx`
+(`standalone: false`, so Studio keeps every one of them); its composition tests are in
+`app/src/compose/browser/`.
 
+**The main half** (`main/`) is what moved out of `packages/desktop`: `browser-service.ts`,
+`web-apps-service.ts`, **`browser-security.ts` unchanged** (every navigation guard, permission handler,
+window-open handler and partition rule, with its test, byte-for-byte), `dev-server-probe.ts`, and the
+handlers for every browser and web-apps channel. It imports no `electron`: the host installs a
+structural port (`browser-electron.ts`: `createView`, `sessionFromPartition`, `onDisplayMetricsChanged`,
+`openExternal`) with `installBrowserMain({ electron, log, readDiscardSettings })`, and passes a
+**sender-aware IPC port** (`BrowserSenderIpc`) because tab creation, bounds and visibility are resolved
+against the window that asked — the runtime's `FeatureMainContext` does not carry the sender. Desktop's
+adapter is `main/browser-port.ts` (the real Electron, plus the one cast from `BrowserWindow` to the port's
+`BrowserHostWindow` — `View` and `BrowserView` are not structurally assignable) and
+`main/ipc/browser-feature-handlers.ts`, which calls `browserMain.register`.
+
+**What Browser is** (`apps/browser`):
+
+- **Renderer** (`src/`): `BrowserApp` wraps `BrowserShell` in the frame chrome (`compose/browser-chrome.tsx`,
+  the suite kit) and its `BrowserHost` (`compose/browser-host.tsx`: `standalone: true`, no repositories, a
+  small Escape stack with Studio's occludes rule, a native-title tooltip, the kit's context menu, and a
+  `PiGlobeFill` mark in the accent `#f59e0b`). The state is `browser-ui-store.ts` (key
+  `midnite-browser.ui`: enabled web apps, the last one opened, the discard threshold). Any kit dialog or
+  menu counts as an occluder, so the page's native view hides beneath it.
+- **The three pieces #853 settled**: full-window browsing (the feature's `BrowserPane`); **web apps** on the
+  rail (`WebAppsRailRow`), each taking the page when opened (`components/web-app-view.tsx` over the
+  feature's `WebAppPane` and its `persist:app-<id>` partition), turned on and off from a "Web apps" menu —
+  Studio's Settings ▸ Apps; and the **agent session** strip (`components/agent-session-bar.tsx`), which is
+  **still a placeholder** (`agent-session-store.ts`): starting records a goal, Step logs a simulated action,
+  Take Over ends it. Driving a tab needs an agent runtime with tools over the tabs' `WebContents`, a
+  main-side contract this slice does not add.
+- **Keys** (`use-browser-keys.ts`): the browser commands' chords from `shared`'s `COMMANDS`, matched as
+  Studio's dispatcher matches them. The app menu is only the app and edit menus, so `Mod+w` and `Mod+r`
+  reach the tab commands rather than closing or reloading the window.
+- **Main** (`main/`): `identity.ts` (name `Midnite Browser`, userData `<Midnite Runtime>/apps/browser`,
+  `MIDNITE_BROWSER_USER_DATA` overrides it, `MIDNITE_BROWSER_SMOKE=1` prints `midnite-browser:ready` once
+  the window has loaded and quits), `index.ts` (single instance, `guardAppWindow`, every permission denied on
+  the default session — Studio replaces Electron's default the same way; the tabs keep the feature's own
+  partition security), `context.ts` (registers `browserMain` with the real Electron behind the port, the
+  idle-discard sweeps, and `clipboardWriteText`), and `preload.ts` + `bridge.ts`, which expose only
+  `browser`, `webApps`, `clipboard` and `menu` on `window.midniteStudio`. Browser holds no credential, so it
+  composes no vault and no pairing. `scripts/bundle-main.mjs` writes `dist/main.cjs` and `dist/preload.cjs`.
+  Web-app idle discard is off (Studio reads it from its settings; Browser has none yet).
+- **Icon**: `node apps/browser/scripts/make-icon.mjs` writes `resources/icon.icns` from the catalog's glyph
+  and accent (`CHROMIUM_PATH=<chrome-headless-shell>` to use an installed browser). The `.icns` is committed,
+  so a release now packs `midnite-browser-X.Y.Z-bundle.zip`.
+- **Build task**: the feature has a `main/`, so it keeps a real `build` (`tsc -b tsconfig.main.json`); only a
+  renderer-only feature takes slides' no-op.
 
 ### App 6: Cleaner (`apps/cleaner`) — the first app that ships as its own bundle
 

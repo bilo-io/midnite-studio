@@ -2,7 +2,7 @@
  * `will-navigate` / `will-redirect` guard for the app's own windows.
  *
  * The embedded browser partition inverts this rule (http(s) only) in
- * `browser-security.ts`; here only the bundled renderer origin may load in-place.
+ * the browser feature's `main/browser-security.ts`; here only the bundled renderer origin may load in-place.
  */
 
 import { shell, type WebContents } from 'electron';

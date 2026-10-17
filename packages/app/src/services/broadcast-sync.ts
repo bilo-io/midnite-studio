@@ -9,7 +9,7 @@ import { useFilesStore } from '../features/files/files-store';
 import { usePaletteStore } from '../features/themes/palette-store';
 import { useActionsStore, type ActionsState } from '../store/actions-store';
 import { useAppearanceStore, type AppearanceState } from '../store/appearance-store';
-import { useBrowserStore, type BrowserTab, type BrowserTabGroup } from '../store/browser-store';
+import { useBrowserStore, type BrowserTab, type BrowserTabGroup } from '@midnite/studio-feature-browser/renderer/store';
 import { applyNotesDelta, diffNotes, useNotesStore, type NotesDelta } from '../store/notes-store';
 import { useSessionsStore, type SessionsState } from '../store/sessions-store';
 import { useUiStore, type UiState } from '../store/ui-store';

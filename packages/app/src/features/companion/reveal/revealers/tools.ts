@@ -2,7 +2,7 @@ import { resourceRefLabel, type SettingsPageId } from '@midnite/studio-shared';
 
 import { bridge } from '../../../../services/bridge';
 import { apiTabId, useApiClientStore } from '@midnite/studio-feature-api-client/renderer';
-import { useBrowserStore } from '../../../../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { openQueryTab, previewSql, useDatabaseConnectionsStore } from '@midnite/studio-feature-database/renderer';
 import { useUiStore } from '../../../../store/ui-store';
 import { SETTINGS_SECTIONS } from '../../../settings/settings-sections';

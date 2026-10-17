@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * `vi.mock('electron', …)` pattern `browser-service.test.ts` and
+ * `vi.mock('electron', …)` pattern `fs-write-handlers.test.ts` and
  * `menu.test.ts` already use. `app` is a plain mutable object rather than a
  * getter, so a test can flip `isPackaged` between cases.
  */

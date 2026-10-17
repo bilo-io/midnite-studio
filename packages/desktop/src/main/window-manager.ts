@@ -16,8 +16,7 @@ import {
 import { BrowserWindow, app, screen, shell, type Display, type WebContents } from 'electron';
 
 import { bindAppNavigationGuard } from './app-navigation';
-import { reparentWebAppView } from './web-apps-service';
-import { reparentBrowserTabs } from './browser-service';
+import { reparentBrowserTabs, reparentWebAppView } from './browser-port';
 import type { Logger } from './log';
 import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
 import type { ReopenStore, WindowBounds, WindowsStore } from './windows-store';
@@ -313,7 +312,7 @@ export function bindPopoutRenderProcessGone(win: BrowserWindow, log: Logger): vo
   /*
     Not a crash — the popout is alive and has stopped answering. Bound here
     because until Phase 65 `unresponsive` was wired ONLY for embedded browser
-    tabs (`browser-service.ts`), so a hung Studio window — the failure a user is
+    tabs (the browser feature's `browser-service.ts`), so a hung Studio window — the failure a user is
     most likely to actually report — left no record at all. Recorded and not
     acted on: Electron recovers from most of these on its own, and killing a
     window that was merely busy would be a worse bug than the one being logged.

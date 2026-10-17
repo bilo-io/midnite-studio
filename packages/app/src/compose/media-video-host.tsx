@@ -5,7 +5,7 @@ import type { VideoHost, VideoStudioViewProps } from '@midnite/studio-feature-me
 import { Modal } from '../components/modal';
 import { LoadingRegion, Skeleton, Spinner } from '../components/skeleton';
 import { TreeSection } from '../components/tree-section';
-import { useBrowserBounds } from '../features/browser/use-browser-bounds';
+import { useBrowserBounds } from '@midnite/studio-feature-browser/renderer';
 import { FileIcon, FolderIcon } from '../features/files/file-icons';
 import { MarkdownPreview } from '../features/files/preview/markdown-preview';
 import { VideoEditThread } from '../features/media/video/video-edit-thread';

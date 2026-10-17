@@ -2,7 +2,7 @@
  * Content-Security-Policy for the app's own renderer documents.
  *
  * Installed on `session.defaultSession` only — the `persist:browser` partition
- * keeps its own policy in `browser-security.ts`. Pure builders here so
+ * keeps its own policy in the browser feature's `main/browser-security.ts`. Pure builders here so
  * `csp.test.ts` and the Vite dev-server middleware can share one string.
  */
 

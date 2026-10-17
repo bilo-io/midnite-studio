@@ -1,19 +1,17 @@
 import { createFrameChrome } from '@midnite/studio-frame';
+import { useStore } from 'zustand';
 
-function PageDetachMark({ role, className }: { role: string; className?: string }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded border border-border px-1 py-0.5 text-[10px] text-muted-foreground ${className ?? ''}`}
-      title={`Detached role: ${role}`}
-    >
-      Detached
-    </span>
-  );
-}
-
-const kit = createFrameChrome({ PageDetachMark });
+/** Browser's frame chrome: the suite kit — its icon button, confirm, prompt and context menu. */
+const kit = createFrameChrome();
 
 export const BROWSER_CHROME = kit.chrome;
 
-/** Mount once beside the provider so `confirm` shows a real dialog. */
+/** Mount once beside the provider so `confirm`, `prompt` and `openMenu` show something real. */
 export const BrowserDialogHost = kit.DialogHost;
+
+type DialogState = ReturnType<typeof kit.dialogStore.getState>;
+
+/** A selector over the kit's dialog store — whether anything is up, for the native views to hide under it. */
+export function BrowserDialogStore<T>(selector: (state: DialogState) => T): T {
+  return useStore(kit.dialogStore, selector);
+}

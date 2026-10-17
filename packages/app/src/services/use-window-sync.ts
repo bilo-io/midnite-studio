@@ -11,7 +11,7 @@ import {
 
 import { bridge } from './bridge';
 import { handleCompanionRelayAction } from '../features/companion/navigate';
-import { useBrowserStore } from '../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useUiStore } from '../store/ui-store';
 
 const ROLES: readonly PanelWindowRole[] = ['terminal', 'repos', 'fab', 'companion', 'browser'];

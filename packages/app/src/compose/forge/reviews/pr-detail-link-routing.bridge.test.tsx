@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { fixtures } from '../../../../test-support/fixtures';
 import type { MockFixtures } from '../../../../test-support/mock-bridge';
 import { renderView } from '../../../../test-support/render';
-import { useBrowserStore } from '../../../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useUiStore } from '../../../store/ui-store';
 import { PrDetail } from '@midnite/studio-feature-forge/renderer/testing';
 

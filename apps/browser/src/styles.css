@@ -1,0 +1,90 @@
+/* Design tokens (HSL custom properties + the `.dark` block) from @bilo-io/ui, the same token source
+ * Studio uses, so the browser feature wears identical colours here. */
+@import '@bilo-io/ui/styles';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Browser's accent — the launcher catalog's `browser` tile colour. */
+  --browser-accent: #f59e0b;
+  /* The address bar's "Not secure" chip (Studio's styles.css, the same raw amber). */
+  --browser-insecure: 38 92% 50%;
+}
+
+.dark {
+  --browser-insecure: 38 95% 58%;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+/* The tab strip scrolls sideways without a visible track (Studio's `.hide-scrollbar`). */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* The indeterminate bar under the toolbar while a tab loads (Studio's, verbatim). */
+@keyframes browser-loading-sweep {
+  0% {
+    transform: scaleX(0);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scaleX(0.85);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.browser-loading-bar {
+  transform-origin: left;
+  animation: browser-loading-sweep 1s ease-out infinite;
+}
+
+/* The address bar and the new-tab search share one ring clock, paused while neither is focused
+ * (Studio's styles.css explains why: the ring must not restart, and an idle ring must cost nothing). */
+@property --browser-gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: true;
+}
+
+@keyframes browser-gradient-spin {
+  to {
+    --browser-gradient-angle: 360deg;
+  }
+}
+
+:root {
+  animation: browser-gradient-spin 4s linear infinite paused;
+}
+
+:root:has(.browser-search-sync:focus-within) {
+  animation-play-state: running;
+}
+
+.browser-search-sync {
+  --gradient-angle: var(--browser-gradient-angle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    animation: none;
+  }
+  .browser-loading-bar {
+    animation: none;
+  }
+}

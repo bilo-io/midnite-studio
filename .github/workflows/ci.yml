@@ -258,6 +258,7 @@ jobs:
           feature-finance:typecheck feature-finance:lint feature-finance:test
           feature-tests:typecheck feature-tests:lint feature-tests:test
           feature-forge:typecheck feature-forge:lint feature-forge:test
+          feature-browser:typecheck feature-browser:lint feature-browser:test
           feature-api-client:typecheck feature-api-client:lint feature-api-client:test
           feature-database:typecheck feature-database:lint feature-database:test
           feature-sessions:typecheck feature-sessions:lint feature-sessions:test

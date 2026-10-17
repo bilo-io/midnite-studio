@@ -9,7 +9,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { bridge } from '../../services/bridge';
-import { useBrowserStore } from '../../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { SETTINGS_PAGES, useUiStore } from '../../store/ui-store';
 import { useGameRunStore } from '@midnite/studio-feature-media-game/renderer';
