@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme O (slice 2) — the git graph in the frame; Coder's read-only Graph
+
+[PR #889](https://github.com/bilo-io/midnite-studio/pull/889). Studio's git graph and diff behind a `GitHost` port in the frame with every write path left in Studio, and Midnite Coder's Graph over the system git. Verification V1–V3 ticked.
+
 ## 2026-10-17 — Phase 113 Theme Q (slice 3) — the music editor joins Audio; music MCP tools owned by its manifest
 
 [PR #888](https://github.com/bilo-io/midnite-studio/pull/888). Midnite Creator gains the music editor, and the `music_*` MCP tools are declared by Audio's manifest. Theme Q is done.
