@@ -687,6 +687,13 @@ export const CHANNELS = {
    * attached-and-visible per window, mirroring `browserActivate` (Theme C).
    */
   webAppsActivate: 'mstudio:web-apps:activate',
+  /**
+   * Which partitions hold a sign-in — cookie counts and the sites they belong to, never a value
+   * (Phase 113 Theme J slice 3; the Vault lists it).
+   */
+  webAppsSignIns: 'mstudio:web-apps:sign-ins',
+  /** Sign out of one web app: clears that one partition's storage. Behind the Vault's blast-radius confirm. */
+  webAppsSignOut: 'mstudio:web-apps:sign-out',
 
   // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
   // Reads are scope: repo | claude-home, exactly as before. The four write

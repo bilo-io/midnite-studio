@@ -46,8 +46,8 @@ import { submitCommand } from '../../terminal/submit-command';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { FileTree } from '../../files/file-tree';
 import { FilePreview } from '../../files/preview/file-preview';
-import { AgentKeyField } from './agent-key-field';
 import { Choice, Field } from './controls';
+import { AgentKeyField } from '@midnite/studio-feature-vault/renderer';
 
 /**
  * The Agent page: what `~/.claude` holds, which Claude CLI is installed, where

@@ -8,6 +8,7 @@ import { registerWebAppsHandlers } from './web-apps-handlers';
 
 export { browserManifest, type BrowserManifest } from '../manifest';
 export type {
+  BrowserCookieDomain,
   BrowserElectron,
   BrowserHostWindow,
   BrowserInput,
@@ -49,6 +50,7 @@ export {
   stopBrowserDiscardSweep,
 } from './browser-service';
 export { DEV_SERVER_PROBE_TIMEOUT_MS, probeLoopbackPort } from './dev-server-probe';
+export { listWebAppSignIns, signOutWebApp } from './web-app-sign-ins';
 export {
   activateWebApp,
   destroyAllWebApps,

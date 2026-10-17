@@ -13,8 +13,10 @@ import { CHANNELS, defineFeatureManifest } from '@midnite/studio-shared';
  * `manifest.test.ts` walks {@link vaultResponseSchemas} to prove no response
  * carries a value field.
  *
- * Settings pages stay where they are (`FEATURE_SETTINGS_PAGES.forge` →
- * `accounts`), so `settingsPages` is empty this slice.
+ * Settings pages stay registered where they are (`FEATURE_SETTINGS_PAGES.forge`
+ * → `accounts`, Agent's own page), so `settingsPages` is empty: since slice 3
+ * the credential parts of those pages are this feature's components, which
+ * Studio's pages render through the `VaultHost` port (`renderer/host.tsx`).
  *
  * Imports `@midnite/studio-shared` and nothing else — the main-process
  * composer reads this file too.
@@ -30,7 +32,7 @@ export const vaultManifest = defineFeatureManifest({
       rail: {
         group: 'workspace',
         label: 'Vault',
-        description: 'Stored secrets, forge accounts and database logins — set, rotate or remove, never read back',
+        description: 'Stored secrets, forge accounts, database logins and web-app sign-ins — set, rotate or remove, never read back',
       },
     },
   ],
@@ -48,6 +50,11 @@ export const vaultManifest = defineFeatureManifest({
     CHANNELS.vaultGrantRevoke,
     CHANNELS.vaultPairingsList,
     CHANNELS.vaultPairingUnpair,
+    // Web-app sign-ins (slice 3): which `persist:app-<id>` partitions hold cookies, and Sign out.
+    // The browser feature answers them in Studio, whose sessions they are; the standalone Vault
+    // answers "needs Studio" (`main/index.ts`).
+    CHANNELS.webAppsSignIns,
+    CHANNELS.webAppsSignOut,
   ],
   events: [],
   mcpTools: [],

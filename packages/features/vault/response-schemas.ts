@@ -22,4 +22,6 @@ export const vaultResponseSchemas: Readonly<Record<VaultChannel, ZodTypeAny>> = 
   [CHANNELS.vaultGrantRevoke]: schemas.VaultGrantRevokeResponse,
   [CHANNELS.vaultPairingsList]: schemas.VaultPairingsListResponse,
   [CHANNELS.vaultPairingUnpair]: schemas.VaultPairingUnpairResponse,
+  [CHANNELS.webAppsSignIns]: schemas.WebAppsSignInsResponse,
+  [CHANNELS.webAppsSignOut]: schemas.WebAppsSignOutResponse,
 };

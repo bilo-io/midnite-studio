@@ -29,7 +29,16 @@ export const browserManifest = defineFeatureManifest({
   views: [],
   settingsPages: [],
   /** Request/response channels. */
-  ipc: [CHANNELS.browserCreate, CHANNELS.browserClearData, CHANNELS.browserDevServerProbe, CHANNELS.webAppsEnable],
+  ipc: [
+    CHANNELS.browserCreate,
+    CHANNELS.browserClearData,
+    CHANNELS.browserDevServerProbe,
+    CHANNELS.webAppsEnable,
+    // The partitions' sign-ins, listed and cleared for the Vault (Theme J slice 3) — they live in this
+    // feature's sessions, so this feature answers them; the Vault's manifest names them too.
+    CHANNELS.webAppsSignIns,
+    CHANNELS.webAppsSignOut,
+  ],
   /** One-way (`send`) channels — a bounds push fires every resize frame, so no round trip. */
   sends: [
     CHANNELS.browserClose,

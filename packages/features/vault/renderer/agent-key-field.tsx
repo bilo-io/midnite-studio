@@ -1,12 +1,10 @@
+import { bridge, useFrameChrome } from '@midnite/studio-frame';
+import { agentSecretKey, type AgentDefinition } from '@midnite/studio-shared';
 import { useCallback, useEffect, useState } from 'react';
 
-import { agentSecretKey, type AgentDefinition } from '@midnite/studio-shared';
-
-import { useDialogs } from '../../../components/dialog-host';
-import { bridge } from '../../../services/bridge';
-
 /**
- * One agent's API key — write-only (Phase 113 Theme J slice 2).
+ * One agent's API key — write-only (Phase 113 Theme J slice 2; a vault-feature
+ * component since slice 3, which Studio's Settings ▸ Agent renders per agent).
  *
  * The key lives in the vault (`agent.<id>.apiKey`); this field only ever asks
  * `secrets.has` whether one is set and writes a new value one way. It never
@@ -15,6 +13,7 @@ import { bridge } from '../../../services/bridge';
  * Remove is confirmed, like every other secret removal.
  */
 export function AgentKeyField({ agent }: { agent: AgentDefinition }) {
+  const { useDialogs } = useFrameChrome();
   const dialogs = useDialogs();
   const key = agentSecretKey(agent.id);
   const [isSet, setIsSet] = useState<boolean | null>(null);

@@ -5489,8 +5489,8 @@ html[data-motion='reduced'] .session-row-pulse {
 }
 
 /* Ad hoc: Settings ▸ Accounts forge provider picker — brand-coloured icon and
-   selected-state accent (`accounts-page.tsx`'s `ForgeProviderPicker`,
-   `PROVIDER_BRAND_COLOR`). The component sets `--brand-light`/`--brand-dark`
+   selected-state accent (the vault feature's `ForgeProviderPicker`,
+   `forge-providers.ts`' `PROVIDER_BRAND_COLOR`). The component sets `--brand-light`/`--brand-dark`
    inline per button; this is the one place that knows which theme is active,
    so it resolves them to `--forge-brand` here rather than the component
    reading `document.documentElement.classList` itself. Same shape as the

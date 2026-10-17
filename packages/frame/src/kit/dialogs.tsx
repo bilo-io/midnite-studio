@@ -15,6 +15,7 @@ export const BLAST_RADIUS_COPY: Record<BlastRadiusKind, { noun: string; conseque
   secrets: { noun: 'secret value', consequence: 'will be written to a local, gitignored file.' },
   issue: { noun: 'issue', consequence: 'will be affected.' },
   project: { noun: 'project', consequence: 'will be affected.' },
+  cookies: { noun: 'cookie', consequence: 'will be cleared with the rest of the app’s site data — you will be signed out.' },
 };
 
 type DialogState = {

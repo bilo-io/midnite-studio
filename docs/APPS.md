@@ -100,7 +100,7 @@ The apps, grouped by owner:
 | `finance` | money | the panel, status-bar segment and dashboard widgets (once two folders, `finance` and `finance-dashboard`) as one package |
 | `diagnostics` | monitor | problem list and crash log; the status-bar segment stays in the frame |
 | `monitor` | monitor | full view; the status-bar segment stays in the frame |
-| `vault` | vault | the metadata-only view of stored secrets, forge accounts and database logins |
+| `vault` | vault | the metadata-only view of stored secrets, forge accounts, database logins and web-app sign-ins, plus the credential parts of Studio's Settings ▸ Accounts and ▸ Agent (through `VaultHost`) |
 
 A tuple layer (`media`) lists the owner first; the others reuse the folder.
 
@@ -263,7 +263,8 @@ through a **port**: an interface the feature (or the frame) declares and the com
   `OptimizerHost` in `renderer/host.tsx`, with `useSettings(selector)` and `getSettings()` over the
   settings that stay persisted in Studio's `ui-store`, so no persisted key moves. Studio's adapter is
   `app/src/compose/optimizer-host.ts`. A missing provider throws instead of quietly falling back to state
-  that is never saved.
+  that is never saved. Vault's is `VaultHost` (`openWebApp` and Studio's forge kit; Studio's adapter is
+  `app/src/compose/vault-host.tsx`, and `apps/vault` composes `{ openWebApp: null, forge: null }`).
 
 `app/src/compose/studio-providers.tsx` installs both. It wraps the main window, every detached window and
 the vitest `render` helper.
@@ -413,6 +414,33 @@ adapter is `main/browser-port.ts` (the real Electron, plus the one cast from `Br
   so a release now packs `midnite-browser-X.Y.Z-bundle.zip`.
 - **Build task**: the feature has a `main/`, so it keeps a real `build` (`tsc -b tsconfig.main.json`); only a
   renderer-only feature takes slides' no-op.
+
+### Vault: web-app sign-ins and Studio's credential settings (Phase 113 Theme J slice 3)
+
+**Web-app sign-ins.** The Vault view lists each web app's own `persist:app-<id>` partition (names unchanged)
+as a cookie count and the sites those cookies belong to — `WebAppSignInSchema` in `shared`'s
+`domain/web-apps.ts`, over `webAppsSignIns`/`webAppsSignOut`. **No cookie value, name, path or storage
+contents crosses**: the browser feature's main half (`features/browser/main/web-app-sign-ins.ts`) reads a
+partition through the `BrowserElectron` port, whose cookie type names only `domain`, and builds each row
+field by field. *Sign in* asks the host to open the app (Studio does what its rail does: switch the app on,
+open its flyout, or focus its window when detached). *Sign out* clears that one partition's storage and cache
+behind the kit's destructive confirm, which counts the cookies (`BlastRadiusKind` `'cookies'`) and names the
+sites, then reloads the app's live view. The channels are `mstudio:web-apps:*`, so the browser feature
+answers them wherever it is composed; `apps/browser`'s preload does not expose them. **`apps/vault` cannot see
+Studio's partitions** (they live in Studio's `userData`), so its vault main answers "needs Midnite Studio"
+(`NEEDS_STUDIO_SIGN_INS`) and its view shows that sentence with no buttons.
+
+**Studio's credential settings.** Settings ▸ Accounts' add-account form (provider picker, token field,
+error, submit), its remove button and its "How this works" note, and Settings ▸ Agent's write-only
+`AgentKeyField`, are vault-feature components (`features/vault/renderer/forge-account-credentials.tsx`,
+`agent-key-field.tsx`). Studio's pages keep everything forge-owned (the account list, Make active, switching
+preferences, reachable repos, the setup banner) and render the credential parts through composition. The
+forge kit those components need — the provider table and react-query add/remove mutations — reaches them
+through `VaultHost.forge`. The provider table moved out of `accounts-page.tsx` into
+`settings-pages/forge-providers.ts`, because the account switcher, the setup pages and the dashboard read it
+too. What stayed: Ollama's key row on the Ollama page (it reads the models feature's queries), the Companion
+STT key (its own `safeStorage` store, not the vault), and database logins, which are edited in the database
+feature's connection dialog, not on a settings page.
 
 ### App 6: Cleaner (`apps/cleaner`) — the first app that ships as its own bundle
 

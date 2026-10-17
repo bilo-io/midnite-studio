@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
 import { AGENT_SECRET_IDS } from '@midnite/studio-shared';
 
+import { VaultHostProvider, type VaultHost } from './host';
 import { VaultPage } from './vault-page';
 
 afterEach(() => {
@@ -17,7 +18,9 @@ const account = {
   avatarUrl: null, addedAt: 1, hasToken: true, delegated: null,
 };
 
-function mount() {
+const COOKIE_CANARY = 'sp_dc-value-never-shown';
+
+function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { signInsUnavailable?: string } = {}) {
   const secrets = {
     get: vi.fn(() => Promise.reject(new Error('Vault must never read a value'))),
     has: vi.fn(async ({ key }: { key: string }) => ({ hasKey: key === 'ollama.apiKey' })),
@@ -52,15 +55,31 @@ function mount() {
       return { ok: true };
     }),
   };
-  window.midniteStudio = { secrets, forgeAccounts, db, vaultGrants, vaultPairings } as unknown as typeof window.midniteStudio;
+  let spotifyCookies = 3;
+  const webApps = {
+    signIns: vi.fn(async () => opts.signInsUnavailable ? { available: false, reason: opts.signInsUnavailable, apps: [] } : ({
+      available: true,
+      apps: [
+        { id: 'spotify', label: 'Spotify', partition: 'persist:app-spotify', cookieCount: spotifyCookies, origins: spotifyCookies ? ['open.spotify.com', 'spotify.com'] : [] },
+        { id: 'google-calendar', label: 'Google Calendar', partition: 'persist:app-google-calendar', cookieCount: 0, origins: [] },
+      ],
+    }) as const),
+    signOut: vi.fn(async (_req: { id: string }) => {
+      spotifyCookies = 0;
+      return { ok: true };
+    }),
+  };
+  window.midniteStudio = { secrets, forgeAccounts, db, vaultGrants, vaultPairings, webApps } as unknown as typeof window.midniteStudio;
   const kit = createFrameChrome();
   render(
     <FrameChromeProvider chrome={kit.chrome}>
-      <VaultPage />
+      <VaultHostProvider host={host}>
+        <VaultPage />
+      </VaultHostProvider>
       <kit.DialogHost />
     </FrameChromeProvider>,
   );
-  return { secrets, forgeAccounts, db, vaultGrants, vaultPairings };
+  return { secrets, forgeAccounts, db, vaultGrants, vaultPairings, webApps, host };
 }
 
 describe('VaultPage — paired apps', () => {
@@ -123,11 +142,62 @@ describe('VaultPage', () => {
     expect(vaultGrants.revoke).toHaveBeenCalledWith({ appId: 'browser', namespace: 'secrets' });
   });
 
-  it('lists LLM keys under their own heading and notes web-app sign-ins are not in the vault', async () => {
+  it('lists LLM keys under their own heading', async () => {
     mount();
-    expect(await screen.findByText('Not in the vault yet')).toBeTruthy();
-    expect(screen.getByText('LLM keys')).toBeTruthy();
+    expect(await screen.findByText('LLM keys')).toBeTruthy();
+    expect(screen.queryByText('Not in the vault yet')).toBeNull();
     expect(screen.getByText('Claude API key')).toBeTruthy();
     expect(screen.queryByText(/LLM provider keys/)).toBeNull();
+  });
+});
+
+describe('VaultPage — web-app sign-ins', () => {
+  it('lists each web app’s cookie count and sites — never a value', async () => {
+    const { webApps } = mount();
+    const section = await screen.findByRole('region', { name: 'Web-app sign-ins' });
+    await waitFor(() => expect(within(section).getByText('3 cookies · open.spotify.com, spotify.com')).toBeDefined());
+    expect(within(section).getByText('Nothing stored — not signed in')).toBeDefined();
+    expect(webApps.signIns).toHaveBeenCalledWith({});
+    expect(section.textContent).not.toContain(COOKIE_CANARY);
+    // Sign out only where something is stored; Sign in everywhere the host can open an app.
+    expect(within(section).queryByRole('button', { name: 'Sign out of Google Calendar' })).toBeNull();
+    expect(within(section).getAllByRole('button', { name: /^Sign in to/ })).toHaveLength(2);
+  });
+
+  it('Sign in opens that web app through the host', async () => {
+    const { host } = mount();
+    const section = await screen.findByRole('region', { name: 'Web-app sign-ins' });
+    fireEvent.click(await within(section).findByRole('button', { name: 'Sign in to Google Calendar' }));
+    expect(host.openWebApp).toHaveBeenCalledWith('google-calendar');
+  });
+
+  it('Sign out clears that one partition only after a confirm that shows the blast radius', async () => {
+    const { webApps } = mount();
+    const section = await screen.findByRole('region', { name: 'Web-app sign-ins' });
+    fireEvent.click(await within(section).findByRole('button', { name: 'Sign out of Spotify' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Sign out of Spotify?' });
+    expect(webApps.signOut).not.toHaveBeenCalled();
+    expect(within(confirm).getByRole('status').textContent).toMatch(/3 cookies will be cleared/);
+    expect(confirm.textContent).toContain('Signs you out of open.spotify.com, spotify.com.');
+    await act(async () => fireEvent.click(within(confirm).getByRole('button', { name: 'Sign out' })));
+    expect(webApps.signOut).toHaveBeenCalledTimes(1);
+    expect(webApps.signOut).toHaveBeenCalledWith({ id: 'spotify' });
+    await waitFor(() => expect(within(section).queryByRole('button', { name: 'Sign out of Spotify' })).toBeNull());
+  });
+
+  it('cancelling the confirm signs nobody out', async () => {
+    const { webApps } = mount();
+    const section = await screen.findByRole('region', { name: 'Web-app sign-ins' });
+    fireEvent.click(await within(section).findByRole('button', { name: 'Sign out of Spotify' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Sign out of Spotify?' });
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    expect(webApps.signOut).not.toHaveBeenCalled();
+  });
+
+  it('says why where the partitions are another process’s, with no Sign in and no Sign out', async () => {
+    mount({ openWebApp: null, forge: null }, { signInsUnavailable: 'Web-app sign-ins live in Midnite Studio’s own browser sessions.' });
+    const section = await screen.findByRole('region', { name: 'Web-app sign-ins' });
+    expect(await within(section).findByText(/live in Midnite Studio’s own browser sessions/)).toBeDefined();
+    expect(within(section).queryAllByRole('button')).toHaveLength(0);
   });
 });

@@ -15,6 +15,7 @@ import { SessionsHostProvider } from '@midnite/studio-feature-sessions/renderer'
 import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
 import { TasksHostProvider } from '@midnite/studio-feature-tasks/renderer';
 import { TestsHostProvider } from '@midnite/studio-feature-tests/renderer';
+import { VaultHostProvider } from '@midnite/studio-feature-vault/renderer';
 import { WorkflowsHostProvider } from '@midnite/studio-feature-workflows/renderer';
 import { FrameChromeProvider, GitHostProvider, KnowledgeHostProvider } from '@midnite/studio-frame';
 
@@ -36,6 +37,7 @@ import { STUDIO_SLIDES_HOST } from './slides-host';
 import { STUDIO_TASKS_HOST } from './tasks-host';
 import { STUDIO_TESTS_HOST } from './tests-host';
 import { STUDIO_CHROME } from './studio-chrome';
+import { STUDIO_VAULT_HOST } from './vault-host';
 import { STUDIO_WORKFLOWS_HOST } from './workflows-host';
 
 /**
@@ -72,7 +74,7 @@ export function StudioProviders({ children }: { children: ReactNode }) {
                                     <SessionsHostProvider host={STUDIO_SESSIONS_HOST}>
                                       <TasksHostProvider host={STUDIO_TASKS_HOST}>
                                         <BrowserHostProvider host={STUDIO_BROWSER_HOST}>
-                                          {children}
+                                          <VaultHostProvider host={STUDIO_VAULT_HOST}>{children}</VaultHostProvider>
                                         </BrowserHostProvider>
                                       </TasksHostProvider>
                                     </SessionsHostProvider>

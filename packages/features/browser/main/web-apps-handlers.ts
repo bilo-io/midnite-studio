@@ -3,6 +3,7 @@ import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import type { BrowserHostWindow as BrowserWindow } from './browser-electron';
 import { defaultLogger } from './browser-main-deps';
+import { listWebAppSignIns, signOutWebApp } from './web-app-sign-ins';
 import { activateWebApp, disableWebApp, enableWebApp, setWebAppBounds } from './web-apps-service';
 
 const warnInvalid = (issue: string): void => {
@@ -42,6 +43,20 @@ export function registerWebAppsHandlers(ipc: RuntimeIpc, getMainWindow: () => Br
     schemas.WebAppsSetBoundsRequest,
     ({ id, bounds }) => setWebAppBounds(id, bounds),
     warnInvalid,
+  );
+
+  // The Vault's sign-in pair (Phase 113 Theme J slice 3): metadata out, one partition cleared on request.
+  ipc.handle(
+    CHANNELS.webAppsSignIns,
+    schemas.WebAppsSignInsRequest,
+    () => listWebAppSignIns(),
+    (issue) => ({ available: false, reason: issue, apps: [] }),
+  );
+  ipc.handle(
+    CHANNELS.webAppsSignOut,
+    schemas.WebAppsSignOutRequest,
+    ({ id }) => signOutWebApp(id),
+    (issue) => ({ ok: false as const, message: issue }),
   );
 
   ipc.send(

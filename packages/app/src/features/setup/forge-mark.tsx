@@ -2,7 +2,7 @@ import {
   PROVIDER_BRAND_COLOR,
   PROVIDER_ICON,
   type SupportedKind,
-} from '../settings/settings-pages/accounts-page';
+} from '../settings/settings-pages/forge-providers';
 
 /**
  * A forge's brand mark in its brand colour — the one place the setup wizard

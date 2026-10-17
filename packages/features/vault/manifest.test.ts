@@ -32,7 +32,8 @@ describe('vault manifest', () => {
  * calls or registers. Request schemas may carry a value INTO main; the
  * responses below must carry none back.
  */
-const FORBIDDEN = /^(value|values|secret|secrets|password|passwd|token|accessToken|apiKey|plaintext|credential|credentials)$/i;
+const FORBIDDEN =
+  /^(value|values|secret|secrets|password|passwd|token|accessToken|apiKey|plaintext|credential|credentials|cookie|cookies|cookieValue|storage|localStorage|sessionStorage)$/i;
 
 /** Every field name reachable from a zod schema, with its path. */
 function fieldNames(schema: z.ZodTypeAny, path = ''): string[] {
@@ -81,6 +82,18 @@ describe('vault: no stored value reaches a renderer', () => {
     expect(names).toContain('hasToken');
     expect(fieldNames(z.object({ nested: z.array(z.object({ password: z.string() })) }))).toContain('nested.password');
     expect(fieldNames(vaultResponseSchemas[CHANNELS.forgeAccountAdd] as z.ZodTypeAny)).toContain('account');
+  });
+
+  it('lists web-app sign-ins as a count and the sites only — no cookie, value or storage field', () => {
+    const names = fieldNames(vaultResponseSchemas[CHANNELS.webAppsSignIns] as z.ZodTypeAny);
+    // The walker reaches the rows (not a vacuous pass)…
+    expect(names).toEqual(expect.arrayContaining(['apps.cookieCount', 'apps.origins', 'apps.partition']));
+    // …and every field on them is one of these, so a value-carrying field added later fails here first.
+    const leaves = names.map((n) => n.split('.').pop());
+    expect([...new Set(leaves)].sort()).toEqual(['apps', 'available', 'cookieCount', 'id', 'label', 'origins', 'partition', 'reason']);
+    expect(fieldNames(vaultResponseSchemas[CHANNELS.webAppsSignOut] as z.ZodTypeAny).sort()).toEqual(['message', 'ok', 'ok']);
+    // A row that tried to carry the cookies themselves would be caught.
+    expect(fieldNames(z.object({ apps: z.array(z.object({ cookies: z.array(z.string()) })) })).some((n) => FORBIDDEN.test(n.split('.').pop() ?? n))).toBe(true);
   });
 
   it('the walker would catch SecretsGetResponse', () => {

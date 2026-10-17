@@ -87,3 +87,36 @@ const ROLE_TO_APP_ID = new Map<string, WebAppId>(WEB_APP_IDS.map((id) => [WEB_AP
 export function webAppIdForRole(role: string): WebAppId | null {
   return ROLE_TO_APP_ID.get(role) ?? null;
 }
+
+/**
+ * Whether one web app's `persist:app-<id>` partition holds a sign-in (Phase 113 Theme J slice 3) — what
+ * the Vault lists beside the secrets it stores. **Metadata only, by construction**: how many cookies
+ * the partition holds and the sites they belong to (a cookie's domain with its leading dot dropped,
+ * de-duplicated and sorted). Never a cookie's name, value or path, and never a byte of the
+ * partition's storage — `web-app-sign-ins.ts` builds each row from these fields alone, and the
+ * Vault's `manifest.test.ts` walks this schema for value-shaped fields.
+ */
+export const WebAppSignInSchema = z.object({
+  id: WebAppIdSchema,
+  label: z.string(),
+  /** The partition the row describes — unchanged, `WEB_APP_DEFINITIONS[id].partition`. */
+  partition: z.string(),
+  cookieCount: z.number().int().nonnegative(),
+  /** The sites those cookies belong to, e.g. `spotify.com`, `accounts.google.com`. */
+  origins: z.array(z.string()),
+});
+export type WebAppSignIn = z.infer<typeof WebAppSignInSchema>;
+
+/**
+ * Turn a cookie domain list into the `origins` a {@link WebAppSignIn} shows: leading dots dropped,
+ * blanks skipped, de-duplicated, sorted. Takes plain strings so a caller can only ever hand it a
+ * domain — not the cookie it came from.
+ */
+export function signInOrigins(domains: readonly (string | undefined)[]): string[] {
+  const out = new Set<string>();
+  for (const domain of domains) {
+    const host = (domain ?? '').trim().replace(/^\.+/, '').toLowerCase();
+    if (host) out.add(host);
+  }
+  return [...out].sort();
+}

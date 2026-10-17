@@ -14,7 +14,9 @@ import {
   type DbOpResult,
   type ForgeAccount,
   type ForgeAccountAddResult,
+  type WebAppId,
 } from '@midnite/studio-shared';
+import type { z } from 'zod';
 
 import { vaultManifest } from '../manifest';
 
@@ -51,7 +53,24 @@ export type VaultMainServices = {
   pairings?: VaultPairingsEditor;
   /** Saved connections' non-secret metadata. Absent, there is none to list. */
   listConnections?: () => Promise<ConnectionConfig[]>;
+  /**
+   * The web apps' partitions (slice 3). Absent in the standalone Vault, which runs under its own
+   * userData and so cannot see the `persist:app-<id>` sessions Studio's web apps signed in with:
+   * the listing then answers unavailable, with {@link NEEDS_STUDIO_SIGN_INS} as the reason, and
+   * Sign out refuses — the forge-add precedent, rather than reaching into another process.
+   */
+  webAppSignIns?: {
+    list: () => Promise<WebAppsSignInsResponse>;
+    signOut: (id: WebAppId) => Promise<WebAppsSignOutResponse>;
+  };
 };
+
+type WebAppsSignInsResponse = z.infer<typeof schemas.WebAppsSignInsResponse>;
+type WebAppsSignOutResponse = z.infer<typeof schemas.WebAppsSignOutResponse>;
+
+/** Why the standalone Vault lists no web-app sign-ins. */
+export const NEEDS_STUDIO_SIGN_INS =
+  'Web-app sign-ins live in Midnite Studio’s own browser sessions, which the standalone Vault cannot see — open the Vault view in Midnite Studio to list or clear them.';
 
 const NO_ADD =
   'Adding an account needs the forge feature, which the standalone Vault does not carry yet — add it in Midnite Studio.';
@@ -117,6 +136,21 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
 
     registerVaultGrantHandlers(ipc, () => services.grants);
     registerVaultPairingHandlers(ipc, () => services.pairings ?? null);
+
+    ipc.handle(
+      CHANNELS.webAppsSignIns,
+      schemas.WebAppsSignInsRequest,
+      async (): Promise<WebAppsSignInsResponse> =>
+        services.webAppSignIns ? services.webAppSignIns.list() : { available: false, reason: NEEDS_STUDIO_SIGN_INS, apps: [] },
+      (issue): WebAppsSignInsResponse => ({ available: false, reason: issue, apps: [] }),
+    );
+    ipc.handle(
+      CHANNELS.webAppsSignOut,
+      schemas.WebAppsSignOutRequest,
+      async ({ id }): Promise<WebAppsSignOutResponse> =>
+        services.webAppSignIns ? services.webAppSignIns.signOut(id) : { ok: false, message: NEEDS_STUDIO_SIGN_INS },
+      (issue): WebAppsSignOutResponse => ({ ok: false, message: issue }),
+    );
 
     ipc.handleBare(CHANNELS.dbListConnections, async () => (await services.listConnections?.()) ?? []);
     ipc.handle(
