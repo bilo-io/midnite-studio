@@ -35,6 +35,13 @@ vi.mock('./bridge', async (importOriginal) => {
       },
       repos: {
         open: vi.fn().mockImplementation(async () => mocks.openResult),
+        // One open repository, whose remote is bilo-io/midnite-studio — the run tests' only known repo.
+        list: vi.fn(async () => [{ id: 'repo:/tmp/known', path: '/tmp/known', name: 'known', headRef: 'main', worktrees: [] }]),
+      },
+      remotes: {
+        list: vi.fn(async () => [
+          { name: 'origin', fetchUrl: '', pushUrl: '', forge: { kind: 'github', host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio' } },
+        ]),
       },
     }),
   };
@@ -151,6 +158,29 @@ describe('useDeepLinks', () => {
     expect(useUiStore.getState().activeView).toBe('media');
     expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/locked/);
     useUiStore.setState({ screensaverLocked: false });
+  });
+
+  it('an agent run that failed validation in main is a toast, and nothing is asked or started', async () => {
+    render(<Harness />, { wrapper });
+    emit({ kind: 'run', run: null }, false);
+    await waitFor(() => expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/isn't one Midnite can start/));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('an agent run for a repository that is not open here is refused — never opened or cloned', async () => {
+    render(<Harness />, { wrapper });
+    emit({ kind: 'run', run: { issueUrl: 'https://github.com/someone-else/unknown/issues/1', skill: '/midnite-create' } }, false);
+    await waitFor(() => expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/someone-else\/unknown isn't open/));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('an agent run for an open repository asks first, naming the checkout', async () => {
+    useUiStore.setState({ screensaverLocked: false, launchAndRunEnabled: false });
+    render(<Harness />, { wrapper });
+    emit({ kind: 'run', run: { issueUrl: 'https://github.com/bilo-io/midnite-studio/issues/42', skill: '/midnite-create' } }, false);
+    expect(await screen.findByText('Run this task in an agent?', undefined, { timeout: 5000 })).toBeTruthy();
+    expect(screen.getByText(/In \/tmp\/known/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start' })).toBeTruthy();
   });
 
   it('a settings link with a page selects that Settings page; a locked screen leaves it alone', () => {
