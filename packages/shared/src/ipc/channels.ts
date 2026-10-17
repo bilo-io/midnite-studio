@@ -428,6 +428,11 @@ export const CHANNELS = {
   systemHealthStartSshAgent: 'mstudio:system:health:start-ssh-agent',
   /** Token totals read from each live agent session's own transcript (Phase 113 Theme I). */
   monitorAgentUsage: 'mstudio:monitor:agent-usage',
+  /**
+   * Cross-app hand-off (Phase 113, `docs/APPS.md` "The shared data plane"): main opens a
+   * `midnite://open` link — and nothing else — for the launcher's router to take to the target app.
+   */
+  handoffOpen: 'mstudio:handoff:open',
   /** Probe setup-catalogue items by id (Phase 98 Theme D) — main owns the binary names, see `setup.ts`. */
   setupProbe: 'mstudio:setup:probe',
   /** Reveal a probed catalogue tool's binary in Finder, by catalogue id. */
@@ -1448,6 +1453,10 @@ export const CHANNELS = {
   vaultGrantSet: 'mstudio:vault:grants:set',
   /** Take a grant back — one namespace, or every grant the app holds. */
   vaultGrantRevoke: 'mstudio:vault:grants:revoke',
+  /** Which apps have paired with the vault host, and any pairing conflict — names and times, never a key. */
+  vaultPairingsList: 'mstudio:vault:pairings:list',
+  /** Clear one app's pairing (user-initiated, the only way to re-pair): its next hello binds afresh. */
+  vaultPairingUnpair: 'mstudio:vault:pairings:unpair',
 
   // --- finance proxy (Phase 76 Theme D) -------------------------------------
   /** Search crypto/stock symbols — provider fetches run in main. */

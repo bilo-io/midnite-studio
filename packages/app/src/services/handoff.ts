@@ -27,11 +27,23 @@ export type HandoffOutcome =
   | { ok: false; reason: 'no-transport' | 'reveal-failed'; say: string };
 
 /**
- * The seam for crossing a process boundary. Nothing implements it yet — there is no runtime daemon
- * to carry a link between two app processes (Phase 113 Theme D, Decision 10) — so the default is a
- * refusal that says so. When the daemon lands, it installs the real transport here.
+ * The seam for crossing a process boundary: hand the `midnite://open` link to main, which opens it
+ * for the Midnite Apps launcher's router (installed app → Studio → detail sheet; `docs/APPS.md`,
+ * "The shared data plane"). Installed by default over the bridge's `handoff.open`; Studio hosts
+ * every app, so today nothing it plans is external — the transport is for when that set narrows.
  */
 export type ExternalHandoffTransport = (link: string) => Promise<boolean>;
+
+/** The bridge's `handoff.open`, when this window's preload carries it; false otherwise. */
+export const bridgeHandoffTransport: ExternalHandoffTransport = async (link) => {
+  const handoff = window.midniteStudio?.handoff;
+  if (!handoff) return false;
+  try {
+    return (await handoff.open({ link })).ok;
+  } catch {
+    return false;
+  }
+};
 
 export type HandoffDeps = {
   hosted: ReadonlySet<MidniteAppId>;
@@ -40,9 +52,9 @@ export type HandoffDeps = {
   external: ExternalHandoffTransport | null;
 };
 
-let externalTransport: ExternalHandoffTransport | null = null;
+let externalTransport: ExternalHandoffTransport | null = bridgeHandoffTransport;
 
-/** Installed by the runtime client once apps run as separate processes; `null` removes it. */
+/** Replaces the transport (a test, or a composer with its own); `null` removes it. */
 export function setExternalHandoffTransport(transport: ExternalHandoffTransport | null): void {
   externalTransport = transport;
 }

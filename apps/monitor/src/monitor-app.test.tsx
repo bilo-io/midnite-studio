@@ -55,4 +55,39 @@ describe('Monitor home view', () => {
     }
     await waitFor(() => expect(screen.getByText(/2 keys loaded/)).toBeDefined());
   });
+
+  it('lists Studio’s live session from the shared broker and hands it to Studio as a midnite://open link', async () => {
+    const open = vi.fn().mockResolvedValue({ ok: true });
+    const session = { id: 's1', kind: 'shell', title: 'widgets', cwd: '/w', repoId: 'r1', createdAt: Date.now() };
+    Object.assign(window.midniteStudio!, {
+      terminal: {
+        list: vi.fn().mockResolvedValue({
+          sessions: [{ session, scrollback: new Uint8Array(0), live: { ptyId: 'p1', pid: 7, cols: 80, rows: 24 } }],
+          broker: { mode: 'broker' },
+        }),
+      },
+      handoff: { open },
+    });
+    render(<MonitorApp />);
+    const button = await screen.findByRole('button', { name: 'Open in Studio' });
+    button.click();
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+    const { link } = open.mock.calls[0]![0] as { link: string };
+    expect(link.startsWith('midnite://open?app=studio&ref=')).toBe(true);
+  });
+
+  it('says so when the hand-off cannot leave the app', async () => {
+    const session = { id: 's1', kind: 'shell', title: 'widgets', cwd: '/w', repoId: 'r1', createdAt: Date.now() };
+    Object.assign(window.midniteStudio!, {
+      terminal: {
+        list: vi.fn().mockResolvedValue({
+          sessions: [{ session, scrollback: new Uint8Array(0), live: { ptyId: 'p1', pid: 7, cols: 80, rows: 24 } }],
+        }),
+      },
+      handoff: { open: vi.fn().mockResolvedValue({ ok: false }) },
+    });
+    render(<MonitorApp />);
+    (await screen.findByRole('button', { name: 'Open in Studio' })).click();
+    expect(await screen.findByRole('status')).toBeDefined();
+  });
 });

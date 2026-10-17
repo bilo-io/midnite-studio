@@ -42,6 +42,16 @@ export interface VaultGrants {
   revoke(appId: RuntimeAppId, namespace?: VaultNamespace): boolean;
 }
 
+/**
+ * What a grant editor needs: the in-process {@link VaultGrants} (Studio), or the runtime host's over
+ * its socket (the Vault app's `RemoteVault.grants`) — the same three calls, maybe async.
+ */
+export interface VaultGrantsEditor {
+  list(): Loaded | Promise<Loaded>;
+  set(appId: RuntimeAppId, namespace: VaultNamespace, scope: VaultGrantScope): boolean | Promise<boolean>;
+  revoke(appId: RuntimeAppId, namespace?: VaultNamespace): boolean | Promise<boolean>;
+}
+
 type Loaded = { grants: VaultGrantsMap; corrupt: boolean };
 
 function parse(raw: string): Loaded {

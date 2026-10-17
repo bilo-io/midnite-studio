@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 — the shared data plane
+
+[PR #890](https://github.com/bilo-io/midnite-studio/pull/890). Studio hosts one vault and broker for every suite app — a guest is served only when paired (Ed25519 over a host nonce) and granted — Monitor shows Studio's live terminals, and `midnite://open` carries cross-app hand-off.
+
 ## 2026-10-17 — Phase 113 Theme O (slice 2) — the git graph in the frame; Coder's read-only Graph
 
 [PR #889](https://github.com/bilo-io/midnite-studio/pull/889). Studio's git graph and diff behind a `GitHost` port in the frame with every write path left in Studio, and Midnite Coder's Graph over the system git. Verification V1–V3 ticked.

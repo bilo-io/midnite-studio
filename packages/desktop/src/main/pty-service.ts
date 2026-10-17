@@ -10,7 +10,7 @@ import {
   type ActivityState,
 } from './activity-detect';
 import type { AgentWatcher } from './agent-watcher';
-import { createBrokerClient, type BrokerClient, type BrokerStatus } from './broker-client';
+import { createBrokerClient, studioBrokerLocation, type BrokerClient, type BrokerStatus } from './broker-client';
 import { readOllamaApiKey } from './ipc/secrets-handlers';
 import { agentFingerprintEnv } from './pty-env';
 import {
@@ -461,6 +461,7 @@ export async function initPtyService(deps: {
 }): Promise<void> {
   getWindowThunk = deps.getWindow;
   brokerClient = createBrokerClient(deps);
+  brokerLocation = studioBrokerLocation(deps);
   await brokerClient.init();
 
   brokerClient.onData((ptyId, bytes) => {
@@ -512,6 +513,13 @@ export async function initPtyService(deps: {
       sessionIdByPty.set(r.ptyId, r.sessionId);
     }
   }
+}
+
+let brokerLocation: { socketPath: string; directory: string } | null = null;
+
+/** Where the broker this service reached listens, for the runtime host record; null in-process. */
+export function getSharedBrokerLocation(): { socketPath: string; directory: string } | null {
+  return brokerClient?.getStatus().mode === 'broker' ? brokerLocation : null;
 }
 
 export function getBrokerStatus(): BrokerStatus {

@@ -21,4 +21,13 @@ export function monitorUserData(appData: string, override?: string): string {
   return join(runtimeDataDirectory(appData), 'apps', 'monitor');
 }
 
+/**
+ * Where Monitor finds the runtime host's record (and through it the shared broker): the runtime's
+ * data directory, or `<override>/runtime` for a throwaway run, so a proof never reaches a real one.
+ */
+export function monitorRuntimeDirectory(appData: string, override?: string): string {
+  if (override !== undefined && override !== '') return join(override, 'runtime');
+  return runtimeDataDirectory(appData);
+}
+
 export const isSmoke = (env: NodeJS.ProcessEnv): boolean => env[SMOKE_ENV] === '1';

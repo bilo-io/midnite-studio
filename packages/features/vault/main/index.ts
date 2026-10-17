@@ -1,7 +1,14 @@
-import { defineFeatureMain, registerVaultGrantHandlers, type VaultClient, type VaultGrants } from '@midnite/studio-runtime';
+import {
+  defineFeatureMain,
+  registerVaultGrantHandlers,
+  registerVaultPairingHandlers,
+  type VaultClient,
+  type VaultGrantsEditor,
+  type VaultPairingsEditor,
+} from '@midnite/studio-runtime';
 import {
   CHANNELS,
-  SupportedForgeKindSchema,
+  forgeAccountFromVaultKey,
   schemas,
   type ConnectionConfig,
   type DbOpResult,
@@ -35,8 +42,13 @@ export type VaultMainServices = {
    * answers an honest error instead of storing an unchecked token.
    */
   addForgeAccount?: (kind: string, host: string, token: string | undefined) => Promise<ForgeAccountAddResult>;
-  /** The runtime's per-app grants (`createVaultGrants`) — the same store the vault service authorizes with. */
-  grants: VaultGrants;
+  /**
+   * The runtime's per-app grants — the store the vault authorizes with: in-process in Studio
+   * (`createVaultGrants`), the runtime host's over its socket in the standalone Vault.
+   */
+  grants: VaultGrantsEditor;
+  /** The host's guest pairings (list, Unpair). Absent: no app has paired, and Unpair does nothing. */
+  pairings?: VaultPairingsEditor;
   /** Saved connections' non-secret metadata. Absent, there is none to list. */
   listConnections?: () => Promise<ConnectionConfig[]>;
 };
@@ -44,27 +56,8 @@ export type VaultMainServices = {
 const NO_ADD =
   'Adding an account needs the forge feature, which the standalone Vault does not carry yet — add it in Midnite Studio.';
 
-/** `forgeAccountId`'s inverse: `kind:host:login` (a host has no colon). Unparseable names are skipped. */
-export function accountFromKey(key: string): ForgeAccount | null {
-  const first = key.indexOf(':');
-  const second = key.indexOf(':', first + 1);
-  if (first < 1 || second < 0) return null;
-  const kind = SupportedForgeKindSchema.safeParse(key.slice(0, first));
-  const host = key.slice(first + 1, second);
-  const login = key.slice(second + 1);
-  if (!kind.success || !host || !login) return null;
-  return {
-    id: key,
-    kind: kind.data,
-    host,
-    login,
-    displayName: login,
-    avatarUrl: null,
-    addedAt: 0,
-    hasToken: true,
-    delegated: null,
-  };
-}
+/** `forgeAccountId`'s inverse (`shared`'s `forgeAccountFromVaultKey`). Unparseable names are skipped. */
+export const accountFromKey: (key: string) => ForgeAccount | null = forgeAccountFromVaultKey;
 
 export const vaultMain = defineFeatureMain<VaultMainServices>({
   feature: vaultManifest.feature,
@@ -83,9 +76,14 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
       CHANNELS.secretsSet,
       schemas.SecretsSetRequest,
       async ({ key, value }) => {
-        // An empty value clears the entry — the `secretsSet` contract.
-        if (!value.trim()) await vault.delete('secrets', key);
-        else await vault.set('secrets', key, value);
+        // An empty value clears the entry — the `secretsSet` contract. A refused write (no runtime
+        // host running, for the standalone Vault) reads back as unset rather than throwing over IPC.
+        try {
+          if (!value.trim()) await vault.delete('secrets', key);
+          else await vault.set('secrets', key, value);
+        } catch {
+          // `secretsHas` answers the truth on the next read.
+        }
       },
       () => undefined,
     );
@@ -107,21 +105,30 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
       CHANNELS.forgeAccountRemove,
       schemas.ForgeAccountRemoveRequest,
       async ({ id }) => {
-        await vault.delete('forge-accounts', id);
-        return { ok: true };
+        try {
+          await vault.delete('forge-accounts', id);
+          return { ok: true };
+        } catch {
+          return { ok: false };
+        }
       },
       () => ({ ok: false }),
     );
 
     registerVaultGrantHandlers(ipc, () => services.grants);
+    registerVaultPairingHandlers(ipc, () => services.pairings ?? null);
 
     ipc.handleBare(CHANNELS.dbListConnections, async () => (await services.listConnections?.()) ?? []);
     ipc.handle(
       CHANNELS.dbDeleteConnection,
       schemas.DbDeleteConnectionRequest,
       async ({ id }): Promise<DbOpResult> => {
-        await vault.delete('db-credentials', id);
-        return { ok: true };
+        try {
+          await vault.delete('db-credentials', id);
+          return { ok: true };
+        } catch (error) {
+          return { ok: false, kind: 'error', message: error instanceof Error ? error.message : String(error) };
+        }
       },
       (issue): DbOpResult => ({ ok: false, kind: 'error', message: issue }),
     );

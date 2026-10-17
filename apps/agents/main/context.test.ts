@@ -11,13 +11,15 @@ import { mcpToolsManifest } from '@midnite/studio-feature-mcp-tools/main';
 import { councilsManifest, resetCouncilsForTest } from '@midnite/studio-feature-councils/main';
 import { modelsManifest, resetOllamaSettingsState } from '@midnite/studio-feature-models/main';
 import { workflowsManifest } from '@midnite/studio-feature-workflows/main';
-import { createFakeCipher, createVaultGrants, createVaultService, type VaultAuthorize } from '@midnite/studio-runtime';
+import { createFakeCipher, createVaultGrants, startTestVaultHost, testPairingIdentity, type VaultAuthorize } from '@midnite/studio-runtime';
 import { CHANNELS } from '@midnite/studio-shared';
 
 import { registerAgentsHandlers } from './context';
 
 const KEY = 'ollama.apiKey';
 const SECRET = 'OLLAMA-VAULT-SECRET';
+/** Agents' own pairing key — each test's host is fresh, so it binds on the first connection. */
+const PAIRING_KEY = testPairingIdentity();
 
 let dir: string;
 const disposers: (() => Promise<void>)[] = [];
@@ -36,8 +38,13 @@ afterEach(async () => {
 
 /** Registers Agents over a temp vault holding the key; every outbound request lands on the stub. */
 async function setup(authorize?: VaultAuthorize) {
-  const cipher = createFakeCipher();
-  await createVaultService({ directory: join(dir, 'runtime'), cipher }).forApp('studio').set('secrets', KEY, SECRET);
+  // Studio's side: the runtime host, holding the key under its own (fake) cipher. Agents holds none.
+  const host = await startTestVaultHost({
+    runtimeDirectory: join(dir, 'runtime'),
+    cipher: createFakeCipher(),
+    ...(authorize ? { authorize } : {}),
+  });
+  await host.studio.set('secrets', KEY, SECRET);
   const requests: { url: string; authorization: string | undefined }[] = [];
   vi.stubGlobal(
     'fetch',
@@ -53,12 +60,12 @@ async function setup(authorize?: VaultAuthorize) {
     send: () => undefined,
     userData: join(dir, 'userData'),
     vaultDirectory: join(dir, 'runtime'),
-    cipher,
+    // This app's pairing key, as its own pairing.ts would keep it — a random seed, no keychain.
+    pairing: () => PAIRING_KEY,
     // A real shell, so a script node really runs — under a temp dir, never the user's home.
     shell: '/bin/sh',
-    ...(authorize ? { authorize } : {}),
   });
-  disposers.push(registered.dispose);
+  disposers.push(registered.dispose, () => host.close());
   return { handlers, requests };
 }
 

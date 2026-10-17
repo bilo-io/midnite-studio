@@ -12,7 +12,7 @@ import { configureRepoRemotes, type RepoRemotesResolver } from './repo-forge';
 export { forgeManifest, type ForgeManifest } from '../manifest';
 export type { ForgeAdapter } from './adapter';
 export { createForgeAccountVault, forgeAccountVaultPath, nullForgeAccountVault, type ForgeAccountVault } from './forge-account-vault';
-export { createForgeAccountsStore, nullForgeAccountsStore, type ForgeAccountsStore } from './forge-accounts-store';
+export { createForgeAccountsStore, nullForgeAccountsStore, withVaultForgeAccounts, type ForgeAccountsStore } from './forge-accounts-store';
 export {
   activeAccountFor,
   addForgeAccount,

@@ -1,4 +1,9 @@
-import { registerVaultGrantHandlers, type VaultGrants } from '@midnite/studio-runtime';
+import {
+  registerVaultGrantHandlers,
+  registerVaultPairingHandlers,
+  type PairingStore,
+  type VaultGrants,
+} from '@midnite/studio-runtime';
 import { CHANNELS, schemas, type SecretKey } from '@midnite/studio-shared';
 
 import type { SecretsVault } from '../secrets-vault';
@@ -12,9 +17,15 @@ export function configureSecrets(next: SecretsVault): void {
 
 let grants: VaultGrants | null = null;
 
-/** The runtime's per-app grants (Phase 113 Theme J slice 2), configured beside the vault service. */
-export function configureVaultGrants(next: VaultGrants): void {
+let pairings: PairingStore | null = null;
+
+/**
+ * The runtime's per-app grants (Phase 113 Theme J slice 2), configured beside the vault service, and
+ * the host's guest pairings, which Studio's Vault view lists and unpairs in-process.
+ */
+export function configureVaultGrants(next: VaultGrants, nextPairings: PairingStore | null = null): void {
   grants = next;
+  pairings = nextPairings;
 }
 
 async function readTwelveDataKey(): Promise<string | null> {
@@ -61,6 +72,7 @@ export const MAIN_ONLY_SECRETS: readonly SecretKey[] = ['finance.twelveData'];
 
 export function registerSecretsHandlers(): void {
   registerVaultGrantHandlers({ handle, handleBare, send: handleSend }, () => grants);
+  registerVaultPairingHandlers({ handle, handleBare, send: handleSend }, () => pairings);
 
   handle(
     CHANNELS.secretsGet,

@@ -12,6 +12,7 @@ export * from './window-events';
 export * from './testing';
 export * from './app-id';
 export * from './data-directory';
+export * from './host';
 export * from './fs-jail';
 export * from './login-shell';
 export * from './vault';

@@ -13,7 +13,7 @@ import { TokenSpendSection } from './token-spend-section';
  * crash log. Samples are requested at the active cadence only while it is
  * mounted (`useMetricsStream` ref-counts the sampler across callers).
  */
-export function MonitorPage() {
+export function MonitorPage({ onOpenSession }: { onOpenSession?: (sessionId: string) => void } = {}) {
   useMetricsStream({ detailed: true });
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
@@ -23,7 +23,7 @@ export function MonitorPage() {
       </header>
       <TimelinesSection />
       <CapacitySection />
-      <SessionsSection />
+      {onOpenSession ? <SessionsSection onOpen={onOpenSession} openLabel="Open in Studio" /> : <SessionsSection />}
       <TokenSpendSection />
       <SystemHealthSection />
       <CrashLogSection />

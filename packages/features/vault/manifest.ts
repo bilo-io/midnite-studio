@@ -46,6 +46,8 @@ export const vaultManifest = defineFeatureManifest({
     CHANNELS.vaultGrantsList,
     CHANNELS.vaultGrantSet,
     CHANNELS.vaultGrantRevoke,
+    CHANNELS.vaultPairingsList,
+    CHANNELS.vaultPairingUnpair,
   ],
   events: [],
   mcpTools: [],

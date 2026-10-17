@@ -672,3 +672,135 @@ exported notes, that would be a host-injected runner behind the same channels, n
 The app mounts the view inside `QueryClientProvider` (the view's reads are react-query queries) within the two host
 providers; nothing sits outside them. In Studio the provider nests in `compose/studio-providers.tsx`, which both the main
 window and the popout root render.
+
+## The shared data plane: one vault, one broker, hand-off (Phase 113, toward V5)
+
+V5 reads: *with two apps open, one login is seen by both, a terminal opened in one is reachable from the
+other, and `midnite` lists only installed apps' MCP tools.* This section is the map of where each shared
+thing lived when the work started, then the design that makes the clause true, and why.
+
+### The map, before
+
+| Shared thing | Studio (`packages/desktop`) | Coder, Money, Agents, Creator, Vault | Monitor | Mind, Cleaner, Browser |
+|---|---|---|---|---|
+| Vault files | `<appData>/Midnite Studio` (its `userData`) — `main/index.ts` composes `createVaultService({ directory: userData })` | `runtimeDataDirectory(appData)` = `<appData>/Midnite Runtime` — each app's `main/context.ts` composes **its own** `createVaultService` | none | none |
+| Vault cipher | Studio's `safeStorage` — the keychain item "Midnite Studio Safe Storage" | each app's own `safeStorage` — "Midnite Coder Safe Storage", "Midnite Money Safe Storage", … (`app.setName` in each `identity.ts`) | — | — |
+| Grants | `<userData>/vault-grants.json` | `<Midnite Runtime>/vault-grants.json` | — | — |
+| Broker socket | `<userData>/broker/<version>-<buildId>[-dev].sock`, `buildId` = hash of Studio's `broker.js` (`broker-client.ts` → `runtime/src/broker/service.ts`) | no broker; Agents runs script nodes in a piped login shell | none — `terminalList` answers `inproc`, "no terminal broker of its own" | none |
+| Hand-off | in-process: `STUDIO_HOSTED_APPS` is every app, so `planHandoff` is always `local` | not called — no app renderer uses `requestHandoff`; `setExternalHandoffTransport` has no caller | — | Mind's notes host answers `useHandoff: () => null` |
+| MCP | the only `midnite` MCP server; lists `installed.json ∪ PLACEMENT_APP_IDS`, i.e. everything | no server | — | — |
+
+Three things the map shows that the earlier slices' tests could not:
+
+1. **Studio's logins are not in the runtime directory at all.** Every value a user has ever stored is in
+   Studio's `userData`, under Studio's keychain item. The apps look in `Midnite Runtime`, which only the
+   (off-by-default) Theme G migration would fill.
+2. **The apps cannot share the runtime directory either.** `safeStorage` keys follow the process's app name,
+   so a value Coder stores is ciphertext Money cannot open — and each app's `createSecureJsonStore` caches
+   the file and rewrites it whole, so two apps writing the same namespace drop each other's entries (last
+   writer wins). `apps/*/main/context.test.ts` hid both by storing "as Studio" with the *same* fake cipher
+   the app then read with. Composing a vault per process was never going to make one login.
+3. **The broker's socket is named by Studio's build**, under Studio's `userData`. Another app has neither
+   Studio's `broker.js` to fingerprint nor its `userData` path, so it cannot compute the name — and if it
+   were pointed at the directory, `probeLegacyBrokers` would treat Studio's current broker as a *legacy* peer
+   and, finding it empty, **shut it down**. Attaching needs a mode that never spawns, retires or unlinks.
+
+### The design
+
+**One host process, everything else a guest.** The process whose keychain item holds the values — Studio
+today; the launcher-hosted runtime once Theme G's migration re-encrypts into its identity — is the
+**runtime host**. It keeps composing the one `VaultService` and the broker client exactly as before, and
+additionally serves them to other apps:
+
+- **Vault host** (`runtime/src/vault/host/`): a Unix socket at `<Midnite Runtime>/host/vault.sock`
+  (directory `0700`), newline-delimited JSON, zod-parsed on the host. A guest composes
+  `connectRuntimeVault({ socketPath, appId })`, which *is* a `VaultClient` — so `createForgeAccountVault`,
+  Money's accounts and Agents' Ollama key bind to it unchanged. **Guests hold no vault cipher**: the only
+  `safeStorage` left in a guest's main keeps its own pairing seed (below), in one module.
+- **Pairing, then grants — both, never either.** A connection is served only once it has *paired* (proved it
+  is the app it names, below) and then only what the host's own `vault-grants.json` allows that app; a
+  guest cannot pass an `authorize`. Deny-by-default holds for every app but Studio and Vault. **No remote
+  caller may be `studio`** (Studio is in-process with the host), and **`vault` may not `get`** (its preload
+  has no read channel; the host enforces what the preload promises). The Vault app edits grants and
+  pairings through the same socket, and must itself be paired to do so.
+- **Runtime host record** (`runtime/src/host/`): `<Midnite Runtime>/host/host.json`, written atomically by the
+  host at boot — `{ host, pid, broker: { socketPath, directory } | null }`. Names only, no secret.
+- **Broker guests** (`attachSharedBroker`): read the record, connect to the host's broker socket and adopt
+  any other live socket in its directory as a legacy peer — and never spawn, retire, unlink or create. A guest
+  lists, snapshots, streams, writes to and resizes a session; starting one stays with the app that ships the
+  pty server. Monitor's `terminalList` is its first user.
+- **Hand-off across apps** (`runtime/src/app-main/handoff.ts` + the frame's `createAppHandoff`): an app plans a
+  request against the apps *it* hosts; anything else is `external`, and main opens the `midnite://open` link
+  (validated by `parseMidniteLink` — never an arbitrary URL) with `shell.openExternal`. The launcher's router
+  takes it from there: the installed bundle, else Studio, else the detail sheet. Studio installs the same
+  transport with `setExternalHandoffTransport`, though as the superset it never needs it.
+- **MCP** needs nothing new: the filter landed in Theme D, and the only server is Studio's.
+
+**Why not move Studio's vault into `Midnite Runtime` now.** A narrower vault-only copy would put Studio-keyed
+ciphertext into the runtime directory, which the eventual runtime host (a different keychain identity) could
+not open — the opposite of what Theme G's migration prepares. With a host the files do not need to move for
+V5: they stay where Studio's key can read them, and the socket is where the apps meet. Nothing is copied,
+moved or deleted by this work.
+
+**When a daemon is needed.** The broker already is one; the record plus attach-only mode is all sharing it
+needs. The **vault is the one service that cannot be done with shared files**, because the key is bound to a
+process identity: when no host is running, a guest's vault reads as unavailable and a write fails with
+"open Midnite Studio". Making that case work needs a long-running host with a stable keychain identity — the
+launcher-hosted runtime of Decision 10 — plus Theme G's re-encryption into it. The same is true of serving
+MCP tools with Studio closed.
+
+### Pairing: how the host knows a socket peer claiming `coder` is Coder
+
+Without it, any process running as the user could connect to `vault.sock`, claim a granted app's id and
+read that app's secrets with no keychain prompt — strictly weaker than the per-app keychain items it
+replaced. So every guest pairs.
+
+- **Each guest app holds an Ed25519 key** whose 32-byte random seed is created on first run
+  (`loadOrCreatePairingIdentity`, `runtime/src/vault/host/pairing.ts`) and kept in
+  `<the app's userData>/vault-pairing.json`, **encrypted with the app's own `safeStorage`** — its own
+  keychain item, which another process cannot open without that app's keychain prompt. That is the one
+  thing `safeStorage` does in an app main: `apps/<app>/main/pairing.ts` is the only module allowed to
+  import it (`scripts/app-vault-grants.test.mjs` holds that, and that it only feeds the pairing seed). A
+  keychain that is unavailable keeps no seed and pairs nothing; a seed that will not decrypt is moved aside,
+  never deleted, and a fresh one made (which then shows as a conflict until the user unpairs).
+- **Every connection is challenged.** The host's first line is a fresh 32-byte nonce; the guest's first
+  request is `hello { appId, publicKey, proof }`, the proof an Ed25519 signature over
+  `midnite-vault-pairing\0<appId>\0<nonce>`. A captured hello proves nothing on another connection, a proof
+  for one app id is not one for another, and a connection serves only the app it paired as.
+- **The host binds on first hello (TOFU)** — `<runtime>/host/pairings.json`, `0600` in the `0700` host
+  directory, holding **public keys only**: reading it lets nobody forge a proof. A later hello for that app id
+  with a different key is refused, logged, and counted as a **pairing conflict**, which the Vault app's
+  *Paired apps* section shows.
+- **Re-pairing is the user's call alone**: *Unpair* in Vault (Studio's Vault view, or the Vault app, which
+  must itself be paired) clears an app's binding and its conflict; the app's next hello binds afresh.
+  Nothing else ever unbinds.
+
+**The TOFU window.** A binding is trusted from the first hello for that app id. A spoofer that connects
+*before the real app's first launch* (or right after an Unpair) binds that id to its own key and is then
+served whatever the user grants that id. The real app, opening later, is refused and its id shows a
+**pairing conflict** in Vault — which is the signal: the user unpairs it, reopens the real app, and it binds.
+Grants still gate everything, so the window only matters for an app the user has granted something; the
+safe order is to open an app once before granting it access. Closing the window entirely needs an
+out-of-band introduction (the launcher handing each stub its key at install, or a code signature check of
+the socket peer), which this slice does not build.
+
+### Where it landed
+
+| Piece | Files | Proven by |
+|---|---|---|
+| Host record | `runtime/src/host/host-record.ts` | `host-record.test.ts` (round trip, `0600`/`0700`, malformed → none) |
+| Guest pairing | `runtime/src/vault/host/{pairing,pairing-store}.ts`; `apps/<app>/main/pairing.ts`; Vault's `pairing-section.tsx`; `vaultPairingsList`/`vaultPairingUnpair` | `pairing.test.ts`, `host.test.ts` ("pairing"): a spoofer without the key is refused; a replayed hello is refused; first hello binds; a second key is refused and counted; Unpair (Vault only, Vault paired) then re-bind works; granted-but-unpaired is refused; the listing carries no key |
+| Vault host + guests | `runtime/src/vault/host/{protocol,server,client}.ts`; `startTestVaultHost` in `vault/testing.ts` | `host.test.ts`: a token Studio stores is read by Coder only once granted; a granted write lands in Studio's vault; a peer claiming `studio` or an unknown id is refused; `vault` lists and edits grants but never reads; no host → absent reads, refused writes, a late host is found; a second host never takes the path |
+| Studio hosts | `desktop/src/main/runtime-host.ts`, wired after `initPtyService` in `main/index.ts`, closed in `before-quit` | `runtime-host.test.ts` (serves Studio's own vault; a second Studio leaves the first one's record alone; a throwaway profile hosts inside itself) |
+| Guest apps | `apps/{coder,money,agents,vault}/main/context.ts`, `apps/creator/main/index.ts` — no `safeStorage`, no `authorize` | each app's `context.test.ts` now runs against a real host on a temp-dir socket |
+| Broker guests | `runtime/src/broker/client.ts` (`role: 'guest'`), `broker/shared.ts` | `desktop/src/main/broker-guest.test.ts` on the real server: listed, streamed, written to, resized and snapshotted from another app; create and kill refused; an empty legacy broker and a dead socket left alone; a late host found |
+| Monitor | `apps/monitor/main/shared-sessions.ts` | `shared-sessions.test.ts`, `monitor-app.test.tsx` |
+| Hand-off | `shared` `CHANNELS.handoffOpen` / `HandoffOpenRequest`; `runtime/src/app-main/handoff.ts`; `frame/src/kit/handoff.ts`; Studio's `bridgeHandoffTransport` | `handoff.test.ts` in runtime, frame and app: the right `midnite://open` link, and nothing that is not one |
+
+Still open after this: a vault and MCP server with no Studio running (the daemon above), delivering a
+hand-off's view or ref *into* an installed bundle (the launcher's router opens the bundle with
+`shell.openPath`, which carries no link; Studio's fallback carries all of it), and a terminal *started* from a
+guest app. A forge login Studio stored *is* listed by Coder once granted: `withVaultForgeAccounts`
+(`features/forge/main/forge-accounts-store.ts`) adopts the granted vault names as minimal records (`shared`'s
+`forgeAccountFromVaultKey`, which the Vault app's listing uses too), re-derived on every load and never written
+into Coder's own `forge-accounts.json`.

@@ -1,27 +1,28 @@
 import { vaultMain } from '@midnite/studio-feature-vault/main';
 import {
+  connectRuntimeVault,
   createIpcContext,
-  createVaultGrants,
-  createVaultService,
+  vaultHostSocketPath,
   type IpcContextElectron,
-  type VaultCipher,
+  type PairingIdentity,
 } from '@midnite/studio-runtime';
 
 /** The electron pieces Vault's main needs, injected so registration is testable under bare vitest. */
 export type VaultElectron = IpcContextElectron & {
-  /** `safeStorage` in the app, a fake in tests — never the real keychain under test. */
-  cipher: VaultCipher;
-  /** The runtime's data directory (`vaultDirectory`), where the namespace files live. */
+  /** The runtime's data directory (`vaultDirectory`), where the runtime host serves the vault. */
   directory: string;
+  /** Vault's pairing key (`pairing.ts`): unpaired, the host lets it list and unpair nothing. */
+  pairing: () => PairingIdentity | null;
 };
 
 /**
- * Composes the runtime vault over the runtime's data directory — as the `vault` app — and registers
- * the only channels Vault's renderer can call. Nothing here reads a stored value.
+ * Registers the only channels Vault's renderer can call, over the runtime host's vault (Studio's,
+ * on its socket — `docs/APPS.md`, "The shared data plane") as the `vault` app: names, `has`,
+ * one-way writes, the grants and the pairings, which the host keeps. Vault holds no vault cipher,
+ * and nothing here reads a stored value — the host refuses a `get` from `vault` even if asked.
  */
-export function registerVaultHandlers(el: VaultElectron): void {
-  // Grants live beside the namespace files; Vault is trusted, but it is also where they are edited.
-  const grants = createVaultGrants({ directory: el.directory });
-  const service = createVaultService({ directory: el.directory, cipher: el.cipher, authorize: grants.authorize });
-  vaultMain.register(createIpcContext(el), { vault: service.forApp('vault'), grants });
+export function registerVaultHandlers(el: VaultElectron): { close(): void } {
+  const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.directory), appId: 'vault', identity: el.pairing });
+  vaultMain.register(createIpcContext(el), { vault, grants: vault.grants, pairings: vault.pairing });
+  return { close: () => vault.close() };
 }

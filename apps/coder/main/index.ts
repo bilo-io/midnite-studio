@@ -1,12 +1,13 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, dialog, ipcMain, powerMonitor, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, powerMonitor, shell } from 'electron';
 
 import { guardAppWindow } from '@midnite/studio-runtime';
 
 import { registerCoderHandlers } from './context';
 import { CODER_NAME, coderUserData, coderVaultDirectory, isSmoke, SMOKE_READY_LINE, USER_DATA_ENV } from './identity';
+import { coderPairing } from './pairing';
 
 /**
  * Midnite Coder's main process — the entry the bundle's `package.json` names (`main.cjs`), run by the
@@ -44,9 +45,9 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
       },
       userData: app.getPath('userData'),
+      // The runtime host's vault, over its socket: Coder never reaches the keychain itself.
       vaultDirectory,
-      // A smoke run must never reach the keychain: encryption reads as unavailable, so nothing is read.
-      cipher: smoke ? NO_KEYCHAIN : safeStorage,
+      pairing: coderPairing(app.getPath('userData'), smoke),
       pickDirectory: async () => {
         const options = { title: 'Add a repository', properties: ['openDirectory' as const] };
         const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
@@ -72,12 +73,6 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     if (win === null) openWindow();
   });
 }
-
-const NO_KEYCHAIN = {
-  isEncryptionAvailable: () => false,
-  encryptString: () => Buffer.alloc(0),
-  decryptString: () => '',
-};
 
 function openWindow(): void {
   win = new BrowserWindow({

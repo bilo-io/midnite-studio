@@ -2,10 +2,9 @@
 //
 // `createVaultService` with no `authorize` allows every app everything: right for Studio (which is
 // trusted) and for the runtime's own tests, wrong for any app under `apps/`. Money shipped that
-// fallback once and Creator again, each time caught in review. This test makes it a rule: every
-// `createVaultService(...)` call in an app's main must pass an `authorize` — in practice
-// `createVaultGrants({ directory }).authorize`, the file the Vault app edits — so a fresh install
-// is denied a key until the user grants it.
+// fallback once and Creator again, each time caught in review. Theme J made "every app's
+// `createVaultService` passes an `authorize`" a rule; the shared data plane replaced it with a
+// stronger one below — an app composes no vault, and the runtime host's grants decide.
 
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
@@ -31,11 +30,14 @@ export function vaultServiceCalls(source) {
   return calls;
 }
 
-function appMainFiles() {
-  const out = execFileSync('git', ['grep', '-l', 'createVaultService', '--', 'apps/*/main/*.ts'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  }).trim();
+/** App main files (tests excluded) matching `pattern`; `git grep` exits 1 on no match, which is `[]`. */
+function appMainFiles(pattern) {
+  let out = '';
+  try {
+    out = execFileSync('git', ['grep', '-l', '-E', pattern, '--', 'apps/*/main/*.ts'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+  } catch (error) {
+    if (error.status !== 1) throw error;
+  }
   return out === '' ? [] : out.split('\n').filter((f) => !f.endsWith('.test.ts'));
 }
 
@@ -53,17 +55,51 @@ describe('vaultServiceCalls', () => {
   });
 });
 
-describe('every app main builds the runtime vault behind the grants', () => {
-  it('passes an authorize to each createVaultService call', async () => {
-    const files = appMainFiles();
-    expect(files.length).toBeGreaterThan(0);
-    const offenders = [];
-    for (const file of files) {
+/*
+  The stronger rule since the shared data plane (docs/APPS.md): an app under `apps/` does not compose a
+  vault at all. The runtime host (Studio) holds the one vault and its grants; an app reaches it over the
+  host's socket with `connectRuntimeVault`, holds no cipher and passes no `authorize` — the host decides.
+  A per-app `createVaultService` would encrypt under that app's own keychain item (unreadable by any
+  other app) and race the host on the same files. The launcher is off the graph and has no vault.
+*/
+/** The one module per app allowed to hold `safeStorage`: its own pairing seed (docs/APPS.md, "Pairing"). */
+const PAIRING_MODULE = /^apps\/[a-z-]+\/main\/pairing\.ts$/;
+
+describe('every app main reads the vault through the runtime host, behind its grants', () => {
+  it('composes no vault anywhere', async () => {
+    const offenders = appMainFiles('createVaultService').filter((f) => !f.startsWith('apps/launcher/'));
+    const calls = [];
+    for (const file of offenders) {
       const source = await readFile(path.join(repoRoot, file), 'utf8');
-      vaultServiceCalls(source).forEach((args, n) => {
-        if (!/\bauthorize\b/.test(args)) offenders.push(`${file} (call ${n + 1})`);
-      });
+      calls.push(`${file}: ${vaultServiceCalls(source).length} createVaultService call(s)`);
     }
-    expect(offenders).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+
+  it('touches safeStorage only in its pairing module, and there only to keep its pairing seed', async () => {
+    const touching = appMainFiles('safeStorage').filter((f) => !f.startsWith('apps/launcher/'));
+    expect(touching.filter((f) => !PAIRING_MODULE.test(f))).toEqual([]);
+    for (const file of touching) {
+      const source = await readFile(path.join(repoRoot, file), 'utf8');
+      // The cipher goes to the runtime's pairing seed and nowhere else: no direct encrypt/decrypt, no vault.
+      expect(source, file).toMatch(/pairingIdentitySource\(\{[^}]*cipher: safeStorage/);
+      expect(source, file).not.toMatch(/encryptString|decryptString|createVaultService|createSecureJsonStore/);
+      const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect(code.match(/safeStorage/g)?.length, file).toBe(2); // the import, and the one argument
+    }
+  });
+
+  it('pairs before it reads: every guest passes its pairing identity to connectRuntimeVault', async () => {
+    for (const file of appMainFiles('connectRuntimeVault\\(')) {
+      const source = await readFile(path.join(repoRoot, file), 'utf8');
+      expect(source, file).toMatch(/connectRuntimeVault\(\{[^}]*identity:/s);
+    }
+  });
+
+  it('reaches it as a guest in every app that reads a key', () => {
+    const guests = appMainFiles('connectRuntimeVault');
+    for (const app of ['agents', 'coder', 'creator', 'money', 'vault']) {
+      expect(guests.some((f) => f.startsWith(`apps/${app}/main/`))).toBe(true);
+    }
   });
 });

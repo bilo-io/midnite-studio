@@ -6,6 +6,7 @@ import {
   type ForgeAccountAddResult,
   type ForgeKind,
 } from '@midnite/studio-shared';
+import { VaultHostUnavailableError } from '@midnite/studio-runtime';
 
 import { nullForgeAccountVault, type ForgeAccountVault } from './forge-account-vault';
 import { nullForgeAccountsStore, type ForgeAccountsStore } from './forge-accounts-store';
@@ -112,10 +113,12 @@ export async function addForgeAccount(
   if (delegated === null && token) {
     try {
       await vault.set(forgeAccountVaultKey(kind, host, identity.login), token);
-    } catch {
+    } catch (error) {
       // The runtime vault refuses a write this app holds no grant for
       // (`VaultAccessDeniedError`, Phase 113 Theme J) — say so rather than
-      // registering an account whose token was never stored.
+      // registering an account whose token was never stored. A guest app with
+      // no runtime host running says that instead: the host holds the vault.
+      if (error instanceof VaultHostUnavailableError) return { ok: false, error: error.message };
       return {
         ok: false,
         error: 'This app may not store forge tokens. Grant it access to Forge accounts in Vault ▸ App access.',

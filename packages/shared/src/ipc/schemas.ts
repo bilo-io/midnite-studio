@@ -197,6 +197,7 @@ import {
   WorktreeSchema,
 } from '../domain';
 import { isCommandId } from '../keybindings';
+import { parseMidniteLink } from '../midnite-link';
 import {
   ClaudeInfoSchema,
   FsEntrySchema,
@@ -2815,6 +2816,19 @@ export const AgentTokenTotalsSchema = z.object({
 });
 export type AgentTokenTotals = z.infer<typeof AgentTokenTotalsSchema>;
 
+/**
+ * A cross-app hand-off (Phase 113): a `midnite://open` link, refused here unless it parses as one, so
+ * the channel can never become "open any URL". Main re-checks before opening it.
+ */
+export const HandoffOpenRequest = z.object({
+  link: z
+    .string()
+    .min(1)
+    .max(8192)
+    .refine((link) => parseMidniteLink(link) !== null, { message: 'Only a midnite://open link can be handed off.' }),
+});
+export const HandoffOpenResponse = z.object({ ok: z.boolean() });
+
 /** Per-session totals for the live agent sessions, plus a per-agent roll-up. */
 export const MonitorAgentUsageResponse = z.object({
   sessions: z.array(
@@ -4627,6 +4641,24 @@ export const VaultGrantRevokeRequest = z.object({
   namespace: VaultNamespaceSchema.optional(),
 });
 export const VaultGrantRevokeResponse = z.object({ ok: z.boolean() });
+
+/**
+ * Guest pairing (docs/APPS.md, "Pairing"): every app that has paired with the vault host, when, and
+ * the latest refused hello under a different key — a pairing conflict. Names and times; never a key.
+ */
+export const VaultPairingsListRequest = z.object({});
+export const VaultPairingsListResponse = z.object({
+  apps: z.array(
+    z.object({
+      appId: z.enum(PLACEMENT_APP_IDS),
+      pairedAt: z.number().int().nonnegative(),
+      conflict: z.object({ at: z.number().int().nonnegative(), count: z.number().int().positive() }).nullable(),
+    }),
+  ),
+});
+/** Unpair: user-initiated only, and the only way an app re-pairs. Vault itself can be unpaired too. */
+export const VaultPairingUnpairRequest = z.object({ appId: z.enum(PLACEMENT_APP_IDS) });
+export const VaultPairingUnpairResponse = z.object({ ok: z.boolean() });
 
 // --- finance proxy (Phase 76 Theme D) -----------------------------------------
 

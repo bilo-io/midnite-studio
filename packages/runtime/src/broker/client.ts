@@ -72,7 +72,20 @@ export type BrokerClientOptions = BrokerIdentity & {
    * composer passes its log sink's `capFile`. Omitted, the log is not capped.
    */
   capLogFile?: (directory: string, fileName: string, maxBytes: number, generations: number) => void;
+  /**
+   * `host` (the default) owns the broker: it spawns one when none answers, retires a stale one and
+   * shuts down empty legacy peers. A `guest` is another app attached to a broker it did not start
+   * (`attachSharedBroker`): it connects to {@link socketPath} and to any live peer in `brokerDir`,
+   * and never spawns, retires, unlinks, shuts down or creates — a guest that tidied up would stop
+   * the host's own broker the first time it found it empty.
+   */
+  role?: 'host' | 'guest';
+  /** The socket to connect to, overriding the name derived from version and build — a guest's. */
+  socketPath?: string;
 };
+
+/** What a guest's `createPty` says: starting a terminal stays with the app that ships the pty server. */
+export const GUEST_CANNOT_CREATE = 'This app attaches to terminals another app started; it cannot start one.';
 
 export type BrokerSessionInfo = {
   ptyId: string;
@@ -161,9 +174,10 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     return deps.brokerScriptPath;
   }
 
-  const buildId = deps.buildId ?? fingerprintFile(getBrokerScript());
-  const socketName = brokerSocketName(appVersion, buildId, isPackaged);
-  const socketPath = join(brokerDir, socketName);
+  const guest = deps.role === 'guest';
+  const buildId = deps.buildId ?? (guest ? 'guest' : fingerprintFile(getBrokerScript()));
+  const socketPath = deps.socketPath ?? join(brokerDir, brokerSocketName(appVersion, buildId, isPackaged));
+  const socketName = basename(socketPath);
   const logPath = join(brokerDir, `${appVersion}${isPackaged ? '' : '-dev'}.log`);
 
   let status: BrokerStatus = { mode: 'broker' };
@@ -261,7 +275,8 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
    * idle exit never fires.
    */
   function retireLegacy(peer: Peer): void {
-    if (!legacy.has(peer.path)) return;
+    // A guest never shuts a broker down: it did not start it, and "empty" is the host's call.
+    if (guest || !legacy.has(peer.path)) return;
     legacy.delete(peer.path);
     log(`[broker] legacy broker at ${peer.path} has no sessions left, shutting it down`);
     try {
@@ -483,7 +498,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
    * finds `-retired-` sockets like any other legacy `.sock`.
    */
   async function retireStalePrimary(): Promise<void> {
-    if (!primary) return;
+    if (guest || !primary) return;
     const peer = primary;
     primary = null;
     peer.legacy = true;
@@ -506,6 +521,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
 
   /** Spawn a broker on `socketPath` and adopt it as primary; `false` after every attempt fails. */
   async function spawnFresh(): Promise<boolean> {
+    if (guest) return false;
     const spawner = spawnBrokerProcess ?? defaultSpawnBroker;
     const script = getBrokerScript();
     const args = [
@@ -598,7 +614,8 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
         const legacyPath = join(brokerDir, entry);
         const found = await connectExisting(legacyPath, 500);
         if (!found) {
-          // Dead legacy socket, unlink
+          // Dead legacy socket, unlink — the host's job; a guest leaves the directory as it found it.
+          if (guest) continue;
           try {
             unlinkSync(legacyPath);
           } catch {
@@ -625,6 +642,18 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     if (isSocketPathTooLong(socketPath)) {
       status = { mode: 'inproc', reason: 'socket path too long' };
       log(`[broker] socket path too long (${socketPath}), falling back to in-process`);
+      return false;
+    }
+
+    if (guest) {
+      // Attach to what the host runs — stale or not, its sessions are still served — or report none.
+      const shared = await connectExisting(socketPath, 500);
+      if (shared) {
+        adoptPrimary(shared.socket);
+        log(`[broker] attached to the shared broker on ${socketPath}`);
+        return true;
+      }
+      status = { mode: 'inproc', reason: 'no shared terminal broker is running' };
       return false;
     }
 
@@ -673,6 +702,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     },
 
     async createPty(options): Promise<{ ok: true; ptyId: string; pid: number } | { ok: false; message: string }> {
+      if (guest) return { ok: false, message: GUEST_CANNOT_CREATE };
       if (!primary && !(await spawnFresh())) {
         return { ok: false, message: 'The terminal backend is not running and could not be restarted.' };
       }
@@ -745,6 +775,8 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
     },
 
     async killPty(ptyId: string): Promise<boolean> {
+      // Ending a session is its owner's call; a guest only attaches.
+      if (guest) return false;
       try {
         const reply = await sendRequest({ t: 'kill', ptyId }, 5000, ptyOwner.get(ptyId) ?? primary);
         return reply.ok === true;
@@ -788,6 +820,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
      * leave sessions split across brokers.
      */
     forgetScrollback(sessionIds: string[]): void {
+      if (guest) return;
       const byTarget = new Map<Peer, string[]>();
       for (const sessionId of sessionIds) {
         const target = sessionOwner.get(sessionId) ?? primary;

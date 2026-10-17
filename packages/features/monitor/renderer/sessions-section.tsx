@@ -31,8 +31,18 @@ export function brokerLine(list: Listing): string {
 /**
  * Live terminal sessions: title or agent, cwd and uptime. Read-only — Monitor
  * lists sessions through `terminal.list` and never creates, writes or kills one.
+ * `onOpen`, when the composer passes it, adds a per-row action that takes the
+ * user to the session where it lives (the standalone Monitor hands off to Studio).
  */
-export function SessionsSection({ now = Date.now }: { now?: () => number }) {
+export function SessionsSection({
+  now = Date.now,
+  onOpen,
+  openLabel = 'Open',
+}: {
+  now?: () => number;
+  onOpen?: (sessionId: string) => void;
+  openLabel?: string;
+}) {
   const [list, setList] = useState<Listing | null | undefined>(undefined);
 
   useEffect(() => {
@@ -66,7 +76,14 @@ export function SessionsSection({ now = Date.now }: { now?: () => number }) {
                 {session.agentId ? <span className="ml-2 text-muted-foreground">{session.agentId}</span> : null}
                 <span className="block truncate text-[11px] text-muted-foreground">{session.cwd}</span>
               </span>
-              <span className="tabular-nums text-muted-foreground">{formatUptime(now() - session.createdAt)}</span>
+              <span className="flex items-baseline gap-3">
+                <span className="tabular-nums text-muted-foreground">{formatUptime(now() - session.createdAt)}</span>
+                {onOpen ? (
+                  <button type="button" className="text-[11px] text-primary hover:underline" onClick={() => onOpen(session.id)}>
+                    {openLabel}
+                  </button>
+                ) : null}
+              </span>
             </li>
           ))}
         </ul>

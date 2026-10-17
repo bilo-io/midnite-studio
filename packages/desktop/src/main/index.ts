@@ -4,7 +4,13 @@ import { resolve, dirname, join } from 'node:path';
 import { totalmem } from 'node:os';
 
 import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-engine';
-import { createVaultGrants, createVaultService } from '@midnite/studio-runtime';
+import {
+  createPairingStore,
+  createVaultGrants,
+  createVaultService,
+  runtimeHostDirectory,
+  type VaultHost,
+} from '@midnite/studio-runtime';
 import {
   EVENT_CHANNELS,
   CHANNELS,
@@ -87,8 +93,10 @@ import { configureTests, createTestTrustStore } from '@midnite/studio-feature-te
 import { registerTestsFeatureHandlers } from './ipc/tests-feature-handlers';
 import { defaultLogger, setLogSink, type Logger } from './log';
 import { installMenu } from './menu';
+import { startStudioRuntimeHost, studioRuntimeDirectory } from './runtime-host';
 import {
   detachAll,
+  getSharedBrokerLocation,
   initPtyService,
   notifyActivityDisabled,
   onSessionExit,
@@ -189,6 +197,9 @@ const getMainWindow = (): BrowserWindow | null => mainWindow;
 /** Media ▸ Games' service, created at boot (Phase 107); read at quit to stop every run. */
 let gameService: ReturnType<typeof createGameService> | null = null;
 let gameAgentService: ReturnType<typeof createGameAgentService> | null = null;
+
+/** The vault host other apps read through (`runtime-host.ts`); closed at quit so its socket goes with it. */
+let runtimeHost: VaultHost | null = null;
 
 /**
  * Open repositories named by `MSTUDIO_OPEN_REPOS` (a colon-separated path list).
@@ -748,12 +759,16 @@ if (!app.requestSingleInstanceLock()) {
     */
     // Grants (Phase 113 Theme J slice 2): Studio is always allowed; the grants only gate other apps' services.
     const vaultGrants = createVaultGrants({ directory: userData });
-    configureVaultGrants(vaultGrants);
-    const studioVault = createVaultService({
+    // Which key each guest app paired with — the host checks it, Studio's Vault view lists and unpairs.
+    const runtimeDirectory = studioRuntimeDirectory(app.getPath('appData'), userData);
+    const vaultPairings = createPairingStore({ hostDirectory: runtimeHostDirectory(runtimeDirectory) });
+    configureVaultGrants(vaultGrants, vaultPairings);
+    const vaultService = createVaultService({
       directory: userData,
       cipher: safeStorage,
       authorize: vaultGrants.authorize,
-    }).forApp('studio');
+    });
+    const studioVault = vaultService.forApp('studio');
     configureDb(createConnectionsStore(userData), createCredentialVault(studioVault));
     configureSecrets(createSecretsVault(studioVault));
     /*
@@ -848,6 +863,24 @@ if (!app.requestSingleInstanceLock()) {
         // The second consumer of the same seam: a session's exit code, kept
         // until the close that archives it finally comes (Phase 67).
         watchSessionExits();
+        /*
+          Studio as the runtime host (docs/APPS.md, "The shared data plane"): the other apps read
+          its vault over a socket — behind its grants, never with a cipher of their own — and find
+          its broker through the host record. After the pty service, so the record names the
+          broker it actually reached.
+        */
+        void startStudioRuntimeHost({
+          runtimeDirectory,
+          service: vaultService,
+          grants: vaultGrants,
+          pairings: vaultPairings,
+          broker: getSharedBrokerLocation(),
+          sessionsFile: join(userData, 'terminals.json'),
+          pid: process.pid,
+          log: (msg) => defaultLogger(msg),
+        }).then((host) => {
+          runtimeHost = host;
+        });
       });
 
     /*
@@ -1000,6 +1033,18 @@ if (!app.requestSingleInstanceLock()) {
         unlinkSync(mcpHandle.socketPath);
       } catch {
         // Best-effort — close() above will also have tried.
+      }
+    }
+
+    // The vault host's socket must not outlive Studio: close it (and unlink, synchronously, like MCP's).
+    if (runtimeHost) {
+      const host = runtimeHost;
+      runtimeHost = null;
+      void host.close();
+      try {
+        unlinkSync(host.socketPath);
+      } catch {
+        // Best-effort — close() above unlinks it too.
       }
     }
 
