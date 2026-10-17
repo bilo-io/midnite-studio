@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme J (slice 3) — web-app sign-ins in Vault; Studio's credential settings from the vault feature
+
+[PR #903](https://github.com/bilo-io/midnite-studio/pull/903). Vault lists each web app's sign-in as a cookie count and sites (never a value) and signs out of one behind a blast-radius confirm; the agent key field and the credential half of Settings ▸ Accounts render from the vault feature through a `VaultHost` port. Theme J ✅.
+
 ## 2026-10-17 — Phase 113 Theme G (slice 3) — Studio boots from apps/studio
 
 [PR #902](https://github.com/bilo-io/midnite-studio/pull/902). Studio's renderer and Electron main start from `apps/studio/entry/`, each through one eslint-held seam into `packages/app` / `packages/desktop`; the packaged layout, CI and harnesses are unchanged. Theme G ✅.
