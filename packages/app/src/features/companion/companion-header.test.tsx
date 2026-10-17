@@ -10,7 +10,8 @@ const mocks = vi.hoisted(() => ({
   detach: vi.fn(),
 }));
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ windowRole: mocks.windowRole, window: { detach: mocks.detach } }),
 }));
 

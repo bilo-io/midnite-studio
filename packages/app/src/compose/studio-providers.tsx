@@ -3,23 +3,27 @@ import type { ReactNode } from 'react';
 import { ChatsHostProvider } from '@midnite/studio-feature-chats/renderer';
 import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer';
 import { FinanceHostProvider } from '@midnite/studio-feature-finance/renderer';
+import { ForgeHostProvider } from '@midnite/studio-feature-forge/renderer';
 import { MediaHostProvider } from '@midnite/studio-feature-media-core/renderer';
 import { ModelsHostProvider } from '@midnite/studio-feature-models/renderer';
 import { NotesHostProvider } from '@midnite/studio-feature-notes/renderer';
 import { OptimizerHostProvider } from '@midnite/studio-feature-optimizer/renderer';
 import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
+import { TestsHostProvider } from '@midnite/studio-feature-tests/renderer';
 import { WorkflowsHostProvider } from '@midnite/studio-feature-workflows/renderer';
 import { FrameChromeProvider, KnowledgeHostProvider } from '@midnite/studio-frame';
 
 import { STUDIO_CHATS_HOST } from './chats-host';
 import { STUDIO_COUNCILS_HOST } from './councils-host';
 import { STUDIO_FINANCE_HOST } from './finance-host';
+import { STUDIO_FORGE_HOST } from './forge-host';
 import { STUDIO_KNOWLEDGE_HOST } from './knowledge-host';
 import { STUDIO_MEDIA_HOST } from './media-host';
 import { STUDIO_MODELS_HOST } from './models-host';
 import { STUDIO_NOTES_HOST } from './notes-host';
 import { STUDIO_OPTIMIZER_HOST } from './optimizer-host';
 import { STUDIO_SLIDES_HOST } from './slides-host';
+import { STUDIO_TESTS_HOST } from './tests-host';
 import { STUDIO_CHROME } from './studio-chrome';
 import { STUDIO_WORKFLOWS_HOST } from './workflows-host';
 
@@ -48,7 +52,11 @@ export function StudioProviders({ children }: { children: ReactNode }) {
                   <ChatsHostProvider host={STUDIO_CHATS_HOST}>
                     <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
                       <WorkflowsHostProvider host={STUDIO_WORKFLOWS_HOST}>
-                        <KnowledgeHostProvider host={STUDIO_KNOWLEDGE_HOST}>{children}</KnowledgeHostProvider>
+                        <KnowledgeHostProvider host={STUDIO_KNOWLEDGE_HOST}>
+                          <ForgeHostProvider host={STUDIO_FORGE_HOST}>
+                            <TestsHostProvider host={STUDIO_TESTS_HOST}>{children}</TestsHostProvider>
+                          </ForgeHostProvider>
+                        </KnowledgeHostProvider>
                       </WorkflowsHostProvider>
                     </SlidesHostProvider>
                   </ChatsHostProvider>

@@ -385,8 +385,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   is wired by the same `core.hooksPath .githooks` as `pre-commit`, so the three commands
   above install both.
 
-- **A forge credential lives in `main/forge/forge-account-vault.ts`, never in renderer
-  `localStorage`.** Phase 90 Theme B gave the app its first logged-in identity — a GitHub, GitLab,
+- **A forge credential lives in `packages/features/forge/main/forge-account-vault.ts` (the forge
+  feature's main half since Phase 113 Theme O), never in renderer `localStorage`.** Phase 90 Theme B gave the app its first logged-in identity — a GitHub, GitLab,
   Bitbucket or Azure DevOps personal access token, encrypted behind Electron `safeStorage` and
   keyed `${provider}:${host}:${login}`, the third binding beside
   `db/credential-vault.ts` and `secrets-vault.ts` (Phase 76 Theme D) — since Phase 113 Theme D all

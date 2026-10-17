@@ -9,7 +9,8 @@ import { CardPanelStack } from './card-panel-stack';
 
 afterEach(cleanup);
 
-vi.mock('../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     forgeProject: { setField: vi.fn() },
     terminal: { list: vi.fn(async () => ({ sessions: [] })), save: vi.fn() },

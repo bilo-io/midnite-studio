@@ -13,7 +13,8 @@ const projectCreate = vi.fn();
 const projectAddItem = vi.fn();
 const projectList = vi.fn(async () => ({ cli: { reason: 'ready', binPath: '/gh', hint: '' }, projects: [], error: null }));
 
-vi.mock('../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     ai: { planBlueprint, improveField: vi.fn() },
     forge: { issueCreate, issuesLink },

@@ -23,13 +23,13 @@ export function KitIconButton({
     <button
       type="button"
       aria-label={label}
+      data-testid={testId}
       title={disabledReason ? `${label} (${disabledReason})` : label}
       aria-disabled={isDisabled}
       aria-busy={busy || undefined}
       disabled={disabled || undefined}
       aria-pressed={ariaPressed}
       aria-expanded={ariaExpanded}
-      data-testid={testId}
       onClick={isDisabled ? undefined : onClick}
       className={`inline-flex items-center justify-center gap-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-40 ${className}`}
     >

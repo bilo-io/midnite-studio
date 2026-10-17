@@ -34,7 +34,8 @@ vi.mock('../../lib/use-window-focus-gate', () => ({
   useWindowFocusGate: () => undefined,
 }));
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     windowRole: 'main',
     window: { detach: vi.fn() },

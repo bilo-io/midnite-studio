@@ -1,4 +1,5 @@
 import {
+  FEATURE_PACKAGE_FOLDERS,
   FEATURE_PACKAGE_SPLITS,
   FEATURE_PLACEMENT,
   placementOwners,
@@ -28,10 +29,13 @@ const folders = [
   ...new Set([
     ...featureFiles.map((path) => path.split('/')[2] as string),
     ...frameResidentFiles.map((path) => path.split('/')[4] as string),
-    // A split package (`media-core`, `media-docs`, …) counts as the folder it came from.
-    ...packagedFeatureFiles.map((path) => {
+    // A split package (`media-core`, `media-docs`, …) counts as the folder it came from;
+    // a package holding several folders (`forge`: forge, reviews, actions) counts as each.
+    ...packagedFeatureFiles.flatMap((path) => {
       const name = path.split('/')[3] as string;
-      return (FEATURE_PACKAGE_SPLITS as Readonly<Record<string, { folder: string }>>)[name]?.folder ?? name;
+      const merged = (FEATURE_PACKAGE_FOLDERS as Readonly<Record<string, readonly string[]>>)[name];
+      if (merged) return [...merged];
+      return [(FEATURE_PACKAGE_SPLITS as Readonly<Record<string, { folder: string }>>)[name]?.folder ?? name];
     }),
   ]),
 ].sort();

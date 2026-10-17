@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme O (slice 1) — the forge as features, and apps/coder
+
+[PR #887](https://github.com/bilo-io/midnite-studio/pull/887). Reviews, Actions and Tests as features over a forge main half, Midnite Coder on its own repository list with forge tokens only from the runtime vault behind its grants — and two test guards after a stale mock let a test open a real public issue.
+
 ## 2026-10-17 — Phase 113 Theme M (slice 3) — Knowledge in the frame; Mind graphs its own notebook
 
 [PR #886](https://github.com/bilo-io/midnite-studio/pull/886). Knowledge behind a `KnowledgeHost` port in the frame, Studio unchanged, and Midnite Mind with a Knowledge tab built from its notes. Theme M is done.

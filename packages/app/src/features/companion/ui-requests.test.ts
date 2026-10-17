@@ -16,7 +16,8 @@ const mocks = vi.hoisted(() => ({
   reposList: vi.fn(async () => [] as Array<{ id: string; path: string; worktrees: unknown[] }>),
 }));
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   // `speaker.ts` (Phase 109 Theme D's voice listing) reads it at import.
   hasBridge: () => false,
   bridge: () =>

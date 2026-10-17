@@ -12,7 +12,8 @@ vi.mock('./release-notes', () => ({
   useReleaseNotes: () => ({ data: { version: '0.3.1', notes: null, error: null }, isLoading: false }),
 }));
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ report: { bundle: mocks.bundle } }),
 }));
 

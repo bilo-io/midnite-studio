@@ -14,8 +14,8 @@ import {
   PROVIDER_ICON,
   PROVIDER_LABEL,
 } from '../../settings/settings-pages/accounts-page';
-import { getActionItemStyle } from '../../actions/action-status-styles';
-import { checksStatus, pullStatus, runStatus, StatusPill } from '../../forge/forge-status';
+import { getActionItemStyle } from '@midnite/studio-feature-forge/renderer';
+import { checksStatus, pullStatus, runStatus, StatusPill } from '@midnite/studio-feature-forge/renderer';
 import { WidgetState } from '../widget-frame';
 
 /**

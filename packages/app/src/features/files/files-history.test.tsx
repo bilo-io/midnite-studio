@@ -15,7 +15,8 @@ import { MarkdownPreview } from './preview/markdown-preview';
  */
 const listDir = vi.fn();
 
-vi.mock('../../services/bridge', () => ({ bridge: () => ({ fs: { listDir } }) }));
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()), bridge: () => ({ fs: { listDir } }) }));
 vi.mock('../../services/queries', () => ({
   keys: { fs: (scope: unknown) => ['fs', JSON.stringify(scope)] },
   useRepos: () => ({ data: [{ id: 'repo-1', name: 'midnite-studio', path: '/tmp/repo' }] }),

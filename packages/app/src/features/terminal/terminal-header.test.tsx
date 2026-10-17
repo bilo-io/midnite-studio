@@ -10,7 +10,8 @@ const mocks = vi.hoisted(() => ({
   leadingTarget: null as HTMLDivElement | null,
 }));
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ windowRole: mocks.windowRole }),
 }));
 

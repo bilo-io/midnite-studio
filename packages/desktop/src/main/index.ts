@@ -36,9 +36,14 @@ import { disposeScriptRunner } from './api-client/script-runner-broker';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
 import { configureSecrets, configureVaultGrants, registerSecretsHandlers } from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
-import { createForgeAccountVault } from './forge/forge-account-vault';
-import { createForgeAccountsStore } from './forge/forge-accounts-store';
-import { configureForgeAccounts } from './forge/forge-accounts';
+import {
+  configureForgeAccounts,
+  configureGitlabLanguageCache,
+  createForgeAccountsStore,
+  createForgeAccountVault,
+  createGitlabLanguageCacheStore,
+  FORGE_POLL_MS,
+} from '@midnite/studio-feature-forge/main';
 import { configureDb, registerDbHandlers, shutdownDb } from './ipc/database';
 import { configureKnowledge, registerKnowledgeHandlers } from './ipc/knowledge-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
@@ -57,9 +62,7 @@ import { createNotesStore } from '@midnite/studio-feature-notes/main';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { handle, handleBare } from './ipc/handle';
 import { probeSetupItems } from './setup-probe';
-import { registerForgeHandlers } from './ipc/forge-handlers';
-import { registerForgeAccountHandlers } from './ipc/forge-account-handlers';
-import { registerForgeProjectHandlers } from './ipc/forge-project-handlers';
+import { createStudioForgePoller, registerForgeFeatureHandlers } from './ipc/forge-feature-handlers';
 import { registerAiHandlers } from './ipc/ai-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
@@ -80,7 +83,8 @@ import { registerRepoHandlers } from './ipc/repo-handlers';
 import { registerSearchHandlers } from './ipc/search-handlers';
 import { registerStatsHandlers } from './ipc/stats-handlers';
 import { registerStatusHandlers } from './ipc/status-handlers';
-import { configureTests, registerTestsHandlers } from './ipc/tests-handlers';
+import { configureTests, createTestTrustStore } from '@midnite/studio-feature-tests/main';
+import { registerTestsFeatureHandlers } from './ipc/tests-feature-handlers';
 import { defaultLogger, setLogSink, type Logger } from './log';
 import { installMenu } from './menu';
 import {
@@ -105,13 +109,10 @@ import {
 import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-registry';
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { initFetchScheduler, reconcileFetchScheduler } from './fetch-scheduler';
-import { createForgePoller, FORGE_POLL_MS } from './forge/forge-poller';
-import { registerForgePollHandlers } from './ipc/forge-poll-handlers';
 import { registerSettingsHandlers } from './ipc/settings-handlers';
 import { createConnectionsStore } from './db/connections-store';
 import { createCredentialVault } from './db/credential-vault';
 import { createTrustStore } from './diagnostics/trust-store';
-import { createTestTrustStore } from './testing/trust-store';
 import { createRepoStore } from './repo-store';
 import { getMcpServerHandle, registerMcpServer } from './mcp';
 import { registerMcpHandlers } from './ipc/mcp-handlers';
@@ -174,7 +175,6 @@ import { setGameTools } from './mcp/game-tools';
 import { createGamesSettingsStore } from './games/games-settings-store';
 import { mediaGameTemplateRoot } from './template-path';
 import { createReopenStore, createWindowsStore } from './windows-store';
-import { configureGitlabLanguageCache, createGitlabLanguageCacheStore } from './forge/gitlab/gitlab-languages';
 
 /**
  * Electron main entry point.
@@ -418,9 +418,6 @@ if (!app.requestSingleInstanceLock()) {
     registerHooksHandlers();
     registerClipboardHandlers();
     registerRepoLogoHandlers();
-    registerForgeHandlers();
-    registerForgeAccountHandlers();
-    registerForgeProjectHandlers();
     registerAiHandlers();
     // Phase 84 Themes B/C: auto-fetch and forge polling both move to main,
     // one instance for the whole process regardless of how many windows are
@@ -433,8 +430,10 @@ if (!app.requestSingleInstanceLock()) {
     // register call) so Phase 97 Theme H's trigger scheduler can subscribe
     // its own `forge-pr` triggers onto this SAME instance below — one
     // poller for the whole process, never a second one.
-    const forgePoller = createForgePoller(defaultLogger);
-    registerForgePollHandlers(forgePoller);
+    // The forge feature's channels (Phase 113 Theme O) — listings, writes,
+    // accounts, projects and the poll subscriptions — register here, onto it.
+    const forgePoller = createStudioForgePoller();
+    registerForgeFeatureHandlers(forgePoller);
     registerSettingsHandlers();
     registerDiagHandlers();
     registerSessionsHandlers();
@@ -443,7 +442,7 @@ if (!app.requestSingleInstanceLock()) {
     registerDbHandlers(getMainWindow);
     registerKnowledgeHandlers();
     registerScaffoldHandlers();
-    registerTestsHandlers(getMainWindow);
+    registerTestsFeatureHandlers(getMainWindow);
     registerPtyHandlers(getMainWindow);
     registerBrowserHandlers();
     // Phase 84 Theme F: one process-wide idle sweep, started once — every

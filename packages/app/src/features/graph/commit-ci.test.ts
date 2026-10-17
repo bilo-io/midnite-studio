@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { LuBan, LuCheck, LuClock, LuLoaderCircle, LuMinus, LuSkipForward, LuX } from 'react-icons/lu';
 
-import { runStatus } from '../forge/forge-status';
+import { runStatus } from '@midnite/studio-feature-forge/renderer';
 import {
   CI_OVERSCAN,
   CI_PAGE_SIZE,

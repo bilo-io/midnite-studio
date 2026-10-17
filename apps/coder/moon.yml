@@ -1,0 +1,84 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Coder (Phase 113 Theme O) — the forge (Reviews, Actions) and Tests as their own app:
+# `packages/features/{forge,tests}` + `packages/frame` + `shared`, composed in src/.
+# `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+id: 'app-coder'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-coder'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'git-engine'
+  - 'feature-forge'
+  - 'feature-tests'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/forge/renderer/**/*'
+      - '/packages/features/forge/manifest.ts'
+      - '/packages/features/tests/renderer/**/*'
+      - '/packages/features/tests/manifest.ts'
+      - '/packages/features/forge/main/**/*'
+      - '/packages/features/tests/main/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/forge/renderer/**/*'
+      - '/packages/features/forge/manifest.ts'
+      - '/packages/features/tests/renderer/**/*'
+      - '/packages/features/tests/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/forge/main/**/*'
+      - '/packages/features/tests/main/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/forge/renderer/**/*'
+      - '/packages/features/forge/manifest.ts'
+      - '/packages/features/tests/renderer/**/*'
+      - '/packages/features/tests/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/forge/main/**/*'
+      - '/packages/features/tests/main/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'

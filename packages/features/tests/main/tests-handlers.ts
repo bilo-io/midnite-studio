@@ -1,0 +1,151 @@
+import { randomUUID } from 'node:crypto';
+
+import { computeTestDiscovery } from '@midnite/studio-git-engine';
+import {
+  CHANNELS,
+  EVENT_CHANNELS,
+  schemas,
+  testSuiteFingerprint,
+  type TestDiscovery,
+  type TestSuite,
+  type TestTrustStatus,
+} from '@midnite/studio-shared';
+
+import type { FeatureMainContext } from '@midnite/studio-runtime';
+
+import { nullTestTrustStore, runTestSuite, type TestTrustStore } from './testing';
+
+/**
+ * What only the composer knows (Phase 113 Theme O): where a repository's
+ * checkout is, from a `repoId` — never a path the renderer sent — and where a
+ * rejected one-way payload is logged.
+ */
+export type TestsPorts = {
+  workdir: (repoId: string) => Promise<string | null>;
+  warn: (message: string) => void;
+};
+
+/**
+ * The tests channels — discovery, per-suite trust, and execution.
+ *
+ * The `diag-handlers.ts` shape throughout: `discover` runs nothing and is safe
+ * unprompted; `run` refuses without a live grant, checked here rather than in
+ * the mechanism; `trust` only records a suite this call itself just
+ * re-discovered, so a compromised renderer cannot name an arbitrary command
+ * and call it "trust". Every channel takes a `repoId` (and a `suiteId`), never
+ * a path or a command — main resolves both from its own state.
+ */
+
+let store: TestTrustStore = nullTestTrustStore;
+
+/** Injected at boot with a store rooted at `app.getPath('userData')`. */
+export function configureTests(next: TestTrustStore): void {
+  store = next;
+}
+
+const NO_TRUST: TestTrustStatus = { state: 'untrusted', trustedAt: null };
+
+/** In-flight runs, for `cancel` — the process handle only, nothing else. */
+const inFlight = new Map<string, { kill: () => void }>();
+
+/** Test-only: `inFlight` is otherwise module-private. */
+export function inFlightSizeForTests(): number {
+  return inFlight.size;
+}
+
+async function findSuite(resolveWorkdir: TestsPorts['workdir'], repoId: string, suiteId: string): Promise<TestSuite | null> {
+  const workdir = await resolveWorkdir(repoId);
+  if (!workdir) return null;
+  const packages = await computeTestDiscovery({ repoId, repoRoot: workdir });
+  for (const pkg of packages) {
+    const found = pkg.suites.find((s) => s.id === suiteId);
+    if (found) return found;
+  }
+  return null;
+}
+
+export function registerTestsHandlers(ctx: FeatureMainContext, ports: TestsPorts): void {
+  const { ipc } = ctx;
+  const resolveWorkdir = ports.workdir;
+  ipc.handle<typeof schemas.TestsDiscoverRequest, TestDiscovery>(
+    CHANNELS.testsDiscover,
+    schemas.TestsDiscoverRequest,
+    async (req) => {
+      const workdir = await resolveWorkdir(req.repoId);
+      if (!workdir) return { repoId: req.repoId, packages: [], generatedAt: Date.now() };
+      const packages = await computeTestDiscovery({ repoId: req.repoId, repoRoot: workdir });
+      return { repoId: req.repoId, packages, generatedAt: Date.now() };
+    },
+    () => ({ repoId: '', packages: [], generatedAt: Date.now() }),
+  );
+
+  ipc.handle<typeof schemas.TestsTrustStatusRequest, TestTrustStatus>(
+    CHANNELS.testsTrustStatus,
+    schemas.TestsTrustStatusRequest,
+    async (req) => {
+      const suite = await findSuite(resolveWorkdir, req.repoId, req.suiteId);
+      if (!suite) return NO_TRUST;
+      return store.status(req.repoId, req.suiteId, testSuiteFingerprint(suite));
+    },
+    () => NO_TRUST,
+  );
+
+  ipc.handle<typeof schemas.TestsTrustRequest, TestTrustStatus>(
+    CHANNELS.testsTrust,
+    schemas.TestsTrustRequest,
+    async (req) => {
+      const suite = await findSuite(resolveWorkdir, req.repoId, req.suiteId);
+      if (!suite) return NO_TRUST;
+      const live = testSuiteFingerprint(suite);
+      // Approve only the suite the trust prompt actually showed — the
+      // `isProposedCommand` rule, for a suite instead of a proposed linter.
+      if (live !== req.fingerprint) return store.status(req.repoId, req.suiteId, live);
+      return store.trust(req.repoId, req.suiteId, live, Date.now());
+    },
+    () => NO_TRUST,
+  );
+
+  ipc.handle<typeof schemas.TestsUntrustRequest, TestTrustStatus>(
+    CHANNELS.testsUntrust,
+    schemas.TestsUntrustRequest,
+    (req) => store.untrust(req.repoId, req.suiteId),
+    () => NO_TRUST,
+  );
+
+  ipc.handle<typeof schemas.TestsRunRequest, { ok: true; runId: string } | { ok: false; reason: string }>(
+    CHANNELS.testsRun,
+    schemas.TestsRunRequest,
+    async (req) => {
+      const suite = await findSuite(resolveWorkdir, req.repoId, req.suiteId);
+      if (!suite) return { ok: false, reason: 'no-suite' };
+
+      const status = await store.status(req.repoId, req.suiteId, testSuiteFingerprint(suite));
+      if (status.state !== 'trusted') return { ok: false, reason: 'untrusted' };
+
+      const runId = randomUUID();
+      // Deliberately not awaited: the invoke resolves with the run id the
+      // moment the suite is trusted, and output/completion arrive on their own
+      // streams — a suite can run for minutes, and the Tests view has to show
+      // it working rather than block on one invoke.
+      void runTestSuite(suite, {
+        onSpawned: (handle) => inFlight.set(runId, handle),
+        // `ctx.emit` is a no-op once the window is gone.
+        onChunk: (chunk) => ctx.emit(EVENT_CHANNELS.testsOutput, { runId, chunk }),
+      })
+        .then((result) => {
+          ctx.emit(EVENT_CHANNELS.testsResult, { runId, suiteId: req.suiteId, result });
+        })
+        .finally(() => inFlight.delete(runId));
+
+      return { ok: true, runId };
+    },
+    (issue) => ({ ok: false, reason: issue }),
+  );
+
+  ipc.send(
+    CHANNELS.testsCancel,
+    schemas.TestsCancelRequest,
+    ({ runId }) => inFlight.get(runId)?.kill(),
+    (issue) => ports.warn(issue),
+  );
+}

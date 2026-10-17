@@ -7,7 +7,8 @@ import { PlanWithAiBar } from './plan-with-ai-bar';
 
 const planBlueprint = vi.fn();
 
-vi.mock('../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     ai: { planBlueprint, improveField: vi.fn() },
     forge: { issueCreate: vi.fn(), issuesLink: vi.fn() },

@@ -12,7 +12,8 @@ const issueSetStateFn = vi.fn();
 const listProjects = vi.fn();
 const addItem = vi.fn();
 
-vi.mock('../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     forge: {
       issueComment: issueCommentFn,

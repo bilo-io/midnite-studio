@@ -30,7 +30,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { requestUiAction } from '../companion/ui-bridge';
-import { listPulls, listRuns } from '../forge/github/gh-cli';
+import { listPulls, listRuns } from '@midnite/studio-feature-forge/main';
 import { listRepos } from '../repo-registry';
 import { decideGate, listWaitingGates } from '@midnite/studio-feature-workflows/main';
 import { McpToolError } from './errors';
@@ -123,7 +123,7 @@ export async function resolveRegisteredRepo(
   return { ok: true, repo: { repoRoot, mainRoot, descriptor: registered } };
 }
 
-/** The repo's forge remote, resolved from its worktree — same rule `repoForge` (`ipc/forge-handlers.ts`) applies from a `repoId`, applied here from a path since an MCP caller has no id. */
+/** The repo's forge remote, resolved from its worktree — same rule `repoForge` (the forge feature's `repo-forge.ts`) applies from a `repoId`, applied here from a path since an MCP caller has no id. */
 async function repoForgeFor(repoRoot: string): Promise<Forge | null> {
   const forge = pickForgeRemote(await listRemotes(repoRoot))?.forge ?? null;
   return forge !== null && isSupportedForgeKind(forge.kind) ? forge : null;

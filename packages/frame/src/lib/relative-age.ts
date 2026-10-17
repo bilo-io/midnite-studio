@@ -10,3 +10,13 @@ export function relativeAge(ms: number, now: number): string {
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86_400)}d ago`;
 }
+
+/**
+ * {@link relativeAge} for an ISO timestamp — `''` for one that does not parse.
+ * The forge's run lists, the reflog and the stash list all hold ISO strings.
+ */
+export function relativeAgeFromIso(iso: string, now: number): string {
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return '';
+  return relativeAge(then, now);
+}

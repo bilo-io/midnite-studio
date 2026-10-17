@@ -10,7 +10,8 @@ const issueDetailFn = vi.fn();
 const issueCommentsFn = vi.fn();
 const listProjectsFn = vi.fn();
 
-vi.mock('../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     forge: {
       issueDetail: issueDetailFn,

@@ -22,6 +22,8 @@
     { "path": "../features/monitor/tsconfig.main.json" },
     { "path": "../features/notes/tsconfig.main.json" },
     { "path": "../features/finance/tsconfig.main.json" },
+    { "path": "../features/tests/tsconfig.main.json" },
+    { "path": "../features/forge/tsconfig.main.json" },
     { "path": "../features/media-core/tsconfig.main.json" },
     { "path": "../features/media-docs/tsconfig.main.json" },
     { "path": "../features/media-images/tsconfig.main.json" },

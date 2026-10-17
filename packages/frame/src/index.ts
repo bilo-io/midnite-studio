@@ -146,7 +146,8 @@ export {
 // Small shared behaviour.
 export { isEditableTarget, useEditableFocus } from './lib/use-editable-focus';
 export { useFocusTrap } from './lib/use-focus-trap';
-export { relativeAge } from './lib/relative-age';
+export { relativeAge, relativeAgeFromIso } from './lib/relative-age';
+export { formatNumber } from './lib/format-number';
 export { MODE_TINT, nextRandomIndex, WORD_SETS, type Mode } from './lib/words';
 export { useFlushableSave } from './lib/use-flushable-save';
 export { useWindowFocusGate } from './lib/use-window-focus-gate';
@@ -160,6 +161,17 @@ export {
 } from './lib/expansion';
 
 export { adoptRenamedPersistKey } from './lib/persist-rename';
+
+// Review-thread anchoring on a diff — pure, shared by every app that draws a pull request's diff.
+export {
+  isAnchored,
+  isCommentableLine,
+  leftSideLines,
+  positionForLine,
+  rightSideLines,
+  threadsForFile,
+  type ThreadsByLine,
+} from './diff/comment-anchors';
 
 // Form controls.
 export { SelectField } from './form/select-field';

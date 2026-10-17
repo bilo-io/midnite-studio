@@ -130,6 +130,19 @@ export const FEATURE_PACKAGE_SPLITS = {
   'mcp-tools': { folder: 'agent', placement: 'agents' },
 } as const satisfies Readonly<Record<string, { folder: PlacedFeature; placement: Placement }>>;
 
+/**
+ * Feature packages that hold more than one placement folder (Phase 113 Theme
+ * O) — the other direction from {@link FEATURE_PACKAGE_SPLITS}. `forge` carries
+ * the `forge`, `reviews` and `actions` folders: Reviews renders Actions' run
+ * detail and both draw the forge's status vocabulary and query hooks, so split
+ * per folder each would import another (docs/APPS.md, "Coder"). Every folder
+ * listed keeps its own placement row and its own view registrations; the
+ * package takes the placement of the folder it is named after.
+ */
+export const FEATURE_PACKAGE_FOLDERS = {
+  forge: ['forge', 'reviews', 'actions'],
+} as const satisfies Readonly<Record<string, readonly PlacedFeature[]>>;
+
 /** The placement of the package `packages/features/<name>`, split or not; undefined for an unknown name. */
 export function featurePackagePlacement(name: string): Placement | undefined {
   const split = (FEATURE_PACKAGE_SPLITS as Readonly<Record<string, { placement: Placement }>>)[name];

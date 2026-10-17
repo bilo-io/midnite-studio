@@ -91,7 +91,8 @@ afterEach(() => {
 // `terminal`/`agent` are reached by every render — `BoardView` hydrates
 // unconditionally (Theme F/H), and `CardDetail`'s composer (Theme G) queries
 // the agent roster once a card opens.
-vi.mock('../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     forgeProject: {
       setField: vi.fn().mockResolvedValue({ ok: true, kind: 'ok' }),

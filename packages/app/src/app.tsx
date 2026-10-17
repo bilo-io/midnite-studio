@@ -35,6 +35,7 @@ import { useWebAppsSync } from './features/web-apps/use-web-apps-sync';
 // pieces below are the first to leave this file for it.
 import { CONTENT_BOX, DelayedFallback, NavLockToggle, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
+import { STUDIO_FORGE_HOST } from './compose/forge-host';
 import { STUDIO_SLIDES_HOST } from './compose/slides-host';
 import { StudioProviders } from './compose/studio-providers';
 import { useContentBoundsSync } from './store/content-bounds-store';
@@ -134,7 +135,7 @@ import { useSettingsSync } from './services/use-settings-sync';
 import { migrateLegacyAgentApiKeys } from './store/migrate-agent-api-keys';
 import { migrateLegacyGithubAgentKey } from './store/migrate-forge-github-key';
 import { useWindowSync } from './services/use-window-sync';
-import { useTestsStream } from './features/tests/use-tests-stream';
+import { useTestsStream } from '@midnite/studio-feature-tests/renderer';
 import { usePaletteSync } from './features/themes/use-palette-sync';
 import { useActivityPaletteSync } from './features/activity/use-activity-palette-sync';
 import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
@@ -156,6 +157,7 @@ import {
 } from './store/ui-store';
 import { useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/renderer';
 import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
+import { ForgeHostProvider } from '@midnite/studio-feature-forge/renderer';
 
 /*
   The views themselves live in `components/view-registry.tsx` — Phase 60 Theme
@@ -2121,7 +2123,10 @@ export function App() {
                 <SetupOverlay />
               </Suspense>
             </ErrorBoundary>
-            <IssueModalSlot />
+            {/* Outside <StudioProviders> too: the issue modal draws the forge's status pills, so it gets the forge host here. */}
+            <ForgeHostProvider host={STUDIO_FORGE_HOST}>
+              <IssueModalSlot />
+            </ForgeHostProvider>
             {/* Phase 109 Theme D — an agent's companion change waiting on the user, while the companion itself is off or popped out. */}
             <McpSettingConfirmHost />
           </PaletteHost>

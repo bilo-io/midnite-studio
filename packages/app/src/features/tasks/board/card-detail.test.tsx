@@ -48,7 +48,8 @@ const listRepoSkills = vi.fn(async (_req: { repoId: string; agentId?: string }) 
   ok: true as const,
   value: { skills: repoSkills },
 }));
-vi.mock('../../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     scaffold: { listRepoSkills },
     forgeProject: { setField },

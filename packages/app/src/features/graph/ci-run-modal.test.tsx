@@ -5,12 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CiCell } from './ci-cell';
 import { CiRunModal } from './ci-run-modal';
+import { StudioProviders } from '../../compose/studio-providers';
 
 const runDetailFn = vi.fn();
 const runLogFn = vi.fn();
 const workflowsFn = vi.fn();
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ forge: { runDetail: runDetailFn, runLog: runLogFn, workflows: workflowsFn } }),
   hasBridge: () => true,
 }));
@@ -51,7 +53,11 @@ const job = (runId: string, name: string, conclusion: string | null, status = 'c
 
 function renderWith(node: React.ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <StudioProviders>{node}</StudioProviders>
+    </QueryClientProvider>,
+  );
 }
 
 beforeEach(() => {

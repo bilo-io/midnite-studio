@@ -9,7 +9,8 @@ const cliStatusFn = vi.fn();
 const submitIssueFn = vi.fn();
 const openExternalFn = vi.fn();
 
-vi.mock('../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     report: { bundle: bundleFn, submitIssue: submitIssueFn },
     forge: { cliStatus: cliStatusFn },
