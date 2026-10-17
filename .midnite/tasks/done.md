@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme G (slice 3) — Studio boots from apps/studio
+
+[PR #902](https://github.com/bilo-io/midnite-studio/pull/902). Studio's renderer and Electron main start from `apps/studio/entry/`, each through one eslint-held seam into `packages/app` / `packages/desktop`; the packaged layout, CI and harnesses are unchanged. Theme G ✅.
+
 ## 2026-10-17 — Phase 113 Theme L (slice 2) — Browser as a feature; apps/browser composes it with its own main and icon
 
 [PR #900](https://github.com/bilo-io/midnite-studio/pull/900). `packages/features/browser` takes the browser and web-apps renderer and main half (`browser-security.ts` byte-for-byte), Studio composes it unchanged, and `apps/browser` composes the same feature with its own Electron main and icon, so its bundle packs. Theme L ✅.
