@@ -6,7 +6,7 @@ import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { useUiStore } from '../../store/ui-store';
 import { MediaView } from '../../features/media/media-view';
-import { riggedModels } from './sprite-rig';
+import { riggedModels } from '@midnite/studio-feature-media-model/kernel';
 
 /**
  * Phase 106 Theme E's form through the mock bridge (vitest/jsdom: no WebGL needed — the render itself

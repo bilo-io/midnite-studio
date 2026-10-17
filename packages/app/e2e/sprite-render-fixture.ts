@@ -6,7 +6,7 @@
  */
 import { autoRig, RIG_EXAMPLE_BIPED, type SpriteRenderedFrame, type SpriteRenderRequestEvent } from '@midnite/studio-shared';
 
-import { runRenderJob } from '../src/compose/media-sprite/render-job';
+import { runRenderJob } from '../../features/media-model/renderer/render-job';
 
 export type FixtureResult = { frames: SpriteRenderedFrame[]; error: string | null; total: number | null; clips: unknown };
 

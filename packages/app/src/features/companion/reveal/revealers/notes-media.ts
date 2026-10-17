@@ -4,7 +4,7 @@ import { bridge } from '../../../../services/bridge';
 import { useNotesStore } from '../../../../store/notes-store';
 import { useUiStore } from '../../../../store/ui-store';
 import { useMediaOpenRequest, type MediaOpenKind } from '../../../media/media-open-request';
-import { useModelOpenRequest } from '../../../media/model/use-model-agent-events';
+import { useModelOpenRequest } from '@midnite/studio-feature-media-model/events';
 import { useSpriteOpenRequest } from '@midnite/studio-feature-media-sprite/events';
 import { useTerrainOpenRequest } from '@midnite/studio-feature-media-terrain/renderer';
 import type { FamilyRevealers } from '../types';

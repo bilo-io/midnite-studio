@@ -4,19 +4,24 @@ import { join } from 'node:path';
 
 import { nativeImage, utilityProcess } from 'electron';
 
-import { CHANNELS, EVENT_CHANNELS, failure, schemas, type GitOpResult, type Sf3dGenerateResult, type Sf3dRequest, type Sf3dProgressEvent } from '@midnite/studio-shared';
+import {
+  createSf3dBroker,
+  createSf3dInstaller,
+  createSf3dMcpTools,
+  createSf3dService,
+  sf3dWorkerScriptPath,
+  type RgbaImage,
+  type Sf3dBroker,
+  type Sf3dService,
+  type Sf3dWorkerHandle,
+} from '@midnite/studio-feature-media-model/main';
+import { EVENT_CHANNELS, failure, type GitOpResult, type Sf3dGenerateResult, type Sf3dRequest, type Sf3dProgressEvent } from '@midnite/studio-shared';
 
-import { createSf3dInstaller } from '../media/model/sf3d/installer';
-import type { RgbaImage } from '../media/model/sf3d/prepare-image';
-import { createSf3dBroker, sf3dWorkerScriptPath, type Sf3dBroker, type Sf3dWorkerHandle } from '../media/model/sf3d/sf3d-broker';
-import { createSf3dMcpTools } from '../media/model/sf3d/sf3d-mcp';
-import { createSf3dService, type Sf3dService } from '../media/model/sf3d/sf3d-service';
 import { setSf3dTools } from '../mcp/model-tools';
 import { resolveRegisteredRepo } from '../mcp/tools';
 import { broadcastToAllWindows } from '../window-manager';
-import { handle } from './handle';
 import { notifyMediaChanged } from './media-handlers';
-import { importModelAsset, setSf3dEngine } from './media-model-handlers';
+import { importModelAsset, setSf3dDispatcher, setSf3dEngine } from './media-model-handlers';
 import { readSecret } from './secrets-handlers';
 
 /**
@@ -85,6 +90,8 @@ export function configureSf3d(userData: string): void {
     disposeEngine: () => engine.dispose(),
     runtimeAvailable,
   });
+  // The model feature's `mediaModelSf3d` channel dispatches here (it registers the channel itself).
+  setSf3dDispatcher((req) => handleSf3d(req));
   // SF3D behind the Models engine seam: `mediaModelGenerate` with `engine: { kind: 'sf3d' }` lands here.
   setSf3dEngine({
     generate: async (req) => (await handleSf3d({ op: 'generate', ...req })) as GitOpResult<Sf3dGenerateResult>,
@@ -107,6 +114,7 @@ export function configureSf3d(userData: string): void {
 export function disposeSf3d(): void {
   setSf3dTools(null);
   setSf3dEngine(null);
+  setSf3dDispatcher(null);
   broker?.dispose();
 }
 
@@ -114,8 +122,4 @@ export function disposeSf3d(): void {
 export function handleSf3d(req: Sf3dRequest) {
   if (!service) return Promise.resolve(failure('SF3D is still starting up; try again in a moment.'));
   return service.handle(req);
-}
-
-export function registerMediaModelSf3dHandlers(): void {
-  handle(CHANNELS.mediaModelSf3d, schemas.MediaModelSf3dRequest, (req) => handleSf3d(req), (issue) => failure(issue));
 }

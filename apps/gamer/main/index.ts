@@ -21,14 +21,16 @@ import { MSTUDIO_FILE_SCHEME, MSTUDIO_GAME_SCHEME, MSTUDIO_TILE_SCHEME, type Ffm
 import { gamerMediaRoot, registerGamerHandlers, type GamerServices } from './context';
 import { installGamerFileProtocol } from './file-protocol';
 import { asGameWindow, createGamerGameElectron } from './game-electron';
-import { GAMER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, gamerUserData, isSmoke } from './identity';
+import { GAMER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, gamerUserData, gamerVaultDirectory, isSmoke } from './identity';
+import { gamerPairing } from './pairing';
 
 /**
  * Midnite Gamer's main process — the entry the bundle's `package.json` names (`main.cjs`), run by the
  * launcher's stub as `Resources/app`. One window over media-core with the Games, Maps, Terrain and Sprites
  * tabs, registered through a `FeatureMainContext` built from the runtime; no desktop, no other app. Media
  * lives under Gamer's own userData (`Midnite Runtime/apps/gamer/media/`), never in Studio's repositories.
- * Gamer reads no stored key: it has no vault yet, so provider-backed features report "not available".
+ * Gamer composes no vault: its three stored keys come from the runtime host's, paired and granted
+ * (`pairing.ts`, `keys.ts`), and a key that is not granted reads as unset.
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
@@ -98,6 +100,11 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       },
       mediaRoot,
       userData,
+      // The runtime host's vault, over its socket: Gamer never reaches the keychain itself, and a smoke run
+      // (no keychain, no pairing file) keeps even the socket path inside its own directory.
+      vaultDirectory: gamerVaultDirectory(app.getPath('appData'), override),
+      pairing: gamerPairing(userData, smoke),
+      hasWindow: () => win !== null && !win.isDestroyed(),
       // A smoke run never reads or writes the user's real ~/Midnite Games.
       ...(smoke ? { defaultGamesRoot: join(userData, 'games') } : {}),
       revealPath: (target) => shell.showItemInFolder(target),
@@ -158,6 +165,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     services?.games.stopAll();
     services?.map.dispose();
     services?.terrain.dispose();
+    services?.close();
   });
   app.on('window-all-closed', () => app.quit());
   app.on('activate', () => {

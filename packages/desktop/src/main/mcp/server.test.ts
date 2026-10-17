@@ -14,6 +14,7 @@ import { resetRegistry } from '../repo-registry';
 import { configureUiBridge, resetUiBridgeForTests, resolveUiReply } from '../companion/ui-bridge';
 import { getMcpCallLog, resetMcpCallLog } from './audit';
 import { MCP_MAX_CONNECTIONS, startMcpServer, type McpServerHandle } from './server';
+import { MCP_TOOL_MANIFESTS } from './tool-manifests';
 
 let dirs: string[] = [];
 let handles: McpServerHandle[] = [];
@@ -292,7 +293,8 @@ describe('startMcpServer', () => {
       appVersion: '0.0.0-test',
       buildId: 'test',
       isPackaged: false,
-      listing: createMcpToolListing({ installed: installedAppsFromIds(['coder']) }),
+      // The server's own manifests: `model_list` is Gamer's because the Model feature's manifest says so.
+      listing: createMcpToolListing({ installed: installedAppsFromIds(['coder']), manifests: MCP_TOOL_MANIFESTS }),
     });
     if (!result.ok) throw new Error(result.message);
     handles.push(result.handle);

@@ -22,3 +22,13 @@ export function gamerUserData(appData: string, override?: string): string {
 }
 
 export const isSmoke = (env: NodeJS.ProcessEnv): boolean => env[SMOKE_ENV] === '1';
+
+/**
+ * Where the runtime host serves the vault: the runtime's data directory (shared by the suite), never Gamer's
+ * userData. A throwaway run keeps it inside its own override directory, so a proof can never reach a real
+ * profile or a real host.
+ */
+export function gamerVaultDirectory(appData: string, override?: string): string {
+  if (override !== undefined && override !== '') return join(override, 'runtime');
+  return runtimeDataDirectory(appData);
+}

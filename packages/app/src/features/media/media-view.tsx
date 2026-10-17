@@ -3,6 +3,7 @@ import { DocsHostProvider } from '@midnite/studio-feature-media-docs/renderer';
 import { GameHostProvider } from '@midnite/studio-feature-media-game/renderer';
 import { ImagesHostProvider } from '@midnite/studio-feature-media-images/renderer';
 import { MapHostProvider } from '@midnite/studio-feature-media-map/renderer';
+import { ModelHostProvider } from '@midnite/studio-feature-media-model/renderer';
 import { SpriteHostProvider } from '@midnite/studio-feature-media-sprite/renderer';
 import { TerrainHostProvider } from '@midnite/studio-feature-media-terrain/renderer';
 import { VideoHostProvider } from '@midnite/studio-feature-media-video/renderer';
@@ -14,6 +15,7 @@ import { STUDIO_DOCS_HOST } from '../../compose/media-docs-host';
 import { STUDIO_GAME_HOST } from '../../compose/media-game-host';
 import { STUDIO_IMAGES_HOST } from '../../compose/media-images-host';
 import { STUDIO_MAP_HOST } from '../../compose/media-map-host';
+import { STUDIO_MODEL_HOST } from '../../compose/media-model-host';
 import { STUDIO_SPRITE_HOST } from '../../compose/media-sprite-host';
 import { STUDIO_TERRAIN_HOST } from '../../compose/media-terrain-host';
 import { STUDIO_VIDEO_HOST } from '../../compose/media-video-host';
@@ -37,6 +39,7 @@ const TAB_HOSTS: readonly HostEntry[] = [
   hostEntry(GameHostProvider, STUDIO_GAME_HOST),
   hostEntry(TerrainHostProvider, STUDIO_TERRAIN_HOST),
   hostEntry(SpriteHostProvider, STUDIO_SPRITE_HOST),
+  hostEntry(ModelHostProvider, STUDIO_MODEL_HOST),
 ];
 
 /**

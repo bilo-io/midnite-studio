@@ -5,6 +5,7 @@
   "description": "Media ▸ Terrain as a feature (Phase 113 Theme S): a tab composed through media-core's registry by Gamer and Studio.",
   "sideEffects": false,
   "exports": {
+    "./manifest": "./manifest.ts",
     "./renderer": "./renderer/index.ts",
     "./terrain-worker": {
       "types": "./dist/main/terrain/worker-entry.d.ts",

@@ -26,7 +26,7 @@ import {
   type IterativeHost,
   type ResolvedAgent,
   type ScopedDispatch,
-} from '../media/model/iterative';
+} from '@midnite/studio-feature-media-model/main';
 import type { GameMcpTools } from './game-mcp';
 
 /**

@@ -36,6 +36,7 @@
     { "path": "../features/media-map/tsconfig.main.json" },
     { "path": "../features/media-terrain/tsconfig.main.json" },
     { "path": "../features/media-sprite/tsconfig.main.json" },
+    { "path": "../features/media-model/tsconfig.main.json" },
     { "path": "../features/media-game/tsconfig.main.json" },
     { "path": "../features/media-audio/tsconfig.main.json" },
     { "path": "../features/workflows/tsconfig.main.json" },

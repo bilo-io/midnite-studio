@@ -1,5 +1,16 @@
 import { createRecordingContext } from '@midnite/studio-runtime';
-import { CHANNELS, EVENT_CHANNELS, FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
+import {
+  ALL_APPS_INSTALLED,
+  CHANNELS,
+  EVENT_CHANNELS,
+  FEATURE_PACKAGE_SPLITS,
+  FEATURE_PLACEMENT,
+  installedSet,
+  listMcpToolIds,
+  MCP_TOOL_IDS,
+  mcpToolOwner,
+  placementOwners,
+} from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { mediaMapMain, type MapRuntime } from './main';
@@ -10,6 +21,23 @@ const runtime = new Proxy({} as MapRuntime, {
   get: () => () => {
     throw new Error('the runtime must not be reached');
   },
+});
+
+describe('media-map MCP ownership', () => {
+  /** The Maps tab's own tools; `map_generate`, `map_get` and `map_patch` are Sprites' (a sprite-kind map). */
+  const tools = ['map_list', 'map_measure', 'map_goto', 'map_capture_terrain'] as const;
+
+  it('declares exactly the Maps tools, owned by Gamer', () => {
+    expect([...mediaMapManifest.mcpTools]).toEqual([...tools]);
+    for (const id of tools) expect(mcpToolOwner(id, [mediaMapManifest])).toBe('gamer');
+  });
+
+  it('Studio lists every tool, a Gamer-only install lists the Maps ones, a Creator-only one none', () => {
+    const manifests = [mediaMapManifest];
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual([...MCP_TOOL_IDS]);
+    expect(listMcpToolIds(installedSet(['gamer']), manifests)).toEqual(expect.arrayContaining([...tools]));
+    expect(listMcpToolIds(installedSet(['creator']), manifests).some((id) => (tools as readonly string[]).includes(id))).toBe(false);
+  });
 });
 
 /** The template's contract: manifest, placement and the main half agree. */

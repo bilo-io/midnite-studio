@@ -46,6 +46,17 @@ export type MediaLayoutProps = {
   floatingToggles?: boolean;
 };
 
+/**
+ * Floating side-pane toggles, pinned to the top corners of the nearest `relative` ancestor so a collapsed
+ * pane can always be reopened (Models draws them itself, inside its canvas — `MediaLayout`'s `floatingToggles`).
+ */
+export type MediaPaneTogglesProps = {
+  tab: MediaTab;
+  hasDetail: boolean;
+  explorerName?: string;
+  detailName?: string;
+};
+
 export type MediaProjectsAccordionProps = {
   repoId: string;
   tab: MediaTab;

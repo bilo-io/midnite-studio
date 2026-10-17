@@ -36,6 +36,7 @@
     "@midnite/studio-feature-media-video": "workspace:*",
     "@midnite/studio-feature-media-map": "workspace:*",
     "@midnite/studio-feature-media-terrain": "workspace:*",
+    "@midnite/studio-feature-media-model": "workspace:*",
     "@midnite/studio-feature-media-sprite": "workspace:*",
     "@midnite/studio-feature-media-game": "workspace:*",
     "@midnite/studio-feature-media-audio": "workspace:*",

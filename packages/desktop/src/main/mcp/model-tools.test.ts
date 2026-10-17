@@ -1,7 +1,8 @@
 import { MODELS_OFF_MESSAGE } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { BOX_SPEC, memoryModelKit } from '../media/model/model-test-kit';
+import { BOX_SPEC, memoryModelKit } from '@midnite/studio-feature-media-model/main';
+
 import { dispatchMcpCall } from './dispatch';
 import { setModelTools } from './model-tools';
 import { resetMcpAllowUiStateForTests, setMcpAllowModelsState } from './ui-gate';

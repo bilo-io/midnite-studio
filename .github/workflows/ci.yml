@@ -274,6 +274,7 @@ jobs:
           feature-media-map:typecheck feature-media-map:lint feature-media-map:test
           feature-media-terrain:typecheck feature-media-terrain:lint feature-media-terrain:test
           feature-media-sprite:typecheck feature-media-sprite:lint feature-media-sprite:test
+          feature-media-model:typecheck feature-media-model:lint feature-media-model:test
           feature-media-game:typecheck feature-media-game:lint feature-media-game:test
           root:test
         env:

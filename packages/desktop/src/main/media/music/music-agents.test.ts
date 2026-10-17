@@ -1,7 +1,7 @@
 import { MUSIC_REPAIR_ROUNDS, emptySong, failure, ok, type MusicAgentProgressEvent, type MusicAgentRunRequest, type MusicEngine, type Song } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CliRequest, CliResult, IterativeHost, ResolvedAgent, ScopedDispatch } from '../model/iterative';
+import type { CliRequest, CliResult, IterativeHost, ResolvedAgent, ScopedDispatch } from '@midnite/studio-feature-media-model/main';
 import { createMusicAgents, type MusicAgentDeps } from './music-agents';
 import { createMusicTools } from './music-mcp';
 

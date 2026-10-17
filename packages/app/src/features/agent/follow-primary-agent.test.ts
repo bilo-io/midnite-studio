@@ -3,7 +3,7 @@ import { renderHook } from '@testing-library/react';
 
 import { useUiStore } from '../../store/ui-store';
 import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
-import { useModelPrefs } from '../media/model/use-model';
+import { useModelPrefs } from '@midnite/studio-feature-media-model/events';
 import { chatDraftFor, modelPrefsFor, primarySelection, useFollowPrimaryAgent } from './follow-primary-agent';
 
 describe('primarySelection', () => {

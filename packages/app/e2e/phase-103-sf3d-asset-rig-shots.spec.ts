@@ -1,8 +1,8 @@
 import * as sharedModule from '@midnite/studio-shared';
 import { expect, type Page, test } from '@playwright/test';
 
-import { writeTexturedGlb } from '../../desktop/src/main/media/model/sf3d/glb-textured';
-import { encodePng } from '../../desktop/src/main/media/model/sf3d/png';
+import { writeTexturedGlb } from '../../features/media-model/main/model/sf3d/glb-textured';
+import { encodePngRgba8 as encodePng } from '../../runtime/src/media/png-codec';
 import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle, shotPath } from './shots-helper';
 
 /**

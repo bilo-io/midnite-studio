@@ -1,5 +1,16 @@
 import { createRecordingContext } from '@midnite/studio-runtime';
-import { CHANNELS, EVENT_CHANNELS, FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
+import {
+  ALL_APPS_INSTALLED,
+  CHANNELS,
+  EVENT_CHANNELS,
+  FEATURE_PACKAGE_SPLITS,
+  FEATURE_PLACEMENT,
+  installedSet,
+  listMcpToolIds,
+  MCP_TOOL_IDS,
+  mcpToolOwner,
+  placementOwners,
+} from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { mediaGameMain, type MediaGameMainServices } from './main';
@@ -17,6 +28,22 @@ const services = (over: Partial<MediaGameMainServices> = {}): MediaGameMainServi
   log,
   pickSavePath: async () => null,
   ...over,
+});
+
+describe('media-game MCP ownership', () => {
+  const tools = MCP_TOOL_IDS.filter((id) => id.startsWith('game_'));
+
+  it('declares exactly the game_* tools, owned by Gamer', () => {
+    expect([...mediaGameManifest.mcpTools].sort()).toEqual([...tools].sort());
+    for (const id of tools) expect(mcpToolOwner(id, [mediaGameManifest])).toBe('gamer');
+  });
+
+  it('Studio lists every tool, a Gamer-only install lists the game ones, a Creator-only one none', () => {
+    const manifests = [mediaGameManifest];
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual([...MCP_TOOL_IDS]);
+    expect(listMcpToolIds(installedSet(['gamer']), manifests)).toEqual(expect.arrayContaining(tools));
+    expect(listMcpToolIds(installedSet(['creator']), manifests).some((id) => tools.includes(id))).toBe(false);
+  });
 });
 
 /** The template's contract: manifest, placement and the main half agree. */

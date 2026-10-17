@@ -19,8 +19,14 @@ dependsOn:
   - 'feature-models'
   - 'feature-workflows'
   - 'feature-mcp-tools'
-  # Its manifest only: it owns the `music_*` tools, which the Tools view needs to know are Creator's.
+  # Their manifests only: Audio owns the `music_*` tools (Creator's) and Game, Map, Model, Sprite and Terrain
+  # the Gamer ones, which the Tools view needs to know belong to apps that are not installed here.
   - 'feature-media-audio'
+  - 'feature-media-game'
+  - 'feature-media-map'
+  - 'feature-media-model'
+  - 'feature-media-sprite'
+  - 'feature-media-terrain'
 
 tasks:
   build:
@@ -51,6 +57,11 @@ tasks:
       - '/packages/features/workflows/manifest.ts'
       - '/packages/features/mcp-tools/manifest.ts'
       - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/media-game/manifest.ts'
+      - '/packages/features/media-map/manifest.ts'
+      - '/packages/features/media-model/manifest.ts'
+      - '/packages/features/media-sprite/manifest.ts'
+      - '/packages/features/media-terrain/manifest.ts'
       - '/packages/features/chats/main/**/*'
       - '/packages/features/councils/main/**/*'
       - '/packages/features/models/main/**/*'
@@ -80,6 +91,11 @@ tasks:
       - '/packages/features/workflows/manifest.ts'
       - '/packages/features/mcp-tools/manifest.ts'
       - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/media-game/manifest.ts'
+      - '/packages/features/media-map/manifest.ts'
+      - '/packages/features/media-model/manifest.ts'
+      - '/packages/features/media-sprite/manifest.ts'
+      - '/packages/features/media-terrain/manifest.ts'
       - 'main/**/*'
       - '/packages/features/chats/main/**/*'
       - '/packages/features/councils/main/**/*'
@@ -106,6 +122,11 @@ tasks:
       - '/packages/features/workflows/manifest.ts'
       - '/packages/features/mcp-tools/manifest.ts'
       - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/media-game/manifest.ts'
+      - '/packages/features/media-map/manifest.ts'
+      - '/packages/features/media-model/manifest.ts'
+      - '/packages/features/media-sprite/manifest.ts'
+      - '/packages/features/media-terrain/manifest.ts'
       - 'main/**/*'
       - '/packages/features/chats/main/**/*'
       - '/packages/features/councils/main/**/*'

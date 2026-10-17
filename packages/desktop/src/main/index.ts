@@ -135,7 +135,7 @@ import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media
 import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
 import { disposeMapCaptureBroker, installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
 import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
-import { configureSf3d, disposeSf3d, registerMediaModelSf3dHandlers } from './ipc/media-model-sf3d-handlers';
+import { configureSf3d, disposeSf3d } from './ipc/media-model-sf3d-handlers';
 import {
   configureVideo,
   createProjectsStore as createVideoProjectsStore,
@@ -171,8 +171,8 @@ import { asGameWindow, asPopoutWindow, createStudioGameElectron } from './games/
 import { createGameMcpTools } from './games/game-mcp';
 import { createPlaytests } from './games/playtest';
 import { createGameAgentService } from './games/game-agent-service';
-import { createIterativeHost } from './media/model/iterative-host';
-import { createLlmCall } from './media/model/engines';
+import { createLlmCall } from '@midnite/studio-feature-media-model/main';
+import { createIterativeHost } from './media/iterative-host';
 import { setGameTools } from './mcp/game-tools';
 import { exportTerrain } from '@midnite/studio-feature-media-terrain/main';
 import { gameEnginesDir, mediaGameTemplateRoot } from './template-path';
@@ -505,7 +505,6 @@ if (!app.requestSingleInstanceLock()) {
     registerMediaAudioHandlers();
     registerMediaMusicHandlers();
     registerMediaModelHandlers();
-    registerMediaModelSf3dHandlers();
     registerMediaTerrainHandlers();
     registerMediaSpriteHandlers();
     registerMediaMapHandlers();

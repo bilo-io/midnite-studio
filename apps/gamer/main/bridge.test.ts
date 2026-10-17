@@ -19,7 +19,10 @@ describe('createGamerBridge', () => {
     const bridge = createGamerBridge(fakeIpc());
     expect(Object.keys(bridge).sort()).toEqual(['games', 'media']);
     expect(Object.keys(bridge.media).sort()).toEqual(
-      ['cancelExport', 'export', 'ffmpegStatus', 'file', 'map', 'onChanged', 'onExportProgress', 'project', 'reveal', 'sprite', 'terrain'].sort(),
+      ['cancelExport', 'export', 'ffmpegStatus', 'file', 'map', 'model', 'onChanged', 'onExportProgress', 'project', 'reveal', 'sprite', 'terrain'].sort(),
+    );
+    expect(Object.keys(bridge.media.model).sort()).toEqual(
+      ['cancel', 'export', 'generate', 'library', 'mesh', 'onChanged', 'onOpen', 'onProgress', 'providers', 'saveEdit', 'sf3d'].sort(),
     );
     expect(Object.keys(bridge.media.map).sort()).toEqual(['cache', 'capture', 'captureCancel', 'get', 'onCaptureProgress', 'onOpen', 'setView', 'sources']);
   });

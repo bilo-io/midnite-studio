@@ -3,29 +3,20 @@ import { mediaDocsTab } from '@midnite/studio-feature-media-docs/renderer';
 import { mediaGameTab } from '@midnite/studio-feature-media-game/renderer';
 import { mediaImagesTab } from '@midnite/studio-feature-media-images/renderer';
 import { mediaMapTab } from '@midnite/studio-feature-media-map/renderer';
+import { mediaModelTab } from '@midnite/studio-feature-media-model/renderer';
 import { mediaSpriteTab } from '@midnite/studio-feature-media-sprite/renderer';
 import { mediaTerrainTab } from '@midnite/studio-feature-media-terrain/renderer';
 import { mediaVideoTab } from '@midnite/studio-feature-media-video/renderer';
 import { MEDIA_TABS, type MediaTab } from '@midnite/studio-shared';
 import type { MediaTabDescriptor } from '@midnite/studio-frame';
-import type { ComponentType } from 'react';
-
-import { MEDIA_TAB_META } from '../features/media/media-tabs';
-import { ModelTab } from '../features/media/model/model-tab';
 
 /**
- * Studio's media tab registry (Phase 113 Theme Q) — every tab, in the strip
- * order `MEDIA_TABS` has always had: Docs, Images, Video and Audio from their feature
- * packages, the other five still from `packages/app`. Imported only by the lazily loaded
- * Media view, so the tabs stay out of the entry chunk as they always were.
+ * Studio's media tab registry (Phase 113 Themes Q and S) — every tab, in the strip order `MEDIA_TABS` has
+ * always had, each from its feature package: Docs, Images, Video and Audio (Creator's), and Maps, Terrain,
+ * Sprites, Models and Games (Gamer's). Imported only by the lazily loaded Media view, so the tabs stay out of
+ * the entry chunk as they always were.
  */
-type AppTab = Exclude<MediaTab, 'doc' | 'image' | 'audio' | 'video' | 'map' | 'terrain' | 'sprite' | 'game'>;
-
-const BODY: Record<AppTab, ComponentType> = {
-  model: ModelTab,
-};
-
-const FEATURE_TABS: Partial<Record<MediaTab, MediaTabDescriptor>> = {
+const FEATURE_TABS: Record<MediaTab, MediaTabDescriptor> = {
   doc: mediaDocsTab,
   image: mediaImagesTab,
   audio: mediaAudioTab,
@@ -33,9 +24,8 @@ const FEATURE_TABS: Partial<Record<MediaTab, MediaTabDescriptor>> = {
   map: mediaMapTab,
   terrain: mediaTerrainTab,
   sprite: mediaSpriteTab,
+  model: mediaModelTab,
   game: mediaGameTab,
 };
 
-export const STUDIO_MEDIA_TABS: readonly MediaTabDescriptor[] = MEDIA_TABS.map(
-  (id) => FEATURE_TABS[id] ?? { id, ...MEDIA_TAB_META[id], Component: BODY[id as AppTab] },
-);
+export const STUDIO_MEDIA_TABS: readonly MediaTabDescriptor[] = MEDIA_TABS.map((id) => FEATURE_TABS[id]);

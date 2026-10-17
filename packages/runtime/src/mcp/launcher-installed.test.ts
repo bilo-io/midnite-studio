@@ -8,6 +8,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMcpToolListing } from './installed-apps';
 import { installedAppsFromLauncherFile, launcherInstalledFile, readInstalledApps } from './launcher-installed';
 
+/** The Model feature's manifest claims `model_list` for Gamer (Phase 113 Theme S); a stub says the same here. */
+const manifests = [{ owner: 'gamer', mcpTools: ['model_list'] }] as const;
+
 let root: string;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'installed-apps-'));
@@ -49,7 +52,7 @@ describe('readInstalledApps', () => {
 describe('installedAppsFromLauncherFile', () => {
   it('a recorded bundle has its tools listed; an unrecorded one does not', () => {
     const file = writeState(['gamer']);
-    const listing = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file, provided: [] }) });
+    const listing = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file, provided: [] }), manifests });
     expect(listing.isListed('model_list')).toBe(true);
     expect(listing.isListed('forge.pulls')).toBe(false);
     expect(listing.isListed('repo.list')).toBe(true); // frame tools: every app
@@ -57,7 +60,7 @@ describe('installedAppsFromLauncherFile', () => {
 
   it('an uninstall filters the tools on the next list, no restart', () => {
     const file = writeState(['gamer']);
-    const listing = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file, provided: [] }) });
+    const listing = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file, provided: [] }), manifests });
     expect(listing.isListed('model_list')).toBe(true);
     writeState(['coder']);
     expect(listing.isListed('model_list')).toBe(false);
@@ -66,11 +69,11 @@ describe('installedAppsFromLauncherFile', () => {
 
   it('a missing or malformed file leaves only what the host provides', () => {
     const missing = join(root, 'missing.json');
-    const none = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file: missing, provided: [] }) });
+    const none = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file: missing, provided: [] }), manifests });
     expect(none.isListed('model_list')).toBe(false);
     const bad = join(root, 'bad.json');
     writeFileSync(bad, 'garbage');
-    const coder = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file: bad, provided: ['coder'] }) });
+    const coder = createMcpToolListing({ installed: installedAppsFromLauncherFile({ file: bad, provided: ['coder'] }), manifests });
     expect(coder.isListed('forge.pulls')).toBe(true);
     expect(coder.isListed('model_list')).toBe(false);
   });

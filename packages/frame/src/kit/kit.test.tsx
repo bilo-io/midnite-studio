@@ -54,6 +54,36 @@ describe('createDialogs', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('openMenu draws a context menu at the pointer: a row closes it then acts, a submenu opens inline, a dead row does nothing (Theme S)', () => {
+    const { useDialogs, DialogHost } = createDialogs();
+    const rename = vi.fn();
+    const moveTo = vi.fn();
+    const dead = vi.fn();
+    render(<DialogHost />);
+    act(() =>
+      useDialogs().openMenu?.({ clientX: 12, clientY: 34 }, [
+        { label: 'Rename', onSelect: rename },
+        { type: 'separator' },
+        { label: 'Move to', submenu: [{ label: 'Top level', onSelect: moveTo }] },
+        { label: 'Delete', danger: true, disabled: true, disabledReason: 'Nothing to delete', onSelect: dead },
+      ]),
+    );
+    const menu = screen.getByTestId('kit-context-menu');
+    expect(menu.style.left).toBe('12px');
+    expect(menu.style.top).toBe('34px');
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    expect(dead).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('kit-context-menu')).not.toBeNull();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move to' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Top level' }));
+    expect(moveTo).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId('kit-context-menu')).toBeNull();
+    act(() => useDialogs().openMenu?.({ clientX: 0, clientY: 0 }, [{ label: 'Rename', onSelect: rename }]));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('kit-context-menu')).toBeNull();
+    expect(rename).not.toHaveBeenCalled();
+  });
+
   it('notify hides cancel', () => {
     const { useDialogs, DialogHost } = createDialogs();
     render(<DialogHost />);
