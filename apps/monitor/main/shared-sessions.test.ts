@@ -11,7 +11,7 @@ import { schemas } from '@midnite/studio-shared';
 
 import { createMonitorSessions, readHostSessions, terminalListFromShared, usageSessionsFrom } from './shared-sessions';
 
-const live = (sessionId: string, cwd: string) => ({ ptyId: `p-${sessionId}`, sessionId, pid: 42, cols: 80, rows: 24, cwd, legacy: false });
+const live = (sessionId: string, cwd: string) => ({ ptyId: `p-${sessionId}`, sessionId, pid: 42, cols: 80, rows: 24, cwd, legacy: false, owner: 'studio' });
 
 describe('Monitor’s shared sessions', () => {
   it('titles a live session from the host’s terminal list, and shows an unknown one by its folder', () => {

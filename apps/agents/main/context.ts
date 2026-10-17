@@ -27,13 +27,14 @@ import {
 import {
   connectRuntimeVault,
   createIpcContext,
+  createSharedBroker,
   vaultHostSocketPath,
   type IpcContextElectron,
   type PairingIdentity,
 } from '@midnite/studio-runtime';
 import { BUILTIN_AGENTS, CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
 
-import { createNodeSessionStarter } from './node-session';
+import { createBrokerNodeSessions } from './broker-sessions';
 import { createShellRunner } from './shell-runner';
 
 /** The one secret Agents reads, and nothing else: the Ollama cloud key (the `secrets` namespace). */
@@ -110,9 +111,15 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
     },
   });
 
-  // Workflows — the graph engine over Agents' ports: the builtin roster, the Ollama daemon and key, and
-  // a piped login shell for script nodes (see node-session.ts). No repository registry, forge or
-  // terminal sessions, so git, forge, gate-comment and agent-node steps report their own failure.
+  // Workflows — the graph engine over Agents' ports: the builtin roster, the Ollama daemon and key, a
+  // piped login shell for script nodes (node-session.ts), and agent nodes on the runtime host's shared
+  // broker as a guest, when one is running (broker-sessions.ts) — they fail plainly when none is. No
+  // repository registry or forge, so git, forge and gate-comment steps report their own failure.
+  const nodeSessions = createBrokerNodeSessions({
+    broker: createSharedBroker({ runtimeDirectory: el.vaultDirectory, appId: 'agents' }),
+    shell: shellRunner,
+    agents: () => BUILTIN_AGENTS,
+  });
   workflowsMain.register(ctx, {
     dataDirectory: el.userData,
     ports: {
@@ -122,13 +129,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
       ollamaBaseUrl: () => resolveOllamaBaseUrl(),
       ollamaApiKey: ollamaKey,
       ollamaPrompt: (model, prompt, timeoutMs) => runOllamaPrompt(model, prompt, timeoutMs),
-      pty: {
-        onPty: shellRunner.onPty,
-        offPty: shellRunner.offPty,
-        killPty: shellRunner.killPty,
-        activityFor: () => null,
-        startNodeSession: createNodeSessionStarter(shellRunner),
-      },
+      pty: nodeSessions.ports,
     },
   });
 
@@ -149,9 +150,12 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
   return {
     // A council member's or script node's shell is its own process group and would outlive Agents; an
     // in-flight run is cancelled so its node's process group dies with it, and the demo API closes.
+    // Agent nodes' sessions on the shared broker are Agents' own: they are killed here too (and only
+    // they — the guest detaches without touching anyone else's session).
     dispose: async () => {
       shellRunner.killAll();
       await disposeWorkflows();
+      await nodeSessions.dispose();
       vault.close();
     },
   };

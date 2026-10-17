@@ -14,7 +14,24 @@ export const MAX_PAYLOAD_LENGTH = 16 * 1024 * 1024; // 16 MB
 
 export type ControlMessage =
   // Client -> Broker requests
-  | { t: 'hello'; id?: number; protocol: number; appVersion: string; pid: number; buildId?: string }
+  | {
+      t: 'hello';
+      id?: number;
+      protocol: number;
+      appVersion: string;
+      pid: number;
+      buildId?: string;
+      /**
+       * Who this connection is (Phase 113 Theme O). `host` owns the broker; anything else — including a
+       * connection that never says — is a **guest**: it may create sessions stamped with its `appId` and
+       * kill only those, and never retires, shuts down or forgets. Declared, not proven: a same-user
+       * peer on a `0600` socket cannot be authenticated beyond its uid. Fixed by the first hello that
+       * declares it. An older broker ignores both fields.
+       */
+      role?: BrokerRole;
+      /** The app this connection speaks for — stamped as the `owner` of every session it creates. */
+      appId?: string;
+    }
   | { t: 'list'; id?: number }
   | {
       t: 'create';
@@ -62,9 +79,15 @@ export type ControlReply =
        * can no longer spawn (see `staleness.ts`). Distinct from `spawn-failed`
        * so the client can respawn a fresh broker rather than surface it.
        */
-      code: 'protocol' | 'unknown-pty' | 'spawn-failed' | 'stale-broker' | 'error';
+      /** `forbidden`: a guest asked for what only the host (or the session's owner) may do. */
+      code: 'protocol' | 'unknown-pty' | 'spawn-failed' | 'stale-broker' | 'forbidden' | 'error';
       message: string;
     };
+
+export type BrokerRole = 'host' | 'guest';
+
+/** What an app id on the wire may look like — the placement ids and `studio`; anything else owns nothing. */
+export const BROKER_APP_ID_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
 
 export type Frame =
   | { type: 0x00; message: ControlMessage }

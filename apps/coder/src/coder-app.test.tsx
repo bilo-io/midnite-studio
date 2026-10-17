@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClientManifest } from '@midnite/studio-feature-api-client/renderer';
 import { databaseManifest } from '@midnite/studio-feature-database/renderer';
 import { forgeManifest } from '@midnite/studio-feature-forge/renderer';
+import { sessionsManifest } from '@midnite/studio-feature-sessions/renderer';
 import { testsManifest } from '@midnite/studio-feature-tests/renderer';
 import { FEATURE_PACKAGE_FOLDERS, FEATURE_PLACEMENT, placementOwners, type GraphRow } from '@midnite/studio-shared';
 
@@ -110,11 +111,41 @@ afterEach(() => {
 });
 
 describe('Coder composition', () => {
-  it('is the owner the placement map names for forge, reviews, actions, tests, the API client and the database', () => {
-    for (const folder of [...FEATURE_PACKAGE_FOLDERS.forge, 'tests', 'api-client', 'database'] as const) {
+  it('is the owner the placement map names for forge, reviews, actions, tests, the API client, the database and sessions', () => {
+    for (const folder of [...FEATURE_PACKAGE_FOLDERS.forge, 'tests', 'api-client', 'database', 'sessions'] as const) {
       expect(placementOwners(FEATURE_PLACEMENT[folder])[0]).toBe(CODER_APP.id);
     }
-    expect(CODER_APP.features).toEqual([forgeManifest.feature, testsManifest.feature, apiClientManifest.feature, databaseManifest.feature]);
+    expect(CODER_APP.features).toEqual([
+      forgeManifest.feature,
+      testsManifest.feature,
+      apiClientManifest.feature,
+      databaseManifest.feature,
+      sessionsManifest.feature,
+    ]);
+  });
+
+  it('shows the runtime host’s sessions in the Sessions tab with no repository selected — and offers no kill', async () => {
+    const list = vi.fn(async () => ({
+      broker: { mode: 'broker' as const },
+      sessions: [
+        {
+          session: { id: 'a1', kind: 'shell' as const, title: 'flows', name: 'Started by Midnite Agents', cwd: '/f', repoId: '/f', createdAt: 1 },
+          scrollback: new Uint8Array(0),
+          live: { ptyId: 'p-a1', pid: 7, cols: 80, rows: 24 },
+        },
+      ],
+    }));
+    window.midniteStudio = {
+      ...window.midniteStudio,
+      repos: { list: async () => [], pickDirectory: async () => null, open: vi.fn(), close: vi.fn() },
+      terminal: { list },
+    } as unknown as typeof window.midniteStudio;
+    coderStore.setState({ view: 'sessions' });
+    render(<CoderApp />);
+    expect(await screen.findByText('Started by Midnite Agents', undefined, { timeout: 5000 })).toBeTruthy();
+    expect(screen.queryByText('No repository selected.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Kill session' })).toBeNull();
+    expect(list).toHaveBeenCalled();
   });
 
   it("wears the launcher catalog's accent and opens on Reviews", () => {

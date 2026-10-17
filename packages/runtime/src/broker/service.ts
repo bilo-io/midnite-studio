@@ -64,7 +64,7 @@ export function createBrokerService(options: BrokerServiceOptions): BrokerServic
       // Studio's lines stay exactly as they were; another app's say whose they are.
       const tagged =
         log && appId !== 'studio' ? (message: string) => log(message.replace('[broker]', `[broker:${appId}]`)) : log;
-      return openBrokerClient({ ...rest, brokerDir, buildId, ...(tagged ? { log: tagged } : {}) });
+      return openBrokerClient({ ...rest, brokerDir, buildId, appId, ...(tagged ? { log: tagged } : {}) });
     },
   };
 }

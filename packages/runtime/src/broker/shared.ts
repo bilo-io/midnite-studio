@@ -10,7 +10,8 @@ import { openBrokerClient, type BrokerClient, type BrokerSessionInfo, type Broke
  * The host's broker socket is named by the host's build under the host's data directory, so a
  * guest cannot compute it; it reads it from the runtime host record instead. The client it opens is
  * a `guest`: it lists, snapshots, streams, writes to and resizes the host's sessions, and never
- * spawns, retires, shuts down or creates one.
+ * spawns, retires or shuts down a broker. It may also create a session on the host's broker, stamped
+ * with its app id, and kill only those — the server holds it to that (`desktop/src/broker/server.ts`).
  *
  * Re-resolves lazily: a guest opened before the host finds the broker on its next call once the
  * host has written its record, and one whose broker went away tries the record again.
@@ -47,6 +48,7 @@ export function attachSharedBroker(options: {
   const { log } = options;
   return openBrokerClient({
     role: 'guest',
+    appId: options.appId,
     socketPath: options.socketPath,
     brokerDir: options.directory,
     dataDir: options.directory,

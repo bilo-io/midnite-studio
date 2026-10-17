@@ -4,11 +4,13 @@ import { useCallback, useState } from 'react';
 import { createStandaloneApiClientHost, type ApiClientHost } from '@midnite/studio-feature-api-client/renderer';
 import { createStandaloneDatabaseHost, type DatabaseHost } from '@midnite/studio-feature-database/renderer';
 import { createStandaloneForgeHost, type ForgeHost } from '@midnite/studio-feature-forge/renderer';
+import { createGuestSessionsHost, type SessionsHost } from '@midnite/studio-feature-sessions/renderer';
 import type { TestsHost } from '@midnite/studio-feature-tests/renderer';
 import { bridge } from '@midnite/studio-frame';
 import { pickForgeRemote, type ForgeKind } from '@midnite/studio-shared';
 
 import { coderStore, useCoderStore } from '../coder-store';
+import { CoderMultiSelect, CoderTooltip } from './git-chrome';
 
 /**
  * Coder's side of the forge and tests host ports (Phase 113 Theme O).
@@ -93,7 +95,19 @@ function useTestsListWidth() {
   return { size, setSize, ...TESTS_WIDTH };
 }
 
-/** No `runInTerminal`: Coder has no terminal yet, so the Tests view leaves that button out. */
+/**
+ * Sessions' host: the feature's guest host — the runtime host's sessions over Coder's guest channels
+ * (`main/context.ts`), polled; a live row attaches a terminal. Live rows only (the closed-session archive
+ * is Studio's), and no resume or kill: Coder starts no session, so it ends none. The list's width
+ * persists under `midnite-coder.sessions`.
+ */
+export const CODER_SESSIONS_HOST: SessionsHost = createGuestSessionsHost({
+  storageKey: 'midnite-coder.sessions',
+  Tooltip: CoderTooltip,
+  MultiSelectMenu: CoderMultiSelect,
+});
+
+/** No `runInTerminal`: Coder starts no terminal of its own, so the Tests view leaves that button out. */
 export const CODER_TESTS_HOST: TestsHost = {
   useActiveRepo,
   useListWidth: useTestsListWidth,

@@ -187,8 +187,8 @@ A host port may declare a member **optional** and the feature drops the affordan
 `openWorkingCopyInGraph`. Agents (`apps/agents`) leaves those out and supplies plain chrome for the rest
 (`src/compose/plain-ui.tsx`, `plain-composer.tsx`). Its councils run each member as a piped login shell
 (`main/shell-runner.ts`) rather than through the pty broker, and `dugite` is stubbed in its bundle: it has no
-repository registry yet, so every chat runs in its scratch directory. Both arrive with Coder and the
-Sessions integration (slice 2).
+repository registry yet, so every chat runs in its scratch directory. Its workflow **agent nodes** do use a pty —
+on the runtime host's broker, as a guest (Coder slice 4, below).
 
 ### Agents: workflows, tools and what stayed behind (Phase 113 Theme N, slice 2)
 
@@ -202,9 +202,10 @@ Agents now composes five packages: chats, councils, **workflows**, models and **
   registry a `git-status` node reads, Electron's notification and clipboard. Studio fills all of it
   (`packages/desktop/src/main/ipc/workflow-handlers.ts`); Agents fills the roster, the Ollama daemon and key,
   and a **piped login shell for script nodes** (`apps/agents/main/node-session.ts`) and leaves the rest
-  absent, so a `git-status`, forge or gate-comment step reports its own failure and an **agent node fails
-  with a plain message** — it drives an interactive CLI to idle, which needs a pty, and Agents ships no
-  broker until the Sessions integration. `ai-prompt`/`ai-extract` run the same CLI headlessly and work.
+  absent, so a `git-status`, forge or gate-comment step reports its own failure. An **agent node** drives an
+  interactive CLI to idle, which needs a pty: since Theme O slice 4 it runs on the runtime host's shared broker
+  as a guest (`apps/agents/main/broker-sessions.ts`, below) and fails with a plain message when no host broker
+  is running. `ai-prompt`/`ai-extract` run the same CLI headlessly and work either way.
   The renderer reads app state through `WorkflowsHost` (persisted pane sizes and collapse flags, the dismiss
   stack, `Modal`/`Popover`/`MultiSelectMenu`/`TreeSection`, a run's node sessions); Studio's host keeps every
   `ui-store` key, so no stored value moved. The graph list's Duplicate/Export/Delete row menu needs a context
@@ -538,8 +539,8 @@ with `MIDNITE_CREATOR_USER_DATA=<tmp>` prints `midnite-creator:ready` and quits.
 
 Coder composes two feature packages: **`packages/features/forge`** (Reviews and Actions over every forge
 provider) and **`packages/features/tests`** (the Tests view), over the frame. It opens on Reviews, with Actions
-and Tests as tabs beside it, and a small repository list on the left. The git graph is slice 2 and the API client
-and the database slice 3 (below); sessions and tasks are a later slice.
+and Tests as tabs beside it, and a small repository list on the left. The git graph is slice 2, the API client
+and the database slice 3 and Sessions slice 4 (below); tasks are a later slice.
 
 **Decision 1 — how the renderer folders split into packages.** Four placement folders (`forge`, `reviews`,
 `actions`, `tests`) became **two** packages, not four:
@@ -752,8 +753,42 @@ jail; its file pickers (import, export, a body file) open in main.
 **Left out in this slice:** no Monaco in Coder (so no `pm.*` autocomplete, no Beautify, no SQL highlighting — each
 editor is a textarea until a shared editor lives in the frame); **no SQLite in Coder** (`better-sqlite3` is a native
 module the bundle format cannot carry, so its connections answer the driver's own "Failed to load better-sqlite3"
-while Postgres, MySQL, MariaDB and MSSQL, which are pure JS, work); no detach-to-window mark. Sessions, tasks and
-the Tasks → Agents hand-off are the next slice. `MIDNITE_CODER_SMOKE=1` still prints `midnite-coder:ready`.
+while Postgres, MySQL, MariaDB and MSSQL, which are pure JS, work); no detach-to-window mark. Sessions is slice 4;
+tasks and the Tasks → Agents hand-off are the next. `MIDNITE_CODER_SMOKE=1` still prints `midnite-coder:ready`.
+
+### Coder slice 4: Sessions, and Agents' sessions on the shared broker (Phase 113 Theme O)
+
+**`packages/features/sessions`** — the Sessions view (renderer) and, for an app with no pty server, its
+**broker-guest channels** (main). The view is the list, its filters and the routing of a selection; what a
+session *is* comes through `SessionsHost` (`renderer/host.tsx`): required members every app answers (live
+sessions and their status, the roster, the selection, the list width, the live pane, small chrome) and optional
+capability groups an app either has or leaves out — `history` (closed rows, transcripts, purge), `graph` (commit
+counts), `workflows` (run groups' reveal and kill switch), `loops`, `useKill`, `resume`. A group left out is a
+control the view does not draw.
+
+- **Studio** (`packages/app/src/compose/sessions-host.tsx`) fills every member with exactly what the view imported
+  before, so the view, its test ids and its stored keys (`layout.sessionsListWidth`, `sessions-store`) are
+  unchanged. Its **live pane and transcript stay in Studio** (`features/sessions/live-session-pane.tsx`,
+  `transcript-view.tsx`, `live-session-terminal.tsx`): they are the terminal's — which panel already shows a
+  session, the claim that keeps two xterms off one pty, the palette and replay gate. **The session archive stays in
+  desktop** too: Studio's terminal service writes it when a session closes; Coder shows live sessions only.
+- **Coder** composes `createGuestSessionsHost` (`renderer/guest-host.tsx`): it polls `terminal.list` (the
+  feature's main half, `main/guest-sessions.ts`, over `createSharedBroker` as `coder`), titles a session from the
+  host's `terminals.json` (`readHostSessions`, via the host record's `sessionsFile`) or, for another app's, by
+  folder and "Started by Midnite Agents", and attaches a `GuestTerminal` (xterm, its own chunk) — subscribe,
+  snapshot, stream, type, resize. No resume, no kill, no purge: Coder starts nothing, so it ends nothing (and the
+  broker refuses a guest's kill of another's session anyway). Output reaches Coder's window only for a pty it has
+  subscribed to; input goes only to a pty the last listing named.
+- **Agents** (`apps/agents/main/broker-sessions.ts`) creates a workflow **agent node's** session on the host's
+  broker as `agents` — so it appears in Coder's Sessions — and reads its activity with Studio's detector (moved to
+  `runtime/src/broker/activity-detect.ts`; desktop re-exports it). It kills only its own: a cancelled node's pty,
+  and on quit every one still running. With no host broker the node fails with a plain sentence, never hangs.
+  Script nodes and council members stay piped login shells: one-shot, headless, and better kept out of every
+  app's Sessions list.
+
+Proven by `packages/features/sessions/main/guest-sessions.test.ts`, `renderer/guest-sessions-view.test.tsx`,
+`apps/agents/main/broker-sessions.test.ts`, `apps/coder/src/coder-app.test.tsx`, and end to end on Studio's real
+broker server by `packages/desktop/src/main/broker-sessions-guest.test.ts`.
 
 ### Money's brokerage and exchange accounts (Phase 113 Theme P slice 2)
 
@@ -885,9 +920,22 @@ additionally serves them to other apps:
 - **Runtime host record** (`runtime/src/host/`): `<Midnite Runtime>/host/host.json`, written atomically by the
   host at boot — `{ host, pid, broker: { socketPath, directory } | null }`. Names only, no secret.
 - **Broker guests** (`attachSharedBroker`): read the record, connect to the host's broker socket and adopt
-  any other live socket in its directory as a legacy peer — and never spawn, retire, unlink or create. A guest
-  lists, snapshots, streams, writes to and resizes a session; starting one stays with the app that ships the
-  pty server. Monitor's `terminalList` is its first user.
+  any other live socket in its directory as a legacy peer — and never spawn, retire, unlink or shut down a
+  broker. A guest lists, snapshots, streams, writes to and resizes any session. **Since Theme O slice 4 a guest
+  may also create a session on the host's broker**, which the server stamps with the guest's app id as its
+  `owner` (shown in `list`), **and may kill only sessions whose owner is its own id** — never Studio's or another
+  app's. Monitor's `terminalList` was its first user; Agents (its workflow agent nodes) and Coder (Sessions) followed.
+- **The broker server enforces that, not just the client.** `hello` declares `role: 'host' | 'guest'` and an
+  `appId`; the identity is fixed by the first hello (a later one that changes it is refused). **Default-deny**: a
+  connection that never says `role: 'host'` is a guest, and a guest with no valid app id cannot create. Refused
+  requests answer `code: 'forbidden'`; `retire`, `shutdown` and `forget` are the host's alone. `list` and
+  `snapshot` never carry a session's environment (a session's env can hold a resolved secret, such as the
+  Ollama key). **What it does not do**: identity is *declared*, not proven — a same-user peer on the `0600`
+  socket cannot be authenticated beyond its uid, and could signal a listed pid directly anyway — so the rule
+  holds guests (and any client written to the guest protocol) to their word; it does not stop a same-user
+  process that claims to be the host. An older build's client adopting a newer broker as a legacy peer sends no
+  role, so its kills there are refused; an older broker ignores the new fields and stamps no owner, and a guest
+  then kills nothing on it.
 - **Hand-off across apps** (`runtime/src/app-main/handoff.ts` + the frame's `createAppHandoff`): an app plans a
   request against the apps *it* hosts; anything else is `external`, and main opens the `midnite://open` link
   (validated by `parseMidniteLink` — never an arbitrary URL) with `shell.openExternal`. The launcher's router
@@ -952,7 +1000,7 @@ the socket peer), which this slice does not build.
 | Vault host + guests | `runtime/src/vault/host/{protocol,server,client}.ts`; `startTestVaultHost` in `vault/testing.ts` | `host.test.ts`: a token Studio stores is read by Coder only once granted; a granted write lands in Studio's vault; a peer claiming `studio` or an unknown id is refused; `vault` lists and edits grants but never reads; no host → absent reads, refused writes, a late host is found; a second host never takes the path |
 | Studio hosts | `desktop/src/main/runtime-host.ts`, wired after `initPtyService` in `main/index.ts`, closed in `before-quit` | `runtime-host.test.ts` (serves Studio's own vault; a second Studio leaves the first one's record alone; a throwaway profile hosts inside itself) |
 | Guest apps | `apps/{coder,money,agents,vault}/main/context.ts`, `apps/creator/main/index.ts` — no `safeStorage`, no `authorize` | each app's `context.test.ts` now runs against a real host on a temp-dir socket |
-| Broker guests | `runtime/src/broker/client.ts` (`role: 'guest'`), `broker/shared.ts` | `desktop/src/main/broker-guest.test.ts` on the real server: listed, streamed, written to, resized and snapshotted from another app; create and kill refused; an empty legacy broker and a dead socket left alone; a late host found |
+| Broker guests | `runtime/src/broker/client.ts` (`role: 'guest'`, `appId`), `broker/shared.ts`; the rule in `desktop/src/broker/server.ts` | `desktop/src/main/broker-guest.test.ts` on the real server: listed, streamed, written to, resized and snapshotted from another app; a guest's own session created, stamped and killed, the host's never; an empty legacy broker and a dead socket left alone; a late host found. `desktop/src/broker/guest-rules.test.ts`: a hand-rolled raw client is refused kill/retire/shutdown/forget without `role: 'host'`, cannot re-hello as the host, and `list` carries no env |
 | Monitor | `apps/monitor/main/shared-sessions.ts` | `shared-sessions.test.ts`, `monitor-app.test.tsx` |
 | Hand-off | `shared` `CHANNELS.handoffOpen` / `HandoffOpenRequest`; `runtime/src/app-main/handoff.ts`; `frame/src/kit/handoff.ts`; Studio's `bridgeHandoffTransport` | `handoff.test.ts` in runtime, frame and app: the right `midnite://open` link, and nothing that is not one |
 

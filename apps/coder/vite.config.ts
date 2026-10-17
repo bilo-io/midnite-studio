@@ -22,6 +22,7 @@ export default defineConfig({
       '@midnite/studio-feature-database/renderer': at('../../packages/features/database/renderer/index.ts'),
       '@midnite/studio-feature-forge/renderer': at('../../packages/features/forge/renderer/index.ts'),
       '@midnite/studio-feature-tests/renderer': at('../../packages/features/tests/renderer/index.ts'),
+      '@midnite/studio-feature-sessions/renderer': at('../../packages/features/sessions/renderer/index.ts'),
     },
   },
   server: { port: 5191, strictPort: true },

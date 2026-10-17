@@ -17,10 +17,13 @@ import {
   type ForgeFetch,
   type ForgePollerWindows,
 } from '@midnite/studio-feature-forge/main';
+import { readHostSessions, sessionsGuestMain, shutdownGuestSessions } from '@midnite/studio-feature-sessions/main';
 import { configureTests, createTestTrustStore, testsMain } from '@midnite/studio-feature-tests/main';
 import {
   connectRuntimeVault,
   createIpcContext,
+  createSharedBroker,
+  readRuntimeHostRecord,
   vaultHostSocketPath,
   type IpcContextElectron,
   type PairingIdentity,
@@ -66,9 +69,9 @@ export type CoderElectron = IpcContextElectron & {
 
 /**
  * Registers every channel Coder's renderer can call: the forge feature's (listings, writes, accounts,
- * projects, poll subscriptions), the tests feature's, the API client's, the Database tool's, and Coder's
- * own small repository list (`repos.list`/`pickDirectory`/`open`/`close`) plus `remotes.list` read from
- * `.git/config`.
+ * projects, poll subscriptions), the tests feature's, the API client's, the Database tool's, the sessions
+ * feature's guest channels (the runtime host's terminal sessions, attach-only), and Coder's own small
+ * repository list (`repos.list`/`pickDirectory`/`open`/`close`) plus `remotes.list` read from `.git/config`.
  *
  * **Forge tokens and database passwords never leave main.** The account registry's vault and the
  * database credential vault are the runtime vault as `coder`, behind the grants: without a grant to
@@ -144,6 +147,15 @@ export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos; s
   // The git graph and diff — read-only, in the checkouts Coder's own list holds (`main/git.ts`).
   registerCoderGit(ctx, { pathOf: (repoId) => repos.pathOf(repoId) });
 
+  // Sessions — the runtime host's sessions (Studio's, and those another app such as Agents started), as a
+  // broker guest named in the host record: listed, attached, written to and resized. Coder starts no
+  // session and kills none; the broker would refuse a guest's kill of one it did not create anyway.
+  // Titles come from the host's own terminal records; a broker session's environment never reaches here.
+  sessionsGuestMain.register(ctx, {
+    broker: createSharedBroker({ runtimeDirectory: el.vaultDirectory, appId: 'coder' }),
+    hostSessions: () => readHostSessions(readRuntimeHostRecord(el.vaultDirectory)?.sessionsFile),
+  });
+
   // Coder's repositories.
   ctx.ipc.handleBare(CHANNELS.repoList, () => repos.list());
   ctx.ipc.handleBare(CHANNELS.repoPickDirectory, async () => {
@@ -172,10 +184,12 @@ export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos; s
 
   return {
     repos,
-    // Quit: abort running collection runs, kill the script worker, disconnect every pooled database connection.
+    // Quit: abort running collection runs, kill the script worker, disconnect every pooled database
+    // connection, and detach from the host's broker (its sessions keep running — they are not Coder's).
     shutdown: async () => {
       shutdownApiClient();
       await shutdownDb();
+      await shutdownGuestSessions();
     },
   };
 }

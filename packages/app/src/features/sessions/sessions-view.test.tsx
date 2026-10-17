@@ -3,18 +3,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { SessionsView } from '@midnite/studio-feature-sessions/renderer/testing';
+
 import { DialogHost } from '../../components/dialog-host';
+import { StudioProviders } from '../../compose/studio-providers';
 import { useSessionsStore } from '../../store/sessions-store';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { useGraphStore } from '@midnite/studio-frame';
-import { SessionsView } from './sessions-view';
 
 import { BUILTIN_AGENTS } from '@midnite/studio-shared';
 
 const historyResult = vi.fn();
 const refresh = vi.fn();
-vi.mock('../../services/queries', () => ({
+// Partial: `StudioProviders` (the view's host now arrives through it) composes hosts that read other queries.
+vi.mock('../../services/queries', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/queries')>()),
   useSessionHistory: () => historyResult(),
   useRefreshSessionHistory: () => refresh,
 }));
@@ -120,7 +124,9 @@ function renderView() {
   return render(
     <QueryClientProvider client={queryClient}>
       <DialogHost>
-        <SessionsView />
+        <StudioProviders>
+          <SessionsView />
+        </StudioProviders>
       </DialogHost>
     </QueryClientProvider>,
   );

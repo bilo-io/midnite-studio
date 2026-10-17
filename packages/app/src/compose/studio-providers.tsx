@@ -10,6 +10,7 @@ import { MediaHostProvider } from '@midnite/studio-feature-media-core/renderer';
 import { ModelsHostProvider } from '@midnite/studio-feature-models/renderer';
 import { NotesHostProvider } from '@midnite/studio-feature-notes/renderer';
 import { OptimizerHostProvider } from '@midnite/studio-feature-optimizer/renderer';
+import { SessionsHostProvider } from '@midnite/studio-feature-sessions/renderer';
 import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
 import { TestsHostProvider } from '@midnite/studio-feature-tests/renderer';
 import { WorkflowsHostProvider } from '@midnite/studio-feature-workflows/renderer';
@@ -27,6 +28,7 @@ import { STUDIO_MEDIA_HOST } from './media-host';
 import { STUDIO_MODELS_HOST } from './models-host';
 import { STUDIO_NOTES_HOST } from './notes-host';
 import { STUDIO_OPTIMIZER_HOST } from './optimizer-host';
+import { STUDIO_SESSIONS_HOST } from './sessions-host';
 import { STUDIO_SLIDES_HOST } from './slides-host';
 import { STUDIO_TESTS_HOST } from './tests-host';
 import { STUDIO_CHROME } from './studio-chrome';
@@ -62,7 +64,9 @@ export function StudioProviders({ children }: { children: ReactNode }) {
                             <TestsHostProvider host={STUDIO_TESTS_HOST}>
                               <ApiClientHostProvider host={STUDIO_API_CLIENT_HOST}>
                                 <DatabaseHostProvider host={STUDIO_DATABASE_HOST}>
-                                  <GitHostProvider host={STUDIO_GIT_HOST}>{children}</GitHostProvider>
+                                  <GitHostProvider host={STUDIO_GIT_HOST}>
+                                    <SessionsHostProvider host={STUDIO_SESSIONS_HOST}>{children}</SessionsHostProvider>
+                                  </GitHostProvider>
                                 </DatabaseHostProvider>
                               </ApiClientHostProvider>
                             </TestsHostProvider>

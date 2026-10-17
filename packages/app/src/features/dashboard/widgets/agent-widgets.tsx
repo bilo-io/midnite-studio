@@ -9,7 +9,7 @@ import { useSessionHistory } from '../../../services/queries';
 import { useSessionsStore } from '../../../store/sessions-store';
 import { useUiStore } from '../../../store/ui-store';
 import { useLoopRuns } from '../../loops/use-loop-runs';
-import { relativeAge } from '../../sessions/session-order';
+import { relativeAge } from '@midnite/studio-frame';
 import {
   agentLabelFor,
   resolveSessionAgentId,

@@ -14,12 +14,13 @@ import type { ShellRunner } from './shell-runner';
  * on quit — and the session it returns is a record the engine stores on the run, never a row anywhere.
  *
  * An **agent** node drives an interactive agent CLI and waits for it to go idle, which needs a real
- * terminal (a CLI started with no tty behaves differently). Until Agents ships the pty broker, that
- * node fails with a plain message rather than hanging; an `ai-prompt` node runs the same CLI
- * headlessly and works here.
+ * terminal (a CLI started with no tty behaves differently). Agents ships no pty server: the node runs on
+ * the runtime host's shared broker when one is running (`broker-sessions.ts`), and otherwise fails with
+ * this plain message rather than hanging; an `ai-prompt` node runs the same CLI headlessly and works
+ * either way.
  */
 export const AGENT_NODE_NEEDS_TERMINAL =
-  'Agent steps need a terminal session, which Midnite Agents does not have yet. Run this graph in Midnite Studio, or use an AI prompt step.';
+  'Agent steps need a terminal session, and Midnite Agents runs them on Midnite Studio’s shared terminal broker — which is not running. Open Midnite Studio and run this graph again, or use an AI prompt step.';
 
 export function createNodeSessionStarter(
   runner: Pick<ShellRunner, 'createPty'>,

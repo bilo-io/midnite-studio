@@ -4,6 +4,7 @@ import { apiClientViews } from '@midnite/studio-feature-api-client/renderer';
 import { chatsViews } from '@midnite/studio-feature-chats/renderer';
 import { databaseViews } from '@midnite/studio-feature-database/renderer';
 import { forgeViews } from '@midnite/studio-feature-forge/renderer';
+import { sessionsViews } from '@midnite/studio-feature-sessions/renderer';
 import { testsViews } from '@midnite/studio-feature-tests/renderer';
 import { councilsViews } from '@midnite/studio-feature-councils/renderer';
 import { workflowsViews } from '@midnite/studio-feature-workflows/renderer';
@@ -85,8 +86,8 @@ const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.Histo
 const OptimizerPage = lazy(() => optimizerViews.optimizer().then((Component) => ({ default: Component })));
 const MonitorPage = lazy(() => monitorViews.monitor().then((Component) => ({ default: Component })));
 const VaultPage = lazy(() => vaultViews.vault().then((Component) => ({ default: Component })));
-const loadSessionsView = () => import('../features/sessions/sessions-view');
-const SessionsView = lazy(() => loadSessionsView().then((m) => ({ default: m.SessionsView })));
+const loadSessionsView = () => sessionsViews.sessions();
+const SessionsView = lazy(() => loadSessionsView().then((Component) => ({ default: Component })));
 const loadApiClientView = () => apiClientViews.apiClient();
 const ApiClientView = lazy(() => loadApiClientView().then((Component) => ({ default: Component })));
 const loadNotesView = () => notesViews.notes();
