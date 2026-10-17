@@ -35,10 +35,10 @@ import {
 } from '@midnite/studio-shared';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
-import { confineToRoot, joinWithin } from '../../fs-scope';
+import { confineToRoot, joinWithin } from '@midnite/studio-runtime';
 import { McpToolError } from '../../mcp/errors';
-import type { SpriteService } from './sprite-service';
-import { renderSpritePreview } from './sprite-preview';
+import type { SpriteService } from '@midnite/studio-feature-media-sprite/main';
+import { renderSpritePreview } from '@midnite/studio-feature-media-sprite/main';
 
 /**
  * The sprite MCP tools' implementations (Media ▸ Sprites, Phase 106 Theme K).

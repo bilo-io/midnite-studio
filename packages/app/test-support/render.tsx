@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import { Fragment, type ComponentType, type ReactElement, type ReactNode } from 'react';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -77,14 +77,16 @@ export function createTestQueryClient(): QueryClient {
   });
 }
 
-function wrap(queryClient: QueryClient) {
+function wrap(queryClient: QueryClient, Inner: ComponentType<{ children: ReactNode }> = Fragment) {
   return function ViewProviders({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <ToastHost>
             <DialogHost>
-              <StudioProviders>{children}</StudioProviders>
+              <StudioProviders>
+                <Inner>{children}</Inner>
+              </StudioProviders>
             </DialogHost>
           </ToastHost>
         </ThemeProvider>
@@ -111,15 +113,18 @@ export function renderView(ui: ReactElement, options: RenderViewOptions = {}): R
 export function renderHookWithProviders<Result, Props>(
   hook: (props: Props) => Result,
   options: Omit<RenderHookOptions<Props>, 'wrapper'> &
-    Pick<RenderViewOptions, 'fixtures' | 'uiState' | 'queryClient'> = {},
+    Pick<RenderViewOptions, 'fixtures' | 'uiState' | 'queryClient'> & {
+      /** Wraps the hook inside the provider stack — a composed media tab's harness, say. */
+      inner?: ComponentType<{ children: ReactNode }>;
+    } = {},
 ): RenderHookResult<Result, Props> {
-  const { fixtures, uiState, queryClient, ...renderHookOptions } = options;
+  const { fixtures, uiState, queryClient, inner, ...renderHookOptions } = options;
 
   if (fixtures) installMockBridgeJsdom(fixtures);
   if (uiState) useUiStore.setState(uiState);
 
   return renderHook(hook, {
-    wrapper: wrap(queryClient ?? createTestQueryClient()),
+    wrapper: wrap(queryClient ?? createTestQueryClient(), inner),
     ...renderHookOptions,
   });
 }

@@ -273,12 +273,6 @@ export default tseslint.config(
     rules: deny([...APP_PATTERNS, ...APP_LAYER_PATTERNS, MAPLIBRE_LAZY]),
   },
 
-  // map-canvas.tsx is the one file allowed to import MapLibre (Phase 108 Theme A).
-  {
-    files: ['packages/app/src/features/media/map/map-canvas.tsx', 'packages/app/src/features/media/map/map-canvas.test.tsx'],
-    rules: deny([...APP_PATTERNS, ...APP_LAYER_PATTERNS]),
-  },
-
   // --- Boundary: frame (Phase 113 Theme C) ------------------------------------
   // The renderer chrome every app wears. Renderer rules (bridge-only), and it
   // sits below every feature and app.
@@ -310,6 +304,19 @@ export default tseslint.config(
         regex: '^(\\.\\./)+main(/|$)',
         message: "The renderer half never imports its own main half — that runs in another process. Share data through `manifest.ts` or shared.",
       },
+    ]),
+  },
+
+  // map-canvas.tsx is the one file allowed to import MapLibre (Phase 108 Theme A; it moved into the
+  // media-map package with Phase 113 Theme S, and the rule is the feature renderer block minus MAPLIBRE_LAZY).
+  {
+    files: ['packages/features/media-map/renderer/map-canvas.tsx', 'packages/features/media-map/renderer/map-canvas.test.tsx'],
+    rules: deny([
+      NO_APP_UPDATER,
+      ...APP_PATTERNS,
+      LAYER_APP,
+      ...LAYER_OTHER_FEATURE,
+      LAYER_RUNTIME_FROM_RENDERER,
     ]),
   },
 

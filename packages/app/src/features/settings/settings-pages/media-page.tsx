@@ -6,7 +6,7 @@ import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';
 import { AudioSettingsSection } from '../../media/audio/audio-settings';
 import { ImageSettingsSection } from '../../media/image/image-settings';
-import { MapSettingsSection } from '../../media/map/map-settings';
+import { MapSettingsSection } from '../../../compose/media-map/map-settings';
 import { useFfmpegStatus } from '../../media/use-media';
 import { submitCommand } from '../../terminal/submit-command';
 import { GamesRootSection } from './games-root-section';

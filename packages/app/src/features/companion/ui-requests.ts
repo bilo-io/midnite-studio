@@ -25,7 +25,7 @@ import { bridge } from '../../services/bridge';
 import { useCompanionStore } from '../../store/companion-store';
 import { useToastStore } from '../../store/toast-store';
 import { useUiStore } from '../../store/ui-store';
-import { useGameRunStore } from '../media/game/game-run-store';
+import { useGameRunStore } from '@midnite/studio-feature-media-game/renderer';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { openIssueModal } from '../../store/issue-modal-store';
 import { VIEW_LABELS } from '../../services/palette/providers';

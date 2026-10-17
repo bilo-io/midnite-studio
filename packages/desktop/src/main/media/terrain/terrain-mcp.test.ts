@@ -12,9 +12,9 @@ import { McpToolError } from '../../mcp/errors';
 import { setTerrainTools, terrainBuild, terrainSetSpec } from '../../mcp/terrain-tools';
 import { setMcpAllowTerrainsState } from '../../mcp/ui-gate';
 import { encodePngRgba8 } from '../png/png-codec';
-import { runTerrainBuild } from './build-pipeline';
+import { runTerrainBuild } from '@midnite/studio-feature-media-terrain/main';
 import { createTerrainTools, INPUT_OUTSIDE_REPO_MESSAGE } from './terrain-mcp';
-import { createTerrainService } from './terrain-service';
+import { createTerrainService } from '@midnite/studio-feature-media-terrain/main';
 import { readFile } from 'node:fs/promises';
 
 let repo: string;

@@ -5,8 +5,8 @@ import { useNotesStore } from '../../../../store/notes-store';
 import { useUiStore } from '../../../../store/ui-store';
 import { useMediaOpenRequest, type MediaOpenKind } from '../../../media/media-open-request';
 import { useModelOpenRequest } from '../../../media/model/use-model-agent-events';
-import { useSpriteOpenRequest } from '../../../media/sprite/use-sprite-agent-events';
-import { useTerrainOpenRequest } from '../../../media/terrain/use-terrain-agent-events';
+import { useSpriteOpenRequest } from '@midnite/studio-feature-media-sprite/events';
+import { useTerrainOpenRequest } from '@midnite/studio-feature-media-terrain/renderer';
 import type { FamilyRevealers } from '../types';
 
 /**

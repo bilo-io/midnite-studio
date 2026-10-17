@@ -1,17 +1,17 @@
 import { mediaAudioTab } from '@midnite/studio-feature-media-audio/renderer';
 import { mediaDocsTab } from '@midnite/studio-feature-media-docs/renderer';
+import { mediaGameTab } from '@midnite/studio-feature-media-game/renderer';
 import { mediaImagesTab } from '@midnite/studio-feature-media-images/renderer';
+import { mediaMapTab } from '@midnite/studio-feature-media-map/renderer';
+import { mediaSpriteTab } from '@midnite/studio-feature-media-sprite/renderer';
+import { mediaTerrainTab } from '@midnite/studio-feature-media-terrain/renderer';
 import { mediaVideoTab } from '@midnite/studio-feature-media-video/renderer';
 import { MEDIA_TABS, type MediaTab } from '@midnite/studio-shared';
 import type { MediaTabDescriptor } from '@midnite/studio-frame';
 import type { ComponentType } from 'react';
 
-import { GameTab } from '../features/media/game/game-tab';
-import { MapTab } from '../features/media/map/map-tab';
 import { MEDIA_TAB_META } from '../features/media/media-tabs';
 import { ModelTab } from '../features/media/model/model-tab';
-import { SpriteTab } from '../features/media/sprite/sprite-tab';
-import { TerrainTab } from '../features/media/terrain/terrain-tab';
 
 /**
  * Studio's media tab registry (Phase 113 Theme Q) — every tab, in the strip
@@ -19,14 +19,10 @@ import { TerrainTab } from '../features/media/terrain/terrain-tab';
  * packages, the other five still from `packages/app`. Imported only by the lazily loaded
  * Media view, so the tabs stay out of the entry chunk as they always were.
  */
-type AppTab = Exclude<MediaTab, 'doc' | 'image' | 'audio' | 'video'>;
+type AppTab = Exclude<MediaTab, 'doc' | 'image' | 'audio' | 'video' | 'map' | 'terrain' | 'sprite' | 'game'>;
 
 const BODY: Record<AppTab, ComponentType> = {
-  map: MapTab,
-  terrain: TerrainTab,
   model: ModelTab,
-  sprite: SpriteTab,
-  game: GameTab,
 };
 
 const FEATURE_TABS: Partial<Record<MediaTab, MediaTabDescriptor>> = {
@@ -34,6 +30,10 @@ const FEATURE_TABS: Partial<Record<MediaTab, MediaTabDescriptor>> = {
   image: mediaImagesTab,
   audio: mediaAudioTab,
   video: mediaVideoTab,
+  map: mediaMapTab,
+  terrain: mediaTerrainTab,
+  sprite: mediaSpriteTab,
+  game: mediaGameTab,
 };
 
 export const STUDIO_MEDIA_TABS: readonly MediaTabDescriptor[] = MEDIA_TABS.map(

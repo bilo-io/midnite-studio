@@ -24,12 +24,15 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { dispatchMcpCall } from '../../mcp/dispatch';
 import { setSpriteTools } from '../../mcp/sprite-tools';
 import { resetMcpAllowUiStateForTests, setMcpAllowSpritesState } from '../../mcp/ui-gate';
-import { pngChunks } from '../png/apng';
-import { encodePngRgba8 } from '../png/png-codec';
-import type { LlmCall } from '../model/model-service';
-import { createMapRunner, mapPreflight } from './map-generate';
+import { encodePngRgba8, pngChunks } from '@midnite/studio-runtime';
+import {
+  createMapRunner,
+  createSpriteService,
+  mapPreflight,
+  type LlmCall,
+  type SpriteJobRunner,
+} from '@midnite/studio-feature-media-sprite/main';
 import { createSpriteTools } from './sprite-mcp';
-import { createSpriteService, type SpriteJobRunner } from './sprite-service';
 
 let repo: string;
 let root: string;

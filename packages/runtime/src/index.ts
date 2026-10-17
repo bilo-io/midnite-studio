@@ -23,3 +23,4 @@ export * from './app-main';
 export * from './capture-output';
 export * from './process-runner';
 export * from './repo-skills';
+export * from './media';

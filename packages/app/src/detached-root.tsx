@@ -40,9 +40,7 @@ const CompanionBootstrap = lazy(() =>
 );
 
 // Its own chunk too: only the `game` popout (Phase 107 Theme B) ever renders it.
-const GamePopoutPane = lazy(() =>
-  import('./features/media/game/game-popout-pane').then((m) => ({ default: m.GamePopoutPane })),
-);
+const GamePopoutPane = lazy(() => import('./compose/media-game-popout'));
 
 /**
  * How long an unused query stays in a popout's cache after its last observer

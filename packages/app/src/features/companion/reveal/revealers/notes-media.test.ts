@@ -4,7 +4,7 @@ import { useNotesStore } from '../../../../store/notes-store';
 import { useUiStore } from '../../../../store/ui-store';
 import { useMediaOpenRequest } from '../../../media/media-open-request';
 import { useModelOpenRequest } from '../../../media/model/use-model-agent-events';
-import { useTerrainOpenRequest } from '../../../media/terrain/use-terrain-agent-events';
+import { useTerrainOpenRequest } from '@midnite/studio-feature-media-terrain/renderer';
 import { NOTES_MEDIA_REVEALERS } from './notes-media';
 
 const ctx = { caller: 'companion', focusedWindow: false } as const;

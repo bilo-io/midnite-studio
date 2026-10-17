@@ -1,5 +1,4 @@
-import { runTerrainBuild } from '../main/media/terrain/build-pipeline';
-import type { TerrainWorkerIn, TerrainWorkerOut } from '../main/media/terrain/worker-protocol';
+import { runTerrainBuild, type TerrainWorkerIn, type TerrainWorkerOut } from '@midnite/studio-feature-media-terrain/terrain-worker';
 
 /**
  * `utilityProcess` entry point `terrain-broker.ts` forks (Phase 105 Theme B): decoding, resampling and

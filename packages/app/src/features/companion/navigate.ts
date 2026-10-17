@@ -12,7 +12,7 @@ import { bridge } from '../../services/bridge';
 import { useBrowserStore } from '../../store/browser-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { SETTINGS_PAGES, useUiStore } from '../../store/ui-store';
-import { useGameRunStore } from '../media/game/game-run-store';
+import { useGameRunStore } from '@midnite/studio-feature-media-game/renderer';
 import { openIssueModal } from '../../store/issue-modal-store';
 import { PAGE_ROLE_TITLE } from '../../components/page-detach-mark';
 import { VIEW_LABELS } from '../../services/palette/providers';

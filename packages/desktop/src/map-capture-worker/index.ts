@@ -1,5 +1,8 @@
-import { createCaptureDispatcher } from '../main/media/map/capture-dispatch';
-import type { CaptureWorkerIn, CaptureWorkerOut } from '../main/media/map/capture-protocol';
+import {
+  createCaptureDispatcher,
+  type CaptureWorkerIn,
+  type CaptureWorkerOut,
+} from '@midnite/studio-feature-media-map/map-capture-worker';
 
 /**
  * `utilityProcess` entry point `capture-broker.ts` forks (Phase 108 Themes D–E): stitching a 1 024-tile

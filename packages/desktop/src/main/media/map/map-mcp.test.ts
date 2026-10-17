@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dispatchMcpCall } from '../../mcp/dispatch';
 import { setMapTools } from '../../mcp/map-tools';
 import { resetMcpAllowUiStateForTests, setMcpAllowMapsState } from '../../mcp/ui-gate';
-import { geocodePlace } from './geocode';
+import { geocodePlace } from '@midnite/studio-feature-media-map/main';
 import { createMapTools } from './map-mcp';
 
 const captureJson = (name: string) =>

@@ -8,7 +8,7 @@ import { LuFolderOpen, LuRotateCcw, LuTriangleAlert } from 'react-icons/lu';
 import { SelectField } from '../../../components/form/select-field';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
-import { useGamesSettings, useSetGamesSettings } from '../../media/game/use-games';
+import { useGamesSettings, useSetGamesSettings } from '@midnite/studio-feature-media-game/renderer';
 
 const ENGINES: readonly { value: GameEngine; label: string }[] = [
   { value: 'phaser', label: 'Phaser' },
