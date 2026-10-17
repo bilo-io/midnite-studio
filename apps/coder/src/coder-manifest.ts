@@ -2,6 +2,7 @@ import { apiClientManifest } from '@midnite/studio-feature-api-client/renderer';
 import { databaseManifest } from '@midnite/studio-feature-database/renderer';
 import { forgeManifest } from '@midnite/studio-feature-forge/renderer';
 import { sessionsManifest } from '@midnite/studio-feature-sessions/renderer';
+import { tasksManifest } from '@midnite/studio-feature-tasks/renderer';
 import { testsManifest } from '@midnite/studio-feature-tests/renderer';
 
 /**
@@ -12,7 +13,7 @@ import { testsManifest } from '@midnite/studio-feature-tests/renderer';
  * is Reviews, with Actions, Tests, the Graph, the API client, the Database and Sessions beside it. The
  * Graph is the frame's own git graph (slice 2, `@midnite/studio-frame/graph`), read-only — so it is a
  * view, not a feature. Sessions (slice 4) lists the runtime host's terminal sessions as a broker guest.
- * Tasks is the catalog's remaining feature and lands in a later slice.
+ * Tasks (slice 5) is the forge's issues and project boards as a table, a board and a dependency graph.
  */
 export const CODER_APP = {
   id: 'coder',
@@ -20,8 +21,8 @@ export const CODER_APP = {
   tagline: 'Pull requests, checks and tests',
   accent: '#2e7cfa',
   home: 'reviews',
-  features: [forgeManifest.feature, testsManifest.feature, apiClientManifest.feature, databaseManifest.feature, sessionsManifest.feature],
-  views: ['reviews', 'actions', 'tests', 'graph', 'apiClient', 'database', 'sessions'],
+  features: [forgeManifest.feature, testsManifest.feature, apiClientManifest.feature, databaseManifest.feature, sessionsManifest.feature, tasksManifest.feature],
+  views: ['reviews', 'actions', 'tasks', 'tests', 'graph', 'apiClient', 'database', 'sessions'],
 } as const;
 
 export type CoderAppManifest = typeof CODER_APP;

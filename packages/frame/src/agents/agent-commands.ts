@@ -300,3 +300,40 @@ export const AGENT_COMMANDS: readonly AgentCommand[] = [
     hint: 'Profile startup, idle CPU, bundle size and renders, and fix what is slow, on a loop.',
   },
 ];
+
+/**
+ * What each entry invokes out of the box — the skills this repo and its author
+ * actually have. Settings → Agent can point any of them somewhere else (Studio's
+ * `agentSkills`, seeded with this).
+ */
+export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
+  execBacklog: '/midnite-create',
+  execAdhoc: '/midnite-create-adhoc',
+  addressIssue: '/midnite-address-issue',
+  brainstorm: '/midnite-ideate',
+  refine: '/midnite-refine',
+  verifyPhase: '/midnite-verify',
+  execSwarm: '/midnite-swarm',
+  prReview: '/pr-review',
+  prFeedback: '/pr-feedback',
+  prAudit: '/midnite-pr-audit',
+  triage: '/midnite-triage',
+  releasePrep: '/midnite-release-prep',
+  releaseComplete: '/midnite-release-complete',
+  gitReport: '/midnite-git-report',
+  gitCleanup: '/midnite-git-cleanup',
+  // Guard: security sweeps — secret scanning, dep audit, vuln review. No trailing
+  // skill: the modifiers themselves name what runs (same pattern as loopPatrol).
+  loopGuard: '/loop /midnite-address-issue',
+  // Bare on purpose: the FAB's Patrol tab appends `/pr-review`, `/pr-feedback`
+  // or `/midnite-triage` from its own checkboxes, so a skill named here would
+  // be a fifth one every run carried whether or not a box was ticked.
+  loopPatrol: '/loop',
+  loopPrReview: '/loop /pr-review',
+  loopPrFeedback: '/loop /pr-feedback',
+  loopExecBacklog: '/loop /midnite-create',
+  loopExecAdhoc: '/loop /midnite-create-adhoc',
+  loopAddressIssue: '/loop /midnite-address-issue',
+  loopBrainstorm: '/loop /midnite-ideate',
+  loopOverhaul: '/loop /midnite-create',
+};

@@ -5,6 +5,7 @@ import { ApiClientHostProvider } from '@midnite/studio-feature-api-client/render
 import { DatabaseHostProvider } from '@midnite/studio-feature-database/renderer';
 import { ForgeHostProvider } from '@midnite/studio-feature-forge/renderer';
 import { SessionsHostProvider } from '@midnite/studio-feature-sessions/renderer';
+import { TasksHostProvider } from '@midnite/studio-feature-tasks/renderer';
 import { TestsHostProvider, useTestsStream } from '@midnite/studio-feature-tests/renderer';
 import { FrameChromeProvider, GitHostProvider } from '@midnite/studio-frame';
 
@@ -17,6 +18,7 @@ import {
   CODER_TESTS_HOST,
 } from './compose/coder-hosts';
 import { CODER_GIT_HOST } from './compose/git-host';
+import { CODER_TASKS_HOST } from './compose/tasks-host';
 import { CoderHome } from './views/coder-home';
 
 /** A run's output and result arrive whether or not the Tests view is mounted — Studio's root does the same. */
@@ -26,7 +28,7 @@ function TestsStream() {
 }
 
 /**
- * Midnite Coder — the forge, tests, API client, Database and Sessions features composed over the frame as
+ * Midnite Coder — the forge, tests, API client, Database, Sessions and Tasks features composed over the frame as
  * their own app: the frame chrome, each feature's host port, the frame's git host (the read-only Graph tab) and the
  * query client their hooks read through. The host providers nest rather than sit side by side — siblings
  * would each render `{children}`, mounting the app twice.
@@ -42,9 +44,11 @@ export function CoderApp() {
               <DatabaseHostProvider host={CODER_DATABASE_HOST}>
                 <GitHostProvider host={CODER_GIT_HOST}>
                   <SessionsHostProvider host={CODER_SESSIONS_HOST}>
-                    <TestsStream />
-                    <CoderHome />
-                    <CoderDialogHost />
+                    <TasksHostProvider host={CODER_TASKS_HOST}>
+                      <TestsStream />
+                      <CoderHome />
+                      <CoderDialogHost />
+                    </TasksHostProvider>
                   </SessionsHostProvider>
                 </GitHostProvider>
               </DatabaseHostProvider>

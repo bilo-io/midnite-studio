@@ -136,6 +136,7 @@ export { agentInstallHint, isAgentUnconfigured } from './agents/agent-install-st
 export {
   AGENT_COMMAND_GROUPS,
   AGENT_COMMANDS,
+  DEFAULT_AGENT_SKILLS,
   type AgentCommand,
   type AgentCommandCategory,
   type AgentCommandGroup,

@@ -23,6 +23,9 @@ export default defineConfig({
       '@midnite/studio-feature-forge/renderer': at('../../packages/features/forge/renderer/index.ts'),
       '@midnite/studio-feature-tests/renderer': at('../../packages/features/tests/renderer/index.ts'),
       '@midnite/studio-feature-sessions/renderer': at('../../packages/features/sessions/renderer/index.ts'),
+      // Tasks' state entry before its barrel, for the same reason as the frame's.
+      '@midnite/studio-feature-tasks/renderer/state': at('../../packages/features/tasks/renderer/state.ts'),
+      '@midnite/studio-feature-tasks/renderer': at('../../packages/features/tasks/renderer/index.ts'),
     },
   },
   server: { port: 5191, strictPort: true },
