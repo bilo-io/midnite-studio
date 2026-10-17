@@ -1339,36 +1339,6 @@ importers:
       '@huggingface/transformers':
         specifier: ^3.5.1
         version: 3.8.1
-      '@midnite/studio-feature-media-audio':
-        specifier: workspace:*
-        version: link:../features/media-audio
-      '@midnite/studio-feature-media-core':
-        specifier: workspace:*
-        version: link:../features/media-core
-      '@midnite/studio-feature-media-docs':
-        specifier: workspace:*
-        version: link:../features/media-docs
-      '@midnite/studio-feature-media-game':
-        specifier: workspace:*
-        version: link:../features/media-game
-      '@midnite/studio-feature-media-images':
-        specifier: workspace:*
-        version: link:../features/media-images
-      '@midnite/studio-feature-media-map':
-        specifier: workspace:*
-        version: link:../features/media-map
-      '@midnite/studio-feature-media-model':
-        specifier: workspace:*
-        version: link:../features/media-model
-      '@midnite/studio-feature-media-sprite':
-        specifier: workspace:*
-        version: link:../features/media-sprite
-      '@midnite/studio-feature-media-terrain':
-        specifier: workspace:*
-        version: link:../features/media-terrain
-      '@midnite/studio-feature-media-video':
-        specifier: workspace:*
-        version: link:../features/media-video
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(zod@3.25.76)
@@ -1439,6 +1409,36 @@ importers:
       '@midnite/studio-feature-mcp-tools':
         specifier: workspace:*
         version: link:../features/mcp-tools
+      '@midnite/studio-feature-media-audio':
+        specifier: workspace:*
+        version: link:../features/media-audio
+      '@midnite/studio-feature-media-core':
+        specifier: workspace:*
+        version: link:../features/media-core
+      '@midnite/studio-feature-media-docs':
+        specifier: workspace:*
+        version: link:../features/media-docs
+      '@midnite/studio-feature-media-game':
+        specifier: workspace:*
+        version: link:../features/media-game
+      '@midnite/studio-feature-media-images':
+        specifier: workspace:*
+        version: link:../features/media-images
+      '@midnite/studio-feature-media-map':
+        specifier: workspace:*
+        version: link:../features/media-map
+      '@midnite/studio-feature-media-model':
+        specifier: workspace:*
+        version: link:../features/media-model
+      '@midnite/studio-feature-media-sprite':
+        specifier: workspace:*
+        version: link:../features/media-sprite
+      '@midnite/studio-feature-media-terrain':
+        specifier: workspace:*
+        version: link:../features/media-terrain
+      '@midnite/studio-feature-media-video':
+        specifier: workspace:*
+        version: link:../features/media-video
       '@midnite/studio-feature-models':
         specifier: workspace:*
         version: link:../features/models
