@@ -29,6 +29,11 @@ const common = {
     '@midnite/studio-feature-media-terrain/terrain-worker': feature('media-terrain', 'main/terrain/worker-entry.ts'),
     '@midnite/studio-feature-media-sprite/main': feature('media-sprite', 'main/index.ts'),
     '@midnite/studio-feature-media-game/main': feature('media-game', 'main/index.ts'),
+    '@midnite/studio-feature-media-model/main': feature('media-model', 'main/index.ts'),
+    // Used as libraries, never as tabs: the Images feature's providers behind Sprites' and Terrain's image
+    // generation, and the Models feature's Ollama client behind the Model tab's engine.
+    '@midnite/studio-feature-media-images/main': feature('media-images', 'main/index.ts'),
+    '@midnite/studio-feature-models/main': feature('models', 'main/index.ts'),
     // The channel names alone, by source path: the shared barrel drags every zod schema (~400 KB) into the preload.
     '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
     // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.

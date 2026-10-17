@@ -1,6 +1,7 @@
 import { createStandaloneMediaHost, type MediaHost } from '@midnite/studio-feature-media-core/renderer';
 import type { GameHost } from '@midnite/studio-feature-media-game/renderer';
 import { useMapFocus, type MapHost } from '@midnite/studio-feature-media-map/renderer';
+import { modelSpriteSeams, type ModelHost } from '@midnite/studio-feature-media-model/renderer';
 import type { SpriteHost } from '@midnite/studio-feature-media-sprite/renderer';
 import type { TerrainHost } from '@midnite/studio-feature-media-terrain/renderer';
 import type { MediaTab } from '@midnite/studio-shared';
@@ -10,9 +11,10 @@ import type { MediaTab } from '@midnite/studio-shared';
  *
  * Gamer has no repository list: its media lives under one root that main registers as the repository
  * `gamer` (`main/context.ts`), so the media shell is scoped to that id. Its state — the tab it was on,
- * pane widths — persists in Gamer's own localStorage, never in Studio's. The four tab features take plain
- * defaults for everything else: no terminal, no agents, no Timeline, no image provider, no 3D renderer
- * (those arrive with the Model tab and the vault in later slices), so those controls are simply not offered.
+ * pane widths — persists in Gamer's own localStorage, never in Studio's. The tab features take plain
+ * defaults for everything else: no terminal, no agents, no Timeline — those controls are simply not offered.
+ * Sprites and Models share the Model feature's seams; keys come from the runtime vault in main (`main/keys.ts`)
+ * and never cross this port.
  */
 export const GAMER_REPO_ID = 'gamer';
 
@@ -46,8 +48,22 @@ export const GAMER_TERRAIN_HOST: TerrainHost = {
   },
 };
 
-/** Sprites with what Gamer has: the plain composer, no rigged models, no 3D render window. */
-export const GAMER_SPRITE_HOST: SpriteHost = {};
+/**
+ * Sprites with what Gamer has: the plain composer, and the Model tab's seams — rigged models to render from,
+ * the engine a map's layout is written by, and the three.js render job (loaded on the first render request).
+ * The render itself runs in the window's `SpriteRenderHost`, which `GamerApp` mounts.
+ */
+export const GAMER_SPRITE_HOST: SpriteHost = { ...modelSpriteSeams };
+
+/** The lazy import of the 3D render job, for the window's `SpriteRenderHost` (mounted outside any tab). */
+export const loadSpriteRenderJob = () => import('@midnite/studio-feature-media-model/render-job');
+
+/**
+ * Models with what Gamer has: the plain prompt box with Ollama as the only engine (no agent roster, so no
+ * iterative runs), a native select for the toolbar, a plain licence dialog and tree sections that keep their
+ * own open state. The explorer's right-click menu is the frame kit's plain one (`createDialogs().openMenu`).
+ */
+export const GAMER_MODEL_HOST: ModelHost = {};
 
 /** Games with what Gamer has: the plain popover and toast, no agent panel, Timeline or folder export. */
 export const GAMER_GAME_HOST: GameHost = {};

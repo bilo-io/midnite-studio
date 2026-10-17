@@ -16,7 +16,7 @@ import {
 } from '@midnite/studio-shared';
 
 import type { Logger } from '../log';
-import type { IterativeHost } from '../media/model/iterative';
+import type { IterativeHost } from '@midnite/studio-feature-media-model/main';
 import {
   runGameAgent,
   runGameOllama,

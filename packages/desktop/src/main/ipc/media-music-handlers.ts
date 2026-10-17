@@ -7,8 +7,8 @@ import { BrowserWindow, dialog } from 'electron';
 import { CHANNELS, EVENT_CHANNELS, MUSIC_MIDI_FILE_EXTENSIONS, failure, loopModelArgs, ok, schemas } from '@midnite/studio-shared';
 
 import { createAgyRegistration } from '../media/music/agy-registration';
-import { createIterativeHost } from '../media/model/iterative-host';
-import { createLlmCall } from '../media/model/engines';
+import { createLlmCall } from '@midnite/studio-feature-media-model/main';
+import { createIterativeHost } from '../media/iterative-host';
 import { createMusicAgents } from '../media/music/music-agents';
 import { createMusicTools } from '../media/music/music-mcp';
 import { runFfmpegExport } from '@midnite/studio-feature-media-core/main';

@@ -18,8 +18,9 @@ import { PLACEMENT_APP_IDS, type PlacementAppId, type PlacementLayer } from './d
  *    template in `packages/features/optimizer`) — the owner is the manifest's
  *    `owner`. This is where a tool lives once its feature is extracted.
  * 2. {@link defaultMcpToolOwner}, for every tool whose feature has not
- *    been extracted into a package yet. The `music_*` tools left this table for Media ▸ Audio's
- *    manifest (Phase 113 Theme Q), owner `creator`; the rest of Creator's media has no tools.
+ *    been extracted into a package yet — now only the forge and workflow-gate tools. The `music_*`
+ *    tools left this table for Media ▸ Audio's manifest (Phase 113 Theme Q), owner `creator`, and
+ *    Gamer's media tools for the Model, Sprite, Terrain, Map and Game manifests (Theme S).
  *
  * Every consumer that lists tools passes the manifests — the server (`desktop/src/main/mcp/
  * tool-manifests.ts`), the stdio shim and the Tools pages — because a tool no manifest claims and
@@ -46,15 +47,15 @@ export function installedSet(apps: Iterable<PlacementAppId>): IsAppInstalled {
 /**
  * The owner of a tool no manifest claims yet. `frame` tools (repo, git read,
  * UI steering, the companion) belong to every app and are always listed.
- * Media's tabs split per `docs/APPS.md`: map, terrain, model, sprite and game to Gamer. Audio's
- * `music_*` tools are Creator's, declared by Audio's manifest rather than named here.
+ * Media's tools are not named here any more: Audio's `music_*` tools are Creator's and the
+ * `model_*`, `game_*`, `terrain_*`, `sprite_*`, `map_*`, `tileset_generate` and `background_generate`
+ * tools are Gamer's (Phase 113 Theme S), each declared by its own feature manifest's `mcpTools`. A
+ * caller that does not pass those manifests would see them as `frame` tools — always listed — which
+ * is why every consumer passes them (`desktop/src/main/mcp/tool-manifests.ts`).
  */
 export function defaultMcpToolOwner(id: McpToolId): PlacementLayer {
   if (id.startsWith('forge.')) return 'coder';
   if (id.startsWith('workflow_')) return 'agents';
-  if (/^(model|game|terrain|sprite|map)_/.test(id) || id === 'tileset_generate' || id === 'background_generate') {
-    return 'gamer';
-  }
   // repo.*, status.*, graph.*, diff.*, branch.*, ui.*, companion_*
   return 'frame';
 }

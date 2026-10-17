@@ -1,6 +1,17 @@
 // @vitest-environment node
 import { createRecordingContext } from '@midnite/studio-runtime';
-import { CHANNELS, EVENT_CHANNELS, FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
+import {
+  ALL_APPS_INSTALLED,
+  CHANNELS,
+  EVENT_CHANNELS,
+  FEATURE_PACKAGE_SPLITS,
+  FEATURE_PLACEMENT,
+  installedSet,
+  listMcpToolIds,
+  MCP_TOOL_IDS,
+  mcpToolOwner,
+  placementOwners,
+} from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { createSpriteRuntime, mediaSpriteMain, type SpriteRuntimeDeps } from './main';
@@ -36,6 +47,25 @@ const register = (over: Partial<SpriteRuntimeDeps> = {}) => {
   mediaSpriteMain.register(ctx, { runtime: createSpriteRuntime(deps(over)), pickTiledMap: async () => null });
   return ctx;
 };
+
+describe('media-sprite MCP ownership', () => {
+  /** `sprite_*`, `tileset_generate`, `background_generate`, and the sprite-kind `map_generate` / `map_get` / `map_patch`. */
+  const tools = MCP_TOOL_IDS.filter(
+    (id) => id.startsWith('sprite_') || id === 'tileset_generate' || id === 'background_generate' || ['map_generate', 'map_get', 'map_patch'].includes(id),
+  );
+
+  it('declares exactly the sprite tools, owned by Gamer', () => {
+    expect([...mediaSpriteManifest.mcpTools].sort()).toEqual([...tools].sort());
+    for (const id of tools) expect(mcpToolOwner(id, [mediaSpriteManifest])).toBe('gamer');
+  });
+
+  it('Studio lists every tool, a Gamer-only install lists the sprite ones, a Creator-only one none', () => {
+    const manifests = [mediaSpriteManifest];
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual([...MCP_TOOL_IDS]);
+    expect(listMcpToolIds(installedSet(['gamer']), manifests)).toEqual(expect.arrayContaining(tools));
+    expect(listMcpToolIds(installedSet(['creator']), manifests).some((id) => tools.includes(id))).toBe(false);
+  });
+});
 
 /** The template's contract: manifest, placement and the main half agree. */
 describe('media-sprite manifest', () => {

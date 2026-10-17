@@ -217,11 +217,22 @@ export type FrameMenuItem = {
   icon?: IconComponent;
   /** Tints the row destructive. */
   danger?: boolean;
+  /** Why a `disabled` row is dead, shown as its tooltip. */
+  disabledReason?: string;
   onSelect: () => void;
 };
 
-/** A menu row, or a divider between groups (Phase 113 Theme N — the Graphs list's row menu). */
-export type FrameMenuEntry = FrameMenuItem | { type: 'separator' };
+/** A row that opens a nested menu instead of acting (Phase 113 Theme S — the Models explorer's "Move to"). */
+export type FrameSubmenuItem = {
+  label: string;
+  description?: string;
+  icon?: IconComponent;
+  danger?: boolean;
+  submenu: FrameMenuEntry[];
+};
+
+/** A menu row, a submenu parent, or a divider between groups (Phase 113 Theme N — the Graphs list's row menu). */
+export type FrameMenuEntry = FrameMenuItem | FrameSubmenuItem | { type: 'separator' };
 
 /** A one-field text prompt ("New project" → a name) — the subset of Studio's `PromptRequest` a feature uses. */
 export type FramePromptRequest = {

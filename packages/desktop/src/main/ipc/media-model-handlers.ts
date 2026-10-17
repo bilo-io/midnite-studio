@@ -1,45 +1,44 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-
 import { userInfo } from 'node:os';
 
-import { dialog, nativeImage, shell } from 'electron';
-import { getGlobalGitIdentity } from '@midnite/studio-git-engine';
-
+import { BrowserWindow, dialog, nativeImage, shell } from 'electron';
 import {
-  CHANNELS,
+  createModelRuntime,
+  createModelTools,
+  mediaModelMain,
+  MODEL_LLM_TIMEOUT_MS,
+  type OllamaSeam,
+} from '@midnite/studio-feature-media-model/main';
+import { getConfiguredOllamaHost, ollamaChat, ollamaShow, ollamaTags, resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
+import { getGlobalGitIdentity } from '@midnite/studio-git-engine';
+import type { FeatureMainContext } from '@midnite/studio-runtime';
+import {
   EVENT_CHANNELS,
   failure,
   loopModelArgs,
-  MEDIA_EXPORT_FORMAT_INFO,
   ok,
-  schemas,
   type GitOpResult,
   type LoopModel,
   type Sf3dGenerateRequest,
   type Sf3dGenerateResult,
+  type Sf3dRequest,
 } from '@midnite/studio-shared';
 
 import { runHeadlessText, defaultAiImproveFieldDeps } from '../ai/improve-field';
 import { setModelTools } from '../mcp/model-tools';
 import { resolveRegisteredRepo } from '../mcp/tools';
-import { createIterativeHost } from '../media/model/iterative-host';
-import { createModelTools } from '../media/model/model-mcp';
-import { createDescribeImage, createLlmCall, probeProviders, MODEL_LLM_TIMEOUT_MS, type OllamaSeam } from '../media/model/engines';
-import { createModelService } from '../media/model/model-service';
-import { getConfiguredOllamaHost, ollamaChat, ollamaShow, ollamaTags, resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
+import { createIterativeHost } from '../media/iterative-host';
 import { resolveWorkdir } from '../repo-registry';
 import { broadcastToAllWindows } from '../window-manager';
-import { handle, handleBare, handleFromSender } from './handle';
-import { createModelLibrary } from '../media/model/model-library';
-import { createSculptStore } from '../media/model/sculpt-store';
+import { handle, handleBare, handleSend } from './handle';
 import { mediaStore, notifyMediaChanged } from './media-handlers';
 
 /**
- * Media ▸ Models — LLM-authored 3D (`main/media/model/`). The engine is a local
- * Ollama model (default) or a headless agent CLI from the roster; the picture
- * attachment is read by an Ollama vision model. Files land under
- * `.midnite/media/model/<project>/` through the media store's jail.
+ * Media ▸ Models — LLM-authored 3D, composed here from the `media-model` feature (Phase 113 Theme S). The
+ * engine is a local Ollama model (default) or a headless agent CLI from the roster; the picture attachment is
+ * read by an Ollama vision model. Files land under `.midnite/media/model/<project>/` through the media
+ * store's jail. The feature owns the service, library, sculpt store and the eight channels; this is Studio's
+ * half of them — the Ollama client, the roster's agents, the iterative MCP harness, the Trash and the save
+ * dialog. Gamer wires its own.
  */
 const ollamaBaseUrl = async (): Promise<string> => (await getConfiguredOllamaHost()) ?? resolveOllamaBaseUrl();
 
@@ -74,8 +73,8 @@ export async function modelAuthor(): Promise<{ name: string; email?: string }> {
 }
 
 /**
- * The SF3D engine, set once `configureSf3d` has built its service (`media-model-sf3d-handlers.ts`) —
- * a late binding rather than an import, because that module imports this one.
+ * The SF3D engine and dispatcher, set once `configureSf3d` has built its service
+ * (`media-model-sf3d-handlers.ts`) — a late binding rather than an import, because that module imports this one.
  */
 type Sf3dEngine = {
   generate: (req: Sf3dGenerateRequest) => Promise<GitOpResult<Sf3dGenerateResult>>;
@@ -85,29 +84,11 @@ let sf3dEngine: Sf3dEngine | null = null;
 export function setSf3dEngine(engine: Sf3dEngine | null): void {
   sf3dEngine = engine;
 }
-
-const service = createModelService({
-  sf3d: {
-    generate: (req) => (sf3dEngine ? sf3dEngine.generate(req) : Promise.resolve(failure('SF3D is still starting up; try again in a moment.'))),
-    cancel: (generationId) => (sf3dEngine ? sf3dEngine.cancel(generationId) : failure('Nothing to cancel.')),
-  },
-  author: modelAuthor,
-  llm: createLlmCall(engines),
-  describeImage: createDescribeImage(engines),
-  writeBytes: (req) => mediaStore.writeBytes(req),
-  readBytes: async (req) => {
-    const read = await mediaStore.readFile({ ...req, encoding: 'base64' });
-    return read.ok ? ok(Buffer.from(read.value, 'base64')) : read;
-  },
-  emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelProgress, event),
-  // Agent CLIs that speak MCP iterate through the model_* tools instead of writing the design once.
-  iterative: {
-    host: createIterativeHost(),
-    tools: () => modelTools,
-    repoPath: async (repoId) => (await resolveWorkdir(repoId)) ?? null,
-    modelArgs: (engine) => (engine.model ? loopModelArgs(engine.agentId, engine.model) : []),
-  },
-});
+type Sf3dDispatch = (req: Sf3dRequest) => Promise<GitOpResult<unknown> | GitOpResult>;
+let sf3dDispatch: Sf3dDispatch | null = null;
+export function setSf3dDispatcher(dispatch: Sf3dDispatch | null): void {
+  sf3dDispatch = dispatch;
+}
 
 /** Shrinks a reference picture to fit an MCP response (the response cap is 4 MB, base64 included). */
 async function shrinkImage(data: Buffer, mime: string): Promise<{ data: Buffer; mime: string }> {
@@ -135,17 +116,37 @@ async function decodeImage(data: Buffer): Promise<{ width: number; height: numbe
   return { width, height, data: out };
 }
 
+const runtime = createModelRuntime({
+  rootFor: (repoId) => mediaStore.rootFor({ repoId, tab: 'model' }),
+  createGroup: (repoId, name) => mediaStore.createProject({ repoId, tab: 'model', project: name }),
+  trash: (absPath) => shell.trashItem(absPath),
+  author: modelAuthor,
+  writeBytes: (req) => mediaStore.writeBytes(req),
+  readBytes: (req) => mediaStore.readBytes(req),
+  onChanged: (repoId) => notifyMediaChanged(repoId, 'model'),
+  emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.mediaModelProgress, event),
+  ollama,
+  runAgent: engines.runAgent,
+  // Agent CLIs that speak MCP iterate through the model_* tools instead of writing the design once.
+  iterative: {
+    host: createIterativeHost(),
+    tools: () => modelTools,
+    repoPath: async (repoId) => (await resolveWorkdir(repoId)) ?? null,
+    modelArgs: (engine) => (engine.model ? loopModelArgs(engine.agentId, engine.model) : []),
+  },
+  sf3d: {
+    generate: (req) => (sf3dEngine ? sf3dEngine.generate(req) : Promise.resolve(failure('SF3D is still starting up; try again in a moment.'))),
+    cancel: (generationId) => (sf3dEngine ? sf3dEngine.cancel(generationId) : failure('Nothing to cancel.')),
+  },
+});
+
+const { service, sculptStore } = runtime;
+
 /**
  * The `model_*` MCP tools, over the same media store and service as the tab. The app's global MCP
  * server answers them behind the `allowModels` switch (`mcp/model-tools.ts`); an iterative run
  * answers them on its own private server.
  */
-/** Sculpt mesh binaries and their op logs (Phase 104 Theme A), inside the media store's jail. */
-const sculptStore = createSculptStore({
-  readBytes: (req) => mediaStore.readBytes(req),
-  writeBytes: (req) => mediaStore.writeBytes(req),
-});
-
 const modelTools = createModelTools({
   resolveRepo: async (repoPath) => {
     const resolved = await resolveRegisteredRepo(repoPath);
@@ -174,107 +175,19 @@ setModelTools(modelTools);
 /** An imported mesh (an SF3D result) as a design in the library — `ModelService.importAsset`. */
 export const importModelAsset: typeof service.importAsset = (req) => service.importAsset(req);
 
-const library = createModelLibrary({
-  rootFor: (repoId) => mediaStore.rootFor({ repoId, tab: 'model' }),
-  createGroup: (repoId, name) => mediaStore.createProject({ repoId, tab: 'model', project: name }),
-  trash: (absPath) => shell.trashItem(absPath),
-  onChanged: (repoId) => notifyMediaChanged(repoId, 'model'),
-  author: modelAuthor,
-});
-
 export function registerMediaModelHandlers(): void {
-  handle(
-    CHANNELS.mediaModelMesh,
-    schemas.MediaModelMeshRequest,
-    async (req) => {
-      try {
-        return await sculptStore.handle(req);
-      } catch (error) {
-        return failure(error instanceof Error ? error.message : String(error));
-      }
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    emit: broadcastToAllWindows,
+    trashItem: () => Promise.reject(new Error('models never trash through this context')),
+  };
+  mediaModelMain.register(ctx, {
+    runtime,
+    pickSavePath: async (options) => {
+      const win = BrowserWindow.getFocusedWindow();
+      const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+      return picked.canceled || !picked.filePath ? null : picked.filePath;
     },
-    (issue) => failure(issue),
-  );
-  handle(
-    CHANNELS.mediaModelLibrary,
-    schemas.MediaModelLibraryRequest,
-    async (req) => {
-      try {
-        switch (req.op) {
-          case 'list':
-            return await library.list(req.repoId);
-          case 'migrate':
-            return await library.migrate(req.repoId);
-          case 'rename':
-            return await library.rename(req);
-          case 'move':
-            return await library.move(req);
-          case 'delete':
-            return await library.delete(req);
-          case 'duplicate':
-            return await library.duplicate(req);
-          case 'newGroup':
-            return await library.newGroup(req);
-        }
-      } catch (error) {
-        return failure(error instanceof Error ? error.message : String(error));
-      }
-    },
-    (issue) => failure(issue),
-  );
-  handleBare(CHANNELS.mediaModelProviders, async () => ({ providers: await probeProviders(ollama) }));
-  handle(
-    CHANNELS.mediaModelGenerate,
-    schemas.MediaModelGenerateRequest,
-    async (req) => {
-      try {
-        return await service.generate(req);
-      } catch (error) {
-        return failure(error instanceof Error ? error.message : String(error));
-      }
-    },
-    (issue) => failure(issue),
-  );
-  handle(
-    CHANNELS.mediaModelCancel,
-    schemas.MediaModelCancelRequest,
-    ({ generationId }) => service.cancel(generationId),
-    (issue) => failure(issue),
-  );
-  handle(
-    CHANNELS.mediaModelSaveEdit,
-    schemas.MediaModelSaveEditRequest,
-    async (req) => {
-      try {
-        return await service.saveEdit(req);
-      } catch (error) {
-        return failure(error instanceof Error ? error.message : String(error));
-      }
-    },
-    (issue) => failure(issue),
-  );
-  handleFromSender(
-    CHANNELS.mediaModelExport,
-    schemas.MediaModelExportRequest,
-    async (req, win) => {
-      try {
-        const built = await service.exportBytes(req);
-        if (!built.ok) return built;
-        const { ext, label } = MEDIA_EXPORT_FORMAT_INFO[req.format];
-        const options = {
-          defaultPath: join(req.defaultDir ?? '', built.value.fileName),
-          filters: [{ name: label, extensions: [ext] }],
-        };
-        const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
-        if (picked.canceled || !picked.filePath) return failure('cancelled');
-        await mkdir(dirname(picked.filePath), { recursive: true });
-        await writeFile(picked.filePath, built.value.data);
-        for (const extra of built.value.extras) await writeFile(join(dirname(picked.filePath), extra.fileName), extra.data);
-        return ok({ dest: picked.filePath });
-      } catch (error) {
-        return failure(error instanceof Error ? error.message : String(error));
-      }
-    },
-    (issue) => failure(issue),
-  );
+    sf3d: (req) => (sf3dDispatch ? sf3dDispatch(req) : Promise.resolve(failure('SF3D is still starting up; try again in a moment.'))),
+  });
 }

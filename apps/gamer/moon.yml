@@ -1,6 +1,6 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
-# Midnite Gamer (Phase 113 Theme S) — media-core + the Maps, Terrain, Sprites and Games tab features +
+# Midnite Gamer (Phase 113 Theme S) — media-core + the Maps, Terrain, Sprites, Models and Games tab features +
 # `packages/frame` + `shared`, composed in src/ and main/.
 # `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
 id: 'app-gamer'
@@ -19,7 +19,12 @@ dependsOn:
   - 'feature-media-map'
   - 'feature-media-terrain'
   - 'feature-media-sprite'
+  - 'feature-media-model'
   - 'feature-media-game'
+  # Main halves used as libraries, never as tabs: the Images providers behind Sprites' and Terrain's image
+  # generation, and the Models feature's Ollama client behind the Model tab's engine.
+  - 'feature-media-images'
+  - 'feature-models'
 
 tasks:
   build:
@@ -53,6 +58,13 @@ tasks:
       - '/packages/features/media-sprite/renderer/**/*'
       - '/packages/features/media-sprite/manifest.ts'
       - '/packages/features/media-sprite/main/**/*'
+      - '/packages/features/media-model/renderer/**/*'
+      - '/packages/features/media-model/manifest.ts'
+      - '/packages/features/media-model/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-images/manifest.ts'
+      - '/packages/features/models/main/**/*'
+      - '/packages/features/models/manifest.ts'
       - '/packages/features/media-game/renderer/**/*'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-game/main/**/*'
@@ -84,6 +96,13 @@ tasks:
       - '/packages/features/media-sprite/renderer/**/*'
       - '/packages/features/media-sprite/manifest.ts'
       - '/packages/features/media-sprite/main/**/*'
+      - '/packages/features/media-model/renderer/**/*'
+      - '/packages/features/media-model/manifest.ts'
+      - '/packages/features/media-model/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-images/manifest.ts'
+      - '/packages/features/models/main/**/*'
+      - '/packages/features/models/manifest.ts'
       - '/packages/features/media-game/renderer/**/*'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-game/main/**/*'
@@ -110,6 +129,13 @@ tasks:
       - '/packages/features/media-sprite/renderer/**/*'
       - '/packages/features/media-sprite/manifest.ts'
       - '/packages/features/media-sprite/main/**/*'
+      - '/packages/features/media-model/renderer/**/*'
+      - '/packages/features/media-model/manifest.ts'
+      - '/packages/features/media-model/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-images/manifest.ts'
+      - '/packages/features/models/main/**/*'
+      - '/packages/features/models/manifest.ts'
       - '/packages/features/media-game/renderer/**/*'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-game/main/**/*'

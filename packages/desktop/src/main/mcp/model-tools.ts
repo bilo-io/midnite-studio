@@ -1,7 +1,7 @@
 import { MODELS_OFF_MESSAGE, type McpToolInput, type McpToolOutput } from '@midnite/studio-shared';
 
-import type { ModelTools } from '../media/model/model-mcp';
-import type { Sf3dMcpTools } from '../media/model/sf3d/sf3d-mcp';
+import type { ModelTools, Sf3dMcpTools } from '@midnite/studio-feature-media-model/main';
+
 import { McpToolError } from './errors';
 import { getMcpAllowModels } from './ui-gate';
 

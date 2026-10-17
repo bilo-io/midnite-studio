@@ -432,12 +432,12 @@ maps each to the folder it came from and the apps that compose it:
   wrappers over the frame's chrome port, a manifest, and a main half whose `create<X>Runtime(deps)` wires
   the services from injected Electron pieces (`net.fetch`, `nativeImage`, `utilityProcess`, the media
   store, `userData`) so `mediaXMain.register(ctx, …)` and the whole half run under bare vitest.
-  **The Model tab stays in `packages/app`** (slice 2): what Sprites and Games need from it is a host
-  member (`useRiggedModels`, `useMapEngine`, `loadRenderJob`, the agent panel) that is simply absent in
-  Gamer today. The pure encoders every one of them reads — PNG/APNG, OBJ/glTF writers, the software
+  **The Model tab is `packages/features/media-model`** (slice 2, below). What Sprites needs from it —
+  `useRiggedModels`, `useMapEngine`, `loadRenderJob` — is one spread, `modelSpriteSeams`, that Studio and
+  Gamer both put into `SpriteHost`; the Games agent panel and play-tests stay Studio-side. The pure encoders every one of them reads — PNG/APNG, OBJ/glTF writers, the software
   preview renderer, `extractJson` — moved to **`@midnite/studio-runtime`'s media kernel**
   (`runtime/src/media/`), with one-line re-exports left at the desktop's old paths. **What stays in the
-  desktop:** the `*_mcp` tool files (`map-mcp`, `terrain-mcp`, `sprite-mcp`, `game-mcp`; slice 2), the
+  desktop:** the `*_mcp` tool files (`map-mcp`, `terrain-mcp`, `sprite-mcp`, `game-mcp`), the
   play-test code and the game agent (`game-agent*`, which need the Model tab's iterative harness and the
   MCP server — they reach the feature as `GameAgentsPort`/`GamePlaytestsPort`, and the channels answer "not
   available" without them), and Studio's Electron shells (`ipc/media-*-handlers.ts`, `games/game-electron.ts`).
@@ -446,6 +446,38 @@ maps each to the folder it came from and the apps that compose it:
   `WebContentsView` in its own partition, closed by `stopAll()` on quit. Each worker has its own small
   entry export (`./map-capture-worker`, `./terrain-worker`) so the worker bundle does not inline the
   feature's main half.
+
+- **`packages/features/media-model`** (Gamer, Studio; Phase 113 Theme S slice 2) — the 3D editor tab: the
+  library, the sculpt/paint/rig/SDF editors, SF3D import and the iterative harness's UI (renderer), and the
+  model service, library, sculpt store, `model_*` tool factories, SF3D service/installer/broker and the LLM
+  engines (main). `createModelRuntime(deps)` wires the services from injected pieces — the media store, the
+  Trash, an `OllamaSeam`, and the optional `runAgent`, `iterative` and `sf3d` — so an app that has no agents
+  (Gamer) leaves them out and an agent or SF3D request answers "not available". **Its host port**
+  (`ModelHost`, every member optional): the prompt composer with its engine picker, mic and spoken outcome,
+  the agent roster, the tree sections and their persisted collapse state, the licence modal, the editor's
+  icon selects and the Monaco JSON view — each Studio's chrome (`compose/media-model-host.tsx`), each with a
+  plain fallback. The kit gained `MediaPaneToggles`, and the frame chrome's menu entries gained submenus
+  (`FrameSubmenuItem`) and a `disabledReason`; the frame's `createDialogs()` now draws a plain context menu
+  (`openMenu`), so an extracted app's explorer has right-click. **Entries:** `./renderer` (the tab, the host
+  port), `./events` (the `model_open` request store and the engine preference — what an app's eager root
+  reads), `./kernel` (the pure geometry/rig/library helpers), `./render-job` (the three.js job behind
+  "Render from 3D", loaded lazily), `./manifest` (pure data) and `./sf3d-worker`. **Processes:** SF3D's ONNX
+  inference runs in `sf3d-worker`, a `utilityProcess` Studio forks lazily and kills on cancel (an ORT run
+  cannot be interrupted) or quit (`disposeSf3d`); Gamer forks none. The iterative harness's *host*
+  (`desktop/src/main/media/iterative-host.ts`: a private MCP server on a fresh socket, the stdio shim, the
+  roster) stays in the desktop — it needs the MCP server and the roster — and reaches the feature as the
+  `IterativeHost` the runtime is handed. `McpToolError` moved to the runtime so the tool factories can
+  throw it.
+- **MCP tool ownership is declared by the feature manifests** (Theme S item 2): `model_*` (the design loop's
+  and SF3D's), `game_*`, `terrain_*`, `sprite_*` with `tileset_generate`, `background_generate` and the
+  sprite-kind `map_*`, and the Maps tab's own `map_*` are each listed in their feature manifest's
+  `mcpTools`, owner `gamer`; the dead default rule in `shared/src/mcp-tool-owners.ts` is gone (only forge and
+  workflow tools still resolve by table). Every consumer that lists tools passes the manifests: the server
+  and the stdio shim (`desktop/src/main/mcp/tool-manifests.ts`), Studio's Settings ▸ MCP
+  (`app/src/compose/mcp-tool-manifests.ts`) and Agents' Tools tab, which imports the five new manifests by
+  their pure-data `./manifest` entry. Studio lists exactly `MCP_TOOL_IDS`; a Gamer-only install lists
+  Gamer's tools; Creator-only lists none of them (`tool-manifests.test.ts` and each feature's manifest test).
+  The tool *handlers* stay in Studio's MCP server — Gamer runs none.
 
 **The registry contract lives in the frame** (`packages/frame/src/media/`): the descriptor type, and
 the **media kit port** — the shell's plumbing a tab composes (`MediaLayout`, the explorer, the export
@@ -456,19 +488,33 @@ component), and the frame implements none of it. `scripts/layer-boundaries.test.
 cannot reach the shell or a sibling tab, by name or by relative path. Theme R and S tabs follow the
 same shape.
 
-### App 11: Gamer (`apps/gamer`) — Phase 113 Theme S slice 1
+### App 11: Gamer (`apps/gamer`) — Phase 113 Theme S slices 1 and 2
 
-Gamer composes media-core with Games (home), Maps, Terrain and Sprites. Its main (`apps/gamer/main/`)
+Gamer composes media-core with Games (home), Maps, Terrain, Models and Sprites. Its main (`apps/gamer/main/`)
 scopes media to one repository id, `gamer`, resolved to `<userData>/media` (userData under
 `Midnite Runtime/apps/gamer`), serves `mstudio-file://repo/gamer/…` from that root through the runtime's
 path jail, registers `mstudio-file`, `mstudio-game` and `mstudio-tile` in **one**
 `registerSchemesAsPrivileged` call (Electron keeps only the last list), and answers `mstudio-tile:` through
 the Maps runtime's one fetcher. Games live under `~/Midnite Games` (the feature's default; there is no repo
-list, so a game is found by scanning the root). The preload exposes `media` and `games` only. **Gamer has no
-vault** — the shared data plane's pairing is not wired here yet — so there is no MapTiler key (keyless tile
-sources only), and Sprites' generating methods, Terrain's prompted heightmap and Games' agent and play-test
-loop answer "not available". Rendering sprites from 3D needs the Model tab (slice 2): no window takes the
-request. The bundle carries `templates/media-game`, the vendored `game-engines` (copied when
+list, so a game is found by scanning the root). The preload exposes `media` and `games` only. **Gamer
+composes no vault; its keys come from the runtime host's** (slice 2): `main/pairing.ts` is the one module
+that holds `safeStorage` (its own pairing seed, under its own keychain item — a smoke run reaches neither the
+keychain nor a pairing file), `main/keys.ts` is the allow-list of the three names it ever asks for
+(`media.mapTilerApiKey`, `media.geminiApiKey`, `media.openaiApiKey`), and `connectRuntimeVault({ appId:
+'gamer', identity })` reads them — paired, then only as far as the user's grants in Vault allow. A denied,
+unpaired or absent key reads as unset: Maps offers only the keyless tile sources, and Sprites' generating
+methods and Terrain's prompted heightmap say "not available" until Gemini or OpenAI is granted. No value
+reaches the renderer (the preload has no `secrets` namespace; no channel returns one).
+`scripts/app-vault-grants.test.mjs` now names Gamer among the guests. Image generation reuses the Images
+feature's `createImageService` as a library (its providers; Antigravity is off — Gamer runs no agent) and the
+Model engines reuse the Models feature's Ollama client, so Gamer's main depends on those two features'
+*main halves* (an app composing a feature it does not own, as Agents does with the Gamer manifests).
+**Models in Gamer:** Ollama is the only engine (no roster, so no iterative runs); SF3D reports "unavailable"
+(an ONNX worker and a ~1 GB model are not in Gamer's bundle); the explorer, editor, sculpt/paint/rig, export
+and the library work. "Render from 3D" works: Gamer mounts `SpriteRenderHost` at its root, main sends the
+render request to its window, and the three.js job loads from the Model feature on first use. The games
+agent panel and play-tests still answer "not available" (they need the roster and the MCP server). The bundle
+carries `templates/media-game`, the vendored `game-engines` (copied when
 `packages/desktop/resources/game-engines` exists — `scripts/vendor-game-engines.mjs` produces it, a copy from
 node_modules with no download) and `terrain-materials`, plus the two worker scripts beside `main.cjs`.
 `MIDNITE_GAMER_SMOKE=1` with `MIDNITE_GAMER_USER_DATA=<tmp>` prints `midnite-gamer:ready` and quits.

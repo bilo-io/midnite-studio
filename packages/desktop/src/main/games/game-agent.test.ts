@@ -17,7 +17,7 @@ import type {
   CliResult,
   IterativeHost,
   ScopedDispatch,
-} from '../media/model/iterative';
+} from '@midnite/studio-feature-media-model/main';
 import {
   agentCommitSubject,
   applyOllamaEnvelope,

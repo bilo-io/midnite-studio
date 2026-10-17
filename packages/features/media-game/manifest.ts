@@ -1,4 +1,4 @@
-import { CHANNELS, defineFeatureManifest, EVENT_CHANNELS } from '@midnite/studio-shared';
+import { CHANNELS, defineFeatureManifest, EVENT_CHANNELS, GAME_MCP_TOOL_IDS } from '@midnite/studio-shared';
 
 /**
  * Media ▸ Games as a feature (Phase 113 Theme S): a tab, not a view — the app hands
@@ -41,7 +41,9 @@ export const mediaGameManifest = defineFeatureManifest({
     CHANNELS.gamesExport,
   ],
   events: [EVENT_CHANNELS.gamesChanged, EVENT_CHANNELS.gamesRunState, EVENT_CHANNELS.gamesConsole, EVENT_CHANNELS.gamesOpen, EVENT_CHANNELS.gamesPopState, EVENT_CHANNELS.gamesAgentProgress],
-  mcpTools: [],
+  // The `game_*` tools. Gamer owns them (`FEATURE_PACKAGE_SPLITS`), so a Gamer-only install lists them and a
+  // Creator-only one does not. Their handlers stay with the MCP server (Studio's `main/mcp`); only ownership lives here.
+  mcpTools: [...GAME_MCP_TOOL_IDS],
 });
 
 export type MediaGameManifest = typeof mediaGameManifest;

@@ -1,9 +1,16 @@
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
-import { createOrtInference, loadSf3dAssets, type OrtModule } from '../main/media/model/sf3d/ort-inference';
-import { runSf3dPipeline, type Sf3dAssets, type Sf3dInference } from '../main/media/model/sf3d/pipeline';
-import type { Sf3dWorkerIn, Sf3dWorkerOut } from '../main/media/model/sf3d/worker-protocol';
+import {
+  createOrtInference,
+  loadSf3dAssets,
+  runSf3dPipeline,
+  type OrtModule,
+  type Sf3dAssets,
+  type Sf3dInference,
+  type Sf3dWorkerIn,
+  type Sf3dWorkerOut,
+} from '@midnite/studio-feature-media-model/sf3d-worker';
 
 /**
  * `utilityProcess` entry point `sf3d-broker.ts` forks (Phase 103 Theme J): SF3D's three ONNX graphs

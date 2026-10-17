@@ -4,6 +4,11 @@ import { PiRobotFill } from 'react-icons/pi';
 import { chatsViews } from '@midnite/studio-feature-chats/renderer';
 import { councilsViews } from '@midnite/studio-feature-councils/renderer';
 import { mediaAudioManifest } from '@midnite/studio-feature-media-audio/manifest';
+import { mediaGameManifest } from '@midnite/studio-feature-media-game/manifest';
+import { mediaMapManifest } from '@midnite/studio-feature-media-map/manifest';
+import { mediaModelManifest } from '@midnite/studio-feature-media-model/manifest';
+import { mediaSpriteManifest } from '@midnite/studio-feature-media-sprite/manifest';
+import { mediaTerrainManifest } from '@midnite/studio-feature-media-terrain/manifest';
 import { modelsViews } from '@midnite/studio-feature-models/renderer';
 import { workflowsViews } from '@midnite/studio-feature-workflows/renderer';
 import { RingSpinner } from '@midnite/studio-frame';
@@ -24,6 +29,13 @@ const LABEL: Record<ViewId, string> = {
 /** Agents' own tools and the frame's: no Gamer, Creator or Coder tool is offered by an app that is not installed. */
 const INSTALLED = installedSet(['agents']);
 
+/**
+ * The manifests that say which app owns which tool: Audio's `music_*` are Creator's, and Model's, Game's,
+ * Terrain's, Sprite's and Map's are Gamer's — pure data, imported by their `/manifest` entry so no feature's
+ * renderer comes with them. Without them those tools would read as the frame's, which every app lists.
+ */
+const TOOL_MANIFESTS = [mediaAudioManifest, mediaModelManifest, mediaGameManifest, mediaTerrainManifest, mediaSpriteManifest, mediaMapManifest] as const;
+
 /** The Tools view, loaded the way the other views are — in its own chunk. */
 const McpToolsView = lazy(() => import('@midnite/studio-feature-mcp-tools/renderer').then((m) => ({ default: m.McpToolsView })));
 
@@ -31,7 +43,7 @@ const McpToolsView = lazy(() => import('@midnite/studio-feature-mcp-tools/render
 function ToolsTab() {
   return (
     <div className="h-full overflow-auto p-4">
-      <McpToolsView isAppInstalled={INSTALLED} serverAvailable={false} manifests={[mediaAudioManifest]} />
+      <McpToolsView isAppInstalled={INSTALLED} serverAvailable={false} manifests={TOOL_MANIFESTS} />
     </div>
   );
 }

@@ -6,7 +6,7 @@ import type { FeatureMainContext } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { defaultLogger } from '../log';
-import { createLlmCall, createVisionCall } from '../media/model/engines';
+import { createLlmCall, createVisionCall } from '@midnite/studio-feature-media-model/main';
 import { createSpriteTools } from '../media/sprite/sprite-mcp';
 import { setSpriteTools } from '../mcp/sprite-tools';
 import { resolveRegisteredRepo } from '../mcp/tools';

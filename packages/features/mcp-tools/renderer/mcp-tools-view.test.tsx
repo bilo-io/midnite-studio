@@ -311,8 +311,12 @@ describe('McpToolsView in an app with no server of its own', () => {
 
   it('lists the frame and Agents tools, and no Gamer or Creator tools', async () => {
     installBridge();
-    // The app passes Audio's manifest, which is what makes `music_*` Creator's (a stub: a feature cannot import another).
-    const manifests = [{ owner: 'creator', mcpTools: ['music_set_tempo'] }] as const;
+    // The app passes Audio's manifest, which is what makes `music_*` Creator's, and the Model feature's, which makes
+    // `model_*` Gamer's (stubs: a feature cannot import another).
+    const manifests = [
+      { owner: 'creator', mcpTools: ['music_set_tempo'] },
+      { owner: 'gamer', mcpTools: ['model_set_spec'] },
+    ] as const;
     render(<McpToolsView isAppInstalled={onlyAgents} serverAvailable={false} manifests={manifests} />, { wrapper: createWrapper() });
     expect(await screen.findByText('repo.list')).toBeTruthy();
     expect(screen.getByText('workflow_gates_list')).toBeTruthy();

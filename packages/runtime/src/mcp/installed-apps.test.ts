@@ -10,8 +10,11 @@ describe('createMcpToolListing', () => {
   });
 
   it('two installed sets give two lists, and an unlisted tool is not served', () => {
-    const gamer = createMcpToolListing({ installed: installedAppsFromIds(['gamer']) });
-    const coder = createMcpToolListing({ installed: installedAppsFromIds(['coder']) });
+    // The Model feature's manifest is what claims `model_list` for Gamer (Phase 113 Theme S); the runtime cannot
+    // import a feature, so a stub says the same.
+    const manifests = [{ owner: 'gamer', mcpTools: ['model_list'] }] as const;
+    const gamer = createMcpToolListing({ installed: installedAppsFromIds(['gamer']), manifests });
+    const coder = createMcpToolListing({ installed: installedAppsFromIds(['coder']), manifests });
     expect(gamer.list()).toContain('model_list');
     expect(gamer.list()).not.toContain('forge.pulls');
     expect(coder.list()).toContain('forge.pulls');

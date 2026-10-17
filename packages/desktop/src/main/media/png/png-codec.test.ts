@@ -3,7 +3,8 @@ import { deflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 
 import { crc32, decodePng, encodePngGrey8, encodePngGrey16, encodePngRgba8, PNG_DAMAGED, PNG_INTERLACED, PNG_LOW_BIT_DEPTH } from './png-codec';
-import { encodePng } from '../model/sf3d/png';
+// The SF3D texture encoder's old name (`sf3d/png.ts`, now in the Model feature) for the same codec function.
+const encodePng = encodePngRgba8;
 
 const SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 

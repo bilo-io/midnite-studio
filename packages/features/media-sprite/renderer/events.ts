@@ -3,6 +3,5 @@
  * and the `sprite_open` request store. Their own entry (`@midnite/studio-feature-media-sprite/events`) so an
  * app root — which loads eagerly — imports two small modules, not the whole tab with its forms and previewer.
  */
-export { handleRenderRequest, SpriteRenderHost, useSpriteRenderHost, type LoadRenderJob } from './render/sprite-render-host';
-export { useSpriteOpenRequest } from './use-sprite-agent-events';
+export { handleRenderRequest, SpriteRenderHost, useSpriteRenderHost, type LoadRenderJob } from './render/sprite-render-host';export { useSpriteOpenRequest } from './use-sprite-agent-events';
 export type { SpriteRenderJobApi, SpriteRenderJobModule } from './host';

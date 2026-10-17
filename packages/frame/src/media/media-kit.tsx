@@ -11,6 +11,7 @@ import type {
   MediaOpenKind,
   MediaOpenRequest,
   MediaPane,
+  MediaPaneTogglesProps,
   MediaProjectsAccordionProps,
   MediaTooltipProps,
 } from './media-kit-types';
@@ -36,6 +37,8 @@ export type MediaQueryKeys = {
 
 export type MediaKit = {
   MediaLayout: ComponentType<MediaLayoutProps>;
+  /** The floating pane toggles a tab draws itself when it passes `floatingToggles` to the layout. */
+  MediaPaneToggles: ComponentType<MediaPaneTogglesProps>;
   MediaProjectsAccordion: ComponentType<MediaProjectsAccordionProps>;
   /** The "Open a repo" state a repo-scoped tab shows with no repository selected. */
   NoRepoMediaState: ComponentType<{ tab: MediaTab }>;

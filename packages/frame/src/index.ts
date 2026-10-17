@@ -233,6 +233,7 @@ export type {
   MediaOpenKind,
   MediaOpenRequest,
   MediaPane,
+  MediaPaneTogglesProps,
   MediaProjectsAccordionProps,
   MediaSelection,
   MediaTooltipProps,

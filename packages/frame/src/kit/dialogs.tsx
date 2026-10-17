@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { createStore, useStore } from 'zustand';
 import { LuTriangleAlert } from 'react-icons/lu';
 
-import type { BlastRadiusKind, ConfirmRequest, FrameDialogs, FramePromptRequest } from '../chrome/types';
+import type { BlastRadiusKind, ConfirmRequest, FrameDialogs, FrameMenuEntry, FramePromptRequest } from '../chrome/types';
+import { KitContextMenu } from './context-menu';
 import { KitPromptDialog } from './prompt-dialog';
 
 /** What the blast-radius line says, per kind of thing about to be lost. */
@@ -16,7 +17,12 @@ export const BLAST_RADIUS_COPY: Record<BlastRadiusKind, { noun: string; conseque
   project: { noun: 'project', consequence: 'will be affected.' },
 };
 
-type DialogState = { request: ConfirmRequest | null; prompt?: FramePromptRequest | null };
+type DialogState = {
+  request: ConfirmRequest | null;
+  prompt?: FramePromptRequest | null;
+  /** An open context menu (Phase 113 Theme S): where it opened and what it lists. */
+  menu?: { x: number; y: number; items: FrameMenuEntry[] } | null;
+};
 
 export function ConfirmDialog({
   request,
@@ -118,10 +124,12 @@ export function ConfirmDialog({
  */
 export function createDialogs() {
   const store = createStore<DialogState>(() => ({ request: null }));
-  const close = () => store.setState({ request: null, prompt: null });
+  const close = () => store.setState({ request: null, prompt: null, menu: null });
+  const closeMenu = () => store.setState({ menu: null });
   const dialogs: FrameDialogs = {
     confirm: (request) => store.setState({ request }),
     prompt: (prompt) => store.setState({ prompt }),
+    openMenu: (point, items) => store.setState({ menu: { x: point.clientX, y: point.clientY, items } }),
     notify: (notice) =>
       store.setState({
         request: {
@@ -142,6 +150,9 @@ export function createDialogs() {
   function DialogHost() {
     const request = useStore(store, (s) => s.request);
     const prompt = useStore(store, (s) => s.prompt ?? null);
+    const menu = useStore(store, (s) => s.menu ?? null);
+    // A menu closes before the row it ran opens its dialog, so the two never stack.
+    if (menu) return <KitContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />;
     if (prompt) return <KitPromptDialog request={prompt} onCancel={close} />;
     if (!request) return null;
     return (

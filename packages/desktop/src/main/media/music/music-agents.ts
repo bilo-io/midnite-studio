@@ -22,7 +22,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { McpToolError } from '../../mcp/errors';
-import { buildCliArgs, type IterativeHost, type ScopedDispatch } from '../model/iterative';
+import { buildCliArgs, type IterativeHost, type ScopedDispatch } from '@midnite/studio-feature-media-model/main';
 import type { MusicTools } from './music-mcp';
 import { buildMusicIterativePrompt, buildSongPrompt, buildSongRepairPrompt, extractJsonObject } from './music-prompts';
 

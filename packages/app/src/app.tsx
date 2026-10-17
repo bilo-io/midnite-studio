@@ -61,7 +61,7 @@ import { setCommandRuntime } from './features/companion/command-runtime';
 import { McpSettingConfirmHost } from './features/companion/mcp-setting-confirm';
 import { useCompanionUiRequests } from './features/companion/ui-requests';
 import { useFollowPrimaryAgent } from './features/agent/follow-primary-agent';
-import { useModelOpenListener } from './features/media/model/use-model-agent-events';
+import { useModelOpenListener } from './compose/media-model/use-model-open-listener';
 import { useSpriteRenderHost } from '@midnite/studio-feature-media-sprite/events';
 import { useStudioTerrainOpenListener } from './compose/media-terrain/use-terrain-open-listener';
 import { useMediaOpenListeners } from './features/media/media-open-request';

@@ -1,7 +1,16 @@
 import { mkdir } from 'node:fs/promises';
+import { userInfo } from 'node:os';
 import { join } from 'node:path';
 
 import { createMediaService, mediaCoreMain, type MediaService } from '@midnite/studio-feature-media-core/main';
+import {
+  agyImageProvider,
+  createImageService,
+  createOllamaImageProvider,
+  geminiImageProvider,
+  imageCapableModels,
+  openaiImageProvider,
+} from '@midnite/studio-feature-media-images/main';
 import {
   createGamesRuntime,
   mediaGameMain,
@@ -12,6 +21,14 @@ import {
   type Logger,
 } from '@midnite/studio-feature-media-game/main';
 import { createMapRuntime, mediaMapMain, type CaptureWorkerHandle, type MapRuntime } from '@midnite/studio-feature-media-map/main';
+import {
+  createLlmCall,
+  createModelRuntime,
+  createVisionCall,
+  mediaModelMain,
+  type ModelRuntime,
+  type OllamaSeam,
+} from '@midnite/studio-feature-media-model/main';
 import { createSpriteRuntime, mediaSpriteMain, type SpriteRuntime } from '@midnite/studio-feature-media-sprite/main';
 import {
   bakeSplat,
@@ -21,8 +38,17 @@ import {
   type TerrainRuntime,
   type TerrainWorkerHandle,
 } from '@midnite/studio-feature-media-terrain/main';
-import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
-import { EVENT_CHANNELS, failure, type FfmpegStatus, type GitOpResult } from '@midnite/studio-shared';
+import { ollamaChat, ollamaShow, ollamaTags, resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
+import {
+  connectRuntimeVault,
+  createIpcContext,
+  vaultHostSocketPath,
+  type IpcContextElectron,
+  type PairingIdentity,
+} from '@midnite/studio-runtime';
+import { EVENT_CHANNELS, failure, MediaTabSchema, ok, type FfmpegStatus, type GitOpResult, type Sf3dRequest } from '@midnite/studio-shared';
+
+import { createGamerKeyReader } from './keys';
 
 /**
  * The one "repository" Gamer's media is scoped to. The renderer's media store addresses everything by
@@ -43,6 +69,16 @@ export type GamerElectron = IpcContextElectron & {
   pickSavePath: (options: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>;
   /** The "Import a Tiled map" picker — an absolute path, or null when dismissed. */
   pickTiledMap: () => Promise<string | null>;
+  /**
+   * The runtime's data directory, where the runtime host (Studio) serves the vault on a socket. Gamer holds
+   * no cipher: the host decrypts, and the host's grants decide — so Gamer reads no key until the user grants
+   * it in Vault (docs/APPS.md, "The shared data plane").
+   */
+  vaultDirectory: string;
+  /** Gamer's pairing key (`pairing.ts`): the host serves nothing to a connection that has not proved it. */
+  pairing: () => PairingIdentity | null;
+  /** Whether a window is open to take a 3D render request. */
+  hasWindow: () => boolean;
   ffmpegStatus: () => Promise<FfmpegStatus>;
   /** `net.fetch`; a test passes one that refuses the network. */
   fetch: (url: string, init?: RequestInit) => Promise<Response>;
@@ -70,20 +106,39 @@ export type GamerServices = {
   map: MapRuntime;
   terrain: TerrainRuntime;
   sprite: SpriteRuntime;
+  model: ModelRuntime;
   games: GamesRuntime;
+  /** Closes the vault connection. */
+  close: () => void;
 };
 
 const notAvailable = <T>(what: string): GitOpResult<T> => failure(`${what} is not available in Midnite Gamer yet.`);
 
 /**
+ * SF3D (the opt-in local image-to-3D tier) is not in Gamer: it needs an ONNX runtime in a utility process and
+ * a ~1 GB model download, which Gamer's bundle does not carry. Its status says so, which the Models panel
+ * shows in place of the install button; every other op is refused.
+ */
+const sf3dUnavailable = async (req: Sf3dRequest): Promise<GitOpResult<unknown>> =>
+  req.op === 'status'
+    ? ok({ state: 'unavailable' as const, consent: null, bytesOnDisk: 0, totalBytes: 0, reason: 'SF3D is not available in Midnite Gamer. Open Midnite Studio to use it.' })
+    : notAvailable('SF3D');
+
+/**
  * Registers every channel Gamer's renderer can call: media-core's store, watcher and export, and the Maps,
- * Terrain, Sprites and Games features. Gamer has no vault yet, so there is no MapTiler key (keyless tile
- * sources only) and no image provider, vision model or agent — Sprites' generating methods, Terrain's
- * prompted heightmap and Games' agent loop answer "not available" rather than guess. Returns the services
- * so the caller can dispose them on quit.
+ * Terrain, Sprites, Models and Games features. The few stored keys Gamer uses (MapTiler, the Gemini and
+ * OpenAI image keys) are read from the runtime host's vault, as `gamer`, paired and only as far as the user
+ * has granted — a denied or absent key reads as unset, so the keyless tile sources are all Maps offers and
+ * Sprites' generating methods and Terrain's prompted heightmap say "not available" until it is granted. No
+ * value reaches the renderer: Gamer's preload has no `secrets` namespace and no channel returns one. There
+ * is no agent roster, so the Models engine is Ollama (over HTTP, no key), an agent engine answers "not
+ * available", and Games' agent loop and play-tests stay off. Returns the services so the caller can dispose
+ * them on quit.
  */
 export function registerGamerHandlers(el: GamerElectron): GamerServices {
   const ctx = createIpcContext(el);
+  const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.vaultDirectory), appId: 'gamer', identity: el.pairing });
+  const readKey = createGamerKeyReader(vault);
   const logger: Logger = Object.assign((message: string) => el.log(message), {
     info: (message: string) => el.log(message),
     warn: (message: string) => el.log(message),
@@ -105,7 +160,55 @@ export function registerGamerHandlers(el: GamerElectron): GamerServices {
     pickSavePath: el.pickSavePath,
     resolveVideoExportInput: async () => null,
   });
-  const tabRoot = (tab: 'map' | 'terrain' | 'sprite') => (repoId: string) => media.store.rootFor({ repoId, tab });
+  const tabRoot = (tab: 'map' | 'terrain' | 'sprite' | 'model') => (repoId: string) => media.store.rootFor({ repoId, tab });
+
+  // The Models engine is a local Ollama (no key); there is no agent roster, so an agent engine is refused.
+  const ollamaBaseUrl = async (): Promise<string> => resolveOllamaBaseUrl();
+  const ollama: OllamaSeam = {
+    chat: async (req, opts) => ollamaChat(req, { baseUrl: await ollamaBaseUrl(), ...opts }),
+    tags: async () => ollamaTags({ baseUrl: await ollamaBaseUrl(), timeoutMs: 1500 }),
+    capabilities: async (model) => (await ollamaShow(model, { baseUrl: await ollamaBaseUrl(), timeoutMs: 1500 })).capabilities ?? [],
+  };
+  const model = createModelRuntime({
+    rootFor: tabRoot('model'),
+    createGroup: (repoId, name) => media.store.createProject({ repoId, tab: 'model', project: name }),
+    trash: el.trashItem,
+    author: async () => ({ name: userInfo().username || 'unknown' }),
+    writeBytes: (req) => media.store.writeBytes(req),
+    readBytes: (req) => media.store.readBytes(req),
+    onChanged: (repoId) => media.notifyChanged(repoId, 'model'),
+    emit: (event) => el.send(EVENT_CHANNELS.mediaModelProgress, event),
+    ollama,
+  });
+  mediaModelMain.register(ctx, { runtime: model, pickSavePath: el.pickSavePath, sf3d: sf3dUnavailable });
+
+  // Image generation (Sprites' generating methods, Terrain's prompted heightmap): the Images feature's
+  // service used as a library — no tab, no channel — with its two keys read from the vault above.
+  const images = createImageService({
+    providers: { gemini: geminiImageProvider, openai: openaiImageProvider, agy: agyImageProvider, ollama: createOllamaImageProvider(ollamaBaseUrl) },
+    readKey,
+    writeFile: (req) => media.store.writeFile(req),
+    emit: () => undefined,
+    fetch: (input, init) => el.fetch(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, init),
+    discoverOllamaModels: async () => {
+      const tags = await ollamaTags({ baseUrl: await ollamaBaseUrl(), timeoutMs: 1500 });
+      const shown = await Promise.all(
+        tags.map(async (tag) => ({ name: tag.name, capabilities: (await ollamaShow(tag.name, { baseUrl: await ollamaBaseUrl(), timeoutMs: 1500 }).catch(() => ({ capabilities: [] as string[] }))).capabilities ?? [] })),
+      );
+      return imageCapableModels(shown);
+    },
+    // The Antigravity CLI is an agent: Gamer runs none.
+    agyAvailable: async () => false,
+    readReference: async (repoId, path) => {
+      const [tab, project, ...rest] = path.split('/');
+      const parsedTab = MediaTabSchema.safeParse(tab);
+      if (!parsedTab.success || !project || rest.length === 0) return failure(`Reference ${path} is not a media file.`);
+      const read = await media.store.readBytes({ repoId, tab: parsedTab.data, project, path: rest.join('/') });
+      if (!read.ok) return read;
+      const ext = path.split('.').pop()?.toLowerCase();
+      return ok({ bytes: read.value, mime: ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'webp' ? 'image/webp' : 'image/png' });
+    },
+  });
 
   // Terrain first: a Maps capture hands its result to it.
   const terrain = createTerrainRuntime({
@@ -117,6 +220,17 @@ export function registerGamerHandlers(el: GamerElectron): GamerServices {
     emitProgress: (event) => el.send(EVENT_CHANNELS.mediaTerrainProgress, event),
     emitChanged: (event) => el.send(EVENT_CHANNELS.mediaTerrainChanged, event),
     log: el.log,
+    // A prompted heightmap is generated by the image service (a granted Gemini/OpenAI key, or Ollama), then
+    // read back as bytes. Without a key the provider answers "add a key", which the panel shows.
+    generateImage: async (req) => {
+      const generated = await images.generate({ ...req, aspect: '1:1', count: 1 });
+      if (!generated.ok) return generated;
+      const file = generated.value.files[0];
+      if (!file) return failure('The image provider returned no image.');
+      const read = await media.store.readFile({ repoId: req.repoId, tab: 'image', project: req.project, path: file, encoding: 'base64' });
+      if (!read.ok) return read;
+      return ok({ bytes: Buffer.from(read.value, 'base64'), name: file });
+    },
     spawnWorker: el.spawnTerrainWorker,
   });
   mediaTerrainMain.register(ctx, { service: terrain.service });
@@ -129,8 +243,8 @@ export function registerGamerHandlers(el: GamerElectron): GamerServices {
     userData: el.userData,
     fetch: el.fetch,
     userAgent: el.userAgent,
-    // No vault in Gamer: the optional MapTiler key is absent, so only the keyless sources are usable.
-    readKey: async () => null,
+    // The optional MapTiler key, from the runtime vault once granted; absent, only the keyless sources are usable.
+    readKey: () => readKey('media.mapTilerApiKey'),
     nativeDecode: el.nativeDecode,
     spawnCaptureWorker: el.spawnCaptureWorker,
     terrain: terrain.service,
@@ -150,13 +264,18 @@ export function registerGamerHandlers(el: GamerElectron): GamerServices {
     emitProgress: (event) => el.send(EVENT_CHANNELS.mediaSpriteProgress, event),
     emitChanged: (event) => el.send(EVENT_CHANNELS.mediaSpriteChanged, event),
     log: el.log,
-    generateImage: async () => notAvailable('Image generation'),
-    visionCall: async () => notAvailable('A vision model'),
-    llmCall: async () => notAvailable('A language model'),
+    generateImage: (req) => images.generateImage(req),
+    visionCall: createVisionCall(model.engines),
+    llmCall: createLlmCall(model.engines),
     bakeSplat,
     terrainRootFor: tabRoot('terrain'),
-    // Rendering from 3D needs the Models tab, which Gamer does not have yet: no window takes the request.
-    sendRenderRequest: () => false,
+    // Rendering from 3D: the window's `SpriteRenderHost` (mounted by `GamerApp`) draws it with the Model tab's
+    // own scene code; with no window, nothing takes the request and the job fails plainly.
+    sendRenderRequest: (event) => {
+      if (!el.hasWindow()) return false;
+      el.send(EVENT_CHANNELS.mediaSpriteRenderRequest, event);
+      return true;
+    },
   });
   mediaSpriteMain.register(ctx, { runtime: sprite, pickTiledMap: el.pickTiledMap });
 
@@ -180,7 +299,7 @@ export function registerGamerHandlers(el: GamerElectron): GamerServices {
     log: logger,
     pickSavePath: el.pickSavePath,
   });
-  return { media, map, terrain, sprite, games };
+  return { media, map, terrain, sprite, model, games, close: () => vault.close() };
 }
 
 /** `<userData>/media` — what Gamer's `GAMER_REPO_ID` resolves to. */

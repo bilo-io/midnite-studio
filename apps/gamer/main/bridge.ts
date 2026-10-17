@@ -5,14 +5,14 @@ import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
 type Media = MidniteStudioBridge['media'];
 
 /**
- * The slice of `window.midniteStudio` Gamer exposes — what media-core and the Maps, Terrain, Sprites and
- * Games tabs read, and nothing else: the media store with its change and export events, the three media
+ * The slice of `window.midniteStudio` Gamer exposes — what media-core and the Maps, Terrain, Sprites, Models
+ * and Games tabs read, and nothing else: the media store with its change and export events, the four media
  * namespaces and the whole `games` namespace. No `secrets` namespace at all, so a key cannot be read from
  * the renderer even by accident; no git, pty or browser (`bridge.test.ts` holds the list).
  */
 export type GamerBridge = {
   games: MidniteStudioBridge['games'];
-  media: Pick<Media, 'project' | 'file' | 'reveal' | 'ffmpegStatus' | 'export' | 'cancelExport' | 'onChanged' | 'onExportProgress' | 'map' | 'terrain' | 'sprite'>;
+  media: Pick<Media, 'project' | 'file' | 'reveal' | 'ffmpegStatus' | 'export' | 'cancelExport' | 'onChanged' | 'onExportProgress' | 'map' | 'terrain' | 'sprite' | 'model'>;
 };
 
 export type { RendererIpc };
@@ -108,6 +108,43 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
         onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainProgress, handler),
         onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainChanged, handler),
         onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainOpen, handler),
+      },
+      model: {
+        providers: () => call(CHANNELS.mediaModelProviders),
+        generate: (req) => call(CHANNELS.mediaModelGenerate, req),
+        cancel: (req) => call(CHANNELS.mediaModelCancel, req),
+        export: (req) => call(CHANNELS.mediaModelExport, req),
+        saveEdit: (req) => call(CHANNELS.mediaModelSaveEdit, req),
+        library: {
+          list: (req) => call(CHANNELS.mediaModelLibrary, { op: 'list', ...req }),
+          migrate: (req) => call(CHANNELS.mediaModelLibrary, { op: 'migrate', ...req }),
+          rename: (req) => call(CHANNELS.mediaModelLibrary, { op: 'rename', ...req }),
+          move: (req) => call(CHANNELS.mediaModelLibrary, { op: 'move', ...req }),
+          delete: (req) => call(CHANNELS.mediaModelLibrary, { op: 'delete', ...req }),
+          duplicate: (req) => call(CHANNELS.mediaModelLibrary, { op: 'duplicate', ...req }),
+          newGroup: (req) => call(CHANNELS.mediaModelLibrary, { op: 'newGroup', ...req }),
+        },
+        mesh: {
+          read: (req) => call(CHANNELS.mediaModelMesh, { op: 'read', ...req }),
+          write: (req) => call(CHANNELS.mediaModelMesh, { op: 'write', ...req }),
+          appendOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'appendOps', ...req }),
+          readOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'readOps', ...req }),
+          writeTexture: (req) => call(CHANNELS.mediaModelMesh, { op: 'writeTexture', ...req }),
+        },
+        sf3d: {
+          status: () => call(CHANNELS.mediaModelSf3d, { op: 'status' }),
+          consent: (req) => call(CHANNELS.mediaModelSf3d, { op: 'consent', ...req }),
+          revokeConsent: () => call(CHANNELS.mediaModelSf3d, { op: 'revokeConsent' }),
+          install: () => call(CHANNELS.mediaModelSf3d, { op: 'install' }),
+          cancelInstall: () => call(CHANNELS.mediaModelSf3d, { op: 'cancelInstall' }),
+          uninstall: () => call(CHANNELS.mediaModelSf3d, { op: 'uninstall' }),
+          generate: (req) => call(CHANNELS.mediaModelSf3d, { op: 'generate', ...req }),
+          cancelGenerate: (req) => call(CHANNELS.mediaModelSf3d, { op: 'cancelGenerate', ...req }),
+          onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaModelSf3dProgress, handler),
+        },
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaModelProgress, handler),
+        onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaModelChanged, handler),
+        onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaModelOpen, handler),
       },
       sprite: {
         library: (req) => call(CHANNELS.mediaSpriteLibrary, req),

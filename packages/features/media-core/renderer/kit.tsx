@@ -2,7 +2,7 @@ import type { MediaAccordionProps, MediaKit, MediaTooltipProps } from '@midnite/
 
 import { ExportToolbar } from './export-toolbar';
 import { useMediaHost } from './host';
-import { MediaLayout, useOpenMediaPane } from './media-layout';
+import { MediaLayout, MediaPaneToggles, useOpenMediaPane } from './media-layout';
 import { useMediaOpenFor, useMediaOpenRequest } from './media-open-request';
 import { MediaProjectsAccordion } from './media-projects-accordion';
 import { NoRepoMediaState } from './repo-media-tab';
@@ -49,6 +49,7 @@ function clearMediaOpenRequest(): void {
  */
 export const mediaKit = {
   MediaLayout,
+  MediaPaneToggles,
   MediaProjectsAccordion,
   NoRepoMediaState,
   ExportToolbar,

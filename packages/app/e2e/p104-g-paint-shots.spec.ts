@@ -1,7 +1,7 @@
 import * as sharedModule from '@midnite/studio-shared';
 import { expect, type Page, test } from '@playwright/test';
 
-import { encodePng } from '../../desktop/src/main/media/model/sf3d/png';
+import { encodePng } from '../../features/media-model/main/model/sf3d/png';
 import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle, SHOT_VIEWPORTS, shotPath } from './shots-helper';
 
 /**

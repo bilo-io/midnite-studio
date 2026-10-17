@@ -1,5 +1,16 @@
 import { createRecordingContext } from '@midnite/studio-runtime';
-import { CHANNELS, EVENT_CHANNELS, FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
+import {
+  ALL_APPS_INSTALLED,
+  CHANNELS,
+  EVENT_CHANNELS,
+  FEATURE_PACKAGE_SPLITS,
+  FEATURE_PLACEMENT,
+  installedSet,
+  listMcpToolIds,
+  MCP_TOOL_IDS,
+  mcpToolOwner,
+  placementOwners,
+} from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import { mediaTerrainMain, type TerrainService } from './main';
@@ -10,6 +21,22 @@ const service = new Proxy({} as TerrainService, {
   get: () => () => {
     throw new Error('the service must not be reached');
   },
+});
+
+describe('media-terrain MCP ownership', () => {
+  const tools = MCP_TOOL_IDS.filter((id) => id.startsWith('terrain_'));
+
+  it('declares exactly the terrain_* tools, owned by Gamer', () => {
+    expect([...mediaTerrainManifest.mcpTools].sort()).toEqual([...tools].sort());
+    for (const id of tools) expect(mcpToolOwner(id, [mediaTerrainManifest])).toBe('gamer');
+  });
+
+  it('Studio lists every tool, a Gamer-only install lists the terrain ones, a Creator-only one none', () => {
+    const manifests = [mediaTerrainManifest];
+    expect(listMcpToolIds(ALL_APPS_INSTALLED, manifests)).toEqual([...MCP_TOOL_IDS]);
+    expect(listMcpToolIds(installedSet(['gamer']), manifests)).toEqual(expect.arrayContaining(tools));
+    expect(listMcpToolIds(installedSet(['creator']), manifests).some((id) => tools.includes(id))).toBe(false);
+  });
 });
 
 /** The template's contract: manifest, placement and the main half agree. */
