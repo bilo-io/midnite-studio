@@ -27,6 +27,9 @@ describe('games root', () => {
     expect(defaultGamesRoot()).toBe(join(homedir(), 'Midnite Games'));
     expect(effectiveGamesRoot(null)).toBe(defaultGamesRoot());
     expect(effectiveGamesRoot('/somewhere/else')).toBe('/somewhere/else');
+    // An app-supplied fallback (a smoke run's userData) replaces ~/Midnite Games, never a stored choice.
+    expect(effectiveGamesRoot(null, '/tmp/smoke/games')).toBe('/tmp/smoke/games');
+    expect(effectiveGamesRoot('/somewhere/else', '/tmp/smoke/games')).toBe('/somewhere/else');
   });
 
   it('refuses a relative path', async () => {

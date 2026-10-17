@@ -37,6 +37,8 @@ export type GamerElectron = IpcContextElectron & {
   mediaRoot: string;
   /** Gamer's userData: the tile cache and `games-settings.json` live here. */
   userData: string;
+  /** Where games live until the user picks a folder; absent = `~/Midnite Games`. A smoke run sets it inside userData. */
+  defaultGamesRoot?: string;
   revealPath: (absPath: string) => void;
   pickSavePath: (options: { defaultPath: string; filters: { name: string; extensions: string[] }[] }) => Promise<string | null>;
   /** The "Import a Tiled map" picker — an absolute path, or null when dismissed. */
@@ -160,6 +162,7 @@ export function registerGamerHandlers(el: GamerElectron): GamerServices {
 
   const games = createGamesRuntime({
     userData: el.userData,
+    ...(el.defaultGamesRoot ? { defaultGamesRoot: el.defaultGamesRoot } : {}),
     log: logger,
     send: el.send,
     getWindow: el.game.getWindow,

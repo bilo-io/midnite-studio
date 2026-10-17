@@ -98,6 +98,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       },
       mediaRoot,
       userData,
+      // A smoke run never reads or writes the user's real ~/Midnite Games.
+      ...(smoke ? { defaultGamesRoot: join(userData, 'games') } : {}),
       revealPath: (target) => shell.showItemInFolder(target),
       pickSavePath,
       pickTiledMap,

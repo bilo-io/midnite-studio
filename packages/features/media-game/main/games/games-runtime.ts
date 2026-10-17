@@ -18,6 +18,8 @@ import type { Logger } from './logger';
 export type GamesRuntimeDeps<V extends GameView = GameView> = {
   /** The app's userData: `games-settings.json` lives here. */
   userData: string;
+  /** Where games live until the user picks a folder (default `~/Midnite Games`). */
+  defaultGamesRoot?: string;
   log: Logger;
   /** Push an event to every window. */
   send: (channel: string, payload: unknown) => void;
@@ -59,6 +61,7 @@ export function createGamesRuntime<V extends GameView = GameView>(deps: GamesRun
     : undefined;
   const service = createGameService({
     settings: createGamesSettingsStore(deps.userData),
+    ...(deps.defaultGamesRoot ? { defaultRoot: deps.defaultGamesRoot } : {}),
     runner,
     templateDir: deps.templateDir,
     enginesDir: deps.enginesDir,

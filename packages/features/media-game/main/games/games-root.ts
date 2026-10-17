@@ -10,8 +10,8 @@ export function defaultGamesRoot(): string {
 }
 
 /** The folder games are created in: the stored root, or the default. */
-export function effectiveGamesRoot(stored: string | null): string {
-  return stored !== null && stored.trim() !== '' ? stored : defaultGamesRoot();
+export function effectiveGamesRoot(stored: string | null, fallback: string = defaultGamesRoot()): string {
+  return stored !== null && stored.trim() !== '' ? stored : fallback;
 }
 
 /** The nearest ancestor of `path` (or `path` itself) that exists. */

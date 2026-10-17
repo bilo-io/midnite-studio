@@ -48,6 +48,8 @@ export type GameServiceDeps = {
   log: Logger;
   /** Pop out (Theme B). Absent in tests that never pop a game out. */
   popout?: GamePopout;
+  /** Where games live until the user picks a folder. Defaults to `~/Midnite Games`; a smoke run points it at its userData. */
+  defaultRoot?: string;
 };
 
 /**
@@ -57,7 +59,7 @@ export type GameServiceDeps = {
 export function createGameService(deps: GameServiceDeps) {
   const read = async (): Promise<{ settings: GamesSettings; root: string }> => {
     const settings = await deps.settings.load();
-    return { settings, root: effectiveGamesRoot(settings.gamesRoot) };
+    return { settings, root: effectiveGamesRoot(settings.gamesRoot, deps.defaultRoot) };
   };
 
   async function settingsRead(): Promise<GamesSettingsRead> {
