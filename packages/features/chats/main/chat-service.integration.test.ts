@@ -99,7 +99,11 @@ describe('chats against a fake CLI and a real repo', () => {
     const { reply, events, chat } = await turn();
 
     expect(reply).toMatchObject({ status: 'done', text: 'Edited two files.' });
-    expect(events.filter((e) => e.kind === 'delta').map((e) => (e as { text: string }).text)).toEqual(['Edited ', 'two files.']);
+    // Streamed: the text arrived as deltas. How many depends on how the pipe's reads fall — the fake CLI writes two
+    // lines, and a loaded runner can deliver both in one read, which the service then emits as one delta.
+    const deltas = events.filter((e) => e.kind === 'delta').map((e) => (e as { text: string }).text);
+    expect(deltas.length).toBeGreaterThan(0);
+    expect(deltas.join('')).toBe('Edited two files.');
     expect(await readFile(join(repo.path, 'a.txt'), 'utf8')).toBe('one\ntwo\nthree\n');
     expect(existsSync(join(repo.path, 'created.txt'))).toBe(false);
     expect(await repo.git(['status', '--porcelain'])).toBe(before);
@@ -187,7 +191,8 @@ describe('chats against a fake CLI and a real repo', () => {
     const slow = join(scratch, 'slow.sh');
     await writeFile(
       slow,
-      ['#!/bin/sh', 'echo \'{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"working"}}}\'', 'printf x > half-done.txt', 'sleep 30', ''].join('\n'),
+      // The edit lands before the delta, so the Stop the test sends on seeing that delta always has an edit to report.
+      ['#!/bin/sh', 'printf x > half-done.txt', 'echo \'{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"working"}}}\'', 'sleep 30', ''].join('\n'),
     );
     await chmod(slow, 0o755);
     const events: ChatEvent[] = [];
