@@ -33,6 +33,13 @@ describe('registerHandoffOpener', () => {
     expect(opened).toEqual([]);
   });
 
+  it('opens the link as parsed, never the string as sent — a dropped parameter stays dropped', async () => {
+    const { ctx, opened } = setup();
+    const link = 'midnite://open?app=agents&run=not%20base64!&extra=1&view=../../etc';
+    expect(await ctx.invoke(CHANNELS.handoffOpen, { link })).toEqual({ ok: true });
+    expect(opened).toEqual(['midnite://open?app=agents']);
+  });
+
   it('answers ok:false when the OS cannot open it, rather than throwing over IPC', async () => {
     const { ctx } = setup(true);
     expect(await ctx.invoke(CHANNELS.handoffOpen, { link: handoffLink({ app: 'coder' }) })).toEqual({ ok: false });

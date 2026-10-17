@@ -1,4 +1,4 @@
-import { CHANNELS, parseMidniteLink, schemas } from '@midnite/studio-shared';
+import { CHANNELS, midniteOpenLink, parseMidniteLink, schemas } from '@midnite/studio-shared';
 
 import type { FeatureMainContext } from '../feature-main';
 
@@ -12,7 +12,8 @@ import type { FeatureMainContext } from '../feature-main';
  *
  * Only a `midnite://open` link is ever opened: the request schema refuses anything else, and the
  * handler parses it again before it reaches `openExternal` — this channel can never be turned into
- * "open this URL".
+ * "open this URL". What is opened is the link rebuilt from that parse, never the string as sent, so
+ * a parameter the parser dropped (a malformed `run=`, an unknown key) never reaches the router.
  */
 export function registerHandoffOpener(
   ipc: FeatureMainContext['ipc'],
@@ -22,9 +23,10 @@ export function registerHandoffOpener(
     CHANNELS.handoffOpen,
     schemas.HandoffOpenRequest,
     async ({ link }) => {
-      if (parseMidniteLink(link) === null) return { ok: false };
+      const target = parseMidniteLink(link);
+      if (target === null) return { ok: false };
       try {
-        await deps.openExternal(link);
+        await deps.openExternal(midniteOpenLink(target));
         return { ok: true };
       } catch {
         return { ok: false };
