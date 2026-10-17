@@ -29,7 +29,11 @@ describe('createBrowserBridge', () => {
     const ipc = fakeIpc();
     await callEverything(createBrowserBridge(ipc) as unknown as Record<string, Record<string, unknown>>);
     const invoked = vi.mocked(ipc.invoke).mock.calls.map((c) => c[0]).sort();
-    expect(invoked).toEqual([...browserManifest.ipc, CHANNELS.clipboardWriteText].sort());
+    // The web-app sign-in channels are the browser feature's to answer, but Vault's to call (Phase 113 Theme J
+    // slice 3): Browser's renderer is never handed them, so it cannot list or clear a partition's sign-in.
+    const vaultOnly = new Set<string>([CHANNELS.webAppsSignIns, CHANNELS.webAppsSignOut]);
+    expect(invoked).toEqual([...browserManifest.ipc.filter((c) => !vaultOnly.has(c)), CHANNELS.clipboardWriteText].sort());
+    expect(invoked.some((c) => vaultOnly.has(c))).toBe(false);
     const sent = vi.mocked(ipc.send).mock.calls.map((c) => c[0]).sort();
     expect(sent).toEqual([...browserManifest.sends].sort());
     const subscribed = vi.mocked(ipc.on).mock.calls.map((c) => c[0]).sort();
