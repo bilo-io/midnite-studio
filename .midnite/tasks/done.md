@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-17 — Phase 113 Theme S (slice 2) — the Model tab as a feature; Gamer's MCP tools owned by its manifests
+
+[PR #893](https://github.com/bilo-io/midnite-studio/pull/893). `media-model` is a feature, the Gamer tools are owned by their feature manifests, and Gamer gains the Models tab with its keys only through the paired, granted runtime vault.
+
 ## 2026-10-17 — Phase 113 Theme O (slice 3) — the API client and Database tool as features; Coder gains them
 
 [PR #892](https://github.com/bilo-io/midnite-studio/pull/892). `api-client` and `database` are features; Coder gains API and Database tabs, with DB passwords only through the paired, granted runtime vault and the script runner still sandboxed in its own worker.
