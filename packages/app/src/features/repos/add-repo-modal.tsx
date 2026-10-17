@@ -26,7 +26,7 @@ import {
   PROVIDER_ICON,
   PROVIDER_LABEL,
   type SupportedKind,
-} from '../settings/settings-pages/accounts-page';
+} from '../settings/settings-pages/forge-providers';
 import { ReachableRepoRow } from '../settings/settings-pages/reachable-repo-row';
 
 /**

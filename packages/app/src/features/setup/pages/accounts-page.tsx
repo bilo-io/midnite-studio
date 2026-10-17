@@ -12,7 +12,7 @@ import {
   PROVIDER_LABEL,
   PROVIDER_TOKEN_HINT,
   type SupportedKind,
-} from '../../settings/settings-pages/accounts-page';
+} from '../../settings/settings-pages/forge-providers';
 import { ForgeMark } from '../forge-mark';
 import { TextField } from '../../settings/settings-pages/controls';
 

@@ -88,6 +88,16 @@ const BLAST_RADIUS_COPY = {
       'will come off the board when it is deleted — this cannot be undone. The issues and pull requests themselves are not deleted.',
     noEffect: 'The board has no items on it.',
   },
+  /**
+   * Phase 113 Theme J slice 3 — signing out of a web app from the Vault. The count is the cookies its
+   * `persist:app-<id>` partition holds; the sites they belong to ride in the request's `warnings`.
+   * Clearing is the whole partition's storage, so `noEffect` still names what goes.
+   */
+  cookies: {
+    subject: (n: number) => `${n} cookie${n === 1 ? '' : 's'}`,
+    consequence: 'will be cleared with the rest of the app’s site data — you will be signed out.',
+    noEffect: 'No cookies are stored; any other site data the app kept is cleared.',
+  },
 } as const satisfies Record<BlastRadiusKind, { subject: (n: number) => string; consequence: string; noEffect: string }>;
 
 export type { ConfirmRequest } from '@midnite/studio-frame';

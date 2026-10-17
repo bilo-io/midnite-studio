@@ -1,3 +1,4 @@
+import { VaultHostProvider } from '@midnite/studio-feature-vault/renderer';
 import type { ForgeAccount, MidniteStudioBridge, RepoDescriptor } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -5,21 +6,27 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useAccountSwitcherStore } from '../../../components/account-switcher-store';
 import { ToastHost } from '../../../components/toast-host';
+import { STUDIO_VAULT_HOST } from '../../../compose/vault-host';
 import { INITIAL_SETUP_STATE } from '../../../store/setup-state';
 import { useUiStore } from '../../../store/ui-store';
 import { useSetupStore } from '../../setup/setup-store';
-import { AccountsPage, PROVIDER_BRAND_COLOR, PROVIDER_ICON, PROVIDER_LABEL } from './accounts-page';
+import { AccountsPage } from './accounts-page';
+import { PROVIDER_BRAND_COLOR, PROVIDER_ICON, PROVIDER_LABEL } from './forge-providers';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 // Wrapped in `<ToastHost>`: `useSwitchForgeAccount`'s own `onSuccess` (the
 // follow-up to Theme L that toasts what a switch hid) reaches `useToasts()`,
-// which throws "must be used inside <ToastHost>" on mount otherwise.
+// which throws "must be used inside <ToastHost>" on mount otherwise. And in Studio's
+// `<VaultHostProvider>`: the page's credential half (the add form, the remove button) is the vault
+// feature's since Phase 113 Theme J slice 3, lent Studio's forge kit through that port.
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <ToastHost>{children}</ToastHost>
+      <ToastHost>
+        <VaultHostProvider host={STUDIO_VAULT_HOST}>{children}</VaultHostProvider>
+      </ToastHost>
     </QueryClientProvider>
   );
 }

@@ -13,6 +13,10 @@ beforeEach(() => {
     secrets: { has: vi.fn(async () => ({ hasKey: false })), set: vi.fn() },
     forgeAccounts: { list: vi.fn(async () => []), add: vi.fn(), remove: vi.fn() },
     db: { listConnections: vi.fn(async () => []), deleteConnection: vi.fn() },
+    webApps: {
+      signIns: vi.fn(async () => ({ available: false, reason: 'Web-app sign-ins live in Midnite Studio’s own browser sessions.', apps: [] })),
+      signOut: vi.fn(),
+    },
   } as unknown as typeof window.midniteStudio;
 });
 
@@ -41,9 +45,12 @@ describe('Vault home view', () => {
     render(<VaultApp />);
     expect(screen.getByText('Midnite Vault')).toBeDefined();
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Secrets' })).toBeDefined());
-    for (const name of ['Forge accounts', 'Database logins']) {
+    for (const name of ['Forge accounts', 'Database logins', 'Web-app sign-ins']) {
       expect(screen.getByRole('heading', { name })).toBeDefined();
     }
     await waitFor(() => expect(screen.getAllByText(/runtime migration is switched on/).length).toBe(2));
+    // The sign-ins are Studio's partitions: said plainly, with nothing to press.
+    expect(await screen.findByText(/live in Midnite Studio’s own browser sessions/)).toBeDefined();
+    expect(screen.queryByRole('button', { name: /^Sign (in to|out of)/ })).toBeNull();
   });
 });

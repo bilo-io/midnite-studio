@@ -7,7 +7,7 @@ import {
   PROVIDER_BRAND_COLOR,
   PROVIDER_ICON,
   type SupportedKind,
-} from '../features/settings/settings-pages/accounts-page';
+} from '../features/settings/settings-pages/forge-providers';
 import { useAccountScopedRepos } from '../features/repos/forge-account-scope';
 import { useForgeAccounts, useRepos, useSwitchForgeAccount } from '../services/queries';
 import { useUiStore, type ForgeSwitcherPlacement } from '../store/ui-store';

@@ -10,7 +10,7 @@ import {
   PROVIDER_LABEL,
   PROVIDER_TOKEN_HINT,
   type SupportedKind,
-} from '../../settings/settings-pages/accounts-page';
+} from '../../settings/settings-pages/forge-providers';
 import { ForgeMark } from '../forge-mark';
 import { TextField } from '../../settings/settings-pages/controls';
 
@@ -21,7 +21,7 @@ const SUPPORTED_KINDS: readonly SupportedKind[] = ['github', 'gitlab', 'bitbucke
  * step two; Themes E and F split it into forge selection and account cards).
  * Four provider cards, one `whoami`-validated add per
  * card (Theme B's `useAddForgeAccount`, the same mutation
- * `accounts-page.tsx`'s form drives), so a token pasted here is stored and
+ * Settings ▸ Accounts' form drives through Studio's vault host), so a token pasted here is stored and
  * verified exactly the way it would be from Settings ▸ Accounts — this page
  * is not a second credential path, only an earlier door to the first one.
  *

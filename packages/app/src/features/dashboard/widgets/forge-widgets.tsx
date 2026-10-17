@@ -13,7 +13,7 @@ import {
   PROVIDER_HOST,
   PROVIDER_ICON,
   PROVIDER_LABEL,
-} from '../../settings/settings-pages/accounts-page';
+} from '../../settings/settings-pages/forge-providers';
 import { getActionItemStyle } from '@midnite/studio-feature-forge/renderer';
 import { checksStatus, pullStatus, runStatus, StatusPill } from '@midnite/studio-feature-forge/renderer';
 import { WidgetState } from '../widget-frame';

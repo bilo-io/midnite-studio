@@ -11,7 +11,7 @@ import {
   PROVIDER_BRAND_COLOR,
   PROVIDER_ICON,
   type SupportedKind,
-} from '../features/settings/settings-pages/accounts-page';
+} from '../features/settings/settings-pages/forge-providers';
 
 /**
  * One glyph + colour per rail category header (ad hoc: sidenav category

@@ -3,11 +3,14 @@ import { ForgeAccountsSection } from './forge-accounts-section';
 import { GrantsSection } from './grants-section';
 import { PairingSection } from './pairing-section';
 import { SecretsSection } from './secrets-section';
+import { WebAppSignInsSection } from './web-app-sign-ins-section';
 
 /**
  * The Vault view (Phase 113 Theme J): what is stored — never what it is.
- * Secrets, forge accounts and database logins are listed as metadata; a value
- * can be written or removed here and is never read back.
+ * Secrets, forge accounts, database logins and web-app sign-ins are listed as
+ * metadata; a value can be written or removed here and is never read back. A
+ * web app's sign-in is never in the vault at all — it lives in the app's own
+ * browser partition, which the section reads as a cookie count and site names.
  */
 export function VaultPage() {
   return (
@@ -19,14 +22,9 @@ export function VaultPage() {
       <SecretsSection />
       <ForgeAccountsSection />
       <DbLoginsSection />
+      <WebAppSignInsSection />
       <GrantsSection />
       <PairingSection />
-      <section aria-labelledby="vault-later" className="rounded-lg border border-border p-4">
-        <h2 id="vault-later" className="mb-1 text-sm font-medium">Not in the vault yet</h2>
-        <p className="text-xs text-muted-foreground">
-          Web-app sign-ins live in the browser&apos;s own partitions, not in the vault, so they are not listed here.
-        </p>
-      </section>
     </div>
   );
 }

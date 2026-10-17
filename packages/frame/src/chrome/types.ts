@@ -150,7 +150,7 @@ export type BlastRadius = {
  * `BLAST_RADIUS_COPY` each, which `satisfies Record<BlastRadiusKind, …>` so a
  * new kind cannot be named here without copy to render it.
  */
-export type BlastRadiusKind = 'commits' | 'files' | 'trash' | 'systemCache' | 'secrets' | 'issue' | 'project';
+export type BlastRadiusKind = 'commits' | 'files' | 'trash' | 'systemCache' | 'secrets' | 'issue' | 'project' | 'cookies';
 
 export type ConfirmRequest = {
   title: string;

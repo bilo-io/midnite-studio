@@ -4,8 +4,9 @@ import { installShotsBridge, setReducedMotion, setTheme, shotPath } from './shot
 
 /**
  * Ad hoc: Settings ▸ Accounts' "Add an account" provider picker, brand-
- * coloured (`accounts-page.tsx`'s `ForgeProviderPicker`, `PROVIDER_BRAND_COLOR`
- * in the same file). One frame per theme with GitLab selected — GitLab keeps
+ * coloured (the vault feature's `ForgeProviderPicker` in
+ * `forge-account-credentials.tsx`, fed `PROVIDER_BRAND_COLOR` from
+ * `forge-providers.ts` through Studio's vault host). One frame per theme with GitLab selected — GitLab keeps
  * its dark and light values equal, so the light-mode frame stands in for
  * Bitbucket/Azure DevOps too; the point of the dark-mode frame is GitHub's
  * near-black (#181717) swapping for its light fallback (#f0f6fc) rather than
