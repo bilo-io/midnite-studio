@@ -45,8 +45,10 @@ describe('NoHeightmapDialog', () => {
     for (const name of ['Use noise', 'Upload heightmap…', 'Generate from a prompt', 'Cancel']) {
       expect(within(dialog).getByRole('button', { name })).toBeTruthy();
     }
-    // Focus starts on the safe, productive choice.
-    expect(document.activeElement).toBe(within(dialog).getByRole('button', { name: 'Use noise' }));
+    // Focus starts on the safe, productive choice. The dialog opens on the async build reply, so React
+    // flushes Modal's focus effects in a later task than the commit `findByRole` saw: wait for them.
+    const useNoise = within(dialog).getByRole('button', { name: 'Use noise' });
+    await waitFor(() => expect(document.activeElement).toBe(useNoise));
   });
 
   it('Use noise saves a noise block on the spec and then builds', async () => {
