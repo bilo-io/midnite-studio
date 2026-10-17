@@ -115,6 +115,22 @@ dev harness, and still installable for power users. `packages/app` and `packages
 and main internals; `studio:start`/`bundle`/`dist` delegate to the `desktop:*` tasks, which keep working.
 `apps/studio/src/composition.ts` lists the features it composes and a test holds that list to `packages/features/*`.
 
+**Studio's entries live in `apps/studio/entry/`** (Phase 113 Theme G). The renderer and the main process both
+boot from there. `packages/app/index.html` loads `entry/renderer.ts`, which mounts `bootStudioRenderer` from
+`@midnite/studio-app/boot` (`packages/app/src/boot.tsx`, which was `main.tsx`).
+`packages/desktop/scripts/bundle.mjs` builds `dist/bundle/main.js` from `entry/main.ts`, which calls
+`startStudioMain` from `@midnite/studio-desktop/main` (`packages/desktop/src/main/index.ts`).
+
+The tooling stays beside the code it builds: Vite's config and `index.html`, the esbuild script, the preload,
+the workers and electron-builder. That keeps the packaged app's layout, its bundle id, the CSP and the
+e2e/perf harnesses exactly where they were. In dev, a serve-only Vite plugin (`vite-studio-entry-plugin.ts`)
+serves the out-of-root entry by its `/@fs/` URL.
+
+Each entry may import only its one seam (and `shared`), and eslint holds it to that. The composition itself
+still never imports an internal. apps/studio's typecheck maps each seam to a contract file (`boot-contract.ts`,
+`main-contract.ts`), so it does not compile the renderer and main a second time.
+`composition.test.ts` asserts that both builds start from these entries.
+
 ### The layer graph
 
 ```

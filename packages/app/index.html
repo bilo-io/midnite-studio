@@ -41,6 +41,10 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Studio's renderer entry lives in the app that composes it (Phase 113
+         Theme G): apps/studio/entry/renderer.ts mounts this package's shell
+         (src/boot.tsx). The page and the build stay here, where the packaged
+         app, the perf scripts and the e2e harness read them. -->
+    <script type="module" src="../../apps/studio/entry/renderer.ts"></script>
   </body>
 </html>

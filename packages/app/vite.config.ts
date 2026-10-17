@@ -5,6 +5,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 
 import { midniteCspPlugin } from './vite-csp-plugin';
+import { studioEntryPlugin } from './vite-studio-entry-plugin';
 import {
   undeclaredWriteGuardPlugin,
   xtermDecrqmFixPlugin,
@@ -31,6 +32,8 @@ export default defineConfig({
     */
     xtermDecrqmFixPlugin(),
     midniteCspPlugin(),
+    // Dev only: serves index.html's apps/studio entry by its /@fs/ URL.
+    studioEntryPlugin(),
     react(),
     ...(bundleStats
       ? [visualizer({ filename: 'dist/stats.html', gzipSize: true, brotliSize: true })]
@@ -60,6 +63,13 @@ export default defineConfig({
        * stale dist. `shared` is zod-only, so nothing here reaches for Node.
        */
       '@midnite/studio-shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),
+      /**
+       * Studio's renderer root, for the entry that mounts it (Phase 113 Theme
+       * G): `index.html` loads `apps/studio/entry/renderer.ts`, which imports
+       * this package's shell by name. apps/studio's typecheck maps the same
+       * specifier to `src/boot-contract.ts`.
+       */
+      '@midnite/studio-app/boot': fileURLToPath(new URL('./src/boot.tsx', import.meta.url)),
     },
   },
 

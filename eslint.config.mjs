@@ -145,6 +145,11 @@ const NO_APP_UPDATER = {
   message:
     'No app runs its own updater (Phase 113 Decision 6): the launcher updates the runtime and every installed bundle from catalog.json — apps/launcher/src/main/updater.ts and bundles/updates.ts.',
 };
+/* Phase 113 Theme G — the one seam each of Studio's entries (`apps/studio/entry/`) hands over through. */
+const STUDIO_RENDERER_SEAM =
+  "Studio's renderer entry mounts its shell through `@midnite/studio-app/boot` and nothing deeper, and never imports another app. What else it needs belongs behind that seam.";
+const STUDIO_MAIN_SEAM =
+  "Studio's main entry starts its main process through `@midnite/studio-desktop/main` and nothing deeper, and never imports another app. What else it needs belongs behind that seam.";
 /** App-only extras: the main half of a feature and the runtime are main-process code. */
 const APP_LAYER_PATTERNS = [
   LAYER_RUNTIME_FROM_RENDERER,
@@ -547,6 +552,48 @@ export default tseslint.config(
       {
         group: ['@midnite/studio-app', '@midnite/studio-app/*', '@midnite/launcher', '@midnite/launcher/*', '@midnite/app-*', '**/apps/**'],
         message: 'An app never imports another app: compose from features, the runtime and shared.',
+      },
+    ]),
+  },
+
+  // --- Boundary: Studio's two entries (Phase 113 Theme G) --------------------
+  // Studio is the superset app, and its shell is not features over the frame:
+  // it is `packages/app` (renderer) and `packages/desktop` (main), Studio's own
+  // internals rather than another app. `apps/studio/entry/` is where the app
+  // hands over to them — one file per process, each allowed exactly one seam
+  // (`@midnite/studio-app/boot`, `@midnite/studio-desktop/main`) and nothing
+  // deeper, by name or by path. `apps/studio/src/` (the composition) stays under
+  // the suite-app rules above, unchanged.
+  {
+    files: ['apps/studio/entry/renderer.ts'],
+    rules: deny([
+      NO_APP_UPDATER,
+      ...APP_PATTERNS,
+      ...APP_LAYER_PATTERNS,
+      APP_FEATURE_TESTING,
+      {
+        // A regex, not a group: gitignore-style negation cannot re-include `/boot` under an excluded parent.
+        regex: '^@midnite/studio-app(?!/boot$)(/.*)?$',
+        message: STUDIO_RENDERER_SEAM,
+      },
+      {
+        group: ['**/app/src/**', '@midnite/launcher', '@midnite/launcher/*', '@midnite/app-*', '**/apps/**'],
+        message: STUDIO_RENDERER_SEAM,
+      },
+    ]),
+  },
+  {
+    files: ['apps/studio/entry/main.ts'],
+    rules: deny([
+      NO_APP_UPDATER,
+      LAYER_FRAME_FROM_MAIN,
+      {
+        regex: '^@midnite/studio-desktop(?!/main$)(/.*)?$',
+        message: STUDIO_MAIN_SEAM,
+      },
+      {
+        group: ['**/desktop/src/**', '@midnite/studio-app', '@midnite/studio-app/*', '@midnite/launcher', '@midnite/launcher/*', '@midnite/app-*', '**/apps/**'],
+        message: STUDIO_MAIN_SEAM,
       },
     ]),
   },

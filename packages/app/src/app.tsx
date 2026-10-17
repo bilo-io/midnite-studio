@@ -926,7 +926,7 @@ function Shell() {
     First-interactive, as far as the renderer can tell: a layout effect here runs
     after the view inside `stackRef` has committed, so the mark lands once the
     user has something other than the pre-paint background to look at. Beside the
-    view switch rather than in `main.tsx` for exactly that reason — the entry
+    view switch rather than in `boot.tsx` for exactly that reason — the boot
     module knows when React started, not when it finished.
   */
   useLayoutEffect(() => {

@@ -870,7 +870,7 @@ export type MockFixtures = {
    */
   dbTableRows?: Record<string, { columns: string[]; rows: Array<Record<string, unknown>> }>;
   /**
-   * Which surface `main.tsx` renders (Phase 55) — `'main'`, the default, for
+   * Which surface `boot.tsx` renders (Phase 55) — `'main'`, the default, for
    * `<App />`; any popout role for `<DetachedRoot role={…} />` standalone.
    * Only the two `detached-*-shots.spec.ts` files set it.
    *

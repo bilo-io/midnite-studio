@@ -309,6 +309,8 @@ tasks:
     inputs:
       - 'src/**/*'
       - 'scripts/bundle.mjs'
+      # Phase 113 Theme G: `main.js` is built from Studio's entry, in the app that composes it.
+      - '/apps/studio/entry/main.ts'
       # The sourcemap switch is an INPUT, or the escape hatch does not work
       # (Phase 36 Theme C): maps are opt-in now, and without this
       # `MSTUDIO_SOURCEMAP=1 moon run desktop:bundle` after any prior build is a
