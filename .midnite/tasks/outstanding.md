@@ -747,11 +747,22 @@ The frame's `useToastStore` has no renderer in any suite app, so a feature that 
 silent outside Studio. Coder's Tasks tab works around it with its frame dialog store. The fix is one
 toast host in the frame's app shell, mounted by every app.
 
-## Three load-sensitive tests seen on 2026-10-17
+## A load-sensitive media-map test (2026-10-17)
 
 `feature-media-map` `capture-service.test.ts` ("satellite and roads") timed out at vitest's 5 s
-default on CI, and `feature-chats` `chat-service.integration.test.ts` ("Stop kills the real process")
-read an undefined `changeSet` at line 217 — a race between the stop and the change event. In a local
-gate, `app` `liveness-segment.test.tsx` ("opens a popover on click…") read the panel before its table
-rows rendered: `waitFor` resolves on the panel's test id, not on the row it then asserts. All three
-passed on rerun; all three want hardening rather than a longer timeout.
+default on CI and passed on rerun. It wants a look at what the capture waits on, not a longer
+timeout. (The two chats races and the liveness wait seen the same day were fixed in
+[PR #899](https://github.com/bilo-io/midnite-studio/pull/899).)
+
+## Suite apps install no CSP on their windows (Phase 113)
+
+Studio installs a Content-Security-Policy on its default session (`installCsp` in
+`desktop/src/main/index.ts`); Coder, Agents, Browser and the other suite apps load their own
+`index.html` with none. Each window is sandboxed, context-isolated and behind `guardAppWindow`, so
+this is defence in depth, not an open hole — but it should be one runtime helper every app calls,
+held by a test like `app-window-guard`'s.
+
+## Browser's agent session is a placeholder (Phase 113 Theme L)
+
+`apps/browser`'s agent-session strip records a goal, logs a simulated Step and ends on Take Over.
+Driving tabs for real needs a main-side agent and a tool contract over the browser feature's views.
