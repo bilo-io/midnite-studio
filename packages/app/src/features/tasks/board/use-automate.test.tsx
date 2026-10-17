@@ -8,7 +8,7 @@ import { DialogHost } from '../../../components/dialog-host';
 import { ToastHost } from '../../../components/toast-host';
 import { useUiStore } from '../../../store/ui-store';
 import { useTerminalStore } from '../../terminal/terminal-store';
-import { issueItem } from '../__fixtures__/project-item';
+import { issueItem } from '@midnite/studio-feature-tasks/renderer/testing';
 import { useAutomate } from './use-automate';
 
 const PROJECT_ID = 'proj-1';

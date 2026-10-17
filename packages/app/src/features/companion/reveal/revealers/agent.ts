@@ -6,7 +6,7 @@ import { useUiStore } from '../../../../store/ui-store';
 import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
 import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { pushCouncilEntry } from '@midnite/studio-feature-councils/renderer';
-import { useBoardSelectionStore } from '../../../tasks/board-selection-store';
+import { useBoardSelectionStore } from '@midnite/studio-feature-tasks/renderer/state';
 import { revealSession } from '../../../terminal/reveal-session';
 import type { FamilyRevealers, RevealOutcome } from '../types';
 

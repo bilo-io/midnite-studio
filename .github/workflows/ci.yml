@@ -261,6 +261,7 @@ jobs:
           feature-api-client:typecheck feature-api-client:lint feature-api-client:test
           feature-database:typecheck feature-database:lint feature-database:test
           feature-sessions:typecheck feature-sessions:lint feature-sessions:test
+          feature-tasks:typecheck feature-tasks:lint feature-tasks:test
           feature-media-core:typecheck feature-media-core:lint feature-media-core:test
           feature-media-docs:typecheck feature-media-docs:lint feature-media-docs:test
           feature-media-images:typecheck feature-media-images:lint feature-media-images:test

@@ -20,8 +20,17 @@ import { StudioProviders } from '../src/compose/studio-providers';
 
 export * from '@testing-library/react';
 
-export function render(ui: ReactElement, options: Omit<RenderOptions, 'wrapper'> = {}) {
-  return rtlRender(ui, { wrapper: StudioProviders, ...options });
+/** A test's own `wrapper` (a `DialogHost`, say) nests inside `StudioProviders`, so `rerender` keeps both. */
+export function render(ui: ReactElement, options: RenderOptions = {}) {
+  const Outer = options.wrapper;
+  const wrapper = Outer
+    ? ({ children }: { children: React.ReactNode }) => (
+        <StudioProviders>
+          <Outer>{children}</Outer>
+        </StudioProviders>
+      )
+    : StudioProviders;
+  return rtlRender(ui, { ...options, wrapper });
 }
 
 export function renderHook<Result, Props>(

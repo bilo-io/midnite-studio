@@ -8,7 +8,7 @@ import {
   AUTOMATE_CONCURRENCY_MIN,
 } from '@midnite/studio-shared';
 
-import { DEFAULT_COLUMN_SKILLS, resolveColumnSkill } from '../../tasks/board/board-derive';
+import { DEFAULT_COLUMN_SKILLS, resolveColumnSkill } from '@midnite/studio-feature-tasks/renderer/state';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
 import { useUiStore } from '../../../store/ui-store';

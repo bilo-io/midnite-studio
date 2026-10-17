@@ -1,6 +1,6 @@
 import { afterEach } from 'vitest';
 
-import { useBoardSelectionStore } from './features/tasks/board-selection-store';
+import { useBoardSelectionStore } from '@midnite/studio-feature-tasks/renderer/state';
 import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
 
 /**

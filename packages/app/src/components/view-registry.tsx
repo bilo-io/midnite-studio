@@ -6,6 +6,7 @@ import { databaseViews } from '@midnite/studio-feature-database/renderer';
 import { forgeViews } from '@midnite/studio-feature-forge/renderer';
 import { sessionsViews } from '@midnite/studio-feature-sessions/renderer';
 import { testsViews } from '@midnite/studio-feature-tests/renderer';
+import { tasksViews } from '@midnite/studio-feature-tasks/renderer';
 import { councilsViews } from '@midnite/studio-feature-councils/renderer';
 import { workflowsViews } from '@midnite/studio-feature-workflows/renderer';
 import { modelsViews } from '@midnite/studio-feature-models/renderer';
@@ -76,8 +77,8 @@ const loadTestsView = () => testsViews.tests();
 const TestsView = lazy(() => loadTestsView().then((Component) => ({ default: Component })));
 const loadReviewsView = () => forgeViews.reviews();
 const ReviewsView = lazy(() => loadReviewsView().then((Component) => ({ default: Component })));
-const loadTasksView = () => import('../features/tasks/tasks-view');
-const TasksView = lazy(() => loadTasksView().then((m) => ({ default: m.TasksView })));
+const loadTasksView = () => tasksViews.tasks();
+const TasksView = lazy(() => loadTasksView().then((Component) => ({ default: Component })));
 const loadHistoryView = () => import('../features/history/history-view');
 const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.HistoryView })));
 // Phase 113 Theme C — the first view composed from a feature package rather

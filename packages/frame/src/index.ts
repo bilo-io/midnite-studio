@@ -133,6 +133,13 @@ export {
   useAgentProbeStore,
 } from './agents/agent-probe-store';
 export { agentInstallHint, isAgentUnconfigured } from './agents/agent-install-status';
+export {
+  AGENT_COMMAND_GROUPS,
+  AGENT_COMMANDS,
+  type AgentCommand,
+  type AgentCommandCategory,
+  type AgentCommandGroup,
+} from './agents/agent-commands';
 
 // Activity — the status-to-colour seam and the glow resolver every live-session surface reads.
 export { activityStatusVar } from './activity/activity-status-color';
