@@ -105,6 +105,36 @@ describe('handleMidniteLink', () => {
   });
 });
 
+describe('an agent-run hand-off (Phase 113 Theme O)', () => {
+  const RUN = { issueUrl: 'https://github.com/bilo-io/midnite-studio/issues/42', skill: '/midnite-create' };
+  const actions = () => ({ openBundle: vi.fn(async () => {}), openStudioUrl: vi.fn(async () => {}), showDetail: vi.fn() });
+
+  it('goes to Studio’s run receiver, even with an Agents bundle installed — a bundle would drop it', async () => {
+    const link = handoffLink({ app: 'agents', run: RUN });
+    const param = link.split('run=')[1];
+    const a = actions();
+    const findAppBundle = vi.fn(async () => '/stubs/Agents.app');
+    await handleMidniteLink(link, deps({ findAppBundle }), a);
+    expect(a.openStudioUrl).toHaveBeenCalledWith(`midnite-studio://run?req=${param}`);
+    expect(a.openBundle).not.toHaveBeenCalled();
+    expect(findAppBundle).not.toHaveBeenCalled();
+  });
+
+  it('with no Studio, shows the Agents sheet and forwards nothing', async () => {
+    const a = actions();
+    await handleMidniteLink(handoffLink({ app: 'agents', run: RUN }), deps({ isStudioInstalled: async () => false }), a);
+    expect(a.showDetail).toHaveBeenCalledWith('agents');
+    expect(a.openStudioUrl).not.toHaveBeenCalled();
+  });
+
+  it('drops a run parameter that is not base64url instead of forwarding it', async () => {
+    const a = actions();
+    await handleMidniteLink('midnite://open?app=agents&run=%24(id)', deps(), a);
+    // Agents' front door, as for any plain `app=agents` link: the bad run is gone, nothing is started.
+    expect(a.openStudioUrl).toHaveBeenCalledWith('midnite-studio://view?id=chats');
+  });
+});
+
 describe('every router fallback, end to end through handleMidniteLink', () => {
   const run = async (raw: unknown, d: RouterDeps) => {
     const a = { openBundle: vi.fn(async () => {}), openStudioUrl: vi.fn(async () => {}), showDetail: vi.fn() };

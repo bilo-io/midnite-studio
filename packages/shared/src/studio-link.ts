@@ -54,6 +54,15 @@ export function encodeRefParam(ref: object): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/**
+ * `midnite-studio://run?req=<param>` from an already-encoded agent run (`encodeAgentRunParam`) —
+ * Phase 113 Theme O's hand-off. Studio decodes and validates it on arrival, resolves the repository
+ * among the ones already open, and always asks before anything runs.
+ */
+export function studioRunLinkFromParam(param: string): string {
+  return `${STUDIO_PROTOCOL}//run?req=${param}`;
+}
+
 /** `midnite-studio://reveal?ref=<param>` from an already-encoded ref (Studio validates it on arrival). */
 export function studioRevealLinkFromParam(param: string): string {
   return `${STUDIO_PROTOCOL}//reveal?ref=${param}`;

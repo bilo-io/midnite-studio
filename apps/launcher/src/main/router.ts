@@ -1,7 +1,7 @@
 import { SETTINGS_PAGE_IDS, VIEW_IDS } from '@midnite/studio-shared/domain/view';
 import { MEDIA_TABS } from '@midnite/studio-shared/media';
 import { parseMidniteLink, type MidniteAppId, type MidniteLinkTarget } from '@midnite/studio-shared/midnite-link';
-import { studioRevealLinkFromParam, studioSettingsLink, studioViewLink } from '@midnite/studio-shared/studio-link';
+import { studioRevealLinkFromParam, studioRunLinkFromParam, studioSettingsLink, studioViewLink } from '@midnite/studio-shared/studio-link';
 
 import { findInstalled } from './bundles/state';
 import { appLink } from './links';
@@ -15,6 +15,11 @@ import { appLink } from './links';
  *  2. Midnite Studio, which hosts every app today — forwarded as a `midnite-studio://` link;
  *  3. neither — the launcher comes forward with that app's detail sheet open, which is where
  *     Install lives.
+ *
+ * An **agent run** (`run=`, Phase 113 Theme O) skips step 1: a bundle is opened, not handed the
+ * link, so it would drop the run. It goes to Studio — the one app that can start an agent from it
+ * today — which validates it, resolves the repository among the ones already open and asks before
+ * anything runs. When Agents can receive a run itself, it joins step 1 for run links.
  *
  * Pure decision plus one executor, so each branch is a unit test with fake deps.
  */
@@ -37,7 +42,9 @@ export function installedBundleFinder(installRoot: string): RouterDeps['findAppB
 
 /** The `midnite-studio://` link a target lands on when Studio hosts it. */
 export function studioUrlFor(target: MidniteLinkTarget): string {
-  // A hand-off's resource wins: Studio's reveal engine selects the thing, and opens its view itself.
+  // An agent run wins: Studio's receiver checks it and asks before starting anything.
+  if (target.run !== undefined) return studioRunLinkFromParam(target.run);
+  // A hand-off's resource next: Studio's reveal engine selects the thing, and opens its view itself.
   if (target.ref !== undefined) return studioRevealLinkFromParam(target.ref);
   if (target.page !== undefined) return studioSettingsLink(target.page);
   if (target.view !== undefined) return studioViewLink(target.view, target.tab);
@@ -45,7 +52,7 @@ export function studioUrlFor(target: MidniteLinkTarget): string {
 }
 
 export async function routeTarget(target: MidniteLinkTarget, deps: RouterDeps): Promise<RouteDecision> {
-  const bundle = await deps.findAppBundle(target.app);
+  const bundle = target.run === undefined ? await deps.findAppBundle(target.app) : null;
   if (bundle !== null) return { kind: 'bundle', path: bundle };
   if (await deps.isStudioInstalled()) return { kind: 'studio', url: studioUrlFor(target) };
   return { kind: 'detail', app: target.app };

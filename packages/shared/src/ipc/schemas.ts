@@ -198,6 +198,7 @@ import {
 } from '../domain';
 import { isCommandId } from '../keybindings';
 import { parseMidniteLink } from '../midnite-link';
+import { AgentRunHandoffSchema } from '../agent-run-handoff';
 import {
   ClaudeInfoSchema,
   FsEntrySchema,
@@ -2828,6 +2829,11 @@ export const HandoffOpenRequest = z.object({
     .refine((link) => parseMidniteLink(link) !== null, { message: 'Only a midnite://open link can be handed off.' }),
 });
 export const HandoffOpenResponse = z.object({ ok: z.boolean() });
+/**
+ * Which app on this machine can receive an agent-run hand-off (Phase 113 Theme O) — `studio` when the
+ * runtime host record names it, else `null` (the sender then offers the prompt to copy instead).
+ */
+export const HandoffRunReceiverResponse = z.object({ receiver: z.enum(['studio']).nullable() });
 
 /** Per-session totals for the live agent sessions, plus a per-agent roll-up. */
 export const MonitorAgentUsageResponse = z.object({
@@ -3021,6 +3027,12 @@ export const DeepLinkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('reveal'), ref: ResourceRefSchema.nullable() }),
   /** `midnite-studio://view?id=…` — the Midnite Apps launcher's tiles (`studio-link.ts`). */
   z.object({ kind: z.literal('view'), view: z.enum(VIEW_IDS), tab: MediaTabSchema.optional(), page: z.enum(SETTINGS_PAGE_IDS).optional() }),
+  /**
+   * `midnite-studio://run?req=…` — an agent-run hand-off (Phase 113 Theme O). `run` is `null` for a
+   * payload that failed validation, so the renderer can refuse it with a toast; nothing runs either way
+   * until the user confirms.
+   */
+  z.object({ kind: z.literal('run'), run: AgentRunHandoffSchema.nullable() }),
 ]);
 export type DeepLink = z.infer<typeof DeepLinkSchema>;
 export const DeepLinkEventSchema = z.object({

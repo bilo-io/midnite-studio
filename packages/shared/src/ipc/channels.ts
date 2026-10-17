@@ -433,6 +433,8 @@ export const CHANNELS = {
    * `midnite://open` link — and nothing else — for the launcher's router to take to the target app.
    */
   handoffOpen: 'mstudio:handoff:open',
+  /** Which app can receive an agent-run hand-off (Phase 113 Theme O): names only, never a path. */
+  handoffRunReceiver: 'mstudio:handoff:run-receiver',
   /** Probe setup-catalogue items by id (Phase 98 Theme D) — main owns the binary names, see `setup.ts`. */
   setupProbe: 'mstudio:setup:probe',
   /** Reveal a probed catalogue tool's binary in Finder, by catalogue id. */

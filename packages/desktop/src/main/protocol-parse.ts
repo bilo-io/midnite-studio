@@ -1,5 +1,7 @@
 import {
+  decodeAgentRunParam,
   decodeResourceRefParam,
+  type AgentRunHandoff,
   MEDIA_TABS,
   SETTINGS_PAGE_IDS,
   VIEW_IDS,
@@ -13,6 +15,7 @@ export type DeepLink =
   | { kind: 'open'; repo: string }
   | { kind: 'clone'; url: string }
   | { kind: 'reveal'; ref: ResourceRef | null }
+  | { kind: 'run'; run: AgentRunHandoff | null }
   | { kind: 'view'; view: ViewId; tab?: MediaTab; page?: SettingsPageId };
 
 /**
@@ -23,6 +26,10 @@ export type DeepLink =
  * - midnite-studio://clone?url=<encoded-repo-url>
  * - midnite-studio://reveal?ref=<base64url JSON ResourceRef> (Phase 112 Theme I) —
  *   a payload that fails validation yields `ref: null`, which the renderer toasts.
+ * - midnite-studio://run?req=<base64url JSON { issueUrl, skill }> (Phase 113 Theme O) — an agent-run
+ *   hand-off from an app with no terminal. A payload that fails `AgentRunHandoffSchema` yields
+ *   `run: null`, which the renderer refuses with a toast; a valid one is still only a proposal — the
+ *   renderer resolves the repository among the open ones and always confirms.
  * - midnite-studio://view?id=<ViewId>[&tab=<MediaTab>|&page=<SettingsPageId>] — the Midnite Apps launcher's
  *   tiles (`studioViewLink`). An unknown view is `null`; an unknown or misplaced
  *   `tab` (or `page`, valid only on `settings`) is dropped rather than failing the whole link.
@@ -60,6 +67,10 @@ export function parseDeepLink(raw: string): DeepLink | null {
     if (action === 'reveal') {
       const param = parsed.searchParams.get('ref');
       return { kind: 'reveal', ref: param ? decodeResourceRefParam(param) : null };
+    }
+
+    if (action === 'run') {
+      return { kind: 'run', run: decodeAgentRunParam(parsed.searchParams.get('req')) };
     }
 
     if (action === 'view') {
