@@ -2,7 +2,7 @@
   "name": "@midnite/app-gamer",
   "version": "0.0.1",
   "private": true,
-  "description": "Midnite Gamer - maps, terrain, sprites, models and games (the play-test loop to follow), as their own app.",
+  "description": "Midnite Gamer - maps, terrain, sprites, models and games, with play-tests and the game agent loop, as their own app.",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -25,11 +25,13 @@
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@tanstack/react-query": "^5.62.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.7.0",
     "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.25.1",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

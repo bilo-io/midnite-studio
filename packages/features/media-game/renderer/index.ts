@@ -34,6 +34,14 @@ export { GameWizardBody, GameWizardNav } from './game-wizard';
 export { isLive, useGameRunStore, type GameRunInfo } from './game-run-store';
 export { useGameJuiceStore } from './game-juice-store';
 export {
+  undoableCommit,
+  useGameAgentEvents,
+  useGameAgentStore,
+  type GameAgentRun,
+  type GameEngineChoice,
+  type GameThreadEntry,
+} from './game-agent-store';
+export {
   GAME_KEYS,
   useAssetSources,
   useCreateGame,

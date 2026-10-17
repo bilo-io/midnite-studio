@@ -18,9 +18,10 @@ import type { TerrainWorkerHandle } from '@midnite/studio-feature-media-terrain/
 import { guardAppWindow } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, MSTUDIO_GAME_SCHEME, MSTUDIO_TILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
+import { createGamerAgentHost, type GamerAgentHost } from './agent-host';
 import { gamerMediaRoot, registerGamerHandlers, type GamerServices } from './context';
 import { installGamerFileProtocol } from './file-protocol';
-import { asGameWindow, createGamerGameElectron } from './game-electron';
+import { asGameWindow, createGamerGameElectron, gamePageContents } from './game-electron';
 import { GAMER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, gamerUserData, gamerVaultDirectory, isSmoke } from './identity';
 import { gamerPairing } from './pairing';
 
@@ -35,6 +36,7 @@ import { gamerPairing } from './pairing';
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
 let services: GamerServices | null = null;
+let agentHost: GamerAgentHost | null = null;
 
 app.setName(GAMER_NAME);
 if (smoke) app.dock?.hide();
@@ -92,7 +94,13 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     // Terrain's PBR tiles ship beside the bundle; the feature finds them through this override.
     process.env['MSTUDIO_TERRAIN_MATERIALS_DIR'] ??= join(__dirname, 'terrain-materials');
     installGamerFileProtocol({ handle: (scheme, handler) => protocol.handle(scheme, handler), fetchFile: (u) => net.fetch(u) }, mediaRoot);
+    // Nothing starts here: a run creates its own server under mcp-runs/ and the shim beside main.cjs runs
+    // under this binary as plain node. A smoke run composes none, so it starts no server and no agent.
+    agentHost = smoke
+      ? null
+      : createGamerAgentHost({ runsDir: join(userData, 'mcp-runs'), shimScript: join(__dirname, 'game-mcp-shim.cjs'), execPath: process.execPath });
     services = registerGamerHandlers({
+      ...(agentHost ? { gameAgentHost: agentHost } : {}),
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
@@ -145,6 +153,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         utilityProcess.fork(join(__dirname, 'terrain-worker.js'), [], { serviceName: 'gamer-terrain', stdio: 'ignore' }) as TerrainWorkerHandle,
       game: {
         electron: createGamerGameElectron(),
+        contents: gamePageContents,
         getWindow: asGameWindow(() => win),
         templateDir: bundled('templates/media-game', ['..', '..', '..', 'templates', 'media-game']),
         enginesDir: process.env['MSTUDIO_GAME_ENGINES_DIR'] ?? bundled('game-engines', ['..', '..', '..', 'packages', 'desktop', 'resources', 'game-engines']),
@@ -160,6 +169,9 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   app.on('before-quit', () => {
+    // Every game agent run: its CLI's whole process group killed, its private server closed and removed.
+    services?.gameAgents?.cancelAll();
+    agentHost?.dispose();
     services?.media.stopWatchers();
     // Every running game's view and process, the capture worker and the terrain build worker.
     services?.games.stopAll();

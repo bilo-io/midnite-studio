@@ -166,11 +166,13 @@ import {
 } from './window-manager';
 import { registerWindowHandlers } from './ipc/window-handlers';
 import { registerGamesHandlers } from './ipc/games-handlers';
-import { createGamesRuntime, type GameService } from '@midnite/studio-feature-media-game/main';
+import {
+  createGameAgentService,
+  createGameLoop,
+  createGamesRuntime,
+  type GameService,
+} from '@midnite/studio-feature-media-game/main';
 import { asGameWindow, asPopoutWindow, createStudioGameElectron } from './games/game-electron';
-import { createGameMcpTools } from './games/game-mcp';
-import { createPlaytests } from './games/playtest';
-import { createGameAgentService } from './games/game-agent-service';
 import { createLlmCall } from '@midnite/studio-feature-media-model/main';
 import { createIterativeHost } from './media/iterative-host';
 import { setGameTools } from './mcp/game-tools';
@@ -694,27 +696,13 @@ if (!app.requestSingleInstanceLock()) {
       // A terrain pack imported as a game asset is exported by the Terrain feature's own code.
       exportTerrain,
     });
-    const gameRunner = games.runner;
     gameService = games.service;
-    // The `game_*` MCP tools (Theme D) answer from the same service; the consent gate is `mcp/game-tools.ts`.
     const mcpGameService = gameService;
-    const gameAssets = games.assets;
-    // Play-test depth (Theme O): deterministic restarts, replays and assertions through the kit hook.
-    const gamePlaytests = createPlaytests({
-      resolve: (target) => mcpGameService.resolve(target),
-      runDeterministic: (gameId, seed) => mcpGameService.run(gameId, { determinism: { seed, paused: true } }),
-      setRunState: (gameId, state) => mcpGameService.toolbar(gameId, state),
-      page: (gameId) => {
-        const wc = gameRunner.view(gameId)?.webContents;
-        if (!wc || wc.isDestroyed()) return null;
-        return { evaluate: (code) => wc.executeJavaScript(code, false), capture: async () => (await wc.capturePage()).toPNG() };
-      },
-    });
-    const gameMcpTools = createGameMcpTools({
-      service: mcpGameService,
-      webContents: (gameId) => gameRunner.view(gameId)?.webContents ?? null,
-      importAsset: (req) => gameAssets.importAsset(req),
-      playtests: gamePlaytests,
+    // Play-tests (Theme O) and the `game_*` MCP tools (Theme D), wired by the feature over the runtime; the
+    // global server's consent gate is `mcp/game-tools.ts`.
+    const { playtests: gamePlaytests, tools: gameMcpTools } = createGameLoop<WebContentsView>({
+      runtime: games,
+      contents: (view) => view.webContents,
     });
     setGameTools(gameMcpTools);
     // Create and iterate (Theme M): agent CLIs on a private MCP server, or Ollama, one commit per changing pass.

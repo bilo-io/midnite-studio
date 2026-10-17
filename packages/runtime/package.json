@@ -13,6 +13,10 @@
     "./broker/*": {
       "types": "./dist/broker/*.d.ts",
       "default": "./dist/broker/*.js"
+    },
+    "./agent-run/*": {
+      "types": "./dist/agent-run/*.d.ts",
+      "default": "./dist/agent-run/*.js"
     }
   },
   "files": [

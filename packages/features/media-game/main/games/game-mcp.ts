@@ -11,11 +11,11 @@ import {
   type McpToolInput,
   type McpToolOutput,
 } from '@midnite/studio-shared';
-import type { WebContents } from 'electron';
 
-import { McpToolError } from '../mcp/errors';
+import { McpToolError } from '@midnite/studio-runtime';
+
+import type { GameService } from './game-service';
 import { clipError, readGameState } from './game-state';
-import type { GameService } from '@midnite/studio-feature-media-game/main';
 import type { Playtests } from './playtest';
 
 /**
@@ -29,10 +29,19 @@ import type { Playtests } from './playtest';
  * it as JSON, bounds its depth and validates it, and never evaluates it.
  */
 
-/** The slice of Electron's `WebContents` the tools use — a fake in tests. */
-export type GameWebContents = {
+/**
+ * One native input event, the shapes of Electron's `WebContents.sendInputEvent` this file sends —
+ * declared structurally, since a feature's main half never imports `electron`.
+ */
+export type GameNativeInputEvent =
+  | { type: 'keyDown' | 'keyUp'; keyCode: string }
+  | { type: 'mouseMove'; x: number; y: number }
+  | { type: 'mouseDown' | 'mouseUp'; x: number; y: number; button: 'left' | 'middle' | 'right'; clickCount: number };
+
+/** The slice of Electron's `WebContents` the tools use — a fake in tests (it was `GameWebContents` in the desktop). */
+export type GamePageContents = {
   capturePage(): Promise<GameImage>;
-  sendInputEvent(event: Parameters<WebContents['sendInputEvent']>[0]): void;
+  sendInputEvent(event: GameNativeInputEvent): void;
   executeJavaScript(code: string, userGesture?: boolean): Promise<unknown>;
   focus(): void;
 };
@@ -45,7 +54,7 @@ export type GameImage = {
 export type GameMcpDeps = {
   service: Pick<GameService, 'resolve' | 'list' | 'create' | 'manifestGet' | 'manifestSet' | 'run' | 'stop' | 'reload' | 'logs' | 'emit' | 'isRunning'>;
   /** The running game's web contents, or `null` when it is not running. */
-  webContents: (gameId: string) => GameWebContents | null;
+  webContents: (gameId: string) => GamePageContents | null;
   /** The asset bridge's import (Theme N). */
   importAsset?: (req: GameImportAssetRequest) => Promise<{ ok: true; value: GameImportAssetResult } | { ok: false; kind: string; message?: string }>;
   /** Play-test depth (Theme O): replays, assertions and `playtests/*.json`. */
@@ -94,7 +103,7 @@ export function toElectronKeyCode(key: string): string {
 }
 
 /** One game input event as the `sendInputEvent` call it becomes; `null` for a gamepad event (delivered through the kit). */
-export function toInputEvent(event: GameInputEvent): Parameters<WebContents['sendInputEvent']>[0] | null {
+export function toInputEvent(event: GameInputEvent): GameNativeInputEvent | null {
   switch (event.type) {
     case 'keyDown':
     case 'keyUp':
@@ -122,7 +131,7 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
     return game;
   }
 
-  function running(gameId: string): GameWebContents {
+  function running(gameId: string): GamePageContents {
     const wc = deps.webContents(gameId);
     if (!wc) throw new McpToolError('error', NOT_RUNNING);
     return wc;
@@ -138,7 +147,7 @@ export function createGameMcpTools(deps: GameMcpDeps): GameMcpTools {
     return deps.playtests;
   };
 
-  const readState = (wc: GameWebContents): Promise<unknown> => readGameState((code) => wc.executeJavaScript(code, false));
+  const readState = (wc: GamePageContents): Promise<unknown> => readGameState((code) => wc.executeJavaScript(code, false));
 
   return {
     async game_list() {

@@ -12,11 +12,17 @@ import {
   openaiImageProvider,
 } from '@midnite/studio-feature-media-images/main';
 import {
+  createGameAgentService,
+  createGameLoop,
   createGamesRuntime,
   mediaGameMain,
+  type GameAgentService,
   type GameElectron,
+  type GameLoop,
+  type GamePageContents,
   type GamePopoutWindow,
   type GamesRuntime,
+  type GameView,
   type GameWindow,
   type Logger,
 } from '@midnite/studio-feature-media-game/main';
@@ -44,6 +50,7 @@ import {
   createIpcContext,
   vaultHostSocketPath,
   type IpcContextElectron,
+  type IterativeHost,
   type PairingIdentity,
 } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS, failure, MediaTabSchema, ok, type FfmpegStatus, type GitOpResult, type Sf3dRequest } from '@midnite/studio-shared';
@@ -77,6 +84,11 @@ export type GamerElectron = IpcContextElectron & {
   vaultDirectory: string;
   /** Gamer's pairing key (`pairing.ts`): the host serves nothing to a connection that has not proved it. */
   pairing: () => PairingIdentity | null;
+  /**
+   * The game agent's host (`agent-host.ts`): a private MCP server per run, Gamer's own shim, the built-in
+   * roster. Absent → the agent channels answer "not available".
+   */
+  gameAgentHost?: IterativeHost;
   /** Whether a window is open to take a 3D render request. */
   hasWindow: () => boolean;
   ffmpegStatus: () => Promise<FfmpegStatus>;
@@ -93,6 +105,8 @@ export type GamerElectron = IpcContextElectron & {
   /** The games runner's Electron pieces and where the template and vendored engines live. */
   game: {
     electron: GameElectron;
+    /** A run's page — the view's `webContents`, narrowed (`main/game-electron.ts` casts it). */
+    contents: (view: GameView) => GamePageContents | null;
     getWindow: () => GameWindow | null;
     openPopoutWindow?: () => GamePopoutWindow;
     templateDir: string;
@@ -108,6 +122,10 @@ export type GamerServices = {
   sprite: SpriteRuntime;
   model: ModelRuntime;
   games: GamesRuntime;
+  /** Play-tests and the `game_*` tool implementations over `games`. */
+  gameLoop: GameLoop;
+  /** Game agent runs — present when a host was composed; `cancelAll()` on quit. */
+  gameAgents: GameAgentService | null;
   /** Closes the vault connection. */
   close: () => void;
 };
@@ -132,8 +150,9 @@ const sf3dUnavailable = async (req: Sf3dRequest): Promise<GitOpResult<unknown>> 
  * Sprites' generating methods and Terrain's prompted heightmap say "not available" until it is granted. No
  * value reaches the renderer: Gamer's preload has no `secrets` namespace and no channel returns one. There
  * is no agent roster, so the Models engine is Ollama (over HTTP, no key), an agent engine answers "not
- * available", and Games' agent loop and play-tests stay off. Returns the services so the caller can dispose
- * them on quit.
+ * available". Games' play-tests run here exactly as in Studio (`createGameLoop`), and so does its agent
+ * loop when a `gameAgentHost` is composed (`agent-host.ts`: a private MCP server per run, Gamer's own shim,
+ * the confinement `runGameAgent` builds). Returns the services so the caller can dispose them on quit.
  */
 export function registerGamerHandlers(el: GamerElectron): GamerServices {
   const ctx = createIpcContext(el);
@@ -294,12 +313,32 @@ export function registerGamerHandlers(el: GamerElectron): GamerServices {
     listRepoPaths: async () => [],
     exportTerrain,
   });
+  // Play-tests (Phase 107 Theme O) run here as they do in Studio: `playtests/*.json` replayed
+  // deterministically through the kit hook, frame asserts, a screenshot per failure — no agent involved.
+  const gameLoop = createGameLoop({ runtime: games, contents: el.game.contents });
+  // Create and iterate (Phase 107 Theme M), the same service Studio runs: an agent CLI on this run's private
+  // server (the host), or an Ollama model through the Model tab's engines; one commit per changing pass.
+  const gameLlm = createLlmCall(model.engines);
+  const gameAgents = el.gameAgentHost
+    ? createGameAgentService({
+        resolve: (gameId) => games.service.resolve(gameId),
+        squashRunCommits: async () => (await games.service.settings.get()).settings.squashRunCommits,
+        host: el.gameAgentHost,
+        tools: () => gameLoop.tools,
+        ollama: ({ model: ollamaModel, prompt, signal }) =>
+          gameLlm({ engine: { kind: 'ollama', model: ollamaModel }, repoId: '', prompt, signal, json: true }),
+        send: el.send,
+        log: logger,
+      })
+    : null;
   mediaGameMain.register(ctx, {
     runtime: games,
     log: logger,
     pickSavePath: el.pickSavePath,
+    playtests: gameLoop.playtests,
+    ...(gameAgents ? { agents: gameAgents } : {}),
   });
-  return { media, map, terrain, sprite, model, games, close: () => vault.close() };
+  return { media, map, terrain, sprite, model, games, gameLoop, gameAgents, close: () => vault.close() };
 }
 
 /** `<userData>/media` — what Gamer's `GAMER_REPO_ID` resolves to. */

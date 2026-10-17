@@ -29,6 +29,7 @@
       "@midnite/studio-runtime": ["./packages/runtime/src/index.ts"],
       "@midnite/studio-runtime/broker/*": ["./packages/runtime/src/broker/*"],
       "@midnite/studio-runtime/app-main/*": ["./packages/runtime/src/app-main/*"],
+      "@midnite/studio-runtime/agent-run/*": ["./packages/runtime/src/agent-run/*"],
       "@midnite/studio-feature-optimizer/main": ["./packages/features/optimizer/main/index.ts"],
       "@midnite/studio-feature-monitor/main": ["./packages/features/monitor/main/index.ts"],
       "@midnite/studio-feature-vault/main": ["./packages/features/vault/main/index.ts"],

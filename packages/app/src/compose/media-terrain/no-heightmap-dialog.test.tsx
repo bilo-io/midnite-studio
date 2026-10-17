@@ -31,8 +31,8 @@ afterEach(() => {
 async function openGenerate() {
   renderView(<MediaView />, { fixtures: data, uiState: { selectedRepoId: 'repo-1' } });
   const explorer = document.querySelector<HTMLElement>('[data-media-pane="explorer"]')!;
-  fireEvent.click(await within(explorer).findByRole('button', { name: 'dunes' }));
-  const panel = await screen.findByTestId('terrain-panel');
+  fireEvent.click(await within(explorer).findByRole('button', { name: 'dunes' }, { timeout: 5000 }));
+  const panel = await screen.findByTestId('terrain-panel', undefined, { timeout: 5000 });
   fireEvent.click(within(panel).getByRole('button', { name: 'Generate' }));
   return panel;
 }

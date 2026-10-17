@@ -5,7 +5,7 @@ import type { SecretKey } from '@midnite/studio-shared';
  * The stored keys Gamer's tabs use, and nothing else (Phase 113 Theme S): the optional MapTiler key that
  * unlocks Maps' satellite, Terrain-RGB and styles, and the Gemini and OpenAI image keys behind Sprites'
  * generating methods and Terrain's prompted heightmap. (Ollama needs no key; agent API keys are not
- * Gamer's — it runs no agent.)
+ * Gamer's — a game agent run's CLI, Claude Code or Codex, uses its own sign-in, as it does in Studio.)
  *
  * Gamer reads them from the runtime host's vault, as `gamer`, once paired (`pairing.ts`) and only if the
  * user has granted them in Vault. A grant covers a name or `*`; this list is the other half of the

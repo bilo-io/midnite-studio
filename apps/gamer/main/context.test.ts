@@ -42,7 +42,7 @@ afterEach(async () => {
  * runtime host is Studio's side of the vault (its own fake cipher) holding the MapTiler key; Gamer holds no
  * cipher and reads it over the host's socket — only once `granted`.
  */
-async function setup(options: { granted?: boolean; paired?: boolean } = {}) {
+async function setup(options: { granted?: boolean; paired?: boolean; host?: GamerElectron['gameAgentHost'] } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'gamer-media-'));
   dirs.push(dir);
   await mkdir(join(dir, 'runtime'));
@@ -60,6 +60,9 @@ async function setup(options: { granted?: boolean; paired?: boolean } = {}) {
     send: () => undefined,
     mediaRoot: dir,
     userData: dir,
+    // Never the user's ~/Midnite Games.
+    defaultGamesRoot: join(dir, 'games'),
+    ...(options.host ? { gameAgentHost: options.host } : {}),
     vaultDirectory: join(dir, 'runtime'),
     pairing: () => (options.paired === false ? null : PAIRING_KEY),
     hasWindow: () => false,
@@ -88,6 +91,7 @@ async function setup(options: { granted?: boolean; paired?: boolean } = {}) {
           throw new Error('no network in tests');
         },
       },
+      contents: () => null,
       getWindow: () => null,
       templateDir: join(dir, 'no-templates'),
       enginesDir: join(dir, 'no-engines'),
@@ -154,7 +158,7 @@ describe('registerGamerHandlers', () => {
     expect(await invoke(CHANNELS.mediaModelSf3d, { op: 'install' })).toMatchObject({ ok: false });
   });
 
-  it('answers an agent engine "not available" — Gamer runs no agent', async () => {
+  it('answers a Model-tab agent engine "not available" — Gamer runs agents only for game runs', async () => {
     const { services } = await setup();
     expect(await services.model.engines.runAgent({ agentId: 'claude', model: undefined, repoId: GAMER_REPO_ID, prompt: 'x' })).toMatchObject({
       ok: false,
@@ -168,10 +172,44 @@ describe('registerGamerHandlers', () => {
     expect(await invoke(CHANNELS.mediaModelLibrary, { op: 'list', repoId: GAMER_REPO_ID })).toEqual({ ok: true, value: { tree: [] } });
   });
 
-  it('answers the agent and play-test channels "not available" — those need the Model tab and MCP', async () => {
-    const { invoke } = await setup();
-    expect(await invoke(CHANNELS.gamesAgentCancel, { gameId: 'g' })).toMatchObject({ ok: false });
-    expect(await invoke(CHANNELS.gamesPlaytests, { gameId: 'g' })).toBeDefined();
+  it('answers the agent channels "not available" — no agent host is composed', async () => {
+    const { invoke, services } = await setup();
+    expect(services.gameAgents).toBeNull();
+    expect(await invoke(CHANNELS.gamesAgentCancel, { gameId: 'g' })).toMatchObject({ ok: false, message: expect.stringContaining('not available') });
+  });
+
+  it('serves the agent channels from the game agent service once a host is composed, starting nothing', async () => {
+    const host = { startServer: vi.fn(), shimLaunch: vi.fn(), resolveAgent: vi.fn(), runCli: vi.fn() };
+    const { invoke, services } = await setup({ host });
+    expect(services.gameAgents).not.toBeNull();
+    expect(await invoke(CHANNELS.gamesAgentCancel, { gameId: 'g' })).toMatchObject({ ok: false, message: 'No agent is working on this game.' });
+    expect(await invoke(CHANNELS.gamesAgentRun, { gameId: 'nope', prompt: 'x', engine: { kind: 'agent', agentId: 'claude' }, passes: 1 })).toMatchObject({
+      ok: false,
+      message: 'That game was not found.',
+    });
+    expect(host.startServer).not.toHaveBeenCalled();
+    expect(host.runCli).not.toHaveBeenCalled();
+  });
+
+  it('lists and runs a game’s play-tests as Studio does, recording a result in playtests/results/', async () => {
+    const { dir, invoke } = await setup();
+    const game = join(dir, 'games', 'ball');
+    await mkdir(join(game, 'playtests'), { recursive: true });
+    await writeFile(join(game, 'midnite-game.json'), '{}');
+    const walk = { version: 1, name: 'walk', replay: 'replays/walk.replay.json', asserts: [{ frame: 1, kind: 'state', path: '$.x', op: 'exists' }] };
+    await writeFile(join(game, 'playtests', 'walk.json'), JSON.stringify(walk));
+    await writeFile(join(game, 'playtests', 'broken.json'), '{');
+    const { games } = (await invoke(CHANNELS.gamesList)) as { games: { gameId: string }[] };
+    const gameId = games[0]!.gameId;
+
+    const listed = (await invoke(CHANNELS.gamesPlaytests, { gameId })) as { ok: true; value: { playtests: { name: string; valid: boolean }[] } };
+    expect(listed.value.playtests.map((p) => [p.name, p.valid])).toEqual([['broken', false], ['walk', true]]);
+
+    // The replay file is missing, so the run reports a named error — the same result shape Studio's menu shows.
+    const ran = (await invoke(CHANNELS.gamesPlaytestRun, { gameId, names: ['walk'] })) as { ok: true; value: { passed: boolean; runs: { name: string; error?: string }[] } };
+    expect(ran).toMatchObject({ ok: true, value: { passed: false, runs: [{ name: 'walk', error: expect.stringContaining('replays/walk.replay.json') }] } });
+    const listedAgain = (await invoke(CHANNELS.gamesPlaytests, { gameId })) as { value: { playtests: { name: string; last: unknown }[] } };
+    expect(listedAgain.value.playtests.find((p) => p.name === 'walk')?.last).toMatchObject({ name: 'walk', passed: false });
   });
 
   it('scopes media to the one gamer repo', async () => {
