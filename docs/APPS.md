@@ -92,7 +92,7 @@ The apps, grouped by owner:
 | `tasks` | coder | user decision; now `packages/features/tasks` behind `TasksHost`. Studio's terminal-backed card parts (live session, Play, composer, Auto-mate), the issue modal and Plan with AI stay in `packages/app` as optional host members |
 | `tests` | coder |  |
 | `slides` | creator |  |
-| `media` | creator, media, gamer | tabs split: doc/image/audio/video to Creator, map/terrain/model/sprite/game to Gamer, players reused by Media |
+| `media` | creator, media, gamer | tabs split: doc/image/audio/video to Creator, map/terrain/model/sprite/game to Gamer, library to Media (`media-library`, Theme R) |
 | `notes` | mind |  |
 | `chats` | agents | the Chats view, composer and change review; the turn service and engines in main. Optional host members (companion toggle, open in graph) are Studio's |
 | `councils` | agents | the Councils view and run orchestration; its runner takes the pty, roster and Ollama key as ports |
@@ -587,6 +587,29 @@ maps each to the folder it came from and the apps that compose it:
   `startMcpSocketServer` (`runtime/src/mcp/socket-server.ts`; Studio's `mcp/server.ts` wraps it with its
   default path, tool listing and audit ring).
 
+- **`packages/features/media-library`** (Media, Studio; Phase 113 Theme R slice 1) — the Library tab
+  (`mediaLibraryTab`, id `library`, appended last to `MEDIA_TABS` so no persisted tab id or strip position
+  moves). Not repo-scoped: it reads only folders the user picked (a native picker in main — never a scan of
+  `~`; `/`, the home directory itself, a duplicate and a nested folder are refused). **Main half**
+  (`createLibraryService({ dataDir, pickDirectory, readKey?, online?, … })`, `mediaLibraryMain`): a walk
+  that skips dot-entries, symlinks and NAS junk (`@eaDir`, `$RECYCLE.BIN`, …) and classifies films, shows
+  (`S01E02`, `1x02`, `Season N/`), music and photos; local metadata first — `.nfo`, sidecar art
+  (`poster.jpg`, `folder.jpg`, a show's own folder), ID3v2/FLAC tags and embedded covers through a small
+  bounded reader in the feature (no tag dependency); an index (`library.json`) and art cache under the
+  composer's data dir, never inside a root, with incremental rescan (size, mtime, `.nfo` mtime) and watch
+  progress. **Bytes** reach the renderer as `mstudio-file://library/<rootId>/<path>` (`libraryFileUrl`), the
+  existing scheme with a new host, so the CSP is unchanged; `resolveFile` answers only indexed items and their
+  art, through the runtime's path jail. **Online metadata is off by default**: the TMDB provider
+  (`createTmdbProvider(fetch)`, an injected fetch) runs only when the user switches it on *and* a key reads
+  back — the key is not even read while it is off — fills only what local metadata left empty, at most 40
+  lookups a scan and once per item. The key is `media.tmdbApiKey`, read in main from the vault; no channel
+  returns it. **Renderer:** per-kind grids, a continue-watching row, show and album drill-downs and a detail
+  pane whose player resumes from the saved position and saves progress (throttled, plus pause/end). The
+  feature drives its own `<video>`/`<audio>` — Audio's player store is bound to media-store projects and
+  cannot be imported by a sibling feature — and `LibraryHost` carries what differs per app: an optional
+  `Player`, the key field (Studio's vault-backed `ApiKeyRow`) or a hint (Media's). **Seams left for R2:**
+  LAN streaming and ffmpeg transcoding (`main/lan.ts`, `NO_LAN_STREAMING`; nothing listens on a socket).
+
 **The registry contract lives in the frame** (`packages/frame/src/media/`): the descriptor type, and
 the **media kit port** — the shell's plumbing a tab composes (`MediaLayout`, the explorer, the export
 toolbar, the data hooks) as types plus `MediaKitProvider`/`useMediaKit()`. A tab feature imports only
@@ -595,6 +618,28 @@ app lists the descriptors in strip order. Shared cannot hold it (a descriptor ca
 component), and the frame implements none of it. `scripts/layer-boundaries.test.mjs` proves a tab
 cannot reach the shell or a sibling tab, by name or by relative path. Theme R and S tabs follow the
 same shape.
+
+### App 12: Media (`apps/media`) — Phase 113 Theme R slice 1
+
+Media composes media-core's shell with the Library tab alone (`MEDIA_TABS = [mediaLibraryTab]`), over the
+frame, with `createStandaloneMediaHost({ repoId: null, key: 'midnite-media.ui', initialTab: 'library' })` —
+no repository at all. Its main (`apps/media/main/`) builds the library service with its own data dir
+(`<userData>/media-library`, userData under `Midnite Runtime/apps/media`) and the native folder picker, and
+registers `mediaLibraryMain` through `createIpcContext`. It serves `mstudio-file://library/…` and no other host
+(`file-protocol.ts`), through the library's own resolver, forwarding the request's headers so a player's
+Range requests seek. **The preload exposes `media.library` and the shell's `media.onChanged` only** — no
+`secrets`, no media store, git, pty or browser (`bridge.test.ts`). The window is sandboxed and guarded
+(`guardAppWindow`). **Media composes no vault; its one key comes from the runtime host's:** `main/pairing.ts`
+holds `safeStorage` for its pairing seed only, `main/keys.ts` is the allow-list of the one name it ever asks
+for (`media.tmdbApiKey`), and `connectRuntimeVault({ appId: 'media', identity })` reads it, paired and only
+as far as the user's grants in Vault allow; a smoke run reaches no host. The renderer has no key field — the
+Metadata section says to add the key in Vault and grant it to Media. **No network** until the user switches
+online metadata on and the key is granted; **no listening socket** at all (LAN streaming is R2's).
+`scripts/app-vault-grants.test.mjs` names Media among the guests and `scripts/release-bundles.test.mjs` holds
+it in the `--all` matrix with its icon (`scripts/make-icon.mjs`, `PiMonitorPlayFill` in near-black on the
+catalog's `#facc15`). The launcher's Media tile and its three leaves land on Studio's Media ▸ Library while
+`runsIn` is still `studio`. `MIDNITE_MEDIA_SMOKE=1` with `MIDNITE_MEDIA_USER_DATA=<tmp>` prints
+`midnite-media:ready` and quits.
 
 ### App 11: Gamer (`apps/gamer`) — Phase 113 Theme S slices 1–3
 
