@@ -30,6 +30,7 @@ import {
   Tooltip,
   useDialogs,
   usePopoutHeaderActions,
+  useBrowserStandalone,
   usePopoutHeaderLeading,
   useRepos,
 } from '../ui';
@@ -75,6 +76,8 @@ export function BrowserTabStrip() {
   // reuses `<BrowserPane>` verbatim) — the detach button would otherwise
   // advertise "detach me into a window" while already being one.
   const isPopout = (bridge()?.windowRole ?? 'main') !== 'main';
+  // ...and in the browser app the strip is already the window's own, with no app to detach it from.
+  const standalone = useBrowserStandalone();
   // Set only once popped out AND the window has a frameless title bar to
   // merge into (`DetachedWindowFrame`) — leadingTarget aligns tabs to the left
   // beside the window controls and dock mark; actionsTarget stays as fallback.
@@ -202,7 +205,7 @@ export function BrowserTabStrip() {
         aria-label="Browser tabs"
         className="hide-scrollbar flex shrink-0 items-stretch overflow-x-auto border-b border-border bg-card/40"
       >
-        {!isPopout && (
+        {!isPopout && !standalone && (
           <IconButton
             icon={LuSquareArrowOutUpRight}
             label="Detach Browser into its own window"

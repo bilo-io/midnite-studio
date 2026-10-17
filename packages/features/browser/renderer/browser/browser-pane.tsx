@@ -4,7 +4,7 @@ import { GoArrowLeft, GoArrowRight, GoSync, GoX } from 'react-icons/go';
 
 import { bridge, motionMs, useFocusTrap } from '@midnite/studio-frame';
 
-import { IconButton, useBrowserUi, useBrowserUiStore, useDismiss } from '../ui';
+import { IconButton, useBrowserStandalone, useBrowserUi, useBrowserUiStore, useDismiss } from '../ui';
 import { originOf, useBrowserStore, type BrowserViewportPreset } from '../browser-store';
 import { BROWSER_LAYOUT_OPTIONS } from './browser-layouts';
 import { BrowserErrorPage } from './error-page';
@@ -59,6 +59,8 @@ export function BrowserPane({
   settled?: boolean;
 }) {
   const uiStore = useBrowserUiStore();
+  // The browser app's whole window: nothing to close back to and no other layout to pick.
+  const standalone = useBrowserStandalone();
   const containerRef = useRef<HTMLDivElement>(null);
   const addressRef = useRef<HTMLInputElement>(null);
   const tabs = useBrowserStore((s) => s.tabs);
@@ -141,7 +143,7 @@ export function BrowserPane({
     it takes Escape first and the pane survives — which is the rule this phase
     is for.
   */
-  useDismiss(shown, () => uiStore.getState().setBrowserOpen(false), {
+  useDismiss(shown && !standalone, () => uiStore.getState().setBrowserOpen(false), {
     layer: 'inline',
     blocking: false,
   });
@@ -360,6 +362,7 @@ export function BrowserPane({
           a group would claim a keyboard convention (arrow-key roving) the
           surrounding toolbar does not follow.
         */}
+        {!standalone && (
         <div role="group" aria-label="Browser layout" className="flex shrink-0 items-center gap-0.5">
           {BROWSER_LAYOUT_OPTIONS.map((option) => (
             <button
@@ -380,6 +383,7 @@ export function BrowserPane({
             </button>
           ))}
         </div>
+        )}
         <button
           type="button"
           title="Toggle DevTools (detached / embedded)"
@@ -389,12 +393,14 @@ export function BrowserPane({
         >
           DevTools
         </button>
-        <IconButton
-          icon={GoX}
-          label="Close browser"
-          size="sm"
-          onClick={() => uiStore.getState().setBrowserOpen(false)}
-        />
+        {!standalone && (
+          <IconButton
+            icon={GoX}
+            label="Close browser"
+            size="sm"
+            onClick={() => uiStore.getState().setBrowserOpen(false)}
+          />
+        )}
       </div>
 
       {/*

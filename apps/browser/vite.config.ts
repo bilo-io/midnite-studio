@@ -3,19 +3,24 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+const at = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+
+// `root` is src/, so PostCSS would look for its config there; point it at the app root.
 export default defineConfig({
   plugins: [react()],
-  root: fileURLToPath(new URL('./src', import.meta.url)),
+  root: at('./src'),
   base: './',
+  css: { postcss: at('./') },
   resolve: {
     alias: {
-      '@midnite/studio-shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
-      '@midnite/studio-frame': fileURLToPath(new URL('../../packages/frame/src/index.ts', import.meta.url)),
+      '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
+      '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
+      '@midnite/studio-feature-browser/renderer': at('../../packages/features/browser/renderer/index.ts'),
     },
   },
   server: { port: 5176, strictPort: true },
   build: {
-    outDir: fileURLToPath(new URL('./dist', import.meta.url)),
+    outDir: at('./dist'),
     emptyOutDir: true,
   },
 });

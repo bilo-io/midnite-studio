@@ -1,48 +1,43 @@
 import { LuSparkles, LuSquare } from 'react-icons/lu';
-import { useBrowserHost, useAgentSession } from '../ports/browser-host';
 
+import { agentSessionStore, useAgentSession } from '../agent-session-store';
+
+/** The strip above the page while an agent is driving (a placeholder — see `agent-session-store.ts`). */
 export function AgentSessionBar() {
-  const host = useBrowserHost();
-  const agentSession = useAgentSession();
+  const active = useAgentSession((s) => s.active);
+  const goal = useAgentSession((s) => s.goal);
+  const lastAction = useAgentSession((s) => s.lastAction);
 
-  if (!agentSession.active) return null;
+  if (!active) return null;
 
   return (
     <div
       role="region"
       aria-label="Agent Driving Session"
-      className="flex items-center justify-between border-b border-amber-500/30 bg-amber-950/30 px-3 py-1.5 text-xs text-amber-200"
+      className="flex shrink-0 items-center justify-between border-b border-[var(--browser-accent)]/30 bg-[var(--browser-accent)]/10 px-3 py-1.5 text-xs"
     >
       <div className="flex items-center gap-2 overflow-hidden">
-        <span className="flex h-5 items-center gap-1.5 rounded bg-amber-500/20 px-2 font-mono text-[11px] font-semibold text-amber-400">
-          <LuSparkles className="h-3 w-3 animate-pulse" />
+        <span className="flex h-5 items-center gap-1.5 rounded bg-[var(--browser-accent)]/20 px-2 font-mono text-[11px] font-semibold text-[var(--browser-accent)]">
+          <LuSparkles aria-hidden className="h-3 w-3" />
           <span>AGENT DRIVING</span>
         </span>
-        <span className="truncate font-medium text-amber-100">
-          Goal: {agentSession.goal || 'Autonomous navigation'}
-        </span>
-        {agentSession.lastAction && (
-          <span className="flex items-center gap-1 text-amber-300/80">
-            <span className="text-amber-500">•</span>
-            <span className="truncate">{agentSession.lastAction}</span>
-          </span>
-        )}
+        <span className="truncate font-medium">Goal: {goal || 'Autonomous navigation'}</span>
+        {lastAction ? <span className="truncate text-muted-foreground">· {lastAction}</span> : null}
       </div>
-
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={() => host.stepAgentSession('Simulated next step executed')}
-          className="rounded bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-300 hover:bg-amber-500/30"
+          onClick={() => agentSessionStore.getState().step('Simulated next step executed')}
+          className="rounded border border-border px-2 py-0.5 text-[11px] font-medium hover:bg-accent"
         >
           Step
         </button>
         <button
           type="button"
-          onClick={() => host.stopAgentSession()}
-          className="flex items-center gap-1 rounded bg-neutral-800 px-2 py-0.5 text-[11px] font-medium text-neutral-300 hover:bg-neutral-700 hover:text-white"
+          onClick={() => agentSessionStore.getState().stop()}
+          className="flex items-center gap-1 rounded border border-border px-2 py-0.5 text-[11px] font-medium hover:bg-accent"
         >
-          <LuSquare className="h-3 w-3" />
+          <LuSquare aria-hidden className="h-3 w-3" />
           <span>Take Over</span>
         </button>
       </div>

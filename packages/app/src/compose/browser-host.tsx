@@ -23,6 +23,8 @@ import { useUiStore } from '../store/ui-store';
  */
 export const STUDIO_BROWSER_HOST: BrowserHost = {
   ui: useUiStore,
+  // Studio composes the browser as a panel over its views: it closes, changes layout and detaches.
+  standalone: false,
   useRepos,
   useRemotes,
   Modal,

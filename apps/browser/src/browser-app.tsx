@@ -1,19 +1,28 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+
+import { BrowserHostProvider } from '@midnite/studio-feature-browser/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
-import { BROWSER_CHROME, BrowserDialogHost } from './compose/browser-chrome';
-import { BrowserHostProvider, createDefaultBrowserHost, type BrowserHost } from './ports/browser-host';
+
 import { BrowserShell } from './components/browser-shell';
+import { BROWSER_CHROME, BrowserDialogHost } from './compose/browser-chrome';
+import { BROWSER_APP_HOST } from './compose/browser-host';
 
-export function BrowserApp({ host }: { host?: BrowserHost }) {
-  const [defaultHost] = useState(() => host ?? createDefaultBrowserHost());
-  const activeHost = host ?? defaultHost;
-
+/**
+ * Midnite Browser — the browser feature composed over the frame as its own app (Phase 113 Theme L): the
+ * suite kit's chrome, Browser's answer to the feature's host port, and the query client the feature's
+ * hooks read through (the new-tab page's dev-server probe is a query, idle here: there is no repository).
+ */
+export function BrowserApp() {
+  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }));
   return (
-    <FrameChromeProvider chrome={BROWSER_CHROME}>
-      <BrowserHostProvider host={activeHost}>
-        <BrowserShell />
-        <BrowserDialogHost />
-      </BrowserHostProvider>
-    </FrameChromeProvider>
+    <QueryClientProvider client={client}>
+      <FrameChromeProvider chrome={BROWSER_CHROME}>
+        <BrowserHostProvider host={BROWSER_APP_HOST}>
+          <BrowserShell />
+          <BrowserDialogHost />
+        </BrowserHostProvider>
+      </FrameChromeProvider>
+    </QueryClientProvider>
   );
 }

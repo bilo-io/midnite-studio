@@ -7,7 +7,7 @@ import { LuSquareArrowOutUpRight } from 'react-icons/lu';
 import { bridge, useFocusTrap } from '@midnite/studio-frame';
 
 import { useBrowserHost } from '../host';
-import { IconButton, useBrowserUi, useBrowserUiStore, useDismiss } from '../ui';
+import { IconButton, useBrowserStandalone, useBrowserUi, useBrowserUiStore, useDismiss } from '../ui';
 import { WebAppPane } from './web-app-pane';
 
 /**
@@ -31,6 +31,7 @@ export function WebAppsFlyoutPanel() {
   const uiStore = useBrowserUiStore();
   const { appIcon: APP_ICON } = useBrowserHost();
   const appId = useBrowserUi((s) => s.webAppsFlyoutAppId);
+  const standalone = useBrowserStandalone();
   const open = appId !== null;
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -84,20 +85,22 @@ export function WebAppsFlyoutPanel() {
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
         <Icon aria-hidden className="h-4 w-4 shrink-0" />
         <span className="flex-1 truncate text-xs font-medium">{definition.label}</span>
-        <IconButton
-          icon={LuSquareArrowOutUpRight}
-          label={`Detach ${definition.label} into its own window`}
-          size="sm"
-          onClick={() => {
-            // The flyout closes without touching visibility itself: the view
-            // is about to be reparented into its own popout by main
-            // (`window-handlers.ts`), which shows it there — closing the
-            // flyout AND telling main to hide it would race the very move
-            // that is meant to keep it visible, just somewhere else.
-            uiStore.getState().closeWebAppsFlyout();
-            bridge()?.window.detach({ role: WEB_APP_ROLE[appId] });
-          }}
-        />
+        {!standalone && (
+          <IconButton
+            icon={LuSquareArrowOutUpRight}
+            label={`Detach ${definition.label} into its own window`}
+            size="sm"
+            onClick={() => {
+              // The flyout closes without touching visibility itself: the view
+              // is about to be reparented into its own popout by main
+              // (`window-handlers.ts`), which shows it there — closing the
+              // flyout AND telling main to hide it would race the very move
+              // that is meant to keep it visible, just somewhere else.
+              uiStore.getState().closeWebAppsFlyout();
+              bridge()?.window.detach({ role: WEB_APP_ROLE[appId] });
+            }}
+          />
+        )}
         <IconButton icon={GoX} label={`Close ${definition.label}`} size="sm" onClick={close} />
       </div>
       <div className="relative min-h-0 flex-1">

@@ -51,6 +51,11 @@ export function Wordmark({ className }: { className?: string }) {
   return <Impl className={className} />;
 }
 
+/** Whether the composing app is the browser itself (see {@link BrowserHost.standalone}). */
+export function useBrowserStandalone(): boolean {
+  return useBrowserHost().standalone;
+}
+
 /** A selector over the app's browser state (Studio: `useUiStore(selector)`). */
 export function useBrowserUi<T>(selector: (state: BrowserUiState) => T): T {
   return useBrowserHost().ui(selector);

@@ -115,6 +115,14 @@ export type BrowserDismissOptions = {
 export type BrowserHost = {
   ui: BrowserUiStore;
 
+  /**
+   * True in an app that *is* the browser (`apps/browser`): the pane is the whole window rather than a
+   * panel over another app, so it offers no layout picker, no "Close browser" button and no
+   * Escape-to-close, and neither the tab strip nor a web app offers "Detach into its own window" —
+   * there is nothing to detach from. Studio passes false and keeps every one of them.
+   */
+  standalone: boolean;
+
   /** The repository list, for a derived tab group's name and the new-tab page's repo row. A hook. */
   useRepos: () => { data?: readonly RepoDescriptor[] | undefined };
   /** A repository's remotes, for its forge links. A hook. */
