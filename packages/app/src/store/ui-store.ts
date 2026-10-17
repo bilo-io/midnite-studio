@@ -88,7 +88,7 @@ import {
 } from '@midnite/studio-feature-tasks/renderer/state';
 import { useFileEditorStore } from './file-editor-store';
 
-import { cycleBrowserLayout } from '../features/browser/browser-layouts';
+import { cycleBrowserLayout, type BrowserLayout } from '@midnite/studio-feature-browser/renderer/store';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
 import { migrateAppsToWebApps } from './migrate-web-apps';
@@ -152,17 +152,8 @@ export const DEFAULT_KNOWLEDGE_DETAIL: KnowledgeDetailId = 'core';
 /** Which edge of the terminal pane the session list docks to. */
 export type TerminalSidebarSide = 'left' | 'right';
 
-/**
- * How the browser pane divides the window.
- *
- * `full` is a true full screen — it covers the nav rail as well as the
- * content row, because a rail whose every item navigates the app behind the
- * browser has nothing to offer while the browser is what you are looking at.
- * `left`/`right` are the side-by-side splits, naming the half the BROWSER
- * takes; the other half keeps the active view (the "editor" half), reflowed
- * rather than merely covered.
- */
-export type BrowserLayout = 'full' | 'left' | 'right';
+/** How the browser pane divides the window — the browser feature's type since Phase 113 Theme L. */
+export type { BrowserLayout } from '@midnite/studio-feature-browser/renderer/store';
 
 /**
  * Where a link the app hands off should open — the embedded browser, or the

@@ -5,7 +5,7 @@ import { fixtures } from '../../../test-support/fixtures';
 import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { ToastHost } from '../../components/toast-host';
-import { useBrowserStore } from '../../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useReviewsStore } from '../../store/reviews-store';
 import { useUiStore } from '../../store/ui-store';
 import { ReposPanel } from './repos-panel';

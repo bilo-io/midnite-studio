@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { KNOWLEDGE_TAB_GROUP_COLORS } from '@midnite/studio-frame';
 
-import { TAB_GROUP_COLORS as BROWSER_TAB_GROUP_COLORS } from '../features/browser/tab-group-colors';
+import { TAB_GROUP_COLORS as BROWSER_TAB_GROUP_COLORS } from '@midnite/studio-feature-browser/renderer/store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
 import { STUDIO_KNOWLEDGE_HOST } from './knowledge-host';
 

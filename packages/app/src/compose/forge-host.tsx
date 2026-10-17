@@ -14,7 +14,6 @@ import { TreeSection } from '../components/tree-section';
 import { useDismiss } from '../components/use-dismiss';
 import { UserAvatar } from '../components/user-avatar';
 import { useSkillHandoff } from '../features/agent/use-skill-handoff';
-import { matchPreviewDeploy } from '../features/browser/preview-deploy';
 import { DiffToolbar } from '@midnite/studio-frame/diff';
 import { DiffView } from '@midnite/studio-frame/diff';
 import { imageDiffSources } from '@midnite/studio-frame/diff';
@@ -25,7 +24,7 @@ import { useCascadeReveal } from '../lib/use-cascade-reveal';
 import { openInMidnite, openLinkFromEvent } from '../services/open-in-midnite';
 import { keys, useRemotes, useRepos } from '../services/queries';
 import { useActiveWorktree, useTargetedGitOp } from '../services/use-status';
-import { useBrowserStore } from '../store/browser-store';
+import { matchPreviewDeploy, useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../store/ui-store';
 import { useBaseBlobExists } from './forge/use-base-blob-exists';
 

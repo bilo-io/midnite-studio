@@ -138,7 +138,8 @@ export const FEATURE_PACKAGE_SPLITS = {
 /**
  * Feature packages that hold more than one placement folder (Phase 113 Theme
  * O) — the other direction from {@link FEATURE_PACKAGE_SPLITS}. `forge` carries
- * the `forge`, `reviews` and `actions` folders: Reviews renders Actions' run
+ * the `forge`, `reviews` and `actions` folders, and `browser` the `browser` and
+ * `web-apps` folders (Theme L): Reviews renders Actions' run
  * detail and both draw the forge's status vocabulary and query hooks, so split
  * per folder each would import another (docs/APPS.md, "Coder"). Every folder
  * listed keeps its own placement row and its own view registrations; the
@@ -146,6 +147,10 @@ export const FEATURE_PACKAGE_SPLITS = {
  */
 export const FEATURE_PACKAGE_FOLDERS = {
   forge: ['forge', 'reviews', 'actions'],
+  // Phase 113 Theme L: the web-apps rail measures its native view with the pane's `boundsFromRect`, and
+  // both ride the same `WebContentsView` services in main — split, `web-apps` would import `browser`.
+  // The package takes `browser`'s frame placement; `web-apps` keeps its own row (the Browser app).
+  browser: ['browser', 'web-apps'],
 } as const satisfies Readonly<Record<string, readonly PlacedFeature[]>>;
 
 /** The placement of the package `packages/features/<name>`, split or not; undefined for an unknown name. */

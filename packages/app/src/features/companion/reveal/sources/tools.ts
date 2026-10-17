@@ -3,7 +3,7 @@ import type { ApiCollectionSummary, PostmanItem, SchemaTree } from '@midnite/stu
 import { bridge } from '../../../../services/bridge';
 import { keys } from '../../../../services/queries';
 import { useApiClientStore } from '@midnite/studio-feature-api-client/renderer';
-import { useBrowserStore } from '../../../../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useDatabaseConnectionsStore } from '@midnite/studio-feature-database/renderer';
 import { SETTINGS_PAGES } from '../../../../store/ui-store';
 import { SETTINGS_SECTIONS } from '../../../settings/settings-sections';

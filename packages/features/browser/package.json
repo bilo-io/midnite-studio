@@ -1,0 +1,50 @@
+{
+  "name": "@midnite/studio-feature-browser",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The embedded browser as a feature (Phase 113 Theme L): the browser pane, its tabs, launcher and switcher, and the web-apps rail in the renderer; the WebContentsView services, their security posture and their IPC in main. One package for two placement folders (browser, web-apps). Studio composes it, and the Browser app is built from it.",
+  "sideEffects": false,
+  "exports": {
+    "./renderer": "./renderer/index.ts",
+    "./renderer/store": "./renderer/store.ts",
+    "./renderer/testing": "./renderer/testing.ts",
+    "./main": {
+      "types": "./dist/main/index.d.ts",
+      "default": "./dist/main/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.main.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/modifiers": "^9.0.0",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-runtime": "workspace:*",
+    "@midnite/studio-shared": "workspace:*",
+    "@tanstack/react-query": "^5.62.0",
+    "react-icons": "^5.7.0",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.2"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5",
+    "vitest": "^3.2.4"
+  }
+}

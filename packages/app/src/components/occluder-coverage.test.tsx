@@ -10,8 +10,7 @@ import { Modal } from './modal';
 import { ConfirmDialog } from './confirm-dialog';
 import { PromptDialog } from './prompt-dialog';
 import { Palette } from './palette';
-import { BrowserLauncher } from '../features/browser/browser-launcher';
-import { BrowserSwitcherOverlay } from '../features/browser/browser-switcher-overlay';
+import { BrowserLauncher, BrowserSwitcherOverlay } from '@midnite/studio-feature-browser/renderer';
 import { TerminalSwitcherOverlay } from '../features/terminal/terminal-switcher-overlay';
 import { SlidesModal } from '@midnite/studio-feature-slides/renderer/modal';
 import { STUDIO_SLIDES_HOST } from '../compose/slides-host';
@@ -96,13 +95,13 @@ describe('occluder coverage across overlays', () => {
 
   it('3. BrowserLauncher registers as an occluder', () => {
     useUiStore.setState({ browserLauncherOpen: true });
-    assertOccluderLifecycle(() => render(<BrowserLauncher />));
+    assertOccluderLifecycle(() => render(<StudioProviders><BrowserLauncher /></StudioProviders>));
     useUiStore.setState({ browserLauncherOpen: false });
   });
 
   it('3b. BrowserSwitcherOverlay registers as an occluder', () => {
     useUiStore.setState({ browserSwitcherOpen: true });
-    assertOccluderLifecycle(() => render(<BrowserSwitcherOverlay />));
+    assertOccluderLifecycle(() => render(<StudioProviders><BrowserSwitcherOverlay /></StudioProviders>));
     useUiStore.setState({ browserSwitcherOpen: false });
   });
 

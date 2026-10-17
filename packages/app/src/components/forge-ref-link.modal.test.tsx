@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useBrowserStore } from '../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useIssueModalStore } from '../store/issue-modal-store';
 import { forgeRegistryKey, useRepoForgeRegistry } from '../services/repo-forge-registry';
 import { ForgeRefLink } from './forge-ref-link';

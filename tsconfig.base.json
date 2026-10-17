@@ -37,6 +37,7 @@
       "@midnite/studio-feature-finance/main": ["./packages/features/finance/main/index.ts"],
       "@midnite/studio-feature-tests/main": ["./packages/features/tests/main/index.ts"],
       "@midnite/studio-feature-forge/main": ["./packages/features/forge/main/index.ts"],
+      "@midnite/studio-feature-browser/main": ["./packages/features/browser/main/index.ts"],
       "@midnite/studio-feature-api-client/main": ["./packages/features/api-client/main/index.ts"],
       "@midnite/studio-feature-database/main": ["./packages/features/database/main/index.ts"],
       "@midnite/studio-feature-sessions/main": ["./packages/features/sessions/main/index.ts"],

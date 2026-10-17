@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useActionsStore } from '../store/actions-store';
-import { useBrowserStore } from '../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useIssueModalStore } from '../store/issue-modal-store';
 import { useReviewsStore } from '../store/reviews-store';
 import { useUiStore } from '../store/ui-store';

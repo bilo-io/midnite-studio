@@ -6,8 +6,7 @@ import { useDialogs } from '../../components/dialog-host';
 import { navCommandDisabledReason } from '../../components/nav-visibility';
 import { activePanelBack, activePanelForward } from '../../components/panel-stack/active-panel';
 import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
-import { devServerUrl } from '../../features/browser/dev-server';
-import { useDevServer } from '../../features/browser/use-dev-server';
+import { useDevServerFor } from '@midnite/studio-feature-browser/renderer';
 import { toggleNotes } from '../../features/notes/notes-window';
 import { useGraphStore } from '@midnite/studio-frame';
 import { useSetupStore } from '../../features/setup/setup-store';
@@ -22,7 +21,8 @@ import {
   useBrowserStore,
   ZOOM_STEP,
   type BrowserTab,
-} from '../../store/browser-store';
+  devServerUrl,
+} from '@midnite/studio-feature-browser/renderer/store';
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useThemeImportCommandStore } from '../../features/themes/theme-import-command-store';
@@ -95,7 +95,8 @@ export function useCommandHandlers(): CommandRuntime {
   const activeView = useUiStore((s) => s.activeView);
   const navVisibility = useUiStore((s) => s.navVisibility);
   const browserOpen = useUiStore((s) => s.browserOpen);
-  const devServer = useDevServer();
+  // The browser feature's dev-server query, under the same key the new-tab tile uses (Phase 113 Theme L).
+  const devServer = useDevServerFor(selectedRepoId, selectedWorktreePath);
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const reposOpen = useUiStore((s) => s.reposOpen);

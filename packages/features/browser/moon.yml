@@ -1,0 +1,81 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# The embedded browser as a feature package (Phase 113 Theme L) — the pane, its tabs, launcher and
+# switcher, and the web-apps rail (renderer); the WebContentsView services, browser-security.ts and
+# their IPC (main). Same shape as feature-forge (see docs/APPS.md, "Packages").
+id: 'feature-browser'
+language: 'typescript'
+layer: 'library'
+
+# `FEATURE_PLACEMENT.browser` is the frame — every app may wear the browser pane — so this reaches
+# every app (`app-all`), the frame's own tag. `web-apps`, the second folder it holds
+# (`FEATURE_PACKAGE_FOLDERS.browser`), keeps its own placement row (the Browser app).
+# `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
+tags:
+  - 'layer-feature'
+  - 'app-all'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+
+tasks:
+  # Only the main half emits; the renderer half is compiled by the app.
+  build:
+    command: 'pnpm exec tsc -b tsconfig.main.json'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
+
+  # Both configs: the renderer half against source, the main half against
+  # shared/runtime's built declarations (project references), hence the builds.
+  typecheck:
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useDialogs } from '../../../components/dialog-host';
 import { bridge } from '../../../services/bridge';
-import { useBrowserStore } from '../../../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useUiStore } from '../../../store/ui-store';
 import { Choice, TextArea } from './controls';
 

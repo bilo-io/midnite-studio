@@ -42,7 +42,7 @@ describe('checkGateCoverage', () => {
     // the main-process layer the safeStorage vault moves into (Phase 113).
     // Everything else is platform-agnostic and belongs on the 1x runner.
     expect(NATIVE_PROJECTS.sort()).toEqual(['desktop', 'git-engine', 'runtime']);
-    expect(NODE_PROJECTS.sort()).toEqual(['app', 'db-engine', 'feature-api-client', 'feature-chats', 'feature-councils', 'feature-database', 'feature-finance', 'feature-forge', 'feature-mcp-tools', 'feature-media-audio', 'feature-media-core', 'feature-media-docs', 'feature-media-game', 'feature-media-images', 'feature-media-map', 'feature-media-model', 'feature-media-sprite', 'feature-media-terrain', 'feature-media-video', 'feature-models', 'feature-monitor', 'feature-notes', 'feature-optimizer', 'feature-sessions', 'feature-slides', 'feature-tasks', 'feature-tests', 'feature-vault', 'feature-workflows', 'frame', 'knowledge', 'shared', 'website']);
+    expect(NODE_PROJECTS.sort()).toEqual(['app', 'db-engine', 'feature-api-client', 'feature-browser', 'feature-chats', 'feature-councils', 'feature-database', 'feature-finance', 'feature-forge', 'feature-mcp-tools', 'feature-media-audio', 'feature-media-core', 'feature-media-docs', 'feature-media-game', 'feature-media-images', 'feature-media-map', 'feature-media-model', 'feature-media-sprite', 'feature-media-terrain', 'feature-media-video', 'feature-models', 'feature-monitor', 'feature-notes', 'feature-optimizer', 'feature-sessions', 'feature-slides', 'feature-tasks', 'feature-tests', 'feature-vault', 'feature-workflows', 'frame', 'knowledge', 'shared', 'website']);
   });
 });
 

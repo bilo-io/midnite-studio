@@ -1,7 +1,7 @@
 import { normalizeExternalUrl } from '@midnite/studio-shared';
 
 import { useActionsStore } from '../store/actions-store';
-import { useBrowserStore } from '../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { openIssueModal } from '../store/issue-modal-store';
 import { useReviewsStore } from '../store/reviews-store';
 import { useUiStore, type LinkTarget } from '../store/ui-store';
