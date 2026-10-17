@@ -128,6 +128,7 @@ import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
 import { registerMediaMusicHandlers } from './ipc/media-music-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
+import { registerMediaLibraryHandlers } from './ipc/media-library-handlers';
 import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media-model-handlers';
 import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
 import { disposeMapCaptureBroker, installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
@@ -512,6 +513,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerVideoHandlers();
       registerMediaHandlers();
       registerMediaImageHandlers();
+      registerMediaLibraryHandlers();
       registerMediaAudioHandlers();
       registerMediaMusicHandlers();
       registerMediaModelHandlers();

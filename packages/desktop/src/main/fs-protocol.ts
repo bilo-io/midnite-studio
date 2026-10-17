@@ -5,6 +5,7 @@ import { net, protocol } from 'electron';
 import { readBlob } from '@midnite/studio-git-engine';
 import {
   isMarkdownImagePath,
+  LIBRARY_FILE_HOST,
   MSTUDIO_GAME_SCHEME,
   isSafeBlobRev,
   MSTUDIO_BLOB_MAX_BYTES,
@@ -155,6 +156,17 @@ export function setVideoFileRootProvider(provider: () => Promise<string | null>)
   videoRootProvider = provider;
 }
 
+/**
+ * Phase 113 Theme R — the `library` host (`mstudio-file://library/<rootId>/<relPath>`) is Media ▸
+ * Library's: the feature resolves it through its index and the root's path jail
+ * (`libraryFileResolver`), injected from `ipc/media-library-handlers.ts`. Unset, the host 404s.
+ */
+let libraryResolver: (rawUrl: string) => Promise<string | null> = async () => null;
+
+export function setLibraryFileResolver(resolver: (rawUrl: string) => Promise<string | null>): void {
+  libraryResolver = resolver;
+}
+
 /** Script-free policy for an SVG served off disk. Exported for the tests. */
 export const SVG_DOCUMENT_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 
@@ -209,6 +221,8 @@ async function resolveConfinedPath(rawUrl: string): Promise<string | null> {
     } else if (scope === 'video') {
       const videoRoot = await videoRootProvider();
       return videoRoot ? confineToRoot(videoRoot, relPath) : null;
+    } else if (scope === LIBRARY_FILE_HOST) {
+      return await libraryResolver(rawUrl);
     } else {
       return null;
     }

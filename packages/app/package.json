@@ -31,6 +31,7 @@
     "@midnite/studio-feature-media-core": "workspace:*",
     "@midnite/studio-feature-media-docs": "workspace:*",
     "@midnite/studio-feature-media-images": "workspace:*",
+    "@midnite/studio-feature-media-library": "workspace:*",
     "@midnite/studio-feature-models": "workspace:*",
     "@midnite/studio-feature-chats": "workspace:*",
     "@midnite/studio-feature-councils": "workspace:*",

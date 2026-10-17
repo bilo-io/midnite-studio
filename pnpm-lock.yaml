@@ -1088,6 +1088,9 @@ importers:
       '@midnite/studio-feature-media-images':
         specifier: workspace:*
         version: link:../features/media-images
+      '@midnite/studio-feature-media-library':
+        specifier: workspace:*
+        version: link:../features/media-library
       '@midnite/studio-feature-media-map':
         specifier: workspace:*
         version: link:../features/media-map
@@ -1463,6 +1466,9 @@ importers:
       '@midnite/studio-feature-media-images':
         specifier: workspace:*
         version: link:../features/media-images
+      '@midnite/studio-feature-media-library':
+        specifier: workspace:*
+        version: link:../features/media-library
       '@midnite/studio-feature-media-map':
         specifier: workspace:*
         version: link:../features/media-map

@@ -2,6 +2,7 @@ import { AudioHostProvider } from '@midnite/studio-feature-media-audio/renderer'
 import { DocsHostProvider } from '@midnite/studio-feature-media-docs/renderer';
 import { GameHostProvider } from '@midnite/studio-feature-media-game/renderer';
 import { ImagesHostProvider } from '@midnite/studio-feature-media-images/renderer';
+import { LibraryHostProvider } from '@midnite/studio-feature-media-library/renderer';
 import { MapHostProvider } from '@midnite/studio-feature-media-map/renderer';
 import { ModelHostProvider } from '@midnite/studio-feature-media-model/renderer';
 import { SpriteHostProvider } from '@midnite/studio-feature-media-sprite/renderer';
@@ -14,6 +15,7 @@ import { STUDIO_AUDIO_HOST } from '../../compose/media-audio-host';
 import { STUDIO_DOCS_HOST } from '../../compose/media-docs-host';
 import { STUDIO_GAME_HOST } from '../../compose/media-game-host';
 import { STUDIO_IMAGES_HOST } from '../../compose/media-images-host';
+import { STUDIO_LIBRARY_HOST } from '../../compose/media-library-host';
 import { STUDIO_MAP_HOST } from '../../compose/media-map-host';
 import { STUDIO_MODEL_HOST } from '../../compose/media-model-host';
 import { STUDIO_SPRITE_HOST } from '../../compose/media-sprite-host';
@@ -40,6 +42,7 @@ const TAB_HOSTS: readonly HostEntry[] = [
   hostEntry(TerrainHostProvider, STUDIO_TERRAIN_HOST),
   hostEntry(SpriteHostProvider, STUDIO_SPRITE_HOST),
   hostEntry(ModelHostProvider, STUDIO_MODEL_HOST),
+  hostEntry(LibraryHostProvider, STUDIO_LIBRARY_HOST),
 ];
 
 /**
@@ -57,7 +60,7 @@ export function StudioMediaTabHosts({ children }: { children: ReactNode }) {
 
 /**
  * Studio's Media page (Phase 99 Theme A) — since Phase 113 Theme Q it is
- * media-core's `MediaShell` over Studio's registry: all nine tabs, in the
+ * media-core's `MediaShell` over Studio's registry: every tab (ten, with Library), in the
  * order they have always had, each rendering through `MediaLayout`.
  */
 export function MediaView() {
