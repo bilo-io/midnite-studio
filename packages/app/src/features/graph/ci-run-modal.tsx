@@ -9,7 +9,7 @@ import { usePageVisible } from '../../lib/use-page-visible';
 import { useWindowFocused } from '../../lib/use-window-focus';
 import { getActionItemStyle, groupRunsByPhase, RunDetailPanel, RunPhaseSection } from '@midnite/studio-feature-forge/renderer';
 import { runStatus, StatusGlyph } from '@midnite/studio-feature-forge/renderer';
-import { CI_POLL_MS } from './commit-ci';
+import { CI_POLL_MS } from '@midnite/studio-frame/graph';
 
 /**
  * A commit's CI, opened from the graph's CI column.

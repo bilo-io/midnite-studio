@@ -12,7 +12,7 @@ import {
   commitCiBySha,
   pageIsActive,
   visibleCiPages,
-} from './commit-ci';
+} from '@midnite/studio-frame/graph';
 
 const shaFor = (index: number) => index.toString(16).padStart(40, '0');
 const shaAt = (index: number) => shaFor(index);

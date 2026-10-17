@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MidniteStudioBridge, WindowDescriptor } from '@midnite/studio-shared';
 
-import { useGraphStore } from '../graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { useLivenessStore } from '../../store/liveness-store';
 import { useUiStore } from '../../store/ui-store';
 import { LivenessSegment } from './liveness-segment';

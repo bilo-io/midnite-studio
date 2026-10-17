@@ -14,7 +14,7 @@ import { useReviewsStore } from '../../../store/reviews-store';
 import { useSessionsStore } from '../../../store/sessions-store';
 import { useUiStore } from '../../../store/ui-store';
 import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
-import { useGraphStore } from '../../graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { REVEAL_HISTORY_LIMIT, useRevealHistory } from './reveal-history';
 import { cached } from './sources/util';

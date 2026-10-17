@@ -1,4 +1,4 @@
-import { GRAPH_DENSITIES, graphTheme, scaleTheme, type GraphDensity } from '../graph/graph-themes';
+import { GRAPH_DENSITIES, graphTheme, scaleTheme, type GraphDensity } from '@midnite/studio-frame/graph';
 import { useUiStore } from '../../store/ui-store';
 
 const LABELS: Record<GraphDensity, { label: string; blurb: string }> = {

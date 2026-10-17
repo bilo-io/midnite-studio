@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CommandId, MidniteStudioBridge, WatchEvent } from '@midnite/studio-shared';
 
-import { useGraphStore } from './features/graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { keys } from './services/queries';
 import { useLivenessStore } from './store/liveness-store';
 import { useUiStore } from './store/ui-store';

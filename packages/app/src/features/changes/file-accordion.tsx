@@ -3,12 +3,12 @@ import { LuChevronRight } from 'react-icons/lu';
 import { useId, useRef } from 'react';
 
 import { Counts } from '../../components/change-tree';
-import { DiffToolbar } from '../diff/diff-toolbar';
-import { DiffView } from '../diff/diff-view';
+import { DiffToolbar } from '@midnite/studio-frame/diff';
+import { DiffView } from '@midnite/studio-frame/diff';
 
-import { imageDiffSources } from '../diff/image-sources';
-import { useFileDiff } from '../diff/use-file-diff';
-import { useTooNarrowForSplit } from '../diff/use-diff-split-width';
+import { imageDiffSources } from '@midnite/studio-frame/diff';
+import { useFileDiff } from '@midnite/studio-frame/diff';
+import { useTooNarrowForSplit } from '@midnite/studio-frame/diff';
 import { primaryCode, StatusMark } from '../status/status-mark';
 
 /**

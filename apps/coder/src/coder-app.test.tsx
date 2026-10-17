@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { forgeManifest } from '@midnite/studio-feature-forge/renderer';
 import { testsManifest } from '@midnite/studio-feature-tests/renderer';
-import { FEATURE_PACKAGE_FOLDERS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
+import { FEATURE_PACKAGE_FOLDERS, FEATURE_PLACEMENT, placementOwners, type GraphRow } from '@midnite/studio-shared';
 
 import { CoderApp } from './coder-app';
 import { CODER_APP } from './coder-manifest';
@@ -28,9 +28,52 @@ function stubBridge() {
     },
     forgeAccounts: { capabilities: async () => ({}) },
     tests: { discover, onOutput: () => () => undefined, onResult: () => () => undefined },
+    log: {
+      start: logStart,
+      cancel: async () => undefined,
+      onBatch: (fn: (e: { requestId: string; rows: GraphRow[] }) => void) => ((logListeners.batch = fn), () => undefined),
+      onDone: (fn: (e: { requestId: string; total: number; truncated: boolean }) => void) => ((logListeners.done = fn), () => undefined),
+    },
+    status: { get: async () => STATUS, commitDetail: async () => null, commitStats: async () => ({ stats: {} }) },
   } as unknown as typeof window.midniteStudio;
+  (window.midniteStudio as unknown as { repos: Record<string, unknown> }).repos['refs'] = async () => [];
   return { discover };
 }
+
+const STATUS = {
+  branch: { head: 'main', oid: 'a'.repeat(40), upstream: null, ahead: 0, behind: 0, unborn: false, detached: false },
+  entries: [],
+  inProgress: null,
+};
+const ROW: GraphRow = {
+  row: 0,
+  lane: 0,
+  colorIdx: 0,
+  laneCount: 1,
+  edges: [],
+  commit: {
+    sha: 'a'.repeat(40),
+    parents: [],
+    authorName: 'Ada',
+    authorEmail: 'ada@example.com',
+    authorDate: 1_700_000_000,
+    committerDate: 1_700_000_000,
+    subject: 'Initial import',
+    refs: [],
+    coAuthors: [],
+    sessionTrailers: [],
+  },
+};
+const logListeners: {
+  batch?: (e: { requestId: string; rows: GraphRow[] }) => void;
+  done?: (e: { requestId: string; total: number; truncated: boolean }) => void;
+} = {};
+const logStart = vi.fn(async ({ requestId }: { requestId: string }) => {
+  queueMicrotask(() => {
+    logListeners.batch?.({ requestId, rows: [ROW] });
+    logListeners.done?.({ requestId, total: 1, truncated: false });
+  });
+});
 
 let bridge: ReturnType<typeof stubBridge>;
 beforeEach(() => {
@@ -67,6 +110,16 @@ describe('Coder composition', () => {
     fireEvent.click(screen.getByTestId('coder-tab-tests'));
     await waitFor(() => expect(bridge.discover).toHaveBeenCalledWith({ repoId: 'r1' }));
     expect(coderStore.getState().view).toBe('tests');
+  });
+
+  it('shows the selected repository’s history in the Graph tab — read-only, with no menu to write from', async () => {
+    render(<CoderApp />);
+    await screen.findByText('widgets');
+    fireEvent.click(screen.getByTestId('coder-tab-graph'));
+    expect(await screen.findByText('Initial import')).toBeTruthy();
+    expect(logStart).toHaveBeenCalledWith(expect.objectContaining({ repoId: 'r1' }));
+    fireEvent.contextMenu(screen.getByText('Initial import'));
+    expect(document.querySelector('[role="menu"]')).toBeNull();
   });
 
   it('keeps review actions off until the switch is turned on', () => {

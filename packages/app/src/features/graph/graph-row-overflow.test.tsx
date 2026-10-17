@@ -1,9 +1,9 @@
 import type { GraphRow, Ref } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '../../../test-support/studio-render';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CommitGraphRow } from './graph-row';
-import { graphThemeFor } from './graph-themes';
+import { CommitGraphRow } from '@midnite/studio-frame/graph';
+import { graphThemeFor } from '@midnite/studio-frame/graph';
 
 const theme = graphThemeFor('default', 'comfortable');
 

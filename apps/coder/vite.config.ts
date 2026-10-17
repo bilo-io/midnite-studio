@@ -14,6 +14,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
+      // The frame's own entries before its barrel, or the barrel's alias would swallow the subpath.
+      '@midnite/studio-frame/graph': at('../../packages/frame/src/graph/index.ts'),
+      '@midnite/studio-frame/diff': at('../../packages/frame/src/diff/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
       '@midnite/studio-feature-forge/renderer': at('../../packages/features/forge/renderer/index.ts'),
       '@midnite/studio-feature-tests/renderer': at('../../packages/features/tests/renderer/index.ts'),

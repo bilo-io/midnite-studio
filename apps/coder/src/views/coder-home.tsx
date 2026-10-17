@@ -10,13 +10,15 @@ import type { RepoDescriptor } from '@midnite/studio-shared';
 import { CODER_APP, type CoderViewId } from '../coder-manifest';
 import { useCoderStore } from '../coder-store';
 
-const LABEL: Record<CoderViewId, string> = { reviews: 'Reviews', actions: 'Actions', tests: 'Tests' };
+const LABEL: Record<CoderViewId, string> = { reviews: 'Reviews', actions: 'Actions', tests: 'Tests', graph: 'Graph' };
 
 /** Each view as a lazy chunk, loaded the way Studio's registry loads it. */
 const VIEWS: Record<CoderViewId, ComponentType> = {
   reviews: lazy(() => forgeViews.reviews().then((Component) => ({ default: Component }))),
   actions: lazy(() => forgeViews.actions().then((Component) => ({ default: Component }))),
   tests: lazy(() => testsViews.tests().then((Component) => ({ default: Component }))),
+  // The frame's git graph, over Coder's read-only git host (`compose/git-host.tsx`).
+  graph: lazy(() => import('@midnite/studio-frame/graph').then((m) => ({ default: m.GraphView }))),
 };
 
 const REPOS_KEY = ['repos'] as const;
@@ -99,7 +101,7 @@ function RepoList() {
           </li>
         ))}
         {list && list.length === 0 ? (
-          <li className="px-3 py-2 text-xs text-muted-foreground">Add a repository to see its pull requests, runs and tests.</li>
+          <li className="px-3 py-2 text-xs text-muted-foreground">Add a repository to see its pull requests, runs, tests and history.</li>
         ) : null}
       </ul>
     </aside>

@@ -7,7 +7,9 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./knowledge": "./src/knowledge/index.ts"
+    "./knowledge": "./src/knowledge/index.ts",
+    "./graph": "./src/graph/index.ts",
+    "./diff": "./src/diff/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

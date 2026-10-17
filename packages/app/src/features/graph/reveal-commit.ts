@@ -1,6 +1,6 @@
 import { resolveRevision } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
-import { useGraphStore } from './graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 
 /**
  * Phase 112 Theme C — `revealCommit`, a reveal that always lands.

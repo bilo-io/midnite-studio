@@ -15,7 +15,7 @@ import { coderStore, useCoderStore } from '../coder-store';
  * only Coder knows: the selected repository (from its own list), each repository's forge kind (main
  * reads it from `.git/config` and answers `remotes.list`), how to open a URL, and the review-actions
  * switch. None of Studio's optional members: no Present, no agent hand-off, no embedded browser, no
- * "Fetch to compare" (no git) and no suggestion apply (no file writes).
+ * "Fetch to compare" (Coder's git is read-only: no fetch) and no suggestion apply (no file writes).
  */
 
 const useActiveRepo = (): { repoId: string | null } => ({ repoId: useCoderStore((s) => s.selectedRepoId) });

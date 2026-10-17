@@ -10,12 +10,12 @@ import {
   LuRows3,
   LuX,
 } from 'react-icons/lu';
-import { useGraphStore } from '../graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import {
   ProvenanceMark,
   getProvenanceTooltip,
   resolveProvenanceDetails,
-} from '../graph/provenance-mark';
+} from '@midnite/studio-frame/graph';
 import { useAgents } from '../terminal/use-agents';
 import {
   Suspense,
@@ -46,10 +46,10 @@ import {
   type Commit,
 } from '@midnite/studio-shared';
 import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore, type CommitFileView } from '../../store/ui-store';
-import { DiffView } from '../diff/diff-view';
-import { imageDiffSources } from '../diff/image-sources';
-import { useCommitFileDiff } from '../diff/use-file-diff';
-import { formatDate } from '../graph/graph-row';
+import { DiffView } from '@midnite/studio-frame/diff';
+import { imageDiffSources } from '@midnite/studio-frame/diff';
+import { useCommitFileDiff } from '@midnite/studio-frame/diff';
+import { formatDate } from '@midnite/studio-frame/graph';
 import { CommitAllChanges } from './commit-all-changes';
 import { useCommitFileRequest } from './commit-file-request';
 /*

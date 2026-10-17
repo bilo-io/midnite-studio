@@ -13,9 +13,9 @@ import {
   withheldByCap,
   type ExpansionState,
 } from '../changes/expansion';
-import { DiffView } from '../diff/diff-view';
-import { imageDiffSources } from '../diff/image-sources';
-import { useCommitFileDiff } from '../diff/use-file-diff';
+import { DiffView } from '@midnite/studio-frame/diff';
+import { imageDiffSources } from '@midnite/studio-frame/diff';
+import { useCommitFileDiff } from '@midnite/studio-frame/diff';
 
 /** A commit's file record has exactly the shape the change tree already needs. */
 type CommitFile = ChangedFile;

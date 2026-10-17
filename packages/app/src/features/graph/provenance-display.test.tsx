@@ -1,17 +1,17 @@
 import type { AgentDefinition, CommitProvenance, GraphRow } from '@midnite/studio-shared';
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '../../../test-support/studio-render';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CommitAvatar } from './commit-avatar';
-import { CommitGraphRow } from './graph-row';
-import { graphThemeFor } from './graph-themes';
+import { CommitAvatar } from '@midnite/studio-frame/graph';
+import { CommitGraphRow } from '@midnite/studio-frame/graph';
+import { graphThemeFor } from '@midnite/studio-frame/graph';
 import {
   DEFAULT_PROVENANCE_MARK_MODE,
   PROVENANCE_MARK_MODES,
   PROVENANCE_SWAP_MS,
   provenanceMarkMode,
   resetProvenanceSwapForTests,
-} from './provenance-display';
+} from '@midnite/studio-frame/graph';
 import { useUiStore } from '../../store/ui-store';
 
 /**

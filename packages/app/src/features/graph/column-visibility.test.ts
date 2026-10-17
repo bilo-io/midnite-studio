@@ -6,7 +6,7 @@ import {
   hiddenColumnTokens,
   normalizeColumnVisibility,
   withColumnVisible,
-} from './column-visibility';
+} from '@midnite/studio-frame/graph';
 import { useUiStore } from '../../store/ui-store';
 
 describe('column visibility', () => {

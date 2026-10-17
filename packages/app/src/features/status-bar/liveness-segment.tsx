@@ -7,7 +7,7 @@ import { Popover } from '../../components/popover';
 import { bridge } from '../../services/bridge';
 import { invalidateForWatchKind } from '../../services/watch-invalidation';
 import { computeLivenessStatus, type LivenessDotState, useLivenessStore } from '../../store/liveness-store';
-import { useGraphStore } from '../graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { useUiStore } from '../../store/ui-store';
 
 const DOT_CLASS: Record<LivenessDotState, string> = {

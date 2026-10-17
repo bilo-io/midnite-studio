@@ -4,10 +4,11 @@ import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
 
 /**
  * The slice of `window.midniteStudio` Coder exposes — exactly what the forge and tests features'
- * renderers and Coder's repository list call, and nothing else: `forge.*`, `forgeProject.*`,
- * `forgeAccounts.*` (records with a `hasToken` boolean, never a token), `tests.*`, `remotes.list`
- * and four `repos` members. There is no `secrets`, `fs`, `pty` or `ops` namespace: a forge token is
- * read in main only, and nothing here can write to a checkout (`bridge.test.ts` holds the list).
+ * renderers, the frame's git graph and diff, and Coder's repository list call, and nothing else:
+ * `forge.*`, `forgeProject.*`, `forgeAccounts.*` (records with a `hasToken` boolean, never a token),
+ * `tests.*`, `remotes.list`, five `repos` members, the `log` stream and four read-only `status` reads.
+ * There is no `secrets`, `fs`, `pty` or `ops` namespace: a forge token is read in main only, and
+ * nothing here can write to a checkout (`bridge.test.ts` holds the list).
  */
 export type CoderBridge = {
   forge: MidniteStudioBridge['forge'];
@@ -15,7 +16,11 @@ export type CoderBridge = {
   forgeAccounts: MidniteStudioBridge['forgeAccounts'];
   tests: MidniteStudioBridge['tests'];
   remotes: MidniteStudioBridge['remotes'];
-  repos: Pick<MidniteStudioBridge['repos'], 'list' | 'pickDirectory' | 'open' | 'close'>;
+  repos: Pick<MidniteStudioBridge['repos'], 'list' | 'pickDirectory' | 'open' | 'close' | 'refs'>;
+  /** The git graph's log stream — rows laid out in main (`main/git.ts`). */
+  log: MidniteStudioBridge['log'];
+  /** Read-only: HEAD and the working copy, one commit, its file diffs and diff stats. */
+  status: Pick<MidniteStudioBridge['status'], 'get' | 'commitDetail' | 'commitFileDiff' | 'commitStats'>;
 };
 
 export type { RendererIpc };
@@ -95,6 +100,19 @@ export function createCoderBridge(ipc: RendererIpc): CoderBridge {
       pickDirectory: () => call(CHANNELS.repoPickDirectory),
       open: (req) => call(CHANNELS.repoOpen, req),
       close: (req) => call(CHANNELS.repoClose, req),
+      refs: (req) => call(CHANNELS.repoRefs, req),
+    },
+    log: {
+      start: (req) => call(CHANNELS.logStart, req),
+      cancel: (req) => call(CHANNELS.logCancel, req),
+      onBatch: (handler) => subscribe(EVENT_CHANNELS.logBatch, handler),
+      onDone: (handler) => subscribe(EVENT_CHANNELS.logDone, handler),
+    },
+    status: {
+      get: (req) => call(CHANNELS.statusGet, req),
+      commitDetail: (req) => call(CHANNELS.commitDetail, req),
+      commitFileDiff: (req) => call(CHANNELS.commitFileDiff, req),
+      commitStats: (req) => call(CHANNELS.commitStats, req),
     },
   };
 }

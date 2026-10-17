@@ -19,6 +19,7 @@ import {
 } from '@midnite/studio-runtime';
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
+import { registerCoderGit } from './git';
 import { createCoderRepos, type CoderRepos } from './repos';
 
 /** The electron pieces Coder's main needs, injected so registration is testable under bare vitest. */
@@ -102,6 +103,9 @@ export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos } 
   // Tests — discovery, trust and the runner, in the checkout main resolves from the repo id.
   configureTests(createTestTrustStore(el.userData));
   testsMain.register(ctx, { workdir: async (repoId) => repos.pathOf(repoId), warn });
+
+  // The git graph and diff — read-only, in the checkouts Coder's own list holds (`main/git.ts`).
+  registerCoderGit(ctx, { pathOf: (repoId) => repos.pathOf(repoId) });
 
   // Coder's repositories.
   ctx.ipc.handleBare(CHANNELS.repoList, () => repos.list());

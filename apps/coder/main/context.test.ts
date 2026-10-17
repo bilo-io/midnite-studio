@@ -12,6 +12,7 @@ import { createFakeCipher, createVaultGrants, createVaultService, type VaultAuth
 import { CHANNELS, forgeAccountVaultKey, type ForgeAccount } from '@midnite/studio-shared';
 
 import { registerCoderHandlers } from './context';
+import { CODER_GIT_CHANNELS } from './git';
 
 const TOKEN = 'glpat-CODER-VAULT-SECRET';
 
@@ -67,9 +68,9 @@ async function setup(options: { authorize?: VaultAuthorize; picked?: string | nu
 }
 
 describe('registerCoderHandlers', () => {
-  it('registers the forge and tests features’ channels and its own repository list — and nothing else', async () => {
+  it('registers the forge and tests features’ channels, its own repository list and the read-only git — and nothing else', async () => {
     const { handlers, sends } = await setup();
-    const own = [CHANNELS.repoList, CHANNELS.repoPickDirectory, CHANNELS.repoOpen, CHANNELS.repoClose, CHANNELS.remotesList];
+    const own = [CHANNELS.repoList, CHANNELS.repoPickDirectory, CHANNELS.repoOpen, CHANNELS.repoClose, CHANNELS.remotesList, ...CODER_GIT_CHANNELS];
     expect([...handlers.keys()].sort()).toEqual([...forgeManifest.ipc, ...testsManifest.ipc, ...own].sort());
     expect([...sends.keys()].sort()).toEqual([...forgeManifest.sends, ...testsManifest.sends].sort());
     for (const channel of [CHANNELS.secretsGet, CHANNELS.secretsSet, CHANNELS.secretsHas]) expect(handlers.has(channel)).toBe(false);
