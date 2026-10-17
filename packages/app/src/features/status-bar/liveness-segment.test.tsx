@@ -88,9 +88,13 @@ describe('LivenessSegment (Phase 84 Theme I)', () => {
     renderSegment();
     fireEvent.click(screen.getByTestId('liveness-segment'));
 
-    const panel = await waitFor(() => screen.getByTestId('liveness-segment-panel'));
+    // Wait for the rows, not just the panel: the window list arrives after the panel first renders.
+    const panel = await waitFor(() => {
+      const found = screen.getByTestId('liveness-segment-panel');
+      expect(found.textContent).toContain('(this window)');
+      return found;
+    });
     expect(panel.textContent).toContain('main');
-    expect(panel.textContent).toContain('(this window)');
     expect(panel.textContent).toContain('terminal');
     expect(panel.textContent).toContain('repo-1');
     expect(screen.getByText('Refresh now')).toBeTruthy();
