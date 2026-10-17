@@ -596,7 +596,11 @@ export function createLibraryService(deps: LibraryServiceDeps): LibraryService {
 
     getSettings: async () => {
       const { settings } = await store.read();
-      const key = deps.online && deps.readKey ? await deps.readKey().catch(() => null) : null;
+      // The key is read only while the switch is on: off means the library does not touch it at all.
+      const key =
+        settings.onlineMetadata && deps.online && deps.readKey
+          ? await deps.readKey().catch(() => null)
+          : null;
       return { settings: { ...settings }, onlineKeyAvailable: key !== null && key !== '' };
     },
 

@@ -310,16 +310,18 @@ describe('the online provider', () => {
     vi.mocked(tmdb).mockClear();
   });
 
-  it('is off by default, and sends nothing while off', async () => {
+  it('is off by default, and sends nothing — nor reads the key — while off', async () => {
     await seedLibrary();
-    const lib = service({ online: createTmdbProvider(tmdb), readKey: async () => 'v3key' });
+    const readKey = vi.fn(async () => 'v3key');
+    const lib = service({ online: createTmdbProvider(tmdb), readKey });
     await lib.addRootPath(media);
     await lib.scan();
     expect(tmdb).not.toHaveBeenCalled();
     expect(await lib.getSettings()).toEqual({
       settings: { onlineMetadata: false, onlineProvider: 'tmdb' },
-      onlineKeyAvailable: true,
+      onlineKeyAvailable: false, // off: the key is not even read
     });
+    expect(readKey).not.toHaveBeenCalled();
   });
 
   it('when switched on, fills what local metadata did not, once per item', async () => {
