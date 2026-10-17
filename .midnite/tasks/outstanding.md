@@ -747,9 +747,11 @@ The frame's `useToastStore` has no renderer in any suite app, so a feature that 
 silent outside Studio. Coder's Tasks tab works around it with its frame dialog store. The fix is one
 toast host in the frame's app shell, mounted by every app.
 
-## Two load-sensitive tests seen on CI (2026-10-17)
+## Three load-sensitive tests seen on 2026-10-17
 
 `feature-media-map` `capture-service.test.ts` ("satellite and roads") timed out at vitest's 5 s
-default, and `feature-chats` `chat-service.integration.test.ts` ("Stop kills the real process")
-read an undefined `changeSet` at line 217 — a race between the stop and the change event. Both
-passed on rerun; both want hardening rather than a longer timeout.
+default on CI, and `feature-chats` `chat-service.integration.test.ts` ("Stop kills the real process")
+read an undefined `changeSet` at line 217 — a race between the stop and the change event. In a local
+gate, `app` `liveness-segment.test.tsx` ("opens a popover on click…") read the panel before its table
+rows rendered: `waitFor` resolves on the panel's test id, not on the row it then asserts. All three
+passed on rerun; all three want hardening rather than a longer timeout.
