@@ -1,12 +1,12 @@
 import { GAMES_OFF_MESSAGE, type McpToolInput, type McpToolOutput } from '@midnite/studio-shared';
 
-import type { GameMcpTools } from '../games/game-mcp';
+import type { GameMcpTools } from '@midnite/studio-feature-media-game/main';
 import { McpToolError } from './errors';
 import { getMcpAllowGames } from './ui-gate';
 
 /**
  * The `game_*` tools as the app's global MCP server answers them (Phase 107
- * Theme D): the implementations in `games/game-mcp.ts`, wrapped in the consent
+ * Theme D): the implementations in the games feature's `game-mcp.ts`, wrapped in the consent
  * model every other state-changing tool has. The tools that create a game, run
  * its code, edit its manifest or drive it refuse with a named reason while
  * `Settings ▸ MCP ▸ Let agents run and edit games` is off; the read tools

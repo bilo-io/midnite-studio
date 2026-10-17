@@ -40,12 +40,49 @@ export { createGameExport, type GameExport } from './games/game-export';
 export { createGamesSettingsStore, type GamesSettingsStore } from './games/games-settings-store';
 export { listGames } from './games/game-list';
 export { effectiveGamesRoot } from './games/games-root';
+// The play-test loop (Phase 107 Themes D/M/O), moved here from the desktop in Phase 113 Theme S slice 3.
+export { clipError, evalWithTimeout, GAME_STATE_TIMEOUT_MS, readGameState } from './games/game-state';
+export { createPlaytests, PLAYTEST_READY_TIMEOUT_MS, PLAYTEST_SEEK_CHUNK, type PlaytestDeps, type PlaytestPage, type Playtests } from './games/playtest';
+export {
+  createGameMcpTools,
+  GAME_INPUT_SETTLE_MS,
+  GAME_SCREENSHOT_BYTES_MAX,
+  toElectronKeyCode,
+  toInputEvent,
+  type GameImage,
+  type GameMcpDeps,
+  type GameMcpTools,
+  type GameNativeInputEvent,
+  type GamePageContents,
+} from './games/game-mcp';
+export {
+  agentCommitSubject,
+  allowedGameClaudeTools,
+  applyOllamaEnvelope,
+  buildGameCliArgs,
+  buildGamePassPrompt,
+  buildOllamaPrompt,
+  createGameAgentDispatch,
+  GAME_AGENT_FILE_TOOLS,
+  GAME_AGENT_TOOL_IDS,
+  gatherOllamaContext,
+  runGameAgent,
+  runGameOllama,
+  runGameTurns,
+  type GameAgentGit,
+  type GameAgentOutcome,
+  type GameOllamaCall,
+  type GameRef,
+} from './games/game-agent';
+export { createGameAgentService, gitEngineGameAgentGit, type GameAgentService, type GameAgentServiceDeps } from './games/game-agent-service';
+export { createGameLoop, type GameLoop, type GameLoopDeps } from './games/game-loop';
 
 /**
  * Create and iterate (Theme M): an agent edits a game repo in passes, one commit per changing pass. The
- * runner needs the Model tab's iterative agent harness and the MCP server, which stay in the desktop for
- * now (Phase 113 Theme S slice 2/3), so the feature takes it as a port — Studio passes the real service,
- * an app without agents passes nothing and the three channels answer "not available".
+ * service is this feature's (`createGameAgentService`), but a run needs an agent host — a roster and a
+ * private MCP server (the runtime's `IterativeHost`) — which is the app's, so the channels take the
+ * service as a port: an app that composes one passes it, one without passes nothing and the three
+ * channels answer "not available".
  */
 export type GameAgentsPort = {
   run(req: GameAgentRunRequest): Promise<GitOpResult<GameAgentRunResult>>;
@@ -53,7 +90,7 @@ export type GameAgentsPort = {
   undo(gameId: string, sha: string): Promise<GitOpResult>;
 };
 
-/** Play-tests (Theme O): the toolbar's Playtests menu. Same story as the agents — the kit hook runs in the desktop's `playtest.ts`. */
+/** Play-tests (Theme O): the toolbar's Playtests menu — `createPlaytests` over the running game's page, which the app supplies. */
 export type GamePlaytestsPort = {
   list(gameId: string): Promise<GamePlaytestEntry[]>;
   run(gameId: string, opts: { names?: readonly string[] }): Promise<{ passed: boolean; runs: GamePlaytestResult[] }>;

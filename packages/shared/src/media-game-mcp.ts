@@ -56,6 +56,13 @@ export type GameMcpToolId = (typeof GAME_MCP_TOOL_IDS)[number];
 export const isGameMcpToolId = (value: string): value is GameMcpToolId =>
   (GAME_MCP_TOOL_IDS as readonly string[]).includes(value);
 
+/**
+ * The tools a game agent run's **private** server answers (Phase 107 Theme M): everything but creating or
+ * opening another game. The contract between that server (`createGameAgentDispatch`) and the per-run shim
+ * Gamer ships, which lists exactly these and forwards nothing else.
+ */
+export const GAME_AGENT_TOOL_IDS: readonly GameMcpToolId[] = GAME_MCP_TOOL_IDS.filter((id) => id !== 'game_create' && id !== 'game_open');
+
 /** Tools that only read: they answer whenever the MCP server is on. Every other id is a write. */
 export const GAME_MCP_READ_TOOL_IDS: readonly GameMcpToolId[] = [
   'game_list',

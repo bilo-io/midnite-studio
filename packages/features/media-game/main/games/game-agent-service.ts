@@ -15,8 +15,8 @@ import {
   type GitOpResult,
 } from '@midnite/studio-shared';
 
-import type { Logger } from '../log';
-import type { IterativeHost } from '@midnite/studio-feature-media-model/main';
+import type { IterativeHost } from '@midnite/studio-runtime';
+
 import {
   runGameAgent,
   runGameOllama,
@@ -25,6 +25,7 @@ import {
   type GameOllamaCall,
 } from './game-agent';
 import type { GameMcpTools } from './game-mcp';
+import type { Logger } from './logger';
 
 /** The real git seam: git-engine commands, each inside the per-repo write queue. */
 export const gitEngineGameAgentGit: GameAgentGit = {

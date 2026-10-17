@@ -1,6 +1,14 @@
 import { net, session, WebContentsView, type BrowserWindow } from 'electron';
 
-import type { GameElectron, GamePopoutWindow, GameSession, GameViewOptions, GameWindow } from '@midnite/studio-feature-media-game/main';
+import type {
+  GameElectron,
+  GamePageContents,
+  GamePopoutWindow,
+  GameSession,
+  GameView,
+  GameViewOptions,
+  GameWindow,
+} from '@midnite/studio-feature-media-game/main';
 
 /**
  * The Electron pieces Gamer hands the games feature's runner: a game's sandboxed `WebContentsView` and its
@@ -18,6 +26,15 @@ export function createGamerGameElectron(): GameElectron {
   };
   return electron as unknown as GameElectron;
 }
+
+/**
+ * A run's page: the view `createView` made is a real `WebContentsView`, so its `webContents` is Electron's —
+ * `capturePage`, `sendInputEvent`, `executeJavaScript`, `focus` — narrowed to the loop's port.
+ */
+export const gamePageContents = (view: GameView): GamePageContents | null => {
+  const wc = (view as unknown as WebContentsView).webContents;
+  return wc.isDestroyed() ? null : (wc as unknown as GamePageContents);
+};
 
 /** The window, as the runner's window port. */
 export const asGameWindow = (getWindow: () => BrowserWindow | null): (() => GameWindow | null) =>

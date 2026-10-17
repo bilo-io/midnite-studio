@@ -6,13 +6,16 @@ import type { SpriteHost } from '@midnite/studio-feature-media-sprite/renderer';
 import type { TerrainHost } from '@midnite/studio-feature-media-terrain/renderer';
 import type { MediaTab } from '@midnite/studio-shared';
 
+import { GAMER_GAME_AGENT_UI } from './gamer-game-agent';
+
 /**
  * The host ports Gamer implements (Phase 113 Theme S).
  *
  * Gamer has no repository list: its media lives under one root that main registers as the repository
  * `gamer` (`main/context.ts`), so the media shell is scoped to that id. Its state — the tab it was on,
  * pane widths — persists in Gamer's own localStorage, never in Studio's. The tab features take plain
- * defaults for everything else: no terminal, no agents, no Timeline — those controls are simply not offered.
+ * defaults for everything else: no terminal, no agent roster, no Timeline — those controls are simply not offered
+ * (Games' create and iterate is the exception: its two confinable agent CLIs are offered by id).
  * Sprites and Models share the Model feature's seams; keys come from the runtime vault in main (`main/keys.ts`)
  * and never cross this port.
  */
@@ -65,5 +68,8 @@ export const loadSpriteRenderJob = () => import('@midnite/studio-feature-media-m
  */
 export const GAMER_MODEL_HOST: ModelHost = {};
 
-/** Games with what Gamer has: the plain popover and toast, no agent panel, Timeline or folder export. */
-export const GAMER_GAME_HOST: GameHost = {};
+/**
+ * Games with what Gamer has: the plain popover and toast, no Timeline or folder export — and create and
+ * iterate, with Claude Code or Codex on a private per-run MCP server (`gamer-game-agent.tsx`, `main/agent-host.ts`).
+ */
+export const GAMER_GAME_HOST: GameHost = { agent: GAMER_GAME_AGENT_UI };

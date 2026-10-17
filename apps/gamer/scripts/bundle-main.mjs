@@ -38,6 +38,8 @@ const common = {
     '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
     // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.
     '@midnite/studio-runtime/app-main/bridge-slice': at('../../../packages/runtime/src/app-main/bridge-slice.ts'),
+    // The game-agent shim runs as plain node: the run-shim module alone, never the runtime barrel.
+    '@midnite/studio-runtime/agent-run/run-shim': at('../../../packages/runtime/src/agent-run/run-shim.ts'),
   },
 };
 
@@ -47,6 +49,9 @@ await Promise.all([
   // The two `utilityProcess` entries the Maps and Terrain brokers fork, by the names their script-path helpers give.
   build({ ...common, entryPoints: [at('../main/workers/map-capture-worker.ts')], outfile: at('../dist/map-capture-worker.js') }),
   build({ ...common, entryPoints: [at('../main/workers/terrain-worker.ts')], outfile: at('../dist/terrain-worker.js') }),
+  // A game agent run's stdio MCP shim, spawned by the agent CLI and run by Gamer's binary as plain node.
+  // `.cjs`, not `.js`: this package is `"type": "module"`, and node reads a `.js` beside it as ESM.
+  build({ ...common, entryPoints: [at('../main/workers/game-mcp-shim.ts')], outfile: at('../dist/game-mcp-shim.cjs') }),
 ]);
 
 // New games start from `templates/media-game`; the vendored engines are copied into each game repo. Both ship

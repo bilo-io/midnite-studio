@@ -1,7 +1,9 @@
+// @vitest-environment node
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { TempRepo } from '@midnite/studio-git-engine';
+import type { CliRequest, CliResult, IterativeHost, ScopedDispatch } from '@midnite/studio-runtime';
 import {
   EVENT_CHANNELS,
   GAMES_OLLAMA_WARNING,
@@ -11,13 +13,6 @@ import {
 } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Logger } from '../log';
-import type {
-  CliRequest,
-  CliResult,
-  IterativeHost,
-  ScopedDispatch,
-} from '@midnite/studio-feature-media-model/main';
 import {
   agentCommitSubject,
   applyOllamaEnvelope,
@@ -29,6 +24,7 @@ import {
 } from './game-agent';
 import { createGameAgentService, gitEngineGameAgentGit } from './game-agent-service';
 import type { GameMcpTools } from './game-mcp';
+import type { Logger } from './logger';
 
 /** vitest: commit-per-pass on a real temp repo, with a stub agent CLI and a stub Ollama — no model is ever called. */
 

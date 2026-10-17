@@ -7,7 +7,7 @@ import {
   type ModelPatchOp,
 } from '@midnite/studio-shared';
 
-import { McpToolError } from '@midnite/studio-runtime';
+import { AGENT_RUN_MAX_CALLS, AGENT_RUN_TIMEOUT_MS, McpToolError, type IterativeHost, type ResolvedAgent, type ScopedDispatch } from '@midnite/studio-runtime';
 import type { ModelTools } from './model-mcp';
 
 /**
@@ -32,9 +32,9 @@ import type { ModelTools } from './model-mcp';
 
 export const MODEL_MCP_SERVER_NAME = MCP_SERVER_NAME;
 /** A run is a conversation of many tool calls; 20 minutes is generous without being open-ended. */
-export const MODEL_ITERATIVE_TIMEOUT_MS = 20 * 60_000;
+export const MODEL_ITERATIVE_TIMEOUT_MS = AGENT_RUN_TIMEOUT_MS;
 /** Hard ceiling on tool calls in one run, whatever the agent does. */
-export const MODEL_ITERATIVE_MAX_CALLS = 400;
+export const MODEL_ITERATIVE_MAX_CALLS = AGENT_RUN_MAX_CALLS;
 /**
  * Sculpt and mesh-pipeline calls (Phase 104) are cheap — a stroke is a few milliseconds — so they do not spend the
  * render budget, but they are bounded by it: a run may make this many per refinement pass (never fewer than the
@@ -82,36 +82,8 @@ function answeredOk(value: unknown): boolean {
   }
 }
 
-export type DispatchResult = { ok: true; value: unknown } | { ok: false; kind: 'error' | 'not-found' | 'refused'; message: string };
-export type ScopedDispatch = (tool: string, input: unknown) => Promise<DispatchResult>;
-
-export type ResolvedAgent = {
-  id: string;
-  label: string;
-  command: string;
-  baseArgs: string[];
-  headlessArgs: string[];
-};
-
-export type CliRequest = {
-  command: string;
-  args: string[];
-  cwd: string;
-  timeoutMs: number;
-  onSpawned: (handle: { kill: () => void }) => void;
-};
-export type CliResult =
-  | { ok: true; exitCode: number | null; output: string; stderr: string }
-  | { ok: false; reason: 'not-installed' | 'timed-out' | 'parse-failed'; hint: string };
-
-export type IterativeHost = {
-  /** Start the private MCP server answering `dispatch` on a fresh socket; `message` says why it could not. */
-  startServer: (req: { dispatch: ScopedDispatch }) => Promise<{ ok: true; socketPath: string; close: () => Promise<void> } | { ok: false; message: string }>;
-  /** How an MCP client launches the stdio shim for a socket. */
-  shimLaunch: (socketPath: string) => { command: string; args: string[]; env: Record<string, string> };
-  resolveAgent: (agentId: string) => Promise<ResolvedAgent | null>;
-  runCli: (req: CliRequest) => Promise<CliResult>;
-};
+// The host shape is the runtime's (Phase 113 Theme S): Games' agent loop drives a run through it too.
+export type { CliRequest, CliResult, DispatchResult, IterativeHost, ResolvedAgent, ScopedDispatch } from '@midnite/studio-runtime';
 
 export type IterativeProgress = {
   iteration: { n: number; max: number };

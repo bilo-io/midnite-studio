@@ -5,8 +5,8 @@ import {
   checkGameOllamaPath,
   failure,
   GAME_AGENT_COMMIT_PREFIX,
+  GAME_AGENT_TOOL_IDS,
   GAME_MANIFEST_FILE,
-  GAME_MCP_TOOL_IDS,
   GAME_OLLAMA_CONTEXT_MAX_BYTES,
   GameOllamaEnvelopeSchema,
   isGameMcpToolId,
@@ -19,14 +19,15 @@ import {
   type GitOpResult,
 } from '@midnite/studio-shared';
 
-import { McpToolError } from '../mcp/errors';
 import {
-  MODEL_ITERATIVE_MAX_CALLS,
-  MODEL_ITERATIVE_TIMEOUT_MS,
+  AGENT_RUN_MAX_CALLS,
+  AGENT_RUN_TIMEOUT_MS,
+  McpToolError,
   type IterativeHost,
   type ResolvedAgent,
   type ScopedDispatch,
-} from '@midnite/studio-feature-media-model/main';
+} from '@midnite/studio-runtime';
+
 import type { GameMcpTools } from './game-mcp';
 
 /**
@@ -180,10 +181,8 @@ export async function runGameTurns(opts: {
 /** The built-in file tools a game agent gets. No `Bash`: the runner sandbox is the only place game code runs. */
 export const GAME_AGENT_FILE_TOOLS = ['Read', 'Edit', 'Write', 'Glob', 'Grep'] as const;
 
-/** The `game_*` tools a run's private server answers: everything but creating or opening another game. */
-export const GAME_AGENT_TOOL_IDS: readonly GameMcpToolId[] = GAME_MCP_TOOL_IDS.filter(
-  (id) => id !== 'game_create' && id !== 'game_open',
-);
+/** The `game_*` tools a run's private server answers: everything but creating or opening another game (shared's, since the per-run shim lists them too). */
+export { GAME_AGENT_TOOL_IDS };
 
 export const allowedGameClaudeTools = (): string[] => [
   ...GAME_AGENT_FILE_TOOLS,
@@ -301,7 +300,7 @@ export function createGameAgentDispatch(opts: {
   onAction: (action: string) => void;
   maxCalls?: number;
 }): ScopedDispatch {
-  const max = opts.maxCalls ?? MODEL_ITERATIVE_MAX_CALLS;
+  const max = opts.maxCalls ?? AGENT_RUN_MAX_CALLS;
   let calls = 0;
   return async (tool, rawInput) => {
     if (!isGameMcpToolId(tool) || !GAME_AGENT_TOOL_IDS.includes(tool))
@@ -412,7 +411,7 @@ export async function runGameAgent(opts: {
             command: agent.command,
             args,
             cwd: game.path,
-            timeoutMs: opts.timeoutMs ?? MODEL_ITERATIVE_TIMEOUT_MS,
+            timeoutMs: opts.timeoutMs ?? AGENT_RUN_TIMEOUT_MS,
             onSpawned: (handle) => {
               kill = handle.kill;
               if (signal.aborted) handle.kill();

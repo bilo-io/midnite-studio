@@ -4,7 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dispatchMcpCall } from '../mcp/dispatch';
 import { setGameTools } from '../mcp/game-tools';
 import { resetMcpAllowUiStateForTests, setMcpAllowGamesState } from '../mcp/ui-gate';
-import { createGameMcpTools, toInputEvent, type GameImage, type GameWebContents } from './game-mcp';
+import {
+  createGameMcpTools,
+  toInputEvent,
+  type GameImage,
+  type GamePageContents as GameWebContents,
+} from '@midnite/studio-feature-media-game/main';
+
+/**
+ * The `game_*` tools (now the games feature's, Phase 113 Theme S slice 3) behind Studio's consent gate
+ * (`mcp/game-tools.ts`) and its global dispatcher — so this file stays with the gate, in the desktop.
+ */
 
 /** vitest: the game_* tools through the real dispatcher, with a fake service and a fake `webContents`. */
 

@@ -435,13 +435,17 @@ maps each to the folder it came from and the apps that compose it:
   store, `userData`) so `mediaXMain.register(ctx, …)` and the whole half run under bare vitest.
   **The Model tab is `packages/features/media-model`** (slice 2, below). What Sprites needs from it —
   `useRiggedModels`, `useMapEngine`, `loadRenderJob` — is one spread, `modelSpriteSeams`, that Studio and
-  Gamer both put into `SpriteHost`; the Games agent panel and play-tests stay Studio-side. The pure encoders every one of them reads — PNG/APNG, OBJ/glTF writers, the software
+  Gamer both put into `SpriteHost`. The pure encoders every one of them reads — PNG/APNG, OBJ/glTF writers, the software
   preview renderer, `extractJson` — moved to **`@midnite/studio-runtime`'s media kernel**
-  (`runtime/src/media/`), with one-line re-exports left at the desktop's old paths. **What stays in the
-  desktop:** the `*_mcp` tool files (`map-mcp`, `terrain-mcp`, `sprite-mcp`, `game-mcp`), the
-  play-test code and the game agent (`game-agent*`, which need the Model tab's iterative harness and the
-  MCP server — they reach the feature as `GameAgentsPort`/`GamePlaytestsPort`, and the channels answer "not
-  available" without them), and Studio's Electron shells (`ipc/media-*-handlers.ts`, `games/game-electron.ts`).
+  (`runtime/src/media/`), with one-line re-exports left at the desktop's old paths. **The play-test loop is
+  the games feature's** (slice 3): `game-state`, `playtest`, `game-mcp` (the `game_*` implementations over
+  an injected page port), `game-agent` (the argv builder and commit-per-pass loop) and `game-agent-service`
+  live in `media-game/main/games/`, wired once by `createGameLoop({ runtime, contents })` — play-tests plus
+  the ungated tools, the run's page reached through `contents` (the composer's one cast of a view's
+  `webContents`). The agent thread store is the feature renderer's too (`game-agent-store.ts`). **What stays
+  in the desktop:** the `map-mcp`, `terrain-mcp` and `sprite-mcp` tool files, Studio's consent gate over the
+  global server (`mcp/game-tools.ts`), its iterate panel and Studio's Electron shells
+  (`ipc/media-*-handlers.ts`, `games/game-electron.ts`).
   **Processes:** the map-capture and terrain-build workers are `utilityProcess`es forked lazily by the
   features' brokers and killed on cancel or quit (`dispose()`); the game runs as a sandboxed
   `WebContentsView` in its own partition, closed by `stopAll()` on quit. Each worker has its own small
@@ -464,11 +468,11 @@ maps each to the folder it came from and the apps that compose it:
   reads), `./kernel` (the pure geometry/rig/library helpers), `./render-job` (the three.js job behind
   "Render from 3D", loaded lazily), `./manifest` (pure data) and `./sf3d-worker`. **Processes:** SF3D's ONNX
   inference runs in `sf3d-worker`, a `utilityProcess` Studio forks lazily and kills on cancel (an ORT run
-  cannot be interrupted) or quit (`disposeSf3d`); Gamer forks none. The iterative harness's *host*
-  (`desktop/src/main/media/iterative-host.ts`: a private MCP server on a fresh socket, the stdio shim, the
-  roster) stays in the desktop — it needs the MCP server and the roster — and reaches the feature as the
-  `IterativeHost` the runtime is handed. `McpToolError` moved to the runtime so the tool factories can
-  throw it.
+  cannot be interrupted) or quit (`disposeSf3d`); Gamer forks none. The iterative harness's *host* is the
+  runtime's `IterativeHost` type (`runtime/src/agent-run/host.ts`, slice 3 — Games' agent loop drives runs
+  through it too); Studio's implementation (`desktop/src/main/media/iterative-host.ts`: a private server via
+  its MCP server, its stdio shim, its roster) stays in the desktop, and Gamer has its own for game runs
+  (App 11). `McpToolError` moved to the runtime so the tool factories can throw it.
 - **MCP tool ownership is declared by the feature manifests** (Theme S item 2): `model_*` (the design loop's
   and SF3D's), `game_*`, `terrain_*`, `sprite_*` with `tileset_generate`, `background_generate` and the
   sprite-kind `map_*`, and the Maps tab's own `map_*` are each listed in their feature manifest's
@@ -478,7 +482,10 @@ maps each to the folder it came from and the apps that compose it:
   (`app/src/compose/mcp-tool-manifests.ts`) and Agents' Tools tab, which imports the five new manifests by
   their pure-data `./manifest` entry. Studio lists exactly `MCP_TOOL_IDS`; a Gamer-only install lists
   Gamer's tools; Creator-only lists none of them (`tool-manifests.test.ts` and each feature's manifest test).
-  The tool *handlers* stay in Studio's MCP server — Gamer runs none.
+  Studio's global MCP server answers every tool; Gamer runs no global server — only a private one per game
+  agent run, answering that run's `game_*` tools (App 11). The socket transport both use is the runtime's
+  `startMcpSocketServer` (`runtime/src/mcp/socket-server.ts`; Studio's `mcp/server.ts` wraps it with its
+  default path, tool listing and audit ring).
 
 **The registry contract lives in the frame** (`packages/frame/src/media/`): the descriptor type, and
 the **media kit port** — the shell's plumbing a tab composes (`MediaLayout`, the explorer, the export
@@ -489,7 +496,7 @@ component), and the frame implements none of it. `scripts/layer-boundaries.test.
 cannot reach the shell or a sibling tab, by name or by relative path. Theme R and S tabs follow the
 same shape.
 
-### App 11: Gamer (`apps/gamer`) — Phase 113 Theme S slices 1 and 2
+### App 11: Gamer (`apps/gamer`) — Phase 113 Theme S slices 1–3
 
 Gamer composes media-core with Games (home), Maps, Terrain, Models and Sprites. Its main (`apps/gamer/main/`)
 scopes media to one repository id, `gamer`, resolved to `<userData>/media` (userData under
@@ -507,18 +514,49 @@ unpaired or absent key reads as unset: Maps offers only the keyless tile sources
 methods and Terrain's prompted heightmap say "not available" until Gemini or OpenAI is granted. No value
 reaches the renderer (the preload has no `secrets` namespace; no channel returns one).
 `scripts/app-vault-grants.test.mjs` now names Gamer among the guests. Image generation reuses the Images
-feature's `createImageService` as a library (its providers; Antigravity is off — Gamer runs no agent) and the
+feature's `createImageService` as a library (its providers; Antigravity is off — Gamer runs no agent outside a game run) and the
 Model engines reuse the Models feature's Ollama client, so Gamer's main depends on those two features'
 *main halves* (an app composing a feature it does not own, as Agents does with the Gamer manifests).
-**Models in Gamer:** Ollama is the only engine (no roster, so no iterative runs); SF3D reports "unavailable"
+**Models in Gamer:** Ollama is the only engine (the Model tab's iterative runs are not offered — Gamer's agent
+host serves game runs only); SF3D reports "unavailable"
 (an ONNX worker and a ~1 GB model are not in Gamer's bundle); the explorer, editor, sculpt/paint/rig, export
 and the library work. "Render from 3D" works: Gamer mounts `SpriteRenderHost` at its root, main sends the
-render request to its window, and the three.js job loads from the Model feature on first use. The games
-agent panel and play-tests still answer "not available" (they need the roster and the MCP server). The bundle
-carries `templates/media-game`, the vendored `game-engines` (copied when
+render request to its window, and the three.js job loads from the Model feature on first use.
+
+**The play-test loop in Gamer** (slice 3, Phase 107's loop finished inside Gamer). *Play-tests* run exactly as
+in Studio — `createGameLoop` over Gamer's games runtime, the page reached through `game-electron.ts`'s
+`gamePageContents`: `playtests/*.json` replayed deterministically through the kit hook, frame asserts, a
+screenshot per failure in `playtests/results/`, the toolbar's Playtests menu unchanged. *Create and iterate*
+needs what Studio's iterative host gives it, so Gamer composes its own (`main/agent-host.ts`, an
+`IterativeHost`):
+- **A private MCP server per run** (`createRunServers`, runtime): a fresh `0o700` directory under
+  `<userData>/mcp-runs/` (the OS temp dir when that path is too long for a Unix socket) holding one `0o600`
+  socket whose only dispatcher is `createGameAgentDispatch` — this game's `GAME_AGENT_TOOL_IDS`, fixed to its
+  id or path, under the call ceiling. The run's `finally` closes it and removes the directory; nothing listens
+  before a run or after it. Gamer runs no other MCP server.
+- **Its own shim**, `dist/game-mcp-shim.cjs` (`main/workers/game-mcp-shim.ts` over the runtime's
+  `createRunShim`), run by Gamer's own binary with `ELECTRON_RUN_AS_NODE=1`: `tools/list` names only the game
+  agent's tools, any other id is refused before the socket, and `--socket` is required — there is no
+  global-socket discovery, so it needs no Studio installed and cannot reach Studio's `midnite` server.
+- **The same confinement, from the same code**: `runGameAgent`/`buildGameCliArgs` (the feature's) — Claude
+  Code with `--strict-mcp-config`, `--tools Read,Edit,Write,Glob,Grep`, `--permission-mode dontAsk` and an
+  allow-list of those plus the run's `mcp__midnite__game_*` tools; Codex with `--sandbox workspace-write` and
+  network off; any other CLI refused before anything is spawned or served. Never a shell tool.
+- **The roster** is the built-in entries by id (no `agents.json` overrides); the CLI gets the login shell's
+  PATH (`runtime/src/shell-path.ts`, moved from the desktop) in its own environment only. No API key is
+  injected — Claude Code and Codex use their own sign-in, as in Studio — so `keys.ts`'s allow-list is
+  unchanged.
+- **Kill**: the CLI runs in its own process group (the runtime's `runProcess`), killed whole on cancel; on
+  quit `gameAgents.cancelAll()` and `agentHost.dispose()` kill every live group and close every run's server
+  synchronously. The renderer side is `src/compose/gamer-game-agent.tsx` (Claude Code or Codex, passes,
+  Run/Cancel, the thread and Undo turn) over the feature's thread store. `main/agent-loop.test.ts` drives it
+  end to end with a fake CLI over the built shim.
+
+The bundle carries `templates/media-game`, the vendored `game-engines` (copied when
 `packages/desktop/resources/game-engines` exists — `scripts/vendor-game-engines.mjs` produces it, a copy from
-node_modules with no download) and `terrain-materials`, plus the two worker scripts beside `main.cjs`.
-`MIDNITE_GAMER_SMOKE=1` with `MIDNITE_GAMER_USER_DATA=<tmp>` prints `midnite-gamer:ready` and quits.
+node_modules with no download) and `terrain-materials`, plus the two worker scripts and the game agent shim
+beside `main.cjs`. `MIDNITE_GAMER_SMOKE=1` with `MIDNITE_GAMER_USER_DATA=<tmp>` prints `midnite-gamer:ready`
+and quits; a smoke run composes no agent host, so it starts no server and no agent.
 
 ### App 10: Creator (`apps/creator`)
 

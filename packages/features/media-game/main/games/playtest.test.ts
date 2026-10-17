@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -7,7 +8,8 @@ import { runInNewContext } from 'node:vm';
 import { GamePlaytestResultSchema, GameReplaySchema, type GameSummary } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { encodePngRgba8 } from '../media/png/png-codec';
+import { encodePngRgba8 } from '@midnite/studio-runtime';
+
 import { createPlaytests, type PlaytestPage } from './playtest';
 
 /**

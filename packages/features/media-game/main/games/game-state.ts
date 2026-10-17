@@ -1,6 +1,6 @@
 import { GAME_STATE_MAX_BYTES, GAME_STATE_MAX_DEPTH, GameStateSchema, jsonDepth, type GameState } from '@midnite/studio-shared';
 
-import { McpToolError } from '../mcp/errors';
+import { McpToolError } from '@midnite/studio-runtime';
 
 /**
  * Reading a game's `window.__midnite.getState()` (Theme D, shared with Theme O's

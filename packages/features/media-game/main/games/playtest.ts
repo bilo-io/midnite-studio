@@ -26,9 +26,8 @@ import {
   type RgbaImage,
 } from '@midnite/studio-shared';
 
-import { McpToolError } from '../mcp/errors';
-import { decodePng, encodePngRgba8 } from '../media/png/png-codec';
-import { confineToRoot, joinWithin } from '../fs-scope';
+import { confineToRoot, decodePng, encodePngRgba8, joinWithin, McpToolError } from '@midnite/studio-runtime';
+
 import { clipError, evalWithTimeout, readGameState } from './game-state';
 
 /**
