@@ -6,7 +6,7 @@ import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { useUiStore } from '../../store/ui-store';
 import { useCommitBoxStore } from '../../store/commit-box-store';
-import { GraphView } from './graph-view';
+import { GraphView } from '@midnite/studio-frame/graph';
 
 /**
  * The graph's expand-in-place panels, through the real bridge.

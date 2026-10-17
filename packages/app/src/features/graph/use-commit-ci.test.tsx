@@ -1,18 +1,18 @@
 import type { GraphRow } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '../../../test-support/studio-render';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CI_PAGE_SIZE } from './commit-ci';
-import { useCommitCi } from './use-commit-ci';
+import { CI_PAGE_SIZE } from '@midnite/studio-frame/graph';
+import { useCommitCi } from '@midnite/studio-frame/graph';
 
 const commitRunsFn = vi.fn();
-vi.mock('@midnite/studio-frame', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
-  bridge: () => ({ forge: { commitRuns: commitRunsFn } }),
-  hasBridge: () => true,
-}));
+// The hook is frame code and reads `window.midniteStudio` itself (not through a mockable app module).
+Object.defineProperty(window, 'midniteStudio', {
+  configurable: true,
+  get: () => ({ forge: { commitRuns: commitRunsFn } }),
+});
 
 const shaFor = (index: number) => index.toString(16).padStart(40, '0');
 const rows = Array.from({ length: 10_000 }, (_, index) => ({ commit: { sha: shaFor(index) } })) as unknown as GraphRow[];

@@ -1,6 +1,8 @@
 import type { ChatSummary, RepoDescriptor, TerminalSession } from '@midnite/studio-shared';
 import { useEffect, useMemo } from 'react';
 
+import type { ActiveAgentWorktreeSession } from '@midnite/studio-frame';
+
 import { bridge } from '../../services/bridge';
 import { useRepos } from '../../services/queries';
 import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
@@ -13,28 +15,8 @@ import {
 } from '../terminal/terminal-store';
 import { resolveRepoForPath } from '../terminal/resolve-repo-for-path';
 
-/**
- * One live agent session bound to a worktree — the ref badge's avatar needs
- * more than the boolean `activeAgentWorktreePaths` gives it: which session
- * "Reveal session" should open, and which agent's mark to draw.
- */
-export type ActiveAgentWorktreeSession =
-  | {
-      session: TerminalSession;
-      chat?: undefined;
-      /**
-       * `resolveSessionAgentId(session, liveAgentId)`'s own result — the
-       * *resolved* agent id, so a plain shell probed into running `codex` shows
-       * Codex's mark rather than falling back to Claude's.
-       */
-      agentId: string | undefined;
-    }
-  | {
-      /** A Chats turn running in the chat's own worktree — "Reveal" opens the chat. */
-      chat: { id: string; title: string };
-      session?: undefined;
-      agentId: string | undefined;
-    };
+// Declared in the frame now (the graph's rows carry it); re-exported so this file's importers did not move.
+export type { ActiveAgentWorktreeSession } from '@midnite/studio-frame';
 
 /**
  * Pure resolver: the worktrees a Chats turn is running in right now, each

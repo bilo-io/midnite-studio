@@ -1,12 +1,12 @@
 import type { AgentDefinition, ClosedSession, CommitProvenance } from '@midnite/studio-shared';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '../../../test-support/studio-render';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   getProvenanceTooltip,
   ProvenanceMark,
   resolveProvenanceDetails,
-} from './provenance-mark';
+} from '@midnite/studio-frame/graph';
 
 afterEach(cleanup);
 

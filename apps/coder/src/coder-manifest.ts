@@ -6,8 +6,9 @@ import { testsManifest } from '@midnite/studio-feature-tests/renderer';
  *
  * `accent` matches the launcher catalog's `coder` tile; the glyph is the catalog's too (`LuCode`,
  * rendered by the home view and baked into `resources/icon.icns` by `scripts/make-icon.mjs`). `home`
- * is Reviews, with Actions and Tests beside it. The git graph, sessions, tasks, the API client and
- * the database are the catalog's other features and land in later slices.
+ * is Reviews, with Actions, Tests and the Graph beside it. The Graph is the frame's own git graph (slice 2,
+ * `@midnite/studio-frame/graph`), read-only — so it is a view, not a feature. Sessions, tasks, the API
+ * client and the database are the catalog's other features and land in later slices.
  */
 export const CODER_APP = {
   id: 'coder',
@@ -16,7 +17,7 @@ export const CODER_APP = {
   accent: '#2e7cfa',
   home: 'reviews',
   features: [forgeManifest.feature, testsManifest.feature],
-  views: ['reviews', 'actions', 'tests'],
+  views: ['reviews', 'actions', 'tests', 'graph'],
 } as const;
 
 export type CoderAppManifest = typeof CODER_APP;

@@ -10,7 +10,7 @@ import { useUiStore } from '../../store/ui-store';
 import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { revealSession } from '../terminal/reveal-session';
 import { useAgents } from '../terminal/use-agents';
-import { useHoverGroup } from './ref-badge';
+import { useHoverGroup } from '@midnite/studio-frame/graph';
 
 /**
  * Diameter of the avatar circle — matches `UserAvatar`'s own `size={14}` in

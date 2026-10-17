@@ -7,7 +7,7 @@ import { DialogHost } from '../../components/dialog-host';
 import { useSessionsStore } from '../../store/sessions-store';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
-import { useGraphStore } from '../graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { SessionsView } from './sessions-view';
 
 import { BUILTIN_AGENTS } from '@midnite/studio-shared';

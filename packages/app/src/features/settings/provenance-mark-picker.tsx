@@ -1,15 +1,15 @@
 import type { AgentDefinition, CommitProvenance, GraphRow } from '@midnite/studio-shared';
 
-import { GraphDefs, avatarClipId } from '../graph/graph-defs';
-import { GraphSvg } from '../graph/graph-svg';
-import { graphThemeFor } from '../graph/graph-themes';
+import { GraphDefs, avatarClipId } from '@midnite/studio-frame/graph';
+import { GraphSvg } from '@midnite/studio-frame/graph';
+import { graphThemeFor } from '@midnite/studio-frame/graph';
 import {
   PROVENANCE_MARK_MODES,
   PROVENANCE_SWAP_MS,
   provenanceMarkMode,
   type ProvenanceMarkMode,
-} from '../graph/provenance-display';
-import { ProvenanceMark } from '../graph/provenance-mark';
+} from '@midnite/studio-frame/graph';
+import { ProvenanceMark } from '@midnite/studio-frame/graph';
 import { useUiStore } from '../../store/ui-store';
 
 const LABELS: Record<ProvenanceMarkMode, { label: string; blurb: string }> = {

@@ -14,7 +14,7 @@ import { renderView } from '../../../test-support/render';
 import { useBrowserStore } from '../../store/browser-store';
 import { useSessionsStore } from '../../store/sessions-store';
 import { useUiStore } from '../../store/ui-store';
-import { useGraphStore } from '../graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { CommitDetail } from './commit-detail';
 
 /**

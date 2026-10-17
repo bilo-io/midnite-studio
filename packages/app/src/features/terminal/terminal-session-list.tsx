@@ -23,7 +23,7 @@ import { StateDot } from '../../components/state-dot';
 import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
 import { useActivityGlow, type ActivityGlowSessionInput } from '../activity/use-activity-glow';
-import { useGraphStore } from '../graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { closeSessionWithConfirm } from './close-session';
 import { terminalPanelElement } from './terminal-panel-element';
 import {

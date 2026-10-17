@@ -1,8 +1,8 @@
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render } from '../../../test-support/studio-render';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { GraphHeader } from './graph-header';
-import { graphThemeFor } from './graph-themes';
+import { GraphHeader } from '@midnite/studio-frame/graph';
+import { graphThemeFor } from '@midnite/studio-frame/graph';
 
 /**
  * The narrow-window contract: the commit message keeps a real minimum width,

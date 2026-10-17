@@ -494,14 +494,15 @@ hands the same `key\nvalue\0` records to git-engine's own `parseRemoteConfig`, s
 identically. It never writes and never runs anything. Not honoured: `include`/`includeIf` and the global or
 system config — a remote defined only there reads as "no forge", the honest answer. The forge feature's main
 half takes the remotes through a `remotes(repoId)` port, so it never knows which way they were read. git-engine
-is still bundled for its pure parsers (diff parsing, test discovery over the filesystem), with `dugite` stubbed
-as Agents does.
+was bundled for its pure parsers only (diff parsing, test discovery over the filesystem), with `dugite` stubbed
+as Agents does — until slice 2 gave Coder a graph and, with it, a git (Decision 3 below).
 
 **Coder's repositories.** No Studio repo registry: `main/repos.ts` keeps `{ id, path }` rows in Coder's userData.
 A folder joins only through main's native dialog — `repos.pickDirectory` offers the chosen path once, and
 `repos.open` admits only a path that was offered, resolves it to its real path and requires a `.git`. After that
 every channel takes a `repoId`. The renderer's bridge is `forge`, `forgeProject`, `forgeAccounts`, `tests`,
-`remotes.list` and four `repos` members (`main/bridge.ts`); there is no `secrets`, `fs`, `pty` or `ops` namespace.
+`remotes.list`, five `repos` members (`refs` since slice 2), the `log` stream and four read-only `status` reads
+(`main/bridge.ts`); there is no `secrets`, `fs`, `pty` or `ops` namespace.
 
 **Forge tokens stay in main, behind the grants.** The account registry's vault is the runtime vault as `coder`,
 built with `createVaultGrants({ directory }).authorize` (`scripts/app-vault-grants.test.mjs`). Without a grant to
@@ -518,6 +519,82 @@ Studio. `MIDNITE_CODER_SMOKE=1` with `MIDNITE_CODER_USER_DATA=<tmp>` prints `mid
 moves into the frame with the graph); no Present, agent hand-off, preview deployments, "Fetch to compare",
 suggestion apply or "Run in terminal" (each an optional host member Coder does not have yet); no Settings pages
 (Reviews, Accounts) — those stay in Studio's Settings view.
+
+### Coder slice 2: the git graph and diff in the frame (Phase 113 Theme O)
+
+The commit graph and the diff view are frame-owned now: `packages/app/src/features/graph` and `features/diff`
+moved (`git mv`) to `packages/frame/src/graph/` and `src/diff/`, each with its own entry —
+`@midnite/studio-frame/graph` and `@midnite/studio-frame/diff` — so an app that never shows them carries none of
+it. Studio opens on the graph, so it still imports the view statically (the same chunking as before); Coder
+loads it with `React.lazy`. The light half — the port, the persisted state shapes and defaults, and
+`useGraphStore`, which the status bar, sessions and the watcher read — is on the barrel.
+
+**One port, `GitHost`** (`frame/src/graph/git-host.tsx`), serves both views, installed at an app's root with
+`<GitHostProvider host={...}>`; `useGitHost()` throws without it. Its members, by group:
+
+| Group | Members | Studio (`compose/git-host.tsx`) | Coder (`compose/git-host.tsx`) |
+|---|---|---|---|
+| state | `useUi(selector)` / `getUi()` over `GitUiState`, `useGraphVisible()`, `panelBounds` | `useUiStore` itself (its `UiState` is a structural superset, so tsc holds them together); `activeView === 'graph'` | a persisted store under `midnite-coder.git`; the Graph tab |
+| data | `queryKeys`, `useActiveWorktree`, `useStatus`, `useRefs`, `useStashes?`, `revealStashes?` | its own query hooks and `keys`, so the watcher's invalidation still reaches every graph/diff query | react-query over its read-only bridge; no stashes |
+| chrome | `Tooltip`, `MultiSelectMenu`, `UserAvatar`, `useDismiss`, `useOccluder?`, `useCascadeReveal`, `useRevealCount`, `resolveAgentIcon`, `useLineHighlight?`, `ci?` | the components the views imported before the move; shiki line highlighting; the forge's `StatusGlyph` | small kit versions; plain-text diffs; the forge's glyph |
+| panels | `CommitPanel`, `WorkingTreePanel?`, `ConflictBanner?`, `StashInspector?`, `ConflictStudio?`, `CiRunModal?`, `RefAgentAvatar?` | `CommitInlinePanel`, `WorkingTreeInlinePanel`, the conflict banner and studio, the stash inspector, the CI run modal, the agent avatar | a commit's file list beside the frame's `DiffView` |
+| Studio-only | `useActions?`, `useAgents?`, `useSessionHistory?`, `useAgentWorktreeSessions?`, `onHiddenRowCount?` | `use-graph-actions.ts` (menus, drag-to-merge, checkout, sync), the agent roster and sessions, keep-alive eviction | — |
+
+`GitUiState`'s shapes (`GraphSelection`, `GraphColumns`, `DiffLayout`, the column bounds and defaults) moved to
+`frame/src/graph/graph-ui-state.ts`; `ui-store` imports and re-exports them, so no stored key or value changed.
+`IconButton` and the page-detach mark come from the frame's chrome port. Pure helpers the views used moved with
+one-line re-exports left at their old app paths: `services/avatars`, `lib/perf`, `lib/languages`,
+`lib/reduced-motion`, `lib/use-window-focus`, `lib/use-page-visible`, `components/stat-pill`.
+
+**What stayed in Studio, and why.** Everything that writes or that only Studio has: `features/graph/use-graph-actions.ts`
+(every write op, the write queue, the blast-radius confirm and the force-push gate stay exactly where they were —
+the port only hands the graph `openCommitMenu`/`openRefMenu`/`openDropMenu`/`checkout`/`runSync`),
+`graph-inline-panels.tsx` (it composes Studio's commit inspector and the working copy's commit box),
+`ci-run-modal.tsx` (forge run detail), `ref-agent-avatar.tsx` and `use-agent-worktrees.ts` (terminals and chats),
+`reveal-commit.ts` (the companion's and MCP's "show me this commit"), and `features/diff/line-highlight.ts` (shiki).
+Commit, status, changes, history, stash, conflicts and repos did not move: the graph reaches them only through
+the panel members. Without `useActions` the graph is read-only by construction — no context menu, no drag (the
+drag sensors are disabled), no double-click checkout, no sync buttons on a badge. Studio's component tests for
+the graph stay in `packages/app/src/features/graph/` and render inside `StudioProviders`
+(`test-support/studio-render.tsx`), so they still assert Studio's real tooltip, store and icons; the frame tests
+the view under a read-only host of its own (`graph/test-host.tsx`, `graph-view.read-only.test.tsx`). Nothing that
+renders graph or diff UI is mounted outside `StudioProviders` in `app.tsx`.
+
+**Decision 3 — Coder's git binary: the system git, behind dugite's API, never bundled.** git-engine shells out
+through one seam (`exec/git-exec.ts`, dugite's `GitProcess.exec`/`spawn`). Coder's `scripts/bundle-main.mjs`
+aliases `dugite` to `apps/coder/main/system-git.ts`, which implements those two calls over `child_process` and
+the machine's own git. Why not dugite's bundled git: it is 42 MB (`dugite/git`, darwin-arm64) against a Coder
+bundle of a few MB, `scripts/pack-bundle.mjs` packs only `dist/` with everything inlined, and dugite finds its
+binary from its own package directory at run time — so carrying it means a second directory beside the bundle
+and pointing dugite at it, for an app that only reads. Coder's channels are read-only (`log`, refs, `status`,
+`show`, `diff`, numstat — all under git-engine's `GIT_OPTIONAL_LOCKS=0`), and those behave the same on every
+git Apple has shipped in years (this machine's Command Line Tools: 2.50.1); dugite's version pinning matters for
+the writes and porcelain-drift Studio does, not for these. Resolution order: `MIDNITE_GIT`, Homebrew
+(`/opt/homebrew/bin/git`, `/usr/local/bin/git`), then the active developer directory's own git
+(`xcode-select -p` + `/usr/bin/git`). It never runs `/usr/bin/git` itself — on a Mac without the tools that is an
+`xcrun` shim that pops Apple's install dialog. With no git at all every call answers one sentence — install the
+Command Line Tools with `xcode-select --install`, then reopen the repository — which the log stream carries to
+the graph's "Could not read the history" state. Studio is unchanged: it still bundles dugite.
+
+**Coder's git main is read-only, and registers through the runtime seam.** `apps/coder/main/git.ts`
+(`registerCoderGit(ctx, { pathOf })`, over the runtime's `FeatureMainContext`) answers exactly
+`repo:refs`, `log:start`/`log:cancel` (rows laid out in main by `LaneLayoutSession`, streamed as `log:batch`/`log:done`),
+`status:get`, `commit:detail`, `commit:file-diff` and `commit:stats`. Every path comes from Coder's own repository
+list; a request's `worktreePath` is ignored. **No write op is exposed** — no checkout, commit, push, reset, stash
+or branch — so nothing needs the write queue; a write in Coder would mean bringing `use-graph-actions.ts`' gates
+with it, which is later work. It lives in the app rather than a feature package because only Coder needs it
+today: Studio's `desktop` keeps its richer handlers (worktrees, per-window streams, the watcher). When a second
+app wants the graph, it becomes a shared main half.
+
+**Coder's Graph tab** (`apps/coder/src/views/coder-home.tsx`) loads `GraphView` lazily over `CODER_GIT_HOST`
+(`src/compose/git-host.tsx`); the graph's preferences persist under `midnite-coder.git` (`git-store.ts`), and the
+selected repository is Coder's own, mirrored in so a switch closes the open commit. Opening a commit shows
+`CoderCommitPanel` — its message, its files and the frame's `DiffView`/`DiffToolbar` (split layout and context
+expansion included), in its own lazy chunk. The graph code is a 122 KB chunk of its own; Coder's `dist/` is 2.7 MB.
+**Left out in this slice:** the working-copy row shows but does not open (no commit box), no stash rows, no
+syntax colour or image diffs in a commit's diff (shiki and Studio's file protocol stay in Studio), no agent
+provenance marks (no roster), no live refresh (no watcher: a switch of tab or repository restreams), and Reviews
+still wears the forge's plain diff — swapping in the frame's `DiffView` is a forge-host change for a later slice.
 
 ### Money's brokerage and exchange accounts (Phase 113 Theme P slice 2)
 

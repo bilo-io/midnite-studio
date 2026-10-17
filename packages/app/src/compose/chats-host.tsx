@@ -10,7 +10,7 @@ import { MultiSelectMenu } from '../components/multi-select-menu';
 import { Popover } from '../components/popover';
 import { Tooltip } from '../components/tooltip';
 import { UserAvatar } from '../components/user-avatar';
-import { DiffView } from '../features/diff/diff-view';
+import { DiffView } from '@midnite/studio-frame/diff';
 import { MarkdownBody } from '../features/markdown/markdown-body';
 import { MEDIA_PROMPT_BOX } from '../features/media/prompt-input';
 import { useAgents } from '../features/terminal/use-agents';

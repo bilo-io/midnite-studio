@@ -6,7 +6,7 @@ import type { MockFixtures } from '../../../test-support/mock-bridge';
 import { renderView } from '../../../test-support/render';
 import { ToastHost } from '../../components/toast-host';
 import { ReposPanel } from '../repos/repos-panel';
-import { GraphView } from './graph-view';
+import { GraphView } from '@midnite/studio-frame/graph';
 
 /**
  * Migrated from `e2e/stash-graph.spec.ts` (Phase 82 Theme C, wave 5) —

@@ -44,15 +44,30 @@ import type {
   ActivityTimelineStyle,
 } from '../components/commit-activity-timeline/commit-activity-timeline';
 import {
+  DEFAULT_GRAPH_COLUMN_VISIBILITY,
+  DEFAULT_GRAPH_COLUMNS,
   DEFAULT_GRAPH_DENSITY,
   DEFAULT_GRAPH_THEME,
-  type GraphDensity,
-  type GraphThemeId,
-} from '../features/graph/graph-themes';
-import {
   DEFAULT_PROVENANCE_MARK_MODE,
+  normalizeColumnVisibility,
+  withColumnVisible,
+  type DiffLayout,
+  type GraphColumns,
+  type GraphColumnVisibility,
+  type GraphDensity,
+  type GraphSelection,
+  type GraphThemeId,
   type ProvenanceMarkMode,
-} from '../features/graph/provenance-display';
+} from '@midnite/studio-frame';
+
+// The git graph's and diff's state shapes moved to the frame with them (Phase 113 Theme O).
+export {
+  DEFAULT_GRAPH_COLUMNS,
+  GRAPH_COLUMN_BOUNDS,
+  type DiffLayout,
+  type GraphColumns,
+  type GraphSelection,
+} from '@midnite/studio-frame';
 import {
   DEFAULT_TERMINAL_FONT_SIZE,
   DEFAULT_TERMINAL_LINE_HEIGHT,
@@ -71,12 +86,6 @@ import type { SortState } from '../features/tasks/sort';
 import { REPO_ISSUES_SOURCE_ID } from '../features/tasks/repo-issues-source';
 import { useFileEditorStore } from './file-editor-store';
 
-import {
-  DEFAULT_GRAPH_COLUMN_VISIBILITY,
-  normalizeColumnVisibility,
-  withColumnVisible,
-  type GraphColumnVisibility,
-} from '../features/graph/column-visibility';
 import { cycleBrowserLayout } from '../features/browser/browser-layouts';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
@@ -193,9 +202,6 @@ export type FabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 
 /** How the commit inspector lists a commit's files. */
 export type CommitFileView = 'tree' | 'list';
 
-/** Layout preference for diff rendering: unified (single column) or split (side-by-side). */
-export type DiffLayout = 'unified' | 'split';
-
 /**
  * The literal defaults for the four diff/file-view preferences (Phase 63), named
  * so `diff-page.tsx`'s "Reset to defaults" and this file's own initial state
@@ -207,16 +213,6 @@ export const DIFF_PREF_DEFAULTS = {
   commitFileView: 'tree' as CommitFileView,
   changesFileView: 'list' as CommitFileView,
 };
-
-/** What the graph's detail panel shows (Phase 22 Theme D) — see `graphSelection`. */
-export type GraphSelection =
-  | { kind: 'commit'; sha: string }
-  | { kind: 'stash'; selector: string }
-  /** The Conflict Resolution Studio for one path (Phase 47 Theme D). */
-  | { kind: 'conflict'; path: string }
-  /** The working copy, expanded inline under the graph's uncommitted-changes row. */
-  | { kind: 'working-tree' }
-  | null;
 
 /**
  * `ViewId`/`VIEW_IDS` and `SettingsPageId`/`SETTINGS_PAGE_IDS` moved to
@@ -425,31 +421,6 @@ export type LayoutSizes = {
 };
 
 
-/** Widths of the graph table's fixed-width columns. */
-export type GraphColumns = {
-  /** The BRANCH / TAG column, left of the lane gutter. */
-  branchTag: number;
-  /**
-   * The Author column — rendered only by the styles whose node is a dot
-   * (`showsAuthorColumn`), sized always, so switching style and back does not
-   * lose the width you dragged.
-   */
-  author: number;
-  /**
-   * The lane gutter.
-   *
-   * Unlike its neighbours this width is a REQUEST, not a result: the graph
-   * clamps it to what the current history and style can actually paint, so a
-   * value carried into a repo with more branches quietly widens to keep every
-   * lane visible rather than clipping them. Stored as a plain number all the
-   * same — the default is the widest gutter any style can want, which every
-   * clamp turns into "as wide as the lanes need".
-   */
-  graph: number;
-  date: number;
-  sha: number;
-};
-
 export const DEFAULT_LAYOUT: LayoutSizes = {
   // Wide enough for a repository row's full contents: name, ahead/behind pair,
   // the three sync buttons and the row's three menus. At 256 the name was the
@@ -544,17 +515,6 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   graphInlineHeight: 440,
   // The old Changes view's list width — the same list, in the same place.
   graphInlineListWidth: 384,
-};
-
-export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
-  branchTag: 180,
-  author: 140,
-  // 12 lanes at GitKraken's 30px — the widest natural gutter any style asks
-  // for, so out of the box the clamp resolves it to the exact fit and the
-  // column behaves as it always has until somebody drags it.
-  graph: 360,
-  date: 112,
-  sha: 64,
 };
 
 /** Drag bounds, colocated with the defaults so nothing can clamp to a stale pair. */
@@ -678,18 +638,6 @@ export type TerminalDock = 'bottom' | 'right';
  */
 export const TERMINAL_VIEW_RESERVE = 88;
 
-
-export const GRAPH_COLUMN_BOUNDS = {
-  branchTag: { min: 100, max: 400 },
-  author: { min: 80, max: 320 },
-  date: { min: 72, max: 240 },
-  sha: { min: 56, max: 160 },
-  // The gutter has no entry: both its bounds are geometry — the natural fit of
-  // the loaded history and the point past which its lanes stop being separable
-  // — so they are computed per render in `GraphView` and handed to
-  // `useGraphColumns`. A constant pair here would be a second answer to a
-  // question that already has one.
-} as const;
 
 /**
  * One project board's view state (Phase 52 Theme D) — everything that

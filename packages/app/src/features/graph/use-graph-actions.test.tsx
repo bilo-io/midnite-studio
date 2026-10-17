@@ -9,7 +9,7 @@ import type { MidniteStudioBridge, Ref } from '@midnite/studio-shared';
 import { DialogHost } from '../../components/dialog-host';
 import { ToastHost } from '../../components/toast-host';
 import { useUiStore } from '../../store/ui-store';
-import type { SyncAction } from './ref-sync';
+import type { SyncAction } from '@midnite/studio-frame/graph';
 import { useGraphActions } from './use-graph-actions';
 
 function wrapper({ children }: { children: ReactNode }) {

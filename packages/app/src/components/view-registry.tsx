@@ -11,7 +11,7 @@ import { monitorManifest, monitorViews } from '@midnite/studio-feature-monitor/r
 import { optimizerManifest, optimizerViews } from '@midnite/studio-feature-optimizer/renderer';
 import { vaultManifest, vaultViews } from '@midnite/studio-feature-vault/renderer';
 
-import { GraphView } from '../features/graph/graph-view';
+import { GraphView } from '@midnite/studio-frame/graph';
 import type { ViewId } from '../store/ui-store';
 
 /*

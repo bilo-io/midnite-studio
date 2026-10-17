@@ -1,7 +1,7 @@
 import { useActiveWorktree } from '../../services/use-status';
-import { DiffView } from '../diff/diff-view';
-import { imageDiffSources } from '../diff/image-sources';
-import { useFileDiff } from '../diff/use-file-diff';
+import { DiffView } from '@midnite/studio-frame/diff';
+import { imageDiffSources } from '@midnite/studio-frame/diff';
+import { useFileDiff } from '@midnite/studio-frame/diff';
 
 /**
  * Working-tree / index diff pane.

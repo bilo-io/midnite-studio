@@ -12,7 +12,8 @@ import { CODER_NAME, coderUserData, coderVaultDirectory, isSmoke, SMOKE_READY_LI
  * Midnite Coder's main process — the entry the bundle's `package.json` names (`main.cjs`), run by the
  * launcher's stub as `Resources/app`. One window over the forge and tests features and Coder's own
  * repository list. Forge tokens are read here from the runtime vault, as `coder` behind the grants,
- * and never leave this process; a repository's forge comes from its `.git/config`, read-only.
+ * and never leave this process; a repository's forge comes from its `.git/config`, read-only, and its
+ * graph from the system git, read-only too (`git.ts`, `system-git.ts`).
  */
 const smoke = isSmoke(process.env);
 const override = process.env[USER_DATA_ENV];

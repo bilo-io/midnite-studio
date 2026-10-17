@@ -11,9 +11,14 @@ export default defineConfig({
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
+      '@midnite/studio-frame/graph': at('../../packages/frame/src/graph/index.ts'),
+      '@midnite/studio-frame/diff': at('../../packages/frame/src/diff/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
       '@midnite/studio-runtime': at('../../packages/runtime/src/index.ts'),
       '@midnite/studio-git-engine': at('../../packages/git-engine/src/index.ts'),
+      // As in the bundle (scripts/bundle-main.mjs): git-engine runs the system git through Coder's shim,
+      // so main/git.test.ts proves the read channels against the git Coder actually ships with.
+      dugite: at('./main/system-git.ts'),
       '@midnite/studio-feature-forge/main': at('../../packages/features/forge/main/index.ts'),
       '@midnite/studio-feature-forge/renderer': at('../../packages/features/forge/renderer/index.ts'),
       '@midnite/studio-feature-forge/renderer/testing': at('../../packages/features/forge/renderer/testing.ts'),
@@ -26,6 +31,7 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}', 'main/**/*.test.ts'],
     environment: 'jsdom',
     // No test can act as the user on GitHub (a stale mock once let the real `gh` open an issue).
-    setupFiles: ['../../scripts/vitest-isolate-gh.mjs'],
+    // ...and jsdom gets a ResizeObserver that fires, or the frame's virtualized graph renders no rows.
+    setupFiles: ['../../scripts/vitest-isolate-gh.mjs', '../../packages/frame/src/vitest-setup.ts'],
   },
 });

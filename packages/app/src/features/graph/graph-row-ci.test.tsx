@@ -1,9 +1,9 @@
 import { aggregateCommitRuns, ForgeRunSchema, type GraphRow, type Ref } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '../../../test-support/studio-render';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CommitGraphRow, type GraphRowProps } from './graph-row';
-import { graphThemeFor } from './graph-themes';
+import { CommitGraphRow, type GraphRowProps } from '@midnite/studio-frame/graph';
+import { graphThemeFor } from '@midnite/studio-frame/graph';
 
 const theme = graphThemeFor('default', 'comfortable');
 const SHA = 'd'.repeat(40);

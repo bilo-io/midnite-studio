@@ -7,7 +7,7 @@ import { COMMIT_SHA, fixtures, PARENT_SHA } from '../../../test-support/fixtures
 import { renderView } from '../../../test-support/render';
 import { CommitDetail } from '../commit/commit-detail';
 import { useUiStore } from '../../store/ui-store';
-import { DiffView } from './diff-view';
+import { DiffView } from '@midnite/studio-frame/diff';
 
 /**
  * Migrated from `e2e/diff-view.spec.ts` (Phase 82 Theme C, wave 2) — the

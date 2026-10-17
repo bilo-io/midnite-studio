@@ -28,7 +28,7 @@ import { bridge } from '../../services/bridge';
 import { useActiveWorktree, useFetch, useGitOp, usePull, usePush } from '../../services/use-status';
 import { useRemotes } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
-import { syncActions, type SyncAction } from './ref-sync';
+import { syncActions, type SyncAction } from '@midnite/studio-frame/graph';
 
 /**
  * The commit-row and branch-badge context menus.

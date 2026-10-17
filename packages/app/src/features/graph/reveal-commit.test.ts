@@ -2,7 +2,7 @@ import type { GraphRow } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
-import { useGraphStore } from './graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { COMMIT_BEYOND_CAP_SAY, revealCommit, type RevealCommitDeps } from './reveal-commit';
 
 // vitest/jsdom: store transitions only — the real scroll is the Playwright spec's job.

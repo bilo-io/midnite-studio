@@ -1,10 +1,10 @@
 import type { GraphRow, Ref } from '@midnite/studio-shared';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render } from '../../../test-support/studio-render';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CommitGraphRow } from './graph-row';
-import { graphThemeFor } from './graph-themes';
-import { laneHsl } from './lane-colors';
+import { CommitGraphRow } from '@midnite/studio-frame/graph';
+import { graphThemeFor } from '@midnite/studio-frame/graph';
+import { laneHsl } from '@midnite/studio-frame/graph';
 
 /**
  * The selected row's tint, its ink and the branch halo are all CSS built from

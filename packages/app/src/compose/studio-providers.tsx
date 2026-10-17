@@ -11,12 +11,13 @@ import { OptimizerHostProvider } from '@midnite/studio-feature-optimizer/rendere
 import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
 import { TestsHostProvider } from '@midnite/studio-feature-tests/renderer';
 import { WorkflowsHostProvider } from '@midnite/studio-feature-workflows/renderer';
-import { FrameChromeProvider, KnowledgeHostProvider } from '@midnite/studio-frame';
+import { FrameChromeProvider, GitHostProvider, KnowledgeHostProvider } from '@midnite/studio-frame';
 
 import { STUDIO_CHATS_HOST } from './chats-host';
 import { STUDIO_COUNCILS_HOST } from './councils-host';
 import { STUDIO_FINANCE_HOST } from './finance-host';
 import { STUDIO_FORGE_HOST } from './forge-host';
+import { STUDIO_GIT_HOST } from './git-host';
 import { STUDIO_KNOWLEDGE_HOST } from './knowledge-host';
 import { STUDIO_MEDIA_HOST } from './media-host';
 import { STUDIO_MODELS_HOST } from './models-host';
@@ -54,7 +55,9 @@ export function StudioProviders({ children }: { children: ReactNode }) {
                       <WorkflowsHostProvider host={STUDIO_WORKFLOWS_HOST}>
                         <KnowledgeHostProvider host={STUDIO_KNOWLEDGE_HOST}>
                           <ForgeHostProvider host={STUDIO_FORGE_HOST}>
-                            <TestsHostProvider host={STUDIO_TESTS_HOST}>{children}</TestsHostProvider>
+                            <TestsHostProvider host={STUDIO_TESTS_HOST}>
+                              <GitHostProvider host={STUDIO_GIT_HOST}>{children}</GitHostProvider>
+                            </TestsHostProvider>
                           </ForgeHostProvider>
                         </KnowledgeHostProvider>
                       </WorkflowsHostProvider>

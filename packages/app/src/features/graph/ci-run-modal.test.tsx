@@ -1,9 +1,9 @@
 import { aggregateCommitRuns, ForgeRunSchema, type ForgeRun } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '../../../test-support/studio-render';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CiCell } from './ci-cell';
+import { CiCell } from '@midnite/studio-frame/graph';
 import { CiRunModal } from './ci-run-modal';
 import { StudioProviders } from '../../compose/studio-providers';
 

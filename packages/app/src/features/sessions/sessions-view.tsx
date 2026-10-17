@@ -43,7 +43,7 @@ import { DEFAULT_LAYOUT, LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store'
 import { useSessionsStore } from '../../store/sessions-store';
 import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
 import { useActivityGlow, type ActivityGlowSessionInput } from '../activity/use-activity-glow';
-import { useGraphStore } from '../graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { closeSessionWithConfirm } from '../terminal/close-session';
 import { revealFabSession, revealSession } from '../terminal/reveal-session';
 import {

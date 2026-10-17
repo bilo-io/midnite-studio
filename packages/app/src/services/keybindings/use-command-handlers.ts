@@ -9,7 +9,7 @@ import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
 import { devServerUrl } from '../../features/browser/dev-server';
 import { useDevServer } from '../../features/browser/use-dev-server';
 import { toggleNotes } from '../../features/notes/notes-window';
-import { useGraphStore } from '../../features/graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { useSetupStore } from '../../features/setup/setup-store';
 import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { syncAffordances } from '../../features/status/sync-availability';

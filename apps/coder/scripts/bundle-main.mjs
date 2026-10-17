@@ -23,10 +23,10 @@ const common = {
   alias: {
     '@midnite/studio-feature-forge/main': at('../../../packages/features/forge/main/index.ts'),
     '@midnite/studio-feature-tests/main': at('../../../packages/features/tests/main/index.ts'),
-    // git-engine from source, with `dugite` (a native git) stubbed: Coder reads `.git/config` instead of
-    // running git, and uses git-engine only for its pure parsers. See main/dugite-stub.ts.
+    // git-engine from source, with `dugite` swapped for the system git behind dugite's own API: Coder
+    // bundles no 42 MB git of its own, and only ever reads. See main/system-git.ts and docs/APPS.md.
     '@midnite/studio-git-engine': at('../../../packages/git-engine/src/index.ts'),
-    dugite: at('../main/dugite-stub.ts'),
+    dugite: at('../main/system-git.ts'),
     // The channel names alone, by source path: the shared barrel drags every zod schema (~400 KB) into the preload.
     '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
     // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.

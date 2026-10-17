@@ -163,6 +163,25 @@ export {
 
 export { adoptRenamedPersistKey } from './lib/persist-rename';
 
+// Moved with the git graph (Phase 113 Theme O) — pure, so they left packages/app outright.
+export {
+  __resetAvatars,
+  avatarFor,
+  emailHash,
+  gravatarUrl,
+  hueFor,
+  initialsFor,
+  markAvatarMissing,
+  normaliseEmail,
+  subscribeAvatars,
+  type AvatarState,
+} from './lib/avatars';
+export { __resetPerfMarks, markOnce } from './lib/perf';
+export { languageForFile, previewKindForFile, type PreviewKind } from './lib/languages';
+export { isReducedMotion } from './lib/reduced-motion';
+export { useWindowFocused } from './lib/use-window-focus';
+export { StatPill } from './layout/stat-pill';
+
 // Review-thread anchoring on a diff — pure, shared by every app that draws a pull request's diff.
 export {
   isAnchored,
@@ -250,3 +269,52 @@ export {
 } from './knowledge/knowledge-filters-store';
 export { TAB_GROUP_COLORS as KNOWLEDGE_TAB_GROUP_COLORS } from './knowledge/knowledge-community-colors';
 export { SimplePopover } from './knowledge/simple-popover';
+
+// The git graph and the diff (Phase 113 Theme O) - the host port, the persisted state shapes and their
+// defaults, and the graph store other surfaces read. The views are their own entries,
+// `@midnite/studio-frame/graph` and `@midnite/studio-frame/diff`.
+export {
+  GitHostProvider,
+  resolveGitHost,
+  useGitHost,
+  type GitCascadeReveal,
+  type GitDismissOptions,
+  type GitGraphActions,
+  type GitHost,
+  type GitHostComponents,
+  type GitMultiSelectOption,
+  type GitMultiSelectProps,
+  type GitPanelBounds,
+  type GitPoint,
+  type GitQuery,
+  type GitQueryKeys,
+  type GitTooltipProps,
+  type GitUserAvatarProps,
+  type HighlightToken,
+  type ResolvedGitHost,
+} from './graph/git-host';
+export {
+  DEFAULT_GRAPH_COLUMNS,
+  GRAPH_COLUMN_BOUNDS,
+  type DiffLayout,
+  type GitUiState,
+  type GraphColumns,
+  type GraphSelection,
+} from './graph/graph-ui-state';
+export {
+  DEFAULT_GRAPH_COLUMN_VISIBILITY,
+  normalizeColumnVisibility,
+  withColumnVisible,
+  type GraphColumnVisibility,
+} from './graph/column-visibility';
+export {
+  DEFAULT_GRAPH_DENSITY,
+  DEFAULT_GRAPH_THEME,
+  type GraphDensity,
+  type GraphThemeId,
+} from './graph/graph-themes';
+export { DEFAULT_PROVENANCE_MARK_MODE, type ProvenanceMarkMode } from './graph/provenance-display';
+export { useGraphStore } from './graph/graph-store';
+export type { ActiveAgentWorktreeSession } from './graph/agent-session';
+export type { DragPayload, DropEvent } from './graph/graph-dnd';
+export type { SyncAction } from './graph/ref-sync';

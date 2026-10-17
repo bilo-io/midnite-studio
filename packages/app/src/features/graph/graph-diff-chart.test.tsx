@@ -1,11 +1,11 @@
 import type { GraphRow, Ref } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '../../../test-support/studio-render';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ColumnsMenu } from './columns-menu';
-import { CommitGraphRow, type GraphRowProps } from './graph-row';
-import { GraphHeader, useGraphColumns } from './graph-header';
-import { GRAPH_THEMES } from './graph-themes';
+import { ColumnsMenu } from '@midnite/studio-frame/graph';
+import { CommitGraphRow, type GraphRowProps } from '@midnite/studio-frame/graph';
+import { GraphHeader, useGraphColumns } from '@midnite/studio-frame/graph';
+import { GRAPH_THEMES } from '@midnite/studio-frame/graph';
 import { useUiStore } from '../../store/ui-store';
 
 const SHA = 'e'.repeat(40);

@@ -57,6 +57,10 @@ const MEDIA_DOCS_MAIN = 'packages/features/media-docs/main/index.ts';
 const MEDIA_AUDIO = 'packages/features/media-audio/renderer/audio-tab.tsx';
 const MEDIA_VIDEO_MAIN = 'packages/features/media-video/main/video-service.ts';
 const SLIDES = 'packages/features/slides/renderer/deck.tsx';
+// Phase 113 Theme O slice 2: the git graph and diff live in the frame; Coder's git main is an app's own.
+const FRAME_GRAPH = 'packages/frame/src/graph/ci-cell.tsx';
+const FRAME_DIFF = 'packages/frame/src/diff/diff-cell.tsx';
+const CODER_MAIN = 'apps/coder/main/git.ts';
 
 /** [description, file, import specifier, substring the firing message must contain] */
 const REJECTED = [
@@ -119,6 +123,11 @@ const REJECTED = [
   ["the video service imports electron (it is injected)", MEDIA_VIDEO_MAIN, 'electron', 'FeatureMainContext'],
   ['the deck imports an app (its overlay rules come through the host port)', SLIDES, '@midnite/studio-app/components/use-dismiss', 'Nothing below an app imports one'],
   ['the deck imports a feature (package name)', SLIDES, '@midnite/studio-feature-media-docs/renderer', 'never imports another feature'],
+  // --- Theme O slice 2: the graph's CI glyph and the diff's highlighter come through GitHost -------
+  ['the frame graph imports the forge feature (its CI glyph is a host member)', FRAME_GRAPH, '@midnite/studio-feature-forge/renderer', 'The frame never imports a feature'],
+  ["the frame graph imports Studio's ui-store (relative path)", FRAME_GRAPH, '../../../app/src/store/ui-store', 'Nothing below an app imports one'],
+  ["the frame diff imports Studio's highlighter (package name)", FRAME_DIFF, '@midnite/studio-app/lib/highlighter', 'Nothing below an app imports one'],
+  ['the frame graph imports the runtime', FRAME_GRAPH, '@midnite/studio-runtime', 'main-process only'],
 ];
 
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */
@@ -150,6 +159,11 @@ const ALLOWED = [
   ['a media tab imports the frame (descriptor type + media kit)', MEDIA_DOCS, '@midnite/studio-frame'],
   ['the media shell imports the frame (the contract it implements)', MEDIA_CORE, '@midnite/studio-frame'],
   ['an app imports the media shell and a media tab', APP, '@midnite/studio-feature-media-docs/renderer'],
+  // Theme O slice 2: an app composes the frame's graph and diff entries; Coder's main reads git itself.
+  ['an app imports the frame graph entry', APP, '@midnite/studio-frame/graph'],
+  ['a suite app imports the frame diff entry', SUITE_APP, '@midnite/studio-frame/diff'],
+  ["Coder's git main imports git-engine", CODER_MAIN, '@midnite/studio-git-engine'],
+  ["Coder's git main imports the runtime", CODER_MAIN, '@midnite/studio-runtime'],
 ];
 
 describe('eslint layer boundaries (Phase 113 Theme C)', () => {
