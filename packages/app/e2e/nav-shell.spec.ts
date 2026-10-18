@@ -118,7 +118,7 @@ const panel = (page: Page) => page.getByRole('complementary', { name: 'Repositor
 const heading = (page: Page, name: string) =>
   panel(page).getByRole('heading', { name, exact: true });
 
-test('the rail carries all twenty-one views, Dashboard ungrouped above the rest', async ({ page }) => {
+test('the rail carries all twenty-two views, Dashboard ungrouped above the rest', async ({ page }) => {
   await open(page);
 
   for (const label of [
@@ -130,6 +130,7 @@ test('the rail carries all twenty-one views, Dashboard ungrouped above the rest'
     'Search',
     'Monitor',
     'Vault',
+    'Capture',
     'Tests',
     'Database',
     'API Client',
@@ -175,6 +176,7 @@ test('the rail carries all twenty-one views, Dashboard ungrouped above the rest'
     '/search',
     '/monitor',
     '/vault',
+    '/capture',
     '/tests',
     '/database',
     '/apiClient',
