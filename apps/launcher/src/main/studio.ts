@@ -1,11 +1,11 @@
-import { execFile } from 'node:child_process';
 import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { StudioInstall, StudioStatus } from '../common/bridge';
-import { STUDIO_EXE, studioSearchPaths } from './constants';
+import { STUDIO_BUNDLE_ID, studioSearchPaths } from './constants';
 import { fetchStudioRelease } from './feed';
 import { bundleVersionFromPlist } from './plist';
+import { isAppRunning } from './running';
 
 /** The first installed copy of Studio on the search path, or `null`. */
 export async function findStudio(paths: readonly string[] = studioSearchPaths()): Promise<StudioInstall | null> {
@@ -26,11 +26,9 @@ export async function findStudio(paths: readonly string[] = studioSearchPaths())
   return null;
 }
 
-/** Whether a Studio process is running — `pgrep -x` on the executable name, as install.sh checks. */
+/** Whether Studio is running as an app — not merely its detached pty broker, which shares its process name. */
 export function isStudioRunning(): Promise<boolean> {
-  return new Promise((resolve) => {
-    execFile('pgrep', ['-x', STUDIO_EXE], (error) => resolve(error === null));
-  });
+  return isAppRunning(STUDIO_BUNDLE_ID);
 }
 
 export async function studioStatus(): Promise<StudioStatus> {

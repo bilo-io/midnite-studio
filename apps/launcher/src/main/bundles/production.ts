@@ -1,9 +1,7 @@
-import { execFile } from 'node:child_process';
-import { join } from 'node:path';
-
 import { APP_IDS, appById, type AppId } from '../../common/catalog';
+import { isAppRunning } from '../running';
 import type { BundleOpsDeps } from './install-bundle';
-import { stubIdentity, stubPathFor, type BundleRoots, type StubIdentity } from './layout';
+import { stubIdentity, type BundleRoots, type StubIdentity } from './layout';
 import { runtimeFromExecPath } from './stub';
 
 /**
@@ -18,14 +16,12 @@ export function identityForApp(id: string): StubIdentity | null {
   return stubIdentity(id, appById(id as AppId).name);
 }
 
-/** Whether this app's stub has a live process — matched on its full executable path, not its name. */
-export function stubRunningCheck(roots: BundleRoots): (identity: StubIdentity) => Promise<boolean> {
-  return (identity) =>
-    new Promise((resolve) => {
-      const exe = join(stubPathFor(roots, identity), 'Contents', 'MacOS', identity.executable);
-      // `-f` matches the whole command line; escape the path so `.app` is not a regex wildcard.
-      execFile('pgrep', ['-f', exe.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')], (error) => resolve(error === null));
-    });
+/**
+ * Whether this app's stub is running as an app, asked of LaunchServices by its bundle id. Not `pgrep` on its
+ * executable: a pty broker the stub's runtime started runs from that same path and outlives a quit.
+ */
+export function stubRunningCheck(): (identity: StubIdentity) => Promise<boolean> {
+  return (identity) => isAppRunning(identity.bundleId);
 }
 
 /**
@@ -40,5 +36,5 @@ export function productionBundleDeps(
   if (!env.isPackaged) return null;
   const runtime = runtimeFromExecPath(env.execPath, env.version);
   if (runtime === null) return null;
-  return { roots, runtime, isRunning: stubRunningCheck(roots) };
+  return { roots, runtime, isRunning: stubRunningCheck() };
 }
