@@ -13,6 +13,11 @@ import { createContext, useContext, type ReactNode } from 'react';
  *   and navigates there through its link router. Null in the standalone Capture app: chats are Studio's.
  * - `creator` — Studio's selected repository (read at click time) and how to reveal the imported file in
  *   Creator ▸ Images. Null where there is no Creator.
+ * - `prComment` — the selected repository's open pull requests (the forge's own data, which this feature
+ *   may not read itself) and how to open one's page in the app's embedded browser at its comment box.
+ *   Capture puts the screenshot on the clipboard first; the user pastes it into the forge's own composer
+ *   and presses Comment there. **Nothing is posted or uploaded by Capture** — the forge's API has no
+ *   image upload for comments, and this destination does not pretend otherwise. Null outside Studio.
  */
 export type CaptureCreatorHost = {
   /** The repository a Creator import lands in — Studio's selected one — or null when none is selected. */
@@ -21,13 +26,32 @@ export type CaptureCreatorHost = {
   reveal: (target: { repoId: string; project: string; path: string }) => void;
 };
 
+/** One open pull request, as the PR-comment picker lists it. */
+export type CapturePullRequest = { number: number; title: string; url: string };
+
+export type CapturePrCommentHost = {
+  /** The repository whose pull requests are offered — Studio's selected one — or null when none is. */
+  repo: () => { id: string; name: string } | null;
+  /** That repository's open pull requests, or why they cannot be listed (no forge CLI, signed out…). */
+  pulls: (
+    repoId: string,
+  ) => Promise<{ ok: true; pulls: CapturePullRequest[] } | { ok: false; message: string }>;
+  /** Opens `url` (a PR page, at its comment box) in the app's embedded browser. */
+  open: (target: { repoId: string; url: string }) => void;
+};
+
 export type CaptureHost = {
   sendToChat: ((attachment: { name: string; text: string }) => void) | null;
   creator: CaptureCreatorHost | null;
+  prComment: CapturePrCommentHost | null;
 };
 
 /** The standalone app's host: no other feature to reach. */
-export const STANDALONE_CAPTURE_HOST: CaptureHost = { sendToChat: null, creator: null };
+export const STANDALONE_CAPTURE_HOST: CaptureHost = {
+  sendToChat: null,
+  creator: null,
+  prComment: null,
+};
 
 const CaptureHostContext = createContext<CaptureHost | null>(null);
 

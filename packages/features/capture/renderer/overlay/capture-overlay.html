@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      The desktop region overlay (Phase 113 Theme K slice 2). Its own page and its own CSP, stricter than
+      the app's: one script off disk beside it, the frozen frame as a data: image, and nothing else — no
+      network, no frames, no forms.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
+    />
+    <title>Capture region</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="./capture-overlay.js"></script>
+  </body>
+</html>

@@ -1,5 +1,5 @@
 // vitest/jsdom: DOM text, roles and calls over a mock bridge — no real screen, stream or clipboard.
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createFrameChrome, FrameChromeProvider } from '@midnite/studio-frame';
@@ -16,7 +16,8 @@ import { CapturePage } from './capture-page';
 import { CaptureHostProvider, type CaptureHost } from './host';
 import { rectFromPoints } from './region-picker';
 import type { RecorderMedia } from './recorder';
-import { PR_COMMENT_DEFERRED } from './send-to';
+import { PR_COMMENT_PASTE_NOTE } from './send-to';
+import { selectCapture } from './use-capture';
 
 afterEach(() => {
   cleanup();
@@ -56,8 +57,9 @@ function mount(
   opts: {
     permission?: CapturePermission;
     destinations?: CaptureStatus['destinations'];
-    host?: CaptureHost;
+    host?: Partial<CaptureHost>;
     captures?: CaptureItem[];
+    regionSurface?: 'overlay' | 'in-view';
     clipboard?: ClipboardEntry[];
   } = {},
 ) {
@@ -89,6 +91,15 @@ function mount(
       return { ok: true, value: shot };
     }),
     regionBegin: vi.fn(async () => ({ ok: true, value: frame })),
+    regionStart: vi.fn(async () => ({
+      ok: true,
+      value:
+        opts.regionSurface === 'overlay'
+          ? { surface: 'overlay' as const }
+          : { surface: 'in-view' as const, frame },
+    })),
+    openInStudio: vi.fn(async () => ({ ok: true })),
+    importFromApp: vi.fn(async () => ({ ok: true, value: shot })),
     regionPending: vi.fn(async () => ({ frame: null })),
     regionFinish: vi.fn(async () => ({ ok: true, value: { ...shot, mode: 'region' } })),
     regionCancel: vi.fn(async () => ({ ok: true })),
@@ -134,7 +145,15 @@ function mount(
   const tree = <CapturePage media={fakeMedia()} />;
   render(
     <FrameChromeProvider chrome={kit.chrome}>
-      {opts.host ? <CaptureHostProvider host={opts.host}>{tree}</CaptureHostProvider> : tree}
+      {opts.host ? (
+        <CaptureHostProvider
+          host={{ sendToChat: null, creator: null, prComment: null, ...opts.host }}
+        >
+          {tree}
+        </CaptureHostProvider>
+      ) : (
+        tree
+      )}
       <kit.DialogHost />
     </FrameChromeProvider>,
   );
@@ -183,6 +202,7 @@ describe('CapturePage', () => {
     expect(capture.sources).not.toHaveBeenCalled();
     expect(capture.still).not.toHaveBeenCalled();
     expect(capture.regionBegin).not.toHaveBeenCalled();
+    expect(capture.regionStart).not.toHaveBeenCalled();
   });
 
   it('explains the permission before asking, and asks only when the user presses', async () => {
@@ -212,7 +232,7 @@ describe('CapturePage', () => {
     );
   });
 
-  it('freezes a region, and Cancel drops it', async () => {
+  it('falls back to the in-view picker on the same frame, and Cancel drops it', async () => {
     const { capture } = mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Region' }));
     fireEvent.click(screen.getByRole('button', { name: 'Freeze screen' }));
@@ -222,6 +242,41 @@ describe('CapturePage', () => {
       expect(capture.regionCancel).toHaveBeenCalledWith({ pendingId: 'pend-abcdef' }),
     );
     expect(capture.regionFinish).not.toHaveBeenCalled();
+    expect(capture.regionStart).toHaveBeenCalledTimes(1);
+    expect(capture.regionBegin).not.toHaveBeenCalled();
+  });
+
+  it('waits for the desktop overlay, then selects what it took', async () => {
+    const { capture, emit } = mount({ regionSurface: 'overlay' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Region' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Freeze screen' }));
+    expect(await screen.findByText(/Drag on the screen to choose a region/)).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Choose a region' })).toBeNull();
+    capture.list.mockResolvedValue({ captures: [{ ...shot, mode: 'region' }] });
+    emit({ reason: 'overlay', overlay: { outcome: 'captured', captureId: shot.id } });
+    expect(await screen.findByRole('complementary', { name: 'Preview' })).toBeTruthy();
+    expect(screen.queryByText(/Drag on the screen/)).toBeNull();
+    expect(capture.regionFinish).not.toHaveBeenCalled();
+  });
+
+  it('a dismissed overlay goes back to the tool, and an overlay error is shown', async () => {
+    const { emit } = mount({ regionSurface: 'overlay' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Region' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Freeze screen' }));
+    await screen.findByText(/Drag on the screen/);
+    emit({ reason: 'overlay', overlay: { outcome: 'cancelled' } });
+    expect(await screen.findByRole('button', { name: 'Freeze screen' })).toBeTruthy();
+    emit({
+      reason: 'overlay',
+      overlay: { outcome: 'error', message: 'The frozen frame expired.' },
+    });
+    expect(await screen.findByText('The frozen frame expired.')).toBeTruthy();
+  });
+
+  it('selects a capture the composer asked for before the view mounted', async () => {
+    selectCapture(shot.id);
+    mount({ captures: [shot] });
+    expect(await screen.findByRole('complementary', { name: 'Preview' })).toBeTruthy();
   });
 
   it('opens the region picker on the frame the shortcut froze', async () => {
@@ -283,13 +338,110 @@ describe('CapturePage', () => {
     expect(await screen.findByText(/modifiers then a key/)).toBeTruthy();
   });
 
-  it('standalone: Send to explains it works in Studio, and the PR comment is deferred', async () => {
+  it('without destinations: Send to explains it works in Studio', async () => {
     mount({ captures: [shot] });
     fireEvent.click(await screen.findByRole('button', { name: /Screen · 3024 × 1964/ }));
     expect(await screen.findByText(/Send to works inside Midnite Studio/)).toBeTruthy();
     const pr = screen.getByRole('button', { name: 'Pull-request comment' }) as HTMLButtonElement;
     expect(pr.disabled).toBe(true);
-    expect(pr.title).toBe(PR_COMMENT_DEFERRED);
+    expect(pr.title).toBe('Pull requests are in Midnite Studio.');
+  });
+
+  it('standalone: copies, reveals and opens the capture in Midnite Studio only when pressed', async () => {
+    const { capture } = mount({
+      captures: [shot],
+      destinations: ['clipboard', 'finder', 'studio'],
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Screen · 3024 × 1964/ }));
+    const sendTo = await screen.findByLabelText('Send to');
+    expect(
+      within(sendTo)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual([
+      'Agent chat',
+      'Pull-request comment',
+      'Creator project',
+      'Copy to clipboard',
+      'Show in Finder',
+      'Midnite Studio',
+    ]);
+    expect(within(sendTo).getByText(/open the capture there/)).toBeTruthy();
+    expect(capture.copy).not.toHaveBeenCalled();
+    fireEvent.click(within(sendTo).getByRole('button', { name: 'Copy to clipboard' }));
+    await waitFor(() => expect(capture.copy).toHaveBeenCalledWith({ id: shot.id }));
+    fireEvent.click(within(sendTo).getByRole('button', { name: 'Show in Finder' }));
+    await waitFor(() => expect(capture.reveal).toHaveBeenCalledWith({ id: shot.id }));
+    fireEvent.click(within(sendTo).getByRole('button', { name: 'Midnite Studio' }));
+    await waitFor(() => expect(capture.openInStudio).toHaveBeenCalledWith({ id: shot.id }));
+    expect(await within(sendTo).findByText(/it asks before it imports/)).toBeTruthy();
+  });
+
+  it('a recording cannot go on the clipboard from Send to', async () => {
+    mount({ captures: [clip], destinations: ['clipboard', 'finder'] });
+    fireEvent.click(await screen.findByRole('button', { name: /Recording/ }));
+    const sendTo = await screen.findByLabelText('Send to');
+    const copy = within(sendTo).getByRole('button', {
+      name: 'Copy to clipboard',
+    }) as HTMLButtonElement;
+    expect(copy.disabled).toBe(true);
+  });
+
+  it('in Studio: a PR comment copies the capture and opens the PR at its comment box — nothing posted', async () => {
+    const pulls = vi.fn(async () => ({
+      ok: true as const,
+      pulls: [
+        { number: 7, title: 'Fix the graph', url: 'https://github.com/o/r/pull/7' },
+        { number: 9, title: 'Docs', url: 'https://github.com/o/r/pull/9' },
+      ],
+    }));
+    const open = vi.fn();
+    const { capture } = mount({
+      captures: [shot],
+      destinations: ['chat', 'pr-comment'],
+      host: { prComment: { repo: () => ({ id: 'repo-1', name: 'midnite' }), pulls, open } },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Screen · 3024 × 1964/ }));
+    expect(pulls).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Pull-request comment' }));
+    await waitFor(() => expect(pulls).toHaveBeenCalledWith('repo-1'));
+    expect(capture.copy).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: '#7 Fix the graph' }));
+    await waitFor(() =>
+      expect(open).toHaveBeenCalledWith({
+        repoId: 'repo-1',
+        url: 'https://github.com/o/r/pull/7#new_comment_field',
+      }),
+    );
+    expect(capture.copy).toHaveBeenCalledWith({ id: shot.id });
+    expect(capture.copy.mock.invocationCallOrder[0]!).toBeLessThan(
+      open.mock.invocationCallOrder[0]!,
+    );
+    expect(await screen.findByText(PR_COMMENT_PASTE_NOTE)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '#9 Docs' })).toBeNull();
+  });
+
+  it('in Studio: a PR comment says why when the PRs cannot be listed, or none is selected', async () => {
+    const open = vi.fn();
+    let repo: { id: string; name: string } | null = null;
+    mount({
+      captures: [shot],
+      destinations: ['pr-comment'],
+      host: {
+        prComment: {
+          repo: () => repo,
+          pulls: async () => ({ ok: false as const, message: 'gh is not signed in.' }),
+          open,
+        },
+      },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /Screen · 3024 × 1964/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pull-request comment' }));
+    expect(await screen.findByText(/Select a repository first/)).toBeTruthy();
+    repo = { id: 'repo-1', name: 'midnite' };
+    fireEvent.click(screen.getByRole('button', { name: 'Pull-request comment' }));
+    expect(await screen.findByText('gh is not signed in.')).toBeTruthy();
+    expect(open).not.toHaveBeenCalled();
   });
 
   it('in Studio: prepares a chat draft and imports into Creator only when pressed', async () => {
@@ -298,7 +450,10 @@ describe('CapturePage', () => {
     const { capture } = mount({
       captures: [shot],
       destinations: ['chat', 'creator'],
-      host: { sendToChat, creator: { repo: () => ({ id: 'repo-1', name: 'midnite' }), reveal } },
+      host: {
+        sendToChat,
+        creator: { repo: () => ({ id: 'repo-1', name: 'midnite' }), reveal },
+      },
     });
     fireEvent.click(await screen.findByRole('button', { name: /Screen · 3024 × 1964/ }));
     expect(capture.attachment).not.toHaveBeenCalled();
