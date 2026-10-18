@@ -291,10 +291,12 @@ export const APPS: readonly LauncherApp[] = [
     like: 'Like CleanShot X and Raycast clipboard',
     vision:
       'Grab a region, a window or a whole screen recording — then send it straight where it is needed: an agent chat, a pull-request comment or a Creator project — with a clipboard history so nothing you copied is ever one paste away from gone.',
-    home: view('media', 'image'),
+    // Every leaf lands on the Capture view (Phase 113 Theme K), which holds all three under one page.
+    home: view('capture'),
     features: [
-      { id: 'screenshots', label: 'Screenshots', blurb: 'Regions and windows, annotated', target: view('media', 'image') },
-      { id: 'recordings', label: 'Recordings', blurb: 'Screen captures into clips', target: view('media', 'video') },
+      { id: 'screenshots', label: 'Screenshots', blurb: 'Regions, windows and whole screens', target: view('capture') },
+      { id: 'recordings', label: 'Recordings', blurb: 'A screen or a window, as a clip', target: view('capture') },
+      { id: 'clipboard', label: 'Clipboard', blurb: 'An opt-in history of what you copied', target: view('capture') },
     ],
     runsIn: 'studio',
   },

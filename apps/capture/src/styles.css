@@ -1,0 +1,18 @@
+/* Design tokens (HSL custom properties + the `.dark` block) from @bilo-io/ui, the same
+ * token source Studio uses, so the Capture view wears identical colours here. */
+@import '@bilo-io/ui/styles';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Capture's accent — the launcher catalog's `capture` tile colour. */
+  --capture-accent: #f97316;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
