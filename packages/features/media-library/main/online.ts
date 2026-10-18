@@ -69,8 +69,10 @@ export function createTmdbProvider(fetchFn: typeof fetch): OnlineProvider {
       let poster: OnlineMatch['poster'] = null;
       if (best.poster_path && /^\/[A-Za-z0-9_-]+\.(jpg|png)$/.test(best.poster_path)) {
         const image = await fetchFn(`${IMAGES}${best.poster_path}`);
-        const length = Number(image.headers.get('content-length') ?? '0');
-        if (image.ok && length <= POSTER_CAP_BYTES) {
+        // A length up front, or no poster: without one, `arrayBuffer()` would buffer an unbounded body
+        // before the cap below could refuse it.
+        const length = Number(image.headers.get('content-length') ?? 'NaN');
+        if (image.ok && Number.isFinite(length) && length > 0 && length <= POSTER_CAP_BYTES) {
           const bytes = new Uint8Array(await image.arrayBuffer());
           if (bytes.length > 0 && bytes.length <= POSTER_CAP_BYTES) {
             poster = {
