@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-monitor",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "The monitor feature (Phase 113 Theme I): the Monitor view, the metrics sampler and system health as one package \u2014 Monitor's one feature.",
   "sideEffects": false,

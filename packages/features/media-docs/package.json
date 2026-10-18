@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-media-docs",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "Media \u25b8 Docs as a feature (Phase 113 Theme Q): the markdown doc editor, its explorer, AI-thread model and exports \u2014 Creator first, composed through media-core\u2019s tab registry.",
   "sideEffects": false,

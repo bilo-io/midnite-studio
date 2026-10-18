@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-chats",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "The chats feature (Phase 113 Theme N): the chat store, engines and turn service in main; the Chats view, composer and change review in the renderer. Agents' home view.",
   "sideEffects": false,

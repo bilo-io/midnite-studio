@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-tests",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "The tests feature (Phase 113 Theme O): test discovery, per-suite trust and the runner in main; the Tests view in the renderer. One of Coder's features.",
   "sideEffects": false,
