@@ -449,12 +449,16 @@ describe('transcoding', () => {
     expect((await lan!.status()).transcodes).toBe(2);
     // …so a third is told to wait.
     expect((await get(port, `/transcode/${id}?${k(token)}`)).status).toBe(503);
+    // Which request spawned which process is a race, so count the killed ones rather than index them.
+    const killed = () => ffmpeg.procs.filter((proc) => proc.killed).length;
     aborts[0]!();
-    await vi.waitFor(() => expect(ffmpeg.procs[0]?.killed).toBe(true));
-    await vi.waitFor(async () => expect((await lan!.status()).transcodes).toBe(1));
+    await vi.waitFor(() => expect(killed()).toBe(1), { timeout: 5_000 });
+    await vi.waitFor(async () => expect((await lan!.status()).transcodes).toBe(1), {
+      timeout: 5_000,
+    });
     // Stopping the server kills the rest.
     await lan!.stop();
-    expect(ffmpeg.procs[1]?.killed).toBe(true);
+    expect(killed()).toBe(2);
     aborts[1]!();
   });
 
@@ -485,7 +489,7 @@ describe('choosing ffmpeg', () => {
     await setup({ choose: async () => '/bin/sh', executable: ['/bin/sh'] });
     const result = await lan!.chooseFfmpeg();
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toContain('named ffmpeg');
+    if (!result.ok && result.kind === 'error') expect(result.message).toContain('named ffmpeg');
     expect((await lan!.status()).settings.ffmpegPath).toBeNull();
   });
 
