@@ -23,7 +23,10 @@ export function createShortcutManager(
   options: { enabled: boolean },
 ): ShortcutManager {
   let held: string | null = null;
-  let state: CaptureShortcutState = { accelerator: null, state: options.enabled ? 'off' : 'disabled' };
+  let state: CaptureShortcutState = {
+    accelerator: null,
+    state: options.enabled ? 'off' : 'disabled',
+  };
 
   const release = () => {
     if (held === null) return;
@@ -39,7 +42,11 @@ export function createShortcutManager(
     apply: (accelerator) => {
       release();
       if (!options.enabled) {
-        state = { accelerator, state: 'disabled', message: 'Global shortcuts are off in this run.' };
+        state = {
+          accelerator,
+          state: 'disabled',
+          message: 'Global shortcuts are off in this run.',
+        };
         return state;
       }
       if (accelerator === null) {

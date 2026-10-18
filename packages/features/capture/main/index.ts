@@ -1,12 +1,24 @@
 import { defineFeatureMain } from '@midnite/studio-runtime';
-import { CHANNELS, EVENT_CHANNELS, failure, schemas, type CaptureChanged } from '@midnite/studio-shared';
+import {
+  CHANNELS,
+  EVENT_CHANNELS,
+  failure,
+  schemas,
+  type CaptureChanged,
+} from '@midnite/studio-shared';
 
 import { captureManifest } from '../manifest';
 import type { CaptureService } from './service';
 
 export { captureManifest, type CaptureManifest } from '../manifest';
 export { CAPTURES_DIR, createCaptureStore, type CaptureStore } from './capture-store';
-export { CLIPBOARD_DIR, createClipboardHistory, isMarked, type ClipboardHistory, type Timers } from './clipboard-history';
+export {
+  CLIPBOARD_DIR,
+  createClipboardHistory,
+  isMarked,
+  type ClipboardHistory,
+  type Timers,
+} from './clipboard-history';
 export {
   createDisplayMediaGate,
   type ArmedSource,
@@ -25,7 +37,12 @@ export type {
   CaptureGlobalShortcut,
   CaptureImage,
 } from './port';
-export { createCaptureService, type CaptureCreatorPort, type CaptureService, type CaptureServiceDeps } from './service';
+export {
+  createCaptureService,
+  type CaptureCreatorPort,
+  type CaptureService,
+  type CaptureServiceDeps,
+} from './service';
 export { createShortcutManager, type ShortcutManager } from './shortcut';
 export { NO_DESKTOP_OVERLAY } from './stills';
 
@@ -51,7 +68,7 @@ export const captureMain = defineFeatureMain<CaptureMainServices>({
   register(ctx, { capture }) {
     const invalid = (issue: string) => failure(issue);
     /** Runs an op so that a throw comes back as the error envelope, never across the boundary. */
-    const safe = async <R,>(run: () => Promise<R> | R): Promise<R> => {
+    const safe = async <R>(run: () => Promise<R> | R): Promise<R> => {
       try {
         return await run();
       } catch (error) {
@@ -63,9 +80,8 @@ export const captureMain = defineFeatureMain<CaptureMainServices>({
     ctx.ipc.handleBare(CHANNELS.captureRequestPermission, async () => ({
       permission: await capture.requestPermission(),
     }));
-    ctx.ipc.handleBare(
-      CHANNELS.captureOpenPermissionSettings,
-      () => safe(() => capture.openPermissionSettings()),
+    ctx.ipc.handleBare(CHANNELS.captureOpenPermissionSettings, () =>
+      safe(() => capture.openPermissionSettings()),
     );
     ctx.ipc.handle(
       CHANNELS.captureSources,
@@ -166,10 +182,7 @@ export const captureMain = defineFeatureMain<CaptureMainServices>({
       ({ id }) => safe(() => capture.clipboardRemove(id)),
       invalid,
     );
-    ctx.ipc.handleBare(
-      CHANNELS.captureClipboardClear,
-      () => safe(() => capture.clipboardClear()),
-    );
+    ctx.ipc.handleBare(CHANNELS.captureClipboardClear, () => safe(() => capture.clipboardClear()));
     ctx.ipc.handle(
       CHANNELS.captureAttachment,
       schemas.CaptureAttachmentRequest,

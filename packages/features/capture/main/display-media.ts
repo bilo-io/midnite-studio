@@ -34,12 +34,19 @@ export type DisplayMediaGate = {
   armed: () => ArmedSource | null;
   /** The last source a stream was handed out for (the recording's label). */
   lastStreamed: () => ArmedSource | null;
-  handleRequest: (request: DisplayMediaRequest, callback: (streams: DisplayMediaStreams) => void) => void;
+  handleRequest: (
+    request: DisplayMediaRequest,
+    callback: (streams: DisplayMediaStreams) => void,
+  ) => void;
   /**
    * For the composer's permission request/check handlers: true only for a screen-capture permission
    * (`display-capture`, or `media` asking for video alone) from the app's own main frame while armed.
    */
-  allowsPermission: (permission: string, details: PermissionDetails | undefined, origin?: string) => boolean;
+  allowsPermission: (
+    permission: string,
+    details: PermissionDetails | undefined,
+    origin?: string,
+  ) => boolean;
 };
 
 export type PermissionDetails = {
@@ -91,8 +98,15 @@ export function createDisplayMediaGate(options: {
     handleRequest: (request, callback) => {
       const source = armed();
       const origin = request.securityOrigin ?? originOf(request.frame?.url);
-      const mainFrame = request.frame ? request.frame.parent === null || request.frame.parent === undefined : true;
-      if (!source || request.videoRequested === false || !mainFrame || !options.isAppOrigin(origin)) {
+      const mainFrame = request.frame
+        ? request.frame.parent === null || request.frame.parent === undefined
+        : true;
+      if (
+        !source ||
+        request.videoRequested === false ||
+        !mainFrame ||
+        !options.isAppOrigin(origin)
+      ) {
         callback({});
         return;
       }
@@ -103,7 +117,10 @@ export function createDisplayMediaGate(options: {
     allowsPermission: (permission, details, origin) => {
       if (!armed()) return false;
       if (details?.isMainFrame === false) return false;
-      const from = origin && origin.length > 0 ? origin : (details?.securityOrigin ?? originOf(details?.requestingUrl));
+      const from =
+        origin && origin.length > 0
+          ? origin
+          : (details?.securityOrigin ?? originOf(details?.requestingUrl));
       if (!options.isAppOrigin(from)) return false;
       if (permission === 'display-capture') return true;
       if (permission !== 'media') return false;

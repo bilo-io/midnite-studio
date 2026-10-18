@@ -19,7 +19,11 @@ export type CaptureImage = {
   toJPEG(quality: number): Uint8Array;
   toDataURL(): string;
   crop(rect: { x: number; y: number; width: number; height: number }): CaptureImage;
-  resize(options: { width?: number; height?: number; quality?: 'good' | 'better' | 'best' }): CaptureImage;
+  resize(options: {
+    width?: number;
+    height?: number;
+    quality?: 'good' | 'better' | 'best';
+  }): CaptureImage;
 };
 
 /** A `DesktopCapturerSource`. `display_id` is the screen's id ('' for a window). */

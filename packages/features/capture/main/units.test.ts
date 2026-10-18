@@ -3,7 +3,12 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { captureFileUrl, CLIPBOARD_HISTORY_MAX_ENTRIES, CLIPBOARD_TEXT_MAX_BYTES, clipboardImageUrl } from '@midnite/studio-shared';
+import {
+  captureFileUrl,
+  CLIPBOARD_HISTORY_MAX_ENTRIES,
+  CLIPBOARD_TEXT_MAX_BYTES,
+  clipboardImageUrl,
+} from '@midnite/studio-shared';
 
 import { createCaptureStore } from './capture-store';
 import { createClipboardHistory } from './clipboard-history';
@@ -28,7 +33,9 @@ describe('permission', () => {
     expect(readPermission(fakeElectron({ status: 'granted' }))).toBe('granted');
     expect(readPermission(fakeElectron({ status: 'denied' }))).toBe('denied');
     expect(readPermission(fakeElectron({ status: 'unknown' }))).toBe('not-determined');
-    expect(readPermission(fakeElectron({ platform: 'linux', status: 'denied' }))).toBe('unsupported');
+    expect(readPermission(fakeElectron({ platform: 'linux', status: 'denied' }))).toBe(
+      'unsupported',
+    );
   });
 
   it('asks macOS once, and only while the answer is not in yet — never a prompt loop', async () => {
@@ -39,7 +46,9 @@ describe('permission', () => {
       return [];
     };
     expect(await requestPermission(el)).toBe('granted');
-    expect(el.sourcesCalls).toEqual([{ types: ['screen'], thumbnailSize: { width: 1, height: 1 } }]);
+    expect(el.sourcesCalls).toEqual([
+      { types: ['screen'], thumbnailSize: { width: 1, height: 1 } },
+    ]);
 
     const denied = fakeElectron({ status: 'denied' });
     expect(await requestPermission(denied)).toBe('denied');
@@ -106,8 +115,12 @@ describe('display-media gate', () => {
     const gate = createDisplayMediaGate({ isAppOrigin: app });
     const answers: unknown[] = [];
     gate.arm({ id: 'screen:1:0', name: 'x' });
-    gate.handleRequest({ frame: { url: 'https://evil.example/', parent: null } }, (s) => answers.push(s));
-    gate.handleRequest({ frame: { url: 'file:///app/index.html', parent: {} } }, (s) => answers.push(s));
+    gate.handleRequest({ frame: { url: 'https://evil.example/', parent: null } }, (s) =>
+      answers.push(s),
+    );
+    gate.handleRequest({ frame: { url: 'file:///app/index.html', parent: {} } }, (s) =>
+      answers.push(s),
+    );
     expect(answers).toEqual([{}, {}]);
     expect(gate.armed()).not.toBeNull();
   });
@@ -119,10 +132,16 @@ describe('display-media gate', () => {
     gate.arm({ id: 'screen:1:0', name: 'x' });
     expect(gate.allowsPermission('display-capture', details)).toBe(true);
     expect(gate.allowsPermission('media', { ...details, mediaTypes: ['video'] })).toBe(true);
-    expect(gate.allowsPermission('media', { ...details, mediaTypes: ['video', 'audio'] })).toBe(false);
+    expect(gate.allowsPermission('media', { ...details, mediaTypes: ['video', 'audio'] })).toBe(
+      false,
+    );
     expect(gate.allowsPermission('geolocation', details)).toBe(false);
-    expect(gate.allowsPermission('display-capture', { requestingUrl: 'https://evil.example/' })).toBe(false);
-    expect(gate.allowsPermission('display-capture', { ...details, isMainFrame: false })).toBe(false);
+    expect(
+      gate.allowsPermission('display-capture', { requestingUrl: 'https://evil.example/' }),
+    ).toBe(false);
+    expect(gate.allowsPermission('display-capture', { ...details, isMainFrame: false })).toBe(
+      false,
+    );
   });
 });
 
@@ -132,13 +151,17 @@ describe('stills', () => {
   });
 
   it('turns a fractional region into clamped pixels', () => {
-    expect(regionPixels({ x: 0.25, y: 0.5, width: 0.5, height: 0.25 }, { width: 1000, height: 800 })).toEqual({
+    expect(
+      regionPixels({ x: 0.25, y: 0.5, width: 0.5, height: 0.25 }, { width: 1000, height: 800 }),
+    ).toEqual({
       x: 250,
       y: 400,
       width: 500,
       height: 200,
     });
-    expect(regionPixels({ x: 1, y: 1, width: 0.000001, height: 0.000001 }, { width: 10, height: 10 })).toEqual({
+    expect(
+      regionPixels({ x: 1, y: 1, width: 0.000001, height: 0.000001 }, { width: 10, height: 10 }),
+    ).toEqual({
       x: 9,
       y: 9,
       width: 1,
@@ -166,9 +189,23 @@ describe('capture store', () => {
   it('names files itself, lists newest first and forgets a file deleted behind its back', async () => {
     let t = new Date(2026, 9, 18, 9, 30, 0);
     const store = createCaptureStore(dir, () => t);
-    const a = await store.add({ id: store.newId(), kind: 'screenshot', mode: 'screen', mime: 'image/png', createdAt: 1, bytes: new Uint8Array([1]) });
+    const a = await store.add({
+      id: store.newId(),
+      kind: 'screenshot',
+      mode: 'screen',
+      mime: 'image/png',
+      createdAt: 1,
+      bytes: new Uint8Array([1]),
+    });
     t = new Date(2026, 9, 18, 9, 31, 0);
-    const b = await store.add({ id: store.newId(), kind: 'screenshot', mode: 'window', mime: 'image/png', createdAt: 2, bytes: new Uint8Array([2, 2]) });
+    const b = await store.add({
+      id: store.newId(),
+      kind: 'screenshot',
+      mode: 'window',
+      mime: 'image/png',
+      createdAt: 2,
+      bytes: new Uint8Array([2, 2]),
+    });
     expect(a.fileName).toMatch(/^cap-20261018-093000-[0-9a-f]{8}\.png$/);
     expect((await store.list()).map((c) => c.id)).toEqual([b.id, a.id]);
     expect(b.bytes).toBe(2);
@@ -182,16 +219,36 @@ describe('capture store', () => {
 
 describe('settings store', () => {
   it('starts from the composer defaults and keeps a patch', async () => {
-    const settings = createSettingsStore(dir, { shortcut: null, clipboardHistory: false, hideWindows: true });
-    expect(await settings.read()).toEqual({ shortcut: null, clipboardHistory: false, hideWindows: true });
+    const settings = createSettingsStore(dir, {
+      shortcut: null,
+      clipboardHistory: false,
+      hideWindows: true,
+    });
+    expect(await settings.read()).toEqual({
+      shortcut: null,
+      clipboardHistory: false,
+      hideWindows: true,
+    });
     await settings.write({ clipboardHistory: true });
-    const again = createSettingsStore(dir, { shortcut: 'Alt+Shift+S', clipboardHistory: false, hideWindows: true });
-    expect(await again.read()).toEqual({ shortcut: null, clipboardHistory: true, hideWindows: true });
+    const again = createSettingsStore(dir, {
+      shortcut: 'Alt+Shift+S',
+      clipboardHistory: false,
+      hideWindows: true,
+    });
+    expect(await again.read()).toEqual({
+      shortcut: null,
+      clipboardHistory: true,
+      hideWindows: true,
+    });
   });
 
   it('falls back to defaults on a corrupt file', async () => {
     await writeFile(join(dir, 'settings.json'), '{nope');
-    const settings = createSettingsStore(dir, { shortcut: null, clipboardHistory: false, hideWindows: false });
+    const settings = createSettingsStore(dir, {
+      shortcut: null,
+      clipboardHistory: false,
+      hideWindows: false,
+    });
     expect((await settings.read()).hideWindows).toBe(false);
   });
 });
@@ -208,7 +265,14 @@ describe('recording writer', () => {
     expect(await readdir(join(store.dir, PARTIAL_DIR))).toHaveLength(1);
     const done = await writer.finish(id, 1500, { name: 'Terminal', mode: 'window' });
     if (!done.ok) throw new Error('finish failed');
-    expect(done.value).toMatchObject({ kind: 'recording', mode: 'window', mime: 'video/webm', bytes: 80, durationMs: 1500, sourceName: 'Terminal' });
+    expect(done.value).toMatchObject({
+      kind: 'recording',
+      mode: 'window',
+      mime: 'video/webm',
+      bytes: 80,
+      durationMs: 1500,
+      sourceName: 'Terminal',
+    });
     expect(await readdir(join(store.dir, PARTIAL_DIR))).toEqual([]);
     expect((await readFile(store.pathOf(done.value))).byteLength).toBe(80);
   });
@@ -218,7 +282,10 @@ describe('recording writer', () => {
     const writer = createRecordingWriter(store);
     const begun = await writer.begin('video/webm');
     if (!begun.ok) throw new Error('begin failed');
-    const result = await writer.chunk(begun.value.recordingId, Uint8Array.from([0x89, 0x50, 0x4e, 0x47]));
+    const result = await writer.chunk(
+      begun.value.recordingId,
+      Uint8Array.from([0x89, 0x50, 0x4e, 0x47]),
+    );
     expect(result).toMatchObject({ ok: false, message: 'A recording must be WebM.' });
     expect(await readdir(join(store.dir, PARTIAL_DIR))).toEqual([]);
     expect(await store.list()).toEqual([]);
@@ -283,13 +350,19 @@ describe('clipboard history', () => {
     expect(await history.tick()).toBe(false);
     el.clip.set({ text: 'copied later' });
     expect(await history.tick()).toBe(true);
-    expect((await history.list()).map((e) => (e.kind === 'text' ? e.text : e.id))).toEqual(['copied later']);
+    expect((await history.list()).map((e) => (e.kind === 'text' ? e.text : e.id))).toEqual([
+      'copied later',
+    ]);
     history.stop();
   });
 
   it('never keeps a concealed, transient or auto-generated entry', async () => {
     const { el, history } = make();
-    for (const marker of ['org.nspasteboard.ConcealedType', 'org.nspasteboard.TransientType', 'org.nspasteboard.AutoGeneratedType']) {
+    for (const marker of [
+      'org.nspasteboard.ConcealedType',
+      'org.nspasteboard.TransientType',
+      'org.nspasteboard.AutoGeneratedType',
+    ]) {
       el.clip.set({ text: `secret via ${marker}`, markers: [marker] });
       expect(await history.tick()).toBe(false);
       el.clip.set({ text: `secret listed ${marker}`, formats: ['text/plain', marker] });
@@ -312,7 +385,11 @@ describe('clipboard history', () => {
     el.clip.set({ text: 'one' });
     await history.tick();
     const entries = await history.list();
-    expect(entries.map((e) => (e.kind === 'text' ? e.text : 'image'))).toEqual(['one', 'two', 'image']);
+    expect(entries.map((e) => (e.kind === 'text' ? e.text : 'image'))).toEqual([
+      'one',
+      'two',
+      'image',
+    ]);
     const image = entries[2]!;
     expect(image).toMatchObject({ kind: 'image', width: 40, height: 30 });
     expect(await readdir(join(dir, 'clipboard'))).toContain(`${image.id}.png`);
@@ -358,7 +435,9 @@ describe('file resolver', () => {
     expect(resolveCaptureFileUrl(dirs, captureFileUrl('cap-20261018-093000-abcdef12.png'))).toBe(
       '/data/captures/cap-20261018-093000-abcdef12.png',
     );
-    expect(resolveCaptureFileUrl(dirs, clipboardImageUrl('clip-abcdef'))).toBe('/data/clipboard/clip-abcdef.png');
+    expect(resolveCaptureFileUrl(dirs, clipboardImageUrl('clip-abcdef'))).toBe(
+      '/data/clipboard/clip-abcdef.png',
+    );
     for (const bad of [
       'mstudio-file://capture/captures/..%2Fsettings.json',
       'mstudio-file://capture/captures/index.json',
@@ -374,7 +453,16 @@ describe('file resolver', () => {
   it('serves real files from a store directory', async () => {
     const store = createCaptureStore(dir);
     await mkdir(store.dir, { recursive: true });
-    const item = await store.add({ id: store.newId(), kind: 'screenshot', mode: 'screen', mime: 'image/png', createdAt: 1, bytes: new Uint8Array([9]) });
-    expect(resolveCaptureFileUrl({ captures: store.dir, clipboard: '' }, captureFileUrl(item.fileName))).toBe(store.pathOf(item));
+    const item = await store.add({
+      id: store.newId(),
+      kind: 'screenshot',
+      mode: 'screen',
+      mime: 'image/png',
+      createdAt: 1,
+      bytes: new Uint8Array([9]),
+    });
+    expect(
+      resolveCaptureFileUrl({ captures: store.dir, clipboard: '' }, captureFileUrl(item.fileName)),
+    ).toBe(store.pathOf(item));
   });
 });

@@ -81,7 +81,14 @@ describe('capture service', () => {
   it('takes a full-screen still with its own windows hidden for the moment of the grab', async () => {
     const { el, service, events } = make();
     const item = value(await service.still({ mode: 'screen', sourceId: 'screen:2:0' }));
-    expect(item).toMatchObject({ kind: 'screenshot', mode: 'screen', mime: 'image/png', width: 5120, height: 2880, sourceName: 'Studio Display' });
+    expect(item).toMatchObject({
+      kind: 'screenshot',
+      mode: 'screen',
+      mime: 'image/png',
+      width: 5120,
+      height: 2880,
+      sourceName: 'Studio Display',
+    });
     expect(el.hidden).toBe(1);
     expect(el.restored).toBe(1);
     expect(el.sourcesCalls.at(-1)?.thumbnailSize).toEqual({ width: 5120, height: 2880 });
@@ -102,10 +109,14 @@ describe('capture service', () => {
     const frame = value(await service.regionBegin());
     expect(frame).toMatchObject({ width: 5120, height: 2880, sourceName: 'Studio Display' });
     expect(service.regionPending()?.pendingId).toBe(frame.pendingId);
-    const item = value(await service.regionFinish(frame.pendingId, { x: 0.5, y: 0.5, width: 0.25, height: 0.25 }));
+    const item = value(
+      await service.regionFinish(frame.pendingId, { x: 0.5, y: 0.5, width: 0.25, height: 0.25 }),
+    );
     expect(item).toMatchObject({ mode: 'region', width: 1280, height: 720 });
     expect(service.regionPending()).toBeNull();
-    expect((await service.regionFinish(frame.pendingId, { x: 0, y: 0, width: 1, height: 1 })).ok).toBe(false);
+    expect(
+      (await service.regionFinish(frame.pendingId, { x: 0, y: 0, width: 1, height: 1 })).ok,
+    ).toBe(false);
   });
 
   it('a cancelled region leaves nothing on disk', async () => {
@@ -125,7 +136,13 @@ describe('capture service', () => {
     const { recordingId } = value(await service.recordingBegin('video/webm;codecs=vp9'));
     expect((await service.recordingChunk(recordingId, webmChunk(40))).ok).toBe(true);
     const item = value(await service.recordingFinish(recordingId, 2000));
-    expect(item).toMatchObject({ kind: 'recording', mode: 'window', sourceName: 'Terminal', durationMs: 2000, bytes: 40 });
+    expect(item).toMatchObject({
+      kind: 'recording',
+      mode: 'window',
+      sourceName: 'Terminal',
+      durationMs: 2000,
+      bytes: 40,
+    });
     expect(events).toContainEqual({ reason: 'captures', captureId: item.id });
   });
 
@@ -150,9 +167,13 @@ describe('capture service', () => {
   it('registers the chord on change, reports a conflict, and releases it on dispose', async () => {
     const { el, service } = make();
     el.taken.add('CommandOrControl+Shift+4');
-    const conflict = value(await service.setSettings({ shortcut: 'CommandOrControl+Shift+4' })) as CaptureStatus;
+    const conflict = value(
+      await service.setSettings({ shortcut: 'CommandOrControl+Shift+4' }),
+    ) as CaptureStatus;
     expect(conflict.shortcut.state).toBe('conflict');
-    const ok = value(await service.setSettings({ shortcut: 'CommandOrControl+Shift+2' })) as CaptureStatus;
+    const ok = value(
+      await service.setSettings({ shortcut: 'CommandOrControl+Shift+2' }),
+    ) as CaptureStatus;
     expect(ok.shortcut.state).toBe('registered');
     expect([...el.shortcuts.keys()]).toEqual(['CommandOrControl+Shift+2']);
     await service.dispose();
@@ -195,7 +216,8 @@ describe('capture service', () => {
   });
 
   it('gives a chat a text attachment naming the file, and imports a screenshot into Creator', async () => {
-    const imports: Array<{ repoId: string; project: string; fileName: string; bytes: Uint8Array }> = [];
+    const imports: Array<{ repoId: string; project: string; fileName: string; bytes: Uint8Array }> =
+      [];
     const { service } = make({
       destinations: ['chat'],
       creator: {
@@ -206,14 +228,22 @@ describe('capture service', () => {
       },
     });
     expect((await service.status()).destinations).toEqual(['chat', 'creator']);
-    const item: CaptureItem = value(await service.still({ mode: 'screen', sourceId: 'screen:1:0' }));
+    const item: CaptureItem = value(
+      await service.still({ mode: 'screen', sourceId: 'screen:1:0' }),
+    );
     const attachment = value(await service.attachment(item.id));
     expect(attachment.name).toBe(item.fileName);
     expect(attachment.text).toContain(service.store.pathOf(item));
     const sent = value(await service.sendToCreator(item.id, 'repo-1'));
     expect(sent).toEqual({ project: 'Captures', path: item.fileName });
-    expect(imports[0]).toMatchObject({ repoId: 'repo-1', project: 'Captures', fileName: item.fileName });
-    expect(Buffer.from(imports[0]!.bytes).equals(await readFile(service.store.pathOf(item)))).toBe(true);
+    expect(imports[0]).toMatchObject({
+      repoId: 'repo-1',
+      project: 'Captures',
+      fileName: item.fileName,
+    });
+    expect(Buffer.from(imports[0]!.bytes).equals(await readFile(service.store.pathOf(item)))).toBe(
+      true,
+    );
   });
 
   it('offers no destinations by default (the standalone app)', async () => {
@@ -230,10 +260,18 @@ describe('capture main', () => {
     const { service } = make();
     captureMain.register(ctx, { capture: service });
     expect([...ctx.channels].sort()).toEqual([...captureManifest.ipc].sort());
-    expect(await ctx.invoke(CHANNELS.captureStill, { mode: 'screen', sourceId: '../../etc' })).toMatchObject({ ok: false });
-    expect(await ctx.invoke(CHANNELS.captureDelete, { id: 'index.json' })).toMatchObject({ ok: false });
-    expect(await ctx.invoke(CHANNELS.captureSettingsSet, { shortcut: 'rm -rf /' })).toMatchObject({ ok: false });
-    expect(await ctx.invoke(CHANNELS.captureRecordingBegin, { mime: 'image/png' })).toMatchObject({ ok: false });
+    expect(
+      await ctx.invoke(CHANNELS.captureStill, { mode: 'screen', sourceId: '../../etc' }),
+    ).toMatchObject({ ok: false });
+    expect(await ctx.invoke(CHANNELS.captureDelete, { id: 'index.json' })).toMatchObject({
+      ok: false,
+    });
+    expect(await ctx.invoke(CHANNELS.captureSettingsSet, { shortcut: 'rm -rf /' })).toMatchObject({
+      ok: false,
+    });
+    expect(await ctx.invoke(CHANNELS.captureRecordingBegin, { mime: 'image/png' })).toMatchObject({
+      ok: false,
+    });
     expect(await ctx.invoke(CHANNELS.captureList)).toEqual({ captures: [] });
     expect(await ctx.invoke(CHANNELS.captureRegionPending)).toEqual({ frame: null });
   });

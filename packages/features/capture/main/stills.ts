@@ -1,6 +1,11 @@
 import { randomBytes } from 'node:crypto';
 
-import type { CaptureRegionFrame, CaptureRegionRect, CaptureSource, CaptureSourceKind } from '@midnite/studio-shared';
+import type {
+  CaptureRegionFrame,
+  CaptureRegionRect,
+  CaptureSource,
+  CaptureSourceKind,
+} from '@midnite/studio-shared';
 
 import type { CaptureDesktopSource, CaptureElectron, CaptureImage } from './port';
 
@@ -21,7 +26,10 @@ import type { CaptureDesktopSource, CaptureElectron, CaptureImage } from './port
 export const NO_DESKTOP_OVERLAY = { kind: 'in-window-frozen-frame' } as const;
 
 /** Pixel size of the largest display, the thumbnail size a full-resolution grab asks for. */
-export function fullPixelSize(el: Pick<CaptureElectron, 'displays'>): { width: number; height: number } {
+export function fullPixelSize(el: Pick<CaptureElectron, 'displays'>): {
+  width: number;
+  height: number;
+} {
   let width = 1;
   let height = 1;
   for (const d of el.displays()) {
@@ -32,8 +40,14 @@ export function fullPixelSize(el: Pick<CaptureElectron, 'displays'>): { width: n
 }
 
 /** The picker's list: small thumbnails as data URLs. */
-export async function listSources(el: CaptureElectron, kind: CaptureSourceKind): Promise<CaptureSource[]> {
-  const sources = await el.getSources({ types: [kind], thumbnailSize: { width: 320, height: 200 } });
+export async function listSources(
+  el: CaptureElectron,
+  kind: CaptureSourceKind,
+): Promise<CaptureSource[]> {
+  const sources = await el.getSources({
+    types: [kind],
+    thumbnailSize: { width: 320, height: 200 },
+  });
   return sources
     .filter((s) => s.id.startsWith(`${kind}:`))
     .map((s) => ({
@@ -57,7 +71,9 @@ export async function grabSource(
 }
 
 /** The screen under the pointer, as a source match. */
-export function underPointer(el: Pick<CaptureElectron, 'displayUnderPointer'>): (s: CaptureDesktopSource) => boolean {
+export function underPointer(
+  el: Pick<CaptureElectron, 'displayUnderPointer'>,
+): (s: CaptureDesktopSource) => boolean {
   const display = String(el.displayUnderPointer().id);
   return (s) => s.display_id === display;
 }
@@ -86,7 +102,10 @@ export function createRegionState(now: () => number = Date.now): RegionState {
   return {
     freeze: (image, sourceName) => {
       const { width, height } = image.getSize();
-      const scaled = width > PREVIEW_MAX_WIDTH ? image.resize({ width: PREVIEW_MAX_WIDTH, quality: 'good' }) : image;
+      const scaled =
+        width > PREVIEW_MAX_WIDTH
+          ? image.resize({ width: PREVIEW_MAX_WIDTH, quality: 'good' })
+          : image;
       const jpeg = scaled.toJPEG(80);
       const frame: CaptureRegionFrame = {
         pendingId: `pend-${randomBytes(6).toString('hex')}`,

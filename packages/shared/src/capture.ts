@@ -77,7 +77,13 @@ export type CaptureItem = z.infer<typeof CaptureItemSchema>;
  * macOS's Screen Recording permission, as `systemPreferences.getMediaAccessStatus('screen')` reports it.
  * `unsupported` is any platform without the gate (nothing to ask for).
  */
-export const CAPTURE_PERMISSIONS = ['granted', 'not-determined', 'denied', 'restricted', 'unsupported'] as const;
+export const CAPTURE_PERMISSIONS = [
+  'granted',
+  'not-determined',
+  'denied',
+  'restricted',
+  'unsupported',
+] as const;
 export const CapturePermissionSchema = z.enum(CAPTURE_PERMISSIONS);
 export type CapturePermission = z.infer<typeof CapturePermissionSchema>;
 
@@ -126,11 +132,16 @@ export const CaptureRegionRectSchema = z
     width: z.number().gt(0).max(1),
     height: z.number().gt(0).max(1),
   })
-  .refine((r) => r.x + r.width <= 1.000001 && r.y + r.height <= 1.000001, 'region runs off the frame');
+  .refine(
+    (r) => r.x + r.width <= 1.000001 && r.y + r.height <= 1.000001,
+    'region runs off the frame',
+  );
 export type CaptureRegionRect = z.infer<typeof CaptureRegionRectSchema>;
 
 /** Freezes one screen (absent: the screen under the pointer) for the region picker. */
-export const CaptureRegionBeginRequestSchema = z.object({ sourceId: CaptureSourceIdSchema.optional() });
+export const CaptureRegionBeginRequestSchema = z.object({
+  sourceId: CaptureSourceIdSchema.optional(),
+});
 export const CaptureRegionFrameSchema = z.object({
   pendingId: z.string().regex(/^pend-[0-9a-f]{6,32}$/),
   /** A scaled-down `data:image/jpeg` of the frozen frame, for the picker only. */
@@ -145,8 +156,12 @@ export const CaptureRegionFinishRequestSchema = z.object({
   rect: CaptureRegionRectSchema,
 });
 /** The frame the shortcut froze and the picker has not taken yet, if any. */
-export const CaptureRegionPendingResponseSchema = z.object({ frame: CaptureRegionFrameSchema.nullable() });
-export const CaptureRegionCancelRequestSchema = z.object({ pendingId: CaptureRegionFrameSchema.shape.pendingId });
+export const CaptureRegionPendingResponseSchema = z.object({
+  frame: CaptureRegionFrameSchema.nullable(),
+});
+export const CaptureRegionCancelRequestSchema = z.object({
+  pendingId: CaptureRegionFrameSchema.shape.pendingId,
+});
 
 // --- recordings ------------------------------------------------------------------
 
@@ -172,7 +187,9 @@ export const CaptureRecordingFinishRequestSchema = z.object({
   recordingId: CaptureRecordingIdSchema,
   durationMs: z.number().int().nonnegative(),
 });
-export const CaptureRecordingAbortRequestSchema = z.object({ recordingId: CaptureRecordingIdSchema });
+export const CaptureRecordingAbortRequestSchema = z.object({
+  recordingId: CaptureRecordingIdSchema,
+});
 
 // --- the captures ------------------------------------------------------------------
 
@@ -200,9 +217,15 @@ export const CAPTURE_DESTINATION_LABELS: Record<CaptureDestination, string> = {
  * What a chat draft attaches for a capture: a text attachment naming the file, which an agent CLI reads
  * from disk. The path is main's, from its own store — the renderer asks by id.
  */
-export const CaptureAttachmentResponseSchema = z.object({ name: z.string().min(1), text: z.string().min(1) });
+export const CaptureAttachmentResponseSchema = z.object({
+  name: z.string().min(1),
+  text: z.string().min(1),
+});
 /** Imports a screenshot into the repository's Creator ▸ Images project {@link CAPTURE_CREATOR_PROJECT}. */
-export const CaptureSendToCreatorRequestSchema = z.object({ id: CaptureIdSchema, repoId: z.string().min(1) });
+export const CaptureSendToCreatorRequestSchema = z.object({
+  id: CaptureIdSchema,
+  repoId: z.string().min(1),
+});
 export const CaptureSendToCreatorResultSchema = z.object({ project: z.string(), path: z.string() });
 /** The Creator ▸ Images project a capture is imported into. */
 export const CAPTURE_CREATOR_PROJECT = 'Captures';

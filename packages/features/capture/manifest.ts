@@ -24,7 +24,8 @@ export const captureManifest = defineFeatureManifest({
       rail: {
         group: 'workspace',
         label: 'Capture',
-        description: 'Screenshots, screen recordings and clipboard history — taken on your click, kept on this machine',
+        description:
+          'Screenshots, screen recordings and clipboard history — taken on your click, kept on this machine',
       },
     },
   ],

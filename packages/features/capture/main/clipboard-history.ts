@@ -88,7 +88,10 @@ export type ClipboardHistory = {
 const sha = (data: Uint8Array | string) => createHash('sha256').update(data).digest('hex');
 
 /** Whether the clipboard carries a "do not keep" marker. */
-export function isMarked(clipboard: Pick<CaptureClipboard, 'availableFormats' | 'has'>, formats: string[]): boolean {
+export function isMarked(
+  clipboard: Pick<CaptureClipboard, 'availableFormats' | 'has'>,
+  formats: string[],
+): boolean {
   const markers: readonly string[] = CLIPBOARD_SKIP_MARKERS;
   if (formats.some((f) => markers.includes(f))) return true;
   return CLIPBOARD_SKIP_MARKERS.some((marker) => {
@@ -156,7 +159,10 @@ export function createClipboardHistory(deps: {
     const gone: Stored[] = [];
     let total = 0;
     for (const entry of list) {
-      if (keep.length < CLIPBOARD_HISTORY_MAX_ENTRIES && total + entry.bytes <= CLIPBOARD_HISTORY_MAX_BYTES) {
+      if (
+        keep.length < CLIPBOARD_HISTORY_MAX_ENTRIES &&
+        total + entry.bytes <= CLIPBOARD_HISTORY_MAX_BYTES
+      ) {
         keep.push(entry);
         total += entry.bytes;
       } else {
@@ -208,7 +214,15 @@ export function createClipboardHistory(deps: {
           if (png.byteLength > CLIPBOARD_IMAGE_MAX_BYTES) return false;
           const { width, height } = image.getSize();
           await keepEntry(
-            { id, kind: 'image', createdAt: now(), bytes: png.byteLength, hash: sha(png), width, height },
+            {
+              id,
+              kind: 'image',
+              createdAt: now(),
+              bytes: png.byteLength,
+              hash: sha(png),
+              width,
+              height,
+            },
             png,
           );
           deps.onChanged();
@@ -249,11 +263,16 @@ export function createClipboardHistory(deps: {
       if (handle !== null) return;
       // The clipboard as it is now is not history: only what the user copies from here on.
       lastSignature = null;
-      handle = timers.setInterval(() => void tick().catch(() => undefined), deps.pollMs ?? CLIPBOARD_POLL_MS);
+      handle = timers.setInterval(
+        () => void tick().catch(() => undefined),
+        deps.pollMs ?? CLIPBOARD_POLL_MS,
+      );
       void (async () => {
         try {
           const formats = deps.clipboard.availableFormats();
-          const text = formats.some((f) => f.startsWith('text/plain')) ? deps.clipboard.readText() : '';
+          const text = formats.some((f) => f.startsWith('text/plain'))
+            ? deps.clipboard.readText()
+            : '';
           lastSignature = `${formats.join('|')}\n${text}`;
         } catch {
           lastSignature = null;
@@ -293,7 +312,8 @@ export function createClipboardHistory(deps: {
       serial(async () => {
         const current = await load();
         await save([]);
-        for (const entry of current) if (entry.kind === 'image') await rm(pngPath(entry.id), { force: true });
+        for (const entry of current)
+          if (entry.kind === 'image') await rm(pngPath(entry.id), { force: true });
         deps.onChanged();
         return ok();
       }),

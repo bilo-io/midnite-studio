@@ -32,7 +32,9 @@ export type CaptureStore = {
   /** A fresh id for a capture taken now. */
   newId: () => string;
   /** Writes `bytes` as a new capture file and records it; resolves with the entry. */
-  add: (entry: Omit<CaptureItem, 'fileName' | 'bytes'> & { bytes: Uint8Array }) => Promise<CaptureItem>;
+  add: (
+    entry: Omit<CaptureItem, 'fileName' | 'bytes'> & { bytes: Uint8Array },
+  ) => Promise<CaptureItem>;
   /** Records a file already written into the directory (a finished recording). */
   record: (entry: Omit<CaptureItem, 'bytes'>) => Promise<CaptureItem>;
   /** Every capture still on disk, newest first. */
@@ -44,7 +46,10 @@ export type CaptureStore = {
   pathOf: (item: CaptureItem) => string;
 };
 
-export function createCaptureStore(dataDir: string, now: () => Date = () => new Date()): CaptureStore {
+export function createCaptureStore(
+  dataDir: string,
+  now: () => Date = () => new Date(),
+): CaptureStore {
   const dir = join(dataDir, CAPTURES_DIR);
   const indexFile = join(dir, CAPTURE_INDEX_FILE);
   let chain: Promise<unknown> = Promise.resolve();
@@ -69,7 +74,9 @@ export function createCaptureStore(dataDir: string, now: () => Date = () => new 
     cached = captures;
   };
 
-  const update = <T>(change: (captures: CaptureItem[]) => Promise<{ next: CaptureItem[]; result: T }>) => {
+  const update = <T>(
+    change: (captures: CaptureItem[]) => Promise<{ next: CaptureItem[]; result: T }>,
+  ) => {
     const run = chain.then(async () => {
       const { next, result } = await change([...(await load())]);
       await persist(next);
@@ -119,7 +126,11 @@ export function createCaptureStore(dataDir: string, now: () => Date = () => new 
       const item = (await store.list()).find((c) => c.id === id);
       return item ?? null;
     },
-    forget: (id) => update(async (captures) => ({ next: captures.filter((c) => c.id !== id), result: undefined })),
+    forget: (id) =>
+      update(async (captures) => ({
+        next: captures.filter((c) => c.id !== id),
+        result: undefined,
+      })),
     pathOf: (item) => join(dir, item.fileName),
   };
   return store;

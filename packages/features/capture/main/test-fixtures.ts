@@ -12,11 +12,17 @@ import type { CaptureClipboard, CaptureDesktopSource, CaptureElectron, CaptureIm
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
-export type FakeImage = CaptureImage & { label: string; cropped?: { x: number; y: number; width: number; height: number } };
+export type FakeImage = CaptureImage & {
+  label: string;
+  cropped?: { x: number; y: number; width: number; height: number };
+};
 
 /** An image whose "PNG" is the signature plus its label and size — distinct per image, never decoded. */
 export function fakeImage(width: number, height: number, label = 'img'): FakeImage {
-  const bytes = Uint8Array.from([...PNG_SIGNATURE, ...new TextEncoder().encode(`${label}:${width}x${height}`)]);
+  const bytes = Uint8Array.from([
+    ...PNG_SIGNATURE,
+    ...new TextEncoder().encode(`${label}:${width}x${height}`),
+  ]);
   const image: FakeImage = {
     label,
     isEmpty: () => width === 0 || height === 0,
@@ -25,7 +31,8 @@ export function fakeImage(width: number, height: number, label = 'img'): FakeIma
     toJPEG: () => Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]),
     toDataURL: () => `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`,
     crop: (rect) => ({ ...fakeImage(rect.width, rect.height, `${label}-crop`), cropped: rect }),
-    resize: ({ width: w }) => fakeImage(w ?? width, Math.round(((w ?? width) / width) * height), `${label}-small`),
+    resize: ({ width: w }) =>
+      fakeImage(w ?? width, Math.round(((w ?? width) / width) * height), `${label}-small`),
   };
   return image;
 }
@@ -37,7 +44,12 @@ export type FakeClipboard = CaptureClipboard & {
   image: CaptureImage;
   reads: number;
   written: Array<{ kind: 'text'; text: string } | { kind: 'image'; image: CaptureImage }>;
-  set: (next: { text?: string; image?: CaptureImage; formats?: string[]; markers?: string[] }) => void;
+  set: (next: {
+    text?: string;
+    image?: CaptureImage;
+    formats?: string[];
+    markers?: string[];
+  }) => void;
 };
 
 export function fakeClipboard(): FakeClipboard {
@@ -93,7 +105,9 @@ export type FakeElectron = CaptureElectron & {
   windows: CaptureDesktopSource[];
 };
 
-export function fakeElectron(overrides: Partial<Pick<FakeElectron, 'platform' | 'status'>> = {}): FakeElectron {
+export function fakeElectron(
+  overrides: Partial<Pick<FakeElectron, 'platform' | 'status'>> = {},
+): FakeElectron {
   const clip = fakeClipboard();
   const el: FakeElectron = {
     platform: overrides.platform ?? 'darwin',
@@ -108,13 +122,36 @@ export function fakeElectron(overrides: Partial<Pick<FakeElectron, 'platform' | 
     settingsOpened: 0,
     clip,
     screens: [
-      { id: 'screen:1:0', name: 'Built-in Display', display_id: '1', thumbnail: fakeImage(3024, 1964, 'screen1') },
-      { id: 'screen:2:0', name: 'Studio Display', display_id: '2', thumbnail: fakeImage(5120, 2880, 'screen2') },
+      {
+        id: 'screen:1:0',
+        name: 'Built-in Display',
+        display_id: '1',
+        thumbnail: fakeImage(3024, 1964, 'screen1'),
+      },
+      {
+        id: 'screen:2:0',
+        name: 'Studio Display',
+        display_id: '2',
+        thumbnail: fakeImage(5120, 2880, 'screen2'),
+      },
     ],
-    windows: [{ id: 'window:42:0', name: 'Terminal', display_id: '', thumbnail: fakeImage(1200, 800, 'win42') }],
+    windows: [
+      {
+        id: 'window:42:0',
+        name: 'Terminal',
+        display_id: '',
+        thumbnail: fakeImage(1200, 800, 'win42'),
+      },
+    ],
     getSources: async (options) => {
-      el.sourcesCalls.push({ types: [...options.types], thumbnailSize: { ...options.thumbnailSize } });
-      return [...(options.types.includes('screen') ? el.screens : []), ...(options.types.includes('window') ? el.windows : [])];
+      el.sourcesCalls.push({
+        types: [...options.types],
+        thumbnailSize: { ...options.thumbnailSize },
+      });
+      return [
+        ...(options.types.includes('screen') ? el.screens : []),
+        ...(options.types.includes('window') ? el.windows : []),
+      ];
     },
     screenAccessStatus: () => el.status,
     openScreenRecordingSettings: async () => {

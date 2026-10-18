@@ -21,7 +21,12 @@ import {
 } from '@midnite/studio-shared';
 
 import { createCaptureStore, type CaptureStore } from './capture-store';
-import { CLIPBOARD_DIR, createClipboardHistory, type ClipboardHistory, type Timers } from './clipboard-history';
+import {
+  CLIPBOARD_DIR,
+  createClipboardHistory,
+  type ClipboardHistory,
+  type Timers,
+} from './clipboard-history';
 import type { DisplayMediaGate } from './display-media';
 import { captureFileResolver } from './file-url';
 import { readPermission, requestPermission } from './permission';
@@ -76,8 +81,13 @@ export type CaptureService = {
   status: () => Promise<CaptureStatus>;
   requestPermission: () => Promise<CapturePermission>;
   openPermissionSettings: () => Promise<GitOpResult>;
-  sources: (kind: CaptureSourceKind) => Promise<GitOpResult<{ permission: CapturePermission; sources: CaptureSource[] }>>;
-  still: (request: { mode: 'screen' | 'window'; sourceId: string }) => Promise<GitOpResult<CaptureItem>>;
+  sources: (
+    kind: CaptureSourceKind,
+  ) => Promise<GitOpResult<{ permission: CapturePermission; sources: CaptureSource[] }>>;
+  still: (request: {
+    mode: 'screen' | 'window';
+    sourceId: string;
+  }) => Promise<GitOpResult<CaptureItem>>;
   regionBegin: (sourceId?: string) => Promise<GitOpResult<CaptureRegionFrame>>;
   regionPending: () => CaptureRegionFrame | null;
   regionFinish: (pendingId: string, rect: CaptureRegionRect) => Promise<GitOpResult<CaptureItem>>;
@@ -97,7 +107,10 @@ export type CaptureService = {
   clipboardRemove: (id: string) => Promise<GitOpResult>;
   clipboardClear: () => Promise<GitOpResult>;
   attachment: (id: string) => Promise<GitOpResult<{ name: string; text: string }>>;
-  sendToCreator: (id: string, repoId: string) => Promise<GitOpResult<{ project: string; path: string }>>;
+  sendToCreator: (
+    id: string,
+    repoId: string,
+  ) => Promise<GitOpResult<{ project: string; path: string }>>;
   /** The `capture` host's resolver for the composer's `mstudio-file:` handler. */
   fileResolver: (rawUrl: string) => Promise<string | null>;
   /** Fires the shortcut's action — what the registered chord calls. Exported for tests. */
@@ -153,7 +166,8 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
     }
   };
 
-  const kindOf = (sourceId: string): CaptureSourceKind => (sourceId.startsWith('window:') ? 'window' : 'screen');
+  const kindOf = (sourceId: string): CaptureSourceKind =>
+    sourceId.startsWith('window:') ? 'window' : 'screen';
 
   const saveImage = async (
     image: CaptureImage,
@@ -180,7 +194,9 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
     const refused = permitted<CaptureRegionFrame>();
     if (refused) return refused;
     const { hideWindows } = await settings.read();
-    const match: (s: CaptureDesktopSource) => boolean = sourceId ? (s) => s.id === sourceId : underPointer(el);
+    const match: (s: CaptureDesktopSource) => boolean = sourceId
+      ? (s) => s.id === sourceId
+      : underPointer(el);
     const source = await withWindowsHidden(hideWindows, () => grabSource(el, 'screen', match));
     if (!source) return failure('That screen is not available any more.');
     return ok(region.freeze(source.thumbnail, source.name));
@@ -284,7 +300,10 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
       if (refused) return refused;
       try {
         const kind = kindOf(sourceId);
-        const sources = await el.getSources({ types: [kind], thumbnailSize: { width: 1, height: 1 } });
+        const sources = await el.getSources({
+          types: [kind],
+          thumbnailSize: { width: 1, height: 1 },
+        });
         const source = sources.find((s) => s.id === sourceId);
         if (!source) return failure('That source is not available any more.');
         deps.gate.arm({ id: source.id, name: source.name });
@@ -354,7 +373,8 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
     copy: async (id) => {
       const item = await store.get(id);
       if (!item) return failure('That capture is gone.');
-      if (item.kind !== 'screenshot') return failure('Only a screenshot can be copied as an image.');
+      if (item.kind !== 'screenshot')
+        return failure('Only a screenshot can be copied as an image.');
       try {
         el.clipboard.writeImage(el.imageFromPng(await readFile(store.pathOf(item))));
         return ok();
@@ -366,7 +386,10 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
       try {
         const before = await settings.read();
         const next = await settings.write(patch);
-        if (patch.shortcut !== undefined && (patch.shortcut !== before.shortcut || shortcutManager.state().state !== 'registered'))
+        if (
+          patch.shortcut !== undefined &&
+          (patch.shortcut !== before.shortcut || shortcutManager.state().state !== 'registered')
+        )
           shortcutManager.apply(next.shortcut);
         if (patch.clipboardHistory !== undefined) applyClipboard(next.clipboardHistory);
         deps.emit({ reason: 'settings' });
@@ -398,7 +421,8 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
       if (!deps.creator) return failure('Creator is not available in this app.');
       const item = await store.get(id);
       if (!item) return failure('That capture is gone.');
-      if (item.kind !== 'screenshot') return failure('Only a screenshot can go to a Creator project.');
+      if (item.kind !== 'screenshot')
+        return failure('Only a screenshot can go to a Creator project.');
       try {
         return await deps.creator.importImage({
           repoId,
@@ -410,7 +434,10 @@ export function createCaptureService(deps: CaptureServiceDeps): CaptureService {
         return failure(message(error));
       }
     },
-    fileResolver: captureFileResolver({ captures: store.dir, clipboard: join(deps.dataDir, CLIPBOARD_DIR) }),
+    fileResolver: captureFileResolver({
+      captures: store.dir,
+      clipboard: join(deps.dataDir, CLIPBOARD_DIR),
+    }),
     onShortcut: async () => {
       // The chord is the user's action; it freezes the screen under the pointer for the region picker
       // and brings the app forward to show it. Without the permission it only opens the app on the

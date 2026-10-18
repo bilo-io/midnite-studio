@@ -15,7 +15,9 @@ import type { CaptureElectron } from './port';
  * - `denied` / `restricted`: asking again would do nothing, so {@link requestPermission} does not ask;
  *   the renderer offers "Open System Settings" instead. No prompt loop either way.
  */
-export function readPermission(el: Pick<CaptureElectron, 'platform' | 'screenAccessStatus'>): CapturePermission {
+export function readPermission(
+  el: Pick<CaptureElectron, 'platform' | 'screenAccessStatus'>,
+): CapturePermission {
   if (el.platform !== 'darwin') return 'unsupported';
   let status: string;
   try {
