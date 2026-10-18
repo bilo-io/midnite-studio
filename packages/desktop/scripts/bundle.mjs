@@ -35,7 +35,8 @@
  *                          runtime, which esbuild cannot resolve statically either
  */
 import { build } from 'esbuild';
-import { rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -126,6 +127,8 @@ const outfiles = [
   'terrain-worker',
   'map-capture-worker',
   'knowledge-layout-worker',
+  // Phase 113 Theme K slice 2: the desktop region overlay's own preload — three calls, nothing else.
+  'capture-overlay-preload',
 ].map((name) => ({
   entry: entryOf(name),
   out: resolve(root, `dist/bundle/${name}.js`),
@@ -144,7 +147,31 @@ if (!wantSourcemap) {
   for (const { out } of outfiles) rmSync(`${out}.map`, { force: true });
 }
 
-await Promise.all(
-  outfiles.map(({ entry, out }) => build({ ...common, entryPoints: [entry], outfile: out })),
-);
+/*
+  The desktop region overlay's page (Phase 113 Theme K slice 2): the capture feature's tiny DOM script,
+  built for the browser as a classic iife, next to its static page with its own strict CSP. Both land in
+  `dist/bundle/`, which the asar already carries, and main loads the page off disk beside `main.js`.
+*/
+const featureCapture = createRequire(import.meta.url);
+const overlayEntry = featureCapture.resolve('@midnite/studio-feature-capture/overlay-page');
+const overlayHtml = featureCapture.resolve('@midnite/studio-feature-capture/overlay-page.html');
+const overlayOut = resolve(root, 'dist/bundle/capture-overlay.js');
+if (!wantSourcemap) rmSync(`${overlayOut}.map`, { force: true });
+
+await Promise.all([
+  ...outfiles.map(({ entry, out }) => build({ ...common, entryPoints: [entry], outfile: out })),
+  build({
+    bundle: true,
+    platform: 'browser',
+    format: 'iife',
+    target: 'chrome130',
+    sourcemap: wantSourcemap,
+    minify: true,
+    logLevel: 'info',
+    entryPoints: [overlayEntry],
+    outfile: overlayOut,
+  }),
+]);
+mkdirSync(resolve(root, 'dist/bundle'), { recursive: true });
+copyFileSync(overlayHtml, resolve(root, 'dist/bundle/capture-overlay.html'));
 

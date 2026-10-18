@@ -43,7 +43,7 @@ afterEach(() => cleanup());
 
 const value = <T>(result: GitOpResult<T>): T => {
   if (!result.ok) throw new Error(`expected ok: ${JSON.stringify(result)}`);
-  return result.value;
+  return (result as { value: T }).value;
 };
 
 type OpenedOverlay = {

@@ -11,10 +11,13 @@ import { ToastHost } from '../components/toast-host';
 import { useToastStore } from '../store/toast-store';
 import { useUiStore } from '../store/ui-store';
 import { revealResource } from '../features/companion/reveal/reveal';
+import { selectCapture } from '@midnite/studio-feature-capture/renderer';
+
 import { useDeepLinks } from './deep-link';
 
 const mocks = vi.hoisted(() => ({
   onDeepLink: null as ((e: { link: DeepLink; known: boolean }) => void) | null,
+  importFromApp: null as unknown as ReturnType<typeof import('vitest').vi.fn>,
   openResult: { ok: true as const, repo: { id: 'repo:/tmp/proposed', path: '/tmp/proposed', name: 'proposed', headRef: 'main', worktrees: [] } } as
     | { ok: true; repo: { id: string; path: string; name: string; headRef: string | null; worktrees: unknown[] } }
     | { ok: false; message: string },
@@ -33,6 +36,7 @@ vi.mock('./bridge', async (importOriginal) => {
           };
         },
       },
+      capture: { importFromApp: mocks.importFromApp },
       repos: {
         open: vi.fn().mockImplementation(async () => mocks.openResult),
         // One open repository, whose remote is bilo-io/midnite-studio — the run tests' only known repo.
@@ -70,9 +74,12 @@ const emit = (link: DeepLink, known: boolean) => {
 };
 
 vi.mock('../features/companion/reveal/reveal', () => ({ revealResource: vi.fn() }));
+vi.mock('@midnite/studio-feature-capture/renderer', () => ({ selectCapture: vi.fn() }));
 
 describe('useDeepLinks', () => {
   beforeEach(() => {
+    mocks.importFromApp = vi.fn(async ({ id }: { id: string }) => ({ ok: true, value: { id } }));
+    vi.mocked(selectCapture).mockClear();
     useUiStore.setState({ selectedRepoId: null });
     useToastStore.setState({ toasts: [] });
     mocks.openResult = {
@@ -181,6 +188,30 @@ describe('useDeepLinks', () => {
     expect(await screen.findByText('Run this task in an agent?', undefined, { timeout: 5000 })).toBeTruthy();
     expect(screen.getByText(/In \/tmp\/known/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Start' })).toBeTruthy();
+  });
+
+  it('a capture link that failed validation in main is a toast, and nothing is asked or imported', () => {
+    emit({ kind: 'capture', id: null }, false);
+    expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/doesn't point at a capture/);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(mocks.importFromApp).not.toHaveBeenCalled();
+  });
+
+  it('a capture link asks first; cancelling imports nothing', () => {
+    emit({ kind: 'capture', id: 'cap-20261018-093000-abcdef12' }, false);
+    expect(screen.getByText('Import this capture from Midnite Capture?')).toBeTruthy();
+    expect(mocks.importFromApp).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(mocks.importFromApp).not.toHaveBeenCalled();
+  });
+
+  it('a confirmed capture link imports it, selects it and lands on Capture', async () => {
+    useUiStore.setState({ screensaverLocked: false, activeView: 'landing' });
+    emit({ kind: 'capture', id: 'cap-20261018-093000-abcdef12' }, false);
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(useUiStore.getState().activeView).toBe('capture'));
+    expect(mocks.importFromApp).toHaveBeenCalledWith({ id: 'cap-20261018-093000-abcdef12' });
+    expect(selectCapture).toHaveBeenCalledWith('cap-20261018-093000-abcdef12');
   });
 
   it('a settings link with a page selects that Settings page; a locked screen leaves it alone', () => {

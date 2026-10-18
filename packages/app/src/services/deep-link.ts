@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
 
+import { selectCapture } from '@midnite/studio-feature-capture/renderer';
+import type { ViewId } from '@midnite/studio-shared';
+
 import { useDialogs } from '../components/dialog-host';
 import { useUiStore } from '../store/ui-store';
 import { useToastStore } from '../store/toast-store';
@@ -28,6 +31,30 @@ export function useDeepLinks(): void {
   useEffect(() => {
     const b = bridge();
     if (!b?.protocol) return;
+
+    /**
+     * Lands on a view through the same resolver the companion and `ui.navigate` use, so a locked screen
+     * or a popped-out page is handled the way every other navigation handles it, not bypassed by a link.
+     * `prepare` runs just before the view is shown (never when the navigation is refused).
+     */
+    const land = (view: ViewId, prepare?: (view: ViewId) => void): void => {
+      const plan = resolveNavigation({ kind: 'navigate', view }, liveNavigationState());
+      if (plan.kind === 'refused') {
+        addToast({
+          message: plan.reason === 'locked' ? 'The screen is locked — unlock it first.' : "That link doesn't point at anything I can open.",
+          status: 'error',
+        });
+        return;
+      }
+      if (plan.kind === 'focus-window') {
+        b.window.focusRole({ role: plan.role });
+        return;
+      }
+      if (plan.kind === 'view') {
+        prepare?.(plan.view);
+        useUiStore.getState().setActiveView(plan.view);
+      }
+    };
 
     const unsub = b.protocol.onDeepLink(({ link, known }) => {
       if (link.kind === 'open') {
@@ -82,26 +109,40 @@ export function useDeepLinks(): void {
       }
 
       if (link.kind === 'view') {
-        // The launcher's tiles. Planned by the same resolver the companion and
-        // `ui.navigate` use, so a locked screen or a popped-out page is handled
-        // the way every other navigation handles it, not bypassed by a link.
-        const plan = resolveNavigation({ kind: 'navigate', view: link.view }, liveNavigationState());
-        if (plan.kind === 'refused') {
-          addToast({
-            message: plan.reason === 'locked' ? 'The screen is locked — unlock it first.' : "That link doesn't point at anything I can open.",
-            status: 'error',
-          });
-          return;
-        }
-        if (plan.kind === 'focus-window') {
-          b.window.focusRole({ role: plan.role });
-          return;
-        }
-        if (plan.kind === 'view') {
+        // The launcher's tiles.
+        land(link.view, (view) => {
           if (link.tab !== undefined) useUiStore.getState().setMediaTab(link.tab);
-          if (link.page !== undefined && plan.view === 'settings') useUiStore.getState().setSettingsPage(link.page);
-          useUiStore.getState().setActiveView(plan.view);
+          if (link.page !== undefined && view === 'settings') useUiStore.getState().setSettingsPage(link.page);
+        });
+        return;
+      }
+
+      if (link.kind === 'capture') {
+        // Phase 113 Theme K — Midnite Capture's "Open in Midnite Studio". Remote-triggerable like every
+        // link, so it is a proposal: main copies the one capture out of Midnite Capture's own directory
+        // only after this confirm, and nothing is sent anywhere either way.
+        if (link.id === null) {
+          addToast({ message: "That link doesn't point at a capture I can open.", status: 'error' });
+          return;
         }
+        const id = link.id;
+        confirm({
+          title: 'Import this capture from Midnite Capture?',
+          body: `${id}\n\nThe file is copied into Midnite Studio's own captures, where Send to reaches a chat, a pull-request comment or a Creator project. Nothing is sent anywhere.`,
+          confirmLabel: 'Import',
+          onConfirm: () => {
+            const api = b.capture;
+            if (!api) return;
+            void api.importFromApp({ id }).then((result) => {
+              if (!result.ok) {
+                addToast({ message: result.kind === 'error' ? result.message : "Couldn't import that capture.", status: 'error' });
+                return;
+              }
+              selectCapture(result.value.id);
+              land('capture');
+            });
+          },
+        });
         return;
       }
 
