@@ -158,10 +158,25 @@ export function fakeElectron(
       el.settingsOpened += 1;
     },
     displays: () => [
-      { id: 1, size: { width: 1512, height: 982 }, scaleFactor: 2 },
-      { id: 2, size: { width: 2560, height: 1440 }, scaleFactor: 2 },
+      {
+        id: 1,
+        size: { width: 1512, height: 982 },
+        scaleFactor: 2,
+        bounds: { x: 0, y: 0, width: 1512, height: 982 },
+      },
+      {
+        id: 2,
+        size: { width: 2560, height: 1440 },
+        scaleFactor: 2,
+        bounds: { x: 1512, y: 0, width: 2560, height: 1440 },
+      },
     ],
-    displayUnderPointer: () => ({ id: 2, size: { width: 2560, height: 1440 }, scaleFactor: 2 }),
+    displayUnderPointer: () => ({
+      id: 2,
+      size: { width: 2560, height: 1440 },
+      scaleFactor: 2,
+      bounds: { x: 1512, y: 0, width: 2560, height: 1440 },
+    }),
     globalShortcut: {
       register: (accelerator, callback) => {
         if (accelerator === 'Bogus+Chord') throw new Error('conversion failure');

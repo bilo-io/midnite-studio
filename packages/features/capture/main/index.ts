@@ -29,7 +29,10 @@ export {
 } from './display-media';
 export {
   electronCapturePort,
+  electronOverlayOpener,
   HIDE_SETTLE_MS,
+  overlayWindowOptions,
+  type CaptureOverlayBrowserWindow,
   SCREEN_RECORDING_SETTINGS_URL,
   type CaptureElectronModules,
   type CaptureOwnWindow,
@@ -46,12 +49,22 @@ export type {
 } from './port';
 export {
   createCaptureService,
+  OVERLAY_JPEG_QUALITY,
   type CaptureCreatorPort,
   type CaptureService,
   type CaptureServiceDeps,
 } from './service';
 export { createShortcutManager, type ShortcutManager } from './shortcut';
-export { NO_DESKTOP_OVERLAY } from './stills';
+export {
+  createOverlayController,
+  newOverlayToken,
+  type CaptureOverlayBounds,
+  type CaptureOverlayOpener,
+  type CaptureOverlayWindow,
+  type OverlayController,
+  type OverlayOrigin,
+  type OverlaySession,
+} from './overlay';
 
 /** The data directory a composer gives Capture, under its own userData. */
 export const CAPTURE_DATA_DIR = 'capture';
@@ -119,6 +132,26 @@ export const captureMain = defineFeatureMain<CaptureMainServices>({
       CHANNELS.captureRegionCancel,
       schemas.CaptureRegionCancelRequest,
       ({ pendingId }) => capture.regionCancel(pendingId),
+      invalid,
+    );
+    ctx.ipc.handleBare(CHANNELS.captureRegionStart, () => safe(() => capture.regionStart()));
+    // The overlay window's own three calls: each is answered only for the live overlay's token.
+    ctx.ipc.handle(
+      CHANNELS.captureOverlayFrame,
+      schemas.CaptureOverlayFrameRequest,
+      ({ token }) => safe(() => capture.overlayFrame(token)),
+      invalid,
+    );
+    ctx.ipc.handle(
+      CHANNELS.captureOverlayConfirm,
+      schemas.CaptureOverlayConfirmRequest,
+      ({ token, rect }) => safe(() => capture.overlayConfirm(token, rect)),
+      invalid,
+    );
+    ctx.ipc.handle(
+      CHANNELS.captureOverlayCancel,
+      schemas.CaptureOverlayCancelRequest,
+      ({ token }) => capture.overlayCancel(token),
       invalid,
     );
     ctx.ipc.handle(
@@ -200,6 +233,18 @@ export const captureMain = defineFeatureMain<CaptureMainServices>({
       CHANNELS.captureSendToCreator,
       schemas.CaptureSendToCreatorRequest,
       ({ id, repoId }) => safe(() => capture.sendToCreator(id, repoId)),
+      invalid,
+    );
+    ctx.ipc.handle(
+      CHANNELS.captureOpenInStudio,
+      schemas.CaptureOpenInStudioRequest,
+      ({ id }) => safe(() => capture.openInStudio(id)),
+      invalid,
+    );
+    ctx.ipc.handle(
+      CHANNELS.captureImport,
+      schemas.CaptureImportRequest,
+      ({ id }) => safe(() => capture.importFromApp(id)),
       invalid,
     );
   },
