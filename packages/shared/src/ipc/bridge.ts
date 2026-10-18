@@ -1408,6 +1408,7 @@ export type MidniteStudioBridge = {
         regenerateToken: () => Promise<GitOpResult>;
         setSettings: (req: In<typeof S.MediaLibraryLanSettingsSetRequest>) => Promise<GitOpResult>;
         detectFfmpeg: () => Promise<z.infer<typeof S.MediaLibraryLanDetectFfmpegResponse>>;
+        chooseFfmpeg: () => Promise<z.infer<typeof S.MediaLibraryLanChooseFfmpegResponse>>;
       };
     };
     /** Audio (Theme E): the `AudioProvider` catalogue and Import, all run in main. */

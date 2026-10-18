@@ -231,8 +231,14 @@ export const DEFAULT_LIBRARY_LAN_SETTINGS: LibraryLanSettings = {
   ffmpegPath: null,
 };
 
-/** What the renderer may change. `wasOn` follows Start and Stop. */
-export const LibraryLanSettingsPatchSchema = LibraryLanSettingsSchema.omit({ wasOn: true }).partial();
+/**
+ * What the renderer may change. `wasOn` follows Start and Stop. `ffmpegPath` may only be cleared (`null`): the
+ * binary main executes is chosen through main's own file dialog (`chooseFfmpeg`), never named by the renderer.
+ * The stored settings still accept a string, so an existing `lan.json` parses.
+ */
+export const LibraryLanSettingsPatchSchema = LibraryLanSettingsSchema.omit({ wasOn: true })
+  .partial()
+  .extend({ ffmpegPath: z.null().optional() });
 export type LibraryLanSettingsPatch = z.infer<typeof LibraryLanSettingsPatchSchema>;
 
 /** One of this computer's private IPv4 interface addresses — a candidate to bind. */

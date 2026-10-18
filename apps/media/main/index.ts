@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { homedir, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 
@@ -52,6 +53,16 @@ async function pickDirectory(): Promise<string | null> {
   return picked.canceled ? null : (picked.filePaths[0] ?? null);
 }
 
+async function chooseFfmpeg(): Promise<string | null> {
+  const options = {
+    title: 'Choose ffmpeg',
+    properties: ['openFile'] as Array<'openFile'>,
+    ...(existsSync('/opt/homebrew/bin') ? { defaultPath: '/opt/homebrew/bin' } : {}),
+  };
+  const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  return picked.canceled ? null : (picked.filePaths[0] ?? null);
+}
+
 if (!smoke && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -88,6 +99,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       // Share on your network: the private addresses it may bind, and where a system ffmpeg might be.
       interfaces: networkInterfaces,
       pathEnv: process.env.PATH ?? '',
+      chooseFfmpeg,
     });
     // Stopped with the app (remembering it was on); started at launch only when the user left it on and
     // chose "start with the app" — and never in a smoke run.

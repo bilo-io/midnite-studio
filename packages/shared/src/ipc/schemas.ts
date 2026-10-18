@@ -3520,6 +3520,8 @@ export const MediaLibraryLanRegenerateResponse = GitOpResultSchema;
 export const MediaLibraryLanSettingsSetRequest = LibraryLanSettingsPatchSchema;
 export const MediaLibraryLanSettingsSetResponse = GitOpResultSchema;
 export const MediaLibraryLanDetectFfmpegResponse = LibraryFfmpegStatusSchema;
+/** No payload: main opens its own file dialog, and only a runnable file named `ffmpeg` is saved. */
+export const MediaLibraryLanChooseFfmpegResponse = GitOpResultOf(LibraryFfmpegStatusSchema);
 
 // Capture (Phase 113 Theme K) — `capture.ts`. Every op answers a GitOpResult envelope; none throws.
 export const CaptureStatusResponse = CaptureStatusSchema;

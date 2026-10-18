@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { homedir, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 
@@ -69,6 +70,19 @@ export function registerMediaLibraryHandlers(): void {
     dataDir,
     interfaces: networkInterfaces,
     pathEnv: process.env.PATH ?? '',
+    // The only way an ffmpeg path is set: main's own dialog, never a string from the renderer.
+    chooseFfmpeg: async () => {
+      const win = BrowserWindow.getFocusedWindow();
+      const options = {
+        title: 'Choose ffmpeg',
+        properties: ['openFile' as const],
+        ...(existsSync('/opt/homebrew/bin') ? { defaultPath: '/opt/homebrew/bin' } : {}),
+      };
+      const picked = win
+        ? await dialog.showOpenDialog(win, options)
+        : await dialog.showOpenDialog(options);
+      return picked.canceled ? null : (picked.filePaths[0] ?? null);
+    },
   });
   mediaLibraryMain.register(ctx, { library, lan });
   void lan.startAtLaunch();

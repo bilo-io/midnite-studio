@@ -695,6 +695,7 @@ const bridge: Pick<
         regenerateToken: () => call(CHANNELS.mediaLibraryLanRegenerate),
         setSettings: (req) => call(CHANNELS.mediaLibraryLanSettingsSet, req),
         detectFfmpeg: () => call(CHANNELS.mediaLibraryLanDetectFfmpeg),
+        chooseFfmpeg: () => call(CHANNELS.mediaLibraryLanChooseFfmpeg),
       },
     },
     audio: {

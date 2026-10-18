@@ -26,6 +26,11 @@ export type LibraryLanController = {
   setSettings: (patch: LibraryLanSettingsPatch) => Promise<GitOpResult>;
   /** Looks for ffmpeg again (after the user installed it, or changed its path). */
   detectFfmpeg: () => Promise<LibraryFfmpegStatus>;
+  /**
+   * Opens main's own file dialog to pick an ffmpeg. Cancelled: the current status, unchanged. A pick is saved only
+   * when it is an absolute path to an executable file named `ffmpeg`; the renderer never names the binary.
+   */
+  chooseFfmpeg: () => Promise<GitOpResult<LibraryFfmpegStatus>>;
   /** At launch: starts only when the user left it on *and* switched on "start with the app". */
   startAtLaunch: () => Promise<void>;
   /** On quit: closes everything, remembering that it was on. */
@@ -57,6 +62,7 @@ export const NO_LAN_STREAMING: LibraryLanController = {
   regenerateToken: async () => failure(UNAVAILABLE),
   setSettings: async () => failure(UNAVAILABLE),
   detectFfmpeg: async () => NO_FFMPEG,
+  chooseFfmpeg: async () => failure(UNAVAILABLE),
   startAtLaunch: async () => undefined,
   dispose: async () => undefined,
 };

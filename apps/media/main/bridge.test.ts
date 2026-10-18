@@ -62,6 +62,7 @@ describe('createMediaBridge', () => {
     await library.lan.regenerateToken();
     await library.lan.setSettings({ startWithApp: false });
     await library.lan.detectFfmpeg();
+    await library.lan.chooseFfmpeg();
     const called = vi.mocked(ipc.invoke).mock.calls.map((c) => c[0]);
     expect(called[0]).toBe(CHANNELS.mediaLibraryRoots);
     expect([...new Set(called)].sort()).toEqual([...mediaLibraryManifest.ipc].sort());

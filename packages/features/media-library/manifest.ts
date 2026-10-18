@@ -40,6 +40,7 @@ export const mediaLibraryManifest = defineFeatureManifest({
     CHANNELS.mediaLibraryLanRegenerate,
     CHANNELS.mediaLibraryLanSettingsSet,
     CHANNELS.mediaLibraryLanDetectFfmpeg,
+    CHANNELS.mediaLibraryLanChooseFfmpeg,
   ],
   events: [EVENT_CHANNELS.mediaLibraryChanged, EVENT_CHANNELS.mediaLibraryScanProgress],
   mcpTools: [],

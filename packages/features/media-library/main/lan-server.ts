@@ -15,6 +15,7 @@ import {
 
 import { extensionOf } from './classify';
 import {
+  isExecutableFile,
   isFfmpegPathShaped,
   locateFfmpeg,
   nodeFfmpegPort,
@@ -76,6 +77,11 @@ export type LanServerDeps = {
   listen?: LanListen;
   ffmpeg?: FfmpegPort;
   isExecutable?: (path: string) => Promise<boolean>;
+  /**
+   * The native "Choose ffmpeg" file dialog, owned by the composer (the feature imports no `electron`): an absolute
+   * path, or null when dismissed. It is the only way a path reaches `ffmpegPath`.
+   */
+  chooseFfmpeg?: () => Promise<string | null>;
   /** `PATH`, for finding ffmpeg. */
   pathEnv?: string;
   now?: () => number;
@@ -517,12 +523,9 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
       return ok();
     },
     setSettings: async (patch) => {
-      if (
-        patch.ffmpegPath !== undefined &&
-        patch.ffmpegPath !== null &&
-        !isFfmpegPathShaped(patch.ffmpegPath)
-      )
-        return failure('The ffmpeg path must be an absolute path to a file named ffmpeg.');
+      // The schema only lets `null` through; a composer that skips it is held to the same rule here.
+      if (patch.ffmpegPath !== undefined && patch.ffmpegPath !== null)
+        return failure('The ffmpeg binary is chosen with the file dialog, not typed.');
       if (
         patch.address !== undefined &&
         patch.address !== null &&
@@ -543,6 +546,18 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
     detectFfmpeg: async () => {
       ffmpeg = null;
       return ffmpegStatus();
+    },
+    chooseFfmpeg: async () => {
+      if (!deps.chooseFfmpeg) return failure('Choosing ffmpeg is not available in this build.');
+      const picked = await deps.chooseFfmpeg();
+      if (picked === null) return ok(await ffmpegStatus());
+      if (!isFfmpegPathShaped(picked))
+        return failure('The ffmpeg path must be an absolute path to a file named ffmpeg.');
+      if (!(await (deps.isExecutable ?? isExecutableFile)(picked)))
+        return failure('No runnable ffmpeg at that path.');
+      await settingsStore.update({ ffmpegPath: picked });
+      ffmpeg = null;
+      return ok(await ffmpegStatus());
     },
     startAtLaunch: async () => {
       const settings = await settingsStore.read();

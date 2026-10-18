@@ -42,7 +42,12 @@ describe('media library contract (Phase 113 Theme R)', () => {
   });
 
   it('resumes only a play that is under way and not finished', () => {
-    const at = (positionS: number, finished = false) => ({ positionS, durationS: 6000, finished, updatedAt: 1 });
+    const at = (positionS: number, finished = false) => ({
+      positionS,
+      durationS: 6000,
+      finished,
+      updatedAt: 1,
+    });
     expect(libraryResumeAt(null)).toBe(0);
     expect(libraryResumeAt(at(10))).toBe(0);
     expect(libraryResumeAt(at(1200))).toBe(1200);
@@ -68,6 +73,17 @@ describe('media library sharing and playlists contract (Phase 113 Theme R slice 
   it('never lets the renderer set wasOn, or a privileged port', () => {
     expect(LibraryLanSettingsPatchSchema.safeParse({ wasOn: true }).data).toEqual({});
     expect(LibraryLanSettingsPatchSchema.safeParse({ port: 80 }).success).toBe(false);
+    // A path is never taken from the renderer; only clearing it is.
+    expect(LibraryLanSettingsPatchSchema.safeParse({ ffmpegPath: '/x/ffmpeg' }).success).toBe(
+      false,
+    );
+    expect(LibraryLanSettingsPatchSchema.safeParse({ ffmpegPath: null }).success).toBe(true);
+    expect(
+      LibraryLanSettingsSchema.safeParse({
+        ...DEFAULT_LIBRARY_LAN_SETTINGS,
+        ffmpegPath: '/x/ffmpeg',
+      }).success,
+    ).toBe(true);
     expect(LibraryLanSettingsPatchSchema.safeParse({ port: 47620 }).success).toBe(true);
   });
 
@@ -75,7 +91,11 @@ describe('media library sharing and playlists contract (Phase 113 Theme R slice 
     expect(LibraryPlaylistIdSchema.safeParse('p0123456789ab').success).toBe(true);
     expect(LibraryPlaylistIdSchema.safeParse('../p').success).toBe(false);
     expect(LibraryPlaylistCreateRequestSchema.safeParse({ name: '  ' }).success).toBe(false);
-    expect(LibraryPlaylistCreateRequestSchema.safeParse({ name: 'x'.repeat(121) }).success).toBe(false);
-    expect(LibraryPlaylistCreateRequestSchema.parse({ name: ' Road trip ' }).name).toBe('Road trip');
+    expect(LibraryPlaylistCreateRequestSchema.safeParse({ name: 'x'.repeat(121) }).success).toBe(
+      false,
+    );
+    expect(LibraryPlaylistCreateRequestSchema.parse({ name: ' Road trip ' }).name).toBe(
+      'Road trip',
+    );
   });
 });

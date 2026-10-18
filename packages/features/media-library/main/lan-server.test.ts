@@ -93,7 +93,14 @@ function fakeFfmpeg(banner = '') {
   return { port, procs, calls };
 }
 
-async function setup(opts: { ffmpeg?: ReturnType<typeof fakeFfmpeg>; transcode?: boolean } = {}) {
+async function setup(
+  opts: {
+    ffmpeg?: ReturnType<typeof fakeFfmpeg>;
+    transcode?: boolean;
+    choose?: () => Promise<string | null>;
+    executable?: string[];
+  } = {},
+) {
   await put('Films/Up (2009)/Up (2009).mp4', '0123456789');
   await put('Films/Old (1999)/Old (1999).mkv', 'matroska');
   await put('Films/Up (2009)/poster.jpg', 'jpeg');
@@ -111,7 +118,8 @@ async function setup(opts: { ffmpeg?: ReturnType<typeof fakeFfmpeg>; transcode?:
     interfaces: () => FAKE_INTERFACES,
     listen: loopbackListen,
     ffmpeg: ffmpeg.port,
-    isExecutable: async (path) => path === '/opt/homebrew/bin/ffmpeg',
+    isExecutable: async (path) => (opts.executable ?? ['/opt/homebrew/bin/ffmpeg']).includes(path),
+    ...(opts.choose ? { chooseFfmpeg: opts.choose } : {}),
     pathEnv: '',
   });
   if (opts.transcode) await lan.setSettings({ transcode: true });
@@ -458,9 +466,56 @@ describe('transcoding', () => {
       path: '/opt/homebrew/bin/ffmpeg',
       source: 'homebrew',
     });
-    expect((await lan!.setSettings({ ffmpegPath: '/bin/sh' })).ok).toBe(false);
-    expect((await lan!.setSettings({ ffmpegPath: '/nowhere/ffmpeg' })).ok).toBe(true);
-    expect((await lan!.status()).ffmpeg.found).toBe(false);
+  });
+});
+
+describe('choosing ffmpeg', () => {
+  const MINE = '/Users/me/tools/ffmpeg';
+
+  it('saves a picked, runnable ffmpeg and reports it', async () => {
+    await setup({ choose: async () => MINE, executable: [MINE] });
+    const result = await lan!.chooseFfmpeg();
+    expect(result).toEqual({ ok: true, value: { found: true, path: MINE, source: 'setting' } });
+    const status = await lan!.status();
+    expect(status.settings.ffmpegPath).toBe(MINE);
+    expect(status.ffmpeg.path).toBe(MINE);
+  });
+
+  it('refuses a pick that is not an absolute path to a file named ffmpeg', async () => {
+    await setup({ choose: async () => '/bin/sh', executable: ['/bin/sh'] });
+    const result = await lan!.chooseFfmpeg();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.message).toContain('named ffmpeg');
+    expect((await lan!.status()).settings.ffmpegPath).toBeNull();
+  });
+
+  it('refuses a pick that is not executable', async () => {
+    await setup({ choose: async () => MINE, executable: [] });
+    expect((await lan!.chooseFfmpeg()).ok).toBe(false);
+    expect((await lan!.status()).settings.ffmpegPath).toBeNull();
+  });
+
+  it('leaves the status unchanged when the dialog is cancelled', async () => {
+    await setup({ choose: async () => null });
+    const before = (await lan!.status()).ffmpeg;
+    expect(await lan!.chooseFfmpeg()).toEqual({ ok: true, value: before });
+    expect((await lan!.status()).settings.ffmpegPath).toBeNull();
+  });
+
+  it('is unavailable without a dialog port', async () => {
+    await setup();
+    expect((await lan!.chooseFfmpeg()).ok).toBe(false);
+  });
+
+  it('no longer takes a path through setSettings, but still clears one', async () => {
+    await setup({ choose: async () => MINE, executable: [MINE] });
+    const typed = { ffmpegPath: '/nowhere/ffmpeg' } as unknown as Parameters<
+      NonNullable<typeof lan>['setSettings']
+    >[0];
+    expect((await lan!.setSettings(typed)).ok).toBe(false);
+    await lan!.chooseFfmpeg();
+    expect((await lan!.setSettings({ ffmpegPath: null })).ok).toBe(true);
+    expect((await lan!.status()).settings.ffmpegPath).toBeNull();
   });
 });
 

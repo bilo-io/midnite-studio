@@ -619,8 +619,9 @@ maps each to the folder it came from and the apps that compose it:
   in the vault), compared as sha256 digests in constant time before any routing; without it the answer is a
   bare 401. Routes take ids only (index, item page, playlist page, `/media/<id>` with Range, `/art/<id>`,
   `/transcode/<id>`), every byte comes through `resolveFile`, GET/HEAD only, and the pages carry a hash-pinned
-  CSP (`lan-pages.ts`, `default-src 'none'`). *Transcoding* uses a **system ffmpeg only** — a user-set path
-  named `ffmpeg`, then Homebrew, MacPorts, `PATH` (`ffmpeg.ts`) — spawned with an argument array and no shell,
+  CSP (`lan-pages.ts`, `default-src 'none'`). *Transcoding* uses a **system ffmpeg only** — a path the user picks
+  in main's own file dialog ("Choose ffmpeg…"; the renderer cannot name a binary), then Homebrew, MacPorts, `PATH` (`ffmpeg.ts`) — spawned with an argument array and no shell and with
+  `-protocol_whitelist file` + a real-container `-format_whitelist` before `-i` (`FFMPEG_INPUT_GUARD`),
   two at a time, as fragmented MP4 (H.264 + AAC, copied when already so), killed when the client goes or the
   server stops; without it the rest is listed as not playable. The renderer's Share panel (start/stop,
   interface picker, link with token, new link behind a confirm, connected devices, ffmpeg status) is in both

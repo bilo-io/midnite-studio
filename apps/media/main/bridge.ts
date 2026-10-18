@@ -46,6 +46,7 @@ export function createMediaBridge(ipc: RendererIpc): MediaBridge {
           regenerateToken: () => call(CHANNELS.mediaLibraryLanRegenerate),
           setSettings: (req) => call(CHANNELS.mediaLibraryLanSettingsSet, req),
           detectFfmpeg: () => call(CHANNELS.mediaLibraryLanDetectFfmpeg),
+          chooseFfmpeg: () => call(CHANNELS.mediaLibraryLanChooseFfmpeg),
         },
       },
       onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaChanged, handler),

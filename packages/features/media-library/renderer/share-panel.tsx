@@ -6,7 +6,6 @@ import {
   relativeAge,
   SelectField,
   SwitchRow,
-  TextField,
   useFrameChrome,
   useToastStore,
 } from '@midnite/studio-frame';
@@ -204,10 +203,6 @@ function ConnectedDevices({ status }: { status: LibraryLanStatus }) {
 function FfmpegSettings({ status }: { status: LibraryLanStatus }) {
   const lan = useLibraryLanMutations();
   const { ffmpeg, settings } = status;
-  const [path, setPath] = useState(settings.ffmpegPath ?? '');
-  useEffect(() => setPath(settings.ffmpegPath ?? ''), [settings.ffmpegPath]);
-  const trimmed = path.trim();
-  const changed = trimmed !== (settings.ffmpegPath ?? '');
 
   return (
     <section aria-label="Converting formats" className="space-y-2 border-t border-border pt-2">
@@ -246,21 +241,32 @@ function FfmpegSettings({ status }: { status: LibraryLanStatus }) {
           onToggle={(_, next) => lan.setSettings.mutate({ transcode: next })}
         />
       ) : null}
-      <div className="flex items-center gap-1">
-        <TextField
-          label="ffmpeg path"
-          placeholder="/opt/homebrew/bin/ffmpeg (optional)"
-          value={path}
-          onChange={setPath}
-        />
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          disabled={!changed}
-          onClick={() => lan.setSettings.mutate({ ffmpegPath: trimmed === '' ? null : trimmed })}
-          className={`${BUTTON} shrink-0 border-border hover:bg-accent`}
+          disabled={lan.chooseFfmpeg.isPending}
+          onClick={() => lan.chooseFfmpeg.mutate()}
+          className={`${BUTTON} border-border hover:bg-accent`}
         >
-          {trimmed === '' && changed ? 'Clear' : 'Use'}
+          Choose ffmpeg…
         </button>
+        {settings.ffmpegPath ? (
+          <>
+            <span
+              aria-label="Chosen ffmpeg"
+              className="min-w-0 flex-1 break-all font-mono text-muted-foreground"
+            >
+              {settings.ffmpegPath}
+            </span>
+            <button
+              type="button"
+              onClick={() => lan.setSettings.mutate({ ffmpegPath: null })}
+              className={`${BUTTON} shrink-0 border-border hover:bg-accent`}
+            >
+              Use auto-detect
+            </button>
+          </>
+        ) : null}
       </div>
     </section>
   );

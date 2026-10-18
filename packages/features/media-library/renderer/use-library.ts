@@ -1,6 +1,7 @@
 import {
   DEFAULT_LIBRARY_LAN_SETTINGS,
   type GitOpResult,
+  type LibraryFfmpegStatus,
   type LibraryItem,
   type LibraryLanSettingsPatch,
   type LibraryLanStatus,
@@ -268,7 +269,14 @@ export function useLibraryLanMutations() {
     mutationFn: async () => (await lan()?.detectFfmpeg()) ?? null,
     onSuccess: () => refresh(),
   });
-  return { start, stop, regenerate, setSettings, detectFfmpeg };
+  const chooseFfmpeg = useMutation({
+    mutationFn: async () => (await lan()?.chooseFfmpeg()) ?? noBridge<LibraryFfmpegStatus>(),
+    onSuccess: (result) => {
+      reportFailure<LibraryFfmpegStatus>(result);
+      refresh();
+    },
+  });
+  return { start, stop, regenerate, setSettings, detectFfmpeg, chooseFfmpeg };
 }
 
 /** How often a playing item's position is saved. */

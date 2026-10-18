@@ -67,7 +67,12 @@ const STOPPED: LibraryLanStatus = {
   ],
   clients: [],
   transcodes: 0,
-  ffmpeg: { found: false, path: null, source: null, reason: 'not found in Homebrew, MacPorts or PATH' },
+  ffmpeg: {
+    found: false,
+    path: null,
+    source: null,
+    reason: 'not found in Homebrew, MacPorts or PATH',
+  },
 };
 
 function installBridge(
@@ -92,7 +97,9 @@ function installBridge(
     }),
     rename: vi.fn().mockResolvedValue({ ok: true }),
     setItems: vi.fn(async (req: { playlistId: string; itemIds: string[] }) => {
-      playlists = playlists.map((p) => (p.id === req.playlistId ? { ...p, itemIds: req.itemIds } : p));
+      playlists = playlists.map((p) =>
+        p.id === req.playlistId ? { ...p, itemIds: req.itemIds } : p,
+      );
       return { ok: true };
     }),
     delete: vi.fn().mockResolvedValue({ ok: true }),
@@ -104,6 +111,7 @@ function installBridge(
     regenerateToken: vi.fn().mockResolvedValue({ ok: true }),
     setSettings: vi.fn().mockResolvedValue({ ok: true }),
     detectFfmpeg: vi.fn().mockResolvedValue((extra.lan ?? STOPPED).ffmpeg),
+    chooseFfmpeg: vi.fn().mockResolvedValue({ ok: true, value: (extra.lan ?? STOPPED).ffmpeg }),
   };
   const library = {
     playlists: playlistsApi,
@@ -111,21 +119,17 @@ function installBridge(
     roots: vi.fn().mockResolvedValue({ roots }),
     addRoot: vi.fn().mockResolvedValue({ ok: true, value: { root: null } }),
     removeRoot: vi.fn().mockResolvedValue({ ok: true }),
-    scan: vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        value: { scanned: 0, added: 0, updated: 0, removed: 0, skipped: 0 },
-      }),
+    scan: vi.fn().mockResolvedValue({
+      ok: true,
+      value: { scanned: 0, added: 0, updated: 0, removed: 0, skipped: 0 },
+    }),
     items: vi.fn().mockResolvedValue({ items }),
     progress: vi.fn().mockResolvedValue({ ok: true }),
     clearProgress: vi.fn().mockResolvedValue({ ok: true }),
-    settings: vi
-      .fn()
-      .mockResolvedValue({
-        settings: { onlineMetadata, onlineProvider: 'tmdb' },
-        onlineKeyAvailable: false,
-      }),
+    settings: vi.fn().mockResolvedValue({
+      settings: { onlineMetadata, onlineProvider: 'tmdb' },
+      onlineKeyAvailable: false,
+    }),
     setSettings: vi.fn().mockResolvedValue({ ok: true }),
     onChanged: vi.fn(() => () => {}),
     onScanProgress: vi.fn(() => () => {}),
@@ -270,10 +274,14 @@ describe('LibraryTab', () => {
     const library = installBridge(ITEMS);
     renderTab();
     fireEvent.click(await screen.findByRole('button', { name: 'New playlist' }));
-    await waitFor(() => expect(library.playlists.create).toHaveBeenCalledWith({ name: 'Playlist 1' }));
+    await waitFor(() =>
+      expect(library.playlists.create).toHaveBeenCalledWith({ name: 'Playlist 1' }),
+    );
 
     fireEvent.click((await screen.findAllByRole('button', { name: /^Up/ }))[0]!);
-    const add = (await screen.findByRole('combobox', { name: 'Add to playlist' })) as HTMLSelectElement;
+    const add = (await screen.findByRole('combobox', {
+      name: 'Add to playlist',
+    })) as HTMLSelectElement;
     await waitFor(() => expect(add.querySelectorAll('option')).toHaveLength(3));
     fireEvent.change(add, { target: { value: 'p000000000000' } });
     await waitFor(() =>
@@ -286,7 +294,9 @@ describe('LibraryTab', () => {
     const addHeat = (await screen.findByRole('combobox', {
       name: 'Add to playlist',
     })) as HTMLSelectElement;
-    await waitFor(() => expect(addHeat.querySelector('option[value="p000000000000"]')).not.toBeNull());
+    await waitFor(() =>
+      expect(addHeat.querySelector('option[value="p000000000000"]')).not.toBeNull(),
+    );
     fireEvent.change(addHeat, { target: { value: 'p000000000000' } });
 
     fireEvent.click(await screen.findByRole('button', { name: /^Playlist 1/ }));
@@ -300,7 +310,9 @@ describe('LibraryTab', () => {
       }),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Delete Playlist 1' }));
-    await waitFor(() => expect(library.playlists.delete).toHaveBeenCalledWith({ playlistId: 'p000000000000' }));
+    await waitFor(() =>
+      expect(library.playlists.delete).toHaveBeenCalledWith({ playlistId: 'p000000000000' }),
+    );
   });
 
   it('plays a playlist in sequence through the player', async () => {
@@ -326,7 +338,10 @@ describe('LibraryTab', () => {
     expect(screen.getByText(/Up next/).textContent).toBe('Up next: Joga');
     await act(async () => fireEvent.click(first));
     expect(await screen.findByRole('button', { name: 'end Joga' })).toBeDefined();
-    expect(seen.at(-1)).toMatchObject({ autoPlay: true, item: expect.objectContaining({ id: 't1' }) });
+    expect(seen.at(-1)).toMatchObject({
+      autoPlay: true,
+      item: expect.objectContaining({ id: 't1' }),
+    });
   });
 
   it('shares on the network only when started, on the address picked', async () => {
@@ -371,5 +386,32 @@ describe('LibraryTab', () => {
     await waitFor(() => expect(library.lan.regenerateToken).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Stop sharing' }));
     await waitFor(() => expect(library.lan.stop).toHaveBeenCalled());
+  });
+
+  it('chooses ffmpeg through main\u2019s dialog, shows the chosen path read-only and can clear it', async () => {
+    const library = installBridge(ITEMS, [ROOT], false, {
+      lan: {
+        ...STOPPED,
+        settings: { ...STOPPED.settings, ffmpegPath: '/opt/homebrew/bin/ffmpeg' },
+        ffmpeg: { found: true, path: '/opt/homebrew/bin/ffmpeg', source: 'setting' },
+      },
+    });
+    renderTab();
+    // No free-text path field: the renderer cannot name a binary.
+    await screen.findByRole('region', { name: 'Converting formats' });
+    expect(screen.queryByRole('textbox', { name: 'ffmpeg path' })).toBeNull();
+    expect(screen.getByLabelText('Chosen ffmpeg').textContent).toBe('/opt/homebrew/bin/ffmpeg');
+    fireEvent.click(screen.getByRole('button', { name: 'Choose ffmpeg…' }));
+    await waitFor(() => expect(library.lan.chooseFfmpeg).toHaveBeenCalledWith());
+    fireEvent.click(screen.getByRole('button', { name: 'Use auto-detect' }));
+    await waitFor(() => expect(library.lan.setSettings).toHaveBeenCalledWith({ ffmpegPath: null }));
+  });
+
+  it('offers no auto-detect button while no path is set', async () => {
+    installBridge(ITEMS);
+    renderTab();
+    await screen.findByRole('region', { name: 'Converting formats' });
+    expect(screen.getByRole('button', { name: 'Choose ffmpeg…' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Use auto-detect' })).toBeNull();
   });
 });

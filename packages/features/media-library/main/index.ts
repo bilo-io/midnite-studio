@@ -201,5 +201,9 @@ export const mediaLibraryMain = defineFeatureMain<MediaLibraryMainServices>({
       invalid,
     );
     ctx.ipc.handleBare(CHANNELS.mediaLibraryLanDetectFfmpeg, () => lan.detectFfmpeg());
+    ctx.ipc.handleBare(
+      CHANNELS.mediaLibraryLanChooseFfmpeg,
+      guarded(() => lan.chooseFfmpeg()),
+    );
   },
 });

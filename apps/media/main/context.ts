@@ -32,6 +32,8 @@ export type MediaElectron = IpcContextElectron & {
   homeDir?: string;
   /** `os.networkInterfaces` — the addresses Share on your network may bind (fake ones under test). */
   interfaces: () => NetworkInterfaces;
+  /** The native "Choose ffmpeg" dialog — an absolute path, or null when dismissed. Main's, never the renderer's. */
+  chooseFfmpeg?: () => Promise<string | null>;
   /** `PATH`, for finding a system ffmpeg. */
   pathEnv?: string;
   /** Test seams: bind loopback instead of the picked address; run no real ffmpeg. */
@@ -68,6 +70,7 @@ export function registerMediaHandlers(el: MediaElectron): MediaServices {
     ...(el.pathEnv !== undefined ? { pathEnv: el.pathEnv } : {}),
     ...(el.listen ? { listen: el.listen } : {}),
     ...(el.ffmpeg ? { ffmpeg: el.ffmpeg } : {}),
+    ...(el.chooseFfmpeg ? { chooseFfmpeg: el.chooseFfmpeg } : {}),
     ...(el.isExecutable ? { isExecutable: el.isExecutable } : {}),
   });
   mediaLibraryMain.register(ctx, { library, lan });

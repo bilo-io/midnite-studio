@@ -1994,6 +1994,7 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaLibraryLanRegenerate: ['MediaLibraryLanRegenerateResponse'],
       mediaLibraryLanSettingsSet: ['MediaLibraryLanSettingsSetRequest', 'MediaLibraryLanSettingsSetResponse'],
       mediaLibraryLanDetectFfmpeg: ['MediaLibraryLanDetectFfmpegResponse'],
+      mediaLibraryLanChooseFfmpeg: ['MediaLibraryLanChooseFfmpegResponse'],
     };
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
       key.startsWith('media'),

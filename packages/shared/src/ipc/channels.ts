@@ -1022,6 +1022,7 @@ export const CHANNELS = {
   mediaLibraryLanRegenerate: 'mstudio:media:library-lan-regenerate',
   mediaLibraryLanSettingsSet: 'mstudio:media:library-lan-settings-set',
   mediaLibraryLanDetectFfmpeg: 'mstudio:media:library-lan-detect-ffmpeg',
+  mediaLibraryLanChooseFfmpeg: 'mstudio:media:library-lan-choose-ffmpeg',
   // Capture (Phase 113 Theme K) — stills, recordings, the shortcut, clipboard history and Send to (`capture.ts`).
   // Every still and stream is for a source the user picked; bytes are served on `mstudio-file://capture/…`.
   captureStatus: 'mstudio:capture:status',
