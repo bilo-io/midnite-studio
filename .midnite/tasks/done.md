@@ -1,6 +1,14 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-18 — Phase 113 Theme R (slice 2) — LAN streaming, system-ffmpeg transcoding and playlists in the Library
+
+[PR #909](https://github.com/bilo-io/midnite-studio/pull/909). Playlists played in sequence; an opt-in LAN server bound only to a private address the user picks, behind a 256-bit token, serving only `resolveFile`'s jailed bytes; transcoding through the system ffmpeg with a file-only protocol and container whitelist, and a binary main chooses through its own dialog. Theme R done.
+
+## 2026-10-18 — Phase 113 Theme K (slice 2) — Send to ▸ PR comment, the desktop region overlay and Midnite Capture's own Send to
+
+[PR #908](https://github.com/bilo-io/midnite-studio/pull/908). The screenshot goes on the clipboard and the PR's https page opens in the embedded browser at its comment box (nothing posted by Capture); a sandboxed, token-gated overlay window over the display under the pointer, cropped in main from the frozen grab; Copy, Show in Finder and a confirmed `midnite-studio://capture` import from the standalone app. Theme K done.
+
 ## 2026-10-18 — Phase 113 Theme K (slice 1) — Capture as a feature; Studio's Capture view; apps/capture
 
 [PR #907](https://github.com/bilo-io/midnite-studio/pull/907). Stills (full screen, window, region) and gated screen recordings with the Screen Recording permission explained in-app; one global chord; opt-in clipboard history that never reads a concealed or transient entry; Send to an agent chat's draft or a Creator image project; `apps/capture` with a deny-all session but for the recording gate. PR-comment Send to and a desktop-wide region overlay are K2.

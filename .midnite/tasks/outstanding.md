@@ -767,20 +767,13 @@ held by a test like `app-window-guard`'s.
 `apps/browser`'s agent-session strip records a goal, logs a simulated Step and ends on Take Over.
 Driving tabs for real needs a main-side agent and a tool contract over the browser feature's views.
 
-## Media's LAN streaming, transcoding and playlists (Phase 113 Theme R slice 2)
+## The Library's own player, and what LAN streaming left out (Phase 113 Theme R)
 
-Slice 1 ([PR #906](https://github.com/bilo-io/midnite-studio/pull/906)) plays locally only and opens no listening socket.
-R2 fills the `NO_LAN_STREAMING` seam in `packages/features/media-library/main/lan.ts`:
-- a server the user starts, bound to the LAN, serving the same jailed paths `LibraryService.resolveFile` serves now;
-- ffmpeg transcoding for what Chromium cannot decode;
-- playlists, which the launcher's Music blurb already promises.
+LAN streaming, transcoding and playlists landed in [PR #909](https://github.com/bilo-io/midnite-studio/pull/909). Still open:
+- The Library plays through its own `<video>`/`<audio>` player rather than the audio feature's. That store is bound to project files, so sharing one needs a frame-level player port first.
+- No QR code for the share link (no QR library in the workspace), no seeking in a transcoded stream, and no UI field for the server's port (default 47620).
 
-Also left from slice 1: the Library plays through its own `<video>`/`<audio>` player rather than the audio feature's. That store is bound to project files, so sharing one needs a frame-level player port first.
+## Capture's manual hardware checks (Phase 113 Theme K)
 
-## Capture's PR-comment Send to, desktop region overlay and standalone destinations (Phase 113 Theme K slice 2)
+Slice 2 landed in [PR #908](https://github.com/bilo-io/midnite-studio/pull/908). Left for a person on real hardware: the Screen Recording permission flow on the packaged app, and the desktop overlay (one window over the display under the pointer — no per-display overlay yet).
 
-Slice 1 ([PR #907](https://github.com/bilo-io/midnite-studio/pull/907)) sends a capture to an agent chat's draft or a Creator image project, and picks a region inside the Capture view over a frozen full-screen grab. Left for K2:
-- **Send to ▸ PR comment** is a disabled row (`PR_COMMENT_DEFERRED`). It needs Studio's comment composer to accept an image, through a link or host port. Nothing may post without the user pressing send.
-- **A desktop-wide region overlay** (`NO_DESKTOP_OVERLAY`): a transparent window across displays.
-- **Send to inside `apps/capture`:** it has no destinations yet.
-- **Manual check:** the real Screen Recording permission flow on the packaged app.
