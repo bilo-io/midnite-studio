@@ -1,12 +1,17 @@
 import { join } from 'node:path';
 
 import {
+  createLanStreamServer,
   createLibraryService,
   createTmdbProvider,
   libraryEmitters,
   MEDIA_LIBRARY_DATA_DIR,
   mediaLibraryMain,
+  type FfmpegPort,
+  type LanListen,
+  type LibraryLanController,
   type LibraryService,
+  type NetworkInterfaces,
 } from '@midnite/studio-feature-media-library/main';
 import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
 
@@ -25,15 +30,26 @@ export type MediaElectron = IpcContextElectron & {
   fetch?: typeof fetch;
   /** The user's home directory — refused as a library folder in its own right. */
   homeDir?: string;
+  /** `os.networkInterfaces` — the addresses Share on your network may bind (fake ones under test). */
+  interfaces: () => NetworkInterfaces;
+  /** `PATH`, for finding a system ffmpeg. */
+  pathEnv?: string;
+  /** Test seams: bind loopback instead of the picked address; run no real ffmpeg. */
+  listen?: LanListen;
+  ffmpeg?: FfmpegPort;
+  isExecutable?: (path: string) => Promise<boolean>;
 };
 
+/** What registration builds: the library, and the LAN server the user may start (never at registration). */
+export type MediaServices = { library: LibraryService; lan: LibraryLanController };
+
 /**
- * Registers every channel Media's renderer can call — the Library's roots, scans, items, progress and
- * settings, and nothing else — and returns the service, which the `mstudio-file://library/…` handler
+ * Registers every channel Media's renderer can call — the Library's roots, scans, items, progress,
+ * settings, playlists and Share on your network, and nothing else — and returns the services, which the `mstudio-file://library/…` handler
  * resolves through. The online provider only runs when the user has switched online metadata on *and*
  * a granted key reads back; until then the library makes no network call at all.
  */
-export function registerMediaHandlers(el: MediaElectron): LibraryService {
+export function registerMediaHandlers(el: MediaElectron): MediaServices {
   const ctx = createIpcContext(el);
   const fetchFn = el.fetch;
   const library = createLibraryService({
@@ -44,8 +60,18 @@ export function registerMediaHandlers(el: MediaElectron): LibraryService {
     ...(fetchFn ? { online: createTmdbProvider((input, init) => fetchFn(input, init)) } : {}),
     ...(el.homeDir !== undefined ? { homeDir: el.homeDir } : {}),
   });
-  mediaLibraryMain.register(ctx, { library });
-  return library;
+  // Built, not started: it listens only after the user presses Start (or left it on with start-with-app).
+  const lan = createLanStreamServer({
+    library,
+    dataDir: el.dataDir,
+    interfaces: el.interfaces,
+    ...(el.pathEnv !== undefined ? { pathEnv: el.pathEnv } : {}),
+    ...(el.listen ? { listen: el.listen } : {}),
+    ...(el.ffmpeg ? { ffmpeg: el.ffmpeg } : {}),
+    ...(el.isExecutable ? { isExecutable: el.isExecutable } : {}),
+  });
+  mediaLibraryMain.register(ctx, { library, lan });
+  return { library, lan };
 }
 
 /** `<userData>/media-library` — the library's own data directory, never inside a library folder. */

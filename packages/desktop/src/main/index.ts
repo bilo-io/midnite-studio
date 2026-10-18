@@ -128,7 +128,7 @@ import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
 import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
 import { registerMediaMusicHandlers } from './ipc/media-music-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
-import { registerMediaLibraryHandlers } from './ipc/media-library-handlers';
+import { disposeMediaLibraryLan, registerMediaLibraryHandlers } from './ipc/media-library-handlers';
 import { captureGate, disposeCapture, registerCaptureHandlers } from './ipc/capture-handlers';
 import type { PermissionDetails as CapturePermissionDetails } from '@midnite/studio-feature-capture/main';
 import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media-model-handlers';
@@ -1050,6 +1050,8 @@ export const startStudioMain: StartStudioMain = () => {
       disposeChats();
       // The global capture chord is released and clipboard polling stops with the app (Phase 113 Theme K).
       disposeCapture();
+      // The Library's LAN server and any ffmpeg it runs stop with the app (Phase 113 Theme R slice 2).
+      disposeMediaLibraryLan();
       stopAllWatchers();
       stopMediaWatchers();
       destroyAllBrowserTabs();

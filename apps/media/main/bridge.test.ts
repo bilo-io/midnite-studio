@@ -26,7 +26,9 @@ describe('createMediaBridge', () => {
         'clearProgress',
         'items',
         'onChanged',
+        'lan',
         'onScanProgress',
+        'playlists',
         'progress',
         'removeRoot',
         'roots',
@@ -49,6 +51,17 @@ describe('createMediaBridge', () => {
     await library.clearProgress({ itemId: 'i' });
     await library.settings();
     await library.setSettings({ onlineMetadata: false });
+    await library.playlists.list();
+    await library.playlists.create({ name: 'x' });
+    await library.playlists.rename({ playlistId: 'p000000000000', name: 'y' });
+    await library.playlists.setItems({ playlistId: 'p000000000000', itemIds: [] });
+    await library.playlists.delete({ playlistId: 'p000000000000' });
+    await library.lan.status();
+    await library.lan.start({});
+    await library.lan.stop();
+    await library.lan.regenerateToken();
+    await library.lan.setSettings({ startWithApp: false });
+    await library.lan.detectFfmpeg();
     const called = vi.mocked(ipc.invoke).mock.calls.map((c) => c[0]);
     expect(called[0]).toBe(CHANNELS.mediaLibraryRoots);
     expect([...new Set(called)].sort()).toEqual([...mediaLibraryManifest.ipc].sort());
