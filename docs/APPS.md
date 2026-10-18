@@ -608,8 +608,24 @@ maps each to the folder it came from and the apps that compose it:
   pane whose player resumes from the saved position and saves progress (throttled, plus pause/end). The
   feature drives its own `<video>`/`<audio>` — Audio's player store is bound to media-store projects and
   cannot be imported by a sibling feature — and `LibraryHost` carries what differs per app: an optional
-  `Player`, the key field (Studio's vault-backed `ApiKeyRow`) or a hint (Media's). **Seams left for R2:**
-  LAN streaming and ffmpeg transcoding (`main/lan.ts`, `NO_LAN_STREAMING`; nothing listens on a socket).
+  `Player`, the key field (Studio's vault-backed `ApiKeyRow`) or a hint (Media's). **Slice 2 (R2) fills the
+  `NO_LAN_STREAMING` seam.** *Playlists* (create, rename, reorder, delete) live in the same index (`playlists`
+  and a per-item `probes` cache, both zod-defaulted so a slice-1 index still parses) and play in sequence in the
+  Library's player. *Share on your network* is `createLanStreamServer` (`main/lan-server.ts`): plain `node:http`
+  behind an injected `listen`, **off by default** and started at launch only when the user left it on *and*
+  chose "start with the app". It binds the one private IPv4 address the user picks (`lan-addresses.ts`:
+  RFC 1918 or link-local, and one of this machine's interfaces — never `0.0.0.0`, never public). Every request
+  carries a 256-bit sharing token in `?k=` (`lan-store.ts`, `<dataDir>/lan-token`, 0600, never logged, never
+  in the vault), compared as sha256 digests in constant time before any routing; without it the answer is a
+  bare 401. Routes take ids only (index, item page, playlist page, `/media/<id>` with Range, `/art/<id>`,
+  `/transcode/<id>`), every byte comes through `resolveFile`, GET/HEAD only, and the pages carry a hash-pinned
+  CSP (`lan-pages.ts`, `default-src 'none'`). *Transcoding* uses a **system ffmpeg only** — a path the user picks
+  in main's own file dialog ("Choose ffmpeg…"; the renderer cannot name a binary), then Homebrew, MacPorts, `PATH` (`ffmpeg.ts`) — spawned with an argument array and no shell and with
+  `-protocol_whitelist file` + a real-container `-format_whitelist` before `-i` (`FFMPEG_INPUT_GUARD`),
+  two at a time, as fragmented MP4 (H.264 + AAC, copied when already so), killed when the client goes or the
+  server stops; without it the rest is listed as not playable. The renderer's Share panel (start/stop,
+  interface picker, link with token, new link behind a confirm, connected devices, ffmpeg status) is in both
+  Studio's Media ▸ Library and Midnite Media; the server is disposed on quit in both.
 
 **The registry contract lives in the frame** (`packages/frame/src/media/`): the descriptor type, and
 the **media kit port** — the shell's plumbing a tab composes (`MediaLayout`, the explorer, the export
@@ -620,7 +636,7 @@ component), and the frame implements none of it. `scripts/layer-boundaries.test.
 cannot reach the shell or a sibling tab, by name or by relative path. Theme R and S tabs follow the
 same shape.
 
-### App 12: Media (`apps/media`) — Phase 113 Theme R slice 1
+### App 12: Media (`apps/media`) — Phase 113 Theme R slices 1–2
 
 Media composes media-core's shell with the Library tab alone (`MEDIA_TABS = [mediaLibraryTab]`), over the
 frame, with `createStandaloneMediaHost({ repoId: null, key: 'midnite-media.ui', initialTab: 'library' })` —
@@ -635,7 +651,10 @@ holds `safeStorage` for its pairing seed only, `main/keys.ts` is the allow-list 
 for (`media.tmdbApiKey`), and `connectRuntimeVault({ appId: 'media', identity })` reads it, paired and only
 as far as the user's grants in Vault allow; a smoke run reaches no host. The renderer has no key field — the
 Metadata section says to add the key in Vault and grant it to Media. **No network** until the user switches
-online metadata on and the key is granted; **no listening socket** at all (LAN streaming is R2's).
+online metadata on and the key is granted; **no listening socket** until the user starts Share on your
+network (slice 2) — then one, on the private address they picked, behind the sharing token, and closed on
+`will-quit`. Its main passes `os.networkInterfaces` and `PATH` to `createLanStreamServer`; a smoke run never
+calls `startAtLaunch`.
 `scripts/app-vault-grants.test.mjs` names Media among the guests and `scripts/release-bundles.test.mjs` holds
 it in the `--all` matrix with its icon (`scripts/make-icon.mjs`, `PiMonitorPlayFill` in near-black on the
 catalog's `#facc15`). The launcher's Media tile and its three leaves land on Studio's Media ▸ Library while

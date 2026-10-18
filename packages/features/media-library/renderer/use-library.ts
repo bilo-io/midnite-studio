@@ -1,10 +1,15 @@
-import type {
-  GitOpResult,
-  LibraryItem,
-  LibraryRoot,
-  LibraryScanProgress,
-  LibraryScanSummary,
-  LibrarySettings,
+import {
+  DEFAULT_LIBRARY_LAN_SETTINGS,
+  type GitOpResult,
+  type LibraryFfmpegStatus,
+  type LibraryItem,
+  type LibraryLanSettingsPatch,
+  type LibraryLanStatus,
+  type LibraryPlaylist,
+  type LibraryRoot,
+  type LibraryScanProgress,
+  type LibraryScanSummary,
+  type LibrarySettings,
 } from '@midnite/studio-shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -21,6 +26,8 @@ export const LIBRARY_KEYS = {
   roots: ['media-library', 'roots'] as const,
   items: ['media-library', 'items'] as const,
   settings: ['media-library', 'settings'] as const,
+  playlists: ['media-library', 'playlists'] as const,
+  lan: ['media-library', 'lan'] as const,
 };
 
 export function useLibraryRoots() {
@@ -64,6 +71,8 @@ export function useLibraryEvents(): LibraryScanProgress | null {
         void client.invalidateQueries({ queryKey: LIBRARY_KEYS.all });
       else if (reason === 'progress')
         void client.invalidateQueries({ queryKey: LIBRARY_KEYS.items });
+      else if (reason === 'playlists')
+        void client.invalidateQueries({ queryKey: LIBRARY_KEYS.playlists });
       else void client.invalidateQueries({ queryKey: LIBRARY_KEYS.settings });
     });
     const offProgress = library.onScanProgress((event) =>
@@ -142,6 +151,132 @@ export function useLibraryMutations() {
   });
 
   return { scan, addRoot, removeRoot, setSettings, clearProgress };
+}
+
+export function useLibraryPlaylists() {
+  return useQuery<LibraryPlaylist[]>({
+    queryKey: LIBRARY_KEYS.playlists,
+    queryFn: async () => (await bridge()?.media.library.playlists.list())?.playlists ?? [],
+  });
+}
+
+export function usePlaylistMutations() {
+  const client = useQueryClient();
+  const refresh = () => void client.invalidateQueries({ queryKey: LIBRARY_KEYS.playlists });
+  const playlists = () => bridge()?.media.library.playlists;
+
+  const create = useMutation({
+    mutationFn: async (req: { name: string; itemIds?: string[] }) =>
+      (await playlists()?.create(req)) ?? noBridge<{ playlist: LibraryPlaylist }>(),
+    onSuccess: (result) => {
+      reportFailure(result);
+      refresh();
+    },
+  });
+  const rename = useMutation({
+    mutationFn: async (req: { playlistId: string; name: string }) =>
+      (await playlists()?.rename(req)) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      reportFailure<void>(result);
+      refresh();
+    },
+  });
+  const setItems = useMutation({
+    mutationFn: async (req: { playlistId: string; itemIds: string[] }) =>
+      (await playlists()?.setItems(req)) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      reportFailure<void>(result);
+      refresh();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: async (playlistId: string) =>
+      (await playlists()?.delete({ playlistId })) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      reportFailure<void>(result);
+      refresh();
+    },
+  });
+  return { create, rename, setItems, remove };
+}
+
+/** What the panel shows before main answers, or in a build with no bridge. */
+export const LAN_STATUS_UNAVAILABLE: LibraryLanStatus = {
+  available: false,
+  running: false,
+  url: null,
+  settings: { ...DEFAULT_LIBRARY_LAN_SETTINGS },
+  interfaces: [],
+  clients: [],
+  transcodes: 0,
+  ffmpeg: { found: false, path: null, source: null },
+};
+
+/** How often the panel refreshes the connected devices while the server runs. */
+export const LAN_STATUS_POLL_MS = 3_000;
+
+/** Share on your network: polled only while the server runs (and the panel is mounted). */
+export function useLibraryLanStatus() {
+  return useQuery<LibraryLanStatus>({
+    queryKey: LIBRARY_KEYS.lan,
+    queryFn: async () => (await bridge()?.media.library.lan.status()) ?? LAN_STATUS_UNAVAILABLE,
+    refetchInterval: (query) => (query.state.data?.running ? LAN_STATUS_POLL_MS : false),
+  });
+}
+
+export function useLibraryLanMutations() {
+  const client = useQueryClient();
+  const refresh = () => void client.invalidateQueries({ queryKey: LIBRARY_KEYS.lan });
+  const lan = () => bridge()?.media.library.lan;
+
+  const start = useMutation({
+    mutationFn: async (address?: string) =>
+      (await lan()?.start(address === undefined ? {} : { address })) ??
+      noBridge<LibraryLanStatus>(),
+    onSuccess: (result) => {
+      reportFailure(result);
+      refresh();
+    },
+  });
+  const stop = useMutation({
+    mutationFn: async () => (await lan()?.stop()) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      reportFailure<void>(result);
+      refresh();
+    },
+  });
+  const regenerate = useMutation({
+    mutationFn: async () => (await lan()?.regenerateToken()) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      reportFailure<void>(result);
+      if (result.ok)
+        useToastStore.getState().addToast({
+          message: 'New link made — every link shared before it has stopped working.',
+          status: 'success',
+        });
+      refresh();
+    },
+  });
+  const setSettings = useMutation({
+    mutationFn: async (patch: LibraryLanSettingsPatch) =>
+      (await lan()?.setSettings(patch)) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      reportFailure<void>(result);
+      refresh();
+    },
+  });
+  const detectFfmpeg = useMutation({
+    mutationFn: async () => (await lan()?.detectFfmpeg()) ?? null,
+    onSuccess: () => refresh(),
+  });
+  const chooseFfmpeg = useMutation({
+    mutationFn: async () => (await lan()?.chooseFfmpeg()) ?? noBridge<LibraryFfmpegStatus>(),
+    onSuccess: (result) => {
+      reportFailure<LibraryFfmpegStatus>(result);
+      refresh();
+    },
+  });
+  return { start, stop, regenerate, setSettings, detectFfmpeg, chooseFfmpeg };
 }
 
 /** How often a playing item's position is saved. */

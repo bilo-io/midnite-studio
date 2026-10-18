@@ -681,6 +681,22 @@ const bridge: Pick<
       setSettings: (req) => call(CHANNELS.mediaLibrarySettingsSet, req),
       onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaLibraryChanged, handler),
       onScanProgress: (handler) => subscribe(EVENT_CHANNELS.mediaLibraryScanProgress, handler),
+      playlists: {
+        list: () => call(CHANNELS.mediaLibraryPlaylists),
+        create: (req) => call(CHANNELS.mediaLibraryPlaylistCreate, req),
+        rename: (req) => call(CHANNELS.mediaLibraryPlaylistRename, req),
+        setItems: (req) => call(CHANNELS.mediaLibraryPlaylistSetItems, req),
+        delete: (req) => call(CHANNELS.mediaLibraryPlaylistDelete, req),
+      },
+      lan: {
+        status: () => call(CHANNELS.mediaLibraryLanStatus),
+        start: (req) => call(CHANNELS.mediaLibraryLanStart, req),
+        stop: () => call(CHANNELS.mediaLibraryLanStop),
+        regenerateToken: () => call(CHANNELS.mediaLibraryLanRegenerate),
+        setSettings: (req) => call(CHANNELS.mediaLibraryLanSettingsSet, req),
+        detectFfmpeg: () => call(CHANNELS.mediaLibraryLanDetectFfmpeg),
+        chooseFfmpeg: () => call(CHANNELS.mediaLibraryLanChooseFfmpeg),
+      },
     },
     audio: {
       providers: () => call(CHANNELS.mediaAudioProviders),

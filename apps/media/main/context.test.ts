@@ -14,7 +14,9 @@ import { installMediaFileProtocol, resolveMediaFileUrl } from './file-protocol';
 
 /** Temp-dir fixtures only: every library folder here is one this suite made under the OS temp dir. */
 const dirs: string[] = [];
+const lans: Array<{ dispose: () => Promise<void> }> = [];
 afterEach(async () => {
+  await Promise.all(lans.splice(0).map((lan) => lan.dispose()));
   await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
@@ -30,7 +32,7 @@ async function setup(extra: Partial<MediaElectron> = {}) {
     throw new Error('Media made a network call with online metadata off');
   }) as unknown as typeof fetch;
   const readKey = vi.fn(async () => 'a-key');
-  const library = registerMediaHandlers({
+  const { library, lan } = registerMediaHandlers({
     ipcMain: { handle: (c, l) => void handlers.set(c, l), on: () => undefined },
     trashItem: async () => undefined,
     send: (channel) => void sent.push(channel),
@@ -39,10 +41,13 @@ async function setup(extra: Partial<MediaElectron> = {}) {
     readKey,
     fetch: fetchFn,
     homeDir: base,
+    interfaces: () => ({}),
+    isExecutable: async () => false,
     ...extra,
   });
+  lans.push(lan);
   const invoke = (channel: string, payload?: unknown) => handlers.get(channel)!({}, payload);
-  return { base, folder, handlers, invoke, library, sent, fetchFn, readKey };
+  return { base, folder, handlers, invoke, library, lan, sent, fetchFn, readKey };
 }
 
 describe('registerMediaHandlers', () => {
@@ -80,6 +85,17 @@ describe('registerMediaHandlers', () => {
     await invoke(CHANNELS.mediaLibrarySettingsSet, { onlineMetadata: true });
     await invoke(CHANNELS.mediaLibraryAddRoot);
     expect(((await invoke(CHANNELS.mediaLibraryScan, {})) as { ok: boolean }).ok).toBe(true);
+  });
+});
+
+describe('Share on your network', () => {
+  it('is built but not listening, and refuses to bind with no private interface', async () => {
+    const { invoke, lan } = await setup();
+    const status = (await invoke(CHANNELS.mediaLibraryLanStatus)) as { running: boolean; available: boolean };
+    expect(status).toMatchObject({ available: true, running: false });
+    const started = (await invoke(CHANNELS.mediaLibraryLanStart, { address: '0.0.0.0' })) as { ok: boolean };
+    expect(started.ok).toBe(false);
+    expect((await lan.status()).running).toBe(false);
   });
 });
 

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  moveEntry,
+  nextPlaylistName,
+  playlistItems,
   continueWatching,
   countByKind,
   episodeCode,
@@ -126,5 +129,26 @@ describe('createProgressSaver', () => {
     const write = vi.fn();
     createProgressSaver('item', write)(Number.NaN, Number.NaN, false, true);
     expect(write).not.toHaveBeenCalled();
+  });
+});
+
+describe('playlist helpers', () => {
+  it('lists a playlist in order, skipping what the library lost', () => {
+    const a = makeItem({ id: 'a', kind: 'music', title: 'A' });
+    const b = makeItem({ id: 'b', kind: 'music', title: 'B' });
+    expect(playlistItems(['b', 'gone', 'a'], [a, b]).map((i) => i.id)).toEqual(['b', 'a']);
+  });
+
+  it('moves an entry, clamped at the ends', () => {
+    expect(moveEntry(['a', 'b', 'c'], 2, -1)).toEqual(['a', 'c', 'b']);
+    expect(moveEntry(['a', 'b', 'c'], 0, 1)).toEqual(['b', 'a', 'c']);
+    expect(moveEntry(['a', 'b', 'c'], 0, -1)).toEqual(['a', 'b', 'c']);
+    expect(moveEntry(['a', 'b', 'c'], 5, 1)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('names a new playlist with a free number', () => {
+    expect(nextPlaylistName([])).toBe('Playlist 1');
+    expect(nextPlaylistName([{ name: 'Playlist 2' }])).toBe('Playlist 3');
+    expect(nextPlaylistName([{ name: 'Mine' }, { name: 'Playlist 3' }])).toBe('Playlist 4');
   });
 });

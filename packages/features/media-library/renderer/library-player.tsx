@@ -8,9 +8,10 @@ import type { LibraryPlayerProps } from './host';
  * shared players do not have: start from where the user stopped, and report where they are.
  *
  * Playback is local only: `src` is `mstudio-file://library/…`, which main serves from the root through
- * its path jail. A format Chromium cannot decode does not play; transcoding is slice R2's.
+ * its path jail. A format Chromium cannot decode does not play here; transcoding (slice R2) is for the
+ * devices Share on your network streams to, through the user's own ffmpeg.
  */
-export function LibraryPlayer({ item, src, resumeAt, onProgress }: LibraryPlayerProps) {
+export function LibraryPlayer({ item, src, resumeAt, autoPlay, onProgress }: LibraryPlayerProps) {
   const ref = useRef<HTMLVideoElement & HTMLAudioElement>(null);
   const report = useRef(onProgress);
   report.current = onProgress;
@@ -29,6 +30,7 @@ export function LibraryPlayer({ item, src, resumeAt, onProgress }: LibraryPlayer
     ref,
     src,
     controls: true,
+    autoPlay: autoPlay ?? false,
     preload: 'metadata' as const,
     'aria-label': `Play ${item.title}`,
     onLoadedMetadata: () => {

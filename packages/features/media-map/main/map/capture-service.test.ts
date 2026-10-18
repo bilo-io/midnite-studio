@@ -46,7 +46,8 @@ function pngTile(z: number, x: number, y: number): Uint8Array {
 
 const REQ: MapCaptureRequest = { repoId: 'r1', project: 'maps', center: [18.4, -34], sideM: 3000, size: 129, place: 'Test Place', satellite: false, roads: false, buildings: false };
 
-describe('capture service', () => {
+// The satellite/roads cases encode real PNGs and take seconds on a loaded CI runner — not the 5 s default.
+describe('capture service', { timeout: 30_000 }, () => {
   let root: string;
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'map-capture-'));

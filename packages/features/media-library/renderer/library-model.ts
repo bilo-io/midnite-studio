@@ -142,3 +142,34 @@ export function formatClock(totalSeconds: number): string {
 
 /** Whether an item plays (films, episodes, music) or is only shown (photos). */
 export const isPlayable = (item: LibraryItem): boolean => item.kind !== 'photo';
+
+/** A playlist's items in its order, skipping any the library no longer holds. */
+export function playlistItems(
+  itemIds: readonly string[],
+  items: readonly LibraryItem[],
+): LibraryItem[] {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return itemIds.flatMap((id) => {
+    const item = byId.get(id);
+    return item ? [item] : [];
+  });
+}
+
+/** `ids` with the entry at `index` moved by `delta` (clamped); the same array when nothing moves. */
+export function moveEntry(ids: readonly string[], index: number, delta: number): string[] {
+  const to = Math.min(ids.length - 1, Math.max(0, index + delta));
+  if (index < 0 || index >= ids.length || to === index) return [...ids];
+  const next = [...ids];
+  const [moved] = next.splice(index, 1);
+  next.splice(to, 0, moved!);
+  return next;
+}
+
+/** A default name for a new playlist that no existing one has. */
+export function nextPlaylistName(existing: readonly { name: string }[]): string {
+  const taken = new Set(existing.map((p) => p.name));
+  for (let n = existing.length + 1; ; n += 1) {
+    const name = `Playlist ${n}`;
+    if (!taken.has(name)) return name;
+  }
+}

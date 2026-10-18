@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { lstat, mkdir, open, readdir, realpath, stat, unlink, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, posix, resolve, sep } from 'node:path';
 
@@ -6,6 +6,7 @@ import { confineToRoot } from '@midnite/studio-runtime';
 import {
   failure,
   LIBRARY_ART_ROOT_ID,
+  LIBRARY_PLAYLIST_ITEMS_MAX,
   libraryIsFinished,
   ok,
   type GitOpResult,
@@ -13,6 +14,7 @@ import {
   type LibraryFileRef,
   type LibraryItem,
   type LibraryKind,
+  type LibraryPlaylist,
   type LibraryRoot,
   type LibraryScanProgress,
   type LibraryScanSummary,
@@ -20,7 +22,13 @@ import {
 } from '@midnite/studio-shared';
 
 import { classifyPath, isAudioName, isVideoName, stemOf } from './classify';
-import { createIndexStore, toWireItem, type LibraryIndex, type StoredItem } from './index-store';
+import {
+  createIndexStore,
+  toWireItem,
+  type LibraryIndex,
+  type MediaProbe,
+  type StoredItem,
+} from './index-store';
 import { findLocalArt, NFO_READ_CAP, parseNfo, type NfoFields } from './local-metadata';
 import type { OnlineProvider } from './online';
 import { readAudioTags } from './tags';
@@ -77,6 +85,21 @@ export type LibraryService = {
   setSettings: (patch: Partial<LibrarySettings>) => Promise<GitOpResult>;
   /** The absolute path behind `mstudio-file://library/<rootId>/<relPath>`, or null when it is not served. */
   resolveFile: (rootId: string, relPath: string) => Promise<string | null>;
+  /** One item by id, or null when the index does not hold it. */
+  item: (itemId: string) => Promise<LibraryItem | null>;
+  /** Playlists, each holding only the items the index has now, in order. */
+  playlists: () => Promise<LibraryPlaylist[]>;
+  createPlaylist: (req: {
+    name: string;
+    itemIds?: string[];
+  }) => Promise<GitOpResult<{ playlist: LibraryPlaylist }>>;
+  renamePlaylist: (req: { playlistId: string; name: string }) => Promise<GitOpResult>;
+  /** Replaces a playlist's items — add, remove and reorder are this one write. Unknown ids are refused. */
+  setPlaylistItems: (req: { playlistId: string; itemIds: string[] }) => Promise<GitOpResult>;
+  deletePlaylist: (playlistId: string) => Promise<GitOpResult>;
+  /** The cached probe of an item, while its file's size and mtime have not moved since. */
+  cachedProbe: (itemId: string) => Promise<MediaProbe | null>;
+  storeProbe: (itemId: string, probe: MediaProbe) => Promise<void>;
 };
 
 /** Folders a scan never enters: NAS thumbnails, recycle bins, package trees. Dot-folders are skipped too. */
@@ -414,7 +437,10 @@ export function createLibraryService(deps: LibraryServiceDeps): LibraryService {
     totals.scanned += scanned;
 
     await update((i) => {
-      for (const id of previous.keys()) delete i.items[id];
+      for (const id of previous.keys()) {
+        delete i.items[id];
+        if (!next.has(id)) delete i.probes[id];
+      }
       for (const [id, item] of next) i.items[id] = item;
       const r = i.roots.find((candidate) => candidate.id === root.id);
       if (r) {
@@ -545,7 +571,11 @@ export function createLibraryService(deps: LibraryServiceDeps): LibraryService {
           if (item.rootId !== rootId) continue;
           delete i.items[id];
           delete i.progress[id];
+          delete i.probes[id];
         }
+        // Removing a folder is the user's choice, so its items leave playlists too (a rescan keeps them).
+        for (const playlist of i.playlists)
+          playlist.itemIds = playlist.itemIds.filter((itemId) => i.items[itemId] !== undefined);
       });
       await pruneArt(next);
       emitChanged('roots');
@@ -619,7 +649,105 @@ export function createLibraryService(deps: LibraryServiceDeps): LibraryService {
       const root = (await store.read()).roots.find((candidate) => candidate.id === rootId);
       return root ? confineToRoot(root.path, normalised) : null;
     },
+
+    item: async (itemId) => {
+      const index = await store.read();
+      const stored = Object.hasOwn(index.items, itemId) ? index.items[itemId] : undefined;
+      return stored ? toWireItem(stored, index.progress[itemId]) : null;
+    },
+
+    playlists: async () => {
+      const index = await store.read();
+      return index.playlists.map((playlist) => ({
+        ...playlist,
+        itemIds: playlist.itemIds.filter((itemId) => Object.hasOwn(index.items, itemId)),
+      }));
+    },
+
+    createPlaylist: async ({ name, itemIds = [] }) => {
+      const index = await store.read();
+      const checked = knownItems(index, itemIds);
+      if (!checked.ok) return checked;
+      const at = now();
+      const playlist: LibraryPlaylist = {
+        id: `p${randomBytes(6).toString('hex')}`,
+        name: name.trim(),
+        itemIds: checked.value,
+        createdAt: at,
+        updatedAt: at,
+      };
+      await update((i) => {
+        i.playlists.push(playlist);
+      });
+      emitChanged('playlists');
+      return ok({ playlist: { ...playlist, itemIds: [...playlist.itemIds] } });
+    },
+
+    renamePlaylist: async ({ playlistId, name }) => {
+      const index = await store.read();
+      if (!index.playlists.some((playlist) => playlist.id === playlistId))
+        return failure('That playlist is not in the library.');
+      await update((i) => {
+        const playlist = i.playlists.find((candidate) => candidate.id === playlistId);
+        if (!playlist) return;
+        playlist.name = name.trim();
+        playlist.updatedAt = now();
+      });
+      emitChanged('playlists');
+      return ok();
+    },
+
+    setPlaylistItems: async ({ playlistId, itemIds }) => {
+      const index = await store.read();
+      if (!index.playlists.some((playlist) => playlist.id === playlistId))
+        return failure('That playlist is not in the library.');
+      const checked = knownItems(index, itemIds);
+      if (!checked.ok) return checked;
+      await update((i) => {
+        const playlist = i.playlists.find((candidate) => candidate.id === playlistId);
+        if (!playlist) return;
+        playlist.itemIds = checked.value;
+        playlist.updatedAt = now();
+      });
+      emitChanged('playlists');
+      return ok();
+    },
+
+    deletePlaylist: async (playlistId) => {
+      const index = await store.read();
+      if (!index.playlists.some((playlist) => playlist.id === playlistId))
+        return failure('That playlist is not in the library.');
+      await update((i) => {
+        i.playlists = i.playlists.filter((playlist) => playlist.id !== playlistId);
+      });
+      emitChanged('playlists');
+      return ok();
+    },
+
+    cachedProbe: async (itemId) => {
+      const index = await store.read();
+      const item = Object.hasOwn(index.items, itemId) ? index.items[itemId] : undefined;
+      const probe = Object.hasOwn(index.probes, itemId) ? index.probes[itemId] : undefined;
+      if (!item || !probe) return null;
+      return probe.size === item.size && probe.mtimeMs === item.mtimeMs ? { ...probe } : null;
+    },
+
+    storeProbe: async (itemId, probe) => {
+      await update((i) => {
+        if (Object.hasOwn(i.items, itemId)) i.probes[itemId] = { ...probe };
+      });
+    },
   };
+}
+
+/** The ids, de-duplicated in order, when every one is an item the index holds. */
+function knownItems(index: LibraryIndex, itemIds: readonly string[]): GitOpResult<string[]> {
+  const unique = [...new Set(itemIds)];
+  if (unique.length > LIBRARY_PLAYLIST_ITEMS_MAX)
+    return failure(`A playlist holds at most ${LIBRARY_PLAYLIST_ITEMS_MAX} items.`);
+  if (unique.some((itemId) => !Object.hasOwn(index.items, itemId)))
+    return failure('That item is not in the library.');
+  return ok(unique);
 }
 
 function applyNfo(item: StoredItem, nfo: NfoFields): void {

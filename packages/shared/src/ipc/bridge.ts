@@ -1387,6 +1387,29 @@ export type MidniteStudioBridge = {
       setSettings: (req: In<typeof S.MediaLibrarySettingsSetRequest>) => Promise<GitOpResult>;
       onChanged: (handler: (event: z.infer<typeof S.MediaLibraryChangedPayload>) => void) => Unsubscribe;
       onScanProgress: (handler: (event: z.infer<typeof S.MediaLibraryScanProgressPayload>) => void) => Unsubscribe;
+      /** Playlists of library items, kept in the library's index (Theme R slice 2). */
+      playlists: {
+        list: () => Promise<z.infer<typeof S.MediaLibraryPlaylistsResponse>>;
+        create: (
+          req: In<typeof S.MediaLibraryPlaylistCreateRequest>,
+        ) => Promise<z.infer<typeof S.MediaLibraryPlaylistCreateResponse>>;
+        rename: (req: In<typeof S.MediaLibraryPlaylistRenameRequest>) => Promise<GitOpResult>;
+        setItems: (req: In<typeof S.MediaLibraryPlaylistSetItemsRequest>) => Promise<GitOpResult>;
+        delete: (req: In<typeof S.MediaLibraryPlaylistDeleteRequest>) => Promise<GitOpResult>;
+      };
+      /**
+       * Sharing on the local network (Theme R slice 2): a server the user starts, bound to one private address
+       * they picked. `status().url` carries the sharing token so the user can hand it out; no key crosses.
+       */
+      lan: {
+        status: () => Promise<z.infer<typeof S.MediaLibraryLanStatusResponse>>;
+        start: (req: In<typeof S.MediaLibraryLanStartRequest>) => Promise<z.infer<typeof S.MediaLibraryLanStartResponse>>;
+        stop: () => Promise<GitOpResult>;
+        regenerateToken: () => Promise<GitOpResult>;
+        setSettings: (req: In<typeof S.MediaLibraryLanSettingsSetRequest>) => Promise<GitOpResult>;
+        detectFfmpeg: () => Promise<z.infer<typeof S.MediaLibraryLanDetectFfmpegResponse>>;
+        chooseFfmpeg: () => Promise<z.infer<typeof S.MediaLibraryLanChooseFfmpegResponse>>;
+      };
     };
     /** Audio (Theme E): the `AudioProvider` catalogue and Import, all run in main. */
     audio: {

@@ -45,8 +45,18 @@ import {
 import {
   LibraryChangedSchema,
   LibraryClearProgressRequestSchema,
+  LibraryFfmpegStatusSchema,
   LibraryItemsRequestSchema,
   LibraryItemsResponseSchema,
+  LibraryLanSettingsPatchSchema,
+  LibraryLanStartRequestSchema,
+  LibraryLanStatusSchema,
+  LibraryPlaylistCreateRequestSchema,
+  LibraryPlaylistDeleteRequestSchema,
+  LibraryPlaylistRenameRequestSchema,
+  LibraryPlaylistSchema,
+  LibraryPlaylistSetItemsRequestSchema,
+  LibraryPlaylistsResponseSchema,
   LibraryProgressRequestSchema,
   LibraryRemoveRootRequestSchema,
   LibraryRootSchema,
@@ -3489,6 +3499,29 @@ export const MediaLibrarySettingsSetRequest = LibrarySettingsSchema.partial();
 export const MediaLibrarySettingsSetResponse = GitOpResultSchema;
 export const MediaLibraryChangedPayload = LibraryChangedSchema;
 export const MediaLibraryScanProgressPayload = LibraryScanProgressSchema;
+// Library playlists and LAN sharing (Phase 113 Theme R slice 2).
+export const MediaLibraryPlaylistsResponse = LibraryPlaylistsResponseSchema;
+export const MediaLibraryPlaylistCreateRequest = LibraryPlaylistCreateRequestSchema;
+export const MediaLibraryPlaylistCreateResponse = GitOpResultOf(z.object({ playlist: LibraryPlaylistSchema }));
+export const MediaLibraryPlaylistRenameRequest = LibraryPlaylistRenameRequestSchema;
+export const MediaLibraryPlaylistRenameResponse = GitOpResultSchema;
+export const MediaLibraryPlaylistSetItemsRequest = LibraryPlaylistSetItemsRequestSchema;
+export const MediaLibraryPlaylistSetItemsResponse = GitOpResultSchema;
+export const MediaLibraryPlaylistDeleteRequest = LibraryPlaylistDeleteRequestSchema;
+export const MediaLibraryPlaylistDeleteResponse = GitOpResultSchema;
+/** The server's state, the interfaces it may bind and who is connected; the URL carries the sharing token. */
+export const MediaLibraryLanStatusResponse = LibraryLanStatusSchema;
+/** Binds `address` (or the saved one) — refused unless it is one of this computer's private IPv4 addresses. */
+export const MediaLibraryLanStartRequest = LibraryLanStartRequestSchema;
+export const MediaLibraryLanStartResponse = GitOpResultOf(LibraryLanStatusSchema);
+export const MediaLibraryLanStopResponse = GitOpResultSchema;
+/** A new access token; every link handed out before stops working and open streams are cut. */
+export const MediaLibraryLanRegenerateResponse = GitOpResultSchema;
+export const MediaLibraryLanSettingsSetRequest = LibraryLanSettingsPatchSchema;
+export const MediaLibraryLanSettingsSetResponse = GitOpResultSchema;
+export const MediaLibraryLanDetectFfmpegResponse = LibraryFfmpegStatusSchema;
+/** No payload: main opens its own file dialog, and only a runnable file named `ffmpeg` is saved. */
+export const MediaLibraryLanChooseFfmpegResponse = GitOpResultOf(LibraryFfmpegStatusSchema);
 
 // Capture (Phase 113 Theme K) — `capture.ts`. Every op answers a GitOpResult envelope; none throws.
 export const CaptureStatusResponse = CaptureStatusSchema;

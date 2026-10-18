@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [114 · App-wide settings by voice](phases/phase-114-app-wide-settings-by-voice.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F |
-| [113 · Midnite Apps suite split](phases/phase-113-midnite-apps-suite-split.md) | 🔄 WIP | — | 72/78 | `█████████░` | 92% | H K R | — |
+| [113 · Midnite Apps suite split](phases/phase-113-midnite-apps-suite-split.md) | 🔄 WIP | — | 74/78 | `█████████░` | 95% | H | — |
 | [112 · Companion deep navigation: open any resource](phases/phase-112-companion-deep-navigation.md) | 🔄 WIP | — | 39/48 | `████████░░` | 81% | — | — |
 | [111 · Voice agent and model switching](phases/phase-111-voice-agent-and-model-switching.md) | 🔄 WIP | — | 20/24 | `████████░░` | 83% | — | — |
 | [110 · Prompt & Context Lab](phases/phase-110-prompt-and-context-lab.md) | ◻ TODO | — | 0/33 | `░░░░░░░░░░` | 0% | — | A B C D E F |

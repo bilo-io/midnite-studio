@@ -1,4 +1,5 @@
-import { homedir } from 'node:os';
+import { existsSync } from 'node:fs';
+import { homedir, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 
 import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron';
@@ -25,9 +26,10 @@ import { mediaPairing } from './pairing';
  * launcher's stub as `Resources/app`. One window over the media shell with the Library tab, registered
  * through a `FeatureMainContext` built from the runtime; no desktop, no other app. The library's index
  * and art cache live under Media's own userData (`Midnite Runtime/apps/media/media-library/`); the
- * folders it reads are only ever the ones the user picked. It opens no listening socket (LAN streaming
- * is R2's), and makes no network call unless the user switches online metadata on — and then only to
- * TMDB, with the key read here from the runtime vault, as `media`, paired and granted.
+ * folders it reads are only ever the ones the user picked. It opens a listening socket only when the user
+ * starts Share on your network (bound to the private address they picked — `createLanStreamServer`), and
+ * makes no internet call unless the user switches online metadata on — and then only to TMDB, with the key
+ * read here from the runtime vault, as `media`, paired and granted.
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
@@ -46,6 +48,16 @@ async function pickDirectory(): Promise<string | null> {
   const options = {
     title: 'Add a folder to the library',
     properties: ['openDirectory'] as Array<'openDirectory'>,
+  };
+  const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  return picked.canceled ? null : (picked.filePaths[0] ?? null);
+}
+
+async function chooseFfmpeg(): Promise<string | null> {
+  const options = {
+    title: 'Choose ffmpeg',
+    properties: ['openFile'] as Array<'openFile'>,
+    ...(existsSync('/opt/homebrew/bin') ? { defaultPath: '/opt/homebrew/bin' } : {}),
   };
   const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
   return picked.canceled ? null : (picked.filePaths[0] ?? null);
@@ -72,7 +84,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
           identity: mediaPairing(userData, smoke),
         });
     const readKey = vault ? createMediaKeyReader(vault) : async () => null;
-    const library = registerMediaHandlers({
+    const { library, lan } = registerMediaHandlers({
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
@@ -84,7 +96,15 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       // Only ever called once the user has switched online metadata on and a granted key reads back.
       fetch: (input, init) => net.fetch(input instanceof URL ? input.toString() : input, init),
       homeDir: homedir(),
+      // Share on your network: the private addresses it may bind, and where a system ffmpeg might be.
+      interfaces: networkInterfaces,
+      pathEnv: process.env.PATH ?? '',
+      chooseFfmpeg,
     });
+    // Stopped with the app (remembering it was on); started at launch only when the user left it on and
+    // chose "start with the app" — and never in a smoke run.
+    app.on('will-quit', () => void lan.dispose());
+    if (!smoke) void lan.startAtLaunch();
     installMediaFileProtocol(
       {
         handle: (scheme, handler) => protocol.handle(scheme, handler),

@@ -4,10 +4,12 @@ import { join } from 'node:path';
 import {
   DEFAULT_LIBRARY_SETTINGS,
   LibraryItemSchema,
+  LibraryPlaylistSchema,
   LibraryProgressSchema,
   LibraryRootSchema,
   LibrarySettingsSchema,
   type LibraryItem,
+  type LibraryPlaylist,
   type LibraryProgress,
   type LibraryRoot,
   type LibrarySettings,
@@ -33,14 +35,37 @@ export const StoredItemSchema = LibraryItemSchema.omit({ progress: true }).exten
 });
 export type StoredItem = z.infer<typeof StoredItemSchema>;
 
+/**
+ * What ffmpeg said a file holds (Theme R slice 2) — cached per item and dropped when the file's size or mtime
+ * moves, so the LAN server probes a file once, not on every request.
+ */
+export const MediaProbeSchema = z.object({
+  size: z.number().int().nonnegative(),
+  mtimeMs: z.number(),
+  /** ffmpeg's demuxer name (`matroska,webm`, `mov,mp4,m4a,3gp,3g2,mj2`, `avi`, …), or null when unread. */
+  container: z.string().nullable(),
+  /** The first video stream's codec (an attached cover picture is not one), or null. */
+  video: z.string().nullable(),
+  /** The first audio stream's codec, or null. */
+  audio: z.string().nullable(),
+  durationS: z.number().nullable(),
+});
+export type MediaProbe = z.infer<typeof MediaProbeSchema>;
+
 export const LIBRARY_INDEX_VERSION = 1;
 
+/**
+ * Slice 2 added `playlists` and `probes` with defaults rather than a version bump: an index written before them
+ * parses as it is (a failed parse would set the user's whole index aside as unreadable).
+ */
 const IndexSchema = z.object({
   version: z.literal(LIBRARY_INDEX_VERSION),
   roots: z.array(LibraryRootSchema),
   items: z.record(StoredItemSchema),
   progress: z.record(LibraryProgressSchema),
   settings: LibrarySettingsSchema,
+  playlists: z.array(LibraryPlaylistSchema).default([]),
+  probes: z.record(MediaProbeSchema).default({}),
 });
 export type LibraryIndex = z.infer<typeof IndexSchema>;
 
@@ -50,6 +75,8 @@ export const emptyIndex = (): LibraryIndex => ({
   items: {},
   progress: {},
   settings: { ...DEFAULT_LIBRARY_SETTINGS },
+  playlists: [],
+  probes: {},
 });
 
 export const INDEX_FILE = 'library.json';
@@ -114,4 +141,4 @@ export function toWireItem(stored: StoredItem, progress: LibraryProgress | undef
   return { ...item, progress: progress ?? null };
 }
 
-export type { LibraryRoot, LibrarySettings };
+export type { LibraryPlaylist, LibraryRoot, LibrarySettings };

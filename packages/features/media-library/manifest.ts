@@ -3,7 +3,8 @@ import { CHANNELS, defineFeatureManifest, EVENT_CHANNELS } from '@midnite/studio
 /**
  * Media ▸ Library as a feature (Phase 113 Theme R) — folders the user points at, scanned for films,
  * shows, music and photos; local artwork and metadata first, an opt-in online provider second; watch
- * progress and a continue-watching row; local playback.
+ * progress and a continue-watching row; local playback; playlists; and (slice 2) sharing on the local
+ * network — a server the user starts, bound to a private address they pick, with system-ffmpeg transcoding.
  *
  * One of the packages split from the `media` folder (`FEATURE_PACKAGE_SPLITS`): a tab, not a view —
  * Studio hands `mediaLibraryTab` to its media view and Midnite Media to media-core's `MediaShell`.
@@ -28,6 +29,18 @@ export const mediaLibraryManifest = defineFeatureManifest({
     CHANNELS.mediaLibraryClearProgress,
     CHANNELS.mediaLibrarySettingsGet,
     CHANNELS.mediaLibrarySettingsSet,
+    CHANNELS.mediaLibraryPlaylists,
+    CHANNELS.mediaLibraryPlaylistCreate,
+    CHANNELS.mediaLibraryPlaylistRename,
+    CHANNELS.mediaLibraryPlaylistSetItems,
+    CHANNELS.mediaLibraryPlaylistDelete,
+    CHANNELS.mediaLibraryLanStatus,
+    CHANNELS.mediaLibraryLanStart,
+    CHANNELS.mediaLibraryLanStop,
+    CHANNELS.mediaLibraryLanRegenerate,
+    CHANNELS.mediaLibraryLanSettingsSet,
+    CHANNELS.mediaLibraryLanDetectFfmpeg,
+    CHANNELS.mediaLibraryLanChooseFfmpeg,
   ],
   events: [EVENT_CHANNELS.mediaLibraryChanged, EVENT_CHANNELS.mediaLibraryScanProgress],
   mcpTools: [],
