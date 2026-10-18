@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   captureFileUrl,
@@ -356,8 +356,9 @@ describe('clipboard history', () => {
     history.stop();
   });
 
-  it('never keeps a concealed, transient or auto-generated entry', async () => {
+  it('never keeps — or even reads — a concealed, transient or auto-generated entry', async () => {
     const { el, history } = make();
+    const readText = vi.spyOn(el.clip, 'readText');
     for (const marker of [
       'org.nspasteboard.ConcealedType',
       'org.nspasteboard.TransientType',
@@ -370,6 +371,7 @@ describe('clipboard history', () => {
     }
     expect(await history.list()).toEqual([]);
     expect(await readdir(dir)).toEqual([]);
+    expect(readText).not.toHaveBeenCalled();
   });
 
   it('keeps images as PNG files, skips oversized text and moves a repeat to the top', async () => {

@@ -199,13 +199,19 @@ export function createClipboardHistory(deps: {
       } catch {
         return false;
       }
+      if (formats.length === 0) return false;
+      // A marked entry (a password manager's copy) is never read, not even into the comparison below:
+      // the markers are checked on the formats alone, before any text leaves the pasteboard.
+      if (isMarked(clipboard, formats)) {
+        lastSignature = `marked:${formats.join('|')}`;
+        return false;
+      }
       const text = formats.some((f) => f.startsWith('text/plain')) ? clipboard.readText() : '';
       const hasImage = formats.some((f) => f.startsWith('image/'));
       const signature = `${formats.join('|')}\n${text}`;
       // Unchanged since the last look (an image is re-checked only when the formats or text move).
       if (signature === lastSignature) return false;
       lastSignature = signature;
-      if (formats.length === 0 || isMarked(clipboard, formats)) return false;
       const id = `clip-${randomBytes(6).toString('hex')}`;
       if (hasImage) {
         const image = clipboard.readImage();
