@@ -61,6 +61,16 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // Another surface offered this new chat an attachment (Capture's Send to…): add it to the draft,
+  // once. Nothing is sent — the user reads it in the composer and presses send.
+  const incoming = useChatsStore((s) => s.incoming);
+  useEffect(() => {
+    if (key !== NEW_KEY || incoming.length === 0) return;
+    const taken = useChatsStore.getState().takeIncoming();
+    setAttachments((current) => [...current, ...taken.filter((a) => !current.some((c) => c.id === a.id))]);
+    setFocusToken((n) => n + 1);
+  }, [key, incoming]);
+
   // A new chat starts in the repo you are looking at, once, if it has none yet.
   const seeded = useRef(false);
   useEffect(() => {

@@ -227,6 +227,22 @@ describe('sending and streaming', () => {
     expect(screen.getByTestId('chat-title').textContent).toBe('Say hello');
   });
 
+  it('takes an attachment another surface offered (Capture) into the new-chat draft, and sends nothing', async () => {
+    await ready();
+    act(() =>
+      useChatsStore.getState().offerAttachment({
+        id: 'capture-cap-20261018-093000-abcdef12',
+        name: 'cap-20261018-093000-abcdef12.png',
+        text: 'Screenshot saved at /tmp/cap.png',
+      }),
+    );
+    const chips = await screen.findByTestId('chat-attachments');
+    expect(chips.textContent).toContain('cap-20261018-093000-abcdef12.png');
+    expect(useChatsStore.getState().incoming).toEqual([]);
+    expect(screen.queryByTestId('chat-message-user')).toBeNull();
+    expect(screen.getByTestId('chat-empty-state')).toBeTruthy();
+  });
+
   it('Shift+Enter does not send', async () => {
     await ready();
     await type('draft');
