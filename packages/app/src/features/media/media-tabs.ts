@@ -1,5 +1,5 @@
 import type { MediaTab } from '@midnite/studio-shared';
-import { LuAudioLines, LuBox, LuClapperboard, LuFileText, LuGamepad2, LuImage, LuMapPin, LuMountain, LuPersonStanding } from 'react-icons/lu';
+import { LuAudioLines, LuBox, LuClapperboard, LuFileText, LuGamepad2, LuImage, LuLibrary, LuMapPin, LuMountain, LuPersonStanding } from 'react-icons/lu';
 
 import type { IconComponent } from '../../components/icon-button';
 
@@ -14,6 +14,7 @@ export const MEDIA_TAB_META: Record<MediaTab, { label: string; icon: IconCompone
   model: { label: 'Models', icon: LuBox },
   sprite: { label: 'Sprites', icon: LuPersonStanding },
   game: { label: 'Games', icon: LuGamepad2 },
+  library: { label: 'Library', icon: LuLibrary },
 };
 
 // The strip ↔ panel ids moved to the frame with the registry contract (Phase 113 Theme Q).

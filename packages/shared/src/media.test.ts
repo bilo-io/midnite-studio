@@ -8,8 +8,12 @@ import {
 } from './media';
 
 describe('media contract', () => {
-  it('declares a non-empty export menu for every tab', () => {
-    for (const tab of MEDIA_TABS) expect(MEDIA_TAB_EXPORT_FORMATS[tab].length).toBeGreaterThan(0);
+  it('declares a non-empty export menu for every tab that makes something', () => {
+    // The Library (Phase 113 Theme R) plays the user's own files; it has nothing to export.
+    for (const tab of MEDIA_TABS) {
+      if (tab === 'library') expect(MEDIA_TAB_EXPORT_FORMATS[tab]).toEqual([]);
+      else expect(MEDIA_TAB_EXPORT_FORMATS[tab].length).toBeGreaterThan(0);
+    }
   });
 
   it('keeps the 3D exports on main\'s own writers, never ffmpeg', () => {

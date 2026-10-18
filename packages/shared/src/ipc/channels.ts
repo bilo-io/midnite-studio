@@ -998,6 +998,17 @@ export const CHANNELS = {
   mediaMusicAgy: 'mstudio:media:music-agy',
   // Phase 101 Theme I: the song's chat thread, stored beside it as <name>.chat.json.
   mediaMusicChat: 'mstudio:media:music-chat',
+  // Library (Phase 113 Theme R) — the local media library: roots the user picked (the picker runs in main),
+  // scans, items, watch progress and settings. Bytes stream on `mstudio-file://library/…`, never over IPC.
+  mediaLibraryRoots: 'mstudio:media:library-roots',
+  mediaLibraryAddRoot: 'mstudio:media:library-add-root',
+  mediaLibraryRemoveRoot: 'mstudio:media:library-remove-root',
+  mediaLibraryScan: 'mstudio:media:library-scan',
+  mediaLibraryItems: 'mstudio:media:library-items',
+  mediaLibraryProgress: 'mstudio:media:library-progress',
+  mediaLibraryClearProgress: 'mstudio:media:library-clear-progress',
+  mediaLibrarySettingsGet: 'mstudio:media:library-settings-get',
+  mediaLibrarySettingsSet: 'mstudio:media:library-settings-set',
   // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
   mediaModelProviders: 'mstudio:media:model-providers',
   mediaModelGenerate: 'mstudio:media:model-generate',
@@ -1645,6 +1656,10 @@ export const EVENT_CHANNELS = {
   gamesAgentProgress: 'mstudio:games:agent-progress',
   /** A repo's media store changed on disk — see `MediaChangedEventSchema`. */
   mediaChanged: 'mstudio:media:changed',
+  /** The media library's roots, items, progress or settings changed — see `LibraryChangedSchema`. */
+  mediaLibraryChanged: 'mstudio:media:library-changed',
+  /** A library scan advanced — see `LibraryScanProgressSchema`. */
+  mediaLibraryScanProgress: 'mstudio:media:library-scan-progress',
   /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */
   mediaImageProgress: 'mstudio:media:image-progress',
   /** An audio import advanced — see `AudioProgressEventSchema`. */

@@ -1970,6 +1970,18 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaDocExport: ['MediaDocExportRequest', 'MediaDocExportResponse'],
       mediaChanged: ['MediaChangedPayload'],
       mediaExportProgress: ['MediaExportProgressPayload'],
+      // Phase 113 Theme R — Media ▸ Library.
+      mediaLibraryRoots: ['MediaLibraryRootsResponse'],
+      mediaLibraryAddRoot: ['MediaLibraryAddRootResponse'],
+      mediaLibraryRemoveRoot: ['MediaLibraryRemoveRootRequest', 'MediaLibraryRemoveRootResponse'],
+      mediaLibraryScan: ['MediaLibraryScanRequest', 'MediaLibraryScanResponse'],
+      mediaLibraryItems: ['MediaLibraryItemsRequest', 'MediaLibraryItemsResponse'],
+      mediaLibraryProgress: ['MediaLibraryProgressRequest', 'MediaLibraryProgressResponse'],
+      mediaLibraryClearProgress: ['MediaLibraryClearProgressRequest', 'MediaLibraryClearProgressResponse'],
+      mediaLibrarySettingsGet: ['MediaLibrarySettingsResponse'],
+      mediaLibrarySettingsSet: ['MediaLibrarySettingsSetRequest', 'MediaLibrarySettingsSetResponse'],
+      mediaLibraryChanged: ['MediaLibraryChangedPayload'],
+      mediaLibraryScanProgress: ['MediaLibraryScanProgressPayload'],
     };
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
       key.startsWith('media'),

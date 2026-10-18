@@ -102,7 +102,7 @@ describe('VaultPage', () => {
     expect(screen.getByText('Token stored')).toBeTruthy();
     expect(screen.getByText('Prod')).toBeTruthy();
     expect(screen.getByText(/postgres · db.example · svc/)).toBeTruthy();
-    await waitFor(() => expect(screen.getAllByText('Not set')).toHaveLength(5 + AGENT_SECRET_IDS.length));
+    await waitFor(() => expect(screen.getAllByText('Not set')).toHaveLength(6 + AGENT_SECRET_IDS.length)); // the unset non-agent keys (TMDB joined them in Theme R), then the agents'
     expect(screen.getAllByText('Set', { selector: 'span' })).toHaveLength(1);
     expect(secrets.get).not.toHaveBeenCalled();
   });

@@ -766,3 +766,13 @@ held by a test like `app-window-guard`'s.
 
 `apps/browser`'s agent-session strip records a goal, logs a simulated Step and ends on Take Over.
 Driving tabs for real needs a main-side agent and a tool contract over the browser feature's views.
+
+## Media's LAN streaming, transcoding and playlists (Phase 113 Theme R slice 2)
+
+Slice 1 ([PR #906](https://github.com/bilo-io/midnite-studio/pull/906)) plays locally only and opens no listening socket.
+R2 fills the `NO_LAN_STREAMING` seam in `packages/features/media-library/main/lan.ts`:
+- a server the user starts, bound to the LAN, serving the same jailed paths `LibraryService.resolveFile` serves now;
+- ffmpeg transcoding for what Chromium cannot decode;
+- playlists, which the launcher's Music blurb already promises.
+
+Also left from slice 1: the Library plays through its own `<video>`/`<audio>` player rather than the audio feature's. That store is bound to project files, so sharing one needs a frame-level player port first.

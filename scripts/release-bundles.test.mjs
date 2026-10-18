@@ -119,6 +119,16 @@ describe('apps/gamer (Theme S)', () => {
   });
 });
 
+describe('apps/media (Theme R)', () => {
+  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
+  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
+  it('is in the --all matrix, as app-media, with the icon a release needs to pack it', () => {
+    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'media', project: 'app-media', dir: 'apps/media' });
+    const icns = readFileSync(path.join(repoRoot, 'apps/media/resources/icon.icns'));
+    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
+  });
+});
+
 describe('apps/agents (Theme N)', () => {
   const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
   const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);

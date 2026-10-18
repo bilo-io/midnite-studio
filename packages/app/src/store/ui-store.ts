@@ -390,6 +390,9 @@ export type LayoutSizes = {
   mediaMapDetailWidth: number;
   mediaGameExplorerWidth: number;
   mediaGameDetailWidth: number;
+  // Phase 113 Theme R — Media ▸ Library's explorer (roots and kinds) and item detail.
+  mediaLibraryExplorerWidth: number;
+  mediaLibraryDetailWidth: number;
   /** The Workflows view's workflow list, left of the canvas (Phase 43). */
   workflowListWidth: number;
   /** The Workflows view's detail panel (inspector / history), right of the canvas (Phase 43). */
@@ -493,6 +496,8 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   mediaMapDetailWidth: 300,
   mediaGameExplorerWidth: 240,
   mediaGameDetailWidth: 380,
+  mediaLibraryExplorerWidth: 240,
+  mediaLibraryDetailWidth: 360,
   // Workflows (Phase 43) — list left, inspector / history right.
   workflowListWidth: 224,
   workflowDetailWidth: 320,
@@ -582,6 +587,8 @@ export const LAYOUT_BOUNDS = {
   mediaMapDetailWidth: { min: 240, max: 520 },
   mediaGameExplorerWidth: { min: 180, max: 480 },
   mediaGameDetailWidth: { min: 300, max: 680 },
+  mediaLibraryExplorerWidth: { min: 180, max: 480 },
+  mediaLibraryDetailWidth: { min: 280, max: 640 },
   workflowListWidth: { min: 180, max: 480 },
   workflowDetailWidth: { min: 260, max: 600 },
   workflowPaletteWidth: { min: 160, max: 360 },
@@ -3792,6 +3799,7 @@ const MEDIA_LAYOUT_KEYS = {
   sprite: { explorer: 'mediaSpriteExplorerWidth', detail: 'mediaSpriteDetailWidth' },
   game: { explorer: 'mediaGameExplorerWidth', detail: 'mediaGameDetailWidth' },
   map: { explorer: 'mediaMapExplorerWidth', detail: 'mediaMapDetailWidth' },
+  library: { explorer: 'mediaLibraryExplorerWidth', detail: 'mediaLibraryDetailWidth' },
 } as const satisfies Record<MediaTab, Record<MediaPane, keyof LayoutSizes>>;
 
 /** The `LayoutSizes` keys holding one Media tab's explorer/detail widths. */

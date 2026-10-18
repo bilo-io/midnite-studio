@@ -98,7 +98,7 @@ describe('every app main reads the vault through the runtime host, behind its gr
 
   it('reaches it as a guest in every app that reads a key', () => {
     const guests = appMainFiles('connectRuntimeVault');
-    for (const app of ['agents', 'coder', 'creator', 'gamer', 'money', 'vault']) {
+    for (const app of ['agents', 'coder', 'creator', 'gamer', 'media', 'money', 'vault']) {
       expect(guests.some((f) => f.startsWith(`apps/${app}/main/`))).toBe(true);
     }
   });

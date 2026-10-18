@@ -1322,6 +1322,24 @@ export type MidniteStudioBridge = {
         handler: (event: z.infer<typeof S.MediaImageProgressPayload>) => void,
       ) => Unsubscribe;
     };
+    /**
+     * The local media library (Phase 113 Theme R): roots the user picked in a native dialog (main's, so the
+     * renderer never names a folder to scan), scans, items and watch progress. Files play from
+     * `mstudio-file://library/…`; no channel carries file bytes or a key.
+     */
+    library: {
+      roots: () => Promise<z.infer<typeof S.MediaLibraryRootsResponse>>;
+      addRoot: () => Promise<z.infer<typeof S.MediaLibraryAddRootResponse>>;
+      removeRoot: (req: In<typeof S.MediaLibraryRemoveRootRequest>) => Promise<GitOpResult>;
+      scan: (req: In<typeof S.MediaLibraryScanRequest>) => Promise<z.infer<typeof S.MediaLibraryScanResponse>>;
+      items: (req: In<typeof S.MediaLibraryItemsRequest>) => Promise<z.infer<typeof S.MediaLibraryItemsResponse>>;
+      progress: (req: In<typeof S.MediaLibraryProgressRequest>) => Promise<GitOpResult>;
+      clearProgress: (req: In<typeof S.MediaLibraryClearProgressRequest>) => Promise<GitOpResult>;
+      settings: () => Promise<z.infer<typeof S.MediaLibrarySettingsResponse>>;
+      setSettings: (req: In<typeof S.MediaLibrarySettingsSetRequest>) => Promise<GitOpResult>;
+      onChanged: (handler: (event: z.infer<typeof S.MediaLibraryChangedPayload>) => void) => Unsubscribe;
+      onScanProgress: (handler: (event: z.infer<typeof S.MediaLibraryScanProgressPayload>) => void) => Unsubscribe;
+    };
     /** Audio (Theme E): the `AudioProvider` catalogue and Import, all run in main. */
     audio: {
       providers: () => Promise<z.infer<typeof S.MediaAudioProvidersResponse>>;

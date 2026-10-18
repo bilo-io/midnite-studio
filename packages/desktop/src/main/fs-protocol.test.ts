@@ -8,7 +8,13 @@ import { protocol, session } from 'electron';
 
 import { mstudioImageUrl } from '@midnite/studio-shared';
 
-import { installMgitFileProtocol, registerPrivilegedSchemes, resolveBlobRequest, resolveRequestPath } from './fs-protocol';
+import {
+  installMgitFileProtocol,
+  registerPrivilegedSchemes,
+  resolveBlobRequest,
+  resolveRequestPath,
+  setLibraryFileResolver,
+} from './fs-protocol';
 
 // The module reaches for `electron` at import time; nothing under test here
 // touches it, so a stub keeps this a plain unit test.
@@ -141,6 +147,20 @@ describe('resolveRequestPath — markdown images (?as=image)', () => {
     await expect(resolveRequestPath(mstudioImageUrl('repo', 'r1', 'docs/nope.png'))).resolves.toBeNull();
     resolveWorkdir.mockResolvedValueOnce(null);
     await expect(resolveRequestPath(mstudioImageUrl('repo', 'gone', 'logo.svg'))).resolves.toBeNull();
+  });
+});
+
+describe('resolveRequestPath — the library host (Phase 113 Theme R)', () => {
+  it('404s until Media ▸ Library installs its resolver, then defers to it entirely', async () => {
+    const url = 'mstudio-file://library/r0123456789ab/Films/Up.mkv';
+    await expect(resolveRequestPath(url)).resolves.toBeNull();
+    const resolver = vi.fn(async (raw: string) => (raw === url ? '/media/Films/Up.mkv' : null));
+    setLibraryFileResolver(resolver);
+    await expect(resolveRequestPath(url)).resolves.toBe('/media/Films/Up.mkv');
+    await expect(resolveRequestPath('mstudio-file://library/r0123456789ab/other.mkv')).resolves.toBeNull();
+    // A `?rev=` request on the library host never reaches the disk path.
+    await expect(resolveBlobRequest(`${url}?rev=HEAD`)).resolves.toEqual({ kind: 'invalid' });
+    setLibraryFileResolver(async () => null);
   });
 });
 

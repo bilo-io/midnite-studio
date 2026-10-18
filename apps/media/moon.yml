@@ -1,0 +1,76 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Media (Phase 113 Theme R) — media-core + the Library tab feature + `packages/frame` + `shared`,
+# composed in src/. `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+id: 'app-media'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-media'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-media-core'
+  - 'feature-media-library'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/media-core/renderer/**/*'
+      - '/packages/features/media-core/manifest.ts'
+      - '/packages/features/media-library/renderer/**/*'
+      - '/packages/features/media-library/manifest.ts'
+      - '/packages/features/media-library/main/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - 'main/**/*'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/media-core/renderer/**/*'
+      - '/packages/features/media-core/manifest.ts'
+      - '/packages/features/media-library/renderer/**/*'
+      - '/packages/features/media-library/manifest.ts'
+      - '/packages/features/media-library/main/**/*'
+      - '/packages/runtime/src/**/*'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/media-core/renderer/**/*'
+      - '/packages/features/media-core/manifest.ts'
+      - '/packages/features/media-library/renderer/**/*'
+      - '/packages/features/media-library/manifest.ts'
+      - '/packages/features/media-library/main/**/*'
+      - '/packages/runtime/src/**/*'
