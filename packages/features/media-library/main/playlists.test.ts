@@ -60,7 +60,9 @@ describe('playlists', () => {
     expect(playlist.name).toBe('Road trip');
     expect(events.at(-1)).toEqual({ reason: 'playlists' });
 
-    expect((await library.renamePlaylist({ playlistId: playlist.id, name: 'Drive' })).ok).toBe(true);
+    expect((await library.renamePlaylist({ playlistId: playlist.id, name: 'Drive' })).ok).toBe(
+      true,
+    );
     expect(
       (await library.setPlaylistItems({ playlistId: playlist.id, itemIds: [c, a, b, a] })).ok,
     ).toBe(true);
@@ -72,7 +74,9 @@ describe('playlists', () => {
     const onDisk = JSON.parse(await readFile(join(data, INDEX_FILE), 'utf8')) as {
       playlists: Array<{ name: string; itemIds: string[] }>;
     };
-    expect(onDisk.playlists).toEqual([expect.objectContaining({ name: 'Drive', itemIds: [c, a, b] })]);
+    expect(onDisk.playlists).toEqual([
+      expect.objectContaining({ name: 'Drive', itemIds: [c, a, b] }),
+    ]);
 
     expect((await library.deletePlaylist(playlist.id)).ok).toBe(true);
     expect(await library.playlists()).toEqual([]);
@@ -81,10 +85,12 @@ describe('playlists', () => {
   it('refuses an item the index does not hold, and an unknown playlist', async () => {
     const { library, ids } = await scanned();
     expect((await library.createPlaylist({ name: 'x', itemIds: ['0'.repeat(20)] })).ok).toBe(false);
-    expect((await library.renamePlaylist({ playlistId: 'p000000000000', name: 'x' })).ok).toBe(false);
-    expect(
-      (await library.setPlaylistItems({ playlistId: 'p000000000000', itemIds: ids })).ok,
-    ).toBe(false);
+    expect((await library.renamePlaylist({ playlistId: 'p000000000000', name: 'x' })).ok).toBe(
+      false,
+    );
+    expect((await library.setPlaylistItems({ playlistId: 'p000000000000', itemIds: ids })).ok).toBe(
+      false,
+    );
     expect((await library.deletePlaylist('p000000000000')).ok).toBe(false);
   });
 

@@ -33,7 +33,8 @@ p.src=l[i].getAttribute('data-src');if(play){var r=p.play();if(r&&r.catch)r.catc
 p.addEventListener('ended',function(){go(i+1,true)});
 l.forEach(function(e,j){e.addEventListener('click',function(){go(j,true)})});go(0,false)})();`;
 
-const hash = (text: string) => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
+const hash = (text: string) =>
+  `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
 
 /** The pages' CSP: nothing from anywhere else, no plugins, no framing, no form posts, no base rewrite. */
 export const PAGE_CSP = [
@@ -58,7 +59,8 @@ export function esc(text: string): string {
 }
 
 /** A path on this server with the access token on it — ids only, never a file path. */
-export const linkTo = (path: string, token: string): string => `${path}?k=${encodeURIComponent(token)}`;
+export const linkTo = (path: string, token: string): string =>
+  `${path}?k=${encodeURIComponent(token)}`;
 
 const page = (title: string, body: string, script = false): string =>
   `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
@@ -131,7 +133,11 @@ export function renderIndexPage(input: {
 export const streamPath = (item: LibraryItem, plan: PlaybackPlan): string =>
   plan === 'transcode' ? `/transcode/${item.id}` : `/media/${item.id}`;
 
-export function renderItemPage(input: { token: string; item: LibraryItem; plan: PlaybackPlan }): string {
+export function renderItemPage(input: {
+  token: string;
+  item: LibraryItem;
+  plan: PlaybackPlan;
+}): string {
   const { token, item, plan } = input;
   const back = `<p><a href="${esc(linkTo('/', token))}">← Library</a></p>`;
   const title = itemLabel(item);
@@ -142,7 +148,8 @@ export function renderItemPage(input: { token: string; item: LibraryItem; plan: 
         `or ffmpeg is not installed on the computer sharing it.</p>`,
     );
   const src = esc(linkTo(streamPath(item, plan), token));
-  const poster = item.art && item.kind !== 'photo' ? ` poster="${esc(linkTo(`/art/${item.id}`, token))}"` : '';
+  const poster =
+    item.art && item.kind !== 'photo' ? ` poster="${esc(linkTo(`/art/${item.id}`, token))}"` : '';
   const media =
     item.kind === 'photo'
       ? `<img src="${src}" alt="${esc(item.title)}">`
@@ -150,7 +157,8 @@ export function renderItemPage(input: { token: string; item: LibraryItem; plan: 
         ? `<audio controls preload="metadata" src="${src}"></audio>`
         : `<video controls playsinline preload="metadata" src="${src}"${poster}></video>`;
   const plot = item.plot ? `<p>${esc(item.plot)}</p>` : '';
-  const note = plan === 'transcode' ? '<p class="muted">Converted for this browser as it plays.</p>' : '';
+  const note =
+    plan === 'transcode' ? '<p class="muted">Converted for this browser as it plays.</p>' : '';
   return page(title, `${back}<h1>${esc(title)}</h1>${media}${note}${plot}`);
 }
 

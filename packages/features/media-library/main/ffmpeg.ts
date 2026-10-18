@@ -96,10 +96,7 @@ export async function locateFfmpeg(deps: LocateDeps): Promise<LibraryFfmpegStatu
  * streams and exits non-zero; that banner is all a probe needs, so no `ffprobe` is required. An attached picture
  * (an MP3's cover, an MKV's poster) is not counted as the video stream.
  */
-export function parseProbe(
-  stderr: string,
-  file: { size: number; mtimeMs: number },
-): MediaProbe {
+export function parseProbe(stderr: string, file: { size: number; mtimeMs: number }): MediaProbe {
   const container = /^Input #0, (.+?), from /m.exec(stderr)?.[1]?.trim() ?? null;
   let video: string | null = null;
   let audio: string | null = null;
@@ -156,7 +153,9 @@ export function browserPlays(item: Pick<LibraryItem, 'kind' | 'path'>, probe: Me
   const ext = extensionOf(item.path.split('/').at(-1) ?? item.path);
   const container = probe.container ?? '';
   if (item.kind === 'music')
-    return probe.audio !== null && DIRECT_MUSIC_CODECS.has(probe.audio) && DIRECT_AUDIO_EXT.has(ext);
+    return (
+      probe.audio !== null && DIRECT_MUSIC_CODECS.has(probe.audio) && DIRECT_AUDIO_EXT.has(ext)
+    );
   if (probe.video === null) return false;
   const audioOk = (allowed: Set<string>) => probe.audio === null || allowed.has(probe.audio);
   if (container.startsWith('mov,mp4') && (ext === 'mp4' || ext === 'm4v' || ext === 'mov'))
@@ -190,7 +189,13 @@ export function playbackPlan(
 // --- converting --------------------------------------------------------------------------
 
 /** Fragmented MP4 that a `<video>` can start playing before ffmpeg has finished. */
-const FRAGMENTED = ['-movflags', 'frag_keyframe+empty_moov+default_base_moof', '-f', 'mp4', 'pipe:1'];
+const FRAGMENTED = [
+  '-movflags',
+  'frag_keyframe+empty_moov+default_base_moof',
+  '-f',
+  'mp4',
+  'pipe:1',
+];
 
 /**
  * ffmpeg's arguments for one transcode — an array, never a shell string. `input` is `resolveFile`'s absolute
@@ -204,13 +209,37 @@ export function transcodeArgs(
   if (!isAbsolute(input)) throw new Error('transcode input must be an absolute path');
   const head = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', input];
   if (kind === 'music')
-    return [...head, '-map', '0:a:0', '-vn', '-sn', '-dn', '-c:a', 'aac', '-b:a', '192k', ...FRAGMENTED];
+    return [
+      ...head,
+      '-map',
+      '0:a:0',
+      '-vn',
+      '-sn',
+      '-dn',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '192k',
+      ...FRAGMENTED,
+    ];
   const video =
     probe?.video === 'h264'
       ? ['-c:v', 'copy']
       : ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p'];
-  const audio = probe?.audio === 'aac' ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '160k', '-ac', '2'];
-  return [...head, '-map', '0:v:0', '-map', '0:a:0?', '-sn', '-dn', ...video, ...audio, ...FRAGMENTED];
+  const audio =
+    probe?.audio === 'aac' ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '160k', '-ac', '2'];
+  return [
+    ...head,
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a:0?',
+    '-sn',
+    '-dn',
+    ...video,
+    ...audio,
+    ...FRAGMENTED,
+  ];
 }
 
 /** The content type a transcode answers with. */

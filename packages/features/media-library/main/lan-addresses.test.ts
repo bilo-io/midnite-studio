@@ -4,7 +4,12 @@ import type { NetworkInterfaceInfo } from 'node:os';
 
 import { describe, expect, it } from 'vitest';
 
-import { checkBindAddress, isPrivateLanAddress, listLanInterfaces, type NetworkInterfaces } from './lan-addresses';
+import {
+  checkBindAddress,
+  isPrivateLanAddress,
+  listLanInterfaces,
+  type NetworkInterfaces,
+} from './lan-addresses';
 
 const v4 = (address: string, internal = false): NetworkInterfaceInfo => ({
   address,

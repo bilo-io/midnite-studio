@@ -7,7 +7,12 @@ import { join } from 'node:path';
 import { DEFAULT_LIBRARY_LAN_SETTINGS } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createLanSettingsStore, createLanTokenStore, LAN_SETTINGS_FILE, LAN_TOKEN_FILE } from './lan-store';
+import {
+  createLanSettingsStore,
+  createLanTokenStore,
+  LAN_SETTINGS_FILE,
+  LAN_TOKEN_FILE,
+} from './lan-store';
 
 let dir: string;
 beforeEach(async () => {

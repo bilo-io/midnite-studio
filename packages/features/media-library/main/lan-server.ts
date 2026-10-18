@@ -27,8 +27,19 @@ import {
   type TranscodeProcess,
 } from './ffmpeg';
 import type { MediaProbe } from './index-store';
-import { checkBindAddress, isPrivateLanAddress, listLanInterfaces, type NetworkInterfaces } from './lan-addresses';
-import { PAGE_CSP, renderIndexPage, renderItemPage, renderPlaylistPage, type IndexEntry } from './lan-pages';
+import {
+  checkBindAddress,
+  isPrivateLanAddress,
+  listLanInterfaces,
+  type NetworkInterfaces,
+} from './lan-addresses';
+import {
+  PAGE_CSP,
+  renderIndexPage,
+  renderItemPage,
+  renderPlaylistPage,
+  type IndexEntry,
+} from './lan-pages';
 import { createLanSettingsStore, createLanTokenStore } from './lan-store';
 import type { LibraryLanController } from './lan';
 import type { LibraryService } from './library-service';
@@ -238,7 +249,8 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
   ): Promise<{ plan: PlaybackPlan; probe: MediaProbe | null; ffmpegPath: string | null }> => {
     const ffmpegPath = await transcoder();
     let known = item.kind === 'photo' ? null : await library.cachedProbe(item.id);
-    if (!known && probe && ffmpegPath && item.kind !== 'photo') known = await probeItem(item, ffmpegPath);
+    if (!known && probe && ffmpegPath && item.kind !== 'photo')
+      known = await probeItem(item, ffmpegPath);
     return { plan: playbackPlan(item, known, ffmpegPath !== null), probe: known, ffmpegPath };
   };
 
@@ -369,7 +381,8 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
     });
     while (clients.size > MAX_CLIENTS) clients.delete(clients.keys().next().value as string);
 
-    if (req.method !== 'GET' && req.method !== 'HEAD') return bare(res, 405, { Allow: 'GET, HEAD' });
+    if (req.method !== 'GET' && req.method !== 'HEAD')
+      return bare(res, 405, { Allow: 'GET, HEAD' });
     const token = await tokens.token();
     const segments = url.pathname.split('/').slice(1);
     const [head = '', id = '', ...rest] = segments;
@@ -381,9 +394,9 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
     if (head === 'playlist' && PLAYLIST_ID.test(id)) {
       const playlist = (await library.playlists()).find((candidate) => candidate.id === id);
       if (!playlist) return notFound(res);
-      const items = (await Promise.all(playlist.itemIds.map((itemId) => library.item(itemId)))).filter(
-        (item): item is LibraryItem => item !== null,
-      );
+      const items = (
+        await Promise.all(playlist.itemIds.map((itemId) => library.item(itemId)))
+      ).filter((item): item is LibraryItem => item !== null);
       return html(res, renderPlaylistPage({ token, playlist, entries: await entriesFor(items) }));
     }
     if (!ITEM_ID.test(id)) return notFound(res);
@@ -504,9 +517,17 @@ export function createLanStreamServer(deps: LanServerDeps): LibraryLanController
       return ok();
     },
     setSettings: async (patch) => {
-      if (patch.ffmpegPath !== undefined && patch.ffmpegPath !== null && !isFfmpegPathShaped(patch.ffmpegPath))
+      if (
+        patch.ffmpegPath !== undefined &&
+        patch.ffmpegPath !== null &&
+        !isFfmpegPathShaped(patch.ffmpegPath)
+      )
         return failure('The ffmpeg path must be an absolute path to a file named ffmpeg.');
-      if (patch.address !== undefined && patch.address !== null && !isPrivateLanAddress(patch.address))
+      if (
+        patch.address !== undefined &&
+        patch.address !== null &&
+        !isPrivateLanAddress(patch.address)
+      )
         return failure('Only a private local-network address can be shared on.');
       const current = await settingsStore.read();
       if (

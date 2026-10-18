@@ -19,6 +19,8 @@ export type LibraryPlayerProps = {
   src: string;
   /** Seconds to start from (0 for the beginning). */
   resumeAt: number;
+  /** Start playing as soon as it loads — the next item of a playlist playing in sequence. */
+  autoPlay?: boolean;
   /**
    * Called with the current position and why: `playing` as time advances (the tab throttles the saves),
    * `paused` on a pause or when the player goes away, `ended` at the end.

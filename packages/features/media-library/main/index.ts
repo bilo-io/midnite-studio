@@ -148,13 +148,17 @@ export const mediaLibraryMain = defineFeatureMain<MediaLibraryMainServices>({
     ctx.ipc.handle(
       CHANNELS.mediaLibraryPlaylistCreate,
       schemas.MediaLibraryPlaylistCreateRequest,
-      guarded((req: Parameters<LibraryService['createPlaylist']>[0]) => library.createPlaylist(req)),
+      guarded((req: Parameters<LibraryService['createPlaylist']>[0]) =>
+        library.createPlaylist(req),
+      ),
       invalid,
     );
     ctx.ipc.handle(
       CHANNELS.mediaLibraryPlaylistRename,
       schemas.MediaLibraryPlaylistRenameRequest,
-      guarded((req: Parameters<LibraryService['renamePlaylist']>[0]) => library.renamePlaylist(req)),
+      guarded((req: Parameters<LibraryService['renamePlaylist']>[0]) =>
+        library.renamePlaylist(req),
+      ),
       invalid,
     );
     ctx.ipc.handle(
@@ -191,7 +195,9 @@ export const mediaLibraryMain = defineFeatureMain<MediaLibraryMainServices>({
     ctx.ipc.handle(
       CHANNELS.mediaLibraryLanSettingsSet,
       schemas.MediaLibraryLanSettingsSetRequest,
-      guarded((patch: Parameters<LibraryLanController['setSettings']>[0]) => lan.setSettings(patch)),
+      guarded((patch: Parameters<LibraryLanController['setSettings']>[0]) =>
+        lan.setSettings(patch),
+      ),
       invalid,
     );
     ctx.ipc.handleBare(CHANNELS.mediaLibraryLanDetectFfmpeg, () => lan.detectFfmpeg());

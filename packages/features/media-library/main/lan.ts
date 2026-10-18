@@ -33,7 +33,12 @@ export type LibraryLanController = {
 };
 
 const UNAVAILABLE = 'Sharing on the network is not available in this build.';
-const NO_FFMPEG: LibraryFfmpegStatus = { found: false, path: null, source: null, reason: UNAVAILABLE };
+const NO_FFMPEG: LibraryFfmpegStatus = {
+  found: false,
+  path: null,
+  source: null,
+  reason: UNAVAILABLE,
+};
 
 export const NO_LAN_STREAMING: LibraryLanController = {
   available: false,

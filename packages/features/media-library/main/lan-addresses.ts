@@ -68,9 +68,13 @@ export function checkBindAddress(
   if (!isPrivateLanAddress(address))
     return {
       ok: false,
-      message: 'Only a private local-network address (10.x, 172.16–31.x, 192.168.x or 169.254.x) can be shared on.',
+      message:
+        'Only a private local-network address (10.x, 172.16–31.x, 192.168.x or 169.254.x) can be shared on.',
     };
   if (!listLanInterfaces(interfaces).some((candidate) => candidate.address === address))
-    return { ok: false, message: 'That address is not on any of this computer’s network connections now.' };
+    return {
+      ok: false,
+      message: 'That address is not on any of this computer’s network connections now.',
+    };
   return { ok: true, address };
 }

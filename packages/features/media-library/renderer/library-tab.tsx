@@ -5,20 +5,23 @@ import {
   libraryResumeAt,
   type LibraryItem,
   type LibraryKind,
+  type LibraryPlaylist,
   type LibraryRoot,
 } from '@midnite/studio-shared';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   LuFilm,
   LuFolderOpen,
   LuFolderPlus,
   LuImage,
   LuLibrary,
+  LuListPlus,
   LuMusic,
   LuRefreshCw,
   LuSettings2,
   LuTrash2,
   LuTv,
+  LuWifi,
 } from 'react-icons/lu';
 
 import {
@@ -47,11 +50,14 @@ import {
   type ShowGroup,
 } from './library-model';
 import { LibraryPlayer } from './library-player';
+import { AddToPlaylist, PlaylistContent, PlaylistList, useCreatePlaylist } from './playlists';
+import { SharePanel } from './share-panel';
 import {
   createProgressSaver,
   useLibraryEvents,
   useLibraryItems,
   useLibraryMutations,
+  useLibraryPlaylists,
   useLibraryRoots,
   useLibrarySettings,
   writeProgress,
@@ -67,16 +73,20 @@ export const KIND_ICONS: Record<LibraryKind, IconComponent> = {
 /** What the centre shows: a kind's grid, or one show's episodes / one album's tracks. */
 type Focus = { kind: LibraryKind; group: string | null };
 
+/** A playlist playing in sequence: its item ids, and where it is. */
+type Queue = { ids: readonly string[]; index: number };
+
 /**
  * Media ▸ Library (Phase 113 Theme R): the folders the user added, scanned into films, shows, music and
  * photos.
  *
- * - **Explorer**: the four kinds with counts, the folders (add, rescan, remove), and the online-metadata
- *   switch — off unless the user turns it on; with it off nothing leaves the machine.
+ * - **Explorer**: the four kinds with counts, the folders (add, rescan, remove), the playlists, the
+ *   online-metadata switch — off unless the user turns it on; with it off nothing leaves the machine — and
+ *   Share on your network (slice 2), off until the user starts it.
  * - **Content**: a continue-watching row over a grid per kind (shows and albums open into their
- *   episodes and tracks).
+ *   episodes and tracks), or one playlist's items in order.
  * - **Detail**: the selected item — its art and details, and the player, which resumes where the user
- *   stopped and saves progress as it plays.
+ *   stopped and saves progress as it plays. A playlist's Play all plays its items one after another.
  *
  * Not repo-scoped: a library is the user's, not a repository's.
  */
@@ -86,17 +96,51 @@ export function LibraryTab() {
   const items = useLibraryItems();
   const scan = useLibraryEvents();
   const mutations = useLibraryMutations();
+  const playlists = useLibraryPlaylists();
   const [focus, setFocus] = useState<Focus>({ kind: 'film', group: null });
+  const [playlistId, setPlaylistId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [queue, setQueue] = useState<Queue | null>(null);
+  const [autoPlay, setAutoPlay] = useState(false);
+  // Bumped by every Play all, so pressing it on the item already open still starts it.
+  const [playRun, setPlayRun] = useState(0);
 
   const all = useMemo(() => items.data ?? [], [items.data]);
   const selected = all.find((item) => item.id === selectedId) ?? null;
   const scanning = scan !== null || mutations.scan.isPending;
+  const openPlaylist = playlistId
+    ? ((playlists.data ?? []).find((playlist) => playlist.id === playlistId) ?? null)
+    : null;
 
+  /** The user's own pick: plays nothing by itself, and leaves a queue it is not part of. */
   const select = (item: LibraryItem) => {
     setSelectedId(item.id);
+    setAutoPlay(false);
+    setQueue((current) => {
+      const index = current ? current.ids.indexOf(item.id) : -1;
+      return current && index >= 0 ? { ...current, index } : null;
+    });
   };
+
+  const playQueue = (ids: readonly string[], index = 0) => {
+    const id = ids[index];
+    if (id === undefined) return;
+    setQueue({ ids, index });
+    setSelectedId(id);
+    setAutoPlay(true);
+    setPlayRun((run) => run + 1);
+  };
+
+  const ended = () => {
+    if (queue && queue.index + 1 < queue.ids.length) playQueue(queue.ids, queue.index + 1);
+    else setQueue(null);
+  };
+
+  const upNext =
+    queue && queue.index + 1 < queue.ids.length
+      ? (all.find((item) => item.id === queue.ids[queue.index + 1]) ?? null)
+      : null;
 
   const hasRoots = (roots.data?.length ?? 0) > 0;
 
@@ -121,9 +165,15 @@ export function LibraryTab() {
         <LibraryExplorer
           roots={roots.data ?? []}
           counts={countByKind(all)}
-          focus={focus}
-          onFocus={(kind) => setFocus({ kind, group: null })}
+          focus={playlistId ? null : focus}
+          onFocus={(kind) => {
+            setPlaylistId(null);
+            setFocus({ kind, group: null });
+          }}
           scanning={scanning}
+          playlists={playlists.data ?? []}
+          openPlaylistId={playlistId}
+          onOpenPlaylist={setPlaylistId}
         />
       }
       content={
@@ -140,6 +190,14 @@ export function LibraryTab() {
               />
             }
           />
+        ) : openPlaylist ? (
+          <PlaylistContent
+            playlist={openPlaylist}
+            items={all}
+            selectedId={selectedId}
+            onSelect={select}
+            onPlayAll={(ids) => playQueue(ids)}
+          />
         ) : (
           <LibraryContent
             items={all}
@@ -151,7 +209,15 @@ export function LibraryTab() {
           />
         )
       }
-      detail={<LibraryDetail item={selected} />}
+      detail={
+        <LibraryDetail
+          key={`${selected?.id ?? ''}:${autoPlay ? playRun : 0}`}
+          item={selected}
+          autoPlay={autoPlay}
+          onEnded={ended}
+          upNext={upNext}
+        />
+      }
     />
   );
 }
@@ -201,17 +267,25 @@ function LibraryExplorer({
   focus,
   onFocus,
   scanning,
+  playlists,
+  openPlaylistId,
+  onOpenPlaylist,
 }: {
   roots: readonly LibraryRoot[];
   counts: Record<LibraryKind, number>;
-  focus: Focus;
+  /** Null while a playlist is open. */
+  focus: Focus | null;
   onFocus: (kind: LibraryKind) => void;
   scanning: boolean;
+  playlists: readonly LibraryPlaylist[];
+  openPlaylistId: string | null;
+  onOpenPlaylist: (playlistId: string | null) => void;
 }) {
   const { Accordion } = useMediaKit();
   const { IconButton, useDialogs } = useFrameChrome();
   const dialogs = useDialogs();
   const mutations = useLibraryMutations();
+  const createPlaylist = useCreatePlaylist();
 
   const removeRoot = (root: LibraryRoot) =>
     dialogs.confirm({
@@ -234,7 +308,7 @@ function LibraryExplorer({
             <ul className="py-1">
               {LIBRARY_KINDS.map((kind) => {
                 const Icon = KIND_ICONS[kind];
-                const active = focus.kind === kind;
+                const active = focus?.kind === kind;
                 return (
                   <li key={kind}>
                     <button
@@ -303,6 +377,28 @@ function LibraryExplorer({
                 ))}
               </ul>
             ),
+        },
+        {
+          id: 'playlists',
+          title: 'Playlists',
+          count: playlists.length,
+          actions: (
+            <IconButton
+              icon={LuListPlus}
+              label="New playlist"
+              size="sm"
+              onClick={() => createPlaylist()}
+            />
+          ),
+          children: (
+            <PlaylistList playlists={playlists} openId={openPlaylistId} onOpen={onOpenPlaylist} />
+          ),
+        },
+        {
+          id: 'share',
+          title: 'Share on your network',
+          icon: <LuWifi aria-hidden className="h-3.5 w-3.5" />,
+          children: <SharePanel />,
         },
         {
           id: 'settings',
@@ -693,13 +789,26 @@ function ItemRow({
   );
 }
 
-/** The right pane: art, details and — for anything playable — the player. */
-export function LibraryDetail({ item }: { item: LibraryItem | null }) {
+/**
+ * The right pane: art, details and — for anything playable — the player. `autoPlay` starts the player as
+ * soon as the item opens (a playlist's next item); `onEnded` is how the tab moves on to it.
+ */
+export function LibraryDetail({
+  item,
+  autoPlay = false,
+  onEnded,
+  upNext = null,
+}: {
+  item: LibraryItem | null;
+  autoPlay?: boolean;
+  onEnded?: () => void;
+  upNext?: LibraryItem | null;
+}) {
   const host = useLibraryHost();
   const { clearProgress } = useLibraryMutations();
   const Player = host.Player ?? LibraryPlayer;
-  const [playing, setPlaying] = useState(false);
-  useEffect(() => setPlaying(false), [item?.id]);
+  // The tab keys this pane by item (and by each Play all), so a new item starts from `autoPlay`.
+  const [playing, setPlaying] = useState(autoPlay);
 
   const itemId = item?.id ?? null;
   const saver = useMemo(
@@ -736,9 +845,11 @@ export function LibraryDetail({ item }: { item: LibraryItem | null }) {
           item={item}
           src={src}
           resumeAt={resumeAt}
-          onProgress={(positionS, durationS, state) =>
-            saver?.(positionS, durationS, state === 'ended', state !== 'playing')
-          }
+          autoPlay={autoPlay}
+          onProgress={(positionS, durationS, state) => {
+            saver?.(positionS, durationS, state === 'ended', state !== 'playing');
+            if (state === 'ended') onEnded?.();
+          }}
         />
       ) : item.art ? (
         <img
@@ -775,6 +886,14 @@ export function LibraryDetail({ item }: { item: LibraryItem | null }) {
           ) : null}
         </div>
       ) : null}
+
+      {upNext ? (
+        <p className="text-[11px] text-muted-foreground">
+          Up next: <span className="text-foreground">{upNext.title}</span>
+        </p>
+      ) : null}
+
+      {isPlayable(item) ? <AddToPlaylist item={item} /> : null}
 
       {item.plot ? <p className="text-xs leading-relaxed text-foreground/90">{item.plot}</p> : null}
 

@@ -36,13 +36,21 @@ const MP3_WITH_COVER = `Input #0, mp3, from 'song.mp3':
 const FILE = { size: 10, mtimeMs: 20 };
 
 describe('locateFfmpeg', () => {
-  const only = (...paths: string[]) => async (path: string) => paths.includes(path);
+  const only =
+    (...paths: string[]) =>
+    async (path: string) =>
+      paths.includes(path);
 
   it('prefers Homebrew, then MacPorts, then PATH', async () => {
     expect(
-      await locateFfmpeg({ configured: null, isExecutable: only('/opt/homebrew/bin/ffmpeg', '/usr/bin/ffmpeg') }),
+      await locateFfmpeg({
+        configured: null,
+        isExecutable: only('/opt/homebrew/bin/ffmpeg', '/usr/bin/ffmpeg'),
+      }),
     ).toEqual({ found: true, path: '/opt/homebrew/bin/ffmpeg', source: 'homebrew' });
-    expect(await locateFfmpeg({ configured: null, isExecutable: only('/opt/local/bin/ffmpeg') })).toEqual({
+    expect(
+      await locateFfmpeg({ configured: null, isExecutable: only('/opt/local/bin/ffmpeg') }),
+    ).toEqual({
       found: true,
       path: '/opt/local/bin/ffmpeg',
       source: 'macports',
@@ -58,7 +66,11 @@ describe('locateFfmpeg', () => {
   });
 
   it('says why when it is missing', async () => {
-    const answer = await locateFfmpeg({ configured: null, isExecutable: only(), pathEnv: '/usr/bin' });
+    const answer = await locateFfmpeg({
+      configured: null,
+      isExecutable: only(),
+      pathEnv: '/usr/bin',
+    });
     expect(answer.found).toBe(false);
     expect(answer.reason).toMatch(/not found/);
   });
@@ -89,16 +101,28 @@ describe('parseProbe', () => {
       audio: 'opus',
       durationS: 1.01,
     });
-    expect(parseProbe(MP4_H264, FILE)).toMatchObject({ container: 'mov,mp4,m4a,3gp,3g2,mj2', video: 'h264', audio: 'aac' });
+    expect(parseProbe(MP4_H264, FILE)).toMatchObject({
+      container: 'mov,mp4,m4a,3gp,3g2,mj2',
+      video: 'h264',
+      audio: 'aac',
+    });
     expect(parseProbe(WMA, FILE)).toMatchObject({ container: 'asf', video: null, audio: 'wmav2' });
   });
 
   it('does not count a cover picture as video', () => {
-    expect(parseProbe(MP3_WITH_COVER, FILE)).toMatchObject({ video: null, audio: 'mp3', durationS: 180 });
+    expect(parseProbe(MP3_WITH_COVER, FILE)).toMatchObject({
+      video: null,
+      audio: 'mp3',
+      durationS: 180,
+    });
   });
 
   it('reads nothing from a banner it does not recognise', () => {
-    expect(parseProbe('No such file or directory', FILE)).toMatchObject({ container: null, video: null, audio: null });
+    expect(parseProbe('No such file or directory', FILE)).toMatchObject({
+      container: null,
+      video: null,
+      audio: null,
+    });
   });
 });
 
@@ -130,7 +154,9 @@ describe('transcodeArgs', () => {
     expect(args[args.indexOf('-i') + 1]).toBe('/lib/Films/A; rm -rf ~.mkv');
     expect(args).toEqual(expect.arrayContaining(['-c:v', 'libx264', '-c:a', 'aac']));
     expect(args.slice(-3)).toEqual(['-f', 'mp4', 'pipe:1']);
-    expect(args.join(' ')).toContain('-movflags frag_keyframe+empty_moov+default_base_moof -f mp4 pipe:1');
+    expect(args.join(' ')).toContain(
+      '-movflags frag_keyframe+empty_moov+default_base_moof -f mp4 pipe:1',
+    );
     expect(args).toContain('-nostdin');
   });
 

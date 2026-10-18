@@ -97,7 +97,11 @@ async function setup(opts: { ffmpeg?: ReturnType<typeof fakeFfmpeg>; transcode?:
   await put('Films/Up (2009)/Up (2009).mp4', '0123456789');
   await put('Films/Old (1999)/Old (1999).mkv', 'matroska');
   await put('Films/Up (2009)/poster.jpg', 'jpeg');
-  library = createLibraryService({ dataDir: data, pickDirectory: async () => media, homeDir: base });
+  library = createLibraryService({
+    dataDir: data,
+    pickDirectory: async () => media,
+    homeDir: base,
+  });
   await library.addRoot();
   await library.scan();
   const ffmpeg = opts.ffmpeg ?? fakeFfmpeg();
@@ -120,17 +124,32 @@ async function setup(opts: { ffmpeg?: ReturnType<typeof fakeFfmpeg>; transcode?:
   return { url, token, port: Number(url.port), items, byPath, ffmpeg };
 }
 
-type Reply = { status: number; headers: Record<string, string | string[] | undefined>; body: string };
+type Reply = {
+  status: number;
+  headers: Record<string, string | string[] | undefined>;
+  body: string;
+};
 
 /** A raw request: the path goes out exactly as written. */
 function get(
   port: number,
   path: string,
-  opts: { method?: string; headers?: Record<string, string>; keep?: (abort: () => void) => void } = {},
+  opts: {
+    method?: string;
+    headers?: Record<string, string>;
+    keep?: (abort: () => void) => void;
+  } = {},
 ): Promise<Reply> {
   return new Promise((resolve, reject) => {
     const req = request(
-      { host: '127.0.0.1', port, path, method: opts.method ?? 'GET', headers: opts.headers, agent: false },
+      {
+        host: '127.0.0.1',
+        port,
+        path,
+        method: opts.method ?? 'GET',
+        headers: opts.headers,
+        agent: false,
+      },
       (res) => {
         let body = '';
         res.setEncoding('utf8');
@@ -152,7 +171,12 @@ const k = (token: string) => `k=${encodeURIComponent(token)}`;
 describe('binding', () => {
   it('refuses 0.0.0.0, loopback, a public address and one no interface holds — before listening', async () => {
     library = createLibraryService({ dataDir: data, pickDirectory: async () => media });
-    lan = createLanStreamServer({ library, dataDir: data, interfaces: () => FAKE_INTERFACES, listen: loopbackListen });
+    lan = createLanStreamServer({
+      library,
+      dataDir: data,
+      interfaces: () => FAKE_INTERFACES,
+      listen: loopbackListen,
+    });
     for (const address of ['0.0.0.0', '127.0.0.1', '203.0.113.7', '192.168.1.99', '::'])
       expect((await lan.start(address)).ok, address).toBe(false);
     expect((await lan.start()).ok).toBe(false);
@@ -192,7 +216,14 @@ describe('the access token', () => {
   it('answers a bare 401 to any path without the right token', async () => {
     const { port, token, byPath } = await setup();
     const id = byPath('.mp4').id;
-    for (const path of ['/', `/media/${id}`, '/nope', `/media/${id}?k=`, `/media/${id}?k=${token}x`, '/?k=wrong']) {
+    for (const path of [
+      '/',
+      `/media/${id}`,
+      '/nope',
+      `/media/${id}?k=`,
+      `/media/${id}?k=${token}x`,
+      '/?k=wrong',
+    ]) {
       const reply = await get(port, path);
       expect(reply.status, path).toBe(401);
       expect(reply.body, path).toBe('');
@@ -263,7 +294,10 @@ describe('pages', () => {
     expect(page.body).toContain(`src="/media/${film.id}?${k(token)}"`);
     expect(page.body).toContain(`poster="/art/${film.id}?${k(token)}"`);
 
-    const created = await library.createPlaylist({ name: 'Night & day', itemIds: [film.id, byPath('.mkv').id] });
+    const created = await library.createPlaylist({
+      name: 'Night & day',
+      itemIds: [film.id, byPath('.mkv').id],
+    });
     if (!created.ok) throw new Error('create');
     const index = await get(port, `/?${k(token)}`);
     expect(index.body).toContain(`/playlist/${created.value.playlist.id}?${k(token)}`);
@@ -340,7 +374,10 @@ describe('the path jail', () => {
   it('is read-only', async () => {
     const { port, token, byPath } = await setup();
     for (const method of ['POST', 'PUT', 'DELETE', 'PATCH'])
-      expect((await get(port, `/media/${byPath('.mp4').id}?${k(token)}`, { method })).status, method).toBe(405);
+      expect(
+        (await get(port, `/media/${byPath('.mp4').id}?${k(token)}`, { method })).status,
+        method,
+      ).toBe(405);
   });
 });
 
@@ -354,7 +391,9 @@ describe('transcoding', () => {
     const ffmpeg = fakeFfmpeg(HEVC);
     const { port, token, byPath } = await setup({ ffmpeg });
     expect((await get(port, `/transcode/${byPath('.mkv').id}?${k(token)}`)).status).toBe(404);
-    expect((await get(port, `/item/${byPath('.mkv').id}?${k(token)}`)).body).toContain('cannot play');
+    expect((await get(port, `/item/${byPath('.mkv').id}?${k(token)}`)).body).toContain(
+      'cannot play',
+    );
     expect(ffmpeg.port.probe).not.toHaveBeenCalled();
     expect(ffmpeg.calls).toEqual([]);
   });
@@ -390,8 +429,9 @@ describe('transcoding', () => {
     const holders = [0, 1].map(
       () =>
         new Promise<() => void>((resolve) => {
-          const req = request({ host: '127.0.0.1', port, path: `/transcode/${id}?${k(token)}`, agent: false }, (res) =>
-            res.once('data', () => resolve(() => req.destroy())),
+          const req = request(
+            { host: '127.0.0.1', port, path: `/transcode/${id}?${k(token)}`, agent: false },
+            (res) => res.once('data', () => resolve(() => req.destroy())),
           );
           req.on('error', () => undefined);
           req.end();
