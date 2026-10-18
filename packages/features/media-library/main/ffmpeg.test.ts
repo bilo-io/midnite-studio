@@ -9,6 +9,8 @@ import {
   parseProbe,
   playbackPlan,
   transcodeArgs,
+  FFMPEG_INPUT_GUARD,
+  probeArgs,
 } from './ffmpeg';
 
 /** Captured from a real `ffmpeg -hide_banner -nostdin -i` over tiny generated fixtures (SCRATCHPAD.md). */
@@ -169,7 +171,39 @@ describe('transcodeArgs', () => {
     expect(music).not.toContain('0:v:0');
   });
 
+  it('puts the input guard before -i in every plan', () => {
+    const plans = [
+      transcodeArgs('/x/a.mkv', 'film', parseProbe(MKV_HEVC, FILE)),
+      transcodeArgs('/x/a.mkv', 'film', parseProbe(MP4_H264, FILE)),
+      transcodeArgs('/x/a.mkv', 'film', null),
+      transcodeArgs('/x/a.wma', 'music', parseProbe(WMA, FILE)),
+    ];
+    for (const args of plans) expectGuardBeforeInput(args);
+  });
+
   it('refuses a relative input (it could be read as an option)', () => {
     expect(() => transcodeArgs('-f', 'film', null)).toThrow();
+  });
+});
+
+function expectGuardBeforeInput(args: string[]): void {
+  const input = args.indexOf('-i');
+  expect(input).toBeGreaterThan(-1);
+  const whitelist = args.indexOf('-protocol_whitelist');
+  const formats = args.indexOf('-format_whitelist');
+  expect(whitelist).toBeGreaterThan(-1);
+  expect(whitelist).toBeLessThan(input);
+  expect(args[whitelist + 1]).toBe('file');
+  expect(formats).toBeGreaterThan(-1);
+  expect(formats).toBeLessThan(input);
+  expect(args[formats + 1]).not.toMatch(/hls|concat/);
+}
+
+describe('probeArgs', () => {
+  it('puts the input guard before -i', () => {
+    const args = probeArgs('/lib/a.mkv');
+    expectGuardBeforeInput(args);
+    expect(args).toEqual(expect.arrayContaining([...FFMPEG_INPUT_GUARD]));
+    expect(args.slice(-2)).toEqual(['-i', '/lib/a.mkv']);
   });
 });

@@ -186,6 +186,26 @@ export function playbackPlan(
   return canTranscode ? 'transcode' : 'unplayable';
 }
 
+// --- what ffmpeg may open ------------------------------------------------------------
+
+/**
+ * Input options placed before every `-i`. ffmpeg picks a demuxer by a file's *content*, not its extension, so a
+ * library file that is really an HLS playlist or a `concat` script (saved as `.mkv`) could make it fetch URLs or
+ * read other local files. `file` is the only protocol it may use, and the format whitelist names real media
+ * containers only — `hls` and `concat` are deliberately absent.
+ */
+export const FFMPEG_INPUT_GUARD: readonly string[] = [
+  '-protocol_whitelist',
+  'file',
+  '-format_whitelist',
+  'matroska,webm,mov,mp4,m4a,3gp,3g2,mj2,avi,mpegts,mpeg,flv,asf,ogg,mp3,flac,wav,aiff,aac',
+];
+
+/** The probe's arguments: the guard, then `-i <input>`; no output, so ffmpeg prints the banner and exits. */
+export function probeArgs(input: string): string[] {
+  return ['-hide_banner', '-nostdin', ...FFMPEG_INPUT_GUARD, '-i', input];
+}
+
 // --- converting --------------------------------------------------------------------------
 
 /** Fragmented MP4 that a `<video>` can start playing before ffmpeg has finished. */
@@ -207,7 +227,15 @@ export function transcodeArgs(
   probe: MediaProbe | null,
 ): string[] {
   if (!isAbsolute(input)) throw new Error('transcode input must be an absolute path');
-  const head = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', input];
+  const head = [
+    '-hide_banner',
+    '-loglevel',
+    'error',
+    '-nostdin',
+    ...FFMPEG_INPUT_GUARD,
+    '-i',
+    input,
+  ];
   if (kind === 'music')
     return [
       ...head,
@@ -273,7 +301,7 @@ export const nodeFfmpegPort: FfmpegPort = {
         resolve('');
         return;
       }
-      const child = spawn(ffmpegPath, ['-hide_banner', '-nostdin', '-i', input], {
+      const child = spawn(ffmpegPath, probeArgs(input), {
         shell: false,
         stdio: ['ignore', 'ignore', 'pipe'],
       });
