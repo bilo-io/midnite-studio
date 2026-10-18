@@ -88,7 +88,10 @@ function fakes() {
   };
 }
 
-async function setup(background: boolean) {
+async function setup(
+  background: boolean,
+  extra: { openStudioLink?: (url: string) => Promise<void> } = {},
+) {
   const base = await realpath(await mkdtemp(join(tmpdir(), 'capture-app-')));
   dirs.push(base);
   const f = fakes();
@@ -103,6 +106,7 @@ async function setup(background: boolean) {
     gate: createDisplayMediaGate({ isAppOrigin: (o) => o === 'file://' }),
     background,
     timers: f.timers,
+    ...extra,
   });
   const invoke = (channel: string, payload?: unknown) => handlers.get(channel)!({}, payload);
   return { base, capture, handlers, invoke, sent, ...f };
@@ -125,16 +129,46 @@ describe('registerCaptureAppHandlers', () => {
     expect(registered.size).toBe(0);
   });
 
-  it('reaches no other feature: no Send to… destination, Creator refused', async () => {
+  it('reaches no other feature: only clipboard and Finder, Creator and import refused', async () => {
     const { invoke } = await setup(true);
     const status = (await invoke(CHANNELS.captureStatus)) as CaptureStatus;
-    expect(status.destinations).toEqual([]);
+    expect(status.destinations).toEqual(['clipboard', 'finder']);
+    expect(
+      (
+        (await invoke(CHANNELS.captureImport, {
+          id: 'cap-20261018-093000-abcdef12',
+        })) as GitOpResult
+      ).ok,
+    ).toBe(false);
+    expect(
+      (
+        (await invoke(CHANNELS.captureOpenInStudio, {
+          id: 'cap-20261018-093000-abcdef12',
+        })) as GitOpResult
+      ).ok,
+    ).toBe(false);
     expect(status.settings.clipboardHistory).toBe(false);
     const sent = (await invoke(CHANNELS.captureSendToCreator, {
       id: 'cap-20261018-093000-abcdef12',
       repoId: 'r1',
     })) as GitOpResult;
     expect(sent.ok).toBe(false);
+  });
+
+  it('offers Midnite Studio only when it can open the link, and never for a capture it does not hold', async () => {
+    const openStudioLink = vi.fn(async () => undefined);
+    const { invoke } = await setup(true, { openStudioLink });
+    const status = (await invoke(CHANNELS.captureStatus)) as CaptureStatus;
+    expect(status.destinations).toEqual(['clipboard', 'finder', 'studio']);
+    const opened = (await invoke(CHANNELS.captureOpenInStudio, {
+      id: 'cap-20261018-093000-abcdef12',
+    })) as GitOpResult;
+    expect(opened.ok).toBe(false);
+    expect(
+      ((await invoke(CHANNELS.captureOpenInStudio, { id: 'midnite-studio://x' })) as GitOpResult)
+        .ok,
+    ).toBe(false);
+    expect(openStudioLink).not.toHaveBeenCalled();
   });
 
   it('asks macOS for nothing until the user asks', async () => {

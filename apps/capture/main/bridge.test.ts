@@ -4,6 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { captureManifest } from '@midnite/studio-feature-capture/main';
 import { CHANNELS } from '@midnite/studio-shared';
 
+/** The overlay window's own three channels — its preload's, never the app window's bridge. */
+const OVERLAY_CHANNELS: string[] = [
+  CHANNELS.captureOverlayFrame,
+  CHANNELS.captureOverlayConfirm,
+  CHANNELS.captureOverlayCancel,
+];
+
 import { createCaptureBridge, type RendererIpc } from './bridge';
 
 function fakeIpc(): RendererIpc {
@@ -34,6 +41,7 @@ describe('createCaptureBridge', () => {
     await capture.regionPending();
     await capture.regionFinish({ pendingId: 'p', rect: { x: 0, y: 0, width: 1, height: 1 } });
     await capture.regionCancel({ pendingId: 'p' });
+    await capture.regionStart();
     await capture.recordingArm({ sourceId: 'screen:1:0' });
     await capture.recordingBegin({ mime: 'video/webm' });
     await capture.recordingChunk({ recordingId: 'r', bytes: new Uint8Array([1]) });
@@ -50,8 +58,13 @@ describe('createCaptureBridge', () => {
     await capture.clipboard.clear();
     await capture.attachment({ id });
     await capture.sendToCreator({ id, repoId: 'r1' });
+    await capture.openInStudio({ id });
+    await capture.importFromApp({ id });
     const called = vi.mocked(ipc.invoke).mock.calls.map((c) => c[0]);
     expect(called[0]).toBe(CHANNELS.captureStatus);
-    expect([...new Set(called)].sort()).toEqual([...captureManifest.ipc].sort());
+    expect([...new Set(called)].sort()).toEqual(
+      [...captureManifest.ipc].filter((c) => !OVERLAY_CHANNELS.includes(c)).sort(),
+    );
+    for (const channel of OVERLAY_CHANNELS) expect(called).not.toContain(channel);
   });
 });

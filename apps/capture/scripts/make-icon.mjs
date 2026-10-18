@@ -35,7 +35,9 @@ ${glyph}
 }
 
 async function rasterise(svg, png, size) {
-  const pw = createRequire(path.join(here, '../../../packages/app/package.json'))('@playwright/test');
+  const pw = createRequire(path.join(here, '../../../packages/app/package.json'))(
+    '@playwright/test',
+  );
   const browser = await pw.chromium.launch({
     // CHROMIUM_PATH: use an already-installed browser instead of the one Playwright pins.
     executablePath: process.env.CHROMIUM_PATH || undefined,
@@ -60,7 +62,11 @@ export async function makeIcon(outDir) {
       for (const scale of [1, 2]) {
         const px = base * scale;
         const name = `icon_${base}x${base}${scale === 2 ? '@2x' : ''}.png`;
-        execFileSync('sips', ['-z', String(px), String(px), master, '--out', path.join(set, name)], { stdio: 'ignore' });
+        execFileSync(
+          'sips',
+          ['-z', String(px), String(px), master, '--out', path.join(set, name)],
+          { stdio: 'ignore' },
+        );
       }
     }
     mkdirSync(outDir, { recursive: true });
