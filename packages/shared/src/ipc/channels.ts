@@ -1009,6 +1009,33 @@ export const CHANNELS = {
   mediaLibraryClearProgress: 'mstudio:media:library-clear-progress',
   mediaLibrarySettingsGet: 'mstudio:media:library-settings-get',
   mediaLibrarySettingsSet: 'mstudio:media:library-settings-set',
+  // Capture (Phase 113 Theme K) — stills, recordings, the shortcut, clipboard history and Send to (`capture.ts`).
+  // Every still and stream is for a source the user picked; bytes are served on `mstudio-file://capture/…`.
+  captureStatus: 'mstudio:capture:status',
+  captureRequestPermission: 'mstudio:capture:request-permission',
+  captureOpenPermissionSettings: 'mstudio:capture:open-permission-settings',
+  captureSources: 'mstudio:capture:sources',
+  captureStill: 'mstudio:capture:still',
+  captureRegionBegin: 'mstudio:capture:region-begin',
+  captureRegionPending: 'mstudio:capture:region-pending',
+  captureRegionFinish: 'mstudio:capture:region-finish',
+  captureRegionCancel: 'mstudio:capture:region-cancel',
+  captureRecordingArm: 'mstudio:capture:recording-arm',
+  captureRecordingBegin: 'mstudio:capture:recording-begin',
+  captureRecordingChunk: 'mstudio:capture:recording-chunk',
+  captureRecordingFinish: 'mstudio:capture:recording-finish',
+  captureRecordingAbort: 'mstudio:capture:recording-abort',
+  captureList: 'mstudio:capture:list',
+  captureDelete: 'mstudio:capture:delete',
+  captureReveal: 'mstudio:capture:reveal',
+  captureCopy: 'mstudio:capture:copy',
+  captureSettingsSet: 'mstudio:capture:settings-set',
+  captureClipboardList: 'mstudio:capture:clipboard-list',
+  captureClipboardCopy: 'mstudio:capture:clipboard-copy',
+  captureClipboardDelete: 'mstudio:capture:clipboard-delete',
+  captureClipboardClear: 'mstudio:capture:clipboard-clear',
+  captureAttachment: 'mstudio:capture:attachment',
+  captureSendToCreator: 'mstudio:capture:send-to-creator',
   // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
   mediaModelProviders: 'mstudio:media:model-providers',
   mediaModelGenerate: 'mstudio:media:model-generate',
@@ -1660,6 +1687,8 @@ export const EVENT_CHANNELS = {
   mediaLibraryChanged: 'mstudio:media:library-changed',
   /** A library scan advanced — see `LibraryScanProgressSchema`. */
   mediaLibraryScanProgress: 'mstudio:media:library-scan-progress',
+  /** Captures, the clipboard history, settings or permission changed, or the shortcut fired — see `CaptureChangedSchema`. */
+  captureChanged: 'mstudio:capture:changed',
   /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */
   mediaImageProgress: 'mstudio:media:image-progress',
   /** An audio import advanced — see `AudioProgressEventSchema`. */

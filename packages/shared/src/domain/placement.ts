@@ -88,6 +88,7 @@ export const FEATURE_PLACEMENT = {
   monitor: 'monitor',
   diagnostics: 'monitor',
   vault: 'vault',
+  capture: 'capture',
   'web-apps': 'browser',
   notes: 'mind',
   agent: 'agents',

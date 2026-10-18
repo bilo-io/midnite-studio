@@ -32,6 +32,8 @@ const LEGACY_VIEW_IDS = [
   'monitor',
   // Phase 113 Theme J: the Vault, a metadata-only view over the stored secrets.
   'vault',
+  // Phase 113 Theme K: Capture — screenshots, recordings and the opt-in clipboard history.
+  'capture',
   'tests',
   'database',
   'tasks',
