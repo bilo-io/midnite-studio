@@ -1,4 +1,4 @@
-import { LuArrowDownToLine, LuTerminal } from 'react-icons/lu';
+import { LuTerminal } from 'react-icons/lu';
 
 import {
   Button,
@@ -10,7 +10,7 @@ import {
   Typewriter,
   Wordmark,
 } from '../../components';
-import { anchorHref, hrefFor } from '../../routes';
+import { anchorHref } from '../../routes';
 
 import { HeroBackdrop } from './hero-backdrop';
 import { HeroVideo } from './hero-video';
@@ -113,11 +113,8 @@ export const Hero = () => (
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button href={hrefFor('download')} size="lg" icon={<LuArrowDownToLine />}>
-              Download
-            </Button>
-            <Button href={anchorHref('early-access')} variant="ghost" size="lg">
-              Get early access
+            <Button href={anchorHref('early-access')} size="lg">
+              Get Access
             </Button>
           </div>
 
