@@ -67,3 +67,13 @@ export function studioRunLinkFromParam(param: string): string {
 export function studioRevealLinkFromParam(param: string): string {
   return `${STUDIO_PROTOCOL}//reveal?ref=${param}`;
 }
+
+/**
+ * `midnite-studio://capture?id=<CaptureId>` — Midnite Capture's "Open in Midnite Studio" (Phase 113
+ * Theme K): Studio asks, then imports that capture from Midnite Capture's own captures directory and shows
+ * it in its Capture view, where Send to reaches a chat, a PR comment or a Creator project. Only the id
+ * travels — never a path; Studio's parser validates it against the capture id pattern.
+ */
+export function studioCaptureLink(id: string): string {
+  return `${STUDIO_PROTOCOL}//capture?${new URLSearchParams({ id }).toString()}`;
+}

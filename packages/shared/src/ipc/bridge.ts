@@ -648,6 +648,12 @@ export type MidniteStudioBridge = {
     sendToCreator: (
       req: In<typeof S.CaptureSendToCreatorRequest>,
     ) => Promise<z.infer<typeof S.CaptureSendToCreatorResponse>>;
+    /** Slice 2: a region on the desktop-wide overlay, or the same frozen frame for the in-view picker. */
+    regionStart: () => Promise<z.infer<typeof S.CaptureRegionStartResponse>>;
+    /** Midnite Capture: opens this capture in Midnite Studio (a `midnite-studio://capture` link main builds). */
+    openInStudio: (req: In<typeof S.CaptureOpenInStudioRequest>) => Promise<GitOpResult>;
+    /** Studio: imports a capture Midnite Capture took, by id, from that app's own captures directory. */
+    importFromApp: (req: In<typeof S.CaptureImportRequest>) => Promise<z.infer<typeof S.CaptureImportResponse>>;
     onChanged: (handler: (event: z.infer<typeof S.CaptureChangedPayload>) => void) => Unsubscribe;
   };
 
@@ -2191,3 +2197,14 @@ declare global {
     midniteStudio?: MidniteStudioBridge;
   }
 }
+
+/**
+ * The capture region overlay's whole bridge (Phase 113 Theme K slice 2) — `window.midniteCaptureOverlay`
+ * in the overlay window, and nothing else: its preload exposes no `midniteStudio`. Each call carries the
+ * window's one-time token (`CAPTURE_OVERLAY_ARG`), which the preload reads and the page never sees.
+ */
+export type CaptureOverlayBridge = {
+  frame: () => Promise<z.infer<typeof S.CaptureOverlayFrameResponse>>;
+  confirm: (rect: In<typeof S.CaptureOverlayConfirmRequest>['rect']) => Promise<z.infer<typeof S.CaptureOverlayConfirmResponse>>;
+  cancel: () => Promise<GitOpResult>;
+};
