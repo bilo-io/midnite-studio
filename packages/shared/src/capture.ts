@@ -274,15 +274,18 @@ export const CAPTURE_DESTINATION_LABELS: Record<CaptureDestination, string> = {
  * The page a pull-request comment is written on: the PR's own web page, scrolled to its comment box.
  * GitHub's pull-request URLs (`…/pull/<n>`) take `#new_comment_field`, the id of the conversation's
  * composer; any other forge's PR page opens as it is (its composer is on the page, without an anchor
- * to it). An anchor that is missing only fails to scroll — it never changes which page opens.
+ * to it). An anchor that is missing only fails to scroll — it never changes which page opens. Anything
+ * but an `https:` URL is null: the PR is not opened.
  */
-export function capturePrCommentUrl(pullUrl: string): string {
+export function capturePrCommentUrl(pullUrl: string): string | null {
   let url: URL;
   try {
     url = new URL(pullUrl);
   } catch {
-    return pullUrl;
+    return null;
   }
+  // Only a forge's https page: anything else would fall through the in-app router to the system.
+  if (url.protocol !== 'https:') return null;
   if (!/\/pull\/\d+\/?$/.test(url.pathname)) return url.toString();
   url.hash = 'new_comment_field';
   return url.toString();

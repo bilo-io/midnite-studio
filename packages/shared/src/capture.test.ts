@@ -27,16 +27,25 @@ describe('capturePrCommentUrl', () => {
       'https://dev.azure.com/o/p/_git/r/pullrequest/9',
     ])
       expect(capturePrCommentUrl(url)).toBe(url);
-    expect(capturePrCommentUrl('not a url')).toBe('not a url');
+  });
+
+  it('opens nothing that is not an https page', () => {
+    for (const url of [
+      'not a url',
+      'http://github.com/a/b/pull/1',
+      'file:///etc/passwd',
+      'javascript:alert(1)',
+    ])
+      expect(capturePrCommentUrl(url)).toBeNull();
   });
 });
 
 describe('capture slice-2 contract', () => {
   it('a region start is the overlay, or the frozen frame for the in-view picker', () => {
-    expect(CaptureRegionStartResultSchema.parse({ surface: 'overlay' })).toEqual({ surface: 'overlay' });
-    expect(
-      CaptureRegionStartResultSchema.safeParse({ surface: 'in-view' }).success,
-    ).toBe(false);
+    expect(CaptureRegionStartResultSchema.parse({ surface: 'overlay' })).toEqual({
+      surface: 'overlay',
+    });
+    expect(CaptureRegionStartResultSchema.safeParse({ surface: 'in-view' }).success).toBe(false);
   });
 
   it('overlay calls carry a well-formed token and an in-frame rectangle', () => {
@@ -62,6 +71,8 @@ describe('capture slice-2 contract', () => {
     expect(
       DeepLinkSchema.safeParse({ kind: 'capture', id: 'cap-20261018-093000-abcdef12' }).success,
     ).toBe(true);
-    expect(DeepLinkSchema.safeParse({ kind: 'capture', id: '../../etc/passwd' }).success).toBe(false);
+    expect(DeepLinkSchema.safeParse({ kind: 'capture', id: '../../etc/passwd' }).success).toBe(
+      false,
+    );
   });
 });

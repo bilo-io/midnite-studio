@@ -82,11 +82,13 @@ export function SendTo({ item, status }: { item: CaptureItem; status: CaptureSta
 
   const commentOn = async (repoId: string, pull: CapturePullRequest): Promise<Note> => {
     if (!api) return { tone: 'error', text: 'Capture is not available here.' };
+    const url = capturePrCommentUrl(pull.url);
+    if (!url) return { tone: 'error', text: 'That pull request has no web page to open.' };
     // The clipboard first: the page opens only once the image is there to paste.
     const copied = await api.copy({ id: item.id });
     if (!copied.ok) return failed(copied, 'Could not put the capture on the clipboard.');
     setPicker({ state: 'closed' });
-    host.prComment?.open({ repoId, url: capturePrCommentUrl(pull.url) });
+    host.prComment?.open({ repoId, url });
     return { tone: 'ok', text: PR_COMMENT_PASTE_NOTE };
   };
 
