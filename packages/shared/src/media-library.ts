@@ -136,7 +136,9 @@ export const LibraryScanProgressSchema = z.object({
 export type LibraryScanProgress = z.infer<typeof LibraryScanProgressSchema>;
 
 /** Sent whenever roots, items or progress changed, so every open view refetches. */
-export const LibraryChangedSchema = z.object({ reason: z.enum(['roots', 'scan', 'progress', 'settings']) });
+export const LibraryChangedSchema = z.object({
+  reason: z.enum(['roots', 'scan', 'progress', 'settings', 'playlists']),
+});
 export type LibraryChanged = z.infer<typeof LibraryChangedSchema>;
 
 // --- requests ---------------------------------------------------------------------
@@ -159,6 +161,120 @@ export const LibrarySettingsResponseSchema = z.object({
   /** Whether the online provider's key is set and readable by this app — never the key. */
   onlineKeyAvailable: z.boolean(),
 });
+
+// --- playlists (Phase 113 Theme R slice 2) -----------------------------------------
+
+/** A playlist's id: `p` + hex, minted in main. */
+export const LibraryPlaylistIdSchema = z.string().regex(/^p[0-9a-f]{12}$/);
+export const LIBRARY_PLAYLIST_NAME_MAX = 120;
+export const LIBRARY_PLAYLIST_ITEMS_MAX = 2000;
+export const LibraryPlaylistNameSchema = z.string().trim().min(1).max(LIBRARY_PLAYLIST_NAME_MAX);
+
+/**
+ * An ordered list of library items (music first; films and episodes too), kept in the library's index. An item a
+ * rescan no longer finds stays in the stored list — a drive that comes back keeps its place — but the wire
+ * playlist holds only items the index has now.
+ */
+export const LibraryPlaylistSchema = z.object({
+  id: LibraryPlaylistIdSchema,
+  name: z.string().min(1),
+  itemIds: z.array(z.string().min(1)),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+export type LibraryPlaylist = z.infer<typeof LibraryPlaylistSchema>;
+
+export const LibraryPlaylistsResponseSchema = z.object({ playlists: z.array(LibraryPlaylistSchema) });
+export const LibraryPlaylistCreateRequestSchema = z.object({
+  name: LibraryPlaylistNameSchema,
+  itemIds: z.array(z.string().min(1)).max(LIBRARY_PLAYLIST_ITEMS_MAX).optional(),
+});
+export const LibraryPlaylistRenameRequestSchema = z.object({
+  playlistId: LibraryPlaylistIdSchema,
+  name: LibraryPlaylistNameSchema,
+});
+/** Replaces the whole list — adding, removing and reordering are all this one write. */
+export const LibraryPlaylistSetItemsRequestSchema = z.object({
+  playlistId: LibraryPlaylistIdSchema,
+  itemIds: z.array(z.string().min(1)).max(LIBRARY_PLAYLIST_ITEMS_MAX),
+});
+export const LibraryPlaylistDeleteRequestSchema = z.object({ playlistId: LibraryPlaylistIdSchema });
+
+// --- sharing on the local network (Phase 113 Theme R slice 2) ----------------------
+
+/**
+ * The LAN stream server's settings. **Off by default and never started at launch** unless the user left it on
+ * (`wasOn`) *and* asked for that (`startWithApp`). It binds one private IPv4 address the user picked from this
+ * computer's interfaces — never `0.0.0.0`, never a public address.
+ */
+export const LibraryLanSettingsSchema = z.object({
+  /** The interface address to bind, picked by the user; null until they pick one. */
+  address: z.string().nullable(),
+  port: z.number().int().min(1024).max(65535),
+  startWithApp: z.boolean(),
+  /** The server was running when the app last quit (a user's Stop clears it). Main's, not the renderer's. */
+  wasOn: z.boolean(),
+  /** Stream what a browser cannot play through the system ffmpeg, as fragmented MP4. Off by default. */
+  transcode: z.boolean(),
+  /** A user-set ffmpeg; null means look in the usual places. */
+  ffmpegPath: z.string().nullable(),
+});
+export type LibraryLanSettings = z.infer<typeof LibraryLanSettingsSchema>;
+
+export const LIBRARY_LAN_DEFAULT_PORT = 47620;
+export const DEFAULT_LIBRARY_LAN_SETTINGS: LibraryLanSettings = {
+  address: null,
+  port: LIBRARY_LAN_DEFAULT_PORT,
+  startWithApp: false,
+  wasOn: false,
+  transcode: false,
+  ffmpegPath: null,
+};
+
+/** What the renderer may change. `wasOn` follows Start and Stop. */
+export const LibraryLanSettingsPatchSchema = LibraryLanSettingsSchema.omit({ wasOn: true }).partial();
+export type LibraryLanSettingsPatch = z.infer<typeof LibraryLanSettingsPatchSchema>;
+
+/** One of this computer's private IPv4 interface addresses — a candidate to bind. */
+export const LibraryLanInterfaceSchema = z.object({ name: z.string(), address: z.string() });
+export type LibraryLanInterface = z.infer<typeof LibraryLanInterfaceSchema>;
+
+/** A device that made an authorised request since the server started. */
+export const LibraryLanClientSchema = z.object({
+  address: z.string(),
+  lastRequestAt: z.number(),
+  requests: z.number().int().nonnegative(),
+});
+export type LibraryLanClient = z.infer<typeof LibraryLanClientSchema>;
+
+/** Where the system ffmpeg was found — never a bundled one (licensing). */
+export const LibraryFfmpegStatusSchema = z.object({
+  found: z.boolean(),
+  path: z.string().nullable(),
+  source: z.enum(['setting', 'homebrew', 'macports', 'path']).nullable(),
+  reason: z.string().optional(),
+});
+export type LibraryFfmpegStatus = z.infer<typeof LibraryFfmpegStatusSchema>;
+
+export const LibraryLanStatusSchema = z.object({
+  /** False in a build that wires no server (`NO_LAN_STREAMING`). */
+  available: z.boolean(),
+  running: z.boolean(),
+  /**
+   * The link other devices open, access token included — shown to the user on purpose, to share. Null while
+   * stopped. The token is a sharing token, not a credential of the user's.
+   */
+  url: z.string().nullable(),
+  settings: LibraryLanSettingsSchema,
+  interfaces: z.array(LibraryLanInterfaceSchema),
+  clients: z.array(LibraryLanClientSchema),
+  /** Transcodes streaming right now. */
+  transcodes: z.number().int().nonnegative(),
+  ffmpeg: LibraryFfmpegStatusSchema,
+});
+export type LibraryLanStatus = z.infer<typeof LibraryLanStatusSchema>;
+
+export const LibraryLanStartRequestSchema = z.object({ address: z.string().min(1).optional() });
 
 // --- helpers ----------------------------------------------------------------------
 

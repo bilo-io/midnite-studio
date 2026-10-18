@@ -1009,6 +1009,19 @@ export const CHANNELS = {
   mediaLibraryClearProgress: 'mstudio:media:library-clear-progress',
   mediaLibrarySettingsGet: 'mstudio:media:library-settings-get',
   mediaLibrarySettingsSet: 'mstudio:media:library-settings-set',
+  // Library playlists and LAN sharing (Phase 113 Theme R slice 2): the server binds one private address the
+  // user picked, only while they have it on; links carry a sharing token; bytes come only through `resolveFile`.
+  mediaLibraryPlaylists: 'mstudio:media:library-playlists',
+  mediaLibraryPlaylistCreate: 'mstudio:media:library-playlist-create',
+  mediaLibraryPlaylistRename: 'mstudio:media:library-playlist-rename',
+  mediaLibraryPlaylistSetItems: 'mstudio:media:library-playlist-set-items',
+  mediaLibraryPlaylistDelete: 'mstudio:media:library-playlist-delete',
+  mediaLibraryLanStatus: 'mstudio:media:library-lan-status',
+  mediaLibraryLanStart: 'mstudio:media:library-lan-start',
+  mediaLibraryLanStop: 'mstudio:media:library-lan-stop',
+  mediaLibraryLanRegenerate: 'mstudio:media:library-lan-regenerate',
+  mediaLibraryLanSettingsSet: 'mstudio:media:library-lan-settings-set',
+  mediaLibraryLanDetectFfmpeg: 'mstudio:media:library-lan-detect-ffmpeg',
   // Capture (Phase 113 Theme K) — stills, recordings, the shortcut, clipboard history and Send to (`capture.ts`).
   // Every still and stream is for a source the user picked; bytes are served on `mstudio-file://capture/…`.
   captureStatus: 'mstudio:capture:status',

@@ -1982,6 +1982,18 @@ describe('media contract (Phase 99 Theme A)', () => {
       mediaLibrarySettingsSet: ['MediaLibrarySettingsSetRequest', 'MediaLibrarySettingsSetResponse'],
       mediaLibraryChanged: ['MediaLibraryChangedPayload'],
       mediaLibraryScanProgress: ['MediaLibraryScanProgressPayload'],
+      // Phase 113 Theme R slice 2 — playlists and LAN sharing.
+      mediaLibraryPlaylists: ['MediaLibraryPlaylistsResponse'],
+      mediaLibraryPlaylistCreate: ['MediaLibraryPlaylistCreateRequest', 'MediaLibraryPlaylistCreateResponse'],
+      mediaLibraryPlaylistRename: ['MediaLibraryPlaylistRenameRequest', 'MediaLibraryPlaylistRenameResponse'],
+      mediaLibraryPlaylistSetItems: ['MediaLibraryPlaylistSetItemsRequest', 'MediaLibraryPlaylistSetItemsResponse'],
+      mediaLibraryPlaylistDelete: ['MediaLibraryPlaylistDeleteRequest', 'MediaLibraryPlaylistDeleteResponse'],
+      mediaLibraryLanStatus: ['MediaLibraryLanStatusResponse'],
+      mediaLibraryLanStart: ['MediaLibraryLanStartRequest', 'MediaLibraryLanStartResponse'],
+      mediaLibraryLanStop: ['MediaLibraryLanStopResponse'],
+      mediaLibraryLanRegenerate: ['MediaLibraryLanRegenerateResponse'],
+      mediaLibraryLanSettingsSet: ['MediaLibraryLanSettingsSetRequest', 'MediaLibraryLanSettingsSetResponse'],
+      mediaLibraryLanDetectFfmpeg: ['MediaLibraryLanDetectFfmpegResponse'],
     };
     const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
       key.startsWith('media'),

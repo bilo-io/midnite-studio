@@ -1,22 +1,57 @@
+import {
+  DEFAULT_LIBRARY_LAN_SETTINGS,
+  failure,
+  type GitOpResult,
+  type LibraryFfmpegStatus,
+  type LibraryLanSettingsPatch,
+  type LibraryLanStatus,
+} from '@midnite/studio-shared';
+
 /**
- * The LAN streaming seam (Phase 113 Theme R — deferred to slice R2, with ffmpeg transcoding).
- *
- * Slice 1 opens **no listening socket**: playback is local, through the `mstudio-file:` scheme, and a
- * file the platform's media stack cannot decode simply does not play. R2 fills this seam — a server the
- * user starts, bound to the LAN only, serving the same jailed paths `LibraryService.resolveFile` serves
- * now, with a transcoder for what Chromium cannot play. Until then the composer wires
- * {@link NO_LAN_STREAMING}, and nothing in the library listens.
+ * Sharing the library on the local network (Phase 113 Theme R slice 2) — the controller the IPC handlers drive.
+ * `createLanStreamServer` (`lan-server.ts`) is the real one: a server the user starts, bound to one private
+ * address they picked, serving only what `LibraryService.resolveFile` resolves, behind an access token. A
+ * composer that wires none passes {@link NO_LAN_STREAMING}, and nothing in the library listens.
  */
-export type LibraryStreamServer = {
+export type LibraryLanController = {
   /** Whether a server can be started in this build. */
   available: boolean;
-  /** Starts serving on the LAN; resolves to the URL other devices open. */
-  start: () => Promise<{ url: string } | null>;
-  stop: () => Promise<void>;
+  status: () => Promise<LibraryLanStatus>;
+  /** Binds `address` (or the saved one); refused unless it is one of this computer's private IPv4 addresses. */
+  start: (address?: string) => Promise<GitOpResult<LibraryLanStatus>>;
+  /** The user's Stop: closes the server and forgets that it was on. */
+  stop: () => Promise<GitOpResult>;
+  /** A new token: every link handed out before stops working, and open streams are cut. */
+  regenerateToken: () => Promise<GitOpResult>;
+  setSettings: (patch: LibraryLanSettingsPatch) => Promise<GitOpResult>;
+  /** Looks for ffmpeg again (after the user installed it, or changed its path). */
+  detectFfmpeg: () => Promise<LibraryFfmpegStatus>;
+  /** At launch: starts only when the user left it on *and* switched on "start with the app". */
+  startAtLaunch: () => Promise<void>;
+  /** On quit: closes everything, remembering that it was on. */
+  dispose: () => Promise<void>;
 };
 
-export const NO_LAN_STREAMING: LibraryStreamServer = {
+const UNAVAILABLE = 'Sharing on the network is not available in this build.';
+const NO_FFMPEG: LibraryFfmpegStatus = { found: false, path: null, source: null, reason: UNAVAILABLE };
+
+export const NO_LAN_STREAMING: LibraryLanController = {
   available: false,
-  start: async () => null,
-  stop: async () => undefined,
+  status: async () => ({
+    available: false,
+    running: false,
+    url: null,
+    settings: { ...DEFAULT_LIBRARY_LAN_SETTINGS },
+    interfaces: [],
+    clients: [],
+    transcodes: 0,
+    ffmpeg: NO_FFMPEG,
+  }),
+  start: async () => failure(UNAVAILABLE),
+  stop: async () => failure(UNAVAILABLE),
+  regenerateToken: async () => failure(UNAVAILABLE),
+  setSettings: async () => failure(UNAVAILABLE),
+  detectFfmpeg: async () => NO_FFMPEG,
+  startAtLaunch: async () => undefined,
+  dispose: async () => undefined,
 };

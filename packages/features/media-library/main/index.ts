@@ -9,11 +9,36 @@ import {
 } from '@midnite/studio-shared';
 
 import { mediaLibraryManifest } from '../manifest';
+import { NO_LAN_STREAMING, type LibraryLanController } from './lan';
 import type { LibraryService } from './library-service';
 
 export { mediaLibraryManifest, type MediaLibraryManifest } from '../manifest';
 export { libraryFileResolver, resolveLibraryFileUrl } from './file-url';
-export { NO_LAN_STREAMING, type LibraryStreamServer } from './lan';
+export { NO_LAN_STREAMING, type LibraryLanController } from './lan';
+export {
+  checkBindAddress,
+  isPrivateLanAddress,
+  listLanInterfaces,
+  type NetworkInterfaces,
+} from './lan-addresses';
+export {
+  createLanStreamServer,
+  MAX_TRANSCODES,
+  parseRange,
+  type LanListen,
+  type LanServerDeps,
+} from './lan-server';
+export {
+  FFMPEG_CANDIDATES,
+  locateFfmpeg,
+  nodeFfmpegPort,
+  parseProbe,
+  playbackPlan,
+  transcodeArgs,
+  type FfmpegPort,
+  type PlaybackPlan,
+  type TranscodeProcess,
+} from './ffmpeg';
 export {
   createLibraryService,
   itemIdFor,
@@ -53,12 +78,14 @@ export function libraryEmitters(emit: (channel: string, payload: unknown) => voi
  */
 export type MediaLibraryMainServices = {
   library: LibraryService;
+  /** The LAN stream server (slice 2); absent, the channels answer that sharing is not available. */
+  lan?: LibraryLanController;
 };
 
 export const mediaLibraryMain = defineFeatureMain<MediaLibraryMainServices>({
   feature: mediaLibraryManifest.feature,
   channels: mediaLibraryManifest.ipc,
-  register(ctx, { library }) {
+  register(ctx, { library, lan = NO_LAN_STREAMING }) {
     const invalid = (issue: string) => failure(issue);
     const guarded =
       <A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
@@ -113,5 +140,60 @@ export const mediaLibraryMain = defineFeatureMain<MediaLibraryMainServices>({
       guarded((patch: Parameters<LibraryService['setSettings']>[0]) => library.setSettings(patch)),
       invalid,
     );
+
+    // Playlists (slice 2) — kept in the index; ids are main's.
+    ctx.ipc.handleBare(CHANNELS.mediaLibraryPlaylists, async () => ({
+      playlists: await library.playlists(),
+    }));
+    ctx.ipc.handle(
+      CHANNELS.mediaLibraryPlaylistCreate,
+      schemas.MediaLibraryPlaylistCreateRequest,
+      guarded((req: Parameters<LibraryService['createPlaylist']>[0]) => library.createPlaylist(req)),
+      invalid,
+    );
+    ctx.ipc.handle(
+      CHANNELS.mediaLibraryPlaylistRename,
+      schemas.MediaLibraryPlaylistRenameRequest,
+      guarded((req: Parameters<LibraryService['renamePlaylist']>[0]) => library.renamePlaylist(req)),
+      invalid,
+    );
+    ctx.ipc.handle(
+      CHANNELS.mediaLibraryPlaylistSetItems,
+      schemas.MediaLibraryPlaylistSetItemsRequest,
+      guarded((req: Parameters<LibraryService['setPlaylistItems']>[0]) =>
+        library.setPlaylistItems(req),
+      ),
+      invalid,
+    );
+    ctx.ipc.handle(
+      CHANNELS.mediaLibraryPlaylistDelete,
+      schemas.MediaLibraryPlaylistDeleteRequest,
+      guarded(({ playlistId }: { playlistId: string }) => library.deletePlaylist(playlistId)),
+      invalid,
+    );
+
+    // Sharing on the network (slice 2) — the server only ever starts from the user's Start.
+    ctx.ipc.handleBare(CHANNELS.mediaLibraryLanStatus, () => lan.status());
+    ctx.ipc.handle(
+      CHANNELS.mediaLibraryLanStart,
+      schemas.MediaLibraryLanStartRequest,
+      guarded(({ address }: { address?: string }) => lan.start(address)),
+      invalid,
+    );
+    ctx.ipc.handleBare(
+      CHANNELS.mediaLibraryLanStop,
+      guarded(() => lan.stop()),
+    );
+    ctx.ipc.handleBare(
+      CHANNELS.mediaLibraryLanRegenerate,
+      guarded(() => lan.regenerateToken()),
+    );
+    ctx.ipc.handle(
+      CHANNELS.mediaLibraryLanSettingsSet,
+      schemas.MediaLibraryLanSettingsSetRequest,
+      guarded((patch: Parameters<LibraryLanController['setSettings']>[0]) => lan.setSettings(patch)),
+      invalid,
+    );
+    ctx.ipc.handleBare(CHANNELS.mediaLibraryLanDetectFfmpeg, () => lan.detectFfmpeg());
   },
 });
