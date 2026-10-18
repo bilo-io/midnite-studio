@@ -222,23 +222,32 @@ export function isAudioOnlyAppCheck(
  * {@link denyAllPermissions} gives: `setPermissionCheckHandler` is what a
  * synchronous `navigator.permissions.query()` reads, and a renderer that only
  * ever calls that would otherwise be told every permission is available.
+ *
+ * `also` is a second, composer-owned hole checked after the audio rule — Capture's recording gate
+ * (Phase 113 Theme K), which answers yes only for a screen stream from our own main frame in the few
+ * seconds after the user pressed Record. Absent, nothing else is granted.
  */
+export type ExtraPermissionRule = (permission: string, details: unknown, origin?: string) => boolean;
+
 export function allowAppAudioOnly(
   session: PermissionSession,
   devServerOrigin: string | null,
+  also?: ExtraPermissionRule,
 ): void {
   session.setPermissionRequestHandler((_wc, permission, callback, details) =>
     callback(
-      isAudioOnlyAppRequest(permission, details as PermissionRequestDetails | undefined, devServerOrigin),
+      isAudioOnlyAppRequest(permission, details as PermissionRequestDetails | undefined, devServerOrigin) ||
+        (also?.(permission, details) ?? false),
     ),
   );
-  session.setPermissionCheckHandler((_wc, permission, requestingOrigin, details) =>
-    isAudioOnlyAppCheck(
-      permission,
-      details as PermissionCheckDetails | undefined,
-      requestingOrigin,
-      devServerOrigin,
-    ),
+  session.setPermissionCheckHandler(
+    (_wc, permission, requestingOrigin, details) =>
+      isAudioOnlyAppCheck(
+        permission,
+        details as PermissionCheckDetails | undefined,
+        requestingOrigin,
+        devServerOrigin,
+      ) || (also?.(permission, details, requestingOrigin) ?? false),
   );
 }
 

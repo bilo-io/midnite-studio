@@ -179,6 +179,7 @@ const bridge: Pick<
   | 'knowledge'
   | 'mcp'
   | 'companion'
+  | 'capture'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -318,6 +319,37 @@ const bridge: Pick<
     // Also `invoke`: the copy button's checkmark is a claim that the text is on
     // the clipboard, and a one-way send would make that claim unverifiable.
     writeText: (req) => call(CHANNELS.clipboardWriteText, req),
+  },
+  capture: {
+    status: () => call(CHANNELS.captureStatus),
+    requestPermission: () => call(CHANNELS.captureRequestPermission),
+    openPermissionSettings: () => call(CHANNELS.captureOpenPermissionSettings),
+    sources: (req) => call(CHANNELS.captureSources, req),
+    still: (req) => call(CHANNELS.captureStill, req),
+    regionBegin: (req) => call(CHANNELS.captureRegionBegin, req),
+    regionPending: () => call(CHANNELS.captureRegionPending),
+    regionFinish: (req) => call(CHANNELS.captureRegionFinish, req),
+    regionCancel: (req) => call(CHANNELS.captureRegionCancel, req),
+    recordingArm: (req) => call(CHANNELS.captureRecordingArm, req),
+    recordingBegin: (req) => call(CHANNELS.captureRecordingBegin, req),
+    // A slice's `Uint8Array` structured-clones straight through `invoke`; main checks its size and type.
+    recordingChunk: (req) => call(CHANNELS.captureRecordingChunk, req),
+    recordingFinish: (req) => call(CHANNELS.captureRecordingFinish, req),
+    recordingAbort: (req) => call(CHANNELS.captureRecordingAbort, req),
+    list: () => call(CHANNELS.captureList),
+    remove: (req) => call(CHANNELS.captureDelete, req),
+    reveal: (req) => call(CHANNELS.captureReveal, req),
+    copy: (req) => call(CHANNELS.captureCopy, req),
+    setSettings: (req) => call(CHANNELS.captureSettingsSet, req),
+    clipboard: {
+      list: () => call(CHANNELS.captureClipboardList),
+      copy: (req) => call(CHANNELS.captureClipboardCopy, req),
+      remove: (req) => call(CHANNELS.captureClipboardDelete, req),
+      clear: () => call(CHANNELS.captureClipboardClear),
+    },
+    attachment: (req) => call(CHANNELS.captureAttachment, req),
+    sendToCreator: (req) => call(CHANNELS.captureSendToCreator, req),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.captureChanged, handler),
   },
   ops: {
     checkout: (req) => call(CHANNELS.opCheckout, req),

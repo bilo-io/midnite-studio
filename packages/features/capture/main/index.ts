@@ -27,6 +27,13 @@ export {
   type DisplayMediaStreams,
   type PermissionDetails,
 } from './display-media';
+export {
+  electronCapturePort,
+  HIDE_SETTLE_MS,
+  SCREEN_RECORDING_SETTINGS_URL,
+  type CaptureElectronModules,
+  type CaptureOwnWindow,
+} from './electron-port';
 export { captureFileResolver, resolveCaptureFileUrl, type CaptureFileDirs } from './file-url';
 export { readPermission, requestPermission } from './permission';
 export type {

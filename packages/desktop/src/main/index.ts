@@ -129,6 +129,8 @@ import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } 
 import { registerMediaMusicHandlers } from './ipc/media-music-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { registerMediaLibraryHandlers } from './ipc/media-library-handlers';
+import { captureGate, disposeCapture, registerCaptureHandlers } from './ipc/capture-handlers';
+import type { PermissionDetails as CapturePermissionDetails } from '@midnite/studio-feature-capture/main';
 import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media-model-handlers';
 import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
 import { disposeMapCaptureBroker, installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
@@ -417,7 +419,18 @@ export const startStudioMain: StartStudioMain = () => {
         !app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1'
           ? (process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173')
           : null;
-      allowAppAudioOnly(session.defaultSession, devServerOrigin);
+      /*
+        Phase 113 Theme K — Capture's recording gate is the second hole, and only while armed: the
+        user pressed Record on one source, so the next `getDisplayMedia` from our own main frame gets
+        that source's video (never audio) and disarms it. Unarmed, the handler answers no stream.
+      */
+      const recordingGate = captureGate(devServerOrigin);
+      allowAppAudioOnly(session.defaultSession, devServerOrigin, (permission, details, origin) =>
+        recordingGate.allowsPermission(permission, details as CapturePermissionDetails | undefined, origin),
+      );
+      session.defaultSession.setDisplayMediaRequestHandler((request, callback) =>
+        recordingGate.handleRequest(request, callback as Parameters<typeof recordingGate.handleRequest>[1]),
+      );
       installCsp(session.defaultSession, {
         dev: devServerOrigin !== null,
         devServerOrigin,
@@ -514,6 +527,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerMediaHandlers();
       registerMediaImageHandlers();
       registerMediaLibraryHandlers();
+      registerCaptureHandlers(getMainWindow);
       registerMediaAudioHandlers();
       registerMediaMusicHandlers();
       registerMediaModelHandlers();
@@ -1034,6 +1048,8 @@ export const startStudioMain: StartStudioMain = () => {
       }
 
       disposeChats();
+      // The global capture chord is released and clipboard polling stops with the app (Phase 113 Theme K).
+      disposeCapture();
       stopAllWatchers();
       stopMediaWatchers();
       destroyAllBrowserTabs();

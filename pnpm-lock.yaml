@@ -1137,6 +1137,9 @@ importers:
       '@midnite/studio-feature-browser':
         specifier: workspace:*
         version: link:../features/browser
+      '@midnite/studio-feature-capture':
+        specifier: workspace:*
+        version: link:../features/capture
       '@midnite/studio-feature-chats':
         specifier: workspace:*
         version: link:../features/chats
@@ -1515,6 +1518,9 @@ importers:
       '@midnite/studio-feature-browser':
         specifier: workspace:*
         version: link:../features/browser
+      '@midnite/studio-feature-capture':
+        specifier: workspace:*
+        version: link:../features/capture
       '@midnite/studio-feature-chats':
         specifier: workspace:*
         version: link:../features/chats
