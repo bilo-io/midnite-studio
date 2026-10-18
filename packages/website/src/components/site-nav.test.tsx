@@ -49,17 +49,16 @@ describe('SiteNav', () => {
     );
   });
 
-  it('always offers Download, and links it to the download page', () => {
+  it('offers Get Access, and links it to the early access section', () => {
     render(<SiteNav />);
-    expect(screen.getByRole('link', { name: 'Download' })).toHaveProperty(
-      'pathname',
-      '/download/',
-    );
+    const link = screen.getByRole('link', { name: 'Get Access' });
+    expect(link).toHaveProperty('hash', '#early-access');
   });
 
-  it('offers Pricing beside Download, linked to the pricing page', () => {
+  it('does not offer links to the hidden pricing or download pages', () => {
     render(<SiteNav />);
-    expect(screen.getByRole('link', { name: 'Pricing' })).toHaveProperty('pathname', '/pricing/');
+    expect(screen.queryByRole('link', { name: 'Pricing' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Download' })).toBeNull();
   });
 
   it('marks nothing current before a section reaches the band', () => {

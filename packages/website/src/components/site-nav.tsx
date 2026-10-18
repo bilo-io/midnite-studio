@@ -18,7 +18,7 @@ export type SiteNavProps = {
 const NO_SECTIONS: readonly string[] = [];
 
 /**
- * The sticky top bar: the mark, the section anchors, and Download.
+ * The sticky top bar: the mark, the section anchors, and Get Access.
  *
  * The anchor list is **read from the section registry**, not written here, so a
  * wave-2 agent that adds a section with `nav: true` gets a nav item for free
@@ -43,7 +43,7 @@ const NO_SECTIONS: readonly string[] = [];
  * Below `md` the anchors are hidden rather than folded into a drawer. There are
  * seven of them, all reachable by scrolling the one page they live on, and a
  * hamburger that opens a list of in-page jumps is a control that costs a tap to
- * do what the scroll gesture already does. Download stays visible at every
+ * do what the scroll gesture already does. Get Access stays visible at every
  * width, because it is the one thing a visitor might have come for.
  *
  * `backdrop-blur` with a translucent background rather than a solid one: the
@@ -85,11 +85,8 @@ export const SiteNav = ({ offLanding = false }: SiteNavProps) => {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Button href={hrefFor('pricing')} variant="ghost" size="md">
-            Pricing
-          </Button>
-          <Button href={hrefFor('download')} size="md">
-            Download
+          <Button href={anchorHref('early-access')} size="md">
+            Get Access
           </Button>
         </div>
       </Container>

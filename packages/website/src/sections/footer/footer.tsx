@@ -2,7 +2,7 @@ import { LuBug, LuGithub, LuTag } from 'react-icons/lu';
 
 import { Container, Logo, Reveal, Section, TypeIn, Wordmark } from '../../components';
 import { useLatestVersion } from '../../pages/use-latest-version';
-import { anchorHref, hrefFor } from '../../routes';
+import { anchorHref } from '../../routes';
 import { AGENT_ROSTER } from '../early-access/roster';
 
 import { FooterHorizon } from './footer-horizon';
@@ -20,7 +20,6 @@ type FooterLink = { label: string; href: string; external?: boolean };
  * in-page jumps, and nothing about the markup changes for that.
  */
 const PRODUCT: readonly FooterLink[] = [
-  { label: 'Download', href: hrefFor('download') },
   { label: 'Features', href: anchorHref('features') },
   { label: 'FAQ', href: anchorHref('faq') },
   { label: 'Early access', href: anchorHref('early-access') },

@@ -33,12 +33,13 @@ describe('<Footer>', () => {
     expect(section?.tagName).toBe('SECTION');
   });
 
-  it('links to the download page, features and the FAQ', () => {
+  it('links to features, the FAQ and early access, and does not link to download', () => {
     render(<Footer />);
     const all = hrefs();
-    expect(all.some((href) => href.endsWith('download/'))).toBe(true);
+    expect(all.some((href) => href.endsWith('download/'))).toBe(false);
     expect(all).toContain('/#features');
     expect(all).toContain('/#faq');
+    expect(all).toContain('/#early-access');
   });
 
   it('names every agent in the roster', () => {
