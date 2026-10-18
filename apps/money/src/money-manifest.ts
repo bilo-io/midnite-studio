@@ -5,7 +5,7 @@ import { financeManifest } from '@midnite/studio-feature-finance/renderer';
  *
  * `accent` matches the launcher catalog's `money` tile; the glyph is the catalog's too
  * (`PiChartLineUpFill`, rendered by the home view and baked into `resources/icon.icns` by
- * `scripts/make-icon.mjs`). `home` names the one surface Money opens on — its own portfolio and
+ * the launcher's `scripts/app-icons.cjs`). `home` names the one surface Money opens on — its own portfolio and
  * markets board, not Studio's dashboard.
  */
 export const MONEY_APP = {

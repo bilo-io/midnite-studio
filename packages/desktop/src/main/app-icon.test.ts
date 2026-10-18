@@ -1,4 +1,4 @@
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -19,5 +19,15 @@ describe('desktop app icon assets', () => {
     expect(pngStat.size).toBeGreaterThan(20_000);
     // macOS icns bundle with multiple mipmaps should be > 100KB
     expect(icnsStat.size).toBeGreaterThan(100_000);
+  });
+
+  // The Dock shows the launcher's Studio tile, not the plain crescent above — which stays as the base every
+  // suite logo is drawn from (`apps/launcher/scripts/app-icons.cjs` writes icon-suite.icns).
+  it('packs the launcher tile as the app icon', () => {
+    const builder = readFileSync(join(__dirname, '../../electron-builder.yml'), 'utf8');
+    expect(builder).toMatch(/^\s+icon: resources\/icon-suite\.icns$/m);
+    const suite = join(resourcesDir, 'icon-suite.icns');
+    expect(readFileSync(suite).subarray(0, 4).toString('ascii')).toBe('icns');
+    expect(statSync(suite).size).toBeGreaterThan(100_000);
   });
 });

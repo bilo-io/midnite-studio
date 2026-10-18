@@ -8,7 +8,7 @@ import { workflowsManifest } from '@midnite/studio-feature-workflows/renderer';
  *
  * `accent` matches the launcher catalog's `agents` tile; the glyph is the catalog's too
  * (`PiRobotFill`, rendered by the home view and baked into `resources/icon.icns` by
- * `scripts/make-icon.mjs`). `home` is Chats; Councils, Graphs (workflows), Models and Tools (the MCP
+ * the launcher's `scripts/app-icons.cjs`). `home` is Chats; Councils, Graphs (workflows), Models and Tools (the MCP
  * server's Tools view, `mcp-tools`) sit beside it. `mcp-tools` is a package out of the `agent`
  * placement folder (`FEATURE_PACKAGE_SPLITS`), so it is named here by its package, not by a manifest's
  * folder.

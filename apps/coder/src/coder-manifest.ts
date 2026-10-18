@@ -9,7 +9,7 @@ import { testsManifest } from '@midnite/studio-feature-tests/renderer';
  * Coder's app manifest — pure data (Phase 113 Theme O slices 1-4).
  *
  * `accent` matches the launcher catalog's `coder` tile; the glyph is the catalog's too (`LuCode`,
- * rendered by the home view and baked into `resources/icon.icns` by `scripts/make-icon.mjs`). `home`
+ * rendered by the home view and baked into `resources/icon.icns` by the launcher's `scripts/app-icons.cjs`). `home`
  * is Reviews, with Actions, Tests, the Graph, the API client, the Database and Sessions beside it. The
  * Graph is the frame's own git graph (slice 2, `@midnite/studio-frame/graph`), read-only — so it is a
  * view, not a feature. Sessions (slice 4) lists the runtime host's terminal sessions as a broker guest.

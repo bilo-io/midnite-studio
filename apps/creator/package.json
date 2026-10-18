@@ -8,8 +8,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build": "vite build && node scripts/bundle-main.mjs",
-    "icon": "node scripts/make-icon.mjs"
+    "build": "vite build && node scripts/bundle-main.mjs"
   },
   "dependencies": {
     "@bilo-io/ui": "0.1.0",

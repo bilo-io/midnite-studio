@@ -410,9 +410,9 @@ adapter is `main/browser-port.ts` (the real Electron, plus the one cast from `Br
   `browser`, `webApps`, `clipboard` and `menu` on `window.midniteStudio`. Browser holds no credential, so it
   composes no vault and no pairing. `scripts/bundle-main.mjs` writes `dist/main.cjs` and `dist/preload.cjs`.
   Web-app idle discard is off (Studio reads it from its settings; Browser has none yet).
-- **Icon**: `node apps/browser/scripts/make-icon.mjs` writes `resources/icon.icns` from the catalog's glyph
-  and accent (`CHROMIUM_PATH=<chrome-headless-shell>` to use an installed browser). The `.icns` is committed,
-  so a release now packs `midnite-browser-X.Y.Z-bundle.zip`.
+- **Icon**: `moon run launcher:icons` writes `resources/icon.icns` from the launcher's Browser tile logo, so
+  the Dock shows what the launcher does. The `.icns` is committed, so a release now packs
+  `midnite-browser-X.Y.Z-bundle.zip`.
 - **Build task**: the feature has a `main/`, so it keeps a real `build` (`tsc -b tsconfig.main.json`); only a
   renderer-only feature takes slides' no-op.
 
@@ -460,8 +460,8 @@ three things a release needs to pack it as `midnite-cleaner-X.Y.Z-bundle.zip`: a
   destructive switch off by default).
 - **Styling**: its own `tailwind.config.ts` (Studio's token map, own `content` globs over the frame and the
   optimizer renderer) and `@bilo-io/ui`'s token CSS.
-- **Icon**: `node apps/cleaner/scripts/make-icon.mjs` regenerates `resources/icon.icns` from the catalog glyph
-  (`CHROMIUM_PATH=<chrome-headless-shell>` to use an installed browser). The `.icns` is committed.
+- **Icon**: `moon run launcher:icons` regenerates `resources/icon.icns` from the launcher's Cleaner tile logo,
+  so the Dock shows what the launcher does. The `.icns` is committed.
 - **Main side** (`apps/cleaner/main/`, Theme H2): `index.ts` (single instance, userData under the runtime's data
   directory, one window over `dist/index.html`), `preload.ts` + `bridge.ts` (exposes only `optimizer`, `metrics`
   and `repos.pickDirectory` on `window.midniteStudio`), `context.ts` (a `FeatureMainContext` from the runtime and
@@ -656,8 +656,8 @@ network (slice 2) — then one, on the private address they picked, behind the s
 `will-quit`. Its main passes `os.networkInterfaces` and `PATH` to `createLanStreamServer`; a smoke run never
 calls `startAtLaunch`.
 `scripts/app-vault-grants.test.mjs` names Media among the guests and `scripts/release-bundles.test.mjs` holds
-it in the `--all` matrix with its icon (`scripts/make-icon.mjs`, `PiMonitorPlayFill` in near-black on the
-catalog's `#facc15`). The launcher's Media tile and its three leaves land on Studio's Media ▸ Library while
+it in the `--all` matrix with its icon (the launcher's Media tile logo, written by `moon run launcher:icons`).
+The launcher's Media tile and its three leaves land on Studio's Media ▸ Library while
 `runsIn` is still `studio`. `MIDNITE_MEDIA_SMOKE=1` with `MIDNITE_MEDIA_USER_DATA=<tmp>` prints
 `midnite-media:ready` and quits.
 
@@ -727,7 +727,7 @@ media store (`bridge.test.ts`); the overlay window's own preload (`main/overlay-
 three overlay calls only, and `scripts/app-window-guard.test.mjs` holds both windows to `guardAppWindow`.
 **Capture composes no vault, opens no listening socket and makes no network
 call.** `scripts/release-bundles.test.mjs` holds it in the `--all` matrix with its icon
-(`scripts/make-icon.mjs`, `PiCameraFill` in white on the catalog's `#f97316`); the launcher's Capture tile
+(the launcher's Capture tile logo, written by `moon run launcher:icons`); the launcher's Capture tile
 and its three leaves land on Studio's Capture view while `runsIn` is still `studio`.
 `MIDNITE_CAPTURE_SMOKE=1` with `MIDNITE_CAPTURE_USER_DATA=<tmp>` takes no chord, never reads the clipboard,
 prints `midnite-capture:ready` and quits.

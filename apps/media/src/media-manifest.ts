@@ -7,7 +7,7 @@ import type { MediaTabDescriptor } from '@midnite/studio-frame';
  *
  * `accent` matches the launcher catalog's `media` tile; the glyph is the catalog's too
  * (`PiMonitorPlayFill`, rendered by the home view and baked into `resources/icon.icns` by
- * `scripts/make-icon.mjs`). Media opens on the media shell; `tabs` is its registry — the Library, which
+ * the launcher's `scripts/app-icons.cjs`). Media opens on the media shell; `tabs` is its registry — the Library, which
  * holds films, shows, music and photos under one tab.
  */
 export const MEDIA_APP = {

@@ -5,7 +5,7 @@ import { vaultManifest } from '@midnite/studio-feature-vault/renderer';
  *
  * `accent` matches the launcher catalog's `vault` tile; the glyph is the
  * catalog's too (`PiVaultFill`, rendered by the home view and baked into
- * `resources/icon.icns` by `scripts/make-icon.mjs`). `home` is the one view
+ * `resources/icon.icns` by the launcher's `scripts/app-icons.cjs`). `home` is the one view
  * Vault opens on.
  */
 export const VAULT_APP = {

@@ -131,8 +131,10 @@ afterPack: scripts/afterpack.cjs
 
 mac:
   category: public.app-category.developer-tools
-  # The midnite crescent, shared with the midnite app (resources/icon.icns).
-  icon: resources/icon.icns
+  # Studio's launcher tile — the midnite crescent in the brand gradient with its rocket — so the Dock
+  # shows what the launcher does. Written by `moon run launcher:icons`. The plain crescent, shared with
+  # the midnite app, stays in resources/icon.icns: it is the base every suite logo is drawn from.
+  icon: resources/icon-suite.icns
   # Apple Silicon only: an Intel build would need node-pty rebuilt on an x64
   # runner to be correct, and this is a macOS-arm64-first app.
   target:
