@@ -27,9 +27,9 @@ export type StubIdentity = {
   id: string;
   /** `Midnite Cleaner` — the Dock label, the `.app` name, the menu-bar name. */
   displayName: string;
-  /** `io.bilo.midnite-cleaner`, beside `io.bilo.midnite-studio` and `io.bilo.midnite-launcher`. */
+  /** `io.bilo.midnite-cleaner`, beside `io.bilo.midnite-studio` and `io.bilo.midnite-launcher` — also what the running check asks LaunchServices for. */
   bundleId: string;
-  /** `Contents/MacOS/<executable>` — also what `pgrep -x` looks for to tell whether it is running. */
+  /** `Contents/MacOS/<executable>`. Whether it is running is asked by `bundleId`, never by this name. */
   executable: string;
 };
 

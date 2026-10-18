@@ -13,6 +13,8 @@ export const STUDIO_FEED_URL = `https://raw.githubusercontent.com/${RELEASES_REP
 export const CATALOG_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/catalog.json`;
 export const STUDIO_BUNDLE = 'Midnite Studio.app';
 export const STUDIO_EXE = 'Midnite Studio';
+/** `packages/desktop/electron-builder.yml`'s `appId` — what the running check asks LaunchServices for. */
+export const STUDIO_BUNDLE_ID = 'io.bilo.midnite-studio';
 export const INSTALL_DIR = '/Applications';
 
 /** Where an existing copy may live, in the order it is looked for. */
