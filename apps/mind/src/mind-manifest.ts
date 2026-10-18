@@ -5,7 +5,7 @@ import { notesManifest } from '@midnite/studio-feature-notes/renderer';
  *
  * `accent` matches the launcher catalog's `mind` tile; the glyph is the
  * catalog's too (`PiBrainFill`, rendered by the home view and baked into
- * `resources/icon.icns` by `scripts/make-icon.mjs`). `home` is the one view
+ * `resources/icon.icns` by the launcher's `scripts/app-icons.cjs`). `home` is the one view
  * Mind opens on.
  */
 export const MIND_APP = {

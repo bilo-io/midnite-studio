@@ -2,7 +2,7 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 # Midnite Vault (Phase 113 Theme J) — a suite app that ships as its own bundle:
 # `packages/features/vault` + `packages/frame` + `shared`, composed in src/.
-# `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+# `resources/icon.icns` is what makes a release pack it (`moon run launcher:icons` writes it from the launcher's tile logo).
 id: 'app-vault'
 language: 'typescript'
 

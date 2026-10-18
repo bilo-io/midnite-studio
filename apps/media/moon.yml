@@ -1,7 +1,7 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
 # Midnite Media (Phase 113 Theme R) — media-core + the Library tab feature + `packages/frame` + `shared`,
-# composed in src/. `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+# composed in src/. `resources/icon.icns` is what makes a release pack it (`moon run launcher:icons` writes it from the launcher's tile logo).
 id: 'app-media'
 language: 'typescript'
 

@@ -3,7 +3,7 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 # Midnite Browser (Phase 113 Theme L) — the browser feature as its own app: full-window browsing, the web
 # apps and agent-driven sessions over `packages/features/browser` + `packages/frame` + `shared`, composed
 # in src/, with its own Electron main in main/.
-# `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+# `resources/icon.icns` is what makes a release pack it (`moon run launcher:icons` writes it from the launcher's tile logo).
 id: 'app-browser'
 language: 'typescript'
 

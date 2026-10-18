@@ -15,9 +15,9 @@
  * output can never drift from what the launcher shows.
  *
  * Outputs (one per app, plus `launcher` — the launcher's own mark):
- *   resources/app-logos/<id>.png             1024 px masters, for each app's own .icns later
+ *   resources/app-logos/<id>.png             1024 px masters, each app's .icns is built from
  *   src/renderer/assets/app-logos/<id>.png   256 px, what the launcher draws
- *   resources/icon.icns                      the launcher's own app icon, from launcher.png
+ *   every app's icon.icns                    from those masters, by `app-icons.cjs` — so the Dock matches the tile
  */
 const { execFileSync } = require('node:child_process');
 const { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require('node:fs');
@@ -26,6 +26,8 @@ const { join } = require('node:path');
 
 const { app, BrowserWindow } = require('electron');
 const esbuild = require('esbuild');
+
+const { writeAppIcons } = require('./app-icons.cjs');
 
 const ROOT = join(__dirname, '..');
 const STUDIO_ICNS = join(ROOT, '..', '..', 'packages', 'desktop', 'resources', 'icon.icns');
@@ -38,24 +40,6 @@ function studioIcon1024() {
     const iconset = join(tmp, 'studio.iconset');
     execFileSync('iconutil', ['-c', 'iconset', '-o', iconset, STUDIO_ICNS]);
     return `data:image/png;base64,${readFileSync(join(iconset, 'icon_512x512@2x.png')).toString('base64')}`;
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
-}
-
-/** The launcher's own dock/Finder icon, from its 1024 px logo: `sips` each size, then `iconutil`. */
-function writeLauncherIcns(master) {
-  const tmp = mkdtempSync(join(tmpdir(), 'midnite-launcher-icns-'));
-  try {
-    const iconset = join(tmp, 'launcher.iconset');
-    mkdirSync(iconset);
-    for (const size of [16, 32, 128, 256, 512]) {
-      for (const [scale, suffix] of [[1, ''], [2, '@2x']]) {
-        const px = String(size * scale);
-        execFileSync('sips', ['-z', px, px, master, '--out', join(iconset, `icon_${size}x${size}${suffix}.png`)], { stdio: 'ignore' });
-      }
-    }
-    execFileSync('iconutil', ['-c', 'icns', '-o', join(ROOT, 'resources', 'icon.icns'), iconset]);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -178,8 +162,7 @@ app.whenReady().then(async () => {
       writeFileSync(join(UI_DIR, `${id}.png`), Buffer.from(ui.split(',')[1], 'base64'));
       console.log(`  ${id}`);
     }
-    writeLauncherIcns(join(MASTER_DIR, 'launcher.png'));
-    console.log('  launcher → resources/icon.icns');
+    for (const line of writeAppIcons()) console.log(`  ${line}`);
     app.exit(0);
   } catch (error) {
     console.error(error);

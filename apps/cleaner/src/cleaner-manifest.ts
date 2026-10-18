@@ -5,7 +5,7 @@ import { optimizerManifest } from '@midnite/studio-feature-optimizer/renderer';
  *
  * `accent` matches the launcher catalog's `cleaner` tile; the glyph is the
  * catalog's too (`PiSparkleFill`, rendered by `components/cleaner-mark.tsx` and
- * baked into `resources/icon.icns` by `scripts/make-icon.mjs`). `home` is the one
+ * baked into `resources/icon.icns` by the launcher's `scripts/app-icons.cjs`). `home` is the one
  * view Cleaner opens on: the optimizer's main surface.
  */
 export const CLEANER_APP = {

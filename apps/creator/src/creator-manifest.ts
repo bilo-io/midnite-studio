@@ -11,7 +11,7 @@ import type { MediaTabDescriptor } from '@midnite/studio-frame';
  *
  * `accent` matches the launcher catalog's `creator` tile; the glyph is the catalog's too
  * (`PiPaletteFill`, rendered by the home view and baked into `resources/icon.icns` by
- * `scripts/make-icon.mjs`). Creator opens on the media shell; `tabs` is its registry — Docs,
+ * the launcher's `scripts/app-icons.cjs`). Creator opens on the media shell; `tabs` is its registry — Docs,
  * Images, Video and Audio; Slides is not a tab — a doc's Present button opens its deck.
  */
 export const CREATOR_APP = {

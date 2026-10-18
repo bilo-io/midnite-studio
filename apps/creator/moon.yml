@@ -2,7 +2,7 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 # Midnite Creator (Phase 113 Theme Q) — media-core + the Docs and Images tab features +
 # `packages/frame` + `shared`, composed in src/.
-# `resources/icon.icns` is what makes a release pack it (scripts/make-icon.mjs writes it).
+# `resources/icon.icns` is what makes a release pack it (`moon run launcher:icons` writes it from the launcher's tile logo).
 id: 'app-creator'
 language: 'typescript'
 

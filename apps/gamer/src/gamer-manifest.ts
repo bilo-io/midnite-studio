@@ -11,7 +11,7 @@ import type { MediaTabDescriptor } from '@midnite/studio-frame';
  *
  * `accent` matches the launcher catalog's `gamer` tile; the glyph is the catalog's too
  * (`PiGameControllerFill`, rendered by the home view and baked into `resources/icon.icns` by
- * `scripts/make-icon.mjs`). Gamer opens on the Games tab, with Maps, Terrain, Models and Sprites beside it.
+ * the launcher's `scripts/app-icons.cjs`). Gamer opens on the Games tab, with Maps, Terrain, Models and Sprites beside it.
  * The play-test loop follows in a later slice.
  */
 export const GAMER_APP = {
