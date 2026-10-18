@@ -54,6 +54,8 @@ describe('VIEW_COMPONENT', () => {
         'monitor',
         // Phase 113 Theme J: the machine's stored credentials, not one checkout's.
         'vault',
+        // Phase 113 Theme K: the machine's screen, not one checkout's.
+        'capture',
         'database',
         'sessions',
         'notes',

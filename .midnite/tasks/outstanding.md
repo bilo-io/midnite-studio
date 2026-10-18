@@ -776,3 +776,11 @@ R2 fills the `NO_LAN_STREAMING` seam in `packages/features/media-library/main/la
 - playlists, which the launcher's Music blurb already promises.
 
 Also left from slice 1: the Library plays through its own `<video>`/`<audio>` player rather than the audio feature's. That store is bound to project files, so sharing one needs a frame-level player port first.
+
+## Capture's PR-comment Send to, desktop region overlay and standalone destinations (Phase 113 Theme K slice 2)
+
+Slice 1 ([PR #907](https://github.com/bilo-io/midnite-studio/pull/907)) sends a capture to an agent chat's draft or a Creator image project, and picks a region inside the Capture view over a frozen full-screen grab. Left for K2:
+- **Send to ▸ PR comment** is a disabled row (`PR_COMMENT_DEFERRED`). It needs Studio's comment composer to accept an image, through a link or host port. Nothing may post without the user pressing send.
+- **A desktop-wide region overlay** (`NO_DESKTOP_OVERLAY`): a transparent window across displays.
+- **Send to inside `apps/capture`:** it has no destinations yet.
+- **Manual check:** the real Screen Recording permission flow on the packaged app.

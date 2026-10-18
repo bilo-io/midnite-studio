@@ -609,6 +609,48 @@ export type MidniteStudioBridge = {
     ) => Promise<z.infer<typeof S.ClipboardWriteTextResponse>>;
   };
 
+  /**
+   * Capture (Phase 113 Theme K): stills, recordings, the global shortcut, the opt-in clipboard history and
+   * Send to. Every capture is of a source the user picked; names and paths are main's; bytes are served on
+   * `mstudio-file://capture/…`. No channel here reaches the network.
+   */
+  capture: {
+    status: () => Promise<z.infer<typeof S.CaptureStatusResponse>>;
+    requestPermission: () => Promise<z.infer<typeof S.CaptureRequestPermissionResponse>>;
+    openPermissionSettings: () => Promise<GitOpResult>;
+    sources: (req: In<typeof S.CaptureSourcesRequest>) => Promise<z.infer<typeof S.CaptureSourcesResponse>>;
+    still: (req: In<typeof S.CaptureStillRequest>) => Promise<z.infer<typeof S.CaptureStillResponse>>;
+    regionBegin: (req: In<typeof S.CaptureRegionBeginRequest>) => Promise<z.infer<typeof S.CaptureRegionBeginResponse>>;
+    regionPending: () => Promise<z.infer<typeof S.CaptureRegionPendingResponse>>;
+    regionFinish: (req: In<typeof S.CaptureRegionFinishRequest>) => Promise<z.infer<typeof S.CaptureRegionFinishResponse>>;
+    regionCancel: (req: In<typeof S.CaptureRegionCancelRequest>) => Promise<GitOpResult>;
+    recordingArm: (req: In<typeof S.CaptureRecordingArmRequest>) => Promise<GitOpResult>;
+    recordingBegin: (
+      req: In<typeof S.CaptureRecordingBeginRequest>,
+    ) => Promise<z.infer<typeof S.CaptureRecordingBeginResponse>>;
+    recordingChunk: (req: In<typeof S.CaptureRecordingChunkRequest>) => Promise<GitOpResult>;
+    recordingFinish: (
+      req: In<typeof S.CaptureRecordingFinishRequest>,
+    ) => Promise<z.infer<typeof S.CaptureRecordingFinishResponse>>;
+    recordingAbort: (req: In<typeof S.CaptureRecordingAbortRequest>) => Promise<GitOpResult>;
+    list: () => Promise<z.infer<typeof S.CaptureListResponse>>;
+    remove: (req: In<typeof S.CaptureDeleteRequest>) => Promise<GitOpResult>;
+    reveal: (req: In<typeof S.CaptureRevealRequest>) => Promise<GitOpResult>;
+    copy: (req: In<typeof S.CaptureCopyRequest>) => Promise<GitOpResult>;
+    setSettings: (req: In<typeof S.CaptureSettingsSetRequest>) => Promise<z.infer<typeof S.CaptureSettingsSetResponse>>;
+    clipboard: {
+      list: () => Promise<z.infer<typeof S.CaptureClipboardListResponse>>;
+      copy: (req: In<typeof S.CaptureClipboardCopyRequest>) => Promise<GitOpResult>;
+      remove: (req: In<typeof S.CaptureClipboardDeleteRequest>) => Promise<GitOpResult>;
+      clear: () => Promise<GitOpResult>;
+    };
+    attachment: (req: In<typeof S.CaptureAttachmentRequest>) => Promise<z.infer<typeof S.CaptureAttachmentResponse>>;
+    sendToCreator: (
+      req: In<typeof S.CaptureSendToCreatorRequest>,
+    ) => Promise<z.infer<typeof S.CaptureSendToCreatorResponse>>;
+    onChanged: (handler: (event: z.infer<typeof S.CaptureChangedPayload>) => void) => Unsubscribe;
+  };
+
   /** Mutating operations. None of these reject — they resolve to a GitOpResult. */
   ops: {
     checkout: (req: In<typeof S.CheckoutRequest>) => Promise<GitOpResult>;

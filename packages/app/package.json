@@ -50,6 +50,7 @@
     "@midnite/studio-feature-notes": "workspace:*",
     "@midnite/studio-feature-optimizer": "workspace:*",
     "@midnite/studio-feature-vault": "workspace:*",
+    "@midnite/studio-feature-capture": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@monaco-editor/react": "4.7.0",

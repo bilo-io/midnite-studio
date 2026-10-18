@@ -352,6 +352,20 @@ describe('allowAppAudioOnly', () => {
     expect(session.checks[0]?.(undefined, 'notifications', 'file://')).toBe(false);
   });
 
+  it('grants what a composer-owned extra rule allows, and nothing it refuses', () => {
+    const session = fakeSession();
+    const also = vi.fn((permission: string) => permission === 'display-capture');
+    allowAppAudioOnly(session, null, also);
+
+    const callback = vi.fn();
+    session.requests[0]?.(undefined, 'display-capture', callback, { securityOrigin: 'file://' });
+    expect(callback).toHaveBeenLastCalledWith(true);
+    session.requests[0]?.(undefined, 'camera', callback, { securityOrigin: 'file://' });
+    expect(callback).toHaveBeenLastCalledWith(false);
+    expect(session.checks[0]?.(undefined, 'display-capture', 'file://')).toBe(true);
+    expect(also).toHaveBeenLastCalledWith('display-capture', undefined, 'file://');
+  });
+
   it('grants the packaged build its own microphone, both handlers', () => {
     const session = fakeSession();
     allowAppAudioOnly(session, null);

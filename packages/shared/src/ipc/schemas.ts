@@ -8,6 +8,34 @@ import {
 } from '../media-map-capture';
 import { MapOpenEventSchema } from '../media-map-mcp';
 import {
+  CaptureAttachmentResponseSchema,
+  CaptureChangedSchema,
+  CaptureIdRequestSchema,
+  CaptureItemSchema,
+  CaptureListResponseSchema,
+  CaptureRecordingAbortRequestSchema,
+  CaptureRecordingArmRequestSchema,
+  CaptureRecordingBeginRequestSchema,
+  CaptureRecordingChunkRequestSchema,
+  CaptureRecordingFinishRequestSchema,
+  CaptureRecordingIdSchema,
+  CaptureRegionBeginRequestSchema,
+  CaptureRegionCancelRequestSchema,
+  CaptureRegionFinishRequestSchema,
+  CaptureRegionFrameSchema,
+  CaptureRegionPendingResponseSchema,
+  CaptureSendToCreatorRequestSchema,
+  CaptureSendToCreatorResultSchema,
+  CaptureSettingsSetRequestSchema,
+  CaptureSourcesRequestSchema,
+  CaptureSourcesResponseSchema,
+  CaptureStatusSchema,
+  CaptureStillRequestSchema,
+  CapturePermissionSchema,
+  ClipboardEntryRequestSchema,
+  ClipboardHistoryResponseSchema,
+} from '../capture';
+import {
   LibraryChangedSchema,
   LibraryClearProgressRequestSchema,
   LibraryItemsRequestSchema,
@@ -3448,6 +3476,53 @@ export const MediaLibrarySettingsSetRequest = LibrarySettingsSchema.partial();
 export const MediaLibrarySettingsSetResponse = GitOpResultSchema;
 export const MediaLibraryChangedPayload = LibraryChangedSchema;
 export const MediaLibraryScanProgressPayload = LibraryScanProgressSchema;
+
+// Capture (Phase 113 Theme K) — `capture.ts`. Every op answers a GitOpResult envelope; none throws.
+export const CaptureStatusResponse = CaptureStatusSchema;
+/** Asks macOS once, only while the permission is undetermined; answers the status it reads after. */
+export const CaptureRequestPermissionResponse = z.object({ permission: CapturePermissionSchema });
+export const CaptureOpenPermissionSettingsResponse = GitOpResultSchema;
+export const CaptureSourcesRequest = CaptureSourcesRequestSchema;
+export const CaptureSourcesResponse = GitOpResultOf(CaptureSourcesResponseSchema);
+export const CaptureStillRequest = CaptureStillRequestSchema;
+export const CaptureStillResponse = GitOpResultOf(CaptureItemSchema);
+export const CaptureRegionBeginRequest = CaptureRegionBeginRequestSchema;
+export const CaptureRegionBeginResponse = GitOpResultOf(CaptureRegionFrameSchema);
+export const CaptureRegionPendingResponse = CaptureRegionPendingResponseSchema;
+export const CaptureRegionFinishRequest = CaptureRegionFinishRequestSchema;
+export const CaptureRegionFinishResponse = GitOpResultOf(CaptureItemSchema);
+export const CaptureRegionCancelRequest = CaptureRegionCancelRequestSchema;
+export const CaptureRegionCancelResponse = GitOpResultSchema;
+export const CaptureRecordingArmRequest = CaptureRecordingArmRequestSchema;
+export const CaptureRecordingArmResponse = GitOpResultSchema;
+export const CaptureRecordingBeginRequest = CaptureRecordingBeginRequestSchema;
+export const CaptureRecordingBeginResponse = GitOpResultOf(z.object({ recordingId: CaptureRecordingIdSchema }));
+export const CaptureRecordingChunkRequest = CaptureRecordingChunkRequestSchema;
+export const CaptureRecordingChunkResponse = GitOpResultSchema;
+export const CaptureRecordingFinishRequest = CaptureRecordingFinishRequestSchema;
+export const CaptureRecordingFinishResponse = GitOpResultOf(CaptureItemSchema);
+export const CaptureRecordingAbortRequest = CaptureRecordingAbortRequestSchema;
+export const CaptureRecordingAbortResponse = GitOpResultSchema;
+export const CaptureListResponse = CaptureListResponseSchema;
+export const CaptureDeleteRequest = CaptureIdRequestSchema;
+export const CaptureDeleteResponse = GitOpResultSchema;
+export const CaptureRevealRequest = CaptureIdRequestSchema;
+export const CaptureRevealResponse = GitOpResultSchema;
+export const CaptureCopyRequest = CaptureIdRequestSchema;
+export const CaptureCopyResponse = GitOpResultSchema;
+export const CaptureSettingsSetRequest = CaptureSettingsSetRequestSchema;
+export const CaptureSettingsSetResponse = GitOpResultOf(CaptureStatusSchema);
+export const CaptureClipboardListResponse = ClipboardHistoryResponseSchema;
+export const CaptureClipboardCopyRequest = ClipboardEntryRequestSchema;
+export const CaptureClipboardCopyResponse = GitOpResultSchema;
+export const CaptureClipboardDeleteRequest = ClipboardEntryRequestSchema;
+export const CaptureClipboardDeleteResponse = GitOpResultSchema;
+export const CaptureClipboardClearResponse = GitOpResultSchema;
+export const CaptureAttachmentRequest = CaptureIdRequestSchema;
+export const CaptureAttachmentResponse = GitOpResultOf(CaptureAttachmentResponseSchema);
+export const CaptureSendToCreatorRequest = CaptureSendToCreatorRequestSchema;
+export const CaptureSendToCreatorResponse = GitOpResultOf(CaptureSendToCreatorResultSchema);
+export const CaptureChangedPayload = CaptureChangedSchema;
 
 // Audio (Theme E)
 export const MediaAudioProvidersResponse = z.object({ providers: z.array(AudioProviderStatusSchema) });

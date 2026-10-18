@@ -30,6 +30,7 @@ export {
   isAudioOnlyAppRequest,
   type BrowserPermission,
   type DownloadItemLike,
+  type ExtraPermissionRule,
   type OnlyHttpAllowed,
   type PermissionCheckDetails,
   type PermissionRequestDetails,

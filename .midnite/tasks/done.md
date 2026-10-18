@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-18 — Phase 113 Theme K (slice 1) — Capture as a feature; Studio's Capture view; apps/capture
+
+[PR #907](https://github.com/bilo-io/midnite-studio/pull/907). Stills (full screen, window, region) and gated screen recordings with the Screen Recording permission explained in-app; one global chord; opt-in clipboard history that never reads a concealed or transient entry; Send to an agent chat's draft or a Creator image project; `apps/capture` with a deny-all session but for the recording gate. PR-comment Send to and a desktop-wide region overlay are K2.
+
 ## 2026-10-18 — Phase 113 Theme R (slice 1) — the media library as a feature; Studio's Media ▸ Library; apps/media
 
 [PR #906](https://github.com/bilo-io/midnite-studio/pull/906). Folders picked by the user are scanned into films, shows, music and photos with local metadata, artwork and watch progress; files are served only from the index through each root's path jail; TMDB lookups are opt-in and off by default; Studio gains Media ▸ Library and `apps/media` composes it with its own guarded window and a paired, grant-gated vault read. LAN streaming and transcoding are R2.

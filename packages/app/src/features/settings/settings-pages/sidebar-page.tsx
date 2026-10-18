@@ -60,6 +60,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   optimizer: 'Optimizer',
   monitor: 'Monitor',
   vault: 'Vault',
+  capture: 'Capture',
   apiClient: 'API Client',
   settings: 'Settings',
 };

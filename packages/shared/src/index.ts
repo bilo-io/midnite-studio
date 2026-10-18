@@ -41,6 +41,7 @@ export * from './mcp';
 export * from './mcp-tool-owners';
 export * from './media';
 export * from './media-library';
+export * from './capture';
 export * from './game';
 export * from './media-game';
 export * from './media-game-templates';

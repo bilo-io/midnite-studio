@@ -68,6 +68,7 @@
     "@midnite/studio-feature-media-docs": "workspace:*",
     "@midnite/studio-feature-media-images": "workspace:*",
     "@midnite/studio-feature-media-library": "workspace:*",
+    "@midnite/studio-feature-capture": "workspace:*",
     "@midnite/studio-feature-media-video": "workspace:*",
     "@midnite/studio-feature-media-map": "workspace:*",
     "@midnite/studio-feature-media-terrain": "workspace:*",

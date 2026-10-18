@@ -178,12 +178,22 @@ type ChatsState = {
   /** `null` is the "new chat" screen: the composer's settings are the draft. */
   selectedId: string | null;
   draft: ChatDraft;
+  /**
+   * Attachments another surface handed to a new chat — Capture's "Send to ▸ Agent chat" (Phase 113
+   * Theme K) — waiting for the new-chat composer to take them. Never sent on their own: the composer
+   * shows them as a draft's attachments and the user presses send.
+   */
+  incoming: ChatAttachment[];
 
   refreshList: () => Promise<void>;
   loadChat: (id: string) => Promise<void>;
   select: (id: string | null) => void;
   applyEvents: (events: readonly ChatEvent[]) => void;
   setDraft: (patch: Partial<ChatDraft>) => void;
+  /** Offers an attachment to a new chat draft and selects the new-chat screen. */
+  offerAttachment: (attachment: ChatAttachment) => void;
+  /** Hands the waiting attachments to the composer, once. */
+  takeIncoming: () => ChatAttachment[];
 
   /** Create (when there is no selected chat) and send. Resolves the envelope of the send. */
   sendMessage: (input: SendInput) => Promise<GitOpResult<{ messageId: string }>>;
@@ -201,6 +211,17 @@ export const useChatsStore = create<ChatsState>()((set, get) => ({
   loadError: null,
   selectedId: null,
   draft: { ...DEFAULT_DRAFT, ...readPrefs() },
+  incoming: [],
+
+  offerAttachment: (attachment) => {
+    set((s) => ({ incoming: [...s.incoming.filter((a) => a.id !== attachment.id), attachment] }));
+    get().select(null);
+  },
+  takeIncoming: () => {
+    const taken = get().incoming;
+    if (taken.length > 0) set({ incoming: [] });
+    return taken;
+  },
 
   refreshList: async () => {
     const api = bridge();
@@ -362,5 +383,6 @@ export function resetChatsStore(): void {
     loadError: null,
     selectedId: null,
     draft: { ...DEFAULT_DRAFT },
+    incoming: [],
   });
 }

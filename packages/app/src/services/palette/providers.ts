@@ -65,6 +65,7 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   optimizer: 'Workspace Optimizer',
   monitor: 'System Monitor',
   vault: 'Vault',
+  capture: 'Capture',
   apiClient: 'API Client',
   settings: 'Settings',
 };
@@ -73,7 +74,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   landing: 'home landing start welcome shortcuts keys cheatsheet',
   // `home` is the landing page's word now, so the dashboard drops it.
   dashboard: 'overview summary metrics',
-  notes: 'notes todo capture brainstorm quick capture scratchpad',
+  notes: 'notes todo jot brainstorm quick note scratchpad',
   chats: 'chats chat conversation talk ask assistant prompt thread claude codex gemini ollama',
   // Deliberately NOT the bare word `graph`: the companion's `longestViewMatch`
   // scores candidates by word count and breaks a tie on first-match, and
@@ -99,6 +100,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   optimizer: 'clean scan storage memory gpu disk space node_modules trash',
   monitor: 'cpu ram memory gpu disk battery health toolchain crash log diagnostics metrics',
   vault: 'secrets credentials key token password forge account login keychain',
+  capture: 'screenshot screen recording record region window clipboard pasteboard snip grab',
   apiClient: 'api client http request postman collection rest graphql send response',
   settings: 'preferences configuration options theme',
 };

@@ -122,6 +122,7 @@ import { useAgentActivity } from './features/terminal/use-agent-activity';
 import { useSessionExits } from './features/terminal/use-session-exits';
 import { useWorkflowNodeSessions } from './features/terminal/use-workflow-node-sessions';
 import { useWaitingGateToasts } from '@midnite/studio-feature-workflows/renderer';
+import { useCaptureShortcutLanding } from '@midnite/studio-feature-capture/renderer';
 import { RailVersion } from './features/version/rail-version';
 import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
@@ -2077,6 +2078,8 @@ function useUnsavedCloseGuard(): void {
 
 /** What the waiting-gate toast's "Review" does once it has asked the Graphs view to reveal the run. */
 const openGraphsView = (): void => useUiStore.getState().setActiveView('workflows');
+/** Phase 113 Theme K — the global capture chord brings Capture forward; the view picks up the frozen frame. */
+const openCaptureView = (): void => useUiStore.getState().setActiveView('capture');
 
 export function App() {
   useWindowBackgroundSync();
@@ -2109,6 +2112,8 @@ export function App() {
   // entry, for the identical reason: a gate can start waiting with the
   // Workflows view unmounted.
   useWaitingGateToasts(openGraphsView);
+  // Phase 113 Theme K — the capture chord fires while any view is up, so its landing lives here too.
+  useCaptureShortcutLanding(openCaptureView);
   return (
     <ShellProviders queryClient={appQueryClient}>
       <DialogHost>

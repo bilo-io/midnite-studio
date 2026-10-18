@@ -17,6 +17,7 @@ import {
   LuHistory,
   LuHouse,
   LuKeyRound,
+  LuCamera,
   LuLayoutDashboard,
   LuLayoutGrid,
   LuLock,
@@ -110,6 +111,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   optimizer: LuGauge,
   monitor: LuActivity,
   vault: LuKeyRound,
+  capture: LuCamera,
   apiClient: LuSend,
   settings: LuSettings,
 };

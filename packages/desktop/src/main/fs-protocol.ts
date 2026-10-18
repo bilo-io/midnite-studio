@@ -5,6 +5,7 @@ import { net, protocol } from 'electron';
 import { readBlob } from '@midnite/studio-git-engine';
 import {
   isMarkdownImagePath,
+  CAPTURE_FILE_HOST,
   LIBRARY_FILE_HOST,
   MSTUDIO_GAME_SCHEME,
   isSafeBlobRev,
@@ -167,6 +168,17 @@ export function setLibraryFileResolver(resolver: (rawUrl: string) => Promise<str
   libraryResolver = resolver;
 }
 
+/**
+ * Phase 113 Theme K — the `capture` host (`mstudio-file://capture/<captures|clipboard>/<file>`) is
+ * Capture's: the feature answers only a name it generated itself, inside its own data directory
+ * (`captureFileResolver`), injected from `ipc/capture-handlers.ts`. Unset, the host 404s.
+ */
+let captureResolver: (rawUrl: string) => Promise<string | null> = async () => null;
+
+export function setCaptureFileResolver(resolver: (rawUrl: string) => Promise<string | null>): void {
+  captureResolver = resolver;
+}
+
 /** Script-free policy for an SVG served off disk. Exported for the tests. */
 export const SVG_DOCUMENT_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 
@@ -223,6 +235,8 @@ async function resolveConfinedPath(rawUrl: string): Promise<string | null> {
       return videoRoot ? confineToRoot(videoRoot, relPath) : null;
     } else if (scope === LIBRARY_FILE_HOST) {
       return await libraryResolver(rawUrl);
+    } else if (scope === CAPTURE_FILE_HOST) {
+      return await captureResolver(rawUrl);
     } else {
       return null;
     }
