@@ -1,4 +1,5 @@
 import {
+  CaptureIdSchema,
   decodeAgentRunParam,
   decodeResourceRefParam,
   type AgentRunHandoff,
@@ -16,7 +17,8 @@ export type DeepLink =
   | { kind: 'clone'; url: string }
   | { kind: 'reveal'; ref: ResourceRef | null }
   | { kind: 'run'; run: AgentRunHandoff | null }
-  | { kind: 'view'; view: ViewId; tab?: MediaTab; page?: SettingsPageId };
+  | { kind: 'view'; view: ViewId; tab?: MediaTab; page?: SettingsPageId }
+  | { kind: 'capture'; id: string | null };
 
 /**
  * Pure deep-link URL parser (Phase 33 Theme C).
@@ -33,6 +35,10 @@ export type DeepLink =
  * - midnite-studio://view?id=<ViewId>[&tab=<MediaTab>|&page=<SettingsPageId>] — the Midnite Apps launcher's
  *   tiles (`studioViewLink`). An unknown view is `null`; an unknown or misplaced
  *   `tab` (or `page`, valid only on `settings`) is dropped rather than failing the whole link.
+ * - midnite-studio://capture?id=<CaptureId> (Phase 113 Theme K) — Midnite Capture's "Open in Midnite
+ *   Studio" (`studioCaptureLink`). Only the id travels; one that fails `CaptureIdSchema` yields
+ *   `id: null`, which the renderer refuses with a toast. A valid one is still only a proposal — the
+ *   renderer confirms before main copies that capture out of Midnite Capture's own directory.
  *
  * Returns `null` on any malformed input, invalid scheme/host, non-absolute repo path,
  * path with NUL bytes, or clone URL scheme other than https/ssh/git.
@@ -86,6 +92,11 @@ export function parseDeepLink(raw: string): DeepLink | null {
         return { kind: 'view', view, page: page as SettingsPageId };
       }
       return { kind: 'view', view };
+    }
+
+    if (action === 'capture') {
+      const id = CaptureIdSchema.safeParse(parsed.searchParams.get('id'));
+      return { kind: 'capture', id: id.success ? id.data : null };
     }
 
     return null;

@@ -35,4 +35,15 @@ describe('every app window is guarded', () => {
     }
     expect(unguarded).toEqual([]);
   });
+
+  // Phase 113 Theme K slice 2: Capture opens a second window — the desktop region overlay, which carries
+  // its own preload — and guards it too: one `guardAppWindow(` call for every `new BrowserWindow(`.
+  // (Scoped to Capture: Creator's offscreen print window predates this and carries no preload.)
+  it("guards Capture's overlay window as well as its app window", async () => {
+    const source = await readFile(path.join(repoRoot, 'apps/capture/main/index.ts'), 'utf8');
+    const opened = source.match(/new BrowserWindow\(/g)?.length ?? 0;
+    const guarded = source.match(/guardAppWindow\(\s*\w+\.webContents/g)?.length ?? 0;
+    expect(opened).toBe(2);
+    expect(guarded).toBe(opened);
+  });
 });

@@ -1036,6 +1036,15 @@ export const CHANNELS = {
   captureClipboardClear: 'mstudio:capture:clipboard-clear',
   captureAttachment: 'mstudio:capture:attachment',
   captureSendToCreator: 'mstudio:capture:send-to-creator',
+  // Phase 113 Theme K slice 2: the desktop-wide region overlay (`captureRegionStart` from the app window; the
+  // three `captureOverlay*` only from the overlay window, answered for its one-time token), Midnite Capture's
+  // "Open in Midnite Studio" and Studio's import of that capture.
+  captureRegionStart: 'mstudio:capture:region-start',
+  captureOverlayFrame: 'mstudio:capture:overlay-frame',
+  captureOverlayConfirm: 'mstudio:capture:overlay-confirm',
+  captureOverlayCancel: 'mstudio:capture:overlay-cancel',
+  captureOpenInStudio: 'mstudio:capture:open-in-studio',
+  captureImport: 'mstudio:capture:import',
   // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
   mediaModelProviders: 'mstudio:media:model-providers',
   mediaModelGenerate: 'mstudio:media:model-generate',
@@ -1804,6 +1813,15 @@ export const EVENT_CHANNELS = {
  * flag) — and the symptom is an app-drawn title bar stacked on a native one.
  */
 export const WINDOW_FRAMELESS_ARG = '--mstudio-frameless=';
+
+/**
+ * The capture region overlay's one-time token (Phase 113 Theme K), passed to the overlay window as an
+ * `additionalArguments` entry and read by its preload, which sends it with every overlay call. Main
+ * answers the overlay channels only for the token of the overlay open now.
+ */
+export const CAPTURE_OVERLAY_ARG = '--midnite-capture-overlay=';
+/** The overlay window's one global: `window.midniteCaptureOverlay` (`CaptureOverlayBridge`). */
+export const CAPTURE_OVERLAY_GLOBAL = 'midniteCaptureOverlay';
 
 /**
  * CLI switch carrying `app.getVersion()` from main into the preload.

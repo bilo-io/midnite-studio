@@ -7,13 +7,15 @@ import {
   createCaptureService,
   createDisplayMediaGate,
   electronCapturePort,
+  electronOverlayOpener,
   type CaptureElectronModules,
+  type CaptureOverlayBrowserWindow,
   type CaptureService,
   type DisplayMediaGate,
 } from '@midnite/studio-feature-capture/main';
 import { isAppOrigin } from '@midnite/studio-feature-browser/main';
-import type { FeatureMainContext } from '@midnite/studio-runtime';
-import { CAPTURE_DEFAULT_SETTINGS, failure, ok } from '@midnite/studio-shared';
+import { appDataDirectory, guardAppWindow, type FeatureMainContext } from '@midnite/studio-runtime';
+import { CAPTURE_DEFAULT_SETTINGS, CAPTURE_OVERLAY_ARG, failure, ok } from '@midnite/studio-shared';
 import {
   app,
   BrowserWindow,
@@ -41,8 +43,16 @@ import { mediaStore } from './media-handlers';
  *   unarmed `getDisplayMedia` gets no stream.
  * - Studio ships **no** global chord by default (the user sets one in Capture's settings); clipboard
  *   history is off until the user switches it on.
- * - Send to: `chat` (the renderer's chats slot) and `creator` (the bytes written into the selected repo's
- *   Creator ▸ Images ▸ Captures through the media store). Nothing is posted anywhere.
+ * - Send to: `chat` (the renderer's chats slot), `pr-comment` (the renderer puts the screenshot on the
+ *   clipboard and opens the PR's page in the embedded browser — the user pastes and comments there) and
+ *   `creator` (the bytes written into the selected repo's Creator ▸ Images ▸ Captures through the media
+ *   store). Nothing is posted or uploaded anywhere.
+ * - The desktop region overlay (slice 2): {@link openOverlayWindow} — one frameless, transparent,
+ *   always-on-top window over the display under the pointer, sandboxed, guarded, loading only the page
+ *   bundled beside `main.js`, with a preload that exposes the three overlay calls and nothing else.
+ * - Import (slice 2): a `midnite-studio://capture?id=` link from the standalone Midnite Capture lands on
+ *   `capture.importFromApp`, which copies that one capture out of Midnite Capture's own data directory
+ *   (read only) after the renderer's confirm.
  * - Files reach the renderer over the existing `mstudio-file:` scheme's `capture` host, so the CSP is
  *   unchanged.
  */
@@ -56,6 +66,17 @@ let service: CaptureService | null = null;
 export function captureGate(devServerOrigin: string | null): DisplayMediaGate {
   gate ??= createDisplayMediaGate({ isAppOrigin: (origin) => isAppOrigin(origin, devServerOrigin) });
   return gate;
+}
+
+/**
+ * The overlay window, built by the composer so the feature imports no `electron`: `new BrowserWindow`,
+ * then the same navigation guard every suite app window has — no `window.open`, no navigating off the
+ * page, and no hand-off at all (the overlay has no link to follow).
+ */
+function openOverlayWindow(options: Record<string, unknown>): CaptureOverlayBrowserWindow {
+  const overlay = new BrowserWindow(options as ConstructorParameters<typeof BrowserWindow>[0]);
+  guardAppWindow(overlay.webContents, { openExternal: () => undefined });
+  return overlay;
 }
 
 export function registerCaptureHandlers(getMainWindow: () => BrowserWindow | null): void {
@@ -90,7 +111,17 @@ export function registerCaptureHandlers(getMainWindow: () => BrowserWindow | nul
     emit: captureEmitter(broadcastToAllWindows),
     trashItem: (path) => shell.trashItem(path),
     gate,
-    destinations: ['chat'],
+    destinations: ['chat', 'pr-comment'],
+    overlay: electronOverlayOpener({
+      createWindow: openOverlayWindow,
+      htmlPath: join(__dirname, 'capture-overlay.html'),
+      preloadPath: join(__dirname, 'capture-overlay-preload.js'),
+      tokenArg: CAPTURE_OVERLAY_ARG,
+    }),
+    // Midnite Capture's own data directory — the one `apps/capture` keeps its captures in.
+    importFrom: {
+      dataDir: join(appDataDirectory(app.getPath('appData'), 'capture'), CAPTURE_DATA_DIR),
+    },
     creator: {
       importImage: async ({ repoId, project, fileName, bytes }) => {
         // `writeBytes` creates the project folder on the way down, inside the media store's jail.

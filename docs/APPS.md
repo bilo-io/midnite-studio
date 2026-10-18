@@ -101,7 +101,7 @@ The apps, grouped by owner:
 | `diagnostics` | monitor | problem list and crash log; the status-bar segment stays in the frame |
 | `monitor` | monitor | full view; the status-bar segment stays in the frame |
 | `vault` | vault | the metadata-only view of stored secrets, forge accounts, database logins and web-app sign-ins, plus the credential parts of Studio's Settings ▸ Accounts and ▸ Agent (through `VaultHost`) |
-| `capture` | capture | `packages/features/capture` (Theme K): stills, regions, recordings, the global chord and the opt-in clipboard history; Send to… reaches a chat and Creator only through `CaptureHost` |
+| `capture` | capture | `packages/features/capture` (Theme K): stills, regions, recordings, the global chord and the opt-in clipboard history; Send to… reaches a chat, a pull-request comment and Creator only through `CaptureHost` |
 
 A tuple layer (`media`) lists the owner first; the others reuse the folder.
 
@@ -642,7 +642,7 @@ catalog's `#facc15`). The launcher's Media tile and its three leaves land on Stu
 `runsIn` is still `studio`. `MIDNITE_MEDIA_SMOKE=1` with `MIDNITE_MEDIA_USER_DATA=<tmp>` prints
 `midnite-media:ready` and quits.
 
-### App 13: Capture (`apps/capture`) — Phase 113 Theme K slice 1
+### App 13: Capture (`apps/capture`) — Phase 113 Theme K slices 1–2
 
 **`packages/features/capture`** (Capture, Studio) is the whole of it: the Capture view (renderer) and its main
 half, over one structural port (`main/port.ts`, `CaptureElectron`) that a composer builds from Electron's own
@@ -673,10 +673,22 @@ screen, asks for the real Screen Recording permission, takes a real chord or rea
   drops a text attachment naming the capture's path into a *new* chat's draft (chats' `offerAttachment`
   slot) and hands off to Agents ▸ Chats; its `creator` writes a screenshot into the selected repository's
   Creator ▸ Images ▸ `Captures` through the media store and reveals it there. The user presses send, or
-  keeps the image. **A pull-request comment is deferred** (`PR_COMMENT_DEFERRED`): the forge has no image
-  upload from here, so the row is shown disabled with that reason.
-- **The region picker** is the frozen frame shown inside the app window, cropped in main from the full-size
-  frame it kept; a transparent overlay across the live desktop is a later slice (`NO_DESKTOP_OVERLAY`).
+  keeps the image. Its `prComment` lists the selected repository's open pull requests (the forge's own
+  `useForgePulls` cache, via `fetchQuery`); picking one puts the screenshot on the clipboard through main's
+  clipboard port *first*, then opens the PR in the embedded browser at its comment box
+  (`capturePrCommentUrl`, GitHub's `#new_comment_field`) with "The capture is on your clipboard — paste it
+  into the comment." Nothing is uploaded or posted by Capture: the forge's composer takes text only, so the
+  user pastes and submits.
+- **The region overlay** (slice 2): `captureRegionStart` freezes the display under the pointer once and
+  opens one frameless, transparent, always-on-top window over it (`main/overlay.ts`), from the Region button
+  or the user's chord only. The window is the composer's — sandboxed, `guardAppWindow`ed, loading only the
+  app's own `capture-overlay.html` (a plain-DOM page with its own strict CSP meta, built from
+  `renderer/overlay/`) — and its preload exposes `window.midniteCaptureOverlay` with three calls
+  (`captureOverlayFrame`/`Confirm`/`Cancel`) and nothing else. Each overlay gets a fresh token in
+  `additionalArguments` (`CAPTURE_OVERLAY_ARG`), and main answers those channels only for the live token.
+  Drag then mouse-up or Enter confirms; Escape, right-click or blur cancels; it closes either way. The
+  region is cropped in main from the frozen grab — no second capture. Where no overlay can open, the
+  in-view picker over the same frame stays as the fallback.
 
 Studio composes it through the view and rail registry (`capture` after `vault`, global), the capture host in
 `compose/capture-host.tsx`, `useCaptureShortcutLanding` at the app root, and in main
@@ -684,10 +696,17 @@ Studio composes it through the view and rail registry (`capture` after `vault`, 
 `also` hole, the `capture` host on `mstudio-file`, disposal in `before-quit`.
 
 Midnite Capture (`apps/capture/`) composes the feature alone over the frame, with `STANDALONE_CAPTURE_HOST`
-(no destination). Its main gives it its own data dir (userData under `Midnite Runtime/apps/capture`), a
+(no Studio destination; chat, PR comment and Creator are listed disabled with where they live). Its own
+Send to is **Copy to clipboard**, **Show in Finder** and **Open in Midnite Studio** — the last opens
+`midnite-studio://capture?id=<CaptureId>` (`studioCaptureLink`; an id only, never a path). Studio's deep-link
+handler asks first ("Import this capture from Midnite Capture?") because a link is remote-triggerable, then
+`captureImport` copies that one capture read-only out of Midnite Capture's data dir — refusing an index
+entry whose file name is not the one its id and type imply — and selects it in the Capture view. Its main gives it its own data dir (userData under `Midnite Runtime/apps/capture`), a
 sandboxed, guarded window, and a session that **denies every permission** but the armed gate's
 (`main/permissions.ts`). **The preload exposes `capture` only** — no `secrets`, fs, git, pty, browser or
-media store (`bridge.test.ts`). **Capture composes no vault, opens no listening socket and makes no network
+media store (`bridge.test.ts`); the overlay window's own preload (`main/overlay-preload.ts`) exposes the
+three overlay calls only, and `scripts/app-window-guard.test.mjs` holds both windows to `guardAppWindow`.
+**Capture composes no vault, opens no listening socket and makes no network
 call.** `scripts/release-bundles.test.mjs` holds it in the `--all` matrix with its icon
 (`scripts/make-icon.mjs`, `PiCameraFill` in white on the catalog's `#f97316`); the launcher's Capture tile
 and its three leaves land on Studio's Capture view while `runsIn` is still `studio`.

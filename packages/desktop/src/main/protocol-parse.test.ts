@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encodeAgentRunParam, encodeRefParam, resourceRefLink, studioRunLinkFromParam, studioSettingsLink, studioViewLink } from '@midnite/studio-shared';
+import { encodeAgentRunParam, encodeRefParam, resourceRefLink, studioCaptureLink, studioRunLinkFromParam, studioSettingsLink, studioViewLink } from '@midnite/studio-shared';
 import { parseDeepLink } from './protocol-parse';
 
 describe('parseDeepLink', () => {
@@ -64,6 +64,13 @@ describe('parseDeepLink', () => {
     expect(parseDeepLink('midnite-studio://view?id=settings')).toEqual({ kind: 'view', view: 'settings' });
     expect(parseDeepLink('midnite-studio://view?id=sessions&page=mcp')).toEqual({ kind: 'view', view: 'sessions' });
     expect(parseDeepLink('midnite-studio://view?id=settings&tab=game&page=mcp')).toEqual({ kind: 'view', view: 'settings', page: 'mcp' });
+  });
+
+  it('parses a capture link built by studioCaptureLink, and answers a bad id with id: null', () => {
+    const id = 'cap-20261018-093000-abcdef12';
+    expect(parseDeepLink(studioCaptureLink(id))).toEqual({ kind: 'capture', id });
+    expect(parseDeepLink('midnite-studio://capture?id=..%2F..%2Fetc%2Fpasswd')).toEqual({ kind: 'capture', id: null });
+    expect(parseDeepLink('midnite-studio://capture')).toEqual({ kind: 'capture', id: null });
   });
 
   it('rejects an unknown view and drops a tab that does not belong', () => {

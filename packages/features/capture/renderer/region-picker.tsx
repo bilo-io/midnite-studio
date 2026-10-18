@@ -2,41 +2,19 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 
 import type { CaptureRegionFrame, CaptureRegionRect } from '@midnite/studio-shared';
 
+import { rectFromPoints, WHOLE_FRAME, type Box } from './region-rect';
+
 /**
  * The region picker (Phase 113 Theme K): the frozen frame main grabbed, shown scaled inside the app
  * window, and a rectangle the user drags over it. Only the rectangle — as fractions of the frame — goes
  * back to main, which cuts it from the full-size frame it kept. Escape or Cancel drops the frame and
  * nothing is saved.
  *
- * A transparent overlay across the live desktop is a later slice (`NO_DESKTOP_OVERLAY` in main).
+ * Since slice 2 this is the fallback: Region opens the desktop overlay (`renderer/overlay/`) over the
+ * screen itself when the composer can, and lands here, on the same frozen frame, when it cannot.
  */
 
-/** Below this (as a fraction of either side) a drag is a click, not a region. */
-export const MIN_REGION_FRACTION = 0.005;
-
-type Box = { left: number; top: number; width: number; height: number };
-
-/** The fractional rectangle two pointer positions span inside `box`, clamped to it; null when too small. */
-export function rectFromPoints(
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-  box: Box,
-): CaptureRegionRect | null {
-  if (box.width <= 0 || box.height <= 0) return null;
-  const clamp = (v: number) => Math.min(1, Math.max(0, v));
-  const ax = clamp((a.x - box.left) / box.width);
-  const ay = clamp((a.y - box.top) / box.height);
-  const bx = clamp((b.x - box.left) / box.width);
-  const by = clamp((b.y - box.top) / box.height);
-  const rect = {
-    x: Math.min(ax, bx),
-    y: Math.min(ay, by),
-    width: Math.abs(bx - ax),
-    height: Math.abs(by - ay),
-  };
-  if (rect.width < MIN_REGION_FRACTION || rect.height < MIN_REGION_FRACTION) return null;
-  return rect;
-}
+export { MIN_REGION_FRACTION, rectFromPoints } from './region-rect';
 
 export function RegionPicker({
   frame,
@@ -97,7 +75,7 @@ export function RegionPicker({
         <button type="button" onClick={onCancel}>
           Cancel
         </button>
-        <button type="button" onClick={() => onCapture({ x: 0, y: 0, width: 1, height: 1 })}>
+        <button type="button" onClick={() => onCapture(WHOLE_FRAME)}>
           Whole screen
         </button>
         <button type="button" disabled={!rect} onClick={() => rect && onCapture(rect)}>

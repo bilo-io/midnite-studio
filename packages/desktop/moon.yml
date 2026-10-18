@@ -375,6 +375,10 @@ tasks:
       - '/packages/features/media-library/manifest.ts'
       - '/packages/features/capture/main/**/*'
       - '/packages/features/capture/manifest.ts'
+      # Phase 113 Theme K slice 2: the region overlay's page (built into dist/bundle) and its rect math.
+      - '/packages/features/capture/renderer/overlay/**/*'
+      - '/packages/features/capture/renderer/region-rect.ts'
+      - '/packages/features/capture/package.json'
       - '/packages/features/models/main/**/*'
       - '/packages/features/models/manifest.ts'
       - '/packages/features/councils/main/**/*'

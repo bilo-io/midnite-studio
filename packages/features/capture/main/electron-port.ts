@@ -1,3 +1,4 @@
+import type { CaptureOverlayOpener } from './overlay';
 import type {
   CaptureClipboard,
   CaptureDesktopSource,
@@ -95,5 +96,102 @@ export function electronCapturePort(
         }
       : {}),
     ...(options.focusApp ? { focusApp: options.focusApp } : {}),
+  };
+}
+
+// --- the region overlay window ---------------------------------------------------------
+
+/** A `BrowserWindow`, as far as the overlay opener drives it. */
+export type CaptureOverlayBrowserWindow = {
+  isDestroyed(): boolean;
+  close(): void;
+  show(): void;
+  focus(): void;
+  setAlwaysOnTop(flag: boolean, level?: string): void;
+  on(event: 'blur' | 'closed', listener: () => void): unknown;
+  once(event: 'ready-to-show', listener: () => void): unknown;
+  loadFile(path: string): Promise<void>;
+};
+
+/**
+ * The overlay window's options (Phase 113 Theme K slice 2): exactly the display's bounds, no frame,
+ * transparent, above everything (the menu bar and the Dock included), off the Dock and the window list,
+ * not resizable or movable — and a sandboxed, isolated renderer with no Node, whose only preload is the
+ * overlay's own and whose only argument is this overlay's token.
+ */
+export function overlayWindowOptions(request: {
+  bounds: { x: number; y: number; width: number; height: number };
+  token: string;
+  preloadPath: string;
+  tokenArg: string;
+}): Record<string, unknown> {
+  const { bounds } = request;
+  return {
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
+    width: Math.round(bounds.width),
+    height: Math.round(bounds.height),
+    show: false,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    enableLargerThanScreen: true,
+    roundedCorners: false,
+    title: 'Capture region',
+    webPreferences: {
+      preload: request.preloadPath,
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      spellcheck: false,
+      additionalArguments: [`${request.tokenArg}${request.token}`],
+    },
+  };
+}
+
+/**
+ * Builds the {@link CaptureOverlayOpener} from the composer's window factory. `createWindow` is the
+ * composer's `new BrowserWindow(options)` **with its navigation guard already installed** (Studio's and
+ * Midnite Capture's mains call `guardAppWindow` on it), so this file still imports no `electron`. The page
+ * is the app's own `capture-overlay.html` off disk; the window closes on blur, and its `closed` is what
+ * tells the controller it went.
+ */
+export function electronOverlayOpener(options: {
+  createWindow: (windowOptions: Record<string, unknown>) => CaptureOverlayBrowserWindow;
+  htmlPath: string;
+  preloadPath: string;
+  tokenArg: string;
+}): CaptureOverlayOpener {
+  return ({ token, bounds, onClosed }) => {
+    const win = options.createWindow(
+      overlayWindowOptions({
+        bounds,
+        token,
+        preloadPath: options.preloadPath,
+        tokenArg: options.tokenArg,
+      }),
+    );
+    const close = () => {
+      if (!win.isDestroyed()) win.close();
+    };
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.on('blur', close);
+    win.on('closed', onClosed);
+    win.once('ready-to-show', () => {
+      if (win.isDestroyed()) return;
+      win.show();
+      win.focus();
+    });
+    win.loadFile(options.htmlPath).catch(close);
+    return { close };
   };
 }

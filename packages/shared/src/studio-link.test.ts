@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { resourceRefLink } from './domain/resource-ref';
-import { studioBrowserLink, studioSettingsLink, studioViewLink } from './studio-link';
+import { studioBrowserLink, studioCaptureLink, studioSettingsLink, studioViewLink } from './studio-link';
 
 describe('studio-link', () => {
   it('builds a view link, keeping a tab only next to media', () => {
@@ -19,5 +19,11 @@ describe('studio-link', () => {
     for (const url of ['https://github.com/bilo-io/midnite-apps', 'https://example.com/a?b=ü&c=1']) {
       expect(studioBrowserLink(url)).toBe(resourceRefLink({ kind: 'browserTab', url }));
     }
+  });
+
+  it('builds a capture link carrying only the id', () => {
+    expect(studioCaptureLink('cap-20261018-093000-abcdef12')).toBe(
+      'midnite-studio://capture?id=cap-20261018-093000-abcdef12',
+    );
   });
 });

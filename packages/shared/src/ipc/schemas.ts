@@ -11,6 +11,7 @@ import {
   CaptureAttachmentResponseSchema,
   CaptureChangedSchema,
   CaptureIdRequestSchema,
+  CaptureIdSchema,
   CaptureItemSchema,
   CaptureListResponseSchema,
   CaptureRecordingAbortRequestSchema,
@@ -34,6 +35,12 @@ import {
   CapturePermissionSchema,
   ClipboardEntryRequestSchema,
   ClipboardHistoryResponseSchema,
+  CaptureImportRequestSchema,
+  CaptureOverlayCancelRequestSchema,
+  CaptureOverlayConfirmRequestSchema,
+  CaptureOverlayFrameRequestSchema,
+  CaptureOverlayFrameSchema,
+  CaptureRegionStartResultSchema,
 } from '../capture';
 import {
   LibraryChangedSchema,
@@ -3096,6 +3103,12 @@ export const DeepLinkSchema = z.discriminatedUnion('kind', [
    * until the user confirms.
    */
   z.object({ kind: z.literal('run'), run: AgentRunHandoffSchema.nullable() }),
+  /**
+   * `midnite-studio://capture?id=<CaptureId>` — Midnite Capture's "Open in Midnite Studio" (Phase 113
+   * Theme K). `id` is `null` for a malformed one, so the renderer can toast it; a valid one is still only
+   * a proposal — the renderer asks before importing that capture.
+   */
+  z.object({ kind: z.literal('capture'), id: CaptureIdSchema.nullable() }),
 ]);
 export type DeepLink = z.infer<typeof DeepLinkSchema>;
 export const DeepLinkEventSchema = z.object({
@@ -3523,6 +3536,18 @@ export const CaptureAttachmentResponse = GitOpResultOf(CaptureAttachmentResponse
 export const CaptureSendToCreatorRequest = CaptureSendToCreatorRequestSchema;
 export const CaptureSendToCreatorResponse = GitOpResultOf(CaptureSendToCreatorResultSchema);
 export const CaptureChangedPayload = CaptureChangedSchema;
+// Slice 2: the region overlay, Midnite Capture's "Open in Midnite Studio" and Studio's import of it.
+export const CaptureRegionStartResponse = GitOpResultOf(CaptureRegionStartResultSchema);
+export const CaptureOverlayFrameRequest = CaptureOverlayFrameRequestSchema;
+export const CaptureOverlayFrameResponse = GitOpResultOf(CaptureOverlayFrameSchema);
+export const CaptureOverlayConfirmRequest = CaptureOverlayConfirmRequestSchema;
+export const CaptureOverlayConfirmResponse = GitOpResultOf(CaptureItemSchema);
+export const CaptureOverlayCancelRequest = CaptureOverlayCancelRequestSchema;
+export const CaptureOverlayCancelResponse = GitOpResultSchema;
+export const CaptureOpenInStudioRequest = CaptureIdRequestSchema;
+export const CaptureOpenInStudioResponse = GitOpResultSchema;
+export const CaptureImportRequest = CaptureImportRequestSchema;
+export const CaptureImportResponse = GitOpResultOf(CaptureItemSchema);
 
 // Audio (Theme E)
 export const MediaAudioProvidersResponse = z.object({ providers: z.array(AudioProviderStatusSchema) });

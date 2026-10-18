@@ -58,7 +58,8 @@ const describe = (item: CaptureItem): string => {
  */
 export function CapturePage({ media = browserRecorderMedia() }: { media?: RecorderMedia } = {}) {
   const state = useCapture();
-  const { status, captures, clipboard, region, setRegion } = state;
+  const { status, captures, clipboard, region, setRegion, overlay, setOverlay } = state;
+  const { selectRequest, clearSelectRequest } = state;
   const api = bridge()?.capture;
 
   const [tool, setTool] = useState<Tool | null>(null);
@@ -79,6 +80,13 @@ export function CapturePage({ media = browserRecorderMedia() }: { media?: Record
     },
     [],
   );
+
+  // A capture the overlay, the chord or the composing app asked to show.
+  useEffect(() => {
+    if (!selectRequest) return;
+    setSelected(selectRequest);
+    clearSelectRequest();
+  }, [selectRequest, clearSelectRequest]);
 
   const loadSources = useCallback(
     async (kind: CaptureSourceKind) => {
@@ -130,10 +138,13 @@ export function CapturePage({ media = browserRecorderMedia() }: { media?: Record
     afterDelay(async () => {
       if (!api) return;
       setBusy(true);
-      const result = await api.regionBegin({});
+      // One grab: main opens the desktop overlay on it, or hands it back for the picker here.
+      const result = await api.regionStart();
       setBusy(false);
-      if (result.ok) setRegion(result.value);
-      else setError(result.kind === 'error' ? result.message : 'Could not freeze the screen.');
+      if (!result.ok)
+        return setError(result.kind === 'error' ? result.message : 'Could not freeze the screen.');
+      if (result.value.surface === 'overlay') setOverlay('open');
+      else setRegion(result.value.frame);
     });
 
   const finishRegion = async (rect: CaptureRegionRect) => {
@@ -273,15 +284,22 @@ export function CapturePage({ media = browserRecorderMedia() }: { media?: Record
 
           {tool === null ? <p className="text-muted-foreground">Pick what to capture.</p> : null}
 
-          {tool === 'region' && !region ? (
+          {tool === 'region' && !region && overlay === 'idle' ? (
             <div className="flex items-center gap-2">
               <p className="flex-1 text-muted-foreground">
-                Freezes the screen under the pointer, then you drag the region to keep.
+                Freezes the screen under the pointer, then you drag the region to keep — on the
+                screen itself.
               </p>
               <button type="button" disabled={busy || countdown !== null} onClick={freeze}>
                 Freeze screen
               </button>
             </div>
+          ) : null}
+
+          {overlay === 'open' ? (
+            <p role="status" className="text-muted-foreground">
+              Drag on the screen to choose a region — Enter takes the whole screen, Escape cancels.
+            </p>
           ) : null}
 
           {(tool === 'screen' || tool === 'window' || tool === 'record') && !recording ? (
@@ -330,9 +348,9 @@ export function CapturePage({ media = browserRecorderMedia() }: { media?: Record
         />
       ) : null}
 
-      {error ? (
+      {error || state.overlayError ? (
         <p role="alert" className="text-xs text-destructive">
-          {error}
+          {error ?? state.overlayError}
         </p>
       ) : null}
 

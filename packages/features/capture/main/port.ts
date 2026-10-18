@@ -39,6 +39,11 @@ export type CaptureDisplay = {
   /** Size in points; multiply by `scaleFactor` for pixels. */
   size: { width: number; height: number };
   scaleFactor: number;
+  /**
+   * Where the display sits on the desktop, in points — what the region overlay window is opened over.
+   * Electron's `Display` always has it; a fake without it gets no overlay (the in-view picker instead).
+   */
+  bounds?: { x: number; y: number; width: number; height: number };
 };
 
 /** The clipboard, as far as the history reads it — and the two writes a copy-back needs. */

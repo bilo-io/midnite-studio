@@ -18,12 +18,10 @@ import type { CaptureDesktopSource, CaptureElectron, CaptureImage } from './port
  * its scaled preview inside the app window, and {@link cropFrame} cuts that rectangle from the full-size
  * frame. A dismissed picker leaves nothing on disk.
  *
- * Region selection happens on the frozen frame shown in the app window. A transparent overlay window
- * across the live desktop — CleanShot's way — is a later slice: {@link NO_DESKTOP_OVERLAY}.
+ * Where the rectangle is dragged is the composer's: the desktop-wide overlay (`overlay.ts`), a window over
+ * the display that shows this same frozen frame at full size, or — when no overlay can open — the scaled
+ * preview inside the app window. Either way the screen is grabbed once and cut in main.
  */
-
-/** The seam for K2: region selection on a transparent overlay over the live desktop. Not wired in K1. */
-export const NO_DESKTOP_OVERLAY = { kind: 'in-window-frozen-frame' } as const;
 
 /** Pixel size of the largest display, the thumbnail size a full-resolution grab asks for. */
 export function fullPixelSize(el: Pick<CaptureElectron, 'displays'>): {
@@ -89,6 +87,8 @@ export type PendingFrame = { frame: CaptureRegionFrame; image: CaptureImage; at:
 export type RegionState = {
   freeze: (image: CaptureImage, sourceName: string) => CaptureRegionFrame;
   pending: () => CaptureRegionFrame | null;
+  /** The live frame for `pendingId` without taking it (the overlay reads the full image). */
+  peek: (pendingId: string) => PendingFrame | null;
   take: (pendingId: string) => PendingFrame | null;
   cancel: (pendingId: string) => void;
 };
@@ -118,6 +118,10 @@ export function createRegionState(now: () => number = Date.now): RegionState {
       return frame;
     },
     pending: () => live()?.frame ?? null,
+    peek: (pendingId) => {
+      const found = live();
+      return found && found.frame.pendingId === pendingId ? found : null;
+    },
     take: (pendingId) => {
       const found = live();
       if (!found || found.frame.pendingId !== pendingId) return null;

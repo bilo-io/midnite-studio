@@ -330,6 +330,7 @@ const bridge: Pick<
     regionPending: () => call(CHANNELS.captureRegionPending),
     regionFinish: (req) => call(CHANNELS.captureRegionFinish, req),
     regionCancel: (req) => call(CHANNELS.captureRegionCancel, req),
+    regionStart: () => call(CHANNELS.captureRegionStart),
     recordingArm: (req) => call(CHANNELS.captureRecordingArm, req),
     recordingBegin: (req) => call(CHANNELS.captureRecordingBegin, req),
     // A slice's `Uint8Array` structured-clones straight through `invoke`; main checks its size and type.
@@ -349,6 +350,8 @@ const bridge: Pick<
     },
     attachment: (req) => call(CHANNELS.captureAttachment, req),
     sendToCreator: (req) => call(CHANNELS.captureSendToCreator, req),
+    openInStudio: (req) => call(CHANNELS.captureOpenInStudio, req),
+    importFromApp: (req) => call(CHANNELS.captureImport, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.captureChanged, handler),
   },
   ops: {

@@ -6,6 +6,8 @@
   "sideEffects": false,
   "exports": {
     "./renderer": "./renderer/index.ts",
+    "./overlay-page": "./renderer/overlay/entry.ts",
+    "./overlay-page.html": "./renderer/overlay/capture-overlay.html",
     "./main": {
       "types": "./dist/main/index.d.ts",
       "default": "./dist/main/index.js"

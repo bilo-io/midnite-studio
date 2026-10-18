@@ -20,11 +20,13 @@ import {
 import {
   createDisplayMediaGate,
   electronCapturePort,
+  electronOverlayOpener,
   type CaptureElectronModules,
+  type CaptureOverlayBrowserWindow,
   type CaptureService,
 } from '@midnite/studio-feature-capture/main';
 import { guardAppWindow } from '@midnite/studio-runtime';
-import { MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
+import { CAPTURE_OVERLAY_ARG, MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
 
 import { captureDataDir, registerCaptureAppHandlers } from './context';
 import { installCaptureFileProtocol } from './file-protocol';
@@ -50,6 +52,10 @@ import {
  *
  * A smoke run (`MIDNITE_CAPTURE_SMOKE=1`) takes no chord and never reads the clipboard — it only proves
  * the window loads, prints the ready line and quits.
+ *
+ * Slice 2: Region opens the desktop overlay ({@link openOverlayWindow}) over the display under the
+ * pointer, and Send to ▸ Midnite Studio opens a `midnite-studio://capture?id=` link main builds from the
+ * stored capture's id — the system hands it to Studio, which asks before it imports. No network either way.
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
@@ -110,6 +116,14 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       electron,
       gate,
       background: !smoke,
+      overlay: electronOverlayOpener({
+        createWindow: openOverlayWindow,
+        htmlPath: join(__dirname, 'capture-overlay.html'),
+        preloadPath: join(__dirname, 'overlay-preload.cjs'),
+        tokenArg: CAPTURE_OVERLAY_ARG,
+      }),
+      // Only ever a `midnite-studio://capture` link: main builds it, the renderer never passes a URL.
+      openStudioLink: (url) => shell.openExternal(url),
     });
     installCaptureFileProtocol(
       {
@@ -143,6 +157,17 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   app.on('activate', () => {
     if (win === null) openWindow();
   });
+}
+
+/**
+ * The desktop region overlay's window: frameless, transparent, always on top over one display, with the
+ * overlay's own preload (three calls) and the same navigation guard as the app window — no
+ * `window.open`, no navigating off its page, and no hand-off (it has no link to follow).
+ */
+function openOverlayWindow(options: Record<string, unknown>): CaptureOverlayBrowserWindow {
+  const overlay = new BrowserWindow(options as ConstructorParameters<typeof BrowserWindow>[0]);
+  guardAppWindow(overlay.webContents, { openExternal: () => undefined });
+  return overlay;
 }
 
 function openWindow(): void {
