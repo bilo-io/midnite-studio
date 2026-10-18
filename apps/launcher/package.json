@@ -1,6 +1,6 @@
 {
   "name": "@midnite/launcher",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "Midnite Apps \u2014 the launcher that lists, installs and opens every midnite app. Electron main + preload, Vite + React renderer.",
   "main": "dist/main.cjs",

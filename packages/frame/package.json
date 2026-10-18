@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-frame",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "The frame (Phase 113): renderer chrome every midnite app wears. Bridge-only; consumed from source by each app's Vite build.",
   "type": "module",

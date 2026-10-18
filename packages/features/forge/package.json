@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-forge",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "The forge feature (Phase 113 Theme O): the forge providers, account registry, poller and handlers in main; the forge status vocabulary, forge queries, Reviews and Actions in the renderer. Coder's forge layer — one package for three placement folders (forge, reviews, actions).",
   "sideEffects": false,
