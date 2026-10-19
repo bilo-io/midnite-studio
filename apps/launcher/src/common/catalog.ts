@@ -75,17 +75,17 @@ export const APP_IDS = [
   'media',
   'money',
   'mind',
+  'browser',
   'science',
   'accountant',
+  'vanguard',
   'startup',
   'simulator',
   'health',
-  'browser',
   'cleaner',
   'vault',
   'capture',
   'monitor',
-  'vanguard',
 ] as const;
 export type AppId = (typeof APP_IDS)[number];
 
@@ -254,6 +254,26 @@ export const APPS: readonly LauncherApp[] = [
     runsIn: 'studio',
   },
   {
+    id: 'browser',
+    name: 'Browser',
+    section: 'suite',
+    accent: '#f59e0b',
+    tagline: 'A browser that agents can drive',
+    like: 'Like Arc, with an agent in the seat',
+    vision:
+      'A focused browser with per-site isolation and the companion beside it — something an agent can read, steer and test against, not just a window you look through.',
+    home: { kind: 'browser', url: 'https://github.com/bilo-io/midnite-apps' },
+    features: [
+      {
+        id: 'browse',
+        label: 'Browse',
+        blurb: 'Tabs with isolated sessions',
+        target: { kind: 'browser', url: 'https://github.com/bilo-io/midnite-apps' },
+      },
+    ],
+    runsIn: 'studio',
+  },
+  {
     id: 'science',
     name: 'Science',
     section: 'suite',
@@ -285,6 +305,24 @@ export const APPS: readonly LauncherApp[] = [
       { id: 'accounting', label: 'Accounting', blurb: 'Double-entry bookkeeping and ledger tracking', target: view('landing') },
       { id: 'tax', label: 'Tax Calculation', blurb: 'Automated deductions, estimates and filing prep', target: view('landing') },
       { id: 'reports', label: 'Financial Reports', blurb: 'Balance sheets, P&L and cash flow', target: view('landing') },
+    ],
+    runsIn: 'studio',
+    comingSoon: true,
+  },
+  {
+    id: 'vanguard',
+    name: 'Vanguard',
+    section: 'suite',
+    accent: '#e11d48',
+    tagline: 'Antivirus and agentic self-defense',
+    like: 'Like CrowdStrike, Little Snitch and SentinelOne',
+    vision:
+      'Defend your machine against rogue agent actions, malicious tool executions, and external threats with proactive behavioral defense and runtime isolation.',
+    home: view('landing'),
+    features: [
+      { id: 'antivirus', label: 'Antivirus', blurb: 'Real-time filesystem and process scanning', target: view('landing') },
+      { id: 'self-defense', label: 'Agentic Self-Defense', blurb: 'Guardrails and behavioral anomaly detection', target: view('landing') },
+      { id: 'network', label: 'Network Monitor', blurb: 'Inspect outbound connections and API calls', target: view('landing') },
     ],
     runsIn: 'studio',
     comingSoon: true,
@@ -343,26 +381,6 @@ export const APPS: readonly LauncherApp[] = [
     ],
     runsIn: 'studio',
     comingSoon: true,
-  },
-  {
-    id: 'browser',
-    name: 'Browser',
-    section: 'utilities',
-    accent: '#f59e0b',
-    tagline: 'A browser that agents can drive',
-    like: 'Like Arc, with an agent in the seat',
-    vision:
-      'A focused browser with per-site isolation and the companion beside it — something an agent can read, steer and test against, not just a window you look through.',
-    home: { kind: 'browser', url: 'https://github.com/bilo-io/midnite-apps' },
-    features: [
-      {
-        id: 'browse',
-        label: 'Browse',
-        blurb: 'Tabs with isolated sessions',
-        target: { kind: 'browser', url: 'https://github.com/bilo-io/midnite-apps' },
-      },
-    ],
-    runsIn: 'studio',
   },
   {
     id: 'cleaner',
@@ -429,24 +447,6 @@ export const APPS: readonly LauncherApp[] = [
       { id: 'diagnostics', label: 'Diagnostics', blurb: 'The terminal broker and token spend', target: view('settings') },
     ],
     runsIn: 'studio',
-  },
-  {
-    id: 'vanguard',
-    name: 'Vanguard',
-    section: 'utilities',
-    accent: '#e11d48',
-    tagline: 'Antivirus and agentic self-defense',
-    like: 'Like CrowdStrike, Little Snitch and SentinelOne',
-    vision:
-      'Defend your machine against rogue agent actions, malicious tool executions, and external threats with proactive behavioral defense and runtime isolation.',
-    home: view('landing'),
-    features: [
-      { id: 'antivirus', label: 'Antivirus', blurb: 'Real-time filesystem and process scanning', target: view('landing') },
-      { id: 'self-defense', label: 'Agentic Self-Defense', blurb: 'Guardrails and behavioral anomaly detection', target: view('landing') },
-      { id: 'network', label: 'Network Monitor', blurb: 'Inspect outbound connections and API calls', target: view('landing') },
-    ],
-    runsIn: 'studio',
-    comingSoon: true,
   },
 ];
 

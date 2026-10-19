@@ -35,6 +35,7 @@ describe('launcher model', () => {
     expect(byName.find((g) => g.section === 'suite')!.apps.map((a) => a.name)).toEqual([
       'Accountant',
       'Agents',
+      'Browser',
       'Coder',
       'Creator',
       'Gamer',
@@ -46,13 +47,12 @@ describe('launcher model', () => {
       'Simulator',
       'Startup',
       'Studio',
+      'Vanguard',
     ]);
     expect(byName.find((g) => g.section === 'utilities')!.apps.map((a) => a.name)).toEqual([
-      'Browser',
       'Capture',
       'Cleaner',
       'Monitor',
-      'Vanguard',
       'Vault',
     ]);
   });
