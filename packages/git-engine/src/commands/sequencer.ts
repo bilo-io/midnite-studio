@@ -51,14 +51,17 @@ async function runSequenced(
 
 export type MergeOptions = { source: string; noFastForward?: boolean };
 
+export function buildMergeArgs(options: MergeOptions): string[] {
+  // `--no-edit` so a merge commit never opens the user's $EDITOR — there is no
+  // terminal attached, and git would block forever waiting for one to close.
+  return ['merge', options.noFastForward ? '--no-ff' : '--ff', '--no-edit', '--end-of-options', options.source];
+}
+
 export async function merge(
   worktreePath: string,
   options: MergeOptions,
 ): Promise<GitOpResult> {
-  const args = ['merge', options.noFastForward ? '--no-ff' : '--ff'];
-  // `--no-edit` so a merge commit never opens the user's $EDITOR — there is no
-  // terminal attached, and git would block forever waiting for one to close.
-  args.push('--no-edit', options.source);
+  const args = buildMergeArgs(options);
 
   return runSequenced(worktreePath, args, 'merge', (stderr) => {
     if (/not something we can merge|not a valid object name/i.test(stderr)) {
@@ -77,11 +80,15 @@ export async function merge(
 
 export type RebaseOptions = { onto: string };
 
+export function buildRebaseArgs(options: RebaseOptions): string[] {
+  return ['rebase', '--end-of-options', options.onto];
+}
+
 export async function rebase(
   worktreePath: string,
   options: RebaseOptions,
 ): Promise<GitOpResult> {
-  return runSequenced(worktreePath, ['rebase', options.onto], 'rebase', (stderr) => {
+  return runSequenced(worktreePath, buildRebaseArgs(options), 'rebase', (stderr) => {
     if (/cannot rebase: You have unstaged changes|cannot pull with rebase/i.test(stderr)) {
       return 'You have uncommitted changes. Commit or discard them before rebasing.';
     }
@@ -100,6 +107,10 @@ export async function rebase(
  * and `--continue` resumes from exactly there. Looping would leave us to
  * reimplement that bookkeeping, badly.
  */
+export function buildCherryPickArgs(shas: readonly string[]): string[] {
+  return ['cherry-pick', '--end-of-options', ...shas];
+}
+
 export async function cherryPick(worktreePath: string, shas: string[]): Promise<GitOpResult> {
   if (shas.length === 0) return ok();
 
@@ -107,7 +118,7 @@ export async function cherryPick(worktreePath: string, shas: string[]): Promise<
   // order and conflict against itself. The graph hands them over top-down.
   const ordered = [...shas].reverse();
 
-  return runSequenced(worktreePath, ['cherry-pick', ...ordered], 'cherry-pick', (stderr) => {
+  return runSequenced(worktreePath, buildCherryPickArgs(ordered), 'cherry-pick', (stderr) => {
     if (/bad revision|not a valid object name/i.test(stderr)) {
       return 'One of those commits is not in this repository.';
     }

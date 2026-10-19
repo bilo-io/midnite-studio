@@ -2401,3 +2401,21 @@ describe('session history (Phase 67)', () => {
     expect(Object.keys(narrowed)).not.toContain('surface');
   });
 });
+
+describe('git argv guards (Phase 91 Themes B/C)', () => {
+  it('refuses option-shaped refs, remotes and paths', () => {
+    expect(schemas.SafeRefString.safeParse('--exec=x').success).toBe(false);
+    expect(schemas.SafeRefString.safeParse('fix/issue#12').success).toBe(true);
+    expect(schemas.SafeRefString.safeParse('a\nb').success).toBe(false);
+    expect(schemas.CheckoutRequest.safeParse({ repoId: 'r', target: '--orphan' }).success).toBe(false);
+    expect(schemas.FetchRequest.safeParse({ repoId: 'r', remote: '--upload-pack=x' }).success).toBe(false);
+    expect(schemas.StageRequest.safeParse({ repoId: 'r', paths: ['--force'] }).success).toBe(false);
+    expect(schemas.LogStartRequest.safeParse({ repoId: 'r', requestId: 'q', revisions: ['--all'] }).success).toBe(false);
+  });
+
+  it('PushRequest rejects a non-sha lease expectation', () => {
+    const base = { repoId: 'r', forceWithLease: { ref: 'refs/heads/main', expect: 'HEAD' } };
+    expect(schemas.PushRequest.safeParse(base).success).toBe(false);
+    expect(schemas.PushRequest.safeParse({ ...base, forceWithLease: { ref: 'refs/heads/main', expect: 'abc1234' } }).success).toBe(true);
+  });
+});

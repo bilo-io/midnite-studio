@@ -37,17 +37,22 @@ export type StashPushOptions = {
   paths?: string[];
 };
 
+export function buildStashPushArgs(options: StashPushOptions): string[] {
+  const args = ['stash', 'push'];
+  if (options.keepIndex) args.push('--keep-index');
+  if (options.includeUntracked) args.push('-u');
+  if (options.message !== undefined) args.push('-m', options.message);
+  if (options.paths && options.paths.length > 0) args.push('--', ...options.paths);
+  return args;
+}
+
 export async function stashPush(
   worktreePath: string,
   options: StashPushOptions = {},
 ): Promise<GitOpResult> {
   const { message, keepIndex = false, includeUntracked = false, paths } = options;
 
-  const args = ['stash', 'push'];
-  if (keepIndex) args.push('--keep-index');
-  if (includeUntracked) args.push('-u');
-  if (message !== undefined) args.push('-m', message);
-  if (paths && paths.length > 0) args.push('--', ...paths);
+  const args = buildStashPushArgs({ message, keepIndex, includeUntracked, paths });
 
   const res = await run(worktreePath, args);
 
@@ -77,13 +82,18 @@ export async function stashPush(
  * keeps a stale-selector failure (`stash@{5}: no such stash`) from being
  * misreported as a conflict on files this op never touched.
  */
+/** `stash apply|pop|drop <selector>` with the selector behind the end-of-options guard. */
+export function buildStashArgs(subcommand: 'apply' | 'pop' | 'drop', selector: string): string[] {
+  return ['stash', subcommand, '--end-of-options', selector];
+}
+
 async function applyOrPop(
   worktreePath: string,
   subcommand: 'apply' | 'pop',
   selector: string,
 ): Promise<GitOpResult> {
   const before = await conflictedPaths(worktreePath);
-  const res = await run(worktreePath, ['stash', subcommand, selector]);
+  const res = await run(worktreePath, buildStashArgs(subcommand, selector));
   if (res.exitCode === 0) return ok();
 
   const after = await conflictedPaths(worktreePath);
@@ -101,7 +111,7 @@ async function applyOrPop(
  * error.
  */
 async function resolveParent(worktreePath: string, selector: string, parent: 1 | 2 | 3): Promise<string | null> {
-  const res = await execGit(worktreePath, ['rev-parse', '--verify', `${selector}^${parent}`]);
+  const res = await execGit(worktreePath, ['rev-parse', '--verify', '--end-of-options', `${selector}^${parent}`]);
   return res.exitCode === 0 ? res.stdout.trim() : null;
 }
 
@@ -117,7 +127,7 @@ async function resolveParent(worktreePath: string, selector: string, parent: 1 |
  */
 export async function readStashDetail(worktreePath: string, selector: string): Promise<StashDetail | null> {
   const [stashRes, headAtStash, indexSha, untrackedSha] = await Promise.all([
-    execGit(worktreePath, ['rev-parse', '--verify', selector]),
+    execGit(worktreePath, ['rev-parse', '--verify', '--end-of-options', selector]),
     resolveParent(worktreePath, selector, 1),
     resolveParent(worktreePath, selector, 2),
     resolveParent(worktreePath, selector, 3),
@@ -190,7 +200,7 @@ export async function stashDrop(
   worktreePath: string,
   selector: string,
 ): Promise<StashDropResult> {
-  const res = await run(worktreePath, ['stash', 'drop', selector]);
+  const res = await run(worktreePath, buildStashArgs('drop', selector));
   if (res.exitCode !== 0) {
     return failure(gitErrorLine(res.stderr) || 'Could not drop the stash.', res.stderr);
   }
@@ -208,14 +218,23 @@ export async function stashDrop(
  * commit floating with nothing pointing at it. It is a NEW write through the
  * queue like every other undo in this app, never a reflog rewrite.
  */
+export function buildStashStoreArgs(sha: string, message?: string): string[] {
+  // `git stash store` rejects `--end-of-options` ("requires one <commit> argument"), so
+  // the sha is refused outright if it could be read as an option.
+  if (sha.startsWith('-')) throw new Error('stash store: sha must not begin with "-"');
+  const args = ['stash', 'store'];
+  if (message !== undefined) args.push('-m', message);
+  args.push(sha);
+  return args;
+}
+
 export async function stashStore(
   worktreePath: string,
   sha: string,
   message?: string,
 ): Promise<GitOpResult> {
-  const args = ['stash', 'store'];
-  if (message !== undefined) args.push('-m', message);
-  args.push(sha);
+  if (sha.startsWith('-')) return failure('That is not a stash commit.');
+  const args = buildStashStoreArgs(sha, message);
 
   const res = await run(worktreePath, args);
   if (res.exitCode === 0) return ok();
@@ -226,12 +245,16 @@ export async function stashStore(
   return failure(gitErrorLine(res.stderr) || 'Could not restore the stash.', res.stderr);
 }
 
+export function buildStashBranchArgs(branchName: string, selector: string): string[] {
+  return ['stash', 'branch', '--end-of-options', branchName, selector];
+}
+
 export async function stashBranch(
   worktreePath: string,
   branchName: string,
   selector: string,
 ): Promise<GitOpResult> {
-  const res = await run(worktreePath, ['stash', 'branch', branchName, selector]);
+  const res = await run(worktreePath, buildStashBranchArgs(branchName, selector));
   if (res.exitCode === 0) return ok();
 
   if (/already exists/i.test(res.stderr)) {

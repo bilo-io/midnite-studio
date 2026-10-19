@@ -152,7 +152,7 @@ export function registerStatusHandlers(): void {
   handleOp(
     CHANNELS.opFetch,
     schemas.FetchRequest,
-    inWorkdir((cwd, req) => fetch(cwd, { remote: req.remote, prune: req.prune })),
+    inWorkdir((cwd, req) => fetch(cwd, { remote: req.remote, all: req.all, prune: req.prune })),
   );
   handleOp(
     CHANNELS.opPull,

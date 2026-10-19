@@ -9,18 +9,24 @@ export type BlameOptions = {
   followRenames?: boolean;
 };
 
-export async function readBlame(
-  worktreePath: string,
-  options: BlameOptions,
-): Promise<GitOpResult<BlameResult>> {
+export function buildBlameArgs(options: BlameOptions): string[] {
   const args = ['blame', '--porcelain'];
   if (options.followRenames) {
     args.push('-C', '-M');
   }
+  args.push('--end-of-options');
   if (options.rev) {
     args.push(options.rev);
   }
   args.push('--', options.relPath);
+  return args;
+}
+
+export async function readBlame(
+  worktreePath: string,
+  options: BlameOptions,
+): Promise<GitOpResult<BlameResult>> {
+  const args = buildBlameArgs(options);
 
   const res = await execGit(worktreePath, args);
   if (res.exitCode !== 0) {

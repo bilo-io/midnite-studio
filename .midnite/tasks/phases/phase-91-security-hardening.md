@@ -56,11 +56,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 *Passes two and three over [`.midnite/security/scan_opus_5.md`](../../security/scan_opus_5.md), which is pass one and is not repeated. The sweep found classes the scan never looked at — a **1,695-entry lockfile with zero vulnerability scanning on any trigger** (fourteen tool names grepped, no hits), `ci.yml` with **no top-level `permissions:`**, `agentApiKeys` holding seven provider keys plus a `GITHUB_TOKEN` slot in plaintext `localStorage` (a larger leak than the finance key the scan named), both `safeStorage` vaults written 0644, `redact.ts` blind to `glpat-`/`AKIA`/`apikey=`/PEM blocks while its output is designed for a public tracker, no `SECURITY.md`, no checksums on any release, and zero Electron fuses. Every item names the file, the symbol, the guard and the test — the doc's own stated standard, so a Sonnet- or Flash-class executor needs no judgement. Phase 76 owns the CSP, `sandbox: true`, the Electron bump, the finance key and the `ipcMain.on` sweep; this phase owns the rest and names the three seams. Repo visibility verified `private` — `CLAUDE.md` asserts both.*
 
-**Theme A — The rebase editor stops generating a shell script.** ◻ the rebase editor stops generating a shell script: a constant helper body, the plan in its own 0600 file, `exec` out of the schema, and a byte-equality test
+**Theme A — The rebase editor stops generating a shell script.** ✅ The helper script is now the constant `REBASE_EDITOR_SCRIPT` (zero caller bytes, mode 0700); the plan goes to its own 0600 `.git/midnite-rebase-todo` passed via `MIDNITE_REBASE_TODO`, both files removed in a `finally`. `formatRebaseTodo` flattens newlines and caps subjects at 512; `RebaseEntrySchema` constrains `sha`/`subject` and the plan caps at 1000 entries. `exec` is gone from the schema — and, contrary to the doc's premise, the renderer *did* send it (`rebase-modal.tsx` had an "Add exec step" button), so that UI was removed too: a deliberate capability cut. `parseRebaseTodo` reads git's own `exec` lines as read-only `break` display entries. Both rebase call sites pass env deltas only. Tests: hostile-subject formatter cases, schema rejection, and a byte-equality + no-leftover-files integration test.
 
-**Theme B — Every git positional gets an end-of-options guard.** ◻ `--end-of-options` at all 25 argv sites, `SafeArgvString`/`SafeRefString` exported and applied to ~20 schemas, a pure `buildXArgs` per command, and one table-driven injection test
+**Theme B — Every git positional gets an end-of-options guard.** ✅ `SafeArgvString`, `SafePathspecString` exported and `SafeRefString` added; applied across the request schemas. `SafeRefString` is *not* `isSafeBlobRev`'s alphabet (that would reject real branch names like `fix/issue#12`): it refuses a leading `-` and control characters, max 256. `--end-of-options` at every argv site, each via an exported pure `buildXArgs`; `-b<name>` is glued to its flag for `checkout -b`/`worktree add -b`; `git stash store` rejects `--end-of-options`, so its builder refuses an option-shaped sha instead. New table-driven `argv-injection.test.ts` asserts the builder count (35).
 
-**Theme C — The remote field stops being a transport.** ◻ the remote field stops being a transport: `GIT_PROTOCOL_FROM_USER=0`, a protocol allowlist, `--all` as a field not a sentinel, remote names resolved against `listRemotes`
+**Theme C — The remote field stops being a transport.** ✅ `GIT_PROTOCOL_FROM_USER=0` and `GIT_ALLOW_PROTOCOL=file:git:ssh:http:https` in both env maps; `FetchRequest.all` replaces the `--all` sentinel; `fetch`/`pull`/`push` resolve the remote against `listRemotes` and return an error envelope for anything else; the lease pair is `SafeRefString` + a hex sha. Tests cover env, argv shape, unknown-remote rejection and a configured `ext::` remote that is refused without running its command.
 
 **Theme D — DevTools, the release bundle, and the lock screen.** ◻ DevTools behind `app.isPackaged`, explicit minify, no sourcemaps/manifest in the artifact (asserted), and the lock screen's authority moved to main with a hashed passcode
 
@@ -87,33 +87,33 @@ inert — but a `subject` or `execCommand` containing a line that is exactly `EO
 early and every following line is live shell in a script git is about to execute. Commit subjects
 are attacker-authored in any fetched repository.
 
-- [ ] **Stop interpolating anything into the script.** In [`startInteractiveRebase`](../../../packages/git-engine/src/commands/rebase.ts)
+- [x] **Stop interpolating anything into the script.** In [`startInteractiveRebase`](../../../packages/git-engine/src/commands/rebase.ts)
       (`rebase.ts:12`), write `todoContent` to its own file — `path.join(dotGitPath, 'midnite-rebase-todo')`,
       `{ mode: 0o600 }` — and make the helper script's body the *constant* string
       `'#!/bin/sh\nexec cat "$MIDNITE_REBASE_TODO" > "$1"\n'`, passing the todo path through the env
       as `MIDNITE_REBASE_TODO` alongside `GIT_SEQUENCE_EDITOR`. The script then contains **zero**
       caller-derived bytes — not the plan, not even the path. Helper script mode becomes `0o700`,
       not `0o755`.
-- [ ] **Delete both files in a `finally`.** `rebase.ts` currently leaves `.git/midnite-seq-editor.sh`
+- [x] **Delete both files in a `finally`.** `rebase.ts` currently leaves `.git/midnite-seq-editor.sh`
       on disk at `0o755` after every rebase, at a predictable path. Wrap the `execGit` call in
       `try`/`finally` and `fs.rmSync(helperScriptPath, { force: true })` +
       `fs.rmSync(todoPath, { force: true })` in the `finally`.
-- [ ] **Harden `formatRebaseTodo` regardless** ([`exec/rebase-editor.ts:93-109`](../../../packages/git-engine/src/exec/rebase-editor.ts)).
+- [x] **Harden `formatRebaseTodo` regardless** ([`exec/rebase-editor.ts:93-109`](../../../packages/git-engine/src/exec/rebase-editor.ts)).
       Before building each line, replace `/[\r\n]/g` with `' '` in `entry.sha`, `entry.subject` and
       `entry.execCommand`, and `.slice(0, 512)` the subject. A todo file is line-oriented; a value
       carrying a newline was always going to mean something other than what the caller intended,
       independent of the shell bug.
-- [ ] **Constrain the schema** in [`shared/src/domain/rebase.ts:16-22`](../../../packages/shared/src/domain/rebase.ts).
+- [x] **Constrain the schema** in [`shared/src/domain/rebase.ts:16-22`](../../../packages/shared/src/domain/rebase.ts).
       `RebaseEntrySchema` is five unconstrained fields today. Make `sha` `z.string().regex(/^[0-9a-f]{4,40}$/)`,
       make `subject` `z.string().max(512).refine((s) => !/[\r\n\0]/.test(s), 'subject must be a single line')`,
       and cap `entries` at `.max(1000)` in `RebaseSequencePlanSchema` (`:26-29`).
-- [ ] **Remove `exec` from the renderer-reachable schema.** `formatRebaseTodo:98` emits
+- [x] **Remove `exec` from the renderer-reachable schema.** `formatRebaseTodo:98` emits
       `exec <execCommand>` and git runs it through `sh` — that is arbitrary shell by design, and
       **no renderer code sends it** (grep `execCommand` under `packages/app/src`). Drop `'exec'`
       from `RebaseActionSchema` and delete `execCommand` from `RebaseEntrySchema`; keep
       `parseRebaseTodo`'s ability to *read* an `exec` line from a todo git itself wrote, mapping it
       to a read-only display entry. Record the removal in the PR body as a deliberate capability cut.
-- [ ] **Stop `process.env` clobbering the hardened env.** [`git-exec.ts:86-89`](../../../packages/git-engine/src/exec/git-exec.ts)
+- [x] **Stop `process.env` clobbering the hardened env.** [`git-exec.ts:86-89`](../../../packages/git-engine/src/exec/git-exec.ts)
       is `{ ...(opts.write ? WRITE_ENV : BASE_ENV), ...opts.env }` — caller-supplied `env` wins.
       `rebase.ts:40-43` passes `{ ...process.env, GIT_SEQUENCE_EDITOR }` and `rebase.ts:90` passes
       `{ ...process.env, GIT_EDITOR: 'true' }`, so the whole ambient environment is reinstated over
@@ -121,17 +121,17 @@ are attacker-authored in any fetched repository.
       `{ GIT_EDITOR: 'true' }` — which is the shape [`sequencer.ts:165`](../../../packages/git-engine/src/commands/sequencer.ts)
       already uses. `buildEnv` keeps its current precedence; the fix is at the callers, and a
       comment on `buildEnv` records that `opts.env` is a deliberate override reserved for deltas.
-- [ ] **Tests** in [`parsers/__tests__/rebase-editor.test.ts`](../../../packages/git-engine/src/parsers/__tests__/rebase-editor.test.ts)
+- [x] **Tests** in [`parsers/__tests__/rebase-editor.test.ts`](../../../packages/git-engine/src/parsers/__tests__/rebase-editor.test.ts)
       (2 cases today, neither adversarial): `formatRebaseTodo` with a subject of `"x\nEOF\nid\n"`
       produces a single line containing no `\n` inside the subject; with a 5,000-character subject
       it truncates; with a `sha` of `"--exec=touch /tmp/pwn"` the schema rejects before it reaches
       the formatter.
-- [ ] **A test that the script is constant.** New `commands/rebase-editor-script.test.ts`: call
+- [x] **A test that the script is constant.** New `commands/rebase-editor-script.test.ts`: call
       `startInteractiveRebase` against a `TempRepo` ([`testing/temp-repo.ts`](../../../packages/git-engine/src/testing/temp-repo.ts))
       with a plan whose subject is `"EOF\nrm -rf /tmp/mstudio-canary"`, and assert the written
       helper script's bytes `toBe` the constant literal — a byte-for-byte equality, so any future
       interpolation fails the test rather than being merely "not exploitable this time".
-- [ ] *Acceptance:* `.git/` contains neither `midnite-seq-editor.sh` nor `midnite-rebase-todo`
+- [x] *Acceptance:* `.git/` contains neither `midnite-seq-editor.sh` nor `midnite-rebase-todo`
       after a rebase completes **or** aborts; the helper script test passes; `moon run :test` green.
 
 ### B — Every git positional gets an end-of-options guard (L)
@@ -143,15 +143,15 @@ Scan findings **2** and **9**, widened. The engine already knows the answer —
 braces, because this function is exported and the next caller may not validate as tightly"). The
 grounding found **eight further command modules** that do not, plus the schemas behind them.
 
-- [ ] **Export the two guards that already exist.** [`schemas.ts:246-251`](../../../packages/shared/src/ipc/schemas.ts)
+- [x] **Export the two guards that already exist.** [`schemas.ts:246-251`](../../../packages/shared/src/ipc/schemas.ts)
       declares `SafeArgvString` (`!v.startsWith('-')`) and `SafePathspecString`, both
       **module-private**, both used by exactly two search schemas. Export them from
       `shared/src/ipc/schemas.ts` and re-export from the package index.
-- [ ] **Add `SafeRefString` beside them**, modelled on the one existing allowlist —
+- [x] **Add `SafeRefString` beside them**, modelled on the one existing allowlist —
       [`isSafeBlobRev`](../../../packages/shared/src/fs.ts) at `fs.ts:183`, whose docblock already
       argues the case. `z.string().min(1).max(256).refine(isSafeBlobRev)` is the whole
       implementation; do not write a second alphabet.
-- [ ] **Apply them, schema by schema**, in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts).
+- [x] **Apply them, schema by schema**, in [`schemas.ts`](../../../packages/shared/src/ipc/schemas.ts).
       This is a mechanical table — every one of these is `z.string().min(1)` today with no refine:
       `RepoOpenRequest.path` (`:175`), `WorktreeAddRequest.path`/`.branch`/`.startPoint` (`:191-198`),
       `WorktreeRemoveRequest.path` (`:199-202`), `CheckoutRequest.target` (`:1015`),
@@ -163,7 +163,7 @@ grounding found **eight further command modules** that do not, plus the schemas 
       `SafeArgvString`. `StageRequest`/`UnstageRequest`/`DiscardRequest.paths` (`:1056-1060`) become
       `z.array(SafePathspecString)` — they are `z.array(z.string())` today, which is the same gap
       one type further out.
-- [ ] **Add `--end-of-options` at each argv site.** Also mechanical, and the list is complete:
+- [x] **Add `--end-of-options` at each argv site.** Also mechanical, and the list is complete:
       [`sequencer.ts`](../../../packages/git-engine/src/commands/sequencer.ts) `:61` (`merge`),
       `:84` (`rebase` — this is scan finding 2, the drag-to-rebase path), `:110` (`cherryPick`);
       [`refs-ops.ts`](../../../packages/git-engine/src/commands/refs-ops.ts) `:27`, `:42-43`, `:71`,
@@ -178,7 +178,7 @@ grounding found **eight further command modules** that do not, plus the schemas 
       [`log.ts:84`](../../../packages/git-engine/src/commands/log.ts) (`buildLogArgs` pushes
       `options.revisions` bare, and `LogStartRequest.revisions` is `z.array(z.string()).default([])`
       with no guard — the one high-traffic path the scan missed).
-- [ ] **Extract a pure `buildXArgs` per command module.** Only `log.ts` (`buildLogArgs`) and
+- [x] **Extract a pure `buildXArgs` per command module.** Only `log.ts` (`buildLogArgs`) and
       `grep.ts` (`buildGrepArgs`) export one today; every other command inlines its array inside
       the async function that also calls `execGit`, so **there is nothing to assert against** —
       no `GitProcess` spy exists anywhere in the repo. Extract `buildCheckoutArgs`,
@@ -187,17 +187,17 @@ grounding found **eight further command modules** that do not, plus the schemas 
       `buildFetchArgs`, `buildPullArgs`, `buildPushArgs` as named exports beside their callers.
       Pure functions, no I/O — this is the prerequisite for the next two items, not a refactor for
       its own sake.
-- [ ] **Per-builder argv tests**, in the shape [`search.integration.test.ts:14-34`](../../../packages/git-engine/src/commands/search.integration.test.ts)
+- [x] **Per-builder argv tests**, in the shape [`search.integration.test.ts:14-34`](../../../packages/git-engine/src/commands/search.integration.test.ts)
       already established (`expect(args).toEqual([...])` against the literal array). One
       `toEqual` per builder for the happy path.
-- [ ] **One table-driven injection test** — new `commands/argv-injection.test.ts` — that
+- [x] **One table-driven injection test** — new `commands/argv-injection.test.ts` — that
       enumerates every exported builder, feeds `'--exec=touch /tmp/mstudio-pwn'` and
       `'--upload-pack=touch /tmp/mstudio-pwn'` into each of its string fields in turn, and asserts
       for each that the value appears **after** the `--end-of-options` element in the returned
       array (`args.indexOf(value) > args.indexOf('--end-of-options')`). This single test is what
       makes the guard a property of the engine rather than 25 remembered call sites; adding a
       builder without a guard fails it.
-- [ ] *Acceptance:* `grep -rn "args.push(options\.\|args.push(target\|args.push(path" packages/git-engine/src/commands`
+- [x] *Acceptance:* `grep -rn "args.push(options\.\|args.push(target\|args.push(path" packages/git-engine/src/commands`
       returns no line whose command array lacks an `--end-of-options` above it; the injection test
       passes with every builder enumerated (assert the enumerated count, so a new builder that is
       not registered fails).
@@ -212,34 +212,34 @@ including `ext::sh -c <command>`, which git's `ext` remote helper executes. Them
 `--end-of-options` closes `--upload-pack=`; it does **not** close `ext::`, because `ext::…` is a
 legitimate value for that positional. This theme closes the transport itself.
 
-- [ ] **Set `GIT_PROTOCOL_FROM_USER: '0'` in both `BASE_ENV` (`git-exec.ts:52-57`) and `WRITE_ENV`
+- [x] **Set `GIT_PROTOCOL_FROM_USER: '0'` in both `BASE_ENV` (`git-exec.ts:52-57`) and `WRITE_ENV`
       (`:60-64`).** Neither sets it today, so git treats every invocation as user-initiated and
       permits the `ext` transport. This one line is the highest-value change in the theme.
-- [ ] **Add `GIT_ALLOW_PROTOCOL: 'file:git:ssh:http:https'` to both**, as the positive allowlist
+- [x] **Add `GIT_ALLOW_PROTOCOL: 'file:git:ssh:http:https'` to both**, as the positive allowlist
       beside it — `ext`, `ftp`, and anything a future git adds are then refused by name rather than
       by the `FROM_USER` heuristic alone. Put the four-line rationale in a comment above `BASE_ENV`;
       the existing comment at `git-exec.ts:48-50` (on deliberately not overriding `HOME`) is the
       house shape for it.
-- [ ] **Make `--all` a field, not a sentinel.** `FetchRequest` (`schemas.ts:1096-1099`) gains
+- [x] **Make `--all` a field, not a sentinel.** `FetchRequest` (`schemas.ts:1096-1099`) gains
       `all: z.boolean().default(false)`, and `sync.ts:38` becomes
       `['fetch', ...(options.all ? ['--all'] : []), '--end-of-options', options.remote ?? 'origin']`.
       A string field whose value may be a flag is the bug; removing the sentinel removes it.
-- [ ] **Validate remote names against the repository's actual remotes.** `FetchRequest.remote`,
+- [x] **Validate remote names against the repository's actual remotes.** `FetchRequest.remote`,
       `PullRequest.remote` and `PushRequest.remote` become `SafeArgvString` at the schema
       (Theme B), and in `sync.ts` each of `fetch`/`pull`/`push` resolves the name through
       [`listRemotes`](../../../packages/git-engine/src/commands/remotes.ts) first and returns
       `{ ok: false, kind: 'error' }` when it is not a known remote name. A URL in that field is
       then impossible rather than merely awkward: the app never asks the user to type one.
-- [ ] **Validate the lease pair.** `sync.ts:101` builds `` `--force-with-lease=${ref}:${expect}` ``
+- [x] **Validate the lease pair.** `sync.ts:101` builds `` `--force-with-lease=${ref}:${expect}` ``
       by string concatenation. Constrain `PushRequest.forceWithLease.ref` to `SafeRefString` and
       `.expect` to `z.string().regex(/^[0-9a-f]{7,40}$/)` in `schemas.ts`. The
       [`CLAUDE.md`](../../../CLAUDE.md) rule that only the explicit `ref:expect` form is ever built
       is unchanged — this is the guard that makes the built string match its own type.
-- [ ] **Tests:** a `git-exec.test.ts` case asserting both env maps contain
+- [x] **Tests:** a `git-exec.test.ts` case asserting both env maps contain
       `GIT_PROTOCOL_FROM_USER: '0'` and `GIT_ALLOW_PROTOCOL`; a `sync.test.ts` case asserting
       `buildFetchArgs({ remote: 'ext::sh -c id' })` is rejected by the remote-name resolution (not
       merely escaped); a schema test that `PushRequest` rejects `expect: 'HEAD'`.
-- [ ] *Acceptance:* a manual probe against a scratch repo — `fetch` with a remote named
+- [x] *Acceptance:* a manual probe against a scratch repo — `fetch` with a remote named
       `ext::sh -c 'touch /tmp/mstudio-pwn'` configured in `.git/config` fails with a protocol
       error, and `/tmp/mstudio-pwn` does not exist. Record the probe's exact output in the PR body.
 

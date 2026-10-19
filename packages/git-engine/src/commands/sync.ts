@@ -4,6 +4,7 @@ import { failure, ok } from '@midnite/studio-shared';
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';
 import { conflictedPaths } from './status';
+import { listRemotes } from './remotes';
 import { gitErrorLine } from './worktree-ops';
 
 /**
@@ -32,14 +33,40 @@ import { gitErrorLine } from './worktree-ops';
  * form.
  */
 
-export type FetchOptions = { remote?: string; prune?: boolean };
+export type FetchOptions = { remote?: string; all?: boolean; prune?: boolean };
 
-export async function fetch(worktreePath: string, options: FetchOptions = {}): Promise<GitOpResult> {
-  const args = ['fetch', options.remote ?? '--all'];
+export function buildFetchArgs(options: FetchOptions = {}): string[] {
+  const args = ['fetch'];
   if (options.prune ?? true) args.push('--prune');
   // Tags are not fetched by default for a named remote's non-branch refs;
   // the graph badges them, so fetch them.
   args.push('--tags');
+  // `--all` is a field, not a sentinel value of `remote` (Phase 91 Theme C).
+  if (options.all) args.push('--all');
+  args.push('--end-of-options');
+  if (!options.all) args.push(options.remote ?? 'origin');
+  return args;
+}
+
+/**
+ * The remote field is a NAME, never a URL: `<repository>` would accept `ext::sh -c …`.
+ * Resolving it against the repo's configured remotes makes a URL impossible rather than
+ * merely awkward — the app never asks the user to type one. Returns an error envelope
+ * when the name is unknown, else null.
+ */
+async function unknownRemote(worktreePath: string, remote: string | undefined): Promise<GitOpResult | null> {
+  if (remote === undefined) return null;
+  const known = await listRemotes(worktreePath);
+  if (known.some((r) => r.name === remote)) return null;
+  return failure(`"${remote}" is not a remote of this repository.`);
+}
+
+export async function fetch(worktreePath: string, options: FetchOptions = {}): Promise<GitOpResult> {
+  if (!options.all) {
+    const bad = await unknownRemote(worktreePath, options.remote ?? 'origin');
+    if (bad) return bad;
+  }
+  const args = buildFetchArgs(options);
 
   const res = await run(worktreePath, args);
   return res.exitCode === 0 ? ok() : failure(describeNetworkFailure(res.stderr), res.stderr);
@@ -58,10 +85,17 @@ export type PullOptions = { remote?: string; branch?: string; rebase?: boolean }
  * A conflicted pull is a normal outcome, not an error — it comes back as the
  * conflict arm so the UI can show the banner and offer abort/continue.
  */
-export async function pull(worktreePath: string, options: PullOptions = {}): Promise<GitOpResult> {
-  const args = ['pull', options.rebase ? '--rebase' : '--no-rebase'];
+export function buildPullArgs(options: PullOptions = {}): string[] {
+  const args = ['pull', options.rebase ? '--rebase' : '--no-rebase', '--end-of-options'];
   if (options.remote) args.push(options.remote);
   if (options.branch) args.push(options.branch);
+  return args;
+}
+
+export async function pull(worktreePath: string, options: PullOptions = {}): Promise<GitOpResult> {
+  const bad = await unknownRemote(worktreePath, options.remote);
+  if (bad) return bad;
+  const args = buildPullArgs(options);
 
   const res = await run(worktreePath, args);
   if (res.exitCode === 0) return ok();
@@ -93,15 +127,23 @@ export type PushOptions = {
   forceWithLease?: { ref: string; expect: string };
 };
 
-export async function push(worktreePath: string, options: PushOptions = {}): Promise<GitOpResult> {
+export function buildPushArgs(options: PushOptions = {}): string[] {
   const args = ['push'];
   if (options.setUpstream) args.push('--set-upstream');
   if (options.tags) args.push('--tags');
   if (options.forceWithLease) {
     args.push(`--force-with-lease=${options.forceWithLease.ref}:${options.forceWithLease.expect}`);
   }
+  args.push('--end-of-options');
   if (options.remote) args.push(options.remote);
   if (options.branch) args.push(options.branch);
+  return args;
+}
+
+export async function push(worktreePath: string, options: PushOptions = {}): Promise<GitOpResult> {
+  const bad = await unknownRemote(worktreePath, options.remote);
+  if (bad) return bad;
+  const args = buildPushArgs(options);
 
   const res = await run(worktreePath, args);
   return res.exitCode === 0

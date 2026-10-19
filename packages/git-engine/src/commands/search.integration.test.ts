@@ -30,6 +30,7 @@ describe('search, grep, blame integration', () => {
       '-z',
       '--all',
       '-n50',
+      '--end-of-options',
       'main',
     ]);
   });
@@ -56,11 +57,12 @@ describe('search, grep, blame integration', () => {
       '-C2',
       '-e',
       'foo',
+      '--end-of-options',
       'v1.2.0',
       '--',
       'src',
     ]);
-    expect(args.slice(-5, -1)).toEqual(['-e', 'foo', 'v1.2.0', '--']);
+    expect(args.slice(-6, -1)).toEqual(['-e', 'foo', '--end-of-options', 'v1.2.0', '--']);
   });
 
 
