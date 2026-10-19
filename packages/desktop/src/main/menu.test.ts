@@ -11,7 +11,14 @@ import { buildMenu } from './menu';
  * following the `vi.mock('electron', …)` pattern `fs-write-handlers.test.ts`
  * already uses.
  */
+const state = vi.hoisted(() => ({ isPackaged: false }));
+
 vi.mock('electron', () => ({
+  app: {
+    get isPackaged() {
+      return state.isPackaged;
+    },
+  },
   Menu: {
     buildFromTemplate: (template: MenuItemConstructorOptions[]) => template,
     setApplicationMenu: vi.fn(),
@@ -100,5 +107,24 @@ describe('the File menu', () => {
     const openRow = row(submenuOf('File'), 'Open Repository…');
     expect(openRow).toBeDefined();
     expect(openRow?.accelerator).toBeUndefined();
+  });
+});
+
+describe('the View menu DevTools row (Phase 91 Theme D)', () => {
+  const hasDevTools = (): boolean =>
+    submenuOf('View').some((item) => item.role === 'toggleDevTools');
+
+  it('is present in dev', () => {
+    state.isPackaged = false;
+    expect(hasDevTools()).toBe(true);
+  });
+
+  it('is absent when packaged', () => {
+    state.isPackaged = true;
+    try {
+      expect(hasDevTools()).toBe(false);
+    } finally {
+      state.isPackaged = false;
+    }
   });
 });
