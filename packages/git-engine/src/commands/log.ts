@@ -81,7 +81,7 @@ export function buildLogArgs(options: LogOptions = {}): string[] {
   if (options.regexp) args.push('--extended-regexp');
   if (options.ignoreCase) args.push('--regexp-ignore-case');
 
-  if (options.revisions?.length) args.push(...options.revisions);
+  if (options.revisions?.length) args.push('--end-of-options', ...options.revisions);
   if (options.paths?.length) args.push('--', ...options.paths);
 
   return args;

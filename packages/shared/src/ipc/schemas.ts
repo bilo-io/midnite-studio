@@ -469,11 +469,41 @@ import { SECRET_KEYS } from '../domain/secrets';
 
 const RepoId = z.object({ repoId: z.string().min(1) });
 
+/**
+ * Argv guards (Phase 91 Theme B). Every git positional that reaches an argv is
+ * also placed after `--end-of-options` by the engine; these refuse the leading
+ * `-` at the wire so the guard is two-layered.
+ */
+export const SafeArgvString = z.string().refine((v) => !v.startsWith('-'), 'must not begin with "-"');
+
+export const SafePathspecString = SafeArgvString.refine(
+  (p) => !p.startsWith('/') && !p.includes('..'),
+  'must be a repo-relative path without ".."',
+);
+
+/**
+ * A ref, branch, tag or revision name. Deliberately not `isSafeBlobRev`'s narrow
+ * alphabet: that whitelist is right for the blob protocol (sha/HEAD/index only)
+ * but would refuse real branch names (`fix/issue#12`, `feat+x`, unicode). The
+ * property that matters here is "cannot be read as an option and cannot smuggle
+ * a line break or NUL", so that is exactly what is checked.
+ */
+export const SafeRefString = z
+  .string()
+  .min(1)
+  .max(256)
+  .refine(
+    // eslint-disable-next-line no-control-regex
+    (v) => !v.startsWith('-') && !/[\u0000-\u001f\u007f]/.test(v),
+    'must not begin with "-" or contain control characters',
+  );
+
+
 // --- repositories ----------------------------------------------------------
 
 export const RepoOpenRequest = z.object({
   /** Absolute path. May point at a linked worktree — main resolves it to the repo. */
-  path: z.string().min(1),
+  path: SafeArgvString.pipe(z.string().min(1)),
 });
 export const RepoOpenResponse = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), repo: RepoDescriptorSchema }),
@@ -506,15 +536,15 @@ export const RepoWorktreesRequest = RepoId;
 export const RepoWorktreesResponse = z.array(WorktreeSchema);
 
 export const WorktreeAddRequest = RepoId.extend({
-  path: z.string().min(1),
+  path: SafeArgvString.pipe(z.string().min(1)),
   /** Branch to check out. When `createBranch`, this is the new branch's name. */
-  branch: z.string().min(1),
+  branch: SafeRefString,
   createBranch: z.boolean().default(false),
   /** Start point for a newly created branch (defaults to HEAD). */
-  startPoint: z.string().optional(),
+  startPoint: SafeRefString.optional(),
 });
 export const WorktreeRemoveRequest = RepoId.extend({
-  path: z.string().min(1),
+  path: SafeArgvString.pipe(z.string().min(1)),
   force: z.boolean().default(false),
 });
 
@@ -541,7 +571,7 @@ export const LogStartRequest = RepoId.extend({
    *
    * Defaulted, so a payload written before this field existed still parses.
    */
-  revisions: z.array(z.string()).default([]),
+  revisions: z.array(SafeRefString).default([]),
 });
 export const LogCancelRequest = z.object({ requestId: z.string().min(1) });
 
@@ -559,13 +589,6 @@ export const LogDoneEvent = z.object({
 });
 
 // --- search stream & blame -------------------------------------------------
-
-const SafeArgvString = z.string().refine((v) => !v.startsWith('-'), 'must not begin with "-"');
-
-const SafePathspecString = SafeArgvString.refine(
-  (p) => !p.startsWith('/') && !p.includes('..'),
-  'must be a repo-relative path without ".."',
-);
 
 export const CommitsSearchQuerySchema = z.object({
   grep: z.array(SafeArgvString).optional(),
@@ -1624,46 +1647,46 @@ const OpBase = RepoId.extend({ worktreePath: z.string().optional() });
 
 export const CheckoutRequest = OpBase.extend({
   /** Branch name, tag, or sha. */
-  target: z.string().min(1),
+  target: SafeRefString,
   /** Check out a sha without creating a branch. */
   detach: z.boolean().default(false),
 });
 export const BranchCreateRequest = OpBase.extend({
-  name: z.string().min(1),
-  startPoint: z.string().min(1),
+  name: SafeRefString,
+  startPoint: SafeRefString,
   checkout: z.boolean().default(false),
 });
 export const BranchDeleteRequest = OpBase.extend({
-  name: z.string().min(1),
+  name: SafeRefString,
   /** `-D` — required when the branch isn't merged. Gated by a confirm dialog. */
   force: z.boolean().default(false),
 });
 export const BranchRenameRequest = OpBase.extend({
-  from: z.string().min(1),
-  to: z.string().min(1),
+  from: SafeRefString,
+  to: SafeRefString,
 });
 export const TagCreateRequest = OpBase.extend({
-  name: z.string().min(1),
-  target: z.string().min(1),
+  name: SafeRefString,
+  target: SafeRefString,
   /** Annotated tag when a message is given, lightweight otherwise. */
   message: z.string().optional(),
 });
 export const MergeRequest = OpBase.extend({
   /** The branch being merged INTO the current one. */
-  source: z.string().min(1),
+  source: SafeRefString,
   noFastForward: z.boolean().default(false),
 });
 export const RebaseRequest = OpBase.extend({
   /** Rebase the current branch ONTO this. */
-  onto: z.string().min(1),
+  onto: SafeRefString,
 });
-export const CherryPickRequest = OpBase.extend({ shas: z.array(z.string().min(1)).min(1) });
+export const CherryPickRequest = OpBase.extend({ shas: z.array(SafeRefString).min(1) });
 export const ResetRequest = OpBase.extend({
-  target: z.string().min(1),
+  target: SafeRefString,
   mode: z.enum(['soft', 'mixed', 'hard']),
 });
 
-export const StageRequest = OpBase.extend({ paths: z.array(z.string()).min(1) });
+export const StageRequest = OpBase.extend({ paths: z.array(SafePathspecString).min(1) });
 export const UnstageRequest = StageRequest;
 /** Explicit paths only — never a bare `git checkout .`. */
 export const DiscardRequest = StageRequest;
@@ -1704,12 +1727,15 @@ export const CommitRequest = OpBase.extend({
 });
 
 export const FetchRequest = OpBase.extend({
-  remote: z.string().default('origin'),
+  /** A remote NAME — main resolves it against the repo's configured remotes (Phase 91 Theme C). */
+  remote: SafeArgvString.default('origin'),
+  /** `--all` as a field, not a sentinel value of `remote`. */
+  all: z.boolean().default(false),
   prune: z.boolean().default(true),
 });
 export const PullRequest = OpBase.extend({
-  remote: z.string().optional(),
-  branch: z.string().optional(),
+  remote: SafeArgvString.optional(),
+  branch: SafeRefString.optional(),
   rebase: z.boolean().default(false),
 });
 /**
@@ -1724,8 +1750,8 @@ export const PullRequest = OpBase.extend({
  * the sha the lease actually checks against.
  */
 export const PushRequest = OpBase.extend({
-  remote: z.string().optional(),
-  branch: z.string().optional(),
+  remote: SafeArgvString.optional(),
+  branch: SafeRefString.optional(),
   /** `-u` on the first push of a branch with no upstream. */
   setUpstream: z.boolean().default(false),
   /** Push the tag refspec too. */
@@ -1746,9 +1772,9 @@ export const PushRequest = OpBase.extend({
        * `sync.ts`'s `push()` (the caller) and its integration tests, both of
        * which use `refs/heads/<branch>`.
        */
-      ref: z.string().min(1),
+      ref: SafeRefString,
       /** The sha that ref was at when the confirm dialog read it. */
-      expect: z.string().min(1),
+      expect: z.string().regex(/^[0-9a-f]{7,40}$/, 'expect is a commit sha'),
     })
     .optional(),
 });
@@ -1790,7 +1816,7 @@ export const StashListResponse = z.array(StashEntrySchema);
  * A selector for one entry, everywhere but `push` — `stash@{n}`, exactly as
  * `listStashes` returns it and as every stash op accepts it back.
  */
-const StashSelector = z.string().min(1);
+const StashSelector = SafeRefString;
 
 export const StashPushRequest = OpBase.extend({
   message: z.string().optional(),
@@ -1810,7 +1836,7 @@ export const StashDropRequest = OpBase.extend({ selector: StashSelector });
 export const StashDropResponse = StashDropResultSchema;
 
 export const StashBranchRequest = OpBase.extend({
-  name: z.string().min(1),
+  name: SafeRefString,
   selector: StashSelector,
 });
 
@@ -1820,7 +1846,7 @@ export const StashBranchRequest = OpBase.extend({
  * reason this takes a raw sha instead.
  */
 export const StashStoreRequest = OpBase.extend({
-  sha: z.string().min(1),
+  sha: SafeRefString,
   message: z.string().optional(),
 });
 
@@ -2752,7 +2778,7 @@ export const WebAppsSignOutResponse = z.discriminatedUnion('ok', [
 // --- watch -----------------------------------------------------------------
 
 export const RebaseStartRequest = RepoId.extend({
-  targetRef: z.string().min(1),
+  targetRef: SafeRefString,
   plan: RebaseSequencePlanSchema,
 });
 export const RebaseStartResponse = GitOpResultSchema;

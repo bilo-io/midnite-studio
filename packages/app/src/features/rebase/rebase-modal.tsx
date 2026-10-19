@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { RebaseAction, RebaseEntry, RebaseSequencePlan } from '@midnite/studio-shared';
-import { LuMoveUp, LuMoveDown, LuTrash2, LuPlay, LuRotateCcw, LuPencil, LuTerminal } from 'react-icons/lu';
+import { LuMoveUp, LuMoveDown, LuTrash2, LuPlay, LuRotateCcw, LuPencil } from 'react-icons/lu';
 
 import { useFocusTrap } from '../../components/use-focus-trap';
 
@@ -19,7 +19,6 @@ const ACTION_OPTIONS: Array<{ value: RebaseAction; label: string; desc: string }
   { value: 'squash', label: 'squash', desc: 'Meld into previous commit' },
   { value: 'fixup', label: 'fixup', desc: 'Meld into previous commit, discard message' },
   { value: 'drop', label: 'drop', desc: 'Remove commit' },
-  { value: 'exec', label: 'exec', desc: 'Run shell command' },
   { value: 'break', label: 'break', desc: 'Stop rebase here' },
 ];
 
@@ -69,12 +68,6 @@ export const RebaseModal: React.FC<RebaseModalProps> = ({
     );
   };
 
-  const handleExecChange = (id: string, execCommand: string) => {
-    setEntries((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, execCommand } : item)),
-    );
-  };
-
   const moveItem = (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= entries.length) return;
@@ -88,14 +81,6 @@ export const RebaseModal: React.FC<RebaseModalProps> = ({
 
   const removeItem = (id: string) => {
     setEntries((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const addExecStep = () => {
-    const newId = `exec-${Date.now()}`;
-    setEntries((prev) => [
-      ...prev,
-      { id: newId, action: 'exec', execCommand: 'pnpm test' },
-    ]);
   };
 
   const handleSubmit = async () => {
@@ -127,14 +112,6 @@ export const RebaseModal: React.FC<RebaseModalProps> = ({
           <span className="text-xs text-muted-foreground">({entries.length} steps)</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={addExecStep}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded border border-border bg-background hover:bg-muted text-foreground transition-colors"
-          >
-            <LuTerminal className="w-3.5 h-3.5" />
-            Add exec step
-          </button>
           <button
             type="button"
             onClick={onClose}
@@ -207,7 +184,7 @@ export const RebaseModal: React.FC<RebaseModalProps> = ({
               </span>
             )}
 
-            {/* Editable Subject / Exec Command */}
+            {/* Editable Subject */}
             <div className="flex-1">
               {entry.action === 'reword' ? (
                 <div className="flex items-center gap-1.5">
@@ -218,17 +195,6 @@ export const RebaseModal: React.FC<RebaseModalProps> = ({
                     onChange={(e) => handleSubjectChange(entry.id, e.target.value)}
                     className="w-full bg-background border border-border rounded px-2 py-0.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     placeholder="New commit message..."
-                  />
-                </div>
-              ) : entry.action === 'exec' ? (
-                <div className="flex items-center gap-1.5">
-                  <LuTerminal className="w-3.5 h-3.5 text-blue-500" />
-                  <input
-                    type="text"
-                    value={entry.execCommand || ''}
-                    onChange={(e) => handleExecChange(entry.id, e.target.value)}
-                    className="w-full bg-background border border-border rounded px-2 py-0.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono"
-                    placeholder="Command to run..."
                   />
                 </div>
               ) : (

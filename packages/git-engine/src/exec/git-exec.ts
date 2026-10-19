@@ -49,8 +49,21 @@ export class GitExecError extends Error {
  * signing key, credential helper, aliases — applies exactly as it does in their
  * terminal. That's the point of shelling out.
  */
+/**
+ * Transport hardening (Phase 91 Theme C): `GIT_PROTOCOL_FROM_USER=0` tells git the
+ * URL did not come from the user, so the `ext::` remote helper (which runs an
+ * arbitrary command) and other `user` -policy protocols are refused; the positive
+ * `GIT_ALLOW_PROTOCOL` list then names what is allowed, so `ext`, `ftp` and any
+ * future protocol are refused by name, not by that heuristic alone.
+ */
+const TRANSPORT_ENV: Readonly<Record<string, string>> = {
+  GIT_PROTOCOL_FROM_USER: '0',
+  GIT_ALLOW_PROTOCOL: 'file:git:ssh:http:https',
+};
+
 const BASE_ENV: Readonly<Record<string, string>> = {
   ...POSIX_NUMERIC_ENV,
+  ...TRANSPORT_ENV,
   GIT_OPTIONAL_LOCKS: '0',
   GIT_TERMINAL_PROMPT: '0',
   GIT_CONFIG_PARAMETERS: "'core.quotepath=false'",
@@ -59,6 +72,7 @@ const BASE_ENV: Readonly<Record<string, string>> = {
 /** Extra env for writes, where the optional-locks suppression must NOT apply. */
 const WRITE_ENV: Readonly<Record<string, string>> = {
   ...POSIX_NUMERIC_ENV,
+  ...TRANSPORT_ENV,
   GIT_TERMINAL_PROMPT: '0',
   GIT_CONFIG_PARAMETERS: "'core.quotepath=false'",
 };
@@ -83,7 +97,9 @@ export type GitExecOptions = {
   processCallback?: (proc: ChildProcess) => void;
 };
 
-const buildEnv = (opts: GitExecOptions): Record<string, string> => ({
+// `opts.env` is a deliberate override reserved for deltas (e.g. `{ GIT_EDITOR: 'true' }`).
+// Never spread `process.env` into it: that reinstates the ambient environment over the hardened maps.
+export const buildEnv = (opts: GitExecOptions): Record<string, string> => ({
   ...(opts.write ? WRITE_ENV : BASE_ENV),
   ...opts.env,
 });

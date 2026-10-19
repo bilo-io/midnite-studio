@@ -18,19 +18,31 @@ import { gitErrorLine } from './worktree-ops';
 
 export type CheckoutOptions = { target: string; detach?: boolean };
 
+export function buildCheckoutArgs(options: CheckoutOptions): string[] {
+  const args = ['checkout'];
+  if (options.detach) args.push('--detach');
+  args.push('--end-of-options', options.target);
+  return args;
+}
+
 export async function checkout(
   worktreePath: string,
   options: CheckoutOptions,
 ): Promise<GitOpResult> {
-  const args = ['checkout'];
-  if (options.detach) args.push('--detach');
-  args.push(options.target);
-
-  const res = await run(worktreePath, args);
+  const res = await run(worktreePath, buildCheckoutArgs(options));
   return res.exitCode === 0 ? ok() : failure(describeCheckoutFailure(res.stderr, options.target), res.stderr);
 }
 
 export type BranchCreateOptions = { name: string; startPoint: string; checkout?: boolean };
+
+export function buildBranchArgs(options: BranchCreateOptions): string[] {
+  // `checkout -b` rather than `branch` + `checkout`: one command, one lock, and
+  // no window where the branch exists but the tree hasn't moved.
+  return options.checkout
+    ? // `-b<name>` (attached) so the name is unambiguously the option's value.
+      ['checkout', `-b${options.name}`, '--end-of-options', options.startPoint]
+    : ['branch', '--end-of-options', options.name, options.startPoint];
+}
 
 export async function createBranch(
   worktreePath: string,
@@ -38,11 +50,7 @@ export async function createBranch(
 ): Promise<GitOpResult> {
   // `checkout -b` rather than `branch` + `checkout`: one command, one lock, and
   // no window where the branch exists but the tree hasn't moved.
-  const args = options.checkout
-    ? ['checkout', '-b', options.name, options.startPoint]
-    : ['branch', options.name, options.startPoint];
-
-  const res = await run(worktreePath, args);
+  const res = await run(worktreePath, buildBranchArgs(options));
   if (res.exitCode === 0) return ok();
 
   if (/already exists/i.test(res.stderr)) {
@@ -64,11 +72,15 @@ export type BranchDeleteOptions = { name: string; force?: boolean };
  * the user and losing them. The UI only sets `force` after showing how many
  * commits the deletion orphans (see `countOrphanedCommits`).
  */
+export function buildBranchDeleteArgs(options: BranchDeleteOptions): string[] {
+  return ['branch', options.force ? '-D' : '-d', '--end-of-options', options.name];
+}
+
 export async function deleteBranch(
   worktreePath: string,
   options: BranchDeleteOptions,
 ): Promise<GitOpResult> {
-  const res = await run(worktreePath, ['branch', options.force ? '-D' : '-d', options.name]);
+  const res = await run(worktreePath, buildBranchDeleteArgs(options));
   if (res.exitCode === 0) return ok();
 
   if (/not fully merged/i.test(res.stderr)) {
@@ -86,12 +98,16 @@ export async function deleteBranch(
   return failure(gitErrorLine(res.stderr) || 'Could not delete the branch.', res.stderr);
 }
 
+export function buildBranchRenameArgs(from: string, to: string): string[] {
+  return ['branch', '-m', '--end-of-options', from, to];
+}
+
 export async function renameBranch(
   worktreePath: string,
   from: string,
   to: string,
 ): Promise<GitOpResult> {
-  const res = await run(worktreePath, ['branch', '-m', from, to]);
+  const res = await run(worktreePath, buildBranchRenameArgs(from, to));
   if (res.exitCode === 0) return ok();
   if (/already exists/i.test(res.stderr)) {
     return failure(`A branch named "${to}" already exists.`, res.stderr);
@@ -101,6 +117,12 @@ export async function renameBranch(
 
 export type TagCreateOptions = { name: string; target: string; message?: string };
 
+export function buildTagArgs(options: TagCreateOptions): string[] {
+  return options.message
+    ? ['tag', '-a', '-F', '-', '--end-of-options', options.name, options.target]
+    : ['tag', '--end-of-options', options.name, options.target];
+}
+
 export async function createTag(
   worktreePath: string,
   options: TagCreateOptions,
@@ -108,9 +130,7 @@ export async function createTag(
   // With a message it's an annotated tag (its own object, signable, dated);
   // without one it's a lightweight ref. The message decides, so the UI doesn't
   // need a separate toggle.
-  const args = options.message
-    ? ['tag', '-a', '-F', '-', options.name, options.target]
-    : ['tag', options.name, options.target];
+  const args = buildTagArgs(options);
 
   const res = await writeQueue.run(worktreePath, () =>
     execGit(worktreePath, args, {
@@ -136,12 +156,16 @@ export type ResetMode = 'soft' | 'mixed' | 'hard';
  * gates it behind a confirmation showing both the orphaned-commit count and the
  * fact that uncommitted work will go.
  */
+export function buildResetArgs(target: string, mode: ResetMode): string[] {
+  return ['reset', `--${mode}`, '--end-of-options', target];
+}
+
 export async function reset(
   worktreePath: string,
   target: string,
   mode: ResetMode,
 ): Promise<GitOpResult> {
-  const res = await run(worktreePath, ['reset', `--${mode}`, target]);
+  const res = await run(worktreePath, buildResetArgs(target, mode));
   if (res.exitCode === 0) return ok();
   if (/unknown revision|ambiguous argument/i.test(res.stderr)) {
     return failure(`"${target}" is not a commit in this repository.`, res.stderr);

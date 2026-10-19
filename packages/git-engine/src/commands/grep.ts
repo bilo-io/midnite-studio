@@ -51,6 +51,7 @@ export function buildGrepArgs(options: GrepOptions): string[] {
   const pattern = options.pattern ?? options.query ?? '';
   args.push('-e', pattern);
 
+  args.push('--end-of-options');
   if (options.rev) args.push(options.rev);
   if (options.paths?.length) args.push('--', ...options.paths);
 

@@ -127,6 +127,7 @@ export async function readCommitFileDiff(
     '--first-parent',
     '-m',
     '--format=',
+    '--end-of-options',
     sha,
     ...pathspec(path, opts.oldPath),
   ]);
