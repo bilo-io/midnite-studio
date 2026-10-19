@@ -16,6 +16,16 @@
     "postinstall": "node scripts/fix-node-pty.cjs"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "dugite",
+      "electron",
+      "esbuild",
+      "node-pty",
+      "onnxruntime-node",
+      "sharp",
+      "sherpa-onnx-node"
+    ],
     "overrides": {
       "@types/react": "^19.0.0",
       "@types/react-dom": "^19.0.0"

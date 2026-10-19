@@ -54,6 +54,21 @@ tasks:
     options:
       cache: false
 
+  # audit (Phase 91 Theme I): `pnpm audit` for high/critical advisories, filtered
+  # through scripts/audit-suppressions.json whose entries expire. Needs the npm
+  # registry, not an install. No `inputs`, same as the other on-disk-state tasks.
+  audit:
+    command: 'node scripts/audit.mjs'
+    options:
+      cache: false
+
+  # electron-freshness (Phase 91 Theme I): warns, never fails, when the pinned Electron
+  # major is outside the supported three.
+  electron-freshness:
+    command: 'node scripts/electron-freshness.mjs'
+    options:
+      cache: false
+
   # affected-apps (Phase 113 Theme C): print the app ids a change reaches —
   # moon's affected projects (downstream deep) mapped through their `app-*`
   # moon tags. Defaults to origin/main...HEAD; pass `-- --base <rev>` to move
