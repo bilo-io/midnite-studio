@@ -15,7 +15,7 @@ const PHRASES = [
   'for your code.',
   'for your agents.',
   'for your media.',
-  'for your money.',
+  'for your ideas.',
   'for your machine.',
   'for all of it.',
 ] as const;
