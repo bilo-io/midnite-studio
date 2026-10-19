@@ -4,6 +4,7 @@ import { ExampleHello } from "./projects/example/000-hello/register";
 import { MidnitePilot } from "./projects/midnite/marketing/000-pilot/register";
 import { MidniteGolivePromo } from "./projects/midnite/marketing/001-golive-promo/register";
 import { TemplateMidniteGolivePromo } from "./templates/midnite/golive-promo/register";
+import { TemplateYoutubeTutorialsNeonHud } from "./templates/youtube-tutorials/neon-hud/register";
 
 /**
  * One editor app, many videos: each project under `src/projects/<project-id>/`
@@ -21,6 +22,7 @@ export const RemotionRoot: React.FC = () => {
       <MidnitePilot />
       <MidniteGolivePromo />
       <TemplateMidniteGolivePromo />
+      <TemplateYoutubeTutorialsNeonHud />
     </>
   );
 };

@@ -30,3 +30,4 @@ node scripts/render.mjs templates/midnite/golive-promo check --still 440
 | Template | Made from | What it shows |
 |---|---|---|
 | [`midnite/golive-promo`](midnite/golive-promo/README.md) | `projects/midnite/marketing/001-golive-promo` | Dark/light stages turned over by liquid wipes, claims struck in on the beat, a statement across a change of stage, the breath and the drop, colour cards, and the outro lockup |
+| [`youtube-tutorials/neon-hud`](youtube-tutorials/neon-hud/README.md) | reference video (youtu.be/D8P_lcyYrsw), grammar only | Neon-HUD kinetic headlines (white setup, scrambled payoff word) over glowing diagrams, faded through black every eight beats at 123 BPM, with chapter cards and a badge outro |
