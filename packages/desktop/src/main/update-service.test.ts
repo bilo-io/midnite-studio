@@ -2,7 +2,12 @@ import { EventEmitter } from 'node:events';
 
 import { describe, expect, it, vi } from 'vitest';
 
-const fakeIpc = await vi.hoisted(async () => new (await import('node:events')).EventEmitter());
+const { fakeIpc } = vi.hoisted(() => {
+  // `vi.hoisted` runs before imports, so the emitter is built from the CJS builtin.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { EventEmitter: Emitter } = require('node:events') as typeof import('node:events');
+  return { fakeIpc: new Emitter() };
+});
 
 vi.mock('electron', () => ({
   app: { isPackaged: false, getVersion: () => '0.0.0' },

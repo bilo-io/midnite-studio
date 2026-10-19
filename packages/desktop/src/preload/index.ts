@@ -108,6 +108,7 @@ const windowChrome: WindowChromeBridge = {
 const bridge: Pick<
   MidniteStudioBridge,
   | 'homeDir'
+  | 'lock'
   | 'hostname'
   | 'appVersion'
   | 'repos'
