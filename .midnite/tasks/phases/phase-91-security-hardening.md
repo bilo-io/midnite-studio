@@ -68,9 +68,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 **Theme F — Teardown, listeners, and the leak test that proves them.** ✅ The updater's four channels are cleared before registration (the branches were already mutually exclusive and called once, so this is a structural guard, tested by registering twice); `browser-service.leak.test.ts` opens 20 tabs, closes them and asserts every per-tab collection is empty through a single exported `trackedStateSizes()` list (verified to fail when a `delete` in `closeBrowserTab` is removed); `ipcMain.setMaxListeners(100)` is set with a comment that the limit is per event name, so it is a deliberate signal rather than a measured count; `window-visibility-gate.test.ts` drives the real gate for every hidden shape. Not done: the `idle-cpu.mjs --blurred` number needs a packaged build and was not captured in this unattended run.
 
-**Theme G — Redaction that covers the secrets we actually hold, and a lint that stops new ones.** ◻ redaction on the console arm, nine missing secret patterns, a recursive `redactRecord`, `agentApiKeys` into the vault, 0600 vault files, and a lint that fails on the next plaintext credential
+**Theme G — Redaction that covers the secrets we actually hold, and a lint that stops new ones.** ✅ (PR pending) `log.ts`'s `emit` redacts once and feeds both the console and the sink. `SECRET_PATTERNS` is now exported and gains PEM blocks, GitLab OAuth (`gloas-`; `glpat-` already existed), AWS, Google, Stripe, npm, Slack `xapp-` and the `key=value` query/env form, each with a sample in `redact-samples.ts` (assembled from parts so no literal trips a scanner); `redact.test.ts` fails when a pattern has no sample and `report-handlers.test.ts` asserts no sample survives `formatBundle`. `redactRecord` recurses (plain objects and arrays, depth 8). **`agentApiKeys` was already done** in Phase 113 Theme J (`migrate-agent-api-keys.ts` moves keys into the vault under `agent.<id>.apiKey`); the persisted field survives only as an empty legacy drain and sits in the lint's register. Vault: the runtime's `secure-store.ts` already chmod'd 0600 after write and now creates the file at 0600; the STT vault gets the same; `db-credentials` now degrades to session-only like STT and forge instead of silently dropping the password. `persisted-secrets.test.ts` globs every `partialize` across `app`, `frame` and `features/*/renderer`, and fails on a credential-shaped key outside `ALLOWED_WITH_REASON`; on first run it caught the lock-screen `passcode` stored in plaintext (register entry, removed when Theme D lands) and found `twelveDataApiKey` already migrated. Left open: the manual `strings` leveldb acceptance check.
 
-**Theme H — The install path, the update feed, and the signature story.** ◻ the install path: a published SHA256SUMS, a digest in `version.json`, `codesign`/`spctl` before the quarantine strip, Electron fuses, `allowDowngrade` off, `execFileSync`
+**Theme H — The install path, the update feed, and the signature story.** ✅ (PR pending) `release.yml` writes and uploads `SHA256SUMS`. `install.sh`, `install-studio.sh` and the launcher's in-app `installStudio` verify the zip's SHA-256 before extracting (catalog `sha256`, then a `sha256` in `version.json`; no digest warns and continues so published versions stay installable), run `codesign --verify --deep --strict` and `spctl --assess` before the swap, and gate the quarantine strip on both; an ad-hoc build needs `MIDNITE_*_ALLOW_UNSIGNED=1`, which makes the shipping default build opt-in until signing exists. The notarisation contradiction is resolved as documentation: `afterSign: notarize.cjs` is the live path and `notarize: false` is deliberate (`docs/RELEASING.md`). `afterpack.cjs` flips fuses via `@electron/fuses` before signing (`RunAsNode` stays on for the broker), `allow-dyld-environment-variables` is gone from both plists, beta `allowDowngrade` is `false`, the four updater channels resolve their sending window, and `isAdHocSigned` uses no shell. **Paired edits outside this repo:** midnite-apps' `release-feed.yml` must write `sha256` into `version.json`, and its `midnite-studio/install.sh` must match `install-studio.sh` here until then `website:sync-install` will report drift post-merge. **Unverified without a packaged build:** the fuses (asar integrity) and entitlement removal need a launch + terminal + DB-query smoke. Left open: the website re-sync item and the live `curl | sh` acceptance run.
 
 **Theme I — CI gates so none of this regresses.** ◻ CI gates: a top-level `permissions:` block, a `root:audit` task with expiring suppressions, a `gate-audit` job, Renovate's OSV fast lane, `onlyBuiltDependencies`, SHA-pinned release actions, an Electron-freshness warning
 
@@ -430,13 +430,13 @@ a diagnostics bundle designed to be pasted into the **public** `bilo-io/midnite-
 the pattern list has real holes. Separately, the scan named `finance-store.ts` as *the* plaintext
 credential; it is the smallest of three.
 
-- [ ] **Redact the console arm.** [`log.ts:72-86`](../../../packages/desktop/src/main/log.ts)'s
+- [x] **Redact the console arm.** [`log.ts:72-86`](../../../packages/desktop/src/main/log.ts)'s
       `emit()` writes the raw `message` to `console.error`/`console.warn` at `:74-76` and only then
       hands it to `sink?.write` at `:82`, where `log-sink.ts:226`'s `redactPaths` runs. Move the
       redaction up: compute `const safe = redactPaths(message, homeDir)` once in `emit` and use it
       for both arms. The sink keeps its own call (it is also reached directly); the double pass is
       idempotent.
-- [ ] **Add the missing patterns** to `SECRET_PATTERNS` in [`redact.ts:36-49`](../../../packages/shared/src/redact.ts).
+- [x] **Add the missing patterns** to `SECRET_PATTERNS` in [`redact.ts:36-49`](../../../packages/shared/src/redact.ts).
       Each is one regex; the list is exhaustive for what this app can plausibly hold:
       GitLab `/\bglpat-[A-Za-z0-9_-]{20,}/g` and `/\bgloas-[A-Za-z0-9_-]{20,}/g`;
       AWS `/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g`;
@@ -449,11 +449,11 @@ credential; it is the smallest of three.
       which `:46`'s `(?:Bearer|Basic|token)\s+…` misses because it requires whitespace. Every new
       pattern gets a positive **and** a negative case in `redact.test.ts`; the negative case for
       the `=` form must include a 40-hex commit SHA in a `?rev=` URL, which must survive.
-- [ ] **Make `redactRecord` recurse.** [`redact.ts:141`](../../../packages/shared/src/redact.ts) is
+- [x] **Make `redactRecord` recurse.** [`redact.ts:141`](../../../packages/shared/src/redact.ts) is
       one level deep and its own docstring admits it; a nested object's string leaves pass through
       untouched. Recurse with a depth cap of 8 and an array arm, and add a test with a
       three-level-deep secret.
-- [ ] **`agentApiKeys` leaves `localStorage`.** [`ui-store.ts:2682`](../../../packages/app/src/store/ui-store.ts)
+- [x] **`agentApiKeys` leaves `localStorage`.** [`ui-store.ts:2682`](../../../packages/app/src/store/ui-store.ts)
       persists `agentApiKeys` — a `Record<string,string>` (declared `:1350`, written `:1977`)
       holding `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`,
       `CURSOR_API_KEY`, `KILO_API_KEY` and `GITHUB_TOKEN`-shaped values, in plaintext under
@@ -465,7 +465,7 @@ credential; it is the smallest of three.
       returning `Record<provider, boolean>` — mirroring `companion/stt/credentials.ts:135`'s
       `configured()`, which answers "is a key stored" without decrypting. Remove it from
       `partialize` and add the one-shot migration through `persist-rename.ts`.
-- [ ] **Vault files get a mode, and one degrade behaviour.** [`db/credential-vault.ts:86`](../../../packages/desktop/src/main/db/credential-vault.ts)
+- [x] **Vault files get a mode, and one degrade behaviour.** [`db/credential-vault.ts:86`](../../../packages/desktop/src/main/db/credential-vault.ts)
       and [`companion/stt/credentials.ts:80`](../../../packages/desktop/src/main/companion/stt/credentials.ts)
       both `writeFile(file, …, 'utf8')` with **no `mode`** → 0644, while `broker/server.ts:433` and
       `mcp/server.ts:198` both use `0o600`. Add `{ mode: 0o600 }` to both writes. They also degrade
@@ -475,14 +475,14 @@ credential; it is the smallest of three.
       (degrade loudly, session-only) in both. **Coordination:** [Phase 90](phase-90-multi-forge-integration.md)
       and Phase 76 Theme D both extract this into one module; whichever lands first owns the file
       and this theme amends it rather than forking a third.
-- [ ] **A lint that fails on the next one.** New `packages/app/src/store/persisted-secrets.test.ts`:
+- [x] **A lint that fails on the next one.** New `packages/app/src/store/persisted-secrets.test.ts`:
       parse every `persist(` config under `packages/app/src` (the 12 stores are enumerable — see
       `store/persisted-keys.ts`), collect every key named in a `partialize`, and fail on any
       matching `/key|token|secret|password|passcode|credential|apikey/i` unless it is in an
       explicit `ALLOWED_WITH_REASON` map in the test file. Seed that map with `finance-store.ts`'s
       `twelveDataApiKey` and the reason "Phase 76 Theme D owns the migration" — so the allowlist is
       a visible debt register, and removing the last entry is the goal state.
-- [ ] **Test the diagnostics bundle end to end.** `ipc/report-handlers.ts:86` is the one path whose
+- [x] **Test the diagnostics bundle end to end.** `ipc/report-handlers.ts:86` is the one path whose
       output a user pastes in public. Add a `report-handlers.test.ts` case that seeds a log with one
       instance of **every** pattern in `SECRET_PATTERNS` and asserts none survives `formatBundle` —
       iterate the exported pattern list so a pattern added without a bundle test fails.
@@ -497,26 +497,26 @@ Scan findings **8**, **11**, **12**, **16** and **17**, plus the release-pipelin
 one theme whose failure mode is *everyone's* machine at once: `install.sh` is the documented
 `curl … | sh` install, and it has no integrity check of any kind.
 
-- [ ] **Publish a checksum.** [`release.yml`](../../../.github/workflows/release.yml) generates no
+- [x] **Publish a checksum.** [`release.yml`](../../../.github/workflows/release.yml) generates no
       `sha256` anywhere (grepped `sha256`/`shasum`/`checksum`/`attest`/`provenance` across all three
       workflows: zero hits). In the `release` job, after artifacts are downloaded and before the
       `softprops/action-gh-release@v2` step at `:225`, run
       `shasum -a 256 artifacts/**/*.dmg artifacts/**/*.zip > SHA256SUMS` and add `SHA256SUMS` to
       the `files:` list at `:234-238`.
-- [ ] **Put the zip's digest in `version.json`** so the installer can reach it without a second
+- [x] **Put the zip's digest in `version.json`** so the installer can reach it without a second
       round trip. `version.json` is written by `bilo-io/midnite-apps`'s own `release-feed.yml`
       (`release.yml:246-248`); this phase adds a `sha256` field to the shape and a matching change
       in [`/midnite-release-complete`](../../../.claude/skills/midnite-release-complete/SKILL.md)
       §4's checklist. Record in the PR body that the sibling repo's workflow needs the paired edit —
       it is outside this repo and cannot be landed here.
-- [ ] **Verify it in `install.sh`.** [`packages/website/public/install.sh`](../../../packages/website/public/install.sh)
+- [x] **Verify it in `install.sh`.** [`packages/website/public/install.sh`](../../../packages/website/public/install.sh)
       downloads at `:87` (`curl -fL`) and its only check is `verify_bundle` (`:43-54`), which
       confirms `Info.plist` exists, the exe bit is set, and the Electron Framework exceeds 100 MB —
       a truncation check, not an integrity check. After the download, parse `sha256` out of the
       already-fetched `$feed` with the same `sed` idiom used for `version` (`:67`), compute
       `shasum -a 256`, and `fail` on mismatch. When the feed carries no `sha256` (an older release),
       warn and continue — not fail, or the installer breaks for every already-published version.
-- [ ] **Assess the signature before installing, not never.** Add, after extraction and before the
+- [x] **Assess the signature before installing, not never.** Add, after extraction and before the
       swap: `codesign --verify --deep --strict "$tmp/extracted/$APP"` and
       `spctl --assess --type execute "$tmp/extracted/$APP"`. Gate the existing
       `xattr -dr com.apple.quarantine` (`:141`) on both having passed — today it runs
@@ -524,7 +524,7 @@ one theme whose failure mode is *everyone's* machine at once: `install.sh` is th
       signed (the current default, see the next item), `spctl` will refuse: print the refusal and
       require `MIDNITE_STUDIO_ALLOW_UNSIGNED=1` to continue, so the insecure path is opt-in and
       visible rather than silent.
-- [ ] **Resolve the notarisation contradiction.** [`electron-builder.yml:140-148`](../../../packages/desktop/electron-builder.yml)
+- [x] **Resolve the notarisation contradiction.** [`electron-builder.yml:140-148`](../../../packages/desktop/electron-builder.yml)
       has `hardenedRuntime: true` and `gatekeeperAssess: false` and **`notarize: false`**, while
       `afterSign: scripts/notarize.cjs` (`:160`) is wired, and `release.yml:94` only configures
       signing when `CSC_LINK` is present — otherwise `afterpack.cjs` ad-hoc signs. Determine which
@@ -532,14 +532,14 @@ one theme whose failure mode is *everyone's* machine at once: `install.sh` is th
       [`docs/RELEASING.md`](../../../docs/RELEASING.md). An ad-hoc-signed, un-notarised build with
       `hardenedRuntime: true` buys nothing from Gatekeeper, and the previous item's `spctl` gate
       makes that visible rather than theoretical.
-- [ ] **Turn on the Electron fuses that apply.** No `@electron/fuses` usage exists anywhere. Add it
+- [x] **Turn on the Electron fuses that apply.** No `@electron/fuses` usage exists anywhere. Add it
       to the `afterPack` hook ([`scripts/afterpack.cjs`](../../../packages/desktop/scripts/afterpack.cjs))
       with `EnableEmbeddedAsarIntegrityValidation: true`, `OnlyLoadAppFromAsar: true`,
       `EnableNodeOptionsEnvironmentVariable: false`, `EnableNodeCliInspectArguments: false`.
       **`RunAsNode` must stay enabled** — `electron-builder.yml:64-66` records that `broker.js` is
       launched via `ELECTRON_RUN_AS_NODE`, so disabling that fuse breaks the terminal broker.
       Write that constraint as a comment beside the fuse config, not just in this doc.
-- [ ] **Drop the entitlement nothing uses.** [`entitlements.mac.plist`](../../../packages/desktop/resources/entitlements.mac.plist)
+- [x] **Drop the entitlement nothing uses.** [`entitlements.mac.plist`](../../../packages/desktop/resources/entitlements.mac.plist)
       and `entitlements.mac.inherit.plist` both declare
       `com.apple.security.cs.allow-dyld-environment-variables`, which is what makes
       `DYLD_INSERT_LIBRARIES` work against the signed bundle. Nothing in this repo sets a `DYLD_*`
@@ -547,18 +547,18 @@ one theme whose failure mode is *everyone's* machine at once: `install.sh` is th
       the terminal spawns, and a DB query runs. Keep `disable-library-validation` — the unpacked
       native trees (`onnxruntime-node`, `sherpa-onnx`, `sharp`) genuinely need it; record that in a
       plist comment so the next audit does not re-raise it.
-- [ ] **`allowDowngrade` stops being on.** [`feed-channel.ts:18-20`](../../../packages/desktop/src/updates/feed-channel.ts)
+- [x] **`allowDowngrade` stops being on.** [`feed-channel.ts:18-20`](../../../packages/desktop/src/updates/feed-channel.ts)
       returns `allowDowngrade: true` for `beta` (stable is correctly `false` at `:21`), applied at
       `update-service.ts:52` and `:103`. With it on, whoever can write `midnite-studio/feed/` on the
       public sibling repo can pin every beta user back to a known-vulnerable release. Set it
       `false` and add a test in `feed-channel.test.ts` asserting both channels.
-- [ ] **Sender-check the four updater channels.** `update-service.ts:79-104` registers
+- [x] **Sender-check the four updater channels.** `update-service.ts:79-104` registers
       `updateCheck`, `updateDownload`, `updateRestart` and `updateSetChannel` as raw `ipcMain.on`
       listeners that never resolve `event.sender`, unlike `browser-handlers.ts`'s
       `isFromOwningWindow`. Migrate all four onto `handleSend` with an `isFromOwningWindow` check.
       **Seam with Phase 76 Theme E**, which sweeps these same four onto `handleSend` for schema
       validation — if 76 E has landed, this item is only the sender check.
-- [ ] **`isAdHocSigned` stops using a shell.** [`update-service.ts:20`](../../../packages/desktop/src/main/update-service.ts)
+- [x] **`isAdHocSigned` stops using a shell.** [`update-service.ts:20`](../../../packages/desktop/src/main/update-service.ts)
       is `` execSync(`codesign -dv --verbose=2 "${app.getPath('exe')}" 2>&1`) `` — double quotes do
       not neutralise `$(…)` or backticks, so a bundle at a path containing them executes the
       substitution at every launch. Rewrite with `execFileSync('codesign', ['-dv', '--verbose=2',
