@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [115 · Privacy: data leaving the Mac and data at rest](phases/phase-115-privacy-egress-and-at-rest.md) | ◻ TODO | — | 0/46 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
 | [114 · App-wide settings by voice](phases/phase-114-app-wide-settings-by-voice.md) | ◻ TODO | — | 0/34 | `░░░░░░░░░░` | 0% | — | A B C D E F |
 | [113 · Midnite Apps suite split](phases/phase-113-midnite-apps-suite-split.md) | 🔄 WIP | — | 74/78 | `█████████░` | 95% | H | — |
 | [112 · Companion deep navigation: open any resource](phases/phase-112-companion-deep-navigation.md) | 🔄 WIP | — | 39/48 | `████████░░` | 81% | — | — |
