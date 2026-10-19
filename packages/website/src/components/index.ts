@@ -40,6 +40,7 @@ export type {
   TypedPassOptions,
   TypeInProps,
   TypewriterCaretProps,
+  TypewriterPhrase,
   TypewriterProps,
 } from './typewriter';
 export { Wordmark } from './wordmark';

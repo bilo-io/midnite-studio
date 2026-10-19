@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { useInView } from '../hooks/use-in-view';
 import { useReducedMotion } from '../hooks/use-reduced-motion';
@@ -191,9 +191,29 @@ export const TypewriterCaret = ({ className = '' }: TypewriterCaretProps) => (
   </span>
 );
 
+/**
+ * One phrase: plain text, or text with something that lands after it.
+ *
+ * `after` is not typed, it arrives: it appears once the last character is in
+ * and leaves as deletion starts, so a mark can punctuate a phrase (the hero's
+ * rocket after "shoot for the moon") without being spelled out one glyph at a
+ * time. It is decorative, so it stays out of the screen-reader copy.
+ */
+export type TypewriterPhrase = string | { text: string; after: ReactNode };
+
+const phraseText = (phrase: TypewriterPhrase | undefined): string =>
+  phrase === undefined ? '' : typeof phrase === 'string' ? phrase : phrase.text;
+
+const phraseAfter = (phrase: TypewriterPhrase | undefined): ReactNode =>
+  phrase === undefined || typeof phrase === 'string' ? null : phrase.after;
+
+/** A phrase with something after it reserves two characters more for it. */
+const phraseWidth = (phrase: TypewriterPhrase): number =>
+  phraseText(phrase).length + (typeof phrase === 'string' ? 0 : 2);
+
 export type TypewriterProps = {
   /** The phrases, in order. The first is what reduced motion shows, statically. */
-  phrases: readonly string[];
+  phrases: readonly TypewriterPhrase[];
   className?: string;
 };
 
@@ -228,8 +248,13 @@ export const Typewriter = ({ phrases, className = '' }: TypewriterProps) => {
   const [length, setLength] = useState(0);
   const [mode, setMode] = useState<Mode>('typing');
 
-  const longest = phrases.reduce((a, b) => (b.length > a.length ? b : a), '');
-  const current = phrases[index % Math.max(phrases.length, 1)] ?? '';
+  const longest = phrases.reduce<TypewriterPhrase>(
+    (a, b) => (phraseWidth(b) > phraseWidth(a) ? b : a),
+    '',
+  );
+  const phrase = phrases[index % Math.max(phrases.length, 1)];
+  const current = phraseText(phrase);
+  const after = phraseAfter(phrase);
 
   useEffect(() => {
     if (reduced || phrases.length === 0) return;
@@ -266,20 +291,22 @@ export const Typewriter = ({ phrases, className = '' }: TypewriterProps) => {
   }, [reduced, phrases, current, length, mode]);
 
   if (reduced) {
-    return <span className={className}>{phrases[0] ?? ''}</span>;
+    return <span className={className}>{phraseText(phrases[0])}</span>;
   }
 
   return (
     <span className={`relative inline-block ${className}`}>
       {/* Reserves the box for the longest phrase — see the docblock. */}
       <span aria-hidden="true" className="invisible whitespace-pre">
-        {longest}
+        {phraseText(longest)}
+        {phraseAfter(longest)}
       </span>
       <span className="absolute inset-0 whitespace-pre" aria-hidden="true">
         <span data-testid="typewriter-text">{current.slice(0, length)}</span>
+        {after !== null && mode === 'holding' ? after : null}
         <TypewriterCaret />
       </span>
-      <span className="sr-only">{phrases.join(' ')}</span>
+      <span className="sr-only">{phrases.map(phraseText).join(' ')}</span>
     </span>
   );
 };
