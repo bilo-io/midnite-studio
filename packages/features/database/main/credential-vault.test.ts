@@ -60,11 +60,13 @@ describe('createCredentialVault', () => {
     expect(raw).not.toContain('hunter2');
   });
 
-  it('degrades to refusing a save when encryption is unavailable, without throwing', async () => {
+  it('degrades to a session-only password when encryption is unavailable, without throwing (Phase 91 Theme G)', async () => {
     isEncryptionAvailable.mockReturnValue(false);
     const vault = createCredentialVault(vaultIn(dir));
     await expect(vault.set(postgres, 'hunter2')).resolves.toBeUndefined();
-    expect(await vault.get('c1')).toBeNull();
+    expect(await vault.get('c1')).toBe('hunter2');
+    // Never written to disk in the clear: a second vault over the same file sees nothing.
+    expect(await createCredentialVault(vaultIn(dir)).get('c1')).toBeNull();
   });
 
   it('deletes a stored password', async () => {
