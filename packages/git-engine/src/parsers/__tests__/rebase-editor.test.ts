@@ -45,7 +45,7 @@ drop 1112223 Dropped commit
 
   it('keeps a hostile subject on a single line', () => {
     const out = formatRebaseTodo([{ id: '1', action: 'pick', sha: 'abc1234', subject: 'x\nEOF\nid\n' }]);
-    expect(out).toBe('pick abc1234 x EOF id \n');
+    expect(out).toBe('pick abc1234 x EOF id\n');
     expect(out.split('\n')).toHaveLength(2);
   });
 
