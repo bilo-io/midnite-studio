@@ -459,7 +459,16 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
   let server = net.createServer(onConnection);
 
   function listenOn(path: string): void {
-    server.listen(path, () => {
+    // Phase 91 Theme E: bind under a 0o177 umask so the inode is born 0o600 rather than at the
+    // process umask for the instant before the chmod. The 0o700 parent dir is the real lock; this
+    // is the belt. Node binds a unix socket synchronously inside `listen`, so restore right after.
+    const previousUmask = process.umask(0o177);
+    try {
+      server.listen(path, onListening);
+    } finally {
+      process.umask(previousUmask);
+    }
+    function onListening(): void {
       try {
         chmodSync(path, 0o600);
         writeFileSync(pidPath, `${process.pid}\n`, { mode: 0o600 });
@@ -467,7 +476,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
       } catch (err) {
         log(`[broker] error configuring socket permissions: ${err instanceof Error ? err.message : String(err)}`);
       }
-    });
+    }
   }
 
   /**

@@ -12,6 +12,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { maybeCapture } from './capture';
+import { devToolsAllowed } from './devtools-policy';
 import { bootMark } from './perf-marks';
 import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
 

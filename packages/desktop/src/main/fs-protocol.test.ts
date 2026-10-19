@@ -19,6 +19,7 @@ import {
 // The module reaches for `electron` at import time; nothing under test here
 // touches it, so a stub keeps this a plain unit test.
 vi.mock('electron', () => ({
+  app: { isPackaged: false },
   net: {},
   protocol: { handle: vi.fn(), registerSchemesAsPrivileged: vi.fn() },
   session: { fromPartition: vi.fn(() => ({ protocol: { handle: vi.fn() } })) },
@@ -115,6 +116,15 @@ describe('resolveRequestPath — markdown images (?as=image)', () => {
     await expect(resolveRequestPath(mstudioImageUrl('repo', 'r1', 'docs/screenshots/a.png'))).resolves.toBe(
       join(repo, 'docs', 'screenshots', 'a.png'),
     );
+  });
+
+  it('refuses a request whose referrer is a foreign web origin (Phase 91 Theme E)', async () => {
+    const url = mstudioImageUrl('repo', 'r1', 'docs/screenshots/a.png');
+    await expect(resolveRequestPath(url, 'https://evil.example/page')).resolves.toBeNull();
+    // the app's own pages: stripped, file:, about:client
+    await expect(resolveRequestPath(url, '')).resolves.not.toBeNull();
+    await expect(resolveRequestPath(url, 'file:///App/index.html')).resolves.not.toBeNull();
+    await expect(resolveRequestPath(url, 'about:client')).resolves.not.toBeNull();
   });
 
   it('serves an image at the repo root — the target of an absolute /logo.svg src', async () => {

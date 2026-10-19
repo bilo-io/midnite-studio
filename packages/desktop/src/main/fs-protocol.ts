@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 
-import { net, protocol } from 'electron';
+import { app, net, protocol } from 'electron';
 
 import { readBlob } from '@midnite/studio-git-engine';
 import {
@@ -88,6 +88,26 @@ const MIME_BY_EXT: Record<string, string> = {
   aac: 'audio/aac',
 };
 
+/**
+ * The second lock (Phase 91 Theme E): refuse a request whose referrer is a foreign web origin.
+ * The isolation otherwise rests only on `protocol.handle` binding to the default session. Only
+ * a parseable `http(s)` referrer that is not the app's own dev origin is refused: the packaged
+ * app's own pages report a `file:` referrer, `''` or `about:client` (all fine), and a missing
+ * referrer cannot be told from a stripped one, so it is not grounds to break local images.
+ */
+export function isForeignReferrer(referrer: string | undefined): boolean {
+  if (!referrer || referrer === 'about:client') return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(referrer);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  const dev = process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173';
+  return app.isPackaged || parsed.origin !== new URL(dev).origin;
+}
+
 /** After `whenReady`, before the window loads anything that renders media. */
 export function installMgitFileProtocol(): void {
   protocol.handle(MSTUDIO_FILE_SCHEME, async (request) => {
@@ -112,7 +132,7 @@ export function installMgitFileProtocol(): void {
       return new Response(new Uint8Array(read.bytes), { status: 200, headers });
     }
 
-    const target = await resolveRequestPath(request.url);
+    const target = await resolveRequestPath(request.url, request.referrer);
     if (!target) return new Response('not found', { status: 404 });
 
     const response = await net.fetch(pathToFileURL(target).toString(), {
@@ -190,7 +210,11 @@ export const SVG_DOCUMENT_CSP = "default-src 'none'; style-src 'unsafe-inline'; 
  * path it resolved to must be an image extension, so neither `![x](.env)` nor
  * an in-repo `logo.png → ../.env` symlink serves anything but an image.
  */
-export async function resolveRequestPath(rawUrl: string): Promise<string | null> {
+export async function resolveRequestPath(
+  rawUrl: string,
+  referrer?: string,
+): Promise<string | null> {
+  if (isForeignReferrer(referrer)) return null;
   const target = await resolveConfinedPath(rawUrl);
   if (target === null) return null;
   let imageOnly: boolean;

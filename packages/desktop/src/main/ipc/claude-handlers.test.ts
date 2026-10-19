@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({ BrowserWindow: class {}, shell: { showItemInFolder: vi.fn() } }));
+vi.mock('../fs-scope', () => ({ claudeHome: () => '/nonexistent-claude-home' }));
 vi.mock('../claude-cli', () => ({ getClaudeInfo: vi.fn(), runClaudeUpdate: vi.fn() }));
 vi.mock('./handle', () => ({ handle: vi.fn(), handleBare: vi.fn() }));
 

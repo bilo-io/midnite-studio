@@ -16,6 +16,7 @@ import {
 import { BrowserWindow, app, screen, type Display, type WebContents } from 'electron';
 
 import { reparentBrowserTabs, reparentWebAppView } from './browser-port';
+import { devToolsAllowed } from './devtools-policy';
 import type { Logger } from './log';
 import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
 import type { ReopenStore, WindowBounds, WindowsStore } from './windows-store';
