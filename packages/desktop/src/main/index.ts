@@ -155,6 +155,7 @@ import { ensureLoginShellPathAsync } from './shell-path';
 import { applyAppWebContentsPolicy } from './web-contents-policy';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
+import { registerLockHandlers } from './ipc/lock-handlers';
 import {
   beginShutdown,
   broadcastToAllWindows,
@@ -445,6 +446,7 @@ export const startStudioMain: StartStudioMain = () => {
         devServerOrigin,
       });
       registerWindowChrome();
+      registerLockHandlers(app.getPath('userData'), (message) => defaultLogger.warn(message));
       registerRepoHandlers(getMainWindow);
       registerSearchHandlers();
       registerStatusHandlers();

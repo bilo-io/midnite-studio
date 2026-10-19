@@ -1180,6 +1180,18 @@ export const CHANNELS = {
    */
   windowReload: 'mstudio:window:reload',
   /**
+   * Phase 91 Theme D — the lock screen's authority lives in main, not in renderer state a reload
+   * rehydrates to `false`. Renderer → main: the screen is now locked / unlocked (`boolean`).
+   * While locked, `windowReload` is refused.
+   */
+  lockSet: 'mstudio:lock:set',
+  /** Renderer → main (invoke): `{ locked, hasPasscode }`, read on mount to hydrate the overlay. */
+  lockGet: 'mstudio:lock:get',
+  /** Renderer → main (invoke): set (`string`) or clear (`null`) the passcode. Main hashes it with scrypt. */
+  lockSetPasscode: 'mstudio:lock:set-passcode',
+  /** Renderer → main (invoke): a candidate passcode in, a boolean out. The expected code never leaves main. */
+  lockVerify: 'mstudio:lock:verify',
+  /**
    * Renderer → main: zoom the HOST window's own renderer (not a browser
    * tab's `WebContentsView` — see `browserZoom` above). Exists because
    * `packages/app` may not import `electron` and so has no legal way to
