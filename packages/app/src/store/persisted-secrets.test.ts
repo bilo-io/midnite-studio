@@ -19,7 +19,7 @@ const SECRETISH = /key|token|secret|password|passcode|credential|apikey/i;
 const ALLOWED_WITH_REASON: Record<string, string> = {
   // Real debt.
   'ui-store.ts:passcode':
-    'lock-screen passcode in localStorage; Phase 91 Theme D (#918) moves it to a 0600 main-process file, and this entry goes when that lands',
+    'legacy lock-screen passcode field, always null since Phase 91 Theme D: the scrypt hash lives in main (lock-passcode.json, 0600); delete with the field',
   'ui-store.ts:agentApiKeys':
     'legacy plaintext LLM keys awaiting migration into the vault (Phase 113 Theme J, migrate-agent-api-keys.ts); drains to {}',
   // False positives: the name matches, the value is a preference, not a credential.
