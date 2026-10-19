@@ -92,14 +92,16 @@ describe('Diagnostics ▸ crash reporting', () => {
     composer's own fallback when `gh` is not ready (mocked `not-installed`
     above), which is what this test now exercises end to end.
   */
-  it('opens the composer, whose fallback opens the pre-labelled new-issue URL externally', async () => {
+  it("opens the composer, whose fallback opens midnite-apps' prefilled issue form externally", async () => {
     render(<MonitorPage />);
 
     fireEvent.click(screen.getByText('Report a bug'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Open in browser instead' }));
+    const proceed = await screen.findByRole('button', { name: 'Continue on GitHub' });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It broke.' } });
+    fireEvent.click(proceed);
 
     expect(mocks.openExternal).toHaveBeenCalledWith(
-      expect.stringContaining('midnite-apps/issues/new'),
+      expect.stringContaining('midnite-apps/issues/new?template=bug.yml'),
     );
   });
 

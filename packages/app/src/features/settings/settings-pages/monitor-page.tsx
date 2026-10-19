@@ -265,8 +265,8 @@ function CrashReporting() {
           type="button"
           disabled={!hasBridge}
           // Phase 93 Theme C: opens the in-app composer rather than
-          // `openExternal(NEW_ISSUE_URL)` directly — that call still exists,
-          // as the dialog's own fallback when `gh` is missing or signed out.
+          // opening GitHub directly — the dialog's own fallback, when `gh` is
+          // missing or signed out, opens midnite-apps' issue form prefilled.
           onClick={() => setReportOpen(true)}
           className="rounded border border-border px-2 py-1 transition-colors hover:bg-accent disabled:opacity-50"
         >

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractChangelogSection, releasePageUrl } from './release';
+import {
+  APP_ISSUE_URL_MAX,
+  appIssueFormUrl,
+  extractChangelogSection,
+  NEW_ISSUE_URL,
+  releasePageUrl,
+} from './release';
 
 const CHANGELOG = `# Changelog — Midnite Studio
 
@@ -74,5 +80,61 @@ describe('releasePageUrl', () => {
     expect(releasePageUrl('0.3.1')).toBe(
       'https://github.com/bilo-io/midnite-apps/releases/tag/midnite-studio/v0.3.1',
     );
+  });
+});
+
+describe('appIssueFormUrl', () => {
+  const params = (url: string) => new URL(url).searchParams;
+  const base = {
+    title: '[bug] Graph is blank',
+    description: 'It broke & stayed broken.',
+    diagnostics: 'INFO boot',
+  };
+
+  it('opens the bug form on midnite-apps with each field by its form id', () => {
+    const url = appIssueFormUrl({ ...base, kind: 'bug', version: '0.0.2' });
+    expect(url.startsWith('https://github.com/bilo-io/midnite-apps/issues/new?')).toBe(true);
+    const query = params(url);
+    expect(query.get('template')).toBe('bug.yml');
+    expect(query.get('title')).toBe('[bug] Graph is blank');
+    expect(query.get('app')).toBe('midnite-studio');
+    expect(query.get('version')).toBe('0.0.2');
+    expect(query.get('what')).toBe('It broke & stayed broken.');
+    expect(query.get('logs')).toBe('INFO boot');
+    expect(query.has('body')).toBe(false);
+  });
+
+  it('opens the feature form, which has no logs or version field', () => {
+    const query = params(appIssueFormUrl({ ...base, kind: 'feature', version: '0.0.2' }));
+    expect(query.get('template')).toBe('feature.yml');
+    expect(query.get('problem')).toBe('It broke & stayed broken.');
+    expect(query.has('logs')).toBe(false);
+    expect(query.has('version')).toBe(false);
+  });
+
+  it('leaves the version empty for an unversioned build', () => {
+    expect(params(appIssueFormUrl({ ...base, kind: 'bug', version: '0.0.0' })).has('version')).toBe(
+      false,
+    );
+  });
+
+  it('stays under the URL ceiling by dropping the oldest log lines first', () => {
+    const lines = Array.from({ length: 2000 }, (_, i) => `line ${i}`).join('\n');
+    const url = appIssueFormUrl({ ...base, kind: 'bug', diagnostics: lines });
+    expect(url.length).toBeLessThanOrEqual(APP_ISSUE_URL_MAX);
+    const logs = params(url).get('logs')!;
+    expect(logs.startsWith('… (older lines trimmed)\n')).toBe(true);
+    expect(logs.endsWith('line 1999')).toBe(true);
+    expect(params(url).get('what')).toBe(base.description);
+  });
+
+  it('cuts the description only once the logs are gone', () => {
+    const url = appIssueFormUrl({ ...base, kind: 'feature', description: 'é'.repeat(5000) });
+    expect(url.length).toBeLessThanOrEqual(APP_ISSUE_URL_MAX);
+    expect(params(url).get('problem')!.length).toBeGreaterThan(0);
+  });
+
+  it('points the chooser constant at the chooser, not a blank issue', () => {
+    expect(NEW_ISSUE_URL).toBe('https://github.com/bilo-io/midnite-apps/issues/new/choose');
   });
 });
