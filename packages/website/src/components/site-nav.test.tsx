@@ -25,8 +25,11 @@ const withSections = (nav: React.ReactNode) => (
   </>
 );
 
-const sectionLinks = () =>
+const navLinks = () =>
   Array.from(screen.getByRole('navigation', { name: 'Sections' }).querySelectorAll('a'));
+
+/** The section anchors, without the page links (`Apps`) that sit before them. */
+const sectionLinks = () => navLinks().filter((link) => link.getAttribute('href')?.includes('#'));
 
 const currentLinks = () =>
   sectionLinks().filter((link) => link.getAttribute('aria-current') === 'location');
@@ -49,6 +52,17 @@ describe('SiteNav', () => {
     );
   });
 
+  it('links the Apps page first, and marks it current only on that page', () => {
+    const { unmount } = render(<SiteNav />);
+    expect(navLinks()[0]?.textContent).toBe('Apps');
+    expect(navLinks()[0]?.getAttribute('href')).toBe('/apps/');
+    expect(navLinks()[0]?.getAttribute('aria-current')).toBeNull();
+    unmount();
+
+    render(<SiteNav offLanding current="apps" />);
+    expect(screen.getByRole('link', { name: 'Apps' }).getAttribute('aria-current')).toBe('page');
+  });
+
   it('offers Get Access, and links it to the early access section', () => {
     render(<SiteNav />);
     const link = screen.getByRole('link', { name: 'Get Access' });
@@ -69,12 +83,12 @@ describe('SiteNav', () => {
   it('marks exactly one link current, and follows the section in view', () => {
     render(withSections(<SiteNav />));
 
-    latestObserver().emit([{ id: 'services', isIntersecting: true }]);
-    expect(currentLinks().map((link) => link.textContent)).toEqual(['Services']);
+    latestObserver().emit([{ id: 'launcher', isIntersecting: true }]);
+    expect(currentLinks().map((link) => link.textContent)).toEqual(['Launcher']);
     expect(sectionLinks().filter((link) => link.dataset.active === 'true')).toHaveLength(1);
 
     latestObserver().emit([
-      { id: 'services', isIntersecting: false },
+      { id: 'launcher', isIntersecting: false },
       { id: 'faq', isIntersecting: true },
     ]);
     expect(currentLinks().map((link) => link.textContent)).toEqual(['FAQ']);

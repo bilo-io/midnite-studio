@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
  * The face is five files that have to agree and have no compiler between them:
  * the woff2 itself, the `@font-face` in `site.css`, the `--font-brand` token
  * beside it, `tailwind.config.ts`'s `fontFamily.brand`, and a `<link
- * rel=preload>` in **both** HTML entries. Swapping the face — Kaushan Script to
+ * rel=preload>` in **every** HTML entry. Swapping the face — Kaushan Script to
  * Damion, say — means editing all of them, and every way of getting it half
  * done fails silently: a stale preload downloads a file nothing uses and the
  * real one is still discovered three round trips late, a `--font-brand` that
@@ -27,7 +27,7 @@ import { describe, expect, it } from 'vitest';
  */
 
 const SOURCES: Record<string, string> = import.meta.glob<string>(
-  ['../**/*.{ts,tsx,css}', '../../index.html', '../../download/index.html'],
+  ['../**/*.{ts,tsx,css}', '../../index.html', '../../download/index.html', '../../apps/index.html'],
   { eager: true, query: '?raw', import: 'default' },
 );
 
@@ -90,7 +90,7 @@ describe('the brand face', () => {
     // root-absolute from the package. Same file, two spellings.
     const href = face.url.replace('../', '/src/');
 
-    for (const entry of ['../../index.html', '../../download/index.html']) {
+    for (const entry of ['../../index.html', '../../download/index.html', '../../apps/index.html']) {
       const html = read(entry);
       const preloads = [...html.matchAll(/<link\b[^>]*rel="preload"[^>]*>/g)].map(([tag]) => tag);
 

@@ -40,7 +40,7 @@ import type { Config } from 'tailwindcss';
  */
 const channel = (token: string) => `hsl(var(--ws-${token}-hsl) / <alpha-value>)`;
 const config: Config = {
-  content: ['./index.html', './download/index.html', './src/**/*.{ts,tsx}'],
+  content: ['./index.html', './apps/index.html', './download/index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {

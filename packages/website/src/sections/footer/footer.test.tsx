@@ -33,11 +33,12 @@ describe('<Footer>', () => {
     expect(section?.tagName).toBe('SECTION');
   });
 
-  it('links to features, the FAQ and early access, and does not link to download', () => {
+  it('links to the Apps page, the launcher, the FAQ and early access, and does not link to download', () => {
     render(<Footer />);
     const all = hrefs();
     expect(all.some((href) => href.endsWith('download/'))).toBe(false);
-    expect(all).toContain('/#features');
+    expect(all).toContain('/apps/');
+    expect(all).toContain('/#launcher');
     expect(all).toContain('/#faq');
     expect(all).toContain('/#early-access');
   });
@@ -90,7 +91,7 @@ describe('<Footer>', () => {
   it('reveals the wordmark without putting it in the accessibility tree', () => {
     render(<Footer />);
     const wordmark = screen.getByTestId('footer-wordmark');
-    expect(wordmark.textContent).toBe('Midnite Studio');
+    expect(wordmark.textContent).toBe('Midnite Apps');
     expect(wordmark.getAttribute('aria-hidden')).toBe('true');
   });
 

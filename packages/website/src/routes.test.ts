@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { anchorHref, assetHref, hrefFor, routeFor } from './routes';
+import { anchorHref, appHref, assetHref, hrefFor, routeFor } from './routes';
 
 /**
  * `import.meta.env.BASE_URL` is `/` under vitest, which is the local case.
@@ -13,6 +13,11 @@ describe('routeFor', () => {
   it('resolves the download page with and without a trailing slash', () => {
     expect(routeFor('/download')).toBe('download');
     expect(routeFor('/download/')).toBe('download');
+  });
+
+  it('resolves the apps page with and without a trailing slash', () => {
+    expect(routeFor('/apps')).toBe('apps');
+    expect(routeFor('/apps/')).toBe('apps');
   });
 
   it('resolves the pricing page with and without a trailing slash', () => {
@@ -36,12 +41,17 @@ describe('routeFor', () => {
 describe('href helpers', () => {
   it('builds page hrefs with a trailing slash on nested routes', () => {
     expect(hrefFor('landing')).toBe('/');
+    expect(hrefFor('apps')).toBe('/apps/');
     expect(hrefFor('download')).toBe('/download/');
     expect(hrefFor('pricing')).toBe('/pricing/');
   });
 
   it('builds anchors against the landing page, so they work from either page', () => {
     expect(anchorHref('early-access')).toBe('/#early-access');
+  });
+
+  it("builds an app's slide href on the apps page", () => {
+    expect(appHref('coder')).toBe('/apps/#coder');
   });
 
   it('normalises a leading slash on an asset path', () => {

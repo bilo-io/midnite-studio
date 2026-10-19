@@ -98,8 +98,8 @@ describe('DownloadPage', () => {
   it("keeps the footer's section anchors resolving back to the landing page", () => {
     const { container } = render(<DownloadPage />);
     const hrefs = [...container.querySelectorAll('a[href]')].map((a) => a.getAttribute('href'));
-    // Not `#features`, which from /download/ would be a jump to nothing.
-    expect(hrefs).toContain('/#features');
+    // Not `#launcher`, which from /download/ would be a jump to nothing.
+    expect(hrefs).toContain('/#launcher');
     expect(hrefs).toContain('/#faq');
     expect(hrefs).toContain('/#early-access');
   });

@@ -27,7 +27,9 @@ tasks:
     inputs:
       - 'src/**/*'
       - 'index.html'
+      - 'apps/index.html'
       - 'download/index.html'
+      - 'pricing/index.html'
       - 'public/**/*'
       - 'vite.config.ts'
       - 'tailwind.config.ts'

@@ -3,7 +3,7 @@ import { Container } from './container';
 import { Logo } from './logo';
 import { ThemeToggle } from './theme-toggle';
 import { useActiveSection } from '../hooks/use-active-section';
-import { anchorHref, hrefFor } from '../routes';
+import { anchorHref, hrefFor, type Route } from '../routes';
 import { NAV_SECTIONS, NAV_SECTION_IDS } from '../sections/registry';
 
 export type SiteNavProps = {
@@ -12,7 +12,16 @@ export type SiteNavProps = {
    * landing page rather than at sections of the current one.
    */
   offLanding?: boolean;
+  /** The page this nav sits on, when it is one of `PAGE_LINKS`, so its link is marked current. */
+  current?: Route;
 };
+
+/**
+ * Whole pages the nav always links to, ahead of the landing page's anchors.
+ * Apps is the one page that is not a section of the landing page, and it is the
+ * product, so it leads.
+ */
+const PAGE_LINKS: readonly { route: Route; label: string }[] = [{ route: 'apps', label: 'Apps' }];
 
 /** No sections to spy on when the nav is not sitting above the landing page. */
 const NO_SECTIONS: readonly string[] = [];
@@ -49,7 +58,7 @@ const NO_SECTIONS: readonly string[] = [];
  * `backdrop-blur` with a translucent background rather than a solid one: the
  * hero's lane graph keeps moving underneath, which is the point of having it.
  */
-export const SiteNav = ({ offLanding = false }: SiteNavProps) => {
+export const SiteNav = ({ offLanding = false, current }: SiteNavProps) => {
   const active = useActiveSection(offLanding ? NO_SECTIONS : NAV_SECTION_IDS);
 
   return (
@@ -58,13 +67,28 @@ export const SiteNav = ({ offLanding = false }: SiteNavProps) => {
         <a
           href={hrefFor('landing')}
           className="rounded-md transition duration-fast hover:opacity-80"
-          aria-label={offLanding ? 'Back to the Midnite Studio home page' : 'Midnite Studio'}
+          aria-label={offLanding ? 'Back to the Midnite Apps home page' : 'Midnite Apps'}
         >
-          <Logo />
+          <Logo product="Apps" />
         </a>
 
-        <nav aria-label="Sections" className="hidden md:block">
+        <nav aria-label="Sections" className="hidden lg:block">
           <ul className="flex items-center gap-6">
+            {PAGE_LINKS.map((page) => {
+              const isCurrent = page.route === current;
+              return (
+                <li key={page.route}>
+                  <a
+                    href={hrefFor(page.route)}
+                    aria-current={isCurrent ? 'page' : undefined}
+                    data-active={isCurrent ? 'true' : 'false'}
+                    className="ws-nav-tab text-sm text-fg-muted transition duration-fast hover:text-fg data-[active=true]:text-fg"
+                  >
+                    {page.label}
+                  </a>
+                </li>
+              );
+            })}
             {NAV_SECTIONS.map((section) => {
               const isActive = section.id === active;
               return (
