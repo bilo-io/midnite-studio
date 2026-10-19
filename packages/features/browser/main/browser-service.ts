@@ -8,7 +8,7 @@ import {
 
 import type { BrowserHostWindow as BrowserWindow, BrowserInput as Input, BrowserView as WebContentsView } from './browser-electron';
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
-import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
+import { cancelDownload, checkNavigationUrl, denyAllDevices, denyAllPermissions } from './browser-security';
 
 /**
  * The main-process half of the embedded browser (Phase 32 Theme A/B).
@@ -217,6 +217,7 @@ function ensureSessionConfigured(): void {
   securityConfigured = true;
   const browserSession = browserMainDeps().electron.sessionFromPartition(PARTITION);
   denyAllPermissions(browserSession);
+  denyAllDevices(browserSession);
   browserSession.on('will-download', (_event, item, webContents) => {
     // Session-level, so the item arrives with the `webContents` that asked
     // for it rather than a tab id — reverse-lookup so the notice lands on
@@ -596,11 +597,6 @@ export async function clearBrowserData(): Promise<void> {
   const browserSession = browserMainDeps().electron.sessionFromPartition(PARTITION);
   await browserSession.clearStorageData();
   await browserSession.clearCache();
-}
-
-/** External-link fallback for a scheme this session refuses to load in-place. */
-export function openInSystemBrowser(url: string): void {
-  void browserMainDeps().electron.openExternal(url);
 }
 
 /** Window close, `before-quit`: destroy every tracked view — nothing survives past the process. */

@@ -7,6 +7,8 @@
 
 import { shell, type WebContents } from 'electron';
 
+import { normalizeExternalUrl } from '@midnite/studio-shared';
+
 function normaliseOrigin(raw: string): string {
   try {
     return new URL(raw).origin;
@@ -51,7 +53,10 @@ export function bindAppNavigationGuard(
     const decision = checkAppNavigationUrl(url, devServerOrigin);
     if (decision.allowed) return;
     event.preventDefault();
-    if (decision.openExternal) void shell.openExternal(url);
+    if (decision.openExternal) {
+      const href = normalizeExternalUrl(url);
+      if (href !== null) void shell.openExternal(href);
+    }
   };
 
   webContents.on('will-navigate', handler);

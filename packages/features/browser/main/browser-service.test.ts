@@ -90,6 +90,8 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     return {
       setPermissionRequestHandler: vi.fn(),
       setPermissionCheckHandler: vi.fn(),
+      setDevicePermissionHandler: vi.fn(),
+      setDisplayMediaRequestHandler: vi.fn(),
       handlers,
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const list = handlers.get(event) ?? [];
@@ -287,6 +289,8 @@ describe('browser-service lifecycle', () => {
     const browserSession = fakeSessions.get('persist:browser');
     expect(browserSession?.setPermissionRequestHandler).toHaveBeenCalledTimes(1);
     expect(browserSession?.setPermissionCheckHandler).toHaveBeenCalledTimes(1);
+    expect(browserSession?.setDevicePermissionHandler).toHaveBeenCalledTimes(1);
+    expect(browserSession?.setDisplayMediaRequestHandler).toHaveBeenCalledTimes(1);
   });
 
   it('gives the view no preload and a sandboxed, partitioned session', () => {

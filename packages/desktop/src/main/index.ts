@@ -28,7 +28,7 @@ import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
-import { allowAppAudioOnly, destroyAllBrowserTabs, destroyAllWebApps, startBrowserDiscardSweep, startWebAppsDiscardSweep } from '@midnite/studio-feature-browser/main';
+import { allowAppAudioOnly, denyAllDevices, destroyAllBrowserTabs, destroyAllWebApps, startBrowserDiscardSweep, startWebAppsDiscardSweep } from '@midnite/studio-feature-browser/main';
 import { installCsp } from './csp';
 import { registerBrowserFeatureHandlers } from './ipc/browser-feature-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
@@ -152,6 +152,7 @@ import { createFileSink } from './log-sink';
 import { bootMark } from './perf-marks';
 import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
+import { applyAppWebContentsPolicy } from './web-contents-policy';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
 import {
@@ -431,6 +432,14 @@ export const startStudioMain: StartStudioMain = () => {
       session.defaultSession.setDisplayMediaRequestHandler((request, callback) =>
         recordingGate.handleRequest(request, callback as Parameters<typeof recordingGate.handleRequest>[1]),
       );
+      // Phase 91 Theme E: one navigation/window.open net for every app window, installed before any
+      // exists (`web-contents-created` is only seen by listeners registered ahead of the contents).
+      app.on('web-contents-created', (_event, contents) => {
+        applyAppWebContentsPolicy(contents, devServerOrigin, (href) => void shell.openExternal(href));
+      });
+      // Phase 91 Theme E: no WebUSB/HID/serial device chooser for the app renderer. Display media
+      // stays Capture's gate above, hence `displayMedia: false`.
+      denyAllDevices(session.defaultSession, { displayMedia: false });
       installCsp(session.defaultSession, {
         dev: devServerOrigin !== null,
         devServerOrigin,
