@@ -1,11 +1,13 @@
-import { parseIterations, type VideoProject } from '@midnite/studio-shared';
+import { isVideoTemplateId, parseIterations, projectIdFromTemplate, type VideoProject } from '@midnite/studio-shared';
 import { useState, type ReactNode } from 'react';
 import {
   LuChevronDown,
   LuChevronRight,
   LuClapperboard,
+  LuCopyPlus,
   LuFilm,
   LuFolderInput,
+  LuLayoutTemplate,
   LuNotebookPen,
   LuPlus,
   LuTrash2,
@@ -252,6 +254,7 @@ function ProjectNodes({
   onSelect,
   onMenu,
   expanded,
+  leafIcon: LeafIcon = LuClapperboard,
 }: {
   nodes: ProjectTreeNode[];
   depth: number;
@@ -260,6 +263,7 @@ function ProjectNodes({
   onSelect: (selection: VideoSelection) => void;
   onMenu: (event: React.MouseEvent, id: string, title: string) => void;
   expanded: ReturnType<typeof useExpanded>;
+  leafIcon?: typeof LuClapperboard;
 }) {
   return (
     <>
@@ -284,6 +288,7 @@ function ProjectNodes({
                   onSelect={onSelect}
                   onMenu={onMenu}
                   expanded={expanded}
+                  leafIcon={LeafIcon}
                 />
               ) : null}
             </div>
@@ -302,7 +307,7 @@ function ProjectNodes({
               disabled={!valid}
               selected={sameSelection(selection, item)}
               title={project && !project.valid ? project.error : node.id}
-              icon={<LuClapperboard aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />}
+              icon={<LeafIcon aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />}
               label={title}
               meta={valid?.composition}
               onClick={() => {
@@ -325,21 +330,29 @@ function ProjectNodes({
   );
 }
 
-/** Opens the "New video project" prompt; shared by the explorer's + and the empty state's CTA. */
-export function useNewVideoProjectPrompt(onSelect: (selection: VideoSelection | null) => void): () => void {
+/**
+ * Opens the "New video project" prompt; shared by the explorer's + and the
+ * empty state's CTA. Given a template (`templates/<brand>/<name>`), the new
+ * project is a copy of that template, filed under the template's own group —
+ * `templates/youtube-tutorials/neon-hud` + "Intro" → `youtube-tutorials/intro`.
+ */
+export function useNewVideoProjectPrompt(
+  onSelect: (selection: VideoSelection | null) => void,
+): (template?: { id: string; title: string }) => void {
   const create = useCreateVideoProject();
   const dialogs = useFrameChrome().useDialogs();
-  return () => {
+  return (template) => {
     dialogs.prompt?.({
-      title: 'New video project',
+      title: template ? `New project from "${template.title}"` : 'New video project',
       label: 'Title',
       confirmLabel: 'Create',
       placeholder: 'COP31 showreel',
       validate: (value) => (slugifyProjectTitle(value).length === 0 ? 'Enter a title.' : null),
       onConfirm: (title) => {
-        const id = slugifyProjectTitle(title);
+        const slug = slugifyProjectTitle(title);
+        const id = template ? projectIdFromTemplate(template.id, slug) : slug;
         create.mutate(
-          { id, title },
+          { id, title, ...(template ? { template: template.id } : {}) },
           {
             onSuccess: (result) => {
               if (result.ok) onSelect({ kind: 'project', projectId: id });
@@ -352,10 +365,13 @@ export function useNewVideoProjectPrompt(onSelect: (selection: VideoSelection | 
 }
 
 /**
- * The Video tab's explorer (Phase 99 Theme D): two accordions over the
- * resolved root — **Assets** (a tree of `assets/`, type icons) and
+ * The Video tab's explorer (Phase 99 Theme D): three accordions over the
+ * resolved root — **Assets** (a tree of `assets/`, type icons),
  * **Projects** (`<brand>/<category>/<NNN-name>`, each expanding to its
- * iterations newest first, then its `input/` and `notes/` files).
+ * iterations newest first, then its `input/` and `notes/` files) and
+ * **Templates** (`templates/<brand>/<name>`, opened, previewed and rendered
+ * like a project, and copied into a new one from their menu — never deleted
+ * from here).
  *
  * Phase 44's error → skeleton → empty → content ladder is kept for the
  * project scan, which reads a directory that can vanish.
@@ -374,10 +390,20 @@ export function VideoExplorer({
   const remove = useRemoveVideoProject();
   const dialogs = useDialogs();
   const expanded = useExpanded();
-  const all = projects.data ?? [];
-  const byId = new Map(all.map((project) => [project.id, project]));
+  const everything = projects.data ?? [];
+  const byId = new Map(everything.map((project) => [project.id, project]));
+  const all = everything.filter((project) => !isVideoTemplateId(project.id));
+  const templates = everything.filter((project) => isVideoTemplateId(project.id));
+  // Every template id shares the `templates/` folder; the section already says so.
+  const templateTree = buildProjectTree(templates.map((p) => p.id));
+  const templateNodes = templateTree.length === 1 && templateTree[0]!.type === 'folder' ? templateTree[0]!.children : templateTree;
 
   const createProject = useNewVideoProjectPrompt(onSelect);
+
+  const templateMenuFor = (id: string, title: string): FrameMenuItem[] =>
+    dialogs.prompt
+      ? [{ label: 'New project from template', icon: LuCopyPlus, onSelect: () => createProject({ id, title }) }]
+      : [];
 
   const menuFor = (id: string, title: string): FrameMenuItem[] => [
     {
@@ -425,13 +451,32 @@ export function VideoExplorer({
     />
   );
 
+  const templatesBody =
+    projects.isError || projects.isPending ? null : templates.length === 0 ? (
+      <EmptyState icon={LuLayoutTemplate} title="No templates" body="Add one under templates/<brand>/<name>/." />
+    ) : (
+      <ProjectNodes
+        nodes={templateNodes}
+        depth={0}
+        projects={byId}
+        selection={selection}
+        onSelect={onSelect}
+        onMenu={(event, id, title) => {
+          const items = templateMenuFor(id, title);
+          if (items.length > 0) dialogs.openMenu?.(event, items);
+        }}
+        expanded={expanded}
+        leafIcon={LuLayoutTemplate}
+      />
+    );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
         <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Video</h2>
         <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground/70">{all.length}</span>
         {dialogs.prompt ? (
-          <IconButton icon={LuPlus} label="New project" size="sm" className="ml-auto" onClick={createProject} />
+          <IconButton icon={LuPlus} label="New project" size="sm" className="ml-auto" onClick={() => createProject()} />
         ) : null}
       </div>
       <div className="hide-scrollbar min-h-0 flex-1 overflow-auto">
@@ -449,6 +494,12 @@ export function VideoExplorer({
               title: 'Projects',
               count: all.length,
               children: projectsBody,
+            },
+            {
+              id: 'templates',
+              title: 'Templates',
+              count: templates.length,
+              children: templatesBody,
             },
           ]}
         />

@@ -161,7 +161,7 @@ export function useVideoProject(id: string | null) {
 export function useCreateVideoProject() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { id: string; title: string }) =>
+    mutationFn: async (input: { id: string; title: string; template?: string }) =>
       (await bridge()?.video.project.create(input)) ?? noBridge(),
     onSuccess: (result) => {
       reportFailure(result);

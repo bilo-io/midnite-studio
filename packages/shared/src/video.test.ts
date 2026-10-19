@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   changelogEntry,
+  isVideoTemplateId,
+  projectIdFromTemplate,
+  videoProjectDir,
   parseIterations,
   studioCompositionUrl,
   VideoCompositionSchema,
@@ -240,5 +243,23 @@ describe('studioCompositionUrl', () => {
   it('deep-links the composition', () => {
     expect(studioCompositionUrl('http://localhost:3000/', 'Main')).toBe('http://localhost:3000/Main');
     expect(studioCompositionUrl('http://localhost:3000', null)).toBe('http://localhost:3000');
+  });
+});
+
+describe('video templates', () => {
+  it('tells a template id from a project id, and maps each to its folder', () => {
+    expect(isVideoTemplateId('templates/midnite/golive-promo')).toBe(true);
+    expect(isVideoTemplateId('midnite/templates-reel')).toBe(false);
+    expect(videoProjectDir('templates/midnite/golive-promo')).toBe('templates/midnite/golive-promo');
+    expect(videoProjectDir('acme/promo/001-x')).toBe('projects/acme/promo/001-x');
+  });
+
+  it("files a copy of a template under the template's own group", () => {
+    expect(projectIdFromTemplate('templates/youtube-tutorials/neon-hud', 'intro')).toBe('youtube-tutorials/intro');
+    expect(projectIdFromTemplate('templates/solo', 'intro')).toBe('intro');
+  });
+
+  it('accepts a project file with no script', () => {
+    expect(VideoProjectFileSchema.safeParse({ id: 'templates/a/b', title: 'T', composition: 'C', brief: 'input/BRIEF.md' }).success).toBe(true);
   });
 });

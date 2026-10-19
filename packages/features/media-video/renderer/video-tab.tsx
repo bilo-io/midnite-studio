@@ -375,7 +375,7 @@ export function VideoTab() {
                 icon={LuPlus}
                 filledIcon={PiPlusCircleFill}
                 label="New video project"
-                onClick={newProject}
+                onClick={() => newProject()}
               />
             }
           />

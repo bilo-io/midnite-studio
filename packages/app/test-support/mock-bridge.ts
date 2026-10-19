@@ -3135,12 +3135,14 @@ export function buildMockBridge(data: MockFixtures) {
         get: async (req: { id: string }) => ({
           project: videoProjects.find((p) => p.id === req.id) ?? null,
         }),
-        create: async (req: { id: string; title: string }) => {
+        create: async (req: { id: string; title: string; template?: string }) => {
+          // A copy of a template keeps the template's composition, as the real copy does.
+          const from = videoProjects.find((p) => p.id === req.template);
           const project = {
             id: req.id,
             title: req.title,
             valid: true,
-            composition: 'Main',
+            composition: from && 'composition' in from ? (from.composition as string) : 'Main',
             source: 'input/original.mp4',
             brief: 'input/BRIEF.md',
             script: 'EDITORIAL_SCRIPT.md',

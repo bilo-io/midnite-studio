@@ -143,6 +143,21 @@ describe('Media ▸ Video, assembled through the real bridge', () => {
     expect(await screen.findByRole('button', { name: /Teaser/ })).toBeTruthy();
   });
 
+  it('lists templates in their own section, and copies one into a new project from its menu', async () => {
+    const template = { id: 'templates/youtube-tutorials/neon-hud', title: 'Neon HUD', valid: true, composition: 'Hud' };
+    await open({ ...fixtures, video: { projects: [PROJECT, template] } });
+
+    expect(screen.getByText('Templates')).toBeTruthy();
+    const row = screen.getByRole('button', { name: /Neon HUD/ });
+    fireEvent.contextMenu(row);
+    fireEvent.click(await screen.findByText('New project from template'));
+    fireEvent.change(await screen.findByPlaceholderText('COP31 showreel'), { target: { value: 'Intro' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    // Filed under the template's own group, with the template's composition.
+    expect(await screen.findByRole('button', { name: /Intro Hud/ })).toBeTruthy();
+  });
+
   it('renders resizable panels with resize handles', async () => {
     await open();
     const listHandle = screen.getByRole('separator', { name: 'Resize video explorer' });

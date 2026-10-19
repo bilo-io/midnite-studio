@@ -13,6 +13,7 @@ import {
   type GitOpResult,
   type VideoEngine,
   type VideoEngineState,
+  videoProjectDir,
 } from '@midnite/studio-shared';
 
 /**
@@ -103,10 +104,12 @@ export async function switchVideoEngine(
   return ok(engineState(root, engine));
 }
 
-/** The folder a HyperFrames project's composition lives in — mirrors the project's own id path. */
+/** The folder a HyperFrames project's composition lives in — mirrors the project's own id path
+ *  (`videoProjectDir`, so a `templates/…` id lands under `templates/`, not `projects/templates/`). */
 export function hyperframesProjectDir(appDir: string, projectId: string): string | null {
-  const base = join(appDir, 'projects');
-  const dir = resolve(base, projectId);
+  const rel = videoProjectDir(projectId);
+  const base = join(appDir, rel.slice(0, rel.indexOf('/')));
+  const dir = resolve(appDir, rel);
   return dir === base || !dir.startsWith(`${base}${sep}`) ? null : dir;
 }
 

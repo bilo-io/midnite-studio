@@ -3,9 +3,12 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  VIDEO_TEMPLATES_DIR,
   VideoProjectFileSchema,
   failure,
+  isVideoTemplateId,
   ok,
+  videoProjectDir,
   type GitOpResult,
   type VideoProject,
 } from '@midnite/studio-shared';
@@ -46,15 +49,18 @@ const OUTPUT_FILE_PATTERN = /^v(\d+)-(.+)\.mp4$/;
 export type VideoOutputFile = { filename: string; iteration: number; label: string };
 
 /**
- * Every project folder under `<root>/projects/`, in directory order.
- * `_template` is never listed — it is the seed `project-create` copies, not
- * a project of its own. A folder that cannot be read at all (permissions, a
- * dangling symlink) is silently absent, the same "not there" answer a
- * missing file gets — there is nothing else honest to say about it.
+ * Every project folder under `<root>/projects/`, in directory order, then
+ * every template under `<root>/templates/` (ids `templates/<brand>/<name>` —
+ * see `isVideoTemplateId`). `_template` is never listed — it is the seed
+ * `project-create` copies, not a project of its own. A folder that cannot be
+ * read at all (permissions, a dangling symlink) is silently absent, the same
+ * "not there" answer a missing file gets — there is nothing else honest to
+ * say about it.
  */
 export async function discoverProjects(root: string): Promise<VideoProject[]> {
   const projects: VideoProject[] = [];
-  await scanProjects(root, '', 0, projects);
+  await scanProjects(root, PROJECTS_DIR, '', 0, projects);
+  await scanProjects(root, VIDEO_TEMPLATES_DIR, '', 0, projects);
   return projects;
 }
 
@@ -75,13 +81,21 @@ const MAX_PROJECT_DEPTH = 5;
  * Returns how many entries it added, so a caller can tell a grouping folder
  * from an empty one.
  */
-async function scanProjects(root: string, rel: string, depth: number, out: VideoProject[]): Promise<number> {
+async function scanProjects(
+  root: string,
+  base: string,
+  rel: string,
+  depth: number,
+  out: VideoProject[],
+): Promise<number> {
   let entries;
   try {
-    entries = await readdir(join(root, PROJECTS_DIR, rel), { withFileTypes: true });
+    entries = await readdir(join(root, base, rel), { withFileTypes: true });
   } catch {
     return 0;
   }
+  // Template ids carry their `templates/` prefix; project ids are bare.
+  const idOf = (path: string) => (base === PROJECTS_DIR ? path : `${base}/${path}`);
   let added = 0;
   for (const entry of entries) {
     // A symlinked directory reports `isDirectory(): false` from `readdir`'s
@@ -90,15 +104,21 @@ async function scanProjects(root: string, rel: string, depth: number, out: Video
     // refused for escaping the root by `readProject`'s `confineToRoot`.
     if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
     if (entry.name === TEMPLATE_ID || entry.name.startsWith('.') || entry.name.startsWith('_')) continue;
-    const id = rel ? `${rel}/${entry.name}` : entry.name;
-    if (depth + 1 < MAX_PROJECT_DEPTH && entry.isDirectory() && !existsSync(join(root, PROJECTS_DIR, id, PROJECT_FILE))) {
-      const nested = await scanProjects(root, id, depth + 1, out);
+    const path = rel ? `${rel}/${entry.name}` : entry.name;
+    if (base === PROJECTS_DIR && path === VIDEO_TEMPLATES_DIR) {
+      // Its ids would read as `templates/…` and resolve into `<root>/templates/`.
+      out.push({ valid: false, id: path, error: '`projects/templates/` is reserved — rename this folder.' });
+      added += 1;
+      continue;
+    }
+    if (depth + 1 < MAX_PROJECT_DEPTH && entry.isDirectory() && !existsSync(join(root, base, path, PROJECT_FILE))) {
+      const nested = await scanProjects(root, base, path, depth + 1, out);
       if (nested > 0) {
         added += nested;
         continue;
       }
     }
-    out.push(await readProject(root, id));
+    out.push(await readProject(root, idOf(path)));
     added += 1;
   }
   return added;
@@ -119,8 +139,9 @@ export async function getProject(root: string, id: string): Promise<VideoProject
  * human can read — never a crash and never a silently skipped folder.
  */
 async function readProject(root: string, folderName: string): Promise<VideoProject> {
-  // `folderName` is the project id — a `/`-separated path under `projects/`.
-  const relJsonPath = join(PROJECTS_DIR, folderName, PROJECT_FILE);
+  // `folderName` is the project id — a `/`-separated path under `projects/`,
+  // or a template's own `templates/…` path from the root.
+  const relJsonPath = join(videoProjectDir(folderName), PROJECT_FILE);
 
   // The pure, no-filesystem-access half first: a `../`-style escape is a
   // fact about the STRING, true whether or not anything exists yet, and
@@ -183,7 +204,7 @@ async function readProject(root: string, folderName: string): Promise<VideoProje
       string-resolution fact `joinWithin` already catches with no filesystem
       access at all.
     */
-    const confined = joinWithin(root, join(PROJECTS_DIR, folderName, rel));
+    const confined = joinWithin(root, join(videoProjectDir(folderName), rel));
     if (confined === null) {
       return { valid: false, id: folderName, error: `"${field}" ("${rel}") resolves outside the configured root.` };
     }
@@ -194,25 +215,49 @@ async function readProject(root: string, folderName: string): Promise<VideoProje
 
 /**
  * Copies `<root>/projects/_template/` — the mechanism `ekko-videos` already
- * documents ("copy this to start the next one") — then patches the new
- * copy's `id`/`title` so the folder name and the file agree from the start,
- * the same invariant `readProject` checks on every read.
+ * documents ("copy this to start the next one") — or, given `template`, that
+ * template's own folder, then patches the new copy's `id`/`title` so the
+ * folder name and the file agree from the start, the same invariant
+ * `readProject` checks on every read.
+ *
+ * A template's renders stay behind: its `output/*.mp4` are its own history,
+ * not the new project's (its `CHANGELOG.md` is copied, as the seed's is).
+ * Only the template's *documentation half* is copied — its composition code
+ * under the editor app is shared, so the new project renders the template's
+ * composition until it is given one of its own.
  */
-export async function createProject(root: string, id: string, title: string): Promise<GitOpResult<VideoProject>> {
+export async function createProject(
+  root: string,
+  id: string,
+  title: string,
+  template?: string,
+): Promise<GitOpResult<VideoProject>> {
   const targetDir = joinWithin(root, join(PROJECTS_DIR, id));
-  if (targetDir === null || id === TEMPLATE_ID) {
+  if (targetDir === null || id === TEMPLATE_ID || isVideoTemplateId(id)) {
     return failure('That project id is not valid.');
   }
   if (existsSync(targetDir)) {
     return failure('A project with that id already exists.');
   }
 
-  const templateDir = joinWithin(root, join(PROJECTS_DIR, TEMPLATE_ID));
-  if (templateDir === null || !existsSync(templateDir)) {
-    return failure(`No template found at ${join(PROJECTS_DIR, TEMPLATE_ID)}.`);
+  const sourceRel = template === undefined ? join(PROJECTS_DIR, TEMPLATE_ID) : template;
+  if (template !== undefined && !isVideoTemplateId(template)) {
+    return failure('That template id is not valid.');
+  }
+  // A template is confined to `templates/` itself, not just the root —
+  // `templates/../projects/x` would otherwise copy any project.
+  const templateDir =
+    template === undefined
+      ? await confineToRoot(root, sourceRel)
+      : await confineToRoot(join(root, VIDEO_TEMPLATES_DIR), template.slice(VIDEO_TEMPLATES_DIR.length + 1));
+  if (templateDir === null || !existsSync(join(templateDir, PROJECT_FILE))) {
+    return failure(`No template found at ${sourceRel}.`);
   }
 
-  await cp(templateDir, targetDir, { recursive: true });
+  await cp(templateDir, targetDir, {
+    recursive: true,
+    filter: (src) => !(src.startsWith(join(templateDir, OUTPUT_DIR)) && src.endsWith('.mp4')),
+  });
 
   const projectJsonPath = join(targetDir, PROJECT_FILE);
   const templateFile = VideoProjectFileSchema.parse(JSON.parse(await readFile(projectJsonPath, 'utf8')));
@@ -222,9 +267,9 @@ export async function createProject(root: string, id: string, title: string): Pr
   return ok({ valid: true, ...updated });
 }
 
-/** Never the template — that folder is the seed `project-create` copies, not a project. */
+/** Never a template — the seed or a `templates/…` one; both are what `project-create` copies. */
 export async function removeProject(root: string, id: string): Promise<GitOpResult> {
-  if (id === TEMPLATE_ID) return failure(REMOVE_ERROR);
+  if (id === TEMPLATE_ID || isVideoTemplateId(id)) return failure(REMOVE_ERROR);
   const dir = await confineToRoot(root, join(PROJECTS_DIR, id));
   if (dir === null) return failure(REMOVE_ERROR);
   await rm(dir, { recursive: true, force: true });
@@ -241,7 +286,7 @@ const READ_FILE_SIZE_CAP = 2_000_000;
  * and this re-checks containment itself rather than trusting a prior read.
  */
 export async function readProjectFile(root: string, projectId: string, relPath: string): Promise<string | null> {
-  const confined = await confineToRoot(root, join(PROJECTS_DIR, projectId, relPath));
+  const confined = await confineToRoot(root, join(videoProjectDir(projectId), relPath));
   if (confined === null) return null;
   try {
     const info = await stat(confined);
@@ -272,7 +317,7 @@ export async function listAreaFiles(
   projectId: string,
   { recursive = false }: { recursive?: boolean } = {},
 ): Promise<VideoFileEntry[]> {
-  const relDir = area === 'assets' ? 'assets' : join(PROJECTS_DIR, projectId, area);
+  const relDir = area === 'assets' ? 'assets' : join(videoProjectDir(projectId), area);
   const dir = await confineToRoot(root, relDir);
   if (dir === null) return [];
 
@@ -315,7 +360,7 @@ export async function resolveAreaFilePath(
   projectId: string,
   name: string,
 ): Promise<string | null> {
-  const relDir = area === 'assets' ? 'assets' : join(PROJECTS_DIR, projectId, area);
+  const relDir = area === 'assets' ? 'assets' : join(videoProjectDir(projectId), area);
   const dir = await confineToRoot(root, relDir);
   if (dir === null) return null;
   return confineToRoot(dir, name);
@@ -328,7 +373,7 @@ export async function resolveAreaFilePath(
  * app recognises, sorted oldest iteration first.
  */
 export async function listOutputFiles(root: string, projectId: string): Promise<VideoOutputFile[]> {
-  const outputDir = await confineToRoot(root, join(PROJECTS_DIR, projectId, OUTPUT_DIR));
+  const outputDir = await confineToRoot(root, join(videoProjectDir(projectId), OUTPUT_DIR));
   if (outputDir === null) return [];
 
   let entries: string[];

@@ -7,6 +7,7 @@ import {
   type VideoRender,
   type VideoRenderOptions,
   type VideoRenderProgressEvent,
+  videoProjectDir,
 } from '@midnite/studio-shared';
 
 import { firstLine, runProcess, type ProcessSink, type RunProcessDeps, type SpawnFn } from '@midnite/studio-runtime';
@@ -149,7 +150,7 @@ function buildHyperframesRenderCommand(
   const name = `${version}${label ? `-${label}` : ''}.${VIDEO_CODEC_INFO[codec].ext}`;
   return {
     command: 'npx',
-    args: ['hyperframes', 'render', join('projects', input.projectId), '-o', join(input.outputDir, name), ...extra],
+    args: ['hyperframes', 'render', videoProjectDir(input.projectId), '-o', join(input.outputDir, name), ...extra],
     cwd: input.appDir,
     env: HYPERFRAMES_ENV,
   };
