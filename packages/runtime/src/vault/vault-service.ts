@@ -71,7 +71,9 @@ export const VAULT_NAMESPACES = {
   'db-credentials': {
     fileName: 'db-connections.vault.json',
     fingerprinted: true,
-    whenUnavailable: 'drop',
+    // Phase 91 Theme G: degrade like the STT vault and the forge vault — hold the
+    // password for the session — instead of silently dropping what the user typed.
+    whenUnavailable: 'session',
   },
 } as const satisfies Record<string, VaultNamespaceSpec>;
 

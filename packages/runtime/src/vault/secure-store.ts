@@ -71,7 +71,10 @@ export function createSecureJsonStore<TEntry>(
 
   const persist = async (entries: Record<string, TEntry>): Promise<void> => {
     try {
-      await writeFile(file, `${JSON.stringify({ version: 1, entries }, null, 2)}\n`, 'utf8');
+      await writeFile(file, `${JSON.stringify({ version: 1, entries }, null, 2)}\n`, {
+        encoding: 'utf8',
+        mode: VAULT_MODE,
+      });
       await chmod(file, VAULT_MODE);
     } catch {
       // A read-only data dir must not take the app down.

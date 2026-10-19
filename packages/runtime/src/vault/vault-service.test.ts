@@ -83,7 +83,7 @@ describe('runtime vault — on-disk compatibility', () => {
 });
 
 describe('runtime vault — degraded mode keeps each namespace’s old behaviour', () => {
-  it('drops secrets and db passwords, holds forge tokens for the session', async () => {
+  it('drops secrets; holds db passwords and forge tokens for the session', async () => {
     cipher.setAvailable(false);
     const vault = createVaultService({ directory: dir, cipher }).forApp('studio');
     await vault.set('secrets', 'k', 'v');
@@ -91,7 +91,7 @@ describe('runtime vault — degraded mode keeps each namespace’s old behaviour
     await vault.set('forge-accounts', 'a', 'tok');
 
     expect(await vault.get('secrets', 'k')).toBeNull();
-    expect(await vault.get('db-credentials', 'c1')).toBeNull();
+    expect(await vault.get('db-credentials', 'c1')).toBe('pw');
     expect(await vault.get('forge-accounts', 'a')).toBe('tok');
     expect(cipher.encrypted).toEqual([]);
   });
