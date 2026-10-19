@@ -105,6 +105,25 @@ describe('Typewriter', () => {
       expect(text()).toBe('On');
     });
 
+    it('lands an adorned phrase\'s mark once the text is typed, and keeps it out of the sr copy', () => {
+      const phrases = [{ text: 'Go', after: <b data-testid="mark">!</b> }];
+      const { container } = render(<Typewriter phrases={phrases} />);
+
+      act(() => void vi.advanceTimersByTime(70));
+      expect(screen.getByTestId('typewriter-text').textContent).toBe('G');
+      // Mid-type, the mark is only in the invisible width reservation.
+      expect(screen.getAllByTestId('mark')).toHaveLength(1);
+
+      act(() => void vi.advanceTimersByTime(70));
+      expect(screen.getByTestId('typewriter-text').textContent).toBe('Go');
+      expect(screen.getAllByTestId('mark')).toHaveLength(1);
+
+      // One more tick finishes typing, and the mark lands.
+      act(() => void vi.advanceTimersByTime(70));
+      expect(screen.getAllByTestId('mark')).toHaveLength(2);
+      expect(container.querySelector('.sr-only')?.textContent).toBe('Go');
+    });
+
     it('offers the whole phrase list to assistive tech as static text', () => {
       // The animated span is aria-hidden; announcing a partial word per tick
       // would be unusable, so the sr-only copy is the accessible content.

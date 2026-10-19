@@ -1,7 +1,9 @@
 import { fileURLToPath } from 'node:url';
 
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+
+import { MIDNITE_SITE_ORIGIN } from '../shared/src/install-command';
 
 /**
  * The public marketing site.
@@ -61,8 +63,25 @@ const issueTemplate = process.env['WEBSITE_ISSUE_TEMPLATE'] || null;
  */
 const siteOrigin = process.env['WEBSITE_ORIGIN'] ?? '';
 
+/**
+ * Stamps the site's absolute root into every HTML entry's `%SITE_ORIGIN%`.
+ *
+ * Open Graph and Twitter cards are read by crawlers that never resolve a
+ * relative URL, so `og:image` and `og:url` must be absolute — and which host
+ * they name is the same deploy-time fact `WEBSITE_ORIGIN` already carries. The
+ * fallback is `site-origin.ts`'s own, imported from the same file rather than
+ * restated, so the card and the install command cannot name different hosts.
+ */
+const socialMeta = (): Plugin => {
+  const origin = (siteOrigin || MIDNITE_SITE_ORIGIN).replace(/\/+$/, '');
+  return {
+    name: 'website-social-meta',
+    transformIndexHtml: (html) => html.replaceAll('%SITE_ORIGIN%', origin),
+  };
+};
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), socialMeta()],
   base,
   /*
     Build-time constants. `__BUILD_YEAR__` is the footer's copyright year — see

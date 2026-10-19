@@ -1,24 +1,52 @@
 import { LuLayoutGrid, LuShieldCheck } from 'react-icons/lu';
+import { PiRocketLaunchFill } from 'react-icons/pi';
 
 import { appLogoHref, SITE_APPS } from '../../apps/catalog';
-import { Button, Container, Eyebrow, Section, TypeIn, Typewriter, Wordmark } from '../../components';
+import {
+  Button,
+  Container,
+  Eyebrow,
+  Section,
+  TypeIn,
+  Typewriter,
+  Wordmark,
+  type TypewriterPhrase,
+} from '../../components';
 import { anchorHref, hrefFor } from '../../routes';
 
 import { LauncherMock } from './launcher-mock';
 
 /**
- * The phrases the headline types through: what the suite is for, one part of
- * the day at a time, ending on the claim the rest add up to. Short, because the
- * line reserves the width of the longest.
+ * Studio's rocket, landing after the last phrase.
+ *
+ * The same white `PiRocketLaunchFill` Studio's own logo carries, on a tile in
+ * Studio's brand gradient (blue through violet to pink, the launcher logo
+ * generator's stops), so the white glyph reads on the light theme as well as
+ * the dark one. `.ws-rocket` lifts it off as it arrives.
  */
-const PHRASES = [
+const StudioRocket = () => (
+  <span
+    data-testid="hero-rocket"
+    className="ws-rocket ml-[0.3em] inline-flex h-[0.82em] w-[0.82em] items-center justify-center rounded-[0.24em] bg-[linear-gradient(135deg,#2e7cfa,#6672f5_30%,#8b5cf6_55%,#a855f7_78%,#e740d1)] align-[-0.08em] text-white shadow-[0_0_0.4em_rgb(139_92_246/0.55)]"
+  >
+    <PiRocketLaunchFill className="h-[0.56em] w-[0.56em]" />
+  </span>
+);
+
+/**
+ * The phrases the headline types through: what the suite is for, one part of
+ * the day at a time, ending on the claim the rest add up to, and then the one
+ * that shoots past it. Short, because the line reserves the width of the longest.
+ */
+const PHRASES: readonly TypewriterPhrase[] = [
   'for your code.',
   'for your agents.',
   'for your media.',
   'for your ideas.',
   'for your machine.',
   'for all of it.',
-] as const;
+  { text: 'shoot for the moon', after: <StudioRocket /> },
+];
 
 /**
  * The hero: Midnite Apps, the launcher, and the suite it opens.

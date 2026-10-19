@@ -232,6 +232,22 @@ And **the nav's `aria-label` still reads "Midnite Studio"**: the visible mark is
 now two differently-faced spans, and the space between them is a real text node
 rather than only a margin, so `textContent` still says the product's name.
 
+## The social card
+
+Every HTML entry (`index.html`, `apps/`, `download/`, `pricing/`) carries the same Open Graph and
+Twitter `summary_large_image` card: `public/img/og/midnite-apps.png`, 1200×630. It shows the plain
+midnite moon (no rocket, which is Studio's own mark) filled with Studio's brand gradient, the
+"Midnite Apps" wordmark in Damion, and every app's logo in a row.
+
+- **The card is rendered, not drawn by hand.** `node scripts/website-og-image.mjs` builds it as an
+  HTML page and screenshots it with Playwright, so the wordmark is set in the real brand face. The
+  PNG is committed; re-run the script only when the card should change (a new app, new copy).
+- **Its URLs are absolute.** Crawlers never resolve a relative `og:image`, so the HTML names
+  `%SITE_ORIGIN%/img/og/midnite-apps.png` and `vite.config.ts`'s `socialMeta` plugin stamps the
+  site root in at build time: `WEBSITE_ORIGIN` when set, else the same default `site-origin.ts`
+  reads. A Pages build that sets `WEBSITE_ORIGIN` to origin plus prefix gets a card URL with the
+  prefix, as it must. `src/social-meta.test.ts` holds every entry to this.
+
 ## Deploying on Vercel
 
 The site also deploys as a plain Vercel project, and this is the path that is
