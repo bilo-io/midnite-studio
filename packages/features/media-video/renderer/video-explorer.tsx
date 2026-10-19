@@ -88,7 +88,7 @@ function Row({
       </span>
       <span className="flex shrink-0 items-center">{icon}</span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {meta ? <span className="shrink-0 text-[10px] text-muted-foreground">{meta}</span> : null}
+      {meta ? <span className="min-w-0 max-w-[45%] truncate text-[10px] text-muted-foreground">{meta}</span> : null}
     </button>
   );
 }
@@ -309,7 +309,8 @@ function ProjectNodes({
               title={project && !project.valid ? project.error : node.id}
               icon={<LeafIcon aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />}
               label={title}
-              meta={valid?.composition}
+              // A template's composition id (`TemplateYoutubeTutorialsNeonHud`) only repeats its title.
+              meta={LeafIcon === LuClapperboard ? valid?.composition : undefined}
               onClick={() => {
                 onSelect(item);
                 if (!open) expanded.toggle(node.id);
