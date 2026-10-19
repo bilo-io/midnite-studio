@@ -83,6 +83,8 @@ export type GitExecOptions = {
   processCallback?: (proc: ChildProcess) => void;
 };
 
+// `opts.env` is a deliberate override reserved for deltas (e.g. `{ GIT_EDITOR: 'true' }`).
+// Never spread `process.env` into it: that reinstates the ambient environment over the hardened maps.
 const buildEnv = (opts: GitExecOptions): Record<string, string> => ({
   ...(opts.write ? WRITE_ENV : BASE_ENV),
   ...opts.env,

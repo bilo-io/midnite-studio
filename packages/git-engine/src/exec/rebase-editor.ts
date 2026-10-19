@@ -53,21 +53,21 @@ export function parseRebaseTodo(content: string): RebaseEntry[] {
         action = 'break';
         break;
       case 'x':
-      case 'exec':
-        action = 'exec';
-        break;
+      case 'exec': {
+        // Read-only display: git may have written an `exec` line itself, but the
+        // plan schema cannot carry one back (Phase 91 Theme A).
+        entries.push({
+          id: `exec-${Math.random().toString(36).substring(2, 9)}`,
+          action: 'break',
+          subject: `exec ${parts.slice(1).join(' ')}`.trim(),
+        });
+        continue;
+      }
       default:
         continue;
     }
 
-    if (action === 'exec') {
-      const execCommand = parts.slice(1).join(' ');
-      entries.push({
-        id: `exec-${Math.random().toString(36).substring(2, 9)}`,
-        action,
-        execCommand,
-      });
-    } else if (action === 'break') {
+    if (action === 'break') {
       entries.push({
         id: `break-${Math.random().toString(36).substring(2, 9)}`,
         action,
@@ -93,10 +93,14 @@ export function parseRebaseTodo(content: string): RebaseEntry[] {
 export function formatRebaseTodo(entries: RebaseEntry[]): string {
   const lines: string[] = [];
 
-  for (const entry of entries) {
-    if (entry.action === 'exec') {
-      lines.push(`exec ${entry.execCommand || ''}`);
-    } else if (entry.action === 'break') {
+  // A todo file is line-oriented: a value carrying a newline means something other
+  // than what the caller intended (Phase 91 Theme A).
+  const oneLine = (v: string | undefined, max = 512): string =>
+    (v ?? '').replace(/[\r\n]/g, ' ').slice(0, max);
+
+  for (const rawEntry of entries) {
+    const entry = { ...rawEntry, sha: oneLine(rawEntry.sha, 40), subject: oneLine(rawEntry.subject) };
+    if (entry.action === 'break') {
       lines.push('break');
     } else if (entry.action === 'drop') {
       lines.push(`drop ${entry.sha || ''} ${entry.subject || ''}`.trim());
