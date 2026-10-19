@@ -161,6 +161,13 @@ mac:
   # electron-builder signs the bundle; without one, the release workflow sets
   # CSC_IDENTITY_AUTO_DISCOVERY=false and afterpack.cjs ad-hoc signs it so it
   # still launches locally.
+  # Phase 91 Theme H: this stays false ON PURPOSE. The live notarisation path is
+  # `afterSign: scripts/notarize.cjs` below, which runs @electron/notarize itself
+  # when APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID are all set and
+  # logs "skipped" otherwise. Turning this on as well would notarise twice.
+  # With no Apple credentials (today) the build ships ad-hoc signed and
+  # un-notarised, so `hardenedRuntime` buys nothing from Gatekeeper yet, and
+  # install.sh's `spctl --assess` gate reports that honestly.
   notarize: false
   # The Automation consent prompt's own copy (Phase 74 Theme C) — shown once,
   # the first time the app sends Finder an Apple event to empty the Trash.

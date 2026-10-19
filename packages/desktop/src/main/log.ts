@@ -1,3 +1,5 @@
+import { redactPaths } from '@midnite/studio-shared';
+
 import type { LogLevel, LogSink } from './log-sink';
 
 /**
@@ -75,11 +77,15 @@ function emit(level: LogLevel, message: string): void {
   /* eslint-disable no-console */
   // The console stays, unconditionally: it is what a `moon run desktop:start`
   // session reads, and it is the fallback the sink degrades to.
-  if (level === 'error') console.error(message);
-  else console.warn(message);
+  // Redacted before it reaches either arm (Phase 91 Theme G): the console used
+  // to get the raw string while only the sink scrubbed. Idempotent, so the
+  // sink's own pass over the same text costs a scan and nothing else.
+  const safe = redactPaths(message);
+  if (level === 'error') console.error(safe);
+  else console.warn(safe);
   /* eslint-enable no-console */
   try {
-    sink?.write(level, message);
+    sink?.write(level, safe);
   } catch {
     // The sink promises not to throw; this is the belt to that braces. A logger
     // that can crash its caller is worse than no logger.

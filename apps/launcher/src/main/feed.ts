@@ -9,6 +9,8 @@ const FeedSchema = z.object({
   version: z.string().regex(/^\d+\.\d+\.\d+([-.][0-9A-Za-z.]+)?$/),
   releasedAt: z.string().optional(),
   notesUrl: z.string().url().optional(),
+  /** Lowercase hex SHA-256 of the Studio arm64 zip (Phase 91 Theme H); absent on releases before it. */
+  sha256: z.string().regex(/^[0-9a-fA-F]{64}$/).optional(),
 });
 
 /** `null` for anything that is not a well-formed feed — a version that fails the pattern never reaches a download URL. */
@@ -62,4 +64,30 @@ export async function fetchStudioRelease(sources: ReleaseSources = {}): Promise<
     };
   }
   return fetchLatestRelease(sources.feedUrl ?? STUDIO_FEED_URL, sources.fetchImpl);
+}
+
+/**
+ * The published SHA-256 of Studio's zip for `version` (Phase 91 Theme H), or
+ * `null` when none is published: `catalog.json` carries one per app (built from
+ * the uploaded files), then `midnite-studio/version.json`'s `sha256`. `null`
+ * means "cannot verify" (an older release, an unreachable feed, or a feed that
+ * describes a different version), which the installer reports as a skip rather
+ * than a failure, so every already-published version stays installable.
+ */
+export async function fetchStudioSha256(version: string, sources: ReleaseSources = {}): Promise<string | null> {
+  const catalog = await fetchCatalog(sources.catalogUrl, sources.fetchImpl);
+  const studio = catalog?.apps.find((a) => a.id === 'studio' && a.version === version);
+  if (studio) return studio.sha256;
+  try {
+    const res = await (sources.fetchImpl ?? fetch)(sources.feedUrl ?? STUDIO_FEED_URL, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const parsed = FeedSchema.safeParse(await res.json());
+    if (!parsed.success || parsed.data.version !== version || !parsed.data.sha256) return null;
+    return parsed.data.sha256.toLowerCase();
+  } catch {
+    return null;
+  }
 }

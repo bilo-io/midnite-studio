@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, rm, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -65,5 +66,35 @@ describe('installStudio', () => {
     const fetchImpl = (async () => new Response('{}', { status: 200 })) as unknown as typeof fetch;
     const result = await installStudio({ onProgress: () => undefined, isRunning: async () => false, installDir: root, fetchImpl });
     expect(result).toEqual({ ok: false, message: 'No published release yet.' });
+  });
+
+  // Phase 91 Theme H: the zip is checked before `ditto` ever reads it.
+  const routed = (feed: object, zip: { body: string; headers?: Record<string, string> }): typeof fetch =>
+    (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('catalog.json')) return new Response('', { status: 404 });
+      if (url.endsWith('version.json')) return new Response(JSON.stringify(feed), { status: 200 });
+      return new Response(zip.body, { status: 200, headers: zip.headers });
+    }) as unknown as typeof fetch;
+
+  it('refuses a download whose digest does not match the feed, before extracting it', async () => {
+    const sha256 = createHash('sha256').update('the real zip').digest('hex');
+    const result = await installStudio({
+      onProgress: () => undefined,
+      isRunning: async () => false,
+      installDir: root,
+      fetchImpl: routed({ version: '1.2.3', sha256 }, { body: 'a corrupt zip' }),
+    });
+    expect(result).toEqual({ ok: false, message: expect.stringMatching(/checksum/) });
+  });
+
+  it('refuses a short read when the server declared a length', async () => {
+    const result = await installStudio({
+      onProgress: () => undefined,
+      isRunning: async () => false,
+      installDir: root,
+      fetchImpl: routed({ version: '1.2.3' }, { body: 'abc', headers: { 'content-length': '999' } }),
+    });
+    expect(result).toEqual({ ok: false, message: expect.stringMatching(/cut short/) });
   });
 });

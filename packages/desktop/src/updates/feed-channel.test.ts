@@ -10,11 +10,16 @@ describe('feedChannelFor', () => {
     });
   });
 
+  it('never allows a downgrade on either channel', () => {
+    expect(feedChannelFor('stable').allowDowngrade).toBe(false);
+    expect(feedChannelFor('beta').allowDowngrade).toBe(false);
+  });
+
   it('maps beta channel appropriately', () => {
     expect(feedChannelFor('beta')).toEqual({
       channel: 'beta',
       allowPrerelease: true,
-      allowDowngrade: true,
+      allowDowngrade: false,
     });
   });
 });

@@ -6,9 +6,10 @@
   <true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
   <true/>
+  <!-- Kept: the unpacked native trees (onnxruntime-node, sherpa-onnx, sharp) need it.
+       allow-dyld-environment-variables was removed in Phase 91 Theme H: nothing here
+       sets a DYLD_* variable, and it is what makes DYLD_INSERT_LIBRARIES work. -->
   <key>com.apple.security.cs.disable-library-validation</key>
-  <true/>
-  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
   <true/>
   <key>com.apple.security.automation.apple-events</key>
   <true/>

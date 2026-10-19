@@ -332,6 +332,22 @@ jobs:
       # `artifactName` (midnite-studio-${version}-${arch}.${ext}) and must
       # match the receiving repo's apps.json exactly, since its install.sh
       # builds its download URL from that same template.
+      # Phase 91 Theme H: a published checksum for every installable. Lines are
+      # `<sha256>  <basename>` so `shasum -a 256 -c SHA256SUMS` works from a
+      # directory holding the downloads. install.sh reads the zip's digest from
+      # version.json instead (written by midnite-apps' release-feed.yml, which
+      # needs the paired `sha256` edit); this file is the human-checkable copy.
+      - name: Write SHA256SUMS
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > SHA256SUMS
+          while IFS= read -r -d '' f; do
+            printf '%s  %s\n' "$(shasum -a 256 "$f" | cut -d' ' -f1)" "$(basename "$f")" >> SHA256SUMS
+          done < <(find artifacts -type f \( -name '*.dmg' -o -name '*.zip' \) -print0 | sort -z)
+          [ -s SHA256SUMS ] || { echo "::error::no dmg/zip found to checksum"; exit 1; }
+          cat SHA256SUMS
+
       - name: Publish release to bilo-io/midnite-apps
         if: ${{ !cancelled() }}
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
@@ -346,6 +362,7 @@ jobs:
             artifacts/**/*.zip
             artifacts/**/*.blockmap
             artifacts/**/latest-mac.yml
+            SHA256SUMS
 
   # Phase 53 Theme E. This app's feed is the `generic` provider (see
   # electron-builder.yml's `publish:` block and CLAUDE.md), so unlike
