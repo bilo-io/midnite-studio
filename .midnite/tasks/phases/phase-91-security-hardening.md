@@ -1,7 +1,7 @@
 # Phase 91 — Security hardening and CVE readiness
 
 **Written unattended** (no human in the loop — see Decisions) · 2026-09-20 · the second and third
-passes over [`.midnite/security/scan_opus_5.md`](../../security/scan_opus_5.md), re-grounded against
+passes over [`.midnite/security/scan_opus_5.md`](../../../docs/security/scan_opus_5.md), re-grounded against
 the tree at `2d8b4e53`.
 
 The first pass already exists. `scan_opus_5.md` (2026-09-19) is a 21-finding audit with file:line
@@ -54,7 +54,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Headlines
 
-*Passes two and three over [`.midnite/security/scan_opus_5.md`](../../security/scan_opus_5.md), which is pass one and is not repeated. The sweep found classes the scan never looked at — a **1,695-entry lockfile with zero vulnerability scanning on any trigger** (fourteen tool names grepped, no hits), `ci.yml` with **no top-level `permissions:`**, `agentApiKeys` holding seven provider keys plus a `GITHUB_TOKEN` slot in plaintext `localStorage` (a larger leak than the finance key the scan named), both `safeStorage` vaults written 0644, `redact.ts` blind to `glpat-`/`AKIA`/`apikey=`/PEM blocks while its output is designed for a public tracker, no `SECURITY.md`, no checksums on any release, and zero Electron fuses. Every item names the file, the symbol, the guard and the test — the doc's own stated standard, so a Sonnet- or Flash-class executor needs no judgement. Phase 76 owns the CSP, `sandbox: true`, the Electron bump, the finance key and the `ipcMain.on` sweep; this phase owns the rest and names the three seams. Repo visibility verified `private` — `CLAUDE.md` asserts both.*
+*Passes two and three over [`.midnite/security/scan_opus_5.md`](../../../docs/security/scan_opus_5.md), which is pass one and is not repeated. The sweep found classes the scan never looked at — a **1,695-entry lockfile with zero vulnerability scanning on any trigger** (fourteen tool names grepped, no hits), `ci.yml` with **no top-level `permissions:`**, `agentApiKeys` holding seven provider keys plus a `GITHUB_TOKEN` slot in plaintext `localStorage` (a larger leak than the finance key the scan named), both `safeStorage` vaults written 0644, `redact.ts` blind to `glpat-`/`AKIA`/`apikey=`/PEM blocks while its output is designed for a public tracker, no `SECURITY.md`, no checksums on any release, and zero Electron fuses. Every item names the file, the symbol, the guard and the test — the doc's own stated standard, so a Sonnet- or Flash-class executor needs no judgement. Phase 76 owns the CSP, `sandbox: true`, the Electron bump, the finance key and the `ipcMain.on` sweep; this phase owns the rest and names the three seams. Repo visibility verified `private` — `CLAUDE.md` asserts both.*
 
 **Theme A — The rebase editor stops generating a shell script.** ✅ The helper script is now the constant `REBASE_EDITOR_SCRIPT` (zero caller bytes, mode 0700); the plan goes to its own 0600 `.git/midnite-rebase-todo` passed via `MIDNITE_REBASE_TODO`, both files removed in a `finally`. `formatRebaseTodo` flattens newlines and caps subjects at 512; `RebaseEntrySchema` constrains `sha`/`subject` and the plan caps at 1000 entries. `exec` is gone from the schema — and, contrary to the doc's premise, the renderer *did* send it (`rebase-modal.tsx` had an "Add exec step" button), so that UI was removed too: a deliberate capability cut. `parseRebaseTodo` reads git's own `exec` lines as read-only `break` display entries. Both rebase call sites pass env deltas only. Tests: hostile-subject formatter cases, schema rejection, and a byte-equality + no-leftover-files integration test.
 
@@ -651,7 +651,7 @@ users and no documented way for one of them to report a vulnerability privately.
       the boundary macOS offers). Both are already argued in Phase 76; `SECURITY.md` is where a
       reporter can find them before spending a weekend on one.
 - [ ] **Commit the audits of record under `docs/security/`.** Move
-      [`.midnite/security/scan_opus_5.md`](../../security/scan_opus_5.md) and
+      [`.midnite/security/scan_opus_5.md`](../../../docs/security/scan_opus_5.md) and
       `.midnite/security/scan_kilo.md` (both untracked today) to `docs/security/`, unchanged. See
       Decisions for why this is safe **and** for the standing rule that goes with it.
 - [ ] **Add `docs/security/README.md` as the finding index** — one row per finding:
@@ -760,7 +760,7 @@ users and no documented way for one of them to report a vulnerability privately.
 
 - **Resolved — this phase is the second and third pass, not a re-audit.** The human asked for three
   passes: an Opus audit, a refinement, and a rewrite for a fast executor.
-  [`scan_opus_5.md`](../../security/scan_opus_5.md) is pass one and is not repeated. This doc is
+  [`scan_opus_5.md`](../../../docs/security/scan_opus_5.md) is pass one and is not repeated. This doc is
   passes two and three fused, because they produce the same artefact: a refinement that is not
   executable is just a longer list.
 - **Resolved — minification does not make client-side code uncopyable, and this doc will not imply
