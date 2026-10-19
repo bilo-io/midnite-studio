@@ -1,0 +1,254 @@
+[
+  {
+    "advisory": "GHSA-34x7-hfp2-rc4v",
+    "package": "tar",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: node-tar Vulnerable to Arbitrary File Creation/Overwrite via Hardlink Path Traversal",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-8qq5-rm4j-mr97",
+    "package": "tar",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: node-tar is Vulnerable to Arbitrary File Overwrite and Symlink Poisoning via Insufficient Path Sanitization",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-83g3-92jg-28cx",
+    "package": "tar",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in node-tar Extraction",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-qffp-2rhf-9h96",
+    "package": "tar",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: tar has Hardlink Path Traversal via Drive-Relative Linkpath",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-9ppj-qmqm-q256",
+    "package": "tar",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: node-tar Symlink Path Traversal via Drive-Relative Linkpath",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-r6q2-hw4h-h46w",
+    "package": "tar",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Race Condition in node-tar Path Reservations via Unicode Ligature Collisions on macOS APFS",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-532v-xpq5-8h95",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: Use-after-free in offscreen child window paint callback",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-8337-3p73-46f4",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: Use-after-free in WebContents fullscreen, pointer-lock, and keyboard-lock permission callbacks",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-jjp3-mq3x-295m",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: Use-after-free in PowerMonitor on Windows and macOS",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-9wfr-w7mm-pc7f",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: Renderer command-line switch injection via undocumented commandLineSwitches webPreference",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-23hp-3jrh-7fpw",
+    "package": "tar",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. critical: node-tar: Decompression/parse DoS via unlimited input",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-8x88-c5mf-7j5w",
+    "package": "tar",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: node-tar: Negative tar entry size causes infinite loop in archive replace",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-f88m-g3jw-g9cj",
+    "package": "sharp",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: sharp inherited vulnerabilities in libvips: CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-p2f4-r6v6-j797",
+    "package": "builder-util-runtime",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: electron-updater: Cross-origin redirect leaks `PRIVATE-TOKEN` and mixed-case `Authorization` credentials in `builder-util-runtime`",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-7g7r-gx96-252g",
+    "package": "app-builder-lib",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: electron-updater: Uncontrolled search path elements within `AppImage` built by `app-builder-lib`",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-v3j7-r9gq-3gjw",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: Custom protocol with supportFetchAPI but not corsEnabled allows cross-origin reads",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-h7rp-cf8h-j98x",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: Context isolation bypass via Function.prototype.bind hijack",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-9f4c-93c8-jc8g",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: Sandboxed iframe can bypass the allow-popups restriction via the OpenURL navigation path",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-jmr9-qjv8-65gv",
+    "package": "extract-zip",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: extract-zip unvalidated symlink path traversal",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-r292-9mhp-454m",
+    "package": "tar",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: node-tar: Uncontrolled recursion in mapHas/filesFilter allows uncatchable stack-overflow DoS via crafted long-path tar with member selection",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-p293-qw3h-jr36",
+    "package": "next",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. critical: Next.js: Unauthenticated Remote Code Execution on windows-hosted servers",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-jrc7-96c5-q579",
+    "package": "maplibre-gl",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. critical: MapLibre GL JS: XSS Sanitizer Bypass in DOM.sanitize() via Live NamedNodeMap Removal Skip",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-7pqw-9j4j-h8q3",
+    "package": "extract-zip",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: extract-zip allows arbitrary file writes through symlink archive entries",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-rgj7-g3m4-5g8c",
+    "package": "sharp",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: sharp: Vulnerabilities in libheif: GHSA-g89c-p67h-r497 and GHSA-2jg2-4ch7-h545",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-2883-xcg3-v3hh",
+    "package": "js-yaml",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: js-yaml: maxTotalMergeKeys does not limit CPU use for empty merge sources",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-2xp9-vwfh-vxw4",
+    "package": "next",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. critical: Next.js: Unauthenticated Remote Code Execution in Image Optimization API when AVIF files are used",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-hq2x-r82h-9wj4",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron drops inherited HTML sandbox restrictions for popups opened through OpenURLFromTab",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-gr2m-v5gq-v685",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: Windows opened from a sandboxed top-level document do not inherit its sandbox restrictions",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-j84w-jfhq-vhvj",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: File and HTTP protocol handlers allow cross-origin reads without corsEnabled",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-qhr7-859c-m2p7",
+    "package": "brace-expansion",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-6j4f-fj2g-mc7p",
+    "package": "brace-expansion",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-vcvr-r3jv-pc5j",
+    "package": "next",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. critical: Next.js: Remote Code Execution in next/og ImageResponse",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-ch52-4w7c-c8xp",
+    "package": "http-cache-semantics",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: http-cache-semantics max-stale handling can disclose cross-user cached responses",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-vfj7-8cjw-p6xm",
+    "package": "braces",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-68fv-2mgg-jv7q",
+    "package": "source-map-js",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: source-map-js allows event-loop denial of service through indexed source-map section offsets",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-jqcg-44mw-7w3h",
+    "package": "proxy-addr",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. critical: proxy-addr vulnerable to IP spoofing via IPv4-mapped IPv6 trust subnet",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-5gmw-xhrv-c9v3",
+    "package": "tinypool",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. critical: Tinypool: Prototype Pollution gadget in worker options leads to Remote Code Execution",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-85c8-ppgw-ccpr",
+    "package": "tinypool",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. critical: Tinypool: Prototype Pollution Gadget to RCE in run() options",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-wq5f-xc86-pv6w",
+    "package": "sharp",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: sharp : Vulnerability in librsvg dependency CVE-2026-96889",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-6qxp-vccf-f47h",
+    "package": "@modelcontextprotocol/sdk",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: MCP TypeScript SDK: OAuth client could send credentials to an authorization server chosen by the MCP server",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-cjq9-62q9-8jv4",
+    "package": "next",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Next.js has Server-Side Request Forgery in Image Optimization",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-9qh4-3jw8-366w",
+    "package": "electron",
+    "reason": "Baseline when the audit gate landed (Phase 91 Theme I); triage and bump or justify before expiry. high: Electron: <webview> can enable Node.js integration in Web Workers despite embedder restrictions",
+    "expires": "2026-12-31"
+  }
+]

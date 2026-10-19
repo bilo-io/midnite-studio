@@ -7,6 +7,12 @@
   "schedule": [
     "before 9am on monday"
   ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"]
+  },
+  "osvVulnerabilityAlerts": true,
+  "minimumReleaseAge": "3 days",
   "packageRules": [
     {
       "matchPackageNames": [

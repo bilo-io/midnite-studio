@@ -1,7 +1,7 @@
 # Phase 91 — Security hardening and CVE readiness
 
 **Written unattended** (no human in the loop — see Decisions) · 2026-09-20 · the second and third
-passes over [`.midnite/security/scan_opus_5.md`](../../security/scan_opus_5.md), re-grounded against
+passes over [`.midnite/security/scan_opus_5.md`](../../../docs/security/scan_opus_5.md), re-grounded against
 the tree at `2d8b4e53`.
 
 The first pass already exists. `scan_opus_5.md` (2026-09-19) is a 21-finding audit with file:line
@@ -54,7 +54,7 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ## Headlines
 
-*Passes two and three over [`.midnite/security/scan_opus_5.md`](../../security/scan_opus_5.md), which is pass one and is not repeated. The sweep found classes the scan never looked at — a **1,695-entry lockfile with zero vulnerability scanning on any trigger** (fourteen tool names grepped, no hits), `ci.yml` with **no top-level `permissions:`**, `agentApiKeys` holding seven provider keys plus a `GITHUB_TOKEN` slot in plaintext `localStorage` (a larger leak than the finance key the scan named), both `safeStorage` vaults written 0644, `redact.ts` blind to `glpat-`/`AKIA`/`apikey=`/PEM blocks while its output is designed for a public tracker, no `SECURITY.md`, no checksums on any release, and zero Electron fuses. Every item names the file, the symbol, the guard and the test — the doc's own stated standard, so a Sonnet- or Flash-class executor needs no judgement. Phase 76 owns the CSP, `sandbox: true`, the Electron bump, the finance key and the `ipcMain.on` sweep; this phase owns the rest and names the three seams. Repo visibility verified `private` — `CLAUDE.md` asserts both.*
+*Passes two and three over [`.midnite/security/scan_opus_5.md`](../../../docs/security/scan_opus_5.md), which is pass one and is not repeated. The sweep found classes the scan never looked at — a **1,695-entry lockfile with zero vulnerability scanning on any trigger** (fourteen tool names grepped, no hits), `ci.yml` with **no top-level `permissions:`**, `agentApiKeys` holding seven provider keys plus a `GITHUB_TOKEN` slot in plaintext `localStorage` (a larger leak than the finance key the scan named), both `safeStorage` vaults written 0644, `redact.ts` blind to `glpat-`/`AKIA`/`apikey=`/PEM blocks while its output is designed for a public tracker, no `SECURITY.md`, no checksums on any release, and zero Electron fuses. Every item names the file, the symbol, the guard and the test — the doc's own stated standard, so a Sonnet- or Flash-class executor needs no judgement. Phase 76 owns the CSP, `sandbox: true`, the Electron bump, the finance key and the `ipcMain.on` sweep; this phase owns the rest and names the three seams. Repo visibility verified `private` — `CLAUDE.md` asserts both.*
 
 **Theme A — The rebase editor stops generating a shell script.** ✅ The helper script is now the constant `REBASE_EDITOR_SCRIPT` (zero caller bytes, mode 0700); the plan goes to its own 0600 `.git/midnite-rebase-todo` passed via `MIDNITE_REBASE_TODO`, both files removed in a `finally`. `formatRebaseTodo` flattens newlines and caps subjects at 512; `RebaseEntrySchema` constrains `sha`/`subject` and the plan caps at 1000 entries. `exec` is gone from the schema — and, contrary to the doc's premise, the renderer *did* send it (`rebase-modal.tsx` had an "Add exec step" button), so that UI was removed too: a deliberate capability cut. `parseRebaseTodo` reads git's own `exec` lines as read-only `break` display entries. Both rebase call sites pass env deltas only. Tests: hostile-subject formatter cases, schema rejection, and a byte-equality + no-leftover-files integration test.
 
@@ -72,9 +72,9 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 **Theme H — The install path, the update feed, and the signature story.** ✅ (PR pending) `release.yml` writes and uploads `SHA256SUMS`. `install.sh`, `install-studio.sh` and the launcher's in-app `installStudio` verify the zip's SHA-256 before extracting (catalog `sha256`, then a `sha256` in `version.json`; no digest warns and continues so published versions stay installable), run `codesign --verify --deep --strict` and `spctl --assess` before the swap, and gate the quarantine strip on both; an ad-hoc build needs `MIDNITE_*_ALLOW_UNSIGNED=1`, which makes the shipping default build opt-in until signing exists. The notarisation contradiction is resolved as documentation: `afterSign: notarize.cjs` is the live path and `notarize: false` is deliberate (`docs/RELEASING.md`). `afterpack.cjs` flips fuses via `@electron/fuses` before signing (`RunAsNode` stays on for the broker), `allow-dyld-environment-variables` is gone from both plists, beta `allowDowngrade` is `false`, the four updater channels resolve their sending window, and `isAdHocSigned` uses no shell. **Paired edits outside this repo:** midnite-apps' `release-feed.yml` must write `sha256` into `version.json`, and its `midnite-studio/install.sh` must match `install-studio.sh` here until then `website:sync-install` will report drift post-merge. **Unverified without a packaged build:** the fuses (asar integrity) and entitlement removal need a launch + terminal + DB-query smoke. Left open: the website re-sync item and the live `curl | sh` acceptance run.
 
-**Theme I — CI gates so none of this regresses.** ◻ CI gates: a top-level `permissions:` block, a `root:audit` task with expiring suppressions, a `gate-audit` job, Renovate's OSV fast lane, `onlyBuiltDependencies`, SHA-pinned release actions, an Electron-freshness warning
+**Theme I — CI gates so none of this regresses.** ✅ (Phase 91 I+J PR) Top-level `permissions: {contents: read, packages: read}` in `ci.yml` (`packages: read` is what the GitHub Packages install needs; `package` keeps its own block). `scripts/audit.mjs` + `root:audit` filter `pnpm audit --audit-level=high` through `audit-suppressions.json`, whose entries expire and fail on their own date; the day the gate landed `pnpm audit` reported 20+ live high/critical advisories (next, tinypool, proxy-addr, electron, brace-expansion…), so they are baselined as suppressions expiring 2026-12-31 rather than leaving the gate red on main. `gate-audit` runs on `ubuntu-24.04` with the warn-only `root:electron-freshness` step (it already warns: Electron 33 vs supported 44-46). Renovate gets `vulnerabilityAlerts`, `osvVulnerabilityAlerts` and `minimumReleaseAge: 3 days`; `onlyBuiltDependencies` lists the eight spec'd native packages; `pnpm/action-setup` and `softprops/action-gh-release` are SHA-pinned. Not done: the red-on-a-bad-branch acceptance proof.
 
-**Theme J — A disclosure route, and the audit of record.** ◻ a disclosure route: `SECURITY.md`, the audits committed under `docs/security/` with a per-finding status index, and the repo-visibility contradiction resolved across all three convention files
+**Theme J — A disclosure route, and the audit of record.** ✅ (Phase 91 I+J PR) `SECURITY.md` points private reports at GitHub private vulnerability reporting on `bilo-io/midnite-apps` with an email fallback, and lists the two out-of-scope positions. Both scans moved to `docs/security/` (they were already tracked under `.midnite/security/`), with a 21-row finding index in `docs/security/README.md`. Surprise: the visibility contradiction resolved the other way — `gh api repos/bilo-io/midnite-studio -q .visibility` returns `public`, not `private` as this doc assumed, so all three convention files now say public, the scans were already exposed, and the pre-publish gate became a standing rule (nothing unpatched is committed; new findings go through the private route). Not verified: that `SECURITY.md` renders in the Security tab.
 
 ## Deliverables
 
@@ -414,7 +414,7 @@ closures are references too, and `discardBrowserTab` (`:460-463`), `apps-service
       `ipcMain.setMaxListeners(100)` once in `main/index.ts` with a comment stating the count and
       the date it was measured, so the eventual `MaxListenersExceededWarning` is a deliberate
       signal rather than noise in a user's log.
-- [x] **Assert Phase 84's visibility gates actually stop work.** [Phase 84](phase-84-live-everywhere-lighter-when-hidden.md)
+- [ ] **Assert Phase 84's visibility gates actually stop work.** [Phase 84](phase-84-live-everywhere-lighter-when-hidden.md)
       added the blur/hide gates; `window-visibility-gate.ts` is the module. Add a test that drives
       the gate to `hidden` and asserts the registered tickers report stopped — and record the
       `idle-cpu --blurred` number from `scripts/perf/idle-cpu.mjs` in the PR body, since
@@ -580,7 +580,7 @@ no vulnerability scanner on any trigger**. Grepped `pnpm audit`, `npm audit`, `o
 `provenance` across `.github/workflows/`, `moon.yml`, every `packages/*/moon.yml` and every
 `package.json` — zero hits for all fourteen.
 
-- [ ] **A top-level `permissions:` block in [`ci.yml`](../../../.github/workflows/ci.yml).** The
+- [x] **A top-level `permissions:` block in [`ci.yml`](../../../.github/workflows/ci.yml).** The
       file has none; the only `permissions:` in it is job-level at `:896-898` on `package`. The
       other seven jobs inherit the repo default token scope while running
       `pnpm install --frozen-lockfile` with `GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}` in
@@ -588,29 +588,29 @@ no vulnerability scanner on any trigger**. Grepped `pnpm audit`, `npm audit`, `o
       is. Add `permissions: { contents: read }` at the top, matching `release.yml:29-31` and
       `website.yml:35`. Note the comment those two files carry: a job-level block **replaces**
       rather than merges, so `package`'s own block stays as-is.
-- [ ] **A `root:audit` moon task.** Add to [`moon.yml`](../../../moon.yml) beside `version-check`
+- [x] **A `root:audit` moon task.** Add to [`moon.yml`](../../../moon.yml) beside `version-check`
       (`:48-55`), in the same shape — `command:`, `options.cache: false`, and **no `inputs`**, the
       convention `tracker-check`/`visual-budget`/`e2e-budget` follow for tasks that inspect on-disk
       state (see the comment at `moon.yml:71-77`). New `scripts/audit.mjs` runs
       `pnpm audit --json --audit-level=high`, filters against a committed
       `scripts/audit-suppressions.json`, and exits non-zero on anything unsuppressed.
-- [ ] **Suppressions expire.** Each entry in `audit-suppressions.json` is
+- [x] **Suppressions expire.** Each entry in `audit-suppressions.json` is
       `{ advisory, package, reason, expires }` with `expires` an ISO date, and `scripts/audit.mjs`
       fails on an expired entry rather than an unsuppressed one. A suppression with no end date is
       how a scanner becomes decorative. `scripts/audit.test.mjs` covers: unsuppressed high → exit 1;
       suppressed, unexpired → exit 0; suppressed, expired → exit 1 with the advisory named.
-- [ ] **A `gate-audit` job in `ci.yml`** on `ubuntu-24.04` (this exercises no platform behaviour, so
+- [x] **A `gate-audit` job in `ci.yml`** on `ubuntu-24.04` (this exercises no platform behaviour, so
       [`CLAUDE.md`](../../../CLAUDE.md)'s macOS rule does not apply, and the 5-concurrent-macOS cap
       is the reason to keep it off macOS). Steps: checkout, pnpm/node setup, install,
       `moon run root:audit`. Add it to whatever aggregate `needs:` gate the branch protection uses.
-- [ ] **Renovate gets a security fast lane.** [`renovate.json`](../../../renovate.json) has no
+- [x] **Renovate gets a security fast lane.** [`renovate.json`](../../../renovate.json) has no
       `vulnerabilityAlerts`, no `osvVulnerabilityAlerts`, no `minimumReleaseAge` — so a CVE patch
       queues behind `"schedule": ["before 9am on monday"]` (`:7-9`) with every cosmetic devDep bump.
       Add `"vulnerabilityAlerts": { "enabled": true, "schedule": ["at any time"] }`,
       `"osvVulnerabilityAlerts": true`, and `"minimumReleaseAge": "3 days"` (which blunts the
       classic compromised-release window that a Monday schedule otherwise walks into). Leave
       `automerge` absent — every bump stays a manual merge, per the repo's standing rule.
-- [ ] **Allow-list install scripts.** The root [`package.json`](../../../package.json) `pnpm` block
+- [x] **Allow-list install scripts.** The root [`package.json`](../../../package.json) `pnpm` block
       (`:18-31`) has `overrides`, `peerDependencyRules` and `patchedDependencies` but no
       `onlyBuiltDependencies`, so every one of ~1,695 transitive packages may run lifecycle scripts.
       Add `onlyBuiltDependencies` listing exactly the native packages that need it — `node-pty`,
@@ -618,13 +618,13 @@ no vulnerability scanner on any trigger**. Grepped `pnpm audit`, `npm audit`, `o
       `sherpa-onnx-node` — derived from `electron-builder.yml`'s `asarUnpack` list (`:61-114`) plus
       `esbuild`. Run a clean `pnpm install` and fix the list from the resulting warnings rather than
       guessing; record the final list in the PR body.
-- [ ] **SHA-pin the two third-party actions.** All 43 `uses:` lines across the three workflows are
+- [x] **SHA-pin the two third-party actions.** All 43 `uses:` lines across the three workflows are
       tag-pinned; 0 are SHA-pinned. First-party `actions/*` (32 of 43) can stay on tags. Pin
       `pnpm/action-setup@v4` (10 uses, runs during install on every job) and — first —
       `softprops/action-gh-release@v2` (`release.yml:227`), which is handed
       `secrets.RELEASES_REPO_TOKEN`, a cross-repo **write** credential, behind a mutable tag. Use
       `uses: owner/repo@<40-hex> # v2.x.y` so Renovate can still bump them.
-- [ ] **An Electron-freshness check.** New `scripts/electron-freshness.mjs`, wired as a
+- [x] **An Electron-freshness check.** New `scripts/electron-freshness.mjs`, wired as a
       `root:electron-freshness` moon task and a step in `gate-audit`: read the `electron` major from
       [`packages/desktop/package.json:39`](../../../packages/desktop/package.json), fetch the
       supported majors from the Electron releases endpoint, and **warn** (exit 0 with an annotation)
@@ -641,7 +641,7 @@ The repo has **no `SECURITY.md`**, no `.github/SECURITY.md`, no `docs/security/`
 templates, no `CODEOWNERS`. It ships publicly through `bilo-io/midnite-apps` — so there are external
 users and no documented way for one of them to report a vulnerability privately.
 
-- [ ] **Write `SECURITY.md` at the repo root.** Content: supported versions (latest release only,
+- [x] **Write `SECURITY.md` at the repo root.** Content: supported versions (latest release only,
       macOS arm64); the private reporting route — GitHub private vulnerability reporting on
       `bilo-io/midnite-apps` (the public-facing repo, per
       [`CLAUDE.md`](../../../CLAUDE.md)), with an email fallback; a 5-working-day acknowledgement
@@ -650,16 +650,16 @@ users and no documented way for one of them to report a vulnerability privately.
       user's privileges by design) and same-user access to the broker/MCP sockets (file modes are
       the boundary macOS offers). Both are already argued in Phase 76; `SECURITY.md` is where a
       reporter can find them before spending a weekend on one.
-- [ ] **Commit the audits of record under `docs/security/`.** Move
-      [`.midnite/security/scan_opus_5.md`](../../security/scan_opus_5.md) and
+- [x] **Commit the audits of record under `docs/security/`.** Move
+      [`.midnite/security/scan_opus_5.md`](../../../docs/security/scan_opus_5.md) and
       `.midnite/security/scan_kilo.md` (both untracked today) to `docs/security/`, unchanged. See
       Decisions for why this is safe **and** for the standing rule that goes with it.
-- [ ] **Add `docs/security/README.md` as the finding index** — one row per finding:
+- [x] **Add `docs/security/README.md` as the finding index** — one row per finding:
       `| # | Severity | Summary | Owning phase/theme | Status |`, seeded from `scan_opus_5.md`'s 21
       findings mapped onto Phase 76's themes and this phase's A–I. Status is `open` for all of them
       at write time; a theme's PR flips its rows. This is the artefact that answers "which of these
       are still live", which neither scan file can.
-- [ ] **Record the visibility discrepancy.** `gh api repos/bilo-io/midnite-studio -q .visibility`
+- [x] **Record the visibility discrepancy.** `gh api repos/bilo-io/midnite-studio -q .visibility`
       returns **`private`** (verified 2026-09-20, `private: true`), but
       [`CLAUDE.md`](../../../CLAUDE.md)'s CI/billing bullet asserts the repo is public and prices
       macOS runners on that basis, while the downloads bullet asserts it is private. Both cannot be
@@ -667,7 +667,7 @@ users and no documented way for one of them to report a vulnerability privately.
       and if the repo *is* meant to go public, the macOS-billing argument is sound but
       `docs/security/README.md` must be triaged to zero open criticals first. Apply the same edit to
       [`AGENTS.md`](../../../AGENTS.md) and [`GEMINI.md`](../../../GEMINI.md), per the sync rule.
-- [ ] **Add the pre-publish gate to the security README**: before this repo's visibility is ever
+- [x] **Add the pre-publish gate to the security README**: before this repo's visibility is ever
       flipped, every `open` row in the finding index must be `fixed`, `wont-fix` with a reason, or
       moved to a private tracker. One paragraph, at the top of the file, where whoever flips the
       switch will read it.
@@ -760,7 +760,7 @@ users and no documented way for one of them to report a vulnerability privately.
 
 - **Resolved — this phase is the second and third pass, not a re-audit.** The human asked for three
   passes: an Opus audit, a refinement, and a rewrite for a fast executor.
-  [`scan_opus_5.md`](../../security/scan_opus_5.md) is pass one and is not repeated. This doc is
+  [`scan_opus_5.md`](../../../docs/security/scan_opus_5.md) is pass one and is not repeated. This doc is
   passes two and three fused, because they produce the same artefact: a refinement that is not
   executable is just a longer list.
 - **Resolved — minification does not make client-side code uncopyable, and this doc will not imply

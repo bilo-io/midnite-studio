@@ -193,12 +193,12 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
   the repo now matches. **Every CI job that exercises platform behaviour runs on a `macos-*`
   runner** — `e2e`, `gate-native` and `gate-locale`. Phase 82 Themes E/H had put them on
-  `ubuntu-24.04` purely for the 1x billing rate. **This repo is private**
-  (`gh api repos/bilo-io/midnite-studio -q .visibility`), so Actions minutes are billed and a
-  macOS minute costs 10x a Linux one — `ci.yml`'s header once called that argument obsolete on
-  the belief that the repo was public, and its "free on a public repo" comments are wrong. The
-  macOS placement stands anyway, on correctness rather than cost: platform behaviour is only
-  validated on the platform. **When the Actions budget runs out**, every job fails in seconds with
+  `ubuntu-24.04` purely for the 1x billing rate. **This repo is public**
+  (`gh api repos/bilo-io/midnite-studio -q .visibility` returns `public`; an earlier version of
+  this file said private, which was wrong), so standard GitHub-hosted runner minutes are free and
+  `ci.yml`'s "free on a public repo" comments are right. Cost was never the reason for the macOS
+  placement: platform behaviour is only validated on the platform. If the visibility ever
+  changes, re-check this paragraph and the billing note below. **When the Actions budget runs out**, every job fails in seconds with
   "The job was not started because an Actions budget is preventing further use" — that is
   billing, not a code failure, and a rerun will not help; the user decides whether to raise the
   budget or merge on the local gate (`moon run :typecheck :lint :test`).
@@ -310,7 +310,7 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `CliStatusResponse.notice`. The app name, the `midnite-studio://` protocol and release tags are unchanged.
 - **Public downloads and issues live in
   [`bilo-io/midnite-apps`](https://github.com/bilo-io/midnite-apps), not here.** This repo is
-  private, so nothing a user touches can be served from it — installers, release notes and the
+  public, but it is built for contributors, not users — installers, release notes and the
   bug tracker all sit in that repo, which does the same job for every midnite app at once. Two
   consequences bite. **Its release tags are namespaced** — `midnite-studio/v0.3.1`, never a bare
   `v0.3.1`, which would collide with a sibling app's — so `releases/latest` there means "the

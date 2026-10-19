@@ -32,7 +32,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [94 · AI engineering: skills, loops, graphs, harnesses](phases/phase-94-ai-engineering.md) | 🔄 WIP | — | 9/87 | `█░░░░░░░░░` | 10% | — | B C D E F G H |
 | [93 · Issue board reporting from inside the app](phases/phase-93-issue-board-reporting.md) | 🔄 WIP | — | 32/34 | `█████████░` | 94% | — | (2 human/live-board passes) |
 | [92 · Agentic execution from Projects](phases/phase-92-agentic-execution-from-projects.md) | ✅ DONE | — | 36/36 | `██████████` | 100% | — | — |
-| [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | 🔄 WIP | — | 65/95 | `███████░░░` | 68% | — | I J |
+| [91 · Security hardening and CVE readiness](phases/phase-91-security-hardening.md) | 🔄 WIP | — | 77/95 | `████████░░` | 81% | — | (acceptance + human passes) |
 | [90 · Multi-forge integration and account switching](phases/phase-90-multi-forge-integration.md) | 🔄 WIP | — | 88/110 | `████████░░` | 80% | — | — |
 | [89 · Knowledge graph visualisation variants](phases/phase-89-knowledge-graph-variants.md) | 🔄 WIP | — | 36/89 | `████░░░░░░` | 40% | — | F G H I J K |
 | [88 · xterm v6 upgrade](phases/phase-88-xterm-v6-upgrade.md) | 🔄 WIP | — | 22/34 | `██████░░░░` | 65% | — | G |
