@@ -1,4 +1,10 @@
-import { CHANNELS, type AppIssueSubmitResult, type ErrorReport } from '@midnite/studio-shared';
+import {
+  CHANNELS,
+  REDACT_SAMPLES,
+  SECRET_PATTERNS,
+  type AppIssueSubmitResult,
+  type ErrorReport,
+} from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { loggerFrom } from '../log';
@@ -177,6 +183,25 @@ describe('report handlers (Phase 65 Theme B)', () => {
     expect(text).toContain('~/Dev/x.ts');
     // The one string in the app designed to be pasted somewhere public.
     expect(text).not.toContain('tester');
+  });
+});
+
+describe('diagnostics bundle (Phase 91 Theme G)', () => {
+  it('lets no sample of any SECRET_PATTERN survive formatBundle', () => {
+    // Iterating the exported list means a pattern added without a sample fails here.
+    for (const p of SECRET_PATTERNS) {
+      expect(Object.values(REDACT_SAMPLES).some((x) => new RegExp(p.source, p.flags).test(x))).toBe(true);
+    }
+    const records = Object.entries(REDACT_SAMPLES).map(([name, msg], i) => ({
+      t: 1_700_000_000_000 + i,
+      level: 'error',
+      msg: `${name}: ${msg}`,
+    }));
+    const text = formatBundle('boot ' + REDACT_SAMPLES['github'], records, '/Users/tester');
+    for (const sample of Object.values(REDACT_SAMPLES)) {
+      const needle = sample.split('\n')[1] ?? sample.slice(-12);
+      expect(text).not.toContain(needle);
+    }
   });
 });
 

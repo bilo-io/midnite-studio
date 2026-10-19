@@ -79,7 +79,10 @@ never a bare `vX.Y.Z`, which would collide with another app's.
     among them.
   - **`version.json`:** rewritten automatically by `bilo-io/midnite-apps`'s own
     `release-feed.yml`, triggered by the Release publishing — confirm it reads the new version
-    rather than editing it by hand.
+    rather than editing it by hand. Since Phase 91 Theme H it should also carry a `sha256` (the
+    zip's digest, which `install.sh` verifies before extracting); if the field is missing,
+    midnite-apps' `release-feed.yml` has not had the paired edit yet. The Release should also list
+    `SHA256SUMS`.
   - **`midnite-studio/feed/latest-mac.yml`:** committed by `release.yml`'s `publish-feed` job.
     Confirm its `version` matches and that the commit landed *after* the Release (check the job
     log or the commit's parent) — this is the job that most silently no-ops if

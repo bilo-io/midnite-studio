@@ -14,9 +14,14 @@ export type UpdateChannel = 'stable' | 'beta';
  * sibling app's most expensive updater bug — by accident of naming, not by
  * design that anyone wrote down until now.
  */
+/**
+ * `allowDowngrade` is `false` on both channels (Phase 91 Theme H): with it on,
+ * whoever can write `midnite-studio/feed/` on the public sibling repo could pin
+ * every beta user back to a known-vulnerable release.
+ */
 export function feedChannelFor(c: UpdateChannel): { channel: string; allowPrerelease: boolean; allowDowngrade: boolean } {
   if (c === 'beta') {
-    return { channel: 'beta', allowPrerelease: true, allowDowngrade: true };
+    return { channel: 'beta', allowPrerelease: true, allowDowngrade: false };
   }
   return { channel: 'latest', allowPrerelease: false, allowDowngrade: false };
 }

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -41,6 +41,12 @@ beforeEach(async () => {
 const vaultFile = (): string => join(dir, 'companion-stt.vault.json');
 
 describe('createSttCredentials', () => {
+  it('writes the vault file at mode 0600 (Phase 91 Theme G)', async () => {
+    const vault = createSttCredentials(dir);
+    await vault.set('openai-whisper', 'sk-test-key-12345678');
+    expect((await stat(vaultFile())).mode & 0o777).toBe(0o600);
+  });
+
   it('starts with nothing configured', async () => {
     const vault = createSttCredentials(dir);
     expect(await vault.get('openai-whisper')).toBeNull();

@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
@@ -16,12 +16,24 @@ import {
 import { feedChannelFor, type UpdateChannel } from '../updates/feed-channel.js';
 import { decideUpdateOwner, launcherSearchPaths } from '../updates/update-handover.js';
 import { defaultLogger } from './log';
-import { handleSend } from './ipc/handle';
+import { handleSend, handleSendFromSender } from './ipc/handle';
 
+/**
+ * Phase 91 Theme H: no shell. This used to interpolate `app.getPath('exe')` into
+ * an `execSync` string, so a bundle at a path containing `$(...)` or backticks
+ * ran the substitution at every launch. `codesign -dv` prints on stderr and
+ * exits 0, which `execFileSync` would swallow, so `spawnSync` (same no-shell
+ * argv form) is used to read stderr.
+ */
 function isAdHocSigned(): boolean {
   if (!app.isPackaged) return true;
   try {
-    const out = execSync(`codesign -dv --verbose=2 "${app.getPath('exe')}" 2>&1`, { encoding: 'utf8' });
+    const res = spawnSync('codesign', ['-dv', '--verbose=2', app.getPath('exe')], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (res.error || res.status !== 0) return true;
+    const out = `${res.stdout}${res.stderr}`;
     return out.includes('Signature=adhoc') || out.includes('Authority=-');
   } catch {
     return true;
@@ -63,7 +75,7 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
 
   if (managed) {
     // Studio's own updater stays off: a check just opens Midnite Apps, which updates Studio and the runtime.
-    handleSend(
+    handleSendFromSender(
       CHANNELS.updateCheck,
       schemas.SendVoidSchema,
       () => {
@@ -117,10 +129,11 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
     pushState(errorState(err.message ?? 'Update check failed', currentState.version));
   });
 
-  handleSend(
+  handleSendFromSender(
     CHANNELS.updateCheck,
     schemas.SendVoidSchema,
-    () => {
+    (_payload, win) => {
+      if (!win) return;
       autoUpdater.checkForUpdates().catch((err) => {
         pushState(errorState(err.message ?? 'Failed to check for updates'));
       });
@@ -128,11 +141,11 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
     warnInvalid,
   );
 
-  handleSend(
+  handleSendFromSender(
     CHANNELS.updateDownload,
     schemas.SendVoidSchema,
-    () => {
-      if (manualInstall) return;
+    (_payload, win) => {
+      if (!win || manualInstall) return;
       autoUpdater.downloadUpdate().catch((err) => {
         pushState(errorState(err.message ?? 'Failed to download update'));
       });
@@ -140,20 +153,21 @@ export function registerUpdater(getWindow: () => BrowserWindow | null): void {
     warnInvalid,
   );
 
-  handleSend(
+  handleSendFromSender(
     CHANNELS.updateRestart,
     schemas.SendVoidSchema,
-    () => {
-      if (manualInstall) return;
+    (_payload, win) => {
+      if (!win || manualInstall) return;
       autoUpdater.quitAndInstall();
     },
     warnInvalid,
   );
 
-  handleSend(
+  handleSendFromSender(
     CHANNELS.updateSetChannel,
     schemas.UpdateSetChannelRequest,
-    ({ channel }) => {
+    ({ channel }, win) => {
+      if (!win) return; // Phase 91 Theme H: only an app window may switch the feed channel.
       const channelConfig = feedChannelFor(channel as UpdateChannel);
       autoUpdater.channel = channelConfig.channel;
       autoUpdater.allowPrerelease = channelConfig.allowPrerelease;

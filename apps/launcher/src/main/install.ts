@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { access, constants, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -14,7 +15,7 @@ import {
   STUDIO_EXE,
   studioZipUrl,
 } from './constants';
-import { fetchStudioRelease } from './feed';
+import { fetchStudioRelease, fetchStudioSha256 } from './feed';
 import { swapIntoPlace } from './swap';
 
 /**
@@ -131,9 +132,11 @@ export async function installStudio(deps: InstallDeps): Promise<LauncherResult> 
     const total = Number(res.headers.get('content-length')) || null;
     let received = 0;
     let lastSent = 0;
+    const hash = createHash('sha256');
     const body = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]);
     body.on('data', (chunk: Buffer) => {
       received += chunk.length;
+      hash.update(chunk);
       const now = Date.now();
       if (now - lastSent > 100) {
         lastSent = now;
@@ -142,6 +145,19 @@ export async function installStudio(deps: InstallDeps): Promise<LauncherResult> 
     });
     await pipeline(body, createWriteStream(zip));
     deps.onProgress({ phase: 'download', received, total });
+
+    // ── Integrity, before anything reads the archive (Phase 91 Theme H) ────
+    // A short read is a failed download; a digest mismatch is a corrupt or
+    // tampered one. Either stops here rather than inside `ditto`. A release
+    // whose feed carries no digest (anything before this theme) is installed
+    // unverified, as it always was.
+    if (total !== null && received !== total) {
+      return fail(`The download was cut short (${received} of ${total} bytes). Nothing was installed — try again.`);
+    }
+    const expected = await fetchStudioSha256(version, { feedUrl: deps.feedUrl, catalogUrl: deps.catalogUrl, fetchImpl: deps.fetchImpl });
+    if (expected !== null && hash.digest('hex') !== expected) {
+      return fail('The download failed its checksum — it is corrupt or was altered. Nothing was installed; try again.');
+    }
 
     // ── Extract + verify, before /Applications is touched ──────────────────
     deps.onProgress({ phase: 'verify', received, total });
