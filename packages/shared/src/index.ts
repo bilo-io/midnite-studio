@@ -80,6 +80,7 @@ export * from './ollama-launch';
 export * from './perf';
 export * from './process-env';
 export * from './redact';
+export * from './redact-samples';
 export * from './setup';
 export * from './system-memory';
 export * from './release';
