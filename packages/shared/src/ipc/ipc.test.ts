@@ -2419,3 +2419,18 @@ describe('git argv guards (Phase 91 Themes B/C)', () => {
     expect(schemas.PushRequest.safeParse({ ...base, forceWithLease: { ref: 'refs/heads/main', expect: 'abc1234' } }).success).toBe(true);
   });
 });
+
+describe('lock contract (Phase 91 Theme D)', () => {
+  it('covers every lock channel with a schema', () => {
+    expect(Object.keys(CHANNELS).filter((key) => key.startsWith('lock')).sort()).toEqual(
+      ['lockGet', 'lockSet', 'lockSetPasscode', 'lockVerify'].sort(),
+    );
+    expect(schemas.LockSetRequest.safeParse(true).success).toBe(true);
+    expect(schemas.LockStateSchema.safeParse({ locked: false, hasPasscode: true }).success).toBe(true);
+    expect(schemas.LockSetPasscodeRequest.safeParse('1234').success).toBe(true);
+    expect(schemas.LockSetPasscodeRequest.safeParse(null).success).toBe(true);
+    expect(schemas.LockSetPasscodeRequest.safeParse('12').success).toBe(false);
+    expect(schemas.LockSetPasscodeRequest.safeParse('abcd').success).toBe(false);
+    expect(schemas.LockVerifyRequest.safeParse('').success).toBe(false);
+  });
+});

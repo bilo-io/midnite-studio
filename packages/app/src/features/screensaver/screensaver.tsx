@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
 import { LockScreen } from './lock-screen';
 import { LockScreenChrome } from './lock-screen-chrome';
@@ -31,7 +32,7 @@ export function Screensaver({
   locked?: boolean;
 }) {
   const requirePasscode = useUiStore((s) => s.requirePasscode);
-  const passcode = useUiStore((s) => s.passcode);
+  const hasPasscode = useUiStore((s) => s.hasPasscode);
   const passcodeOnlyWhenLocked = useUiStore((s) => s.passcodeOnlyWhenLocked);
   const setActiveView = useUiStore((s) => s.setActiveView);
   const setReposOpen = useUiStore((s) => s.setReposOpen);
@@ -39,8 +40,12 @@ export function Screensaver({
 
   const reading = useScreensaverReading();
 
+  // Phase 91 Theme D: main compares; the expected code is never in the renderer.
+  const verifyPasscode = (code: string): Promise<boolean> =>
+    bridge()?.lock.verify(code) ?? Promise.resolve(false);
+
   const requireCode =
-    requirePasscode && !!passcode && (passcodeOnlyWhenLocked ? locked : true);
+    requirePasscode && hasPasscode && (passcodeOnlyWhenLocked ? locked : true);
 
   /**
    * A pill clicked behind a passcode has to hold its destination across the
@@ -69,7 +74,7 @@ export function Screensaver({
   return (
     <LockScreen
       requireCode={requireCode}
-      passcode={passcode ?? ''}
+      verify={verifyPasscode}
       onUnlock={onClose}
       onDismiss={onClose}
       corners={<LockScreenChrome />}
@@ -85,7 +90,7 @@ export function Screensaver({
         // every click. Nesting here puts it inside that same stacking
         // context instead, where `z-dialog` only has to beat its own siblings.
         <PasscodeUnlockDialog
-          expected={passcode ?? ''}
+          verify={verifyPasscode}
           onUnlock={() => {
             const key = pendingPill;
             setPendingPill(null);

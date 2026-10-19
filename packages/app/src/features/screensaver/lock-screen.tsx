@@ -30,6 +30,8 @@ const DEFAULT_LABELS: LockScreenLabels = {
 export type LockScreenProps = {
   requireCode?: boolean;
   passcode?: string;
+  /** Check a candidate against main's hash instead of a prop-carried code (Phase 91 Theme D). */
+  verify?: (code: string) => Promise<boolean> | boolean;
   onUnlock?: () => void;
   onDismiss?: () => void;
   animateBackground?: boolean;
@@ -54,6 +56,7 @@ export type LockScreenProps = {
 export function LockScreen({
   requireCode = false,
   passcode = '',
+  verify,
   onUnlock,
   onDismiss,
   animateBackground = true,
@@ -126,7 +129,7 @@ export function LockScreen({
 
       {requireCode && unlocking && !suppressUnlockTrigger ? (
         <PasscodeUnlockDialog
-          expected={passcode}
+          {...(verify ? { verify } : { expected: passcode })}
           label={copy.passcodeDialogLabel}
           closeLabel={copy.passcodeCloseLabel}
           labels={copy.passcode}

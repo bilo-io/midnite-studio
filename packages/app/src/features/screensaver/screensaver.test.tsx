@@ -1,6 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Phase 91 Theme D: main compares the code, so the test's bridge plays main's `lock.verify`.
+vi.mock('../../services/bridge', () => ({
+  bridge: () => ({ lock: { verify: async (code: string) => code === '1234', set: vi.fn() } }),
+}));
 
 import { useUiStore } from '../../store/ui-store';
 import { Screensaver } from './screensaver';
@@ -16,6 +21,7 @@ beforeEach(() => {
   useUiStore.setState({
     requirePasscode: false,
     passcode: null,
+    hasPasscode: false,
     passcodeOnlyWhenLocked: false,
     reposOpen: false,
     terminalOpen: false,
@@ -52,7 +58,7 @@ describe('Screensaver pills (Phase 46 Theme C)', () => {
   });
 
   it('behind a passcode, a pill click holds the destination and shows the pad instead of navigating', () => {
-    useUiStore.setState({ requirePasscode: true, passcode: '1234' });
+    useUiStore.setState({ requirePasscode: true, hasPasscode: true });
     const onClose = vi.fn();
     render(<Screensaver onClose={onClose} />, { wrapper: createWrapper() });
 
@@ -63,8 +69,8 @@ describe('Screensaver pills (Phase 46 Theme C)', () => {
     expect(useUiStore.getState().terminalOpen).toBe(false);
   });
 
-  it('applies the held destination and closes once the correct code is entered', () => {
-    useUiStore.setState({ requirePasscode: true, passcode: '1234' });
+  it('applies the held destination and closes once the correct code is entered', async () => {
+    useUiStore.setState({ requirePasscode: true, hasPasscode: true });
     const onClose = vi.fn();
     render(<Screensaver onClose={onClose} />, { wrapper: createWrapper() });
 
@@ -74,13 +80,17 @@ describe('Screensaver pills (Phase 46 Theme C)', () => {
         target: { value: digit },
       });
     }
+    // `verify` is an async round-trip to main now; let it settle.
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(useUiStore.getState().terminalOpen).toBe(true);
   });
 
   it("a keypress meant for the pill's pad does not also open LockScreen's own generic dialog", () => {
-    useUiStore.setState({ requirePasscode: true, passcode: '1234' });
+    useUiStore.setState({ requirePasscode: true, hasPasscode: true });
     render(<Screensaver onClose={vi.fn()} />, { wrapper: createWrapper() });
 
     fireEvent.click(screen.getByRole('button', { name: /^0 agents/ }));
@@ -95,7 +105,7 @@ describe('Screensaver pills (Phase 46 Theme C)', () => {
   });
 
   it('drops the held destination on cancel — no navigation, screen stays locked', () => {
-    useUiStore.setState({ requirePasscode: true, passcode: '1234' });
+    useUiStore.setState({ requirePasscode: true, hasPasscode: true });
     const onClose = vi.fn();
     render(<Screensaver onClose={onClose} />, { wrapper: createWrapper() });
 
