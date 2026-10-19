@@ -20,7 +20,7 @@ import {
   SetupProbeRequest,
   SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, safeStorage, session, shell, type WebContentsView } from 'electron';
+import { BrowserWindow, app, ipcMain, safeStorage, session, shell, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -445,6 +445,11 @@ export const startStudioMain: StartStudioMain = () => {
         dev: devServerOrigin !== null,
         devServerOrigin,
       });
+      // Phase 91 Theme F: Node warns once a single event name has more than 10 listeners. Channels
+      // register one handler each, so the default is not near today; this makes a stray duplicate
+      // registration on one channel (the Theme F updater case) a deliberate signal at 100 rather
+      // than noise at 10. Set (not measured) 2026-10-19 — revisit if a channel legitimately fans out.
+      ipcMain.setMaxListeners(100);
       registerWindowChrome();
       registerLockHandlers(app.getPath('userData'), (message) => defaultLogger.warn(message));
       registerRepoHandlers(getMainWindow);

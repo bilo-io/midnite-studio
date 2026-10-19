@@ -605,6 +605,23 @@ export function destroyAllBrowserTabs(): void {
 }
 
 /** Test-only: drop every tracked tab without tearing down real Electron state. */
+/**
+ * Every per-tab collection this module keeps, in ONE place (Phase 91 Theme F). A tab that is
+ * closed must leave none of them behind; `browser-service.leak.test.ts` asserts all are empty
+ * after close and compares this list's keys against its own, so a sixth collection added here
+ * without a matching `delete` in {@link closeBrowserTab} fails that test.
+ */
+const trackedCollections = { tabs, lastBounds, hiddenSince, keepAwakeTabIds, visibleTabIds };
+
+/** Test seam: the size of every per-tab collection, keyed by name. */
+export function trackedStateSizes(): Record<keyof typeof trackedCollections, number> {
+  const sizes = {} as Record<keyof typeof trackedCollections, number>;
+  for (const [name, collection] of Object.entries(trackedCollections)) {
+    sizes[name as keyof typeof trackedCollections] = collection.size;
+  }
+  return sizes;
+}
+
 export function resetBrowserServiceForTests(): void {
   tabs.clear();
   lastBounds.clear();

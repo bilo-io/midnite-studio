@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
 import {
@@ -32,7 +32,20 @@ const warnInvalid = (issue: string): void => {
   defaultLogger.warn(issue);
 };
 
+/** The four channels every registration branch below owns. */
+export const UPDATER_CHANNELS = [
+  CHANNELS.updateCheck,
+  CHANNELS.updateDownload,
+  CHANNELS.updateRestart,
+  CHANNELS.updateSetChannel,
+] as const;
+
 export function registerUpdater(getWindow: () => BrowserWindow | null): void {
+  // Phase 91 Theme F: the managed, unpackaged and packaged branches below are mutually exclusive
+  // (each returns before the next) and `index.ts` calls this once — but a second call, or a branch
+  // added later, would stack a second listener on the same channel and both would fire. Clearing
+  // first makes "one listener per channel" hold structurally rather than by call-site discipline.
+  for (const channel of UPDATER_CHANNELS) ipcMain.removeAllListeners(channel);
   const manualInstall = isAdHocSigned();
   // Phase 113 G3: the launcher owns updates once it is installed (Decision 6).
   const handover = decideUpdateOwner({ exists: existsSync, searchPaths: launcherSearchPaths(), offerDismissed: false });
