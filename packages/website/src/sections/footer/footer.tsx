@@ -2,7 +2,7 @@ import { LuBug, LuGithub, LuTag } from 'react-icons/lu';
 
 import { Container, Logo, Reveal, Section, TypeIn, Wordmark } from '../../components';
 import { useLatestVersion } from '../../pages/use-latest-version';
-import { anchorHref } from '../../routes';
+import { anchorHref, hrefFor } from '../../routes';
 import { AGENT_ROSTER } from '../early-access/roster';
 
 import { FooterHorizon } from './footer-horizon';
@@ -20,7 +20,8 @@ type FooterLink = { label: string; href: string; external?: boolean };
  * in-page jumps, and nothing about the markup changes for that.
  */
 const PRODUCT: readonly FooterLink[] = [
-  { label: 'Features', href: anchorHref('features') },
+  { label: 'Apps', href: hrefFor('apps') },
+  { label: 'The launcher', href: anchorHref('launcher') },
   { label: 'FAQ', href: anchorHref('faq') },
   { label: 'Early access', href: anchorHref('early-access') },
 ];
@@ -126,7 +127,7 @@ export const Footer = () => (
                 the decorative wordmark below. */}
             <TypeIn
               leadMs={0}
-              text="A git client, an agent workbench and a docked browser in one window. macOS on Apple silicon."
+              text="One launcher for the midnite apps: code, agents, media, money and the machine underneath, on one shared frame. macOS on Apple silicon."
             />
           </p>
           <FooterVersion />
@@ -203,7 +204,7 @@ export const Footer = () => (
             WebkitBackgroundClip: 'text',
           }}
         >
-          <Wordmark tone="inherit" />
+          <Wordmark tone="inherit" product="Apps" />
         </p>
       </Reveal>
 

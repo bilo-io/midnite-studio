@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { SiteNav } from './components/site-nav';
 import { useHashLanding } from './hooks/use-hash-landing';
+import { AppsPage } from './pages/apps/apps-page';
 import { DownloadPage } from './pages/download-page';
 import { PricingPage } from './pages/pricing-page';
 import { routeFor, type Route } from './routes';
@@ -36,8 +37,8 @@ const Landing = () => {
 /**
  * The site's pages.
  *
- * Each is a real HTML file on disk (`index.html`, `download/index.html`,
- * `pricing/index.html`), so the initial route comes from the URL the server
+ * Each is a real HTML file on disk (`index.html`, `apps/index.html`,
+ * `download/index.html`, `pricing/index.html`), so the initial route comes from the URL the server
  * already resolved and no history rewriting is needed — every link between them
  * is a plain `<a>` and a full navigation. `popstate` is still handled, because
  * the browser's Back button after such a navigation can restore this document
@@ -55,6 +56,7 @@ export const App = () => {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
+  if (route === 'apps') return <AppsPage />;
   if (route === 'download') return <DownloadPage />;
   if (route === 'pricing') return <PricingPage />;
   return <Landing />;

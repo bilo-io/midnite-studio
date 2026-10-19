@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
 
 /**
- * The launcher's per-app update feed in the public releases repo. The site installs Midnite Apps
- * (the launcher), which installs the apps, so this is the version the page shows.
+ * A product's update feed in the public releases repo. The site installs Midnite Apps (the
+ * launcher), which installs the apps, so `midnite-launcher` is the default and the version the
+ * download page shows. The Apps page reads `midnite-studio`'s, because every app runs inside
+ * Studio today and that is the version a visitor would actually be running.
  *
  * Deliberately this file and not `releases/latest`: `bilo-io/midnite-apps`
  * distributes several apps, so its newest release is whichever one shipped most
  * recently and is not necessarily this one. The installer resolves the version
  * the same way, from the same URL — see the header of `install.sh` there.
  */
-const FEED =
-  'https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-launcher/version.json';
+export type FeedProduct = 'midnite-launcher' | 'midnite-studio';
+
+export const feedUrl = (product: FeedProduct): string =>
+  `https://raw.githubusercontent.com/bilo-io/midnite-apps/main/${product}/version.json`;
 
 export type VersionState =
   /** The fetch is in flight. */
@@ -35,7 +39,7 @@ export type VersionState =
  *
  * Aborted on unmount so a slow response cannot set state on a gone component.
  */
-export const useLatestVersion = (): VersionState => {
+export const useLatestVersion = (product: FeedProduct = 'midnite-launcher'): VersionState => {
   const [state, setState] = useState<VersionState>({ status: 'loading' });
 
   useEffect(() => {
@@ -43,7 +47,7 @@ export const useLatestVersion = (): VersionState => {
 
     void (async () => {
       try {
-        const response = await fetch(FEED, {
+        const response = await fetch(feedUrl(product), {
           signal: controller.signal,
           cache: 'no-cache',
         });
@@ -64,7 +68,7 @@ export const useLatestVersion = (): VersionState => {
     })();
 
     return () => controller.abort();
-  }, []);
+  }, [product]);
 
   return state;
 };

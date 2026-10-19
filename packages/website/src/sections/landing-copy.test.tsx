@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SiteNav } from '../components/site-nav';
+import { AppsPage } from '../pages/apps/apps-page';
 import { DownloadPage } from '../pages/download-page';
 
 import { SECTIONS } from './registry';
@@ -58,6 +59,14 @@ describe('landing-page copy', () => {
 
   it('renders the download page with no em dash or en dash', () => {
     const { container } = render(<DownloadPage />);
+    expect(container.textContent).not.toMatch(DASH);
+    for (const el of Array.from(container.querySelectorAll('[aria-label]'))) {
+      expect(el.getAttribute('aria-label')).not.toMatch(DASH);
+    }
+  });
+
+  it('renders the apps page, every slide included, with no em dash or en dash', () => {
+    const { container } = render(<AppsPage />);
     expect(container.textContent).not.toMatch(DASH);
     for (const el of Array.from(container.querySelectorAll('[aria-label]'))) {
       expect(el.getAttribute('aria-label')).not.toMatch(DASH);

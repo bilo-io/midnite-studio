@@ -33,24 +33,32 @@ export type FaqEntry = {
   links?: readonly { label: string; href: string }[];
 };
 
-/** Where the public artefacts live. This repo is private — never link to it. */
+/** Where the public artefacts live. Users never need the source repo, so the site never links to it. */
 const APPS_REPO = 'https://github.com/bilo-io/midnite-apps';
 
 export const FAQ: readonly FaqEntry[] = [
   {
     slug: 'what-is-it',
-    question: 'What is Midnite Studio?',
+    question: 'What is Midnite Apps?',
     answer: [
-      'A desktop workspace for the whole loop around a repository, in one window: a commit graph with worktrees nested under the repositories they belong to, your real login shell, an embedded browser, and the forge (pull requests, checks, reviews, project boards) beside them rather than in a browser tab you have to go and find.',
-      'It is a git client first. Everything else in the window is there because the work you do around a commit does not happen inside a git client today, and switching applications to do it is the cost the product is trying to remove.',
+      'The launcher for the midnite suite: one desktop app that lists, installs, updates and opens every midnite app. Coder for the loop around a repository, Agents for every agent CLI you use, Gamer, Creator, Media, Money and Mind for the rest of the day, and four small utilities (Cleaner, Vault, Capture and Monitor) for the machine underneath.',
+      'Every app is built on the same frame, so the things you reach for constantly come with each of them: a terminal that survives restarts, a docked browser, the companion, recurring agent loops, and the commit graph for any repo you open.',
+    ],
+  },
+  {
+    slug: 'apps-and-studio',
+    question: 'How do the apps relate to Midnite Studio?',
+    answer: [
+      'Midnite Studio is the superset: every app beside every other one, in one window with one rail. Today it is also what the others run inside. Opening Coder from the launcher opens Studio on Coder, so installing the launcher and Studio gives you the whole suite.',
+      'As each app ships as its own bundle, the launcher installs that one instead, and nothing about its tile changes for you. Studio stays, for anyone who would rather have all of it at once.',
     ],
   },
   {
     slug: 'platforms',
     question: 'Which platforms does it run on?',
     answer: [
-      'macOS on Apple silicon, and only that, today. The published build is an arm64 dmg/zip; the installer refuses anything else rather than downloading a binary that cannot run.',
-      'Nothing in the app is macOS-specific by design: it is Electron, and the git layer is the real git CLI, so Intel Macs, Linux and Windows are a build-and-test problem rather than a porting one. There is no date for them.',
+      'macOS on Apple silicon, and only that, today. The published builds are arm64; the installer refuses anything else rather than downloading a binary that cannot run.',
+      'Nothing in the apps is macOS-specific by design: they are Electron, and the git layer is the real git CLI, so Intel Macs, Linux and Windows are a build-and-test problem rather than a porting one. There is no date for them.',
     ],
     links: [{ label: 'Read install.sh before you pipe it into sh', href: `${APPS_REPO}/blob/main/midnite-launcher/install.sh` }],
   },
@@ -59,31 +67,32 @@ export const FAQ: readonly FaqEntry[] = [
     question: 'Which coding agents does it support?',
     answer: [
       'Ten out of the box: Claude, Antigravity, Codex, Cursor, Copilot, OpenClaude, OpenCode, Kilo Code, Aider and Cline. Each gets a named entry in the agent roster with its own launch command, its resume flags and its own colour, so a pane tells you which agent is in it at a glance.',
-      'They are not integrations. Each one is the vendor’s own CLI, running in a real pty against your real login shell, which is why your credentials, config files and any flag the tool grew last week work with no adapter of ours in the way. Adding an eleventh is an edit to a JSON file in the app’s data directory, not a release.',
+      'They are not integrations. Each one is the vendor’s own CLI, running in a real pty against your real login shell, which is why your credentials, config files and any flag the tool grew last week work with no adapter of ours in the way.',
     ],
   },
   {
-    slug: 'terminal',
-    question: 'Does it replace my terminal?',
+    slug: 'privacy',
+    question: 'Does anything leave my Mac?',
     answer: [
-      'No. It hosts one: your login shell, with your PATH, your prompt and your aliases. It is the same shell whether you open it from the terminal panel, from a kanban card or from an agent launcher. Nothing is emulated and no command is intercepted.',
-      'The terminal sessions also outlive the window: they run under a broker process, so reloading the app or closing the window does not kill a build. Keep using your own terminal alongside it if you prefer; a commit you make there shows up in the graph without a refresh, because the UI follows the repository rather than its own cache.',
+      'There is no analytics, no telemetry and no crash reporting: when something crashes, the record stays on your disk. The launcher checks the public releases repo for updates and for the list of apps, and a few features fetch public data when they show it, such as the weather in the title bar or market prices in Money.',
+      'Everything you make stays where you put it: notes, chats, documents and media are files on your disk, not rows in our cloud, because there is no cloud of ours to put them in. Keys and logins you save are encrypted with a key held in the macOS Keychain.',
     ],
   },
   {
-    slug: 'loops-and-boards',
-    question: 'How do loops and the kanban board actually run agents?',
+    slug: 'updates',
+    question: 'How do updates arrive?',
     answer: [
-      'A loop is a named, repeatable agent invocation (Guard, Ideate, Create, Patrol, Medic, Overhaul) composed from a base prompt plus the run settings you tick before pressing Start: which jobs it does, whether it works in a worktree, whether it may open PRs or only report. Press Start and it spawns the agent in a real terminal session on an interval, and every run is recorded with the exact prompt it carried.',
-      'The board is the same mechanism aimed at one card. A card on the project board can own a terminal, so the agent runs against that card’s branch or worktree and the card shows its live state (thinking, waiting on you, or done) while it does. There is no hidden queue, no server doing the work somewhere else, and no prompt you cannot read before it is sent.',
+      'Through the launcher. It reads a small feed in the public releases repo for each app, downloads the new build, checks it against the release’s published SHA-256 checksum, and only then swaps it into /Applications, keeping the previous copy until the new one verifies.',
+      'The feeds are per app on purpose. The releases repo distributes the whole suite, so “the latest release” there is whichever app shipped most recently, and reading that would happily hand one app a sibling’s update.',
     ],
+    links: [{ label: 'Releases and downloads', href: `${APPS_REPO}/releases` }],
   },
   {
     slug: 'open-source',
     question: 'Is it open source?',
     answer: [
-      'Not today. The application source is in a private repository, so there is nothing public to link you to and no license to read.',
-      'Everything you would actually need is public, though, and lives in one repo for every midnite app: the installers, the release notes, the update feed, and the issue tracker. If you want to file a bug or ask for a feature, that is where it goes.',
+      'Not today: the apps are not published under an open-source licence.',
+      'Everything you would actually need as a user is public, though, and lives in one repo for every midnite app: the installers, the release notes, the update feeds and the issue tracker. If you want to file a bug or ask for a feature, that is where it goes.',
     ],
     links: [
       { label: 'Releases and downloads', href: `${APPS_REPO}/releases` },
@@ -91,20 +100,11 @@ export const FAQ: readonly FaqEntry[] = [
     ],
   },
   {
-    slug: 'updates',
-    question: 'How do updates arrive?',
-    answer: [
-      'From a generic update feed published alongside the builds: a `latest-mac.yml` manifest in the public releases repo, which electron-updater reads directly. Deliberately not GitHub’s own release provider: that repo distributes several apps, and "the latest release" there is whichever app shipped most recently, which would happily hand Midnite Studio a sibling’s update.',
-      'Builds are ad-hoc signed rather than notarized today, so re-running the one-line installer is the reliable update path. It installs the newest version over the old one, verifying the new bundle before anything in /Applications is touched and keeping the previous copy until it does.',
-    ],
-    links: [{ label: 'The install command', href: `${APPS_REPO}/blob/main/midnite-launcher/install.sh` }],
-  },
-  {
     slug: 'pricing',
     question: 'What will it cost?',
     answer: [
       'Three tiers. Starter is free for public repositories, forever. Pro is $6 a month (or $60 a year, ~17% less) and unlocks private repositories, the one paid boundary in the product. Max is $10 per seat a month (or $100 per seat a year), for a team that wants multiple seats and shared billing.',
-      'The build itself is free to download and install regardless of tier, and early access costs nothing but the issue you file to ask for it.',
+      'The launcher and the apps are free to download and install regardless of tier, and early access costs nothing but the issue you file to ask for it.',
     ],
     links: [{ label: 'Ask for early access', href: '#early-access' }],
   },

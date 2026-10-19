@@ -1,12 +1,13 @@
 # The public website
 
-`packages/website` is the marketing site: a static Vite + React build served
+`packages/website` is the marketing site for **Midnite Apps**, the launcher, and
+the suite of apps it installs: a static Vite + React build served
 from **GitHub Pages on the public [`bilo-io/midnite-apps`](https://github.com/bilo-io/midnite-apps)
 repo**, at `https://bilo-io.github.io/midnite-apps/midnite-studio/`.
 
 It lives in this repo and is served from that one for the same reason the
-installers and the issue tracker do: **this repo is private**, so nothing it
-serves is anonymously reachable. `midnite-apps` is the shared public surface for
+installers and the issue tracker do: this repo is built for contributors, not
+users, so nothing a visitor needs is served from it. `midnite-apps` is the shared public surface for
 every midnite app, which is why the site is published into a per-app directory
 (`midnite-studio/`) rather than at the branch root — a sibling app can take the
 directory beside it without either of them moving.
@@ -190,7 +191,7 @@ Four files, and the same three-part wiring the app uses:
    same file declares `--font-brand`, and `tailwind.config.ts` maps
    `fontFamily.brand` onto that var rather than naming the family itself. Keep
    the three in step.
-3. **Preloaded** from `index.html`, `download/index.html` and `pricing/index.html`
+3. **Preloaded** from `index.html`, `apps/index.html`, `download/index.html` and `pricing/index.html`
    by source path, which Vite rewrites to the one fingerprinted asset with `base`
    applied. The mark is above the fold on every page and is otherwise discovered
    only after the CSS has parsed and matched an element — three round trips for the
@@ -258,8 +259,8 @@ Other details the file settles:
 
 - **`base` is `/`.** `WEBSITE_BASE` stays unset on Vercel; the `/midnite-apps/…`
   prefix is only for the Pages target below.
-- **`/download` and `/pricing` need no rewrite.** Each page is emitted as a
-  directory index (`dist/download/index.html`, `dist/pricing/index.html`), so
+- **`/apps`, `/download` and `/pricing` need no rewrite.** Each page is emitted as a
+  directory index (`dist/apps/index.html`, `dist/download/index.html`, `dist/pricing/index.html`), so
   Vercel serves them as-is.
 - **Vercel's Git integration does not deploy.** `git.deploymentEnabled: false`
   turns it off: it created a deployment for every push to every branch, each
@@ -396,7 +397,11 @@ directory too deep.
 | `src/sections/registry.ts` | The landing page, top to bottom: a flat ordered array of `{ id, label, Component, nav? }`. `app.tsx` maps it into `<main>`; the nav reads the `nav: true` entries. **Adding a section means appending here, never editing `app.tsx`.** |
 | `src/components/` | The shared vocabulary — `Section`, `Container`, `Button`, `GlowCard`, `Eyebrow`/`Heading`/`Lede`, `Logo`, `Reveal`, and the `useReducedMotion`/`useInView` hooks, all re-exported from `index.ts`. |
 | `src/styles/tokens.css` | Every colour, radius, glow and duration. Dark-first: `:root` *is* the dark theme and light is one `prefers-color-scheme` block redefining the same names, so no component carries a `dark:` prefix. |
-| `src/sections/hero/` | The hero: the pointer-reactive canvas backdrop, the typewriter headline, and the video slot. |
+| `src/sections/hero/` | The hero: the launcher mark, the typewriter headline, and `launcher-mock.tsx`, a drawn launcher window whose tiles are the real catalog and link to each app's slide. `hero-video.tsx` and `pilot-video.tsx` live here too, and are shown by the Studio section. |
+| `src/sections/{suite,launcher,frame,studio}/` | The rest of the landing page: a card per app in the launcher's two groups, how the launcher installs and updates them, the eight parts of the frame every app shares, and Studio, the app that holds all of them (and that they run inside today). |
+| `src/apps/catalog.ts` | The available apps as site copy: id, name, group, tagline, pitch, features and a four-stop **spectrum** sampled from each app's logo. Copied from the launcher's catalog rather than imported, because the site is off the graph; `catalog.test.ts` checks every id has a logo in `public/img/apps/`. Coming-soon apps are deliberately absent. |
+| `src/apps/aurora.tsx`, `src/styles/apps.css` | The animated gradient behind an app: four blurred blobs and a turning sheen in that app's spectrum, read from `--app-c1`…`--app-c4`. Also the `.ws-cascade` reveal (children stagger in by `--i`), the carousel track and the thumbnails. All of it pauses in a hidden tab and stills under reduced motion. |
+| `src/pages/apps/` | `/apps` — one hero per app in a scroll-snap carousel: logo, wordmark, pills (status, version, group, where it runs, platform), pitch and features, cascading in as each slide arrives. The fragment follows the slide (`/apps/#coder`), and the page glow cross-fades to the active app's colours. |
 | `src/pages/download-page.tsx` | `/download` — the install command, the version feed, what the script does. The command curls the site's own `public/install.sh`; see above. |
 | `src/pages/pricing-page.tsx` | `/pricing` — three columns (Free, Individual, Team). Public repos free; private repos are the paid boundary. No checkout — CTAs route to the early-access form. Prices are constants in this file ($8/mo Individual, $12/seat Team with a 5-seat minimum). |
 | `src/site-origin.ts` | `SITE_ORIGIN`, the site's absolute public root — for text a visitor pastes into a terminal, which `BASE_URL` cannot serve. |
@@ -420,8 +425,8 @@ Two rules that are not obvious from the code:
   page. `__SITE_ORIGIN__` is the second such constant and had to be added to both
   configs; a test that renders the footer or the install command needs the
   substitution too.
-- **Nothing here may link to `bilo-io/midnite-studio`.** It is private; a link
-  to it is a 404 for every visitor, which reads as a broken site rather than as
-  a permissions problem. Downloads, release notes and issues are all in
+- **Nothing here may link to `bilo-io/midnite-studio`.** It is the source repo,
+  built for contributors; a visitor never needs it, and the site's own tests
+  hold the line. Downloads, release notes and issues are all in
   `midnite-apps`, and its release tags are namespaced (`midnite-studio/v0.3.1`),
   never bare.

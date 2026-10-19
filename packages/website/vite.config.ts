@@ -29,11 +29,11 @@ import { defineConfig } from 'vite';
  *   set this to origin + prefix, or the pasted command 404s. See
  *   `src/site-origin.ts`.
  *
- * - **Three HTML entries, not one.** The site is served as a static tree with
+ * - **Four HTML entries, not one.** The site is served as a static tree with
  *   no rewrite rules — true of GitHub Pages, and true of any other static host
- *   — so a single-page app's `/download` or `/pricing` deep link would 404.
- *   Each route is a real directory index (`download/index.html`,
- *   `pricing/index.html`) rather than a sibling `.html` file, so both
+ *   — so a single-page app's `/apps`, `/download` or `/pricing` deep link would
+ *   404. Each route is a real directory index (`apps/index.html`,
+ *   `download/index.html`, `pricing/index.html`) rather than a sibling `.html` file, so both
  *   `/download` and `/download/` resolve without relying on a host's
  *   extension-stripping.
  */
@@ -105,6 +105,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        apps: fileURLToPath(new URL('./apps/index.html', import.meta.url)),
         download: fileURLToPath(new URL('./download/index.html', import.meta.url)),
         pricing: fileURLToPath(new URL('./pricing/index.html', import.meta.url)),
       },
