@@ -89,6 +89,7 @@ import {
 import { useFileEditorStore } from './file-editor-store';
 
 import { cycleBrowserLayout, type BrowserLayout } from '@midnite/studio-feature-browser/renderer/store';
+import { bridge } from '../services/bridge';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
 import { migrateAppsToWebApps } from './migrate-web-apps';
@@ -2092,7 +2093,15 @@ export type UiState = {
   lastOpenedWebAppId: WebAppId | null;
   openWebAppsFlyout: (id: WebAppId) => void;
   closeWebAppsFlyout: () => void;
+  /**
+   * LEGACY plaintext passcode (Phase 91 Theme D). Never written any more: the code lives in main as
+   * a scrypt hash. Kept in the persisted blob only so `lock-sync.ts` can forward an existing code
+   * to main once and blank this field.
+   */
   passcode: string | null;
+  /** Whether main holds a passcode. Not persisted — main is the authority, read on mount. */
+  hasPasscode: boolean;
+  /** Hands the code to main (which hashes it) and flips `hasPasscode`; `null` clears it. */
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
   setPasscodeOnlyWhenLocked: (onlyWhenLocked: boolean) => void;
@@ -2575,14 +2584,25 @@ export const useUiStore = create<UiState>()(
       webAppsFlyoutAppId: null,
       lastOpenedWebAppId: null,
       passcode: null,
-      setPasscode: (passcode) => set({ passcode }),
+      hasPasscode: false,
+      setPasscode: (code) => {
+        void bridge()?.lock.setPasscode(code);
+        set({ hasPasscode: code !== null, passcode: null });
+      },
       passcodeOnlyWhenLocked: false,
       setPasscodeOnlyWhenLocked: (passcodeOnlyWhenLocked) => set({ passcodeOnlyWhenLocked }),
       screensaverOpen: false,
       screensaverLocked: false,
-      setScreensaverOpen: (screensaverOpen, screensaverLocked = false) =>
-        set({ screensaverOpen, screensaverLocked }),
-      lockScreen: () => set({ screensaverOpen: true, screensaverLocked: true }),
+      // Phase 91 Theme D: main holds the lock authority (a reload rehydrates this store to
+      // "unlocked"); every change here is mirrored to it.
+      setScreensaverOpen: (screensaverOpen, screensaverLocked = false) => {
+        bridge()?.lock.set(screensaverOpen && screensaverLocked);
+        set({ screensaverOpen, screensaverLocked });
+      },
+      lockScreen: () => {
+        bridge()?.lock.set(true);
+        set({ screensaverOpen: true, screensaverLocked: true });
+      },
       selectedRepoId: null,
       selectedWorktreePath: null,
       graphSelection: null,

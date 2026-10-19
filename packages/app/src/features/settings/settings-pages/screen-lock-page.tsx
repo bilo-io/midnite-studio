@@ -64,7 +64,7 @@ export function ScreenLockPage() {
   const setCycleDuration = useUiStore((s) => s.setCycleDuration);
 
   const requirePasscode = useUiStore((s) => s.requirePasscode);
-  const passcode = useUiStore((s) => s.passcode);
+  const hasPasscode = useUiStore((s) => s.hasPasscode);
   const passcodeOnlyWhenLocked = useUiStore((s) => s.passcodeOnlyWhenLocked);
   const setRequirePasscode = useUiStore((s) => s.setRequirePasscode);
   const setPasscode = useUiStore((s) => s.setPasscode);
@@ -73,7 +73,6 @@ export function ScreenLockPage() {
   const lockScreen = useUiStore((s) => s.lockScreen);
 
   const [setup, setSetup] = useState<'enable' | 'change' | null>(null);
-  const hasPasscode = !!passcode;
 
   const idleTimeout = Math.min(
     INACTIVITY_MAX_S,

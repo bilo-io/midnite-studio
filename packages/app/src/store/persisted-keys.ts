@@ -70,7 +70,6 @@ export const PREFERENCE_KEYS = [
   'navMode', // sidebar-page.tsx
   'navVisibility', // sidebar-page.tsx — Sidenav toggles
   'optimizerEnabled', // optimizer-settings-page.tsx
-  'passcode', // screen-lock-page.tsx
   'passcodeOnlyWhenLocked', // screen-lock-page.tsx
   'primaryAgent', // agent-page.tsx
   'requirePasscode', // screen-lock-page.tsx
@@ -159,6 +158,7 @@ export const PREFERENCE_KEYS = [
 ] as const;
 
 export const SESSION_STATE_KEYS = [
+  'passcode', // legacy plaintext screen-lock code awaiting migration to main's scrypt hash (Phase 91 Theme D); never written, drains to null
   'agentApiKeys', // legacy plaintext LLM keys awaiting migration into the vault (Phase 113 Theme J); no control, drains to {}
   'activityTimelineOpen', // whether a panel is currently showing
   'browserDetached', // runtime popout state, corrected from main's window registry

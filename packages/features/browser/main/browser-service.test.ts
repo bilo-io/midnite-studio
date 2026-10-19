@@ -90,6 +90,8 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     return {
       setPermissionRequestHandler: vi.fn(),
       setPermissionCheckHandler: vi.fn(),
+      setDevicePermissionHandler: vi.fn(),
+      setDisplayMediaRequestHandler: vi.fn(),
       handlers,
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const list = handlers.get(event) ?? [];
@@ -287,6 +289,8 @@ describe('browser-service lifecycle', () => {
     const browserSession = fakeSessions.get('persist:browser');
     expect(browserSession?.setPermissionRequestHandler).toHaveBeenCalledTimes(1);
     expect(browserSession?.setPermissionCheckHandler).toHaveBeenCalledTimes(1);
+    expect(browserSession?.setDevicePermissionHandler).toHaveBeenCalledTimes(1);
+    expect(browserSession?.setDisplayMediaRequestHandler).toHaveBeenCalledTimes(1);
   });
 
   it('gives the view no preload and a sandboxed, partitioned session', () => {
@@ -301,6 +305,13 @@ describe('browser-service lifecycle', () => {
     expect(webPreferences['contextIsolation']).toBe(true);
     expect(webPreferences['nodeIntegration']).toBe(false);
     expect(webPreferences['preload']).toBeUndefined();
+    // Phase 91 Theme E audit: the dangerous flags are never set to a weaker value.
+    expect(webPreferences['nodeIntegration']).toBe(false);
+    expect(webPreferences['contextIsolation']).toBe(true);
+    expect([undefined, true]).toContain(webPreferences['webSecurity']);
+    for (const flag of ['allowRunningInsecureContent', 'experimentalFeatures', 'webviewTag']) {
+      expect([undefined, false]).toContain(webPreferences[flag]);
+    }
   });
 });
 

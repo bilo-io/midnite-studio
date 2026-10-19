@@ -13,10 +13,10 @@ import {
   type WindowDescriptor,
   type WindowRole,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, screen, shell, type Display, type WebContents } from 'electron';
+import { BrowserWindow, app, screen, type Display, type WebContents } from 'electron';
 
-import { bindAppNavigationGuard } from './app-navigation';
 import { reparentBrowserTabs, reparentWebAppView } from './browser-port';
+import { devToolsAllowed } from './devtools-policy';
 import type { Logger } from './log';
 import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
 import type { ReopenStore, WindowBounds, WindowsStore } from './windows-store';
@@ -372,6 +372,8 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Phase 91 Theme D: closes `webContents.openDevTools()` from anywhere, not just the menu.
+      devTools: devToolsAllowed(app.isPackaged),
       additionalArguments: [
         `${WINDOW_FRAMELESS_ARG}${frameless ? '1' : '0'}`,
         `${APP_VERSION_ARG}${app.getVersion()}`,
@@ -392,16 +394,6 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
   saveBoundsOnClose(win, role);
 
   win.once('ready-to-show', () => win.show());
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) void shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
-  bindAppNavigationGuard(
-    win.webContents,
-    !app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1' ? DEV_SERVER_URL : null,
-  );
 
   // A.6: a popout closed by its own traffic light re-docks — the same
   // outcome as pressing the re-dock button, not a way to lose the panel. For

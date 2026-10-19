@@ -4656,6 +4656,22 @@ export function buildMockBridge(data: MockFixtures) {
       // `relay` above.
       reportRepo: noop,
     },
+    // Phase 91 Theme D: main-side lock authority. The mock keeps it in memory so a spec can lock,
+    // reload-free, and unlock with the code it set.
+    lock: (() => {
+      let locked = false;
+      let code: string | null = null;
+      return {
+        set: (next: boolean) => {
+          locked = next;
+        },
+        get: async () => ({ locked, hasPasscode: code !== null }),
+        setPasscode: async (next: string | null) => {
+          code = next;
+        },
+        verify: async (candidate: string) => code !== null && candidate === code,
+      };
+    })(),
     cli: {
       status: async () => ({ installed: false, path: null, target: null, managed: false }),
       install: async () => ({

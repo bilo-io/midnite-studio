@@ -8,7 +8,7 @@ import {
 
 import type { BrowserHostWindow as BrowserWindow, BrowserInput as Input, BrowserView as WebContentsView } from './browser-electron';
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
-import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
+import { cancelDownload, checkNavigationUrl, denyAllDevices, denyAllPermissions } from './browser-security';
 
 /**
  * The main-process half of the embedded browser (Phase 32 Theme A/B).
@@ -217,6 +217,7 @@ function ensureSessionConfigured(): void {
   securityConfigured = true;
   const browserSession = browserMainDeps().electron.sessionFromPartition(PARTITION);
   denyAllPermissions(browserSession);
+  denyAllDevices(browserSession);
   browserSession.on('will-download', (_event, item, webContents) => {
     // Session-level, so the item arrives with the `webContents` that asked
     // for it rather than a tab id — reverse-lookup so the notice lands on
@@ -598,17 +599,29 @@ export async function clearBrowserData(): Promise<void> {
   await browserSession.clearCache();
 }
 
-/** External-link fallback for a scheme this session refuses to load in-place. */
-export function openInSystemBrowser(url: string): void {
-  void browserMainDeps().electron.openExternal(url);
-}
-
 /** Window close, `before-quit`: destroy every tracked view — nothing survives past the process. */
 export function destroyAllBrowserTabs(): void {
   for (const [tabId] of tabs) closeBrowserTab(tabId);
 }
 
 /** Test-only: drop every tracked tab without tearing down real Electron state. */
+/**
+ * Every per-tab collection this module keeps, in ONE place (Phase 91 Theme F). A tab that is
+ * closed must leave none of them behind; `browser-service.leak.test.ts` asserts all are empty
+ * after close and compares this list's keys against its own, so a sixth collection added here
+ * without a matching `delete` in {@link closeBrowserTab} fails that test.
+ */
+const trackedCollections = { tabs, lastBounds, hiddenSince, keepAwakeTabIds, visibleTabIds };
+
+/** Test seam: the size of every per-tab collection, keyed by name. */
+export function trackedStateSizes(): Record<keyof typeof trackedCollections, number> {
+  const sizes = {} as Record<keyof typeof trackedCollections, number>;
+  for (const [name, collection] of Object.entries(trackedCollections)) {
+    sizes[name as keyof typeof trackedCollections] = collection.size;
+  }
+  return sizes;
+}
+
 export function resetBrowserServiceForTests(): void {
   tabs.clear();
   lastBounds.clear();

@@ -1879,6 +1879,17 @@ export type MidniteStudioBridge = {
     onDeepLink: (handler: (e: z.infer<typeof S.DeepLinkEventSchema>) => void) => Unsubscribe;
   };
 
+  /** Phase 91 Theme D: the lock screen's authority, held in main. */
+  lock: {
+    /** The screen is now locked / unlocked. While locked, window reload is refused. */
+    set: (locked: boolean) => void;
+    get: () => Promise<z.infer<typeof S.LockStateSchema>>;
+    /** Set (`string`) or clear (`null`) the passcode; main stores only a salted scrypt hash. */
+    setPasscode: (code: string | null) => Promise<void>;
+    /** Whether `code` matches. The expected value is never sent to the renderer. */
+    verify: (code: string) => Promise<boolean>;
+  };
+
   window: {
     minimize: () => void;
     toggleMaximize: () => void;

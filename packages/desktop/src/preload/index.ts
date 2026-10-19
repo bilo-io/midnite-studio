@@ -108,6 +108,7 @@ const windowChrome: WindowChromeBridge = {
 const bridge: Pick<
   MidniteStudioBridge,
   | 'homeDir'
+  | 'lock'
   | 'hostname'
   | 'appVersion'
   | 'repos'
@@ -905,6 +906,12 @@ const bridge: Pick<
   },
   sync: {
     onStatus: (handler) => subscribe(EVENT_CHANNELS.syncStatus, handler),
+  },
+  lock: {
+    set: (locked) => ipcRenderer.send(CHANNELS.lockSet, locked),
+    get: () => call(CHANNELS.lockGet),
+    setPasscode: (code) => call(CHANNELS.lockSetPasscode, code),
+    verify: (code) => call(CHANNELS.lockVerify, code),
   },
   window: {
     minimize: () => ipcRenderer.send(CHANNELS.windowMinimize),

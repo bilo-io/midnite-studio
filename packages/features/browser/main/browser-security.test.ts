@@ -4,6 +4,7 @@ import {
   allowAppAudioOnly,
   cancelDownload,
   checkNavigationUrl,
+  denyAllDevices,
   denyAllPermissions,
   isAppOrigin,
   isAudioOnlyAppCheck,
@@ -376,5 +377,36 @@ describe('allowAppAudioOnly', () => {
     expect(
       session.checks[0]?.(undefined, 'media', RECORDED.packagedCheckOrigin, RECORDED.packagedCheck),
     ).toBe(true);
+  });
+});
+
+describe('denyAllDevices (Phase 91 Theme E)', () => {
+  const fakeDeviceSession = () => {
+    const device: Array<(details: unknown) => boolean> = [];
+    const display: Array<(request: unknown, cb: (streams: Record<string, never>) => void) => void> = [];
+    return {
+      device,
+      display,
+      setDevicePermissionHandler: vi.fn((h: (details: unknown) => boolean) => device.push(h)),
+      setDisplayMediaRequestHandler: vi.fn(
+        (h: (request: unknown, cb: (streams: Record<string, never>) => void) => void) => display.push(h),
+      ),
+    };
+  };
+
+  it('refuses device selection and answers getDisplayMedia with no stream (browser pane / web-app sessions)', () => {
+    const session = fakeDeviceSession();
+    denyAllDevices(session);
+    expect(session.device[0]?.({})).toBe(false);
+    const cb = vi.fn();
+    session.display[0]?.({}, cb);
+    expect(cb).toHaveBeenCalledWith({});
+  });
+
+  it('leaves the display-media handler alone on the default session, where Capture owns it', () => {
+    const session = fakeDeviceSession();
+    denyAllDevices(session, { displayMedia: false });
+    expect(session.setDevicePermissionHandler).toHaveBeenCalledTimes(1);
+    expect(session.setDisplayMediaRequestHandler).not.toHaveBeenCalled();
   });
 });

@@ -60,6 +60,36 @@ export function denyAllPermissions(session: PermissionSession): void {
 }
 
 /**
+ * The two session handlers `denyAllPermissions` does not cover (Phase 91 Theme E): WebUSB/WebHID/
+ * serial *device selection* and `getDisplayMedia`. With no handler installed Electron falls back
+ * to its own defaults, so a page could be offered a device chooser or a screen stream.
+ */
+export type DeviceSession = {
+  setDevicePermissionHandler(handler: (details: unknown) => boolean): void;
+  setDisplayMediaRequestHandler(
+    handler: (request: unknown, callback: (streams: Record<string, never>) => void) => void,
+  ): void;
+};
+
+/**
+ * Deny device selection, and (unless `displayMedia: false`) every `getDisplayMedia` request.
+ *
+ * The app's default session passes `displayMedia: false`: Capture's recording gate owns that
+ * handler there, and replacing it would break Record. Every other session has no business
+ * with a screen stream.
+ */
+export function denyAllDevices(
+  session: Pick<DeviceSession, 'setDevicePermissionHandler'> & Partial<DeviceSession>,
+  options: { displayMedia?: boolean } = {},
+): void {
+  session.setDevicePermissionHandler(() => false);
+  if (options.displayMedia !== false) {
+    // An empty streams object is Electron's "no stream" answer: the request is refused.
+    session.setDisplayMediaRequestHandler?.((_request, callback) => callback({}));
+  }
+}
+
+/**
  * The one permission the app's own renderer is allowed, and nothing else
  * (Phase 79 Theme F).
  *

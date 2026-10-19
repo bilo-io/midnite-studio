@@ -18,6 +18,8 @@ function fakeSession(cookies: FakeCookie[]) {
     cookieJar: cookies,
     setPermissionRequestHandler: vi.fn(),
     setPermissionCheckHandler: vi.fn(),
+    setDevicePermissionHandler: vi.fn(),
+    setDisplayMediaRequestHandler: vi.fn(),
     on: vi.fn(),
     clearStorageData: vi.fn(async () => {
       cookies.length = 0;

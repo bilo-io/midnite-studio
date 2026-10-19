@@ -2,6 +2,7 @@ import { existsSync, statSync, readFileSync, writeFileSync, rmSync } from 'node:
 import { join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { findForbiddenArtifacts } from './lib/forbidden-artifacts.mjs';
 import { extractYamlScalar } from './lib/yaml-scalar.mjs';
 import { SQLITE_PROBE_SOURCE, sqliteProbeModulePath } from './lib/sqlite-probe.mjs';
 
@@ -219,6 +220,14 @@ if (signingMode === 'signed (Developer ID)') {
   }
 } else {
   console.log('  (no Developer ID cert present — notarization is not expected yet; see docs/RELEASING.md)');
+}
+
+// Phase 91 Theme D: the shipped renderer carries no sourcemaps, no Vite manifest, no stats.html.
+console.log('Verifying no build metadata shipped (sourcemaps, .vite, stats.html)...');
+const forbidden = findForbiddenArtifacts(join(appPath, 'Contents', 'Resources', 'renderer'));
+if (forbidden.length > 0) {
+  console.error(`Build metadata shipped in Resources/renderer: ${forbidden.join(', ')}`);
+  process.exit(1);
 }
 
 // Phase 61 Theme C: no check anywhere verified a native module actually

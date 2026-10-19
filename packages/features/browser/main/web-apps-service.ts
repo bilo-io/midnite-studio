@@ -2,7 +2,7 @@ import { WEB_APP_DEFINITIONS, type WebAppId, type BrowserBounds } from '@midnite
 
 import type { BrowserHostWindow as BrowserWindow, BrowserView as WebContentsView } from './browser-electron';
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
-import { cancelDownload, checkNavigationUrl, denyAllPermissions } from './browser-security';
+import { cancelDownload, checkNavigationUrl, denyAllDevices, denyAllPermissions } from './browser-security';
 
 /**
  * The main-process half of the third-party apps rail (Phase 83 Themes A/B).
@@ -58,6 +58,7 @@ function ensureAppSessionConfigured(id: WebAppId): void {
   securedPartitions.add(partition);
   const appSession = browserMainDeps().electron.sessionFromPartition(partition);
   denyAllPermissions(appSession);
+  denyAllDevices(appSession);
   appSession.on('will-download', (_event, item) => {
     cancelDownload(item, (filename) => {
       defaultLogger(`[apps] download refused: app=${id} file=${filename}`);

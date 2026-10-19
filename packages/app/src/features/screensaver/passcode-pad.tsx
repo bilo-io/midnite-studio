@@ -127,6 +127,8 @@ const DEFAULT_LABELS: PasscodePadLabels = {
 type PasscodePadProps = {
   mode: 'set' | 'unlock';
   expected?: string;
+  /** Async check against main's hash (Phase 91 Theme D); preferred over `expected`. */
+  verify?: (code: string) => Promise<boolean> | boolean;
   onSuccess: (code: string) => void;
   onCancel?: () => void;
   autoFocus?: boolean;
@@ -136,6 +138,7 @@ type PasscodePadProps = {
 export function PasscodePad({
   mode,
   expected,
+  verify,
   onSuccess,
   onCancel,
   autoFocus = true,
@@ -156,8 +159,12 @@ export function PasscodePad({
 
   const handleComplete = (code: string) => {
     if (mode === 'unlock') {
-      if (code === expected) onSuccess(code);
-      else reject(copy.incorrect);
+      // Phase 91 Theme D: with `verify`, the expected code is never in the React tree — main
+      // answers a boolean. `expected` stays for callers that have no bridge.
+      void Promise.resolve(verify ? verify(code) : code === expected).then((ok) => {
+        if (ok) onSuccess(code);
+        else reject(copy.incorrect);
+      });
       return;
     }
     if (phase === 'enter') {
@@ -310,13 +317,15 @@ export function PasscodeSetupDialog({
 
 export function PasscodeUnlockDialog({
   expected,
+  verify,
   onUnlock,
   onCancel,
   label = 'Enter passcode to unlock',
   closeLabel,
   labels,
 }: {
-  expected: string;
+  expected?: string;
+  verify?: (code: string) => Promise<boolean> | boolean;
   onUnlock: () => void;
   onCancel: () => void;
   label?: string;
@@ -325,7 +334,13 @@ export function PasscodeUnlockDialog({
 }) {
   return (
     <PasscodeDialog label={label} closeLabel={closeLabel} onCancel={onCancel}>
-      <PasscodePad mode="unlock" expected={expected} onSuccess={onUnlock} labels={labels} />
+      <PasscodePad
+        mode="unlock"
+        {...(expected !== undefined ? { expected } : {})}
+        {...(verify ? { verify } : {})}
+        onSuccess={onUnlock}
+        labels={labels}
+      />
     </PasscodeDialog>
   );
 }

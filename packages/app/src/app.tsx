@@ -138,6 +138,7 @@ import { useSyncRepoForgeRegistry } from './services/repo-forge-registry';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useReportWindowRepo } from './services/use-report-window-repo';
 import { useSettingsSync } from './services/use-settings-sync';
+import { syncLockFromMain } from './store/lock-sync';
 import { migrateLegacyAgentApiKeys } from './store/migrate-agent-api-keys';
 import { migrateLegacyGithubAgentKey } from './store/migrate-forge-github-key';
 import { useWindowSync } from './services/use-window-sync';
@@ -728,6 +729,9 @@ function Shell() {
     // Phase 113 Theme J slice 2: the LLM keys beside it move into the vault too — a key leaves
     // `agentApiKeys` only once the vault confirms it holds it.
     void migrateLegacyAgentApiKeys();
+    // Phase 91 Theme D: the lock screen's authority is main's — restore the overlay after a reload
+    // and move a legacy plaintext passcode into main's hash.
+    void syncLockFromMain();
   }, []);
 
   // Every shortcut, every native menu item and (Theme C+) the palette dispatch

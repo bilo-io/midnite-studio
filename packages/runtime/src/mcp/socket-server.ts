@@ -112,6 +112,9 @@ export async function startMcpSocketServer(opts: StartMcpSocketServerOptions): P
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
+    // Phase 91 Theme E: bind under a 0o177 umask (see the broker's `listenOn`); restored right
+    // after, since Node binds a unix socket synchronously inside `listen`.
+    const previousUmask = process.umask(0o177);
     server.listen(socketPath, () => {
       server.removeListener('error', reject);
       try {
@@ -122,6 +125,7 @@ export async function startMcpSocketServer(opts: StartMcpSocketServerOptions): P
       log(`[mcp] listening on ${socketPath}`);
       resolve();
     });
+    process.umask(previousUmask);
   });
 
   let closed = false;

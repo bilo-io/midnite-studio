@@ -69,6 +69,8 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     return {
       setPermissionRequestHandler: vi.fn(),
       setPermissionCheckHandler: vi.fn(),
+      setDevicePermissionHandler: vi.fn(),
+      setDisplayMediaRequestHandler: vi.fn(),
       handlers,
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const list = handlers.get(event) ?? [];
@@ -142,6 +144,13 @@ describe('web-apps-service lifecycle', () => {
     expect(webPreferences['contextIsolation']).toBe(true);
     expect(webPreferences['nodeIntegration']).toBe(false);
     expect(webPreferences['preload']).toBeUndefined();
+    // Phase 91 Theme E audit: the dangerous flags are never set to a weaker value.
+    expect(webPreferences['nodeIntegration']).toBe(false);
+    expect(webPreferences['contextIsolation']).toBe(true);
+    expect([undefined, true]).toContain(webPreferences['webSecurity']);
+    for (const flag of ['allowRunningInsecureContent', 'experimentalFeatures', 'webviewTag']) {
+      expect([undefined, false]).toContain(webPreferences[flag]);
+    }
     expect(view.webContents.loadURL).toHaveBeenCalledWith('https://open.spotify.com');
     expect(view.setVisible).toHaveBeenCalledWith(true);
   });
@@ -222,6 +231,8 @@ describe('web-apps-service lifecycle', () => {
     const appSession = fakeSessions.get('persist:app-spotify');
     expect(appSession?.setPermissionRequestHandler).toHaveBeenCalledTimes(1);
     expect(appSession?.setPermissionCheckHandler).toHaveBeenCalledTimes(1);
+    expect(appSession?.setDevicePermissionHandler).toHaveBeenCalledTimes(1);
+    expect(appSession?.setDisplayMediaRequestHandler).toHaveBeenCalledTimes(1);
   });
 });
 

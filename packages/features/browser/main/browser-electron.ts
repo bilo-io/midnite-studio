@@ -1,6 +1,6 @@
 import type { BrowserEvent, CommandId } from '@midnite/studio-shared';
 
-import type { DownloadItemLike, PermissionSession } from './browser-security';
+import type { DeviceSession, DownloadItemLike, PermissionSession } from './browser-security';
 
 /**
  * The slice of Electron the browser and web-apps services touch (Phase 113 Theme L), declared
@@ -95,7 +95,7 @@ export type BrowserCookieDomain = { domain?: string };
  * A partition's `Session` — what `denyAllPermissions` (`browser-security.ts`'s own structural
  * `PermissionSession`), the download refusal, "clear data" and the Vault's sign-in listing use.
  */
-export type BrowserSession = PermissionSession & {
+export type BrowserSession = PermissionSession & DeviceSession & {
   on(event: 'will-download', listener: (event: unknown, item: DownloadItemLike, webContents: unknown) => void): void;
   clearStorageData(): Promise<void>;
   clearCache(): Promise<void>;

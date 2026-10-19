@@ -2572,6 +2572,13 @@ export const WindowStateSchema = z.object({
 /** `true` bypasses the HTTP cache; omitted/`false` is an ordinary reload. */
 export const WindowReloadRequest = z.boolean().optional();
 
+/** Phase 91 Theme D: the lock screen's main-side state. */
+export const LockSetRequest = z.boolean();
+export const LockStateSchema = z.object({ locked: z.boolean(), hasPasscode: z.boolean() });
+/** A numeric passcode to set, or `null` to clear it. */
+export const LockSetPasscodeRequest = z.string().regex(/^\d{4,12}$/).nullable();
+export const LockVerifyRequest = z.string().min(1).max(64);
+
 /** Electron `setBackgroundColor` — `#rrggbb` only. */
 export const WindowSetBackgroundRequest = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 

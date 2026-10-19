@@ -20,7 +20,7 @@ import {
   SetupProbeRequest,
   SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, safeStorage, session, shell, type WebContentsView } from 'electron';
+import { BrowserWindow, app, ipcMain, safeStorage, session, shell, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -28,7 +28,7 @@ import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
-import { allowAppAudioOnly, destroyAllBrowserTabs, destroyAllWebApps, startBrowserDiscardSweep, startWebAppsDiscardSweep } from '@midnite/studio-feature-browser/main';
+import { allowAppAudioOnly, denyAllDevices, destroyAllBrowserTabs, destroyAllWebApps, startBrowserDiscardSweep, startWebAppsDiscardSweep } from '@midnite/studio-feature-browser/main';
 import { installCsp } from './csp';
 import { registerBrowserFeatureHandlers } from './ipc/browser-feature-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
@@ -152,8 +152,10 @@ import { createFileSink } from './log-sink';
 import { bootMark } from './perf-marks';
 import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
+import { applyAppWebContentsPolicy } from './web-contents-policy';
 import { createWindow } from './window';
 import { registerWindowChrome } from './window-chrome';
+import { registerLockHandlers } from './ipc/lock-handlers';
 import {
   beginShutdown,
   broadcastToAllWindows,
@@ -431,11 +433,25 @@ export const startStudioMain: StartStudioMain = () => {
       session.defaultSession.setDisplayMediaRequestHandler((request, callback) =>
         recordingGate.handleRequest(request, callback as Parameters<typeof recordingGate.handleRequest>[1]),
       );
+      // Phase 91 Theme E: one navigation/window.open net for every app window, installed before any
+      // exists (`web-contents-created` is only seen by listeners registered ahead of the contents).
+      app.on('web-contents-created', (_event, contents) => {
+        applyAppWebContentsPolicy(contents, devServerOrigin, (href) => void shell.openExternal(href));
+      });
+      // Phase 91 Theme E: no WebUSB/HID/serial device chooser for the app renderer. Display media
+      // stays Capture's gate above, hence `displayMedia: false`.
+      denyAllDevices(session.defaultSession, { displayMedia: false });
       installCsp(session.defaultSession, {
         dev: devServerOrigin !== null,
         devServerOrigin,
       });
+      // Phase 91 Theme F: Node warns once a single event name has more than 10 listeners. Channels
+      // register one handler each, so the default is not near today; this makes a stray duplicate
+      // registration on one channel (the Theme F updater case) a deliberate signal at 100 rather
+      // than noise at 10. Set (not measured) 2026-10-19 — revisit if a channel legitimately fans out.
+      ipcMain.setMaxListeners(100);
       registerWindowChrome();
+      registerLockHandlers(app.getPath('userData'), (message) => defaultLogger.warn(message));
       registerRepoHandlers(getMainWindow);
       registerSearchHandlers();
       registerStatusHandlers();

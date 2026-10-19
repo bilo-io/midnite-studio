@@ -121,5 +121,19 @@ export default defineConfig({
      * entry-chunk absence assertions will read it too.
      */
     manifest: true,
+    /**
+     * Explicit, not defaulted (Phase 91 Theme D). Vite's default is already `'esbuild'`, so this
+     * changes nothing today and stops a future default change doing so silently. This is *not*
+     * obfuscation: the bundle is read from the asar in minutes by anyone with a prettifier — it buys
+     * bytes, nothing more. What must stay secret stays out of the renderer entirely.
+     * The renderer only ever runs in the one bundled Chromium, so `chrome130` over the looser default.
+     */
+    minify: 'esbuild',
+    target: 'chrome130',
+  },
+  esbuild: {
+    legalComments: 'none',
+    // Not `console`: the log seam is the support path and the diagnostics bundle reads it.
+    drop: ['debugger'],
   },
 });
