@@ -3,7 +3,11 @@ import { useEffect, useState } from 'react';
 import { Accordion } from '@bilo-io/ui';
 import { LuCircleAlert, LuExternalLink, LuLoaderCircle } from 'react-icons/lu';
 
-import { FORGE_BODY_MAX, NEW_ISSUE_URL, type AppIssueSubmitRequest } from '@midnite/studio-shared';
+import {
+  appIssueFormUrl,
+  FORGE_BODY_MAX,
+  type AppIssueSubmitRequest,
+} from '@midnite/studio-shared';
 
 import { bridge } from '../services/bridge';
 import { openExternal, useForgeCli, useSubmitAppIssue } from '../services/queries';
@@ -34,6 +38,12 @@ import { Spinner } from './skeleton';
  * IPC boundary, on top of (not instead of) the schema's own cap — a renderer
  * bug that produced a runaway string should not depend on the main process to
  * notice.
+ *
+ * **Without `gh` it still files.** Filing in-app needs the GitHub CLI installed and signed in; on a
+ * machine without it (or when `gh` refuses, e.g. no write access) the primary action becomes
+ * *Continue on GitHub*, which opens midnite-apps' own issue form prefilled with the same title,
+ * words and diagnostics (`appIssueFormUrl`) for the reporter to submit under their own account —
+ * the way midnite's reporter has always worked.
  */
 
 type AppIssueKind = AppIssueSubmitRequest['kind'];
@@ -123,7 +133,9 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     if (next === kind) return;
     // A title still at the previous kind's bare prefix follows the toggle;
     // anything the user actually typed is their own words and survives it.
-    setTitle((current) => (current === KIND_COPY[kind].titlePrefix ? KIND_COPY[next].titlePrefix : current));
+    setTitle((current) =>
+      current === KIND_COPY[kind].titlePrefix ? KIND_COPY[next].titlePrefix : current,
+    );
     setKind(next);
   };
 
@@ -140,6 +152,26 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
   const result = submit.data;
   const submitError = result && !result.ok ? (result.error ?? cliHint(result.cli)) : null;
 
+  const close = () => {
+    submit.reset();
+    onClose();
+  };
+
+  const canContinueOnGitHub = trimmedTitle.length > 0 && trimmedDescription.length > 0;
+  const continueOnGitHub = () => {
+    if (!canContinueOnGitHub) return;
+    openExternal(
+      appIssueFormUrl({
+        kind,
+        title: trimmedTitle,
+        description,
+        diagnostics: bundle.text,
+        version: bridge()?.appVersion,
+      }),
+    );
+    close();
+  };
+
   const onSubmit = () => {
     if (!canSubmit) return;
     submit.mutate({
@@ -149,13 +181,15 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     });
   };
 
-  const close = () => {
-    submit.reset();
-    onClose();
-  };
-
   return (
-    <Modal open={open} onClose={close} scope="window" title="Report an issue" size="md" testId="report-issue-dialog">
+    <Modal
+      open={open}
+      onClose={close}
+      scope="window"
+      title="Report an issue"
+      size="md"
+      testId="report-issue-dialog"
+    >
       <div className="flex flex-col gap-3 p-4">
         <h2 className="text-sm font-semibold">Report an issue</h2>
 
@@ -228,14 +262,10 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
               <LuCircleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               {cliHint(cliStatus)}
             </p>
-            <button
-              type="button"
-              onClick={() => openExternal(NEW_ISSUE_URL)}
-              className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent"
-            >
-              <LuExternalLink aria-hidden className="h-3.5 w-3.5" />
-              Open in browser instead
-            </button>
+            <p className="text-xs text-muted-foreground">
+              Continue on GitHub opens the issue form with all of this filled in, to submit from
+              your browser.
+            </p>
           </div>
         ) : null}
 
@@ -264,9 +294,19 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
         ) : null}
 
         {submitError ? (
-          <p role="alert" className="text-xs text-destructive">
-            {submitError}
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <p role="alert" className="text-xs text-destructive">
+              {submitError}
+            </p>
+            <button
+              type="button"
+              onClick={continueOnGitHub}
+              className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent"
+            >
+              <LuExternalLink aria-hidden className="h-3.5 w-3.5" />
+              Continue on GitHub instead
+            </button>
+          </div>
         ) : null}
 
         <div className="mt-1 flex justify-end gap-2">
@@ -277,6 +317,17 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
           >
             {result?.ok ? 'Close' : 'Cancel'}
           </button>
+          {showFallback ? (
+            <button
+              type="button"
+              disabled={!canContinueOnGitHub}
+              onClick={continueOnGitHub}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <LuExternalLink aria-hidden className="h-3.5 w-3.5" />
+              Continue on GitHub
+            </button>
+          ) : null}
           {!showFallback && !result?.ok ? (
             <button
               type="button"

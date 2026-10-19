@@ -184,17 +184,60 @@ describe('ReportIssueDialog — submit', () => {
 });
 
 describe('ReportIssueDialog — the fallback is not a dead end', () => {
-  it('shows why and a working "Open in browser instead" when gh is not ready', async () => {
-    bundleFn.mockResolvedValue({ text: '' });
+  it('without gh, Continue on GitHub opens the issue form prefilled with what was typed', async () => {
+    bundleFn.mockResolvedValue({ text: 'INFO boot\nERROR it broke' });
     cliStatusFn.mockResolvedValue(NOT_INSTALLED_CLI);
-    renderDialog();
+    const onClose = vi.fn();
+    renderDialog(onClose);
 
     expect(await screen.findByText('brew install gh')).not.toBeNull();
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull();
+    await screen.findByTestId('report-issue-diagnostics');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open in browser instead' }));
-    expect(openExternalFn).toHaveBeenCalledWith({
-      url: 'https://github.com/bilo-io/midnite-apps/issues/new?labels=midnite-studio',
+    const proceed = screen.getByRole('button', { name: 'Continue on GitHub' }) as HTMLButtonElement;
+    expect(proceed.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] Graph is blank' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), {
+      target: { value: 'Opened a repo & nothing drew.' },
     });
+    fireEvent.click(proceed);
+
+    expect(openExternalFn).toHaveBeenCalledTimes(1);
+    const url = new URL((openExternalFn.mock.calls[0]![0] as { url: string }).url);
+    expect(`${url.origin}${url.pathname}`).toBe(
+      'https://github.com/bilo-io/midnite-apps/issues/new',
+    );
+    expect(url.searchParams.get('template')).toBe('bug.yml');
+    expect(url.searchParams.get('title')).toBe('[bug] Graph is blank');
+    expect(url.searchParams.get('app')).toBe('midnite-studio');
+    expect(url.searchParams.get('what')).toBe('Opened a repo & nothing drew.');
+    expect(url.searchParams.get('logs')).toBe('INFO boot\nERROR it broke');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('offers the browser form when gh itself refuses the issue', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    submitIssueFn.mockResolvedValue({
+      ok: false,
+      cli: READY_CLI,
+      error: 'HTTP 403: Resource not accessible by integration',
+      url: null,
+    });
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] Crash' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It crashed.' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue on GitHub instead' }));
+
+    const url = new URL((openExternalFn.mock.calls[0]![0] as { url: string }).url);
+    expect(url.searchParams.get('title')).toBe('[bug] Crash');
+    expect(url.searchParams.get('what')).toBe('It crashed.');
   });
 });

@@ -53,14 +53,103 @@ export const ISSUES_URL = 'https://github.com/bilo-io/midnite-apps/issues';
 export const APP_ISSUES_REPO = 'bilo-io/midnite-apps';
 
 /**
- * A new issue, pre-labelled for this app.
+ * The issue-form chooser on `bilo-io/midnite-apps`.
  *
- * The label is what keeps a sibling app's tracker readable, and pre-filling it
- * is what stops a reporter having to know the convention. Opened through
- * `shellOpenExternal`, which is protocol-restricted to http/https/mailto.
+ * The chooser, not a bare `issues/new`: that repo sets `blank_issues_enabled: false`, so GitHub
+ * sends a blank-issue URL here anyway, dropping any `title`/`body` it carried. It also once named a
+ * `midnite-studio` label that does not exist — the label is `app: midnite-studio`, applied from the
+ * form's App dropdown. Opened through `shellOpenExternal`, which is protocol-restricted to
+ * http/https/mailto.
  */
-export const NEW_ISSUE_URL =
-  'https://github.com/bilo-io/midnite-apps/issues/new?labels=midnite-studio';
+export const NEW_ISSUE_URL = `https://github.com/${APP_ISSUES_REPO}/issues/new/choose`;
+
+/**
+ * The issue form each in-app kind opens, and the field the reporter's own words go in — the ids in
+ * `bilo-io/midnite-apps/.github/ISSUE_TEMPLATE/{bug,feature}.yml`. Only the bug form has a `logs`
+ * field, so a feature request goes without the diagnostics tail.
+ */
+const APP_ISSUE_FORMS = {
+  bug: { template: 'bug.yml', field: 'what' },
+  feature: { template: 'feature.yml', field: 'problem' },
+} as const;
+
+/** The App dropdown option that makes `issue-app-label.yml` apply `app: midnite-studio`. */
+const APP_ISSUE_APP_OPTION = 'midnite-studio';
+
+/**
+ * The longest URL {@link appIssueFormUrl} returns. GitHub refuses a request line much past 8 KB
+ * rather than truncating it — the same ceiling midnite's own prefilled-issue link keeps under.
+ */
+export const APP_ISSUE_URL_MAX = 8000;
+
+/** The largest `count` in `[0, max]` whose URL fits {@link APP_ISSUE_URL_MAX}; URL length only grows with it. */
+function longestFitting(max: number, urlFor: (count: number) => string): number {
+  let lo = 0;
+  let hi = max;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (urlFor(mid).length <= APP_ISSUE_URL_MAX) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+/** Marks a diagnostics tail that lost its oldest lines to {@link APP_ISSUE_URL_MAX}. */
+const TRIMMED_LOGS_MARK = '… (older lines trimmed)\n';
+
+export type AppIssueFormDraft = {
+  kind: keyof typeof APP_ISSUE_FORMS;
+  title: string;
+  description: string;
+  /** The redacted `report.bundle()` text — passed through as-is, never re-redacted here. */
+  diagnostics: string;
+  /** The running build's version; omitted (or `0.0.0`, an unversioned build) leaves the field empty. */
+  version?: string;
+};
+
+/**
+ * A prefilled issue form on `bilo-io/midnite-apps` — the in-app reporter's path when the `gh` CLI
+ * is not installed or signed in, and the reporter submits it themselves under their own account.
+ *
+ * An issue form reads the query string as one `field-id=value` pair per field, not as `body`, and a
+ * `template=` is what keeps GitHub from bouncing the URL to the chooser (see {@link NEW_ISSUE_URL}).
+ * Over {@link APP_ISSUE_URL_MAX} the diagnostics lose their *oldest* lines first — they are a log
+ * tail, so the newest lines are the ones nearest the failure — and only once none fit is the
+ * description cut.
+ */
+export function appIssueFormUrl(draft: AppIssueFormDraft): string {
+  const form = APP_ISSUE_FORMS[draft.kind];
+  const build = (description: string, logs: string): string => {
+    const params = new URLSearchParams();
+    params.set('template', form.template);
+    params.set('title', draft.title.trim());
+    params.set('app', APP_ISSUE_APP_OPTION);
+    if (draft.kind === 'bug' && draft.version !== undefined && draft.version !== '0.0.0') {
+      params.set('version', draft.version);
+    }
+    params.set(form.field, description);
+    if (logs.length > 0) params.set('logs', logs);
+    return `https://github.com/${APP_ISSUES_REPO}/issues/new?${params.toString()}`;
+  };
+
+  const description = Array.from(draft.description.trim());
+  const logs = Array.from(draft.kind === 'bug' ? draft.diagnostics.trim() : '');
+  const full = build(description.join(''), logs.join(''));
+  if (full.length <= APP_ISSUE_URL_MAX) return full;
+
+  // The newest log lines, as many as fit beside the whole description — by code point, so a
+  // multi-byte character (which percent-encodes to several URL characters) is never split.
+  const logsKeeping = (count: number) =>
+    count === 0 ? '' : TRIMMED_LOGS_MARK + logs.slice(logs.length - count).join('');
+  const keptLogs = longestFitting(logs.length, (count) =>
+    build(description.join(''), logsKeeping(count)),
+  );
+  if (keptLogs > 0) return build(description.join(''), logsKeeping(keptLogs));
+  const keptChars = longestFitting(description.length, (count) =>
+    build(description.slice(0, count).join(''), ''),
+  );
+  return build(description.slice(0, keptChars).join(''), '');
+}
 
 /**
  * The release page for one version.
