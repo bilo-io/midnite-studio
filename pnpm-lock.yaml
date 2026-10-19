@@ -1576,6 +1576,9 @@ importers:
       '@dimforge/rapier3d-compat':
         specifier: 0.21.0
         version: 0.21.0
+      '@electron/fuses':
+        specifier: 1.8.0
+        version: 1.8.0
       '@electron/notarize':
         specifier: ^2.5.0
         version: 2.5.0
@@ -4096,6 +4099,10 @@ packages:
   '@electron/asar@3.4.1':
     resolution: {integrity: sha512-i4/rNPRS84t0vSRa2HorerGRXWyF4vThfHesw0dmcWHp+cspK743UanA0suA5Q5y8kzY2y6YKrvbIUn69BCAiA==}
     engines: {node: '>=10.12.0'}
+    hasBin: true
+
+  '@electron/fuses@1.8.0':
+    resolution: {integrity: sha512-zx0EIq78WlY/lBb1uXlziZmDZI4ubcCXIMJ4uGjXzZW0nS19TjSPeXPAjzzTmKQlJUZm0SbmZhPKP7tuQ1SsEw==}
     hasBin: true
 
   '@electron/get@2.0.3':
@@ -8911,6 +8918,7 @@ packages:
 
   sherpa-onnx-darwin-arm64@1.13.7:
     resolution: {integrity: sha512-5NCE50hAvr3n2pdett0SgfPBJXaFZE0bqHwbHyiq+IKZ8Ids0l4M0VrG+ImGYIafCwie+oC3uAJ+pKj9xg/k+w==}
+    cpu: [arm64]
     os: [darwin]
 
   sherpa-onnx-darwin-x64@1.13.7:
@@ -10066,6 +10074,12 @@ snapshots:
       commander: 5.1.0
       glob: 7.2.3
       minimatch: 3.1.5
+
+  '@electron/fuses@1.8.0':
+    dependencies:
+      chalk: 4.1.2
+      fs-extra: 9.1.0
+      minimist: 1.2.8
 
   '@electron/get@2.0.3':
     dependencies:

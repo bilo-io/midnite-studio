@@ -77,8 +77,14 @@ reads them.
 | `APPLE_TEAM_ID` | Notarization — disambiguates which team the cert belongs to. | [developer.apple.com/account](https://developer.apple.com/account) ▸ Membership details. |
 
 **A certificate is a purchase, not a task** — an Apple Developer Program membership, currently not
-held. `notarize: true` in
-[`electron-builder.yml`](../packages/desktop/electron-builder.yml) stays unflipped, and the five
+held. `notarize` in
+[`electron-builder.yml`](../packages/desktop/electron-builder.yml) stays `false` **deliberately**
+(Phase 91 Theme H settled the old ambiguity): the live notarisation path is
+`afterSign: scripts/notarize.cjs`, which runs `@electron/notarize` only when `APPLE_ID`,
+`APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` are all set and logs `skipped` otherwise, so
+builder's own flag would notarise a second time. With no certificate, an ad-hoc-signed
+`hardenedRuntime` build gets nothing from Gatekeeper, and `install.sh`'s `spctl --assess` gate says
+so. The five
 Apple/CSC secrets stay unset, until one exists. Every build ships ad-hoc signed
 (`afterpack.cjs` re-signs after electron-builder strips the signature copying `resources/`), and
 `manualInstall` — the curl-installer / `brew upgrade` route rather than the in-app updater's
@@ -98,6 +104,21 @@ After Studio's `release` and `publish-feed`, the `publish-suite` job:
 | `catalog.json` (repo root) | `scripts/build-catalog.mjs` over the uploaded files: one version everywhere, real sizes and SHA-256; Studio's entry points at its own release's zip |
 | `midnite-launcher/feed/latest-mac.yml` | the launcher's `generic` updater feed (`apps/launcher/electron-builder.yml`) |
 | `midnite-launcher/version.json` | **not this job** — midnite-apps' `release-feed.yml` writes it, and only for apps registered in its `apps.json`. Register `midnite-launcher` there once before the first suite release. |
+
+## What the installer verifies (Phase 91 Theme H)
+
+`release.yml`'s `release` job writes **`SHA256SUMS`** (`<sha256>  <basename>` for every dmg and zip)
+and uploads it with the release. `install.sh` and the launcher's in-app install check the zip's
+SHA-256 **before extracting it**, then `codesign --verify --deep --strict` and `spctl --assess` on
+the extracted bundle **before** swapping it in; the quarantine strip only runs for a bundle both
+passed. An ad-hoc-signed build fails `spctl`, so installing one needs
+`MIDNITE_STUDIO_ALLOW_UNSIGNED=1` (`MIDNITE_LAUNCHER_ALLOW_UNSIGNED=1` for the launcher). Where the
+digest comes from: `catalog.json`'s per-app `sha256` (already built from the uploaded files), then
+a `sha256` field in `midnite-studio/version.json`. **The sibling repo's `release-feed.yml` needs the
+paired edit to write that field** (it is outside this repo); until it does, a feed with no digest
+installs with a printed warning, so already-published versions stay installable. Electron fuses
+(`EnableEmbeddedAsarIntegrityValidation`, `OnlyLoadAppFromAsar`, `NODE_OPTIONS` and `--inspect` off)
+are flipped in `afterpack.cjs`; `RunAsNode` stays on for the terminal broker.
 
 ## The unsigned path is the one that runs today
 
