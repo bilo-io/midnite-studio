@@ -60,5 +60,11 @@ export function PrimaryAction({
           Open
         </button>
       );
+    case 'coming-soon':
+      return (
+        <button type="button" className={cls} disabled aria-disabled="true">
+          Coming soon
+        </button>
+      );
   }
 }

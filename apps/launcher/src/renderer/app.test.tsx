@@ -23,11 +23,14 @@ afterEach(() => {
 });
 
 describe('<App>', () => {
-  it('lists every app with Install while Studio is missing', async () => {
+  const installableApps = APPS.filter((a) => !a.comingSoon);
+
+  it('lists every app with Install while Studio is missing, and Coming soon for comingSoon apps', async () => {
     mount(null);
-    await waitFor(() => expect(screen.getAllByLabelText(/^Install Midnite /)).toHaveLength(APPS.length));
+    await waitFor(() => expect(screen.getAllByLabelText(/^Install Midnite /)).toHaveLength(installableApps.length));
     expect(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: `All ${APPS.length}` })).toBeDefined();
-    expect(screen.getAllByText('Runs in Studio')).toHaveLength(APPS.length - 1);
+    expect(screen.getAllByText('Runs in Studio')).toHaveLength(installableApps.length - 1);
+    expect(screen.getAllByRole('button', { name: 'Coming soon' })).toHaveLength(APPS.length - installableApps.length);
   });
 
   it('opens an app in Studio on its own view once Studio is installed', async () => {
@@ -55,8 +58,8 @@ describe('<App>', () => {
   it('shows the update banner and the Updates filter count when Studio is behind', async () => {
     mount('update');
     expect(await screen.findByText('Midnite Studio 0.4.1 is available.')).toBeDefined();
-    fireEvent.click(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: `Updates ${APPS.length}` }));
-    expect(screen.getAllByRole('article')).toHaveLength(APPS.length);
+    fireEvent.click(within(screen.getByLabelText('Filter apps')).getByRole('button', { name: `Updates ${installableApps.length}` }));
+    expect(screen.getAllByRole('article')).toHaveLength(installableApps.length);
   });
 
   it('filters by search and says so when nothing matches', async () => {
@@ -103,7 +106,36 @@ describe('<App>', () => {
       fireEvent.click(within(dialog).getByRole('button', { name: 'Move to Trash' }));
     });
     expect(uninstall).toHaveBeenCalled();
-    expect(await screen.findAllByLabelText(/^Install Midnite /)).toHaveLength(APPS.length);
+    expect(await screen.findAllByLabelText(/^Install Midnite /)).toHaveLength(installableApps.length);
+  });
+
+  it('renders coming-soon apps with disabled button, limited menu, and safe detail view', async () => {
+    mount('installed');
+    await screen.findByLabelText('Open Midnite Coder');
+    const scienceTile = screen.getAllByRole('article').find((a) => within(a).queryByText('Science'))!;
+    expect(within(scienceTile).getAllByText('Coming soon').length).toBeGreaterThanOrEqual(2);
+    expect(within(scienceTile).queryByText('Runs in Studio')).toBeNull();
+    const comingSoonBtn = within(scienceTile).getByRole('button', { name: 'Coming soon' });
+    expect(comingSoonBtn.getAttribute('disabled')).not.toBeNull();
+    expect(comingSoonBtn.getAttribute('aria-disabled')).toBe('true');
+
+    // Menu only has About this app
+    fireEvent.click(within(scienceTile).getByLabelText('More for Midnite Science'));
+    const menuItems = within(screen.getByRole('menu')).getAllByRole('menuitem');
+    expect(menuItems).toHaveLength(1);
+    expect(menuItems[0]!.textContent).toBe('About this app');
+
+    // Details sheet
+    fireEvent.click(menuItems[0]!);
+    const sheet = screen.getByRole('dialog');
+    expect(sheet.getAttribute('aria-label')).toBe('Midnite Science');
+    expect(within(sheet).getByText('Vision')).toBeDefined();
+    // No feature Open buttons
+    expect(within(sheet).queryByRole('button', { name: /^Open / })).toBeNull();
+    // No "runs in Studio" note
+    expect(within(sheet).queryByText(/runs inside Midnite Studio/)).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('switches theme from the top bar, remembers it, and tells main', async () => {

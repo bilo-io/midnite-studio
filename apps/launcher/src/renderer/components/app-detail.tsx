@@ -83,15 +83,17 @@ export function AppDetail({
                   <span className="feature-label">{f.label}</span>
                   <span className="feature-blurb">{f.blurb}</span>
                 </span>
-                <button
-                  type="button"
-                  className="link"
-                  disabled={!canOpen}
-                  onClick={() => handlers.onOpen(app, f.id)}
-                  aria-label={`Open ${f.label}`}
-                >
-                  Open <LuArrowUpRight size={12} aria-hidden="true" />
-                </button>
+                {!app.comingSoon && (
+                  <button
+                    type="button"
+                    className="link"
+                    disabled={!canOpen}
+                    onClick={() => handlers.onOpen(app, f.id)}
+                    aria-label={`Open ${f.label}`}
+                  >
+                    Open <LuArrowUpRight size={12} aria-hidden="true" />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -108,7 +110,7 @@ export function AppDetail({
           </ul>
         </section>
 
-        {app.id !== 'studio' && view.source === 'studio' && (
+        {app.id !== 'studio' && view.source === 'studio' && !app.comingSoon && (
           <p className="sheet-note">
             Midnite {app.name} runs inside Midnite Studio for now. Open lands on
             {homeFeature ? ` ${homeFeature.label}` : ' its home'} in Studio; once Midnite {app.name} ships on its

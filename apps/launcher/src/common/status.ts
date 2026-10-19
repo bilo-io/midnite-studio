@@ -1,5 +1,5 @@
 import type { AppsStatus, StudioStatus } from './bridge';
-import type { AppId } from './catalog';
+import { appById, type AppId } from './catalog';
 import { checkLockstep, type LockstepReason } from './lockstep';
 import { compareVersions } from './version';
 
@@ -9,7 +9,7 @@ import { compareVersions } from './version';
  * `catalog.json` — never "is Studio installed?". An app with no bundle and nothing published yet
  * falls back to Studio, which still hosts it, so today's users see nothing change.
  */
-export type AppInstallState = 'checking' | 'not-installed' | 'installed' | 'update';
+export type AppInstallState = 'checking' | 'not-installed' | 'installed' | 'update' | 'coming-soon';
 
 export function installState(status: StudioStatus | null): AppInstallState {
   if (status === null) return 'checking';
@@ -49,6 +49,17 @@ export type AppState = {
  *  - no record and nothing published: Studio's state, because Studio hosts it today.
  */
 export function deriveAppState(id: AppId, studio: StudioStatus | null, apps: AppsStatus | null): AppState {
+  if (appById(id).comingSoon) {
+    return {
+      state: 'coming-soon',
+      source: 'bundle',
+      version: null,
+      latest: null,
+      releasedAt: null,
+      studioFallback: false,
+      lockstep: null,
+    };
+  }
   if (id === 'studio') {
     return {
       state: installState(studio),

@@ -33,13 +33,18 @@ describe('launcher model', () => {
 
     const byName = visibleSections({ filter: 'all', query: '', sort: 'name', stateOf: () => 'installed' });
     expect(byName.find((g) => g.section === 'suite')!.apps.map((a) => a.name)).toEqual([
+      'Accountant',
       'Agents',
       'Coder',
       'Creator',
       'Gamer',
+      'Health',
       'Media',
       'Mind',
       'Money',
+      'Science',
+      'Simulator',
+      'Startup',
       'Studio',
     ]);
     expect(byName.find((g) => g.section === 'utilities')!.apps.map((a) => a.name)).toEqual([
@@ -47,6 +52,7 @@ describe('launcher model', () => {
       'Capture',
       'Cleaner',
       'Monitor',
+      'Vanguard',
       'Vault',
     ]);
   });

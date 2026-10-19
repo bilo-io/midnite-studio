@@ -62,9 +62,31 @@ export type LauncherApp = {
   features: readonly AppFeature[];
   /** Which installed product carries it today. Every app is `studio` for now. */
   runsIn: 'studio';
+  /** When true, the app is listed as coming soon and cannot be installed or opened yet. */
+  comingSoon?: boolean;
 };
 
-export const APP_IDS = ['studio', 'agents', 'coder', 'gamer', 'creator', 'media', 'money', 'mind', 'browser', 'cleaner', 'vault', 'capture', 'monitor'] as const;
+export const APP_IDS = [
+  'studio',
+  'agents',
+  'coder',
+  'gamer',
+  'creator',
+  'media',
+  'money',
+  'mind',
+  'science',
+  'accountant',
+  'startup',
+  'simulator',
+  'health',
+  'browser',
+  'cleaner',
+  'vault',
+  'capture',
+  'monitor',
+  'vanguard',
+] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 const view = (v: ViewId, tab?: MediaTab): StudioTarget =>
@@ -232,6 +254,97 @@ export const APPS: readonly LauncherApp[] = [
     runsIn: 'studio',
   },
   {
+    id: 'science',
+    name: 'Science',
+    section: 'suite',
+    accent: '#06b6d4',
+    tagline: 'Maths, physics, chemistry, biology and 3D visualization',
+    like: 'Like Wolfram, Jupyter and ChimeraX',
+    vision:
+      'A unified scientific environment for research, mathematical computing, simulation and 3D visualization of molecular and physical structures.',
+    home: view('landing'),
+    features: [
+      { id: 'research', label: 'Research', blurb: 'Maths, physics, chemistry and biology tabs', target: view('landing') },
+      { id: 'visualization', label: 'Visualization', blurb: '3D visualisations and embedded artifacts', target: view('landing') },
+      { id: 'templates', label: 'Templates', blurb: 'Reusable scientific notebook components', target: view('landing') },
+    ],
+    runsIn: 'studio',
+    comingSoon: true,
+  },
+  {
+    id: 'accountant',
+    name: 'Accountant',
+    section: 'suite',
+    accent: '#10b981',
+    tagline: 'Accounting, tax calculation and bookkeeping',
+    like: 'Like QuickBooks, Xero and TurboTax',
+    vision:
+      'Automated bookkeeping, ledger management, and intelligent tax calculations tailored for freelancers, contractors, and growing teams.',
+    home: view('landing'),
+    features: [
+      { id: 'accounting', label: 'Accounting', blurb: 'Double-entry bookkeeping and ledger tracking', target: view('landing') },
+      { id: 'tax', label: 'Tax Calculation', blurb: 'Automated deductions, estimates and filing prep', target: view('landing') },
+      { id: 'reports', label: 'Financial Reports', blurb: 'Balance sheets, P&L and cash flow', target: view('landing') },
+    ],
+    runsIn: 'studio',
+    comingSoon: true,
+  },
+  {
+    id: 'startup',
+    name: 'Startup',
+    section: 'suite',
+    accent: '#8b5cf6',
+    tagline: 'Roadmap, costs and lightweight ERP',
+    like: 'Like Linear, Carta and NetSuite',
+    vision:
+      'All the foundational tooling for early-stage companies: clear milestone roadmaps, live burn rate and runway modeling, and modular lightweight ERP.',
+    home: view('landing'),
+    features: [
+      { id: 'roadmap', label: 'Roadmap', blurb: 'Milestones, dependencies and product timeline', target: view('landing') },
+      { id: 'costs', label: 'Costs & Runway', blurb: 'Live burn tracking and financial modeling', target: view('landing') },
+      { id: 'erp', label: 'ERP', blurb: 'Invoicing, vendor management and contracts', target: view('landing') },
+    ],
+    runsIn: 'studio',
+    comingSoon: true,
+  },
+  {
+    id: 'simulator',
+    name: 'Simulator',
+    section: 'suite',
+    accent: '#d946ef',
+    tagline: 'Agent simulations, virtual worlds and cellular automata',
+    like: 'Like NetLogo, Universe Sandbox and Conway\'s Game of Life',
+    vision:
+      'Simulate multi-agent systems, orbital mechanics, virtual 3D worlds, and emergent complex phenomena like cellular automata in a real-time reactive sandbox.',
+    home: view('landing'),
+    features: [
+      { id: 'environments', label: 'Agent Environments', blurb: 'Multi-agent interactions in 3D sandboxes', target: view('landing') },
+      { id: 'worlds', label: 'Virtual Worlds', blurb: 'Solar systems, celestial physics and gravity', target: view('landing') },
+      { id: 'emergence', label: 'Emergence', blurb: 'Cellular automata and Conway\'s Game of Life', target: view('landing') },
+    ],
+    runsIn: 'studio',
+    comingSoon: true,
+  },
+  {
+    id: 'health',
+    name: 'Health',
+    section: 'suite',
+    accent: '#f43f5e',
+    tagline: 'Health metrics, nutrition, meal and workout plans',
+    like: 'Like Apple Health, MyFitnessPal and Strava',
+    vision:
+      'Track your personal wellness with total privacy: log biometrics, record meals and calories, plan progressive workout routines, and analyze long-term trends.',
+    home: view('landing'),
+    features: [
+      { id: 'biometrics', label: 'Biometrics', blurb: 'Optional height, weight, age and body metrics', target: view('landing') },
+      { id: 'nutrition', label: 'Nutrition', blurb: 'Meal logger and calorie counter', target: view('landing') },
+      { id: 'workouts', label: 'Workout Plans', blurb: 'Custom training schedules and progressive overload', target: view('landing') },
+      { id: 'progress', label: 'Progress', blurb: 'Trend analytics and wellness reports', target: view('landing') },
+    ],
+    runsIn: 'studio',
+    comingSoon: true,
+  },
+  {
     id: 'browser',
     name: 'Browser',
     section: 'utilities',
@@ -316,6 +429,24 @@ export const APPS: readonly LauncherApp[] = [
       { id: 'diagnostics', label: 'Diagnostics', blurb: 'The terminal broker and token spend', target: view('settings') },
     ],
     runsIn: 'studio',
+  },
+  {
+    id: 'vanguard',
+    name: 'Vanguard',
+    section: 'utilities',
+    accent: '#e11d48',
+    tagline: 'Antivirus and agentic self-defense',
+    like: 'Like CrowdStrike, Little Snitch and SentinelOne',
+    vision:
+      'Defend your machine against rogue agent actions, malicious tool executions, and external threats with proactive behavioral defense and runtime isolation.',
+    home: view('landing'),
+    features: [
+      { id: 'antivirus', label: 'Antivirus', blurb: 'Real-time filesystem and process scanning', target: view('landing') },
+      { id: 'self-defense', label: 'Agentic Self-Defense', blurb: 'Guardrails and behavioral anomaly detection', target: view('landing') },
+      { id: 'network', label: 'Network Monitor', blurb: 'Inspect outbound connections and API calls', target: view('landing') },
+    ],
+    runsIn: 'studio',
+    comingSoon: true,
   },
 ];
 

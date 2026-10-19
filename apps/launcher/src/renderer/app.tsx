@@ -104,6 +104,9 @@ export function App() {
 
   const menuItemsFor = (app: LauncherApp): MenuItem[] => {
     const view = viewOf(app);
+    if (view.state === 'coming-soon') {
+      return [{ id: 'details', label: 'About this app', onSelect: () => setDetail(app) }];
+    }
     const base: MenuItem[] = [
       { id: 'details', label: 'About this app', onSelect: () => setDetail(app) },
       { id: 'notes', label: 'Release notes', onSelect: () => void bridge.links.open('notes') },
