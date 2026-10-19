@@ -62,11 +62,11 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 **Theme C — The remote field stops being a transport.** ✅ `GIT_PROTOCOL_FROM_USER=0` and `GIT_ALLOW_PROTOCOL=file:git:ssh:http:https` in both env maps; `FetchRequest.all` replaces the `--all` sentinel; `fetch`/`pull`/`push` resolve the remote against `listRemotes` and return an error envelope for anything else; the lease pair is `SafeRefString` + a hex sha. Tests cover env, argv shape, unknown-remote rejection and a configured `ext::` remote that is refused without running its command.
 
-**Theme D — DevTools, the release bundle, and the lock screen.** ◻ DevTools behind `app.isPackaged`, explicit minify, no sourcemaps/manifest in the artifact (asserted), and the lock screen's authority moved to main with a hashed passcode
+**Theme D — DevTools, the release bundle, and the lock screen.** ✅ DevTools are gated behind `app.isPackaged` (a pure `devToolsAllowed` in `devtools-policy.ts`, with `MSTUDIO_DEVTOOLS=1` as the support escape hatch) at the View menu and at `devTools:` in both app windows' `webPreferences`; the browser pane's own DevTools were left alone on purpose (no preload, sandboxed). `build.minify: 'esbuild'`, `target: 'chrome130'` and `esbuild.drop: ['debugger']` are explicit; `electron-builder.yml` now filters `.vite`, `*.map` and `stats.html` out of the renderer resource and `*.map` out of the asar, and `verify-dist.mjs` fails a release that ships any (`lib/forbidden-artifacts.mjs`, unit-tested). The lock screen's authority moved to main: `lock-state.ts` holds the locked flag (window reload is a no-op while locked) and the passcode as a salted scrypt hash with a 5-guess/30 s lockout, behind new `mstudio:lock:{set,get,set-passcode,verify}` channels and a `lock` bridge namespace; the renderer hydrates the overlay from `lock.get` on mount (`store/lock-sync.ts`), verifies through main (the expected code is no longer a React prop) and forwards any legacy plaintext `passcode` once, blanking it only after main confirms. Deviation: the hash lives in `<userData>/lock-passcode.json` (mode 0600) rather than the safeStorage vault, because Theme G's vault module is not landed yet; it moves with it.
 
-**Theme E — The Electron security checklist, item by item.** ◻ the Electron checklist: one global `web-contents-created` net, parsed-scheme `openExternal`, the unconfined `showItemInFolder`, device/display-media handlers, an `mstudio-file:` referrer check, the socket chmod race
+**Theme E — The Electron security checklist, item by item.** ✅ One global `web-contents-created` net (`web-contents-policy.ts`, scoped to `getType() === 'window'` so the browser pane's views keep their own policy) replaces the per-window guards and `setWindowOpenHandler`s in `window.ts`/`window-manager.ts`, and opens the parsed `href` from `normalizeExternalUrl` rather than a `startsWith` string; `openInSystemBrowser` is deleted; `denyAllDevices` is installed on `persist:browser`, `persist:app-*` and (device handler only, since Capture owns display-media there) the default session; `mstudio-file:` refuses a foreign http(s) referrer (a stripped, `file:` or `about:client` referrer is allowed, since the packaged app's own pages report those); both sockets bind under a `0o177` umask; `web-preferences.test.ts` pins the two app windows and the browser/web-app view tests gained the dangerous-flag assertions. Deviation: `agent:reveal-path` is not jailed to `~/.claude`, because the channel reveals every agent CLI binary wherever it is installed; it is instead restricted to an existing executable file or a path inside `~/.claude` (`isRevealablePath`).
 
-**Theme F — Teardown, listeners, and the leak test that proves them.** ◻ teardown proved rather than assumed: a real leak test, the duplicate updater registrations, `setMaxListeners`, and Phase 84's visibility gates asserted
+**Theme F — Teardown, listeners, and the leak test that proves them.** ✅ The updater's four channels are cleared before registration (the branches were already mutually exclusive and called once, so this is a structural guard, tested by registering twice); `browser-service.leak.test.ts` opens 20 tabs, closes them and asserts every per-tab collection is empty through a single exported `trackedStateSizes()` list (verified to fail when a `delete` in `closeBrowserTab` is removed); `ipcMain.setMaxListeners(100)` is set with a comment that the limit is per event name, so it is a deliberate signal rather than a measured count; `window-visibility-gate.test.ts` drives the real gate for every hidden shape. Not done: the `idle-cpu.mjs --blurred` number needs a packaged build and was not captured in this unattended run.
 
 **Theme G — Redaction that covers the secrets we actually hold, and a lint that stops new ones.** ◻ redaction on the console arm, nine missing secret patterns, a recursive `redactRecord`, `agentApiKeys` into the vault, 0600 vault files, and a lint that fails on the next plaintext credential
 
@@ -249,27 +249,27 @@ The human's explicit ask, plus scan finding **6**. Read [Decisions](#decisions--
 before starting: **minification does not make client-side code uncopyable**, and this theme does not
 pretend it does.
 
-- [ ] **Gate the DevTools menu role.** [`menu.ts:151`](../../../packages/desktop/src/main/menu.ts)
+- [x] **Gate the DevTools menu role.** [`menu.ts:151`](../../../packages/desktop/src/main/menu.ts)
       is a bare `{ role: 'toggleDevTools' }` in the View menu, so a packaged build ships
       `Cmd+Opt+I` on the window that carries the whole preload bridge. Wrap it:
       `...(app.isPackaged && process.env['MSTUDIO_DEVTOOLS'] !== '1' ? [] : [{ role: 'toggleDevTools' }])`.
       The env escape hatch is deliberate — support needs a way in, and an env var is one a user
       cannot trip over.
-- [ ] **Set `devTools: false` in `webPreferences` when packaged**, at both
+- [x] **Set `devTools: false` in `webPreferences` when packaged**, at both
       [`window.ts:76-102`](../../../packages/desktop/src/main/window.ts) and
       [`window-manager.ts:314-322`](../../../packages/desktop/src/main/window-manager.ts), behind
       the same `app.isPackaged && !MSTUDIO_DEVTOOLS` condition. The menu role is one door;
       `webContents.openDevTools()` from anywhere is another, and `devTools: false` closes both.
       `window.ts:131`'s dev-branch `openDevTools({ mode: 'detach' })` is already correctly gated
       behind `!app.isPackaged` — leave it.
-- [ ] **Leave the browser pane's DevTools alone, and say why in the code.**
+- [x] **Leave the browser pane's DevTools alone, and say why in the code.**
       [`browser-service.ts:499`](../../../packages/desktop/src/main/browser-service.ts)
       (`toggleBrowserDevTools`, reachable in production via `ipc/browser-handlers.ts:117`) opens
       DevTools on a `persist:browser` `WebContentsView` that has **no preload** and `sandbox: true`
       — it is a browser feature on a page that holds nothing. Add a three-line comment at `:493`
       recording that this is deliberate and what makes it safe, so the next audit does not
       re-raise it.
-- [ ] **Make minification explicit rather than defaulted.** [`vite.config.ts`](../../../packages/app/vite.config.ts)
+- [x] **Make minification explicit rather than defaulted.** [`vite.config.ts`](../../../packages/app/vite.config.ts)
       sets no `build.minify` (Vite's default is `'esbuild'`, so it is on by accident) and no
       `esbuild` block. Add `build.minify: 'esbuild'`, `build.target: 'chrome130'` (the renderer only
       ever runs in one bundled Chromium — the default `'modules'` baseline is looser than needed and
@@ -277,19 +277,19 @@ pretend it does.
       `console`**: the log seam is the support path, and Phase 65 built a diagnostics bundle that
       depends on it. `packages/desktop/scripts/bundle.mjs:71` already sets `minify: true`
       unconditionally with `keepNames: true` — no change there.
-- [ ] **Stop shipping the build's own metadata.** `vite.config.ts:98` sets `manifest: true`, and
+- [x] **Stop shipping the build's own metadata.** `vite.config.ts:98` sets `manifest: true`, and
       [`electron-builder.yml:30-31`](../../../packages/desktop/electron-builder.yml) copies
       `../app/dist` wholesale into `renderer`, so `.vite/manifest.json` ships to users. It is read
       by `scripts/perf/bundle-report.mjs` from the *build* directory, never at runtime. Add
       `'!**/.vite'`, `'!**/*.map'` and `'!**/stats.html'` to the `extraResources` filter for that
       entry and `'!**/*.map'` to `files:` (`:20-25`).
-- [ ] **Make the no-sourcemaps property structural.** Today it holds only because nobody sets
+- [x] **Make the no-sourcemaps property structural.** Today it holds only because nobody sets
       `MSTUDIO_SOURCEMAP=1` — grepped across `.github/`, zero occurrences. Add an assertion to
       [`verify-dist.mjs`](../../../packages/desktop/scripts/verify-dist.mjs) (263 lines, already
       checks `codesign`, `hdiutil verify`, `Info.plist`, the blockmap) that walks the mounted
       bundle and fails on any `.map`, any `.vite/` directory, or any `stats.html`. The exclusion
       lines above are the fix; this is what proves it every release.
-- [ ] **The lock screen stops being renderer state.** `screensaverLocked` lives in
+- [x] **The lock screen stops being renderer state.** `screensaverLocked` lives in
       [`ui-store.ts:2078-2082`](../../../packages/app/src/store/ui-store.ts), outside `partialize`,
       so `Mod+R` (`app.reload`) rehydrates it to `false` and the lock is gone. Move the *authority*
       to main: a new `main/lock-state.ts` holding a module-level `locked: boolean`, two channels
@@ -299,7 +299,7 @@ pretend it does.
       [`window-chrome.ts:97-102`](../../../packages/desktop/src/main/window-chrome.ts) that makes
       the reload IPC a no-op while `locked` is true. The renderer keeps its overlay state and
       hydrates it from `lock:get` on mount.
-- [ ] **The passcode stops being plaintext, and stops being compared in the renderer.**
+- [x] **The passcode stops being plaintext, and stops being compared in the renderer.**
       `ui-store.ts:2714` persists `passcode` raw (set at `:2098`), and
       [`passcode-pad.tsx:159`](../../../packages/app/src/features/screensaver/passcode-pad.tsx)
       compares `code === expected` with `expected` passed down as a prop — the correct value is in
@@ -308,11 +308,11 @@ pretend it does.
       `safeStorage` vault Theme G hardens, and `mstudio:lock:verify` takes a candidate and returns
       a boolean. Remove `passcode` from `partialize` and add a one-shot migration in
       `persist-rename.ts` that forwards any existing plaintext code to main and blanks the field.
-- [ ] **Tests:** a `menu.test.ts` case asserting the View menu contains no `toggleDevTools` item
+- [x] **Tests:** a `menu.test.ts` case asserting the View menu contains no `toggleDevTools` item
       when `app.isPackaged` is mocked `true`; a `lock-state.test.ts` case asserting the reload
       channel is refused while locked; a `passcode` test asserting the store's persisted blob
       contains no substring equal to the passcode after `setPasscode`.
-- [ ] *Acceptance:* in a packaged build, `Cmd+Opt+I` does nothing on the main window and the View
+- [x] *Acceptance:* in a packaged build, `Cmd+Opt+I` does nothing on the main window and the View
       menu has no DevTools item; `strings` over the packaged asar finds no `.map`; pressing
       `Mod+R` at a locked screen leaves the lock up.
 
@@ -324,7 +324,7 @@ repo scores well here — `mstudio-file:`'s privileges object is minimal and its
 `remote-handlers.ts:57` is a textbook double-checked `openExternal`, and the default session's
 permissions *are* policed at `main/index.ts:337`. These are the remainder.
 
-- [ ] **One global navigation net: `app.on('web-contents-created')`.** It does not exist (zero
+- [x] **One global navigation net: `app.on('web-contents-created')`.** It does not exist (zero
       hits in `packages/desktop/src`), so navigation policy is remembered per construction site —
       and the two sites that forgot are `window.ts` and `window-manager.ts`, the two windows
       running `sandbox: false` with the full preload. Add it in a new
@@ -334,7 +334,7 @@ permissions *are* policed at `main/index.ts:337`. These are the remainder.
       that allow only the app's own origin and hand `http(s)` to `shell.openExternal`. **Seam with
       Phase 76 Theme C:** 76 C adds the same guard per-window. Whichever lands second deletes the
       other's duplicate and keeps the global one — note it in that PR's body.
-- [ ] **Replace the two `startsWith('http://')` tests with the parsed-scheme one.**
+- [x] **Replace the two `startsWith('http://')` tests with the parsed-scheme one.**
       [`window.ts:120`](../../../packages/desktop/src/main/window.ts) and
       [`window-manager.ts:335`](../../../packages/desktop/src/main/window-manager.ts) both do
       `if (url.startsWith('http://') || url.startsWith('https://')) void shell.openExternal(url)`
@@ -344,16 +344,16 @@ permissions *are* policed at `main/index.ts:337`. These are the remainder.
       **normalised `href`** it returns, not the input — that is the property `schemas.ts:944-962`
       exists for (`new URL` strips leading control characters, so `\njavascript:` and `javascript:`
       validate identically and only one is the string the OS would have received).
-- [ ] **Delete `openInSystemBrowser`.** [`browser-service.ts:603-604`](../../../packages/desktop/src/main/browser-service.ts)
+- [x] **Delete `openInSystemBrowser`.** [`browser-service.ts:603-604`](../../../packages/desktop/src/main/browser-service.ts)
       is `export function openInSystemBrowser(url: string) { void shell.openExternal(url); }` with
       **zero callers** and **no guard**. Delete the function; do not "fix" it.
-- [ ] **Confine the one unconfined `shell.*` path.** [`claude-handlers.ts:16`](../../../packages/desktop/src/main/ipc/claude-handlers.ts)
+- [x] **Confine the one unconfined `shell.*` path.** [`claude-handlers.ts:16`](../../../packages/desktop/src/main/ipc/claude-handlers.ts)
       calls `shell.showItemInFolder` on a raw renderer-supplied absolute path
       (`AgentRevealPathRequest = z.object({ path: z.string().min(1) })`, `schemas.ts:1562`) — the
       only shell-API site that does. Route it through `resolveScopeRoot` + `confineToRoot` exactly
       as [`fs-handlers.ts:203-208`](../../../packages/desktop/src/main/ipc/fs-handlers.ts) does,
       scoped to the Claude home root the channel is actually for.
-- [ ] **Install the two missing permission handlers.** `setDevicePermissionHandler` and
+- [x] **Install the two missing permission handlers.** `setDevicePermissionHandler` and
       `setDisplayMediaRequestHandler` are unset on *every* session — the `denyAllPermissions` pair
       in [`browser-security.ts:58-59`](../../../packages/desktop/src/main/browser-security.ts)
       does not cover WebUSB/WebHID/serial device *selection* or `getDisplayMedia`. Add
@@ -361,14 +361,14 @@ permissions *are* policed at `main/index.ts:337`. These are the remainder.
       `session.defaultSession` (`main/index.ts:337`, beside the existing audio carve-out), on
       `persist:browser` (`browser-service.ts:220`) and on `persist:app-*`
       (`apps-service.ts:62`). Extend `browser-security.test.ts` with a case per session kind.
-- [ ] **Give `mstudio-file:` a second lock.** [`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts)'s
+- [x] **Give `mstudio-file:` a second lock.** [`fs-protocol.ts`](../../../packages/desktop/src/main/fs-protocol.ts)'s
       handler validates the path perfectly but ignores the requester entirely; the isolation rests
       on `protocol.handle` binding to `session.defaultSession` alone (docblock `:19-25`). That
       holds only while nothing else is ever loaded into the default session. Add a
       `request.referrer` check to `resolveRequestPath` that refuses any referrer whose origin is
       not the app's own (`isAppOrigin`, `browser-security.ts:119-125`), returning the existing
       `invalid` → 404 arm. Extend `fs-protocol.test.ts` with a foreign-referrer case.
-- [ ] **Fix the socket chmod race.** [`broker/server.ts:432`](../../../packages/desktop/src/broker/server.ts)
+- [x] **Fix the socket chmod race.** [`broker/server.ts:432`](../../../packages/desktop/src/broker/server.ts)
       and [`mcp/server.ts:198`](../../../packages/desktop/src/main/mcp/server.ts) both
       `chmodSync(path, 0o600)` **inside the `listen` callback** — between bind and chmod the inode
       exists at the process umask. The `0o700` parent (`broker-client.ts:597`, `mcp/server.ts:76`)
@@ -376,14 +376,14 @@ permissions *are* policed at `main/index.ts:337`. These are the remainder.
       `const prev = process.umask(0o177)` before `listen`, restored in the callback. Assert the
       mode in the existing `broker/server.test.ts:209-213`. **Peer authentication stays deferred**
       per Phase 76's "Not in this phase" — this is the race only.
-- [ ] **One `webPreferences` audit test.** New `main/web-preferences.test.ts` that imports the four
+- [x] **One `webPreferences` audit test.** New `main/web-preferences.test.ts` that imports the four
       construction sites' option objects (`window.ts:76`, `window-manager.ts:314`,
       `browser-service.ts:270`, `apps-service.ts:82`) and asserts, per site, the expected value of
       `contextIsolation`, `nodeIntegration`, `sandbox`, `webSecurity`, `allowRunningInsecureContent`,
       `experimentalFeatures`, `webviewTag` and the presence/absence of `preload`. Nobody weakens a
       default today; this is what keeps it that way, and it is the test that will catch Phase 76
       Theme B flipping `sandbox` (update it, do not delete it).
-- [ ] *Acceptance:* `grep -rn "shell.openExternal" packages/desktop/src` returns only call sites
+- [x] *Acceptance:* `grep -rn "shell.openExternal" packages/desktop/src` returns only call sites
       whose preceding line parses the URL; the `web-contents-created` policy test covers a
       `file:`, a `javascript:` and an `https:` navigation; all four permission handler kinds are
       installed on all three session kinds.
@@ -396,30 +396,30 @@ Memory management, the second half of the "Electron hygiene" ask. The grounding 
 closures are references too, and `discardBrowserTab` (`:460-463`), `apps-service.ts:140-143` and
 `:265-268` all repeat the shape. Two real gaps and one missing proof.
 
-- [ ] **Resolve the duplicate updater registrations.** [`update-service.ts:40-43`](../../../packages/desktop/src/main/update-service.ts)
+- [x] **Resolve the duplicate updater registrations.** [`update-service.ts:40-43`](../../../packages/desktop/src/main/update-service.ts)
       registers no-op handlers on four channels and `:79-97` registers real ones on **the same
       four**. If both paths run in one process those channels carry two listeners and both fire.
       Read the two call sites in `main/index.ts`, determine whether they are mutually exclusive,
       and either make it structurally impossible (one registration function with a branch) or add
       `ipcMain.removeAllListeners(channel)` before the real registration. State which in the PR body.
-- [ ] **Write the leak test the teardown contract deserves.** `browser-service.test.ts:261` asserts
+- [x] **Write the leak test the teardown contract deserves.** `browser-service.test.ts:261` asserts
       `removeAllListeners` was called once — a contract test, not a leak test. Add
       `browser-service.leak.test.ts`: open 20 tabs, close all 20, and assert the module's `tabs`,
       `lastBounds`, `hiddenSince`, `keepAwakeTabIds` and `visibleTabIds` maps are all `size === 0`,
       and that the mock `win.contentView.removeChildView` call count equals the open count. Assert
       the map names from a single exported list so a sixth map added later fails the test.
-- [ ] **Raise the listener ceiling where it is shared, and only there.** `setMaxListeners` has zero
+- [x] **Raise the listener ceiling where it is shared, and only there.** `setMaxListeners` has zero
       hits in `packages/desktop/src`. The ~13 listeners per tab are per-`webContents`, so no shared
       emitter is near Node's default 10 today — but `ipcMain` carries ~55 registrations. Add
       `ipcMain.setMaxListeners(100)` once in `main/index.ts` with a comment stating the count and
       the date it was measured, so the eventual `MaxListenersExceededWarning` is a deliberate
       signal rather than noise in a user's log.
-- [ ] **Assert Phase 84's visibility gates actually stop work.** [Phase 84](phase-84-live-everywhere-lighter-when-hidden.md)
+- [x] **Assert Phase 84's visibility gates actually stop work.** [Phase 84](phase-84-live-everywhere-lighter-when-hidden.md)
       added the blur/hide gates; `window-visibility-gate.ts` is the module. Add a test that drives
       the gate to `hidden` and asserts the registered tickers report stopped — and record the
       `idle-cpu --blurred` number from `scripts/perf/idle-cpu.mjs` in the PR body, since
       [`CLAUDE.md`](../../../CLAUDE.md)'s rule is that a perf claim comes with a number.
-- [ ] *Acceptance:* the leak test passes and fails when `closeBrowserTab`'s `delete` calls are
+- [x] *Acceptance:* the leak test passes and fails when `closeBrowserTab`'s `delete` calls are
       commented out (prove it, then restore); no channel has two listeners.
 
 ### G — Redaction that covers the secrets we actually hold, and a lint that stops new ones (M)
