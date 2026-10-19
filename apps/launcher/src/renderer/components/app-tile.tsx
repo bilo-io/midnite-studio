@@ -15,6 +15,7 @@ export type TileProps = {
 };
 
 export function versionLine(view: AppView): string {
+  if (view.state === 'coming-soon') return 'Coming soon';
   const version = view.version ?? view.latest;
   if (!version) return view.feedError ?? '—';
   const date = view.releasedAt ? new Date(view.releasedAt) : null;
@@ -35,7 +36,7 @@ export function AppTile({ app, view, handlers, menuItems }: TileProps) {
       <header className="tile-head">
         <span className="chip-number" data-brand={app.gradient === 'brand' || undefined}>{appNumber(app)}</span>
         <div className="tile-head-links">
-          {app.runsIn === 'studio' && app.id !== 'studio' && view.source === 'studio' && <span className="caption">Runs in Studio</span>}
+          {app.runsIn === 'studio' && app.id !== 'studio' && view.source === 'studio' && !app.comingSoon && <span className="caption">Runs in Studio</span>}
           <button type="button" className="link" onClick={() => handlers.onDetails(app)}>
             Details ↗
           </button>

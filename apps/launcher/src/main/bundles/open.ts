@@ -1,5 +1,4 @@
 import { checkLockstep, type LockstepRefusal } from '../../common/lockstep';
-import type { RouterDeps } from '../router';
 import { findInstalled } from './state';
 
 /**
@@ -12,7 +11,7 @@ export function lockstepBundleFinder(
   installRoot: string,
   runtimeVersion: string,
   onRefused?: (app: string, refusal: LockstepRefusal) => void,
-): RouterDeps['findAppBundle'] {
+): (app: string) => Promise<string | null> {
   return async (app) => {
     const record = await findInstalled(installRoot, app);
     if (record === null) return null;

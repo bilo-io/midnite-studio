@@ -2,15 +2,21 @@ import type { IconType } from 'react-icons';
 import { LuCode } from 'react-icons/lu';
 import {
   PiBrainFill,
+  PiBuildingsFill,
+  PiCalculatorFill,
   PiCameraFill,
   PiChartLineUpFill,
+  PiFlaskFill,
   PiGameControllerFill,
   PiGlobeFill,
+  PiHeartbeatFill,
   PiMonitorPlayFill,
   PiPaletteFill,
+  PiPlanetFill,
   PiPulseFill,
   PiRobotFill,
   PiRocketLaunchFill,
+  PiShieldCheckFill,
   PiSparkleFill,
   PiSquaresFourFill,
   PiVaultFill,
@@ -42,6 +48,12 @@ export const APP_GLYPHS: Record<AppId, IconType> = {
   capture: PiCameraFill,
   monitor: PiPulseFill,
   studio: PiRocketLaunchFill,
+  science: PiFlaskFill,
+  accountant: PiCalculatorFill,
+  startup: PiBuildingsFill,
+  simulator: PiPlanetFill,
+  health: PiHeartbeatFill,
+  vanguard: PiShieldCheckFill,
 };
 
 /**

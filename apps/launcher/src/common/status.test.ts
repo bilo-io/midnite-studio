@@ -89,4 +89,10 @@ describe('deriveAppState', () => {
   it('is Checking until the bundle status arrives', () => {
     expect(deriveAppState('cleaner', studio('0.4.1'), null).state).toBe('checking');
   });
+
+  it('is Coming soon for apps marked comingSoon, regardless of Studio or bundles', () => {
+    const state = deriveAppState('science', studio('0.4.1'), apps());
+    expect(state).toMatchObject({ state: 'coming-soon', studioFallback: false });
+    expect(deriveAppState('vanguard', null, null).state).toBe('coming-soon');
+  });
 });

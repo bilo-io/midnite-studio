@@ -411,7 +411,8 @@ button:disabled {
   color: hsl(38 92% 60%);
 }
 
-.pill[data-state='checking'] {
+.pill[data-state='checking'],
+.pill[data-state='coming-soon'] {
   color: var(--fg-subtle);
 }
 

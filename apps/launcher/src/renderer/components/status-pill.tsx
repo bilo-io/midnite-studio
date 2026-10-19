@@ -5,6 +5,7 @@ const LABELS: Record<AppInstallState, string> = {
   'not-installed': 'Available to install',
   installed: 'Installed',
   update: 'Update available',
+  'coming-soon': 'Coming soon',
 };
 
 export function StatusPill({ state, installing }: { state: AppInstallState; installing: boolean }) {
