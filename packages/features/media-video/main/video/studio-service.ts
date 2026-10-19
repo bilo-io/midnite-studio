@@ -1,6 +1,5 @@
-import { join } from 'node:path';
 
-import { DEFAULT_VIDEO_ENGINE, type VideoEngine, type VideoStudioStatus } from '@midnite/studio-shared';
+import { DEFAULT_VIDEO_ENGINE, type VideoEngine, type VideoStudioStatus, videoProjectDir } from '@midnite/studio-shared';
 
 import { realSpawn, type SpawnFn, type SpawnedProcess } from '@midnite/studio-runtime';
 
@@ -55,7 +54,7 @@ export function buildStudioCommand(input: {
   if (input.engine === 'hyperframes') {
     return {
       command: 'npx',
-      args: ['hyperframes', 'preview', join('projects', input.projectId), '--no-open', '--foreground'],
+      args: ['hyperframes', 'preview', videoProjectDir(input.projectId), '--no-open', '--foreground'],
       cwd: input.appDir,
       env: HYPERFRAMES_ENV,
     };

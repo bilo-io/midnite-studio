@@ -9,6 +9,7 @@ import {
   LuX,
 } from 'react-icons/lu';
 
+import { videoProjectDir } from '@midnite/studio-shared';
 import { useMediaKit, type IconComponent } from '@midnite/studio-frame';
 
 import { useVideoChrome } from './chrome';
@@ -78,7 +79,7 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
   // over to `valid`, a separate binding computed before the guard ran.
   const data = project.data;
 
-  const cwd = root.data ? `${root.data}/projects/${projectId}` : null;
+  const cwd = root.data ? `${root.data}/${videoProjectDir(projectId)}` : null;
 
   const disabledReason = !repoId ? 'Open a repository first — agent sessions need one' : undefined;
 
@@ -132,16 +133,19 @@ export function VideoProjectDetail({ projectId }: { projectId: string | null }) 
         )}
       </section>
 
-      <section className="mt-4 space-y-1">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Editorial script
-        </h3>
-        {script.data ? (
-          <MarkdownPreview content={script.data} />
-        ) : (
-          <p className="text-muted-foreground">Nothing written yet.</p>
-        )}
-      </section>
+      {/* `script` is optional — a template has none until a project copies it. */}
+      {valid?.script ? (
+        <section className="mt-4 space-y-1">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Editorial script
+          </h3>
+          {script.data ? (
+            <MarkdownPreview content={script.data} />
+          ) : (
+            <p className="text-muted-foreground">Nothing written yet.</p>
+          )}
+        </section>
+      ) : null}
 
       <section className="mt-4 space-y-1">
         <div className="flex items-center gap-2">

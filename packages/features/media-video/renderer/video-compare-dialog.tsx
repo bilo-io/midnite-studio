@@ -1,4 +1,4 @@
-import { videoFileUrl } from '@midnite/studio-shared';
+import { videoFileUrl, videoProjectDir } from '@midnite/studio-shared';
 import { useRef } from 'react';
 import { LuPause, LuPlay } from 'react-icons/lu';
 
@@ -71,7 +71,7 @@ export function VideoCompareDialog({
                 <video
                   ref={ref}
                   aria-label={name}
-                  src={videoFileUrl(`projects/${projectId}/output/${name}`)}
+                  src={videoFileUrl(`${videoProjectDir(projectId)}/output/${name}`)}
                   controls
                   className="min-h-0 w-full flex-1 rounded-md bg-black object-contain"
                 />

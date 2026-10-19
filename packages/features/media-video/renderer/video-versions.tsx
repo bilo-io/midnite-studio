@@ -1,4 +1,4 @@
-import { changelogEntry, parseIterations, videoFileUrl } from '@midnite/studio-shared';
+import { changelogEntry, parseIterations, videoFileUrl, videoProjectDir } from '@midnite/studio-shared';
 import { useState } from 'react';
 
 import { useVideoChrome } from './chrome';
@@ -45,7 +45,7 @@ function VersionBody({ projectId, filename }: { projectId: string; filename: str
   return (
     <div className="flex flex-col gap-2 py-1">
       <video
-        src={videoFileUrl(`projects/${projectId}/output/${filename}`)}
+        src={videoFileUrl(`${videoProjectDir(projectId)}/output/${filename}`)}
         controls
         aria-label={filename}
         className="w-full rounded-md bg-black"

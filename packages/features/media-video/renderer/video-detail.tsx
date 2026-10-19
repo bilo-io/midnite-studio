@@ -1,4 +1,4 @@
-import { changelogEntry, parseIterations, videoFileUrl } from '@midnite/studio-shared';
+import { changelogEntry, parseIterations, videoFileUrl, videoProjectDir } from '@midnite/studio-shared';
 import { useState } from 'react';
 import { LuClapperboard, LuColumns2, LuExternalLink, LuFolderOpen } from 'react-icons/lu';
 
@@ -116,7 +116,7 @@ function FileDetail({
           <p className="text-muted-foreground">Empty.</p>
         )
       ) : (
-        <MediaPreview url={videoFileUrl(`projects/${projectId}/${area}/${name}`)} name={name} size={size} />
+        <MediaPreview url={videoFileUrl(`${videoProjectDir(projectId)}/${area}/${name}`)} name={name} size={size} />
       )}
       <div className="flex gap-2">
         <button type="button" className={smallButton} onClick={() => revealVideoFile(projectId, area, name)}>
@@ -143,7 +143,7 @@ function IterationDetail({ projectId, filename }: { projectId: string; filename:
         <h2 className="truncate text-sm font-semibold text-foreground">{filename}</h2>
         <p className="truncate text-muted-foreground">{projectId}</p>
       </div>
-      <MediaPreview url={videoFileUrl(`projects/${projectId}/output/${filename}`)} name={filename} size={size} />
+      <MediaPreview url={videoFileUrl(`${videoProjectDir(projectId)}/output/${filename}`)} name={filename} size={size} />
       <div className="flex flex-wrap gap-2">
         <button type="button" className={smallButton} onClick={() => openVideoFile(projectId, 'output', filename)}>
           <LuExternalLink aria-hidden className="h-3 w-3" /> Open

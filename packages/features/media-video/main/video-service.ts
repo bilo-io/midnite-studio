@@ -15,6 +15,7 @@ import {
   type VideoRootResolution,
   type VideoStudioStatus,
   type VideoToolchain,
+  videoProjectDir,
 } from '@midnite/studio-shared';
 
 import {
@@ -245,10 +246,14 @@ export async function getVideoProject(id: string): Promise<VideoProject | null> 
   return getProject(root.value, id);
 }
 
-export async function createVideoProject(id: string, title: string): Promise<GitOpResult<VideoProject>> {
+export async function createVideoProject(
+  id: string,
+  title: string,
+  template?: string,
+): Promise<GitOpResult<VideoProject>> {
   const root = await requireRoot();
   if (!root.ok) return root;
-  return createProject(root.value, id, title);
+  return createProject(root.value, id, title, template);
 }
 
 /** Also stops that project's studio — a removed project's dev server has
@@ -370,7 +375,7 @@ export async function videoRenderStart(
     const ready = await prepareHyperframesProject(ctx.value, projectId);
     if (!ready.ok) return ready;
   }
-  const outputDir = join(rootDir, 'projects', projectId, 'output');
+  const outputDir = join(rootDir, videoProjectDir(projectId), 'output');
   // Every name in output/, not just `vN-label.mp4` — an unlabelled `v2.mp4` or
   // a webm iteration still holds its version number.
   const existingOutputFiles = (await listAreaFiles(rootDir, 'output', projectId)).map((f) => f.name);

@@ -152,6 +152,8 @@ describe('HyperFrames composition folders', () => {
     expect(hyperframesProjectDir('/app', 'acme/promo/001-x')).toBe(
       join('/app', 'projects', 'acme', 'promo', '001-x'),
     );
+    expect(hyperframesProjectDir('/app', 'templates/acme/promo')).toBe(join('/app', 'templates', 'acme', 'promo'));
+    expect(hyperframesProjectDir('/app', 'templates/../projects/x')).toBeNull();
     expect(hyperframesProjectDir('/app', '../escape')).toBeNull();
     expect(hyperframesProjectDir('/app', '..')).toBeNull();
     expect(hyperframesProjectDir('/app', '.')).toBeNull();

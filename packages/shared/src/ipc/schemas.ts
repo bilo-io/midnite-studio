@@ -3304,10 +3304,15 @@ export const VideoProjectListResponse = z.object({ projects: z.array(VideoProjec
 export const VideoProjectGetRequest = z.object({ id: z.string().min(1) });
 export const VideoProjectGetResponse = z.object({ project: VideoProjectSchema.nullable() });
 
-/** Copies `<root>/projects/_template/` — the mechanism `ekko-videos` already documents. */
+/**
+ * Copies `<root>/projects/_template/` — the mechanism `ekko-videos` already
+ * documents — or, with `template`, that template's folder
+ * (`templates/<brand>/<name>`, minus its renders).
+ */
 export const VideoProjectCreateRequest = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
+  template: z.string().min(1).optional(),
 });
 export const VideoProjectCreateResponse = GitOpResultOf(VideoProjectSchema);
 

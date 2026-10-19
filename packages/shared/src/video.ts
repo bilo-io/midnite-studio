@@ -36,10 +36,51 @@ export const VideoProjectFileSchema = z.object({
   source: z.string().min(1).optional(),
   /** Relative to the project folder, e.g. `input/BRIEF.md`. */
   brief: z.string().min(1),
-  /** Relative to the project folder, e.g. `EDITORIAL_SCRIPT.md`. */
-  script: z.string().min(1),
+  /**
+   * Relative to the project folder, e.g. `EDITORIAL_SCRIPT.md`. Optional: a
+   * template is a finished video reduced to its grammar and has no editorial
+   * script of its own, and a project made from one has none until
+   * `/video-write-editorial-script` writes it.
+   */
+  script: z.string().min(1).optional(),
 });
 export type VideoProjectFile = z.infer<typeof VideoProjectFileSchema>;
+
+// --- templates ---------------------------------------------------------------
+
+/**
+ * A video root's `templates/` holds finished videos reduced to their grammar
+ * (`templates/<brand>/<name>/project.json`), beside `projects/`. They are
+ * discovered by the same walk and travel on the same wire as projects; what
+ * tells them apart is the id, which for a template **is its path from the
+ * root** — `templates/midnite/golive-promo` — exactly as the workspace's own
+ * `scripts/render.mjs` and each template's `project.json` already spell it.
+ * A project id is a path under `projects/` and never starts with this prefix
+ * (`projects/templates/` is refused as reserved).
+ */
+export const VIDEO_TEMPLATES_DIR = 'templates';
+const TEMPLATE_PREFIX = `${VIDEO_TEMPLATES_DIR}/`;
+
+export function isVideoTemplateId(id: string): boolean {
+  return id.startsWith(TEMPLATE_PREFIX);
+}
+
+/** The folder, relative to the video root, that a project or template id names. */
+export function videoProjectDir(id: string): string {
+  return isVideoTemplateId(id) ? id : `projects/${id}`;
+}
+
+/**
+ * Where a project made from `templateId` is suggested to live: the
+ * template's own grouping folder under `projects/`, so a project from
+ * `templates/youtube-tutorials/neon-hud` lands in `youtube-tutorials/<slug>`
+ * beside the rest of that series.
+ */
+export function projectIdFromTemplate(templateId: string, slug: string): string {
+  const parts = templateId.slice(TEMPLATE_PREFIX.length).split('/').filter(Boolean);
+  const group = parts.slice(0, -1);
+  return [...group, slug].join('/');
+}
 
 /**
  * One discovered project — Theme B's "malformed `project.json` yields a

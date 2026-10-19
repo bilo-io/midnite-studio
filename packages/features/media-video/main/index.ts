@@ -72,7 +72,7 @@ export const mediaVideoMain = defineFeatureMain<MediaVideoMainServices>({
     handle(
       CHANNELS.videoProjectCreate,
       schemas.VideoProjectCreateRequest,
-      async ({ id, title }) => createVideoProject(id, title),
+      async ({ id, title, template }) => createVideoProject(id, title, template),
       (issue) => failure(issue),
     );
 

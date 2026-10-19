@@ -419,3 +419,83 @@ describe('nested project ids (Phase 99 Theme D)', () => {
     expect(entries.map((e) => e.name)).toEqual(['logos', 'logos/acme', 'logos/acme/mark.svg']);
   });
 });
+
+/** Writes `<root>/templates/<brand>/<name>/project.json` — a template's id carries its `templates/` prefix. */
+async function writeTemplate(root: string, id: string, fields: Partial<{ title: string; script: string }> = {}) {
+  const dir = join(root, id);
+  await mkdir(dir, { recursive: true });
+  const file = { id, title: 'A template', composition: 'TemplateComp', brief: 'input/BRIEF.md', ...fields };
+  await writeFile(join(dir, 'project.json'), JSON.stringify(file), 'utf8');
+}
+
+describe('templates', () => {
+  it('lists templates after projects, ids prefixed `templates/`, with no script', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'p1');
+    await writeTemplate(root, 'templates/youtube-tutorials/neon-hud', { title: 'Neon HUD' });
+
+    const projects = await discoverProjects(root);
+    expect(projects.map((p) => p.id)).toEqual(['p1', 'templates/youtube-tutorials/neon-hud']);
+    expect(projects[1]).toEqual({
+      valid: true,
+      id: 'templates/youtube-tutorials/neon-hud',
+      title: 'Neon HUD',
+      composition: 'TemplateComp',
+      brief: 'input/BRIEF.md',
+    });
+    expect(await getProject(root, 'templates/youtube-tutorials/neon-hud')).toEqual(projects[1]);
+  });
+
+  it('reserves `projects/templates/`, listing it invalid instead of shadowing real templates', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'templates/x/y');
+    const [reserved] = await discoverProjects(root);
+    expect(reserved).toMatchObject({ valid: false, id: 'templates' });
+  });
+
+  it("reads and lists a template's own files", async () => {
+    const root = await tempDir();
+    await writeTemplate(root, 'templates/brand/t');
+    await mkdir(join(root, 'templates/brand/t/input'), { recursive: true });
+    await writeFile(join(root, 'templates/brand/t/input/BRIEF.md'), '# Brief', 'utf8');
+    expect(await readProjectFile(root, 'templates/brand/t', 'input/BRIEF.md')).toBe('# Brief');
+    expect((await listAreaFiles(root, 'input', 'templates/brand/t')).map((f) => f.name)).toEqual(['BRIEF.md']);
+  });
+
+  it('creates a project from a template, leaving its renders behind', async () => {
+    const root = await tempDir();
+    await writeTemplate(root, 'templates/brand/t');
+    await mkdir(join(root, 'templates/brand/t/output'), { recursive: true });
+    await writeFile(join(root, 'templates/brand/t/output/v1-first.mp4'), 'x', 'utf8');
+    await writeFile(join(root, 'templates/brand/t/output/CHANGELOG.md'), '# Changelog', 'utf8');
+
+    const result = await createProject(root, 'brand/intro', 'Intro', 'templates/brand/t');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toMatchObject({ id: 'brand/intro', title: 'Intro', composition: 'TemplateComp' });
+    expect(existsSync(join(root, 'projects/brand/intro/output/CHANGELOG.md'))).toBe(true);
+    expect(existsSync(join(root, 'projects/brand/intro/output/v1-first.mp4'))).toBe(false);
+    // The template itself is untouched.
+    expect(existsSync(join(root, 'templates/brand/t/output/v1-first.mp4'))).toBe(true);
+  });
+
+  it('refuses a template id that is not under `templates/`, or does not exist', async () => {
+    const root = await tempDir();
+    await writeProject(root, 'p1');
+    expect((await createProject(root, 'p2', 'X', 'p1')).ok).toBe(false);
+    expect((await createProject(root, 'p2', 'X', 'templates/missing')).ok).toBe(false);
+    expect((await createProject(root, 'p2', 'X', 'templates/../projects/p1')).ok).toBe(false);
+  });
+
+  it('refuses a `templates/…` id for a new project', async () => {
+    const root = await tempDir();
+    await writeTemplate(root, 'templates/brand/t');
+    expect((await createProject(root, 'templates/brand/copy', 'X', 'templates/brand/t')).ok).toBe(false);
+  });
+
+  it('never removes a template', async () => {
+    const root = await tempDir();
+    await writeTemplate(root, 'templates/brand/t');
+    expect((await removeProject(root, 'templates/brand/t')).ok).toBe(false);
+    expect(existsSync(join(root, 'templates/brand/t/project.json'))).toBe(true);
+  });
+});
