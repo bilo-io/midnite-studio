@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 /**
  * Where Midnite Studio is published and installed — the same constants
- * `packages/website/public/install.sh` uses, because the launcher's Install is
+ * `apps/launcher/install.sh` uses, because the launcher's Install is
  * that script's steps done in-process (`install.ts`).
  */
 

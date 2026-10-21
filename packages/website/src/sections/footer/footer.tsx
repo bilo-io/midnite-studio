@@ -1,14 +1,8 @@
-import { LuBug, LuGithub, LuTag } from 'react-icons/lu';
-
 import { Container, Logo, Reveal, Section, TypeIn, Wordmark } from '../../components';
-import { useLatestVersion } from '../../pages/use-latest-version';
 import { anchorHref, hrefFor } from '../../routes';
 import { AGENT_ROSTER } from '../early-access/roster';
 
 import { FooterHorizon } from './footer-horizon';
-
-/** The public releases repo — the only GitHub repo this site may point at. */
-const APPS_REPO = 'https://github.com/bilo-io/midnite-apps';
 
 type FooterLink = { label: string; href: string; external?: boolean };
 
@@ -24,13 +18,6 @@ const PRODUCT: readonly FooterLink[] = [
   { label: 'The launcher', href: anchorHref('launcher') },
   { label: 'FAQ', href: anchorHref('faq') },
   { label: 'Early access', href: anchorHref('early-access') },
-];
-
-const COMMUNITY: readonly FooterLink[] = [
-  { label: 'Releases', href: `${APPS_REPO}/releases`, external: true },
-  { label: 'Report a bug', href: `${APPS_REPO}/issues/new?template=bug.yml`, external: true },
-  { label: 'Request a feature', href: `${APPS_REPO}/issues/new?template=feature.yml`, external: true },
-  { label: 'All issues', href: `${APPS_REPO}/issues`, external: true },
 ];
 
 const FooterColumn = ({
@@ -59,40 +46,6 @@ const FooterColumn = ({
 );
 
 /**
- * The version, from the same feed the download page reads.
- *
- * `useLatestVersion` is imported rather than re-implemented — one fetch of
- * `version.json`, one set of failure states, one definition of what
- * "unreleased" means. A second copy here would be the classic way for the
- * footer and the download page to disagree about the current version on the
- * same page load.
- */
-const FooterVersion = () => {
-  const state = useLatestVersion();
-  const text =
-    state.status === 'released'
-      ? `midnite-launcher/v${state.version}`
-      : state.status === 'unreleased'
-        ? 'no public release yet'
-        : state.status === 'unavailable'
-          ? 'version feed unreachable'
-          : '…';
-
-  return (
-    <a
-      href={`${APPS_REPO}/releases`}
-      target="_blank"
-      rel="noreferrer"
-      data-testid="footer-version"
-      className="inline-flex items-center gap-2 rounded-full bg-bg-elevated px-3 py-1 font-mono text-xs text-fg-muted shadow-glow-soft transition duration-fast hover:text-fg"
-    >
-      <LuTag aria-hidden="true" className="shrink-0" />
-      {text}
-    </a>
-  );
-};
-
-/**
  * The footer.
  *
  * Full-bleed — `bare` on the `Section`, its own `Container` inside — so the
@@ -119,7 +72,7 @@ export const Footer = () => (
     <FooterHorizon />
 
     <Container>
-      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
+      <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,1fr))]">
         <div className="flex flex-col items-start gap-4">
           <Logo />
           <p className="max-w-xs text-sm leading-relaxed text-fg-muted">
@@ -130,7 +83,6 @@ export const Footer = () => (
               text="One launcher for the midnite apps: code, agents, media, money and the machine underneath, on one shared frame. macOS on Apple silicon."
             />
           </p>
-          <FooterVersion />
         </div>
 
         <FooterColumn heading="Product" links={PRODUCT} />
@@ -154,7 +106,6 @@ export const Footer = () => (
           </ul>
         </div>
 
-        <FooterColumn heading="Community" links={COMMUNITY} />
       </div>
 
       {/*
@@ -210,37 +161,8 @@ export const Footer = () => (
 
       <div className="mt-10 flex flex-col gap-4 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
         <p data-testid="footer-copyright" className="text-xs text-fg-subtle">
-          © {__BUILD_YEAR__} Bilo Lwabona. Downloads, release notes and the issue tracker live in{' '}
-          <a
-            href={APPS_REPO}
-            target="_blank"
-            rel="noreferrer"
-            className="text-fg-muted underline decoration-dotted underline-offset-4 hover:text-fg"
-          >
-            bilo-io/midnite-apps
-          </a>
-          .
+          © {__BUILD_YEAR__} Bilo Lwabona. Access is by invitation.
         </p>
-        <div className="flex items-center gap-4">
-          <a
-            href={APPS_REPO}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="bilo-io/midnite-apps on GitHub"
-            className="text-fg-subtle transition duration-fast hover:text-fg"
-          >
-            <LuGithub aria-hidden="true" className="h-4 w-4" />
-          </a>
-          <a
-            href={`${APPS_REPO}/issues`}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Open issues"
-            className="text-fg-subtle transition duration-fast hover:text-fg"
-          >
-            <LuBug aria-hidden="true" className="h-4 w-4" />
-          </a>
-        </div>
       </div>
     </Container>
   </Section>

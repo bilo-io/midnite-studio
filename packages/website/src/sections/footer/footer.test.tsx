@@ -51,23 +51,13 @@ describe('<Footer>', () => {
     }
   });
 
-  it('links to releases and to issues in the public repo', () => {
-    render(<Footer />);
-    const all = hrefs();
-    expect(all).toContain('https://github.com/bilo-io/midnite-apps/releases');
-    expect(all).toContain('https://github.com/bilo-io/midnite-apps/issues');
-  });
-
-  /**
-   * The site is served from the *public* releases repo and this one is private,
-   * so a link here is a 404 for every visitor. The footer is the densest set of
-   * links on the page, which makes it the likeliest place for one to slip in.
-   */
-  it('never links to the private repository', () => {
+  /** Access is gated: the footer carries no link to any repository or release list. */
+  it('links to no GitHub repository', () => {
     render(<Footer />);
     for (const href of hrefs()) {
-      expect(href).not.toContain('bilo-io/midnite-studio');
+      expect(href).not.toMatch(/github\.com|midnite-apps|midnite-studio/);
     }
+    expect(document.body.textContent ?? '').not.toContain('midnite-apps');
   });
 
   it('opens every external link in a new tab, with noreferrer', () => {
@@ -93,12 +83,6 @@ describe('<Footer>', () => {
     const wordmark = screen.getByTestId('footer-wordmark');
     expect(wordmark.textContent).toBe('Midnite Apps');
     expect(wordmark.getAttribute('aria-hidden')).toBe('true');
-  });
-
-  it('shows the version badge, pointing at the release list', () => {
-    render(<Footer />);
-    const badge = screen.getByTestId('footer-version') as HTMLAnchorElement;
-    expect(badge.getAttribute('href')).toBe('https://github.com/bilo-io/midnite-apps/releases');
   });
 
   it('draws the lane horizon as decoration only', () => {

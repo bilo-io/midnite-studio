@@ -7,14 +7,14 @@ import { MIDNITE_SITE_ORIGIN } from '@midnite/studio-shared/install-command';
  * `routes.ts` covers every *in-page* URL through `import.meta.env.BASE_URL`, and
  * that is the right tool for an href: the browser resolves it against the page
  * it is already on. This constant exists for the one case a relative path
- * cannot serve — **text a visitor copies out of the page and pastes into a
- * terminal**. The download page's `curl -fsSL <origin>/install.sh | sh` has no
- * page to be relative to, so it needs the origin spelled out.
+ * cannot serve — **an absolute URL that is read outside the page**,
+ * such as the social-card image in `index.html`'s meta tags, which has no page
+ * to be relative to.
  *
  * It is the site *root*, not merely the host: on Vercel the two are the same
  * thing (`base` is `/`), but the GitHub Pages target serves the site under
  * `/midnite-apps/midnite-studio/`, so there they differ and the prefix has to be
- * part of the value or the pasted command 404s. `WEBSITE_ORIGIN` is therefore
+ * part of the value or the absolute URL 404s. `WEBSITE_ORIGIN` is therefore
  * the sibling of `WEBSITE_BASE` — set together, or not at all.
  */
 

@@ -45,17 +45,13 @@ describe('FAQ data', () => {
     }
   });
 
-  /**
-   * The site is served from the *public* releases repo and this repo is
-   * private, so a link to it is a 404 for every visitor — which reads as a
-   * broken site rather than as a permissions problem. Asserted here because the
-   * FAQ is where such a link is most tempting to write.
-   */
-  it('never links to the private repository', () => {
+  /** Access is gated: no FAQ link may point at a repository or a release list. */
+  it('never links to a GitHub repository', () => {
     for (const entry of FAQ) {
       for (const link of entry.links ?? []) {
-        expect(link.href, entry.slug).not.toContain('bilo-io/midnite-studio');
+        expect(link.href, entry.slug).not.toMatch(/github\.com|midnite-apps|midnite-studio/);
       }
+      expect(entry.answer.join(' '), entry.slug).not.toMatch(/releases repo|midnite-apps/);
     }
   });
 });
