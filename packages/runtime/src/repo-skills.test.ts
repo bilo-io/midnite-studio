@@ -4,7 +4,13 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { listRepoSkills, parseSkillFrontmatter, skillSourceOrder } from './repo-skills';
+import {
+  knownSkillRoots,
+  listKnownSkills,
+  listRepoSkills,
+  parseSkillFrontmatter,
+  skillSourceOrder,
+} from './repo-skills';
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -100,5 +106,56 @@ describe('listRepoSkills', () => {
 
   it('answers an empty list for a repo with no skill directories', async () => {
     expect(await listRepoSkills(await repo())).toEqual({ ok: true, value: { skills: [] } });
+  });
+});
+
+describe('listKnownSkills', () => {
+  it('merges repo, user and bundled skills, first root wins a name, each labelled by source', async () => {
+    const workdir = await repo();
+    const home = await repo();
+    const bundled = await repo();
+    await skill(workdir, '.claude', 'ekko-pr-review', '---\nname: ekko-pr-review\ndescription: Review a PR.\n---');
+    await skill(workdir, '.codex', 'shared', '---\nname: shared\ndescription: repo copy\n---');
+    await skill(home, '.claude', 'shared', '---\nname: shared\ndescription: user copy\n---');
+    await skill(home, '.claude', 'pr-feedback', '---\nname: pr-feedback\n---');
+    await mkdir(join(bundled, 'midnite-sitrep'), { recursive: true });
+    await writeFile(join(bundled, 'midnite-sitrep', 'SKILL.md'), '---\nname: midnite-sitrep\ndescription: >\n  Status\n  table.\n---');
+    await mkdir(join(bundled, 'pr-feedback'), { recursive: true });
+    await writeFile(join(bundled, 'pr-feedback', 'SKILL.md'), '---\nname: pr-feedback\n---');
+
+    const result = await listKnownSkills(knownSkillRoots({ bundledDir: bundled, workdir, home }));
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        skills: [
+          { name: 'ekko-pr-review', description: 'Review a PR.', source: 'repo' },
+          { name: 'midnite-sitrep', description: 'Status table.', source: 'midnite' },
+          { name: 'pr-feedback', source: 'user' },
+          { name: 'shared', description: 'repo copy', source: 'repo' },
+        ],
+      },
+    });
+  });
+
+  it('skips missing roots and unreadable skills, and needs no repo', async () => {
+    const home = await repo();
+    await mkdir(join(home, '.claude', 'skills', 'empty'), { recursive: true });
+    await skill(home, '.claude', 'bad', '---\nname: has space\n---');
+    const result = await listKnownSkills(
+      knownSkillRoots({ bundledDir: join(home, 'nope'), workdir: null, home }),
+    );
+    expect(result).toEqual({ ok: true, value: { skills: [] } });
+  });
+
+  it('orders roots repo → user → bundled', () => {
+    expect(
+      knownSkillRoots({ bundledDir: '/b', workdir: '/w', home: '/h' }).map((r) => [r.dir, r.source]),
+    ).toEqual([
+      [join('/w', '.claude', 'skills'), 'repo'],
+      [join('/w', '.agents', 'skills'), 'repo'],
+      [join('/w', '.codex', 'skills'), 'repo'],
+      [join('/h', '.claude', 'skills'), 'user'],
+      ['/b', 'midnite'],
+    ]);
   });
 });

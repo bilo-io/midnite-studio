@@ -148,6 +148,11 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   `KNOWN_ORPHANS` on the same reasoning as its four siblings and would move into the same Loops
   accordion, as a per-loop switch mirroring the tab bar's, whenever that accordion is built.
 
+  Two more joined it ad hoc, on the same reasoning: `loopModifierSkills` (each composer option's
+  skill field — loopId → modifierId → skill) and `loopRunOptions` (the composer's Users filter,
+  auto-rotate slider and "Loop" repeat switch, folded in from PR #870). Both have their real
+  control in the loop composer itself, and belong in the same Loops accordion when it is built.
+
 - **Five more persisted preferences with no settings page — `editor*`.** Landed by
   [Phase 64](phases/phase-64-offline-monaco-and-themes.md) (`#164`, merged onto `main` while Phase
   63 was in flight): `editorFontFamily`, `editorFontSize`, `editorMinimap`, `editorTabSize`,

@@ -72,6 +72,14 @@ export function useLoopSession(
      * lands, which is the worst time to find it.
      */
     command: string;
+    /** modifierId → the skill picked in that option's skill field. */
+    skills?: Record<string, string>;
+    /** Contributor usernames to restrict PR review to. */
+    reviewUsers?: readonly string[];
+    /** Rotate subagents at this percentage of their context. */
+    autoRotatePercent?: number;
+    /** The "Loop" switch — `false` drops `/loop` and runs once. */
+    repeat?: boolean;
   },
 ): LoopSessionControls {
   const {
@@ -85,6 +93,10 @@ export function useLoopSession(
     model,
     extras,
     command,
+    skills,
+    reviewUsers,
+    autoRotatePercent,
+    repeat,
   } = options;
   const tab = loop.id as FabTab;
 
@@ -113,6 +125,10 @@ export function useLoopSession(
       choiceIds,
       schedule,
       extras,
+      ...(skills !== undefined ? { skills } : {}),
+      ...(reviewUsers !== undefined ? { reviewUsers } : {}),
+      ...(autoRotatePercent !== undefined ? { autoRotatePercent } : {}),
+      ...(repeat !== undefined ? { repeat } : {}),
     });
 
     /*
@@ -160,6 +176,10 @@ export function useLoopSession(
     model,
     extras,
     command,
+    skills,
+    reviewUsers,
+    autoRotatePercent,
+    repeat,
     loop,
     tab,
   ]);

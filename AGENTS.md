@@ -321,19 +321,23 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `midnite-studio/version.json`; electron-updater reads `midnite-studio/feed/latest-mac.yml`.
   Both are written per release — see
   [`/midnite-release-complete`](.claude/skills/midnite-release-complete/SKILL.md) §4.
-- **The website serves its own verbatim copy of `install.sh`, and a guard keeps it honest.**
-  The download page tells visitors to curl `${SITE_ORIGIN}/install.sh`, not the raw GitHub URL:
-  the command a visitor pipes into a shell should name the host they are already looking at.
-  So `packages/website/public/install.sh` is a byte-for-byte copy of the upstream file — the
-  script's *own* URLs are untouched, it still resolves `midnite-studio/version.json` on the raw
-  host — and [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs the two
+- **The website serves one verbatim copy of `install-studio.sh`, and a guard keeps it honest.**
+  Access to Midnite is gated behind the site's "Get access" flow, so the site links to no
+  repository, release list or installer and no longer serves the launcher's `install.sh`. The one
+  script it still hosts, **unlinked**, is Studio's `install-studio.sh`, because the app's own
+  "Update Midnite Studio" action curls it (`MIDNITE_INSTALL_COMMAND`). `packages/website/public/install-studio.sh`
+  is a byte-for-byte copy of the upstream file, and
+  [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs the two
   (`moon run website:sync-install`, `-- --write` to re-sync). The check runs **post-merge** in
   `website.yml`, not as a PR gate: upstream can change with nothing merged here, so there is no
   pull request for a gate to block. It is deliberately not a vitest — a networked test fails on a
   plane and turns an upstream outage into a red repo-wide gate. `SITE_ORIGIN`
   (`packages/website/src/site-origin.ts`, from `WEBSITE_ORIGIN`) is `WEBSITE_BASE`'s sibling: it
-  exists for text a visitor *pastes into a terminal*, which `import.meta.env.BASE_URL` cannot
-  serve, and it is the site **root** — on the Pages target that includes the path prefix.
+  exists for absolute URLs read outside the page (the social-card meta tags), which
+  `import.meta.env.BASE_URL` cannot serve, and it is the site **root** — on the Pages target that
+  includes the path prefix. **Nothing on the website may link to, or print the name of, the
+  `bilo-io/midnite-apps` repo** — the early-access form's prefilled-issue URL is the one deliberate exception, and it
+  never shows the repo name.
 - **The two surfaces wear two near-identical brand faces, and that is deliberate.** The app's
   `--font-brand` is **Quick Kiss**, whose own name table reads `Quick Kiss Personal Use` / "All
   rights reserved" (Billy Argel; commercial and webfont licences are sold separately). The

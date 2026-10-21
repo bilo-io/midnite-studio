@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-browser",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Midnite Browser — full-window browsing, web apps, and agent-driven sessions, as their own app over the browser feature.",
   "type": "module",

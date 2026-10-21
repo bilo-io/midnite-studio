@@ -1,13 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { composeIssueBody, ReportIssueDialog } from './report-issue-dialog';
+import { useUiStore } from '../store/ui-store';
+import { composeIssueBody, ReportIssueDialog, ReportIssueHost } from './report-issue-dialog';
 
 const bundleFn = vi.fn();
 const cliStatusFn = vi.fn();
 const submitIssueFn = vi.fn();
 const openExternalFn = vi.fn();
+const writeTextFn = vi.fn();
 
 vi.mock('@midnite/studio-frame', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
@@ -15,6 +17,8 @@ vi.mock('@midnite/studio-frame', async (importOriginal) => ({
     report: { bundle: bundleFn, submitIssue: submitIssueFn },
     forge: { cliStatus: cliStatusFn },
     shell: { openExternal: openExternalFn },
+    clipboard: { writeText: writeTextFn },
+    appVersion: '0.0.3',
   }),
   hasBridge: () => true,
 }));
@@ -41,6 +45,8 @@ afterEach(() => {
   cliStatusFn.mockReset();
   submitIssueFn.mockReset();
   openExternalFn.mockReset();
+  writeTextFn.mockReset();
+  useUiStore.setState({ reportIssueOpen: false });
 });
 
 describe('ReportIssueDialog — bug/feature toggle', () => {
@@ -106,12 +112,12 @@ describe('ReportIssueDialog — diagnostics stay the single redaction path', () 
 
   it('composeIssueBody never mutates the diagnostics text it is handed', () => {
     const diagnostics = '~/already/redacted <redacted>';
-    const body = composeIssueBody('a description', diagnostics);
+    const body = composeIssueBody({ kind: 'bug', description: 'a description', diagnostics });
     expect(body).toContain(diagnostics);
   });
 
   it('composeIssueBody clamps to FORGE_BODY_MAX defensively', () => {
-    const body = composeIssueBody('x'.repeat(200_000), '');
+    const body = composeIssueBody({ kind: 'bug', description: 'x'.repeat(200_000), diagnostics: '' });
     expect(body.length).toBeLessThanOrEqual(65_536);
   });
 });
@@ -143,6 +149,9 @@ describe('ReportIssueDialog — submit', () => {
     expect(call.kind).toBe('bug');
     expect(call.body).toContain('Clicked sync and it spun forever.');
     expect(call.body).toContain('log tail');
+    // The section midnite-apps' label workflow reads — without it, gh's `app:` label is stripped.
+    expect(call.body).toContain('### App\n\nmidnite-studio');
+    expect(call.body).toContain('### Version\n\n0.0.3');
 
     const link = await screen.findByRole('button', { name: 'View issue' });
     fireEvent.click(link);
@@ -239,5 +248,54 @@ describe('ReportIssueDialog — the fallback is not a dead end', () => {
     const url = new URL((openExternalFn.mock.calls[0]![0] as { url: string }).url);
     expect(url.searchParams.get('title')).toBe('[bug] Crash');
     expect(url.searchParams.get('what')).toBe('It crashed.');
+  });
+});
+
+describe('ReportIssueDialog — Copy report', () => {
+  it('copies the title and the whole composed body through the main-side clipboard', async () => {
+    bundleFn.mockResolvedValue({ text: 'log tail' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    writeTextFn.mockResolvedValue({ ok: true });
+    renderDialog();
+
+    await screen.findByTestId('report-issue-diagnostics');
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] blank graph' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It is blank.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy report' }));
+
+    await screen.findByRole('button', { name: 'Copied' });
+    const { text } = writeTextFn.mock.calls[0]![0] as { text: string };
+    expect(text.startsWith('[bug] blank graph\n\n### App\n\nmidnite-studio')).toBe(true);
+    expect(text).toContain('It is blank.');
+    expect(text).toContain('log tail');
+  });
+
+  it('stays disabled until there is a title and a description to copy', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    renderDialog();
+
+    const copy = screen.getByRole('button', { name: 'Copy report' }) as HTMLButtonElement;
+    expect(copy.disabled).toBe(true);
+  });
+});
+
+describe('ReportIssueHost — the app-wide instance app.reportIssue opens', () => {
+  it('renders nothing until the store opens it, and closes back through the store', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ReportIssueHost />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByTestId('report-issue-dialog')).toBeNull();
+
+    act(() => useUiStore.getState().setReportIssueOpen(true));
+    await screen.findByTestId('report-issue-dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(useUiStore.getState().reportIssueOpen).toBe(false);
   });
 });

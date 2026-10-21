@@ -1,301 +1,149 @@
-import { LuApple, LuArrowLeft, LuDownload, LuExternalLink } from 'react-icons/lu';
+import { LuApple, LuArrowLeft, LuKeyRound } from 'react-icons/lu';
 
 import { Button, Container, GlowCard, Heading, Lede } from '../components';
 import { SiteNav } from '../components/site-nav';
-import { hrefFor } from '../routes';
+import { anchorHref, hrefFor } from '../routes';
 import { Footer } from '../sections/footer/footer';
-import { installCommand, installerUrl } from '@midnite/studio-shared/install-command';
-
-import { SITE_ORIGIN } from '../site-origin';
-
-import { CopyButton } from './copy-button';
-import { useLatestVersion, type VersionState } from './use-latest-version';
 
 /**
- * The site's own copy of the installer, and the URL the command curls.
- *
- * Served from here rather than from `raw.githubusercontent.com` for two
- * reasons. It is shorter, which matters for the one line on the site anybody is
- * expected to retype or read aloud. And it is *ours*: the command a visitor
- * pastes into a shell now names the same host they are already looking at,
- * instead of asking them to trust a third-party URL on this page's word.
- *
- * The file is a byte-for-byte copy of the upstream script (`public/install.sh`),
- * kept honest by `scripts/website-sync-install.mjs --check` in the Website
- * workflow rather than by anyone remembering. The script's *own* URLs are not
- * rewritten — it still resolves the version from `midnite-launcher/version.json`
- * on the raw host, which is where the builds actually are.
- */
-const INSTALLER_URL = installerUrl(SITE_ORIGIN);
-
-/**
- * The install command, verbatim, and the single source of it on this page.
- *
- * It is also what the copy button puts on the clipboard, so the two can never
- * drift. Documented in `docs/RELEASING.md`. Built by `shared`'s
- * `installCommand` (the launcher's script; the app's "Update Midnite Studio" action
- * keeps its own `install-studio.sh`).
- */
-const INSTALL_COMMAND = installCommand(SITE_ORIGIN);
-
-/** Where the builds live. This repo is private; nothing here may link to it. */
-const RELEASES_URL = 'https://github.com/bilo-io/midnite-apps/releases';
-
-/**
- * What the script does, in the order it does it.
- *
- * Read off the installer itself rather than paraphrased from memory — a page
- * that asks someone to pipe a URL into `sh` owes them an accurate account of
- * what it will do, and a link to read it first.
+ * How access works, in the order it happens. Midnite is access-gated: there is
+ * no public download link, so this page explains the flow and routes every
+ * call to action to the early-access form.
  */
 const STEPS: readonly { title: string; detail: string }[] = [
   {
-    title: 'Checks the machine',
+    title: 'Ask for access',
     detail:
-      'Refuses anything that is not macOS on arm64, because Apple silicon is the only build published.',
+      'Fill in the early-access form on the landing page with your name and the agents you use. It takes a minute.',
   },
   {
-    title: 'Resolves the version',
+    title: 'Get your invitation',
     detail:
-      'Reads midnite-launcher/version.json in the public releases repo, rather than trusting “latest release,” which in a repo distributing several apps is whichever one shipped most recently.',
+      'Invitations go out in waves. When yours is ready you are sent the install instructions directly, not a public link.',
   },
   {
-    title: 'Downloads the zip with curl',
+    title: 'Install Midnite Apps',
     detail:
-      'curl never sets the com.apple.quarantine attribute a browser would, so the app opens without the Gatekeeper “unverified developer” prompt.',
+      'Midnite Apps is the launcher: it installs to /Applications, then installs and opens each midnite app, Midnite Studio included. macOS on Apple silicon only.',
   },
   {
-    title: 'Verifies before it installs',
+    title: 'Stay up to date',
     detail:
-      'Unpacks to a staging directory and checks the bundle is structurally complete (Info.plist, the executable, and a full-size Electron Framework) before anything in /Applications is touched.',
-  },
-  {
-    title: 'Swaps it in, keeping a backup',
-    detail:
-      'The previous copy is moved aside and only removed once the new one verifies, so an interrupted install cannot leave a broken app behind.',
+      'The launcher checks for new builds and updates each app in place, so there is nothing to re-download.',
   },
 ];
 
-/** The launcher's disk image, in its namespaced release; only linked once a version is known. */
-const dmgUrl = (version: string) =>
-  `https://github.com/bilo-io/midnite-apps/releases/download/midnite-launcher/v${version}/midnite-launcher-${version}-arm64.dmg`;
-
-const VersionBadge = ({ state }: { state: VersionState }) => {
-  const text =
-    state.status === 'released'
-      ? `v${state.version}`
-      : state.status === 'unreleased'
-        ? 'No public release yet'
-        : state.status === 'unavailable'
-          ? 'latest'
-          : '…';
-
-  return (
-    <span
-      data-testid="version-badge"
-      className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-bg-elevated px-3 py-1 font-mono text-xs text-fg-muted"
-    >
-      <span
-        aria-hidden="true"
-        className={`h-1.5 w-1.5 rounded-full ${
-          state.status === 'released' ? 'bg-lane-2' : 'bg-fg-subtle'
-        }`}
-      />
-      {text}
-    </span>
-  );
-};
-
 /**
- * The download page.
+ * The access page, still served at `/download/`.
  *
- * One command, what it does, and where the builds come from. The installer is
- * served from this site (`public/install.sh`); the release list links to the
- * public `bilo-io/midnite-apps` repo. **Nothing here may link to
- * `bilo-io/midnite-studio`**, which is private and would give every visitor a
- * 404 that looks like a broken site.
- *
- * The version badge is decoration, not a gate: the command is correct whether
- * or not the feed answers, so the page renders fully while the fetch is in
- * flight and stays useful when it fails.
+ * **Nothing here may link to a repository or a release list** — access is
+ * gated, and every call to action goes to the early-access section. The path
+ * keeps its name so existing links and the nav item keep resolving.
  *
  * **The layout is nav / main / footer**, the same three parts the landing page
  * has — `app.tsx` chooses between the two whole pages and neither of them
  * wraps the other, so the footer has to be part of *this* component rather
  * than something the router adds around it.
  */
-export const DownloadPage = () => {
-  const version = useLatestVersion();
-  return (
-    <>
-      <SiteNav offLanding />
-      <main>
-        <div className="relative isolate overflow-hidden">
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 -z-10"
-            style={{
-              background:
-                'radial-gradient(ellipse 80% 60% at 30% 0%, var(--ws-accent-soft) 0%, transparent 62%)',
-            }}
-          />
-          <Container className="pb-16 pt-20 sm:pt-28">
-            <div className="flex flex-col items-start gap-5">
-              {/*
-              No eyebrow above this. The page's own <title> says "Download",
-              the nav item that got here says "Download", and the button on the
-              landing page said "Download" — a fourth "Download" stacked
-              directly on top of the H1 that also says it is label noise, and it
-              pushed the actual heading down the fold on a phone.
-            */}
-              <Heading level={1}>Download Midnite</Heading>
-              <Lede>
-                Midnite Apps installs to <code className="font-mono text-fg">/Applications</code>{' '}
-                from the public releases repository, and from there installs and opens each midnite
-                app, Midnite Studio included. Paste this into a terminal, or take the disk image.
-              </Lede>
+export const DownloadPage = () => (
+  <>
+    <SiteNav offLanding />
+    <main>
+      <div className="relative isolate overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10"
+          style={{
+            background:
+              'radial-gradient(ellipse 80% 60% at 30% 0%, var(--ws-accent-soft) 0%, transparent 62%)',
+          }}
+        />
+        <Container className="pb-16 pt-20 sm:pt-28">
+          <div className="flex flex-col items-start gap-5">
+            <Heading level={1}>Get Midnite</Heading>
+            <Lede>
+              Midnite Apps is the launcher that installs and opens each midnite app, Midnite Studio
+              included. Access is invitation-only for now: request it and you will be sent
+              everything you need.
+            </Lede>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-bg-elevated px-3 py-1 text-xs text-fg-muted">
-                  <LuApple aria-hidden="true" />
-                  macOS · Apple silicon
-                </span>
-                <VersionBadge state={version} />
-                {version.status === 'released' ? (
-                  <Button
-                    href={dmgUrl(version.version)}
-                    variant="ghost"
-                    data-testid="dmg-link"
-                    icon={<LuDownload />}
-                  >
-                    Download the .dmg
-                  </Button>
-                ) : null}
-              </div>
-
-              <GlowCard glow="accent" className="w-full max-w-3xl" bare>
-                <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2">
-                  <span className="font-mono text-xs text-fg-subtle">sh</span>
-                  <CopyButton value={INSTALL_COMMAND} label="the install command" />
-                </div>
-                {/*
-                Wraps rather than scrolls. The command is one long line, and a
-                horizontally-scrolling code block inside a card with
-                `overflow-hidden` reads as *clipped* — the visitor sees a
-                sentence cut off at the card's edge with nothing to say it can
-                be dragged. Wrapping shows all of it, and the copy button beside
-                it is what guarantees the pasted text is exact either way.
-              */}
-                <pre className="whitespace-pre-wrap break-all bg-bg-sunken px-4 py-4 text-left">
-                  <code
-                    data-testid="install-command"
-                    className="font-mono text-xs leading-relaxed text-fg sm:text-sm"
-                  >
-                    {INSTALL_COMMAND}
-                  </code>
-                </pre>
-              </GlowCard>
-
-              <p className="max-w-prose text-sm text-fg-subtle">
-                Prefer a disk image, or to read the script first? The installer is{' '}
-                <a
-                  data-testid="installer-link"
-                  href={INSTALLER_URL}
-                  className="text-accent underline decoration-dotted underline-offset-4"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  a single POSIX shell script
-                </a>
-                : the very file the command above fetches, served from this site. Set{' '}
-                <code className="font-mono">MIDNITE_LAUNCHER_VERSION=0.3.1</code> to pin a version,
-                or <code className="font-mono">MIDNITE_LAUNCHER_NO_OPEN=1</code> to skip launching
-                the app afterwards.
-              </p>
-            </div>
-          </Container>
-        </div>
-
-        <Container className="pb-20">
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <div>
-              <Heading level={2}>What the script does</Heading>
-              <ol className="mt-6 space-y-4">
-                {STEPS.map((step, i) => (
-                  <li key={step.title} className="flex gap-4">
-                    <span
-                      aria-hidden="true"
-                      className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line-strong font-mono text-xs text-accent"
-                    >
-                      {i + 1}
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium text-fg">{step.title}</p>
-                      <p className="mt-1 max-w-prose text-sm leading-relaxed text-fg-muted">
-                        {step.detail}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-bg-elevated px-3 py-1 text-xs text-fg-muted">
+                <LuApple aria-hidden="true" />
+                macOS · Apple silicon
+              </span>
+              <span
+                data-testid="access-badge"
+                className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-bg-elevated px-3 py-1 text-xs text-fg-muted"
+              >
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-fg-subtle" />
+                Early access
+              </span>
             </div>
 
-            <aside className="flex flex-col gap-4">
-              <GlowCard>
-                <h3 className="text-sm font-semibold text-fg">Releases and issues</h3>
-                <p className="mt-2 text-sm leading-relaxed text-fg-muted">
-                  Every build, its notes and the bug tracker live in the public{' '}
-                  <span className="font-mono text-xs">bilo-io/midnite-apps</span> repository.
-                  Release tags are namespaced per app, like{' '}
-                  <span className="font-mono text-xs">midnite-launcher/v0.3.1</span>, never a bare
-                  version, because it ships more than one.
-                </p>
-                <p className="mt-3 text-sm leading-relaxed text-fg-muted">
-                  The installer above is served from this site, and is a verbatim copy of{' '}
-                  <span className="font-mono text-xs">midnite-launcher/install.sh</span> in that
-                  repository, checked against it on every deploy, so the two cannot drift.
-                </p>
-                <div className="mt-4 flex flex-col gap-2">
-                  <Button
-                    href={RELEASES_URL}
-                    variant="ghost"
-                    target="_blank"
-                    rel="noreferrer"
-                    icon={<LuExternalLink />}
-                  >
-                    All releases
-                  </Button>
-                  <Button href={hrefFor('landing')} variant="ghost" icon={<LuArrowLeft />}>
-                    Back to the site
-                  </Button>
-                </div>
-              </GlowCard>
-
-              <GlowCard>
-                <h3 className="text-sm font-semibold text-fg">Updating</h3>
-                <p className="mt-2 text-sm leading-relaxed text-fg-muted">
-                  Re-running the same command installs the newest version over the old one. Builds
-                  are ad-hoc signed rather than notarized today, so re-running the installer, not an
-                  in-app &ldquo;restart to install,&rdquo; is the update path.
-                </p>
-              </GlowCard>
-            </aside>
+            <Button
+              href={anchorHref('early-access')}
+              data-testid="get-access"
+              icon={<LuKeyRound />}
+            >
+              Get access
+            </Button>
           </div>
         </Container>
-      </main>
+      </div>
 
-      {/*
+      <Container className="pb-20">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div>
+            <Heading level={2}>How access works</Heading>
+            <ol className="mt-6 space-y-4">
+              {STEPS.map((step, i) => (
+                <li key={step.title} className="flex gap-4">
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-line-strong font-mono text-xs text-accent"
+                  >
+                    {i + 1}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-fg">{step.title}</p>
+                    <p className="mt-1 max-w-prose text-sm leading-relaxed text-fg-muted">
+                      {step.detail}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <aside className="flex flex-col gap-4">
+            <GlowCard>
+              <h3 className="text-sm font-semibold text-fg">Already invited?</h3>
+              <p className="mt-2 text-sm leading-relaxed text-fg-muted">
+                Follow the instructions in your invitation. If you cannot find it, request access
+                again with the same details and it will be re-sent.
+              </p>
+              <div className="mt-4 flex flex-col gap-2">
+                <Button href={anchorHref('early-access')} variant="ghost" icon={<LuKeyRound />}>
+                  Request access
+                </Button>
+                <Button href={hrefFor('landing')} variant="ghost" icon={<LuArrowLeft />}>
+                  Back to the site
+                </Button>
+              </div>
+            </GlowCard>
+          </aside>
+        </div>
+      </Container>
+    </main>
+
+    {/*
       The same `Footer` the landing page's registry row renders — imported, not
-      copied, so the two pages cannot drift on a link, the agent roster or the
-      version badge. It sits outside `<main>` here, which is where a footer
-      belongs; on the landing page the registry puts it inside, because that
-      page is the registry rendered in order and nothing else.
-
-      Its anchors are built with `anchorHref`, so from this URL they are
+      copied, so the two pages cannot drift on a link or the agent roster. Its
+      anchors are built with `anchorHref`, so from this URL they are
       cross-page navigations to `/#features` rather than dead in-page jumps —
       that is the property `download-page.test.tsx` pins.
     */}
-      <Footer />
-    </>
-  );
-};
+    <Footer />
+  </>
+);

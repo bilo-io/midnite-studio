@@ -24,6 +24,7 @@ import {
   type Ecosystem,
   type ForgeAccount,
   type LoopModel,
+  type LoopRunOptions,
   type LoopSchedule,
   type MediaTab,
   MEDIA_TABS,
@@ -92,6 +93,7 @@ import { cycleBrowserLayout, type BrowserLayout } from '@midnite/studio-feature-
 import { bridge } from '../services/bridge';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
+import { migrateLoopSwitch } from './migrate-loop-switch';
 import { migrateAppsToWebApps } from './migrate-web-apps';
 import {
   INITIAL_SETUP_STATE,
@@ -979,13 +981,34 @@ export type UiState = {
   loopExtras: Record<string, string>;
   setLoopExtras: (loopId: string, text: string) => void;
   /**
-   * The FAB tab bar's "Loop" switch, per loop — off by default. Persisted
+   * The FAB tab bar's "Loop" switch, per loop — ON by default (a missing entry
+   * reads as on). It is the single control for `/loop` in the composed prompt:
+   * on composes `/loop …`, off a once-off run. Persisted
    * alongside the model/schedule/agent choices above: it is a standing
    * decision about that tab (its whole point is to still be on the next time
    * you look), not a per-run flag.
    */
   loopEnabled: Record<string, boolean>;
   setLoopEnabled: (loopId: string, on: boolean) => void;
+  /**
+   * The skill picked in a composer option's skill field, keyed loopId →
+   * modifierId → the text as typed (`composeLoopPrompt` normalises it).
+   * Persisted beside `loopModifierDefaults`: "Patrol reviews with
+   * /ekko-pr-review" is a standing answer about the repo you work in, not one
+   * run's whim. An absent or empty entry means the option's own default
+   * fragment, so a profile saved before the field existed composes unchanged.
+   */
+  loopModifierSkills: Record<string, Record<string, string>>;
+  setLoopModifierSkill: (loopId: string, modifierId: string, skill: string) => void;
+  /**
+   * Per-loop run options the composer grew from PR #870: the Users filter,
+   * and the auto-rotate slider. Persisted, like the
+   * model and schedule. Every field is optional and resolved on read
+   * (`LoopTab`): no users, `LOOP_AUTO_ROTATE.default`. (The former `repeat` field was folded
+   * into `loopEnabled` by the v34 → v35 migration.)
+   */
+  loopRunOptions: Record<string, LoopRunOptions>;
+  setLoopRunOptions: (loopId: string, patch: LoopRunOptions) => void;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
   occluders: number;
@@ -1580,6 +1603,12 @@ export type UiState = {
   killSwitchFlowRunId: string | null;
   openKillSwitch: (flow?: { workflowId: string; runId?: string }) => void;
   closeKillSwitch: () => void;
+  /**
+   * The app-wide report-an-issue dialog (`ReportIssueHost`), opened by `app.reportIssue` from the
+   * Help menu or the palette. Transient, like `killSwitchOpen` beside it.
+   */
+  reportIssueOpen: boolean;
+  setReportIssueOpen: (open: boolean) => void;
   /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
@@ -2207,6 +2236,8 @@ export type PersistedUi = Pick<
   | 'loopModels'
   | 'loopSchedules'
   | 'loopEnabled'
+  | 'loopModifierSkills'
+  | 'loopRunOptions'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'autoFetchEnabled'
@@ -2420,6 +2451,7 @@ export const useUiStore = create<UiState>()(
       automateEnabledByProject: {},
       automateCapByProject: {},
       killSwitchOpen: false,
+      reportIssueOpen: false,
       killSwitchFlowWorkflowId: null,
       killSwitchFlowRunId: null,
       blockedByFieldName: 'Blocked by',
@@ -2720,6 +2752,22 @@ export const useUiStore = create<UiState>()(
       loopEnabled: {},
       setLoopEnabled: (loopId, on) =>
         set((state) => ({ loopEnabled: { ...state.loopEnabled, [loopId]: on } })),
+      loopModifierSkills: {},
+      setLoopModifierSkill: (loopId, modifierId, skill) =>
+        set((state) => ({
+          loopModifierSkills: {
+            ...state.loopModifierSkills,
+            [loopId]: { ...state.loopModifierSkills[loopId], [modifierId]: skill },
+          },
+        })),
+      loopRunOptions: {},
+      setLoopRunOptions: (loopId, patch) =>
+        set((state) => ({
+          loopRunOptions: {
+            ...state.loopRunOptions,
+            [loopId]: { ...state.loopRunOptions[loopId], ...patch },
+          },
+        })),
       updatesAutoCheck: true,
       updateChannel: 'stable',
       occluders: 0,
@@ -3231,6 +3279,7 @@ export const useUiStore = create<UiState>()(
           killSwitchFlowRunId: flow?.runId ?? null,
         }),
       closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
+      setReportIssueOpen: (reportIssueOpen) => set({ reportIssueOpen }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
@@ -3258,7 +3307,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 34,
+      version: 35,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         mediaTab: state.mediaTab,
@@ -3317,6 +3366,8 @@ export const useUiStore = create<UiState>()(
         loopModels: state.loopModels,
         loopSchedules: state.loopSchedules,
         loopEnabled: state.loopEnabled,
+        loopModifierSkills: state.loopModifierSkills,
+        loopRunOptions: state.loopRunOptions,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         autoFetchEnabled: state.autoFetchEnabled,
@@ -3507,6 +3558,12 @@ export const useUiStore = create<UiState>()(
        * (Phase 111 Theme A) — global agent and model state contract.
        * v33 → v34: rename the Phase 83 apps-rail fields and the `apps` Settings
        * page to `web-apps` (Phase 113 Theme A) — see `migrate-web-apps.ts`.
+       * v34 → v35: the tab-bar "Loop" switch (`loopEnabled`) became the one
+       * control for `/loop`, absent = on, replacing `loopRunOptions[id].repeat`.
+       * An explicit `repeat` wins; otherwise any stored `loopEnabled` (cosmetic
+       * until now, so a stale `false` meant nothing) is dropped to resolve on.
+       * Versioned, not merge-time, so a switch the user flips off afterwards is
+       * never re-dropped on the next rehydrate.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3698,6 +3755,7 @@ export const useUiStore = create<UiState>()(
         // Runs after every arm that can seed a legacy name (v<18 seeds the
         // apps list), so one rename covers a blob from any earlier version.
         if (version < 34) migrateAppsToWebApps(state);
+        if (version < 35) migrateLoopSwitch(state);
         return state as PersistedUi;
       },
       /**
@@ -3753,6 +3811,8 @@ export const useUiStore = create<UiState>()(
           loopModels: { ...current.loopModels, ...saved.loopModels },
           loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
           loopEnabled: { ...current.loopEnabled, ...saved.loopEnabled },
+          loopModifierSkills: { ...current.loopModifierSkills, ...(saved.loopModifierSkills ?? {}) },
+          loopRunOptions: { ...current.loopRunOptions, ...(saved.loopRunOptions ?? {}) },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
           activeEnvironmentByRepo: {
             ...current.activeEnvironmentByRepo,

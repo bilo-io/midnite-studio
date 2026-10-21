@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-finance",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "The finance feature (Phase 113 Theme P): market providers, portfolio store and news in main; the Finance panel, status-bar segment and dashboard widgets in the renderer. Money's one feature.",
   "sideEffects": false,

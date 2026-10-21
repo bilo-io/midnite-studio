@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   APP_ISSUE_URL_MAX,
+  appIssueBody,
   appIssueFormUrl,
   extractChangelogSection,
   NEW_ISSUE_URL,
@@ -136,5 +137,55 @@ describe('appIssueFormUrl', () => {
 
   it('points the chooser constant at the chooser, not a blank issue', () => {
     expect(NEW_ISSUE_URL).toBe('https://github.com/bilo-io/midnite-apps/issues/new/choose');
+  });
+});
+
+describe('appIssueBody', () => {
+  const draft = {
+    kind: 'bug' as const,
+    title: '[bug] Graph is blank',
+    description: '  It broke & stayed broken.  ',
+    diagnostics: 'INFO boot',
+    version: '0.0.3',
+  };
+
+  /** The answer midnite-apps' `issue-app-label.yml` reads: the first non-empty line under `### App`. */
+  const appAnswer = (body: string): string | null => {
+    const lines = body.split(/\r?\n/);
+    const heading = lines.findIndex((l) => /^###\s+App\s*$/.test(l.trim()));
+    if (heading === -1) return null;
+    for (const line of lines.slice(heading + 1)) {
+      if (!line.trim()) continue;
+      return line.trim().startsWith('###') ? null : line.trim();
+    }
+    return null;
+  };
+
+  it('answers the label workflow with the app id, so gh\'s app label is not stripped again', () => {
+    expect(appAnswer(appIssueBody(draft))).toBe('midnite-studio');
+    expect(appAnswer(appIssueBody({ ...draft, kind: 'feature' }))).toBe('midnite-studio');
+  });
+
+  it('lays a bug out as the bug form renders: app, version, what happened, logs', () => {
+    expect(appIssueBody(draft)).toBe(
+      [
+        '### App\n\nmidnite-studio',
+        '### Version\n\n0.0.3',
+        '### What happened?\n\nIt broke & stayed broken.',
+        '### Errors or logs\n\n```\nINFO boot\n```',
+      ].join('\n\n'),
+    );
+  });
+
+  it("heads a feature's words as the feature form does, and keeps its diagnostics", () => {
+    const body = appIssueBody({ ...draft, kind: 'feature' });
+    expect(body).toContain("### What's the problem?\n\nIt broke & stayed broken.");
+    expect(body).toContain('### Errors or logs');
+  });
+
+  it('leaves out the version of an unversioned build and an empty diagnostics block', () => {
+    const body = appIssueBody({ ...draft, version: '0.0.0', diagnostics: '  ' });
+    expect(body).not.toContain('### Version');
+    expect(body).not.toContain('### Errors or logs');
   });
 });

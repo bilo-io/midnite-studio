@@ -41,17 +41,16 @@ cache hit and would ship with the wrong prefix.
 
 ### `WEBSITE_ORIGIN`, its sibling
 
-`base` covers every URL the *browser* resolves. It cannot help **text a visitor
-copies out of the page and pastes into a terminal**, which is what the download
-page's `curl -fsSL <origin>/install.sh | sh` is: there is no page for it to be
-relative to. So the site's own public root is also spelled out absolutely, in
+`base` covers every URL the *browser* resolves. It cannot help **an absolute URL
+read outside the page**, such as the social-card image in the meta tags: there is
+no page for it to be relative to. So the site's own public root is also spelled out absolutely, in
 [`src/site-origin.ts`](../packages/website/src/site-origin.ts).
 
 `WEBSITE_ORIGIN` overrides it; unset, it is the live Vercel deployment
 (`https://midnite-studio-website.vercel.app`). It is the site **root**, not the
 bare host — on Vercel those are the same thing, but the Pages target serves the
 site under `/midnite-apps/midnite-studio/`, so there the prefix has to be part of
-the value or the pasted command 404s. Set it together with `WEBSITE_BASE` or not
+the value or the absolute URL 404s. Set it together with `WEBSITE_BASE` or not
 at all, and it is in the `website:build` `inputs` for the same cache reason.
 
 The default is read by `site-origin.ts` rather than written into the two `define`
@@ -67,50 +66,28 @@ so both sides import it from there instead of each spelling the URL. The site
 takes that one file by a source alias (`vite.config.ts`, `vitest.config.ts`,
 `tsconfig.json`), not through the package barrel, so the bundle picks up no zod.
 
-## `install.sh`, served from the site
+## Access is gated: no repo, release or installer links
 
-**Phase 113 Theme F item 4: `/install.sh` installs the launcher (Midnite Apps), not Studio.**
-The page offers the launcher's `.dmg` and `curl … | sh`; the launcher installs the apps. Its
-script lives at [`apps/launcher/install.sh`](../apps/launcher/install.sh) and `release.yml`'s
-`publish-suite` copies it to `midnite-launcher/install.sh` upstream; the version feed is
-`midnite-launcher/version.json`. Studio's own script stays on the site as `/install-studio.sh`
-(also a verbatim copy, also checked) because the app's "Update Midnite Studio" action must keep
-reinstalling Studio (`MIDNITE_INSTALL_COMMAND`). Until the first suite release publishes
-`midnite-launcher/install.sh`, `website:sync-install --check` reports a 404 for it.
+**The site links to nothing a visitor could use to fetch a build without asking.** Every
+download or install call to action routes to the early-access section; `/download/` is now an
+"how access works" page with no command, no `.dmg` and no release list. The footer, FAQ and
+download page carry no link to, or mention of, `bilo-io/midnite-apps` (guarded by tests in
+`footer.test.tsx`, `faq.test.ts` and `download-page.test.tsx`). The version feed is gone too:
+`useLatestVersion` makes no request and reports `unreleased`, so the apps pills read "Pre-release".
+The one deliberate exception is the early-access form's prefilled-issue URL, which is the gate
+itself; its preview no longer prints the repo name.
 
-The download page's one command curls **this site's** `/install.sh`
-([`packages/website/public/install.sh`](../packages/website/public/install.sh)),
-not `raw.githubusercontent.com`. Shorter, which matters for the one line anybody
-is expected to read aloud or retype, and it means the command a visitor pipes
-into a shell names the host they are already looking at instead of asking them to
-trust a third-party URL on this page's word.
-
-Three things hold that together:
-
-- **The copy is verbatim.** The script's *own* URLs are not rewritten — it still
-  resolves the version from `midnite-studio/version.json` on the raw host, which
-  is where the builds actually are.
-- **It is checked, not trusted.**
-  [`scripts/website-sync-install.mjs`](../scripts/website-sync-install.mjs)
-  fetches upstream and either `--check`s (exit 1 with a unified diff) or
-  `--write`s. `moon run website:sync-install` is `--check`;
-  `moon run website:sync-install -- --write` re-syncs. It is a moon task and
-  **not a vitest**, deliberately: a test that reaches the network fails on a
-  plane, fails in a sandbox, and turns an upstream outage into a red repo-wide
-  gate.
-- **CI runs it post-merge.** The step is in `website.yml`'s build job, which runs
-  on pushes to `main`. That is the right shape rather than a gate: upstream can
-  change with nothing merged here at all, so there is no pull request to block.
-  A drift shows up as a red build on `main`, which is a loud alarm.
-
-The FAQ's two "read `install.sh`" links still point at the **GitHub** copy on
-purpose. Those answers are about auditability, and the file in the public repo is
-the one with a history, a blame view and a commit that can be pointed at; the
-site's copy is a static byte stream. The download page's own "read it first" link
-is the site copy, because there it must be the *identical URL* the command
-fetches — a page that offers one script to read and pipes a different one into
-`sh` is the failure that pairing exists to prevent, and `download-page.test.tsx`
-asserts the two match.
+The launcher's `install.sh` is no longer served from the site. The one script the site still hosts,
+unlinked, is Studio's `public/install-studio.sh`, because the app's "Update Midnite Studio" action
+curls it (`MIDNITE_INSTALL_COMMAND`, from `shared`'s `install-command.ts`). It is a verbatim copy,
+checked rather than trusted:
+[`scripts/website-sync-install.mjs`](../scripts/website-sync-install.mjs) fetches upstream and
+either `--check`s (exit 1 with a unified diff) or `--write`s. `moon run website:sync-install` is
+`--check`; `moon run website:sync-install -- --write` re-syncs. It is a moon task and **not a
+vitest**, deliberately: a test that reaches the network fails on a plane and turns an upstream
+outage into a red repo-wide gate. CI runs it post-merge in `website.yml`'s build job, since upstream
+can change with nothing merged here. Retiring it for good means moving the in-app update off the
+site first.
 
 ## The brand face — Damion, an open stand-in for the app's
 
@@ -418,9 +395,9 @@ directory too deep.
 | `src/apps/catalog.ts` | The available apps as site copy: id, name, group, tagline, pitch, features and a four-stop **spectrum** sampled from each app's logo. Copied from the launcher's catalog rather than imported, because the site is off the graph; `catalog.test.ts` checks every id has a logo in `public/img/apps/`. Coming-soon apps are deliberately absent. |
 | `src/apps/aurora.tsx`, `src/styles/apps.css` | The animated gradient behind an app: four blurred blobs and a turning sheen in that app's spectrum, read from `--app-c1`…`--app-c4`. Also the `.ws-cascade` reveal (children stagger in by `--i`), the carousel track and the thumbnails. All of it pauses in a hidden tab and stills under reduced motion. |
 | `src/pages/apps/` | `/apps` — one hero per app in a scroll-snap carousel: logo, wordmark, pills (status, version, group, where it runs, platform), pitch and features, cascading in as each slide arrives. The fragment follows the slide (`/apps/#coder`), and the page glow cross-fades to the active app's colours. |
-| `src/pages/download-page.tsx` | `/download` — the install command, the version feed, what the script does. The command curls the site's own `public/install.sh`; see above. |
+| `src/pages/download-page.tsx` | `/download` — "Get Midnite": how access works, with every call to action routed to the early-access section. No install command, no release links. |
 | `src/pages/pricing-page.tsx` | `/pricing` — three columns (Free, Individual, Team). Public repos free; private repos are the paid boundary. No checkout — CTAs route to the early-access form. Prices are constants in this file ($8/mo Individual, $12/seat Team with a 5-seat minimum). |
-| `src/site-origin.ts` | `SITE_ORIGIN`, the site's absolute public root — for text a visitor pastes into a terminal, which `BASE_URL` cannot serve. |
+| `src/site-origin.ts` | `SITE_ORIGIN`, the site's absolute public root — for absolute URLs read outside the page (social-card meta tags), which `BASE_URL` cannot serve. |
 | `src/sections/faq/` | The FAQ. `faq.ts` holds the answers as data — the slugs are published URL fragments (`#faq-<slug>`), so they have a test rather than only a convention; `faq-section.tsx` is the tablist and the cross-fading panel. |
 | `src/sections/early-access/` | The sign-up. `issue-url.ts` composes the GitHub issue (and owns `ISSUE_TEMPLATE`, see above); `roster.ts` is the ten agent names as site copy, hard-coded rather than imported from `shared` so a marketing bundle does not pull zod in for ten strings. |
 | `src/sections/footer/` | The footer, its lane-graph horizon, and the reused version badge. |
@@ -439,10 +416,8 @@ Two rules that are not obvious from the code:
   `vitest.config.ts` (declared in `src/globals.d.ts`) — the year is a fact about
   the published artefact, so two visitors loading the same bundle see the same
   page. `__SITE_ORIGIN__` is the second such constant and had to be added to both
-  configs; a test that renders the footer or the install command needs the
+  configs; a test that renders the footer needs the
   substitution too.
 - **Nothing here may link to `bilo-io/midnite-studio`.** It is the source repo,
   built for contributors; a visitor never needs it, and the site's own tests
-  hold the line. Downloads, release notes and issues are all in
-  `midnite-apps`, and its release tags are namespaced (`midnite-studio/v0.3.1`),
-  never bare.
+  hold the line. Nor may any page link to `midnite-apps` or its releases: access is gated.

@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-creator",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Midnite Creator - docs and images (audio and video to follow), as their own app.",
   "type": "module",

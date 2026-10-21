@@ -147,16 +147,17 @@ test.describe('FAB loop console', () => {
     await expect(page.getByRole('button', { name: 'Open quick access panel' })).toBeVisible();
   });
 
-  test('a loop tab draws each setting as the control its answer wants', async ({ page }) => {
+  test('a loop tab draws each on/off setting as a switch and each contradiction as radios', async ({ page }) => {
     await open(page);
     await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
-    // Additive jobs are boxes…
-    await expect(composer.getByRole('checkbox', { name: 'Review PRs' })).toBeVisible();
-    await expect(composer.getByRole('checkbox', { name: 'Answer feedback' })).toBeVisible();
-    await expect(composer.getByRole('checkbox', { name: 'Security review' })).toBeVisible();
-    // …standing policies are switches…
+    // Additive jobs are switches…
+    await expect(composer.getByRole('switch', { name: 'Routine' })).toBeVisible();
+    await expect(composer.getByRole('switch', { name: 'Review PRs' })).toBeVisible();
+    await expect(composer.getByRole('switch', { name: 'Reply to PRs' })).toBeVisible();
+    await expect(composer.getByRole('switch', { name: 'Security review' })).toBeVisible();
+    // …so are standing policies…
     await expect(composer.getByRole('switch', { name: 'Triage only' })).toBeVisible();
     await expect(composer.getByRole('switch', { name: 'Auto-approve clean PRs' })).toBeVisible();
     // …and contradictory answers are radios.
@@ -170,8 +171,8 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Medic');
 
     const composer = page.getByTestId('loop-composer-medic');
-    await expect(composer.getByRole('checkbox', { name: 'Dependabot PRs' })).toBeVisible();
-    await expect(composer.getByRole('checkbox', { name: 'Renovate PRs' })).toBeVisible();
+    await expect(composer.getByRole('switch', { name: 'Dependabot PRs' })).toBeVisible();
+    await expect(composer.getByRole('switch', { name: 'Renovate PRs' })).toBeVisible();
     await expect(composer.getByRole('switch', { name: 'Triage only' })).toBeVisible();
 
     // The run settings are the thing every tab carries, so they are asserted on
@@ -206,9 +207,11 @@ test.describe('FAB loop console', () => {
     const start = composer.getByTestId('loop-extras-send');
     await expect(start).toBeEnabled();
 
-    // Unticking the only checked box leaves a bare `/loop` — an agent launched
-    // and told nothing — so Start goes away rather than sending it.
-    await composer.getByRole('checkbox', { name: 'Review PRs' }).uncheck();
+    // Switching off the two default-on tasks leaves a bare `/loop` — an agent
+    // launched and told nothing — so Start goes away rather than sending it.
+    await composer.getByRole('switch', { name: 'Routine' }).uncheck();
+    await expect(start).toBeEnabled();
+    await composer.getByRole('switch', { name: 'Review PRs' }).uncheck();
     await expect(start).toBeDisabled();
     await start.hover();
     await expect(page.getByRole('tooltip')).toContainText(/Pick a task/);
@@ -227,9 +230,11 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
-    // "Review PRs" is `defaultOn`, so it arrives checked; feedback is the extra pass.
-    await expect(composer.getByRole('checkbox', { name: 'Review PRs' })).toBeChecked();
-    await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
+    // "Routine" and "Review PRs" are `defaultOn`, so they arrive checked;
+    // replying to PRs is the extra pass.
+    await expect(composer.getByRole('switch', { name: 'Routine' })).toBeChecked();
+    await expect(composer.getByRole('switch', { name: 'Review PRs' })).toBeChecked();
+    await composer.getByRole('switch', { name: 'Reply to PRs' }).check();
     await composer.getByRole('radio', { name: 'Ready only' }).check();
     await composer.getByRole('radio', { name: 'Recommended' }).check();
     await composer.getByRole('switch', { name: 'Window' }).check();
@@ -251,17 +256,26 @@ test.describe('FAB loop console', () => {
     await expect.poll(async () => (await loopRuns(page)).length).toBe(1);
     const [run] = await loopRuns(page);
     expect(run?.['loopId']).toBe('watchdog');
+    /*
+      Patrol's "Routine" fragment, spelled out rather than imported: under
+      Playwright `@midnite/studio-shared` resolves to shared's compiled `dist`
+      and exposes no named exports (see `midnite-menu.spec.ts`). `loops.test.ts`
+      pins the constant itself; this only proves it reaches the line first.
+    */
+    const ROUTINE_PR_FRAGMENT =
+      'Routine PRs: on each pass, list the open PRs carrying the `routine` label and review each one; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. PRs without the `routine` label are unaffected by this rule.';
     // Tasks, then scope, then the standing rules, then the window, extras last.
     expect(run?.['composedPrompt']).toBe(
-      '/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. ' +
+      `/loop ${ROUTINE_PR_FRAGMENT} /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. ` +
         'Do every piece of work in its own git worktree — never edit the primary checkout. ' +
         'Never stop to ask: keep advancing and always take the recommended option. ' +
+        'Auto-rotate subagents at 30% context. ' +
         'Work on weekdays only — idle through Saturday and Sunday. ' +
         'Work only between 09:00 and 17:00 local time — outside that window, idle and wait rather than starting new work. ' +
         'Skip drafts.',
     );
     // Only what is on — the unflipped "Triage only" fragment must not ride along.
-    expect(run?.['checkedModifierIds']).toEqual(['pr-review', 'pr-feedback', 'worktree-only']);
+    expect(run?.['checkedModifierIds']).toEqual(['routine', 'pr-review', 'pr-feedback', 'worktree-only']);
     // The model is a `--model` flag, so the ledger records it beside the line.
     expect(run?.['model']).toBe('opus-5');
   });
@@ -364,7 +378,7 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Medic');
 
     const composer = page.getByTestId('loop-composer-medic');
-    await composer.getByRole('checkbox', { name: 'Dependabot PRs' }).check();
+    await composer.getByRole('switch', { name: 'Dependabot PRs' }).check();
     await composer.getByTestId('loop-extras-send').click();
 
     const stop = composer.getByTestId('loop-stop');
