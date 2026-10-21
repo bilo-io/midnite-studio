@@ -14,6 +14,8 @@ export type VersionState =
 
 const UNRELEASED: VersionState = { status: 'unreleased' };
 
-/** Always `unreleased`; kept as a hook so call sites need not change. */
-export const useLatestVersion = (_product: 'midnite-launcher' | 'midnite-studio' = 'midnite-launcher'): VersionState =>
-  UNRELEASED;
+/** Always `unreleased`; kept as a hook, taking the product, so call sites need not change. */
+export const useLatestVersion = (product?: 'midnite-launcher' | 'midnite-studio'): VersionState => {
+  void product;
+  return UNRELEASED;
+};
