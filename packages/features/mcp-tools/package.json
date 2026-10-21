@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-mcp-tools",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "The MCP tools feature (Phase 113 Theme N): the `midnite` MCP server's Tools view (the tool list filtered per installed app, the enable and allow switches, the call log) in the renderer, and its three channels over a server port in main. Studio's Settings ▸ MCP page and Agents' Tools tab.",
   "sideEffects": false,
