@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -8,13 +9,19 @@ import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
  * or media store (`bridge.test.ts` holds the list). The three region-overlay channels are not here: they
  * belong to the overlay window's own preload (`overlay-bridge.ts`), never the app window's.
  */
-export type CaptureBridge = { capture: MidniteStudioBridge['capture'] };
+export type CaptureBridge = {
+  /** Report an Issue: the dialog's channels and the Help-menu event (`createReportBridge`). */
+  report: ReportBridge;
+  capture: MidniteStudioBridge['capture'];
+};
 
 export type { RendererIpc };
 
 export function createCaptureBridge(ipc: RendererIpc): CaptureBridge {
-  const { call, subscribe } = createBridgeSlice(ipc);
+  const { call, send, subscribe } = createBridgeSlice(ipc);
   return {
+    // Report an Issue — the report feature's own preload half (`@midnite/studio-feature-report/bridge`).
+    report: createReportBridge({ call, send, subscribe }),
     capture: {
       status: () => call(CHANNELS.captureStatus),
       requestPermission: () => call(CHANNELS.captureRequestPermission),

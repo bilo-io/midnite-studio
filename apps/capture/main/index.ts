@@ -15,6 +15,7 @@ import {
   session,
   shell,
   systemPreferences,
+  type MenuItemConstructorOptions,
 } from 'electron';
 
 import {
@@ -25,7 +26,13 @@ import {
   type CaptureOverlayBrowserWindow,
   type CaptureService,
 } from '@midnite/studio-feature-capture/main';
-import { guardAppWindow } from '@midnite/studio-runtime';
+import {
+  buildSuiteMenuTemplate,
+  createFileSink,
+  guardAppWindow,
+  installCrashLogging,
+} from '@midnite/studio-runtime';
+import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 import { CAPTURE_OVERLAY_ARG, MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
 
 import { captureDataDir, registerCaptureAppHandlers } from './context';
@@ -89,10 +96,34 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   app.on('second-instance', () => focusWindow());
 
   void app.whenReady().then(() => {
+    // Crash log + Report an Issue: the runtime's file sink, the app's own Help menu item, and the report feature's services.
+    const log = createFileSink({ dir: app.getPath('userData'), name: 'capture.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => log.write(level, message));
+    log.write('info', `${CAPTURE_NAME} ${app.getVersion()} started`);
+    app.on('will-quit', () => log.close());
+    const reportServices = {
+      sink: () => log,
+      homeDir: () => app.getPath('home'),
+      openExternal: (url: string) => shell.openExternal(url),
+      writeClipboard: (text: string) => clipboard.writeText(text),
+      revealPath: (path: string) => shell.showItemInFolder(path),
+    };
+    // The menu's Report an Issue… reaches the focused window, falling back to the main one.
+    const sendToFocused = (channel: string, payload: unknown): void => {
+      const target = BrowserWindow.getFocusedWindow() ?? win;
+      if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+    };
+    // App, Edit and Help only (Quit, Hide; copy and paste).
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        buildSuiteMenuTemplate({
+          reportItem: reportIssueMenuItem(sendToFocused),
+          omit: { view: true, window: true },
+        }) as MenuItemConstructorOptions[],
+      ),
+    );
     const gate = createDisplayMediaGate({ isAppOrigin: isCaptureAppOrigin });
     installCapturePermissions(session.defaultSession as unknown as CapturePermissionSession, gate);
-    // The app and Edit menus only (Quit, Hide; copy and paste).
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]));
     const electron = electronCapturePort(
       {
         platform: process.platform,
@@ -108,6 +139,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     );
     capture = registerCaptureAppHandlers({
       ipcMain,
+      report: reportServices,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);

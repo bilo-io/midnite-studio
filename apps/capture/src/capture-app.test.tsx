@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — no real screen, stream or clipboard.
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { captureManifest } from '@midnite/studio-feature-capture/renderer';
@@ -13,6 +13,17 @@ import {
 
 import { CaptureApp } from './capture-app';
 import { CAPTURE_APP } from './capture-manifest';
+
+/** Report an Issue's slice of the bridge: only `onOpen` is read until the dialog opens (the feature's own tests cover the rest). */
+let openReport: (() => void) | null = null;
+const REPORT_BRIDGE = {
+  onOpen: vi.fn((handler: () => void) => {
+    openReport = handler;
+    return () => undefined;
+  }),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+  bundle: vi.fn(async () => ({ text: '' })),
+};
 
 const status: CaptureStatus = {
   permission: 'not-determined',
@@ -37,7 +48,7 @@ const capture = {
 };
 
 beforeEach(() => {
-  window.midniteStudio = { capture } as unknown as typeof window.midniteStudio;
+  window.midniteStudio = { report: REPORT_BRIDGE, capture } as unknown as typeof window.midniteStudio;
 });
 
 afterEach(() => {
@@ -79,5 +90,16 @@ describe('Capture home view', () => {
     expect((screen.getByLabelText('Global shortcut') as HTMLInputElement).value).toBe(
       'CommandOrControl+Shift+2',
     );
+  });
+});
+
+describe('Report an Issue', () => {
+  it("mounts the report feature's host: main's report:open event opens its dialog", async () => {
+    openReport = null;
+    // The suite bridge already carries `report` (see beforeEach).
+    render(<CaptureApp />);
+    await waitFor(() => expect(openReport).not.toBeNull());
+    act(() => openReport?.());
+    expect(await screen.findByTestId('report-issue-dialog')).toBeDefined();
   });
 });
