@@ -26,12 +26,13 @@ describe('apps/launcher/install.sh', () => {
     expect(script).not.toMatch(/studio/i);
   });
 
-  it('verifies the zip digest, the code signature and Gatekeeper before installing (Phase 91 Theme H)', () => {
+  it('verifies the zip digest and the code signature before installing (Phase 91 Theme H)', () => {
     expect(script).toContain('shasum -a 256');
     expect(script).toContain('codesign --verify --deep --strict');
     expect(script).toContain('spctl --assess --type execute');
-    expect(script).toContain('MIDNITE_LAUNCHER_ALLOW_UNSIGNED');
     // The quarantine strip is gated on Gatekeeper having passed.
     expect(script).toMatch(/\[ "\$gatekeeper_ok" = 1 \] && \{ run xattr/);
+    // A Gatekeeper rejection warns rather than refuses; `scripts/install-scripts.test.mjs` runs it.
+    expect(script).not.toContain('ALLOW_UNSIGNED');
   });
 });

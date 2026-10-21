@@ -21,7 +21,6 @@
 # Options (environment variables):
 #   MIDNITE_LAUNCHER_VERSION=0.3.1   install a specific version instead of the latest
 #   MIDNITE_LAUNCHER_NO_OPEN=1       don't launch the app after installing
-#   MIDNITE_LAUNCHER_ALLOW_UNSIGNED=1   install a build Gatekeeper rejects (ad-hoc signed, not notarised)
 
 set -eu
 
@@ -89,9 +88,13 @@ tmp=$(mktemp -d)
 staged="$DEST/.midnite-launcher.new.$$"
 backup="$DEST/.midnite-launcher.old.$$"
 # Best-effort cleanup of the temp dir and any staging leftovers on exit.
+# An if, not `[ … ] &&`: under `set -e` a false test as the trap's last command
+# becomes the script's exit status, so every successful install exited 1.
 cleanup() {
   rm -rf "$tmp" 2>/dev/null || true
-  [ -e "$staged" ] && { rm -rf "$staged" 2>/dev/null || sudo rm -rf "$staged" 2>/dev/null || true; }
+  if [ -e "$staged" ]; then
+    rm -rf "$staged" 2>/dev/null || sudo rm -rf "$staged" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
@@ -120,22 +123,22 @@ say "Verifying download …"
 verify_bundle "$tmp/extracted/$APP" ||
   fail "the downloaded app is incomplete (interrupted download?). Nothing was installed — re-run the installer."
 
-# Assess the signature BEFORE installing, not never (Phase 91 Theme H). codesign
-# --verify catches a tampered or broken seal; spctl asks Gatekeeper whether it
-# would run the app. A build that is ad-hoc signed and not notarised fails spctl,
-# so that path is opt-in and visible rather than silent.
+# Assess the signature BEFORE installing (Phase 91 Theme H). codesign --verify
+# catches a tampered or broken seal, and that refuses. spctl asks Gatekeeper
+# whether it would run the app; every build ships ad hoc signed until
+# notarisation lands, and Gatekeeper rejects all of those, so a rejection warns
+# rather than refuses — refusing would turn away every install of every release.
+# The sha256 above is what ties the zip to the release; spctl adds nothing to it
+# for an unnotarised build.
 say "Checking code signature …"
 codesign --verify --deep --strict "$tmp/extracted/$APP" 2>"$tmp/codesign.err" || {
   cat "$tmp/codesign.err" >&2
   fail "the app's code signature is invalid. Nothing was installed."
 }
 gatekeeper_ok=1
-if ! spctl --assess --type execute "$tmp/extracted/$APP" 2>"$tmp/spctl.err"; then
+if ! spctl --assess --type execute "$tmp/extracted/$APP" 2>/dev/null; then
   gatekeeper_ok=0
-  cat "$tmp/spctl.err" >&2
-  [ -n "${MIDNITE_LAUNCHER_ALLOW_UNSIGNED:-}" ] ||
-    fail "Gatekeeper rejects this build (signed ad hoc, not notarised). Nothing was installed. To install it anyway, re-run with MIDNITE_LAUNCHER_ALLOW_UNSIGNED=1."
-  say "warning: installing a build Gatekeeper rejects, because MIDNITE_LAUNCHER_ALLOW_UNSIGNED is set." >&2
+  say "warning: Gatekeeper rejects this build (signed ad hoc, not notarised). Its code signature is intact, so it is installed anyway." >&2
 fi
 
 # ── Install (staged + atomic) ────────────────────────────────────────────────
