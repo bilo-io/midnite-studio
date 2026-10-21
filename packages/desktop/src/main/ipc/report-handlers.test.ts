@@ -8,7 +8,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { loggerFrom } from '../log';
-import type { LogRecord, LogSink } from '../log-sink';
+import type { LogRecord, LogSink } from '@midnite/studio-runtime';
 import { formatBundle, formatReport, registerReportHandlers, setBootLine } from './report-handlers';
 
 // `vi.hoisted` because vitest lifts `vi.mock` above the imports — the factory

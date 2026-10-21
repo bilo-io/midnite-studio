@@ -4,7 +4,10 @@ import { join } from 'node:path';
 import { redactPaths } from '@midnite/studio-shared';
 
 /**
- * The file under main's one log seam — Phase 65 Theme A.
+ * The file under main's one log seam — Phase 65 Theme A. In the runtime since the report feature
+ * (it was `desktop/src/main/log-sink.ts`): every suite app's main keeps its crash log through it,
+ * and the report feature's diagnostics bundle reads its tail. It never imported `electron`, so it
+ * moved as it was.
  *
  * Until this module, `main/log.ts` was fourteen lines of `console.warn` and its
  * own header claimed the broker redirected it to a file. It did not: the broker

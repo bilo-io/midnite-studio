@@ -5,7 +5,8 @@
  * it. It holds the contract a feature's main half registers against and the
  * services every app shares (Theme D): the vault (`vault/`) and the pty
  * broker client (`broker/`), and the `midnite` CLI installer (`cli/`) and the
- * MCP tool listing per installed app (`mcp/`).
+ * MCP tool listing per installed app (`mcp/`), and the crash-log sink every app's
+ * main keeps (`log/`).
  */
 export * from './feature-main';
 export * from './window-events';
@@ -28,3 +29,4 @@ export * from './capture-output';
 export * from './process-runner';
 export * from './repo-skills';
 export * from './media';
+export * from './log';

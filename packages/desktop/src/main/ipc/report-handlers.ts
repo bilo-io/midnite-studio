@@ -12,7 +12,7 @@ import {
 import { app, shell } from 'electron';
 
 import { defaultLogger, getLogSink, type Logger } from '../log';
-import type { LogSink } from '../log-sink';
+import type { LogSink } from '@midnite/studio-runtime';
 import { createAppIssue } from '@midnite/studio-feature-forge/main';
 import { handle, handleBare, handleSend } from './handle';
 

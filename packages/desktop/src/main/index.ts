@@ -5,6 +5,7 @@ import { totalmem } from 'node:os';
 
 import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-engine';
 import {
+  createFileSink,
   createPairingStore,
   createVaultGrants,
   createVaultService,
@@ -148,7 +149,6 @@ import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerPrivilegedSchemes, setVideoFileRootProvider } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
 import { registerReportHandlers, setBootLine } from './ipc/report-handlers';
-import { createFileSink } from './log-sink';
 import { bootMark } from './perf-marks';
 import { startHeapSampler } from '../heap-sampler';
 import { ensureLoginShellPathAsync } from './shell-path';
