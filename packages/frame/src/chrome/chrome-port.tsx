@@ -2,7 +2,7 @@ import { createContext, useContext, type ComponentType, type ReactNode } from 'r
 
 import type { PageWindowRole } from '@midnite/studio-shared';
 
-import type { ConfirmRequest, FrameDialogs, IconButtonProps } from './types';
+import type { ConfirmRequest, FrameDialogs, FrameModalProps, IconButtonProps } from './types';
 
 /**
  * The frame's chrome port — Phase 113 Theme C's seam for chrome that belongs
@@ -31,6 +31,12 @@ export type FrameChrome = {
   /** A hook — call it at the top of a component, like any other. */
   useDialogs: () => FrameDialogs;
   PageDetachMark: ComponentType<{ role: PageWindowRole }>;
+  /**
+   * The app's modal, when it has one of its own. Optional: `FrameModal` falls back to the kit's
+   * `KitModal`. Studio installs its `Modal` so a feature dialog joins its dismissal stack and
+   * occluder count (a live browser view never paints over it) exactly as Studio's own dialogs do.
+   */
+  Modal?: ComponentType<FrameModalProps>;
 };
 
 const FrameChromeContext = createContext<FrameChrome | null>(null);

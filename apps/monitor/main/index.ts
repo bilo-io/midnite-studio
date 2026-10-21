@@ -2,12 +2,11 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 
-import { guardAppWindow } from '@midnite/studio-runtime';
+import { createFileSink, guardAppWindow, installCrashLogging } from '@midnite/studio-runtime';
 
 import type { MetricsService } from '@midnite/studio-feature-monitor/main';
 
 import { registerMonitorHandlers } from './context';
-import { createCrashLog } from './crash-log';
 import { MONITOR_NAME, SMOKE_READY_LINE, USER_DATA_ENV, monitorRuntimeDirectory, monitorUserData, isSmoke } from './identity';
 import { createMonitorSessions } from './shared-sessions';
 
@@ -36,9 +35,9 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
-    const log = createCrashLog(join(app.getPath('userData'), 'monitor.log'), app.getPath('home'));
-    process.on('uncaughtException', (error) => log.write('error', `uncaught: ${error.stack ?? error.message}`));
-    process.on('unhandledRejection', (reason) => log.write('error', `unhandled rejection: ${String(reason)}`));
+    // The runtime's crash-log sink (NDJSON, rotated, redacted), the one Studio's main writes through too.
+    const log = createFileSink({ dir: app.getPath('userData'), name: 'monitor.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => log.write(level, message));
     log.write('info', `${MONITOR_NAME} ${app.getVersion()} started`);
     registerMonitorHandlers({
       ipcMain,

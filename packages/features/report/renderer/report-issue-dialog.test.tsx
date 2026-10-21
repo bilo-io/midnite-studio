@@ -1,23 +1,33 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useUiStore } from '../store/ui-store';
 import { composeIssueBody, ReportIssueDialog, ReportIssueHost } from './report-issue-dialog';
+import { openReportIssue, useReportIssueStore } from './report-issue-store';
 
 const bundleFn = vi.fn();
 const cliStatusFn = vi.fn();
 const submitIssueFn = vi.fn();
 const openExternalFn = vi.fn();
 const writeTextFn = vi.fn();
+let onOpenHandler: (() => void) | null = null;
 
 vi.mock('@midnite/studio-frame', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
+  // Only `report.*` and `appVersion`: the dialog reaches nothing else, in any app.
   bridge: () => ({
-    report: { bundle: bundleFn, submitIssue: submitIssueFn },
-    forge: { cliStatus: cliStatusFn },
-    shell: { openExternal: openExternalFn },
-    clipboard: { writeText: writeTextFn },
+    report: {
+      bundle: bundleFn,
+      submitIssue: submitIssueFn,
+      ghStatus: cliStatusFn,
+      openUrl: openExternalFn,
+      copy: writeTextFn,
+      onOpen: (handler: () => void) => {
+        onOpenHandler = handler;
+        return () => {
+          onOpenHandler = null;
+        };
+      },
+    },
     appVersion: '0.0.3',
   }),
   hasBridge: () => true,
@@ -30,13 +40,8 @@ const NOT_INSTALLED_CLI = {
   hint: 'brew install gh',
 };
 
-function renderDialog(onClose: () => void = () => {}) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
-    <QueryClientProvider client={queryClient}>
-      <ReportIssueDialog open onClose={onClose} />
-    </QueryClientProvider>,
-  );
+function renderDialog(onClose: () => void = () => {}, app?: string) {
+  render(<ReportIssueDialog open onClose={onClose} {...(app ? { app } : {})} />);
 }
 
 afterEach(() => {
@@ -46,7 +51,7 @@ afterEach(() => {
   submitIssueFn.mockReset();
   openExternalFn.mockReset();
   writeTextFn.mockReset();
-  useUiStore.setState({ reportIssueOpen: false });
+  useReportIssueStore.setState({ open: false });
 });
 
 describe('ReportIssueDialog — bug/feature toggle', () => {
@@ -149,6 +154,7 @@ describe('ReportIssueDialog — submit', () => {
     expect(call.kind).toBe('bug');
     expect(call.body).toContain('Clicked sync and it spun forever.');
     expect(call.body).toContain('log tail');
+    expect(call.app).toBe('midnite-studio');
     // The section midnite-apps' label workflow reads — without it, gh's `app:` label is stripped.
     expect(call.body).toContain('### App\n\nmidnite-studio');
     expect(call.body).toContain('### Version\n\n0.0.3');
@@ -280,22 +286,63 @@ describe('ReportIssueDialog — Copy report', () => {
   });
 });
 
-describe('ReportIssueHost — the app-wide instance app.reportIssue opens', () => {
+describe('ReportIssueHost — the app-wide instance', () => {
   it('renders nothing until the store opens it, and closes back through the store', async () => {
     bundleFn.mockResolvedValue({ text: '' });
     cliStatusFn.mockResolvedValue(READY_CLI);
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ReportIssueHost />
-      </QueryClientProvider>,
-    );
+    render(<ReportIssueHost />);
     expect(screen.queryByTestId('report-issue-dialog')).toBeNull();
 
-    act(() => useUiStore.getState().setReportIssueOpen(true));
+    act(() => openReportIssue());
     await screen.findByTestId('report-issue-dialog');
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(useUiStore.getState().reportIssueOpen).toBe(false);
+    expect(useReportIssueStore.getState().open).toBe(false);
+  });
+
+  it("opens on main's report:open event — an app's Help menu item", async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    render(<ReportIssueHost app="midnite-monitor" />);
+    expect(onOpenHandler).not.toBeNull();
+
+    act(() => onOpenHandler?.());
+    await screen.findByTestId('report-issue-dialog');
+  });
+});
+
+describe('ReportIssueDialog — another app', () => {
+  it('names the filing app in the body, the form URL and the submission', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    submitIssueFn.mockResolvedValue({ ok: true, cli: READY_CLI, error: null, url: null });
+    renderDialog(() => {}, 'midnite-monitor');
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] CPU chart froze' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It froze.' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => expect(submitIssueFn).toHaveBeenCalledTimes(1));
+    const call = submitIssueFn.mock.calls[0]![0];
+    expect(call.app).toBe('midnite-monitor');
+    expect(call.body).toContain('### App\n\nmidnite-monitor');
+    expect(await screen.findByText(/No link came back, but it was filed\./)).not.toBeNull();
+  });
+
+  it('without gh, the form URL carries the app too', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(NOT_INSTALLED_CLI);
+    renderDialog(() => {}, 'midnite-monitor');
+
+    await screen.findByText('brew install gh');
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] x' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'y' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue on GitHub' }));
+
+    const url = new URL((openExternalFn.mock.calls[0]![0] as { url: string }).url);
+    expect(url.searchParams.get('app')).toBe('midnite-monitor');
   });
 });

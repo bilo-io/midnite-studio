@@ -2,56 +2,32 @@
 import type { ForgeCliStatus } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createAppIssue, createAppIssueCommand, parseCreatedIssueUrl } from './gh-app-issue';
+import { appIssueLabels, createAppIssue, createAppIssueCommand, parseCreatedIssueUrl } from './app-issue';
+import type { GhRunner, GhRunResult } from './gh';
 
 /**
- * The one write with no `Forge` — always `bilo-io/midnite-apps`, regardless
- * of which repo (if any) is open in the git client.
+ * The one write with no `Forge` — always `bilo-io/midnite-apps`, whichever app files it.
  *
- * `runInShell` is mocked; `shellQuote` is real, same discipline
- * `gh-write.test.ts` applies — the quoting is exactly the thing worth getting
- * right, and stubbing it would make the test agree with itself instead of
- * with the function that does the escaping.
- *
- * **No real issue is ever filed by this suite** — `bilo-io/midnite-apps` is a
- * public, currently-empty board, and posting a test issue to it would be
- * visible to anyone and impossible to take back. Every assertion here is
- * against the built command string or a mocked `runInShell` result.
+ * `gh` is an injected port, so nothing is mocked by module path (a stale path mock once let a real
+ * `gh` file a public issue — see `scripts/vitest-isolate-gh.mjs`). `shellQuote` is real: the
+ * quoting is exactly the thing worth getting right. **No real issue is ever filed by this suite.**
  */
 
-const { runInShell, ghStatus } = vi.hoisted(() => ({
-  runInShell: vi.fn<
-    (
-      command: string,
-      timeout: number,
-      options?: { combine?: boolean },
-    ) => Promise<{
-      output: string;
-      stdout: string;
-      stderr: string;
-      exitCode: number | null;
-    }>
-  >(),
-  ghStatus: vi.fn<() => Promise<ForgeCliStatus>>(async () => ({
-    reason: 'ready',
-    binPath: '/usr/bin/gh',
-    hint: '',
-  })),
-}));
-
-vi.mock('./gh-shell', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./gh-shell')>();
-  return {
-    ...actual,
-    runInShell,
-    ghStatus,
-  };
-});
+const run = vi.fn<(command: string, timeoutMs: number) => Promise<GhRunResult>>();
+const status = vi.fn<() => Promise<ForgeCliStatus>>();
+const gh: GhRunner = { run, status };
 
 beforeEach(() => {
-  runInShell.mockReset();
-  ghStatus.mockReset();
-  ghStatus.mockResolvedValue({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' });
+  run.mockReset();
+  status.mockReset();
+  status.mockResolvedValue({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' });
+});
+
+describe('appIssueLabels', () => {
+  it('pairs the kind with the filing app, Studio by default', () => {
+    expect(appIssueLabels('bug')).toEqual(['bug', 'app: midnite-studio']);
+    expect(appIssueLabels('feature', 'midnite-monitor')).toEqual(['enhancement', 'app: midnite-monitor']);
+  });
 });
 
 describe('createAppIssueCommand', () => {
@@ -119,14 +95,13 @@ describe('parseCreatedIssueUrl', () => {
 
 describe('createAppIssue', () => {
   it('creates a bug report with the bug label pair, returning the parsed url', async () => {
-    runInShell.mockResolvedValue({
+    run.mockResolvedValue({
       output: 'https://github.com/bilo-io/midnite-apps/issues/9\n',
       stdout: 'https://github.com/bilo-io/midnite-apps/issues/9\n',
-      stderr: '',
       exitCode: 0,
     });
 
-    const result = await createAppIssue({ title: '[bug] it crashed', body: 'diagnostics', kind: 'bug' });
+    const result = await createAppIssue(gh, { title: '[bug] it crashed', body: 'diagnostics', kind: 'bug' });
 
     expect(result).toEqual({
       ok: true,
@@ -134,30 +109,29 @@ describe('createAppIssue', () => {
       error: null,
       url: 'https://github.com/bilo-io/midnite-apps/issues/9',
     });
-    const command = runInShell.mock.calls[0]?.[0] ?? '';
+    const command = run.mock.calls[0]?.[0] ?? '';
     expect(command).toContain("--label 'bug' --label 'app: midnite-studio'");
     expect(command).not.toContain('enhancement');
   });
 
   it('creates a feature request with the enhancement label pair', async () => {
-    runInShell.mockResolvedValue({
+    run.mockResolvedValue({
       output: 'https://github.com/bilo-io/midnite-apps/issues/10\n',
       stdout: 'https://github.com/bilo-io/midnite-apps/issues/10\n',
-      stderr: '',
       exitCode: 0,
     });
 
-    await createAppIssue({ title: '[feat] add dark mode', body: 'would love this', kind: 'feature' });
+    await createAppIssue(gh, { title: '[feat] add dark mode', body: 'would love this', kind: 'feature' });
 
-    const command = runInShell.mock.calls[0]?.[0] ?? '';
+    const command = run.mock.calls[0]?.[0] ?? '';
     expect(command).toContain("--label 'enhancement' --label 'app: midnite-studio'");
     expect(command).not.toContain("'bug'");
   });
 
   it('succeeds without a url when gh prints something the pattern misses', async () => {
-    runInShell.mockResolvedValue({ output: 'ok, no url this time', stdout: 'ok, no url this time', stderr: '', exitCode: 0 });
+    run.mockResolvedValue({ output: 'ok, no url this time', stdout: 'ok, no url this time', exitCode: 0 });
 
-    const result = await createAppIssue({ title: 't', body: 'b', kind: 'bug' });
+    const result = await createAppIssue(gh, { title: 't', body: 'b', kind: 'bug' });
 
     expect(result).toEqual({
       ok: true,
@@ -168,14 +142,13 @@ describe('createAppIssue', () => {
   });
 
   it('reports a gh failure with its own words, never a generic string', async () => {
-    runInShell.mockResolvedValue({
+    run.mockResolvedValue({
       output: 'HTTP 422: Validation Failed (https://api.github.com/repos/bilo-io/midnite-apps/issues)',
       stdout: '',
-      stderr: 'HTTP 422: Validation Failed (https://api.github.com/repos/bilo-io/midnite-apps/issues)',
       exitCode: 1,
     });
 
-    const result = await createAppIssue({ title: 't', body: 'b', kind: 'bug' });
+    const result = await createAppIssue(gh, { title: 't', body: 'b', kind: 'bug' });
 
     expect(result.ok).toBe(false);
     expect(result.url).toBeNull();
@@ -183,15 +156,15 @@ describe('createAppIssue', () => {
   });
 
   it('attempts nothing, and surfaces the probe result, when gh has no credential', async () => {
-    ghStatus.mockResolvedValue({
+    status.mockResolvedValue({
       reason: 'not-authenticated',
       binPath: '/usr/bin/gh',
       hint: 'Run `gh auth login` in a terminal to see Actions and Reviews here.',
     });
 
-    const result = await createAppIssue({ title: 't', body: 'b', kind: 'bug' });
+    const result = await createAppIssue(gh, { title: 't', body: 'b', kind: 'bug' });
 
-    expect(runInShell).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
     expect(result).toEqual({
       ok: false,
       cli: {
@@ -202,5 +175,13 @@ describe('createAppIssue', () => {
       error: null,
       url: null,
     });
+  });
+});
+
+describe('createAppIssue for another app', () => {
+  it('labels the issue with the app that filed it', async () => {
+    run.mockResolvedValue({ output: '', stdout: 'https://github.com/bilo-io/midnite-apps/issues/11\n', exitCode: 0 });
+    await createAppIssue(gh, { title: 't', body: 'b', kind: 'bug', app: 'midnite-monitor' });
+    expect(run.mock.calls[0]?.[0]).toMatch(/--label 'bug' --label 'app: midnite-monitor'$/);
   });
 });

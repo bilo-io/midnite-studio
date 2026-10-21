@@ -223,6 +223,7 @@ export { SETTINGS_SECTIONS, settingsSectionId, type SettingsSection } from './se
 
 // The chrome port — chrome still implemented in packages/app, reached through context.
 export { FrameChromeProvider, useFrameChrome, useOptionalFrameChrome, type FrameChrome } from './chrome/chrome-port';
+export { FrameModal } from './chrome/frame-modal';
 export type {
   BlastRadius,
   BlastRadiusKind,
@@ -230,6 +231,7 @@ export type {
   FrameDialogs,
   FrameMenuEntry,
   FrameMenuItem,
+  FrameModalProps,
   FramePromptRequest,
   IconButtonProps,
   IconComponent,

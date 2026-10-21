@@ -1,15 +1,20 @@
 import { monitorMain, type MetricsService, type UsageSession } from '@midnite/studio-feature-monitor/main';
-import { createIpcContext, registerHandoffOpener, type IpcContextElectron } from '@midnite/studio-runtime';
+import {
+  bundleFromSink,
+  createIpcContext,
+  registerHandoffOpener,
+  type IpcContextElectron,
+  type LogSink,
+} from '@midnite/studio-runtime';
 import { CHANNELS, type schemas } from '@midnite/studio-shared';
 import type { z } from 'zod';
-
-import type { CrashLog } from './crash-log';
 
 /** The electron pieces Monitor's main needs, injected so registration is testable under bare vitest. */
 export type MonitorElectron = IpcContextElectron & {
   /** Handed the sampler so main can pause it as the window blurs or hides. */
   onMetricsService(service: MetricsService): void;
-  log: CrashLog;
+  /** Monitor's crash log — the runtime's file sink, the same one Studio's main writes through. */
+  log: LogSink;
   /**
    * The live terminal sessions, read-only. Monitor owns no pty broker: main composes this over the
    * runtime host's broker as a guest (`shared-sessions.ts`); absent it, Monitor lists none.
@@ -49,5 +54,6 @@ export function registerMonitorHandlers(el: MonitorElectron): void {
   });
   el.ipcMain.handle(CHANNELS.terminalList, () => el.listSessions?.() ?? NO_BROKER);
   el.ipcMain.handle(CHANNELS.reportLogPath, () => ({ path: el.log.path }));
-  el.ipcMain.handle(CHANNELS.reportBundle, () => ({ text: el.log.bundle() }));
+  // No boot line: Monitor's first record is its own "started" line.
+  el.ipcMain.handle(CHANNELS.reportBundle, () => ({ text: bundleFromSink(el.log, '', el.homeDir) }));
 }

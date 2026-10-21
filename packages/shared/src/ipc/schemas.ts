@@ -8,6 +8,13 @@ import {
 } from '../media-map-capture';
 import { MapOpenEventSchema } from '../media-map-mcp';
 import {
+  APP_ISSUE_URL_MAX,
+  APP_ISSUES_URL_PREFIX,
+  DEFAULT_ISSUE_APP,
+  isAppIssuesUrl,
+  ISSUE_APP_PATTERN,
+} from '../release';
+import {
   CaptureAttachmentResponseSchema,
   CaptureChangedSchema,
   CaptureIdRequestSchema,
@@ -4304,19 +4311,27 @@ export const ReportLogPathResponse = z.object({ path: z.string().nullable() });
 /** The diagnostics block, already redacted. Empty when there is nothing to report. */
 export const ReportBundleResponse = z.object({ text: z.string() });
 
+/** An app's slug on midnite-apps' tracker — `midnite-studio`. It becomes a `--label`, so its shape is fixed. */
+export const AppIssueAppSchema = z.string().max(64).regex(ISSUE_APP_PATTERN, 'not a midnite app slug');
+
 /**
  * File an issue on `bilo-io/midnite-apps` — Phase 93.
  *
  * `title` is capped the same 1 KB `ErrorReportSchema.message` is; `body` reuses
  * `FORGE_BODY_MAX` (65,536), the same generous ceiling every other forge write
  * body carries, since it is a description plus a diagnostics block rather than
- * a short line. `kind` picks the label pair (`gh-app-issue.ts`) and the
+ * a short line. `kind` picks the label pair (`features/report/main/app-issue.ts`, with `app`) and the
  * composer's default title prefix — it never reaches `gh` as a flag of its own.
  */
 export const AppIssueSubmitRequestSchema = z.object({
   title: z.string().trim().min(1, 'a title is required').max(1024),
   body: z.string().max(FORGE_BODY_MAX),
   kind: z.enum(['bug', 'feature']),
+  /**
+   * Which app the issue is about (Report feature, PR B of the suite-wide reporter): its `app: <slug>`
+   * label. Optional on the wire — Studio's reports predate it — and defaulted to Studio's slug.
+   */
+  app: AppIssueAppSchema.default(DEFAULT_ISSUE_APP),
 });
 export type AppIssueSubmitRequest = z.infer<typeof AppIssueSubmitRequestSchema>;
 
@@ -4335,6 +4350,38 @@ export const AppIssueSubmitResultSchema = ForgeWriteResultSchema.extend({
   url: z.string().nullable().default(null),
 });
 export type AppIssueSubmitResult = z.infer<typeof AppIssueSubmitResultSchema>;
+
+/*
+  The rest of the report bridge (the report feature, `packages/features/report`). The dialog reaches
+  main through `report.*` and nothing else, so an app wires one namespace, not four: these three
+  stand in for `forge.cliStatus`, `shell.openExternal` and `clipboard.writeText`, each narrowed to
+  what reporting needs.
+*/
+
+/** `gh`'s readiness, for the dialog to choose between Submit and Continue on GitHub. */
+export const ReportGhStatusResponse = ForgeCliStatusSchema;
+
+/**
+ * Open one of midnite-apps' issue pages — the prefilled form, or the issue just filed. Jailed to
+ * {@link APP_ISSUES_URL_PREFIX} here AND re-checked in the handler, unlike `OpenExternalRequest`'s
+ * protocol-only allowlist: an app with nothing else to open gets no general-purpose opener.
+ */
+export const ReportOpenUrlRequest = z.object({
+  url: z
+    .string()
+    .max(APP_ISSUE_URL_MAX)
+    .refine(isAppIssuesUrl, { message: `only ${APP_ISSUES_URL_PREFIX} pages can be opened` }),
+});
+export const ReportOpenUrlResponse = GitOpResultSchema;
+
+/**
+ * Copy report: the whole title and body, so it is capped like a body rather than at
+ * `CLIPBOARD_MAX_LENGTH` — a report with its diagnostics tail runs far past 8 KB.
+ */
+export const ReportCopyRequest = z.object({
+  text: z.string().min(1).max(FORGE_BODY_MAX + 1026),
+});
+export const ReportCopyResponse = ClipboardWriteTextResponse;
 
 // --- MCP server (Phase 57 Themes E, F) --------------------------------------
 //

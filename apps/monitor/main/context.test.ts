@@ -1,17 +1,24 @@
 // @vitest-environment node
 // vitest, not Playwright: handler registration is logic over an injected ipcMain — no browser needed.
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { monitorManifest } from '@midnite/studio-feature-monitor/main';
+import { createFileSink } from '@midnite/studio-runtime';
 import { CHANNELS, handoffLink } from '@midnite/studio-shared';
 
 import { registerMonitorHandlers } from './context';
-import { createCrashLog } from './crash-log';
+
+const HOME = '/Users/someone';
+const newLog = () => createFileSink({ dir: mkdtempSync(join(tmpdir(), 'monitor-log-')), name: 'monitor.log', homeDir: HOME });
 
 function setup() {
   const handlers = new Map<string, (event: unknown, raw: unknown) => unknown>();
   const on = new Set<string>();
-  const log = createCrashLog('/tmp/monitor.log', '/Users/someone', { now: () => 0, append: () => undefined });
+  const log = newLog();
   const onMetricsService = vi.fn();
   registerMonitorHandlers({
     ipcMain: { handle: (c, l) => void handlers.set(c, l), on: (c) => void on.add(c) },
@@ -19,6 +26,7 @@ function setup() {
     send: () => undefined,
     onMetricsService,
     log,
+    homeDir: HOME,
   });
   return { handlers, on, log, onMetricsService };
 }
@@ -48,7 +56,7 @@ describe('registerMonitorHandlers', () => {
       trashItem: async () => undefined,
       send: () => undefined,
       onMetricsService: () => undefined,
-      log: createCrashLog('/tmp/monitor.log', '/Users/someone', { now: () => 0, append: () => undefined }),
+      log: newLog(),
       openExternal: async (url) => void opened.push(url),
     });
     const link = handoffLink({ app: 'studio', ref: { kind: 'session', id: 's1' } });
@@ -64,7 +72,8 @@ describe('registerMonitorHandlers', () => {
   it('answers the crash-log reads from the log, with home redacted', () => {
     const { handlers, log } = setup();
     log.write('error', 'boom at /Users/someone/secret/file.ts');
-    expect(handlers.get(CHANNELS.reportLogPath)?.({}, undefined)).toEqual({ path: '/tmp/monitor.log' });
+    expect(handlers.get(CHANNELS.reportLogPath)?.({}, undefined)).toEqual({ path: log.path });
+    expect(log.path.endsWith('monitor.log')).toBe(true);
     const { text } = handlers.get(CHANNELS.reportBundle)?.({}, undefined) as { text: string };
     expect(text).toContain('ERROR boom at');
     expect(text).not.toContain('/Users/someone');

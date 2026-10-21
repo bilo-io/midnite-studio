@@ -3,58 +3,46 @@ import { useEffect, useState } from 'react';
 import { Accordion } from '@bilo-io/ui';
 import { LuCheck, LuCircleAlert, LuCopy, LuExternalLink, LuLoaderCircle } from 'react-icons/lu';
 
+import { bridge, FrameModal, RingSpinner as Spinner } from '@midnite/studio-frame';
 import {
   appIssueBody,
   appIssueFormUrl,
+  DEFAULT_ISSUE_APP,
   FORGE_BODY_MAX,
   type AppIssueSubmitRequest,
+  type AppIssueSubmitResult,
+  type ForgeCliStatus,
 } from '@midnite/studio-shared';
 
-import { bridge } from '../services/bridge';
-import { openExternal, useForgeCli, useSubmitAppIssue } from '../services/queries';
-import { useUiStore } from '../store/ui-store';
-import { Modal } from './modal';
-import { Spinner } from './skeleton';
+import { useReportIssueStore } from './report-issue-store';
 
 /**
- * Files a bug or feature request against `bilo-io/midnite-apps` from inside
- * the app — Phase 93 Theme C.
+ * Files a bug or feature request against `bilo-io/midnite-apps` from inside any midnite app — the
+ * Phase 93 dialog Studio had, moved into the report feature so every app reports the same way.
  *
- * Lives beside `confirm-dialog.tsx`/`prompt-dialog.tsx` rather than under
- * `features/`: it is triggered from two unrelated places
- * (`monitor-page.tsx`'s Diagnostics accordion and `version-notes-panel.tsx`),
- * neither of which owns it. Unlike those two dialogs, it is not routed through
- * `DialogHost` — `confirm`/`notify`/`openMenu` all take a one-shot request
- * object with no local state of their own, where this one owns a form (a
- * kind toggle, a title, a description, a fetched diagnostics block) across a
- * multi-step submit. Each call site keeps its own `open` boolean and renders
- * `<ReportIssueDialog open={…} onClose={…} />` directly — the same pattern
- * `browser-launcher.tsx` already uses for a feature-owned modal.
+ * **It reaches main only through `bridge().report`** (`ghStatus`, `bundle`, `submitIssue`,
+ * `openUrl`, `copy`) plus `appVersion`, so an app wires it by exposing that one namespace
+ * (`createReportBridge`) and registering the feature's main half. No react-query: an app may have
+ * no `QueryClientProvider`, so the gh probe and the submission are this component's own state.
  *
- * **Redaction stays the single path (Theme D).** The diagnostics text below
- * is rendered byte-identical to what `report.bundle()` returns — already
- * redacted main-side through `redactPaths` (Phase 65 Theme B) — and this
- * component never calls `redactPaths` itself. The only shaping done here is
- * string concatenation (description + a header + the diagnostics block), and
- * the result is clamped to `FORGE_BODY_MAX` defensively before it reaches the
- * IPC boundary, on top of (not instead of) the schema's own cap — a renderer
- * bug that produced a runaway string should not depend on the main process to
- * notice.
+ * **`app` names the filing app** (`midnite-studio` by default): it is the body's `### App` section,
+ * the form URL's `app=` and the submission's `app`, which main turns into the `app: <slug>` label.
  *
- * **Without `gh` it still files.** Filing in-app needs the GitHub CLI installed and signed in; on a
- * machine without it (or when `gh` refuses, e.g. no write access) the primary action becomes
- * *Continue on GitHub*, which opens midnite-apps' own issue form prefilled with the same title,
- * words and diagnostics (`appIssueFormUrl`) for the reporter to submit under their own account —
- * the way midnite's reporter has always worked.
+ * **Redaction stays the single path.** The diagnostics text is rendered byte-identical to what
+ * `report.bundle()` returns — already redacted main-side through `redactPaths` — and this component
+ * never calls `redactPaths` itself. The body is clamped to `FORGE_BODY_MAX` defensively before it
+ * reaches the IPC boundary, on top of (not instead of) the schema's own cap.
  *
- * **And when neither works, Copy report.** The form URL trims the oldest log lines to stay under
- * GitHub's ceiling, and `gh` can refuse; the copy button puts the whole title and body on the
- * clipboard (main-side, since the packaged app's `file://` origin has no `navigator.clipboard`), so
- * the full report can always be pasted somewhere by hand.
+ * **Without `gh` it still files.** On a machine without a signed-in `gh` (or when `gh` refuses), the
+ * primary action becomes *Continue on GitHub*, which opens midnite-apps' own issue form prefilled
+ * with the same title, words and diagnostics (`appIssueFormUrl`).
  *
- * **One app-wide instance besides the two local ones.** `ReportIssueHost` is mounted once at the app
- * root and opened through `useUiStore`'s `reportIssueOpen` — that is what `app.reportIssue` (the
- * Help menu and the palette) reaches.
+ * **And when neither works, Copy report** puts the whole title and body on the clipboard
+ * (main-side, since a packaged `file://` origin has no `navigator.clipboard`).
+ *
+ * **One app-wide instance besides any local ones.** `ReportIssueHost` is mounted once at the app
+ * root and opened through `openReportIssue()` — and by main's `report:open` event, for an app whose
+ * Help menu has the item.
  */
 
 type AppIssueKind = AppIssueSubmitRequest['kind'];
@@ -86,6 +74,7 @@ export function composeIssueBody(draft: {
   description: string;
   diagnostics: string;
   version?: string;
+  app?: string;
 }): string {
   return appIssueBody({ ...draft, title: '' }).slice(0, FORGE_BODY_MAX);
 }
@@ -93,9 +82,15 @@ export function composeIssueBody(draft: {
 export type ReportIssueDialogProps = {
   open: boolean;
   onClose: () => void;
+  /** The filing app's slug (`midnite-<name>`) — its label and its `### App` section. */
+  app?: string;
 };
 
-export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
+/** No bridge (a plain browser, a test without one): the same "nothing was attempted" answers Studio used. */
+const NO_CLI: ForgeCliStatus = { reason: 'not-installed', binPath: null, hint: '' };
+const NO_WRITE: AppIssueSubmitResult = { ok: false, cli: NO_CLI, error: null, url: null };
+
+export function ReportIssueDialog({ open, onClose, app = DEFAULT_ISSUE_APP }: ReportIssueDialogProps) {
   const [kind, setKind] = useState<AppIssueKind>('bug');
   const [title, setTitle] = useState(KIND_COPY.bug.titlePrefix);
   const [description, setDescription] = useState('');
@@ -106,8 +101,13 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
 
   const [copied, setCopied] = useState(false);
 
-  const cli = useForgeCli();
-  const submit = useSubmitAppIssue();
+  const [cliStatus, setCliStatus] = useState<ForgeCliStatus | undefined>(undefined);
+  const [pending, setPending] = useState(false);
+  const [result, setResult] = useState<AppIssueSubmitResult | undefined>(undefined);
+  const resetSubmit = () => {
+    setPending(false);
+    setResult(undefined);
+  };
 
   // Fresh draft every time the dialog opens — a report filed once should not
   // haunt the next open, and the diagnostics tail is re-fetched because time
@@ -118,15 +118,25 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     setTitle(KIND_COPY.bug.titlePrefix);
     setDescription('');
     setCopied(false);
-    submit.reset();
+    resetSubmit();
 
     const api = bridge();
     if (!api) {
       setBundle({ text: '', loading: false });
+      setCliStatus(NO_CLI);
       return;
     }
     let cancelled = false;
     setBundle({ text: '', loading: true });
+    // Re-probed on every open: `gh auth login` happens in a terminal beside the app.
+    void api.report
+      .ghStatus()
+      .then((status) => {
+        if (!cancelled) setCliStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) setCliStatus(undefined);
+      });
     void api.report
       .bundle()
       .then((res) => {
@@ -138,7 +148,7 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only keys on `open`
+    // Reset keys on `open` alone: `app` and the setters never change a draft mid-flight.
   }, [open]);
 
   const switchKind = (next: AppIssueKind) => {
@@ -151,7 +161,6 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     setKind(next);
   };
 
-  const cliStatus = cli.data;
   const cliReady = cliStatus?.reason === 'ready';
   const cliChecked = cliStatus !== undefined;
   const showFallback = cliChecked && !cliReady;
@@ -159,43 +168,58 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
   const trimmedTitle = title.trim();
   const trimmedDescription = description.trim();
   const canSubmit =
-    trimmedTitle.length > 0 && trimmedDescription.length > 0 && !submit.isPending && !showFallback;
+    trimmedTitle.length > 0 && trimmedDescription.length > 0 && !pending && !showFallback;
 
-  const result = submit.data;
   const submitError = result && !result.ok ? (result.error ?? cliHint(result.cli)) : null;
 
   const close = () => {
-    submit.reset();
+    resetSubmit();
     onClose();
+  };
+
+  const openIssuePage = (url: string) => {
+    // A refused URL resolves `{ok:false}`; a lost bridge must not become an unhandled rejection.
+    void Promise.resolve(bridge()?.report.openUrl({ url })).catch(() => null);
   };
 
   const canContinueOnGitHub = trimmedTitle.length > 0 && trimmedDescription.length > 0;
   const continueOnGitHub = () => {
     if (!canContinueOnGitHub) return;
-    openExternal(
+    openIssuePage(
       appIssueFormUrl({
         kind,
         title: trimmedTitle,
         description,
         diagnostics: bundle.text,
         version: bridge()?.appVersion,
+        app,
       }),
     );
     close();
   };
 
   const body = () =>
-    composeIssueBody({ kind, description, diagnostics: bundle.text, version: bridge()?.appVersion });
+    composeIssueBody({ kind, description, diagnostics: bundle.text, version: bridge()?.appVersion, app });
 
   const onSubmit = () => {
     if (!canSubmit) return;
-    submit.mutate({ title: trimmedTitle, body: body(), kind });
+    const api = bridge();
+    if (!api) {
+      setResult(NO_WRITE);
+      return;
+    }
+    setPending(true);
+    // A rejected call leaves no result, as the react-query mutation Studio used to hold did.
+    void api.report
+      .submitIssue({ title: trimmedTitle, body: body(), kind, app })
+      .then(setResult, () => setResult(undefined))
+      .finally(() => setPending(false));
   };
 
   const copyReport = async () => {
     const text = `${trimmedTitle}\n\n${body()}`;
     const written = await bridge()
-      ?.clipboard.writeText({ text })
+      ?.report.copy({ text })
       .catch(() => null);
     if (!written?.ok) return;
     setCopied(true);
@@ -203,7 +227,7 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
   };
 
   return (
-    <Modal
+    <FrameModal
       open={open}
       onClose={close}
       scope="window"
@@ -301,7 +325,7 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
               <button
                 type="button"
                 onClick={() => {
-                  openExternal(result.url as string);
+                  openIssuePage(result.url as string);
                   close();
                 }}
                 className="font-medium text-primary underline underline-offset-2"
@@ -369,7 +393,7 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
               onClick={onSubmit}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {submit.isPending ? (
+              {pending ? (
                 <>
                   <Spinner className="size-3 border-primary-foreground/30 border-r-primary-foreground border-t-primary-foreground" />
                   Submitting…
@@ -381,15 +405,19 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
           ) : null}
         </div>
       </div>
-    </Modal>
+    </FrameModal>
   );
 }
 
-/** The app-wide instance, opened by `app.reportIssue` from the Help menu or the palette. */
-export function ReportIssueHost() {
-  const open = useUiStore((s) => s.reportIssueOpen);
-  const close = useUiStore((s) => s.setReportIssueOpen);
-  return <ReportIssueDialog open={open} onClose={() => close(false)} />;
+/**
+ * The app-wide instance: mount once at the app root. Opened by `openReportIssue()` (a palette
+ * command, a button) and by main's `report:open` event (a native Help ▸ Report an Issue… item).
+ */
+export function ReportIssueHost({ app }: { app?: string } = {}) {
+  const open = useReportIssueStore((s) => s.open);
+  const setOpen = useReportIssueStore((s) => s.setOpen);
+  useEffect(() => bridge()?.report.onOpen?.(() => setOpen(true)), [setOpen]);
+  return <ReportIssueDialog open={open} onClose={() => setOpen(false)} {...(app ? { app } : {})} />;
 }
 
 /** `gh`'s own hint when it has one; a generic sentence per unready reason otherwise. */

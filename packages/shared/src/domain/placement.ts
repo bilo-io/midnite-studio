@@ -70,6 +70,7 @@ export const FEATURE_PLACEMENT = {
   'quick-access': 'frame',
   rebase: 'frame',
   repos: 'frame',
+  report: 'frame', // Report an Issue: the dialog and its main half, in every app (packages/features/report)
   screensaver: 'frame',
   search: 'frame',
   settings: 'frame',

@@ -1,4 +1,4 @@
-import type { ComponentType, CSSProperties, MouseEventHandler, ReactNode, Ref } from 'react';
+import type { ComponentType, CSSProperties, MouseEventHandler, ReactNode, Ref, RefObject } from 'react';
 
 /*
   Chrome types — Phase 113 Theme C.
@@ -262,4 +262,28 @@ export type FrameDialogs = {
   notify: (notice: { title: string; body?: string; okLabel?: string }) => void;
   setBlastRadius: (radius: ConfirmRequest['blastRadius'], warnings?: string[]) => void;
   close: () => void;
+};
+
+/**
+ * A modal dialog — the subset of Studio's `Modal` (`app/src/components/modal.tsx`) a feature
+ * renders through the chrome port (`FrameChrome.Modal`), or through the kit's `KitModal` in an app
+ * that installs none. Studio's own Modal takes these props unchanged, which `STUDIO_CHROME`'s
+ * `satisfies FrameChrome` holds it to.
+ */
+export type FrameModalProps = {
+  open: boolean;
+  onClose: () => void;
+  /** The dialog's accessible name. */
+  title?: string;
+  children: ReactNode;
+  size?: 'sm' | 'md' | 'lg';
+  testId?: string;
+  /**
+   * `window` centres in the whole window, for an app-level dialog; `content` (Studio's default)
+   * centres in the main content area, clear of the terminal dock. The kit treats both as `window`.
+   */
+  scope?: 'content' | 'window';
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  /** `alertdialog` for a question that needs an answer (default `dialog`). */
+  role?: 'dialog' | 'alertdialog';
 };

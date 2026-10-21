@@ -1,4 +1,5 @@
 export { KitIconButton } from './kit-icon-button';
+export { KitModal } from './kit-modal';
 export { KitContextMenu, type KitContextMenuProps } from './context-menu';
 export { BLAST_RADIUS_COPY, ConfirmDialog, createDialogs } from './dialogs';
 export { createFrameChrome } from './frame-chrome';

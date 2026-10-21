@@ -7,6 +7,7 @@ import { navCommandDisabledReason } from '../../components/nav-visibility';
 import { activePanelBack, activePanelForward } from '../../components/panel-stack/active-panel';
 import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
 import { useDevServerFor } from '@midnite/studio-feature-browser/renderer';
+import { openReportIssue } from '@midnite/studio-feature-report/renderer';
 import { toggleNotes } from '../../features/notes/notes-window';
 import { useGraphStore } from '@midnite/studio-frame';
 import { useSetupStore } from '../../features/setup/setup-store';
@@ -589,7 +590,7 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().setScreensaverOpen(true, false),
     },
-    'app.reportIssue': { enabled: true, run: () => useUiStore.getState().setReportIssueOpen(true) },
+    'app.reportIssue': { enabled: true, run: openReportIssue },
 
     'markdown.presentAsSlides': activeMarkdown
       ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }

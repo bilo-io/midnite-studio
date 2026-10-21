@@ -58,6 +58,7 @@ The frame:
 | `quick-access` | frame | the Mod+l menu; its N capture will write into Mind when installed |
 | `rebase` | frame |  |
 | `repos` | frame |  |
+| `report` | frame | Report an Issue: the dialog, its frame modal and its main half (`packages/features/report`), so every app files to midnite-apps the way Studio does |
 | `screensaver` | frame |  |
 | `search` | frame |  |
 | `settings` | frame |  |
