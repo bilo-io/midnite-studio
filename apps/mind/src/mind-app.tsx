@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, KnowledgeHostProvider } from '@midnite/studio-frame';
 import { NotesHostProvider } from '@midnite/studio-feature-notes/renderer';
 
@@ -27,6 +28,7 @@ export function MindApp() {
         </KnowledgeHostProvider>
       </NotesHostProvider>
       <MindDialogHost />
+      <ReportIssueHost app="midnite-mind" />
     </FrameChromeProvider>
     </QueryClientProvider>
   );
