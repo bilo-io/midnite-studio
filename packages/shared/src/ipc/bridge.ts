@@ -1748,7 +1748,7 @@ export type MidniteStudioBridge = {
      * File an issue on the app's own public tracker — Phase 93.
      *
      * Always targets `bilo-io/midnite-apps` (`APP_ISSUES_REPO`), never the
-     * active repo — see `gh-app-issue.ts`. `invoke`-shaped, unlike `error`
+     * active repo — see `features/report/main/app-issue.ts`. `invoke`-shaped, unlike `error`
      * above: a submission has a real answer (the created issue's URL, or why
      * it failed) that a composer dialog waits on.
      */

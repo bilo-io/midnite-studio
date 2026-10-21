@@ -1604,12 +1604,6 @@ export type UiState = {
   openKillSwitch: (flow?: { workflowId: string; runId?: string }) => void;
   closeKillSwitch: () => void;
   /**
-   * The app-wide report-an-issue dialog (`ReportIssueHost`), opened by `app.reportIssue` from the
-   * Help menu or the palette. Transient, like `killSwitchOpen` beside it.
-   */
-  reportIssueOpen: boolean;
-  setReportIssueOpen: (open: boolean) => void;
-  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -2451,7 +2445,6 @@ export const useUiStore = create<UiState>()(
       automateEnabledByProject: {},
       automateCapByProject: {},
       killSwitchOpen: false,
-      reportIssueOpen: false,
       killSwitchFlowWorkflowId: null,
       killSwitchFlowRunId: null,
       blockedByFieldName: 'Blocked by',
@@ -3279,7 +3272,6 @@ export const useUiStore = create<UiState>()(
           killSwitchFlowRunId: flow?.runId ?? null,
         }),
       closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
-      setReportIssueOpen: (reportIssueOpen) => set({ reportIssueOpen }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),

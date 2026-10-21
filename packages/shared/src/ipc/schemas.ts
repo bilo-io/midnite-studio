@@ -4320,7 +4320,7 @@ export const AppIssueAppSchema = z.string().max(64).regex(ISSUE_APP_PATTERN, 'no
  * `title` is capped the same 1 KB `ErrorReportSchema.message` is; `body` reuses
  * `FORGE_BODY_MAX` (65,536), the same generous ceiling every other forge write
  * body carries, since it is a description plus a diagnostics block rather than
- * a short line. `kind` picks the label pair (`gh-app-issue.ts`) and the
+ * a short line. `kind` picks the label pair (`features/report/main/app-issue.ts`, with `app`) and the
  * composer's default title prefix — it never reaches `gh` as a flag of its own.
  */
 export const AppIssueSubmitRequestSchema = z.object({

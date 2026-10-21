@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+import { createReportBridge } from '@midnite/studio-feature-report/bridge';
+
 import {
   APP_VERSION_ARG,
   CHANNELS,
@@ -954,19 +956,9 @@ const bridge: Pick<
     enabled: perfEnabled(process.env),
     mark: (m) => ipcRenderer.send(MSTUDIO_PERF_MARK, m),
   },
-  report: {
-    // `send`, not `call`: a crash report has no answer worth awaiting, and the
-    // renderer making it may be seconds from a `render-process-gone` reload.
-    error: (r) => ipcRenderer.send(CHANNELS.reportError, r),
-    logPath: () => call(CHANNELS.reportLogPath),
-    bundle: () => call(CHANNELS.reportBundle),
-    // Deliberately argument-free — main reveals the file it owns. See
-    // `CHANNELS.reportReveal`.
-    reveal: () => call(CHANNELS.reportReveal),
-    // `invoke`-shaped, unlike `error` above — a submission has a real answer
-    // (the created issue's URL, or why it failed) worth awaiting.
-    submitIssue: (r) => call(CHANNELS.reportSubmitIssue, r),
-  },
+  // The report feature's own preload half — the crash channel, the crash log and Report an Issue —
+  // so Studio and every extracted app expose exactly the channels its main half registers.
+  report: createReportBridge({ call, send: (channel, req) => ipcRenderer.send(channel, req), subscribe }),
   systemHealth: () => call(CHANNELS.systemHealth),
   systemHealthStartSshAgent: () => call(CHANNELS.systemHealthStartSshAgent),
   monitorAgentUsage: () => call(CHANNELS.monitorAgentUsage),

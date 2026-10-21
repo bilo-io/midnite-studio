@@ -1,52 +1,42 @@
-import {
-  CHANNELS,
-  REDACT_SAMPLES,
-  SECRET_PATTERNS,
-  type AppIssueSubmitResult,
-  type ErrorReport,
-} from '@midnite/studio-shared';
+import { CHANNELS, type ErrorReport, type ForgeCliStatus } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { loggerFrom } from '../log';
+import type { GhRunner } from '@midnite/studio-feature-report/main';
 import type { LogRecord, LogSink } from '@midnite/studio-runtime';
-import { formatBundle, formatReport, registerReportHandlers, setBootLine } from './report-handlers';
 
-// `vi.hoisted` because vitest lifts `vi.mock` above the imports — the factory
-// has to close over spies that already exist by then.
-const { on, handle, showItemInFolder, getPath, createAppIssue } = vi.hoisted(() => ({
+import { loggerFrom } from '../log';
+import { registerReportHandlers, setBootLine } from './report-handlers';
+
+/**
+ * Studio's composition of the report feature — the handlers' own behaviour is the feature's test
+ * (`packages/features/report/main/index.test.ts`); this file holds that desktop wires them through
+ * its own `ipcMain` helpers, its logger, its boot line and Electron's shell and clipboard.
+ */
+
+// `vi.hoisted` because vitest lifts `vi.mock` above the imports.
+const { on, handle, showItemInFolder, openExternal, writeText, getPath } = vi.hoisted(() => ({
   on: vi.fn(),
   handle: vi.fn(),
   showItemInFolder: vi.fn(),
+  openExternal: vi.fn(async () => {}),
+  writeText: vi.fn(),
   getPath: vi.fn(() => '/Users/tester'),
-  createAppIssue: vi.fn<
-    (fields: { title: string; body: string; kind: 'bug' | 'feature' }) => Promise<AppIssueSubmitResult>
-  >(),
 }));
 vi.mock('electron', () => ({
   ipcMain: { on, handle },
-  shell: { showItemInFolder },
+  shell: { showItemInFolder, openExternal, trashItem: vi.fn() },
+  clipboard: { writeText },
   app: { getPath },
 }));
-// `handle.ts` reaches `window-manager` for `handleFromSender`, which this
-// module does not use; stubbing it keeps the whole window graph out of a unit
-// test about payload validation.
+// `handle.ts` reaches `window-manager` for `handleFromSender`, which this module does not use.
 vi.mock('../window-manager', () => ({ resolveWindow: () => null }));
-// The fixed-target write itself is `gh-app-issue.test.ts`'s job — this file
-// tests only that the handler validates, delegates, and never throws.
-// Since Phase 113 Theme O it lives in the forge feature's main half, so the mock is that module's.
-vi.mock('@midnite/studio-feature-forge/main', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@midnite/studio-feature-forge/main')>()),
-  createAppIssue,
-}));
 
-/** Invoke the one-way listener the way `ipcRenderer.send` would. */
 function send(raw: unknown): void {
   const [, listener] = on.mock.calls.find(([channel]) => channel === CHANNELS.reportError) ?? [];
   if (typeof listener !== 'function') throw new Error('no listener on the report channel');
   (listener as (event: unknown, raw: unknown) => void)({}, raw);
 }
 
-/** Invoke one `ipcMain.handle` listener by channel, with a payload. */
 async function invoke(channel: string, raw: unknown = undefined): Promise<unknown> {
   const [, listener] = handle.mock.calls.find(([name]) => name === channel) ?? [];
   if (typeof listener !== 'function') throw new Error(`no handler on ${channel}`);
@@ -63,160 +53,70 @@ function fakeSink(records: LogRecord[] = []): LogSink {
   };
 }
 
+const READY: ForgeCliStatus = { reason: 'ready', binPath: '/usr/bin/gh', hint: '' };
+const gh: GhRunner = {
+  status: vi.fn(async () => READY),
+  run: vi.fn(async () => ({ output: '', stdout: 'https://github.com/bilo-io/midnite-apps/issues/9\n', exitCode: 0 })),
+};
+
 const report: ErrorReport = {
   source: 'boundary',
   name: 'TypeError',
   message: 'x is not a function',
-  stack: 'TypeError: x is not a function\n    at GraphView (graph-view.tsx:1:1)',
-  componentStack: '\n    in GraphView',
+  stack: 'TypeError: x is not a function',
   view: 'graph',
   role: 'main',
   at: 1_700_000_000_000,
 };
 
-describe('report handlers (Phase 65 Theme B)', () => {
+describe('report handlers — Studio’s composition of the report feature', () => {
   beforeEach(() => {
     on.mockClear();
     handle.mockClear();
     showItemInFolder.mockClear();
+    openExternal.mockClear();
+    writeText.mockClear();
     setBootLine('');
   });
 
-  it('logs a well-formed report at error level', () => {
+  it('logs a crash report — and an invalid one — through desktop’s logger', () => {
     const lines: string[] = [];
-    registerReportHandlers({ log: loggerFrom((m) => lines.push(m)), sink: () => null });
-
+    registerReportHandlers({ log: loggerFrom((m) => lines.push(m)), sink: () => null, gh });
     send(report);
-
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toContain('[renderer] boundary main/graph: TypeError: x is not a function');
-    expect(lines[0]).toContain('in GraphView');
-  });
-
-  it('LOGS an invalid payload rather than dropping it — the inversion of perf', () => {
-    // `perf-handlers.ts` drops a malformed mark on purpose. Every clause of that
-    // reasoning reverses here: a report is rare, it is the only record, and a
-    // payload malformed enough to fail `safeParse` is itself the evidence.
-    const lines: string[] = [];
-    registerReportHandlers({ log: loggerFrom((m) => lines.push(m)), sink: () => null });
-
     expect(() => send({ source: 'nowhere' })).not.toThrow();
-    expect(() => send('not an object')).not.toThrow();
-    expect(() => send(undefined)).not.toThrow();
-
-    expect(lines).toHaveLength(3);
-    for (const line of lines) expect(line).toContain('[report] rejected a report');
+    expect(lines[0]).toContain('[renderer] boundary main/graph: TypeError: x is not a function');
+    expect(lines[1]).toContain('[report] rejected a report');
   });
 
-  it('answers log-path with the sink it has, and null when it has none', async () => {
-    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => null });
-    await expect(invoke(CHANNELS.reportLogPath)).resolves.toEqual({ path: null });
-
-    handle.mockClear();
+  it('reveals the sink’s own file through shell.showItemInFolder', async () => {
     const sink = fakeSink();
-    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => sink });
-    await expect(invoke(CHANNELS.reportLogPath)).resolves.toEqual({ path: sink.path });
-  });
-
-  it('reveals the file it owns, taking no path from the caller', async () => {
-    const sink = fakeSink();
-    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => sink });
-
+    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => sink, gh });
     await expect(invoke(CHANNELS.reportReveal)).resolves.toEqual({ ok: true });
     expect(showItemInFolder).toHaveBeenCalledWith(sink.path);
   });
 
-  it('fails reveal rather than revealing nothing when the sink never opened', async () => {
-    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => null });
-    const result = (await invoke(CHANNELS.reportReveal)) as { ok: boolean };
-    expect(result.ok).toBe(false);
-    expect(showItemInFolder).not.toHaveBeenCalled();
-  });
-
-  it('submits a well-formed issue and returns createAppIssue’s own result', async () => {
-    createAppIssue.mockReset();
-    const answer: AppIssueSubmitResult = {
-      ok: true,
-      cli: { reason: 'ready', binPath: '/usr/bin/gh', hint: '' },
-      error: null,
-      url: 'https://github.com/bilo-io/midnite-apps/issues/9',
-    };
-    createAppIssue.mockResolvedValue(answer);
-    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => null });
-
-    const request = { title: '[bug] it crashed', body: 'diagnostics', kind: 'bug' as const };
-    await expect(invoke(CHANNELS.reportSubmitIssue, request)).resolves.toEqual(answer);
-    expect(createAppIssue).toHaveBeenCalledWith(request);
-  });
-
-  it('resolves an error rather than throwing on an invalid submit-issue payload', async () => {
-    createAppIssue.mockReset();
-    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => null });
-
-    const result = (await invoke(CHANNELS.reportSubmitIssue, { title: '', body: 'b', kind: 'bug' })) as {
-      ok: boolean;
-      error: string | null;
-      url: string | null;
-    };
-    expect(result.ok).toBe(false);
-    expect(result.error).toBeTruthy();
-    expect(result.url).toBeNull();
-    expect(createAppIssue).not.toHaveBeenCalled();
-
-    // Not just an empty title — a payload missing shape entirely resolves too.
-    await expect(invoke(CHANNELS.reportSubmitIssue, undefined)).resolves.toMatchObject({ ok: false });
-  });
-
-  it('bundles the boot line above the tail, with no home directory left in it', async () => {
+  it('bundles the boot line set at boot above the tail, redacted against the home directory', async () => {
     setBootLine('midnite-studio 0.3.1 packaged=true brokerBuild=deadbeef darwin/arm64');
-    const sink = fakeSink([
-      { t: 1_700_000_000_000, level: 'error' as const, msg: 'ENOENT /Users/tester/Dev/x.ts' },
-    ]);
-    registerReportHandlers({
-      log: loggerFrom(() => {}),
-      sink: () => sink,
-      homeDir: () => '/Users/tester',
-    });
-
+    const sink = fakeSink([{ t: 1_700_000_000_000, level: 'error', msg: 'ENOENT /Users/tester/Dev/x.ts' }]);
+    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => sink, gh });
     const { text } = (await invoke(CHANNELS.reportBundle)) as { text: string };
     expect(text.split('\n')[0]).toContain('midnite-studio 0.3.1');
     expect(text).toContain('~/Dev/x.ts');
-    // The one string in the app designed to be pasted somewhere public.
     expect(text).not.toContain('tester');
   });
-});
 
-describe('diagnostics bundle (Phase 91 Theme G)', () => {
-  it('lets no sample of any SECRET_PATTERN survive formatBundle', () => {
-    // Iterating the exported list means a pattern added without a sample fails here.
-    for (const p of SECRET_PATTERNS) {
-      expect(Object.values(REDACT_SAMPLES).some((x) => new RegExp(p.source, p.flags).test(x))).toBe(true);
-    }
-    const records = Object.entries(REDACT_SAMPLES).map(([name, msg], i) => ({
-      t: 1_700_000_000_000 + i,
-      level: 'error',
-      msg: `${name}: ${msg}`,
-    }));
-    const text = formatBundle('boot ' + REDACT_SAMPLES['github'], records, '/Users/tester');
-    for (const sample of Object.values(REDACT_SAMPLES)) {
-      const needle = sample.split('\n')[1] ?? sample.slice(-12);
-      expect(text).not.toContain(needle);
-    }
-  });
-});
-
-describe('formatters', () => {
-  it('names role and view on the head line, and omits an absent view', () => {
-    expect(formatReport(report).split('\n')[0]).toBe(
-      '[renderer] boundary main/graph: TypeError: x is not a function',
-    );
-    const { view: _view, ...noView } = report;
-    expect(formatReport({ ...noView }).split('\n')[0]).toBe(
-      '[renderer] boundary main: TypeError: x is not a function',
-    );
+  it('files with Studio’s labels, unchanged', async () => {
+    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => null, gh });
+    await expect(invoke(CHANNELS.reportSubmitIssue, { title: 't', body: 'b', kind: 'bug' })).resolves.toMatchObject({ ok: true });
+    expect(vi.mocked(gh.run).mock.calls.at(-1)?.[0]).toMatch(/--label 'bug' --label 'app: midnite-studio'$/);
   });
 
-  it('renders an empty bundle as an empty string rather than a stray newline', () => {
-    expect(formatBundle('', [])).toBe('');
+  it('opens a midnite-apps page through shell.openExternal and copies through the clipboard', async () => {
+    registerReportHandlers({ log: loggerFrom(() => {}), sink: () => null, gh });
+    const url = 'https://github.com/bilo-io/midnite-apps/issues/9';
+    await expect(invoke(CHANNELS.reportOpenUrl, { url })).resolves.toEqual({ ok: true });
+    expect(openExternal).toHaveBeenCalledWith(url);
+    await expect(invoke(CHANNELS.reportCopy, { text: 'report' })).resolves.toEqual({ ok: true });
+    expect(writeText).toHaveBeenCalledWith('report');
   });
 });

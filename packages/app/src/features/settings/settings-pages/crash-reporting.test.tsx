@@ -13,8 +13,20 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@midnite/studio-frame', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
+  // `ReportIssueDialog` (the report feature) reads `report.ghStatus` and opens pages through
+  // `report.openUrl`; `not-installed` keeps every render on the fallback branch, which is all the
+  // one composer-touching test below exercises. Its own behaviour is the feature's test to hold.
   bridge: () => ({
-    report: { logPath: mocks.logPath, bundle: mocks.bundle, reveal: mocks.reveal },
+    report: {
+      logPath: mocks.logPath,
+      bundle: mocks.bundle,
+      reveal: mocks.reveal,
+      ghStatus: async () => ({ reason: 'not-installed', binPath: null, hint: '' }),
+      openUrl: async ({ url }: { url: string }) => {
+        mocks.openExternal(url);
+        return { ok: true };
+      },
+    },
   }),
 }));
 
@@ -24,15 +36,6 @@ vi.mock('../../../services/queries', () => ({
   useRepos: () => ({ data: [] }),
   useRunDiagnostics: () => ({ mutate: vi.fn(), isPending: false }),
   useUntrustDiagnostics: () => ({ mutate: vi.fn() }),
-  // `ReportIssueDialog` (Phase 93 Theme C) reads these two through the same
-  // module. Plain mocks rather than the real `useQuery`/`useMutation`
-  // hooks — this file's own scope is reachability (Phase 65 Theme E), not
-  // the composer's own behaviour, which `report-issue-dialog.test.tsx`
-  // already covers in full — so a real `QueryClientProvider` is unneeded
-  // here. `not-installed` keeps every render on the fallback branch, which
-  // is all the one composer-touching test below exercises.
-  useForgeCli: () => ({ data: { reason: 'not-installed', binPath: null, hint: '' } }),
-  useSubmitAppIssue: () => ({ mutate: vi.fn(), isPending: false, data: undefined, reset: vi.fn() }),
 }));
 
 vi.mock('../../../services/use-status', () => ({

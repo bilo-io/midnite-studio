@@ -47,7 +47,7 @@ export const ISSUES_URL = 'https://github.com/bilo-io/midnite-apps/issues';
  * A bare `owner/repo` slug, not a URL: `gh issue create -R` takes exactly this
  * shape, so there is nothing to parse out of it at call time. It is **always**
  * this value, independent of whichever repository is open in the git client —
- * see `gh-app-issue.ts`'s own docblock for why that makes it the one write in
+ * see `features/report/main/app-issue.ts`'s own docblock for why that makes it the one write in
  * `forge/` with no `Forge` parameter.
  */
 export const APP_ISSUES_REPO = 'bilo-io/midnite-apps';

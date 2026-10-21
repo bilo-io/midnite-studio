@@ -19,7 +19,7 @@ import {
 } from '../../../services/queries';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';
-import { ReportIssueDialog } from '../../../components/report-issue-dialog';
+import { ReportIssueDialog } from '@midnite/studio-feature-report/renderer';
 import { useActiveWorktree } from '../../../services/use-status';
 import { useUiStore } from '../../../store/ui-store';
 import { METRIC_LABELS, metricColor } from '../../monitor/metric-palette';
