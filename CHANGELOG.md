@@ -20,6 +20,25 @@ that mirror is what the in-app release-notes popover actually reads (see
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-10-21
+
+### Added
+- **Move all apps to Trash** from Midnite Apps' top bar. One confirm lists every app it will remove. An app that is still running is skipped, and the toast says why. The launcher itself stays.
+- Loops can run every 1, 2, 5 or 10 minutes.
+- Every Loops option is a switch with a tooltip and a preview of the prompt it adds. Options that run a skill have a field for choosing a different one.
+- Patrol has a **Routine** task, on by default. It reviews open PRs labelled `routine` and approves the ones with no critical issues.
+- Patrol can be limited to chosen users' PRs, and has an auto-rotate setting for subagents' context.
+
+### Changed
+- Patrol's "Answer feedback" task is now called **Reply to PRs**.
+- **Triage only** runs `/midnite-sitrep` instead of `/midnite-triage`.
+
+### Fixed
+- `install.sh` and `install-studio.sh` warn when Gatekeeper rejects an ad hoc signed release, instead of refusing it. That rejection turned away every 0.0.3 install. Both still check the zip's SHA-256 checksum, a broken code signature is still refused, and a successful install no longer exits with status 1.
+- Midnite Apps is properly ad hoc signed. The 0.0.3 launcher download had an invalid signature, so `install.sh` could not install it. Releases now check both downloads the same way the installers do before they are published.
+- The Loop switch under the Loops tab bar now controls whether a command repeats (`/loop`) or runs once, and is on by default. The duplicate switch in the Run section is gone.
+- Patrol's Routine task no longer limits a pass to PRs labelled `routine`. Other PRs still get the rest of the pass.
+
 ## [0.0.3] - 2026-10-21
 
 Covers everything since 0.0.1; the 0.0.2 test release shipped without notes.
@@ -58,7 +77,8 @@ Covers everything since 0.0.1; the 0.0.2 test release shipped without notes.
 - User-level skills management option accessible via the Midnite menu.
 - Full two-pane Notes manager with Monaco code editor, Markdown preview, and persistent disk storage.
 
-[Unreleased]: https://github.com/bilo-io/midnite-studio/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/bilo-io/midnite-studio/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.4
 [0.0.3]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.3
 [0.0.1]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.1
 

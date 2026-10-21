@@ -11,7 +11,7 @@
  * `git-engine`'s `src/testing/temp-repo.ts` is — it is a test-only helper,
  * not part of the package's public surface.
  */
-export const DB_ENGINE_VERSION = '0.0.3' as const;
+export const DB_ENGINE_VERSION = '0.0.4' as const;
 
 export * from './connection-pool';
 export * from './driver';

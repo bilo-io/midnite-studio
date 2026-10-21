@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-cleaner",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "Midnite Cleaner \u2014 the workspace optimizer as its own app: scan memory, GPU and storage use and reclaim space.",
   "type": "module",

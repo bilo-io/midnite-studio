@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-gamer",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "Midnite Gamer - maps, terrain, sprites, models and games, with play-tests and the game agent loop, as their own app.",
   "type": "module",

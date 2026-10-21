@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-capture",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "Midnite Capture - screenshots, screen recordings and an opt-in clipboard history, kept on this machine, as its own app.",
   "type": "module",

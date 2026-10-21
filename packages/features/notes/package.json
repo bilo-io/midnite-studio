@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-notes",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "The notes feature (Phase 113 Theme M): the Notes view, its store and the notes IPC handlers as one package, Mind first feature.",
   "sideEffects": false,
