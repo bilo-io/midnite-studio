@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-workflows",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "The workflows feature (Phase 113 Theme N): the graph engine, executors, stores, trigger scheduler and demo API in main behind a ports object; the Graphs view, canvas and run history in the renderer. Agents' third view.",
   "sideEffects": false,

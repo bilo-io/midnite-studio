@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-coder",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Midnite Coder — pull requests and reviews, CI runs, a repository's tests, its API collections and its databases, as their own app over the forge, tests, API client and Database features.",
   "type": "module",
