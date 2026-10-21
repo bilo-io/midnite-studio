@@ -226,7 +226,7 @@ test('the rail pin locks and unlocks, and only the lock shifts the page', async 
  * `diagnostics.spec.ts` block's own two calls — so a routine run keeps its
  * assertions but takes no picture.
  */
-test('the Agent page screenshot', async ({ page }) => {
+test('the Agent page expands skills', async ({ page }) => {
   await openSettings(page);
 
   await page
@@ -236,9 +236,4 @@ test('the Agent page screenshot', async ({ page }) => {
   await expect(page.getByRole('treeitem', { name: /brainstorm/ })).toHaveCount(0);
   await page.getByRole('treeitem', { name: /^skills$/ }).click();
   await expect(page.getByRole('treeitem', { name: /brainstorm/ })).toBeVisible();
-
-  await page.waitForTimeout(400);
-  if (process.env.MSTUDIO_SHOTS) {
-    await page.screenshot({ path: '../../docs/screenshots/phase-16/settings-agent.png' });
-  }
 });

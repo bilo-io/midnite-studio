@@ -26,10 +26,6 @@ test.describe('repo favourites', () => {
     // Initially, no Favourites section is present
     await expect(panel(page).getByTestId('repo-favourites-section')).not.toBeVisible();
 
-    if (process.env.MSTUDIO_SHOTS) {
-      await panel(page).screenshot({ path: '../../docs/screenshots/adhoc-repo-favourites-before.png' });
-    }
-
     // Open repo lifecycle actions menu (the ellipsis button)
     const lifecycleBtn = panel(page).getByRole('button', {
       name: `Set up, install, build, test or launch ${REPO}`,
@@ -48,10 +44,6 @@ test.describe('repo favourites', () => {
 
     // The favourite repo item is rendered inside the favourites section
     await expect(favSection.getByRole('button', { name: REPO, exact: true })).toBeVisible();
-
-    if (process.env.MSTUDIO_SHOTS) {
-      await panel(page).screenshot({ path: '../../docs/screenshots/adhoc-repo-favourites-after.png' });
-    }
 
     // Open the ellipsis menu on the favourite repo inside the favourites section
     const favLifecycleBtn = favSection.getByRole('button', {
