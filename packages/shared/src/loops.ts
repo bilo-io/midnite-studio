@@ -233,6 +233,10 @@ export function loopModelsFor(agentId: string): readonly (typeof LOOP_MODELS)[nu
  */
 export const LoopFrequencySchema = z.enum([
   'continuous',
+  '1m',
+  '2m',
+  '5m',
+  '10m',
   '15m',
   '30m',
   'hourly',
@@ -249,6 +253,10 @@ export const LOOP_FREQUENCIES: readonly {
   promptFragment: string | null;
 }[] = [
   { id: 'continuous', label: 'Continuous', promptFragment: null },
+  { id: '1m', label: '1m', promptFragment: 'Pace yourself to roughly one pass every minute.' },
+  { id: '2m', label: '2m', promptFragment: 'Pace yourself to roughly one pass every 2 minutes.' },
+  { id: '5m', label: '5m', promptFragment: 'Pace yourself to roughly one pass every 5 minutes.' },
+  { id: '10m', label: '10m', promptFragment: 'Pace yourself to roughly one pass every 10 minutes.' },
   {
     id: '15m',
     label: '15m',

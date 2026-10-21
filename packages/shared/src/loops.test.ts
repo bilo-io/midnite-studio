@@ -352,6 +352,10 @@ describe('LOOP_FREQUENCIES', () => {
   it('covers every id the schema accepts, so no stored pick renders as a raw token', () => {
     expect(LOOP_FREQUENCIES.map((f) => f.id)).toEqual(LoopFrequencySchema.options);
   });
+
+  it('offers the minute cadences fastest-first, straight after the neutral option', () => {
+    expect(LOOP_FREQUENCIES.slice(0, 6).map((f) => f.label)).toEqual(['Continuous', '1m', '2m', '5m', '10m', '15m']);
+  });
 });
 
 describe('LOOP_WEEKDAYS', () => {
