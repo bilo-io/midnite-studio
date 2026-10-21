@@ -231,6 +231,7 @@ import {
   isValidForgeAccountHost,
   InstallUserSkillsResultSchema,
   RepoSkillListSchema,
+  KnownSkillListSchema,
   RebaseSequencePlanSchema,
   RepoDescriptorSchema,
   RepoStatsSchema,
@@ -2497,6 +2498,14 @@ export const InstallUserSkillsResponse = GitOpResultOf(InstallUserSkillsResultSc
  */
 export const ListRepoSkillsRequest = RepoId.extend({ agentId: z.string().min(1).optional() });
 export const ListRepoSkillsResponse = GitOpResultOf(RepoSkillListSchema);
+
+/**
+ * Every skill the Loops composer's skill field can suggest: the app's bundled
+ * kit, the active repo's own skills (when `repoId` names an open repo) and the
+ * user's `~/.claude/skills`, merged and de-duplicated by name.
+ */
+export const ListKnownSkillsRequest = z.object({ repoId: z.string().min(1).optional() });
+export const ListKnownSkillsResponse = GitOpResultOf(KnownSkillListSchema);
 
 // --- repository statistics (Phase 19) --------------------------------------
 
