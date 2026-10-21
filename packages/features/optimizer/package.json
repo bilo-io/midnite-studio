@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-optimizer",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "The optimizer feature (Phase 113): Cleaner's views, settings pages and IPC handlers as one package \u2014 the first feature extracted from Studio and the template for the rest.",
   "sideEffects": false,

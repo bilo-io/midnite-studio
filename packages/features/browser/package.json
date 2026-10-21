@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-browser",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "The embedded browser as a feature (Phase 113 Theme L): the browser pane, its tabs, launcher and switcher, and the web-apps rail in the renderer; the WebContentsView services, their security posture and their IPC in main. One package for two placement folders (browser, web-apps). Studio composes it, and the Browser app is built from it.",
   "sideEffects": false,

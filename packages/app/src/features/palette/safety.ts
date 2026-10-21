@@ -85,6 +85,9 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   // recoverability class as `account.switcher.open`'s "opening a menu is
   // recoverable by definition" above (Phase 95 Theme H).
   'automate.kill',
+  // Opens the report-an-issue dialog. Nothing leaves the app until its own Submit, Continue on
+  // GitHub or Copy report — the same "opening a modal is recoverable" class as `automate.kill`.
+  'app.reportIssue',
 ] as const;
 
 export function isPaletteSafe(id: CommandId): boolean {
@@ -208,6 +211,8 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'app.hardReload': 'confirm',
   'app.lock': 'confirm',
   'app.screensaver': 'direct',
+  // Opens the dialog only; filing is the user's own click in it.
+  'app.reportIssue': 'direct',
   // See the docblock above: a deliberate `never`, not Decision 5's `direct`.
   'view.graph': 'never',
   'graph.focus': 'direct',

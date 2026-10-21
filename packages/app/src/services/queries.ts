@@ -12,6 +12,7 @@ import type {
   ForgeAccount,
   ForgeKind,
   ReachableReposResult,
+  KnownSkill,
   RepoSkill,
   GitOpResult,
   Ref,
@@ -218,6 +219,7 @@ export const keys = {
     ['repos', repoId, 'blob-exists', worktreePath ?? '-', rev, path] as const,
   /** The open checkout's own agent skills — read off disk, not the forge. */
   repoSkills: (repoId: string, agentId: string) => ['repos', repoId, 'skills', agentId] as const,
+  knownSkills: (repoId: string) => ['skills', 'known', repoId] as const,
   /**
    * One page of the git graph's CI column — the runs for a batch of visible
    * commits. Keyed by the page's shas, which are stable across a restream, so
@@ -814,6 +816,29 @@ export function useRepoSkills(repoId: string | null, agentId: string) {
       return result.ok ? result.value.skills : NO_REPO_SKILLS;
     },
     enabled: repoId !== null,
+    staleTime: 60_000,
+  });
+}
+
+const NO_KNOWN_SKILLS: readonly KnownSkill[] = [];
+
+/**
+ * Every skill the Loops composer's skill field can suggest — the app's
+ * bundled kit, the active repo's own skills and `~/.claude/skills`, merged
+ * and labelled by source in main. `repoId` may be null (no repo selected):
+ * the bundled and user skills are still worth offering. A failed read
+ * answers an empty list; the field still takes free text.
+ */
+export function useKnownSkills(repoId: string | null, enabled = true) {
+  return useQuery<readonly KnownSkill[]>({
+    queryKey: keys.knownSkills(repoId ?? ''),
+    queryFn: async () => {
+      const api = bridge();
+      if (!api?.scaffold?.listKnownSkills) return NO_KNOWN_SKILLS;
+      const result = await api.scaffold.listKnownSkills(repoId ? { repoId } : {});
+      return result.ok ? result.value.skills : NO_KNOWN_SKILLS;
+    },
+    enabled,
     staleTime: 60_000,
   });
 }

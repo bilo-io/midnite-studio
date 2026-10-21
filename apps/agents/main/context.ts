@@ -28,11 +28,12 @@ import {
   connectRuntimeVault,
   createIpcContext,
   createSharedBroker,
+  ensureLoginShellPathAsync,
   vaultHostSocketPath,
   type IpcContextElectron,
   type PairingIdentity,
 } from '@midnite/studio-runtime';
-import { BUILTIN_AGENTS, CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, CHANNELS, EVENT_CHANNELS, schemas, type AgentDefinition } from '@midnite/studio-shared';
 
 import { createBrokerNodeSessions } from './broker-sessions';
 import { createShellRunner } from './shell-runner';
@@ -56,6 +57,11 @@ export type AgentsElectron = IpcContextElectron & {
   shell?: string;
   /** Where the workflow engine logs. Silent by default. */
   log?: WorkflowLogger;
+  /**
+   * Folds the user's login-shell PATH into `process.env`. A Finder- or launcher-started Agents inherits
+   * launchd's bare PATH, where `claude`, `codex` and the rest are ENOENT. The runtime's probe by default.
+   */
+  loginPath?: () => Promise<void>;
 };
 
 /**
@@ -71,6 +77,12 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
   // The stores write straight into `userData` and treat a missing directory as read-only; Electron creates it lazily.
   mkdirSync(el.userData, { recursive: true });
   const ctx = createIpcContext(el);
+  // Started now, not awaited: the roster below waits on it, and every agent CLI spawn reads the roster first.
+  const pathReady = (el.loginPath ?? ensureLoginShellPathAsync)().catch(() => undefined);
+  const roster = async (): Promise<AgentDefinition[]> => {
+    await pathReady;
+    return [...BUILTIN_AGENTS];
+  };
 
   // Models — the Ollama client, pull queue and the persisted host override.
   configureOllamaSettings(createOllamaSettingsStore(el.userData));
@@ -79,7 +91,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
   // Chats — agent CLIs and the local daemon. No repository registry yet, so every chat runs in its
   // scratch directory; the roster is the builtins (the probe and `agents.json` stay Studio's).
   const deps: ChatsRuntimeDeps = {
-    agents: async () => [...BUILTIN_AGENTS],
+    agents: roster,
     resolveRepo: () => null,
     emit: (event) => el.send(EVENT_CHANNELS.chatsEvent, event),
     ollamaStream: async (req) =>
@@ -104,7 +116,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
   councilsMain.register(ctx, {
     runner: {
       ...shellRunner,
-      listAgents: async () => [...BUILTIN_AGENTS],
+      listAgents: roster,
       agentBinding: () => undefined,
       ollamaBaseUrl: () => resolveOllamaBaseUrl(),
       ollamaApiKey: ollamaKey,
@@ -124,7 +136,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
     dataDirectory: el.userData,
     ports: {
       log: el.log ?? silentWorkflowLogger,
-      listAgents: async () => [...BUILTIN_AGENTS],
+      listAgents: roster,
       agentBinding: () => undefined,
       ollamaBaseUrl: () => resolveOllamaBaseUrl(),
       ollamaApiKey: ollamaKey,

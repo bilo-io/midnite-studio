@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 
 import { Accordion } from '@bilo-io/ui';
-import { LuCircleAlert, LuExternalLink, LuLoaderCircle } from 'react-icons/lu';
+import { LuCheck, LuCircleAlert, LuCopy, LuExternalLink, LuLoaderCircle } from 'react-icons/lu';
 
 import {
+  appIssueBody,
   appIssueFormUrl,
   FORGE_BODY_MAX,
   type AppIssueSubmitRequest,
@@ -11,6 +12,7 @@ import {
 
 import { bridge } from '../services/bridge';
 import { openExternal, useForgeCli, useSubmitAppIssue } from '../services/queries';
+import { useUiStore } from '../store/ui-store';
 import { Modal } from './modal';
 import { Spinner } from './skeleton';
 
@@ -44,6 +46,15 @@ import { Spinner } from './skeleton';
  * *Continue on GitHub*, which opens midnite-apps' own issue form prefilled with the same title,
  * words and diagnostics (`appIssueFormUrl`) for the reporter to submit under their own account —
  * the way midnite's reporter has always worked.
+ *
+ * **And when neither works, Copy report.** The form URL trims the oldest log lines to stay under
+ * GitHub's ceiling, and `gh` can refuse; the copy button puts the whole title and body on the
+ * clipboard (main-side, since the packaged app's `file://` origin has no `navigator.clipboard`), so
+ * the full report can always be pasted somewhere by hand.
+ *
+ * **One app-wide instance besides the two local ones.** `ReportIssueHost` is mounted once at the app
+ * root and opened through `useUiStore`'s `reportIssueOpen` — that is what `app.reportIssue` (the
+ * Help menu and the palette) reaches.
  */
 
 type AppIssueKind = AppIssueSubmitRequest['kind'];
@@ -67,18 +78,16 @@ const KIND_COPY: Record<
 };
 
 /**
- * Join the user's own words with the diagnostics block as two markdown
- * sections, the way `gh issue create --body` already renders on GitHub —
- * never a re-formatting of the diagnostics text itself.
+ * The issue body, laid out by `appIssueBody` as midnite-apps' own issue forms render — the
+ * diagnostics text passed through as-is, never re-formatted or re-redacted here.
  */
-export function composeIssueBody(description: string, diagnostics: string): string {
-  const trimmedDescription = description.trim();
-  const trimmedDiagnostics = diagnostics.trim();
-  const body =
-    trimmedDiagnostics.length === 0
-      ? trimmedDescription
-      : `${trimmedDescription}\n\n---\n\n## Diagnostics\n\n\`\`\`\n${trimmedDiagnostics}\n\`\`\``;
-  return body.slice(0, FORGE_BODY_MAX);
+export function composeIssueBody(draft: {
+  kind: AppIssueKind;
+  description: string;
+  diagnostics: string;
+  version?: string;
+}): string {
+  return appIssueBody({ ...draft, title: '' }).slice(0, FORGE_BODY_MAX);
 }
 
 export type ReportIssueDialogProps = {
@@ -95,6 +104,8 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     loading: false,
   });
 
+  const [copied, setCopied] = useState(false);
+
   const cli = useForgeCli();
   const submit = useSubmitAppIssue();
 
@@ -106,6 +117,7 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     setKind('bug');
     setTitle(KIND_COPY.bug.titlePrefix);
     setDescription('');
+    setCopied(false);
     submit.reset();
 
     const api = bridge();
@@ -172,13 +184,22 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     close();
   };
 
+  const body = () =>
+    composeIssueBody({ kind, description, diagnostics: bundle.text, version: bridge()?.appVersion });
+
   const onSubmit = () => {
     if (!canSubmit) return;
-    submit.mutate({
-      title: trimmedTitle,
-      body: composeIssueBody(description, bundle.text),
-      kind,
-    });
+    submit.mutate({ title: trimmedTitle, body: body(), kind });
+  };
+
+  const copyReport = async () => {
+    const text = `${trimmedTitle}\n\n${body()}`;
+    const written = await bridge()
+      ?.clipboard.writeText({ text })
+      .catch(() => null);
+    if (!written?.ok) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -312,6 +333,19 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
         <div className="mt-1 flex justify-end gap-2">
           <button
             type="button"
+            disabled={!canContinueOnGitHub}
+            onClick={() => void copyReport()}
+            className="mr-auto inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {copied ? (
+              <LuCheck aria-hidden className="h-3.5 w-3.5" />
+            ) : (
+              <LuCopy aria-hidden className="h-3.5 w-3.5" />
+            )}
+            {copied ? 'Copied' : 'Copy report'}
+          </button>
+          <button
+            type="button"
             onClick={close}
             className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
@@ -349,6 +383,13 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
       </div>
     </Modal>
   );
+}
+
+/** The app-wide instance, opened by `app.reportIssue` from the Help menu or the palette. */
+export function ReportIssueHost() {
+  const open = useUiStore((s) => s.reportIssueOpen);
+  const close = useUiStore((s) => s.setReportIssueOpen);
+  return <ReportIssueDialog open={open} onClose={() => close(false)} />;
 }
 
 /** `gh`'s own hint when it has one; a generic sentence per unready reason otherwise. */

@@ -594,6 +594,8 @@ export type MockFixtures = {
    *  Projects card skill picker's suggestions. Defaults to none, which leaves
    *  the picker on its built-in task catalogue. */
   repoSkills?: { name: string; description: string; source: '.claude' | '.agents' | '.codex' }[];
+  /** The Loops composer's skill-field suggestions (`scaffold.listKnownSkills`). Defaults to none. */
+  knownSkills?: { name: string; description?: string; source: 'midnite' | 'repo' | 'user' }[];
   /** The onboarding kit's `scaffold.installUserSkills` answer. */
   scaffoldInstallUserSkillsResult?:
     | { ok: true; value: { copied: string[]; targetDir: string } }
@@ -4476,6 +4478,7 @@ export function buildMockBridge(data: MockFixtures) {
       apply: async () =>
         data.scaffoldApplyResult ?? { ok: true, value: { written: [], skipped: [] } },
       listRepoSkills: async () => ({ ok: true, value: { skills: data.repoSkills ?? [] } }),
+      listKnownSkills: async () => ({ ok: true, value: { skills: data.knownSkills ?? [] } }),
       installUserSkills: async () =>
         data.scaffoldInstallUserSkillsResult ?? {
           ok: true,

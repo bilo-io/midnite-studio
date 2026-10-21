@@ -1165,6 +1165,8 @@ export const CHANNELS = {
   scaffoldInstallUserSkills: 'mstudio:scaffold:install-user-skills',
   // Reads the open repo's `<dir>/skills/*/SKILL.md` frontmatter. Writes nothing.
   scaffoldListRepoSkills: 'mstudio:scaffold:list-repo-skills',
+  // The Loops composer's skill suggestions: bundled kit + repo + ~/.claude. Writes nothing.
+  scaffoldListKnownSkills: 'mstudio:scaffold:list-known-skills',
 
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mstudio:window:minimize',

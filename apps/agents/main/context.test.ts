@@ -37,7 +37,7 @@ afterEach(async () => {
 });
 
 /** Registers Agents over a temp vault holding the key; every outbound request lands on the stub. */
-async function setup(authorize?: VaultAuthorize) {
+async function setup(authorize?: VaultAuthorize, loginPath: () => Promise<void> = async () => undefined) {
   // Studio's side: the runtime host, holding the key under its own (fake) cipher. Agents holds none.
   const host = await startTestVaultHost({
     runtimeDirectory: join(dir, 'runtime'),
@@ -64,6 +64,8 @@ async function setup(authorize?: VaultAuthorize) {
     pairing: () => PAIRING_KEY,
     // A real shell, so a script node really runs — under a temp dir, never the user's home.
     shell: '/bin/sh',
+    // Never the real login-shell probe: it would source the user's rc files and rewrite this process's PATH.
+    loginPath,
   });
   disposers.push(registered.dispose, () => host.close());
   return { handlers, requests };
@@ -84,6 +86,13 @@ describe('registerAgentsHandlers', () => {
     expect([...handlers.keys()].sort()).toEqual(expected.sort());
     expect(handlers.has(CHANNELS.secretsGet)).toBe(false);
     expect(handlers.has(CHANNELS.secretsSet)).toBe(false);
+  });
+
+  it('starts the login-shell PATH probe once, at registration', async () => {
+    // A launcher-started Agents has launchd's bare PATH; without this a chat's `claude` spawn is ENOENT.
+    const loginPath = vi.fn(async () => undefined);
+    await setup(undefined, loginPath);
+    expect(loginPath).toHaveBeenCalledTimes(1);
   });
 
   it('answers the roster as the builtins, with install status unknown', async () => {

@@ -589,6 +589,7 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().setScreensaverOpen(true, false),
     },
+    'app.reportIssue': { enabled: true, run: () => useUiStore.getState().setReportIssueOpen(true) },
 
     'markdown.presentAsSlides': activeMarkdown
       ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }
