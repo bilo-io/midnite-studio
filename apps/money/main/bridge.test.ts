@@ -12,7 +12,8 @@ function fakeIpc(): RendererIpc {
 describe('createMoneyBridge', () => {
   it('exposes exactly finance, financeAccounts, markets and secrets.has', () => {
     const bridge = createMoneyBridge(fakeIpc());
-    expect(Object.keys(bridge).sort()).toEqual(['finance', 'financeAccounts', 'markets', 'secrets']);
+    expect(Object.keys(bridge).sort()).toEqual(['finance', 'financeAccounts', 'markets', 'report', 'secrets']);
+    expect(Object.keys(bridge.report).sort()).toEqual(['bundle', 'copy', 'error', 'ghStatus', 'logPath', 'onOpen', 'openUrl', 'reveal', 'submitIssue']);
     // Reads, a test, an add and a remove — no order, withdraw or transfer method exists to be called.
     expect(Object.keys(bridge.financeAccounts).sort()).toEqual(['add', 'list', 'remove', 'snapshots', 'test']);
     expect(Object.keys(bridge.finance).sort()).toEqual(['history', 'quote', 'search']);

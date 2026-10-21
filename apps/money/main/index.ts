@@ -1,12 +1,13 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
 
-import { guardAppWindow } from '@midnite/studio-runtime';
+import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 
 import { registerMoneyHandlers } from './context';
 import { MONEY_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, moneyUserData, moneyVaultDirectory } from './identity';
+import { registerReport, reportMenuTemplate } from './report';
 import { moneyPairing } from './pairing';
 
 /**
@@ -17,6 +18,7 @@ import { moneyPairing } from './pairing';
 const smoke = isSmoke(process.env);
 const override = process.env[USER_DATA_ENV];
 let win: BrowserWindow | null = null;
+let crashLog: LogSink | null = null;
 
 app.setName(MONEY_NAME);
 // A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
@@ -34,6 +36,32 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // The runtime's crash-log sink (NDJSON, rotated, redacted) — what Report an Issue reads.
+    crashLog = createFileSink({ dir: app.getPath('userData'), name: 'money.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => crashLog?.write(level, message));
+    crashLog.write('info', `${MONEY_NAME} ${app.getVersion()} started`);
+    const sendToWindow = (channel: string, payload: unknown): void => {
+      if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
+    };
+    registerReport(
+      { ipcMain, trashItem: (path) => shell.trashItem(path), send: sendToWindow },
+      {
+        sink: () => crashLog,
+        homeDir: () => app.getPath('home'),
+        bootLine: () => `${MONEY_NAME} ${app.getVersion()}`,
+        openExternal: (url) => shell.openExternal(url),
+        writeClipboard: (text) => clipboard.writeText(text),
+        revealPath: (path) => shell.showItemInFolder(path),
+      },
+    );
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        reportMenuTemplate((channel, payload) => {
+          const target = BrowserWindow.getFocusedWindow() ?? win;
+          if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+        }) as MenuItemConstructorOptions[],
+      ),
+    );
     const vaultDirectory = moneyVaultDirectory(app.getPath('appData'), override);
     mkdirSync(vaultDirectory, { recursive: true });
     registerMoneyHandlers({
