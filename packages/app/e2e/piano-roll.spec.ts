@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle, SHOT_VIEWPORTS } from './shots-helper';
+import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle } from './shots-helper';
 
 /**
  * Phase 101 Theme E: real pointer input on the piano roll's canvas. Needs a real browser because
@@ -9,7 +9,7 @@ import { clickRailLink, fixtures, installMockBridge, type MockFixtures, settle, 
  * (`model/*.test.ts`) and the track controls (`editor-tab.test.tsx`) are vitest. The result is read
  * back through the bridge's `music.read`, since the canvas has no DOM to assert on.
  */
-test.use({ viewport: SHOT_VIEWPORTS.wide });
+test.use({ viewport: { width: 1600, height: 1000 } });
 test.describe.configure({ timeout: 90_000 });
 
 const DATA: MockFixtures = {

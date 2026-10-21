@@ -1,4 +1,4 @@
-import { test, type Locator, type Page, type Route } from '@playwright/test';
+import { test, type Page, type Route } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
 import {
@@ -77,18 +77,6 @@ export const REPRODUCIBLE_SUBJECTS = [
   'feat(forge): gh issue list, behind the existing wrapper',
   'test(dashboard): the author filter scopes every widget',
 ] as const;
-
-export const SHOT_VIEWPORTS = {
-  default: { width: 1280, height: 800 },
-  wide: { width: 1600, height: 1000 },
-  ultraWide: { width: 1680, height: 1000 },
-  board: { width: 1400, height: 900 },
-  compact: { width: 1080, height: 800 },
-  collapsed: { width: 900, height: 800 },
-  tallPopover: { width: 780, height: 950 },
-} as const;
-
-export type ShotViewportName = keyof typeof SHOT_VIEWPORTS;
 
 /* ─── History & Mock Generators ────────────────────────────────────────── */
 
@@ -289,14 +277,6 @@ export async function prepareForVisualCapture(page: Page): Promise<void> {
   await freezeClock(page);
 }
 
-export async function setShotViewport(
-  page: Page,
-  viewport: ShotViewportName | { width: number; height: number },
-): Promise<void> {
-  const size = typeof viewport === 'string' ? SHOT_VIEWPORTS[viewport] : viewport;
-  await page.setViewportSize(size);
-}
-
 export async function settle(page: Page, ms = 300): Promise<void> {
   await page.waitForTimeout(ms);
 }
@@ -349,25 +329,6 @@ export async function seedUiState(page: Page, state: Record<string, unknown>): P
 /** Seeds `enabledWebApps` (Phase 83) — see {@link seedUiState}. */
 export async function seedEnabledWebApps(page: Page, ids: readonly string[]): Promise<void> {
   await seedUiState(page, { enabledWebApps: ids });
-}
-
-/* ─── Screenshot Path & Capture Helpers ────────────────────────────────── */
-
-export function shotPath(outDir: string, filename: string): string {
-  const cleanDir = outDir.replace(/\/+$/, '');
-  const cleanFile = filename.endsWith('.png') ? filename : `${filename}.png`;
-  return `${cleanDir}/${cleanFile}`;
-}
-
-export function createShotTaker(outDir: string, defaultOptions?: Parameters<Page['screenshot']>[0]) {
-  return async function shoot(
-    target: Page | Locator,
-    filename: string,
-    options?: Parameters<Page['screenshot']>[0],
-  ): Promise<void> {
-    const path = shotPath(outDir, filename);
-    await target.screenshot({ path, ...defaultOptions, ...options });
-  };
 }
 
 export { clickRailLink, fixtures, type MockFixtures };
