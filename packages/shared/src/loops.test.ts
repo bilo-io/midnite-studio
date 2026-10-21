@@ -933,3 +933,14 @@ describe('#870 run options', () => {
     ).toBe('/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts.');
   });
 });
+
+describe('reviewsPrs', () => {
+  it('is set on Patrol alone, the one loop that reviews other people’s PRs', () => {
+    expect(DEFAULT_LOOPS.filter((loop) => loop.reviewsPrs).map((loop) => loop.id)).toEqual(['watchdog']);
+  });
+
+  it('defaults to false for a loop that does not declare it', () => {
+    const parsed = LoopDefinitionSchema.parse({ ...DEFAULT_LOOPS[0]!, reviewsPrs: undefined });
+    expect(parsed.reviewsPrs).toBe(false);
+  });
+});

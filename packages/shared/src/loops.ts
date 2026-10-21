@@ -562,6 +562,13 @@ export const LoopDefinitionSchema = z.object({
    * only qualify it.
    */
   requiresModifier: z.boolean().default(false),
+  /**
+   * The loop reviews other people's PRs, so its Scope section offers the Users
+   * filter ("Review PRs for these users only: …"). True only for Patrol: on a
+   * loop that reviews nothing the sentence would be an instruction about work
+   * it was never given.
+   */
+  reviewsPrs: z.boolean().default(false),
   modifiers: z.array(LoopModifierSchema),
   choices: z.array(LoopChoiceSchema).default([]),
 });
@@ -724,6 +731,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentCommandId: 'loopGuard',
     fallbackPrompt: '/loop /midnite-address-issue',
     requiresModifier: false,
+    reviewsPrs: false,
     modifiers: [
       {
         id: 'secret-scan',
@@ -816,6 +824,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentCommandId: 'loopBrainstorm',
     fallbackPrompt: '/loop /midnite-ideate',
     requiresModifier: false,
+    reviewsPrs: false,
     modifiers: [
       {
         id: 'refine-existing',
@@ -896,6 +905,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentCommandId: 'loopExecBacklog',
     fallbackPrompt: '/loop /midnite-create',
     requiresModifier: false,
+    reviewsPrs: false,
     modifiers: [
       {
         id: 'ship-tests',
@@ -972,6 +982,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentCommandId: 'loopPatrol',
     fallbackPrompt: '/loop',
     requiresModifier: true,
+    reviewsPrs: true,
     modifiers: [
       {
         // First and on by default: PRs someone has labelled `routine` are the
@@ -1088,6 +1099,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentCommandId: 'loopAddressIssue',
     fallbackPrompt: '/loop /midnite-address-issue',
     requiresModifier: false,
+    reviewsPrs: false,
     modifiers: [
       {
         id: 'dependabot',
@@ -1181,6 +1193,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     agentCommandId: 'loopOverhaul',
     fallbackPrompt: '/loop /midnite-create',
     requiresModifier: false,
+    reviewsPrs: false,
     modifiers: [
       {
         id: 'perf-profile',

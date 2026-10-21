@@ -4,12 +4,14 @@ import {
   DEFAULT_LOOPS,
   LOOP_FREQUENCIES,
   LOOP_MODELS,
+  type KnownSkill,
   type LoopDefinition,
 } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LoopComposer } from './loop-composer';
+import { contributorOptions, matchSkills } from './loop-option-row';
 
 afterEach(cleanup);
 
@@ -55,9 +57,19 @@ function renderComposer(overrides: Partial<Parameters<typeof LoopComposer>[0]> =
     model: 'default' as const,
     schedule: DEFAULT_LOOP_SCHEDULE,
     extras: '',
+    skills: {} as Record<string, string>,
+    skillSuggestions: [] as readonly KnownSkill[],
+    reviewUsers: [] as readonly string[],
+    contributorOptions: [],
+    autoRotatePercent: 30,
+    repeat: true,
     disabled: false,
     disabledReason: undefined,
     onToggle: vi.fn(),
+    onSkill: vi.fn(),
+    onReviewUsers: vi.fn(),
+    onAutoRotate: vi.fn(),
+    onRepeat: vi.fn(),
     onChoice: vi.fn(),
     onAgent: vi.fn(),
     onModel: vi.fn(),
@@ -71,25 +83,24 @@ function renderComposer(overrides: Partial<Parameters<typeof LoopComposer>[0]> =
 }
 
 describe('LoopComposer — idle', () => {
-  it('draws every declared modifier as the control its own shape says', () => {
+  it('draws every declared modifier as a switch — jobs and standing policies alike', () => {
     renderComposer();
-    for (const modifier of boxes) {
-      expect(screen.getByRole('checkbox', { name: modifier.label })).not.toBeNull();
-    }
-    for (const modifier of switches) {
+    for (const modifier of watchdog.modifiers) {
       expect(screen.getByRole('switch', { name: modifier.label })).not.toBeNull();
     }
+    expect(boxes.length).toBeGreaterThan(0);
     expect(switches.length).toBeGreaterThan(0);
+    expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
   it('lists Patrol\'s task boxes with Routine first and "Reply to PRs" in place of "Answer feedback"', () => {
     const { container } = renderComposer();
     const tasks = container.querySelector('[data-loop-group="tasks"]') as HTMLElement;
     const names = within(tasks)
-      .getAllByRole('checkbox')
-      .map((box) => box.getAttribute('aria-label') ?? box.closest('label')?.textContent?.trim());
+      .getAllByRole('switch')
+      .map((box) => box.closest('label')?.textContent?.trim());
     expect(names).toEqual(['Routine', 'Review PRs', 'Reply to PRs', 'Security review']);
-    expect(screen.queryByRole('checkbox', { name: 'Answer feedback' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Answer feedback' })).toBeNull();
   });
 
   it('groups the controls under their section headings, in declared order', () => {
@@ -116,9 +127,9 @@ describe('LoopComposer — idle', () => {
     expect((screen.getByRole('radio', { name: 'Ask me' }) as HTMLInputElement).checked).toBe(true);
   });
 
-  it('reports a toggle by modifier id and its new state, box or switch', () => {
+  it('reports a toggle by modifier id and its new state, job or policy', () => {
     const { props } = renderComposer();
-    fireEvent.click(screen.getByRole('checkbox', { name: boxes[0]!.label }));
+    fireEvent.click(screen.getByRole('switch', { name: boxes[0]!.label }));
     expect(props.onToggle).toHaveBeenCalledWith(boxes[0]!.id, true);
 
     fireEvent.click(screen.getByRole('switch', { name: switches[0]!.label }));
@@ -408,12 +419,12 @@ describe('LoopComposer — accordions', () => {
     expect(screen.getByRole('button', { name: /^Schedule/ }).textContent).toContain('Off');
   });
 
-  it('lays the checkboxes out as a grid, not a to-do list', () => {
-    // Any subset of these is a valid run — a column of them read as steps.
+  it('draws one option row per tasks-group modifier, each with its own switch', () => {
     const { container } = renderComposer();
-    const grid = container.querySelector('[data-loop-group="tasks"] .grid-cols-2');
-    expect(grid).not.toBeNull();
-    expect(grid!.querySelectorAll('input[type="checkbox"]')).toHaveLength(boxes.length);
+    const tasks = container.querySelector('[data-loop-group="tasks"]') as HTMLElement;
+    const rows = tasks.querySelectorAll('[data-loop-option]');
+    expect(rows).toHaveLength(watchdog.modifiers.filter((m) => m.group === 'tasks').length);
+    for (const row of rows) expect(within(row as HTMLElement).getAllByRole('switch')).toHaveLength(1);
   });
 });
 
@@ -423,7 +434,7 @@ describe('LoopComposer — running', () => {
   it('collapses to chips: the composer inputs are gone, the checked labels remain', () => {
     renderComposer({ running: true, checked });
     expect(screen.queryByPlaceholderText('Extra instructions…')).toBeNull();
-    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
     expect(screen.queryByRole('radio')).toBeNull();
     expect(screen.getByText(boxes[0]!.label)).not.toBeNull();
   });
@@ -495,5 +506,155 @@ describe('LoopComposer — running', () => {
     const stop = screen.getByTestId('loop-stop');
     expect(stop.className).toContain('is-waiting');
     expect(stop.className).not.toContain('is-thinking');
+  });
+});
+
+describe('LoopComposer — option rows', () => {
+  const review = watchdog.modifiers.find((m) => m.id === 'pr-review')!;
+  const skills: KnownSkill[] = [
+    { name: 'pr-review', description: 'Review a pull request', source: 'repo' },
+    { name: 'midnite-pr-review', description: 'Midnite house review', source: 'midnite' },
+    { name: 'my-review', source: 'user' },
+  ];
+
+  it('explains each switch in a tooltip on focus, from its description', () => {
+    renderComposer();
+    fireEvent.focus(screen.getByRole('switch', { name: review.label }));
+    expect(screen.getByRole('tooltip').textContent).toBe(review.description);
+  });
+
+  it('keeps the prompt preview shut until its chevron opens it', () => {
+    renderComposer();
+    const preview = screen.getByTestId(`loop-option-prompt-${review.id}`);
+    expect(preview.hidden).toBe(true);
+    const chevron = screen.getByRole('button', { name: `Show the prompt ${review.label} adds` });
+    expect(chevron.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(chevron);
+    expect(preview.hidden).toBe(false);
+    expect(preview.textContent).toBe('/pr-review');
+    expect(
+      screen.getByRole('button', { name: `Hide the prompt ${review.label} adds` }).getAttribute('aria-expanded'),
+    ).toBe('true');
+  });
+
+  it('previews the fragment with the chosen skill substituted in', () => {
+    renderComposer({ skills: { 'pr-review': 'midnite-pr-review' } });
+    expect(screen.getByTestId('loop-option-prompt-pr-review').textContent).toBe('/midnite-pr-review');
+    const routine = screen.getByTestId('loop-option-prompt-routine').textContent;
+    expect(routine).not.toContain('{skill}');
+  });
+
+  it('shows a skill field only while a skill-taking option is on', () => {
+    const { rerender, props } = renderComposer();
+    expect(screen.queryByRole('combobox', { name: 'Skill for Review PRs' })).toBeNull();
+    rerender(<LoopComposer {...props} checked={{ 'pr-review': true, 'report-only': true }} />);
+    const field = screen.getByRole('combobox', { name: 'Skill for Review PRs' }) as HTMLInputElement;
+    expect(field.placeholder).toBe('/pr-review');
+    // A plain policy names no skill, so it never grows a field.
+    const policy = watchdog.modifiers.find((m) => m.skillTemplate === undefined)!;
+    expect(screen.queryByRole('combobox', { name: `Skill for ${policy.label}` })).toBeNull();
+  });
+
+  it('suggests known skills labelled by source, and reports a pick by modifier id', () => {
+    const { props } = renderComposer({ checked: { 'pr-review': true }, skillSuggestions: skills });
+    const field = screen.getByRole('combobox', { name: 'Skill for Review PRs' });
+    fireEvent.focus(field);
+    const list = screen.getByRole('listbox', { name: 'Skill for Review PRs suggestions' });
+    const options = within(list).getAllByRole('option');
+    expect(options).toHaveLength(3);
+    const sources = options.map((o) => o.querySelector('[data-skill-source]')?.textContent);
+    expect(sources).toEqual(['Repo', 'Midnite', 'User']);
+    fireEvent.click(options[1]!);
+    expect(props.onSkill).toHaveBeenCalledWith('pr-review', '/midnite-pr-review');
+  });
+
+  it('takes free text in the same field, and picks the highlighted row on Enter', () => {
+    const { props } = renderComposer({ checked: { 'pr-review': true }, skillSuggestions: skills });
+    const field = screen.getByRole('combobox', { name: 'Skill for Review PRs' });
+    fireEvent.change(field, { target: { value: 'house-rules' } });
+    expect(props.onSkill).toHaveBeenLastCalledWith('pr-review', 'house-rules');
+    fireEvent.focus(field);
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(props.onSkill).toHaveBeenLastCalledWith('pr-review', '/pr-review');
+  });
+
+  it('clears a chosen skill back to the default', () => {
+    const { props } = renderComposer({ checked: { 'pr-review': true }, skills: { 'pr-review': '/x' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Skill for Review PRs — use the default' }));
+    expect(props.onSkill).toHaveBeenCalledWith('pr-review', '');
+  });
+});
+
+describe('LoopComposer — run options', () => {
+  it('offers the Users filter on Patrol, and on no loop that reviews nothing', () => {
+    const { rerender, props } = renderComposer();
+    expect(screen.getByTestId('review-users-field')).not.toBeNull();
+    const other = DEFAULT_LOOPS.find((l) => !l.reviewsPrs)!;
+    rerender(<LoopComposer {...props} loop={other} />);
+    expect(screen.queryByTestId('review-users-field')).toBeNull();
+  });
+
+  it('reports the auto-rotate slider as a number', () => {
+    const { props } = renderComposer();
+    const slider = screen.getByRole('slider', { name: 'Auto-rotate subagents' }) as HTMLInputElement;
+    expect(slider.min).toBe('10');
+    expect(slider.max).toBe('100');
+    expect(slider.step).toBe('5');
+    expect(slider.value).toBe('30');
+    fireEvent.change(slider, { target: { value: '55' } });
+    expect(props.onAutoRotate).toHaveBeenCalledWith(55);
+  });
+
+  it('puts the Loop switch in the Run section, on by default', () => {
+    const { props, container } = renderComposer();
+    const run = container.querySelector('[data-loop-group="run"]') as HTMLElement;
+    const loopSwitch = within(run).getByRole('switch', { name: 'Loop' }) as HTMLInputElement;
+    expect(loopSwitch.checked).toBe(true);
+    fireEvent.click(loopSwitch);
+    expect(props.onRepeat).toHaveBeenCalledWith(false);
+  });
+
+  it('chips a chosen skill, the users, an off-default rotate and a once-off run', () => {
+    renderComposer({
+      running: true,
+      checked: { 'pr-review': true },
+      skills: { 'pr-review': 'midnite-pr-review' },
+      reviewUsers: ['alice', 'bob'],
+      autoRotatePercent: 50,
+      repeat: false,
+    });
+    expect(screen.getByText('Review PRs · /midnite-pr-review')).not.toBeNull();
+    expect(screen.getByText('Users: alice, bob')).not.toBeNull();
+    expect(screen.getByText('Rotate at 50%')).not.toBeNull();
+    expect(screen.getByText('Once-off')).not.toBeNull();
+  });
+});
+
+describe('matchSkills', () => {
+  const all: KnownSkill[] = [
+    { name: 'zeta', description: 'mentions review here', source: 'user' },
+    { name: 'pr-review', source: 'repo' },
+    { name: 'review', source: 'midnite' },
+  ];
+
+  it('ranks prefix, then infix, then description matches', () => {
+    expect(matchSkills(all, '/rev').map((s) => s.name)).toEqual(['review', 'pr-review', 'zeta']);
+  });
+
+  it('lists everything (capped) for an empty query', () => {
+    expect(matchSkills(all, '')).toHaveLength(3);
+  });
+});
+
+describe('contributorOptions', () => {
+  it('keys by GitHub username, de-duplicates, and names the person in the menu', () => {
+    const options = contributorOptions([
+      { name: 'Ada Lovelace', email: '123+ada@users.noreply.github.com', commits: 4 },
+      { name: 'Ada L', email: 'ada@example.com', commits: 1 },
+      { name: 'bob', email: 'bob@example.com', commits: 1 },
+    ]);
+    expect(options.map((o) => o.id)).toEqual(['ada', 'bob']);
+    expect(options[0]).toMatchObject({ label: 'ada', display: 'Ada Lovelace (ada)', hint: '4 commits' });
+    expect(options[1]).toMatchObject({ display: 'bob', hint: '1 commit' });
   });
 });
