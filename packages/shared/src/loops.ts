@@ -695,13 +695,19 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * the `routine` label. Exported so the composer test can assert the line
  * carries it exactly when the box is on.
  *
- * Three promises, all load-bearing: it touches only labelled PRs, it approves
+ * Three promises, all load-bearing: it approves only labelled PRs, it approves
  * only when the review turns up nothing critical, and the approval says
  * "LGTM" or "🚀" and nothing else — the findings, if any, are left as review
  * comments the way an ordinary review leaves them.
+ *
+ * The label decides what gets approved, not what the pass looks at. The first
+ * wording ("list the open PRs carrying the `routine` label") was read as the
+ * pass's search: an agent ran `gh search prs --label routine` and the Review
+ * PRs box beside it never saw an unlabelled PR. So the rule now says outright
+ * that it adds to the pass and that the other PRs still get the rest of it.
  */
 export const ROUTINE_PR_FRAGMENT =
-  'Routine PRs: on each pass, list the open PRs carrying the `routine` label and review each one; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. PRs without the `routine` label are unaffected by this rule.';
+  'Routine PRs: on each pass, review every open PR carrying the `routine` label; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. This rule adds to the pass rather than narrowing it: do not filter the pass down to the label, and give PRs without the `routine` label whatever the rest of this prompt asks for.';
 
 /**
  * {@link ROUTINE_PR_FRAGMENT} with a chosen review skill — the same rule, but
@@ -709,7 +715,7 @@ export const ROUTINE_PR_FRAGMENT =
  * the agent would do unprompted.
  */
 export const ROUTINE_PR_SKILL_TEMPLATE =
-  'Routine PRs: on each pass, list the open PRs carrying the `routine` label and review each one with {skill}; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. PRs without the `routine` label are unaffected by this rule.';
+  'Routine PRs: on each pass, review every open PR carrying the `routine` label with {skill}; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. This rule adds to the pass rather than narrowing it: do not filter the pass down to the label, and give PRs without the `routine` label whatever the rest of this prompt asks for.';
 
 /**
  * Patrol's and Medic's "Triage only" — look and report, touch nothing. The
@@ -988,12 +994,14 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         // First and on by default: PRs someone has labelled `routine` are the
         // ones the owner has already said need no deliberation, so a patrol
         // pass clears them without being asked. It only *adds* a rule for that
-        // label — unlabelled PRs get whatever the boxes below say, or nothing.
+        // label — unlabelled PRs still get whatever the boxes below say, or
+        // nothing, and the fragment says so, since an agent once took it as the
+        // pass's whole search.
         // The approval body is the repo's own convention: "LGTM" or "🚀" only.
         id: 'routine',
         label: 'Routine',
         description:
-          'Reviews open PRs labelled `routine` and approves them with "LGTM" or 🚀 unless the review finds something critical.',
+          'Approves open PRs labelled `routine` with "LGTM" or 🚀 unless the review finds something critical. Other PRs still get the rest of the pass.',
         promptFragment: ROUTINE_PR_FRAGMENT,
         skillTemplate: ROUTINE_PR_SKILL_TEMPLATE,
         group: 'tasks',

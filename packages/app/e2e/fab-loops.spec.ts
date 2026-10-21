@@ -263,7 +263,7 @@ test.describe('FAB loop console', () => {
       pins the constant itself; this only proves it reaches the line first.
     */
     const ROUTINE_PR_FRAGMENT =
-      'Routine PRs: on each pass, list the open PRs carrying the `routine` label and review each one; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. PRs without the `routine` label are unaffected by this rule.';
+      'Routine PRs: on each pass, review every open PR carrying the `routine` label; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. This rule adds to the pass rather than narrowing it: do not filter the pass down to the label, and give PRs without the `routine` label whatever the rest of this prompt asks for.';
     // Tasks, then scope, then the standing rules, then the window, extras last.
     expect(run?.['composedPrompt']).toBe(
       `/loop ${ROUTINE_PR_FRAGMENT} /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. ` +
