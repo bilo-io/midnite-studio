@@ -8,15 +8,15 @@
  * press of Start — composed prompt included, so history shows exactly which
  * toggles a run carried.
  *
- * Run settings come in three shapes, and the shape is part of the contract
- * rather than a renderer detail — a control that looks like the answer it takes
- * is the difference between a wall of identical boxes and a form you can read:
+ * Run settings come in two shapes:
  *
- * - **checkbox** ({@link LoopModifier} with `control: 'checkbox'`) — additive,
- *   many-of-N. "Review PRs" *and* "Reply to PRs" is a coherent run.
- * - **switch** ({@link LoopModifier} with `control: 'switch'`) — a standing
- *   policy that is either in force or not. "Auto-merge green PRs" is not one
- *   item in a list of jobs; it is a mode the whole run is in.
+ * - **on/off** ({@link LoopModifier}) — drawn as a switch. `control` still says
+ *   which *kind* of on/off it is, and the composer orders by it: an additive
+ *   job (`'checkbox'` — "Review PRs" *and* "Reply to PRs" is a coherent run)
+ *   comes before a standing policy (`'switch'` — "Auto-merge green PRs" is a
+ *   mode the whole run is in). Every one of them is drawn as a switch now, so
+ *   each row has room for its tooltip, its prompt preview and, where the
+ *   fragment names a skill, a skill field.
  * - **radio** ({@link LoopChoice}) — exactly one of N, because the options
  *   contradict each other. The autonomy pair used to be two checkboxes with a
  *   comment admitting that ticking both was a contradiction; a radio group is
@@ -28,8 +28,9 @@
 import { z } from 'zod';
 
 /**
- * Which control a modifier is drawn as. See the module note: additive things
- * are boxes, standing policies are switches.
+ * Which kind of on/off a modifier is — an additive job (`'checkbox'`, the
+ * historical name) or a standing policy (`'switch'`). Every modifier is drawn
+ * as a switch; this only orders jobs before policies within a section.
  */
 export const LoopControlSchema = z.enum(['checkbox', 'switch']);
 export type LoopControl = z.infer<typeof LoopControlSchema>;
@@ -62,6 +63,9 @@ export const LOOP_GROUPS: readonly { id: LoopGroup; label: string }[] = [
  * loops whose *job* is the checkbox: Patrol's base is a bare `/loop`, and its
  * boxes are what say which forge skills that loop runs.
  */
+/** The placeholder a {@link LoopModifier.skillTemplate} carries for the chosen skill. */
+export const LOOP_SKILL_SLOT = '{skill}';
+
 export const LoopModifierSchema = z.object({
   id: z.string().min(1),
   /** The control's label — short enough to read in a 320px panel. */
@@ -85,6 +89,23 @@ export const LoopModifierSchema = z.object({
   providesTask: z.boolean().optional(),
   /** Whether a fresh install starts with this one on. */
   defaultOn: z.boolean().default(false),
+  /**
+   * The fragment to send when the user has picked a skill for this option in
+   * the composer's skill field — `promptFragment` with the skill swapped for
+   * `{skill}`. Present only on options whose fragment invokes a skill or is a
+   * review/feedback/triage-style job; absent means the option has no skill
+   * field. An empty pick falls back to `promptFragment`, unchanged.
+   */
+  skillTemplate: z
+    .string()
+    .refine((t) => t.includes(LOOP_SKILL_SLOT), { message: 'skillTemplate needs a {skill} slot' })
+    .optional(),
+  /**
+   * The skill `promptFragment` already names, when it names one — the skill
+   * field's placeholder. `skillTemplate` with this in the slot must read
+   * exactly as `promptFragment` (asserted in `loops.test.ts`).
+   */
+  defaultSkill: z.string().min(1).optional(),
 });
 export type LoopModifier = z.infer<typeof LoopModifierSchema>;
 
@@ -643,14 +664,13 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * what is already sick: the dependency bots' PRs and the issue backlog.
  * **Overhaul** is the performance loop — it profiles, measures and fixes.
  * Either Patrol or Medic can be told to look and not touch; `Triage only`
- * means the same thing on both — run `/midnite-triage` and report its table.
+ * means the same thing on both — run `/midnite-sitrep` and report its table.
  *
- * Known seam: a *base* prompt is indirected through `agentCommandId`, so Settings
- * ▸ Agent can repoint it, but a modifier's `promptFragment` is not — the skill
- * names above are literal. `/pr-review` and `/pr-feedback` are personal skills and
- * travel with the user, but `/midnite-triage` ships in *this* repo's
- * `.claude/skills/`, so `Triage only` is a no-op in a checkout that does not carry
- * it. A per-modifier registry is the fix; it is deliberately not this change.
+ * A *base* prompt is indirected through `agentCommandId`, so Settings ▸ Agent
+ * can repoint it. A modifier's skill is repointed in the composer itself: every
+ * option with a `skillTemplate` has a skill field, and a skill picked there
+ * (say `/ekko-pr-review` for a checkout that has no `/pr-review`) is swapped
+ * into the fragment by {@link loopModifierFragment}.
  */
 /**
  * Patrol's "Routine" box — the one rule a patrol pass applies to PRs carrying
@@ -664,6 +684,24 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  */
 export const ROUTINE_PR_FRAGMENT =
   'Routine PRs: on each pass, list the open PRs carrying the `routine` label and review each one; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. PRs without the `routine` label are unaffected by this rule.';
+
+/**
+ * {@link ROUTINE_PR_FRAGMENT} with a chosen review skill — the same rule, but
+ * the review it runs on each labelled PR is that skill rather than whatever
+ * the agent would do unprompted.
+ */
+export const ROUTINE_PR_SKILL_TEMPLATE =
+  'Routine PRs: on each pass, list the open PRs carrying the `routine` label and review each one with {skill}; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. PRs without the `routine` label are unaffected by this rule.';
+
+/**
+ * Patrol's and Medic's "Triage only" — look and report, touch nothing. The
+ * default skill is `/midnite-sitrep` (it was `/midnite-triage`): the sitrep's
+ * one-table report is the answer a triage pass is asked for.
+ */
+const PATROL_TRIAGE_TEMPLATE =
+  'Triage only: ignore any review or feedback skill named above, and the routine-PR approval rule — run {skill} instead and report only its summary table. Leave no reviews, merge nothing and push no fixes.';
+const MEDIC_TRIAGE_TEMPLATE =
+  'Triage only: run {skill} and report its summary table — merge nothing and push no fixes.';
 
 export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   {
@@ -699,6 +737,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         label: 'Review for vulnerabilities',
         promptFragment:
           'Review recent changes for injection, auth and supply-chain vulnerabilities and report findings.',
+        skillTemplate:
+          'Review recent changes for injection, auth and supply-chain vulnerabilities with {skill} and report findings.',
         group: 'tasks',
         control: 'checkbox',
         defaultOn: false,
@@ -761,6 +801,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         label: 'Refine existing phases',
         promptFragment:
           'Also deepen existing phase docs with /midnite-refine, not only propose new ones.',
+        skillTemplate: 'Also deepen existing phase docs with {skill}, not only propose new ones.',
+        defaultSkill: '/midnite-refine',
         group: 'tasks',
         control: 'checkbox',
         defaultOn: false,
@@ -903,6 +945,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'routine',
         label: 'Routine',
         promptFragment: ROUTINE_PR_FRAGMENT,
+        skillTemplate: ROUTINE_PR_SKILL_TEMPLATE,
         group: 'tasks',
         control: 'checkbox',
         providesTask: true,
@@ -912,6 +955,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'pr-review',
         label: 'Review PRs',
         promptFragment: '/pr-review',
+        skillTemplate: LOOP_SKILL_SLOT,
+        defaultSkill: '/pr-review',
         group: 'tasks',
         control: 'checkbox',
         providesTask: true,
@@ -923,6 +968,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'pr-feedback',
         label: 'Reply to PRs',
         promptFragment: '/pr-feedback',
+        skillTemplate: LOOP_SKILL_SLOT,
+        defaultSkill: '/pr-feedback',
         group: 'tasks',
         control: 'checkbox',
         providesTask: true,
@@ -932,6 +979,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'security-review',
         label: 'Security review',
         promptFragment: '/security-review',
+        skillTemplate: LOOP_SKILL_SLOT,
+        defaultSkill: '/security-review',
         group: 'tasks',
         control: 'checkbox',
         providesTask: true,
@@ -940,8 +989,9 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'triage-only',
         label: 'Triage only',
-        promptFragment:
-          'Triage only: ignore any review or feedback skill named above, and the routine-PR approval rule — run /midnite-triage instead and report only its summary table. Leave no reviews, merge nothing and push no fixes.',
+        promptFragment: PATROL_TRIAGE_TEMPLATE.replace(LOOP_SKILL_SLOT, '/midnite-sitrep'),
+        skillTemplate: PATROL_TRIAGE_TEMPLATE,
+        defaultSkill: '/midnite-sitrep',
         group: 'run',
         control: 'switch',
         providesTask: true,
@@ -1022,6 +1072,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         label: 'Prune landed branches',
         promptFragment:
           'Also run /midnite-git-cleanup to remove branches and worktrees that have fully landed.',
+        skillTemplate: 'Also run {skill} to remove branches and worktrees that have fully landed.',
+        defaultSkill: '/midnite-git-cleanup',
         group: 'tasks',
         control: 'checkbox',
         defaultOn: false,
@@ -1029,8 +1081,9 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'triage-only',
         label: 'Triage only',
-        promptFragment:
-          'Triage only: run /midnite-triage and report its summary table — merge nothing and push no fixes.',
+        promptFragment: MEDIC_TRIAGE_TEMPLATE.replace(LOOP_SKILL_SLOT, '/midnite-sitrep'),
+        skillTemplate: MEDIC_TRIAGE_TEMPLATE,
+        defaultSkill: '/midnite-sitrep',
         group: 'run',
         control: 'switch',
         defaultOn: false,
@@ -1173,6 +1226,64 @@ export interface LoopSelection {
   schedule?: LoopSchedule | null;
   /** Free text, appended last. */
   extras?: string;
+  /**
+   * modifierId → the skill picked in that option's skill field. Empty or
+   * missing means the option's own default fragment.
+   */
+  skills?: Readonly<Record<string, string | undefined>>;
+  /** Contributor usernames to restrict PR review to. Empty means everyone. */
+  reviewUsers?: readonly string[];
+  /** Rotate subagents at this percentage of their context window. */
+  autoRotatePercent?: number;
+  /**
+   * The composer's "Loop" switch. `false` drops the leading `/loop` from the
+   * base, so the agent does one pass and the session stays open in the
+   * terminal. Missing means on — what every run did before the switch.
+   */
+  repeat?: boolean;
+}
+
+/** The auto-rotate slider's range, in percent of a subagent's context window. */
+export const LOOP_AUTO_ROTATE = { min: 10, max: 100, step: 5, default: 30 } as const;
+
+/**
+ * A skill field's raw text as it goes on the line: trimmed, inner whitespace
+ * collapsed, and given its leading `/` when the user typed the bare name.
+ * Empty stays empty — the caller's cue to keep the default fragment.
+ */
+export function normaliseLoopSkill(raw: string | undefined): string {
+  const text = (raw ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length === 0) return '';
+  return text.startsWith('/') ? text : `/${text}`;
+}
+
+/**
+ * What one *on* option contributes to the line: its `skillTemplate` with the
+ * picked skill in the slot, or its default `promptFragment` when nothing was
+ * picked (or the option takes no skill).
+ */
+export function loopModifierFragment(modifier: LoopModifier, skill?: string): string {
+  const chosen = normaliseLoopSkill(skill);
+  if (chosen.length === 0 || modifier.skillTemplate === undefined) return modifier.promptFragment;
+  return modifier.skillTemplate.split(LOOP_SKILL_SLOT).join(chosen);
+}
+
+/** The Users filter's sentence, or `null` when no user is picked. */
+export function loopReviewUsersFragment(users: readonly string[] | undefined): string | null {
+  const picked = (users ?? []).map((u) => u.trim()).filter((u) => u.length > 0);
+  return picked.length > 0 ? `Review PRs for these users only: ${picked.join(', ')}.` : null;
+}
+
+/** The auto-rotate sentence, clamped and snapped into {@link LOOP_AUTO_ROTATE}. */
+export function loopAutoRotateFragment(percent: number): string {
+  const { min, max, step } = LOOP_AUTO_ROTATE;
+  const snapped = Math.min(max, Math.max(min, Math.round(percent / step) * step));
+  return `Auto-rotate subagents at ${snapped}% context.`;
+}
+
+/** The base with its leading `/loop` dropped — a once-off run of the same command. */
+export function onceOffBasePrompt(basePrompt: string): string {
+  return basePrompt.trim().replace(/^\/loop(?=\s|$)\s*/, '');
 }
 
 /**
@@ -1198,19 +1309,31 @@ export function composeLoopPrompt(
 
   for (const group of LOOP_GROUPS) {
     for (const modifier of loop.modifiers) {
-      if (modifier.group === group.id && on.has(modifier.id)) fragments.push(modifier.promptFragment);
+      if (modifier.group === group.id && on.has(modifier.id)) {
+        fragments.push(loopModifierFragment(modifier, selection.skills?.[modifier.id]));
+      }
     }
     for (const choice of loop.choices) {
       if (choice.group !== group.id) continue;
       const fragment = resolveLoopChoice(choice, selection.choiceIds?.[choice.id]).promptFragment;
       if (fragment !== undefined) fragments.push(fragment);
     }
+    // The Users filter narrows *which* PRs, so it is scope; auto-rotate is a
+    // standing rule for the whole run, so it lands with the run group.
+    if (group.id === 'scope') {
+      const users = loopReviewUsersFragment(selection.reviewUsers);
+      if (users !== null) fragments.push(users);
+    }
+    if (group.id === 'run' && selection.autoRotatePercent !== undefined) {
+      fragments.push(loopAutoRotateFragment(selection.autoRotatePercent));
+    }
   }
 
   const schedule = loopScheduleFragment(selection.schedule);
   if (schedule !== null) fragments.push(schedule);
 
-  return [basePrompt.trim(), ...fragments, selection.extras?.trim() ?? '']
+  const base = selection.repeat === false ? onceOffBasePrompt(basePrompt) : basePrompt.trim();
+  return [base, ...fragments, selection.extras?.trim() ?? '']
     .filter((part) => part.length > 0)
     .join(' ');
 }
