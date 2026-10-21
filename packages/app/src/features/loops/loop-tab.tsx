@@ -23,6 +23,9 @@ import { LazyTerminalView } from '../terminal/lazy-terminal-view';
 import { useAgents } from '../terminal/use-agents';
 import { YieldedToSessionsPage } from '../terminal/yielded-to-sessions-page';
 
+// A zustand v5 selector must return a stable reference, or it re-renders forever.
+const NO_REVIEW_USERS: readonly string[] = [];
+
 /**
  * One FAB tab: compose the run, start it, watch it, read what past runs were
  * told.
@@ -80,9 +83,9 @@ export function LoopTab({
   const model = useUiStore((s) => s.loopModels[loop.id] ?? 'default');
   const schedule = useUiStore((s) => s.loopSchedules[loop.id] ?? DEFAULT_LOOP_SCHEDULE);
   const extras = useUiStore((s) => s.loopExtras[loop.id] ?? '');
-  const reviewUsers = useUiStore((s) => s.loopReviewUsers[loop.id] ?? []);
+  const reviewUsers = useUiStore((s) => s.loopReviewUsers[loop.id] ?? NO_REVIEW_USERS);
   const autoRotate = useUiStore((s) => s.loopAutoRotate[loop.id] ?? 30);
-  const isLoop = useUiStore((s) => s.loopEnabled[loop.id] ?? true);
+  const isLoop = useUiStore((s) => s.loopRepeat[loop.id] ?? true);
   const setCheck = useUiStore((s) => s.setLoopModifierCheck);
   const setChoice = useUiStore((s) => s.setLoopChoice);
   const setAgent = useUiStore((s) => s.setLoopAgent);
@@ -91,21 +94,27 @@ export function LoopTab({
   const setExtras = useUiStore((s) => s.setLoopExtras);
   const setReviewUsers = useUiStore((s) => s.setLoopReviewUsers);
   const setAutoRotate = useUiStore((s) => s.setLoopAutoRotate);
-  const setLoopEnabled = useUiStore((s) => s.setLoopEnabled);
+  const setLoopRepeat = useUiStore((s) => s.setLoopRepeat);
 
   const stats = useRepoStats(selectedRepoId, 'all', false);
   const contributorOptions = useMemo(() => {
     const list = stats.data?.contributors ?? [];
-    return list.map((c) => {
+    const seen = new Set<string>();
+    return list.flatMap((c) => {
       const match = c.email.match(/(?:\d+\+)?([^@]+)@users\.noreply\.github\.com/);
       const username = match ? match[1]! : (c.email.split('@')[0] || c.name.toLowerCase().replace(/\s+/g, '-'));
+      // One person committing under two emails maps to one id; react-select keys on it.
+      if (seen.has(username)) return [];
+      seen.add(username);
       const displayName = c.name || username;
-      return {
-        id: username,
-        label: username,
-        display: displayName !== username ? `${displayName} (${username})` : displayName,
-        hint: `${c.commits} commit${c.commits === 1 ? '' : 's'}`,
-      };
+      return [
+        {
+          id: username,
+          label: username,
+          display: displayName !== username ? `${displayName} (${username})` : displayName,
+          hint: `${c.commits} commit${c.commits === 1 ? '' : 's'}`,
+        },
+      ];
     });
   }, [stats.data?.contributors]);
 
@@ -259,7 +268,7 @@ export function LoopTab({
             autoRotatePercent={autoRotate}
             onAutoRotate={(percent) => setAutoRotate(loop.id, percent)}
             loopEnabled={isLoop}
-            onLoopEnabled={(on) => setLoopEnabled(loop.id, on)}
+            onLoopEnabled={(on) => setLoopRepeat(loop.id, on)}
             disabled={!repo || (loop.requiresModifier && !hasTask)}
             disabledReason={
               repo

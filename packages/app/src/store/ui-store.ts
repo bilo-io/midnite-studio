@@ -984,6 +984,9 @@ export type UiState = {
   /** Auto-rotate subagents threshold percent (10 - 100), per loop tab. */
   loopAutoRotate: Record<string, number>;
   setLoopAutoRotate: (loopId: string, percent: number) => void;
+  /** The composer's "Loop" switch (false = once-off, no `/loop`); `loopEnabled` is the tab bar's. */
+  loopRepeat: Record<string, boolean>;
+  setLoopRepeat: (loopId: string, on: boolean) => void;
   /**
    * The FAB tab bar's "Loop" switch, per loop — off by default. Persisted
    * alongside the model/schedule/agent choices above: it is a standing
@@ -2736,6 +2739,9 @@ export const useUiStore = create<UiState>()(
       loopAutoRotate: {},
       setLoopAutoRotate: (loopId, percent) =>
         set((state) => ({ loopAutoRotate: { ...state.loopAutoRotate, [loopId]: percent } })),
+      loopRepeat: {},
+      setLoopRepeat: (loopId, on) =>
+        set((state) => ({ loopRepeat: { ...state.loopRepeat, [loopId]: on } })),
       loopEnabled: {},
       setLoopEnabled: (loopId, on) =>
         set((state) => ({ loopEnabled: { ...state.loopEnabled, [loopId]: on } })),

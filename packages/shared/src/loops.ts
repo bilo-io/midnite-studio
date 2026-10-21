@@ -657,14 +657,14 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * what is already sick: the dependency bots' PRs and the issue backlog.
  * **Overhaul** is the performance loop — it profiles, measures and fixes.
  * Either Patrol or Medic can be told to look and not touch; `Triage only`
- * means the same thing on both — run `/midnite-triage` and report its table.
+ * means the same thing on both — run `/midnite-sitrep` and report its table.
  *
  * Known seam: a *base* prompt is indirected through `agentCommandId`, so Settings
  * ▸ Agent can repoint it, but a modifier's `promptFragment` is not — the skill
- * names above are literal. `/pr-review` and `/pr-feedback` are personal skills and
- * travel with the user, but `/midnite-triage` ships in *this* repo's
+ * names above are literal. `/midnite-sitrep` ships in *this* repo's
  * `.claude/skills/`, so `Triage only` is a no-op in a checkout that does not carry
- * it. A per-modifier registry is the fix; it is deliberately not this change.
+ * it, and `/midnite-pr-review` and `/midnite-pr-feedback` must exist wherever the
+ * loop runs. A per-modifier registry is the fix; it is deliberately not this change.
  */
 export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   {

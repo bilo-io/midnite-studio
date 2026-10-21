@@ -253,9 +253,10 @@ test.describe('FAB loop console', () => {
     expect(run?.['loopId']).toBe('watchdog');
     // Tasks, then scope, then the standing rules, then the window, extras last.
     expect(run?.['composedPrompt']).toBe(
-      '/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. ' +
+      '/loop /midnite-pr-review /midnite-pr-feedback Look only at PRs that are ready for review — skip drafts. ' +
         'Do every piece of work in its own git worktree — never edit the primary checkout. ' +
         'Never stop to ask: keep advancing and always take the recommended option. ' +
+        'Auto-rotate subagents at 30% context. ' +
         'Work on weekdays only — idle through Saturday and Sunday. ' +
         'Work only between 09:00 and 17:00 local time — outside that window, idle and wait rather than starting new work. ' +
         'Skip drafts.',
