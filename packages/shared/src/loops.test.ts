@@ -618,12 +618,18 @@ describe('DEFAULT_LOOPS', () => {
     expect(DEFAULT_LOOPS.flatMap((l) => l.modifiers).some((m) => m.label === 'Answer feedback')).toBe(false);
   });
 
-  it('scopes the Routine rule to the routine label and approves only without critical issues', () => {
+  it('approves only routine-labelled PRs, only without critical issues, and leaves the rest of the pass alone', () => {
     expect(ROUTINE_PR_FRAGMENT).toContain('`routine` label');
     expect(ROUTINE_PR_FRAGMENT).toMatch(/no critical issues, approve/);
     expect(ROUTINE_PR_FRAGMENT).toContain('"LGTM" or "🚀"');
     expect(ROUTINE_PR_FRAGMENT).toContain('do not approve');
-    expect(ROUTINE_PR_FRAGMENT).toContain('PRs without the `routine` label are unaffected');
+    // The label narrows what is approved, never what the pass looks at: the
+    // old "list the open PRs carrying the label" was read as the search.
+    expect(ROUTINE_PR_FRAGMENT).not.toMatch(/list the open PRs carrying/);
+    expect(ROUTINE_PR_FRAGMENT).toContain('adds to the pass rather than narrowing it');
+    expect(ROUTINE_PR_FRAGMENT).toContain('do not filter the pass down to the label');
+    expect(ROUTINE_PR_FRAGMENT).toContain('PRs without the `routine` label whatever the rest of this prompt asks for');
+    expect(ROUTINE_PR_SKILL_TEMPLATE).toContain('adds to the pass rather than narrowing it');
   });
 
   it('carries the Routine approve rule on the Patrol line only when the box is on', () => {
