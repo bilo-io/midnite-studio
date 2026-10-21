@@ -665,9 +665,9 @@ jobs:
     # In Phase 116 Theme D, gate-locale was folded into gate-native, freeing 1 of
     # the 5 concurrent macOS slots. e2e was expanded from 3 to 4 shards, matching
     # exactly 5 concurrent macOS jobs (1 gate-native + 4 e2e) with zero queueing.
-    # Timeout is lowered from 30m to 15m.
+    # Timeout is set to 25m to provide headroom for the pre-Theme-C suite (~13-17m/shard).
     runs-on: macos-14
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
       # three quarters of a broken suite behind whichever shard happened to fail.
