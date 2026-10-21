@@ -92,7 +92,7 @@ describe('<EarlyAccess>', () => {
         agentIds: ['claude', 'aider'],
       }),
     );
-    expect(preview.textContent).toContain(ISSUE_REPO);
+    expect(preview.textContent).not.toContain(ISSUE_REPO);
     expect(preview.textContent).toContain(ISSUE_LABEL);
   });
 

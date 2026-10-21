@@ -1,74 +1,19 @@
-import { useEffect, useState } from 'react';
-
 /**
- * A product's update feed in the public releases repo. The site installs Midnite Apps (the
- * launcher), which installs the apps, so `midnite-launcher` is the default and the version the
- * download page shows. The Apps page reads `midnite-studio`'s, because every app runs inside
- * Studio today and that is the version a visitor would actually be running.
- *
- * Deliberately this file and not `releases/latest`: `bilo-io/midnite-apps`
- * distributes several apps, so its newest release is whichever one shipped most
- * recently and is not necessarily this one. The installer resolves the version
- * the same way, from the same URL — see the header of `install.sh` there.
+ * What a published build's version looks like to the page. Access is gated, so
+ * the site no longer reads any public release feed: there is no network call
+ * and no public version to show. The type stays because the Apps page's pills
+ * and carousel are written against it.
  */
-export type FeedProduct = 'midnite-launcher' | 'midnite-studio';
-
-export const feedUrl = (product: FeedProduct): string =>
-  `https://raw.githubusercontent.com/bilo-io/midnite-apps/main/${product}/version.json`;
-
 export type VersionState =
-  /** The fetch is in flight. */
-  | { status: 'loading' }
-  /** The feed answered with a version. */
+  /** A version is known. Not produced while access is gated. */
   | { status: 'released'; version: string }
-  /**
-   * The feed answered, and `version` is `null` — which is its honest state
-   * until the first release is cut, not an error.
-   */
+  /** No public release — the honest state while access is invitation-only. */
   | { status: 'unreleased' }
-  /** The feed could not be reached, or did not parse. */
+  | { status: 'loading' }
   | { status: 'unavailable' };
 
-/**
- * Reads the published version, and never blocks the page on it.
- *
- * Every failure mode collapses to a state the page can render as prose: offline
- * is `unavailable` (the install command still works, so the page says
- * "latest"), and a feed whose `version` is `null` is `unreleased` — which is
- * the truth today and must not be dressed up as a version number.
- *
- * Aborted on unmount so a slow response cannot set state on a gone component.
- */
-export const useLatestVersion = (product: FeedProduct = 'midnite-launcher'): VersionState => {
-  const [state, setState] = useState<VersionState>({ status: 'loading' });
+const UNRELEASED: VersionState = { status: 'unreleased' };
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    void (async () => {
-      try {
-        const response = await fetch(feedUrl(product), {
-          signal: controller.signal,
-          cache: 'no-cache',
-        });
-        if (!response.ok) throw new Error(`feed responded ${response.status}`);
-        const body: unknown = await response.json();
-        const version =
-          typeof body === 'object' && body !== null && 'version' in body
-            ? (body as { version: unknown }).version
-            : null;
-        setState(
-          typeof version === 'string' && version.length > 0
-            ? { status: 'released', version }
-            : { status: 'unreleased' },
-        );
-      } catch {
-        if (!controller.signal.aborted) setState({ status: 'unavailable' });
-      }
-    })();
-
-    return () => controller.abort();
-  }, [product]);
-
-  return state;
-};
+/** Always `unreleased`; kept as a hook so call sites need not change. */
+export const useLatestVersion = (_product: 'midnite-launcher' | 'midnite-studio' = 'midnite-launcher'): VersionState =>
+  UNRELEASED;

@@ -33,9 +33,6 @@ export type FaqEntry = {
   links?: readonly { label: string; href: string }[];
 };
 
-/** Where the public artefacts live. Users never need the source repo, so the site never links to it. */
-const APPS_REPO = 'https://github.com/bilo-io/midnite-apps';
-
 export const FAQ: readonly FaqEntry[] = [
   {
     slug: 'what-is-it',
@@ -57,10 +54,9 @@ export const FAQ: readonly FaqEntry[] = [
     slug: 'platforms',
     question: 'Which platforms does it run on?',
     answer: [
-      'macOS on Apple silicon, and only that, today. The published builds are arm64; the installer refuses anything else rather than downloading a binary that cannot run.',
+      'macOS on Apple silicon, and only that, today. The builds are arm64; the installer refuses anything else rather than downloading a binary that cannot run.',
       'Nothing in the apps is macOS-specific by design: they are Electron, and the git layer is the real git CLI, so Intel Macs, Linux and Windows are a build-and-test problem rather than a porting one. There is no date for them.',
     ],
-    links: [{ label: 'Read install.sh before you pipe it into sh', href: `${APPS_REPO}/blob/main/midnite-launcher/install.sh` }],
   },
   {
     slug: 'agents',
@@ -74,7 +70,7 @@ export const FAQ: readonly FaqEntry[] = [
     slug: 'privacy',
     question: 'Does anything leave my Mac?',
     answer: [
-      'There is no analytics, no telemetry and no crash reporting: when something crashes, the record stays on your disk. The launcher checks the public releases repo for updates and for the list of apps, and a few features fetch public data when they show it, such as the weather in the title bar or market prices in Money.',
+      'There is no analytics, no telemetry and no crash reporting: when something crashes, the record stays on your disk. The launcher checks for updates and for the list of apps, and a few features fetch public data when they show it, such as the weather in the title bar or market prices in Money.',
       'Everything you make stays where you put it: notes, chats, documents and media are files on your disk, not rows in our cloud, because there is no cloud of ours to put them in. Keys and logins you save are encrypted with a key held in the macOS Keychain.',
     ],
   },
@@ -82,29 +78,25 @@ export const FAQ: readonly FaqEntry[] = [
     slug: 'updates',
     question: 'How do updates arrive?',
     answer: [
-      'Through the launcher. It reads a small feed in the public releases repo for each app, downloads the new build, checks it against the release’s published SHA-256 checksum, and only then swaps it into /Applications, keeping the previous copy until the new one verifies.',
-      'The feeds are per app on purpose. The releases repo distributes the whole suite, so “the latest release” there is whichever app shipped most recently, and reading that would happily hand one app a sibling’s update.',
+      'Through the launcher. It reads a small update feed for each app, downloads the new build, checks it against the release’s published SHA-256 checksum, and only then swaps it into /Applications, keeping the previous copy until the new one verifies.',
+      'The feeds are per app on purpose, so one app is never handed a sibling’s update.',
     ],
-    links: [{ label: 'Releases and downloads', href: `${APPS_REPO}/releases` }],
   },
   {
     slug: 'open-source',
     question: 'Is it open source?',
     answer: [
       'Not today: the apps are not published under an open-source licence.',
-      'Everything you would actually need as a user is public, though, and lives in one repo for every midnite app: the installers, the release notes, the update feeds and the issue tracker. If you want to file a bug or ask for a feature, that is where it goes.',
+      'Access is by invitation for now. If you want to report a bug or ask for a feature, say so when you request early access and it will find its way to us.',
     ],
-    links: [
-      { label: 'Releases and downloads', href: `${APPS_REPO}/releases` },
-      { label: 'Issues: bugs and feature requests', href: `${APPS_REPO}/issues` },
-    ],
+    links: [{ label: 'Ask for early access', href: '#early-access' }],
   },
   {
     slug: 'pricing',
     question: 'What will it cost?',
     answer: [
       'Three tiers. Starter is free for public repositories, forever. Pro is $6 a month (or $60 a year, ~17% less) and unlocks private repositories, the one paid boundary in the product. Max is $10 per seat a month (or $100 per seat a year), for a team that wants multiple seats and shared billing.',
-      'The launcher and the apps are free to download and install regardless of tier, and early access costs nothing but the issue you file to ask for it.',
+      'The launcher and the apps are free to install regardless of tier, and early access costs nothing but the request you send to ask for it.',
     ],
     links: [{ label: 'Ask for early access', href: '#early-access' }],
   },

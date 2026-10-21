@@ -667,9 +667,7 @@ const PRICING_FAQ: readonly FaqEntry[] = [
  * Three columns at desktop width, stacked on a phone, with a feature
  * comparison table and a pricing-specific FAQ underneath. **No checkout, no
  * Stripe, no payment link** — the call to action is the early-access form
- * the site already has. Nothing here may link to `bilo-io/midnite-studio`;
- * billing questions belong in the public `bilo-io/midnite-apps` issue
- * tracker.
+ * the site already has. Nothing here may link to `bilo-io/midnite-studio`.
  */
 export const PricingPage = () => {
   const [billing, setBilling] = useState<BillingPeriod>('yearly');
