@@ -6,7 +6,6 @@ import {
   type MockFixtures,
   prepareForVisualCapture,
   REPRODUCIBLE_NOW_MS,
-  setShotViewport,
 } from '../shots-helper';
 
 /**
@@ -23,7 +22,7 @@ import {
 async function openWithBattery(page: Page, overrides: Partial<MockFixtures>): Promise<void> {
   const data: MockFixtures = { ...fixtures, ...overrides };
   await installMockBridge(page, data);
-  await setShotViewport(page, { width: 1200, height: 700 });
+  await page.setViewportSize({ width: 1200, height: 700 });
   await page.goto('/');
   await expect(page.getByTestId('status-bar')).toBeVisible();
 }

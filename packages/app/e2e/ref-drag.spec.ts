@@ -271,14 +271,10 @@ test.describe('ref chip drag gestures, after the move to the BRANCH / TAG column
     expect(await opsCalled(page)).toEqual([]);
   });
 
-  /** The gesture, mid-flight, as the phase's visual record of this item. */
-  test('screenshot the drop menu', async ({ page }) => {
+  test('opens the drop menu when dragging ref onto another', async ({ page }) => {
     await openGraph(page);
 
     await dragOnto(page, chip(page, 'refs/heads/feature/drag-me'), chip(page, 'refs/heads/main'));
     await expect(page.getByRole('menu')).toBeVisible();
-    if (process.env.MSTUDIO_SHOTS) {
-      await page.screenshot({ path: '../../docs/screenshots/phase-14/drop-menu.png' });
-    }
   });
 });
