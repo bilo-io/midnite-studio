@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -13,12 +14,15 @@ type Media = MidniteStudioBridge['media'];
 export type GamerBridge = {
   games: MidniteStudioBridge['games'];
   media: Pick<Media, 'project' | 'file' | 'reveal' | 'ffmpegStatus' | 'export' | 'cancelExport' | 'onChanged' | 'onExportProgress' | 'map' | 'terrain' | 'sprite' | 'model'>;
+  /** Report an Issue — the report feature's own bridge half. */
+  report: ReportBridge;
 };
 
 export type { RendererIpc };
 
 export function createGamerBridge(ipc: RendererIpc): GamerBridge {
-  const { call, send, subscribe } = createBridgeSlice(ipc);
+  const slice = createBridgeSlice(ipc);
+  const { call, send, subscribe } = slice;
   return {
     games: {
       settings: {
@@ -164,5 +168,6 @@ export function createGamerBridge(ipc: RendererIpc): GamerBridge {
         renderFrames: (req) => call(CHANNELS.mediaSpriteRenderFrames, req),
       },
     },
+    report: createReportBridge(slice),
   };
 }

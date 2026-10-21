@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -13,12 +14,15 @@ export type MoneyBridge = {
   financeAccounts: MidniteStudioBridge['financeAccounts'];
   markets: MidniteStudioBridge['markets'];
   secrets: Pick<MidniteStudioBridge['secrets'], 'has'>;
+  /** Report an Issue — the report feature's own bridge half. */
+  report: ReportBridge;
 };
 
 export type { RendererIpc };
 
 export function createMoneyBridge(ipc: RendererIpc): MoneyBridge {
-  const { call } = createBridgeSlice(ipc);
+  const slice = createBridgeSlice(ipc);
+  const { call } = slice;
   return {
     finance: {
       search: (req) => call(CHANNELS.financeSearch, req),
@@ -42,5 +46,6 @@ export function createMoneyBridge(ipc: RendererIpc): MoneyBridge {
       news: (req) => call(CHANNELS.marketsNews, req),
     },
     secrets: { has: (req) => call(CHANNELS.secretsHas, req) },
+    report: createReportBridge(slice),
   };
 }

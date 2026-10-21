@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
@@ -25,9 +25,19 @@ const library = {
 };
 const media = { library, onChanged: vi.fn(() => () => undefined) };
 
+let onReportOpen: (() => void) | null = null;
+const report = {
+  onOpen: vi.fn((handler: () => void) => {
+    onReportOpen = handler;
+    return () => undefined;
+  }),
+  bundle: vi.fn(async () => ({ text: '' })),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+};
+
 beforeEach(() => {
   localStorage.clear();
-  window.midniteStudio = { media } as unknown as typeof window.midniteStudio;
+  window.midniteStudio = { media, report } as unknown as typeof window.midniteStudio;
 });
 
 afterEach(() => {
@@ -68,5 +78,15 @@ describe('Media home view', () => {
     expect(screen.getByText('Off: nothing leaves this computer.')).toBeDefined();
     expect(screen.getByText('Add a TMDB key in Vault and grant it to Midnite Media.')).toBeDefined();
     expect(screen.queryByLabelText(/api key/i)).toBeNull();
+  });
+});
+
+describe('Media Report an Issue', () => {
+  it('mounts the dialog for midnite-media: the Help menu event opens it', async () => {
+    render(<MediaApp />);
+    await waitFor(() => expect(onReportOpen).not.toBeNull());
+    expect(screen.queryByText('Report an issue')).toBeNull();
+    act(() => onReportOpen?.());
+    expect(await screen.findByText('Report an issue')).toBeDefined();
   });
 });

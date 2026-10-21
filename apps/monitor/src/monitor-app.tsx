@@ -1,3 +1,4 @@
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 
 import { MONITOR_CHROME, MonitorDialogHost } from './compose/monitor-chrome';
@@ -12,6 +13,7 @@ export function MonitorApp() {
     <FrameChromeProvider chrome={MONITOR_CHROME}>
       <MonitorHome />
       <MonitorDialogHost />
+      <ReportIssueHost app="midnite-monitor" />
     </FrameChromeProvider>
   );
 }
