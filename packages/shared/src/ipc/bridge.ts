@@ -1606,6 +1606,13 @@ export type MidniteStudioBridge = {
     listRepoSkills: (
       req: In<typeof S.ListRepoSkillsRequest>,
     ) => Promise<z.infer<typeof S.ListRepoSkillsResponse>>;
+    /**
+     * Bundled, repo and user skills, merged and labelled by source — the
+     * Loops composer's skill-field suggestions.
+     */
+    listKnownSkills: (
+      req: In<typeof S.ListKnownSkillsRequest>,
+    ) => Promise<z.infer<typeof S.ListKnownSkillsResponse>>;
   };
 
   /**

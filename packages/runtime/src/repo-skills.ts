@@ -1,7 +1,16 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { failure, ok, type GitOpResult, type RepoSkill, type RepoSkillList } from '@midnite/studio-shared';
+import {
+  failure,
+  ok,
+  type GitOpResult,
+  type KnownSkill,
+  type KnownSkillList,
+  type KnownSkillSource,
+  type RepoSkill,
+  type RepoSkillList,
+} from '@midnite/studio-shared';
 
 type SkillSource = RepoSkill['source'];
 
@@ -116,6 +125,76 @@ export async function listRepoSkills(
         const name = (front?.name ?? dir).trim();
         if (!SKILL_NAME.test(name) || seen.has(name)) continue;
         seen.set(name, { name, description: (front?.description ?? '').trim(), source });
+      }
+    }
+    const skills = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+    return ok({ skills });
+  } catch (err) {
+    return failure(err instanceof Error ? err.message : String(err));
+  }
+}
+
+/** One directory of `<name>/SKILL.md` skills, and the label its finds carry. */
+export type KnownSkillRoot = { dir: string; source: KnownSkillSource };
+
+/**
+ * The roots the Loops composer's skill field reads, in precedence order:
+ * the active repo's own skills first (`.claude`, `.agents`, `.codex`), then
+ * the user's `~/.claude/skills`, then the app's bundled kit.
+ *
+ * Repo before user before bundled because that is the copy that actually
+ * runs: a CLI loads the repo's and the user's skills, and the bundled kit is
+ * only a template until it is installed into one of those — so a name found
+ * in several is labelled by the place the agent will read it from.
+ */
+export function knownSkillRoots(opts: {
+  bundledDir: string | null;
+  workdir: string | null;
+  home: string;
+}): KnownSkillRoot[] {
+  return [
+    ...(opts.workdir
+      ? (['.claude', '.agents', '.codex'] as const).map((d) => ({
+          dir: join(opts.workdir!, d, 'skills'),
+          source: 'repo' as const,
+        }))
+      : []),
+    { dir: join(opts.home, '.claude', 'skills'), source: 'user' as const },
+    ...(opts.bundledDir ? [{ dir: opts.bundledDir, source: 'midnite' as const }] : []),
+  ];
+}
+
+/**
+ * Every skill under `roots`, de-duplicated by name first-wins and sorted by
+ * name. Reads only frontmatter (`readSkillHead`). A missing root, a directory
+ * with no readable SKILL.md, or a name a CLI could not invoke is skipped —
+ * one broken skill must not blank the suggestions. Never throws: an
+ * unexpected failure comes back as the `GitOpResult` error envelope.
+ */
+export async function listKnownSkills(
+  roots: readonly KnownSkillRoot[],
+): Promise<GitOpResult<KnownSkillList>> {
+  try {
+    const seen = new Map<string, KnownSkill>();
+    for (const root of roots) {
+      let entries;
+      try {
+        entries = await readdir(root.dir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      const dirs = entries
+        .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
+        .map((entry) => entry.name)
+        .sort();
+      for (const dir of dirs) {
+        const head = await readSkillHead(join(root.dir, dir, 'SKILL.md'));
+        if (head === null) continue;
+        const front = parseSkillFrontmatter(head);
+        const name = (front?.name ?? dir).trim();
+        if (!SKILL_NAME.test(name) || seen.has(name)) continue;
+        const description = (front?.description ?? '').replace(/\s+/g, ' ').trim().slice(0, 2_000);
+        seen.set(name, { name, ...(description ? { description } : {}), source: root.source });
       }
     }
     const skills = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));

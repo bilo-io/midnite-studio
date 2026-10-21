@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   DEFAULT_LOOP_SCHEDULE,
+  LOOP_AUTO_ROTATE,
   resolveLoopChoice,
   type LoopDefinition,
   type LoopModel,
+  type LoopRunOptions,
   type LoopRunRecord,
 } from '@midnite/studio-shared';
 
@@ -13,15 +15,21 @@ import { useResizable } from '../../components/resizable/use-resizable';
 import { LoopComposer } from './loop-composer';
 import { loopFormRange, resolveLoopFormHeight } from './loop-form-size';
 import { LoopHistory } from './loop-history';
+import { contributorOptions } from './loop-option-row';
 import { useLoopStatus } from './loop-status';
 import { useLoopSession } from './use-loop-session';
-import { useRepos } from '../../services/queries';
+import { useKnownSkills, useRepoStats, useRepos } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { agentInitialInput } from '../terminal/terminal-panel';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { LazyTerminalView } from '../terminal/lazy-terminal-view';
 import { useAgents } from '../terminal/use-agents';
 import { YieldedToSessionsPage } from '../terminal/yielded-to-sessions-page';
+
+// A zustand v5 selector must return a stable reference, or it re-renders forever.
+const NO_SKILLS: Record<string, string> = {};
+const NO_RUN_OPTIONS: LoopRunOptions = {};
+const NO_USERS: string[] = [];
 
 /**
  * One FAB tab: compose the run, start it, watch it, read what past runs were
@@ -86,6 +94,26 @@ export function LoopTab({
   const setModel = useUiStore((s) => s.setLoopModel);
   const setSchedule = useUiStore((s) => s.setLoopSchedule);
   const setExtras = useUiStore((s) => s.setLoopExtras);
+  const skills = useUiStore((s) => s.loopModifierSkills[loop.id] ?? NO_SKILLS);
+  const setSkill = useUiStore((s) => s.setLoopModifierSkill);
+  const runOptions = useUiStore((s) => s.loopRunOptions[loop.id] ?? NO_RUN_OPTIONS);
+  const setRunOptions = useUiStore((s) => s.setLoopRunOptions);
+  /*
+    Resolved on read, like the switches: an older profile has no entry, and
+    reads as no users, the default rotation and — what every run did before
+    the switch existed — running on a loop.
+  */
+  const reviewUsers = loop.reviewsPrs ? (runOptions.reviewUsers ?? NO_USERS) : NO_USERS;
+  const autoRotatePercent = runOptions.autoRotatePercent ?? LOOP_AUTO_ROTATE.default;
+  const repeat = runOptions.repeat ?? true;
+
+  // Only the active tab asks main for skills and contributors; the five behind it stay idle.
+  const knownSkills = useKnownSkills(selectedRepoId, active);
+  const stats = useRepoStats(selectedRepoId, 'all', false, active && loop.reviewsPrs);
+  const contributors = useMemo(
+    () => contributorOptions(stats.data?.contributors ?? []),
+    [stats.data?.contributors],
+  );
 
   /*
     Three layers, resolved here rather than written into the store: the
@@ -143,6 +171,10 @@ export function LoopTab({
     model,
     extras,
     command,
+    skills,
+    reviewUsers,
+    autoRotatePercent,
+    repeat,
   });
 
   const session = useTerminalStore((s) => s.sessions.find((row) => row.id === status.sessionId));
@@ -228,6 +260,12 @@ export function LoopTab({
             model={model}
             schedule={schedule}
             extras={extras}
+            skills={skills}
+            skillSuggestions={knownSkills.data ?? []}
+            reviewUsers={reviewUsers}
+            contributorOptions={contributors}
+            autoRotatePercent={autoRotatePercent}
+            repeat={repeat}
             disabled={!repo || (loop.requiresModifier && !hasTask)}
             disabledReason={
               repo
@@ -241,6 +279,10 @@ export function LoopTab({
                 : 'Select a repository first.'
             }
             onToggle={(modifierId, on) => setCheck(loop.id, modifierId, on)}
+            onSkill={(modifierId, skill) => setSkill(loop.id, modifierId, skill)}
+            onReviewUsers={(users) => setRunOptions(loop.id, { reviewUsers: users })}
+            onAutoRotate={(percent) => setRunOptions(loop.id, { autoRotatePercent: percent })}
+            onRepeat={(on) => setRunOptions(loop.id, { repeat: on })}
             onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
             onAgent={(next) => setAgent(loop.id, next)}
             onModel={(next: LoopModel) => setModel(loop.id, next)}

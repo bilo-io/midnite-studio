@@ -17,7 +17,14 @@ import {
   LoopScheduleSchema,
   LoopWeekdaySchema,
   ROUTINE_PR_FRAGMENT,
+  LOOP_AUTO_ROTATE,
+  LOOP_SKILL_SLOT,
+  LoopModifierSchema,
+  ROUTINE_PR_SKILL_TEMPLATE,
   composeLoopPrompt,
+  loopModifierFragment,
+  normaliseLoopSkill,
+  onceOffBasePrompt,
   loopModelArgs,
   loopModelsFor,
   loopScheduleFragment,
@@ -720,7 +727,8 @@ describe('DEFAULT_LOOPS', () => {
     for (const modifier of triage) {
       expect(modifier.label).toBe('Triage only');
       expect(modifier.control).toBe('switch');
-      expect(modifier.promptFragment).toContain('/midnite-triage');
+      expect(modifier.promptFragment).toContain('/midnite-sitrep');
+      expect(modifier.promptFragment).not.toContain('/midnite-triage');
       expect(modifier.promptFragment).toMatch(/push no fixes/);
     }
   });
@@ -791,5 +799,148 @@ describe('loopModelsFor', () => {
       expect(loopModelsFor(agentId).map((entry) => entry.id), agentId).toEqual(['default']);
       expect(loopModelArgs(agentId, 'opus-5'), agentId).toEqual([]);
     }
+  });
+});
+
+describe('skill field — skillTemplate / loopModifierFragment', () => {
+  const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
+  const modifier = (loopId: string, id: string) =>
+    DEFAULT_LOOPS.find((l) => l.id === loopId)!.modifiers.find((m) => m.id === id)!;
+
+  it('offers a skill field on every skill-invoking or review/feedback/triage option', () => {
+    const withSkill = DEFAULT_LOOPS.flatMap((l) =>
+      l.modifiers.filter((m) => m.skillTemplate !== undefined).map((m) => `${l.id}:${m.id}`),
+    );
+    expect(withSkill.sort()).toEqual(
+      [
+        'guard:security-review',
+        'innovate:refine-existing',
+        'medic:prune-branches',
+        'medic:triage-only',
+        'watchdog:pr-feedback',
+        'watchdog:pr-review',
+        'watchdog:routine',
+        'watchdog:security-review',
+        'watchdog:triage-only',
+      ].sort(),
+    );
+  });
+
+  it('reads exactly as the default fragment when the default skill is in the slot', () => {
+    for (const loop of DEFAULT_LOOPS) {
+      for (const m of loop.modifiers) {
+        expect(m.skillTemplate === undefined || m.skillTemplate.includes(LOOP_SKILL_SLOT), m.id).toBe(true);
+        if (m.defaultSkill !== undefined) {
+          expect(m.skillTemplate!.split(LOOP_SKILL_SLOT).join(m.defaultSkill), `${loop.id}:${m.id}`).toBe(
+            m.promptFragment,
+          );
+          expect(m.promptFragment).toContain(m.defaultSkill);
+        }
+      }
+    }
+  });
+
+  it('rejects a skillTemplate with no slot', () => {
+    expect(
+      LoopModifierSchema.safeParse({ id: 'x', label: 'X', promptFragment: 'p', skillTemplate: 'no slot' }).success,
+    ).toBe(false);
+  });
+
+  it('normalises the field text — slash added, whitespace collapsed, empty stays empty', () => {
+    expect(normaliseLoopSkill('ekko-pr-review')).toBe('/ekko-pr-review');
+    expect(normaliseLoopSkill('  /ekko-pr-review  ')).toBe('/ekko-pr-review');
+    expect(normaliseLoopSkill('plugin:skill  --fast')).toBe('/plugin:skill --fast');
+    expect(normaliseLoopSkill('   ')).toBe('');
+    expect(normaliseLoopSkill(undefined)).toBe('');
+  });
+
+  it('substitutes a chosen skill, and keeps the default when the pick is empty', () => {
+    const review = modifier('watchdog', 'pr-review');
+    expect(loopModifierFragment(review, 'ekko-pr-review')).toBe('/ekko-pr-review');
+    expect(loopModifierFragment(review, '')).toBe('/pr-review');
+    expect(loopModifierFragment(review)).toBe('/pr-review');
+    expect(loopModifierFragment(modifier('watchdog', 'routine'), '/ekko-pr-review')).toBe(
+      ROUTINE_PR_SKILL_TEMPLATE.replace(LOOP_SKILL_SLOT, '/ekko-pr-review'),
+    );
+    expect(loopModifierFragment(modifier('watchdog', 'triage-only'), 'midnite-triage')).toContain(
+      'run /midnite-triage instead',
+    );
+  });
+
+  it('ignores a skill on an option that takes none', () => {
+    const policy = modifier('automate', 'auto-merge');
+    expect(loopModifierFragment(policy, '/whatever')).toBe(policy.promptFragment);
+  });
+
+  it('composes the picked skills into the line, per option', () => {
+    expect(
+      composeLoopPrompt('/loop', patrol, {
+        modifierIds: ['pr-review', 'pr-feedback'],
+        skills: { 'pr-review': 'ekko-pr-review', 'pr-feedback': '' },
+      }),
+    ).toBe('/loop /ekko-pr-review /pr-feedback');
+  });
+});
+
+describe('#870 run options', () => {
+  const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
+
+  it('restricts review to the picked users, in the scope group', () => {
+    expect(
+      composeLoopPrompt('/loop', patrol, {
+        modifierIds: ['pr-review', 'auto-approve'],
+        reviewUsers: ['bilo-io', ' kurt '],
+      }),
+    ).toBe(
+      '/loop /pr-review Review PRs for these users only: bilo-io, kurt. Auto-approve PRs that pass review with no blocking findings.',
+    );
+    expect(composeLoopPrompt('/loop', patrol, { modifierIds: ['pr-review'], reviewUsers: [] })).toBe(
+      '/loop /pr-review',
+    );
+  });
+
+  it('tells subagents when to rotate, with the run rules, clamped and snapped to the slider', () => {
+    expect(LOOP_AUTO_ROTATE).toEqual({ min: 10, max: 100, step: 5, default: 30 });
+    expect(composeLoopPrompt('/loop', patrol, { modifierIds: ['pr-review'], autoRotatePercent: 30 })).toBe(
+      '/loop /pr-review Auto-rotate subagents at 30% context.',
+    );
+    expect(composeLoopPrompt('/loop', patrol, { autoRotatePercent: 3 })).toBe(
+      '/loop Auto-rotate subagents at 10% context.',
+    );
+    expect(composeLoopPrompt('/loop', patrol, { autoRotatePercent: 140 })).toBe(
+      '/loop Auto-rotate subagents at 100% context.',
+    );
+    expect(composeLoopPrompt('/loop', patrol, { autoRotatePercent: 47 })).toBe(
+      '/loop Auto-rotate subagents at 45% context.',
+    );
+  });
+
+  it('drops /loop when the Loop switch is off, so the run is once-off', () => {
+    const create = { modifiers: [], choices: [] };
+    expect(composeLoopPrompt('/loop /midnite-create', create, { repeat: false })).toBe('/midnite-create');
+    expect(composeLoopPrompt('/loop /midnite-create', create, { repeat: true })).toBe('/loop /midnite-create');
+    expect(composeLoopPrompt('/loop /midnite-create', create, {})).toBe('/loop /midnite-create');
+    expect(composeLoopPrompt('/loop', patrol, { modifierIds: ['pr-review'], repeat: false })).toBe('/pr-review');
+    expect(onceOffBasePrompt('/looper /x')).toBe('/looper /x');
+  });
+
+  it('keeps an old selection (no skills, users, rotate or repeat) composing exactly as before', () => {
+    expect(
+      composeLoopPrompt(patrol.fallbackPrompt, patrol, {
+        modifierIds: ['pr-feedback', 'pr-review'],
+        choiceIds: { 'pr-scope': 'ready' },
+      }),
+    ).toBe('/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts.');
+  });
+});
+
+describe('reviewsPrs', () => {
+  it('is set on Patrol alone, the one loop that reviews other people’s PRs', () => {
+    expect(DEFAULT_LOOPS.filter((loop) => loop.reviewsPrs).map((loop) => loop.id)).toEqual(['watchdog']);
+  });
+
+  it('defaults to false for a loop that does not declare it', () => {
+    const parsed = LoopDefinitionSchema.parse({ ...DEFAULT_LOOPS[0]!, reviewsPrs: undefined });
+    expect(parsed.reviewsPrs).toBe(false);
   });
 });
