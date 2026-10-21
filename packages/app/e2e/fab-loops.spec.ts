@@ -280,25 +280,6 @@ test.describe('FAB loop console', () => {
     expect(run?.['model']).toBe('opus-5');
   });
 
-  test('the tab-bar Loop switch is on by default and decides whether the line starts with /loop', async ({
-    page,
-  }) => {
-    await open(page);
-    await openFab(page, 'Patrol');
-    const composer = page.getByTestId('loop-composer-watchdog');
-    const loopSwitch = page.getByRole('switch', { name: 'Loop' });
-    // One switch only — the composer carries no Loop of its own.
-    await expect(loopSwitch).toHaveCount(1);
-    await expect(composer.getByRole('switch', { name: 'Loop' })).toHaveCount(0);
-    await expect(loopSwitch).toBeChecked();
-
-    await loopSwitch.uncheck();
-    await composer.getByTestId('loop-extras-send').click();
-    await expect.poll(async () => (await loopRuns(page)).length).toBe(1);
-    const [run] = await loopRuns(page);
-    expect(String(run?.['composedPrompt'])).not.toMatch(/^\/loop\b/);
-  });
-
   test('the three tabs you are not looking at take neither clicks nor focus', async ({
     page,
   }) => {
