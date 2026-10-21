@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import { EpicAudioPlayer } from '@midnite/studio-frame';
+
 import type { LibraryPlayerProps } from './host';
 
 /**
@@ -54,6 +56,18 @@ export function LibraryPlayer({ item, src, resumeAt, autoPlay, onProgress }: Lib
     },
   };
 
-  if (item.kind === 'music') return <audio {...common} className="w-full" />;
+  if (item.kind === 'music') {
+    return (
+      <EpicAudioPlayer
+        src={src}
+        fileName={item.title}
+        ariaLabel={`Play ${item.title}`}
+        autoPlay={autoPlay ?? false}
+        resumeAt={resumeAt}
+        onProgress={onProgress}
+        className="min-h-[380px] rounded-xl"
+      />
+    );
+  }
   return <video {...common} className="max-h-[50vh] w-full rounded-md bg-black" />;
 }

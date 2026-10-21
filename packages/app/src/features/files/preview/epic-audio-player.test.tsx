@@ -1,9 +1,17 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { EpicAudioPlayer, SHAPE_NAMES } from './epic-audio-player';
+import {
+  compute3DShapeVertex,
+  computeGlowTier,
+  EpicAudioPlayer,
+  PARTICLE_COUNT_3D,
+  project3D,
+  rotate3D,
+  SHAPE_NAMES,
+} from './epic-audio-player';
 
-describe('EpicAudioPlayer', () => {
+describe('EpicAudioPlayer (5-Layer 3D Visualizer & Floating Player)', () => {
   let playSpy: ReturnType<typeof vi.fn>;
   let pauseSpy: ReturnType<typeof vi.fn>;
 
@@ -16,11 +24,9 @@ describe('EpicAudioPlayer', () => {
       Object.defineProperty(this, 'paused', { value: true, configurable: true });
     });
 
-    // Mock HTMLMediaElement methods in jsdom
     window.HTMLMediaElement.prototype.play = playSpy;
     window.HTMLMediaElement.prototype.pause = pauseSpy;
 
-    // Mock canvas 2D context
     HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
       save: vi.fn(),
       restore: vi.fn(),
@@ -50,13 +56,14 @@ describe('EpicAudioPlayer', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders audio player container, canvas, audio element, and floating controls', () => {
+  it('renders 3D audio player container, canvas, audio element, and floating controls', () => {
     render(<EpicAudioPlayer src="mstudio-file://repo/audio/track.mp3" fileName="track.mp3" />);
 
     expect(screen.getByTestId('epic-audio-player-container')).toBeDefined();
     expect(screen.getByTestId('epic-audio-canvas')).toBeDefined();
     expect(screen.getByTestId('epic-audio-element')).toBeDefined();
     expect(screen.getByText('track.mp3')).toBeDefined();
+    expect(screen.getByText('3D')).toBeDefined();
     expect(screen.getByText('Paused')).toBeDefined();
     expect(screen.getByTestId('epic-play-pause-btn')).toBeDefined();
     expect(screen.getByLabelText('Seek track')).toBeDefined();
@@ -67,18 +74,13 @@ describe('EpicAudioPlayer', () => {
     render(<EpicAudioPlayer src="mstudio-file://repo/audio/beat.wav" fileName="beat.wav" />);
 
     const playBtn = screen.getByTestId('epic-play-pause-btn');
-    expect(playBtn).toBeDefined();
-
-    // Click play
     fireEvent.click(playBtn);
     expect(playSpy).toHaveBeenCalled();
 
-    // Trigger onPlay event on audio element
     const audioEl = screen.getByTestId('epic-audio-element') as HTMLAudioElement;
     fireEvent.play(audioEl);
     expect(screen.getByText('Playing')).toBeDefined();
 
-    // Click pause
     fireEvent.click(playBtn);
     expect(pauseSpy).toHaveBeenCalled();
 
@@ -120,22 +122,26 @@ describe('EpicAudioPlayer', () => {
     const volumeSlider = screen.getByLabelText('Adjust volume') as HTMLInputElement;
     const muteBtn = screen.getByLabelText('Toggle mute');
 
-    // Change volume
     fireEvent.change(volumeSlider, { target: { value: '0.4' } });
     expect(audioEl.volume).toBe(0.4);
 
-    // Mute
     fireEvent.click(muteBtn);
     expect(audioEl.muted).toBe(true);
 
-    // Unmute
     fireEvent.click(muteBtn);
     expect(audioEl.muted).toBe(false);
   });
 
-  it('cycles through morphing shapes when clicking the shape chip', () => {
+  it('cycles through all 5 3D sacred geometry and fractal shapes when clicking the shape chip', () => {
     render(<EpicAudioPlayer src="mstudio-file://repo/audio/synth.wav" fileName="synth.wav" />);
 
+    expect(SHAPE_NAMES).toEqual([
+      'Tesseract Hypercube',
+      'Menger Fractal Lattice',
+      'Geodesic Lorenz Attractor',
+      'Torus Knot Vortex',
+      'Merkaba Fractal Star',
+    ]);
     expect(screen.getByText(SHAPE_NAMES[0])).toBeDefined();
 
     const shapeBtn = screen.getByTitle('Click to cycle morph shape');
@@ -146,24 +152,51 @@ describe('EpicAudioPlayer', () => {
     expect(screen.getByText(SHAPE_NAMES[2])).toBeDefined();
   });
 
-  it('seeks through audio with the track slider', () => {
-    render(<EpicAudioPlayer src="mstudio-file://repo/audio/track.mp3" fileName="track.mp3" />);
-
-    const audioEl = screen.getByTestId('epic-audio-element') as HTMLAudioElement;
-    const seekSlider = screen.getByLabelText('Seek track');
-
-    fireEvent.change(seekSlider, { target: { value: '25' } });
-    expect(audioEl.currentTime).toBe(25);
-  });
-
-  it('updates container glow tier attribute', () => {
-    const { container } = render(
-      <EpicAudioPlayer src="mstudio-file://repo/audio/edm.mp3" fileName="edm.mp3" />,
+  it('seeks through audio with the track slider and reports progress callbacks', () => {
+    const onProgress = vi.fn();
+    const onLoadedMetadataDuration = vi.fn();
+    render(
+      <EpicAudioPlayer
+        src="mstudio-file://repo/audio/track.mp3"
+        fileName="track.mp3"
+        resumeAt={15}
+        onProgress={onProgress}
+        onLoadedMetadataDuration={onLoadedMetadataDuration}
+      />,
     );
 
-    const playerContainer = container.querySelector('[data-testid="epic-audio-player-container"]');
-    expect(playerContainer).toBeDefined();
-    // Default tier is 1 (subtle)
-    expect(playerContainer?.getAttribute('data-glow-tier')).toBe('1');
+    const audioEl = screen.getByTestId('epic-audio-element') as HTMLAudioElement;
+    Object.defineProperty(audioEl, 'duration', { value: 120, configurable: true });
+    fireEvent.loadedMetadata(audioEl);
+    expect(onLoadedMetadataDuration).toHaveBeenCalledWith(120);
+    expect(audioEl.currentTime).toBe(15);
+
+    const seekSlider = screen.getByLabelText('Seek track');
+    fireEvent.change(seekSlider, { target: { value: '25' } });
+    expect(audioEl.currentTime).toBe(25);
+
+    fireEvent.timeUpdate(audioEl);
+    expect(onProgress).toHaveBeenCalledWith(25, 120, 'playing');
+  });
+
+  it('computes 3D shape vertices, 3D rotations, perspective projection, 160-particle count, and 3-tier glow', () => {
+    expect(PARTICLE_COUNT_3D).toBe(160);
+
+    for (let s = 0; s < SHAPE_NAMES.length; s++) {
+      const v = compute3DShapeVertex(s, 12, 96, 1.5);
+      expect(v).toHaveLength(3);
+      expect(Number.isFinite(v[0])).toBe(true);
+      expect(Number.isFinite(v[1])).toBe(true);
+      expect(Number.isFinite(v[2])).toBe(true);
+
+      const rotated = rotate3D(v, 0.4, 0.7, 0.2);
+      const proj = project3D(rotated, 320, 200, 420, 450);
+      expect(proj.visible).toBe(true);
+      expect(proj.scale).toBeGreaterThan(0);
+    }
+
+    expect(computeGlowTier(0.05, 0)).toBe(1);
+    expect(computeGlowTier(0.38, 0.35)).toBe(2);
+    expect(computeGlowTier(0.75, 0.9)).toBe(3);
   });
 });
