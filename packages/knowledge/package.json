@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-knowledge",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Pure Node/TS graphify reader — lean projection, ForceAtlas2 layout, layout cache. No electron imports.",
   "main": "./dist/index.js",

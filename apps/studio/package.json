@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-studio",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Midnite Studio as a composition — every feature plus the frame. The dev harness (`moon run studio:start`); packages/app and packages/desktop are its renderer and main internals.",
   "type": "module",
