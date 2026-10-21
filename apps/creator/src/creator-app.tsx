@@ -4,6 +4,7 @@ import { DocsHostProvider } from '@midnite/studio-feature-media-docs/renderer';
 import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
 import { VideoHostProvider } from '@midnite/studio-feature-media-video/renderer';
 import { ImagesHostProvider } from '@midnite/studio-feature-media-images/renderer';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { lazy, Suspense, useState } from 'react';
@@ -41,6 +42,7 @@ export function CreatorApp() {
             </ImagesHostProvider>
           </DocsHostProvider>
         </MediaHostProvider>
+        <ReportIssueHost app="midnite-creator" />
         <CreatorDialogHost />
       </FrameChromeProvider>
     </QueryClientProvider>
