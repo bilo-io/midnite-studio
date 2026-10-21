@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiClientManifest } from '@midnite/studio-feature-api-client/renderer';
@@ -23,6 +23,17 @@ import { coderStore } from './coder-store';
 import { dialogStore } from './compose/coder-chrome';
 import { coderTasksStore } from './compose/tasks-store';
 
+/** Report an Issue's slice of the bridge: only `onOpen` is read until the dialog opens (the feature's own tests cover the rest). */
+let openReport: (() => void) | null = null;
+const REPORT_BRIDGE = {
+  onOpen: vi.fn((handler: () => void) => {
+    openReport = handler;
+    return () => undefined;
+  }),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+  bundle: vi.fn(async () => ({ text: '' })),
+};
+
 const CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
 const REPO = { id: 'r1', path: '/Users/me/widgets', name: 'widgets', headRef: 'main', worktrees: [] };
 
@@ -37,7 +48,7 @@ function stubBridge() {
   const discover = vi.fn(async () => ({ repoId: 'r1', packages: [], generatedAt: 1 }));
   const listCollections = vi.fn(async () => ({ ok: true, value: [COLLECTION] }));
   const listConnections = vi.fn(async () => [CONNECTION]);
-  window.midniteStudio = {
+  window.midniteStudio = { report: REPORT_BRIDGE,
     apiClient: {
       listCollections,
       listEnvironments: async () => ({ ok: true, value: [] }),
@@ -359,5 +370,16 @@ describe('Coder composition', () => {
     expect(toggle.checked).toBe(false);
     fireEvent.click(toggle);
     expect(coderStore.getState().writesEnabled).toBe(true);
+  });
+});
+
+describe('Report an Issue', () => {
+  it("mounts the report feature's host: main's report:open event opens its dialog", async () => {
+    openReport = null;
+    // The suite bridge already carries `report` (see beforeEach).
+    render(<CoderApp />);
+    await waitFor(() => expect(openReport).not.toBeNull());
+    act(() => openReport?.());
+    expect(await screen.findByTestId('report-issue-dialog')).toBeDefined();
   });
 });

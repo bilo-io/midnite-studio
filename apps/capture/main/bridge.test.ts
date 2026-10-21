@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { captureManifest } from '@midnite/studio-feature-capture/main';
-import { CHANNELS } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared';
 
 /** The overlay window's own three channels — its preload's, never the app window's bridge. */
 const OVERLAY_CHANNELS: string[] = [
@@ -23,9 +23,9 @@ function fakeIpc(): RendererIpc {
 }
 
 describe('createCaptureBridge', () => {
-  it('exposes only capture — no secrets, fs, git, pty, browser or media store', () => {
+  it('exposes only capture and report — no secrets, fs, git, pty, browser or media store', () => {
     const bridge = createCaptureBridge(fakeIpc());
-    expect(Object.keys(bridge)).toEqual(['capture']);
+    expect(Object.keys(bridge).sort()).toEqual(['capture', 'report']);
   });
 
   it('calls only the capture channels over invoke', async () => {
@@ -66,5 +66,19 @@ describe('createCaptureBridge', () => {
       [...captureManifest.ipc].filter((c) => !OVERLAY_CHANNELS.includes(c)).sort(),
     );
     for (const channel of OVERLAY_CHANNELS) expect(called).not.toContain(channel);
+  });
+});
+
+describe('report namespace', () => {
+  it("is the report feature's own bridge: its channels over invoke, the crash report over send, the Help-menu event over on", async () => {
+    const ipc: RendererIpc = { invoke: vi.fn(async () => ({})), send: vi.fn(), on: vi.fn(() => undefined), removeListener: vi.fn() };
+    const { report } = createCaptureBridge(ipc);
+    await report.ghStatus();
+    report.error({ source: 'window', name: 'E', message: 'm', stack: '' } as never);
+    const off = report.onOpen?.(() => undefined);
+    expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([CHANNELS.reportGhStatus]);
+    expect(vi.mocked(ipc.send).mock.calls.map((c) => c[0])).toEqual([CHANNELS.reportError]);
+    expect(vi.mocked(ipc.on).mock.calls.map((c) => c[0])).toEqual([EVENT_CHANNELS.reportOpen]);
+    expect(typeof off).toBe('function');
   });
 });

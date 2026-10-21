@@ -83,6 +83,9 @@ importers:
       '@midnite/studio-feature-models':
         specifier: workspace:*
         version: link:../../packages/features/models
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-feature-workflows':
         specifier: workspace:*
         version: link:../../packages/features/workflows
@@ -171,6 +174,9 @@ importers:
       '@midnite/studio-feature-browser':
         specifier: workspace:*
         version: link:../../packages/features/browser
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -250,6 +256,9 @@ importers:
       '@midnite/studio-feature-capture':
         specifier: workspace:*
         version: link:../../packages/features/capture
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -326,6 +335,9 @@ importers:
       '@midnite/studio-feature-optimizer':
         specifier: workspace:*
         version: link:../../packages/features/optimizer
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -411,6 +423,9 @@ importers:
       '@midnite/studio-feature-forge':
         specifier: workspace:*
         version: link:../../packages/features/forge
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-feature-sessions':
         specifier: workspace:*
         version: link:../../packages/features/sessions
@@ -523,6 +538,9 @@ importers:
       '@midnite/studio-feature-media-video':
         specifier: workspace:*
         version: link:../../packages/features/media-video
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-feature-slides':
         specifier: workspace:*
         version: link:../../packages/features/slides

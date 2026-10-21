@@ -11,6 +11,7 @@ import { mcpToolsManifest } from '@midnite/studio-feature-mcp-tools/main';
 import { councilsManifest, resetCouncilsForTest } from '@midnite/studio-feature-councils/main';
 import { modelsManifest, resetOllamaSettingsState } from '@midnite/studio-feature-models/main';
 import { workflowsManifest } from '@midnite/studio-feature-workflows/main';
+import { reportManifest } from '@midnite/studio-feature-report/main';
 import { createFakeCipher, createVaultGrants, startTestVaultHost, testPairingIdentity, type VaultAuthorize } from '@midnite/studio-runtime';
 import { CHANNELS } from '@midnite/studio-shared';
 
@@ -56,6 +57,7 @@ async function setup(authorize?: VaultAuthorize, loginPath: () => Promise<void> 
   const handlers = new Map<string, (event: unknown, raw: unknown) => unknown>();
   const registered = registerAgentsHandlers({
     ipcMain: { handle: (c, l) => void handlers.set(c, l), on: (c, l) => void handlers.set(c, (_e, raw) => l(_e, raw)) },
+    report: { sink: () => null, homeDir: () => '/home', openExternal: () => undefined, writeClipboard: () => undefined, revealPath: () => undefined },
     trashItem: async () => undefined,
     send: () => undefined,
     userData: join(dir, 'userData'),
@@ -80,6 +82,8 @@ describe('registerAgentsHandlers', () => {
       ...chatsManifest.ipc,
       ...workflowsManifest.ipc,
       ...mcpToolsManifest.ipc,
+      ...reportManifest.ipc,
+      ...reportManifest.sends,
       CHANNELS.agentList,
       CHANNELS.secretsHas,
     ];

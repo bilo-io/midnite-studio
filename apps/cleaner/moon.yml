@@ -15,6 +15,7 @@ dependsOn:
   - 'frame'
   - 'runtime'
   - 'feature-optimizer'
+  - 'feature-report'
 
 tasks:
   build:
@@ -38,6 +39,10 @@ tasks:
       - '/packages/features/optimizer/manifest.ts'
       - '/packages/features/optimizer/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
     outputs:
       - 'dist'
 
@@ -55,6 +60,10 @@ tasks:
       - 'main/**/*'
       - '/packages/features/optimizer/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
 
   test:
     inputs:
@@ -68,3 +77,7 @@ tasks:
       - 'main/**/*'
       - '/packages/features/optimizer/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'

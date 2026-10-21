@@ -15,6 +15,7 @@ export default defineConfig({
     alias: {
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
+      '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),
       '@midnite/studio-feature-browser/renderer': at('../../packages/features/browser/renderer/index.ts'),
     },
   },

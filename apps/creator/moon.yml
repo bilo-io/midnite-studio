@@ -20,6 +20,7 @@ dependsOn:
   - 'feature-slides'
   - 'feature-media-video'
   - 'feature-media-audio'
+  - 'feature-report'
 
 tasks:
   build:
@@ -57,6 +58,10 @@ tasks:
       - '/packages/features/media-video/main/**/*'
       - '/packages/features/media-audio/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
       - '/templates/media-video/**/*'
     outputs:
       - 'dist'
@@ -89,6 +94,10 @@ tasks:
       - '/packages/features/media-video/main/**/*'
       - '/packages/features/media-audio/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
 
   test:
     inputs:
@@ -116,3 +125,7 @@ tasks:
       - '/packages/features/media-video/main/**/*'
       - '/packages/features/media-audio/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'

@@ -1,3 +1,4 @@
+import { reportMain, type ReportMainServices } from '@midnite/studio-feature-report/main';
 import { join } from 'node:path';
 
 import {
@@ -18,6 +19,8 @@ import { CAPTURE_APP_SHORTCUT } from './identity';
 
 /** The electron pieces Capture's main needs, injected so registration is testable under bare vitest. */
 export type CaptureAppElectron = IpcContextElectron & {
+  /** Report an Issue's services — the crash log sink, home dir, and the three OS calls the dialog needs. */
+  report: ReportMainServices;
   /** `<userData>/capture` — a temp dir under test. */
   dataDir: string;
   /** The real Electron port in the app (`electronCapturePort`), fakes under test. */
@@ -51,6 +54,7 @@ export type CaptureAppElectron = IpcContextElectron & {
  */
 export function registerCaptureAppHandlers(el: CaptureAppElectron): CaptureService {
   const ctx = createIpcContext(el);
+  reportMain.register(ctx, el.report);
   const capture = createCaptureService({
     dataDir: el.dataDir,
     electron: el.electron,

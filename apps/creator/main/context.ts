@@ -1,3 +1,4 @@
+import { reportMain, type ReportMainServices } from '@midnite/studio-feature-report/main';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -39,6 +40,8 @@ export const CREATOR_REPO_ID = 'creator';
 
 /** The electron pieces Creator's main needs, injected so registration is testable under bare vitest. */
 export type CreatorElectron = IpcContextElectron & {
+  /** Report an Issue's services — the crash log sink, home dir, and the three OS calls the dialog needs. */
+  report: ReportMainServices;
   /** The folder that holds `.midnite/media/` — `<userData>/media` in the app, a temp dir under test. */
   mediaRoot: string;
   revealPath: (absPath: string) => void;
@@ -75,6 +78,7 @@ const noOllama: ImageProvider = {
  */
 export function registerCreatorHandlers(el: CreatorElectron): MediaService {
   const ctx = createIpcContext(el);
+  reportMain.register(ctx, el.report);
   const media = createMediaService({
     resolveRepo: async (repoId) => {
       if (repoId !== CREATOR_REPO_ID) return null;

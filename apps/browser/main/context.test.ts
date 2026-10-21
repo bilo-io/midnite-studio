@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { browserManifest, type BrowserElectron, type BrowserHostWindow } from '@midnite/studio-feature-browser/main';
+import { reportManifest } from '@midnite/studio-feature-report/main';
 import { CHANNELS } from '@midnite/studio-shared';
 
 import { registerBrowserAppHandlers } from './context';
@@ -85,6 +86,7 @@ function setup() {
       handle: (channel, listener) => handles.set(channel, listener),
       on: (channel, listener) => ons.set(channel, listener),
     },
+    report: { sink: () => null, homeDir: () => '/home', openExternal: () => undefined, writeClipboard: () => undefined, revealPath: () => undefined },
     trashItem: async () => undefined,
     send: vi.fn(),
     electron: electron as unknown as BrowserElectron,
@@ -106,8 +108,8 @@ describe('registerBrowserAppHandlers', () => {
   it('registers exactly the browser feature’s channels and the clipboard — nothing else', () => {
     const s = setup();
     shutdown = s.registered.shutdown;
-    expect([...s.handles.keys()].sort()).toEqual([...browserManifest.ipc, CHANNELS.clipboardWriteText].sort());
-    expect([...s.ons.keys()].sort()).toEqual([...browserManifest.sends].sort());
+    expect([...s.handles.keys()].sort()).toEqual([...browserManifest.ipc, ...reportManifest.ipc, CHANNELS.clipboardWriteText].sort());
+    expect([...s.ons.keys()].sort()).toEqual([...browserManifest.sends, ...reportManifest.sends].sort());
   });
 
   it('opens a tab in the window that asked, as a sandboxed, preload-free view on persist:browser with every permission denied', async () => {

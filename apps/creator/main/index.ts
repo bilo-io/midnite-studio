@@ -1,11 +1,31 @@
 import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  net,
+  protocol,
+  shell,
+  type MenuItemConstructorOptions,
+} from 'electron';
 
 import type { MediaService } from '@midnite/studio-feature-media-core/main';
 import { effectiveVideoRoot, stopAllVideoProcesses } from '@midnite/studio-feature-media-video/main';
-import { connectRuntimeVault, guardAppWindow, runtimeDataDirectory, vaultHostSocketPath } from '@midnite/studio-runtime';
+import {
+  buildSuiteMenuTemplate,
+  connectRuntimeVault,
+  createFileSink,
+  guardAppWindow,
+  installCrashLogging,
+  runtimeDataDirectory,
+  vaultHostSocketPath,
+} from '@midnite/studio-runtime';
+import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 import { MSTUDIO_FILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
 import { creatorMediaRoot, registerCreatorHandlers } from './context';
@@ -79,6 +99,28 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // Crash log + Report an Issue: the runtime's file sink, the app's own Help menu item, and the report feature's services.
+    const log = createFileSink({ dir: app.getPath('userData'), name: 'creator.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => log.write(level, message));
+    log.write('info', `${CREATOR_NAME} ${app.getVersion()} started`);
+    app.on('will-quit', () => log.close());
+    const reportServices = {
+      sink: () => log,
+      homeDir: () => app.getPath('home'),
+      openExternal: (url: string) => shell.openExternal(url),
+      writeClipboard: (text: string) => clipboard.writeText(text),
+      revealPath: (path: string) => shell.showItemInFolder(path),
+    };
+    // The menu's Report an Issue… reaches the focused window, falling back to the main one.
+    const sendToFocused = (channel: string, payload: unknown): void => {
+      const target = BrowserWindow.getFocusedWindow() ?? win;
+      if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+    };
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        buildSuiteMenuTemplate({ reportItem: reportIssueMenuItem(sendToFocused) }) as MenuItemConstructorOptions[],
+      ),
+    );
     const mediaRoot = creatorMediaRoot(app.getPath('userData'));
     // The runtime host's vault (Studio), over its socket: Creator never touches the keychain, and the
     // host's grants deny it until the user grants Creator access in Vault. A smoke run reaches no host.
@@ -97,6 +139,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     );
     media = registerCreatorHandlers({
       ipcMain,
+      report: reportServices,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);

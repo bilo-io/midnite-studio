@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 import { OptimizerHostProvider, type OptimizerHost } from '@midnite/studio-feature-optimizer/renderer';
 
@@ -18,6 +19,7 @@ export function CleanerApp({ host }: { host?: OptimizerHost }) {
     <FrameChromeProvider chrome={CLEANER_CHROME}>
       <OptimizerHostProvider host={host ?? ownHost}>
         <CleanerHome />
+        <ReportIssueHost app="midnite-cleaner" />
         <CleanerDialogHost />
       </OptimizerHostProvider>
     </FrameChromeProvider>

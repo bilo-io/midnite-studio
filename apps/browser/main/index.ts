@@ -1,6 +1,17 @@
 import { join } from 'node:path';
 
-import { app, BrowserWindow, clipboard, ipcMain, Menu, screen, session, shell, WebContentsView } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  ipcMain,
+  Menu,
+  screen,
+  session,
+  shell,
+  WebContentsView,
+  type MenuItemConstructorOptions,
+} from 'electron';
 
 import {
   denyAllPermissions,
@@ -8,7 +19,13 @@ import {
   type BrowserHostWindow,
   type BrowserViewOptions,
 } from '@midnite/studio-feature-browser/main';
-import { guardAppWindow } from '@midnite/studio-runtime';
+import {
+  buildSuiteMenuTemplate,
+  createFileSink,
+  guardAppWindow,
+  installCrashLogging,
+} from '@midnite/studio-runtime';
+import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
 import { registerBrowserAppHandlers } from './context';
 import { BROWSER_NAME, browserUserData, isSmoke, SMOKE_READY_LINE, USER_DATA_ENV } from './identity';
@@ -63,17 +80,42 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // Crash log + Report an Issue: the runtime's file sink, the app's own Help menu item, and the report feature's services.
+    const crashLog = createFileSink({ dir: app.getPath('userData'), name: 'browser.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => crashLog.write(level, message));
+    crashLog.write('info', `${BROWSER_NAME} ${app.getVersion()} started`);
+    app.on('will-quit', () => crashLog.close());
+    const reportServices = {
+      sink: () => crashLog,
+      homeDir: () => app.getPath('home'),
+      openExternal: (url: string) => shell.openExternal(url),
+      writeClipboard: (text: string) => clipboard.writeText(text),
+      revealPath: (path: string) => shell.showItemInFolder(path),
+    };
+    // The menu's Report an Issue… reaches the focused window, falling back to the main one.
+    const sendToFocused = (channel: string, payload: unknown): void => {
+      const target = BrowserWindow.getFocusedWindow() ?? win;
+      if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+    };
+    // App, Edit and Help only. Electron's default View/Window menus would put Close Window on Mod+w and
+    // Reload on Mod+r, so those chords would close or reload Browser itself instead of reaching the tab
+    // commands the renderer binds them to (`use-browser-keys.ts`).
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        buildSuiteMenuTemplate({
+          reportItem: reportIssueMenuItem(sendToFocused),
+          omit: { view: true, window: true },
+        }) as MenuItemConstructorOptions[],
+      ),
+    );
     // The app window's own session asks for nothing — no camera, microphone, notifications or the
     // rest. Studio replaces Electron's allow-everything default the same way (`allowAppAudioOnly`, for
     // its companion's microphone); Browser's renderer has no use for any, so it denies them all. The
     // pages a tab shows are on `persist:browser`, which the feature denies separately.
     denyAllPermissions(session.defaultSession);
-    // The app and Edit menus only (Quit, Hide; copy and paste). Electron's default menu would put Close
-    // Window on Mod+w and Reload on Mod+r, so those chords would close or reload Browser itself instead of
-    // reaching the tab commands the renderer binds them to (`use-browser-keys.ts`).
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]));
     const registered = registerBrowserAppHandlers({
       ipcMain,
+      report: reportServices,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);

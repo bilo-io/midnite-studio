@@ -13,6 +13,7 @@
   "dependencies": {
     "@bilo-io/ui": "0.1.0",
     "@midnite/studio-feature-optimizer": "workspace:*",
+    "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
