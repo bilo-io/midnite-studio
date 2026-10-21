@@ -16,6 +16,7 @@ dependsOn:
   - 'frame'
   - 'runtime'
   - 'feature-browser'
+  - 'feature-report'
 
 tasks:
   build:
@@ -39,6 +40,10 @@ tasks:
       - '/packages/features/browser/manifest.ts'
       - '/packages/features/browser/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
     outputs:
       - 'dist'
 
@@ -56,6 +61,10 @@ tasks:
       - 'main/**/*'
       - '/packages/features/browser/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
 
   test:
     inputs:
@@ -69,3 +78,7 @@ tasks:
       - 'main/**/*'
       - '/packages/features/browser/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'

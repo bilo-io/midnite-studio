@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { browserManifest } from '@midnite/studio-feature-browser/main';
+import { reportManifest } from '@midnite/studio-feature-report/main';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { createBrowserBridge, type RendererIpc } from './bridge';
@@ -17,9 +18,9 @@ async function callEverything(bridge: Record<string, Record<string, unknown>>): 
 }
 
 describe('createBrowserBridge', () => {
-  it('exposes exactly browser, webApps, clipboard and menu — no fs, secrets, window or ops namespace', () => {
+  it('exposes exactly browser, webApps, clipboard, menu and report — no fs, secrets, window or ops namespace', () => {
     const bridge = createBrowserBridge(fakeIpc()) as unknown as Record<string, Record<string, unknown>>;
-    expect(Object.keys(bridge).sort()).toEqual(['browser', 'clipboard', 'menu', 'webApps']);
+    expect(Object.keys(bridge).sort()).toEqual(['browser', 'clipboard', 'menu', 'report', 'webApps']);
     for (const name of ['fs', 'fsWrite', 'secrets', 'window', 'ops', 'repos']) expect(name in bridge).toBe(false);
     // Write-only: nothing reads what the user last copied.
     expect(Object.keys(bridge['clipboard']!)).toEqual(['writeText']);
@@ -32,11 +33,11 @@ describe('createBrowserBridge', () => {
     // The web-app sign-in channels are the browser feature's to answer, but Vault's to call (Phase 113 Theme J
     // slice 3): Browser's renderer is never handed them, so it cannot list or clear a partition's sign-in.
     const vaultOnly = new Set<string>([CHANNELS.webAppsSignIns, CHANNELS.webAppsSignOut]);
-    expect(invoked).toEqual([...browserManifest.ipc.filter((c) => !vaultOnly.has(c)), CHANNELS.clipboardWriteText].sort());
+    expect(invoked).toEqual([...browserManifest.ipc.filter((c) => !vaultOnly.has(c)), ...reportManifest.ipc, CHANNELS.clipboardWriteText].sort());
     expect(invoked.some((c) => vaultOnly.has(c))).toBe(false);
     const sent = vi.mocked(ipc.send).mock.calls.map((c) => c[0]).sort();
-    expect(sent).toEqual([...browserManifest.sends].sort());
+    expect(sent).toEqual([...browserManifest.sends, ...reportManifest.sends].sort());
     const subscribed = vi.mocked(ipc.on).mock.calls.map((c) => c[0]).sort();
-    expect(subscribed).toEqual([EVENT_CHANNELS.browserEvent, EVENT_CHANNELS.menuCommand].sort());
+    expect(subscribed).toEqual([EVENT_CHANNELS.browserEvent, EVENT_CHANNELS.menuCommand, EVENT_CHANNELS.reportOpen].sort());
   });
 });
