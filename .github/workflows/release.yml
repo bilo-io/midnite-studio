@@ -146,6 +146,12 @@ jobs:
       - name: Check the launcher ships no Quick Kiss
         run: node scripts/no-quick-kiss.mjs apps/launcher/dist
 
+      # Both zips, extracted and codesign-verified exactly as install.sh does before it installs —
+      # the launcher shipped every release up to v0.0.3 with no sealed resources, so its own installer
+      # refused it, and nothing here noticed. Fails before anything is uploaded or published.
+      - name: Check the installers would accept both zips
+        run: node scripts/verify-signature.mjs packages/desktop/release/*.zip apps/launcher/release/*.zip
+
       # The explicit allowlist below is what `release` actually publishes;
       # this upload only needs to be a superset of it plus the dmg (a human
       # download target, not an updater input, but worth carrying along).

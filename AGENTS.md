@@ -329,8 +329,11 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   is a byte-for-byte copy of the upstream file, and
   [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs the two
   (`moon run website:sync-install`, `-- --write` to re-sync). The check runs **post-merge** in
-  `website.yml`, not as a PR gate: upstream can change with nothing merged here, so there is no
-  pull request for a gate to block. It is deliberately not a vitest — a networked test fails on a
+  `website.yml`, because upstream can change with nothing merged here; **and** `installer-mirror.yml`
+  runs it on any PR that edits the copy, so **an installer change lands in midnite-apps first and is
+  then re-synced here** — never the other way round. Phase 91 Theme H edited only the copy: upstream
+  never got the checksum step, and every main build of the website failed until v0.0.3 surfaced it.
+  It is deliberately not a vitest — a networked test fails on a
   plane and turns an upstream outage into a red repo-wide gate. `SITE_ORIGIN`
   (`packages/website/src/site-origin.ts`, from `WEBSITE_ORIGIN`) is `WEBSITE_BASE`'s sibling: it
   exists for absolute URLs read outside the page (the social-card meta tags), which
