@@ -1,27 +1,36 @@
 import { cleanup, render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
+import { ThemeProvider } from '@bilo-io/ui/theme';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { useUiStore } from '../store/ui-store';
-import { useSlidesStore } from '../features/slides/slides-store';
+import { HelpOverlay, SlidesHostProvider, useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { Modal } from './modal';
 import { ConfirmDialog } from './confirm-dialog';
 import { PromptDialog } from './prompt-dialog';
 import { Palette } from './palette';
-import { BrowserLauncher } from '../features/browser/browser-launcher';
-import { BrowserSwitcherOverlay } from '../features/browser/browser-switcher-overlay';
+import { BrowserLauncher, BrowserSwitcherOverlay } from '@midnite/studio-feature-browser/renderer';
 import { TerminalSwitcherOverlay } from '../features/terminal/terminal-switcher-overlay';
-import { SlidesModal } from '../features/slides/slides-modal';
-import { CouncilCreateDialog } from '../features/councils/council-create-dialog';
-import { FirstRunModal } from '../features/onboarding/first-run-modal';
-import { MergeDialog } from '../features/reviews/merge-dialog';
-import { HelpOverlay } from '../features/slides/help-overlay';
+import { SlidesModal } from '@midnite/studio-feature-slides/renderer/modal';
+import { STUDIO_SLIDES_HOST } from '../compose/slides-host';
+import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer';
+import { CouncilCreateDialog } from '@midnite/studio-feature-councils/renderer/testing';
+import { SetupOverlay } from '../features/setup/setup-overlay';
+import { INITIAL_SETUP_STATE } from '../store/setup-state';
+import { MergeDialog } from '@midnite/studio-feature-forge/renderer/testing';
 import { StashPushDialog } from '../features/status/stash-push-dialog';
 import { SetupDialog } from '../features/agent/setup-dialog';
 import { LockScreen } from '../features/screensaver/lock-screen';
 import { ActivityTooltip } from './commit-activity-timeline/activity-tooltip';
+import { mediaKit } from '@midnite/studio-feature-media-core/renderer';
+import { Lightbox } from '@midnite/studio-feature-media-images/renderer';
+import { MediaKitProvider } from '@midnite/studio-frame';
+import { StudioProviders } from '../compose/studio-providers';
+import { StudioMediaTabHosts } from '../features/media/media-view';
+import { IssueModal } from '../features/tasks/issue/issue-modal';
 
+import { STUDIO_COUNCILS_HOST } from '../compose/councils-host';
 import { DialogHost } from './dialog-host';
 import { ToastHost } from './toast-host';
 
@@ -86,13 +95,13 @@ describe('occluder coverage across overlays', () => {
 
   it('3. BrowserLauncher registers as an occluder', () => {
     useUiStore.setState({ browserLauncherOpen: true });
-    assertOccluderLifecycle(() => render(<BrowserLauncher />));
+    assertOccluderLifecycle(() => render(<StudioProviders><BrowserLauncher /></StudioProviders>));
     useUiStore.setState({ browserLauncherOpen: false });
   });
 
   it('3b. BrowserSwitcherOverlay registers as an occluder', () => {
     useUiStore.setState({ browserSwitcherOpen: true });
-    assertOccluderLifecycle(() => render(<BrowserSwitcherOverlay />));
+    assertOccluderLifecycle(() => render(<StudioProviders><BrowserSwitcherOverlay /></StudioProviders>));
     useUiStore.setState({ browserSwitcherOpen: false });
   });
 
@@ -124,40 +133,67 @@ describe('occluder coverage across overlays', () => {
 
   it('6. SlidesModal registers as an occluder', () => {
     useSlidesStore.setState({ deck: { label: 'Demo', content: '# Slide' } });
-    assertOccluderLifecycle(() => render(<SlidesModal />));
+    assertOccluderLifecycle(() =>
+      render(
+        <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
+          <SlidesModal />
+        </SlidesHostProvider>,
+      ),
+    );
     useSlidesStore.setState({ deck: null });
   });
 
   it('7. CouncilCreateDialog registers as an occluder', () => {
     assertOccluderLifecycle(() =>
-      render(<CouncilCreateDialog onCancel={() => {}} onCreate={() => {}} />),
+      render(
+        <CouncilsHostProvider host={STUDIO_COUNCILS_HOST}>
+          <CouncilCreateDialog onCancel={() => {}} onCreate={() => {}} />
+        </CouncilsHostProvider>,
+      ),
     );
   });
 
-  it('8. FirstRunModal registers as an occluder', () => {
-    useUiStore.setState({ onboardedAt: null });
-    assertOccluderLifecycle(() => render(withProviders(<FirstRunModal />)));
+  it('8. SetupOverlay registers as an occluder', () => {
+    // A fresh gate — the first-run auto-open — is what mounts it.
+    useUiStore.setState({ setupState: INITIAL_SETUP_STATE });
+    assertOccluderLifecycle(() =>
+      render(
+        withProviders(
+          <ThemeProvider>
+            <SetupOverlay />
+          </ThemeProvider>,
+        ),
+      ),
+    );
   });
 
   it('9. MergeDialog registers as an occluder', () => {
     assertOccluderLifecycle(() =>
       render(
-        <MergeDialog
-          pullNumber={42}
-          title="Add feature"
-          baseBranch="main"
-          detail={null}
-          pending={false}
-          error={null}
-          onCancel={() => {}}
-          onMerge={() => {}}
-        />,
+        <StudioProviders>
+          <MergeDialog
+            pullNumber={42}
+            title="Add feature"
+            baseBranch="main"
+            detail={null}
+            pending={false}
+            error={null}
+            onCancel={() => {}}
+            onMerge={() => {}}
+          />
+        </StudioProviders>,
       ),
     );
   });
 
   it('10. HelpOverlay registers as an occluder', () => {
-    assertOccluderLifecycle(() => render(<HelpOverlay onClose={() => {}} />));
+    assertOccluderLifecycle(() =>
+      render(
+        <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
+          <HelpOverlay onClose={() => {}} />
+        </SlidesHostProvider>,
+      ),
+    );
   });
 
   it('11. StashPushDialog registers as an occluder', () => {
@@ -204,5 +240,38 @@ describe('occluder coverage across overlays', () => {
 
   it('14. LockScreen registers as an occluder', () => {
     assertOccluderLifecycle(() => render(<LockScreen />));
+  });
+
+  it('15. Media Images Lightbox registers as an occluder', () => {
+    assertOccluderLifecycle(() =>
+      render(
+        withProviders(
+          <StudioProviders>
+            <MediaKitProvider kit={mediaKit}>
+              <StudioMediaTabHosts>
+                <Lightbox
+                  images={[
+                    { key: 'k', project: 'p', path: 'a.png', url: 'mstudio-file://repo/r/a.png' },
+                  ]}
+                  index={0}
+                  repoId="r"
+                  onIndex={() => {}}
+                  onClose={() => {}}
+                  onRerun={() => {}}
+                  onReveal={() => {}}
+                  onDelete={() => {}}
+                />
+              </StudioMediaTabHosts>
+            </MediaKitProvider>
+          </StudioProviders>,
+        ),
+      ),
+    );
+  });
+
+  it('Issue modal registers as an occluder', () => {
+    assertOccluderLifecycle(() =>
+      render(withProviders(<IssueModal target={{ repoId: 'r', number: 1 }} onClose={() => {}} />)),
+    );
   });
 });

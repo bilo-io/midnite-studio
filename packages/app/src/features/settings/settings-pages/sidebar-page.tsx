@@ -1,8 +1,21 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuFilter, LuLayoutList, LuPanelLeft, LuRefreshCw } from 'react-icons/lu';
 
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
-import { isNavViewVisible, RAIL_VIEW_IDS } from '../../../components/nav-visibility';
+import { Accordion as SectionAccordion } from '../../../components/accordion/accordion';
+import {
+  AGENTS_CATEGORY_ICON,
+  gitCategoryIcon,
+  WORKSPACE_CATEGORY_ICON,
+  type CategoryIcon,
+} from '../../../components/nav-category-icons';
+import {
+  PINNED_NAV_ITEMS,
+  RAIL_GROUPS,
+  type RailGroupKey,
+  type RailNavItem,
+} from '../../../components/nav-groups';
+import { isNavViewVisible } from '../../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, type NavMode, type ViewId } from '../../../store/ui-store';
 import {
   ALL_SECTIONS,
@@ -29,23 +42,25 @@ const VIEW_LABELS: Record<ViewId, string> = {
   dashboard: 'Dashboard',
   notes: 'Notes',
   knowledge: 'Knowledge',
+  chats: 'Chats',
   files: 'Files',
   search: 'Search',
   tests: 'Tests',
   database: 'Database',
-  graph: 'Graph',
-  changes: 'Changes',
+  graph: 'Timeline',
   actions: 'Actions',
   reviews: 'Reviews',
-  issues: 'Issues',
-  projects: 'Projects',
+  tasks: 'Tasks',
   history: 'History',
   councils: 'Councils',
-  workflows: 'Workflows',
-  video: 'Video',
+  workflows: 'Graphs',
+  media: 'Media',
   models: 'Models',
   sessions: 'Sessions',
   optimizer: 'Optimizer',
+  monitor: 'Monitor',
+  vault: 'Vault',
+  capture: 'Capture',
   apiClient: 'API Client',
   settings: 'Settings',
 };
@@ -124,7 +139,8 @@ function describeNarrowed(view: ViewId): string {
  * `RAIL_VIEW_IDS` entirely, per `nav-visibility.ts`, so they never render as
  * a row a lock would apply to).
  */
-function SidenavRow({ view, label }: { view: ViewId; label: string }) {
+function SidenavRow({ item }: { item: RailNavItem }) {
+  const { view, label, description, icon: Icon } = item;
   const navVisibility = useUiStore((s) => s.navVisibility);
   const setNavViewVisible = useUiStore((s) => s.setNavViewVisible);
   const visible = isNavViewVisible(navVisibility, view);
@@ -133,11 +149,70 @@ function SidenavRow({ view, label }: { view: ViewId; label: string }) {
     <SettingsSwitchRow
       id={view}
       label={label}
+      description={description}
+      icon={<Icon aria-hidden className="h-4 w-4 shrink-0" />}
       title={`Show ${label} in the sidenav`}
       on={visible}
       onToggle={(_id, next) => setNavViewVisible(view, next)}
-      className="-mx-1.5 min-h-8 !gap-2 !px-1.5 !py-1 !text-xs"
+      className="min-h-8 !gap-2 !px-1.5 !py-1 !text-xs"
     />
+  );
+}
+
+/** The rail's category glyphs; Git wears the plain Git mark (no repo here to name a forge). */
+const GROUP_ICON: Record<RailGroupKey, CategoryIcon> = {
+  workspace: WORKSPACE_CATEGORY_ICON,
+  git: gitCategoryIcon(null),
+  agents: AGENTS_CATEGORY_ICON,
+};
+
+/** Accordion id for the persisted fold state — independent of the rail's own `collapsedNavSections`. */
+export const RAIL_GROUPS_ACCORDION_ID = 'settings-rail-groups';
+
+function RailDestinations() {
+  /*
+    One bordered container, divided into blocks: the pinned rows, then one
+    block per group. Each block wears a faint foreground tint (a low-alpha
+    token, so it reads on both themes) and every row inside is separated by a
+    hairline. Group children are inset under the header's chevron + icon
+    (`pl-6`) so they nest visibly and line up with each other; the pinned rows
+    have no header, so they sit at the container's plain inset.
+  */
+  return (
+    <div
+      data-testid="rail-destinations"
+      className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-md border border-border/60"
+    >
+      <div className="divide-y divide-border/60 bg-foreground/[0.03] px-1.5">
+        {PINNED_NAV_ITEMS.map((item) => (
+          <SidenavRow key={item.view} item={item} />
+        ))}
+      </div>
+      {RAIL_GROUPS.map((group) => {
+        const { Icon, color } = GROUP_ICON[group.key];
+        return (
+          <div key={group.key} data-rail-group={group.key} className="bg-foreground/[0.03] px-1.5">
+            <SectionAccordion
+              id={RAIL_GROUPS_ACCORDION_ID}
+              sections={[
+                {
+                  id: group.key,
+                  title: group.title,
+                  icon: <Icon aria-hidden className="h-4 w-4" style={{ color }} />,
+                  children: (
+                    <div className="ml-4 flex flex-col divide-y divide-border/60 border-t border-border/60 pl-2">
+                      {group.items.map((item) => (
+                        <SidenavRow key={item.view} item={item} />
+                      ))}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -216,37 +291,7 @@ export function SidebarPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion
-        title="Sidenav"
-        icon={<LuLayoutList className="h-4 w-4" />}
-        count={hiddenNavCount || undefined}
-        defaultOpen
-      >
-        <div className="flex flex-col gap-4 p-3">
-          <Field
-            label="Rail destinations"
-            hint="Show or hide each view in the left rail. Hidden views are not reachable from their keyboard shortcuts either. Settings stays in the rail footer."
-          >
-            <div className="flex flex-col gap-1.5">
-              {RAIL_VIEW_IDS.map((view) => (
-                <SidenavRow key={view} view={view} label={VIEW_LABELS[view]} />
-              ))}
-            </div>
-          </Field>
-          <Field label="Reset" hint="Show every rail destination again.">
-            <button
-              type="button"
-              onClick={resetNavVisibility}
-              disabled={hiddenNavCount === 0}
-              className="h-6 w-fit rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Show all destinations
-            </button>
-          </Field>
-        </div>
-      </Accordion>
-
-      <Accordion title="Navigation" icon={<LuPanelLeft className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Navigation" icon={<LuPanelLeft className="h-4 w-4" />} defaultOpen>
         <div className="p-3">
           <Choice<NavMode>
             label="Side navigation"
@@ -264,9 +309,35 @@ export function SidebarPage() {
             ]}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion
+      <SettingsAccordion
+        title="Sidenav"
+        icon={<LuLayoutList className="h-4 w-4" />}
+        count={hiddenNavCount || undefined}
+        defaultOpen
+      >
+        <div className="flex flex-col gap-4 p-3">
+          <Field
+            label="Rail destinations"
+            hint="Show or hide each view in the left rail. Hidden views are not reachable from their keyboard shortcuts either. Settings stays in the rail footer."
+          >
+            <RailDestinations />
+          </Field>
+          <Field label="Reset" hint="Show every rail destination again.">
+            <button
+              type="button"
+              onClick={resetNavVisibility}
+              disabled={hiddenNavCount === 0}
+              className="h-6 w-fit rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Show all destinations
+            </button>
+          </Field>
+        </div>
+      </SettingsAccordion>
+
+      <SettingsAccordion
         title="View filters"
         icon={<LuFilter className="h-4 w-4" />}
         count={Object.keys(overrides).length || undefined}
@@ -303,9 +374,9 @@ export function SidebarPage() {
             </button>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Repository Sync" icon={<LuRefreshCw className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Repository Sync" icon={<LuRefreshCw className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="auto-fetch-enabled"
@@ -347,7 +418,7 @@ export function SidebarPage() {
             </div>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

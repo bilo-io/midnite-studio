@@ -1,8 +1,8 @@
 import { normalizeExternalUrl } from '@midnite/studio-shared';
 
 import { useActionsStore } from '../store/actions-store';
-import { useBrowserStore } from '../store/browser-store';
-import { useIssuesStore } from '../store/issues-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
+import { openIssueModal } from '../store/issue-modal-store';
 import { useReviewsStore } from '../store/reviews-store';
 import { useUiStore, type LinkTarget } from '../store/ui-store';
 
@@ -73,7 +73,7 @@ export type OpenInMidniteOptions = {
   /**
    * Force a destination, ignoring modifiers AND {@link resolveInAppRoute}.
    * `'in-app'` is used by the two links whose entire point is the embedded
-   * pane (a Remotion studio on localhost, a preview deployment beside the
+   * pane (a Remotion or HyperFrames studio on localhost, a preview deployment beside the
    * diff that produced it) — a call site that already knows exactly where a
    * link belongs, and would be wrong to second-guess with a route lookup.
    */
@@ -150,9 +150,7 @@ const NO_MODIFIERS: LinkModifiers = {
 };
 
 type Destination =
-  | { kind: 'system' }
-  | { kind: 'embedded' }
-  | { kind: 'in-app-route'; route: InAppRoute };
+  { kind: 'system' } | { kind: 'embedded' } | { kind: 'in-app-route'; route: InAppRoute };
 
 /**
  * Resolve a click's modifiers (and, for a plain click, the URL itself) to a
@@ -208,9 +206,11 @@ export function navigateInAppRoute(route: InAppRoute): void {
     case 'reviews':
       useReviewsStore.getState().selectPull(route.repoId, route.pull);
       break;
-    case 'issues':
-      useIssuesStore.getState().selectIssue(route.repoId, route.issue);
-      break;
+    case 'issue':
+      // An issue opens in the app-wide modal over the current view rather
+      // than navigating anywhere — the Issues page folded into Tasks.
+      openIssueModal({ repoId: route.repoId, number: route.issue });
+      return;
     case 'actions':
       useActionsStore.getState().selectRun(route.repoId, route.runId);
       break;

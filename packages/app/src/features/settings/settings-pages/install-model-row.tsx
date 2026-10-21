@@ -5,14 +5,7 @@ import { LuArrowRight, LuDownload, LuSearch } from 'react-icons/lu';
 
 import { Spinner } from '../../../components/skeleton';
 import { useUiStore } from '../../../store/ui-store';
-import { useModelsPullQueueStore } from '../../models/models-pull-queue-store';
-import {
-  useOllamaModels,
-  useOllamaSearch,
-  useOllamaStatus,
-  usePullModel,
-  useRefetchModelsOnPullDone,
-} from '../../models/use-models';
+import { useModelsPullQueueStore, useOllamaModels, useOllamaSearch, useOllamaStatus, usePullModel, useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/renderer';
 
 /** Same debounce the Models view's Discover tab uses for the same search. */
 const SEARCH_DEBOUNCE_MS = 300;

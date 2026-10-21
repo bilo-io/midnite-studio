@@ -51,6 +51,24 @@ state to special-case around.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Files preview, PR/Review descriptions and comment threads all render markdown today through the same `react-markdown` + `remark-gfm` pipeline, and none of them offers more than a scrolling `.prose` block. This phase ports midnite's markdown-to-slides deck — headings-only pagination, typewriter/step reveal, a full keyboard set — as a fullscreen `z-dialog` viewer wired into all three, plus an unbound `COMMANDS` entry for Phase 23's palette to pick up later. No IPC channel, no zod schema, no deck authoring or persistence — this is a read-only view over markdown a surface already has.* **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
+
+**Theme A — The deck engine.** ✅ the deck engine: `deck-parser.ts` walks a real mdast tree (`remark-parse` + `remark-gfm`) rather than a hand-rolled line tokenizer — h1 is a cover slide, every heading after it starts a new slide, a list contributes one step per item (matching the crib), and each step keeps its own source substring so it renders as a real `react-markdown` fragment rather than midnite's hand-rolled `dangerouslySetInnerHTML` (landed 2026-08-28, merged locally — no PR/no remote).
+
+**Theme B — The deck presenter.** ✅ the deck presenter: typewriter title + step-by-step bullet reveal, the full keyboard set (arrows/space/Home/End/`?`/Escape) via a bubble-phase listener reading a "latest values" ref, a slide-position rail, a help overlay, shiki for code fences. Two bugs found chasing a flaky e2e spec: the title typewriter's `done` defaulted `true` before its first effect ran, and the nav reducer forced `instant` on every reveal (not just an actual slide change), each retriggering an already-finished typewriter (landed 2026-08-28, merged locally — no PR/no remote).
+
+**Theme C — The fullscreen host.** ✅ the fullscreen host: a `slides-store.ts` (`deck`, `activeMarkdown`) and a `z-dialog` `slides-modal.tsx` mounted once from `app.tsx`, reusing the existing `use-focus-trap.ts` rather than a fourth hand-rolled trap (landed 2026-08-28, merged locally — no PR/no remote).
+
+**Theme D — Wired into every markdown surface.** ✅ wired into every markdown surface: a "Present" button on Files preview, PR/Review descriptions and comment threads; only the two description-level surfaces claim `activeMarkdown` for keyboard invocation (landed 2026-08-28, merged locally — no PR/no remote).
+
+**Theme E — Command registry entry.** ✅ a `markdown.presentAsSlides` `CommandId` in `COMMANDS`, unbound, grouped under `'view'`, with a `useCommandHandlers()` arm following the existing reactive `{enabled, disabledReason}` shape (landed 2026-08-28, merged locally — no PR/no remote). The palette Phase 23 later shipped already consumes it, with a `LuSparkles` glyph rather than the button's `LuPresentation`.
+
+**Theme F — The surfaces that arrived later.** ✅ (PR #248) — the surfaces that arrived later (S): six of the nine `react-markdown` render sites in `packages/app/src` have no Present button, because they post-date A–E. Four get one (`issue-detail`, `version-notes-panel`, `pr-conversation`, `issue-conversation`); `commit-message.tsx` explicitly does not. The claim rule is stated as a rule for the first time — a surface claims `activeMarkdown` iff it renders one document-level body.
+
+**Theme G — Verification: run what is already written.** ✅ (PR #248) — verification: run what is already written (S): every artifact the original Verification list asked for exists on disk (4 e2e cases, 6 screenshot cases, four vitest files), so this is a run-and-record theme plus the two real gaps — a fenced block whose contents contain a heading, and `presentActive()` on an empty slot.
+
 ## Deliverables
 
 ### A — The deck engine (M) — ✅ DONE (2026-08-28, merged locally — no PR/no remote)

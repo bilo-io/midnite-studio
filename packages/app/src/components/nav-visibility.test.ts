@@ -8,8 +8,9 @@ import {
 } from './nav-visibility';
 
 describe('RAIL_VIEW_IDS', () => {
-  it('lists Sessions immediately after Knowledge, matching the pinned rail', () => {
-    expect(RAIL_VIEW_IDS.indexOf('sessions')).toBe(RAIL_VIEW_IDS.indexOf('knowledge') + 1);
+  it('lists Chats, Sessions, Knowledge in that order after Notes, matching the pinned rail', () => {
+    const notes = RAIL_VIEW_IDS.indexOf('notes');
+    expect(RAIL_VIEW_IDS.slice(notes, notes + 4)).toEqual(['notes', 'chats', 'sessions', 'knowledge']);
   });
 });
 

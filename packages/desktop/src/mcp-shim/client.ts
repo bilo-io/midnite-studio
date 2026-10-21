@@ -13,6 +13,9 @@ export const MCP_NOT_RUNNING_MESSAGE =
 /** The shim dials the socket per call rather than holding one connection open, so a relaunch of the app restores service without restarting the shim (Phase 57 Theme C). */
 const CALL_TIMEOUT_MS = 2000;
 
+/** Rendering a preview or writing a model's files is real work, not a socket round trip — those tools get longer. */
+export const SLOW_CALL_TIMEOUT_MS = 60_000;
+
 export type CallMcpToolOptions = {
   /**
    * Skip the real resolution (`resolveUserDataDir` + `resolveMcpSocketPath`)
@@ -20,6 +23,8 @@ export type CallMcpToolOptions = {
    * found" without needing a real (empty) `userData` directory on disk.
    */
   socketPath?: string | null;
+  /** Overrides the 2 s default — the `model_*` tools render and write files. */
+  timeoutMs?: number;
 };
 
 /**
@@ -53,7 +58,10 @@ export async function callMcpTool(
       resolve(response);
     };
 
-    const timer = setTimeout(() => finish({ id, ok: false, kind: 'error', message: MCP_NOT_RUNNING_MESSAGE }), CALL_TIMEOUT_MS);
+    const timer = setTimeout(
+      () => finish({ id, ok: false, kind: 'error', message: MCP_NOT_RUNNING_MESSAGE }),
+      options.timeoutMs ?? CALL_TIMEOUT_MS,
+    );
     timer.unref?.();
 
     const socket = net.connect(socketPath);

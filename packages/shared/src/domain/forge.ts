@@ -192,6 +192,14 @@ export const ForgePullSchema = z.object({
   mergedAt: z.string().nullable().default(null),
   /** ISO 8601, or null for a PR that is still open. Set on both closed and merged. */
   closedAt: z.string().nullable().default(null),
+  /**
+   * Conversation comments on the PR, shown on the list row (hidden at 0).
+   * GitHub: issue comments (`gh pr list --json comments`) plus inline review
+   * comments, which that payload omits and one batched GraphQL query per page
+   * adds (`gh-graphql.ts`'s `listPullsWithReviewComments`). Other forges: 0
+   * unless the list API carries a count for free.
+   */
+  commentCount: z.number().int().nonnegative().default(0),
 });
 export type ForgePull = z.infer<typeof ForgePullSchema>;
 
@@ -774,6 +782,21 @@ export const ForgeReviewCommentSchema = z.object({
   body: z.string().default(''),
   createdAt: z.string(),
   url: z.string().default(''),
+  /**
+   * The unified-diff excerpt the comment was written against — GitHub's
+   * `diffHunk`: an `@@ -a,b +c,d @@` header followed by the hunk's lines, ending
+   * at the commented line. It is what lets the Conversation tab show the code a
+   * thread is about without fetching the patch, and it survives the rewrite
+   * that makes a thread outdated. Empty when the forge does not provide one.
+   */
+  diffHunk: z.string().default(''),
+  /**
+   * The REST id of the review submission this comment was posted in, as a
+   * string — the same id a `kind: 'review'` `ForgeComment` carries, so the
+   * Conversation tab can nest a review's threads under its verdict the way
+   * github.com does. Null when the forge has no review object to point at.
+   */
+  reviewId: z.string().nullable().default(null),
 });
 export type ForgeReviewComment = z.infer<typeof ForgeReviewCommentSchema>;
 

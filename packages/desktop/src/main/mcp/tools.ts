@@ -19,6 +19,7 @@ import {
   isSupportedForgeKind,
   pickForgeRemote,
   UI_TOOLS_OFF_MESSAGE,
+  resourceRefLink,
   type CompanionUiReplyResult,
   type Forge,
   type ForgeRunsResult,
@@ -29,9 +30,9 @@ import {
 } from '@midnite/studio-shared';
 
 import { requestUiAction } from '../companion/ui-bridge';
-import { listPulls, listRuns } from '../forge/github/gh-cli';
+import { listPulls, listRuns } from '@midnite/studio-feature-forge/main';
 import { listRepos } from '../repo-registry';
-import { decideGate, listWaitingGates } from '../workflow-service';
+import { decideGate, listWaitingGates } from '@midnite/studio-feature-workflows/main';
 import { McpToolError } from './errors';
 import { getMcpAllowGateDecide, getMcpAllowUi } from './ui-gate';
 
@@ -81,7 +82,7 @@ async function realpathOrNull(path: string): Promise<string | null> {
  * exactly like any other unregistered path, even if some segment of the
  * unresolved string happened to collide with a registered one.
  */
-async function resolveRegisteredRepo(
+export async function resolveRegisteredRepo(
   repoPath: string,
 ): Promise<{ ok: true; repo: RegisteredRepo } | { ok: false; error: McpToolError }> {
   const repoRoot = await resolveRepoRoot(repoPath);
@@ -122,7 +123,7 @@ async function resolveRegisteredRepo(
   return { ok: true, repo: { repoRoot, mainRoot, descriptor: registered } };
 }
 
-/** The repo's forge remote, resolved from its worktree — same rule `repoForge` (`ipc/forge-handlers.ts`) applies from a `repoId`, applied here from a path since an MCP caller has no id. */
+/** The repo's forge remote, resolved from its worktree — same rule `repoForge` (the forge feature's `repo-forge.ts`) applies from a `repoId`, applied here from a path since an MCP caller has no id. */
 async function repoForgeFor(repoRoot: string): Promise<Forge | null> {
   const forge = pickForgeRemote(await listRemotes(repoRoot))?.forge ?? null;
   return forge !== null && isSupportedForgeKind(forge.kind) ? forge : null;
@@ -266,12 +267,31 @@ export async function uiState(): Promise<McpToolOutput<'ui.state'>> {
     throw new McpToolError('error', 'unexpected reply shape for ui.state');
   }
 
-  const { activeView, settingsPage, detached, repoPath, locked } = result.value;
-  return { activeView, settingsPage, detached, repoPath, locked, uiToolsEnabled: getMcpAllowUi() };
+  const { activeView, settingsPage, detached, repoPath, locked, lastRevealed } = result.value;
+  return {
+    activeView,
+    settingsPage,
+    detached,
+    repoPath,
+    locked,
+    uiToolsEnabled: getMcpAllowUi(),
+    lastRevealed: lastRevealed ?? null,
+  };
 }
 
 export async function uiNavigate(input: McpToolInput<'ui.navigate'>): Promise<McpToolOutput<'ui.navigate'>> {
   if (!getMcpAllowUi()) throw new McpToolError('refused', UI_TOOLS_OFF_MESSAGE);
+
+  // A URL opens in the browser panel — the same path as revealing a `browserTab` ref.
+  if (input.url !== undefined) {
+    const opened = await requestUiAction({ kind: 'reveal', ref: { kind: 'browserTab', url: input.url } });
+    refuseIfFailed(opened);
+    if (!opened.ok || opened.value.did !== 'revealed') {
+      throw new McpToolError('error', 'unexpected reply shape for ui.navigate');
+    }
+    return { did: opened.value.focusedWindow ? 'focused-window' : 'navigated' };
+  }
+  if (input.view === undefined) throw new McpToolError('refused', 'ui.navigate needs a view or a url');
 
   const result = await requestUiAction({
     kind: 'navigate',
@@ -280,11 +300,41 @@ export async function uiNavigate(input: McpToolInput<'ui.navigate'>): Promise<Mc
     ...(input.issue === undefined ? {} : { issue: input.issue }),
   });
   refuseIfFailed(result);
-  if (!result.ok || result.value.did === 'state' || result.value.did === 'ran') {
+  if (!result.ok || (result.value.did !== 'navigated' && result.value.did !== 'focused-window')) {
     throw new McpToolError('error', 'unexpected reply shape for ui.navigate');
   }
 
   return { did: result.value.did, view: result.value.view };
+}
+
+export async function uiReveal(input: McpToolInput<'ui.reveal'>): Promise<McpToolOutput<'ui.reveal'>> {
+  if (!getMcpAllowUi()) throw new McpToolError('refused', UI_TOOLS_OFF_MESSAGE);
+
+  const result = await requestUiAction({ kind: 'reveal', ref: input.ref });
+  refuseIfFailed(result);
+  if (!result.ok || result.value.did !== 'revealed') {
+    throw new McpToolError('error', 'unexpected reply shape for ui.reveal');
+  }
+  return { did: 'revealed', label: result.value.label };
+}
+
+/** `find` enumerates the user's work, so it is refused with the switch off even though it only reads. */
+export async function uiFind(input: McpToolInput<'ui.find'>): Promise<McpToolOutput<'ui.find'>> {
+  if (!getMcpAllowUi()) throw new McpToolError('refused', UI_TOOLS_OFF_MESSAGE);
+
+  const result = await requestUiAction({
+    kind: 'find',
+    query: input.query,
+    ...(input.kinds === undefined ? {} : { kinds: input.kinds }),
+    ...(input.limit === undefined ? {} : { limit: input.limit }),
+  });
+  refuseIfFailed(result);
+  if (!result.ok || result.value.did !== 'found') {
+    throw new McpToolError('error', 'unexpected reply shape for ui.find');
+  }
+  return {
+    matches: result.value.matches.map((match) => ({ ...match, link: resourceRefLink(match.ref) })),
+  };
 }
 
 export async function uiCommand(input: McpToolInput<'ui.command'>): Promise<McpToolOutput<'ui.command'>> {

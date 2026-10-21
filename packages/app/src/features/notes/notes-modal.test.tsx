@@ -2,9 +2,10 @@ import { cleanup, fireEvent, render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { RepoDescriptor } from '@midnite/studio-shared';
 import { ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogHost } from '../../components/dialog-host';
+import { StudioProviders } from '../../compose/studio-providers';
 import { useNotesStore } from '../../store/notes-store';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../store/ui-store';
@@ -39,7 +40,9 @@ function withProviders(ui: ReactNode) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <DialogHost>{ui}</DialogHost>
+      <DialogHost>
+        <StudioProviders>{ui}</StudioProviders>
+      </DialogHost>
     </QueryClientProvider>
   );
 }
@@ -123,5 +126,45 @@ describe('NotesModal', () => {
 
     const { getByText } = render(withProviders(<NotesModal />));
     expect(getByText('1/2 done')).not.toBeNull();
+  });
+
+  describe('quick capture', () => {
+    const original = window.midniteStudio;
+    const stubCapture = (capture: (req: { body: string }) => Promise<unknown>) =>
+      Object.defineProperty(window, 'midniteStudio', {
+        configurable: true,
+        value: { ...original, notes: { ...original?.notes, capture } },
+      });
+    afterEach(() => Object.defineProperty(window, 'midniteStudio', { configurable: true, value: original }));
+
+    it('sends the thought to main and says where it went, without touching the repo notes', async () => {
+      const capture = vi.fn(async () => ({ ok: true, target: 'mind' }));
+      stubCapture(capture);
+      const { getByTestId, findByTestId } = render(withProviders(<NotesModal />));
+      const input = getByTestId('quick-capture-input') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'for later' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect((await findByTestId('quick-capture-status')).textContent).toBe('Saved to Mind');
+      expect(capture).toHaveBeenCalledWith({ body: 'for later' });
+      expect(input.value).toBe('');
+      expect(Object.values(useNotesStore.getState().notes)).toHaveLength(0);
+    });
+
+    it('says Inbox when main chose the inbox, and keeps the text when it fails', async () => {
+      stubCapture(async () => ({ ok: true, target: 'inbox' }));
+      const first = render(withProviders(<NotesModal />));
+      let input = first.getByTestId('quick-capture-input') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'a' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect((await first.findByTestId('quick-capture-status')).textContent).toBe('Saved to Inbox');
+      cleanup();
+      stubCapture(async () => ({ ok: false, target: 'inbox' }));
+      const second = render(withProviders(<NotesModal />));
+      input = second.getByTestId('quick-capture-input') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: 'b' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect((await second.findByTestId('quick-capture-status')).textContent).toMatch(/could not/i);
+      expect(input.value).toBe('b');
+    });
   });
 });

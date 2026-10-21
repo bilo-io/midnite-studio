@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import {
   LuBot,
   LuEye,
@@ -8,7 +8,6 @@ import {
   LuSparkles,
   LuSquareKanban,
   LuSquareTerminal,
-  LuWorkflow,
 } from 'react-icons/lu';
 
 import {
@@ -26,6 +25,7 @@ import {
 } from '../../activity/activity-palette-store';
 import { resolveActivePalette } from '../../activity/resolve-active-palette';
 import { Choice, Field } from './controls';
+import { VIEW_ICON } from '../../../components/nav-icons';
 
 /** Scannable labels for the nine `ActivityStatus` values — nowhere else in
  * the app needed one until this page. */
@@ -93,7 +93,7 @@ export function ActivityPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Preset" icon={<LuSparkles className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Preset" icon={<LuSparkles className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-3 p-3">
           <Field
             label="Activity preset"
@@ -129,9 +129,9 @@ export function ActivityPage() {
             </div>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Agent & shell style" icon={<LuBot className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Agent & shell style" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Choice<AgentStyleMode>
             label="Agent style"
@@ -155,9 +155,9 @@ export function ActivityPage() {
             ]}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Status colours" icon={<LuPalette className="h-4 w-4" />}>
+      <SettingsAccordion title="Status colours" icon={<LuPalette className="h-4 w-4" />}>
         <div className="flex flex-col gap-2 p-3">
           {ACTIVITY_STATUSES.map((status) => (
             <StatusOverrideRow
@@ -170,9 +170,9 @@ export function ActivityPage() {
             />
           ))}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Preview" icon={<LuEye className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Preview" icon={<LuEye className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-3 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             One sample of each surface the Activity glow paints, per status — updates live as you
@@ -180,9 +180,9 @@ export function ActivityPage() {
           </p>
           <PreviewStrip />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Reset" icon={<LuSparkles className="h-4 w-4" />}>
+      <SettingsAccordion title="Reset" icon={<LuSparkles className="h-4 w-4" />}>
         <div className="flex flex-col gap-2 p-3">
           <Field
             label="Reset"
@@ -197,7 +197,7 @@ export function ActivityPage() {
             </button>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }
@@ -390,7 +390,7 @@ function PreviewStrip() {
           <LuSparkles aria-hidden className="h-3 w-3" /> Graph node
         </span>
         <span className="flex items-center gap-1">
-          <LuWorkflow aria-hidden className="h-3 w-3" /> Workflow node
+          <VIEW_ICON.workflows className="h-3 w-3" /> Workflow node
         </span>
         <span className="flex items-center gap-1">
           <LuSquareTerminal aria-hidden className="h-3 w-3" /> Terminal row

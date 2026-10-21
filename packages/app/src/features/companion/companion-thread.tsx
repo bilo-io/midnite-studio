@@ -6,8 +6,11 @@ import { LuArrowDown } from 'react-icons/lu';
 import remarkGfm from 'remark-gfm';
 
 import { daySeparatorLabel, formatTurnTime, formatTurnTitle, startsNewDay } from './turn-time';
+import { UserAvatar } from '../../components/user-avatar';
+import { useUiStore } from '../../store/ui-store';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
+import { CompanionGlyph } from './companion-look';
 
 /**
  * The markdown slots a chat bubble needs, and no more.
@@ -74,6 +77,14 @@ export function CompanionThread({ turns }: { turns: readonly CompanionTurn[] }) 
     count: turns.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ESTIMATED_TURN_HEIGHT,
+    /*
+      Key the measurement cache by turn id, matching the React `key` on each
+      row. The default key is the index, so when turns are replaced or trimmed
+      from the front, a row inherits the *previous* occupant's measured height
+      and the rows below it are laid out over its overflow — bubbles drawn on
+      top of each other.
+    */
+    getItemKey: (index) => turns[index]?.id ?? index,
     overscan: 8,
   });
 
@@ -110,10 +121,38 @@ export function CompanionThread({ turns }: { turns: readonly CompanionTurn[] }) 
     existing turn replaces the array identity without adding anything to scroll
     to (`companion-store.ts`).
   */
+  /*
+    One exception to "only while already at the bottom": a turn the user just
+    said or sent themselves. Their own words are the thing they are looking
+    for, wherever they had scrolled to — the same rule the Chats thread
+    follows (`chat-thread.tsx`). Setting `pinned` re-runs this effect, which
+    then scrolls like any other pinned arrival.
+  */
+  const lastRole = turns[turns.length - 1]?.role;
+  const seenCount = useRef(turns.length);
   useLayoutEffect(() => {
+    const grew = turns.length > seenCount.current;
+    seenCount.current = turns.length;
+    if (grew && lastRole === 'user' && !pinned) {
+      setPinned(true);
+      return;
+    }
     if (!pinned || turns.length === 0) return;
     virtualizer.scrollToIndex(turns.length - 1, { align: 'end' });
-  }, [turns.length, pinned, virtualizer]);
+  }, [turns.length, lastRole, pinned, virtualizer]);
+
+  /*
+    `scrollToIndex` aims at the *estimated* end of the last row; the row is
+    measured after it renders, and a wrapped turn taller than the estimate
+    would otherwise leave the newest words below the fold. While pinned, the
+    measured total size changing is followed to the true bottom.
+  */
+  const totalSize = virtualizer.getTotalSize();
+  useLayoutEffect(() => {
+    if (!pinned) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [totalSize, pinned]);
 
   if (turns.length === 0) {
     return (
@@ -233,6 +272,7 @@ function CompanionTurnRow({
   previousAt: number | undefined;
   now: number;
 }) {
+  const account = useUiStore((s) => s.forgeAccounts.find((a) => a.id === s.forgeActiveAccountId) ?? s.forgeAccounts[0]);
   const separator = startsNewDay(turn.at, previousAt) ? daySeparatorLabel(turn.at, { now }) : null;
 
   /*
@@ -250,6 +290,13 @@ function CompanionTurnRow({
       <>
         {separator === null ? null : <DaySeparator label={separator} />}
         <div className="flex items-start gap-1.5 py-1" data-turn-role="agent">
+          <span
+            aria-hidden
+            data-testid="companion-agent-avatar"
+            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground"
+          >
+            <CompanionGlyph className="h-3.5 w-3.5" />
+          </span>
           <details className="min-w-0 flex-1 rounded-md border border-border/70 bg-card/40 px-2 py-1.5 text-xs">
             <summary className="cursor-pointer list-none truncate text-[11px] text-muted-foreground marker:hidden">
               {firstLine(turn.text) || 'Agent output'}
@@ -275,7 +322,17 @@ function CompanionTurnRow({
         bubble across to meet it, and the gutter never moves.
       */}
       <div className="flex items-end gap-1.5 py-1" data-turn-role={turn.role}>
-        {mine ? <span className="min-w-0 flex-1" aria-hidden /> : null}
+        {mine ? (
+          <span className="min-w-0 flex-1" aria-hidden />
+        ) : (
+          <span
+            aria-hidden
+            data-testid="companion-agent-avatar"
+            className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40 text-primary"
+          >
+            <CompanionGlyph className="h-3.5 w-3.5" />
+          </span>
+        )}
         <div
           className={`max-w-[85%] break-words rounded-lg px-2.5 py-1.5 text-xs leading-relaxed ${
             mine
@@ -319,7 +376,23 @@ function CompanionTurnRow({
             </div>
           )}
         </div>
-        {mine ? null : <span className="min-w-0 flex-1" aria-hidden />}
+        {mine ? (
+          <span
+            aria-hidden
+            data-testid="companion-user-avatar"
+            className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center"
+          >
+            <UserAvatar
+              login={account?.login}
+              name={account?.displayName ?? 'You'}
+              src={account?.avatarUrl}
+              size={24}
+              withTooltip={false}
+            />
+          </span>
+        ) : (
+          <span className="min-w-0 flex-1" aria-hidden />
+        )}
         <TurnTime at={turn.at} />
       </div>
     </>

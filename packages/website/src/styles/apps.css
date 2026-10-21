@@ -1,0 +1,451 @@
+/*
+  The suite's surfaces: the per-app aurora, the cascaded reveal, the Apps
+  page's carousel and the page glow behind it.
+
+  Plain CSS rather than `@layer utilities`, because this file is inlined by
+  `site.css`'s `@import` ahead of the `@tailwind` directives, and every rule here
+  is a class selector that preflight's element resets cannot outrank anyway.
+
+  **An app's colours arrive as four custom properties** (`--app-c1` … `--app-c4`,
+  darkest first) set inline from `apps/catalog.ts`'s `spectrumVars`. Nothing in
+  this file names an app or a hex: a new app is a row in the catalog, never a
+  rule here.
+
+  Motion follows the site's policy (`tokens.css`): every transition and
+  animation is disarmed under `prefers-reduced-motion`, and everything infinite
+  pauses while the tab is hidden (`page-visibility.ts`).
+*/
+
+/*
+  The page glow's two colours, registered so a change of app cross-fades them.
+  An unregistered custom property is a token stream and would snap from one
+  colour to the next at the transition's midpoint; `<color>` is what lets the
+  browser interpolate it.
+*/
+@property --app-glow-a {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #4f7cf7;
+}
+
+@property --app-glow-b {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #8245ba;
+}
+
+/*
+  ── The aurora ───────────────────────────────────────────────────────────────
+
+  An app's spectrum, moving. Four soft blobs (one per stop) drift on long,
+  mutually prime periods so the composition never visibly repeats, over a deep
+  base of the darkest stop, under a slow conic sheen that turns the whole ramp.
+
+  **Only `transform` and `opacity` animate.** The blobs are radial gradients that
+  already fade to transparent at their edge, so there is no `filter: blur()` to
+  re-rasterise every frame; the compositor moves finished layers and nothing
+  else. That is what lets thirteen of these sit on one page.
+
+  The hero card is a dark poster in *both* themes: the copy on it is white, and
+  the scrim at the bottom is what keeps it legible over the brightest stop.
+*/
+.ws-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(120% 90% at 50% 110%, color-mix(in srgb, var(--app-c1) 85%, #000) 0%, transparent 70%),
+    linear-gradient(160deg, color-mix(in srgb, var(--app-c1) 55%, #05050a) 0%, #06060b 100%);
+}
+
+.ws-aurora-blob {
+  position: absolute;
+  width: 75%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  opacity: 0.85;
+  mix-blend-mode: screen;
+  will-change: transform;
+  animation-timing-function: var(--ws-ease);
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+.ws-aurora-blob-1 {
+  top: -30%;
+  left: -15%;
+  background: radial-gradient(closest-side, var(--app-c2), transparent);
+  animation-name: ws-aurora-1;
+  animation-duration: 17s;
+}
+
+.ws-aurora-blob-2 {
+  top: -10%;
+  right: -25%;
+  background: radial-gradient(closest-side, var(--app-c3), transparent);
+  opacity: 0.7;
+  animation-name: ws-aurora-2;
+  animation-duration: 23s;
+}
+
+.ws-aurora-blob-3 {
+  bottom: -45%;
+  left: 15%;
+  background: radial-gradient(closest-side, var(--app-c4), transparent);
+  opacity: 0.6;
+  animation-name: ws-aurora-3;
+  animation-duration: 29s;
+}
+
+.ws-aurora-blob-4 {
+  bottom: -30%;
+  right: -10%;
+  width: 60%;
+  background: radial-gradient(closest-side, var(--app-c2), transparent);
+  opacity: 0.55;
+  animation-name: ws-aurora-4;
+  animation-duration: 19s;
+}
+
+/*
+  The sheen: the spectrum as a conic, turning once every 40 seconds on the
+  site's registered `--ws-angle`. Low opacity, so it reads as light moving
+  across the surface rather than as a pinwheel.
+*/
+.ws-aurora-sheen {
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(
+    from var(--ws-angle),
+    var(--app-c2),
+    var(--app-c3),
+    var(--app-c4),
+    var(--app-c2)
+  );
+  opacity: 0.16;
+  mix-blend-mode: screen;
+  animation: ws-rainbow-turn 40s linear infinite;
+}
+
+/* The bottom scrim and a fine vignette, so white copy holds over any stop. */
+.ws-aurora-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 0%, rgb(5 5 10 / 0.15) 40%, rgb(5 5 10 / 0.72) 100%),
+    radial-gradient(140% 100% at 50% 0%, transparent 55%, rgb(5 5 10 / 0.45) 100%);
+}
+
+@keyframes ws-aurora-1 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(28%, 18%, 0) scale(1.2);
+  }
+}
+
+@keyframes ws-aurora-2 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  to {
+    transform: translate3d(-30%, 22%, 0) scale(0.9);
+  }
+}
+
+@keyframes ws-aurora-3 {
+  from {
+    transform: translate3d(0, 0, 0) scale(0.95);
+  }
+  to {
+    transform: translate3d(22%, -26%, 0) scale(1.25);
+  }
+}
+
+@keyframes ws-aurora-4 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-24%, -20%, 0) scale(1.15);
+  }
+}
+
+/*
+  ── The cascade ──────────────────────────────────────────────────────────────
+
+  A reveal that arrives in order: each child names its place with `--i`, and
+  waits `--i × 70ms` before rising into place. It plays whenever its container
+  becomes `[data-active='true']` (a carousel slide) or gains `.ws-cascade-in`
+  (a block scrolled into view), so leaving and coming back replays it.
+
+  The delay is only on the *arriving* state. A transition takes its timing from
+  the state it is heading to, so on the way out every piece leaves at once and
+  the next slide's cascade is not waiting behind the last one's.
+*/
+.ws-cascade {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity 650ms var(--ws-ease),
+    transform 800ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: 0ms;
+}
+
+[data-active='true'] .ws-cascade,
+.ws-cascade-in .ws-cascade {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--i, 0) * 70ms + 120ms);
+}
+
+/*
+  The logo enters on its own curve: a little larger and turned, settling with a
+  slight overshoot, so the mark lands before the words that name it.
+*/
+.ws-cascade-logo {
+  opacity: 0;
+  transform: scale(0.82) rotate(-8deg);
+  transition:
+    opacity 600ms var(--ws-ease),
+    transform 900ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-active='true'] .ws-cascade-logo,
+.ws-cascade-in .ws-cascade-logo {
+  opacity: 1;
+  transform: none;
+  transition-delay: 60ms;
+}
+
+/* Once landed, the mark floats. On a wrapper, so it never fights the entrance. */
+.ws-float {
+  animation: ws-float 6s ease-in-out infinite alternate;
+}
+
+@keyframes ws-float {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+/*
+  ── The carousel ─────────────────────────────────────────────────────────────
+
+  Native scrolling with CSS snap, not a transform-driven slider: a swipe on a
+  phone, a trackpad flick and a shift-scroll all work because the browser is
+  doing the scrolling, and nothing has to reimplement momentum. The buttons and
+  the thumbnails only call `scrollTo`.
+
+  `--slide-w` is the slide's width at each breakpoint, and the track pads
+  itself by half of what is left so the first and last slides can centre too.
+  The peek of the neighbours is the affordance that says "swipe".
+*/
+.ws-carousel-track {
+  --slide-w: calc(100% - 2.5rem);
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  padding-inline: calc((100% - var(--slide-w)) / 2);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ws-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .ws-carousel-track {
+    --slide-w: min(86%, 64rem);
+    gap: 1.25rem;
+  }
+}
+
+.ws-app-slide {
+  flex: 0 0 var(--slide-w);
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  transform: scale(0.94);
+  opacity: 0.5;
+  transition:
+    transform 700ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 600ms var(--ws-ease);
+}
+
+.ws-app-slide[data-active='true'] {
+  transform: none;
+  opacity: 1;
+}
+
+/* A slide nobody is looking at keeps its colours and stops moving. */
+.ws-app-slide[data-active='false'] .ws-aurora *,
+.ws-app-slide[data-active='false'] .ws-float {
+  animation-play-state: paused;
+}
+
+/* The thumbnail strip: scrolls on its own below `sm`, centred above it. */
+.ws-thumb-strip {
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.ws-thumb-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.ws-thumb {
+  scroll-snap-align: center;
+  transition:
+    transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 300ms var(--ws-ease),
+    box-shadow 400ms var(--ws-ease);
+  opacity: 0.55;
+}
+
+.ws-thumb:hover,
+.ws-thumb:focus-visible {
+  opacity: 0.9;
+}
+
+.ws-thumb[aria-current='true'] {
+  opacity: 1;
+  transform: translateY(-3px) scale(1.12);
+  box-shadow:
+    0 0 0 2px var(--app-c3),
+    0 8px 24px -6px color-mix(in srgb, var(--app-c2) 70%, transparent);
+}
+
+/* The status pill's dot: a slow ring, the one "live" signal on the slide. */
+.ws-live-dot {
+  position: relative;
+}
+
+.ws-live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: ws-live-ring 2.4s var(--ws-ease) infinite;
+}
+
+@keyframes ws-live-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/*
+  ── The page glow ────────────────────────────────────────────────────────────
+
+  Behind the whole Apps page, tinted by whichever app is in view and
+  cross-fading to the next one's colours as the carousel moves, so the page
+  around the card changes with it.
+*/
+.ws-apps-glow {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 45% at 15% 10%, color-mix(in srgb, var(--app-glow-a) 28%, transparent), transparent 70%),
+    radial-gradient(55% 45% at 90% 35%, color-mix(in srgb, var(--app-glow-b) 24%, transparent), transparent 70%);
+  transition:
+    --app-glow-a 900ms var(--ws-ease),
+    --app-glow-b 900ms var(--ws-ease);
+}
+
+/*
+  ── The suite grid's cards ───────────────────────────────────────────────────
+
+  The landing page's app cards: the app's colours stay hidden until hover or
+  focus, then bloom in from the logo's corner. On a touch screen there is no
+  hover, so the card is simply the calm version.
+*/
+.ws-app-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    transform 500ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 300ms var(--ws-ease),
+    box-shadow 500ms var(--ws-ease);
+}
+
+.ws-app-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--app-c2) 38%, transparent), transparent 70%),
+    radial-gradient(80% 60% at 100% 100%, color-mix(in srgb, var(--app-c4) 24%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 500ms var(--ws-ease);
+}
+
+.ws-app-card:hover,
+.ws-app-card:focus-visible {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--app-c3) 60%, transparent);
+  box-shadow: 0 18px 40px -18px color-mix(in srgb, var(--app-c2) 80%, transparent);
+}
+
+.ws-app-card:hover::before,
+.ws-app-card:focus-visible::before {
+  opacity: 1;
+}
+
+/* The landing hero's floating tiles: each one drifts on its own period. */
+.ws-tile-float {
+  animation: ws-float var(--float-s, 6s) ease-in-out infinite alternate;
+  animation-delay: var(--float-delay, 0s);
+}
+
+/*
+  A tab nobody is looking at costs nothing: every infinite animation in this
+  file stops with the rest of the site's.
+*/
+html[data-page-hidden='true'] .ws-aurora *,
+html[data-page-hidden='true'] .ws-float,
+html[data-page-hidden='true'] .ws-tile-float,
+html[data-page-hidden='true'] .ws-live-dot::after {
+  animation-play-state: paused;
+}
+
+/*
+  Reduced motion: `tokens.css` already zeroes every duration, so the aurora
+  settles on one frame and the cascade lands at once. What is left is the
+  cascade's *delay*, which would otherwise make a still page appear in pieces,
+  and the compositor hint, which promises movement that will not come.
+*/
+@media (prefers-reduced-motion: reduce) {
+  [data-active='true'] .ws-cascade,
+  .ws-cascade-in .ws-cascade,
+  [data-active='true'] .ws-cascade-logo,
+  .ws-cascade-in .ws-cascade-logo {
+    transition-delay: 0ms;
+  }
+
+  .ws-aurora-blob {
+    will-change: auto;
+  }
+
+  .ws-app-slide {
+    transform: none;
+  }
+}

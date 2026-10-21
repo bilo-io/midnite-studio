@@ -231,6 +231,18 @@ export const AgentStatusSchema = z.object({
 export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 
 /**
+ * Where the install probe stands — the fact `status` alone cannot carry.
+ *
+ * - `checking` — no answer yet (startup, or a forced re-probe with nothing
+ *   cached). Never rendered as "installed" and never as "missing".
+ * - `ready` — a probe answered; `status` holds its per-agent results.
+ * - `unknown` — the probe errored or timed out with nothing usable. Fail-soft:
+ *   unknown is NOT "not installed", so no row is greyed, but the UI says so.
+ */
+export const AgentProbeStateSchema = z.enum(['checking', 'ready', 'unknown']);
+export type AgentProbeState = z.infer<typeof AgentProbeStateSchema>;
+
+/**
  * The agents that ship with the app.
  *
  * Overridable per-user by `agents.json` in the Electron userData directory,

@@ -40,14 +40,14 @@ describe('IconButton busy', () => {
 
   it('sizes the spinner to the icon slot it replaced', () => {
     const { rerender } = render(<IconButton icon={LuCloudDownload} label="Fetch" busy size="sm" />);
-    expect(screen.getByRole('button', { name: 'Fetch' }).querySelector('.animate-spin')?.className).toContain(
-      'size-3.5',
-    );
+    expect(
+      screen.getByRole('button', { name: 'Fetch' }).querySelector('.animate-spin')?.className,
+    ).toContain('size-3.5');
 
     rerender(<IconButton icon={LuCloudDownload} label="Fetch" busy size="md" />);
-    expect(screen.getByRole('button', { name: 'Fetch' }).querySelector('.animate-spin')?.className).toContain(
-      'size-4',
-    );
+    expect(
+      screen.getByRole('button', { name: 'Fetch' }).querySelector('.animate-spin')?.className,
+    ).toContain('size-4');
   });
 
   it('keeps trailing children in place while busy', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { redactPaths, redactRecord } from './redact';
+import { REDACT_SAMPLES } from './redact-samples';
+import { SECRET_PATTERNS, redactPaths, redactRecord } from './redact';
 
 describe('redactPaths', () => {
   it('collapses the named home directory to ~', () => {
@@ -107,5 +108,53 @@ describe('redactPaths', () => {
     expect(out).not.toContain('ghp_0123456789abcdefghijABCDEF');
     expect(out).not.toContain('abcdefghijklmnopqrstuvwxyz');
     expect(out).toContain('<redacted>');
+  });
+});
+
+describe('Phase 91 G redaction patterns', () => {
+  for (const [name, sample] of Object.entries(REDACT_SAMPLES)) {
+    it(`redacts ${name}`, () => {
+      const out = redactPaths(`before ${sample} after`);
+      expect(out).not.toContain(sample.split('\n')[1] ?? sample.slice(-12));
+      expect(out).toContain('<redacted>');
+    });
+  }
+
+  it('keeps a 40-hex commit sha in a ?rev= URL', () => {
+    const sha = 'a'.repeat(20) + '0123456789'.repeat(2);
+    const text = `https://x.test/repo?rev=${sha}`;
+    expect(redactPaths(text)).toBe(text);
+  });
+
+  it('keeps ordinary prose that resembles a prefix', () => {
+    const text = 'AKIA is a word, sk_live_ alone, npm_ too, password=short';
+    expect(redactPaths(text)).toBe(text);
+  });
+
+  it('every exported pattern has at least one sample that it matches', () => {
+    for (const p of SECRET_PATTERNS) {
+      const hit = Object.values(REDACT_SAMPLES).some((x) => new RegExp(p.source, p.flags).test(x));
+      expect(hit, `no sample for ${p}`).toBe(true);
+    }
+  });
+});
+
+describe('redactRecord recursion', () => {
+  it('redacts a three-level-deep secret and array leaves', () => {
+    const tok = 'ghp_' + '0123456789abcdefghijABCDEF';
+    const out = redactRecord({ a: { b: { c: `x ${tok}` } }, list: [{ d: tok }, tok], n: 3 });
+    expect(JSON.stringify(out)).not.toContain(tok);
+    expect(out.n).toBe(3);
+  });
+
+  it('stops at the depth cap without throwing', () => {
+    const root: Record<string, unknown> = {};
+    let cur = root;
+    for (let i = 0; i < 20; i++) {
+      const next: Record<string, unknown> = {};
+      cur['k'] = next;
+      cur = next;
+    }
+    expect(() => redactRecord(root)).not.toThrow();
   });
 });

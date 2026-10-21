@@ -68,6 +68,26 @@ reason they survive a re-arrangement tomorrow.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Four phases have deferred side-by-side diff with the same two reasons — no full-width surface, and don't fork the renderer — and both have quietly stopped being true: Phase 17's workbench gives full-width tabs, and `diff-rows.ts` is a pure row builder a second arrangement can sit beside. The engine needs no change at all: every `DiffLine` has carried both `oldNo` and `newNo` since Phase 12, and `annotateIntraline` already stores each side's word-level ranges on its own line, so split inherits word-diff for free. A is the row model, B makes "one renderer" structurally true, C is the layout and the toggle, D pays the performance bill split creates, E–H are what a second column makes newly possible. Only H touches a contract.* **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
+
+**Theme A — The split row model.** ✅ `toSplitRows`/`pairRun`/`canSplit` beside `toDiffRows`: positional pairing within balanced runs, deliberately the same rule as `pairLines`, so alignment and word-marks can never disagree. Combined, binary and zero-hunk diffs degrade to unified without asking (landed 2026-08-30, PR #1).
+
+**Theme B — One cell, two layouts.** ✅ `LineRow` becomes a shared `DiffCell` both layouts mount, with `gutter` as a prop rather than a store read. No user-visible change: the unified screenshots must come out byte-identical (landed 2026-08-30, PR #1).
+
+**Theme C — Two columns, and the toggle.** ✅ two columns through the existing virtualizer, one locked horizontal scroller (not two synchronised ones), and `diffLayout: 'unified' | 'split'` persisted in `ui-store` beside `diffShowOldGutter` (landed 2026-08-30, PR #1). **The two items reverted at refinement x1 landed in [PR #267](https://github.com/bilo-io/midnite-studio/pull/267) (2026-09-08)**: `useTooNarrowForSplit` (a `ResizeObserver` on the diff body, 720px threshold) forces `'unified'` below it without ever rewriting the stored preference, and `e2e/diff-split.spec.ts` covers the gutter-sequence, one-sided-row and persistence assertions the one existing split test never made.
+
+**Theme D — The accordions learn to virtualize.** ✅ `inline` mode gets a virtualizer for the first time; All-changes and Reviews Files render every row today, and split doubles the per-row DOM. Brings `EXPAND_ALL_LIMIT` back up for review (landed 2026-08-30, PR #1).
+
+**Theme E — A toolbar for the accordion surfaces.** ✅ a `DiffToolbar` the accordion surfaces can mount, with actions a surface cannot perform omitted rather than dead — `PrFiles` has one `gh pr diff` in memory and cannot refetch at `-U` (landed 2026-08-30).
+
+**Theme F — Comments on the left side.** ✅ LEFT-side comment anchoring: `leftSideLines`, a per-side `ThreadsByLine`, a `del` line made commentable, and threads still rendered as full-width rows with a LEFT/RIGHT badge (landed 2026-08-30).
+
+**Theme G — A commit is a workbench tab.** ✅ a `commit` arm on `WorkbenchTab` so the inspector has a full-width home; the 720px graph dock is untouched and stays the quick-look panel (landed 2026-08-30).
+
+**Theme H — Image diffs in a pull request.** ✅ `baseSha` on `ForgePullDetailSchema` from `gh pr view`'s `baseRefOid` (mapped in `gh-parse.ts:257`, not `gh-cli.ts`), which is the only thing standing between the existing `ImageDiff` viewer and a pull request (landed 2026-08-30). **The two items reverted at refinement x1 landed in [PR #267](https://github.com/bilo-io/midnite-studio/pull/267) (2026-09-08)**: a new `blobExists` IPC channel (`git cat-file -e`) backs a "Fetch to compare" button in `pr-file-accordion.tsx` for a fork PR whose base blob is not local, calling the existing `fetch` op and nothing else before the click; `outstanding.md` lost its three stale entries. That PR also found and fixed a real bug this same item's earlier half had shipped with: `pr-detail.tsx` never passed `repoId`/`baseSha` down to `<PrFiles>`, so no PR image had ever actually rendered. **Refined x1 (2026-09-05)** re-audited the whole phase against the tree: six themes are genuinely complete, C and H are partial, and the symbols the doc named (`SplitRow`, `pairRun`, `SplitBody`) exist nowhere — the split model is `split-diff-rows.ts` over a zod `SplitDiffRow` in `shared`, and its run pairing is **similarity-based** (`levenshteinDistance`), a deliberate reversal of the phase's own "no line-level LCS" guardrail.
+
 ## Deliverables
 
 **Audit correction (2026-09-05, refinement x1).** All eight themes were marked `✅ DONE` on

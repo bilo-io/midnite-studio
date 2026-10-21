@@ -51,6 +51,26 @@ that stays at depth 1 may shift by a pixel.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*`view-sections.ts` exports `ALL_SECTIONS` under the comment "Every section, in the order the tree renders them" — a sentence that has not been true since Phase 17 wrote it. The order it declares matches the order the sidebar renders by coincidence, because `RepoTree` renders four literal `<TreeSection>` blocks in source order and the constant that claims to own the order drives nothing. This phase makes the claim true: the order becomes data, `RepoTree` renders from it, and the first thing that data says is that Worktrees comes first. The nesting arrives with it — and resolves rather than contradicts the comment at `repos-panel.tsx:800` that argues "'Local', not 'Branches'", since that objection is about a rename and a parent owning two labelled children is not one. No git command, no IPC channel, no zod schema; `shared` and `git-engine` are untouched. Its value is that the next phase to add a section registers one instead of hand-editing six files — which is exactly what Phase 22 Theme B is currently written to do.* **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
+
+**Theme A — The section tree becomes data.** ✅ `SECTION_TREE` as the single ordered declaration (`worktrees`, `branches → [local, remotes]`, `tags`, `stashes`, `forge → [actions, reviews, issues, tests]`); `ALL_SECTIONS` derived by flattening rather than hand-written; `VIEW_FILTERS` learns to name a parent and mean its subtree; a parent is visible only when at least one child is (landed 2026-08-28, merged locally — no PR/no remote).
+
+**Theme B — The indent ladder gets a fifth rung.** ✅ the indent ladder gets a fifth rung: `TREE_INDENT` gains `pl-17` and `TreeSection.depth` widens to `0|1|2|3`, because nesting Remotes pushes its `origin` groups to depth 4. Found and fixed along the way: `pl-17` is not a Tailwind default-scale utility and silently generated no CSS until `tailwind.config.ts` gained `spacing: { 17: '4.25rem' }` (landed 2026-08-28, merged locally).
+
+**Theme C — `RepoTree` renders from the tree.** ✅ `RepoTree` renders from the tree: one `renderSection` walk plus a `SECTION_BODY` map replaces the four literal blocks, so a section the declaration does not contain cannot be rendered. Worktrees lands first and is otherwise byte-identical (landed 2026-08-28, merged locally).
+
+**Theme D — Folds survive.** ✅ folds survive: `collapsedRepoSections` joins the ui-store beside `collapsedNavSections` and `collapsedSettingsGroups`, per repo, `version: 2 → 3` with a migrate, `RemoteGroup`'s bare `useState` folded in, and pruning on repo close — via a new `use-prune-closed-repos.ts` mounted from `Shell`, not `repo-lifecycle.ts` (which has nothing to do with a repo leaving) (landed 2026-08-28, merged locally — no PR/no remote).
+
+**Theme E — The Branches heading earns itself.** ✅ the Branches heading earns itself: a combined count (a pure, unit-tested `branchesCount()`) and a `parentSectionMenu` beside (not widening) `sectionMenu`, since `RefSectionKey` stays narrow and a parent has no refs — New branch…/Fetch all/Prune remote-tracking refs, the latter two both the same `fetch` call since pruning is already every fetch's default. Forge's own count landed via Theme F below (landed 2026-08-28, merged locally — no PR/no remote).
+
+**Theme F — Forge sections get a parent.** ✅ Actions/Reviews/Issues/Tests stopped being one opaque `ForgeSections` blob and became four independent `SECTION_BODY` leaves, rendered by the generic recursive walk; `Forge` hides entirely with no GitHub remote via one `hasGithubForge` check in `RepoTree`, gating the whole subtree (Tests included — a deliberate behaviour change) before the walk reaches it, rather than a per-child check. Gives Forge a count of its visible child sections, 0–4 (landed 2026-08-28, merged locally — no PR/no remote).
+
+**Theme G — Settings ▸ Sidebar catches up.** ✅ Settings ▸ Sidebar catches up: a new `summarizeSections()` pure helper collapses a fully admitted parent's children to the parent's own name in `describeNarrowed`; `SECTION_LABELS` was already complete from Theme A (landed 2026-08-28, merged locally — no PR/no remote).
+
+**Theme H — Reconciliation.** ✅ reconciliation: `view-sections.ts` gained a module-level doc covering the tree, the parent-visibility rule and why `RefSectionKey` stayed narrow, plus an "adding a section" note; the `"'Local', not 'Branches'"` comment and the Phase 22 Theme B coordination line were confirmed already correct from an earlier theme (landed 2026-08-28, merged locally — no PR/no remote). Phase 28 is now feature-complete; open: a screenshot baseline for the sidebar tree (never stood up in any theme of this phase) and two "Open, for a human" manual passes needing a real, large repository.
+
 ## Deliverables
 
 ### A — The section tree becomes data (M) ✅ DONE (2026-08-28)

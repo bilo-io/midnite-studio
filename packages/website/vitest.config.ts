@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
@@ -20,6 +22,14 @@ export default defineConfig({
     __BUILD_YEAR__: new Date().getFullYear(),
     __ISSUE_TEMPLATE__: null,
     __SITE_ORIGIN__: JSON.stringify(''),
+  },
+  // Mirrors `vite.config.ts`'s alias for the one `shared` file the site takes.
+  resolve: {
+    alias: {
+      '@midnite/studio-shared/install-command': fileURLToPath(
+        new URL('../shared/src/install-command.ts', import.meta.url),
+      ),
+    },
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],

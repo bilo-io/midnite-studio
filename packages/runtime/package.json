@@ -1,0 +1,40 @@
+{
+  "name": "@midnite/studio-runtime",
+  "version": "0.0.3",
+  "private": true,
+  "description": "The runtime layer (Phase 113): main-process services no window owns, and the contract a feature's main half is registered against. Main-only; may import electron. Holds the services every app shares: the vault and the pty broker client (Theme D).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./broker/*": {
+      "types": "./dist/broker/*.d.ts",
+      "default": "./dist/broker/*.js"
+    },
+    "./agent-run/*": {
+      "types": "./dist/agent-run/*.d.ts",
+      "default": "./dist/agent-run/*.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@midnite/studio-shared": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "electron": "^33.2.0",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.4"
+  }
+}

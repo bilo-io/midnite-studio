@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { BsRobot } from 'react-icons/bs';
 import { MdOutlineWorkspaces } from 'react-icons/md';
-import { SiGit } from 'react-icons/si';
+import { VscTerminalGitBash } from 'react-icons/vsc';
 
 import type { ForgeKind } from '@midnite/studio-shared';
 
@@ -11,7 +11,7 @@ import {
   PROVIDER_BRAND_COLOR,
   PROVIDER_ICON,
   type SupportedKind,
-} from '../features/settings/settings-pages/accounts-page';
+} from '../features/settings/settings-pages/forge-providers';
 
 /**
  * One glyph + colour per rail category header (ad hoc: sidenav category
@@ -37,7 +37,7 @@ export type CategoryIcon = { readonly Icon: IconComponent; readonly color: strin
  *  (`ForgeKind`'s `'unknown'`, or no repo selected at all) — Git's own logo,
  *  Simple Icons' brand orange. Never "no icon": a category header always
  *  wears one. */
-const GIT_FALLBACK_ICON: CategoryIcon = { Icon: SiGit, color: '#F05032' };
+const GIT_FALLBACK_ICON: CategoryIcon = { Icon: VscTerminalGitBash, color: '#F05032' };
 
 /** The Git category header's icon for the active repo's forge — `null` for
  *  "no repo selected" and `ForgeKind`'s own `'unknown'` both fall back to

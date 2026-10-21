@@ -1,0 +1,41 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# The frame (Phase 113 Theme C) — renderer chrome every app wears. Source-only:
+# no build task of its own; each app's Vite build compiles it. See
+# docs/APPS.md ("Packages") for where it sits in the layer graph.
+language: 'typescript'
+layer: 'library'
+
+# Every app wears the frame, so a change here reaches them all
+# (`scripts/affected-apps.mjs` reads these tags).
+tags:
+  - 'layer-frame'
+  - 'app-all'
+
+dependsOn:
+  - 'shared'
+
+workspace:
+  inheritedTasks:
+    # Source-only — nothing to `tsc -b`, and a `build` with no outputs would
+    # only make `^:build` deps wait on a no-op.
+    exclude:
+      - 'build'
+
+tasks:
+  # Shared resolves to source (tsconfig paths, vitest alias), so neither task
+  # needs a build first; shared's sources are inputs so a contract change
+  # re-runs both instead of reporting a stale cache hit.
+  typecheck:
+    inputs:
+      - 'src/**/*'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'

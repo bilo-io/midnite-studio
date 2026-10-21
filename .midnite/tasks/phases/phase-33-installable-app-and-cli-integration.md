@@ -32,6 +32,20 @@
 
 ---
 
+## Headlines
+
+*Production-grade macOS DMG installer, a `midnite-studio` CLI binary symlinking into PATH with shell completions, custom `midnite-studio://` protocol handling, a background auto-updater service, and first-run setup onboarding. Written throughout against the **Midnite Studio rename**, which is a hard prerequisite: every identifier this phase creates is a name. Sequencing is C → B (the CLI is a thin wrapper over the protocol), with A and D independent and E last.* **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
+
+**Theme A — Polished DMG Package & macOS Desktop Integration (S/M/L: M).** ◻ Polished DMG Package & macOS Desktop Integration. Not started: `dmg:` window layout + @1x/@2x PNG artwork, hardened-runtime entitlements, `protocols:` registration, an env-gated `afterSign` notarize hook, and a `verify-dist` gate asserting `codesign --verify` / `hdiutil verify`.
+
+**Theme B — `midnite-studio` CLI Binary & System PATH Symlinking (S/M/L: L).** ✅ `midnite-studio` CLI Binary & System PATH Symlinking. A POSIX `sh` wrapper execing `open` on the URL scheme, `mstudio:cli:*` channels behind `GitOpResultOf`, a `/usr/local/bin` → `~/.local/bin` fallback that never uses sudo, zsh/bash/fish completions, and the CLI Integration settings page. ([PR #255](https://github.com/bilo-io/midnite-studio/pull/255), 2026-09-07)
+
+**Theme C — `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch (S/M/L: M).** ✅ `midnite-studio://` Custom Protocol Handler & Deep-Link Dispatch. The single-instance lock, `open-url`, argv forwarding and a pure `parseDeepLink` already existed; this closes out the jail's missing half — the renderer now renders the `known:false` proposal as a `ConfirmDialog` naming the absolute path (confirming opens and selects it), and a `clone` link as a notice, since no clone flow exists yet. ([PR #262](https://github.com/bilo-io/midnite-studio/pull/262), 2026-09-07)
+
+**Theme D — Auto-Updater Service & Update Status Banner (S/M/L: L).** ◐ Auto-Updater Service & Update Status Banner. Partial: the pure `update-state.ts`/`feed-channel.ts` modules and the `publish:` block (generic provider) exist; `electron-updater`, `update-service.ts`, the preload `update` group and the settings/status-bar UI are not yet built.
+
+**Theme E — First-Run Onboarding & System Health (S/M/L: M).** ✅ First-Run Onboarding & System Health. `onboardedAt` seeded by the shared `version < 5` migration, a focus-trapped first-run modal, and one `HealthChecklist` shared by the modal and a System Health settings page. (2026-08-30)
+
 ## Deliverables
 
 ### Theme A — Polished DMG Package & macOS Desktop Integration (S/M/L: M)

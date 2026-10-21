@@ -138,7 +138,8 @@ client.on('data', (chunk) => {
   frames += 1;
 });
 
-client.write(encodeControl({ t: 'hello', id: 1, protocol: 1, appVersion: '0.0.0', pid: process.pid }));
+// `role: 'host'` — the broker treats a connection that does not say so as a guest, which may not create.
+client.write(encodeControl({ t: 'hello', id: 1, protocol: 1, appVersion: '0.0.0', pid: process.pid, role: 'host' }));
 client.write(
   encodeControl({
     t: 'create',

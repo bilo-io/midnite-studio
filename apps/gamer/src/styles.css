@@ -1,0 +1,18 @@
+/* Design tokens (HSL custom properties + the `.dark` block) from @bilo-io/ui, the same
+ * token source Studio uses, so the game features wear identical colours here. */
+@import '@bilo-io/ui/styles';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Gamer's accent — the launcher catalog's `gamer` tile colour. */
+  --gamer-accent: #10b981;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}

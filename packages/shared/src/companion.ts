@@ -2,15 +2,32 @@ import { z } from 'zod';
 
 import { cleanPtyText } from './ansi';
 import {
+  COMPANION_TUNE_TARGETS,
+  COMPANION_TWEAK_INSTRUCTION_MAX,
+  CompanionPersonaReplySchema,
+  matchTunePhrase,
+  matchTweakPhrase,
+} from './companion-tune';
+import {
+  COMPANION_AUDITION_ACCENTS,
+  COMPANION_AUDITION_GENDERS,
+  matchAuditionPhrase,
+} from './companion-audition';
+import {
   SETTINGS_PAGE_IDS,
   VIEW_IDS,
   RepoDescriptorSchema,
+  ResourceKindSchema,
+  ResourceRefSchema,
   type Ref,
   type SettingsPageId,
   type ViewId,
 } from './domain';
+import { parseResourceQuery } from './domain/resource-query';
+import { describesResource, matchFollowUp, matchGoBack, RESOURCE_RELATED_KINDS } from './companion-resource';
 import { isCommandId } from './keybindings';
 import { parseConventionalCommit } from './version';
+import { resolveAgentAndModel } from './ai-models';
 
 /**
  * The companion (Phase 79) — its state machine, the words it says, and the
@@ -1253,9 +1270,33 @@ export type CompanionLocalVoiceInfo = {
   language: 'en-us' | 'en-gb';
   gender: 'Female' | 'Male';
   grade: string;
+  /**
+   * What a person says to pick this voice (Phase 109 Theme A): its name, and
+   * its name with the accent in front ("British Emma"), the two ways anyone
+   * reading the Settings list out loud would name it. {@link matchVoice}
+   * matches a transcript against these, fuzzily, so whisper-tiny's "bela"
+   * still lands on Bella.
+   */
+  spoken: readonly string[];
 };
 
-export const COMPANION_LOCAL_VOICES: readonly CompanionLocalVoiceInfo[] = [
+/** The accent word a person says for a Kokoro language tag. */
+const LOCAL_VOICE_ACCENT: Record<CompanionLocalVoiceInfo['language'], string> = {
+  'en-us': 'American',
+  'en-gb': 'British',
+};
+
+/** Fills in `spoken` from the name and accent each row already carries, so the two can't drift. */
+function withSpokenAliases(
+  voices: readonly Omit<CompanionLocalVoiceInfo, 'spoken'>[],
+): readonly CompanionLocalVoiceInfo[] {
+  return voices.map((voice) => ({
+    ...voice,
+    spoken: [voice.name, `${LOCAL_VOICE_ACCENT[voice.language]} ${voice.name}`],
+  }));
+}
+
+export const COMPANION_LOCAL_VOICES: readonly CompanionLocalVoiceInfo[] = withSpokenAliases([
   { id: 'af_heart', name: 'Heart', language: 'en-us', gender: 'Female', grade: 'A' },
   { id: 'af_alloy', name: 'Alloy', language: 'en-us', gender: 'Female', grade: 'C' },
   { id: 'af_aoede', name: 'Aoede', language: 'en-us', gender: 'Female', grade: 'C+' },
@@ -1284,7 +1325,7 @@ export const COMPANION_LOCAL_VOICES: readonly CompanionLocalVoiceInfo[] = [
   { id: 'bf_lily', name: 'Lily', language: 'en-gb', gender: 'Female', grade: 'D' },
   { id: 'bm_daniel', name: 'Daniel', language: 'en-gb', gender: 'Male', grade: 'D' },
   { id: 'bm_fable', name: 'Fable', language: 'en-gb', gender: 'Male', grade: 'C' },
-];
+]);
 
 /** `af_heart` — see its own module doc in `tts.ts` for why it is the default. */
 export const COMPANION_LOCAL_VOICE_DEFAULT: CompanionLocalVoiceId = 'af_heart';
@@ -1351,6 +1392,21 @@ export type SttProviderId = (typeof STT_PROVIDER_IDS)[number];
 
 /** The key-free local engine — the mic has to work before anyone visits Settings. */
 export const DEFAULT_STT_PROVIDER_ID: SttProviderId = 'whisper-local';
+
+/**
+ * Which provider a transcription uses: the one chosen, or — when none is
+ * (`null`/absent, the "automatic" a migrated install starts on) — the single
+ * provider with a stored key if there is exactly one, else the key-free
+ * default. Shared so main's `resolveProviderId` and the Settings select that
+ * shows the effective choice cannot disagree.
+ */
+export function pickSttProvider(
+  requested: SttProviderId | null | undefined,
+  configured: readonly SttProviderId[],
+): SttProviderId {
+  if (requested !== null && requested !== undefined) return requested;
+  return configured.length === 1 ? (configured[0] as SttProviderId) : DEFAULT_STT_PROVIDER_ID;
+}
 
 /**
  * Providers `transcribeUtterance` will construct with **no stored credential
@@ -2160,6 +2216,147 @@ export function composeOverviewSpeech(
  */
 export type CompanionAccess = 'direct' | 'confirm' | 'never';
 
+// --- Phase 109 · the voice-settable companion keys ---------------------------
+
+/**
+ * Every companion setting with a spec — the keys `applyCompanionSetting`
+ * (`app/features/companion/settings-apply.ts`) can write, whoever asks: the
+ * companion's own voice, an agent over MCP, or the Settings page.
+ *
+ * The voice selection is two keys, `companionVoices.local` and
+ * `companionVoices.system`, because the store keeps one choice per engine and
+ * "use voice Bella" changes exactly one of them. `companionProfiles` has no
+ * key here: a profile is saved, switched and deleted as a whole (Theme G), never
+ * set field by field.
+ *
+ * **Declared here, above {@link CompanionIntentSchema}**, rather than beside
+ * the rest of the settings list further down, because Theme C's `setting`
+ * intent restricts its `key` to these and a module-level `const` cannot be
+ * read before its declaration has run. {@link CompanionSettingsSchema} carries
+ * a type assertion that this list and the schema's keys agree.
+ */
+export const COMPANION_SETTING_KEYS = [
+  'companionEnabled',
+  'companionSttEngine',
+  'companionSttProvider',
+  'companionHandsFree',
+  'companionSpeakAloud',
+  'companionNames',
+  'companionMicMode',
+  'voiceConversation',
+  'voiceConversationTrigger',
+  'companionPersonality',
+  'companionAboutUser',
+  'companionVoices.local',
+  'companionVoices.system',
+  'companionVolume',
+  'companionHonorifics',
+  'companionMusicOffer',
+  'companionActiveProfile',
+] as const;
+export type CompanionSettingKey = (typeof COMPANION_SETTING_KEYS)[number];
+
+/**
+ * Who may change each setting without the page (Phase 109 Decision 2,
+ * "guarded"), in the vocabulary `COMMAND_ACCESS` already uses for commands.
+ *
+ * - **`never`** — anything that could switch off the companion's own hearing
+ *   or choose where audio is sent: enabled, the recognition engine, the STT
+ *   provider, hands-free. The page is the only way in.
+ * - **`confirm`** — anything that changes what wakes it, whether you hear it,
+ *   how the mic behaves, or the free text it is prompted with.
+ * - **`direct`** — anything a misheard sentence can only make sound different,
+ *   and that "undo that" puts right.
+ *
+ * `companionSpeakAloud` is `confirm` only in the direction that silences it;
+ * its spec's `directValues` drops "speak out loud" to `direct`.
+ * {@link companionSettingTier} is the function that resolves the pair.
+ */
+export const COMPANION_SETTING_TIERS: Readonly<Record<CompanionSettingKey, CompanionAccess>> = {
+  companionEnabled: 'never',
+  companionSttEngine: 'never',
+  companionSttProvider: 'never',
+  companionHandsFree: 'never',
+  companionSpeakAloud: 'confirm',
+  companionNames: 'confirm',
+  companionMicMode: 'confirm',
+  voiceConversation: 'confirm',
+  voiceConversationTrigger: 'confirm',
+  companionPersonality: 'confirm',
+  companionAboutUser: 'confirm',
+  'companionVoices.local': 'direct',
+  'companionVoices.system': 'direct',
+  companionVolume: 'direct',
+  companionHonorifics: 'direct',
+  companionMusicOffer: 'direct',
+  companionActiveProfile: 'direct',
+};
+
+/**
+ * The keys a `setting` intent may name (Phase 109 Theme C): every key whose
+ * tier is not `never`. Restricting the intent's own enum is what makes a
+ * change to the companion's hearing *unrepresentable* — neither the grammar
+ * nor the router can express one, so nothing downstream has to remember to
+ * refuse it. A test asserts this is exactly the non-`never` rows of
+ * {@link COMPANION_SETTING_TIERS}.
+ */
+export const COMPANION_INTENT_SETTING_KEYS = [
+  'companionSpeakAloud',
+  'companionNames',
+  'companionMicMode',
+  'voiceConversation',
+  'voiceConversationTrigger',
+  'companionPersonality',
+  'companionAboutUser',
+  'companionVoices.local',
+  'companionVoices.system',
+  'companionVolume',
+  'companionHonorifics',
+  'companionMusicOffer',
+  'companionActiveProfile',
+] as const satisfies readonly CompanionSettingKey[];
+export type CompanionIntentSettingKey = (typeof COMPANION_INTENT_SETTING_KEYS)[number];
+
+/**
+ * The `never`-tier keys — what a `pageOnlySetting` intent names when someone
+ * asks for one out loud ("turn yourself off", "switch to web speech"). The
+ * companion refuses and offers to open Settings ▸ Companion instead.
+ */
+export const COMPANION_PAGE_ONLY_SETTING_KEYS = [
+  'companionEnabled',
+  'companionSttEngine',
+  'companionSttProvider',
+  'companionHandsFree',
+] as const satisfies readonly CompanionSettingKey[];
+export type CompanionPageOnlySettingKey = (typeof COMPANION_PAGE_ONLY_SETTING_KEYS)[number];
+
+/**
+ * What a `profile` intent does with a persona profile (Phase 109 Theme G):
+ * "save this as Narrator", "switch to Narrator", "delete the Narrator
+ * profile", "what profiles do I have?". Declared above
+ * {@link CompanionIntentSchema} for the reason the setting keys are.
+ */
+export const COMPANION_PROFILE_OPS = ['save', 'switch', 'delete', 'list'] as const;
+export type CompanionProfileOp = (typeof COMPANION_PROFILE_OPS)[number];
+
+/** The longest profile name — {@link CompanionProfileSchema}'s own cap, declared up here for the intent. */
+export const COMPANION_PROFILE_NAME_MAX = 64;
+
+/**
+ * How a `setting` intent's `value` applies (Theme C).
+ *
+ * - `set` (the default) — `value` is the new value.
+ * - `add` / `remove` — one word joins or leaves a list (names, what it calls
+ *   you). The grammar cannot know the current list, so "call me boss" says
+ *   *what* changes and `act()` works out the whole new list.
+ * - `step` — a signed nudge to a number ("louder" is `+0.1`).
+ * - `match` — `value` is a voice name as heard; `act()` resolves it against
+ *   the Kokoro catalog or the system voices, the latter only existing in the
+ *   renderer.
+ */
+export const COMPANION_SETTING_OPS = ['set', 'add', 'remove', 'step', 'match'] as const;
+export type CompanionSettingOp = (typeof COMPANION_SETTING_OPS)[number];
+
 /**
  * The `AgentCommandId`s the companion is allowed to start.
  *
@@ -2324,6 +2521,50 @@ export const CompanionVocabularySchema = z.object({
     }),
   ),
   repos: z.array(z.string()),
+  /**
+   * The settings a `setting` intent may change (Phase 109 Theme C), built by
+   * {@link companionSettingsVocabulary} from the spec table — never a second
+   * hand-written list. `never`-tier keys are absent, and so are the two whose
+   * spoken path belongs to a later theme (personality and About me to H's
+   * interview, the active profile to G's profile commands).
+   *
+   * Optional so a vocabulary built before this field existed (a test fixture,
+   * an older renderer) still parses, and the router's prompt reads exactly as
+   * it did without one.
+   */
+  settings: z
+    .array(
+      z.object({
+        key: z.enum(COMPANION_INTENT_SETTING_KEYS),
+        label: z.string(),
+        aliases: z.array(z.string()),
+        /** The allowed values, described for a prompt — not a schema. */
+        values: z.string(),
+        tier: z.enum(['direct', 'confirm']),
+        example: z.string(),
+      }),
+    )
+    .optional(),
+  /**
+   * The saved persona profiles' names (Phase 109 Theme G), so a bare
+   * "switch to Narrator" or "be Narrator" is a profile switch only when
+   * Narrator is one — and the router can name them. Read live in `runtime.ts`
+   * rather than cached with the rest, since saving one changes it.
+   */
+  profiles: z.array(z.string()).optional(),
+  /**
+   * Available agents and models for the router prompt (Phase 111 Theme B).
+   * Optional so older vocabularies and fixtures without agents still parse cleanly.
+   */
+  agents: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        models: z.array(z.string()).optional(),
+      }),
+    )
+    .optional(),
 });
 export type CompanionVocabulary = z.infer<typeof CompanionVocabularySchema>;
 
@@ -2344,6 +2585,7 @@ const NAVIGATE_VERBS = [
   'show me',
   'show',
   'go to',
+  'pull up',
   'open',
 ] as const;
 
@@ -2362,6 +2604,24 @@ export const COMPANION_HELP_TOKENS = [
   'what can you do',
   'help',
   'what do you know',
+] as const;
+
+/**
+ * "Undo that" — puts the last settings change back (Phase 109 Theme E).
+ * Whole utterances only, so "undo that commit" is not mistaken for one.
+ */
+export const COMPANION_UNDO_TOKENS = [
+  'undo',
+  'undo that',
+  'undo it',
+  'undo that change',
+  'undo the last change',
+  'put it back',
+  'change it back',
+  'set it back',
+  'switch it back',
+  'revert that',
+  'revert it',
 ] as const;
 
 /** Words dropped when reducing a `COMMANDS` label to its significant words. */
@@ -2444,6 +2704,36 @@ function matchingRepoName(name: string, repos: readonly string[]): string | null
   return contained ?? null;
 }
 
+/** "switch to <repo>" — a repo name wins over every other reading of "switch to". */
+function tryRepoSwitch(
+  bare: string,
+  vocabulary: CompanionVocabulary,
+): Extract<CompanionIntent, { kind: 'switchRepo' }> | null {
+  const span = phraseSpan(bare, 'switch to');
+  if (span === null) return null;
+  const remainder = bare
+    .slice(span.end)
+    .replace(/^\s*(?:me|over|the|to)\b\s*/i, '')
+    .trim();
+  const repo = remainder === '' ? null : matchingRepoName(remainder, vocabulary.repos);
+  return repo ? { kind: 'switchRepo', name: repo } : null;
+}
+
+/**
+ * Whether every content word of `remainder` is one of the matched view's own
+ * words — "the commit graph" is the Graph view, "the latest commit graph" is
+ * not. A phrase with a recency word or an exact id is never a view phrase.
+ */
+function isViewPhrase(remainder: string, viewId: ViewId | undefined, views: CompanionVocabulary['views']): boolean {
+  if (viewId === undefined) return false;
+  const query = parseResourceQuery(remainder);
+  if (query.exact.length > 0 || query.recency !== null) return false;
+  const view = views.find((candidate) => candidate.id === viewId);
+  if (!view) return false;
+  const words = new Set(`${view.label} ${view.id} ${view.keywords}`.toLowerCase().split(/[^\p{L}\p{N}]+/u));
+  return query.terms.every((term) => words.has(term));
+}
+
 /**
  * The `navigate` intent, tried per {@link NAVIGATE_VERBS} entry in order. Each
  * verb strips itself (plus a leading "me"/"the"/connective) off the front of
@@ -2482,14 +2772,21 @@ function tryNavigate(
 
     const issueMatch =
       /\bissue\s*#?\s*(\d+)\b/i.exec(remainder) ?? /\bnumber\s+(\d+)\b/i.exec(remainder);
-    if (issueMatch?.[1]) return { kind: 'navigate', view: 'issues', issue: Number(issueMatch[1]) };
+    if (issueMatch?.[1]) return { kind: 'navigate', view: 'tasks', issue: Number(issueMatch[1]) };
 
     if (hasPhrase(remainder, 'settings')) {
       const page = matchingSettingsPage(remainder, vocabulary.settingsPages);
       return page ? { kind: 'navigate', view: 'settings', page } : { kind: 'navigate', view: 'settings' };
     }
 
+    // Phase 112 Theme H — verb precedence is repo → agent/model → view →
+    // resource, so a phrase that is only a view's own words ("the commit
+    // graph") stays that view, and one that says *which* thing ("my last
+    // chat", "PR 812") is a resource the app resolves.
     const view = longestViewMatch(remainder, vocabulary.views);
+    if (describesResource(remainder) && !isViewPhrase(remainder, view?.id, vocabulary.views)) {
+      return { kind: 'navigate', query: remainder.slice(0, 200) };
+    }
     if (view) return { kind: 'navigate', view: view.id };
 
     // A verb matched but nothing recognisable followed it — try the next
@@ -2563,6 +2860,25 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
     page: z.enum(SETTINGS_PAGE_IDS).optional(),
     issue: z.number().int().positive().optional(),
     url: z.string().optional(),
+    /**
+     * Phase 112 Theme A — a specific thing inside a page ("the commit about
+     * the lock screen"), revealed by the app's `revealResource`. Takes
+     * precedence over `view`/`page`/`issue`, which keep working unchanged.
+     */
+    target: ResourceRefSchema.optional(),
+    /** Phase 112 — a follow-up ("this one", "the next one", "go back"); Theme H fills it. */
+    reference: z.enum(['this', 'next', 'previous', 'parent', 'back']).optional(),
+    /**
+     * Phase 112 Theme H — a target phrase the grammar recognised but did not
+     * resolve ("my last chat about auth"). `shared` only spots the shape; the
+     * app resolves it through `findResources`, so a phrase that names several
+     * things becomes numbered chips rather than a guess.
+     */
+    query: z.string().min(1).max(200).optional(),
+    /** "this chat", "the next commit" — the kind a follow-up has to be about. */
+    about: ResourceKindSchema.optional(),
+    /** "its PR", "the run for this commit" — hop from the current thing to this kind. */
+    related: z.enum(RESOURCE_RELATED_KINDS).optional(),
   }),
   /**
    * "Push." "Fetch." "New terminal." `id` is `z.string().refine(isCommandId)`
@@ -2578,9 +2894,82 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('confirm') }),
   /** "What can you do?" A spoken/posted summary built from the vocabulary (Theme C). */
   z.object({ kind: z.literal('help') }),
+  /**
+   * "Use voice Bella." "Volume 50." "Call me boss." (Phase 109 Theme C.)
+   *
+   * `key` is restricted to {@link COMPANION_INTENT_SETTING_KEYS}, so a
+   * `never`-tier change cannot be expressed at all. `value` is checked against
+   * the key's own value schema by the refinement below, per `op` — a
+   * `discriminatedUnion` member has to be a plain object, and the value
+   * schemas are declared further down this file than this union.
+   */
+  z.object({
+    kind: z.literal('setting'),
+    key: z.enum(COMPANION_INTENT_SETTING_KEYS),
+    value: z.unknown(),
+    op: z.enum(COMPANION_SETTING_OPS).optional(),
+  }),
+  /** "Undo that." "Put it back." One step, sixty seconds (Phase 109 Theme E). */
+  z.object({ kind: z.literal('undoSetting') }),
+  /**
+   * "Save this as Narrator." "Switch to Narrator." "Delete the Narrator
+   * profile." "What profiles do I have?" (Phase 109 Theme G.) `name` is the
+   * profile as said, matched case-insensitively in `act()`; `list` has none.
+   * A profile is a bundle of voice, personality and honorifics — never names,
+   * so no profile command can change the wake word (Decision 5).
+   */
+  z.object({
+    kind: z.literal('profile'),
+    op: z.enum(COMPANION_PROFILE_OPS),
+    name: z.string().trim().min(1).max(COMPANION_PROFILE_NAME_MAX).optional(),
+  }),
+  /**
+   * "Turn yourself off." "Switch to web speech." A `never`-tier setting asked
+   * for out loud — refused, with an offer to open Settings ▸ Companion.
+   */
+  z.object({ kind: z.literal('pageOnlySetting'), key: z.enum(COMPANION_PAGE_ONLY_SETTING_KEYS) }),
+  /**
+   * "Switch to Claude Opus." "Use Codex." "Set model to haiku." (Phase 111 Theme B.)
+   * Changes the active primary agent and optional model.
+   */
+  z.object({
+    kind: z.literal('switchAgent'),
+    agentId: z.string(),
+    modelId: z.string().nullable().optional(),
+  }),
+  /**
+   * "Try some voices." "Audition British voices." "Let me hear female
+   * voices." (Phase 109 Theme F.) Plays three or four numbered samples and
+   * waits for "number two"; both filters are optional.
+   */
+  z.object({
+    kind: z.literal('audition'),
+    accent: z.enum(COMPANION_AUDITION_ACCENTS).optional(),
+    gender: z.enum(COMPANION_AUDITION_GENDERS).optional(),
+  }),
+  /**
+   * "Tune yourself." "Let me tell you about me." (Phase 109 Theme H.) Starts
+   * the interview that writes `target` — a target and never text, because
+   * personality and About me are never dictated (Decision 4).
+   */
+  z.object({ kind: z.literal('tune'), target: z.enum(COMPANION_TUNE_TARGETS) }),
+  /**
+   * "Be more sarcastic." "Talk less." (Phase 109 Theme H.) One instruction the
+   * agent CLI applies to the current personality — the instruction, never the
+   * text it produces, which is read back and confirmed first.
+   */
+  z.object({
+    kind: z.literal('tweak'),
+    instruction: z.string().trim().min(1).max(COMPANION_TWEAK_INSTRUCTION_MAX),
+  }),
   z.object({ kind: z.literal('freeform'), text: z.string() }),
-]);
+]).superRefine((intent, ctx) => {
+  if (intent.kind !== 'setting') return;
+  const problem = companionSettingIntentProblem(intent);
+  if (problem !== null) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['value'], message: problem });
+});
 export type CompanionIntent = z.infer<typeof CompanionIntentSchema>;
+export type CompanionSettingIntent = Extract<CompanionIntent, { kind: 'setting' }>;
 
 /** Escape a spoken phrase into a regex source, treating any run of spaces as flexible. */
 function phraseSource(phrase: string): string {
@@ -2670,6 +3059,14 @@ function needsImperative(phrase: string): boolean {
  * `vocabulary` is optional so a caller with no repos open yet (or a bare unit
  * test) gets the unchanged grammar rather than an empty one that recognises
  * nothing new.
+ *
+ * Phase 109 adds the settings phrases under the same `vocabulary` gate: "undo
+ * that" and the anchored `setting`/`pageOnlySetting` phrases after
+ * `confirm`/`help` and before `navigate` (so "switch to web speech" is not a
+ * trip to the browser view), and a bare "switch to Bella" only after `navigate`
+ * and `run` have both passed on it, and only when Bella is a voice. The one
+ * exception to "after the skill verbs" is "turn elevator music off", which has
+ * to beat the `music` check that would read it as "stop the music now".
  */
 export function parseIntent(text: string, vocabulary?: CompanionVocabulary): CompanionIntent {
   const raw = text.trim();
@@ -2684,6 +3081,13 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
   if (COMPANION_STOP_TOKENS.some((token) => token === lower)) return { kind: 'stop' };
   if (COMPANION_REPEAT_TOKENS.some((token) => token === lower)) return { kind: 'repeat' };
   if (COMPANION_ANYWAY_TOKENS.some((token) => token === lower)) return { kind: 'anyway' };
+
+  // Phase 109 Theme C: "turn elevator music off" changes the *offer*, and the
+  // music check below would otherwise read it as "stop the music now".
+  if (vocabulary) {
+    const offer = tryMusicOfferSetting(settingsCore(bare));
+    if (offer) return offer;
+  }
 
   if (/\b(music|some tunes|elevator music)\b/i.test(lower)) {
     const off = /\b(no|off|stop|without|enough|mute)\b/i.test(lower);
@@ -2718,6 +3122,47 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
     if (COMPANION_CONFIRM_TOKENS.some((token) => token === lower)) return { kind: 'confirm' };
     if (COMPANION_HELP_TOKENS.some((token) => token === lower)) return { kind: 'help' };
 
+    // Phase 109 Theme G. Anchored like the settings phrases, and first among
+    // them: a bare "switch to Narrator" or "be Narrator" is only a profile
+    // switch when Narrator is a saved profile, which is a name the user chose.
+    const profile = tryProfilePhrase(settingsCore(bare), vocabulary.profiles ?? []);
+    if (profile) return profile;
+
+    // Phase 109 Theme F. "Try some British voices" — anchored, and it has to
+    // end in "voice(s)", so "try Bella" and "use voice Bella" stay changes.
+    const audition = matchAuditionPhrase(bare);
+    if (audition) return { kind: 'audition', ...audition };
+
+    // Phase 109 Theme E, then C. Settings phrases are anchored whole-line
+    // patterns, so they run before `navigate`: "switch to web speech" would
+    // otherwise land on the browser view by its "web" keyword.
+    if (COMPANION_UNDO_TOKENS.some((token) => token === settingsCore(lower))) {
+      return { kind: 'undoSetting' };
+    }
+    const setting = trySettingPhrase(settingsCore(bare));
+    if (setting) return setting;
+
+    // Phase 109 Theme H, after the settings phrases so "don't call me boss"
+    // and "be quieter" stay theirs.
+    const tuneTarget = matchTunePhrase(bare);
+    if (tuneTarget) return { kind: 'tune', target: tuneTarget };
+    const tweak = matchTweakPhrase(bare);
+    if (tweak) return { kind: 'tweak', instruction: tweak };
+
+    // Phase 112 Theme H. "Go back" and the follow-ups ("this chat", "the next
+    // one", "its PR") are whole-line shapes, so they cannot be read as a view.
+    if (matchGoBack(bare)) return { kind: 'navigate', reference: 'back' };
+    const followUp = matchFollowUp(bare);
+    if (followUp) return { kind: 'navigate', ...followUp };
+
+    // Verb precedence, written down: repo → agent/model → view → resource.
+    // `tryNavigate` owns the last two; the first two are answered here first so
+    // "switch to claude" is never a phrase the resource arm gets to read.
+    const repoSwitch = tryRepoSwitch(bare, vocabulary);
+    if (repoSwitch) return repoSwitch;
+    const agentFirst = trySwitchAgent(settingsCore(bare));
+    if (agentFirst) return agentFirst;
+
     const navigated = tryNavigate(bare, vocabulary);
     if (navigated) return navigated;
 
@@ -2728,7 +3173,18 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
     // the invariant `buildVocabulary` is supposed to hold and narrows the type
     // the `run` intent needs.
     if (runId !== null && isCommandId(runId)) return { kind: 'run', id: runId };
+
+    // "Switch to Bella" — only once neither a repo nor a view took "switch
+    // to", and only for a name that is actually a voice, so the repo-switch
+    // fallback below keeps every sentence it had.
+    const voice = tryBareVoiceSwitch(settingsCore(bare));
+    if (voice) return voice;
   }
+
+  // Phase 111 Theme B: Switch agent or model by natural phrasing.
+  // Runs before repo switch fallback, and validates against known agents / models via resolveAgentAndModel.
+  const agentSwitch = trySwitchAgent(settingsCore(bare));
+  if (agentSwitch) return agentSwitch;
 
   const switchTo =
     /\b(?:switch|change|move|go|hop)\s+(?:over\s+)?to\s+(?:the\s+)?(.+)$/i.exec(bare) ??
@@ -2765,6 +3221,461 @@ function commandExtras(remainder: string, override: boolean): { body?: string; o
   return { ...(body === '' ? {} : { body }), ...(override ? { override: true } : {}) };
 }
 
+// --- Phase 109 Theme C · the settings grammar --------------------------------
+
+/**
+ * A line with the politeness taken off both ends — "okay, call me boss
+ * please" is "call me boss". Case is kept, because a name or an honorific is
+ * stored as it was said. Curly apostrophes become straight ones, which is how
+ * whisper and a Mac keyboard disagree about "I'll".
+ */
+function settingsCore(text: string): string {
+  return text
+    .replace(/[’‘]/g, "'")
+    .replace(/\s*,\s*/g, ' ')
+    .replace(/^(?:(?:please|ok|okay|hey|so|and|right|alright|now)\b[,\s]*)+/i, '')
+    .replace(/(?:[,\s]+(?:please|thanks|thank you|now|from now on|instead))+$/i, '')
+    .replace(/[.!?,;:]+$/g, '')
+    .trim();
+}
+
+type SettingIntent = Extract<CompanionIntent, { kind: 'setting' }>;
+
+function settingIntent(key: CompanionIntentSettingKey, value: unknown, op: CompanionSettingOp = 'set'): SettingIntent {
+  return op === 'set' ? { kind: 'setting', key, value } : { kind: 'setting', key, value, op };
+}
+
+/**
+ * Words that start a clause, never a name: "call me back", "call me when the
+ * build is done", "answer to the question". A payload that opens with one is
+ * not a name, and the line goes on to the router instead.
+ */
+const NOT_A_NAME_START = new Set([
+  'a', 'an', 'the', 'this', 'that', 'it', 'me', 'my', 'you', 'your', 'back', 'later', 'when', 'if',
+  'after', 'before', 'at', 'about', 'on', 'in', 'once', 'tomorrow', 'today', 'tonight', 'again', 'up',
+  'out', 'by', 'with', 'as', 'so', 'to', 'for', 'what', 'how', 'why', 'who', 'all', 'everything',
+]);
+
+/** A name or honorific as said — one to three words, quotes off — or `null` when it reads as a clause. */
+function spokenName(raw: string): string | null {
+  const name = raw.replace(/^["“'`]+|["”'`]+$/g, '').replace(/\s+/g, ' ').trim();
+  if (name === '') return null;
+  const words = name.split(' ');
+  if (words.length > 3) return null;
+  if (NOT_A_NAME_START.has((words[0] as string).toLowerCase())) return null;
+  return name;
+}
+
+/** "fifty", "fifty five", "a hundred", "half" — the number words whisper writes out. */
+const NUMBER_WORDS: Readonly<Record<string, number>> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+  ten: 10, eleven: 11, twelve: 12, fifteen: 15, twenty: 20, thirty: 30, forty: 40, fourty: 40,
+  fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100,
+};
+
+/** A spoken volume as a percentage, or `null`. Digits, number words, "half", "max". */
+function spokenPercent(raw: string): number | null {
+  const text = raw.toLowerCase().replace(/\s*(?:%|percent|per cent)$/, '').replace(/-/g, ' ').trim();
+  if (/^\d{1,3}$/.test(text)) return Number(text);
+  if (text === 'half' || text === 'half way' || text === 'halfway') return 50;
+  if (text === 'max' || text === 'maximum' || text === 'full' || text === 'full blast') return 100;
+  const words = text.replace(/^(?:a|one)\s+(?=hundred$)/, '').split(/\s+/);
+  let total = 0;
+  for (const word of words) {
+    const value = NUMBER_WORDS[word];
+    if (value === undefined) return null;
+    total += value;
+  }
+  return words.length > 0 && words.length <= 2 ? total : null;
+}
+
+/** "Bella" heard → which engine to look in. The grammar knows the Kokoro catalog; system voices only exist in the renderer. */
+function voiceByName(name: string): SettingIntent | null {
+  const heard = name.trim();
+  if (heard === '' || /^(?:system|default|fallback|local|new|different|other)$/i.test(heard)) return null;
+  if (matchVoice(heard, COMPANION_LOCAL_VOICES).kind !== 'none') {
+    return settingIntent('companionVoices.local', heard, 'match');
+  }
+  // Not a Kokoro voice: maybe a system one, which only the renderer can list —
+  // but only when what was heard reads as a name. "Use a British voice" is a
+  // description, and the router is better placed to pick one for it.
+  const asName = spokenName(heard);
+  return asName === null ? null : settingIntent('companionVoices.system', asName, 'match');
+}
+
+const onOrOff = (word: string): boolean => /^on$/i.test(word.trim());
+
+/** "turn elevator music off" — the offer setting, checked before the `music` intent. */
+function tryMusicOfferSetting(core: string): SettingIntent | null {
+  let match = /^(?:turn|switch)\s+(?:the\s+)?elevator\s+music\s+(on|off)$/i.exec(core);
+  if (!match) match = /^(?:turn|switch)\s+(on|off)\s+(?:the\s+)?elevator\s+music$/i.exec(core);
+  if (match) return settingIntent('companionMusicOffer', onOrOff(match[1] as string));
+  if (/^(?:(?:stop|quit)\s+offering|(?:don't|do\s+not|never)\s+offer)\s+(?:me\s+)?(?:elevator\s+)?music(?:\s+again)?$/i.test(core)) {
+    return settingIntent('companionMusicOffer', false);
+  }
+  if (/^(?:start\s+offering|offer)\s+(?:me\s+)?(?:elevator\s+)?music(?:\s+again)?$/i.test(core)) {
+    return settingIntent('companionMusicOffer', true);
+  }
+  return null;
+}
+
+/**
+ * A `never`-tier setting asked for by name: the companion's own switch, the
+ * recognition engine, the speech provider, hands-free. Recognised only so the
+ * refusal can offer the page; the intent cannot carry a value.
+ */
+function tryPageOnlySetting(core: string): Extract<CompanionIntent, { kind: 'pageOnlySetting' }> | null {
+  const page = (key: CompanionPageOnlySettingKey) => ({ kind: 'pageOnlySetting' as const, key });
+  if (
+    /^(?:(?:turn|switch)\s+(?:yourself\s+off|off\s+yourself)|shut\s+(?:yourself\s+)?down|(?:disable|deactivate)\s+yourself|(?:turn|switch)\s+(?:the\s+)?companion\s+off|(?:turn|switch)\s+off\s+(?:the\s+)?companion|disable\s+(?:the\s+)?companion)$/i.test(
+      core,
+    )
+  ) {
+    return page('companionEnabled');
+  }
+  if (
+    /^(?:use|switch\s+to|change\s+to|try)\s+(?:the\s+)?(?:web\s*speech|browser(?:'s)?\s+(?:built[\s-]?in\s+)?(?:speech(?:\s+recognition)?|recogni[sz]er|recognition))\b/i.test(core) ||
+    /^(?:change|switch)\s+(?:the\s+|your\s+)?(?:speech\s+)?recognition\s+engine\b/i.test(core)
+  ) {
+    return page('companionSttEngine');
+  }
+  if (
+    /^(?:use|switch\s+to|change\s+to|try)\s+(?:the\s+)?(?:deepgram|open\s?ai(?:\s+whisper)?|(?:offline|local)\s+whisper|whisper)\b/i.test(core) ||
+    /^(?:change|switch)\s+(?:the\s+|your\s+)?(?:speech|transcription|stt)\s+provider\b/i.test(core)
+  ) {
+    return page('companionSttProvider');
+  }
+  if (
+    /^(?:(?:turn|switch)\s+(?:on|off)\s+hands[\s-]?free(?:\s+run)?|(?:turn|switch)\s+hands[\s-]?free(?:\s+run)?\s+(?:on|off)|(?:enable|disable|allow)\s+hands[\s-]?free(?:\s+run)?|hands[\s-]?free(?:\s+run)?\s+(?:on|off))$/i.test(
+      core,
+    )
+  ) {
+    return page('companionHandsFree');
+  }
+  return null;
+}
+
+/**
+ * The deterministic settings phrases (Phase 109 Theme C), each anchored to the
+ * whole line so a sentence that merely *mentions* a voice or a name is left
+ * for the router. Returns `null` when nothing matched, or when a payload reads
+ * as a clause rather than a name ("call me back").
+ */
+function trySettingPhrase(core: string): CompanionIntent | null {
+  if (core === '') return null;
+
+  const pageOnly = tryPageOnlySetting(core);
+  if (pageOnly) return pageOnly;
+
+  const offer = tryMusicOfferSetting(core);
+  if (offer) return offer;
+
+  let match: RegExpExecArray | null;
+
+  // --- voice ---
+  if (/^(?:use|go\s+back\s+to|switch\s+(?:back\s+)?to)\s+(?:your\s+|the\s+)?default\s+voice$/i.test(core)) {
+    return settingIntent('companionVoices.local', null);
+  }
+  match = /^(?:use|try|pick|switch\s+to|change\s+to)\s+(?:the\s+|a\s+)?(?:system|fallback|os)\s+voice\s+(?:called\s+|named\s+)?(.+)$/i.exec(core);
+  if (match) return settingIntent('companionVoices.system', (match[1] as string).trim(), 'match');
+  match =
+    /^(?:use|try|pick|switch\s+to|change\s+to)\s+(?:the\s+|a\s+)?(?:local\s+|kokoro\s+)?voice\s+(?:called\s+|named\s+)?(.+)$/i.exec(core) ??
+    /^(?:change|switch|set)\s+(?:your\s+|the\s+)?voices?\s+to\s+(.+)$/i.exec(core) ??
+    /^(?:use|try|pick|switch\s+to)\s+(?:the\s+)?(.+?)(?:'s)?\s+voice$/i.exec(core);
+  if (match) {
+    const voice = voiceByName(match[1] as string);
+    if (voice) return voice;
+  }
+
+  // --- volume ---
+  match = /^(?:set\s+|turn\s+)?(?:the\s+|your\s+)?volume\s+(?:to\s+|at\s+)?(.+)$/i.exec(core);
+  if (match && !/^(?:up|down)$/i.test((match[1] as string).trim())) {
+    const percent = spokenPercent(match[1] as string);
+    if (percent !== null && percent >= 0 && percent <= 100) {
+      return settingIntent('companionVolume', percent / 100);
+    }
+  }
+  match =
+    /^(?:turn\s+)?(?:the\s+|your\s+)?volume\s+(up|down)$/i.exec(core) ??
+    /^(?:(?:a\s+)?(?:bit|little|tad)\s+|be\s+|go\s+|get\s+|slightly\s+|turn\s+it\s+)*(louder|quieter|softer|up|down)$/i.exec(core);
+  if (match && !(/^(?:up|down)$/i.test(match[1] as string) && !/volume|turn\s+it/i.test(core))) {
+    const louder = /^(?:louder|up)$/i.test(match[1] as string);
+    return settingIntent('companionVolume', louder ? 0.1 : -0.1, 'step');
+  }
+
+  // --- what it calls you ---
+  match =
+    /^(?:stop|quit)\s+calling\s+me\s+(.+)$/i.exec(core) ??
+    /^(?:don't|do\s+not|never)\s+call\s+me\s+(.+)$/i.exec(core);
+  if (match) {
+    const name = spokenName(match[1] as string);
+    return name === null ? null : settingIntent('companionHonorifics', name, 'remove');
+  }
+  match = /^call\s+me\s+(.+)$/i.exec(core);
+  if (match) {
+    const name = spokenName(match[1] as string);
+    return name === null ? null : settingIntent('companionHonorifics', name, 'add');
+  }
+
+  // --- what you call it (the wake words) ---
+  match =
+    /^(?:stop|quit)\s+(?:answering|responding)\s+to\s+(.+)$/i.exec(core) ??
+    /^(?:don't|do\s+not)\s+(?:answer|respond)\s+to\s+(.+)$/i.exec(core);
+  if (match) {
+    const name = spokenName(match[1] as string);
+    return name === null ? null : settingIntent('companionNames', name, 'remove');
+  }
+  match =
+    /^(?:i'?ll|i\s+will|ill)\s+call\s+you\s+(.+)$/i.exec(core) ??
+    /^(?:answer|respond)\s+to\s+(.+)$/i.exec(core) ??
+    /^your\s+(?:new\s+)?name\s+is\s+(.+)$/i.exec(core);
+  if (match) {
+    const name = spokenName(match[1] as string);
+    return name === null ? null : settingIntent('companionNames', name, 'add');
+  }
+
+  // --- speaking aloud ---
+  if (
+    /^(?:(?:stop|quit)\s+(?:talking|speaking)\s+(?:out\s+loud|aloud|out)|(?:don't|do\s+not)\s+(?:talk|speak)\s+(?:out\s+loud|aloud)(?:\s+anymore)?|(?:mute|silence)\s+yourself|(?:turn|switch)\s+off\s+(?:your\s+)?(?:voice|speech)|disable\s+(?:your\s+)?(?:voice|speech)|text\s+only)$/i.test(
+      core,
+    )
+  ) {
+    return settingIntent('companionSpeakAloud', false);
+  }
+  if (
+    /^(?:(?:speak|talk)\s+(?:out\s+loud|aloud)(?:\s+again)?|(?:start|resume)\s+(?:talking|speaking)(?:\s+(?:out\s+loud|aloud))?(?:\s+again)?|unmute(?:\s+yourself)?|(?:turn|switch)\s+on\s+(?:your\s+)?(?:voice|speech)|enable\s+(?:your\s+)?(?:voice|speech))$/i.test(
+      core,
+    )
+  ) {
+    return settingIntent('companionSpeakAloud', true);
+  }
+
+  // --- the mic button ---
+  if (
+    /^(?:(?:use|switch\s+to|set\s+the\s+mic\s+to|make\s+(?:it|the\s+mic))\s+)?(?:push|hold)[\s-]+to[\s-]+talk(?:\s+mode)?$/i.test(core)
+  ) {
+    return settingIntent('companionMicMode', 'push');
+  }
+  if (
+    /^(?:toggle\s+the\s+mic|(?:use\s+|switch\s+to\s+)?tap\s+to\s+toggle|make\s+the\s+mic\s+(?:a\s+)?toggle|toggle\s+mode)$/i.test(core)
+  ) {
+    return settingIntent('companionMicMode', 'toggle');
+  }
+
+  // --- conversation mode ---
+  match =
+    /^(?:(?:turn|switch)\s+)?conversation\s+mode\s+(on|off)$/i.exec(core) ??
+    /^(?:turn|switch)\s+(on|off)\s+conversation\s+mode$/i.exec(core);
+  if (match) return settingIntent('voiceConversation', onOrOff(match[1] as string));
+  if (/^(?:start|enable|enter)\s+conversation\s+mode$/i.test(core)) return settingIntent('voiceConversation', true);
+  if (/^(?:stop|end|exit|leave|disable)\s+conversation\s+mode$/i.test(core)) {
+    return settingIntent('voiceConversation', false);
+  }
+  if (/^(?:only\s+)?listen\s+(?:only\s+)?for\s+(?:your\s+name|the\s+wake\s+word|my\s+wake\s+word)$/i.test(core)) {
+    return settingIntent('voiceConversationTrigger', 'wake');
+  }
+  if (/^(?:listen\s+to\s+everything|(?:take|answer)\s+every\s+phrase)$/i.test(core)) {
+    return settingIntent('voiceConversationTrigger', 'always');
+  }
+
+  return null;
+}
+
+/** "Switch to Bella", "use Bella" — a voice by name alone, only when the name *is* a Kokoro voice. */
+function tryBareVoiceSwitch(core: string): SettingIntent | null {
+  const match = /^(?:switch|change)\s+(?:over\s+)?to\s+(.+)$/i.exec(core) ?? /^use\s+(.+)$/i.exec(core);
+  if (!match) return null;
+  const heard = match[1] as string;
+  if (matchVoice(heard, COMPANION_LOCAL_VOICES).kind === 'none') return null;
+  return settingIntent('companionVoices.local', heard.trim(), 'match');
+}
+
+type ProfileIntent = Extract<CompanionIntent, { kind: 'profile' }>;
+
+/**
+ * A profile name as said: quotes and a leading article off, a trailing
+ * "profile" or "persona" off, one to four words, never a clause.
+ */
+function spokenProfileName(raw: string): string | null {
+  const name = raw
+    .replace(/^["“'`]+|["”'`]+$/g, '')
+    .replace(/^(?:the|my|a|an|your)\s+/i, '')
+    .replace(/\s+(?:profile|persona)$/i, '')
+    .replace(/^["“'`]+|["”'`]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (name === '' || name.length > COMPANION_PROFILE_NAME_MAX) return null;
+  const words = name.split(' ');
+  if (words.length > 4) return null;
+  if (NOT_A_NAME_START.has((words[0] as string).toLowerCase())) return null;
+  return name;
+}
+
+/** `heard` against the saved names, case-insensitively, articles off — the saved spelling, or `null`. */
+function knownProfileName(heard: string, profiles: readonly string[]): string | null {
+  const name = spokenProfileName(heard);
+  if (name === null) return null;
+  return profiles.find((saved) => saved.trim().toLowerCase() === name.toLowerCase()) ?? null;
+}
+
+/**
+ * "Save this as Narrator", "switch to Narrator", "be Narrator", "delete the
+ * Narrator profile", "what profiles do I have?" (Phase 109 Theme G).
+ *
+ * A phrase that says "profile" or "persona" is a profile command whatever the
+ * name, so "switch to the Pirate profile" with no Pirate gets "I don't have a
+ * profile called Pirate" rather than a trip to some view. A bare "switch to
+ * X", "be X" or "become X" is one only when X is in `profiles`, so every
+ * sentence those verbs already meant — a voice, a view, a repo, "be quieter" —
+ * keeps meaning it.
+ */
+function tryProfilePhrase(core: string, profiles: readonly string[]): ProfileIntent | null {
+  if (core === '') return null;
+  const noun = String.raw`(?:profiles|personas)`;
+
+  // --- list ---
+  if (
+    new RegExp(String.raw`^(?:what|which)\s+${noun}\s+(?:do\s+(?:i|you|we)\s+have|have\s+(?:i|you|we)\s+(?:got|saved)|are\s+there|(?:are\s+)?saved)$`, 'i').test(core) ||
+    new RegExp(String.raw`^(?:list|show(?:\s+me)?|tell\s+me|read(?:\s+me)?)\s+(?:all\s+)?(?:my\s+|your\s+|the\s+)?(?:saved\s+)?${noun}$`, 'i').test(core) ||
+    new RegExp(String.raw`^(?:my|your)\s+${noun}$`, 'i').test(core)
+  ) {
+    return { kind: 'profile', op: 'list' };
+  }
+
+  let match: RegExpExecArray | null;
+
+  // --- save ---
+  match =
+    /^(?:save|store|keep|remember)\s+(?:this|that|it|yourself|you|how\s+you\s+(?:are|sound)|(?:this|the\s+current|your\s+current|your)\s+(?:setup|set\s+up|voice|persona|profile|personality|one|settings))(?:\s+now)?\s+as\s+(?:a\s+(?:new\s+)?(?:profile|persona)\s+)?(?:called\s+|named\s+)?(.+)$/i.exec(core) ??
+    /^(?:save|create|make)\s+(?:a\s+)?(?:new\s+)?(?:profile|persona)\s+(?:called\s+|named\s+)?(.+)$/i.exec(core);
+  if (match) {
+    const name = spokenProfileName(match[1] as string);
+    return name === null ? null : { kind: 'profile', op: 'save', name };
+  }
+
+  // --- delete ---
+  match =
+    /^(?:delete|remove|forget|drop|get\s+rid\s+of)\s+(?:the\s+|my\s+|your\s+)?(?:profile|persona)\s+(?:called\s+|named\s+)?(.+)$/i.exec(core) ??
+    /^(?:delete|remove|forget|drop|get\s+rid\s+of)\s+(.+?)\s+(?:profile|persona)$/i.exec(core);
+  if (match) {
+    const name = spokenProfileName(match[1] as string);
+    return name === null ? null : { kind: 'profile', op: 'delete', name };
+  }
+
+  // --- switch, naming "profile" ---
+  match =
+    /^(?:switch|change|go|go\s+back)\s+(?:over\s+|back\s+)?to\s+(?:the\s+|my\s+)?(?:profile|persona)\s+(?:called\s+|named\s+)?(.+)$/i.exec(core) ??
+    /^(?:switch|change|go|go\s+back)\s+(?:over\s+|back\s+)?to\s+(.+?)\s+(?:profile|persona)$/i.exec(core) ??
+    /^(?:use|load|activate|apply|pick)\s+(?:the\s+|my\s+)?(?:profile|persona)\s+(?:called\s+|named\s+)?(.+)$/i.exec(core) ??
+    /^(?:use|load|activate|apply|pick)\s+(.+?)\s+(?:profile|persona)$/i.exec(core);
+  if (match) {
+    const name = spokenProfileName(match[1] as string);
+    if (name === null) return null;
+    return { kind: 'profile', op: 'switch', name: knownProfileName(name, profiles) ?? name };
+  }
+
+  // --- switch, by a saved name alone ---
+  match =
+    /^(?:switch|change|go|go\s+back)\s+(?:over\s+|back\s+)?to\s+(?:being\s+)?(.+)$/i.exec(core) ??
+    /^(?:be|become)\s+(.+?)(?:\s+again)?$/i.exec(core) ??
+    /^(?:talk|sound|speak)\s+like\s+(.+?)(?:\s+again)?$/i.exec(core);
+  if (match) {
+    const name = knownProfileName(match[1] as string, profiles);
+    if (name !== null) return { kind: 'profile', op: 'switch', name };
+  }
+
+  return null;
+}
+
+type SwitchAgentIntent = Extract<CompanionIntent, { kind: 'switchAgent' }>;
+
+/**
+ * Phase 111 Theme B: Matches natural phrases for switching agents and models.
+ * Examples:
+ * - "switch to <agent>", "use <agent>", "switch primary agent to <agent>"
+ * - "use <agent> with <model>", "switch to <agent> with <model>"
+ * - "change model to <model>", "set model to <model>", "use model <model>"
+ */
+function trySwitchAgent(core: string): SwitchAgentIntent | null {
+  if (core === '') return null;
+
+  // 1. Agent + Model: "use <agent> with <model>", "switch to <agent> with <model>", "set agent to <agent> with model <model>"
+  const withModelMatch =
+    /^(?:switch|change|set)\s+(?:(?:over\s+)?to|primary\s+agent\s+to|agent\s+to)?\s*(.+?)\s+with\s+(?:model\s+)?(.+)$/i.exec(core) ??
+    /^(?:use|pick|choose)\s+(.+?)\s+with\s+(?:model\s+)?(.+)$/i.exec(core);
+
+  if (withModelMatch) {
+    const rawAgent = (withModelMatch[1] as string).replace(/^(?:the\s+agent\s+|the\s+|agent\s+)/i, '').trim();
+    const rawModel = (withModelMatch[2] as string).replace(/^(?:the\s+model\s+|model\s+|the\s+)/i, '').trim();
+    const resolved = resolveAgentAndModel(rawAgent, rawModel);
+    if (!('error' in resolved)) {
+      return {
+        kind: 'switchAgent',
+        agentId: resolved.agentId,
+        modelId: resolved.modelId,
+      };
+    }
+  }
+
+  // 2. Model-only phrasing: "change model to <model>", "set model to <model>", "use model <model>", "switch model to <model>"
+  const modelOnlyMatch =
+    /^(?:change|set|switch)\s+(?:my\s+|the\s+)?model\s+to\s+(.+)$/i.exec(core) ??
+    /^(?:use|try|pick|choose)\s+model\s+(.+)$/i.exec(core);
+
+  if (modelOnlyMatch) {
+    const rawModel = (modelOnlyMatch[1] as string).trim();
+    // Resolving model-only: search known models across all agents, preferring the model match
+    const candidateAgents = ['claude', 'codex', 'agy', 'cursor', 'ollama'];
+    for (const agentId of candidateAgents) {
+      const resolved = resolveAgentAndModel(agentId, rawModel);
+      if (!('error' in resolved) && resolved.modelId !== null) {
+        return {
+          kind: 'switchAgent',
+          agentId: resolved.agentId,
+          modelId: resolved.modelId,
+        };
+      }
+    }
+  }
+
+  // 3. Agent-only or composite phrasing:
+  // "switch to <agent>", "use <agent>", "switch primary agent to <agent>", "set agent to <agent>"
+  const agentMatch =
+    /^(?:switch|change)\s+(?:primary\s+agent\s+to|agent\s+to|(?:over\s+)?to\s+primary\s+agent|(?:over\s+)?to\s+agent|(?:over\s+)?to)\s+(.+)$/i.exec(core) ??
+    /^(?:set)\s+(?:primary\s+agent|agent)\s+to\s+(.+)$/i.exec(core) ??
+    /^(?:use|pick|choose)\s+(?:primary\s+agent\s+|agent\s+)?(.+)$/i.exec(core);
+
+  if (agentMatch) {
+    const target = (agentMatch[1] as string).replace(/^(?:the\s+agent\s+|the\s+|agent\s+)/i, '').trim();
+    // Check if target is composite like "claude opus" or "claude sonnet 5.5"
+    const words = target.split(/\s+/);
+    if (words.length > 1) {
+      const firstWord = words[0] as string;
+      const rest = words.slice(1).join(' ');
+      const resComposite = resolveAgentAndModel(firstWord, rest);
+      if (!('error' in resComposite)) {
+        return {
+          kind: 'switchAgent',
+          agentId: resComposite.agentId,
+          modelId: resComposite.modelId,
+        };
+      }
+    }
+
+    // Try target as agent name alone
+    const resAgent = resolveAgentAndModel(target);
+    if (!('error' in resAgent)) {
+      return {
+        kind: 'switchAgent',
+        agentId: resAgent.agentId,
+        modelId: resAgent.modelId,
+      };
+    }
+  }
+
+  return null;
+}
+
 /**
  * The names a user may address the companion by. At least one — deleting the
  * last one is blocked at the settings-page call site, not enforced by
@@ -2798,6 +3709,55 @@ export function matchesCompanionName(text: string, names: readonly string[]): bo
     const pattern = new RegExp(`\\b${escapeNameForRegExp(needle)}\\b`, 'i');
     return pattern.test(trimmed);
   });
+}
+
+/**
+ * What starts a conversation-mode turn (Settings ▸ Companion ▸ Microphone).
+ * `always`: every phrase the open mic hears is sent. `wake`: only a phrase
+ * that begins with one of `companionNames` — the wake word — is acted on.
+ */
+export const VOICE_CONVERSATION_TRIGGERS = ['always', 'wake'] as const;
+export type VoiceConversationTrigger = (typeof VOICE_CONVERSATION_TRIGGERS)[number];
+
+/** Openers a wake word may follow: "hey Companion", "ok Companion". */
+const WAKE_OPENERS = ['hey', 'hi', 'hello', 'ok', 'okay', 'yo'];
+/** What may sit between an opener, the name and the command: spaces and the punctuation STT adds, dashes included. */
+const WAKE_SEPARATORS = '[\\s,.!?:;\\-\\u2013\\u2014]';
+
+export type WakePhrase =
+  | { woke: false }
+  /** `command` is what followed the name — `''` when the name was said on its own. */
+  | { woke: true; command: string };
+
+/**
+ * Was this phrase addressed to the companion, and what was asked?
+ *
+ * The wake word is any of the user's `companionNames`, at the **start** of
+ * the phrase (after an optional "hey"/"ok"), as a whole word — the same
+ * whole-word, case-insensitive rule as {@link matchesCompanionName}, which
+ * deliberately matches anywhere and so cannot be used here: "I told the
+ * companion yesterday" mentions the name without saying it to anybody.
+ * Punctuation an STT engine puts around a spoken name ("Hey, Companion.
+ * Open the pull request.") is skipped, and the longest matching name wins,
+ * so "Mo" never claims "Mo Salah, …" from a user who has both.
+ */
+export function parseWakePhrase(text: string, names: readonly string[]): WakePhrase {
+  const trimmed = text.trim();
+  if (trimmed === '') return { woke: false };
+  const candidates = names
+    .map((name) => name.trim())
+    .filter((name) => name !== '')
+    .sort((a, b) => b.length - a.length);
+  const openers = WAKE_OPENERS.join('|');
+  for (const name of candidates) {
+    const pattern = new RegExp(
+      `^(?:(?:${openers})${WAKE_SEPARATORS}+)?${escapeNameForRegExp(name)}\\b${WAKE_SEPARATORS}*([\\s\\S]*)$`,
+      'i',
+    );
+    const match = pattern.exec(trimmed);
+    if (match) return { woke: true, command: (match[1] ?? '').trim() };
+  }
+  return { woke: false };
 }
 
 /**
@@ -2841,6 +3801,843 @@ export const CompanionPersonalitySchema = z.string().trim().max(COMPANION_FREE_T
  * in whose voice they describe, not in how they're validated.
  */
 export const CompanionAboutUserSchema = z.string().trim().max(COMPANION_FREE_TEXT_MAX_CHARS);
+
+// --- Phase 109 · one settings list -------------------------------------------
+
+/**
+ * The companion volume, 0–1, clamped rather than refused — the same clamp
+ * `setCompanionVolume` (`ui-store.ts`) has always applied, so "volume 150"
+ * lands on full rather than on an error.
+ */
+export const CompanionVolumeSchema = z
+  .number()
+  .finite()
+  .transform((value) => Math.min(1, Math.max(0, value)));
+
+/**
+ * A voice choice per engine — {@link CompanionVoiceSelection} as a schema.
+ *
+ * `local` falls back to `null` (Heart) on an id the catalog no longer has,
+ * rather than failing the whole slice: a stored id can predate a catalog
+ * change, the reason {@link isCompanionLocalVoiceId} exists. Setting the key
+ * on its own is strict ({@link COMPANION_SETTING_VALUE_SCHEMAS}), so a new
+ * unknown id is refused, never stored.
+ */
+export const CompanionVoiceSelectionSchema = z.object({
+  system: z.string().min(1).nullable(),
+  local: CompanionLocalVoiceIdSchema.nullable().catch(null),
+});
+
+/** How many persona profiles the store keeps (Theme G). */
+export const COMPANION_PROFILES_MAX = 20;
+
+/**
+ * A named bundle of voice, personality and honorifics (Phase 109 Theme G).
+ *
+ * **Names are deliberately absent** (Decision 5): names are the wake words, so
+ * a profile switch must never change what you say to wake the companion.
+ * Declared in Theme A because the v32 migration seeds `companionProfiles`
+ * and the slice schema below has to type it. Saving, switching and deleting
+ * are Theme G's: `companion-profiles.ts` (shared) and
+ * `app/features/companion/profiles.ts`.
+ */
+export const CompanionProfileSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().trim().min(1).max(COMPANION_PROFILE_NAME_MAX),
+  voices: CompanionVoiceSelectionSchema,
+  personality: CompanionPersonalitySchema,
+  honorifics: CompanionHonorificsSchema,
+  /** ISO-8601, from `new Date().toISOString()`. */
+  createdAt: z.string().datetime(),
+});
+export type CompanionProfile = z.infer<typeof CompanionProfileSchema>;
+
+/**
+ * One value schema per settable key — what {@link parseCompanionSettingValue}
+ * checks a single change against, and what {@link CompanionSettingsSchema}
+ * below is built from, so the two cannot disagree about a value.
+ *
+ * Strict where the slice is tolerant: `companionVoices.local` refuses an id
+ * the catalog doesn't have, where the slice quietly maps a stale stored one to
+ * the default.
+ */
+export const COMPANION_SETTING_VALUE_SCHEMAS = {
+  companionEnabled: z.boolean(),
+  companionSttEngine: CompanionSttEngineSchema,
+  companionSttProvider: SttProviderIdSchema.nullable(),
+  companionHandsFree: z.boolean(),
+  companionSpeakAloud: z.boolean(),
+  companionNames: CompanionNamesSchema,
+  companionMicMode: CompanionMicModeSchema,
+  voiceConversation: z.boolean(),
+  voiceConversationTrigger: z.enum(VOICE_CONVERSATION_TRIGGERS),
+  companionPersonality: CompanionPersonalitySchema,
+  companionAboutUser: CompanionAboutUserSchema,
+  'companionVoices.local': CompanionLocalVoiceIdSchema.nullable(),
+  'companionVoices.system': CompanionVoiceSelectionSchema.shape.system,
+  companionVolume: CompanionVolumeSchema,
+  companionHonorifics: CompanionHonorificsSchema,
+  companionMusicOffer: z.boolean(),
+  companionActiveProfile: z.string().min(1).max(128).nullable(),
+} as const satisfies Record<CompanionSettingKey, z.ZodTypeAny>;
+
+/**
+ * Every persisted companion key in `midnite-studio.ui`, as one zod object
+ * (Phase 109 Theme A) — the companion slice of `PersistedUi` had no schema
+ * before this, only enum constants and `CompanionNamesSchema`.
+ *
+ * Each default is the store's own fresh-install value and each clamp is the
+ * one the store applies; `settings-apply.test.ts` (app) asserts the store's
+ * default state parses under this and that the two agree on every default.
+ * **The store keeps its own `partialize` and `migrate`** — this is the
+ * contract the setter and the `companion_settings_*` MCP tools validate
+ * against, not a replacement for persistence.
+ *
+ * `companionSttProvider`, `companionProfiles` and `companionActiveProfile`
+ * are the phase's three new keys, all seeded by the one v31 → v32 migration.
+ */
+export const CompanionSettingsSchema = z.object({
+  companionEnabled: COMPANION_SETTING_VALUE_SCHEMAS.companionEnabled.default(false),
+  companionHandsFree: COMPANION_SETTING_VALUE_SCHEMAS.companionHandsFree.default(false),
+  companionHonorifics: COMPANION_SETTING_VALUE_SCHEMAS.companionHonorifics.default([]),
+  companionNames: COMPANION_SETTING_VALUE_SCHEMAS.companionNames.default(['Companion']),
+  companionPersonality: COMPANION_SETTING_VALUE_SCHEMAS.companionPersonality.default(''),
+  companionAboutUser: COMPANION_SETTING_VALUE_SCHEMAS.companionAboutUser.default(''),
+  companionVoices: CompanionVoiceSelectionSchema.default({ system: null, local: null }),
+  companionSpeakAloud: COMPANION_SETTING_VALUE_SCHEMAS.companionSpeakAloud.default(true),
+  companionMusicOffer: COMPANION_SETTING_VALUE_SCHEMAS.companionMusicOffer.default(true),
+  companionVolume: COMPANION_SETTING_VALUE_SCHEMAS.companionVolume.default(DEFAULT_COMPANION_VOLUME),
+  companionMicMode: COMPANION_SETTING_VALUE_SCHEMAS.companionMicMode.default('push'),
+  companionSttEngine: COMPANION_SETTING_VALUE_SCHEMAS.companionSttEngine.default('server'),
+  companionSttProvider: COMPANION_SETTING_VALUE_SCHEMAS.companionSttProvider.default(null),
+  voiceConversation: COMPANION_SETTING_VALUE_SCHEMAS.voiceConversation.default(false),
+  voiceConversationTrigger: COMPANION_SETTING_VALUE_SCHEMAS.voiceConversationTrigger.default('always'),
+  companionProfiles: z.array(CompanionProfileSchema).max(COMPANION_PROFILES_MAX).default([]),
+  companionActiveProfile: COMPANION_SETTING_VALUE_SCHEMAS.companionActiveProfile.default(null),
+});
+export type CompanionSettings = z.infer<typeof CompanionSettingsSchema>;
+
+/** The value each settable key holds, voice selection split per engine. */
+export type CompanionSettingValues = {
+  [K in CompanionSettingKey]: z.output<(typeof COMPANION_SETTING_VALUE_SCHEMAS)[K]>;
+};
+
+/*
+  The key list above `CompanionIntentSchema` and this schema must name the same
+  settings: every slice key except the two that are not set field by field
+  (`companionVoices`, split per engine; `companionProfiles`, Theme G's whole-
+  profile commands). A key added to one and not the other fails to typecheck
+  here, which is what makes `COMPANION_SETTING_SPECS` below total over the
+  store's companion keys and not just over a list someone remembered to edit.
+*/
+type SliceSettingKey =
+  | Exclude<keyof CompanionSettings, 'companionVoices' | 'companionProfiles'>
+  | `companionVoices.${CompanionVoiceEngine}`;
+type AssertSettingKeysMatchSlice = [SliceSettingKey] extends [CompanionSettingKey]
+  ? [CompanionSettingKey] extends [SliceSettingKey]
+    ? true
+    : never
+  : never;
+const _assertSettingKeysMatchSlice: AssertSettingKeysMatchSlice = true;
+
+/** Parse one change's value against its key — the setter's `invalid` check. */
+export function parseCompanionSettingValue<K extends CompanionSettingKey>(
+  key: K,
+  value: unknown,
+): { ok: true; value: CompanionSettingValues[K] } | { ok: false; message: string } {
+  const schema = COMPANION_SETTING_VALUE_SCHEMAS[key] as unknown as z.ZodType<
+    CompanionSettingValues[K],
+    z.ZodTypeDef,
+    unknown
+  >;
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return { ok: true, value: parsed.data };
+  return { ok: false, message: parsed.error.issues[0]?.message ?? 'Invalid value.' };
+}
+
+/** Where a change came from. Tiers bind `voice` and `mcp`; the page's click is its own consent. */
+export type CompanionSettingSource = 'voice' | 'mcp' | 'page';
+
+/**
+ * What kind of value a setting takes — enough for a router prompt, an MCP
+ * listing or a page hint to describe the allowed values without a schema.
+ *
+ * `nullable` marks the keys where `null` is a real choice rather than an
+ * absence: the default local voice (Heart), the system default voice, the
+ * automatic STT provider, and no active profile.
+ */
+export type CompanionSettingValueKind =
+  | { kind: 'bool' }
+  | {
+      kind: 'enum';
+      values: readonly string[];
+      /** How each value is said aloud — "push to talk", "Bella". */
+      spoken: Readonly<Record<string, string>>;
+      nullable?: true;
+    }
+  | { kind: 'number'; min: number; max: number; step: number; spokenUnit: 'percent' }
+  | { kind: 'text'; max: number; nullable?: true }
+  | { kind: 'list'; min: number };
+
+/**
+ * The pure checks a change has to pass beyond its value schema.
+ *
+ * - `lastName` — refuses to empty the names list (a companion needs a name to
+ *   answer to, and the page already blocks removing the last pill).
+ * - `wakeWord` — a names change is read back *before* it applies, because the
+ *   moment it applies the old name stops waking anything.
+ * - `muteLast` — turning speech off is read back first, then written: after
+ *   the write, the confirmation would be silent.
+ * - `tunedText` — personality and About me never take raw dictation
+ *   (Decision 4). Only the page or Theme H's `tune`/`tweak` flow may write them.
+ */
+export const COMPANION_GUARD_IDS = ['lastName', 'wakeWord', 'muteLast', 'tunedText'] as const;
+export type CompanionGuardId = (typeof COMPANION_GUARD_IDS)[number];
+
+/**
+ * One row of the settings list.
+ *
+ * `readBack` is a method, not a property arrow, so a spec for one key is
+ * assignable where a spec for any key is expected; callers holding a key
+ * union go through {@link companionSettingReadBack}, which does the cast once.
+ */
+export type CompanionSettingSpec<K extends CompanionSettingKey = CompanionSettingKey> = {
+  key: K;
+  /** What the page calls it. */
+  label: string;
+  /** The words people use for it — the router's vocabulary and the grammar's nouns. */
+  aliases: readonly string[];
+  value: CompanionSettingValueKind;
+  /** The strictest tier this key has — see {@link companionSettingTier} for the per-value answer. */
+  tier: CompanionAccess;
+  /** Values that drop this key to `direct` (speak aloud → on). */
+  directValues?: readonly CompanionSettingValues[K][];
+  guards?: readonly CompanionGuardId[];
+  /** One sentence confirming the new value — Theme E speaks it. */
+  readBack(next: CompanionSettingValues[K]): string;
+  /** A phrase that changes it, for the page's "Try: …" hint. `null` for `never`-tier keys, which get no hint. */
+  example: string | null;
+};
+
+const onOff = (on: boolean): string => (on ? 'on' : 'off');
+
+const localVoiceName = (id: CompanionLocalVoiceId | null): string =>
+  COMPANION_LOCAL_VOICES.find((voice) => voice.id === (id ?? COMPANION_LOCAL_VOICE_DEFAULT))?.name ??
+  'Heart';
+
+const MIC_MODE_SPOKEN: Record<CompanionMicMode, string> = { push: 'push to talk', toggle: 'tap to toggle' };
+const STT_ENGINE_SPOKEN: Record<CompanionSttEngine, string> = {
+  server: 'offline or OpenAI Whisper',
+  webSpeech: 'browser built-in',
+};
+const TRIGGER_SPOKEN: Record<VoiceConversationTrigger, string> = {
+  always: 'every phrase',
+  wake: 'wake word',
+};
+const STT_PROVIDER_SPOKEN: Record<SttProviderId, string> = {
+  'whisper-local': 'offline Whisper',
+  'openai-whisper': 'OpenAI Whisper',
+  deepgram: 'Deepgram',
+};
+
+/**
+ * The settings list (Phase 109 Theme A): every settable companion key, with
+ * the words for it, its value kind, its tier, its guards, its read-back and an
+ * example phrase. Total over {@link CompanionSettingKey} by its type, and that
+ * key union is tied to the slice schema above, so a companion key added to the
+ * store without a spec is a type error rather than a setting nothing can reach.
+ */
+export const COMPANION_SETTING_SPECS: { readonly [K in CompanionSettingKey]: CompanionSettingSpec<K> } = {
+  companionEnabled: {
+    key: 'companionEnabled',
+    label: 'Enable companion',
+    aliases: ['companion', 'yourself', 'turn yourself off'],
+    value: { kind: 'bool' },
+    tier: COMPANION_SETTING_TIERS.companionEnabled,
+    readBack: (next) => (next ? "I'm on." : "I'm switching off."),
+    example: null,
+  },
+  companionSttEngine: {
+    key: 'companionSttEngine',
+    label: 'Recognition engine',
+    aliases: ['recognition engine', 'speech recognition', 'web speech', 'recogniser'],
+    value: { kind: 'enum', values: COMPANION_STT_ENGINES, spoken: STT_ENGINE_SPOKEN },
+    tier: COMPANION_SETTING_TIERS.companionSttEngine,
+    readBack: (next) => `Recognising speech with the ${STT_ENGINE_SPOKEN[next]} engine.`,
+    example: null,
+  },
+  companionSttProvider: {
+    key: 'companionSttProvider',
+    label: 'Speech provider',
+    aliases: ['speech provider', 'transcription provider', 'whisper', 'deepgram'],
+    value: { kind: 'enum', values: STT_PROVIDER_IDS, spoken: STT_PROVIDER_SPOKEN, nullable: true },
+    tier: COMPANION_SETTING_TIERS.companionSttProvider,
+    readBack: (next) =>
+      next === null
+        ? 'Choosing the speech provider automatically.'
+        : `Transcribing with ${STT_PROVIDER_SPOKEN[next]}.`,
+    example: null,
+  },
+  companionHandsFree: {
+    key: 'companionHandsFree',
+    label: 'Allow hands-free run',
+    aliases: ['hands-free', 'hands free', 'hands-free run'],
+    value: { kind: 'bool' },
+    tier: COMPANION_SETTING_TIERS.companionHandsFree,
+    readBack: (next) => `Hands-free run is ${onOff(next)}.`,
+    example: null,
+  },
+  companionSpeakAloud: {
+    key: 'companionSpeakAloud',
+    label: 'Speak replies aloud',
+    aliases: ['speak aloud', 'out loud', 'talking out loud', 'speech', 'mute'],
+    value: { kind: 'bool' },
+    tier: COMPANION_SETTING_TIERS.companionSpeakAloud,
+    directValues: [true],
+    guards: ['muteLast'],
+    readBack: (next) => (next ? "I'll speak out loud again." : "Going quiet — I'll keep to the thread."),
+    example: 'stop talking out loud',
+  },
+  companionNames: {
+    key: 'companionNames',
+    label: 'What you call it',
+    aliases: ['name', 'names', 'wake word', 'what I call you'],
+    value: { kind: 'list', min: 1 },
+    tier: COMPANION_SETTING_TIERS.companionNames,
+    guards: ['lastName', 'wakeWord'],
+    readBack: (next) => `I'll answer to ${oxfordJoin(next)}.`,
+    example: "I'll call you Nova",
+  },
+  companionMicMode: {
+    key: 'companionMicMode',
+    label: 'Microphone button',
+    aliases: ['mic mode', 'microphone button', 'push to talk', 'toggle the mic'],
+    value: { kind: 'enum', values: COMPANION_MIC_MODES, spoken: MIC_MODE_SPOKEN },
+    tier: COMPANION_SETTING_TIERS.companionMicMode,
+    readBack: (next) => `The mic is ${MIC_MODE_SPOKEN[next]} now.`,
+    example: 'push to talk',
+  },
+  voiceConversation: {
+    key: 'voiceConversation',
+    label: 'Conversation mode',
+    aliases: ['conversation mode', 'conversation', 'open mic'],
+    value: { kind: 'bool' },
+    tier: COMPANION_SETTING_TIERS.voiceConversation,
+    readBack: (next) => `Conversation mode is ${onOff(next)}.`,
+    example: 'conversation mode on',
+  },
+  voiceConversationTrigger: {
+    key: 'voiceConversationTrigger',
+    label: 'Conversation trigger',
+    aliases: ['conversation trigger', 'wake word mode', 'always listening'],
+    value: { kind: 'enum', values: VOICE_CONVERSATION_TRIGGERS, spoken: TRIGGER_SPOKEN },
+    tier: COMPANION_SETTING_TIERS.voiceConversationTrigger,
+    readBack: (next) =>
+      next === 'wake'
+        ? 'In conversation mode I only take phrases that start with my name.'
+        : 'In conversation mode I take every phrase.',
+    example: 'only listen for your name',
+  },
+  companionPersonality: {
+    key: 'companionPersonality',
+    label: 'Personality',
+    aliases: ['personality', 'tone', 'how you talk'],
+    value: { kind: 'text', max: COMPANION_FREE_TEXT_MAX_CHARS },
+    tier: COMPANION_SETTING_TIERS.companionPersonality,
+    guards: ['tunedText'],
+    readBack: (next) => (next === '' ? "I've cleared my personality notes." : "I've updated my personality."),
+    example: 'tune yourself',
+  },
+  companionAboutUser: {
+    key: 'companionAboutUser',
+    label: 'About me',
+    aliases: ['about me', 'what you know about me'],
+    value: { kind: 'text', max: COMPANION_FREE_TEXT_MAX_CHARS },
+    tier: COMPANION_SETTING_TIERS.companionAboutUser,
+    guards: ['tunedText'],
+    readBack: (next) =>
+      next === '' ? "I've forgotten what you told me about you." : "Got it — I've updated what I know about you.",
+    example: 'let me tell you about me',
+  },
+  'companionVoices.local': {
+    key: 'companionVoices.local',
+    label: 'Local voice',
+    aliases: ['voice', 'local voice', 'your voice'],
+    value: {
+      kind: 'enum',
+      values: COMPANION_LOCAL_VOICE_IDS,
+      spoken: Object.fromEntries(COMPANION_LOCAL_VOICES.map((voice) => [voice.id, voice.name])),
+      nullable: true,
+    },
+    tier: COMPANION_SETTING_TIERS['companionVoices.local'],
+    readBack: (next) => `This is ${localVoiceName(next)} now.`,
+    example: 'use voice Bella',
+  },
+  'companionVoices.system': {
+    key: 'companionVoices.system',
+    label: 'Speaking voice (fallback)',
+    aliases: ['system voice', 'fallback voice'],
+    value: { kind: 'text', max: 512, nullable: true },
+    tier: COMPANION_SETTING_TIERS['companionVoices.system'],
+    readBack: (next) => (next === null ? 'Back to the system default voice.' : 'This is the new system voice.'),
+    example: 'use the system voice Samantha',
+  },
+  companionVolume: {
+    key: 'companionVolume',
+    label: 'Companion volume',
+    aliases: ['volume', 'loudness', 'louder', 'quieter'],
+    value: { kind: 'number', min: 0, max: 1, step: 0.1, spokenUnit: 'percent' },
+    tier: COMPANION_SETTING_TIERS.companionVolume,
+    readBack: (next) => `Volume ${Math.round(next * 100)} percent.`,
+    example: 'volume 50',
+  },
+  companionHonorifics: {
+    key: 'companionHonorifics',
+    label: 'What it calls you',
+    aliases: ['call me', 'what you call me', 'honorific'],
+    value: { kind: 'list', min: 0 },
+    tier: COMPANION_SETTING_TIERS.companionHonorifics,
+    readBack: (next) =>
+      next.length === 0 ? "I'll stop calling you anything in particular." : `I'll call you ${oxfordJoin(next)}.`,
+    example: 'call me boss',
+  },
+  companionMusicOffer: {
+    key: 'companionMusicOffer',
+    label: 'Offer elevator music',
+    aliases: ['elevator music', 'music offer', 'music'],
+    value: { kind: 'bool' },
+    tier: COMPANION_SETTING_TIERS.companionMusicOffer,
+    readBack: (next) => (next ? "I'll offer elevator music on long waits." : 'No more elevator music offers.'),
+    example: 'turn elevator music off',
+  },
+  companionActiveProfile: {
+    key: 'companionActiveProfile',
+    label: 'Active profile',
+    aliases: ['profile', 'persona'],
+    value: { kind: 'text', max: 128, nullable: true },
+    tier: COMPANION_SETTING_TIERS.companionActiveProfile,
+    readBack: (next) => (next === null ? 'No profile is active now.' : 'Profile switched.'),
+    example: 'switch to Narrator',
+  },
+};
+
+/** The spec for a key, typed for callers that hold the key union rather than one literal. */
+export function companionSettingSpec(key: CompanionSettingKey): CompanionSettingSpec {
+  return COMPANION_SETTING_SPECS[key] as unknown as CompanionSettingSpec;
+}
+
+/**
+ * The tier a particular change runs at — the spec's tier, unless `next` is
+ * one of its `directValues` (turning speech back *on* needs no "yes").
+ */
+export function companionSettingTier(key: CompanionSettingKey, next: unknown): CompanionAccess {
+  const spec = companionSettingSpec(key);
+  return spec.directValues?.some((value) => Object.is(value, next)) ? 'direct' : spec.tier;
+}
+
+/** {@link CompanionSettingSpec.readBack} for a key union — the one cast, done here. */
+export function companionSettingReadBack(key: CompanionSettingKey, next: unknown): string {
+  return companionSettingSpec(key).readBack(next as never);
+}
+
+/**
+ * Other ways to say each read-back (Phase 109 Theme E), so ten volume changes
+ * in a row don't all sound the same — the same idea as Phase 80's phrase
+ * banks, one small pool per key. Keys absent here only ever say their spec's
+ * own {@link CompanionSettingSpec.readBack}.
+ */
+const READBACK_VARIANTS: { readonly [K in CompanionSettingKey]?: (next: CompanionSettingValues[K]) => readonly string[] } = {
+  'companionVoices.local': (next) => {
+    const name = localVoiceName(next);
+    return [`${name} here.`, `Hi — ${name} speaking.`, `You've got ${name} now.`];
+  },
+  'companionVoices.system': (next) =>
+    next === null ? ['System default voice it is.'] : ['Speaking with the new system voice.', 'New voice — how do I sound?'],
+  companionVolume: (next) => {
+    const percent = Math.round(next * 100);
+    return [`${percent} percent.`, `Set to ${percent} percent.`, `Okay — ${percent} percent.`];
+  },
+  companionHonorifics: (next) => {
+    const newest = next[next.length - 1];
+    return newest === undefined
+      ? ['No more nicknames.', "Okay — I won't call you anything in particular."]
+      : [`Sure thing, ${newest}.`, `${capitalise(newest)} it is.`];
+  },
+  companionNames: (next) => [`From now on I answer to ${oxfordJoin(next)}.`, `${oxfordJoin(next)} — got it.`],
+  companionSpeakAloud: (next) =>
+    next
+      ? ['Back to talking out loud.', 'You can hear me again.']
+      : ["Okay — I'll stay quiet and write instead.", "Muting myself. It's all in the thread from here."],
+  companionMicMode: (next) => [`Mic set to ${MIC_MODE_SPOKEN[next]}.`, `${capitalise(MIC_MODE_SPOKEN[next])} it is.`],
+  voiceConversation: (next) =>
+    next ? ["Conversation mode's on — just talk.", "I'm listening continuously now."] : ["Conversation mode's off.", 'Back to one phrase at a time.'],
+  voiceConversationTrigger: (next) =>
+    next === 'wake' ? ['Say my name first and I will hear you.'] : ["I'll take every phrase you say."],
+  companionMusicOffer: (next) =>
+    next ? ['Elevator music is back on the menu.'] : ["Okay — I'll keep the elevator music to myself."],
+};
+
+/**
+ * Every way to read back `key` set to `next`: the spec's own sentence first,
+ * then its variants. The renderer picks one per change and avoids repeating
+ * the last pick for that key.
+ */
+export function companionSettingReadBacks(key: CompanionSettingKey, next: unknown): readonly string[] {
+  const variants = (READBACK_VARIANTS[key] as ((value: unknown) => readonly string[]) | undefined)?.(next) ?? [];
+  return [companionSettingReadBack(key, next), ...variants];
+}
+
+/**
+ * A value as a few words — "Bella", "50%", "push to talk", "on" — for a toast
+ * or a question. A system voice comes back as its URI here; the renderer,
+ * which has the voice list, swaps in the display name.
+ */
+export function describeCompanionSettingValue(key: CompanionSettingKey, value: unknown): string {
+  const spec = companionSettingSpec(key);
+  if (key === 'companionVoices.local') return localVoiceName(value as CompanionLocalVoiceId | null);
+  switch (spec.value.kind) {
+    case 'bool':
+      return value === true ? 'on' : 'off';
+    case 'enum':
+      return value === null ? 'automatic' : (spec.value.spoken[String(value)] ?? String(value));
+    case 'number':
+      return typeof value === 'number' ? `${Math.round(value * 100)}%` : String(value);
+    case 'list':
+      return Array.isArray(value) && value.length > 0 ? value.join(', ') : 'nothing';
+    case 'text':
+      if (value === null) return 'the default';
+      return key === 'companionVoices.system' ? String(value) : 'updated';
+  }
+}
+
+const quoted = (names: readonly string[]): string => oxfordJoin(names.map((name) => `"${name}"`));
+
+/**
+ * The yes/no question a `confirm`-tier change asks (Phase 109 Theme C), with
+ * no question mark — the pending bar adds its own. "Answer to "Nova" from now
+ * on", "Stop talking out loud". Shared so the MCP confirm (Theme D) asks the
+ * same question the companion's voice does.
+ */
+export function companionSettingQuestion(key: CompanionSettingKey, previous: unknown, next: unknown): string {
+  switch (key) {
+    case 'companionNames': {
+      const before = Array.isArray(previous) ? (previous as string[]) : [];
+      const after = Array.isArray(next) ? (next as string[]) : [];
+      const has = (list: readonly string[], name: string) => list.some((entry) => entry.toLowerCase() === name.toLowerCase());
+      const added = after.filter((name) => !has(before, name));
+      const removed = before.filter((name) => !has(after, name));
+      if (added.length > 0 && removed.length === 0) return `Answer to ${quoted(added)} from now on`;
+      if (removed.length > 0 && added.length === 0) return `Stop answering to ${quoted(removed)}`;
+      return `Answer to ${quoted(after)} from now on`;
+    }
+    case 'companionSpeakAloud':
+      return next === false ? 'Stop talking out loud' : 'Speak out loud again';
+    case 'companionMicMode':
+      return `Switch the mic to ${describeCompanionSettingValue(key, next)}`;
+    case 'voiceConversation':
+      return next === true ? 'Turn conversation mode on' : 'Turn conversation mode off';
+    case 'voiceConversationTrigger':
+      return next === 'wake'
+        ? 'In conversation mode, only take phrases that start with my name'
+        : 'In conversation mode, take every phrase';
+    case 'companionPersonality':
+      return 'Replace my personality notes';
+    case 'companionAboutUser':
+      return 'Replace what I know about you';
+    default:
+      return `Set ${companionSettingSpec(key).label.toLowerCase()} to ${describeCompanionSettingValue(key, next)}`;
+  }
+}
+
+/**
+ * Why a `setting` intent's value does not fit its key and `op`, or `null` when
+ * it does — the refinement behind {@link CompanionIntentSchema}, so a router
+ * reply naming an out-of-range volume is dropped like an unknown key.
+ *
+ * Stricter than the setter on one point: a number has to be *in* range. The
+ * volume schema clamps (a page slider can't overshoot, but a stale stored
+ * value might), and a router that answers `7` for "volume seventy" has misread
+ * the scale, which a clamp to 100% would hide.
+ */
+export function companionSettingIntentProblem(intent: {
+  key: CompanionIntentSettingKey;
+  value?: unknown;
+  op?: CompanionSettingOp | undefined;
+}): string | null {
+  const spec = companionSettingSpec(intent.key);
+  // Personality and About me are never dictated (Phase 109 Decision 4): only
+  // a `tune` interview or a `tweak` may produce them, read back and confirmed.
+  // Refusing them here drops a router reply that tries, like an unknown key.
+  if (spec.guards?.includes('tunedText')) {
+    return `${spec.label} changes through "tune yourself" or a tweak, never dictation.`;
+  }
+  const { value } = intent;
+  switch (intent.op ?? 'set') {
+    case 'set': {
+      if (spec.value.kind === 'number') {
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < spec.value.min || value > spec.value.max) {
+          return `${spec.label} takes a number from ${spec.value.min} to ${spec.value.max}.`;
+        }
+      }
+      const parsed = parseCompanionSettingValue(intent.key, value);
+      return parsed.ok ? null : parsed.message;
+    }
+    case 'add':
+    case 'remove':
+      return spec.value.kind === 'list' && typeof value === 'string' && value.trim() !== ''
+        ? null
+        : `${spec.label} doesn't take "add" or "remove".`;
+    case 'step':
+      return spec.value.kind === 'number' &&
+        typeof value === 'number' &&
+        Number.isFinite(value) &&
+        value !== 0 &&
+        Math.abs(value) <= spec.value.max - spec.value.min
+        ? null
+        : `${spec.label} can't be stepped by that.`;
+    case 'match':
+      return (intent.key === 'companionVoices.local' || intent.key === 'companionVoices.system') &&
+        typeof value === 'string' &&
+        value.trim() !== ''
+        ? null
+        : 'Only a voice can be matched by name.';
+  }
+}
+
+/** How a spec's value kind is described to the router. */
+function describeAllowedValues(spec: CompanionSettingSpec): string {
+  const { value } = spec;
+  if (spec.key === 'companionVoices.system') {
+    return 'a system voice name, with "op":"match"';
+  }
+  switch (value.kind) {
+    case 'bool':
+      return 'true | false';
+    case 'enum': {
+      const listed = value.values.map((option) => `${option} (${value.spoken[option] ?? option})`).join(', ');
+      const nullable = value.nullable ? ', or null for the default' : '';
+      const matchable = spec.key === 'companionVoices.local' ? '; or a spoken name with "op":"match"' : '';
+      return `${listed}${nullable}${matchable}`;
+    }
+    case 'number':
+      return `${value.min} to ${value.max}, or "op":"step" with a signed nudge such as 0.1`;
+    case 'list':
+      return `a list of words, or "op":"add" / "op":"remove" with one word${value.min > 0 ? ` (at least ${value.min} must remain)` : ''}`;
+    case 'text':
+      return `text up to ${value.max} characters`;
+  }
+}
+
+/**
+ * The `settings` half of {@link CompanionVocabulary}: one row per key a
+ * `setting` intent may name *and* the spoken grammar or router can sensibly
+ * reach today. Derived from the spec table, so a new key shows up here (or
+ * fails to compile) without anyone editing a second list.
+ *
+ * Left out, beyond the `never` tier the intent already excludes: personality
+ * and About me, which only Theme H's interview may write (their `tunedText`
+ * guard would refuse a router's text anyway), and the active profile, whose
+ * value is an id only Theme G's profile commands know.
+ */
+export function companionSettingsVocabulary(): NonNullable<CompanionVocabulary['settings']> {
+  return COMPANION_INTENT_SETTING_KEYS.map((key) => companionSettingSpec(key))
+    .filter((spec) => !spec.guards?.includes('tunedText') && spec.key !== 'companionActiveProfile')
+    .map((spec) => ({
+      key: spec.key as CompanionIntentSettingKey,
+      label: spec.label,
+      aliases: [...spec.aliases],
+      values: describeAllowedValues(spec),
+      tier: spec.tier === 'confirm' ? ('confirm' as const) : ('direct' as const),
+      example: spec.example ?? '',
+    }));
+}
+
+/** What a guard needs to know about a change besides its values. */
+export type CompanionGuardContext = {
+  source: CompanionSettingSource;
+  /**
+   * The text came out of Theme H's `tune`/`tweak` flow — an interview or a
+   * one-line tweak the user heard summarised and confirmed — rather than
+   * from a transcript. Only meaningful to `tunedText`.
+   */
+  tuned?: boolean;
+};
+
+export type CompanionGuardResult =
+  | {
+      ok: true;
+      /** `readBackBeforeApply`: speak the read-back first, then write (names, mute). */
+      effect?: 'readBackBeforeApply';
+    }
+  | { ok: false; guard: CompanionGuardId; reason: string };
+
+const sameList = (a: unknown, b: unknown): boolean =>
+  Array.isArray(a) &&
+  Array.isArray(b) &&
+  a.length === b.length &&
+  a.every((value, index) => value === b[index]);
+
+/**
+ * Run a spec's guards over one change (Phase 109 Theme A). Pure: the setter
+ * calls it with the store's current value, a test with a literal.
+ *
+ * Every guard runs; the first refusal wins, and its `reason` is a sentence the
+ * companion can say as it stands. An `effect` from any guard is carried on the
+ * pass — today the only one is `readBackBeforeApply`.
+ *
+ * `context` defaults to the page, whose click is the consent: the page is the
+ * one source that may still write personality and About me as typed text.
+ */
+export function checkCompanionGuard(
+  spec: Pick<CompanionSettingSpec, 'guards'>,
+  current: unknown,
+  next: unknown,
+  context: CompanionGuardContext = { source: 'page' },
+): CompanionGuardResult {
+  let effect: 'readBackBeforeApply' | undefined;
+  for (const guard of spec.guards ?? []) {
+    switch (guard) {
+      case 'lastName':
+        if (Array.isArray(next) && next.length === 0) {
+          return { ok: false, guard, reason: 'I need at least one name to answer to.' };
+        }
+        break;
+      case 'wakeWord':
+        if (!sameList(current, next)) effect = 'readBackBeforeApply';
+        break;
+      case 'muteLast':
+        if (next === false && current !== false) effect = 'readBackBeforeApply';
+        break;
+      case 'tunedText':
+        if (context.source !== 'page' && context.tuned !== true) {
+          return {
+            ok: false,
+            guard,
+            reason: "I don't take dictation for that. You can change it in Settings, Companion.",
+          };
+        }
+        break;
+    }
+  }
+  return effect === undefined ? { ok: true } : { ok: true, effect };
+}
+
+// --- Phase 109 · matching a spoken voice name --------------------------------
+
+/** Anything {@link matchVoice} can pick between — a Kokoro voice, or a system voice the renderer lists with its display name. */
+export type SpokenVoice = { spoken: readonly string[] };
+
+export type VoiceMatch<T extends SpokenVoice> =
+  | { kind: 'match'; match: T }
+  /** The two closest, equally close — the companion asks "Bella or Isabella?" (Decision 10). */
+  | { kind: 'ambiguous'; ambiguous: readonly [T, T] }
+  | { kind: 'none' };
+
+/**
+ * Words that sit around a voice name in a request and are never part of one.
+ * Dropped before matching so "change your voice" can't fuzz its way onto Alice.
+ */
+const VOICE_FILLER_WORDS = new Set([
+  'a',
+  'an',
+  'the',
+  'to',
+  'use',
+  'try',
+  'voice',
+  'voices',
+  'your',
+  'my',
+  'switch',
+  'change',
+  'please',
+  'one',
+  'called',
+  'named',
+]);
+
+const normaliseVoiceTokens = (text: string): string[] =>
+  text
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((token) => token !== '' && !VOICE_FILLER_WORDS.has(token));
+
+/** Plain Levenshtein — the strings are names, so the O(n·m) table is a few dozen cells. */
+export function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      current[j] = Math.min(
+        (previous[j] as number) + 1,
+        (current[j - 1] as number) + 1,
+        (previous[j - 1] as number) + cost,
+      );
+    }
+    previous = current;
+  }
+  return previous[b.length] as number;
+}
+
+/**
+ * How far a heard name may be from a real one. Two edits for a name of six
+ * letters or more, one for four or five, none for three: "bela" → Bella and
+ * "hart" → Heart still resolve, but a short name would otherwise sit an edit
+ * or two from half the dictionary ("say" → Sky, "voice" → Alice).
+ */
+const maxVoiceDistance = (alias: string): number => (alias.length >= 6 ? 2 : alias.length >= 4 ? 1 : 0);
+
+/**
+ * Which voice a transcript names (Phase 109 Theme A).
+ *
+ * Tokens are lowercased, stripped of punctuation and accents, and filler words
+ * ("use", "voice", "the") are dropped. Each spoken alias is compared, with its
+ * spaces removed, against every run of as many tokens as it has words — and
+ * one more, because whisper splits a name it doesn't know ("Isa Bella"). The
+ * closest voice within {@link maxVoiceDistance} wins; two different voices
+ * equally close come back `ambiguous`, so the companion asks rather than
+ * guessing.
+ *
+ * Generic over the voice shape so the renderer can match system voices by
+ * their display name — that list exists only in `speechSynthesis`.
+ */
+export function matchVoice<T extends SpokenVoice>(text: string, voices: readonly T[]): VoiceMatch<T> {
+  const tokens = normaliseVoiceTokens(text);
+  if (tokens.length === 0) return { kind: 'none' };
+
+  const scored: { voice: T; distance: number }[] = [];
+  for (const voice of voices) {
+    let best = Number.POSITIVE_INFINITY;
+    for (const alias of voice.spoken) {
+      const aliasTokens = normaliseVoiceTokens(alias);
+      if (aliasTokens.length === 0) continue;
+      const aliasKey = aliasTokens.join('');
+      const limit = maxVoiceDistance(aliasKey);
+      for (let width = aliasTokens.length; width <= aliasTokens.length + 1; width += 1) {
+        for (let start = 0; start + width <= tokens.length; start += 1) {
+          const distance = editDistance(tokens.slice(start, start + width).join(''), aliasKey);
+          if (distance <= limit && distance < best) best = distance;
+        }
+      }
+    }
+    if (Number.isFinite(best)) scored.push({ voice, distance: best });
+  }
+
+  if (scored.length === 0) return { kind: 'none' };
+  scored.sort((a, b) => a.distance - b.distance);
+  const [first, second] = scored as [{ voice: T; distance: number }, { voice: T; distance: number } | undefined];
+  if (second !== undefined && second.distance === first.distance) {
+    return { kind: 'ambiguous', ambiguous: [first.voice, second.voice] };
+  }
+  return { kind: 'match', match: first.voice };
+}
 
 /**
  * Resolve the honorific list to the one name a phrase actually uses.
@@ -3009,8 +4806,23 @@ export const CompanionAskReplySchema = z.object({
    * and once as raw text, is noise.
    */
   raw: z.string().optional(),
+  /**
+   * A `'persona'` ask's answer (Phase 109 Theme H): the rewritten personality
+   * or About me text and the summary read back before the confirm. Present
+   * only on that kind — {@link parseAskReply} strips it from every other — so
+   * a router reply can never carry text into those fields.
+   */
+  persona: CompanionPersonaReplySchema.optional(),
 });
 export type CompanionAskReply = z.infer<typeof CompanionAskReplySchema>;
+
+/**
+ * The three jobs `mstudio:companion:ask` does: route a sentence, summarise an
+ * agent's answer for speech, and (Phase 109 Theme H) write personality or
+ * About me text from an interview or a tweak.
+ */
+export const COMPANION_ASK_KINDS = ['route', 'summarise', 'persona'] as const;
+export type CompanionAskKind = (typeof COMPANION_ASK_KINDS)[number];
 
 /** What the companion says when the router answered something unparseable. */
 export const COMPANION_ASK_FALLBACK = "I didn't follow that.";
@@ -3024,8 +4836,12 @@ export const COMPANION_ASK_FALLBACK = "I didn't follow that.";
  * whole of stdout, and a failure returns `null` for the caller to turn into
  * {@link COMPANION_ASK_FALLBACK}. Pure, so the parsing is unit-testable
  * without spawning anything.
+ *
+ * `kind` is the job that was asked for. A `'persona'` reply is the
+ * `{text, summary}` pair (Phase 109 Theme H), returned as `persona` with the
+ * summary as `say`; every other kind is the `{say, intent}` shape.
  */
-export function parseAskReply(stdout: string): CompanionAskReply | null {
+export function parseAskReply(stdout: string, kind: CompanionAskKind = 'route'): CompanionAskReply | null {
   const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(stdout);
   const candidates = [fenced?.[1], stdout].filter(
     (value): value is string => typeof value === 'string',
@@ -3040,11 +4856,39 @@ export function parseAskReply(stdout: string): CompanionAskReply | null {
     } catch {
       continue;
     }
+    if (kind === 'persona') {
+      const persona = parsePersonaReplyValue(value);
+      if (persona) return { say: persona.summary, persona };
+      continue;
+    }
     const parsed = CompanionAskReplySchema.safeParse(value);
-    if (parsed.success) return parsed.data;
+    if (parsed.success) {
+      // Only a `'persona'` ask may answer with text for personality or About
+      // me (Phase 109 Theme H, Decision 4) — anything else carrying one has it
+      // dropped, never trusted.
+      const { persona: _ignored, ...reply } = parsed.data;
+      void _ignored;
+      return reply;
+    }
   }
 
   return null;
+}
+
+/**
+ * A `'persona'` reply as asked — `{"text", "summary"}` — or the same pair
+ * wrapped as `{"persona": {…}}`, which a CLI that has seen the router's
+ * `{"say", "intent"}` shape is apt to produce. Over-long text or summary is
+ * dropped rather than cut: the caller falls back to the template, which is
+ * better than writing a personality truncated mid-sentence.
+ */
+function parsePersonaReplyValue(value: unknown): z.infer<typeof CompanionPersonaReplySchema> | null {
+  const wrapped =
+    typeof value === 'object' && value !== null && 'persona' in value
+      ? (value as { persona: unknown }).persona
+      : value;
+  const parsed = CompanionPersonaReplySchema.safeParse(wrapped);
+  return parsed.success ? parsed.data : null;
 }
 
 /**

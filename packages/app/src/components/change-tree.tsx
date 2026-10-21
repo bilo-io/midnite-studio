@@ -4,10 +4,22 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { ChangedFile, DirNode, FileNode, TreeNode } from './build-change-tree';
 import { formatNumber } from '../lib/format-number';
 
-/** What a caller needs to know about the open file, and how to change it. */
+/**
+ * How a click reached a file row. `additive` is Cmd-click on macOS (Ctrl-click
+ * elsewhere): add the file to a multi-selection rather than replace it. A
+ * caller with no multi-selection simply ignores the argument.
+ */
+export type FileSelectModifiers = { additive: boolean };
+
+/** What a caller needs to know about the open file(s), and how to change it. */
 export type FileSelection<T extends ChangedFile> = {
   path: string | null;
-  onSelect: (file: FileNode<T>) => void;
+  /**
+   * A multi-selection, when the caller has one. Wins over `path` for the
+   * selected treatment, so a caller need not keep the two in step.
+   */
+  paths?: ReadonlySet<string>;
+  onSelect: (file: FileNode<T>, modifiers: FileSelectModifiers) => void;
 };
 
 /**
@@ -223,7 +235,9 @@ function FileRow<T extends ChangedFile>({
   cascading?: boolean;
   cascadeStyle?: CSSProperties;
 }) {
-  const isSelected = node.path === selection.path;
+  const isSelected = selection.paths
+    ? selection.paths.has(node.path)
+    : node.path === selection.path;
   const actions = renderActions?.(node);
 
   return (
@@ -235,7 +249,9 @@ function FileRow<T extends ChangedFile>({
     >
       <button
         type="button"
-        onClick={() => selection.onSelect(node)}
+        onClick={(event) =>
+          selection.onSelect(node, { additive: event.metaKey || event.ctrlKey })
+        }
         aria-pressed={isSelected}
         // The full path is the accessible name in both modes: in tree mode the
         // leaf alone ("index.ts") names a dozen different files in one commit.
@@ -280,9 +296,20 @@ function FileRow<T extends ChangedFile>({
  * back the weight the smaller size costs, so the counts still read as the
  * numbers on the row rather than as its faintest text.
  */
-export function Counts({ insertions, deletions }: { insertions: number; deletions: number }) {
+export function Counts({
+  insertions,
+  deletions,
+  bold = false,
+}: {
+  insertions: number;
+  deletions: number;
+  /** The roll-up totals are bold; per-row counts stay `font-medium`. */
+  bold?: boolean;
+}) {
   return (
-    <span className="shrink-0 text-[11px] font-medium tabular-nums">
+    <span
+      className={`shrink-0 text-[11px] tabular-nums ${bold ? 'font-bold' : 'font-medium'}`}
+    >
       <span className={insertions === 0 ? 'text-muted-foreground/50' : 'text-success'}>
         +{formatNumber(insertions)}
       </span>{' '}
@@ -319,8 +346,8 @@ export function ChangeTotals({
       <span className="truncate tabular-nums">
         {formatNumber(fileCount)} {fileCount === 1 ? 'file' : 'files'}
       </span>
-      <span className="shrink-0 font-bold">
-        <Counts insertions={insertions} deletions={deletions} />
+      <span className="shrink-0">
+        <Counts insertions={insertions} deletions={deletions} bold />
       </span>
     </span>
   );

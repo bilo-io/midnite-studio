@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import { Fragment, type ComponentType, type ReactElement, type ReactNode } from 'react';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -13,6 +13,7 @@ import {
 import { ThemeProvider } from '@bilo-io/ui/theme';
 
 import { DialogHost } from '../src/components/dialog-host';
+import { StudioProviders } from '../src/compose/studio-providers';
 import { ToastHost } from '../src/components/toast-host';
 import { useUiStore, type UiState } from '../src/store/ui-store';
 import { installMockBridgeJsdom } from './mock-bridge';
@@ -22,7 +23,7 @@ import type { MockFixtures } from './mock-bridge';
  * The provider stack every assembled-view unit test needs, in one place.
  *
  * Before this, 62 test files hand-rolled their own `QueryClientProvider`
- * (`projects-view.test.tsx`, `board-view.test.tsx`, …), most wrapping a
+ * (`tasks-view.test.tsx`, `board-view.test.tsx`, …), most wrapping a
  * `DialogHost` too the moment the view under test reaches `useDialogs()` for
  * a menu, a confirm or a prompt — and a few also needed `ThemeProvider`
  * because they mount something that reads `prefers-color-scheme` on mount
@@ -36,7 +37,7 @@ import type { MockFixtures } from './mock-bridge';
  * ```
  *
  * `fixtures` and `uiState` are both optional — a test that drives its own
- * `vi.mock('../../services/bridge', …)` (the pattern `projects-view.test.tsx`
+ * `vi.mock('../../services/bridge', …)` (the pattern `tasks-view.test.tsx`
  * and `transcript-view.test.tsx` use, and this helper does not replace) can
  * still use `renderView` for the provider stack alone and skip both.
  *
@@ -76,13 +77,17 @@ export function createTestQueryClient(): QueryClient {
   });
 }
 
-function wrap(queryClient: QueryClient) {
+function wrap(queryClient: QueryClient, Inner: ComponentType<{ children: ReactNode }> = Fragment) {
   return function ViewProviders({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <ToastHost>
-            <DialogHost>{children}</DialogHost>
+            <DialogHost>
+              <StudioProviders>
+                <Inner>{children}</Inner>
+              </StudioProviders>
+            </DialogHost>
           </ToastHost>
         </ThemeProvider>
       </QueryClientProvider>
@@ -108,15 +113,18 @@ export function renderView(ui: ReactElement, options: RenderViewOptions = {}): R
 export function renderHookWithProviders<Result, Props>(
   hook: (props: Props) => Result,
   options: Omit<RenderHookOptions<Props>, 'wrapper'> &
-    Pick<RenderViewOptions, 'fixtures' | 'uiState' | 'queryClient'> = {},
+    Pick<RenderViewOptions, 'fixtures' | 'uiState' | 'queryClient'> & {
+      /** Wraps the hook inside the provider stack — a composed media tab's harness, say. */
+      inner?: ComponentType<{ children: ReactNode }>;
+    } = {},
 ): RenderHookResult<Result, Props> {
-  const { fixtures, uiState, queryClient, ...renderHookOptions } = options;
+  const { fixtures, uiState, queryClient, inner, ...renderHookOptions } = options;
 
   if (fixtures) installMockBridgeJsdom(fixtures);
   if (uiState) useUiStore.setState(uiState);
 
   return renderHook(hook, {
-    wrapper: wrap(queryClient ?? createTestQueryClient()),
+    wrapper: wrap(queryClient ?? createTestQueryClient(), inner),
     ...renderHookOptions,
   });
 }

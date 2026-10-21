@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '../../../test-support/studio-render';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { ProvenanceMarkPicker } from './provenance-mark-picker';
@@ -6,7 +6,7 @@ import {
   DEFAULT_PROVENANCE_MARK_MODE,
   PROVENANCE_MARK_MODES,
   resetProvenanceSwapForTests,
-} from '../graph/provenance-display';
+} from '@midnite/studio-frame/graph';
 import { useUiStore } from '../../store/ui-store';
 
 /**

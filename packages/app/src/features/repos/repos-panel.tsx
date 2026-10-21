@@ -38,7 +38,7 @@ import {
   LuX,
 } from 'react-icons/lu';
 import { AiOutlineDiff } from 'react-icons/ai';
-import { FaGitAlt } from 'react-icons/fa';
+import { VscTerminalGitBash } from 'react-icons/vsc';
 
 import type { MenuItem } from '../../components/context-menu';
 import { ChangeCountPill } from '../../components/change-count-pill';
@@ -56,9 +56,8 @@ import {
   type CascadeReveal,
 } from '../../lib/use-cascade-reveal';
 import { useNow } from '../../lib/use-now';
-import { relativeAge } from '../actions/run-groups';
+import { relativeAgeFromIso as relativeAge } from '@midnite/studio-frame';
 import {
-  usePickAndOpenRepo,
   useForgeRuns,
   useRefs,
   useRemotes,
@@ -67,6 +66,7 @@ import {
   useStashes,
 } from '../../services/queries';
 import { openInMidnite } from '../../services/open-in-midnite';
+import { AddRepoModal } from './add-repo-modal';
 import {
   useRepoStatus,
   useWorktreeStatuses,
@@ -80,7 +80,7 @@ import { branchHealth, worktreeHealth, type BranchHealth } from './branch-health
 import { checksVerdict } from './checks-verdict';
 import { ActionsSection, IssuesSection, ReviewsSection } from './forge-sections';
 import { useAccountScopedRepos } from './forge-account-scope';
-import { TestsSection } from '../tests/tests-section';
+import { TestsSection } from './tests-section';
 import {
   ALL_SECTIONS,
   SECTION_TREE,
@@ -233,10 +233,10 @@ export function ReposPanel() {
   // header row below, same as a plain, un-merged popout always has.
   const portalTarget = usePopoutHeaderActions();
   const { data: repos = [], isLoading } = useRepos();
-  const { pickAndOpen, isPending } = usePickAndOpenRepo();
   const reorderRepos = useReorderRepos();
   const reorderRepoGroups = useUiStore((s) => s.reorderRepoGroups);
   const [error, setError] = useState<string | null>(null);
+  const [addRepoOpen, setAddRepoOpen] = useState(false);
   const [query, setQuery] = useState('');
   const sections = useViewSections();
   const folds = useRepoFolds();
@@ -299,12 +299,6 @@ export function ReposPanel() {
         return next;
       });
     }
-  };
-
-  const onOpen = async () => {
-    setError(null);
-    const result = await pickAndOpen();
-    if (result && !result.ok) setError(result.message);
   };
 
   /*
@@ -400,10 +394,9 @@ export function ReposPanel() {
       <NewGroupButton />
       <IconButton
         icon={LuPlus}
-        label="Open a repository…"
+        label="Add a repository…"
         size="sm"
-        disabled={isPending}
-        onClick={() => void onOpen()}
+        onClick={() => setAddRepoOpen(true)}
       />
     </>
   );
@@ -425,7 +418,7 @@ export function ReposPanel() {
             two features — the same ambiguity plain "Repos" already had in the
             status bar, which is why the button says "Git Repos" there.
 
-            `FaGitAlt` is the Git logo in Git's own `#F05032`, the same pairing
+            `VscTerminalGitBash` is the Git logo in Git's own `#F05032`, the same pairing
             `IconButton`'s `git` tone uses for the per-repo git menu further down
             this file. It is deliberately not one of lucide's folders: the three
             folder variants in this panel already mean "worktree", "main worktree"
@@ -439,7 +432,7 @@ export function ReposPanel() {
                 aria-hidden
                 className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
               >
-                <FaGitAlt className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
+                <VscTerminalGitBash className="h-3.5 w-3.5 shrink-0 text-[#F05032]" />
               </span>
               {!isPopout && (
                 <IconButton
@@ -635,6 +628,7 @@ export function ReposPanel() {
           </>
         )}
       </div>
+      {addRepoOpen ? <AddRepoModal onClose={() => setAddRepoOpen(false)} /> : null}
     </div>
   );
 }
@@ -954,7 +948,7 @@ function RepoItem({
         />
 
         <IconButton
-          icon={FaGitAlt}
+          icon={VscTerminalGitBash}
           label={`Git actions for ${repo.name}`}
           size="sm"
           tone="git"

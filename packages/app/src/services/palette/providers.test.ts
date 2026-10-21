@@ -77,7 +77,7 @@ describe('palette providers', () => {
     const items = source.items();
     const graphView = items.find((i) => i.id === 'view:graph');
     expect(graphView).toBeDefined();
-    expect(graphView?.label).toBe('Commit Graph');
+    expect(graphView?.label).toBe('Commit Timeline');
 
     const appearanceSettings = items.find((i) => i.id === 'settings:appearance');
     expect(appearanceSettings).toBeDefined();

@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { safeStorage } from 'electron';
@@ -79,7 +79,9 @@ export function createSttCredentials(directory: string): SttCredentials {
     cache = keys;
     const state: StoredState = { version: 1, keys };
     try {
-      await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+      await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+      // `mode` only applies to a file this call creates; narrow an existing one too.
+      await chmod(file, 0o600);
     } catch {
       // A read-only data dir must not take the app down; the key holds for
       // this session through `sessionOnly` and is asked for again next launch.

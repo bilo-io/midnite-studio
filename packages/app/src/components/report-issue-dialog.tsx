@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 
 import { Accordion } from '@bilo-io/ui';
-import { LuCircleAlert, LuExternalLink, LuLoaderCircle } from 'react-icons/lu';
+import { LuCheck, LuCircleAlert, LuCopy, LuExternalLink, LuLoaderCircle } from 'react-icons/lu';
 
-import { FORGE_BODY_MAX, NEW_ISSUE_URL, type AppIssueSubmitRequest } from '@midnite/studio-shared';
+import {
+  appIssueBody,
+  appIssueFormUrl,
+  FORGE_BODY_MAX,
+  type AppIssueSubmitRequest,
+} from '@midnite/studio-shared';
 
 import { bridge } from '../services/bridge';
 import { openExternal, useForgeCli, useSubmitAppIssue } from '../services/queries';
+import { useUiStore } from '../store/ui-store';
 import { Modal } from './modal';
 import { Spinner } from './skeleton';
 
@@ -34,6 +40,21 @@ import { Spinner } from './skeleton';
  * IPC boundary, on top of (not instead of) the schema's own cap — a renderer
  * bug that produced a runaway string should not depend on the main process to
  * notice.
+ *
+ * **Without `gh` it still files.** Filing in-app needs the GitHub CLI installed and signed in; on a
+ * machine without it (or when `gh` refuses, e.g. no write access) the primary action becomes
+ * *Continue on GitHub*, which opens midnite-apps' own issue form prefilled with the same title,
+ * words and diagnostics (`appIssueFormUrl`) for the reporter to submit under their own account —
+ * the way midnite's reporter has always worked.
+ *
+ * **And when neither works, Copy report.** The form URL trims the oldest log lines to stay under
+ * GitHub's ceiling, and `gh` can refuse; the copy button puts the whole title and body on the
+ * clipboard (main-side, since the packaged app's `file://` origin has no `navigator.clipboard`), so
+ * the full report can always be pasted somewhere by hand.
+ *
+ * **One app-wide instance besides the two local ones.** `ReportIssueHost` is mounted once at the app
+ * root and opened through `useUiStore`'s `reportIssueOpen` — that is what `app.reportIssue` (the
+ * Help menu and the palette) reaches.
  */
 
 type AppIssueKind = AppIssueSubmitRequest['kind'];
@@ -57,18 +78,16 @@ const KIND_COPY: Record<
 };
 
 /**
- * Join the user's own words with the diagnostics block as two markdown
- * sections, the way `gh issue create --body` already renders on GitHub —
- * never a re-formatting of the diagnostics text itself.
+ * The issue body, laid out by `appIssueBody` as midnite-apps' own issue forms render — the
+ * diagnostics text passed through as-is, never re-formatted or re-redacted here.
  */
-export function composeIssueBody(description: string, diagnostics: string): string {
-  const trimmedDescription = description.trim();
-  const trimmedDiagnostics = diagnostics.trim();
-  const body =
-    trimmedDiagnostics.length === 0
-      ? trimmedDescription
-      : `${trimmedDescription}\n\n---\n\n## Diagnostics\n\n\`\`\`\n${trimmedDiagnostics}\n\`\`\``;
-  return body.slice(0, FORGE_BODY_MAX);
+export function composeIssueBody(draft: {
+  kind: AppIssueKind;
+  description: string;
+  diagnostics: string;
+  version?: string;
+}): string {
+  return appIssueBody({ ...draft, title: '' }).slice(0, FORGE_BODY_MAX);
 }
 
 export type ReportIssueDialogProps = {
@@ -85,6 +104,8 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     loading: false,
   });
 
+  const [copied, setCopied] = useState(false);
+
   const cli = useForgeCli();
   const submit = useSubmitAppIssue();
 
@@ -96,6 +117,7 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     setKind('bug');
     setTitle(KIND_COPY.bug.titlePrefix);
     setDescription('');
+    setCopied(false);
     submit.reset();
 
     const api = bridge();
@@ -123,7 +145,9 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
     if (next === kind) return;
     // A title still at the previous kind's bare prefix follows the toggle;
     // anything the user actually typed is their own words and survives it.
-    setTitle((current) => (current === KIND_COPY[kind].titlePrefix ? KIND_COPY[next].titlePrefix : current));
+    setTitle((current) =>
+      current === KIND_COPY[kind].titlePrefix ? KIND_COPY[next].titlePrefix : current,
+    );
     setKind(next);
   };
 
@@ -140,22 +164,53 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
   const result = submit.data;
   const submitError = result && !result.ok ? (result.error ?? cliHint(result.cli)) : null;
 
-  const onSubmit = () => {
-    if (!canSubmit) return;
-    submit.mutate({
-      title: trimmedTitle,
-      body: composeIssueBody(description, bundle.text),
-      kind,
-    });
-  };
-
   const close = () => {
     submit.reset();
     onClose();
   };
 
+  const canContinueOnGitHub = trimmedTitle.length > 0 && trimmedDescription.length > 0;
+  const continueOnGitHub = () => {
+    if (!canContinueOnGitHub) return;
+    openExternal(
+      appIssueFormUrl({
+        kind,
+        title: trimmedTitle,
+        description,
+        diagnostics: bundle.text,
+        version: bridge()?.appVersion,
+      }),
+    );
+    close();
+  };
+
+  const body = () =>
+    composeIssueBody({ kind, description, diagnostics: bundle.text, version: bridge()?.appVersion });
+
+  const onSubmit = () => {
+    if (!canSubmit) return;
+    submit.mutate({ title: trimmedTitle, body: body(), kind });
+  };
+
+  const copyReport = async () => {
+    const text = `${trimmedTitle}\n\n${body()}`;
+    const written = await bridge()
+      ?.clipboard.writeText({ text })
+      .catch(() => null);
+    if (!written?.ok) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <Modal open={open} onClose={close} title="Report an issue" size="md" testId="report-issue-dialog">
+    <Modal
+      open={open}
+      onClose={close}
+      scope="window"
+      title="Report an issue"
+      size="md"
+      testId="report-issue-dialog"
+    >
       <div className="flex flex-col gap-3 p-4">
         <h2 className="text-sm font-semibold">Report an issue</h2>
 
@@ -228,14 +283,10 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
               <LuCircleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               {cliHint(cliStatus)}
             </p>
-            <button
-              type="button"
-              onClick={() => openExternal(NEW_ISSUE_URL)}
-              className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent"
-            >
-              <LuExternalLink aria-hidden className="h-3.5 w-3.5" />
-              Open in browser instead
-            </button>
+            <p className="text-xs text-muted-foreground">
+              Continue on GitHub opens the issue form with all of this filled in, to submit from
+              your browser.
+            </p>
           </div>
         ) : null}
 
@@ -264,12 +315,35 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
         ) : null}
 
         {submitError ? (
-          <p role="alert" className="text-xs text-destructive">
-            {submitError}
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <p role="alert" className="text-xs text-destructive">
+              {submitError}
+            </p>
+            <button
+              type="button"
+              onClick={continueOnGitHub}
+              className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent"
+            >
+              <LuExternalLink aria-hidden className="h-3.5 w-3.5" />
+              Continue on GitHub instead
+            </button>
+          </div>
         ) : null}
 
         <div className="mt-1 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={!canContinueOnGitHub}
+            onClick={() => void copyReport()}
+            className="mr-auto inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {copied ? (
+              <LuCheck aria-hidden className="h-3.5 w-3.5" />
+            ) : (
+              <LuCopy aria-hidden className="h-3.5 w-3.5" />
+            )}
+            {copied ? 'Copied' : 'Copy report'}
+          </button>
           <button
             type="button"
             onClick={close}
@@ -277,6 +351,17 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
           >
             {result?.ok ? 'Close' : 'Cancel'}
           </button>
+          {showFallback ? (
+            <button
+              type="button"
+              disabled={!canContinueOnGitHub}
+              onClick={continueOnGitHub}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <LuExternalLink aria-hidden className="h-3.5 w-3.5" />
+              Continue on GitHub
+            </button>
+          ) : null}
           {!showFallback && !result?.ok ? (
             <button
               type="button"
@@ -298,6 +383,13 @@ export function ReportIssueDialog({ open, onClose }: ReportIssueDialogProps) {
       </div>
     </Modal>
   );
+}
+
+/** The app-wide instance, opened by `app.reportIssue` from the Help menu or the palette. */
+export function ReportIssueHost() {
+  const open = useUiStore((s) => s.reportIssueOpen);
+  const close = useUiStore((s) => s.setReportIssueOpen);
+  return <ReportIssueDialog open={open} onClose={() => close(false)} />;
 }
 
 /** `gh`'s own hint when it has one; a generic sentence per unready reason otherwise. */

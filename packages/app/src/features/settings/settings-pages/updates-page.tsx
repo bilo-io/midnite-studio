@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LuDownload } from 'react-icons/lu';
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { Choice, Field } from './controls';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { useUiStore } from '../../../store/ui-store';
@@ -53,7 +53,7 @@ export function UpdatesPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="App Updates" icon={<LuDownload className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="App Updates" icon={<LuDownload className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="updates-auto-check"
@@ -77,7 +77,9 @@ export function UpdatesPage() {
           <Field
             label="Status & Installation"
             hint={
-              updateState.phase === 'checking'
+              updateState.managedBy === 'midnite-apps'
+                ? 'Updates are managed by Midnite Apps. Check for Updates opens it.'
+                : updateState.phase === 'checking'
                 ? 'Checking for updates...'
                 : updateState.phase === 'available'
                   ? `Update version ${updateState.version} is available.`
@@ -122,6 +124,12 @@ export function UpdatesPage() {
                 )}
               </div>
 
+              {updateState.offerLauncher && (
+                <div className="mt-2 rounded bg-muted/40 p-2 text-xs text-muted-foreground">
+                  Midnite Apps keeps every midnite app up to date in one place. Until it is installed, Studio updates itself.
+                </div>
+              )}
+
               {updateState.manualInstall && updateState.phase === 'available' && (
                 <div className="mt-2 flex flex-col gap-1 rounded bg-muted/40 p-2 text-xs">
                   <span className="text-muted-foreground">This build isn't signed, so it can't update itself. Install manually:</span>
@@ -133,7 +141,7 @@ export function UpdatesPage() {
             </div>
           </Field>
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

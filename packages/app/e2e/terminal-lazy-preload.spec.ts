@@ -34,17 +34,27 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
 /** `Ctrl+\`` on every platform — macOS reserves Cmd+\` for window cycling. */
 const toggleTerminal = (page: Page) => page.keyboard.press('Control+`');
 
-/** Requests whose URL names the terminal-view module, however it is chunked. */
+/**
+ * Requests whose URL names the terminal-view module, however it is chunked: `/terminal-view.tsx` from
+ * the dev server, `/terminal-view-<hash>.js` from a build. Anchored on the path separator so the
+ * statically imported `lazy-terminal-view.tsx` wrapper never counts as a fetch of the chunk itself.
+ */
 const terminalViewRequests = (page: Page) =>
   page.evaluate(
     () =>
       performance
         .getEntriesByType('resource')
         .map((e) => e.name)
-        .filter((name) => /terminal-view/.test(name)),
+        .filter((name) => /\/terminal-view[.-]/.test(name)),
   );
 
 async function open(page: Page): Promise<void> {
+  /*
+    Chrome keeps only 250 resource-timing entries by default, and the dev server serves every source
+    module (the shared barrel included) as its own request — so once startup crosses 250 modules the
+    terminal chunk silently falls off the end and the probe reads 0. Raise the cap before anything loads.
+  */
+  await page.addInitScript(() => performance.setResourceTimingBufferSize(10_000));
   await installMockBridge(page, { ...fixtures } as MockFixtures);
   await page.goto('/');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();

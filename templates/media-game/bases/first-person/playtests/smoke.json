@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "description": "Walk forward for three seconds: the player moves down the arena.",
+  "replay": {
+    "version": 1,
+    "seed": 1,
+    "frames": 180,
+    "events": [
+      {"f": 0, "action": "forward", "down": true}
+    ]
+  },
+  "asserts": [
+    {"frame": 180, "kind": "state", "path": "$.scene", "op": "eq", "value": "level"},
+    {"frame": 180, "kind": "state", "path": "$.player.position[2]", "op": "lt", "value": 4}
+  ]
+}

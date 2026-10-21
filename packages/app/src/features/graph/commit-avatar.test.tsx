@@ -1,8 +1,8 @@
 import type { AgentDefinition, CommitProvenance } from '@midnite/studio-shared';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render } from '../../../test-support/studio-render';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { CommitAvatar } from './commit-avatar';
+import { CommitAvatar } from '@midnite/studio-frame/graph';
 
 /**
  * The agent glyph's size and position on the graph node — vitest/jsdom, not

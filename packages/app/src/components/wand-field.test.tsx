@@ -7,7 +7,8 @@ import { WandField } from './wand-field';
 
 const improveFieldFn = vi.fn();
 
-vi.mock('../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ ai: { improveField: improveFieldFn } }),
   hasBridge: () => true,
 }));
@@ -90,7 +91,9 @@ describe('WandField', () => {
     renderField('typing…');
 
     fireEvent.click(screen.getByRole('button', { name: 'Rewrite body with AI' }));
-    await waitFor(() => expect(screen.getByLabelText('body').getAttribute('readonly')).not.toBeNull());
+    await waitFor(() =>
+      expect(screen.getByLabelText('body').getAttribute('readonly')).not.toBeNull(),
+    );
 
     fireEvent.keyDown(screen.getByLabelText('body'), { key: 'Escape' });
     expect(screen.getByLabelText('body').getAttribute('readonly')).toBeNull();

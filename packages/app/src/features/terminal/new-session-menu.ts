@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
+import type { AgentDefinition, AgentProbeState, AgentStatus } from '@midnite/studio-shared';
 
 import type { IconComponent } from '../../components/icon-button';
 import { resolveAgentIcon } from '../../components/icons';
@@ -38,6 +38,12 @@ export const PROPRIETARY_IDS = new Set(['claude', 'agy', 'codex', 'cursor', 'cop
 export type AgentRow = {
   agent: AgentDefinition;
   icon: IconComponent;
+  /**
+   * The shared install probe has not answered yet and this agent has no
+   * status: the row is live (never greyed) but says "checking…" — "unknown"
+   * must not read as "installed" nor as "missing".
+   */
+  checking: boolean;
   /**
    * Accent only while the row is live — see `installReason`'s neighbour
    * below. A greyed-out item painted in a full brand colour reads as
@@ -80,6 +86,8 @@ export type BuildAgentSectionsInput = {
    * working agent is greyed out.
    */
   status: AgentStatus[];
+  /** Where the shared probe stands; omit when it is not known. */
+  probe?: AgentProbeState;
   /** Whether a worktree is selected; without one there is nowhere to open. */
   hasWorktree: boolean;
 };
@@ -96,6 +104,7 @@ export type BuildAgentSectionsInput = {
 export function buildAgentSections({
   agents,
   status,
+  probe,
   hasWorktree,
 }: BuildAgentSectionsInput): AgentSection[] {
   const toRow = (agent: AgentDefinition): AgentRow => {
@@ -108,6 +117,8 @@ export function buildAgentSections({
     return {
       agent,
       icon: resolveAgentIcon(agent),
+      checking:
+        hasWorktree && probe === 'checking' && !status.some((s) => s.id === agent.id),
       iconStyle: dead ? undefined : { color: agent.accent },
       disabled,
       unconfigured,

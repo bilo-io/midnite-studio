@@ -36,6 +36,13 @@
  * factory's dynamic import does, so mutations one makes (a constructed
  * terminal pushing itself onto `fakeXtermInstances`) are visible through the
  * other (also verified empirically).
+ *
+ * **Not covered here: the API Client's code field.** Studio's
+ * (`compose/api-client/api-client-code-field.tsx`) calls the real
+ * `getMonaco()` at module scope, so any test mounting `ApiClientView` loads
+ * Monaco for real unless it also `vi.mock('./api-client-code-field', …)`s — and the
+ * unhandled rejection that follows is reported against whichever other test
+ * file happens to be running. See `README.md` trap 6.
  */
 
 // --- Monaco (@monaco-editor/react + lib/monaco/monaco-loader) --------------

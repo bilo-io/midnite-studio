@@ -3,6 +3,22 @@
 Every panel was a hard-coded Tailwind width, every icon a Unicode glyph, nothing persisted,
 and the sidebar listed only worktrees. This phase makes the app feel deliberate.
 
+## Headlines
+
+**Theme A — Foundations.** ✅ lucide, motion keyframes, applyMotion, Tooltip, IconButton, cascade
+
+**Theme B — Resizable panels + persisted layout.** ✅ use-resizable + ResizeHandle, persisted ui-store, four resizable panes
+
+**Theme C — Sidebar.** ✅ TreeSection, per-repo collapsible Local/Remotes/Tags/Worktrees, icon overhaul
+
+**Theme D — Lockable nav rail.** ✅ lockable nav rail (navMode persisted, pin in the brand slot)
+
+**Theme E — Title bar.** ✅ theme toggle + sync cluster in the title bar, three dead CommandIds wired
+
+**Theme F — Graph table.** ✅ graph column headers, resizable columns, multi-select branch filter
+
+**Theme G — Motion.** ✅ cascading fade-in, view cross-fade, once-per-stream graph fade
+
 ## Deliverables
 
 ### A — Foundations

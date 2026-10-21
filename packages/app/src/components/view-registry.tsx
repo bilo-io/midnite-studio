@@ -1,6 +1,22 @@
 import { lazy, type ComponentType } from 'react';
 
-import { GraphView } from '../features/graph/graph-view';
+import { apiClientViews } from '@midnite/studio-feature-api-client/renderer';
+import { chatsViews } from '@midnite/studio-feature-chats/renderer';
+import { databaseViews } from '@midnite/studio-feature-database/renderer';
+import { forgeViews } from '@midnite/studio-feature-forge/renderer';
+import { sessionsViews } from '@midnite/studio-feature-sessions/renderer';
+import { testsViews } from '@midnite/studio-feature-tests/renderer';
+import { tasksViews } from '@midnite/studio-feature-tasks/renderer';
+import { councilsViews } from '@midnite/studio-feature-councils/renderer';
+import { workflowsViews } from '@midnite/studio-feature-workflows/renderer';
+import { modelsViews } from '@midnite/studio-feature-models/renderer';
+import { notesViews } from '@midnite/studio-feature-notes/renderer';
+import { monitorManifest, monitorViews } from '@midnite/studio-feature-monitor/renderer';
+import { optimizerManifest, optimizerViews } from '@midnite/studio-feature-optimizer/renderer';
+import { vaultManifest, vaultViews } from '@midnite/studio-feature-vault/renderer';
+import { captureManifest, captureViews } from '@midnite/studio-feature-capture/renderer';
+
+import { GraphView } from '@midnite/studio-frame/graph';
 import type { ViewId } from '../store/ui-store';
 
 /*
@@ -40,45 +56,48 @@ const loadSettingsView = () => import('../features/settings/settings-view');
 const SettingsView = lazy(() => loadSettingsView().then((m) => ({ default: m.SettingsView })));
 const loadLandingView = () => import('../features/landing/landing-view');
 const LandingView = lazy(() => loadLandingView().then((m) => ({ default: m.LandingView })));
-const loadCouncilsView = () => import('../features/councils/councils-view');
-const CouncilsView = lazy(() => loadCouncilsView().then((m) => ({ default: m.CouncilsView })));
-const loadWorkflowsView = () => import('../features/workflows/workflows-view');
-const WorkflowsView = lazy(() => loadWorkflowsView().then((m) => ({ default: m.WorkflowsView })));
-const loadVideoView = () => import('../features/video/video-view');
-const VideoView = lazy(() => loadVideoView().then((m) => ({ default: m.VideoView })));
-const loadModelsView = () => import('../features/models/models-view');
-const ModelsView = lazy(() => loadModelsView().then((m) => ({ default: m.ModelsView })));
-const loadDatabaseView = () => import('../features/database/database-view');
-const DatabaseView = lazy(() => loadDatabaseView().then((m) => ({ default: m.DatabaseView })));
+const loadCouncilsView = () => councilsViews.councils();
+const CouncilsView = lazy(() => loadCouncilsView().then((Component) => ({ default: Component })));
+const loadWorkflowsView = () => workflowsViews.workflows();
+const WorkflowsView = lazy(() => loadWorkflowsView().then((Component) => ({ default: Component })));
+const loadMediaView = () => import('../features/media/media-view');
+const MediaView = lazy(() => loadMediaView().then((m) => ({ default: m.MediaView })));
+const loadModelsView = () => modelsViews.models();
+const ModelsView = lazy(() => loadModelsView().then((Component) => ({ default: Component })));
+const loadDatabaseView = () => databaseViews.database();
+const DatabaseView = lazy(() => loadDatabaseView().then((Component) => ({ default: Component })));
 const loadDashboardView = () => import('../features/dashboard/dashboard-view');
 const DashboardView = lazy(() => loadDashboardView().then((m) => ({ default: m.DashboardView })));
 const loadFilesView = () => import('../features/files/files-view');
 const FilesView = lazy(() => loadFilesView().then((m) => ({ default: m.FilesView })));
 const loadSearchView = () => import('../features/search/search-view');
 const SearchView = lazy(() => loadSearchView().then((m) => ({ default: m.SearchView })));
-const loadWorkbench = () => import('../features/workbench/workbench');
-const Workbench = lazy(() => loadWorkbench().then((m) => ({ default: m.Workbench })));
-const loadActionsView = () => import('../features/actions/actions-view');
-const ActionsView = lazy(() => loadActionsView().then((m) => ({ default: m.ActionsView })));
-const loadTestsView = () => import('../features/tests/tests-view');
-const TestsView = lazy(() => loadTestsView().then((m) => ({ default: m.TestsView })));
-const loadReviewsView = () => import('../features/reviews/reviews-view');
-const ReviewsView = lazy(() => loadReviewsView().then((m) => ({ default: m.ReviewsView })));
-const loadIssuesView = () => import('../features/issues/issues-view');
-const IssuesView = lazy(() => loadIssuesView().then((m) => ({ default: m.IssuesView })));
-const loadProjectsView = () => import('../features/projects/projects-view');
-const ProjectsView = lazy(() => loadProjectsView().then((m) => ({ default: m.ProjectsView })));
+const loadActionsView = () => forgeViews.actions();
+const ActionsView = lazy(() => loadActionsView().then((Component) => ({ default: Component })));
+const loadTestsView = () => testsViews.tests();
+const TestsView = lazy(() => loadTestsView().then((Component) => ({ default: Component })));
+const loadReviewsView = () => forgeViews.reviews();
+const ReviewsView = lazy(() => loadReviewsView().then((Component) => ({ default: Component })));
+const loadTasksView = () => tasksViews.tasks();
+const TasksView = lazy(() => loadTasksView().then((Component) => ({ default: Component })));
 const loadHistoryView = () => import('../features/history/history-view');
 const HistoryView = lazy(() => loadHistoryView().then((m) => ({ default: m.HistoryView })));
-const loadOptimizerPage = () => import('../features/optimizer/optimizer-page');
-const OptimizerPage = lazy(() => loadOptimizerPage().then((m) => ({ default: m.OptimizerPage })));
-const loadSessionsView = () => import('../features/sessions/sessions-view');
-const SessionsView = lazy(() => loadSessionsView().then((m) => ({ default: m.SessionsView })));
-const loadApiClientView = () => import('../features/api-client/api-client-view');
-const ApiClientView = lazy(() => loadApiClientView().then((m) => ({ default: m.ApiClientView })));
-const loadNotesView = () => import('../features/notes/notes-view');
-const NotesView = lazy(() => loadNotesView().then((m) => ({ default: m.NotesView })));
-const loadKnowledgeView = () => import('../features/knowledge/knowledge-view');
+// Phase 113 Theme C — the first view composed from a feature package rather
+// than imported from `features/`: the package hands over a loader, so the view
+// keeps its own lazy chunk exactly as before.
+const OptimizerPage = lazy(() => optimizerViews.optimizer().then((Component) => ({ default: Component })));
+const MonitorPage = lazy(() => monitorViews.monitor().then((Component) => ({ default: Component })));
+const VaultPage = lazy(() => vaultViews.vault().then((Component) => ({ default: Component })));
+const CapturePage = lazy(() => captureViews.capture().then((Component) => ({ default: Component })));
+const loadSessionsView = () => sessionsViews.sessions();
+const SessionsView = lazy(() => loadSessionsView().then((Component) => ({ default: Component })));
+const loadApiClientView = () => apiClientViews.apiClient();
+const ApiClientView = lazy(() => loadApiClientView().then((Component) => ({ default: Component })));
+const loadNotesView = () => notesViews.notes();
+const NotesView = lazy(() => loadNotesView().then((Component) => ({ default: Component })));
+const loadChatsView = () => chatsViews.chats();
+const ChatsView = lazy(() => loadChatsView().then((Component) => ({ default: Component })));
+const loadKnowledgeView = () => import('@midnite/studio-frame/knowledge');
 const KnowledgeView = lazy(() =>
   loadKnowledgeView().then((m) => ({ default: m.KnowledgeView })),
 );
@@ -157,6 +176,9 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // would be a poor first impression right beside Dashboard's own. The
   // placeholder view renders its own "no repo open" empty state for that case.
   notes: { Component: NotesView, global: true },
+  // Global, like Notes and Sessions: chats are stored app-wide (each carries
+  // the repo it was started in), so the page must be reachable with no repo open.
+  chats: { Component: ChatsView, global: true },
   // Not global (Phase 87 Theme C, unlike Notes above): a knowledge graph is
   // read from `<repo>/graphify-out/graph.json`, so it is meaningless with no
   // repo open and yields to `EmptyWorkspace` exactly like Files or Graph.
@@ -168,7 +190,7 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   // checkout, so the view stays reachable with no repository selected.
   database: { Component: DatabaseView, global: true },
   // Virtualized table rows cascade via `useCascadeReveal` (Phase 84 Theme K.5).
-  projects: { Component: ProjectsView, cascade: true },
+  tasks: { Component: TasksView, cascade: true },
   // Both keep-alive-eligible (Phase 84 Theme G): the two views a watcher-
   // driven repo re-visits most, and the two whose own state (a streamed row
   // buffer and scroll position; open tabs and a diff scroll position) is
@@ -178,19 +200,18 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
     keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS, maxRows: GRAPH_KEEP_ALIVE_MAX_ROWS },
     cascade: true,
   },
-  // Kept-alive (Theme G), with StatusPanel file rows cascading on mount/reveal/repo-switch (Theme K.5).
-  changes: { Component: Workbench, keepAlive: { ttlMs: VIEW_KEEP_ALIVE_TTL_MS }, cascade: true },
   actions: { Component: ActionsView, cascade: true },
   reviews: { Component: ReviewsView, cascade: true },
-  issues: { Component: IssuesView, cascade: true },
   history: { Component: HistoryView },
   // Global, like Settings — a council is not scoped to a repo, so it renders
   // whether or not one is selected/open.
   councils: { Component: CouncilsView, global: true },
   // Global too (Phase 43) — a workflow is not scoped to a repo.
   workflows: { Component: WorkflowsView, global: true },
-  // Global too (Phase 44) — a video project is not a property of an open checkout.
-  video: { Component: VideoView, global: true },
+  // Global (Phase 99 Theme A, inheriting Phase 44's `video`): Docs, Images and
+  // Audio are repo-scoped and render their own "Open a repo" state, but Video
+  // resolves a global root, so the view must stay reachable with no repo open.
+  media: { Component: MediaView, global: true },
   // Global too (Phase 96 Theme C) — an Ollama daemon and its models are a
   // property of the machine, not of an open checkout.
   models: { Component: ModelsView, global: true },
@@ -209,7 +230,12 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
     dressed as fidelity to a stale list. `view-registry.test.ts` asserts the six,
     which is what makes any further widening a deliberate test change.
   */
-  optimizer: { Component: OptimizerPage, global: true },
+  // `global` comes from the feature's manifest (Phase 113 Theme C) — the
+  // package, not this table, now says whether its view needs a repo.
+  optimizer: { Component: OptimizerPage, global: optimizerManifest.views[0].global },
+  monitor: { Component: MonitorPage, global: monitorManifest.views[0].global },
+  vault: { Component: VaultPage, global: vaultManifest.views[0].global },
+  capture: { Component: CapturePage, global: captureManifest.views[0].global },
   // Not global: its collections live under `.midnite/api/` in an open repo, so
   // it yields to `EmptyWorkspace` exactly like Files or Graph.
   apiClient: { Component: ApiClientView },

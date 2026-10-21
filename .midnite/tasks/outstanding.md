@@ -2,6 +2,20 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **The first mic press on a fresh install times out behind the model download.** Found in the
+  2026-10-10 ad hoc mic-permission fix. `whisper-local`'s `transcribe` awaits `ensureModel` (the
+  one-time ~100 MB download) inside `transcribeUtterance`'s 15 s deadline. `raceAbort` only wraps
+  the recognizer and the decode. So a first press during the download blocks until the download
+  finishes (41 s, measured), then reports "took longer than 15 seconds … try a shorter
+  utterance". The download itself succeeds, and the next press works. The fix is to answer at
+  once when the model isn't on disk: "still downloading, try again in a minute". That breaks
+  `sherpa-local.test.ts`'s deliberate "downloads, extracts, and transcribes on a cold first call"
+  case, so it needs its own decision.
+
+- **Phase 101 Theme H leftovers.** (1) ~~Editor does not listen to `onChanged`/`onOpen`~~ — done in Theme E: `use-song-document` applies each event as one undo step and `audio-tab` opens the requested song on the Editor tab. (2) `music_render_preview` returns the piano-roll PNG only; the optional short WAV clip from an open renderer needs Theme C's engine. (3) A registered Antigravity reaches the app's global MCP server, which does not scope a call to one song, unlike the private per-run server Claude and Codex get.
+- **Phase 101 Theme G leftovers.** `music_get_notes`, `music_add_notes` and `music_remove_notes` work on a track's raw notes and know nothing about clips: an agent sees the source notes, not what a clip plays, and cannot create or edit clips or the drum grid's steps/swing. Clip-aware tools (`music_get_clips`, `music_add_clip`, expanded reads) are not built. The drum grid also edits one bar at a time and has no copy-bar action.
+- **GM percussion samples.** The GM sample sets are now mirrored (resolved, see Phase 101 Theme D). Still open: upstream publishes no FluidR3 percussion set, so the channel-10 drum kit is synthesised — sampled drums would need a different GM set.
+
 - **Linux and Windows support.** macOS (arm64) is the only officially supported platform for now
   (README, *Supported platform*). The consequences are recorded rather than removed, so
   un-deferring is a revert of one commit and not an archaeology exercise: every default CI gate
@@ -134,6 +148,11 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   `KNOWN_ORPHANS` on the same reasoning as its four siblings and would move into the same Loops
   accordion, as a per-loop switch mirroring the tab bar's, whenever that accordion is built.
 
+  Two more joined it ad hoc, on the same reasoning: `loopModifierSkills` (each composer option's
+  skill field — loopId → modifierId → skill) and `loopRunOptions` (the composer's Users filter,
+  auto-rotate slider and "Loop" repeat switch, folded in from PR #870). Both have their real
+  control in the loop composer itself, and belong in the same Loops accordion when it is built.
+
 - **Five more persisted preferences with no settings page — `editor*`.** Landed by
   [Phase 64](phases/phase-64-offline-monaco-and-themes.md) (`#164`, merged onto `main` while Phase
   63 was in flight): `editorFontFamily`, `editorFontSize`, `editorMinimap`, `editorTabSize`,
@@ -151,6 +170,11 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   reasoning `loopEnabled` sits in `KNOWN_ORPHANS` for (its control is the FAB tab bar, not a
   settings page). Nothing about a pill bar wants a settings-page mirror; this entry exists only so
   `persisted-keys.test.ts`'s exhaustiveness check has somewhere to point a reader.
+
+- ~~**Two persisted companion preferences waiting for their page — `companionProfiles` and
+  `companionActiveProfile`.**~~ ✅ Closed by [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+  Theme G: Settings ▸ Companion ▸ Profiles (`companion-profiles-section.tsx`) reads and writes both,
+  and they left `persisted-keys.ts`'s `KNOWN_ORPHANS` together.
 
 - **Interactive rebase** — via a `GIT_SEQUENCE_EDITOR` helper binary that writes the UI's todo
   list; `GIT_EDITOR` for reword. Impossible with libgit2/isomorphic-git; CLI-only trick.
@@ -266,6 +290,20 @@ it. `McpToolEntry.readOnly` widened from the literal `true` to `boolean` to carr
 So the open question is narrower than it was, not answered: **whether the same switch-plus-tier
 shape is sufficient consent for a write that touches the repository**, where "one keystroke undoes
 it" stops being true.
+
+**Companion settings are settled as switch + tier + an in-app confirm the call waits for
+([Phase 109](phases/phase-109-companion-settings-by-voice.md) Theme D, Decisions 3 and 13).**
+`companion_settings_get`, `companion_settings_set` and `companion_voices_list` sit behind one
+default-off `Settings ▸ MCP ▸ Let agents change companion settings` switch (`allowCompanionSettings`)
+that gates the reads too, because About me is personal. The tier check runs in the renderer
+(`settings-apply.ts`, the same setter the companion's voice and the Settings page use): a `direct`
+change applies at once, a `never` key is refused, and a `confirm` key asks the user in the app — the
+companion's Run/Cancel chip and a spoken question when it is on, `confirm-dialog.tsx` when it is not —
+while the MCP call waits up to 30 s for `approved`, `declined` or `timeout`. Nothing applies after the
+deadline; a late "yes" hears "Too late — ask your agent again." Every change from an agent takes the
+one-step undo slot. **That answer is for this family only.** It works because every companion setting
+is small, visible and reversible in one step; it says nothing yet about repository writes, where the
+question above stays open.
 
 > **Note on Theme F's own last checklist item, which cannot be executed as written.** It asks that
 > *"`docs/INITIAL_PLAN.md`'s MCP section … gain one paragraph"* and that *"`outstanding.md`'s note
@@ -514,3 +552,233 @@ the corresponding entry from `KNOWN_PRE_EXISTING`.
   four views in whatever state its capability matrix declares — and a live `gh auth switch`
   round-trip observed from a terminal beside the app. No fixture substitutes for either; none of
   the four adapters has been exercised against a real non-GitHub account since Phase 90 began.
+
+- **Remove the deprecated `midnite-studio` CLI alias.** The CLI was renamed to `midnite`; the old command stays
+  installed as a forwarding alias (`resources/bin/midnite-studio`, `LEGACY_CLI_NAME` in `main/cli-path.ts`) for
+  one release — drop it in the release after the one that ships the rename: the wrapper, its `extraResources`
+  coverage in `verify-dist.mjs`/`afterpack.cjs`, the alias leg of `cli-handlers.ts`, and the completion registrations.
+
+- **Chats: live per-edit approval for Claude Code.** Edits are reviewed after a turn, from a snapshot. `--permission-prompt-tool` on a tool of the MCP server (`main/mcp/`) would surface each Edit/Write as an approvable card mid-turn. Not built; the snapshot route is engine-agnostic and already keeps the working tree untouched. Also deferred: searching message bodies in the explorer (it searches title, last message and repo), and bulk delete.
+
+## Phase 105 · Theme G — foliage assets from the Models library
+
+- **"Add from Models…" per foliage class.** Theme G landed the five built-in designs and per-class
+  toggles over them, but not the picker over `media.model.library.list` that would store a Models
+  library path in `spec.foliage.assets`. The build already accepts such an id and falls back to the
+  built-in defaults with a warning (`resolveFoliageAssets` in `desktop/src/main/media/terrain/build-pipeline.ts`),
+  and the viewer falls back to `bush` geometry for an unknown id. What is missing is loading a library
+  model's geometry at build time and in the viewer (`terrain-layers.tsx`), and the picker itself in the
+  panel's Foliage section (`terrain-feature-sections.tsx`).
+
+- ~~**Phase 106 Theme B — `transparent` stops at the adapter seam.**~~ Resolved by Theme D:
+  `ImageGenerateRequestSchema` carries `transparent` (and `references`), and `image-service.ts` passes
+  both to the adapter. The Images tab still has no toggle for either — add one only if someone asks.
+
+## Phase 106 · Theme D — hand-drawn, deferred pieces
+
+- ~~**Mirrored west frames are unflipped pixels with `flipped: true`.**~~ Resolved by Theme G: the previewer,
+  strip and packer compose `flipped` (about the anchor column) and a 1-direction side sheet exports `e` + `w`.
+  A raw `frames/<clip>/w/` folder still faces east — the flag is the truth.
+- ~~**Per-frame re-roll and delete live in G's frame strip.**~~ Resolved by Theme G (`patchFrames` ops).
+- **The consistency check scores the raw candidate, before the B pass** (so only the best attempt is
+  normalised and written). If the keyed/normalised frame turns out to score differently, move the check
+  after `submitFrame` and re-submit the winner.
+- **The "Check consistency" hint is static.** The form names the suggested Ollama vision model rather
+  than probing which are installed; a missing model shows up as the job's "Consistency not checked: …"
+  note and `unchecked` badges.
+- **The turnaround is stored as returned, chroma background included**, and sent as the reference that
+  way. Keying it before storing would make the card prettier; it has not mattered to the providers.
+- **`nearestAspect` lives in `shared/src/sprite/pose-tables.ts`.** Theme F's one-shot sizing should
+  import it rather than add a second one.
+
+## Phase 106 · Themes E + F — deferred pieces
+
+- **A rendered job needs the window it was sent to.** Closing or reloading the main window mid-render
+  leaves the job waiting on frames that never come until it is cancelled; the 10 s timeout only covers
+  the acknowledgement. A heartbeat (or failing the job on the window's `render-process-gone`/reload)
+  would end it on its own.
+- **Textures load asynchronously in the render host.** An imported mesh's baked texture (`assetTexture`)
+  may still be decoding when the first frames are drawn, so early frames can render untextured; await
+  the image before the first pose if it shows up in practice.
+- ~~**Rendered frame counts are rewritten into `sprite.json`, but stale frame files are not removed.**~~
+  Resolved by Theme G: a finished job prunes frames past `clip.frames` (and of removed clips), and the
+  previewer, strip and packer ignore them regardless.
+- **One-shot rows with fewer frames than columns are trusted to be empty past the clip's length.** Cells
+  beyond `clip.frames` are not sliced or checked for stray art.
+- **The `grid` badge measures the detected span, not the figure.** A cell whose column or row span is
+  > 20 % off the median is flagged; a figure that is small inside a normal span is caught by B's `height`
+  badge instead.
+
+## Phase 106 · Theme G — deferred pieces
+
+- **Only sheets pack.** `exportSprite` answers _"<Kind> export is not available yet."_ for tilesets,
+  backgrounds, prop sheets and maps; Themes H, I and J add their folders (`.tileset/`, `.background/`,
+  `.map/`) to it.
+- **No packing options in the UI.** Export uses 2048 / padding 2 / extrude 1 / POT; `SpriteExportRequest.pack`
+  takes the others (MCP can pass them in Theme K).
+- **The frame trash empties when the next generation starts**, not when the asset is closed (main has no
+  notion of an open asset). An undo past a regeneration answers "not in the trash any more".
+- **Rendered re-rolls render the whole clip** and keep only the named frames; the render is deterministic,
+  so it only matters once render settings change between runs.
+- **No Phaser-in-the-loop check of the atlas yet.** The schemas are written from Phaser's JSONHash and
+  MultiAtlas parsers; Theme L's `phaser-smoke.spec.ts` loads a real pack.
+
+## Phase 107 · Themes G + K — deferred pieces
+
+- **Genre cells are not creatable yet.** `GAME_GENRES_AVAILABLE` in `shared/src/media-game-templates.ts` is empty; Themes H-J add `templates/media-game/genres/<genre>/` and list each genre there. Until then every genre cell in the gallery reads "Not available yet", and `compose.test.ts` loops over only the six bases (it picks up genre ids as they become available).
+- **`game-starters.spec.ts` (real Chromium) for the six bases and for `rts@isometric` / `rpg@first-person`** moves to Theme Q. The bases were verified by hand in SwiftShader Chromium; a committed spec needs Q's e2e budget raise.
+- **Gallery thumbnails are glyphs, not PNGs.** The plan's `templates/media-game/thumbnails/<id>.png` plus a `gamesThumbnail` channel was not built; revisit once the genres have something worth a picture.
+- ~~**`playtests/smoke.json` is a provisional shape**~~ — resolved by Theme O: every base and genre smoke file is a `GamePlaytestSchema` play-test now.
+## Phase 104 · Theme A — mesh core and storage
+
+- **The scene triangle cap still applies to sculpt parts.** `buildScene` stops at
+  `MODEL_MAX_SCENE_TRIANGLES` (400k) for every part, imported or sculpted, so a ~1M-vertex sculpt is
+  dropped from exports, previews and the editor's ordinary scene. Theme D's sculpt mode draws from the
+  worker's own `BufferGeometry` (`sculpt-display.ts`) and does not need it, but the exporters and
+  previews do: raise or exempt the cap for `sculpt` parts when Theme F's decimate lands, so a dense
+  sculpt exports at its decimated resolution rather than not at all.
+- **Embedded `.glb` storage was not built.** The phase allowed `<stem>.mesh.bin` *or* an embedded
+  `.glb`; only `.mesh.bin` exists. Revisit only if Theme F/G's textures want to live in one file.
+- **The worker's `displace` request is a placeholder.** It pushes vertices along their normals with a
+  smoothstep falloff so the load → edit → delta → save path is real and tested; Theme D's brush set
+  replaces it.
+
+## Phase 107 · Theme O — deferred pieces
+
+- **`game-playtest.spec.ts` (real Chromium) moves to Theme Q**, with the per-starter smoke e2e from G-J and the `MAX_DECLARED_E2E` raise. Every starter passed its migrated `smoke.json` twice, with identical end states, in SwiftShader Chromium through an untracked harness that drives `main/games/playtest.ts` against a Playwright page.
+- **Replays carry actions only.** Mouse-look deltas and pointer positions are not recorded, so a three.js camera turned with the mouse replays as un-turned; a replay of an aim needs an action (or a later `look` event kind).
+- **`new Date()` with no arguments is not virtualised**, only `Date.now()`; `setTimeout`/`setInterval` still run on wall time. Game logic that schedules with timers rather than the kit loop is not deterministic.
+- **The RTS smoke assertion is weak on isometric**: `$.camera.x > 300` holds at the start there (the camera starts at 520), because one smoke file serves both perspectives and the ops have no "changed since frame N". A `changed`/`increasedFrom` op, or per-perspective smoke files, would fix it.
+- **The toolbar has no Record control**; recording is `game_replay_record` over MCP. A 1× `game_replay_play` needs the view visible (a hidden view's animation frames are throttled).
+- **Baselines are per machine.** A frame baseline captured at one device scale (or GPU) differs on another; the diff refuses a size mismatch as fully changed rather than rescaling.
+
+## Phase 107 · Theme J — deferred pieces
+
+- **The per-genre e2e smoke run is not committed**, as for H and I: `game-starters.spec.ts` and `gamesPlaytest` arrive with Themes O and Q (the `rpg@first-person` gallery e2e from Theme K waits there too). All five J starters passed their provisional `playtests/smoke.json` (`$.rpg`, `$.action`, `$.openWorld`) in SwiftShader Chromium through an untracked harness; the replay's custom actions (`choice-1`, `heavy`, `launch`) are Theme O's to formalise.
+- **Placeholder bodies only**, as in I: NPCs, wolves, enemies, pedestrians and traffic are primitives; nothing drives `kit/three/animator.js` clips yet (Theme N).
+- **RPG scope trimmed to a starter:** one village on the base arena, two quests, three NPCs; no party, save/load of the quest log, shops beyond one cap, or NPC pathing on the navmesh (they walk straight to their scheduled spot). The bag is listed, not shown as a grid.
+- **Character action:** one ground string, one air string and a launcher; no weapon switching, taunts, dodge-offset or enemy guard. Enemies are boxes with simple wind-ups, and only the wave count, not the arena, varies.
+- **Open world:** traffic and pedestrians are kinematic and drawn on the road graph, not Rapier bodies, so a collision is a proximity check (it raises the wanted level and knocks the pedestrian down) rather than physics; police drive along the roads then straight at you, with no roadblocks, helicopters or line-of-sight occlusion. Day/night drives the sun and sky only (no street or head lights). The fixture pack drops LOD 0, so close chunks show LOD 1.
+- **`kit/three/terrain.js` projects the drape onto UV-less chunks in the kit.** Phase 105's pack export writes chunk glbs without UVs (only the single-glb export carries them); writing UVs into the pack's chunks would let the kit drop that projection.
+
+## Phase 107 · Theme I — deferred pieces
+
+- **The per-genre e2e smoke run is not committed**, as for H: `game-starters.spec.ts` and `gamesPlaytest` arrive with Themes O and Q. Shooter, fighter and soulslike were driven by hand in SwiftShader Chromium; each ships a provisional `playtests/smoke.json` (`$.shooter`, `$.fighter`, `$.souls`) for Theme O to migrate.
+- **Placeholder bodies only.** Fighters are posed primitives, enemies and the boss are capsules, and the third-person avatar is a stand-in; none read `assets/` or drive `kit/three/animator.js` clips yet — that is the asset bridge's (Theme N).
+- **Fighter scope trimmed to a starter:** one shared move list for both fighters, no throws, wall splats, rage or character select; the CPU has one difficulty in the starter (`normal`; `easy`/`hard` exist in `cpu.js`). The versus camera keeps Theme F's framing constants rather than the doc's `1.2 × separation`.
+- **Shooter AI is cover-lite:** enemies hold, advance and break line of sight when hurt, with no flanking, squads or suppression; the pistol/launcher swap and ammo pickups are reviewed, not driven by a test. Aim-down-sights is not implemented.
+- **Soulslike has one bonfire and one boss**; no estus, souls currency, parry or backstab. Hollows chase in straight lines rather than on the navmesh.
+
+## Phase 107 · Theme H — deferred pieces
+
+- **The per-genre e2e smoke run is not committed.** `game-starters.spec.ts` and `gamesPlaytest` do not exist yet (Themes O and Q). The four 2D genres were booted in real Chromium by hand, and each ships a provisional `playtests/smoke.json` (genre state is under `$.rts`, `$.arpg`, `$.crime`, `$.fps`) for Theme O to migrate.
+- **Placeholder art only.** Units, enemies, cars and pickups are coloured shapes; the genre modules read no `assets/` yet, so they await the asset bridge.
+- **Levels are Tiled-shaped but built in code** (`fps/levels.js`, `crime/city.js`), not loaded from a `.tmj`. Swapping in a Maps-tab export uses the same `tiledObjects` calls.
+- **RTS has no building construction**, only unit production and gathering; the ARPG has no tooltips or drag-and-drop inventory (digit keys equip). Locked-door and rocket paths in the FPS are reviewed, not driven by a test.
+
+## Phase 104 · Theme B — primitives to mesh
+
+- **No mesh smoothing or feature preservation on conversion.** Surface nets rounds hard edges and
+  corners by up to about a voxel; a box converted at low detail comes back with softened edges. Dual
+  contouring (already deferred in Theme C's notes) or a sharp-edge snap pass would keep them.
+- **Rigged designs are skinned by nearest bone after conversion.** The new part is one dense mesh with
+  no bone binding of its own; explicit `rig.bind` entries on the hidden primitives are not carried
+  over. Theme F's weight transfer is the proper answer.
+- **Conversion is synchronous in main for MCP.** `model_convert_to_mesh` runs the remesh on main's
+  thread (bounded by the 16M-node grid cap and the 1M-vertex target ceiling). A very fine request can
+  stall main for seconds; moving it to a utility process is only worth doing if that is observed.
+- **Vertex groups are stored but not yet shown or editable.** They are read back by nothing in the
+  editor beyond the Mesh tab's list; Theme G's paint layers and material assignment are the consumer.
+
+## Phase 104 · Theme C — SDF modelling
+
+- ~~**Theme D must end the SDF history.**~~ Done in Theme D: the first `sculptEdit` on a part drops its `sdf`.
+- **Superseded SDF bakes are not cleaned up.** Every bake writes its own content-named
+  `<stem>.<part>.<hash8>.mesh.bin` (plus op log) so undo stays safe; files no saved design references
+  pile up beside the model. Sweep unreferenced `.mesh.bin` files on save (or on model close).
+- **Pruning uses one Lipschitz bound for the whole tree.** An eccentric ellipsoid or a strong
+  `displace` raises it for every block, thickening the evaluated shell (a 256³ head + displaced
+  ellipsoid evaluates ~50 % of its nodes; a plain sphere < 30 %). Per-node bounds, or interval
+  arithmetic per block, would prune each region by its own bound.
+- **MCP bakes run synchronously in main**, like Theme B's conversion (~1.8 s at 256³). Move to a utility
+  process only if it is observed to stall the app.
+- **`model_sdf_set` needs an existing design.** The mesh file has to live in the design's folder, which
+  `createModel` decides; the tool asks the agent to start one with `model_set_spec` first.
+- **Only blend sliders preview live.** Typed fields bake at full resolution on commit; a drag-to-scrub
+  number field would extend the 40³ preview to every parameter.
+
+## Phase 104 · Theme D — sculpt mode and brushes
+
+- **The multires stack is session-only.** `.mesh.bin` records one level (`multiresLevel`), so after a
+  reload only that level exists and stepping below it is impossible. Persisting the levels (or their
+  details) beside the mesh would keep them across sessions.
+- **No Catmull-Clark.** `.mesh.bin` is triangles only (conversion and SDF bakes produce triangles), so
+  multires is Loop subdivision; Catmull-Clark needs a quad representation first (Theme F's retopology).
+- **Undo across reloads is not built.** The op log records every stroke (brush, radius, strength,
+  symmetry, dabs, vertices moved, max displacement) but not the inverse data, so undo reaches back only
+  to where the mesh was opened; older content-named files stay on disk for the spec history that names them.
+- **Detail is stored in mesh space, not a tangent frame.** A large change at a low level moves high-level
+  detail with it but does not re-orient it.
+- **Masks are session-only** and not written to `.mesh.bin`; Theme G's paint layers are the natural home.
+- **Export and previews use the last flushed mesh** while sculpt mode is open; Done sculpting or Save
+  first. Switching to another model with unflushed strokes discards them, like any unsaved edit.
+- **Topology undo snapshots the whole multires stack**, which at ~1M vertices is tens of MB per step;
+  the 100-record history cap bounds it, but a byte budget would be tighter.
+- **The 250k / 1M-vertex stroke-latency bench is Theme I's.** Strokes were exercised at ~20k vertices
+  in the screenshot run; no packaged-app number is recorded yet.
+
+## The title-bar agent picker has no Ollama row (Phase 111 Theme F)
+Ollama is not in `BUILTIN_AGENTS`, so `PrimaryAgentPickerPanel` lists no Ollama agent row to select. Voice and MCP can already set it (`agent-switch.ts` synthesises an Ollama agent), and the model section lists Ollama's pulled models once it is primary, but the pill itself cannot get you there. Fix: add a synthesised Ollama row to the picker, gated on the daemon.
+
+## Trading from Money (Phase 113 Theme P)
+
+Midnite Money is read-only by design: brokerage and exchange accounts show balances, positions,
+allocation and performance, and nothing places, amends or cancels an order. Trading is deferred,
+not forgotten — it needs its own decision on order confirmation (a blast-radius-style confirm with
+the order's notional and fees), per-connector write scopes held in the vault separately from the
+read-only keys, and what an agent may ever do there (the default should be: nothing).
+
+## The shared data plane with Studio closed (Phase 113 Verification V5)
+
+V5 holds while Studio runs: Studio hosts the one vault and broker, so a login is seen by every paired
+app and its terminals are reachable by broker guests. With Studio closed there is no host. Agents
+then fails plainly on agent nodes, and Coder's vault reads find nothing to connect to. Closing this
+needs the runtime host to live in the launcher (or a runtime daemon it starts), which is Theme F/H
+territory — the launcher is not yet published.
+
+## Suite apps render no toasts (Phase 113 Theme O)
+
+The frame's `useToastStore` has no renderer in any suite app, so a feature that reports through it is
+silent outside Studio. Coder's Tasks tab works around it with its frame dialog store. The fix is one
+toast host in the frame's app shell, mounted by every app.
+
+## A load-sensitive media-map test (2026-10-17)
+
+`feature-media-map` `capture-service.test.ts` ("satellite and roads") timed out at vitest's 5 s
+default on CI and passed on rerun. It wants a look at what the capture waits on, not a longer
+timeout. (The two chats races and the liveness wait seen the same day were fixed in
+[PR #899](https://github.com/bilo-io/midnite-studio/pull/899).)
+
+## Suite apps install no CSP on their windows (Phase 113)
+
+Studio installs a Content-Security-Policy on its default session (`installCsp` in
+`desktop/src/main/index.ts`); Coder, Agents, Browser and the other suite apps load their own
+`index.html` with none. Each window is sandboxed, context-isolated and behind `guardAppWindow`, so
+this is defence in depth, not an open hole — but it should be one runtime helper every app calls,
+held by a test like `app-window-guard`'s.
+
+## Browser's agent session is a placeholder (Phase 113 Theme L)
+
+`apps/browser`'s agent-session strip records a goal, logs a simulated Step and ends on Take Over.
+Driving tabs for real needs a main-side agent and a tool contract over the browser feature's views.
+
+## The Library's own player, and what LAN streaming left out (Phase 113 Theme R)
+
+LAN streaming, transcoding and playlists landed in [PR #909](https://github.com/bilo-io/midnite-studio/pull/909). Still open:
+- The Library plays through its own `<video>`/`<audio>` player rather than the audio feature's. That store is bound to project files, so sharing one needs a frame-level player port first.
+- No QR code for the share link (no QR library in the workspace), no seeking in a transcoded stream, and no UI field for the server's port (default 47620).
+
+## Capture's manual hardware checks (Phase 113 Theme K)
+
+Slice 2 landed in [PR #908](https://github.com/bilo-io/midnite-studio/pull/908). Left for a person on real hardware: the Screen Recording permission flow on the packaged app, and the desktop overlay (one window over the display under the pointer — no per-display overlay yet).
+

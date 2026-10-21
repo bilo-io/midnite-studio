@@ -71,6 +71,22 @@ purpose: its `CodePreview` rework is the line structure that Theme C's *scroll t
 Theme E's find bar both consume, and building either against today's single-blob preview would be
 work thrown away. Everything else in D can follow C.
 
+## Headlines
+
+*A grep across all four packages for `blame`, `pickaxe`, `log -S` and `--follow` returns zero matches: `buildLogArgs` takes `limit`, `all` and `revisions` and nothing else, and the graph's two "filters" re-stream by ref or merely dim by author — neither can find what is not already on screen. A builds the searches git has, B generalises `log-service.ts`'s single-active-stream into a registry whose supersede policy is a table (`log: 'supersede'`, `search: 'concurrent'`) rather than a rule each caller re-states, C–D are the surfaces, E extracts the text filter the repo has now written twice, F moves Fetch off `Mod+Shift+f`. **Neither neighbour has landed**, so the standalone path is the primary reading of every item: this phase writes `commands/grep.ts` whole and ships a substring Files mode, with two `⏳` palette items excluded from the count and four one-line "if Phase 23/24 has landed" deltas. Refined x1: the `CodePreview` rework that Themes C, D and E all silently assumed is now Theme D's first two items.* **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
+
+**Theme A — Search in the engine.** ✅ `commands/{search,grep,blame}.ts` + `parsers/{grep,blame}-parser.ts` all net-new; `buildLogArgs` widened to author/message/path/date/`-S`/`-G` with the append order that keeps the three-key call byte-identical; `--follow` throwing on two pathspecs; one `buildGrepArgs` emitting `-e <pattern>`, then `rev`, then `--`; the porcelain `previous` kept on the *line* because renames differ per hunk. (landed 2026-08-28)
+
+**Theme B — The stream registry, and the search contract.** ✅ `stream-registry.ts` lifted out of `log-service.ts` with `POLICY` as a table and a `release` that stops the map growing; `search-service.ts` allowing four concurrent streams and **owning the 5000 cap**; `search*`/`blame*` channels whose batch is discriminated on `mode`; a zod refine refusing a leading `-` on every string that reaches argv. (landed 2026-08-28)
+
+**Theme C — The Search view.** ✅ a `'search'` rail view with Commits/Content/Files modes, the repo's first **measured** virtualizer over an append-only row array, a results/preview split, four named empty/loading/error states, a visible truncation row, and a footer readout while a stream is live (landed 2026-08-28); the readout gained click-to-navigate and a stop button, `use-search.ts` was fixed to cancel the previous request before starting the next, and `e2e/search-view.spec.ts` now covers every mode, cancellation, truncation and the error state (landed 2026-09-07).
+
+**Theme D — Blame.** ✅ `CodePreview` rewritten from one `codeToHtml` blob into per-line `data-line` rows from `codeToTokens()`, which is what C's scroll-to-line and E's find bar need; a blame gutter as a sibling grid column so alignment is structural; `-C -M`; reblame with an unpersisted per-file stack. (landed 2026-08-30)
+
+**Theme E — Inline entry points, and the filter input the repo keeps rewriting.** ✅ `components/filter-input.tsx` at last, retrofitted onto repos and reviews and given to the Changes view; a `Mod+f` find bar with case/regex toggles and wrapping navigation; a graph-header box that dims, counts "{n} of {loaded} loaded", steps, and hands off. (landed 2026-08-30)
+
+**Theme F — Chords, the palette source, and Settings.** ✅ Fetch to `Mod+Shift+r` (lowercase, like every chord in the keymap), `search.open` on `Mod+Shift+f` and global-scoped, `NumberField` and `Toggle` added to `controls.tsx`, and a Search settings page. (landed 2026-08-30)
+
 ## Deliverables
 
 ### A — Search in the engine (L)

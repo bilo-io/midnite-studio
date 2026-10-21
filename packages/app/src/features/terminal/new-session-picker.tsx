@@ -6,6 +6,7 @@ import { LuPlus, LuSearch, LuTerminal } from 'react-icons/lu';
 import type { IconComponent } from '../../components/icon-button';
 import { Popover } from '../../components/popover';
 import { fuzzyMatch } from '../../services/palette/fuzzy-match';
+import { useAgents } from './use-agents';
 import { buildAgentSections, NO_WORKTREE, type AgentRow, type AgentSection } from './new-session-menu';
 
 export type NewSessionPickerProps = {
@@ -145,6 +146,8 @@ function PickerPanel({
   onNewAgent: (agent: AgentDefinition) => void;
   onConfigure: (agent: AgentDefinition) => void;
 }) {
+  // The shared store's state, not a prop: the picker never probes, it only reads.
+  const { probe } = useAgents();
   const [query, setQuery] = useState('');
   const [highlighted, setHighlighted] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -156,8 +159,8 @@ function PickerPanel({
   }, []);
 
   const sections = useMemo(
-    () => buildAgentSections({ agents, status, hasWorktree }),
-    [agents, status, hasWorktree],
+    () => buildAgentSections({ agents, status, probe, hasWorktree }),
+    [agents, status, probe, hasWorktree],
   );
 
   /**
@@ -278,6 +281,7 @@ function PickerPanel({
                     label={row.agent.label}
                     icon={row.icon}
                     iconStyle={row.iconStyle}
+                    checking={row.checking}
                     selected={highlighted === rowIndex}
                     disabled={row.disabled}
                     unconfigured={row.unconfigured}
@@ -299,6 +303,7 @@ function PickerRow({
   label,
   icon: Icon,
   iconStyle,
+  checking,
   selected,
   disabled,
   unconfigured,
@@ -309,6 +314,7 @@ function PickerRow({
   label: string;
   icon: IconComponent;
   iconStyle?: CSSProperties;
+  checking?: boolean;
   selected: boolean;
   /** Truly inert — no worktree. Native `disabled`, unclickable. */
   disabled: boolean;
@@ -346,6 +352,9 @@ function PickerRow({
     >
       <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" style={iconStyle} />
       <span className="truncate">{label}</span>
+      {checking ? (
+        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">checking…</span>
+      ) : null}
     </button>
   );
 }

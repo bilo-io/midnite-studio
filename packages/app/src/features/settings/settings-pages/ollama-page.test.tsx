@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useModelsPullQueueStore } from '../../models/models-pull-queue-store';
+import { useModelsPullQueueStore } from '@midnite/studio-feature-models/renderer';
 import { OllamaSettingsPage } from './ollama-page';
 
 const mocks = vi.hoisted(() => ({

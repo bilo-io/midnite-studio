@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "runtimeVersion": "0.1.0",
+  "apps": [
+    {
+      "id": "studio",
+      "version": "0.1.0",
+      "bundleUrl": "https://github.com/bilo-io/midnite-apps/releases/download/midnite-studio/v0.1.0/midnite-studio-0.1.0-arm64.zip",
+      "size": 214958080,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "minimumRuntimeVersion": "0.1.0",
+      "releasedAt": "2026-10-14T09:00:00Z",
+      "notesUrl": "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-studio/v0.1.0"
+    }
+  ]
+}

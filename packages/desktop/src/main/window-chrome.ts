@@ -3,6 +3,7 @@ import { BrowserWindow } from 'electron';
 import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { defaultLogger } from './log';
+import { isScreenLocked } from './lock-state';
 import { handleBareFromSender, handleSendFromSender } from './ipc/handle';
 
 /**
@@ -115,6 +116,9 @@ export function registerWindowChrome(): void {
     schemas.WindowReloadRequest,
     (hard, win) => {
       if (!win || win.isDestroyed()) return;
+      // Phase 91 Theme D: a reload rehydrates the renderer's lock overlay to "unlocked", so a
+      // locked screen refuses it. (Mod+R reaches here through the renderer's own dispatcher.)
+      if (isScreenLocked()) return;
       if (hard === true) win.webContents.reloadIgnoringCache();
       else win.webContents.reload();
     },

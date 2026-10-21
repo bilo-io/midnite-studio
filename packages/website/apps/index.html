@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- No-flash: apply a stored/system theme before first paint. Mirrors src/theme.ts's applyTheme(). -->
+    <script>(function(){try{var t=localStorage.getItem('midnite-studio.website.theme'),d=document.documentElement;t==='light'||t==='dark'?d.setAttribute('data-theme',t):matchMedia('(prefers-color-scheme: light)').matches&&d.classList.add('ws-auto-light')}catch(e){}})();</script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../favicon.png" />
+    <link rel="apple-touch-icon" href="../favicon.png" />
+    <!--
+      The brand face, preloaded. It is above the fold on both pages (the nav
+      wordmark), and it is discovered only once the CSS has parsed and matched a
+      `font-brand` element — a chain of three round trips for a 34 KB file, on
+      the one word the page opens with. `crossorigin` is not optional even
+      same-origin: a font request is CORS-mode, and a preload whose mode differs
+      from the real request is a second download rather than a warm cache.
+
+      The `href` is the source path, which Vite rewrites to the fingerprinted
+      emitted asset (and prefixes with `base`) — the same file `site.css`'s
+      `@font-face` resolves to, not a second copy.
+    -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/src/fonts/damion/Damion-latin.woff2"
+    />
+    <title>The midnite apps · Midnite Apps</title>
+    <meta
+      name="description"
+      content="Thirteen desktop apps for code, agents, games, media, money and more, installed and opened from one launcher. macOS on Apple silicon."
+    />
+    <meta name="theme-color" content="#0d0d14" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Midnite Apps" />
+    <meta property="og:url" content="%SITE_ORIGIN%/apps/" />
+    <meta property="og:title" content="The midnite apps" />
+    <meta
+      property="og:description"
+      content="Coder, Agents, Gamer, Creator, Media, Money, Mind and more, from one launcher."
+    />
+    <meta property="og:image" content="%SITE_ORIGIN%/img/og/midnite-apps.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Midnite Apps: the midnite moon in Studio's blue to pink gradient beside the wordmark, above a row of every midnite app's logo." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="The midnite apps" />
+    <meta name="twitter:description" content="Coder, Agents, Gamer, Creator, Media, Money, Mind and more, from one launcher." />
+    <meta name="twitter:image" content="%SITE_ORIGIN%/img/og/midnite-apps.png" />
+    <meta name="twitter:image:alt" content="Midnite Apps: the midnite moon in Studio's blue to pink gradient beside the wordmark, above a row of every midnite app's logo." />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

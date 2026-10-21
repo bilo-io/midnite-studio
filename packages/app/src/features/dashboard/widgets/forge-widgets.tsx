@@ -1,9 +1,21 @@
 import { useMemo } from 'react';
 
-import type { ForgeIssue, ForgePull, ForgeRun } from '@midnite/studio-shared';
+import type { Forge, ForgeIssue, ForgePull, ForgeRun } from '@midnite/studio-shared';
 
+import { GoIssueClosed, GoIssueOpened } from 'react-icons/go';
+
+import { ForgeRefLink } from '../../../components/forge-ref-link';
+import { Tooltip } from '../../../components/tooltip';
+import { UserAvatar } from '../../../components/user-avatar';
 import { openLinkFromEvent } from '../../../services/open-in-midnite';
-import { checksStatus, pullStatus, runStatus, StatusPill } from '../../forge/forge-status';
+import {
+  PROVIDER_BRAND_COLOR,
+  PROVIDER_HOST,
+  PROVIDER_ICON,
+  PROVIDER_LABEL,
+} from '../../settings/settings-pages/forge-providers';
+import { getActionItemStyle } from '@midnite/studio-feature-forge/renderer';
+import { checksStatus, pullStatus, runStatus, StatusPill } from '@midnite/studio-feature-forge/renderer';
 import { WidgetState } from '../widget-frame';
 
 /**
@@ -57,10 +69,18 @@ export function PullsWidget({
   result,
   isFetching,
   repoId,
+  forge = null,
 }: {
-  result: { cli: { reason: string; hint: string }; pulls: ForgePull[]; error: string | null } | undefined;
+  result:
+    { cli: { reason: string; hint: string }; pulls: ForgePull[]; error: string | null } | undefined;
   isFetching: boolean;
   repoId: string;
+  /**
+   * The forge these pulls were listed from. A listing is per repository, so
+   * every row shares the repo's forge remote — already on the wire as
+   * `Remote.forge`, which is why no per-pull provider field exists.
+   */
+  forge?: Forge | null;
 }) {
   const state = forgeEmptyState({ result, isFetching, empty: 'No open pull requests.' });
   const pulls = result?.pulls ?? [];
@@ -81,8 +101,15 @@ export function PullsWidget({
             }
             title={pull.title}
             openLabel={`Open pull request #${pull.number}`}
+            leading={<ForgeMark forge={forge} />}
             meta={<PullMeta pull={pull} />}
-            subtitle={`#${pull.number} · ${pull.headBranch}${pull.author ? ` · ${pull.author}` : ''}`}
+            subtitle={
+              <>
+                <ForgeRefLink url={pull.url} number={pull.number} repoId={repoId} /> ·{' '}
+                {pull.headBranch}
+                <AuthorBit login={pull.author} />
+              </>
+            }
           />
         ))}
       </ul>
@@ -135,6 +162,7 @@ export function IssuesWidget({
             }
             title={issue.title}
             openLabel={`Open issue #${issue.number}`}
+            leading={<IssueMark state={issue.state} />}
             meta={
               <span className="flex shrink-0 items-center gap-1">
                 {issue.labels.slice(0, 3).map((label) => (
@@ -159,7 +187,12 @@ export function IssuesWidget({
                 ))}
               </span>
             }
-            subtitle={`#${issue.number}${issue.author ? ` · ${issue.author}` : ''}`}
+            subtitle={
+              <>
+                <ForgeRefLink url={issue.url} number={issue.number} repoId={repoId} />
+                <AuthorBit login={issue.author} />
+              </>
+            }
           />
         ))}
       </ul>
@@ -172,7 +205,8 @@ export function RunsWidget({
   isFetching,
   repoId,
 }: {
-  result: { cli: { reason: string; hint: string }; runs: ForgeRun[]; error: string | null } | undefined;
+  result:
+    { cli: { reason: string; hint: string }; runs: ForgeRun[]; error: string | null } | undefined;
   isFetching: boolean;
   repoId: string;
 }) {
@@ -213,20 +247,17 @@ export function RunsWidget({
             <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {name}
             </p>
-            <ul className="flex flex-col">
+            <ul className="mt-0.5 flex flex-col gap-1">
               {groupRuns.slice(0, 5).map((run) => (
-                <ForgeListRow
+                <RunListRow
                   key={run.id}
+                  run={run}
                   onOpen={(event) =>
                     openLinkFromEvent(run.url, event, {
                       originRepoId: repoId,
                       preferInAppRoute: true,
                     })
                   }
-                  title={run.headBranch ?? 'detached'}
-                  openLabel="Open run"
-                  meta={<StatusPill status={runStatus(run)} />}
-                  subtitle={new Date(run.createdAt).toLocaleString()}
                 />
               ))}
             </ul>
@@ -234,6 +265,109 @@ export function RunsWidget({
         ))}
       </div>
     </WidgetState>
+  );
+}
+
+/**
+/**
+ * A run row styled exactly like the Actions view's `RunRow`: `StatusPill`,
+ * plus `getActionItemStyle` for the tone text colour, glow and the
+ * running/queued row animation. No dashboard-specific run styling.
+ */
+export function RunListRow({
+  run,
+  onOpen,
+}: {
+  run: ForgeRun;
+  onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  const status = runStatus(run);
+  const style = getActionItemStyle(status);
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label="Open run"
+        className={`flex w-full min-w-0 items-start gap-1.5 border-l-2 border-transparent px-1.5 py-1 text-left transition-colors hover:bg-accent/20 ${style.rowClass}`}
+      >
+        <span className="min-w-0 flex-1">
+          <span className={`block truncate text-xs font-medium ${style.textClass} ${style.glowClass}`}>
+            {run.headBranch ?? 'detached'}
+          </span>
+          <span className={`block truncate text-[10px] ${style.subtextClass} ${style.glowClass}`}>
+            {new Date(run.createdAt).toLocaleString()}
+          </span>
+        </span>
+        <StatusPill status={status} />
+      </button>
+    </li>
+  );
+}
+
+/**
+ * The forge a row came from, as its brand mark with a tooltip naming it. The
+ * host is appended only when it is not the provider's public one — a
+ * self-hosted instance is the case where "GitHub" alone is ambiguous.
+ * A plain `span` rather than a focusable trigger: the whole row is already a
+ * button, and nesting a second interactive element inside it is invalid.
+ */
+export function ForgeMark({ forge }: { forge: Forge | null }) {
+  if (!forge || forge.kind === 'unknown') return null;
+  const Icon = PROVIDER_ICON[forge.kind];
+  const name = PROVIDER_LABEL[forge.kind];
+  const label = forge.host === PROVIDER_HOST[forge.kind] ? name : `${name} · ${forge.host}`;
+  return (
+    <Tooltip label={label}>
+      <span
+        role="img"
+        aria-label={label}
+        data-forge={forge.kind}
+        className="forge-provider-option mt-0.5 flex shrink-0"
+        style={
+          {
+            '--brand-light': PROVIDER_BRAND_COLOR[forge.kind].light,
+            '--brand-dark': PROVIDER_BRAND_COLOR[forge.kind].dark,
+            color: 'var(--forge-brand)',
+          } as React.CSSProperties
+        }
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** GitHub's own open (green) / closed (violet) issue glyphs, as the sidebar section uses. */
+export function IssueMark({ state }: { state: ForgeIssue['state'] }) {
+  const Icon = state === 'closed' ? GoIssueClosed : GoIssueOpened;
+  return (
+    <span
+      role="img"
+      aria-label={state === 'closed' ? 'Closed issue' : 'Open issue'}
+      data-issue-state={state}
+      className={`mt-0.5 flex shrink-0 ${
+        state === 'closed'
+          ? 'text-violet-500 dark:text-violet-400'
+          : 'text-emerald-500 dark:text-emerald-400'
+      }`}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
+/** ` · <avatar> login`, or nothing when the forge gave no author. */
+function AuthorBit({ login }: { login: string | null }) {
+  if (!login) return null;
+  return (
+    <>
+      {' · '}
+      <span className="inline-flex items-center gap-1 align-middle">
+        <UserAvatar login={login} size={12} withTooltip />
+        {login}
+      </span>
+    </>
   );
 }
 
@@ -253,13 +387,16 @@ function ForgeListRow({
   openLabel,
   title,
   subtitle,
+  leading,
   meta,
 }: {
   /** Reads the click's modifiers, so the shared Mod/Alt grammar reaches these rows too. */
   onOpen: (event: React.MouseEvent<HTMLButtonElement>) => void;
   openLabel: string;
   title: string;
-  subtitle: string;
+  subtitle: React.ReactNode;
+  /** Optional mark before the title — the pulls tile's forge icon. */
+  leading?: React.ReactNode;
   meta?: React.ReactNode;
 }) {
   return (
@@ -270,6 +407,7 @@ function ForgeListRow({
         aria-label={openLabel}
         className="flex w-full min-w-0 items-start gap-1.5 py-1 text-left transition-colors hover:bg-accent/30"
       >
+        {leading}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-xs">{title}</span>
           <span className="block truncate text-[10px] text-muted-foreground">{subtitle}</span>

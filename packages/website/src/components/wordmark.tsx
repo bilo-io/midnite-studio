@@ -44,12 +44,18 @@ export type WordmarkProps = {
    * the wordmark proper; `inherit` is the footer's exception.
    */
   tone?: WordmarkTone;
+  /**
+   * The second half: "Midnite **Studio**", "Midnite **Apps**", "Midnite
+   * **Coder**". Defaults to Studio so every existing caller reads as before.
+   */
+  product?: string;
   className?: string;
   'data-testid'?: string;
 };
 
 export const Wordmark = ({
   tone = 'rainbow',
+  product = 'Studio',
   className = '',
   'data-testid': testId,
 }: WordmarkProps) => (
@@ -100,7 +106,7 @@ export const Wordmark = ({
     <span
       className={`ml-[0.08em] font-medium ${tone === 'rainbow' ? 'text-fg-muted' : ''}`}
     >
-      Studio
+      {product}
     </span>
   </span>
 );

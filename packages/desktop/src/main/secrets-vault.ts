@@ -1,61 +1,41 @@
 import { join } from 'node:path';
 
+import { VAULT_NAMESPACES, type VaultClient } from '@midnite/studio-runtime';
 import type { SecretKey } from '@midnite/studio-shared';
 
-import {
-  createSecureJsonStore,
-  decryptSecret,
-  encryptSecret,
-  isSafeStorageAvailable,
-} from './secure-store';
-
-const FILE_NAME = 'secrets.vault.json';
-
-type VaultEntry = { encrypted: string };
+/**
+ * App-wide secrets (Phase 76 Theme D) — since Phase 113 Theme D a binding
+ * over the runtime vault's `secrets` namespace, made as whichever app holds
+ * the {@link VaultClient}. Same file, same entries, same behaviour: a `set`
+ * with no working keychain is dropped.
+ */
+const FILE_NAME = VAULT_NAMESPACES.secrets.fileName;
+const NS = 'secrets';
 
 export type SecretsVault = {
   isAvailable: () => boolean;
   get: (key: SecretKey) => Promise<string | null>;
   set: (key: SecretKey, value: string) => Promise<void>;
   delete: (key: SecretKey) => Promise<void>;
+  /**
+   * Free-named entries for main-only credentials (Phase 113 Theme P slice 2: a brokerage account's
+   * `finance.account.<connector>.<id>.<field>`). Not a `SecretKey`, so no channel can ask for one —
+   * `SecretsGetRequest` is an enum — and only main code holding this vault can.
+   */
+  getEntry: (name: string) => Promise<string | null>;
+  setEntry: (name: string, value: string) => Promise<void>;
+  deleteEntry: (name: string) => Promise<void>;
 };
 
-function parseVaultState(value: unknown): Record<string, VaultEntry> {
-  if (typeof value !== 'object' || value === null) return {};
-  const entries = (value as { entries?: unknown }).entries;
-  if (typeof entries !== 'object' || entries === null) return {};
-
-  const out: Record<string, VaultEntry> = {};
-  for (const [id, raw] of Object.entries(entries as Record<string, unknown>)) {
-    if (!id || typeof raw !== 'object' || raw === null) continue;
-    const row = raw as Record<string, unknown>;
-    if (typeof row['encrypted'] === 'string') {
-      out[id] = { encrypted: row['encrypted'] };
-    }
-  }
-  return out;
-}
-
-export function createSecretsVault(directory: string): SecretsVault {
-  const store = createSecureJsonStore<VaultEntry>(directory, FILE_NAME, parseVaultState);
-
+export function createSecretsVault(vault: VaultClient): SecretsVault {
   return {
-    isAvailable: isSafeStorageAvailable,
-
-    get: async (key) => {
-      const entry = await store.get(key);
-      if (!entry) return null;
-      return decryptSecret(entry.encrypted);
-    },
-
-    set: async (key, value) => {
-      if (!isSafeStorageAvailable()) return;
-      await store.set(key, { encrypted: encryptSecret(value) });
-    },
-
-    delete: async (key) => {
-      await store.delete(key);
-    },
+    isAvailable: () => vault.isAvailable(),
+    get: (key) => vault.get(NS, key),
+    set: (key, value) => vault.set(NS, key, value),
+    delete: (key) => vault.delete(NS, key),
+    getEntry: (name) => vault.get(NS, name),
+    setEntry: (name, value) => vault.set(NS, name, value),
+    deleteEntry: (name) => vault.delete(NS, name),
   };
 }
 
@@ -69,4 +49,7 @@ export const nullSecretsVault: SecretsVault = {
   get: async () => null,
   set: async () => {},
   delete: async () => {},
+  getEntry: async () => null,
+  setEntry: async () => {},
+  deleteEntry: async () => {},
 };

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // version-check: assert the lockstep invariant — the root package.json and every
-// packages/*/package.json share one MAJOR.MINOR (PATCH may differ per package).
+// packages/*/package.json and apps/*/package.json share one MAJOR.MINOR (PATCH may differ per package).
 // A hand-edit that breaks lockstep fails CI here with a clear, named message.
 //
 // Self-contained on purpose: no @midnite/* imports. It runs in `moon ci` before
@@ -9,7 +9,7 @@
 // packages/shared/src/version.ts; this script is just the repo-wide invariant
 // guard. Keep the two in agreement.
 //
-// The CLI wrapper (packages/desktop/resources/bin/midnite-studio) is
+// The CLI wrapper (packages/desktop/resources/bin/midnite) is
 // deliberately NOT in the file list below — Phase 53 Theme B made it *derive*
 // its version from the bundle it ships inside rather than adding a sixth
 // hand-written site for this script to remember to check.
@@ -115,28 +115,26 @@ export function checkLockstep(packages) {
   };
 }
 
-async function main() {
-  const packagesDir = path.join(repoRoot, 'packages');
-  const entries = await readdir(packagesDir, { withFileTypes: true });
-
-  const candidates = [
-    { pkgPath: path.join(repoRoot, 'package.json'), fallbackName: 'package.json (root)' },
-    ...entries
-      .filter((e) => e.isDirectory())
-      .map((e) => ({
-        pkgPath: path.join(packagesDir, e.name, 'package.json'),
-        fallbackName: `packages/${e.name}`,
-      })),
-  ];
-
-  /*
-    A `packages/*` directory with no package.json AT ALL is not a workspace
-    package and is not in lockstep with anything — `packages/website/` is
-    currently just an asset folder. A package.json that exists but has no
-    "version" is still a failure, which is why this filters on the file's
-    existence rather than on `readPackageVersion` coming back null: the two
-    cases are different, and only one of them is a mistake.
-  */
+/**
+ * Every versioned workspace package: the root, `packages/*` and (Phase 113 Theme E item 4)
+ * `apps/*` — the launcher and every suite app are lockstep with the runtime too.
+ *
+ * A directory with no package.json AT ALL is not a workspace package and is not in lockstep
+ * with anything (`packages/website/` was once just an asset folder); a package.json that exists
+ * but has no "version" is still a failure, which is why this filters on the file's existence
+ * rather than on `readPackageVersion` coming back null.
+ *
+ * @param {string} root
+ * @returns {Promise<PackageVersion[]>}
+ */
+export async function collectWorkspaceVersions(root) {
+  const candidates = [{ pkgPath: path.join(root, 'package.json'), fallbackName: 'package.json (root)' }];
+  for (const group of ['packages', 'apps']) {
+    const entries = await readdir(path.join(root, group), { withFileTypes: true }).catch(() => []);
+    for (const e of entries.filter((d) => d.isDirectory())) {
+      candidates.push({ pkgPath: path.join(root, group, e.name, 'package.json'), fallbackName: `${group}/${e.name}` });
+    }
+  }
   const present = await Promise.all(
     candidates.map((t) =>
       access(t.pkgPath).then(
@@ -145,11 +143,11 @@ async function main() {
       ),
     ),
   );
-  const targets = candidates.filter((_, i) => present[i]);
+  return Promise.all(candidates.filter((_, i) => present[i]).map((t) => readPackageVersion(t.pkgPath, t.fallbackName)));
+}
 
-  const packages = await Promise.all(
-    targets.map((t) => readPackageVersion(t.pkgPath, t.fallbackName)),
-  );
+async function main() {
+  const packages = await collectWorkspaceVersions(repoRoot);
 
   const result = checkLockstep(packages);
   if (result.ok) {

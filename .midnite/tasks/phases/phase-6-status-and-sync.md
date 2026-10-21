@@ -3,6 +3,10 @@
 Working-tree panel for the selected repo/worktree: staged/unstaged lists, stage/unstage/discard,
 commit, and VSCode-style sync (fetch/pull/push) with ahead/behind chips.
 
+## Headlines
+
+**Theme A.** ✅ stage/unstage/discard/commit, ahead-behind chips, fetch/pull/push (no force)
+
 ## Deliverables
 
 - [x] `git-engine/src/commands/{stage,commit,discard}.ts` — all through the write queue; `discard` uses explicit paths only (`checkout -- <paths>` / `clean -f <paths>`), never bare

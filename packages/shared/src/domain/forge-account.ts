@@ -87,6 +87,13 @@ export const ForgeAccountSchema = z.object({
   /** `https:`/`http:` only — validated where the account is built, not here;
    *  see `whoami.ts`'s `sanitizeAvatarUrl`. */
   avatarUrl: z.string().nullable(),
+  /**
+   * Best-effort, from the forge's own `whoami` (Phase 98 Theme F): only a
+   * *public* profile email comes back, so `null`/absent is the common case and
+   * the setup wizard falls back to git's own `user.email`. Absent on accounts
+   * stored before this field existed.
+   */
+  email: z.string().nullable().optional(),
   /** Epoch ms. */
   addedAt: z.number(),
   hasToken: z.boolean(),
@@ -112,6 +119,23 @@ export type ForgeAccountAddResult = z.infer<typeof ForgeAccountAddResultSchema>;
  */
 export function forgeAccountId(kind: ForgeKind, host: string, login: string): string {
   return `${kind}:${host}:${login}`;
+}
+
+/**
+ * {@link forgeAccountId}'s inverse, as the minimal record a vault entry name stands for: a
+ * token-backed account (`hasToken: true`) whose display fields are the login, until a `whoami`
+ * says more. `null` for a name that is not `kind:host:login` of a supported kind (a host has no
+ * colon). What the Vault app lists, and how a guest app adopts an account another app stored.
+ */
+export function forgeAccountFromVaultKey(key: string): ForgeAccount | null {
+  const first = key.indexOf(':');
+  const second = key.indexOf(':', first + 1);
+  if (first < 1 || second < 0) return null;
+  const kind = SupportedForgeKindSchema.safeParse(key.slice(0, first));
+  const host = key.slice(first + 1, second);
+  const login = key.slice(second + 1);
+  if (!kind.success || !host || !login) return null;
+  return { id: key, kind: kind.data, host, login, displayName: login, avatarUrl: null, addedAt: 0, hasToken: true, delegated: null };
 }
 
 /**

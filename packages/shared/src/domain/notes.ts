@@ -28,3 +28,11 @@ export const NoteSchema = z.object({
   order: z.number(),
 });
 export type Note = z.infer<typeof NoteSchema>;
+
+/**
+ * The one notebook Mind keeps (`notes/<id>.json` under Mind's data directory). Shared because the
+ * quick capture in Studio's main appends to it without importing Mind.
+ */
+export const MIND_NOTEBOOK_ID = 'mind';
+/** The local notebook a quick capture lands in when Mind is not installed. */
+export const INBOX_NOTEBOOK_ID = 'inbox';

@@ -90,6 +90,18 @@ land it whenever effort allows, but it consumes exactly what A/B produce (`chunk
 string), so building it last means testing a new engine against an already-fixed transform. D is
 fully independent of A/B/C and can land in any order.
 
+## Headlines
+
+*The companion reads SHAs, paths and URLs aloud, its digest summaries are one fixed sentence every time, `speechSynthesis` is the only engine it has ever had, and it answers to exactly one hardcoded name nobody can change. Plans a spoken-form redaction pass, category-and-count phrasing with randomised templates, a local free/low-RAM voice (`sherpa-onnx-node` + Piper), and an editable array of names as dismissable pills.*
+
+**Theme A — A spoken-form transform that never says a SHA.** ✅ A spoken-form transform that never says a SHA (PR #294)
+
+**Theme B — Aggregated, randomised digest phrasing.** ✅ Aggregated, randomised digest phrasing (PR #296)
+
+**Theme C — Replace `speechSynthesis` with a local, free, low-RAM voice.** ✅ Replace `speechSynthesis` with a local, free, low-RAM voice: `sherpa-onnx-node` running a Piper VITS voice (`en_US-joe-medium`, CC0), main-process-only, lazy fail-soft loaded like `node-pty`; automatic sticky fallback to `speechSynthesis`. (PR #297)
+
+**Theme D — The companion answers to more than one name.** ✅ The companion answers to more than one name (PR #295)
+
 ## Deliverables
 
 ### A — A spoken-form transform that never says a SHA (S) — ✅ DONE (PR #294, 2026-09-09)

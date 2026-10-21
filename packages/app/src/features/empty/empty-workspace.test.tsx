@@ -31,7 +31,7 @@ describe('EmptyWorkspace component', () => {
     expect(screen.getByText('Go to File')).toBeDefined();
     expect(screen.getByText('Toggle Terminal')).toBeDefined();
     expect(screen.getByText('Toggle Browser')).toBeDefined();
-    expect(screen.getByText('Git Graph')).toBeDefined();
+    expect(screen.getByText('Git Timeline')).toBeDefined();
     expect(screen.getByText('Search Everywhere')).toBeDefined();
   });
 

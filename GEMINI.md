@@ -12,6 +12,15 @@ carries the architecture, IPC contract, data model, and the verified research co
 **Progress tracker: [`.midnite/tasks/`](.midnite/tasks/)** — `_INDEX.md` is the phase table, `done.md` is the
 append-only landed log, `outstanding.md` is deliberately-deferred scope.
 
+**`_INDEX.md` is status only — scan its table, nothing else.** Its `## Phases` table (Status, Done,
+`🔄 WIP` and `◻ TODO` theme letters) is all a session needs to find what is TODO, in flight or
+done. Each phase's narrative — why it exists, what landed, per-theme notes — lives in the
+`## Headlines` section at the top of its own `phases/phase-N-*.md`, one short paragraph per theme
+(`**Theme A — <name>.** ✅ …`). Read a phase's Headlines only once that phase is picked; when a
+theme lands or a phase is refined, verified or created, write the narrative into that doc's
+Headlines paragraph and touch only the phase's *row* in `_INDEX.md`. The index was 438 KB before
+the move; keeping prose out of it is what keeps the first read of every session cheap.
+
 ## Keep `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` in sync
 
 This repo drives three coding agents — **Claude** (`CLAUDE.md`), **Codex** (`AGENTS.md`), and
@@ -87,7 +96,29 @@ export GITHUB_PACKAGES_TOKEN=$(gh auth token)
 shared ◀ git-engine ◀ desktop
 shared ◀ app
 shared ◀ desktop
+
+                 renderer side                                main side
+shared ◀ frame ◀ feature/renderer ◀ app          shared ◀ runtime ◀ feature/main ◀ desktop
 ```
+
+**The layer rule (Phase 113)** — the suite is built in layers, and eslint holds each to it
+(`eslint.config.mjs`, proven case by case in
+[`scripts/layer-boundaries.test.mjs`](scripts/layer-boundaries.test.mjs); the layers, the placement
+map and a guide to extracting the next feature are in [`docs/APPS.md`](docs/APPS.md)):
+
+- **An app** (`apps/<id>`) composes features + the frame + `shared`. It never imports another app.
+- **A feature** (`packages/features/<name>`) imports the frame + `shared`, never an app and never
+  another feature — features reach each other through the link router and `shared` ids.
+- **The frame** (`packages/frame`) never imports a feature.
+- **The runtime** (`packages/runtime`) is main-process only and imports no `electron`, `node-pty`
+  or `electron-updater` (the host injects what it needs); the launcher alone updates apps.
+- **The launcher** (`apps/launcher`) stays off the graph, as below.
+
+**Studio is the superset app, `apps/studio`** (`moon run studio:start`, `studio:bundle`,
+`studio:dist`): it declares every feature and the frame it composes, and `packages/app` (renderer) and
+`packages/desktop` (Electron main) are its internals — the tasks delegate to `desktop:start` /
+`desktop:bundle` / `desktop:dist`, which keep working. A new feature package must be listed in
+`apps/studio/src/composition.ts` (a test fails otherwise).
 
 - **`packages/shared`** — the wire contract. zod only; imports no other workspace package and
   never `electron`. Domain types, IPC channel constants, payload schemas, the preload bridge type.
@@ -104,6 +135,14 @@ shared ◀ desktop
   app, and an import across that line is what would make it impossible to move out of this repo
   later. See [`docs/WEBSITE.md`](docs/WEBSITE.md); it is served from the *public*
   `bilo-io/midnite-apps` repo's `gh-pages` branch, so **nothing on it may link to this one**.
+- **`apps/studio`** — Studio's composition (above); `apps/browser` is the first extracted suite app.
+- **`apps/launcher`** — Midnite Apps, the launcher that lists, installs and opens every midnite
+  app. **`apps/` holds installable products; `packages/` holds what they are built from.** It is
+  its own Electron app (main + preload bundled by esbuild, a Vite + React renderer) and, like the
+  website, off the graph: it reaches Studio only through `midnite-studio://` links and the public
+  midnite-apps feed, and takes `shared` one file at a time by source path
+  (`@midnite/studio-shared/studio-link`), never the barrel. Every tile resolves to Studio for now
+  — `midnite-studio://view?id=<ViewId>[&tab=<MediaTab>|&page=<SettingsPageId>]` lands it on that app's view.
 
 `eslint.config.mjs` encodes these as per-package `no-restricted-imports` groups with
 explanatory messages. If a boundary rule fires, the fix is an IPC channel, not an exception.
@@ -154,12 +193,16 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
   the repo now matches. **Every CI job that exercises platform behaviour runs on a `macos-*`
   runner** — `e2e`, `gate-native` and `gate-locale`. Phase 82 Themes E/H had put them on
-  `ubuntu-24.04` purely for the 1x billing rate. **That cost argument is obsolete, not overridden:
-  this repo is public** (`gh api repos/bilo-io/midnite-studio -q .visibility`), and standard
-  GitHub-hosted runners — macOS included — are free on a public repo, so the "10x" those comments
-  repeat is a private-repo figure. `ci.yml`'s header carries the citations; read every "10x"/"1x"
-  in that file as history.
-- **Billing is free on macOS; CONCURRENCY is the scarce thing, and it is capped at 5.** The
+  `ubuntu-24.04` purely for the 1x billing rate. **This repo is public**
+  (`gh api repos/bilo-io/midnite-studio -q .visibility` returns `public`; an earlier version of
+  this file said private, which was wrong), so standard GitHub-hosted runner minutes are free and
+  `ci.yml`'s "free on a public repo" comments are right. Cost was never the reason for the macOS
+  placement: platform behaviour is only validated on the platform. If the visibility ever
+  changes, re-check this paragraph and the billing note below. **When the Actions budget runs out**, every job fails in seconds with
+  "The job was not started because an Actions budget is preventing further use" — that is
+  billing, not a code failure, and a rerun will not help; the user decides whether to raise the
+  budget or merge on the local gate (`moon run :typecheck :lint :test`).
+- **CONCURRENCY is the other scarce thing, and it is capped at 5 macOS jobs.** The
   original sweep moved *every* default gate to macOS and tripled wall-clock — 13-14m to 21-42m —
   because it scheduled 15 macOS jobs per run against a hard cap of **5 concurrent macOS jobs**
   (measured: peak simultaneous `macos-14` jobs was exactly 5; in one run 13 of 16 macOS jobs were
@@ -196,6 +239,11 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   spec's own header comment. Unit tests must never assert wall-clock bounds
   (`expect(elapsed).toBeLessThan(...)`), which flakes under CI load. `scripts/e2e-budget.mjs`
   enforces the ratchet on declared e2e tests and visual baselines in CI.
+- **Screenshots are taken with the git repos side panel closed, like the terminal — unless the
+  shot is about that panel.** `installMockBridge` from `e2e/shots-helper.ts` seeds
+  `reposOpen: false` for every `*-shots.spec.ts` (merged into `midnite-studio.ui`, never
+  clobbering a spec's own seed); pass `{ reposOpen: true }` to opt a repos-panel shot back in.
+  Visual and functional specs are untouched, so baselines do not move.
 - **Perf claims come with a number, from `scripts/perf/`.** `startup-report.mjs` (cold-start
   marks, `--runs=5` for the median), `bundle-report.mjs` (entry chunk / total JS, read from
   Vite's `.vite/manifest.json`) and `idle-cpu.mjs` (percent of one core over a chosen window,
@@ -212,7 +260,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   one.** The pty broker (`desktop/src/broker/`) is spawned detached so terminals survive
   reloads, window closes and relaunches, which also means a `desktop:dist` + reinstall replaces
   the bundle under a running broker. Its socket name carries a build fingerprint
-  (`brokerSocketName` in `main/broker-client.ts`), so a new build starts its own broker and
+  (`brokerSocketName` in `runtime/src/broker/socket-name.ts`; the client every app attaches
+  with is the runtime's `broker/client.ts` since Phase 113 Theme D), so a new build starts its own broker and
   finds the previous one as a *legacy* peer whose sessions stay reachable until they end. The
   broker also watches its own script and node-pty's `spawn-helper` (`broker/staleness.ts`):
   when either changes on disk it answers `create` with `stale-broker` instead of node-pty's
@@ -250,9 +299,18 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   label is already on screen, so a bubble repeating it teaches nothing. The map names the command
   that navigates there *unconditionally*: `Mod+1` is shorter than `view.graph`'s `Mod+Shift+g` but
   becomes `browser.selectTab1` while the browser pane is open.
+- **The CLI and the MCP server are both named `midnite`; the old CLI name is a deprecated alias.**
+  The bundled command is `midnite` (`resources/bin/midnite`) and the MCP server registers as `midnite`
+  (`MCP_SERVER_NAME` in `shared/src/media-model-mcp.ts` — the shim's `Server` and every Claude
+  `mcp__midnite__*` allowlist or Codex `mcp_servers.midnite.*` key derive from it, so they cannot drift).
+  `midnite-studio` stays as a forwarding alias for one release (removal is tracked in
+  `outstanding.md`). The original midnite app ships its own `midnite` CLI, so the installer
+  (`runtime/src/cli/cli-installer.ts` since Phase 113 Theme D, bound by `main/ipc/cli-handlers.ts`; the MCP tool list is filtered per installed app by `shared/src/mcp-tool-owners.ts`) only replaces a `midnite` whose symlink resolves into this app's bundle;
+  a foreign one is left untouched, only the alias is installed, and the reason comes back in
+  `CliStatusResponse.notice`. The app name, the `midnite-studio://` protocol and release tags are unchanged.
 - **Public downloads and issues live in
   [`bilo-io/midnite-apps`](https://github.com/bilo-io/midnite-apps), not here.** This repo is
-  private, so nothing a user touches can be served from it — installers, release notes and the
+  public, but it is built for contributors, not users — installers, release notes and the
   bug tracker all sit in that repo, which does the same job for every midnite app at once. Two
   consequences bite. **Its release tags are namespaced** — `midnite-studio/v0.3.1`, never a bare
   `v0.3.1`, which would collide with a sibling app's — so `releases/latest` there means "the
@@ -263,19 +321,23 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `midnite-studio/version.json`; electron-updater reads `midnite-studio/feed/latest-mac.yml`.
   Both are written per release — see
   [`/midnite-release-complete`](.claude/skills/midnite-release-complete/SKILL.md) §4.
-- **The website serves its own verbatim copy of `install.sh`, and a guard keeps it honest.**
-  The download page tells visitors to curl `${SITE_ORIGIN}/install.sh`, not the raw GitHub URL:
-  the command a visitor pipes into a shell should name the host they are already looking at.
-  So `packages/website/public/install.sh` is a byte-for-byte copy of the upstream file — the
-  script's *own* URLs are untouched, it still resolves `midnite-studio/version.json` on the raw
-  host — and [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs the two
+- **The website serves one verbatim copy of `install-studio.sh`, and a guard keeps it honest.**
+  Access to Midnite is gated behind the site's "Get access" flow, so the site links to no
+  repository, release list or installer and no longer serves the launcher's `install.sh`. The one
+  script it still hosts, **unlinked**, is Studio's `install-studio.sh`, because the app's own
+  "Update Midnite Studio" action curls it (`MIDNITE_INSTALL_COMMAND`). `packages/website/public/install-studio.sh`
+  is a byte-for-byte copy of the upstream file, and
+  [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs the two
   (`moon run website:sync-install`, `-- --write` to re-sync). The check runs **post-merge** in
   `website.yml`, not as a PR gate: upstream can change with nothing merged here, so there is no
   pull request for a gate to block. It is deliberately not a vitest — a networked test fails on a
   plane and turns an upstream outage into a red repo-wide gate. `SITE_ORIGIN`
   (`packages/website/src/site-origin.ts`, from `WEBSITE_ORIGIN`) is `WEBSITE_BASE`'s sibling: it
-  exists for text a visitor *pastes into a terminal*, which `import.meta.env.BASE_URL` cannot
-  serve, and it is the site **root** — on the Pages target that includes the path prefix.
+  exists for absolute URLs read outside the page (the social-card meta tags), which
+  `import.meta.env.BASE_URL` cannot serve, and it is the site **root** — on the Pages target that
+  includes the path prefix. **Nothing on the website may link to, or print the name of, the
+  `bilo-io/midnite-apps` repo** — the early-access form's prefilled-issue URL is the one deliberate exception, and it
+  never shows the repo name.
 - **The two surfaces wear two near-identical brand faces, and that is deliberate.** The app's
   `--font-brand` is **Quick Kiss**, whose own name table reads `Quick Kiss Personal Use` / "All
   rights reserved" (Billy Argel; commercial and webfont licences are sold separately). The
@@ -327,39 +389,51 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   is wired by the same `core.hooksPath .githooks` as `pre-commit`, so the three commands
   above install both.
 
-- **A forge credential lives in `main/forge/forge-account-vault.ts`, never in renderer
-  `localStorage`.** Phase 90 Theme B gave the app its first logged-in identity — a GitHub, GitLab,
+- **A forge credential lives in `packages/features/forge/main/forge-account-vault.ts` (the forge
+  feature's main half since Phase 113 Theme O), never in renderer `localStorage`.** Phase 90 Theme B gave the app its first logged-in identity — a GitHub, GitLab,
   Bitbucket or Azure DevOps personal access token, encrypted behind Electron `safeStorage` and
-  keyed `${provider}:${host}:${login}`, the third binding over `main/secure-store.ts` beside
-  `db/credential-vault.ts` and `secrets-vault.ts` (Phase 76 Theme D). `ForgeAccountSchema`'s
+  keyed `${provider}:${host}:${login}`, the third binding beside
+  `features/database/main/credential-vault.ts` (Phase 113 Theme O) and `secrets-vault.ts` (Phase 76 Theme D) — since Phase 113 Theme D all
+  three bind namespaces of the runtime's one vault service (`runtime/src/vault/`, over the same files). `ForgeAccountSchema`'s
   `hasToken` is a boolean on the wire — the renderer is told a credential exists, never what it
   is. A GitHub account discovered from `gh auth status` holds no token at all (`delegated: 'gh'`):
   `gh` remains its credential, unchanged. The one plaintext forge-token slot this app ever had —
   `ui-store.ts`'s `agentApiKeys['github']` — is migrated into the vault on first run and removed
-  from the persisted blob; the five LLM keys beside it are untouched, and stay `agentApiKeys`'
-  problem, not this one's.
+  from the persisted blob; the LLM keys beside it moved into the vault too (Phase 113 Theme J — `agent.<id>.apiKey`,
+  write-only from the renderer, which now holds none).
 
 ## Sitrep — the standing format when the user asks for status
 
 **"sitrep"** (situation report) is a fixed request, not a free-form one. Whenever the user types it —
 or asks for a status update, a progress check, or "where are we" — answer with **one markdown table
-and nothing else above it**, one row per agent or workstream:
+and nothing else above it**, one row per agent or workstream.
+[`midnite-sitrep`](.agents/skills/midnite-sitrep/SKILL.md) is the full spec — it gathers the state and
+renders the table:
 
-| Agent | % | ETA | Doing | Notes |
-|-------|---|-----|-------|-------|
-| refine-73 | 45% | ~40m | Stage 3 audit — grounding `confineTree` against the tree | posted the final `confineAllowlist` signature to the board |
+| Task | Author | Progress | ETA | Diff | Status | Notes |
+|---|---|---|---|---|---|---|
+| [refine-73 · #612](https://github.com/bilo-io/midnite-studio/pull/612) | @bilo-io | `███████░░░` 70% | ~40m | 🟩 +210 🟥 -35 📄 6 | 🟡 CI 4/9 · ⛓ #609 | posted `confineAllowlist` to the board |
 
 - **One row per agent**, identified by the thing it owns (phase number, PR, task) — never by an
-  internal agent id.
-- **A completion percentage in its own column**, always. An unknown percentage is `?`, never a blank.
+  internal agent id — and **always a clickable link** to its PR (or issue, before a PR exists).
+- **An author column**, always — the PR author as `@login`, so a row that is someone else's to move
+  reads as theirs at a glance. `—` before anyone owns it.
+- **A completion percentage in its own column**, always, drawn as a 10-cell progress bar before
+  the number. An unknown percentage is `?`, never a blank.
+- **A diff column, always** — MUST ALWAYS use `🟩 +<added> 🟥 -<deleted> 📄 <files>` (straight from the
+  PR, or during local development in worktrees before a PR opens, derived from `git diff --shortstat`,
+  or `—` when empty). Plain text or code block formats like `+X/-Y` or `0/0` are forbidden.
+- **An emoji status**, always — (🟢 ready, 🟡 CI running, 🔴 failing, ⏳ blocked, 🟣 merged, ✅ done;
+  the skill has the full set), followed by any state tags (`⛓ #n` stacked, `⏸ held`, `🔵 audited`,
+  `🚀 deployed`). A state goes in Status, never in Notes.
 - **A remaining-time estimate (ETA) in its own column**, always — wall-clock time until that row
   merges or completes, derived from *observed* pace (elapsed time against the % so far, how long
   today's CI runs have actually taken, how many stages remain), never from an agent's own claim.
   `?` when there is no basis yet, `done` once merged. When more than one row is live, add one line
   under the table with the ETA for the whole batch, since the user's real question is "when is all
   of it done", and rows finishing in parallel do not add.
-- **A notes column**, always — what changed since the last sitrep, what it is blocked on, what it
-  handed another agent. An empty note is `—`.
+- **A notes column**, always, of **six words at most**: news since the last sitrep, the blocker by
+  name, or an ask. It never restates the status. An empty note is `—`, and most rows are empty.
 - **Succinct.** The table is the report. Add at most one or two lines under it, and only for
   something the table cannot carry — a decision needed from the user, or a failure.
 - The same shape applies to a **recurring** status report (e.g. "every 10 minutes"): each tick is
@@ -377,8 +451,9 @@ and drives this same recurring-table report until every one of them has merged.
 ## Phase workflow
 
 One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/phase-N-*.md`, leave
-`moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`, and update the
-table in `.midnite/tasks/_INDEX.md`.
+`moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`, update the
+phase doc's own `## Headlines` paragraph for each theme that landed, and update the phase's row in
+the table in `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
 
 ## Onboarding another repo
 

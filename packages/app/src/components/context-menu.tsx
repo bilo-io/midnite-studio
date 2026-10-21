@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom';
 import { LuCheck, LuChevronRight } from 'react-icons/lu';
 
 import type { IconComponent } from './icon-button';
-import { useDismiss } from './use-dismiss';
+import { DismissableScope, useDismissable, type TriggerSource } from './use-dismissable';
 import { useFocusTrap } from './use-focus-trap';
 
 /**
@@ -172,10 +172,18 @@ export function ContextMenu({
   filterable = false,
   searchPlaceholder = 'Filter…',
   filterThreshold = 6,
+  trigger,
 }: {
   position: MenuPosition;
   items: MenuItem[];
   onClose: () => void;
+  /**
+   * The control that opened this menu, when a control did — `null` for a
+   * right-click. It counts as inside the menu, so pressing it again toggles
+   * the menu shut rather than dismissing and reopening it in one gesture, and
+   * it is where Escape and Tab hand focus back to. See `use-dismissable.ts`.
+   */
+  trigger?: TriggerSource;
   /**
    * Opt-in text filter above the list, autofocused — default off. `openMenu`
    * has 25+ call sites and every one but the breadcrumb's repo switcher opens
@@ -254,20 +262,6 @@ export function ContextMenu({
     setSubmenuIndex(null);
   };
 
-  /*
-    Focus lives inside the menu for as long as it is open.
-
-    Without this, reaching the first item by keyboard meant tabbing through the
-    entire rest of the document: the menu is portalled to the end of `<body>`,
-    so DOM order puts it after everything. The trap also hands focus back to
-    whatever held it when the menu opened — for a right-click, the row that was
-    clicked — which is Theme A's restoration arriving here for free.
-
-    The container's `tabIndex={-1}` is what the trap parks focus on when a menu
-    happens to have no selectable row at all.
-  */
-  useFocusTrap(ref, true);
-
   /**
    * One icon anywhere in the menu indents every row, so labels still line up
    * under each other where a separator-divided group happens to be iconless.
@@ -293,53 +287,70 @@ export function ContextMenu({
   }, [position]);
 
   /*
+    Every dismissal rule lives in `useDismissable` — Escape, a `pointerdown`
+    outside the menu *and* its submenu, focus leaving, Tab, and the window
+    losing focus. What stays here is only what is particular to this menu.
+
     Escape closes an open submenu first and the menu itself only once there is
-    none — one keypress, one surface, the same rule the dismissal stack applies
-    between components applied here between a menu and its own child. Written
-    as one callback rather than two registrations because a submenu is not a
-    separate overlay: it has no element of its own until it opens and it dies
-    with its parent row.
+    none — one keypress, one surface. That half now falls out of the tree: an
+    open `Submenu` is a child node, and the dismissal stack hands Escape to the
+    deepest one. Clearing `submenuIndex` alongside (in `closeSubmenu`) is what
+    returns focus to the parent row: the row's `focused` prop is `activeIndex
+    === index && submenuIndex === null`, so the same state change that
+    unmounts the submenu makes the row current again (Phase 68 Theme C).
 
-    Delivered by `useDismiss` (Phase 62), which also does the occluder
-    bookkeeping this effect used to do by hand: a loaded browser tab's page is
-    an Electron `WebContentsView`, an OS-composited layer that paints above the
-    whole renderer window regardless of `z-index` (see `use-browser-bounds.ts`),
-    and hiding it while a DOM overlay is up is the only way that overlay can
-    appear above it.
+    A filterable menu adds a step ahead of closing: Escape clears a non-empty
+    query first, the two-stage behaviour every filter box on this platform
+    already trains a user to expect — the veto `onDismiss` returns.
 
-    A filterable menu adds a third step ahead of the other two: Escape clears
-    a non-empty query before it closes anything, the two-stage behaviour every
-    filter box on this platform already trains a user to expect. It costs
-    nothing for a non-filtering menu — `query` never leaves `''`, so the branch
-    never taken falls straight through to the existing rule.
+    The root registration also does the occluder bookkeeping: a loaded browser
+    tab's page is an Electron `WebContentsView`, an OS-composited layer that
+    paints above the whole renderer window regardless of `z-index` (see
+    `use-browser-bounds.ts`), and hiding it while a DOM overlay is up is the
+    only way that overlay can appear above it.
   */
-  useDismiss(
-    true,
-    () => {
-      // Clearing `submenuIndex` alongside is what returns focus to the parent
-      // row: the row's `focused` prop is `activeIndex === index && submenuIndex
-      // === null`, so the same state change that unmounts the submenu makes the
-      // row current again (Phase 68 Theme C).
-      if (openSubmenu !== null) closeSubmenu();
-      else if (showFilter && query !== '') setQuery('');
-      else onClose();
+  const tree = useDismissable({
+    open: true,
+    surfaceRef: ref,
+    trigger,
+    layer: 'menu',
+    tab: 'close',
+    windowBlur: true,
+    onDismiss: (reason) => {
+      if (reason === 'escape' && showFilter && query !== '') {
+        setQuery('');
+        return false;
+      }
+      onClose();
     },
-    { layer: 'menu' },
-  );
+  });
 
+  /*
+    Focus lives inside the menu for as long as it is open.
+
+    Without this, reaching the first item by keyboard meant tabbing through the
+    entire rest of the document: the menu is portalled to the end of `<body>`,
+    so DOM order puts it after everything. The trap also hands focus back to
+    whatever held it when the menu opened — for a right-click, the row that was
+    clicked — which is Theme A's restoration arriving here for free.
+
+    The container's `tabIndex={-1}` is what the trap parks focus on when a menu
+    happens to have no selectable row at all.
+
+    Declared AFTER `useDismissable`, and the order is load-bearing: React runs
+    effect cleanups in declaration order, and the trap's cleanup hands focus
+    back to the row outside the menu. Were the trap first, that `focusin`
+    would land while the dismissal listeners were still armed and read as
+    "focus left" — which under StrictMode's mount/unmount/mount closed every
+    right-click menu the instant it opened.
+  */
+  useFocusTrap(ref, true);
+
+  // A resize moves the anchor out from under a cursor-placed menu; there is
+  // no sensible place left to show it.
   useEffect(() => {
-    const onPointerDown = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) onClose();
-    };
-    // `capture` so a click lands on the menu's own item handler first but still
-    // closes menus opened over other interactive elements.
-    window.addEventListener('mousedown', onPointerDown, true);
     window.addEventListener('resize', onClose);
-
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown, true);
-      window.removeEventListener('resize', onClose);
-    };
+    return () => window.removeEventListener('resize', onClose);
   }, [onClose]);
 
   /*
@@ -439,66 +450,69 @@ export function ContextMenu({
   // paints under later siblings. This one is placed at the cursor, which makes
   // a shifted containing block especially visible.
   return createPortal(
-    <div
-      ref={ref}
-      role="menu"
-      aria-orientation="vertical"
-      tabIndex={-1}
-      onKeyDown={onKeyDown}
-      className="fixed z-menu min-w-[10rem] max-w-[24rem] gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg outline-none"
-      style={{ left: placed.x, top: placed.y }}
-    >
-      {showFilter ? (
-        <div className="border-b border-border px-1.5 pb-1.5">
-          <input
-            ref={inputRef}
-            // Commit-phase, so it wins focus before any row's own
-            // focus-on-mount effect runs (see `MenuItemButton`) — the same
-            // guarantee `useFocusTrap`'s own tests rely on for an `autoFocus`
-            // child, which is why the trap never fights this for the input.
-            autoFocus
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={searchPlaceholder}
-            aria-label={searchPlaceholder}
-            className="h-6 w-full rounded border border-input bg-background px-1.5 text-xs outline-none focus-visible:border-primary"
-          />
-        </div>
-      ) : null}
-      {showFilter && topItems.filter(isSelectable).length === 0 ? (
-        <p className="px-3 py-1.5 text-xs text-muted-foreground">No matches for "{query}".</p>
-      ) : null}
-      {topItems.map((item, index) =>
-        item.type === 'separator' ? (
-          <hr key={`sep-${index}`} className="my-1 border-border" />
-        ) : (
-          <MenuRow
-            key={item.id ?? item.label}
-            item={item}
-            iconed={iconed}
-            open={openSubmenu === index}
-            // The row is current only while focus is at the top level; once
-            // ArrowRight has moved it into the submenu, the submenu's own row
-            // is, and two `tabIndex={0}`s would defeat the point of roving one.
-            // While the filter box is showing, real focus stays on the
-            // `<input>` instead (see `MenuItemButton`), so this row is never
-            // the one `.focus()` is called on — `highlighted` carries the
-            // same "this is the current row" fact to its styling instead.
-            focused={!showFilter && activeIndex === index && submenuIndex === null}
-            highlighted={showFilter && activeIndex === index && submenuIndex === null}
-            submenuIndex={openSubmenu === index ? submenuIndex : null}
-            onOpenSubmenu={() => {
-              // Hover opens the surface but does not move the keyboard into it
-              // — the pointer and the keyboard are allowed to be in different
-              // places, and yanking focus at every mouse twitch is not a menu.
-              setOpenSubmenu('submenu' in item && item.submenu ? index : null);
-              setSubmenuIndex(null);
-            }}
-            onClose={onClose}
-          />
-        ),
-      )}
-    </div>,
+    <DismissableScope node={tree}>
+      <div
+        ref={ref}
+        role="menu"
+        aria-orientation="vertical"
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+        className="fixed z-menu min-w-[10rem] max-w-[24rem] gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg outline-none"
+        style={{ left: placed.x, top: placed.y }}
+      >
+        {showFilter ? (
+          <div className="border-b border-border px-1.5 pb-1.5">
+            <input
+              ref={inputRef}
+              // Commit-phase, so it wins focus before any row's own
+              // focus-on-mount effect runs (see `MenuItemButton`) — the same
+              // guarantee `useFocusTrap`'s own tests rely on for an `autoFocus`
+              // child, which is why the trap never fights this for the input.
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
+              className="h-6 w-full rounded border border-input bg-background px-1.5 text-xs outline-none focus-visible:border-primary"
+            />
+          </div>
+        ) : null}
+        {showFilter && topItems.filter(isSelectable).length === 0 ? (
+          <p className="px-3 py-1.5 text-xs text-muted-foreground">No matches for "{query}".</p>
+        ) : null}
+        {topItems.map((item, index) =>
+          item.type === 'separator' ? (
+            <hr key={`sep-${index}`} className="my-1 border-border" />
+          ) : (
+            <MenuRow
+              key={item.id ?? item.label}
+              item={item}
+              iconed={iconed}
+              open={openSubmenu === index}
+              // The row is current only while focus is at the top level; once
+              // ArrowRight has moved it into the submenu, the submenu's own row
+              // is, and two `tabIndex={0}`s would defeat the point of roving one.
+              // While the filter box is showing, real focus stays on the
+              // `<input>` instead (see `MenuItemButton`), so this row is never
+              // the one `.focus()` is called on — `highlighted` carries the
+              // same "this is the current row" fact to its styling instead.
+              focused={!showFilter && activeIndex === index && submenuIndex === null}
+              highlighted={showFilter && activeIndex === index && submenuIndex === null}
+              submenuIndex={openSubmenu === index ? submenuIndex : null}
+              onOpenSubmenu={() => {
+                // Hover opens the surface but does not move the keyboard into it
+                // — the pointer and the keyboard are allowed to be in different
+                // places, and yanking focus at every mouse twitch is not a menu.
+                setOpenSubmenu('submenu' in item && item.submenu ? index : null);
+                setSubmenuIndex(null);
+              }}
+              onCloseSubmenu={closeSubmenu}
+              onClose={onClose}
+            />
+          ),
+        )}
+      </div>
+    </DismissableScope>,
     document.body,
   );
 }
@@ -511,6 +525,7 @@ function MenuRow({
   highlighted = false,
   submenuIndex,
   onOpenSubmenu,
+  onCloseSubmenu,
   onClose,
 }: {
   item: MenuEntry;
@@ -528,6 +543,7 @@ function MenuRow({
   /** Which of this row's submenu rows holds focus; `null` for none of them. */
   submenuIndex: number | null;
   onOpenSubmenu: () => void;
+  onCloseSubmenu: () => void;
   onClose: () => void;
 }) {
   /**
@@ -558,6 +574,7 @@ function MenuRow({
           items={item.submenu}
           iconed={subIconed}
           focusedIndex={submenuIndex}
+          onDismiss={onCloseSubmenu}
           onClose={onClose}
         />
       ) : null}
@@ -577,15 +594,28 @@ function Submenu({
   items,
   iconed,
   focusedIndex,
+  onDismiss,
   onClose,
 }: {
   items: MenuItem[];
   iconed: boolean;
   /** Index into `items` of the row holding focus; `null` while the pointer owns it. */
   focusedIndex: number | null;
+  /** Close just this submenu — Escape's first press. */
+  onDismiss: () => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+
+  /*
+    A child node of the menu's tree, so Escape reaches this surface before
+    the menu (the stack prefers the deeper of two equal layers) and a click
+    in either one counts as inside for both. No `trigger`: the parent row
+    takes focus back through its own `focused` prop when `onDismiss` clears
+    `submenuIndex`, and it is inside the menu's surface already. A chain-wide
+    close (outside click, Tab, blur) reaches the menu's own `onClose` too.
+  */
+  useDismissable({ open: true, surfaceRef: ref, layer: 'menu', tab: 'close', onDismiss });
   /** Pixels from the parent row's left edge; `null` until measured. */
   const [left, setLeft] = useState<number | null>(null);
 
@@ -719,7 +749,9 @@ function MenuItemButton({
       // Roving: exactly one row in the menu is a tab stop, and it is the one
       // the arrow keys have moved to. The rest stay reachable programmatically.
       tabIndex={focused ? 0 : -1}
-      {...(expanded === undefined ? {} : { 'aria-haspopup': 'menu' as const, 'aria-expanded': expanded })}
+      {...(expanded === undefined
+        ? {}
+        : { 'aria-haspopup': 'menu' as const, 'aria-expanded': expanded })}
       disabled={disabled}
       // The reason belongs on the disabled item itself: a greyed-out
       // "Checkout" with no explanation is the most frustrating thing a menu

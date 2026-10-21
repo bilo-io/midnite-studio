@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Remotion & Build Outputs
+out/
+dist/
+build/
+.remotion/
+whisper.cpp/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# video-editor/public/ is a generated mirror of assets/ + every project's input/
+# (single tracked home per binary) — recreate with `npm run assets`
+video-editor/public/
+
+# Rendered iterations and verification stills are reproducible from the source
+# of truth; the tracked record of each cut is each project's output/CHANGELOG.md.
+# Project ids nest (projects/<brand>/<category>/<NNN-name>/), so the pattern has
+# to match an output/ at any depth rather than exactly one level down.
+projects/**/output/*
+!projects/**/output/CHANGELOG.md
+templates/**/output/*
+!templates/**/output/CHANGELOG.md

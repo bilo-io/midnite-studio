@@ -1,70 +1,57 @@
-import { z } from 'zod';
-
-import { CHANNELS, schemas } from '@midnite/studio-shared';
+import {
+  createCapture,
+  createReviewService,
+  notesMain,
+  nullNotesStore,
+  type CaptureResult,
+  type NotesStore,
+  type ReviewService,
+} from '@midnite/studio-feature-notes/main';
+import type { FeatureMainContext } from '@midnite/studio-runtime';
 
 import { defaultLogger } from '../log';
-import { nullNotesStore, type NotesStore } from '../notes-store';
-import { handle, handleSend } from './handle';
+import { handle, handleBare, handleSend } from './handle';
 
 /**
- * IPC handlers for notes persisted on disk (Phase 86 Theme F).
- *
- * Modelled on `sessions-handlers.ts` and `terminal-handlers.ts`:
- * - `list` is an invoke returning all notes (or notes for a given repo).
- * - `save`, `delete`, and `reorder` are one-way `send`s handled asynchronously
- *   by the notes store's debounced, serialized per-repo write queue.
+ * IPC handlers for notes persisted on disk (Phase 86 Theme F) — the handlers
+ * themselves are the notes feature's main half (Phase 113 Theme M); this is
+ * Studio's composition of it. The store is read lazily because the handlers
+ * register before `userData` is known.
  */
 
 let store: NotesStore = nullNotesStore;
+let review: ReviewService | null = null;
+let capture: ((body: string) => Promise<CaptureResult>) | null = null;
 
-/** Injected at boot with a store rooted at `app.getPath('userData')`. */
-export function configureNotes(next: NotesStore): void {
+/**
+ * Injected at boot with a store rooted at `app.getPath('userData')`. `appData` is the base the launcher's
+ * `installed.json` and Mind's data directory hang off — what quick capture reads to pick Mind or the Inbox.
+ */
+export function configureNotes(next: NotesStore, options?: { userData: string; appData: string }): void {
   store = next;
+  if (options) {
+    review = createReviewService({ directory: options.userData, store: () => store });
+    capture = createCapture({ appData: options.appData, localStore: () => store });
+  }
 }
 
-const NotesListRequestLoose = z.preprocess(
-  (raw) => raw ?? {},
-  schemas.NotesListRequest.catch({}),
-) as z.ZodType<{ repoId?: string }>;
-
-const warnInvalid = (issue: string): void => {
-  defaultLogger.warn(issue);
-};
-
 export function registerNotesHandlers(): void {
-  handle(
-    CHANNELS.notesList,
-    NotesListRequestLoose,
-    async (req) => ({ notes: await store.list(req.repoId) }),
-    (issue) => {
-      warnInvalid(issue);
-      return { notes: [] };
-    },
-  );
-
-  handleSend(
-    CHANNELS.notesSave,
-    schemas.NotesSaveRequest,
-    ({ note }) => void store.save(note),
-    warnInvalid,
-  );
-
-  handleSend(
-    CHANNELS.notesDelete,
-    schemas.NotesDeleteRequest,
-    ({ id, repoId }) => void store.delete(id, repoId),
-    warnInvalid,
-  );
-
-  handleSend(
-    CHANNELS.notesReorder,
-    schemas.NotesReorderRequest,
-    ({ repoId, noteIds }) => void store.reorder(repoId, noteIds),
-    warnInvalid,
-  );
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    emit: () => {},
+    trashItem: () => Promise.reject(new Error('notes never trashes')),
+  };
+  notesMain.register(ctx, {
+    store: () => store,
+    review: () => review,
+    capture: (body) => (capture ? capture(body) : Promise.resolve({ ok: false, target: 'inbox' as const })),
+    warn: (issue) => defaultLogger.warn(issue),
+  });
 }
 
 /** Reset module state. Tests only. */
 export function resetNotesHandlersForTest(): void {
   store = nullNotesStore;
+  review = null;
+  capture = null;
 }

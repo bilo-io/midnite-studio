@@ -3,6 +3,7 @@ import type {
   CommandGroup,
   CommandId,
   ForgeAccount,
+  ForgeIssue,
   ForgeProject,
   Ref,
   RepoDescriptor,
@@ -10,18 +11,33 @@ import type {
   Worktree,
 } from '@midnite/studio-shared';
 import { COMMANDS } from '@midnite/studio-shared';
-import { LuArrowRightLeft, LuFile, LuFolder, LuGitBranch, LuGitCommitHorizontal, LuSquareTerminal, LuTag } from 'react-icons/lu';
+import { GoIssueOpened } from 'react-icons/go';
+import {
+  LuArrowRightLeft,
+  LuFile,
+  LuFolder,
+  LuGitBranch,
+  LuGitCommitVertical,
+  LuSquareTerminal,
+  LuTag,
+} from 'react-icons/lu';
 
 import { resolveAgentIcon } from '../../components/icons';
 import { SETTINGS_PAGE_ICON, VIEW_ICON } from '../../components/nav-icons';
 import { COMMAND_ICONS } from '../../features/palette/command-icons';
 import { isPaletteSafe } from '../../features/palette/safety';
 import { startAgent } from '../../features/terminal/start-agent';
-import { agentLabelFor, sessionLabel, useTerminalStore } from '../../features/terminal/terminal-store';
+import {
+  agentLabelFor,
+  sessionLabel,
+  useTerminalStore,
+} from '../../features/terminal/terminal-store';
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
 import { isNavViewVisible } from '../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, SETTINGS_PAGES, type ViewId } from '../../store/ui-store';
 import { chordOf, groupCommands } from '../../store/palette-store';
+import { openIssueModal } from '../../store/issue-modal-store';
+import { REPO_ISSUES_SOURCE_ID } from '@midnite/studio-feature-tasks/renderer/state';
 import { useFilesStore } from '../../features/files/files-store';
 import type { PaletteItem, PaletteSource } from './source';
 import type { IconComponent } from '../../components/icon-button';
@@ -30,24 +46,26 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   landing: 'Home',
   dashboard: 'Dashboard',
   notes: 'Notes',
+  chats: 'Agent Chats',
   knowledge: 'Knowledge',
   files: 'Explorer',
   search: 'Search Everywhere',
   database: 'Database',
-  graph: 'Commit Graph',
-  changes: 'Changes',
+  graph: 'Commit Timeline',
   actions: 'Actions & CI',
   tests: 'Tests',
   reviews: 'Reviews',
-  issues: 'Issues',
-  projects: 'Projects',
+  tasks: 'Tasks',
   history: 'History',
   councils: 'Agent Councils',
-  workflows: 'Agent Workflows',
-  video: 'Video Studio',
+  workflows: 'Agent Graphs',
+  media: 'Media',
   models: 'Models',
   sessions: 'Agent Sessions',
   optimizer: 'Workspace Optimizer',
+  monitor: 'System Monitor',
+  vault: 'Vault',
+  capture: 'Capture',
   apiClient: 'API Client',
   settings: 'Settings',
 };
@@ -56,7 +74,8 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   landing: 'home landing start welcome shortcuts keys cheatsheet',
   // `home` is the landing page's word now, so the dashboard drops it.
   dashboard: 'overview summary metrics',
-  notes: 'notes todo capture brainstorm quick capture scratchpad',
+  notes: 'notes todo jot brainstorm quick note scratchpad',
+  chats: 'chats chat conversation talk ask assistant prompt thread claude codex gemini ollama',
   // Deliberately NOT the bare word `graph`: the companion's `longestViewMatch`
   // scores candidates by word count and breaks a tie on first-match, and
   // `knowledge` sits at VIEW_IDS[3], ahead of `graph`. A bare `graph` token here
@@ -66,24 +85,25 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   files: 'tree folder file explorer code',
   search: 'search grep find commits messages files',
   database: 'database sql connection postgres mysql mariadb mssql query schema table',
-  graph: 'git history commits branches log',
-  changes: 'diff staging uncommitted status stage commit',
+  graph: 'git history commits branches log timeline',
   actions: 'ci workflow runs jobs pipelines github',
   tests: 'suites runner unit e2e pass fail',
   reviews: 'prs pull requests review comments',
-  issues: 'issues bugs tracker labels milestones',
-  projects: 'projectsv2 board kanban table fields issues',
+  // Tasks absorbed Issues and Projects, so it answers to both old names.
+  tasks: 'tasks issues projects board kanban',
   history: 'reflog journal undo ops history',
   councils: 'agents council teams debate',
-  workflows: 'agent workflow pipeline automation',
-  video: 'video studio remotion render project brief editorial script',
+  workflows: 'agent graph workflow pipeline automation',
+  media: 'media docs images video audio studio remotion hyperframes render export ffmpeg',
   models: 'ollama models local cloud pull install download llm',
-  sessions: 'agent session history transcripts',
+  sessions: 'agent session past closed transcripts',
   optimizer: 'clean scan storage memory gpu disk space node_modules trash',
+  monitor: 'cpu ram memory gpu disk battery health toolchain crash log diagnostics metrics',
+  vault: 'secrets credentials key token password forge account login keychain',
+  capture: 'screenshot screen recording record region window clipboard pasteboard snip grab',
   apiClient: 'api client http request postman collection rest graphql send response',
   settings: 'preferences configuration options theme',
 };
-
 
 /**
  * Commands the palette OMITS while disabled, rather than greying out.
@@ -118,17 +138,13 @@ const COMMAND_GROUP_LABELS: Record<CommandGroup, string> = {
   window: 'Window',
 };
 
-export function createCommandSource(
-  runtime: CommandRuntime,
-  onSelect: () => void,
-): PaletteSource {
+export function createCommandSource(runtime: CommandRuntime, onSelect: () => void): PaletteSource {
   return {
     key: 'commands',
     items: () => {
       const safeCommands = COMMANDS.filter(
         (cmd) =>
-          isPaletteSafe(cmd.id) &&
-          !(HIDDEN_WHEN_DISABLED.has(cmd.id) && !runtime[cmd.id]?.enabled),
+          isPaletteSafe(cmd.id) && !(HIDDEN_WHEN_DISABLED.has(cmd.id) && !runtime[cmd.id]?.enabled),
       );
 
       const items: PaletteItem[] = [];
@@ -198,13 +214,14 @@ export function createViewsSource(onSelect: () => void): PaletteSource {
 }
 
 /**
- * One entry per already-loaded ProjectV2 board (Phase 40 Theme F).
+ * One entry per already-loaded ProjectV2 board (Phase 40 Theme F), plus the
+ * built-in Repo issues source every repo has.
  *
  * `boards` is whatever `useForgeProjects` currently has cached — the caller
  * passes it with `enabled: false`, so opening the palette never itself
- * triggers a fetch. Picking an item opens Projects on that specific board;
- * a board never fetched (the Projects view has not been opened this
- * session) simply has no entry here.
+ * triggers a fetch. Picking an item opens Tasks on that specific board;
+ * a board never fetched (Tasks has not been opened this session) simply has
+ * no entry here.
  */
 export function createProjectBoardsSource(
   boards: ForgeProject[],
@@ -215,20 +232,63 @@ export function createProjectBoardsSource(
     key: 'project-boards',
     items: () => {
       if (repoId === null) return [];
-      return boards.map(
-        (board): PaletteItem => ({
+      const repoIssues: PaletteItem = {
+        id: `project-board:${REPO_ISSUES_SOURCE_ID}`,
+        label: 'Repo issues',
+        group: 'Task boards',
+        icon: VIEW_ICON.tasks,
+        keywords: 'issues repo tasks list',
+        run: () => {
+          onSelect();
+          useUiStore.getState().openRepoIssues();
+        },
+      };
+      return [
+        repoIssues,
+        ...boards.map((board): PaletteItem => ({
           id: `project-board:${board.id}`,
           label: board.title,
-          group: 'Projects',
-          icon: VIEW_ICON.projects,
-          keywords: 'project board kanban',
+          group: 'Task boards',
+          icon: VIEW_ICON.tasks,
+          keywords: 'task board project kanban',
           run: () => {
             onSelect();
-            useUiStore.getState().setActiveView('projects');
+            useUiStore.getState().setActiveView('tasks');
             useUiStore.getState().setProjectBoard(repoId, board.id);
           },
-        }),
-      );
+        })),
+      ];
+    },
+  };
+}
+
+/**
+ * One entry per already-loaded repo issue — the list Tasks' Repo issues
+ * source fetched, read with `enabled: false` like the boards above, so the
+ * palette never fetches on open. Picking one opens the app-wide issue modal
+ * over whatever is on screen, the same surface a Tasks row or the sidebar's
+ * Issues section opens.
+ */
+export function createRepoIssuesSource(
+  issues: readonly ForgeIssue[],
+  repoId: string | null,
+  onSelect: () => void,
+): PaletteSource {
+  return {
+    key: 'repo-issues',
+    items: () => {
+      if (repoId === null) return [];
+      return issues.map((issue): PaletteItem => ({
+        id: `repo-issue:${issue.number}`,
+        label: `#${issue.number} ${issue.title}`,
+        group: 'Issues',
+        icon: GoIssueOpened,
+        keywords: `issue ${issue.state} ${issue.labels.map((label) => label.name).join(' ')}`,
+        run: () => {
+          onSelect();
+          openIssueModal({ repoId, number: issue.number, seed: issue });
+        },
+      }));
     },
   };
 }
@@ -256,20 +316,18 @@ export function createForgeAccountsSource(
     items: () =>
       accounts
         .filter((account) => account.id !== activeId)
-        .map(
-          (account): PaletteItem => ({
-            id: `forge-account:${account.id}`,
-            label: `Switch to ${account.login} (${account.kind})`,
-            group: 'Accounts',
-            icon: LuArrowRightLeft,
-            detail: account.host,
-            keywords: `account identity forge ${account.displayName ?? ''} ${account.host}`,
-            run: () => {
-              onSelect();
-              onSwitch(account.id);
-            },
-          }),
-        ),
+        .map((account): PaletteItem => ({
+          id: `forge-account:${account.id}`,
+          label: `Switch to ${account.login} (${account.kind})`,
+          group: 'Accounts',
+          icon: LuArrowRightLeft,
+          detail: account.host,
+          keywords: `account identity forge ${account.displayName ?? ''} ${account.host}`,
+          run: () => {
+            onSelect();
+            onSwitch(account.id);
+          },
+        })),
   };
 }
 
@@ -435,7 +493,7 @@ export function createRefsSource(
           id: `ref:reveal:${ref.fullName}`,
           label: `Reveal in Graph: ${ref.name}`,
           group,
-          icon: LuGitCommitHorizontal,
+          icon: LuGitCommitVertical,
           detail: `Commit ${ref.sha.slice(0, 7)}`,
           keywords: `reveal find graph commit ${ref.name}`,
           run: () => {
@@ -450,10 +508,7 @@ export function createRefsSource(
   };
 }
 
-export function createFilesSource(
-  files: string[],
-  onSelect: () => void,
-): PaletteSource {
+export function createFilesSource(files: string[], onSelect: () => void): PaletteSource {
   return {
     key: 'files',
     items: () => {
@@ -494,4 +549,3 @@ export function createFilesSource(
     },
   };
 }
-

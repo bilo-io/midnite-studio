@@ -1,24 +1,18 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { LuTriangleAlert } from 'react-icons/lu';
 
+import { useContentOverlay } from '../store/content-bounds-store';
 import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 
-/**
- * Confirmation for a destructive operation, with its blast radius.
- *
- * The number is the entire point. "Are you sure?" is a question nobody can
- * answer — it asks the user to re-derive what the app already knows. "This will
- * orphan 14 commits, including 'fix the parser'" is a decision.
- *
- * Rendered in-app rather than as a native dialog for the same reason as the
- * context menu: it has to carry the app's own tokens and its own content.
- */
-export type BlastRadius = {
-  count: number;
-  sample: { sha: string; subject: string }[];
-};
+import type { BlastRadiusKind, ConfirmRequest } from '@midnite/studio-frame';
+
+// `BlastRadius` and `ConfirmRequest` live in the frame (Phase 113 Theme C) so
+// a feature package can raise a confirm through its chrome port; re-exported
+// here so no existing import path moves.
+export type { BlastRadius } from '@midnite/studio-frame';
 
 /**
  * `BlastRadius.sample` is `{sha, subject}[]` — git-only, since it exists to
@@ -94,53 +88,35 @@ const BLAST_RADIUS_COPY = {
       'will come off the board when it is deleted — this cannot be undone. The issues and pull requests themselves are not deleted.',
     noEffect: 'The board has no items on it.',
   },
-} as const;
+  /**
+   * Phase 113 Theme J slice 3 — signing out of a web app from the Vault. The count is the cookies its
+   * `persist:app-<id>` partition holds; the sites they belong to ride in the request's `warnings`.
+   * Clearing is the whole partition's storage, so `noEffect` still names what goes.
+   */
+  cookies: {
+    subject: (n: number) => `${n} cookie${n === 1 ? '' : 's'}`,
+    consequence: 'will be cleared with the rest of the app’s site data — you will be signed out.',
+    noEffect: 'No cookies are stored; any other site data the app kept is cleared.',
+  },
+  /**
+   * Removing a credential from the vault — a secret, an LLM key, a forge token, a database login or a
+   * money account's API key. `secrets` above is the opposite case (bytes about to be *written* to a
+   * gitignored file), which these confirms had borrowed, so they told the user the wrong thing.
+   */
+  credentials: {
+    subject: (n: number) => `${n} stored credential${n === 1 ? '' : 's'}`,
+    consequence: 'will be deleted from the vault — this cannot be undone.',
+    noEffect: 'Nothing is stored for it — only the record is forgotten.',
+  },
+  /** Revoking an app's grant or pairing: the app loses access; no stored entry is touched. */
+  vaultAccess: {
+    subject: (n: number) => `${n} app${n === 1 ? '' : 's'}`,
+    consequence: 'will lose its access to the vault. Nothing stored is deleted.',
+    noEffect: 'No app holds access to these entries.',
+  },
+} as const satisfies Record<BlastRadiusKind, { subject: (n: number) => string; consequence: string; noEffect: string }>;
 
-export type ConfirmRequest = {
-  title: string;
-  body?: string;
-  confirmLabel: string;
-  danger?: boolean;
-  /** Absent while still being counted; null when there is nothing to lose. */
-  blastRadius?: BlastRadius | null;
-  /** Which `BLAST_RADIUS_COPY` entry renders `blastRadius`'s count. Defaults to `'commits'` — every pre-Phase-59 caller is a git op. */
-  blastRadiusKind?: keyof typeof BLAST_RADIUS_COPY;
-  /**
-   * Consequences that are not measured in commits.
-   *
-   * `blastRadius` speaks one sentence — "N commits will no longer be reachable"
-   * — which is exactly right for a delete or a reset and exactly wrong for
-   * "this checkout has 3 uncommitted files" or "the branch is 2 ahead of its
-   * upstream". Rather than bend that sentence, a destructive op can hand over
-   * its own lines; they render in the same alarming box, so the user reads one
-   * warning region either way.
-   */
-  warnings?: string[];
-  /**
-   * When present, renders a checkbox with this exact label between the
-   * warnings box and the button row, and the Confirm button stays `disabled`
-   * until it is checked. The first friction beyond a plain button click in
-   * this dialog — reserved for the one operation in the app with true
-   * no-undo (emptying the Trash).
-   */
-  requireAck?: string;
-  /**
-   * Drop the Cancel button, for a dialog with nothing to cancel.
-   *
-   * A notice — "this is not built yet" — has one way out, and offering both
-   * Cancel and OK asks the reader to choose between two words that mean the
-   * same thing here. See `notify` in `dialog-host`.
-   */
-  hideCancel?: boolean;
-  onConfirm: () => void;
-  /**
-   * A third way out, between Cancel and the primary action — Discard beside
-   * Save/Cancel on the unsaved-changes guard, the only caller today. Absent
-   * everywhere else, which keeps every existing two-button confirm unchanged.
-   */
-  secondaryLabel?: string;
-  onSecondary?: () => void;
-};
+export type { ConfirmRequest } from '@midnite/studio-frame';
 
 export function ConfirmDialog({
   request,
@@ -171,12 +147,17 @@ export function ConfirmDialog({
   */
   useDismiss(true, onCancel, { layer: 'dialog' });
 
+  const container = request.container ?? null;
+  const content = useContentOverlay('center', !container);
+  const overlayStyle = container ? undefined : content.overlayStyle;
+  const panelMaxHeight = container ? undefined : content.panelMaxHeight;
   const radius = request.blastRadius;
   const copy = BLAST_RADIUS_COPY[request.blastRadiusKind ?? 'commits'];
 
-  return (
+  const overlay = (
     <div
-      className="fixed inset-0 z-dialog flex items-center justify-center bg-background/70 p-6"
+      className={`${container ? 'absolute' : 'fixed'} inset-0 z-dialog flex items-center justify-center bg-background/70 ${overlayStyle ? '' : 'p-6'}`}
+      style={overlayStyle}
       role="dialog"
       aria-modal="true"
       aria-label={request.title}
@@ -194,7 +175,8 @@ export function ConfirmDialog({
       <div
         ref={containerRef}
         tabIndex={-1}
-        className={`w-full max-w-md overflow-hidden rounded-lg border bg-popover shadow-xl ${
+        style={panelMaxHeight === undefined ? undefined : { maxHeight: panelMaxHeight }}
+        className={`w-full max-w-md overflow-y-auto rounded-lg border bg-popover shadow-xl ${
           request.danger ? 'border-destructive/60 ring-1 ring-destructive/25' : 'border-border'
         }`}
       >
@@ -314,4 +296,5 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+  return container ? createPortal(overlay, container) : overlay;
 }

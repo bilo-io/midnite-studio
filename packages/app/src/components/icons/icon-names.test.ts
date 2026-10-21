@@ -25,11 +25,16 @@ import { describe, expect, it } from 'vitest';
  * boundary forbids node builtins under `src/`) reads every source file as text
  * at transform time.
  */
-const SOURCES = import.meta.glob('../../**/*.{ts,tsx}', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-}) as Record<string, string>;
+const SOURCES = {
+  ...import.meta.glob('../../**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }),
+  // The feature packages' renderers (Phase 113 Themes N, P) — they moved out of `features/`, and
+  // their icon names (finance's ~23 Simple Icons marks, models' Ollama glyph) must still really exist.
+  ...import.meta.glob('../../../../features/{finance,models,councils,chats}/renderer/**/*.{ts,tsx}', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }),
+} as Record<string, string>;
 
 /**
  * Matches an import of one set, single- or multi-line, aliased or not — the two
@@ -68,7 +73,10 @@ const SETS = [
   // Simple Icons: `AGENT_ICONS`' brand marks (Cline, Cursor, GitHub Copilot,
   // Gemini, ...) and the browser's new-tab shortcut tiles. The apps rail's
   // own three marks moved to local SVG components (see `APP_ICON`'s note).
-  ['si', 'Si', Si, 8],
+  // The Finance dashboard adds ~23 more (`asset-icon.tsx`): coins and
+  // companies, each a name that must really exist in Simple Icons — it
+  // dropped Microsoft's and Amazon's, which is why those two are hand-drawn.
+  ['si', 'Si', Si, 30],
 ] as const;
 
 describe.each(SETS)('react-icons/%s imports', (set, prefix, module, floor) => {

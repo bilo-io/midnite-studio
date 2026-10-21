@@ -11,9 +11,9 @@ import { resolveTerminalPalette } from '../themes/resolve-palette';
 import { shouldEscapeTerminal } from '../../services/keybindings/use-keybindings';
 import { openLinkFromEvent } from '../../services/open-in-midnite';
 import { useSessionRevealFade } from '../../components/use-reveal';
+import { focusIsInOpenMenuTree } from '../../components/use-dismissable';
 import { useUiStore } from '../../store/ui-store';
 import { EndedStrip } from './ended-banner';
-import { disableSynchronizedOutput } from './disable-synchronized-output';
 import { enableUnicode11 } from './enable-unicode11';
 import { createFitCoalescer } from './fit-coalescer';
 import { createInputQueue, type InputQueue } from './input-queue';
@@ -525,8 +525,6 @@ export function TerminalView({
       return false;
     });
 
-    disableSynchronizedOutput(term);
-
     /**
      * Which keystrokes escape the terminal.
      *
@@ -866,6 +864,10 @@ export function TerminalView({
       useTerminalStore.getState().clearSuppressAutoFocus();
       return;
     }
+    // `ready` arrives asynchronously, so this can fire after the user has
+    // opened a menu or popover (the `+` picker beside this pane). Taking focus
+    // from it would read as focus leaving and close it under them.
+    if (focusIsInOpenMenuTree()) return;
     termRef.current?.focus();
   }, [active, ready, autoFocus, focusSignal]);
 

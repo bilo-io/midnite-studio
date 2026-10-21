@@ -134,7 +134,7 @@ test('it is a view, not an overlay — the rail navigates away from it', async (
     link. The same two-step is already how `review-threads-shots.spec.ts`
     reaches a rail item.
   */
-  const graph = page.getByRole('link', { name: 'Graph' });
+  const graph = page.getByRole('link', { name: 'Timeline' });
   await graph.hover();
   await graph.click();
   await expect(page.getByTestId('landing-view')).toBeHidden();

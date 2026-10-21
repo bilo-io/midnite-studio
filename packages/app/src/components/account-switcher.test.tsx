@@ -3,7 +3,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { FORGE_SWITCHER_PLACEMENTS, useUiStore, type ForgeSwitcherPlacement } from '../store/ui-store';
+import {
+  FORGE_SWITCHER_PLACEMENTS,
+  useUiStore,
+  type ForgeSwitcherPlacement,
+} from '../store/ui-store';
 import { AccountSwitcher, AccountSwitcherSlot } from './account-switcher';
 import { openAccountsSettings, useAccountSwitcherStore } from './account-switcher-store';
 import { ToastHost } from './toast-host';

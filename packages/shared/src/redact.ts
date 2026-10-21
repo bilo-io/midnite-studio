@@ -34,7 +34,7 @@ const SECRET_TOKEN = '<redacted>';
  * would eat every commit sha in the record, and a stack trace without shas is
  * not worth keeping.
  */
-const SECRET_PATTERNS: RegExp[] = [
+export const SECRET_PATTERNS: RegExp[] = [
   // GitHub tokens: classic PAT, OAuth, user-to-server, server-to-server, refresh.
   /\bgh[pousr]_[A-Za-z0-9]{16,}/g,
   // GitHub fine-grained PAT.
@@ -60,6 +60,25 @@ const SECRET_PATTERNS: RegExp[] = [
   // is not matched here; the generic `Bearer|Basic|token` pattern above
   // still catches one echoed inside an `Authorization` header.
   /\bATATT3[A-Za-z0-9_=-]{20,}/g,
+  // Phase 91 Theme G — the rest of what this app can plausibly hold or echo.
+  // PEM private key blocks go first-ish: multi-line, so no other rule sees them whole.
+  /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z ]+ )?PRIVATE KEY-----/g,
+  // GitLab OAuth application secret.
+  /\bgloas-[A-Za-z0-9_-]{20,}/g,
+  // AWS access key ids.
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
+  // Google API keys.
+  /\bAIza[0-9A-Za-z_-]{35}\b/g,
+  // Stripe secret / restricted keys.
+  /\b(?:sk|rk)_(?:live|test)_[0-9A-Za-z]{16,}/g,
+  // npm automation / publish tokens.
+  /\bnpm_[A-Za-z0-9]{36}\b/g,
+  // Slack app-level tokens (`xox[baprs]-` above does not cover `xapp-`).
+  /\bxapp-[0-9]-[A-Za-z0-9-]{10,}/g,
+  // The query / env form (`?api_key=…`, `PASSWORD=…`), which the
+  // `Bearer|Basic|token` rule misses because it needs whitespace. A 40-hex
+  // commit sha under `?rev=` is not a keyword and survives.
+  /\b(?:api[_-]?key|apikey|access[_-]?token|token|password|passwd|secret)=[^&\s'"]{8,}/gi,
 ];
 
 /**
@@ -165,18 +184,32 @@ export function redactPaths(text: string, homeDir?: string): string {
   return out;
 }
 
+/** Deepest nesting `redactRecord` follows; anything below is returned untouched. */
+const REDACT_MAX_DEPTH = 8;
+
+function redactValue(value: unknown, homeDir: string | undefined, depth: number): unknown {
+  if (typeof value === 'string') return redactPaths(value, homeDir);
+  if (depth >= REDACT_MAX_DEPTH) return value;
+  if (Array.isArray(value)) return value.map((v) => redactValue(v, homeDir, depth + 1));
+  if (value !== null && typeof value === 'object') {
+    const proto = Object.getPrototypeOf(value) as unknown;
+    if (proto !== Object.prototype && proto !== null) return value;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = redactValue(v, homeDir, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
+
 /**
- * `redactPaths` over an object's string leaves, one level deep.
- *
- * The error-report payload is flat by construction (`ErrorReportSchema`), so a
- * recursive walk would be machinery with no second caller.
+ * `redactPaths` over an object's string leaves, recursing into plain objects
+ * and arrays to a depth of 8 (Phase 91 Theme G). Class instances (Date, Map…)
+ * are passed through as-is.
  */
 export function redactRecord<T extends Record<string, unknown>>(record: T, homeDir?: string): T {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(record)) {
-    out[key] = typeof value === 'string' ? redactPaths(value, homeDir) : value;
-  }
-  return out as T;
+  return redactValue(record, homeDir, 0) as T;
 }
 
 /**

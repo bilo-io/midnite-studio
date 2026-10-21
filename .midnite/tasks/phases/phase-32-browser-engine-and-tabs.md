@@ -102,6 +102,28 @@ packaging scope is unchanged and no Windows/Linux bounds quirk is chased.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Refined x1 (2026-09-05) against the tree, which corrected fifteen citations and the theme marks below: A–D landed whole, but E–I were marked ✅ on the strength of `done.md` entries the code does not support. The engine is real — `browser-service.ts` is 347 lines with 26 tests, `browser-pane.tsx` is 337 with every chrome button wired, `browser-store.ts` has 20 actions — and what is left is the last mile of the surface around it: the overlays that still paint under the native layer, the new-tab page's three hard-coded stubs, and a chrome that never tells you the page is loading, failed or zoomed. Zoom has no channel at all; closing a tab leaks its `WebContentsView`. Themes H and I moved whole to [Phase 71](phase-71-links-that-open-in-place.md).* **Phases 25–33 all landed** — search/blame, split diffs, status bar + browser pane, worktrees-first sidebar, markdown slides, the detached terminal broker, interactive rebase, the real browser engine, and the installable app + CLI.
+
+**Theme A — The engine, and the contract that drives it.** ✅ `WebContentsView` host in main, the `mstudio:browser:*` channel contract, per-tab lifecycle. (2026-08-30)
+
+**Theme B — Security and navigation policy.** ✅ Permissions denied, navigation policy, no preload on embedded views, clear browsing data. (2026-08-30)
+
+**Theme C — The tab model and the strip.** ✅ Tab store and strip: drag-reorder, context menu, chord collision resolved at dispatch. (2026-08-30)
+
+**Theme D — Tab groups, manual and derived.** ✅ Tab groups, manual (named, coloured, collapsible) and repo-derived. (2026-08-30)
+
+**Theme E — Occlusion, bounds, and the view that outlives its tab.** ✅ Occlusion residue after Phase 62 closed out: the tab-close view leak, CSS-px-vs-DIP bounds (scaled by the host's own zoom factor), sender-scoped bounds/visibility, six overlays registered as occluders, `occludes` split from `blocking`, the two hand-rolled z-values moved onto `z-dialog`. ([PR #265](https://github.com/bilo-io/midnite-studio/pull/265), 2026-09-07)
+
+**Theme F — The new tab page, finished.** ✅ New-tab page residue closed out: `resolveInput` replaces the page's own heuristic, a repo-derived second row (project/pulls/actions, `forgePullsUrl`/`forgeActionsUrl` added to `shared/src/domain/remote.ts`), the tile grid moved off a hard-coded 3-per-row chunk onto `flex-wrap` (a horizontal scrollbar at the 320px side-by-side minimum otherwise). Recents/tiles/wallpaper-out-of-`localStorage` had already landed in the resumed WIP. ([PR #265](https://github.com/bilo-io/midnite-studio/pull/265), 2026-09-07)
+
+**Theme G — The browsing chrome, finished.** ✅ Chrome residue closed out: the whole zoom contract (`browser.zoomIn`/`zoomOut`/`zoomReset` on the tab, absolute factor persisted per origin; a parallel `app.zoomIn`/`zoomOut`/`zoomReset` plus a new `windowZoom` IPC channel for the host window, since the three chords collide with Electron's own zoom menu roles), a DOM `error-page.tsx` for a `failed` navigation, an indeterminate loading bar with a Stop button, full address-bar behaviour (focus-select/blur-trim/Escape-restore/live preview), a "Not secure" chip, the find bar's `n / m` match count, `Mod+f`, and `browser.devtools`/`browser.clearData` in the palette. ([PR #265](https://github.com/bilo-io/midnite-studio/pull/265), 2026-09-07)
+
+**Theme H — Dev-companion powers.** ◐ Dev powers: detached DevTools landed; dev-server detection and preset persistence moved to [Phase 71](phase-71-links-that-open-in-place.md). (2026-08-30)
+
+**Theme I — The forge, opened in place.** ◐ Forge in place: only the `preview-deploy.ts` matcher landed, with zero callers; the theme moved to [Phase 71](phase-71-links-that-open-in-place.md).
+
 ## Deliverables
 
 ### A — The engine, and the contract that drives it (L) — ✅ DONE (2026-08-30)

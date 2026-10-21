@@ -51,7 +51,7 @@ async function openFab(page: Page, tab?: string): Promise<void> {
 test('the composer, idle', async ({ page }) => {
   await open(page);
   await openFab(page, 'Patrol');
-  await page.getByTestId('loop-composer-watchdog').getByRole('checkbox', { name: 'Answer feedback' }).check();
+  await page.getByTestId('loop-composer-watchdog').getByRole('switch', { name: 'Reply to PRs' }).check();
   await page.screenshot({ path: `${OUT}/composer-idle.png` });
 });
 
@@ -59,9 +59,9 @@ test('a running loop — slim strip, glowing Stop, live dots', async ({ page }) 
   await open(page);
   await openFab(page, 'Patrol');
   const composer = page.getByTestId('loop-composer-watchdog');
-  await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
+  await composer.getByRole('switch', { name: 'Reply to PRs' }).check();
   await composer.getByPlaceholder('Extra instructions…').fill('Skip drafts.');
-  await composer.getByTestId('loop-start').click();
+  await composer.getByTestId('loop-extras-send').click();
   await expect(composer.getByTestId('loop-stop')).toBeVisible();
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/loop-running.png` });
@@ -71,8 +71,8 @@ test('run history, expanded', async ({ page }) => {
   await open(page);
   await openFab(page, 'Patrol');
   const composer = page.getByTestId('loop-composer-watchdog');
-  await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
-  await composer.getByTestId('loop-start').click();
+  await composer.getByRole('switch', { name: 'Reply to PRs' }).check();
+  await composer.getByTestId('loop-extras-send').click();
   await composer.getByTestId('loop-stop').click();
 
   const history = page.getByTestId('loop-history').nth(2);
@@ -105,7 +105,7 @@ test('Settings — the Loops section', async ({ page }) => {
 test('the waiting notice, in the bell', async ({ page }) => {
   await open(page);
   await openFab(page);
-  await page.getByTestId('loop-composer-innovate').getByTestId('loop-start').click();
+  await page.getByTestId('loop-composer-innovate').getByTestId('loop-extras-send').click();
   await expect(page.getByTestId('loop-composer-innovate').getByTestId('loop-stop')).toBeVisible();
 
   // Left open deliberately: the shot is more use showing the glowing Stop and
@@ -120,7 +120,7 @@ test('the waiting notice, in the bell', async ({ page }) => {
   });
 
   await page.getByTestId('notification-bell').click();
-  await expect(page.getByText('Concepts is waiting for input.')).toBeVisible();
+  await expect(page.getByText('Ideate is waiting for input.')).toBeVisible();
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT_FGHI}/waiting-notice.png` });
 });
@@ -139,7 +139,7 @@ for (const mode of ['light', 'dark'] as const) {
     await openFab(page);
 
     const panel = page.locator('.fab-panel-gradient');
-    for (const tab of ['Guard', 'Concepts', 'Develop', 'Patrol', 'Medic', 'Overhaul']) {
+    for (const tab of ['Guard', 'Ideate', 'Create', 'Patrol', 'Medic', 'Overhaul']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(900);
       await panel.screenshot({ path: shotPath(OUT_P37, `${mode}-${tab.toLowerCase()}.png`) });
@@ -150,7 +150,7 @@ for (const mode of ['light', 'dark'] as const) {
 test('the collapsed FAB carries the tab arc, and a waiting loop overrides it', async ({ page }) => {
   await open(page);
   await openFab(page, 'Medic');
-  await page.getByTestId('loop-composer-medic').getByTestId('loop-start').click();
+  await page.getByTestId('loop-composer-medic').getByTestId('loop-extras-send').click();
   await expect(page.getByTestId('loop-composer-medic').getByTestId('loop-stop')).toBeVisible();
 
   await page.getByRole('button', { name: 'Close quick access panel' }).click();
@@ -207,8 +207,8 @@ for (const mode of ['light', 'dark'] as const) {
 
       await page.getByRole('button', { name: 'Patrol', exact: true }).click();
       const composer = page.getByTestId('loop-composer-watchdog');
-      await composer.getByRole('checkbox', { name: 'Answer feedback' }).check();
-      await composer.getByTestId('loop-start').click();
+      await composer.getByRole('switch', { name: 'Reply to PRs' }).check();
+      await composer.getByTestId('loop-extras-send').click();
       await expect(composer.getByTestId('loop-stop')).toBeVisible();
       await page.waitForTimeout(900);
       await panel.screenshot({ path: shotPath(OUT_GLOW, `${mode}-running-${variant}.png`) });
@@ -279,7 +279,7 @@ for (const variant of ['before', 'after'] as const) {
     await setReducedMotion(page);
 
     const panel = page.locator('.fab-panel-gradient');
-    for (const tab of ['Guard', 'Concepts', 'Develop', 'Patrol', 'Medic', 'Overhaul']) {
+    for (const tab of ['Guard', 'Ideate', 'Create', 'Patrol', 'Medic', 'Overhaul']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await page.waitForTimeout(300);
       await panel.screenshot({ path: shotPath(OUT_ARC, `dark-${tab.toLowerCase()}-${variant}.png`) });

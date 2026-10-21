@@ -1,0 +1,63 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Tasks (Phase 113 Theme O) — the forge's issues and ProjectV2 boards as a table, a board and a dependency
+# graph, as a renderer-only feature. Placed with Coder (`FEATURE_PLACEMENT.tasks`); Studio composes every
+# feature. What an app owns — its ui store, its terminals, launching an agent on a card — comes through the
+# `TasksHost` port, never by import, so Coder composes the same views with no terminal at all.
+id: 'feature-tasks'
+language: 'typescript'
+layer: 'library'
+
+# `app-<id>` names the apps that compose this feature, from the placement map; Studio composes every
+# feature. `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
+tags:
+  - 'layer-feature'
+  - 'app-coder'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+
+tasks:
+  # No main half, so nothing emits. The inherited `build` (`tsc -b`, `outputs: dist`) can never produce
+  # its output, and `app:build` → `desktop:dist` depends on it — so it is a no-op here, with no outputs.
+  build:
+    command: 'noop'
+    options:
+      mergeArgs: 'replace'
+      mergeDeps: 'replace'
+      mergeOutputs: 'replace'
+    deps: []
+    outputs: []
+
+  typecheck:
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

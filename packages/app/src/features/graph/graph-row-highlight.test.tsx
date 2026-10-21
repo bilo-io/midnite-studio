@@ -1,10 +1,10 @@
 import type { GraphRow, Ref } from '@midnite/studio-shared';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render } from '../../../test-support/studio-render';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CommitGraphRow } from './graph-row';
-import { graphThemeFor } from './graph-themes';
-import { laneHsl } from './lane-colors';
+import { CommitGraphRow } from '@midnite/studio-frame/graph';
+import { graphThemeFor } from '@midnite/studio-frame/graph';
+import { laneHsl } from '@midnite/studio-frame/graph';
 
 /**
  * The selected row's tint, its ink and the branch halo are all CSS built from
@@ -81,6 +81,12 @@ describe('selected commit row', () => {
     expect(el.style.getPropertyValue('--lane-h')).toBe(`${h}`);
     expect(el.style.getPropertyValue('--lane-s')).toBe(`${s}%`);
     expect(el.style.getPropertyValue('--lane-l')).toBe(`${l}%`);
+  });
+
+  it('shows a pointer cursor, not the default arrow', () => {
+    const el = renderRow(makeRow('abc', 3));
+    expect(el.className).toContain('cursor-pointer');
+    expect(el.className).not.toContain('cursor-default');
   });
 
   it('does not paint the accent hue behind the selection any more', () => {

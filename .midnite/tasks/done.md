@@ -1,6 +1,1069 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-18 — Phase 113 Theme R (slice 2) — LAN streaming, system-ffmpeg transcoding and playlists in the Library
+
+[PR #909](https://github.com/bilo-io/midnite-studio/pull/909). Playlists played in sequence; an opt-in LAN server bound only to a private address the user picks, behind a 256-bit token, serving only `resolveFile`'s jailed bytes; transcoding through the system ffmpeg with a file-only protocol and container whitelist, and a binary main chooses through its own dialog. Theme R done.
+
+## 2026-10-18 — Phase 113 Theme K (slice 2) — Send to ▸ PR comment, the desktop region overlay and Midnite Capture's own Send to
+
+[PR #908](https://github.com/bilo-io/midnite-studio/pull/908). The screenshot goes on the clipboard and the PR's https page opens in the embedded browser at its comment box (nothing posted by Capture); a sandboxed, token-gated overlay window over the display under the pointer, cropped in main from the frozen grab; Copy, Show in Finder and a confirmed `midnite-studio://capture` import from the standalone app. Theme K done.
+
+## 2026-10-18 — Phase 113 Theme K (slice 1) — Capture as a feature; Studio's Capture view; apps/capture
+
+[PR #907](https://github.com/bilo-io/midnite-studio/pull/907). Stills (full screen, window, region) and gated screen recordings with the Screen Recording permission explained in-app; one global chord; opt-in clipboard history that never reads a concealed or transient entry; Send to an agent chat's draft or a Creator image project; `apps/capture` with a deny-all session but for the recording gate. PR-comment Send to and a desktop-wide region overlay are K2.
+
+## 2026-10-18 — Phase 113 Theme R (slice 1) — the media library as a feature; Studio's Media ▸ Library; apps/media
+
+[PR #906](https://github.com/bilo-io/midnite-studio/pull/906). Folders picked by the user are scanned into films, shows, music and photos with local metadata, artwork and watch progress; files are served only from the index through each root's path jail; TMDB lookups are opt-in and off by default; Studio gains Media ▸ Library and `apps/media` composes it with its own guarded window and a paired, grant-gated vault read. LAN streaming and transcoding are R2.
+
+## 2026-10-17 — Phase 113 Theme J (slice 3) — web-app sign-ins in Vault; Studio's credential settings from the vault feature
+
+[PR #903](https://github.com/bilo-io/midnite-studio/pull/903). Vault lists each web app's sign-in as a cookie count and sites (never a value) and signs out of one behind a blast-radius confirm; the agent key field and the credential half of Settings ▸ Accounts render from the vault feature through a `VaultHost` port. Theme J ✅.
+
+## 2026-10-17 — Phase 113 Theme G (slice 3) — Studio boots from apps/studio
+
+[PR #902](https://github.com/bilo-io/midnite-studio/pull/902). Studio's renderer and Electron main start from `apps/studio/entry/`, each through one eslint-held seam into `packages/app` / `packages/desktop`; the packaged layout, CI and harnesses are unchanged. Theme G ✅.
+
+## 2026-10-17 — Phase 113 Theme L (slice 2) — Browser as a feature; apps/browser composes it with its own main and icon
+
+[PR #900](https://github.com/bilo-io/midnite-studio/pull/900). `packages/features/browser` takes the browser and web-apps renderer and main half (`browser-security.ts` byte-for-byte), Studio composes it unchanged, and `apps/browser` composes the same feature with its own Electron main and icon, so its bundle packs. Theme L ✅.
+
+## 2026-10-17 — Phase 113 Theme O (slice 5) — Tasks as a feature; Coder's Tasks tab and the agent-run hand-off
+
+[PR #898](https://github.com/bilo-io/midnite-studio/pull/898). `tasks` is a feature, Coder gains a gated Tasks tab, and a Coder card hands `{issueUrl, skill}` to Studio, which refuses unknown repositories and always confirms. Theme O ✅; Verification V5 ticked (Studio closed deferred) and V7 recorded: disk 253 MB vs 794 MB, idle memory 862 MB vs 627 MB.
+
+## 2026-10-17 — Phase 113 Theme S (slice 3) — the play-test loop inside Gamer
+
+[PR #895](https://github.com/bilo-io/midnite-studio/pull/895). Play-tests and create-and-iterate move into the games feature; Gamer runs both, the agent on a private per-run MCP server through its own game-only shim, confined exactly as in Studio. Theme S ✅.
+
+## 2026-10-17 — Phase 113 Theme O (slice 4a) — Sessions as a feature; guest rules in the broker; Agents' sessions in Coder
+
+[PR #894](https://github.com/bilo-io/midnite-studio/pull/894). The broker enforces guest rules on the server, `sessions` is a feature, Agents runs agent nodes on Studio's broker, and Coder's Sessions tab shows them.
+
+## 2026-10-17 — Phase 113 Theme S (slice 2) — the Model tab as a feature; Gamer's MCP tools owned by its manifests
+
+[PR #893](https://github.com/bilo-io/midnite-studio/pull/893). `media-model` is a feature, the Gamer tools are owned by their feature manifests, and Gamer gains the Models tab with its keys only through the paired, granted runtime vault.
+
+## 2026-10-17 — Phase 113 Theme O (slice 3) — the API client and Database tool as features; Coder gains them
+
+[PR #892](https://github.com/bilo-io/midnite-studio/pull/892). `api-client` and `database` are features; Coder gains API and Database tabs, with DB passwords only through the paired, granted runtime vault and the script runner still sandboxed in its own worker.
+
+## 2026-10-17 — Phase 113 Theme S (slice 1) — Maps, Terrain, Sprites and Games as features, and apps/gamer
+
+[PR #891](https://github.com/bilo-io/midnite-studio/pull/891). Four media features over a runtime media kernel, Studio unchanged, and Midnite Gamer opening on Games.
+
+## 2026-10-17 — Phase 113 — the shared data plane
+
+[PR #890](https://github.com/bilo-io/midnite-studio/pull/890). Studio hosts one vault and broker for every suite app — a guest is served only when paired (Ed25519 over a host nonce) and granted — Monitor shows Studio's live terminals, and `midnite://open` carries cross-app hand-off.
+
+## 2026-10-17 — Phase 113 Theme O (slice 2) — the git graph in the frame; Coder's read-only Graph
+
+[PR #889](https://github.com/bilo-io/midnite-studio/pull/889). Studio's git graph and diff behind a `GitHost` port in the frame with every write path left in Studio, and Midnite Coder's Graph over the system git. Verification V1–V3 ticked.
+
+## 2026-10-17 — Phase 113 Theme Q (slice 3) — the music editor joins Audio; music MCP tools owned by its manifest
+
+[PR #888](https://github.com/bilo-io/midnite-studio/pull/888). Midnite Creator gains the music editor, and the `music_*` MCP tools are declared by Audio's manifest. Theme Q is done.
+
+## 2026-10-17 — Phase 113 Theme O (slice 1) — the forge as features, and apps/coder
+
+[PR #887](https://github.com/bilo-io/midnite-studio/pull/887). Reviews, Actions and Tests as features over a forge main half, Midnite Coder on its own repository list with forge tokens only from the runtime vault behind its grants — and two test guards after a stale mock let a test open a real public issue.
+
+## 2026-10-17 — Phase 113 Theme M (slice 3) — Knowledge in the frame; Mind graphs its own notebook
+
+[PR #886](https://github.com/bilo-io/midnite-studio/pull/886). Knowledge behind a `KnowledgeHost` port in the frame, Studio unchanged, and Midnite Mind with a Knowledge tab built from its notes. Theme M is done.
+
+## 2026-10-17 — Phase 113 Theme N (slice 2) — Workflows and the MCP Tools view as features; Agents gains Graphs and Tools
+
+[PR #885](https://github.com/bilo-io/midnite-studio/pull/885). The workflow runner and Graphs view behind ports, the MCP Tools view shared by Studio's Settings and Agents' Tools tab, and Agents cancelling every in-flight run on quit.
+
+## 2026-10-16 — Phase 113 Theme Q (slice 2) — Audio, Video and Slides as features; Creator gains them
+
+[PR #883](https://github.com/bilo-io/midnite-studio/pull/883). Three more media features behind host ports, Studio unchanged, and Midnite Creator with Audio, Video and Present-from-a-doc.
+
+## 2026-10-16 — Phase 113 Theme P (slice 2) — read-only brokerage and exchange accounts
+
+[PR #884](https://github.com/bilo-io/midnite-studio/pull/884). Alpaca and Kraken accounts in Money and Studio's finance dashboard — balances, positions, allocation, performance — through connectors that cannot build an order request, with credentials only main can read. Theme P is done.
+
+## 2026-10-16 — Phase 113 (fix) — every suite app window refuses to navigate away from itself
+
+[PR #882](https://github.com/bilo-io/midnite-studio/pull/882). Only Money and Agents handled `window.open`, and no suite app handled a plain link, so a link in a doc, deck or chat could load a remote page into a window carrying the preload bridge; the runtime's `guardAppWindow` now blocks both and sends http(s) to the system browser, held by `scripts/app-window-guard.test.mjs`.
+
+## 2026-10-16 — Phase 113 Theme N (slice 1) — Chats, Councils and Models as features, and apps/agents
+
+[PR #881](https://github.com/bilo-io/midnite-studio/pull/881). Three features with their main halves behind host ports, Midnite Agents composing them, the Ollama cloud key read only in main and behind the grants — and every app's moon `typecheck`/`test` now re-runs on a main-side change.
+
+## 2026-10-16 — Phase 113 Theme M (slice 2) — Review and the quick capture into Mind
+
+[PR #880](https://github.com/bilo-io/midnite-studio/pull/880). Notes become spaced-practice cards (SM-2, state beside the notes), and the quick-access capture lands in Mind's notebook when Mind is installed, otherwise in a local Inbox — decided in main, no path reaches the renderer.
+
+## 2026-10-16 — Phase 113 Theme Q (slice 1) — the shared media feature, Docs and Images, and apps/creator
+
+[PR #879](https://github.com/bilo-io/midnite-studio/pull/879). Media's shell and plumbing are one feature Creator, Media and Gamer can share, behind a tab-registry contract in the frame; Docs and Images are features of their own; Midnite Creator opens on them; and a test now keeps every app's vault behind the user's grants.
+
+## 2026-10-16 — Phase 113 Theme P (slice 1) — the Finance feature and apps/money
+
+[PR #878](https://github.com/bilo-io/midnite-studio/pull/878). Finance and the finance dashboard are one feature package Studio composes unchanged, the market-data key never reaches a renderer, and Midnite Money is its own app with its own home, denied that key until the user grants it in Vault; trading is recorded as deferred.
+
+## 2026-10-16 — Phase 113 Theme J (slice 2) — LLM keys in the vault, per-app grants
+
+[PR #877](https://github.com/bilo-io/midnite-studio/pull/877). The renderer no longer holds any LLM key — each moves into the vault, confirmed before the plaintext is dropped — and the runtime vault denies every app but Studio and Vault until the user grants it access from Vault's App access section.
+
+## 2026-10-16 — Phase 113 Theme M (slice 1) — the Notes feature and apps/mind
+
+[PR #876](https://github.com/bilo-io/midnite-studio/pull/876). Notes is a feature package (its store and handlers out of desktop, its view behind a host port) that Studio composes with no visible change, and Midnite Mind is its own app opening on Notes; Knowledge waits on a host port of its own.
+
+## 2026-10-16 — Phase 113 Theme J (slice 1) — the Vault feature, view and app
+
+[PR #875](https://github.com/bilo-io/midnite-studio/pull/875). Secrets, forge accounts and database logins are listed, set, rotated and removed from one Vault view in Studio and from `apps/vault`, with no stored value ever sent back to a renderer — enforced by a schema walk over every channel the feature uses.
+
+## 2026-10-16 — Phase 113 Theme I (slice 2) — Monitor's sessions and token spend; Theme I done
+
+[PR #874](https://github.com/bilo-io/midnite-studio/pull/874). Monitor lists live terminal sessions with their uptime and the broker's state, and sums token spend per agent and per session from each agent's own transcript; the status bar's monitor flyout hands off to the Monitor view.
+
+## 2026-10-16 — Phase 113 Theme I (slice 1) — the Monitor feature, view and app
+
+[PR #873](https://github.com/bilo-io/midnite-studio/pull/873). Monitor is a feature package (metrics and system health moved out of desktop), a real view in Studio rather than two Settings pages, and `apps/monitor`, an installable bundle built on the app kit.
+
+## 2026-10-15 — Phase 113 Theme I (groundwork) — the suite app kit
+
+[PR #872](https://github.com/bilo-io/midnite-studio/pull/872). Before Monitor, the pieces every extracted app was copying moved into one kit: frame chrome, a real blast-radius dialog, persisted app settings and a Tailwind preset in `packages/frame`, and `createIpcContext`/`createBridgeSlice` in `packages/runtime`. Cleaner and Browser use it (Browser gains a real confirm), and Cleaner's preload shrinks from ~1 MB to ~95 KB.
+
+## 2026-10-15 — Phase 113 Theme H (H3) — the friction list, and the launcher's data directory
+
+[PR #871](https://github.com/bilo-io/midnite-studio/pull/871). Every friction point from the Cleaner pilot and the 0.0.1 ephemeral release is written into the phase doc's Theme H Headline, split into what to fix before the next app, inside a theme, at release, and in tooling. Checking the real install turned up a bug: the packaged launcher kept its bundles under Electron's default `@midnite/launcher` userData while the runtime read `Midnite Apps/bundles/installed.json`. The name now lives in `shared/launcher-data-dir.ts`; the launcher pins userData before its single-instance lock (`Midnite Apps`, or `Midnite Apps Dev` from source) and the runtime imports the same constant.
+
+## 2026-10-15 — Phase 113 Themes E + F (slice) — the first suite release; the website installs the launcher
+
+[PR #863](https://github.com/bilo-io/midnite-studio/pull/863). After the ephemeral `v0.0.1` release published
+Midnite Apps, the Cleaner bundle and `catalog.json` to bilo-io/midnite-apps, the website's install link and
+download page switched to the launcher; Studio's in-app update keeps its own installer.
+
+## 2026-10-15 — Phase 113 Theme H (slice) — Cleaner's bundle runs on its own
+
+[PR #868](https://github.com/bilo-io/midnite-studio/pull/868). Cleaner's bundle now carries its own Electron
+main and preload, the release packs them, and a temp-root proof installs, starts and uninstalls it through
+the launcher's real install code; its scanners still answer "not available yet" until they leave desktop.
+
+## 2026-10-15 — Phase 113 Theme H (slice) — apps/cleaner, the first standalone app
+
+[PR #867](https://github.com/bilo-io/midnite-studio/pull/867). Cleaner is composed from the optimizer
+feature over the frame with its own home view, accent and icon, so a release packs its bundle; it has no
+Electron main side yet (H2).
+
+## 2026-10-15 — Phase 113 Theme D (slice) — the installed set reads installed.json
+
+[PR #866](https://github.com/bilo-io/midnite-studio/pull/866). The runtime's MCP installed-apps set now
+reads the launcher's `installed.json` (never throwing, re-read on change), so a launcher-hosted runtime
+lists only installed apps' tools; Studio still lists everything.
+
+## 2026-10-15 — Phase 113 Theme E (slice) — the launcher's own Dock name in dev
+
+[PR #865](https://github.com/bilo-io/midnite-studio/pull/865). `moon run launcher:start` now runs from an
+APFS-cloned, re-badged `Midnite Apps.app`, so the dev Dock shows Midnite Apps and its icon instead of
+Electron.
+
+## 2026-10-15 — Phase 113 Theme G (slice) — existing installs keep updating
+
+[PR #864](https://github.com/bilo-io/midnite-studio/pull/864). Today's Studio installs keep updating
+from their own feed and, once Midnite Apps is installed, hand updates over to it (Studio's self-updater
+switches off and points at the launcher); without the launcher nothing changes but a passive offer.
+
+## 2026-10-15 — Phase 113 Themes E + F (slice) — the release publishes the launcher, bundles and catalog.json
+
+[PR #862](https://github.com/bilo-io/midnite-studio/pull/862). A tag release now also publishes Midnite
+Apps as `midnite-launcher/vX.Y.Z` with the app bundles attached, commits a lockstep `catalog.json` built
+from the uploaded files and the launcher's own updater feed, and the release skills verify and tear
+all of it down. Nothing is published until the first suite release is signed off.
+
+## 2026-10-15 — Phase 113 Theme F (slice) — the release build includes the launcher
+
+[PR #861](https://github.com/bilo-io/midnite-studio/pull/861). A tag build now also produces the
+launcher's dmg/zip/blockmaps and its own feed file in the same macOS job as Studio, plus per-app
+bundle artifacts for affected apps on ubuntu. Publishing is unchanged — still Studio only.
+
+## 2026-10-15 — Phase 113 Theme D (slice) — cross-app hand-off and router-fallback tests
+
+[PR #860](https://github.com/bilo-io/midnite-studio/pull/860). Apps hand off to one another through
+the link router with an opaque `ref` on `midnite://` links, never a direct import; Sessions' "reveal
+workflow" is the first caller. The cross-process transport waits on the runtime daemon. Every router
+fallback is now tested.
+
+## 2026-10-15 — Phase 113 Theme E (slice) — tile states from installed bundles
+
+[PR #859](https://github.com/bilo-io/midnite-studio/pull/859). Launcher tiles now read Installed /
+Update / Not installed from the app's installed bundle against the catalog (with lockstep refusals
+surfacing as Update), install and update one app per tile, and "Move to Trash…" removes exactly one
+app's bundle, stub and record via the Finder trash. Unpublished apps keep Studio's state.
+
+## 2026-10-15 — Phase 113 Theme E (slice) — lockstep versions
+
+[PR #858](https://github.com/bilo-io/midnite-studio/pull/858). The launcher now refuses to install,
+update into or open an app bundle whose version differs from the runtime's, with a typed reason, and
+ignores a catalog whose app versions disagree with its own runtime version. The source version check
+covers every `apps/*` package.
+
+## 2026-10-15 — Phase 113 Theme F (slice) — no public app ships Quick Kiss
+
+[PR #857](https://github.com/bilo-io/midnite-studio/pull/857). A gate test fails if the Quick Kiss
+font file is tracked or referenced in the launcher, any suite app other than Studio, the website, the
+frame or a feature, and checks the launcher and website still declare Damion. A bundle-scanning
+script is ready for the release build to call.
+
+## 2026-10-15 — Phase 113 Theme G (slice) — Studio profile migration to the runtime
+
+[PR #856](https://github.com/bilo-io/midnite-studio/pull/856). A flag-gated, off-by-default migration
+moves a Studio user's settings, sessions, windows and vault entries into the runtime's own data
+directory: backup first, non-overwriting copies, verification, and a marker written last so a failed
+run retries. Vault entries are re-encrypted for the runtime's keychain identity, and any that cannot
+be carried are reported, never dropped. The human check on a real profile is still open.
+
+## 2026-10-15 — Phase 113 Theme G (slice) — `apps/studio` and the layer rule in the agent docs
+
+[PR #855](https://github.com/bilo-io/midnite-studio/pull/855). `apps/studio` is now Studio's
+composition: it lists every feature it composes (a test catches a forgotten one), and
+`studio:start`/`studio:bundle`/`studio:dist` delegate to the existing `desktop:*` tasks. The
+renderer/Electron entry has not moved yet. `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` now spell out the
+app → feature → frame → shared layer rule and the runtime's limits.
+
+## 2026-10-15 — Phase 113 Theme D (slice) — the runtime owns the `midnite` CLI and per-app MCP tools
+
+[PR #854](https://github.com/bilo-io/midnite-studio/pull/854). Every MCP tool now has an owner — the
+frame or one app — and the tool list is filtered by which apps are installed, with calls to an unlisted
+tool refused. Studio counts as every app installed, so its 126-tool list is unchanged and pinned. The
+CLI installer moved into `packages/runtime` with injected paths and the same `midnite`/alias rules. The
+installed set is a seam for now; reading the launcher's `installed.json` comes later.
+
+## 2026-10-15 — Phase 113 Theme L (slice) — `apps/browser` shell and the app-layer lint rule
+
+[PR #853](https://github.com/bilo-io/midnite-studio/pull/853). A first `apps/browser` composed over
+`packages/frame`: a `BrowserHost` port, a shell with tab strip, toolbar, web-apps dock and an
+agent-session bar, and the frame's chrome port satisfied. eslint now treats `apps/**` as the app
+layer — an app may not import another app, the runtime, desktop or electron-updater. `docs/APPS.md`
+says what the Browser app adds over the frame's panel. Studio's own `browser`/`web-apps` code is not
+yet extracted into features, so the two do not share code yet.
+
+## 2026-10-14 — Phase 113 Theme D (slice) — one runtime vault and a shared pty broker
+
+[PR #852](https://github.com/bilo-io/midnite-studio/pull/852). The three credential vaults now bind
+namespaces of one vault service in `packages/runtime`, reading and writing the same files so nothing
+migrates, with every access tagged by app id for Theme J's grants later. The pty broker client moved
+into the runtime as a service any app attaches to, keeping the build-fingerprinted socket and the
+stale-broker retire order. Tested with two apps sharing one vault and one broker. The CLI/MCP owner
+and cross-app hand-off are still to come.
+
+## 2026-10-14 — Phase 113 Theme E (slice) — per-app bundle install and launcher-owned updates
+
+[PR #851](https://github.com/bilo-io/midnite-studio/pull/851). The launcher installs, updates and
+uninstalls one app bundle at a time: verified against the catalog's size and SHA-256, staged, given a
+Dock stub whose Electron framework is APFS-cloned from the runtime and ad-hoc signed, then swapped in
+with rollback. Installed bundles are recorded in `installed.json`, which the `midnite://` router now
+reads. The launcher runs the suite's one electron-updater on its own `generic` feed; a lint rule and a
+repo-wide test keep every app, the frame and the runtime from adding another. One manual check stays
+open: a packaged stub's renamed helpers and its Dock name.
+
+## 2026-10-14 — Phase 113 Theme D (slice) — the `midnite://` link router
+
+[PR #849](https://github.com/bilo-io/midnite-studio/pull/849). Every app now has one link form,
+`midnite://open?app=<id>[&view=…][&tab=…|&page=…]`, built and parsed by
+`packages/shared/src/midnite-link.ts` (zod-free so the launcher imports it by source path). The
+launcher owns the scheme: it opens an installed app bundle (a seam that returns nothing until bundles
+exist), else forwards to Studio as `midnite-studio://view?…`, else brings itself forward on that
+app's detail sheet. Studio's own `midnite-studio://` links are unchanged. The rest of Theme D — one
+vault, the shared broker, the CLI/MCP owner and cross-app hand-off — is still to come.
+
+## 2026-10-14 — Phase 113 Theme C — Package extraction scaffolding
+
+[PR #850](https://github.com/bilo-io/midnite-studio/pull/850). The layers the suite split needs now
+exist as packages: `packages/runtime` (the main-process context a feature registers against),
+`packages/frame` (the cross-app chrome, starting with the bridge, toasts, metrics and settings
+helpers plus two pieces out of `app.tsx`, with a chrome port the app supplies), and
+`packages/features/optimizer` — the first feature package, with `manifest.ts`, `renderer/` and
+`main/`, composed back into Studio with no stored setting moved. `VIEW_IDS` and
+`SETTINGS_PAGE_IDS` are built from per-feature registrations and pinned to the old lists. eslint
+enforces app ← feature ← frame ← shared (45 fixture cases); moon finds projects by `moon.yml`
+files, `gate-projects-check` knows `feature-*`, and `scripts/affected-apps.mjs` names the apps a
+change touches. `docs/APPS.md` documents the packages and how to extract the next feature.
+
+## 2026-10-14 — Phase 113 Theme E (slice) — catalog.json schema and the launcher's dev identity
+
+[PR #848](https://github.com/bilo-io/midnite-studio/pull/848). The launcher has a zod schema for
+`catalog.json` (runtime version plus per-app version, bundle URL, size, sha256 and minimum runtime
+version) and fetches it from `bilo-io/midnite-apps` first, falling back to today's
+`midnite-studio/version.json` path when the catalog is missing, malformed, offline or lacks a Studio
+entry — which is every case today, since nothing is published yet. `catalog.example.json` is tested
+against the schema. In `moon run launcher:start` the launcher now sets its own Dock icon and app name;
+the Dock label still reads "Electron" because LaunchServices takes it from the stock Electron.app
+bundle, which only a cloned `Midnite Apps.app` stub will fix. Both Theme E items stay open (◐).
+
+## 2026-10-14 — Phase 113 Theme A — Placement map and vocabulary
+
+[PR #847](https://github.com/bilo-io/midnite-studio/pull/847). Every folder in
+`packages/app/src/features/` now has an owner: the frame (the cross-app chrome — never "shell", which
+is `@bilo-io/shell`) or one of the twelve apps, in `packages/shared/src/domain/placement.ts`.
+`docs/APPS.md` is generated from that const and a vitest keeps folders, map and doc in step. The
+Phase 83 third-party rail was renamed `apps` → `web-apps` in code, channels, bridge and settings page,
+with ui-store v34 migrating five persisted fields; the `persist:app-<id>` partitions and `apps-<id>`
+window roles keep their names so no one is signed out and no on-disk window state moves. The
+launcher's tiles follow the map: Coder gains Tasks, Mind is Notes and Review, and the detail sheet
+names the frame.
+
+## 2026-10-14 — Phase 113 Theme B — Process model and Dock identity spike
+
+[PR #846](https://github.com/bilo-io/midnite-studio/pull/846). Measured how a small app on a shared
+runtime gets its own Dock icon without its own Chromium (Electron 33.4.11, macOS arm64). A stub that
+forwards to one runtime process cannot own the window, so the Dock and ⌘-Tab show the runtime. A
+per-app process whose `Frameworks/` is a symlink to the runtime's dies with SIGTRAP and fails
+`codesign --verify --deep --strict`. A per-app process whose framework is an APFS clone (or a
+hardlink) works: own name, bundle id and Dock/⌘-Tab entry, ~0 extra disk, 2.3 s to a window,
+~320 MB idle RSS per running app, two apps on one socket daemon at once. Decision 10 resolved to
+APFS-cloned stubs signed at install time. Gatekeeper rejects every ad-hoc bundle, so notarization of
+locally created stubs moves to Theme F. Findings: `docs/spikes/dock-identity.md`; scripts:
+`scripts/spikes/dock-identity/`.
+
+## 2026-10-10 — Ad hoc — What was just said scrolls into view
+
+[PR #812](https://github.com/bilo-io/midnite-studio/pull/812). Not phase-tracked. The user asked that, after they speak, the composer and the views around the
+prompt scroll to what was just entered. A survey found two gaps. Chats already handled this,
+because it forces a stick-to-bottom on a new user turn. Docs and Video already scroll on every
+message. Song chat and game iterate have no mic, Loops history lists the newest run first, and
+Image, Model and Audio have no thread.
+
+**Composer.** `AiComposer` never moved the field's scroll position or the caret when `value`
+changed from outside. Once a draft grew past `maxTextareaHeight`, dictation landed below the fold.
+`useComposerMic` now bumps a `dictationSeq` for every phrase. Push-to-talk now wraps the sink it
+hands `setNextTranscriptSink`; conversation mode bumps the counter from `deliver`. `AiComposer`
+reacts in an effect declared after the auto-grow effect, so the field has its new height first: it
+moves the caret to the end and sets `scrollTop` to `scrollHeight`. Typing never triggers it.
+
+**Companion thread.** It followed new turns only while the user was already at the bottom, and
+`scrollToIndex` aims at a row's estimated end, so a wrapped turn measured taller after rendering
+stopped short. Now a new *user* turn re-pins the thread, as Chats does, while a companion turn still
+never pulls a reader back down. While pinned, the thread also follows the virtualizer's measured
+`getTotalSize()` to the true bottom.
+
+Verified in real builds. Chromium's fake mic played a clip into a long draft scrolled to its top,
+then into a 40-turn thread scrolled to its top. In this morning's DMG (`f0a50181`), `scrollTop`
+stayed 0 of 617 and the spoken turn was never rendered. In this branch, the field scrolled to
+457 of 617, the thread came back to the bottom, and the spoken turn was on screen. Screenshots:
+`docs/screenshots/voice-autoscroll/`.
+## 2026-10-11 — Phase 112 Theme H — Grammar, ambiguity and follow-ups
+
+[PR #828](https://github.com/bilo-io/midnite-studio/pull/828). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Theme H: "open my chat about auth" resolves through Theme G, asks which one when several match, and "this / the next one / its PR / go back" follow what is on screen.
+
+- **grammar:** `matchFollowUp`/`matchGoBack`/`describesResource` in `shared/src/companion-resource.ts`; `navigate` gains `query`, `about`, `related`; "pull up" joins the navigate verbs; precedence repo → agent/model → view → resource, tested (60 cases).
+- **chips:** `choice` pending action, numbered chips in the panel, "two"/"the second"/click/yes, 60 s expiry, replaced by a newer request; recency and exact-id requests never ask.
+- **follow-ups:** `reveal/follow-up.ts` — live selection or `lastRevealed`, next/previous over chats, graph rows, sessions and PRs, a `RELATED` map for commit, PR and CI run.
+- **router:** `ask.ts` documents the new shapes; `parseAskReply` fixtures for each.
+- **e2e:** one `companion-panel.spec.ts` spec (budget 479 to 480); chip screenshots in `docs/screenshots/p112-h/`.
+
+## 2026-10-11 — Phase 111 Theme F — View synchronization
+
+[PR #829](https://github.com/bilo-io/midnite-studio/pull/829). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Theme F: a global agent/model change reaches the Chats composer and the Media generators.
+
+- **sync:** `useFollowPrimaryAgent` writes a changed selection into the Chats draft and the Models tab engine prefs (Sprites' map layout reads those); startup leaves remembered choices alone.
+- **tracker:** Theme C's boxes ticked (merged in #821); the suite item is satisfied by CI.
+- **open:** the manual mic pass; the title-bar picker cannot select Ollama (see outstanding.md).
+## 2026-10-11 — Phase 112 Theme I — MCP `ui.reveal`/`ui.find` and the deep link
+
+[PR #827](https://github.com/bilo-io/midnite-studio/pull/827). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Theme I: an MCP agent (or a pasted link) can open any resource by `ref`, and can search for one.
+
+- **tools:** `ui.reveal` and `ui.find` behind `allowUi`; `ui.find` adds a deep `link` per match and returns titles and ids only. `ui.navigate.url`, `ui.state.lastRevealed`.
+- **link:** `midnite-studio://reveal?ref=<base64url JSON>`, built by `resourceRefLink`, validated by `ResourceRefSchema`; invalid is a toast.
+- **deferred:** `ui.state.selection`; the `issue` navigate path onto the table.
+## 2026-10-11 — Phase 112 Theme G — The resolver
+
+[PR #826](https://github.com/bilo-io/midnite-studio/pull/826). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Theme G: free text ("the commit about the lock screen", "my last chat", "PR 812") now resolves to ranked `ResourceRef`s, and the `find` UI action answers instead of refusing.
+
+- **parse:** `parseResourceQuery` in `shared` — head-noun kind words (and media tabs), recency (`latest`/`previous`), exact ids (sha, `#n`, `PR n`, `issue n`), required terms and soft kind words. Theme H reuses it.
+- **rank:** `findResources` — exact ids win outright, recency orders by time, fuzzy titles with a noise floor, substring text, all terms required, a bounded frecency/reveal-history nudge, ties to the newer; 300 ms and 20 results per source, limit ≤ 20.
+- **sources:** commits (`git log --grep`, cancelled on timeout), refs, stashes, PRs, issues, CI runs, chats, sessions, councils, workflows (+ runs), boards and cards, notes, each media tab, games, DB connections and tables, API requests, browser tabs, settings pages and sections — every one a list that already exists.
+- **wire:** `ui-requests.ts` answers `find` with `{did:'found', matches}`; the main window's `QueryClient` moved to `services/query-client.ts` so sources read cached forge lists without fetching.
+## 2026-10-11 — Phase 112 Themes C, D — Git, forge and agent-work revealers
+
+[PR #825](https://github.com/bilo-io/midnite-studio/pull/825). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Themes C and D: the companion and MCP agents can now open a specific commit, ref, stash, file (at a line), a file's diff in a
+commit, a PR, an issue, a CI run or job, and a chat, session, council, workflow run, board or kanban card.
+
+- **Git + forge:** `revealCommit` always lands (resolve short sha, wait for the stream, clear a hiding ref filter, cap message,
+  centre and pulse). `files-store.revealLine`, a `commit-file-request` store, and the `issue` shorthand moved onto the table.
+- **Agent work:** lifted the open workflow into `useWorkflowRevealStore` and the selected card into `board-selection-store`;
+  `pushCouncilEntry` over the council history store; `BoardView` scrolls and pulses a revealed card.
+- **Tests:** per-revealer vitest against store fakes, `reveal-commit.test.ts`, a reveal-before-mount workflow test, and one
+  Playwright spec (e2e cap 478 to 479).
+## 2026-10-11 — Phase 112 Themes E, F — Notes, media, tools and settings revealers
+
+[PR #824](https://github.com/bilo-io/midnite-studio/pull/824). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Themes E and F: the notes, media, database, API-client, browser and settings kinds now open for real instead of answering `unavailable`.
+
+- **notes + media:** `selectNote(id)` lifted into `notes-store`; a generic `useMediaOpenRequest` store for doc, image, video, audio, map and game; app-level `music_open` / `map_goto` / `game_open` listeners routed through `revealResource` (so they work from any view).
+- **tools + settings:** `dbTable` (preview tab, not run), `apiRequest` (focus or open, never send), `browserTab` (focus or open), `setting` (page plus section scroll and highlight). `SettingsAccordion` anchors and the `SETTINGS_SECTIONS` table.
+## 2026-10-10 — Phase 109 Theme H — "Tune me" and quick tweaks
+
+[PR #816](https://github.com/bilo-io/midnite-studio/pull/816). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme H: personality and About me change by voice through a short interview or a one-line tweak,
+read back and confirmed. They are never dictated.
+
+- **Interview:** "tune yourself" asks four questions (tone, how much to say, humour, what to avoid),
+  and "let me tell you about me" asks three (name, work, updates). "Skip", "start over" and "cancel"
+  work throughout. The pure machine is `app/features/companion/tune-interview.ts`, and `tune.ts` runs the flow.
+- **Writing:** a new `'persona'` mode in `ask.ts` returns `{text ≤4000, summary ≤200}`, validated by
+  `parseAskReply(stdout, 'persona')`. With no CLI or a bad reply, `buildPersonaFromAnswers` fills a
+  labelled template (Decision 6).
+- **Tweaks:** "be more sarcastic", "talk less" and "stop being so formal" revise the current
+  personality through the CLI. With no CLI the companion offers Settings ▸ Companion. Honorific
+  phrasings stay C's `setting`.
+- **Confirm:** the companion speaks the summary, posts the whole draft, and asks "Want to hear all of
+  it?" (Decision 11). The replace question uses the pending slot, and a yes applies with
+  `tuned: true` and `confirmed: true`.
+- **No raw dictation:** `tune`/`tweak` intents carry no text, a `setting` intent for either field is
+  schema-invalid, and `persona` is stripped from router replies. The page gains "Try: …" hints for both fields.
+
+
+## 2026-10-11 — Phase 112 Themes A, B — ResourceRef and the revealResource engine
+
+[PR #823](https://github.com/bilo-io/midnite-studio/pull/823). [Phase 112](phases/phase-112-companion-deep-navigation.md)
+Themes A and B: one shape that names any thing in the app, and one engine that opens it. This is the
+foundation the per-kind revealers (C–F), the resolver (G), follow-ups (H) and MCP/deep link (I) build on.
+
+- **shared:** `domain/resource-ref.ts`, with `ResourceRefSchema` (20 kinds in four families), `RESOURCE_KINDS`, `MediaKind`,
+  `resourceRefLabel`, `resourceRefKey`/`resourceRefsEqual`/`resourceRefRepoId`. `navigate.target`/`reference`. `reveal`/`find`
+  UI actions and `revealed`/`found` results.
+- **app:** `features/companion/reveal/`, with `revealResource` (relay → lock → repo switch → view via `resolveNavigation` →
+  reveal → record), a total `REVEALERS` table spread from per-family stub files, and the `useRevealHistory` slot (last 20).
+  `navigateCompanion` routes `target`. The relay result carries `ok`/`reason`. `ui-requests.ts` answers `reveal`.
+## 2026-10-10 — Phase 111 Themes D, E — Title bar model pill and MCP agent tools
+
+[PR #822](https://github.com/bilo-io/midnite-studio/pull/822). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Themes D and E: the title bar shows which model the primary agent is on and lets you change it, and a background
+agent can read and switch the agent and model over MCP.
+
+- **app:** `TitleBarPrimaryAgent` gets a model pill (only for a non-default model) and a Model section in the picker, in one keyboard walk with the agent rows. `agent-switch.ts` answers the three new `ui-requests` arms.
+- **shared:** `companion_agent_get`, `companion_agent_set`, `companion_models_list` in `MCP_TOOLS`; schemas in `companion-mcp.ts`; `agentState`/`agentSet`/`modelsList` arms on the companion UI action and result.
+- **desktop:** three handlers in `companion-tools.ts`, registered in `MCP_HANDLERS`; same `allowCompanionSettings` switch as the rest of the family.
+## 2026-10-10 — Phase 109 Theme F — Voice audition
+
+[PR #820](https://github.com/bilo-io/midnite-studio/pull/820). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme F: "try some British voices" plays three or four numbered samples, each in the voice it names. "Number
+two", "that one", "next", "again" and "none" answer it, and the pick is read back in the new voice and can be
+undone.
+
+- **shared:** `companion-audition.ts` (phrase matcher, deterministic grade-ordered selection with female and
+  male alternating, even 3–4 batches, a system-voice filter, and the reply grammar). An `audition` intent
+  arm, parsed inside the vocabulary gate. The `companionTtsModelOnDisk` channel and its schemas.
+- **app:** `audition.ts` is the turn state machine, intercepting in `submitInput`. A pick goes through
+  `proposeSetting` → E's read-back and the undo slot. Falls back to system voices (said once). Barge-in
+  through `bargeInAudition()` from `voice-ports.ts` and from `conversation.ts`, which un-gates only for local
+  samples. The wake trigger passes a bare reply through. `CompanionSpeakOptions.voice` is a one-off voice.
+- **desktop:** a `companionTtsModelOnDisk` handler that reads the model off disk without spawning the worker.
+## 2026-10-10 — Phase 111 Theme B — Companion Intent Schema & Grammar
+
+[PR #819](https://github.com/bilo-io/midnite-studio/pull/819). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Theme B: Companion intent extension and phrase grammar for switching agents and models by voice.
+- **shared:** Extended `CompanionIntentSchema` with `switchAgent` variant (`{ kind: 'switchAgent', agentId, modelId }`), added `agents` list to `CompanionVocabularySchema`, implemented deterministic `trySwitchAgent` phrase grammar in `parseIntent` matching natural expressions ("switch to <agent>", "use <agent> with <model>", "set model to <model>", composite phrases, spoken aliases), and added `switchAgent` tests in `companion.test.ts`.
+- **desktop:** Extended router prompt in `buildAskPrompt` (`ask.ts`) with `switchAgent` intent instruction and vocabulary lines listing available agents/models.
+
+## 2026-10-10 — Phase 109 Theme G — Persona profiles
+
+[PR #818](https://github.com/bilo-io/midnite-studio/pull/818). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme G: named bundles of the companion's voice, personality and what it calls you, never its names, so a
+switch can't change the wake word. You can save, switch and delete them by voice, from Settings ▸
+Companion ▸ Profiles, or over MCP.
+
+- **shared:** `companion-profiles.ts` (find, modified, name checks), a `profile` intent arm with its
+  anchored grammar, `CompanionVocabulary.profiles`, the `companion_profile_*` schemas in
+  `companion-mcp.ts`, four `MCP_TOOLS` entries, and four `CompanionUiActionSchema` arms.
+- **app:** `profiles.ts`. A switch is one undoable change through `applyCompanionSettings`; editing marks
+  the active profile *modified* (derived) and never rewrites it; only a switch may write
+  `companionActiveProfile`. `profile-handoff.ts` is the voice arm, which asks before an overwrite or a
+  delete. The `ui-requests.ts` MCP arms wait on the generalised `askToConfirmMcpProfile`. The Profiles
+  section has an Active badge, a Modified dot, Save current as…, Rename, Delete (confirm dialog) and Set
+  active. The two keys leave `KNOWN_ORPHANS`.
+- **desktop:** `companionProfileList`/`Save`/`Switch`/`Delete` behind `allowCompanionSettings`. A save
+  or a delete gets the 30 s confirm wait plus its grace, and the route prompt learns profile names.
+
+## 2026-10-10 — Phase 111 Theme A — Global agent and model state contract
+
+[PR #817](https://github.com/bilo-io/midnite-studio/pull/817). [Phase 111](phases/phase-111-voice-agent-and-model-switching.md)
+Theme A. Global `primaryModelByAgent` map and actions in `ui-store`, store migration v32 → v33, and model catalog resolution helpers (`modelsForAgent`, `resolveAgentAndModel`) in `shared/src/ai-models.ts`.
+
+## 2026-10-10 — Phase 109 Themes C + E — The companion changes its own settings, says so, and undoes it
+
+[PR #815](https://github.com/bilo-io/midnite-studio/pull/815). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Themes C and E. You can tell the companion to change itself, by voice or typing: "use voice Bella", "volume 50",
+"louder", "call me boss", "I'll call you Nova", "stop talking out loud", "push to talk", "conversation mode
+on", "turn elevator music off". It reads the change back, and "undo that" reverts it.
+
+- **C (shared, app, desktop):** a `setting` intent arm restricted to non-`never` keys, with a per-key, per-op
+  value refinement, plus `pageOnlySetting` and `undoSetting`. An anchored settings grammar sits in
+  `parseIntent`; a 40+-phrase table, whisper-style variants and a collision set run against the app's real
+  vocabulary. `act()` arms apply direct changes, ask before confirm-tier ones (`PendingAction` of kind
+  `setting`), refuse never-tier ones with an offer to open the page, and ask "Bella or Isabella?" when a
+  name is ambiguous. `CompanionVocabulary.settings` feeds the router prompt. Settings ▸ Companion gets
+  "Try: …" hints, and `help` mentions settings.
+- **E (app):** `settings-announce.ts`. The read-back comes after the write, or before it for a mute or a
+  rename. Phrasings vary per key. MCP changes lead with "Your agent changed…". `undoSetting` reads the
+  restored value back. Voice and MCP changes get an Undo toast for the rest of the 60 s window, via a new
+  `showToast` outside React.
+
+## 2026-10-10 — Phase 109 Theme D — `companion_settings_*` on `midnite`
+
+[PR #814](https://github.com/bilo-io/midnite-studio/pull/814). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Theme D: an agent in a terminal can read and change the companion's settings for the user, through
+the same spec table and setter the companion's voice and the Settings page use.
+
+- **Tools:** `companion_settings_get`, `companion_settings_set` and `companion_voices_list`, behind a
+  new default-off `Settings ▸ MCP ▸ Let agents change companion settings` switch
+  (`allowCompanionSettings`, `mcp.json` v10) that refuses all three, reads included. Schemas and the
+  pure listing are in a new `shared/src/companion-mcp.ts`; handlers in
+  `desktop/src/main/mcp/companion-tools.ts`.
+- **Wire:** `setting`, `settingsState` and `voices` arms on `CompanionUiActionSchema` and its result
+  union. `requestUiAction` takes a per-action `timeoutMs` (5 s stays the default).
+- **Consent:** a `direct` change applies at once; a `never` key, or one the guards or schema would
+  refuse, is refused without asking; a `confirm` key asks in the app — the companion's chip and
+  voice when it is on in this window (`PendingAction` gains an `onConfirm` arm), `confirm-dialog.tsx`
+  otherwise — and the call waits up to 30 s for `approved`, `declined` or `timeout`. Nothing applies
+  after the deadline; a late "yes" hears "Too late — ask your agent again."
+- **Visibility:** each agent change takes the one-step undo slot and posts a toast and a transcript
+  line. Theme E's spoken read-back replaces that announcement. `outstanding.md` records this
+  family's consent answer.
+
+## 2026-10-10 — Phase 109 Themes A + B — One companion settings list, and one setter
+
+[PR #813](https://github.com/bilo-io/midnite-studio/pull/813). [Phase 109](phases/phase-109-companion-settings-by-voice.md)
+Themes A and B: the base that the voice intent (C), the MCP tools (D) and the four experience
+layers (E–H) build on. Nothing looks different on screen.
+
+- **A (shared):** `CompanionSettingsSchema` for the companion slice, plus `COMPANION_SETTING_SPECS`
+  over 17 `CompanionSettingKey`s with aliases, value kind, tier, guards, read-back and example.
+  Also `checkCompanionGuard` (`lastName`, `wakeWord`, `muteLast`, `tunedText`), spoken aliases
+  for every Kokoro voice, and a fuzzy `matchVoice` that asks between equally close names.
+- **B (app):** `applyCompanionSetting`/`applyCompanionSettings`/`previewCompanionSetting` with lock
+  refusal, tier enforcement for voice and MCP, guards for everyone, and a one-step 60 s
+  `undoLastCompanionSetting`. The Settings ▸ Companion page writes through the setter.
+  `broadcast-sync` carries the popout's companion keys. The STT provider is persisted and sent
+  with `transcribe`. A v31 → v32 migration seeds `companionSttProvider`, `companionProfiles` and
+  `companionActiveProfile`.
+
+## 2026-10-10 — Ad hoc — Conversation mode: hands-free voice turns, optional wake word
+
+[PR #811](https://github.com/bilo-io/midnite-studio/pull/811). Not phase-tracked. The user asked for a second button beside every composer's mic. When on, the
+mic stays open and each phrase is sent by itself when the user pauses, with no press per phrase.
+When off, the mic works as before. Two follow-ups added a trigger choice in Settings ("Always on",
+or "Wake word" using the existing `companionNames`) and made **Manual** the default.
+
+Two persisted keys sit behind one three-way choice in Settings ▸ Companion ▸ Microphone:
+`voiceConversation` (off = Manual) and `voiceConversationTrigger` (`always`/`wake`). The
+composer's `LuSpeech` toggle flips the first and keeps the second. `conversation.ts` holds the
+engine:
+
+- **Segmenter** (pure). It takes the first frame as the room's noise level, lets that floor fall
+  fast and rise slowly (so a fan isn't heard as speech), and keeps 300 ms of audio from before
+  each phrase. A phrase ends after 1 s of silence, at 28 s at most.
+- **Capture.** One `getUserMedia` stream feeds a `ScriptProcessorNode`, since an analyser can
+  only be polled.
+- **Session.** One composer owns it at a time; the last to start listening takes it over. It
+  ignores audio while the companion is speaking, transcribes phrases in order through the
+  existing transcribe IPC, reports an engine failure once per run of failures, and stops when
+  the setting goes off, the window is hidden, or its composer unmounts.
+
+`parseWakePhrase` (shared) only matches a name at the start of a phrase, optionally after
+"hey"/"ok", unlike `matchesCompanionName`. The longest name wins. A name said on its own arms the
+next phrase for 8 s. Auto-send is an effect in `AiComposer`, keyed on a counter that
+`useComposerMic` bumps in the same render as the transcript. It waits for `canSend` and drops a
+pending send if the mode is turned off. `pressStart` checks the mode, so the companion's Space
+shortcut and `VoiceControls` start and stop listening without changes. The mic is never opened
+without a click, including when the mode was left on at the last quit.
+
+Verified against a real build with Chromium's fake capture device playing looping clips. "Always
+on" sent five separate phrases from one click. "Wake word" sent only "list the open pull
+requests." and ignored the phrase that didn't start with the name. Screenshots:
+`docs/screenshots/voice-conversation/`.
+
+## 2026-10-10 — Ad hoc — The microphone was refused by the app's own permission handler
+
+[PR #810](https://github.com/bilo-io/midnite-studio/pull/810). Not phase-tracked. The user's report: macOS Privacy ▸ Microphone was on, speech output worked,
+but every mic press, in the companion and in every composer, said "permission was refused. Allow
+microphone access … in System Settings". Several earlier fixes had all gone to the renderer or
+the STT engine. The cause was in main: `browser-security.ts`'s `isAppOrigin` accepted the literal
+strings `"file://"`, `"file://."` and `"null"`, plus a dev origin without its slash. A probe that
+logged Electron 33.4.11's real handler arguments showed `"file:///"` (a URL spec), once the full
+`file:///…/index.html` page URL, and `"http://localhost:5173/"`. None of those matched, so the
+app refused its own `getUserMedia` in every build since Phase 79 Theme F. It now parses the origin
+as a URL: any `file:` URL, or the dev server's exact origin. It also refuses a subframe and an
+opaque `"null"` origin. Tests now pin the *recorded* strings; four of them fail against the old
+code.
+
+Two things rode along. `CompanionSttStatusResponse` gains an optional `microphoneAccess` (from
+`systemPreferences.getMediaAccessStatus`), so a refused press says who refused it. "macOS allows
+it, but Midnite Studio refused its own request" now reads differently from "turn it on in System
+Settings, then reopen". And `voice-ports.ts` had a start race: a release, an interrupt or a second
+press while `getUserMedia` was pending left a capture open that no gesture could stop. The
+first-ever press hits this, because macOS's permission prompt blurs the window and
+`use-composer-mic` counts that as a release. Such a capture is now cancelled the moment it opens.
+
+Verified against real builds as well as in vitest. Pressing the companion mic in the installed
+build, with Chromium's fake capture device playing a `say` clip, reproduces the refusal. The same
+press in this branch's `app:build desktop:bundle` puts the transcript in the textarea through the
+offline Whisper engine. Screenshots: `docs/screenshots/fix-mic-permission-origin/`. Not fixed
+here: on a fresh profile, the first transcribe waits out the one-time ~100 MB model download
+inside the 15 s deadline and then reports a timeout.
+
+## 2026-10-09 — Phase 101 Theme I — The agent chat in the composer
+
+The Editor gains a Chat column built from the Chats page's composer, message components and markdown renderer. Each song keeps its own thread beside it (`<song>.chat.json`), the engine and model pickers say which engines refine over passes and which write in one, a progress line shows "Pass n of N" and the latest tool action with Stop directly left of Send, and replies list the tracks and bars touched with a link that selects those notes in the piano roll. PR #806.
+
+- [x] I: reuse of the Chats composer/thread/markdown, per-song persisted thread, engine and model pickers, pass progress with Stop beside Send, change-summary replies with a piano-roll selection link
+
+## 2026-10-09 — Phase 101 Theme G — Clips, loops and the drum grid
+
+The arrangement now holds clips (loop, split, join, duplicate, delete, drag to move or resize) and drum tracks edit as a step grid (16 or 32 steps, per-step velocity, swing) over the same notes the piano roll shows. Clips expand to plain notes for the scheduler, the offline render, the `.mid` and Send to Generator. Schema changes are additive and optional. Vitest covers clip expansion, clip edits, the step grid round trip, swing and the editor flows.
+
+- [x] G: clips on the arrangement timeline (loop, split, join, duplicate)
+- [x] G: drum grid with 16/32 steps, per-step velocity and swing, reading and writing the piano roll's notes
+- [x] G: vitest for clip expansion, step grid round trip and swing
+
+## 2026-10-09 — Phase 101 Theme F — Mixer, effects and automation
+
+A Mixer panel gives every track a fader, pan, mute, solo and meter, plus a master, beside the active track's effects chain (reverb, delay, EQ, compressor, chorus, distortion, filter: add, remove, reorder, bypass). An Automation panel draws linear or step breakpoint lanes for volume, pan and any effect parameter. State lives in the song model (`track.effects` is the only new field, defaulting to empty). CC 7 and CC 10 mirror volume and pan to and from the `.mid`.
+
+- [x] F: mixer strips, per-track effects chain, automation lanes, CC 7/10 mirror, vitests for chain graph and interpolation
+
+## 2026-10-09 — Phase 101 Themes J + K — Export and Send to Generator
+
+The Editor exports `.mid`, WAV and MP3 for the whole song or the loop region, and Send to Generator lands a rendered reference in the project with a deterministic description (key, tempo, instruments, mood) that seeds the Generator prompt. The variant links back to its song. MusicGen-melody has no ONNX build, so the reference does not condition generation; that limitation is recorded in the phase doc.
+
+- [x] J: `.mid`, WAV and MP3 export through the Media export toolbar; whole song or loop region
+- [x] J: vitest for export format plumbing
+- [x] K: reference render plus generated text description (fallback branch)
+- [x] K: the Generator variant links back to its source song
+
+## 2026-10-09 — Phase 101 Theme E — Piano roll and arrangement
+
+The Editor tab loads and saves the project's songs over the music IPC and drops the preview song. A canvas piano roll draws, selects (click and marquee), moves, resizes, duplicates, deletes, quantises and snaps notes, with a velocity lane, a pitch-previewing keyboard gutter and zoom on both axes. An arrangement lists tracks with name, colour, mute, solo and the GM instrument picker beside a bar/beat ruler and playhead. Every edit is one undo step; Theme H's live `music.onChanged` edits land as one undo step and `music.onOpen` shows the song. Vitest covers the edit, history, geometry, ruler and keymap logic and the tab; `piano-roll.spec.ts` covers real pointer drag.
+
+- [x] E: piano roll, arrangement, undo/redo, shortcuts, canvas rendering, vitests and pointer e2e
+
+## 2026-10-09 — Phase 101 Theme C — The Tone.js engine
+
+A lazy engine wraps `Tone.Transport` (play, pause, stop, seek, loop region, metronome) over a tempo-map-aware tick/seconds conversion. A scheduler turns the song into per-track `Tone.Part`s and reschedules only the touched track on an edit. `Tone.Offline` renders WAV. The AudioContext resumes on a user gesture only and is suspended while the window is hidden. A transport bar tops the Editor tab. Vitest runs the scheduler and maths against a fake host; entry chunk +1.0 KB.
+
+- [x] C: engine, scheduler, offline render, gesture/visibility gates, vitests, bundle delta
+
+## 2026-10-09 — Phase 101 Theme H — `music_*` MCP tools and the agent engines
+
+Agents get fourteen `music_*` tools (`music_list`, `music_open`, `music_get_info`, `music_set_tempo`, `music_get_tracks`, `music_get_track`, `music_get_notes`, `music_add_notes`, `music_remove_notes`, `music_add_cc`, `music_add_pitchbends`, `music_add_track`, `music_save`, `music_render_preview`). Edits go through per-song working copies validated against `SongSchema`, push one `music-changed` event each, and the writes sit behind a new default-off Settings ▸ MCP "Let agents edit music" switch (`mcp-store` v9). Claude and Codex refine over a private per-run socket, Ollama writes JSON with repair rounds, Antigravity writes in one pass until Midnite is registered in its MCP config (consent step in Settings), and refines after.
+
+- [x] Tools + schemas in `MCP_TOOLS`, dispatch, `allowMusic` gate, piano-roll PNG preview, validation results, live `music-changed`/`music-open` events
+- [x] Agent engines: iterative (Claude/Codex), single pass with repair (Ollama), Antigravity registration, run/cancel IPC with progress
+- [x] Vitests: schemas and dispatch, note add/remove, validation results, gate, engines, agy registration (fake config, consent required), Settings page
+
+## 2026-10-09 — Phase 101 Themes A + B — Editor | Generator tabs, song model and MIDI files
+
+Media ▸ Audio gets persisted Editor | Generator tabs (Generator default, unchanged). The shared `SongSchema`, `.mid` read/write and import through `@tonejs/midi`, the `<name>.song.json` sidecar and the `music-{list,read,write,import,delete}` IPC land with vitest round trips for type-0 and type-1 files.
+
+- [x] A: tabs, persistence, shared projects list, `media.audio.editor` / `media.audio.generator` commands
+- [x] B: `SongSchema`, `.mid` IO, import, IPC + mock bridge, vitests
+
+## 2026-10-09 — Phase 101 Theme D — General MIDI instruments
+
+All 128 GM programs are pickable (grouped by family, with a downloaded badge). Main downloads a program's FluidR3_GM sample set on first use into `userData/gm-samples/` and streams progress; the renderer loads a per-track `Tone.Sampler` lazily and falls back to a synth with a "not downloaded" hint offline. Licence gate: FluidR3_GM is MIT, the gleitz pre-rendered sets CC BY 3.0 (attribution shown); drums are synthesised since no percussion set exists upstream.
+
+- [x] D: licence check, sample cache + progress IPC, catalogue, picker, Tone Sampler factory, attribution notice
+
+## 2026-10-08 — Phase 108 — Maps
+
+[Phase 108](phases/phase-108-maps.md) marked ✅ DONE (54/54 items verified). Media ▸ Maps ships across #770–#776: the Maps tab over the `mstudio-tile:` protocol, 3D preview and capture frame, heightmap / satellite / roads capture, hand-off to Terrain, measure and draw, GeoJSON/KML layers, and four `map_*` MCP tools with the `midnite-media-map-build` skill. Gate green on `58a18aaf` (typecheck, lint, full test; one load-timeout in the MCP shim test passes alone); kernel and roads tests run offline; MapLibre is a lazy 1041 KB chunk with the entry at 703.5 KB of 1520 KB; human passes signed off by the user.
+
+## 2026-10-08 — Phase 108 Theme E — Satellite and roads capture ([#775](https://github.com/bilo-io/midnite-studio/pull/775))
+
+A capture now writes the satellite image and the roads beside the heightmap. `satellite.png` is stitched at the zoom matching Terrain's `textureSize` and sampled pixel-centred in the capture worker (EOX Sentinel-2 cloudless 2016 by default, MapTiler with a key, a display-only source refused with its licence reason). Roads come from one Overpass query in main per capture (frames up to 25 km), become `roads.graph.json` in Terrain's centred frame (split at shared nodes, clipped, class and name kept, width by class or lanes) and a cyan-on-black `roads.png` Terrain keys without a hint. A failed layer lands in `capture.json`'s `missing` with a reason and never costs the heightmap; `ATTRIBUTION.txt` covers every source. The capture section gets Satellite and Roads toggles and lists what is missing.
+
+- [x] E: `osm-roads.ts` (`osmToRoadGraph`, `rasterizeRoads`, class widths), `overpass.ts`, worker satellite/roads runs + `capture-dispatch.ts`, capture-service layers and partial results, `roads-skipped` warning, panel toggles and missing list, vitests (kernel, Overpass client faked, service incl. cancel mid-Overpass, satellite orientation golden)
+## 2026-10-08 — Phase 108 Theme I — Maps over MCP, and the skill ([#776](https://github.com/bilo-io/midnite-studio/pull/776))
+
+Agents get four `map_*` tools: `map_list` and `map_measure` always, `map_goto` and `map_capture_terrain` behind a new default-off Settings ▸ MCP "Let agents capture maps" switch (`mcp-store` v8). The capture tool runs the Maps tab's own capture and Terrain hand-off; the skill `midnite-media-map-build` ships in all six copies.
+
+- [x] Tools `map_goto`, `map_capture_terrain`, `map_measure`, `map_list` registered with the midnite MCP server (`media-map-mcp.ts`, `map-mcp.ts`, `map-tools.ts`, `mediaMapOpen` event)
+- [x] Settings ▸ MCP "Maps" switch (default off), same gating as Terrain; descriptions ≤ 220 chars; registry, store migration and gate tests
+- [x] `midnite-media-map-build` skill in all six skill dirs, pinned by the skill copies test
+
+## 2026-10-08 — Phase 108 Themes G + H — Measure and draw; layers ([#774](https://github.com/bilo-io/midnite-studio/pull/774))
+
+Maps gains five tools (pan, distance, radius circle, area, pin) with geodesic readouts, place search over the Open-Meteo geocoder, and drawings saved as git-tracked GeoJSON layers: a layer list with visibility, colour, rename, Trash delete and reorder, `.geojson`/`.kml` import and export, and external-edit pickup. Geodesy is the Theme D Vincenty kernel plus a new `measure.ts`; layers go through the generic media file channels, so no new IPC.
+
+- [x] G: `shared/src/map/measure.ts`, `map-tools.ts` reducer, `map-format.ts`, `map-toolbar.tsx`, `map-place-search.tsx`, `features/geo/geocode.ts`, `mapUnits` in the ui-store and Settings ▸ Media, canvas drawing layers/clicks/keys, `map-drawing-section.tsx`, vitest
+- [x] H: `MapLayerFileSchema` + `stringifyLayer`, `use-map-layers.ts`, `map-layer-list.tsx`, `kml.ts`, `map-layer-export.ts`, vitest, Playwright shots
+
+## 2026-10-08 — Phase 108 Theme F — Hand-off to Terrain ([#773](https://github.com/bilo-io/midnite-studio/pull/773))
+
+A capture can now become a Terrain. "Capture and build" and "Capture only" (Maps capture section) run the capture, then main calls the terrain service directly — create, attach the heightmap (and satellite, roads mask and captured road graph when the capture carries them), apply the spec (`worldSize`, `heightRange`, `resolution`, `textureSize`, `seaLevel`, `geo`), ask every window to open it and optionally start the build. Terrain's roads stage uses the captured OSM graph when `inputs.roadsGraph` is set (real widths, `cls`/`name` into `roads.json`); a mask-only terrain builds byte-for-byte as before. The Terrain panel shows a "Captured from Maps" row with Show on map.
+
+- [x] F: `TerrainGeoSchema`, `inputs.roadsGraph`, `TerrainRoadEdgeSchema.cls/name`, `MapRoadGraphFileSchema`, `handoffSpec`, `setRoadsGraph` + `terrainService()`, `roadGraphFromCapture`, the pipeline branch, capture-service hand-off, `map-focus.ts`, panel row, vitests (pipeline hash pin, service, capture-service, panel, handoff spec)
+
+## 2026-10-08 — Phase 108 Theme C — 3D preview and capture framing ([#772](https://github.com/bilo-io/midnite-studio/pull/772))
+
+The Maps tab gains a 3D preview (`setTerrain` over the Terrarium DEM, hillshade, a 1×–3× exaggeration slider, pitch eased to 60) and a capture frame that stays square in metres at any latitude (drag to move, corner handles to resize, 16 m – 65.5 km), with an `aria-live` readout of side, centre, metres/pixel and preview-sampled min/max elevation, a Terrain-resolution size picker, and literal-copy warnings. Keys on the focused map: arrows pan, `+`/`-` zoom, `F` frame, `T` 3D. Capture is disabled until Theme D.
+
+- [x] C: `MapFrame` in `shared/src/media-map.ts`, `map-frame.ts`, `use-map-framing.ts`, `map-canvas.tsx` (terrain, frame layers, drag, keys), `map-panel.tsx` capture section, vitest (`media-map`, `media-map-frame`, `map-frame`, `map-canvas`, `map-capture-panel`)
+
+## 2026-10-08 — Phase 108 Theme D — Heightmap capture ([#771](https://github.com/bilo-io/midnite-studio/pull/771))
+
+Frame a square of the real world and capture its elevation: the deepest useful Terrarium zoom within a 1 024-tile budget, stitched, resampled bicubically onto a vertex-centred square in true metres (azimuthal-equidistant local frame, Vincenty WGS84), written as a 16-bit `heightmap.png`, a float32 `heightmap.r32` and a GeoTIFF with the frame's CRS, plus `capture.json` and `ATTRIBUTION.txt`, under `captures/<name>/`. Tiles come through Theme B's shared fetcher and cache; resampling and encoding run in a `map-capture-worker` utility process, cancellable, and a cancel or failure leaves no files.
+
+- [x] D: `shared/src/map/` kernel + goldens, `media-map-capture.ts` contract, `main/media/map/` (`capture-service`, `capture-broker`, `capture-run`, `capture-protocol`), `map-capture-worker`, IPC `map-capture`/`map-capture-cancel` + progress event, preload/mock bridge, the "Capture heightmap" detail section, and vitest for each
+
+## 2026-10-07 — Phase 108 Themes A + B — Maps tab and library; tile sources fetched in main ([#770](https://github.com/bilo-io/midnite-studio/pull/770))
+
+Media gets a ninth tab, Maps: a MapLibre canvas (own lazy chunk) with a Streets / Satellite / Terrain / Dark basemap picker, a per-project `map.json` that restores the last viewport (saved 750 ms after the map settles and on unmount), a projects/layers explorer, a view and tile-source panel, and loading, tiles-failed and offline states. Every tile, style, glyph and sprite byte arrives through a `mstudio-tile://` scheme registered in the single privileged-schemes call: main injects the optional MapTiler key, retries with backoff under a per-host cap, and keeps an LRU disk cache (1 GB default, Settings ▸ Media ▸ Maps slider and confirmed Clear). The CSP gains `mstudio-tile:` and no third-party host.
+
+- [x] A: `shared/src/media-map.ts` + `media.ts` tab/formats, `features/media/map/` (tab, canvas + lazy wrapper, style, states, explorer, panel, hooks, settings), ui-store layout keys, mock bridge, the `maplibre-gl` eslint rule, vitest (`map-style`, `map-states`, `map-canvas`, `use-map`, `map-settings`) and `phase-108-maps-ab-shots.spec.ts`
+- [x] B: `main/media/map/` (`tile-cache`, `tile-fetch`, `tile-protocol`, `map-service`) with their vitests, `media-map-handlers.ts`, preload `media.map`, `mstudio-tile` in `registerPrivilegedSchemes()`, CSP `connect-src`/`img-src`, geojson/kml excluded from ffmpeg export
+
+## 2026-10-07 — Phase 104 Theme H — Reference-driven agent loop ([#769](https://github.com/bilo-io/midnite-studio/pull/769))
+
+A design can carry matched front, side and top views of a reference picture (`spec.referenceViews`). The kernel scores the model's silhouette against the picture (IoU plus width-profile agreement), names the regions that are too wide, narrow, tall or short, and plans the next pass until the score reaches the target, plateaus or the refinement budget runs out. `model_set_reference_views` and `model_compare_reference` expose it over MCP, iterative runs stream the score, and the model panel shows one "Reference match" line. Tested in vitest (identical silhouettes score 1, a known widening is reported in the right region, the loop stops on plateau).
+
+- [x] H: `media-model-reference.ts`, `model-geometry/reference/`, `reference-tools.ts`, iterative progress score, prompt and six skill copies. Editor alignment UI deferred.
+
+## 2026-10-07 — Phase 104 Theme G — Texture painting and PBR materials ([#767](https://github.com/bilo-io/midnite-studio/pull/767))
+
+An unwrapped sculpt part carries a PBR layer stack — fill and paint layers with opacity, eight blend modes and masks from the Theme F bakes or painted by hand — flattened into glTF's base colour, packed ORM, normal and emissive textures beside the design. Paint brushes (brush, eraser, island fill, smudge, clone, stamp) land on uv texels through the BVH with seam bleed, from the editor's new Paint tab (live PBR viewport, presets, layer list, matcap toggle for sculpting) or over MCP (`model_paint_stroke` aimed like a sculpt stroke, `model_material_set`, `model_layer_*`), and `.glb` exports the full set.
+
+- [x] G: `media-model-pbr.ts`, `model-geometry/paint/` (surface, brushes, history, flatten, presets, stack), `writeTexture` on the mesh channel, `paint-tools.ts` (six MCP tools) + registry/gating, glTF/MTL texture writers, textured previews, `paint/` (controller, PNG codec, viewport layer, hook), `paint-panel.tsx`, PBR maps in `editor-scene.tsx`, sculpt matcap, the skill ×6, and vitest (`paint.test.ts`, `model-paint-mcp.test.ts`, `sculpt-store.test.ts`, `model-tools.test.ts`, `mcp.test.ts`, `paint-panel.test.tsx`) plus `p104-g-paint-shots.spec.ts`.
+
+## 2026-10-07 — Phase 104 Themes E + F — Sculpting over MCP; the mesh pipeline ([#766](https://github.com/bilo-io/midnite-studio/pull/766))
+
+**E.** An agent aims a brush by the pixels of a preview it just looked at (the preview's own camera, shared as data), by rig bone, landmark, vertex group or primitive part, by world path, or over whatever the mask leaves open; strokes, masks, subdivide, remesh and undo keep a live document per sculpt part and answer a summary with a thumbnail. **F.** Decimation (quadric collapse, borders and UV seams locked), an LSCM unwrap with packing and a texel-density readout, normal/occlusion/curvature/cavity bakes, an even quad-dominant retopology, skin transfer that proves the rig survives, and `.glb`/`.obj`/`.fbx` export with UVs and baked maps. Skin is derived per vertex, so rigs survive by construction; the sculpt-after-unwrap case is refused.
+
+- [x] E: `model-geometry/camera.ts`, `sculpt/aim.ts`, `sculpt/landmarks.ts`, `SculptDocument.strokeBreak/editMask`, `ModelSculptTargetSchema`, `spec.landmarks`, `desktop/.../sculpt-tools.ts` (stroke, mask, subdivide, remesh, undo, landmarks), the `model_*` registry entries and gating, iterative sculpt budgets, the skill (six copies)
+- [x] F: `mesh/decimate.ts`, `uv.ts`, `bake.ts`, `retopo.ts`, `skin-transfer.ts`, `Bvh.closestPoint`, `mesh.bin` v2 (uvs), part `uv`/`maps`/`bakeFrom`, texture registry, glTF normal/occlusion textures, OBJ `vt`/`map_Bump`, FBX UV layer, `model_decimate`/`retopo`/`unwrap`/`bake`/`export`, the editor's unwrapped-mesh guard
+
+## 2026-10-07 — Phase 106 Themes J + K — Maps as Tiled `.tmj`; sprites over MCP and the skill ([#765](https://github.com/bilo-io/midnite-studio/pull/765))
+
+**J.** A map is a small `MapSpec` an engine writes from the prompt (Ollama or a roster agent, the Models tab's choice), limited to the chosen tileset's terrains and repaired up to twice, then filled by a pure kernel — rasterised, autotiled with the tileset's own blob or corner rules, decorated by a seeded Poisson-disk scatter of a prop sheet, with a collision layer from the tiles' flags — into a `.tmj` that embeds every tileset (Phaser cannot load external ones) and ships with its images as `<asset>.map/`. Maps can also be imported from Tiled. The Map form picks the tileset, size and decorations; the previewer pans, zooms, toggles layers and overlays collision. **K.** Eighteen MCP tools over the same `SpriteService`, behind a seventh switch (`allowSprites`, off by default): generation is an asynchronous job polled with `sprite_job_status`, every job's worst-case provider requests are capped at 200 up front, validation failures come back as results, and the preview returns contact sheets plus an APNG of a clip. The `midnite-media-sprite-build` skill teaches the method choice, the job loop and the export formats in all six copies.
+
+- [x] J: `MapSpecSchema`/`MapAssetSpec`, `map-fill.ts`, `map-prompt.ts`, `map-view.ts` (`readTmj`, `renderTiledMap`), `map-generate.ts`, `map-import.ts` + `mediaSpriteImportMap`, the map export branch, the Map form, `sprite-map-preview.tsx`, and vitest (`map-fill.test.ts`, `map-view.test.ts`, `media-sprite.test.ts`, `map-generate.test.ts`, `sprite-export.test.ts`, `sprite-form.test.ts`, `sprite-map.bridge.test.tsx`).
+- [x] K: `media-sprite-mcp.ts`, the `MCP_TOOLS` entries, `sprite-mcp.ts`, `sprite-preview.ts`, `png/apng.ts`, `mcp/sprite-tools.ts` + dispatch, `allowSprites` (store v7, ui-gate, `setMcpAllowSprites`, IPC, Settings ▸ MCP), the shim's preview timeout, `useSpriteOpenListener`, the skill ×6, and vitest (`mcp.test.ts`, `media-sprite-mcp.test.ts`, `sprite-mcp.test.ts`, `apng.test.ts`, `mcp-store.test.ts`, `mcp-page.test.tsx`, `skill-copies.test.mjs`).
+
+## 2026-10-07 — Phase 106 Themes H + I — Tilesets with autotiling; isometric tiles, parallax backgrounds and prop sheets ([#764](https://github.com/bilo-io/midnite-studio/pull/764))
+
+A tileset is seam-checked base tiles plus procedurally composited transitions — a 47-tile blob (Tiled `mixed`) or a 16-tile corner set whose touching edges are byte-identical by construction — with collision per tile and a `.tsj` carrying wangsets. The same tiles re-project to 2:1 isometric diamonds and blocks; a Phase 105 terrain cuts into a deduped tile grid plus an embedded-tileset `.tmj`; parallax backgrounds (3–5 x-seamless layers with scroll factors, `background.json`) and prop sheets (one cut-out prop per cell, packed with the sprite packer) generate as jobs and export as `<asset>.tileset/`, `.background/` and `.sprite/`. The Environment form edits terrains, transitions, autotiling, layers and props, and the asset overview previews the sheet, the parallax stage (a camera slider) and the props.
+
+- [x] H: `seamless.ts`, `autotile.ts`, `tiled.ts`, `tileset.ts` (assembly), `env-prompts.ts`, the tileset runner (`desktop/.../sprite/tileset.ts`), `TilesetSpec` terrains/transitions/scheme/seed/palette, and vitest (`seamless.test.ts`, `autotile.test.ts`, `tiled.test.ts`, `tileset.test.ts`, `environment.test.ts`).
+- [x] I: `iso.ts`, `terrain-tiles.ts`, `background.ts`, the background and prop runners (`environment.ts`), `terrain-source.ts`, the three export branches in `sprite-export.ts`, `sprite-environment-form.tsx`, `sprite-environment-preview.tsx`, and vitest (`iso.test.ts`, `terrain-tiles.test.ts`, `background.test.ts`, `terrain-source.test.ts`, `sprite-environment.bridge.test.tsx`, `sprite-form.test.ts`).
+
+## 2026-10-07 — Phase 106 Theme G — Atlas packing and the animation previewer ([#763](https://github.com/bilo-io/midnite-studio/pull/763))
+
+A sheet's frames pack into one `atlas.json` that is both Phaser's JSON-hash atlas and an Aseprite JSON (MaxRects with trim, padding, extrude, POT pages; a multiatlas without tags past one page) plus Phaser's `anims.json`, written as `<asset>.sprite/` and into the asset's own `export/`. The centre column plays the animation on a 2D canvas (compass, onion skin, checker or solid, pixel zoom, anchor and baseline) over a frame strip whose nudge, flip, delete, move and re-roll are one `patchFrames` call each and undoable; frames past their clip are pruned when a job finishes and never played or packed.
+
+- [x] `pack.ts`, `atlas.ts`, `frames.ts`, `SpritePatchOpSchema`/`SpriteExportRequestSchema`, `sprite-export.ts`, the service's `patchFrames`/`export`/stale-frame prune, per-frame re-roll in the hand-drawn and rendered runners, `SpritePreviewer`, `preview-clock.ts`, `SpriteFrameStrip`, `use-sprite-history.ts`, `SpriteAnimator` with the pack export, and vitest (`pack.test.ts`, `atlas.test.ts`, `frames.test.ts`, `sprite-export.test.ts`, `sprite-service.test.ts`, `hand-drawn.test.ts`, `preview-clock.test.ts`, `sprite-frame-strip.test.tsx`, `sprite-animator.bridge.test.tsx`).
+
+## 2026-10-07 — Phase 106 Themes E + F — Rendered from a Models character; one-shot sheet ([#762](https://github.com/bilo-io/midnite-studio/pull/762))
+
+**E.** A rigged Models character renders into sprite frames in the user's own window: a root-level, lazily loaded `SpriteRenderHost` builds the design with the Models editor's kernel and lights, shoots it through an orthographic camera per direction (compass yaw, `atan(0.5)` isometric) at one sheet-wide scale, supersamples and posts PNG batches that main's render relay feeds through the frame pipeline at scale 1 (10 s acknowledgement or _"Rendering from 3D needs the Midnite Studio window open."_). The Sheet form gains the rigged-model picker, clip mapping with aliases, and camera/shading/outline/supersample. **F.** The one-shot toggle asks for the whole sheet in one image under a versioned prompt, refuses past 8 × 8, detects the returned sheet's real gutters by projection profile and slices only when the grid matches; the overview shows the detected grid over the sheet, a per-row verdict, and hands a failing clip to Hand-drawn with frame 1 as the approved reference.
+
+- [x] E: `camera.ts`, `sampling.ts`, render IPC (`mediaSpriteRenderRequest`/`RenderReady`/`RenderFrames`), `render-relay.ts`, `rendered.ts`, `render-job.ts` + `sprite-render-host.tsx`, `sprite-rendered-options.tsx`, and vitest (`camera.test.ts`, `sampling.test.ts`, `render-relay.test.ts`, `rendered.test.ts`, `sprite-render-host.test.ts`, `sprite-rendered.bridge.test.tsx`) plus the real-WebGL `sprite-render.spec.ts`.
+- [x] F: `one-shot-prompt.ts`, `grid-detect.ts` (`detectGrid`, `oneShotVerdict`), `one-shot.ts`, `setReference({fromFrame})` and `generate({method: 'hand-drawn'})`, `sprite-one-shot-panel.tsx`, and vitest (`one-shot-prompt.test.ts`, `grid-detect.test.ts`, `one-shot.test.ts`, `sprite-one-shot.bridge.test.tsx`).
+
+## 2026-10-07 — Phase 107 Theme P — Web export ([#760](https://github.com/bilo-io/midnite-studio/pull/760))
+
+A game exports as a static folder, a zip from a small `node:zlib` writer, or one HTML file whose modules are `data:` URLs behind an import map and whose assets resolve through an inlined `assets/index.json`. Exclusions (`.git`, agent files, play-tests, dev config, dotfiles, symlinks) are shared with the folder and zip; a destination is never overwritten without being told; a file over 50 MB warns. Kit 0.9.0 reads `window.__MIDNITE_ASSETS__`. The platformer's own `smoke.json` replay passes in its single-file export opened from `file://`.
+
+- [x] `zip-writer.ts`, `single-file.ts`, `game-export.ts`, the `gamesExport` IPC, `GameExportBar`, kit 0.9.0, and vitest (`export.test.ts`, `game-export-bar.test.tsx`, `kit-core.test.ts`).
+- [ ] `game-export.spec.ts` (real Chromium from `file://`) moves to Theme Q with the e2e budget raise.
+
+## 2026-10-07 — Phase 107 Theme O — Play-test depth: determinism, input replays and frame assertions ([#759](https://github.com/bilo-io/midnite-studio/pull/759))
+
+Deterministic mode (seeded `Math.random`, a virtual clock, one fixed step per frame), frame-indexed `.replay.json` pressed through the kit's virtual action layer rather than OS events, restricted JSON-path and frame-diff assertions, and `playtests/*.json` run from the runner toolbar's Playtests menu or over MCP (`game_replay_record`, `game_replay_play`, `game_assert_state`, `game_assert_frame`, `game_playtest`). Every starter's `smoke.json` migrated to the real format and passes twice with identical states in real Chromium. Kit 0.8.0.
+
+- [x] Deterministic mode, input replays, assertions, play-test scripts, and vitest (`json-path.test.ts`, `frame-diff.test.ts`, `kit-core.test.ts`, `playtest.test.ts`, `game-mcp.test.ts`, `game-runner.test.ts`, `compose.test.ts`, `media-game.test.ts`, `playtests-menu.test.tsx`).
+- [ ] `game-playtest.spec.ts` (real Chromium) moves to Theme Q with the e2e budget raise.
+
+## 2026-10-07 — Phase 107 Theme N — Asset bridge
+
+Media is copied into a game repo as `assets/<kind>/<name>/` with provenance (source tab, path, sha256 of the source and the copy) in the manifest and a registration in `assets/index.json`, each import its own `assets: import <name>` commit and each re-sync its own `assets: re-import <names>` commit that never overwrites silently and never deletes for a missing source. Sources are Terrain (exported on the way in), Sprites, Models (.glb), Images and Audio from registered repos, or a pack folder; reached from the Games tab's picker and assets panel, or over MCP with `game_import_asset`. Kit 0.7.0 adds `assetUrl(name)` to the asset index and the build skill documents it.
+
+- [x] `asset-bridge.ts`, `GameAssetIndexSchema` and the import/sources/re-sync IPC, `game_import_asset`, `GameAssetPicker`/`GameAssetsPanel`/explorer badge, kit 0.7.0, build skill copies, and vitest (`asset-bridge.test.ts`, `game-assets-panel.test.tsx`, `game-mcp.test.ts`, `kit-core.test.ts`).
+
+## 2026-10-07 — Phase 107 Theme M — Create and iterate: agents, Ollama and commit-per-turn history
+
+An agent CLI (Claude Code or Codex, held to file tools and this game's `game_*` tools on a private MCP server, no shell) or an Ollama model (whole `src/` files in a validated envelope) edits a game repo in passes; every pass that changed files is one `agent: …` commit, a no-op pass is none, and `squashRunCommits` folds a run into one. Undo turn reverts the newest agent commit with git-engine's new `revertCommit`. The Games tab gains the iterate panel (engine, Ollama warning, passes, Run agent/Cancel), the edit thread, and a first prompt on the create form; `game_create` answers `warnings`.
+
+- [x] Iterate panel, Ollama warning in UI and MCP, agent runs in the repo with progress, commit per turn and Undo turn, Ollama envelopes under `src/` only, and vitest (`game-agent.test.ts`, `revert.test.ts`, `game-iterate-panel.test.tsx`, `media-game.test.ts`, `game-mcp.test.ts`).
+
+## 2026-10-07 — Phase 107 Theme L — Genre recipe skills and the build skill
+
+Eleven skills under `templates/media-game/skills/` (`midnite-media-game-build` plus one recipe per genre), seeded into each new game's `.claude/`, `.agents/` and `.codex/skills/` by `seedGameSkills`, with the build skill mirrored into the app repo's six skill dirs. Tuning numbers quoted in a skill are checked against the kit by `skills.test.ts`.
+
+- [x] Build skill and ten recipe skills, seeding, the copies test, and `skills.test.ts`.
+
+## 2026-10-07 — Phase 107 Theme J — 3D genre starters, part two
+
+RPG (third or first person), character action (third person) and open world (third or first person) as genre modules, with engine-free systems under `kit/core/genre/{rpg,character-action,open-world}/`: quests, dialogue trees, stats and NPC schedules; combo strings with cancel windows, a style meter and arena waves; road-graph routing, traffic, day/night and a land-cover minimap. The open world runs on a committed Phase 105 terrain pack (a plus of roads, built by the real pipeline) and reuses F's cars and the crime starter's wanted level. `GAME_GENRES_AVAILABLE` now lists every genre. `kit/three/terrain.js` drapes UV-less chunks. Kit 0.6.0. PR #755.
+
+- [x] RPG, character action, open world starters, the fixture terrain pack, and vitest for the engine-free systems (`kit-genres-3d.test.ts`, `open-world-fixture.test.ts`, `compose.test.ts`, gallery and shared tests).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
+## 2026-10-07 — Phase 104 Theme D — Sculpt mode and brushes
+
+Sculpt mode in the Models editor: a kernel brush set (draw, clay strips, inflate, smooth, grab, crease, flatten, pinch, mask) with falloff presets, spacing, pressure and front-faces-only; X/Y/Z symmetry in local or world space, applied in the kernel; Loop-subdivision multires that keeps detail per level; voxel remesh in sculpt mode; a `SculptDocument` per-stroke history the editor's undo walks through a new part `revision`; a Sculpt tab, a viewport brush layer with lazy mouse, and sculpt-only keys (`F`/`Shift+F`, `[`/`]`, `Mod+I`, `Alt+M`). Edits are written to a content-named `.mesh.bin` on Done or Save.
+
+- [x] Sculpt mode toggle, brushes, brush controls, symmetry, multires, voxel remesh in sculpt mode, per-stroke undo, lazy mouse and pressure, and vitest for each brush, symmetry, multires, history, the worker pipeline, the controller and the Sculpt tab.
+## 2026-10-07 — Phase 107 Theme I — 3D genre starters, part one
+
+Shooter (first or third person), fighter (versus camera) and soulslike as genre modules over the Theme G 3D bases, with engine-free systems under `kit/core/genre/{shooter,fighter,soulslike}/` and a shared `kit/three/damage-numbers.js`. `GAME_GENRES_AVAILABLE` lists the three, so their gallery cells are creatable; the fighter's cell swaps the camera picker for a versus-camera note. The 3D bases gained a movement `intent` seam and the third-person base a stand-in avatar. Kit 0.5.0. PR: see the pull request.
+
+- [x] Shooter, fighter, soulslike starters, and vitest for the engine-free systems (`kit-genres-3d.test.ts`, `compose.test.ts`, gallery and shared tests).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
+## 2026-10-07 — Phase 104 Theme C — SDF modelling
+
+Organic forms as signed-distance trees: a recursive schema (seven primitives, smooth union/subtract/intersect, displace/twist/bend/round/shell/mirror, edits by name), a compiled evaluator with bounds and a Lipschitz bound, an octree-pruned bake through surface nets with per-primitive vertex groups, a `sculpt` part that keeps its tree (and an op log that opens with it), an editor SDF tab with a node tree, live low-resolution preview and bake on release, and the `model_sdf_set` / `model_sdf_patch` / `model_sdf_bake` MCP tools. PR: see the pull request.
+
+- [x] SDF node schema, kernel evaluator with pruning, surface-nets isosurface into a sculpt part whose op log starts with its tree, SDF tree panel, three MCP tools, vitest (primitive distances, smooth-union continuity, closed sphere at the analytic radius, sparse = dense, modifiers, groups, MCP, panel).
+
+## 2026-10-06 — Phase 107 Theme H — 2D genre starters
+
+FPS, RTS, ARPG and top-down crime as genre modules over the Theme G bases, with named engine-free systems under `kit/core/genre/` and a shared `kit/phaser/world2d.js` so RTS, ARPG and crime run top-down and isometric from one module. `GAME_GENRES_AVAILABLE` lists the four, so their gallery cells are creatable. `composeStarter` ships only the chosen genre's systems. Kit 0.4.0; `boot()` no longer leaves a blank canvas over the game.
+
+- [x] FPS, RTS, ARPG, top-down crime starters, and vitest for the engine-free systems (`kit-genres.test.ts`, `compose.test.ts`).
+- [ ] The per-genre e2e smoke run waits for Theme O's replay runner (see `outstanding.md`).
+
+
+## 2026-10-06 — Phase 104 Theme B — Primitives to mesh
+
+Convert a design (or a selection) to one watertight `sculpt` part: a voxel remesh in the kernel (narrow-band distance volume, winding-count sign, surface nets with ambiguous-face resolution), per-vertex groups that keep each source part's colour (`.mesh.bin` flag bit 0), the primitives kept hidden and recoverable (`sources`, `revertSculptToParts`, one undo step), an editor Mesh tab running the remesh in the sculpt worker, and the `model_convert_to_mesh` MCP tool. PR: see the pull request.
+
+- [x] Convert to sculpt mesh (part / selection / whole design), voxel remesh with voxel-size or target-vertex control, hidden-but-recoverable primitives, `model_convert_to_mesh`, vitest (watertight, volume and bounds within tolerance, groups, round trip, UI, MCP).
+
+## 2026-10-06 — Phase 106 Theme D — Hand-drawn, reference-locked frames
+
+The image seam takes reference images (Gemini `inline_data`, OpenAI `/v1/images/edits`; `supportsReference` on the catalogue) and `transparent` end to end, and `main/media/sprite/hand-drawn.ts` draws a sheet frame by frame against an approved turnaround: pose-table prompts, two requests in flight, an Ollama vision consistency check with re-rolls and `inconsistent`/`unchecked` badges, and mirrored west facings. The Sprites tab gains the reference card and a flagged-frames list. PR: see the pull request.
+
+- [x] Turnaround + approve/lock, pose tables and per-frame prompts, reference-capable providers only, consistency check with re-roll budget, mirroring, image seam references + transparency, vitest.
+- [ ] Per-frame re-roll and the flip at composition belong to G's frame strip and packer; the Images tab has no UI for references or transparency.
+
+## 2026-10-06 — Phase 106 Theme B — Sprite frame pipeline
+
+Background keying (chroma with despill, or the provider's own alpha), per-direction anchor alignment, pixel-art palette/outline and per-frame validation badges, as pure kernels in `shared/src/sprite/` driven frame by frame from `main/media/sprite/frame-pipeline.ts` through `SpriteJobContext.submitFrame`. OpenAI frames ask for real transparency. [PR #747](https://github.com/bilo-io/midnite-studio/pull/747).
+
+- [x] Background removal, normalisation, pixel-art mode, validation report, kernels in shared + pipeline in main, vitest.
+- [ ] No frame source calls `submitFrame` yet (Themes D/E/F); badges are first shown by G's frame strip.
+
+## 2026-10-06 — Phase 107 Themes G + K — Perspective bases and the template gallery
+
+Six playable perspective base starters, the perspective × genre validity matrix, `composeStarter`, and the create panel's gallery. Genre cells render as not-yet-available until Themes H-J. PR: see the pull request.
+
+- [x] Bases: platformer, top-down, isometric, raycaster, first person, third person (five cameras), each with a smoke replay and `ASSETS.md`.
+- [x] `GAME_TEMPLATE_MATRIX`, `starterId`/`isValidStarter`, `composeStarter`, `GameGallery` with refusal reasons and camera picker; vitest across all of it.
+- [ ] Real-Chromium `game-starters.spec.ts` (Theme Q); genre cells (Themes H-J).
+## 2026-10-06 — Phase 104 Theme A — Mesh core and storage
+
+Sculpt-mesh foundation: `EditableMesh` with CSR adjacency and dirty-region normals, a refittable triangle BVH, the versioned and checksummed `.mesh.bin`, the capped `.ops.jsonl` op log, an optional `sculpt` part on `ModelSpecSchema`, the `mstudio:media:model-mesh` channel in main, a `model.json` sculpt summary, and a renderer Web Worker that owns the live mesh and posts transferable deltas the display uploads with `addUpdateRange`. PR: see the pull request.
+
+- [x] EditableMesh, BVH, sculpt part, `.mesh.bin`, op log, sculpt worker, partial attribute updates, `model.json` summary, vitest.
+- [ ] Brushes (D), conversion (B), MCP tools (E); a 1M-vertex sculpt still hits the 400k scene-triangle cap through `buildScene`.
+
+## 2026-10-06 — Phase 106 Themes A + C — Sprites tab, method picker
+
+New Media ▸ Sprites tab: `sprite.json` spec (`media-sprite.ts`), five-group library explorer, Sheet/Environment create panel, `mstudio:media:sprite-*` channels and `SpriteService`, plus the pure `recommendSpriteMethod` and per-perspective clip presets. PR: see the pull request.
+
+- [x] Tab, schemas, library, create panel, IPC, method picker, recommendation, presets, vitest.
+- [ ] Generation needs Theme B/D (fails with `SPRITE_FRAME_SOURCES_PENDING`); render and export channels (E/G) and MCP exposure of `SpriteService` still open.
+
+## 2026-10-06 — Phase 107 Themes B + E — Pop out and the Phaser kit
+
+Pop out a running game into its own window (`game` role), plus the Phaser kit, core modules and four 2D perspective presets (platformer, top-down, isometric, raycaster). PR: see the pull request.
+
+- [x] Pop out: `gamesPopOut`/`gamesPopped`/`gamesPopState`, dock on close, placeholder in the host.
+- [x] Phaser kit, `window.__midnite` hook, kit-core vitest, kit 0.2.0.
+- [ ] Real-Chromium game-runner e2e (Theme Q).
+
+## 2026-10-03 — Phase 102 — Chats page
+
+New top-level Chats page (rail: Notes, Chats, Sessions, Knowledge). Conversations with Claude Code, Codex, `agy`, other print-mode agents and Ollama, streamed, multi-turn by each CLI's own resume, stored globally under `userData/chats/`. Edit-mode turns run in a throwaway snapshot of the repo; changes come back as a card and a review modal (accept/reject per file and hunk), applied through the per-repo write queue, conflicts as `GitOpResult` `conflict`. [PR #695](https://github.com/bilo-io/midnite-studio/pull/695).
+
+- [x] Nav, wire contract, global per-chat store, engine drivers, change review in the git engine, page UI, companion switch.
+- [ ] Live per-edit approval via `--permission-prompt-tool`; packaged-app pass with the real CLIs.
+
+## 2026-10-03 — Ad hoc — agent install detection at startup and on every reload
+
+Main now probes which agent CLIs are installed right after `whenReady` (fire and forget, after the login-shell PATH is ready, never on the first-paint path) and force-re-probes, bypassing the 30 s TTL, on every renderer `did-finish-load` (Mod+R, Mod+Shift+R, new window). Results are pushed on `mstudio:agent:status` into ONE renderer zustand store (`features/agent/agent-probe-store.ts`) that `useAgents()` reads, so no consumer probes on its own. A distinct `checking` state (picker rows say "checking…", Agents cards say "Checking…") replaces silently assuming installed; a probe that errors or times out is `unknown` (fail-soft: nothing greyed, cards say "Unknown"). The Agents page re-probe button now calls `agent.recheck` (forced). Consumers on the store: `+` picker, title-bar primary agent, switcher overlay, terminal panel/header, Settings agent roster and primary picker, dashboard agent widgets, command handlers; roster-only readers (Sessions, Media Docs/Models/Video pickers, Loops, tasks, graph, palette) read the same hook. Startup cost: `startup-report --runs=5` ready-to-show 423 ms vs 418 ms on main, first-view-rendered 178 ms vs 184 ms (noise).
+## 2026-10-03 — Rename the MCP server and the CLI to `midnite` (ad hoc)
+
+The MCP server registers as `midnite` (was `midnite-studio`) and the CLI command is `midnite`; `midnite-studio` stays as a deprecated CLI alias for one release. The original midnite app also ships a `midnite` CLI, so the installer never overwrites a `midnite` it does not own. PR: see the pull request for `feature/rename-mcp-cli-midnite`.
+
+- [x] MCP: one `MCP_SERVER_NAME` constant (shared) feeds the shim's `Server` and every allowlist (`mcp__midnite__model_*`, Codex `mcp_servers.midnite.*`); Settings ▸ MCP shows `claude mcp add midnite` and the re-register line.
+- [x] CLI: bundled `bin/midnite` plus a `bin/midnite-studio` forwarding wrapper, completions renamed, `verify-dist`/`afterpack` updated.
+- [x] Installer: "owned" = symlink resolves into this bundle (same test for status, install, uninstall); foreign `midnite` (symlink or plain file) is left alone and only the alias is installed, with the reason returned in `CliStatusResponse.notice`; an old-name install migrates to `midnite` + alias.
+- [x] Tests: allowlist lockstep, own/foreign symlink, foreign plain binary, old-name migration, alias install, uninstall.
+- Left as `midnite-studio`: the app name, the `midnite-studio://` protocol, release tags, repo, userData, package scopes.
+
+## 2026-10-03 — Phase 99 Theme E follow-up — local music generation (ad hoc)
+
+Media ▸ Audio generates music offline with MusicGen-small (ONNX, `utilityProcess`), no API key; optional Ollama prompt expansion (`llama3.2:3b`). [PR #688](https://github.com/bilo-io/midnite-studio/pull/688).
+
+- [x] `musicgen` provider, worker, broker, model download with progress, cancel, stitched sections up to 2 min.
+- [x] Enhance with Ollama (fails soft), Settings model picker, engine status card in the prompt form.
+
+## 2026-10-02 — Phase 82 Theme C — e2e-porting traps written into `test-support/`
+
+[PR #680](https://github.com/bilo-io/midnite-studio/pull/680). `packages/app/test-support/README.md` lists six porting traps; `src/test-support-premises.test.tsx` pins the jsdom behaviour behind four of them. Wave 6 is still open.
+
+- [x] Lazy-chunk trap (wave 2): warm a component's own `React.lazy` chunk in `beforeAll`.
+- [x] Interaction-mount trap (wave 4): `await findBy*` for content the interaction mounted; `FiringResizeObserver` fires on a microtask.
+- [x] Disjoint `<mark>` accname (wave 4): jsdom names the row `"T oggle T erminal"`; filter by `textContent`.
+- [x] Two harness gaps (wave 5): `MonacoField`'s module-scope `getMonaco()` (also noted in `module-mocks.ts`), and `getByRole` has no `exact` (pinned with `@ts-expect-error`).
+- [x] Porting hazard (wave 3): whole-string vs substring default matching.
+
+## 2026-10-01 — Phase 98 Theme J — Completion transition and Welcome finale
+
+Reuses Theme B/C choreography (`playTimeline`, `playGlide`, `dissolveTimeline`, `.setup-brand-gradient`); no second animation system.
+
+- [x] Leaving the last page: content dissolves, `.setup-bloom` sweeps from the anchor, dots resolve to filled (`completionTimeline`).
+- [x] Finale "Welcome to [mark] Midnite Studio": mark glides from the anchor into the heading; only "Midnite" wears the brand face and gradient (`Wordmark gradient`).
+- [x] Get started fades the overlay out, then sets `completedAt` (Resume leaf disappears).
+- [x] Reduced motion: static finale, no bloom, no fades.
+- [x] Linux visual baseline: `e2e/visual/setup-finale.spec.ts` + `setup-finale-{light,dark}-linux.png`, in a follow-up PR.
+
+## 2026-09-30 — Phase 98 Themes E + H — Git, forge and toolchain wizard pages
+
+[PR #632](https://github.com/bilo-io/midnite-studio/pull/632). Pages over Theme D's catalogue, probe, planner and status row; no new IPC.
+
+- [x] Git page (version vs 2.30.0; first renderer of the brew / Homebrew-bootstrap / Xcode-CLT offers), replacing the interim machine page.
+- [x] Forge multi-select persisted in `setupState.forges`.
+- [x] Forge CLI rows for gh / glab / az (gh sign-in from `forge.cliStatus`); Bitbucket "token-based, no CLI needed".
+- [x] `gh`, `glab`, `az` catalogue rows.
+- [x] Vitest for the git and forge pages.
+- [x] Toolchain catalogue: agent CLIs, JS, containers (Docker or OrbStack), media, with brand-coloured icons.
+- [x] Toolchain page with ticked-and-locked installed rows and Install selected (one brew line).
+- [x] Vitest: grouping, default selection, either-runtime rule, composed line, icon exports.
+
+## 2026-09-30 — Phase 98 Themes F + I — Accounts and git identity; local models with Ollama
+
+[PR #631](https://github.com/bilo-io/midnite-studio/pull/631). Two wizard pages over existing pieces: Phase 90's forge accounts and Phase 96's Ollama client and pull queue.
+
+- [x] `gitIdentityGet`/`gitIdentitySet` channels: global `git config` through git-engine and the write queue, `GitOpResult`-wrapped.
+- [x] Optional `email` on `ForgeAccount`, best-effort from `whoami`.
+- [x] Accounts page: account cards that switch the active account and pre-fill the identity form, plus an add-account flow.
+- [x] Vitest: identity schema and prefill, git-engine integration against a temp `HOME`, the page.
+- [x] Ollama page: education, detect/install/start through Theme D's runner (new `ollama` catalogue row).
+- [x] `systemMemory` channel and the curated model catalogue with fits/tight/too-big badges.
+- [x] Pull-progress subscription lifted from `ModelsView` to `Shell`; background downloads via `ollamaPull`.
+- [x] Vitest: RAM thresholds, catalogue schema, the page, and the store fed with the Models view unmounted.
+
+## 2026-09-30 — Phase 98 Themes D + G — Setup catalogue, probes and the install runner; Midnite CLI page
+
+[PR #630](https://github.com/bilo-io/midnite-studio/pull/630). The plumbing every remaining setup page needs: a catalogue of tools, an id-keyed probe channel, a brew-in-a-visible-terminal install runner, and one status row. The Midnite CLI page is the first page built on them.
+
+- [x] `shared/src/setup.ts` catalogue: zod rows with probe, brew formula/cask, `react-icons` set+name and brand colour, resolved in `app` through `SETUP_ICONS`.
+- [x] `setupProbe(ids)` channel; main's `setup-probe.ts` drives a generalised `probeBinary` from the catalogue, and `systemHealth` is unchanged.
+- [x] Install runner: `composeBrewInstall` (one line), run via `submitCommand` in a visible terminal, re-probed when the command returns to the prompt and on window focus. The overlay steps aside so the terminal can be seen and typed into.
+- [x] Homebrew bootstrap offered first when brew is missing (`planSetupInstall`).
+- [x] git fallback: `xcode-select --install` offered with no brew.
+- [x] Status row: checking → installing (with a "Running in terminal" link) → ready, with a green glow pulse that is focus-gated and removed under reduced motion.
+- [x] Vitest: catalogue round-trip, probe parser, brew line composition, status-row states.
+- [x] Midnite CLI page: usage, `cliStatus` in the status row, Install → `cliInstall({target: 'auto'})`, and the `pathExportLine` hint when the target is off PATH.
+- [x] Vitest: installed, missing and not-on-PATH states.
+
+## 2026-09-30 — Phase 99 Theme E — Audio
+
+[PR #614](https://github.com/bilo-io/midnite-studio/pull/614). The Media page's Audio tab: full UI and player, with generation stubbed behind an `AudioProvider` seam whose only adapter is Import.
+
+- [x] Suno-style prompt form: title, style tags, lyrics with `[Verse]`/`[Chorus]` helpers, instrumental, duration, variant count, provider `IconSelect`; Create → "later phase" state, Import audio… attaches files.
+- [x] `AudioProvider` seam (`main/media/audio/`), `import` adapter; `project.json` history + `<name>.json` sidecar per variant under `.midnite/media/audio/<project>/`.
+- [x] Session cards with variants: title, duration, Web Audio waveform peaks cached in the sidecar, play button.
+- [x] Bottom player: play/pause, prev/next, shuffle, loop off/all/one, seek, volume, Space; one `HTMLAudioElement` in a store, survives tab switches, pauses on leaving Media.
+- [x] Projects explorer: Accordion with variant counts; create, rename, delete (Trash).
+- [x] Export mp3 (bitrate) / wav / flac through the Theme A export service.
+- [x] Vitest: player store, prompt-form schema, import adapter sidecar, waveform peak reducer (+ RTL bridge test for the tab).
+
+## 2026-09-30 — Phase 99 Theme D — Video
+
+[PR #613](https://github.com/bilo-io/midnite-studio/pull/613). Video moves into Media properly: the root follows the open repo, Setup Video scaffolds a Remotion workspace, and the explorer browses assets and projects down to their iterations.
+
+- [x] `features/video/` → `features/media/video/` through `MediaLayout`; `mstudio:video:*` unchanged.
+- [x] Root resolution: in-repo layout → `.midnite/media/video/` → global root, shown in the toolbar (`mstudio:video:root-resolve`).
+- [x] Setup Video: `templates/media-video/` scaffold, `npm install` in a visible terminal, example project selected.
+- [x] Assets + Projects accordions (nested `brand/category/NNN` ids, iterations newest first, input/notes files).
+- [x] Detail by selection: asset preview/readout, project + New iteration, iteration player + CHANGELOG entry + Compare with….
+- [x] Studio deep-linked on the selected project's composition.
+- [x] Render dialog (codec/crf/scale/label via `remotion render --codec`) and ffmpeg transcode of an iteration (`MediaExportSource` `video` arm).
+- [x] Vitest: root resolution per source, iteration parsing, template manifest, codec → argv, detail-panel switching.
+
+## 2026-09-30 — Phase 99 Theme B — Docs
+
+[PR #612](https://github.com/bilo-io/midnite-studio/pull/612). The Media page's Docs tab: a lazy Tiptap editor over plain `.md`, a project accordion, a per-doc AI thread whose edits arrive as accept/reject diff cards, and md/html/pdf export.
+
+- [x] Tiptap v3 editor + `@tiptap/markdown`, lazy chunk (703.8 KB); entry +0.9 KB from the shared contract only.
+- [x] Markdown round-trip fixtures (lossy constructs listed), debounced autosave, external-change reload / conflict banner.
+- [x] `/` slash menu, selection bubble menu with Ask AI, block drag handle, `MARKDOWN_PROSE_CLASSES` styling.
+- [x] Project accordion over `.md` docs with filter, create/rename/delete (thread sidecar follows).
+- [x] AI thread in `<doc>.thread.json`; `runDocEdit` via the generalised `improve-field.ts` runner; selection-or-doc scope; diff card Accept/Reject/Copy; provider/model picker.
+- [x] Export md (raw) / html (standalone, prose CSS inlined) / pdf (hidden `printToPDF`), no ffmpeg.
+- [x] Vitest: round-trip, thread store, session reducer, diff-card accept/reject through `file-write`, export HTML builder, lazy boundary.
+
+## 2026-09-30 — Phase 99 Theme C — Images
+
+[PR #609](https://github.com/bilo-io/midnite-studio/pull/609). The Media page's Images tab: provider seam in main, masonry gallery with a glowing "+" tile, lightbox, png/jpeg/webp export. agy spike blocked (permission denial), so Gemini is the default and agy is listed-disabled.
+
+- [x] `ImageProvider` seam (`main/media/image/`): gemini, openai, ollama (image-capable only), agy (disabled); outputs + `<name>.json` sidecars under `.midnite/media/image/<project>/`.
+- [x] Create panel: prompt, provider `IconSelect` (icon on value), dependent model, aspect, count, Generate/Cancel with progress, "Add key" link.
+- [x] Masonry gallery: CSS columns, dashed glowing "+" tile → `openMediaPane`, shimmer placeholders, `content-visibility` past 200, motion-gated.
+- [x] Lightbox: `useDismiss` + `useFocusTrap` (occluder-coverage), ←/→ wrap, n/N, sidecar strip with Re-run / Reveal / Delete.
+- [x] Images-only explorer + "All images in repo" toggle (off by default).
+- [x] Export png / jpeg (quality) / webp through the Theme A export service.
+- [x] Vitest (catalogue, model filtering, reducer, sidecar parsing, lightbox wrap, "+" opens detail) + one e2e spec (masonry, lightbox, glow).
+
+## 2026-09-29 — Phase 99 Theme A — Media shell, storage and migration
+
+[PR #608](https://github.com/bilo-io/midnite-studio/pull/608). Video Studio becomes the Video tab of a four-tab Media page on one shared frame, with repo-scoped storage and ffmpeg export.
+
+- [x] `'media'` ViewId + rail row (`LuLibrary`) + chord-free `view.media`; `view.video` alias opens Media ▸ Video.
+- [x] `MediaTab` in `shared/src/media.ts`; persisted `mediaTab`, per-tab explorer/detail widths (`mediaLayoutKeys`), Video's seeded from Phase 44's.
+- [x] Tab strip: icon tabs with tooltips, label on the active tab, `tablist` roving focus; `media.tab.*` palette commands.
+- [x] `MediaLayout` (toolbar/explorer/content/detail), double-click collapse remembered per tab, `openMediaPane`.
+- [x] Generic `Accordion` (`components/accordion/`) on `TreeSection` visuals, persisted fold state.
+- [x] `ExportToolbar` split button driven by `MEDIA_TAB_EXPORT_FORMATS`, disabled with a reason while nothing is selected or ffmpeg is missing.
+- [x] `main/media/media-store.ts` + `mstudio:media:*` channels, `{ok}` envelope, watcher → `mediaChanged`, delete to Trash behind a file-count confirm.
+- [x] ffmpeg probe (Video toolchain + Settings ▸ Media), Install types `brew install ffmpeg` into a visible terminal.
+- [x] `main/media/export-service.ts`: argv array, progress events, cancel, save dialog, one preset table.
+- [x] Migration v29 (video → media everywhere persisted); nav-visibility / title-bar-nav / palette / view-sections on `'media'`.
+- [x] Settings ▸ Media replaces Settings ▸ Video (General / Video / Images / Audio).
+- [x] Vitest: tab strip, layout widths/collapse, v28 migration, media-store confinement (`..`, symlinks), ffmpeg argv per format.
+
+## 2026-09-29 — Phase 98 Themes B + C — Brand choreography; Skip / X → FAB handoff and resume
+
+[PR #602](https://github.com/bilo-io/midnite-studio/pull/602). The brand mark opens setup and becomes the fixed title anchor, and leaving early now points at the FAB, which gains **Resume setup**.
+
+- [x] B: intro — `BrandMark` centred with a `caret-blink` caret; "Midnite" typed in `font-brand` with `--rainbow-ramp` clipped to the glyphs (`.setup-brand-gradient`).
+- [x] B: hand-off — the wordmark fades, then the mark glides (WAAPI FLIP, `flipKeyframes`/`playGlide`) into the anchor beside page 1's title.
+- [x] B: fixed anchor rendered by the frame; pages top-anchored so a body fading in never moves it.
+- [x] B: titles typed via `useTitleTypewriter` (new optional `delayMs` waits for the glide); body + Back/Next fade in (opacity only) after; caret parks at the end.
+- [x] B: reduced motion resolves every step at once (`isReducedMotion` honours `data-motion` and the OS setting); new keyframes pass `styles-motion-guards.ts` with no allowlist additions.
+- [x] B: vitest for the sequencer (`setup-choreography.test.ts`: intro phases, typed-then-reveal ordering, reduced-motion short-circuit, FLIP maths) on fake timers.
+- [x] C: X and Skip (and Escape) fade the content, show the hint, fade in a stand-in FAB over the real one, nudge an arrow at it, and dissolve after a beat or on any click.
+- [x] C: FAB hidden (`fabPanelDocked || companionDocked`) → the hint names ⌘K → "Run Setup Wizard", no arrow.
+- [x] C: Skip records the page in `skippedPageIds`; both set `dismissedAt`/`lastPageId` (`holdOpen()` keeps the frame mounted through the handoff).
+- [x] C: quick-access **Resume setup** leaf (`S`) while `completedAt === null`; reopens at `resumePageId` past the intro, mark gliding in from the centre.
+- [x] C: Playwright `setup-fab-handoff.spec.ts` (real `getBoundingClientRect`): hint + arrow aimed at the FAB, overlay gone, Resume reopens at the right page. e2e cap 456 → 457.
+
+## 2026-09-29 — Phase 98 Theme A — Overlay frame and first-run gate
+
+[PR #600](https://github.com/bilo-io/midnite-studio/pull/600). One full-window setup overlay behind one persisted gate replaces the stacked `FirstRunModal` + `OnboardingModal`.
+
+- [x] `features/setup/setup-overlay.tsx` at `z-dialog`, via `useDismiss({layer: 'dialog', blocking: true})` + `useFocusTrap`; added to `occluder-coverage.test.tsx`.
+- [x] Chrome: X (top left), `ThemeToggle` (top right, new `elevated` prop so its menu paints above the overlay), pagination dots bottom-centre (active / done / skipped / upcoming), "Skip >" underneath.
+- [x] `SETUP_PAGES` registry grown from `ONBOARDING_STEPS` (flat array; rows carry `titleTyped` and optional `canAdvance`); the frame keeps Back/Next.
+- [x] Pure `setup-machine.ts`: `intro → page[i] → finale → closed`; Back/Next and ←/→ (ignored in text fields and with modifiers), Esc on the X path.
+- [x] `setupState {completedAt, dismissedAt, lastPageId, skippedPageIds}` in `persisted-keys.ts`; ui-store v27 → v28 migration — `onboardedAt !== null` or `showOnboarding === false` counts as done, `onboardingSkippedStepIds` → `skippedPageIds`, old keys deleted.
+- [x] `FirstRunModal`/`OnboardingModal` and their `app.tsx` mounts removed; their content kept as interim `machine`/`forges` pages (E/F split the forge cards); Settings ▸ Accounts' skipped-forge banner gained **Resume setup**.
+- [x] Chord-free `setup.open` ("Run Setup Wizard") in `COMMANDS`, handled in `use-command-handlers.ts`, palette-safe, companion `direct`.
+- [x] Vitest: gate + migration (fresh, old-onboarded, old-skipped), machine + dots, frame chrome, navigation and keys, every exit's bookkeeping, focus return; `onboarding-wizard.spec.ts` rewritten in place as `setup-overlay.spec.ts` (still one e2e test).
+
 ## 2026-09-26 — Phase 97 Theme K — Receipts and replay by iteration
 
 [PR #580](https://github.com/bilo-io/midnite-studio/pull/580). A change receipt on Phase 94 Theme A's `AgentRun`, plus replay by iteration — the last
@@ -584,7 +1647,7 @@ something honest and deterministic to call.
       `/:collection[/:id]` store: `echo`, `delay?ms=` (capped at `WORKFLOW_DELAY_MAX_MS`, the same
       constant the `delay` node uses), `fail-n?key=&n=` (fails the first *n* calls per key, then
       passes — what makes a loop template genuinely loop), `flaky?rate=&seed=` (a seeded mulberry32
-      PRNG, so a seed always replays the same pass/fail sequence), `classify?risk=`,
+      822G, so a seed always replays the same pass/fail sequence), `classify?risk=`,
       `research/:lane`, and `verify?key=&passAfter=`. `fail-n`/`verify` counters are module state,
       reset by `resetScriptedRoutes()` wired into `store.ts`'s `resetDemoStore()` so a demo-API stop
       clears both halves of server memory together. `/demo/delay`'s cap is unit-tested as a pure
@@ -14034,3 +15097,182 @@ against a real throwaway repo via `git-engine`'s `TempRepo`. The Settings checkb
 `hooks.status` (live disk state) on every render rather than a remembered preference, so it can
 never drift from a hook a user deleted or replaced by hand. New `mstudio:hooks:status/install/uninstall`
 IPC channels and a `getHooksPath` read added to `git-engine`.
+
+### Ad hoc — multiple dashboards (Git + Agents), add/remove panels
+
+Ported midnite's multi-dashboard model to the Dashboard view. The existing board is now the
+**Git** dashboard (anchor tab, still keyed per repo, so no persisted layout moved); a default
+**Agents** dashboard (agent roster, live sessions, recent sessions, per-agent activity, loop runs)
+is seeded lazily for fresh and migrated installs alike. Tabs create/rename (double-click)/pin/close/
+drag-reorder (max 10); a searchable, categorised "Add widget" picker replaces the layout menu.
+New panels: five agent cards plus Clock, Date and Scratchpad; Git panels are offered on any
+dashboard. `midnite-studio.dashboard` persist v2 -> v3 (`migrateDashboardState`, tested).
+
+### Ad hoc — Media ▸ Models (LLM-authored 3D, .obj + .fbx, in-app editor)
+
+A fifth Media tab. Describe an object, or attach a picture of one, and an LLM designs it as a validated list of coloured primitives; main builds the mesh and writes `.obj` + `.mtl` + `.fbx` + a design sidecar into `.midnite/media/model/`. Local Ollama is the default engine (`qwen2.5-coder:7b`; `qwen2.5vl:7b`/`gemma3:4b` read the picture), any headless agent CLI is the alternative. The centre pane is a lazy react-three-fiber + drei editor (select, W/E/R gizmo, solid/wireframe/normals, per-part colour, undo/redo, camera, grid/axes) whose edits save back to the sidecar and export to .obj/.fbx. FBX is a hand-written 7.4 writer (binary default, ASCII too), round-tripped through three's `FBXLoader`. See Phase 99 Theme F.
+
+### Ad hoc — Media ▸ Models over MCP (Phase 99 Theme G)
+
+Agents now build 3D models iteratively through eight `model_*` MCP tools (list, open, get_spec, set_spec, patch_parts, render_preview, get_reference_image, save) and see their work: previews are rendered in main by a deterministic software rasterizer (front/side/top/iso, <= 768 px PNG) and returned as MCP image content. Claude Code (verified end to end) and Codex run an iterative engine on a private one-model MCP server per run (build, render, compare, refine within an iteration budget, save; clean cancel; one-shot fallback), while Ollama and other CLIs stay one-shot. Edits stream live into the open 3D editor (`model-changed` / `model-open` events) with a pass counter, latest action and Cancel in the input panel. The app's global MCP server answers the same tools for a user's own Claude session, behind a new `Settings > MCP > Let agents edit 3D models` switch (`mcp.json` v4). Tool schemas and the prompt's format reference derive from the shared spec schema; `MODEL_MAX_PARTS` is one constant (128). See Phase 99 Theme G.
+
+### Phase 100 — Finance dashboard (Themes A–F)
+
+A third default dashboard, **Finance**, built on the multiple-dashboards framework. Key-free market
+data is fetched in main only (CNBC and Yahoo for stocks and ETFs, Binance and CoinGecko for crypto,
+open.er-api.com and Frankfurter for FX, Nasdaq and CoinGecko for search), cached on disk with
+per-timescale TTLs and served stale-with-a-hint when a provider is down; every price is stored in USD
+and shown through an hourly-refreshed exchange-rate table in a display currency chosen in the
+dashboard header, beside a global timescale (1D to ALL). The portfolio — fiat balances, holdings,
+a transaction log and the watchlist — is simulated and persisted main-side in
+`userData/finance/portfolio.json`, with its rules as pure shared functions. Eight cards, each an
+ordinary registry widget: bank cards (fan-out stack, deposit/withdraw modals), asset cards, allocation
+donut, Watchlist and Markets (one component), a lazy Lightweight Charts card with search, five chart
+types, a deterministic data-derived summary and an **Insights** breakdown, the transaction table, and
+a news feed with editable feeds and keywords. `midnite-studio.dashboard` persist v3 -> v4 appends the
+tab without touching existing dashboards; every dashboard's tiles now resize from the corners and
+edges, not only the south-east corner. See Phase 100.
+
+### Ad hoc — Media ▸ Video engine: Remotion | HyperFrames (Phase 99 Theme H)
+
+Media ▸ Video gains a second engine, HeyGen's HyperFrames (Apache-2.0), beside Remotion. The choice is made
+at Setup Video, switched later per video root (Video toolbar, Settings ▸ Media), and recorded in the root's
+own `video.config.json`; no file means Remotion, so existing setups are untouched. One template carries both
+editor apps over one shared workspace (`projects/`, `assets/`, `scripts/`, the two editorial skills, now with
+an engine section each); the studio, render, toolchain and root-resolution services, the render dialog and the
+Studio pane are all engine-aware, with install hints for Node 22+ and ffmpeg. Both engines were smoke-tested
+end to end (scaffold, install, studio, render, ffprobe). HyperFrames' own skills are referenced, not vendored.
+
+### Phase 99 Theme I — Models fidelity
+
+One shared geometry kernel (`packages/shared/src/model-geometry`) now builds every model for files, previews and the live editor. The spec gains capsule, roundedBox, wedge, prism, ellipsoid, tube, sweep, loft and mesh shapes, groups and instances, PBR materials, boolean CSG (in-house BSP) and a modifier stack (bevel, subdivide, mirror, arrays, twist, taper, bend); saved designs load unchanged. Export adds glTF/GLB and ASCII FBX, and OBJ/MTL and FBX carry the new materials. Previews render the new kinds and a PBR approximation. The editor gains an outliner with groups and multi-select, snapping, align/distribute/mirror, boolean, modifier and material panels, bundled lighting presets, orthographic views, x-ray, measure, stats, copy/paste and a shortcut help. See Phase 99 Theme H.
+### Ad hoc — Notes is detachable into its own window
+
+Notes joins `PAGE_WINDOW_ROLES`, so the Phase 55 page-popout machinery (`window.detach`/`dock`/`focusRole`,
+`DetachedRoot`, `PageDetachMark`) carries it with no second mechanism: a mark in the Notes sidenav header
+opens it, focuses it, or (inside the window) closes it. Note edits sync between windows through a new
+`notes` kind on `broadcast-sync`, sent as a per-note delta and merged last-writer-wins on `updatedAt`; a
+peer's change is applied with `setState`, so only the window that made an edit writes it to disk. Main
+remembers the window's bounds as for every popout and now also reopens Notes on the next launch if it was
+open at quit (`windows-reopen.json`, `REOPEN_ON_LAUNCH`). `Mod+l` then `N` and `notes.toggle` focus the
+detached window instead of opening the modal.
+
+## Phase 99 Theme K — Media skills (2026-10-03)
+
+Video skills renamed to `midnite-media-video-{write,execute}-editorial-script` across the template, manifest, toolchain, UI and docs, with a non-destructive migration (`main/video/skills-migrate.ts`: stock copies renamed, user-edited ones copied under the new name and the old dir kept). Added thin `midnite-media-{docs-write,image-generate,audio-generate,model-build,video-project}` skills to the repo and `templates/midnite/` mirrors (.claude/.agents/.codex).
+
+### Phase 99 Theme J — Models explorer, model.json and the rainbow composer
+
+Every Models generation now lives in its own folder (exports, the editable design and a new `model.json` recording agent and model, author, prompt, image attachment, vertex/polygon/part counts, bounds, materials and timestamps; schema in `shared`, open to future `anatomy`/`rig`/`animations`). Flat outputs are read as before and migrated into folders by renames only, never losing a file. The explorer shows tinted group accordions and per-model rows with the provider icon and a tooltip naming the model, supports drag-and-drop moves, and has context menus everywhere (rename, duplicate, move, new group, reveal, copy path, delete behind a confirm that lists what is lost). The centre pane switches between the 3D editor, a JSON viewer, the read-only 3D viewer (now including `.glb`) and an image view. Every Media composer panel gets a rotating rainbow border and an inner glow arc that stop under reduced motion and when the window is blurred or the pane is collapsed.
+
+### Phase 103 Themes B–I — Models rigging and animation (2026-10-04)
+
+A design can now be rigged and animated. `ModelSpec` gains optional `anatomy`, `rig` and `animations`, so
+saved designs load unchanged, and `shared/src/media-model-rig.ts` is the single source of truth for bone
+names: VRM 1.0 humanoid plus `root` for bipeds, a quadruped table with tails, and `wheel_FL`-style vehicle
+names, with Mixamo/Unreal/Rigify/Unity aliases. The kernel auto-rigs from part names and positions, skins
+with a part-aware envelope (`falloff` 0 = rigid), and generates ten biped, three quadruped and six vehicle
+clips as kind plus parameters with additive keys, baked at 30 fps and retargetable by canonical name. One
+set of edit ops (`model-geometry/rig-ops.ts`) backs both the editor and five new MCP tools (`model_get_rig`,
+`model_auto_rig`, `model_patch_rig`, `model_patch_animations`, `model_retarget`); `model_render_preview`
+renders a pose. The editor gains Rig and Animation inspector tabs (anatomy, Auto-rig, bone outliner, weight
+view, pose-mode keying, clip parameters, retarget from the library), a skeleton overlay with pickable joints,
+and a timeline that plays only while playing. `.glb` exports a skin with joints and one animation per clip,
+checked by re-importing through `GLTFLoader` and comparing three's posed vertices with the kernel's.
+`model.json` summarises anatomy, bone count and clips. Deferred: bone rename, FBX skin, and the SF3D tier
+(approved, its own PR next).
+
+### Phase 103 Theme J — SF3D, the opt-in local image-to-3D tier (2026-10-04)
+
+Media ▸ Models gains a tier switch: Procedural (the LLM-designed parts) or SF3D (Stable Fast 3D), a neural
+network that turns a picture of one object into a textured `.glb`. It is opt-in end to end: nothing ships in
+the bundle and nothing downloads until a consent dialog has shown the Stability AI Community License verbatim
+and its US$1M annual-revenue line and the user has ticked both boxes. The install then fetches the community
+ONNX port (`needle-tools/SF3D-webgpu`, ~1.73 GB, pinned revision) into `<userData>/sf3d/`, resumes after a
+cancel with HTTP `Range`, verifies every file's sha256 against the pinned `assets-manifest.json`, and an
+uninstall removes the weights, the partials and the consent. Inference runs on the `onnxruntime-node` the app
+already bundles, in a new `sf3d-worker` utility process (no Python); marching tetrahedra, vertex offsets, a
+UV atlas, the colour-MLP texture bake, a PNG encoder and the textured `.glb` are TypeScript. Results land as
+`<group>/<model>/` with `model.json` naming `agent.provider: 'sf3d'`. `model_sf3d_status` and
+`model_generate_sf3d` expose it over MCP. Every op answers `GitOpResult`. Tested in vitest with a mocked
+inference session; a real run against the weights has not happened yet and is the open item.
+
+### Phase 103 Theme J — SF3D output as a riggable asset part (2026-10-04)
+
+An SF3D result is no longer a dead `.glb`. `ModelService.importAsset` writes it as `<stem>/<stem>.asset.glb` with
+a sidecar holding one `asset` part (relative `.glb` path plus a content hash), so geometry beyond the 2000-vertex
+`mesh` cap stays out of the JSON. A content-keyed registry loads the glb in main (service, MCP) and the renderer,
+where the editor draws it with its baked texture. Auto-rig splits an imported mesh into pseudo-parts (head,
+torso, arms, legs; quadruped legs; vehicle wheels) so the existing bone rules apply unchanged, skinning weights
+each vertex by distance to the bone segments (top 4, normalised) and the skinned `.glb` keeps its texture and
+UVs. The SF3D engine sits behind the existing engine seam. Tested in vitest on a synthetic textured figure.
+No real SF3D output was produced and the rigged `.glb` has not been checked in Blender or a game engine; both
+remain human items beside the real-weights run.
+
+### Phase 105 Themes A + B — Terrain tab, spec, image decode and the heightfield build (2026-10-04)
+
+Media gains a sixth tab, **Terrain**. A terrain is a folder under `.midnite/media/terrain/<group>/<terrain>/` holding
+`terrain.json` (the spec and the last build's stats), the attached images and a disposable `build/`. Up to three
+optional images attach as bytes (heightmap, satellite, roads mask); JPEG and WebP become PNG once, at attach, and a
+16-bit PNG heightmap is read by a new `node:zlib` codec that keeps all 65 536 steps. Generate runs in a `terrain-worker`
+utility process: it decodes the heightmap, resamples it onto a 129 to 4097 grid in metres, cuts it into 65/129-vertex
+chunks with four LODs and writes `heights.f32` and `chunks.json`, which main swaps in atomically so a cancelled or failed
+build leaves the previous one. Cancel kills the worker; a newer build of the same terrain supersedes the older. Nine
+`terrain-*` channels carry it (`paint`, `road-key` and `export` answer "not available yet" until F, H and I). The
+centre shows the build's stats until Theme D's viewport lands. Tested in vitest: spec defaults and rejection, the codec
+(bit-exact 16-bit, five filters, three literal refusals), resample/normals/LOD crack-freedom, the broker, the service and a
+real build into a temp folder, and the tab through the mock bridge. No viewport, noise, satellite or road handling yet.
+
+
+### Phase 107 Themes A + B — Game repos, the Games tab and the sandboxed runner (2026-10-04)
+
+Media gains a **Games** tab. A game is its own git repo under `~/Midnite Games` (configurable in Settings ▸ Media ▸ Games,
+validated outside any other repo): `initRepo` is the app's first production `git init`, creation copies a blank scaffold,
+writes `midnite-game.json` and registers the repo like a clone. The runner puts each run in a sandboxed `WebContentsView`
+(no preload, in-memory partition per run) served from a privileged `mstudio-game://` scheme handled only on that session,
+with a CSP and `nosniff` on every response, request blocking, a four-permission policy, a navigation lock, console and
+exception capture over `console-message` and the CDP debugger, hot reload and a toolbar. Thirteen `mstudio:games:*`
+channels and three events carry it. Tested in vitest (init, manifest, root validation, scaffold, scheme refusals, runner
+with fakes, ring buffer, privileged-scheme call, the tab and settings through the mock bridge). Not built: Pop out, the
+real-Chromium e2e, starters, vendored engines and the agent loop (later themes). No real game has been run in Electron yet.
+
+### Phase 105 Themes C + D — No-heightmap choice, noise terrains and the 3D viewport (2026-10-04)
+
+A terrain with no heightmap now asks instead of guessing: the build answers `needs-height-source` and a dialog offers noise,
+an upload or a heightmap generated from a prompt through the Images service. Noise terrains are seeded fBm or ridged
+multifractal with an optional island falloff and bounded particle erosion (new pure-TS `noise.ts` and `erosion.ts` in
+`shared/src/terrain/`), built by the existing worker with `heightfield` and `erosion` stages. The centre column is now a lazy
+React Three Fiber viewport that streams chunks from `build/heights.f32` (at most four meshes a frame, nearest first, coarser
+LOD as fallback) with orbit and fly cameras, a sun slider, a water plane and shaded/wireframe/height/slope shading, plus a
+stats readout with a live frame time; parameter commits re-bake. Tested in vitest (noise determinism, erosion mass
+conservation and clamp, noise build and prompt-attach in the service, the dialog, shading modes and re-bake through the mock
+bridge, chunk-stream rules). Not built: land cover, splat and road shading maps (Themes E, F, H), and the packaged perf numbers (K).
+
+### Phase 107 Themes C + D — No-build runtime, vendored engines and MCP play-test loop (2026-10-04)
+
+Vendors exact-pinned Phaser 3 (`phaser@3.90.0`), three.js (`three@0.186.1`), Rapier 3D (`@dimforge/rapier3d-compat@0.21.0`), and Recast Navigation (`recast-navigation@0.43.1`, `@recast-navigation/core`, `@recast-navigation/three`) from desktop devDependencies into git-ignored `resources/game-engines/` at bundle time via `scripts/vendor-game-engines.mjs`. Fresh game repos receive vendored runtime files, typings, and licences filtered for 2D (Phaser) or 3D (three.js) in `vendor/`, an import map in `index.html`, and `jsconfig.json` with `// @ts-check` for editor intelligence without a build step. Kit versioning stamped with `GAME_KIT_VERSION = '0.1.0'` and verified by `kit-hash.json`; `gamesKitUpgrade` safely creates `kit-upgrade/<v>` branches for non-destructive updates. Licences documented in `docs/MEDIA_GAMES.md`. Theme D implements 12 `game_*` MCP tools (`game_list`, `game_create`, `game_open`, `game_get_manifest`, `game_set_manifest`, `game_run`, `game_stop`, `game_reload`, `game_screenshot`, `game_logs`, `game_input`, `game_state`) gated behind `allowGames` MCP consent switch in Settings ▸ MCP. `game_state` safely bounds, parses, and validates untrusted game state (256 KB cap, max depth 32); burst screenshot captures and sequenced input events map into trusted `WebContents` operations. Tested in vitest (17 MCP tool tests, 12 settings tests, vendor filtering, kit upgrade branch creation, kit hash verification, game scaffold).
+
+### Phase 105 Themes E + F — Satellite drape, alignment, land-cover classification and splat materials (2026-10-04)
+
+Satellite imagery can now be resampled into `build/drape.png` (RGBA8, 1K–8K power of two) through `TerrainAlignment` (offset X/Z, scale X/Z, rotation about centre). The viewport shaded mode applies the drape as an albedo texture, and an interactive Align toggle (`LuMove` / `LuLockOpen`) provides an onion-skin quad overlay over the height ramp with opacity control and `TransformControls` gizmos (move, rotate, scale) that commit to `terrain.json` on release. Roads can optionally follow the satellite alignment (`alignment.roads === 'satellite'`). A deterministic land-cover classifier (`shared/src/terrain/classify.ts`) evaluates ExG variance (trees vs grass), slope (rock), flat sub-sea-level elevation (water), and Lab k-means (roads, buildings, bare ground) to output `build/landcover.png` and `landcover.json`. An optional Ollama vision relabeling pass (`createVisionCall`) refines regional classification. The interactive class brush (`B` key / `LuBrush`, 1–64px radius, erase + 8 classes) rasterizes overrides to `overrides/landcover.png` and re-bakes. `generateSplatMap` outputs `build/splat.png` with 4-way material weights (grass, rock, dirt, snow with configurable `snowLineM`), blended via a custom Three.js shader using four CC0 tiled PBR materials (`resources/terrain-materials/{grass,rock,dirt,snow}`) with distance-based fading to drape albedo. Tested in vitest (alignment matrix/UV transforms, deterministic classifier, splat weight calculations, 8-bit grey PNG encoding, vision relabeling pass, build pipeline drape/landcover/splat stages, brush paint rasterization, viewport shader and UI controls).
+
+
+### Phase 105 Themes G + H — Foliage, buildings and roads from the land cover and the roads mask (2026-10-06)
+
+The build gains four stages after the splat: `roads` keys the roads image (dominant saturated hue, luminance fallback), cleans the mask and turns it into a graph (Zhang–Suen skeleton, junction clustering, spur pruning, node merge, Catmull-Rom splines, width from the distance transform, path/street/avenue); `conform` levels the ground under each road (30 m moving average, `blendM` falloff, clamped cut/fill with at most ten warnings); `foliage` scatters trees and grass with a seeded Bridson pass per class, kept off water, roads, buildings and the cleaned roads mask; `buildings` traces footprints (open/close, Moore tracing, Douglas-Peucker, right-angle snap, min area), extrudes them over a seeded height range and flattens the ground beneath them after the roads, before foliage is re-seated on the final field. Outputs are data — `build/roads-mask.png`, `roads.json`, `foliage.json`, `buildings.json` — and the viewer meshes them itself (`terrain-layers.tsx`: one merged road geometry, vertex-coloured buildings, one `InstancedMesh` per asset per chunk with a 600 m draw distance). `media.terrain.roadKey` previews the keyed mask at 512² without a build and samples the panel's eyedropper in main. The panel gains Roads (swatch with Auto/detected colour, `LuPipette` eyedropper, debounced live tolerance preview, width scale), Foliage (densities, slope limit, seed, built-in asset toggles per class) and Buildings (height range, min area, scale by area). Build rasters now load with `flipY = false`, fixing a z-mirror of the drape, land cover, splat and road mask against the heightfield that dated from Theme E. The scatter's candidate test got cheaper (neighbour test before slope, tan(limit) instead of atan). Deferred: the **Add from Models…** foliage asset picker (`outstanding.md`). Tested in vitest across the shared kernels, the desktop build pipeline (G + H end-to-end through the overrides layer) and `roadKey`, the app panel sections and the layer data helpers.
+
+### Phase 107 Theme F — three.js kit, Rapier physics and camera rigs (2026-10-06)
+
+The game kit gains its 3D half. Engine-free `kit/core/` modules — a fixed-step clock (`createFixedStep`, at most five steps a frame), the camera maths (five third-person presets with numeric offsets, spring arm, lock-on, versus, head bob, FOV clamp), Phase 105's LOD rules, a plain-JS terrain manifest validator, a 16-bit PNG decoder on `DecompressionStream`, a heightfield sampler that matches Rapier's triangulation, clip-name aliases, vehicle and road-ribbon helpers and the navmesh genre policy — sit under `kit/three/` adapters: the loop (interpolated, wired to `window.__midnite` pause/step), input, a Rapier world, a kinematic character (45° slopes, 0.35 m autostep, ground snap), glTF loading and an animator state machine, the terrain loader (heightfield collider, LOD chunks or a heightfield-mesh fallback, instanced foliage, extruded buildings, road ribbons and graph), a DOM HUD, audio, the camera rig, a ray-cast vehicle with enter/exit, and a dynamically imported Recast navmesh. Camera ids keep shared's existing names; `GAME_CAMERA_OFFSETS` joins them. `GAME_KIT_VERSION` is 0.3.0. Fixes Theme C's vendoring, which missed three r186's `three.core.js` and so 404'd every 3D game. Tested in vitest (`kit-core-three.test.ts`, 22 tests including a real Rapier heightfield against `heightAt`; `kit-hash.test.ts`) and smoke-tested in SwiftShader Chromium on a synthetic terrain pack; rendering e2e is Theme Q.
+
+### Phase 105 Themes I + J — Export, the game-engine manifest, and Terrain over MCP (2026-10-06)
+
+`terrain-pack` (a folder: 16-bit heightfield png + json, per-LOD glb chunks, maps, placements, `terrain.manifest.json`) and a single `.glb` export with foliage as `EXT_mesh_gpu_instancing`; `TerrainManifestSchema` v1 is the contract Phase 107 reads. Nine `terrain_*` MCP tools behind the `allowTerrains` switch (mcp.json v6), a software preview renderer, a 5-minute shim timeout for slow tools, and the `midnite-media-terrain-build` skill in six copies with a copies test.
+
+### Phase 101 Theme K — research spike: MusicGen-melody is not available as ONNX (2026-10-09)
+
+No `Xenova/` or `onnx-community/` melody repo exists, `facebook/musicgen-melody` ships PyTorch weights only, and `@huggingface/transformers` 3.8.1 and 4.3.1 have no `musicgen_melody` model type or chroma extractor. Nothing could be measured; small is 656 MB, and melody is estimated at about 1.9 GB (q8), 6-8 GB RAM and 3-4x slower than small, which does not fit an 8 GB Mac. Decision: Theme K takes the fallback (rendered reference plus a deterministic text description). Build still pending Themes B, C and J. Write-up in `docs/research/musicgen-melody-onnx.md`.
+
+### Phase 91 Themes A–J — Security hardening and CVE readiness (2026-10-19)
+
+Four PRs, built as a two-lane swarm. **#917 (A–C)** stops the rebase editor from generating a shell script (a constant 0700 helper plus a 0600 todo file), puts `--end-of-options` and `SafeRefString`/`SafeArgvString`/`SafePathspecString` on every git positional, and pins git's transports (`GIT_PROTOCOL_FROM_USER=0`, `GIT_ALLOW_PROTOCOL`, remotes resolved against `listRemotes`, `FetchRequest.all` in place of the `--all` sentinel). **#918 (D–F)** gates DevTools behind `app.isPackaged` (`MSTUDIO_DEVTOOLS=1` as the escape hatch), minifies the release bundle, moves lock authority into main, replaces the per-window guards with one `web-contents-created` policy, and adds teardown and leak tests. **#923 (G–H)** makes `log.ts` redact once for console and sink, widens `SECRET_PATTERNS` (PEM, AWS, Google, Stripe, npm, Slack `xapp-`, GitLab OAuth, `key=value`), writes the vault at 0600 and adds a persisted-secrets lint. `release.yml` publishes `SHA256SUMS`, and `install.sh`, `install-studio.sh` and the launcher's `installStudio` check length, SHA-256 and `codesign` before extracting. **#925 (I–J)** adds top-level `permissions` to `ci.yml`, a `root:audit` gate (`pnpm audit --audit-level=high` through expiring `audit-suppressions.json` entries), `SECURITY.md` (private reporting on `bilo-io/midnite-apps`) and a 21-row finding index in `docs/security/README.md`. Still open: the acceptance and human passes (77/95), including the idle-CPU number for Phase 84's visibility gates, and triage of the advisories suppressed until 2026-12-31. Follow-on privacy work (egress, data at rest, inbound surfaces) is planned as Phase 115.

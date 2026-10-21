@@ -39,7 +39,6 @@ import { openInMidnite } from '../../services/open-in-midnite';
 import { useCloseRepo, useRemoveWorktree } from '../../services/queries';
 import { useTargetedGitOp, type StatusTarget } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
-import { useWorkbenchStore } from '../../store/workbench-store';
 import {
   useTargetedStashApply,
   useTargetedStashBranch,
@@ -101,7 +100,6 @@ export function useRepoActions(
   const dialogs = useDialogs();
   const close = useCloseRepo();
   const removeWorktree = useRemoveWorktree(repo.id);
-  const openTab = useWorkbenchStore((s) => s.openTab);
   const setActiveView = useUiStore((s) => s.setActiveView);
 
   const target = primaryTarget(repo);
@@ -191,15 +189,13 @@ export function useRepoActions(
     [onError],
   );
 
-  /** Open a checkout's whole diff as a workbench tab. */
+  /**
+   * Show a checkout's whole diff: the git graph, on that checkout, with the
+   * working-copy panel open — whose diff side lists every changed file.
+   */
   const viewAllChanges = useCallback(
-    (worktreePath: string, label: string) => {
-      openTab({ kind: 'all-changes', repoId: repo.id, worktreePath, label });
-      // The tab lives in the Changes view, so opening one from the sidebar has
-      // to go there — otherwise the click appears to do nothing at all.
-      setActiveView('changes');
-    },
-    [openTab, repo.id, setActiveView],
+    (worktreePath: string) => useUiStore.getState().openWorkingCopyInGraph({ repoId: repo.id, worktreePath }),
+    [repo.id],
   );
 
   /**
@@ -365,7 +361,7 @@ export function useRepoActions(
             // read, and this phase deliberately adds no branch-vs-base diff.
             disabled: checkoutPath === null,
             disabledReason: 'This branch is not checked out, so it has no working tree to read.',
-            onSelect: () => checkoutPath && viewAllChanges(checkoutPath, ref.name),
+            onSelect: () => checkoutPath && viewAllChanges(checkoutPath),
           },
           {
             label: `Rename ${ref.name}…`,
@@ -540,7 +536,7 @@ export function useRepoActions(
           icon: LuFileDiff,
           disabled: changed === 0,
           disabledReason: 'This checkout has no uncommitted changes.',
-          onSelect: () => viewAllChanges(worktree.path, label),
+          onSelect: () => viewAllChanges(worktree.path),
         },
         {
           label: 'Show in Files view',
@@ -719,7 +715,7 @@ export function useRepoActions(
           icon: LuFileDiff,
           disabled: main === undefined,
           disabledReason: 'This repository has no main worktree.',
-          onSelect: () => main && viewAllChanges(main.path, repo.name),
+          onSelect: () => main && viewAllChanges(main.path),
         },
         {
           label: 'Switch primary checkout to',

@@ -4,7 +4,9 @@ import { fixtures } from '../test-support/fixtures';
 import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
 
 /**
- * The Changes panel's file lists.
+ * The working copy's file lists — the git graph's inline working-copy panel
+ * (the standalone Changes view these tests used to open is gone; its parts
+ * are this panel's, so the tests moved with them).
  *
  * **14 of this spec's original 17 tests moved to `status-panel.bridge.test.tsx`
  * under jsdom** (Phase 82 Theme C, wave 2): the panel-wide and per-row
@@ -87,34 +89,16 @@ const base: MockFixtures = {
   },
 };
 
-/**
- * Click the rail's Changes link on a freshly (re)loaded page.
- *
- * The rail defaults to `navMode: 'auto'` — collapsed to icons until hovered,
- * then it grows to show labels. Hovering the link is what starts that grow,
- * so a plain `.click()` on a cold rail races its own hover: Playwright moves
- * the pointer to the collapsed icon's centre, the resulting `mouseenter`
- * kicks off the rail's expansion, and by the time `mousedown`/`mouseup` land
- * at that same fixed screen point the item has already reflowed out from
- * under it — onto whatever now occupies that pixel, never onto the link. No
- * amount of waiting *after* the click can recover a click that never reached
- * its target, which is why every spec in this file was failing on the same
- * "Changes" heading never appearing. Hovering first and waiting for the
- * link's own expanded label to render turns "wait out the race" into a real,
- * observable precondition instead of a guessed delay.
- */
-const clickChangesNav = async (page: Page): Promise<void> => {
-  const link = page.getByRole('link', { name: 'Changes' });
-  await link.hover();
-  await expect(link.getByText('Changes', { exact: true })).toBeVisible();
-  await link.click();
+/** Expand the graph's working-copy row — where the change lists live now. */
+const openWorkingCopy = async (page: Page): Promise<void> => {
+  await page.getByRole('button', { name: /^3 uncommitted changes/ }).click();
+  await expect(page.getByRole('region', { name: 'Working copy changes' })).toBeVisible();
 };
 
 const open = async (page: Page, data: MockFixtures = base): Promise<void> => {
   await installMockBridge(page, data);
   await page.goto('/');
-  await clickChangesNav(page);
-  await expect(page.getByRole('heading', { name: 'Changes' })).toBeVisible();
+  await openWorkingCopy(page);
 };
 
 test('the tree ⇄ list choice survives a reload', async ({ page }) => {
@@ -125,7 +109,7 @@ test('the tree ⇄ list choice survives a reload', async ({ page }) => {
   ).toBeVisible();
 
   await page.reload();
-  await clickChangesNav(page);
+  await openWorkingCopy(page);
 
   await expect(
     page.getByTestId('changes-unstaged').getByRole('button', { name: 'src', exact: true }),

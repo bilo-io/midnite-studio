@@ -1,7 +1,7 @@
-import type { RepoDescriptor, TerminalSession, Worktree } from '@midnite/studio-shared';
+import type { ChatSummary, RepoDescriptor, TerminalSession, Worktree } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { activeAgentWorktreePaths, activeAgentWorktreeSessions } from './use-agent-worktrees';
+import { activeAgentWorktreePaths, activeAgentWorktreeSessions, activeChatWorktreeSessions } from './use-agent-worktrees';
 
 const worktree = (repoId: string, path: string, isMain = false): Worktree => ({
   id: `${repoId}:${path}`,
@@ -118,7 +118,7 @@ describe('activeAgentWorktreeSessions', () => {
 
     const active = activeAgentWorktreeSessions(sessions, states, liveAgentId, liveCwd, repos);
     const entry = active.get('/Users/x/Dev/midnite-studio/.worktrees/agent-wt');
-    expect(entry?.session.id).toBe('s1');
+    expect(entry?.session?.id).toBe('s1');
     expect(entry?.agentId).toBe('claude');
   });
 
@@ -150,5 +150,35 @@ describe('activeAgentWorktreeSessions', () => {
   it('returns an empty map when nothing is live', () => {
     const active = activeAgentWorktreeSessions([], {}, {}, {}, repos);
     expect(active.size).toBe(0);
+  });
+});
+
+describe('activeChatWorktreeSessions', () => {
+  const chat = (id: string, running: boolean, path: string | null): ChatSummary => ({
+    id,
+    title: `Chat ${id}`,
+    engine: 'codex',
+    model: null,
+    mode: 'edit',
+    repoId: 'r1',
+    repoName: 'midnite-studio',
+    pinned: false,
+    createdAt: 1,
+    updatedAt: 1,
+    messageCount: 2,
+    preview: '',
+    running,
+    pendingChanges: false,
+    worktree: path ? { path, branch: `chat/${id}`, repoPath: '/Users/x/Dev/midnite-studio' } : null,
+  });
+
+  it('maps a running chat worktree to its chat and engine, and ignores idle or worktree-less chats', () => {
+    const active = activeChatWorktreeSessions([
+      chat('a', true, '/Users/x/Dev/midnite-studio-chat-a'),
+      chat('b', false, '/Users/x/Dev/midnite-studio-chat-b'),
+      chat('c', true, null),
+    ]);
+    expect([...active.keys()]).toEqual(['/Users/x/Dev/midnite-studio-chat-a']);
+    expect(active.get('/Users/x/Dev/midnite-studio-chat-a')).toEqual({ chat: { id: 'a', title: 'Chat a' }, agentId: 'codex' });
   });
 });

@@ -91,32 +91,29 @@ function withUnbalancedFile(): MockFixtures {
 }
 
 /**
- * Selects the fixture commit, opens it as a full-width workbench tab (Theme
- * G), and chooses the unbalanced file.
+ * Selects the fixture commit — its inline panel in the graph — and chooses the
+ * unbalanced file, at a desktop-wide window.
  *
- * Not the graph's own narrow inspector: `LAYOUT_BOUNDS.detailWidth` caps that
- * dock at 720px and it renders one pixel short of even that by default
- * (`DIFF_SPLIT_MIN_WIDTH` — Theme C's width fallback, this same phase), so
- * the split toggle is permanently disabled there. That is by design — it is
- * the reason the full-width tab exists — and it means every one of this
- * file's assertions has to run somewhere the toggle actually works.
+ * `DIFF_SPLIT_MIN_WIDTH` (720px, Theme C's width fallback) gates the split
+ * toggle on the diff pane's real width. The full-width Changes workbench tab
+ * this used to open is gone with that view; the graph's inline commit panel
+ * gives its whole right-hand column to the diff, which clears the bar at
+ * 1920px. Every assertion here needs somewhere the toggle actually works.
  */
 async function openUnbalancedDiff(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await installMockBridge(page, withUnbalancedFile());
   await page.goto('/');
+  await openCommitFile(page);
+}
 
+async function openCommitFile(page: Page): Promise<void> {
   await page.getByText('feat(phase-11): package, install and run from /Applications').click();
-  await page.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` }).click();
-
-  // The nav rail's hover-expand reflow moves a collapsed link out from under a
-  // synthetic click before it lands — hover first and wait for the expanded
-  // label, per `changes-panel.spec.ts`'s own note on this exact hazard.
-  const link = page.getByRole('link', { name: 'Changes' });
-  await link.hover();
-  await expect(link.getByText('Changes', { exact: true })).toBeVisible();
-  await link.click();
-
-  await page.getByRole('button', { name: /unbalanced-diff\.ts/ }).click();
+  await page
+    .getByTestId('commit-files')
+    .filter({ visible: true })
+    .getByRole('button', { name: /unbalanced-diff\.ts/ })
+    .click();
   await expect(page.getByTestId('diff-view')).toBeVisible();
 }
 
@@ -176,23 +173,10 @@ test('the split preference survives a reload', async ({ page }) => {
 
   // `diffLayout` persists in `ui-store`'s `partialize` beside every other
   // diff preference — a fresh load must not silently fall back to unified.
-  // Workbench tabs do NOT persist (`workbench-store.ts`), so the tab itself
-  // has to be reopened; the preference living back in `ui-store` is exactly
-  // what this test is checking. And a reload now reopens on whichever VIEW
-  // was last active (#229) — the Changes tab we ended on, not the Graph the
-  // commit row lives in — so that has to be navigated back to first.
+  // The open commit (`graphSelection`) does not persist, so the commit has to
+  // be reopened; the preference living in `ui-store` is what this checks.
   await page.reload();
-  const graphLink = page.getByRole('link', { name: 'Graph' });
-  await graphLink.hover();
-  await expect(graphLink.getByText('Graph', { exact: true })).toBeVisible();
-  await graphLink.click();
-  await page.getByText('feat(phase-11): package, install and run from /Applications').click();
-  await page.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` }).click();
-  const link = page.getByRole('link', { name: 'Changes' });
-  await link.hover();
-  await expect(link.getByText('Changes', { exact: true })).toBeVisible();
-  await link.click();
-  await page.getByRole('button', { name: /unbalanced-diff\.ts/ }).click();
+  await openCommitFile(page);
 
   await expect(page.getByRole('button', { name: 'Switch to unified diff' })).toBeVisible();
 });

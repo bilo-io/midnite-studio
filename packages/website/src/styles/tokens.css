@@ -38,9 +38,9 @@
     inside the colour function, so it must own the function and be handed the
     channels; `--ws-bg: hsl(...)` gives it a finished colour with nowhere to put
     one.
-  - `--ws-*` is for hand-written CSS — `services/illustrations.tsx`, the hero
-    canvas, anything reaching for `var(--ws-accent)` — where a bare triplet is
-    not a colour and cannot be used.
+  - `--ws-*` is for hand-written CSS — `styles/apps.css`'s auroras, anything
+    reaching for `var(--ws-accent)` — where a bare triplet is not a colour and
+    cannot be used.
 
   The triplet is the single source of truth: the derived token is always
   `hsl(var(--ws-<name>-hsl))`, so a hue is edited in exactly one place. **A new

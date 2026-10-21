@@ -108,6 +108,7 @@ const windowChrome: WindowChromeBridge = {
 const bridge: Pick<
   MidniteStudioBridge,
   | 'homeDir'
+  | 'lock'
   | 'hostname'
   | 'appVersion'
   | 'repos'
@@ -131,16 +132,23 @@ const bridge: Pick<
   | 'sessions'
   | 'notes'
   | 'browser'
-  | 'apps'
+  | 'webApps'
   | 'agent'
   | 'council'
   | 'loopRuns'
+  | 'chats'
   | 'workflow'
   | 'demoApi'
   | 'secrets'
+  | 'vaultGrants'
+  | 'vaultPairings'
   | 'finance'
+  | 'financeAccounts'
+  | 'markets'
   | 'apiClient'
   | 'video'
+  | 'games'
+  | 'media'
   | 'fs'
   | 'stats'
   | 'diag'
@@ -160,13 +168,19 @@ const bridge: Pick<
   | 'update'
   | 'systemHealth'
   | 'systemHealthStartSshAgent'
+  | 'monitorAgentUsage'
+  | 'handoff'
+  | 'setup'
   | 'ollama'
+  | 'gitIdentity'
+  | 'systemMemory'
   | 'optimizer'
   | 'protocol'
   | 'db'
   | 'knowledge'
   | 'mcp'
   | 'companion'
+  | 'capture'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -180,6 +194,7 @@ const bridge: Pick<
   repos: {
     open: (req) => call(CHANNELS.repoOpen, req),
     list: () => call(CHANNELS.repoList),
+    logo: (req) => call(CHANNELS.repoLogo, req),
     close: (req) => call(CHANNELS.repoClose, req),
     refs: (req) => call(CHANNELS.repoRefs, req),
     worktrees: (req) => call(CHANNELS.repoWorktrees, req),
@@ -220,6 +235,7 @@ const bridge: Pick<
     commitFileDiff: (req) => call(CHANNELS.commitFileDiff, req),
     conflictRegions: (req) => call(CHANNELS.conflictRegions, req),
     blobExists: (req) => call(CHANNELS.blobExists, req),
+    commitStats: (req) => call(CHANNELS.commitStats, req),
   },
   remotes: {
     list: (req) => call(CHANNELS.remotesList, req),
@@ -246,6 +262,7 @@ const bridge: Pick<
     runDetail: (req) => call(CHANNELS.forgeRunDetail, req),
     runLog: (req) => call(CHANNELS.forgeRunLog, req),
     workflows: (req) => call(CHANNELS.forgeWorkflows, req),
+    commitRuns: (req) => call(CHANNELS.forgeCommitRuns, req),
     pullDetail: (req) => call(CHANNELS.forgePullDetail, req),
     pullFiles: (req) => call(CHANNELS.forgePullFiles, req),
     pullComments: (req) => call(CHANNELS.forgePullComments, req),
@@ -289,6 +306,7 @@ const bridge: Pick<
     removeItem: (req) => call(CHANNELS.forgeProjectRemoveItem, req),
   },
   ai: {
+    commitMessage: (req) => call(CHANNELS.aiCommitMessage, req),
     improveField: (req) => call(CHANNELS.aiImproveField, req),
     planBlueprint: (req) => call(CHANNELS.aiPlanBlueprint, req),
   },
@@ -302,6 +320,40 @@ const bridge: Pick<
     // Also `invoke`: the copy button's checkmark is a claim that the text is on
     // the clipboard, and a one-way send would make that claim unverifiable.
     writeText: (req) => call(CHANNELS.clipboardWriteText, req),
+  },
+  capture: {
+    status: () => call(CHANNELS.captureStatus),
+    requestPermission: () => call(CHANNELS.captureRequestPermission),
+    openPermissionSettings: () => call(CHANNELS.captureOpenPermissionSettings),
+    sources: (req) => call(CHANNELS.captureSources, req),
+    still: (req) => call(CHANNELS.captureStill, req),
+    regionBegin: (req) => call(CHANNELS.captureRegionBegin, req),
+    regionPending: () => call(CHANNELS.captureRegionPending),
+    regionFinish: (req) => call(CHANNELS.captureRegionFinish, req),
+    regionCancel: (req) => call(CHANNELS.captureRegionCancel, req),
+    regionStart: () => call(CHANNELS.captureRegionStart),
+    recordingArm: (req) => call(CHANNELS.captureRecordingArm, req),
+    recordingBegin: (req) => call(CHANNELS.captureRecordingBegin, req),
+    // A slice's `Uint8Array` structured-clones straight through `invoke`; main checks its size and type.
+    recordingChunk: (req) => call(CHANNELS.captureRecordingChunk, req),
+    recordingFinish: (req) => call(CHANNELS.captureRecordingFinish, req),
+    recordingAbort: (req) => call(CHANNELS.captureRecordingAbort, req),
+    list: () => call(CHANNELS.captureList),
+    remove: (req) => call(CHANNELS.captureDelete, req),
+    reveal: (req) => call(CHANNELS.captureReveal, req),
+    copy: (req) => call(CHANNELS.captureCopy, req),
+    setSettings: (req) => call(CHANNELS.captureSettingsSet, req),
+    clipboard: {
+      list: () => call(CHANNELS.captureClipboardList),
+      copy: (req) => call(CHANNELS.captureClipboardCopy, req),
+      remove: (req) => call(CHANNELS.captureClipboardDelete, req),
+      clear: () => call(CHANNELS.captureClipboardClear),
+    },
+    attachment: (req) => call(CHANNELS.captureAttachment, req),
+    sendToCreator: (req) => call(CHANNELS.captureSendToCreator, req),
+    openInStudio: (req) => call(CHANNELS.captureOpenInStudio, req),
+    importFromApp: (req) => call(CHANNELS.captureImport, req),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.captureChanged, handler),
   },
   ops: {
     checkout: (req) => call(CHANNELS.opCheckout, req),
@@ -375,6 +427,9 @@ const bridge: Pick<
     save: (req) => ipcRenderer.send(CHANNELS.notesSave, req),
     delete: (req) => ipcRenderer.send(CHANNELS.notesDelete, req),
     reorder: (req) => ipcRenderer.send(CHANNELS.notesReorder, req),
+    reviewDue: (req) => call(CHANNELS.notesReviewDue, req),
+    reviewGrade: (req) => call(CHANNELS.notesReviewGrade, req),
+    capture: (req) => call(CHANNELS.notesCapture, req),
   },
   browser: {
     create: (req) => call(CHANNELS.browserCreate, req),
@@ -399,15 +454,19 @@ const bridge: Pick<
     setDiscardMs: (req) => ipcRenderer.send(CHANNELS.browserSetDiscardMs, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },
-  apps: {
-    enable: (req) => call(CHANNELS.appsEnable, req),
-    disable: (req) => ipcRenderer.send(CHANNELS.appsDisable, req),
+  webApps: {
+    enable: (req) => call(CHANNELS.webAppsEnable, req),
+    disable: (req) => ipcRenderer.send(CHANNELS.webAppsDisable, req),
     // Fires per resize frame — same reasoning as browser.setBounds above.
-    setBounds: (req) => ipcRenderer.send(CHANNELS.appsSetBounds, req),
-    activate: (req) => ipcRenderer.send(CHANNELS.appsActivate, req),
+    setBounds: (req) => ipcRenderer.send(CHANNELS.webAppsSetBounds, req),
+    activate: (req) => ipcRenderer.send(CHANNELS.webAppsActivate, req),
+    signIns: (req) => call(CHANNELS.webAppsSignIns, req),
+    signOut: (req) => call(CHANNELS.webAppsSignOut, req),
   },
   agent: {
     list: () => call(CHANNELS.agentList),
+    recheck: () => call(CHANNELS.agentRecheck),
+    onStatus: (handler) => subscribe(EVENT_CHANNELS.agentStatus, handler),
     claudeInfo: () => call(CHANNELS.agentClaudeInfo),
     claudeUpdate: () => call(CHANNELS.agentClaudeUpdate),
     onClaudeUpdateData: (handler) => subscribe(EVENT_CHANNELS.agentClaudeUpdateData, handler),
@@ -458,10 +517,35 @@ const bridge: Pick<
     set: (req) => call(CHANNELS.secretsSet, req),
     has: (req) => call(CHANNELS.secretsHas, req),
   },
+  vaultGrants: {
+    list: (req) => call(CHANNELS.vaultGrantsList, req),
+    set: (req) => call(CHANNELS.vaultGrantSet, req),
+    revoke: (req) => call(CHANNELS.vaultGrantRevoke, req),
+  },
+  vaultPairings: {
+    list: (req) => call(CHANNELS.vaultPairingsList, req),
+    unpair: (req) => call(CHANNELS.vaultPairingUnpair, req),
+  },
   finance: {
     search: (req) => call(CHANNELS.financeSearch, req),
     quote: (req) => call(CHANNELS.financeQuote, req),
     history: (req) => call(CHANNELS.financeHistory, req),
+  },
+  financeAccounts: {
+    list: () => call(CHANNELS.financeAccountsList),
+    test: (req) => call(CHANNELS.financeAccountTest, req),
+    add: (req) => call(CHANNELS.financeAccountAdd, req),
+    remove: (req) => call(CHANNELS.financeAccountRemove, req),
+    snapshots: (req) => call(CHANNELS.financeAccountSnapshots, req),
+  },
+  markets: {
+    series: (req) => call(CHANNELS.marketsSeries, req),
+    quotes: (req) => call(CHANNELS.marketsQuotes, req),
+    search: (req) => call(CHANNELS.marketsSearch, req),
+    rates: () => call(CHANNELS.marketsRates),
+    portfolio: () => call(CHANNELS.marketsPortfolioGet),
+    apply: (req) => call(CHANNELS.marketsPortfolioApply, req),
+    news: (req) => call(CHANNELS.marketsNews, req),
   },
   apiClient: {
     listCollections: (req) => call(CHANNELS.apiListCollections, req),
@@ -511,15 +595,260 @@ const bridge: Pick<
     root: {
       get: () => call(CHANNELS.videoRootGet),
       set: (req) => call(CHANNELS.videoRootSet, req),
+      resolve: (req) => call(CHANNELS.videoRootResolve, req),
+    },
+    setup: (req) => call(CHANNELS.videoSetup, req),
+    engine: {
+      get: (req) => call(CHANNELS.videoEngineGet, req),
+      set: (req) => call(CHANNELS.videoEngineSet, req),
     },
     onStudioChanged: (handler) => subscribe(EVENT_CHANNELS.videoStudioChanged, handler),
     onRenderProgress: (handler) => subscribe(EVENT_CHANNELS.videoRenderProgress, handler),
+  },
+  games: {
+    settings: {
+      get: () => call(CHANNELS.gamesSettingsGet),
+      set: (req) => call(CHANNELS.gamesSettingsSet, req),
+    },
+    list: () => call(CHANNELS.gamesList),
+    create: (req) => call(CHANNELS.gamesCreate, req),
+    manifest: {
+      get: (req) => call(CHANNELS.gamesGetManifest, req),
+      set: (req) => call(CHANNELS.gamesSetManifest, req),
+    },
+    run: (req) => call(CHANNELS.gamesRun, req),
+    stop: (req) => call(CHANNELS.gamesStop, req),
+    reload: (req) => call(CHANNELS.gamesReload, req),
+    // One-way, like `apps.setBounds` — fires every resize frame.
+    setBounds: (req) => ipcRenderer.send(CHANNELS.gamesSetBounds, req),
+    setVisible: (req) => ipcRenderer.send(CHANNELS.gamesSetVisible, req),
+    toolbar: (req) => call(CHANNELS.gamesToolbar, req),
+    juice: (req) => call(CHANNELS.gamesJuice, req),
+    logs: (req) => call(CHANNELS.gamesLogs, req),
+    kitUpgrade: (req) => call(CHANNELS.gamesKitUpgrade, req),
+    popOut: (req) => call(CHANNELS.gamesPopOut, req),
+    popped: () => call(CHANNELS.gamesPopped),
+    onPopState: (handler) => subscribe(EVENT_CHANNELS.gamesPopState, handler),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.gamesChanged, handler),
+    onOpen: (handler) => subscribe(EVENT_CHANNELS.gamesOpen, handler),
+    onRunState: (handler) => subscribe(EVENT_CHANNELS.gamesRunState, handler),
+    onConsole: (handler) => subscribe(EVENT_CHANNELS.gamesConsole, handler),
+    agent: {
+      run: (req) => call(CHANNELS.gamesAgentRun, req),
+      cancel: (req) => call(CHANNELS.gamesAgentCancel, req),
+      undo: (req) => call(CHANNELS.gamesAgentUndo, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.gamesAgentProgress, handler),
+    },
+    assets: {
+      sources: (req) => call(CHANNELS.gamesAssetSources, req),
+      import: (req) => call(CHANNELS.gamesImportAsset, req),
+      resync: (req) => call(CHANNELS.gamesResync, req),
+    },
+    playtests: {
+      list: (req) => call(CHANNELS.gamesPlaytests, req),
+      run: (req) => call(CHANNELS.gamesPlaytestRun, req),
+    },
+    export: (req) => call(CHANNELS.gamesExport, req),
+  },
+  media: {
+    project: {
+      list: (req) => call(CHANNELS.mediaProjectList, req),
+      create: (req) => call(CHANNELS.mediaProjectCreate, req),
+      rename: (req) => call(CHANNELS.mediaProjectRename, req),
+      remove: (req) => call(CHANNELS.mediaProjectRemove, req),
+    },
+    file: {
+      list: (req) => call(CHANNELS.mediaFileList, req),
+      read: (req) => call(CHANNELS.mediaFileRead, req),
+      write: (req) => call(CHANNELS.mediaFileWrite, req),
+      rename: (req) => call(CHANNELS.mediaFileRename, req),
+      remove: (req) => call(CHANNELS.mediaFileRemove, req),
+    },
+    image: {
+      providers: () => call(CHANNELS.mediaImageProviders),
+      generate: (req) => call(CHANNELS.mediaImageGenerate, req),
+      cancel: (req) => call(CHANNELS.mediaImageCancel, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaImageProgress, handler),
+    },
+    library: {
+      roots: () => call(CHANNELS.mediaLibraryRoots),
+      addRoot: () => call(CHANNELS.mediaLibraryAddRoot),
+      removeRoot: (req) => call(CHANNELS.mediaLibraryRemoveRoot, req),
+      scan: (req) => call(CHANNELS.mediaLibraryScan, req),
+      items: (req) => call(CHANNELS.mediaLibraryItems, req),
+      progress: (req) => call(CHANNELS.mediaLibraryProgress, req),
+      clearProgress: (req) => call(CHANNELS.mediaLibraryClearProgress, req),
+      settings: () => call(CHANNELS.mediaLibrarySettingsGet),
+      setSettings: (req) => call(CHANNELS.mediaLibrarySettingsSet, req),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaLibraryChanged, handler),
+      onScanProgress: (handler) => subscribe(EVENT_CHANNELS.mediaLibraryScanProgress, handler),
+      playlists: {
+        list: () => call(CHANNELS.mediaLibraryPlaylists),
+        create: (req) => call(CHANNELS.mediaLibraryPlaylistCreate, req),
+        rename: (req) => call(CHANNELS.mediaLibraryPlaylistRename, req),
+        setItems: (req) => call(CHANNELS.mediaLibraryPlaylistSetItems, req),
+        delete: (req) => call(CHANNELS.mediaLibraryPlaylistDelete, req),
+      },
+      lan: {
+        status: () => call(CHANNELS.mediaLibraryLanStatus),
+        start: (req) => call(CHANNELS.mediaLibraryLanStart, req),
+        stop: () => call(CHANNELS.mediaLibraryLanStop),
+        regenerateToken: () => call(CHANNELS.mediaLibraryLanRegenerate),
+        setSettings: (req) => call(CHANNELS.mediaLibraryLanSettingsSet, req),
+        detectFfmpeg: () => call(CHANNELS.mediaLibraryLanDetectFfmpeg),
+        chooseFfmpeg: () => call(CHANNELS.mediaLibraryLanChooseFfmpeg),
+      },
+    },
+    audio: {
+      providers: () => call(CHANNELS.mediaAudioProviders),
+      import: (req) => call(CHANNELS.mediaAudioImport, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaAudioProgress, handler),
+      generate: (req) => call(CHANNELS.mediaAudioGenerate, req),
+      cancel: (req) => call(CHANNELS.mediaAudioCancel, req),
+      engine: () => call(CHANNELS.mediaAudioEngine),
+      installEngine: () => call(CHANNELS.mediaAudioEngineInstall),
+      onEngineProgress: (handler) => subscribe(EVENT_CHANNELS.mediaAudioEngineProgress, handler),
+      expand: (req) => call(CHANNELS.mediaAudioExpand, req),
+      gm: {
+        status: () => call(CHANNELS.mediaGmStatus),
+        ensure: (req) => call(CHANNELS.mediaGmEnsure, req),
+        load: (req) => call(CHANNELS.mediaGmLoad, req),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaGmProgress, handler),
+      },
+    },
+    music: {
+      list: (req) => call(CHANNELS.mediaMusicList, req),
+      read: (req) => call(CHANNELS.mediaMusicRead, req),
+      write: (req) => call(CHANNELS.mediaMusicWrite, req),
+      import: (req) => call(CHANNELS.mediaMusicImport, req),
+      delete: (req) => call(CHANNELS.mediaMusicDelete, req),
+      export: (req) => call(CHANNELS.mediaMusicExport, req),
+      sendToGenerator: (req) => call(CHANNELS.mediaMusicSendToGenerator, req),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaMusicChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaMusicOpen, handler),
+      agent: {
+        run: (req) => call(CHANNELS.mediaMusicAgentRun, req),
+        cancel: (req) => call(CHANNELS.mediaMusicAgentCancel, req),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaMusicAgentProgress, handler),
+      },
+      chat: {
+        read: (req) => call(CHANNELS.mediaMusicChat, { op: 'read', ...req }),
+        write: (req) => call(CHANNELS.mediaMusicChat, { op: 'write', ...req }),
+      },
+      agy: {
+        status: () => call(CHANNELS.mediaMusicAgy, { op: 'status' }),
+        register: (req) => call(CHANNELS.mediaMusicAgy, { op: 'register', ...req }),
+        unregister: () => call(CHANNELS.mediaMusicAgy, { op: 'unregister' }),
+      },
+    },
+    model: {
+      providers: () => call(CHANNELS.mediaModelProviders),
+      generate: (req) => call(CHANNELS.mediaModelGenerate, req),
+      cancel: (req) => call(CHANNELS.mediaModelCancel, req),
+      export: (req) => call(CHANNELS.mediaModelExport, req),
+      saveEdit: (req) => call(CHANNELS.mediaModelSaveEdit, req),
+      library: {
+        list: (req) => call(CHANNELS.mediaModelLibrary, { op: 'list', ...req }),
+        migrate: (req) => call(CHANNELS.mediaModelLibrary, { op: 'migrate', ...req }),
+        rename: (req) => call(CHANNELS.mediaModelLibrary, { op: 'rename', ...req }),
+        move: (req) => call(CHANNELS.mediaModelLibrary, { op: 'move', ...req }),
+        delete: (req) => call(CHANNELS.mediaModelLibrary, { op: 'delete', ...req }),
+        duplicate: (req) => call(CHANNELS.mediaModelLibrary, { op: 'duplicate', ...req }),
+        newGroup: (req) => call(CHANNELS.mediaModelLibrary, { op: 'newGroup', ...req }),
+      },
+      mesh: {
+        read: (req) => call(CHANNELS.mediaModelMesh, { op: 'read', ...req }),
+        write: (req) => call(CHANNELS.mediaModelMesh, { op: 'write', ...req }),
+        appendOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'appendOps', ...req }),
+        readOps: (req) => call(CHANNELS.mediaModelMesh, { op: 'readOps', ...req }),
+        writeTexture: (req) => call(CHANNELS.mediaModelMesh, { op: 'writeTexture', ...req }),
+      },
+      sf3d: {
+        status: () => call(CHANNELS.mediaModelSf3d, { op: 'status' }),
+        consent: (req) => call(CHANNELS.mediaModelSf3d, { op: 'consent', ...req }),
+        revokeConsent: () => call(CHANNELS.mediaModelSf3d, { op: 'revokeConsent' }),
+        install: () => call(CHANNELS.mediaModelSf3d, { op: 'install' }),
+        cancelInstall: () => call(CHANNELS.mediaModelSf3d, { op: 'cancelInstall' }),
+        uninstall: () => call(CHANNELS.mediaModelSf3d, { op: 'uninstall' }),
+        generate: (req) => call(CHANNELS.mediaModelSf3d, { op: 'generate', ...req }),
+        cancelGenerate: (req) => call(CHANNELS.mediaModelSf3d, { op: 'cancelGenerate', ...req }),
+        onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaModelSf3dProgress, handler),
+      },
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaModelProgress, handler),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaModelChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaModelOpen, handler),
+    },
+    terrain: {
+      library: (req) => call(CHANNELS.mediaTerrainLibrary, req),
+      get: (req) => call(CHANNELS.mediaTerrainGet, req),
+      setSpec: (req) => call(CHANNELS.mediaTerrainSetSpec, req),
+      setInput: (req) => call(CHANNELS.mediaTerrainSetInput, req),
+      build: (req) => call(CHANNELS.mediaTerrainBuild, req),
+      cancel: (req) => call(CHANNELS.mediaTerrainCancel, req),
+      paint: (req) => call(CHANNELS.mediaTerrainPaint, req),
+      roadKey: (req) => call(CHANNELS.mediaTerrainRoadKey, req),
+      export: (req) => call(CHANNELS.mediaTerrainExport, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainProgress, handler),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaTerrainOpen, handler),
+    },
+    sprite: {
+      library: (req) => call(CHANNELS.mediaSpriteLibrary, req),
+      get: (req) => call(CHANNELS.mediaSpriteGet, req),
+      setSpec: (req) => call(CHANNELS.mediaSpriteSetSpec, req),
+      setReference: (req) => call(CHANNELS.mediaSpriteSetReference, req),
+      generate: (req) => call(CHANNELS.mediaSpriteGenerate, req),
+      cancel: (req) => call(CHANNELS.mediaSpriteCancel, req),
+      patchFrames: (req) => call(CHANNELS.mediaSpritePatchFrames, req),
+      export: (req) => call(CHANNELS.mediaSpriteExport, req),
+      importMap: (req) => call(CHANNELS.mediaSpriteImportMap, req),
+      onProgress: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteProgress, handler),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteChanged, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteOpen, handler),
+      onRenderRequest: (handler) => subscribe(EVENT_CHANNELS.mediaSpriteRenderRequest, handler),
+      renderReady: (req) => call(CHANNELS.mediaSpriteRenderReady, req),
+      renderFrames: (req) => call(CHANNELS.mediaSpriteRenderFrames, req),
+    },
+    map: {
+      get: (req) => call(CHANNELS.mediaMapGet, req),
+      setView: (req) => call(CHANNELS.mediaMapSetView, req),
+      sources: () => call(CHANNELS.mediaMapSources),
+      cache: (req) => call(CHANNELS.mediaMapCache, req),
+      capture: (req) => call(CHANNELS.mediaMapCapture, req),
+      captureCancel: (req) => call(CHANNELS.mediaMapCaptureCancel, req),
+      onCaptureProgress: (handler) => subscribe(EVENT_CHANNELS.mediaMapCaptureProgress, handler),
+      onOpen: (handler) => subscribe(EVENT_CHANNELS.mediaMapOpen, handler),
+    },
+    reveal: (req) => call(CHANNELS.mediaReveal, req),
+    ffmpegStatus: () => call(CHANNELS.mediaFfmpegStatus),
+    export: (req) => call(CHANNELS.mediaExport, req),
+    cancelExport: (req) => call(CHANNELS.mediaExportCancel, req),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaChanged, handler),
+    onExportProgress: (handler) => subscribe(EVENT_CHANNELS.mediaExportProgress, handler),
+    doc: {
+      edit: (req) => call(CHANNELS.mediaDocEdit, req),
+      export: (req) => call(CHANNELS.mediaDocExport, req),
+    },
   },
   loopRuns: {
     list: () => call(CHANNELS.loopRunsList),
     start: (req) => call(CHANNELS.loopRunsStart, req),
     stop: (req) => call(CHANNELS.loopRunsStop, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.loopRunsChanged, handler),
+  },
+  chats: {
+    list: () => call(CHANNELS.chatsList),
+    get: (req) => call(CHANNELS.chatsGet, req),
+    create: (req) => call(CHANNELS.chatsCreate, req),
+    update: (req) => call(CHANNELS.chatsUpdate, req),
+    delete: (req) => call(CHANNELS.chatsDelete, req),
+    send: (req) => call(CHANNELS.chatsSend, req),
+    cancel: (req) => call(CHANNELS.chatsCancel, req),
+    changeDiffs: (req) => call(CHANNELS.chatsChangeDiffs, req),
+    resolveChanges: (req) => call(CHANNELS.chatsResolveChanges, req),
+    skills: (req) => call(CHANNELS.chatsSkills, req),
+    files: (req) => call(CHANNELS.chatsFiles, req),
+    onEvent: (handler) => subscribe(EVENT_CHANNELS.chatsEvent, handler),
   },
   fs: {
     listDir: (req) => call(CHANNELS.fsListDir, req),
@@ -554,6 +883,8 @@ const bridge: Pick<
     plan: (req) => call(CHANNELS.scaffoldPlan, req),
     apply: (req) => call(CHANNELS.scaffoldApply, req),
     installUserSkills: (req = {}) => call(CHANNELS.scaffoldInstallUserSkills, req),
+    listRepoSkills: (req) => call(CHANNELS.scaffoldListRepoSkills, req),
+    listKnownSkills: (req) => call(CHANNELS.scaffoldListKnownSkills, req),
   },
   stats: {
     summary: (req) => call(CHANNELS.statsSummary, req),
@@ -576,6 +907,12 @@ const bridge: Pick<
   },
   sync: {
     onStatus: (handler) => subscribe(EVENT_CHANNELS.syncStatus, handler),
+  },
+  lock: {
+    set: (locked) => ipcRenderer.send(CHANNELS.lockSet, locked),
+    get: () => call(CHANNELS.lockGet),
+    setPasscode: (code) => call(CHANNELS.lockSetPasscode, code),
+    verify: (code) => call(CHANNELS.lockVerify, code),
   },
   window: {
     minimize: () => ipcRenderer.send(CHANNELS.windowMinimize),
@@ -632,6 +969,18 @@ const bridge: Pick<
   },
   systemHealth: () => call(CHANNELS.systemHealth),
   systemHealthStartSshAgent: () => call(CHANNELS.systemHealthStartSshAgent),
+  monitorAgentUsage: () => call(CHANNELS.monitorAgentUsage),
+  // A `midnite://open` link for the launcher's router — the external hand-off transport.
+  handoff: { open: (req) => call(CHANNELS.handoffOpen, req) },
+  setup: {
+    probe: (req) => call(CHANNELS.setupProbe, req),
+    reveal: (req) => call(CHANNELS.setupReveal, req),
+  },
+  gitIdentity: {
+    get: () => call(CHANNELS.gitIdentityGet),
+    set: (req) => call(CHANNELS.gitIdentitySet, req),
+  },
+  systemMemory: () => call(CHANNELS.systemMemory),
   ollama: {
     status: () => call(CHANNELS.ollamaStatus),
     list: () => call(CHANNELS.ollamaList),
@@ -718,6 +1067,7 @@ const bridge: Pick<
     // fire-and-forget `ipcRenderer.send` above rather than `call`'s `invoke`.
     ttsCancel: () => ipcRenderer.send(CHANNELS.companionTtsCancel),
     ttsReload: (req) => call(CHANNELS.companionTtsReload, req),
+    ttsModelOnDisk: () => call(CHANNELS.companionTtsModelOnDisk, {}),
     // Phase 81 Theme F's one new pair — the tree's first main→renderer
     // request/reply. `onUiRequest` is subscribed only from the main window's
     // `app.tsx` (a popout never receives one — `ui-bridge.ts` always targets

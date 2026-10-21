@@ -3,6 +3,10 @@
 Right-click + double-click verbs on commit rows and ref badges, with blast-radius-gated
 destructive ops.
 
+## Headlines
+
+**Theme A.** ✅ context menus, checkout, branch/tag create, blast-radius-gated reset/delete
+
 ## Deliverables
 
 - [x] `git-engine/src/commands/{checkout,branch,tag,reset}.ts` + error mapping: dirty-tree checkout block, branch-checked-out-in-another-worktree block

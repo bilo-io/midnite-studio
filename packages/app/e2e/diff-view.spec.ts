@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { COMMIT_SHA, fixtures } from '../test-support/fixtures';
+import { fixtures } from '../test-support/fixtures';
 import { installMockBridge } from '../test-support/mock-bridge';
 
 /**
@@ -34,33 +34,29 @@ async function openCommit(page: Page): Promise<void> {
   await expect(row).toBeVisible();
   await row.click();
 
-  await expect(page.getByRole('button', { name: /window\.ts/ })).toBeVisible();
+  await expect(windowFile(page)).toBeVisible();
 }
 
 /**
- * Open the commit as a full-width workbench tab (Theme G) rather than the
- * graph's narrow inspector dock.
+ * Open the commit wide enough for SPLIT.
  *
- * Needed for anything that exercises SPLIT: `LAYOUT_BOUNDS.detailWidth` caps
- * that dock at 720px and it renders one pixel short of even that by default
- * (`DIFF_SPLIT_MIN_WIDTH`, Theme C's width fallback), so the toggle is
- * permanently disabled there — by design, which is the whole reason the
- * full-width tab exists.
+ * `DIFF_SPLIT_MIN_WIDTH` (720px) gates the toggle on the diff pane's real
+ * width. The full-width Changes workbench tab this used to open is gone with
+ * that view; the graph's inline commit panel gives its right-hand column to
+ * the diff, which clears the bar once the window is desktop-wide.
  */
 async function openCommitInTab(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await openCommit(page);
-  await page.getByRole('button', { name: `Open commit in tab (${COMMIT_SHA})` }).click();
-
-  // The nav rail's hover-expand reflow moves a collapsed link out from under a
-  // synthetic click before it lands — hover first and wait for the expanded
-  // label, per `changes-panel.spec.ts`'s own note on this exact hazard.
-  const link = page.getByRole('link', { name: 'Changes' });
-  await link.hover();
-  await expect(link.getByText('Changes', { exact: true })).toBeVisible();
-  await link.click();
-
-  await expect(page.getByRole('button', { name: /window\.ts/ })).toBeVisible();
 }
+
+/*
+  The file LIST's row, not any button naming the file: the graph's inline
+  commit panel (the inspector's split layout) also lists every file in its
+  all-changes accordion — so the visible file list is the target.
+*/
+const windowFile = (page: Page) =>
+  page.getByTestId('commit-files').filter({ visible: true }).getByRole('button', { name: /window\.ts/ });
 
 const diff = (page: Page) => page.getByTestId('diff-view');
 const lines = (page: Page, kind: 'add' | 'del' | 'ctx') =>
@@ -68,7 +64,7 @@ const lines = (page: Page, kind: 'add' | 'del' | 'ctx') =>
 
 test('the old line-number column is off by default and toggles on', async ({ page }) => {
   await openCommit(page);
-  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await windowFile(page).click();
 
   const firstRow = lines(page, 'ctx').first();
   // One gutter: the new-file number only.
@@ -80,13 +76,13 @@ test('the old line-number column is off by default and toggles on', async ({ pag
   // And the preference is persisted, so it survives a reload.
   await page.reload();
   await page.getByText('feat(phase-11): package, install and run from /Applications').click();
-  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await windowFile(page).click();
   await expect(page.getByRole('button', { name: 'Hide original line numbers' })).toBeVisible();
 });
 
 test('toggling side-by-side diff switches rendering layout', async ({ page }) => {
   await openCommitInTab(page);
-  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await windowFile(page).click();
 
   const toggle = page.getByRole('button', { name: 'Switch to side-by-side diff' });
   await expect(toggle).toBeVisible();
@@ -109,7 +105,7 @@ test('syntax highlighting colours a line without disturbing the intraline diff m
   page,
 }) => {
   await openCommit(page);
-  await page.getByRole('button', { name: /window\.ts/ }).click();
+  await windowFile(page).click();
   await expect(diff(page)).toBeVisible();
 
   // Highlighting is scheduled through requestIdleCallback and lands

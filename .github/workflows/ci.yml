@@ -16,6 +16,14 @@ on:
         type: boolean
         default: false
 
+# Least privilege by default (Phase 91 Theme I). Every job runs `pnpm install` with
+# the token in its env, so a poisoned install script gets exactly this scope and no
+# more. `packages: read` is what GitHub Packages (@bilo-io/ui, shell) needs; a
+# job-level block REPLACES this rather than merging, so `package` keeps its own.
+permissions:
+  contents: read
+  packages: read
+
 # Cancellation is right for a branch and wrong for `main`, so it is keyed on
 # the ref rather than set flat.
 #
@@ -63,7 +71,7 @@ concurrency:
 #   db-integration  GitHub `services:` containers are Docker-based and
 #                   Linux-runner-only. macOS runners have no Docker daemon, so
 #                   this job has no macOS form to move to.
-#   visual          Runs inside `mcr.microsoft.com/playwright:v1.62.1-noble` as
+#   visual          Runs inside `mcr.microsoft.com/playwright:v1.64.0-noble` as
 #                   a job `container:` (Linux-only by construction) and asserts
 #                   against committed `-linux.png` baselines. Moving it to
 #                   macOS means regenerating the whole baseline corpus, which
@@ -181,20 +189,20 @@ jobs:
     # a real git binary (the package-boundary rules in CLAUDE.md guarantee it), so
     # there is no macOS behaviour here to validate — unlike `e2e`, `gate-native`
     # and `gate-locale`, which all stay on macOS precisely because there is.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
         with:
           # moon compares against the merge base to decide what is affected.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.15.9
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.23.2
+          node-version: 24.22.0
           cache: pnpm
 
       # @bilo-io/ui and @bilo-io/shell come from GitHub Packages, which requires
@@ -250,6 +258,37 @@ jobs:
           app:typecheck app:lint
           website:typecheck website:lint website:test
           db-engine:typecheck db-engine:lint db-engine:test
+          frame:typecheck frame:lint frame:test
+          feature-optimizer:typecheck feature-optimizer:lint feature-optimizer:test
+          feature-monitor:typecheck feature-monitor:lint feature-monitor:test
+          feature-vault:typecheck feature-vault:lint feature-vault:test
+          feature-notes:typecheck feature-notes:lint feature-notes:test
+          feature-finance:typecheck feature-finance:lint feature-finance:test
+          feature-tests:typecheck feature-tests:lint feature-tests:test
+          feature-forge:typecheck feature-forge:lint feature-forge:test
+          feature-browser:typecheck feature-browser:lint feature-browser:test
+          feature-api-client:typecheck feature-api-client:lint feature-api-client:test
+          feature-database:typecheck feature-database:lint feature-database:test
+          feature-sessions:typecheck feature-sessions:lint feature-sessions:test
+          feature-tasks:typecheck feature-tasks:lint feature-tasks:test
+          feature-media-core:typecheck feature-media-core:lint feature-media-core:test
+          feature-media-docs:typecheck feature-media-docs:lint feature-media-docs:test
+          feature-media-images:typecheck feature-media-images:lint feature-media-images:test
+          feature-media-library:typecheck feature-media-library:lint feature-media-library:test
+          feature-capture:typecheck feature-capture:lint feature-capture:test
+          feature-models:typecheck feature-models:lint feature-models:test
+          feature-councils:typecheck feature-councils:lint feature-councils:test
+          feature-workflows:typecheck feature-workflows:lint feature-workflows:test
+          feature-mcp-tools:typecheck feature-mcp-tools:lint feature-mcp-tools:test
+          feature-chats:typecheck feature-chats:lint feature-chats:test
+          feature-slides:typecheck feature-slides:lint feature-slides:test
+          feature-media-video:typecheck feature-media-video:lint feature-media-video:test
+          feature-media-audio:typecheck feature-media-audio:lint feature-media-audio:test
+          feature-media-map:typecheck feature-media-map:lint feature-media-map:test
+          feature-media-terrain:typecheck feature-media-terrain:lint feature-media-terrain:test
+          feature-media-sprite:typecheck feature-media-sprite:lint feature-media-sprite:test
+          feature-media-model:typecheck feature-media-model:lint feature-media-model:test
+          feature-media-game:typecheck feature-media-game:lint feature-media-game:test
           root:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -301,6 +340,36 @@ jobs:
   # seconds of the 128s the model above predicts for N=4. The fourth queued
   # ~108s late (see the `e2e` job's concurrency note) but still finished in
   # 119s of its own runtime once it started, consistent with the other three.
+  # Dependency advisories and Electron freshness (Phase 91 Theme I). `ubuntu-24.04`
+  # on purpose: `pnpm audit` over a lockfile exercises no platform behaviour, and the
+  # 5-concurrent-macOS cap is why nothing here may move to macOS. No other job
+  # `needs:` it and no branch rule is wired to an aggregate job, so it is its own check.
+  gate-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 9.15.9
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.0
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Audit (high/critical, expiring suppressions)
+        run: pnpm exec moon run root:audit
+
+      # Warns, never fails: a network call to a third-party endpoint must not redden the gate.
+      - name: Electron freshness (warning only)
+        run: pnpm exec moon run root:electron-freshness
+
   gate-node-app-test:
     # `ubuntu-24.04` for the same reason as `gate-node` above: these are jsdom
     # unit tests with no macOS behaviour in them, and four of them held four of
@@ -309,7 +378,7 @@ jobs:
     # conditions those numbers were taken under. Note the comment two paragraphs
     # up already recorded the symptom — "the fourth queued ~108s late" — before
     # the cause was understood.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -319,13 +388,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.15.9
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.23.2
+          node-version: 24.22.0
           cache: pnpm
 
       - name: Install
@@ -351,13 +420,13 @@ jobs:
           # moon compares against the merge base to decide what is affected.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.15.9
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.23.2
+          node-version: 24.22.0
           cache: pnpm
 
       - name: Install
@@ -365,11 +434,14 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Typecheck, lint, test (git-engine, desktop)
+      # `runtime` (Phase 113 Theme C) is the main-process layer the vault and
+      # the pty broker move into (Theme D), so it lives here from day one.
+      - name: Typecheck, lint, test (git-engine, desktop, runtime)
         run: >-
           pnpm exec moon run
           git-engine:typecheck git-engine:lint git-engine:test
           desktop:typecheck desktop:lint desktop:test
+          runtime:typecheck runtime:lint runtime:test
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # The integration tests create commits; git refuses without an identity.
@@ -388,13 +460,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.15.9
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.23.2
+          node-version: 24.22.0
           cache: pnpm
 
       - name: Install
@@ -447,7 +519,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' && inputs.cross_platform
       || contains(github.event.pull_request.labels.*.name, 'cross-platform')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     services:
       postgres:
@@ -470,7 +542,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       mysql:
-        image: mysql:8
+        image: mysql:26
         env:
           MYSQL_ROOT_PASSWORD: mstudio
           MYSQL_DATABASE: mstudio_test
@@ -493,7 +565,7 @@ jobs:
       # and GitHub's service containers are exposed on the runner's network
       # directly, not to each other, so both need distinct host ports.
       mariadb:
-        image: mariadb:11
+        image: mariadb:13
         env:
           MARIADB_ROOT_PASSWORD: mstudio
           MARIADB_DATABASE: mstudio_test
@@ -518,13 +590,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.15.9
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.23.2
+          node-version: 24.22.0
           cache: pnpm
 
       - name: Install
@@ -692,10 +764,12 @@ jobs:
     # Measure it on an uncontended main push before quoting it as fact.
     runs-on: macos-14
     # Raised from 15: a third of the suite per shard instead of a quarter.
-    # Measured 3-way shards are 9m02s-10m03s (run 35102704143), so 20 leaves
-    # roughly 2x headroom on the worst one. The paragraph below is why a number
-    # is set at all rather than inheriting GitHub's 6-hour default.
-    timeout-minutes: 20
+    # Measured 3-way shards were 9m02s-10m03s (run 35102704143). Raised again to 30
+    # (2026-10-15): shards now run 157 tests in ~17m plus ~3m setup, and main's run
+    # 38726701008 and PR #865's e2e (1) were cancelled at 20m with every test passed.
+    # The paragraph below is why a number is set at all rather than inheriting
+    # GitHub's 6-hour default.
+    timeout-minutes: 30
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
       # three quarters of a broken suite behind whichever shard happened to fail.
@@ -705,13 +779,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.15.9
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.23.2
+          node-version: 24.22.0
           cache: pnpm
 
       - name: Install
@@ -819,14 +893,14 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' && inputs.cross_platform
       || contains(github.event.pull_request.labels.*.name, 'cross-platform')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container:
-      # Pinned to the image matching the LOCKED `@playwright/test` (1.62.1,
+      # Pinned to the image matching the LOCKED `@playwright/test` (1.64.0,
       # and `scripts/visual-regen.mjs`'s own IMAGE): an image one minor ahead
       # of the package ships a browser build the package cannot find, and
       # every test fails at `browserType.launch` before a pixel is compared.
       # Bump this and the package together, never one alone.
-      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -903,12 +977,12 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 9.15.9
       - uses: actions/setup-node@v7
         with:
-          node-version: 22.23.2
+          node-version: 24.22.0
           cache: pnpm
 
       - name: Install

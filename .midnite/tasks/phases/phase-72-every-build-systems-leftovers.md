@@ -190,6 +190,22 @@ constant values into the three new fields); **a partial landing of A without C d
 
 ---
 
+## Headlines
+
+*[Phase 59](phase-59-workspace-optimizer.md) shipped a scanner that knows three directory names and a docblock saying widening the set is a later phase's call. This is that phase. It stays inside the repo roots the app already manages and replaces basename guessing with evidence — a `target/` counts only beside a `Cargo.toml`, a `build/` only with a `CMakeCache.txt` inside it. It also retires the shipped `.moon` detector, which offers checked-in configuration for deletion.*
+
+**Theme A — The detector registry.** ✅ (PR #190) — An `ArtifactDetector` registry with a four-arm `EvidenceRule`; `classify` returns the detector, takes the parent's entry names (free) and reads a candidate's children only when an arm demands it.
+
+**Theme B — The catalogue: nine ecosystems in the repo.** ✅ (PR #190) — Nine ecosystems catalogued — Node, moon, Rust, C/C++, .NET, Python, Java/Gradle/Maven, Swift/Xcode, Ruby — each naming what identifies it, what proves it, and what recreates it. Go ships nothing, deliberately.
+
+**Theme C — The data model widens by one axis, not twelve.** ✅ (PR #190) — One orthogonal `Ecosystem` axis instead of twelve categories; `nodeModules` → `dependencies`; a `cheap`/`costly` reclaim grade on every item.
+
+**Theme D — A result list that can hold twelve kinds of thing.** ✅ (PR #196) — The result list now groups by ecosystem, with the per-group bulk Clean button restricted to `cheap` items (a `costly` one — `node_modules`, `.venv`, `Pods`, `vendor/bundle` — always takes an explicit per-row action) and a confirm that names the build commands that will have to run again. `SegmentedBar` went generic over its id type so one component drives both the existing category bar and a new ecosystem bar on the Storage tab; Storage's per-item rows now show the detector's own label above the path. Rebasing onto Phase 74 (landed first) surfaced one exhaustiveness gap this theme's own `ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` maps didn't know about yet — `'media'`, added by Phase 74's own PR — closed in the same rebase (hue `135`, clearing `buildOutput`'s `115` by the required margin; Phase 74's originally-proposed `120` didn't).
+
+**Theme E — Budgets, per-ecosystem settings, and the `.moon` fix.** ✅ (PR #196) — A per-root entry budget (`MAX_ENTRIES_PER_ROOT = 50_000`) carried on `WalkState` so one pathological repo cannot silently starve every other root's share of the walk (and, via `newWalkState()`'s `Infinity` default, cannot cap `cleanItems`'s own delete-time sizing call); `MAX_WALK_ENTRIES` raised 200k → 500k against a measured ~6,600 entries/second on real hardware. Per-ecosystem scan opt-outs (`disabledEcosystems`, stored as the disabled set following `hiddenMetrics`'s own reasoning) are applied in main, before the walk spends its budget. The `.moon` fix itself (the bug motivating this whole phase) had already landed with Theme B.
+
+**Theme F — Verification.** 🔄 (PR #196, PR #202) — Verification lands 25 of 25 items and all 18 of the shared Verification section's items this batch covers. PR #202 closed the last automatable gap: `detectors.test.ts` now pins `expect(DETECTOR_COUNT).toBe(28)` (the doc's own "24" was stale — Theme B already corrected it to 28 in prose; PR #202 made it a real test). One item stays genuinely open: the human pass over a real Rust/Gradle/Python checkout, unautomatable and undone.
+
 ## Deliverables
 
 ### A — The detector registry (M) · ✅ DONE (PR #190, 2026-09-05)

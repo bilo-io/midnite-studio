@@ -22,27 +22,52 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { MCP_TOOL_IDS, MCP_TOOLS, isMcpToolId } from '@midnite/studio-shared';
+import { MCP_CONTENT_KEY, MCP_SERVER_NAME, MCP_TOOLS, ALL_APPS_INSTALLED, listMcpToolIds, type IsAppInstalled, isMcpToolId, isModelMcpToolId, isGameSlowToolId, GAME_CALL_TIMEOUT_MS, isTerrainSlowToolId, TERRAIN_CALL_TIMEOUT_MS, isSpriteSlowToolId, isMapSlowToolId, MAP_CALL_TIMEOUT_MS, McpContentBlockSchema } from '@midnite/studio-shared';
+import { MCP_TOOL_MANIFESTS } from '../main/mcp/tool-manifests';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 
-import { callMcpTool } from './client';
+import { callMcpTool, SLOW_CALL_TIMEOUT_MS } from './client';
+
+/**
+ * `--socket <path>` points the shim at one specific socket instead of finding the app's global one —
+ * how an in-app iterative run attaches its agent to that run's private server (Media ▸ Models).
+ */
+function socketFromArgv(argv: readonly string[]): string | undefined {
+  const at = argv.indexOf('--socket');
+  return at >= 0 ? argv[at + 1] : undefined;
+}
+const explicitSocket = socketFromArgv(process.argv);
 
 function logToStderr(message: string): void {
   process.stderr.write(`[mcp-shim] ${message}\n`);
 }
 
+/**
+ * Which apps are installed — SEAM (Phase 113 Theme D). The runtime's
+ * `InstalledAppsSource` (`packages/runtime/src/mcp/installed-apps.ts`) is the
+ * app-side twin; this shim runs under plain `node` and may import only
+ * `shared`, so it carries its own read. Today every app counts as installed
+ * (Studio is the superset build), so `tools/list` is the full registry. When
+ * the launcher hosts the runtime, replace this body with a read of the
+ * launcher's `installed.json` (`apps/launcher/src/common/installed-state.ts`);
+ * nothing below changes.
+ */
+function readInstalledApps(): IsAppInstalled {
+  return ALL_APPS_INSTALLED;
+}
+
 const server = new Server(
-  { name: 'midnite-studio', version: '1.0.0' },
+  { name: MCP_SERVER_NAME, version: '1.0.0' },
   { capabilities: { tools: {} } },
 );
 
 /**
- * `tools/list` is answered from `MCP_TOOLS` alone, socket or no socket — an
+ * `tools/list` is answered from `MCP_TOOLS` alone (filtered to the installed apps' tools), socket or no socket — an
  * agent should be able to discover what this server offers even while
  * Midnite Studio is closed or the setting is off.
  */
 server.setRequestHandler(ListToolsRequestSchema, () => ({
-  tools: MCP_TOOL_IDS.map((id) => {
+  tools: listMcpToolIds(readInstalledApps(), MCP_TOOL_MANIFESTS).map((id) => {
     const tool = MCP_TOOLS[id];
     /*
      * `tool.input` is a union of eight distinct `ZodObject` types across the
@@ -72,9 +97,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 
-  const response = await callMcpTool(name, args ?? {});
+  const response = await callMcpTool(name, args ?? {}, {
+    ...(explicitSocket ? { socketPath: explicitSocket } : {}),
+    ...(isModelMcpToolId(name) ? { timeoutMs: SLOW_CALL_TIMEOUT_MS } : {}),
+    ...(isGameSlowToolId(name) ? { timeoutMs: GAME_CALL_TIMEOUT_MS } : {}),
+    ...(isTerrainSlowToolId(name) ? { timeoutMs: TERRAIN_CALL_TIMEOUT_MS } : {}),
+    ...(isSpriteSlowToolId(name) ? { timeoutMs: SLOW_CALL_TIMEOUT_MS } : {}),
+    ...(isMapSlowToolId(name) ? { timeoutMs: MAP_CALL_TIMEOUT_MS } : {}),
+  });
 
   if (response.ok) {
+    // A tool that answers with pictures (`model_render_preview`) hands its content blocks over untouched.
+    const value = response.value as Record<string, unknown> | null;
+    const blocks = value && typeof value === 'object' ? value[MCP_CONTENT_KEY] : undefined;
+    if (Array.isArray(blocks)) {
+      const parsed = blocks.map((block) => McpContentBlockSchema.safeParse(block));
+      if (parsed.every((p) => p.success)) {
+        return { content: parsed.map((p) => (p.success ? p.data : { type: 'text' as const, text: '' })) };
+      }
+    }
     return { content: [{ type: 'text' as const, text: JSON.stringify(response.value) }] };
   }
 

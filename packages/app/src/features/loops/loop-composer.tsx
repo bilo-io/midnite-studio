@@ -1,19 +1,22 @@
 import {
+  LOOP_AUTO_ROTATE,
   LOOP_FREQUENCIES,
   LOOP_GROUPS,
   LOOP_MODELS,
   LOOP_WEEKDAYS,
   loopModelsFor,
+  loopModifierFragment,
   loopScheduleSummary,
+  normaliseLoopSkill,
   resolveLoopChoice,
   resolveLoopDays,
   type AgentDefinition,
+  type KnownSkill,
   type LoopChoice,
   type LoopDefinition,
   type LoopFrequency,
   type LoopGroup,
   type LoopModel,
-  type LoopModifier,
   type LoopSchedule,
   type LoopWeekday,
 } from '@midnite/studio-shared';
@@ -33,10 +36,13 @@ import {
   LuTarget,
 } from 'react-icons/lu';
 
-import { RadioRow, SwitchRow, SwitchTrack } from '../../components/form/toggle-rows';
+import { AiComposer, useComposerMic } from '../../components/ai-thread';
+import { RadioRow, SwitchTrack } from '../../components/form/toggle-rows';
 import { resolveAgentIcon } from '../../components/icons';
 import type { IconComponent } from '../../components/icon-button';
+import { appendDictation } from '../media/voice/use-voice-thread';
 import { IconSelect, MultiIconSelect, type IconSelectOption } from '../../components/select/icon-select';
+import { LoopOptionRow } from './loop-option-row';
 
 /**
  * A glyph per section heading — the composer's five headings were five
@@ -82,11 +88,11 @@ const FREQUENCY_OPTIONS: IconSelectOption[] = LOOP_FREQUENCIES.map(
  * live run's instructions stay legible without giving up the terminal's
  * height, and the glowing Stop.
  *
- * Every control is drawn as the shape of the answer it takes, which is the
- * whole reason `LoopModifier.control` and `LoopChoice` exist: additive jobs
- * are checkboxes, standing policies are switches, and mutually exclusive
- * answers are radios. A flat column of identical boxes made "Auto-merge green
- * PRs" look like one more item on a to-do list.
+ * Every on/off option is a switch row (`LoopOptionRow`) — with a tooltip
+ * saying what it does, a chevron showing the exact words it adds, and a skill
+ * field while it is on if its fragment names a skill — and mutually exclusive
+ * answers are radios. Jobs are listed before standing policies inside each
+ * section, which is all `LoopModifier.control` still decides.
  *
  * The surface wears its tab's own slice of the app's rainbow — `styles.css`'s
  * `--fab-spec-1…5`, sampled from the same arc the panel's ring is masked to,
@@ -105,9 +111,18 @@ export function LoopComposer({
   model,
   schedule,
   extras,
+  skills,
+  skillSuggestions,
+  reviewUsers,
+  contributorOptions,
+  autoRotatePercent,
+  repeat,
   disabled,
   disabledReason,
   onToggle,
+  onSkill,
+  onReviewUsers,
+  onAutoRotate,
   onChoice,
   onAgent,
   onModel,
@@ -131,10 +146,27 @@ export function LoopComposer({
   model: LoopModel;
   schedule: LoopSchedule;
   extras: string;
+  /** modifierId → the text in that option's skill field. */
+  skills: Record<string, string>;
+  /** The skill field's suggestions — bundled, repo and user skills. */
+  skillSuggestions: readonly KnownSkill[];
+  /**
+   * Contributor usernames the Users filter restricts review to. Only drawn
+   * when the loop `reviewsPrs`.
+   */
+  reviewUsers: readonly string[];
+  contributorOptions: readonly IconSelectOption[];
+  /** Rotate subagents at this percentage of their context ({@link LOOP_AUTO_ROTATE}). */
+  autoRotatePercent: number;
+  /** The tab bar's "Loop" switch (`loopEnabled`): off runs the command once, without `/loop`. */
+  repeat: boolean;
   /** No repo selected — there is nowhere to run. */
   disabled: boolean;
   disabledReason: string | undefined;
   onToggle: (modifierId: string, on: boolean) => void;
+  onSkill: (modifierId: string, skill: string) => void;
+  onReviewUsers: (users: string[]) => void;
+  onAutoRotate: (percent: number) => void;
   onChoice: (choiceId: string, optionId: string) => void;
   onAgent: (agentId: string) => void;
   onModel: (model: LoopModel) => void;
@@ -154,6 +186,7 @@ export function LoopComposer({
     Open-by-default also means nothing a loop declares is ever one click away
     from being invisible when you first look at the tab.
   */
+  const mic = useComposerMic({ onTranscript: (text) => onExtras(appendDictation(extras, text)) });
   const [closed, setClosed] = useState<Record<string, true>>({});
   const toggleSection = (id: string): void =>
     setClosed((current) => {
@@ -191,6 +224,10 @@ export function LoopComposer({
           agentId={agentId}
           model={model}
           schedule={schedule}
+          skills={skills}
+          reviewUsers={loop.reviewsPrs ? reviewUsers : []}
+          autoRotatePercent={autoRotatePercent}
+          repeat={repeat}
           waiting={waiting}
           thinking={thinking}
           onStop={onStop}
@@ -217,7 +254,13 @@ export function LoopComposer({
                 onToggle={() => toggleSection(group.id)}
                 checked={checked}
                 choiceIds={choiceIds}
+                skills={skills}
+                skillSuggestions={skillSuggestions}
+                reviewUsers={reviewUsers}
+                contributorOptions={contributorOptions}
                 onModifierToggle={onToggle}
+                onSkill={onSkill}
+                onReviewUsers={onReviewUsers}
                 onChoice={onChoice}
               />
             ))}
@@ -244,6 +287,7 @@ export function LoopComposer({
               onAgent={onAgent}
               onModel={onModel}
             />
+            <AutoRotateSlider percent={autoRotatePercent} onPercent={onAutoRotate} />
           </ComposerSection>
 
           <ComposerSection
@@ -257,44 +301,30 @@ export function LoopComposer({
           </ComposerSection>
 
           {/*
-            One column, not a row: the Start button sits UNDER the field at
-            full width rather than beside it. Beside it, the button was the
-            width of the word "Start" against a field that had already been
-            narrowed to make room — and the panel's one commit action was the
-            smallest target on the surface. Full width also gives its gradient
-            border something to be: a 60px pill wearing a rainbow reads as a
-            decoration, a full-width one reads as the button.
+            Start is the extras composer's own Send — there is no separate
+            Start button under it any more, so the panel has one way to launch
+            a loop rather than two that do the same thing.
           */}
           <div className="flex flex-col gap-2 border-t border-border/50 px-2 py-2">
-            <textarea
+            {/*
+              A textarea, so a paragraph of standing instructions is written
+              and re-read rather than scrolled through a one-line box — Return
+              is therefore a newline, and Cmd/Ctrl+Return sends (= Start).
+              Send and Mic sit inside the box, bottom-left, like every prompt.
+            */}
+            <AiComposer
               value={extras}
-              spellCheck={false}
+              onChange={onExtras}
+              onSend={onStart}
+              canSend={!disabled}
+              enterToSend={false}
               rows={2}
               placeholder="Extra instructions…"
-              aria-label={`Extra instructions for ${loop.label}`}
-              onChange={(event) => onExtras(event.target.value)}
-              /*
-                A textarea, so a paragraph of standing instructions is written
-                and re-read rather than scrolled through a one-line box — and
-                Return therefore has to mean "newline". Start keeps the
-                accelerator it would otherwise have taken.
-              */
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !disabled) {
-                  event.preventDefault();
-                  onStart();
-                }
-              }}
-              className="loop-spectrum-field min-h-[3.25rem] w-full min-w-0 resize-y rounded px-2 py-1 text-[11px] leading-relaxed outline-none"
-            />
-            <StartStopButton
-              running={false}
-              waiting={false}
-              thinking={false}
-              fullWidth
-              disabled={disabled}
-              disabledReason={disabledReason}
-              onClick={onStart}
+              ariaLabel={`Extra instructions for ${loop.label}`}
+              sendAriaLabel={`Start ${loop.label} with these instructions`}
+              sendTooltip={disabled ? disabledReason : 'Start (Cmd/Ctrl+Enter)'}
+              mic={mic}
+              testIdPrefix="loop-extras"
             />
           </div>
         </div>
@@ -373,17 +403,15 @@ function ComposerSection({
 
 /**
  * One registry section — Tasks, Scope or Run — drawn only if the loop declares
- * something in it. Checkboxes first, then switches, then the radio groups, so
- * "what it does" precedes "how it behaves" inside a section the same way it
- * does between them.
+ * something in it. Jobs first, then standing policies, then the radio groups,
+ * so "what it does" precedes "how it behaves" inside a section the same way it
+ * does between them. Every on/off option is a full-width `LoopOptionRow`: the
+ * old two-column checkbox grid had no room for a tooltip, a prompt preview or
+ * a skill field.
  *
- * The boxes sit in a two-column grid rather than a column. They are the one
- * control here whose label is short and whose neighbours are its peers — five
- * of them stacked read as a to-do list you work down, where the truth is that
- * any subset is a valid run — and two columns halve the height the tallest
- * loop costs before anything is collapsed. Switches keep their own full-width
- * rows: the label is on the left and the track on the right, and a
- * half-width row leaves neither enough space to land.
+ * Two controls here are not registry options: the Run section's "Loop" switch
+ * (off runs the command once, without `/loop`) and, on a loop that reviews
+ * PRs, the Scope section's Users filter.
  */
 function SettingsGroup({
   loop,
@@ -393,7 +421,13 @@ function SettingsGroup({
   onToggle,
   checked,
   choiceIds,
+  skills,
+  skillSuggestions,
+  reviewUsers,
+  contributorOptions,
   onModifierToggle,
+  onSkill,
+  onReviewUsers,
   onChoice,
 }: {
   loop: LoopDefinition;
@@ -404,15 +438,25 @@ function SettingsGroup({
   onToggle: () => void;
   checked: Record<string, boolean>;
   choiceIds: Record<string, string>;
+  skills: Record<string, string>;
+  skillSuggestions: readonly KnownSkill[];
+  reviewUsers: readonly string[];
+  contributorOptions: readonly IconSelectOption[];
   /** Reports a control being switched — named apart from the section's own. */
   onModifierToggle: (modifierId: string, on: boolean) => void;
+  onSkill: (modifierId: string, skill: string) => void;
+  onReviewUsers: (users: string[]) => void;
   onChoice: (choiceId: string, optionId: string) => void;
 }) {
   const modifiers = loop.modifiers.filter((m) => m.group === group);
-  const boxes = modifiers.filter((m) => m.control === 'checkbox');
-  const switches = modifiers.filter((m) => m.control === 'switch');
+  // Jobs before standing policies; a stable sort keeps declaration order within each.
+  const ordered = [
+    ...modifiers.filter((m) => m.control !== 'switch'),
+    ...modifiers.filter((m) => m.control === 'switch'),
+  ];
   const choices = loop.choices.filter((c) => c.group === group);
-  if (modifiers.length === 0 && choices.length === 0) return null;
+  const usersFilter = group === 'scope' && loop.reviewsPrs;
+  if (modifiers.length === 0 && choices.length === 0 && !usersFilter) return null;
 
   /*
     What the heading says while the section is shut: how many of its controls
@@ -430,26 +474,15 @@ function SettingsGroup({
       open={open}
       onToggle={onToggle}
     >
-      {boxes.length > 0 ? (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-          {boxes.map((modifier) => (
-            <CheckboxRow
-              key={modifier.id}
-              modifier={modifier}
-              on={checked[modifier.id] ?? false}
-              onToggle={onModifierToggle}
-            />
-          ))}
-        </div>
-      ) : null}
-      {switches.map((modifier) => (
-        <SwitchRow
+      {ordered.map((modifier) => (
+        <LoopOptionRow
           key={modifier.id}
-          id={modifier.id}
-          label={modifier.label}
-          title={modifier.promptFragment}
+          modifier={modifier}
           on={checked[modifier.id] ?? false}
+          skill={skills[modifier.id] ?? ''}
+          skillSuggestions={skillSuggestions}
           onToggle={onModifierToggle}
+          onSkill={onSkill}
         />
       ))}
       {choices.map((choice) => (
@@ -461,33 +494,53 @@ function SettingsGroup({
           onChoice={onChoice}
         />
       ))}
+      {usersFilter ? (
+        <div className="flex min-w-0 flex-col gap-1" data-testid="review-users-field">
+          <span className="text-[11px] text-muted-foreground">Users</span>
+          <MultiIconSelect
+            ariaLabel="Review PRs for these users only"
+            menuInPortal
+            options={[...contributorOptions]}
+            values={[...reviewUsers]}
+            placeholder="All contributors"
+            onChange={(ids) => onReviewUsers(ids)}
+          />
+        </div>
+      ) : null}
     </ComposerSection>
   );
 }
 
-/** An additive job: many of these can be true at once. */
-function CheckboxRow({
-  modifier,
-  on,
-  onToggle,
+/**
+ * When a subagent hands over to a fresh one — a percentage of its context
+ * window, sent as "Auto-rotate subagents at N% context." on every run.
+ */
+function AutoRotateSlider({
+  percent,
+  onPercent,
 }: {
-  modifier: LoopModifier;
-  on: boolean;
-  onToggle: (modifierId: string, on: boolean) => void;
+  percent: number;
+  onPercent: (percent: number) => void;
 }) {
+  const id = useId();
   return (
-    <label
-      title={modifier.promptFragment}
-      className="flex min-w-0 cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-    >
+    <div className="flex min-w-0 flex-col gap-1 pt-1" data-testid="auto-rotate-field">
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <label htmlFor={id}>Auto-rotate subagents</label>
+        <span className="font-mono text-[10px] text-foreground">{percent}%</span>
+      </div>
       <input
-        type="checkbox"
-        checked={on}
-        onChange={(event) => onToggle(modifier.id, event.target.checked)}
-        className="h-3 w-3 shrink-0 accent-primary"
+        id={id}
+        type="range"
+        min={LOOP_AUTO_ROTATE.min}
+        max={LOOP_AUTO_ROTATE.max}
+        step={LOOP_AUTO_ROTATE.step}
+        value={percent}
+        onChange={(event) => onPercent(Number(event.target.value))}
+        aria-valuetext={`${percent}% context`}
+        className="h-1.5 w-full cursor-pointer accent-primary"
       />
-      <span className="truncate">{modifier.label}</span>
-    </label>
+    </div>
   );
 }
 
@@ -751,6 +804,10 @@ function RunningStrip({
   agentId,
   model,
   schedule,
+  skills,
+  reviewUsers,
+  autoRotatePercent,
+  repeat,
   waiting,
   thinking,
   onStop,
@@ -762,6 +819,10 @@ function RunningStrip({
   agentId: string;
   model: LoopModel;
   schedule: LoopSchedule;
+  skills: Record<string, string>;
+  reviewUsers: readonly string[];
+  autoRotatePercent: number;
+  repeat: boolean;
   waiting: boolean;
   thinking: boolean;
   onStop: () => void;
@@ -771,7 +832,13 @@ function RunningStrip({
   for (const group of LOOP_GROUPS) {
     for (const modifier of loop.modifiers) {
       if (modifier.group === group.id && checked[modifier.id]) {
-        chips.push({ key: modifier.id, label: modifier.label, title: modifier.promptFragment });
+        // A picked skill is part of what is in force, so the chip says it.
+        const skill = modifier.skillTemplate ? normaliseLoopSkill(skills[modifier.id]) : '';
+        chips.push({
+          key: modifier.id,
+          label: skill ? `${modifier.label} · ${skill}` : modifier.label,
+          title: loopModifierFragment(modifier, skills[modifier.id]),
+        });
       }
     }
     for (const choice of loop.choices) {
@@ -781,6 +848,16 @@ function RunningStrip({
       if (option.promptFragment === undefined) continue;
       chips.push({ key: choice.id, label: option.label, title: option.promptFragment });
     }
+  }
+  if (reviewUsers.length > 0) {
+    chips.push({ key: 'review-users', label: `Users: ${reviewUsers.join(', ')}` });
+  }
+  // Only off the default: a chip on every strip would say nothing.
+  if (autoRotatePercent !== LOOP_AUTO_ROTATE.default) {
+    chips.push({ key: 'auto-rotate', label: `Rotate at ${autoRotatePercent}%` });
+  }
+  if (!repeat) {
+    chips.push({ key: 'once-off', label: 'Once-off' });
   }
 
   /*

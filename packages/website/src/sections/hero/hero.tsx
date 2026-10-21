@@ -1,55 +1,64 @@
-import { LuArrowDownToLine, LuTerminal } from 'react-icons/lu';
+import { LuLayoutGrid, LuShieldCheck } from 'react-icons/lu';
+import { PiRocketLaunchFill } from 'react-icons/pi';
 
+import { appLogoHref, SITE_APPS } from '../../apps/catalog';
 import {
   Button,
   Container,
   Eyebrow,
-  Logo,
   Section,
   TypeIn,
   Typewriter,
   Wordmark,
+  type TypewriterPhrase,
 } from '../../components';
 import { anchorHref, hrefFor } from '../../routes';
 
-import { HeroBackdrop } from './hero-backdrop';
-import { HeroVideo } from './hero-video';
-import { PilotVideo } from './pilot-video';
+import { LauncherMock } from './launcher-mock';
 
 /**
- * The phrases the headline types through.
+ * Studio's rocket, landing after the last phrase.
  *
- * Each names one thing the app actually is, in the order `README.md` presents
- * them, and the last one is the claim the other three add up to. Keep them
- * short: the line reserves the width of the longest, so a sentence here costs
- * the whole hero a wider empty box.
+ * The same white `PiRocketLaunchFill` Studio's own logo carries, on a tile in
+ * Studio's brand gradient (blue through violet to pink, the launcher logo
+ * generator's stops), so the white glyph reads on the light theme as well as
+ * the dark one. `.ws-rocket` lifts it off as it arrives.
  */
-const PHRASES = [
-  'Your git client.',
-  "Your agents' workbench.",
-  'Your browser, docked.',
-  'One window.',
-] as const;
+const StudioRocket = () => (
+  <span
+    data-testid="hero-rocket"
+    className="ws-rocket ml-[0.3em] inline-flex h-[0.82em] w-[0.82em] items-center justify-center rounded-[0.24em] bg-[linear-gradient(135deg,#2e7cfa,#6672f5_30%,#8b5cf6_55%,#a855f7_78%,#e740d1)] align-[-0.08em] text-white shadow-[0_0_0.4em_rgb(139_92_246/0.55)]"
+  >
+    <PiRocketLaunchFill className="h-[0.56em] w-[0.56em]" />
+  </span>
+);
 
 /**
- * The hero.
+ * The phrases the headline types through: what the suite is for, one part of
+ * the day at a time, ending on the claim the rest add up to, and then the one
+ * that shoots past it. Short, because the line reserves the width of the longest.
+ */
+const PHRASES: readonly TypewriterPhrase[] = [
+  'for your code.',
+  'for your agents.',
+  'for your media.',
+  'for your ideas.',
+  'for your machine.',
+  'for all of it.',
+  { text: 'shoot for the moon', after: <StudioRocket /> },
+];
+
+/**
+ * The hero: Midnite Apps, the launcher, and the suite it opens.
  *
- * Three layers, back to front: a CSS radial gradient painted on the section
- * (which is the entire backdrop under reduced motion), the pointer-reactive
- * lane graph on a canvas over it, and the copy. Everything in the copy layer
- * sits above a `pointer-events-none` canvas, so the CTAs are ordinary
- * clickable elements and the graph still tracks the cursor across them.
+ * Copy on the left, the launcher window on the right from `lg` up (stacked
+ * below it on a phone). The launcher mark carries the page's one neon halo;
+ * the window carries the motion, so the copy column stays still enough to read.
  *
- * `bare` on the `Section`, because this one owns its own height and padding —
- * it is the only band on the page that does.
+ * `bare` on the `Section`, because this one owns its own height and padding.
  */
 export const Hero = () => (
-  <Section id="hero" label="Midnite Studio" bare className="relative isolate overflow-hidden">
-    {/*
-      The still backdrop. Two radial gradients rather than one so the accent
-      pools behind the headline and fades before the fold, instead of tinting
-      the whole viewport evenly. This is what a reduced-motion visitor sees.
-    */}
+  <Section id="hero" label="Midnite Apps" bare className="relative isolate overflow-hidden">
     <div
       aria-hidden="true"
       className="absolute inset-0 -z-10"
@@ -59,82 +68,52 @@ export const Hero = () => (
           'radial-gradient(ellipse 70% 60% at 85% 15%, var(--ws-bg-elevated) 0%, transparent 65%)',
       }}
     />
-    <HeroBackdrop />
 
     <Container className="relative pb-20 pt-28 sm:pb-28 sm:pt-36">
-      {/*
-        Copy on the left, the pilot on the right from `lg` up; the player
-        stacks under the copy below that rather than squeezing it into a
-        narrow column. Same two-column shape the early-access card and the
-        download page's sidebar already use, so a visitor who has scrolled
-        past either of those recognises the pattern here first.
-      */}
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-center lg:gap-14">
+      <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] lg:items-center lg:gap-14">
         <div className="flex flex-col items-start gap-6">
-          {/* The halo is a box-shadow on a round box rather than a
-              `drop-shadow` filter: the mark is a silhouette that `.ws-logo-mark`
-              already inverts with a filter, and stacking a second one on it
-              re-rasterises the image on every frame of the pulse. */}
-          <Logo size={44} markOnly className="ws-neon rounded-full" />
+          {/* A box-shadow halo on a rounded box, not a `drop-shadow` filter, so the pulse never re-rasterises the image. */}
+          <img
+            src={appLogoHref('launcher')}
+            alt=""
+            width={56}
+            height={56}
+            className="ws-neon h-14 w-14 rounded-[1rem]"
+          />
 
-          <Eyebrow>Desktop · macOS on Apple silicon</Eyebrow>
+          <Eyebrow>Midnite Apps · macOS on Apple silicon</Eyebrow>
 
-          {/*
-            The headline names the product and then says what it is, so the
-            product half is the wordmark proper — brand face, rainbow fill, glow —
-            and only the trailing "is" is headline sans. `text-fg-muted` on that
-            one word rather than on the line: it is a hinge into the typewriter
-            below it, and the mark it hangs off should not be dimmed with it.
-
-            The whole line stays one `<h1>`, so the page still has exactly one
-            level-1 heading and it still reads "Midnite Studio is …".
-          */}
+          {/* One `<h1>`: the wordmark names the product, the typewriter says what it is for. */}
           <h1 className="text-4xl font-semibold tracking-tight text-fg sm:text-6xl">
             <span className="block">
-              <Wordmark />
-              <span className="ml-[0.2em] text-fg-muted">is</span>
+              <Wordmark product="Apps" />
             </span>
             <Typewriter phrases={PHRASES} className="text-accent" />
           </h1>
 
-          {/*
-            The one paragraph on the page that isn't a `Lede` — the headline
-            above it already types forever through `PHRASES`, so this is typed
-            in once instead, on its own `TypeIn` rather than through
-            `Heading`/`Lede`'s `typeIn` (there is no `Lede` here to opt in).
-            `leadMs={0}`: the headline's rotation never "finishes" the way a
-            `Heading`'s one-shot type does, so there is no sibling to wait for.
-          */}
           <p className="max-w-prose text-base leading-relaxed text-fg-muted sm:text-lg">
             <TypeIn
               leadMs={0}
-              text="A desktop workspace for the whole loop around a repository: an interactive commit graph, worktrees nested under the repositories they belong to, your real login shell, and the forge (pull requests, checks, reviews) in the same window. The UI follows the repository live, so a commit made in the terminal shows up in the graph without a refresh."
+              text={`One launcher for ${SITE_APPS.length} desktop apps that share one frame: a terminal that survives restarts, a docked browser, the companion and your own agents come with every one of them. Install the ones you want, open them from one place, and let the launcher keep them current.`}
             />
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button href={hrefFor('download')} size="lg" icon={<LuArrowDownToLine />}>
-              Download
+            <Button href={anchorHref('early-access')} size="lg">
+              Get Access
             </Button>
-            <Button href={anchorHref('early-access')} variant="ghost" size="lg">
-              Get early access
+            <Button href={hrefFor('apps')} size="lg" variant="ghost" icon={<LuLayoutGrid />}>
+              Explore the apps
             </Button>
           </div>
 
           <p className="flex items-center gap-2 text-sm text-fg-subtle">
-            <LuTerminal aria-hidden="true" className="shrink-0" />
-            <span>
-              Git is the real CLI, so your credential helpers, SSH agent and commit signing
-              work with no configuration of ours.
-            </span>
+            <LuShieldCheck aria-hidden="true" className="shrink-0" />
+            <span>No analytics and no telemetry. Every update is checked against its published checksum.</span>
           </p>
         </div>
 
-        <PilotVideo className="w-full" />
-      </div>
-
-      <div className="mt-14 sm:mt-20">
-        <HeroVideo className="aspect-[16/10] w-full" />
+        <LauncherMock className="w-full" />
       </div>
     </Container>
   </Section>

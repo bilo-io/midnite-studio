@@ -81,6 +81,20 @@ is already the strongest boundary in the app and the audit found nothing to add.
 dependency PRs are not touched by any theme; Theme A is a *deliberate*, human-driven Electron
 upgrade in its own PR, and it is the one theme that must not run unattended.
 
+## Headlines
+
+*Five findings around boundaries that are otherwise well drawn: an end-of-life Electron, a `sandbox: false` whose stated reason `bundle.mjs` made false, no CSP and no `will-navigate` guard on the app's own window, one plaintext credential and one silent IP lookup, and forty-five one-way channels still hand-rolling validation. Theme A is human-run; nothing touches Renovate's PRs.* (0% · 0/35) — **Planned, not started.** The security audit found the boundaries well drawn (zod at every `invoke`, a real fs jail, a `sandbox: true` preload-less browser partition, `safeStorage` for DB passwords, redaction on write, no `rehype-raw` anywhere) and five places the app is one layer thinner than its comments believe. Renovate's open dependency PRs are untouched by every theme.
+
+**Theme A — Electron off the end-of-life line.** ◻ Electron off the end-of-life line (oldest supported major), `node-pty` rebuild, full perf suite before/after, broker legacy-peer handshake, a day's soak — **human-run**. *Human-run, never a swarm*: Electron is `33.4.11`, off the supported line since 36 shipped; the theme is the deliberate upgrade with the native-ABI, `verify-dist`, perf-suite and broker legacy-peer checklist.
+
+**Theme B — `sandbox: true`, because the reason for `false` no longer exists.** ✅ `sandbox: true` on both windows: `homedir`/`hostname` via `additionalArguments`, `node:os` out of the preload, a bundle test that keeps `node:` out. (PR #484) `sandbox: false` on every app window for a reason that is no longer true — `scripts/bundle.mjs` inlines `shared` into the preload, and the only Node touch left is `node:os` for `homedir`/`hostname`, which the existing `additionalArguments` pattern removes; flip both windows to `sandbox: true` and add a bundle test that keeps `node:` out.
+
+**Theme C — A Content-Security-Policy, and a `will-navigate` guard for the app's own window.** ✅ A header-based CSP from a pure `buildCsp()` (dev/packaged, `persist:browser` skipped) and a `will-navigate`/`will-redirect` guard on the app window; zero violations across `app:e2e`. ([PR #487](https://github.com/bilo-io/midnite-studio/pull/487)) There is no CSP anywhere and no `will-navigate` guard on the app's own window — a header-based policy from a pure `buildCsp()` (dev/packaged variants, `persist:browser` skipped) plus the guard.
+
+**Theme D — Widget credentials leave `localStorage`, and the IP lookup asks first.** ✅ The Twelve Data key into a `safeStorage` vault behind an enum-keyed `secrets` channel, finance fetches proxied through main, `ipwho.is` behind a default-off Privacy switch ([PR #485](https://github.com/bilo-io/midnite-studio/pull/485)). The Twelve Data key sits in plaintext `localStorage` (the store says so) and `ipwho.is` geolocates the user by IP on first title-bar load — a `safeStorage` vault behind an enum-keyed `secrets` channel, the finance fetch proxied through main, and IP lookup behind a default-off Privacy switch.
+
+**Theme E — Forty-five channels onto `handleSend`, and two onto `handle`.** ✅ 45 `ipcMain.on` sites onto `handleSend`, two raw `ipcMain.handle` onto `handle`, an eslint rule confining both to `ipc/handle.ts` ([PR #486](https://github.com/bilo-io/midnite-studio/pull/486)). The sweep Phase 65 B left — 45 hand-rolled `ipcMain.on` sites onto `handleSend`, two raw `ipcMain.handle` onto `handle`, and an eslint rule that keeps the count at zero.
+
 ## Deliverables
 
 ### A — Electron off the end-of-life line (L) — **human-run, not for a swarm**

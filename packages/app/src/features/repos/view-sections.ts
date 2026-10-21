@@ -193,6 +193,8 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   // Same formality (Phase 87 Theme C): the knowledge graph is per-repo but
   // has no sidebar section of its own to narrow.
   knowledge: WORK_IN_PROGRESS,
+  // Same formality again: Chats are stored app-wide and show no sidebar section.
+  chats: WORK_IN_PROGRESS,
   files: WORK_IN_PROGRESS,
   search: WORK_IN_PROGRESS,
   /**
@@ -202,38 +204,34 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
    */
   database: WORK_IN_PROGRESS,
   graph: WORK_IN_PROGRESS,
-  changes: WORK_IN_PROGRESS,
   actions: { sections: ['actions', 'worktrees'], dirtyOnly: false },
   tests: { sections: ['tests', 'worktrees'], dirtyOnly: false },
   reviews: { sections: ['reviews', 'worktrees'], dirtyOnly: false },
   /*
-   * Deliberately omits its own `issues` leaf, unlike `actions`/`reviews`
-   * above: this is the one place showing the sidebar's `IssuesSection`
-   * alongside the dedicated view for the same data would be obviously
-   * redundant, so it narrows to Worktrees only while the Issues view is open.
-   * Elsewhere in the app the section is unaffected — still reachable exactly
-   * as it always was.
-   */
-  issues: { sections: ['worktrees'], dirtyOnly: false },
-  /*
-   * Starts at `WORK_IN_PROGRESS`, matching councils — a board picker one
-   * click away from the header is enough for now, and a dedicated `projects`
+   * Starts at `WORK_IN_PROGRESS`, matching councils — a source picker one
+   * click away from the header is enough for now, and a dedicated `tasks`
    * sidebar section is worth adding only if that picker proves insufficient
-   * (see the phase doc's own recommendation).
+   * (see the phase doc's own recommendation). The old Issues view's own
+   * narrowing (Worktrees only, hiding the sidebar's `IssuesSection`) went
+   * with it: the section's rows now open the issue modal rather than
+   * duplicating a page, so there is nothing left for it to be redundant with.
    */
-  projects: WORK_IN_PROGRESS,
+  tasks: WORK_IN_PROGRESS,
   history: WORK_IN_PROGRESS,
   councils: WORK_IN_PROGRESS,
   workflows: WORK_IN_PROGRESS,
-  video: WORK_IN_PROGRESS,
+  media: WORK_IN_PROGRESS,
   // A formality the `Record` demands, same reasoning as `database`: an
   // Ollama daemon is not repo-scoped, so this view shows no sidebar section
   // to narrow in the first place (Phase 96 Theme C).
   models: WORK_IN_PROGRESS,
   sessions: WORK_IN_PROGRESS,
   optimizer: WORK_IN_PROGRESS,
+  monitor: WORK_IN_PROGRESS,
+  vault: WORK_IN_PROGRESS,
+  capture: WORK_IN_PROGRESS,
   // No dedicated sidebar section (its collections live under `.midnite/api/`
-  // in the tree, not the sidebar) — same reasoning as `projects` above.
+  // in the tree, not the sidebar) — same reasoning as `tasks` above.
   apiClient: WORK_IN_PROGRESS,
   settings: WORK_IN_PROGRESS,
 };
@@ -247,7 +245,7 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
  * other view starts whole and can be narrowed by hand.
  */
 export const filtersByDefault = (view: ViewId): boolean =>
-  view === 'changes' || view === 'actions' || view === 'tests' || view === 'reviews';
+  view === 'actions' || view === 'tests' || view === 'reviews';
 
 /** The effective filter for a view, given whether it is currently narrowed. */
 export const filterFor = (view: ViewId, filtered: boolean): ViewFilter =>

@@ -23,12 +23,20 @@ files:
   - '!node_modules/@midnite/**'
   - '!dist/main/**'
   - '!dist/preload/**'
+  - '!**/*.map'
 
 extraResources:
   # The renderer, loaded over file:// from Resources/renderer/index.html
   # (see src/main/window.ts). Static assets, so no reason to put them in the asar.
   - from: ../app/dist
     to: renderer
+    # Phase 91 Theme D: build metadata is not a deliverable. `verify-dist.mjs` asserts it.
+    filter:
+      - '**/*'
+      - '!**/.vite'
+      - '!**/.vite/**'
+      - '!**/*.map'
+      - '!**/stats.html'
   # The onboarding kit (Phase 49 Theme A) — a root-level tree, not under any
   # package, so it needs its own entry here or a packaged build has no
   # `templates/` at all. Read off `process.resourcesPath` in production; the
@@ -36,10 +44,10 @@ extraResources:
   # owns the branch.
   - from: ../../templates
     to: templates
-  # The CLI wrapper (`midnite-studio` on PATH). `resources/` is only
+  # The CLI wrapper (`midnite` on PATH, plus a deprecated `midnite-studio` alias wrapper). `resources/` is only
   # `directories.buildResources` — a source of build inputs electron-builder
   # never copies into the bundle on its own — so `cli-handlers.ts`'s
-  # `getBundleBinPath()` (`${process.resourcesPath}/bin/midnite-studio`) has
+  # `getBundleBinPath()` (`${process.resourcesPath}/bin/midnite`) has
   # pointed at a path that does not exist in every packaged build until now.
   - from: resources/bin
     to: bin
@@ -56,6 +64,12 @@ extraResources:
   # package's own mirror of `template-path.ts`'s dev-vs-packaged split.
   - from: src/main/hooks/prepare-commit-msg.sh
     to: hooks/prepare-commit-msg.sh
+  # Vendored game engines (Phase 107 Theme C) — copied into game repos at creation time.
+  - from: resources/game-engines
+    to: game-engines
+  # Terrain materials (Phase 105 Theme F) — CC0 tiled materials for splat blending.
+  - from: resources/terrain-materials
+    to: terrain-materials
 
 asar: true
 asarUnpack:
@@ -125,8 +139,10 @@ afterPack: scripts/afterpack.cjs
 
 mac:
   category: public.app-category.developer-tools
-  # The midnite crescent, shared with the midnite app (resources/icon.icns).
-  icon: resources/icon.icns
+  # Studio's launcher tile — the midnite crescent in the brand gradient with its rocket — so the Dock
+  # shows what the launcher does. Written by `moon run launcher:icons`. The plain crescent, shared with
+  # the midnite app, stays in resources/icon.icns: it is the base every suite logo is drawn from.
+  icon: resources/icon-suite.icns
   # Apple Silicon only: an Intel build would need node-pty rebuilt on an x64
   # runner to be correct, and this is a macOS-arm64-first app.
   target:
@@ -145,6 +161,13 @@ mac:
   # electron-builder signs the bundle; without one, the release workflow sets
   # CSC_IDENTITY_AUTO_DISCOVERY=false and afterpack.cjs ad-hoc signs it so it
   # still launches locally.
+  # Phase 91 Theme H: this stays false ON PURPOSE. The live notarisation path is
+  # `afterSign: scripts/notarize.cjs` below, which runs @electron/notarize itself
+  # when APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID are all set and
+  # logs "skipped" otherwise. Turning this on as well would notarise twice.
+  # With no Apple credentials (today) the build ships ad-hoc signed and
+  # un-notarised, so `hardenedRuntime` buys nothing from Gatekeeper yet, and
+  # install.sh's `spctl --assess` gate reports that honestly.
   notarize: false
   # The Automation consent prompt's own copy (Phase 74 Theme C) — shown once,
   # the first time the app sends Finder an Apple event to empty the Trash.

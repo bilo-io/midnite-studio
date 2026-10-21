@@ -1,22 +1,24 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '../../../test-support/studio-render';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { GraphHeader, useGraphColumns } from './graph-header';
-import { GRAPH_THEMES } from './graph-themes';
+import { GraphHeader, useGraphColumns } from '@midnite/studio-frame/graph';
+import { GRAPH_THEMES } from '@midnite/studio-frame/graph';
 
 const mocks = vi.hoisted(() => ({
   windowRole: 'main' as string,
 }));
 
-vi.mock('../../services/bridge', () => ({
-  bridge: () => ({ windowRole: mocks.windowRole }),
-}));
+// The header is frame code and reads `window.midniteStudio` itself (not through a mockable app module).
+Object.defineProperty(window, 'midniteStudio', {
+  configurable: true,
+  get: () => ({ windowRole: mocks.windowRole }),
+});
 
 vi.mock('../../store/ui-store', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../store/ui-store')>();
-  return {
-    ...actual,
-    useUiStore: (
+  // A selector over a fixed state for the header, and the real store's static API for everything
+  // else Studio's providers touch at import time (the companion's voice ports read `getState()`).
+  const selectFixed = (
       selector: (s: {
         graphColumns: Record<string, number>;
         setGraphColumn: (key: string, value: number) => void;
@@ -47,8 +49,8 @@ vi.mock('../../store/ui-store', async (importOriginal) => {
         graphProvenanceFilter: 'all',
         setGraphProvenanceFilter: vi.fn(),
         detachedPages: [],
-      }),
-  };
+      });
+  return { ...actual, useUiStore: Object.assign(selectFixed, actual.useUiStore) };
 });
 
 /** Builds real `Resizable`s (via the header's own hook) around a plain theme. */
@@ -75,15 +77,15 @@ describe('GraphHeader', () => {
   it('shows its own detach mark when docked in the main window', () => {
     render(<Harness />);
 
-    expect(screen.getByLabelText('Detach Graph into its own window')).toBeDefined();
+    expect(screen.getByLabelText('Detach Timeline into its own window')).toBeDefined();
   });
 
   it('hides its own detach mark once popped out — the merged title bar mark already docks it', () => {
     mocks.windowRole = 'graph';
     render(<Harness />);
 
-    expect(screen.queryByLabelText('Detach Graph into its own window')).toBeNull();
+    expect(screen.queryByLabelText('Detach Timeline into its own window')).toBeNull();
     expect(screen.queryByLabelText('Close the Graph window')).toBeNull();
-    expect(screen.queryByLabelText('Focus the detached Graph window')).toBeNull();
+    expect(screen.queryByLabelText('Focus the detached Timeline window')).toBeNull();
   });
 });

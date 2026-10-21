@@ -175,6 +175,22 @@ leaving a seam behind. Phase 80's open items are verification-only (three human-
 unit-test boxes under Themes A and D) and touch `sanitizeForSpeech`/`matchesCompanionName`; nothing
 here edits those functions, so the two phases do not collide.
 
+## Headlines
+
+*The companion can start ten skills and nothing else; "take me to the graph" falls through to a router told to omit any intent it does not know. Plans the rest of the app for it: navigation to every view and settings page by the palette's own vocabulary, focusing a window that is already detached instead of opening a second copy, the palette's commands by tier (`direct` runs, `confirm` asks, `never` names the palette), the two `midnite-` skills it was missing, the router taught the same words — and, opt-in and direct-tier only, three `ui.*` MCP tools so an agent the companion handed off to can show its work. No new git operation, no dialog ever answered.*
+
+**Theme A — One vocabulary, one engine.** ✅ One vocabulary, one engine ([PR #319](https://github.com/bilo-io/midnite-studio/pull/319)): `ViewId`/`SettingsPageId` to `shared`, `CompanionVocabulary`, a total `COMMAND_ACCESS` tier map beside `PALETTE_SAFE`, a module-level `runCommand`, `parseIntent(text, vocab?)`
+
+**Theme B — Going there, and the window that is already out.** ✅ Going there, and the window that is already out ([PR #324](https://github.com/bilo-io/midnite-studio/pull/324)): `resolveNavigation`, `focusRole` for detached roles, the popout→main relay, issue/settings-page/URL targets, `window.detachCompanion`
+
+**Theme C — Doing things there, by tier.** ✅ Doing things there, by tier ([PR #323](https://github.com/bilo-io/midnite-studio/pull/323)): `direct` runs and says, `confirm` waits for yes/empty Return/Run chip (hands-free does not bypass), `never` names the palette; dialogs survive untouched
+
+**Theme D — Every skill it was missing, and the ones it must keep refusing.** ✅ Every skill it was missing ([PR #324](https://github.com/bilo-io/midnite-studio/pull/324)): `triage` gets an `AgentCommandId`, `releasePrep` joins with `COMPANION_NEVER_AUTOSEND`; `releaseComplete`, `loop*`, `setup` stay out by type
+
+**Theme E — The router learns the rest of the vocabulary.** ✅ The router learns the rest of the vocabulary ([PR #323](https://github.com/bilo-io/midnite-studio/pull/323)): `CompanionAskRequest.vocabulary`, the `route` prompt lists views/pages/commands/skills, `parseAskReply` fixtures for the new kinds
+
+**Theme F — An agent may steer the view: the `ui.*` MCP tools.** ✅ An agent may steer the view: `ui.state`/`ui.navigate`/`ui.command` MCP tools, `readOnly: boolean`, a second Settings ▸ MCP switch (default off), the tree's first main→renderer request/reply (5 s timeout), refused while locked ([PR #329](https://github.com/bilo-io/midnite-studio/pull/329)) — one item left open: the `docs/INITIAL_PLAN.md`/`outstanding.md` paragraphs were not written
+
 ## Deliverables
 
 ### A — One vocabulary, one engine (M)

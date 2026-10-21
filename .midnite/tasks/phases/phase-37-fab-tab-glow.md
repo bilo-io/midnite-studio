@@ -36,6 +36,22 @@ exists to catch. **The seven-stop ramp is not redesigned** — `#f43f5e → #f59
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*The FAB panel's rainbow border grows an inner glow — soft, pulsating, hugging the inside edge and fading smoothly to nothing before the centre — and that glow subtracts the half of the spectrum furthest from the active tab, so the edge reads as "the green one" without ceasing to be a gradient. A tokenises the ramp the other five copies share; B builds the masked conic overlay; C makes it tab-reactive and sweeps between tabs; D keeps the collapsed FAB in the same colour; E ties pulse cadence to loop state; F handles reduced motion and proves the lot.* (100% · 44/44) — All six themes landed in one batch ([PR #8](https://github.com/bilo-io/midnite-studio/pull/8), 2026-09-02).
+
+**Theme A — One rainbow, six tokens.** ✅ One rainbow, six tokens: lift the 7-stop ramp out of its five verbatim copies in `styles.css` into `--rainbow-0…5`, with zero rendered change. (PR #8) Tokenised the seven-stop rainbow that used to sit hard-coded in five places.
+
+**Theme B — The inner glow.** ✅ The inner glow: `::before` overlay, blurred conic, three-stop radial alpha mask, pulse on mask-stop + opacity (never on `blur()`). (PR #8) The FAB panel's rotating rainbow border now grows an **inner glow**: a blurred conic layer masked to the rim so it falls off smoothly to nothing before the centre, breathing rather than static.
+
+**Theme C — The spectrum knows the tab.** ✅ The spectrum knows the tab: `data-fab-tab` + a four-row 180° arc table (one continuous, never-wrapping number line, not each tab normalised into `[0deg, 360deg)`); border and glow share one arc pair; 0.5s sweep via `@property`-registered angles. (PR #8) The glow is **tab-reactive** — each of the four loops claims the 180° of ramp centred on its own hue (Medic→rose, Watchdog→amber, Automate→emerald, Innovate→blue), and the far half is subtracted, with border and glow driven from one shared arc mask so they never disagree.
+
+**Theme D — Collapsed FAB continuity.** ✅ Collapsed FAB continuity: `.loop-run-glow.on-primary` takes the same arc, so collapsing the panel doesn't change its colour. (PR #8) The collapsed FAB button and each tab's own Start/Stop button pick up the same arc for free.
+
+**Theme E — Pulse follows the loop.** ✅ Pulse follows the loop: cadence keys off `useAllLoopStatuses`; amber-waiting overrides the arc, as `.is-waiting` already does on the button. (PR #8) The glow pulses at a cadence tied to loop state.
+
+**Theme F — Reduced motion, and proof.** ✅ Reduced motion, and proof: `animation-name: none !important` (not a pause), computed-custom-property assertions, per-tab shots. Window focus/blur gate on rotation and pulse shipped unconditionally; layout bounds and theme parity verified. (PR #8) Rotation and pulse gated unconditionally on window focus; layout bounds and theme parity verified.
+
 ## Deliverables
 
 ### A — One rainbow, six tokens (S)

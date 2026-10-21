@@ -1,17 +1,17 @@
 /**
  * The site's pages, and how a URL becomes one.
  *
- * There is no router dependency here on purpose. Three static pages need a
+ * There is no router dependency here on purpose. Four static pages need a
  * comparison, not a route table, and the deployment shape does the rest: each
- * page is a real HTML file (`index.html`, `download/index.html`,
- * `pricing/index.html`), so any static host serves a deep link directly and no
+ * page is a real HTML file (`index.html`, `apps/index.html`,
+ * `download/index.html`, `pricing/index.html`), so any static host serves a deep link directly and no
  * client-side history rewriting has to exist. What this module does is (a) tell
  * the already-loaded page which one it is, and (b) build hrefs that survive
  * whatever `base` prefix the deployed site carries — see the note on `base` in
  * `vite.config.ts`.
  */
 
-export type Route = 'landing' | 'download' | 'pricing';
+export type Route = 'landing' | 'apps' | 'download' | 'pricing';
 
 /**
  * `import.meta.env.BASE_URL` always ends in `/` (Vite normalises it), so this
@@ -35,6 +35,7 @@ const withoutBase = (pathname: string): string => {
  */
 export const routeFor = (pathname: string): Route => {
   const rest = withoutBase(pathname);
+  if (rest === 'apps') return 'apps';
   if (rest === 'download') return 'download';
   if (rest === 'pricing') return 'pricing';
   return 'landing';
@@ -42,10 +43,14 @@ export const routeFor = (pathname: string): Route => {
 
 /** A base-aware href for one of the pages. */
 export const hrefFor = (route: Route): string => {
+  if (route === 'apps') return `${baseUrl()}apps/`;
   if (route === 'download') return `${baseUrl()}download/`;
   if (route === 'pricing') return `${baseUrl()}pricing/`;
   return baseUrl();
 };
+
+/** A base-aware href for one app's slide on the Apps page (`/apps/#coder`). */
+export const appHref = (id: string): string => `${hrefFor('apps')}#${id}`;
 
 /** A base-aware href for an on-page anchor, usable from either page. */
 export const anchorHref = (id: string): string => `${baseUrl()}#${id}`;

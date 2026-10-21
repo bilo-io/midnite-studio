@@ -35,6 +35,7 @@ import {
   markdownToSpeech,
   matchesCompanionName,
   noRepeatWindow,
+  parseWakePhrase,
   parseAskReply,
   parseDoneEntries,
   parseIndexWipRows,
@@ -1136,7 +1137,7 @@ const testVocabulary: CompanionVocabulary = {
       label: 'Database',
       keywords: 'database sql connection postgres mysql mariadb mssql query schema table',
     },
-    { id: 'issues', label: 'Issues', keywords: 'issues bugs tracker labels milestones' },
+    { id: 'tasks', label: 'Tasks', keywords: 'tasks issues bugs tracker labels milestones projects board' },
     {
       id: 'apiClient',
       label: 'API Client',
@@ -1170,9 +1171,9 @@ describe('parseIntent — navigate (Theme A, with a vocabulary)', () => {
     ['take me to the graph', { kind: 'navigate', view: 'graph' }],
     ['open the database', { kind: 'navigate', view: 'database' }],
     ['bring up the api client', { kind: 'navigate', view: 'apiClient' }],
-    ['jump to issues', { kind: 'navigate', view: 'issues' }],
-    ['show me issue 212', { kind: 'navigate', view: 'issues', issue: 212 }],
-    ['show me issue #212', { kind: 'navigate', view: 'issues', issue: 212 }],
+    ['jump to issues', { kind: 'navigate', view: 'tasks' }],
+    ['show me issue 212', { kind: 'navigate', view: 'tasks', issue: 212 }],
+    ['show me issue #212', { kind: 'navigate', view: 'tasks', issue: 212 }],
     ['open settings, companion', { kind: 'navigate', view: 'settings', page: 'companion' }],
     ['bring up the settings', { kind: 'navigate', view: 'settings' }],
     [
@@ -1261,6 +1262,119 @@ describe('parseIntent — confirm and help (Theme A, with a vocabulary)', () => 
   });
 });
 
+describe('parseIntent — switchAgent (Phase 111 Theme B)', () => {
+  it('parses agent-only phrases', () => {
+    expect(parseIntent('switch to claude')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: null,
+    });
+    expect(parseIntent('switch to codex')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'codex',
+      modelId: null,
+    });
+    expect(parseIntent('use antigravity')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'agy',
+      modelId: null,
+    });
+    expect(parseIntent('switch primary agent to claude code')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: null,
+    });
+    expect(parseIntent('set agent to gemini')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'agy',
+      modelId: null,
+    });
+  });
+
+  it('parses agent with model phrases', () => {
+    expect(parseIntent('use claude with model haiku')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'haiku-4-5',
+    });
+    expect(parseIntent('switch to claude with sonnet 5.5')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'sonnet-5-5',
+    });
+    expect(parseIntent('switch to claude with opus')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'opus-5',
+    });
+    expect(parseIntent('use codex with gpt-5-mini')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'codex',
+      modelId: 'gpt-5-mini',
+    });
+  });
+
+  it('parses composite agent and model phrases', () => {
+    expect(parseIntent('switch to claude opus')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'opus-5',
+    });
+    expect(parseIntent('use claude sonnet 5.5')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'sonnet-5-5',
+    });
+    expect(parseIntent('switch to claude haiku')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'haiku-4-5',
+    });
+  });
+
+  it('parses model-only phrases', () => {
+    expect(parseIntent('change model to haiku')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'haiku-4-5',
+    });
+    expect(parseIntent('set model to sonnet 5.5')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: 'sonnet-5-5',
+    });
+    expect(parseIntent('use model gpt-5-mini')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'codex',
+      modelId: 'gpt-5-mini',
+    });
+  });
+
+  it('handles case insensitivity and spoken aliases', () => {
+    expect(parseIntent('SWITCH TO CLAUDE')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'claude',
+      modelId: null,
+    });
+    expect(parseIntent('use OpenAI')).toEqual({
+      kind: 'switchAgent',
+      agentId: 'codex',
+      modelId: null,
+    });
+  });
+
+  it('falls back to freeform for unrecognized phrases', () => {
+    expect(parseIntent('switch primary agent to unknown-agent-xyz')).toEqual({
+      kind: 'freeform',
+      text: 'switch primary agent to unknown-agent-xyz',
+    });
+    expect(parseIntent('use imaginary-agent-abc')).toEqual({
+      kind: 'freeform',
+      text: 'use imaginary-agent-abc',
+    });
+  });
+});
+
 describe('CompanionIntentSchema', () => {
   it('round-trips every arm parseIntent can produce', () => {
     for (const text of [
@@ -1302,6 +1416,54 @@ describe('COMPANION_COMMAND_IDS (Phase 81 Theme D)', () => {
 
   it('COMPANION_NEVER_AUTOSEND names only releasePrep', () => {
     expect(COMPANION_NEVER_AUTOSEND).toEqual(['releasePrep']);
+  });
+});
+
+describe('parseWakePhrase', () => {
+  const names = ['Companion', 'Jarvis'];
+
+  it('takes the command that follows a leading name', () => {
+    expect(parseWakePhrase('Companion, open the pull request.', names)).toEqual({
+      woke: true,
+      command: 'open the pull request.',
+    });
+    expect(parseWakePhrase('jarvis run the tests', names)).toEqual({ woke: true, command: 'run the tests' });
+  });
+
+  it('skips an opener and the punctuation an STT engine puts round a spoken name', () => {
+    expect(parseWakePhrase('Hey, Companion. Open the pull request.', names)).toEqual({
+      woke: true,
+      command: 'Open the pull request.',
+    });
+    expect(parseWakePhrase('OK Jarvis — ship it', names)).toEqual({ woke: true, command: 'ship it' });
+  });
+
+  it('reports a name said on its own as woken with no command', () => {
+    expect(parseWakePhrase('Companion.', names)).toEqual({ woke: true, command: '' });
+    expect(parseWakePhrase('  hey jarvis!  ', names)).toEqual({ woke: true, command: '' });
+  });
+
+  it('ignores the name anywhere but the start — a mention is not an address', () => {
+    expect(parseWakePhrase('I told the companion yesterday', names)).toEqual({ woke: false });
+    expect(parseWakePhrase('open the pull request, Companion', names)).toEqual({ woke: false });
+  });
+
+  it('is whole-word, and the longest name wins', () => {
+    expect(parseWakePhrase('Moses parted the sea', ['Mo'])).toEqual({ woke: false });
+    expect(parseWakePhrase('Mo Salah, play the goals', ['Mo', 'Mo Salah'])).toEqual({
+      woke: true,
+      command: 'play the goals',
+    });
+  });
+
+  it('treats a name with regex characters literally', () => {
+    expect(parseWakePhrase('C.3PO, translate this', ['C.3PO'])).toEqual({ woke: true, command: 'translate this' });
+    expect(parseWakePhrase('CX3PO, translate this', ['C.3PO'])).toEqual({ woke: false });
+  });
+
+  it('wakes on nothing for empty text or no names', () => {
+    expect(parseWakePhrase('', names)).toEqual({ woke: false });
+    expect(parseWakePhrase('Companion, hi', [])).toEqual({ woke: false });
   });
 });
 
@@ -1616,6 +1778,32 @@ describe('parseAskReply', () => {
       expect(
         parseAskReply('{"say":"ok","intent":{"kind":"navigate","view":"not-a-view"}}'),
       ).toBeNull();
+    });
+
+    it('reads a switchAgent intent (Phase 111 Theme B)', () => {
+      expect(
+        parseAskReply(
+          '{"say":"Switching to Claude Opus.","intent":{"kind":"switchAgent","agentId":"claude","modelId":"opus-5"}}',
+        ),
+      ).toEqual({
+        say: 'Switching to Claude Opus.',
+        intent: {
+          kind: 'switchAgent',
+          agentId: 'claude',
+          modelId: 'opus-5',
+        },
+      });
+      expect(
+        parseAskReply(
+          '{"say":"Switching to Codex.","intent":{"kind":"switchAgent","agentId":"codex"}}',
+        ),
+      ).toEqual({
+        say: 'Switching to Codex.',
+        intent: {
+          kind: 'switchAgent',
+          agentId: 'codex',
+        },
+      });
     });
   });
 });

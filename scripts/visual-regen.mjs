@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const IMAGE = 'mcr.microsoft.com/playwright:v1.62.1-noble';
+const IMAGE = 'mcr.microsoft.com/playwright:v1.64.0-noble';
 const PNPM = 'pnpm@9.15.0';
 
 const INNER = [

@@ -72,15 +72,11 @@ test('the stash dialog hands focus back to the heading action', async ({ page })
   });
   await page.goto('/');
 
-  // The rail is icon-collapsed until hovered, and a cold click races its own
-  // expansion — hover first and wait for the label, as `changes-panel.spec.ts`
-  // spells out at length.
-  const link = page.getByRole('link', { name: 'Changes' });
-  await link.hover();
-  await expect(link.getByText('Changes', { exact: true })).toBeVisible();
-  await link.click();
+  // The stash action lives in the graph's working-copy panel.
+  await page.getByRole('button', { name: /^1 uncommitted change\b/ }).click();
+  await expect(page.getByRole('region', { name: 'Working copy changes' })).toBeVisible();
 
-  const action = page.getByRole('button', { name: 'Stash changes' });
+  const action = page.getByTestId('working-tree-inline-panel').getByRole('button', { name: 'Stash changes' });
   await action.click();
   await expect(page.getByRole('dialog', { name: 'Stash changes' })).toBeVisible();
 

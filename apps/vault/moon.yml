@@ -1,0 +1,73 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Vault (Phase 113 Theme J) — a suite app that ships as its own bundle:
+# `packages/features/vault` + `packages/frame` + `shared`, composed in src/.
+# `resources/icon.icns` is what makes a release pack it (`moon run launcher:icons` writes it from the launcher's tile logo).
+id: 'app-vault'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-vault'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-vault'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/vault/renderer/**/*'
+      - '/packages/features/vault/manifest.ts'
+      - '/packages/features/vault/response-schemas.ts'
+      - '/packages/features/vault/main/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/vault/renderer/**/*'
+      - '/packages/features/vault/manifest.ts'
+      - '/packages/features/vault/response-schemas.ts'
+      - 'main/**/*'
+      - '/packages/features/vault/main/**/*'
+      - '/packages/runtime/src/**/*'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/vault/renderer/**/*'
+      - '/packages/features/vault/manifest.ts'
+      - '/packages/features/vault/response-schemas.ts'
+      - 'main/**/*'
+      - '/packages/features/vault/main/**/*'
+      - '/packages/runtime/src/**/*'

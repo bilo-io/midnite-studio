@@ -35,6 +35,22 @@ known, written-down limitation rather than a bug to discover later.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Phase 15 built the agent machinery around a roster with one entry in it, and the renderer never held up its half of the "adding one is an edit, not a release" bargain. A is the contract every other theme reads off (`icon`, `mode`, `install`, four builtins); B and C are the two surfaces that stop hard-coding Claude (the session-list mark, the `+` menu); D and E are the live half — a terminal that knows where it is (OSC 7) and what is running in it (a process probe in main); F is the header those two finally give something true to say.* *All six themes have landed (2026-08-27). Three manual passes remain, all needing a real shell or a packaged app: `cd` between two worktrees and watch the header follow (D), start and quit `codex` and `agy` inside a shell and watch the row's icon swap both ways (E), and launch the packaged `.app` from Finder to confirm the install probe still reads the login shell's PATH (C).*
+
+**Theme A — The roster becomes plural.** ✅ `AgentDefinitionSchema` gains `icon` and `install`; `BUILTIN_AGENTS` grows to four real terminal agents (Claude Code `claude`, Antigravity `agy`, Codex `codex`, OpenClaude `openclaude`) — and whether a command exists on this machine travels beside them as a separate `AgentStatus`, because the definition is config a user hand-edits and the status is a probe result (landed 2026-08-27)
+
+**Theme B — Every agent gets its own mark.** ✅ three new local brand SVGs beside `claude-icon.tsx` plus an `AGENT_ICONS` registry, so `SessionIcon` resolves a mark from the roster instead of hard-coding `<ClaudeIcon>`; all three are hand-drawn originals with their provenance written down, and the registry also resolves a curated slice of `react-icons/si` for user-added agents (landed 2026-08-27)
+
+**Theme C — The `+` menu says what it starts.** ✅ the `+` menu goes flat and iconned (New Terminal / Claude Code / Antigravity / Codex / OpenClaude), with a main-side install probe — the whole roster in ONE `-lic` shell, per-agent framed so an rc-file banner cannot be misread as a path, 30s TTL, and an agent it could not reach omitted rather than called missing. `buildNewSessionMenu` is pure, so which rows are dead and why is a table test rather than a render (landed 2026-08-27)
+
+**Theme D — A terminal that knows where it is.** ✅ OSC 7 live cwd tracking, `liveCwd` in the terminal store, and the header following a `cd` through Theme F's resolver — plus `bridge.hostname`, without which the parser rejects every payload the canonical emitters actually produce (landed 2026-08-27)
+
+**Theme E — A terminal that knows what is running in it.** ✅ a process probe in main behind `pty:agent-changed`, so an agent started or quit by hand swaps the sidebar row's icon; reads process state and acts on nothing. Split into the read (`agent-process.ts` — one `ps`, a pure depth-carrying walk, a three-rule matcher that never scans arguments) and the cadence (`agent-watcher.ts` — a 750ms quiet debounce, change-only emission, a shared snapshot, and a hard rule that a `null` may only take away a mark some probe has actually *seen* — a timed grace window would have stripped Claude's mark off an `npm`-installed Claude Code the matcher deliberately cannot name). The store's `liveAgentId` is a true tri-state: absent ≠ `null` (landed 2026-08-27)
+
+**Theme F — The terminal header, rebuilt.** ✅ the header loses the word "Terminal": a glyph, the status circle, then a `~`-collapsed path with the repo segment emphasised and left-truncation. Brought Theme D's `resolveRepoForPath` forward with it — F needs the split point, D needs the same helper against `liveCwd` (landed 2026-08-27)
+
 ## Deliverables
 
 ### A — The roster becomes plural (S) ✅ DONE (2026-08-27)

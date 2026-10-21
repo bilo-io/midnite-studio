@@ -29,6 +29,7 @@ export const AGENT_COMMAND_IDS = [
   'execSwarm',
   'prReview',
   'prFeedback',
+  'prAudit',
   'triage',
   'releasePrep',
   'releaseComplete',

@@ -2,10 +2,12 @@
  * `will-navigate` / `will-redirect` guard for the app's own windows.
  *
  * The embedded browser partition inverts this rule (http(s) only) in
- * `browser-security.ts`; here only the bundled renderer origin may load in-place.
+ * the browser feature's `main/browser-security.ts`; here only the bundled renderer origin may load in-place.
  */
 
 import { shell, type WebContents } from 'electron';
+
+import { normalizeExternalUrl } from '@midnite/studio-shared';
 
 function normaliseOrigin(raw: string): string {
   try {
@@ -51,7 +53,10 @@ export function bindAppNavigationGuard(
     const decision = checkAppNavigationUrl(url, devServerOrigin);
     if (decision.allowed) return;
     event.preventDefault();
-    if (decision.openExternal) void shell.openExternal(url);
+    if (decision.openExternal) {
+      const href = normalizeExternalUrl(url);
+      if (href !== null) void shell.openExternal(href);
+    }
   };
 
   webContents.on('will-navigate', handler);

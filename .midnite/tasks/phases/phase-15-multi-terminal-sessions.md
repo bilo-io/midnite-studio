@@ -13,6 +13,22 @@ Three Phase 9 decisions are deliberately overturned here, each recorded in its f
 the panel unmounting when hidden, `terminalOpen` being excluded from persistence, and the
 cwd-change effect killing the pty. The last of those is also a live bug — see Theme B.
 
+## Headlines
+
+*Several terminals at once — shells and coding agents — in a VS Code-style sidebar, surviving a restart with their scrollback. A is the spine: B/C/D all render what A persists. E is independent and also covers the repos sidebar.*
+
+**Theme A — Session record + scrollback in main.** ✅ session record + capped scrollback in main; `terminal:*` channels; agent roster with an `agents.json` override
+
+**Theme B — Renderer session model.** ✅ per-session renderer model; multi-xterm host; the cwd-change kill effect deleted (fixes a dead pane)
+
+**Theme C — Panel chrome: maximize and the `+` menu.** ✅ maximize chevron and the `+` → New Terminal / New Agent menu
+
+**Theme D — The session sidebar.** ✅ the session sidebar, dockable left/right, with a Claude mark for agent sessions
+
+**Theme E — Drag-to-reorder, terminals and repos.** ✅ drag-to-reorder via `@dnd-kit/sortable`, for terminals *and* repos
+
+**Verification.** ✅ pty/terminal schema sweep, a fake pty that talks back, nine e2e specs and both screenshots; found and fixed two ptys per terminal, self-reviving restored sessions, and an `agentId`/`kind` pairing the schema documented but never enforced. One manual item is left for a human: quit, relaunch, and confirm `ps` shows no surviving shells
+
 ## Deliverables
 
 ### A — Session record + scrollback in main

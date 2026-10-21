@@ -7,6 +7,8 @@ export type LogoProps = {
   size?: number;
   /** Hides the wordmark, leaving the crescent alone. */
   markOnly?: boolean;
+  /** The wordmark's second half. The site is Midnite Apps' now, so that is the default. */
+  product?: string;
   className?: string;
 };
 
@@ -28,7 +30,7 @@ export type LogoProps = {
  * hero and the footer render the same mark, and the nav's `aria-label` is what
  * announces "Midnite Studio" to a screen reader either way.
  */
-export const Logo = ({ size = 28, markOnly = false, className = '' }: LogoProps) => (
+export const Logo = ({ size = 28, markOnly = false, product = 'Apps', className = '' }: LogoProps) => (
   <span className={`inline-flex items-center gap-2.5 ${className}`}>
     <img
       src={assetHref('img/logo.png')}
@@ -38,6 +40,8 @@ export const Logo = ({ size = 28, markOnly = false, className = '' }: LogoProps)
       className="ws-logo-mark select-none"
       draggable={false}
     />
-    {markOnly ? null : <Wordmark className="text-[0.95rem] tracking-tight text-fg" />}
+    {markOnly ? null : (
+      <Wordmark product={product} className="text-[0.95rem] tracking-tight text-fg" />
+    )}
   </span>
 );

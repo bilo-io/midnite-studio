@@ -26,7 +26,7 @@ describe('ForgeAccountSchema', () => {
   it('has no field that could carry a token', () => {
     expect(Object.keys(ForgeAccountSchema.shape)).not.toContain('token');
     expect(Object.keys(ForgeAccountSchema.shape).sort()).toEqual(
-      ['addedAt', 'avatarUrl', 'delegated', 'displayName', 'hasToken', 'host', 'id', 'kind', 'login'].sort(),
+      ['addedAt', 'avatarUrl', 'delegated', 'displayName', 'email', 'hasToken', 'host', 'id', 'kind', 'login'].sort(),
     );
   });
 

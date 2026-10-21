@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { motionMs } from '../../../components/use-reveal';
 import { useWindowFocused } from '../../../lib/use-window-focus';
+import { getConversationStream } from '../conversation';
 import { getActiveStream } from '../recorder';
 import { companionTtsSpeaker } from '../speaker';
 import { getCompanionAudio } from './context';
@@ -164,7 +165,8 @@ function useLevelBars(active: boolean, open: () => AnalyserHandle): LevelBars {
  */
 export function useMicLevelBars(active: boolean): LevelBars {
   return useLevelBars(active, () => {
-    const stream = getActiveStream();
+    // A push-to-talk capture, or else the open conversation-mode stream.
+    const stream = getActiveStream() ?? getConversationStream();
     if (stream === null || typeof AudioContext !== 'function') return null;
     const ctx = new AudioContext({ latencyHint: 'interactive' });
     const source = ctx.createMediaStreamSource(stream);

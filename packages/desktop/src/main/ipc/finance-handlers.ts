@@ -1,46 +1,35 @@
-import { CHANNELS, failure, schemas, type GitOpResult } from '@midnite/studio-shared';
+import { join } from 'node:path';
 
-import {
-  getFinanceHistory,
-  getFinanceQuote,
-  searchFinanceAssets,
-  StockApiKeyMissingError,
-} from '../finance/finance-service';
-import { handle } from './handle';
-import { readTwelveDataKey } from './secrets-handlers';
+import { createAccountsService, createMarketsRuntime, financeMain, startRatesRefresh } from '@midnite/studio-feature-finance/main';
+import type { FeatureMainContext } from '@midnite/studio-runtime';
 
-function financeFailure(err: unknown): GitOpResult<never> {
-  if (err instanceof StockApiKeyMissingError) {
-    return failure(err.message);
-  }
-  return failure(err instanceof Error ? err.message : 'finance request failed');
-}
+import { app } from 'electron';
 
+import { defaultLogger } from '../log';
+import { handle, handleBare, handleSend } from './handle';
+import { accountCredentials, readTwelveDataKey } from './secrets-handlers';
+
+/**
+ * The Finance IPC — provider proxy and markets — is the finance feature's main
+ * half (Phase 113 Theme P); this is Studio's composition of it. The cache and
+ * the simulated portfolio stay under `userData/finance`, exactly where they
+ * were, and the Twelve Data key is read here from the vault and handed to the
+ * feature as a function: it is never an answer to any channel.
+ */
 export function registerFinanceHandlers(): void {
-  handle(CHANNELS.financeSearch, schemas.FinanceSearchRequest, async (req) => {
-    try {
-      const results = await searchFinanceAssets(req.kind, req.query, await readTwelveDataKey());
-      return { ok: true as const, value: results };
-    } catch (err) {
-      return financeFailure(err);
-    }
-  }, financeFailure);
-
-  handle(CHANNELS.financeQuote, schemas.FinanceQuoteRequest, async (req) => {
-    try {
-      const quote = await getFinanceQuote(req.kind, req.symbol, await readTwelveDataKey());
-      return { ok: true as const, value: quote };
-    } catch (err) {
-      return financeFailure(err);
-    }
-  }, financeFailure);
-
-  handle(CHANNELS.financeHistory, schemas.FinanceHistoryRequest, async (req) => {
-    try {
-      const history = await getFinanceHistory(req.kind, req.symbol, await readTwelveDataKey());
-      return { ok: true as const, value: history };
-    } catch (err) {
-      return financeFailure(err);
-    }
-  }, financeFailure);
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    emit: () => undefined,
+    trashItem: () => Promise.reject(new Error('finance never trashes')),
+  };
+  const directory = join(app.getPath('userData'), 'finance');
+  const runtime = createMarketsRuntime(directory);
+  financeMain.register(ctx, {
+    runtime,
+    accounts: createAccountsService({ directory, credentials: accountCredentials }),
+    twelveDataKey: readTwelveDataKey,
+    warn: (issue) => defaultLogger.warn(issue),
+  });
+  // Keep the FX table fresh in the background; a failed refresh is only logged.
+  startRatesRefresh(runtime, (message) => defaultLogger.warn(message));
 }

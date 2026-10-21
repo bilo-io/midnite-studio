@@ -57,7 +57,7 @@ machine with no checkout of this repo:
    `release-feed.yml`, and `feed/latest-mac.yml` committed *after* the Release.
 4. **Install it as a stranger would**, on a machine with no checkout:
    `curl -fsSL https://raw.githubusercontent.com/bilo-io/midnite-apps/main/midnite-studio/install.sh | sh`
-   — then check no Gatekeeper prompt, that `midnite-studio` works on the CLI, and that it launches
+   — then check no Gatekeeper prompt, that `midnite` works on the CLI (and the deprecated `midnite-studio` alias still forwards to it), and that it launches
    under `env -i` with a bare `PATH`.
 5. **Edit the receiving repo's `midnite-studio/README.md`** to drop its *"No public release yet."*
    banner (and, per *Still open* below, to state that builds are ad-hoc signed).
@@ -77,12 +77,48 @@ reads them.
 | `APPLE_TEAM_ID` | Notarization — disambiguates which team the cert belongs to. | [developer.apple.com/account](https://developer.apple.com/account) ▸ Membership details. |
 
 **A certificate is a purchase, not a task** — an Apple Developer Program membership, currently not
-held. `notarize: true` in
-[`electron-builder.yml`](../packages/desktop/electron-builder.yml) stays unflipped, and the five
+held. `notarize` in
+[`electron-builder.yml`](../packages/desktop/electron-builder.yml) stays `false` **deliberately**
+(Phase 91 Theme H settled the old ambiguity): the live notarisation path is
+`afterSign: scripts/notarize.cjs`, which runs `@electron/notarize` only when `APPLE_ID`,
+`APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` are all set and logs `skipped` otherwise, so
+builder's own flag would notarise a second time. With no certificate, an ad-hoc-signed
+`hardenedRuntime` build gets nothing from Gatekeeper, and `install.sh`'s `spctl --assess` gate says
+so. The five
 Apple/CSC secrets stay unset, until one exists. Every build ships ad-hoc signed
 (`afterpack.cjs` re-signs after electron-builder strips the signature copying `resources/`), and
 `manualInstall` — the curl-installer / `brew upgrade` route rather than the in-app updater's
 "Restart to install" — is the permanent update path until then, not a placeholder for one.
+
+## What a tag build publishes beyond Studio (Phase 113 Themes F1, E1, F2)
+
+`release.yml`'s one macOS job runs `desktop:dist` and then `launcher:dist` (same signing/notarizing env), uploading the launcher as the separate artifact `launcher-mac-arm64` (dmg, zip, blockmaps and its own `latest-mac.yml`). A `plan` job lists **every** extracted app (`scripts/release-bundles.mjs --all` — every `apps/<id>/moon.yml` but Studio and the launcher) and a `bundles` matrix on Ubuntu builds each one and packs it as the zip the launcher installs: the built `dist/`, an `icon.icns` and a `package.json` stamped with the release version. An app with no `resources/icon.icns` yet is skipped with a warning (today that is `browser`, so no bundle ships yet).
+
+Why every app and not the affected set: `catalog.json` is lockstep — the launcher rejects the whole file when one app's version differs from `runtimeVersion` — so a bundle left at an older tag's version could never be listed. Affected-only remains the rule for what a PR builds.
+
+After Studio's `release` and `publish-feed`, the `publish-suite` job:
+
+| Writes in `bilo-io/midnite-apps` | What |
+|---|---|
+| Release `midnite-launcher/vX.Y.Z` | launcher dmg/zip/blockmaps, `latest-mac.yml`, every `midnite-<app>-X.Y.Z-bundle.zip` |
+| `catalog.json` (repo root) | `scripts/build-catalog.mjs` over the uploaded files: one version everywhere, real sizes and SHA-256; Studio's entry points at its own release's zip |
+| `midnite-launcher/feed/latest-mac.yml` | the launcher's `generic` updater feed (`apps/launcher/electron-builder.yml`) |
+| `midnite-launcher/version.json` | **not this job** — midnite-apps' `release-feed.yml` writes it, and only for apps registered in its `apps.json`. Register `midnite-launcher` there once before the first suite release. |
+
+## What the installer verifies (Phase 91 Theme H)
+
+`release.yml`'s `release` job writes **`SHA256SUMS`** (`<sha256>  <basename>` for every dmg and zip)
+and uploads it with the release. `install.sh` and the launcher's in-app install check the zip's
+SHA-256 **before extracting it**, then `codesign --verify --deep --strict` and `spctl --assess` on
+the extracted bundle **before** swapping it in; the quarantine strip only runs for a bundle both
+passed. An ad-hoc-signed build fails `spctl`, so installing one needs
+`MIDNITE_STUDIO_ALLOW_UNSIGNED=1` (`MIDNITE_LAUNCHER_ALLOW_UNSIGNED=1` for the launcher). Where the
+digest comes from: `catalog.json`'s per-app `sha256` (already built from the uploaded files), then
+a `sha256` field in `midnite-studio/version.json`. **The sibling repo's `release-feed.yml` needs the
+paired edit to write that field** (it is outside this repo); until it does, a feed with no digest
+installs with a printed warning, so already-published versions stay installable. Electron fuses
+(`EnableEmbeddedAsarIntegrityValidation`, `OnlyLoadAppFromAsar`, `NODE_OPTIONS` and `--inspect` off)
+are flipped in `afterpack.cjs`; `RunAsNode` stays on for the terminal broker.
 
 ## The unsigned path is the one that runs today
 
@@ -141,7 +177,16 @@ can be published without bumping versions or modifying `CHANGELOG.md`:
    # Delete tag in midnite-studio (local & remote)
    git tag -d v0.0.1
    git push origin :refs/tags/v0.0.1
+
+   # The suite: the launcher release + bundles, and what publish-suite committed
+   gh release delete midnite-launcher/v0.0.1 --repo bilo-io/midnite-apps --yes --cleanup-tag
+   for f in catalog.json midnite-launcher/feed/latest-mac.yml midnite-launcher/version.json; do
+     sha=$(gh api "repos/bilo-io/midnite-apps/contents/$f" --jq .sha 2>/dev/null) || continue
+     gh api "repos/bilo-io/midnite-apps/contents/$f" -X DELETE \
+       -f message="chore: remove $f after ephemeral test release" -f sha="$sha"
+   done
    ```
+   Without `catalog.json` the launcher falls back to `midnite-studio/version.json`.
 5. **Other clones go stale, and the next ephemeral tag will reject on fetch.** Step 4 only deletes
    `v0.0.1` in the clone that runs it. Any other clone or worktree that had already fetched the old
    `v0.0.1` keeps its local ref pointing at the torn-down commit. Because the tag name is always

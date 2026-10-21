@@ -26,7 +26,7 @@ export const RebaseBanner: React.FC<RebaseBannerProps> = ({
           {status.currentStep && status.totalSteps
             ? ` (step ${status.currentStep} of ${status.totalSteps})`
             : ''}
-          : {status.pausedReason === 'conflict' ? 'Resolve conflicts in Changes tab' : 'Paused'}
+          : {status.pausedReason === 'conflict' ? 'Resolve conflicts in the graph’s working copy' : 'Paused'}
         </span>
       </div>
 

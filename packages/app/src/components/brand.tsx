@@ -50,10 +50,21 @@ export function BrandMark({ className = 'h-5 w-5' }: { className?: string }) {
  * Matches the display name everywhere else: electron-builder's `productName`,
  * `app.setName`, and the document title.
  */
-export function Wordmark({ className = '' }: { className?: string }) {
+export function Wordmark({
+  className = '',
+  gradient = false,
+}: {
+  className?: string;
+  /** Paints "Midnite" in the brand gradient (the setup finale); "Studio" never wears it. */
+  gradient?: boolean;
+}) {
   return (
     <span className={`select-none whitespace-nowrap leading-none ${className}`}>
-      <span className="font-brand text-[1.35em] tracking-wide">Midnite</span>
+      <span
+        className={`font-brand text-[1.35em] tracking-wide ${gradient ? 'setup-brand-gradient' : ''}`}
+      >
+        Midnite
+      </span>
       <span className="ml-1.5 font-medium text-muted-foreground">Studio</span>
     </span>
   );

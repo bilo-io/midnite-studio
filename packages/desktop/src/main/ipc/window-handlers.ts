@@ -1,9 +1,8 @@
-import { appIdForRole, CHANNELS, schemas, type WindowRole } from '@midnite/studio-shared';
+import { webAppIdForRole, CHANNELS, schemas, type WindowRole } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
 import type { Logger } from '../log';
-import { reparentAppView } from '../apps-service';
-import { reparentBrowserTabs } from '../browser-service';
+import { reparentBrowserTabs, reparentWebAppView } from '../browser-port';
 import {
   closePopoutForRedock,
   createRoleWindow,
@@ -43,8 +42,8 @@ export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null
       // browser's tabs which all move together — Spotify detaching must never
       // touch Calendar's window. Shown immediately: a popout hosts exactly one
       // app, so there is no "which one is active" question to answer here.
-      const detachingAppId = appIdForRole(role);
-      if (detachingAppId) reparentAppView(detachingAppId, win, { visible: true });
+      const detachingAppId = webAppIdForRole(role);
+      if (detachingAppId) reparentWebAppView(detachingAppId, win, { visible: true });
     },
     warnInvalid,
   );
@@ -59,14 +58,14 @@ export function registerWindowHandlers(getMainWindow: () => BrowserWindow | null
         const main = getMainWindow();
         if (main && !main.isDestroyed()) reparentBrowserTabs(main);
       }
-      const dockingAppId = appIdForRole(role);
+      const dockingAppId = webAppIdForRole(role);
       if (dockingAppId) {
         const main = getMainWindow();
         // Hidden, not shown: the main window's flyout may already have a
         // different app active, and re-docking must never steal its spot. The
         // next `apps.activate` (a rail click, or `use-window-sync.ts`'s own
         // reconciliation) decides what shows.
-        if (main && !main.isDestroyed()) reparentAppView(dockingAppId, main, { visible: false });
+        if (main && !main.isDestroyed()) reparentWebAppView(dockingAppId, main, { visible: false });
       }
       closePopoutForRedock(win);
     },

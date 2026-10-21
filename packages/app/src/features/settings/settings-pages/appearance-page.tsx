@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { useTheme, type ThemePreference } from '@bilo-io/ui/theme';
 import { LuCalendar, LuClock, LuImage, LuPalette, LuSparkles } from 'react-icons/lu';
 
@@ -23,7 +23,9 @@ import { usePaletteStore } from '../../themes/palette-store';
 import { BUILTIN_PALETTES } from '../../themes/presets';
 import { useThemeImportCommandStore } from '../../themes/theme-import-command-store';
 import type { StudioPalette } from '../../themes/theme-types';
+import { THINKING_STYLES, THINKING_STYLE_LABELS, type ThinkingStyle } from '../../../components/ai-thread/thinking-style';
 import { Choice, Field } from './controls';
+import { useUiStore } from '../../../store/ui-store';
 
 /**
  * The shell's appearance runtime — seven appliers and a 500-line stylesheet
@@ -35,10 +37,12 @@ import { Choice, Field } from './controls';
  */
 export function AppearancePage() {
   const s = useAppearanceStore();
+  const aiThinkingStyle = useUiStore((st) => st.aiThinkingStyle);
+  const setAiThinkingStyle = useUiStore((st) => st.setAiThinkingStyle);
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Theme" icon={<LuPalette className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Theme" icon={<LuPalette className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field
             label="Accent"
@@ -81,6 +85,14 @@ export function AppearancePage() {
             ]}
           />
 
+          <Choice<ThinkingStyle>
+            label="AI loading indicator"
+            hint="How the Thinking… line looks in the Companion, Docs and Media chat threads."
+            value={aiThinkingStyle}
+            onChange={setAiThinkingStyle}
+            options={THINKING_STYLES.map((id) => [id, THINKING_STYLE_LABELS[id].label, THINKING_STYLE_LABELS[id].hint])}
+          />
+
           <Choice<Density>
             label="Density"
             hint="Compact drops the root font size, tightening every row in the app."
@@ -106,11 +118,11 @@ export function AppearancePage() {
             ]}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
       <PaletteAccordion />
 
-      <Accordion title="Background" icon={<LuImage className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Background" icon={<LuImage className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field label="Backdrop" hint="The pattern behind the app's content.">
             <select
@@ -138,9 +150,9 @@ export function AppearancePage() {
             ]}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Effects" icon={<LuSparkles className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Effects" icon={<LuSparkles className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <Field label="Visual effects" hint="Each is independent of the motion setting.">
             <div className="flex flex-col">
@@ -173,7 +185,7 @@ export function AppearancePage() {
             ]}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
       <TitlebarTimeSettingsAccordion />
       <TitlebarDateSettingsAccordion />
@@ -322,7 +334,7 @@ function PaletteAccordion() {
   ];
 
   return (
-    <Accordion title="Palette" icon={<LuPalette className="h-4 w-4" />} defaultOpen>
+    <SettingsAccordion title="Palette" icon={<LuPalette className="h-4 w-4" />} defaultOpen>
       <div className="flex flex-col gap-4 p-3">
         <Choice<ThemePreference>
           label="Appearance"
@@ -426,7 +438,7 @@ function PaletteAccordion() {
           </div>
         </Field>
       </div>
-    </Accordion>
+    </SettingsAccordion>
   );
 }
 
@@ -441,7 +453,7 @@ function TitlebarTimeSettingsAccordion() {
   const setWorldClocksMode = useTitlebarStatusStore((s) => s.setWorldClocksMode);
 
   return (
-    <Accordion title="Titlebar Time" icon={<LuClock className="h-4 w-4" />} defaultOpen>
+    <SettingsAccordion title="Titlebar Time" icon={<LuClock className="h-4 w-4" />} defaultOpen>
       <div className="flex flex-col gap-4 p-3">
         <SettingsSwitchRow
           id="show-time"
@@ -481,7 +493,7 @@ function TitlebarTimeSettingsAccordion() {
           onToggle={(_id, next) => setShowSeconds(next)}
         />
       </div>
-    </Accordion>
+    </SettingsAccordion>
   );
 }
 
@@ -495,7 +507,7 @@ function TitlebarDateSettingsAccordion() {
   const setWeatherUnits = useTitlebarStatusStore((s) => s.setWeatherUnits);
 
   return (
-    <Accordion title="Titlebar Date" icon={<LuCalendar className="h-4 w-4" />} defaultOpen>
+    <SettingsAccordion title="Titlebar Date" icon={<LuCalendar className="h-4 w-4" />} defaultOpen>
       <div className="flex flex-col gap-4 p-3">
         <Field
           label="Titlebar Center Pill Items"
@@ -528,6 +540,6 @@ function TitlebarDateSettingsAccordion() {
           ]}
         />
       </div>
-    </Accordion>
+    </SettingsAccordion>
   );
 }

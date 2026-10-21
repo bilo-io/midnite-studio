@@ -12,9 +12,8 @@ import {
   type ProcessRow,
   type PsParse,
 } from '../agent-process';
-import { getAppOwners } from '../apps-service';
-import { getBrowserTabOwners } from '../browser-service';
-import { probeDetailedMemory } from '../metrics/memory';
+import { getBrowserTabOwners, getWebAppOwners } from '@midnite/studio-feature-browser/main';
+import { probeDetailedMemory } from '@midnite/studio-feature-monitor/main';
 import { activePtyPids, getPtySessionOwners } from '../pty-service';
 import { getWindowOwners } from '../window-manager';
 import {
@@ -88,7 +87,7 @@ function collectActiveOwners(rows: readonly ProcessRow[]): Map<number, string> {
 
   // 3. Embedded apps
   try {
-    for (const [pid, label] of getAppOwners()) {
+    for (const [pid, label] of getWebAppOwners()) {
       owners.set(pid, label);
     }
   } catch {

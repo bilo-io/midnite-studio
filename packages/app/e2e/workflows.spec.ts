@@ -30,15 +30,15 @@ async function open(page: Page, data: MockFixtures = fixtures): Promise<void> {
   // Same pre-existing first-nav-click flakiness `councils.spec.ts` documents
   // (reproduces identically on this link) — retry rather than chase the race.
   await expect(async () => {
-    await clickRailLink(page, 'Workflows');
-    await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible({ timeout: 500 });
+    await clickRailLink(page, 'Graphs');
+    await expect(page.getByRole('button', { name: 'New graph' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
 }
 
-const canvas = (page: Page) => page.getByRole('application', { name: 'Workflow canvas' });
+const canvas = (page: Page) => page.getByRole('application', { name: 'Graph canvas' });
 
 async function createWorkflow(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'New workflow' }).click();
+  await page.getByRole('button', { name: 'New graph' }).click();
   await expect(canvas(page)).toBeVisible();
 }
 
@@ -110,7 +110,7 @@ async function connect(page: Page, fromNodeId: string, toNodeId: string): Promis
 
 test('the empty state renders with no workflows', async ({ page }) => {
   await open(page);
-  await expect(page.getByText('No workflows yet')).toBeVisible();
+  await expect(page.getByText('No graphs yet')).toBeVisible();
 });
 
 test('creating a workflow selects it and shows the canvas', async ({ page }) => {
@@ -119,7 +119,7 @@ test('creating a workflow selects it and shows the canvas', async ({ page }) => 
   // `.first()`: the name also appears in the toolbar's "Edit workflow
   // details" trigger (Phase 95 Theme I) — see the duplicate test's identical
   // note below.
-  await expect(page.getByText('Untitled workflow').first()).toBeVisible();
+  await expect(page.getByText('Untitled graph').first()).toBeVisible();
   await expect(canvas(page)).toBeVisible();
 });
 
@@ -198,14 +198,14 @@ test('duplicates a workflow from the list context menu', async ({ page }) => {
   // *saved* copy of the workflow, not the canvas's in-progress edit.
   await expect(page.getByText('1 node', { exact: true })).toBeVisible();
 
-  await page.getByText('Untitled workflow').first().click({ button: 'right' });
+  await page.getByText('Untitled graph').first().click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Duplicate' }).click();
 
   // `.first()`: the same name now also appears in the toolbar's "Edit
   // workflow details" trigger (Phase 95 Theme I), which shows the open
   // workflow's own name — the list row is first in DOM order, same as the
   // pre-duplicate `.first()` a few lines up.
-  await expect(page.getByText('Untitled workflow (copy)').first()).toBeVisible();
+  await expect(page.getByText('Untitled graph (copy)').first()).toBeVisible();
   // The duplicate carries its own node, with a fresh id — not the original.
   await expect(page.locator('[data-node-id]')).toHaveCount(1);
 });
@@ -214,11 +214,11 @@ test('deletes a workflow from the list after the destructive confirm', async ({ 
   await open(page);
   await createWorkflow(page);
 
-  await page.getByText('Untitled workflow').first().click({ button: 'right' });
+  await page.getByText('Untitled graph').first().click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Delete' }).click();
   await page.getByRole('button', { name: 'Delete' }).click();
 
-  await expect(page.getByText('No workflows yet')).toBeVisible();
+  await expect(page.getByText('No graphs yet')).toBeVisible();
 });
 
 /**
@@ -252,8 +252,13 @@ test('deselecting every node closes the inspector', async ({ page }) => {
   await page.locator('[data-node-id]').first().click();
   await expect(page.getByLabel('URL')).toBeVisible();
 
+  await expect(page.getByTestId('workflow-inspector-panel')).toHaveAttribute('data-collapsed', 'false');
+
+  // Escape deselects, and the inspector — with nothing left to show —
+  // collapses to zero width.
   await canvas(page).press('Escape');
-  await expect(page.getByText('Select a node to configure it.')).toBeVisible();
+  await expect(page.getByTestId('workflow-inspector-panel')).toHaveAttribute('data-collapsed', 'true');
+  await expect(page.getByLabel('URL')).not.toBeInViewport();
 });
 
 /**
@@ -299,7 +304,7 @@ test('running a workflow, viewing it in history, and returning to editing', asyn
  * Only the assembled app (palette + keybindings + the registered handle) can
  * show this actually reaches the open workflow, not a mock of any one part.
  */
-test('the "Run Workflow" palette command runs the currently open workflow', async ({ page }) => {
+test('the "Run Graph" palette command runs the currently open workflow', async ({ page }) => {
   await open(page);
   await createWorkflow(page);
   await addNode(page, 'HTTP');
@@ -308,7 +313,7 @@ test('the "Run Workflow" palette command runs the currently open workflow', asyn
   await page.waitForTimeout(600);
 
   await page.keyboard.press('Meta+k');
-  await page.getByRole('combobox', { name: 'Command palette search' }).fill('run workflow');
+  await page.getByRole('combobox', { name: 'Command palette search' }).fill('run graph');
   await page.keyboard.press('Enter');
 
   await page.getByRole('button', { name: 'Run history' }).click();
@@ -405,4 +410,31 @@ test('panel-resize: dragging the run panel handle changes its height', async ({ 
   const after = await handle.boundingBox();
   if (!after) throw new Error('resize handle lost its bounding box after dragging');
   expect(after.y).not.toBeCloseTo(before.y, 0);
+});
+
+/**
+ * Side-panel collapse keeps the graph still (ad hoc, after Phase 97). Real
+ * browser only: the claim is about where a node card lands on screen while
+ * the palette's column animates from its width to zero and back — actual
+ * layout, `getBoundingClientRect()` and React Flow's viewport transform, all
+ * of which jsdom reports as zeros. The toggles' placement, ARIA state,
+ * zero-width styles and the auto-collapse rules are all vitest
+ * (`workflow-panel-toggles.test.tsx`, `use-inspector-collapse.test.tsx`).
+ */
+test('collapsing and expanding the node palette leaves the graph where it was on screen', async ({ page }) => {
+  await open(page);
+  await createWorkflow(page);
+  await addNode(page, 'HTTP');
+
+  const node = page.locator('[data-node-id]').first();
+  const palette = page.getByTestId('workflow-palette-panel');
+  const before = (await node.boundingBox())!.x;
+
+  await page.getByRole('button', { name: 'Hide node palette' }).click();
+  await expect.poll(async () => (await palette.boundingBox())?.width).toBe(0);
+  await expect.poll(async () => Math.round((await node.boundingBox())!.x - before)).toBe(0);
+
+  await page.getByRole('button', { name: 'Show node palette' }).click();
+  await expect.poll(async () => (await palette.boundingBox())?.width).toBeGreaterThan(0);
+  await expect.poll(async () => Math.round((await node.boundingBox())!.x - before)).toBe(0);
 });

@@ -53,6 +53,7 @@ vi.mock('./recorder', async () => {
   return {
     RecorderError: actual.RecorderError,
     recorderErrorMessage: actual.recorderErrorMessage,
+    micDeniedMessage: actual.micDeniedMessage,
     startRecording: () => recorder.startRecording(),
     stopRecording: () => recorder.stopRecording(),
     cancelRecording: () => recorder.cancelRecording(),
@@ -100,6 +101,7 @@ const installBridge = (
     implemented?: string[];
     encryptionAvailable?: boolean;
     localModel?: LocalModelStatus;
+    microphoneAccess?: string;
   } = {},
 ): void => {
   const {
@@ -107,12 +109,21 @@ const installBridge = (
     implemented = ['openai-whisper'],
     encryptionAvailable = true,
     localModel = { state: 'idle', reason: null, message: null },
+    microphoneAccess,
   } = options;
   (window as unknown as { midniteStudio: unknown }).midniteStudio = {
     companion: {
       sttStatus: fail
         ? vi.fn(() => Promise.reject(new Error('gone')))
-        : vi.fn(() => Promise.resolve({ configured, encryptionAvailable, implemented, localModel })),
+        : vi.fn(() =>
+            Promise.resolve({
+              configured,
+              encryptionAvailable,
+              implemented,
+              localModel,
+              ...(microphoneAccess === undefined ? {} : { microphoneAccess }),
+            }),
+          ),
     },
   };
 };
@@ -341,6 +352,42 @@ describe('push-to-talk', () => {
     expect(useCompanionStore.getState().state).toBe('idle');
   });
 
+  /*
+    A refusal is told apart by who refused. `getUserMedia`'s NotAllowedError is
+    the same whether macOS said no or main's own permission handler did, and the
+    second case once hid behind "allow it in System Settings" for weeks while
+    the switch there was already on.
+  */
+  it.each([
+    ['granted', 'refused its own request'],
+    ['denied', 'macOS has it turned off for Midnite Studio'],
+    ['restricted', 'a device policy restricts it'],
+    ['not-determined', 'permission was refused'],
+  ])("says who refused the microphone when macOS reports '%s'", async (microphoneAccess, expected) => {
+    installBridge([], { microphoneAccess });
+    const { RecorderError } = await import('./recorder');
+    recorder.startRecording.mockRejectedValueOnce(new RecorderError('denied', 'permission was refused.'));
+
+    companionPorts().micPressStart();
+    await settle();
+
+    const turns = useCompanionStore.getState().transcript;
+    expect(turns).toHaveLength(1);
+    expect(turns[0]?.text).toContain(expected);
+    expect(speaker.speak).toHaveBeenCalledExactlyOnceWith(turns[0]?.text);
+  });
+
+  it('falls back to the generic refusal when the verdict cannot be read', async () => {
+    installBridge([], { fail: true });
+    const { RecorderError } = await import('./recorder');
+    recorder.startRecording.mockRejectedValueOnce(new RecorderError('denied', 'permission was refused.'));
+
+    companionPorts().micPressStart();
+    await settle();
+
+    expect(useCompanionStore.getState().transcript[0]?.text).toContain('System Settings');
+  });
+
   it('reports a failed transcription rather than silently dropping it', async () => {
     const transcriptSink = vi.fn();
     setCompanionPorts({ transcriptSink });
@@ -377,6 +424,113 @@ describe('push-to-talk', () => {
     await settle();
     expect(useCompanionStore.getState().state).toBe('idle');
     expect(recorder.stopRecording).not.toHaveBeenCalled();
+  });
+});
+
+/*
+  The gap between a press and `getUserMedia` resolving. `isRecording()` is
+  false for all of it, and the first time it lasts as long as macOS's own
+  permission prompt — which blurs the window, which the composer treats as a
+  release. These pin that a release, a second press or an interrupt in that
+  gap leaves no capture running behind the user's back.
+*/
+describe('while the microphone is still opening', () => {
+  /** A `startRecording` the test resolves by hand, and marks recording when it does. */
+  const pendingStart = (): { open: () => Promise<void>; refuse: (error: Error) => Promise<void> } => {
+    let resolve: () => void = () => {};
+    let reject: (error: Error) => void = () => {};
+    recorder.startRecording.mockImplementationOnce(
+      () =>
+        new Promise<void>((res, rej) => {
+          resolve = res;
+          reject = rej;
+        }),
+    );
+    return {
+      open: async () => {
+        recorder.isRecording.mockReturnValue(true);
+        resolve();
+        await settle();
+      },
+      refuse: async (error) => {
+        reject(error);
+        await settle();
+      },
+    };
+  };
+
+  it('cancels a capture that opens after the button was already released', async () => {
+    const start = pendingStart();
+    companionPorts().micPressStart();
+    await settle();
+
+    companionPorts().micPressEnd();
+    await settle();
+    // Nothing was recording at release time, so nothing was stopped or sent.
+    expect(recorder.stopRecording).not.toHaveBeenCalled();
+
+    await start.open();
+    expect(recorder.cancelRecording).toHaveBeenCalledTimes(1);
+    expect(recorder.transcribe).not.toHaveBeenCalled();
+    expect(useCompanionStore.getState().state).toBe('idle');
+  });
+
+  it('keeps a capture that opens while the button is still held', async () => {
+    const start = pendingStart();
+    companionPorts().micPressStart();
+    await settle();
+
+    await start.open();
+    expect(recorder.cancelRecording).not.toHaveBeenCalled();
+    expect(useCompanionStore.getState().state).toBe('listening');
+  });
+
+  it('does not open a second capture for a press that lands during the first', async () => {
+    const start = pendingStart();
+    companionPorts().micPressStart();
+    await settle();
+    companionPorts().micPressStart();
+    await settle();
+
+    expect(recorder.startRecording).toHaveBeenCalledTimes(1);
+    await start.open();
+  });
+
+  it('cancels a capture that opens after an interrupt', async () => {
+    const start = pendingStart();
+    companionPorts().micPressStart();
+    await settle();
+
+    companionPorts().interrupt();
+    await start.open();
+    expect(recorder.cancelRecording).toHaveBeenCalledTimes(1);
+    expect(useCompanionStore.getState().state).toBe('idle');
+  });
+
+  it('treats a toggle-mode press during the wait as the stop press', async () => {
+    useUiStore.setState({ companionMicMode: 'toggle' });
+    const start = pendingStart();
+    companionPorts().micPressStart();
+    await settle();
+    companionPorts().micPressStart();
+    await settle();
+
+    await start.open();
+    expect(recorder.startRecording).toHaveBeenCalledTimes(1);
+    expect(recorder.cancelRecording).toHaveBeenCalledTimes(1);
+  });
+
+  it('still reports a refusal that arrives after the release', async () => {
+    const { RecorderError } = await import('./recorder');
+    const start = pendingStart();
+    companionPorts().micPressStart();
+    await settle();
+    companionPorts().micPressEnd();
+
+    await start.refuse(new RecorderError('denied', 'permission was refused.'));
+    await settle();
+    expect(useCompanionStore.getState().transcript[0]?.text).toContain('permission was refused');
+    expect(recorder.cancelRecording).not.toHaveBeenCalled();
   });
 });
 

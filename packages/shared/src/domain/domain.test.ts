@@ -8,6 +8,7 @@ import {
   conflict,
   failure,
   ok,
+  siblingWorktreePath,
 } from './index';
 
 /**
@@ -100,5 +101,12 @@ describe('schema defaults', () => {
         similarity: 101,
       }),
     ).toThrow();
+  });
+});
+
+describe('siblingWorktreePath', () => {
+  it('puts the worktree beside the repo, named for the branch', () => {
+    expect(siblingWorktreePath('/code/proj', 'proj', 'chat/fix-bug-abc123')).toBe('/code/proj-chat-fix-bug-abc123');
+    expect(siblingWorktreePath('/code/proj/', 'proj', 'main')).toBe('/code/proj-main');
   });
 });

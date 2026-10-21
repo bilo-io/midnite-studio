@@ -15,8 +15,7 @@ import type { Terminal } from '@xterm/xterm';
  * `1%7%` until a resize forced a full redraw.
  *
  * `term.unicode` is proposed API, so the terminal must be constructed with
- * `allowProposedApi: true`. Guarded for the same reason `disableSynchronizedOutput`
- * guards `term.parser`: test doubles do not carry it.
+ * `allowProposedApi: true`. Guarded because test doubles do not carry it.
  */
 export function enableUnicode11(term: Terminal): void {
   if (!term.unicode) return;

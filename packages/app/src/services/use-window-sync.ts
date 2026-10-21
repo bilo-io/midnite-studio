@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 
 import {
-  APP_IDS,
-  APP_ROLE,
+  WEB_APP_IDS,
+  WEB_APP_ROLE,
   PAGE_WINDOW_ROLES,
   type CompanionIntent,
   type PanelWindowRole,
@@ -11,7 +11,7 @@ import {
 
 import { bridge } from './bridge';
 import { handleCompanionRelayAction } from '../features/companion/navigate';
-import { useBrowserStore } from '../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useUiStore } from '../store/ui-store';
 
 const ROLES: readonly PanelWindowRole[] = ['terminal', 'repos', 'fab', 'companion', 'browser'];
@@ -82,11 +82,11 @@ export function useWindowSync(): void {
       }
       // Phase 83 Theme D: the three apps-rail roles, tracked as an array
       // like `detachedPages` rather than a fixed boolean per role — see
-      // `detachedApps`'s own doc for why. `present` already carries every
+      // `detachedWebApps`'s own doc for why. `present` already carries every
       // open window's role regardless of kind, so no separate resolution
       // step is needed here.
-      for (const id of APP_IDS) {
-        store.setAppDetached(id, present.has(APP_ROLE[id]));
+      for (const id of WEB_APP_IDS) {
+        store.setWebAppDetached(id, present.has(WEB_APP_ROLE[id]));
       }
     };
 

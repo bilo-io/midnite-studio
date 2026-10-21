@@ -226,6 +226,22 @@ describe('TerminalSessionList — the row icon wears the activity glow (Phase 95
     expect((glow as HTMLElement)?.style.getPropertyValue('--agent-accent')).toBe(claude.accent);
   });
 
+  it('the row mark is the shared AgentAvatar, in the agent’s brand colour', () => {
+    useTerminalStore.setState({ sessions: [agentSession('s1')], states: { s1: 'open' } });
+
+    const { container } = render(
+      <DialogHost>
+        <TerminalSessionList agents={[claude]} width={220} />
+      </DialogHost>,
+    );
+
+    const mark = container.querySelector(`[data-agent-avatar="${claude.id}"] svg`) as SVGElement;
+    const expected = document.createElement('span');
+    expected.style.color = claude.accent;
+    expect(mark.style.color).toBe(expected.style.color);
+    expect(mark.getAttribute('class')).toContain('size-3.5');
+  });
+
   it('a live plain shell row wears the metallic shell ring', () => {
     useTerminalStore.setState({ sessions: [shellSession('s1')], states: { s1: 'open' } });
 

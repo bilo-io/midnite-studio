@@ -1,21 +1,21 @@
 import { createElement } from 'react';
 
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { BranchStatus, StatusResult } from '@midnite/studio-shared';
 
 import { useAccountSwitcherStore } from '../../components/account-switcher-store';
+import { useSetupStore } from '../../features/setup/setup-store';
 import { DialogHost } from '../../components/dialog-host';
 import { ToastHost } from '../../components/toast-host';
-import { useSlidesStore } from '../../features/slides/slides-store';
+import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { useTerminalStore } from '../../features/terminal/terminal-store';
 import { keys } from '../queries';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useUiStore } from '../../store/ui-store';
-import { useWorkbenchStore } from '../../store/workbench-store';
-import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
+import { useWorkflowRunCommandStore } from '@midnite/studio-feature-workflows/renderer';
 import { useCommandHandlers } from './use-command-handlers';
 
 const BRANCH_CLEAN: BranchStatus = {
@@ -59,7 +59,6 @@ beforeEach(() => {
     terminalOpen: false,
     fabPanelOpen: false,
   });
-  useWorkbenchStore.setState({ tabs: [], activeTabId: null });
   useFileEditorStore.setState({
     target: null,
     content: '',
@@ -185,25 +184,41 @@ describe('useCommandHandlers — a repo is selected', () => {
     expect(result.current['view.refresh'].enabled).toBe(true);
   });
 
-  it('disables status.commit off the working tree, and enables it on it', () => {
-    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'graph' });
+  it('disables status.commit off the working tree, with a reason that says where it is', () => {
+    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'graph', graphSelection: null });
     const { result: offTree } = withProviders(seededClient({}));
     expect(offTree.current['status.commit'].enabled).toBe(false);
     expect(offTree.current['status.commit'].disabledReason).toBe(
-      'Switch to the working tree to commit',
+      'Open the working copy in the graph to commit',
     );
-
-    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'changes' });
-    useWorkbenchStore.setState({ activeTabId: null });
-    const { result: onTree } = withProviders(seededClient({}));
-    expect(onTree.current['status.commit'].enabled).toBe(true);
   });
 
-  it('disables status.commit when the Changes view is open on a non-working-tree tab', () => {
-    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'changes' });
-    useWorkbenchStore.setState({ activeTabId: 'some-tab' });
+  it('status.focus (Mod+2) opens the graph with the working-copy panel expanded', () => {
+    useUiStore.setState({ selectedRepoId: REPO_ID, activeView: 'files', graphSelection: null });
+    const before = useUiStore.getState().graphWorkingCopyReveal;
     const { result } = withProviders(seededClient({}));
-    expect(result.current['status.commit'].enabled).toBe(false);
+    act(() => result.current['status.focus'].run());
+    const state = useUiStore.getState();
+    expect(state.activeView).toBe('graph');
+    expect(state.graphSelection).toEqual({ kind: 'working-tree' });
+    // The reveal request is what `openWorkingCopyInGraph` alone bumps.
+    expect(state.graphWorkingCopyReveal).toBe(before + 1);
+  });
+
+  it("enables status.commit on the graph while its inline working-copy panel is open", () => {
+    useUiStore.setState({
+      selectedRepoId: REPO_ID,
+      activeView: 'graph',
+      graphSelection: { kind: 'working-tree' },
+    });
+    const { result: open } = withProviders(seededClient({}));
+    expect(open.current['status.commit'].enabled).toBe(true);
+
+    // A commit's panel is not a commit box.
+    useUiStore.setState({ graphSelection: { kind: 'commit', sha: 'abc' } });
+    const { result: commit } = withProviders(seededClient({}));
+    expect(commit.current['status.commit'].enabled).toBe(false);
+    useUiStore.setState({ graphSelection: null });
   });
 
   it('enables panel.back/forward on Councils and Projects, disabled everywhere else', () => {
@@ -219,7 +234,7 @@ describe('useCommandHandlers — a repo is selected', () => {
 
     // Phase 50 Theme D: the board's own card panel-stack joins Councils as a
     // registrant of `active-panel.ts`.
-    useUiStore.setState({ activeView: 'projects' });
+    useUiStore.setState({ activeView: 'tasks' });
     const { result: projects } = withProviders(seededClient({}));
     expect(projects.current['panel.back'].enabled).toBe(true);
     expect(projects.current['panel.forward'].enabled).toBe(true);
@@ -527,6 +542,18 @@ describe('useCommandHandlers — the reload pair', () => {
   it('is a no-op rather than a throw with no preload bridge', () => {
     const { result } = withProviders(new QueryClient());
     expect(() => result.current['app.reload'].run()).not.toThrow();
+  });
+});
+
+describe('useCommandHandlers — setup.open (Phase 98 Theme A)', () => {
+  it('asks the setup overlay to open at its intro', () => {
+    useSetupStore.setState({ requested: false, startPageId: 'forges' });
+    const { result } = withProviders(new QueryClient());
+    const command = result.current['setup.open'];
+    expect(command.enabled).toBe(true);
+    command.run();
+    expect(useSetupStore.getState()).toMatchObject({ requested: true, startPageId: null });
+    useSetupStore.setState({ requested: false, startPageId: null });
   });
 });
 

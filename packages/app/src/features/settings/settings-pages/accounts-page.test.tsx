@@ -1,23 +1,35 @@
 import type { ForgeAccount, MidniteStudioBridge, RepoDescriptor } from '@midnite/studio-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useAccountSwitcherStore } from '../../../components/account-switcher-store';
+import { DialogHost } from '../../../components/dialog-host';
 import { ToastHost } from '../../../components/toast-host';
+import { StudioProviders } from '../../../compose/studio-providers';
+import { INITIAL_SETUP_STATE } from '../../../store/setup-state';
 import { useUiStore } from '../../../store/ui-store';
-import { AccountsPage, PROVIDER_BRAND_COLOR, PROVIDER_ICON, PROVIDER_LABEL } from './accounts-page';
+import { useSetupStore } from '../../setup/setup-store';
+import { AccountsPage } from './accounts-page';
+import { PROVIDER_BRAND_COLOR, PROVIDER_ICON, PROVIDER_LABEL } from './forge-providers';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 // Wrapped in `<ToastHost>`: `useSwitchForgeAccount`'s own `onSuccess` (the
 // follow-up to Theme L that toasts what a switch hid) reaches `useToasts()`,
-// which throws "must be used inside <ToastHost>" on mount otherwise.
+// which throws "must be used inside <ToastHost>" on mount otherwise. And in Studio's providers under
+// `<DialogHost>`: the page's credential half (the add form, the remove button) is the vault feature's
+// since Phase 113 Theme J slice 3, lent Studio's forge kit through its port, and the remove confirms
+// through the frame chrome's dialogs.
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <ToastHost>{children}</ToastHost>
+      <ToastHost>
+        <DialogHost>
+          <StudioProviders>{children}</StudioProviders>
+        </DialogHost>
+      </ToastHost>
     </QueryClientProvider>
   );
 }
@@ -157,10 +169,13 @@ describe('AccountsPage', () => {
     expect((screen.getByPlaceholderText('paste a token') as HTMLInputElement).value).toBe('bad-token');
   });
 
-  it('calls remove when the trash button is clicked', async () => {
+  it('calls remove when the trash button is clicked and the confirm accepted', async () => {
     const { remove } = installBridge({ list: vi.fn().mockResolvedValue([gitlabAccount]) });
     render(<AccountsPage />, { wrapper: createWrapper() });
     fireEvent.click(await screen.findByLabelText('Remove The Octocat'));
+    const dialog = await screen.findByRole('dialog', { name: 'Remove The Octocat on gitlab.com?' });
+    expect(remove).not.toHaveBeenCalled();
+    await act(async () => fireEvent.click(within(dialog).getByRole('button', { name: 'Remove' })));
     await waitFor(() => expect(remove).toHaveBeenCalledWith({ id: gitlabAccount.id }));
   });
 
@@ -346,5 +361,25 @@ describe('AccountsPage', () => {
       await waitFor(() => expect(useUiStore.getState().forgeActiveAccountId).toBe(gitlabAccount.id));
       await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
     });
+  });
+});
+
+describe('AccountsPage — a forge page skipped during setup (Phase 98 Theme A)', () => {
+  afterEach(() => {
+    useUiStore.setState({ setupState: INITIAL_SETUP_STATE });
+    useSetupStore.setState({ requested: false, startPageId: null });
+  });
+
+  it('offers to resume setup at the skipped page, or to forget the skip', async () => {
+    installBridge();
+    useUiStore.setState({ setupState: { ...INITIAL_SETUP_STATE, skippedPageIds: ['forges'] } });
+    render(<AccountsPage />, { wrapper: createWrapper() });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Resume setup' }));
+    expect(useSetupStore.getState()).toMatchObject({ requested: true, startPageId: 'forges' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+    expect(useUiStore.getState().setupState.skippedPageIds).toEqual([]);
+    expect(screen.queryByRole('button', { name: 'Resume setup' })).toBeNull();
   });
 });

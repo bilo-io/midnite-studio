@@ -6,7 +6,8 @@ import { Popover } from './popover';
 import { PromptDialog } from './prompt-dialog';
 import { ToastHost, useToasts } from './toast-host';
 import { Tooltip } from './tooltip';
-import { MergeDialog } from '../features/reviews/merge-dialog';
+import { MergeDialog } from '@midnite/studio-feature-forge/renderer/testing';
+import { StudioProviders } from '../compose/studio-providers';
 import { StashPushDialog } from '../features/status/stash-push-dialog';
 import { useUiStore } from '../store/ui-store';
 
@@ -55,7 +56,12 @@ describe('blocking overlays register as occluders', () => {
   it('PromptDialog counts while mounted', () => {
     const { unmount } = render(
       <PromptDialog
-        request={{ title: 'New branch', label: 'Name', confirmLabel: 'Create', onConfirm: () => {} }}
+        request={{
+          title: 'New branch',
+          label: 'Name',
+          confirmLabel: 'Create',
+          onConfirm: () => {},
+        }}
         onCancel={() => {}}
       />,
     );
@@ -66,16 +72,18 @@ describe('blocking overlays register as occluders', () => {
 
   it('MergeDialog counts while mounted', () => {
     const { unmount } = render(
-      <MergeDialog
-        pullNumber={7}
-        title="Add the parser"
-        baseBranch="main"
-        detail={null}
-        pending={false}
-        error={null}
-        onCancel={() => {}}
-        onMerge={() => {}}
-      />,
+      <StudioProviders>
+        <MergeDialog
+          pullNumber={7}
+          title="Add the parser"
+          baseBranch="main"
+          detail={null}
+          pending={false}
+          error={null}
+          onCancel={() => {}}
+          onMerge={() => {}}
+        />
+      </StudioProviders>,
     );
     expect(useUiStore.getState().occluders).toBe(1);
     unmount();

@@ -25,8 +25,11 @@ const withSections = (nav: React.ReactNode) => (
   </>
 );
 
-const sectionLinks = () =>
+const navLinks = () =>
   Array.from(screen.getByRole('navigation', { name: 'Sections' }).querySelectorAll('a'));
+
+/** The section anchors, without the page links (`Apps`) that sit before them. */
+const sectionLinks = () => navLinks().filter((link) => link.getAttribute('href')?.includes('#'));
 
 const currentLinks = () =>
   sectionLinks().filter((link) => link.getAttribute('aria-current') === 'location');
@@ -49,17 +52,27 @@ describe('SiteNav', () => {
     );
   });
 
-  it('always offers Download, and links it to the download page', () => {
-    render(<SiteNav />);
-    expect(screen.getByRole('link', { name: 'Download' })).toHaveProperty(
-      'pathname',
-      '/download/',
-    );
+  it('links the Apps page first, and marks it current only on that page', () => {
+    const { unmount } = render(<SiteNav />);
+    expect(navLinks()[0]?.textContent).toBe('Apps');
+    expect(navLinks()[0]?.getAttribute('href')).toBe('/apps/');
+    expect(navLinks()[0]?.getAttribute('aria-current')).toBeNull();
+    unmount();
+
+    render(<SiteNav offLanding current="apps" />);
+    expect(screen.getByRole('link', { name: 'Apps' }).getAttribute('aria-current')).toBe('page');
   });
 
-  it('offers Pricing beside Download, linked to the pricing page', () => {
+  it('offers Get Access, and links it to the early access section', () => {
     render(<SiteNav />);
-    expect(screen.getByRole('link', { name: 'Pricing' })).toHaveProperty('pathname', '/pricing/');
+    const link = screen.getByRole('link', { name: 'Get Access' });
+    expect(link).toHaveProperty('hash', '#early-access');
+  });
+
+  it('does not offer links to the hidden pricing or download pages', () => {
+    render(<SiteNav />);
+    expect(screen.queryByRole('link', { name: 'Pricing' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Download' })).toBeNull();
   });
 
   it('marks nothing current before a section reaches the band', () => {
@@ -70,12 +83,12 @@ describe('SiteNav', () => {
   it('marks exactly one link current, and follows the section in view', () => {
     render(withSections(<SiteNav />));
 
-    latestObserver().emit([{ id: 'services', isIntersecting: true }]);
-    expect(currentLinks().map((link) => link.textContent)).toEqual(['Services']);
+    latestObserver().emit([{ id: 'launcher', isIntersecting: true }]);
+    expect(currentLinks().map((link) => link.textContent)).toEqual(['Launcher']);
     expect(sectionLinks().filter((link) => link.dataset.active === 'true')).toHaveLength(1);
 
     latestObserver().emit([
-      { id: 'services', isIntersecting: false },
+      { id: 'launcher', isIntersecting: false },
       { id: 'faq', isIntersecting: true },
     ]);
     expect(currentLinks().map((link) => link.textContent)).toEqual(['FAQ']);

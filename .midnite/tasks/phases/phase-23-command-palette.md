@@ -65,6 +65,26 @@ the palette owns no dispatch machinery of its own: it is a third caller into the
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*The keymap module had named "(later) a command palette" as dispatch source number three since Phase 9, and the registry could not feed one: it lives in `shared/src/keybindings.ts` (not the `commands.ts` path two docs linked to, which has never existed), and at the time `COMMAND_IDS` had fifteen entries against thirteen bindings with only nine ids carrying a handler. A fixed the registry, B lifted the handler map out of `app.tsx` into the dispatcher all three feeds share, C–D built the surface and the repo's first fuzzy matcher, E–G the sources, H the focus trap. **Refined x1 (2026-09-05):** the registry is now 394 lines / 57 commands / 42 chords with all 57 handled, and eleven later phases moved the chords under it — so the doc's framing prose is history and carries a correction block saying so. Three things were still owed: the `View ▸ Command Palette` menu item, the frecency nudge, and command grouping (`providers.ts:88` flattened all 57 commands into one `'Commands'` heading, so the `CommandGroup` field Theme A added to `shared` never reached the screen). All three landed [PR #266](https://github.com/bilo-io/midnite-studio/pull/266), 2026-09-07.* **[24 · The explorer learns to write](phase-24-writable-explorer.md)** (78% · 43/55) **and [23 · A command palette](phase-23-command-palette.md)** (76% · 42/55) are both closed as DONE with their remainders logged in [`outstanding.md`](../outstanding.md).
+
+**Theme A — The registry becomes palette-shaped.** ✅ reconcile the fifteen-ids/thirteen-bindings split, add a `group` union, add `palette.open` (`Mod+k`, global scope so it escapes the terminal) and `palette.files` (`Mod+p`), fix the phantom `commands.ts` links (landed 2026-08-28)
+
+**Theme B — `useCommandHandlers()` — one dispatcher, three feeds.** ✅ `useCommandHandlers(): CommandRuntime` with `enabled` + `disabledReason`, and the four cheap dead commands finally wired; `op.*` left to Phase 22 (landed 2026-08-28)
+
+**Theme C — The surface.** ✅ `palette.tsx` + `palette-host.tsx` on the `dialog-host.tsx` shape, a deliberately unpersisted `palette-store.ts`, `z-dialog`, and the capture-phase short-circuit that stops `Mod+g` firing out from under the input (landed 2026-08-28). **Reopened at x1, landed PR #266 (2026-09-07):** the `View ▸ Command Palette…` native menu item, with no Electron accelerator (`palette.open` is `scope: 'global'` already).
+
+**Theme D — `fuzzy-match.ts`.** ✅ `fuzzy-match.ts` returning `{score, indices}`, the renderer's first matched-character highlighting, and one `SOURCE_WEIGHTS` table so a repo name cannot bury a command (landed 2026-08-28). **Reopened at x1, landed PR #266 (2026-09-07):** the ranking item's third clause, the frecency nudge — its own persisted `services/palette/frecency-store.ts`, capped at 50 keys, a bounded (≤1.25) multiplier applied after `SOURCE_WEIGHTS`.
+
+**Theme E — Navigation providers.** ✅ the source-provider seam plus commands, views, settings pages, repos, worktrees, sessions and agents, all seven in one `services/palette/providers.ts` (there is no `sources/` directory); `VIEW_ICON`/`PAGE_ICON` reused rather than a third icon map (landed 2026-08-28). The seam has since taken four more sources from Phases 40, 43, 55 and 64 with no palette change. **Reopened at x1, landed PR #266 (2026-09-07):** the command source now groups by `CommandGroup` (via `groupCommands()`) instead of discarding it into one flat `'Commands'` heading; the flat list is kept once a needle is typed, so grouping can no longer fight the cross-source ranking.
+
+**Theme F — The refs source, and the safe-writes line.** ✅ branches and tags with two actions only (checkout, reveal in graph) behind an exported `PALETTE_SAFE` allowlist with a test asserting no destructive id gets in (landed 2026-08-28, merged locally — no PR/no remote; recovered from an interrupted session).
+
+**Theme G — The file finder.** ✅ the file finder: `mstudio:fs:list-files` over `git ls-files -z --exclude-standard`, a tip-sha-keyed index with an honest truncation notice, opening into the Phase 16 preview pane (landed 2026-08-28, merged locally — no PR/no remote; recovered from an interrupted session).
+
+**Theme H — The focus trap, retrofitted.** ✅ `use-focus-trap.ts` extracted from `popover.tsx`, the only working trap in the repo, and retrofitted onto `ConfirmDialog` and `PromptDialog`, which had none (landed 2026-08-28, merged locally — no PR/no remote; recovered from an interrupted session). Phase 68 later moved focus restoration inside the hook and deleted the palette's own copy. All eight themes A–H landed; refinement x1 reopened three items inside C, D and E, all three landed [PR #266](https://github.com/bilo-io/midnite-studio/pull/266) (2026-09-07). Phase 23's remaining scope is `## Verification`'s human passes only.
+
 ## Deliverables
 
 ### A — The registry becomes palette-shaped (S) ✅ DONE (landed 2026-08-28)

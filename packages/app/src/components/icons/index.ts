@@ -1,4 +1,4 @@
-import type { AppId } from '@midnite/studio-shared';
+import type { WebAppId } from '@midnite/studio-shared';
 import { LuTerminal } from 'react-icons/lu';
 import {
   SiAnthropic,
@@ -124,13 +124,13 @@ export {
  * placeholders; now the real multi-colour marks as local SVG components,
  * following the same pattern as `ClaudeIcon`/`CodexIcon`/`AntigravityIcon` —
  * see each icon's own file for its provenance note. A separate map from
- * `AGENT_ICONS`: these three key by `AppId`, not by an agent's roster key, and
+ * `AGENT_ICONS`: these three key by `WebAppId`, not by an agent's roster key, and
  * mixing the two domains into one lookup would make `resolveAgentIcon`'s
  * fallback rule ("an unrecognised key becomes `LuTerminal`") apply to app ids
  * too, which is not a thing that should ever happen — the app rail's three
  * ids are a closed, exhaustively-typed union, never user text.
  */
-export const APP_ICON: Readonly<Record<AppId, IconComponent>> = {
+export const APP_ICON: Readonly<Record<WebAppId, IconComponent>> = {
   spotify: SpotifyIcon,
   'google-calendar': GoogleCalendarIcon,
   youtube: YoutubeIcon,

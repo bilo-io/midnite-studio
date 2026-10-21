@@ -3,10 +3,12 @@ import {
   COMPANION_RECORDER_TIMESLICE_MS,
   failure,
   type GitOpResult,
+  type MicrophoneAccess,
   type SttProviderId,
 } from '@midnite/studio-shared';
 
 import { bridge } from '../../services/bridge';
+import { useUiStore } from '../../store/ui-store';
 
 /**
  * Voice-in: capture here, recognition in main (Phase 79 Theme F).
@@ -64,6 +66,29 @@ export function recorderErrorMessage(kind: RecorderErrorKind): string {
     case 'failed':
     default:
       return 'The recording failed. Try again.';
+  }
+}
+
+/**
+ * `'denied'`, told apart by who refused.
+ *
+ * `getUserMedia` throws the same `NotAllowedError` whether macOS refused or
+ * main's own permission handler did, so `recorderErrorMessage('denied')` can
+ * only guess — and it guesses System Settings. When main's permission handler
+ * misread the app's origin, that sent every user to a switch that was already
+ * on. `access` is macOS's own verdict, read from main after the refusal;
+ * `undefined` (an older bridge) keeps the generic sentence.
+ */
+export function micDeniedMessage(access: MicrophoneAccess | undefined): string {
+  switch (access) {
+    case 'granted':
+      return 'I could not use the microphone. macOS allows it, but Midnite Studio refused its own request — that is a bug in the app, not a setting you need to change.';
+    case 'denied':
+      return 'I could not use the microphone — macOS has it turned off for Midnite Studio. Turn it on in System Settings, Privacy & Security, Microphone, then quit and reopen Midnite Studio.';
+    case 'restricted':
+      return 'I could not use the microphone — a device policy restricts it on this Mac. Type instead, and the rest still works.';
+    default:
+      return recorderErrorMessage('denied');
   }
 }
 
@@ -313,7 +338,13 @@ export const stopRecording = (): Promise<Blob> => companionRecorder.stopRecordin
 export const cancelRecording = (): void => companionRecorder.cancelRecording();
 export const isRecording = (): boolean => companionRecorder.isRecording();
 export const getActiveStream = (): MediaStream | null => companionRecorder.getStream();
+/**
+ * Transcribe with the provider Settings ▸ Companion ▸ Microphone pinned
+ * (`companionSttProvider`, Phase 109 Theme B), read at the moment of the call
+ * so a change applies to the very next phrase. `null` — automatic — sends no
+ * `providerId` at all, which is main's `resolveProviderId` path unchanged.
+ */
 export const transcribe = (
   blob: Blob,
-  providerId?: SttProviderId,
+  providerId: SttProviderId | undefined = useUiStore.getState().companionSttProvider ?? undefined,
 ): Promise<GitOpResult<{ text: string }>> => companionRecorder.transcribe(blob, providerId);

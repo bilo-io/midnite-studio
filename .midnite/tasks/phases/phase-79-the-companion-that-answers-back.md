@@ -99,6 +99,26 @@ a provider, which is Theme F's whole shape.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Every agent surface in this app is a terminal you type into, and the status-bar assistant popover is still a placeholder string. This phase adds a companion that talks: grounded by the MCP tools called in-process, routed to the agent CLI the app already launches, timed off the pty activity signal, and voiced by the OS. No new inference path, no MCP client, no audio assets, default off.* (63% · 42/67, [PR #269](https://github.com/bilo-io/midnite-studio/pull/269), [PR #270](https://github.com/bilo-io/midnite-studio/pull/270), [PR #272](https://github.com/bilo-io/midnite-studio/pull/272)) — **Themes A, B, C, F, G and H landed (2026-09-08); D and E open.** A chat thread in its own resizable panel left of the Loops panel, with a mic and a send button, that greets you, reads out where the repo stands, hands your request to a real agent session and reads the answer back. Deliberately *not* a new inference path: the concierge script is deterministic, grounding comes from the Phase 57 MCP tools called in-process (no client), and the thinking is the installed agent CLI — in a visible pty via the existing skill hand-off, or headlessly via `runProcess` for intent fallback and the spoken summary. Default off; typed-not-sent unless hands-free is opted into.
+
+**Theme A — Companion state and the phrase banks.** ✅ Companion state machine + phrase banks (greetings, sign-offs, fillers, unattributed quotes) as pure data in `shared`; a no-repeat picker; settings in `ui-store`. ([PR #269](https://github.com/bilo-io/midnite-studio/pull/269))
+
+**Theme B — Grounding: the snapshot and the digest.** ✅ Grounding: `companion:snapshot` and `companion:digest` channels composed from `dispatchMcpCall` + the pty registry + the tracker files; a pure `summariseDigest`. ([PR #269](https://github.com/bilo-io/midnite-studio/pull/269)) Snapshot + landed/in-progress digest channels.
+
+**Theme C — The panel.** ✅ The panel: a sibling right-docked resizable column left of Loops, a `PanelStack` thread, a docked textarea with mic + send, a `C` leaf in the quick-access menu, chord-free `companion.toggle`. ([PR #270](https://github.com/bilo-io/midnite-studio/pull/270))
+
+**Theme D — The concierge flow.** ✅ The concierge flow: greeting → static overview → "switch repo?" (only with >1) → digest → open prompt; deterministic, interruptible, replayed if cut short — the mark moves in a second, marked read *after* the digest is spoken. ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271))
+
+**Theme E — Hand-off and read-back.** ✅ Hand-off + read-back: `parseIntent` grammar over a `COMPANION_COMMAND_IDS` subset (no loops, no release ops), `skillHandoff`, a headless `companion:ask` via `runProcess` + the new `agentHeadlessArgs`, loading ends on a `waiting`/`idle` *after* a `thinking`, `cleanPtyText` + spoken summary with the full text in the thread. ([PR #271](https://github.com/bilo-io/midnite-studio/pull/271)) Intent grammar, hand-off, pty-activity-driven loading exit, ANSI-stripped read-back.
+
+**Theme F — Voice.** ✅ Voice: `speechSynthesis` queue with word-boundary events; `MediaRecorder` push-to-talk; STT provider seam in main with the key in `safeStorage`; audio-only `media` permission for the app origin only. ([PR #272](https://github.com/bilo-io/midnite-studio/pull/272)) TTS via `speechSynthesis` (free) and STT behind a provider seam with the key in `safeStorage` and an audio-only permission carve-out (Chromium's recogniser is dead in Electron).
+
+**Theme G — The loading personality.** ✅ Loading personality: fillers after 6 s, WebAudio whistle melodies and an elevator loop, a music offer at 20 s; everything stops on any user action; `AudioContext` suspended when idle. ([PR #272](https://github.com/bilo-io/midnite-studio/pull/272))
+
+**Theme H — FAB choreography, the popover, and Settings.** ✅ FAB choreography (`data-companion-state`: listening / thinking / handoff / speaking, reduced-motion statics), the assistant popover as a mini transcript, Settings ▸ Companion, one Playwright spec. ([PR #270](https://github.com/bilo-io/midnite-studio/pull/270)) Four `data-companion-state` looks on the FAB, the blank assistant popover becomes a mini transcript, Settings ▸ Companion.
+
 ## Deliverables
 
 ### A — Companion state and the phrase banks (S) — ✅ DONE (PR #269, 2026-09-08)

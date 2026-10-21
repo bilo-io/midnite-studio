@@ -5,6 +5,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig } from 'vite';
 
 import { midniteCspPlugin } from './vite-csp-plugin';
+import { studioEntryPlugin } from './vite-studio-entry-plugin';
 import {
   undeclaredWriteGuardPlugin,
   xtermDecrqmFixPlugin,
@@ -31,6 +32,8 @@ export default defineConfig({
     */
     xtermDecrqmFixPlugin(),
     midniteCspPlugin(),
+    // Dev only: serves index.html's apps/studio entry by its /@fs/ URL.
+    studioEntryPlugin(),
     react(),
     ...(bundleStats
       ? [visualizer({ filename: 'dist/stats.html', gzipSize: true, brotliSize: true })]
@@ -60,6 +63,13 @@ export default defineConfig({
        * stale dist. `shared` is zod-only, so nothing here reaches for Node.
        */
       '@midnite/studio-shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),
+      /**
+       * Studio's renderer root, for the entry that mounts it (Phase 113 Theme
+       * G): `index.html` loads `apps/studio/entry/renderer.ts`, which imports
+       * this package's shell by name. apps/studio's typecheck maps the same
+       * specifier to `src/boot-contract.ts`.
+       */
+      '@midnite/studio-app/boot': fileURLToPath(new URL('./src/boot.tsx', import.meta.url)),
     },
   },
 
@@ -111,5 +121,19 @@ export default defineConfig({
      * entry-chunk absence assertions will read it too.
      */
     manifest: true,
+    /**
+     * Explicit, not defaulted (Phase 91 Theme D). Vite's default is already `'esbuild'`, so this
+     * changes nothing today and stops a future default change doing so silently. This is *not*
+     * obfuscation: the bundle is read from the asar in minutes by anyone with a prettifier — it buys
+     * bytes, nothing more. What must stay secret stays out of the renderer entirely.
+     * The renderer only ever runs in the one bundled Chromium, so `chrome130` over the looser default.
+     */
+    minify: 'esbuild',
+    target: 'chrome130',
+  },
+  esbuild: {
+    legalComments: 'none',
+    // Not `console`: the log seam is the support path and the diagnostics bundle reads it.
+    drop: ['debugger'],
   },
 });

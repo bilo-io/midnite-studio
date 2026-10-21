@@ -124,7 +124,7 @@ async function openWorkflows(page: Page, data: MockFixtures): Promise<void> {
   // the race here.
   await expect(async () => {
     await page.getByRole('link', { name: 'Workflows', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible({ timeout: 500 });
+    await expect(page.getByRole('button', { name: 'New graph' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
 
   await settle(page, SETTLE_MS);
@@ -136,7 +136,7 @@ test.describe('workflows screenshots', () => {
 
   test('the empty list', async ({ page }) => {
     await openWorkflows(page, { ...fixtures, appWorkflows: [] });
-    await page.getByText('No workflows yet').waitFor();
+    await page.getByText('No graphs yet').waitFor();
     await page.screenshot({ path: shotPath(OUT, 'workflows-empty.png') });
   });
 

@@ -35,6 +35,9 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   // Opens the account switcher's menu (Phase 90 Theme L) — opening a menu is
   // recoverable by definition; the switch itself is a row the user picks.
   'account.switcher.open',
+  // Opens the setup overlay (Phase 98 Theme A). Every install it offers runs
+  // in a visible terminal the user drives, so opening it changes nothing.
+  'setup.open',
   // Opens a browser tab on a port already listening on loopback. Navigation
   // only, and the same class as `browser.toggle` above.
   'browser.openDevServer',
@@ -82,6 +85,9 @@ export const PALETTE_SAFE: readonly CommandId[] = [
   // recoverability class as `account.switcher.open`'s "opening a menu is
   // recoverable by definition" above (Phase 95 Theme H).
   'automate.kill',
+  // Opens the report-an-issue dialog. Nothing leaves the app until its own Submit, Continue on
+  // GitHub or Copy report — the same "opening a modal is recoverable" class as `automate.kill`.
+  'app.reportIssue',
 ] as const;
 
 export function isPaletteSafe(id: CommandId): boolean {
@@ -105,6 +111,7 @@ const ID_DISPATCH_OK = new Set<CommandId>([
   'terminal.new',
   'terminal.close',
   'terminal.toggleHalfMaximized',
+  'terminal.toggleDock',
   'browser.newTab',
   'browser.closeTab',
   'browser.nextTab',
@@ -155,6 +162,7 @@ const ID_DISPATCH_OK = new Set<CommandId>([
 export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'terminal.toggle': 'direct',
   'terminal.toggleHalfMaximized': 'direct',
+  'terminal.toggleDock': 'direct',
   'terminal.focus': 'direct',
   'terminal.new': 'direct',
   'terminal.close': 'confirm',
@@ -166,6 +174,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'companion.toggle': 'never',
   'link.toggleTarget': 'direct',
   'account.switcher.open': 'direct',
+  'setup.open': 'direct',
   'browser.openDevServer': 'direct',
   'activity.toggle': 'direct',
   'browser.newTab': 'direct',
@@ -202,6 +211,8 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'app.hardReload': 'confirm',
   'app.lock': 'confirm',
   'app.screensaver': 'direct',
+  // Opens the dialog only; filing is the user's own click in it.
+  'app.reportIssue': 'direct',
   // See the docblock above: a deliberate `never`, not Decision 5's `direct`.
   'view.graph': 'never',
   'graph.focus': 'direct',
@@ -229,8 +240,17 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'markdown.presentAsSlides': 'direct',
   'workflow.run': 'confirm',
   // See the docblock above.
+  'view.media': 'never',
   'view.video': 'never',
+  'media.tab.doc': 'never',
+  'media.tab.image': 'never',
+  'media.tab.video': 'never',
+  'media.tab.audio': 'never',
+  'media.tab.model': 'never',
+  'media.audio.editor': 'never',
+  'media.audio.generator': 'never',
   'view.models': 'never',
+  'view.chats': 'never',
   'view.apiClient': 'never',
   'theme.select': 'direct',
   'theme.import': 'direct',

@@ -6,7 +6,7 @@ function auxClick(button: number) {
 }
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useBrowserStore } from '../../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useReviewsStore } from '../../store/reviews-store';
 import { useUiStore } from '../../store/ui-store';
 import { forgeRegistryKey, useRepoForgeRegistry } from '../../services/repo-forge-registry';

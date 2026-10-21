@@ -1,0 +1,50 @@
+import { useRef } from 'react';
+
+import { useAutoFocus, useSlidesHost } from './host';
+import { Deck } from './deck';
+import { parseDeck } from './deck-parser';
+import { useSlidesStore } from './slides-store';
+
+/**
+ * The fullscreen host, mounted once from `app.tsx` beside `<DialogHost>` —
+ * the `fixed inset-0 z-dialog` convention already shared by `confirm-dialog.tsx`
+ * / `prompt-dialog.tsx` / `merge-dialog.tsx`. Deliberately not folded into
+ * `DialogHost` itself: that host arbitrates "only one of confirm/prompt/menu
+ * open at a time," and a fullscreen deck is a different shape than any of the
+ * three it already juggles.
+ *
+ * Reparses the source on every open rather than caching a `Deck` in the store
+ * — this is a viewer, not an editor, and a deck is cheap enough to build that
+ * memoizing it would only be a cache to keep correct for no real cost saved.
+ *
+ * No `useOccluder` call here: `Deck` (rendered below, only while `source` is
+ * non-null) already carries `useDismiss(true, onClose, { layer: 'inline' })`
+ * from Phase 62, whose `blocking` default is what registers the occluder. A
+ * second registration here double-counted it — `occluders` read 2 while open
+ * instead of 1 — caught by `occluder-coverage.test.tsx`'s exact-count
+ * assertion. Same pattern as `confirm-dialog` / `palette` / `merge-dialog` /
+ * `stash-push-dialog`, which also rely on `useDismiss` rather than a second,
+ * explicit `useOccluder`.
+ */
+export function SlidesModal() {
+  const source = useSlidesStore((state) => state.deck);
+  const close = useSlidesStore((state) => state.close);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { useFocusTrap = useAutoFocus } = useSlidesHost();
+  useFocusTrap(containerRef, source !== null);
+
+  if (source === null) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label={source.label ? `Presenting ${source.label}` : 'Presenting'}
+      className="fixed inset-0 z-dialog bg-background"
+    >
+      <Deck deck={parseDeck(source.content)} onClose={close} />
+    </div>
+  );
+}

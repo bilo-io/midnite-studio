@@ -12,7 +12,8 @@ vi.mock('./release-notes', () => ({
   useReleaseNotes: () => ({ data: { version: '0.3.1', notes: null, error: null }, isLoading: false }),
 }));
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ report: { bundle: mocks.bundle } }),
 }));
 
@@ -40,7 +41,7 @@ afterEach(() => {
  * Phase 93 Theme C — the release-notes panel's own "Report a bug" copy
  * (Phase 65 Theme E) now opens the same in-app composer
  * `monitor-page.tsx`'s does, rather than calling `openExternal` on the bare
- * `NEW_ISSUE_URL` directly.
+ * new-issue URL directly.
  */
 describe('VersionNotesPanel — Report a bug', () => {
   it('opens the composer rather than navigating out immediately', async () => {
@@ -52,14 +53,16 @@ describe('VersionNotesPanel — Report a bug', () => {
     expect(mocks.openExternal).not.toHaveBeenCalled();
   });
 
-  it("the dialog's own fallback still reaches the pre-labelled new-issue URL", async () => {
+  it("the dialog's own fallback still reaches midnite-apps' prefilled issue form", async () => {
     render(<VersionNotesPanel version="0.3.1" />);
 
     fireEvent.click(screen.getByText('Report a bug'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Open in browser instead' }));
+    const proceed = await screen.findByRole('button', { name: 'Continue on GitHub' });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It broke.' } });
+    fireEvent.click(proceed);
 
     expect(mocks.openExternal).toHaveBeenCalledWith(
-      expect.stringContaining('midnite-apps/issues/new'),
+      expect.stringContaining('midnite-apps/issues/new?template=bug.yml'),
     );
   });
 });

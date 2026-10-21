@@ -1,0 +1,18 @@
+/* Design tokens (HSL custom properties + the `.dark` block) from @bilo-io/ui, the same
+ * token source Studio uses, so the monitor feature wears identical colours here. */
+@import '@bilo-io/ui/styles';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Monitor's accent — the launcher catalog's `monitor` tile colour. */
+  --monitor-accent: #ef4444;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}

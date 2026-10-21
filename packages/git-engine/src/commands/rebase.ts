@@ -6,6 +6,9 @@ import { writeQueue } from '../exec/write-queue';
 import { conflictedPaths } from './status';
 import { createRebaseSequenceManifest, formatRebaseTodo } from '../exec/rebase-editor';
 
+/** The sequence-editor helper. Constant by construction; a test asserts byte equality. */
+export const REBASE_EDITOR_SCRIPT = '#!/bin/sh\nexec cat "$MIDNITE_REBASE_TODO" > "$1"\n';
+
 /**
  * Start an interactive rebase with a sequence plan.
  */
@@ -26,27 +29,23 @@ export async function startInteractiveRebase(
       // Save plan to .git/midnite-rebase-plan.json
       createRebaseSequenceManifest(dotGitPath, plan);
 
-      // Create a wrapper helper sequence editor script or inline node command
-      const todoContent = formatRebaseTodo(plan.entries);
+      // The helper script is a CONSTANT: zero caller-derived bytes. The plan lives in its
+      // own 0600 file whose path travels through the env (Phase 91 Theme A).
+      const todoPath = path.join(dotGitPath, 'midnite-rebase-todo');
       const helperScriptPath = path.join(dotGitPath, 'midnite-seq-editor.sh');
-      
-      // Write todoContent directly to sequence file when git editor is invoked
-      fs.writeFileSync(
-        helperScriptPath,
-        `#!/bin/sh\ncat << 'EOF' > "$1"\n${todoContent}EOF\n`,
-        { mode: 0o755 },
-      );
+      fs.writeFileSync(todoPath, formatRebaseTodo(plan.entries), { mode: 0o600 });
+      fs.writeFileSync(helperScriptPath, REBASE_EDITOR_SCRIPT, { mode: 0o700 });
 
-      const env = {
-        ...process.env,
-        GIT_SEQUENCE_EDITOR: helperScriptPath,
-      };
-
-      const result = await execGit(
-        repoPath,
-        ['rebase', '-i', targetRef],
-        { env, write: true },
-      );
+      let result;
+      try {
+        result = await execGit(repoPath, ['rebase', '-i', targetRef], {
+          env: { GIT_SEQUENCE_EDITOR: helperScriptPath, MIDNITE_REBASE_TODO: todoPath },
+          write: true,
+        });
+      } finally {
+        fs.rmSync(helperScriptPath, { force: true });
+        fs.rmSync(todoPath, { force: true });
+      }
 
       if (result.exitCode !== 0) {
         if (result.stderr.includes('CONFLICT') || result.stdout.includes('CONFLICT')) {
@@ -87,7 +86,7 @@ export async function continueRebase(
     try {
       const result = await execGit(repoPath, ['rebase', '--continue'], {
         write: true,
-        env: { ...process.env, GIT_EDITOR: 'true' },
+        env: { GIT_EDITOR: 'true' },
       });
       if (result.exitCode !== 0) {
         if (result.stderr.includes('CONFLICT') || result.stdout.includes('CONFLICT')) {

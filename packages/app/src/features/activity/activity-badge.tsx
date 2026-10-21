@@ -1,8 +1,7 @@
-import { LuSquareTerminal } from 'react-icons/lu';
-
-import { resolveAgentIcon } from '../../components/icons';
+import { AgentAvatar } from '../../components/agent-avatar';
 import { Tooltip } from '../../components/tooltip';
 import { revealSession } from '../terminal/reveal-session';
+import { useAgents } from '../terminal/use-agents';
 import type { ActivityGlowBadge } from './use-activity-glow';
 
 /** Past this many live sessions on one target, the rest collapse into a `+N` chip. */
@@ -53,7 +52,16 @@ export function ActivityBadgeStack({
 }
 
 function ActivityBadgeIcon({ badge }: { badge: ActivityGlowBadge }) {
-  const Icon = badge.kind === 'shell' ? LuSquareTerminal : resolveAgentIcon({ id: badge.agentId ?? 'claude' });
+  // The terminal list's own avatar, not a look-alike: the same component, the
+  // same roster lookup for the brand colour (`AgentDefinition.accent`), so a
+  // card, a graph node and a list row show exactly what the session's row in
+  // the terminal list shows. An id the roster does not know keeps its mark
+  // and falls back to the default agent colour, as the terminal list does.
+  const { agents } = useAgents();
+  const agent =
+    badge.kind === 'shell'
+      ? undefined
+      : (agents.find((a) => a.id === badge.agentId) ?? { id: badge.agentId ?? 'claude' });
 
   return (
     <Tooltip label={badge.label}>
@@ -69,9 +77,9 @@ function ActivityBadgeIcon({ badge }: { badge: ActivityGlowBadge }) {
           event.stopPropagation();
           revealSession(badge.sessionId);
         }}
-        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-background bg-background text-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="flex shrink-0 items-center justify-center rounded-full bg-background outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
-        <Icon aria-hidden className="h-2.5 w-2.5 shrink-0" />
+        <AgentAvatar agent={agent} live activityStatus={badge.status} />
       </button>
     </Tooltip>
   );

@@ -1,8 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
-import { setTheme, settle, shotPath } from './shots-helper';
+import { installMockBridge, type MockFixtures, setTheme, settle, shotPath } from './shots-helper';
 
 /**
  * The rail's Councils row wearing Lucide's `circle-pile` in place of `LuUsers`.

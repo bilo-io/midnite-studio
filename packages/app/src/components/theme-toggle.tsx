@@ -5,7 +5,7 @@ import { useTheme, type ThemePreference } from '@bilo-io/ui/theme';
 import type { IconType } from 'react-icons';
 import { LuCheck, LuClock, LuMonitor, LuMoon, LuSun } from 'react-icons/lu';
 
-import { useDismiss } from './use-dismiss';
+import { useDismissable } from './use-dismissable';
 
 /**
  * The light/dark/system/time switch, in the title bar's right cluster.
@@ -32,7 +32,7 @@ const OPTIONS: readonly Option[] = [
   { value: 'time', label: 'Time of day', Icon: LuClock },
 ];
 
-export function ThemeToggle() {
+export function ThemeToggle({ elevated = false }: { elevated?: boolean } = {}) {
   const { preference, resolved, setPreference } = useTheme();
   const [open, setOpen] = useState(false);
   const [placed, setPlaced] = useState({ x: 0, y: 0 });
@@ -57,26 +57,31 @@ export function ThemeToggle() {
     });
   }, [open]);
 
-  // Escape through the shared dismissal stack (Phase 62), at `menu` — the same
-  // layer <ContextMenu> takes, because this is the same kind of surface.
-  useDismiss(open, () => setOpen(false), { layer: 'menu' });
+  // Every dismissal rule — Escape (focus back to the trigger), an outside
+  // `pointerdown`, focus leaving, Tab, the window losing focus — through
+  // `useDismissable`, at `menu`: the same layer <ContextMenu> takes, because
+  // this is the same kind of surface. The trigger counts as inside, so its
+  // own click toggles the menu shut.
+  //
+  // `elevated` is for a trigger that lives INSIDE a `z-dialog` surface (the
+  // setup overlay, Phase 98): a `z-menu` menu would paint under the dialog that
+  // holds its own trigger, and a `menu`-layer Escape would close that dialog
+  // instead of the menu. At `dialog`, the later registration wins the tie.
+  useDismissable({
+    open,
+    surfaceRef: menuRef,
+    trigger: triggerRef,
+    layer: elevated ? 'dialog' : 'menu',
+    tab: 'close',
+    windowBlur: true,
+    onDismiss: () => setOpen(false),
+  });
 
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
-      setOpen(false);
-    };
     const close = () => setOpen(false);
-    // `capture`, matching <ContextMenu>: the click still reaches the option's
-    // own handler, but a click anywhere else closes the menu first.
-    window.addEventListener('mousedown', onPointerDown, true);
     window.addEventListener('resize', close);
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown, true);
-      window.removeEventListener('resize', close);
-    };
+    return () => window.removeEventListener('resize', close);
   }, [open]);
 
   // The trigger shows what you are LOOKING at, not what you picked: under
@@ -111,7 +116,7 @@ export function ThemeToggle() {
               ref={menuRef}
               role="menu"
               aria-label="Theme"
-              className="fixed z-menu min-w-[10rem] animate-fade-in gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg"
+              className={`fixed ${elevated ? 'z-dialog' : 'z-menu'} min-w-[10rem] animate-fade-in gradient-border gradient-border--always rounded-md border border-border bg-popover py-1 text-sm text-popover-foreground shadow-lg`}
               style={{ left: placed.x, top: placed.y }}
             >
               {OPTIONS.map(({ value, label, Icon }) => (

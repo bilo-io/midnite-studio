@@ -2,7 +2,7 @@
  * Content-Security-Policy for the app's own renderer documents.
  *
  * Installed on `session.defaultSession` only — the `persist:browser` partition
- * keeps its own policy in `browser-security.ts`. Pure builders here so
+ * keeps its own policy in the browser feature's `main/browser-security.ts`. Pure builders here so
  * `csp.test.ts` and the Vite dev-server middleware can share one string.
  */
 
@@ -30,6 +30,7 @@ export function buildCsp(opts: CspBuildOptions): string {
   const connectSrc = [
     "'self'",
     'mstudio-file:',
+    'mstudio-tile:',
     'https://api.open-meteo.com',
     'https://geocoding-api.open-meteo.com',
     'https://ipwho.is',
@@ -45,7 +46,7 @@ export function buildCsp(opts: CspBuildOptions): string {
     "default-src 'self'",
     `script-src ${scriptSrc.join(' ')}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: mstudio-file: https:",
+    "img-src 'self' data: blob: mstudio-file: mstudio-tile: https:",
     "media-src 'self' blob: mstudio-file:",
     "font-src 'self' data:",
     "worker-src 'self' blob: data:",

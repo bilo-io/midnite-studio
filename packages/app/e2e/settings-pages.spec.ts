@@ -157,7 +157,7 @@ test('the side-navigation lock lives on the Sidebar page, and locked closed mean
  * The other direction of the same field — and the part that makes the lock a
  * lock rather than a preference.
  *
- * `auto` hover-expands the rail as an OVERLAY: the page keeps its 3.5rem
+ * `auto` hover-expands the rail as an OVERLAY: the page keeps its 4rem
  * offset and nothing reflows. `expanded` is the only mode that moves content,
  * which `AppFrame` publishes as `--nav-offset` on the root element. Asserting
  * the variable is the only way to tell the two expanded-looking rails apart —
@@ -185,7 +185,7 @@ test('the rail pin locks and unlocks, and only the lock shifts the page', async 
   const pin = page.getByRole('button', { name: 'Keep navigation expanded' });
   await expect(pin).toBeVisible();
   await expect(pin).toHaveAttribute('aria-pressed', 'false');
-  expect(await navOffset()).toBe('3.5rem');
+  expect(await navOffset()).toBe('4rem');
 
   await pin.click();
 
@@ -211,7 +211,7 @@ test('the rail pin locks and unlocks, and only the lock shifts the page', async 
   // `collapsed` — a three-state pin is a menu wearing a pin's clothes.
   await page.getByRole('button', { name: 'Unlock navigation' }).click();
   await expect(modes.getByRole('radio', { name: 'Auto' })).toHaveAttribute('aria-checked', 'true');
-  expect(await navOffset()).toBe('3.5rem');
+  expect(await navOffset()).toBe('4rem');
 });
 
 /**

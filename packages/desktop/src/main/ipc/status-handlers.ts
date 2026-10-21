@@ -1,6 +1,7 @@
 import {
   blobExists,
   commit,
+  readCommitStats,
   discardPaths,
   fetch,
   getStatus,
@@ -105,6 +106,17 @@ export function registerStatusHandlers(): void {
     () => ({ exists: false }),
   );
 
+  handle(
+    CHANNELS.commitStats,
+    schemas.CommitStatsRequest,
+    async (req) => {
+      const cwd = await resolveWorkdir(req.repoId);
+      if (!cwd) return { stats: {} };
+      return { stats: await readCommitStats(cwd, req.shas) };
+    },
+    () => ({ stats: {} }),
+  );
+
   const inWorkdir = <T extends { repoId: string; worktreePath?: string }>(
     run: (cwd: string, req: T) => Promise<GitOpResult>,
   ) => {
@@ -140,7 +152,7 @@ export function registerStatusHandlers(): void {
   handleOp(
     CHANNELS.opFetch,
     schemas.FetchRequest,
-    inWorkdir((cwd, req) => fetch(cwd, { remote: req.remote, prune: req.prune })),
+    inWorkdir((cwd, req) => fetch(cwd, { remote: req.remote, all: req.all, prune: req.prune })),
   );
   handleOp(
     CHANNELS.opPull,

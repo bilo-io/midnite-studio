@@ -1,0 +1,2 @@
+// Moved to the frame (Phase 113 Theme O) — kept so existing importers do not move.
+export { StatPill } from '@midnite/studio-frame';

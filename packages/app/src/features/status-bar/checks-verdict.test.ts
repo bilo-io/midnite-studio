@@ -14,6 +14,7 @@ const pull = (overrides: Partial<ForgePull> & { number: number; headBranch: stri
   url: '',
   mergedAt: null,
   closedAt: null,
+  commentCount: 0,
   ...overrides,
 });
 

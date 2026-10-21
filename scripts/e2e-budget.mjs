@@ -57,16 +57,16 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // both — which edges a collapsed community folds into, what lights up, the
 // tree rows, the bounce curve — are pure functions with their own vitest
 // suites; only the pixel-level outcome needs the browser.
-// Raised 438 -> 439 for the apps switcher's reveal (`apps-rail-reveal.spec.ts`,
+// Raised 438 -> 439 for the apps switcher's reveal (`web-apps-rail-reveal.spec.ts`,
 // one test): the switcher's hover region is nested inside `AppFrame`'s own
 // hover-expanding rail, so the two hover surfaces overlap and only a real
 // pointer can show the composed result — a `page.mouse.move` to a coordinate
 // outside the group collapsing it back, and a real `hover()` landing on the
 // group rather than being swallowed by the rail around it. jsdom has no
 // pointer; it can only be told `mouseenter` fired. Everything else about the
-// feature — which icons render for a given `lastOpenedAppId`, when the labels
+// feature — which icons render for a given `lastOpenedWebAppId`, when the labels
 // appear, the store transitions that set it, the disabled-app fallback — is in
-// `apps-rail-row.test.tsx` under vitest, which is why this is one test.
+// `web-apps-rail-row.test.tsx` under vitest, which is why this is one test.
 // Raised 439 -> 440 for the rail's overflow row height (`nav-shell.spec.ts`,
 // one test): flex-shrink against a column taller than the window is pure
 // layout, and jsdom reports every box as 0x0, so the only way to see a row
@@ -105,7 +105,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // Raised 446 -> 448 for Phase 76 Theme C's `csp.spec.ts` (two tests): CSP
 // enforcement and the external-link contract need real `securitypolicyviolation`
 // events and a live document URL — vitest cannot supply either.
-// Raised 448 -> 449 for Phase 90 Theme K's `onboarding-wizard.spec.ts` (one
+// Raised 448 -> 449 for Phase 90 Theme K's `onboarding-wizard.spec.ts` (now
+// `setup-overlay.spec.ts`, rewritten in place by Phase 98 Theme A; still one
 // test): `OnboardingModal` and `FirstRunModal` are both fixed full-screen
 // overlays that mount simultaneously on a fresh profile, and which one is
 // interactive depends on real DOM paint order plus two independent
@@ -140,7 +141,99 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // bottom run panel's tabs, dagre layout, the position-migration adapter —
 // has its own vitest coverage; `workflows.spec.ts`'s pre-existing cases were
 // only adapted to the new DOM, not multiplied.
-export const MAX_DECLARED_E2E = 456;
+// Raised 456 -> 457 for Phase 98 Theme C's `setup-fab-handoff.spec.ts` (one
+// test): the arrow the setup overlay leaves after Skip is placed from the
+// FAB's live `getBoundingClientRect()` — all zeros under jsdom — and the
+// claim is that it lands aimed at the real FAB in the assembled app, then
+// clears out so that FAB can be clicked to resume. The handoff's phases, the
+// hidden-FAB wording and the resume-page rule are all vitest.
+// Raised 457 -> 458 for the ad hoc Workflows canvas styling pass
+// (`workflows.spec.ts`, one test): collapsing a side panel keeps the graph
+// still on screen, which the canvas does by shifting React Flow's viewport by
+// its container's measured left-edge movement — real layout and
+// `getBoundingClientRect()`, zeros under jsdom. The toggles, the zero-width
+// state and the inspector's auto-collapse/Escape rules are all vitest.
+// Raised 458 -> 459 for the graph's CI column (`graph-ci-column.spec.ts`, 1
+// test): the claim is that a branch's connector line runs UNDER the CI mark,
+// unbroken from the ref chip to the lane gutter, and that the mark paints on
+// top — real `getBoundingClientRect` geometry across three elements and a real
+// `elementFromPoint` stacking check, neither of which jsdom lays out. The DOM
+// structure, aggregation, batching and modal behaviour are all vitest.
+// Raised 459 -> 461 for the git graph's inline expand-in-place panels
+// (`graph-inline-panels.spec.ts`, two tests): the panel's height animates
+// through the Web Animations API (absent from jsdom), the virtualizer's
+// variable-height slot is only as right as the geometry it measures, and the
+// lanes running under the card line up with the next row's only in real
+// layout. One test covers the open/close animation, the rows following it
+// and the lane alignment; the other a far scroll away and back keeping the
+// expansion settled. Which panel is open, Escape, commit-from-panel and the
+// shared working-tree parts in both hosts are all vitest.
+// Raised 461 -> 463 for Media ▸ Images (`media-images.spec.ts`, Phase 99
+// Theme C, two tests): CSS `columns` masonry only flows into columns under
+// real layout, the lightbox's fixed overlay is checked against the real
+// viewport, and the "+" tile's hover glow is a computed `box-shadow` /
+// `-webkit-text-stroke` jsdom never resolves. Stepping, wrap-around, Escape,
+// the reducer, catalogue and sidecar parsing are all vitest.
+// Lowered 463 -> 461 with the standalone Changes view: its workbench tab
+// strip's two specs ("the all-changes tab carries its own totals in the tab
+// bar", "the working-tree tab cannot be closed") went with it.
+//
+// Raised 461 -> 462 for `terminal-dock.spec.ts` (1 test): a right-docked
+// terminal is a layout claim (the frame's `getBoundingClientRect` sits beside
+// the view, and a real pointer drag on its left-edge handle resizes it), which
+// jsdom cannot measure. The store and button logic are vitest.
+//
+// Raised 462 -> 464 for `content-modal-bounds.spec.ts` (2 tests): a content-scoped
+// dialog must sit inside the view box, clear of the terminal frame, and win
+// `elementFromPoint` over it. That is real layout and hit-testing; the bounds
+// maths and the Modal scope prop are vitest.
+//
+// Raised 464 -> 466 for `diff-header-alignment.spec.ts` (2 tests): header bars
+// across the divider of the working-copy panel and the commit split layout must
+// share top/height/bottom, which is only measurable with real layout
+// (getBoundingClientRect) — jsdom has none.
+// Raised 466 -> 469 for Media ▸ Models' `model-editor.spec.ts` (3 tests): the
+// 3D editor is a react-three-fiber WebGL canvas, which jsdom cannot create at
+// all. The tests prove what only a real browser can — pixels that change with
+// selection and view mode, a real pointer click ray-cast against the meshes,
+// and a real drag orbiting the camera. Reducer, undo/redo, the inspector and
+// the save/export bridge calls are all vitest.
+//
+// Raised 469 -> 470 for the Finance dashboard's `finance-dashboard.spec.ts` (1
+// test): a card resized by a real pointer drag on its react-grid-layout handle
+// (real getBoundingClientRect, real pointer capture), the new footprint landing
+// in the persisted board, and the Insights button's hover fill — a CSS ::before
+// opacity that only a real style engine computes. Every other Finance
+// behaviour (cards, portfolio rules, sorting, summary, modals) is vitest.
+//
+// Raised 470 -> 472 for the Chats page's `chats-layout.spec.ts` (2 tests): the composer's centring and
+// pinning (real getBoundingClientRect, and "the document itself never scrolls") and the thread's
+// stick-to-bottom behaviour against real scrollHeight/clientHeight and a real wheel, all of which
+// jsdom reports as 0. The scroll decisions are vitest against faked geometry; everything else on the
+// page (filters, streaming, markdown, Stop, the review card and modal) is vitest too.
+//
+// Raised 472 -> 474 for `diff-blank-rows.spec.ts` (2 tests): a diff virtualizer's window offset only
+// goes wrong against real layout and a real scroll (elementFromPoint down the scroller after each
+// scroll step, collapse and file switch); jsdom has no geometry, so the vitest twin only proves rows mount.
+//
+// Raised 474 -> 475 for Media > Models' `model-explorer.spec.ts` (1 test): the explorer's drag-and-drop
+// move rides a native DataTransfer drag, which jsdom cannot fire; everything else is vitest.
+//
+// Raised 475 -> 476 for Media > Sprites' `sprite-render.spec.ts` (1 test, Phase 106 Theme E): rendering a
+// rigged model into sprite frames needs real WebGL and OffscreenCanvas, which jsdom has neither of; the
+// camera maths, clip sampling and the main-side render relay are all vitest.
+// Raised 476 -> 478 for Phase 101 Theme E's `piano-roll.spec.ts` (2 tests): drawing, moving, resizing and
+// deleting notes by real pointer drag on the piano roll's canvas, which has no DOM to hit-test in jsdom. The edit
+// maths, history, keymap and track controls all have vitest suites.
+//
+// Raised 478 -> 479 for Phase 112 Theme C's `reveal-commit.spec.ts` (1 test): revealing a commit 450 rows
+// down must scroll the virtualizer for real and land the row inside the scroller's box, which needs layout
+// (`getBoundingClientRect`); jsdom has none. The store transitions around it are vitest.
+// Raised 479 -> 480 for Phase 112 Theme H's one companion-panel spec: typing "open my chat about auth"
+// with two seeded matches posts real numbered chips in the panel, and "two" opens the second chat in a
+// real Chats view across a view switch — the chip bar's layout and the focus staying in the input are
+// browser behaviour. Chip resolution, expiry and replacement are `handoff-resource.test.ts` (vitest).
+export const MAX_DECLARED_E2E = 480;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

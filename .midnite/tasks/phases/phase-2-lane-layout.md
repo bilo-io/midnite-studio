@@ -6,6 +6,10 @@
 indigane/git-graph-drawing (Unlicense) as references. **Never read or copy
 mhutchie/vscode-git-graph** — its license forbids derivatives.
 
+## Headlines
+
+**Theme A.** ✅ straight-lane layout with recycling, LaneLayoutSession streaming, stable colors
+
 ## Deliverables
 
 - [x] `git-engine/src/layout/lane-layout.ts` — single forward pass over `--topo-order` commits; straight-branch lane assignment with lane recycling (freed lanes → nil slots, reused)

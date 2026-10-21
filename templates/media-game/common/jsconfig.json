@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "paths": {
+      "phaser": ["./vendor/phaser/types/phaser.d.ts"],
+      "three": ["./vendor/three/types/index.d.ts"],
+      "three/addons/*": ["./vendor/three/addons/*"],
+      "@dimforge/rapier3d-compat": ["./vendor/rapier/types/rapier.d.ts"],
+      "recast-navigation": ["./vendor/recast/index.d.ts"],
+      "kit/*": ["./kit/*"]
+    }
+  },
+  "include": ["src", "kit"]
+}

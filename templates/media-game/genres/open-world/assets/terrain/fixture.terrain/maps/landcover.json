@@ -1,0 +1,32 @@
+{
+  "classes": [
+    "water",
+    "tree",
+    "grass",
+    "bare",
+    "rock",
+    "road",
+    "building",
+    "other"
+  ],
+  "colours": {
+    "water": "#3a7bd5",
+    "tree": "#2d6a4f",
+    "grass": "#95d5b2",
+    "bare": "#d4a373",
+    "rock": "#8d99ae",
+    "road": "#343a40",
+    "building": "#e63946",
+    "other": "#adb5bd"
+  },
+  "percent": {
+    "water": 3.6,
+    "tree": 6.7,
+    "grass": 84.1,
+    "bare": 0,
+    "rock": 0,
+    "road": 4.4,
+    "building": 1.1,
+    "other": 0
+  }
+}

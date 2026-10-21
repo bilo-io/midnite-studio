@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import type { WatchKind } from '@midnite/studio-shared';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 
-import { useGraphStore } from '../features/graph/graph-store';
+import { useGraphStore } from '@midnite/studio-frame';
 import { bridge } from './bridge';
 import { keys } from './queries';
 

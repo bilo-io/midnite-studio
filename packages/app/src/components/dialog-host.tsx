@@ -11,6 +11,7 @@ import {
 import { ConfirmDialog, type ConfirmRequest } from './confirm-dialog';
 import { ContextMenu, type MenuItem, type MenuPosition } from './context-menu';
 import { PromptDialog, type PromptRequest } from './prompt-dialog';
+import { inferTrigger, trackTriggerInput } from './use-dismissable';
 
 /**
  * One place that owns the context menu, the confirm dialog and the prompt.
@@ -28,7 +29,8 @@ type MenuOptions = {
   filterThreshold?: number;
 };
 
-type MenuState = ({ position: MenuPosition; items: MenuItem[] } & MenuOptions) | null;
+type MenuState =
+  ({ position: MenuPosition; items: MenuItem[]; trigger: Element | null } & MenuOptions) | null;
 
 type DialogApi = {
   openMenu: (
@@ -81,6 +83,13 @@ export function useOptionalDialogs(): DialogApi | null {
   happened earlier in the same tick, before the next render.
 */
 let menuOpen = false;
+/**
+ * The control the open menu came from (`inferTrigger`), or `null` for a
+ * right-click. Module state beside `menuOpen` for the same reason: `openMenu`
+ * has to answer "is this the button of the menu already open?" during the
+ * very click that asks, before any render has committed.
+ */
+let menuTrigger: Element | null = null;
 let confirmOpen = false;
 let promptOpen = false;
 
@@ -103,9 +112,14 @@ export function DialogHost({ children }: { children: ReactNode }) {
   // that unmounts without closing everything — a test's `unmount()`, a route
   // change in a harness that swaps the whole tree — must not leak an open flag
   // into whatever mounts a `<DialogHost>` next.
+  // Lets `inferTrigger` name the button behind an `openMenu` call that only
+  // passed coordinates computed from its rect.
+  useEffect(() => trackTriggerInput(), []);
+
   useEffect(() => {
     return () => {
       menuOpen = false;
+      menuTrigger = null;
       confirmOpen = false;
       promptOpen = false;
     };
@@ -113,6 +127,7 @@ export function DialogHost({ children }: { children: ReactNode }) {
 
   const closeMenu = useCallback(() => {
     menuOpen = false;
+    menuTrigger = null;
     setMenu(null);
   }, []);
   const closeConfirm = useCallback(() => {
@@ -126,6 +141,7 @@ export function DialogHost({ children }: { children: ReactNode }) {
 
   const close = useCallback(() => {
     menuOpen = false;
+    menuTrigger = null;
     confirmOpen = false;
     promptOpen = false;
     setMenu(null);
@@ -136,13 +152,24 @@ export function DialogHost({ children }: { children: ReactNode }) {
   const api = useMemo<DialogApi>(
     () => ({
       openMenu: (event, items, options) => {
+        const trigger = inferTrigger(event);
+        // The same button again, while its menu is up: a toggle. The
+        // `pointerdown` ahead of this click did not dismiss the menu — the
+        // trigger counts as inside it — so without this the click would only
+        // re-open the menu that is already open.
+        if (menuOpen && trigger !== null && trigger === menuTrigger) {
+          closeMenu();
+          return;
+        }
         menuOpen = true;
-        setMenu({ position: { x: event.clientX, y: event.clientY }, items, ...options });
+        menuTrigger = trigger;
+        setMenu({ position: { x: event.clientX, y: event.clientY }, items, trigger, ...options });
       },
       confirm: (request) => {
         // Opening a confirm closes the menu that raised it — leaving both up
         // reads as two competing focus targets.
         menuOpen = false;
+        menuTrigger = null;
         confirmOpen = true;
         setMenu(null);
         setConfirmRequest(request);
@@ -150,6 +177,7 @@ export function DialogHost({ children }: { children: ReactNode }) {
       },
       notify: ({ title, body, okLabel }) => {
         menuOpen = false;
+        menuTrigger = null;
         confirmOpen = true;
         setMenu(null);
         setConfirmSeq((n) => n + 1);
@@ -171,13 +199,14 @@ export function DialogHost({ children }: { children: ReactNode }) {
         ),
       prompt: (request) => {
         menuOpen = false;
+        menuTrigger = null;
         promptOpen = true;
         setMenu(null);
         setPromptRequest(request);
       },
       close,
     }),
-    [close, closeConfirm],
+    [close, closeConfirm, closeMenu],
   );
 
   return (
@@ -188,6 +217,7 @@ export function DialogHost({ children }: { children: ReactNode }) {
           position={menu.position}
           items={menu.items}
           onClose={closeMenu}
+          trigger={menu.trigger}
           filterable={menu.filterable}
           searchPlaceholder={menu.searchPlaceholder}
           filterThreshold={menu.filterThreshold}

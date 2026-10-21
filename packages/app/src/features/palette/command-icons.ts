@@ -1,15 +1,20 @@
 import type { CommandId } from '@midnite/studio-shared';
 import type { IconType } from 'react-icons';
 import { GoIssueOpened } from 'react-icons/go';
-import { IoIosGitNetwork } from 'react-icons/io';
-import { SiOllama } from 'react-icons/si';
+import { SiMagic, SiOllama } from 'react-icons/si';
 import {
   LuActivity,
   LuArrowRightLeft,
   LuBot,
   LuChevronLeft,
   LuChevronRight,
+  LuAudioLines,
+  LuMusic,
+  LuBox,
+  LuBug,
   LuClapperboard,
+  LuFileText,
+  LuImage,
   LuClock,
   LuCommand,
   LuCode,
@@ -19,10 +24,11 @@ import {
   LuFolderOpen,
   LuFolderTree,
   LuGitCommitHorizontal,
+  LuGitCommitVertical,
   LuGlobe,
   LuLink,
   LuLock,
-  LuNotebookPen,
+  LuMessageSquare,
   LuOctagonX,
   LuPalette,
   LuPanelLeft,
@@ -39,11 +45,13 @@ import {
   LuSquareTerminal,
   LuTrash2,
   LuUpload,
+  LuWandSparkles,
   LuX,
   LuZap,
   LuZoomIn,
   LuZoomOut,
 } from 'react-icons/lu';
+import { MdOutlineEditNote } from 'react-icons/md';
 
 /**
  * Command icons mapping every CommandId to a react-icons icon.
@@ -52,18 +60,20 @@ import {
 export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'terminal.toggle': LuSquareTerminal,
   'terminal.toggleHalfMaximized': LuSquareTerminal,
+  'terminal.toggleDock': LuSquareTerminal,
   'terminal.focus': LuSquareTerminal,
   'terminal.new': LuSquareTerminal,
   'terminal.close': LuX,
   'repos.toggle': LuPanelLeft,
   'browser.toggle': LuGlobe,
   'fab.toggle': LuPanelRight,
-  'notes.toggle': LuNotebookPen,
+  'notes.toggle': MdOutlineEditNote,
   'companion.toggle': LuBot,
   // A link, not a globe: the command is about WHERE a link goes, and every
   // other `browser.*` row already wears the globe.
   'link.toggleTarget': LuLink,
   'account.switcher.open': LuArrowRightLeft,
+  'setup.open': LuWandSparkles,
   'browser.openDevServer': LuServer,
   'activity.toggle': LuActivity,
   'browser.newTab': LuGlobe,
@@ -101,10 +111,11 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'app.hardReload': LuZap,
   'app.lock': LuLock,
   'app.screensaver': LuClock,
-  'view.graph': IoIosGitNetwork,
+  'app.reportIssue': LuBug,
+  'view.graph': LuGitCommitVertical,
   'view.files': LuFolderTree,
   'view.issues': GoIssueOpened,
-  'graph.focus': IoIosGitNetwork,
+  'graph.focus': LuGitCommitVertical,
   'status.focus': LuGitCommitHorizontal,
   'status.commit': LuGitCommitHorizontal,
   'sync.fetch': LuRefreshCw,
@@ -121,8 +132,17 @@ export const COMMAND_ICONS: Record<CommandId, IconType> = {
   'palette.files': LuFile,
   'file.save': LuFile,
   'workflow.run': LuPlay,
+  'view.media': SiMagic,
   'view.video': LuClapperboard,
+  'media.tab.doc': LuFileText,
+  'media.tab.image': LuImage,
+  'media.tab.video': LuClapperboard,
+  'media.tab.audio': LuAudioLines,
+  'media.tab.model': LuBox,
+  'media.audio.editor': LuMusic,
+  'media.audio.generator': LuAudioLines,
   'view.models': SiOllama,
+  'view.chats': LuMessageSquare,
   'view.apiClient': LuSend,
   'window.detachActive': LuSquareArrowOutUpRight,
   'window.detachTerminal': LuSquareTerminal,

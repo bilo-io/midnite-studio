@@ -64,6 +64,7 @@ const todo = (n: number, title: string, optionId: string) => ({
     // Both required in practice — see `kanban.spec.ts`'s note on the defaults.
     body: '',
     labels: [],
+    dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
   },
   fieldValues: {
     FIELD_status: { fieldId: 'FIELD_status', dataType: 'single_select' as const, optionId, name: optionId === 'OPT_todo' ? 'Todo' : 'In progress' },
@@ -111,8 +112,8 @@ async function openBoard(page: Page, mode: 'light' | 'dark'): Promise<void> {
   if (mode === 'dark') await setTheme(page, 'dark');
   // The ramp must be at rest for two runs to be comparable — see the note above.
   await setReducedMotion(page);
-  await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await expect(page.getByTestId('board-view')).toBeVisible();
   await expect(page.getByText('Wire the write path')).toBeVisible();
@@ -122,7 +123,7 @@ async function openBoard(page: Page, mode: 'light' | 'dark'): Promise<void> {
 async function shotCard(page: Page, name: string): Promise<void> {
   const card = page
     .getByText('Wire the write path')
-    .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    .locator('xpath=ancestor::*[@data-card-id]');
   const box = (await card.boundingBox())!;
   const pad = 20;
   await page.waitForTimeout(300);

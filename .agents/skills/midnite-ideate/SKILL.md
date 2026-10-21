@@ -18,7 +18,7 @@ You are running the **brainstorm** workflow for the **Midnite Studio** repo: an 
 
 ## 🔭 Stage 1 — Scan & show the overview (do this BEFORE prompting for anything)
 
-**Pass 1 — `_INDEX.md` only.** Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** yourself. Do **not** read `phase-*.md`, do **not** dispatch a subagent to read them, do **not** recompute `%` by counting checkboxes in those files — Status, Done/Total, %, Theme key, and Headlines are already in the index. Git state (`git status --short`, `git branch --show-current`, `gh pr list --state open`, `git worktree list`) is allowed; map open PRs from titles against the index, not by opening phase docs.
+**Pass 1 — `_INDEX.md` only.** Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** yourself. Do **not** read `phase-*.md`, do **not** dispatch a subagent to read them, do **not** recompute `%` by counting checkboxes in those files — Status, Done/Total, % and the `🔄 WIP`/`◻ TODO` theme letters are already in its `## Phases` table, which is the whole file. Each phase's narrative lives in the `## Headlines` section of its own doc, and the overview does not need it. Git state (`git status --short`, `git branch --show-current`, `gh pr list --state open`, `git worktree list`) is allowed; map open PRs from titles against the index, not by opening phase docs.
 
 Print an overview table first thing — before any question — **from the index**, covering all phases:
 
@@ -28,7 +28,7 @@ Print an overview table first thing — before any question — **from the index
    | 8 · Office fidelity | 🔄 | Sprites + movement in; assets/Tiled pending | 60% | PR #21 |
    | 11 · Public site rewrite | ⬜ | Not started — plan only | 0% | — |
 
-   - **Status / Done / Summary:** take them from the index row + Theme key / Headlines. Do not open a phase file to fill a cell.
+   - **Status / Done / Summary:** take them from the index row (Summary = the row's phase title, condensed; the Status, %, WIP and TODO cells say the rest). Do not open a phase file to fill a cell.
    - **In flight:** open PR/branch/worktree from git/`gh`, else `—`. Prefer `🔄` + a "PR #N pending" note when an open PR advances a phase even if boxes aren't ticked yet.
    - Order by phase number. Keep it skimmable. Below the table, add a one-line **git note** (current branch + any uncommitted work + open-PR count).
    - State the **next phase number** (max in the index + 1). If `$ARGUMENTS` named a topic, acknowledge it as the seed.
@@ -56,19 +56,18 @@ Print an overview table first thing — before any question — **from the index
 
 ## 📝 Stage 5 — Write the phase doc
 
-1. Write `.midnite/tasks/phases/phase-N-<slug>.md`, matching the house style (see Stage 1 context): `# Phase N — Title`, framing blockquotes (build-on + scope guardrails + an effort-tag legend), **Themes** with `- [ ]` checklist items and S/M/L tags, a **Files this phase touches** map (link real paths with markdown links), a **Verification** checklist, and **Decisions / open questions** capturing what came up in the brainstorm (with your recommendations; mark any the user already settled as resolved).
+1. Write `.midnite/tasks/phases/phase-N-<slug>.md`, matching the house style (see Stage 1 context): `# Phase N — Title`, framing blockquotes (build-on + scope guardrails + an effort-tag legend), **Themes** with `- [ ]` checklist items and S/M/L tags, a **`## Headlines`** section placed right after the framing (before the Themes) — one short lead paragraph (an italic one-line framing, why the phase exists, `Planned <date>`) then one `**Theme X — <name>.** ◻ <one-liner>` paragraph per theme, mirroring the checklist; it is where later landings write what shipped — a **`## Headlines`** section placed right after the framing (before the Themes) — one short lead paragraph (an italic one-line framing, why the phase exists, `Planned <date>`) then one `**Theme X — <name>.** ◻ <one-liner>` paragraph per theme, mirroring the checklist; it is where later landings write what shipped — a **Files this phase touches** map (link real paths with markdown links), a **Verification** checklist, and **Decisions / open questions** capturing what came up in the brainstorm (with your recommendations; mark any the user already settled as resolved).
 2. Use clickable markdown links for file/section references (relative paths), per this repo's convention.
 3. **Do not** mark anything done, and **do not** touch `done.md` (nothing's built yet). Don't start implementing — this command only produces the plan.
-4. **Register the phase in [`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) — required.** The index is the roll-up `/midnite-create` scans to pick work; a phase that isn't in it is invisible (and `/midnite-create` has no row to bump when a theme later lands). Add both:
-   - A **new row at the TOP of the `## Phases` table** (the table is newest-first — highest phase number first): `| [N · Title](phase-N-<slug>.md) | ◻ TODO | 0/<total> | \`░░░░░░░░░░\` | 0% | — | <all theme letters> |`, where `<total>` is the count of `- [ ]` items you just wrote and **every** theme letter goes in the `◻ TODO` column (nothing WIP or done yet).
-   - A **new section at the TOP of the `## Theme key`** list: `### [Phase N — Title](phase-N-<slug>.md)`, an optional one-line italic framing, then one `- ◻ **X** — <one-liner>` per theme (mirroring the checklist).
-   - If the new phase changes the "live frontier" summary, update the **Headline** paragraph too.
+4. **Register the phase in [`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) — required.** The index is the roll-up `/midnite-create` scans to pick work; a phase that isn't in it is invisible (and `/midnite-create` has no row to bump when a theme later lands). Add the row — and only the row:
+   - A **new row at the TOP of the `## Phases` table** (the table is newest-first — highest phase number first): `| [N · Title](phases/phase-N-<slug>.md) | ◻ TODO | — | 0/<total> | \`░░░░░░░░░░\` | 0% | — | <all theme letters> |`, where `<total>` is the count of `- [ ]` items you just wrote and **every** theme letter goes in the `◻ TODO` column (nothing WIP or done yet).
+   - **Nothing else goes in the index.** The per-theme one-liners and the phase's framing live in the new doc's own `## Headlines` (Stage 5.1), never in `_INDEX.md` — the index is status only.
 
 ## ✅ Stage 6 — Commit to main & clean up
 
 The new plan is a doc-only change and belongs in the **source of truth**, so commit it to `main` automatically (no PR needed — this matches how the other phase docs land; CLAUDE.md allows committing trivial doc changes straight to `main`).
 
-1. **Land it on `main`.** Ensure you're committing against `main` (if the session is on a feature branch/worktree, switch to or target the primary checkout's `main`). Stage **both tracker files by explicit path** — `git add .midnite/tasks/phases/phase-N-<slug>.md .midnite/tasks/_INDEX.md` (the new doc **and** its index row/theme-key entry from Stage 5.4) — never `git add -A`/`.` (it can sweep unrelated or worktree-admin files). Commit with a conventional message, and no attribution trailer:
+1. **Land it on `main`.** Ensure you're committing against `main` (if the session is on a feature branch/worktree, switch to or target the primary checkout's `main`). Stage **both tracker files by explicit path** — `git add .midnite/tasks/phases/phase-N-<slug>.md .midnite/tasks/_INDEX.md` (the new doc **and** its index row from Stage 5.4) — never `git add -A`/`.` (it can sweep unrelated or worktree-admin files). Commit with a conventional message, and no attribution trailer:
    ```
    docs: add phase-N <slug> plan (+ index row)
    ```
@@ -80,7 +79,7 @@ The new plan is a doc-only change and belongs in the **source of truth**, so com
    ```bash
    moon run root:tracker-check
    ```
-   If it names your phase (or any other), add the missing row + theme-key entry (Stage 5.4) and re-commit before finishing.
+   If it names your phase (or any other), add the missing row (Stage 5.4) and re-commit before finishing.
 3. Tell the user the file path + the commit/push result, give a 2–3 line recap, and suggest that `/midnite-create` is how they'd later pick up a slice of it.
 
 ---

@@ -5,17 +5,23 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react';
-import type { AgentDefinition, AgentStatus } from '@midnite/studio-shared';
+import { modelsForAgent, type AgentDefinition, type AgentModelInfo, type AgentStatus } from '@midnite/studio-shared';
 import { LuCheck, LuSearch } from 'react-icons/lu';
 
 import { agentInstallHint, isAgentUnconfigured } from '../features/agent/agent-install-status';
 import { PROPRIETARY_IDS } from '../features/terminal/new-session-menu';
+import { useOllamaModels } from '@midnite/studio-feature-models/renderer';
 import { useAgents } from '../features/terminal/use-agents';
 import { fuzzyMatch } from '../services/palette/fuzzy-match';
 import { useUiStore } from '../store/ui-store';
 import { resolveAgentIcon } from './icons';
 import { Popover } from './popover';
 import { Tooltip } from './tooltip';
+
+/** An agent's own default is stored as `null`; the catalogue spells it `default` for Claude. */
+function isDefaultModel(modelId: string | null | undefined): boolean {
+  return modelId == null || modelId === 'default';
+}
 
 /**
  * Dropdown trigger in the titlebar showing the SVG logo of the currently active
@@ -27,11 +33,19 @@ export function TitleBarPrimaryAgent() {
   const { agents, status } = useAgents();
   const primaryAgent = useUiStore((s) => s.primaryAgent);
   const setPrimaryAgent = useUiStore((s) => s.setPrimaryAgent);
+  const setPrimaryModel = useUiStore((s) => s.setPrimaryModel);
+  const primaryModel = useUiStore((s) => s.primaryModelByAgent[s.primaryAgent] ?? null);
   const focusAgentInSettings = useUiStore((s) => s.focusAgentInSettings);
 
   const activeAgent = agents.find((a) => a.id === primaryAgent) ?? agents[0];
   const ActiveIcon = activeAgent ? resolveAgentIcon(activeAgent) : resolveAgentIcon({ id: 'claude' });
-  const label = activeAgent ? `Primary agent: ${activeAgent.label}` : 'Select primary agent';
+  // The pill shows only a deliberately chosen model; an agent on its own default stays a bare icon.
+  const modelLabel = isDefaultModel(primaryModel)
+    ? null
+    : (modelsForAgent(primaryAgent).find((m) => m.id === primaryModel)?.label ?? primaryModel);
+  const label = activeAgent
+    ? `Primary agent: ${activeAgent.label}${modelLabel ? ` · ${modelLabel}` : ''}`
+    : 'Select primary agent';
 
   return (
     <Popover
@@ -42,15 +56,23 @@ export function TitleBarPrimaryAgent() {
       label={label}
       testId="titlebar-primary-agent"
       panelClassName="w-72"
-      triggerClassName="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent cursor-pointer"
+      triggerClassName="inline-flex h-6 min-w-6 shrink-0 items-center justify-center gap-1 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent cursor-pointer"
       trigger={
         <Tooltip label={label} side="bottom">
-          <span className="flex items-center justify-center">
+          <span className={`flex items-center justify-center gap-1 ${modelLabel ? 'px-1' : ''}`}>
             <ActiveIcon
               aria-hidden
               className="h-3.5 w-3.5 shrink-0"
               style={activeAgent?.accent ? { color: activeAgent.accent } : undefined}
             />
+            {modelLabel ? (
+              <span
+                data-testid="titlebar-primary-model"
+                className="max-w-24 truncate rounded bg-accent px-1 text-[10px] font-medium leading-4 text-foreground"
+              >
+                {modelLabel}
+              </span>
+            ) : null}
           </span>
         </Tooltip>
       }
@@ -60,6 +82,11 @@ export function TitleBarPrimaryAgent() {
           agents={agents}
           status={status}
           primaryAgent={primaryAgent}
+          primaryModel={primaryModel}
+          onSelectModel={(modelId) => {
+            setPrimaryModel(primaryAgent, isDefaultModel(modelId) ? null : modelId);
+            setOpen(false);
+          }}
           onSelect={(agentId) => {
             setPrimaryAgent(agentId);
             setOpen(false);
@@ -90,18 +117,26 @@ function PrimaryAgentPickerPanel({
   agents,
   status,
   primaryAgent,
+  primaryModel,
+  onSelectModel,
   onSelect,
   onConfigure,
 }: {
   agents: AgentDefinition[];
   status: AgentStatus[];
   primaryAgent: string;
+  primaryModel: string | null;
+  /** Picks a model for the current primary agent. */
+  onSelectModel: (modelId: string) => void;
   onSelect: (agentId: string) => void;
   /** Called instead of `onSelect` for an unconfigured agent — routes to Settings ▸ Agents. */
   onConfigure: (agentId: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [highlighted, setHighlighted] = useState(0);
+  // The primary agent's own models, listed under the agents (Claude, Ollama).
+  // Reported up from `ModelSection` so one ArrowUp/ArrowDown walk covers both.
+  const [models, setModels] = useState<AgentModelInfo[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -141,17 +176,26 @@ function PrimaryAgentPickerPanel({
     setHighlighted(0);
   }, [query]);
 
+  // Agents first, then the model rows — hidden while a search narrows the agent list.
+  const visibleModels = query.trim() ? [] : models;
+  const total = flatAgents.length + visibleModels.length;
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (flatAgents.length === 0) return;
+    if (total === 0) return;
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setHighlighted((current) => (current + 1) % flatAgents.length);
+      setHighlighted((current) => (current + 1) % total);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setHighlighted((current) => (current - 1 + flatAgents.length) % flatAgents.length);
+      setHighlighted((current) => (current - 1 + total) % total);
     } else if (event.key === 'Enter') {
       event.preventDefault();
+      if (highlighted >= flatAgents.length) {
+        const model = visibleModels[highlighted - flatAgents.length];
+        if (model) onSelectModel(model.id);
+        return;
+      }
       const target = flatAgents[highlighted];
       if (target) {
         if (isAgentUnconfigured(target, status)) onConfigure(target.id);
@@ -182,7 +226,7 @@ function PrimaryAgentPickerPanel({
         role="menu"
         aria-label="Select primary agent"
         aria-orientation="vertical"
-        className="hide-scrollbar max-h-80 overflow-auto p-1"
+        className="hide-scrollbar max-h-64 overflow-auto p-1"
       >
         {noMatches ? (
           <p className="px-2.5 py-6 text-center text-xs text-muted-foreground">
@@ -243,6 +287,89 @@ function PrimaryAgentPickerPanel({
           ))
         )}
       </div>
+      {query.trim() ? null : (
+        <div className="hide-scrollbar max-h-44 overflow-auto border-t border-border p-1">
+          <ModelSection
+            agentId={primaryAgent}
+            selected={primaryModel}
+            offset={flatAgents.length}
+            highlighted={highlighted}
+            onHighlight={setHighlighted}
+            onSelect={onSelectModel}
+            onModels={setModels}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The primary agent's model list, under the agent rows. Rendered only for an
+ * agent offering more than one model; Ollama's come from the daemon, so the
+ * query lives here and runs only while the panel is open on Ollama.
+ */
+function ModelSection({
+  agentId,
+  selected,
+  offset,
+  highlighted,
+  onHighlight,
+  onSelect,
+  onModels,
+}: {
+  agentId: string;
+  selected: string | null;
+  /** Index of the first model row in the panel's single keyboard walk. */
+  offset: number;
+  highlighted: number;
+  onHighlight: (index: number) => void;
+  onSelect: (modelId: string) => void;
+  onModels: (models: AgentModelInfo[]) => void;
+}) {
+  const ollama = useOllamaModels();
+  const listed = useMemo(() => {
+    const models = modelsForAgent(agentId, agentId === 'ollama' ? ollama.data?.map((m) => m.name) : undefined);
+    return models.length > 1 ? models : [];
+  }, [agentId, ollama.data]);
+
+  useEffect(() => {
+    onModels(listed);
+    return () => onModels([]);
+  }, [listed, onModels]);
+
+  if (listed.length === 0) return null;
+  const current = selected ?? 'default';
+
+  return (
+    <div data-testid="primary-model-section" role="group" aria-label="Model">
+      <div className="px-2.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        Model
+      </div>
+      {listed.map((model, i) => {
+        const index = offset + i;
+        const isSelected = model.id === current;
+        return (
+          <button
+            key={model.id}
+            type="button"
+            role="menuitemradio"
+            tabIndex={-1}
+            aria-label={model.label}
+            aria-checked={isSelected}
+            aria-selected={highlighted === index}
+            data-testid={`primary-model-item-${model.id}`}
+            onClick={() => onSelect(model.id)}
+            onMouseEnter={() => onHighlight(index)}
+            className={`flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors ${
+              highlighted === index ? 'bg-accent text-foreground' : 'text-foreground'
+            } ${isSelected ? 'font-medium' : ''}`}
+          >
+            <span className="flex-1 truncate">{model.label}</span>
+            {isSelected && <LuCheck aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />}
+          </button>
+        );
+      })}
     </div>
   );
 }

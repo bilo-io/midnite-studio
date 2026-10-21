@@ -34,10 +34,10 @@ describe('AutomateChip (Phase 95 Theme H)', () => {
     expect(screen.getByText('+2 more')).not.toBeNull();
   });
 
-  it('clicking navigates to the Projects view', () => {
+  it('clicking navigates to the Tasks view', () => {
     useUiStore.setState({ automateEnabledByProject: { PVT_1: true } });
     render(<AutomateChip />);
     fireEvent.click(screen.getByTestId('status-segment-automate'));
-    expect(useUiStore.getState().activeView).toBe('projects');
+    expect(useUiStore.getState().activeView).toBe('tasks');
   });
 });

@@ -23,6 +23,8 @@ import type { PersistedUi } from './ui-store';
  * `features/settings/`.
  */
 export const PREFERENCE_KEYS = [
+  'mediaExportDir', // media-page.tsx
+  'mapUnits', // media-page.tsx (Phase 108 Theme G)
   // Already registered — each has a control in an existing settings page.
   'activityTimeframe', // activity-timeline-settings.tsx
   'activityTimelineAreaLayout', // activity-timeline-settings.tsx
@@ -32,7 +34,6 @@ export const PREFERENCE_KEYS = [
   'activityTimelineStyle', // activity-timeline-settings.tsx
   'agentSkills', // agent-page.tsx
   'agentModes', // agent-page.tsx
-  'agentApiKeys', // agent-page.tsx
   'agentBackends', // agent-page.tsx (Phase 96 Theme H)
   'headlessAiOllamaModel', // agent-page.tsx (Phase 96 Theme I)
   'skillExecutionMode', // agent-page.tsx
@@ -58,6 +59,7 @@ export const PREFERENCE_KEYS = [
   'forgeSyncGhAuthSwitch', // accounts-page.tsx
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
+  'graphShowCi', // graph-page.tsx — the "Columns" accordion
   'graphTheme', // graph-theme-picker.tsx (via graph-page.tsx)
   'hiddenMetrics', // monitor-page.tsx
   'inactivityTimeoutS', // screen-lock-page.tsx
@@ -68,7 +70,6 @@ export const PREFERENCE_KEYS = [
   'navMode', // sidebar-page.tsx
   'navVisibility', // sidebar-page.tsx — Sidenav toggles
   'optimizerEnabled', // optimizer-settings-page.tsx
-  'passcode', // screen-lock-page.tsx
   'passcodeOnlyWhenLocked', // screen-lock-page.tsx
   'primaryAgent', // agent-page.tsx
   'requirePasscode', // screen-lock-page.tsx
@@ -100,7 +101,9 @@ export const PREFERENCE_KEYS = [
   'loopChoices',
   'loopModels',
   'loopSchedules',
-  'loopEnabled', // fab-panel.tsx's own "Loop" switch — same block, same reason (Ad Hoc)
+  'loopEnabled', // fab-panel.tsx's own "Loop" switch, the one control for /loop, default on — same block, same reason (Ad Hoc)
+  'loopModifierSkills', // loop-composer.tsx's per-option skill field — same block, same reason (Ad Hoc)
+  'loopRunOptions', // loop-composer.tsx's Users filter and auto-rotate slider (Ad Hoc)
 
   // Landed by Phase 64 (merged onto `main` while this phase was in flight —
   // #164) with no settings page of their own; that phase's Theme F only
@@ -113,8 +116,8 @@ export const PREFERENCE_KEYS = [
   'editorTabSize',
   'editorWordWrap',
 
-  'enabledApps', // apps-page.tsx
-  'appDiscardIdle', // apps-page.tsx (Phase 84 Theme F.4)
+  'enabledWebApps', // web-apps-page.tsx
+  'webAppDiscardIdle', // web-apps-page.tsx (Phase 84 Theme F.4)
 
   // Phase 79 Theme H's page. Registered orphans between Theme A (which added
   // the five preferences) and Theme H (which built the page) — and no longer
@@ -134,7 +137,15 @@ export const PREFERENCE_KEYS = [
   // than ahead of them — so neither was ever an orphan.
   'companionVolume', // companion-page.tsx (Voice ▸ Companion volume)
   'companionMicMode', // companion-page.tsx (Microphone ▸ hold or tap)
+  'aiThinkingStyle', // appearance-page.tsx (AI threads ▸ Loading indicator)
   'companionSttEngine', // companion-page.tsx (Microphone ▸ recognition engine, Ad Hoc)
+  'voiceConversation', // companion-page.tsx (Microphone ▸ Conversation mode, Ad Hoc)
+  'voiceConversationTrigger', // companion-page.tsx (Microphone ▸ Conversation mode, Ad Hoc)
+  'companionSttProvider', // companion-page.tsx (Microphone ▸ Provider, Phase 109 Theme B — was local state)
+  // Phase 109 Theme B seeded these two in the phase's one v32 migration and
+  // parked them in `KNOWN_ORPHANS`; Theme G's Profiles section took them out.
+  'companionProfiles', // companion-profiles-section.tsx (Profiles ▸ the list, Save current as…, Rename, Delete)
+  'companionActiveProfile', // companion-profiles-section.tsx (Profiles ▸ the Active badge, Set active)
   // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
   // real control already — the Knowledge view's own pill bar
   // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
@@ -149,10 +160,14 @@ export const PREFERENCE_KEYS = [
 ] as const;
 
 export const SESSION_STATE_KEYS = [
+  'passcode', // legacy plaintext screen-lock code awaiting migration to main's scrypt hash (Phase 91 Theme D); never written, drains to null
+  'agentApiKeys', // legacy plaintext LLM keys awaiting migration into the vault (Phase 113 Theme J); no control, drains to {}
   'activityTimelineOpen', // whether a panel is currently showing
   'browserDetached', // runtime popout state, corrected from main's window registry
   'browserOpen', // whether a panel is currently showing
+  'mediaSpeechOn', // toggled from the Media thread's own composer row, not a settings form
   'cardSkillByTask', // last-chosen skill per Projects card, set from the card itself — not a settings form
+  'collapsedAccordionSections', // folded Accordion section ids — disclosure state
   'collapsedNavSections', // folded-section ids — disclosure state
   'collapsedRepoGroups', // folded-section ids — disclosure state
   'collapsedRepoSections', // folded-section ids — disclosure state
@@ -163,12 +178,18 @@ export const SESSION_STATE_KEYS = [
   'fabPanelOpen', // whether a panel is currently showing
   'fabSessions', // derived tab → live-session pairing, meaningless without terminals.json
   'favouriteRepoIds', // user-marked favourites, edited in the repos panel, not a setting
+  'graphColumnVisibility', // toggled from the graph header's columns menu, not Settings — like graphColumns' widths, a view-local choice
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
-  'onboardedAt', // one-way first-run lifecycle latch
-  'onboardingSkippedStepIds', // wizard skip history — surfaced read-only by accounts-page.tsx's banner, not itself a setting
+  'mediaPaneCollapsed', // side panel open state — disclosure state
+  'mediaTab', // current selection — which Media tab is showing
+  'mediaLastDoc', // current selection — Docs reopens the last edited doc
+  'mediaLastVideoProject', // current selection — Video reselects the last selected project, per repo
+  'mediaVideoPanelTab', // current selection — Video's right panel tab (Edit / Brief / Versions)
+  'primaryModelByAgent', // current selection — model per agent, toggled from TitleBar / companion / views
   'activeEnvironmentByRepo', // last-selected API Client environment per repo, remembered like projectBoardByRepo
   'projectBoardByRepo', // last-viewed board per repo
+  'audioTabByRepo', // Media > Audio: Editor or Generator, per repo
   'projectViewByProject', // last-viewed view per project
   'projectsMode', // last-viewed mode per repo
   'repoGroupMembership', // user-created content, edited in the repos panel, not a setting
@@ -178,12 +199,14 @@ export const SESSION_STATE_KEYS = [
   'selectedRepoId', // current selection
   'selectedWorktreePath', // current selection
   'settingsPage', // current selection — which settings page is showing
-  'showOnboarding', // one-way first-run lifecycle latch
+  'setupState', // setup overlay's first-run gate + skip history — lifecycle, not a setting
+  'terminalDock', // position toggled from the terminal header, not a setting
   'terminalDetached', // runtime popout state, corrected from main's window registry
   'terminalListOpen', // whether a panel is currently showing
   'terminalMaximized', // transient "terminal fills the window" mode
   'terminalOpen', // whether a panel is currently showing
   'workflowPaletteCollapsed', // accordion/rail open state — disclosure state
+  'workflowInspectorCollapsed', // side panel open state — disclosure state
   'workflowRunPanelCollapsed', // accordion/rail open state — disclosure state
 ] as const;
 
@@ -204,8 +227,10 @@ export const SESSION_STATE_KEYS = [
  * one phase slice, and Theme H's `companion-page.tsx` removed them — the
  * intended lifecycle for an entry in this list, and the one worth naming: an
  * orphan is parked here with a named page and leaves when that page ships.
- * `enabledApps` (Phase 83 Theme A/B, resolved by Theme E's `apps-page.tsx`)
- * is the identical shape a third time.
+ * `enabledWebApps` (Phase 83 Theme A/B, resolved by Theme E's `web-apps-page.tsx`)
+ * is the identical shape a third time, and Phase 109's `companionProfiles` and
+ * `companionActiveProfile` (seeded by Theme B, resolved by Theme G's
+ * `companion-profiles-section.tsx`) a fourth.
  */
 export const KNOWN_ORPHANS = [
   'browserLayout',
@@ -214,6 +239,8 @@ export const KNOWN_ORPHANS = [
   'loopModels',
   'loopSchedules',
   'loopEnabled',
+  'loopModifierSkills',
+  'loopRunOptions',
   'editorFontFamily',
   'editorFontSize',
   'editorMinimap',

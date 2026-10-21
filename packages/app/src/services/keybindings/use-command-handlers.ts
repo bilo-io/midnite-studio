@@ -6,10 +6,11 @@ import { useDialogs } from '../../components/dialog-host';
 import { navCommandDisabledReason } from '../../components/nav-visibility';
 import { activePanelBack, activePanelForward } from '../../components/panel-stack/active-panel';
 import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
-import { devServerUrl } from '../../features/browser/dev-server';
-import { useDevServer } from '../../features/browser/use-dev-server';
-import { useGraphStore } from '../../features/graph/graph-store';
-import { useSlidesStore } from '../../features/slides/slides-store';
+import { useDevServerFor } from '@midnite/studio-feature-browser/renderer';
+import { toggleNotes } from '../../features/notes/notes-window';
+import { useGraphStore } from '@midnite/studio-frame';
+import { useSetupStore } from '../../features/setup/setup-store';
+import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { syncAffordances } from '../../features/status/sync-availability';
 import { closeSessionWithConfirm } from '../../features/terminal/close-session';
 import { onMainSurface, useTerminalStore } from '../../features/terminal/terminal-store';
@@ -20,7 +21,8 @@ import {
   useBrowserStore,
   ZOOM_STEP,
   type BrowserTab,
-} from '../../store/browser-store';
+  devServerUrl,
+} from '@midnite/studio-feature-browser/renderer/store';
 import { useCommitBoxStore } from '../../store/commit-box-store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { useThemeImportCommandStore } from '../../features/themes/theme-import-command-store';
@@ -30,8 +32,7 @@ import {
 } from '../../components/account-switcher-store';
 import { usePaletteStore } from '../../store/palette-store';
 import { isCompanionPanelDocked, isFabPanelDocked, useUiStore, type ViewId } from '../../store/ui-store';
-import { useWorkbenchStore } from '../../store/workbench-store';
-import { useWorkflowRunCommandStore } from '../../store/workflow-run-command-store';
+import { useWorkflowRunCommandStore } from '@midnite/studio-feature-workflows/renderer';
 import { bridge } from '../bridge';
 import { openInMidnite } from '../open-in-midnite';
 import { useCloseRepo, usePickAndOpenRepo, useRepos } from '../queries';
@@ -63,7 +64,7 @@ function withNavVisibility(
 // — Councils (Phase 42) and, since Phase 50 Theme D, a board's card detail.
 // `Mod+[`/`Mod+]` stay disabled everywhere else rather than firing a silent
 // no-op through the registry.
-const PANEL_HISTORY_VIEWS = new Set<ViewId>(['councils', 'projects']);
+const PANEL_HISTORY_VIEWS = new Set<ViewId>(['councils', 'tasks', 'files']);
 
 /**
  * The one dispatcher every source reads: the keyboard, the native menu, and
@@ -94,7 +95,8 @@ export function useCommandHandlers(): CommandRuntime {
   const activeView = useUiStore((s) => s.activeView);
   const navVisibility = useUiStore((s) => s.navVisibility);
   const browserOpen = useUiStore((s) => s.browserOpen);
-  const devServer = useDevServer();
+  // The browser feature's dev-server query, under the same key the new-tab tile uses (Phase 113 Theme L).
+  const devServer = useDevServerFor(selectedRepoId, selectedWorktreePath);
   const terminalOpen = useUiStore((s) => s.terminalOpen);
   const fabPanelOpen = useUiStore((s) => s.fabPanelOpen);
   const reposOpen = useUiStore((s) => s.reposOpen);
@@ -138,7 +140,6 @@ export function useCommandHandlers(): CommandRuntime {
   // which only ever read `getState()` inside `run` since they don't need to
   // know the tab's kind to decide whether they are enabled.
   const activeBrowserTab = useBrowserStore((s) => s.tabs.find((t) => t.id === s.activeTabId) ?? null);
-  const workbenchActiveTabId = useWorkbenchStore((s) => s.activeTabId);
   const { data: repos } = useRepos();
   const selectedRepo = repos?.find((repo) => repo.id === selectedRepoId) ?? null;
 
@@ -161,7 +162,12 @@ export function useCommandHandlers(): CommandRuntime {
   // nothing open.
   const sync = selectedRepoId && status ? syncAffordances(status.branch) : null;
 
-  const onWorkingTree = activeView === 'changes' && workbenchActiveTabId === null;
+  // The working tree's commit box lives in the graph: the inline working-copy
+  // panel, or — in an unborn repo, with no history to hang it on — the panel
+  // the graph shows in place of its "No commits yet" state.
+  const graphWorkingTreeOpen = useUiStore((s) => s.graphSelection?.kind === 'working-tree');
+  const firstCommit = status?.branch.unborn === true && status.entries.length > 0;
+  const onWorkingTree = activeView === 'graph' && (graphWorkingTreeOpen || firstCommit);
 
   const editorTarget = useFileEditorStore((s) => s.target);
   const editorDirty = useFileEditorStore((s) => s.target !== null && s.content !== s.savedContent);
@@ -182,6 +188,7 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().toggleTerminalHalfMaximized(),
     },
+    'terminal.toggleDock': { enabled: true, run: () => useUiStore.getState().toggleTerminalDock() },
     'terminal.focus': { enabled: true, run: () => useUiStore.getState().setTerminalOpen(true) },
     // Mod+T is an App-Switcher-style HUD now (`TerminalSwitcherOverlay`), the
     // same shape `browser.toggle` uses for Mod+B: a bare tap opens the
@@ -248,7 +255,7 @@ export function useCommandHandlers(): CommandRuntime {
           ? useUiStore.getState().setFabPanelOpen(false)
           : useUiStore.getState().toggleQuickAccess(),
     },
-    'notes.toggle': { enabled: true, run: () => useUiStore.getState().toggleNotes() },
+    'notes.toggle': { enabled: true, run: () => toggleNotes() },
     /*
       Phase 79 Theme C. Disabled — with a reason, so the palette row explains
       itself — while the companion is switched off: the panel would render
@@ -296,6 +303,13 @@ export function useCommandHandlers(): CommandRuntime {
         else useAccountSwitcherStore.getState().requestOpen();
       },
     },
+    /*
+      Phase 98 Theme A. Opens the setup overlay at its intro — the one way in
+      for a profile that has already finished or left setup, since the
+      overlay opens by itself only on a first run. Enabled unconditionally:
+      it needs no repo, and every page in it is optional.
+    */
+    'setup.open': { enabled: true, run: () => useSetupStore.getState().openSetup() },
     /*
       Phase 71 Theme C. Forced `target: 'in-app'` and tagged with the repo it
       was detected for: a dev server is the one URL whose whole point is the
@@ -476,17 +490,48 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('files'),
     }),
+    // Kept as an alias once Issues folded into Tasks: Tasks, on Repo issues.
     'view.issues': withNavVisibility(navVisibility, 'view.issues', {
       enabled: true,
-      run: () => useUiStore.getState().setActiveView('issues'),
+      run: () => useUiStore.getState().openRepoIssues(),
     }),
+    'view.media': withNavVisibility(navVisibility, 'view.media', {
+      enabled: true,
+      run: () => useUiStore.getState().openMedia(),
+    }),
+    // Phase 99 Theme A — kept as an alias: Media, on its Video tab.
     'view.video': withNavVisibility(navVisibility, 'view.video', {
       enabled: true,
-      run: () => useUiStore.getState().setActiveView('video'),
+      run: () => useUiStore.getState().openMedia('video'),
     }),
+    'media.tab.doc': { enabled: true, run: () => useUiStore.getState().openMedia('doc') },
+    'media.tab.image': { enabled: true, run: () => useUiStore.getState().openMedia('image') },
+    'media.tab.video': { enabled: true, run: () => useUiStore.getState().openMedia('video') },
+    'media.tab.audio': { enabled: true, run: () => useUiStore.getState().openMedia('audio') },
+    'media.tab.model': { enabled: true, run: () => useUiStore.getState().openMedia('model') },
+    'media.audio.editor': {
+      enabled: true,
+      run: () => {
+        const ui = useUiStore.getState();
+        ui.openMedia('audio');
+        if (ui.selectedRepoId) ui.setAudioTab(ui.selectedRepoId, 'editor');
+      },
+    },
+    'media.audio.generator': {
+      enabled: true,
+      run: () => {
+        const ui = useUiStore.getState();
+        ui.openMedia('audio');
+        if (ui.selectedRepoId) ui.setAudioTab(ui.selectedRepoId, 'generator');
+      },
+    },
     'view.models': withNavVisibility(navVisibility, 'view.models', {
       enabled: true,
       run: () => useUiStore.getState().setActiveView('models'),
+    }),
+    'view.chats': withNavVisibility(navVisibility, 'view.chats', {
+      enabled: true,
+      run: () => useUiStore.getState().setActiveView('chats'),
     }),
     'view.apiClient': withNavVisibility(navVisibility, 'view.apiClient', {
       enabled: true,
@@ -498,14 +543,14 @@ export function useCommandHandlers(): CommandRuntime {
     }),
     'status.focus': withNavVisibility(navVisibility, 'status.focus', {
       enabled: true,
-      run: () => useUiStore.getState().setActiveView('changes'),
+      run: () => useUiStore.getState().openWorkingCopyInGraph(),
     }),
     'status.commit':
       selectedRepoId && onWorkingTree
         ? { enabled: true, run: () => useCommitBoxStore.getState().handle?.run() }
         : {
             enabled: false,
-            disabledReason: selectedRepoId ? 'Switch to the working tree to commit' : NO_REPO,
+            disabledReason: selectedRepoId ? 'Open the working copy in the graph to commit' : NO_REPO,
             run: () => {},
           },
 
@@ -544,6 +589,7 @@ export function useCommandHandlers(): CommandRuntime {
       enabled: true,
       run: () => useUiStore.getState().setScreensaverOpen(true, false),
     },
+    'app.reportIssue': { enabled: true, run: () => useUiStore.getState().setReportIssueOpen(true) },
 
     'markdown.presentAsSlides': activeMarkdown
       ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }
@@ -579,10 +625,10 @@ export function useCommandHandlers(): CommandRuntime {
     // no-op there anyway.
     'panel.back': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelBack() }
-      : { enabled: false, disabledReason: 'Open Councils or a Projects card first', run: () => {} },
+      : { enabled: false, disabledReason: 'Open Councils, Files or a Projects card first', run: () => {} },
     'panel.forward': PANEL_HISTORY_VIEWS.has(activeView)
       ? { enabled: true, run: () => activePanelForward() }
-      : { enabled: false, disabledReason: 'Open Councils or a Projects card first', run: () => {} },
+      : { enabled: false, disabledReason: 'Open Councils, Files or a Projects card first', run: () => {} },
   };
 }
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  changelogEntry,
+  isVideoTemplateId,
+  projectIdFromTemplate,
+  videoProjectDir,
+  parseIterations,
+  studioCompositionUrl,
   VideoCompositionSchema,
   VideoProjectFileSchema,
   VideoProjectSchema,
@@ -13,6 +19,7 @@ import {
   VideoToolchainSchema,
   VIDEO_RENDER_STATUSES,
   VIDEO_SKILLS,
+  VIDEO_SKILL_RENAMES,
 } from './video';
 
 describe('VideoProjectFileSchema', () => {
@@ -143,7 +150,7 @@ describe('VideoToolBinarySchema / VideoToolchainSchema', () => {
       node: { found: true as const, path: '/usr/local/bin/node' },
       npx: { found: true as const, path: '/usr/local/bin/npx' },
       skills: {
-        videoWriteScript: { found: true as const, path: '/videos/.claude/skills/video-write-editorial-script/SKILL.md' },
+        videoWriteScript: { found: true as const, path: '/videos/.claude/skills/midnite-media-video-write-editorial-script/SKILL.md' },
         videoExecuteScript: { found: false as const, reason: 'not found' },
       },
     };
@@ -163,9 +170,18 @@ describe('VideoToolBinarySchema / VideoToolchainSchema', () => {
 describe('VIDEO_SKILLS', () => {
   it('names the exact two /command invocations the app types into a terminal', () => {
     expect(VIDEO_SKILLS).toEqual({
-      videoWriteScript: '/video-write-editorial-script',
-      videoExecuteScript: '/video-execute-editorial-script',
+      videoWriteScript: '/midnite-media-video-write-editorial-script',
+      videoExecuteScript: '/midnite-media-video-execute-editorial-script',
     });
+  });
+});
+
+describe('VIDEO_SKILL_RENAMES', () => {
+  it('maps each pre-namespace directory to the name VIDEO_SKILLS now invokes', () => {
+    for (const [legacy, next] of Object.entries(VIDEO_SKILL_RENAMES)) {
+      expect(legacy.startsWith('midnite-')).toBe(false);
+      expect(Object.values(VIDEO_SKILLS)).toContain(`/${next}`);
+    }
   });
 });
 
@@ -187,5 +203,63 @@ describe('push event schemas', () => {
     expect(() =>
       VideoRenderProgressEventSchema.parse({ renderId: 'r1', projectId: 'p1', status: 'rendering', progress: 1.5 }),
     ).toThrow();
+  });
+});
+
+describe('parseIterations (Phase 99 Theme D)', () => {
+  it('orders newest first and skips non-iterations', () => {
+    const its = parseIterations(['v1-smoke.mp4', 'CHANGELOG.md', 'v10-final.mp4', 'v2.mp4', '_stills']);
+    expect(its.map((i) => i.filename)).toEqual(['v10-final.mp4', 'v2.mp4', 'v1-smoke.mp4']);
+    expect(its[1]).toMatchObject({ version: 2, label: null, ext: 'mp4' });
+  });
+
+  it('marks pinned variants sharing one version, unlabelled first', () => {
+    const its = parseIterations(['v3-low.mp4', 'v3-high.mp4', 'v3.mp4', 'v2-a.webm']);
+    expect(its.map((i) => i.filename)).toEqual(['v3.mp4', 'v3-high.mp4', 'v3-low.mp4', 'v2-a.webm']);
+    expect(its.map((i) => i.sharesVersion)).toEqual([true, true, true, false]);
+  });
+
+  it('accepts every codec extension the render dialog produces', () => {
+    expect(parseIterations(['v1.webm', 'v2.mov', 'v3.gif', 'v4.avi']).map((i) => i.ext)).toEqual([
+      'gif',
+      'mov',
+      'webm',
+    ]);
+  });
+});
+
+describe('changelogEntry', () => {
+  const log = '# X — render history\n\n## v1-smoke — 2026-09-01\n\n- first\n\n## v2-scored — 2026-09-02\n\n- music\n';
+  it('returns the section for an iteration', () => {
+    expect(changelogEntry(log, 'v2-scored.mp4')).toBe('## v2-scored — 2026-09-02\n\n- music');
+    expect(changelogEntry(log, 'v1-smoke.mp4')).toBe('## v1-smoke — 2026-09-01\n\n- first');
+  });
+  it('is null when absent', () => {
+    expect(changelogEntry(log, 'v9.mp4')).toBeNull();
+  });
+});
+
+describe('studioCompositionUrl', () => {
+  it('deep-links the composition', () => {
+    expect(studioCompositionUrl('http://localhost:3000/', 'Main')).toBe('http://localhost:3000/Main');
+    expect(studioCompositionUrl('http://localhost:3000', null)).toBe('http://localhost:3000');
+  });
+});
+
+describe('video templates', () => {
+  it('tells a template id from a project id, and maps each to its folder', () => {
+    expect(isVideoTemplateId('templates/midnite/golive-promo')).toBe(true);
+    expect(isVideoTemplateId('midnite/templates-reel')).toBe(false);
+    expect(videoProjectDir('templates/midnite/golive-promo')).toBe('templates/midnite/golive-promo');
+    expect(videoProjectDir('acme/promo/001-x')).toBe('projects/acme/promo/001-x');
+  });
+
+  it("files a copy of a template under the template's own group", () => {
+    expect(projectIdFromTemplate('templates/youtube-tutorials/neon-hud', 'intro')).toBe('youtube-tutorials/intro');
+    expect(projectIdFromTemplate('templates/solo', 'intro')).toBe('intro');
+  });
+
+  it('accepts a project file with no script', () => {
+    expect(VideoProjectFileSchema.safeParse({ id: 'templates/a/b', title: 'T', composition: 'C', brief: 'input/BRIEF.md' }).success).toBe(true);
   });
 });

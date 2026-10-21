@@ -7,11 +7,14 @@ import { MCP_MAX_REQUEST_BYTES, type McpRequest, type McpResponse } from '@midni
 import type { BrowserWindow } from 'electron';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { createMcpToolListing, installedAppsFromIds } from '@midnite/studio-runtime';
+
 import { createFrameDecoder, encodeJsonFrame } from '../../broker/protocol';
 import { resetRegistry } from '../repo-registry';
 import { configureUiBridge, resetUiBridgeForTests, resolveUiReply } from '../companion/ui-bridge';
 import { getMcpCallLog, resetMcpCallLog } from './audit';
 import { MCP_MAX_CONNECTIONS, startMcpServer, type McpServerHandle } from './server';
+import { MCP_TOOL_MANIFESTS } from './tool-manifests';
 
 let dirs: string[] = [];
 let handles: McpServerHandle[] = [];
@@ -138,6 +141,7 @@ describe('startMcpServer', () => {
         repoPath: null,
         locked: false,
         uiToolsEnabled: false,
+      lastRevealed: null,
       },
     });
     expect(sent).toHaveLength(1);
@@ -244,5 +248,63 @@ describe('startMcpServer', () => {
       isPackaged: false,
     });
     expect(result.ok).toBe(false);
+  });
+
+  /**
+   * Phase 99 Theme G — an in-app iterative run's private server: its own socket, its own
+   * dispatcher, the same frame/permission/audit code. It answers only what its dispatcher
+   * lets through, and an unrelated tool is the dispatcher's refusal, not the app's registry.
+   */
+  it('serves a private socket through its own dispatcher, audited like any other call', async () => {
+    const socketPath = join(tempDir(), 'run.sock');
+    const seen: string[] = [];
+    const result = await startMcpServer({
+      userDataDir: tempDir(),
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+      socketPath,
+      dispatch: async (tool) => {
+        seen.push(tool);
+        return tool === 'model_get_spec'
+          ? { ok: true, value: { hello: 'run' } }
+          : { ok: false, kind: 'refused', message: 'This run edits one model.' };
+      },
+    });
+    if (!result.ok) throw new Error(result.message);
+    handles.push(result.handle);
+    expect(result.handle.socketPath).toBe(socketPath);
+    expect(statSync(socketPath).mode & 0o777).toBe(0o600);
+
+    const socket = await connect(socketPath);
+    expect(await call(socket, { id: 'a', tool: 'model_get_spec', input: { repoPath: '/r' } })).toEqual({ id: 'a', ok: true, value: { hello: 'run' } });
+    expect(await call(socket, { id: 'b', tool: 'repo.list', input: {} })).toMatchObject({ ok: false, kind: 'refused' });
+    socket.destroy();
+    expect(seen).toEqual(['model_get_spec', 'repo.list']);
+    expect(getMcpCallLog().map((c) => [c.tool, c.ok])).toEqual([
+      ['repo.list', false],
+      ['model_get_spec', true],
+    ]);
+  });
+
+  it('refuses a tool whose app is not installed, and still serves frame tools (Phase 113 Theme D)', async () => {
+    const result = await startMcpServer({
+      userDataDir: tempDir(),
+      appVersion: '0.0.0-test',
+      buildId: 'test',
+      isPackaged: false,
+      // The server's own manifests: `model_list` is Gamer's because the Model feature's manifest says so.
+      listing: createMcpToolListing({ installed: installedAppsFromIds(['coder']), manifests: MCP_TOOL_MANIFESTS }),
+    });
+    if (!result.ok) throw new Error(result.message);
+    handles.push(result.handle);
+    const socket = await connect(result.handle.socketPath);
+    expect(await call(socket, { id: 'a', tool: 'model_list', input: { repoPath: '/r' } })).toMatchObject({
+      ok: false,
+      kind: 'refused',
+      message: expect.stringContaining('not installed'),
+    });
+    expect(await call(socket, { id: 'b', tool: 'repo.list', input: {} })).toEqual({ id: 'b', ok: true, value: [] });
+    socket.destroy();
   });
 });

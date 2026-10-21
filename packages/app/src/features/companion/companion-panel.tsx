@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { AiThreadFrame, ThinkingIndicator } from '../../components/ai-thread';
 import { PanelStack } from '../../components/panel-stack/panel-stack';
 import { usePanelHistory } from '../../components/panel-stack/use-panel-history';
 import { useWindowFocusGate } from '../../lib/use-window-focus-gate';
@@ -129,12 +130,23 @@ export function CompanionPanel({
         child refuses to shrink below its content and the input bar walks off
         the bottom of a long transcript.
       */}
-      <PanelStack
-        history={history}
-        className="min-h-0 flex-1"
-        render={() => <CompanionThread turns={transcript} />}
-      />
-      {pendingAction ? <CompanionPendingActionBar label={pendingAction.label} /> : null}
+      <AiThreadFrame
+        loading={state === 'thinking'}
+        className="flex min-h-0 flex-1 flex-col"
+        testId="companion-thread-frame"
+      >
+        <PanelStack
+          history={history}
+          className="min-h-0 flex-1"
+          render={() => <CompanionThread turns={transcript} />}
+        />
+        {state === 'thinking' ? <ThinkingIndicator className="shrink-0 pb-1.5" /> : null}
+      </AiThreadFrame>
+      {pendingAction?.kind === 'choice' ? (
+        <CompanionChoiceBar label={pendingAction.label} options={pendingAction.options} />
+      ) : pendingAction ? (
+        <CompanionPendingActionBar label={pendingAction.label} />
+      ) : null}
       <CompanionInputBar
         disabled={state === 'thinking'}
         reserveFabSpace={reserveFabSpace}
@@ -173,6 +185,56 @@ function CompanionPendingActionBar({ label }: { label: string }) {
       >
         Run
       </button>
+    </div>
+  );
+}
+
+/**
+ * The numbered chips a vague request leaves behind (Phase 112 Theme H). A chip
+ * submits its own number, so a click, "two" and the second chip are one path
+ * through `takeChoice`; Return on an empty field confirms the first.
+ */
+function CompanionChoiceBar({
+  label,
+  options,
+}: {
+  label: string;
+  options: readonly { title: string; detail?: string | undefined }[];
+}) {
+  return (
+    <div
+      className="flex shrink-0 flex-col gap-1.5 border-t border-border bg-card/40 px-2.5 py-1.5 text-xs"
+      data-testid="companion-choice"
+    >
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">{label.charAt(0).toUpperCase() + label.slice(1)} — pick one, or say a number.</span>
+        <button
+          type="button"
+          data-testid="companion-pending-cancel"
+          onClick={() => companionPorts().submit('cancel')}
+          className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          Cancel
+        </button>
+      </div>
+      <ol className="flex flex-col gap-1">
+        {options.map((option, index) => (
+          <li key={`${index}-${option.title}`}>
+            <button
+              type="button"
+              data-testid={`companion-choice-${index + 1}`}
+              onClick={() => companionPorts().submit(String(index + 1))}
+              className="flex w-full min-w-0 items-center gap-2 rounded-md border border-border bg-background/60 px-2 py-1 text-left hover:bg-accent"
+            >
+              <span className="grid size-4 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-foreground">{option.title}</span>
+              {option.detail ? <span className="shrink-0 truncate text-muted-foreground">{option.detail}</span> : null}
+            </button>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

@@ -18,8 +18,8 @@ test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screensho
 
 const TABS = [
   ['Guard', 'guard'],
-  ['Concepts', 'innovate'],
-  ['Develop', 'automate'],
+  ['Ideate', 'innovate'],
+  ['Create', 'automate'],
   ['Patrol', 'watchdog'],
   ['Medic', 'medic'],
   ['Overhaul', 'overhaul'],

@@ -19,13 +19,10 @@ export type WorktreeAddOptions = {
   startPoint?: string;
 };
 
-export async function addWorktree(
-  repoPath: string,
-  options: WorktreeAddOptions,
-): Promise<GitOpResult> {
+export function buildWorktreeAddArgs(options: WorktreeAddOptions): string[] {
   const args = ['worktree', 'add'];
-  if (options.createBranch) args.push('-b', options.branch);
-  args.push(options.path);
+  if (options.createBranch) args.push(`-b${options.branch}`);
+  args.push('--end-of-options', options.path);
   // With `-b` the branch is created at this start point; without it, the
   // positional commit-ish IS the branch to check out.
   if (options.createBranch) {
@@ -33,6 +30,14 @@ export async function addWorktree(
   } else {
     args.push(options.branch);
   }
+  return args;
+}
+
+export async function addWorktree(
+  repoPath: string,
+  options: WorktreeAddOptions,
+): Promise<GitOpResult> {
+  const args = buildWorktreeAddArgs(options);
 
   const res = await writeQueue.run(repoPath, () =>
     execGit(repoPath, args, { write: true }),
@@ -50,14 +55,19 @@ export async function addWorktree(
  * uncommitted changes, and that refusal is a feature — it is the last thing
  * standing between a stray click and lost work.
  */
+export function buildWorktreeRemoveArgs(path: string, force = false): string[] {
+  const args = ['worktree', 'remove'];
+  if (force) args.push('--force');
+  args.push('--end-of-options', path);
+  return args;
+}
+
 export async function removeWorktree(
   repoPath: string,
   path: string,
   force = false,
 ): Promise<GitOpResult> {
-  const args = ['worktree', 'remove'];
-  if (force) args.push('--force');
-  args.push(path);
+  const args = buildWorktreeRemoveArgs(path, force);
 
   const res = await writeQueue.run(repoPath, () => execGit(repoPath, args, { write: true }));
   if (res.exitCode === 0) return ok();

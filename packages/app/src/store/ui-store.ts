@@ -1,3 +1,4 @@
+import type { ThinkingStyle } from '../components/ai-thread/thinking-style';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -11,15 +12,22 @@ import {
   type AgentCommandId,
   type AgentMode,
   type AgentOllamaBinding,
-  type AppId,
+  type WebAppId,
   type CompanionMicMode,
+  type CompanionProfile,
   type CompanionSttEngine,
+  type SttProviderId,
+  VOICE_CONVERSATION_TRIGGERS,
+  type VoiceConversationTrigger,
   type CompanionVoiceEngine,
   type CompanionVoiceSelection,
   type Ecosystem,
   type ForgeAccount,
   type LoopModel,
+  type LoopRunOptions,
   type LoopSchedule,
+  type MediaTab,
+  MEDIA_TABS,
   type MetricId,
   type PageWindowRole,
   type PanelWindowRole,
@@ -37,15 +45,31 @@ import type {
   ActivityTimelineStyle,
 } from '../components/commit-activity-timeline/commit-activity-timeline';
 import {
+  DEFAULT_GRAPH_COLUMN_VISIBILITY,
+  DEFAULT_GRAPH_COLUMNS,
   DEFAULT_GRAPH_DENSITY,
   DEFAULT_GRAPH_THEME,
-  type GraphDensity,
-  type GraphThemeId,
-} from '../features/graph/graph-themes';
-import {
   DEFAULT_PROVENANCE_MARK_MODE,
+  normalizeColumnVisibility,
+  withColumnVisible,
+  type DiffLayout,
+  type GraphColumns,
+  type GraphColumnVisibility,
+  type GraphDensity,
+  type GraphSelection,
+  type GraphThemeId,
   type ProvenanceMarkMode,
-} from '../features/graph/provenance-display';
+} from '@midnite/studio-frame';
+
+// The git graph's and diff's state shapes moved to the frame with them (Phase 113 Theme O).
+export {
+  DEFAULT_GRAPH_COLUMNS,
+  GRAPH_COLUMN_BOUNDS,
+  type DiffLayout,
+  type GraphColumns,
+  type GraphSelection,
+} from '@midnite/studio-frame';
+import { DEFAULT_AGENT_SKILLS } from '@midnite/studio-frame';
 import {
   DEFAULT_TERMINAL_FONT_SIZE,
   DEFAULT_TERMINAL_LINE_HEIGHT,
@@ -55,17 +79,28 @@ import {
   DEFAULT_SESSION_DISPOSE_AFTER_MS,
 } from '../features/terminal/session-mount-policy';
 import { DEFAULT_EDITOR_FONT_SIZE, DEFAULT_EDITOR_TAB_SIZE } from '../lib/monaco/editor-prefs';
-import { EMPTY_PROJECT_ITEM_FILTER, type ProjectItemFilterState } from '../features/projects/filter';
-import { DEFAULT_GRAPH_FACETS, type ProjectGraphFacets } from '../features/projects/graph/graph-filter';
-import { touchProjectView } from '../features/projects/project-view-lru';
-import { touchCardSkill } from '../features/projects/board/card-skill-lru';
-import { columnSkillKey } from '../features/projects/board/board-derive';
-import type { SortState } from '../features/projects/sort';
+import {
+  columnSkillKey,
+  DEFAULT_PROJECT_VIEW,
+  REPO_ISSUES_SOURCE_ID,
+  touchCardSkill,
+  touchProjectView,
+  type ProjectViewState,
+} from '@midnite/studio-feature-tasks/renderer/state';
 import { useFileEditorStore } from './file-editor-store';
 
-import { cycleBrowserLayout } from '../features/browser/browser-layouts';
+import { cycleBrowserLayout, type BrowserLayout } from '@midnite/studio-feature-browser/renderer/store';
+import { bridge } from '../services/bridge';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
+import { migrateLoopSwitch } from './migrate-loop-switch';
+import { migrateAppsToWebApps } from './migrate-web-apps';
+import {
+  INITIAL_SETUP_STATE,
+  migrateSetupState,
+  withPageSkipped,
+  type SetupState,
+} from './setup-state';
 
 /**
  * Collapse/expand/lock behaviour of the nav rail, mirroring `AppFrame`'s
@@ -82,7 +117,7 @@ export type NavMode = 'auto' | 'expanded' | 'collapsed';
 /**
  * A Knowledge canvas renderer's persisted id (Phase 89 Theme A).
  *
- * Declared here, not imported from `features/knowledge/renderer-contract.ts`,
+ * Declared here, not imported from `frame/src/knowledge/renderer-contract.ts`,
  * for the same reason as `NavMode` above is declared rather than imported —
  * except the constraint here is a bundling one, not a packaging one: that
  * file is reached only through `KnowledgeCanvas`'s own `React.lazy`/dynamic
@@ -109,7 +144,7 @@ export const DEFAULT_KNOWLEDGE_LAYOUT: KnowledgeLayoutId = 'force-atlas2';
 
 /**
  * How much of a large knowledge graph the canvas mounts up front — one of
- * `features/knowledge/knowledge-detail.ts`'s `DETAIL_LEVELS` (`core`,
+ * `frame/src/knowledge/knowledge-detail.ts`'s `DETAIL_LEVELS` (`core`,
  * `extended`, `all`). A plain `string` for the same reason the two ids
  * above are: `resolveDetailLevel` there is the validation, falling back to
  * the smallest budget for an unknown or removed id.
@@ -120,17 +155,8 @@ export const DEFAULT_KNOWLEDGE_DETAIL: KnowledgeDetailId = 'core';
 /** Which edge of the terminal pane the session list docks to. */
 export type TerminalSidebarSide = 'left' | 'right';
 
-/**
- * How the browser pane divides the window.
- *
- * `full` is a true full screen — it covers the nav rail as well as the
- * content row, because a rail whose every item navigates the app behind the
- * browser has nothing to offer while the browser is what you are looking at.
- * `left`/`right` are the side-by-side splits, naming the half the BROWSER
- * takes; the other half keeps the active view (the "editor" half), reflowed
- * rather than merely covered.
- */
-export type BrowserLayout = 'full' | 'left' | 'right';
+/** How the browser pane divides the window — the browser feature's type since Phase 113 Theme L. */
+export type { BrowserLayout } from '@midnite/studio-feature-browser/renderer/store';
 
 /**
  * Where a link the app hands off should open — the embedded browser, or the
@@ -172,9 +198,6 @@ export type FabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 
 /** How the commit inspector lists a commit's files. */
 export type CommitFileView = 'tree' | 'list';
 
-/** Layout preference for diff rendering: unified (single column) or split (side-by-side). */
-export type DiffLayout = 'unified' | 'split';
-
 /**
  * The literal defaults for the four diff/file-view preferences (Phase 63), named
  * so `diff-page.tsx`'s "Reset to defaults" and this file's own initial state
@@ -186,14 +209,6 @@ export const DIFF_PREF_DEFAULTS = {
   commitFileView: 'tree' as CommitFileView,
   changesFileView: 'list' as CommitFileView,
 };
-
-/** What the graph's detail panel shows (Phase 22 Theme D) — see `graphSelection`. */
-export type GraphSelection =
-  | { kind: 'commit'; sha: string }
-  | { kind: 'stash'; selector: string }
-  /** The Conflict Resolution Studio for one path (Phase 47 Theme D). */
-  | { kind: 'conflict'; path: string }
-  | null;
 
 /**
  * `ViewId`/`VIEW_IDS` and `SettingsPageId`/`SETTINGS_PAGE_IDS` moved to
@@ -260,13 +275,13 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'browser', label: 'Browser', group: 'tools' },
   { id: 'apiClient', label: 'API Client', group: 'tools' },
   { id: 'workflows', label: 'Workflows', group: 'tools' },
-  { id: 'projects', label: 'Projects', group: 'tools' },
-  { id: 'video', label: 'Video Studio', group: 'tools' },
+  { id: 'projects', label: 'Tasks', group: 'tools' },
+  { id: 'media', label: 'Media', group: 'tools' },
   { id: 'ollama', label: 'Ollama', group: 'tools' },
   { id: 'agent', label: 'Agent', group: 'ai' },
   { id: 'companion', label: 'Companion', group: 'ai' },
   { id: 'mcp', label: 'MCP Server', group: 'ai' },
-  { id: 'apps', label: 'Apps', group: 'ai' },
+  { id: 'web-apps', label: 'Web apps', group: 'ai' },
   { id: 'accounts', label: 'Accounts', group: 'general' },
   { id: 'cli', label: 'CLI Integration', group: 'system' },
   { id: 'updates', label: 'App Updates', group: 'system' },
@@ -279,10 +294,11 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
 export type LayoutSizes = {
   reposWidth: number;
   terminalHeight: number;
+  /** The terminal's width when docked on the right (`terminalDock: 'right'`). */
+  terminalWidth: number;
   /** The terminal panel's session list, beside the active terminal. */
   terminalListWidth: number;
   detailWidth: number;
-  changesListWidth: number;
   /** The Files view's tree pane, left of the preview. */
   filesTreeWidth: number;
   /**
@@ -294,6 +310,12 @@ export type LayoutSizes = {
    */
   commitFilesHeight: number;
   /**
+   * The Loops tab's form, above its run terminal, in px. `0` means "no
+   * choice made": the form takes its natural content height. Any other value
+   * is a dragged height, clamped to the pane on every render.
+   */
+  loopFormHeight: number;
+  /**
    * The Actions run detail's jobs tree, above its log pane.
    */
   actionsJobsHeight: number;
@@ -303,10 +325,10 @@ export type LayoutSizes = {
   testsListWidth: number;
   /** The Reviews view's PR list, left of the PR detail (Phase 20 Theme C). */
   reviewsListWidth: number;
-  /** The Issues view's issue list, left of the issue detail (Phase 54 Theme D). */
-  issuesListWidth: number;
   /** The Sessions view's closed-session list, left of the transcript pane (Phase 67 Theme C). */
   sessionsListWidth: number;
+  /** The Chats view's explorer, left of the thread. */
+  chatsListWidth: number;
   /** The Notes view's sidenav, left of the editor pane (Phase 86 Theme G). */
   notesListWidth: number;
   /** The Search view's results list, left of the detail preview (Phase 25 Theme C). */
@@ -347,10 +369,33 @@ export type LayoutSizes = {
   knowledgeFiltersWidth: number;
   /** The Knowledge view's node or community detail panel (Phase 87). */
   knowledgeDetailWidth: number;
-  /** The Video Studio view's project list, left of the studio pane (Phase 44 Theme D). */
-  videoProjectListWidth: number;
-  /** The Video Studio view's project detail, right of the studio pane (Phase 44 Theme D). */
-  videoDetailWidth: number;
+  /**
+   * Media page (Phase 99 Theme A) — each tab's explorer (left) and detail
+   * (right) pane, remembered per tab. The Video pair replaced Phase 44's
+   * `videoProjectListWidth`/`videoDetailWidth` (v29 migration). Read them
+   * through `mediaLayoutKeys(tab)` rather than naming the keys.
+   */
+  mediaDocExplorerWidth: number;
+  mediaDocDetailWidth: number;
+  mediaImageExplorerWidth: number;
+  mediaImageDetailWidth: number;
+  mediaVideoExplorerWidth: number;
+  mediaVideoDetailWidth: number;
+  mediaAudioExplorerWidth: number;
+  mediaAudioDetailWidth: number;
+  mediaModelExplorerWidth: number;
+  mediaModelDetailWidth: number;
+  mediaTerrainExplorerWidth: number;
+  mediaTerrainDetailWidth: number;
+  mediaSpriteExplorerWidth: number;
+  mediaSpriteDetailWidth: number;
+  mediaMapExplorerWidth: number;
+  mediaMapDetailWidth: number;
+  mediaGameExplorerWidth: number;
+  mediaGameDetailWidth: number;
+  // Phase 113 Theme R — Media ▸ Library's explorer (roots and kinds) and item detail.
+  mediaLibraryExplorerWidth: number;
+  mediaLibraryDetailWidth: number;
   /** The Workflows view's workflow list, left of the canvas (Phase 43). */
   workflowListWidth: number;
   /** The Workflows view's detail panel (inspector / history), right of the canvas (Phase 43). */
@@ -363,33 +408,17 @@ export type LayoutSizes = {
   databaseConnectionsWidth: number;
   /** Settings' inner page nav, left of the active settings page (Ad hoc). */
   settingsNavWidth: number;
+  /**
+   * The git graph's inline panel (a commit's details, or the working copy),
+   * expanded under its row. One height for both kinds, so the panel is the
+   * same size whichever row you open. Clamped again at render time to a share
+   * of the graph, which these absolute bounds cannot know.
+   */
+  graphInlineHeight: number;
+  /** The inline panel's left column (details and the file list), left of the diff. */
+  graphInlineListWidth: number;
 };
 
-
-/** Widths of the graph table's fixed-width columns. */
-export type GraphColumns = {
-  /** The BRANCH / TAG column, left of the lane gutter. */
-  branchTag: number;
-  /**
-   * The Author column — rendered only by the styles whose node is a dot
-   * (`showsAuthorColumn`), sized always, so switching style and back does not
-   * lose the width you dragged.
-   */
-  author: number;
-  /**
-   * The lane gutter.
-   *
-   * Unlike its neighbours this width is a REQUEST, not a result: the graph
-   * clamps it to what the current history and style can actually paint, so a
-   * value carried into a repo with more branches quietly widens to keep every
-   * lane visible rather than clipping them. Stored as a plain number all the
-   * same — the default is the widest gutter any style can want, which every
-   * clamp turns into "as wide as the lanes need".
-   */
-  graph: number;
-  date: number;
-  sha: number;
-};
 
 export const DEFAULT_LAYOUT: LayoutSizes = {
   // Wide enough for a repository row's full contents: name, ahead/behind pair,
@@ -403,13 +432,14 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // wins, so this moves only the installs that never dragged the panel.
   reposWidth: 312,
   terminalHeight: 288,
+  terminalWidth: 480,
   // Matches the list's old fixed `w-44`, so switching to a drag changes
   // nothing about how the panel looks until someone actually drags it.
   terminalListWidth: 176,
   detailWidth: 384,
-  changesListWidth: 384,
   filesTreeWidth: 320,
   commitFilesHeight: 200,
+  loopFormHeight: 0,
   actionsJobsHeight: 200,
   // Wider than the files tree: a run row carries a status pill, a workflow
   // name, a branch and an age, and the branch is the part that truncates first.
@@ -418,12 +448,11 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   // A PR row carries two status pills, a title, a number, a branch and an
   // author — the widest row of any list pane in the app.
   reviewsListWidth: 380,
-  // A status pill, a title, a number, labels and an author — no branch, so
-  // narrower than Reviews' own row.
-  issuesListWidth: 360,
-  // Matches Issues' own row width — a dot, a label, an agent icon and a
+  // Matches the old Issues list's 360px row width — a dot, a label, an agent icon and a
   // duration/age pair is the same footprint as a status pill, title and number.
   sessionsListWidth: 360,
+  // Same row shape as Sessions': an icon, a title and an age, plus hover actions.
+  chatsListWidth: 360,
   // A checkbox, a drag handle and a body preview — narrower than Sessions'
   // own row, which also carries a duration/age pair.
   notesListWidth: 320,
@@ -449,10 +478,29 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   apiBuilderHeight: 260,
   knowledgeFiltersWidth: 288,
   knowledgeDetailWidth: 384,
-  // Matches the project list's old fixed `w-56`.
-  videoProjectListWidth: 224,
-  // Matches the project detail's old fixed `w-80`.
-  videoDetailWidth: 320,
+  // Media (Phase 99 Theme A). Video keeps Phase 44's 224/320 (the old
+  // project list `w-56` and detail `w-80`); the right-hand prompt panels of
+  // Images and Audio want a little more room for their forms.
+  mediaDocExplorerWidth: 240,
+  mediaDocDetailWidth: 340,
+  mediaImageExplorerWidth: 224,
+  mediaImageDetailWidth: 360,
+  mediaVideoExplorerWidth: 224,
+  mediaVideoDetailWidth: 320,
+  mediaAudioExplorerWidth: 224,
+  mediaAudioDetailWidth: 360,
+  mediaModelExplorerWidth: 224,
+  mediaModelDetailWidth: 360,
+  mediaTerrainExplorerWidth: 224,
+  mediaTerrainDetailWidth: 360,
+  mediaSpriteExplorerWidth: 224,
+  mediaSpriteDetailWidth: 380,
+  mediaMapExplorerWidth: 240,
+  mediaMapDetailWidth: 300,
+  mediaGameExplorerWidth: 240,
+  mediaGameDetailWidth: 380,
+  mediaLibraryExplorerWidth: 240,
+  mediaLibraryDetailWidth: 360,
   // Workflows (Phase 43) — list left, inspector / history right.
   workflowListWidth: 224,
   workflowDetailWidth: 320,
@@ -463,41 +511,38 @@ export const DEFAULT_LAYOUT: LayoutSizes = {
   databaseConnectionsWidth: 288,
   // Matches the page nav's old fixed w-56.
   settingsNavWidth: 224,
-};
-
-export const DEFAULT_GRAPH_COLUMNS: GraphColumns = {
-  branchTag: 180,
-  author: 140,
-  // 12 lanes at GitKraken's 30px — the widest natural gutter any style asks
-  // for, so out of the box the clamp resolves it to the exact fit and the
-  // column behaves as it always has until somebody drags it.
-  graph: 360,
-  date: 112,
-  sha: 64,
+  // Room for a commit message's first paragraph, the file list and a
+  // screenful of diff, while leaving the rows around it on screen.
+  graphInlineHeight: 440,
+  // The old Changes view's list width — the same list, in the same place.
+  graphInlineListWidth: 384,
 };
 
 /** Drag bounds, colocated with the defaults so nothing can clamp to a stale pair. */
 export const LAYOUT_BOUNDS = {
   reposWidth: { min: 180, max: 560 },
   terminalHeight: { min: 120, max: 720 },
+  terminalWidth: { min: 280, max: 960 },
   // Up to 560, like the repos sidebar: an agent session's name is a summary
   // of the task it was given ("Git actions dropdown icon buttons"), so this
   // is the one list pane whose rows get longer the more useful they are.
   terminalListWidth: { min: 120, max: 560 },
   detailWidth: { min: 280, max: 720 },
-  changesListWidth: { min: 240, max: 720 },
   filesTreeWidth: { min: 200, max: 640 },
   // Absolute pixels, like its neighbours — but the inspector additionally caps
   // the rendered height at a share of the pane, because these bounds cannot know
   // how tall the window is and a 720px file list in a short one would leave the
   // message above and the diff below with no room at all.
   commitFilesHeight: { min: 80, max: 720 },
+  // Static bounds only seed the type; the tab computes the real range from
+  // its own height (see `loop-form-size.ts`).
+  loopFormHeight: { min: 96, max: 2000 },
   actionsJobsHeight: { min: 80, max: 720 },
   actionsListWidth: { min: 240, max: 640 },
   testsListWidth: { min: 240, max: 640 },
   reviewsListWidth: { min: 280, max: 640 },
-  issuesListWidth: { min: 240, max: 640 },
   sessionsListWidth: { min: 240, max: 640 },
+  chatsListWidth: { min: 240, max: 640 },
   notesListWidth: { min: 220, max: 560 },
   searchResultsWidth: { min: 280, max: 900 },
   /*
@@ -527,8 +572,26 @@ export const LAYOUT_BOUNDS = {
   apiBuilderHeight: { min: 140, max: 640 },
   knowledgeFiltersWidth: { min: 220, max: 500 },
   knowledgeDetailWidth: { min: 280, max: 640 },
-  videoProjectListWidth: { min: 180, max: 480 },
-  videoDetailWidth: { min: 260, max: 600 },
+  mediaDocExplorerWidth: { min: 180, max: 480 },
+  mediaDocDetailWidth: { min: 260, max: 640 },
+  mediaImageExplorerWidth: { min: 180, max: 480 },
+  mediaImageDetailWidth: { min: 260, max: 640 },
+  mediaVideoExplorerWidth: { min: 180, max: 480 },
+  mediaVideoDetailWidth: { min: 260, max: 600 },
+  mediaAudioExplorerWidth: { min: 180, max: 480 },
+  mediaAudioDetailWidth: { min: 260, max: 640 },
+  mediaModelExplorerWidth: { min: 180, max: 480 },
+  mediaModelDetailWidth: { min: 260, max: 640 },
+  mediaTerrainExplorerWidth: { min: 180, max: 480 },
+  mediaTerrainDetailWidth: { min: 260, max: 640 },
+  mediaSpriteExplorerWidth: { min: 180, max: 480 },
+  mediaSpriteDetailWidth: { min: 280, max: 680 },
+  mediaMapExplorerWidth: { min: 180, max: 480 },
+  mediaMapDetailWidth: { min: 240, max: 520 },
+  mediaGameExplorerWidth: { min: 180, max: 480 },
+  mediaGameDetailWidth: { min: 300, max: 680 },
+  mediaLibraryExplorerWidth: { min: 180, max: 480 },
+  mediaLibraryDetailWidth: { min: 280, max: 640 },
   workflowListWidth: { min: 180, max: 480 },
   workflowDetailWidth: { min: 260, max: 600 },
   workflowPaletteWidth: { min: 160, max: 360 },
@@ -536,6 +599,8 @@ export const LAYOUT_BOUNDS = {
   // Matches the pre-resizable component's own explicit min/max (Ad hoc).
   databaseConnectionsWidth: { min: 220, max: 480 },
   settingsNavWidth: { min: 180, max: 360 },
+  graphInlineHeight: { min: 200, max: 1200 },
+  graphInlineListWidth: { min: 240, max: 720 },
 } as const;
 
 /**
@@ -561,6 +626,9 @@ export const FAB_PANEL_MAX_SHARE = 0.6;
  */
 export const BROWSER_MAX_SHARE = 0.8;
 
+/** Where the terminal panel docks: under the view, or as a column to its right. */
+export type TerminalDock = 'bottom' | 'right';
+
 /**
  * The strip of the view a dragged terminal may never cover, in px.
  *
@@ -574,52 +642,12 @@ export const BROWSER_MAX_SHARE = 0.8;
 export const TERMINAL_VIEW_RESERVE = 88;
 
 
-export const GRAPH_COLUMN_BOUNDS = {
-  branchTag: { min: 100, max: 400 },
-  author: { min: 80, max: 320 },
-  date: { min: 72, max: 240 },
-  sha: { min: 56, max: 160 },
-  // The gutter has no entry: both its bounds are geometry — the natural fit of
-  // the loaded history and the point past which its lanes stop being separable
-  // — so they are computed per render in `GraphView` and handed to
-  // `useGraphColumns`. A constant pair here would be a second answer to a
-  // question that already has one.
-} as const;
-
 /**
- * One project board's view state (Phase 52 Theme D) — everything that
- * answers "how am I looking at this board" rather than "which board".
+ * One project board's view state (Phase 52 Theme D) — declared by the Tasks
+ * feature since Phase 113 Theme O, re-exported so this store's importers do not
+ * move. The persisted shape is unchanged.
  */
-export type ProjectViewState = {
-  filter: ProjectItemFilterState;
-  /** `null` means "let `resolveGroupField` pick" — no choice has been made. */
-  groupFieldId: string | null;
-  sort: SortState;
-  collapsedColumns: readonly string[];
-  /**
-   * The dependency graph's own facets (Phase 75 Theme H) — kept on this same
-   * project-keyed record rather than a repo-keyed one, since a facet
-   * describing the board's own shape should follow the board across every
-   * repo that reaches it, exactly like `filter` already does. Only ever read
-   * while `projectsMode` is `'graph'`.
-   *
-   * **Optional, deliberately:** a `ProjectViewState` persisted before this
-   * theme landed has no `graph` at all, and `projectViewByProject`'s own
-   * persisted merge (`merge` below) replaces one project's whole record
-   * rather than re-spreading it field by field. A reader defaults this at
-   * the point of use (`view.graph ?? DEFAULT_GRAPH_FACETS`) rather than
-   * trusting this object's own presence.
-   */
-  graph?: ProjectGraphFacets;
-};
-
-export const DEFAULT_PROJECT_VIEW: ProjectViewState = {
-  filter: EMPTY_PROJECT_ITEM_FILTER,
-  groupFieldId: null,
-  sort: null,
-  collapsedColumns: [],
-  graph: DEFAULT_GRAPH_FACETS,
-};
+export { DEFAULT_PROJECT_VIEW, type ProjectViewState };
 
 /**
  * UI state: what's selected, what's open, how the panes are sized.
@@ -661,6 +689,12 @@ export type UiState = {
    */
   graphSelection: GraphSelection;
   /**
+   * Bumped by `openWorkingCopyInGraph` — a request, not a value: the graph
+   * view watches it and brings the working-copy row (and its expanded panel)
+   * into view each time it changes. Not persisted.
+   */
+  graphWorkingCopyReveal: number;
+  /**
    * Whether the repositories sidebar is shown at all.
    *
    * Distinct from `sectionFilters`, which narrows what the panel LISTS: this is
@@ -674,6 +708,8 @@ export type UiState = {
   terminalOpen: boolean;
   /** Terminal fills everything below the title bar, hiding the graph. */
   terminalMaximized: boolean;
+  /** Which edge the whole terminal panel docks to. */
+  terminalDock: TerminalDock;
   /** Which edge of the terminal pane the session list docks to. */
   terminalSidebarSide: TerminalSidebarSide;
   /**
@@ -945,48 +981,112 @@ export type UiState = {
   loopExtras: Record<string, string>;
   setLoopExtras: (loopId: string, text: string) => void;
   /**
-   * The FAB tab bar's "Loop" switch, per loop — off by default. Persisted
+   * The FAB tab bar's "Loop" switch, per loop — ON by default (a missing entry
+   * reads as on). It is the single control for `/loop` in the composed prompt:
+   * on composes `/loop …`, off a once-off run. Persisted
    * alongside the model/schedule/agent choices above: it is a standing
    * decision about that tab (its whole point is to still be on the next time
    * you look), not a per-run flag.
    */
   loopEnabled: Record<string, boolean>;
   setLoopEnabled: (loopId: string, on: boolean) => void;
+  /**
+   * The skill picked in a composer option's skill field, keyed loopId →
+   * modifierId → the text as typed (`composeLoopPrompt` normalises it).
+   * Persisted beside `loopModifierDefaults`: "Patrol reviews with
+   * /ekko-pr-review" is a standing answer about the repo you work in, not one
+   * run's whim. An absent or empty entry means the option's own default
+   * fragment, so a profile saved before the field existed composes unchanged.
+   */
+  loopModifierSkills: Record<string, Record<string, string>>;
+  setLoopModifierSkill: (loopId: string, modifierId: string, skill: string) => void;
+  /**
+   * Per-loop run options the composer grew from PR #870: the Users filter,
+   * and the auto-rotate slider. Persisted, like the
+   * model and schedule. Every field is optional and resolved on read
+   * (`LoopTab`): no users, `LOOP_AUTO_ROTATE.default`. (The former `repeat` field was folded
+   * into `loopEnabled` by the v34 → v35 migration.)
+   */
+  loopRunOptions: Record<string, LoopRunOptions>;
+  setLoopRunOptions: (loopId: string, patch: LoopRunOptions) => void;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
-  onboardedAt: string | null;
   occluders: number;
   incrementOccluders: () => void;
   decrementOccluders: () => void;
   setUpdatesAutoCheck: (autoCheck: boolean) => void;
   setUpdateChannel: (channel: 'stable' | 'beta') => void;
-  setOnboardedAt: (timestamp: string | null) => void;
-  showOnboarding: boolean;
-  setShowOnboarding: (show: boolean) => void;
   /**
-   * Which optional onboarding wizard steps (Phase 90 Theme I) the user chose
-   * Skip on, by `WizardStep['id']`. Not cleared once the modal closes —
-   * `accounts-page.tsx` reads it to say "you skipped this" and offer the
-   * step again, and a skip the app forgets is a step the user can never
-   * find. Cleared per-step by `setOnboardingStepSkipped(id, false)` once the
-   * user acts on the offer (connects a forge, or dismisses the notice).
+   * The setup overlay's one gate (Phase 98 Theme A) — see `setup-state.ts`.
+   * Replaced `onboardedAt`, `showOnboarding` and `onboardingSkippedStepIds`
+   * in v28; the migration folds all three into it.
    */
-  onboardingSkippedStepIds: string[];
-  setOnboardingStepSkipped: (stepId: string, skipped: boolean) => void;
+  setupState: SetupState;
+  updateSetupState: (patch: Partial<SetupState>) => void;
+  /**
+   * Record or clear one Skip. Not cleared when the overlay closes —
+   * `accounts-page.tsx` reads it to say "you skipped this" and offer the page
+   * again, and a skip the app forgets is a page the user can never find.
+   */
+  setSetupPageSkipped: (pageId: string, skipped: boolean) => void;
   /** Councils' right configuration panel, collapsed to a rail (Phase 42 Theme B). */
   councilConfigCollapsed: boolean;
   setCouncilConfigCollapsed: (collapsed: boolean) => void;
   /** The Workflows canvas's node palette, collapsed to a rail (Phase 95 Theme I). */
   workflowPaletteCollapsed: boolean;
   setWorkflowPaletteCollapsed: (collapsed: boolean) => void;
+  /**
+   * The Workflows editor's right-hand inspector, collapsed to zero width. Kept
+   * beside `workflowPaletteCollapsed` and persisted the same way, but the
+   * editor re-derives it whenever the canvas selection changes (open on a
+   * selection, closed on none — `use-inspector-collapse.ts`), so a persisted
+   * value only survives until the first selection change after launch.
+   */
+  workflowInspectorCollapsed: boolean;
+  setWorkflowInspectorCollapsed: (collapsed: boolean) => void;
   /** The Workflows canvas's bottom run panel, collapsed to its header bar (Phase 95 Theme I). */
   workflowRunPanelCollapsed: boolean;
   setWorkflowRunPanelCollapsed: (collapsed: boolean) => void;
 
   layout: LayoutSizes;
   graphColumns: GraphColumns;
+  /** Which optional graph columns show (header columns menu). See `features/graph/column-visibility.ts`. */
+  graphColumnVisibility: GraphColumnVisibility;
   navMode: NavMode;
   collapsedNavSections: string[];
+  /** Media page (Phase 99 Theme A) — the active tab, persisted. */
+  mediaTab: MediaTab;
+  /** Media ▸ Video's right-hand panel tab. */
+  mediaVideoPanelTab: VideoPanelTab;
+  setMediaVideoPanelTab: (tab: VideoPanelTab) => void;
+  setMediaTab: (tab: MediaTab) => void;
+  /** Navigate to Media, optionally switching tab — what `view.video`/`media.tab.*` call. */
+  openMedia: (tab?: MediaTab) => void;
+  /** Per-tab collapsed side panes; absent = open. Double-click a divider to toggle. */
+  mediaPaneCollapsed: Partial<Record<MediaTab, Partial<Record<MediaPane, boolean>>>>;
+  setMediaPaneCollapsed: (tab: MediaTab, pane: MediaPane, collapsed: boolean) => void;
+  /** Settings ▸ Media ▸ General — the save dialog's starting folder; `null` = OS default. */
+  mediaExportDir: string | null;
+  /** The doc most recently *edited* in Media ▸ Docs, per repo — what Docs reopens on entry. */
+  mediaLastDoc: Record<string, { project: string; path: string }>;
+  setMediaLastDoc: (repoId: string, doc: { project: string; path: string }) => void;
+  /** The video project most recently selected in Media ▸ Video, per repo — what Video reselects on entry. */
+  mediaLastVideoProject: Record<string, string>;
+  setMediaLastVideoProject: (repoId: string, projectId: string) => void;
+  /** Whether Media threads (image/audio/doc) speak a simplified version of each reply. Default off. */
+  mediaSpeechOn: boolean;
+  /** Settings ▸ Media ▸ Maps — how the measure tools print distance and area (Phase 108 Theme G). */
+  mapUnits: 'metric' | 'imperial';
+  setMapUnits: (units: 'metric' | 'imperial') => void;
+  setMediaSpeechOn: (on: boolean) => void;
+  setMediaExportDir: (dir: string | null) => void;
+  /**
+   * `Accordion` sections folded shut, by `<accordionId>:<sectionId>` — the
+   * same closed-set inversion as `collapsedNavSections`, so a section added
+   * later starts open with no migration.
+   */
+  collapsedAccordionSections: string[];
+  toggleAccordionSection: (key: string) => void;
   /**
    * Which settings categories the user has folded shut, by `SettingsGroupId`.
    *
@@ -1024,7 +1124,7 @@ export type UiState = {
    * before it existed.
    *
    * Keyed by view because the answer is per-view. Filtering Actions down to its
-   * two sections and then wanting the whole tree in Changes are unrelated
+   * two sections and then wanting the whole tree in Graph are unrelated
    * decisions, and one flag for both would make each undo the other.
    */
   sectionFilters: Partial<Record<ViewId, boolean>>;
@@ -1054,7 +1154,7 @@ export type UiState = {
    * Phase 89 Theme A: which Knowledge canvas renderer is active — sigma
    * today, one alternative library per later theme. A plain `string`, not
    * the feature's own `KnowledgeVariantId` union, so this store never has
-   * to statically import `features/knowledge/renderer-contract.ts` — that
+   * to statically import `frame/src/knowledge/renderer-contract.ts` — that
    * file's whole point is staying behind a `Suspense`/`lazy` boundary, and
    * `ui-store.ts` is part of the app's entry bundle. `resolveVariant` (in
    * that file) is what actually validates an id against the live registry
@@ -1103,6 +1203,14 @@ export type UiState = {
    * are lit rather than how the ones that are get drawn.
    */
   graphProvenanceMark: ProvenanceMarkMode;
+  /**
+   * Show the graph's CI column — one status mark per commit that has workflow
+   * runs, between the branch/tag column and the lanes. On by default: it costs
+   * nothing on a repository with no forge, and the column is one icon wide.
+   * `Settings ▸ Graph ▸ Columns`.
+   */
+  graphShowCi: boolean;
+  setGraphShowCi: (show: boolean) => void;
   /**
    * Show the pre-image line-number column in a diff.
    *
@@ -1153,6 +1261,17 @@ export type UiState = {
   selectRepo: (repoId: string | null) => void;
   selectWorktree: (path: string | null) => void;
   selectCommit: (sha: string | null) => void;
+  /** Expand (`true`) or collapse (`false`) the graph's inline working-copy panel. */
+  selectWorkingTree: (open: boolean) => void;
+  /**
+   * The one way to "show the pending changes": go to the git graph with the
+   * working-copy row's inline panel expanded and scrolled into view. It
+   * replaced the standalone Changes view, so every former entry point to that
+   * view — Mod+2, the palette, the status bar, the repo actions — calls this.
+   * `repoId`/`worktreePath` retarget the selection first, for a caller naming
+   * a specific checkout (a sidebar row's "View all changes").
+   */
+  openWorkingCopyInGraph: (target?: { repoId?: string; worktreePath?: string | null }) => void;
   /** Select a stash entry — clears any commit selection (Phase 22 Theme D). */
   selectStash: (selector: string | null) => void;
   /** Open the Conflict Resolution Studio for one path (Phase 47 Theme D). */
@@ -1165,6 +1284,8 @@ export type UiState = {
   setTerminalMaximized: (maximized: boolean) => void;
   toggleTerminalHalfMaximized: () => void;
   setTerminalSidebarSide: (side: TerminalSidebarSide) => void;
+  setTerminalDock: (dock: TerminalDock) => void;
+  toggleTerminalDock: () => void;
   toggleTerminalList: () => void;
   toggleBrowser: () => void;
   setBrowserOpen: (open: boolean) => void;
@@ -1213,6 +1334,7 @@ export type UiState = {
 
   setLayout: <K extends keyof LayoutSizes>(key: K, value: number) => void;
   setGraphColumn: <K extends keyof GraphColumns>(key: K, value: number) => void;
+  setGraphColumnVisible: (column: string, visible: boolean) => void;
   setNavMode: (mode: NavMode) => void;
   toggleSettingsGroup: (key: SettingsGroupId) => void;
   toggleNavSection: (key: string) => void;
@@ -1328,7 +1450,19 @@ export type UiState = {
    * never had a board picked, which the view reads as "show the picker".
    */
   projectBoardByRepo: Record<string, string>;
+  /**
+   * Phase 101 Theme A: which of Media ▸ Audio's Editor | Generator tabs a repo
+   * last had open. Absent = Generator, so existing users land where they did.
+   */
+  audioTabByRepo: Record<string, 'editor' | 'generator'>;
+  setAudioTab: (repoId: string, tab: 'editor' | 'generator') => void;
   setProjectBoard: (repoId: string, projectId: string) => void;
+  /**
+   * Tasks, on its built-in Repo issues source for the selected repo — what
+   * `view.issues` (Mod+Shift+i) and every other "go to Issues" entry point
+   * became once the Issues view folded into Tasks.
+   */
+  openRepoIssues: () => void;
   /**
    * Table or board, per repo (Phase 41 Theme A).
    *
@@ -1381,9 +1515,16 @@ export type UiState = {
    * rather than writing one. Bounded by `touchCardSkill`'s LRU
    * (`card-skill-lru.ts`) for the same reason `projectViewByProject` is.
    */
-  cardSkillByTask: Record<string, AgentCommandId>;
-  /** `skillId` of `undefined` clears the entry — the real "Not set", not an empty string written in its place. */
-  setCardSkill: (taskKey: string, skillId: AgentCommandId | undefined) => void;
+  cardSkillByTask: Record<string, string>;
+  /**
+   * `skill` of `undefined` (or blank) clears the entry — the real "Not set",
+   * not an empty string written in its place. A value is the picker's own
+   * free text, verbatim (`/midnite-create 98 D`); an entry persisted before
+   * the picker became a combobox may still hold a legacy `AgentCommandId`
+   * (`execAdhoc`), which `resolveCardSkillText` (`card-skill.ts`) maps to
+   * its template at read time rather than through a store migration.
+   */
+  setCardSkill: (taskKey: string, skill: string | undefined) => void;
   /**
    * The column → skill map behind a drag-to-skill drop (Phase 95 Theme G),
    * keyed by `projectId` (so "editable per project" reads off whichever
@@ -1463,6 +1604,12 @@ export type UiState = {
   openKillSwitch: (flow?: { workflowId: string; runId?: string }) => void;
   closeKillSwitch: () => void;
   /**
+   * The app-wide report-an-issue dialog (`ReportIssueHost`), opened by `app.reportIssue` from the
+   * Help menu or the palette. Transient, like `killSwitchOpen` beside it.
+   */
+  reportIssueOpen: boolean;
+  setReportIssueOpen: (open: boolean) => void;
+  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -1495,6 +1642,13 @@ export type UiState = {
   primaryAgent: string;
   setPrimaryAgent: (id: string) => void;
   /**
+   * Currently selected model per agent (Phase 111 Theme A).
+   * Maps agent id (e.g. `'claude'`, `'codex'`, `'agy'`) to a model id or null (default).
+   */
+  primaryModelByAgent: Record<string, string | null>;
+  setPrimaryModel: (agentId: string, modelId: string | null) => void;
+  setPrimaryAgentAndModel: (agentId: string, modelId?: string | null) => void;
+  /**
    * Non-persisted: the Settings ▸ Agents row `AgentsRoster` should scroll to
    * and briefly highlight next. Set by `focusAgentInSettings` when a
    * dropdown routes a click on an unconfigured agent to that page — cleared
@@ -1518,10 +1672,12 @@ export type UiState = {
   agentModes: Record<string, AgentMode>;
   setAgentMode: (agentId: string, mode: AgentMode) => void;
   /**
-   * Provider API keys entered in settings, keyed by agent id.
+   * LEGACY. Provider API keys used to be entered here; they now live in the vault
+   * (`agent.<id>.apiKey`, Phase 113 Theme J slice 2) and nothing writes this map any
+   * more. It only holds what `migrate-agent-api-keys.ts` has not yet moved (a key
+   * whose vault write has not landed) and empties as it does.
    */
   agentApiKeys: Record<string, string>;
-  setAgentApiKey: (agentId: string, apiKey: string) => void;
   /** Drops the key entirely rather than setting it to `''` — used by the
    *  `agentApiKeys['github']` → forge-account-vault migration (Phase 90
    *  Theme B), which absorbs that one slot and wants it gone, not blank. */
@@ -1820,6 +1976,46 @@ export type UiState = {
    */
   companionSttEngine: CompanionSttEngine;
   setCompanionSttEngine: (engine: CompanionSttEngine) => void;
+  /**
+   * Which recogniser transcribes the server engine's audio (Phase 109 Theme
+   * B) — the Settings ▸ Companion ▸ Microphone "Provider" select, which was a
+   * local `useState` before this and so forgot the choice on every reload.
+   * `null` is "automatic", today's resolution in main's `resolveProviderId`
+   * (the one configured cloud key if there is exactly one, else offline
+   * Whisper) and what every migrated install lands on. Sent with each
+   * `transcribe` request. `never`-tier: only the page changes it.
+   */
+  companionSttProvider: SttProviderId | null;
+  /**
+   * Named bundles of voice, personality and honorifics (Phase 109 Theme G),
+   * at most `COMPANION_PROFILES_MAX`. Seeded `[]` by the v32 migration in
+   * Theme B so Theme G lands without a second one.
+   */
+  companionProfiles: CompanionProfile[];
+  /** The id of the profile last switched to, or `null` — Theme G's, seeded by the same v32 migration. */
+  companionActiveProfile: string | null;
+  /**
+   * Conversation mode (Ad Hoc) — one switch shared by every composer's mic.
+   * Off is **Manual**, the default and the original behaviour: hold to talk,
+   * and the text is left in the box unsent. On, the mic stays open once a
+   * composer starts listening, each phrase is cut at its pause, and the
+   * composer sends it itself (`features/companion/conversation.ts`).
+   * Default off for the same reason push-to-talk is the default mic mode:
+   * an always-open microphone is a choice, never a fresh install's state.
+   */
+  voiceConversation: boolean;
+  setVoiceConversation: (on: boolean) => void;
+  /**
+   * What a conversation-mode turn needs (Settings ▸ Companion ▸ Microphone):
+   * `always` sends every phrase, `wake` only a phrase that starts with one of
+   * `companionNames`. Kept while `voiceConversation` is off, so the composer
+   * toggle turns back on to whichever trigger was last chosen.
+   */
+  voiceConversationTrigger: VoiceConversationTrigger;
+  setVoiceConversationTrigger: (trigger: VoiceConversationTrigger) => void;
+  /** Loading indicator in every AI thread (docs, companion, media). Settings ▸ Appearance. */
+  aiThinkingStyle: ThinkingStyle;
+  setAiThinkingStyle: (style: ThinkingStyle) => void;
   setCompanionMusicOffer: (offer: boolean) => void;
   /**
    * Phase 59 Theme A — same shape as `allowForceWithLease`: default off, so
@@ -1883,16 +2079,16 @@ export type UiState = {
    * `WebContentsView` and login flow the moment it is enabled, which is not
    * something to opt a user into silently. Default `[]`.
    */
-  enabledApps: AppId[];
-  setAppEnabled: (id: AppId, enabled: boolean) => void;
+  enabledWebApps: WebAppId[];
+  setWebAppEnabled: (id: WebAppId, enabled: boolean) => void;
   /**
    * Per-app opt-in to idle discard (Phase 84 Theme F.4).
    * Apps are excluded from discard by default so background music/playback
    * continues. When true for an app, it is discarded after being hidden past
    * the discard threshold.
    */
-  appDiscardIdle: Record<AppId, boolean>;
-  setAppDiscardIdle: (id: AppId, discard: boolean) => void;
+  webAppDiscardIdle: Record<WebAppId, boolean>;
+  setWebAppDiscardIdle: (id: WebAppId, discard: boolean) => void;
   /**
    * Which of the three apps rail roles currently have a popout of their own
    * (Phase 83 Theme D) — the `detachedPages` shape, not the four-panel
@@ -1905,8 +2101,8 @@ export type UiState = {
    * the popout" for a window that no longer exists — `use-window-sync.ts`
    * corrects it from main's own registry on the first round trip regardless.
    */
-  detachedApps: readonly AppId[];
-  setAppDetached: (id: AppId, detached: boolean) => void;
+  detachedWebApps: readonly WebAppId[];
+  setWebAppDetached: (id: WebAppId, detached: boolean) => void;
   /**
    * Which enabled app the rail's flyout is currently showing, or `null` when
    * it is closed — the flyout has no tab strip (Theme C), so the rail icons
@@ -1915,7 +2111,7 @@ export type UiState = {
    * resizable layout slot of its own starts fresh every launch, the same as
    * `companionPanelOpen`.
    */
-  appsFlyoutAppId: AppId | null;
+  webAppsFlyoutAppId: WebAppId | null;
   /**
    * The app most recently opened from the rail, retained after its flyout
    * closes so the collapsed switcher can keep that one app visible.
@@ -1923,10 +2119,18 @@ export type UiState = {
    * Runtime-only: app views are reconstructed on launch and there is no
    * useful promise in restoring yesterday's flyout selection.
    */
-  lastOpenedAppId: AppId | null;
-  openAppsFlyout: (id: AppId) => void;
-  closeAppsFlyout: () => void;
+  lastOpenedWebAppId: WebAppId | null;
+  openWebAppsFlyout: (id: WebAppId) => void;
+  closeWebAppsFlyout: () => void;
+  /**
+   * LEGACY plaintext passcode (Phase 91 Theme D). Never written any more: the code lives in main as
+   * a scrypt hash. Kept in the persisted blob only so `lock-sync.ts` can forward an existing code
+   * to main once and blank this field.
+   */
   passcode: string | null;
+  /** Whether main holds a passcode. Not persisted — main is the authority, read on mount. */
+  hasPasscode: boolean;
+  /** Hands the code to main (which hashes it) and flips `hasPasscode`; `null` clears it. */
   setPasscode: (code: string | null) => void;
   passcodeOnlyWhenLocked: boolean;
   setPasscodeOnlyWhenLocked: (onlyWhenLocked: boolean) => void;
@@ -1954,39 +2158,11 @@ export type RepoGroup = {
 };
 
 /**
- * What each entry invokes out of the box — the skills this repo and its author
- * actually have. Settings → Agent can point any of them somewhere else.
+ * What each entry invokes out of the box — declared beside `AGENT_COMMANDS` in
+ * the frame since Phase 113 Theme O (Coder's Tasks seeds its card skills with
+ * it too); re-exported so this store's importers do not move.
  */
-export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
-  execBacklog: '/midnite-create',
-  execAdhoc: '/midnite-create-adhoc',
-  addressIssue: '/midnite-address-issue',
-  brainstorm: '/midnite-ideate',
-  refine: '/midnite-refine',
-  verifyPhase: '/midnite-verify',
-  execSwarm: '/midnite-swarm',
-  prReview: '/pr-review',
-  prFeedback: '/pr-feedback',
-  triage: '/midnite-triage',
-  releasePrep: '/midnite-release-prep',
-  releaseComplete: '/midnite-release-complete',
-  gitReport: '/midnite-git-report',
-  gitCleanup: '/midnite-git-cleanup',
-  // Guard: security sweeps — secret scanning, dep audit, vuln review. No trailing
-  // skill: the modifiers themselves name what runs (same pattern as loopPatrol).
-  loopGuard: '/loop /midnite-address-issue',
-  // Bare on purpose: the FAB's Patrol tab appends `/pr-review`, `/pr-feedback`
-  // or `/midnite-triage` from its own checkboxes, so a skill named here would
-  // be a fifth one every run carried whether or not a box was ticked.
-  loopPatrol: '/loop',
-  loopPrReview: '/loop /pr-review',
-  loopPrFeedback: '/loop /pr-feedback',
-  loopExecBacklog: '/loop /midnite-create',
-  loopExecAdhoc: '/loop /midnite-create-adhoc',
-  loopAddressIssue: '/loop /midnite-address-issue',
-  loopBrainstorm: '/loop /midnite-ideate',
-  loopOverhaul: '/loop /midnite-create',
-};
+export { DEFAULT_AGENT_SKILLS };
 
 /**
  * The slice that reaches localStorage — the return type `partialize` produces
@@ -1997,10 +2173,24 @@ export const DEFAULT_AGENT_SKILLS: Record<AgentCommandId, string> = {
  * `keyof PersistedUi` exactly — a key added here and to neither list is then a
  * typecheck failure at the point of adding it, not a silently orphaned one.
  */
+/** Media ▸ Video's right-hand panel tabs. */
+export const VIDEO_PANEL_TABS = ['edit', 'brief', 'versions'] as const;
+export type VideoPanelTab = (typeof VIDEO_PANEL_TABS)[number];
+
 export type PersistedUi = Pick<
   UiState,
   | 'layout'
+  | 'mediaTab'
+  | 'mediaVideoPanelTab'
+  | 'mediaPaneCollapsed'
+  | 'mediaExportDir'
+  | 'mediaLastDoc'
+  | 'mediaLastVideoProject'
+  | 'mediaSpeechOn'
+  | 'mapUnits'
+  | 'collapsedAccordionSections'
   | 'graphColumns'
+  | 'graphColumnVisibility'
   | 'navMode'
   | 'collapsedNavSections'
   | 'collapsedSettingsGroups'
@@ -2017,6 +2207,7 @@ export type PersistedUi = Pick<
   | 'selectedWorktreePath'
   | 'graphDensity'
   | 'graphProvenanceMark'
+  | 'graphShowCi'
   | 'settingsPage'
   | 'commitFileView'
   | 'commitMetaOpen'
@@ -2024,6 +2215,7 @@ export type PersistedUi = Pick<
   | 'reposOpen'
   | 'terminalOpen'
   | 'terminalMaximized'
+  | 'terminalDock'
   | 'terminalSidebarSide'
   | 'terminalListOpen'
   | 'browserOpen'
@@ -2044,6 +2236,8 @@ export type PersistedUi = Pick<
   | 'loopModels'
   | 'loopSchedules'
   | 'loopEnabled'
+  | 'loopModifierSkills'
+  | 'loopRunOptions'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'autoFetchEnabled'
@@ -2056,6 +2250,7 @@ export type PersistedUi = Pick<
   | 'forgeSyncGhAuthSwitch'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
+  | 'audioTabByRepo'
   | 'projectsMode'
   | 'projectViewByProject'
   | 'cardSkillByTask'
@@ -2065,6 +2260,7 @@ export type PersistedUi = Pick<
   | 'blockedByFieldName'
   | 'agentSkills'
   | 'primaryAgent'
+  | 'primaryModelByAgent'
   | 'agentModes'
   | 'agentApiKeys'
   | 'agentBackends'
@@ -2076,11 +2272,10 @@ export type PersistedUi = Pick<
   | 'favouriteRepoIds'
   | 'updatesAutoCheck'
   | 'updateChannel'
-  | 'onboardedAt'
-  | 'showOnboarding'
-  | 'onboardingSkippedStepIds'
+  | 'setupState'
   | 'councilConfigCollapsed'
   | 'workflowPaletteCollapsed'
+  | 'workflowInspectorCollapsed'
   | 'workflowRunPanelCollapsed'
   | 'inactivityTimeoutS'
   | 'workflowDefaultTimeoutS'
@@ -2116,14 +2311,20 @@ export type PersistedUi = Pick<
   | 'companionVolume'
   | 'companionMicMode'
   | 'companionSttEngine'
+  | 'companionSttProvider'
+  | 'companionProfiles'
+  | 'companionActiveProfile'
+  | 'voiceConversation'
+  | 'voiceConversationTrigger'
+  | 'aiThinkingStyle'
   | 'optimizerEnabled'
   | 'allowSystemCacheClean'
   | 'systemCacheConsentGiven'
   | 'allowTrashEmpty'
   | 'trashEmptyConsentGiven'
   | 'disabledEcosystems'
-  | 'enabledApps'
-  | 'appDiscardIdle'
+  | 'enabledWebApps'
+  | 'webAppDiscardIdle'
   | 'terminalDetached'
   | 'reposDetached'
   | 'fabDetached'
@@ -2150,6 +2351,41 @@ adoptRenamedPersistKey('midnite-studio.ui', 'midnite-studio.ui');
  * relaunching the app) throws `sessionStorage` away with it, same as a closed
  * browser tab, which is what keeps a full restart landing on Graph.
  */
+/**
+ * The history push `setActiveView` makes — a no-op for the view already on
+ * screen. Shared with `openWorkingCopyInGraph`, which navigates inside a
+ * larger `set`.
+ */
+function navigateTo(
+  state: Pick<UiState, 'activeView' | 'viewHistory' | 'viewHistoryIndex' | 'terminalMaximized'>,
+  view: ViewId,
+): Partial<UiState> {
+  if (view === state.activeView) return {};
+  const viewHistory = [...state.viewHistory.slice(0, state.viewHistoryIndex + 1), view];
+  return {
+    activeView: view,
+    viewHistory,
+    viewHistoryIndex: viewHistory.length - 1,
+    ...(state.terminalMaximized ? { terminalMaximized: false } : {}),
+  };
+}
+
+/**
+ * What switching repository resets. Switching repo invalidates every
+ * selection scoped to the old one — the ref filter included: refs are
+ * per-repo, so carrying `refs/heads/feat-x` into a repo that has no such
+ * branch yields an empty graph that looks like missing history.
+ */
+const repoSwitchReset = (): Partial<UiState> => ({
+  selectedWorktreePath: null,
+  graphSelection: null,
+  graphRefFilter: [],
+  graphAuthorFilter: [],
+  graphSessionFilter: null,
+  graphShaFilter: null,
+  graphProvenanceFilter: 'all',
+});
+
 export const SESSION_ACTIVE_VIEW_KEY = 'midnite-studio.activeView';
 
 /**
@@ -2166,6 +2402,13 @@ export const SESSION_ACTIVE_VIEW_KEY = 'midnite-studio.activeView';
 export function readSessionActiveView(): ViewId {
   try {
     const stored = sessionStorage.getItem(SESSION_ACTIVE_VIEW_KEY);
+    // Phase 99 Theme A: `video` became Media's Video tab (the v29 migration
+    // points `mediaTab` there for a persisted blob that still says `video`).
+    if (stored === 'video') return 'media';
+    // The Changes view folded into the graph's working-copy panel.
+    if (stored === 'changes') return 'graph';
+    // Projects was renamed Tasks, and the Issues view folded into it.
+    if (stored === 'projects' || stored === 'issues') return 'tasks';
     if (stored && (VIEW_IDS as readonly string[]).includes(stored)) return stored as ViewId;
   } catch {
     // Private mode or a disabled-storage policy — starting on Graph is a
@@ -2200,6 +2443,7 @@ export const useUiStore = create<UiState>()(
       forgeWritesEnabled: false,
       activeEnvironmentByRepo: {},
       projectBoardByRepo: {},
+      audioTabByRepo: {},
       projectsMode: {},
       projectViewByProject: {},
       cardSkillByTask: {},
@@ -2207,18 +2451,18 @@ export const useUiStore = create<UiState>()(
       automateEnabledByProject: {},
       automateCapByProject: {},
       killSwitchOpen: false,
+      reportIssueOpen: false,
       killSwitchFlowWorkflowId: null,
       killSwitchFlowRunId: null,
       blockedByFieldName: 'Blocked by',
       agentSkills: DEFAULT_AGENT_SKILLS,
       primaryAgent: 'claude',
+      primaryModelByAgent: {},
       pendingAgentFocus: null,
       agentModes: {},
       setAgentMode: (agentId, mode) =>
         set((state) => ({ agentModes: { ...state.agentModes, [agentId]: mode } })),
       agentApiKeys: {},
-      setAgentApiKey: (agentId, apiKey) =>
-        set((state) => ({ agentApiKeys: { ...state.agentApiKeys, [agentId]: apiKey } })),
       removeAgentApiKey: (agentId) =>
         set((state) => {
           const { [agentId]: _dropped, ...rest } = state.agentApiKeys;
@@ -2331,7 +2575,16 @@ export const useUiStore = create<UiState>()(
       companionMicMode: 'push',
       setCompanionMicMode: (companionMicMode) => set({ companionMicMode }),
       companionSttEngine: 'server',
+      companionSttProvider: null,
+      companionProfiles: [],
+      companionActiveProfile: null,
+      aiThinkingStyle: 'spinner',
+      setAiThinkingStyle: (aiThinkingStyle) => set({ aiThinkingStyle }),
       setCompanionSttEngine: (companionSttEngine) => set({ companionSttEngine }),
+      voiceConversation: false,
+      setVoiceConversation: (voiceConversation) => set({ voiceConversation }),
+      voiceConversationTrigger: 'always',
+      setVoiceConversationTrigger: (voiceConversationTrigger) => set({ voiceConversationTrigger }),
       // Default off, same reasoning: a fresh install cannot scan or delete
       // anything, or list/kill a system process, until someone deliberately
       // turns the optimizer on.
@@ -2353,30 +2606,43 @@ export const useUiStore = create<UiState>()(
       // Disabled set, not the enabled one — see the interface docblock.
       disabledEcosystems: [],
       // Enabled set, not a disabled one — see the interface docblock.
-      enabledApps: [],
-      appDiscardIdle: {
+      enabledWebApps: [],
+      webAppDiscardIdle: {
         spotify: false,
         'google-calendar': false,
         youtube: false,
       },
-      detachedApps: [],
-      appsFlyoutAppId: null,
-      lastOpenedAppId: null,
+      detachedWebApps: [],
+      webAppsFlyoutAppId: null,
+      lastOpenedWebAppId: null,
       passcode: null,
-      setPasscode: (passcode) => set({ passcode }),
+      hasPasscode: false,
+      setPasscode: (code) => {
+        void bridge()?.lock.setPasscode(code);
+        set({ hasPasscode: code !== null, passcode: null });
+      },
       passcodeOnlyWhenLocked: false,
       setPasscodeOnlyWhenLocked: (passcodeOnlyWhenLocked) => set({ passcodeOnlyWhenLocked }),
       screensaverOpen: false,
       screensaverLocked: false,
-      setScreensaverOpen: (screensaverOpen, screensaverLocked = false) =>
-        set({ screensaverOpen, screensaverLocked }),
-      lockScreen: () => set({ screensaverOpen: true, screensaverLocked: true }),
+      // Phase 91 Theme D: main holds the lock authority (a reload rehydrates this store to
+      // "unlocked"); every change here is mirrored to it.
+      setScreensaverOpen: (screensaverOpen, screensaverLocked = false) => {
+        bridge()?.lock.set(screensaverOpen && screensaverLocked);
+        set({ screensaverOpen, screensaverLocked });
+      },
+      lockScreen: () => {
+        bridge()?.lock.set(true);
+        set({ screensaverOpen: true, screensaverLocked: true });
+      },
       selectedRepoId: null,
       selectedWorktreePath: null,
       graphSelection: null,
+      graphWorkingCopyReveal: 0,
       reposOpen: true,
       terminalOpen: false,
       terminalMaximized: false,
+      terminalDock: 'bottom',
       terminalSidebarSide: 'right',
       terminalListOpen: true,
       browserOpen: false,
@@ -2486,37 +2752,95 @@ export const useUiStore = create<UiState>()(
       loopEnabled: {},
       setLoopEnabled: (loopId, on) =>
         set((state) => ({ loopEnabled: { ...state.loopEnabled, [loopId]: on } })),
+      loopModifierSkills: {},
+      setLoopModifierSkill: (loopId, modifierId, skill) =>
+        set((state) => ({
+          loopModifierSkills: {
+            ...state.loopModifierSkills,
+            [loopId]: { ...state.loopModifierSkills[loopId], [modifierId]: skill },
+          },
+        })),
+      loopRunOptions: {},
+      setLoopRunOptions: (loopId, patch) =>
+        set((state) => ({
+          loopRunOptions: {
+            ...state.loopRunOptions,
+            [loopId]: { ...state.loopRunOptions[loopId], ...patch },
+          },
+        })),
       updatesAutoCheck: true,
       updateChannel: 'stable',
-      onboardedAt: null,
       occluders: 0,
       incrementOccluders: () => set((s) => ({ occluders: s.occluders + 1 })),
       decrementOccluders: () => set((s) => ({ occluders: Math.max(0, s.occluders - 1) })),
       setUpdatesAutoCheck: (updatesAutoCheck) => set({ updatesAutoCheck }),
       setUpdateChannel: (updateChannel) => set({ updateChannel }),
-      setOnboardedAt: (onboardedAt) => set({ onboardedAt }),
-      showOnboarding: true,
-      setShowOnboarding: (showOnboarding) => set({ showOnboarding }),
-      onboardingSkippedStepIds: [],
-      setOnboardingStepSkipped: (stepId, skipped) =>
+      setupState: INITIAL_SETUP_STATE,
+      updateSetupState: (patch) => set((state) => ({ setupState: { ...state.setupState, ...patch } })),
+      setSetupPageSkipped: (pageId, skipped) =>
         set((state) => ({
-          onboardingSkippedStepIds: skipped
-            ? state.onboardingSkippedStepIds.includes(stepId)
-              ? state.onboardingSkippedStepIds
-              : [...state.onboardingSkippedStepIds, stepId]
-            : state.onboardingSkippedStepIds.filter((id) => id !== stepId),
+          setupState: {
+            ...state.setupState,
+            skippedPageIds: withPageSkipped(state.setupState.skippedPageIds, pageId, skipped),
+          },
         })),
       councilConfigCollapsed: false,
       setCouncilConfigCollapsed: (councilConfigCollapsed) => set({ councilConfigCollapsed }),
       workflowPaletteCollapsed: false,
       setWorkflowPaletteCollapsed: (workflowPaletteCollapsed) => set({ workflowPaletteCollapsed }),
+      workflowInspectorCollapsed: true,
+      setWorkflowInspectorCollapsed: (workflowInspectorCollapsed) => set({ workflowInspectorCollapsed }),
       workflowRunPanelCollapsed: true,
       setWorkflowRunPanelCollapsed: (workflowRunPanelCollapsed) => set({ workflowRunPanelCollapsed }),
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
+      graphColumnVisibility: DEFAULT_GRAPH_COLUMN_VISIBILITY,
       navMode: 'auto',
       collapsedNavSections: [],
+      mediaTab: 'doc',
+      mediaVideoPanelTab: 'brief',
+      setMediaVideoPanelTab: (mediaVideoPanelTab) => set({ mediaVideoPanelTab }),
+      setMediaTab: (mediaTab) => set({ mediaTab }),
+      openMedia: (tab) => {
+        if (tab) set({ mediaTab: tab });
+        get().setActiveView('media');
+      },
+      mediaPaneCollapsed: {},
+      setMediaPaneCollapsed: (tab, pane, collapsed) =>
+        set((state) => ({
+          mediaPaneCollapsed: {
+            ...state.mediaPaneCollapsed,
+            [tab]: { ...state.mediaPaneCollapsed[tab], [pane]: collapsed },
+          },
+        })),
+      mediaExportDir: null,
+      mediaLastDoc: {},
+      setMediaLastDoc: (repoId, doc) =>
+        set((state) => {
+          const prev = state.mediaLastDoc[repoId];
+          if (prev?.project === doc.project && prev.path === doc.path) return state;
+          return { mediaLastDoc: { ...state.mediaLastDoc, [repoId]: doc } };
+        }),
+      mediaLastVideoProject: {},
+      setMediaLastVideoProject: (repoId, projectId) =>
+        set((state) =>
+          state.mediaLastVideoProject[repoId] === projectId
+            ? state
+            : { mediaLastVideoProject: { ...state.mediaLastVideoProject, [repoId]: projectId } },
+        ),
+      mediaSpeechOn: false,
+      mapUnits: 'metric',
+      setMapUnits: (mapUnits) => set({ mapUnits }),
+      setMediaSpeechOn: (mediaSpeechOn) => set({ mediaSpeechOn }),
+      setMediaExportDir: (mediaExportDir) => set({ mediaExportDir }),
+      collapsedAccordionSections: [],
+      toggleAccordionSection: (key) =>
+        set((state) => ({
+          collapsedAccordionSections: state.collapsedAccordionSections.includes(key)
+            ? state.collapsedAccordionSections.filter((k) => k !== key)
+            : [...state.collapsedAccordionSections, key],
+        })),
       collapsedSettingsGroups: [],
       collapsedRepoSections: {},
       sectionFilters: {},
@@ -2547,6 +2871,7 @@ export const useUiStore = create<UiState>()(
       graphShaFilter: null,
       graphProvenanceFilter: 'all',
       graphProvenanceMark: DEFAULT_PROVENANCE_MARK_MODE,
+      graphShowCi: true,
       diffShowOldGutter: DIFF_PREF_DEFAULTS.diffShowOldGutter,
       diffLayout: DIFF_PREF_DEFAULTS.diffLayout,
 
@@ -2563,18 +2888,7 @@ export const useUiStore = create<UiState>()(
       // normal-height panel) so the session is not disrupted — only the
       // fullscreen state is cleared.
       setActiveView: (view) =>
-        useFileEditorStore.getState().guardNavigation(() =>
-          set((state) => {
-            if (view === state.activeView) return {};
-            const viewHistory = [...state.viewHistory.slice(0, state.viewHistoryIndex + 1), view];
-            return {
-              activeView: view,
-              viewHistory,
-              viewHistoryIndex: viewHistory.length - 1,
-              ...(state.terminalMaximized ? { terminalMaximized: false } : {}),
-            };
-          }),
-        ),
+        useFileEditorStore.getState().guardNavigation(() => set((state) => navigateTo(state, view))),
       // The title bar's Back/Forward buttons change `activeView` exactly like
       // `setActiveView` does, so they carry the same guard.
       goBack: () =>
@@ -2594,26 +2908,36 @@ export const useUiStore = create<UiState>()(
           }),
         ),
       setSettingsPage: (settingsPage) => set({ settingsPage }),
-      // Switching repo invalidates every selection scoped to the old one — the
-      // ref filter included: refs are per-repo, so carrying `refs/heads/feat-x`
-      // into a repo that has no such branch yields an empty graph that looks
-      // like missing history.
+      // See `repoSwitchReset` for what a switch invalidates.
       selectRepo: (selectedRepoId) =>
-        useFileEditorStore.getState().guardNavigation(() =>
-          set({
-            selectedRepoId,
-            selectedWorktreePath: null,
-            graphSelection: null,
-            graphRefFilter: [],
-            graphAuthorFilter: [],
-            graphSessionFilter: null,
-            graphShaFilter: null,
-            graphProvenanceFilter: 'all',
-          }),
-        ),
+        useFileEditorStore.getState().guardNavigation(() => set({ ...repoSwitchReset(), selectedRepoId })),
       selectWorktree: (selectedWorktreePath) =>
         useFileEditorStore.getState().guardNavigation(() => set({ selectedWorktreePath })),
       selectCommit: (sha) => set({ graphSelection: sha === null ? null : { kind: 'commit', sha } }),
+      selectWorkingTree: (open) =>
+        set((state) =>
+          open
+            ? { graphSelection: { kind: 'working-tree' } }
+            : state.graphSelection?.kind === 'working-tree'
+              ? { graphSelection: null }
+              : state,
+        ),
+      // One guarded `set`, not `selectRepo` + `selectWorktree` +
+      // `setActiveView` in a row: each of those guards on its own, so a dirty
+      // editor would otherwise ask the same question up to three times.
+      openWorkingCopyInGraph: (target = {}) =>
+        useFileEditorStore.getState().guardNavigation(() =>
+          set((state) => {
+            const switchingRepo = target.repoId !== undefined && target.repoId !== state.selectedRepoId;
+            return {
+              ...(switchingRepo ? { ...repoSwitchReset(), selectedRepoId: target.repoId } : {}),
+              ...(target.worktreePath !== undefined ? { selectedWorktreePath: target.worktreePath } : {}),
+              ...navigateTo(state, 'graph'),
+              graphSelection: { kind: 'working-tree' },
+              graphWorkingCopyReveal: state.graphWorkingCopyReveal + 1,
+            };
+          }),
+        ),
       selectStash: (selector) =>
         set({ graphSelection: selector === null ? null : { kind: 'stash', selector } }),
       selectConflict: (path) =>
@@ -2632,6 +2956,9 @@ export const useUiStore = create<UiState>()(
           }
           return { terminalMaximized: !state.terminalMaximized };
         }),
+      setTerminalDock: (terminalDock) => set({ terminalDock }),
+      toggleTerminalDock: () =>
+        set((state) => ({ terminalDock: state.terminalDock === 'right' ? 'bottom' : 'right' })),
       setTerminalSidebarSide: (terminalSidebarSide) => set({ terminalSidebarSide }),
       toggleTerminalList: () =>
         set((state) => ({ terminalListOpen: !state.terminalListOpen })),
@@ -2726,6 +3053,10 @@ export const useUiStore = create<UiState>()(
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
         set((state) => ({ graphColumns: { ...state.graphColumns, [key]: value } })),
+      setGraphColumnVisible: (column, visible) =>
+        set((state) => ({
+          graphColumnVisibility: withColumnVisible(state.graphColumnVisibility, column, visible),
+        })),
       setNavMode: (navMode) => set({ navMode }),
       toggleNavSection: (key) =>
         set((state) => ({
@@ -2823,6 +3154,7 @@ export const useUiStore = create<UiState>()(
       setGraphShaFilter: (graphShaFilter) => set({ graphShaFilter }),
       setGraphProvenanceFilter: (graphProvenanceFilter) => set({ graphProvenanceFilter }),
       setGraphProvenanceMark: (graphProvenanceMark) => set({ graphProvenanceMark }),
+      setGraphShowCi: (graphShowCi) => set({ graphShowCi }),
       toggleDiffOldGutter: () =>
         set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
       setDiffLayout: (diffLayout) => set({ diffLayout }),
@@ -2849,33 +3181,33 @@ export const useUiStore = create<UiState>()(
       // shows a view; disable tears it down), so the caller — Theme E's
       // settings switch, or Theme C's rail icon — already knows which one it
       // means and should not have to read current state first to pick it.
-      setAppEnabled: (id, enabled) =>
+      setWebAppEnabled: (id, enabled) =>
         set((state) => ({
-          enabledApps: enabled
-            ? state.enabledApps.includes(id)
-              ? state.enabledApps
-              : [...state.enabledApps, id]
-            : state.enabledApps.filter((entry) => entry !== id),
+          enabledWebApps: enabled
+            ? state.enabledWebApps.includes(id)
+              ? state.enabledWebApps
+              : [...state.enabledWebApps, id]
+            : state.enabledWebApps.filter((entry) => entry !== id),
         })),
-      setAppDiscardIdle: (id, discard) =>
+      setWebAppDiscardIdle: (id, discard) =>
         set((state) => ({
-          appDiscardIdle: {
-            ...state.appDiscardIdle,
+          webAppDiscardIdle: {
+            ...state.webAppDiscardIdle,
             [id]: discard,
           },
         })),
       // Mirrors `setPageDetached` — add/remove from the array rather than a
       // per-role boolean field, since all three roles behave identically.
-      setAppDetached: (id, detached) =>
+      setWebAppDetached: (id, detached) =>
         set((state) => ({
-          detachedApps: detached
-            ? state.detachedApps.includes(id)
-              ? state.detachedApps
-              : [...state.detachedApps, id]
-            : state.detachedApps.filter((entry) => entry !== id),
+          detachedWebApps: detached
+            ? state.detachedWebApps.includes(id)
+              ? state.detachedWebApps
+              : [...state.detachedWebApps, id]
+            : state.detachedWebApps.filter((entry) => entry !== id),
         })),
-      openAppsFlyout: (id) => set({ appsFlyoutAppId: id, lastOpenedAppId: id }),
-      closeAppsFlyout: () => set({ appsFlyoutAppId: null }),
+      openWebAppsFlyout: (id) => set({ webAppsFlyoutAppId: id, lastOpenedWebAppId: id }),
+      closeWebAppsFlyout: () => set({ webAppsFlyoutAppId: null }),
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setAutoFetchEnabled: (autoFetchEnabled) => set({ autoFetchEnabled }),
       setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
@@ -2884,10 +3216,17 @@ export const useUiStore = create<UiState>()(
         set((state) => ({
           activeEnvironmentByRepo: { ...state.activeEnvironmentByRepo, [repoId]: environmentId },
         })),
+      setAudioTab: (repoId, tab) =>
+        set((state) => ({ audioTabByRepo: { ...state.audioTabByRepo, [repoId]: tab } })),
       setProjectBoard: (repoId, projectId) =>
         set((state) => ({
           projectBoardByRepo: { ...state.projectBoardByRepo, [repoId]: projectId },
         })),
+      openRepoIssues: () => {
+        const repoId = get().selectedRepoId;
+        if (repoId !== null) get().setProjectBoard(repoId, REPO_ISSUES_SOURCE_ID);
+        get().setActiveView('tasks');
+      },
       setProjectsMode: (repoId, mode) =>
         set((state) => ({ projectsMode: { ...state.projectsMode, [repoId]: mode } })),
       setProjectView: (projectId, patch) =>
@@ -2901,8 +3240,9 @@ export const useUiStore = create<UiState>()(
           };
         }),
       setBlockedByFieldName: (blockedByFieldName) => set({ blockedByFieldName }),
-      setCardSkill: (taskKey, skillId) =>
+      setCardSkill: (taskKey, skill) =>
         set((state) => {
+          const skillId = skill?.trim() === '' ? undefined : skill;
           if (skillId === undefined) {
             const { [taskKey]: _dropped, ...rest } = state.cardSkillByTask;
             return { cardSkillByTask: rest };
@@ -2939,9 +3279,25 @@ export const useUiStore = create<UiState>()(
           killSwitchFlowRunId: flow?.runId ?? null,
         }),
       closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
+      setReportIssueOpen: (reportIssueOpen) => set({ reportIssueOpen }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
+      setPrimaryModel: (agentId, modelId) =>
+        set((state) => ({
+          primaryModelByAgent: {
+            ...state.primaryModelByAgent,
+            [agentId]: modelId,
+          },
+        })),
+      setPrimaryAgentAndModel: (agentId, modelId) =>
+        set((state) => ({
+          primaryAgent: agentId,
+          primaryModelByAgent: {
+            ...state.primaryModelByAgent,
+            ...(modelId !== undefined ? { [agentId]: modelId } : {}),
+          },
+        })),
       focusAgentInSettings: (agentId) => {
         get().setActiveView('settings');
         get().setSettingsPage('agent');
@@ -2951,10 +3307,20 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 27,
+      version: 35,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
+        mediaTab: state.mediaTab,
+        mediaVideoPanelTab: state.mediaVideoPanelTab,
+        mediaPaneCollapsed: state.mediaPaneCollapsed,
+        mediaExportDir: state.mediaExportDir,
+        mediaLastDoc: state.mediaLastDoc,
+        mediaLastVideoProject: state.mediaLastVideoProject,
+        mediaSpeechOn: state.mediaSpeechOn,
+        mapUnits: state.mapUnits,
+        collapsedAccordionSections: state.collapsedAccordionSections,
         graphColumns: state.graphColumns,
+        graphColumnVisibility: state.graphColumnVisibility,
         navMode: state.navMode,
         collapsedNavSections: state.collapsedNavSections,
         collapsedSettingsGroups: state.collapsedSettingsGroups,
@@ -2971,6 +3337,7 @@ export const useUiStore = create<UiState>()(
         selectedWorktreePath: state.selectedWorktreePath,
         graphDensity: state.graphDensity,
         graphProvenanceMark: state.graphProvenanceMark,
+        graphShowCi: state.graphShowCi,
         settingsPage: state.settingsPage,
         commitFileView: state.commitFileView,
         commitMetaOpen: state.commitMetaOpen,
@@ -2978,6 +3345,7 @@ export const useUiStore = create<UiState>()(
         reposOpen: state.reposOpen,
         terminalOpen: state.terminalOpen,
         terminalMaximized: state.terminalMaximized,
+        terminalDock: state.terminalDock,
         terminalSidebarSide: state.terminalSidebarSide,
         terminalListOpen: state.terminalListOpen,
         browserOpen: state.browserOpen,
@@ -2998,6 +3366,8 @@ export const useUiStore = create<UiState>()(
         loopModels: state.loopModels,
         loopSchedules: state.loopSchedules,
         loopEnabled: state.loopEnabled,
+        loopModifierSkills: state.loopModifierSkills,
+        loopRunOptions: state.loopRunOptions,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         autoFetchEnabled: state.autoFetchEnabled,
@@ -3005,6 +3375,7 @@ export const useUiStore = create<UiState>()(
         forgeWritesEnabled: state.forgeWritesEnabled,
         activeEnvironmentByRepo: state.activeEnvironmentByRepo,
         projectBoardByRepo: state.projectBoardByRepo,
+        audioTabByRepo: state.audioTabByRepo,
         projectsMode: state.projectsMode,
         projectViewByProject: state.projectViewByProject,
         cardSkillByTask: state.cardSkillByTask,
@@ -3014,6 +3385,7 @@ export const useUiStore = create<UiState>()(
         blockedByFieldName: state.blockedByFieldName,
         agentSkills: state.agentSkills,
         primaryAgent: state.primaryAgent,
+        primaryModelByAgent: state.primaryModelByAgent,
         agentModes: state.agentModes,
         agentApiKeys: state.agentApiKeys,
         agentBackends: state.agentBackends,
@@ -3030,15 +3402,13 @@ export const useUiStore = create<UiState>()(
         favouriteRepoIds: state.favouriteRepoIds,
         updatesAutoCheck: state.updatesAutoCheck,
         updateChannel: state.updateChannel,
-        onboardedAt: state.onboardedAt,
-        /* Persisted for the same reason `onboardedAt` is: the welcome modal is
-         * a full-screen `inset-0` overlay, so a default of `true` that is never
-         * written down means it is re-raised over the whole app on every single
-         * launch — and the only way past it is to dismiss it again. */
-        showOnboarding: state.showOnboarding,
-        onboardingSkippedStepIds: state.onboardingSkippedStepIds,
+        /* Persisted because the setup overlay covers the whole window: a gate
+         * that is never written down re-raises it over the app on every launch,
+         * and the only way past it is to dismiss it again. */
+        setupState: state.setupState,
         councilConfigCollapsed: state.councilConfigCollapsed,
         workflowPaletteCollapsed: state.workflowPaletteCollapsed,
+        workflowInspectorCollapsed: state.workflowInspectorCollapsed,
         workflowRunPanelCollapsed: state.workflowRunPanelCollapsed,
         inactivityTimeoutS: state.inactivityTimeoutS,
         cycleDurationS: state.cycleDurationS,
@@ -3074,14 +3444,20 @@ export const useUiStore = create<UiState>()(
         companionVolume: state.companionVolume,
         companionMicMode: state.companionMicMode,
         companionSttEngine: state.companionSttEngine,
+        companionSttProvider: state.companionSttProvider,
+        companionProfiles: state.companionProfiles,
+        companionActiveProfile: state.companionActiveProfile,
+        voiceConversation: state.voiceConversation,
+        voiceConversationTrigger: state.voiceConversationTrigger,
+        aiThinkingStyle: state.aiThinkingStyle,
         optimizerEnabled: state.optimizerEnabled,
         allowSystemCacheClean: state.allowSystemCacheClean,
         systemCacheConsentGiven: state.systemCacheConsentGiven,
         allowTrashEmpty: state.allowTrashEmpty,
         trashEmptyConsentGiven: state.trashEmptyConsentGiven,
         disabledEcosystems: state.disabledEcosystems,
-        enabledApps: state.enabledApps,
-        appDiscardIdle: state.appDiscardIdle,
+        enabledWebApps: state.enabledWebApps,
+        webAppDiscardIdle: state.webAppDiscardIdle,
         terminalDetached: state.terminalDetached,
         reposDetached: state.reposDetached,
         fabDetached: state.fabDetached,
@@ -3132,7 +3508,7 @@ export const useUiStore = create<UiState>()(
        * `companionAboutUser` `''` — a plain seed, not a migration off some
        * prior shape: neither field existed in any earlier version, so a
        * fresh install and a pre-v17 blob land on the identical default.
-       * v17 → v18: seed `enabledApps = []` (Phase 83 Theme A). No prior
+       * v17 → v18: seed `enabledWebApps = []` (Phase 83 Theme A). No prior
        * shape to carry forward — the apps rail did not exist before this
        * version — and `[]` is also the fresh-install default, per the
        * interface docblock's "opt in, not opt out" reasoning.
@@ -3166,10 +3542,32 @@ export const useUiStore = create<UiState>()(
        * before this version, and `'server'` is also the fresh-install
        * default, so a pre-v27 blob and a fresh install land on the same
        * engine.
+       * v27 → v28: fold `onboardedAt`, `showOnboarding` and
+       * `onboardingSkippedStepIds` into `setupState` (Phase 98 Theme A) —
+       * see `migrateSetupState`. Either old latch closed counts as done, so an
+       * existing install never sees the new overlay unasked. The three old
+       * keys are deleted, not left to rot beside their replacement.
+       * v31 → v32: seed `companionSttProvider = null`, `companionProfiles = []`
+       * and `companionActiveProfile = null` (Phase 109 Theme B) — the phase's
+       * one persist bump, carrying Theme G's two profile keys as well so that
+       * theme lands without a second migration. `null` provider is today's
+       * automatic resolution, so a migrated install transcribes exactly as it
+       * did. `??=` for the reason v27 → v28's `setupState` gives: a test
+       * profile seeded straight into the persist key may already hold them.
+       * v32 → v33: seed `primaryModelByAgent = {}` and preserve `primaryAgent`
+       * (Phase 111 Theme A) — global agent and model state contract.
+       * v33 → v34: rename the Phase 83 apps-rail fields and the `apps` Settings
+       * page to `web-apps` (Phase 113 Theme A) — see `migrate-web-apps.ts`.
+       * v34 → v35: the tab-bar "Loop" switch (`loopEnabled`) became the one
+       * control for `/loop`, absent = on, replacing `loopRunOptions[id].repeat`.
+       * An explicit `repeat` wins; otherwise any stored `loopEnabled` (cosmetic
+       * until now, so a stale `false` meant nothing) is dropped to resolve on.
+       * Versioned, not merge-time, so a switch the user flips off afterwards is
+       * never re-dropped on the next rehydrate.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
-          enabledApps?: AppId[];
+          enabledWebApps?: WebAppId[];
           graphColumns?: Record<string, number>;
           collapsedRepoSections?: Record<string, string[]>;
           repoGroups?: unknown[];
@@ -3178,6 +3576,9 @@ export const useUiStore = create<UiState>()(
           updatesAutoCheck?: boolean;
           updateChannel?: 'stable' | 'beta';
           onboardedAt?: string | null;
+          showOnboarding?: boolean;
+          onboardingSkippedStepIds?: string[];
+          setupState?: SetupState;
           activityTimelineStyle?: string;
           projectViewByProject?: Record<string, ProjectViewState>;
           terminalDetached?: boolean;
@@ -3207,7 +3608,10 @@ export const useUiStore = create<UiState>()(
           companionVolume?: number;
           companionMicMode?: CompanionMicMode;
           companionSttEngine?: CompanionSttEngine;
-          cardSkillByTask?: Record<string, AgentCommandId>;
+          companionSttProvider?: SttProviderId | null;
+          companionProfiles?: CompanionProfile[];
+          companionActiveProfile?: string | null;
+          cardSkillByTask?: Record<string, string>;
           columnSkillByProject?: Record<string, Record<string, string>>;
           automateEnabledByProject?: Record<string, boolean>;
           automateCapByProject?: Record<string, number>;
@@ -3215,6 +3619,7 @@ export const useUiStore = create<UiState>()(
           forgeActiveAccountId?: string | null;
           forgeScopeReposToActiveAccount?: boolean;
           forgeSyncGhAuthSwitch?: boolean;
+          primaryModelByAgent?: Record<string, string | null>;
         };
         if (version < 2 && state.graphColumns) {
           const { author: _retired, ...rest } = state.graphColumns;
@@ -3291,7 +3696,7 @@ export const useUiStore = create<UiState>()(
           state.companionAboutUser = '';
         }
         if (version < 18) {
-          state.enabledApps = [];
+          state.enabledWebApps = [];
         }
         if (version < 19) {
           state.agentModes = {};
@@ -3328,6 +3733,29 @@ export const useUiStore = create<UiState>()(
         if (version < 27) {
           state.companionSttEngine = 'server';
         }
+        if (version < 28) {
+          // An existing `setupState` wins: no real pre-v28 blob has one, but a
+          // test profile seeded straight into the persist key does.
+          state.setupState ??= migrateSetupState(state, new Date().toISOString());
+          delete state.onboardedAt;
+          delete state.showOnboarding;
+          delete state.onboardingSkippedStepIds;
+        }
+        if (version < 29) migrateVideoToMedia(state);
+        if (version < 30) migrateChangesToGraph(state);
+        if (version < 31) migrateIssuesAndProjectsToTasks(state);
+        if (version < 32) {
+          state.companionSttProvider ??= null;
+          state.companionProfiles ??= [];
+          state.companionActiveProfile ??= null;
+        }
+        if (version < 33) {
+          state.primaryModelByAgent ??= {};
+        }
+        // Runs after every arm that can seed a legacy name (v<18 seeds the
+        // apps list), so one rename covers a blob from any earlier version.
+        if (version < 34) migrateAppsToWebApps(state);
+        if (version < 35) migrateLoopSwitch(state);
         return state as PersistedUi;
       },
       /**
@@ -3345,7 +3773,21 @@ export const useUiStore = create<UiState>()(
           ...current,
           ...saved,
           layout: { ...current.layout, ...saved.layout },
+          voiceConversationTrigger: (VOICE_CONVERSATION_TRIGGERS as readonly string[]).includes(
+            saved.voiceConversationTrigger ?? '',
+          )
+            ? (saved.voiceConversationTrigger as VoiceConversationTrigger)
+            : current.voiceConversationTrigger,
+          mediaTab: (MEDIA_TABS as readonly string[]).includes(saved.mediaTab ?? '')
+            ? (saved.mediaTab as MediaTab)
+            : current.mediaTab,
+          mediaVideoPanelTab: (VIDEO_PANEL_TABS as readonly string[]).includes(saved.mediaVideoPanelTab ?? '')
+            ? (saved.mediaVideoPanelTab as VideoPanelTab)
+            : current.mediaVideoPanelTab,
+          mediaPaneCollapsed: { ...current.mediaPaneCollapsed, ...saved.mediaPaneCollapsed },
+          setupState: { ...current.setupState, ...saved.setupState },
           graphColumns: { ...current.graphColumns, ...saved.graphColumns },
+          graphColumnVisibility: normalizeColumnVisibility(saved.graphColumnVisibility),
           sectionFilters: { ...current.sectionFilters, ...saved.sectionFilters },
           navVisibility: parseNavVisibility(saved.navVisibility ?? current.navVisibility),
           /*
@@ -3355,6 +3797,7 @@ export const useUiStore = create<UiState>()(
             which reaches the terminal as the string "undefined".
           */
           agentSkills: { ...current.agentSkills, ...saved.agentSkills },
+          primaryModelByAgent: { ...current.primaryModelByAgent, ...(saved.primaryModelByAgent ?? {}) },
           agentModes: { ...current.agentModes, ...(saved.agentModes ?? {}) },
           agentApiKeys: { ...current.agentApiKeys, ...(saved.agentApiKeys ?? {}) },
           agentBackends: { ...current.agentBackends, ...(saved.agentBackends ?? {}) },
@@ -3368,12 +3811,15 @@ export const useUiStore = create<UiState>()(
           loopModels: { ...current.loopModels, ...saved.loopModels },
           loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
           loopEnabled: { ...current.loopEnabled, ...saved.loopEnabled },
+          loopModifierSkills: { ...current.loopModifierSkills, ...(saved.loopModifierSkills ?? {}) },
+          loopRunOptions: { ...current.loopRunOptions, ...(saved.loopRunOptions ?? {}) },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
           activeEnvironmentByRepo: {
             ...current.activeEnvironmentByRepo,
             ...saved.activeEnvironmentByRepo,
           },
           projectBoardByRepo: { ...current.projectBoardByRepo, ...saved.projectBoardByRepo },
+          audioTabByRepo: { ...current.audioTabByRepo, ...saved.audioTabByRepo },
           projectsMode: { ...current.projectsMode, ...saved.projectsMode },
           projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },
           cardSkillByTask: { ...current.cardSkillByTask, ...saved.cardSkillByTask },
@@ -3414,7 +3860,104 @@ export const pathForView = (view: ViewId): string => (view === 'landing' ? '/' :
  * own list means a view cannot be added to `ViewId` and forgotten here.
  */
 export const viewForPath = (path: string): ViewId =>
-  VIEW_IDS.find((view) => pathForView(view) === path) ?? 'graph';
+  path === '/video'
+    ? 'media'
+    : path === '/projects' || path === '/issues'
+      ? 'tasks'
+      : (VIEW_IDS.find((view) => pathForView(view) === path) ?? 'graph');
+
+/** The two side panes `MediaLayout` can collapse. */
+export type MediaPane = 'explorer' | 'detail';
+
+const MEDIA_LAYOUT_KEYS = {
+  doc: { explorer: 'mediaDocExplorerWidth', detail: 'mediaDocDetailWidth' },
+  image: { explorer: 'mediaImageExplorerWidth', detail: 'mediaImageDetailWidth' },
+  video: { explorer: 'mediaVideoExplorerWidth', detail: 'mediaVideoDetailWidth' },
+  audio: { explorer: 'mediaAudioExplorerWidth', detail: 'mediaAudioDetailWidth' },
+  model: { explorer: 'mediaModelExplorerWidth', detail: 'mediaModelDetailWidth' },
+  terrain: { explorer: 'mediaTerrainExplorerWidth', detail: 'mediaTerrainDetailWidth' },
+  sprite: { explorer: 'mediaSpriteExplorerWidth', detail: 'mediaSpriteDetailWidth' },
+  game: { explorer: 'mediaGameExplorerWidth', detail: 'mediaGameDetailWidth' },
+  map: { explorer: 'mediaMapExplorerWidth', detail: 'mediaMapDetailWidth' },
+  library: { explorer: 'mediaLibraryExplorerWidth', detail: 'mediaLibraryDetailWidth' },
+} as const satisfies Record<MediaTab, Record<MediaPane, keyof LayoutSizes>>;
+
+/** The `LayoutSizes` keys holding one Media tab's explorer/detail widths. */
+export const mediaLayoutKeys = (tab: MediaTab): (typeof MEDIA_LAYOUT_KEYS)[MediaTab] => MEDIA_LAYOUT_KEYS[tab];
+
+/**
+ * v28 → v29 (Phase 99 Theme A): the `video` view became Media's Video tab.
+ * Rewrites every persisted `video` view id to `media`, opens an existing
+ * profile's Media on its Video tab, moves Phase 44's two pane widths onto
+ * the Video tab's, and sends Settings ▸ Video to Settings ▸ Media. Mutates
+ * and returns the raw blob; exported for its test.
+ */
+export function migrateVideoToMedia(state: Record<string, unknown>): Record<string, unknown> {
+  const layout = state.layout as Record<string, unknown> | undefined;
+  if (layout) {
+    if (typeof layout.videoProjectListWidth === 'number') layout.mediaVideoExplorerWidth = layout.videoProjectListWidth;
+    if (typeof layout.videoDetailWidth === 'number') layout.mediaVideoDetailWidth = layout.videoDetailWidth;
+    delete layout.videoProjectListWidth;
+    delete layout.videoDetailWidth;
+  }
+  for (const key of ['navVisibility', 'sectionFilters'] as const) {
+    const record = state[key] as Record<string, unknown> | undefined;
+    if (record && typeof record === 'object' && 'video' in record) {
+      record.media = record.video;
+      delete record.video;
+    }
+  }
+  if (state.settingsPage === 'video') state.settingsPage = 'media';
+  if (state.activeView === 'video') state.activeView = 'media';
+  // A pre-Media profile's only media surface was Video Studio, and Video is
+  // the one tab that works without a repo — open Media there, not on Docs.
+  state.mediaTab ??= 'video';
+  return state;
+}
+
+/**
+ * v29 → v30: the standalone Changes view is gone — its contents live in the
+ * git graph's working-copy panel. Drops every persisted `changes` view key
+ * (hiding Changes in Settings ▸ Sidebar has nothing left to hide, and its
+ * repo-section filter nothing left to filter) and the pane width only that
+ * view used. A stray `activeView: 'changes'` goes to the graph. Mutates and
+ * returns the raw blob; exported for its test.
+ */
+export function migrateChangesToGraph(state: Record<string, unknown>): Record<string, unknown> {
+  const layout = state.layout as Record<string, unknown> | undefined;
+  if (layout && typeof layout === 'object') delete layout.changesListWidth;
+  for (const key of ['navVisibility', 'sectionFilters'] as const) {
+    const record = state[key] as Record<string, unknown> | undefined;
+    if (record && typeof record === 'object') delete record.changes;
+  }
+  if (state.activeView === 'changes') state.activeView = 'graph';
+  return state;
+}
+
+/**
+ * v30 → v31: Projects was renamed Tasks, and the Issues view folded into it
+ * (Tasks' built-in Repo issues source). Moves every persisted `projects` view
+ * key to `tasks` — a hidden Projects stays a hidden Tasks — and drops the
+ * `issues` view keys and the one pane width only the Issues view used. A
+ * stray `activeView` of either goes to `tasks`. `settingsPage: 'projects'`
+ * is untouched: that page id kept its name (only its label reads "Tasks").
+ * Mutates and returns the raw blob; exported for its test.
+ */
+export function migrateIssuesAndProjectsToTasks(state: Record<string, unknown>): Record<string, unknown> {
+  const layout = state.layout as Record<string, unknown> | undefined;
+  if (layout && typeof layout === 'object') delete layout.issuesListWidth;
+  for (const key of ['navVisibility', 'sectionFilters'] as const) {
+    const record = state[key] as Record<string, unknown> | undefined;
+    if (!record || typeof record !== 'object') continue;
+    if ('projects' in record) {
+      record.tasks ??= record.projects;
+      delete record.projects;
+    }
+    delete record.issues;
+  }
+  if (state.activeView === 'projects' || state.activeView === 'issues') state.activeView = 'tasks';
+  return state;
+}
 
 /**
  * Whether the Loops panel is showing DOCKED in this window — open, and not

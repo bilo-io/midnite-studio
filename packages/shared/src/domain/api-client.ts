@@ -495,9 +495,9 @@ export type SaveEnvironmentOutcome = z.infer<typeof SaveEnvironmentOutcomeSchema
 
 // --- pm.* test runner (Phase 70 Theme B) --------------------------------------
 //
-// `main/api-client/script-runner.ts`'s wire shapes. The runner itself lives in
-// desktop (it runs a `vm` sandbox, in a spawned `utilityProcess` — see that
-// file's header for why), but its input/output cross two process boundaries
+// `packages/features/api-client/main/script-runner.ts`'s wire shapes. The runner
+// itself lives in the API client feature (it runs a `vm` sandbox, in a spawned
+// `utilityProcess` — see the broker's header for why), but its input/output cross two process boundaries
 // (main → the utilityProcess, main → renderer over IPC) and both cross
 // through this same shared, zod-validated shape rather than a bespoke one
 // per hop.
@@ -602,7 +602,7 @@ export type ScriptRunOutcome = z.infer<typeof ScriptRunOutcomeSchema>;
 
 // --- the collection runner (Phase 70 Theme C) ---------------------------------
 //
-// `main/api-client/runner.ts`'s wire shapes. A run is a flat, depth-first walk
+// `packages/features/api-client/main/runner.ts`'s wire shapes. A run is a flat, depth-first walk
 // of the target's item tree in file order, calling Phase 66's `sendApiRequest`
 // then Theme B's `runScript` per request — streamed, unlike the single-request
 // `apiSendRequest`/`apiRunScript` calls above, because a run is unbounded in

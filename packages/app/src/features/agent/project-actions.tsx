@@ -3,10 +3,13 @@ import { createPortal } from 'react-dom';
 
 import { LuDownload, LuFolderDown, LuWrench } from 'react-icons/lu';
 
+import { MIDNITE_INSTALL_COMMAND } from '@midnite/studio-shared';
+
 import { useOptionalDialogs } from '../../components/dialog-host';
 import type { IconComponent } from '../../components/icon-button';
 import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
+import { submitCommand } from '../terminal/submit-command';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { hasMidniteDir, hasPackagedBuild, isMidniteStudioCheckout } from './repo-capability';
 import { SetupDialog } from './setup-dialog';
@@ -30,10 +33,20 @@ import { bridge } from '../../services/bridge';
  * about whether Update is available to it.
  *
  * Neither action runs a blind file modification on click. Setup opens `SetupDialog`
- * — a preview, never a blind write. Update opens a plain shell and executes
- * `moon run desktop:install-local` immediately. A plain shell rather than
- * `startAgent`, because that function always wraps its prompt as an argument to an
- * agent CLI (`claude "…"`), which is exactly wrong for a literal command.
+ * — a preview, never a blind write. Update opens a plain shell and executes a
+ * literal command immediately, and which one depends on where it is clicked:
+ *
+ * - **In the Midnite Studio checkout itself**, `moon run desktop:install-local`
+ *   — rebuild this source tree and install the result.
+ * - **Anywhere else**, the one-line installer the public download page prints
+ *   (`MIDNITE_INSTALL_COMMAND`, shared with that page so the two cannot drift),
+ *   which downloads the latest release and swaps it into /Applications in place.
+ *   Every other repo used to see this row disabled, which left the one action
+ *   named "Update" unable to update anything for nearly everyone.
+ *
+ * A plain shell rather than `startAgent`, because that function always wraps its
+ * prompt as an argument to an agent CLI (`claude "…"`), which is exactly wrong for
+ * a literal command.
  */
 export type ProjectAction = {
   key: 'setup' | 'user-skills' | 'update';
@@ -84,16 +97,22 @@ export function useProjectActions(target: ProjectActionsTarget): {
   // filesystem checks (Setup's own dialog re-reads the real plan when it
   // opens), and a click should not wait on two IPC round trips first.
   const [hasKit, setHasKit] = useState(false);
-  const [isStudioCheckout, setIsStudioCheckout] = useState(false);
+  // `null` until the check answers. Update now does something in *both* states,
+  // so an unknown answer must not read as "not the checkout": a click in that
+  // window would run the release installer from inside the source tree.
+  const [isStudioCheckout, setIsStudioCheckout] = useState<boolean | null>(null);
   const [hasBuild, setHasBuild] = useState(false);
   useEffect(() => {
     let cancelled = false;
+    setIsStudioCheckout(null);
     void hasMidniteDir(repoId, worktreePath).then((value) => {
       if (!cancelled) setHasKit(value);
     });
-    void isMidniteStudioCheckout(repoId, worktreePath).then((value) => {
-      if (!cancelled) setIsStudioCheckout(value);
-    });
+    void isMidniteStudioCheckout(repoId, worktreePath)
+      .catch(() => false)
+      .then((value) => {
+        if (!cancelled) setIsStudioCheckout(value);
+      });
     void hasPackagedBuild(repoId, worktreePath).then((value) => {
       if (!cancelled) setHasBuild(value);
     });
@@ -158,20 +177,23 @@ export function useProjectActions(target: ProjectActionsTarget): {
     {
       key: 'update',
       label: 'Update Midnite Studio',
-      // The no-build note is only worth showing when the button is actually
-      // clickable — `IconButton` already appends `disabledReason` to this
-      // string when `isStudioCheckout` is false, and a repo that fails that
-      // check will also, in practice, always fail `hasBuild`, so skipping the
-      // note there avoids a tooltip fighting itself over two reasons at once.
-      buttonLabel:
-        isStudioCheckout && !hasBuild
+      // The no-build note only applies to the checkout's rebuild path; outside
+      // it the action runs the published installer, which never builds.
+      buttonLabel: isStudioCheckout === false
+        ? 'Update Midnite Studio — download and install the latest release'
+        : isStudioCheckout && !hasBuild
           ? 'Update Midnite Studio — no packaged build yet, will run dist first (several minutes, ~200MB)'
           : 'Update Midnite Studio — rebuild and install this checkout',
       icon: LuDownload,
-      ...(isStudioCheckout
-        ? {}
-        : { disabled: true, disabledReason: 'Only for the Midnite Studio checkout' }),
+      ...(isStudioCheckout === null
+        ? { disabled: true, disabledReason: 'Checking this repository…' }
+        : {}),
       onSelect: () => {
+        if (isStudioCheckout === null) return;
+        if (!isStudioCheckout) {
+          submitCommand(MIDNITE_INSTALL_COMMAND, 'Update Midnite Studio');
+          return;
+        }
         useUiStore.getState().setTerminalOpen(true);
         const session = useTerminalStore.getState().openSession({
           kind: 'shell',

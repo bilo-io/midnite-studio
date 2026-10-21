@@ -1,16 +1,23 @@
-import { STT_PROVIDERS_WITHOUT_KEY, failure, type GitOpResult } from '@midnite/studio-shared';
+import {
+  STT_PROVIDERS_WITHOUT_KEY,
+  failure,
+  type GitOpResult,
+  type MicrophoneAccess,
+} from '@midnite/studio-shared';
 
 import { bridge } from '../../services/bridge';
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 import { setCompanionVolume } from './audio/context';
 import { toWavBlob } from './audio/wav';
+import { bargeInAudition } from './audition';
 import { companionPorts, setCompanionPorts } from './companion-ports';
 import { stopCompanionPersonality } from './filler';
 import {
   RecorderError,
   cancelRecording,
   isRecording,
+  micDeniedMessage,
   recorderErrorMessage,
   startRecording,
   stopRecording,
@@ -95,6 +102,40 @@ let localModelState: 'idle' | 'downloading' | 'ready' | 'failed' | null = null;
  * gesture.
  */
 let webSpeechSession: WebSpeechSession | null = null;
+
+/**
+ * A server-engine press whose `getUserMedia` has not resolved yet.
+ *
+ * `isRecording()` is false for that whole wait, which is short once the mic
+ * is granted but lasts as long as macOS's own permission prompt the first
+ * time — and that prompt blurs the window, which `use-composer-mic` treats as
+ * a release. Without this, the release found nothing recording, the capture
+ * started anyway once the prompt was answered, and the mic stayed open with
+ * no gesture left to stop it. A release (or an interrupt) during the wait
+ * sets `abandonPendingStart`, and the capture is cancelled the moment it
+ * opens: nothing was said into a mic that was not open yet.
+ */
+let captureStarting = false;
+let abandonPendingStart = false;
+
+/**
+ * A one-shot override for where the *next* transcript goes. The companion's own
+ * input bar claims the global `transcriptSink` port; any other composer (docs,
+ * media chats) sets this just before a press so its dictation lands in its own
+ * textarea instead. Cleared on delivery, on a voice error and on `stopAll`.
+ */
+let nextTranscriptSink: ((text: string) => void) | null = null;
+
+export function setNextTranscriptSink(sink: ((text: string) => void) | null): void {
+  nextTranscriptSink = sink;
+}
+
+function deliverTranscript(text: string): void {
+  const sink = nextTranscriptSink;
+  nextTranscriptSink = null;
+  if (sink) sink(text);
+  else companionPorts().transcriptSink(text);
+}
 
 function setMicStatus(next: MicAvailabilityStatus): void {
   if (next === micStatus) return;
@@ -228,7 +269,8 @@ function interrupt(): void {
  * The thread rather than a toast because it is the companion talking, and a
  * spoken sentence with no written copy is one a user cannot re-read.
  */
-function reportVoiceError(text: string): void {
+export function reportVoiceError(text: string): void {
+  nextTranscriptSink = null;
   useCompanionStore.getState().addTurn({ role: 'companion', text, spoken: true });
   void companionTtsSpeaker.speak(text);
 }
@@ -245,6 +287,12 @@ function reportVoiceError(text: string): void {
  */
 async function micPressStart(): Promise<void> {
   const mode = useUiStore.getState().companionMicMode;
+  if (captureStarting) {
+    // A second press while the first is still opening the mic: in toggle mode
+    // that is the "stop" press, and there is nothing recorded yet to keep.
+    if (mode === 'toggle') abandonPendingStart = true;
+    return;
+  }
   if (mode === 'toggle' && (isRecording() || webSpeechSession !== null)) {
     await finishCapture();
     return;
@@ -252,7 +300,9 @@ async function micPressStart(): Promise<void> {
   if (isRecording() || webSpeechSession !== null) return;
 
   // A press is the user taking the floor — the same rule the textarea's first
-  // keystroke follows.
+  // keystroke follows. Mid-audition that ends the batch, not just the sample
+  // (Phase 109 Theme F's barge-in): the reply is about to be said.
+  bargeInAudition();
   companionTtsSpeaker.cancel();
   stopCompanionPersonality();
   useCompanionStore.getState().send('listen');
@@ -262,19 +312,48 @@ async function micPressStart(): Promise<void> {
     return;
   }
 
+  captureStarting = true;
+  abandonPendingStart = false;
   try {
     await startRecording();
   } catch (error) {
     useCompanionStore.getState().send('interrupt');
-    reportVoiceError(
-      error instanceof RecorderError ? error.message : recorderErrorMessage('failed'),
-    );
+    reportVoiceError(await describeMicFailure(error));
+    return;
+  } finally {
+    captureStarting = false;
   }
+  if (abandonPendingStart) {
+    abandonPendingStart = false;
+    cancelRecording();
+    useCompanionStore.getState().send('interrupt');
+  }
+}
+
+/**
+ * The sentence for a capture that would not start. A refusal asks main for
+ * macOS's own verdict first (`micDeniedMessage`), because "allow it in System
+ * Settings" is only true when macOS is the side that refused.
+ */
+export async function describeMicFailure(error: unknown): Promise<string> {
+  if (!(error instanceof RecorderError)) return recorderErrorMessage('failed');
+  if (error.kind !== 'denied') return error.message;
+  let access: MicrophoneAccess | undefined;
+  try {
+    access = (await bridge()?.companion?.sttStatus?.({}))?.microphoneAccess;
+  } catch {
+    access = undefined;
+  }
+  return micDeniedMessage(access);
 }
 
 async function micPressEnd(): Promise<void> {
   // In toggle mode the release is not the end of anything; the next press is.
   if (useUiStore.getState().companionMicMode === 'toggle') return;
+  if (captureStarting) {
+    abandonPendingStart = true;
+    return;
+  }
   await finishCapture();
 }
 
@@ -312,7 +391,7 @@ function startWebSpeech(): void {
       reportVoiceError('I did not catch that. Try again, a little closer to the microphone.');
       return;
     }
-    companionPorts().transcriptSink(result.text);
+    deliverTranscript(result.text);
   });
 
   if (!session) {
@@ -369,7 +448,7 @@ async function finishRecording(): Promise<void> {
     reportVoiceError('I did not catch that. Try again, a little closer to the microphone.');
     return;
   }
-  companionPorts().transcriptSink(result.value.text);
+  deliverTranscript(result.value.text);
 }
 
 /**
@@ -452,8 +531,11 @@ export function watchCompanionSilence(): () => void {
 }
 
 function stopAll(): void {
+  nextTranscriptSink = null;
+  bargeInAudition();
   companionTtsSpeaker.cancel();
   stopCompanionPersonality();
+  if (captureStarting) abandonPendingStart = true;
   if (isRecording()) cancelRecording();
   if (webSpeechSession !== null) {
     webSpeechSession.cancel();
@@ -476,6 +558,8 @@ export function __resetVoicePortsForTest(): void {
   micProbe = null;
   localModelState = null;
   webSpeechSession = null;
+  captureStarting = false;
+  abandonPendingStart = false;
   micListeners.clear();
   moduleWatcher?.();
   moduleWatcher = null;

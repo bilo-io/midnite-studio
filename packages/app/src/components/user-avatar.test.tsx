@@ -37,24 +37,18 @@ describe('UserAvatar', () => {
   });
 
   it('wraps avatar with tooltip by default when identity is present', () => {
-    const { container } = render(
-      <UserAvatar login="bilo" name="Bilo Lwabona" detail="Author" />,
-    );
+    const { container } = render(<UserAvatar login="bilo" name="Bilo Lwabona" detail="Author" />);
     const trigger = container.querySelector('span.inline-flex');
     expect(trigger).not.toBeNull();
   });
 
   it('omits tooltip when withTooltip is false', () => {
-    const { container } = render(
-      <UserAvatar login="bilo" withTooltip={false} />,
-    );
+    const { container } = render(<UserAvatar login="bilo" withTooltip={false} />);
     expect(container.querySelector('img')).not.toBeNull();
   });
 
   it('displays tooltip with user details on focus/hover', async () => {
-    const { container } = render(
-      <UserAvatar login="bilo" name="Bilo Lwabona" detail="Reviewer" />,
-    );
+    const { container } = render(<UserAvatar login="bilo" name="Bilo Lwabona" detail="Reviewer" />);
     const trigger = container.querySelector('span.inline-flex');
     expect(trigger).not.toBeNull();
     fireEvent.mouseEnter(trigger!);

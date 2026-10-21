@@ -1,5 +1,7 @@
 import { ReactNode, RefObject, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
+import { useContentOverlay } from '../store/content-bounds-store';
 import { useDismiss } from './use-dismiss';
 import { useFocusTrap } from './use-focus-trap';
 import { motionMs } from './use-reveal';
@@ -14,6 +16,19 @@ export type ModalProps = {
   align?: 'center' | 'top';
   initialFocusRef?: RefObject<HTMLElement | null>;
   testId?: string;
+  /**
+   * `content` (default) centres in the main content area, clear of the terminal
+   * dock; `window` centres in the whole window, for app-level modals.
+   */
+  scope?: 'content' | 'window';
+  /**
+   * Render inside this element instead of at window level: the backdrop covers
+   * only it and the dialog centres in it. The element must be positioned. Takes
+   * precedence over `scope`. Falsy falls back to `scope`.
+   */
+  container?: HTMLElement | null;
+  /** `alertdialog` for a question that needs an answer (default `dialog`). */
+  role?: 'dialog' | 'alertdialog';
 };
 
 const SIZE_CLASSES: Record<NonNullable<ModalProps['size']>, string> = {
@@ -33,7 +48,11 @@ export function Modal({
   align = 'center',
   initialFocusRef,
   testId,
+  scope = 'content',
+  container,
+  role = 'dialog',
 }: ModalProps) {
+  const content = useContentOverlay(align, open && scope === 'content' && !container);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Trap + focus-on-open + restore-on-close, all in one hook (Phase 68 Theme
@@ -73,18 +92,22 @@ export function Modal({
 
   if (!open) return null;
 
-  const alignClass =
-    align === 'top'
+  const scoped = !container && scope === 'content' && content.overlayStyle !== undefined;
+  const alignClass = scoped
+    ? align === 'top'
+      ? 'items-start justify-center'
+      : 'items-center justify-center'
+    : align === 'top'
       ? 'items-start justify-center p-6 pt-[15vh]'
       : 'items-center justify-center p-6';
 
   const sizeClass = SIZE_CLASSES[size];
   const duration = motionMs();
 
-  return (
+  const overlay = (
     <div
-      className={`fixed inset-0 z-dialog flex bg-background/70 ${alignClass}`}
-      role="dialog"
+      className={`${container ? 'absolute' : 'fixed'} inset-0 z-dialog flex bg-background/70 ${alignClass}`}
+      role={role}
       aria-modal="true"
       aria-label={title}
       onClick={(event) => {
@@ -94,12 +117,14 @@ export function Modal({
       }}
       style={{
         transitionDuration: `${duration}ms`,
+        ...(scoped ? content.overlayStyle : null),
       }}
     >
       <div
         ref={panelRef}
         tabIndex={-1}
         data-testid={testId}
+        style={scoped && content.panelMaxHeight !== undefined ? { maxHeight: content.panelMaxHeight } : undefined}
         className={`w-full overflow-hidden rounded-lg border border-border bg-popover shadow-xl outline-none ${sizeClass} ${
           variant === 'gradient' ? 'gradient-frame' : ''
         }`}
@@ -108,4 +133,5 @@ export function Modal({
       </div>
     </div>
   );
+  return container ? createPortal(overlay, container) : overlay;
 }

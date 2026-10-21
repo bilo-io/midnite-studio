@@ -32,6 +32,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Pointer cursor for every interactive control. Tailwind v3's preflight already
+ * sets `button, [role="button"] { cursor: pointer }` and `:disabled { cursor: default }`;
+ * this adds the roles/elements it leaves on the default arrow. Base layer, so any
+ * explicit `cursor-*` utility (cursor-default, cursor-grab, cursor-col-resize,
+ * cursor-text) still wins. Disabled / aria-disabled controls are excluded. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true']),
+  [role='menuitemcheckbox']:not([aria-disabled='true']),
+  [role='menuitemradio']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']),
+  [role='treeitem']:not([aria-disabled='true']),
+  [role='switch']:not([aria-disabled='true']),
+  summary,
+  a[href],
+  label[for],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @layer base {
   :root {
     --font-brand: 'Quick Kiss', sans-serif;
@@ -58,7 +81,7 @@
     --browser-insecure: 38 92% 50%;
 
     /* The dependency graph's own edge/node vocabulary
-     * (features/projects/graph/edge-appearance.ts, Phase 75 Theme E) —
+     * (features/tasks/graph/edge-appearance.ts, Phase 75 Theme E) —
      * deliberately its own three tokens rather than `--health-*`: those mean
      * repo health, and a future change to what "warn" looks like should not
      * silently restyle a dependency graph. `--dep-done` borrows `--success`
@@ -283,6 +306,38 @@ html[data-motion='reduced'] .animate-fade-in-up {
   animation: none;
 }
 
+/*
+ * Setup wizard page transition: a page's body and button row slide in from the
+ * side the move came from (Next from the right, Back from the left) while
+ * cross-fading, on one symmetric ease-in-out curve. Duration and curve arrive
+ * as `--setup-page-ms` / `--setup-page-ease` from `pageEnter()` in
+ * `setup-choreography.ts`; the fallbacks keep the rule honest on its own.
+ * Reduced motion keeps the fade and drops the slide.
+ */
+@keyframes setup-page-in-forward {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes setup-page-in-back {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes setup-page-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.setup-page-enter {
+  animation-duration: var(--setup-page-ms, 300ms);
+  animation-timing-function: var(--setup-page-ease, cubic-bezier(0.65, 0, 0.35, 1));
+  animation-fill-mode: both;
+}
+.setup-page-enter[data-dir='forward'] { animation-name: setup-page-in-forward; }
+.setup-page-enter[data-dir='back'] { animation-name: setup-page-in-back; }
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .setup-page-enter { animation-name: setup-page-fade; }
+}
+html[data-motion='reduced'] .setup-page-enter { animation-name: setup-page-fade; }
+
 /* Live agent count (title bar) — the `{N} agents` readout wears the rainbow
  * ramp as its TEXT, not a ring, and breathes.
  *
@@ -372,6 +427,119 @@ html[data-motion='reduced'] .agent-count-text {
   animation: none;
 }
 
+/* Setup overlay (Phase 98 Themes B and C).
+ *
+ * - `.setup-brand-gradient` — the intro's typed "Midnite" and the finale's
+ *   `<Wordmark gradient />`: midnite's signature brand sweep, `--brand-gradient`
+ *   from `@bilo-io/shell/appearance.css` (blue → violet → rose, theme-aware via
+ *   `.dark`) — the same gradient the midnite apps paint their own wordmark and
+ *   auth hero with, not the full-spectrum rainbow the agent count wears. The
+ *   palette arc after it is only a fallback should the shell ever stop
+ *   defining the variable. Clipped to the glyphs, but still —
+ *   it is colour, not motion, so reduced motion keeps it. The padding is clip
+ *   headroom: a script face's ink runs past its advance box, and a
+ *   background clipped to text is only painted inside the element's own box.
+ * - `.setup-caret` — the typing caret reuses Tailwind's `animate-caret-blink`.
+ *   Its guard removes the animation outright rather than letting the shell's
+ *   reset pin it to its final frame, which for `caret-blink` is invisible.
+ * - `.setup-handoff-arrow` — the arrow pointing at the FAB after X or Skip,
+ *   nudging toward it. A loop, so it is paused whenever the window is not
+ *   focused and removed under reduced motion; it is only mounted for the few
+ *   seconds the handoff lasts. Transform only, a compositor job.
+ * - `.setup-ready-check` (Theme D) — a status row's ready check, pulsing a
+ *   green box-shadow glow around its circle. A loop like the arrow, gated and
+ *   guarded the same way; reduced motion leaves a still, un-glowing check. */
+.setup-brand-gradient {
+  padding: 0.12em 0.15em;
+  background-image: var(
+    --brand-gradient,
+    linear-gradient(90deg, var(--rainbow-3), var(--rainbow-4), var(--rainbow-5))
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes setup-arrow-nudge {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(5px, 5px);
+  }
+}
+
+.setup-handoff-arrow {
+  animation: setup-arrow-nudge 1.1s ease-in-out infinite paused;
+}
+
+@keyframes setup-ready-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(34 197 94 / 0);
+  }
+  50% {
+    box-shadow: 0 0 10px 2px rgb(34 197 94 / 0.55);
+  }
+}
+
+.setup-ready-check {
+  animation: setup-ready-pulse 1.8s ease-in-out infinite paused;
+}
+
+/* Theme J — the completion bloom: one brand-gradient glow sweeping out from the
+ * title anchor as the last page is left. A one-shot, not a loop, so it needs no
+ * focus gate; it is not mounted at all under reduced motion, and the guards
+ * below remove it as well so a preference flipped mid-flight cannot strand it. */
+@keyframes setup-bloom {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(48);
+  }
+}
+
+.setup-bloom {
+  background: radial-gradient(
+    circle,
+    rgb(236 72 153 / 0.45) 0%,
+    rgb(59 130 246 / 0.3) 35%,
+    rgb(34 197 94 / 0.12) 55%,
+    transparent 70%
+  );
+  animation: setup-bloom 900ms ease-out forwards;
+}
+
+html:not([data-window-focused='false']) .setup-handoff-arrow,
+html:not([data-window-focused='false']) .setup-ready-check {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .setup-caret,
+  html:not([data-motion='full']) .setup-bloom,
+  html:not([data-motion='full']) .setup-handoff-arrow,
+  html:not([data-motion='full']) .setup-ready-check {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .setup-caret,
+html[data-motion='reduced'] .setup-bloom,
+html[data-motion='reduced'] .setup-handoff-arrow,
+html[data-motion='reduced'] .setup-ready-check {
+  animation: none;
+}
+
+html[data-motion='reduced'] .setup-bloom {
+  display: none;
+}
+
 /* Battery status-bar segment — below 30% the low tier flashes, getting
  * faster the lower the reading goes: slow under 30%, quicker under 20%,
  * urgent under 10%. */
@@ -407,6 +575,32 @@ html[data-motion='reduced'] .agent-count-text {
 html[data-motion='reduced'] .battery-flash-slow,
 html[data-motion='reduced'] .battery-flash-medium,
 html[data-motion='reduced'] .battery-flash-fast {
+  animation: none;
+}
+
+/* Battery charging indicator green shimmer — an active charging state
+ * indicator that sweeps a green highlight across the battery widget. */
+.battery-charging-shimmer {
+  animation: pill-shimmer 2.4s ease-in-out infinite paused;
+  background: linear-gradient(
+    100deg,
+    transparent 15%,
+    rgba(16, 185, 129, 0.45) 50%,
+    transparent 85%
+  );
+}
+
+html:not([data-window-focused='false']) .battery-charging-shimmer {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .battery-charging-shimmer {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .battery-charging-shimmer {
   animation: none;
 }
 
@@ -470,6 +664,13 @@ nav[aria-label='Views']::-webkit-scrollbar {
 aside[aria-label="Views"].w-64,
 aside:has(> nav[aria-label="Views"]).w-64 {
   width: 13rem !important;
+}
+
+/* Collapsed sidenav is 8px wider: 3.5rem -> 4rem. Icons stay centred (the
+ * shell's rows are `items-center`); `--nav-offset` is set to match in app.tsx. */
+aside[aria-label="Views"].w-14,
+aside:has(> nav[aria-label="Views"]).w-14 {
+  width: 4rem !important;
 }
 
 /* ---------------------------------------------------------------------------
@@ -821,6 +1022,54 @@ section.bg-card\/60 {
 
 html[data-motion='reduced'] .gradient-border--glow {
   transition: none;
+}
+
+/*
+ * `.media-prompt` — every AI prompt box in Media (image prompt, audio style and
+ * lyrics) wears `.gradient-border`. At rest that is upstream's dim rainbow ring;
+ * on `:focus-within` upstream already brightens it and spins `--gradient-angle`
+ * (registered by @bilo-io/ui's tokens.css via @property), and this adds the
+ * pulse: a box-shadow bloom that breathes while the box has focus. The pulse is
+ * keyed to `:focus-within` only, so nothing animates at rest (idle-CPU).
+ */
+@keyframes media-prompt-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(139, 92, 246, 0.25),
+      0 0 8px -2px rgba(59, 130, 246, 0.3),
+      0 0 14px -6px rgba(236, 72, 153, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(139, 92, 246, 0.45),
+      0 0 16px -1px rgba(59, 130, 246, 0.55),
+      0 0 26px -4px rgba(236, 72, 153, 0.45);
+  }
+}
+
+.media-prompt {
+  /* Declared paused at rest and flipped to running on focus, the same
+   * play-state gate the other infinite loops use. */
+  animation:
+    gradient-border-spin 4s linear infinite paused,
+    media-prompt-pulse 2s ease-in-out infinite paused;
+}
+
+.media-prompt:focus-within {
+  animation-play-state: running, running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .media-prompt,
+  html:not([data-motion='full']) .media-prompt:focus-within {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .media-prompt,
+html[data-motion='reduced'] .media-prompt:focus-within {
+  animation: none;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1496,7 +1745,7 @@ html[data-motion='reduced'] .landing-slide-in {
   --fab-spec-5: 59 130 246; /* 180deg — blue */
 }
 
-/* innovate (Concepts): arc 90°→210°, sampled at 90°, 120°, 150°, 180°, 210° */
+/* innovate (Ideate): arc 90°→210°, sampled at 90°, 120°, 150°, 180°, 210° */
 [data-fab-tab='innovate'] {
   --fab-spec-1: 130 171 70; /*  90deg — amber/emerald midpoint */
   --fab-spec-2: 16 185 129; /* 120deg — emerald */
@@ -1505,7 +1754,7 @@ html[data-motion='reduced'] .landing-slide-in {
   --fab-spec-5: 99 111 246; /* 210deg — blue/violet midpoint */
 }
 
-/* automate (Develop): arc 120°→240°, sampled at 120°, 150°, 180°, 210°, 240° */
+/* automate (Create): arc 120°→240°, sampled at 120°, 150°, 180°, 210°, 240° */
 [data-fab-tab='automate'] {
   --fab-spec-1: 16 185 129; /* 120deg — emerald */
   --fab-spec-2: 37 157 187; /* 150deg — emerald/blue midpoint */
@@ -3168,57 +3417,113 @@ html[data-motion='reduced'] .agent-run-glow.is-running {
 }
 
 /*
-  Graph-only bloom (Phase 75 Theme D — closing one of Theme F's four items
-  deferred here, since Theme F had no node to wire it into yet) — a blurred
-  copy of the ring behind a running/waiting node, the crib's own `::after`.
-  A glance across a 300-node canvas can spot the lit one this way without
-  reading every ring in turn. The card never wears this: a kanban column is
-  narrow enough for the ring alone to read, and a blur behind every card in
-  one column would smear into its neighbours — so this is scoped to
-  `.project-graph-node`, never bare `.agent-run-glow`.
-
-  `background: inherit` picks up whichever `background-image` the co-applied
-  `.is-running`/`.is-waiting` rule above painted, so the bloom is always the
-  same colour as the ring in front of it without a second copy of either
-  gradient. `::after` rather than a second DOM element — nothing here needs
-  to be inspectable, only visible, and `project-graph-node.tsx` carries no
-  extra markup for it.
+  A closed graph node's own solid ring. (An unclosed comment above this rule
+  had swallowed it, and the graph-only `::after` bloom after it, since #445;
+  the bloom is now `.task-glow` below, shared with the board and the list.)
+*/
 .project-graph-node.is-closed {
   border-width: 2.5px;
   border-color: hsl(var(--dep-done));
 }
 
-.project-graph-node.agent-run-glow.is-running::after,
-.project-graph-node.agent-run-glow.is-waiting::after {
+/*
+  Task glow (ad hoc) — the Projects modifier over `.agent-run-glow`, worn by a
+  board card, a graph node and a list row alike (`taskGlowClass` in
+  `features/tasks/board/glow-state.ts`), so the three views paint one glow.
+  A modifier rather than an edit to `.agent-run-glow` itself, so that ring's
+  other wearer (the workflow run-history button) is left exactly as it was.
+
+  - A thicker ring: 3px, from the shared 1px — as thick as a 4px card corner
+    takes while still reading as rounded.
+  - One paint, two layers. The ring's gradient lives in one custom property,
+    `--task-glow-paint`, and the bloom is the host's own `::after` painted
+    with that same property and blurred. An unregistered custom property's
+    computed value has its `var()`s substituted, so the pseudo inherits the
+    host's gradient with the host's *current* `--loop-glow-angle` already in
+    it: the same stops at the same angle on every frame, from the one
+    `loop-glow-spin` animation, with no second rotation to drift out of step.
+    Waiting swaps the property to amber, and the bloom follows.
+  - The bloom is cut out of the host's own box by a mask
+    (`mask-composite: exclude`) rather than tucked beneath it with a
+    negative z-index. A board column or the table between the card and the
+    nearest stacking context has its own background, which a `z-index: -1`
+    layer would paint under, and this way no host has to become a stacking
+    context to fix that.
+  - It replaces `card-glow-pulse`'s pink/blue box-shadow, a second colour
+    scheme beside the ring, with the bloom's own opacity breathing.
+  - Cheap: a blurred pseudo on each *glowing* task only, and paused the way
+    every loop here is — blurred window, off-screen card (`data-offscreen`,
+    from the card's own IntersectionObserver), reduced motion.
+*/
+@keyframes task-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.task-glow.agent-run-glow {
+  --task-glow-border: 3px;
+  --task-glow-spread: 14px;
+  --task-glow-paint: conic-gradient(from var(--loop-glow-angle, 0deg), var(--rainbow-ramp));
+  border-width: var(--task-glow-border);
+  background-image:
+    linear-gradient(hsl(var(--background)), hsl(var(--background))),
+    var(--task-glow-paint);
+}
+
+.task-glow.agent-run-glow.is-running {
+  animation: loop-glow-spin 4s linear infinite;
+}
+
+.task-glow.agent-run-glow.is-waiting {
+  --task-glow-paint: linear-gradient(#f59e0b, #f59e0b);
+  box-shadow: none;
+}
+
+.task-glow.agent-run-glow.is-running::after,
+.task-glow.agent-run-glow.is-waiting::after {
   content: '';
   position: absolute;
-  inset: -10px;
-  z-index: -1;
-  border-radius: inherit;
-  background: inherit;
-  filter: blur(10px);
-  opacity: 0.6;
+  inset: calc(-1 * (var(--task-glow-border) + var(--task-glow-spread)));
+  padding: var(--task-glow-spread);
+  background: var(--task-glow-paint) content-box;
+  filter: blur(7px);
+  opacity: 0.85;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
   pointer-events: none;
 }
 
-.project-graph-node.agent-run-glow.is-running::after {
-  animation:
-    loop-glow-spin 4s linear infinite,
-    card-glow-pulse 2s ease-in-out infinite;
+.task-glow.agent-run-glow.is-running::after {
+  animation: task-glow-breathe 2s ease-in-out infinite;
 }
 
-/* Same focus gate as the ring itself — a blurred window pays for neither. */
-html[data-window-focused='false'] .project-graph-node.agent-run-glow.is-running::after {
+html[data-window-focused='false'] .task-glow.agent-run-glow.is-running::after,
+.task-glow.agent-run-glow.is-running[data-offscreen],
+.task-glow.agent-run-glow.is-running[data-offscreen]::after {
   animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion='full']) .project-graph-node.agent-run-glow.is-running::after {
+  html:not([data-motion='full']) .task-glow.agent-run-glow.is-running {
+    box-shadow: none;
+  }
+
+  html:not([data-motion='full']) .task-glow.agent-run-glow.is-running::after {
     animation: none;
   }
 }
 
-html[data-motion='reduced'] .project-graph-node.agent-run-glow.is-running::after {
+html[data-motion='reduced'] .task-glow.agent-run-glow.is-running {
+  box-shadow: none;
+}
+
+html[data-motion='reduced'] .task-glow.agent-run-glow.is-running::after {
   animation: none;
 }
 
@@ -3719,6 +4024,49 @@ html[data-motion='reduced'] .dep-edge-animated {
   animation: none;
 }
 
+/*
+  Status stroke (ad hoc) — a task's status colour and dash on its card border
+  and on the edge leading out of it to the task it blocks. The pattern per
+  status is `features/tasks/status-stroke.ts`'s one table; the colour is
+  the status option's own, set inline. An HTML border cannot animate its
+  dashes, so the card's dashed border is an SVG <rect> over a transparent
+  border (`StatusBorder`), sharing the edge's `dep-edge-dash` keyframe — the
+  two march in step. The edge takes `.dep-edge-animated` itself.
+
+  Gated like every other loop here: paused in a blurred window and while the
+  card is scrolled out of view (`data-offscreen`, from the card's own
+  IntersectionObserver), stopped under reduced motion. The dash pattern
+  stays, so a status still reads with nothing moving.
+*/
+.status-border {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.status-border-rect {
+  fill: none;
+}
+
+.status-stroke-animated {
+  animation: dep-edge-dash 1s linear infinite;
+}
+
+html[data-window-focused='false'] .status-stroke-animated,
+.status-border[data-offscreen] .status-stroke-animated {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .status-stroke-animated {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .status-stroke-animated {
+  animation: none;
+}
+
 /* ---------------------------------------------------------------------------
  * The collapsed FAB's orbiting halo — the panel's inner rim, turned inside out.
  *
@@ -4034,6 +4382,77 @@ html[data-motion='reduced'] .loop-launcher.is-running.is-pulsing {
 
 .graph-rail-glow {
   animation: graph-rail-glow 2.4s ease-in-out infinite paused;
+}
+
+/* The git graph's CI column (graph-header.tsx / ci-cell.tsx). One icon wide,
+ * sized from `--col-ci` on the list wrapper so the header, every commit row and
+ * the working-copy/stash pseudo-rows share one grid. `data-graph-ci='off'`
+ * (Settings > Graph > Columns) hides the column in every one of them at once —
+ * a style change, not a re-render of the memoised rows. */
+.graph-ci-col {
+  width: var(--col-ci, 20px);
+}
+
+[data-graph-ci='off'] .graph-ci-col {
+  display: none;
+}
+
+/* The graph's columns menu (columns-menu.tsx). `data-graph-hide` on the same
+ * wrapper lists the optional columns that are switched off; hiding is CSS in
+ * the header, every commit row and the pseudo-rows at once, never a re-render
+ * of the memoised rows. The Diff column is fixed-width and listed here when
+ * off (its default). */
+.graph-diff-col {
+  width: 6.5rem;
+}
+
+.graph-diff-chart-col {
+  width: 6.5rem;
+}
+
+[data-graph-hide~='diff'] .graph-diff-col,
+[data-graph-hide~='diffChart'] .graph-diff-chart-col,
+[data-graph-hide~='branchTag'] .graph-ref-col,
+[data-graph-hide~='branchTag'] .graph-ref-col-handle,
+[data-graph-hide~='author'] .graph-col-author,
+[data-graph-hide~='sha'] .graph-col-sha {
+  display: none;
+}
+
+/* Narrow windows. The commit message is the one column the graph exists to be
+ * read by, so it keeps a real minimum width and everything else gives way
+ * first: the BRANCH / TAG column is the only shrinkable fixed column (down to
+ * a chip's worth), and below a 520px graph the CI column drops out entirely.
+ * The shrink is identical in the header, every commit row and the working
+ * copy/stash rows — in each, the ref column is the only item that can shrink
+ * and the fixed columns beside it match — so the grid stays aligned while it
+ * narrows. A container query, not a media query: the graph's width is the
+ * window minus the rail, the repos panel and the detail pane, none of which a
+ * viewport width knows about. */
+[data-graph-ci] {
+  container: graph / inline-size;
+}
+
+.graph-ref-col {
+  flex-shrink: 1;
+  min-width: 64px;
+}
+
+.graph-msg-col {
+  min-width: 96px;
+}
+
+@container graph (max-width: 520px) {
+  .graph-ci-col {
+    display: none;
+  }
+}
+
+/* A running run's spinner in the CI column stops turning while the window is
+ * blurred — the same focus gate the rest of the graph's motion keys on, so a
+ * graph left open behind another app is not animating a mark nobody sees. */
+html[data-window-focused='false'] [data-graph-ci-cell] .animate-spin {
+  animation-play-state: paused;
 }
 
 /* Ref badges on the lit lane. The border/glow pulses in sync with the rail and lane halo. */
@@ -4507,6 +4926,99 @@ html[data-motion='reduced'] .loop-start-gradient:focus-visible:not(:disabled) {
     0 0 22px rgb(var(--fab-spec-5, 139 92 246) / 0.4);
 }
 
+/* ---------------------------------------------------------------------------
+ * `.brand-gradient-button` — a primary action filled with the brand gradient.
+ *
+ * The whole face is the brand's `--rainbow-ramp` (the same ramp the agent
+ * count and the setup wordmark wear, left to right), not a border: this is
+ * the button a screen is FOR, e.g. the working-copy panel's Commit.
+ * `.loop-start-gradient` above stays the Loops panel's quieter frame.
+ *
+ * Built from two pseudo-elements inside an isolated stacking context, so it
+ * never depends on what the ancestors paint:
+ * - `::after` is the crisp fill;
+ * - `::before` is a blurred copy of the SAME gradient behind it — the glow.
+ *   Both read `--brand-gradient`, so stops and angle cannot drift apart. It
+ *   fades in on hover and keyboard focus only.
+ *
+ * Text is near-black in both themes: the ramp is theme-independent, and dark
+ * ink clears 4.5:1 against every stop (the darkest, violet #8b5cf6, is ~5:1;
+ * white would fail on amber and emerald at ~2:1).
+ *
+ * Disabled (nothing staged): no glow, and the fill is desaturated and dimmed
+ * — the text stays full strength, so the label remains readable.
+ *
+ * The glow does not animate beyond its fade, so there is nothing to pause
+ * while the window is blurred; reduced motion drops the fade too.
+ * ------------------------------------------------------------------------ */
+.brand-gradient-button {
+  --brand-gradient: linear-gradient(90deg, var(--rainbow-ramp));
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: transparent;
+  color: rgb(12 10 24);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+.brand-gradient-button::before,
+.brand-gradient-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--brand-gradient);
+  pointer-events: none;
+}
+
+.brand-gradient-button::before {
+  z-index: -2;
+  filter: blur(10px);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.brand-gradient-button::after {
+  z-index: -1;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.brand-gradient-button:hover:not(:disabled)::before,
+.brand-gradient-button:focus-visible:not(:disabled)::before {
+  opacity: 0.85;
+}
+
+.brand-gradient-button:focus-visible {
+  outline: 2px solid hsl(var(--ring, var(--foreground)));
+  outline-offset: 2px;
+}
+
+.brand-gradient-button:disabled {
+  cursor: not-allowed;
+  text-shadow: none;
+}
+
+.brand-gradient-button:disabled::before {
+  display: none;
+}
+
+.brand-gradient-button:disabled::after {
+  filter: saturate(0.3);
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .brand-gradient-button::before,
+  html:not([data-motion='full']) .brand-gradient-button::after {
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .brand-gradient-button::before,
+html[data-motion='reduced'] .brand-gradient-button::after {
+  transition: none;
+}
+
 /*
  * Keep TitleBar's center slot in-flow between left and right instead of
  * absolute-centered, preventing collision with wide left breadcrumbs / sync
@@ -4977,8 +5489,8 @@ html[data-motion='reduced'] .session-row-pulse {
 }
 
 /* Ad hoc: Settings ▸ Accounts forge provider picker — brand-coloured icon and
-   selected-state accent (`accounts-page.tsx`'s `ForgeProviderPicker`,
-   `PROVIDER_BRAND_COLOR`). The component sets `--brand-light`/`--brand-dark`
+   selected-state accent (the vault feature's `ForgeProviderPicker`,
+   `forge-providers.ts`' `PROVIDER_BRAND_COLOR`). The component sets `--brand-light`/`--brand-dark`
    inline per button; this is the one place that knows which theme is active,
    so it resolves them to `--forge-brand` here rather than the component
    reading `document.documentElement.classList` itself. Same shape as the
@@ -5048,6 +5560,20 @@ html[data-motion='reduced'] .session-row-pulse {
   vertical-align: -2px;
 }
 
+/* Workflow canvas — every edge's stroke opacity. The numbers are NOT here:
+ * `edge-style.ts`'s `edgeAppearance` computes both (clamped to 50–90%) and
+ * hands them over as custom properties, so this file only chooses between
+ * the resting value and the hovered one. `stroke-opacity` rather than
+ * `opacity` so the edge's label chip and interaction path are unaffected. */
+.wf-edge-path {
+  stroke-opacity: var(--wf-edge-opacity, 0.6);
+  transition: stroke-opacity 0.12s ease;
+}
+
+.react-flow__edge:hover .wf-edge-path {
+  stroke-opacity: var(--wf-edge-hover-opacity, 0.8);
+}
+
 /* Workflow canvas — a live (pending or taken) edge's marching-dash animation
  * (Phase 97 Theme J, `workflow-edge-view.tsx`'s `.wf-edge-live`). A dead edge
  * never gets this class at all (it fades via `opacity` instead), so nothing
@@ -5088,3 +5614,591 @@ html[data-motion='reduced'] .wf-edge-live {
 }
 
 
+
+/*
+ * While any menu, popover or picker is open (`use-dismissable.ts` sets the
+ * attribute), the title bar's drag regions stop being drag regions. A
+ * `-webkit-app-region: drag` strip hands its clicks to the window manager
+ * before the page ever sees a `pointerdown`, so a click on empty title bar
+ * could never count as "outside" and the menu stayed open under it. The
+ * shell sets the region as an inline style, hence the attribute selector and
+ * the `!important`; the window is draggable again the moment the menu closes.
+ */
+html[data-dismissable-open] [style*='app-region'] {
+  -webkit-app-region: no-drag !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * Media ▸ Images (Phase 99 Theme C) — the gallery's leading "+" tile and the
+ * shimmer placeholder for images still generating.
+ *
+ * The tile is a large dashed box whose border, "+" glyph and label all glow on
+ * hover/focus, reusing `.gradient-border--glow`'s violet/blue/pink bloom so it
+ * reads as the same "this is where you create" signal. The glow is colour and
+ * shadow, not movement; only its transition is gated for reduced motion.
+ * ------------------------------------------------------------------------- */
+.media-plus-tile {
+  border: 2px dashed hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--card) / 0.4);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+.media-plus-tile__icon,
+.media-plus-tile__label {
+  transition:
+    filter 0.18s ease,
+    text-shadow 0.18s ease;
+}
+
+.media-plus-tile:hover,
+.media-plus-tile:focus-visible {
+  outline: none;
+  border-color: rgba(139, 92, 246, 0.85);
+  color: hsl(var(--foreground));
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.28),
+    0 0 18px -2px rgba(59, 130, 246, 0.4),
+    0 0 32px -6px rgba(236, 72, 153, 0.35);
+}
+
+.media-plus-tile:hover .media-plus-tile__icon,
+.media-plus-tile:focus-visible .media-plus-tile__icon {
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 12px rgba(236, 72, 153, 0.45));
+}
+
+.media-plus-tile:hover .media-plus-tile__label,
+.media-plus-tile:focus-visible .media-plus-tile__label {
+  -webkit-text-stroke: 0.4px rgba(139, 92, 246, 0.9);
+  text-shadow:
+    0 0 8px rgba(139, 92, 246, 0.6),
+    0 0 16px rgba(59, 130, 246, 0.35);
+}
+
+@keyframes media-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.media-shimmer {
+  background: linear-gradient(
+    100deg,
+    hsl(var(--muted) / 0.5) 20%,
+    hsl(var(--muted-foreground) / 0.18) 40%,
+    hsl(var(--muted) / 0.5) 60%
+  );
+  background-size: 200% 100%;
+  animation: media-shimmer 1.6s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .media-shimmer {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .media-shimmer {
+    animation: none;
+  }
+  html:not([data-motion='full']) .media-plus-tile,
+  html:not([data-motion='full']) .media-plus-tile__icon,
+  html:not([data-motion='full']) .media-plus-tile__label {
+    transition: none;
+  }
+}
+
+html[data-motion='reduced'] .media-shimmer {
+  animation: none;
+}
+
+html[data-motion='reduced'] .media-plus-tile,
+html[data-motion='reduced'] .media-plus-tile__icon,
+html[data-motion='reduced'] .media-plus-tile__label {
+  transition: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Shared AI thread (components/ai-thread/) — docs, companion and media chats.
+ *
+ * `.ai-thread-frame` wears `.gradient-frame` only while a turn is in flight
+ * (see thread-frame.tsx), so it reserves the same 2.5px border when idle and
+ * the layout never shifts. The arc is pinned to 120deg like the FAB's tabs:
+ * both properties are `inherits: false`, so host and `::before` each need it.
+ * ------------------------------------------------------------------------ */
+.ai-thread-frame {
+  border: 2.5px solid transparent;
+}
+
+.ai-thread-frame,
+.ai-thread-frame::before {
+  --fab-arc-from: -60deg;
+  --fab-arc-to: 60deg;
+}
+
+@keyframes thinking-dots {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
+  }
+  50% {
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+}
+
+.thinking-dots::after {
+  content: '...';
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  animation: thinking-dots 1.2s steps(1, end) infinite paused;
+}
+
+html:not([data-window-focused='false']) .thinking-dots::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .thinking-dots::after {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .thinking-dots::after {
+  animation: none;
+}
+
+/* Docs editor — code-block syntax tokens, GitHub-style callouts, images
+ * (features/media/doc). lowlight emits highlight.js `hljs-*` classes; raw HSL
+ * triplets here, lifted in `.dark` like every other hue in this file. */
+:root {
+  --hljs-keyword: 330 70% 42%;
+  --hljs-string: 210 80% 36%;
+  --hljs-number: 25 85% 38%;
+  --hljs-title: 265 55% 45%;
+  --hljs-type: 25 85% 38%;
+  --hljs-comment: 215 12% 48%;
+  --hljs-meta: 175 70% 28%;
+  --hljs-addition: 140 60% 30%;
+  --hljs-deletion: 0 70% 45%;
+  --callout-note: 212 80% 48%;
+  --callout-tip: 140 55% 36%;
+  --callout-important: 265 55% 55%;
+  --callout-warning: 38 92% 45%;
+  --callout-caution: 0 72% 52%;
+}
+.dark {
+  --hljs-keyword: 330 80% 72%;
+  --hljs-string: 205 85% 74%;
+  --hljs-number: 30 90% 68%;
+  --hljs-title: 265 80% 78%;
+  --hljs-type: 30 90% 68%;
+  --hljs-comment: 215 12% 58%;
+  --hljs-meta: 175 60% 62%;
+  --hljs-addition: 140 55% 62%;
+  --hljs-deletion: 0 85% 70%;
+  --callout-note: 212 90% 66%;
+  --callout-tip: 140 55% 58%;
+  --callout-important: 265 80% 74%;
+  --callout-warning: 38 95% 58%;
+  --callout-caution: 0 85% 68%;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-section { color: hsl(var(--hljs-keyword)); }
+.hljs-string,
+.hljs-regexp,
+.hljs-symbol,
+.hljs-attr,
+.hljs-attribute,
+.hljs-selector-attr,
+.hljs-selector-pseudo { color: hsl(var(--hljs-string)); }
+.hljs-number,
+.hljs-bullet,
+.hljs-link { color: hsl(var(--hljs-number)); }
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-function,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class { color: hsl(var(--hljs-title)); }
+.hljs-type,
+.hljs-built_in,
+.hljs-class .hljs-title,
+.hljs-params,
+.hljs-variable,
+.hljs-template-variable { color: hsl(var(--hljs-type)); }
+.hljs-comment,
+.hljs-quote { color: hsl(var(--hljs-comment)); font-style: italic; }
+.hljs-meta,
+.hljs-meta .hljs-keyword,
+.hljs-tag { color: hsl(var(--hljs-meta)); }
+.hljs-addition { color: hsl(var(--hljs-addition)); }
+.hljs-deletion { color: hsl(var(--hljs-deletion)); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+
+.ProseMirror .doc-code-block pre { padding-top: 2rem; }
+.ProseMirror img { max-width: 100%; height: auto; border-radius: 6px; margin: 0.5rem 0; }
+.ProseMirror img.ProseMirror-selectednode { outline: 2px solid hsl(var(--primary)); }
+.ProseMirror blockquote[data-callout] { border-left-width: 3px; border-radius: 0 6px 6px 0; padding: 0.25rem 0.75rem; color: inherit; }
+.ProseMirror blockquote[data-callout]::before { content: attr(data-callout); display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.ProseMirror blockquote[data-callout='note'] { border-color: hsl(var(--callout-note)); background: hsl(var(--callout-note) / 0.08); }
+.ProseMirror blockquote[data-callout='note']::before { color: hsl(var(--callout-note)); }
+.ProseMirror blockquote[data-callout='tip'] { border-color: hsl(var(--callout-tip)); background: hsl(var(--callout-tip) / 0.08); }
+.ProseMirror blockquote[data-callout='tip']::before { color: hsl(var(--callout-tip)); }
+.ProseMirror blockquote[data-callout='important'] { border-color: hsl(var(--callout-important)); background: hsl(var(--callout-important) / 0.08); }
+.ProseMirror blockquote[data-callout='important']::before { color: hsl(var(--callout-important)); }
+.ProseMirror blockquote[data-callout='warning'] { border-color: hsl(var(--callout-warning)); background: hsl(var(--callout-warning) / 0.1); }
+.ProseMirror blockquote[data-callout='warning']::before { color: hsl(var(--callout-warning)); }
+.ProseMirror blockquote[data-callout='caution'] { border-color: hsl(var(--callout-caution)); background: hsl(var(--callout-caution) / 0.08); }
+.ProseMirror blockquote[data-callout='caution']::before { color: hsl(var(--callout-caution)); }
+
+/* ---------------------------------------------------------------------------
+ * Finance dashboard — the "Insights" button.
+ *
+ * A rainbow gradient border with a soft rainbow glow at rest; on hover (or
+ * keyboard focus) the whole button fills with the rainbow and the glow
+ * strengthens. The border is the usual two-layer background trick — a
+ * card-coloured padding-box over a rainbow border-box — so it follows the
+ * theme's own card colour in light and dark, and needs no mask.
+ *
+ * The hover fill is a ::before whose OPACITY transitions: browsers cannot
+ * animate between two gradients, so cross-fading a second layer is how the fill
+ * eases in. Deliberately no @keyframes — nothing here loops, so nothing needs a
+ * reduced-motion guard beyond the transitions the shell already neutralises.
+ * ------------------------------------------------------------------------- */
+.rainbow-btn {
+  --rainbow: linear-gradient(
+    100deg,
+    #ff4d4d,
+    #ff9f1a,
+    #ffe14d,
+    #3ddc84,
+    #2bb6ff,
+    #6c5ce7,
+    #e056fd,
+    #ff4d4d
+  );
+  position: relative;
+  isolation: isolate;
+  border: 1.5px solid transparent;
+  border-radius: 9999px;
+  color: hsl(var(--foreground));
+  background:
+    linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+    var(--rainbow) border-box;
+  box-shadow:
+    0 0 8px -1px rgb(255 77 77 / 0.35),
+    0 0 12px -2px rgb(43 182 255 / 0.32),
+    0 0 16px -3px rgb(224 86 253 / 0.3);
+  transition:
+    box-shadow 220ms ease,
+    color 220ms ease,
+    transform 220ms ease;
+}
+
+.rainbow-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--rainbow);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.rainbow-btn:hover,
+.rainbow-btn:focus-visible,
+.rainbow-btn[aria-expanded='true'] {
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  box-shadow:
+    0 0 12px 0 rgb(255 77 77 / 0.55),
+    0 0 18px 0 rgb(43 182 255 / 0.5),
+    0 0 26px 2px rgb(224 86 253 / 0.45);
+}
+
+.rainbow-btn:hover::before,
+.rainbow-btn:focus-visible::before,
+.rainbow-btn[aria-expanded='true']::before {
+  opacity: 1;
+}
+
+.rainbow-btn:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Chats' thinking ring (`features/chats/thinking-panel.tsx`).
+ *
+ * A rainbow border with a bright arc travelling round it while a turn is live.
+ * Both are painted by pseudo-elements masked down to a 1.5px ring (the
+ * content box subtracted from the border box), never by a real border, so the
+ * ring can move from the collapsed pill to the expanded panel without
+ * shifting a pixel of layout — that is what keeps the pill's centre on the
+ * provider icon's in both states.
+ *
+ * `::before` is the ramp, dimmed once the turn settles; `::after` is the arc,
+ * a conic comet whose start angle spins. Like every other always-on glow here
+ * it pauses with the window blurred and stops under reduced motion, where the
+ * arc is hidden rather than frozen at an arbitrary angle.
+ * ------------------------------------------------------------------------- */
+@property --thinking-arc-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes thinking-arc-spin {
+  to {
+    --thinking-arc-angle: 360deg;
+  }
+}
+
+.thinking-ring {
+  position: relative;
+}
+
+.thinking-ring::before,
+.thinking-ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+.thinking-ring::before {
+  background: conic-gradient(from 0deg, var(--rainbow-ramp));
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.thinking-ring::after {
+  background: conic-gradient(
+    from var(--thinking-arc-angle),
+    transparent 0deg,
+    transparent 240deg,
+    hsl(var(--foreground) / 0.15) 290deg,
+    hsl(var(--foreground) / 0.95) 360deg
+  );
+  opacity: 0;
+}
+
+.thinking-ring[data-live='true']::before {
+  opacity: 0.9;
+}
+
+.thinking-ring[data-live='true']::after {
+  opacity: 1;
+  animation: thinking-arc-spin 1.8s linear infinite paused;
+}
+
+html:not([data-window-focused='false']) .thinking-ring[data-live='true']::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .thinking-ring[data-live='true']::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+html[data-motion='reduced'] .thinking-ring[data-live='true']::after {
+  animation: none;
+  opacity: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * `.composer-pill` — a `/skill` or `@file` token in the Chats composer.
+ *
+ * Two faces, by what the token is. A skill is AI — it wears the brand
+ * gradient (`--rainbow-ramp`, left to right, as `.brand-gradient-button` does)
+ * on the glyphs themselves (`background-clip: text`), in bold, with no border
+ * or fill. A file is not — it wears
+ * plain `--primary`: a solid border over a 15% primary fill.
+ *
+ * Both are painted on the textarea's mirror overlay, so neither may add
+ * advance: the 1px border + 1px padding on each side is cancelled by a -2px
+ * margin, or every glyph after it would drift from the caret.
+ * `box-decoration-break: clone` keeps a pill that wraps closed on both lines.
+ * ------------------------------------------------------------------------ */
+.composer-pill {
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  padding: 0 1px;
+  margin: 0 -2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.composer-pill--skill {
+  --brand-gradient: linear-gradient(90deg, var(--rainbow-ramp));
+  border-color: transparent;
+  background-image: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 700;
+}
+
+.composer-pill--file {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.15);
+}
+
+/* ---------------------------------------------------------------------------
+ * The rainbow panel — the shared frame of every Media composer / generator
+ * panel (Docs, Images, Audio, Models, Video…), applied once by `MediaLayout`
+ * to its right-hand detail pane.
+ *
+ * Two layers, one rotating angle (`--rainbow-panel-angle`, an animated
+ * `@property`, so the browser interpolates the angle and no JS runs):
+ *  - `::before` is the border — a conic gradient of the shared `--rainbow-ramp`
+ *    (the palette family the Finance "Insights" button wears), masked to a
+ *    1.5px ring;
+ *  - `::after` is the glow arc — a conic arc of the same ramp, masked to a band
+ *    along the *inside* of the panel and blurred, so it travels round the inner
+ *    edge. A faint static inset `box-shadow` on the host is the resting glow,
+ *    which is all that remains when motion is off.
+ * Reduced motion (Phase 46): both layers freeze at angle 0 — a static gradient
+ * ring and a static glow, no rotation. Idle cost: the animation is `paused`
+ * unless the window is focused, and a collapsed pane (`[data-collapsed]`) never
+ * runs it, so a blurred window or a hidden panel adds no frames.
+ * ------------------------------------------------------------------------- */
+@property --rainbow-panel-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes rainbow-panel-spin {
+  to {
+    --rainbow-panel-angle: 360deg;
+  }
+}
+
+.rainbow-panel {
+  position: relative;
+  isolation: isolate;
+  box-shadow: inset 0 0 18px -8px rgb(139 92 246 / 0.35);
+}
+
+.rainbow-panel::before,
+.rainbow-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  animation: rainbow-panel-spin 8s linear infinite paused;
+}
+
+.rainbow-panel::before {
+  z-index: 2;
+  padding: 1.5px;
+  background: conic-gradient(from var(--rainbow-panel-angle), var(--rainbow-ramp));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+.rainbow-panel::after {
+  z-index: 1;
+  padding: 14px;
+  opacity: 0.55;
+  background: conic-gradient(
+    from var(--rainbow-panel-angle),
+    transparent 0deg,
+    transparent 200deg,
+    var(--rainbow-3) 250deg,
+    var(--rainbow-4) 300deg,
+    var(--rainbow-5) 330deg,
+    transparent 360deg
+  );
+  filter: blur(12px);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+html:not([data-window-focused='false']) .rainbow-panel:not([data-collapsed])::before,
+html:not([data-window-focused='false']) .rainbow-panel:not([data-collapsed])::after {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .rainbow-panel::before,
+  html:not([data-motion='full']) .rainbow-panel::after {
+    animation: none;
+  }
+}
+
+html[data-motion='reduced'] .rainbow-panel::before,
+html[data-motion='reduced'] .rainbow-panel::after {
+  animation: none;
+}
+
+/*
+ * Phase 112 Theme F — a settings section a reveal has just scrolled to. The reveal adds the class
+ * and removes it ~1.8s later; the ring fades on its own, and under reduced motion it is a
+ * plain static ring for that same window rather than an animation.
+ */
+@keyframes settings-section-flash {
+  0% {
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0);
+  }
+}
+
+.settings-section-highlight {
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.7);
+  animation: settings-section-flash 1.8s ease-out forwards;
+}
+
+html[data-motion='reduced'] .settings-section-highlight {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion='full']) .settings-section-highlight {
+    animation: none;
+  }
+}

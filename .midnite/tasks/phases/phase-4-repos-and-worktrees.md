@@ -3,6 +3,10 @@
 VSCode-SCM-style repositories panel: open via native dialog, persisted list, worktrees nested
 under their main repo, selection drives the main area.
 
+## Headlines
+
+**Theme A.** ✅ repo registry + persistence, VSCode-style sidebar with nested worktrees, add/remove
+
 ## Deliverables
 
 - [x] `desktop/src/main/repo-registry.ts` — `repoId → git-engine instance` map; `git rev-parse --git-dir` validation; a worktree path resolves to its main repo (handle `.git`-as-file gitdir pointers)

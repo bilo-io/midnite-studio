@@ -8,10 +8,10 @@ import {
   useOllamaStatus,
   useSetOllamaApiKey,
   useSetOllamaSettings,
-} from '../../models/use-models';
+} from '@midnite/studio-feature-models/renderer';
 import { openExternal } from '../../../services/queries';
 import { DefaultModelRow } from './default-model-row';
-import { submitCommand } from './health-page';
+import { submitCommand } from '../../terminal/submit-command';
 import { InstallModelRow } from './install-model-row';
 
 /**

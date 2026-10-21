@@ -1,11 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { LockScreenSlotIsland } from './lock-screen-slots';
-import { LockScreenWidgets } from './lock-screen-widgets';
+import { LockScreenBatteryWidget, LockScreenWidgets } from './lock-screen-widgets';
 
 /**
  * The lock screen's four corners — day and date top-left, the running clock
- * top-right, the finance and system-monitor widgets along the bottom.
+ * and battery top-right, the finance and system-monitor widgets along the bottom.
  *
  * Extracted from `screensaver.tsx` for the landing page, which keeps exactly
  * this frame around a carousel while only the centre column changes. That is
@@ -57,13 +57,16 @@ export function LockScreenChrome({ topCentre }: { topCentre?: ReactNode } = {}) 
       </LockScreenSlotIsland>
 
       <LockScreenSlotIsland slot="top-right">
-        <div>
-          <div className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-foreground">
-            {time}
+        <div className="flex items-start gap-3">
+          <div className="text-right">
+            <div className="font-mono text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+              {time}
+            </div>
+            <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              Local Time
+            </div>
           </div>
-          <div className="mt-0.5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            Local Time
-          </div>
+          <LockScreenBatteryWidget />
         </div>
       </LockScreenSlotIsland>
 

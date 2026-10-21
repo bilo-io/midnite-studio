@@ -183,6 +183,18 @@ describe('createSpeaker', () => {
     expect(h.spoken).toEqual([]);
   });
 
+  it('speaks a line in a one-off voice over the stored one (Phase 109 Theme F audition)', async () => {
+    const stored = voice({ voiceURI: 'urn:voice:us', lang: 'en-US' });
+    const sample = voice({ voiceURI: 'urn:voice:gb', lang: 'en-GB' });
+    const h = harness([stored, sample]);
+    const speaker = createSpeaker({ ...h.deps, getVoiceUri: () => 'urn:voice:us' });
+
+    const pending = speaker.speak('Number two.', { voice: 'urn:voice:gb' });
+    expect(h.spoken[0]?.voice).toBe(sample);
+    h.end();
+    await pending;
+  });
+
   it('picks the voice once per line and stamps its language on every chunk', async () => {
     const chosen = voice({ voiceURI: 'urn:voice:gb', lang: 'en-GB' });
     const h = harness([voice({ lang: 'de-DE' }), chosen]);
@@ -528,6 +540,17 @@ function localHarness() {
 }
 
 describe('createLocalSpeaker', () => {
+  it('synthesizes in a one-off voice when the line asks for one (Phase 109 Theme F audition)', async () => {
+    const h = localHarness();
+    const speaker = createLocalSpeaker(h.deps);
+
+    const pending = speaker.speakLocal("Hi, I'm number two — George.", { voice: 'bm_george' });
+    await flushAsync();
+    expect(h.deps.synthesize).toHaveBeenCalledWith("Hi, I'm number two — George.", 'bm_george');
+    h.audio.sources[0]?.onended?.();
+    await expect(pending).resolves.toBe(true);
+  });
+
   it('synthesizes each chunk, plays it through the shared audio, and resolves true when it ends', async () => {
     const h = localHarness();
     const speaker = createLocalSpeaker(h.deps);

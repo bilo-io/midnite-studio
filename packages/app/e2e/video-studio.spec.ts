@@ -7,12 +7,12 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * Video Studio (Phase 44), assembled.
  *
  * Phase 82 Theme C wave 5 moved the rest of this file's tests to
- * `src/features/video/video-view.bridge.test.tsx`, mounting `VideoView`
+ * `src/features/media/video/video-tab.bridge.test.tsx`, mounting `VideoTab`
  * directly. All 5 of the original tests ported cleanly — none needed real
  * browser behavior — so **this one smoke test is kept behind on its own**,
  * per the migration's own rule to leave at least one representative test per
  * e2e file: it is the cheapest proof that the rail link, the lazy view
- * registry and the assembled `VideoView` still compose in a real browser,
+ * registry and the assembled `VideoTab` still compose in a real browser,
  * which mounting the component directly bypasses entirely.
  */
 
@@ -22,7 +22,9 @@ async function open(page: import('@playwright/test').Page, data: MockFixtures = 
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
 
   await expect(async () => {
-    await clickRailLink(page, 'Video');
+    // Phase 99 Theme A: Video Studio is Media's Video tab now.
+    await clickRailLink(page, 'Media');
+    await page.getByRole('tab', { name: 'Video' }).click();
     await expect(page.getByRole('heading', { name: 'Video' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
 }

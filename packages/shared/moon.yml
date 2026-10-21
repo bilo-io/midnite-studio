@@ -1,3 +1,9 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
 language: 'typescript'
+
+# Phase 113 Theme C: the wire contract beneath every layer, so a change here
+# reaches every app (`scripts/affected-apps.mjs` reads `app-*`).
+tags:
+  - 'layer-shared'
+  - 'app-all'

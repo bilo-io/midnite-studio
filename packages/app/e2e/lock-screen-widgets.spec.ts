@@ -99,13 +99,14 @@ test.describe('lock screen widgets', () => {
     await expect(fintech).toBeVisible();
     await expect(fintech).not.toContainText('Fintech Cycle');
 
-    // Phase 46 Theme B — battery stacks above sysmon in the same bottom-right slot.
+    // Battery sits in the top-right slot beside time.
     const battery = page.getByTestId('lock-battery-widget');
     await expect(battery).toBeVisible();
     await expect(battery).toContainText('76%');
     const batteryBox = await battery.boundingBox();
     const sysmonBox = await sysmon.boundingBox();
     expect(batteryBox && sysmonBox && batteryBox.y < sysmonBox.y).toBe(true);
+    expect(batteryBox && batteryBox.y < 100).toBe(true);
 
     await page.screenshot({ path: '/tmp/lock-screen-widgets.png' });
   });

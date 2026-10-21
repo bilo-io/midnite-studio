@@ -43,6 +43,24 @@ tests both needed it — rather than building a second one.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*The nav rail becomes the app's table of contents. A is the shell every other theme renders into; B and C are the two data layers (local history, and a deeper `gh`); D, E and F are the three surfaces; G is the one piece that waits on someone else.* *Open: three human passes — the dashboard against a large real repository, the Actions view against a real failing matrix run, and `react-grid-layout`'s stylesheet in both themes. All seven themes are otherwise landed.*
+
+**Theme A — The view-scoped navigation shell.** ✅ `ViewId` grows to seven, Dashboard rides `NavConfig.pinned` (ungrouped, above the sections), Actions/Tests join the rail, and one `VIEW_FILTERS` table reshapes the sidebar on two axes — sections and dirty-only — folding Phase 17's Changes filter in rather than leaving it a parallel one-off, with a "show all sections" escape hatch (landed 2026-08-26)
+
+**Theme B — Repository statistics in git-engine.** ✅ `git-engine/src/stats/`: one `--all` history pass feeding a local-timezone commit calendar, contributors by email, opt-in churn, and repo health — cached on a digest of every ref tip rather than HEAD, because an `--all` traversal changes when any branch moves (landed 2026-08-26)
+
+**Theme C — Forge: issues, run detail and logs.** ✅ forge deepening through the existing `gh` wrapper: `gh issue list`, `gh run view --json jobs`, `gh run view --log`, plus `gh workflow list` for the `.yml` paths a run listing never carries — and an Issues sidebar section with a job peek under each run (landed 2026-08-26)
+
+**Theme D — The dashboard: grid and widgets.** ✅ the dashboard: a `react-grid-layout` v2 board with theme-token overrides, a widget registry that gates on the repo's data sources, per-repo persisted layout, and one board-wide author filter every widget reads (landed 2026-08-26)
+
+**Theme E — The Actions view.** ✅ the Actions view: runs sectioned by workflow **id** (a name is whatever `name:` says this morning), a job/step tree with only the failed jobs expanded, one whole-run log fetch split in the renderer, a virtualised ANSI pane whose folding changes which rows *exist*, and Open-in-GitHub for anything stateful (landed 2026-08-26)
+
+**Theme F — Tests: discovery and the Tests view.** ✅ Tests discovery: suites parsed from package.json/moon/vitest/playwright configs, monorepo-aware, classified by kind, with "run in terminal" and **no** new trust surface (landed 2026-08-27)
+
+**Theme G — Tests: execution and parsed results.** ✅ real suite execution through a generalised `process-runner.ts` (shared with 18E's diagnostics), per-suite trust, `--reporter=json` parsing with an exit-code-plus-raw-output fallback, and a live output stream (landed 2026-08-27)
+
 ## Deliverables
 
 ### A — The view-scoped navigation shell (M) — ✅ DONE (2026-08-26)

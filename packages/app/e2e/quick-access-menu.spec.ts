@@ -40,21 +40,23 @@ const rowNames = (page: Page) =>
     .evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim().split('\n')[0] ?? ''));
 
 /*
-  Five since Phase 79 Theme C put `Companion` between Loops and Notes. Not
-  six: the companion's own `Repeat` row is absent until it has said something,
-  and nothing here makes it speak — see `companion-panel.spec.ts`.
+  Six: Phase 79 Theme C put `Companion` between Loops and Notes, and the `S`
+  row is always present. The default fixture is not a first run, so setup is
+  finished and it reads `Setup wizard` (`Resume setup` while unfinished). The
+  companion's own `Repeat` row is absent until it has said something, and
+  nothing here makes it speak — see `companion-panel.spec.ts`.
 */
-const FIVE_ROWS = ['Loops', 'Companion', 'Notes', 'Report Issue', 'Guided tour'];
+const SIX_ROWS = ['Loops', 'Companion', 'Notes', 'Setup wizard', 'Report Issue', 'Guided tour'];
 
-test('the FAB opens the menu with the five rows, in order', async ({ page }) => {
+test('the FAB opens the menu with the six rows, in order', async ({ page }) => {
   await open(page);
   const fab = page.getByRole('button', { name: 'Open quick access panel' });
   await fab.click();
 
   await expect(menu(page)).toBeVisible();
-  await expect(menu(page).getByRole('menuitem')).toHaveCount(5);
+  await expect(menu(page).getByRole('menuitem')).toHaveCount(6);
   const names = await rowNames(page);
-  for (const [index, name] of FIVE_ROWS.entries()) {
+  for (const [index, name] of SIX_ROWS.entries()) {
     expect(names[index]).toContain(name);
   }
 
@@ -65,13 +67,13 @@ test('the FAB opens the menu with the five rows, in order', async ({ page }) => 
   expect(fabBox.y - (menuBox.y + menuBox.height)).toBeGreaterThanOrEqual(12);
 });
 
-test('the Meta+L chord opens the same component with the same five rows', async ({ page }) => {
+test('the Meta+L chord opens the same component with the same six rows', async ({ page }) => {
   await open(page);
   await page.keyboard.press('Meta+l');
 
   await expect(menu(page)).toBeVisible();
   const names = await rowNames(page);
-  for (const [index, name] of FIVE_ROWS.entries()) {
+  for (const [index, name] of SIX_ROWS.entries()) {
     expect(names[index]).toContain(name);
   }
 });

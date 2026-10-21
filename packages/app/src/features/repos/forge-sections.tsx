@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 
 import { GoGitPullRequest, GoIssueOpened, GoPlay } from 'react-icons/go';
 import {
@@ -25,7 +25,7 @@ import {
   useRefreshForge,
 } from '../../services/queries';
 import { useActionsStore } from '../../store/actions-store';
-import { useIssuesStore } from '../../store/issues-store';
+import { openIssueModal } from '../../store/issue-modal-store';
 import { useReviewsStore } from '../../store/reviews-store';
 import { useUiStore } from '../../store/ui-store';
 import {
@@ -36,10 +36,17 @@ import {
   runStatus,
   StatusPill,
   type ForgeStatus,
-} from '../forge/forge-status';
-import { findRunPrNumber, getActionItemStyle, RunPrLink } from '../actions/action-status-styles';
-import { duration, relativeAge } from '../actions/run-groups';
-import { REVIEW_GROUPS, type ReviewGroup } from '../reviews/review-groups';
+} from '@midnite/studio-feature-forge/renderer';
+import {
+  duration,
+  findRunPrNumber,
+  getActionItemStyle,
+  relativeAge,
+  REVIEW_GROUPS,
+  RunPrLink,
+  sortRunsByPhase,
+  type ReviewGroup,
+} from '@midnite/studio-feature-forge/renderer';
 
 /**
  * A repository's CI runs, in the sidebar tree — one of Forge's four children
@@ -83,7 +90,8 @@ export function ActionsSection({
   const setActiveView = useUiStore((s) => s.setActiveView);
   const dialogs = useDialogs();
 
-  const runs = data?.runs ?? [];
+  // In progress, then skipped, then completed; the forge's own order within each.
+  const runs = useMemo(() => sortRunsByPhase(data?.runs ?? []), [data?.runs]);
   const now = Date.now();
   /*
     Theme K.2: this section stays mounted across a collapse/expand (`open`
@@ -131,7 +139,9 @@ export function ActionsSection({
         const took = run.status === 'completed' ? duration(run.startedAt, run.updatedAt) : null;
         const age = relativeAge(run.createdAt, now);
         const stamp = took ? `${took} · ${age}` : age;
-        const subtitle = [run.headBranch ?? 'detached', run.event, stamp].filter(Boolean).join(' · ');
+        const subtitle = [run.headBranch ?? 'detached', run.event, stamp]
+          .filter(Boolean)
+          .join(' · ');
 
         return (
           <ForgeRow
@@ -267,7 +277,9 @@ function RunJobs({
               the Actions view.
             */}
             {job.steps.length > 0 ? (
-              <span className={`shrink-0 text-[10px] tabular-nums ${jStyle.subtextClass} ${jStyle.glowClass}`}>
+              <span
+                className={`shrink-0 text-[10px] tabular-nums ${jStyle.subtextClass} ${jStyle.glowClass}`}
+              >
                 {job.steps.length} steps
               </span>
             ) : null}
@@ -299,8 +311,6 @@ export function IssuesSection({
   const refresh = useRefreshForge(repoId);
   const dialogs = useDialogs();
   const selectRepo = useUiStore((s) => s.selectRepo);
-  const setActiveView = useUiStore((s) => s.setActiveView);
-  const selectIssue = useIssuesStore((s) => s.selectIssue);
 
   const issues = data?.issues ?? [];
   // Theme K.2 — see `ActionsSection`'s own comment on the identical pattern.
@@ -354,17 +364,14 @@ export function IssuesSection({
           menu={forgeRowMenu(issue.url, 'issue', repoId)}
           dialogs={dialogs}
           /*
-            The Issues view, not a browser tab — the same move Phase 19 made
-            for Actions runs and ReviewsGroup makes for pulls, just below.
-            This row used to be the one exception (a bare `openInMidnite`,
-            Ad hoc click-modifier theme's own find): an issue link has a
-            native view exactly like a run or a pull does, and there is no
-            reason its row alone sent a reader to the forge for it.
+            The issue modal, not a browser tab and not a page — the Issues
+            view folded into Tasks, and an issue now reads in the same modal
+            wherever it is opened from. The repo is still selected, so the
+            modal's action bar and any Plan-with-AI launch act on it.
           */
           onOpen={() => {
             selectRepo(repoId);
-            selectIssue(repoId, issue.number);
-            setActiveView('issues');
+            openIssueModal({ repoId, number: issue.number, seed: issue });
           }}
         />
       ))}

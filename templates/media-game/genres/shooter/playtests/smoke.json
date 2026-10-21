@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "smoke",
+  "description": "Walk forward and fire a burst from the rifle.",
+  "replay": {
+    "version": 1,
+    "seed": 1,
+    "frames": 180,
+    "events": [
+      {"f": 0, "action": "forward", "down": true},
+      {"f": 30, "action": "attack", "down": true},
+      {"f": 60, "action": "attack", "down": false}
+    ]
+  },
+  "asserts": [
+    {"frame": 180, "kind": "state", "path": "$.scene", "op": "eq", "value": "level"},
+    {"frame": 180, "kind": "state", "path": "$.player.position[2]", "op": "lt", "value": 4},
+    {"frame": 180, "kind": "state", "path": "$.shooter.weapon", "op": "eq", "value": "rifle"},
+    {"frame": 180, "kind": "state", "path": "$.shooter.mag", "op": "lt", "value": 30}
+  ]
+}

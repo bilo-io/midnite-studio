@@ -5,7 +5,8 @@ import type { RepoStats } from '@midnite/studio-shared';
 import { formatNumber } from '../../../lib/format-number';
 import { localDayKey, newestFirst } from '../dashboard-derive';
 import { AuthorAvatar } from './author-avatar';
-import { relativeDays } from './contributors-widget';
+import { Tooltip } from '../../../components/tooltip';
+import { absoluteTime, formatRelativeTime } from '../../../lib/relative-time';
 import { WidgetState } from '../widget-frame';
 
 /** How many rows the feed shows before it stops. */
@@ -49,9 +50,7 @@ export function ActivityWidget({
     <WidgetState
       loading={loading}
       empty={rows.length === 0}
-      emptyLabel={
-        selectedDay ? `No commits on ${selectedDay}.` : 'No commits in this window yet.'
-      }
+      emptyLabel={selectedDay ? `No commits on ${selectedDay}.` : 'No commits in this window yet.'}
     >
       <div className="flex flex-col gap-1">
         {selectedDay ? (
@@ -83,7 +82,9 @@ export function ActivityWidget({
                   {entry.sha.slice(0, 7)}
                 </span>
                 <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                  {relativeDays(entry.at)}
+                  <Tooltip label={absoluteTime(entry.at)} side="top">
+                    <span>{formatRelativeTime(entry.at)}</span>
+                  </Tooltip>
                 </span>
               </button>
             </li>

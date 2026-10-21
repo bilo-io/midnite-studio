@@ -8,7 +8,6 @@ import {
   composeIssueTitle,
   composeIssueUrl,
   ISSUE_LABEL,
-  ISSUE_REPO,
   isValidEmail,
 } from './issue-url';
 import { AGENT_ROSTER } from './roster';
@@ -32,7 +31,7 @@ type Preview = { url: string; title: string; body: string };
  *
  * **Submitting shows the issue, it does not send it.** There is no backend and
  * no third-party form service here — pressing the button composes a prefilled
- * issue in the public releases repo and shows it, verbatim, in a preview. The
+ * issue and shows it, verbatim, in a preview. The
  * visitor reads the exact text, then opens it on GitHub in a new tab and posts
  * it under their own account. That is worth the extra click three times over:
  * no address list living somewhere they cannot see, no API key in the page, and
@@ -92,14 +91,13 @@ export const EarlyAccess = () => {
             Ask for a build.
           </Heading>
           <Lede typeIn>
-            Midnite Studio is usable and unfinished. Tell us what you would point it at and which
+            The midnite apps are usable and unfinished. Tell us which ones you would use and which
             agents you already run. You go on the list and get asked first when the thing
             you asked about ships.
           </Lede>
           <p className="max-w-prose text-sm leading-relaxed text-fg-subtle">
             No mailing-list service and no tracking: the form composes a{' '}
-            <span className="text-fg-muted">public GitHub issue</span> in{' '}
-            <span className="font-mono text-xs text-fg-muted">{ISSUE_REPO}</span>, shows you
+            <span className="text-fg-muted">public GitHub issue</span>, shows you
             exactly what it says, and you post it yourself. It needs a GitHub account, and the
             issue, including the address you type, is public, the same as filing a bug.
           </p>
@@ -132,7 +130,7 @@ export const EarlyAccess = () => {
                 </pre>
                 <p className="mt-4 flex items-center gap-2 text-xs text-fg-subtle">
                   <LuGithub aria-hidden="true" />
-                  {ISSUE_REPO} · labelled{' '}
+                  labelled{' '}
                   <span className="font-mono text-accent">{ISSUE_LABEL}</span>
                 </p>
               </div>

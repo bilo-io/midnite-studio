@@ -177,6 +177,20 @@ Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day
 
 ---
 
+## Headlines
+
+*[Phase 73](phase-73-the-optimizer-leaves-the-repo.md) explicitly declined to cover two things: media-tool caches (Plex) and emptying the system Trash. This is that phase, and it treats them as the different operation shapes they are — Plex's two verified cache directories slot into Phase 73's own registry and three-factor consent gate as two more entries (same trust tier, no new machinery), while emptying the Trash gets its own consent pair, its own settings page, and a new `osascript`/Finder-only mechanism, because it is the one operation in this whole arc that can destroy content the *user* — not a build tool — put somewhere with an explicit expectation of recoverability. A narrow, justified exception to Phase 73's own no-discovery rule lets the Trash's confirm dialog enumerate every mounted volume's own Trash — safe only because that discovery feeds a displayed number, never a delete target.*
+
+**Theme A — Plex, and only Plex, joins Phase 73's registry.** ✅ (PR #194 + PR #196) — Plex's two verified cache directories join Phase 73's `SystemCacheEntryId` union and `DEFAULT_SYSTEM_CACHE_ENTRIES`; `'media'` inserted before `'git'` in `EcosystemSchema`. PR #194 landed the registry entries and `confineAllowlist` coverage; its `ECOSYSTEM_LABELS`/`ECOSYSTEM_HUES` entries were left genuinely blocked on Phase 72 Theme D (unmerged at the time) and closed in PR #196 once Theme D landed (`'media'` → hue `135`, not the `120` originally proposed — see Phase 72's own theme-key note).
+
+**Theme B — Computing what's in the Trash, honestly.** ✅ (PR #189) — `computeTrashSummary()`: a read-only walk of `~/.Trash` plus every mounted volume's own `.Trashes/<uid>`, reusing Phase 59's walker once its four private primitives are exported.
+
+**Theme C — Emptying the Trash: Finder, never a raw unlink.** ✅ (PR #189 + PR #194) — `emptyTrash()` via one fixed `osascript` argv, never `fs.rm`; its own consent pair, handler file and `requireAck` checkbox-gated Confirm, plus the Automation entitlement and `NSAppleEventsUsageDescription`. PR #189 landed the backend/IPC half; PR #194 closed the consent pair (`ui-store.ts` flags + the acknowledgment dialog) and the Storage-tab wiring.
+
+**Theme D — UI: a settings page of its own, and a card that never reads as recoverable.** ✅ (PR #194) — UI: a `trashSafety` settings page in the `tools` group beside Git Safety, and a destructive-tinted Trash card with five explicit states in the Storage tab. Plex's two rows in Phase 73's System section needed no new code per the phase doc's own note (they render automatically once the registry entries and the section's bar both exist) — both are now true as of PR #196, so this closes without further work; only the screenshot pairing (System section with Plex rows, light/dark) is still owed.
+
+**Theme E — Verification.** ◐ (PR #194, partial) — Verification, weighted to the confinement/discovery boundary (Decision 7), the literal-argv assertion, and the three-way consent AND. Full gate green and every test this batch could write is written; left open: `category-palette.test.ts`'s media-hue assertion (now moot — closed alongside Theme A above), the System-section screenshot (Theme D's own note), and the human real-Mac pass.
+
 ## Deliverables
 
 ### A — Plex, and only Plex, joins Phase 73's registry (M)

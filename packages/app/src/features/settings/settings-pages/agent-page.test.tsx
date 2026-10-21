@@ -2,14 +2,17 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '../../../../test-support/fixtures';
+import { installMockBridgeJsdom } from '../../../../test-support/mock-bridge';
 import { renderView } from '../../../../test-support/render';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { useUiStore } from '../../../store/ui-store';
 import { AgentPage } from './agent-page';
 
 // Mock openInMidnite so we can assert on docs link clicks.
+// `openLinkFromEvent` too: Studio's forge host (installed by `StudioProviders`) binds it at import.
 vi.mock('../../../services/open-in-midnite', () => ({
   openInMidnite: vi.fn(),
+  openLinkFromEvent: vi.fn(),
 }));
 
 import { openInMidnite } from '../../../services/open-in-midnite';
@@ -132,36 +135,34 @@ describe('AgentPage - Agents Roster', () => {
     expect(useUiStore.getState().agentModes['claude']).toBe('both');
   });
 
-  it('entering API key stores it in uiStore and toggles visibility', async () => {
-    renderView(<AgentPage />, { fixtures });
+  it('the API key field is write-only: it saves to the vault and never shows the value', async () => {
+    const set = vi.fn(async (_req: { key: string; value: string }) => {});
+    let stored = false;
+    installMockBridgeJsdom(fixtures);
+    const mock = (window as unknown as { midniteStudio: { secrets: unknown } }).midniteStudio;
+    mock.secrets = {
+      get: async () => ({ value: null }),
+      has: async () => ({ hasKey: stored }),
+      set: async (req: { key: string; value: string }) => {
+        stored = req.value !== '';
+        await set(req);
+      },
+    };
+    renderView(<AgentPage />);
 
     const claudeCard = await screen.findByTestId('agent-card-claude');
-    const apiKeyInput = within(claudeCard).getByLabelText('Claude API Key') as HTMLInputElement;
+    const input = (await within(claudeCard).findByLabelText('Claude API Key')) as HTMLInputElement;
+    expect(input.type).toBe('password');
 
-    expect(apiKeyInput.type).toBe('password');
-    expect(apiKeyInput.value).toBe('');
+    fireEvent.change(input, { target: { value: 'sk-ant-test-key-12345' } });
+    fireEvent.click(within(claudeCard).getByRole('button', { name: 'Save Claude API Key' }));
 
-    fireEvent.change(apiKeyInput, { target: { value: 'sk-ant-test-key-12345' } });
-
-    expect(useUiStore.getState().agentApiKeys['claude']).toBe('sk-ant-test-key-12345');
-    expect(apiKeyInput.value).toBe('sk-ant-test-key-12345');
-
-    // Toggle visibility
-    const showBtn = within(claudeCard).getByRole('button', { name: 'Show key' });
-    fireEvent.click(showBtn);
-
-    expect(apiKeyInput.type).toBe('text');
-
-    const hideBtn = within(claudeCard).getByRole('button', { name: 'Hide key' });
-    fireEvent.click(hideBtn);
-
-    expect(apiKeyInput.type).toBe('password');
-
-    // Clear key
-    const clearBtn = within(claudeCard).getByRole('button', { name: 'Clear Claude API Key' });
-    fireEvent.click(clearBtn);
-
-    expect(useUiStore.getState().agentApiKeys['claude']).toBe('');
+    await waitFor(() => expect(set).toHaveBeenCalledWith({ key: 'agent.claude.apiKey', value: 'sk-ant-test-key-12345' }));
+    // Set: the input is gone, no value anywhere in the card, and nothing landed in the store.
+    await within(claudeCard).findByRole('button', { name: 'Replace Claude API Key' });
+    expect(within(claudeCard).queryByLabelText('Claude API Key')).toBeNull();
+    expect(claudeCard.textContent).not.toContain('sk-ant-test-key-12345');
+    expect(useUiStore.getState().agentApiKeys['claude']).toBeUndefined();
   });
 
   it('allows setting primary agent from card with "Make primary" and applies primary-agent-card class', async () => {

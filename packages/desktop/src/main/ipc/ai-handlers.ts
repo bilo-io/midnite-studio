@@ -6,8 +6,10 @@ import {
   type GitOpResult,
 } from '@midnite/studio-shared';
 
+import { generateCommitMessage } from '../ai/commit-message';
 import { improveField } from '../ai/improve-field';
 import { planBlueprint } from '../ai/plan-blueprint';
+import { resolveWorkdir } from '../repo-registry';
 import { handle } from './handle';
 
 /**
@@ -19,6 +21,20 @@ import { handle } from './handle';
  * thrown validation error.
  */
 export function registerAiHandlers(): void {
+  handle<
+    typeof schemas.AiCommitMessageRequest,
+    GitOpResult<{ text: string; source: 'staged' | 'working' }>
+  >(
+    CHANNELS.aiCommitMessage,
+    schemas.AiCommitMessageRequest,
+    async (req) => {
+      const cwd = await resolveWorkdir(req.repoId, req.worktreePath);
+      if (!cwd) return failure('That repository is not open.');
+      return generateCommitMessage({ cwd, agentId: req.agentId, ollamaModel: req.ollamaModel });
+    },
+    (issue) => failure(issue),
+  );
+
   handle<typeof schemas.AiImproveFieldRequest, GitOpResult<{ text: string }>>(
     CHANNELS.aiImproveField,
     schemas.AiImproveFieldRequest,

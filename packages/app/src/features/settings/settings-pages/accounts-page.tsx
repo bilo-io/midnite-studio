@@ -1,29 +1,21 @@
-import { Accordion } from '@bilo-io/ui';
-import type { CSSProperties } from 'react';
+import { SettingsAccordion } from '../settings-section';
 import { useEffect, useRef, useState } from 'react';
+import { LuArrowRightLeft, LuCircleUserRound, LuCloudDownload, LuInfo, LuPlus } from 'react-icons/lu';
+
 import {
-  LuArrowRightLeft,
-  LuCircleUserRound,
-  LuCloudDownload,
-  LuInfo,
-  LuPlus,
-  LuTrash2,
-} from 'react-icons/lu';
-import { SiBitbucket, SiGithub, SiGitlab } from 'react-icons/si';
-import { VscAzureDevops } from 'react-icons/vsc';
+  ForgeAccountAddForm,
+  ForgeAccountRemoveButton,
+  ForgeCredentialsNote,
+} from '@midnite/studio-feature-vault/renderer';
+import type { ForgeAccount, ReachableRepo } from '@midnite/studio-shared';
 
-import type { ForgeAccount, ForgeKind, ReachableRepo } from '@midnite/studio-shared';
-
-import type { IconComponent } from '../../../components/icon-button';
 import { useAccountSwitcherStore } from '../../../components/account-switcher-store';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { UserAvatar } from '../../../components/user-avatar';
 import {
-  useAddForgeAccount,
   useCloneReachableRepo,
   useForgeAccounts,
   useReachableRepos,
-  useRemoveForgeAccount,
   useSwitchForgeAccount,
 } from '../../../services/queries';
 import {
@@ -31,90 +23,11 @@ import {
   useUiStore,
   type ForgeSwitcherPlacement,
 } from '../../../store/ui-store';
-import { Field, TextField } from './controls';
+import { useSetupStore } from '../../setup/setup-store';
+import { Field } from './controls';
+import { PROVIDER_ICON, PROVIDER_LABEL, type SupportedKind } from './forge-providers';
 import { ReachableRepoActions } from './reachable-repo-actions';
 import { ReachableRepoRow } from './reachable-repo-row';
-
-/**
- * Exported for `onboarding/steps/forge-connect-step.tsx` (Phase 90 Theme I):
- * the wizard's "Connect your forges" step is the same add-account action as
- * this page's own form, so it reads the identical host/label/scope text
- * rather than keeping a second copy that can drift from this one.
- */
-export type SupportedKind = Exclude<ForgeKind, 'unknown'>;
-
-/**
- * No self-hosted host picker — Theme B's own scope guardrail (matching
- * `CLAUDE.md`'s "no self-hosted GitLab/Bitbucket Server/Azure DevOps Server"
- * line). Each of these three hosts is the one real one for its kind; a
- * self-hosted instance is recognised by the URL parser (Theme A) and
- * declared `unsupported` by the capability matrix rather than offered here.
- */
-export const PROVIDER_HOST: Record<SupportedKind, string> = {
-  github: 'github.com',
-  gitlab: 'gitlab.com',
-  bitbucket: 'bitbucket.org',
-  azure: 'dev.azure.com',
-};
-
-export const PROVIDER_LABEL: Record<SupportedKind, string> = {
-  github: 'GitHub',
-  gitlab: 'GitLab',
-  bitbucket: 'Bitbucket',
-  azure: 'Azure DevOps',
-};
-
-/** Each provider's own logo, not a generic forge glyph — the same reasoning
- *  `CLAUDE.md`'s icon convention gives for `react-icons` fronting ~30 sets:
- *  the brand mark reads as "GitHub" at a glance in a way a shared git-forge
- *  icon can't. Simple Icons (`si`) carries GitHub/GitLab/Bitbucket; Simple
- *  Icons has no Azure DevOps mark, so that one comes from VS Code's icon set
- *  (`vsc`) instead — still a per-set `react-icons` import, just a different
- *  set for the one brand the other doesn't have. */
-export const PROVIDER_ICON: Record<SupportedKind, IconComponent> = {
-  github: SiGithub,
-  gitlab: SiGitlab,
-  bitbucket: SiBitbucket,
-  azure: VscAzureDevops,
-};
-
-/**
- * Each provider's brand colour, one place, beside the rest of the provider
- * definitions above. `light`/`dark` are almost always the same value —
- * GitLab's orange, Bitbucket's and Azure DevOps' blues are saturated enough
- * to read against both the app's light and dark surfaces unchanged. GitHub
- * is the one exception: its brand colour is a near-black (#181717), which
- * all but disappears against this app's dark theme, so `dark` swaps it for
- * GitHub's own light-on-dark foreground (`#f0f6fc`, the colour GitHub's own
- * dark theme uses for text against black) instead of inventing a new one.
- * Consumed via the `--brand-light`/`--brand-dark` custom properties and the
- * `.forge-provider-option` rule in `styles.css`, which is what lets the
- * button pick the right one per theme without this file knowing which theme
- * is active.
- */
-export interface ForgeBrandColor {
-  light: string;
-  dark: string;
-}
-
-export const PROVIDER_BRAND_COLOR: Record<SupportedKind, ForgeBrandColor> = {
-  github: { light: '#181717', dark: '#f0f6fc' },
-  gitlab: { light: '#FC6D26', dark: '#FC6D26' },
-  bitbucket: { light: '#0052CC', dark: '#0052CC' },
-  azure: { light: '#0078D7', dark: '#0078D7' },
-};
-
-/** The exact scopes each provider needs, spelled out — `projects-page.tsx`'s
- *  own style for `gh auth refresh -s project`. */
-export const PROVIDER_TOKEN_HINT: Record<SupportedKind, string> = {
-  github:
-    'Leave this blank to use the GitHub CLI (`gh auth login`) — the same credential every other GitHub read in this app already uses. Paste a personal access token only to add a second GitHub identity.',
-  gitlab: 'A personal access token with the `read_api` scope (Settings ▸ Access Tokens on gitlab.com).',
-  bitbucket:
-    'A workspace API token, or an App Password, with repository read access (Personal settings ▸ App passwords).',
-  azure:
-    'A personal access token with Code (Read), Work Items (Read & Write) and Build (Read) scopes (User settings ▸ Personal access tokens).',
-};
 
 /**
  * Settings ▸ Accounts (Phase 90 Theme B) — the "who am I" page this app has
@@ -129,15 +42,17 @@ export const PROVIDER_TOKEN_HINT: Record<SupportedKind, string> = {
  * Decisions: a pasted PAT is the credential for all three new providers, and
  * `gitlab.com`/`bitbucket.org`/`dev.azure.com` are the only hosts this phase
  * supports.
+ *
+ * **The credential half is the vault feature's** (Phase 113 Theme J slice 3):
+ * the add form, each row's remove button and the "How this works" note are
+ * `@midnite/studio-feature-vault/renderer` components, rendered here through
+ * composition over Studio's vault host (`compose/vault-host.tsx`, which lends
+ * them `forge-providers.ts` and the forge-account mutations). What stays is
+ * forge's: the active account, switching preferences, reachable repos.
  */
 export function AccountsPage() {
   const { data: accounts = [] } = useForgeAccounts();
-  const addAccount = useAddForgeAccount();
-  const removeAccount = useRemoveForgeAccount();
   const switchAccount = useSwitchForgeAccount();
-
-  const [kind, setKind] = useState<SupportedKind>('github');
-  const [token, setToken] = useState('');
 
   const activeId = useUiStore((s) => s.forgeActiveAccountId);
   const activeAccount = accounts.find((a) => a.id === activeId) ?? null;
@@ -148,15 +63,15 @@ export function AccountsPage() {
   const syncGhAuthSwitch = useUiStore((s) => s.forgeSyncGhAuthSwitch);
   const setSyncGhAuthSwitch = useUiStore((s) => s.setForgeSyncGhAuthSwitch);
   /*
-    The onboarding wizard's "Connect your forges" step (Phase 90 Theme I,
-    `onboarding-steps.ts`'s `id: 'forges'`) records itself here on Skip. A
-    literal id rather than an import of `ONBOARDING_STEPS`: that module
-    already imports this file (`forge-connect-step.tsx` reads
-    `PROVIDER_HOST`/`PROVIDER_LABEL`/`PROVIDER_TOKEN_HINT` below), so
-    importing it back would be a cycle for one string.
+    The setup overlay's "Connect your forges" page (Phase 98 Theme A,
+    `setup-pages.ts`'s `id: 'forges'`) records itself here on Skip. A literal
+    id rather than an import of `SETUP_PAGES`: that module already imports
+    this file, so importing it back would be a cycle for one string.
+    `setup-store.ts` imports nothing, so "Resume setup" is free.
   */
-  const skippedForgeStep = useUiStore((s) => s.onboardingSkippedStepIds.includes('forges'));
-  const clearSkippedForgeStep = useUiStore((s) => s.setOnboardingStepSkipped);
+  const skippedForgeStep = useUiStore((s) => s.setupState.skippedPageIds.includes('forges'));
+  const clearSkippedForgeStep = useUiStore((s) => s.setSetupPageSkipped);
+  const openSetup = useSetupStore((s) => s.openSetup);
 
   /*
     The account switcher's "Add account…" (Phase 90 Theme L) lands here with
@@ -178,29 +93,30 @@ export function AccountsPage() {
       ?.focus({ preventScroll: true });
   }, [addFormPending, consumeAddForm]);
 
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    addAccount.mutate(
-      { kind, host: PROVIDER_HOST[kind], token: token.trim() || undefined },
-      { onSuccess: (result) => result.ok && setToken('') },
-    );
-  };
-
   return (
     <div className="flex flex-col gap-3">
       {skippedForgeStep ? (
         <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
           <span>You skipped connecting a forge during setup — add one below whenever you're ready.</span>
-          <button
-            type="button"
-            onClick={() => clearSkippedForgeStep('forges', false)}
-            className="shrink-0 rounded px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Got it
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => openSetup('forges')}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              Resume setup
+            </button>
+            <button
+              type="button"
+              onClick={() => clearSkippedForgeStep('forges', false)}
+              className="rounded px-2 py-0.5 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              Got it
+            </button>
+          </div>
         </div>
       ) : null}
-      <Accordion title="Accounts" icon={<LuCircleUserRound className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Accounts" icon={<LuCircleUserRound className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           {accounts.length === 0 ? (
             <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -215,46 +131,17 @@ export function AccountsPage() {
                 account={account}
                 active={account.id === activeId}
                 onMakeActive={() => switchAccount.mutate(account.id)}
-                onRemove={() => removeAccount.mutate(account.id)}
               />
             ))
           )}
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Add an account" icon={<LuPlus className="h-4 w-4" />} defaultOpen>
-        <form
-          ref={addFormRef}
-          aria-label="Add an account"
-          className="flex flex-col gap-3 p-3"
-          onSubmit={submit}
-        >
-          <ForgeProviderPicker value={kind} onChange={setKind} />
-          <Field label="Personal access token" hint={PROVIDER_TOKEN_HINT[kind]}>
-            <TextField
-              value={token}
-              onChange={setToken}
-              label="Personal access token"
-              placeholder={kind === 'github' ? '(optional)' : 'paste a token'}
-              className="font-mono"
-            />
-          </Field>
-          {addAccount.data && !addAccount.data.ok ? (
-            <p role="alert" className="text-[11px] text-red-500">
-              {addAccount.data.error}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={addAccount.isPending || (kind !== 'github' && token.trim().length === 0)}
-            className="h-7 w-fit rounded-md border border-border px-3 text-xs font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {addAccount.isPending ? 'Verifying…' : `Add ${PROVIDER_LABEL[kind]} account`}
-          </button>
-        </form>
-      </Accordion>
+      <SettingsAccordion title="Add an account" icon={<LuPlus className="h-4 w-4" />} defaultOpen>
+        <ForgeAccountAddForm formRef={addFormRef} />
+      </SettingsAccordion>
 
-      <Accordion
+      <SettingsAccordion
         title="Account switching"
         icon={<LuArrowRightLeft className="h-4 w-4" />}
         defaultOpen
@@ -294,23 +181,13 @@ export function AccountsPage() {
             onToggle={(_id, next) => setSyncGhAuthSwitch(next)}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
       {activeAccount ? <ReachableReposSection account={activeAccount} /> : null}
 
-      <Accordion title="How this works" icon={<LuInfo className="h-4 w-4" />}>
-        <div className="flex flex-col gap-2 p-3 text-[11px] leading-relaxed text-muted-foreground">
-          <p>
-            Adding an account validates the token first — a token this app cannot verify is never
-            stored. GitHub accounts hold no token at all: <code>gh</code> remains the credential,
-            exactly as every other GitHub read in this app already works.
-          </p>
-          <p>
-            Every other token is encrypted with your OS keychain before it ever touches disk, and
-            this page is only ever told whether a token exists — never what it is.
-          </p>
-        </div>
-      </Accordion>
+      <SettingsAccordion title="How this works" icon={<LuInfo className="h-4 w-4" />}>
+        <ForgeCredentialsNote />
+      </SettingsAccordion>
     </div>
   );
 }
@@ -323,89 +200,14 @@ const SWITCHER_PLACEMENT_LABEL: Record<ForgeSwitcherPlacement, string> = {
   hidden: 'Hidden',
 };
 
-const PROVIDER_KINDS: readonly SupportedKind[] = ['github', 'gitlab', 'bitbucket', 'azure'];
-
-/**
- * The "Provider" field on the add-account form — a `Choice`-style segmented
- * control, not `Choice` itself: `Choice` is generic over plain `[value,
- * label]` string tuples shared with every other settings page, and has no
- * room for a per-option icon or colour without teaching that shared control
- * about brand colours it has no other consumer for. So this stays a small
- * one-off beside `PROVIDER_ICON`/`PROVIDER_BRAND_COLOR` above, matching
- * `Choice`'s own layout (`Field` wrapper, `role="radiogroup"`) so the swap
- * reads as the same control with icons, not a different one.
- */
-function ForgeProviderPicker({
-  value,
-  onChange,
-}: {
-  value: SupportedKind;
-  onChange: (next: SupportedKind) => void;
-}) {
-  return (
-    <Field label="Provider" hint="Which forge this identity belongs to.">
-      <div role="radiogroup" aria-label="Provider" className="flex flex-wrap gap-1">
-        {PROVIDER_KINDS.map((providerKind) => {
-          const Icon = PROVIDER_ICON[providerKind];
-          const brand = PROVIDER_BRAND_COLOR[providerKind];
-          const selected = value === providerKind;
-          return (
-            <button
-              key={providerKind}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => onChange(providerKind)}
-              /*
-                `--brand-light`/`--brand-dark` are the only theme-aware bit —
-                `.forge-provider-option` in styles.css picks the right one
-                into `--forge-brand` per `.dark`, so the `color-mix()` below
-                never has to know which theme is active. Selected-only border
-                and wash; the icon carries its brand colour regardless of
-                selection, which is the "tint the icon" half of the ask.
-              */
-              style={
-                {
-                  '--brand-light': brand.light,
-                  '--brand-dark': brand.dark,
-                  ...(selected
-                    ? {
-                        borderColor: 'color-mix(in srgb, var(--forge-brand) 55%, transparent)',
-                        background: 'color-mix(in srgb, var(--forge-brand) 14%, transparent)',
-                      }
-                    : {}),
-                } as CSSProperties
-              }
-              className={`forge-provider-option flex h-6 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors ${
-                selected
-                  ? 'text-foreground'
-                  : 'border-border text-muted-foreground hover:bg-accent'
-              }`}
-            >
-              <Icon
-                aria-hidden
-                className="h-3.5 w-3.5 shrink-0"
-                style={{ color: 'var(--forge-brand)' }}
-              />
-              {PROVIDER_LABEL[providerKind]}
-            </button>
-          );
-        })}
-      </div>
-    </Field>
-  );
-}
-
 function AccountRow({
   account,
   active,
   onMakeActive,
-  onRemove,
 }: {
   account: ForgeAccount;
   active: boolean;
   onMakeActive: () => void;
-  onRemove: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 rounded-md border border-border/60 bg-card/50 px-2 py-1.5">
@@ -429,14 +231,7 @@ function AccountRow({
       >
         {active ? 'Active' : 'Make active'}
       </button>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove ${account.displayName || account.login}`}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      >
-        <LuTrash2 className="h-3.5 w-3.5" />
-      </button>
+      <ForgeAccountRemoveButton account={account} />
     </div>
   );
 }
@@ -466,7 +261,7 @@ function ReachableReposSection({ account }: { account: ForgeAccount }) {
   };
 
   return (
-    <Accordion
+    <SettingsAccordion
       title="Reachable repositories"
       icon={<LuCloudDownload className="h-4 w-4" />}
     >
@@ -509,6 +304,6 @@ function ReachableReposSection({ account }: { account: ForgeAccount }) {
           </p>
         ) : null}
       </div>
-    </Accordion>
+    </SettingsAccordion>
   );
 }

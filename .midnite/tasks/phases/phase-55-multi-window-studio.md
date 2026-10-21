@@ -10,6 +10,30 @@
 
 ---
 
+## Headlines
+
+*Auxiliary surfaces (Terminal, Git Repos, FAB Loops, Embedded Browser) detached into dedicated popout windows with universal top-left dock/undock hover-morph affordances and cross-window state sync. Refined against the tree: the window domain is **not** empty — `windowStateChanged` is already taken by `<TitleBar>` — `ptyData` reaches exactly one window today, and the e2e suite never launches Electron. Each of those bends a theme.*
+
+**Theme A — Window Lifecycle & IPC Infrastructure.** ✅ ([PR #139](https://github.com/bilo-io/midnite-studio/pull/139)) — Window lifecycle & multi-window IPC: `domain/window.ts`, a `window-manager.ts` registry, the new `windowsChanged` event (the obvious name is taken), role-via-`additionalArguments`, a `windows.json` bounds store, and close/quit semantics.
+
+**Theme B — Universal Detach/Dock Affordances & Popout Chrome.** ✅ ([PR #139](https://github.com/bilo-io/midnite-studio/pull/139)) — Universal top-left dock/undock affordances: hover morphs copying `terminal-session-list.tsx`'s fixed-size box, a `<TitleBar>`-reusing popout frame, `Mod+Shift+d` plus four chord-free palette rows, and one uniform re-dock strip for all four panels. The FAB detach button rides in the existing tab-bar row, not a new header — a dedicated header cost 28px the panel didn't have to spare, caught by CI.
+
+**Theme C — Detachable Terminal & FAB Loops Popouts.** ✅ ([PR #139](https://github.com/bilo-io/midnite-studio/pull/139)) — Detachable Terminal & FAB Loops popouts — gated on the per-`ptyId` subscriber registry that replaces `pty-service.ts`'s single-window `getWindowThunk`, without which a popout terminal receives nothing. The registry always unions in the main window regardless of explicit subscription, since `use-session-exits.ts` and `CouncilLiveOutput` rely on the pre-existing broadcast-to-main guarantee and never subscribe themselves.
+
+**Theme D — Detachable Embedded Browser & WebContentsView Reparenting.** ✅ ([PR #139](https://github.com/bilo-io/midnite-studio/pull/139)) — Detachable Embedded Browser: `WebContentsView` reparenting via the `win` that `Tracked` already carries, all tabs moving as a set, and `activateBrowserTab` narrowed to one window.
+
+**Theme E — Cross-Window State Synchronization.** ✅ ([PR #143](https://github.com/bilo-io/midnite-studio/pull/143)) — Cross-window sync: a main-process relay as the authority (packaged renderers are `file://`, where `BroadcastChannel` may never fire) with an explicit field allowlist, `invalidateForWatchKind` reused for cache invalidation, and theme flips relayed.
+
+**Theme F — Verification & Screenshots.** ◐ ([PR #143](https://github.com/bilo-io/midnite-studio/pull/143)) — Verification: bare vitest in `packages/desktop` and the `window*` guard block `ipc.test.ts` was missing, plus the `detached-panels-shots.spec.ts` screenshot suite. F.3, the human multi-monitor pass, stays open — the e2e suite mocks the bridge and cannot see a second window.
+
+**Theme G — Edge cases, diagnostics, and the invariants that stay single-window.** ✅ ([PR #143](https://github.com/bilo-io/midnite-studio/pull/143)) — The invariants that stay single-window: metrics bound to the main window, popout crash re-docking, off-screen bounds clamped against `screen.getAllDisplays()`, and per-window logging.
+
+**Theme H — Detachable PAGES, and the state they must share.** ✅ ([PR #175](https://github.com/bilo-io/midnite-studio/pull/175) + [PR #178](https://github.com/bilo-io/midnite-studio/pull/178)) — Detachable **pages**, which duplicate rather than move: the main window goes on rendering the view, so there is no placeholder and "dock" is just "close that window". `WindowRole` splits into panel and page roles; Theme E's allowlist gains the three slices that drift when one view runs twice (Actions' run, the Explorer's file, the workbench's tabs) while view *furniture* deliberately stays local. Fixes the popout **theme flicker** — `applying` cannot guard a `MutationObserver`, whose callback is a microtask delivered after the flag is reset, so every relayed theme was rebroadcast.
+
+**Theme I — One watcher, N consumers.** ✅ ([PR #178](https://github.com/bilo-io/midnite-studio/pull/178)) — One watcher, N consumers: `watch-service.ts` captured one window, so only main heard file changes and every other window depended on main's renderer relaying for it. Fan-out at the send, `watchers` still keyed by repoId. Fixes the **detached Graph never loading** — `logStart`/`searchStart` resolved their target with `getWindow()` while answering over an EVENT channel, so a popout's stream painted main.
+
+**Theme J — The rest of the pages.** ✅ ([PR #178](https://github.com/bilo-io/midnite-studio/pull/178)) — Eight more pages, thirteen in all. Hand-placed per header because those headers legitimately differ (two tablists, one block-flow stack, one `flex-1` row). Seven `ViewId`s stay out: three nobody wants twice, and `councils`/`workflows`/`video` because duplicate rendering is only safe where mount has no load-bearing side effects.
+
 ## Background & Architecture
 
 Midnite Studio is designed around a unified workflow loop (Git, Terminal, Agents/Loops, Browser, Forge). On multi-monitor desktop setups, keeping auxiliary surfaces (like long-running agent loops, active terminal sessions, git repo trees, or browser web tabs) visible in dedicated secondary windows significantly improves productivity.

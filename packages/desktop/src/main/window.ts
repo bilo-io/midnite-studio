@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 
-import { BrowserWindow, app, shell } from 'electron';
+import { BrowserWindow, app } from 'electron';
 
 import {
   APP_VERSION_ARG,
@@ -11,8 +11,8 @@ import {
   WINDOW_FRAMELESS_ARG,
 } from '@midnite/studio-shared';
 
-import { bindAppNavigationGuard } from './app-navigation';
 import { maybeCapture } from './capture';
+import { devToolsAllowed } from './devtools-policy';
 import { bootMark } from './perf-marks';
 import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
 
@@ -96,8 +96,11 @@ export function createWindow(): BrowserWindow {
       // arbitrary web pages, but each one lives in its own `WebContentsView`
       // on the `persist:browser` partition — never this window's own
       // WebContents — with `sandbox: true` and NO preload of its own. See
-      // `browser-service.ts`, the only file that constructs one.
+      // the browser feature's `main/browser-service.ts`, the only file that
+      // constructs one (through `browser-port.ts`'s `createView`).
       sandbox: true,
+      // Phase 91 Theme D: closes `webContents.openDevTools()` from anywhere, not just the menu.
+      devTools: devToolsAllowed(app.isPackaged),
       // Single-sourced from the window options above so the preload never
       // re-derives it. See WINDOW_FRAMELESS_ARG.
       additionalArguments: [
@@ -123,17 +126,8 @@ export function createWindow(): BrowserWindow {
     win.show();
   });
 
-  // External links open in the user's browser, never in an app window with no
-  // chrome to escape from.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) void shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
-  bindAppNavigationGuard(
-    win.webContents,
-    !app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1' ? DEV_SERVER_URL : null,
-  );
+  // Navigation + window.open policy: the global `web-contents-created` net in
+  // `web-contents-policy.ts` (Phase 91 Theme E) covers this window.
 
   void loadRenderer(win);
   return win;

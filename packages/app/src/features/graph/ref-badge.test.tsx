@@ -1,11 +1,11 @@
 import type { Ref } from '@midnite/studio-shared';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '../../../test-support/studio-render';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
-import { graphThemeFor } from './graph-themes';
-import { RefBadge } from './ref-badge';
-import type { SyncAction } from './ref-sync';
+import { graphThemeFor } from '@midnite/studio-frame/graph';
+import { RefBadge } from '@midnite/studio-frame/graph';
+import type { SyncAction } from '@midnite/studio-frame/graph';
 
 const theme = graphThemeFor('default', 'comfortable');
 

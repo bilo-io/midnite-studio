@@ -9,12 +9,14 @@ import {
 } from '@midnite/studio-shared';
 
 import { bridge } from '../../services/bridge';
-import { useBrowserStore } from '../../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useFileEditorStore } from '../../store/file-editor-store';
 import { SETTINGS_PAGES, useUiStore } from '../../store/ui-store';
-import { useIssuesStore } from '../../store/issues-store';
+import { useGameRunStore } from '@midnite/studio-feature-media-game/renderer';
+import { openIssueModal } from '../../store/issue-modal-store';
 import { PAGE_ROLE_TITLE } from '../../components/page-detach-mark';
 import { VIEW_LABELS } from '../../services/palette/providers';
+import { revealResource, revealSay } from './reveal/reveal';
 
 /**
  * Phase 81 Theme B — "take me to the graph," and the window that is already
@@ -108,7 +110,7 @@ export function resolveNavigation(
  * for the union this function actually holds.
  */
 const PAGE_ROLE_SET: ReadonlySet<string> = new Set(PAGE_WINDOW_ROLES);
-function isPageRoleView(view: ViewId): view is PageWindowRole {
+export function isPageRoleView(view: ViewId): view is PageWindowRole {
   return PAGE_ROLE_SET.has(view);
 }
 
@@ -127,6 +129,40 @@ function speakableHost(url: string): string {
 }
 
 /**
+ * The live snapshot {@link resolveNavigation} decides against — this window's
+ * own role, detached pages/panels, lock and selected repo. Exported for the
+ * Phase 112 reveal engine (`reveal/reveal.ts`), which plans the same way.
+ */
+export function liveNavigationState(): NavigationState {
+  const ui = useUiStore.getState();
+  return {
+    windowRole: bridge()?.windowRole ?? 'main',
+    detachedPages: ui.detachedPages,
+    panelDetached: {
+      terminal: ui.terminalDetached,
+      repos: ui.reposDetached,
+      fab: ui.fabDetached,
+      companion: ui.companionDetached,
+      browser: ui.browserDetached,
+      // The three apps-rail roles (Theme D) track detached-ness as an array
+      // (`detachedWebApps`) rather than a boolean field each, mirroring
+      // `detachedPages` — see its own doc. Nothing in `resolveNavigation`
+      // actually reads these three today (apps are panels, not `ViewId`s, so
+      // `isPageRoleView` never matches one), but wiring the real values here
+      // rather than a permanent `false` is what keeps this object honest if
+      // that ever changes.
+      'apps-spotify': ui.detachedWebApps.includes('spotify'),
+      'apps-google-calendar': ui.detachedWebApps.includes('google-calendar'),
+      'apps-youtube': ui.detachedWebApps.includes('youtube'),
+      // A popped-out game (Phase 107 Theme B) — tracked by the Games tab's run store.
+      game: useGameRunStore.getState().popped !== null,
+    },
+    locked: ui.screensaverLocked,
+    repoId: ui.selectedRepoId,
+  };
+}
+
+/**
  * Execute one `navigate` intent in the CURRENT window and say what happened.
  *
  * Reads everything it needs from live stores and `bridge()` — no parameters
@@ -142,30 +178,25 @@ export async function navigateCompanion(
   intent: Extract<CompanionIntent, { kind: 'navigate' }>,
 ): Promise<{ say: string }> {
   const api = bridge();
-  const ui = useUiStore.getState();
-  const state: NavigationState = {
-    windowRole: api?.windowRole ?? 'main',
-    detachedPages: ui.detachedPages,
-    panelDetached: {
-      terminal: ui.terminalDetached,
-      repos: ui.reposDetached,
-      fab: ui.fabDetached,
-      companion: ui.companionDetached,
-      browser: ui.browserDetached,
-      // The three apps-rail roles (Theme D) track detached-ness as an array
-      // (`detachedApps`) rather than a boolean field each, mirroring
-      // `detachedPages` — see its own doc. Nothing in `resolveNavigation`
-      // actually reads these three today (apps are panels, not `ViewId`s, so
-      // `isPageRoleView` never matches one), but wiring the real values here
-      // rather than a permanent `false` is what keeps this object honest if
-      // that ever changes.
-      'apps-spotify': ui.detachedApps.includes('spotify'),
-      'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
-      'apps-youtube': ui.detachedApps.includes('youtube'),
-    },
-    locked: ui.screensaverLocked,
-    repoId: ui.selectedRepoId,
-  };
+  // Phase 112 Theme B: a specific resource goes through the reveal engine,
+  // which plans the window/popout/lock/unsaved cases the same way below does.
+  if (intent.target !== undefined) {
+    return { say: revealSay(await revealResource(intent.target, { caller: 'companion' })) };
+  }
+
+  const state = liveNavigationState();
+
+  // Phase 112 Theme C: the plain `issue` shorthand is a ref now — "open issue
+  // 812" is `{ kind: 'issue' }` on the table, like every other resource. With
+  // no repo open it falls through to `resolveNavigation`'s own refusal, which
+  // names the missing repo.
+  if (intent.issue !== undefined && state.repoId !== null) {
+    const outcome = await revealResource(
+      { kind: 'issue', repoId: state.repoId, number: intent.issue },
+      { caller: 'companion' },
+    );
+    return { say: revealSay(outcome) };
+  }
 
   const plan = resolveNavigation(intent, state);
 
@@ -213,7 +244,7 @@ export async function navigateCompanion(
       }
 
       if (plan.issue !== undefined && state.repoId !== null) {
-        useIssuesStore.getState().selectIssue(state.repoId, plan.issue);
+        openIssueModal({ repoId: state.repoId, number: plan.issue });
       }
 
       const label = VIEW_LABELS[plan.view];
@@ -234,7 +265,10 @@ export async function navigateCompanion(
  * flow in flight at a time (the same "one controller" rule `runtime.ts`
  * enforces), so one map, subscribed once, is all this ever needs to hold.
  */
-const pendingRelays = new Map<string, (say: string) => void>();
+const pendingRelays = new Map<string, (result: RelayResult) => void>();
+
+/** What main relays back — `reason` only rides along for a refused reveal (Phase 112). */
+export type RelayResult = { ok: boolean; say: string; reason?: string };
 let relayListenerBound = false;
 
 function ensureRelayListenerBound(): void {
@@ -242,12 +276,12 @@ function ensureRelayListenerBound(): void {
   relayListenerBound = true;
   bridge()?.window.onRelayed((message) => {
     if (message.kind !== 'companion') return;
-    const payload = message.payload as { result?: { ok: boolean; say: string }; replyTo?: string };
+    const payload = message.payload as { result?: RelayResult; replyTo?: string };
     if (payload.replyTo === undefined || payload.result === undefined) return;
     const resolve = pendingRelays.get(payload.replyTo);
     if (!resolve) return;
     pendingRelays.delete(payload.replyTo);
-    resolve(payload.result.say);
+    resolve(payload.result);
   });
 }
 
@@ -257,20 +291,29 @@ const newRelayId = (): string =>
   typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
 /** A popout hands the intent to main and waits for what it said. */
-function relayNavigateToMain(intent: Extract<CompanionIntent, { kind: 'navigate' }>): Promise<string> {
+async function relayNavigateToMain(intent: Extract<CompanionIntent, { kind: 'navigate' }>): Promise<string> {
+  return (await relayIntentToMain(intent)).say;
+}
+
+/**
+ * The relay with its whole result — `ok` and, for a refused reveal, the
+ * reason. Exported for the Phase 112 reveal engine, whose popout path relays
+ * a `navigate { target }` and needs to know whether main actually landed it.
+ */
+export function relayIntentToMain(intent: Extract<CompanionIntent, { kind: 'navigate' }>): Promise<RelayResult> {
   const api = bridge();
-  if (!api) return Promise.resolve('I cannot reach the main window from here.');
+  if (!api) return Promise.resolve({ ok: false, say: 'I cannot reach the main window from here.' });
   ensureRelayListenerBound();
 
   const replyTo = newRelayId();
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       pendingRelays.delete(replyTo);
-      resolve('The main window did not answer.');
+      resolve({ ok: false, say: 'The main window did not answer.' });
     }, RELAY_TIMEOUT_MS);
-    pendingRelays.set(replyTo, (say) => {
+    pendingRelays.set(replyTo, (result) => {
       clearTimeout(timer);
-      resolve(say);
+      resolve(result);
     });
     api.window.relay({
       id: newRelayId(),
@@ -303,6 +346,22 @@ export function handleCompanionRelayAction(action: CompanionIntent, replyTo: str
       origin: 'main-companion-relay',
       kind: 'companion',
       payload: { result: { ok: false, say: '' }, replyTo },
+    });
+    return;
+  }
+  if (action.target !== undefined) {
+    // Phase 112: a reveal answers with its real outcome, so the popout can
+    // tell a landed reveal from a refused one rather than assuming success.
+    void revealResource(action.target, { caller: 'companion' }).then((outcome) => {
+      api?.window.relay({
+        id: newRelayId(),
+        origin: 'main-companion-relay',
+        kind: 'companion',
+        payload: {
+          result: { ok: outcome.ok, say: revealSay(outcome), ...(outcome.ok ? {} : { reason: outcome.reason }) },
+          replyTo,
+        },
+      });
     });
     return;
   }

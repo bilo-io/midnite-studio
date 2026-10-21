@@ -56,7 +56,9 @@ for (const role of POPOUT_ROLES) {
   for (const theme of ['light', 'dark'] as const) {
     test(`DetachedRoot(${role}) — ${theme} theme`, async ({ page }) => {
       await setTheme(page, theme);
-      await installMockBridge(page, { ...fixtures, windowRole: role } as MockFixtures);
+      await installMockBridge(page, { ...fixtures, windowRole: role } as MockFixtures, {
+        reposOpen: role === 'repos',
+      });
       await page.goto('/graph');
       if (theme === 'dark') await setTheme(page, 'dark');
 

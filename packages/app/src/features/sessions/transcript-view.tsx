@@ -8,7 +8,6 @@ import { LuHistory } from 'react-icons/lu';
 
 import { EmptyState } from '../../components/empty-state';
 import { bridge } from '../../services/bridge';
-import { disableSynchronizedOutput } from '../terminal/disable-synchronized-output';
 import { enableUnicode11 } from '../terminal/enable-unicode11';
 import { resolveTerminalPalette } from '../themes/resolve-palette';
 import { terminalFontOptions } from '../terminal/terminal-font';
@@ -132,7 +131,6 @@ function TranscriptTerminal({ bytes }: { bytes: Uint8Array }) {
     term.loadAddon(fit);
     term.open(container);
     fit.fit();
-    disableSynchronizedOutput(term);
     term.write(bytes);
     term.write(RESET_MODES);
 

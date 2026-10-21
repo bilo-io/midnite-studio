@@ -8,20 +8,24 @@ import { VIEW_ICON } from './nav-icons';
 
 /** The human name each page role wears in a tooltip and a popout's title bar. */
 export const PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
-  graph: 'Graph',
+  graph: 'Timeline',
   actions: 'Actions',
-  changes: 'Changes',
   files: 'File Explorer',
   database: 'DB Explorer',
   dashboard: 'Dashboard',
   search: 'Search',
   tests: 'Tests',
-  projects: 'Projects',
+  tasks: 'Tasks',
   reviews: 'Reviews',
-  issues: 'Issues',
   history: 'History',
   optimizer: 'Workspace Optimizer',
   sessions: 'Sessions',
+  chats: 'Chats',
+  councils: 'Councils',
+  workflows: 'Graphs',
+  media: 'Media',
+  models: 'Models',
+  notes: 'Notes',
 };
 
 /**

@@ -7,12 +7,16 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createMcpStore } from '../mcp-store';
 import {
   getMcpAllowGateDecide,
+  getMcpAllowMusic,
+  getMcpAllowCompanionSettings,
   getMcpAllowUi,
   getMcpServerHandle,
   getMcpStatus,
   registerMcpServer,
   resetMcpServerStateForTests,
   setMcpAllowGateDecide,
+  setMcpAllowMusic,
+  setMcpAllowCompanionSettings,
   setMcpAllowUi,
   setMcpEnabled,
 } from './index';
@@ -47,7 +51,7 @@ describe('registerMcpServer', () => {
 
   it('binds a socket when the store says enabled', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 3, enabled: true, allowUi: false, allowGateDecide: false });
+    await createMcpStore(userDataDir).save({ version: 10, enabled: true, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false });
 
     const handle = await registerMcpServer({
       userDataDir,
@@ -61,7 +65,7 @@ describe('registerMcpServer', () => {
 
   it('loads allowUi from the store too, alongside enabled', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 3, enabled: false, allowUi: true, allowGateDecide: false });
+    await createMcpStore(userDataDir).save({ version: 10, enabled: false, allowUi: true, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false });
 
     await registerMcpServer({
       userDataDir,
@@ -92,16 +96,16 @@ describe('setMcpEnabled', () => {
 
     // Persisted, not just in memory.
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 3,
+      version: 10,
       enabled: true,
       allowUi: false,
-      allowGateDecide: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false,
     });
   });
 
   it('stops the server live when turned off, and persists the flag', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 3, enabled: true, allowUi: false, allowGateDecide: false });
+    await createMcpStore(userDataDir).save({ version: 10, enabled: true, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false });
     await registerMcpServer({
       userDataDir,
       appVersion: '0.0.0-test',
@@ -115,16 +119,16 @@ describe('setMcpEnabled', () => {
     expect(result.ok && result.status.running).toBe(false);
     expect(getMcpServerHandle()).toBeNull();
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 3,
+      version: 10,
       enabled: false,
       allowUi: false,
-      allowGateDecide: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false,
     });
   });
 
   it('preserves allowUi when only the enabled flag changes', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 3, enabled: false, allowUi: true, allowGateDecide: false });
+    await createMcpStore(userDataDir).save({ version: 10, enabled: false, allowUi: true, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false });
     await registerMcpServer({
       userDataDir,
       appVersion: '0.0.0-test',
@@ -134,10 +138,10 @@ describe('setMcpEnabled', () => {
 
     await setMcpEnabled(true);
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 3,
+      version: 10,
       enabled: true,
       allowUi: true,
-      allowGateDecide: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false,
     });
   });
 
@@ -165,16 +169,16 @@ describe('setMcpAllowUi', () => {
     expect(getMcpServerHandle()).toBeNull(); // allowUi never starts the server
 
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 3,
+      version: 10,
       enabled: false,
       allowUi: true,
-      allowGateDecide: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false,
     });
   });
 
   it('preserves enabled when only allowUi changes', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 3, enabled: true, allowUi: false, allowGateDecide: false });
+    await createMcpStore(userDataDir).save({ version: 10, enabled: true, allowUi: false, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false });
     await registerMcpServer({
       userDataDir,
       appVersion: '0.0.0-test',
@@ -184,16 +188,50 @@ describe('setMcpAllowUi', () => {
 
     await setMcpAllowUi(true);
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 3,
+      version: 10,
       enabled: true,
       allowUi: true,
-      allowGateDecide: false,
+      allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false,
     });
   });
 
   it('answers ok:false before registerMcpServer has run', async () => {
     const result = await setMcpAllowUi(true);
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('setMcpAllowMusic (Phase 101 Theme H)', () => {
+  it('is off by default, persists, never starts the socket, and preserves the other switches', async () => {
+    const userDataDir = tempDir();
+    await createMcpStore(userDataDir).save({ version: 10, enabled: false, allowUi: true, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: true, allowMusic: false, allowCompanionSettings: false });
+    await registerMcpServer({ userDataDir, appVersion: '0.0.0-test', buildId: 'test', isPackaged: false });
+    expect(getMcpAllowMusic()).toBe(false);
+
+    const result = await setMcpAllowMusic(true);
+    expect(result.ok && result.status.allowMusic).toBe(true);
+    expect(getMcpServerHandle()).toBeNull();
+    expect(await createMcpStore(userDataDir).load()).toMatchObject({ version: 10, allowUi: true, allowMaps: true, allowMusic: true, allowCompanionSettings: false });
+    expect(await getMcpStatus()).toMatchObject({ allowMusic: true, allowCompanionSettings: false });
+  });
+});
+
+describe('setMcpAllowCompanionSettings (Phase 109 Theme D)', () => {
+  it('is off by default, persists, never starts the socket, and preserves the other switches', async () => {
+    const userDataDir = tempDir();
+    await createMcpStore(userDataDir).save({ version: 10, enabled: false, allowUi: true, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: true, allowCompanionSettings: false });
+    await registerMcpServer({ userDataDir, appVersion: '0.0.0-test', buildId: 'test', isPackaged: false });
+    expect(getMcpAllowCompanionSettings()).toBe(false);
+
+    const result = await setMcpAllowCompanionSettings(true);
+    expect(result.ok && result.status.allowCompanionSettings).toBe(true);
+    expect(getMcpServerHandle()).toBeNull();
+    expect(await createMcpStore(userDataDir).load()).toMatchObject({ version: 10, allowUi: true, allowMusic: true, allowCompanionSettings: true });
+    expect(getMcpStatus()).toMatchObject({ allowMusic: true, allowCompanionSettings: true });
+
+    // Flipping another switch afterwards keeps this one.
+    await setMcpAllowMusic(false);
+    expect(await createMcpStore(userDataDir).load()).toMatchObject({ allowMusic: false, allowCompanionSettings: true });
   });
 });
 
@@ -215,16 +253,16 @@ describe('setMcpAllowGateDecide', () => {
     expect(getMcpServerHandle()).toBeNull(); // allowGateDecide never starts the server
 
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 3,
+      version: 10,
       enabled: false,
       allowUi: false,
-      allowGateDecide: true,
+      allowGateDecide: true, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false,
     });
   });
 
   it('preserves enabled and allowUi when only allowGateDecide changes', async () => {
     const userDataDir = tempDir();
-    await createMcpStore(userDataDir).save({ version: 3, enabled: true, allowUi: true, allowGateDecide: false });
+    await createMcpStore(userDataDir).save({ version: 10, enabled: true, allowUi: true, allowGateDecide: false, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false });
     await registerMcpServer({
       userDataDir,
       appVersion: '0.0.0-test',
@@ -234,10 +272,10 @@ describe('setMcpAllowGateDecide', () => {
 
     await setMcpAllowGateDecide(true);
     expect(await createMcpStore(userDataDir).load()).toEqual({
-      version: 3,
+      version: 10,
       enabled: true,
       allowUi: true,
-      allowGateDecide: true,
+      allowGateDecide: true, allowModels: false, allowGames: false, allowTerrains: false, allowSprites: false, allowMaps: false, allowMusic: false, allowCompanionSettings: false,
     });
   });
 

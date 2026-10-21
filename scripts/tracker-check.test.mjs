@@ -343,6 +343,63 @@ describe('tracker-check unit tests', () => {
     });
   });
 
+  describe('rule 5 against the phase doc\'s own ## Headlines', () => {
+    const statusOnlyIndex = `
+# Index
+
+## Phases
+
+| Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
+|-------|--------|---------|------|----------|---|--------|--------|
+| [1 · Test Phase](phases/phase-1-test.md) | ✅ DONE | — | 2/2 | \`██████████\` | 100% | — | — |
+`;
+    const docWithHeadlines = (letters) => `
+# Phase 1 — Test Phase
+
+Intro paragraph.
+
+## Headlines
+
+*One-line summary.* Lead paragraph with **bold** and a [link](../done.md).
+
+${letters.map((l) => `**Theme ${l} — Theme ${l}.** ✅ what ${l} landed.`).join('\n\n')}
+
+## Deliverables
+
+### A — Theme A
+- [x] Item 1
+
+### Theme B — Theme B
+- [x] Item 2
+`;
+
+    it('parses the theme paragraphs out of ## Headlines, and nothing else', () => {
+      const parsed = parsePhaseDoc(docWithHeadlines(['A', 'B']));
+      expect(parsed.headlineThemes).toEqual(['A', 'B']);
+      expect(parsed.themes).toEqual(['A', 'B']);
+      expect(parsed.doneCount).toBe(2);
+      expect(parsePhaseDoc('# Phase 1\n### A — x\n- [x] y\n').headlineThemes).toBeNull();
+    });
+
+    it('passes when the headlines cover exactly the doc\'s themes, with no theme key in the index', () => {
+      const { violations } = runTrackerChecks({
+        indexContent: statusOnlyIndex,
+        docFiles: new Map([['phases/phase-1-test.md', docWithHeadlines(['A', 'B'])]]),
+      });
+      expect(violations).toEqual([]);
+    });
+
+    it('fails when a theme is missing from the headlines', () => {
+      const { violations } = runTrackerChecks({
+        indexContent: statusOnlyIndex,
+        docFiles: new Map([['phases/phase-1-test.md', docWithHeadlines(['A'])]]),
+      });
+      const rule5 = violations.find((v) => v.rule === 5);
+      expect(rule5?.expected).toContain('A,B');
+      expect(rule5?.actual).toBe('[A] (in headlines)');
+    });
+  });
+
   describe('fixTrackerIndex', () => {
     it('corrects counts, bar, % and flips ✅ DONE to 🔄 WIP if done < total', () => {
       const staleIndex = `

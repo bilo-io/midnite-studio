@@ -13,9 +13,9 @@ import { bridge, hasBridge } from '../../../services/bridge';
 import { keys } from '../../../services/queries';
 import { useRepoStatus } from '../../../services/use-status';
 import { useFileEditorStore } from '../../../store/file-editor-store';
-import { IMAGE_CHECKERBOARD, ImageDiff } from '../../diff/image-diff';
-import { differsFromHead, headToWorktreeImage } from '../../diff/image-sources';
-import { PresentButton } from '../../slides/present-button';
+import { IMAGE_CHECKERBOARD, ImageDiff } from '@midnite/studio-frame/diff';
+import { differsFromHead, headToWorktreeImage } from '@midnite/studio-frame/diff';
+import { PresentButton } from '@midnite/studio-feature-slides/renderer';
 import { type FsScopeInput } from '../file-tree';
 import { useBlameStore } from './blame-store';
 import { CodePreview } from './code-preview';
@@ -44,7 +44,7 @@ export type FilePreviewProps = {
   /** A find-in-files result's line, to scroll to and briefly highlight. */
   targetLine?: number;
   /** Navigate to another file (e.g. from a relative markdown link). */
-  onNavigate?: (relPath: string) => void;
+  onNavigate?: (relPath: string, anchor?: string) => void;
 };
 
 export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePreviewProps) {
@@ -335,6 +335,7 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
             </>
           ) : kind === 'markdown' && !showSource ? (
             <MarkdownPreview
+              scope={scope}
               content={data.content}
               label={fileName}
               currentRelPath={relPath}

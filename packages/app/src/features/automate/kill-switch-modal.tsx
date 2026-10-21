@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LuFolderGit2, LuGlobe, LuSquareKanban, LuUserRound, LuWorkflow } from 'react-icons/lu';
+import { LuFolderGit2, LuGlobe, LuSquareKanban, LuUserRound } from 'react-icons/lu';
 
 import { KILL_SCOPES, KILL_SCOPE_LABEL, type KillScope } from '@midnite/studio-shared';
 
@@ -14,9 +14,10 @@ import {
   sessionsForScope,
   type KillScopeContext,
 } from './kill-scope';
+import { VIEW_ICON } from '../../components/nav-icons';
 
 const SCOPE_ICON: Record<KillScope, typeof LuGlobe> = {
-  flow: LuWorkflow,
+  flow: VIEW_ICON.workflows,
   project: LuSquareKanban,
   repo: LuFolderGit2,
   forgeUser: LuUserRound,
@@ -38,15 +39,15 @@ function scopeSentence(scope: KillScope, count: number, automateOffCount: number
   const sessions = `${count} session${count === 1 ? '' : 's'}`;
   const suffix =
     automateOffCount > 0
-      ? ` and turns off Auto-mate for ${automateOffCount === 1 ? 'this project board' : `${automateOffCount} project boards`}.`
+      ? ` and turns off Auto-mate for ${automateOffCount === 1 ? 'this task board' : `${automateOffCount} task boards`}.`
       : '.';
   switch (scope) {
     case 'flow':
       return cancelsRun
-        ? `Stops ${sessions} and cancels this workflow run${suffix}`
-        : `Stops ${sessions} for this workflow${suffix}`;
+        ? `Stops ${sessions} and cancels this graph run${suffix}`
+        : `Stops ${sessions} for this graph${suffix}`;
     case 'project':
-      return `Stops ${sessions} on this project board${suffix}`;
+      return `Stops ${sessions} on this task board${suffix}`;
     case 'repo':
       return `Stops ${sessions} in this repository${suffix}`;
     case 'forgeUser':
@@ -66,9 +67,9 @@ function scopeSentence(scope: KillScope, count: number, automateOffCount: number
 function scopeUnavailableReason(scope: KillScope, context: KillScopeContext): string | undefined {
   switch (scope) {
     case 'flow':
-      return context.flow === null ? 'No workflow is open' : undefined;
+      return context.flow === null ? 'No graph is open' : undefined;
     case 'project':
-      return context.project === null ? 'No project board is open' : undefined;
+      return context.project === null ? 'No task board is open' : undefined;
     case 'repo':
       return context.repo === null ? 'No repository is open' : undefined;
     case 'forgeUser':

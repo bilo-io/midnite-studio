@@ -1,25 +1,34 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { composeIssueBody, ReportIssueDialog } from './report-issue-dialog';
+import { useUiStore } from '../store/ui-store';
+import { composeIssueBody, ReportIssueDialog, ReportIssueHost } from './report-issue-dialog';
 
 const bundleFn = vi.fn();
 const cliStatusFn = vi.fn();
 const submitIssueFn = vi.fn();
 const openExternalFn = vi.fn();
+const writeTextFn = vi.fn();
 
-vi.mock('../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     report: { bundle: bundleFn, submitIssue: submitIssueFn },
     forge: { cliStatus: cliStatusFn },
     shell: { openExternal: openExternalFn },
+    clipboard: { writeText: writeTextFn },
+    appVersion: '0.0.3',
   }),
   hasBridge: () => true,
 }));
 
 const READY_CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
-const NOT_INSTALLED_CLI = { reason: 'not-installed' as const, binPath: null, hint: 'brew install gh' };
+const NOT_INSTALLED_CLI = {
+  reason: 'not-installed' as const,
+  binPath: null,
+  hint: 'brew install gh',
+};
 
 function renderDialog(onClose: () => void = () => {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -36,6 +45,8 @@ afterEach(() => {
   cliStatusFn.mockReset();
   submitIssueFn.mockReset();
   openExternalFn.mockReset();
+  writeTextFn.mockReset();
+  useUiStore.setState({ reportIssueOpen: false });
 });
 
 describe('ReportIssueDialog — bug/feature toggle', () => {
@@ -52,7 +63,9 @@ describe('ReportIssueDialog — bug/feature toggle', () => {
     // open/closed default is read off the header's `aria-expanded`, not off
     // whether the block is present in the DOM.
     await screen.findByTestId('report-issue-diagnostics');
-    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
   });
 
   it('switching to Feature swaps the prefill and label, and collapses diagnostics by default', async () => {
@@ -65,7 +78,9 @@ describe('ReportIssueDialog — bug/feature toggle', () => {
     expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('[feat] ');
     expect(screen.getByText("What's the problem?")).not.toBeNull();
     await waitFor(() => expect(bundleFn).toHaveBeenCalled());
-    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
   });
 
   it('does not clobber a title the user already edited when toggling kind', async () => {
@@ -73,10 +88,14 @@ describe('ReportIssueDialog — bug/feature toggle', () => {
     cliStatusFn.mockResolvedValue(READY_CLI);
     renderDialog();
 
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] the sync spinner never stops' } });
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: '[bug] the sync spinner never stops' },
+    });
     fireEvent.click(screen.getByRole('radio', { name: 'Feature' }));
 
-    expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('[bug] the sync spinner never stops');
+    expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe(
+      '[bug] the sync spinner never stops',
+    );
   });
 });
 
@@ -93,12 +112,12 @@ describe('ReportIssueDialog — diagnostics stay the single redaction path', () 
 
   it('composeIssueBody never mutates the diagnostics text it is handed', () => {
     const diagnostics = '~/already/redacted <redacted>';
-    const body = composeIssueBody('a description', diagnostics);
+    const body = composeIssueBody({ kind: 'bug', description: 'a description', diagnostics });
     expect(body).toContain(diagnostics);
   });
 
   it('composeIssueBody clamps to FORGE_BODY_MAX defensively', () => {
-    const body = composeIssueBody('x'.repeat(200_000), '');
+    const body = composeIssueBody({ kind: 'bug', description: 'x'.repeat(200_000), diagnostics: '' });
     expect(body.length).toBeLessThanOrEqual(65_536);
   });
 });
@@ -116,7 +135,9 @@ describe('ReportIssueDialog — submit', () => {
     renderDialog();
 
     await screen.findByTestId('report-issue-diagnostics');
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] the sync spinner never stops' } });
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: '[bug] the sync spinner never stops' },
+    });
     fireEvent.change(screen.getByLabelText('What happened?'), {
       target: { value: 'Clicked sync and it spun forever.' },
     });
@@ -128,10 +149,15 @@ describe('ReportIssueDialog — submit', () => {
     expect(call.kind).toBe('bug');
     expect(call.body).toContain('Clicked sync and it spun forever.');
     expect(call.body).toContain('log tail');
+    // The section midnite-apps' label workflow reads — without it, gh's `app:` label is stripped.
+    expect(call.body).toContain('### App\n\nmidnite-studio');
+    expect(call.body).toContain('### Version\n\n0.0.3');
 
     const link = await screen.findByRole('button', { name: 'View issue' });
     fireEvent.click(link);
-    expect(openExternalFn).toHaveBeenCalledWith({ url: 'https://github.com/bilo-io/midnite-apps/issues/42' });
+    expect(openExternalFn).toHaveBeenCalledWith({
+      url: 'https://github.com/bilo-io/midnite-apps/issues/42',
+    });
   });
 
   it('cannot be submitted with an empty description', async () => {
@@ -160,22 +186,116 @@ describe('ReportIssueDialog — submit', () => {
     fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It broke.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
-    expect(await screen.findByText('HTTP 403: Resource not accessible by integration')).not.toBeNull();
+    expect(
+      await screen.findByText('HTTP 403: Resource not accessible by integration'),
+    ).not.toBeNull();
   });
 });
 
 describe('ReportIssueDialog — the fallback is not a dead end', () => {
-  it('shows why and a working "Open in browser instead" when gh is not ready', async () => {
-    bundleFn.mockResolvedValue({ text: '' });
+  it('without gh, Continue on GitHub opens the issue form prefilled with what was typed', async () => {
+    bundleFn.mockResolvedValue({ text: 'INFO boot\nERROR it broke' });
     cliStatusFn.mockResolvedValue(NOT_INSTALLED_CLI);
-    renderDialog();
+    const onClose = vi.fn();
+    renderDialog(onClose);
 
     expect(await screen.findByText('brew install gh')).not.toBeNull();
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull();
+    await screen.findByTestId('report-issue-diagnostics');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open in browser instead' }));
-    expect(openExternalFn).toHaveBeenCalledWith({
-      url: 'https://github.com/bilo-io/midnite-apps/issues/new?labels=midnite-studio',
+    const proceed = screen.getByRole('button', { name: 'Continue on GitHub' }) as HTMLButtonElement;
+    expect(proceed.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] Graph is blank' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), {
+      target: { value: 'Opened a repo & nothing drew.' },
     });
+    fireEvent.click(proceed);
+
+    expect(openExternalFn).toHaveBeenCalledTimes(1);
+    const url = new URL((openExternalFn.mock.calls[0]![0] as { url: string }).url);
+    expect(`${url.origin}${url.pathname}`).toBe(
+      'https://github.com/bilo-io/midnite-apps/issues/new',
+    );
+    expect(url.searchParams.get('template')).toBe('bug.yml');
+    expect(url.searchParams.get('title')).toBe('[bug] Graph is blank');
+    expect(url.searchParams.get('app')).toBe('midnite-studio');
+    expect(url.searchParams.get('what')).toBe('Opened a repo & nothing drew.');
+    expect(url.searchParams.get('logs')).toBe('INFO boot\nERROR it broke');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('offers the browser form when gh itself refuses the issue', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    submitIssueFn.mockResolvedValue({
+      ok: false,
+      cli: READY_CLI,
+      error: 'HTTP 403: Resource not accessible by integration',
+      url: null,
+    });
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] Crash' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It crashed.' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue on GitHub instead' }));
+
+    const url = new URL((openExternalFn.mock.calls[0]![0] as { url: string }).url);
+    expect(url.searchParams.get('title')).toBe('[bug] Crash');
+    expect(url.searchParams.get('what')).toBe('It crashed.');
+  });
+});
+
+describe('ReportIssueDialog — Copy report', () => {
+  it('copies the title and the whole composed body through the main-side clipboard', async () => {
+    bundleFn.mockResolvedValue({ text: 'log tail' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    writeTextFn.mockResolvedValue({ ok: true });
+    renderDialog();
+
+    await screen.findByTestId('report-issue-diagnostics');
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] blank graph' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It is blank.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy report' }));
+
+    await screen.findByRole('button', { name: 'Copied' });
+    const { text } = writeTextFn.mock.calls[0]![0] as { text: string };
+    expect(text.startsWith('[bug] blank graph\n\n### App\n\nmidnite-studio')).toBe(true);
+    expect(text).toContain('It is blank.');
+    expect(text).toContain('log tail');
+  });
+
+  it('stays disabled until there is a title and a description to copy', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    renderDialog();
+
+    const copy = screen.getByRole('button', { name: 'Copy report' }) as HTMLButtonElement;
+    expect(copy.disabled).toBe(true);
+  });
+});
+
+describe('ReportIssueHost — the app-wide instance app.reportIssue opens', () => {
+  it('renders nothing until the store opens it, and closes back through the store', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ReportIssueHost />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByTestId('report-issue-dialog')).toBeNull();
+
+    act(() => useUiStore.getState().setReportIssueOpen(true));
+    await screen.findByTestId('report-issue-dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(useUiStore.getState().reportIssueOpen).toBe(false);
   });
 });

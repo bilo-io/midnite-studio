@@ -29,7 +29,8 @@ const OUT = '../../docs/screenshots/adhoc-page-detach';
 test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screenshots');
 
 /*
-  The five original page roles plus Theme J's eight. Not read from
+  The original page roles plus Theme J's eight, less `changes` (that view is
+  gone). Not read from
   `PAGE_WINDOW_ROLES` directly: each entry below needs a rail label, a route
   and its own fixture, so the list has to be spelled out anyway — and a role
   added to the shared tuple without a row here should be a visible omission
@@ -38,15 +39,13 @@ test.skip(!process.env['MSTUDIO_SHOTS'], 'set MSTUDIO_SHOTS=1 to write screensho
 const PAGE_ROLES = [
   'graph',
   'actions',
-  'changes',
   'files',
   'database',
   'dashboard',
   'search',
   'tests',
-  'projects',
+  'tasks',
   'reviews',
-  'issues',
   'history',
   'optimizer',
 ] as const;
@@ -55,34 +54,30 @@ type PageRole = (typeof PAGE_ROLES)[number];
 
 /** The name the mark's own tooltip and label use, per `PAGE_ROLE_TITLE`. */
 const TITLE: Record<PageRole, string> = {
-  graph: 'Graph',
+  graph: 'Timeline',
   actions: 'Actions',
-  changes: 'Changes',
   files: 'File Explorer',
   database: 'DB Explorer',
   dashboard: 'Dashboard',
   search: 'Search',
   tests: 'Tests',
-  projects: 'Projects',
+  tasks: 'Tasks',
   reviews: 'Reviews',
-  issues: 'Issues',
   history: 'History',
   optimizer: 'Workspace Optimizer',
 };
 
 /** The rail row each page is reached by in the main window. */
 const RAIL_LABEL: Record<PageRole, string> = {
-  graph: 'Graph',
+  graph: 'Timeline',
   actions: 'Actions',
-  changes: 'Changes',
   files: 'Explorer',
   database: 'Database',
   dashboard: 'Dashboard',
   search: 'Search',
   tests: 'Tests',
-  projects: 'Projects',
+  tasks: 'Tasks',
   reviews: 'Reviews',
-  issues: 'Issues',
   history: 'History',
   optimizer: 'Optimizer',
 };
@@ -91,15 +86,13 @@ const RAIL_LABEL: Record<PageRole, string> = {
 const PATH: Record<PageRole, string> = {
   graph: '/graph',
   actions: '/actions',
-  changes: '/changes',
   files: '/files',
   database: '/database',
   dashboard: '/dashboard',
   search: '/search',
   tests: '/tests',
-  projects: '/projects',
+  tasks: '/tasks',
   reviews: '/reviews',
-  issues: '/issues',
   history: '/history',
   optimizer: '/optimizer',
 };
@@ -130,9 +123,8 @@ const run = (id: string, title: string, conclusion: string) => ({
 
 const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   graph: {},
-  changes: {},
   /*
-    Theme J's eight. Four of them (`reviews`, `issues`, `projects`, `tests`)
+    Theme J's eight. Four of them (`reviews`, `tasks`, `tests`)
     read the forge, and three of those answer an empty payload with a
     full-pane `EmptyState` that has NO header — so a bare `fixtures` would
     shoot the empty state rather than the control this spec is about. The
@@ -143,15 +135,11 @@ const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   history: {},
   optimizer: {},
   tests: {},
-  projects: {
+  tasks: {
     remotes: [REPRODUCIBLE_REMOTE],
     forge: { cli: { reason: 'ready' } } as MockFixtures['forge'],
   },
   reviews: {
-    remotes: [REPRODUCIBLE_REMOTE],
-    forge: { cli: { reason: 'ready' } } as MockFixtures['forge'],
-  },
-  issues: {
     remotes: [REPRODUCIBLE_REMOTE],
     forge: { cli: { reason: 'ready' } } as MockFixtures['forge'],
   },
@@ -192,13 +180,13 @@ const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
 /*
   Which roles each shot can actually reach, and why the two lists differ.
 
-  Every one of the thirteen marks is unit-tested (`page-detach-mark.test.tsx`);
+  Every one of the twelve marks is unit-tested (`page-detach-mark.test.tsx`);
   these lists are about what a SCREENSHOT can get on screen under the shared
   fixtures, which is a narrower question.
 
-  `tests` and `projects` are absent from both: their headers sit behind a data
+  `tests` and `tasks` are absent from both: their headers sit behind a data
   guard — `TestsView` early-returns an `EmptyState` until discovery finds at
-  least one package, `ProjectsView` until the forge returns at least one board
+  least one package, `TasksView` until the forge returns at least one board
   — so with no fixture there is no header to shoot, only the empty state. That
   is the same behaviour `files` and `actions` already have and is not a defect;
   it just means a shot of the mark needs a whole bespoke fixture set, which is
@@ -210,7 +198,7 @@ const EXTRA: Record<PageRole, Partial<MockFixtures>> = {
   popout renders standalone, so it keeps its `DetachedRoot` shot.
 */
 const STANDALONE_ROLES = PAGE_ROLES.filter(
-  (role) => role !== 'tests' && role !== 'projects',
+  (role) => role !== 'tests' && role !== 'tasks',
 );
 const RAIL_ROLES = STANDALONE_ROLES.filter((role) => role !== 'optimizer');
 

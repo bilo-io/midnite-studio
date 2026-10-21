@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   clickRailLink,
   fixtures,
+  freezeClock,
   installMockBridge,
   prepareForVisualCapture,
   type MockFixtures,
@@ -61,6 +62,9 @@ const data: MockFixtures = {
 };
 
 async function open(page: Page): Promise<void> {
+  // Freeze BEFORE first render: the rows print "started Nd ago" from Date.now(), so a
+  // clock frozen only at capture time leaves a baseline that drifts a day per day.
+  await freezeClock(page);
   await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();

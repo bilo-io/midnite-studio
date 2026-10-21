@@ -1,0 +1,18 @@
+{
+  "name": "hyperframes-editor",
+  "version": "1.0.0",
+  "description": "HyperFrames compositions, one folder per project (HTML + GSAP → MP4)",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "hyperframes": "0.8.114"
+  },
+  "scripts": {
+    "assets": "node ../scripts/sync-assets.mjs",
+    "predev": "npm run assets",
+    "dev": "hyperframes preview",
+    "check": "hyperframes check",
+    "doctor": "hyperframes doctor"
+  }
+}

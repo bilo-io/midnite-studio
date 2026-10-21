@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{GAME_NAME}}</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden; }
+      canvas { display: block; width: 100%; height: 100%; }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "phaser": "./vendor/phaser/phaser.esm.js",
+          "three": "./vendor/three/three.module.js",
+          "three/addons/": "./vendor/three/addons/",
+          "@dimforge/rapier3d-compat": "./vendor/rapier/rapier.mjs",
+          "recast-navigation": "./vendor/recast/index.mjs",
+          "kit/": "./kit/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <!-- Deterministic mode (Phase 107 Theme O): patches Math.random and the clocks before any game module runs. A no-op otherwise. -->
+    <script type="module" src="./kit/core/determinism.js"></script>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

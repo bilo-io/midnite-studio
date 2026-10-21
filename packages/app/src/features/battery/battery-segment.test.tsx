@@ -182,4 +182,50 @@ describe('BatterySegment', () => {
     const trigger = screen.getByTestId('battery-trigger');
     expect(trigger).toBeDefined();
   });
+
+  it('renders left lightning bolt and green shimmer when charging', () => {
+    useMetricsStore.getState().push({
+      at: Date.now(),
+      battery: {
+        percent: 65,
+        hasBattery: true,
+        isCharging: true,
+        devices: [{ id: 'internal', name: 'Computer', type: 'internal', percent: 65, isCharging: true }],
+      },
+    });
+
+    render(<BatterySegment />);
+    const trigger = screen.getByTestId('battery-trigger');
+    expect(trigger.getAttribute('data-charging')).toBe('true');
+
+    // Left lightning bolt exists
+    const bolt = screen.getByTestId('battery-charging-bolt');
+    expect(bolt).toBeDefined();
+
+    // The bolt appears before the battery icon in the trigger
+    const svgs = trigger.querySelectorAll('svg');
+    expect(svgs.length).toBeGreaterThanOrEqual(2);
+    expect(svgs[0]).toBe(bolt);
+
+    // Green shimmer exists
+    const shimmer = screen.getByTestId('battery-charging-shimmer');
+    expect(shimmer).toBeDefined();
+    expect(shimmer.className).toContain('battery-charging-shimmer');
+  });
+
+  it('does not render lightning bolt or shimmer when not charging', () => {
+    useMetricsStore.getState().push({
+      at: Date.now(),
+      battery: {
+        percent: 65,
+        hasBattery: true,
+        isCharging: false,
+        devices: [{ id: 'internal', name: 'Computer', type: 'internal', percent: 65 }],
+      },
+    });
+
+    render(<BatterySegment />);
+    expect(screen.queryByTestId('battery-charging-bolt')).toBeNull();
+    expect(screen.queryByTestId('battery-charging-shimmer')).toBeNull();
+  });
 });

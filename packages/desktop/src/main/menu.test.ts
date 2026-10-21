@@ -8,10 +8,17 @@ import { buildMenu } from './menu';
  * `menu.ts` imports `electron` for `Menu` alone, and builds its template from
  * the shared keymap. Faking `Menu.buildFromTemplate` to hand the template back
  * is enough to assert the labels and accelerators the user actually sees —
- * following the `vi.mock('electron', …)` pattern `browser-service.test.ts` and
- * `fs-write-handlers.test.ts` already use.
+ * following the `vi.mock('electron', …)` pattern `fs-write-handlers.test.ts`
+ * already uses.
  */
+const state = vi.hoisted(() => ({ isPackaged: false }));
+
 vi.mock('electron', () => ({
+  app: {
+    get isPackaged() {
+      return state.isPackaged;
+    },
+  },
   Menu: {
     buildFromTemplate: (template: MenuItemConstructorOptions[]) => template,
     setApplicationMenu: vi.fn(),
@@ -100,5 +107,38 @@ describe('the File menu', () => {
     const openRow = row(submenuOf('File'), 'Open Repository…');
     expect(openRow).toBeDefined();
     expect(openRow?.accelerator).toBeUndefined();
+  });
+});
+
+describe('the View menu DevTools row (Phase 91 Theme D)', () => {
+  const hasDevTools = (): boolean =>
+    submenuOf('View').some((item) => item.role === 'toggleDevTools');
+
+  it('is present in dev', () => {
+    state.isPackaged = false;
+    expect(hasDevTools()).toBe(true);
+  });
+
+  it('is absent when packaged', () => {
+    state.isPackaged = true;
+    try {
+      expect(hasDevTools()).toBe(false);
+    } finally {
+      state.isPackaged = false;
+    }
+  });
+});
+
+describe('the Help menu', () => {
+  /** Matched by role: a `role: 'help'` menu takes its title from the OS, so it carries no label. */
+  const help = (): Item[] => {
+    const template = buildMenu(() => null) as unknown as Item[];
+    return (template.find((entry) => entry.role === 'help')?.submenu ?? []) as Item[];
+  };
+
+  it('offers Report an Issue…, labelled from COMMANDS and with no native accelerator', () => {
+    const report = row(help(), 'Report an Issue…');
+    expect(report).toBeDefined();
+    expect(report?.accelerator).toBeUndefined();
   });
 });

@@ -11,14 +11,14 @@ End-to-end "execute a phase slice" for **Midnite Studio**.
 
 ## Respect
 - `CLAUDE.md` = conventions (package boundaries — `shared ◀ git-engine ◀ desktop`, `shared ◀ app`; commit style; pre-push gate). Re-read the relevant bits before coding. `docs/INITIAL_PLAN.md` is the design source of truth.
-- `.midnite/tasks/` = tracker: **`_INDEX.md` (the roll-up you scan first — phase status, progress, `🔄 WIP`/`◻ TODO` themes)**, `phase-N-*.md` (open checklist per phase), `done.md` (append-only, newest first), `open-decisions.md`, `outstanding.md`; rules in `.midnite/tasks/README.md`. Markers: `- [ ]` open · `- [x]`/`✅` done · `◐ PARTIAL` · `⏳ deferred` · `❌ OUT OF SCOPE`. Never pick `deferred`/`OUT OF SCOPE` unless told. `_INDEX.md` is the source of truth for what's claimed/in-flight — keep it current (Stages 2.7 + 10).
+- `.midnite/tasks/` = tracker: **`_INDEX.md` (the status-only table you scan first — phase status, progress, `🔄 WIP`/`◻ TODO` themes; no prose)**, `phase-N-*.md` (open checklist per phase, with its `## Headlines` narrative — one paragraph per theme — at the top), `done.md` (append-only, newest first), `open-decisions.md`, `outstanding.md`; rules in `.midnite/tasks/README.md`. Markers: `- [ ]` open · `- [x]`/`✅` done · `◐ PARTIAL` · `⏳ deferred` · `❌ OUT OF SCOPE`. Never pick `deferred`/`OUT OF SCOPE` unless told. `_INDEX.md` is the source of truth for what's claimed/in-flight — keep it current (Stages 2.7 + 10).
 - Parallel work → git worktrees in the repo-root **`.worktrees/<branch>/`** dir (git-ignored; **never** under `.git/` — that path gets pruned by parallel `git worktree` runs and Vite denies `.git/**`); keep the primary checkout (`/Users/bilolwabona/Dev/midnite-studio`) as home base.
 - **`.worktrees/` is outside `.git/`, so the full `moon run :test` runs fine inside the worktree** — no need to hop back to the primary checkout.
 
 ## 1 · Scan — two passes
-**Pass 1 — `_INDEX.md` only.** Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** and nothing else under `.midnite/tasks/`. No `phase-*.md`, no `done.md`, no `outstanding.md`, no `open-decisions.md`, no Glob of `phases/`, no subagent whose job is "read the phase docs". Status, Done/%, Progress, `🔄 WIP` / `◻ TODO` letters, and Theme-key one-liners are already in that file. `gh pr list --state open` is allowed (not a phase doc). Pick up to 4 candidate phases from those columns. Anything in `🔄 WIP` or with an open PR is already claimed — not a fresh candidate. Emit the digest from the index + Theme key alone.
+**Pass 1 — `_INDEX.md` only.** Read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** and nothing else under `.midnite/tasks/`. No `phase-*.md`, no `done.md`, no `outstanding.md`, no `open-decisions.md`, no Glob of `phases/`, no subagent whose job is "read the phase docs". Status, Done/%, Progress and the `🔄 WIP` / `◻ TODO` letters are already in its `## Phases` table — that table is the whole file, so scan it and nothing else (each phase's narrative lives in its own doc's `## Headlines`, which is Pass 2). `gh pr list --state open` is allowed (not a phase doc). Pick up to 4 candidate phases from those columns. Anything in `🔄 WIP` or with an open PR is already claimed — not a fresh candidate. Emit the digest from the table alone.
 
-**Pass 2 — only those candidates, after Pass 1 returns.** In a later turn (or a second tool batch once Pass 1's result is in context), open the matching `phases/phase-{N}-*.md` files — at most 4. That's where theme names, sizes, and unblocked-item detail live. Do not open any other phase file.
+**Pass 2 — only those candidates, after Pass 1 returns.** In a later turn (or a second tool batch once Pass 1's result is in context), open the matching `phases/phase-{N}-*.md` files — at most 4. That's where theme names, sizes, unblocked-item detail and the phase's `## Headlines` (what landed so far and why, one paragraph per theme) live. Do not open any other phase file.
 
 Do **not** fold Pass 2 into Pass 1 "to save a round" — that dumps nearby phase docs into context before the candidate set exists.
 
@@ -123,7 +123,7 @@ stage below checks it never got committed.
 - Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email — see [`CLAUDE.md`](../../../CLAUDE.md). `.githooks/commit-msg` strips them as a backstop.
 
 ## 5 · Screenshots — whenever the change is visual
-Capture **before/after with Playwright** against the Vite renderer (`moon run app:dev`, mocked bridge for pure-UI shots) or the real app via `moon run desktop:start`; `pnpm exec playwright install chromium` if the browser is missing. Save PNGs to a temp dir.
+Capture **before/after with Playwright** against the Vite renderer (`moon run app:dev`, mocked bridge for pure-UI shots) or the real app via `moon run desktop:start`; `pnpm exec playwright install chromium` if the browser is missing. Save PNGs to a temp dir. Shots are taken with the git repos side panel closed (the terminal likewise) unless the shot is about it: `e2e/shots-helper.ts`'s `installMockBridge` does this for `*-shots` specs, `{ reposOpen: true }` opts in.
 - **Always show them in this thread** when there's a visual change — read the PNGs so they render inline.
 - The same shots go into the PR body (Stage 7).
 
@@ -135,6 +135,11 @@ All green before pushing — never push red.
 
 ## 7 · Open the PR (draft) + report it
 - Push branch; `gh pr create --draft --base main`.
+- **Screenshots go in when the PR is created, not afterwards.** For any visual change, commit and
+  push the PNGs first, then run `gh pr create` with a body that already embeds them, so a reviewer
+  sees the change the moment the PR exists. Never open a visual PR without them and promise
+  images later. If a shot genuinely can't be captured (packaged-only, needs hardware), the body
+  says which one is missing and why.
 - **PR title:** for a single-theme batch, `<conventional-commit-title> [<size> · <time>]` as before. For a multi-theme batch, name the lead theme and note the rest: `<conventional-commit-title> + N more [<combined size> · <combined time>]`.
 - **PR body:** succinct *why* (not a wall of what) · **one link per phase doc + section** touched by the batch (anchor = lower-cased heading, spaces→`-`, punctuation stripped), each with its phase/item id · **embedded screenshots** for any visual change · the `🤖 Generated with [Claude Code]` trailer. To embed shots: commit the PNGs on the branch under `docs/screenshots/<slice>/` and reference them with **commit-pinned** raw URLs (`https://github.com/<owner>/<repo>/raw/<sha>/docs/screenshots/...`) so they survive a squash-merge + branch delete.
 - **Report in this thread when posted:** the PR URL · a 3–5 **bullet** summary of what was done · the line diff in a ` ```diff ` fenced block (`gh pr diff <n> --patch`, trimmed to the meaningful hunks) · the screenshots again if the change was visual.
@@ -147,10 +152,10 @@ Against, in order: fidelity to the phase doc/decisions → `CLAUDE.md` conventio
 
 ## 10 · Merge & wrap
 - **Update the trackers in the branch first, so the merge auto-publishes them** (don't wait to do this on `main` afterward). The batch spans one or more phases — repeat this for **every phase touched**, not just the first:
-  - **Phase doc** (`phase-<N>-*.md`), per phase in the batch: mark that phase's landed theme/items done (`✅ DONE (PR #<n>, <date>)`) and **move** the completed `- [ ]` items into `done.md` (today's date, per `.midnite/tasks/README.md`) — don't just tick in place.
+  - **Phase doc** (`phase-<N>-*.md`), per phase in the batch: mark that phase's landed theme/items done (`✅ DONE (PR #<n>, <date>)`) and **move** the completed `- [ ]` items into `done.md` (today's date, per `.midnite/tasks/README.md`) — don't just tick in place. Then update that theme's paragraph in the doc's **`## Headlines`** section (`**Theme X — <name>.** ✅ …`, near the top): flip its mark to `✅`, append the PR link, and write what actually landed and anything surprising — a few sentences in that theme's own paragraph, never in `_INDEX.md`. Then update that theme's paragraph in the doc's **`## Headlines`** section (`**Theme X — <name>.** ✅ …`, near the top): flip its mark to `✅`, append the PR link, and write what actually landed and anything surprising — a few sentences in that theme's own paragraph, never in `_INDEX.md`.
   - **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) — MANDATORY every merge, never skip it.** This is the roll-up the next loop scans; a theme that lands but doesn't move this file reads as "still 0%". For **each phase in the batch**, do all three:
     1. **Phases table row** for that phase: remove the just-landed theme letter(s) from the `🔄 WIP` column (the claim from 2.7); **recompute the numbers from the phase doc** — `Done` = `<count of - [x]/✅ items> / <total in-scope items>`, `%` = `round(100 × done / total)`, and **redraw the 10-cell `Progress` bar** (`█` × `round(done/total × 10)`, remainder `░`); flip **Status** to `✅ DONE` once **every** theme of that phase is done (else leave `🔄 WIP`).
-    2. **`## Theme key`** section: flip each landed theme's icon (`◻`/`🔄` → `✅`) and append the PR # to its one-liner.
+    2. **The row is the whole `_INDEX.md` edit.** No prose goes in the index — the landed theme's narrative, mark and PR link went into the phase doc's `## Headlines` above.
     3. **Verify before Stage 10's `gh pr ready`:** re-read every touched row and confirm its `Done`/`%`/bar **actually changed** for that phase — unchanged numbers mean you skipped this and the merge will look like no progress.
   - Commit these on the branch (`docs(todo): ...`) so the squash-merge lands docs + index + code together, for every phase at once.
 - If the branch is behind `main`, rebase it first: `git rebase origin/main` in the worktree, then force-push (`git push --force-with-lease`). If the tracker files conflict with another loop's merge, take both sides (keep every `done.md` entry; reconcile the `_INDEX.md` cells) — see the parallel-agent conflict gotchas in memory.
@@ -172,7 +177,7 @@ Against, in order: fidelity to the phase doc/decisions → `CLAUDE.md` conventio
   ```bash
   git checkout main && git pull origin main
   ```
-  Re-read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** and confirm **every phase touched by the batch** has its row (**Status** / `🔄 WIP` theme letters / `Done` / `%` / the 10-cell progress bar) and its `## Theme key` line **actually reflect the just-merged work**. If a race dropped, clobbered, or under-counted any of them, fix `_INDEX.md` **directly on `main`** and push:
+  Re-read **[`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md)** and confirm **every phase touched by the batch** has its row (**Status** / `🔄 WIP` theme letters / `Done` / `%` / the 10-cell progress bar) **actually reflect the just-merged work** (and that the phase doc's `## Headlines` paragraph for each landed theme is `✅` with its PR link). If a race dropped, clobbered, or under-counted any of them, fix `_INDEX.md` **directly on `main`** and push:
   ```bash
   git add .midnite/tasks/_INDEX.md
   git commit -m "docs(todo): sync _INDEX.md after PR #<n>"

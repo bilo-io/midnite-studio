@@ -1,131 +1,46 @@
-import { symlinkSync, unlinkSync, readlinkSync, mkdirSync, existsSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { app } from 'electron';
 import { CHANNELS } from '@midnite/studio-shared';
+import { createCliInstaller, onPathFields as runtimeOnPathFields } from '@midnite/studio-runtime';
 import { handleBare, handleOp } from './handle.js';
-import { preferredTargets, type CliInstallState } from '../cli-path.js';
+import { preferredTargets } from '../cli-path.js';
 import * as S from '@midnite/studio-shared';
 
-function getBundleBinPath(): string {
+/**
+ * The `midnite` CLI's IPC surface. The installer itself — ownership test,
+ * `midnite-studio` alias, foreign-binary refusal, notices — lives in the
+ * runtime (`createCliInstaller`, Phase 113 Theme D); this file only binds it
+ * to this app: its bundle's `bin/` directory, the real home directory and the
+ * login-shell PATH.
+ */
+
+/** Directory holding the bundled `midnite` script and the deprecated `midnite-studio` wrapper. */
+function getBundleBinDir(): string {
   if (app.isPackaged) {
-    return `${process.resourcesPath}/bin/midnite-studio`;
+    return `${process.resourcesPath}/bin`;
   }
-  return `${app.getAppPath()}/resources/bin/midnite-studio`;
+  return `${app.getAppPath()}/resources/bin`;
 }
 
-function getCliStatus(): CliInstallState {
-  const targets = preferredTargets(homedir());
+/** Built per call so the bundle dir and targets are read when asked, as before the move. */
+const installer = () =>
+  createCliInstaller({
+    bundleBinDir: getBundleBinDir(),
+    homeDir: homedir(),
+    path: process.env['PATH'],
+    preferredTargets,
+  });
 
-  for (const target of targets) {
-    if (existsSync(target)) {
-      try {
-        const resolved = readlinkSync(target);
-        const managed = resolved.includes('midnite-studio') || resolved.includes('Midnite Studio');
-        return {
-          installed: true,
-          path: target,
-          target,
-          managed,
-        };
-      } catch {
-        return {
-          installed: true,
-          path: target,
-          target,
-          managed: false,
-        };
-      }
-    }
-  }
-
-  return {
-    installed: false,
-    path: null,
-    target: null,
-    managed: false,
-  };
+/** `shell-path.ts` folds the login shell's PATH into `process.env` at boot, so the default is what a new terminal gets. */
+export function onPathFields(
+  target: string,
+  path: string | undefined = process.env['PATH'],
+): { onPath: boolean; pathExportLine: string | null } {
+  return runtimeOnPathFields(target, path);
 }
 
 export function registerCliHandlers(): void {
-  handleBare(CHANNELS.cliStatus, async () => {
-    return getCliStatus();
-  });
-
-  handleOp(CHANNELS.cliInstall, S.CliInstallRequest, async (req) => {
-    const home = homedir();
-    const targets = preferredTargets(home);
-    const bundleBin = getBundleBinPath();
-
-    const targetList: string[] = req.target === 'user' ? (targets[1] ? [targets[1]] : []) : targets;
-    let installedTarget: string | null = null;
-    let lastError: Error | null = null;
-
-    for (const target of targetList) {
-      if (!target) continue;
-      try {
-        const dir = dirname(target);
-        if (!existsSync(dir)) {
-          mkdirSync(dir, { recursive: true });
-        }
-        if (existsSync(target)) {
-          try {
-            const resolved = String(readlinkSync(target));
-            if (!resolved.includes('midnite-studio') && !resolved.includes('Midnite Studio')) {
-              throw new Error(`Target ${target} exists and is unmanaged`);
-            }
-            unlinkSync(target);
-          } catch (e: unknown) {
-            const err = e as Error;
-            if (err.message?.includes('unmanaged')) throw err;
-          }
-        }
-        symlinkSync(bundleBin, target);
-        installedTarget = target;
-        break;
-      } catch (err: unknown) {
-        lastError = err as Error;
-      }
-    }
-
-    if (!installedTarget) {
-      return {
-        ok: false,
-        kind: 'error',
-        message: lastError?.message ?? 'Failed to install CLI binary',
-      };
-    }
-
-    return {
-      ok: true,
-      value: getCliStatus(),
-    };
-  });
-
-  handleOp(CHANNELS.cliUninstall, S.CliUninstallRequest, async () => {
-    const status = getCliStatus();
-    if (!status.installed || !status.target) {
-      return { ok: true, value: getCliStatus() };
-    }
-
-    if (!status.managed) {
-      return {
-        ok: false,
-        kind: 'error',
-        message: 'CLI symlink is unmanaged and cannot be uninstalled automatically',
-      };
-    }
-
-    try {
-      unlinkSync(status.target);
-      return { ok: true, value: getCliStatus() };
-    } catch (err: unknown) {
-      const error = err as Error;
-      return {
-        ok: false,
-        kind: 'error',
-        message: error.message ?? 'Failed to uninstall CLI symlink',
-      };
-    }
-  });
+  handleBare(CHANNELS.cliStatus, async () => installer().status());
+  handleOp(CHANNELS.cliInstall, S.CliInstallRequest, async (req) => installer().install(req.target));
+  handleOp(CHANNELS.cliUninstall, S.CliUninstallRequest, async () => installer().uninstall());
 }

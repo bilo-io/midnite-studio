@@ -116,7 +116,7 @@ test('add to project menu', async ({ page }) => {
   await page.getByText(pull.title, { exact: true }).click();
   await expect(page.getByRole('region', { name: 'Pull request #214' })).toBeVisible();
   await page.waitForTimeout(800);
-  await page.getByRole('button', { name: 'Add to project', exact: true }).click();
+  await page.getByRole('button', { name: 'Add to tasks', exact: true }).click();
   await page.waitForTimeout(300);
   await page.screenshot({ path: shotPath(OUT, 'add-to-project-menu.png') });
 });

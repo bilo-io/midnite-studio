@@ -35,11 +35,13 @@ only to vagueness.
 ## Context you must respect
 
 - Phase plans live in **`.midnite/tasks/`** (not `docs/todo/`). [`.midnite/tasks/_INDEX.md`](../../../.midnite/tasks/_INDEX.md) is
-  the roll-up, [`.midnite/tasks/done.md`](../../../.midnite/tasks/done.md) is the append-only landed log,
+  the status-only roll-up (a table, no prose; each phase's narrative is the `## Headlines` section
+  at the top of its own doc), [`.midnite/tasks/done.md`](../../../.midnite/tasks/done.md) is the append-only landed log,
   [`.midnite/tasks/outstanding.md`](../../../.midnite/tasks/outstanding.md) is deferred scope.
   [`docs/INITIAL_PLAN.md`](../../../docs/INITIAL_PLAN.md) is the design source of truth.
 - **House style** (read the doc you are refining before changing a word of it): `# Phase N — Title`,
-  a framing prose section (builds-on + scope guardrails + effort-tag legend), `## Deliverables` split
+  a framing prose section (builds-on + scope guardrails + effort-tag legend), `## Headlines` (one
+  lead paragraph + one `**Theme X — Name.**` paragraph per theme), `## Deliverables` split
   into lettered `### A — Theme (S|M|L)` sections of `- [ ]` items, `## Files this phase touches`
   (a table), `## Verification`, `## Not in this phase`, `## Decisions / open questions`. Recent docs
   ([phase-25](../../../.midnite/tasks/phases/phase-25-search-everywhere.md),
@@ -78,7 +80,9 @@ Print a short table of the refineable phases only (not all 27):
 | 26 · Side by side… | ◻ TODO | 68 items, A–H | — | Theme D's virtualizer has no row-height rule yet |
 
 `Refined` is the current `xN` stamp (`—` if never refined). The last column must be a **real**
-observation from the index's theme-key one-liners, not filler.
+observation, not filler — from the row itself (open letters, %, `Refined`) or, for the handful of
+candidates shown, a read of just that doc's `## Headlines` section
+(`sed -n '/^## Headlines/,/^## [^H]/p' <doc>`); the index carries no per-theme prose any more.
 
 ## 🎯 Stage 2 — Pick the phase — STOP for the human
 
@@ -252,12 +256,12 @@ count — leaves every progress number wrong.
    **Then `git diff .midnite/tasks/_INDEX.md` and check every row has the same cell count** before going on —
    a mangled table is worse than no column. Set this phase's cell to `x1` (or `x2`, …), matching the
    doc's stamp exactly.
-3. **Theme key.** Rewrite the affected `- ◻ **X** — …` one-liners so they describe what the theme now
-   says; refresh the italic framing paragraph if the refinement changed the phase's shape. Icons do
-   not change.
-4. **Headline.** Update only if the refinement materially changed what the phase is. Usually it
-   doesn't — don't churn it.
-5. **Drift guard — run it, it must exit 0:**
+3. **Headlines — in the phase doc, not the index.** Rewrite the affected `**Theme X — …**`
+   paragraphs in the doc's own `## Headlines` so they describe what the theme now says. Touch its
+   lead paragraph only if the refinement materially changed what the phase is — usually it doesn't,
+   so don't churn it. Status marks do not change. **Nothing but this phase's row changes in
+   `_INDEX.md`.**
+4. **Drift guard — run it, it must exit 0:**
 
    ```bash
    moon run root:tracker-check

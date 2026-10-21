@@ -4,7 +4,7 @@ import { useForgePulls, useRemotes } from '../../services/queries';
 import { useActiveWorktree, useRepoStatus } from '../../services/use-status';
 import { useForgeSubscription } from '../../services/use-forge-subscription';
 import { useUiStore } from '../../store/ui-store';
-import { checksStatus, StatusPill } from '../forge/forge-status';
+import { checksStatus, StatusPill } from '@midnite/studio-feature-forge/renderer';
 
 /** Pure: the open PR whose head branch matches the checked-out branch, if any. */
 export function findPrForBranch(pulls: readonly ForgePull[], head: string | null): ForgePull | null {

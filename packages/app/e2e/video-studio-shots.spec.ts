@@ -30,7 +30,9 @@ async function openVideo(page: import('@playwright/test').Page, data: MockFixtur
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
   await expect(async () => {
-    await clickRailLink(page, 'Video');
+    // Phase 99 Theme A: Video Studio is Media's Video tab now.
+    await clickRailLink(page, 'Media');
+    await page.getByRole('tab', { name: 'Video' }).click();
     await expect(page.getByRole('heading', { name: 'Video' })).toBeVisible({ timeout: 500 });
   }).toPass({ timeout: 5000 });
 }

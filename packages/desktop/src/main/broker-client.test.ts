@@ -58,7 +58,7 @@ function fakeSpawner(start: () => void) {
 async function seedSession(socketPath: string, sessionId: string): Promise<void> {
   const raw = net.connect(socketPath);
   await new Promise<void>((resolve) => raw.once('connect', () => resolve()));
-  raw.write(encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.0.0', pid: process.pid }));
+  raw.write(encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.0.0', pid: process.pid, role: 'host' }));
   raw.write(encodeControl({ t: 'create', id: 2, sessionId, cwd: '/tmp', cols: 80, rows: 24, env: {} }));
   await tick(40);
   raw.destroy();

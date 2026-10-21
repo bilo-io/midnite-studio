@@ -83,6 +83,20 @@ instead of an email client. **No git command, no git-engine change.** **`package
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*[Phase 32](phase-32-browser-engine-and-tabs.md) built a browser; twenty-five `openExternal` call sites still open every PR, run and preview deploy in Safari. This is that phase's Themes H and I, lifted out and refined — they touch the rest of the app rather than the browser's own surface, and share no file with what 32 keeps. `browser-store`'s `originRepoId` argument, and the derived groups it feeds, have existed and been tested since 2026-08-30 with no production caller.*
+
+**Theme A — One entry point, and the setting that steers it.** ✅ (PR #200) — `openInMidnite(url, {originRepoId, target, background})`, a persisted `linkTarget` preference, and pure modifier resolution (`Shift` beats `Cmd`).
+
+**Theme B — Twenty-five call sites, routed.** ✅ (PR #223, PR #226) — 21 real call sites (`grep -rn "openExternal" packages/app/src`, not the doc's sizing count of 25) routed through `openInMidnite`/`openLinkFromEvent` — markdown, Reviews, Actions, the repos sidebar, the dashboard, forge detail, the video studio pane — each passing `originRepoId` where the surface knows its repo, so tabs group themselves. The one call site PR #223 left, `terminal-view.tsx` (`packages/app/src/features/terminal/**` was a live workstream when that PR was built), landed in PR #226 once the directory was free.
+
+**Theme C — The dev server, detected but never assumed.** ✅ (PR #200) — Dev-server detection: `package.json` script parsing plus a loopback, port-validated probe channel; a hint, never a navigation. Plus the viewport preset persisted per tab.
+
+**Theme D — Preview deployments, found and offered.** ✅ (PR #226) — Preview deploys: `matchPreviewDeploy` rebuilt around a settable host allowlist (`browser-store`, edited from Browser settings) and fixture-backed tests; an Open-preview affordance in Reviews, sourced from the PR body plus cached comments. The doc's own proposed "new optional `url` on the check-run schema" turned out to already exist (`ForgeJob.url`) — see the phase doc's own note on the audit.
+
+**Theme E — Verification.** 🔄 (PR #254, PR #261) — Verification: closing the doc's own checklist against A–D. PR #254 found one case that could not pass against `e2e/mock-bridge.ts`'s single hardcoded repo (the cross-repo derived-group proof); PR #261 gave the mock bridge `extraRepos` and `forge.pullsByRepo` so the case now runs for real. Two human-only passes remain.
+
 ## Deliverables
 
 ### A — One entry point, and the setting that steers it (M) ✅ DONE (PR #200, 2026-09-06)

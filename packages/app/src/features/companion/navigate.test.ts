@@ -15,7 +15,8 @@ const mocks = vi.hoisted(() => ({
   onRelayedHandler: null as ((message: unknown) => void) | null,
 }));
 
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () =>
     ({
       windowRole: mocks.windowRole,
@@ -32,10 +33,10 @@ vi.mock('../../services/bridge', () => ({
     }) as unknown,
 }));
 
-import { navigateCompanion, resolveNavigation, type NavigationState } from './navigate';
-import { useBrowserStore } from '../../store/browser-store';
+import { handleCompanionRelayAction, navigateCompanion, resolveNavigation, type NavigationState } from './navigate';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useFileEditorStore } from '../../store/file-editor-store';
-import { useIssuesStore } from '../../store/issues-store';
+import { useIssueModalStore } from '../../store/issue-modal-store';
 import { useUiStore } from '../../store/ui-store';
 
 const navigate = (
@@ -54,6 +55,7 @@ const baseState: NavigationState = {
     'apps-spotify': false,
     'apps-google-calendar': false,
     'apps-youtube': false,
+    game: false,
   },
   locked: false,
   repoId: 'r1',
@@ -80,7 +82,7 @@ describe('resolveNavigation — one case per branch', () => {
 
   it('refuses an issue target with no repo open', () => {
     expect(
-      resolveNavigation(navigate({ view: 'issues', issue: 212 }), { ...baseState, repoId: null }),
+      resolveNavigation(navigate({ view: 'tasks', issue: 212 }), { ...baseState, repoId: null }),
     ).toEqual({ kind: 'refused', reason: 'unknown-issue-repo' });
   });
 
@@ -101,7 +103,7 @@ describe('resolveNavigation — one case per branch', () => {
   it('focuses an already-detached page rather than opening a second copy', () => {
     expect(
       resolveNavigation(navigate({ view: 'graph' }), { ...baseState, detachedPages: ['graph'] }),
-    ).toEqual({ kind: 'focus-window', role: 'graph', title: 'Graph' });
+    ).toEqual({ kind: 'focus-window', role: 'graph', title: 'Timeline' });
   });
 
   it('resolves an ordinary view, with its optional page/issue riding along', () => {
@@ -114,9 +116,9 @@ describe('resolveNavigation — one case per branch', () => {
       view: 'settings',
       page: 'companion',
     });
-    expect(resolveNavigation(navigate({ view: 'issues', issue: 212 }), baseState)).toEqual({
+    expect(resolveNavigation(navigate({ view: 'tasks', issue: 212 }), baseState)).toEqual({
       kind: 'view',
-      view: 'issues',
+      view: 'tasks',
       issue: 212,
     });
   });
@@ -154,13 +156,13 @@ describe('navigateCompanion', () => {
   it('changes the view and says "here\'s the X"', async () => {
     const outcome = await navigateCompanion(navigate({ view: 'graph' }));
     expect(useUiStore.getState().activeView).toBe('graph');
-    expect(outcome.say).toBe('Here\'s the Commit Graph.');
+    expect(outcome.say).toBe('Here\'s the Commit Timeline.');
   });
 
   it('says "you\'re already on" rather than "here\'s" for a view that did not change', async () => {
     useUiStore.setState({ activeView: 'graph' });
     const outcome = await navigateCompanion(navigate({ view: 'graph' }));
-    expect(outcome.say).toBe("You're already on the Commit Graph.");
+    expect(outcome.say).toBe("You're already on the Commit Timeline.");
   });
 
   it('navigates to a settings page and names it', async () => {
@@ -170,11 +172,11 @@ describe('navigateCompanion', () => {
     expect(outcome.say).toBe('Settings — Companion.');
   });
 
-  it('selects the issue when a repo is open', async () => {
-    const outcome = await navigateCompanion(navigate({ view: 'issues', issue: 212 }));
-    expect(useUiStore.getState().activeView).toBe('issues');
-    expect(useIssuesStore.getState().selectedIssue['r1']).toBe(212);
-    expect(outcome.say).toBe('Here\'s the Issues.');
+  it('opens the issue modal over Tasks when a repo is open', async () => {
+    const outcome = await navigateCompanion(navigate({ view: 'tasks', issue: 212 }));
+    expect(useUiStore.getState().activeView).toBe('tasks');
+    expect(useIssueModalStore.getState().target).toEqual({ repoId: 'r1', number: 212 });
+    expect(outcome.say).toBe("Here's issue 212.");
   });
 
   it('focuses an already-detached page instead of opening a second copy', async () => {
@@ -183,7 +185,7 @@ describe('navigateCompanion', () => {
     expect(mocks.focusRole).toHaveBeenCalledWith({ role: 'graph' });
     // No second copy: the main window's own active view is untouched.
     expect(useUiStore.getState().activeView).toBe('dashboard');
-    expect(outcome.say).toBe('The Graph is in its own window — bringing it forward.');
+    expect(outcome.say).toBe('The Timeline is in its own window — bringing it forward.');
   });
 
   it('refuses while the screen is locked', async () => {
@@ -229,7 +231,7 @@ describe('navigateCompanion', () => {
       queueMicrotask(() =>
         mocks.onRelayedHandler?.({
           kind: 'companion',
-          payload: { result: { ok: true, say: "Here's the Commit Graph." }, replyTo: message.payload.replyTo },
+          payload: { result: { ok: true, say: "Here's the Commit Timeline." }, replyTo: message.payload.replyTo },
         }),
       );
     });
@@ -239,7 +241,7 @@ describe('navigateCompanion', () => {
     const sent = mocks.relay.mock.calls[0]?.[0];
     expect(sent).toMatchObject({ kind: 'companion' });
     expect(sent.payload.action).toEqual({ kind: 'navigate', view: 'graph' });
-    expect(outcome.say).toBe("Here's the Commit Graph.");
+    expect(outcome.say).toBe("Here's the Commit Timeline.");
     // Never touched this (popout) renderer's own store.
     expect(useUiStore.getState().activeView).toBe('dashboard');
   });
@@ -252,5 +254,29 @@ describe('navigateCompanion', () => {
     const outcome = await promise;
     expect(outcome.say).toBe('The main window did not answer.');
     vi.useRealTimers();
+  });
+});
+
+describe('navigate { target } (Phase 112 Theme B)', () => {
+  beforeEach(() => {
+    mocks.windowRole = 'main';
+    mocks.relay.mockClear();
+    useUiStore.setState({ activeView: 'dashboard', detachedPages: [], screensaverLocked: false, selectedRepoId: 'r1' });
+    useFileEditorStore.setState({ target: null, content: '', savedContent: '', pendingNav: null });
+  });
+
+  it('goes through the reveal engine and speaks its sentence', async () => {
+    const outcome = await navigateCompanion(navigate({ target: { kind: 'note', id: 'n1' } }));
+    expect(useUiStore.getState().activeView).toBe('notes');
+    expect(outcome.say).toBe("I couldn't find that note.");
+  });
+
+  it('answers a relayed reveal with its real outcome and reason', async () => {
+    handleCompanionRelayAction({ kind: 'navigate', target: { kind: 'note', id: 'n1' } }, 'reply-1');
+    await vi.waitFor(() => expect(mocks.relay).toHaveBeenCalled());
+    expect(mocks.relay.mock.calls[0]?.[0]).toMatchObject({
+      kind: 'companion',
+      payload: { replyTo: 'reply-1', result: { ok: false, reason: 'not-found' } },
+    });
   });
 });

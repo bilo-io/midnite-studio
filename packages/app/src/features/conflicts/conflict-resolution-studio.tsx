@@ -5,8 +5,7 @@ import type { ConflictHunkSide, ConflictRegion, ConflictSide } from '@midnite/st
 
 import { IconButton } from '../../components/icon-button';
 import { useConflictApplyHunk, useConflictResolveWholeFile } from '../../services/use-status';
-import { councilIdOf, useCouncilsHistory } from '../councils/councils-history-store';
-import { useCouncils } from '../councils/use-council';
+import { councilIdOf, useCouncils, useCouncilsHistory } from '@midnite/studio-feature-councils/renderer';
 import { composeSuggestionPrompt } from './compose-suggestion-prompt';
 import { flattenConflictHunks } from './flatten-conflict-hunks';
 import { SuggestResolutionPanel } from './suggest-resolution-panel';

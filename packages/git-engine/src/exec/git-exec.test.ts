@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { GitExecError, execGit, resolveMainWorktree, resolveRepoRoot } from './git-exec';
+import { GitExecError, buildEnv, execGit, resolveMainWorktree, resolveRepoRoot } from './git-exec';
 
 describe('execGit', () => {
   it('reports a missing working directory as a failed result, not a rejection', async () => {
@@ -39,5 +39,13 @@ describe('execGit', () => {
       execGit(dir, ['rev-parse', '--show-toplevel'], { throwOnError: true }),
     ).rejects.toBeInstanceOf(GitExecError);
     await rm(dir, { recursive: true, force: true });
+  });
+});
+
+describe('transport hardening (Phase 91 Theme C)', () => {
+  it.each([[false], [true]])('write=%s refuses user-initiated protocols such as ext::', (write) => {
+    const env = buildEnv({ write });
+    expect(env.GIT_PROTOCOL_FROM_USER).toBe('0');
+    expect(env.GIT_ALLOW_PROTOCOL).toBe('file:git:ssh:http:https');
   });
 });

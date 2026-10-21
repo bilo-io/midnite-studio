@@ -7,6 +7,20 @@ picker (it is a `<Placeholder>` today).
 Reference: the four-way comparison screenshot (git-graph · GitExtensions · Sourcetree, with
 the ASCII `git log` variant dropped) plus a GitKraken capture.
 
+## Headlines
+
+*Four selectable graph styles, avatars in the commit bubble, and the Settings view to hold the picker. A is the spine — B/C/D all render through it.*
+
+**Theme A — Theme descriptor + four styles.** ✅ `GraphTheme` descriptor + four styles; theme-driven `graph-svg`
+
+**Theme B — Avatars in the node.** ✅ Gravatar avatars in the node, generated fallback; Author column deleted
+
+**Theme C — BRANCH / TAG column (all styles).** ✅ dedicated BRANCH / TAG column, `graphColumns` migration
+
+**Theme D — Author filter.** ✅ author filter (dim, never remove); shared multi-select menu
+
+**Theme E — Settings view.** ✅ Settings view + live style picker, plus the shell's appearance runtime
+
 ## Deliverables
 
 ### A — Theme descriptor + four styles

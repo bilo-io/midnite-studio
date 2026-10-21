@@ -25,6 +25,22 @@ is a macOS path, matching this app's own stated scope
 target"*). Windows/Linux equivalents of every cache here exist and are a real gap, not an oversight
 — see Decision 7, the one decision below that stays **Open**.
 
+## Headlines
+
+*[Phase 72](phase-72-every-build-systems-leftovers.md) widened the scanner inside the repo roots the app already manages; this phase is everything Phase 72's own "Not in this phase" section named outside that boundary — `~/.cargo`, `~/.gradle`, `~/.m2`, `~/.nuget`, Go's build and module caches, Xcode DerivedData, Homebrew, pip, npm/pnpm/yarn — plus the vendor commands (`brew cleanup`, `go clean -cache`, `pnpm store prune`) that reclaim some of them more surgically than a delete. `knownRoots()` cannot simply widen to cover this: it is a registry of repo paths the user opened, not a confinement mechanism, so this phase adds a second, allowlist-only confinement primitive that accepts only an exact match against a fixed, hand-written registry — never a path prefix, never a user-picked root. Gated behind a three-factor consent (the existing Optimizer toggle, a new checkbox, and a one-time acknowledgment dialog) beyond anything else in the app. Media caches (Plex) and emptying the Trash are explicitly deferred to [Phase 74](phase-74-media-caches-and-the-trash.md) — a different trust problem each.*
+
+**Theme A — The system cache registry and its own confinement primitive.** ✅ (PR #191) — A hand-written system cache registry (Cargo, Go, Gradle, Maven, .NET, Xcode, CocoaPods, pip, npm/pnpm/yarn, Homebrew) and `confineAllowlist`, an exact-match-only confinement primitive that never touches `knownRoots()`.
+
+**Theme B — A parallel wire contract, never merged with the repo-scoped one.** ✅ (PR #191) — A wire contract deliberately kept separate from the repo-scoped `ScanItem`/`ScanResult` family, five own IPC channels (including a catalogue read the consent dialog derives its copy from), and per-entry walk budgets that make an under-report visible rather than silent.
+
+**Theme C — A stronger consent gate than a checkbox.** ✅ (PR #191) — A three-factor consent gate: the existing Optimizer toggle, a new checkbox, and a one-time acknowledgment dialog naming exactly what gets unlocked.
+
+**Theme D — Vendor reclaim commands, run through the existing trusted-spawn primitive.** ✅ (PR #193) — `DEFAULT_RECLAIM_COMMANDS` (`brew cleanup -s`, `go clean -cache`, `go clean -modcache`, `pnpm store prune`) run through the existing no-shell `runProcess` primitive via `runReclaimCommand`, wired to `optimizerSystemReclaim` — never a renderer-supplied command, a non-zero exit always maps to `{ok:false}`.
+
+**Theme E — UI: a System section that never looks like "your project's stuff".** ✅ (PR #193 + PR #196 + PR #203) — A gated "System" section inside the existing Storage tab with its own empty/loading/error/approximate states, a distinct-accent banner, and a third `blastRadiusKind`. PR #193 landed everything except two items blocked on [Phase 72](phase-72-every-build-systems-leftovers.md) Theme D's generic `SegmentedBar`; Theme D landed in PR #196, which also closed these two out — the section now renders `label="System caches by ecosystem"`, and the `'go'` `ECOSYSTEM_HUES`/`ECOSYSTEM_LABELS` entries were already satisfied by construction (Theme D's exhaustive maps). PR #203 re-shot the Storage-tab and System-caches screenshots against the now-barred section.
+
+**Theme F — Verification.** ✅ (PR #193) — Verification: `confine-allowlist.test.ts`/`system-cache-registry.test.ts` already covered the confinement primitive's refusal cases from A; this PR adds `reclaim-commands.test.ts`, an `ipc.test.ts` "covers every optimizer channel" block, the four new IPC handlers' own tests, and Storage tab gating/five-state coverage. Two human-only real-machine passes stay open (a real-tool-installed scan, and the by-hand symlink case).
+
 ## The core design problem
 
 **`knownRoots()` is not a confinement mechanism that can be widened — it is a registry, and the

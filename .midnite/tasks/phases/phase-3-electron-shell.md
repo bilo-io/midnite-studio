@@ -7,6 +7,10 @@ Crib: `~/Dev/midnite/packages/desktop/src/main/{window-chrome,shell-path}.ts` an
 model the Vite host on `~/Dev/midnite-ui/packages/docs/src/app.tsx`; copy the token→color map
 from `~/Dev/midnite-ui/packages/docs/tailwind.config.ts`.
 
+## Headlines
+
+**Theme A.** ✅ frameless window, AppFrame/TitleBar/theme on @bilo-io/ui+shell, preload windowChrome bridge
+
 ## Deliverables
 
 - [x] `desktop/src/main/index.ts` — single-instance lock, `contextIsolation: true`, `titleBarStyle: 'hidden'` (+ trafficLightPosition), `additionalArguments: ['--window-frameless']`; dev loads `http://localhost:5173`, prod loads `app/dist/index.html`

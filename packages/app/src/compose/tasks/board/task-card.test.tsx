@@ -1,0 +1,455 @@
+import type { ForgeProjectField, ForgeProjectItem } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, EMPTY_ISSUE_LINK_SET } from '@midnite/studio-shared';
+import { cleanup, fireEvent, render, screen } from '../../../../test-support/tasks-render';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { DialogHost } from '../../../components/dialog-host';
+import { useUiStore } from '../../../store/ui-store';
+import { useTerminalStore } from '../../../features/terminal/terminal-store';
+import { statusStroke } from '@midnite/studio-feature-tasks/renderer/testing';
+import { TaskCard } from '@midnite/studio-feature-tasks/renderer/testing';
+
+afterEach(cleanup);
+
+/** `useCardPlay` (Theme A/D) reaches `useDialogs()` unconditionally, so
+ *  every render needs the host it expects in the real app tree. */
+function renderCard(ui: ReactElement) {
+  return render(<DialogHost>{ui}</DialogHost>);
+}
+
+const priorityField: ForgeProjectField = { id: 'f-priority', name: 'Priority', dataType: 'text' };
+
+const issue: ForgeProjectItem = {
+  id: 'item1',
+  content: {
+    type: 'issue',
+    id: 'I_1',
+    number: 42,
+    repo: '',
+    title: 'Fix the flaky test',
+    url: 'https://github.com/acme/widgets/issues/42',
+    state: 'open',
+    assignees: ['octocat'],
+    body: '',
+    labels: [],
+    dependencies: EMPTY_ISSUE_LINK_SET,
+    linkedPrs: [],
+  },
+  fieldValues: { 'f-priority': { fieldId: 'f-priority', dataType: 'text', text: 'High' } },
+};
+
+const draft: ForgeProjectItem = {
+  id: 'item2',
+  content: { type: 'draft', id: 'DI_1', title: 'Write the design doc', assignees: [], body: '' },
+  fieldValues: {},
+};
+
+describe('TaskCard', () => {
+  it('renders the title, and the issue number linked to github.com', () => {
+    renderCard(<TaskCard item={issue} fields={[priorityField]} />);
+
+    expect(screen.getByText('Fix the flaky test')).toBeDefined();
+    const link = screen.getByText('#42').closest('a');
+    expect(link?.getAttribute('href')).toBe('https://github.com/acme/widgets/issues/42');
+  });
+
+  it('a draft item has no number and no link — never a dead one', () => {
+    renderCard(<TaskCard item={draft} fields={[]} />);
+
+    expect(screen.getByText('Write the design doc')).toBeDefined();
+    expect(screen.queryByText(/^#/)).toBeNull();
+  });
+
+  it('renders an avatar per assignee, by GitHub login', () => {
+    renderCard(<TaskCard item={issue} fields={[]} />);
+
+    const avatar = screen.getByAltText('octocat') as HTMLImageElement;
+    expect(avatar.src).toContain('github.com/octocat.png');
+  });
+
+  it('renders a chip for each field with a value, skipping empty ones', () => {
+    const emptyField: ForgeProjectField = { id: 'f-empty', name: 'Empty', dataType: 'text' };
+    renderCard(<TaskCard item={issue} fields={[priorityField, emptyField]} />);
+
+    expect(screen.getByText('High')).toBeDefined();
+  });
+
+  it('calls onClick when the card is clicked', () => {
+    const onClick = vi.fn();
+    renderCard(<TaskCard item={issue} fields={[]} onClick={onClick} />);
+
+    fireEvent.click(screen.getByText('Fix the flaky test'));
+
+    expect(onClick).toHaveBeenCalled();
+  });
+
+  describe('the status border', () => {
+    beforeEach(() => {
+      useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+    });
+
+    it('an In Review card: a thicker border in its colour, dashed and marching', () => {
+      const stroke = statusStroke('In Review', 'PURPLE');
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusColor="#ff0000" statusStroke={stroke} />,
+      );
+      const card = container.querySelector('[data-card-id]') as HTMLElement;
+      expect(card.dataset.statusKind).toBe('inReview');
+      expect(card.className).toContain('border-2');
+      expect(card.className).toContain('border-transparent');
+      // The status stroke replaces the column-colour ring.
+      expect(card.style.borderColor).toBe('');
+      const rect = container.querySelector('[data-status-border] rect') as SVGRectElement;
+      expect(rect.getAttribute('stroke')).toBe(stroke.color);
+      expect(rect.getAttribute('stroke-dasharray')).toBe(stroke.dashArray);
+      expect(rect.getAttribute('class')).toContain('status-stroke-animated');
+    });
+
+    it('a Done card: solid and still', () => {
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={statusStroke('Done', 'GREEN')} />,
+      );
+      const rect = container.querySelector('[data-status-border] rect') as SVGRectElement;
+      expect(rect.getAttribute('stroke-dasharray')).toBeNull();
+      expect(rect.getAttribute('class')).not.toContain('status-stroke-animated');
+    });
+
+    it('a blocked card: its status colour and dash, held still and faded', () => {
+      const stroke = statusStroke('In Review', 'PURPLE', true);
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={stroke} />,
+      );
+      const card = container.querySelector('[data-card-id]') as HTMLElement;
+      expect(card.hasAttribute('data-blocked')).toBe(true);
+      const rect = container.querySelector('[data-status-border] rect') as SVGRectElement;
+      expect(rect.getAttribute('stroke')).toBe(stroke.color);
+      expect(rect.getAttribute('stroke-dasharray')).toBe(stroke.dashArray);
+      expect(rect.getAttribute('stroke-opacity')).toBe('0.55');
+      expect(rect.getAttribute('class')).not.toContain('status-stroke-animated');
+    });
+
+    it('pauses the march while the card is off-screen', () => {
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={statusStroke('Todo', 'GRAY')} />,
+      );
+      // jsdom has no IntersectionObserver, so the card counts as off-screen.
+      expect(container.querySelector('[data-status-border]')?.hasAttribute('data-offscreen')).toBe(true);
+    });
+
+    it('a live glow wins over the status border', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      const { container } = renderCard(
+        <TaskCard item={issue} fields={[]} projectId="proj1" statusStroke={statusStroke('Todo', 'GRAY')} />,
+      );
+      expect(container.querySelector('.agent-run-glow.task-glow')).not.toBeNull();
+      expect(container.querySelector('[data-status-border]')).toBeNull();
+      // jsdom has no IntersectionObserver, so the card counts as off-screen,
+      // which is what pauses the glow's spin and bloom.
+      expect(container.querySelector('.task-glow')?.hasAttribute('data-offscreen')).toBe(true);
+    });
+
+    it('no status: the plain border and column ring, as before', () => {
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" statusColor="#ff0000" />);
+      const card = container.querySelector('[data-card-id]') as HTMLElement;
+      expect(container.querySelector('[data-status-border]')).toBeNull();
+      expect(card.className).toContain('border-border');
+      expect(card.style.borderColor).toBe('rgb(255, 0, 0)');
+    });
+  });
+
+  describe('the running glow (Theme F)', () => {
+    beforeEach(() => {
+      useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+    });
+
+    it('no glow class with no projectId — a card with no board context stays plain', () => {
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} />);
+      expect(container.querySelector('.agent-run-glow')).toBeNull();
+    });
+
+    it('no glow class with a projectId but no bound session', () => {
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      expect(container.querySelector('.agent-run-glow')).toBeNull();
+    });
+
+    it('pulses running once a kanban session is bound to this card', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const card = container.querySelector('.agent-run-glow');
+      expect(card).not.toBeNull();
+      expect(card?.className).toContain('is-running');
+    });
+
+    it("its agent avatar is the terminal list's, in the agent's brand colour", () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const badge = container.querySelector('[data-testid="activity-badge"]') as HTMLElement;
+      expect(badge.querySelector('[data-agent-avatar="claude"]')).not.toBeNull();
+      const ring = badge.querySelector('[data-testid="session-icon-glow"]') as HTMLElement;
+      expect(ring.classList.contains('terminal-agent-glow')).toBe(true);
+      expect(ring.style.getPropertyValue('--agent-accent')).toBe(
+        BUILTIN_AGENTS.find((agent) => agent.id === 'claude')!.accent,
+      );
+    });
+
+    it('no glow for an open pane with no session ever launched — plain browsing, not a left-open terminal', () => {
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
+      expect(container.querySelector('.agent-run-glow')).toBeNull();
+    });
+
+    it('a session bound to this card, ended, with the detail pane open: a static ring', () => {
+      const session = useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      useTerminalStore.getState().setState(session.id, 'exited');
+
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" isOpen />);
+      const card = container.querySelector('.agent-run-glow');
+      expect(card?.className).toContain('is-open');
+    });
+
+    /*
+      The colour used to come from `loopGlowColor(agentId)` through a
+      `--card-glow-color` custom property — but that table is keyed by LOOP
+      id, and `claude` is an AGENT id, so every card resolved to its
+      `currentColor` fallback and glowed in the card's own text colour. The
+      ramp replaced it, and the ramp is pure CSS: no inline custom property
+      at all is the assertion, because a stray one would mean someone
+      reintroduced the per-agent colour without touching the stylesheet.
+    */
+    it('sets no inline glow colour — the ring is the rotating rainbow ramp, from CSS alone', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      const { container } = renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const card = container.querySelector('.agent-run-glow') as HTMLElement;
+      expect(card.style.getPropertyValue('--card-glow-color')).toBe('');
+      expect(card.getAttribute('style')).toBeNull();
+    });
+  });
+
+  describe('the play agent / reveal terminal button', () => {
+    beforeEach(() => {
+      useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+      useUiStore.setState({ terminalOpen: false, terminalListOpen: false, cardSkillByTask: {} });
+    });
+
+    it('shows "Start agent" title and aria-label on a card with no session', () => {
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      const btn = screen.getByTestId('card-play-agent');
+      expect(btn).toBeDefined();
+      expect(btn.getAttribute('title')).toBe('Start agent');
+      expect(btn.getAttribute('aria-label')).toBe('Start agent');
+    });
+
+    it('shows Stop and a `>_` toggle instead of Start once a session is bound (Theme G)', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+
+      expect(screen.queryByTestId('card-play-agent')).toBeNull();
+      const stopBtn = screen.getByTestId('card-stop-agent');
+      expect(stopBtn.getAttribute('title')).toBe('Stop agent');
+      const toggleBtn = screen.getByTestId('card-terminal-toggle');
+      expect(toggleBtn.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('the `>_` toggle hides the card\'s own embedded terminal (Theme G)', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      // No IntersectionObserver in jsdom, so `CardTerminal` renders its
+      // off-screen fallback — the "Running" activity line — when open,
+      // exactly as `the in-card terminal (Theme E)`'s own suite already
+      // asserts for the default-open case.
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      expect(screen.getByText('Running')).toBeDefined();
+
+      fireEvent.click(screen.getByTestId('card-terminal-toggle'));
+
+      expect(screen.getByTestId('card-terminal-toggle').getAttribute('aria-pressed')).toBe('false');
+      expect(screen.queryByText('Running')).toBeNull();
+    });
+
+    it('Stop closes the session, confirming first when it is still live', () => {
+      const session = useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      useTerminalStore.getState().setState(session.id, 'open');
+
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      fireEvent.click(screen.getByTestId('card-stop-agent'));
+
+      // No foreground command recorded for this session, so
+      // `closeSessionWithConfirm` closes it directly with no dialog.
+      expect(useTerminalStore.getState().sessions.find((s) => s.id === session.id)).toBeUndefined();
+    });
+
+    it('does not also open the detail pane — the click stops at the button', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      const onClick = vi.fn();
+
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
+      fireEvent.click(screen.getByTestId('card-stop-agent'));
+
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it('starts an agent session directly when a skill is already set for this card (Theme D)', () => {
+      useUiStore.setState({ cardSkillByTask: { 'proj1:item1': 'execAdhoc' } });
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      fireEvent.click(screen.getByTestId('card-play-agent'));
+
+      expect(useTerminalStore.getState().sessions.length).toBe(1);
+      expect(useUiStore.getState().terminalOpen).toBe(true);
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+
+    it("launches the picker's default directly when no skill is set — no fallback menu", () => {
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      fireEvent.click(screen.getByTestId('card-play-agent'));
+
+      expect(screen.queryByRole('menu')).toBeNull();
+      const sessions = useTerminalStore.getState().sessions;
+      expect(sessions.length).toBe(1);
+      expect(useTerminalStore.getState().pendingInput[sessions[0]!.id]).toContain('/midnite-create-adhoc');
+      expect(useUiStore.getState().terminalOpen).toBe(true);
+    });
+  });
+
+  describe('the in-card terminal (Theme E)', () => {
+    beforeEach(() => {
+      useTerminalStore.setState({ sessions: [], activeId: null, states: {}, activity: {} });
+    });
+
+    // jsdom has no `IntersectionObserver` (unstubbed in this file), so every
+    // card here behaves exactly as an off-screen one does for real — the
+    // free, mount-independent fallback is the one thing that can be asserted
+    // without a real browser. The visible/mounted path is
+    // `card-terminal.test.tsx`'s job.
+    it('renders the activity line for a running session, not the terminal, with no IntersectionObserver', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+
+      expect(screen.getByText('Running')).toBeDefined();
+    });
+
+    it('clicking the activity line still opens the card — it is a status pill, not a terminal', () => {
+      useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      const onClick = vi.fn();
+
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" onClick={onClick} />);
+      fireEvent.click(screen.getByText('Running'));
+
+      expect(onClick).toHaveBeenCalled();
+    });
+
+    it('renders neither for a card with no session', () => {
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+      expect(screen.queryByText('Running')).toBeNull();
+    });
+
+    it('renders neither once the session has ended', () => {
+      const session = useTerminalStore.getState().openSession({
+        kind: 'agent',
+        agentId: 'claude',
+        title: 'card',
+        cwd: '/repo',
+        repoId: 'r1',
+        surface: 'kanban',
+        taskRef: { projectId: 'proj1', itemId: issue.id },
+      });
+      useTerminalStore.getState().setState(session.id, 'exited');
+
+      renderCard(<TaskCard item={issue} fields={[]} projectId="proj1" />);
+
+      expect(screen.queryByText('Running')).toBeNull();
+    });
+  });
+});

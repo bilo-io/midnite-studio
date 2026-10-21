@@ -4,14 +4,17 @@ import { KNOWN_ORPHANS, PREFERENCE_KEYS, SESSION_STATE_KEYS } from './persisted-
 import { useUiStore } from './ui-store';
 
 /**
- * Every non-test `.ts`/`.tsx` source file under `features/settings/`, as text.
+ * Every non-test `.ts`/`.tsx` source file under `features/settings/`, as text —
+ * plus the settings pages feature packages contribute (Phase 113 Theme C:
+ * Settings ▸ Workspace Optimizer and Trash Safety moved to
+ * `packages/features/optimizer/renderer/settings/`).
  *
  * `import.meta.glob` (Vite, not `node:fs`) — the same instrument
  * `icon-names.test.ts` uses, and for the same reason: the renderer's own
  * eslint boundary forbids node builtins under `src/`, `.test.ts` files
  * included.
  */
-const SETTINGS_SOURCES = import.meta.glob('../features/settings/**/*.{ts,tsx}', {
+const SETTINGS_SOURCES = import.meta.glob(['../features/settings/**/*.{ts,tsx}', '../../../features/*/renderer/settings/**/*.{ts,tsx}'], {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -79,6 +82,8 @@ describe('persisted-keys partition', () => {
         'loopModels',
         'loopSchedules',
         'loopEnabled',
+        'loopModifierSkills',
+        'loopRunOptions',
         // Phase 64's `editor*` preferences, orphaned by a sibling PR (#164)
         // that landed mid-flight — not this phase's scope to build.
         'editorFontFamily',
@@ -89,9 +94,9 @@ describe('persisted-keys partition', () => {
         // Phase 79 Theme A's five `companion*` preferences sat here for
         // exactly one phase slice and are gone: Theme H built
         // `companion-page.tsx`, which is what leaving this list is supposed to
-        // look like. Phase 83 Theme A's `enabledApps` sat here the same way,
+        // look like. Phase 83 Theme A's `enabledWebApps` sat here the same way,
         // for exactly one phase slice, and is gone the same way: Theme E
-        // built `apps-page.tsx`.
+        // built `web-apps-page.tsx`.
         // Phase 89 Theme A's own: `rendererVariant` has a real control (the
         // Knowledge view's pill bar) but no settings page.
         'rendererVariant',

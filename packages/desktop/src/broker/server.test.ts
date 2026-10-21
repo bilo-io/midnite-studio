@@ -228,7 +228,7 @@ describe('broker server', () => {
     await new Promise((r) => setTimeout(r, 20));
 
     const { frames, socket } = await connectAndSend(socketPath, [
-      encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+      encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' }),
     ]);
 
     expect(frames[0]).toMatchObject({
@@ -256,7 +256,7 @@ describe('broker server', () => {
 
     const create = (id: number) =>
       encodeControl({ t: 'create', id, sessionId: `s-${id}`, cwd: '/tmp', cols: 80, rows: 24, env: {} });
-    const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid });
+    const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' });
 
     // Healthy: the spawn goes through.
     const healthy = await connectAndSend(socketPath, [hello, create(2)]);
@@ -302,7 +302,7 @@ describe('broker server', () => {
     await new Promise((r) => setTimeout(r, 20));
 
     const { frames, socket } = await connectAndSend(socketPath, [
-      encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+      encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' }),
       encodeControl({ t: 'create', id: 2, sessionId: 's', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
     ]);
 
@@ -322,7 +322,7 @@ describe('broker server', () => {
     const old = createBrokerServer({ socketPath, userDataDir: tmp, spawnPty: () => fake.pty });
     await new Promise((r) => setTimeout(r, 20));
 
-    const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid });
+    const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' });
     const { frames, socket } = await connectAndSend(socketPath, [
       hello,
       encodeControl({ t: 'create', id: 2, sessionId: 's', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
@@ -383,6 +383,7 @@ describe('broker server', () => {
         protocol: PROTOCOL,
         appVersion: '0.12.0',
         pid: process.pid,
+        role: 'host',
       }),
       encodeControl({
         t: 'create',
@@ -439,6 +440,7 @@ describe('broker server', () => {
         protocol: PROTOCOL,
         appVersion: '0.12.0',
         pid: process.pid,
+        role: 'host',
       }),
     );
 
@@ -498,7 +500,7 @@ describe('broker server', () => {
   describe('scrollback is dropped, not just the session (Theme C)', () => {
     async function snapshotBytes(socketPath: string, sessionId: string, id: number): Promise<Uint8Array> {
       const { frames } = await connectAndSend(socketPath, [
-        encodeControl({ t: 'hello', id: 0, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'hello', id: 0, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' }),
         encodeControl({ t: 'snapshot', id, sessionId }),
       ]);
       const reply = frames.find(
@@ -517,7 +519,7 @@ describe('broker server', () => {
       await new Promise((r) => setTimeout(r, 20));
 
       await connectAndSend(socketPath, [
-        encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' }),
         encodeControl({ t: 'create', id: 2, sessionId: 'exit-sess', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
       ]);
       await new Promise((r) => setTimeout(r, 30));
@@ -541,7 +543,7 @@ describe('broker server', () => {
       await new Promise((r) => setTimeout(r, 20));
 
       const { frames: createFrames } = await connectAndSend(socketPath, [
-        encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' }),
         encodeControl({ t: 'create', id: 2, sessionId: 'kill-sess', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
       ]);
       const createReply = createFrames.find(
@@ -554,7 +556,7 @@ describe('broker server', () => {
       await new Promise((r) => setTimeout(r, 30));
 
       await connectAndSend(socketPath, [
-        encodeControl({ t: 'hello', id: 3, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'hello', id: 3, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' }),
         encodeControl({ t: 'kill', id: 4, ptyId }),
       ]);
       await new Promise((r) => setTimeout(r, 30));
@@ -573,7 +575,7 @@ describe('broker server', () => {
       await new Promise((r) => setTimeout(r, 20));
 
       await connectAndSend(socketPath, [
-        encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' }),
         encodeControl({ t: 'create', id: 2, sessionId: 'forget-sess', cwd: '/tmp', cols: 80, rows: 24, env: {} }),
       ]);
       await new Promise((r) => setTimeout(r, 30));
@@ -583,7 +585,7 @@ describe('broker server', () => {
 
       // No exit and no kill — the pty is still alive when it is forgotten.
       await connectAndSend(socketPath, [
-        encodeControl({ t: 'hello', id: 3, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid }),
+        encodeControl({ t: 'hello', id: 3, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' }),
         encodeControl({ t: 'forget', id: 4, sessionIds: ['forget-sess'] }),
       ]);
       await new Promise((r) => setTimeout(r, 30));

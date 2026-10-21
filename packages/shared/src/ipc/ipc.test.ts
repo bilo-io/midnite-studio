@@ -751,6 +751,8 @@ describe('forge schemas', () => {
       // request schema of its own (it is `EVENT_CHANNELS.forgeChanged`, swept
       // by the dedicated describe block below), so only the two subscribe
       // verbs are covered here.
+      // The graph's CI column — runs for a batch of visible commits.
+      forgeCommitRuns: ['ForgeCommitRunsRequest', 'ForgeCommitRunsResponse'],
       forgeSubscribe: ['ForgeSubscribeRequest'],
       forgeUnsubscribe: ['ForgeUnsubscribeRequest'],
       // The account registry (Phase 90 Theme B) — repo-agnostic, machine-wide
@@ -992,8 +994,19 @@ describe('ui.* MCP tools contract (Phase 81 Theme F)', () => {
         shimPath: null,
         allowUi: false,
         allowGateDecide: false,
+        allowModels: false,
+        allowGames: false,
+        allowTerrains: false,
+        allowSprites: false,
+        allowMaps: false,
+        allowMusic: false,
+        allowCompanionSettings: false,
       }).success,
     ).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({ allowCompanionSettings: true }).success).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({ allowModels: true }).success).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({ allowGames: true }).success).toBe(true);
+    expect(schemas.McpSetRequest.safeParse({ allowTerrains: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowUi: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({ allowGateDecide: true }).success).toBe(true);
     expect(schemas.McpSetRequest.safeParse({}).success).toBe(true);
@@ -1532,6 +1545,33 @@ describe('terminal and pty schemas', () => {
       valid: { repoId: 'r1', noteIds: ['n1', 'n2'] },
       invalid: [['empty note id in list', { repoId: 'r1', noteIds: ['n1', ''] }]],
     },
+    {
+      name: 'NotesReviewGradeRequest',
+      schema: schemas.NotesReviewGradeRequest,
+      valid: { repoId: 'r1', cardId: 'n1#ab', grade: 'good' },
+      invalid: [
+        ['an unknown grade', { repoId: 'r1', cardId: 'c', grade: 'perfect' }],
+        ['an empty card id', { repoId: 'r1', cardId: '', grade: 'good' }],
+      ],
+    },
+    {
+      name: 'NotesReviewGradeResponse',
+      schema: schemas.NotesReviewGradeResponse,
+      valid: { ok: true, nextDue: 5 },
+      invalid: [['ok without a due date', { ok: true }]],
+    },
+    {
+      name: 'NotesCaptureRequest',
+      schema: schemas.NotesCaptureRequest,
+      valid: { body: 'a thought' },
+      invalid: [['an empty body', { body: '' }]],
+    },
+    {
+      name: 'NotesCaptureResponse',
+      schema: schemas.NotesCaptureResponse,
+      valid: { ok: true, target: 'inbox', noteId: 'n1' },
+      invalid: [['a target that is a path', { ok: true, target: '/tmp/x' }]],
+    },
   ];
 
   for (const { name, schema, valid, invalid } of CASES) {
@@ -1832,6 +1872,151 @@ describe('workflow contract', () => {
   });
 });
 
+describe('media contract (Phase 99 Theme A)', () => {
+  it('covers every media channel', () => {
+    const expected: Record<string, string[]> = {
+      mediaProjectList: ['MediaProjectListRequest', 'MediaProjectListResponse'],
+      mediaProjectCreate: ['MediaProjectCreateRequest', 'MediaProjectCreateResponse'],
+      mediaProjectRename: ['MediaProjectRenameRequest', 'MediaProjectRenameResponse'],
+      mediaProjectRemove: ['MediaProjectRemoveRequest', 'MediaProjectRemoveResponse'],
+      mediaFileList: ['MediaFileListRequest', 'MediaFileListResponse'],
+      mediaFileRead: ['MediaFileReadRequest', 'MediaFileReadResponse'],
+      mediaFileWrite: ['MediaFileWriteRequest', 'MediaFileWriteResponse'],
+      mediaFileRename: ['MediaFileRenameRequest', 'MediaFileRenameResponse'],
+      mediaFileRemove: ['MediaFileRemoveRequest', 'MediaFileRemoveResponse'],
+      mediaReveal: ['MediaRevealRequest', 'MediaRevealResponse'],
+      mediaImageProviders: ['MediaImageProvidersResponse'],
+      mediaImageGenerate: ['MediaImageGenerateRequest', 'MediaImageGenerateResponse'],
+      mediaImageCancel: ['MediaImageCancelRequest', 'MediaImageCancelResponse'],
+      mediaImageProgress: ['MediaImageProgressPayload'],
+      mediaAudioProviders: ['MediaAudioProvidersResponse'],
+      mediaAudioImport: ['MediaAudioImportRequest', 'MediaAudioImportResponse'],
+      mediaAudioProgress: ['MediaAudioProgressPayload'],
+      mediaAudioGenerate: ['MediaAudioGenerateRequest', 'MediaAudioGenerateResponse'],
+      mediaAudioCancel: ['MediaAudioCancelRequest', 'MediaAudioCancelResponse'],
+      mediaAudioEngine: ['MediaAudioEngineResponse'],
+      mediaAudioEngineInstall: ['MediaAudioEngineInstallResponse'],
+      mediaAudioEngineProgress: ['MediaAudioEngineProgressPayload'],
+      mediaAudioExpand: ['MediaAudioExpandRequest', 'MediaAudioExpandResponse'],
+      mediaGmStatus: ['MediaGmStatusResponse'],
+      mediaGmEnsure: ['MediaGmEnsureRequest', 'MediaGmEnsureResponse'],
+      mediaGmLoad: ['MediaGmLoadRequest', 'MediaGmLoadResponse'],
+      mediaGmProgress: ['MediaGmProgressPayload'],
+      mediaMusicList: ['MediaMusicListRequest', 'MediaMusicListResponse'],
+      mediaMusicRead: ['MediaMusicReadRequest', 'MediaMusicReadResponse'],
+      mediaMusicWrite: ['MediaMusicWriteRequest', 'MediaMusicWriteResponse'],
+      mediaMusicImport: ['MediaMusicImportRequest', 'MediaMusicImportResponse'],
+      mediaMusicDelete: ['MediaMusicDeleteRequest', 'MediaMusicDeleteResponse'],
+      mediaMusicExport: ['MediaMusicExportRequest', 'MediaMusicExportResponse'],
+      mediaMusicSendToGenerator: ['MediaMusicSendToGeneratorRequest', 'MediaMusicSendToGeneratorResponse'],
+      mediaMusicAgentRun: ['MediaMusicAgentRunRequest', 'MediaMusicAgentRunResponse'],
+      mediaMusicAgentCancel: ['MediaMusicAgentCancelRequest', 'MediaMusicAgentCancelResponse'],
+      mediaMusicAgy: ['MediaMusicAgyRequest', 'MediaMusicAgyResponse'],
+      mediaMusicChat: ['MediaMusicChatRequest', 'MediaMusicChatResponse'],
+      mediaMusicChanged: ['MediaMusicChangedPayload'],
+      mediaMusicOpen: ['MediaMusicOpenPayload'],
+      mediaMusicAgentProgress: ['MediaMusicAgentProgressPayload'],
+      mediaModelProviders: ['MediaModelProvidersResponse'],
+      mediaModelGenerate: ['MediaModelGenerateRequest', 'MediaModelGenerateResponse'],
+      mediaModelCancel: ['MediaModelCancelRequest', 'MediaModelCancelResponse'],
+      mediaModelExport: ['MediaModelExportRequest', 'MediaModelExportResponse'],
+      mediaModelSaveEdit: ['MediaModelSaveEditRequest', 'MediaModelSaveEditResponse'],
+      mediaModelLibrary: ['MediaModelLibraryRequest', 'MediaModelLibraryResponse'],
+      mediaModelMesh: ['MediaModelMeshRequest', 'MediaModelMeshResponse'],
+      mediaModelProgress: ['MediaModelProgressPayload'],
+      mediaModelChanged: ['MediaModelChangedPayload'],
+      mediaModelOpen: ['MediaModelOpenPayload'],
+      mediaModelSf3d: ['MediaModelSf3dRequest', 'MediaModelSf3dResponse'],
+      mediaModelSf3dProgress: ['MediaModelSf3dProgressPayload'],
+      mediaTerrainLibrary: ['MediaTerrainLibraryRequest', 'MediaTerrainLibraryResponse'],
+      mediaTerrainGet: ['MediaTerrainGetRequest', 'MediaTerrainGetResponse'],
+      mediaTerrainSetSpec: ['MediaTerrainSetSpecRequest', 'MediaTerrainSetSpecResponse'],
+      mediaTerrainSetInput: ['MediaTerrainSetInputRequest', 'MediaTerrainSetInputResponse'],
+      mediaTerrainBuild: ['MediaTerrainBuildRequest', 'MediaTerrainBuildResponse'],
+      mediaTerrainCancel: ['MediaTerrainCancelRequest', 'MediaTerrainCancelResponse'],
+      mediaTerrainPaint: ['MediaTerrainPaintRequest', 'MediaTerrainPaintResponse'],
+      mediaTerrainRoadKey: ['MediaTerrainRoadKeyRequest', 'MediaTerrainRoadKeyResponse'],
+      mediaTerrainExport: ['MediaTerrainExportRequest', 'MediaTerrainExportResponse'],
+      mediaTerrainProgress: ['MediaTerrainProgressPayload'],
+      mediaTerrainChanged: ['MediaTerrainChangedPayload'],
+      mediaTerrainOpen: ['MediaTerrainOpenPayload'],
+      mediaSpriteLibrary: ['MediaSpriteLibraryRequest', 'MediaSpriteLibraryResponse'],
+      mediaSpriteGet: ['MediaSpriteGetRequest', 'MediaSpriteGetResponse'],
+      mediaSpriteSetSpec: ['MediaSpriteSetSpecRequest', 'MediaSpriteSetSpecResponse'],
+      mediaSpriteSetReference: ['MediaSpriteSetReferenceRequest', 'MediaSpriteSetReferenceResponse'],
+      mediaSpriteGenerate: ['MediaSpriteGenerateRequest', 'MediaSpriteGenerateResponse'],
+      mediaSpriteCancel: ['MediaSpriteCancelRequest', 'MediaSpriteCancelResponse'],
+      mediaSpritePatchFrames: ['MediaSpritePatchFramesRequest', 'MediaSpritePatchFramesResponse'],
+      mediaSpriteExport: ['MediaSpriteExportRequest', 'MediaSpriteExportResponse'],
+      mediaSpriteImportMap: ['MediaSpriteImportMapRequest', 'MediaSpriteImportMapResponse'],
+      mediaSpriteProgress: ['MediaSpriteProgressPayload'],
+      mediaSpriteChanged: ['MediaSpriteChangedPayload'],
+      mediaSpriteOpen: ['MediaSpriteOpenPayload'],
+      mediaSpriteRenderReady: ['MediaSpriteRenderReadyRequest', 'MediaSpriteRenderReadyResponse'],
+      mediaSpriteRenderFrames: ['MediaSpriteRenderFramesRequest', 'MediaSpriteRenderFramesResponse'],
+      mediaMapGet: ['MediaMapGetRequest', 'MediaMapGetResponse'],
+      mediaMapSetView: ['MediaMapSetViewRequest', 'MediaMapSetViewResponse'],
+      mediaMapSources: ['MediaMapSourcesResponse'],
+      mediaMapCache: ['MediaMapCacheRequest', 'MediaMapCacheResponse'],
+      mediaMapCapture: ['MediaMapCaptureRequest', 'MediaMapCaptureResponse'],
+      mediaMapCaptureCancel: ['MediaMapCaptureCancelRequest', 'MediaMapCaptureCancelResponse'],
+      mediaMapCaptureProgress: ['MediaMapCaptureProgressPayload'],
+      mediaMapOpen: ['MediaMapOpenPayload'],
+      mediaSpriteRenderRequest: ['MediaSpriteRenderRequestPayload'],
+      mediaFfmpegStatus: ['MediaFfmpegStatusResponse'],
+      mediaExport: ['MediaExportRequest', 'MediaExportResponse'],
+      mediaExportCancel: ['MediaExportCancelRequest', 'MediaExportCancelResponse'],
+      mediaDocEdit: ['MediaDocEditRequest', 'MediaDocEditResponse'],
+      mediaDocExport: ['MediaDocExportRequest', 'MediaDocExportResponse'],
+      mediaChanged: ['MediaChangedPayload'],
+      mediaExportProgress: ['MediaExportProgressPayload'],
+      // Phase 113 Theme R — Media ▸ Library.
+      mediaLibraryRoots: ['MediaLibraryRootsResponse'],
+      mediaLibraryAddRoot: ['MediaLibraryAddRootResponse'],
+      mediaLibraryRemoveRoot: ['MediaLibraryRemoveRootRequest', 'MediaLibraryRemoveRootResponse'],
+      mediaLibraryScan: ['MediaLibraryScanRequest', 'MediaLibraryScanResponse'],
+      mediaLibraryItems: ['MediaLibraryItemsRequest', 'MediaLibraryItemsResponse'],
+      mediaLibraryProgress: ['MediaLibraryProgressRequest', 'MediaLibraryProgressResponse'],
+      mediaLibraryClearProgress: ['MediaLibraryClearProgressRequest', 'MediaLibraryClearProgressResponse'],
+      mediaLibrarySettingsGet: ['MediaLibrarySettingsResponse'],
+      mediaLibrarySettingsSet: ['MediaLibrarySettingsSetRequest', 'MediaLibrarySettingsSetResponse'],
+      mediaLibraryChanged: ['MediaLibraryChangedPayload'],
+      mediaLibraryScanProgress: ['MediaLibraryScanProgressPayload'],
+      // Phase 113 Theme R slice 2 — playlists and LAN sharing.
+      mediaLibraryPlaylists: ['MediaLibraryPlaylistsResponse'],
+      mediaLibraryPlaylistCreate: ['MediaLibraryPlaylistCreateRequest', 'MediaLibraryPlaylistCreateResponse'],
+      mediaLibraryPlaylistRename: ['MediaLibraryPlaylistRenameRequest', 'MediaLibraryPlaylistRenameResponse'],
+      mediaLibraryPlaylistSetItems: ['MediaLibraryPlaylistSetItemsRequest', 'MediaLibraryPlaylistSetItemsResponse'],
+      mediaLibraryPlaylistDelete: ['MediaLibraryPlaylistDeleteRequest', 'MediaLibraryPlaylistDeleteResponse'],
+      mediaLibraryLanStatus: ['MediaLibraryLanStatusResponse'],
+      mediaLibraryLanStart: ['MediaLibraryLanStartRequest', 'MediaLibraryLanStartResponse'],
+      mediaLibraryLanStop: ['MediaLibraryLanStopResponse'],
+      mediaLibraryLanRegenerate: ['MediaLibraryLanRegenerateResponse'],
+      mediaLibraryLanSettingsSet: ['MediaLibraryLanSettingsSetRequest', 'MediaLibraryLanSettingsSetResponse'],
+      mediaLibraryLanDetectFfmpeg: ['MediaLibraryLanDetectFfmpegResponse'],
+      mediaLibraryLanChooseFfmpeg: ['MediaLibraryLanChooseFfmpegResponse'],
+    };
+    const channelKeys = [...Object.keys(CHANNELS), ...Object.keys(EVENT_CHANNELS)].filter((key) =>
+      key.startsWith('media'),
+    );
+    expect(channelKeys.sort()).toEqual(Object.keys(expected).sort());
+    for (const names of Object.values(expected)) {
+      for (const name of names) expect(schemas).toHaveProperty(name);
+    }
+  });
+
+  it('refuses traversal and absolute paths at the schema', () => {
+    const base = { repoId: 'r', tab: 'doc', project: 'p' };
+    expect(schemas.MediaFileReadRequest.safeParse({ ...base, path: 'a/b.md' }).success).toBe(true);
+    for (const path of ['../x', 'a/../../x', '/etc/passwd', 'a//b']) {
+      expect(schemas.MediaFileReadRequest.safeParse({ ...base, path }).success).toBe(false);
+    }
+    for (const project of ['..', '.hidden', 'a/b']) {
+      expect(schemas.MediaProjectCreateRequest.safeParse({ ...base, project }).success).toBe(false);
+    }
+  });
+});
+
 describe('video contract', () => {
   /*
     Same prefix-scoped, opt-in guard as `workflow contract` above — there is
@@ -1859,6 +2044,10 @@ describe('video contract', () => {
       videoFileOpen: ['VideoFileHandoffRequest', 'VideoFileHandoffResponse'],
       videoRootGet: ['VideoRootGetResponse'],
       videoRootSet: ['VideoRootSetRequest', 'VideoRootSetResponse'],
+      videoRootResolve: ['VideoRootResolveRequest', 'VideoRootResolveResponse'],
+      videoSetup: ['VideoSetupRequest', 'VideoSetupResponse'],
+      videoEngineGet: ['VideoEngineGetRequest', 'VideoEngineGetResponse'],
+      videoEngineSet: ['VideoEngineSetRequest', 'VideoEngineSetResponse'],
       videoStudioChanged: ['VideoStudioChangedPayload'],
       videoRenderProgress: ['VideoRenderProgressPayload'],
     };
@@ -2210,5 +2399,38 @@ describe('session history (Phase 67)', () => {
     expect(Object.keys(narrowed)).not.toContain('agentId');
     expect(Object.keys(narrowed)).not.toContain('agentConversationId');
     expect(Object.keys(narrowed)).not.toContain('surface');
+  });
+});
+
+describe('git argv guards (Phase 91 Themes B/C)', () => {
+  it('refuses option-shaped refs, remotes and paths', () => {
+    expect(schemas.SafeRefString.safeParse('--exec=x').success).toBe(false);
+    expect(schemas.SafeRefString.safeParse('fix/issue#12').success).toBe(true);
+    expect(schemas.SafeRefString.safeParse('a\nb').success).toBe(false);
+    expect(schemas.CheckoutRequest.safeParse({ repoId: 'r', target: '--orphan' }).success).toBe(false);
+    expect(schemas.FetchRequest.safeParse({ repoId: 'r', remote: '--upload-pack=x' }).success).toBe(false);
+    expect(schemas.StageRequest.safeParse({ repoId: 'r', paths: ['--force'] }).success).toBe(false);
+    expect(schemas.LogStartRequest.safeParse({ repoId: 'r', requestId: 'q', revisions: ['--all'] }).success).toBe(false);
+  });
+
+  it('PushRequest rejects a non-sha lease expectation', () => {
+    const base = { repoId: 'r', forceWithLease: { ref: 'refs/heads/main', expect: 'HEAD' } };
+    expect(schemas.PushRequest.safeParse(base).success).toBe(false);
+    expect(schemas.PushRequest.safeParse({ ...base, forceWithLease: { ref: 'refs/heads/main', expect: 'abc1234' } }).success).toBe(true);
+  });
+});
+
+describe('lock contract (Phase 91 Theme D)', () => {
+  it('covers every lock channel with a schema', () => {
+    expect(Object.keys(CHANNELS).filter((key) => key.startsWith('lock')).sort()).toEqual(
+      ['lockGet', 'lockSet', 'lockSetPasscode', 'lockVerify'].sort(),
+    );
+    expect(schemas.LockSetRequest.safeParse(true).success).toBe(true);
+    expect(schemas.LockStateSchema.safeParse({ locked: false, hasPasscode: true }).success).toBe(true);
+    expect(schemas.LockSetPasscodeRequest.safeParse('1234').success).toBe(true);
+    expect(schemas.LockSetPasscodeRequest.safeParse(null).success).toBe(true);
+    expect(schemas.LockSetPasscodeRequest.safeParse('12').success).toBe(false);
+    expect(schemas.LockSetPasscodeRequest.safeParse('abcd').success).toBe(false);
+    expect(schemas.LockVerifyRequest.safeParse('').success).toBe(false);
   });
 });

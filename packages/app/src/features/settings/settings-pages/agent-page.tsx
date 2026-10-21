@@ -4,8 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   LuBot,
   LuExternalLink,
-  LuEye,
-  LuEyeOff,
   LuFolder,
   LuFolderTree,
   LuGitCommitVertical,
@@ -15,7 +13,7 @@ import {
   LuTrash2,
 } from 'react-icons/lu';
 
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 
 import {
   CLAUDE_COMMANDS,
@@ -26,6 +24,7 @@ import {
   effectiveContextLength,
   type AgentDefinition,
   type AgentMode,
+  type AgentProbeState,
   type AgentStatus,
   type ClaudeInfo,
   type SkillExecutionMode,
@@ -41,11 +40,14 @@ import { useHookStatus, useRepos, useSetHookInstalled } from '../../../services/
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../../store/ui-store';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
 import { loopIcon } from '../../loops/loop-icons';
+import { recheckAgents } from '../../agent/agent-probe-store';
 import { useAgents } from '../../terminal/use-agents';
+import { submitCommand } from '../../terminal/submit-command';
 import { useTerminalStore } from '../../terminal/terminal-store';
 import { FileTree } from '../../files/file-tree';
 import { FilePreview } from '../../files/preview/file-preview';
 import { Choice, Field } from './controls';
+import { AgentKeyField } from '@midnite/studio-feature-vault/renderer';
 
 /**
  * The Agent page: what `~/.claude` holds, which Claude CLI is installed, where
@@ -67,7 +69,7 @@ export function AgentPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Agents" icon={<LuBot className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Agents" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-3 p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] leading-relaxed text-muted-foreground">
@@ -78,6 +80,9 @@ export function AgentPage() {
               label="Re-probe agents"
               size="sm"
               onClick={() => {
+                // Forces main to re-probe (bypassing its TTL); the answer lands in the
+                // shared store, so every picker updates, not just this page.
+                void recheckAgents();
                 void queryClient.invalidateQueries({ queryKey: ['agents'] });
                 void queryClient.invalidateQueries({ queryKey: ['claude-info'] });
               }}
@@ -85,9 +90,9 @@ export function AgentPage() {
           </div>
           <AgentsRoster />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Session stamping" icon={<LuGitCommitVertical className="h-4 w-4" />}>
+      <SettingsAccordion title="Session stamping" icon={<LuGitCommitVertical className="h-4 w-4" />}>
         <div className="flex flex-col gap-3 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Installs a <code>prepare-commit-msg</code> hook into a repository&rsquo;s hooks
@@ -98,9 +103,9 @@ export function AgentPage() {
           </p>
           <SessionStampingRepos />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Claude" icon={<LuBot className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Claude" icon={<LuBot className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Detected through your login shell, the same way the terminal resolves it.
@@ -110,9 +115,9 @@ export function AgentPage() {
             onRefresh={() => void queryClient.invalidateQueries({ queryKey: ['claude-info'] })}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="midnite menu" icon={<MidniteIcon className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="midnite menu" icon={<MidniteIcon className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             What each entry of the sidebar&rsquo;s midnite menu types at a fresh session with the
@@ -127,9 +132,9 @@ export function AgentPage() {
           <HeadlessAiModelPicker />
           <SkillFields />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="Loops" icon={<LuRepeat className="h-4 w-4" />}>
+      <SettingsAccordion title="Loops" icon={<LuRepeat className="h-4 w-4" />}>
         <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             The six loops the quick-access panel runs. Each takes its base prompt from the{' '}
@@ -140,65 +145,45 @@ export function AgentPage() {
           </p>
           <LoopDefaultFields />
         </div>
-      </Accordion>
+      </SettingsAccordion>
 
-      <Accordion title="~/.claude" icon={<LuFolderTree className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="~/.claude" icon={<LuFolderTree className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             Your agent's home folder — skills, projects, plans, settings. Read-only here.
           </p>
           <ClaudeHomeTree />
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
-}
-
-/**
- * Spawns a shell in the integrated terminal and submits `command` with a trailing carriage return.
- */
-function submitCommand(command: string, title = 'agent setup'): void {
-  if (!command) return;
-  const ui = useUiStore.getState();
-  ui.setTerminalOpen(true);
-  const cwd = ui.selectedWorktreePath ?? '.';
-  const repoId = ui.selectedRepoId ?? 'default';
-  const session = useTerminalStore.getState().openSession({
-    kind: 'shell',
-    title,
-    cwd,
-    repoId,
-  });
-  const input = command.endsWith('\r') || command.endsWith('\n') ? command : `${command}\r`;
-  useTerminalStore.getState().queueInput(session.id, input);
 }
 
 function AgentCard({
   agent,
   status,
+  probe,
   isPrimary,
   onSetPrimary,
   mode,
   onModeChange,
-  apiKey,
-  onApiKeyChange,
   highlighted,
 }: {
   agent: AgentDefinition;
   status: AgentStatus | undefined;
+  /** Where the shared install probe stands; only meaningful while `status` is absent. */
+  probe: AgentProbeState;
   isPrimary: boolean;
   onSetPrimary: () => void;
   mode: AgentMode;
   onModeChange: (mode: AgentMode) => void;
-  apiKey: string;
-  onApiKeyChange: (key: string) => void;
   /** Briefly true right after a dropdown routed a click on this row here. */
   highlighted?: boolean;
 }) {
-  const [showKey, setShowKey] = useState(false);
   const Icon = resolveAgentIcon(agent);
   const isInstalled = status?.installed === true;
-  const isChecking = !status;
+  const isChecking = !status && probe === 'checking';
+  const isUnknown = !status && probe !== 'checking';
 
   const runCommand = isInstalled ? (agent.update ?? agent.install) : agent.install;
   const runLabel = isInstalled ? 'Update in Terminal' : 'Install in Terminal';
@@ -219,10 +204,17 @@ function AgentCard({
           <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
             Checking…
           </span>
+        ) : isUnknown ? (
+          <span
+            title="The install check did not answer for this agent — it may still work."
+            className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
+          >
+            Unknown
+          </span>
         ) : isInstalled ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-500">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            {status.version ? `v${status.version}` : 'Installed'}
+            {status?.version ? `v${status.version}` : 'Installed'}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-500">
@@ -316,44 +308,7 @@ function AgentCard({
           </div>
         </div>
 
-        <div className="flex flex-1 min-w-[220px] items-center gap-2">
-          <span className="text-[11px] font-medium text-muted-foreground shrink-0">
-            {agent.apiKeyEnvVar ?? 'API Key'}:
-          </span>
-          <div className="relative flex-1">
-            <input
-              type={showKey ? 'text' : 'password'}
-              value={apiKey}
-              placeholder={agent.apiKeyEnvVar ? `Enter ${agent.apiKeyEnvVar}` : 'Enter API Key'}
-              onChange={(e) => onApiKeyChange(e.target.value)}
-              spellCheck={false}
-              aria-label={`${agent.label} API Key`}
-              className="h-7 w-full rounded border border-input bg-background pl-2 pr-14 font-mono text-xs outline-none focus-visible:border-primary"
-            />
-            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-              {apiKey ? (
-                <button
-                  type="button"
-                  onClick={() => onApiKeyChange('')}
-                  title="Clear key"
-                  aria-label={`Clear ${agent.label} API Key`}
-                  className="px-1 text-[11px] text-muted-foreground hover:text-foreground"
-                >
-                  ✕
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setShowKey((s) => !s)}
-                title={showKey ? 'Hide key' : 'Show key'}
-                aria-label={showKey ? 'Hide key' : 'Show key'}
-                className="p-1 text-muted-foreground hover:text-foreground"
-              >
-                {showKey ? <LuEyeOff className="h-3 w-3" /> : <LuEye className="h-3 w-3" />}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AgentKeyField agent={agent} />
       </div>
 
       {agent.backends?.includes('ollama') ? <OllamaBackendRow agent={agent} /> : null}
@@ -593,14 +548,12 @@ function HookToggleRow({ repoId, repoName }: { repoId: string; repoName: string 
 const FOCUS_HIGHLIGHT_MS = 2000;
 
 function AgentsRoster() {
-  const { agents, status } = useAgents();
+  const { agents, status, probe } = useAgents();
   const statusById = useMemo(() => new Map(status.map((s) => [s.id, s])), [status]);
   const primaryAgent = useUiStore((s) => s.primaryAgent);
   const setPrimaryAgent = useUiStore((s) => s.setPrimaryAgent);
   const agentModes = useUiStore((s) => s.agentModes);
   const setAgentMode = useUiStore((s) => s.setAgentMode);
-  const agentApiKeys = useUiStore((s) => s.agentApiKeys);
-  const setAgentApiKey = useUiStore((s) => s.setAgentApiKey);
 
   // An agent dropdown's "Configure" click lands here — scroll its card into
   // view and outline it briefly, then let it fade back into the roster.
@@ -629,12 +582,11 @@ function AgentsRoster() {
           key={agent.id}
           agent={agent}
           status={statusById.get(agent.id)}
+          probe={probe}
           isPrimary={agent.id === primaryAgent}
           onSetPrimary={() => setPrimaryAgent(agent.id)}
           mode={agentModes[agent.id] ?? DEFAULT_AGENT_MODE}
           onModeChange={(mode) => setAgentMode(agent.id, mode)}
-          apiKey={agentApiKeys[agent.id] ?? ''}
-          onApiKeyChange={(key) => setAgentApiKey(agent.id, key)}
           highlighted={agent.id === highlightedId}
         />
       ))}

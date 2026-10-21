@@ -1,8 +1,14 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { fixtures } from '../test-support/fixtures';
-import { clickRailLink, installMockBridge, type MockFixtures } from '../test-support/mock-bridge';
-import { settle, shotPath, SHOT_VIEWPORTS } from './shots-helper';
+import {
+  clickRailLink,
+  installMockBridge,
+  type MockFixtures,
+  settle,
+  shotPath,
+  SHOT_VIEWPORTS,
+} from './shots-helper';
 
 /**
  * The Phase 96 Theme C Models view screenshots. Not assertions — this is a

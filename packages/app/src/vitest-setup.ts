@@ -1,5 +1,8 @@
 import { afterEach } from 'vitest';
 
+import { useBoardSelectionStore } from '@midnite/studio-feature-tasks/renderer/state';
+import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
+
 /**
  * jsdom environment gap-filling for every component test in this package.
  *
@@ -77,10 +80,10 @@ if (typeof document !== 'undefined' && typeof document.queryCommandSupported !==
  * crash, just silently zero rows. That is exactly what kept
  * `search-view.spec.ts`'s "each mode returns and renders its own results" in
  * Playwright (confirmed empirically there before this fix: with
- * `clientWidth`/`clientHeight` stubbed the same way `projects-view.test.tsx`
+ * `clientWidth`/`clientHeight` stubbed the same way `tasks-view.test.tsx`
  * does, the store still received results, but `getVirtualItems()` stayed
  * empty), and it is documented as the same open finding in
- * `projects-view.test.tsx`.
+ * `tasks-view.test.tsx`.
  *
  * The fix needed nothing beyond a firing callback — no separate
  * `offsetWidth`/`getBoundingClientRect` shim. `virtual-core`'s callback
@@ -195,6 +198,18 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
 
 afterEach(() => {
   resizeObserverRect = DEFAULT_RESIZE_OBSERVER_RECT;
+});
+
+/**
+ * Phase 112 Theme D lifted two selections out of component `useState` into
+ * stores (the open workflow, the open kanban card) so a reveal can set them
+ * before the view mounts. A store outlives a test's unmount where the local
+ * state did not, so reset them here and every view suite keeps starting from
+ * the same blank selection it always did.
+ */
+afterEach(() => {
+  useBoardSelectionStore.setState({ selected: null, revealNonce: 0 });
+  useWorkflowRevealStore.setState({ selectedId: null, pending: null });
 });
 
 // --- matchMedia ----------------------------------------------------------

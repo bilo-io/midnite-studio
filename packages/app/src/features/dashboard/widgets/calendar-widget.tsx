@@ -33,10 +33,7 @@ export function CalendarWidget({
   selectedDay: string | null;
   onSelectDay: (date: string | null) => void;
 }) {
-  const { weeks, total } = useMemo(
-    () => calendarWeeks(stats?.calendar ?? []),
-    [stats?.calendar],
-  );
+  const { weeks, total } = useMemo(() => calendarWeeks(stats?.calendar ?? []), [stats?.calendar]);
 
   return (
     <WidgetState

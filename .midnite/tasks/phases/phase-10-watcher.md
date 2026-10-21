@@ -3,6 +3,10 @@
 Everything updates without manual refresh — including changes made from the integrated terminal
 or an external shell.
 
+## Headlines
+
+**Theme A.** ✅ fs.watch repo watcher, own-write suppression, kind→invalidation map
+
 ## Deliverables
 
 - [x] `git-engine/src/watch/repo-watcher.ts` — fs.watch on `.git/HEAD`, `.git/refs/` (recursive), `.git/index`, `packed-refs`, each worktree's gitdir, and the working tree root; classify → `WatchEvent.kind` (`refs|index|worktree|head`); 200ms debounce

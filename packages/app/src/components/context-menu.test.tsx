@@ -94,7 +94,8 @@ describe('ContextMenu keyboard navigation', () => {
 
   const item = (name: string) => screen.getByRole('menuitem', { name });
   /** Keystrokes are aimed at whatever holds focus, as a real one would be. */
-  const press = (key: string) => fireEvent.keyDown(document.activeElement ?? document.body, { key });
+  const press = (key: string) =>
+    fireEvent.keyDown(document.activeElement ?? document.body, { key });
 
   function open(onClose: () => void = () => {}) {
     render(<ContextMenu position={{ x: 0, y: 0 }} items={items} onClose={onClose} />);
@@ -221,7 +222,12 @@ describe('ContextMenu filterable', () => {
 
   it('stays hidden at or under the threshold', () => {
     render(
-      <ContextMenu position={{ x: 0, y: 0 }} items={many.slice(0, 6)} onClose={() => {}} filterable />,
+      <ContextMenu
+        position={{ x: 0, y: 0 }}
+        items={many.slice(0, 6)}
+        onClose={() => {}}
+        filterable
+      />,
     );
     expect(screen.queryByRole('textbox')).toBeNull();
   });

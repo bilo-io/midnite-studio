@@ -37,6 +37,22 @@ refactor.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*The footer's empty right half becomes the app's live-state strip. A and B are the spine — C, D and F all read the sample stream they push; E is the trust boundary F prompts through.* *Open: three human passes — cross-checking the readings against Activity Monitor, the idle battery cost over an hour, and the diagnostics fail-soft matrix (Theme E). Also noted while landing D: `graph-themes.spec.ts` has twelve pre-existing failures on `main` (a stale `link`/`button` locator for Settings, plus cross-test ordering the timeout was masking) — Phase 14's, not this phase's.*
+
+**Theme A — The metrics sampler in main.** ✅ darwin metric probes in main (`vm_stat`, `ioreg`, `os.cpus()` deltas, `statfs`), each a pure parser behind a thin `execFile`, with a self-disabling GPU probe (landed 2026-08-26)
+
+**Theme B — The contract and the sample stream.** ✅ `mstudio:metrics:*` contract: an all-optional `MetricSample`, a one-way sample stream, and an adaptive sampler that stops on window blur (landed 2026-08-26)
+
+**Theme C — The store, the palette and the hand-rolled chart.** ✅ metrics store with a time-windowed, flat-seeded buffer, a data-colour palette, geometry-as-data, and a hand-rolled area chart + sparkline with a cadence-change rule (landed 2026-08-26)
+
+**Theme D — The footer cluster and a real flyout primitive.** ✅ the first real click-toggled popover primitive, plus the footer's slot-based right cluster: dot, percentage and sparkline per metric (landed 2026-08-26)
+
+**Theme E — Diagnostics: the trust boundary and the runner.** ✅ the diagnostics trust policy, written down: per-repo opt-in, a `repoId`-only channel, a configurable command, a ranked parser-gated detector registry and a total, *streaming* eslint-JSON parser (landed 2026-08-26)
+
+**Theme F — The footer segment and the settings page.** ✅ the diagnostics segment (absent ≠ zero, sidebar-selection-driven) and a Monitor & Diagnostics settings page, now genuinely built on Theme E's contract: the `contract-shim.ts` F compiled against while E was in flight is deleted, and the duplicate `diag` mock the rebase left shadowing E's is folded into one (landed 2026-08-26)
+
 ## Deliverables
 
 **Themes A, B, C and D landed 2026-08-26** — the metrics half of the phase, end to end:

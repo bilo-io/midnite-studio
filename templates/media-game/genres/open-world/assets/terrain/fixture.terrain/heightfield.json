@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "resolution": 257,
+  "worldSize": 512,
+  "heightRange": [
+    0,
+    12
+  ],
+  "rowMajor": "z",
+  "origin": "centre"
+}

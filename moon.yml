@@ -54,6 +54,32 @@ tasks:
     options:
       cache: false
 
+  # audit (Phase 91 Theme I): `pnpm audit` for high/critical advisories, filtered
+  # through scripts/audit-suppressions.json whose entries expire. Needs the npm
+  # registry, not an install. No `inputs`, same as the other on-disk-state tasks.
+  audit:
+    command: 'node scripts/audit.mjs'
+    options:
+      cache: false
+
+  # electron-freshness (Phase 91 Theme I): warns, never fails, when the pinned Electron
+  # major is outside the supported three.
+  electron-freshness:
+    command: 'node scripts/electron-freshness.mjs'
+    options:
+      cache: false
+
+  # affected-apps (Phase 113 Theme C): print the app ids a change reaches —
+  # moon's affected projects (downstream deep) mapped through their `app-*`
+  # moon tags. Defaults to origin/main...HEAD; pass `-- --base <rev>` to move
+  # the base, `-- --json` for the project list too. Not a gate: Theme F's
+  # affected-only bundle builds are its consumer.
+  affected-apps:
+    command: 'node scripts/affected-apps.mjs'
+    options:
+      cache: false
+      runInCI: false
+
   # gate-projects-check: assert every packages/* directory is claimed by
   # exactly one of the two split gate jobs in .github/workflows/ci.yml
   # (Phase 82 Theme E) — a project that lands in neither `gate-node` nor
@@ -65,6 +91,7 @@ tasks:
     inputs:
       - 'scripts/gate-projects-check.mjs'
       - 'packages/*/package.json'
+      - 'packages/features/*/package.json'
     options:
       cache: false
 

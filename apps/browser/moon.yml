@@ -1,0 +1,71 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Midnite Browser (Phase 113 Theme L) — the browser feature as its own app: full-window browsing, the web
+# apps and agent-driven sessions over `packages/features/browser` + `packages/frame` + `shared`, composed
+# in src/, with its own Electron main in main/.
+# `resources/icon.icns` is what makes a release pack it (`moon run launcher:icons` writes it from the launcher's tile logo).
+id: 'app-browser'
+language: 'typescript'
+
+tags:
+  - 'layer-app'
+  - 'app-browser'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-browser'
+
+tasks:
+  build:
+    command: 'pnpm run build'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+    inputs:
+      - 'src/**/*'
+      - 'main/**/*'
+      - 'scripts/bundle-main.mjs'
+      - 'vite.config.ts'
+      - 'tailwind.config.ts'
+      - 'postcss.config.js'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/browser/renderer/**/*'
+      - '/packages/features/browser/manifest.ts'
+      - '/packages/features/browser/main/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'tailwind.config.ts'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/browser/renderer/**/*'
+      - '/packages/features/browser/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/browser/main/**/*'
+      - '/packages/runtime/src/**/*'
+
+  test:
+    inputs:
+      - 'src/**/*'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/browser/renderer/**/*'
+      - '/packages/features/browser/manifest.ts'
+      - 'main/**/*'
+      - '/packages/features/browser/main/**/*'
+      - '/packages/runtime/src/**/*'

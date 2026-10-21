@@ -1,6 +1,8 @@
-import { Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron';
+import { app, Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron';
 
 import { COMMANDS, DEFAULT_KEYMAP, EVENT_CHANNELS, type CommandId } from '@midnite/studio-shared';
+
+import { devToolsAllowed } from './devtools-policy';
 
 /**
  * The native application menu.
@@ -146,7 +148,8 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
         item('view.video'),
         { type: 'separator' },
         { role: 'togglefullscreen' },
-        { role: 'toggleDevTools' },
+        // Phase 91 Theme D: no DevTools row in a packaged build (see devtools-policy.ts).
+        ...(devToolsAllowed(app.isPackaged) ? [{ role: 'toggleDevTools' } as const] : []),
         { type: 'separator' },
         /*
           Theme G's `browser.zoomIn`/`zoomOut`/`zoomReset` bind `Mod+=`/
@@ -172,6 +175,11 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
       submenu: [item('sync.fetch'), item('sync.pull'), item('sync.push')],
     },
     { role: 'windowMenu' },
+    {
+      // `role: 'help'` is what puts macOS's own menu-search field at the top of this menu.
+      role: 'help',
+      submenu: [itemNoAccelerator('app.reportIssue')],
+    },
   ];
 
   return Menu.buildFromTemplate(template);

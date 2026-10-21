@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-knowledge",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "private": true,
   "description": "Pure Node/TS graphify reader — lean projection, ForceAtlas2 layout, layout cache. No electron imports.",
   "main": "./dist/index.js",
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@midnite/studio-shared": "workspace:*",
-    "graphology": "^0.25.4",
+    "graphology": "^0.26.0",
     "graphology-layout": "^0.6.1",
     "graphology-layout-forceatlas2": "^0.10.1",
     "graphology-layout-noverlap": "^0.4.2",

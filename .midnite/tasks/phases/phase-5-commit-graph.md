@@ -2,6 +2,10 @@
 
 The centerpiece: full `--all` graph with colored lanes and ref badges, virtualized to 100k commits.
 
+## Headlines
+
+**Theme A.** ✅ streaming log service, virtualized SVG rows, ref badges, detail stub
+
 ## Deliverables
 
 - [x] `desktop/src/main/log-service.ts` — streaming: `git log --all --topo-order -z`, parse + lane-layout incrementally in main, emit `mstudio:log:batch {requestId, rows}` (~500 rows/batch) then `mstudio:log:done`; cancellation via requestId map; initial cap `-n 50000` + "load more"

@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import type { GpuStats } from '@midnite/studio-shared';
 
-import { createGpuProbe, type GpuProbe } from '../metrics/gpu';
+import { createGpuProbe, type GpuProbe } from '@midnite/studio-feature-monitor/main';
 
 /**
  * GPU stats for the Optimizer's GPU tab (Phase 59 Theme E) — combining TWO

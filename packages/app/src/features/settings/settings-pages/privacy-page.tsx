@@ -1,4 +1,4 @@
-import { Accordion } from '@bilo-io/ui';
+import { SettingsAccordion } from '../settings-section';
 import { LuMapPin } from 'react-icons/lu';
 
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
@@ -14,7 +14,7 @@ export function PrivacyPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Accordion title="Location" icon={<LuMapPin className="h-4 w-4" />} defaultOpen>
+      <SettingsAccordion title="Location" icon={<LuMapPin className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow
             id="locate-by-ip"
@@ -24,7 +24,7 @@ export function PrivacyPage() {
             onToggle={(_id, next) => setLocateByIpEnabled(next)}
           />
         </div>
-      </Accordion>
+      </SettingsAccordion>
     </div>
   );
 }

@@ -54,7 +54,8 @@ const mockUiState: { selectedRepoId: string | null; selectedWorktreePath: string
 /** Mutable per-test repo list — same reasoning as `mockUiState`. */
 const mockReposState: { data: (typeof REPO)[] } = { data: [] };
 
-vi.mock('../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => mockBridge,
 }));
 

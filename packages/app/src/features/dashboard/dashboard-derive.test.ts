@@ -201,9 +201,33 @@ describe('calendarWeeks', () => {
 describe('byCommits and newestFirst', () => {
   it('ranks contributors by commits, then by name', () => {
     const people = byCommits([
-      { email: 'b@x', name: 'Bo', commits: 1, insertions: null, deletions: null, firstAt: 0, lastAt: 0 },
-      { email: 'a@x', name: 'Ada', commits: 5, insertions: null, deletions: null, firstAt: 0, lastAt: 0 },
-      { email: 'c@x', name: 'Cy', commits: 1, insertions: null, deletions: null, firstAt: 0, lastAt: 0 },
+      {
+        email: 'b@x',
+        name: 'Bo',
+        commits: 1,
+        insertions: null,
+        deletions: null,
+        firstAt: 0,
+        lastAt: 0,
+      },
+      {
+        email: 'a@x',
+        name: 'Ada',
+        commits: 5,
+        insertions: null,
+        deletions: null,
+        firstAt: 0,
+        lastAt: 0,
+      },
+      {
+        email: 'c@x',
+        name: 'Cy',
+        commits: 1,
+        insertions: null,
+        deletions: null,
+        firstAt: 0,
+        lastAt: 0,
+      },
     ]);
     expect(people.map((p) => p.name)).toEqual(['Ada', 'Bo', 'Cy']);
   });

@@ -35,12 +35,18 @@
  *                          runtime, which esbuild cannot resolve statically either
  */
 import { build } from 'esbuild';
-import { rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { vendorGameEngines } from '../../../scripts/vendor-game-engines.mjs';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
+
+// Phase 107 Theme C: vendor game engines into resources/game-engines at bundle time.
+await vendorGameEngines();
 
 /**
  * Sourcemaps are opt-in (Phase 36 Theme C). `dist/` was 70 MB, ~54 MB of it
@@ -50,6 +56,20 @@ const root = resolve(here, '..');
  * same variable, so one switch covers both halves of the app.
  */
 const wantSourcemap = process.env['MSTUDIO_SOURCEMAP'] === '1';
+
+/*
+  `main` is built from Studio's entry, `apps/studio/entry/main.ts` (Phase 113
+  Theme G): the app that composes Studio is what starts this package's main
+  (`src/main/index.ts`'s `startStudioMain`). The output path and name are
+  unchanged — `package.json`'s `main`, the asar and the perf scripts read them.
+*/
+const entryOf = (name) => {
+  if (name === 'main') return resolve(root, '../../apps/studio/entry/main.ts');
+  return resolve(root, `src/${name}/index.ts`);
+};
+
+/** The entry's one import, resolved to this package's source (it has no `exports`). */
+const alias = { '@midnite/studio-desktop/main': resolve(root, 'src/main/index.ts') };
 
 const common = {
   bundle: true,
@@ -80,6 +100,7 @@ const common = {
     'sherpa-onnx-node',
   ],
   logLevel: 'info',
+  alias,
 };
 
 /*
@@ -101,10 +122,16 @@ const outfiles = [
   'mcp-shim',
   'script-runner-worker',
   'companion-tts-worker',
+  'music-worker',
+  'sf3d-worker',
+  'terrain-worker',
+  'map-capture-worker',
   'knowledge-layout-worker',
+  // Phase 113 Theme K slice 2: the desktop region overlay's own preload — three calls, nothing else.
+  'capture-overlay-preload',
 ].map((name) => ({
   name,
-  entry: resolve(root, `src/${name === 'main' ? 'main/index.ts' : `${name}/index.ts`}`),
+  entry: entryOf(name),
   out: resolve(root, `dist/bundle/${name}.js`),
 }));
 
@@ -121,16 +148,40 @@ if (!wantSourcemap) {
   for (const { out } of outfiles) rmSync(`${out}.map`, { force: true });
 }
 
-await Promise.all(
-  outfiles.map(({ name, entry, out }) =>
+/*
+  The desktop region overlay's page (Phase 113 Theme K slice 2): the capture feature's tiny DOM script,
+  built for the browser as a classic iife, next to its static page with its own strict CSP. Both land in
+  `dist/bundle/`, which the asar already carries, and main loads the page off disk beside `main.js`.
+*/
+const featureCapture = createRequire(import.meta.url);
+const overlayEntry = featureCapture.resolve('@midnite/studio-feature-capture/overlay-page');
+const overlayHtml = featureCapture.resolve('@midnite/studio-feature-capture/overlay-page.html');
+const overlayOut = resolve(root, 'dist/bundle/capture-overlay.js');
+if (!wantSourcemap) rmSync(`${overlayOut}.map`, { force: true });
+
+await Promise.all([
+  ...outfiles.map(({ name, entry, out }) =>
     build({
       ...common,
-      // The MCP stdio shim is spawned under the host Node (22), not Electron's
-      // bundled Node 24 — keep its syntax floor at node20.
+      // The MCP stdio shim is spawned under the host Node, not Electron's
+      // bundled Node — keep its syntax floor at node20.
       target: name === 'mcp-shim' ? 'node20' : common.target,
       entryPoints: [entry],
       outfile: out,
     }),
   ),
-);
+  build({
+    bundle: true,
+    platform: 'browser',
+    format: 'iife',
+    target: 'chrome130',
+    sourcemap: wantSourcemap,
+    minify: true,
+    logLevel: 'info',
+    entryPoints: [overlayEntry],
+    outfile: overlayOut,
+  }),
+]);
+mkdirSync(resolve(root, 'dist/bundle'), { recursive: true });
+copyFileSync(overlayHtml, resolve(root, 'dist/bundle/capture-overlay.html'));
 

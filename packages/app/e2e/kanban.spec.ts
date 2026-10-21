@@ -69,11 +69,14 @@ const ITEM = {
       guarantee. The mock bridge hands these fixtures back VERBATIM, with no
       schema parse, so omitting any of the three here throws — on the detail
       pane's first render for the first two, on the first drag-to-skill drop
-      for the third.
+      for the third. `dependencies` (`.default({})`) is the fourth: every
+      Projects mode now builds the dependency graph for its blocked status
+      stroke, and `resolveForgeGraph` reads it on the view's first render.
     */
     body: '',
     labels: [],
     linkedPrs: [],
+    dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
   },
   fieldValues: {
     FIELD_status: { fieldId: 'FIELD_status', dataType: 'single_select' as const, optionId: 'OPT_todo', name: 'Todo' },
@@ -93,6 +96,7 @@ const OTHER_ITEM = {
     body: '',
     labels: [],
     linkedPrs: [],
+    dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
   },
   fieldValues: {
     FIELD_status: { fieldId: 'FIELD_status', dataType: 'single_select' as const, optionId: 'OPT_todo', name: 'Todo' },
@@ -145,8 +149,8 @@ async function openBoard(page: Page, data: MockFixtures, options: { writes?: boo
   await installMockBridge(page, data);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await expect(page.getByTestId('board-view')).toBeVisible();
   await expect(page.getByText('Wire the write path')).toBeVisible();
@@ -413,19 +417,19 @@ test.describe('kanban card running glow (Theme F)', () => {
     });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-    await clickRailLink(page, 'Projects');
-    await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+    await clickRailLink(page, 'Tasks');
+    await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
     await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     // `TaskCard`'s own root carries `role="button"` and the glow class
     // together — searching by role rather than counting div depth is what
     // stays correct if the card's internal markup ever grows a wrapper.
-    const card = page.getByText('Wire the write path').locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    const card = page.getByText('Wire the write path').locator('xpath=ancestor::*[@data-card-id]');
     await expect(card).toHaveClass(/agent-run-glow/);
     await expect(card).toHaveClass(/is-running/);
 
     // The other, untouched item has no session bound to it — no glow at all.
-    const otherCard = page.getByText('A card nobody touches').locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    const otherCard = page.getByText('A card nobody touches').locator('xpath=ancestor::*[@data-card-id]');
     await expect(otherCard).not.toHaveClass(/agent-run-glow/);
 
     /*
@@ -463,13 +467,13 @@ test.describe('revealing a card session in the terminal', () => {
     await installMockBridge(page, { ...base, terminalSessions: [CARD_SESSION] });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-    await clickRailLink(page, 'Projects');
-    await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+    await clickRailLink(page, 'Tasks');
+    await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
     await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     const card = page
       .getByText('Wire the write path')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .locator('xpath=ancestor::*[@data-card-id]');
     await expect(card).toHaveClass(/is-running/);
     await expect(card.getByTestId('card-play-agent')).toHaveCount(0);
     await expect(card.getByTestId('card-stop-agent')).toBeVisible();
@@ -478,7 +482,7 @@ test.describe('revealing a card session in the terminal', () => {
     // The untouched card has no active session, so its button is "Start agent"
     const otherCard = page
       .getByText('A card nobody touches')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .locator('xpath=ancestor::*[@data-card-id]');
     await expect(otherCard.getByTestId('card-play-agent')).toHaveAttribute('title', 'Start agent');
 
     // The embedded terminal is open by default (Theme G's `>_` starts
@@ -502,13 +506,13 @@ test.describe('revealing a card session in the terminal', () => {
     await installMockBridge(page, { ...base, terminalSessions: [CARD_SESSION] });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-    await clickRailLink(page, 'Projects');
-    await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+    await clickRailLink(page, 'Tasks');
+    await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
     await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     const card = page
       .getByText('Wire the write path')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .locator('xpath=ancestor::*[@data-card-id]');
     await expect(card.locator('.xterm-screen')).toBeVisible();
 
     await card.getByTestId('card-terminal-toggle').click();
@@ -523,8 +527,8 @@ test.describe('revealing a card session in the terminal', () => {
     await installMockBridge(page, { ...base, terminalSessions: [CARD_SESSION] });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-    await clickRailLink(page, 'Projects');
-    await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+    await clickRailLink(page, 'Tasks');
+    await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
     await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
 
     await page.getByText('Wire the write path').click();
@@ -566,35 +570,35 @@ test.describe('card-detail panel history (Theme D)', () => {
 });
 
 /**
- * Phase 92 Theme D's fork, proved against the real assembled app rather than
- * the isolated `use-card-play.test.tsx` hook — `board-view.tsx` mounts the
- * one `DialogHost` this menu actually opens through, and only the assembled
- * app can show a click landing on it and the session that follows.
+ * The card's Play button against the real assembled app rather than the
+ * isolated `use-card-play.test.tsx` hook: typing into the detail pane's skill
+ * combobox and pressing the card's own Play is a multi-view flow (detail
+ * pane → board card → terminal panel), and only the assembled app shows the
+ * typed text arriving in the pty's initial input intact.
  */
-test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
-  test('an unset card: Play opens the fallback menu, and one click on an entry both launches and closes it', async ({
+test.describe('Play button — the card skill picker', () => {
+  test('free text typed into the skill combobox is what Play sends, verbatim, with no menu', async ({
     page,
   }) => {
     await openBoard(page, base);
 
+    await page.getByText('Wire the write path').click();
+    const picker = page.getByTestId('card-detail').last().getByRole('combobox', { name: 'Skill' });
+    // Prepopulated for an ad hoc card nobody has chosen a skill for.
+    await expect(picker).toHaveValue('/midnite-create-adhoc');
+    await picker.fill('/midnite-create 98 D');
+    await picker.press('Enter');
+
     const card = page
       .getByText('Wire the write path')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .first()
+      .locator('xpath=ancestor::*[@data-card-id]');
     await card.getByTestId('card-play-agent').click();
 
-    // Exactly three entries — never the full six-entry `tasks` category.
-    await expect(page.getByRole('menu')).toBeVisible();
-    await expect(page.getByRole('menuitem')).toHaveText(['Exec', 'Ideate', 'Refine']);
-
-    // One click: no second confirm, no second click needed.
-    await page.getByRole('menuitem', { name: 'Exec' }).click();
-    await expect(page.getByRole('menu')).toHaveCount(0);
-
-    // It launched — a fresh pty came up with the shrunk skill+link prompt,
-    // never the title/assignees/labels/body `composeCardPrompt` would send.
+    expect(await page.getByRole('menu').count()).toBe(0);
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
     const create = (await ptyCalls(page)).creates[0]!;
-    expect(create.initialInput).toContain('/midnite-create-adhoc https://github.com/bilo-io/midnite-studio/issues/42');
+    expect(create.initialInput).toContain("'/midnite-create 98 D https://github.com/bilo-io/midnite-studio/issues/42'");
     expect(create.initialInput).not.toContain('Wire the write path');
 
     // And the terminal panel opened on it — `revealSession`'s own job.
@@ -612,7 +616,7 @@ test.describe('Play button — skill fork (Phase 92 Theme D/E)', () => {
 
     const otherCard = page
       .getByText('A card nobody touches')
-      .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+      .locator('xpath=ancestor::*[@data-card-id]');
     await otherCard.getByTestId('card-play-agent').click();
 
     expect(await page.getByRole('menu').count()).toBe(0);

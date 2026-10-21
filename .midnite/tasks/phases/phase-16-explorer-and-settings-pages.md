@@ -21,6 +21,22 @@ the repo root or `~/.claude`.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*The app grows real pages: a read-only Folder view with a preview pane, and Settings split into four pages behind an inner sidebar — including an Agent page into `~/.claude`. B is the spine (the fs IPC + path jail); C/D/E all read through it; A is independent chrome.* *Closed: both real-app manual verification passes done by the user on 2026-08-26 — the phase is complete.*
+
+**Theme A — Nav rail regrouped + settings page shell.** ✅ nav rail regrouped (Folder above Graph, Settings pinned bottom) + the settings page shell (merged 2026-08-26)
+
+**Theme B — Read-only fs IPC + path jail.** ✅ read-only `mstudio:fs:*` IPC with a path-confinement jail (repo root + `~/.claude`) and a jailed `mstudio-file://` protocol (merged 2026-08-26)
+
+**Theme C — Folder explorer view.** ✅ lazy repo file tree, dotfiles shown, gitignored dimmed and collapsed (merged 2026-08-26)
+
+**Theme D — Preview pane.** ✅ preview pane: shiki code, rendered markdown w/ source toggle, images/PDF/media, fallback card (merged 2026-08-26)
+
+**Theme E — Agent settings page.** ✅ Agent settings page: `~/.claude` tree + preview, Claude version card, Update streams / Uninstall pastes into the terminal (merged 2026-08-26)
+
+**Theme F — Grouped settings navigation + the side-navigation control.** ✅ (follow-up) — the settings sidebar becomes grouped and collapsible (General / Tools / System, one glyph per page), and Appearance gains the side-navigation control that exposes the rail's third mode (merged 2026-08-26)
+
 ## Deliverables
 
 ### A — Nav rail regrouped + settings page shell (M) ✅ DONE (merged to main, 2026-08-26)

@@ -26,6 +26,8 @@ import {
  */
 const OUT = '../../docs/screenshots/phase-19-dashboard';
 
+const MULTI_OUT = '../../docs/screenshots/adhoc-multi-dashboards';
+
 const MAIN = '/tmp/midnite-studio';
 
 const GITHUB_REMOTE = REPRODUCIBLE_REMOTE;
@@ -245,8 +247,26 @@ test.describe('dashboard screenshots', () => {
 
   test('the widget picker', async ({ page }) => {
     await openDashboard(page);
-    await page.getByRole('button', { name: 'Widgets and layout' }).click();
-    await page.getByRole('menu').waitFor();
+    await page.getByRole('button', { name: 'Add widget' }).click();
+    await page.getByRole('dialog', { name: 'Add widget' }).waitFor();
     await page.screenshot({ path: shotPath(OUT, 'dashboard-widget-menu.png') });
+  });
+
+  test('the Agents dashboard', async ({ page }) => {
+    await openDashboard(page);
+    await page.getByRole('tab', { name: 'Agents' }).click();
+    await page.getByRole('region', { name: 'Agent roster' }).waitFor();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.screenshot({ path: shotPath(MULTI_OUT, 'agents-dashboard.png') });
+  });
+
+  test('a new dashboard with the picker open', async ({ page }) => {
+    await openDashboard(page);
+    await page.getByRole('button', { name: 'Add dashboard' }).click();
+    await page.getByRole('region', { name: 'Clock' }).waitFor();
+    await page.waitForTimeout(SETTLE_MS);
+    await page.getByRole('button', { name: 'Add widget' }).click();
+    await page.getByRole('dialog', { name: 'Add widget' }).waitFor();
+    await page.screenshot({ path: shotPath(MULTI_OUT, 'new-dashboard-picker.png') });
   });
 });

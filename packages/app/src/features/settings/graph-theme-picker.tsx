@@ -1,8 +1,8 @@
 import type { GraphRow } from '@midnite/studio-shared';
 
-import { GraphDefs, avatarClipId } from '../graph/graph-defs';
-import { GraphSvg } from '../graph/graph-svg';
-import { GRAPH_THEMES, GRAPH_THEME_IDS, type GraphThemeId } from '../graph/graph-themes';
+import { GraphDefs, avatarClipId } from '@midnite/studio-frame/graph';
+import { GraphSvg } from '@midnite/studio-frame/graph';
+import { GRAPH_THEMES, GRAPH_THEME_IDS, type GraphThemeId } from '@midnite/studio-frame/graph';
 import { cascadeStyle } from '../../lib/cascade';
 import { useUiStore } from '../../store/ui-store';
 

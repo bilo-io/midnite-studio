@@ -6,21 +6,20 @@ import {
   APP_VERSION_ARG,
   HOME_DIR_ARG,
   HOSTNAME_ARG,
-  appIdForRole,
+  webAppIdForRole,
   EVENT_CHANNELS,
   WINDOW_FRAMELESS_ARG,
   WINDOW_ROLE_ARG,
   type WindowDescriptor,
   type WindowRole,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, screen, shell, type Display, type WebContents } from 'electron';
+import { BrowserWindow, app, screen, type Display, type WebContents } from 'electron';
 
-import { bindAppNavigationGuard } from './app-navigation';
-import { reparentAppView } from './apps-service';
-import { reparentBrowserTabs } from './browser-service';
+import { reparentBrowserTabs, reparentWebAppView } from './browser-port';
+import { devToolsAllowed } from './devtools-policy';
 import type { Logger } from './log';
 import { attachWindowChrome, TRAFFIC_LIGHT_POSITION, windowFrameless } from './window-chrome';
-import type { WindowBounds, WindowsStore } from './windows-store';
+import type { ReopenStore, WindowBounds, WindowsStore } from './windows-store';
 
 /** Vite's dev server, matching `window.ts`'s own constant. */
 const DEV_SERVER_URL = process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173';
@@ -50,20 +49,26 @@ const DEFAULT_POPOUT_SIZE: Record<Exclude<WindowRole, 'main'>, { width: number; 
   'apps-spotify': { width: 1180, height: 800 },
   'apps-google-calendar': { width: 1180, height: 800 },
   'apps-youtube': { width: 1280, height: 860 },
+  // A popped-out game (Phase 107 Theme B): 720p of stage plus the toolbar.
+  game: { width: 1300, height: 820 },
   graph: { width: 1280, height: 860 },
   actions: { width: 1180, height: 800 },
-  changes: { width: 1280, height: 860 },
   files: { width: 1180, height: 820 },
   database: { width: 1280, height: 820 },
   dashboard: { width: 1280, height: 900 },
   search: { width: 1180, height: 820 },
   tests: { width: 1180, height: 800 },
-  projects: { width: 1400, height: 900 },
+  tasks: { width: 1400, height: 900 },
   reviews: { width: 1280, height: 860 },
-  issues: { width: 1180, height: 820 },
   history: { width: 1180, height: 800 },
   optimizer: { width: 1280, height: 860 },
   sessions: { width: 1180, height: 820 },
+  chats: { width: 1180, height: 820 },
+  councils: { width: 1180, height: 820 },
+  workflows: { width: 1400, height: 900 },
+  media: { width: 1280, height: 860 },
+  models: { width: 1080, height: 800 },
+  notes: { width: 980, height: 760 },
 };
 
 /**
@@ -105,6 +110,52 @@ export function configureWindowsStore(
 ): void {
   windowsStore = store;
   boundsCache = initial;
+}
+
+/**
+ * Roles that come back on the next launch if they were open when the app last
+ * ran. Narrow on purpose: a panel popout re-docks when the app quits, and a
+ * page popout reopening unasked is a choice made per page, not a default.
+ */
+export const REOPEN_ON_LAUNCH: ReadonlySet<WindowRole> = new Set<WindowRole>(['notes']);
+
+let reopenStore: ReopenStore | null = null;
+let reopenRoles = new Set<WindowRole>();
+let reopenReady: Promise<void> = Promise.resolve();
+/**
+ * True from the moment the app begins quitting (or the main window closes and
+ * takes its popouts with it) until a main window exists again. A popout closed
+ * in that state was not dismissed by the user, so it must stay in the reopen
+ * set.
+ */
+let shuttingDown = false;
+
+/** Called from `before-quit` — popouts closed from here on are shutdown, not dismissal. */
+export function beginShutdown(): void {
+  shuttingDown = true;
+}
+
+/** Wire in the reopen list. Pair with `restoreReopenedPopouts` once a main window exists. */
+export function configureReopenStore(store: ReopenStore): void {
+  reopenStore = store;
+  reopenReady = store.load().then((roles) => {
+    reopenRoles = new Set(roles.filter((role) => REOPEN_ON_LAUNCH.has(role)));
+  });
+}
+
+function persistReopen(): void {
+  const store = reopenStore;
+  if (!store) return;
+  const snapshot = [...reopenRoles];
+  writeChain = writeChain.then(() => store.save(snapshot));
+}
+
+/** Recreate every popout that was open at the last shutdown. */
+export async function restoreReopenedPopouts(log: Logger): Promise<void> {
+  await reopenReady;
+  for (const role of [...reopenRoles]) {
+    if (role !== 'main') createRoleWindow(role, log);
+  }
 }
 
 /**
@@ -216,6 +267,7 @@ export function resolveWindow(sender: WebContents): BrowserWindow | null {
 
 /** Registers the *main* window too, so `resolveRole`/`listWindows` see it. */
 export function registerMainWindow(win: BrowserWindow): void {
+  shuttingDown = false;
   windows.set(win.id, { win, role: 'main', repoId: null });
   win.once('closed', () => {
     windows.delete(win.id);
@@ -260,7 +312,7 @@ export function bindPopoutRenderProcessGone(win: BrowserWindow, log: Logger): vo
   /*
     Not a crash — the popout is alive and has stopped answering. Bound here
     because until Phase 65 `unresponsive` was wired ONLY for embedded browser
-    tabs (`browser-service.ts`), so a hung Studio window — the failure a user is
+    tabs (the browser feature's `browser-service.ts`), so a hung Studio window — the failure a user is
     most likely to actually report — left no record at all. Recorded and not
     acted on: Electron recovers from most of these on its own, and killing a
     window that was merely busy would be a worse bug than the one being logged.
@@ -320,6 +372,8 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Phase 91 Theme D: closes `webContents.openDevTools()` from anywhere, not just the menu.
+      devTools: devToolsAllowed(app.isPackaged),
       additionalArguments: [
         `${WINDOW_FRAMELESS_ARG}${frameless ? '1' : '0'}`,
         `${APP_VERSION_ARG}${app.getVersion()}`,
@@ -331,21 +385,15 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
   });
 
   windows.set(win.id, { win, role, repoId: null });
+  if (REOPEN_ON_LAUNCH.has(role) && !reopenRoles.has(role)) {
+    reopenRoles.add(role);
+    persistReopen();
+  }
   attachWindowChrome(win);
   bindPopoutRenderProcessGone(win, log);
   saveBoundsOnClose(win, role);
 
   win.once('ready-to-show', () => win.show());
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) void shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
-  bindAppNavigationGuard(
-    win.webContents,
-    !app.isPackaged && process.env['MSTUDIO_USE_BUILT_RENDERER'] !== '1' ? DEV_SERVER_URL : null,
-  );
 
   // A.6: a popout closed by its own traffic light re-docks — the same
   // outcome as pressing the re-dock button, not a way to lose the panel. For
@@ -362,16 +410,17 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
   // shown) for the same reason `window-handlers.ts`'s explicit dock IPC
   // hides it — the main window's flyout may already have a different app
   // active, and a popout closing on its own traffic light must not steal it.
-  const closingAppId = appIdForRole(role);
+  const closingAppId = webAppIdForRole(role);
   if (closingAppId) {
     win.on('close', () => {
       const main = windowForRole('main');
-      if (main && !main.isDestroyed()) reparentAppView(closingAppId, main, { visible: false });
+      if (main && !main.isDestroyed()) reparentWebAppView(closingAppId, main, { visible: false });
     });
   }
 
   win.on('closed', () => {
     windows.delete(win.id);
+    if (REOPEN_ON_LAUNCH.has(role) && !shuttingDown && reopenRoles.delete(role)) persistReopen();
     const reason = pendingCloseReason.get(win.id) ?? 'closed';
     pendingCloseReason.delete(win.id);
     log(`[window] close role=${role} id=${win.id} reason=${reason}`);
@@ -386,6 +435,7 @@ export function createRoleWindow(role: Exclude<WindowRole, 'main'>, log: Logger)
 
 /** Every registered popout, main window excluded — for closing on main-window close. */
 export function closeAllPopouts(): void {
+  shuttingDown = true;
   for (const { win, role } of [...windows.values()]) {
     if (role !== 'main' && !win.isDestroyed()) win.close();
   }

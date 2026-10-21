@@ -98,3 +98,45 @@ export const InstallUserSkillsResultSchema = z.object({
 });
 export const InstallUserSkillsResult = InstallUserSkillsResultSchema;
 export type InstallUserSkillsResult = z.infer<typeof InstallUserSkillsResultSchema>;
+
+/**
+ * One agent skill discovered in the open repo (`<dir>/skills/<name>/SKILL.md`),
+ * read off its frontmatter. `source` is which agent-convention directory it
+ * came from — `.claude` (Claude Code), `.codex` (Codex) or `.agents` (the
+ * agent-neutral mirror Antigravity and others read).
+ */
+export const RepoSkillSchema = z.object({
+  name: z.string().min(1),
+  description: z.string(),
+  source: z.enum(['.claude', '.agents', '.codex']),
+});
+export type RepoSkill = z.infer<typeof RepoSkillSchema>;
+
+export const RepoSkillListSchema = z.object({
+  skills: z.array(RepoSkillSchema),
+});
+export type RepoSkillList = z.infer<typeof RepoSkillListSchema>;
+
+/**
+ * Where a skill offered by the Loops composer's skill field was found.
+ *
+ * - `midnite` — bundled with the app: the onboarding kit's
+ *   `templates/midnite/.claude/skills`, which ships in the app's resources.
+ * - `repo` — the active repo's own `.claude`, `.agents` or `.codex` skills.
+ * - `user` — the user's `~/.claude/skills`.
+ */
+export const KnownSkillSourceSchema = z.enum(['midnite', 'repo', 'user']);
+export type KnownSkillSource = z.infer<typeof KnownSkillSourceSchema>;
+
+/** One skill the Loops composer can suggest, read off its `SKILL.md` frontmatter. */
+export const KnownSkillSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  source: KnownSkillSourceSchema,
+});
+export type KnownSkill = z.infer<typeof KnownSkillSchema>;
+
+export const KnownSkillListSchema = z.object({
+  skills: z.array(KnownSkillSchema),
+});
+export type KnownSkillList = z.infer<typeof KnownSkillListSchema>;

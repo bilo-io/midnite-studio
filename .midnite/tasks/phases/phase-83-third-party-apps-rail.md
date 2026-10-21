@@ -15,6 +15,20 @@
 
 ---
 
+## Headlines
+
+*A bottom-of-rail toggle row for Spotify, Google Calendar and YouTube, each an isolated `WebContentsView` in its own `persist:app-<id>` partition, shown one at a time in a dismiss-on-click-away flyout left of the repos sidebar, and each independently detachable into its own floating window (more than one at once). Reuses Phase 32's embedded-view security posture and Phase 55's window-role detach/re-dock machinery; the new part is per-app session isolation and a literal window role per app so simultaneous multi-app detach falls out for free.*
+
+**Theme A — Shared app registry & domain types.** ✅ Shared app registry & domain types (`AppId`/`AppDefinition` in `shared`, 3 new `PANEL_WINDOW_ROLES` literals, persisted `enabledApps`) (PR #346)
+
+**Theme B — Main-process apps service.** ✅ Main-process apps service (`apps-service.ts`, per-app `persist:app-<id>` partitions, reused browser security posture) (PR #346)
+
+**Theme C — Rail + flyout UI.** ◻ Rail + flyout UI (footer-slot toggle row, `react-icons/si` brand marks, the flyout panel)
+
+**Theme D — Independent detach per app.** ◻ Independent detach per app (per-app popout via `window-manager.ts`, simultaneous multi-app detach)
+
+**Theme E — Settings on/off switches.** ◻ Settings on/off switches
+
 ## Background
 
 The side nav (`app.tsx`) already renders a `NavConfig` with `pinned`/`sections`/`footer` slots; the

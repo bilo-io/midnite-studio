@@ -18,26 +18,41 @@ import {
   type NavLinkComponent,
 } from '@bilo-io/shell';
 import { pickForgeRemote, type ForgeCapability, type ForgeKind } from '@midnite/studio-shared';
-import { QueryClient } from '@tanstack/react-query';
-import type { IconType } from 'react-icons';
 import { CiPower } from 'react-icons/ci';
-import { LuChevronLeft, LuSettings } from 'react-icons/lu';
+import { LuSettings } from 'react-icons/lu';
 
 import { Brand, BrandHomeButton, BrandMark } from './components/brand';
-import { BrowserLauncher } from './features/browser/browser-launcher';
-import { BrowserSwitcherOverlay } from './features/browser/browser-switcher-overlay';
 import { TerminalSwitcherOverlay } from './features/terminal/terminal-switcher-overlay';
 import { NotesModal } from './features/notes/notes-modal';
 import { QuickAccessMenu } from './features/quick-access/quick-access-menu';
-import { BrowserPane } from './features/browser/browser-pane';
-import { AppsFlyoutPanel } from './features/apps/apps-flyout-panel';
-import { AppsRailRow } from './features/apps/apps-rail-row';
-import { useAppsSync } from './features/apps/use-apps-sync';
-import { DelayedFallback } from './components/delayed-fallback';
+import {
+  BrowserLauncher,
+  BrowserPane,
+  BrowserSwitcherOverlay,
+  useWebAppsSync,
+  WebAppsFlyoutPanel,
+  WebAppsRailRow,
+} from '@midnite/studio-feature-browser/renderer';
+// The frame (Phase 113 Theme C): the chrome every app wears. The layout
+// pieces below are the first to leave this file for it.
+import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
+import { STUDIO_FORGE_HOST } from './compose/forge-host';
+import { STUDIO_CHROME } from './compose/studio-chrome';
+import { STUDIO_TASKS_HOST } from './compose/tasks-host';
+import { STUDIO_SLIDES_HOST } from './compose/slides-host';
+import { StudioProviders } from './compose/studio-providers';
+import { useContentBoundsSync } from './store/content-bounds-store';
 import { ErrorBoundary } from './components/error-boundary';
+import { ReportIssueHost } from './components/report-issue-dialog';
 import { ToastHost } from './components/toast-host';
-import { VIEW_ICON } from './components/nav-icons';
+import {
+  AGENT_NAV_ITEMS,
+  GIT_NAV_ITEMS,
+  PINNED_NAV_ITEMS,
+  WORKSPACE_NAV_ITEMS,
+  type RailNavItem,
+} from './components/nav-groups';
 import { VIEW_COMPONENT } from './components/view-registry';
 import { useKeptAliveView } from './components/view-keep-alive';
 import { navChord } from './components/nav-chords';
@@ -48,7 +63,15 @@ import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
 import { CompanionPanelSlot } from './features/companion/companion-panel';
 import { setCommandRuntime } from './features/companion/command-runtime';
+import { McpSettingConfirmHost } from './features/companion/mcp-setting-confirm';
 import { useCompanionUiRequests } from './features/companion/ui-requests';
+import { useFollowPrimaryAgent } from './features/agent/follow-primary-agent';
+import { useModelOpenListener } from './compose/media-model/use-model-open-listener';
+import { useSpriteRenderHost } from '@midnite/studio-feature-media-sprite/events';
+import { useStudioTerrainOpenListener } from './compose/media-terrain/use-terrain-open-listener';
+import { useMediaOpenListeners } from './features/media/media-open-request';
+import { useSpriteOpenListener } from './compose/media-sprite/use-sprite-open-listener';
+import { loadSpriteRenderJob } from './compose/media-sprite/load-render-job';
 /*
   Side-effect import: Phase 79 Themes F and G register their four members of
   `companion-ports` (interrupt, the two mic gestures, mic availability) at
@@ -75,6 +98,7 @@ import { ThemeToggle } from './components/theme-toggle';
 import { AccountSwitcherSlot } from './components/account-switcher';
 import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
+import { TitleBarOllama } from './components/title-bar-ollama';
 import { TitleBarPrimaryAgent } from './components/title-bar-primary-agent';
 import { TitleBarBattery } from './features/battery/battery-titlebar';
 import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
@@ -88,22 +112,24 @@ import { ReposPanel } from './features/repos/repos-panel';
 import { useDefaultSelection } from './features/repos/use-default-selection';
 import { usePruneClosedRepos } from './features/repos/use-prune-closed-repos';
 import { primaryTarget } from './features/repos/use-repo-actions';
-import { useKnowledgeGraphExists } from './features/knowledge/use-knowledge-graph';
 
 import { SyncActions } from './features/status/sync-actions';
 import { useDeepLinks } from './services/deep-link';
 import { StatusBar } from './features/status-bar/status-bar';
+import { fabPlacementFor, useFabPlacementFlip } from './features/status-bar/fab-placement';
 import { loadTerminalView } from './features/terminal/lazy-terminal-view';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useAgentActivity } from './features/terminal/use-agent-activity';
 import { useSessionExits } from './features/terminal/use-session-exits';
 import { useWorkflowNodeSessions } from './features/terminal/use-workflow-node-sessions';
-import { useWaitingGateToasts } from './features/workflows/use-waiting-gate-toasts';
+import { useWaitingGateToasts } from '@midnite/studio-feature-workflows/renderer';
+import { useCaptureShortcutLanding } from '@midnite/studio-feature-capture/renderer';
 import { RailVersion } from './features/version/rail-version';
 import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
 import { markOnce } from './lib/perf';
 import { bridge } from './services/bridge';
+import { appQueryClient } from './services/query-client';
 import { useBroadcastSync } from './services/broadcast-sync';
 import { useCommandHandlers } from './services/keybindings/use-command-handlers';
 import { useKeybindings } from './services/keybindings/use-keybindings';
@@ -113,14 +139,17 @@ import { useSyncRepoForgeRegistry } from './services/repo-forge-registry';
 import { useWatchInvalidation } from './services/watch-invalidation';
 import { useReportWindowRepo } from './services/use-report-window-repo';
 import { useSettingsSync } from './services/use-settings-sync';
+import { syncLockFromMain } from './store/lock-sync';
+import { migrateLegacyAgentApiKeys } from './store/migrate-agent-api-keys';
 import { migrateLegacyGithubAgentKey } from './store/migrate-forge-github-key';
 import { useWindowSync } from './services/use-window-sync';
-import { useTestsStream } from './features/tests/use-tests-stream';
+import { useTestsStream } from '@midnite/studio-feature-tests/renderer';
 import { usePaletteSync } from './features/themes/use-palette-sync';
 import { useActivityPaletteSync } from './features/activity/use-activity-palette-sync';
 import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
 import { useCompanionStore } from './store/companion-store';
 import { useFileEditorStore } from './store/file-editor-store';
+import { useIssueModalStore } from './store/issue-modal-store';
 import {
   BROWSER_MAX_SHARE,
   DEFAULT_LAYOUT,
@@ -132,9 +161,12 @@ import {
   TERMINAL_VIEW_RESERVE,
   useUiStore,
   viewForPath,
-  type NavMode,
   type ViewId,
 } from './store/ui-store';
+import { useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/renderer';
+import { SlidesHostProvider } from '@midnite/studio-feature-slides/renderer';
+import { ForgeHostProvider } from '@midnite/studio-feature-forge/renderer';
+import { TasksHostProvider } from '@midnite/studio-feature-tasks/renderer';
 
 /*
   The views themselves live in `components/view-registry.tsx` — Phase 60 Theme
@@ -142,39 +174,38 @@ import {
   ternary that used to stand where `<Component />` does below. The `lazy()`
   calls and the reasoning about which views stay eager moved there with them.
 
-  What is left here is the three rarely-shown modals, which are not views: each
+  What is left here is the two rarely-shown overlays, which are not views: each
   keeps its own boundary with a `null` fallback rather than joining the view
   boundary, because they are overlays, and a spinner floating over the app while
   a modal's chunk arrives would be a worse frame than the modal simply appearing
   a beat later.
 */
-const loadSlidesModal = () => import('./features/slides/slides-modal');
+const loadSlidesModal = () => import('@midnite/studio-feature-slides/renderer/modal');
 const SlidesModal = lazy(() => loadSlidesModal().then((m) => ({ default: m.SlidesModal })));
-const loadOnboardingModal = () => import('./features/onboarding/onboarding-modal');
-const OnboardingModal = lazy(() =>
-  loadOnboardingModal().then((m) => ({ default: m.OnboardingModal })),
-);
-const loadFirstRunModal = () => import('./features/onboarding/first-run-modal');
-const FirstRunModal = lazy(() => loadFirstRunModal().then((m) => ({ default: m.FirstRunModal })));
+const loadIssueModal = () => import('./features/tasks/issue/issue-modal');
+const IssueModalHost = lazy(() => loadIssueModal().then((m) => ({ default: m.IssueModalHost })));
+const loadSetupOverlay = () => import('./features/setup/setup-overlay');
+const SetupOverlay = lazy(() => loadSetupOverlay().then((m) => ({ default: m.SetupOverlay })));
 
 /**
- * A QueryClient tuned for a desktop app talking to its own main process.
- *
- * No network is involved, so the usual web defaults are wrong: refetching on
- * window focus would re-run `git status` every time the user alts back into the
- * app, and retrying a failed call three times just delays an error the UI wants
- * to show. Freshness comes from the repo watcher invalidating precisely what
- * changed (Phase 10), not from polling.
+ * The app-wide issue modal (Tasks, the sidebar, the palette and in-app forge
+ * links all open it through `useIssueModalStore`). Its chunk — markdown
+ * rendering, the action bar — loads only once an issue is actually opened,
+ * the same trade the two overlays above make. Inside `DialogHost`, because
+ * `IssueActionBar`'s confirms go through `useDialogs`.
  */
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: false,
-      staleTime: Number.POSITIVE_INFINITY,
-    },
-  },
-});
+function IssueModalSlot() {
+  const open = useIssueModalStore((s) => s.target !== null);
+  if (!open) return null;
+  return (
+    <ErrorBoundary label="Issue" silent>
+      <Suspense fallback={null}>
+        <IssueModalHost />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
 
 /**
  * AppFrame is router-agnostic: it takes an `activePath` string and renders links
@@ -188,7 +219,7 @@ const queryClient = new QueryClient({
  * its min-content size, so once the rail's content is taller than the window
  * the browser shrinks each row it can down to one line box — 36px to 20px.
  *
- * Only the ungrouped rows (Dashboard, Notes, Knowledge, Sessions) actually lost the
+ * Only the ungrouped rows (Dashboard, Notes, Chats, Sessions, Knowledge) actually lost the
  * space, which is why the bug read as "the pinned items have no padding": they
  * are direct children of the scrolling `<nav>`, while every sectioned row sits
  * inside its section's `<Collapse>` grid, which clips rather than compresses.
@@ -311,33 +342,6 @@ function RailLockButton({ expanded }: { expanded: boolean }) {
   );
 }
 
-/**
- * The app's box: the whole viewport, with the title bar's height held clear at
- * the top. `--titlebar-h` is published by <TitleBar> while mounted and is
- * absent in a framed window, where the fallback of 0 is exactly right.
- *
- * PADDING, not a top margin — the distinction is the whole of a bug that made
- * the app unusable. A margin here collapses straight out through `<main>` and
- * `#root`, both of which are plain blocks with no border or padding of their
- * own, so it stops being space INSIDE the page and becomes the page's own
- * offset: a 100vh document sitting 48px down, i.e. 48px taller than the window.
- *
- * `body { overflow: hidden }` hides that from the wheel but not from the
- * platform. `focus()` and `scrollIntoView()` scroll an overflow-hidden viewport
- * quite happily, and clicking into a terminal focuses xterm's hidden textarea —
- * so one click scrolled the whole app up under the fixed title bar, where the
- * bar's own controls then answered every click meant for what was behind them.
- * A maximized terminal, whose header is the topmost thing in the column, lost
- * its restore button that way and could not be put back. Nothing scrolled it
- * home either: an overflow-hidden viewport takes no user gesture.
- *
- * Padding is inside the border box, so this box is exactly 100vh however tall
- * the bar is, and the document has nothing left to scroll.
- */
-const CONTENT_BOX = {
-  height: '100vh',
-  paddingTop: 'var(--titlebar-h, 0px)',
-} as const;
 
 /**
  * Rail icons come from react-icons, which fronts several icon sets at once —
@@ -353,7 +357,13 @@ const CONTENT_BOX = {
  * rail's one-noun-per-item pattern; the bare verb "Explore" was rejected for
  * exactly that reason, as the one item that wasn't a noun.
  */
-type NavItem = { view: ViewId; label: string; icon: IconType };
+type NavItem = RailNavItem;
+
+function pinnedItem(view: ViewId): NavItem {
+  const item = PINNED_NAV_ITEMS.find((i) => i.view === view);
+  if (!item) throw new Error(`no pinned rail item for ${view}`);
+  return item;
+}
 
 /**
  * Dashboard, alone, above everything else.
@@ -365,11 +375,7 @@ type NavItem = { view: ViewId; label: string; icon: IconType };
  * way Explorer and Graph are; it is the repository's front page, and grouping
  * it with them would say otherwise.
  */
-const PINNED_ITEM: NavItem = {
-  view: 'dashboard',
-  label: 'Dashboard',
-  icon: VIEW_ICON.dashboard,
-};
+const PINNED_ITEM: NavItem = pinnedItem('dashboard');
 
 /**
  * Notes, pinned directly under Dashboard (Phase 86 Theme E).
@@ -381,14 +387,22 @@ const PINNED_ITEM: NavItem = {
  * between the two rows is `ViewLink`'s job, not this list's — see its header
  * comment for why.
  */
-const NOTES_ITEM: NavItem = {
-  view: 'notes',
-  label: 'Notes',
-  icon: VIEW_ICON.notes,
-};
+const NOTES_ITEM: NavItem = pinnedItem('notes');
 
 /**
- * Knowledge, pinned directly under Notes (Phase 87 Theme C).
+ * Chats, pinned directly under Notes — the order is Notes → Chats → Sessions →
+ * Knowledge.
+ *
+ * A top-level view of the whole app like its neighbours: conversations are
+ * stored app-wide (`chats: { global: true }` in `view-registry.tsx`), each one
+ * remembering the repo it was started in, so it is not a tool scoped to one
+ * checkout section.
+ */
+const CHATS_ITEM: NavItem = pinnedItem('chats');
+
+/**
+ * Knowledge, pinned at the bottom of the pinned group, under Sessions (Phase 87
+ * Theme C put it under Notes; the Chats page moved it below Sessions).
  *
  * `pinned` rather than `WORKSPACE_NAV_ITEMS` for the same reason as
  * `NOTES_ITEM`: it is one of the app's top-level "views of the whole thing",
@@ -400,57 +414,24 @@ const NOTES_ITEM: NavItem = {
  * *row itself* read as disabled for a repo that exists but has never been
  * graphified.
  */
-const KNOWLEDGE_ITEM: NavItem = {
-  view: 'knowledge',
-  label: 'Knowledge',
-  icon: VIEW_ICON.knowledge,
-};
+const KNOWLEDGE_ITEM: NavItem = pinnedItem('knowledge');
 
 /**
- * Sessions, pinned directly under Knowledge (adhoc sidenav reorder).
+ * Sessions, pinned directly under Chats (adhoc sidenav reorder, then the Chats
+ * page).
  *
- * Same slot as `KNOWLEDGE_ITEM` and `NOTES_ITEM`: a top-level view of agent
+ * Same slot as `CHATS_ITEM` and `NOTES_ITEM`: a top-level view of agent
  * work across the repo, not a tool scoped to one checkout section. It stays
  * out of `AGENT_NAV_ITEMS` so the Agents section header does not sit between
- * Knowledge and Sessions.
+ * the pinned rows and the sections.
  */
-const SESSIONS_ITEM: NavItem = {
-  view: 'sessions',
-  label: 'Sessions',
-  icon: VIEW_ICON.sessions,
-};
+const SESSIONS_ITEM: NavItem = pinnedItem('sessions');
 
 /*
   Glyphs come from `components/nav-icons`, shared with the title bar's
   breadcrumbs — including the deliberate second and third icon families for
   Tests and Reviews, whose reasoning lives beside them there.
 */
-const WORKSPACE_NAV_ITEMS: NavItem[] = [
-  { view: 'files', label: 'Explorer', icon: VIEW_ICON.files },
-  { view: 'search', label: 'Search', icon: VIEW_ICON.search },
-  { view: 'optimizer', label: 'Optimizer', icon: VIEW_ICON.optimizer },
-  { view: 'tests', label: 'Tests', icon: VIEW_ICON.tests },
-  { view: 'database', label: 'Database', icon: VIEW_ICON.database },
-  { view: 'apiClient', label: 'API Client', icon: VIEW_ICON.apiClient },
-];
-
-const GIT_NAV_ITEMS: NavItem[] = [
-  { view: 'issues', label: 'Issues', icon: VIEW_ICON.issues },
-  { view: 'projects', label: 'Projects', icon: VIEW_ICON.projects },
-  { view: 'graph', label: 'Graph', icon: VIEW_ICON.graph },
-  { view: 'changes', label: 'Changes', icon: VIEW_ICON.changes },
-  { view: 'actions', label: 'Actions', icon: VIEW_ICON.actions },
-  { view: 'reviews', label: 'Reviews', icon: VIEW_ICON.reviews },
-  { view: 'history', label: 'History', icon: VIEW_ICON.history },
-];
-
-const AGENT_NAV_ITEMS: NavItem[] = [
-  { view: 'councils', label: 'Councils', icon: VIEW_ICON.councils },
-  { view: 'workflows', label: 'Workflows', icon: VIEW_ICON.workflows },
-  { view: 'video', label: 'Video', icon: VIEW_ICON.video },
-  { view: 'models', label: 'Models', icon: VIEW_ICON.models },
-];
-
 /**
  * Every rail item, pinned included — the app's one `ViewId` → label lookup.
  *
@@ -463,8 +444,9 @@ const AGENT_NAV_ITEMS: NavItem[] = [
 export const ALL_NAV_ITEMS: NavItem[] = [
   PINNED_ITEM,
   NOTES_ITEM,
-  KNOWLEDGE_ITEM,
+  CHATS_ITEM,
   SESSIONS_ITEM,
+  KNOWLEDGE_ITEM,
   ...WORKSPACE_NAV_ITEMS,
   ...GIT_NAV_ITEMS,
   ...AGENT_NAV_ITEMS,
@@ -478,7 +460,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
  * among them) is one array entry, not three call sites to remember to update
  * together.
  */
-const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'issues', 'projects'];
+const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'tasks'];
 
 /**
  * Which capability matrix field decides each gated view's visibility (Phase
@@ -488,11 +470,12 @@ const FORGE_GATED_VIEWS: readonly ViewId[] = ['actions', 'reviews', 'issues', 'p
  * `'none'` for one field (Bitbucket's Projects, say) hides only that view
  * rather than all four moving together as one GitHub-shaped unit.
  */
-const FORGE_VIEW_CAPABILITY: Partial<Record<ViewId, keyof ForgeCapability>> = {
-  actions: 'checks',
-  reviews: 'pulls',
-  issues: 'issues',
-  projects: 'projects',
+const FORGE_VIEW_CAPABILITY: Partial<Record<ViewId, readonly (keyof ForgeCapability)[]>> = {
+  actions: ['checks'],
+  reviews: ['pulls'],
+  // Tasks hosts both Project boards and the built-in Repo issues source, so
+  // either capability is enough to show it.
+  tasks: ['issues', 'projects'],
 };
 
 /**
@@ -534,52 +517,15 @@ function useForgeViewAvailability(repoId: string | null): (view: ViewId) => bool
 
   return useCallback(
     (view: ViewId) => {
-      const field = FORGE_VIEW_CAPABILITY[view];
-      if (!field) return true;
+      const fields = FORGE_VIEW_CAPABILITY[view];
+      if (!fields) return true;
       if (kind === null || !capability) return false;
-      return capability[field] !== 'none';
+      return fields.some((field) => capability[field] !== 'none');
     },
     [kind, capability],
   );
 }
 
-/**
- * Locks the nav rail open, or hands it back to hover.
- *
- * The two modes differ in more than persistence: `auto` hover-expands as an
- * OVERLAY, while `expanded` is the only mode that shifts the page content
- * (AppFrame sets `--nav-offset` from it). That asymmetry is what makes the lock
- * feel like a lock rather than a preference — mirroring midnite's own rail.
- *
- * `collapsed` is deliberately not reachable from here: a two-state pin is a
- * pin, a three-state one is a menu wearing a pin's clothes.
- */
-function NavLockToggle({
-  navMode,
-  onChange,
-}: {
-  navMode: NavMode;
-  onChange: (mode: NavMode) => void;
-}) {
-  const locked = navMode === 'expanded';
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(locked ? 'auto' : 'expanded')}
-      aria-pressed={locked}
-      aria-label={locked ? 'Unlock navigation' : 'Keep navigation expanded'}
-      title={locked ? 'Unlock navigation' : 'Keep navigation expanded'}
-      className="ml-auto shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-    >
-      <LuChevronLeft
-        aria-hidden
-        className={`h-4 w-4 transition-transform duration-200 ease-in-out ${
-          locked ? '' : 'rotate-180'
-        }`}
-      />
-    </button>
-  );
-}
 
 function Shell() {
   useDeepLinks();
@@ -629,9 +575,9 @@ function Shell() {
   // Tells main which repo THIS window is showing (Phase 84 Theme D.1) — see
   // the hook's own doc.
   useReportWindowRepo();
-  // Reconciles `enabledApps` against main's apps-service on mount and on
+  // Reconciles `enabledWebApps` against main's web-apps-service on mount and on
   // every change (Phase 83 Theme C) — see the hook's own doc.
-  useAppsSync();
+  useWebAppsSync();
   /*
     Keeps the companion's state machine in step with its master switch. At the
     root rather than in the panel: the FAB, the mini FAB and the quick-access
@@ -642,6 +588,7 @@ function Shell() {
   // a hand-off runs unattended, so its answer has to arrive with the
   // companion panel closed (Phase 79 Theme E).
   useCompanionHandoffWatch();
+  useFollowPrimaryAgent();
   useCompanionSpeakerWiring();
   // Cross-window sync (Theme E) — mounted here too, not just in
   // `DetachedRoot`, so a change made in the main window reaches every popout.
@@ -713,8 +660,13 @@ function Shell() {
     // raced that effect and could leave `--nav-offset` unset (not merely
     // wrong) whenever this one ran last, which is what broke `--nav-offset`
     // for every non-expanded state, hover-expanded included.
-    if (navMode !== 'expanded') return;
-    document.documentElement.style.setProperty('--nav-offset', '13rem');
+    // Collapsed strip is 4rem (shell's 3.5rem + 8px; see the `.w-14` rule in
+    // styles.css). Our effect runs after AppFrame's (child effects first), so
+    // this wins for 'auto'/'collapsed' too.
+    document.documentElement.style.setProperty(
+      '--nav-offset',
+      navMode === 'expanded' ? '13rem' : '4rem',
+    );
   }, [navMode]);
 
   useDefaultSelection();
@@ -763,6 +715,8 @@ function Shell() {
   // broadcast — see the hook's own doc.
   useLivenessTracking(useUiStore((s) => s.selectedRepoId));
   useTestsStream();
+  // App level (Phase 98 Theme I): a pull the setup wizard starts must keep reporting after the Models view is left or never opened.
+  useRefetchModelsOnPullDone();
   // Auto-fetch itself runs in main now (Phase 84 Theme B); this only keeps
   // main's mirror of the setting current.
   useSettingsSync();
@@ -773,6 +727,12 @@ function Shell() {
   // beyond React's own "runs once per mount" for an empty dependency array.
   useEffect(() => {
     void migrateLegacyGithubAgentKey();
+    // Phase 113 Theme J slice 2: the LLM keys beside it move into the vault too — a key leaves
+    // `agentApiKeys` only once the vault confirms it holds it.
+    void migrateLegacyAgentApiKeys();
+    // Phase 91 Theme D: the lock screen's authority is main's — restore the overlay after a reload
+    // and move a legacy plaintext passcode into main's hash.
+    void syncLockFromMain();
   }, []);
 
   // Every shortcut, every native menu item and (Theme C+) the palette dispatch
@@ -794,6 +754,16 @@ function Shell() {
   // windowRole guard lives inside the hook itself, not here, since main is
   // the only window `ui-bridge.ts` (main-side) ever targets.
   useCompanionUiRequests();
+  // Media ▸ Models — an agent's `model_open` brings the tab up on that model.
+  useModelOpenListener();
+  // Media ▸ Terrain — an agent's `terrain_open` does the same for a terrain.
+  useStudioTerrainOpenListener();
+  // Media ▸ Audio / Maps / Games — `music_open`, `map_goto`, `game_open` now work from any view (Phase 112 Theme E).
+  useMediaOpenListeners();
+  // Media ▸ Sprites — an agent's `sprite_open` does the same for a sprite asset (Phase 106 Theme K).
+  useSpriteOpenListener();
+  // Rendered-from-3D sprite jobs (Phase 106 Theme E): three.js loads only on the first request.
+  useSpriteRenderHost(loadSpriteRenderJob);
 
   /**
    * The terminal's height while maximized, measured rather than `flex-1`.
@@ -807,6 +777,8 @@ function Shell() {
    */
   const stackRef = useRef<HTMLDivElement | null>(null);
   const [stackHeight, setStackHeight] = useState(0);
+  // The width matters only to a terminal docked right, which maximizes across it.
+  const [stackWidth, setStackWidth] = useState(0);
   useLayoutEffect(() => {
     const stack = stackRef.current;
     if (!stack) return;
@@ -814,8 +786,12 @@ function Shell() {
     // terminal already maximized draws it full height rather than growing into
     // it — a layout effect runs while the browser still owes us that paint.
     setStackHeight(stack.clientHeight);
+    setStackWidth(stack.clientWidth);
     if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => setStackHeight(stack.clientHeight));
+    const observer = new ResizeObserver(() => {
+      setStackHeight(stack.clientHeight);
+      setStackWidth(stack.clientWidth);
+    });
     observer.observe(stack);
     return () => observer.disconnect();
   }, []);
@@ -835,9 +811,13 @@ function Shell() {
     asks for.
   */
   const viewportWidth = useViewportWidth();
-  const terminalMax = stackHeight
-    ? Math.max(LAYOUT_BOUNDS.terminalHeight.min, stackHeight - TERMINAL_VIEW_RESERVE)
-    : LAYOUT_BOUNDS.terminalHeight.max;
+  const terminalDock = useUiStore((s) => s.terminalDock);
+  const terminalRight = terminalDock === 'right';
+  const terminalBounds = terminalRight ? LAYOUT_BOUNDS.terminalWidth : LAYOUT_BOUNDS.terminalHeight;
+  const stackExtent = terminalRight ? stackWidth : stackHeight;
+  const terminalMax = stackExtent
+    ? Math.max(terminalBounds.min, stackExtent - TERMINAL_VIEW_RESERVE)
+    : terminalBounds.max;
   const fabPanelMax = Math.max(
     LAYOUT_BOUNDS.fabPanelWidth.max,
     Math.round(viewportWidth * FAB_PANEL_MAX_SHARE),
@@ -883,12 +863,14 @@ function Shell() {
    * `edge: 'end'`, the same inversion the right-docked detail pane needs.
    */
   const terminal = useResizable({
-    size: layout.terminalHeight,
-    onSize: (value) => setLayout('terminalHeight', value),
-    initial: DEFAULT_LAYOUT.terminalHeight,
-    axis: 'y',
+    // Docked right the splitter sits on the panel's LEFT edge and it grows
+    // width-wise: same `edge: 'end'` inversion, on the other axis.
+    size: terminalRight ? layout.terminalWidth : layout.terminalHeight,
+    onSize: (value) => setLayout(terminalRight ? 'terminalWidth' : 'terminalHeight', value),
+    initial: terminalRight ? DEFAULT_LAYOUT.terminalWidth : DEFAULT_LAYOUT.terminalHeight,
+    axis: terminalRight ? 'x' : 'y',
     edge: 'end',
-    ...LAYOUT_BOUNDS.terminalHeight,
+    ...terminalBounds,
     max: terminalMax,
     onCollapse: () => setTerminalOpen(false),
     onExpand: () => setTerminalMaximized(true),
@@ -950,7 +932,7 @@ function Shell() {
     First-interactive, as far as the renderer can tell: a layout effect here runs
     after the view inside `stackRef` has committed, so the mark lands once the
     user has something other than the pre-paint background to look at. Beside the
-    view switch rather than in `main.tsx` for exactly that reason — the entry
+    view switch rather than in `boot.tsx` for exactly that reason — the boot
     module knows when React started, not when it finished.
   */
   useLayoutEffect(() => {
@@ -977,7 +959,7 @@ function Shell() {
     exactly where the pointer is.
   */
   const terminalTarget =
-    terminalMaximized || terminal.snap === 'expand' ? stackHeight : terminal.current;
+    terminalMaximized || terminal.snap === 'expand' ? stackExtent : terminal.current;
 
   /*
     What the animated FRAME draws, which is not always what the panel inside it
@@ -1009,7 +991,7 @@ function Shell() {
   const terminalTween = useRevealSize<HTMLDivElement>({
     open: terminalDocked,
     size: terminalFrameSize,
-    axis: 'y',
+    axis: terminalRight ? 'x' : 'y',
     dragging: terminal.dragging,
     /*
       NOT the default `${open}:${size}` key: `terminalTarget` tracks the
@@ -1022,8 +1004,15 @@ function Shell() {
       before this hook existed. `terminalDocked`, not raw `terminalOpen`, so a
       detach/re-dock is its own discrete toggle too, exactly like open/close.
     */
-    animateKey: `${terminalDocked}:${terminalMaximized}`,
+    animateKey: `${terminalDocked}:${terminalMaximized}:${terminalDock}`,
   });
+  // Publishes the content area's rect (view stack minus the docked terminal's final size) for
+  // content-scoped modals to centre in; see `store/content-bounds-store.ts`.
+  useContentBoundsSync(
+    stackRef,
+    terminalRight ? 'right' : 'bottom',
+    terminalDocked && !terminalMaximized ? terminalFrameSize : null,
+  );
   /*
     The browser gets BOTH reveal primitives, one per layout, because the two
     layouts are structurally different panes: full screen is an overlay that
@@ -1095,7 +1084,11 @@ function Shell() {
     in the JSX so `Component` is a capitalised binding React will treat as a
     component rather than as an intrinsic element.
   */
-  const { Component, global: viewIsGlobal, keepAlive: activeKeepAlive } = VIEW_COMPONENT[activeView];
+  const {
+    Component,
+    global: viewIsGlobal,
+    keepAlive: activeKeepAlive,
+  } = VIEW_COMPONENT[activeView];
 
   /*
     What the error boundary calls the thing that just broke — "Graph stopped
@@ -1154,7 +1147,7 @@ function Shell() {
     makes "a view stays inside its box" true of every view, present and future,
     rather than a property each one has to remember.
   */
-  const viewBoxClassName = `min-h-0 flex-1 overflow-hidden animate-fade-in ${
+  const viewBoxClassName = `min-h-0 min-w-0 flex-1 overflow-hidden animate-fade-in ${
     covering && terminalTween.settled ? 'hidden' : ''
   }`;
 
@@ -1238,13 +1231,16 @@ function Shell() {
   const nav: NavConfig = useMemo(
     () => ({
       // Ungrouped, above the sections — the shell's own slot for exactly
-      // this. Notes rides directly under Dashboard (Phase 86 Theme E),
-      // Knowledge directly under Notes (Phase 87 Theme C), and Sessions
-      // directly under Knowledge (adhoc sidenav reorder); the hairline
-      // between Dashboard and Notes is `ViewLink`'s job, not this array's.
+      // this. Notes rides directly under Dashboard (Phase 86 Theme E), then
+      // Chats, Sessions and Knowledge in that order (Knowledge was under
+      // Notes from Phase 87 Theme C until the Chats page moved it below
+      // Sessions); the hairline between Dashboard and Notes is `ViewLink`'s
+      // job, not this array's.
       pinned: [
         visibleNavItem(PINNED_ITEM),
         visibleNavItem(NOTES_ITEM),
+        visibleNavItem(CHATS_ITEM),
+        visibleNavItem(SESSIONS_ITEM),
         visibleNavItem(KNOWLEDGE_ITEM)
           ? {
               ...navItem(KNOWLEDGE_ITEM),
@@ -1266,7 +1262,6 @@ function Shell() {
               ),
             }
           : null,
-        visibleNavItem(SESSIONS_ITEM),
       ].filter((item): item is NonNullable<typeof item> => item !== null),
       sections: [
         {
@@ -1330,7 +1325,7 @@ function Shell() {
         <div className="flex w-full flex-col gap-1 pb-3">
           <AccountSwitcherSlot slot="rail-bottom" expanded={expanded} />
           <RailLockButton expanded={expanded} />
-          <AppsRailRow expanded={expanded} />
+          <WebAppsRailRow expanded={expanded} />
           <button
             type="button"
             onClick={() => useUiStore.getState().setActiveView('settings')}
@@ -1404,6 +1399,7 @@ function Shell() {
       */}
       <TitleBarPrimaryAgent />
       <TitleBarAgents />
+      <TitleBarOllama />
       <TitleBarStatus />
       <TitleBarBattery />
       {/*
@@ -1464,6 +1460,59 @@ function Shell() {
    * window gets its own slim strip rather than losing them entirely.
    */
   const framed = !windowChrome?.frameless;
+
+  const fabPlacement = fabPlacementFor({ view: activeView, terminalOpen: terminalDocked });
+  const fabInStatusBar = fabPlacement === 'statusbar';
+  useFabPlacementFlip(fabPlacement, fabButtonRef);
+  const fabNode = (
+    <>
+      <FabLoopHalo tab={activeFabTab} />
+      <button
+        ref={fabMorphRef}
+        type="button"
+        onClick={() => {
+          // Detached (Phase 55): the panel already lives in its own
+          // window, so this focuses it rather than opening a second
+          // copy docked here.
+          if (fabDetached) {
+            bridge()?.window.focusRole({ role: 'fab' });
+            return;
+          }
+          captureFabMorphOrigin(fabButtonRef.current);
+          useUiStore.getState().toggleQuickAccess();
+        }}
+        aria-label={
+          fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'
+        }
+        title={fabDetached ? 'Midnite Loops (detached)' : 'Quick Access'}
+        data-testid="fab-button"
+        data-loops-running={loopsRunning.running ? 'true' : undefined}
+        data-fab-tab={activeFabTab}
+        /*
+          Theme H. A sibling attribute to `data-loop-state`, not a
+          second animation system — the rules live beside that block in
+          `styles.css` and win over it when both are set, because the
+          companion is the thing you are talking to. `undefined` for
+          `off`/`idle` (see `fabCompanionState`) leaves today's look
+          completely untouched, which is the only honest way to say
+          "no rule".
+        */
+        data-companion-state={fabCompanionState(companionState)}
+        /*
+          `relative` is load-bearing: the halo sits at `-z-10` behind this
+          button, and a static box would paint UNDER a negative-z
+          positioned sibling rather than over it — the halo's opaque disc
+          would swallow the brand mark. `.loop-run-glow` happens to set
+          `position: relative` too, but only while a loop runs, which is
+          too load-bearing a coincidence to lean on.
+        */
+        className={`companion-face companion-face--primary relative flex ${fabInStatusBar ? 'h-5 w-5' : 'h-10 w-10'} items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)} ${fabDetached ? 'opacity-50' : ''}`}
+      >
+        <BrandMark className="h-full w-full" />
+      </button>
+    </>
+  );
+  const fabHidden = fabPanelDocked || companionDocked;
 
   return (
     <AppFrame
@@ -1585,7 +1634,10 @@ function Shell() {
               the bar is `shrink-0 h-6` at both positions; if it ever becomes
               flexible, this reasoning stops holding.
             */}
-            <div ref={stackRef} className="flex min-h-0 flex-1 flex-col">
+            <div
+              ref={stackRef}
+              className={`flex min-h-0 min-w-0 flex-1 ${terminalRight ? 'flex-row' : 'flex-col'}`}
+            >
               {/*
                 ONE boundary for all eleven lazy views, not one each — Phase 36
                 Theme C. A view switch suspends in exactly one place; eleven
@@ -1675,10 +1727,7 @@ function Shell() {
               */}
               {keepAliveViewIds.map((viewId) => {
                 const isActive = viewId === activeView;
-                const {
-                  Component: SlotComponent,
-                  global: slotGlobal,
-                } = VIEW_COMPONENT[viewId];
+                const { Component: SlotComponent, global: slotGlobal } = VIEW_COMPONENT[viewId];
                 const slotLabel = ALL_NAV_ITEMS.find((item) => item.view === viewId)?.label;
                 return (
                   <ErrorBoundary key={viewId} resetKey={viewId} label={slotLabel}>
@@ -1720,7 +1769,11 @@ function Shell() {
               {terminalTween.mounted ? (
                 <>
                   {terminalMaximized ? null : (
-                    <ResizeHandle resizable={terminal} axis="y" label="Resize terminal" />
+                    <ResizeHandle
+                      resizable={terminal}
+                      axis={terminalRight ? 'x' : 'y'}
+                      label="Resize terminal"
+                    />
                   )}
                   <div
                     ref={terminalTween.ref}
@@ -1746,7 +1799,9 @@ function Shell() {
                       a frame behind. This way the shell is told its new size once,
                       at the start, and what moves is only the window onto it.
                     */
-                    className="relative z-10 shrink-0 overflow-hidden border-t border-border bg-background animate-fade-in"
+                    className={`relative z-10 shrink-0 overflow-hidden border-border bg-background animate-fade-in ${
+                      terminalRight ? 'border-l' : 'border-t'
+                    }`}
                     style={terminalTween.style}
                   >
                     {/*
@@ -1756,7 +1811,9 @@ function Shell() {
                       under the pointer for every frame of the animation rather than
                       clipped out of reach halfway through it.
                     */}
-                    <div style={{ height: terminalTarget }}>
+                    <div
+                      style={terminalRight ? { width: terminalTarget, height: '100%' } : { height: terminalTarget }}
+                    >
                       {/* Guards the tail of the collapse tween — see `browserColumn`'s. */}
                       {terminalDetached ? null : (
                         <TerminalPanel
@@ -1797,9 +1854,9 @@ function Shell() {
             positioned overlay in this same row, at the rail's own left edge
             rather than anchored to one rail icon's rect (see the component's
             own doc for why `Popover` doesn't fit). Always rendered: it draws
-            nothing while `appsFlyoutAppId` is `null`.
+            nothing while `webAppsFlyoutAppId` is `null`.
           */}
-          <AppsFlyoutPanel />
+          <WebAppsFlyoutPanel />
 
           {/*
             Companion panel (Phase 79 Theme C) — docked on the right, and
@@ -1839,7 +1896,7 @@ function Shell() {
                       goes false (closing or detaching) while this frame's
                       own exit tween is still playing.
                     */
-                    reserveFabSpace={!fabPanelDocked && !companionDocked}
+                    reserveFabSpace={!fabPanelDocked && !companionDocked && !fabInStatusBar}
                   />
                 )}
               </div>
@@ -1886,52 +1943,9 @@ function Shell() {
             `companionEnabled` (above), so a disabled companion never
             suppresses this button.
           */}
-          {!fabPanelDocked && !companionDocked ? (
+          {!fabPanelDocked && !companionDocked && !fabInStatusBar ? (
             <div className="absolute bottom-4 right-4 z-20 h-10 w-10">
-              <FabLoopHalo tab={activeFabTab} />
-              <button
-                ref={fabMorphRef}
-                type="button"
-                onClick={() => {
-                  // Detached (Phase 55): the panel already lives in its own
-                  // window, so this focuses it rather than opening a second
-                  // copy docked here.
-                  if (fabDetached) {
-                    bridge()?.window.focusRole({ role: 'fab' });
-                    return;
-                  }
-                  captureFabMorphOrigin(fabButtonRef.current);
-                  useUiStore.getState().toggleQuickAccess();
-                }}
-                aria-label={
-                  fabDetached ? 'Focus the detached Loops window' : 'Open quick access panel'
-                }
-                title={fabDetached ? 'Midnite Loops (detached)' : 'Quick Access'}
-                data-testid="fab-button"
-                data-loops-running={loopsRunning.running ? 'true' : undefined}
-                data-fab-tab={activeFabTab}
-                /*
-                  Theme H. A sibling attribute to `data-loop-state`, not a
-                  second animation system — the rules live beside that block in
-                  `styles.css` and win over it when both are set, because the
-                  companion is the thing you are talking to. `undefined` for
-                  `off`/`idle` (see `fabCompanionState`) leaves today's look
-                  completely untouched, which is the only honest way to say
-                  "no rule".
-                */
-                data-companion-state={fabCompanionState(companionState)}
-                /*
-                  `relative` is load-bearing: the halo sits at `-z-10` behind this
-                  button, and a static box would paint UNDER a negative-z
-                  positioned sibling rather than over it — the halo's opaque disc
-                  would swallow the brand mark. `.loop-run-glow` happens to set
-                  `position: relative` too, but only while a loop runs, which is
-                  too load-bearing a coincidence to lean on.
-                */
-                className={`companion-face companion-face--primary relative flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-110 active:scale-95 ${fabGlowClass(loopsRunning)} ${fabDetached ? 'opacity-50' : ''}`}
-              >
-                <BrandMark className="h-full w-full" />
-              </button>
+              {fabNode}
             </div>
           ) : null}
         </div>
@@ -1942,7 +1956,7 @@ function Shell() {
           keeps the stackHeight reasoning above intact.
         */}
         <CommitActivityPanel slot="bottom" />
-        <StatusBar />
+        <StatusBar fab={fabInStatusBar && !fabHidden ? fabNode : null} />
         {/*
           Eager, not lazy, and for the same reason `BrowserPane` is: this is
           what `Mod+B` puts on screen, and a modal that arrives a chunk-fetch
@@ -1963,20 +1977,12 @@ function Shell() {
           flip `quickAccessOpen`.
         */}
         {quickAccessOpen ? (
-          <QuickAccessMenu onClose={() => useUiStore.getState().setQuickAccessOpen(false)} />
+          <QuickAccessMenu
+            trigger={fabButtonRef}
+            anchor={fabInStatusBar ? fabButtonRef : undefined}
+            onClose={() => useUiStore.getState().setQuickAccessOpen(false)}
+          />
         ) : null}
-        {/*
-          Silent, like the two below: a modal whose chunk fails to load must not
-          paint an error card over the app it was optional to. It renders
-          nothing, exactly as it renders nothing while loading — and the throw
-          still reaches `lib/report.ts`, so "it silently never appeared" is a
-          recorded fact rather than a mystery.
-        */}
-        <ErrorBoundary label="First run" silent>
-          <Suspense fallback={null}>
-            <FirstRunModal />
-          </Suspense>
-        </ErrorBoundary>
       </div>
     </AppFrame>
   );
@@ -2075,6 +2081,11 @@ function useUnsavedCloseGuard(): void {
   }, []);
 }
 
+/** What the waiting-gate toast's "Review" does once it has asked the Graphs view to reveal the run. */
+const openGraphsView = (): void => useUiStore.getState().setActiveView('workflows');
+/** Phase 113 Theme K — the global capture chord brings Capture forward; the view picks up the frozen frame. */
+const openCaptureView = (): void => useUiStore.getState().setActiveView('capture');
+
 export function App() {
   useWindowBackgroundSync();
   useMotionPreference();
@@ -2105,29 +2116,58 @@ export function App() {
   // Phase 97 Theme D — the notification bell's "workflow waiting on you"
   // entry, for the identical reason: a gate can start waiting with the
   // Workflows view unmounted.
-  useWaitingGateToasts();
+  useWaitingGateToasts(openGraphsView);
+  // Phase 113 Theme K — the capture chord fires while any view is up, so its landing lives here too.
+  useCaptureShortcutLanding(openCaptureView);
   return (
-    <ShellProviders queryClient={queryClient}>
+    <ShellProviders queryClient={appQueryClient}>
       <DialogHost>
         <ToastHost>
           <PaletteHost>
-            <Shell />
-            <ErrorBoundary label="Onboarding" silent>
+            <StudioProviders>
+              <Shell />
+            </StudioProviders>
+            {/*
+              Silent, like Slides below: an overlay whose chunk fails to load
+              must not paint an error card over the app it was optional to. It
+              renders nothing, exactly as it renders nothing while loading — and
+              the throw still reaches `lib/report.ts`, so "it silently never
+              appeared" is a recorded fact rather than a mystery.
+            */}
+            <ErrorBoundary label="Setup" silent>
               <Suspense fallback={null}>
-                <OnboardingModal />
+                <SetupOverlay />
               </Suspense>
             </ErrorBoundary>
+            {/*
+              Outside <StudioProviders> too: the issue modal is the Tasks feature's issue
+              detail (Phase 113 Theme O), which draws through the frame chrome and the
+              Tasks host, and the forge's status pills — so it gets all three here.
+            */}
+            <FrameChromeProvider chrome={STUDIO_CHROME}>
+              <ForgeHostProvider host={STUDIO_FORGE_HOST}>
+                <TasksHostProvider host={STUDIO_TASKS_HOST}>
+                  <IssueModalSlot />
+                </TasksHostProvider>
+              </ForgeHostProvider>
+            </FrameChromeProvider>
+            {/* Phase 109 Theme D — an agent's companion change waiting on the user, while the companion itself is off or popped out. */}
+            <McpSettingConfirmHost />
           </PaletteHost>
         </ToastHost>
       </DialogHost>
       <FileEditorGuard />
       <ErrorBoundary label="Slides" silent>
-        <Suspense fallback={null}>
-          <SlidesModal />
-        </Suspense>
+        {/* Outside <StudioProviders> (which sits inside DialogHost), so the deck gets its host here. */}
+        <SlidesHostProvider host={STUDIO_SLIDES_HOST}>
+          <Suspense fallback={null}>
+            <SlidesModal />
+          </Suspense>
+        </SlidesHostProvider>
       </ErrorBoundary>
       <ScreensaverHost />
       <KillSwitchModal />
+      <ReportIssueHost />
     </ShellProviders>
   );
 }

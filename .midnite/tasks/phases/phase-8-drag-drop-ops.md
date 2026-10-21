@@ -2,6 +2,10 @@
 
 The GitKraken signature gestures, with a conflict banner + abort/continue flow.
 
+## Headlines
+
+**Theme A.** ✅ merge/rebase/cherry-pick + sequencer, @dnd-kit gestures, conflict banner
+
 ## Deliverables
 
 - [x] `git-engine/src/commands/{merge,rebase,cherry-pick}.ts` — conflicts map to `GitOpResult { kind: 'conflict', files, op }`

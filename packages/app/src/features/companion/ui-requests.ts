@@ -2,9 +2,18 @@ import { useEffect } from 'react';
 
 import {
   COMMANDS,
+  COMPANION_MCP_CONFIRM_MS,
+  COMPANION_SETTING_KEYS,
+  describeCompanionProfiles,
   failure,
+  isCompanionLocalVoiceId,
   ok,
+  summarizeCompanionProfile,
   type CommandId,
+  type CompanionProfile,
+  type CompanionProfileOpOutput,
+  type CompanionSettingKey,
+  type CompanionSettingsSetOutput,
   type CompanionUiAction,
   type CompanionUiReplyResult,
   type CompanionUiRequest,
@@ -16,12 +25,35 @@ import { bridge } from '../../services/bridge';
 import { useCompanionStore } from '../../store/companion-store';
 import { useToastStore } from '../../store/toast-store';
 import { useUiStore } from '../../store/ui-store';
+import { useGameRunStore } from '@midnite/studio-feature-media-game/renderer';
 import { useFileEditorStore } from '../../store/file-editor-store';
-import { useIssuesStore } from '../../store/issues-store';
+import { openIssueModal } from '../../store/issue-modal-store';
 import { VIEW_LABELS } from '../../services/palette/providers';
 import { COMMAND_ACCESS } from '../palette/safety';
 import { runCommand } from './command-runtime';
 import { resolveNavigation, SETTINGS_PAGE_LABEL, type NavigationState } from './navigate';
+import { askToConfirmMcpProfile, askToConfirmMcpSetting } from './mcp-setting-confirm';
+import {
+  deleteCompanionProfile,
+  previewDeleteCompanionProfile,
+  previewSaveCompanionProfile,
+  saveCompanionProfile,
+  switchCompanionProfile,
+  type CompanionProfileRefused,
+} from './profiles';
+import {
+  applyCompanionSetting,
+  previewCompanionSetting,
+  readCompanionSetting,
+  type CompanionSettingApplied,
+  type CompanionSettingRefused,
+} from './settings-apply';
+import { announceCompanionProfileSwitch, announceCompanionSettingChange } from './settings-announce';
+import { loadCompanionVoices } from './speaker';
+import { buildAgentStateReply, buildModelsListReply, resolveAgentSet } from './agent-switch';
+import { revealResource } from './reveal/reveal';
+import { lastRevealed } from './reveal/reveal-history';
+import { findResources } from './reveal/resolve';
 
 /**
  * The main window's side of the ui.* MCP tools (Phase 81 Theme F) — the
@@ -64,13 +96,73 @@ async function handleUiRequest(req: CompanionUiRequest): Promise<void> {
 export async function resolveUiAction(action: CompanionUiAction): Promise<CompanionUiReplyResult> {
   if (action.kind === 'state') return ok(await buildStateReply());
 
+  // Phase 109 Theme D's three arms answer before the lock check below: the
+  // reads answer while locked, as `state` does, and the setter refuses a
+  // locked write itself — as a `refused` status an agent can read, rather
+  // than a bare failure.
+  if (action.kind === 'settingsState') return ok(buildSettingsStateReply());
+  if (action.kind === 'voices') return ok(await buildVoicesReply());
+  if (action.kind === 'setting') return ok(await resolveSettingAction(action));
+  // Phase 109 Theme G's four arms, on the same footing: the list answers while
+  // locked, and `profiles.ts` refuses a locked write as a status.
+  if (action.kind === 'profileList') return ok(buildProfileListReply());
+  if (action.kind === 'profileSave') return ok(await resolveProfileSave(action.name));
+  if (action.kind === 'profileSwitch') return ok(resolveProfileSwitch(action.name));
+  if (action.kind === 'profileDelete') return ok(await resolveProfileDelete(action.name));
+  // Phase 111 Theme E: the reads answer while locked; the write refuses a locked screen as a status.
+  if (action.kind === 'agentState') return ok({ did: 'agentState', ...(await buildAgentStateReply()) });
+  if (action.kind === 'modelsList') return ok({ did: 'modelsList', ...(await buildModelsListReply(action)) });
+  if (action.kind === 'agentSet') return ok(await resolveAgentSetAction(action));
+
   // Both write actions share the lock check — a misheard sentence and an
   // unattended agent are the identical hazard while the screen is locked.
   if (useUiStore.getState().screensaverLocked) {
     return failure('The screen is locked — unlock it first.');
   }
 
+  if (action.kind === 'reveal') return resolveRevealAction(action);
+  if (action.kind === 'find') return resolveFindAction(action);
+
   return action.kind === 'navigate' ? resolveNavigateAction(action) : resolveCommandAction(action);
+}
+
+// --- find (Phase 112 Theme G) -----------------------------------------------
+
+/**
+ * An agent's `find` runs the resolver and answers with titles and ids only —
+ * `ResourceMatch.score` stays here, and a source's matching-only text (a chat
+ * preview, a note body) was never a field to begin with. A find only reads,
+ * so it posts no toast; it still sits behind the lock check above, because it
+ * enumerates the user's work.
+ */
+async function resolveFindAction(action: Extract<CompanionUiAction, { kind: 'find' }>): Promise<CompanionUiReplyResult> {
+  const matches = await findResources(action.query, {
+    ...(action.kinds ? { kinds: action.kinds } : {}),
+    ...(action.limit !== undefined ? { limit: action.limit } : {}),
+  });
+  return ok({
+    did: 'found',
+    matches: matches.map(({ ref, title, detail }) => ({ ref, title, ...(detail === undefined ? {} : { detail }) })),
+  });
+}
+
+// --- reveal (Phase 112 Theme B) ---------------------------------------------
+
+/**
+ * An agent's `reveal` runs the same `revealResource` engine a spoken "open
+ * that commit" does, with `caller: 'mcp'` — and, like every steer, is never
+ * silent: a landed reveal posts the "Agent: opened …" toast.
+ */
+async function resolveRevealAction(action: Extract<CompanionUiAction, { kind: 'reveal' }>): Promise<CompanionUiReplyResult> {
+  const outcome = await revealResource(action.ref, { caller: 'mcp' });
+  if (!outcome.ok) return failure(outcome.say);
+  announce(`Agent: opened ${outcome.label}.`, `An agent opened ${outcome.label}.`);
+  return ok({
+    did: 'revealed',
+    ref: action.ref,
+    label: outcome.label,
+    focusedWindow: outcome.did === 'focused-window',
+  });
 }
 
 // --- ui.state ----------------------------------------------------------------
@@ -84,6 +176,7 @@ const PANEL_ROLES: readonly PanelWindowRole[] = [
   'apps-spotify',
   'apps-google-calendar',
   'apps-youtube',
+  'game',
 ];
 
 async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: true }>['value']> {
@@ -94,11 +187,13 @@ async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: 
     fab: ui.fabDetached,
     companion: ui.companionDetached,
     browser: ui.browserDetached,
-    // The apps-rail roles track detached-ness as an array (`detachedApps`,
+    // The apps-rail roles track detached-ness as an array (`detachedWebApps`,
     // Theme D), mirroring `detachedPages` — see its own doc.
-    'apps-spotify': ui.detachedApps.includes('spotify'),
-    'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
-    'apps-youtube': ui.detachedApps.includes('youtube'),
+    'apps-spotify': ui.detachedWebApps.includes('spotify'),
+    'apps-google-calendar': ui.detachedWebApps.includes('google-calendar'),
+    'apps-youtube': ui.detachedWebApps.includes('youtube'),
+    // A popped-out game (Phase 107 Theme B) — tracked by the Games tab's run store.
+    game: useGameRunStore.getState().popped !== null,
   };
   const detached: WindowRole[] = [
     ...ui.detachedPages,
@@ -112,6 +207,7 @@ async function buildStateReply(): Promise<Extract<CompanionUiReplyResult, { ok: 
     detached,
     repoPath: await selectedRepoPath(),
     locked: ui.screensaverLocked,
+    lastRevealed: lastRevealed(),
   };
 }
 
@@ -142,9 +238,11 @@ function resolveNavigateAction(
       companion: ui.companionDetached,
       browser: ui.browserDetached,
       // See `navigate.ts`'s identical note.
-      'apps-spotify': ui.detachedApps.includes('spotify'),
-      'apps-google-calendar': ui.detachedApps.includes('google-calendar'),
-      'apps-youtube': ui.detachedApps.includes('youtube'),
+      'apps-spotify': ui.detachedWebApps.includes('spotify'),
+      'apps-google-calendar': ui.detachedWebApps.includes('google-calendar'),
+      'apps-youtube': ui.detachedWebApps.includes('youtube'),
+      // A popped-out game (Phase 107 Theme B) — tracked by the Games tab's run store.
+      game: useGameRunStore.getState().popped !== null,
     },
     locked: ui.screensaverLocked,
     repoId: ui.selectedRepoId,
@@ -200,7 +298,7 @@ function resolveNavigateAction(
 
       if (plan.page !== undefined) useUiStore.getState().setSettingsPage(plan.page);
       if (plan.issue !== undefined && state.repoId !== null) {
-        useIssuesStore.getState().selectIssue(state.repoId, plan.issue);
+        openIssueModal({ repoId: state.repoId, number: plan.issue });
       }
 
       // Announced unconditionally — unlike the companion's own spoken
@@ -234,6 +332,192 @@ function resolveCommandAction(action: Extract<CompanionUiAction, { kind: 'comman
   const label = COMMAND_LABEL[id] ?? id;
   announce(`Agent: ran ${label}.`, `An agent ran ${label}.`);
   return ok({ did: 'ran', label });
+}
+
+// --- companion_settings_* and companion_voices_list (Phase 109 Theme D) ----------
+
+type SettingReply = Extract<CompanionUiReplyResult, { ok: true }>['value'];
+
+function buildSettingsStateReply(): SettingReply {
+  const ui = useUiStore.getState();
+  const values = Object.fromEntries(
+    COMPANION_SETTING_KEYS.map((key) => [key, readCompanionSetting(ui, key)]),
+  ) as Record<CompanionSettingKey, unknown>;
+  return { did: 'settingsState', values, locked: ui.screensaverLocked };
+}
+
+async function buildVoicesReply(): Promise<SettingReply> {
+  const voices = await loadCompanionVoices();
+  const { companionVoices } = useUiStore.getState();
+  return {
+    did: 'voices',
+    system: voices.map((voice) => ({
+      voiceURI: voice.voiceURI,
+      name: voice.name,
+      lang: voice.lang,
+      default: voice.default,
+    })),
+    selected: {
+      local: isCompanionLocalVoiceId(companionVoices.local) ? companionVoices.local : null,
+      system: companionVoices.system,
+    },
+  };
+}
+
+function settingAnswer(
+  status: CompanionSettingsSetOutput['status'],
+  result: CompanionSettingApplied | CompanionSettingRefused,
+): SettingReply {
+  if (!result.ok) {
+    return { did: 'setting', status: 'refused', key: result.key, reason: result.reason, message: result.message };
+  }
+  return { did: 'setting', status, key: result.key, previous: result.previous, next: result.next };
+}
+
+/**
+ * `companion_settings_set` — B's setter with `source: 'mcp'`, which enforces
+ * the tier itself. A `direct` change applies at once. A `confirm` one comes
+ * back refused for want of a yes; it is previewed as if confirmed first, so a
+ * change the guards or the value schema would refuse anyway is refused without
+ * asking anyone, and then the user is asked (Decision 3). Only an approval
+ * inside the deadline writes it.
+ */
+async function resolveSettingAction(action: Extract<CompanionUiAction, { kind: 'setting' }>): Promise<SettingReply> {
+  const change = { key: action.key, value: action.value };
+  const first = applyCompanionSetting(change, 'mcp');
+  if (first.ok) {
+    // Not awaited: the agent's reply must not wait for a sentence to be spoken.
+    void announceCompanionSettingChange(first, 'mcp');
+    return settingAnswer('applied', first);
+  }
+  if (first.reason !== 'confirm') return settingAnswer('refused', first);
+
+  const preview = previewCompanionSetting({ ...change, confirmed: true }, 'mcp');
+  if (!preview.ok) return settingAnswer('refused', preview);
+  // Already set that way: nothing to ask about, and nothing is written.
+  if (JSON.stringify(preview.previous) === JSON.stringify(preview.next)) return settingAnswer('applied', preview);
+
+  const answer = await askToConfirmMcpSetting({
+    key: preview.key,
+    previous: preview.previous,
+    next: preview.next,
+    deadline: Date.now() + COMPANION_MCP_CONFIRM_MS,
+  });
+  if (answer !== 'approved') return { did: 'setting', status: answer, key: action.key };
+
+  // Checked again, not trusted from the preview: the screen may have locked,
+  // or the value moved, while the question was open.
+  const applied = applyCompanionSetting({ ...change, confirmed: true }, 'mcp');
+  if (!applied.ok) return settingAnswer('refused', applied);
+  void announceCompanionSettingChange(applied, 'mcp');
+  return settingAnswer('approved', applied);
+}
+
+// --- companion_profile_* (Phase 109 Theme G) -------------------------------------
+
+type ProfileOp = 'profileSave' | 'profileSwitch' | 'profileDelete';
+
+function buildProfileListReply(): SettingReply {
+  const ui = useUiStore.getState();
+  return {
+    did: 'profileList',
+    ...describeCompanionProfiles(ui.companionProfiles, ui.companionActiveProfile, ui, ui.screensaverLocked),
+  };
+}
+
+/** A profile as it stands now — active and modified read after the write. */
+function profileSummary(profile: CompanionProfile): CompanionProfileOpOutput['profile'] {
+  const ui = useUiStore.getState();
+  return summarizeCompanionProfile(profile, ui.companionActiveProfile, ui);
+}
+
+function profileRefused(did: ProfileOp, name: string, refusal: CompanionProfileRefused): SettingReply {
+  // `confirm` never reaches an agent — the app asks instead — and `guard`
+  // covers what the setter refused inside a switch.
+  const reason = refusal.reason === 'confirm' ? 'invalid' : refusal.reason;
+  return { did, status: 'refused', name, reason, message: refusal.message };
+}
+
+/**
+ * `companion_profile_save` — a new name saves at once; a taken one asks the
+ * user first (Theme G), like a confirm-tier `companion_settings_set`, and
+ * only an approval inside the deadline saves over it.
+ */
+async function resolveProfileSave(name: string): Promise<SettingReply> {
+  const preview = previewSaveCompanionProfile(name);
+  if (!preview.ok) return profileRefused('profileSave', name, preview);
+
+  let status: 'applied' | 'approved' = 'applied';
+  if (preview.existing !== null) {
+    const answer = await askToConfirmMcpProfile({
+      op: 'overwrite',
+      name: preview.existing.name,
+      deadline: Date.now() + COMPANION_MCP_CONFIRM_MS,
+    });
+    if (answer !== 'approved') return { did: 'profileSave', status: answer, name: preview.existing.name };
+    status = 'approved';
+  }
+
+  // Checked again, not trusted from the preview: the screen may have locked
+  // while the question was open.
+  const saved = saveCompanionProfile(name, { overwrite: status === 'approved' });
+  if (!saved.ok) return profileRefused('profileSave', name, saved);
+  if (saved.op !== 'save') return profileRefused('profileSave', name, { ok: false, reason: 'invalid', message: 'Not saved.' });
+  announce(
+    `Your agent saved the companion profile ${saved.profile.name}.`,
+    `Your agent saved how I am now as the ${saved.profile.name} profile.`,
+  );
+  return {
+    did: 'profileSave',
+    status,
+    name: saved.profile.name,
+    overwritten: saved.overwritten,
+    profile: profileSummary(saved.profile),
+  };
+}
+
+/** `companion_profile_switch` — direct, one undoable change, read back in the new voice. */
+function resolveProfileSwitch(name: string): SettingReply {
+  const result = switchCompanionProfile(name, 'mcp');
+  if (!result.ok) return profileRefused('profileSwitch', name, result);
+  if (result.op !== 'switch') return profileRefused('profileSwitch', name, { ok: false, reason: 'invalid', message: 'Not switched.' });
+  // Not awaited: the agent's reply must not wait for a sentence to be spoken.
+  void announceCompanionProfileSwitch(result, 'mcp');
+  return { did: 'profileSwitch', status: 'applied', name: result.profile.name, profile: profileSummary(result.profile) };
+}
+
+/** `companion_profile_delete` — always asks; only an approval inside the deadline deletes. */
+async function resolveProfileDelete(name: string): Promise<SettingReply> {
+  const preview = previewDeleteCompanionProfile(name);
+  if (!preview.ok) return profileRefused('profileDelete', name, preview);
+  const found = preview.profile;
+  const summary = profileSummary(found);
+
+  const answer = await askToConfirmMcpProfile({
+    op: 'delete',
+    name: found.name,
+    deadline: Date.now() + COMPANION_MCP_CONFIRM_MS,
+  });
+  if (answer !== 'approved') return { did: 'profileDelete', status: answer, name: found.name };
+
+  const deleted = deleteCompanionProfile(found.id);
+  if (!deleted.ok) return profileRefused('profileDelete', name, deleted);
+  announce(`Your agent deleted the companion profile ${found.name}.`, `Your agent deleted the ${found.name} profile.`);
+  return { did: 'profileDelete', status: 'approved', name: found.name, profile: summary };
+}
+
+// --- companion_agent_set (Phase 111 Theme E) --------------------------------------
+
+async function resolveAgentSetAction(action: Extract<CompanionUiAction, { kind: 'agentSet' }>): Promise<SettingReply> {
+  const answer = await resolveAgentSet(action);
+  if (answer.status === 'applied' && answer.next) {
+    const model = answer.next.modelId ? ` (${answer.next.modelId})` : '';
+    announce(
+      `Agent: switched primary agent to ${answer.next.agentId}${model}.`,
+      `Your agent switched the primary agent to ${answer.next.agentId}${model}.`,
+    );
+  }
+  return { did: 'agentSet', ...answer };
 }
 
 // --- making a steer visible --------------------------------------------------

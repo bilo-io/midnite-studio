@@ -89,6 +89,7 @@ export const COMMANDS = [
     chord: 'Ctrl+Shift+`',
     scope: 'global',
   },
+  { id: 'terminal.toggleDock', label: 'Dock Terminal to Bottom / Right', group: 'terminal' },
   { id: 'terminal.focus', label: 'Focus Terminal', group: 'terminal' },
   /**
    * `Mod+w` closes whichever session is selected (with the same "still
@@ -193,6 +194,13 @@ export const COMMANDS = [
    * data this array cannot name.
    */
   { id: 'account.switcher.open', label: 'Switch Forge Account…', group: 'view' },
+  /**
+   * Open the setup overlay (Phase 98 Theme A) — the first-run walkthrough of
+   * git, forges, accounts and toolchain. It opens by itself only on a fresh
+   * profile; this is how everyone else reaches it. Chord-free: setup is a
+   * once-in-a-while act, not a reflex worth a global chord.
+   */
+  { id: 'setup.open', label: 'Run Setup Wizard', group: 'view' },
   /**
    * Open the dev server detected for the active repository (Phase 71 Theme C).
    * Absent from the palette's own list when nothing is listening — detection
@@ -313,13 +321,25 @@ export const COMMANDS = [
   { id: 'app.lock', label: 'Lock Screen', group: 'view', chord: 'Mod+Shift+l' },
   { id: 'app.screensaver', label: 'Start Screensaver', group: 'view' },
   /**
+   * Opens the report-an-issue dialog from anywhere — the Help menu and the palette — rather than
+   * only from Settings ▸ Monitor and the release-notes panel. Chord-free: it is rare, and nothing is
+   * filed until the dialog's own Submit.
+   */
+  { id: 'app.reportIssue', label: 'Report an Issue…', group: 'view' },
+  /**
    * Mod+Shift+g navigates to the Graph view from anywhere. `app` scope like
    * `repos.toggle`: you rarely need this while mid-command with the terminal
    * focused, and it must not conflict with the terminal's own Ctrl+G binding.
    */
-  { id: 'view.graph', label: 'Go to Graph', group: 'graph', chord: 'Mod+Shift+g' },
+  { id: 'view.graph', label: 'Go to Timeline', group: 'graph', chord: 'Mod+Shift+g' },
   { id: 'graph.focus', label: 'Focus Graph', group: 'graph', chord: 'Mod+1' },
-  { id: 'status.focus', label: 'Focus Changes', group: 'status', chord: 'Mod+2' },
+  /**
+   * Kept as `status.focus` (a persisted keymap override names the id) and
+   * kept on `Mod+2`, beside `graph.focus`'s `Mod+1`: there is no Changes view
+   * any more, so the chord now opens the graph with the working-copy row's
+   * inline panel expanded — `openWorkingCopyInGraph` in `ui-store.ts`.
+   */
+  { id: 'status.focus', label: 'Show Working Copy Changes', group: 'status', chord: 'Mod+2' },
   { id: 'status.commit', label: 'Commit', group: 'status', chord: 'Mod+Enter' },
   // Chord-free since the reload pair took Mod+Shift+r — see `view.refresh`.
   { id: 'sync.fetch', label: 'Fetch', group: 'sync' },
@@ -349,12 +369,12 @@ export const COMMANDS = [
    */
   { id: 'view.files', label: 'Go to Explorer', group: 'files', chord: 'Mod+Shift+e' },
   /**
-   * Mod+Shift+i navigates to Issues from anywhere — same pattern as
-   * `view.graph`'s Mod+Shift+g and `view.files`'s Mod+Shift+e. `view` rather
-   * than a dedicated group: Issues has no further sub-commands of its own the
-   * way Graph and Files do, so it sits with the other cross-app navigations.
+   * Mod+Shift+i opens Tasks on its built-in "Repo issues" source — the old
+   * Issues view folded into Tasks, and this id stays as the alias for it
+   * (persisted keymaps and the palette's recents still name `view.issues`).
+   * `view` rather than a dedicated group, like `view.graph`/`view.files`.
    */
-  { id: 'view.issues', label: 'Go to Issues', group: 'view', chord: 'Mod+Shift+i' },
+  { id: 'view.issues', label: 'Go to Repo Issues', group: 'view', chord: 'Mod+Shift+i' },
   // Declared, unbound: Phase 23's palette is the surface that gives this a
   // chord-free way to fire. Enabled only while a description-level markdown
   // surface (Files preview, PR/review description) is in view — see
@@ -363,7 +383,7 @@ export const COMMANDS = [
   // Declared, unbound: like `sync.fetch`, chord-free by choice rather than by
   // exhaustion — a run action does not need a global chord, and the canvas's
   // own Run button (Theme F) is already one click away once the view is open.
-  { id: 'workflow.run', label: 'Run Workflow', group: 'view' },
+  { id: 'workflow.run', label: 'Run Graph', group: 'view' },
   /**
    * Phase 95 Theme H. Chord-free, like `op.abort`/`op.continue` above — a
    * kill switch is reached often enough to want a palette row and rarely
@@ -373,12 +393,32 @@ export const COMMANDS = [
    * anywhere.
    */
   { id: 'automate.kill', label: 'Auto-mate Kill Switch', group: 'operation' },
+  /**
+   * Phase 99 Theme A. Chord-free, like the other late views. `view.video`
+   * stays as an alias that opens Media on its Video tab, so a palette search
+   * for "Video" and any muscle memory still lands there.
+   */
+  { id: 'view.media', label: 'Go to Media', group: 'view' },
   { id: 'view.video', label: 'Go to Video Studio', group: 'view' },
+  { id: 'media.tab.doc', label: 'Media: Docs', group: 'view' },
+  { id: 'media.tab.image', label: 'Media: Images', group: 'view' },
+  { id: 'media.tab.video', label: 'Media: Video', group: 'view' },
+  { id: 'media.tab.audio', label: 'Media: Audio', group: 'view' },
+  { id: 'media.tab.model', label: 'Media: Models (3D)', group: 'view' },
+  /** Phase 101 Theme A — chord-free; Audio's Editor | Generator sub-tabs. */
+  { id: 'media.audio.editor', label: 'Audio: Editor', group: 'view' },
+  { id: 'media.audio.generator', label: 'Audio: Generator', group: 'view' },
   /**
    * Phase 96 Theme C. Chord-free, same reasoning as `view.video` right
    * above — reachable from the rail and the palette.
    */
   { id: 'view.models', label: 'Go to Models', group: 'view' },
+  /**
+   * Chats page. Chord-free like `view.models`: `Mod+Shift+c` is DevTools' element
+   * picker and `Mod+c` is copy, so the letter that names the feature is taken, and
+   * a mnemonic that does not name it teaches nothing. Rail and palette reach it.
+   */
+  { id: 'view.chats', label: 'Go to Chats', group: 'view' },
   /**
    * Phase 66 Theme B. Chord-free like `view.video` above rather than a
    * `Mod+Shift+…` chord (Decision 5): only five of nineteen views wear one,

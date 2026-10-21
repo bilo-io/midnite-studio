@@ -71,22 +71,21 @@ test.describe('nav rail chord tooltips', () => {
   test('shows the chord — and only the chord — for a row that has one', async ({ page }) => {
     await open(page);
 
-    await hoverRailRow(page, 'Graph');
+    await hoverRailRow(page, 'Timeline');
     const tip = page.getByRole('tooltip');
     await expect(tip).toBeVisible();
     await expect(tip).toHaveText(/^(⌘⇧G|Ctrl\+Shift\+G)$/);
     // The expanded row says "Graph" perfectly well; a bubble repeating it is
     // the thing this deliberately does not do.
-    await expect(tip).not.toContainText('Graph');
+    await expect(tip).not.toContainText('Timeline');
   });
 
-  test('gives Explorer, Search and Changes their own chords', async ({ page }) => {
+  test('gives Explorer and Search their own chords', async ({ page }) => {
     await open(page);
 
     for (const [name, chord] of [
       ['Explorer', /^(⌘⇧E|Ctrl\+Shift\+E)$/],
       ['Search', /^(⌘⇧F|Ctrl\+Shift\+F)$/],
-      ['Changes', /^(⌘2|Ctrl\+2)$/],
     ] as const) {
       await expectChord(page, name, chord);
       // Off the rail entirely, so the next row's bubble is unambiguously its

@@ -1,0 +1,63 @@
+{
+  "name": "@midnite/studio-feature-media-docs",
+  "version": "0.0.3",
+  "private": true,
+  "description": "Media \u25b8 Docs as a feature (Phase 113 Theme Q): the markdown doc editor, its explorer, AI-thread model and exports \u2014 Creator first, composed through media-core\u2019s tab registry.",
+  "sideEffects": false,
+  "exports": {
+    "./renderer": "./renderer/index.ts",
+    "./renderer/testing": "./renderer/testing.ts",
+    "./main": {
+      "types": "./dist/main/index.d.ts",
+      "default": "./dist/main/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.main.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-runtime": "workspace:*",
+    "@midnite/studio-shared": "workspace:*",
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extension-blockquote": "3.32.0",
+    "@tiptap/extension-code-block-lowlight": "3.32.0",
+    "@tiptap/extension-image": "3.32.0",
+    "@tiptap/extension-list": "3.32.0",
+    "@tiptap/extension-table": "3.32.0",
+    "@tiptap/extensions": "3.32.0",
+    "@tiptap/markdown": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/react": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0",
+    "@tiptap/suggestion": "3.32.0",
+    "lowlight": "3.3.0",
+    "react-icons": "^5.7.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.2"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "@testing-library/react": "^16.1.0",
+    "@types/hast": "^3.0.5",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5",
+    "vitest": "^3.2.4"
+  }
+}

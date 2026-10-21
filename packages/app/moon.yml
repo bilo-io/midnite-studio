@@ -2,6 +2,13 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 language: 'typescript'
 
+# Phase 113 Theme C: `layer-*` names the layer, `app-*` the apps a change here
+# reaches (`scripts/affected-apps.mjs` reads them). Until Themes G/H give each
+# app its own composition, packages/app is Studio's renderer composer only.
+tags:
+  - 'layer-app'
+  - 'app-studio'
+
 dependsOn:
   - 'shared'
 
@@ -30,6 +37,10 @@ tasks:
     inputs:
       - 'src/**/*'
       - 'index.html'
+      # Phase 113 Theme G: index.html loads Studio's renderer entry from the app that composes it, and
+      # the dev server reaches it through this plugin.
+      - '/apps/studio/entry/renderer.ts'
+      - 'vite-studio-entry-plugin.ts'
       # See the same entry on `desktop:bundle`: sourcemaps are opt-in as of
       # Phase 36 Theme C, and moon's hash must see the switch or the opt-in is
       # shadowed by the cache.
@@ -43,6 +54,12 @@ tasks:
       - 'tsconfig.json'
       - 'package.json'
       - '/packages/shared/src/**/*'
+      # Phase 113 Theme O: the git graph and diff — Studio's home view — are frame source now, compiled
+      # by this build and exercised by this package's own graph tests.
+      - '/packages/frame/src/**/*'
+      # Studio's renderer composes every feature package: a change there must re-run these tasks.
+      - '/packages/features/*/renderer/**/*'
+      - '/packages/features/*/manifest.ts'
     outputs:
       - 'dist'
 
@@ -56,6 +73,9 @@ tasks:
       - 'shared:build'
     inputs:
       - 'src/**/*'
+      # tsconfig.json includes vite.config.ts, which imports the Theme G entry plugin.
+      - 'vite.config.ts'
+      - 'vite-studio-entry-plugin.ts'
       # Theme B: `test-support/**/*` joined `tsconfig.json`'s `include`, so it
       # has to join this task's inputs too, or a test-support-only edit is a
       # false cache hit against a typecheck that never actually saw it.
@@ -63,6 +83,10 @@ tasks:
       - 'tsconfig.json'
       - 'package.json'
       - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      # Studio's renderer composes every feature package: a change there must re-run these tasks.
+      - '/packages/features/*/renderer/**/*'
+      - '/packages/features/*/manifest.ts'
 
   # Same reasoning as `typecheck` above: vitest.config.ts aliases
   # @midnite/studio-shared to its source, so shared's sources belong in this
@@ -71,12 +95,20 @@ tasks:
   test:
     inputs:
       - 'src/**/*'
+      # vitest.config.ts includes `vite-*.test.ts`; Theme G's reads index.html and Studio's entry.
+      - 'vite-*.ts'
+      - 'index.html'
+      - '/apps/studio/entry/renderer.ts'
       # Theme B: `render.tsx`/`module-mocks.ts` etc. live here and every unit
       # test that uses them re-runs when they change.
       - 'test-support/**/*'
       - 'vitest.config.ts'
       - 'package.json'
       - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      # Studio's renderer composes every feature package: a change there must re-run these tasks.
+      - '/packages/features/*/renderer/**/*'
+      - '/packages/features/*/manifest.ts'
 
   # Vite dev server for the Electron main process to load in development.
   dev:
@@ -104,6 +136,9 @@ tasks:
       - 'app:build'
     inputs:
       - 'src/**/*'
+      - 'index.html'
+      - '/apps/studio/entry/renderer.ts'
+      - 'vite-studio-entry-plugin.ts'
       - 'e2e/**/*'
       # Theme B: `mock-bridge.ts`/`fixtures.ts` moved out of `e2e/` — see the
       # same note on `e2e` below.
@@ -136,6 +171,9 @@ tasks:
       - 'shared:build'
     inputs:
       - 'src/**/*'
+      - 'index.html'
+      - '/apps/studio/entry/renderer.ts'
+      - 'vite-studio-entry-plugin.ts'
       - 'e2e/visual/**/*'
       # Theme D extends this file with the capture-time determinism helpers
       # every visual spec calls, so it belongs in the hash exactly like
@@ -166,6 +204,9 @@ tasks:
       - 'shared:build'
     inputs:
       - 'src/**/*'
+      - 'index.html'
+      - '/apps/studio/entry/renderer.ts'
+      - 'vite-studio-entry-plugin.ts'
       - 'e2e/**/*'
       # Theme B: `mock-bridge.ts`/`fixtures.ts` moved to `test-support/` (every
       # spec imports the fake bridge from there now), so it belongs in this

@@ -6,8 +6,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // (Ad Hoc "TTS synthesis blocks the UI"): `companionTtsCancel` registers
 // through `handleSend`/`ipcMain.on`, the first one-way channel this file
 // had to capture; Theme F's `companionUiReply` is the second.
-const { handle, on } = vi.hoisted(() => ({ handle: vi.fn(), on: vi.fn() }));
-vi.mock('electron', () => ({ ipcMain: { handle, on } }));
+const { handle, on, getMediaAccessStatus } = vi.hoisted(() => ({
+  handle: vi.fn(),
+  on: vi.fn(),
+  getMediaAccessStatus: vi.fn((_mediaType: string): string => 'granted'),
+}));
+vi.mock('electron', () => ({ ipcMain: { handle, on }, systemPreferences: { getMediaAccessStatus } }));
 
 // The engine itself — real `tts.ts` internals, `.generate()` and all — is
 // `tts.test.ts`'s job; the broker's own request/queue/cancel plumbing is
@@ -16,21 +20,28 @@ vi.mock('electron', () => ({ ipcMain: { handle, on } }));
 // broker entry points are stubbed rather than exercising a real
 // `utilityProcess.fork` (which this test's `electron` mock does not provide
 // at all).
-const { synthesizeSpeechAsync, getCompanionTtsStatusAsync, cancelQueuedSynthesis, reloadCompanionTtsBroker } =
-  vi.hoisted(() => ({
-    synthesizeSpeechAsync: vi.fn(),
-    getCompanionTtsStatusAsync: vi.fn(),
-    cancelQueuedSynthesis: vi.fn(),
-    reloadCompanionTtsBroker: vi.fn(),
-  }));
+const {
+  synthesizeSpeechAsync,
+  getCompanionTtsStatusAsync,
+  cancelQueuedSynthesis,
+  reloadCompanionTtsBroker,
+  companionTtsModelOnDisk,
+} = vi.hoisted(() => ({
+  synthesizeSpeechAsync: vi.fn(),
+  getCompanionTtsStatusAsync: vi.fn(),
+  cancelQueuedSynthesis: vi.fn(),
+  reloadCompanionTtsBroker: vi.fn(),
+  companionTtsModelOnDisk: vi.fn(),
+}));
 vi.mock('../companion/tts-broker', () => ({
   synthesizeSpeechAsync,
   getCompanionTtsStatusAsync,
   cancelQueuedSynthesis,
   reloadCompanionTtsBroker,
+  companionTtsModelOnDisk,
 }));
 
-import { registerCompanionHandlers } from './companion-handlers';
+import { readMicrophoneAccess, registerCompanionHandlers } from './companion-handlers';
 
 /** The `ipcMain.handle` listener main registered for `channel`, invoked the way `ipcRenderer.invoke` would. */
 function invoke(channel: string, raw?: unknown): unknown {
@@ -53,10 +64,12 @@ afterEach(() => {
   getCompanionTtsStatusAsync.mockReset();
   cancelQueuedSynthesis.mockReset();
   reloadCompanionTtsBroker.mockReset();
+  getMediaAccessStatus.mockReset();
+  getMediaAccessStatus.mockImplementation(() => 'granted');
 });
 
 describe('registerCompanionHandlers', () => {
-  it("registers exactly the companion channels — Theme B's two, Theme E's one, Theme F's four, Phase 80 Theme C's two, and Ad Hoc's reload", () => {
+  it("registers exactly the companion channels — Theme B's two, Theme E's one, Theme F's four, Phase 80 Theme C's two, Ad Hoc's reload, and Phase 109 Theme F's model check", () => {
     registerCompanionHandlers();
     expect(handle.mock.calls.map(([channel]) => channel)).toEqual([
       CHANNELS.companionSnapshot,
@@ -69,6 +82,7 @@ describe('registerCompanionHandlers', () => {
       CHANNELS.companionTtsSynthesize,
       CHANNELS.companionTtsStatus,
       CHANNELS.companionTtsReload,
+      CHANNELS.companionTtsModelOnDisk,
     ]);
   });
 
@@ -177,7 +191,23 @@ describe('registerCompanionHandlers', () => {
       // engine's own deps are unset — reported honestly as idle rather than
       // a throw.
       localModel: { state: 'idle', reason: null, message: null },
+      // macOS's own verdict, so a refused press can say which side refused.
+      microphoneAccess: 'granted',
     });
+    expect(getMediaAccessStatus).toHaveBeenCalledWith('microphone');
+  });
+
+  it("reports macOS's microphone verdict as-is, and anything it can't read as unknown", () => {
+    for (const status of ['granted', 'denied', 'restricted', 'not-determined'] as const) {
+      getMediaAccessStatus.mockImplementation(() => status);
+      expect(readMicrophoneAccess()).toBe(status);
+    }
+    getMediaAccessStatus.mockImplementation(() => 'something-new');
+    expect(readMicrophoneAccess()).toBe('unknown');
+    getMediaAccessStatus.mockImplementation(() => {
+      throw new Error('not on this platform');
+    });
+    expect(readMicrophoneAccess()).toBe('unknown');
   });
 
   it('accepts a key write against the null vault without complaint', async () => {
@@ -278,6 +308,17 @@ describe('registerCompanionHandlers', () => {
       ok: true,
     });
     expect(reloadCompanionTtsBroker).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers the audition's model check from disk, without asking the worker (Phase 109 Theme F)", async () => {
+    companionTtsModelOnDisk.mockReturnValue(true);
+    registerCompanionHandlers();
+
+    await expect(invoke(CHANNELS.companionTtsModelOnDisk, {})).resolves.toEqual(ok({ onDisk: true }));
+    expect(getCompanionTtsStatusAsync).not.toHaveBeenCalled();
+
+    companionTtsModelOnDisk.mockReturnValue(false);
+    await expect(invoke(CHANNELS.companionTtsModelOnDisk, {})).resolves.toEqual(ok({ onDisk: false }));
   });
 
   it('registers the cancel channel through ipcMain.on (handleSend), and calls the broker when sent', () => {

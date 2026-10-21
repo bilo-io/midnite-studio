@@ -1,11 +1,11 @@
 import type { AgentDefinition, CommitProvenance, GraphRow } from '@midnite/studio-shared';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render } from '../../../test-support/studio-render';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CommitGraphRow } from './graph-row';
-import { graphThemeFor } from './graph-themes';
-import { matchesProvenanceFilter } from './provenance-filter';
-import { useGraphStore } from './graph-store';
+import { CommitGraphRow } from '@midnite/studio-frame/graph';
+import { graphThemeFor } from '@midnite/studio-frame/graph';
+import { matchesProvenanceFilter } from '@midnite/studio-frame/graph';
+import { useGraphStore } from '@midnite/studio-frame';
 import { useUiStore } from '../../store/ui-store';
 
 const avatarTheme = graphThemeFor('git-graph', 'comfortable');

@@ -1,0 +1,41 @@
+{
+  "name": "@midnite/app-vault",
+  "version": "0.0.3",
+  "private": true,
+  "description": "Midnite Vault \u2014 stored secrets, forge accounts and database logins as their own app: set, rotate or remove, never read back.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "vite build && node scripts/bundle-main.mjs"
+  },
+  "dependencies": {
+    "@bilo-io/ui": "0.1.0",
+    "@midnite/studio-feature-vault": "workspace:*",
+    "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-runtime": "workspace:*",
+    "@midnite/studio-shared": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.7.0",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^33.2.0",
+    "esbuild": "^0.28.0",
+    "jsdom": "^25.0.1",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5",
+    "vitest": "^3.2.4"
+  }
+}

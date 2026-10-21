@@ -6,6 +6,7 @@ import {
   DEFAULT_AGENT_SKILLS,
   DEFAULT_GRAPH_COLUMNS,
   DEFAULT_LAYOUT,
+  mediaLayoutKeys,
   pathForView,
   readSessionActiveView,
   SESSION_ACTIVE_VIEW_KEY,
@@ -27,6 +28,7 @@ const reset = () =>
     terminalOpen: false,
     terminalMaximized: false,
     terminalSidebarSide: 'right',
+    terminalDock: 'bottom',
     browserOpen: false,
     browserLayout: 'full',
     browserLauncherOpen: false,
@@ -42,6 +44,7 @@ const reset = () =>
     graphTheme: 'git-graph',
     agentSkills: DEFAULT_AGENT_SKILLS,
     primaryAgent: 'claude',
+    primaryModelByAgent: {},
     skillExecutionMode: 'interactive',
   });
 
@@ -156,8 +159,8 @@ describe('navigation guarded by an open, dirty file editor (Phase 24 D)', () => 
 
   it('setActiveView de-maximises the terminal when switching views', () => {
     useUiStore.setState({ terminalMaximized: true, terminalOpen: true });
-    useUiStore.getState().setActiveView('changes');
-    expect(useUiStore.getState().activeView).toBe('changes');
+    useUiStore.getState().setActiveView('actions');
+    expect(useUiStore.getState().activeView).toBe('actions');
     expect(useUiStore.getState().terminalMaximized).toBe(false);
     // Terminal remains open — only the maximised state is cleared.
     expect(useUiStore.getState().terminalOpen).toBe(true);
@@ -212,14 +215,14 @@ describe('phase 19 store additions', () => {
 
   it('keeps each view\'s sidebar narrowing separate', () => {
     // Filtering Actions down to its two sections and wanting the whole tree in
-    // Changes are unrelated decisions; one flag for both would make each undo
+    // Tests are unrelated decisions; one flag for both would make each undo
     // the other.
     useUiStore.getState().setSectionFilter('actions', false);
-    useUiStore.getState().setSectionFilter('changes', true);
+    useUiStore.getState().setSectionFilter('tests', true);
 
     expect(useUiStore.getState().sectionFilters).toEqual({
       actions: false,
-      changes: true,
+      tests: true,
     });
   });
 
@@ -236,7 +239,7 @@ describe('phase 19 store additions', () => {
     // `{}`, not each view's default written out: an absent entry keeps meaning
     // "whatever this view does", so a default that changes later still applies.
     useUiStore.getState().setSectionFilter('actions', false);
-    useUiStore.getState().setSectionFilter('changes', true);
+    useUiStore.getState().setSectionFilter('tests', true);
 
     useUiStore.getState().resetSectionFilters();
 
@@ -347,21 +350,133 @@ describe('phase 16 store additions', () => {
     expect(saved.state.layout.filesTreeWidth).toBe(260);
   });
 
-  it('gives the Video Studio view persisted, merge-filled project list and detail widths', () => {
+  it('gives every Media tab persisted, merge-filled explorer and detail widths (Phase 99 A)', () => {
     const merged = useUiStore.persist.getOptions().merge?.(
       { layout: { reposWidth: 300 } },
       useUiStore.getState(),
     ) as { layout: Record<string, number> };
-    expect(merged.layout.videoProjectListWidth).toBe(DEFAULT_LAYOUT.videoProjectListWidth);
-    expect(merged.layout.videoDetailWidth).toBe(DEFAULT_LAYOUT.videoDetailWidth);
+    for (const tab of ['doc', 'image', 'video', 'audio'] as const) {
+      const keys = mediaLayoutKeys(tab);
+      expect(merged.layout[keys.explorer]).toBe(DEFAULT_LAYOUT[keys.explorer]);
+      expect(merged.layout[keys.detail]).toBe(DEFAULT_LAYOUT[keys.detail]);
+    }
 
-    useUiStore.getState().setLayout('videoProjectListWidth', 250);
-    useUiStore.getState().setLayout('videoDetailWidth', 350);
+    useUiStore.getState().setLayout('mediaVideoExplorerWidth', 250);
+    useUiStore.getState().setLayout('mediaDocDetailWidth', 350);
     const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
       state: { layout: Record<string, number> };
     };
-    expect(saved.state.layout.videoProjectListWidth).toBe(250);
-    expect(saved.state.layout.videoDetailWidth).toBe(350);
+    expect(saved.state.layout.mediaVideoExplorerWidth).toBe(250);
+    expect(saved.state.layout.mediaDocDetailWidth).toBe(350);
+    // Per tab: the Doc drag did not move Video's detail pane.
+    expect(saved.state.layout.mediaVideoDetailWidth).toBe(DEFAULT_LAYOUT.mediaVideoDetailWidth);
+  });
+
+  it('migrates a v28 blob holding `video` onto Media ▸ Video (Phase 99 A)', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.(
+      {
+        layout: { reposWidth: 300, videoProjectListWidth: 260, videoDetailWidth: 400 },
+        navVisibility: { video: false, graph: true },
+        sectionFilters: { video: true },
+        settingsPage: 'video',
+      },
+      28,
+    ) as Record<string, unknown> & { layout: Record<string, number> };
+    expect(migrated.layout.mediaVideoExplorerWidth).toBe(260);
+    expect(migrated.layout.mediaVideoDetailWidth).toBe(400);
+    expect(migrated.layout).not.toHaveProperty('videoProjectListWidth');
+    expect(migrated.navVisibility).toEqual({ media: false, graph: true });
+    expect(migrated.sectionFilters).toEqual({ media: true });
+    expect(migrated.settingsPage).toBe('media');
+    expect(migrated.mediaTab).toBe('video');
+  });
+
+  it('routes a legacy `video` path and session view to Media', () => {
+    expect(viewForPath('/video')).toBe('media');
+    sessionStorage.setItem(SESSION_ACTIVE_VIEW_KEY, 'video');
+    expect(readSessionActiveView()).toBe('media');
+    sessionStorage.removeItem(SESSION_ACTIVE_VIEW_KEY);
+  });
+
+  it('migrates a v29 blob naming the removed Changes view onto the graph', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.(
+      {
+        layout: { reposWidth: 300, changesListWidth: 420 },
+        navVisibility: { changes: false, graph: true },
+        sectionFilters: { changes: true, actions: false },
+        activeView: 'changes',
+      },
+      29,
+    ) as Record<string, unknown> & { layout: Record<string, number> };
+    expect(migrated.layout).toEqual({ reposWidth: 300 });
+    expect(migrated.navVisibility).toEqual({ graph: true });
+    expect(migrated.sectionFilters).toEqual({ actions: false });
+    expect(migrated.activeView).toBe('graph');
+  });
+
+  it('routes a legacy `changes` path and session view to the graph', () => {
+    expect(viewForPath('/changes')).toBe('graph');
+    sessionStorage.setItem(SESSION_ACTIVE_VIEW_KEY, 'changes');
+    expect(readSessionActiveView()).toBe('graph');
+    sessionStorage.removeItem(SESSION_ACTIVE_VIEW_KEY);
+  });
+
+  it('openWorkingCopyInGraph lands on the graph with the working-copy panel expanded', () => {
+    useUiStore.setState({
+      activeView: 'files',
+      viewHistory: ['files'],
+      viewHistoryIndex: 0,
+      graphSelection: { kind: 'commit', sha: 'abc' },
+    });
+    const before = useUiStore.getState().graphWorkingCopyReveal;
+    useUiStore.getState().openWorkingCopyInGraph();
+    const state = useUiStore.getState();
+    expect(state.activeView).toBe('graph');
+    expect(state.graphSelection).toEqual({ kind: 'working-tree' });
+    expect(state.graphWorkingCopyReveal).toBe(before + 1);
+    // A navigation like any other: Back returns to where it came from.
+    expect(state.viewHistory.at(-1)).toBe('graph');
+    useUiStore.getState().goBack();
+    expect(useUiStore.getState().activeView).toBe('files');
+  });
+
+  it('openWorkingCopyInGraph re-requests the reveal when already on the graph', () => {
+    useUiStore.setState({ activeView: 'graph', graphSelection: { kind: 'working-tree' } });
+    const before = useUiStore.getState().graphWorkingCopyReveal;
+    useUiStore.getState().openWorkingCopyInGraph();
+    expect(useUiStore.getState().graphWorkingCopyReveal).toBe(before + 1);
+  });
+
+  it('openWorkingCopyInGraph retargets the repo and checkout it is given', () => {
+    useUiStore.setState({
+      activeView: 'files',
+      selectedRepoId: 'r1',
+      selectedWorktreePath: null,
+      graphRefFilter: ['refs/heads/x'],
+    });
+    useUiStore.getState().openWorkingCopyInGraph({ repoId: 'r2', worktreePath: '/w/feature' });
+    let state = useUiStore.getState();
+    expect(state.selectedRepoId).toBe('r2');
+    expect(state.selectedWorktreePath).toBe('/w/feature');
+    // A repo switch still clears the old repo's ref filter.
+    expect(state.graphRefFilter).toEqual([]);
+    expect(state.graphSelection).toEqual({ kind: 'working-tree' });
+
+    // Same repo: keeps its filters, moves only the checkout.
+    useUiStore.setState({ graphRefFilter: ['refs/heads/y'] });
+    useUiStore.getState().openWorkingCopyInGraph({ repoId: 'r2', worktreePath: '/w/main' });
+    state = useUiStore.getState();
+    expect(state.selectedWorktreePath).toBe('/w/main');
+    expect(state.graphRefFilter).toEqual(['refs/heads/y']);
+  });
+
+  it('openMedia switches tab and view; pane collapse is per tab', () => {
+    useUiStore.getState().openMedia('audio');
+    expect(useUiStore.getState().activeView).toBe('media');
+    expect(useUiStore.getState().mediaTab).toBe('audio');
+    useUiStore.getState().setMediaPaneCollapsed('audio', 'detail', true);
+    expect(useUiStore.getState().mediaPaneCollapsed.audio?.detail).toBe(true);
+    expect(useUiStore.getState().mediaPaneCollapsed.doc?.detail).toBeUndefined();
   });
 
   it('does not persist the active view — a launch starts on the graph', () => {
@@ -473,6 +588,24 @@ describe('persistence', () => {
     expect(saved.state.terminalOpen).toBe(true);
     expect(saved.state.terminalMaximized).toBe(true);
     expect(saved.state.terminalSidebarSide).toBe('left');
+  });
+
+  it('docks the terminal at the bottom by default and toggles to the right and back', () => {
+    expect(useUiStore.getState().terminalDock).toBe('bottom');
+    useUiStore.getState().toggleTerminalDock();
+    expect(useUiStore.getState().terminalDock).toBe('right');
+    useUiStore.getState().toggleTerminalDock();
+    expect(useUiStore.getState().terminalDock).toBe('bottom');
+  });
+
+  it('persists the terminal dock and its right-docked width', () => {
+    useUiStore.getState().setTerminalDock('right');
+    useUiStore.getState().setLayout('terminalWidth', 600);
+    const saved = JSON.parse(localStorage.getItem('midnite-studio.ui') ?? '{}') as {
+      state: { terminalDock: string; layout: { terminalWidth: number } };
+    };
+    expect(saved.state.terminalDock).toBe('right');
+    expect(saved.state.layout.terminalWidth).toBe(600);
   });
 
   it('persists a hidden repositories sidebar, so it stays hidden across a restart', () => {
@@ -1035,6 +1168,27 @@ describe('the primary agent', () => {
 
     expect(merged.primaryAgent).toBe('claude');
   });
+
+  it('manages primaryModelByAgent and setPrimaryModel', () => {
+    expect(useUiStore.getState().primaryModelByAgent).toEqual({});
+
+    useUiStore.getState().setPrimaryModel('claude', 'sonnet-5-5');
+    expect(useUiStore.getState().primaryModelByAgent).toEqual({ claude: 'sonnet-5-5' });
+
+    useUiStore.getState().setPrimaryModel('claude', null);
+    expect(useUiStore.getState().primaryModelByAgent).toEqual({ claude: null });
+  });
+
+  it('sets both primary agent and model together with setPrimaryAgentAndModel', () => {
+    useUiStore.getState().setPrimaryAgentAndModel('codex', 'gpt-5-mini');
+    expect(useUiStore.getState().primaryAgent).toBe('codex');
+    expect(useUiStore.getState().primaryModelByAgent['codex']).toBe('gpt-5-mini');
+
+    useUiStore.getState().setPrimaryAgentAndModel('agy');
+    expect(useUiStore.getState().primaryAgent).toBe('agy');
+    // Model for agy should remain undefined or untouched
+    expect(useUiStore.getState().primaryModelByAgent['agy']).toBeUndefined();
+  });
 });
 
 describe('the skill execution mode', () => {
@@ -1321,14 +1475,14 @@ describe('v16 -> v17 migration (Ad Hoc: companion personality free-text fields)'
   });
 });
 
-describe('v17 -> v18 migration (Phase 83 Theme A: enabledApps)', () => {
-  it('seeds enabledApps as an empty array — no prior shape to carry forward', () => {
+describe('v17 -> v18 migration (Phase 83 Theme A: enabledWebApps)', () => {
+  it('seeds enabledWebApps as an empty array — no prior shape to carry forward', () => {
     const migrate = useUiStore.persist.getOptions().migrate;
-    const migrated = migrate?.({}, 17) as { enabledApps: string[] };
-    expect(migrated.enabledApps).toEqual([]);
+    const migrated = migrate?.({}, 17) as { enabledWebApps: string[] };
+    expect(migrated.enabledWebApps).toEqual([]);
   });
 
-  it('a persisted v17 blob round-trips through the real store with enabledApps seeded empty', () => {
+  it('a persisted v17 blob round-trips through the real store with enabledWebApps seeded empty', () => {
     localStorage.setItem(
       'midnite-studio.ui',
       JSON.stringify({
@@ -1337,27 +1491,27 @@ describe('v17 -> v18 migration (Phase 83 Theme A: enabledApps)', () => {
       }),
     );
     void useUiStore.persist.rehydrate();
-    expect(useUiStore.getState().enabledApps).toEqual([]);
+    expect(useUiStore.getState().enabledWebApps).toEqual([]);
     // Untouched by this migration.
     expect(useUiStore.getState().companionPersonality).toBe('droll');
   });
 });
 
-describe('setAppEnabled (Phase 83 Theme A)', () => {
+describe('setWebAppEnabled (Phase 83 Theme A)', () => {
   it('adds an app id once, is a no-op if already enabled, and removes it on disable', () => {
-    useUiStore.setState({ enabledApps: [] });
+    useUiStore.setState({ enabledWebApps: [] });
 
-    useUiStore.getState().setAppEnabled('spotify', true);
-    expect(useUiStore.getState().enabledApps).toEqual(['spotify']);
+    useUiStore.getState().setWebAppEnabled('spotify', true);
+    expect(useUiStore.getState().enabledWebApps).toEqual(['spotify']);
 
-    useUiStore.getState().setAppEnabled('spotify', true);
-    expect(useUiStore.getState().enabledApps).toEqual(['spotify']);
+    useUiStore.getState().setWebAppEnabled('spotify', true);
+    expect(useUiStore.getState().enabledWebApps).toEqual(['spotify']);
 
-    useUiStore.getState().setAppEnabled('youtube', true);
-    expect(useUiStore.getState().enabledApps).toEqual(['spotify', 'youtube']);
+    useUiStore.getState().setWebAppEnabled('youtube', true);
+    expect(useUiStore.getState().enabledWebApps).toEqual(['spotify', 'youtube']);
 
-    useUiStore.getState().setAppEnabled('spotify', false);
-    expect(useUiStore.getState().enabledApps).toEqual(['youtube']);
+    useUiStore.getState().setWebAppEnabled('spotify', false);
+    expect(useUiStore.getState().enabledWebApps).toEqual(['youtube']);
   });
 });
 
@@ -1537,4 +1691,131 @@ describe('v24 -> v25 migration (Phase 95 Theme G: columnSkillByProject)', () => 
     // Untouched by this migration.
     expect(useUiStore.getState().primaryAgent).toBe('claude');
   });
+
+  it('migrates a v30 blob: projects -> tasks, issues dropped, routes redirected', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.(
+      {
+        layout: { reposWidth: 300, issuesListWidth: 360 },
+        navVisibility: { projects: false, issues: true, graph: true },
+        sectionFilters: { issues: true },
+        activeView: 'issues',
+      },
+      30,
+    ) as Record<string, unknown> & { layout: Record<string, number> };
+    expect(migrated.layout).not.toHaveProperty('issuesListWidth');
+    expect(migrated.navVisibility).toEqual({ tasks: false, graph: true });
+    expect(migrated.sectionFilters).toEqual({});
+    expect(migrated.activeView).toBe('tasks');
+    expect(viewForPath('/issues')).toBe('tasks');
+    expect(viewForPath('/projects')).toBe('tasks');
+  });
 });
+
+describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
+  /*
+    A v31 blob as v31 wrote it: every companion key the store persisted at that
+    version, set away from its default so a migration that clobbered one would
+    show, and none of v32's three.
+  */
+  const V31_COMPANION = {
+    companionEnabled: true,
+    companionHandsFree: false,
+    companionHonorifics: ['boss'],
+    companionNames: ['Nova', 'Companion'],
+    companionPersonality: 'Dry.',
+    companionAboutUser: 'Works on the graph.',
+    companionVoices: { system: 'urn:voice:1', local: 'bf_emma' },
+    companionSpeakAloud: false,
+    companionMusicOffer: false,
+    companionVolume: 0.4,
+    companionMicMode: 'toggle',
+    companionSttEngine: 'server',
+    voiceConversation: true,
+    voiceConversationTrigger: 'wake',
+  };
+
+  it('seeds the provider, profiles and active profile, disturbing no companion key', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.({ ...V31_COMPANION }, 31) as Record<string, unknown>;
+    expect(migrated.companionSttProvider).toBeNull();
+    expect(migrated.companionProfiles).toEqual([]);
+    expect(migrated.companionActiveProfile).toBeNull();
+    for (const [key, value] of Object.entries(V31_COMPANION)) expect(migrated[key]).toEqual(value);
+  });
+
+  it('a persisted v31 blob round-trips through the real store with the three keys seeded', () => {
+    localStorage.setItem('midnite-studio.ui', JSON.stringify({ state: V31_COMPANION, version: 31 }));
+    void useUiStore.persist.rehydrate();
+    const state = useUiStore.getState();
+    expect(state.companionSttProvider).toBeNull();
+    expect(state.companionProfiles).toEqual([]);
+    expect(state.companionActiveProfile).toBeNull();
+    expect(state.companionNames).toEqual(['Nova', 'Companion']);
+    expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
+    expect(state.voiceConversationTrigger).toBe('wake');
+    expect(useUiStore.persist.getOptions().version).toBe(35);
+  });
+
+  it('migrates a v32 payload to v33', () => {
+    const payload = { companionSttProvider: 'openai-whisper', companionProfiles: [], companionActiveProfile: null };
+    const migrated = useUiStore.persist.getOptions().migrate?.(payload, 32) as Record<string, unknown>;
+    expect(migrated.primaryModelByAgent).toEqual({});
+  });
+});
+
+describe('v32 -> v33 migration (Phase 111 Theme A)', () => {
+  it('seeds primaryModelByAgent as empty object and preserves primaryAgent', () => {
+    const v32State = {
+      primaryAgent: 'agy',
+      agentSkills: { loopGuard: 'do something' },
+    };
+    const migrated = useUiStore.persist.getOptions().migrate?.(v32State, 32) as Record<string, unknown>;
+    expect(migrated.primaryModelByAgent).toEqual({});
+    expect(migrated.primaryAgent).toBe('agy');
+  });
+
+  it('a persisted v32 blob round-trips through the real store with primaryModelByAgent seeded', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({
+        state: { primaryAgent: 'codex' },
+        version: 32,
+      }),
+    );
+    void useUiStore.persist.rehydrate();
+    const state = useUiStore.getState();
+    expect(state.primaryAgent).toBe('codex');
+    expect(state.primaryModelByAgent).toEqual({});
+    expect(useUiStore.persist.getOptions().version).toBe(35);
+  });
+
+  it('leaves a v34 payload alone', () => {
+    const payload = { primaryAgent: 'claude', primaryModelByAgent: { claude: 'sonnet-5-5' } };
+    expect(useUiStore.persist.getOptions().migrate?.(payload, 34)).toBe(payload);
+  });
+});
+
+describe('v33 -> v34 migration (Phase 113 Theme A: apps -> web-apps)', () => {
+  it('moves the renamed fields and the Settings page id', () => {
+    const migrated = useUiStore.persist.getOptions().migrate?.(
+      { enabledApps: ['spotify'], appDiscardIdle: { spotify: true }, lastOpenedAppId: 'spotify', settingsPage: 'apps' },
+      33,
+    ) as Record<string, unknown>;
+    expect(migrated.enabledWebApps).toEqual(['spotify']);
+    expect(migrated.webAppDiscardIdle).toEqual({ spotify: true });
+    expect(migrated.lastOpenedWebAppId).toBe('spotify');
+    expect(migrated.settingsPage).toBe('web-apps');
+    expect('enabledApps' in migrated).toBe(false);
+  });
+
+  it('a persisted v33 blob keeps its enabled web apps through the real store', () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({ state: { enabledApps: ['spotify', 'youtube'], settingsPage: 'apps' }, version: 33 }),
+    );
+    void useUiStore.persist.rehydrate();
+    const state = useUiStore.getState();
+    expect(state.enabledWebApps).toEqual(['spotify', 'youtube']);
+    expect(state.settingsPage).toBe('web-apps');
+  });
+});
+

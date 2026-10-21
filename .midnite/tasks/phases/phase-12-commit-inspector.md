@@ -22,6 +22,22 @@ and emails in A do not). Everything else is independent.
 
 ---
 
+## Headlines
+
+*Phase 5's detail stub is now a real inspector, its badges are controls, and its rows read at two densities. **All six themes have landed**; two manual passes remain, both needing a packaged app or a real remote.*
+
+**Theme A — Rendered commit message with live references.** ✅ markdown + linkify commit bodies: clickable SHAs, URLs, `#123`, emails, trailer styling (2026-08-26)
+
+**Theme B — Inspector panel rebuild.** ✅ inspector rebuild: sha header + copy button, tree ⇄ list toggle, parent navigation, `stat` dropped from the wire, `repo:rev-parse` + `clipboard:write-text` channels (2026-08-26)
+
+**Theme C — Ref badges as a control surface.** ✅ ref badges as controls: `isHead` glow, hover-expand pull/push with real-count tooltips, branch-scoped sync in the context menu (2026-08-26)
+
+**Theme D — Real diff rendering.** ✅ real diffs: `mstudio:commit:file-diff` channel, hunk parser, one restrained `<DiffView>` shared with the status panel (branch `feature/phase-12-diffs`)
+
+**Theme E — Remotes and forge links.** ✅ `Remote` domain type, `listRemotes`, ssh/https URL normaliser, guarded `shell:open-external` (2026-08-26)
+
+**Theme F — Graph row polish.** ✅ graph row polish: lane-accent selection bar, a CVD-safe palette (+ the `laneInk` bug it exposed), badge width cap, row density, working-copy row (2026-08-26)
+
 ## Theme A — Rendered commit message with live references · M — ✅ DONE (2026-08-26)
 
 Landed on `feature/phase-12-inspector`. Markdown first (`react-markdown` + `remark-gfm`, no

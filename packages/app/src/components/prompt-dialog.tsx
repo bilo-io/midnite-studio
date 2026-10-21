@@ -19,6 +19,8 @@ export type PromptRequest = {
   /** Returns an error message, or null when the value is acceptable. */
   validate?: (value: string) => string | null;
   onConfirm: (value: string) => void;
+  /** Render inside this (positioned) element rather than over the window. See `Modal`'s `container`. */
+  container?: HTMLElement | null;
 };
 
 export function PromptDialog({
@@ -43,7 +45,7 @@ export function PromptDialog({
   };
 
   return (
-    <Modal open onClose={onCancel} title={request.title} size="sm" initialFocusRef={inputRef}>
+    <Modal open onClose={onCancel} title={request.title} size="sm" initialFocusRef={inputRef} container={request.container}>
       <form
         className="p-4"
         onSubmit={(event) => {

@@ -169,7 +169,7 @@ test('the navigation stack survives leaving Councils and coming back (Theme E)',
   // Councils is lazy and unmounts on view switch — the whole reason its
   // navigation stack lives in a module-level store rather than a local
   // `usePanelHistory` call.
-  await clickRailLink(page, 'Graph');
+  await clickRailLink(page, 'Timeline');
   await expect(page.getByRole('columnheader', { name: 'Commit message' })).toBeVisible();
 
   await clickRailLink(page, 'Councils');

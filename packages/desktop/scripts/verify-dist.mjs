@@ -2,6 +2,7 @@ import { existsSync, statSync, readFileSync, writeFileSync, rmSync } from 'node:
 import { join, basename } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { findForbiddenArtifacts } from './lib/forbidden-artifacts.mjs';
 import { extractYamlScalar } from './lib/yaml-scalar.mjs';
 import { SQLITE_PROBE_SOURCE, sqliteProbeModulePath } from './lib/sqlite-probe.mjs';
 
@@ -85,21 +86,25 @@ if (!existsSync(templateIndexPath)) {
 }
 
 // Phase 53 Theme A: the CLI wrapper is resolved at runtime from
-// `${process.resourcesPath}/bin/midnite-studio` (see `cli-handlers.ts`'s
+// `${process.resourcesPath}/bin/midnite` (see `cli-handlers.ts`'s
 // `getBundleBinPath()`) but was never in `extraResources`, so every packaged
 // build shipped with the integration pointing at a path that does not exist.
 // This bug survived Phase 33's own verification because that verification
 // never looked here.
 console.log('Verifying the CLI wrapper shipped into Resources...');
-const cliWrapperPath = join(appPath, 'Contents', 'Resources', 'bin', 'midnite-studio');
-if (!existsSync(cliWrapperPath)) {
-  console.error(`Missing CLI wrapper at ${cliWrapperPath}`);
-  process.exit(1);
-}
-const cliWrapperMode = statSync(cliWrapperPath).mode;
-if ((cliWrapperMode & 0o111) === 0) {
-  console.error(`CLI wrapper at ${cliWrapperPath} is not executable (mode ${cliWrapperMode.toString(8)})`);
-  process.exit(1);
+// `midnite` is the CLI; `midnite-studio` is the deprecated one-release alias
+// wrapper. Both must ship executable or the installer links to nothing.
+for (const name of ['midnite', 'midnite-studio']) {
+  const cliWrapperPath = join(appPath, 'Contents', 'Resources', 'bin', name);
+  if (!existsSync(cliWrapperPath)) {
+    console.error(`Missing CLI wrapper at ${cliWrapperPath}`);
+    process.exit(1);
+  }
+  const cliWrapperMode = statSync(cliWrapperPath).mode;
+  if ((cliWrapperMode & 0o111) === 0) {
+    console.error(`CLI wrapper at ${cliWrapperPath} is not executable (mode ${cliWrapperMode.toString(8)})`);
+    process.exit(1);
+  }
 }
 
 // Same failure mode as the CLI wrapper check above, for the completions
@@ -107,7 +112,7 @@ if ((cliWrapperMode & 0o111) === 0) {
 // against the repo's own working tree and only fails once packaged.
 console.log('Verifying shell completions shipped into Resources...');
 const completionsDir = join(appPath, 'Contents', 'Resources', 'completions');
-for (const file of ['_midnite-studio', 'midnite-studio.bash', 'midnite-studio.fish']) {
+for (const file of ['_midnite', 'midnite.bash', 'midnite.fish']) {
   const completionPath = join(completionsDir, file);
   if (!existsSync(completionPath)) {
     console.error(`Missing shell completion at ${completionPath}`);
@@ -215,6 +220,14 @@ if (signingMode === 'signed (Developer ID)') {
   }
 } else {
   console.log('  (no Developer ID cert present — notarization is not expected yet; see docs/RELEASING.md)');
+}
+
+// Phase 91 Theme D: the shipped renderer carries no sourcemaps, no Vite manifest, no stats.html.
+console.log('Verifying no build metadata shipped (sourcemaps, .vite, stats.html)...');
+const forbidden = findForbiddenArtifacts(join(appPath, 'Contents', 'Resources', 'renderer'));
+if (forbidden.length > 0) {
+  console.error(`Build metadata shipped in Resources/renderer: ${forbidden.join(', ')}`);
+  process.exit(1);
 }
 
 // Phase 61 Theme C: no check anywhere verified a native module actually

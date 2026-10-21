@@ -8,7 +8,7 @@ import { clickRailLink, installMockBridge, type MockFixtures } from '../test-sup
  * and its requests, and clicking a request opens a tab.
  *
  * Phase 82 Theme C wave 5 moved this file's assertions to
- * `src/features/api-client/api-client-view.bridge.test.tsx`, mounting
+ * `src/compose/api-client/api-client-view.bridge.test.tsx`, mounting
  * `ApiClientView` directly with the same fixture. **One smoke test stays
  * here** — the simplest "the view renders and shows X" case, reached through
  * the real rail navigation rather than a direct mount, so the suite still

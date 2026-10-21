@@ -55,8 +55,8 @@ export type ErrorBoundaryProps = {
   /**
    * Render nothing instead of the card.
    *
-   * For the three optional modals (`FirstRunModal`, `OnboardingModal`,
-   * `SlidesModal`), which already mount behind `fallback={null}`. A modal whose
+   * For the optional overlays (`SetupOverlay`, `SlidesModal`), which already
+   * mount behind `fallback={null}`. An overlay whose
    * chunk fails to load must not paint an error card over the app it was
    * optional to — it simply does not appear, exactly as it does not appear
    * while loading.

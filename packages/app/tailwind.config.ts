@@ -24,6 +24,11 @@ const config: Config = {
   content: [
     './index.html',
     './src/**/*.{ts,tsx}',
+    // Phase 113 Theme C: the frame and the feature packages are compiled into
+    // this build from source, so their class names have to be scanned too —
+    // miss one and its layout collapses with nothing failing but a screenshot.
+    '../frame/src/**/*.{ts,tsx}',
+    '../features/*/renderer/**/*.{ts,tsx}',
     './node_modules/@bilo-io/ui/dist/**/*.js',
     './node_modules/@bilo-io/shell/dist/**/*.js',
   ],

@@ -435,13 +435,31 @@ test('clicking the open tab’s launcher closes the panel', async ({ page }) => 
  * cascade rather than out of the stylesheet, and not a paused play-state — a
  * paused animation still holds a compositor layer.
  */
+/**
+ * The two reduced-motion tests fake a running launcher with classes, so the
+ * store has no live loop and `anyLive` cannot hold the strip open. Hover alone
+ * held it: any pointer-leave collapsed the strip, unmounted the launcher the
+ * classes were on, and failed the next assertion with "element(s) not found".
+ * Opening the panel on a *different* loop keeps the strip expanded through
+ * `fabPanelOpen` instead, and moving the pointer away keeps `:hover` from
+ * supplying the `opacity: 1` the glow test is there to check.
+ */
+async function heldOpenLauncher(page: Page) {
+  await open(page);
+  await page.getByTestId('fab-launchers').hover();
+  await page.getByTestId('loop-launcher-medic').click();
+  await expect(page.getByTestId('loop-launcher-medic')).toHaveAttribute('data-loop-open', 'true');
+  await page.mouse.move(0, 0);
+  await expect(page.getByTestId('fab-launchers')).toHaveAttribute('data-expanded', 'true');
+  const launcher = page.getByTestId('loop-launcher-watchdog');
+  await expect(launcher).toBeVisible();
+  return launcher;
+}
+
 test('reduced motion resolves a running launcher pulse to animation-name: none', async ({
   page,
 }) => {
-  await open(page);
-  await page.getByTestId('fab-launchers').hover();
-  const launcher = page.getByTestId('loop-launcher-watchdog');
-  await expect(launcher).toBeVisible();
+  const launcher = await heldOpenLauncher(page);
 
   await launcher.evaluate((el) => el.classList.add('is-running', 'is-pulsing'));
   // Guard against the vacuous version of this test: the pulse must be ON first.
@@ -453,15 +471,15 @@ test('reduced motion resolves a running launcher pulse to animation-name: none',
 
 /** Reduced motion removes the motion, not the state: the glow has to survive. */
 test('reduced motion keeps a running launcher glow and full opacity', async ({ page }) => {
-  await open(page);
-  await page.getByTestId('fab-launchers').hover();
-  const launcher = page.getByTestId('loop-launcher-watchdog');
+  const launcher = await heldOpenLauncher(page);
+  await expect(launcher).not.toHaveCSS('opacity', '1');
   await launcher.evaluate((el) => el.classList.add('is-running', 'is-pulsing'));
   await page.evaluate(() => document.documentElement.setAttribute('data-motion', 'reduced'));
 
   await expect(launcher).toHaveCSS('opacity', '1');
-  const shadow = await launcher.evaluate((el) => getComputedStyle(el).boxShadow);
-  expect(shadow).not.toBe('none');
+  // Polled: box-shadow transitions in over 150ms, and a single read can land on its first frame.
   // Patrol is violet-500 — the glow is the loop's own colour, not a generic one.
-  expect(shadow).toContain('139, 92, 246');
+  await expect
+    .poll(() => launcher.evaluate((el) => getComputedStyle(el).boxShadow))
+    .toContain('139, 92, 246');
 });

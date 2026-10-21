@@ -8,8 +8,8 @@ import type { ViewId } from './view';
  * becomes the only copy of that panel.
  *
  * The three `apps-*` roles (Phase 83) are one literal per third-party app
- * rather than a single shared `apps` role — see `domain/apps.ts`'s
- * `AppIdSchema`. That is what lets Spotify and Calendar each become their own
+ * rather than a single shared `apps` role — see `domain/web-apps.ts`'s
+ * `WebAppIdSchema`. That is what lets Spotify and Calendar each become their own
  * independent floating window at the same time (Theme D): `windowForRole`
  * already enforces at most one window per role, so one role per app makes
  * "one popout per app, any subset open at once" fall out for free instead of
@@ -24,6 +24,9 @@ export const PANEL_WINDOW_ROLES = [
   'apps-spotify',
   'apps-google-calendar',
   'apps-youtube',
+  // Phase 107 Theme B: a running game's sandboxed view, moved out of Media ▸
+  // Games. One role, so one popped-out game at a time.
+  'game',
 ] as const;
 
 /**
@@ -45,41 +48,34 @@ export const PANEL_WINDOW_ROLES = [
 export const PAGE_WINDOW_ROLES = [
   'graph',
   'actions',
-  'changes',
   'files',
   'database',
   'dashboard',
   'search',
   'tests',
-  'projects',
+  'tasks',
   'reviews',
-  'issues',
   'history',
   'optimizer',
   'sessions',
+  'chats',
+  'councils',
+  'workflows',
+  'media',
+  'models',
+  'notes',
 ] as const satisfies readonly ViewId[];
 
 /*
-  Five `ViewId`s are deliberately absent, and the omissions are the interesting
-  part of this list.
+  `settings` and `landing` are deliberately absent: surfaces nobody wants
+  twice, a preferences pane and the app's front door.
 
-  `settings` and `landing` are surfaces nobody wants twice: a preferences pane
-  and the app's front door.
-
-  `councils`, `workflows` and `video` are excluded for a sharper reason — they
-  are repo-independent, long-running, and mount-heavy. Duplicate rendering is
-  only safe for a view whose mount has no load-bearing side effects, which is
-  exactly the trap `view-registry.tsx` records `BrowserPane` falling into: its
-  mount seeds the first tab and drives its own reveal, so a second instance
-  gets both wrong. Until each of those three is audited against that bar, a
-  second live copy is a bug waiting to be filed rather than a feature.
-
-  `sessions` used to sit in the first group — "a placeholder with no view
-  behind it yet" — and no longer does: Theme E replaced `SessionsPlaceholder`
-  with the real `SessionsView`, and its mount clears the bar the second
-  paragraph sets. It fetches a list and renders it; it seeds nothing and
-  drives no reveal, unlike `BrowserPane`. That audit is what moved it into the
-  array above rather than leaving it here unexamined.
+  `councils`, `workflows`, `media` and `models` (the whole Agents rail
+  section) were once excluded as long-running and mount-heavy. Audited: none
+  seeds state or drives a reveal on mount the way `BrowserPane` does; each
+  fetches over IPC into its own QueryClient, and the only cross-window bits
+  (workflow reveal, councils history) are per-renderer stores that degrade to
+  a fresh view in the popout.
 */
 
 

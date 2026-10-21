@@ -6,25 +6,13 @@ import type { WeatherLocation, WeatherReading, WeatherUnit } from './weather-typ
  * uses for stocks. A widget on a lock screen has no room for a settings field,
  * a secret store and an empty-state for a missing key.
  */
-const GEOCODING_BASE = 'https://geocoding-api.open-meteo.com/v1/search';
 const FORECAST_BASE = 'https://api.open-meteo.com/v1/forecast';
 const FETCH_TIMEOUT_MS = 5000;
-const GEOCODING_RESULT_LIMIT = 8;
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return (await res.json()) as T;
-}
-
-interface GeocodingResponse {
-  results?: {
-    name: string;
-    latitude: number;
-    longitude: number;
-    country?: string;
-    admin1?: string;
-  }[];
 }
 
 interface ForecastResponse {
@@ -34,18 +22,7 @@ interface ForecastResponse {
   };
 }
 
-export async function searchLocations(query: string): Promise<WeatherLocation[]> {
-  const raw = await fetchJson<GeocodingResponse>(
-    `${GEOCODING_BASE}?name=${encodeURIComponent(query)}&count=${GEOCODING_RESULT_LIMIT}&language=en&format=json`,
-  );
-  return (raw.results ?? []).map((r) => ({
-    name: r.name,
-    latitude: r.latitude,
-    longitude: r.longitude,
-    country: r.country,
-    admin1: r.admin1,
-  }));
-}
+export { searchLocations } from '../geo/geocode';
 
 export async function getCurrentWeather(
   location: WeatherLocation,

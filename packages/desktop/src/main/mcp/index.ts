@@ -5,13 +5,27 @@ import { defaultLogger, type Logger } from '../log';
 import { startMcpServer, type McpServerHandle } from './server';
 import {
   getMcpAllowGateDecide,
+  getMcpAllowGames,
+  getMcpAllowTerrains,
+  getMcpAllowMaps,
+  getMcpAllowMusic,
+  getMcpAllowCompanionSettings,
+  getMcpAllowSprites,
+  getMcpAllowModels,
   getMcpAllowUi,
   resetMcpAllowUiStateForTests,
   setMcpAllowGateDecideState,
+  setMcpAllowGamesState,
+  setMcpAllowTerrainsState,
+  setMcpAllowMapsState,
+  setMcpAllowMusicState,
+  setMcpAllowCompanionSettingsState,
+  setMcpAllowSpritesState,
+  setMcpAllowModelsState,
   setMcpAllowUiState,
 } from './ui-gate';
 
-export { getMcpAllowGateDecide, getMcpAllowUi } from './ui-gate';
+export { getMcpAllowCompanionSettings, getMcpAllowGames, getMcpAllowGateDecide, getMcpAllowMaps, getMcpAllowModels, getMcpAllowMusic, getMcpAllowSprites, getMcpAllowTerrains, getMcpAllowUi } from './ui-gate';
 
 /**
  * Where this build's stdio shim lives on disk (Theme F). Same resolution
@@ -22,7 +36,7 @@ export { getMcpAllowGateDecide, getMcpAllowUi } from './ui-gate';
  * builds alike; `.asar.unpacked` is the one packaged-only wrinkle, since a
  * spawned child process cannot read a file out of the asar archive.
  */
-function mcpShimScriptPath(): string {
+export function mcpShimScriptPath(): string {
   return join(__dirname, 'mcp-shim.js').replace('app.asar', 'app.asar.unpacked');
 }
 
@@ -32,6 +46,8 @@ export type RegisterMcpServerOptions = {
   buildId: string;
   isPackaged: boolean;
   log?: Logger;
+  /** Forwarded to the server: where the launcher's `installed.json` is read from. */
+  launcherAppDataDir?: string;
 };
 
 export type McpStatus = {
@@ -43,6 +59,18 @@ export type McpStatus = {
   allowUi: boolean;
   /** Phase 97 Theme D's third switch — whether `workflow_gate_decide` may actually decide anything. */
   allowGateDecide: boolean;
+  /** Phase 99 Theme G's fourth switch — whether the `model_*` tools that change a model may actually act. */
+  allowModels: boolean;
+  /** Phase 107 Theme D's fifth switch — whether the `game_*` tools that create, run or drive a game may act. */
+  allowGames: boolean;
+  /** Phase 105 Theme J's sixth switch — whether the `terrain_*` tools that change a terrain, build or export may act. */
+  allowTerrains: boolean;
+  /** Phase 106 Theme K's seventh switch — whether the sprite tools that change an asset, start a job or export may act. */
+  allowSprites: boolean;
+  allowMaps: boolean;
+  allowMusic: boolean;
+  /** Phase 109 Theme D's tenth switch — whether any `companion_*` tool answers, reads included. */
+  allowCompanionSettings: boolean;
 };
 
 export type SetMcpEnabledResult = { ok: true; status: McpStatus } | { ok: false; message: string };
@@ -84,6 +112,13 @@ export async function registerMcpServer(opts: RegisterMcpServerOptions): Promise
   enabled = settings.enabled;
   setMcpAllowUiState(settings.allowUi);
   setMcpAllowGateDecideState(settings.allowGateDecide);
+  setMcpAllowModelsState(settings.allowModels);
+  setMcpAllowGamesState(settings.allowGames);
+  setMcpAllowTerrainsState(settings.allowTerrains);
+  setMcpAllowSpritesState(settings.allowSprites);
+  setMcpAllowMapsState(settings.allowMaps);
+  setMcpAllowMusicState(settings.allowMusic);
+  setMcpAllowCompanionSettingsState(settings.allowCompanionSettings);
   if (!enabled) return null;
 
   const result = await startMcpServer({ ...opts, log: boundLog });
@@ -109,6 +144,13 @@ export function getMcpStatus(): McpStatus {
     shimPath: mcpShimScriptPath(),
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
 }
 
@@ -126,10 +168,17 @@ export async function setMcpEnabled(next: boolean): Promise<SetMcpEnabledResult>
   }
 
   const settings: McpSettings = {
-    version: 3,
+    version: 10,
     enabled: next,
     allowUi: getMcpAllowUi(),
     allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
   };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   enabled = next;
@@ -163,7 +212,19 @@ export async function setMcpAllowUi(next: boolean): Promise<SetMcpEnabledResult>
     return { ok: false, message: 'The MCP server has not finished starting up yet.' };
   }
 
-  const settings: McpSettings = { version: 3, enabled, allowUi: next, allowGateDecide: getMcpAllowGateDecide() };
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: next,
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
+  };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowUiState(next);
 
@@ -180,9 +241,221 @@ export async function setMcpAllowGateDecide(next: boolean): Promise<SetMcpEnable
     return { ok: false, message: 'The MCP server has not finished starting up yet.' };
   }
 
-  const settings: McpSettings = { version: 3, enabled, allowUi: getMcpAllowUi(), allowGateDecide: next };
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: next,
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
+  };
   await createMcpStore(bootOpts.userDataDir).save(settings);
   setMcpAllowGateDecideState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 99 Theme G's fourth Settings switch. Identical shape to the other
+ * two narrow switches — never starts or stops the socket, only gates whether
+ * the model-changing `model_*` tools act once a call reaches them.
+ */
+export async function setMcpAllowModels(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: next,
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowModelsState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 107 Theme D's fifth Settings switch. Same shape as the others — never
+ * starts or stops the socket, only gates whether the `game_*` tools that
+ * create, run or drive a game act once a call reaches them.
+ */
+export async function setMcpAllowGames(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: next,
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowGamesState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 105 Theme J's sixth Settings switch. Same shape as the others — never
+ * starts or stops the socket, only gates whether the `terrain_*` tools that
+ * change a terrain, run a build or write an export act once a call reaches them.
+ */
+export async function setMcpAllowTerrains(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: next,
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowTerrainsState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 106 Theme K's seventh Settings switch. Same shape as the others — never
+ * starts or stops the socket, only gates whether the sprite tools that change an
+ * asset, start a generation job or write an export act once a call reaches them.
+ */
+export async function setMcpAllowSprites(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: next,
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowSpritesState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 108 Theme I's eighth Settings switch. Same shape as the others — never starts or stops the
+ * socket, only gates whether `map_goto` and `map_capture_terrain` act once a call reaches them.
+ */
+export async function setMcpAllowMaps(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: next,
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowMapsState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 101 Theme H's ninth Settings switch. Same shape as the others — never starts or stops the
+ * socket, only gates whether every `music_*` tool that changes a song act once a call reaches them.
+ */
+export async function setMcpAllowMusic(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: next,
+    allowCompanionSettings: getMcpAllowCompanionSettings(),
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowMusicState(next);
+
+  return { ok: true, status: getMcpStatus() };
+}
+
+/**
+ * Phase 109 Theme D's tenth Settings switch. Same shape as the others — never starts or stops the
+ * socket — but it gates every `companion_*` tool, the reads as well as `companion_settings_set`.
+ */
+export async function setMcpAllowCompanionSettings(next: boolean): Promise<SetMcpEnabledResult> {
+  if (!bootOpts) {
+    return { ok: false, message: 'The MCP server has not finished starting up yet.' };
+  }
+
+  const settings: McpSettings = {
+    version: 10,
+    enabled,
+    allowUi: getMcpAllowUi(),
+    allowGateDecide: getMcpAllowGateDecide(),
+    allowModels: getMcpAllowModels(),
+    allowGames: getMcpAllowGames(),
+    allowTerrains: getMcpAllowTerrains(),
+    allowSprites: getMcpAllowSprites(),
+    allowMaps: getMcpAllowMaps(),
+    allowMusic: getMcpAllowMusic(),
+    allowCompanionSettings: next,
+  };
+  await createMcpStore(bootOpts.userDataDir).save(settings);
+  setMcpAllowCompanionSettingsState(next);
 
   return { ok: true, status: getMcpStatus() };
 }

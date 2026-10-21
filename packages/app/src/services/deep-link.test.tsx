@@ -10,10 +10,14 @@ import { DialogHost } from '../components/dialog-host';
 import { ToastHost } from '../components/toast-host';
 import { useToastStore } from '../store/toast-store';
 import { useUiStore } from '../store/ui-store';
+import { revealResource } from '../features/companion/reveal/reveal';
+import { selectCapture } from '@midnite/studio-feature-capture/renderer';
+
 import { useDeepLinks } from './deep-link';
 
 const mocks = vi.hoisted(() => ({
   onDeepLink: null as ((e: { link: DeepLink; known: boolean }) => void) | null,
+  importFromApp: null as unknown as ReturnType<typeof import('vitest').vi.fn>,
   openResult: { ok: true as const, repo: { id: 'repo:/tmp/proposed', path: '/tmp/proposed', name: 'proposed', headRef: 'main', worktrees: [] } } as
     | { ok: true; repo: { id: string; path: string; name: string; headRef: string | null; worktrees: unknown[] } }
     | { ok: false; message: string },
@@ -32,8 +36,16 @@ vi.mock('./bridge', async (importOriginal) => {
           };
         },
       },
+      capture: { importFromApp: mocks.importFromApp },
       repos: {
         open: vi.fn().mockImplementation(async () => mocks.openResult),
+        // One open repository, whose remote is bilo-io/midnite-studio — the run tests' only known repo.
+        list: vi.fn(async () => [{ id: 'repo:/tmp/known', path: '/tmp/known', name: 'known', headRef: 'main', worktrees: [] }]),
+      },
+      remotes: {
+        list: vi.fn(async () => [
+          { name: 'origin', fetchUrl: '', pushUrl: '', forge: { kind: 'github', host: 'github.com', owner: 'bilo-io', repo: 'midnite-studio' } },
+        ]),
       },
     }),
   };
@@ -61,8 +73,13 @@ const emit = (link: DeepLink, known: boolean) => {
   });
 };
 
+vi.mock('../features/companion/reveal/reveal', () => ({ revealResource: vi.fn() }));
+vi.mock('@midnite/studio-feature-capture/renderer', () => ({ selectCapture: vi.fn() }));
+
 describe('useDeepLinks', () => {
   beforeEach(() => {
+    mocks.importFromApp = vi.fn(async ({ id }: { id: string }) => ({ ok: true, value: { id } }));
+    vi.mocked(selectCapture).mockClear();
     useUiStore.setState({ selectedRepoId: null });
     useToastStore.setState({ toasts: [] });
     mocks.openResult = {
@@ -123,4 +140,91 @@ describe('useDeepLinks', () => {
     expect(screen.getByText(/https:\/\/github\.com\/foo\/bar\.git/)).toBeDefined();
     expect(useUiStore.getState().selectedRepoId).toBeNull();
   });
+
+  it('a reveal link runs the engine with caller: link; an invalid ref is a toast', async () => {
+    vi.mocked(revealResource).mockResolvedValue({ ok: true, did: 'revealed', label: 'PR 7' } as never);
+    render(<Harness />, { wrapper });
+    const ref = { kind: 'pull', repoId: 'repo:/r', number: 7 } as const;
+    emit({ kind: 'reveal', ref }, false);
+    expect(revealResource).toHaveBeenCalledWith(ref, { caller: 'link' });
+
+    vi.mocked(revealResource).mockClear();
+    emit({ kind: 'reveal', ref: null }, false);
+    expect(revealResource).not.toHaveBeenCalled();
+    expect(useToastStore.getState().toasts.length).toBeGreaterThan(0);
+  });
+
+  it('a view link (the launcher\'s tiles) lands on the view and media tab; a locked screen is a toast', () => {
+    useUiStore.setState({ screensaverLocked: false, activeView: 'landing', mediaTab: 'doc' });
+    emit({ kind: 'view', view: 'media', tab: 'game' }, false);
+    expect(useUiStore.getState().activeView).toBe('media');
+    expect(useUiStore.getState().mediaTab).toBe('game');
+
+    useUiStore.setState({ screensaverLocked: true });
+    emit({ kind: 'view', view: 'sessions' }, false);
+    expect(useUiStore.getState().activeView).toBe('media');
+    expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/locked/);
+    useUiStore.setState({ screensaverLocked: false });
+  });
+
+  it('an agent run that failed validation in main is a toast, and nothing is asked or started', async () => {
+    render(<Harness />, { wrapper });
+    emit({ kind: 'run', run: null }, false);
+    await waitFor(() => expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/isn't one Midnite can start/));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('an agent run for a repository that is not open here is refused — never opened or cloned', async () => {
+    render(<Harness />, { wrapper });
+    emit({ kind: 'run', run: { issueUrl: 'https://github.com/someone-else/unknown/issues/1', skill: '/midnite-create' } }, false);
+    await waitFor(() => expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/someone-else\/unknown isn't open/));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('an agent run for an open repository asks first, naming the checkout', async () => {
+    useUiStore.setState({ screensaverLocked: false, launchAndRunEnabled: false });
+    render(<Harness />, { wrapper });
+    emit({ kind: 'run', run: { issueUrl: 'https://github.com/bilo-io/midnite-studio/issues/42', skill: '/midnite-create' } }, false);
+    expect(await screen.findByText('Run this task in an agent?', undefined, { timeout: 5000 })).toBeTruthy();
+    expect(screen.getByText(/In \/tmp\/known/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start' })).toBeTruthy();
+  });
+
+  it('a capture link that failed validation in main is a toast, and nothing is asked or imported', () => {
+    emit({ kind: 'capture', id: null }, false);
+    expect(useToastStore.getState().toasts.at(-1)?.message).toMatch(/doesn't point at a capture/);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(mocks.importFromApp).not.toHaveBeenCalled();
+  });
+
+  it('a capture link asks first; cancelling imports nothing', () => {
+    emit({ kind: 'capture', id: 'cap-20261018-093000-abcdef12' }, false);
+    expect(screen.getByText('Import this capture from Midnite Capture?')).toBeTruthy();
+    expect(mocks.importFromApp).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(mocks.importFromApp).not.toHaveBeenCalled();
+  });
+
+  it('a confirmed capture link imports it, selects it and lands on Capture', async () => {
+    useUiStore.setState({ screensaverLocked: false, activeView: 'landing' });
+    emit({ kind: 'capture', id: 'cap-20261018-093000-abcdef12' }, false);
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(useUiStore.getState().activeView).toBe('capture'));
+    expect(mocks.importFromApp).toHaveBeenCalledWith({ id: 'cap-20261018-093000-abcdef12' });
+    expect(selectCapture).toHaveBeenCalledWith('cap-20261018-093000-abcdef12');
+  });
+
+  it('a settings link with a page selects that Settings page; a locked screen leaves it alone', () => {
+    useUiStore.setState({ screensaverLocked: false, activeView: 'landing', settingsPage: 'appearance' });
+    emit({ kind: 'view', view: 'settings', page: 'mcp' }, false);
+    expect(useUiStore.getState().activeView).toBe('settings');
+    expect(useUiStore.getState().settingsPage).toBe('mcp');
+
+    useUiStore.setState({ screensaverLocked: true, activeView: 'landing' });
+    emit({ kind: 'view', view: 'settings', page: 'monitor' }, false);
+    expect(useUiStore.getState().activeView).toBe('landing');
+    expect(useUiStore.getState().settingsPage).toBe('mcp');
+    useUiStore.setState({ screensaverLocked: false });
+  });
 });
+

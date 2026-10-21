@@ -5,9 +5,12 @@ import { parseWhichOutput, runInShell } from './login-shell';
 /**
  * Whether each agent in the roster is actually installed on this machine.
  *
- * The `+` menu is the only consumer, and it uses the answer for one thing:
- * greying out an item and saying how to install it, instead of opening a
- * session that immediately prints `command not found`.
+ * Every agent picker reads the answer (the `+` menu, the title-bar primary
+ * agent, the switcher, Settings' roster) through ONE renderer store that
+ * `agent-probe-service.ts` feeds. It is probed eagerly at startup and again on
+ * every renderer load — nothing triggers it lazily any more. The answer's one
+ * job is greying out an item and saying how to install it, instead of opening
+ * a session that immediately prints `command not found`.
  *
  * ## The trap
  *
@@ -23,15 +26,16 @@ import { parseWhichOutput, runInShell } from './login-shell';
  * ## Failing soft
  *
  * A probe that cannot answer omits the agent from its result rather than
- * reporting `installed: false`. The renderer reads an absent status as "assume
- * it works", so a slow rc file or a broken profile costs the user an
- * explanation, never a working agent.
+ * reporting `installed: false`. The renderer reads an absent status as
+ * "unknown, assume it works" (and the service surfaces a probe that produced
+ * nothing as the `unknown` state), so a slow rc file or a broken profile costs
+ * the user an explanation, never a working agent.
  */
 
 /**
  * Bounds one batched probe. Generous, because it is one `-lic` shell for the
  * whole roster and an rc file that sources nvm can genuinely take a second —
- * but finite, because the `+` menu awaits it.
+ * but finite, so a stuck shell cannot leave the UI on "checking" forever.
  */
 export const PROBE_TIMEOUT_MS = 8_000;
 
@@ -227,12 +231,16 @@ const REAL: ProbeDeps = { now: () => Date.now(), run: runInShell };
  */
 export async function probeAgents(
   agents: readonly AgentDefinition[],
-  deps: Partial<ProbeDeps> = {},
+  deps: Partial<ProbeDeps> & { force?: boolean } = {},
 ): Promise<AgentStatus[]> {
   const { now, run } = { ...REAL, ...deps };
   const key = rosterKey(agents);
 
-  if (cache && cache.key === key && now() - cache.at < PROBE_TTL_MS) return cache.statuses;
+  // `force` (a renderer reload, a manual re-check) bypasses the TTL but still
+  // joins a probe already in flight — that shell is as fresh as a new one.
+  if (!deps.force && cache && cache.key === key && now() - cache.at < PROBE_TTL_MS) {
+    return cache.statuses;
+  }
   if (inFlight && inFlight.key === key) return inFlight.promise;
 
   const script = buildProbeScript(agents);
@@ -252,43 +260,6 @@ export async function probeAgents(
 
   inFlight = { key, promise };
   return promise;
-}
-
-/**
- * How long `agent.list()` will wait for a first answer before shipping without
- * one.
- *
- * The roster itself is a file read that never needed a shell. Making the whole
- * response wait on a login shell means the session list's marks and the
- * Settings roster both stall behind an rc file that sources nvm — for a fact
- * whose only job is grey-out styling. Absent status already means "assume
- * installed", so shipping early is correct by design rather than a compromise:
- * the probe keeps running, fills the cache, and the next refetch has it.
- */
-export const FIRST_ANSWER_MS = 1_200;
-
-/**
- * The roster's status if the probe can produce one quickly, `[]` otherwise.
- *
- * Never rejects, and never leaves the probe dangling — the losing side of the
- * race still completes into the cache.
- */
-export async function agentStatusWithin(
-  agents: readonly AgentDefinition[],
-  waitMs: number = FIRST_ANSWER_MS,
-  deps: Partial<ProbeDeps> = {},
-): Promise<AgentStatus[]> {
-  const probe = probeAgents(agents, deps).catch((): AgentStatus[] => []);
-  let timer: NodeJS.Timeout | undefined;
-  const deadline = new Promise<AgentStatus[]>((resolvePromise) => {
-    timer = setTimeout(() => resolvePromise([]), waitMs);
-    timer.unref?.();
-  });
-  try {
-    return await Promise.race([probe, deadline]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
 }
 
 /** Drop the memo. Tests only — the TTL is the production story. */

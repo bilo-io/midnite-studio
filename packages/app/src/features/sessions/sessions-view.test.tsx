@@ -3,18 +3,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { SessionsView } from '@midnite/studio-feature-sessions/renderer/testing';
+
 import { DialogHost } from '../../components/dialog-host';
+import { StudioProviders } from '../../compose/studio-providers';
 import { useSessionsStore } from '../../store/sessions-store';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
-import { useGraphStore } from '../graph/graph-store';
-import { SessionsView } from './sessions-view';
+import { useGraphStore } from '@midnite/studio-frame';
 
 import { BUILTIN_AGENTS } from '@midnite/studio-shared';
 
 const historyResult = vi.fn();
 const refresh = vi.fn();
-vi.mock('../../services/queries', () => ({
+// Partial: `StudioProviders` (the view's host now arrives through it) composes hosts that read other queries.
+vi.mock('../../services/queries', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/queries')>()),
   useSessionHistory: () => historyResult(),
   useRefreshSessionHistory: () => refresh,
 }));
@@ -53,7 +57,8 @@ const loopRunsList = vi.fn().mockResolvedValue({ runs: [] });
 // here so `hydrate()` has something to resolve against instead of throwing
 // on a bridge that doesn't implement it.
 const listSessions = vi.fn().mockResolvedValue({ sessions: [], broker: { mode: 'broker' } });
-vi.mock('../../services/bridge', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({
     sessions: { purge },
     terminal: { save, forget, list: listSessions },
@@ -119,7 +124,9 @@ function renderView() {
   return render(
     <QueryClientProvider client={queryClient}>
       <DialogHost>
-        <SessionsView />
+        <StudioProviders>
+          <SessionsView />
+        </StudioProviders>
       </DialogHost>
     </QueryClientProvider>,
   );

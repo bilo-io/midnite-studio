@@ -1,9 +1,20 @@
 import { pathToFileURL } from 'node:url';
 
-import { net, protocol } from 'electron';
+import { app, net, protocol } from 'electron';
 
 import { readBlob } from '@midnite/studio-git-engine';
-import { isSafeBlobRev, MSTUDIO_BLOB_MAX_BYTES, MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
+import {
+  isMarkdownImagePath,
+  CAPTURE_FILE_HOST,
+  LIBRARY_FILE_HOST,
+  MSTUDIO_GAME_SCHEME,
+  isSafeBlobRev,
+  MSTUDIO_BLOB_MAX_BYTES,
+  MSTUDIO_FILE_SCHEME,
+  MSTUDIO_TILE_SCHEME,
+  MSTUDIO_IMAGE_ONLY_PARAM,
+  MSTUDIO_IMAGE_ONLY_VALUE,
+} from '@midnite/studio-shared';
 
 import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from './fs-scope';
 
@@ -19,7 +30,7 @@ import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from
  * **Default session only.** `protocol.handle` on the module-level `protocol`
  * object registers against `session.defaultSession`, never against a named
  * partition — so a `WebContentsView` on Phase 32's `persist:browser`
- * partition (`main/browser-service.ts`) cannot resolve an `mstudio-file:` URL
+ * partition (`packages/features/browser/main/browser-service.ts`) cannot resolve an `mstudio-file:` URL
  * at all, and the renderer's media path stays unreachable from a remote
  * page. Phase 32 Theme B depends on that staying true; `fs-protocol.test.ts`
  * asserts it.
@@ -27,11 +38,25 @@ import { confineToRoot, joinWithin, resolveScopeRoot, type FsScopeRequest } from
 
 /**
  * Must run before `app.whenReady` — Chromium fixes the scheme list at startup.
- * `stream` lets `<video>` seek; `supportFetchAPI` lets the renderer fetch it.
+ *
+ * **One call, both schemes.** Electron keeps only the last
+ * `registerSchemesAsPrivileged` list, so a second call from the games runner
+ * would silently unregister `mstudio-file`. `mstudio-file`: `stream` lets
+ * `<video>` seek, `supportFetchAPI` lets the renderer fetch it. `mstudio-game`
+ * (Phase 107 Theme B) is `standard` so a game gets a real origin
+ * (`mstudio-game://<gameId>`) for ES modules and `localStorage`, `secure` so it
+ * counts as a secure context, and `corsEnabled` for module requests. Only a
+ * run's own session ever handles it — see `game-protocol.ts`.
  */
-export function registerMgitFileScheme(): void {
+export function registerPrivilegedSchemes(): void {
   protocol.registerSchemesAsPrivileged([
     { scheme: MSTUDIO_FILE_SCHEME, privileges: { stream: true, supportFetchAPI: true } },
+    {
+      scheme: MSTUDIO_GAME_SCHEME,
+      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
+    },
+    // Phase 108 Theme B: map tiles, served by main/media/map/tile-protocol.ts.
+    { scheme: MSTUDIO_TILE_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
   ]);
 }
 
@@ -49,6 +74,9 @@ const MIME_BY_EXT: Record<string, string> = {
   jpeg: 'image/jpeg',
   gif: 'image/gif',
   webp: 'image/webp',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
   mp4: 'video/mp4',
   webm: 'video/webm',
   mov: 'video/quicktime',
@@ -56,7 +84,29 @@ const MIME_BY_EXT: Record<string, string> = {
   wav: 'audio/wav',
   m4a: 'audio/mp4',
   ogg: 'audio/ogg',
+  flac: 'audio/flac',
+  aac: 'audio/aac',
 };
+
+/**
+ * The second lock (Phase 91 Theme E): refuse a request whose referrer is a foreign web origin.
+ * The isolation otherwise rests only on `protocol.handle` binding to the default session. Only
+ * a parseable `http(s)` referrer that is not the app's own dev origin is refused: the packaged
+ * app's own pages report a `file:` referrer, `''` or `about:client` (all fine), and a missing
+ * referrer cannot be told from a stripped one, so it is not grounds to break local images.
+ */
+export function isForeignReferrer(referrer: string | undefined): boolean {
+  if (!referrer || referrer === 'about:client') return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(referrer);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  const dev = process.env['MSTUDIO_RENDERER_URL'] ?? 'http://localhost:5173';
+  return app.isPackaged || parsed.origin !== new URL(dev).origin;
+}
 
 /** After `whenReady`, before the window loads anything that renders media. */
 export function installMgitFileProtocol(): void {
@@ -82,7 +132,7 @@ export function installMgitFileProtocol(): void {
       return new Response(new Uint8Array(read.bytes), { status: 200, headers });
     }
 
-    const target = await resolveRequestPath(request.url);
+    const target = await resolveRequestPath(request.url, request.referrer);
     if (!target) return new Response('not found', { status: 404 });
 
     const response = await net.fetch(pathToFileURL(target).toString(), {
@@ -105,12 +155,82 @@ export function installMgitFileProtocol(): void {
       staleness problem a file nobody re-exports mid-session does not have.
     */
     if (mime.startsWith('image/')) headers.set('cache-control', 'no-cache');
+    // An SVG is a document that can carry script. As an `<img>` Chromium never
+    // runs it; this header keeps that true if the URL is ever opened directly.
+    if (mime === 'image/svg+xml') {
+      headers.set('content-security-policy', SVG_DOCUMENT_CSP);
+      headers.set('x-content-type-options', 'nosniff');
+    }
     return new Response(response.body, { status: response.status, headers });
   });
 }
 
-/** Parse + confine. Exported for the jail tests. Fails CLOSED on anything malformed. */
-export async function resolveRequestPath(rawUrl: string): Promise<string | null> {
+/**
+ * Phase 99 Theme D — the `video` host (`mstudio-file://video/-/<relPath>`)
+ * resolves against the Video tab's resolved root, injected from
+ * `main/index.ts` so this module stays free of the video service. Unset, the
+ * host 404s like any other unknown scope.
+ */
+let videoRootProvider: () => Promise<string | null> = async () => null;
+
+export function setVideoFileRootProvider(provider: () => Promise<string | null>): void {
+  videoRootProvider = provider;
+}
+
+/**
+ * Phase 113 Theme R — the `library` host (`mstudio-file://library/<rootId>/<relPath>`) is Media ▸
+ * Library's: the feature resolves it through its index and the root's path jail
+ * (`libraryFileResolver`), injected from `ipc/media-library-handlers.ts`. Unset, the host 404s.
+ */
+let libraryResolver: (rawUrl: string) => Promise<string | null> = async () => null;
+
+export function setLibraryFileResolver(resolver: (rawUrl: string) => Promise<string | null>): void {
+  libraryResolver = resolver;
+}
+
+/**
+ * Phase 113 Theme K — the `capture` host (`mstudio-file://capture/<captures|clipboard>/<file>`) is
+ * Capture's: the feature answers only a name it generated itself, inside its own data directory
+ * (`captureFileResolver`), injected from `ipc/capture-handlers.ts`. Unset, the host 404s.
+ */
+let captureResolver: (rawUrl: string) => Promise<string | null> = async () => null;
+
+export function setCaptureFileResolver(resolver: (rawUrl: string) => Promise<string | null>): void {
+  captureResolver = resolver;
+}
+
+/** Script-free policy for an SVG served off disk. Exported for the tests. */
+export const SVG_DOCUMENT_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
+/**
+ * Parse + confine. Exported for the jail tests. Fails CLOSED on anything malformed.
+ *
+ * A request carrying `?as=image` (a markdown preview's `<img>`, see
+ * `mstudioImageUrl`) is narrowed further: both the requested name and the real
+ * path it resolved to must be an image extension, so neither `![x](.env)` nor
+ * an in-repo `logo.png → ../.env` symlink serves anything but an image.
+ */
+export async function resolveRequestPath(
+  rawUrl: string,
+  referrer?: string,
+): Promise<string | null> {
+  if (isForeignReferrer(referrer)) return null;
+  const target = await resolveConfinedPath(rawUrl);
+  if (target === null) return null;
+  let imageOnly: boolean;
+  let requested: string;
+  try {
+    const url = new URL(rawUrl);
+    imageOnly = url.searchParams.get(MSTUDIO_IMAGE_ONLY_PARAM) === MSTUDIO_IMAGE_ONLY_VALUE;
+    requested = decodeURIComponent(url.pathname);
+  } catch {
+    return null;
+  }
+  if (imageOnly && !(isMarkdownImagePath(requested) && isMarkdownImagePath(target))) return null;
+  return target;
+}
+
+async function resolveConfinedPath(rawUrl: string): Promise<string | null> {
   // One try around the whole parse: `new URL` throws on garbage and
   // `decodeURIComponent` throws on invalid percent-encoding (`%zz`), and a
   // crafted URL must land on the same null as every other jail failure.
@@ -134,6 +254,13 @@ export async function resolveRequestPath(rawUrl: string): Promise<string | null>
       };
     } else if (scope === 'claude-home') {
       scopeReq = { scope: 'claude-home' };
+    } else if (scope === 'video') {
+      const videoRoot = await videoRootProvider();
+      return videoRoot ? confineToRoot(videoRoot, relPath) : null;
+    } else if (scope === LIBRARY_FILE_HOST) {
+      return await libraryResolver(rawUrl);
+    } else if (scope === CAPTURE_FILE_HOST) {
+      return await captureResolver(rawUrl);
     } else {
       return null;
     }

@@ -5,6 +5,7 @@ import type { ChangeCounts, StatusEntry } from '@midnite/studio-shared';
 import { LuChevronsDownUp, LuChevronsUpDown } from 'react-icons/lu';
 
 import { ChangeTotals } from '../../components/change-tree';
+import { DIFF_BAR_CLASS, DiffPaneClose } from '../../components/diff-pane-frame';
 import { IconButton } from '../../components/icon-button';
 import { FileAccordion } from './file-accordion';
 import {
@@ -34,6 +35,7 @@ export function ChangesAccordion({
   totals,
   leading,
   emptyMessage = 'No uncommitted changes.',
+  initiallyExpanded = false,
 }: {
   repoId: string;
   /** Omitted addresses the globally selected worktree — see `FileAccordion`. */
@@ -47,8 +49,12 @@ export function ChangesAccordion({
   /** Rendered before the totals — the tab's checkout label, or nothing. */
   leading?: React.ReactNode;
   emptyMessage?: string;
+  /**
+   * Open every file (up to the cap) on mount, instead of none. For a hand-picked
+   * multi-selection, where choosing the files was already asking to read them.
+   */
+  initiallyExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState<ExpansionState>(NOTHING_EXPANDED);
 
   /*
     One row per PATH, not per porcelain-v2 record.
@@ -71,6 +77,9 @@ export function ChangesAccordion({
   }, [rawEntries]);
 
   const paths = useMemo(() => entries.map((entry) => entry.path), [entries]);
+  const [expanded, setExpanded] = useState<ExpansionState>(() =>
+    initiallyExpanded ? expandAll(paths) : NOTHING_EXPANDED,
+  );
   const withheld = withheldByCap(paths);
 
   /*
@@ -88,7 +97,7 @@ export function ChangesAccordion({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+      <header data-testid="changes-accordion-header" className={`flex items-center gap-2 px-3 ${DIFF_BAR_CLASS}`}>
         {leading}
         {/*
           The whole set in one line. Every file below is collapsed by default,
@@ -109,6 +118,7 @@ export function ChangesAccordion({
           size="sm"
           onClick={() => setExpanded(NOTHING_EXPANDED)}
         />
+        <DiffPaneClose />
       </header>
 
       {/*

@@ -17,21 +17,26 @@ export type ReflogOptions = {
  * still carry a real `oldSha` rather than `null` purely because the page cut
  * off there. See `parseReflogList`'s own doc for the pairing.
  */
-export async function readReflog(
-  worktreePath: string,
-  options: ReflogOptions = {},
-): Promise<ReflogEntry[]> {
-  const { ref = 'HEAD', limit = 200 } = options;
-
-  const res = await execGit(worktreePath, [
+export function buildReflogArgs(ref: string, limit: number): string[] {
+  return [
     'reflog',
     'show',
     '--date=unix',
     '-z',
     `--format=${REFLOG_FORMAT}`,
     `--max-count=${limit + 1}`,
+    '--end-of-options',
     ref,
-  ]);
+  ];
+}
+
+export async function readReflog(
+  worktreePath: string,
+  options: ReflogOptions = {},
+): Promise<ReflogEntry[]> {
+  const { ref = 'HEAD', limit = 200 } = options;
+
+  const res = await execGit(worktreePath, buildReflogArgs(ref, limit));
   if (res.exitCode !== 0) return [];
 
   return parseReflogList(res.stdout).slice(0, limit);

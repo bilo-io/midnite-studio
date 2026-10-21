@@ -1,0 +1,81 @@
+import type { Workflow, WorkflowTemplate } from '@midnite/studio-shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { bridge, noBridge, reportFailure } from '@midnite/studio-frame';
+
+
+/**
+ * Workflows are global, not per-repo — deliberately absent from
+ * `services/queries.ts` for the reason `use-council.ts` records: nothing
+ * about a global entity invalidates on a watcher event, a ref change, or any
+ * of the other reasons that file's keys are shaped the way they are.
+ *
+ * There is no per-id `get` channel — the list is capped-small (workflows are
+ * hand-built, not generated), so every consumer reads one `workflows` query
+ * and finds its id in it, exactly as `workflow.run`'s own docblock reasons
+ * about `workflowRunChanged` carrying no payload.
+ */
+const WORKFLOW_KEYS = {
+  list: ['workflows'] as const,
+  templates: ['workflow-templates'] as const,
+};
+
+export function useWorkflows() {
+  return useQuery({
+    queryKey: WORKFLOW_KEYS.list,
+    queryFn: async () => (await bridge()?.workflow.list())?.workflows ?? [],
+  });
+}
+
+export function useSaveWorkflow() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (workflow: Workflow) =>
+      (await bridge()?.workflow.save({ workflow })) ?? noBridge<Workflow>(),
+    onSuccess: (result) => {
+      reportFailure<Workflow>(result);
+      if (result.ok) void client.invalidateQueries({ queryKey: WORKFLOW_KEYS.list });
+    },
+  });
+}
+
+export function useDeleteWorkflow() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await bridge()?.workflow.delete({ id })) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      reportFailure<void>(result);
+      if (result.ok) void client.invalidateQueries({ queryKey: WORKFLOW_KEYS.list });
+    },
+  });
+}
+
+/** Phase 97 Theme L — the gallery's user section. The built-ins are `WORKFLOW_TEMPLATES`, read directly. */
+export function useWorkflowTemplates() {
+  return useQuery({
+    queryKey: WORKFLOW_KEYS.templates,
+    queryFn: async () => (await bridge()?.workflow.templates.list())?.templates ?? [],
+  });
+}
+
+export function useSaveWorkflowTemplate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (template: WorkflowTemplate) =>
+      (await bridge()?.workflow.templates.save({ template })) ?? noBridge<WorkflowTemplate>(),
+    onSuccess: (result) => {
+      reportFailure<WorkflowTemplate>(result);
+      if (result.ok) void client.invalidateQueries({ queryKey: WORKFLOW_KEYS.templates });
+    },
+  });
+}
+
+export function useDeleteWorkflowTemplate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await bridge()?.workflow.templates.delete({ id })) ?? noBridge<void>(),
+    onSuccess: (result) => {
+      reportFailure<void>(result);
+      if (result.ok) void client.invalidateQueries({ queryKey: WORKFLOW_KEYS.templates });
+    },
+  });
+}

@@ -9,10 +9,11 @@ import { useFilesStore } from '../features/files/files-store';
 import { usePaletteStore } from '../features/themes/palette-store';
 import { useActionsStore, type ActionsState } from '../store/actions-store';
 import { useAppearanceStore, type AppearanceState } from '../store/appearance-store';
-import { useBrowserStore, type BrowserTab, type BrowserTabGroup } from '../store/browser-store';
+import { useBrowserStore, type BrowserTab, type BrowserTabGroup } from '@midnite/studio-feature-browser/renderer/store';
+import { applyNotesDelta, diffNotes, useNotesStore, type NotesDelta } from '../store/notes-store';
 import { useSessionsStore, type SessionsState } from '../store/sessions-store';
 import { useUiStore, type UiState } from '../store/ui-store';
-import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
+import { useWorkbenchStore, type WorkbenchTab } from '@midnite/studio-feature-database/renderer';
 
 /**
  * Cross-window state synchronization (Theme E).
@@ -29,8 +30,9 @@ import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
  *
  * The allowlist is deliberately narrow, not a whole-store mirror: `ui-store`
  * persists ~60 fields, and syncing all of them would have two windows fighting
- * over pane sizes. Only `selectedRepoId`, `selectedWorktreePath`, the four
- * `*Detached` flags, the whole of `appearance-store`, `browser-store` (tabs,
+ * over pane sizes. Only `selectedRepoId`, `selectedWorktreePath`, the
+ * `*Detached` flags, the companion settings the popout speaks with
+ * (`COMPANION_SYNC_KEYS`), the whole of `appearance-store`, `browser-store` (tabs,
  * groups, `activeTabId` — both windows can render the strip after Theme D), and
  * theme flips travel. `terminal-store` does NOT sync — it is deliberately
  * unpersisted, main owns terminal durability via `terminals.json`, and a synced
@@ -41,7 +43,7 @@ import { useWorkbenchStore, type WorkbenchTab } from '../store/workbench-store';
  * duplicating (`PAGE_WINDOW_ROLES`), so the same view can be live in two
  * windows at once, and the per-view *selection* each one holds is renderer
  * state no relay carried: which run Actions has open, which file the Explorer
- * has open, which tabs the Changes workbench holds. Those three now travel —
+ * has open, which query tabs the Database view holds. Those three now travel —
  * and Phase 67 Theme F adds a fourth, `sessions-store.selectedClosedSessionId`,
  * once Sessions itself joined `PAGE_WINDOW_ROLES`. The history *list* stays
  * out: it lives in main and each window fetches its own copy (Decision 6),
@@ -72,7 +74,8 @@ type SyncKind =
   | 'actions'
   | 'files'
   | 'workbench'
-  | 'sessions';
+  | 'sessions'
+  | 'notes';
 type SyncMessage = { id: string; origin: string; kind: SyncKind; payload: Record<string, unknown> };
 
 const newId = (): string =>
@@ -236,11 +239,50 @@ function applyIncoming(message: SyncMessage, client: QueryClient): void {
       case 'sessions':
         useSessionsStore.setState(message.payload as unknown as SessionsSlice);
         break;
+      case 'notes': {
+        /*
+          Applied with `setState`, never through the store's own actions: those
+          call `bridge().notes.save`, and the window that made the edit has
+          already persisted it. Going through them here would write every
+          note to disk once per open window.
+        */
+        const delta = message.payload as unknown as NotesDelta;
+        useNotesStore.setState((state) => {
+          const notes = applyNotesDelta(state.notes, delta);
+          return notes === state.notes ? state : { notes };
+        });
+        break;
+      }
     }
   } finally {
     applying = false;
   }
 }
+
+/**
+ * The companion settings the detached companion popout reads per utterance
+ * (Phase 109 Theme B, Decision 15). Before this the popout kept whatever it
+ * rehydrated at open, so a voice changed in the main window — by the page, by
+ * voice, by an agent — was not the voice the popout spoke its next line in.
+ * Every window already persists the same `midnite-studio.ui` key; this list is
+ * the mechanism built for exactly "keep these few in step", where relaying the
+ * writes through main would be a second one.
+ *
+ * `companionSttProvider` rides along beyond the doc's list: the popout's own
+ * composer transcribes too, and a stale provider there is the same bug.
+ */
+export const COMPANION_SYNC_KEYS = [
+  'companionVoices',
+  'companionVolume',
+  'companionSpeakAloud',
+  'companionNames',
+  'companionHonorifics',
+  'companionPersonality',
+  'companionAboutUser',
+  'companionProfiles',
+  'companionActiveProfile',
+  'companionSttProvider',
+] as const satisfies readonly (keyof UiState)[];
 
 type UiSlice = Pick<
   UiState,
@@ -251,6 +293,7 @@ type UiSlice = Pick<
   | 'fabDetached'
   | 'companionDetached'
   | 'browserDetached'
+  | (typeof COMPANION_SYNC_KEYS)[number]
 >;
 
 function pickUi(state: UiState): UiSlice {
@@ -262,6 +305,16 @@ function pickUi(state: UiState): UiSlice {
     fabDetached: state.fabDetached,
     companionDetached: state.companionDetached,
     browserDetached: state.browserDetached,
+    companionVoices: state.companionVoices,
+    companionVolume: state.companionVolume,
+    companionSpeakAloud: state.companionSpeakAloud,
+    companionNames: state.companionNames,
+    companionHonorifics: state.companionHonorifics,
+    companionPersonality: state.companionPersonality,
+    companionAboutUser: state.companionAboutUser,
+    companionProfiles: state.companionProfiles,
+    companionActiveProfile: state.companionActiveProfile,
+    companionSttProvider: state.companionSttProvider,
   };
 }
 
@@ -309,10 +362,10 @@ function pickFiles(state: FilesSlice): FilesSlice {
   return { scopeKey: state.scopeKey, selectedPath: state.selectedPath };
 }
 
-type WorkbenchSlice = { tabs: WorkbenchTab[]; activeTabId: string | null };
+type WorkbenchSlice = { tabs: WorkbenchTab[]; activeQueryTabId: string | null };
 
 function pickWorkbench(state: WorkbenchSlice): WorkbenchSlice {
-  return { tabs: state.tabs, activeTabId: state.activeTabId };
+  return { tabs: state.tabs, activeQueryTabId: state.activeQueryTabId };
 }
 
 /**
@@ -438,6 +491,30 @@ export function useBroadcastSync(): void {
       send('sessions', next);
     });
 
+    /*
+      Notes (detachable Notes window). Syncs a per-note delta, not a slice: the
+      notes record is real user data, so two windows must merge, not overwrite.
+      Hydration is skipped — each window lists notes from disk itself, and
+      relaying that would only echo what every peer already read.
+    */
+    let lastNotes = useNotesStore.getState().notes;
+    let lastHydrated = useNotesStore.getState().hydrated;
+    const unsubNotes = useNotesStore.subscribe((state) => {
+      if (applying) {
+        // A peer's change: advance the baseline so it is never diffed back out.
+        lastNotes = state.notes;
+        return;
+      }
+      const hydrating = state.hydrated !== lastHydrated;
+      lastHydrated = state.hydrated;
+      if (state.notes === lastNotes) return;
+      const delta = diffNotes(lastNotes, state.notes);
+      lastNotes = state.notes;
+      if (hydrating) return;
+      if (delta.upserts.length === 0 && delta.deletedIds.length === 0) return;
+      send('notes', delta);
+    });
+
     // ThemeProvider (`@bilo-io/ui`) exposes no change listener, so the `dark`
     // class it writes on `<html>` is observed instead — the same signal
     // `useWindowBackgroundSync` (`app.tsx`) already keys its own resync off.
@@ -477,6 +554,7 @@ export function useBroadcastSync(): void {
       unsubFiles();
       unsubWorkbench();
       unsubSessions();
+      unsubNotes();
       unsubPalette();
       themeObserver?.disconnect();
     };

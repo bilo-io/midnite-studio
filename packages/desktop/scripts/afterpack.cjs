@@ -3,6 +3,7 @@
 const { chmodSync, existsSync, readdirSync, statSync, unlinkSync } = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const { join } = require('node:path');
+const { FuseV1Options, FuseVersion, flipFuses } = require('@electron/fuses');
 
 /**
  * electron-builder afterPack hook.
@@ -22,14 +23,14 @@ exports.default = async function afterPack(context) {
    * machine. Without the bit, opening a terminal fails with "posix_spawnp
    * failed" and every git call fails with EACCES.
    *
-   * The CLI wrapper (Resources/bin/midnite-studio) is copied by the same
+   * The CLI wrapper (Resources/bin/midnite, plus the deprecated midnite-studio alias) is copied by the same
    * `extraResources` mechanism and needs the identical re-assertion.
    */
   const executables = [];
   walk(root, (file) => {
     if (file.endsWith('spawn-helper')) executables.push(file);
     else if (/\/dugite\/git\/(bin|libexec)\//.test(file)) executables.push(file);
-    else if (file.endsWith('/bin/midnite-studio')) executables.push(file);
+    else if (file.endsWith('/bin/midnite') || file.endsWith('/bin/midnite-studio')) executables.push(file);
   });
   for (const file of executables) {
     try {
@@ -66,7 +67,38 @@ exports.default = async function afterPack(context) {
   if (broken.length) console.log(`[afterPack] pruned ${broken.length} dangling symlink(s)`);
 
   /**
-   * 3. Ad-hoc sign on macOS.
+   * 3. Electron fuses (Phase 91 Theme H).
+   *
+   * Flipped on the Electron binary BEFORE any signing, because a fuse flip
+   * rewrites the binary and would invalidate a signature made earlier.
+   *
+   * RunAsNode stays ENABLED on purpose: `electron-builder.yml` launches the
+   * terminal broker (`dist/bundle/broker.js`) via `ELECTRON_RUN_AS_NODE`, so
+   * turning that fuse off would silently break every terminal. Do not "finish
+   * the checklist" by disabling it.
+   */
+  if (context.electronPlatformName === 'darwin') {
+    const exe = join(
+      root,
+      `${context.packager.appInfo.productFilename}.app`,
+      'Contents',
+      'MacOS',
+      context.packager.appInfo.productFilename,
+    );
+    await flipFuses(exe, {
+      version: FuseVersion.V1,
+      resetAdHocDarwinSignature: false, // step 4 signs the whole bundle
+      [FuseV1Options.RunAsNode]: true, // required by the terminal broker, see above
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+      [FuseV1Options.EnableNodeCliInspectArguments]: false,
+    });
+    console.log('[afterPack] flipped Electron fuses');
+  }
+
+  /**
+   * 4. Ad-hoc sign on macOS.
    *
    * When packaging unsigned, electron-builder leaves Electron's own signature
    * in place — but copying extraResources in invalidates it ("code has no

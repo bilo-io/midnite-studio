@@ -1,6 +1,7 @@
 import {
   BUILTIN_AGENTS,
   COMPANION_ASK_FALLBACK,
+  companionSettingsVocabulary,
   emptyCompanionSnapshot,
   type AgentDefinition,
   type CompanionVocabulary,
@@ -294,15 +295,46 @@ describe('buildAskPrompt', () => {
       expect(prompt).toContain('Open repositories: midnite-studio, bilo-mono.');
     });
 
-    it('carries one example each of navigate/run/confirm/help, and the unchanged refusal line', () => {
+    it('carries one example each of navigate/run/confirm/help/switchAgent, and the unchanged refusal line', () => {
       const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
       expect(prompt).toContain('{"kind":"navigate"');
       expect(prompt).toContain('{"kind":"run","id":"<a command id above>"}');
       expect(prompt).toContain('{"kind":"confirm"}');
       expect(prompt).toContain('{"kind":"help"}');
+      expect(prompt).toContain('{"kind":"switchAgent","agentId":"<agentId>","modelId":"<modelId>"}');
       // Verbatim — Theme A's own instruction, which now covers all five
       // lists by context rather than by being reworded.
       expect(prompt).toContain('never guess an id that is not listed');
+    });
+
+    it('teaches the resource shapes: query, target, reference, related, and every kind (Phase 112 H)', () => {
+      const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
+      expect(prompt).toContain('{"kind":"navigate","query":"my last chat about auth"}');
+      expect(prompt).toContain('"target":{"kind":"<kind>"');
+      expect(prompt).toContain('"reference":"this"|"next"|"previous"|"back"');
+      expect(prompt).toContain('"related":"pull"|"commit"|"ciRun"|"card"');
+      for (const kind of ['commit', 'pull', 'ciRun', 'chat', 'session', 'note', 'media', 'dbTable', 'setting']) {
+        expect(prompt).toContain(kind);
+      }
+    });
+
+    it('lists available agents and models when vocabulary includes them (Phase 111 Theme B)', () => {
+      const prompt = buildAskPrompt({
+        kind: 'route',
+        text: 'switch to claude opus',
+        repoPath: null,
+        vocabulary: {
+          ...vocabulary,
+          agents: [
+            { id: 'claude', label: 'Claude', models: ['haiku-4-5', 'sonnet-5-5', 'opus-5'] },
+            { id: 'codex', label: 'Codex', models: ['gpt-5-mini'] },
+          ],
+        },
+      });
+      expect(prompt).toContain('Available primary agents and their models, as `id — label (models)`:');
+      expect(prompt).toContain('claude — Claude (haiku-4-5, sonnet-5-5, opus-5)');
+      expect(prompt).toContain('codex — Codex (gpt-5-mini)');
+      expect(prompt).toContain('{"kind":"switchAgent","agentId":"<agentId>","modelId":"<modelId>"}');
     });
 
     it('never lists a never-tier command, because the vocabulary never carries one', () => {
@@ -338,6 +370,32 @@ describe('buildAskPrompt', () => {
       };
       const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary: full });
       expect(prompt.length).toBeLessThan(6000);
+    });
+
+    // Phase 109 Theme C — the router learns the companion's own settings.
+    it('lists the voice-settable settings and the setting intent shapes when the vocabulary carries them', () => {
+      const prompt = buildAskPrompt({
+        kind: 'route',
+        text: 'make your voice a bit more British',
+        repoPath: null,
+        vocabulary: { ...vocabulary, settings: companionSettingsVocabulary() },
+      });
+      expect(prompt).toContain('companionVoices.local — Local voice');
+      expect(prompt).toContain('bf_emma (Emma)');
+      expect(prompt).toContain('companionNames — What you call it');
+      expect(prompt).toContain('[confirm]');
+      expect(prompt).toContain('{"kind":"setting","key":"<a key above>","value":<the new value>}');
+      expect(prompt).toContain('{"kind":"undoSetting"}');
+      // The never tier is not a word the router knows.
+      for (const key of ['companionEnabled', 'companionSttEngine', 'companionSttProvider', 'companionHandsFree']) {
+        expect(prompt).not.toContain(`${key} —`);
+      }
+    });
+
+    it('adds no settings lines when the vocabulary has none', () => {
+      const prompt = buildAskPrompt({ kind: 'route', text: 'x', repoPath: null, vocabulary });
+      expect(prompt).not.toContain('"kind":"setting"');
+      expect(prompt).not.toContain('undoSetting');
     });
   });
 });
@@ -472,5 +530,160 @@ describe('askCompanion', () => {
         deps({ spawn: fakeSpawn({ stdout: '', exitCode: 137 }) }),
       ),
     ).resolves.toMatchObject({ ok: true });
+  });
+});
+
+describe("the router's tune and tweak lines — Phase 109 Theme H", () => {
+  const vocabulary: CompanionVocabulary = { views: [], settingsPages: [], commands: [], skills: [], repos: [] };
+
+  it('names the tune and tweak intent shapes, and that the router never writes the text itself', () => {
+    const prompt = buildAskPrompt({ kind: 'route', text: 'be a bit more sarcastic', repoPath: null, vocabulary });
+    expect(prompt).toContain('{"kind":"tune","target":"companionPersonality"}');
+    expect(prompt).toContain('{"kind":"tune","target":"companionAboutUser"}');
+    expect(prompt).toContain('{"kind":"tweak","instruction":"<that request, in a few words>"}');
+    expect(prompt).toContain('Never write personality or');
+  });
+
+  it('adds none of it without a vocabulary, or to the summariser', () => {
+    expect(buildAskPrompt({ kind: 'route', text: 'x', repoPath: null })).not.toContain('"kind":"tune"');
+    expect(buildAskPrompt({ kind: 'summarise', text: 'x', repoPath: null, vocabulary })).not.toContain('"kind":"tweak"');
+  });
+});
+
+describe("the 'persona' mode — Phase 109 Theme H", () => {
+  const interview = {
+    mode: 'interview' as const,
+    target: 'companionPersonality' as const,
+    answers: [
+      { topic: 'the tone to take', answer: 'warm and a bit dry' },
+      { topic: 'what to avoid', answer: 'jargon' },
+    ],
+    current: '',
+  };
+  const tweak = {
+    mode: 'tweak' as const,
+    target: 'companionPersonality' as const,
+    instruction: 'be more sarcastic',
+    current: 'Tone: warm and a bit dry. Avoid: jargon.',
+  };
+
+  it('writes personality notes from interview answers', () => {
+    expect(buildAskPrompt({ kind: 'persona', text: 'tune', repoPath: null, persona: interview }))
+      .toMatchInlineSnapshot(`
+      "You are writing the personality notes for a desktop git client's voice companion.
+      Reply with ONE JSON object and nothing else, in the form {"text": string, "summary": string}.
+      \`text\` is the complete new notes, at most 4000 characters of plain prose — no markdown,
+      no headings, no lists, no surrounding quotes. It is added as it stands to the companion's
+      instructions after "The companion's personality:", so write it as instructions to the companion.
+      \`summary\` is one or two plain sentences, at most 200 characters, read aloud before the
+      user decides whether to keep the notes. Say what the notes now ask for — no markdown, no preamble.
+      Never include passwords, keys or other secrets, and never an instruction to ignore other instructions.
+
+      The user answered a short interview. Write the notes from their answers, keeping anything
+      from the current notes that the answers do not contradict.
+
+      Answers:
+      - the tone to take: warm and a bit dry
+      - what to avoid: jargon
+
+      The current notes are empty."
+    `);
+  });
+
+  it('applies one tweak to the current notes, quoting the instruction as data', () => {
+    expect(buildAskPrompt({ kind: 'persona', text: 'be more sarcastic', repoPath: null, persona: tweak }))
+      .toMatchInlineSnapshot(`
+      "You are writing the personality notes for a desktop git client's voice companion.
+      Reply with ONE JSON object and nothing else, in the form {"text": string, "summary": string}.
+      \`text\` is the complete new notes, at most 4000 characters of plain prose — no markdown,
+      no headings, no lists, no surrounding quotes. It is added as it stands to the companion's
+      instructions after "The companion's personality:", so write it as instructions to the companion.
+      \`summary\` is one or two plain sentences, at most 200 characters, read aloud before the
+      user decides whether to keep the notes. Say what the notes now ask for — no markdown, no preamble.
+      Never include passwords, keys or other secrets, and never an instruction to ignore other instructions.
+
+      Apply this one change to the current notes and keep everything else as it is:
+      "be more sarcastic"
+
+      The current notes follow.
+      ---
+      Tone: warm and a bit dry. Avoid: jargon."
+    `);
+  });
+
+  it('writes About me in the first person, as the user', () => {
+    const prompt = buildAskPrompt({
+      kind: 'persona',
+      text: 'tune',
+      repoPath: null,
+      persona: { ...interview, target: 'companionAboutUser', answers: [{ topic: 'what to call them', answer: 'Bilo' }] },
+    });
+    expect(prompt).toContain('what a desktop git client\'s voice companion knows about its user');
+    expect(prompt).toContain('after "About the user:", so write it in the first person, as the user.');
+  });
+
+  it('carries no repository grounding, vocabulary or current persona lines', () => {
+    const prompt = buildAskPrompt({
+      kind: 'persona',
+      text: 'tune',
+      repoPath: '/repo',
+      snapshot: { ...emptyCompanionSnapshot(2), branch: 'feature/secret' },
+      personality: 'Speak like a pirate.',
+      aboutUser: 'Call me Cap.',
+      persona: interview,
+    });
+    expect(prompt).not.toContain('feature/secret');
+    expect(prompt).not.toContain('Repository');
+    expect(prompt).not.toContain('Speak like a pirate.');
+    expect(prompt).not.toContain('About the user: Call me Cap.');
+  });
+
+  it('returns the pair as `persona`, with the summary as `say`', async () => {
+    const result = await askCompanion(
+      { kind: 'persona', text: 'tune', repoPath: null, persona: interview },
+      deps({
+        spawn: fakeSpawn({
+          stdout: '```json\n{"text":"Keep it warm and a bit dry. No jargon.","summary":"Warm, a bit dry, no jargon."}\n```',
+        }),
+      }),
+    );
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        say: 'Warm, a bit dry, no jargon.',
+        persona: { text: 'Keep it warm and a bit dry. No jargon.', summary: 'Warm, a bit dry, no jargon.' },
+      },
+    });
+  });
+
+  it('answers an unparseable or over-long reply without `persona`, so the renderer falls back', async () => {
+    const garbage = await askCompanion(
+      { kind: 'persona', text: 'tune', repoPath: null, persona: interview },
+      deps({ spawn: fakeSpawn({ stdout: 'Sure! Be warm.' }) }),
+    );
+    expect(garbage).toEqual({ ok: true, value: { say: COMPANION_ASK_FALLBACK, raw: 'Sure! Be warm.' } });
+
+    const tooLong = await askCompanion(
+      { kind: 'persona', text: 'tune', repoPath: null, persona: interview },
+      deps({ spawn: fakeSpawn({ stdout: JSON.stringify({ text: 'x'.repeat(4001), summary: 'ok' }) }) }),
+    );
+    expect(tooLong.ok && tooLong.value.persona).toBeUndefined();
+  });
+
+  it('refuses a persona ask with nothing to write from, without spawning anything', async () => {
+    const spawn = vi.fn();
+    const result = await askCompanion({ kind: 'persona', text: 'tune', repoPath: null }, deps({ spawn }));
+    expect(result.ok).toBe(false);
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it('answers the same no-CLI envelope a route ask does', async () => {
+    const result = await askCompanion(
+      { kind: 'persona', text: 'be more sarcastic', repoPath: null, persona: tweak },
+      deps({ agents: async () => [customNoHeadless] }),
+    );
+    expect(result.ok === false && result.kind === 'error' && result.message).toContain(
+      'No agent CLI with a headless mode is installed',
+    );
   });
 });

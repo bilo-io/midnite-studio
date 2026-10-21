@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createWindowsStore, parseStoredState } from './windows-store';
+import { createReopenStore, createWindowsStore, parseStoredState } from './windows-store';
 
 let dirs: string[] = [];
 
@@ -52,5 +52,20 @@ describe('createWindowsStore', () => {
         },
       }),
     ).toEqual({ terminal: { x: 1, y: 2, width: 3, height: 4 } });
+  });
+});
+
+describe('createReopenStore', () => {
+  it('round-trips the open roles', async () => {
+    const store = createReopenStore(await tempDir());
+    await store.save(['notes']);
+    expect(await store.load()).toEqual(['notes']);
+  });
+
+  it('is empty on first launch and on a corrupt file', async () => {
+    const dir = await tempDir();
+    expect(await createReopenStore(dir).load()).toEqual([]);
+    await writeFile(join(dir, 'windows-reopen.json'), '{ nope', 'utf8');
+    expect(await createReopenStore(dir).load()).toEqual([]);
   });
 });

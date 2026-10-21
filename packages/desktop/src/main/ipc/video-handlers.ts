@@ -1,151 +1,23 @@
-import { CHANNELS, failure, schemas } from '@midnite/studio-shared';
+import { mediaVideoMain } from '@midnite/studio-feature-media-video/main';
+import type { FeatureMainContext } from '@midnite/studio-runtime';
 
-import {
-  createVideoProject,
-  getVideoProject,
-  getVideoRoot,
-  listVideoProjectFiles,
-  listVideoProjects,
-  openVideoFile,
-  readVideoProjectFile,
-  removeVideoProject,
-  revealVideoFile,
-  setVideoRoot,
-  videoRenderCancel,
-  videoRenderList,
-  videoRenderStart,
-  videoStudioStart,
-  videoStudioStatus,
-  videoStudioStop,
-  videoToolchain,
-} from '../video-service';
-import { handle, handleBare } from './handle';
+import { resolveWorkdir } from '../repo-registry';
+import { mediaVideoTemplateRoot } from '../template-path';
+import { broadcastToAllWindows } from '../window-manager';
+import { handle, handleBare, handleSend } from './handle';
 
 /**
  * Video Studio (Phase 44 Theme H) — global CRUD over discovered projects, the
- * studio lifecycle, and the render queue. Mirrors `workflow-handlers.ts`'s own
- * shape; `video-service.ts` owns every decision this file just forwards.
+ * studio lifecycle, and the render queue — composed here from the `media-video`
+ * feature (Phase 113 Theme Q). `configureVideo` (main/index.ts) wires its
+ * settings store, window events and OS handoffs; this registers the channels with
+ * Studio's two lookups: the repo registry and the packaged template tree.
  */
 export function registerVideoHandlers(): void {
-  handleBare(CHANNELS.videoProjectList, async () => ({ projects: await listVideoProjects() }));
-
-  handle(
-    CHANNELS.videoProjectGet,
-    schemas.VideoProjectGetRequest,
-    async ({ id }) => ({ project: await getVideoProject(id) }),
-    () => ({ project: null }),
-  );
-
-  handle(
-    CHANNELS.videoProjectCreate,
-    schemas.VideoProjectCreateRequest,
-    async ({ id, title }) => createVideoProject(id, title),
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.videoProjectRemove,
-    schemas.VideoProjectRemoveRequest,
-    async ({ id }) => removeVideoProject(id),
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.videoStudioStart,
-    schemas.VideoStudioStartRequest,
-    async ({ projectId }) => videoStudioStart(projectId),
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.videoStudioStop,
-    schemas.VideoStudioStopRequest,
-    async ({ projectId }) => videoStudioStop(projectId),
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.videoStudioStatus,
-    schemas.VideoStudioStatusRequest,
-    async ({ projectId }) => ({ status: videoStudioStatus(projectId) }),
-    () => ({ status: { state: 'stopped' as const } }),
-  );
-
-  handle(
-    CHANNELS.videoRenderStart,
-    schemas.VideoRenderStartRequest,
-    async ({ projectId, compositionId }) => videoRenderStart(projectId, compositionId),
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.videoRenderCancel,
-    schemas.VideoRenderCancelRequest,
-    async ({ renderId }) => videoRenderCancel(renderId),
-    (issue) => failure(issue),
-  );
-
-  handle(
-    CHANNELS.videoRenderList,
-    schemas.VideoRenderListRequest,
-    async ({ projectId }) => ({ renders: videoRenderList(projectId) }),
-    () => ({ renders: [] }),
-  );
-
-  const unresolvedToolchain = {
-    toolchain: {
-      node: { found: false as const, reason: 'Invalid request.' },
-      npx: { found: false as const, reason: 'Invalid request.' },
-      skills: {
-        videoWriteScript: { found: false as const, reason: 'Invalid request.' },
-        videoExecuteScript: { found: false as const, reason: 'Invalid request.' },
-      },
-    },
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    emit: broadcastToAllWindows,
+    trashItem: () => Promise.reject(new Error('video never trashes through this context')),
   };
-  handle(
-    CHANNELS.videoToolchain,
-    schemas.VideoToolchainRequest,
-    async () => ({ toolchain: await videoToolchain() }),
-    () => unresolvedToolchain,
-  );
-
-  handle(
-    CHANNELS.videoProjectFiles,
-    schemas.VideoProjectFilesRequest,
-    async ({ projectId, area }) => ({ entries: await listVideoProjectFiles(projectId, area) }),
-    () => ({ entries: [] }),
-  );
-
-  handle(
-    CHANNELS.videoProjectReadFile,
-    schemas.VideoProjectReadFileRequest,
-    async ({ projectId, relPath }) => ({ content: await readVideoProjectFile(projectId, relPath) }),
-    () => ({ content: null }),
-  );
-
-  handle(
-    CHANNELS.videoFileReveal,
-    schemas.VideoFileHandoffRequest,
-    async ({ projectId, area, name }) => revealVideoFile(projectId, area, name),
-    (issue) => ({ ok: false, message: issue }),
-  );
-
-  handle(
-    CHANNELS.videoFileOpen,
-    schemas.VideoFileHandoffRequest,
-    async ({ projectId, area, name }) => openVideoFile(projectId, area, name),
-    (issue) => ({ ok: false, message: issue }),
-  );
-
-  handleBare(CHANNELS.videoRootGet, async () => ({ root: await getVideoRoot() }));
-
-  handle(
-    CHANNELS.videoRootSet,
-    schemas.VideoRootSetRequest,
-    async ({ root }) => {
-      await setVideoRoot(root);
-      return { root };
-    },
-    () => ({ root: null }),
-  );
+  mediaVideoMain.register(ctx, { resolveWorkdir, templateRoot: mediaVideoTemplateRoot });
 }

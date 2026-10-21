@@ -18,10 +18,10 @@ import { useResizable } from '../../components/resizable/use-resizable';
 import { TreeSection } from '../../components/tree-section';
 import { useStashDetail, useStashes } from '../../services/queries';
 import { useNow } from '../../lib/use-now';
-import { relativeAge } from '../actions/run-groups';
+import { relativeAgeFromIso as relativeAge } from '@midnite/studio-frame';
 import { LAYOUT_BOUNDS, useUiStore } from '../../store/ui-store';
-import { DiffView } from '../diff/diff-view';
-import { useStashFileDiff } from '../diff/use-file-diff';
+import { DiffView } from '@midnite/studio-frame/diff';
+import { useStashFileDiff } from '@midnite/studio-frame/diff';
 import {
   useTargetedStashApply,
   useTargetedStashBranch,

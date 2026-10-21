@@ -1,4 +1,4 @@
-import { FaGitAlt } from 'react-icons/fa';
+import { VscTerminalGitBash } from 'react-icons/vsc';
 
 import { useUiStore } from '../../store/ui-store';
 
@@ -8,7 +8,7 @@ import { StatusToggle } from './status-toggle';
 const reposChord = chordFor('repos.toggle', 'Mod+g');
 
 /**
- * `FaGitAlt` is the Git logo itself, in Git's own `#F05032` — the same pairing
+ * `VscTerminalGitBash` is the Git logo itself, in Git's own `#F05032` — the same pairing
  * `IconButton`'s `git` tone uses for the per-repo git menu, and the same glyph
  * the repositories panel's own header wears, so the button and the thing it
  * summons are recognisably one object. The colour is a literal rather than a
@@ -27,7 +27,7 @@ export function ReposToggle() {
   return (
     <StatusToggle
       testId="repos-toggle"
-      icon={FaGitAlt}
+      icon={VscTerminalGitBash}
       iconClassName="text-[#F05032]"
       name="Git Repos"
       chord={displayChord(reposChord)}

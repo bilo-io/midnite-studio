@@ -30,6 +30,24 @@ phase targets a wall-clock CI e2e runtime of **2–4 minutes or less**.
 
 Effort tags: **S** ≈ an hour or two · **M** ≈ half a day · **L** ≈ a day plus.
 
+## Headlines
+
+*Cutting the Playwright suite runtime from 7–10 minutes down to 2–4 minutes through 8 CI shards, fine-grained inter-test parallelism, worker concurrency optimization, retry trims, Vite build caching, and screenshot cleanup.* (83% · 24/29, [PR #148](https://github.com/bilo-io/midnite-studio/pull/148), [PR #152](https://github.com/bilo-io/midnite-studio/pull/152)) — **Themes A, B, C, E, F landed** (2026-09-04).
+
+**Theme A — Shard scale-up: 4 → 8 shards.** ✅ (PR #148) — Shard scale-up: 4 → 8 shards on `ubuntu-24.04`, with `timeout-minutes` recalibrated to 10. Measured: 3m24s–5m17s/shard. 4 → 8 e2e shards (`timeout-minutes` 20 → 10).
+
+**Theme B — Inter-test parallelism: `fullyParallel: true`.** ✅ (PR #148) — Inter-test parallelism: `fullyParallel: true` in `playwright.config.ts`, inherited by the CI ratchet config. `fullyParallel: true` (inherited by the CI ratchet config).
+
+**Theme C — Worker concurrency trial: `workers: 2`.** ✅ (PR #152) — Worker concurrency trial: measured `workers: 2` vs `workers: 1` across 3 full CI runs (24 shard-attempts, zero flake) — no wall-clock win (≈4m28s vs ≈4m22s average), so no override adopted; numbers left in both configs' own comments. **Measured, no change adopted**: `workers: 2` ran green across 3 full CI runs (24 shard-attempts, zero flake) but averaged ≈4m28s/shard against the `workers: 1` baseline's ≈4m22s — no measured win, so the override was reverted per the doc's own "adopt only on a demonstrated net reduction" rule, with the numbers left in both configs' own comments.
+
+**Theme D — Retry trim: 2 → 1 in CI.** ◻ (attempted in PR #148, reverted) — Retry trim: 2 → 1 in CI to avoid 3-minute burns per failure now that `KNOWN_RED` is down to 1 file. Passed one CI run, then failed a previously-reliable spec twice on a second — CI-only variance the retry budget exists to absorb. Reverted to 2 pending a real fix. **Tried and reverted** in PR #148: it passed on the first CI run, but a second full CI run — triggered by an unrelated docs-only rebase, no code change — failed `titlebar-agents.spec.ts`'s "reduced motion keeps a running launcher glow and full opacity" (not in `KNOWN_RED`, reliable across many recent `main` runs) twice in a row, while an exact local reproduction of that shard passed 77/77 clean — the one-run-in-two CI variance the retry budget exists to absorb, reverted to `retries: 2` pending a real fix.
+
+**Theme E — Vite dev server build cache in CI.** ✅ (PR #148) — Vite dev server build cache in CI: cache `packages/app/node_modules/.vite` keyed by source and config hash. An `actions/cache@v4` step for Vite's `.vite` dir.
+
+**Theme F — Screenshot gating in functional specs.** ✅ (PR #152) — Screenshot gating in functional specs: gate raw `page.screenshot()` calls in functional specs behind `MSTUDIO_SHOTS`. Verified zero screenshot writes on a normal run; all 14 target PNGs regenerate under `MSTUDIO_SHOTS=1`. Screenshot writes in four functional specs gated behind `MSTUDIO_SHOTS` (verified: a normal run touches zero files under `docs/screenshots/`, `MSTUDIO_SHOTS=1` regenerates all 14 target PNGs).
+
+**Theme G — Shots suite shared fixture helper.** ✅ ([PR #158]) — Shots suite shared fixture helper: extract `packages/app/e2e/shots-helper.ts` and refactor the 25 `*-shots.spec.ts` files. Remaining: extracting a shared `shots-helper.ts` and refactoring the 25 `*-shots.spec.ts` files, left for its own pass given the file count.
+
 ## Deliverables
 
 ### A — Shard scale-up: 4 → 8 shards (S) ✅ DONE (PR #148, 2026-09-04)

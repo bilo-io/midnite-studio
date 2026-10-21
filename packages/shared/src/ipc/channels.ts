@@ -74,6 +74,8 @@ export const CHANNELS = {
    * — the gate on a pull request's "Fetch to compare" button (Phase 26 Theme H).
    */
   blobExists: 'mstudio:blob:exists',
+  /** `+added -deleted` per commit for the graph's Diff column (batched, merges are null). */
+  commitStats: 'mstudio:commit:stats',
 
   // --- remotes -------------------------------------------------------------
   remotesList: 'mstudio:remotes:list',
@@ -230,6 +232,15 @@ export const CHANNELS = {
    * paid only when something needs to link to a `.yml`.
    */
   forgeWorkflows: 'mstudio:forge:workflows',
+  /**
+   * CI runs for a batch of commits, keyed by sha — the git graph's CI column.
+   *
+   * Batched rather than one call per commit: the graph asks for the page of
+   * rows actually on screen, and main answers most of a page from one recent
+   * `gh run list` before falling back to per-commit lookups. Read-only, like
+   * every other forge read above.
+   */
+  forgeCommitRuns: 'mstudio:forge:commit-runs',
 
   // --- forge polling (Phase 84 Theme C) -------------------------------------
   // Interest-based: a window subscribes a `{repoId, kind}` pair while a forge
@@ -337,6 +348,13 @@ export const CHANNELS = {
    */
   aiImproveField: 'mstudio:ai:improve-field',
   /**
+   * "Write with AI" on the commit box — a Conventional Commits message drafted
+   * from the staged diff (or the working-tree diff when nothing is staged) by
+   * the active provider's fastest model. Read-only: main reads a diff and
+   * answers a `GitOpResult`, nothing is staged or committed.
+   */
+  aiCommitMessage: 'mstudio:ai:commit-message',
+  /**
    * Plan with AI (Phase 95 Theme F) — a fast, non-thinking model proposes a
    * project/task/blocked-by blueprint from a free-text prompt, headless,
    * with the same `GitOpResult` posture as `aiImproveField`. `main/ai/plan-
@@ -368,6 +386,9 @@ export const CHANNELS = {
    * shape this could take.
    */
   clipboardWriteText: 'mstudio:clipboard:write-text',
+
+  /** Best favicon/logo for a repo as a data URL (≤256 KB), or null. */
+  repoLogo: 'mstudio:repo:logo',
 
   // --- mutating operations -------------------------------------------------
   opCheckout: 'mstudio:op:checkout',
@@ -405,6 +426,24 @@ export const CHANNELS = {
   updateReleaseNotes: 'mstudio:update:release-notes',
   systemHealth: 'mstudio:system:health',
   systemHealthStartSshAgent: 'mstudio:system:health:start-ssh-agent',
+  /** Token totals read from each live agent session's own transcript (Phase 113 Theme I). */
+  monitorAgentUsage: 'mstudio:monitor:agent-usage',
+  /**
+   * Cross-app hand-off (Phase 113, `docs/APPS.md` "The shared data plane"): main opens a
+   * `midnite://open` link — and nothing else — for the launcher's router to take to the target app.
+   */
+  handoffOpen: 'mstudio:handoff:open',
+  /** Which app can receive an agent-run hand-off (Phase 113 Theme O): names only, never a path. */
+  handoffRunReceiver: 'mstudio:handoff:run-receiver',
+  /** Probe setup-catalogue items by id (Phase 98 Theme D) — main owns the binary names, see `setup.ts`. */
+  setupProbe: 'mstudio:setup:probe',
+  /** Reveal a probed catalogue tool's binary in Finder, by catalogue id. */
+  setupReveal: 'mstudio:setup:reveal',
+  /** The global git identity, `git config --global user.name/email` (Phase 98 Theme F). */
+  gitIdentityGet: 'mstudio:git-identity:get',
+  gitIdentitySet: 'mstudio:git-identity:set',
+  /** This Mac's installed RAM, for gating model downloads (Phase 98 Theme I). */
+  systemMemory: 'mstudio:system:memory',
 
   // --- ollama (Phase 96 Theme B) -----------------------------------------------
   /** `GET /api/version` — reachable/unreachable is ordinary data, never a `GitOpResult` failure. */
@@ -527,6 +566,8 @@ export const CHANNELS = {
   terminalReorder: 'mstudio:terminal:reorder',
   /** Built-in agents merged with the user's `agents.json`. */
   agentList: 'mstudio:agent:list',
+  /** Force an install re-probe (bypasses the TTL); answers with the fresh snapshot. */
+  agentRecheck: 'mstudio:agent:recheck',
   /** Installed Claude CLI: version + install method, probed via a login shell. */
   agentClaudeInfo: 'mstudio:agent:claude-info',
   /** Run the method-matched update command; resolves when it exits. */
@@ -569,6 +610,15 @@ export const CHANNELS = {
   notesDelete: 'mstudio:notes:delete',
   /** Rewrite a repository's manual order. */
   notesReorder: 'mstudio:notes:reorder',
+  /** The review cards that are due now for a notebook, built from its notes (Phase 113 Theme M). */
+  notesReviewDue: 'mstudio:notes:review-due',
+  /** Grade one review card; main reschedules it and answers when it is next due. */
+  notesReviewGrade: 'mstudio:notes:review-grade',
+  /**
+   * Quick capture: append a note. Main picks the target (Mind's notebook when the
+   * launcher lists Mind as installed, a local Inbox otherwise) and says where it went.
+   */
+  notesCapture: 'mstudio:notes:capture',
 
   // --- browser (Phase 32) ---------------------------------------------------
   // A `WebContentsView` per tab, owned by `browser-service.ts`. Chrome state
@@ -621,22 +671,29 @@ export const CHANNELS = {
   browserSetDiscardMs: 'mstudio:browser:set-discard-ms',
 
   // --- third-party apps rail (Phase 83 Themes A/B) ---------------------------
-  // One `WebContentsView` per ENABLED app, owned by `apps-service.ts` — the
+  // One `WebContentsView` per ENABLED app, owned by `web-apps-service.ts` — the
   // same one-service-owns-the-map shape as `browser-service.ts`, but each app
   // gets its own `persist:app-<id>` partition instead of sharing one. No
   // per-app chrome events: these apps have no tab strip and no navigation
   // affordance for the renderer to reflect.
   /** Constructs (if needed) and shows the app's view. */
-  appsEnable: 'mstudio:apps:enable',
+  webAppsEnable: 'mstudio:web-apps:enable',
   /** Tears down the view only — the partition's on-disk session data survives. */
-  appsDisable: 'mstudio:apps:disable',
+  webAppsDisable: 'mstudio:web-apps:disable',
   /** Fires every resize frame, same as `browserSetBounds` — no round trip. */
-  appsSetBounds: 'mstudio:apps:set-bounds',
+  webAppsSetBounds: 'mstudio:web-apps:set-bounds',
   /**
    * Which enabled app is on top in the flyout — only one view is ever
    * attached-and-visible per window, mirroring `browserActivate` (Theme C).
    */
-  appsActivate: 'mstudio:apps:activate',
+  webAppsActivate: 'mstudio:web-apps:activate',
+  /**
+   * Which partitions hold a sign-in — cookie counts and the sites they belong to, never a value
+   * (Phase 113 Theme J slice 3; the Vault lists it).
+   */
+  webAppsSignIns: 'mstudio:web-apps:sign-ins',
+  /** Sign out of one web app: clears that one partition's storage. Behind the Vault's blast-radius confirm. */
+  webAppsSignOut: 'mstudio:web-apps:sign-out',
 
   // --- filesystem (Phase 16 reads, Phase 24 writes) -------------------------
   // Reads are scope: repo | claude-home, exactly as before. The four write
@@ -841,6 +898,261 @@ export const CHANNELS = {
   /** The Settings page's own read/write of the one setting Video Studio has. */
   videoRootGet: 'mstudio:video:root-get',
   videoRootSet: 'mstudio:video:root-set',
+  /** Phase 99 Theme D — resolve (and adopt) the Video tab's root for the active repo. */
+  videoRootResolve: 'mstudio:video:root-resolve',
+  /** Phase 99 Theme D — Setup Video: scaffold `templates/media-video/` into the repo. */
+  videoSetup: 'mstudio:video:setup',
+  /** Phase 99 Theme H — read / switch a video root's engine (Remotion | HyperFrames). */
+  videoEngineGet: 'mstudio:video:engine-get',
+  videoEngineSet: 'mstudio:video:engine-set',
+
+  // --- games (Phase 107) -----------------------------------------------------
+  // Games are not repo media — each is its own git repo — so they take the
+  // `mstudio:games:` prefix, as Video takes `mstudio:video:`. Themes A (repos,
+  // settings) and B (runner) own these; later themes append their channels.
+  gamesSettingsGet: 'mstudio:games:settings-get',
+  gamesSettingsSet: 'mstudio:games:settings-set',
+  gamesList: 'mstudio:games:list',
+  gamesCreate: 'mstudio:games:create',
+  gamesGetManifest: 'mstudio:games:get-manifest',
+  gamesSetManifest: 'mstudio:games:set-manifest',
+  gamesRun: 'mstudio:games:run',
+  gamesStop: 'mstudio:games:stop',
+  gamesReload: 'mstudio:games:reload',
+  gamesSetBounds: 'mstudio:games:set-bounds',
+  gamesSetVisible: 'mstudio:games:set-visible',
+  gamesToolbar: 'mstudio:games:toolbar',
+  gamesJuice: 'mstudio:games:juice',
+  gamesLogs: 'mstudio:games:logs',
+  gamesKitUpgrade: 'mstudio:games:kit-upgrade',
+  /** Move a game's runner view into the `game` popout window (Theme B). */
+  gamesPopOut: 'mstudio:games:pop-out',
+  /** Which game the `game` popout hosts, if any. */
+  gamesPopped: 'mstudio:games:popped',
+  /** Start an agent (or Ollama) run on a game — commit per changing pass (Theme M). */
+  gamesAgentRun: 'mstudio:games:agent-run',
+  gamesAgentCancel: 'mstudio:games:agent-cancel',
+  /** Undo turn: revert the game's newest agent commit. */
+  gamesAgentUndo: 'mstudio:games:agent-undo',
+  /** The picker's candidates for one tab, across the registered repos (Theme N). */
+  gamesAssetSources: 'mstudio:games:asset-sources',
+  /** Copy a media item into a game's `assets/` and commit it (Theme N). */
+  gamesImportAsset: 'mstudio:games:import-asset',
+  /** Check imported assets against their sources, or re-import the changed ones (Theme N). */
+  gamesResync: 'mstudio:games:resync',
+  /** Play-tests (Theme O): list `playtests/*.json`, and run some or all of them. */
+  gamesPlaytests: 'mstudio:games:playtests',
+  gamesPlaytestRun: 'mstudio:games:playtest-run',
+  /** Export a game as a folder, a zip or one HTML file (Theme P). */
+  gamesExport: 'mstudio:games:export',
+
+  // --- media (Phase 99 Theme A) ----------------------------------------------
+  // Repo-scoped media store under `<repo>/.midnite/media/<tab>/<project>/`.
+  // Every op answers the `GitOpResult` envelope and confines each path to that
+  // root (`main/media/media-store.ts`). Themes B–E build on these, not on the
+  // generic `fs*` channels.
+  mediaProjectList: 'mstudio:media:project-list',
+  mediaProjectCreate: 'mstudio:media:project-create',
+  mediaProjectRename: 'mstudio:media:project-rename',
+  /** To the Trash (`shell.trashItem`), never a permanent delete. */
+  mediaProjectRemove: 'mstudio:media:project-remove',
+  mediaFileList: 'mstudio:media:file-list',
+  mediaFileRead: 'mstudio:media:file-read',
+  mediaFileWrite: 'mstudio:media:file-write',
+  mediaFileRename: 'mstudio:media:file-rename',
+  /** To the Trash, like `mediaProjectRemove`. */
+  mediaFileRemove: 'mstudio:media:file-remove',
+  /** Reveal a project or file in Finder; `path` omitted reveals the project. */
+  mediaReveal: 'mstudio:media:reveal',
+  // Images (Theme C) — generation runs in main through `main/media/image/`;
+  // keys stay in the secrets vault. Progress streams on `mediaImageProgress`.
+  mediaImageProviders: 'mstudio:media:image-providers',
+  mediaImageGenerate: 'mstudio:media:image-generate',
+  mediaImageCancel: 'mstudio:media:image-cancel',
+  // Audio (Theme E) — the `AudioProvider` seam in `main/media/audio/`; its only
+  // adapter today is Import (native dialog in main). Progress on `mediaAudioProgress`.
+  mediaAudioProviders: 'mstudio:media:audio-providers',
+  mediaAudioImport: 'mstudio:media:audio-import',
+  // Local generation (MusicGen in a utilityProcess) and its optional Ollama assist.
+  mediaAudioGenerate: 'mstudio:media:audio-generate',
+  mediaAudioCancel: 'mstudio:media:audio-cancel',
+  mediaAudioEngine: 'mstudio:media:audio-engine',
+  mediaAudioEngineInstall: 'mstudio:media:audio-engine-install',
+  mediaAudioExpand: 'mstudio:media:audio-expand',
+  // General MIDI instrument samples (Phase 101 Theme D) — cached per program under `userData`.
+  mediaGmStatus: 'mstudio:media:gm-status',
+  mediaGmEnsure: 'mstudio:media:gm-ensure',
+  mediaGmLoad: 'mstudio:media:gm-load',
+  // Music editor (Phase 101 Theme B): songs are <name>.mid + <name>.song.json inside an Audio project; main owns the MIDI I/O.
+  mediaMusicList: 'mstudio:media:music-list',
+  mediaMusicRead: 'mstudio:media:music-read',
+  mediaMusicWrite: 'mstudio:media:music-write',
+  mediaMusicImport: 'mstudio:media:music-import',
+  mediaMusicDelete: 'mstudio:media:music-delete',
+  // Phase 101 Themes J/K: export a song (.mid/WAV/MP3) and hand a rendered reference to Generator.
+  mediaMusicExport: 'mstudio:media:music-export',
+  mediaMusicSendToGenerator: 'mstudio:media:music-send-to-generator',
+  // Music agents (Phase 101 Theme H): an engine writes or refines a song; Antigravity's MCP registration lives in Settings.
+  mediaMusicAgentRun: 'mstudio:media:music-agent-run',
+  mediaMusicAgentCancel: 'mstudio:media:music-agent-cancel',
+  mediaMusicAgy: 'mstudio:media:music-agy',
+  // Phase 101 Theme I: the song's chat thread, stored beside it as <name>.chat.json.
+  mediaMusicChat: 'mstudio:media:music-chat',
+  // Library (Phase 113 Theme R) — the local media library: roots the user picked (the picker runs in main),
+  // scans, items, watch progress and settings. Bytes stream on `mstudio-file://library/…`, never over IPC.
+  mediaLibraryRoots: 'mstudio:media:library-roots',
+  mediaLibraryAddRoot: 'mstudio:media:library-add-root',
+  mediaLibraryRemoveRoot: 'mstudio:media:library-remove-root',
+  mediaLibraryScan: 'mstudio:media:library-scan',
+  mediaLibraryItems: 'mstudio:media:library-items',
+  mediaLibraryProgress: 'mstudio:media:library-progress',
+  mediaLibraryClearProgress: 'mstudio:media:library-clear-progress',
+  mediaLibrarySettingsGet: 'mstudio:media:library-settings-get',
+  mediaLibrarySettingsSet: 'mstudio:media:library-settings-set',
+  // Library playlists and LAN sharing (Phase 113 Theme R slice 2): the server binds one private address the
+  // user picked, only while they have it on; links carry a sharing token; bytes come only through `resolveFile`.
+  mediaLibraryPlaylists: 'mstudio:media:library-playlists',
+  mediaLibraryPlaylistCreate: 'mstudio:media:library-playlist-create',
+  mediaLibraryPlaylistRename: 'mstudio:media:library-playlist-rename',
+  mediaLibraryPlaylistSetItems: 'mstudio:media:library-playlist-set-items',
+  mediaLibraryPlaylistDelete: 'mstudio:media:library-playlist-delete',
+  mediaLibraryLanStatus: 'mstudio:media:library-lan-status',
+  mediaLibraryLanStart: 'mstudio:media:library-lan-start',
+  mediaLibraryLanStop: 'mstudio:media:library-lan-stop',
+  mediaLibraryLanRegenerate: 'mstudio:media:library-lan-regenerate',
+  mediaLibraryLanSettingsSet: 'mstudio:media:library-lan-settings-set',
+  mediaLibraryLanDetectFfmpeg: 'mstudio:media:library-lan-detect-ffmpeg',
+  mediaLibraryLanChooseFfmpeg: 'mstudio:media:library-lan-choose-ffmpeg',
+  // Capture (Phase 113 Theme K) — stills, recordings, the shortcut, clipboard history and Send to (`capture.ts`).
+  // Every still and stream is for a source the user picked; bytes are served on `mstudio-file://capture/…`.
+  captureStatus: 'mstudio:capture:status',
+  captureRequestPermission: 'mstudio:capture:request-permission',
+  captureOpenPermissionSettings: 'mstudio:capture:open-permission-settings',
+  captureSources: 'mstudio:capture:sources',
+  captureStill: 'mstudio:capture:still',
+  captureRegionBegin: 'mstudio:capture:region-begin',
+  captureRegionPending: 'mstudio:capture:region-pending',
+  captureRegionFinish: 'mstudio:capture:region-finish',
+  captureRegionCancel: 'mstudio:capture:region-cancel',
+  captureRecordingArm: 'mstudio:capture:recording-arm',
+  captureRecordingBegin: 'mstudio:capture:recording-begin',
+  captureRecordingChunk: 'mstudio:capture:recording-chunk',
+  captureRecordingFinish: 'mstudio:capture:recording-finish',
+  captureRecordingAbort: 'mstudio:capture:recording-abort',
+  captureList: 'mstudio:capture:list',
+  captureDelete: 'mstudio:capture:delete',
+  captureReveal: 'mstudio:capture:reveal',
+  captureCopy: 'mstudio:capture:copy',
+  captureSettingsSet: 'mstudio:capture:settings-set',
+  captureClipboardList: 'mstudio:capture:clipboard-list',
+  captureClipboardCopy: 'mstudio:capture:clipboard-copy',
+  captureClipboardDelete: 'mstudio:capture:clipboard-delete',
+  captureClipboardClear: 'mstudio:capture:clipboard-clear',
+  captureAttachment: 'mstudio:capture:attachment',
+  captureSendToCreator: 'mstudio:capture:send-to-creator',
+  // Phase 113 Theme K slice 2: the desktop-wide region overlay (`captureRegionStart` from the app window; the
+  // three `captureOverlay*` only from the overlay window, answered for its one-time token), Midnite Capture's
+  // "Open in Midnite Studio" and Studio's import of that capture.
+  captureRegionStart: 'mstudio:capture:region-start',
+  captureOverlayFrame: 'mstudio:capture:overlay-frame',
+  captureOverlayConfirm: 'mstudio:capture:overlay-confirm',
+  captureOverlayCancel: 'mstudio:capture:overlay-cancel',
+  captureOpenInStudio: 'mstudio:capture:open-in-studio',
+  captureImport: 'mstudio:capture:import',
+  // Models — LLM-authored 3D (`main/media/model/`): provider probe, generate, cancel, save-as. Progress on `mediaModelProgress`.
+  mediaModelProviders: 'mstudio:media:model-providers',
+  mediaModelGenerate: 'mstudio:media:model-generate',
+  mediaModelCancel: 'mstudio:media:model-cancel',
+  mediaModelExport: 'mstudio:media:model-export',
+  mediaModelSaveEdit: 'mstudio:media:model-save-edit',
+  /** The Models library (folders, groups, model.json) — see `ModelLibraryRequestSchema`. */
+  mediaModelLibrary: 'mstudio:media:model-library',
+  /** Sculpt meshes (Phase 104 Theme A) — `ModelMeshRequestSchema`'s `op` union over `.mesh.bin` + `.ops.jsonl`. */
+  mediaModelMesh: 'mstudio:media:model-mesh',
+  /** SF3D, the opt-in local image-to-3D tier — see `Sf3dRequestSchema`. Progress on `mediaModelSf3dProgress`. */
+  mediaModelSf3d: 'mstudio:media:model-sf3d',
+  // Terrain (`main/media/terrain/`, Phase 105): library ops, spec, inputs, build. Progress on `mediaTerrainProgress`.
+  mediaTerrainLibrary: 'mstudio:media:terrain-library',
+  mediaTerrainGet: 'mstudio:media:terrain-get',
+  mediaTerrainSetSpec: 'mstudio:media:terrain-set-spec',
+  mediaTerrainSetInput: 'mstudio:media:terrain-set-input',
+  mediaTerrainBuild: 'mstudio:media:terrain-build',
+  mediaTerrainCancel: 'mstudio:media:terrain-cancel',
+  /** Theme F — the land-cover paint override. Answers "not available yet" until it lands. */
+  mediaTerrainPaint: 'mstudio:media:terrain-paint',
+  /** Theme H — pick the roads colour key. Answers "not available yet" until it lands. */
+  mediaTerrainRoadKey: 'mstudio:media:terrain-road-key',
+  /** Theme I — the terrain pack. Answers "not available yet" until it lands. */
+  mediaTerrainExport: 'mstudio:media:terrain-export',
+  // Sprites (`main/media/sprite/`, Phase 106): library ops, spec, reference, generation jobs. Progress on `mediaSpriteProgress`.
+  mediaSpriteLibrary: 'mstudio:media:sprite-library',
+  mediaSpriteGet: 'mstudio:media:sprite-get',
+  mediaSpriteSetSpec: 'mstudio:media:sprite-set-spec',
+  mediaSpriteSetReference: 'mstudio:media:sprite-set-reference',
+  mediaSpriteGenerate: 'mstudio:media:sprite-generate',
+  mediaSpriteCancel: 'mstudio:media:sprite-cancel',
+  mediaSpritePatchFrames: 'mstudio:media:sprite-patch-frames',
+  /** Theme G — the sprite pack. Answers "not available yet" until it lands. */
+  mediaSpriteExport: 'mstudio:media:sprite-export',
+  /** Theme J — import a Tiled `.tmj` (tilesets embedded or `.tsj` beside it) as a new map asset. */
+  mediaSpriteImportMap: 'mstudio:media:sprite-import-map',
+  /** Theme E — the window answers a `mediaSpriteRenderRequest` (within 10 s, or the job fails). */
+  mediaSpriteRenderReady: 'mstudio:media:sprite-render-ready',
+  /** Theme E — one batch of rendered frames; resolves once main has processed it (the back-pressure). */
+  mediaSpriteRenderFrames: 'mstudio:media:sprite-render-frames',
+  // Maps (`main/media/map/`, Phase 108): the project file and the tile sources served on `mstudio-tile:`.
+  /** `{repoId, project}` → `map.json` (defaults when missing; defaults + `warning` when corrupt). */
+  mediaMapGet: 'mstudio:media:map-get',
+  /** Shallow-merges a validated patch into `map.json` (the renderer debounces viewport saves). */
+  mediaMapSetView: 'mstudio:media:map-set-view',
+  /** Which sources are usable — a keyed source learns only *whether* its key is set. */
+  mediaMapSources: 'mstudio:media:map-sources',
+  /** The tile cache under userData: `status` / `clear` / `set-cap`. */
+  mediaMapCache: 'mstudio:media:map-cache',
+  /** Capture for Terrain (Theme D): resolves with the result when the run ends; one at a time. */
+  mediaMapCapture: 'mstudio:media:map-capture',
+  /** `{captureId}` — aborts the running capture and leaves nothing behind. */
+  mediaMapCaptureCancel: 'mstudio:media:map-capture-cancel',
+  /** `probeBinary('ffmpeg')` — gates every ffmpeg-backed export. */
+  mediaFfmpegStatus: 'mstudio:media:ffmpeg-status',
+  /** Native save dialog → ffmpeg; resolves when the export ends. Progress on `mediaExportProgress`. */
+  mediaExport: 'mstudio:media:export',
+  mediaExportCancel: 'mstudio:media:export-cancel',
+  /** Docs (Theme B): run one AI edit headless — returns replacement markdown, writes nothing. */
+  mediaDocEdit: 'mstudio:media:doc-edit',
+  /** Docs (Theme B): save dialog → write md/html, or `printToPDF` the html. No ffmpeg. */
+  mediaDocExport: 'mstudio:media:doc-export',
+
+  // --- chats (the Chats page) ------------------------------------------------
+  // Conversations with the roster's agent CLIs and local Ollama models, stored
+  // main-side (`<userData>/chats/`). A turn's text streams on
+  // `EVENT_CHANNELS.chatsEvent`; every op here answers a `GitOpResult`.
+  /** Every chat's summary row — filtering and grouping are the renderer's. */
+  chatsList: 'mstudio:chats:list',
+  /** One whole chat, messages and change sets included (patch text excluded). */
+  chatsGet: 'mstudio:chats:get',
+  /** An empty chat with its engine/model/mode/repo — the first send names it. */
+  chatsCreate: 'mstudio:chats:create',
+  /** Rename, pin, or change a chat's engine, model, mode or repo. */
+  chatsUpdate: 'mstudio:chats:update',
+  /** Delete chats (and their sandboxes and stored patches). Cancels a running turn first. */
+  chatsDelete: 'mstudio:chats:delete',
+  /** Start a turn — resolves once it has STARTED; text arrives on `chatsEvent`. */
+  chatsSend: 'mstudio:chats:send',
+  /** Kill the chat's running turn (process group) and settle its message as cancelled. */
+  chatsCancel: 'mstudio:chats:cancel',
+  /** The parsed `FileDiff` of every file in a change set, for the review modal. */
+  chatsChangeDiffs: 'mstudio:chats:change-diffs',
+  /**
+   * Accept or reject files/hunks of a change set. Accepts are applied to the
+   * real checkout as a patch through the per-repo write queue; a patch that no
+   * longer applies answers `{ok:false, kind:'conflict'}`.
+   */
+  chatsResolveChanges: 'mstudio:chats:resolve-changes',
+  /** The skills the chat's agent can run, scanned from its skill folders — the composer's `/` picker. */
+  chatsSkills: 'mstudio:chats:skills',
+  /** The files a chat's agent can reach (repo working tree, or its scratch dir) — the composer's `@` picker. */
+  chatsFiles: 'mstudio:chats:files',
 
   // --- onboarding kit scaffold (Phase 49) -----------------------------------
   // `plan` reads the template tree and the target repo, hashes both sides and
@@ -851,6 +1163,10 @@ export const CHANNELS = {
   scaffoldPlan: 'mstudio:scaffold:plan',
   scaffoldApply: 'mstudio:scaffold:apply',
   scaffoldInstallUserSkills: 'mstudio:scaffold:install-user-skills',
+  // Reads the open repo's `<dir>/skills/*/SKILL.md` frontmatter. Writes nothing.
+  scaffoldListRepoSkills: 'mstudio:scaffold:list-repo-skills',
+  // The Loops composer's skill suggestions: bundled kit + repo + ~/.claude. Writes nothing.
+  scaffoldListKnownSkills: 'mstudio:scaffold:list-known-skills',
 
   // --- window chrome -------------------------------------------------------
   windowMinimize: 'mstudio:window:minimize',
@@ -865,6 +1181,18 @@ export const CHANNELS = {
    * a hard refresh that bypasses the HTTP cache (`webContents.reloadIgnoringCache`).
    */
   windowReload: 'mstudio:window:reload',
+  /**
+   * Phase 91 Theme D — the lock screen's authority lives in main, not in renderer state a reload
+   * rehydrates to `false`. Renderer → main: the screen is now locked / unlocked (`boolean`).
+   * While locked, `windowReload` is refused.
+   */
+  lockSet: 'mstudio:lock:set',
+  /** Renderer → main (invoke): `{ locked, hasPasscode }`, read on mount to hydrate the overlay. */
+  lockGet: 'mstudio:lock:get',
+  /** Renderer → main (invoke): set (`string`) or clear (`null`) the passcode. Main hashes it with scrypt. */
+  lockSetPasscode: 'mstudio:lock:set-passcode',
+  /** Renderer → main (invoke): a candidate passcode in, a boolean out. The expected code never leaves main. */
+  lockVerify: 'mstudio:lock:verify',
   /**
    * Renderer → main: zoom the HOST window's own renderer (not a browser
    * tab's `WebContentsView` — see `browserZoom` above). Exists because
@@ -1162,6 +1490,13 @@ export const CHANNELS = {
    */
   companionTtsReload: 'mstudio:companion:tts-reload',
   /**
+   * Whether the local voice's model is on disk (Phase 109 Theme F) — the
+   * voice audition's "local or system voices?" check. Read off disk in main,
+   * never by asking the worker, which would start the download a check only
+   * asked about. Always `{ok:true}`.
+   */
+  companionTtsModelOnDisk: 'mstudio:companion:tts-model-on-disk',
+  /**
    * One utterance in, its transcript out.
    *
    * The audio is a `Uint8Array`, structured-cloned exactly as `pty:data` and
@@ -1195,6 +1530,18 @@ export const CHANNELS = {
    */
   secretsHas: 'mstudio:secrets:has',
 
+  // --- vault grants (Phase 113 Theme J slice 2) -----------------------------
+  /** Which apps may read which vault namespaces/entries — names only, never a value. */
+  vaultGrantsList: 'mstudio:vault:grants:list',
+  /** Grant an app a namespace (every entry, or the named ones). Studio and Vault need none. */
+  vaultGrantSet: 'mstudio:vault:grants:set',
+  /** Take a grant back — one namespace, or every grant the app holds. */
+  vaultGrantRevoke: 'mstudio:vault:grants:revoke',
+  /** Which apps have paired with the vault host, and any pairing conflict — names and times, never a key. */
+  vaultPairingsList: 'mstudio:vault:pairings:list',
+  /** Clear one app's pairing (user-initiated, the only way to re-pair): its next hello binds afresh. */
+  vaultPairingUnpair: 'mstudio:vault:pairings:unpair',
+
   // --- finance proxy (Phase 76 Theme D) -------------------------------------
   /** Search crypto/stock symbols — provider fetches run in main. */
   financeSearch: 'mstudio:finance:search',
@@ -1202,6 +1549,37 @@ export const CHANNELS = {
   financeQuote: 'mstudio:finance:quote',
   /** Seven-day history for one asset. */
   financeHistory: 'mstudio:finance:history',
+
+  // --- markets: the Finance dashboard ----------------------------------------
+  // Key-free public data, fetched in main only. Every price is USD; the
+  // renderer converts through `marketsRates`.
+  /** OHLC candles for a batch of assets over one timescale. */
+  marketsSeries: 'mstudio:markets:series',
+  /** Latest USD price for a batch of assets. */
+  marketsQuotes: 'mstudio:markets:quotes',
+  /** Stock/ETF/crypto symbol autocomplete. */
+  marketsSearch: 'mstudio:markets:search',
+  /** The USD-base exchange-rate table, refreshed hourly in main. */
+  marketsRates: 'mstudio:markets:rates',
+  /** The simulated portfolio: balances, holdings, transaction log, watchlist. */
+  marketsPortfolioGet: 'mstudio:markets:portfolio-get',
+  /** Apply one deposit / withdraw / buy / sell / watch to the portfolio. */
+  marketsPortfolioApply: 'mstudio:markets:portfolio-apply',
+  /** Headlines from RSS feeds and Google News searches. */
+  marketsNews: 'mstudio:markets:news',
+
+  // --- finance accounts: read-only brokerage and exchange connectors (Phase 113 Theme P slice 2) ---
+  // No channel here places, amends or cancels an order, withdraws or transfers; no response carries a credential.
+  /** The connectors the add form offers, and the saved accounts' non-secret metadata. */
+  financeAccountsList: 'mstudio:finance:accounts-list',
+  /** Check a credential set against its provider without saving it. Values never answer back. */
+  financeAccountTest: 'mstudio:finance:account-test',
+  /** Verify, then save an account; its credential goes into the vault, write-only. */
+  financeAccountAdd: 'mstudio:finance:account-add',
+  /** Forget an account and delete its stored credential. */
+  financeAccountRemove: 'mstudio:finance:account-remove',
+  /** Balances, positions, allocation and performance for every account (or one), cached with a TTL. */
+  financeAccountSnapshots: 'mstudio:finance:account-snapshots',
 
   // --- knowledge (Phase 87) ---------------------------------------------------
   // The Knowledge view's read-only surface over `graphify-out/graph.json`. The
@@ -1287,6 +1665,8 @@ export const EVENT_CHANNELS = {
   companionUiRequest: 'mstudio:companion:ui-request',
   /** stdout/stderr chunks from an in-flight Claude CLI update. */
   agentClaudeUpdateData: 'mstudio:agent:claude-update-data',
+  /** The install probe's state or results changed — see `AgentStatusEvent`. */
+  agentStatus: 'mstudio:agent:status',
   /**
    * One reading of CPU/RAM/GPU/disk. A metric the machine cannot report is
    * OMITTED from the payload rather than sent as zero — see MetricSample.
@@ -1326,6 +1706,70 @@ export const EVENT_CHANNELS = {
   videoStudioChanged: 'mstudio:video:studio-changed',
   /** A render's status/progress advanced — see `VideoRenderProgressEventSchema`. */
   videoRenderProgress: 'mstudio:video:render-progress',
+  /** The games on disk changed — see `GamesChangedPayload`. */
+  gamesChanged: 'mstudio:games:changed',
+  /** A game run's lifecycle state changed — see `GameRunStatePayload`. */
+  gamesRunState: 'mstudio:games:run-state',
+  /** A batch of a run's console entries — see `GameConsolePayload`. */
+  gamesConsole: 'mstudio:games:console',
+  /** `game_open` (an agent over MCP) asked the window to show a game — see `GamesOpenPayload`. */
+  gamesOpen: 'mstudio:games:open',
+  /** The popped-out game changed — see `GamesPopStatePayload`. */
+  gamesPopState: 'mstudio:games:pop-state',
+  /** A game agent run advanced — see `GamesAgentProgressPayload`. */
+  gamesAgentProgress: 'mstudio:games:agent-progress',
+  /** A repo's media store changed on disk — see `MediaChangedEventSchema`. */
+  mediaChanged: 'mstudio:media:changed',
+  /** The media library's roots, items, progress or settings changed — see `LibraryChangedSchema`. */
+  mediaLibraryChanged: 'mstudio:media:library-changed',
+  /** A library scan advanced — see `LibraryScanProgressSchema`. */
+  mediaLibraryScanProgress: 'mstudio:media:library-scan-progress',
+  /** Captures, the clipboard history, settings or permission changed, or the shortcut fired — see `CaptureChangedSchema`. */
+  captureChanged: 'mstudio:capture:changed',
+  /** An image generation's progress — see `ImageGenerateProgressEventSchema`. */
+  mediaImageProgress: 'mstudio:media:image-progress',
+  /** An audio import advanced — see `AudioProgressEventSchema`. */
+  mediaAudioProgress: 'mstudio:media:audio-progress',
+  /** The local audio model is downloading or loading — see `AudioEngineProgressSchema`. */
+  mediaAudioEngineProgress: 'mstudio:media:audio-engine-progress',
+  /** A General MIDI sample set is downloading — see `GmProgressSchema`. */
+  mediaGmProgress: 'mstudio:media:gm-progress',
+  /** A 3D model generation advanced — see `ModelGenerateProgressEventSchema`. */
+  mediaModelProgress: 'mstudio:media:model-progress',
+  /** An agent edited a model (in-app iterative run or an MCP session) — see `ModelChangedEventSchema`. */
+  mediaModelChanged: 'mstudio:media:model-changed',
+  /** `model_open` asked the window to show a model — see `ModelOpenEventSchema`. */
+  mediaModelOpen: 'mstudio:media:model-open',
+  /** The SF3D install or a generation advanced — see `Sf3dProgressEventSchema`. */
+  mediaModelSf3dProgress: 'mstudio:media:model-sf3d-progress',
+  /** A terrain build advanced — see `TerrainProgressEventSchema`. */
+  mediaTerrainProgress: 'mstudio:media:terrain-progress',
+  /** A terrain's spec or build changed (revision bump) — see `TerrainChangedEventSchema`. */
+  mediaTerrainChanged: 'mstudio:media:terrain-changed',
+  /** `terrain_open` (Theme J) asked the window to show a terrain — see `TerrainOpenEventSchema`. */
+  mediaTerrainOpen: 'mstudio:media:terrain-open',
+  /** A map capture advanced — see `MapCaptureProgressEventSchema`. */
+  mediaMapCaptureProgress: 'mstudio:media:map-capture-progress',
+  /** An agent edited a song (an engine's run or an MCP session) — see `MusicChangedEventSchema`. */
+  mediaMusicChanged: 'mstudio:media:music-changed',
+  /** `music_open` asked the window to show a song — see `MusicOpenEventSchema`. */
+  mediaMusicOpen: 'mstudio:media:music-open',
+  /** A music agent run advanced — see `MusicAgentProgressEventSchema`. */
+  mediaMusicAgentProgress: 'mstudio:media:music-agent-progress',
+  /** `map_goto` (Phase 108 Theme I) asked the window to fly the map somewhere — see `MapOpenEventSchema`. */
+  mediaMapOpen: 'mstudio:media:map-open',
+  /** A sprite job advanced — see `SpriteProgressEventSchema`. */
+  mediaSpriteProgress: 'mstudio:media:sprite-progress',
+  /** A sprite asset's spec, frames or job state changed (revision bump) — see `SpriteChangedEventSchema`. */
+  mediaSpriteChanged: 'mstudio:media:sprite-changed',
+  /** `sprite_open` (Theme K) asked the window to show an asset — see `SpriteOpenEventSchema`. */
+  mediaSpriteOpen: 'mstudio:media:sprite-open',
+  /** Main asks the window to render a Models character into frames (Theme E) — see `SpriteRenderRequestEventSchema`. */
+  mediaSpriteRenderRequest: 'mstudio:media:sprite-render-request',
+  /** A chat turn's text or state advanced — see `ChatEventSchema`. */
+  chatsEvent: 'mstudio:chats:event',
+  /** An export advanced — see `MediaExportProgressEventSchema`. */
+  mediaExportProgress: 'mstudio:media:export-progress',
   /** Smart Scan's walk advanced — `{done, total}` — see `OptimizerScanProgressEventSchema`. */
   optimizerScanProgress: 'mstudio:optimizer:scan-progress',
   /** The system-cache walk advanced — its own event, its own single-flight controller. */
@@ -1397,6 +1841,15 @@ export const EVENT_CHANNELS = {
  * flag) — and the symptom is an app-drawn title bar stacked on a native one.
  */
 export const WINDOW_FRAMELESS_ARG = '--mstudio-frameless=';
+
+/**
+ * The capture region overlay's one-time token (Phase 113 Theme K), passed to the overlay window as an
+ * `additionalArguments` entry and read by its preload, which sends it with every overlay call. Main
+ * answers the overlay channels only for the token of the overlay open now.
+ */
+export const CAPTURE_OVERLAY_ARG = '--midnite-capture-overlay=';
+/** The overlay window's one global: `window.midniteCaptureOverlay` (`CaptureOverlayBridge`). */
+export const CAPTURE_OVERLAY_GLOBAL = 'midniteCaptureOverlay';
 
 /**
  * CLI switch carrying `app.getVersion()` from main into the preload.

@@ -2,7 +2,7 @@ import type { TestRunResult } from '@midnite/studio-shared';
 
 import { useActiveWorktree } from '../../services/use-status';
 import { useUiStore } from '../../store/ui-store';
-import { useTestsStore } from '../tests/tests-store';
+import { useTestsStore } from '@midnite/studio-feature-tests/renderer';
 
 export type TestVerdict = { label: string; failing: boolean };
 

@@ -10,11 +10,11 @@ import { useFilesStore } from '../features/files/files-store';
 import { usePaletteStore } from '../features/themes/palette-store';
 import { useActionsStore } from '../store/actions-store';
 import { useAppearanceStore } from '../store/appearance-store';
-import { useBrowserStore } from '../store/browser-store';
+import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useSessionsStore } from '../store/sessions-store';
 import { useUiStore } from '../store/ui-store';
-import { useWorkbenchStore } from '../store/workbench-store';
-import { useBroadcastSync } from './broadcast-sync';
+import { useWorkbenchStore } from '@midnite/studio-feature-database/renderer';
+import { COMPANION_SYNC_KEYS, useBroadcastSync } from './broadcast-sync';
 
 type RelayMessage = { id: string; origin: string; kind: string; payload: Record<string, unknown> };
 type RelayHandler = (message: RelayMessage) => void;
@@ -280,6 +280,84 @@ describe('useBroadcastSync (Theme E)', () => {
 });
 
 /**
+ * Phase 109 Theme B — the companion settings the detached companion popout
+ * speaks with. Before this, a voice changed in the main window was not the
+ * voice the popout used for its next line until it reloaded.
+ */
+describe('useBroadcastSync — companion settings (Phase 109 Theme B)', () => {
+  beforeEach(() => {
+    useUiStore.setState({
+      ...UI_DEFAULTS,
+      companionVoices: { system: null, local: null },
+      companionVolume: 0.7,
+      companionProfiles: [],
+      companionActiveProfile: null,
+      companionSttProvider: null,
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+  });
+
+  it('carries every key the popout reads, the phase\'s new ones included', () => {
+    expect([...COMPANION_SYNC_KEYS].sort()).toEqual(
+      [
+        'companionVoices',
+        'companionVolume',
+        'companionSpeakAloud',
+        'companionNames',
+        'companionHonorifics',
+        'companionPersonality',
+        'companionAboutUser',
+        'companionProfiles',
+        'companionActiveProfile',
+        'companionSttProvider',
+      ].sort(),
+    );
+  });
+
+  it('relays a local voice change to the other windows', () => {
+    const { relay } = installBridge();
+    mount();
+    relay.mockClear();
+
+    useUiStore.setState({ companionVoices: { system: null, local: 'af_bella' } });
+
+    expect(relay).toHaveBeenCalledTimes(1);
+    const message = relay.mock.calls[0]?.[0] as RelayMessage;
+    expect(message.kind).toBe('ui');
+    expect(message.payload).toMatchObject({ companionVoices: { system: null, local: 'af_bella' } });
+  });
+
+  it('applies an incoming voice and active profile from another window', () => {
+    const { emit } = installBridge();
+    mount();
+
+    emit({
+      id: 'companion-1',
+      origin: 'other-window',
+      kind: 'ui',
+      payload: { companionVoices: { system: null, local: 'bm_george' }, companionActiveProfile: 'p1' },
+    });
+
+    expect(useUiStore.getState().companionVoices.local).toBe('bm_george');
+    expect(useUiStore.getState().companionActiveProfile).toBe('p1');
+  });
+
+  it('still keeps companion state outside the list — the mic mode — local', () => {
+    const { relay } = installBridge();
+    mount();
+    relay.mockClear();
+
+    useUiStore.setState({ companionMicMode: useUiStore.getState().companionMicMode === 'push' ? 'toggle' : 'push' });
+
+    expect(relay).not.toHaveBeenCalled();
+  });
+});
+
+/**
  * Theme H — the page-selection slices. A page popout duplicates rather than
  * moves, so the same view runs in two windows at once and its selection is
  * what visibly drifts between them.
@@ -288,7 +366,7 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
   beforeEach(() => {
     useActionsStore.setState({ selectedRun: {}, selectedJob: {} });
     useFilesStore.setState({ scopeKey: null, selectedPath: null });
-    useWorkbenchStore.setState({ tabs: [], activeTabId: null });
+    useWorkbenchStore.setState({ tabs: [], activeQueryTabId: null });
     useSessionsStore.setState({ selectedClosedSessionId: null });
   });
 
@@ -337,22 +415,16 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
     });
   });
 
-  it('relays workbench tabs and the active one', () => {
+  it('relays the Database view\'s query tabs and the active one', () => {
     const { relay } = installBridge();
     mount();
 
-    useWorkbenchStore.getState().openTab({
-      kind: 'run',
-      repoId: 'repo-1',
-      runId: '7',
-      label: 'CI #7',
-      url: 'https://github.com/bilo-io/midnite-studio/actions/runs/7',
-    });
+    useWorkbenchStore.getState().openTab({ kind: 'query', connectionId: 'c1', label: 'Query 1', sql: '' });
 
     const sent = relay.mock.calls.map(([m]) => m as RelayMessage).filter((m) => m.kind === 'workbench');
-    const payload = sent.at(-1)?.payload as { tabs: unknown[]; activeTabId: string | null };
+    const payload = sent.at(-1)?.payload as { tabs: unknown[]; activeQueryTabId: string | null };
     expect(payload.tabs).toHaveLength(1);
-    expect(payload.activeTabId).not.toBeNull();
+    expect(payload.activeQueryTabId).toBe('query:c1:Query 1');
   });
 
   /*
@@ -411,7 +483,7 @@ describe('useBroadcastSync — page selection (Theme H)', () => {
       id: 'wb-1',
       origin: 'other-window',
       kind: 'workbench',
-      payload: { tabs: [], activeTabId: null },
+      payload: { tabs: [], activeQueryTabId: null },
     });
     emit({
       id: 'act-1',

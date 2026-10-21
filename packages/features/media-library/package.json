@@ -1,0 +1,45 @@
+{
+  "name": "@midnite/studio-feature-media-library",
+  "version": "0.0.3",
+  "private": true,
+  "description": "Media ▸ Library as a feature (Phase 113 Theme R): folders of films, shows, music and photos — scanned locally, local artwork and metadata first, an opt-in online provider, watch progress and local playback.",
+  "sideEffects": false,
+  "exports": {
+    "./renderer": "./renderer/index.ts",
+    "./main": {
+      "types": "./dist/main/index.d.ts",
+      "default": "./dist/main/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.main.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-runtime": "workspace:*",
+    "@midnite/studio-shared": "workspace:*",
+    "react-icons": "^5.7.0",
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.5",
+    "vitest": "^3.2.4"
+  }
+}

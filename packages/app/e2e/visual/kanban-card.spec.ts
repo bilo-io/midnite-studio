@@ -54,6 +54,7 @@ const todo = (n: number, title: string, optionId: string) => ({
     assignees: [],
     body: '',
     labels: [],
+    dependencies: { blockedBy: [], parent: null, subIssues: [], blockedByTruncated: false, subIssuesTruncated: false },
   },
   fieldValues: {
     FIELD_status: {
@@ -102,8 +103,8 @@ async function openBoard(page: Page): Promise<void> {
   await installMockBridge(page, base);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Worktrees' })).toBeVisible();
-  await clickRailLink(page, 'Projects');
-  await page.getByRole('combobox', { name: 'Project board' }).selectOption(BOARD.id);
+  await clickRailLink(page, 'Tasks');
+  await page.getByRole('combobox', { name: 'Task source' }).selectOption(BOARD.id);
   await page.getByTestId('projects-view-mode-slot').getByRole('button', { name: 'Board view' }).click();
   await expect(page.getByTestId('board-view')).toBeVisible();
   await expect(page.getByText('Wire the write path')).toBeVisible();
@@ -113,7 +114,7 @@ async function openBoard(page: Page): Promise<void> {
 function runningCard(page: Page) {
   return page
     .getByText('Wire the write path')
-    .locator('xpath=ancestor::*[contains(@class, "hover:border-foreground")]');
+    .locator('xpath=ancestor::*[@data-card-id]');
 }
 
 for (const theme of ['light', 'dark'] as const) {

@@ -23,7 +23,7 @@ import { useNow } from '../../lib/use-now';
 import { useReflog, useRefs } from '../../services/queries';
 import { useActiveWorktree, useGitOp } from '../../services/use-status';
 import { UserAvatar } from '../../components/user-avatar';
-import { relativeAge } from '../actions/run-groups';
+import { relativeAgeFromIso as relativeAge } from '@midnite/studio-frame';
 
 const ACTION_ICON: Record<ReflogAction, IconType> = {
   commit: LuGitCommitHorizontal,
