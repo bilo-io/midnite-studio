@@ -151,6 +151,34 @@ export function appIssueFormUrl(draft: AppIssueFormDraft): string {
   return build(description.slice(0, keptChars).join(''), '');
 }
 
+/** The section headings of `bilo-io/midnite-apps`' issue forms, as GitHub renders a submitted form. */
+const APP_ISSUE_HEADINGS = {
+  bug: 'What happened?',
+  feature: "What's the problem?",
+} as const;
+
+/**
+ * The body of an issue filed in-app through `gh issue create`, laid out the way GitHub renders a
+ * submitted issue form: `### App`, `### Version`, the reporter's words, then `### Errors or logs`.
+ *
+ * The layout is load-bearing, not cosmetic. midnite-apps' `issue-app-label.yml` re-derives every new
+ * issue's `app:` label from the answer under `### App`, and swaps anything it cannot place for
+ * `needs-triage` — so a body without that section had the `app: midnite-studio` label `gh` applied
+ * stripped again seconds later (midnite-apps#5). Diagnostics go in for either kind when there are
+ * any, since the dialog shows them for both; the form URL drops them for a feature only because
+ * that form has no logs field.
+ */
+export function appIssueBody(draft: AppIssueFormDraft): string {
+  const sections = [`### App\n\n${APP_ISSUE_APP_OPTION}`];
+  if (draft.version !== undefined && draft.version !== '0.0.0') {
+    sections.push(`### Version\n\n${draft.version}`);
+  }
+  sections.push(`### ${APP_ISSUE_HEADINGS[draft.kind]}\n\n${draft.description.trim()}`);
+  const diagnostics = draft.diagnostics.trim();
+  if (diagnostics.length > 0) sections.push(`### Errors or logs\n\n\`\`\`\n${diagnostics}\n\`\`\``);
+  return sections.join('\n\n');
+}
+
 /**
  * The release page for one version.
  *

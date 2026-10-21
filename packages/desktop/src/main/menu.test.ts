@@ -128,3 +128,17 @@ describe('the View menu DevTools row (Phase 91 Theme D)', () => {
     }
   });
 });
+
+describe('the Help menu', () => {
+  /** Matched by role: a `role: 'help'` menu takes its title from the OS, so it carries no label. */
+  const help = (): Item[] => {
+    const template = buildMenu(() => null) as unknown as Item[];
+    return (template.find((entry) => entry.role === 'help')?.submenu ?? []) as Item[];
+  };
+
+  it('offers Report an Issue…, labelled from COMMANDS and with no native accelerator', () => {
+    const report = row(help(), 'Report an Issue…');
+    expect(report).toBeDefined();
+    expect(report?.accelerator).toBeUndefined();
+  });
+});
