@@ -24,6 +24,7 @@ import {
   type Ecosystem,
   type ForgeAccount,
   type LoopModel,
+  type LoopRunOptions,
   type LoopSchedule,
   type MediaTab,
   MEDIA_TABS,
@@ -986,6 +987,29 @@ export type UiState = {
    */
   loopEnabled: Record<string, boolean>;
   setLoopEnabled: (loopId: string, on: boolean) => void;
+  /**
+   * The skill picked in a composer option's skill field, keyed loopId →
+   * modifierId → the text as typed (`composeLoopPrompt` normalises it).
+   * Persisted beside `loopModifierDefaults`: "Patrol reviews with
+   * /ekko-pr-review" is a standing answer about the repo you work in, not one
+   * run's whim. An absent or empty entry means the option's own default
+   * fragment, so a profile saved before the field existed composes unchanged.
+   */
+  loopModifierSkills: Record<string, Record<string, string>>;
+  setLoopModifierSkill: (loopId: string, modifierId: string, skill: string) => void;
+  /**
+   * Per-loop run options the composer grew from PR #870: the Users filter,
+   * the auto-rotate slider and the "Loop" (repeat) switch. Persisted, like the
+   * model and schedule. Every field is optional and resolved on read
+   * (`LoopTab`): no users, `LOOP_AUTO_ROTATE.default`, and repeat on — so an
+   * older profile with no entry keeps running as a loop.
+   *
+   * `repeat` is not `loopEnabled` above: that is the FAB tab bar's own
+   * (default-off) switch and changes no prompt; this one decides whether the
+   * line starts with `/loop` at all.
+   */
+  loopRunOptions: Record<string, LoopRunOptions>;
+  setLoopRunOptions: (loopId: string, patch: LoopRunOptions) => void;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
   occluders: number;
@@ -2213,6 +2237,8 @@ export type PersistedUi = Pick<
   | 'loopModels'
   | 'loopSchedules'
   | 'loopEnabled'
+  | 'loopModifierSkills'
+  | 'loopRunOptions'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'autoFetchEnabled'
@@ -2727,6 +2753,22 @@ export const useUiStore = create<UiState>()(
       loopEnabled: {},
       setLoopEnabled: (loopId, on) =>
         set((state) => ({ loopEnabled: { ...state.loopEnabled, [loopId]: on } })),
+      loopModifierSkills: {},
+      setLoopModifierSkill: (loopId, modifierId, skill) =>
+        set((state) => ({
+          loopModifierSkills: {
+            ...state.loopModifierSkills,
+            [loopId]: { ...state.loopModifierSkills[loopId], [modifierId]: skill },
+          },
+        })),
+      loopRunOptions: {},
+      setLoopRunOptions: (loopId, patch) =>
+        set((state) => ({
+          loopRunOptions: {
+            ...state.loopRunOptions,
+            [loopId]: { ...state.loopRunOptions[loopId], ...patch },
+          },
+        })),
       updatesAutoCheck: true,
       updateChannel: 'stable',
       occluders: 0,
@@ -3325,6 +3367,8 @@ export const useUiStore = create<UiState>()(
         loopModels: state.loopModels,
         loopSchedules: state.loopSchedules,
         loopEnabled: state.loopEnabled,
+        loopModifierSkills: state.loopModifierSkills,
+        loopRunOptions: state.loopRunOptions,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         autoFetchEnabled: state.autoFetchEnabled,
@@ -3761,6 +3805,8 @@ export const useUiStore = create<UiState>()(
           loopModels: { ...current.loopModels, ...saved.loopModels },
           loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
           loopEnabled: { ...current.loopEnabled, ...saved.loopEnabled },
+          loopModifierSkills: { ...current.loopModifierSkills, ...(saved.loopModifierSkills ?? {}) },
+          loopRunOptions: { ...current.loopRunOptions, ...(saved.loopRunOptions ?? {}) },
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
           activeEnvironmentByRepo: {
             ...current.activeEnvironmentByRepo,

@@ -102,6 +102,8 @@ export const PREFERENCE_KEYS = [
   'loopModels',
   'loopSchedules',
   'loopEnabled', // fab-panel.tsx's own "Loop" switch — same block, same reason (Ad Hoc)
+  'loopModifierSkills', // loop-composer.tsx's per-option skill field — same block, same reason (Ad Hoc)
+  'loopRunOptions', // loop-composer.tsx's Users filter, auto-rotate slider and Loop switch (Ad Hoc)
 
   // Landed by Phase 64 (merged onto `main` while this phase was in flight —
   // #164) with no settings page of their own; that phase's Theme F only
@@ -237,6 +239,8 @@ export const KNOWN_ORPHANS = [
   'loopModels',
   'loopSchedules',
   'loopEnabled',
+  'loopModifierSkills',
+  'loopRunOptions',
   'editorFontFamily',
   'editorFontSize',
   'editorMinimap',

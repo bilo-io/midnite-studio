@@ -82,6 +82,8 @@ describe('persisted-keys partition', () => {
         'loopModels',
         'loopSchedules',
         'loopEnabled',
+        'loopModifierSkills',
+        'loopRunOptions',
         // Phase 64's `editor*` preferences, orphaned by a sibling PR (#164)
         // that landed mid-flight — not this phase's scope to build.
         'editorFontFamily',

@@ -70,6 +70,13 @@ export const LoopModifierSchema = z.object({
   id: z.string().min(1),
   /** The control's label — short enough to read in a 320px panel. */
   label: z.string().min(1),
+  /**
+   * What the option does, in plain words — the switch's hover tooltip. The
+   * fragment is what the agent reads; this is what a person reads, and for a
+   * bare `/skill` fragment the two are very different things. Absent falls
+   * back to the fragment.
+   */
+  description: z.string().min(1).optional(),
   /** Appended to the prompt when on — a full sentence, or a `/skill`. */
   promptFragment: z.string().min(1),
   /** Which section it sits in, and where its fragment lands in the line. */
@@ -607,6 +614,8 @@ export const COMMON_RUN_MODIFIERS: readonly LoopModifier[] = [
   {
     id: 'summarise-each-pass',
     label: 'Summarise each pass',
+    description:
+      'Ends every pass with a one-line summary of what changed, so the terminal reads as a log.',
     promptFragment: 'End every iteration with a one-line summary of what changed.',
     group: 'run',
     control: 'switch',
@@ -615,6 +624,8 @@ export const COMMON_RUN_MODIFIERS: readonly LoopModifier[] = [
   {
     id: 'worktree-only',
     label: 'Work in a worktree',
+    description:
+      'Keeps all work in its own git worktree, so the primary checkout you have open is never touched.',
     promptFragment:
       'Do every piece of work in its own git worktree — never edit the primary checkout.',
     group: 'run',
@@ -717,6 +728,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'secret-scan',
         label: 'Scan for secrets',
+        description:
+          'Looks for hardcoded secrets, tokens and credentials, and redacts or rotates any that are real.',
         promptFragment:
           'Scan for hardcoded secrets, tokens and credentials — report findings and redact or rotate any that are real.',
         group: 'tasks',
@@ -726,6 +739,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'dep-audit',
         label: 'Audit dependencies',
+        description:
+          'Audits dependencies and files issues or PRs for high- and critical-severity advisories.',
         promptFragment:
           'Run a dependency audit and file issues or PRs for any high- or critical-severity advisories found.',
         group: 'tasks',
@@ -735,6 +750,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'security-review',
         label: 'Review for vulnerabilities',
+        description:
+          'Reviews recent changes for injection, auth and supply-chain vulnerabilities. Pick a skill to run the review with one.',
         promptFragment:
           'Review recent changes for injection, auth and supply-chain vulnerabilities and report findings.',
         skillTemplate:
@@ -746,6 +763,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'sbom',
         label: 'Generate SBOM',
+        description:
+          'Generates or refreshes a software bill of materials for the current build.',
         promptFragment:
           'Generate or update a software bill of materials for the current build.',
         group: 'tasks',
@@ -755,6 +774,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'report-only',
         label: 'Report only — no fixes',
+        description:
+          'Writes findings up without pushing fixes or opening PRs.',
         promptFragment:
           'Report only: surface findings and write them up, but push no fixes and open no PRs.',
         group: 'run',
@@ -799,6 +820,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'refine-existing',
         label: 'Refine existing phases',
+        description:
+          'Also deepens existing phase docs (with /midnite-refine by default), not only new proposals.',
         promptFragment:
           'Also deepen existing phase docs with /midnite-refine, not only propose new ones.',
         skillTemplate: 'Also deepen existing phase docs with {skill}, not only propose new ones.',
@@ -810,6 +833,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'reconcile-index',
         label: 'Reconcile the index',
+        description:
+          'Checks the task index against what has actually landed before proposing anything.',
         promptFragment:
           'Reconcile .midnite/tasks/_INDEX.md against what has actually landed before proposing anything.',
         group: 'tasks',
@@ -819,6 +844,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'write-doc',
         label: 'Write the phase doc',
+        description:
+          'Writes the agreed phase doc to disk instead of stopping at a proposal.',
         promptFragment:
           'Write the agreed phase doc to .midnite/tasks/phases/ rather than stopping at a proposal.',
         group: 'run',
@@ -828,6 +855,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'one-per-run',
         label: 'One phase per pass',
+        description:
+          'Proposes at most one phase per pass.',
         promptFragment: 'Propose at most one phase per iteration.',
         group: 'run',
         control: 'switch',
@@ -871,6 +900,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'ship-tests',
         label: 'Tests with every change',
+        description:
+          'Ships tests with every change, at the layer that actually covers it.',
         promptFragment: 'Ship tests with every change, at the layer that actually covers it.',
         group: 'tasks',
         control: 'checkbox',
@@ -879,6 +910,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'screenshots',
         label: 'Screenshot visual changes',
+        description:
+          'Captures before/after screenshots for visual changes and embeds them in the PR.',
         promptFragment:
           'Capture before/after Playwright screenshots for any visual change and embed them in the PR.',
         group: 'tasks',
@@ -888,6 +921,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'auto-merge',
         label: 'Auto-merge green PRs',
+        description:
+          'Merges PRs on its own once they are approved and green.',
         promptFragment: 'Auto-merge PRs that are approved and have green checks.',
         group: 'run',
         control: 'switch',
@@ -896,6 +931,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'stop-on-red',
         label: 'Stop if the gate fails',
+        description:
+          'Stops the loop when the gate cannot be brought green in the same pass.',
         promptFragment:
           'Stop the loop if moon run :typecheck :lint :test cannot be brought green in the same pass.',
         group: 'run',
@@ -944,6 +981,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         // The approval body is the repo's own convention: "LGTM" or "🚀" only.
         id: 'routine',
         label: 'Routine',
+        description:
+          'Reviews open PRs labelled `routine` and approves them with "LGTM" or 🚀 unless the review finds something critical.',
         promptFragment: ROUTINE_PR_FRAGMENT,
         skillTemplate: ROUTINE_PR_SKILL_TEMPLATE,
         group: 'tasks',
@@ -954,6 +993,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'pr-review',
         label: 'Review PRs',
+        description:
+          'Reviews open pull requests (with /pr-review by default).',
         promptFragment: '/pr-review',
         skillTemplate: LOOP_SKILL_SLOT,
         defaultSkill: '/pr-review',
@@ -967,6 +1008,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         // so the rename stops at what the box says.
         id: 'pr-feedback',
         label: 'Reply to PRs',
+        description:
+          'Replies to review feedback on your open pull requests (with /pr-feedback by default).',
         promptFragment: '/pr-feedback',
         skillTemplate: LOOP_SKILL_SLOT,
         defaultSkill: '/pr-feedback',
@@ -978,6 +1021,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'security-review',
         label: 'Security review',
+        description:
+          'Runs a security review over open pull requests (with /security-review by default).',
         promptFragment: '/security-review',
         skillTemplate: LOOP_SKILL_SLOT,
         defaultSkill: '/security-review',
@@ -989,6 +1034,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'triage-only',
         label: 'Triage only',
+        description:
+          'Looks without touching: reports one status table (with /midnite-sitrep by default) and leaves no reviews, merges or fixes.',
         promptFragment: PATROL_TRIAGE_TEMPLATE.replace(LOOP_SKILL_SLOT, '/midnite-sitrep'),
         skillTemplate: PATROL_TRIAGE_TEMPLATE,
         defaultSkill: '/midnite-sitrep',
@@ -1000,6 +1047,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'auto-approve',
         label: 'Auto-approve clean PRs',
+        description:
+          'Approves PRs whose review turns up no blocking findings.',
         promptFragment: 'Auto-approve PRs that pass review with no blocking findings.',
         group: 'run',
         control: 'switch',
@@ -1043,6 +1092,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'dependabot',
         label: 'Dependabot PRs',
+        description:
+          'Takes the open Dependabot PRs: runs the gate on each and fixes or reports what it catches.',
         promptFragment:
           'Also take the open Dependabot PRs: run the gate on each, and fix or report whatever it catches.',
         group: 'tasks',
@@ -1052,6 +1103,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'renovate',
         label: 'Renovate PRs',
+        description:
+          'Takes the open Renovate PRs: runs the gate on each and fixes or reports what it catches.',
         promptFragment:
           'Also take the open Renovate PRs: run the gate on each, and fix or report whatever it catches.',
         group: 'tasks',
@@ -1061,6 +1114,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'failing-tests',
         label: 'Failing tests on main',
+        description:
+          'Fixes tests that are failing on main.',
         promptFragment:
           'Also chase tests failing on main: fix them, or quarantine and report the ones you cannot.',
         group: 'tasks',
@@ -1070,6 +1125,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'prune-branches',
         label: 'Prune landed branches',
+        description:
+          'Removes branches and worktrees that have fully landed (with /midnite-git-cleanup by default).',
         promptFragment:
           'Also run /midnite-git-cleanup to remove branches and worktrees that have fully landed.',
         skillTemplate: 'Also run {skill} to remove branches and worktrees that have fully landed.',
@@ -1081,6 +1138,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'triage-only',
         label: 'Triage only',
+        description:
+          'Looks without touching: reports one status table (with /midnite-sitrep by default) and merges or fixes nothing.',
         promptFragment: MEDIC_TRIAGE_TEMPLATE.replace(LOOP_SKILL_SLOT, '/midnite-sitrep'),
         skillTemplate: MEDIC_TRIAGE_TEMPLATE,
         defaultSkill: '/midnite-sitrep',
@@ -1126,6 +1185,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'perf-profile',
         label: 'Profile startup & idle CPU',
+        description:
+          'Measures cold start and idle CPU with the perf scripts and fixes what is measurably slow.',
         promptFragment:
           'Run scripts/perf/startup-report.mjs and scripts/perf/idle-cpu.mjs, surface regressions and fix what is measurably slow.',
         group: 'tasks',
@@ -1135,6 +1196,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'bundle-size',
         label: 'Audit bundle size',
+        description:
+          'Finds entry-chunk bloat: dead code, heavy imports and missing code-splits.',
         promptFragment:
           'Run scripts/perf/bundle-report.mjs and identify entry-chunk bloat — dead code, heavy imports, or missing code-splits.',
         group: 'tasks',
@@ -1144,6 +1207,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'memory-leaks',
         label: 'Check for memory leaks',
+        description:
+          'Hunts React leaks and subscriptions that outlive their component.',
         promptFragment:
           'Audit for React component leaks and uncleaned subscriptions; fix or report any retained after unmount.',
         group: 'tasks',
@@ -1153,6 +1218,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'render-budget',
         label: 'Reduce unnecessary renders',
+        description:
+          'Profiles re-renders and memoises or narrows selectors where the count is excessive.',
         promptFragment:
           'Profile component re-renders and apply memoisation or selector narrowing where the count is excessive.',
         group: 'tasks',
@@ -1162,6 +1229,8 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
       {
         id: 'report-only',
         label: 'Report only — no changes',
+        description:
+          'Measures and documents findings without pushing code changes.',
         promptFragment:
           'Report only: measure and document performance findings, but push no code changes.',
         group: 'run',
@@ -1240,6 +1309,18 @@ export interface LoopSelection {
    * base, so the agent does one pass and the session stays open in the
    * terminal. Missing means on — what every run did before the switch.
    */
+  repeat?: boolean;
+}
+
+/**
+ * The per-loop run options the composer persists beside its switches — the
+ * Users filter, the auto-rotate slider and the "Loop" switch. All optional:
+ * an absent field reads as no users, {@link LOOP_AUTO_ROTATE}'s default, and
+ * repeat on.
+ */
+export interface LoopRunOptions {
+  reviewUsers?: string[];
+  autoRotatePercent?: number;
   repeat?: boolean;
 }
 
