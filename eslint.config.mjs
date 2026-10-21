@@ -680,6 +680,12 @@ export default tseslint.config(
     },
   },
 
+  // Browser evaluation helpers inside memory-report: window/document ok.
+  {
+    files: ['scripts/perf/memory-report.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
+
   // Smoke/dev scripts print to stdout — console IS their output channel.
   {
     files: ['**/scripts/**/*.ts'],

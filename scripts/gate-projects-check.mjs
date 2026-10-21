@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // gate-projects-check: assert every packages/* directory is claimed by exactly
 // one of the two split `gate` jobs in .github/workflows/ci.yml (Phase 82 Theme
 // E) — `gate-node` (ubuntu-24.04, 1x billing) or `gate-native` (macos-14, 10x
@@ -39,7 +38,7 @@ export const NATIVE_PROJECTS = ['git-engine', 'desktop', 'runtime'];
  */
 
 /** Where project `id` lives on disk — the inverse of `discoverProjectIds`. */
-function projectDir(id) {
+export function projectDir(id) {
   return id.startsWith('feature-') ? `packages/features/${id.slice('feature-'.length)}` : `packages/${id}`;
 }
 

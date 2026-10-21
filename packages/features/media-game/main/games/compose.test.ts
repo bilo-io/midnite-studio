@@ -2,6 +2,7 @@
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -20,7 +21,7 @@ import { composeStarter, scanImports } from './compose';
 import { createGame } from './game-scaffold';
 import { listFilesRecursive } from './starter-files.test-helper';
 
-const TEMPLATE_DIR = join(process.cwd(), '..', '..', '..', 'templates', 'media-game');
+const TEMPLATE_DIR = fileURLToPath(new URL('../../../../../templates/media-game', import.meta.url));
 // The vendored engines a dev tree has under the desktop's resources.
 const ENGINES_DIR = join(TEMPLATE_DIR, '..', '..', 'packages', 'desktop', 'resources', 'game-engines');
 const BARE = new Set(['phaser', 'three', '@dimforge/rapier3d-compat', 'recast-navigation']);

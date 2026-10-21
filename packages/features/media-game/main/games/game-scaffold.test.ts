@@ -2,6 +2,7 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,11 +13,11 @@ import { createGame, gameIdForPath } from './game-scaffold';
 import { listGames } from './game-list';
 
 // The real template, straight from the repo (vitest runs with cwd packages/desktop) — what a dev build would copy.
-const TEMPLATE_DIR = join(process.cwd(), '..', '..', '..', 'templates', 'media-game');
+const TEMPLATE_DIR = fileURLToPath(new URL('../../../../../templates/media-game', import.meta.url));
 // The vendored engines a dev tree has under the desktop's resources (the default every app resolved before this moved).
 const ENGINES_DIR = join(TEMPLATE_DIR, '..', '..', 'packages', 'desktop', 'resources', 'game-engines');
 
-vi.setConfig({ testTimeout: 20_000 });
+vi.setConfig({ testTimeout: 30_000 });
 
 let parent: string;
 const registerRepo = vi.fn(async () => ({ ok: true as const }));

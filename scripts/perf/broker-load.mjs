@@ -89,7 +89,9 @@ for (const stream of [broker.stdout, broker.stderr]) {
 const cleanup = () => {
   try {
     broker.kill('SIGKILL');
-  } catch {}
+  } catch {
+    // Process already gone.
+  }
   rmSync(userData, { recursive: true, force: true });
 };
 process.on('exit', cleanup);

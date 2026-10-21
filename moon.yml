@@ -135,3 +135,25 @@ tasks:
     options:
       cache: false
 
+  # test-node (Phase 116 Theme A): workspace-level Vitest multi-project run
+  # covering all 35 node-portable packages plus scripts/**/*.test.mjs in a single
+  # shared process pool, cutting gate-node from 35 cold Vite boots to 1.
+  test-node:
+    command: 'pnpm exec vitest run --config vitest.node-gate.config.ts'
+    options:
+      cache: false
+
+  # lint-all (Phase 116 Theme A): single-pass eslint across the entire workspace
+  # with persistent caching, replacing 36 sequential eslint invocations.
+  lint-all:
+    command: 'pnpm exec eslint . --cache --cache-location .moon/cache/eslint/'
+    options:
+      cache: false
+
+  # typecheck-node (Phase 116 Theme A): batched parallel tsc --noEmit runner
+  # covering the 36 node-portable packages without moon's 36-task spawn tax.
+  typecheck-node:
+    command: 'node scripts/typecheck-node.mjs'
+    options:
+      cache: false
+

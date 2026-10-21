@@ -250,46 +250,13 @@ jobs:
       # the 71s this step measured at, together with shared/website/db-engine's
       # full typecheck+lint+test and root:test), and only the vitest run itself
       # is the expensive part worth sharding.
+      # Consolidated single-pass tasks (Phase 116 Theme A):
+      # - root:typecheck-node batches tsc --noEmit across all 36 node-portable packages
+      # - root:lint-all runs eslint once with cache across the workspace
+      # - root:test-node boots Vitest once across 35 packages + root tests in one worker pool
+      # (app:test runs sharded in gate-node-app-test below).
       - name: Typecheck, lint, test (node-portable packages, app:test excluded)
-        run: >-
-          pnpm exec moon run
-          shared:typecheck shared:lint shared:test
-          knowledge:typecheck knowledge:lint knowledge:test
-          app:typecheck app:lint
-          website:typecheck website:lint website:test
-          db-engine:typecheck db-engine:lint db-engine:test
-          frame:typecheck frame:lint frame:test
-          feature-optimizer:typecheck feature-optimizer:lint feature-optimizer:test
-          feature-monitor:typecheck feature-monitor:lint feature-monitor:test
-          feature-vault:typecheck feature-vault:lint feature-vault:test
-          feature-notes:typecheck feature-notes:lint feature-notes:test
-          feature-finance:typecheck feature-finance:lint feature-finance:test
-          feature-tests:typecheck feature-tests:lint feature-tests:test
-          feature-forge:typecheck feature-forge:lint feature-forge:test
-          feature-browser:typecheck feature-browser:lint feature-browser:test
-          feature-api-client:typecheck feature-api-client:lint feature-api-client:test
-          feature-database:typecheck feature-database:lint feature-database:test
-          feature-sessions:typecheck feature-sessions:lint feature-sessions:test
-          feature-tasks:typecheck feature-tasks:lint feature-tasks:test
-          feature-media-core:typecheck feature-media-core:lint feature-media-core:test
-          feature-media-docs:typecheck feature-media-docs:lint feature-media-docs:test
-          feature-media-images:typecheck feature-media-images:lint feature-media-images:test
-          feature-media-library:typecheck feature-media-library:lint feature-media-library:test
-          feature-capture:typecheck feature-capture:lint feature-capture:test
-          feature-models:typecheck feature-models:lint feature-models:test
-          feature-councils:typecheck feature-councils:lint feature-councils:test
-          feature-workflows:typecheck feature-workflows:lint feature-workflows:test
-          feature-mcp-tools:typecheck feature-mcp-tools:lint feature-mcp-tools:test
-          feature-chats:typecheck feature-chats:lint feature-chats:test
-          feature-slides:typecheck feature-slides:lint feature-slides:test
-          feature-media-video:typecheck feature-media-video:lint feature-media-video:test
-          feature-media-audio:typecheck feature-media-audio:lint feature-media-audio:test
-          feature-media-map:typecheck feature-media-map:lint feature-media-map:test
-          feature-media-terrain:typecheck feature-media-terrain:lint feature-media-terrain:test
-          feature-media-sprite:typecheck feature-media-sprite:lint feature-media-sprite:test
-          feature-media-model:typecheck feature-media-model:lint feature-media-model:test
-          feature-media-game:typecheck feature-media-game:lint feature-media-game:test
-          root:test
+        run: pnpm exec moon run root:typecheck-node root:lint-all root:test-node
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
