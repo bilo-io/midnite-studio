@@ -460,6 +460,23 @@ One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/p
 phase doc's own `## Headlines` paragraph for each theme that landed, and update the phase's row in
 the table in `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
 
+## A PR is ready for review only after a self-review
+
+A PR opens as a **draft** and stays one until at least one self-review has run on its current diff
+and the findings worth acting on are fixed and pushed. Only then does it leave draft
+(`gh pr ready`), and only after that may anyone be requested as a reviewer. The phase skills
+already carry this as their self-review stage before `gh pr ready`; this section makes it the rule
+for every PR a session opens, skill or not.
+
+- **A draft never has a reviewer requested on it** — no `--reviewer` on `gh pr create --draft`, no
+  `--add-reviewer` while `isDraft` is true.
+- **"Request a review now" means self-review, fix, push, ready, then request — now, in that
+  order.** It never means skipping the self-review. Say what the self-review found and fixed.
+- **A diff that changes after the self-review** gets reviewed again before any re-request.
+
+Why: on 2026-10-21 a session requested a reviewer on two draft PRs in another repo before any
+self-review had run, which pinged a colleague to read unfinished work.
+
 ## Onboarding another repo
 
 [`templates/midnite/`](templates/midnite/) is a checked-in, repo-agnostic skeleton of this same
