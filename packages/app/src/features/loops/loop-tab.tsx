@@ -237,7 +237,7 @@ export function LoopTab({
                   // standing rule is not a task. Held here rather than in
                   // `composeLoopPrompt`, which is pure and has no business refusing
                   // to compose.
-                  'Pick a task — Review PRs, Answer feedback, Security review or Triage only.'
+                  'Pick a task — Routine, Review PRs, Reply to PRs, Security review or Triage only.'
                 : 'Select a repository first.'
             }
             onToggle={(modifierId, on) => setCheck(loop.id, modifierId, on)}
