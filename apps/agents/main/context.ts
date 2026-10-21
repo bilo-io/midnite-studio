@@ -1,3 +1,4 @@
+import { reportMain, type ReportMainServices } from '@midnite/studio-feature-report/main';
 import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 
@@ -43,6 +44,8 @@ const OLLAMA_KEY = 'ollama.apiKey';
 
 /** The electron pieces Agents' main needs, injected so registration is testable under bare vitest. */
 export type AgentsElectron = IpcContextElectron & {
+  /** Report an Issue's services — the crash log sink, home dir, and the three OS calls the dialog needs. */
+  report: ReportMainServices;
   /** Agents' own userData: chats, councils and the Ollama settings live under it. */
   userData: string;
   /**
@@ -77,6 +80,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
   // The stores write straight into `userData` and treat a missing directory as read-only; Electron creates it lazily.
   mkdirSync(el.userData, { recursive: true });
   const ctx = createIpcContext(el);
+  reportMain.register(ctx, el.report);
   // Started now, not awaited: the roster below waits on it, and every agent CLI spawn reads the roster first.
   const pathReady = (el.loginPath ?? ensureLoginShellPathAsync)().catch(() => undefined);
   const roster = async (): Promise<AgentDefinition[]> => {

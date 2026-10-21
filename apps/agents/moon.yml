@@ -68,6 +68,10 @@ tasks:
       - '/packages/features/workflows/main/**/*'
       - '/packages/features/mcp-tools/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
     outputs:
       - 'dist'
 
@@ -103,6 +107,10 @@ tasks:
       - '/packages/features/workflows/main/**/*'
       - '/packages/features/mcp-tools/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
 
   test:
     inputs:
@@ -134,3 +142,7 @@ tasks:
       - '/packages/features/workflows/main/**/*'
       - '/packages/features/mcp-tools/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'

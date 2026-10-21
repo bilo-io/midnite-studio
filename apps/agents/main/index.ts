@@ -1,9 +1,23 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  ipcMain,
+  Menu,
+  shell,
+  type MenuItemConstructorOptions,
+} from 'electron';
 
-import { guardAppWindow } from '@midnite/studio-runtime';
+import {
+  buildSuiteMenuTemplate,
+  createFileSink,
+  guardAppWindow,
+  installCrashLogging,
+} from '@midnite/studio-runtime';
+import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
 import { registerAgentsHandlers } from './context';
 import { AGENTS_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, agentsUserData, agentsVaultDirectory } from './identity';
@@ -35,10 +49,33 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // Crash log + Report an Issue: the runtime's file sink, the app's own Help menu item, and the report feature's services.
+    const log = createFileSink({ dir: app.getPath('userData'), name: 'agents.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => log.write(level, message));
+    log.write('info', `${AGENTS_NAME} ${app.getVersion()} started`);
+    app.on('will-quit', () => log.close());
+    const reportServices = {
+      sink: () => log,
+      homeDir: () => app.getPath('home'),
+      openExternal: (url: string) => shell.openExternal(url),
+      writeClipboard: (text: string) => clipboard.writeText(text),
+      revealPath: (path: string) => shell.showItemInFolder(path),
+    };
+    // The menu's Report an Issue… reaches the focused window, falling back to the main one.
+    const sendToFocused = (channel: string, payload: unknown): void => {
+      const target = BrowserWindow.getFocusedWindow() ?? win;
+      if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+    };
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        buildSuiteMenuTemplate({ reportItem: reportIssueMenuItem(sendToFocused) }) as MenuItemConstructorOptions[],
+      ),
+    );
     const vaultDirectory = agentsVaultDirectory(app.getPath('appData'), override);
     mkdirSync(vaultDirectory, { recursive: true });
     const handlers = registerAgentsHandlers({
       ipcMain,
+      report: reportServices,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
