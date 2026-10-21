@@ -148,7 +148,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
               persists across tab switches — so a tab you toggled on stays
               recoloured even while another tab is the one showing.
             */
-            const isLoopOn = loopEnabled[loop.id] ?? false;
+            const isLoopOn = loopEnabled[loop.id] ?? true;
             return (
               <button
                 key={loop.id}
@@ -256,8 +256,10 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
         </div>
 
         {/*
-          The active tab's own "Loop" switch — off by default. Flipping it
-          paints this row AND the active tab above with the loop's own
+          The active tab's own "Loop" switch — on by default, and the one
+          control for `/loop`: on composes `/loop …`, off a once-off run with
+          `/loop` stripped. On, it paints this row AND the active tab above
+          with the loop's own
           sub-spectrum centre (`--fab-spec-3`), and turns that tab's icon,
           label and idle shimmer white so they still read against the now
           solid-coloured background. The state is per loop id (`loopEnabled`),
@@ -268,7 +270,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
           data-testid="fab-panel-loop-row"
           className="flex shrink-0 items-center border-b border-border px-2 py-1.5"
           style={
-            (loopEnabled[activeFabTab] ?? false)
+            (loopEnabled[activeFabTab] ?? true)
               ? { backgroundColor: 'rgb(var(--fab-spec-3))' }
               : undefined
           }
@@ -276,9 +278,9 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
           <SwitchRow
             id={`loop-enabled-${activeFabTab}`}
             label="Loop"
-            on={loopEnabled[activeFabTab] ?? false}
+            on={loopEnabled[activeFabTab] ?? true}
             onToggle={(_id, on) => setLoopEnabled(activeFabTab, on)}
-            className={(loopEnabled[activeFabTab] ?? false) ? '!text-white' : ''}
+            className={(loopEnabled[activeFabTab] ?? true) ? '!text-white' : ''}
           />
         </div>
 

@@ -1318,23 +1318,21 @@ export interface LoopSelection {
   /** Rotate subagents at this percentage of their context window. */
   autoRotatePercent?: number;
   /**
-   * The composer's "Loop" switch. `false` drops the leading `/loop` from the
+   * The tab bar's "Loop" switch (`loopEnabled`). `false` drops the leading `/loop` from the
    * base, so the agent does one pass and the session stays open in the
-   * terminal. Missing means on — what every run did before the switch.
+   * terminal. Missing means on.
    */
   repeat?: boolean;
 }
 
 /**
  * The per-loop run options the composer persists beside its switches — the
- * Users filter, the auto-rotate slider and the "Loop" switch. All optional:
- * an absent field reads as no users, {@link LOOP_AUTO_ROTATE}'s default, and
- * repeat on.
+ * Users filter and the auto-rotate slider. All optional: an absent field
+ * reads as no users and {@link LOOP_AUTO_ROTATE}'s default.
  */
 export interface LoopRunOptions {
   reviewUsers?: string[];
   autoRotatePercent?: number;
-  repeat?: boolean;
 }
 
 /** The auto-rotate slider's range, in percent of a subagent's context window. */

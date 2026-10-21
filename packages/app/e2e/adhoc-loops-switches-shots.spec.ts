@@ -101,7 +101,7 @@ for (const theme of ['light', 'dark'] as const) {
     await shoot(page, section(composer, 'tasks'), `skill-combobox-${theme}`);
   });
 
-  test(`Users filter, Loop switch and auto-rotate — ${theme}`, async ({ page }) => {
+  test(`Users filter and auto-rotate — ${theme}`, async ({ page }) => {
     const composer = await openPatrol(page, theme);
     const users = composer.getByRole('combobox', { name: 'Review PRs for these users only' });
     await users.click();
@@ -109,11 +109,9 @@ for (const theme of ['light', 'dark'] as const) {
     await page.getByRole('option', { name: /Grace Hopper/ }).click();
     await shoot(page, section(composer, 'scope'), `users-menu-${theme}`, { top: 8, bottom: 130 });
     await page.keyboard.press('Escape');
-    await composer.getByRole('switch', { name: 'Loop' }).uncheck();
     await composer.getByRole('slider', { name: 'Auto-rotate subagents' }).fill('45');
     await page.mouse.move(0, 0);
     await shoot(page, section(composer, 'scope'), `users-filter-${theme}`);
-    await shoot(page, section(composer, 'run'), `loop-switch-${theme}`);
     await shoot(page, composer.getByTestId('auto-rotate-field'), `auto-rotate-${theme}`);
   });
 }
