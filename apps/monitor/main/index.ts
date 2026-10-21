@@ -1,13 +1,14 @@
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
 
-import { createFileSink, guardAppWindow, installCrashLogging } from '@midnite/studio-runtime';
+import { createFileSink, guardAppWindow, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 
 import type { MetricsService } from '@midnite/studio-feature-monitor/main';
 
 import { registerMonitorHandlers } from './context';
 import { MONITOR_NAME, SMOKE_READY_LINE, USER_DATA_ENV, monitorRuntimeDirectory, monitorUserData, isSmoke } from './identity';
+import { registerReport, reportMenuTemplate } from './report';
 import { createMonitorSessions } from './shared-sessions';
 
 /**
@@ -17,6 +18,7 @@ import { createMonitorSessions } from './shared-sessions';
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
+let crashLog: LogSink | null = null;
 let metrics: MetricsService | null = null;
 
 app.setName(MONITOR_NAME);
@@ -38,7 +40,30 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     // The runtime's crash-log sink (NDJSON, rotated, redacted), the one Studio's main writes through too.
     const log = createFileSink({ dir: app.getPath('userData'), name: 'monitor.log', homeDir: app.getPath('home') });
     installCrashLogging((level, message) => log.write(level, message));
+    crashLog = log;
     log.write('info', `${MONITOR_NAME} ${app.getVersion()} started`);
+    const sendToWindow = (channel: string, payload: unknown): void => {
+      if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
+    };
+    registerReport(
+      { ipcMain, trashItem: (path) => shell.trashItem(path), send: sendToWindow },
+      {
+        sink: () => crashLog,
+        homeDir: () => app.getPath('home'),
+        bootLine: () => `${MONITOR_NAME} ${app.getVersion()}`,
+        openExternal: (url) => shell.openExternal(url),
+        writeClipboard: (text) => clipboard.writeText(text),
+        revealPath: (path) => shell.showItemInFolder(path),
+      },
+    );
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        reportMenuTemplate((channel, payload) => {
+          const target = BrowserWindow.getFocusedWindow() ?? win;
+          if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+        }) as MenuItemConstructorOptions[],
+      ),
+    );
     registerMonitorHandlers({
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
