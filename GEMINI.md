@@ -192,7 +192,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 - **macOS (arm64) is the only officially supported platform for now — Linux and Windows are
   deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
   the repo now matches. **Every CI job that exercises platform behaviour runs on a `macos-*`
-  runner** — `e2e`, `gate-native` and `gate-locale`. Phase 82 Themes E/H had put them on
+  runner** — `e2e` (4 shards) and `gate-native` (hostile-locale tests folded in Phase 116 Theme D;
+  formerly standalone `gate-locale`). Phase 82 Themes E/H had put them on
   `ubuntu-24.04` purely for the 1x billing rate. **This repo is public**
   (`gh api repos/bilo-io/midnite-studio -q .visibility` returns `public`; an earlier version of
   this file said private, which was wrong), so standard GitHub-hosted runner minutes are free and
@@ -208,9 +209,10 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   (measured: peak simultaneous `macos-14` jobs was exactly 5; in one run 13 of 16 macOS jobs were
   cancelled having never started a step). Jobs drained in 3-4 sequential batches, each paying a
   fresh macOS VM boot, and the wild variance was the tell — queueing, not slower tests. So
-  `gate-node` and `gate-node-app-test` are back on `ubuntu-24.04` and `e2e` is sharded **4 ways,
-  not 8**: past the cap, extra shards buy no parallelism and cost a VM boot, install and browser
-  download each. **This is not a partial un-deferring of Linux** — those two jobs are zod, React,
+  `gate-node` and `gate-node-app-test` (sharded 2 ways, Phase 116 Theme D) are on `ubuntu-*` and
+  `e2e` is sharded **4 ways**: with `gate-native` (1 job) and `e2e` (4 shards), total PR macOS
+  jobs are exactly 5, fitting the 5-job cap with zero queueing. Past the cap, extra shards
+  buy no parallelism and cost a VM boot, install and browser download each. **This is not a partial un-deferring of Linux** — those two jobs are zod, React,
   Vite and jsdom, where the runner OS is invisible; nothing the product depends on is validated
   there. The rule is unchanged in the direction that matters: **never move a job that exercises
   platform behaviour off macOS**, and when adding a macOS job, count the total against 5 first.

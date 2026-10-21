@@ -206,7 +206,7 @@ describe('release.yml', () => {
   });
   it('uses one macOS job, and CI stays at or under the cap of 5 concurrent', () => {
     expect(macosJobs(release)).toBe(1);
-    // ci.yml's count is the baseline this slice did not raise (gate-native, gate-locale, e2e, package).
+    // ci.yml's count is the baseline this slice did not raise (gate-native, e2e, package).
     expect(macosJobs(read('.github/workflows/ci.yml'))).toBeLessThanOrEqual(5);
   });
 });
