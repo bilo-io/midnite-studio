@@ -338,3 +338,23 @@ export { useGraphStore } from './graph/graph-store';
 export type { ActiveAgentWorktreeSession } from './graph/agent-session';
 export type { DragPayload, DropEvent } from './graph/graph-dnd';
 export type { SyncAction } from './graph/ref-sync';
+
+// Shared 3D audio visualizer and player.
+export {
+  compute3DShapeVertex,
+  computeGlowTier,
+  EpicAudioPlayer,
+  EpicAudioVisualizerCanvas,
+  formatAudioTime,
+  getShapeRadiusMultiplier,
+  PARTICLE_COUNT_3D,
+  project3D,
+  rotate3D,
+  SHAPE_NAMES,
+  SPECTRUM_NAMES,
+  type EpicAudioPlayerProps,
+  type EpicAudioVisualizerCanvasProps,
+  type ProjectedPoint,
+  type ShapeKind,
+  type Vec3,
+} from './audio/epic-audio-player';
