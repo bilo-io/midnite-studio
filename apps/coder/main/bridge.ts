@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -16,6 +17,8 @@ import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
  * Coder's list holds.
  */
 export type CoderBridge = {
+  /** Report an Issue: the dialog's channels and the Help-menu event (`createReportBridge`). */
+  report: ReportBridge;
   forge: MidniteStudioBridge['forge'];
   forgeProject: MidniteStudioBridge['forgeProject'];
   forgeAccounts: MidniteStudioBridge['forgeAccounts'];
@@ -46,6 +49,8 @@ export type { RendererIpc };
 export function createCoderBridge(ipc: RendererIpc): CoderBridge {
   const { call, send, subscribe } = createBridgeSlice(ipc);
   return {
+    // Report an Issue — the report feature's own preload half (`@midnite/studio-feature-report/bridge`).
+    report: createReportBridge({ call, send, subscribe }),
     forge: {
       cliStatus: () => call(CHANNELS.forgeCliStatus),
       runs: (req) => call(CHANNELS.forgeRuns, req),

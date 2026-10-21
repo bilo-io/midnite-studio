@@ -23,6 +23,7 @@ dependsOn:
   - 'feature-database'
   - 'feature-sessions'
   - 'feature-tasks'
+  - 'feature-report'
 
 tasks:
   build:
@@ -60,6 +61,10 @@ tasks:
       - '/packages/features/database/main/**/*'
       - '/packages/features/sessions/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
     outputs:
@@ -93,6 +98,10 @@ tasks:
       - '/packages/features/database/main/**/*'
       - '/packages/features/sessions/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
 
@@ -122,5 +131,9 @@ tasks:
       - '/packages/features/database/main/**/*'
       - '/packages/features/sessions/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/bridge.ts'
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
