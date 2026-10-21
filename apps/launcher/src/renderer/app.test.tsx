@@ -7,7 +7,7 @@ import { APPS, SECTION_ORDER } from '../common/catalog';
 import { App } from './app';
 import { createMockBridge } from './mock-bridge';
 
-function mount(mode: 'installed' | 'update' | null) {
+function mount(mode: 'installed' | 'update' | 'bundles' | null) {
   const bridge = createMockBridge(mode);
   const open = vi.spyOn(bridge.apps, 'open');
   window.midniteLauncher = bridge as LauncherBridge;
@@ -154,5 +154,49 @@ describe('<App>', () => {
     expect(document.documentElement.dataset['theme']).toBeUndefined();
     expect(localStorage.getItem('midnite-launcher.theme')).toBeNull();
     expect(setNative).toHaveBeenLastCalledWith('system');
+  });
+
+  it('moves every installed app to the Trash in one go, after a confirm that lists them', async () => {
+    const { bridge } = mount('bundles');
+    const removeBundle = vi.spyOn(bridge.apps, 'uninstall');
+    const removeStudio = vi.spyOn(bridge.studio, 'uninstall');
+    const button = screen.getByRole('button', { name: 'Move all apps to Trash…' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('Move all 3 apps to the Trash?')).toBeDefined();
+    expect(within(dialog).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Midnite Cleaner',
+      'Midnite Monitor',
+      'Midnite Studio',
+    ]);
+    expect(removeBundle).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Move all to Trash' }));
+    });
+    expect(removeBundle.mock.calls).toEqual([['cleaner'], ['monitor']]);
+    expect(removeStudio).toHaveBeenCalledOnce();
+    expect(await screen.findByText('Moved 3 apps to the Trash.')).toBeDefined();
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(true));
+  });
+
+  it('skips an app that refuses, keeps going, and says which and why', async () => {
+    const { bridge } = mount('bundles');
+    vi.spyOn(bridge.studio, 'uninstall').mockResolvedValue({ ok: false, message: 'Midnite Studio is running — quit it first.' });
+    const button = screen.getByRole('button', { name: 'Move all apps to Trash…' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Move all to Trash' }));
+    });
+    const toast = await screen.findByRole('alert');
+    expect(toast.textContent).toContain('Moved 2 of 3 apps to the Trash.');
+    expect(toast.textContent).toContain('Midnite Studio: Midnite Studio is running — quit it first.');
+  });
+
+  it('offers nothing to remove while no app is installed', async () => {
+    mount(null);
+    await screen.findAllByLabelText(/^Install Midnite /);
+    expect(screen.getByRole('button', { name: 'Move all apps to Trash…' }).hasAttribute('disabled')).toBe(true);
   });
 });

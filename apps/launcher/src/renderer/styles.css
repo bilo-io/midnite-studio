@@ -261,7 +261,12 @@ button:disabled {
 
 .topbar-refresh {
   align-self: center;
-  margin: 0 12px;
+  margin: 0 0 0 12px;
+}
+
+.topbar-remove-all {
+  align-self: center;
+  margin: 0 12px 0 4px;
 }
 
 .spin {
@@ -1084,6 +1089,12 @@ button:disabled {
 .dialog-title {
   margin: 0 0 10px;
   font-size: 17px;
+}
+
+.dialog-list {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  line-height: 1.6;
 }
 
 .dialog-body {
