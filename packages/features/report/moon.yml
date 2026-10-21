@@ -1,0 +1,85 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# The report feature package — Report an Issue for every midnite app: the
+# dialog (renderer), the issue filing, gh status and crash-report channels
+# (main) and the preload bridge helper (bridge.ts). Same shape as
+# feature-monitor (see docs/APPS.md, "Packages").
+id: 'feature-report'
+language: 'typescript'
+layer: 'library'
+
+# `FEATURE_PLACEMENT.report` = frame, so it reaches every app (`app-all`).
+# `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
+tags:
+  - 'layer-feature'
+  - 'app-all'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+
+tasks:
+  # Only the main half emits; the renderer half is compiled by the app.
+  build:
+    command: 'pnpm exec tsc -b tsconfig.main.json'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
+
+  # Both configs: the renderer half against source, the main half against
+  # shared/runtime's built declarations (project references), hence the builds.
+  typecheck:
+    # package.json's `typecheck` runs `tsc --noEmit` over both configs.
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'bridge.ts'
+      - 'bridge.test.ts'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'bridge.ts'
+      - 'bridge.test.ts'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'
