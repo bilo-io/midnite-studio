@@ -19,4 +19,12 @@ describe('buildSuiteMenuTemplate', () => {
     help[0]!.click!();
     expect(click).toHaveBeenCalledOnce();
   });
+
+  it('can leave View and Window out, keeping the app, Edit and Help menus', () => {
+    const t = buildSuiteMenuTemplate({
+      reportItem: { label: 'Report an Issue…' },
+      omit: { view: true, window: true },
+    });
+    expect(t.map((m) => m.role)).toEqual(['appMenu', 'editMenu', 'help']);
+  });
 });
