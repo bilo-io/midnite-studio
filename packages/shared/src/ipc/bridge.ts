@@ -1755,6 +1755,17 @@ export type MidniteStudioBridge = {
     submitIssue: (
       req: In<typeof S.AppIssueSubmitRequestSchema>,
     ) => Promise<z.infer<typeof S.AppIssueSubmitResultSchema>>;
+    /** Is `gh` installed and signed in? The dialog's Submit-or-Continue-on-GitHub switch. */
+    ghStatus: () => Promise<z.infer<typeof S.ReportGhStatusResponse>>;
+    /** Open a midnite-apps issue page (the prefilled form, a filed issue) — nothing else. */
+    openUrl: (req: In<typeof S.ReportOpenUrlRequest>) => Promise<z.infer<typeof S.ReportOpenUrlResponse>>;
+    /** Copy report: title and body onto the system clipboard, main-side (`file://` has no `navigator.clipboard`). */
+    copy: (req: In<typeof S.ReportCopyRequest>) => Promise<z.infer<typeof S.ReportCopyResponse>>;
+    /**
+     * Main asks the dialog to open — a native Help menu item (`EVENT_CHANNELS.reportOpen`).
+     * Optional: Studio opens it through `app.reportIssue` on `menu.onCommand` instead.
+     */
+    onOpen?: (handler: () => void) => Unsubscribe;
   };
 
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;

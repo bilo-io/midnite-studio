@@ -73,8 +73,42 @@ const APP_ISSUE_FORMS = {
   feature: { template: 'feature.yml', field: 'problem' },
 } as const;
 
-/** The App dropdown option that makes `issue-app-label.yml` apply `app: midnite-studio`. */
-const APP_ISSUE_APP_OPTION = 'midnite-studio';
+/**
+ * The App dropdown option a report files under when its app names none — Studio's. Each app's
+ * reporter passes its own slug (`AppIssueFormDraft.app`); `issue-app-label.yml` turns the answer
+ * into the `app: <slug>` label, so a slug must exist upstream as a dropdown option and a label.
+ */
+export const DEFAULT_ISSUE_APP = 'midnite-studio';
+
+/**
+ * The shape an app slug takes — `midnite-studio`, `midnite-monitor`. Checked on the wire
+ * (`AppIssueAppSchema`) because it becomes a `gh issue create --label` argument.
+ */
+export const ISSUE_APP_PATTERN = /^midnite-[a-z]+(?:-[a-z]+)*$/;
+
+/**
+ * Every URL the reporter may open: midnite-apps' own issue pages. `mstudio:report:open-url`
+ * refuses anything else, so the report bridge is not a general-purpose `openExternal`.
+ */
+export const APP_ISSUES_URL_PREFIX = `https://github.com/${APP_ISSUES_REPO}/issues`;
+
+/** True for an https URL under {@link APP_ISSUES_URL_PREFIX}: the list, the form, or one issue. */
+export function isAppIssuesUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  const base = `/${APP_ISSUES_REPO}/issues`;
+  return (
+    parsed.protocol === 'https:' &&
+    parsed.host === 'github.com' &&
+    parsed.username === '' &&
+    parsed.password === '' &&
+    (parsed.pathname === base || parsed.pathname.startsWith(`${base}/`))
+  );
+}
 
 /**
  * The longest URL {@link appIssueFormUrl} returns. GitHub refuses a request line much past 8 KB
@@ -105,6 +139,8 @@ export type AppIssueFormDraft = {
   diagnostics: string;
   /** The running build's version; omitted (or `0.0.0`, an unversioned build) leaves the field empty. */
   version?: string;
+  /** The app the report is about, as its App dropdown option; {@link DEFAULT_ISSUE_APP} when omitted. */
+  app?: string;
 };
 
 /**
@@ -123,7 +159,7 @@ export function appIssueFormUrl(draft: AppIssueFormDraft): string {
     const params = new URLSearchParams();
     params.set('template', form.template);
     params.set('title', draft.title.trim());
-    params.set('app', APP_ISSUE_APP_OPTION);
+    params.set('app', draft.app ?? DEFAULT_ISSUE_APP);
     if (draft.kind === 'bug' && draft.version !== undefined && draft.version !== '0.0.0') {
       params.set('version', draft.version);
     }
@@ -169,7 +205,7 @@ const APP_ISSUE_HEADINGS = {
  * that form has no logs field.
  */
 export function appIssueBody(draft: AppIssueFormDraft): string {
-  const sections = [`### App\n\n${APP_ISSUE_APP_OPTION}`];
+  const sections = [`### App\n\n${draft.app ?? DEFAULT_ISSUE_APP}`];
   if (draft.version !== undefined && draft.version !== '0.0.0') {
     sections.push(`### Version\n\n${draft.version}`);
   }
