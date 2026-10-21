@@ -2,10 +2,10 @@ import { existsSync } from 'node:fs';
 import { homedir, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
 
 import { libraryFileResolver } from '@midnite/studio-feature-media-library/main';
-import { connectRuntimeVault, guardAppWindow, vaultHostSocketPath } from '@midnite/studio-runtime';
+import { connectRuntimeVault, guardAppWindow, vaultHostSocketPath, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
 
 import { mediaLibraryDataDir, registerMediaHandlers } from './context';
@@ -18,6 +18,7 @@ import {
   mediaUserData,
   mediaVaultDirectory,
 } from './identity';
+import { registerReport, reportMenuTemplate } from './report';
 import { createMediaKeyReader } from './keys';
 import { mediaPairing } from './pairing';
 
@@ -33,6 +34,7 @@ import { mediaPairing } from './pairing';
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
+let crashLog: LogSink | null = null;
 
 app.setName(MEDIA_NAME);
 if (smoke) app.dock?.hide();
@@ -73,6 +75,32 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // The runtime's crash-log sink (NDJSON, rotated, redacted) — what Report an Issue reads.
+    crashLog = createFileSink({ dir: app.getPath('userData'), name: 'media.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => crashLog?.write(level, message));
+    crashLog.write('info', `${MEDIA_NAME} ${app.getVersion()} started`);
+    const sendToWindow = (channel: string, payload: unknown): void => {
+      if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
+    };
+    registerReport(
+      { ipcMain, trashItem: (path) => shell.trashItem(path), send: sendToWindow },
+      {
+        sink: () => crashLog,
+        homeDir: () => app.getPath('home'),
+        bootLine: () => `${MEDIA_NAME} ${app.getVersion()}`,
+        openExternal: (url) => shell.openExternal(url),
+        writeClipboard: (text) => clipboard.writeText(text),
+        revealPath: (path) => shell.showItemInFolder(path),
+      },
+    );
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        reportMenuTemplate((channel, payload) => {
+          const target = BrowserWindow.getFocusedWindow() ?? win;
+          if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+        }) as MenuItemConstructorOptions[],
+      ),
+    );
     const userData = app.getPath('userData');
     // The runtime host's vault (Studio), over its socket: Media never touches the keychain, and the
     // host's grants deny it until the user grants Media access in Vault. A smoke run reaches no host.

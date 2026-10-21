@@ -1,5 +1,6 @@
 import { MediaHostProvider } from '@midnite/studio-feature-media-core/renderer';
 import { LibraryHostProvider } from '@midnite/studio-feature-media-library/renderer';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -24,6 +25,7 @@ export function MediaApp() {
           </LibraryHostProvider>
         </MediaHostProvider>
         <MediaDialogHost />
+        <ReportIssueHost app="midnite-media" />
       </FrameChromeProvider>
     </QueryClientProvider>
   );
