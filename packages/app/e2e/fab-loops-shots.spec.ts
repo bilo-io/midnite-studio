@@ -51,7 +51,7 @@ async function openFab(page: Page, tab?: string): Promise<void> {
 test('the composer, idle', async ({ page }) => {
   await open(page);
   await openFab(page, 'Patrol');
-  await page.getByTestId('loop-composer-watchdog').getByRole('checkbox', { name: 'Reply to PRs' }).check();
+  await page.getByTestId('loop-composer-watchdog').getByRole('switch', { name: 'Reply to PRs' }).check();
   await page.screenshot({ path: `${OUT}/composer-idle.png` });
 });
 
@@ -59,7 +59,7 @@ test('a running loop — slim strip, glowing Stop, live dots', async ({ page }) 
   await open(page);
   await openFab(page, 'Patrol');
   const composer = page.getByTestId('loop-composer-watchdog');
-  await composer.getByRole('checkbox', { name: 'Reply to PRs' }).check();
+  await composer.getByRole('switch', { name: 'Reply to PRs' }).check();
   await composer.getByPlaceholder('Extra instructions…').fill('Skip drafts.');
   await composer.getByTestId('loop-extras-send').click();
   await expect(composer.getByTestId('loop-stop')).toBeVisible();
@@ -71,7 +71,7 @@ test('run history, expanded', async ({ page }) => {
   await open(page);
   await openFab(page, 'Patrol');
   const composer = page.getByTestId('loop-composer-watchdog');
-  await composer.getByRole('checkbox', { name: 'Reply to PRs' }).check();
+  await composer.getByRole('switch', { name: 'Reply to PRs' }).check();
   await composer.getByTestId('loop-extras-send').click();
   await composer.getByTestId('loop-stop').click();
 
@@ -207,7 +207,7 @@ for (const mode of ['light', 'dark'] as const) {
 
       await page.getByRole('button', { name: 'Patrol', exact: true }).click();
       const composer = page.getByTestId('loop-composer-watchdog');
-      await composer.getByRole('checkbox', { name: 'Reply to PRs' }).check();
+      await composer.getByRole('switch', { name: 'Reply to PRs' }).check();
       await composer.getByTestId('loop-extras-send').click();
       await expect(composer.getByTestId('loop-stop')).toBeVisible();
       await page.waitForTimeout(900);
