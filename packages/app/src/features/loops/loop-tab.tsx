@@ -100,12 +100,13 @@ export function LoopTab({
   const setRunOptions = useUiStore((s) => s.setLoopRunOptions);
   /*
     Resolved on read, like the switches: an older profile has no entry, and
-    reads as no users, the default rotation and — what every run did before
-    the switch existed — running on a loop.
+    reads as no users and the default rotation.
   */
   const reviewUsers = loop.reviewsPrs ? (runOptions.reviewUsers ?? NO_USERS) : NO_USERS;
   const autoRotatePercent = runOptions.autoRotatePercent ?? LOOP_AUTO_ROTATE.default;
-  const repeat = runOptions.repeat ?? true;
+  // The tab bar's own "Loop" switch (fab-panel.tsx) is the single control for
+  // `/loop`; absent means on.
+  const repeat = useUiStore((s) => s.loopEnabled[loop.id] ?? true);
 
   // Only the active tab asks main for skills and contributors; the five behind it stay idle.
   const knownSkills = useKnownSkills(selectedRepoId, active);
@@ -282,7 +283,6 @@ export function LoopTab({
             onSkill={(modifierId, skill) => setSkill(loop.id, modifierId, skill)}
             onReviewUsers={(users) => setRunOptions(loop.id, { reviewUsers: users })}
             onAutoRotate={(percent) => setRunOptions(loop.id, { autoRotatePercent: percent })}
-            onRepeat={(on) => setRunOptions(loop.id, { repeat: on })}
             onChoice={(choiceId, optionId) => setChoice(loop.id, choiceId, optionId)}
             onAgent={(next) => setAgent(loop.id, next)}
             onModel={(next: LoopModel) => setModel(loop.id, next)}

@@ -69,7 +69,6 @@ function renderComposer(overrides: Partial<Parameters<typeof LoopComposer>[0]> =
     onSkill: vi.fn(),
     onReviewUsers: vi.fn(),
     onAutoRotate: vi.fn(),
-    onRepeat: vi.fn(),
     onChoice: vi.fn(),
     onAgent: vi.fn(),
     onModel: vi.fn(),
@@ -605,13 +604,10 @@ describe('LoopComposer — run options', () => {
     expect(props.onAutoRotate).toHaveBeenCalledWith(55);
   });
 
-  it('puts the Loop switch in the Run section, on by default', () => {
-    const { props, container } = renderComposer();
-    const run = container.querySelector('[data-loop-group="run"]') as HTMLElement;
-    const loopSwitch = within(run).getByRole('switch', { name: 'Loop' }) as HTMLInputElement;
-    expect(loopSwitch.checked).toBe(true);
-    fireEvent.click(loopSwitch);
-    expect(props.onRepeat).toHaveBeenCalledWith(false);
+  it('has no Loop switch of its own — the tab bar owns it', () => {
+    const { container } = renderComposer();
+    expect(screen.queryByRole('switch', { name: 'Loop' })).toBeNull();
+    expect(container.querySelector('[data-testid="loop-repeat-row"]')).toBeNull();
   });
 
   it('chips a chosen skill, the users, an off-default rotate and a once-off run', () => {

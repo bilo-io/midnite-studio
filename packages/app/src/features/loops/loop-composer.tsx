@@ -42,7 +42,7 @@ import { resolveAgentIcon } from '../../components/icons';
 import type { IconComponent } from '../../components/icon-button';
 import { appendDictation } from '../media/voice/use-voice-thread';
 import { IconSelect, MultiIconSelect, type IconSelectOption } from '../../components/select/icon-select';
-import { LoopOptionRow, TooltipSwitchRow } from './loop-option-row';
+import { LoopOptionRow } from './loop-option-row';
 
 /**
  * A glyph per section heading — the composer's five headings were five
@@ -123,7 +123,6 @@ export function LoopComposer({
   onSkill,
   onReviewUsers,
   onAutoRotate,
-  onRepeat,
   onChoice,
   onAgent,
   onModel,
@@ -159,7 +158,7 @@ export function LoopComposer({
   contributorOptions: readonly IconSelectOption[];
   /** Rotate subagents at this percentage of their context ({@link LOOP_AUTO_ROTATE}). */
   autoRotatePercent: number;
-  /** The "Loop" switch: off runs the command once, without `/loop`. */
+  /** The tab bar's "Loop" switch (`loopEnabled`): off runs the command once, without `/loop`. */
   repeat: boolean;
   /** No repo selected — there is nowhere to run. */
   disabled: boolean;
@@ -168,7 +167,6 @@ export function LoopComposer({
   onSkill: (modifierId: string, skill: string) => void;
   onReviewUsers: (users: string[]) => void;
   onAutoRotate: (percent: number) => void;
-  onRepeat: (on: boolean) => void;
   onChoice: (choiceId: string, optionId: string) => void;
   onAgent: (agentId: string) => void;
   onModel: (model: LoopModel) => void;
@@ -260,11 +258,9 @@ export function LoopComposer({
                 skillSuggestions={skillSuggestions}
                 reviewUsers={reviewUsers}
                 contributorOptions={contributorOptions}
-                repeat={repeat}
                 onModifierToggle={onToggle}
                 onSkill={onSkill}
                 onReviewUsers={onReviewUsers}
-                onRepeat={onRepeat}
                 onChoice={onChoice}
               />
             ))}
@@ -429,11 +425,9 @@ function SettingsGroup({
   skillSuggestions,
   reviewUsers,
   contributorOptions,
-  repeat,
   onModifierToggle,
   onSkill,
   onReviewUsers,
-  onRepeat,
   onChoice,
 }: {
   loop: LoopDefinition;
@@ -448,12 +442,10 @@ function SettingsGroup({
   skillSuggestions: readonly KnownSkill[];
   reviewUsers: readonly string[];
   contributorOptions: readonly IconSelectOption[];
-  repeat: boolean;
   /** Reports a control being switched — named apart from the section's own. */
   onModifierToggle: (modifierId: string, on: boolean) => void;
   onSkill: (modifierId: string, skill: string) => void;
   onReviewUsers: (users: string[]) => void;
-  onRepeat: (on: boolean) => void;
   onChoice: (choiceId: string, optionId: string) => void;
 }) {
   const modifiers = loop.modifiers.filter((m) => m.group === group);
@@ -464,8 +456,7 @@ function SettingsGroup({
   ];
   const choices = loop.choices.filter((c) => c.group === group);
   const usersFilter = group === 'scope' && loop.reviewsPrs;
-  const loopSwitch = group === 'run';
-  if (modifiers.length === 0 && choices.length === 0 && !usersFilter && !loopSwitch) return null;
+  if (modifiers.length === 0 && choices.length === 0 && !usersFilter) return null;
 
   /*
     What the heading says while the section is shut: how many of its controls
@@ -483,17 +474,6 @@ function SettingsGroup({
       open={open}
       onToggle={onToggle}
     >
-      {loopSwitch ? (
-        <div className="flex min-w-0 items-center gap-1 pl-5" data-testid="loop-repeat-row">
-          <TooltipSwitchRow
-            id="loop-repeat"
-            label="Loop"
-            tooltip="Run on a loop with /loop. Turn off to run the command once — the session stays open in the terminal."
-            on={repeat}
-            onToggle={(_, on) => onRepeat(on)}
-          />
-        </div>
-      ) : null}
       {ordered.map((modifier) => (
         <LoopOptionRow
           key={modifier.id}
