@@ -21,7 +21,7 @@ Scope guardrails:
 
 ## Headlines
 
-*Collapsing 107 per-package CI process spawns into shared runner pools, purging 158 one-off screenshot specs and ~172 MB of unreferenced PR PNGs, migrating ~280 non-geometry E2E tests into Vitest, and rebalancing the 5-slot macOS CI budget to cut PR wall-clock from ~20m to ~5–6m.* (36% · 10/28) — **In flight 2026-10-21.**
+*Collapsing 107 per-package CI process spawns into shared runner pools, purging 158 one-off screenshot specs and ~172 MB of unreferenced PR PNGs, migrating ~280 non-geometry E2E tests into Vitest, and rebalancing the 5-slot macOS CI budget to cut PR wall-clock from ~20m to ~5–6m.* (50% · 14/28) — **In flight 2026-10-21.**
 
 **Theme A — Collapse the 36-package `gate-node` tax.** ✅ (PR #952) Consolidated 36 per-package `moon run` invocations in `gate-node` into three single-pass tasks (`root:typecheck-node`, `root:lint-all`, and `root:test-node`), collapsing 107 separate Node process spawns into shared runner pools.
 
@@ -29,7 +29,7 @@ Scope guardrails:
 
 **Theme C — Deep functional E2E diet (477 → ≤ 200 tests) and `waitForTimeout` purge.** ◻ Audit the 23 multi-test functional E2E specs (310 tests), migrate ~280 DOM/text/store assertions into Vitest across two waves (`fab-loops`, `browser-pane`, `graph-themes`, `workflows`, `footer-monitor`, `midnite-menu`, `companion-panel`, `titlebar-agents`, `ref-sync`, `reviews`, `files-view`, `councils`, `notes`, `terminal`), and replace arbitrary `page.waitForTimeout()` sleeps with web-first assertions.
 
-**Theme D — CI topology rebalance: fold `gate-locale` into `gate-native`, 4 `e2e` shards, 2 `app:test` shards.** ◻ Run the hostile-locale (`LC_ALL=de_DE.UTF-8`) test pass inside `gate-native` to eliminate a 321s macOS VM boot, reallocate the freed 5th macOS slot to `e2e` (`shard: [1, 2, 3, 4]`), and right-size `gate-node-app-test` from 4 shards to 2 shards.
+**Theme D — CI runner topology and gate-locale fold.** ✅ (PR #950) Folded `gate-locale` into `gate-native` to save a 321s macOS VM boot, expanded `e2e` to 4 macOS shards within the hard 5-slot macOS cap, and right-sized `gate-node-app-test` from 4 Ubuntu shards to 2.
 
 **Theme E — Ratchet & budget guards (`MAX_DECLARED_E2E ≤ 200`, screenshot & `waitForTimeout` bans).** ◻ Lower `MAX_DECLARED_E2E` in `scripts/e2e-budget.mjs` from 480 to ≤ 200, fail on any `docs/screenshots/` file not referenced by `README.md` or `docs/*.md`, fail on any `.screenshot({ path })` or un-allowlisted `waitForTimeout(` in functional E2E specs, and sync `docs/TESTING.md` + `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`.
 
@@ -72,10 +72,10 @@ Scope guardrails:
 
 ### D — CI topology rebalance: fold `gate-locale` into `gate-native`, 4 `e2e` shards, 2 `app:test` shards (S)
 
-- [ ] In [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml), fold the `gate-locale` step (`LC_ALL=de_DE.UTF-8 pnpm exec moon run desktop:test git-engine:test`) into `gate-native` as a subsequent step (or run `gate-native`'s test step under `LC_ALL=de_DE.UTF-8` directly if all tests are locale-clean) and delete the standalone `gate-locale` job — saving a full macOS VM boot, checkout, and `pnpm install` (~90s overhead) and freeing 1 of the 5 concurrent macOS runner slots.
-- [ ] Expand `e2e`'s matrix in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) from `shard: [1, 2, 3]` to `shard: [1, 2, 3, 4]` (`--shard=${{ matrix.shard }}/4`) and lower `timeout-minutes` from `30` to `15`. Total macOS jobs on a PR remain **5** (`1 gate-native + 4 e2e`), respecting the hard 5-job macOS concurrency cap with zero queueing.
-- [ ] Reduce `gate-node-app-test` in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) from `shard: [1, 2, 3, 4]` to `shard: [1, 2]` (`--shard=${{ matrix.shard }}/2`), saving two Ubuntu runner setups (~170s of duplicate install overhead) while keeping shard wall-clock around ~3.5–4.5 minutes.
-- [ ] Update the concurrency and timing comments in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml), [`CLAUDE.md`](../../../CLAUDE.md), [`AGENTS.md`](../../../AGENTS.md), and [`GEMINI.md`](../../../GEMINI.md) to reflect the 1 `gate-native` + 4 `e2e` macOS layout.
+- [x] In [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml), fold the `gate-locale` step (`LC_ALL=de_DE.UTF-8 pnpm exec moon run desktop:test git-engine:test`) into `gate-native` as a subsequent step (or run `gate-native`'s test step under `LC_ALL=de_DE.UTF-8` directly if all tests are locale-clean) and delete the standalone `gate-locale` job — saving a full macOS VM boot, checkout, and `pnpm install` (~90s overhead) and freeing 1 of the 5 concurrent macOS runner slots.
+- [x] Expand `e2e`'s matrix in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) from `shard: [1, 2, 3]` to `shard: [1, 2, 3, 4]` (`--shard=${{ matrix.shard }}/4`) and lower `timeout-minutes` from `30` to `15`. Total macOS jobs on a PR remain **5** (`1 gate-native + 4 e2e`), respecting the hard 5-job macOS concurrency cap with zero queueing.
+- [x] Reduce `gate-node-app-test` in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) from `shard: [1, 2, 3, 4]` to `shard: [1, 2]` (`--shard=${{ matrix.shard }}/2`), saving two Ubuntu runner setups (~170s of duplicate install overhead) while keeping shard wall-clock around ~3.5–4.5 minutes.
+- [x] Update the concurrency and timing comments in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml), [`CLAUDE.md`](../../../CLAUDE.md), [`AGENTS.md`](../../../AGENTS.md), and [`GEMINI.md`](../../../GEMINI.md) to reflect the 1 `gate-native` + 4 `e2e` macOS layout.
 
 ### E — Ratchet & budget guards (`MAX_DECLARED_E2E ≤ 200`, screenshot & `waitForTimeout` bans) (S)
 
