@@ -44,6 +44,7 @@ import { STUDIO_SLIDES_HOST } from './compose/slides-host';
 import { StudioProviders } from './compose/studio-providers';
 import { useContentBoundsSync } from './store/content-bounds-store';
 import { ErrorBoundary } from './components/error-boundary';
+import { ReportIssueHost } from './components/report-issue-dialog';
 import { ToastHost } from './components/toast-host';
 import {
   AGENT_NAV_ITEMS,
@@ -2166,6 +2167,7 @@ export function App() {
       </ErrorBoundary>
       <ScreensaverHost />
       <KillSwitchModal />
+      <ReportIssueHost />
     </ShellProviders>
   );
 }

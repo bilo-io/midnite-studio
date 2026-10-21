@@ -321,6 +321,12 @@ export const COMMANDS = [
   { id: 'app.lock', label: 'Lock Screen', group: 'view', chord: 'Mod+Shift+l' },
   { id: 'app.screensaver', label: 'Start Screensaver', group: 'view' },
   /**
+   * Opens the report-an-issue dialog from anywhere — the Help menu and the palette — rather than
+   * only from Settings ▸ Monitor and the release-notes panel. Chord-free: it is rare, and nothing is
+   * filed until the dialog's own Submit.
+   */
+  { id: 'app.reportIssue', label: 'Report an Issue…', group: 'view' },
+  /**
    * Mod+Shift+g navigates to the Graph view from anywhere. `app` scope like
    * `repos.toggle`: you rarely need this while mid-command with the terminal
    * focused, and it must not conflict with the terminal's own Ctrl+G binding.

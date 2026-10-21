@@ -175,6 +175,11 @@ export function buildMenu(getMainWindow: () => BrowserWindow | null): Menu {
       submenu: [item('sync.fetch'), item('sync.pull'), item('sync.push')],
     },
     { role: 'windowMenu' },
+    {
+      // `role: 'help'` is what puts macOS's own menu-search field at the top of this menu.
+      role: 'help',
+      submenu: [itemNoAccelerator('app.reportIssue')],
+    },
   ];
 
   return Menu.buildFromTemplate(template);
