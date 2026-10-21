@@ -82,6 +82,16 @@ describe('LoopComposer — idle', () => {
     expect(switches.length).toBeGreaterThan(0);
   });
 
+  it('lists Patrol\'s task boxes with Routine first and "Reply to PRs" in place of "Answer feedback"', () => {
+    const { container } = renderComposer();
+    const tasks = container.querySelector('[data-loop-group="tasks"]') as HTMLElement;
+    const names = within(tasks)
+      .getAllByRole('checkbox')
+      .map((box) => box.getAttribute('aria-label') ?? box.closest('label')?.textContent?.trim());
+    expect(names).toEqual(['Routine', 'Review PRs', 'Reply to PRs', 'Security review']);
+    expect(screen.queryByRole('checkbox', { name: 'Answer feedback' })).toBeNull();
+  });
+
   it('groups the controls under their section headings, in declared order', () => {
     const { container } = renderComposer();
     const sections = [...container.querySelectorAll('[data-loop-group]')].map(

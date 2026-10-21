@@ -13,7 +13,7 @@
  * is the difference between a wall of identical boxes and a form you can read:
  *
  * - **checkbox** ({@link LoopModifier} with `control: 'checkbox'`) — additive,
- *   many-of-N. "Review PRs" *and* "Answer feedback" is a coherent run.
+ *   many-of-N. "Review PRs" *and* "Reply to PRs" is a coherent run.
  * - **switch** ({@link LoopModifier} with `control: 'switch'`) — a standing
  *   policy that is either in force or not. "Auto-merge green PRs" is not one
  *   item in a list of jobs; it is a mode the whole run is in.
@@ -652,6 +652,19 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * `.claude/skills/`, so `Triage only` is a no-op in a checkout that does not carry
  * it. A per-modifier registry is the fix; it is deliberately not this change.
  */
+/**
+ * Patrol's "Routine" box — the one rule a patrol pass applies to PRs carrying
+ * the `routine` label. Exported so the composer test can assert the line
+ * carries it exactly when the box is on.
+ *
+ * Three promises, all load-bearing: it touches only labelled PRs, it approves
+ * only when the review turns up nothing critical, and the approval says
+ * "LGTM" or "🚀" and nothing else — the findings, if any, are left as review
+ * comments the way an ordinary review leaves them.
+ */
+export const ROUTINE_PR_FRAGMENT =
+  'Routine PRs: on each pass, list the open PRs carrying the `routine` label and review each one; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. PRs without the `routine` label are unaffected by this rule.';
+
 export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
   {
     id: 'guard',
@@ -882,6 +895,20 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     requiresModifier: true,
     modifiers: [
       {
+        // First and on by default: PRs someone has labelled `routine` are the
+        // ones the owner has already said need no deliberation, so a patrol
+        // pass clears them without being asked. It only *adds* a rule for that
+        // label — unlabelled PRs get whatever the boxes below say, or nothing.
+        // The approval body is the repo's own convention: "LGTM" or "🚀" only.
+        id: 'routine',
+        label: 'Routine',
+        promptFragment: ROUTINE_PR_FRAGMENT,
+        group: 'tasks',
+        control: 'checkbox',
+        providesTask: true,
+        defaultOn: true,
+      },
+      {
         id: 'pr-review',
         label: 'Review PRs',
         promptFragment: '/pr-review',
@@ -891,8 +918,10 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         defaultOn: true,
       },
       {
+        // The id predates the label: it is persisted in `loopModifierDefaults`,
+        // so the rename stops at what the box says.
         id: 'pr-feedback',
-        label: 'Answer feedback',
+        label: 'Reply to PRs',
         promptFragment: '/pr-feedback',
         group: 'tasks',
         control: 'checkbox',
@@ -912,7 +941,7 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         id: 'triage-only',
         label: 'Triage only',
         promptFragment:
-          'Triage only: ignore any review or feedback skill named above — run /midnite-triage instead and report only its summary table. Leave no reviews, merge nothing and push no fixes.',
+          'Triage only: ignore any review or feedback skill named above, and the routine-PR approval rule — run /midnite-triage instead and report only its summary table. Leave no reviews, merge nothing and push no fixes.',
         group: 'run',
         control: 'switch',
         providesTask: true,
