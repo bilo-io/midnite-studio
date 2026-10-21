@@ -21,12 +21,14 @@ import {
   DEFAULT_LOOPS,
   LOOP_GROUPS,
   agentFitness,
+  isCustomLoop,
   effectiveContextLength,
   type AgentDefinition,
   type AgentMode,
   type AgentProbeState,
   type AgentStatus,
   type ClaudeInfo,
+  type LoopDefinition,
   type SkillExecutionMode,
 } from '@midnite/studio-shared';
 
@@ -39,6 +41,8 @@ import { openInMidnite } from '../../../services/open-in-midnite';
 import { useHookStatus, useRepos, useSetHookInstalled } from '../../../services/queries';
 import { DEFAULT_AGENT_SKILLS, useUiStore } from '../../../store/ui-store';
 import { AGENT_COMMANDS } from '../../agent/agent-commands';
+import { loopSpectrumProps } from '../../loops/loop-spectrum';
+import { loopLabel } from '../../loops/use-all-loops';
 import { loopIcon } from '../../loops/loop-icons';
 import { recheckAgents } from '../../agent/agent-probe-store';
 import { useAgents } from '../../terminal/use-agents';
@@ -739,18 +743,29 @@ function SkillFields() {
 function LoopDefaultFields() {
   const defaults = useUiStore((s) => s.loopModifierDefaults);
   const setDefault = useUiStore((s) => s.setLoopModifierDefault);
+  /*
+    The user's own loops (`customLoops`, authored in the FAB panel's Edit mode)
+    follow the built-ins, grouped by their own named sections rather than the
+    three registry groups — the same rows the panel draws for them.
+  */
+  const customLoops = useUiStore((s) => s.customLoops);
+  const loops: readonly LoopDefinition[] = [...DEFAULT_LOOPS, ...customLoops];
 
   return (
     <div className="flex flex-col gap-3">
-      {DEFAULT_LOOPS.map((loop, index) => {
+      {loops.map((loop, index) => {
         const Icon = loopIcon(loop.icon);
         return (
           <Fragment key={loop.id}>
             {index > 0 ? <hr className="border-border" /> : null}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                <Icon aria-hidden className={`h-3.5 w-3.5 shrink-0 ${loop.color}`} />
-                {loop.label}
+                <Icon
+                  aria-hidden
+                  className={`h-3.5 w-3.5 shrink-0 ${loop.color}`}
+                  style={loopSpectrumProps(loop).style}
+                />
+                {loopLabel(loop)}
               </div>
               {loop.modifiers.length === 0 ? (
                 <p className="text-[11px] text-muted-foreground">No toggles.</p>
@@ -762,8 +777,8 @@ function LoopDefaultFields() {
                   right now"; `modifier.promptFragment` carries that context
                   as the row's own tooltip rather than a second line of text.
                 */
-                LOOP_GROUPS.map((group) => {
-                  const modifiers = loop.modifiers.filter((m) => m.group === group.id);
+                loopDefaultSections(loop).map((group) => {
+                  const modifiers = group.modifiers;
                   if (modifiers.length === 0) return null;
                   return (
                     <Fragment key={group.id}>
@@ -791,6 +806,31 @@ function LoopDefaultFields() {
       })}
     </div>
   );
+}
+
+/**
+ * The headed groups a loop's defaults are listed under: a built-in's three
+ * registry groups, or a custom loop's own sections followed by the shared Run
+ * switches.
+ */
+function loopDefaultSections(
+  loop: LoopDefinition,
+): { id: string; label: string; modifiers: LoopDefinition['modifiers'] }[] {
+  if (!isCustomLoop(loop)) {
+    return LOOP_GROUPS.map((group) => ({
+      id: group.id,
+      label: group.label,
+      modifiers: loop.modifiers.filter((m) => m.group === group.id),
+    }));
+  }
+  return [
+    ...loop.sections.map((section) => ({
+      id: section.id,
+      label: section.label || 'Untitled section',
+      modifiers: loop.modifiers.filter((m) => m.section === section.id && m.label.length > 0),
+    })),
+    { id: 'run', label: 'Run', modifiers: loop.modifiers.filter((m) => m.section === undefined) },
+  ];
 }
 
 function ClaudeCard({ info, onRefresh }: { info: ClaudeInfo | undefined; onRefresh: () => void }) {

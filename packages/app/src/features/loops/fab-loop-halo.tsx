@@ -1,10 +1,8 @@
-import { DEFAULT_LOOPS } from '@midnite/studio-shared';
-
 import { useWindowFocused } from '../../lib/use-window-focus';
 import type { FabTab } from '../../store/ui-store';
 import { useAllLoopStatuses } from './loop-status';
-
-const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
+import { loopSpectrumProps } from './loop-spectrum';
+import { useAllLoops } from './use-all-loops';
 
 /**
  * The collapsed FAB's outer glow — the panel's inner rim, turned inside out.
@@ -37,6 +35,8 @@ const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
  */
 export function FabLoopHalo({ tab, compact = false }: { tab: FabTab; compact?: boolean }) {
   const { running, waiting, thinking } = useAnyLoopRunning();
+  // A custom active tab has no row in `styles.css`; its arc rides inline.
+  const spectrum = loopSpectrumProps(useAllLoops().find((loop) => loop.id === tab));
   /*
     The pulse only runs while this window has focus, the gate Phase 36 Theme E
     put on every permanently-running animation. Blurred, the halo keeps its
@@ -53,6 +53,7 @@ export function FabLoopHalo({ tab, compact = false }: { tab: FabTab; compact?: b
       aria-hidden
       data-testid="fab-loop-halo"
       data-fab-tab={tab}
+      {...spectrum}
       /*
         Behind the button, not over it. The halo's own disc is opaque and a
         little larger than the button, so what shows is the blurred collar
@@ -88,7 +89,7 @@ export function fabGlowClass(loopsRunning: LoopsRunning): string {
 
 /** Whether any loop is live — what puts the gradient glow on the FAB itself. */
 export function useAnyLoopRunning(): LoopsRunning {
-  const statuses = useAllLoopStatuses(LOOP_IDS);
+  const statuses = useAllLoopStatuses(useAllLoops().map((loop) => loop.id));
   const waiting = statuses.some((s) => s.waiting);
   return {
     running: statuses.some((s) => s.running),

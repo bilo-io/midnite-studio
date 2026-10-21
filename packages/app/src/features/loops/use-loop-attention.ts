@@ -1,11 +1,9 @@
-import { DEFAULT_LOOPS } from '@midnite/studio-shared';
 import { useEffect, useRef } from 'react';
 
 import { useAllLoopStatuses } from './loop-status';
+import { loopLabel, useAllLoops } from './use-all-loops';
 import { useToastStore } from '../../store/toast-store';
 import { useUiStore, type FabTab } from '../../store/ui-store';
-
-const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
 
 /**
  * Notify once when a live loop starts waiting on you (Phase 35 Theme E).
@@ -20,7 +18,8 @@ const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
  * separate questions produces three. Going not-waiting rearms it.
  */
 export function useLoopAttention(): void {
-  const statuses = useAllLoopStatuses(LOOP_IDS);
+  const loops = useAllLoops();
+  const statuses = useAllLoopStatuses(loops.map((loop) => loop.id));
   const openFabTab = useUiStore((s) => s.openFabTab);
   const wasWaiting = useRef<Record<string, boolean>>({});
 
@@ -36,18 +35,22 @@ export function useLoopAttention(): void {
     thing this effect cares about changes.
   */
   const waitingMask = statuses.map((status) => (status.waiting ? '1' : '0')).join('');
+  // Custom loops come and go, so the mask's positions are only meaningful
+  // against the list they were read from — the effect re-reads it with them.
+  const loopsRef = useRef(loops);
+  loopsRef.current = loops;
 
   useEffect(() => {
-    DEFAULT_LOOPS.forEach((loop, index) => {
+    loopsRef.current.forEach((loop, index) => {
       const waiting = waitingMask[index] === '1';
       const previously = wasWaiting.current[loop.id] ?? false;
       wasWaiting.current[loop.id] = waiting;
       if (!waiting || previously) return;
 
       useToastStore.getState().addToast({
-        message: `${loop.label} is waiting for input.`,
+        message: `${loopLabel(loop)} is waiting for input.`,
         status: 'warning',
-        action: { label: `Open ${loop.label}`, onAction: () => openFabTab(loop.id as FabTab) },
+        action: { label: `Open ${loopLabel(loop)}`, onAction: () => openFabTab(loop.id as FabTab) },
       });
     });
   }, [waitingMask, openFabTab]);
