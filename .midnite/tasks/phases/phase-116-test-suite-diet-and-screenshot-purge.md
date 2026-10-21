@@ -21,9 +21,9 @@ Scope guardrails:
 
 ## Headlines
 
-*Collapsing 107 per-package CI process spawns into shared runner pools, purging 158 one-off screenshot specs and ~172 MB of unreferenced PR PNGs, migrating ~280 non-geometry E2E tests into Vitest, and rebalancing the 5-slot macOS CI budget to cut PR wall-clock from ~20m to ~5–6m.* (18% · 5/28) — **Planned 2026-10-21.**
+*Collapsing 107 per-package CI process spawns into shared runner pools, purging 158 one-off screenshot specs and ~172 MB of unreferenced PR PNGs, migrating ~280 non-geometry E2E tests into Vitest, and rebalancing the 5-slot macOS CI budget to cut PR wall-clock from ~20m to ~5–6m.* (36% · 10/28) — **In flight 2026-10-21.**
 
-**Theme A — Collapse the 36-package `gate-node` tax.** ◻ Add a root Vitest `projects` configuration (`vitest.workspace.ts` / root `vitest.config.ts`) covering all 35 `gate-node` packages (excluding `app:test`) in one shared worker pool, plus a single-pass `root:lint-all` (`eslint . --cache`), cutting `gate-node` from 885s (14m45s) to ~120s.
+**Theme A — Collapse the 36-package `gate-node` tax.** ✅ (PR #952) Consolidated 36 per-package `moon run` invocations in `gate-node` into three single-pass tasks (`root:typecheck-node`, `root:lint-all`, and `root:test-node`), collapsing 107 separate Node process spawns into shared runner pools.
 
 **Theme B — Purge the 158 `*-shots.spec.ts` files, 54 inline E2E screenshots, and ~172 MB of unreferenced PNGs.** ✅ (PR #951) Purged 1,475 unreferenced PNGs from `docs/screenshots/` (~178 MB saved, keeping 10 referenced), deleted 159 screenshot specs (`packages/app/e2e/*-shots.spec.ts` and `shots.spec.ts`), stripped 47 disk-writing screenshot blocks across 18 functional specs, and updated skills to direct visual verification shots to `/tmp/`.
 
@@ -37,11 +37,11 @@ Scope guardrails:
 
 ### A — Collapse the 36-package `gate-node` tax (M)
 
-- [ ] Add a workspace-level Vitest multi-project configuration (`vitest.node-gate.config.ts`, wired as `moon run root:test-node`) that registers the 35 node-portable packages in `NODE_PROJECTS` (from [`scripts/gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs), excluding `app` which runs in `gate-node-app-test`) plus `scripts/**/*.test.mjs` as Vitest `projects`, so Vitest boots once and shares one worker pool instead of spawning 35 separate Node/Vite processes.
-- [ ] Add a `root:lint-all` task in [`moon.yml`](../../../moon.yml) running `pnpm exec eslint . --cache --cache-location .moon/cache/eslint/` once across the workspace, instead of invoking `pnpm exec eslint .` 36 separate times per package in `gate-node`.
-- [ ] Add a batched `root:typecheck-node` task (or parallel `tsc --noEmit` runner script) covering the 36 `NODE_PROJECTS` packages without moon's sequential 36-task process-spawn overhead, while keeping [`scripts/gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs) verifying 100% package coverage.
-- [ ] Update [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)'s `gate-node` job to invoke the consolidated root tasks (`root:typecheck-node`, `root:lint-all`, `root:test-node`), while preserving individual `<pkg>:typecheck`, `<pkg>:lint`, and `<pkg>:test` tasks in [`.moon/tasks/typescript.yml`](../../../.moon/tasks/typescript.yml) for targeted local runs.
-- [ ] Measure and record `gate-node` wall-clock time on CI before and after (target: **885s → ~120–180s**).
+- [x] Add a workspace-level Vitest multi-project configuration (`vitest.node-gate.config.ts`, wired as `moon run root:test-node`) that registers the 35 node-portable packages in `NODE_PROJECTS` (from [`scripts/gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs), excluding `app` which runs in `gate-node-app-test`) plus `scripts/**/*.test.mjs` as Vitest `projects`, so Vitest boots once and shares one worker pool instead of spawning 35 separate Node/Vite processes.
+- [x] Add a `root:lint-all` task in [`moon.yml`](../../../moon.yml) running `pnpm exec eslint . --cache --cache-location .moon/cache/eslint/` once across the workspace, instead of invoking `pnpm exec eslint .` 36 separate times per package in `gate-node`.
+- [x] Add a batched `root:typecheck-node` task (or parallel `tsc --noEmit` runner script) covering the 36 `NODE_PROJECTS` packages without moon's sequential 36-task process-spawn overhead, while keeping [`scripts/gate-projects-check.mjs`](../../../scripts/gate-projects-check.mjs) verifying 100% package coverage.
+- [x] Update [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml)'s `gate-node` job to invoke the consolidated root tasks (`root:typecheck-node`, `root:lint-all`, `root:test-node`), while preserving individual `<pkg>:typecheck`, `<pkg>:lint`, and `<pkg>:test` tasks in [`.moon/tasks/typescript.yml`](../../../.moon/tasks/typescript.yml) for targeted local runs.
+- [x] Measure and record `gate-node` wall-clock time on CI before and after (target: **885s → ~120–180s**).
 
 ### B — Purge the 158 `*-shots.spec.ts` files, 54 inline E2E screenshots, and ~172 MB of unreferenced PNGs (M)
 
