@@ -164,7 +164,7 @@ page to revoke individual permissions or reset all with a confirmation dialog, a
 insecure forms) and from switchable feeds second (URLhaus/OpenPhish, retire.js-style library
 signatures against an offline OSV snapshot), rendered as an interstitial or an address-bar badge.
 
-**Theme D — Downloads with a quarantine.** ✅ [PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD).
+**Theme D — Downloads with a quarantine.** ✅ [PR #974](https://github.com/bilo-io/midnite-studio/pull/974).
 Off by default (every download still cancelled); Settings ▸ Browser ▸ Downloads turns on a quarantine
 folder (`~/Downloads/Midnite Quarantine`, 0700). A pure `download-policy.ts` classifies by last extension
 (documents/media/images allowed; archives, disk images, installers, scripts, executables and unknown
@@ -177,7 +177,7 @@ refusal is a seam (`originVerdict`), wired when Theme C lands; there is no downl
 "open from the list" confirm has nothing to guard yet; the packaged-app `xattr -p` check stays in the
 manual pass.
 
-**Theme E — Tracker and fingerprinting protection.** ✅ [PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD).
+**Theme E — Tracker and fingerprinting protection.** ✅ [PR #974](https://github.com/bilo-io/midnite-studio/pull/974).
 `browser-request-filter.ts` owns the three `webRequest` listeners on `persist:browser` only (web-app
 partitions are exempt): `onBeforeRequest` cancels third-party requests matching the bundled **EasyPrivacy**
 list, `onBeforeSendHeaders` strips third-party `Cookie` and applies `strict-origin-when-cross-origin` to

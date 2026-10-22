@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-22 — Phase 117 Themes D + E — Quarantined downloads; tracker and fingerprinting protection
 
-[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). Opt-in downloads land in a 0700 quarantine folder with `com.apple.quarantine` set, a type/size policy, a SHA-256 + Gatekeeper + optional clamscan record in `downloads.ndjson`, and never auto-open. `persist:browser` gets a `webRequest` pipeline: bundled EasyPrivacy blocklist (licence recorded), third-party cookie stripping both ways, trimmed Referer, reduced UA, a per-tab blocked counter and per-site exceptions.
+[PR #974](https://github.com/bilo-io/midnite-studio/pull/974). Opt-in downloads land in a 0700 quarantine folder with `com.apple.quarantine` set, a type/size policy, a SHA-256 + Gatekeeper + optional clamscan record in `downloads.ndjson`, and never auto-open. `persist:browser` gets a `webRequest` pipeline: bundled EasyPrivacy blocklist (licence recorded), third-party cookie stripping both ways, trimmed Referer, reduced UA, a per-tab blocked counter and per-site exceptions.
 
 ## 2026-10-22 — Phase 117 Theme A — Isolation and the Chromium floor
 
