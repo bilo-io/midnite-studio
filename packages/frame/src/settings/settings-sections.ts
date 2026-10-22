@@ -146,6 +146,8 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('Memory'),
     section('Spellcheck'),
     section('Site permissions'),
+    section('Downloads'),
+    section('Privacy'),
     section('Data'),
   ],
   'web-apps': [

@@ -1862,6 +1862,17 @@ export type UiState = {
   /** Phase 117 Theme B — whether spellchecking is enabled in the browser partition. */
   browserSpellcheck: boolean;
   setBrowserSpellcheck: (spellcheck: boolean) => void;
+  /** Phase 117 Theme D — opt-in downloads; `folder: ''` is the default quarantine folder. */
+  browserDownloads: { enabled: boolean; folder: string };
+  setBrowserDownloads: (downloads: { enabled: boolean; folder: string }) => void;
+  /** Phase 117 Theme E — tracker blocking, third-party cookies, referrer trimming, reduced UA. */
+  browserPrivacy: {
+    blockTrackers: boolean;
+    blockThirdPartyCookies: boolean;
+    trimReferrer: boolean;
+    reduceUserAgent: boolean;
+  };
+  setBrowserPrivacy: (privacy: UiState['browserPrivacy']) => void;
   /**
    * Phase 64 Theme C — the Files-view Monaco editor's own preferences,
    * mirroring the terminal font trio above exactly. `editorFontFamily: ''` is
@@ -2351,6 +2362,8 @@ export type PersistedUi = Pick<
   | 'terminalDisposeAfterMs'
   | 'browserDiscardMs'
   | 'browserSpellcheck'
+  | 'browserDownloads'
+  | 'browserPrivacy'
   | 'editorFontFamily'
   | 'editorFontSize'
   | 'editorMinimap'
@@ -2581,6 +2594,10 @@ export const useUiStore = create<UiState>()(
         set({ browserSpellcheck });
         bridge()?.browser.setSpellcheck({ enabled: browserSpellcheck });
       },
+      browserDownloads: { enabled: false, folder: '' },
+      setBrowserDownloads: (browserDownloads) => set({ browserDownloads }),
+      browserPrivacy: { blockTrackers: true, blockThirdPartyCookies: true, trimReferrer: true, reduceUserAgent: true },
+      setBrowserPrivacy: (browserPrivacy) => set({ browserPrivacy }),
       editorFontFamily: '',
       setEditorFontFamily: (editorFontFamily) => set({ editorFontFamily }),
       editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
@@ -3570,6 +3587,8 @@ export const useUiStore = create<UiState>()(
         terminalDisposeAfterMs: state.terminalDisposeAfterMs,
         browserDiscardMs: state.browserDiscardMs,
         browserSpellcheck: state.browserSpellcheck,
+        browserDownloads: state.browserDownloads,
+        browserPrivacy: state.browserPrivacy,
         editorFontFamily: state.editorFontFamily,
         editorFontSize: state.editorFontSize,
         editorMinimap: state.editorMinimap,
