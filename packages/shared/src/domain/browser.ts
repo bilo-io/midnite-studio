@@ -35,6 +35,20 @@ export const BrowserPermissionRecordSchema = z.object({
 });
 export type BrowserPermissionRecord = z.infer<typeof BrowserPermissionRecordSchema>;
 
+/** What a downloaded file is, by extension — drives the confirm policy (Phase 117 Theme D). */
+export const DownloadFileClassSchema = z.enum([
+  'document',
+  'media',
+  'image',
+  'archive',
+  'disk-image',
+  'installer',
+  'script',
+  'executable',
+  'other',
+]);
+export type DownloadFileClass = z.infer<typeof DownloadFileClassSchema>;
+
 /**
  * Default idle threshold before a hidden browser tab's `WebContentsView` is
  * discarded (Phase 84 Theme F) — `Settings ▸ Browser`'s own field, and the
@@ -209,7 +223,44 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
    * A download was cancelled. Downloads are out of scope this phase, and
    * cancelling loudly (a notice naming the file) beats dropping silently.
    */
-  z.object({ kind: z.literal('download-blocked'), tabId: BrowserTabIdSchema, filename: z.string() }),
+  z.object({
+    kind: z.literal('download-blocked'),
+    tabId: BrowserTabIdSchema,
+    filename: z.string(),
+    /** Why (Phase 117 Theme D): absent when downloads are simply off. */
+    reason: z.string().optional(),
+  }),
+  /**
+   * A download the policy wants confirmed before any byte is written (Phase 117 Theme D) —
+   * answered with `browser.respondDownload`.
+   */
+  z.object({
+    kind: z.literal('download-request'),
+    tabId: BrowserTabIdSchema,
+    requestId: z.string(),
+    filename: z.string(),
+    size: z.number(),
+    origin: z.string(),
+    fileClass: DownloadFileClassSchema,
+  }),
+  /** A download finished and was quarantined and recorded (Phase 117 Theme D). */
+  z.object({
+    kind: z.literal('download-done'),
+    tabId: BrowserTabIdSchema,
+    filename: z.string(),
+    path: z.string(),
+    sha256: z.string(),
+    quarantined: z.boolean(),
+    gatekeeper: z.string().optional(),
+    scan: z.string().optional(),
+  }),
+  /** Third-party requests blocked on this page so far (Phase 117 Theme E) — the badge counter. */
+  z.object({
+    kind: z.literal('trackers-blocked'),
+    tabId: BrowserTabIdSchema,
+    count: z.number(),
+    hosts: z.array(z.string()),
+  }),
   /**
    * DevTools were asked for on a page whose view was created with `devTools: false` (Phase 117
    * Theme A: a packaged build, without `MSTUDIO_DEVTOOLS=1`). `openDevTools()` is a silent no-op
