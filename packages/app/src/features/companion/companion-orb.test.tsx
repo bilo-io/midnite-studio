@@ -8,8 +8,11 @@ import {
   computeSphericalHarmonicVertex,
   ORB_FIBONACCI_NODES,
   ORB_FOG_CLOUD_COUNT,
+  ORB_INNER_SHELL_NODES,
   ORB_PARTICLE_COUNT,
   ORB_STATE_PROFILES,
+  ORB_ZEN_GLOW_BLEED,
+  orbCoronaRadius,
   readCompanionSpeechLevel,
 } from './companion-orb';
 import { CompanionPanel } from './companion-panel';
@@ -54,9 +57,32 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
   });
 
   it('exposes volumetric 3D counts for Fibonacci shell, fog clouds, and particle swarm', () => {
-    expect(ORB_FIBONACCI_NODES).toBeGreaterThanOrEqual(64);
+    expect(ORB_FIBONACCI_NODES).toBeGreaterThanOrEqual(144);
+    expect(ORB_INNER_SHELL_NODES).toBeGreaterThanOrEqual(34);
     expect(ORB_FOG_CLOUD_COUNT).toBeGreaterThanOrEqual(24);
-    expect(ORB_PARTICLE_COUNT).toBeGreaterThanOrEqual(80);
+    expect(ORB_PARTICLE_COUNT).toBeGreaterThanOrEqual(250);
+  });
+
+  it('keeps the corona inside the canvas while it breathes and swells with speech', () => {
+    const half = 150;
+    for (const speech of [0, 0.5, 1]) {
+      for (const breath of [-1, 0, 1]) {
+        expect(orbCoronaRadius(100, speech, breath, half)).toBeLessThanOrEqual(half);
+      }
+    }
+    // Breathing changes the radius when there is room for it.
+    expect(orbCoronaRadius(50, 0, 1, 1000)).toBeGreaterThan(orbCoronaRadius(50, 0, -1, 1000));
+  });
+
+  it('lets the zen canvas bleed past its box so the glow is not cut off, while the docked canvas fills its box', () => {
+    const { rerender } = render(<CompanionOrb state="idle" zen />);
+    const canvas = screen.getByTestId('companion-orb-canvas');
+    const bleed = `${ORB_ZEN_GLOW_BLEED * 100}%`;
+    expect(canvas.style.left).toBe(`-${bleed}`);
+    expect(canvas.style.width).toBe(`${(1 + 2 * ORB_ZEN_GLOW_BLEED) * 100}%`);
+
+    rerender(<CompanionOrb state="idle" />);
+    expect(screen.getByTestId('companion-orb-canvas').style.width).toBe('');
   });
 
   it('reads and clamps --companion-level from document.documentElement', () => {
@@ -133,6 +159,8 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
           strokeCalls += 1;
         }),
         createRadialGradient: vi.fn(() => mockGrad),
+        fillRect: vi.fn(),
+        globalCompositeOperation: 'source-over',
         fillStyle: '',
         strokeStyle: '',
         lineWidth: 1,
@@ -155,7 +183,7 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
       expect(firstCb).toBeDefined();
       firstCb?.(16);
 
-      // Should draw corona + 34 fog clouds + 88 geodesic nodes + 110 particles + vocal shells
+      // Should draw corona + core + fog clouds + both lattices + particles + vocal shells
       expect(arcCalls).toBeGreaterThan(ORB_FOG_CLOUD_COUNT + ORB_FIBONACCI_NODES);
       expect(strokeCalls).toBeGreaterThan(20);
 

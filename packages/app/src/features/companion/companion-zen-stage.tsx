@@ -96,17 +96,27 @@ export function CompanionZenStage({ state }: { state: CompanionState }) {
 
       {/* Centre stage: agent · orb · user. */}
       <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-center gap-6 px-8">
-        <div className="flex min-w-0 flex-1 justify-end">
+        {/* z-10: the orb's canvas bleeds under both bubbles, which must stay on top of it. */}
+        <div className="relative z-10 flex min-w-0 flex-1 justify-end">
           {lastAgent ? <ZenAgentBubble key={lastAgent.id} turn={lastAgent} state={state} /> : null}
         </div>
         <div data-testid="companion-zen-orb" className="relative shrink-0">
+          {/*
+            A radial gradient, not a box-shadow: an outer shadow is never painted
+            inside its own box, which left a dark disc with a hard edge behind the orb.
+          */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-[12%] rounded-full shadow-[0_0_120px_30px_hsl(var(--primary)/0.25)] motion-safe:animate-pulse"
+            data-testid="companion-zen-orb-halo"
+            className="pointer-events-none absolute -inset-[25%] rounded-full motion-safe:animate-pulse"
+            style={{
+              background:
+                'radial-gradient(circle, hsl(var(--primary) / 0.24) 0%, hsl(var(--primary) / 0.1) 40%, transparent 70%)',
+            }}
           />
           <CompanionOrb state={state} zen />
         </div>
-        <div className="flex min-w-0 flex-1 justify-start">
+        <div className="relative z-10 flex min-w-0 flex-1 justify-start">
           {lastUser ? <ZenUserBubble key={lastUser.id} turn={lastUser} /> : null}
         </div>
       </div>

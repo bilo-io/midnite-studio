@@ -94,9 +94,40 @@ export const ORB_STATE_PROFILES: Record<CompanionState, OrbStateVisualProfile> =
   },
 };
 
-export const ORB_FIBONACCI_NODES = 88;
-export const ORB_FOG_CLOUD_COUNT = 34;
-export const ORB_PARTICLE_COUNT = 110;
+export const ORB_FIBONACCI_NODES = 144;
+/** A smaller counter-rotating lattice inside the outer shell. */
+export const ORB_INNER_SHELL_NODES = 55;
+export const ORB_FOG_CLOUD_COUNT = 40;
+export const ORB_PARTICLE_COUNT = 280;
+
+/**
+ * How far the Zen canvas reaches past its layout box on every side, as a
+ * fraction of that box. The corona blooms to ~2.4x the orb's radius, which a
+ * canvas the size of the box would cut off square; the orb itself is still
+ * sized from the box, so only the glow uses the extra room.
+ */
+export const ORB_ZEN_GLOW_BLEED = 0.35;
+
+/**
+ * Where the edge mask starts fading, as a fraction of the canvas's half-extent.
+ * Everything drawn fades to nothing by the half-extent itself, so no layer can
+ * meet the canvas edge with a hard line, whatever its radius.
+ */
+export const ORB_EDGE_FADE_START = 0.82;
+
+/**
+ * The corona's outer radius: grows with speech and breathes with `breath`
+ * (-1..1), but never past `maxRadius`, so its gradient always reaches
+ * transparent inside the canvas.
+ */
+export function orbCoronaRadius(
+  baseRadius: number,
+  speech: number,
+  breath: number,
+  maxRadius: number,
+): number {
+  return Math.min(maxRadius, baseRadius * (1.85 + speech * 0.35) * (1 + breath * 0.07));
+}
 
 type FogCloud3D = {
   theta: number;
@@ -177,16 +208,23 @@ export function computeSphericalHarmonicVertex(
  * 3D Jarvis-inspired Volumetric Spherical Orb Visualizer for the Companion.
  *
  * Built on `@midnite/studio-frame`'s `rotate3D` and `project3D` foundation:
- * - **Volumetric Fog / Cloud Nebula Core**: 34 depth-sorted 3D radial nebula clouds
+ * - **Breathing Corona & Bright Core**: a radial halo that pulses in size and
+ *   brightness, over a white-hot core added with `lighter` compositing.
+ * - **Volumetric Fog / Cloud Nebula Core**: 40 depth-sorted 3D radial nebula clouds
  *   billowing inside and around the sphere.
- * - **3D Spherical Fibonacci Geodesic Shell**: 88 spherical-harmonic vertices with
- *   triangulated holographic filaments that deform with live speech (`--companion-level`).
+ * - **3D Spherical Fibonacci Geodesic Shell**: 144 spherical-harmonic vertices with
+ *   triangulated holographic filaments that deform with live speech (`--companion-level`),
+ *   around a 55-vertex inner lattice that counter-rotates.
  * - **Jarvis Segmented 3D Holographic Gimbal Rings**: 4 counter-rotating 3D telemetry
  *   and equatorial voice-waveform rings.
- * - **110-Particle 3D Spherical Cloud Swarm**: Centripetal intake during `listening`,
+ * - **280-Particle 3D Spherical Cloud Swarm**: Centripetal intake during `listening`,
  *   vocal surge during `speaking`, rapid synaptic swirl during `thinking`.
  * - **State-Specific Synaptic Arcs & Vocal Resonance Shells**: Distinct animations
  *   and color palettes for `idle`, `listening`, `thinking`, `speaking`, and `handoff`.
+ *
+ * Nothing it draws is ever cut off by the canvas edge: an edge mask fades every
+ * layer out before the half-extent, and in Zen the canvas bleeds
+ * {@link ORB_ZEN_GLOW_BLEED} past its box so the corona has room to bloom.
  */
 export function CompanionOrb({ state, zen = false }: { state: CompanionState; zen?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -346,14 +384,20 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
 
       const centerX = width / 2;
       const centerY = height / 2;
-      const baseRadius = Math.min(width, height) * (zen ? 0.3 : 0.34) * (1 + speech * 0.14 + Math.sin(anim.pulsePhase) * 0.03);
+      const canvasHalf = Math.min(width, height) / 2;
+      // The orb is sized from the layout box; in Zen the canvas is larger than that box.
+      const layoutMin = Math.min(width, height) / (zen ? 1 + 2 * ORB_ZEN_GLOW_BLEED : 1);
+      const baseRadius = layoutMin * 0.3 * (1 + speech * 0.14 + Math.sin(anim.pulsePhase) * 0.03);
       const fov = 320;
       const camDist = 340;
+      // Slow breathing (~7s) with a faster overtone, independent of speech.
+      const breath = reducedMotion ? 0 : Math.sin(timeSec * 0.9) * 0.75 + Math.sin(timeSec * 2.3 + 1.3) * 0.25;
 
       // ═══════════════════════════════════════════════════════════════════════
       // LAYER 1: Outer Volumetric Atmospheric Corona & Nebula Halo
       // ═══════════════════════════════════════════════════════════════════════
-      const coronaRadius = baseRadius * (1.85 + speech * 0.35);
+      const coronaRadius = orbCoronaRadius(baseRadius, speech, breath, canvasHalf);
+      const coronaGlow = 1 + breath * 0.18;
       const coronaGrad = ctx.createRadialGradient(
         centerX,
         centerY,
@@ -364,11 +408,11 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
       );
       coronaGrad.addColorStop(
         0,
-        `hsla(${anim.accHue}, 95%, 68%, ${0.28 + speech * 0.28})`,
+        `hsla(${anim.accHue}, 95%, 70%, ${(0.34 + speech * 0.28) * coronaGlow})`,
       );
       coronaGrad.addColorStop(
         0.38,
-        `hsla(${anim.hue}, 92%, 56%, ${0.18 + profile.fogDensity * 0.16 + speech * 0.18})`,
+        `hsla(${anim.hue}, 92%, 56%, ${(0.18 + profile.fogDensity * 0.16 + speech * 0.18) * coronaGlow})`,
       );
       coronaGrad.addColorStop(
         0.72,
@@ -444,6 +488,20 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
         ctx.fill();
       }
 
+      // Bright core: added light, so it lifts whatever fog sits behind it.
+      const coreR = baseRadius * 0.46 * (1 + breath * 0.05 + speech * 0.25);
+      const coreGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, coreR);
+      coreGrad.addColorStop(0, `hsla(${anim.accHue}, 100%, 94%, ${0.7 + speech * 0.2})`);
+      coreGrad.addColorStop(0.22, `hsla(${anim.accHue}, 100%, 84%, ${0.55 + speech * 0.2})`);
+      coreGrad.addColorStop(0.6, `hsla(${anim.hue}, 95%, 64%, 0.2)`);
+      coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, coreR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+
       // ═══════════════════════════════════════════════════════════════════════
       // LAYER 3: 3D Spherical Fibonacci Geodesic Shell & Acoustic Surface
       // ═══════════════════════════════════════════════════════════════════════
@@ -462,34 +520,24 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
         projectedNodes.push(project3D(rotated, centerX, centerY, fov, camDist));
       }
 
-      // Geodesic lattice connections between spherical neighbors
-      for (let i = 0; i < projectedNodes.length; i++) {
-        const pA = projectedNodes[i];
-        const pB = projectedNodes[(i + 1) % projectedNodes.length];
-        const pC = projectedNodes[(i + 5) % projectedNodes.length];
-        if (!pA || !pA.visible) continue;
-
-        const isFront = pA.z < 0;
-        const depthAlpha = isFront
-          ? Math.min(0.72, (0.28 + speech * 0.42) * pA.scale)
-          : Math.min(0.22, 0.1 * pA.scale);
-
-        ctx.strokeStyle = `hsla(${isFront ? anim.hue : anim.secHue}, 94%, 68%, ${depthAlpha})`;
-        ctx.lineWidth = (isFront ? 1.05 : 0.65) * pA.scale;
-
-        if (pB && pB.visible) {
-          ctx.beginPath();
-          ctx.moveTo(pA.sx, pA.sy);
-          ctx.lineTo(pB.sx, pB.sy);
-          ctx.stroke();
-        }
-        if (i % 2 === 0 && pC && pC.visible) {
-          ctx.beginPath();
-          ctx.moveTo(pA.sx, pA.sy);
-          ctx.lineTo(pC.sx, pC.sy);
-          ctx.stroke();
-        }
+      // Inner lattice: a smaller shell spinning the other way, seen through the outer one.
+      const innerNodes: ProjectedPoint[] = [];
+      for (let i = 0; i < ORB_INNER_SHELL_NODES; i++) {
+        const v3d = computeSphericalHarmonicVertex(
+          i,
+          ORB_INNER_SHELL_NODES,
+          baseRadius * 0.56,
+          timeSec * 1.3,
+          profile.harmonicAmp * 0.6,
+          speech,
+          profile.mode,
+        );
+        const rotated = rotate3D(v3d, -anim.rotX * 1.4, -anim.rotY * 1.2, anim.rotZ * 0.8);
+        innerNodes.push(project3D(rotated, centerX, centerY, fov, camDist));
       }
+      // Neighbour offsets on a Fibonacci sphere are Fibonacci numbers; joining them triangulates it.
+      strokeLattice(ctx, innerNodes, [1, 5, 8], anim.accHue, 0.38 + speech * 0.3, 0.75);
+      strokeLattice(ctx, projectedNodes, [1, 13, 21], anim.hue, 0.28 + speech * 0.42, 1, anim.secHue);
 
       // Glowing 3D geodesic surface nodes
       for (let i = 0; i < projectedNodes.length; i++) {
@@ -502,6 +550,15 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
         })`;
         ctx.beginPath();
         ctx.arc(pt.sx, pt.sy, nodeR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (let i = 0; i < innerNodes.length; i++) {
+        const pt = innerNodes[i];
+        if (!pt || !pt.visible) continue;
+        ctx.fillStyle = `hsla(${anim.accHue}, 100%, 85%, ${pt.z < 0 ? 0.7 : 0.3})`;
+        ctx.beginPath();
+        ctx.arc(pt.sx, pt.sy, Math.max(0.6, (pt.z < 0 ? 1.3 + speech : 0.8) * pt.scale), 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -533,6 +590,13 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
           radiusMult: 1.4,
           tilt: [-0.65, -anim.rotY * 0.7, anim.rotZ * 1.35],
           hue: anim.secHue,
+          dashed: true,
+          voiceMod: false,
+        },
+        {
+          radiusMult: 1.5,
+          tilt: [Math.PI / 2 + anim.rotX * 0.3, anim.rotZ * 0.6, anim.rotY * 0.4],
+          hue: anim.accHue,
           dashed: true,
           voiceMod: false,
         },
@@ -648,6 +712,22 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
         }
       }
 
+      // Edge mask: fade every layer out before the canvas edge so nothing ends in a hard line.
+      const edgeMask = ctx.createRadialGradient(
+        centerX,
+        centerY,
+        canvasHalf * ORB_EDGE_FADE_START,
+        centerX,
+        centerY,
+        canvasHalf,
+      );
+      edgeMask.addColorStop(0, 'rgba(0, 0, 0, 1)');
+      edgeMask.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.fillStyle = edgeMask;
+      ctx.fillRect(0, 0, width, height);
+      ctx.globalCompositeOperation = 'source-over';
+
       ctx.restore();
 
       if (!reducedMotion) {
@@ -684,7 +764,8 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
       <canvas
         ref={canvasRef}
         data-testid="companion-orb-canvas"
-        className="h-full w-full"
+        className={zen ? 'absolute' : 'h-full w-full'}
+        style={zen ? ZEN_CANVAS_STYLE : undefined}
       />
       <span
         data-testid="companion-orb-mode-badge"
@@ -694,4 +775,43 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
       </span>
     </div>
   );
+}
+
+const ZEN_CANVAS_STYLE = {
+  left: `${-ORB_ZEN_GLOW_BLEED * 100}%`,
+  top: `${-ORB_ZEN_GLOW_BLEED * 100}%`,
+  width: `${(1 + 2 * ORB_ZEN_GLOW_BLEED) * 100}%`,
+  height: `${(1 + 2 * ORB_ZEN_GLOW_BLEED) * 100}%`,
+};
+
+/**
+ * Joins each vertex to the ones `offsets` further along the Fibonacci spiral.
+ * Front-facing edges (`z < 0`) draw in `frontHue` at up to `frontAlpha`; the
+ * back of the shell stays faint, in `backHue` when given.
+ */
+function strokeLattice(
+  ctx: CanvasRenderingContext2D,
+  nodes: readonly ProjectedPoint[],
+  offsets: readonly number[],
+  frontHue: number,
+  frontAlpha: number,
+  widthScale: number,
+  backHue = frontHue,
+): void {
+  for (let i = 0; i < nodes.length; i++) {
+    const pA = nodes[i];
+    if (!pA || !pA.visible) continue;
+    const isFront = pA.z < 0;
+    const alpha = isFront ? Math.min(0.72, frontAlpha * pA.scale) : Math.min(0.2, 0.09 * pA.scale);
+    ctx.strokeStyle = `hsla(${isFront ? frontHue : backHue}, 94%, 68%, ${alpha})`;
+    ctx.lineWidth = (isFront ? 0.95 : 0.55) * pA.scale * widthScale;
+    for (const offset of offsets) {
+      const pB = nodes[(i + offset) % nodes.length];
+      if (!pB || !pB.visible) continue;
+      ctx.beginPath();
+      ctx.moveTo(pA.sx, pA.sy);
+      ctx.lineTo(pB.sx, pB.sy);
+      ctx.stroke();
+    }
+  }
 }
