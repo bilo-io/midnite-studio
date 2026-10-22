@@ -166,12 +166,6 @@ export function CompanionPanel({
 }
 
 /**
- * The pending-action bar (Phase 81 Theme C) — the same "yes" the panel already
- * accepts spoken, typed, or on an empty Return, offered as a click too, all
- * three through {@link companionPorts}'s `submit` so there is exactly one
- * implementation of "confirm" and one of "dismiss".
- */
-/**
  * The greeting's status-report offer is a question, not a command to run — so
  * its chips read "Yes" / "Not now" and post what the user would have said,
  * rather than a bare "confirm" in their name.
@@ -183,6 +177,12 @@ const STATUS_REPORT_CHIPS = {
   cancelText: 'no thanks',
 } as const;
 
+/**
+ * The pending-action bar (Phase 81 Theme C) — the same "yes" the panel already
+ * accepts spoken, typed, or on an empty Return, offered as a click too, all
+ * three through {@link companionPorts}'s `submit` so there is exactly one
+ * implementation of "confirm" and one of "dismiss".
+ */
 function CompanionPendingActionBar({
   label,
   confirmLabel = 'Run',
