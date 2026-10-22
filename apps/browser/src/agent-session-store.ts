@@ -32,9 +32,13 @@ export const agentSessionStore = createStore<AgentSessionState>((set, get) => ({
   start: async (input) => {
     const api = bridge()?.browser;
     if (!api) return;
-    const result = await api.agentStart(input);
-    if (result.ok) set({ session: result.state, notice: null });
-    else set({ session: null, notice: result.message });
+    try {
+      const result = await api.agentStart(input);
+      if (result.ok) set({ session: result.state, notice: null });
+      else set({ session: null, notice: result.message });
+    } catch {
+      set({ session: null, notice: 'The agent session could not start.' });
+    }
   },
   stop: () => {
     const s = get().session;

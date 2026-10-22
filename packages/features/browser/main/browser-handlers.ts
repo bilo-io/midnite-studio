@@ -281,14 +281,14 @@ export function registerBrowserHandlers(ipc: RuntimeIpc, sender: BrowserSenderIp
     CHANNELS.browserAgentStart,
     schemas.BrowserAgentStartRequest,
     (req) => startBrowserAgent(req),
-    (issue) => ({ ok: false as const, message: issue }),
+    (issue) => ({ ok: false as const, message: issue.slice(0, 500) }),
   );
   ipc.send(CHANNELS.browserAgentStop, schemas.BrowserAgentStopRequest, ({ sessionId }) => stopBrowserAgent(sessionId), warnInvalid);
   ipc.handle(
     CHANNELS.browserAgentTool,
     schemas.BrowserAgentToolRequest,
     ({ sessionId, call }) => runBrowserAgentTool(sessionId, call),
-    (issue) => ({ ok: false as const, kind: 'error' as const, message: issue }),
+    (issue) => ({ ok: false as const, kind: 'error' as const, message: issue.slice(0, 500) }),
   );
   ipc.send(
     CHANNELS.browserAgentRespond,
