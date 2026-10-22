@@ -54,11 +54,12 @@ describe('LOGIN_FORM_READ_SNIPPET', () => {
 
   it('installs nothing: no new globals, no listeners', () => {
     loadPage(fixture('http-login.html'), 'http://members.example/');
-    const before = new Set(Object.getOwnPropertyNames(window));
+    const win = (globalThis as unknown as { window: object }).window;
+    const before = new Set(Object.getOwnPropertyNames(win));
     const addListener = vi.spyOn(EventTarget.prototype, 'addEventListener');
     runSnippet();
     expect(addListener).not.toHaveBeenCalled();
-    expect(Object.getOwnPropertyNames(window).filter((name) => !before.has(name))).toEqual([]);
+    expect(Object.getOwnPropertyNames(win).filter((name) => !before.has(name))).toEqual([]);
     addListener.mockRestore();
   });
 

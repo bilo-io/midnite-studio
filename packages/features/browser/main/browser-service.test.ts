@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { setBrowserSiteSafety, siteVerdicts } from './browser-site-safety';
+import { LOGIN_FORM_WORLD_ID } from './login-form-read';
+import { HOSTS_SEEN_FILE } from './host-first-seen';
 import {
   KNOWN_BAD_ERROR_CODE,
+  clearBrowserData,
   originVerdictLevel,
   proceedBrowserSite,
   activateBrowserTab,
@@ -74,6 +77,12 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     isDevToolsOpened = vi.fn(() => false);
     openDevTools = vi.fn();
     closeDevTools = vi.fn();
+    // Phase 117 Theme F: the login-form read. `null` (no answer) unless a test says otherwise.
+    executeJavaScriptInIsolatedWorld = vi.fn(async (..._args: unknown[]): Promise<unknown> => null);
+    url = '';
+    title = '';
+    getURL = vi.fn(() => this.url);
+    getTitle = vi.fn(() => this.title);
     on(event: string, handler: (...args: unknown[]) => void): this {
       const list = this.handlers.get(event) ?? [];
       list.push(handler);
@@ -1225,5 +1234,112 @@ describe('Phase 117 Theme C — site verdicts in the service', () => {
     expect(originVerdictLevel('https://expired.badssl.com')).toBe('safe');
     siteVerdicts().patch('t', { tls: 'error' });
     expect(originVerdictLevel('https://expired.badssl.com')).toBe('danger');
+  });
+});
+
+describe('Phase 117 Theme F — credential phishing in the service', () => {
+  let dir: string;
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
+    fakeSessions.clear();
+    dir = mkdtempSync(join(tmpdir(), 'browser-f-'));
+    installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}), userDataPath: dir });
+  });
+  afterEach(() => {
+    resetBrowserServiceForTests();
+    rmSync(dir, { recursive: true, force: true });
+    installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}) });
+    vi.clearAllMocks();
+  });
+
+  const viewOf = (win: BrowserHostWindow) =>
+    (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+  const verdicts = (win: BrowserHostWindow) =>
+    (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls
+      .map((call) => call[1] as { kind: string; verdict?: { credentialRisk: unknown; insecureForm: boolean } })
+      .filter((event) => event.kind === 'verdict');
+
+  /** A tab that has committed `url` and whose page answers the login-form read with `read`. */
+  function pageWith(url: string, read: unknown, title = '') {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', url);
+    const view = viewOf(win);
+    view.webContents.url = url;
+    view.webContents.title = title;
+    view.webContents.executeJavaScriptInIsolatedWorld.mockResolvedValue(read);
+    view.webContents.emit('did-navigate', undefined, url);
+    return { win, view };
+  }
+
+  it('reads the page in its own isolated world on dom-ready, and raises caution for a password on http:', async () => {
+    const { win, view } = pageWith('http://members.example/login', { hasPasswordField: true, formActionOrigins: ['http://members.example'] });
+    view.webContents.emit('dom-ready');
+    await vi.waitFor(() =>
+      expect(siteVerdicts().verdict('t')?.credentialRisk).toEqual({ level: 'caution', reasons: [{ rule: 'http-password' }, { rule: 'first-seen' }] }),
+    );
+    expect(view.webContents.executeJavaScriptInIsolatedWorld).toHaveBeenCalledWith(LOGIN_FORM_WORLD_ID, [expect.objectContaining({ code: expect.any(String) })], false);
+    expect(siteVerdicts().verdict('t')?.insecureForm).toBe(true);
+    expect(verdicts(win).at(-1)?.verdict?.credentialRisk).toBeTruthy();
+  });
+
+  it('"GitHub login on github-login.app" is danger — and Theme D then refuses its downloads', async () => {
+    const { view } = pageWith('https://github-login.app/', { hasPasswordField: true, formActionOrigins: [] }, 'GitHub');
+    view.webContents.emit('did-stop-loading');
+    await vi.waitFor(() => expect(originVerdictLevel('https://github-login.app')).toBe('danger'));
+  });
+
+  it('leaves the verdict alone when the page has no password field', async () => {
+    const { view } = pageWith('https://news.example/', { hasPasswordField: false, formActionOrigins: [] });
+    view.webContents.emit('dom-ready');
+    await vi.waitFor(() => expect(view.webContents.executeJavaScriptInIsolatedWorld).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(siteVerdicts().verdict('t')?.credentialRisk).toBeNull();
+  });
+
+  it('drops a read that lands after the tab committed another page', async () => {
+    const { view } = pageWith('http://members.example/login', undefined);
+    let answer: (value: unknown) => void = () => {};
+    view.webContents.executeJavaScriptInIsolatedWorld.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    view.webContents.emit('dom-ready');
+    view.webContents.url = 'https://elsewhere.example/';
+    view.webContents.emit('did-navigate', undefined, 'https://elsewhere.example/');
+    answer({ hasPasswordField: true, formActionOrigins: [] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(siteVerdicts().verdict('t')?.origin).toBe('https://elsewhere.example');
+    expect(siteVerdicts().verdict('t')?.credentialRisk).toBeNull();
+  });
+
+  it('re-reads on an in-page navigation (a single-page app routing to its sign-in form)', async () => {
+    const { view } = pageWith('https://app.example/', { hasPasswordField: false, formActionOrigins: [] });
+    view.webContents.executeJavaScriptInIsolatedWorld.mockResolvedValue({ hasPasswordField: true, formActionOrigins: ['https://drop.example.net'] });
+    view.webContents.emit('did-navigate-in-page', undefined, 'https://app.example/#/login');
+    await vi.waitFor(() =>
+      expect(siteVerdicts().verdict('t')?.credentialRisk?.reasons).toContainEqual({ rule: 'cross-origin-action', detail: 'https://drop.example.net' }),
+    );
+  });
+
+  it('clipboard-read stays denied on a password page — refused with no bar', async () => {
+    const { win, view } = pageWith('https://login.example/', { hasPasswordField: true, formActionOrigins: [] });
+    view.webContents.emit('dom-ready');
+    await vi.waitFor(() => expect(siteVerdicts().verdict('t')?.credentialRisk).not.toBeNull());
+    const sess = fakeSessions.get('persist:browser')!;
+    const request = sess.setPermissionRequestHandler.mock.calls[0]?.[0] as (...args: unknown[]) => void;
+    const check = sess.setPermissionCheckHandler.mock.calls[0]?.[0] as (...args: unknown[]) => boolean;
+    const callback = vi.fn();
+    request(view.webContents, 'clipboard-read', callback, { securityOrigin: 'https://login.example' });
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(check(view.webContents, 'clipboard-read', 'https://login.example')).toBe(false);
+    const sent = (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls.map((call) => (call[1] as { kind: string }).kind);
+    expect(sent).not.toContain('permission-request');
+  });
+
+  it('records first-seen hosts as digests, and "clear browsing data" deletes the ledger', async () => {
+    pageWith('https://first.example/', null);
+    destroyAllBrowserTabs(); // flushes the ledger
+    expect(existsSync(join(dir, HOSTS_SEEN_FILE))).toBe(true);
+    await clearBrowserData();
+    expect(existsSync(join(dir, HOSTS_SEEN_FILE))).toBe(false);
   });
 });

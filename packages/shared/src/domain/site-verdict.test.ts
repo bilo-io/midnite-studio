@@ -79,3 +79,33 @@ describe('verdict event arm', () => {
     expect(BrowserEventSchema.parse(event)).toEqual(event);
   });
 });
+
+describe('credentialRisk (Phase 117 Theme F)', () => {
+  it('starts null and validates on the wire', () => {
+    expect(emptySiteVerdict('https://example.com').credentialRisk).toBeNull();
+    const risky = https({ credentialRisk: { level: 'danger', reasons: [{ rule: 'sign-in-elsewhere', detail: 'github.com' }] } });
+    expect(SiteVerdictSchema.parse(risky)).toEqual(risky);
+    expect(() => SiteVerdictSchema.parse(https({ credentialRisk: { level: 'caution', reasons: [] } }))).toThrow();
+  });
+
+  it('raises the badge to its own level', () => {
+    expect(siteVerdictLevel(https({ credentialRisk: { level: 'caution', reasons: [{ rule: 'first-seen' }] } }))).toBe('caution');
+    expect(siteVerdictLevel(https({ credentialRisk: { level: 'danger', reasons: [{ rule: 'lookalike', detail: 'github.com' }] } }))).toBe('danger');
+  });
+
+  it('adds one popover line per rule, worst first', () => {
+    const lines = siteVerdictLines(
+      https({
+        credentialRisk: {
+          level: 'danger',
+          reasons: [
+            { rule: 'cross-origin-action', detail: 'https://drop.example' },
+            { rule: 'sign-in-elsewhere', detail: 'github.com' },
+          ],
+        },
+      }),
+    );
+    expect(lines[0]).toEqual({ level: 'danger', text: 'Looks like a github.com sign-in page, but is not on github.com' });
+    expect(lines).toContainEqual({ level: 'caution', text: 'Sends the password to another site (https://drop.example)' });
+  });
+});
