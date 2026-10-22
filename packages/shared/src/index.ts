@@ -99,4 +99,5 @@ export * from './workflow';
 export * from './workflow-cron';
 export * from './workflow-receipt';
 export * from './workflow-test-parsers';
+export * from './security-findings';
 export * from './workflow-templates';

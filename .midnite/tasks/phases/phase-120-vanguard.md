@@ -73,10 +73,10 @@ Scope guardrails:
 *The suite gets a watcher that sees the effects of a compromise — a new persistence item, an
 unexpected outbound connection, a file changed under a running agent — and can stop it, with one
 ledger every security finding in the suite lands in.* Born from a catalog tile with nothing behind
-it and a threat landscape in which the coding agent is the new ClickFix victim. (0% · 0/46) —
+it and a threat landscape in which the coding agent is the new ClickFix victim. (11% · 5/46) —
 **Planned 2026-10-22.**
 
-**Theme A — One finding, one ledger.** ◻ `SecurityFindingSchema` in `shared` (source, severity,
+**Theme A — One finding, one ledger.** ✅ `SecurityFindingSchema` in `shared` (source, severity,
 category, evidence, remediation actions, status) and a runtime findings ledger — append-only NDJSON
 at 0600, deduplicated by fingerprint — that Vanguard, the Guard loop (Phase 122) and the agent
 policy layer (Phase 121) all write into. Channels and events for the renderer.
@@ -119,7 +119,7 @@ each written back to the ledger.
 
 ### A — One finding, one ledger [M · ~1d]
 
-- [ ] **`SecurityFindingSchema` in `shared`.** New `packages/shared/src/security-findings.ts`: `id`,
+- [x] **`SecurityFindingSchema` in `shared`.** New `packages/shared/src/security-findings.ts`: `id`,
       `fingerprint` (stable across re-detections), `source: 'vanguard' | 'guard' | 'agents'`,
       `severity: 'critical' | 'high' | 'medium' | 'low' | 'info'`, `category` (`persistence`,
       `process`, `network`, `integrity`, `malware`, `agent`, `vulnerability`, `config`, `secret`,
@@ -128,7 +128,7 @@ each written back to the ledger.
       closed enum plus its arguments, so the renderer renders a button, never a shell string),
       `firstSeen`, `lastSeen`, `count`, `status: 'open' | 'acknowledged' | 'resolved' | 'muted'`,
       `sessionId?`, `repoId?`. zod only, in the barrel. [S]
-- [ ] **The ledger in the runtime.** New `packages/runtime/src/security/findings-ledger.ts`: one
+- [x] **The ledger in the runtime.** New `packages/runtime/src/security/findings-ledger.ts`: one
       append-only NDJSON file per month under `<userData>/security/findings-<yyyy-mm>.ndjson`, dir
       0700, file 0600 (Phase 115 B's modes), every record through `redactRecord` on write (Phase 115
       C). `record(finding)` dedupes by `fingerprint` within the open set — a re-detection bumps
@@ -136,13 +136,13 @@ each written back to the ledger.
       `setStatus(id, status)`, `prune(retention)`. Serialised through one `withLock` queue, the
       pattern [`loop-runs.ts`](../../../packages/desktop/src/main/loop-runs.ts) uses. No `electron`
       import; the host injects `userData`. [M]
-- [ ] **Channels and events.** `CHANNELS.securityFindingsList`, `securityFindingsSetStatus`,
+- [x] **Channels and events.** `CHANNELS.securityFindingsList`, `securityFindingsSetStatus`,
       `securityFindingsAct` (Theme H) and `EVENT_CHANNELS.securityFindingsChanged` (carries nothing;
       the renderer re-fetches, as `loopRunsChanged` does) in
       [`channels.ts`](../../../packages/shared/src/ipc/channels.ts); request/response schemas in
       `shared/src/ipc`. Handlers in `packages/features/vanguard/main/findings-handlers.ts`, bound by
       the composer. [S]
-- [ ] **Tests.** Schema round-trips, dedupe-by-fingerprint, redaction on write (a vault-shaped token
+- [x] **Tests.** Schema round-trips, dedupe-by-fingerprint, redaction on write (a vault-shaped token
       in `detail` never reaches disk), mode 0600 on a fresh and an upgraded profile, prune. [S]
 
 ### B — The feature and the app [M · ~1d]
@@ -330,7 +330,7 @@ each written back to the ledger.
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
-- [ ] **A:** two detections with one fingerprint produce one open row with `count: 2`; a token in a
+- [x] **A:** two detections with one fingerprint produce one open row with `count: 2`; a token in a
       finding's detail is redacted on disk; `stat` shows 0700/0600.
 - [ ] **B:** the composition test passes with `vanguard` listed; `apps/vanguard` boots in a smoke run
       and `app-vault-grants` holds; the layer-boundary test proves the feature imports no sibling.

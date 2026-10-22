@@ -1715,6 +1715,9 @@ importers:
       '@midnite/studio-feature-tests':
         specifier: workspace:*
         version: link:../features/tests
+      '@midnite/studio-feature-vanguard':
+        specifier: workspace:*
+        version: link:../features/vanguard
       '@midnite/studio-feature-workflows':
         specifier: workspace:*
         version: link:../features/workflows
@@ -3607,6 +3610,40 @@ importers:
       vite:
         specifier: ^6.0.5
         version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@1.21.7)(jsdom@25.0.1)(tsx@4.23.12)
+
+  packages/features/vanguard:
+    dependencies:
+      '@midnite/studio-frame':
+        specifier: workspace:*
+        version: link:../../frame
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../runtime
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../shared
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      react-icons:
+        specifier: ^5.7.0
+        version: 5.7.0(react@19.2.8)
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
       vitest:
         specifier: ^3.2.4
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@1.21.7)(jsdom@25.0.1)(tsx@4.23.12)

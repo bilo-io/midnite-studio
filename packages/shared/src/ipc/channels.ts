@@ -1657,6 +1657,14 @@ export const CHANNELS = {
    * changes.
    */
   knowledgeCheckGraph: 'mstudio:knowledge:check-graph',
+
+  // --- security findings ---------------------------------------------------
+  /** List security findings with optional filters (Phase 120 Theme A). */
+  securityFindingsList: 'mstudio:security:findings-list',
+  /** Update the status of a security finding (Phase 120 Theme A). */
+  securityFindingsSetStatus: 'mstudio:security:findings-set-status',
+  /** Perform a remediation action on a security finding (Phase 120 Theme A & H). */
+  securityFindingsAct: 'mstudio:security:findings-act',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -1886,6 +1894,12 @@ export const EVENT_CHANNELS = {
    * wait forever on progress `getMainWindow()` never sends it.
    */
   knowledgeLayoutProgress: 'mstudio:knowledge:layout-progress',
+
+  /**
+   * Security findings changed in the ledger (Phase 120 Theme A).
+   * Carries no payload; renderer re-fetches via securityFindingsList.
+   */
+  securityFindingsChanged: 'mstudio:security:findings-changed',
 } as const;
 
 /**

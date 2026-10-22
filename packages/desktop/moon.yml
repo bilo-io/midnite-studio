@@ -200,6 +200,7 @@ tasks:
       - '/packages/features/media-model/manifest.ts'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/vanguard/main/**/*'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -314,6 +315,7 @@ tasks:
       - '/packages/features/media-model/manifest.ts'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/vanguard/main/**/*'
 
   lint:
     inputs:
@@ -409,6 +411,7 @@ tasks:
       - '/packages/features/media-model/manifest.ts'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/vanguard/main/**/*'
     outputs:
       - 'dist/bundle'
 
