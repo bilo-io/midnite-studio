@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { setBrowserSiteSafety } from './browser-site-safety';
 import {
+  KNOWN_BAD_ERROR_CODE,
+  proceedBrowserSite,
   activateBrowserTab,
   closeBrowserTab,
   createBrowserTab,
@@ -43,7 +50,9 @@ import { installBrowserMain, type BrowserLog } from './browser-main-deps';
  * initialization" the moment the mock factory runs.
  */
 const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => {
+  let nextWebContentsId = 1;
   class FakeWebContents {
+    id = nextWebContentsId++;
     destroyed = false;
     handlers = new Map<string, ((...args: unknown[]) => void)[]>();
     navigationHistory = {
@@ -110,6 +119,8 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
       setDevicePermissionHandler: vi.fn(),
       setDisplayMediaRequestHandler: vi.fn(),
       setSpellCheckerEnabled: vi.fn(),
+      setCertificateVerifyProc: vi.fn(),
+      webRequest: { onCompleted: vi.fn() },
       handlers,
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const list = handlers.get(event) ?? [];
@@ -1017,5 +1028,119 @@ describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
 
     setBrowserSpellcheck(false);
     expect(sess.setSpellCheckerEnabled).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('Phase 117 Theme C — site verdicts in the service', () => {
+  let dir: string;
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
+    fakeSessions.clear();
+    dir = mkdtempSync(join(tmpdir(), 'browser-c-'));
+    mkdirSync(join(dir, 'browser-feeds'));
+    writeFileSync(join(dir, 'browser-feeds', 'urlhaus.txt'), 'http://malware.example/\n');
+    installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}), userDataPath: dir });
+  });
+  afterEach(() => {
+    resetBrowserServiceForTests();
+    rmSync(dir, { recursive: true, force: true });
+    installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}) });
+    vi.clearAllMocks();
+  });
+
+  const viewOf = (win: BrowserHostWindow, index = 0) =>
+    (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[index]?.[0] as FakeView;
+  const sent = (win: BrowserHostWindow) =>
+    (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[1] as { kind: string } & Record<string, unknown>);
+
+  it('installs the certificate verifier and the completed-request observer on persist:browser', () => {
+    createBrowserTab(fakeWindow(), 't', 'https://example.com');
+    const sess = fakeSessions.get('persist:browser')!;
+    expect(sess.setCertificateVerifyProc).toHaveBeenCalledTimes(1);
+    expect(sess.webRequest.onCompleted).toHaveBeenCalledTimes(1);
+  });
+
+  it('pushes a fresh verdict on every main-frame commit, and records mixed content from onCompleted', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://example.com');
+    const view = viewOf(win);
+    view.webContents.emit('did-navigate', undefined, 'https://example.com/');
+    expect(sent(win).at(-1)).toMatchObject({ kind: 'verdict', tabId: 't', verdict: { tls: 'ok', mixedContent: false } });
+
+    const onCompleted = fakeSessions.get('persist:browser')!.webRequest.onCompleted.mock.calls[0]![0] as (d: unknown) => void;
+    onCompleted({ url: 'http://cdn.example/a.png', method: 'GET', resourceType: 'image', webContentsId: view.webContents.id });
+    expect(sent(win).at(-1)).toMatchObject({ kind: 'verdict', verdict: { mixedContent: true } });
+  });
+
+  it('marks a certificate failure as the certificate interstitial, and rejects the certificate', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://expired.badssl.com');
+    const view = viewOf(win);
+    const callback = vi.fn();
+    view.webContents.emit('certificate-error', { preventDefault: vi.fn() }, 'https://expired.badssl.com/', 'net::ERR_CERT_DATE_INVALID', {}, callback, true);
+    expect(callback).toHaveBeenCalledWith(false);
+    view.webContents.emit('did-fail-load', undefined, -201, 'net::ERR_CERT_DATE_INVALID', 'https://expired.badssl.com/', true);
+    expect(sent(win)).toContainEqual(
+      expect.objectContaining({ kind: 'failed', error: expect.objectContaining({ code: -201, reason: 'certificate' }) }),
+    );
+  });
+
+  it('proceeds past a certificate interstitial only with the Settings switch on, then trusts that host', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://expired.badssl.com');
+    const view = viewOf(win);
+    const url = 'https://expired.badssl.com/';
+    view.webContents.emit('did-fail-load', undefined, -201, 'net::ERR_CERT_DATE_INVALID', url, true);
+    view.webContents.loadURL.mockClear();
+
+    proceedBrowserSite('t', url);
+    expect(view.webContents.loadURL).not.toHaveBeenCalled();
+
+    setBrowserSiteSafety({ allowProceed: true, feeds: { urlhaus: false, openphish: false } });
+    proceedBrowserSite('t', 'https://other.example/');
+    expect(view.webContents.loadURL).not.toHaveBeenCalled();
+    proceedBrowserSite('t', url);
+    expect(view.webContents.loadURL).toHaveBeenCalledWith(url);
+
+    const callback = vi.fn();
+    view.webContents.emit('certificate-error', { preventDefault: vi.fn() }, url, 'net::ERR_CERT_DATE_INVALID', {}, callback, true);
+    expect(callback).toHaveBeenCalledWith(true);
+  });
+
+  it('refuses a known-bad URL before loading it, but only while its feed is on', () => {
+    const off = fakeWindow();
+    createBrowserTab(off, 'a', 'http://malware.example/');
+    expect(viewOf(off).webContents.loadURL).toHaveBeenCalledWith('http://malware.example/');
+    viewOf(off).webContents.emit('did-navigate', undefined, 'http://malware.example/');
+    expect(sent(off).at(-1)).toMatchObject({ kind: 'verdict', verdict: { reputation: 'unavailable' } });
+
+    setBrowserSiteSafety({ allowProceed: false, feeds: { urlhaus: true, openphish: false } });
+    const on = fakeWindow();
+    createBrowserTab(on, 'b', 'http://malware.example/payload');
+    expect(viewOf(on).webContents.loadURL).not.toHaveBeenCalled();
+    expect(sent(on)).toContainEqual(
+      expect.objectContaining({
+        kind: 'failed',
+        error: expect.objectContaining({ code: KNOWN_BAD_ERROR_CODE, reason: 'known-bad', knownBad: expect.objectContaining({ feed: 'urlhaus' }) }),
+      }),
+    );
+    expect(sent(on).at(-1)).toMatchObject({ kind: 'verdict', verdict: { knownBad: { feed: 'urlhaus' } } });
+  });
+
+  it('refuses a page-initiated navigation and a redirect to a known-bad URL', () => {
+    setBrowserSiteSafety({ allowProceed: false, feeds: { urlhaus: true, openphish: false } });
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://example.com');
+    const view = viewOf(win);
+    const nav = { url: 'http://malware.example/x', preventDefault: vi.fn() };
+    view.webContents.emit('will-navigate', nav);
+    expect(nav.preventDefault).toHaveBeenCalled();
+    const redirect = { url: 'http://malware.example/y', preventDefault: vi.fn() };
+    view.webContents.emit('will-redirect', redirect);
+    expect(redirect.preventDefault).toHaveBeenCalled();
+    const fine = { url: 'https://example.org/', preventDefault: vi.fn() };
+    view.webContents.emit('will-navigate', fine);
+    expect(fine.preventDefault).not.toHaveBeenCalled();
   });
 });
