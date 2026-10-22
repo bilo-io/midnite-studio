@@ -38,6 +38,20 @@ describe('LOGIN_FORM_READ_SNIPPET', () => {
     expect(runSnippet().formActionOrigins).toEqual(['https://elsewhere.example']);
   });
 
+  it('reads past a clobbered document.URL / baseURI, and an empty action posts to the page', () => {
+    loadPage('<img name="URL" src="x"><img name="baseURI" src="x"><form><input type=password></form>', 'https://example.com/login');
+    // An empty action resolves against the document's real URL (jsdom's, here) — never against a clobbering <img>.
+    expect(runSnippet().formActionOrigins).toEqual([new URL((globalThis as unknown as { location: { href: string } }).location.href).origin]);
+  });
+
+  it("counts a submit button's formaction as a target too", () => {
+    loadPage(
+      '<form action="/login"><input type=password><button formaction="https://drop.example.net/x">Go</button></form>',
+      'https://example.com/',
+    );
+    expect(runSnippet().formActionOrigins).toEqual(['https://example.com', 'https://drop.example.net']);
+  });
+
   it('counts a password field outside any form, with no action origin', () => {
     loadPage('<div><input type="password"></div>', 'https://example.com/');
     expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: [] });

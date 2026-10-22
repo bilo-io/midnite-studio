@@ -9,8 +9,8 @@ import { z } from 'zod';
  * on exactly the pages this theme exists for. A world of our own sees the same DOM through pristine
  * prototypes the page cannot reach. Even so, the snippet calls every DOM method through its
  * prototype (`Document.prototype.querySelectorAll.call(document, …)`), because *named-property
- * clobbering* crosses worlds: `<input name="action">` shadows `form.action` and `<img name="forms">`
- * shadows `document.forms` in any world, since those are properties of the DOM objects themselves.
+ * clobbering* crosses worlds: `<input name="action">` shadows `form.action` and `<img name="URL">`
+ * shadows `document.URL` in any world, since those are properties of the DOM objects themselves.
  *
  * **Installs nothing.** The snippet is one expression that returns a plain object — no listener, no
  * global, no timer, no `MutationObserver` — so after it returns the world holds no state of ours.
@@ -46,24 +46,34 @@ export type LoginFormRead = z.infer<typeof LoginFormReadSchema>;
 export const LOGIN_FORM_READ_SNIPPET = `(() => {
   try {
     const qsa = Document.prototype.querySelectorAll;
+    const qsaIn = Element.prototype.querySelectorAll;
     const getAttr = Element.prototype.getAttribute;
     const formOf = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'form').get;
+    const docUrl = Object.getOwnPropertyDescriptor(Document.prototype, 'URL').get.call(document);
+    const baseUrl = Object.getOwnPropertyDescriptor(Node.prototype, 'baseURI').get.call(document);
     const fields = qsa.call(document, 'input[type="password" i]');
     const origins = [];
+    const add = (raw) => {
+      try {
+        const target = new URL(raw === null || raw.trim() === '' ? docUrl : raw, baseUrl);
+        if ((target.protocol === 'http:' || target.protocol === 'https:') && origins.indexOf(target.origin) === -1) {
+          origins.push(target.origin);
+        }
+      } catch (e) {
+        // An unparseable action posts nowhere a rule can name.
+      }
+    };
+    const seen = [];
     for (let i = 0; i < fields.length && origins.length < ${LOGIN_FORM_ACTION_CAP}; i += 1) {
       const form = formOf.call(fields[i]);
-      if (!form) continue;
-      let origin = '';
-      try {
-        const action = getAttr.call(form, 'action');
-        const target = new URL(action === null || action.trim() === '' ? document.URL : action, document.baseURI);
-        origin = target.protocol === 'http:' || target.protocol === 'https:' ? target.origin : '';
-      } catch (e) {
-        origin = '';
-      }
-      if (origin && origins.indexOf(origin) === -1) origins.push(origin);
+      if (!form || seen.indexOf(form) !== -1) continue;
+      seen.push(form);
+      add(getAttr.call(form, 'action'));
+      // A submit button's formaction overrides the form's own action.
+      const submitters = qsaIn.call(form, '[formaction]');
+      for (let j = 0; j < submitters.length; j += 1) add(getAttr.call(submitters[j], 'formaction'));
     }
-    return { hasPasswordField: fields.length > 0, formActionOrigins: origins };
+    return { hasPasswordField: fields.length > 0, formActionOrigins: origins.slice(0, ${LOGIN_FORM_ACTION_CAP}) };
   } catch (e) {
     return { hasPasswordField: false, formActionOrigins: [] };
   }
