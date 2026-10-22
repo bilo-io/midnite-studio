@@ -76,7 +76,7 @@ describe('applyBrowserSessionPolicy', () => {
     const session = {
       ...recordingSession(),
       setCertificateVerifyProc: vi.fn(),
-      webRequest: { onCompleted: vi.fn() },
+      webRequest: { onCompleted: vi.fn(), onBeforeRequest: vi.fn(), onBeforeSendHeaders: vi.fn(), onHeadersReceived: vi.fn() },
     };
     session.setCertificateVerifyProc.mockImplementation(() => void session.calls.push('verify-proc'));
     session.webRequest.onCompleted.mockImplementation(() => void session.calls.push('on-completed'));
@@ -104,7 +104,7 @@ describe('applyBrowserSessionPolicy', () => {
   });
 
   it('Theme C: installs neither hook when the composer passes none (the web-app partitions)', () => {
-    const session = { ...recordingSession(), setCertificateVerifyProc: vi.fn(), webRequest: { onCompleted: vi.fn() } };
+    const session = { ...recordingSession(), setCertificateVerifyProc: vi.fn(), webRequest: { onCompleted: vi.fn(), onBeforeRequest: vi.fn(), onBeforeSendHeaders: vi.fn(), onHeadersReceived: vi.fn() } };
     applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn() });
     expect(session.setCertificateVerifyProc).not.toHaveBeenCalled();
     expect(session.webRequest.onCompleted).not.toHaveBeenCalled();

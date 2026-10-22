@@ -22,9 +22,9 @@ import { vulnerableLibraryForUrl } from './vulnerable-libraries';
  * - **Each completed subresource** ({@link SiteVerdictTracker.requestCompleted}, fed by the
  *   session's `webRequest.onCompleted`) can add mixed content, a vulnerable script or an insecure
  *   POST.
- * - **Theme E** calls {@link SiteVerdictTracker.noteTrackerBlocked} for each request its blocklist
- *   refuses, which feeds the badge's counter. **Theme D** reads
- *   {@link SiteVerdictTracker.verdictForWebContents} to refuse a download from a `danger` origin.
+ * - **Theme E**'s request filter counts what its blocklist refuses per tab, and its throttled flush
+ *   hands the running total to {@link SiteVerdictTracker.setTrackerBlocks}, which feeds the badge. **Theme D**'s download
+ *   policy refuses a file from a `danger` origin through `originVerdictLevel` (browser-service).
  *   **Theme F** sets `insecureForm` (and may raise `lookalike`) through {@link SiteVerdictTracker.patch}.
  *
  * No Electron here — `webContentsId` is a number, the clock and the feeds are injected — so the
@@ -58,8 +58,8 @@ export type SiteVerdictTracker = {
   /** A main-frame navigation committed: build, store and emit a fresh verdict. */
   commit(tabId: string, url: string): SiteVerdict;
   requestCompleted(details: CompletedRequest): void;
-  /** Theme E: one request refused by the tracker blocklist on this page. */
-  noteTrackerBlocked(webContentsId: number, host: string): void;
+  /** Theme E: the running count and hosts its blocklist refused on this tab's page (one emit per flush). */
+  setTrackerBlocks(tabId: string, count: number, hosts: readonly string[]): void;
   /** Theme F (and future rules): merge findings into the tab's verdict and emit it. */
   patch(tabId: string, patch: Partial<SiteVerdict>): void;
   verdict(tabId: string): SiteVerdict | undefined;
@@ -181,15 +181,14 @@ export function createSiteVerdictTracker(ctx: SiteVerdictContext): SiteVerdictTr
       if (changed) store(tabId, next);
     },
 
-    noteTrackerBlocked(webContentsId, host) {
-      const tabId = tabFor(webContentsId);
-      const current = tabId ? verdicts.get(tabId) : undefined;
-      if (!tabId || !current) return;
-      const hosts =
-        current.trackerHosts.includes(host) || current.trackerHosts.length >= SITE_VERDICT_TRACKER_HOST_CAP
-          ? current.trackerHosts
-          : [...current.trackerHosts, host];
-      store(tabId, { ...current, trackersBlocked: current.trackersBlocked + 1, trackerHosts: hosts });
+    setTrackerBlocks(tabId, count, hosts) {
+      const current = verdicts.get(tabId);
+      if (!current || current.trackersBlocked === count) return;
+      store(tabId, {
+        ...current,
+        trackersBlocked: count,
+        trackerHosts: [...new Set(hosts)].slice(0, SITE_VERDICT_TRACKER_HOST_CAP),
+      });
     },
 
     patch(tabId, patch) {

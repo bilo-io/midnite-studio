@@ -17,6 +17,7 @@ import { useBrowserTabsEffects } from './use-browser-tabs';
 import { resolveInput, trimUrlForDisplay } from './resolve-input';
 import { FindBar } from './find-bar';
 import { SiteBadge } from './site-badge';
+import { DownloadPromptBar } from './download-prompt-bar';
 import { PermissionPromptBar } from './permission-prompt-bar';
 
 /**
@@ -296,7 +297,7 @@ export function BrowserPane({
         )}
         <form onSubmit={onSubmit} className="relative min-w-0 flex-1">
           <div className="gradient-border gradient-border--glow browser-search-sync relative flex items-center rounded border border-border bg-card">
-            {siteVerdict && !editing ? <SiteBadge verdict={siteVerdict} /> : null}
+            {siteVerdict && !editing && activeTab ? <SiteBadge tabId={activeTab.id} verdict={siteVerdict} /> : null}
             <input
               ref={addressRef}
               type="text"
@@ -453,6 +454,7 @@ export function BrowserPane({
         }}
       >
         <PermissionPromptBar />
+        <DownloadPromptBar />
         {activeTab?.kind !== 'page' ? <NewTabPage /> : null}
         {activeTab?.kind === 'page' && activeTab.crashed ? (
           <div

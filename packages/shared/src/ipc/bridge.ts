@@ -853,6 +853,14 @@ export type MidniteStudioBridge = {
     setSiteSafety: (req: In<typeof S.BrowserSetSiteSafetyRequest>) => void;
     /** "Proceed for this session" past an interstitial; main re-checks the switch (Phase 117 Theme C). */
     proceedSite: (req: In<typeof S.BrowserProceedSiteRequest>) => void;
+    /** Phase 117 Theme D — downloads opt-in and quarantine folder. */
+    setDownloads: (req: In<typeof S.BrowserSetDownloadsRequest>) => void;
+    /** Phase 117 Theme D — answers a download confirm. */
+    respondDownload: (req: In<typeof S.BrowserDownloadResponseRequest>) => void;
+    /** Phase 117 Theme E — tracker, cookie, referrer and UA switches. */
+    setPrivacy: (req: In<typeof S.BrowserSetPrivacyRequest>) => void;
+    /** Phase 117 Theme E — per-site protection exception. */
+    setTrackerException: (req: In<typeof S.BrowserTrackerSiteExceptionRequest>) => void;
     onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
   };
 

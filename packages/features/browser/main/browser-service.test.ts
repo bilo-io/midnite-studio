@@ -5,9 +5,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { setBrowserSiteSafety } from './browser-site-safety';
+import { setBrowserSiteSafety, siteVerdicts } from './browser-site-safety';
 import {
   KNOWN_BAD_ERROR_CODE,
+  originVerdictLevel,
   proceedBrowserSite,
   activateBrowserTab,
   closeBrowserTab,
@@ -120,7 +121,12 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
       setDisplayMediaRequestHandler: vi.fn(),
       setSpellCheckerEnabled: vi.fn(),
       setCertificateVerifyProc: vi.fn(),
-      webRequest: { onCompleted: vi.fn() },
+      webRequest: {
+        onCompleted: vi.fn(),
+        onBeforeRequest: vi.fn(),
+        onBeforeSendHeaders: vi.fn(),
+        onHeadersReceived: vi.fn(),
+      },
       handlers,
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const list = handlers.get(event) ?? [];
@@ -1181,5 +1187,43 @@ describe('Phase 117 Theme C — site verdicts in the service', () => {
     const fine = { url: 'https://example.org/', preventDefault: vi.fn() };
     view.webContents.emit('will-navigate', fine);
     expect(fine.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('folds Theme E\'s blocked-tracker count into the tab\'s verdict, throttled, and a new page starts at zero', () => {
+    vi.useFakeTimers();
+    try {
+      const win = fakeWindow();
+      createBrowserTab(win, 't', 'https://news.example/');
+      const view = viewOf(win);
+      view.webContents.emit('did-navigate', undefined, 'https://news.example/');
+      const onBeforeRequest = fakeSessions.get('persist:browser')!.webRequest.onBeforeRequest.mock.calls[0]![0] as (
+        d: unknown,
+        cb: (r: { cancel?: boolean }) => void,
+      ) => void;
+      (view.webContents as unknown as { getURL: () => string }).getURL = () => 'https://news.example/';
+      const block = (url: string) =>
+        onBeforeRequest({ url, resourceType: 'script', webContents: view.webContents }, () => undefined);
+      block('https://www.google-analytics.com/analytics.js');
+      block('https://www.google-analytics.com/collect');
+      vi.advanceTimersByTime(200);
+      expect(sent(win).at(-1)).toMatchObject({ kind: 'verdict', verdict: { trackersBlocked: 2, trackerHosts: ['google-analytics.com'] } });
+      expect(sent(win).some((event) => event.kind === 'trackers-blocked')).toBe(false);
+
+      view.webContents.emit('did-navigate', undefined, 'https://news.example/next');
+      expect(sent(win).at(-1)).toMatchObject({ kind: 'verdict', verdict: { trackersBlocked: 0, trackerHosts: [] } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('answers Theme D\'s originVerdict seam from the open tabs\' verdicts', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://expired.badssl.com/');
+    const view = viewOf(win);
+    expect(originVerdictLevel('https://expired.badssl.com')).toBeUndefined();
+    view.webContents.emit('did-navigate', undefined, 'https://expired.badssl.com/');
+    expect(originVerdictLevel('https://expired.badssl.com')).toBe('safe');
+    siteVerdicts().patch('t', { tls: 'error' });
+    expect(originVerdictLevel('https://expired.badssl.com')).toBe('danger');
   });
 });

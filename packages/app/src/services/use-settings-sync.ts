@@ -29,6 +29,17 @@ export function useSettingsSync(): void {
   // cross the same way `forgeSyncGhAuthSwitch` does.
   const agentBackends = useUiStore((s) => s.agentBackends);
 
+  // Phase 117 Themes D + E: the browser partition's downloads opt-in and privacy switches live in
+  // main, which runs protection-on / downloads-off until the first push.
+  const browserDownloads = useUiStore((s) => s.browserDownloads);
+  const browserPrivacy = useUiStore((s) => s.browserPrivacy);
+  useEffect(() => {
+    bridge()?.browser.setDownloads(browserDownloads);
+  }, [browserDownloads]);
+  useEffect(() => {
+    bridge()?.browser.setPrivacy(browserPrivacy);
+  }, [browserPrivacy]);
+
   useEffect(() => {
     const api = bridge();
     if (!api) return;

@@ -10,6 +10,8 @@ import {
   type SiteVerdictLevel,
 } from '@midnite/studio-shared';
 
+import { bridge } from '@midnite/studio-frame';
+
 import { useDismiss } from '../ui';
 
 /**
@@ -23,8 +25,9 @@ import { useDismiss } from '../ui';
  *   finding names itself (lookalike, mixed content, vulnerable library, insecure form).
  * - **danger** — the red chip, for a certificate failure or a feed hit the user proceeded past.
  *
- * Theme E's tracker count rides on the same badge (`verdict.trackersBlocked`), and Theme F raises it
- * through the same verdict — there is never a second badge in the address row.
+ * Theme E's tracker count rides on the same badge (`verdict.trackersBlocked`, fed by its request
+ * filter in main), with its per-site exception in the popover; Theme F raises the badge through the
+ * same verdict — there is never a second badge in the address row.
  */
 
 const TONE: Record<SiteVerdictLevel, string> = {
@@ -52,7 +55,15 @@ export function siteBadgeLabel(verdict: SiteVerdict): string | null {
   return 'Caution';
 }
 
-export function SiteBadge({ verdict }: { verdict: SiteVerdict }) {
+function pageHost(origin: string): string {
+  try {
+    return new URL(origin).hostname;
+  } catch {
+    return '';
+  }
+}
+
+export function SiteBadge({ tabId, verdict }: { tabId: string; verdict: SiteVerdict }) {
   const [open, setOpen] = useState(false);
   const wrapper = useRef<HTMLSpanElement>(null);
   const level = siteVerdictLevel(verdict);
@@ -77,6 +88,16 @@ export function SiteBadge({ verdict }: { verdict: SiteVerdict }) {
 
   const lines = siteVerdictLines(verdict);
   const summary = label ?? 'Site information';
+  const host = pageHost(verdict.origin);
+
+  // Theme E's per-site exception: the page's third-party traffic is let through (or blocked again)
+  // and the tab reloads so the change applies to the page on screen.
+  const setTrackerException = (allow: boolean) => {
+    if (!host) return;
+    bridge()?.browser.setTrackerException({ host, allow });
+    bridge()?.browser.reload({ tabId });
+    setOpen(false);
+  };
 
   return (
     <span ref={wrapper} className="relative z-10 ml-1 flex shrink-0 items-center">
@@ -130,6 +151,26 @@ export function SiteBadge({ verdict }: { verdict: SiteVerdict }) {
                 ))}
               </ul>
             </details>
+          ) : null}
+          {verdict.trackersBlocked > 0 && host ? (
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                data-testid="browser-site-trackers-allow"
+                onClick={() => setTrackerException(true)}
+                className="rounded border border-border px-2 py-1 text-[11px] text-foreground hover:bg-accent"
+              >
+                Allow trackers on {host}
+              </button>
+              <button
+                type="button"
+                data-testid="browser-site-trackers-block"
+                onClick={() => setTrackerException(false)}
+                className="rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent"
+              >
+                Block again
+              </button>
+            </div>
           ) : null}
         </div>
       ) : null}

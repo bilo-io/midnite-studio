@@ -218,6 +218,16 @@ export type BrowserPermissionRequest = {
   displayName: string;
 };
 
+/** A download waiting on the user's confirm (Phase 117 Theme D). */
+export type BrowserDownloadRequest = {
+  tabId: string;
+  requestId: string;
+  filename: string;
+  size: number;
+  origin: string;
+  fileClass: string;
+};
+
 type BrowserState = {
   tabs: BrowserTab[];
   groups: BrowserTabGroup[];
@@ -225,6 +235,8 @@ type BrowserState = {
   recentlyClosed: ClosedTab[];
   /** Pending in-tab permission prompts keyed by tabId (Phase 117 Theme B). */
   pendingPermissionRequests: Record<string, BrowserPermissionRequest | undefined>;
+  /** Pending download confirms keyed by tabId (Phase 117 Theme D). */
+  pendingDownloadRequests: Record<string, BrowserDownloadRequest | undefined>;
   /**
    * The preview-deploy matcher's host allowlist (Phase 71 Theme D), seeded
    * with {@link PREVIEW_DEPLOY_HOSTS} and editable from the Browser settings
@@ -347,6 +359,7 @@ type BrowserState = {
   setFindResult: (result: { matches: number; activeMatchOrdinal: number } | null) => void;
   setPendingPermissionRequest: (tabId: string, request: BrowserPermissionRequest | undefined) => void;
   clearPendingPermissionRequest: (tabId: string) => void;
+  setPendingDownloadRequest: (tabId: string, request: BrowserDownloadRequest | undefined) => void;
 };
 
 /**
@@ -370,6 +383,7 @@ export const useBrowserStore = create<BrowserState>()(
       findOpen: false,
       findResult: null,
       pendingPermissionRequests: {},
+      pendingDownloadRequests: {},
 
       openTab: (url, originRepoId) => {
         const tab: BrowserTab = { ...makeTab(url), ...(originRepoId ? { originRepoId } : {}) };
@@ -415,16 +429,19 @@ export const useBrowserStore = create<BrowserState>()(
 
           const pending = { ...state.pendingPermissionRequests };
           delete pending[id];
+          const downloads = { ...state.pendingDownloadRequests };
+          delete downloads[id];
 
           if (remaining.length === 0) {
             const fresh = makeTab();
-            return { tabs: [fresh], activeTabId: fresh.id, recentlyClosed, pendingPermissionRequests: pending };
+            return { tabs: [fresh], activeTabId: fresh.id, recentlyClosed, pendingPermissionRequests: pending, pendingDownloadRequests: downloads };
           }
           return {
             tabs: remaining,
             activeTabId: nextActiveAfterClose(state.tabs, state.activeTabId, id),
             recentlyClosed,
             pendingPermissionRequests: pending,
+            pendingDownloadRequests: downloads,
           };
         }),
 
@@ -613,6 +630,14 @@ export const useBrowserStore = create<BrowserState>()(
             [tabId]: request,
           },
         })),
+
+      setPendingDownloadRequest: (tabId, request) =>
+        set((state) => {
+          const next = { ...state.pendingDownloadRequests };
+          if (request) next[tabId] = request;
+          else delete next[tabId];
+          return { pendingDownloadRequests: next };
+        }),
 
       clearPendingPermissionRequest: (tabId) =>
         set((state) => {

@@ -3061,6 +3061,10 @@ export function buildMockBridge(data: MockFixtures) {
       proceedSite: (req: { tabId: string; url: string }) => {
         browserProceedCalls.push(req);
       },
+      setDownloads: noop,
+      respondDownload: noop,
+      setPrivacy: noop,
+      setTrackerException: noop,
       onEvent: (handler: (e: unknown) => void) => {
         browserEventHandlers.push(handler);
         return () => {

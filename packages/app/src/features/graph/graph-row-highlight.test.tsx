@@ -216,8 +216,8 @@ describe('recent commit effects', () => {
 
   const INK_CELLS = 3;
 
-  it('gives a commit under 6 minutes old every layer', () => {
-    expect(layers(renderAged('fresh', 30_000))).toEqual({
+  it('gives a commit under 12 minutes old every layer', () => {
+    expect(layers(renderAged('fresh', 60_000))).toEqual({
       shimmer: true,
       laneInk: INK_CELLS,
       laneInkMuted: 0,
@@ -227,8 +227,8 @@ describe('recent commit effects', () => {
     });
   });
 
-  it('drops only the shimmer between 6 and 10 minutes', () => {
-    expect(layers(renderAged('recent', 400_000))).toEqual({
+  it('drops only the shimmer between 12 and 20 minutes', () => {
+    expect(layers(renderAged('recent', 960_000))).toEqual({
       shimmer: false,
       laneInk: INK_CELLS,
       laneInkMuted: 0,
@@ -238,8 +238,8 @@ describe('recent commit effects', () => {
     });
   });
 
-  it('drops the row glow between 10 and 20 minutes, keeping the lane-coloured pulse', () => {
-    expect(layers(renderAged('fading', 800_000))).toEqual({
+  it('drops the row glow between 20 and 40 minutes, keeping the lane-coloured pulse', () => {
+    expect(layers(renderAged('fading', 1_800_000))).toEqual({
       shimmer: false,
       laneInk: INK_CELLS,
       laneInkMuted: 0,
@@ -249,8 +249,8 @@ describe('recent commit effects', () => {
     });
   });
 
-  it('mutes the lane ink and pulse between 20 and 30 minutes, still no glow', () => {
-    const el = renderAged('muted', 1_400_000);
+  it('mutes the lane ink and pulse between 40 and 60 minutes, still no glow', () => {
+    const el = renderAged('muted', 2_880_000);
     expect(layers(el)).toEqual({
       shimmer: false,
       laneInk: 0,
@@ -265,8 +265,23 @@ describe('recent commit effects', () => {
     }
   });
 
-  it('drops every layer at 30 minutes and older', () => {
-    const el = renderAged('old', 1_800_000);
+  it('flips every tier edge between 1 ms before and exactly at the boundary', () => {
+    const MIN = 60_000;
+    const at = (ms: number) => layers(renderAged(`edge-${ms}`, ms));
+    // 11:59 -> 12:00 loses the shimmer; 19:59 -> 20:00 loses the glow;
+    // 39:59 -> 40:00 mutes the ink; 59:59 -> 60:00 drops everything.
+    expect(at(12 * MIN - 1_000).shimmer).toBe(true);
+    expect(at(12 * MIN).shimmer).toBe(false);
+    expect(at(20 * MIN - 1_000).rowGlow).toBe(true);
+    expect(at(20 * MIN).rowGlow).toBe(false);
+    expect(at(40 * MIN - 1_000).laneInk).toBe(INK_CELLS);
+    expect(at(40 * MIN).laneInkMuted).toBe(INK_CELLS);
+    expect(at(60 * MIN - 1_000).laneInkMuted).toBe(INK_CELLS);
+    expect(at(60 * MIN).laneInkMuted).toBe(0);
+  });
+
+  it('drops every layer at 60 minutes and older', () => {
+    const el = renderAged('old', 3_600_000);
     expect(layers(el)).toEqual({
       shimmer: false,
       laneInk: 0,

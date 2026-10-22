@@ -1,5 +1,6 @@
 import type { BrowserEvent, CommandId } from '@midnite/studio-shared';
 
+import type { RequestFilterSession } from './browser-request-filter';
 import type { DeviceSession, DownloadItemLike, PermissionSession } from './browser-security';
 
 /**
@@ -119,13 +120,17 @@ export type BrowserSession = PermissionSession & DeviceSession & {
   /** Phase 117 Theme A: Chromium's spellchecker sends typed text to the OS service — off by policy. */
   setSpellCheckerEnabled(enabled: boolean): void;
   /** Phase 117 Theme C: records every verification result (it always answers `-3`, "use Chromium's"). */
-  setCertificateVerifyProc(proc: (request: CertificateVerifyRequest, callback: (verificationResult: number) => void) => void): void;
+  setCertificateVerifyProc?(proc: (request: CertificateVerifyRequest, callback: (verificationResult: number) => void) => void): void;
   /**
    * Phase 117 Theme C/E. Electron keeps ONE listener per event per session, so each event has one
-   * owner (swarm board, 2026-10-22): Theme C owns `onCompleted` (observe-only); Theme E owns
-   * `onBeforeRequest`/`onBeforeSendHeaders`/`onHeadersReceived`.
+   * owner (swarm board, 2026-10-22): Theme E's `browser-request-filter.ts` owns `onBeforeRequest`,
+   * `onBeforeSendHeaders` and `onHeadersReceived`; Theme C owns `onCompleted` (observe-only).
    */
-  webRequest: { onCompleted(listener: (details: CompletedRequestDetails) => void): void };
+  webRequest?: RequestFilterSession['webRequest'] & {
+    onCompleted?(listener: (details: CompletedRequestDetails) => void): void;
+  };
+  getUserAgent?(): string;
+  setUserAgent?(ua: string): void;
   clearStorageData(): Promise<void>;
   clearCache(): Promise<void>;
   /** `session.cookies` — `get({})` is every cookie in the partition. */

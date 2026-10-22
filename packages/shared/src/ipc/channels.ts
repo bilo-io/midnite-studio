@@ -683,6 +683,14 @@ export const CHANNELS = {
   browserSetSiteSafety: 'mstudio:browser:set-site-safety',
   /** "Proceed for this session" past a certificate / known-bad interstitial (Phase 117 Theme C). */
   browserProceedSite: 'mstudio:browser:proceed-site',
+  /** Downloads opt-in + quarantine folder (Phase 117 Theme D). */
+  browserSetDownloads: 'mstudio:browser:set-downloads',
+  /** User answer to a download confirm (Phase 117 Theme D). */
+  browserDownloadResponse: 'mstudio:browser:download-response',
+  /** Tracker / cookie / referrer / UA switches (Phase 117 Theme E). */
+  browserSetPrivacy: 'mstudio:browser:set-privacy',
+  /** Per-site tracker-protection exception (Phase 117 Theme E). */
+  browserTrackerSiteException: 'mstudio:browser:tracker-site-exception',
 
   // --- third-party apps rail (Phase 83 Themes A/B) ---------------------------
   // One `WebContentsView` per ENABLED app, owned by `web-apps-service.ts` — the

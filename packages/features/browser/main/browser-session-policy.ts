@@ -12,6 +12,7 @@ import {
   type PermissionRequestDetails,
 } from './browser-security';
 import type { PermissionGrantStore } from './permission-grant-store';
+import { installRequestFilter, type RequestFilterOptions, type RequestFilterSession } from './browser-request-filter';
 
 /**
  * One session policy, applied once per partition (Phase 117 Theme A).
@@ -30,7 +31,8 @@ import type { PermissionGrantStore } from './permission-grant-store';
  * 3. `will-download` — refused outright; Theme D's opt-in quarantine replaces the handler.
  * 4. `setCertificateVerifyProc` (Theme C) — record-only: every verification result is reported,
  *    Chromium's own verdict always stands (`-3`).
- * 5. `webRequest.onCompleted` (Theme C) — observe-only; Theme E owns the blocking events.
+ * 5. `webRequest` — Theme C's observe-only `onCompleted`, then Theme E's request filter
+ *    (`persist:browser` only), which owns `onBeforeRequest`/`onBeforeSendHeaders`/`onHeadersReceived`.
  * 6. `setSpellCheckerEnabled(false)` — Chromium's spellchecker hands typed text to the OS
  *    service; off unless the composer asks for it (the Settings switch is Theme B's page).
  *
@@ -50,7 +52,7 @@ export type PolicySession = Pick<
   | 'on'
   | 'setSpellCheckerEnabled'
 > &
-  Partial<Pick<BrowserSession, 'setCertificateVerifyProc' | 'webRequest'>>;
+  Partial<Pick<BrowserSession, 'setCertificateVerifyProc' | 'webRequest' | 'getUserAgent' | 'setUserAgent'>>;
 
 export type PromptablePermissionRequest = {
   origin: string;
@@ -85,6 +87,17 @@ export type BrowserSessionPolicyOptions = {
   onCertificateVerified?: (hostname: string, error: string | undefined) => void;
   /** Phase 117 Theme C: every completed request on the partition (mixed content, script libraries). */
   onRequestCompleted?: (details: CompletedRequestDetails) => void;
+  /**
+   * Phase 117 Theme D: when given, owns `will-download` (it cancels itself while downloads are
+   * off, so the default stays "refuse"). Absent, every download is cancelled via `onDownloadRefused`.
+   */
+  downloadHandler?: (item: never, webContents: unknown) => void;
+  /**
+   * Phase 117 Theme E: tracker blocking, third-party cookie stripping and referrer trimming on
+   * this partition. Only the browser's own partition passes it; `persist:app-<id>` partitions are
+   * exempt (a web app is the third party the user chose).
+   */
+  requestFilter?: RequestFilterOptions;
 };
 
 /** `setCertificateVerifyProc`'s "use the result Chromium already computed". */
@@ -233,6 +246,10 @@ export function applyBrowserSessionPolicy(session: PolicySession, options: Brows
   configureSessionPermissions(session, options);
   denyAllDevices(session);
   session.on('will-download', (_event, item: DownloadItemLike, webContents) => {
+    if (options.downloadHandler) {
+      options.downloadHandler(item as never, webContents);
+      return;
+    }
     cancelDownload(item, (filename) => options.onDownloadRefused(filename, webContents));
   });
   const onVerified = options.onCertificateVerified;
@@ -243,7 +260,10 @@ export function applyBrowserSessionPolicy(session: PolicySession, options: Brows
     });
   }
   const onCompleted = options.onRequestCompleted;
-  if (onCompleted && session.webRequest) session.webRequest.onCompleted((details) => onCompleted(details));
+  if (onCompleted && session.webRequest?.onCompleted) session.webRequest.onCompleted((details) => onCompleted(details));
+  if (options.requestFilter && session.webRequest) {
+    installRequestFilter(session as RequestFilterSession, options.requestFilter);
+  }
   session.setSpellCheckerEnabled(options.spellcheck === true);
 }
 

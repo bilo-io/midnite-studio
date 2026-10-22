@@ -125,12 +125,14 @@ describe('requestCompleted', () => {
 });
 
 describe('Theme E / F hooks', () => {
-  it('noteTrackerBlocked counts every request and lists each host once', () => {
-    const { tracker, last } = setup();
+  it('setTrackerBlocks carries the running count and each host once, and is quiet when nothing changed', () => {
+    const { tracker, emitted, last } = setup();
     tracker.commit('t1', 'https://example.com/');
-    tracker.noteTrackerBlocked(7, 'tracker.example');
-    tracker.noteTrackerBlocked(7, 'tracker.example');
+    tracker.setTrackerBlocks('t1', 2, ['tracker.example', 'tracker.example']);
     expect(last()).toMatchObject({ trackersBlocked: 2, trackerHosts: ['tracker.example'] });
+    const before = emitted.length;
+    tracker.setTrackerBlocks('t1', 2, ['tracker.example']);
+    expect(emitted.length).toBe(before);
     expect(siteVerdictLevel(last())).toBe('ok');
   });
 

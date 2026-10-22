@@ -2793,6 +2793,32 @@ export const BrowserProceedSiteRequest = z.object({
   url: z.string().url(),
 });
 
+/** Phase 117 Theme D — downloads opt-in; `folder` empty means the default quarantine folder. */
+export const BrowserSetDownloadsRequest = z.object({
+  enabled: z.boolean(),
+  folder: z.string().max(1024).optional(),
+});
+
+/** Phase 117 Theme D — answer to a `download-request` confirm. */
+export const BrowserDownloadResponseRequest = z.object({
+  requestId: z.string().min(1),
+  decision: z.enum(['allow', 'deny']),
+});
+
+/** Phase 117 Theme E — the four protection switches. */
+export const BrowserSetPrivacyRequest = z.object({
+  blockTrackers: z.boolean(),
+  blockThirdPartyCookies: z.boolean(),
+  trimReferrer: z.boolean(),
+  reduceUserAgent: z.boolean(),
+});
+
+/** Phase 117 Theme E — allow (or re-protect) one site's third-party traffic. */
+export const BrowserTrackerSiteExceptionRequest = z.object({
+  host: z.string().min(1).max(253),
+  allow: z.boolean(),
+});
+
 export const BrowserEventPayload = BrowserEventSchema;
 
 export type BrowserEventPayloadType = z.infer<typeof BrowserEventPayload>;

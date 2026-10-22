@@ -54,6 +54,25 @@ describe('BrowserPage (Phase 117 Theme B)', () => {
     expect(setSiteSafetySpy).toHaveBeenCalledWith({ allowProceed: true, feeds: { urlhaus: true, openphish: false } });
   });
 
+  it('defaults downloads off and privacy on, and flips each switch (Phase 117 Themes D + E)', () => {
+    useUiStore.setState({
+      browserDownloads: { enabled: false, folder: '' },
+      browserPrivacy: { blockTrackers: true, blockThirdPartyCookies: true, trimReferrer: true, reduceUserAgent: true },
+    });
+    renderWithChrome(<BrowserPage />);
+
+    const downloads = screen.getByTestId('browser-settings-downloads-toggle') as HTMLInputElement;
+    expect(downloads.checked).toBe(false);
+    expect((screen.getByTestId('browser-settings-downloads-folder') as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(downloads);
+    expect(useUiStore.getState().browserDownloads.enabled).toBe(true);
+
+    const trackers = screen.getByTestId('browser-settings-privacy-blockTrackers') as HTMLInputElement;
+    expect(trackers.checked).toBe(true);
+    fireEvent.click(trackers);
+    expect(useUiStore.getState().browserPrivacy).toMatchObject({ blockTrackers: false, blockThirdPartyCookies: true });
+  });
+
   it('lists remembered permissions and allows revoking an individual permission', async () => {
     const permissionsListSpy = vi.fn().mockResolvedValue([
       { origin: 'https://example.com', permission: 'geolocation', value: 'allow', grantedAt: 123456789 },

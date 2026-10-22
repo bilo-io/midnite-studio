@@ -44,6 +44,8 @@ beforeEach(() => {
       setSiteSafety: setSiteSafetyMock,
       proceedSite: proceedSiteMock,
       back: vi.fn(),
+      reload: vi.fn(),
+      setTrackerException: vi.fn(),
       onEvent: vi.fn((handler: (event: unknown) => void) => {
         eventHandlers.push(handler);
         return () => {
@@ -342,7 +344,15 @@ describe('site verdicts (Phase 117 Theme C)', () => {
     });
     await waitFor(() => expect(screen.getByTestId('browser-site-badge-trackers').textContent).toBe('3'));
     fireEvent.click(badge());
-    expect(screen.getByTestId('browser-site-popover').textContent).toContain('jquery 1.12.4 has known vulnerabilities: CVE-2020-11022, CVE-2019-11358');
+    const popover = screen.getByTestId('browser-site-popover');
+    expect(popover.textContent).toContain('jquery 1.12.4 has known vulnerabilities: CVE-2020-11022, CVE-2019-11358');
+    expect(popover.textContent).toContain('3 tracker requests blocked');
+
+    // Theme E's per-site exception lives in this one popover now (TrackerBadge is gone).
+    fireEvent.click(screen.getByRole('button', { name: 'Allow trackers on example.com' }));
+    const bridgeBrowser = (window as unknown as { midniteStudio: MidniteStudioBridge }).midniteStudio.browser;
+    expect(bridgeBrowser.setTrackerException).toHaveBeenCalledWith({ host: 'example.com', allow: true });
+    expect(bridgeBrowser.reload).toHaveBeenCalledWith({ tabId: 'tab-1' });
   });
 
   it('ignores a verdict for another origin than the page the tab shows', async () => {
