@@ -1,6 +1,12 @@
+import { homedir } from 'node:os';
+
 import {
   DEFAULT_BROWSER_DISCARD_MS,
   EVENT_CHANNELS,
+  type BrowserAgentSessionState,
+  type BrowserAgentToolCall,
+  type BrowserAgentToolResult,
+  type PageSafetyLevel,
   type BrowserBounds,
   type BrowserEvent,
   type BrowserPermissionKind,
@@ -28,6 +34,8 @@ import {
 import { bundledFilterList, createUserAgentController, type PrivacySettings } from './browser-request-filter';
 import { EASYPRIVACY_RULES } from './data/easyprivacy.generated';
 import { formatOriginForDisplay } from './idn-hygiene';
+import { createBrowserAgentSessions, type AgentWebContents, type BrowserAgentSessions } from './browser-agent-session';
+import { createClipboardWatch, PAGE_INTERACTION_WINDOW_MS, type ClipboardWatch } from './clipboard-watch';
 import { createPermissionGrantStore, type PermissionGrantStore } from './permission-grant-store';
 
 /**
@@ -390,6 +398,17 @@ function ensureSessionConfigured(): void {
   const deps = browserMainDeps();
   applyBrowserSessionPolicy(session, {
     permissionStore: store,
+    // Phase 117 Theme G: while an agent session drives a tab, its requests stay on the allowlist.
+    requestGate: (details) => browserAgentSessions().egressGate(details),
+    // Phase 117 Theme G: a page's `midnite-studio://`/`midnite://` link, refused here, confirmed by the host.
+    onMidniteLink: (url, origin, webContents) => {
+      if (browserAgentSessions().activeFor(webContents)) {
+        // An agent-driven page never gets to hand the user a run or a clone, even a confirmed one.
+        defaultLogger(`[browser] a midnite link from an agent-driven page was dropped (${origin})`);
+        return;
+      }
+      browserMainDeps().onPageDeepLink?.(url, origin);
+    },
     // Phase 117 Theme E: tracker/cookie/referrer rules on this partition only (web apps are exempt).
     requestFilter: {
       getSettings: getPrivacySettings,
@@ -405,17 +424,21 @@ function ensureSessionConfigured(): void {
       ensureFolder: ensureQuarantineFolder,
       exists: pathExists,
       pageUrlOf: (wc) => (wc as { getURL?(): string } | undefined)?.getURL?.() ?? '',
+      // Phase 117 Theme G: no download behind the user's back while an agent drives the page.
+      forceConfirm: (wc) => browserAgentSessions().activeFor(wc),
       confirm: ({ webContents, filename, size, origin, fileClass }) =>
-        new Promise<boolean>((resolve) => {
-          const entry = tabForContents(webContents);
-          if (!entry || entry[1].win.isDestroyed()) {
-            resolve(false);
-            return;
-          }
-          const requestId = crypto.randomUUID();
-          pendingDownloadRequests.set(requestId, { tabId: entry[0], resolve });
-          send(entry[1].win, { kind: 'download-request', tabId: entry[0], requestId, filename, size, origin, fileClass });
-        }),
+        browserAgentSessions().activeFor(webContents)
+          ? browserAgentSessions().askUser(webContents, 'download', `The page wants to download ${filename} from ${origin || 'this site'}.`)
+          : new Promise<boolean>((resolve) => {
+              const entry = tabForContents(webContents);
+              if (!entry || entry[1].win.isDestroyed()) {
+                resolve(false);
+                return;
+              }
+              const requestId = crypto.randomUUID();
+              pendingDownloadRequests.set(requestId, { tabId: entry[0], resolve });
+              send(entry[1].win, { kind: 'download-request', tabId: entry[0], requestId, filename, size, origin, fileClass });
+            }),
       onRefused: (webContents, filename, reason) => {
         defaultLogger(`[browser] download refused: ${filename}${reason ? ` (${reason})` : ''}`);
         const entry = tabForContents(webContents);
@@ -477,6 +500,129 @@ function ensureSessionConfigured(): void {
   applyUserAgent(getPrivacySettings().reduceUserAgent);
 }
 
+// --- the page-to-agent boundary (Phase 117 Theme G) -------------------------
+
+let agentSessions: BrowserAgentSessions | null = null;
+let agentSiteLevelSource: ((contents: unknown) => Exclude<PageSafetyLevel, 'unknown'> | undefined) | null = null;
+
+/**
+ * The seam Theme C's site verdict plugs into: given a tab's `webContents`, the level of the page it
+ * shows. Until it is wired, a page read by the agent carries `unknown` (raised to `caution` by an
+ * injection hit), and nothing here depends on Theme C's code.
+ */
+export function setBrowserAgentSiteLevelSource(
+  source: ((contents: unknown) => Exclude<PageSafetyLevel, 'unknown'> | undefined) | null,
+): void {
+  agentSiteLevelSource = source;
+}
+
+function browserAgentSessions(): BrowserAgentSessions {
+  if (!agentSessions) {
+    agentSessions = createBrowserAgentSessions({
+      contentsFor: (tabId) => {
+        const wc = tabs.get(tabId)?.view.webContents;
+        return wc && !wc.isDestroyed() ? (wc as unknown as AgentWebContents) : null;
+      },
+      emit: (tabId, state) => {
+        const tab = tabs.get(tabId);
+        if (tab) send(tab.win, { kind: 'agent-session', tabId, state });
+      },
+      siteLevel: (contents) => agentSiteLevelSource?.(contents),
+      homeDir: homedir(),
+    });
+  }
+  return agentSessions;
+}
+
+export function startBrowserAgent(input: { tabId: string; goal: string; allowlist: readonly string[] }):
+  | { ok: true; state: BrowserAgentSessionState }
+  | { ok: false; message: string } {
+  if (!tabs.has(input.tabId)) return { ok: false, message: 'Open a page first.' };
+  ensureSessionConfigured();
+  return browserAgentSessions().start(input);
+}
+
+export function stopBrowserAgent(sessionId: string): void {
+  agentSessions?.stop(sessionId);
+}
+
+export function runBrowserAgentTool(sessionId: string, call: BrowserAgentToolCall): Promise<BrowserAgentToolResult> {
+  return browserAgentSessions().runTool(sessionId, call);
+}
+
+export function respondBrowserAgent(sessionId: string, pendingId: string, decision: 'allow' | 'deny'): void {
+  agentSessions?.respond(sessionId, pendingId, decision);
+}
+
+/** The user drove the tab themselves (address bar, back, forward): the agent lets go. */
+function userTookTheWheel(tabId: string): void {
+  agentSessions?.endForTab(tabId, 'You took the wheel');
+}
+
+// ClickFix: the clipboard watch. On by default; `Settings ▸ Browser` mirrors the switch here.
+let clipboardWatchEnabled = true;
+let clipboardWatch: ClipboardWatch | null = null;
+/** The last tab the user focused or typed into, and when. One entry, not a per-tab map. */
+let lastPageInteraction: { tabId: string; at: number } | null = null;
+
+function notePageInteraction(tabId: string): void {
+  lastPageInteraction = { tabId, at: Date.now() };
+}
+
+function pageOrigin(tabId: string): string {
+  try {
+    return new URL(tabs.get(tabId)?.view.webContents.getURL() ?? '').origin;
+  } catch {
+    return '';
+  }
+}
+
+function ensureClipboardWatch(): void {
+  const electron = browserMainDeps().electron;
+  const readText = electron.readClipboardText;
+  if (!readText) return;
+  if (clipboardWatch) {
+    if (clipboardWatchEnabled) clipboardWatch.start();
+    return;
+  }
+  clipboardWatch = createClipboardWatch({
+    readText: () => readText.call(electron),
+    // Only while a window hosting a browser tab has focus — never a background clipboard monitor.
+    isActive: () => clipboardWatchEnabled && [...tabs.values()].some((t) => !t.win.isDestroyed() && t.win.isFocused?.() === true),
+    recentPageInteraction: () => {
+      for (const [tabId, t] of tabs) {
+        if (!t.view.webContents.isDestroyed() && t.view.webContents.isFocused?.() === true) return { tabId, origin: pageOrigin(tabId) };
+      }
+      const last = lastPageInteraction;
+      if (!last || !tabs.has(last.tabId) || Date.now() - last.at > PAGE_INTERACTION_WINDOW_MS) return null;
+      return { tabId: last.tabId, origin: pageOrigin(last.tabId) };
+    },
+    onHit: ({ tabId, origin, match, preview }) => {
+      const tab = tabs.get(tabId);
+      defaultLogger(`[browser] clickfix: ${match.reason} on the clipboard after ${origin || 'a page'}`);
+      if (tab) send(tab.win, { kind: 'clipboard-warning', tabId, origin, label: match.label.slice(0, 120), preview: preview.slice(0, 96) });
+    },
+  });
+  if (clipboardWatchEnabled) clipboardWatch.start();
+}
+
+export function setBrowserClipboardWatch(enabled: boolean): void {
+  clipboardWatchEnabled = enabled;
+  if (!enabled) clipboardWatch?.stop();
+  else if (tabs.size > 0) ensureClipboardWatch();
+}
+
+/** The ClickFix bar's one-click clear. */
+export function clearBrowserClipboard(): void {
+  const electron = browserMainDeps().electron;
+  electron.clearClipboard?.call(electron);
+}
+
+/** Test seam: run one clipboard poll now. */
+export function tickBrowserClipboardWatchForTests(): void {
+  clipboardWatch?.tick();
+}
+
 const send = (win: BrowserWindow, event: BrowserEvent): void => {
   if (!win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.browserEvent, event);
 };
@@ -529,6 +675,9 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
 
   const wc = view.webContents;
   refuseWebviewAttach(wc);
+  ensureClipboardWatch();
+  // Phase 117 Theme G: the ClickFix watch only counts a clipboard change the user's page time explains.
+  wc.on('focus', () => notePageInteraction(tabId));
 
   wc.on('did-navigate', (_event, navigatedUrl) => {
     cancelPendingPermissionRequestsForTab(tabId);
@@ -610,6 +759,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
     stops the page underneath from ever seeing the chord.
   */
   wc.on('before-input-event', (event, input) => {
+    notePageInteraction(tabId);
     if (isModChord(input, 'w')) {
       event.preventDefault();
       sendCommand(win, 'browser.closeTab');
@@ -672,11 +822,14 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
 }
 
 export function closeBrowserTab(tabId: string): void {
+  agentSessions?.endForTab(tabId, 'The tab closed');
+  if (lastPageInteraction?.tabId === tabId) lastPageInteraction = null;
   cancelPendingPermissionRequestsForTab(tabId);
   trackerBlocks.delete(tabId);
   const tracked = tabs.get(tabId);
   if (!tracked) return;
   tabs.delete(tabId);
+  if (tabs.size === 0) clipboardWatch?.stop();
   lastBounds.delete(tabId);
   hiddenSince.delete(tabId);
   keepAwakeTabIds.delete(tabId);
@@ -703,6 +856,8 @@ export function closeBrowserTab(tabId: string): void {
  * `discarded` — unlike a close, it never asked for this.
  */
 export function discardBrowserTab(tabId: string): void {
+  agentSessions?.endForTab(tabId, 'The tab was put to sleep');
+  if (lastPageInteraction?.tabId === tabId) lastPageInteraction = null;
   cancelPendingPermissionRequestsForTab(tabId);
   trackerBlocks.delete(tabId);
   const tracked = tabs.get(tabId);
@@ -722,17 +877,24 @@ export function navigateBrowserTab(tabId: string, url: string): void {
   const tracked = tabs.get(tabId);
   if (!tracked) return;
   if (!checkNavigationUrl(url).allowed) return;
+  userTookTheWheel(tabId);
   void tracked.view.webContents.loadURL(url);
 }
 
 export function backBrowserTab(tabId: string): void {
   const wc = tabs.get(tabId)?.view.webContents;
-  if (wc?.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
+  if (wc?.navigationHistory.canGoBack()) {
+    userTookTheWheel(tabId);
+    wc.navigationHistory.goBack();
+  }
 }
 
 export function forwardBrowserTab(tabId: string): void {
   const wc = tabs.get(tabId)?.view.webContents;
-  if (wc?.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
+  if (wc?.navigationHistory.canGoForward()) {
+    userTookTheWheel(tabId);
+    wc.navigationHistory.goForward();
+  }
 }
 
 export function reloadBrowserTab(tabId: string): void {
@@ -892,4 +1054,10 @@ export function resetBrowserServiceForTests(): void {
   visibleTabIds.clear();
   discardMs = DEFAULT_BROWSER_DISCARD_MS;
   stopBrowserDiscardSweep();
+  agentSessions = null;
+  agentSiteLevelSource = null;
+  clipboardWatch?.stop();
+  clipboardWatch = null;
+  clipboardWatchEnabled = true;
+  lastPageInteraction = null;
 }

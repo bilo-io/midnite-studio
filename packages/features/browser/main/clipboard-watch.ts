@@ -46,7 +46,13 @@ export function hashClipboardText(text: string): string {
 export function createClipboardWatch(deps: ClipboardWatchDeps): ClipboardWatch {
   let lastHash: string | null = null;
   let handle: unknown = null;
-  const every = deps.setInterval ?? ((fn, ms) => setInterval(fn, ms));
+  const every =
+    deps.setInterval ??
+    ((fn, ms) => {
+      const h = setInterval(fn, ms);
+      h.unref?.();
+      return h;
+    });
   const cancel = deps.clearInterval ?? ((h) => clearInterval(h as ReturnType<typeof setInterval>));
 
   const tick = (): void => {

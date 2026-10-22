@@ -74,6 +74,20 @@ describe('createDownloadHandler', () => {
     await vi.waitFor(() => expect(i.resume).toHaveBeenCalled());
   });
 
+  it('asks about even a document while an agent session drives the page (Phase 117 Theme G)', async () => {
+    const confirm = vi.fn(async () => false);
+    const agentPage = {};
+    const { handle } = rig({ confirm, forceConfirm: (wc) => wc === agentPage });
+    const { it: i } = item();
+    handle(i, agentPage);
+    expect(i.pause).toHaveBeenCalled();
+    await vi.waitFor(() => expect(i.cancel).toHaveBeenCalled());
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ webContents: agentPage, filename: 'a.pdf' }));
+    const { it: other } = item();
+    handle(other, {});
+    expect(other.pause).not.toHaveBeenCalled();
+  });
+
   it('cancels when the user declines', async () => {
     const { handle, onRefused } = rig({ confirm: async () => false });
     const { it: i } = item({ name: 'Tool.dmg' });
