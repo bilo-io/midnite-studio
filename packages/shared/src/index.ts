@@ -84,6 +84,7 @@ export * from './perf';
 export * from './process-env';
 export * from './redact';
 export * from './clickfix';
+export * from './vanguard-integrity';
 export * from './injection-heuristics';
 export * from './untrusted-page-content';
 export * from './browser-agent';
