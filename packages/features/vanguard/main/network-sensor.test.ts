@@ -169,6 +169,27 @@ describe('the suite against the egress registry', () => {
   });
 });
 
+describe('the registry lookup', () => {
+  it('asks again soon when a registry host did not resolve, instead of trusting the gap', async () => {
+    lsof = lsofOutput([{ pid: APP_PID, command: 'Midnite', socks: [sock('104.16.0.1:443')] }]);
+    let online = false;
+    const { run } = make({
+      resolver: {
+        lookup: async () => (online ? ['104.16.0.1'] : []),
+        reverse: async () => [],
+      },
+    });
+    await run();
+    expect(recorded).toHaveLength(1);
+    online = true;
+    clock += 61_000;
+    recorded = [];
+    await run();
+    // Resolved on the retry: the same socket is no longer unregistered (and was already reported once).
+    expect(recorded).toHaveLength(0);
+  });
+});
+
 describe('agent sessions against a per-repo baseline', () => {
   const agentLsof = (remote: string, pid = 202) => lsofOutput([{ pid, command: 'node', socks: [sock(remote)] }]);
 

@@ -142,6 +142,11 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
         registryAddresses.set(host, found);
       }),
     );
+    // A host that did not resolve (offline, a slow resolver) would make every connection to it look
+    // unregistered, so ask again in a minute rather than trusting the gap for ten.
+    if ([...registryAddresses.values()].some((found) => found.size === 0)) {
+      registryAt = now - REGISTRY_REFRESH_MS + 60_000;
+    }
   }
 
   async function refreshThreats(now: number, extra: readonly NetworkThreatHost[]): Promise<void> {
@@ -155,6 +160,9 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
         threatAddresses.set(name, slot);
       }),
     );
+    if (![...threatAddresses.values()].some((slot) => slot.addresses.size > 0)) {
+      threatAt = now - REGISTRY_REFRESH_MS * 6 + 60_000;
+    }
   }
 
   function allowedBy(address: string): string | undefined {
