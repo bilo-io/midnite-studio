@@ -83,7 +83,43 @@ export type BrowserSessionPolicyOptions = {
    * exempt (a web app is the third party the user chose).
    */
   requestFilter?: RequestFilterOptions;
+  /**
+   * Phase 117 Theme G: asked about every request before anything else on `onBeforeRequest`; `true`
+   * cancels it. The agent session's egress rule uses it. Electron keeps one listener per event per
+   * session, so this is fanned out in front of Theme E's filter rather than registered beside it.
+   */
+  requestGate?: (details: GateRequestDetails) => boolean;
 };
+
+/** What {@link BrowserSessionPolicyOptions.requestGate} sees of a request. */
+export type GateRequestDetails = { url: string; resourceType: string; webContents?: unknown };
+
+type BeforeRequestListener = Parameters<RequestFilterSession['webRequest']['onBeforeRequest']>[0];
+
+/**
+ * The session as Theme E's filter should see it once a gate is installed: the same object, except
+ * `onBeforeRequest` registers a listener that asks the gate first. One real listener, two rules.
+ */
+export function withRequestGate(session: RequestFilterSession, gate: (details: GateRequestDetails) => boolean): RequestFilterSession {
+  const webRequest = session.webRequest;
+  const gated: RequestFilterSession['webRequest'] = {
+    onBeforeRequest: (listener: BeforeRequestListener) =>
+      webRequest.onBeforeRequest((details, callback) => {
+        if (gate(details)) {
+          callback({ cancel: true });
+          return;
+        }
+        listener(details, callback);
+      }),
+    onBeforeSendHeaders: (listener) => webRequest.onBeforeSendHeaders(listener),
+    onHeadersReceived: (listener) => webRequest.onHeadersReceived(listener),
+  };
+  return {
+    webRequest: gated,
+    ...(session.getUserAgent ? { getUserAgent: () => session.getUserAgent!() } : {}),
+    ...(session.setUserAgent ? { setUserAgent: (ua: string) => session.setUserAgent!(ua) } : {}),
+  };
+}
 
 /**
  * Maps an incoming permission request to granular promptable permission kinds (Phase 117 Theme B).
@@ -234,8 +270,11 @@ export function applyBrowserSessionPolicy(session: PolicySession, options: Brows
     }
     cancelDownload(item, (filename) => options.onDownloadRefused(filename, webContents));
   });
-  if (options.requestFilter && session.webRequest) {
-    installRequestFilter(session as RequestFilterSession, options.requestFilter);
+  if (session.webRequest && (options.requestFilter || options.requestGate)) {
+    const base = session as RequestFilterSession;
+    const target = options.requestGate ? withRequestGate(base, options.requestGate) : base;
+    if (options.requestFilter) installRequestFilter(target, options.requestFilter);
+    else target.webRequest.onBeforeRequest((_details, callback) => callback({}));
   }
   session.setSpellCheckerEnabled(options.spellcheck === true);
 }

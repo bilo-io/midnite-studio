@@ -210,6 +210,56 @@ describe('applyBrowserSessionPolicy', () => {
   });
 });
 
+describe('requestGate (Phase 117 Theme G)', () => {
+  type Listener = (details: { url: string; resourceType: string; webContents?: unknown }, cb: (r: { cancel?: boolean }) => void) => void;
+  function webRequestSession() {
+    const before: Listener[] = [];
+    const session = {
+      ...recordingSession(),
+      webRequest: {
+        onBeforeRequest: vi.fn((l: Listener) => void before.push(l)),
+        onBeforeSendHeaders: vi.fn(),
+        onHeadersReceived: vi.fn(),
+      },
+    };
+    return { session, before };
+  }
+  const filter = (blocked: string[]) => ({
+    getSettings: () => ({ blockTrackers: true, blockThirdPartyCookies: false, trimReferrer: false, reduceUserAgent: false }),
+    isExcepted: () => false,
+    onBlocked: vi.fn(),
+    loadList: () => ({ match: ({ url }: { url: string }) => (blocked.some((b) => url.includes(b)) ? 'tracker.example' : null) }) as never,
+  });
+
+  it('runs in front of the tracker filter on the one onBeforeRequest listener', () => {
+    const { session, before } = webRequestSession();
+    applyBrowserSessionPolicy(session, {
+      onDownloadRefused: vi.fn(),
+      requestFilter: filter(['tracker.example']),
+      requestGate: (d) => d.url.startsWith('https://attacker.example'),
+    });
+    expect(before).toHaveLength(1);
+    const page = { getURL: () => 'https://example.com/' };
+    const run = (url: string) => {
+      const cb = vi.fn();
+      before[0]!({ url, resourceType: 'xhr', webContents: page }, cb);
+      return cb.mock.calls[0]?.[0];
+    };
+    expect(run('https://attacker.example/collect')).toEqual({ cancel: true });
+    expect(run('https://tracker.example/pixel')).toEqual({ cancel: true });
+    expect(run('https://example.com/api')).toEqual({});
+  });
+
+  it('installs alone when there is no filter (a partition without tracker rules)', () => {
+    const { session, before } = webRequestSession();
+    applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn(), requestGate: () => true });
+    expect(before).toHaveLength(1);
+    const cb = vi.fn();
+    before[0]!({ url: 'https://x.example', resourceType: 'mainFrame' }, cb);
+    expect(cb).toHaveBeenCalledWith({ cancel: true });
+  });
+});
+
 describe('sandboxedPageWebPreferences', () => {
   it('never carries a preload, and names every dangerous flag as its safe value', () => {
     const prefs = sandboxedPageWebPreferences('persist:browser', { devTools: false });
