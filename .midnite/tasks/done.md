@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-23 — Phase 120 Theme D — Persistence and process sensors
 
-PR pending. Four Vanguard sensors on the sensor host: persistence (LaunchAgents/Daemons, rc files, `~/.ssh`, `/etc/periodic`, crontab; baseline + `fs.watch`; plist `ProgramArguments` and signature state in the evidence), process table (new executables checked with `codesign`/`spctl`/quarantine xattr), Apple signals (XProtect age, syspolicy and XProtectRemediator denials, Gatekeeper/SIP status under shared fingerprints) and ClickFix paste shapes. The broker output stream and agent-session pids are optional injected deps, not yet wired by a composer.
+[PR #985](https://github.com/bilo-io/midnite-studio/pull/985). Four Vanguard sensors on the sensor host: persistence (LaunchAgents/Daemons, rc files, `~/.ssh`, `/etc/periodic`, crontab; baseline + `fs.watch`; plist `ProgramArguments` and signature state in the evidence), process table (new executables checked with `codesign`/`spctl`/quarantine xattr), Apple signals (XProtect age, syspolicy and XProtectRemediator denials, Gatekeeper/SIP status under shared fingerprints) and ClickFix paste shapes. The broker output stream and agent-session pids are optional injected deps, not yet wired by a composer.
 
 ## 2026-10-22 — Phase 117 Theme F — Credential-phishing detection
 
