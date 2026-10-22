@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-23 — Phase 117 Theme H — Tests, the security page, and the record
 
-PR pending. A rule-coverage map test (every browser security rule with its test file, none importing Electron), a badge-label table test, two Playwright specs that each name their browser capability and their gap (a real Chromium TLS failure behind the interstitial; a real `getUserMedia` refused then allowed through the permission bar; main's handlers stay vitest), a badge visual spec (`-darwin` baselines only; `-linux` pending), `docs/BROWSER_SECURITY.md`, two findings rows in `docs/security/README.md`, and the policy module and agent-session contract in `docs/APPS.md`. Theme H ✅. The phase awaits `/midnite-verify`.
+[PR #983](https://github.com/bilo-io/midnite-studio/pull/983). A rule-coverage map test (every browser security rule with its test file, none importing Electron), a badge-label table test, two Playwright specs that each name their browser capability and their gap (a real Chromium TLS failure behind the interstitial; a real `getUserMedia` refused then allowed through the permission bar; main's handlers stay vitest), a badge visual spec (`-darwin` baselines only; `-linux` pending), `docs/BROWSER_SECURITY.md`, two findings rows in `docs/security/README.md`, and the policy module and agent-session contract in `docs/APPS.md`. Theme H ✅. The phase awaits `/midnite-verify`.
 
 ## 2026-10-22 — Phase 117 Theme F — Credential-phishing detection
 

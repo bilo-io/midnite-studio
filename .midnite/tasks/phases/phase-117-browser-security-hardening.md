@@ -257,7 +257,7 @@ Decision 8 is closed too: `proceedBrowserSite` refuses "Proceed for this session
 the tab, and the user taking the wheel (which ends the session) is what re-opens it. Both are tested in
 `browser-service.agent.test.ts`. Phase 121's runtime is what will drive the tools.
 
-**Theme H — Tests, the security page, and the record.** ✅ Audit first: every pure rule already had a vitest
+**Theme H — Tests, the security page, and the record.** ✅ [PR #983](https://github.com/bilo-io/midnite-studio/pull/983). Audit first: every pure rule already had a vitest
 file from its own theme, so the gap was the proof that it stays that way. `main/pure-rules.test.ts` lists
 each rule (policy, grants, verdict, lookalike, download policy, filter trie, login-form rules, injection
 heuristics, clipboard shape, deep-link confirm, and the rest) with its test file and fails if a test file goes
