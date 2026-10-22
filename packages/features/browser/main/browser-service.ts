@@ -32,6 +32,17 @@ import {
 } from './browser-site-safety';
 import { createDownloadHandler } from './browser-downloads';
 import {
+  clearHostsFirstSeen,
+  forgetCredentialTab,
+  hostsFirstSeen,
+  judgeTabCredentials,
+  judgeTabCredentialsInPage,
+  judgeTabCredentialsOnInput,
+  noteCredentialCommit,
+  refreshVaultSignInHosts,
+  resetCredentialPhishingForTests,
+} from './credential-phishing';
+import {
   createNodeQuarantineDeps,
   defaultQuarantineFolder,
   ensureQuarantineFolder,
@@ -536,6 +547,8 @@ function ensureSessionConfigured(): void {
   // Phase 117 Theme E: a reduced User-Agent (new pages; an open page keeps the one it started with).
   applyUserAgent = createUserAgentController(session);
   applyUserAgent(getPrivacySettings().reduceUserAgent);
+  // Phase 117 Theme F: the Vault's sign-in domains feed the lookalike and phishing rules.
+  void refreshVaultSignInHosts(true);
 }
 
 // --- the page-to-agent boundary (Phase 117 Theme G) -------------------------
@@ -807,7 +820,13 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
     });
     // A main-frame commit: a fresh SiteVerdict (Phase 117 Theme C). In-page navigations keep theirs.
     siteVerdicts().commit(tabId, navigatedUrl);
+    noteCredentialCommit(tabId, navigatedUrl);
   });
+  // Phase 117 Theme F: the login-form read, once the DOM exists and again once the page settles.
+  // An isolated world, a fixed snippet, nothing installed (`login-form-read.ts`).
+  const judgeCredentials = () => void judgeTabCredentials(tabId, wc);
+  wc.on('dom-ready', judgeCredentials);
+  wc.on('did-stop-loading', judgeCredentials);
   wc.on('did-navigate-in-page', (_event, navigatedUrl) => {
     cancelPendingPermissionRequestsForTab(tabId);
     send(win, {
@@ -817,6 +836,8 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
       canGoBack: wc.navigationHistory.canGoBack(),
       canGoForward: wc.navigationHistory.canGoForward(),
     });
+    // A single-page app routing to its sign-in form commits nothing; read again (throttled).
+    judgeTabCredentialsInPage(tabId, wc);
   });
   wc.on('page-title-updated', (_event, title) => send(win, { kind: 'title', tabId, title }));
   wc.on('page-favicon-updated', (_event, favicons) => {
@@ -884,6 +905,8 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
     stops the page underneath from ever seeing the chord.
   */
   wc.on('before-input-event', (event, input) => {
+    // Phase 117 Theme F: typing re-reads the login form (throttled), for a password step added late.
+    if (input.type === 'keyDown') judgeTabCredentialsOnInput(tabId, wc);
     notePageInteraction(tabId);
     if (isModChord(input, 'w')) {
       event.preventDefault();
@@ -983,6 +1006,7 @@ export function closeBrowserTab(tabId: string): void {
   tabs.delete(tabId);
   interstitialUrls.delete(tabId);
   siteVerdicts().forget(tabId);
+  forgetCredentialTab(tabId);
   if (tabs.size === 0) clipboardWatch?.stop();
   lastBounds.delete(tabId);
   hiddenSince.delete(tabId);
@@ -1021,6 +1045,7 @@ export function discardBrowserTab(tabId: string): void {
   visibleTabIds.delete(tabId);
   interstitialUrls.delete(tabId);
   siteVerdicts().forget(tabId);
+  forgetCredentialTab(tabId);
   if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
   if (!tracked.view.webContents.isDestroyed()) {
     tracked.view.webContents.removeAllListeners();
@@ -1175,11 +1200,13 @@ export async function clearBrowserData(): Promise<void> {
   const browserSession = browserMainDeps().electron.sessionFromPartition(PARTITION);
   await browserSession.clearStorageData();
   await browserSession.clearCache();
+  clearHostsFirstSeen();
 }
 
 /** Window close, `before-quit`: destroy every tracked view — nothing survives past the process. */
 export function destroyAllBrowserTabs(): void {
   for (const [tabId] of tabs) closeBrowserTab(tabId);
+  hostsFirstSeen().flush();
 }
 
 /** Test-only: drop every tracked tab without tearing down real Electron state. */
@@ -1210,6 +1237,7 @@ export function resetBrowserServiceForTests(): void {
   visibleTabIds.clear();
   interstitialUrls.clear();
   resetSiteSafetyForTests();
+  resetCredentialPhishingForTests();
   discardMs = DEFAULT_BROWSER_DISCARD_MS;
   stopBrowserDiscardSweep();
   agentSessions = null;

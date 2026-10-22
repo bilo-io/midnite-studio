@@ -155,6 +155,7 @@ export const browserMain = defineFeatureMain<BrowserMainServices>({
       devToolsAllowed: services.devToolsAllowed ?? false,
       userDataPath: services.userDataPath,
       permissionStore: services.permissionStore,
+      ledgerCipher: services.ledgerCipher,
       onPageDeepLink: services.onPageDeepLink,
     });
     registerBrowserHandlers(ctx.ipc, services.sender);

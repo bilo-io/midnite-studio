@@ -40,7 +40,7 @@ export type BrowserWebContents = {
   on(event: 'did-navigate' | 'did-navigate-in-page', listener: (event: unknown, url: string) => void): void;
   on(event: 'page-title-updated', listener: (event: unknown, title: string) => void): void;
   on(event: 'page-favicon-updated', listener: (event: unknown, favicons: string[]) => void): void;
-  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive' | 'focus', listener: () => void): void;
+  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive' | 'dom-ready' | 'focus', listener: () => void): void;
   on(
     event: 'did-fail-load',
     listener: (event: unknown, errorCode: number, errorDescription: string, validatedUrl: string, isMainFrame: boolean) => void,
@@ -62,6 +62,12 @@ export type BrowserWebContents = {
   ): void;
   /** Phase 117 Theme A: refused by `refuseWebviewAttach`, whatever `webviewTag` says. */
   on(event: 'will-attach-webview', listener: (event: BrowserPreventable) => void): void;
+  /**
+   * Fixed scripts in a world of their own, never world 0 (the page's own): Phase 117 Theme F's
+   * login-form read (`login-form-read.ts`, `LOGIN_FORM_WORLD_ID`) and Theme G's agent tools
+   * (`page-reader.ts`, `AGENT_WORLD_ID`).
+   */
+  executeJavaScriptInIsolatedWorld(worldId: number, scripts: Array<{ code: string }>, userGesture?: boolean): Promise<unknown>;
   /** Phase 117 Theme C: ties `webRequest` details (`webContentsId`) back to a tab. */
   readonly id: number;
   removeAllListeners(): void;
@@ -84,8 +90,6 @@ export type BrowserWebContents = {
   setWindowOpenHandler(handler: (details: { url: string; disposition: string }) => { action: 'deny' }): void;
   /** Phase 117 Theme G: whether this page has keyboard focus (the ClickFix watch's interaction signal). */
   isFocused?(): boolean;
-  /** Phase 117 Theme G: the agent tools' fixed scripts run in a world of their own (`page-reader.ts`). */
-  executeJavaScriptInIsolatedWorld?(worldId: number, scripts: Array<{ code: string }>): Promise<unknown>;
   /** Phase 117 Theme G: the agent's `screenshot` tool. */
   capturePage?(): Promise<{ toDataURL(): string }>;
 };

@@ -355,6 +355,24 @@ describe('site verdicts (Phase 117 Theme C)', () => {
     expect(bridgeBrowser.reload).toHaveBeenCalledWith({ tabId: 'tab-1' });
   });
 
+  it('raises the one badge to "Possible phishing" for a password page Theme F judged a phish', async () => {
+    seedActivePageTab('https://github-login.app/');
+    renderPane();
+    blurAddress();
+    pushBrowserEvent({
+      kind: 'verdict',
+      tabId: 'tab-1',
+      verdict: verdict('https://github-login.app/', {
+        credentialRisk: { level: 'danger', reasons: [{ rule: 'sign-in-elsewhere', detail: 'github.com' }] },
+      }),
+    });
+    await waitFor(() => expect(badge().textContent).toContain('Possible phishing'));
+    expect(badge().getAttribute('data-level')).toBe('danger');
+    expect(screen.getAllByTestId('browser-site-badge')).toHaveLength(1);
+    fireEvent.click(badge());
+    expect(screen.getByTestId('browser-site-popover').textContent).toContain('Looks like a github.com sign-in page, but is not on github.com');
+  });
+
   it('ignores a verdict for another origin than the page the tab shows', async () => {
     seedActivePageTab('https://example.com/');
     renderPane();
