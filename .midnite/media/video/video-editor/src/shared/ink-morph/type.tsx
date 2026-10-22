@@ -54,13 +54,17 @@ export const Credit: React.FC<{
       </text>
       <text x={x} y={y + 40} textAnchor={anchor} fontFamily={serifFamily} fontSize={64} letterSpacing={18} fill={color}>
         {name.split("").map((ch, i) => {
-          const at = 22 + i * 2 + between(0, 6, id, "at", i);
-          const on = t >= at;
-          const settled = t >= at + 6;
-          const jx = settled ? 0 : between(-6, 6, id, "jx", i, drawing);
-          const jy = settled ? 0 : between(-8, 8, id, "jy", i, drawing);
+          // `dx`/`dy` on a tspan shift every glyph after it too, so each letter
+          // takes its own jitter minus the one before it to stay on the line.
+          const jitter = (k: number): [number, number] => {
+            if (k < 0 || t >= 22 + k * 2 + between(0, 6, id, "at", k) + 6) return [0, 0];
+            return [between(-6, 6, id, "jx", k, drawing), between(-8, 8, id, "jy", k, drawing)];
+          };
+          const [jx, jy] = jitter(i);
+          const [px, py] = jitter(i - 1);
+          const on = t >= 22 + i * 2 + between(0, 6, id, "at", i);
           return (
-            <tspan key={i} dx={jx} dy={jy} opacity={on ? 1 : 0}>
+            <tspan key={i} dx={jx - px} dy={jy - py} opacity={on ? 1 : 0}>
               {ch}
             </tspan>
           );
