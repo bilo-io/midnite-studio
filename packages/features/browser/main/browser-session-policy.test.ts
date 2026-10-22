@@ -72,6 +72,44 @@ describe('applyBrowserSessionPolicy', () => {
     expect(onDownloadRefused).toHaveBeenCalledWith('ubuntu.iso', asker);
   });
 
+  it('Theme C: records certificate verifications without changing the outcome, and observes completed requests', () => {
+    const session = {
+      ...recordingSession(),
+      setCertificateVerifyProc: vi.fn(),
+      webRequest: { onCompleted: vi.fn(), onBeforeRequest: vi.fn(), onBeforeSendHeaders: vi.fn(), onHeadersReceived: vi.fn() },
+    };
+    session.setCertificateVerifyProc.mockImplementation(() => void session.calls.push('verify-proc'));
+    session.webRequest.onCompleted.mockImplementation(() => void session.calls.push('on-completed'));
+    const onCertificateVerified = vi.fn();
+    const onRequestCompleted = vi.fn();
+    applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn(), onCertificateVerified, onRequestCompleted });
+    expect(session.calls.slice(-3)).toEqual(['verify-proc', 'on-completed', 'spellcheck:false']);
+
+    const proc = session.setCertificateVerifyProc.mock.calls[0]![0] as (
+      request: { hostname: string; verificationResult: string; errorCode: number },
+      callback: (result: number) => void,
+    ) => void;
+    const callback = vi.fn();
+    proc({ hostname: 'expired.badssl.com', verificationResult: 'net::ERR_CERT_DATE_INVALID', errorCode: -201 }, callback);
+    proc({ hostname: 'example.com', verificationResult: 'net::OK', errorCode: 0 }, callback);
+    expect(onCertificateVerified).toHaveBeenNthCalledWith(1, 'expired.badssl.com', 'net::ERR_CERT_DATE_INVALID');
+    expect(onCertificateVerified).toHaveBeenNthCalledWith(2, 'example.com', undefined);
+    expect(callback).toHaveBeenCalledWith(-3);
+    expect(callback).not.toHaveBeenCalledWith(0);
+
+    const listener = session.webRequest.onCompleted.mock.calls[0]![0] as (details: unknown) => void;
+    const details = { url: 'http://x/i.png', method: 'GET', resourceType: 'image', webContentsId: 3 };
+    listener(details);
+    expect(onRequestCompleted).toHaveBeenCalledWith(details);
+  });
+
+  it('Theme C: installs neither hook when the composer passes none (the web-app partitions)', () => {
+    const session = { ...recordingSession(), setCertificateVerifyProc: vi.fn(), webRequest: { onCompleted: vi.fn(), onBeforeRequest: vi.fn(), onBeforeSendHeaders: vi.fn(), onHeadersReceived: vi.fn() } };
+    applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn() });
+    expect(session.setCertificateVerifyProc).not.toHaveBeenCalled();
+    expect(session.webRequest.onCompleted).not.toHaveBeenCalled();
+  });
+
   it('turns spellcheck on only when the composer asks', () => {
     const session = recordingSession();
     applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn(), spellcheck: true });

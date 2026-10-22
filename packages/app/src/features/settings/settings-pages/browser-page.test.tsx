@@ -49,6 +49,20 @@ describe('BrowserPage (Phase 117 Theme B)', () => {
     expect(useUiStore.getState().browserClipboardWatch).toBe(false);
   });
 
+  it('Site safety: the proceed switch is off by default, flips the store and tells main (Phase 117 Theme C)', () => {
+    const setSiteSafetySpy = vi.fn();
+    (window as unknown as { midniteStudio: { browser: { setSiteSafety: typeof setSiteSafetySpy } } }).midniteStudio.browser.setSiteSafety = setSiteSafetySpy;
+    useUiStore.setState({ browserAllowSiteProceed: false, browserReputationFeeds: { urlhaus: true, openphish: false } });
+    renderWithChrome(<BrowserPage />);
+
+    const toggle = screen.getByTestId('browser-settings-site-proceed-toggle') as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    expect(useUiStore.getState().browserAllowSiteProceed).toBe(true);
+    // No browser pane is mounted here, so this push is the only way main hears about it.
+    expect(setSiteSafetySpy).toHaveBeenCalledWith({ allowProceed: true, feeds: { urlhaus: true, openphish: false } });
+  });
+
   it('defaults downloads off and privacy on, and flips each switch (Phase 117 Themes D + E)', () => {
     useUiStore.setState({
       browserDownloads: { enabled: false, folder: '' },

@@ -37,7 +37,7 @@ export type DownloadHandlerDeps = {
   /** Creates the folder (0700), synchronously. */
   ensureFolder: (folder: string) => void;
   exists: (path: string) => boolean;
-  /** Theme C's verdict for the page's origin, when it lands; absent ⇒ no verdict. */
+  /** Theme C's verdict for the page's origin (`originVerdictLevel` in browser-service); absent ⇒ no verdict. */
   originVerdict?: (origin: string) => OriginVerdictLevel | undefined;
   /**
    * Phase 117 Theme G: true while a browser agent session drives this page. An `allow`-class

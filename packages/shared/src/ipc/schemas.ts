@@ -2773,6 +2773,27 @@ export const BrowserSetSpellcheckRequest = z.object({
   enabled: z.boolean(),
 });
 
+/**
+ * Phase 117 Theme C — the site-safety switches main needs, pushed on mount and on change.
+ * `allowProceed` (Settings ▸ Browser, default off) unlocks "proceed for this session" on a
+ * certificate or known-bad interstitial; `feeds` (Settings ▸ Privacy, every one default off)
+ * are the reputation feeds main may pull. Off means no request leaves for that feed.
+ */
+export const BrowserSetSiteSafetyRequest = z.object({
+  allowProceed: z.boolean(),
+  feeds: z.object({ urlhaus: z.boolean(), openphish: z.boolean() }),
+});
+
+/**
+ * Phase 117 Theme C — "proceed for this session" on an interstitial. Main honours it only when
+ * `allowProceed` is on and the URL is the one that tab's interstitial refused; the bypass lasts
+ * until the app quits and covers that host only.
+ */
+export const BrowserProceedSiteRequest = z.object({
+  tabId: z.string().min(1),
+  url: z.string().url(),
+});
+
 /** Phase 117 Theme D — downloads opt-in; `folder` empty means the default quarantine folder. */
 export const BrowserSetDownloadsRequest = z.object({
   enabled: z.boolean(),

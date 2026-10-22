@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { BrowserNavError, BrowserPermissionKind, BrowserShortcutTile } from '@midnite/studio-shared';
+import type { BrowserNavError, BrowserPermissionKind, BrowserShortcutTile, SiteVerdict } from '@midnite/studio-shared';
 
 import { PREVIEW_DEPLOY_HOSTS } from './browser/preview-deploy';
 import { WALLPAPER_STORAGE_KEY, WALLPAPER_THEMES, type WallpaperTheme } from './browser/wallpaper';
@@ -77,6 +77,12 @@ export type BrowserTab = {
    * in-DOM surface rather than Chromium's own unstyled one.
    */
   navError?: BrowserNavError | null;
+  /**
+   * Main's judgement of the page this tab shows (Phase 117 Theme C) — replaced whole on every
+   * `verdict` event, which main sends on each main-frame commit and on every finding after it.
+   * Runtime-only: a restored tab has no page yet, so it is reset to `null` on persist.
+   */
+  verdict?: SiteVerdict | null;
   /**
    * `'sleeping'` once main has discarded this tab's `WebContentsView` for
    * sitting hidden past `Settings ▸ Browser`'s idle threshold (Phase 84
@@ -222,9 +228,6 @@ export type BrowserDownloadRequest = {
   fileClass: string;
 };
 
-/** Third-party requests blocked on a tab's current page (Phase 117 Theme E). */
-export type BrowserTrackerBlocks = { count: number; hosts: string[] };
-
 /** A ClickFix hit: a page just put a shell command on the clipboard (Phase 117 Theme G). */
 export type BrowserClipboardWarning = { tabId: string; origin: string; label: string; preview: string };
 
@@ -237,8 +240,6 @@ type BrowserState = {
   pendingPermissionRequests: Record<string, BrowserPermissionRequest | undefined>;
   /** Pending download confirms keyed by tabId (Phase 117 Theme D). */
   pendingDownloadRequests: Record<string, BrowserDownloadRequest | undefined>;
-  /** Blocked-tracker counts keyed by tabId (Phase 117 Theme E). */
-  trackerBlocks: Record<string, BrowserTrackerBlocks | undefined>;
   /** ClickFix warnings keyed by tabId (Phase 117 Theme G). Runtime only, never persisted. */
   clipboardWarnings: Record<string, BrowserClipboardWarning | undefined>;
   /**
@@ -366,7 +367,6 @@ type BrowserState = {
   setPendingDownloadRequest: (tabId: string, request: BrowserDownloadRequest | undefined) => void;
   /** Phase 117 Theme G: raise (or, with `undefined`, dismiss) a tab's ClickFix bar. */
   setClipboardWarning: (tabId: string, warning: BrowserClipboardWarning | undefined) => void;
-  setTrackerBlocks: (tabId: string, blocks: BrowserTrackerBlocks) => void;
 };
 
 /**
@@ -391,7 +391,6 @@ export const useBrowserStore = create<BrowserState>()(
       findResult: null,
       pendingPermissionRequests: {},
       pendingDownloadRequests: {},
-      trackerBlocks: {},
       clipboardWarnings: {},
 
       openTab: (url, originRepoId) => {
@@ -440,8 +439,6 @@ export const useBrowserStore = create<BrowserState>()(
           delete pending[id];
           const downloads = { ...state.pendingDownloadRequests };
           delete downloads[id];
-          const blocks = { ...state.trackerBlocks };
-          delete blocks[id];
           const clipboardWarnings = { ...state.clipboardWarnings };
           delete clipboardWarnings[id];
 
@@ -453,7 +450,6 @@ export const useBrowserStore = create<BrowserState>()(
               recentlyClosed,
               pendingPermissionRequests: pending,
               pendingDownloadRequests: downloads,
-              trackerBlocks: blocks,
               clipboardWarnings,
             };
           }
@@ -463,7 +459,6 @@ export const useBrowserStore = create<BrowserState>()(
             recentlyClosed,
             pendingPermissionRequests: pending,
             pendingDownloadRequests: downloads,
-            trackerBlocks: blocks,
             clipboardWarnings,
           };
         }),
@@ -670,14 +665,6 @@ export const useBrowserStore = create<BrowserState>()(
           return { pendingDownloadRequests: next };
         }),
 
-      setTrackerBlocks: (tabId, blocks) =>
-        set((state) => {
-          const next = { ...state.trackerBlocks };
-          if (blocks.count === 0) delete next[tabId];
-          else next[tabId] = blocks;
-          return { trackerBlocks: next };
-        }),
-
       clearPendingPermissionRequest: (tabId) =>
         set((state) => {
           if (!state.pendingPermissionRequests[tabId]) return state;
@@ -759,6 +746,7 @@ export const useBrowserStore = create<BrowserState>()(
           canGoForward: false,
           crashed: false,
           navError: null,
+          verdict: null,
           // No `WebContentsView` exists for a restored tab until it is
           // activated (see the module doc above) — it is neither live nor
           // sleeping, so `state` itself is absent rather than persisting

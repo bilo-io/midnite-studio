@@ -1877,6 +1877,16 @@ export type UiState = {
   };
   setBrowserPrivacy: (privacy: UiState['browserPrivacy']) => void;
   /**
+   * Phase 117 Theme C — whether the browser's certificate / known-bad interstitial offers "Proceed for
+   * this session". Default off, the same shape as `allowForceWithLease`; pushed to main by the browser
+   * pane (`use-browser-tabs.ts`) on mount and on every change.
+   */
+  browserAllowSiteProceed: boolean;
+  setBrowserAllowSiteProceed: (allow: boolean) => void;
+  /** Phase 117 Theme C — Settings ▸ Privacy's reputation-feed switches (URLhaus, OpenPhish), each default off. */
+  browserReputationFeeds: { urlhaus: boolean; openphish: boolean };
+  setBrowserReputationFeed: (feed: 'urlhaus' | 'openphish', enabled: boolean) => void;
+  /**
    * Phase 64 Theme C — the Files-view Monaco editor's own preferences,
    * mirroring the terminal font trio above exactly. `editorFontFamily: ''` is
    * this field's own "unset" state, resolved to `DEFAULT_EDITOR_FONT_FAMILY`
@@ -2366,6 +2376,8 @@ export type PersistedUi = Pick<
   | 'browserDiscardMs'
   | 'browserSpellcheck'
   | 'browserClipboardWatch'
+  | 'browserAllowSiteProceed'
+  | 'browserReputationFeeds'
   | 'browserDownloads'
   | 'browserPrivacy'
   | 'editorFontFamily'
@@ -2600,6 +2612,19 @@ export const useUiStore = create<UiState>()(
       },
       browserClipboardWatch: true,
       setBrowserClipboardWatch: (browserClipboardWatch) => set({ browserClipboardWatch }),
+      browserAllowSiteProceed: false,
+      // Both push to main directly as well as through the browser pane's effect: Settings can be
+      // open with no pane mounted, and turning the proceed switch off must revoke bypasses now.
+      setBrowserAllowSiteProceed: (browserAllowSiteProceed) => {
+        set({ browserAllowSiteProceed });
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: get().browserReputationFeeds });
+      },
+      browserReputationFeeds: { urlhaus: false, openphish: false },
+      setBrowserReputationFeed: (feed, enabled) => {
+        set((state) => ({ browserReputationFeeds: { ...state.browserReputationFeeds, [feed]: enabled } }));
+        const { browserAllowSiteProceed, browserReputationFeeds } = get();
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: browserReputationFeeds });
+      },
       browserDownloads: { enabled: false, folder: '' },
       setBrowserDownloads: (browserDownloads) => set({ browserDownloads }),
       browserPrivacy: { blockTrackers: true, blockThirdPartyCookies: true, trimReferrer: true, reduceUserAgent: true },
@@ -3594,6 +3619,8 @@ export const useUiStore = create<UiState>()(
         browserDiscardMs: state.browserDiscardMs,
         browserSpellcheck: state.browserSpellcheck,
         browserClipboardWatch: state.browserClipboardWatch,
+        browserAllowSiteProceed: state.browserAllowSiteProceed,
+        browserReputationFeeds: state.browserReputationFeeds,
         browserDownloads: state.browserDownloads,
         browserPrivacy: state.browserPrivacy,
         editorFontFamily: state.editorFontFamily,

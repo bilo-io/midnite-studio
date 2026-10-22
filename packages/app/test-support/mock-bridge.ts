@@ -1507,6 +1507,8 @@ export function buildMockBridge(data: MockFixtures) {
   const browserKeepAwakeCalls: Array<{ tabId: string; keepAwake: boolean }> = [];
   /** Every `browser.setDiscardMs` call, in order (Phase 84 Theme F) — pushed on mount and on Settings change. */
   const browserDiscardMsCalls: Array<{ ms: number }> = [];
+  /** Every `browser.proceedSite` call (Phase 117 Theme C) — the interstitial's "proceed" button. */
+  const browserProceedCalls: Array<{ tabId: string; url: string }> = [];
   /** Every `webApps.enable`/`disable`/`activate` call, in order (Phase 83 Theme C) — the apps-rail e2e spec's assertion surface. */
   const webAppsEnableCalls: string[] = [];
   const webAppsDisableCalls: string[] = [];
@@ -3056,6 +3058,10 @@ export function buildMockBridge(data: MockFixtures) {
       permissionRevoke: async () => undefined,
       permissionsReset: async () => undefined,
       setSpellcheck: noop,
+      setSiteSafety: noop,
+      proceedSite: (req: { tabId: string; url: string }) => {
+        browserProceedCalls.push(req);
+      },
       setDownloads: noop,
       respondDownload: noop,
       setPrivacy: noop,
@@ -6242,6 +6248,9 @@ export function buildMockBridge(data: MockFixtures) {
   ];
   (window as unknown as { __mstudioBrowserVisibleCalls: unknown }).__mstudioBrowserVisibleCalls =
     () => [...browserVisibleCalls];
+  (window as unknown as { __mstudioBrowserProceedCalls: unknown }).__mstudioBrowserProceedCalls = () => [
+    ...browserProceedCalls,
+  ];
   (window as unknown as { __mstudioBrowserZoomCalls: unknown }).__mstudioBrowserZoomCalls = () => [
     ...browserZoomCalls,
   ];

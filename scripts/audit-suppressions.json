@@ -262,5 +262,11 @@
     "package": "next",
     "reason": "next is never run here: it reaches the lockfile only as a peer of next-intl under @bilo-io/shell, and no workspace package depends on it or starts a Next server. Drop when @bilo-io/shell bumps next. high: Next.js: Denial of Service in App Router using Server Actions",
     "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-673q-mjm6-r5xr",
+    "package": "next",
+    "reason": "next is never run here: it reaches the lockfile only as a peer of next-intl under @bilo-io/shell, and no workspace package depends on it or starts a Next server. Drop when @bilo-io/shell bumps next. critical: Next.js: Unauthenticated Remote Code Execution in `use cache` functions returning typed arrays",
+    "expires": "2026-12-31"
   }
 ]

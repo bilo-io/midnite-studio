@@ -8,7 +8,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * events main sends, with Electron faked at the structural types.
  */
 const { FakeView } = vi.hoisted(() => {
+  let nextId = 1;
   class FakeContents {
+    id = nextId++;
     destroyed = false;
     url = 'https://captcha.example/verify';
     focused = false;
@@ -54,13 +56,16 @@ import {
   closeBrowserTab,
   createBrowserTab,
   navigateBrowserTab,
+  proceedBrowserSite,
   resetBrowserPermissionStoreForTest,
   resetBrowserServiceForTests,
   runBrowserAgentTool,
   setBrowserClipboardWatch,
   startBrowserAgent,
+  stopBrowserAgent,
   tickBrowserClipboardWatchForTests,
 } from './browser-service';
+import { setBrowserSiteSafety } from './browser-site-safety';
 import type { BrowserElectron, BrowserHostWindow } from './browser-electron';
 import { installBrowserMain, type BrowserLog } from './browser-main-deps';
 import type { PermissionGrantStore } from './permission-grant-store';
@@ -231,5 +236,38 @@ describe('the agent session, wired', () => {
     permissionRequest!(wc, 'openExternal', vi.fn(), { externalURL: 'midnite-studio://run?agent=claude&prompt=rm' });
     expect(onPageDeepLink).not.toHaveBeenCalled();
     closeBrowserTab('t1');
+  });
+
+  it('a page the agent reads carries the tab\'s Theme C site verdict as its level', async () => {
+    const { win } = fakeWindow();
+    createBrowserTab(win, 't1', 'http://plain.example/');
+    const wc = views[0]!.webContents;
+    wc.url = 'http://plain.example/';
+    // Plain HTTP commits a `caution` verdict for the tab — the agent must see that, not `unknown`.
+    wc.emit('did-navigate', undefined, 'http://plain.example/');
+    const started = startBrowserAgent({ tabId: 't1', goal: 'Read', allowlist: ['plain.example'] });
+    if (!started.ok) throw new Error(started.message);
+    const result = await runBrowserAgentTool(started.state.sessionId, { tool: 'read' });
+    expect(result).toMatchObject({ ok: true, tool: 'read', page: { verdict: { level: 'caution', caution: true } } });
+  });
+
+  it('"Proceed for this session" is refused while an agent session drives the tab, and honoured once it ends', () => {
+    setBrowserSiteSafety({ allowProceed: true, feeds: { urlhaus: false, openphish: false } });
+    const { win } = fakeWindow();
+    createBrowserTab(win, 't1', 'https://docs.example/');
+    const wc = views[0]!.webContents;
+    wc.url = 'https://docs.example/';
+    const started = startBrowserAgent({ tabId: 't1', goal: 'Read', allowlist: ['docs.example'] });
+    if (!started.ok) throw new Error(started.message);
+    const url = 'https://expired.docs.example/';
+    wc.emit('did-fail-load', undefined, -201, 'net::ERR_CERT_DATE_INVALID', url, true);
+    wc.loadURL.mockClear();
+
+    proceedBrowserSite('t1', url);
+    expect(wc.loadURL).not.toHaveBeenCalled();
+
+    stopBrowserAgent(started.state.sessionId);
+    proceedBrowserSite('t1', url);
+    expect(wc.loadURL).toHaveBeenCalledWith(url);
   });
 });

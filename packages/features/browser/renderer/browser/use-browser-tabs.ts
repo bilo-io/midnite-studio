@@ -41,6 +41,8 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
   const tabs = useBrowserStore((s) => s.tabs);
   const activeTabId = useBrowserStore((s) => s.activeTabId);
   const browserDiscardMs = useBrowserUi((s) => s.browserDiscardMs);
+  const allowSiteProceed = useBrowserUi((s) => s.browserAllowSiteProceed);
+  const reputationFeeds = useBrowserUi((s) => s.browserReputationFeeds);
   const previousActive = useRef<string | null>(null);
   // The create-set implied by the activation effect below (":120" in the
   // phase doc) — hoisted rather than duplicated, since the close-diff effect
@@ -64,6 +66,17 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
       }
     }
   }, [tabs]);
+
+  // Phase 117 Theme C: the site-safety switches are renderer state main must know before the first
+  // tab loads — a feed switched on is what makes main refuse a listed URL — so they are pushed ahead
+  // of the activation effect below (effects run in order, and so do the IPC messages they send).
+  // Main starts with everything off, so a renderer that never pushes ships the safe defaults.
+  useEffect(() => {
+    bridge()?.browser.setSiteSafety({
+      allowProceed: allowSiteProceed,
+      feeds: { urlhaus: reputationFeeds.urlhaus, openphish: reputationFeeds.openphish },
+    });
+  }, [allowSiteProceed, reputationFeeds.urlhaus, reputationFeeds.openphish]);
 
   // Mirrored into a ref so the `create().then()` below can tell, once it
   // actually resolves, whether it is still talking about the current pane
@@ -116,6 +129,9 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
         case 'failed':
           update(event.tabId, { loading: false, navError: event.error });
           break;
+        case 'verdict':
+          update(event.tabId, { verdict: event.verdict });
+          break;
         case 'found':
           // Only the active tab's find bar can be open, so this is never
           // keyed per tab (Theme G) — see `browser-store.ts`'s own comment.
@@ -166,9 +182,6 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
             label: event.label,
             preview: event.preview,
           });
-          break;
-        case 'trackers-blocked':
-          useBrowserStore.getState().setTrackerBlocks(event.tabId, { count: event.count, hosts: event.hosts });
           break;
         case 'devtools-blocked':
           useToastStore.getState().addToast({
