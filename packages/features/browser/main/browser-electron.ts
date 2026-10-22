@@ -40,7 +40,7 @@ export type BrowserWebContents = {
   on(event: 'did-navigate' | 'did-navigate-in-page', listener: (event: unknown, url: string) => void): void;
   on(event: 'page-title-updated', listener: (event: unknown, title: string) => void): void;
   on(event: 'page-favicon-updated', listener: (event: unknown, favicons: string[]) => void): void;
-  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive' | 'dom-ready', listener: () => void): void;
+  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive' | 'dom-ready' | 'focus', listener: () => void): void;
   on(
     event: 'did-fail-load',
     listener: (event: unknown, errorCode: number, errorDescription: string, validatedUrl: string, isMainFrame: boolean) => void,
@@ -63,8 +63,9 @@ export type BrowserWebContents = {
   /** Phase 117 Theme A: refused by `refuseWebviewAttach`, whatever `webviewTag` says. */
   on(event: 'will-attach-webview', listener: (event: BrowserPreventable) => void): void;
   /**
-   * Phase 117 Theme F: the login-form read (`login-form-read.ts`). Only ever called with
-   * `LOGIN_FORM_WORLD_ID` and the fixed snippet — never world 0, the page's own.
+   * Fixed scripts in a world of their own, never world 0 (the page's own): Phase 117 Theme F's
+   * login-form read (`login-form-read.ts`, `LOGIN_FORM_WORLD_ID`) and Theme G's agent tools
+   * (`page-reader.ts`, `AGENT_WORLD_ID`).
    */
   executeJavaScriptInIsolatedWorld(worldId: number, scripts: Array<{ code: string }>, userGesture?: boolean): Promise<unknown>;
   /** Phase 117 Theme C: ties `webRequest` details (`webContentsId`) back to a tab. */
@@ -87,6 +88,10 @@ export type BrowserWebContents = {
   stopFindInPage(action: 'clearSelection'): void;
   setZoomFactor(factor: number): void;
   setWindowOpenHandler(handler: (details: { url: string; disposition: string }) => { action: 'deny' }): void;
+  /** Phase 117 Theme G: whether this page has keyboard focus (the ClickFix watch's interaction signal). */
+  isFocused?(): boolean;
+  /** Phase 117 Theme G: the agent's `screenshot` tool. */
+  capturePage?(): Promise<{ toDataURL(): string }>;
 };
 
 /** A `WebContentsView`. */
@@ -107,6 +112,8 @@ export type BrowserHostWindow = {
     send(channel: string, payload: BrowserEvent | CommandId): void;
   };
   on(event: 'enter-full-screen' | 'leave-full-screen', listener: () => void): void;
+  /** Phase 117 Theme G: the ClickFix watch reads the clipboard only while a Browser window is focused. */
+  isFocused?(): boolean;
 };
 
 /**
@@ -171,4 +178,8 @@ export type BrowserElectron = {
   onDisplayMetricsChanged(listener: () => void): void;
   /** `shell.openExternal`. */
   openExternal(url: string): Promise<void>;
+  /** Phase 117 Theme G: `clipboard.readText()` for the ClickFix watch. Absent, the watch stays off. */
+  readClipboardText?(): string;
+  /** Phase 117 Theme G: `clipboard.clear()` behind the ClickFix bar's one-click clear. */
+  clearClipboard?(): void;
 };

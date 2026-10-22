@@ -32,6 +32,10 @@ import { forgeRegistryKey, lookupRepoIdByForge } from './repo-forge-registry';
  *    (Return appended) only when Settings ▸ Projects ▸ Launch and run is on — the same switch Studio's
  *    own card composer obeys. Off, the user presses Return in the terminal themselves.
  *
+ * 5. **A page's run is never sent** (Phase 117 Theme G). A link a web page inside Studio's browser
+ *    asked for arrives with that page's origin. The confirm names the page, and the prompt is only
+ *    ever typed, whatever Launch and run says: a page does not get to press Return for the user.
+ *
  * The command is Studio's own: the repository's most recent agent (else the roster's first), its
  * invocation flags and the `<skill> <url>` prompt Studio's Play sends. Nothing in the link picks an
  * agent, a flag, a path or a prompt.
@@ -68,7 +72,11 @@ export type AgentRunOutcome = 'refused' | 'confirming';
 
 export const AGENT_RUN_REFUSED = "That agent-run link isn't one Midnite can start, so nothing was run.";
 
-export async function receiveAgentRun(raw: unknown, deps: AgentRunReceiverDeps): Promise<AgentRunOutcome> {
+export async function receiveAgentRun(
+  raw: unknown,
+  deps: AgentRunReceiverDeps,
+  from: { pageOrigin?: string } = {},
+): Promise<AgentRunOutcome> {
   const parsed = AgentRunHandoffSchema.safeParse(raw);
   const issue = parsed.success ? parseAgentRunIssueUrl(parsed.data.issueUrl) : null;
   if (!parsed.success || issue === null) {
@@ -94,20 +102,36 @@ export async function receiveAgentRun(raw: unknown, deps: AgentRunReceiverDeps):
   const run = parsed.data;
   const prompt = agentRunPrompt(run);
   const agent = deps.agentFor(repo.id);
-  const autoSend = deps.launchAndRunEnabled();
+  const fromPage = from.pageOrigin !== undefined;
+  const autoSend = !fromPage && deps.launchAndRunEnabled();
   const found = repo;
   deps.confirm({
-    title: 'Run this task in an agent?',
+    title: fromPage ? 'A web page wants to run a task in an agent' : 'Run this task in an agent?',
     body: [
+      ...(fromPage ? ['Only go on if you started this yourself.', ''] : []),
       deps.preview(agent, prompt),
       '',
       `In ${found.path}`,
       '',
       autoSend
         ? 'It runs as soon as you confirm (Launch and run is on).'
-        : 'It is typed into a new terminal, not sent — press Return there to run it.',
+        : fromPage
+          ? 'It is typed into a new terminal, never sent — a page cannot press Return for you.'
+          : 'It is typed into a new terminal, not sent — press Return there to run it.',
     ].join('\n'),
     confirmLabel: autoSend ? 'Launch and run' : 'Start',
+    // The blast radius is a new terminal in this checkout with this command typed in. Explicitly null,
+    // so the dialog does not sit on "Checking what this affects…": what it affects is the lines below.
+    blastRadius: null,
+    ...(fromPage
+      ? {
+          danger: true,
+          warnings: [
+            `A web page (${from.pageOrigin || 'unknown origin'}) asked for this, not you.`,
+            `It opens an agent with write access to ${found.path}.`,
+          ],
+        }
+      : {}),
     onConfirm: () =>
       deps.start({
         repoId: found.id,

@@ -43,6 +43,12 @@ export type BrowserMainDeps = {
    * ledger stays in memory and nothing about visited hosts is written to disk.
    */
   ledgerCipher?: LedgerCipher;
+  /**
+   * Phase 117 Theme G: a page asked to open a `midnite-studio://` or `midnite://` link. Chromium is
+   * never allowed to launch it; the composer that can act on one (Studio) gets it here with the
+   * page's origin, rate-limits it and confirms it. Absent (Midnite Browser), the link is dropped.
+   */
+  onPageDeepLink?: (url: string, origin: string) => void;
 };
 
 let installed: BrowserMainDeps | null = null;

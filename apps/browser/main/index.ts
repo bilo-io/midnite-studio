@@ -60,6 +60,9 @@ const browserElectron = {
     screen.on('display-metrics-changed', listener);
   },
   openExternal: (url: string) => shell.openExternal(url),
+  // Phase 117 Theme G: the ClickFix watch reads the system clipboard from main, and its bar clears it.
+  readClipboardText: () => clipboard.readText(),
+  clearClipboard: () => clipboard.clear(),
 } as unknown as BrowserElectron;
 
 const asHost = (w: BrowserWindow | null): BrowserHostWindow | null => (w ? (w as unknown as BrowserHostWindow) : null);

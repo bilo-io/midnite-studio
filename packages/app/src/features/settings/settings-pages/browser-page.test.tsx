@@ -40,6 +40,15 @@ describe('BrowserPage (Phase 117 Theme B)', () => {
     expect(setSpellcheckSpy).toHaveBeenCalledWith({ enabled: true });
   });
 
+  it('has the ClickFix clipboard watch on by default, with a switch to turn it off (Phase 117 Theme G)', () => {
+    useUiStore.setState({ browserClipboardWatch: true });
+    renderWithChrome(<BrowserPage />);
+    const toggle = screen.getByTestId('browser-settings-clipboard-watch-toggle') as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    fireEvent.click(toggle);
+    expect(useUiStore.getState().browserClipboardWatch).toBe(false);
+  });
+
   it('Site safety: the proceed switch is off by default, flips the store and tells main (Phase 117 Theme C)', () => {
     const setSiteSafetySpy = vi.fn();
     (window as unknown as { midniteStudio: { browser: { setSiteSafety: typeof setSiteSafetySpy } } }).midniteStudio.browser.setSiteSafety = setSiteSafetySpy;

@@ -2,7 +2,7 @@ import { useEffect, type MouseEvent } from 'react';
 import { LuBot, LuLayoutGrid } from 'react-icons/lu';
 
 import { BrowserPane, useBrowserStore, useWebAppsSync, WebAppsRailRow } from '@midnite/studio-feature-browser/renderer';
-import { useFrameChrome, type FrameMenuEntry } from '@midnite/studio-frame';
+import { bridge, useFrameChrome, type FrameMenuEntry } from '@midnite/studio-frame';
 import { WEB_APP_DEFINITIONS, WEB_APP_IDS } from '@midnite/studio-shared';
 
 import { agentSessionStore, useAgentSession } from '../agent-session-store';
@@ -29,17 +29,27 @@ function KitSurfacesOcclude() {
  *   picker, no close button and no detach.
  * - **Web apps** are the feature's `WebAppsRailRow`; the app on screen takes the page (`WebAppView`) and
  *   the tabs' native views hide underneath. "Web apps" turns them on and off — Studio's Settings ▸ Apps.
- * - **The agent session** is still a placeholder (`agent-session-store.ts`).
+ * - **The agent session** is main's (Phase 117 Theme G): it starts on the tab on screen with that page's
+ *   origin as its only allowed site, and the strip mirrors it (`agent-session-store.ts`).
  */
 export function BrowserShell() {
   const { IconButton, useDialogs } = useFrameChrome();
   const dialogs = useDialogs();
   const webAppId = useBrowserAppUi((s) => s.webAppsFlyoutAppId);
   const enabledWebApps = useBrowserAppUi((s) => s.enabledWebApps);
-  const agentActive = useAgentSession((s) => s.active);
+  const agentActive = useAgentSession((s) => s.session !== null);
 
   useWebAppsSync();
   useBrowserKeys();
+
+  // The session lives in main; every change to it arrives as a browser event.
+  useEffect(
+    () =>
+      bridge()?.browser.onEvent((event) => {
+        if (event.kind === 'agent-session') agentSessionStore.getState().receive(event.state);
+      }),
+    [],
+  );
 
   // A first launch (or a store whose last tab closed with the window) opens on the new-tab page.
   useEffect(() => {
@@ -62,13 +72,25 @@ export function BrowserShell() {
       agentSessionStore.getState().stop();
       return;
     }
+    const { tabs, activeTabId } = useBrowserStore.getState();
+    const tab = tabs.find((t) => t.id === activeTabId);
+    let origin = '';
+    try {
+      origin = tab?.kind === 'page' ? new URL(tab.url).origin : '';
+    } catch {
+      origin = '';
+    }
+    if (!tab || origin === '' || origin === 'null') {
+      agentSessionStore.setState({ notice: 'Open a page first — the agent works on the site you are on.' });
+      return;
+    }
     dialogs.prompt?.({
-      title: 'Start an agent session',
+      title: `Start an agent session on ${new URL(origin).host}`,
       label: 'What should the agent do?',
       initialValue: 'Inspect the page and verify its accessibility',
       confirmLabel: 'Start',
       validate: (value) => (value.trim() === '' ? 'Give the agent a goal' : null),
-      onConfirm: (goal) => agentSessionStore.getState().start(goal.trim()),
+      onConfirm: (goal) => void agentSessionStore.getState().start({ tabId: tab.id, goal: goal.trim(), allowlist: [origin] }),
     });
   };
 

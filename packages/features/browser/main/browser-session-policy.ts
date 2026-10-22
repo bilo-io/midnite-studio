@@ -98,10 +98,57 @@ export type BrowserSessionPolicyOptions = {
    * exempt (a web app is the third party the user chose).
    */
   requestFilter?: RequestFilterOptions;
+  /**
+   * Phase 117 Theme G: asked about every request before anything else on `onBeforeRequest`; `true`
+   * cancels it. The agent session's egress rule uses it. Electron keeps one listener per event per
+   * session, so this is fanned out in front of Theme E's filter rather than registered beside it.
+   */
+  requestGate?: (details: GateRequestDetails) => boolean;
+  /**
+   * Phase 117 Theme G: a page asked to open a `midnite-studio:`/`midnite:` link through the OS.
+   * Chromium is always refused; this hook gets the URL and the page's origin so the composer can
+   * confirm it. Any other external scheme is refused silently, as before.
+   */
+  onMidniteLink?: (url: string, origin: string, webContents: unknown) => void;
 };
 
 /** `setCertificateVerifyProc`'s "use the result Chromium already computed". */
 export const USE_CHROMIUM_VERIFICATION = -3;
+
+/** The two schemes a page may ask about; every other external protocol is simply refused. */
+export function isMidniteLink(url: string | undefined): url is string {
+  return typeof url === 'string' && /^midnite(?:-studio)?:\/\//i.test(url.trim());
+}
+
+/** What {@link BrowserSessionPolicyOptions.requestGate} sees of a request. */
+export type GateRequestDetails = { url: string; resourceType: string; webContents?: unknown };
+
+type BeforeRequestListener = Parameters<RequestFilterSession['webRequest']['onBeforeRequest']>[0];
+
+/**
+ * The session as Theme E's filter should see it once a gate is installed: the same object, except
+ * `onBeforeRequest` registers a listener that asks the gate first. One real listener, two rules.
+ */
+export function withRequestGate(session: RequestFilterSession, gate: (details: GateRequestDetails) => boolean): RequestFilterSession {
+  const webRequest = session.webRequest;
+  const gated: RequestFilterSession['webRequest'] = {
+    onBeforeRequest: (listener: BeforeRequestListener) =>
+      webRequest.onBeforeRequest((details, callback) => {
+        if (gate(details)) {
+          callback({ cancel: true });
+          return;
+        }
+        listener(details, callback);
+      }),
+    onBeforeSendHeaders: (listener) => webRequest.onBeforeSendHeaders(listener),
+    onHeadersReceived: (listener) => webRequest.onHeadersReceived(listener),
+  };
+  return {
+    webRequest: gated,
+    ...(session.getUserAgent ? { getUserAgent: () => session.getUserAgent!() } : {}),
+    ...(session.setUserAgent ? { setUserAgent: (ua: string) => session.setUserAgent!(ua) } : {}),
+  };
+}
 
 /**
  * Maps an incoming permission request to granular promptable permission kinds (Phase 117 Theme B).
@@ -153,13 +200,37 @@ export function mapCheckPermission(
  * Check handler answers from store only, never prompts.
  * Prompts are rate-limited to at most once per (origin, permission) per minute.
  */
+/**
+ * Phase 117 Theme G: `openExternal` is how a page's `location = 'midnite-studio://…'` reaches the OS.
+ * Returns whether it handled the request (it was `openExternal`); the caller always refuses
+ * Chromium, and a midnite link goes to the host with the page's origin to be confirmed there.
+ */
+function routeMidniteLink(webContents: unknown, permission: string, details: unknown, options: BrowserSessionPolicyOptions): boolean {
+  if (permission !== 'openExternal') return false;
+  const external = (details as PermissionRequestDetails | undefined)?.externalURL;
+  if (isMidniteLink(external) && options.onMidniteLink) {
+    const page = (webContents as { getURL?(): string } | undefined)?.getURL?.() ?? '';
+    options.onMidniteLink(external.trim(), normaliseOrigin(page), webContents);
+  }
+  return true;
+}
+
 export function configureSessionPermissions(
   session: Pick<PolicySession, 'setPermissionRequestHandler' | 'setPermissionCheckHandler'>,
   options: BrowserSessionPolicyOptions,
 ): void {
   const store = options.permissionStore;
   if (!store) {
-    denyAllPermissions(session);
+    if (!options.onMidniteLink) {
+      denyAllPermissions(session);
+      return;
+    }
+    // Deny-all, plus the one `openExternal` hand-off.
+    session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      routeMidniteLink(webContents, permission, details, options);
+      callback(false);
+    });
+    session.setPermissionCheckHandler(() => false);
     return;
   }
 
@@ -167,6 +238,10 @@ export function configureSessionPermissions(
   const lastPromptTime = new Map<string, number>();
 
   session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (routeMidniteLink(webContents, permission, details, options)) {
+      callback(false);
+      return;
+    }
     const mapped = mapRequestedPermissions(permission, details as PermissionRequestDetails | undefined);
     if (!mapped || mapped.length === 0) {
       callback(false);
@@ -261,8 +336,11 @@ export function applyBrowserSessionPolicy(session: PolicySession, options: Brows
   }
   const onCompleted = options.onRequestCompleted;
   if (onCompleted && session.webRequest?.onCompleted) session.webRequest.onCompleted((details) => onCompleted(details));
-  if (options.requestFilter && session.webRequest) {
-    installRequestFilter(session as RequestFilterSession, options.requestFilter);
+  if (session.webRequest && (options.requestFilter || options.requestGate)) {
+    const base = session as RequestFilterSession;
+    const target = options.requestGate ? withRequestGate(base, options.requestGate) : base;
+    if (options.requestFilter) installRequestFilter(target, options.requestFilter);
+    else target.webRequest.onBeforeRequest((_details, callback) => callback({}));
   }
   session.setSpellCheckerEnabled(options.spellcheck === true);
 }

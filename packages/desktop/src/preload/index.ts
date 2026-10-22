@@ -468,6 +468,12 @@ const bridge: Pick<
     respondDownload: (req) => ipcRenderer.send(CHANNELS.browserDownloadResponse, req),
     setPrivacy: (req) => ipcRenderer.send(CHANNELS.browserSetPrivacy, req),
     setTrackerException: (req) => ipcRenderer.send(CHANNELS.browserTrackerSiteException, req),
+    agentStart: (req) => call(CHANNELS.browserAgentStart, req),
+    agentStop: (req) => ipcRenderer.send(CHANNELS.browserAgentStop, req),
+    agentTool: (req) => call(CHANNELS.browserAgentTool, req),
+    agentRespond: (req) => ipcRenderer.send(CHANNELS.browserAgentRespond, req),
+    clearClipboard: (req) => ipcRenderer.send(CHANNELS.browserClipboardClear, req),
+    setClipboardWatch: (req) => ipcRenderer.send(CHANNELS.browserSetClipboardWatch, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },
   webApps: {

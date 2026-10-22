@@ -228,6 +228,9 @@ export type BrowserDownloadRequest = {
   fileClass: string;
 };
 
+/** A ClickFix hit: a page just put a shell command on the clipboard (Phase 117 Theme G). */
+export type BrowserClipboardWarning = { tabId: string; origin: string; label: string; preview: string };
+
 type BrowserState = {
   tabs: BrowserTab[];
   groups: BrowserTabGroup[];
@@ -237,6 +240,8 @@ type BrowserState = {
   pendingPermissionRequests: Record<string, BrowserPermissionRequest | undefined>;
   /** Pending download confirms keyed by tabId (Phase 117 Theme D). */
   pendingDownloadRequests: Record<string, BrowserDownloadRequest | undefined>;
+  /** ClickFix warnings keyed by tabId (Phase 117 Theme G). Runtime only, never persisted. */
+  clipboardWarnings: Record<string, BrowserClipboardWarning | undefined>;
   /**
    * The preview-deploy matcher's host allowlist (Phase 71 Theme D), seeded
    * with {@link PREVIEW_DEPLOY_HOSTS} and editable from the Browser settings
@@ -360,6 +365,8 @@ type BrowserState = {
   setPendingPermissionRequest: (tabId: string, request: BrowserPermissionRequest | undefined) => void;
   clearPendingPermissionRequest: (tabId: string) => void;
   setPendingDownloadRequest: (tabId: string, request: BrowserDownloadRequest | undefined) => void;
+  /** Phase 117 Theme G: raise (or, with `undefined`, dismiss) a tab's ClickFix bar. */
+  setClipboardWarning: (tabId: string, warning: BrowserClipboardWarning | undefined) => void;
 };
 
 /**
@@ -384,6 +391,7 @@ export const useBrowserStore = create<BrowserState>()(
       findResult: null,
       pendingPermissionRequests: {},
       pendingDownloadRequests: {},
+      clipboardWarnings: {},
 
       openTab: (url, originRepoId) => {
         const tab: BrowserTab = { ...makeTab(url), ...(originRepoId ? { originRepoId } : {}) };
@@ -431,10 +439,19 @@ export const useBrowserStore = create<BrowserState>()(
           delete pending[id];
           const downloads = { ...state.pendingDownloadRequests };
           delete downloads[id];
+          const clipboardWarnings = { ...state.clipboardWarnings };
+          delete clipboardWarnings[id];
 
           if (remaining.length === 0) {
             const fresh = makeTab();
-            return { tabs: [fresh], activeTabId: fresh.id, recentlyClosed, pendingPermissionRequests: pending, pendingDownloadRequests: downloads };
+            return {
+              tabs: [fresh],
+              activeTabId: fresh.id,
+              recentlyClosed,
+              pendingPermissionRequests: pending,
+              pendingDownloadRequests: downloads,
+              clipboardWarnings,
+            };
           }
           return {
             tabs: remaining,
@@ -442,6 +459,7 @@ export const useBrowserStore = create<BrowserState>()(
             recentlyClosed,
             pendingPermissionRequests: pending,
             pendingDownloadRequests: downloads,
+            clipboardWarnings,
           };
         }),
 
@@ -630,6 +648,14 @@ export const useBrowserStore = create<BrowserState>()(
             [tabId]: request,
           },
         })),
+
+      setClipboardWarning: (tabId, warning) =>
+        set((state) => {
+          const next = { ...state.clipboardWarnings };
+          if (warning) next[tabId] = warning;
+          else delete next[tabId];
+          return { clipboardWarnings: next };
+        }),
 
       setPendingDownloadRequest: (tabId, request) =>
         set((state) => {

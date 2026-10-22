@@ -76,6 +76,7 @@ import {
 } from '../media-library';
 
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
+import { BrowserAgentSessionStateSchema, BrowserAgentToolCallSchema, BrowserAgentToolResultSchema } from '../browser-agent';
 import {
   AccountConnectorIdSchema,
   AccountConnectorInfoSchema,
@@ -2813,6 +2814,29 @@ export const BrowserSetPrivacyRequest = z.object({
   reduceUserAgent: z.boolean(),
 });
 
+/** Phase 117 Theme G — start an agent session on a tab, with the origins it may use. */
+export const BrowserAgentStartRequest = z.object({
+  tabId: z.string().min(1),
+  goal: z.string().min(1).max(500),
+  allowlist: z.array(z.string().min(1).max(2048)).min(1).max(32),
+});
+export const BrowserAgentStartResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), state: BrowserAgentSessionStateSchema }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+export const BrowserAgentStopRequest = z.object({ sessionId: z.string().min(1) });
+export const BrowserAgentToolRequest = z.object({ sessionId: z.string().min(1), call: BrowserAgentToolCallSchema });
+/** Page content only ever as `UntrustedPageContent` — `browser-agent-boundary.test.ts` walks this. */
+export const BrowserAgentToolResponse = BrowserAgentToolResultSchema;
+export const BrowserAgentRespondRequest = z.object({
+  sessionId: z.string().min(1),
+  pendingId: z.string().min(1),
+  decision: z.enum(['allow', 'deny']),
+});
+/** Phase 117 Theme G — the ClickFix bar's one-click clear. */
+export const BrowserClipboardClearRequest = z.object({ tabId: z.string().min(1) });
+export const BrowserSetClipboardWatchRequest = z.object({ enabled: z.boolean() });
+
 /** Phase 117 Theme E — allow (or re-protect) one site's third-party traffic. */
 export const BrowserTrackerSiteExceptionRequest = z.object({
   host: z.string().min(1).max(253),
@@ -3241,6 +3265,12 @@ export type DeepLink = z.infer<typeof DeepLinkSchema>;
 export const DeepLinkEventSchema = z.object({
   link: DeepLinkSchema,
   known: z.boolean(),
+  /**
+   * Phase 117 Theme G: the origin of the web page that asked for this link (an embedded browser tab's
+   * `openExternal`). Absent for a link the OS delivered. The renderer names it in the confirm and never
+   * auto-sends a run that came from a page.
+   */
+  origin: z.string().max(2048).optional(),
 });
 
 // --- workflows (Phase 43) --------------------------------------------------
