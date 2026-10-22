@@ -3,6 +3,7 @@ import {
   registerVaultPairingHandlers,
   type PairingStore,
   type VaultGrants,
+  type VaultService,
 } from '@midnite/studio-runtime';
 import { CHANNELS, schemas, type SecretKey } from '@midnite/studio-shared';
 
@@ -19,13 +20,20 @@ let grants: VaultGrants | null = null;
 
 let pairings: PairingStore | null = null;
 
+let vaultService: VaultService | null = null;
+
 /**
  * The runtime's per-app grants (Phase 113 Theme J slice 2), configured beside the vault service, and
  * the host's guest pairings, which Studio's Vault view lists and unpairs in-process.
  */
-export function configureVaultGrants(next: VaultGrants, nextPairings: PairingStore | null = null): void {
+export function configureVaultGrants(
+  next: VaultGrants,
+  nextPairings: PairingStore | null = null,
+  nextVaultService: VaultService | null = null,
+): void {
   grants = next;
   pairings = nextPairings;
+  vaultService = nextVaultService;
 }
 
 async function readTwelveDataKey(): Promise<string | null> {
@@ -71,8 +79,68 @@ export async function readOllamaApiKey(): Promise<string | null> {
 export const MAIN_ONLY_SECRETS: readonly SecretKey[] = ['finance.twelveData'];
 
 export function registerSecretsHandlers(): void {
-  registerVaultGrantHandlers({ handle, handleBare, send: handleSend }, () => grants);
-  registerVaultPairingHandlers({ handle, handleBare, send: handleSend }, () => pairings);
+  const reauthCheck = () => vaultService?.isReauthValid() ?? true;
+  registerVaultGrantHandlers({ handle, handleBare, send: handleSend }, () => grants, reauthCheck);
+  registerVaultPairingHandlers({ handle, handleBare, send: handleSend }, () => pairings, reauthCheck);
+
+  handleBare(CHANNELS.vaultLockStatus, async () => ({
+    locked: vaultService ? vaultService.isLocked() : false,
+    hasPasscode: false,
+    recentUnlockAt: vaultService ? vaultService.recentUnlockAt : null,
+    canPromptTouchId: false,
+  }));
+
+  handleBare(CHANNELS.vaultLock, async () => {
+    vaultService?.lock();
+    return { ok: true };
+  });
+
+  handle(
+    CHANNELS.vaultUnlock,
+    schemas.VaultUnlockRequest,
+    async ({ passcode, useTouchId }) => {
+      if (!vaultService) return { ok: true };
+      const proof = useTouchId ? 'touchid' : passcode;
+      const ok = await vaultService.unlock(proof);
+      return { ok, error: ok ? undefined : 'Unlock failed' };
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultAuditList,
+    schemas.VaultAuditListRequest,
+    async ({ limit, app, op }) => {
+      if (!vaultService) return { entries: [], valid: true, total: 0 };
+      let entries = await vaultService.audit.read(limit);
+      if (app) entries = entries.filter((e) => e.app === app);
+      if (op) entries = entries.filter((e) => e.op === op);
+      const v = await vaultService.audit.verify();
+      return { entries, valid: v.valid, total: v.total };
+    },
+    () => ({ entries: [], valid: true, total: 0 }),
+  );
+
+  handleBare(CHANNELS.vaultAuditVerify, async () => {
+    if (!vaultService) return { valid: true, total: 0 };
+    return vaultService.audit.verify();
+  });
+
+  handleBare(CHANNELS.vaultAuditExport, async () => {
+    if (!vaultService) return { ok: false, error: 'Vault service not available' };
+    if (!vaultService.isReauthValid()) return { ok: false, error: 'Re-authentication required (within 60s)' };
+    return { ok: true, path: vaultService.audit.getFilePath() };
+  });
+
+  handle(
+    CHANNELS.vaultBreachCheck,
+    schemas.VaultBreachCheckRequest,
+    async ({ password, saveToCache }) => {
+      if (!vaultService) return { breached: false, count: 0, checkedAt: Date.now() };
+      return vaultService.breachChecker.check(password, { skipCache: !saveToCache });
+    },
+    () => ({ breached: false, count: 0, checkedAt: Date.now() }),
+  );
 
   handle(
     CHANNELS.secretsGet,

@@ -9,3 +9,6 @@ export { createFakeCipher, startTestVaultHost, testPairingIdentity, type FakeCip
 export * from './grants';
 export * from './grants-handlers';
 export * from './host';
+export * from './unlock/passcode';
+export * from './audit/vault-audit';
+export * from './breach/hibp-check';

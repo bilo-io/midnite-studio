@@ -45,6 +45,21 @@ export function SecretsSection() {
   const [isSet, setIsSet] = useState<Partial<Record<SecretKey, boolean>> | null>(null);
   const [editing, setEditing] = useState<SecretKey | null>(null);
   const [draft, setDraft] = useState('');
+  const [breachResult, setBreachResult] = useState<{ breached: boolean; count: number } | null>(null);
+  const [checkingBreach, setCheckingBreach] = useState(false);
+
+  const checkBreach = async () => {
+    if (!draft.trim()) return;
+    setCheckingBreach(true);
+    try {
+      const res = await bridge()?.vaultBreach?.check({ password: draft });
+      if (res) setBreachResult({ breached: res.breached, count: res.count });
+    } catch {
+      // Ignore
+    } finally {
+      setCheckingBreach(false);
+    }
+  };
 
   const refresh = useCallback(async () => {
     const secrets = bridge()?.secrets;
@@ -90,16 +105,38 @@ export function SecretsSection() {
             <span className="block text-muted-foreground">{key}</span>
           </span>
           {editing === key ? (
-            <>
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="password"
                 autoComplete="off"
                 aria-label={`New value for ${labelOf(key)}`}
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                className="w-56 rounded border border-border bg-background px-2 py-1"
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  setBreachResult(null);
+                }}
+                className="w-48 rounded border border-border bg-background px-2 py-1 text-xs"
               />
-              <button type="button" onClick={() => void save(key)}>
+              <button
+                type="button"
+                onClick={() => void checkBreach()}
+                disabled={!draft.trim() || checkingBreach}
+                className="rounded border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+              >
+                {checkingBreach ? 'Checking…' : 'Check breach'}
+              </button>
+              {breachResult ? (
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                    breachResult.breached ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'
+                  }`}
+                >
+                  {breachResult.breached
+                    ? `⚠️ Breached in ${breachResult.count.toLocaleString()} leaks`
+                    : '✓ Clean'}
+                </span>
+              ) : null}
+              <button type="button" onClick={() => void save(key)} className="rounded bg-primary px-2 py-0.5 text-[11px] text-primary-foreground">
                 Save
               </button>
               <button
@@ -107,11 +144,13 @@ export function SecretsSection() {
                 onClick={() => {
                   setEditing(null);
                   setDraft('');
+                  setBreachResult(null);
                 }}
+                className="rounded px-2 py-0.5 text-[11px] hover:bg-muted"
               >
                 Cancel
               </button>
-            </>
+            </div>
           ) : (
             <>
               <span>{isSet === null ? '…' : isSet[key] ? 'Set' : 'Not set'}</span>

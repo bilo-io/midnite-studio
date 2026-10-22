@@ -21,7 +21,7 @@ import {
   SetupProbeRequest,
   SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, ipcMain, safeStorage, session, shell, type WebContentsView } from 'electron';
+import { BrowserWindow, app, ipcMain, powerMonitor, safeStorage, session, shell, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -773,12 +773,26 @@ export const startStudioMain: StartStudioMain = () => {
       // Which key each guest app paired with — the host checks it, Studio's Vault view lists and unpairs.
       const runtimeDirectory = studioRuntimeDirectory(app.getPath('appData'), userData);
       const vaultPairings = createPairingStore({ hostDirectory: runtimeHostDirectory(runtimeDirectory) });
-      configureVaultGrants(vaultGrants, vaultPairings);
       const vaultService = createVaultService({
         directory: userData,
         cipher: safeStorage,
         authorize: vaultGrants.authorize,
       });
+      configureVaultGrants(vaultGrants, vaultPairings, vaultService);
+
+      // Auto-lock triggers (Phase 118 Theme B): sleep, screen lock, 15m idle
+      powerMonitor.on('suspend', () => vaultService.lock());
+      powerMonitor.on('lock-screen', () => vaultService.lock());
+      setInterval(() => {
+        try {
+          if (powerMonitor.getSystemIdleTime() >= 15 * 60) {
+            vaultService.lock();
+          }
+        } catch {
+          // ignore
+        }
+      }, 30_000);
+
       const studioVault = vaultService.forApp('studio');
       // Passwords live in this vault's `db-credentials` namespace and are read here, in main, to open a connection.
       registerDatabaseFeatureHandlers(getMainWindow, {
