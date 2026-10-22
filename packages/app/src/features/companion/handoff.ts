@@ -610,6 +610,12 @@ async function askToConfirm(cmd: VocabCommand, deps: HandoffDeps): Promise<void>
  */
 async function resolvePending(deps: HandoffDeps): Promise<void> {
   const pending = deps.pendingAction();
+  // The status-report offer never goes stale: reading the overview late is
+  // harmless, and its Yes chip is still on screen saying it is waiting.
+  if (pending?.kind === 'statusReport') {
+    deps.setPendingAction(null);
+    return orient(deps);
+  }
   if (!pending || Date.now() - pending.at > PENDING_ACTION_MEMORY_MS) {
     if (pending) replacePending(deps, null);
     await say(deps, "Nothing's waiting.");
@@ -617,10 +623,6 @@ async function resolvePending(deps: HandoffDeps): Promise<void> {
   }
   // Phase 112 Theme H: a yes to "three chats match" is the first one.
   if (pending.kind === 'choice') return confirmChoice(pending, deps);
-  if (pending.kind === 'statusReport') {
-    deps.setPendingAction(null);
-    return orient(deps);
-  }
   // Phase 109 Theme D: an agent's change waiting on this yes. Asked before the
   // slot clears, so the asker reads it as a yes rather than a dismissal.
   if (pending.onConfirm !== undefined) {

@@ -838,6 +838,15 @@ describe('submitInput — Theme C, doing things there', () => {
       expect(texts.at(-1)).toBe('What would you like to do?');
     });
 
+    it('a yes long after the offer still runs it — the chip is still showing', async () => {
+      const store = fakeStore();
+      const slot = fakePendingActionSlot();
+      slot.setPendingAction({ kind: 'statusReport', label: 'Status report', at: Date.now() - 10 * 60 * 1000 });
+      await submitInput('yes', fakeHandoffDeps({ store, ...slot }));
+      expect(store.transcript.some((turn) => turn.text.startsWith(overviewHeading))).toBe(true);
+      expect(store.lines()).not.toContain("companion: Nothing's waiting.");
+    });
+
     it('the Yes chip and an empty Return reach the same overview', async () => {
       const store = fakeStore();
       const slot = fakePendingActionSlot();

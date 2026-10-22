@@ -261,8 +261,8 @@ async function offerStatusReport(deps: ConciergeDeps): Promise<void> {
  * The cost is that the digest is now awaited *before* anything is posted,
  * where it used to arrive after the snapshot lines were already on screen.
  * Acceptable because something is already on screen while this waits — the
- * user's own "yes" to the greeting's offer, or the previous repo's thread — and a consolidated turn cannot be posted in
- * pieces by definition.
+ * user's own "yes" to the greeting's offer, or the previous repo's thread —
+ * and a consolidated turn cannot be posted in pieces by definition.
  */
 export async function orient(deps: ConciergeDeps): Promise<void> {
   const repo = deps.repo();
