@@ -50,7 +50,7 @@ async function openSeededChat() {
   renderView(<ChatsView />, { fixtures: { ...fixtures, chats: { seed: [seeded] } } as MockFixtures });
   await screen.findByTestId('chats-explorer');
   await waitFor(() => expect(screen.queryAllByTestId('chat-row')).toHaveLength(1));
-  fireEvent.click(screen.getAllByTestId('chat-row')[0]!);
+  fireEvent.click(within(screen.getAllByTestId('chat-row')[0]!).getByRole('button', { name: /Width check/ }));
   return screen.findByTestId('chat-thread');
 }
 

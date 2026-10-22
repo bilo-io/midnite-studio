@@ -198,7 +198,7 @@ describe('ChatThread', () => {
       render(<ChatThread chat={chat([m('u', 'user', 'q'), m('a', 'assistant', 'r')])} streaming={false} {...props} />);
       expect(screen.queryByTestId('chat-dock')).toBeNull();
       const column = screen.getByTestId('chat-thread').firstElementChild!.firstElementChild!;
-      expect(column.className).toContain('max-w-[calc(42rem+4.5rem)]');
+      expect(column.className).toContain('max-w-[calc(50rem+4.5rem)]');
       expect(column.className).not.toContain('max-w-2xl');
       expect(screen.getByTestId('chat-thread').firstElementChild!.className).toContain('px-16');
     });
