@@ -20,6 +20,12 @@ describe('findForbiddenChromiumSwitches', () => {
     const hasSwitch = vi.fn((name: string) => name === 'no-sandbox');
     expect(findForbiddenChromiumSwitches(['electron'], hasSwitch)).toEqual(['--no-sandbox']);
   });
+  it('finds site isolation turned off through a programmatic appendSwitch("disable-features", …)', () => {
+    const getSwitchValue = (name: string) => (name === 'disable-features' ? 'site-per-process' : '');
+    expect(findForbiddenChromiumSwitches(['electron'], () => false, getSwitchValue)).toEqual([
+      '--disable-features=site-per-process',
+    ]);
+  });
   it('finds site isolation turned off through --disable-features', () => {
     expect(findForbiddenChromiumSwitches(['--disable-features=AudioServiceOutOfProcess,IsolateOrigins,site-per-process'])).toEqual([
       '--disable-features=IsolateOrigins',

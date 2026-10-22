@@ -138,6 +138,12 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
             message: `Download blocked: ${event.filename} — the embedded browser cannot save files.`,
           });
           break;
+        case 'devtools-blocked':
+          useToastStore.getState().addToast({
+            status: 'warning',
+            message: 'DevTools are off in a packaged build. Launch with MSTUDIO_DEVTOOLS=1 to allow them.',
+          });
+          break;
         case 'discarded':
           // Main decided this on its own — unlike `browser.close`, the
           // renderer never asked (Phase 84 Theme F). Just a display fact:

@@ -130,22 +130,27 @@ with `preload` absent and `devTools` per the composer's `devToolsAllowed` (moved
 to the runtime's `app-main/devtools.ts`; this *reverses* Phase 91 D's "browser pane DevTools left alone" — a
 packaged build could open an inspector on a tab); the browser feature's `web-preferences.test.ts` pins the table
 for a tab and a web-app view, and proves `will-attach-webview` is refused (`refuseWebviewAttach`, so a
-`webviewTag` flip cannot reopen it) and `window.open` answers `deny` for every disposition. The runtime's
+`webviewTag` flip cannot reopen it) and `window.open` answers `deny` for every disposition; a DevTools request
+on such a view answers a `devtools-blocked` tab event (a toast) rather than the silent no-op `openDevTools`
+is with `devTools: false`. The runtime's
 `chromium-switches.ts` (`assertSiteIsolation`) runs at boot in Studio's and the Browser's mains over
 `process.argv` + `app.commandLine.hasSwitch`: `--no-sandbox`, `--disable-site-isolation-trials`,
 `--disable-web-security` and `--disable-features=IsolateOrigins|site-per-process` throw in dev/test and log
 when packaged — there is no "launcher argv builder" to test (apps open through `shell.openPath`), so the pure
 helper is what the test covers. `electron-freshness.mjs` judges *both* pins that ship (Studio's and the
-launcher's — the runtime every bundle runs on) and `--strict` exits 1 outside the window;
-`root:electron-freshness-strict` gates the new `app-browser:dist` and `release.yml`'s Browser bundle job, and it
-fails today on Electron 33 (supported 46/45/44), as the acceptance asked — the bump is Phase 76 A (#488/#928).
+launcher's — the runtime every bundle runs on) and `--strict` exits 1 when the **launcher's** is outside the
+window (Studio's stays a warning even strict, so Studio's lag alone can never block a Browser release);
+`app-browser:dist` (`pnpm run dist`: gate, then build, serially) and `release.yml`'s Browser bundle job run it,
+and it fails today on Electron 33 (supported 46/45/44), as the acceptance asked — the bump is Phase 76 A (#488/#928).
 The fuses finding was the surprise: the Browser bundle has no binary (a stub is an APFS clone of the launcher's
 runtime), and the **launcher's afterPack never flipped any fuse** — `NODE_OPTIONS`, `--inspect` and no asar
 integrity, on every installed app. `apps/launcher/scripts/afterpack.cjs` now flips `lib/fuses.cjs`'s table
 (Studio's, with `OnlyLoadAppFromAsar` deliberately off because a stub runs its bundle from a folder, and
 `RunAsNode` on because bundles spawn `process.execPath` as node), reads the wire straight back and throws on a
-mismatch; `launcher:verify-fuses` reads a finished `.app`; Studio's `verify-dist` reads its own fuses back from
-the shared `lib/fuses.mjs`. The spellcheck Settings switch waits for Theme B's Settings ▸ Browser page.
+mismatch; `launcher:verify-fuses` reads a finished `.app`; Studio's `verify-dist` reads its own fuses back. Both
+apps own only their table — the flip config and the comparison are one root `scripts/lib/electron-fuses.mjs`,
+which also records the trap the self-review caught: `getCurrentFuseWire` returns the raw wire *bytes* (`'1'` =
+49 on, `'0'` = 48 off), not booleans, so a comparison against 1/0 would have failed every darwin build. The spellcheck Settings switch waits for Theme B's Settings ▸ Browser page.
 
 **Theme B — Permission prompts, remembered per origin.** ◻ Camera, microphone, geolocation and
 notifications prompt from a main-side bar (clipboard-read never does), with per-origin grants in a 0600

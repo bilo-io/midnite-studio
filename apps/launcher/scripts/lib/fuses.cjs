@@ -1,12 +1,15 @@
 'use strict';
 
-const { FuseV1Options, FuseVersion, getCurrentFuseWire } = require('@electron/fuses');
+const fuses = require('@electron/fuses');
+
+const { FuseV1Options } = fuses;
 
 /**
  * The Electron fuses Midnite Apps ships with (Phase 117 Theme A) — and, through it, every app
  * bundle: a stub (`src/main/bundles/stub.ts`) is an APFS clone of this binary with the bundle as
  * `Resources/app`, so the Browser's Chromium floor is whatever this flips. Studio's own table is
- * `packages/desktop/scripts/afterpack.cjs`; the two differ in one deliberate place.
+ * `packages/desktop/scripts/lib/fuses.mjs`; the two differ in one deliberate place. The flip config
+ * and the read-back are the repo-wide `scripts/lib/electron-fuses.mjs`, shared with Studio.
  *
  * - `RunAsNode` stays ENABLED: a bundle spawns `process.execPath` with `ELECTRON_RUN_AS_NODE=1`
  *   (the runtime's pty broker client, Gamer's agent host), exactly as Studio's terminal does.
@@ -26,45 +29,11 @@ const EXPECTED_FUSES = {
   [FuseV1Options.EnableNodeCliInspectArguments]: false,
 };
 
-/** The `flipFuses` config: the table above plus the version and the signing note. */
-function fuseConfig() {
-  return {
-    version: FuseVersion.V1,
-    resetAdHocDarwinSignature: false, // afterpack signs the whole bundle after this
-    ...EXPECTED_FUSES,
-  };
-}
+/** The shared ESM helper, from CJS. */
+const shared = () => import('../../../../scripts/lib/electron-fuses.mjs');
 
-/**
- * Read the fuse wire back from a built binary and name every fuse that disagrees with the table.
- * Empty when the binary matches. Used right after the flip (afterpack) and by `verify-fuses.mjs`
- * on a finished `.app`, so a release never ships a binary whose fuses were not what was asked.
- */
-async function fuseMismatches(exe) {
-  const wire = await getCurrentFuseWire(exe);
-  if (wire.version !== FuseVersion.V1) return [`fuse wire version ${String(wire.version)} (expected V1)`];
-  return mismatchesIn(wire, EXPECTED_FUSES);
-}
-
-/** Pure: compare a decoded fuse wire (`{[fuse]: state}`) with the expected table. 1 = enabled, 0 = disabled. */
-function mismatchesIn(wire, expected) {
-  const out = [];
-  for (const [fuse, enabled] of Object.entries(expected)) {
-    const actual = wire[fuse];
-    const expectedState = enabled ? 1 : 0;
-    if (actual !== expectedState) out.push(`${fuseName(Number(fuse))}: expected ${enabled ? 'on' : 'off'}, found ${describe(actual)}`);
-  }
-  return out;
-}
-
-function fuseName(fuse) {
-  return Object.keys(FuseV1Options).find((k) => FuseV1Options[k] === fuse) ?? `fuse ${fuse}`;
-}
-
-function describe(state) {
-  if (state === 1) return 'on';
-  if (state === 0) return 'off';
-  return state === undefined ? 'absent' : `state ${String(state)}`;
-}
+const fuseConfig = async () => (await shared()).fuseConfig(fuses, EXPECTED_FUSES);
+const mismatchesIn = async (wire) => (await shared()).mismatchesIn(fuses, wire, EXPECTED_FUSES);
+const fuseMismatches = async (exe) => (await shared()).fuseMismatches(fuses, exe, EXPECTED_FUSES);
 
 module.exports = { EXPECTED_FUSES, fuseConfig, fuseMismatches, mismatchesIn };

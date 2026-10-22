@@ -15,6 +15,7 @@ import {
   setBrowserDiscardMs,
   setBrowserKeepAwake,
   setBrowserZoom,
+  toggleBrowserDevTools,
 } from './browser-service';
 import type { BrowserElectron, BrowserHostWindow } from './browser-electron';
 import { installBrowserMain, type BrowserLog } from './browser-main-deps';
@@ -52,6 +53,9 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     findInPage = vi.fn();
     stopFindInPage = vi.fn();
     isCurrentlyAudible = vi.fn(() => false);
+    isDevToolsOpened = vi.fn(() => false);
+    openDevTools = vi.fn();
+    closeDevTools = vi.fn();
     on(event: string, handler: (...args: unknown[]) => void): this {
       const list = this.handlers.get(event) ?? [];
       list.push(handler);
@@ -454,6 +458,13 @@ describe('navigation policy (Theme B)', () => {
       expect.any(String),
       { kind: 'destroyed', tabId: 'tab-1', reason: 'unresponsive' },
     );
+  });
+
+  it('refuses DevTools on a view created with devTools:false, and tells the tab why (Phase 117 Theme A)', () => {
+    const { win, view } = createAndGetView();
+    toggleBrowserDevTools('tab-1');
+    expect(view.webContents.openDevTools).not.toHaveBeenCalled();
+    expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), { kind: 'devtools-blocked', tabId: 'tab-1' });
   });
 
   it('cancels a download and names the file back to the tab that asked for it', () => {

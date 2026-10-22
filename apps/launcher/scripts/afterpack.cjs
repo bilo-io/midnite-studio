@@ -26,7 +26,7 @@ exports.default = async function afterPack(context) {
   const appPath = join(context.appOutDir, appName);
 
   const exe = join(appPath, 'Contents', 'MacOS', context.packager.appInfo.productFilename);
-  await flipFuses(exe, fuseConfig());
+  await flipFuses(exe, await fuseConfig());
   const mismatches = await fuseMismatches(exe);
   if (mismatches.length > 0) throw new Error(`[afterPack] fuses not as asked:\n  ${mismatches.join('\n  ')}`);
   console.log('[afterPack] flipped and verified Electron fuses');

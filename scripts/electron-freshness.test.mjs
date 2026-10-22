@@ -16,19 +16,23 @@ describe('electron-freshness', () => {
     expect(judge(40, [41, 40, 39]).ok).toBe(true);
   });
   it('never fails on missing data', () => expect(judge(null, []).ok).toBe(true));
-  it('judges every binary that ships: Studio and the launcher the bundles run on', () => {
-    for (const relative of PINNED_PACKAGES) expect(existsSync(path.join(repoRoot, relative)), relative).toBe(true);
+  it('judges every binary that ships, and gates only the launcher — the runtime every bundle runs on', () => {
+    for (const { path: relative } of PINNED_PACKAGES) expect(existsSync(path.join(repoRoot, relative)), relative).toBe(true);
+    expect(PINNED_PACKAGES.filter((p) => p.gate).map((p) => p.path)).toEqual(['apps/launcher/package.json']);
   });
 
   // Phase 117 Theme A: `--strict` is the Browser bundle's gate.
-  it('--strict fails only on an out-of-window verdict', () => {
-    const out = judge(33, [41, 40, 39]);
-    const inside = judge(40, [41, 40, 39]);
+  it('--strict fails only on an out-of-window verdict for a gated pin', () => {
+    const out = { gate: true, ...judge(33, [41, 40, 39]) };
+    const inside = { gate: true, ...judge(40, [41, 40, 39]) };
+    const studioLagging = { gate: false, ...judge(33, [41, 40, 39]) };
     expect(exitCodeFor([inside, out], true)).toBe(1);
     expect(exitCodeFor([inside], true)).toBe(0);
     expect(exitCodeFor([inside, out], false)).toBe(0);
+    // Studio's pin out of the window never blocks a Browser release on its own.
+    expect(exitCodeFor([studioLagging, inside], true)).toBe(0);
   });
-  it('--strict never fails on missing data', () => expect(exitCodeFor([judge(null, [])], true)).toBe(0));
+  it('--strict never fails on missing data', () => expect(exitCodeFor([{ gate: true, ...judge(null, []) }], true)).toBe(0));
   it('parses --strict and nothing else', () => {
     expect(parseArgs(['--strict'])).toEqual({ strict: true });
     expect(parseArgs([])).toEqual({ strict: false });

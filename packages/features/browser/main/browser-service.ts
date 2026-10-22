@@ -487,8 +487,14 @@ export function stopBrowserTab(tabId: string): void {
 }
 
 export function toggleBrowserDevTools(tabId: string, mode: 'detach' | 'embed' = 'detach'): void {
-  const wc = tabs.get(tabId)?.view.webContents;
-  if (!wc) return;
+  const tracked = tabs.get(tabId);
+  if (!tracked) return;
+  const wc = tracked.view.webContents;
+  // The view was created with `devTools: false` (Phase 117 Theme A): `openDevTools` would do nothing.
+  if (!(browserMainDeps().devToolsAllowed ?? false)) {
+    send(tracked.win, { kind: 'devtools-blocked', tabId });
+    return;
+  }
   if (wc.isDevToolsOpened()) {
     wc.closeDevTools();
   } else {

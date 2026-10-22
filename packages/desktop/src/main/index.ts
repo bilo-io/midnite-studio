@@ -402,6 +402,7 @@ export const startStudioMain: StartStudioMain = () => {
     assertSiteIsolation({
       argv: process.argv,
       hasSwitch: (name) => app.commandLine.hasSwitch(name),
+      getSwitchValue: (name) => app.commandLine.getSwitchValue(name),
       isPackaged: app.isPackaged,
       log: defaultLogger,
     });

@@ -47,17 +47,19 @@ tasks:
     outputs:
       - 'dist'
 
-  # The Browser bundle, gated (Phase 117 Theme A): the Chromium floor first — `root:electron-freshness-strict`
-  # fails on an Electron major outside the supported window — then the same build `release.yml` packs.
-  # The Browser has no binary of its own (a stub clones the launcher's runtime), so the fuses are the
-  # launcher's (`apps/launcher/scripts/afterpack.cjs`), not something this task can flip.
+  # The Browser bundle, gated (Phase 117 Theme A): `pnpm run dist` runs the Chromium floor first —
+  # `electron-freshness.mjs --strict` fails on a launcher Electron major outside the supported window —
+  # and only then the same build `release.yml` packs (a package script, not two moon deps, because moon
+  # runs deps concurrently and the build must not start when the gate has already failed). The Browser
+  # has no binary of its own (a stub clones the launcher's runtime), so the fuses are the launcher's
+  # (`apps/launcher/scripts/afterpack.cjs`), not something this task can flip.
   dist:
-    command: 'noop'
-    deps:
-      - 'root:electron-freshness-strict'
-      - '~:build'
+    command: 'pnpm run dist'
     options:
+      mergeArgs: 'replace'
       cache: false
+    deps:
+      - 'root:install'
 
   typecheck:
     inputs:

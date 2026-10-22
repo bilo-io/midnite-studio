@@ -76,6 +76,7 @@ const log = Object.assign((message: string) => console.log(`[browser] ${message}
 assertSiteIsolation({
   argv: process.argv,
   hasSwitch: (name) => app.commandLine.hasSwitch(name),
+  getSwitchValue: (name) => app.commandLine.getSwitchValue(name),
   isPackaged: app.isPackaged,
   log,
 });

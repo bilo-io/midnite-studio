@@ -5,14 +5,14 @@
 // so the Browser bundle's floor is whatever this prints).
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 const require = createRequire(import.meta.url);
 const { fuseMismatches } = require('./lib/fuses.cjs');
 
 const appPath = process.argv[2] ?? join(process.cwd(), 'release', 'mac-arm64', 'Midnite Apps.app');
-const exeName = appPath.split('/').pop().replace(/\.app$/, '');
-const exe = join(appPath, 'Contents', 'MacOS', exeName);
+// `basename` drops a trailing separator (shell tab-completion leaves one on a `.app`).
+const exe = join(appPath, 'Contents', 'MacOS', basename(appPath, '.app'));
 if (!existsSync(exe)) {
   console.error(`verify-fuses: no binary at ${exe}`);
   process.exit(1);

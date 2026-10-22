@@ -38,6 +38,7 @@ const FORBIDDEN_DISABLED_FEATURES = ['IsolateOrigins', 'site-per-process', 'Site
 export function findForbiddenChromiumSwitches(
   argv: readonly string[],
   hasSwitch: (name: string) => boolean = () => false,
+  getSwitchValue: (name: string) => string = () => '',
 ): string[] {
   const found: string[] = [];
   for (const name of FORBIDDEN_CHROMIUM_SWITCHES) {
@@ -45,12 +46,16 @@ export function findForbiddenChromiumSwitches(
     const onArgv = argv.some((arg) => arg === flag || arg.startsWith(`${flag}=`));
     if (onArgv || hasSwitch(name)) found.push(flag);
   }
+  // `--disable-features` on argv, and the one `appendSwitch('disable-features', …)` set programmatically.
+  const disabled = new Set<string>();
   for (const arg of argv) {
-    if (!arg.startsWith('--disable-features=')) continue;
-    const disabled = arg.slice('--disable-features='.length).split(',');
-    for (const feature of FORBIDDEN_DISABLED_FEATURES) {
-      if (disabled.includes(feature)) found.push(`--disable-features=${feature}`);
+    if (arg.startsWith('--disable-features=')) {
+      for (const feature of arg.slice('--disable-features='.length).split(',')) disabled.add(feature);
     }
+  }
+  for (const feature of getSwitchValue('disable-features').split(',')) if (feature !== '') disabled.add(feature);
+  for (const feature of FORBIDDEN_DISABLED_FEATURES) {
+    if (disabled.has(feature)) found.push(`--disable-features=${feature}`);
   }
   return found;
 }
@@ -59,6 +64,8 @@ export type SiteIsolationBoot = {
   argv: readonly string[];
   /** `app.commandLine.hasSwitch` — catches a switch appended programmatically, not just one on argv. */
   hasSwitch: (name: string) => boolean;
+  /** `app.commandLine.getSwitchValue` — the programmatic `disable-features` list (`''` when unset). */
+  getSwitchValue?: (name: string) => string;
   isPackaged: boolean;
   log: { error(message: string): void };
 };
@@ -68,7 +75,7 @@ export type SiteIsolationBoot = {
  * logs in a packaged build. Returns the offending switches either way (empty on a clean boot).
  */
 export function assertSiteIsolation(boot: SiteIsolationBoot): string[] {
-  const found = findForbiddenChromiumSwitches(boot.argv, boot.hasSwitch);
+  const found = findForbiddenChromiumSwitches(boot.argv, boot.hasSwitch, boot.getSwitchValue);
   if (found.length === 0) return found;
   const message = `site isolation: refusing ${found.join(' ')} — no midnite app runs with the sandbox, site isolation or web security off`;
   if (!boot.isPackaged) throw new Error(message);
