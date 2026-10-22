@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
-import type { NewSecurityFinding, SecurityFinding } from '@midnite/studio-shared';
+import { DEFAULT_VANGUARD_SETTINGS, type NewSecurityFinding, type SecurityFinding } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -53,6 +53,7 @@ function context(): IntegritySensorContext {
       recorded.push(finding);
       return { ...finding, source: 'vanguard', id: 'x', firstSeen: 0, lastSeen: 0, count: 1, status: 'open' } as SecurityFinding;
     },
+    settings: () => DEFAULT_VANGUARD_SETTINGS,
     signal: new AbortController().signal,
     log: () => undefined,
   };

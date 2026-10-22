@@ -11,7 +11,6 @@ import {
   type IntegrityClass,
   type NewSecurityFinding,
   type RemediationAction,
-  type SecurityFinding,
 } from '@midnite/studio-shared';
 
 import { attributeChange, type IntegrityLiveSession } from './integrity/attribution';
@@ -24,7 +23,7 @@ import {
 import { diffIntegrity, integrityCandidates, type IntegrityChange } from './integrity/diff';
 import { baseDir, enumerateWatched, hashWatched, type IntegrityRoots, type WatchedFile } from './integrity/enumerate';
 import { resolveGitCommonDir, uncommittedPaths } from './integrity/git';
-import type { IntegrityRunProcess } from './integrity/run-process';
+import type { SensorContext, SensorDefinition } from './sensor-host';
 
 export { attributeChange, type IntegrityAttribution, type IntegrityLiveSession } from './integrity/attribution';
 export {
@@ -49,16 +48,8 @@ export { diffIntegrity, integrityCandidates, integrityFingerprint, type Integrit
  * ledger's writer, and every one has a fake in the tests.
  */
 
-/** What the sensor host hands a sensor (structurally the host's `SensorContext`, Phase 120 B). */
-export interface IntegritySensorContext {
-  userData: string;
-  homeDir: string | undefined;
-  now(): number;
-  runProcess: IntegrityRunProcess;
-  record(finding: Omit<NewSecurityFinding, 'source'>): Promise<SecurityFinding>;
-  signal: AbortSignal;
-  log(level: 'info' | 'warn' | 'error', message: string): void;
-}
+/** What the sensor host hands a sensor. */
+export type IntegritySensorContext = SensorContext;
 
 export interface IntegrityRepo {
   repoId: string;
@@ -100,17 +91,6 @@ export const INTEGRITY_SENSOR_ID = 'integrity';
 export const BUNDLE_SENSOR_ID = 'bundle-integrity';
 export const INTEGRITY_DEBOUNCE_MS = 750;
 export const INTEGRITY_REHASH_MS = 5 * 60_000;
-
-/** The sensor definition the host registers (structurally the host's `SensorDefinition`). */
-export interface IntegritySensorDefinition {
-  id: string;
-  label: string;
-  description: string;
-  defaultEnabled?: boolean;
-  schedule: { kind: 'interval'; ms: number } | { kind: 'none' };
-  start?(ctx: IntegritySensorContext): void | (() => void) | Promise<void | (() => void)>;
-  run?(ctx: IntegritySensorContext): Promise<{ findings?: number } | void>;
-}
 
 const CLASS_LABEL: Record<IntegrityClass, string> = {
   hooks: 'Git hook',
@@ -236,7 +216,7 @@ function findingFor(
   };
 }
 
-export function createIntegritySensor(deps: IntegritySensorDeps): IntegritySensorDefinition {
+export function createIntegritySensor(deps: IntegritySensorDeps): SensorDefinition {
   const watchFn = deps.watch ?? defaultWatch;
   const debounceMs = deps.debounceMs ?? INTEGRITY_DEBOUNCE_MS;
   const scopes = new Map<string, Scope>();
@@ -335,8 +315,11 @@ export function createIntegritySensor(deps: IntegritySensorDeps): IntegritySenso
     if (stopped || ctx === null) return;
     const c = ctx;
     if (filename !== null && !relevantPath(scope.roots, join(dir, filename))) return;
-    scope.windowStart ??= c.now();
-    void sampleSessions(scope);
+    // Sample the live sessions once per burst (the first event), and again when the scan reports.
+    if (scope.windowStart === null) {
+      scope.windowStart = c.now();
+      void sampleSessions(scope);
+    }
     if (scope.timer !== null) clearTimeout(scope.timer);
     scope.timer = setTimeout(() => {
       scope.timer = null;
@@ -456,7 +439,7 @@ export function createBundleIntegritySensor(deps: {
   expectDeveloperId?: boolean;
   resolve?(fingerprint: string): Promise<void>;
   platform?: NodeJS.Platform;
-}): IntegritySensorDefinition {
+}): SensorDefinition {
   return {
     id: BUNDLE_SENSOR_ID,
     label: 'App bundle signature',

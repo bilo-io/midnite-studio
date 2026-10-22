@@ -59,7 +59,7 @@ describe('uncommittedPaths', () => {
     };
     expect(await uncommittedPaths(run, '/r', ['.mcp.json'])).toBeUndefined();
     asked = false;
-    expect((await uncommittedPaths(run, '/r', [])).size).toBe(0);
+    expect((await uncommittedPaths(run, '/r', []))!.size).toBe(0);
     expect(asked).toBe(false);
   });
 });

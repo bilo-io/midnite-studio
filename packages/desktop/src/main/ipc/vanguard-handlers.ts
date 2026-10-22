@@ -1,6 +1,7 @@
 import {
   createSensorRunProcess,
   createVanguardService,
+  resolveByFingerprint,
   vanguardMain,
   type VanguardService,
 } from '@midnite/studio-feature-vanguard/main';
@@ -14,6 +15,8 @@ import { EVENT_CHANNELS } from '@midnite/studio-shared';
 import { app, shell, type BrowserWindow } from 'electron';
 
 import { defaultLogger } from '../log';
+import { listRepos } from '../repo-registry';
+import { listTerminals } from '../terminal-service';
 import { handle, handleBare, handleSend } from './handle';
 
 let ledgerInstance: FindingsLedger | null = null;
@@ -57,6 +60,28 @@ export async function startVanguardSensors(userData: string): Promise<void> {
     runProcess: createSensorRunProcess({ defaultCwd: userData }),
     record: (finding) => ledger.record(finding),
     autostart: 'after-view-opened',
+    sensorDeps: {
+      repos: async () => (await listRepos()).map((repo) => ({ repoId: repo.id, path: repo.path })),
+      // Live ptys only. An agent pty carries the pty-env.ts fingerprint (agentId); a plain shell does not,
+      // and the integrity sensor never attributes a change to one.
+      liveSessions: async () =>
+        (await listTerminals()).flatMap(({ session, live }) =>
+          live === null
+            ? []
+            : [
+                {
+                  sessionId: session.id,
+                  ...(session.kind === 'agent' && session.agentId ? { agentId: session.agentId } : {}),
+                  repoId: session.repoId,
+                  cwd: session.cwd,
+                  title: session.name ?? session.title,
+                },
+              ],
+        ),
+      resolve: resolveByFingerprint(ledger),
+      execPath: process.execPath,
+      packaged: app.isPackaged,
+    },
     onChanged: () => {
       const win = getWindowThunk();
       if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.vanguardChanged);
