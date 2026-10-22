@@ -457,6 +457,11 @@ const bridge: Pick<
     devServerProbe: (req) => call(CHANNELS.browserDevServerProbe, req),
     setKeepAwake: (req) => ipcRenderer.send(CHANNELS.browserSetKeepAwake, req),
     setDiscardMs: (req) => ipcRenderer.send(CHANNELS.browserSetDiscardMs, req),
+    respondPermission: (req) => ipcRenderer.send(CHANNELS.browserPermissionResponse, req),
+    permissionsList: () => call(CHANNELS.browserPermissionsList),
+    permissionRevoke: (req) => call(CHANNELS.browserPermissionRevoke, req),
+    permissionsReset: () => call(CHANNELS.browserPermissionsReset),
+    setSpellcheck: (req) => ipcRenderer.send(CHANNELS.browserSetSpellcheck, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },
   webApps: {

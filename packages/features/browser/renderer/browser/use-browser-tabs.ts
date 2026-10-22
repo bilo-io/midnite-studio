@@ -76,6 +76,7 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
       const update = useBrowserStore.getState().updateTabState;
       switch (event.kind) {
         case 'navigated': {
+          useBrowserStore.getState().clearPendingPermissionRequest(event.tabId);
           update(event.tabId, {
             url: event.url,
             canGoBack: event.canGoBack,
@@ -142,6 +143,15 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
           useToastStore.getState().addToast({
             status: 'warning',
             message: 'DevTools are off in a packaged build. Launch with MSTUDIO_DEVTOOLS=1 to allow them.',
+          });
+          break;
+        case 'permission-request':
+          useBrowserStore.getState().setPendingPermissionRequest(event.tabId, {
+            tabId: event.tabId,
+            requestId: event.requestId,
+            origin: event.origin,
+            permission: event.permission,
+            displayName: event.displayName,
           });
           break;
         case 'discarded':

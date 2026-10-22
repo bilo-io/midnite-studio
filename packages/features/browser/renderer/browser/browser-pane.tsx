@@ -15,6 +15,7 @@ import { useBrowserBounds } from './use-browser-bounds';
 import { useBrowserTabsEffects } from './use-browser-tabs';
 import { resolveInput, trimUrlForDisplay } from './resolve-input';
 import { FindBar } from './find-bar';
+import { PermissionPromptBar } from './permission-prompt-bar';
 
 /**
  * The browser pane: real tabs and groups over a `WebContentsView` engine
@@ -443,6 +444,7 @@ export function BrowserPane({
           width: viewportPreset === 'full' ? '100%' : `${viewportPreset}px`,
         }}
       >
+        <PermissionPromptBar />
         {activeTab?.kind !== 'page' ? <NewTabPage /> : null}
         {activeTab?.kind === 'page' && activeTab.crashed ? (
           <div

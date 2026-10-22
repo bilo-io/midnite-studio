@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { BrowserNavError, BrowserShortcutTile } from '@midnite/studio-shared';
+import type { BrowserNavError, BrowserPermissionKind, BrowserShortcutTile } from '@midnite/studio-shared';
 
 import { PREVIEW_DEPLOY_HOSTS } from './browser/preview-deploy';
 import { WALLPAPER_STORAGE_KEY, WALLPAPER_THEMES, type WallpaperTheme } from './browser/wallpaper';
@@ -204,11 +204,21 @@ export function nextActiveAfterClose(
   return tabs[index + 1]?.id ?? tabs[index - 1]?.id ?? null;
 }
 
+export type BrowserPermissionRequest = {
+  tabId: string;
+  requestId: string;
+  origin: string;
+  permission: BrowserPermissionKind;
+  displayName: string;
+};
+
 type BrowserState = {
   tabs: BrowserTab[];
   groups: BrowserTabGroup[];
   activeTabId: string | null;
   recentlyClosed: ClosedTab[];
+  /** Pending in-tab permission prompts keyed by tabId (Phase 117 Theme B). */
+  pendingPermissionRequests: Record<string, BrowserPermissionRequest | undefined>;
   /**
    * The preview-deploy matcher's host allowlist (Phase 71 Theme D), seeded
    * with {@link PREVIEW_DEPLOY_HOSTS} and editable from the Browser settings
@@ -329,6 +339,8 @@ type BrowserState = {
   /** Closing clears `findResult` too — a stale match count must not survive to the next search. */
   closeFind: () => void;
   setFindResult: (result: { matches: number; activeMatchOrdinal: number } | null) => void;
+  setPendingPermissionRequest: (tabId: string, request: BrowserPermissionRequest | undefined) => void;
+  clearPendingPermissionRequest: (tabId: string) => void;
 };
 
 /**
@@ -351,6 +363,7 @@ export const useBrowserStore = create<BrowserState>()(
       zoomByOrigin: {},
       findOpen: false,
       findResult: null,
+      pendingPermissionRequests: {},
 
       openTab: (url, originRepoId) => {
         const tab: BrowserTab = { ...makeTab(url), ...(originRepoId ? { originRepoId } : {}) };
@@ -394,14 +407,18 @@ export const useBrowserStore = create<BrowserState>()(
             ? [{ ...closing, closedAtIndex: index }, ...state.recentlyClosed].slice(0, MAX_CLOSED)
             : state.recentlyClosed;
 
+          const pending = { ...state.pendingPermissionRequests };
+          delete pending[id];
+
           if (remaining.length === 0) {
             const fresh = makeTab();
-            return { tabs: [fresh], activeTabId: fresh.id, recentlyClosed };
+            return { tabs: [fresh], activeTabId: fresh.id, recentlyClosed, pendingPermissionRequests: pending };
           }
           return {
             tabs: remaining,
             activeTabId: nextActiveAfterClose(state.tabs, state.activeTabId, id),
             recentlyClosed,
+            pendingPermissionRequests: pending,
           };
         }),
 
@@ -582,6 +599,22 @@ export const useBrowserStore = create<BrowserState>()(
       closeFind: () => set({ findOpen: false, findResult: null }),
 
       setFindResult: (result) => set({ findResult: result }),
+
+      setPendingPermissionRequest: (tabId, request) =>
+        set((state) => ({
+          pendingPermissionRequests: {
+            ...state.pendingPermissionRequests,
+            [tabId]: request,
+          },
+        })),
+
+      clearPendingPermissionRequest: (tabId) =>
+        set((state) => {
+          if (!state.pendingPermissionRequests[tabId]) return state;
+          const next = { ...state.pendingPermissionRequests };
+          delete next[tabId];
+          return { pendingPermissionRequests: next };
+        }),
 
       closeTabsInGroup: (targetGroupId) =>
         set((state) => {

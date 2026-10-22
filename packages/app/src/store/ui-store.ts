@@ -1859,6 +1859,9 @@ export type UiState = {
    */
   browserDiscardMs: number;
   setBrowserDiscardMs: (ms: number) => void;
+  /** Phase 117 Theme B — whether spellchecking is enabled in the browser partition. */
+  browserSpellcheck: boolean;
+  setBrowserSpellcheck: (spellcheck: boolean) => void;
   /**
    * Phase 64 Theme C — the Files-view Monaco editor's own preferences,
    * mirroring the terminal font trio above exactly. `editorFontFamily: ''` is
@@ -2347,6 +2350,7 @@ export type PersistedUi = Pick<
   | 'terminalKeepRecentSessions'
   | 'terminalDisposeAfterMs'
   | 'browserDiscardMs'
+  | 'browserSpellcheck'
   | 'editorFontFamily'
   | 'editorFontSize'
   | 'editorMinimap'
@@ -2572,6 +2576,11 @@ export const useUiStore = create<UiState>()(
       setTerminalDisposeAfterMs: (terminalDisposeAfterMs) => set({ terminalDisposeAfterMs }),
       browserDiscardMs: DEFAULT_BROWSER_DISCARD_MS,
       setBrowserDiscardMs: (browserDiscardMs) => set({ browserDiscardMs }),
+      browserSpellcheck: false,
+      setBrowserSpellcheck: (browserSpellcheck) => {
+        set({ browserSpellcheck });
+        bridge()?.browser.setSpellcheck({ enabled: browserSpellcheck });
+      },
       editorFontFamily: '',
       setEditorFontFamily: (editorFontFamily) => set({ editorFontFamily }),
       editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
@@ -3560,6 +3569,7 @@ export const useUiStore = create<UiState>()(
         terminalKeepRecentSessions: state.terminalKeepRecentSessions,
         terminalDisposeAfterMs: state.terminalDisposeAfterMs,
         browserDiscardMs: state.browserDiscardMs,
+        browserSpellcheck: state.browserSpellcheck,
         editorFontFamily: state.editorFontFamily,
         editorFontSize: state.editorFontSize,
         editorMinimap: state.editorMinimap,

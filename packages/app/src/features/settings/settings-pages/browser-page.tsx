@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import type { BrowserPermissionRecord } from '@midnite/studio-shared';
 import { useDialogs } from '../../../components/dialog-host';
 import { bridge } from '../../../services/bridge';
 import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
@@ -25,11 +26,50 @@ export function BrowserPage() {
   const linkTarget = useUiStore((s) => s.linkTarget);
   const discardMs = useUiStore((s) => s.browserDiscardMs);
   const setDiscardMs = useUiStore((s) => s.setBrowserDiscardMs);
+  const spellcheck = useUiStore((s) => s.browserSpellcheck);
+  const setSpellcheck = useUiStore((s) => s.setBrowserSpellcheck);
   const previewDeployHosts = useBrowserStore((s) => s.previewDeployHosts);
   // Local, raw text rather than deriving straight from the store: parsing on
   // every keystroke would rejoin the list and normalise blank lines out from
   // under the cursor mid-edit. Committed to the store on blur instead.
   const [hostsText, setHostsText] = useState(() => previewDeployHosts.join('\n'));
+  const [permissions, setPermissions] = useState<BrowserPermissionRecord[]>([]);
+
+  const refreshPermissions = useCallback(() => {
+    void bridge()
+      ?.browser.permissionsList()
+      .then((list) => {
+        setPermissions(list ?? []);
+      })
+      .catch(() => {
+        setPermissions([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    refreshPermissions();
+  }, [refreshPermissions]);
+
+  const onRevokePermission = (origin: string, permission: string) => {
+    void bridge()
+      ?.browser.permissionRevoke({ origin, permission })
+      .then(refreshPermissions);
+  };
+
+  const onResetAllPermissions = () => {
+    dialogs.confirm({
+      title: 'Reset all site permissions?',
+      body: 'Clears every remembered permission grant and denial across all sites in the embedded browser. Sites will prompt again on their next request.',
+      confirmLabel: 'Reset all',
+      danger: true,
+      blastRadius: null,
+      onConfirm: () => {
+        void bridge()
+          ?.browser.permissionsReset()
+          .then(refreshPermissions);
+      },
+    });
+  };
 
   const onClearData = () => {
     dialogs.confirm({
@@ -151,6 +191,69 @@ export function BrowserPage() {
             <span className="text-muted-foreground">min</span>
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="spellcheck">Spellcheck</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Check spelling while typing</div>
+            <div className="text-muted-foreground text-[11px]">
+              Chromium&apos;s spellchecker sends typed text to the OS spellchecking service. Off by default.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={spellcheck}
+            onChange={(event) => setSpellcheck(event.target.checked)}
+            aria-label="Check spelling while typing"
+            data-testid="browser-settings-spellcheck-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-foreground text-xs" data-settings-section="site-permissions">Site permissions</h3>
+          {permissions.length > 0 ? (
+            <button
+              type="button"
+              onClick={onResetAllPermissions}
+              data-testid="reset-all-permissions-btn"
+              className="rounded border border-border px-2.5 py-1 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+            >
+              Reset all
+            </button>
+          ) : null}
+        </div>
+        <p className="text-muted-foreground text-[11px]">
+          Permissions remembered for sites in the embedded browser (camera, microphone, location, notifications).
+        </p>
+        {permissions.length === 0 ? (
+          <div className="text-muted-foreground text-[11px] py-1">No site permissions remembered yet.</div>
+        ) : (
+          <div className="flex flex-col divide-y divide-border border border-border rounded-md overflow-hidden">
+            {permissions.map((p) => (
+              <div key={`${p.origin}:${p.permission}`} className="flex items-center justify-between px-3 py-2 bg-card/50">
+                <div className="flex flex-col">
+                  <span className="font-mono text-[11px] text-foreground">{p.origin}</span>
+                  <span className="text-[10px] text-muted-foreground capitalize">
+                    {p.permission} • <strong className={p.value === 'allow' ? 'text-primary' : 'text-destructive'}>{p.value}</strong>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRevokePermission(p.origin, p.permission)}
+                  data-testid={`revoke-permission-${p.origin}-${p.permission}`}
+                  className="rounded border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground hover:bg-accent"
+                >
+                  Revoke
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">

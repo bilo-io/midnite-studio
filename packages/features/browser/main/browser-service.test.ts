@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import {
   activateBrowserTab,
@@ -6,14 +7,21 @@ import {
   createBrowserTab,
   destroyAllBrowserTabs,
   discardBrowserTab,
+  getBrowserPermissionStore,
   isTabDiscardEligible,
+  listBrowserPermissions,
   ownerWindowForBrowserTab,
   reparentBrowserTabs,
+  resetAllBrowserPermissions,
+  resetBrowserPermissionStoreForTest,
   resetBrowserServiceForTests,
+  resolveBrowserPermission,
+  revokeBrowserPermission,
   runBrowserDiscardSweep,
   setBrowserBounds,
   setBrowserDiscardMs,
   setBrowserKeepAwake,
+  setBrowserSpellcheck,
   setBrowserZoom,
   toggleBrowserDevTools,
 } from './browser-service';
@@ -61,6 +69,11 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
       list.push(handler);
       this.handlers.set(event, list);
       return this;
+    }
+    emit(event: string, ...args: unknown[]) {
+      for (const handler of this.handlers.get(event) ?? []) {
+        handler(...args);
+      }
     }
     isDestroyed(): boolean {
       return this.destroyed;
@@ -167,6 +180,7 @@ function fakeWindow() {
 describe('browser-service lifecycle', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -323,6 +337,7 @@ describe('browser-service lifecycle', () => {
 describe('navigation policy (Theme B)', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -500,6 +515,7 @@ describe('navigation policy (Theme B)', () => {
 describe('Mod+w / Mod+t owned by hand (before-input-event)', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -594,6 +610,7 @@ describe('Mod+w / Mod+t owned by hand (before-input-event)', () => {
 describe('bounds, zoom and sender scoping (Theme E/G)', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -701,6 +718,7 @@ describe('isTabDiscardEligible (Phase 84 Theme F)', () => {
 describe('browser tab discard (Phase 84 Theme F)', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -831,5 +849,173 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
 
     expect(view.webContents.close).not.toHaveBeenCalled();
     vi.restoreAllMocks();
+  });
+});
+
+describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
+    fakeSessions.clear();
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  function setupTab(tabId = 'tab-1', url = 'https://example.com') {
+    const win = fakeWindow();
+    createBrowserTab(win, tabId, url);
+    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    const sess = fakeSessions.get('persist:browser');
+    expect(sess).toBeDefined();
+    return { win, view, sess: sess! };
+  }
+
+  it('prompts the renderer on ungranted permission request and resolves allow', () => {
+    const { win, view, sess } = setupTab('tab-1', 'https://example.com/app');
+    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf('function');
+
+    const callback = vi.fn();
+    handler(view.webContents, 'geolocation', callback, { securityOrigin: 'https://example.com' });
+
+    // Verify permission-request event sent to window
+    const sendCalls = (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls;
+    const promptCall = sendCalls.find(
+      ([channel, payload]) => channel === EVENT_CHANNELS.browserEvent && payload?.kind === 'permission-request',
+    );
+    expect(promptCall).toBeDefined();
+    const payload = promptCall![1];
+    expect(payload).toMatchObject({
+      kind: 'permission-request',
+      tabId: 'tab-1',
+      origin: 'https://example.com',
+      permission: 'geolocation',
+      displayName: 'https://example.com',
+    });
+    expect(payload.requestId).toBeTypeOf('string');
+
+    // Resolve as allow
+    resolveBrowserPermission(payload.requestId, 'allow');
+    expect(callback).toHaveBeenCalledWith(true);
+
+    // Verify stored
+    const records = listBrowserPermissions();
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      origin: 'https://example.com',
+      permission: 'geolocation',
+      value: 'allow',
+    });
+
+    // Subsequent request for same origin + permission auto-grants without prompting again
+    const callback2 = vi.fn();
+    handler(view.webContents, 'geolocation', callback2, { securityOrigin: 'https://example.com' });
+    expect(callback2).toHaveBeenCalledWith(true);
+  });
+
+  it('resolves deny and remembers decision', () => {
+    const { win, view, sess } = setupTab('tab-1', 'https://example.com');
+    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+
+    const callback = vi.fn();
+    handler(view.webContents, 'camera', callback, {
+      securityOrigin: 'https://example.com',
+      mediaTypes: ['video'],
+    });
+
+    const sendCalls = (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls;
+    const promptCall = sendCalls.find(
+      ([channel, payload]) => channel === EVENT_CHANNELS.browserEvent && payload?.kind === 'permission-request',
+    );
+    expect(promptCall).toBeDefined();
+
+    resolveBrowserPermission(promptCall![1].requestId, 'deny');
+    expect(callback).toHaveBeenCalledWith(false);
+
+    expect(listBrowserPermissions()).toEqual([
+      expect.objectContaining({
+        origin: 'https://example.com',
+        permission: 'camera',
+        value: 'deny',
+      }),
+    ]);
+
+    // Subsequent request is denied immediately without sending another prompt
+    const callback2 = vi.fn();
+    handler(view.webContents, 'camera', callback2, {
+      securityOrigin: 'https://example.com',
+      mediaTypes: ['video'],
+    });
+    expect(callback2).toHaveBeenCalledWith(false);
+  });
+
+  it('resolves dismiss without persisting to store', () => {
+    const { win, view, sess } = setupTab('tab-1', 'https://example.com');
+    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+
+    const callback = vi.fn();
+    handler(view.webContents, 'notifications', callback, { securityOrigin: 'https://example.com' });
+
+    const sendCalls = (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls;
+    const promptCall = sendCalls.find(
+      ([channel, payload]) => channel === EVENT_CHANNELS.browserEvent && payload?.kind === 'permission-request',
+    );
+    expect(promptCall).toBeDefined();
+
+    resolveBrowserPermission(promptCall![1].requestId, 'dismiss');
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(listBrowserPermissions()).toHaveLength(0);
+  });
+
+  it('denies and cancels pending requests when tab navigates', () => {
+    const { view, sess } = setupTab('tab-1', 'https://example.com');
+    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+
+    const callback = vi.fn();
+    handler(view.webContents, 'geolocation', callback, { securityOrigin: 'https://example.com' });
+
+    // Navigation triggers cancellation
+    view.webContents.emit('did-navigate', {}, 'https://other.example');
+    expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it('cancels pending requests when tab is closed or discarded', () => {
+    const { view, sess } = setupTab('tab-1', 'https://example.com');
+    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+
+    const callback = vi.fn();
+    handler(view.webContents, 'geolocation', callback, { securityOrigin: 'https://example.com' });
+
+    closeBrowserTab('tab-1');
+    expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it('revokes individual permission and resets all permissions', () => {
+    setupTab('tab-1', 'https://example.com');
+
+    const store = getBrowserPermissionStore();
+    store.set('https://example.com', 'camera', 'allow');
+    store.set('https://example.com', 'geolocation', 'allow');
+    store.set('https://other.com', 'microphone', 'deny');
+
+    expect(listBrowserPermissions()).toHaveLength(3);
+
+    revokeBrowserPermission('https://example.com', 'camera');
+    const remaining = listBrowserPermissions();
+    expect(remaining).toHaveLength(2);
+    expect(remaining.some((r) => r.permission === 'camera')).toBe(false);
+
+    resetAllBrowserPermissions();
+    expect(listBrowserPermissions()).toHaveLength(0);
+  });
+
+  it('setBrowserSpellcheck delegates to partition session', () => {
+    setupTab('tab-1', 'https://example.com');
+    const sess = fakeSessions.get('persist:browser')!;
+
+    setBrowserSpellcheck(true);
+    expect(sess.setSpellCheckerEnabled).toHaveBeenCalledWith(true);
+
+    setBrowserSpellcheck(false);
+    expect(sess.setSpellCheckerEnabled).toHaveBeenCalledWith(false);
   });
 });

@@ -26,6 +26,7 @@ export function registerBrowserFeatureHandlers(getMainWindow: () => BrowserWindo
     electron: createStudioBrowserElectron(),
     log: defaultLogger,
     readDiscardSettings: () => currentSettings(),
+    userDataPath: app.getPath('userData'),
     // Phase 117 Theme A: an embedded page's DevTools follow the app windows' rule.
     devToolsAllowed: devToolsAllowed(app.isPackaged),
     sender: {

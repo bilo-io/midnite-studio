@@ -1,5 +1,5 @@
 import type { RuntimeIpc } from '@midnite/studio-runtime';
-import { CHANNELS, ok, schemas } from '@midnite/studio-shared';
+import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
 import type { z } from 'zod';
 
 import type { BrowserHostWindow } from './browser-electron';
@@ -12,12 +12,17 @@ import {
   createBrowserTab,
   findInBrowserTab,
   forwardBrowserTab,
+  listBrowserPermissions,
   navigateBrowserTab,
   ownerWindowForBrowserTab,
   reloadBrowserTab,
+  resetAllBrowserPermissions,
+  resolveBrowserPermission,
+  revokeBrowserPermission,
   setBrowserBounds,
   setBrowserDiscardMs,
   setBrowserKeepAwake,
+  setBrowserSpellcheck,
   setBrowserVisible,
   setBrowserZoom,
   stopBrowserTab,
@@ -202,5 +207,38 @@ export function registerBrowserHandlers(ipc: RuntimeIpc, sender: BrowserSenderIp
     schemas.BrowserDevServerProbeRequest,
     async ({ port }) => ({ listening: await probeLoopbackPort(port) }),
     () => ({ listening: false }),
+  );
+
+  ipc.send(
+    CHANNELS.browserPermissionResponse,
+    schemas.BrowserPermissionResponseRequest,
+    ({ requestId, decision }) => resolveBrowserPermission(requestId, decision),
+    warnInvalid,
+  );
+
+  ipc.handleBare(CHANNELS.browserPermissionsList, async () => {
+    return listBrowserPermissions();
+  });
+
+  ipc.handle(
+    CHANNELS.browserPermissionRevoke,
+    schemas.BrowserPermissionRevokeRequest,
+    async ({ origin, permission }) => {
+      revokeBrowserPermission(origin, permission);
+      return ok();
+    },
+    (issue) => failure(issue),
+  );
+
+  ipc.handleBare(CHANNELS.browserPermissionsReset, async () => {
+    resetAllBrowserPermissions();
+    return ok();
+  });
+
+  ipc.send(
+    CHANNELS.browserSetSpellcheck,
+    schemas.BrowserSetSpellcheckRequest,
+    ({ enabled }) => setBrowserSpellcheck(enabled),
+    warnInvalid,
   );
 }

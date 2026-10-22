@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { applyBrowserSessionPolicy, refuseWebviewAttach, sandboxedPageWebPreferences } from './browser-session-policy';
+import { createPermissionGrantStore } from './permission-grant-store';
 
 /**
  * Phase 117 Theme A: the one session policy, exercised against a plain fake that records every
@@ -75,6 +76,137 @@ describe('applyBrowserSessionPolicy', () => {
     const session = recordingSession();
     applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn(), spellcheck: true });
     expect(session.setSpellCheckerEnabled).toHaveBeenCalledWith(true);
+  });
+
+  describe('PermissionGrantStore integration (Phase 117 Theme B)', () => {
+    it('grants immediately when store has allow', () => {
+      const session = recordingSession();
+      const store = createPermissionGrantStore();
+      store.set('https://example.com', 'camera', 'allow');
+
+      applyBrowserSessionPolicy(session, {
+        onDownloadRefused: vi.fn(),
+        permissionStore: store,
+      });
+
+      const request = session.setPermissionRequestHandler.mock.calls[0]?.[0] as unknown as (
+        wc: unknown,
+        permission: string,
+        callback: (granted: boolean) => void,
+        details: unknown,
+      ) => void;
+      const callback = vi.fn();
+      request({ getURL: () => 'https://example.com' }, 'camera', callback, {});
+      expect(callback).toHaveBeenCalledWith(true);
+    });
+
+    it('denies immediately when store has deny', () => {
+      const session = recordingSession();
+      const store = createPermissionGrantStore();
+      store.set('https://example.com', 'camera', 'deny');
+
+      const onPermissionRequest = vi.fn();
+      applyBrowserSessionPolicy(session, {
+        onDownloadRefused: vi.fn(),
+        permissionStore: store,
+        onPermissionRequest,
+      });
+
+      const request = session.setPermissionRequestHandler.mock.calls[0]?.[0] as unknown as (
+        wc: unknown,
+        permission: string,
+        callback: (granted: boolean) => void,
+        details: unknown,
+      ) => void;
+      const callback = vi.fn();
+      request({ getURL: () => 'https://example.com' }, 'camera', callback, {});
+      expect(callback).toHaveBeenCalledWith(false);
+      expect(onPermissionRequest).not.toHaveBeenCalled();
+    });
+
+    it('denies non-promptable permissions immediately without checking store or prompting', () => {
+      const session = recordingSession();
+      const store = createPermissionGrantStore();
+      const onPermissionRequest = vi.fn();
+
+      applyBrowserSessionPolicy(session, {
+        onDownloadRefused: vi.fn(),
+        permissionStore: store,
+        onPermissionRequest,
+      });
+
+      const request = session.setPermissionRequestHandler.mock.calls[0]?.[0] as unknown as (
+        wc: unknown,
+        permission: string,
+        callback: (granted: boolean) => void,
+        details: unknown,
+      ) => void;
+
+      for (const perm of ['clipboard-read', 'display-capture', 'pointerLock', 'midiSysex', 'hid', 'serial', 'usb']) {
+        const callback = vi.fn();
+        request({ getURL: () => 'https://example.com' }, perm, callback, {});
+        expect(callback).toHaveBeenCalledWith(false);
+      }
+      expect(onPermissionRequest).not.toHaveBeenCalled();
+    });
+
+    it('prompts via onPermissionRequest on ask and rate-limits to at most once per min', () => {
+      const session = recordingSession();
+      const store = createPermissionGrantStore();
+      const onPermissionRequest = vi.fn();
+
+      applyBrowserSessionPolicy(session, {
+        onDownloadRefused: vi.fn(),
+        permissionStore: store,
+        onPermissionRequest,
+      });
+
+      const request = session.setPermissionRequestHandler.mock.calls[0]?.[0] as unknown as (
+        wc: unknown,
+        permission: string,
+        callback: (granted: boolean) => void,
+        details: unknown,
+      ) => void;
+
+      const cb1 = vi.fn();
+      request({ getURL: () => 'https://example.com' }, 'camera', cb1, {});
+      expect(onPermissionRequest).toHaveBeenCalledTimes(1);
+      expect(onPermissionRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          origin: 'https://example.com',
+          permission: 'camera',
+          permissions: ['camera'],
+        }),
+      );
+
+      // Second request immediately for same origin/permission is rate-limited: callback(false), no prompt
+      const cb2 = vi.fn();
+      request({ getURL: () => 'https://example.com' }, 'camera', cb2, {});
+      expect(cb2).toHaveBeenCalledWith(false);
+      expect(onPermissionRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it('check handler answers strictly from store only and never prompts', () => {
+      const session = recordingSession();
+      const store = createPermissionGrantStore();
+      store.set('https://example.com', 'geolocation', 'allow');
+
+      applyBrowserSessionPolicy(session, {
+        onDownloadRefused: vi.fn(),
+        permissionStore: store,
+      });
+
+      const check = session.setPermissionCheckHandler.mock.calls[0]?.[0] as unknown as (
+        wc: unknown,
+        permission: string,
+        origin: string,
+        details?: unknown,
+      ) => boolean;
+
+      expect(check({}, 'geolocation', 'https://example.com')).toBe(true);
+      expect(check({}, 'camera', 'https://example.com')).toBe(false);
+      expect(check({}, 'clipboard-read', 'https://example.com')).toBe(false);
+    });
   });
 });
 

@@ -839,6 +839,16 @@ export type MidniteStudioBridge = {
     setKeepAwake: (req: In<typeof S.BrowserSetKeepAwakeRequest>) => void;
     /** Phase 84 Theme F — the idle-discard threshold; pushed on mount and on change. */
     setDiscardMs: (req: In<typeof S.BrowserSetDiscardMsRequest>) => void;
+    /** Responds to a pending in-tab permission prompt (Phase 117 Theme B). */
+    respondPermission: (req: In<typeof S.BrowserPermissionResponseRequest>) => void;
+    /** Lists every remembered site permission (Phase 117 Theme B). */
+    permissionsList: () => Promise<z.infer<typeof S.BrowserPermissionsListResponse>>;
+    /** Revokes one remembered site permission (Phase 117 Theme B). */
+    permissionRevoke: (req: In<typeof S.BrowserPermissionRevokeRequest>) => Promise<void>;
+    /** Resets all remembered site permissions (Phase 117 Theme B). */
+    permissionsReset: () => Promise<void>;
+    /** Toggles Chromium spellcheck on the browser partition (Phase 117 Theme B). */
+    setSpellcheck: (req: In<typeof S.BrowserSetSpellcheckRequest>) => void;
     onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
   };
 

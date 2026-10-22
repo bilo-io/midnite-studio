@@ -669,6 +669,16 @@ export const CHANNELS = {
    * it, main just needs to know" shape. `0` disables discard entirely.
    */
   browserSetDiscardMs: 'mstudio:browser:set-discard-ms',
+  /** User response to an in-tab permission prompt (Phase 117 Theme B). */
+  browserPermissionResponse: 'mstudio:browser:permission-response',
+  /** List remembered site permissions for Settings ▸ Browser (Phase 117 Theme B). */
+  browserPermissionsList: 'mstudio:browser:permissions:list',
+  /** Revoke one site permission (Phase 117 Theme B). */
+  browserPermissionRevoke: 'mstudio:browser:permission:revoke',
+  /** Reset all site permissions (Phase 117 Theme B). */
+  browserPermissionsReset: 'mstudio:browser:permissions:reset',
+  /** Toggle Chromium spellchecking for browser partitions (Phase 117 Theme B). */
+  browserSetSpellcheck: 'mstudio:browser:set-spellcheck',
 
   // --- third-party apps rail (Phase 83 Themes A/B) ---------------------------
   // One `WebContentsView` per ENABLED app, owned by `web-apps-service.ts` — the

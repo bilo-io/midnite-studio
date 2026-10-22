@@ -118,7 +118,7 @@ Scope guardrails:
 *A page in the Browser app can neither hurt the user, nor the Mac, nor the agent that is reading it —
 and the app says what it knows about every site before the user trusts it.* Born from a browser that
 denies everything but cannot yet warn, grant, download or tell a page apart from the person.
-(13% · 8/60) — **Planned 2026-10-22.** Theme A landed 2026-10-22.
+(23% · 14/60) — **Planned 2026-10-22.** Themes A and B landed 2026-10-22.
 
 **Theme A — Isolation and the Chromium floor.** ✅ [PR #964](https://github.com/bilo-io/midnite-studio/pull/964).
 `browser-session-policy.ts` is the one place a session rule lives: `applyBrowserSessionPolicy` installs
@@ -152,9 +152,12 @@ apps own only their table — the flip config and the comparison are one root `s
 which also records the trap the self-review caught: `getCurrentFuseWire` returns the raw wire *bytes* (`'1'` =
 49 on, `'0'` = 48 off), not booleans, so a comparison against 1/0 would have failed every darwin build. The spellcheck Settings switch waits for Theme B's Settings ▸ Browser page.
 
-**Theme B — Permission prompts, remembered per origin.** ◻ Camera, microphone, geolocation and
-notifications prompt from a main-side bar (clipboard-read never does), with per-origin grants in a 0600
-file, a Settings page to revoke, and deny-all unchanged for everything else.
+**Theme B — Permission prompts, remembered per origin.** ✅ Camera, microphone, geolocation and
+notifications prompt from an in-tab bar above the tab (clipboard-read is strictly non-promptable and denied),
+with per-origin grants in `<userData>/browser-permissions.json` (0600 via atomic rename), IDN hygiene
+displaying Unicode only for uniform scripts and punycode otherwise, 1/min rate limiting per
+(origin, permission), automatic prompt cancellation on navigation/close/discard, a Settings ▸ Browser ▸ Site permissions
+page to revoke individual permissions or reset all with a confirmation dialog, and a Chromium spellcheck toggle.
 
 **Theme C — Site verdicts: TLS, mixed content, lookalikes, known-bad, vulnerable libraries.** ◻ A
 `SiteVerdict` per tab from local rules first (certificate errors, mixed content, IDN homographs,
@@ -217,29 +220,29 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 
 ### B — Permission prompts, remembered per origin [M · ~1d]
 
-- [ ] **A `PermissionGrantStore`.** `<userData>/browser-permissions.json` (0600 via Phase 115 B's
+- [x] **A `PermissionGrantStore`.** `<userData>/browser-permissions.json` (0600 via Phase 115 B's
       `writePrivateFile`), keyed by normalised origin
       ([`normaliseOrigin`](../../../packages/features/browser/main/browser-security.ts)) and
       permission, value `allow | deny | ask`, with a `grantedAt`. Pure module, tested.
-- [ ] **A main-side prompt.** `setPermissionRequestHandler` on `persist:browser` and every
+- [x] **A main-side prompt.** `setPermissionRequestHandler` on `persist:browser` and every
       `persist:app-<id>` looks the grant up; on `ask` it sends `permission-request` over the
       existing tab event channel and the renderer shows a bar above the tab (never a window-level
       `dialog`: a page must not be able to time a native dialog against a click). The check handler
       answers from the store only, never prompts.
-- [ ] **Scope of promptable permissions.** `camera`, `microphone` (`media` split by `mediaType`),
+- [x] **Scope of promptable permissions.** `camera`, `microphone` (`media` split by `mediaType`),
       `geolocation`, `notifications`. **`clipboard-read` is never promptable** — it stays
       deny-all, which is the one rule Theme F relies on; the grant store rejects a
       `clipboard-read: allow` entry. Everything else (`display-capture`, `pointerLock`,
       `midiSysex`, `hid`, `serial`, `usb`) stays deny-all too: Capture owns display media, and
       there is no product reason for the rest. (Bluetooth device choice is not a permission
       string at all — it is `select-bluetooth-device`, which the policy answers with no device.)
-- [ ] **Revocation.** A Settings ▸ Browser ▸ Site permissions page listing every grant with a
+- [x] **Revocation.** A Settings ▸ Browser ▸ Site permissions page listing every grant with a
       per-row revoke and a "Reset all". A grant also expires on a certificate change for the origin
       (Theme C).
-- [ ] **Prompt hygiene.** The bar names the origin as the user sees it (IDN shown in Unicode only
+- [x] **Prompt hygiene.** The bar names the origin as the user sees it (IDN shown in Unicode only
       when the script is uniform; otherwise punycode — see Theme C), cannot be triggered more than
       once per origin per minute, and is dismissed on navigation.
-- [ ] *Acceptance:* a `getUserMedia` call shows the bar; "Allow" persists across restart; revoking
+- [x] *Acceptance:* a `getUserMedia` call shows the bar; "Allow" persists across restart; revoking
       in Settings makes the next call fail; a page cannot get a permission through
       `navigator.permissions.query` alone.
 

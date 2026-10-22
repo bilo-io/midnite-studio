@@ -183,11 +183,11 @@ export function isAppOrigin(origin: string | undefined, devServerOrigin: string 
 }
 
 /** `http://localhost:5173/` and `http://localhost:5173` are one origin; make them one string. */
-function normaliseOrigin(raw: string): string {
+export function normaliseOrigin(raw: string): string {
   try {
-    return new URL(raw).origin;
+    return new URL(raw.trim()).origin;
   } catch {
-    return raw.replace(/\/+$/, '');
+    return raw.trim().replace(/\/+$/, '').toLowerCase();
   }
 }
 
