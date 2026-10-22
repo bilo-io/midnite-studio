@@ -214,9 +214,11 @@ password field against six rules — `http-password`, `lookalike` (C's finding, 
 badge reads as "Possible phishing" / "Login risk"; no second badge, no interstitial, but D's `originVerdictLevel`
 then refuses that page's downloads. Two calls worth knowing: rule 4 compares *sites* (registrable domain), not
 origins, because `www.` posting to `login.` is how every SSO subdomain works; and the brand rule has two strengths
-— a known sign-in brand in the page's own site label is danger ("GitHub login on `github-login.app`" has no
-confusable to catch), one only in a subdomain or a "Sign in to X" title is caution, because self-hosted forges
-(`gitlab.mycorp.com`) and SSO pages look exactly like that (the self-review caught both reading as danger) — with
+— a known sign-in brand in the page's own site name *paired* with a phishing keyword or a sign-in title is danger
+("GitHub login on `github-login.app`" has no confusable to catch; `paypalsecure.com`, `paypal.com.secure-login.net`
+and `github-login.pages.dev` too, with shared-hosting platforms read as `<label>.<platform>`), while an unpaired
+brand (`apple-orchard-club.com`), one only in a subdomain or only in a "Sign in to X" title is caution, because
+self-hosted forges (`gitlab.mycorp.com`) and SSO pages look exactly like that (two self-reviews caught these) — with
 generic brands (`live`, `office`, `slack`, …), brands under four letters and the
 brand's own regional domains (`google.de`) exempt. Sign-in hosts are the impersonation seed, the web apps and the
 Vault's `listWebAppSignIns` domains filtered to each app's own site (also fed to C's `addKnownHosts`). "First seen today" needed memory the browser
@@ -225,8 +227,9 @@ key stored only `safeStorage`-encrypted (optional `ledgerCipher` dep) → day nu
 times are on disk and a domain list cannot be tested against it; no cipher means memory only, and "clear browsing
 data" deletes it. The acceptance fixtures (`main/fixtures/phishing/`) run
 the real snippet over jsdom: http form → caution, `g1thub.com` → danger, `github-login.app` → danger,
-`github.com` → nothing. Clipboard-read is proved refused (no bar) on a password page. Not done: password fields in
-cross-origin iframes or closed shadow roots are not seen.
+`github.com` → nothing. Clipboard-read is proved refused (no bar) on a password page. The snippet is one bounded
+tree walk that skips look-alike elements (an `<input>` inside `<svg>` once blanked the whole read) and gives up after
+5 s. Not done: password fields in cross-origin iframes, closed shadow roots, or past the walk's caps are not seen.
 
 **Theme G — The page-to-agent boundary.** ◻ Page content reaches an agent only as a provenance-
 tagged `UntrustedPageContent` envelope; agent actions are per-session allowlisted and cross-origin
