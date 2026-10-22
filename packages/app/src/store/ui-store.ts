@@ -1862,6 +1862,9 @@ export type UiState = {
   /** Phase 117 Theme B — whether spellchecking is enabled in the browser partition. */
   browserSpellcheck: boolean;
   setBrowserSpellcheck: (spellcheck: boolean) => void;
+  /** Phase 117 Theme G — the ClickFix clipboard watch. On by default; main mirrors it. */
+  browserClipboardWatch: boolean;
+  setBrowserClipboardWatch: (enabled: boolean) => void;
   /** Phase 117 Theme D — opt-in downloads; `folder: ''` is the default quarantine folder. */
   browserDownloads: { enabled: boolean; folder: string };
   setBrowserDownloads: (downloads: { enabled: boolean; folder: string }) => void;
@@ -2372,6 +2375,7 @@ export type PersistedUi = Pick<
   | 'terminalDisposeAfterMs'
   | 'browserDiscardMs'
   | 'browserSpellcheck'
+  | 'browserClipboardWatch'
   | 'browserAllowSiteProceed'
   | 'browserReputationFeeds'
   | 'browserDownloads'
@@ -2606,6 +2610,8 @@ export const useUiStore = create<UiState>()(
         set({ browserSpellcheck });
         bridge()?.browser.setSpellcheck({ enabled: browserSpellcheck });
       },
+      browserClipboardWatch: true,
+      setBrowserClipboardWatch: (browserClipboardWatch) => set({ browserClipboardWatch }),
       browserAllowSiteProceed: false,
       // Both push to main directly as well as through the browser pane's effect: Settings can be
       // open with no pane mounted, and turning the proceed switch off must revoke bypasses now.
@@ -3612,6 +3618,7 @@ export const useUiStore = create<UiState>()(
         terminalDisposeAfterMs: state.terminalDisposeAfterMs,
         browserDiscardMs: state.browserDiscardMs,
         browserSpellcheck: state.browserSpellcheck,
+        browserClipboardWatch: state.browserClipboardWatch,
         browserAllowSiteProceed: state.browserAllowSiteProceed,
         browserReputationFeeds: state.browserReputationFeeds,
         browserDownloads: state.browserDownloads,

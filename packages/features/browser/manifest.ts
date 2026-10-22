@@ -41,6 +41,9 @@ export const browserManifest = defineFeatureManifest({
     // feature's sessions, so this feature answers them; the Vault's manifest names them too.
     CHANNELS.webAppsSignIns,
     CHANNELS.webAppsSignOut,
+    // Phase 117 Theme G: the agent session (start answers with its state, a tool with its result).
+    CHANNELS.browserAgentStart,
+    CHANNELS.browserAgentTool,
   ],
   /** One-way (`send`) channels — a bounds push fires every resize frame, so no round trip. */
   sends: [
@@ -67,6 +70,10 @@ export const browserManifest = defineFeatureManifest({
     CHANNELS.browserDownloadResponse,
     CHANNELS.browserSetPrivacy,
     CHANNELS.browserTrackerSiteException,
+    CHANNELS.browserAgentStop,
+    CHANNELS.browserAgentRespond,
+    CHANNELS.browserClipboardClear,
+    CHANNELS.browserSetClipboardWatch,
     CHANNELS.webAppsDisable,
     CHANNELS.webAppsSetBounds,
     CHANNELS.webAppsActivate,

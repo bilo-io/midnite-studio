@@ -51,6 +51,7 @@ export const PREFERENCE_KEYS = [
   'browserDownloads', // browser-page.tsx — opt-in downloads + quarantine folder (Phase 117 Theme D)
   'browserPrivacy', // browser-page.tsx — tracker/cookie/referrer/UA switches (Phase 117 Theme E)
   'browserSpellcheck', // browser-page.tsx — Chromium spellcheck toggle (Phase 117 Theme B)
+  'browserClipboardWatch', // browser-page.tsx — the ClickFix clipboard watch (Phase 117 Theme G)
   'browserAllowSiteProceed', // browser-page.tsx — proceed past a site warning (Phase 117 Theme C)
   'browserReputationFeeds', // privacy-page.tsx — URLhaus / OpenPhish switches (Phase 117 Theme C)
   'columnSkillByProject', // projects-page.tsx — drag-to-skill's column → skill map (Phase 95 Theme G)

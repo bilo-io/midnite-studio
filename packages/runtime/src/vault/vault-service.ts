@@ -1,4 +1,4 @@
-import type { RuntimeAppId } from '../app-id';
+import { BROWSER_AGENT_PRINCIPAL, type RuntimePrincipal } from '../app-id';
 import { createVaultAuditLog, type VaultAuditLog } from './audit/vault-audit';
 import { createBreachChecker, type BreachChecker } from './breach/hibp-check';
 import {
@@ -98,7 +98,7 @@ export const VAULT_NAMESPACE_IDS = Object.keys(VAULT_NAMESPACES) as VaultNamespa
  * a value — an authorizer has no business seeing a secret.
  */
 export type VaultAccess = {
-  appId: RuntimeAppId;
+  appId: RuntimePrincipal;
   namespace: VaultNamespace;
   key: string;
   op: 'read' | 'write' | 'delete';
@@ -131,7 +131,7 @@ export type VaultRead =
 
 /** One app's handle on the vault: every call is made as {@link appId}. */
 export interface VaultClient {
-  readonly appId: RuntimeAppId;
+  readonly appId: RuntimePrincipal;
   /** Whether OS-backed encryption works in the runtime's process. */
   isAvailable(): boolean;
   /** Whether an entry exists and decrypts — the `hasToken` answer, never the value. */
@@ -160,7 +160,7 @@ export interface VaultService {
   /** Whether OS-backed encryption works in the runtime's process. */
   isAvailable(): boolean;
   /** A handle that makes every access as `appId`. Cheap; handles share one store per namespace. */
-  forApp(appId: RuntimeAppId): VaultClient;
+  forApp(appId: RuntimePrincipal): VaultClient;
 
   // Lock state & re-auth (Theme B)
   isLocked(): boolean;
@@ -347,8 +347,10 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     breachChecker,
 
     forApp(appId) {
+      // Phase 117 Theme G: the browser agent is refused here, before any authorizer runs, so a
+      // service built with `allowAllVaultAccess` still gives an agent session nothing.
       const allowed = (namespace: VaultNamespace, key: string, op: VaultAccess['op']): boolean =>
-        authorize({ appId, namespace, key, op });
+        appId !== BROWSER_AGENT_PRINCIPAL && authorize({ appId, namespace, key, op });
       const demand = (namespace: VaultNamespace, key: string, op: VaultAccess['op']): void => {
         if (!allowed(namespace, key, op)) throw new VaultAccessDeniedError({ appId, namespace, key, op });
       };

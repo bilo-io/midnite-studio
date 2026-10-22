@@ -1491,6 +1491,7 @@ export function buildMockBridge(data: MockFixtures) {
     */
   const browserTabIds = new Set<string>();
   const browserEventHandlers: ((e: unknown) => void)[] = [];
+  const deepLinkHandlers: ((e: unknown) => void)[] = [];
   /**
    * Every `setVisible` call, in order — the only way a spec can see
    * whether the real engine would currently be painting a tab, since
@@ -3065,6 +3066,25 @@ export function buildMockBridge(data: MockFixtures) {
       respondDownload: noop,
       setPrivacy: noop,
       setTrackerException: noop,
+      // Phase 117 Theme G: a session starts running at once; tools answer "no session" (no page to drive).
+      agentStart: async (req: { tabId: string; goal: string; allowlist: string[] }) => {
+        const state = {
+          sessionId: `mock-agent-${req.tabId}`,
+          tabId: req.tabId,
+          goal: req.goal,
+          allowlist: req.allowlist,
+          status: 'running' as const,
+          pending: null,
+          log: [`[start] ${req.goal}`],
+        };
+        for (const h of [...browserEventHandlers]) h({ kind: 'agent-session', tabId: req.tabId, state });
+        return { ok: true as const, state };
+      },
+      agentStop: noop,
+      agentTool: async () => ({ ok: false as const, kind: 'no-session' as const, message: 'The mock bridge drives no page.' }),
+      agentRespond: noop,
+      clearClipboard: noop,
+      setClipboardWatch: noop,
       onEvent: (handler: (e: unknown) => void) => {
         browserEventHandlers.push(handler);
         return () => {
@@ -4896,7 +4916,13 @@ export function buildMockBridge(data: MockFixtures) {
       },
     },
     protocol: {
-      onDeepLink: unsubscribe,
+      // Phase 117 Theme G: a spec delivers a deep link through `window.__mstudioDeepLink(...)`.
+      onDeepLink: (handler: (e: unknown) => void) => {
+        deepLinkHandlers.push(handler);
+        return () => {
+          deepLinkHandlers.splice(deepLinkHandlers.indexOf(handler), 1);
+        };
+      },
     },
     /**
      * Phase 66 Theme H — the API Client's bridge namespace. Extended in
@@ -6123,6 +6149,10 @@ export function buildMockBridge(data: MockFixtures) {
   };
 
   (window as unknown as { __mstudioOps: unknown }).__mstudioOps = opCalls;
+  // Phase 117 Theme G: a spec's way to deliver a deep link (browser events go through `__mstudioBrowserEvent` below).
+  (window as unknown as { __mstudioDeepLink: (e: unknown) => void }).__mstudioDeepLink = (e) => {
+    for (const h of [...deepLinkHandlers]) h(e);
+  };
   (window as unknown as { __mstudioSearchCancels: unknown }).__mstudioSearchCancels = searchCancels;
   (window as unknown as { __mstudioPty: unknown }).__mstudioPty = ptyCalls;
   /*

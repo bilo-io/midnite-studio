@@ -56,7 +56,7 @@ export function useDeepLinks(): void {
       }
     };
 
-    const unsub = b.protocol.onDeepLink(({ link, known }) => {
+    const unsub = b.protocol.onDeepLink(({ link, known, origin }) => {
       if (link.kind === 'open') {
         if (known) {
           // Already in `repos.json` — dispatched straight through, no dialog.
@@ -68,6 +68,9 @@ export function useDeepLinks(): void {
           title: 'Open this repository?',
           body: link.repo,
           confirmLabel: 'Open',
+          // Opening adds a folder to the list and nothing else; a page asking for it is the warning.
+          blastRadius: null,
+          ...(origin !== undefined ? { warnings: [`A web page (${origin || 'unknown origin'}) asked for this, not you.`] } : {}),
           onConfirm: () => {
             openRepo.mutate(link.repo, {
               onSuccess: (result) => {
@@ -104,6 +107,7 @@ export function useDeepLinks(): void {
         void receiveAgentRun(
           link.run,
           liveAgentRunDeps({ confirm, refuse: (message) => addToast({ message, status: 'error' }) }),
+          origin !== undefined ? { pageOrigin: origin } : {},
         );
         return;
       }
@@ -150,8 +154,8 @@ export function useDeepLinks(): void {
       // map), so the proposal is a notice rather than an action. Main never
       // touches the filesystem for it either way; this is purely informational.
       notify({
-        title: 'Clone link received',
-        body: `${link.url}\n\nCloning from a link isn't supported yet — clone it yourself, then open the folder.`,
+        title: origin !== undefined ? 'A web page sent a clone link' : 'Clone link received',
+        body: `${origin !== undefined ? `Asked for by ${origin || 'a web page'}.\n\n` : ''}${link.url}\n\nCloning from a link isn't supported yet — clone it yourself, then open the folder.`,
         okLabel: 'OK',
       });
     });

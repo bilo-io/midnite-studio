@@ -39,6 +39,11 @@ export type DownloadHandlerDeps = {
   exists: (path: string) => boolean;
   /** Theme C's verdict for the page's origin (`originVerdictLevel` in browser-service); absent ⇒ no verdict. */
   originVerdict?: (origin: string) => OriginVerdictLevel | undefined;
+  /**
+   * Phase 117 Theme G: true while a browser agent session drives this page. An `allow`-class
+   * download is then asked about as well, because no download happens behind the user's back.
+   */
+  forceConfirm?: (webContents: unknown) => boolean;
   /** Ask the user. Resolves true on allow. */
   confirm: (request: { webContents: unknown; filename: string; size: number; origin: string; fileClass: DownloadFileClass }) => Promise<boolean>;
   /** The page URL the download came from (`webContents.getURL()`), used as origin and referrer. */
@@ -76,7 +81,8 @@ export function createDownloadHandler(deps: DownloadHandlerDeps): (item: Downloa
     const pageUrl = deps.pageUrlOf(webContents);
     const origin = originOf(pageUrl) || originOf(item.getURL());
     const size = item.getTotalBytes();
-    const decision = decideDownload({ filename, size, originVerdict: deps.originVerdict?.(origin) });
+    const decided = decideDownload({ filename, size, originVerdict: deps.originVerdict?.(origin) });
+    const decision = decided.action === 'allow' && deps.forceConfirm?.(webContents) ? { ...decided, action: 'confirm' as const } : decided;
     if (decision.action === 'refuse') {
       item.cancel();
       deps.onRefused(webContents, filename, decision.reason);

@@ -16,8 +16,10 @@ import {
 import {
   EVENT_CHANNELS,
   CHANNELS,
+  createLinkRateLimiter,
   GitIdentitySetRequest,
   failure,
+  isActingPageLinkKind,
   perfEnabled,
   SetupProbeRequest,
   SetupRevealRequest,
@@ -334,14 +336,26 @@ export const startStudioMain: StartStudioMain = () => {
   }
 
   let pendingDeepLink: string | null = null;
+  // Phase 117 Theme G: a run or clone from one web page's origin, at most once per 10 s.
+  const pageLinkLimiter = createLinkRateLimiter();
 
-  async function handleDeepLinkUrl(rawUrl: string): Promise<void> {
+  /**
+   * `origin` is set only for a link a page inside an embedded browser tab asked for (the tab's
+   * `openExternal`, refused in the browser feature and handed here). It travels to the renderer, which
+   * names the page in the confirm and never auto-sends a run that came from one.
+   */
+  async function handleDeepLinkUrl(rawUrl: string, origin?: string): Promise<void> {
     const parsed = parseDeepLink(rawUrl);
     if (!parsed) return;
+    if (origin !== undefined && isActingPageLinkKind(parsed.kind) && !pageLinkLimiter.allow(origin)) {
+      defaultLogger(`[deep-link] dropped a ${parsed.kind} link from ${origin || 'a page'}: one per 10 s per site`);
+      return;
+    }
 
     const win = getMainWindow();
     if (!win || win.isDestroyed()) {
-      pendingDeepLink = rawUrl;
+      // A page's link is not held for later: the page that asked is gone with the window.
+      if (origin === undefined) pendingDeepLink = rawUrl;
       return;
     }
 
@@ -351,7 +365,7 @@ export const startStudioMain: StartStudioMain = () => {
       known = allRepos.some((r) => r.path === parsed.repo);
     }
 
-    win.webContents.send(EVENT_CHANNELS.deepLink, { link: parsed, known });
+    win.webContents.send(EVENT_CHANNELS.deepLink, { link: parsed, known, ...(origin !== undefined ? { origin } : {}) });
   }
 
   if (!app.requestSingleInstanceLock()) {
@@ -512,7 +526,12 @@ export const startStudioMain: StartStudioMain = () => {
       registerTestsFeatureHandlers(getMainWindow);
       registerPtyHandlers(getMainWindow);
       // The browser feature's channels (Phase 113 Theme L) — browser tabs and the web-apps rail, one registration.
-      registerBrowserFeatureHandlers(getMainWindow);
+      registerBrowserFeatureHandlers(getMainWindow, (url, origin) => {
+        // Only Studio's own scheme is acted on in-process; a page's `midnite://` link is not forwarded
+        // to the launcher, where it would lose the origin that the confirm names.
+        if (url.toLowerCase().startsWith('midnite-studio://')) void handleDeepLinkUrl(url, origin);
+        else defaultLogger(`[deep-link] a page's midnite:// link was not forwarded (${origin || 'unknown origin'})`);
+      });
       // Phase 84 Theme F: one process-wide idle sweep, started once — every
       // discard eligibility check reads live `WebContentsView`/`BrowserWindow`
       // state at tick time, so there is nothing to reconcile per repo or per

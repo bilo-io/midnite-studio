@@ -63,6 +63,12 @@ export function createBrowserBridge(ipc: RendererIpc): BrowserBridge {
       respondDownload: (req) => send(CHANNELS.browserDownloadResponse, req),
       setPrivacy: (req) => send(CHANNELS.browserSetPrivacy, req),
       setTrackerException: (req) => send(CHANNELS.browserTrackerSiteException, req),
+      agentStart: (req) => call(CHANNELS.browserAgentStart, req),
+      agentStop: (req) => send(CHANNELS.browserAgentStop, req),
+      agentTool: (req) => call(CHANNELS.browserAgentTool, req),
+      agentRespond: (req) => send(CHANNELS.browserAgentRespond, req),
+      clearClipboard: (req) => send(CHANNELS.browserClipboardClear, req),
+      setClipboardWatch: (req) => send(CHANNELS.browserSetClipboardWatch, req),
       onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
     },
     webApps: {

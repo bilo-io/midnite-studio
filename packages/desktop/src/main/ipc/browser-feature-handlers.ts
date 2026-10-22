@@ -15,7 +15,10 @@ import { handle, handleBare, handleFromSender, handleSend, handleSendFromSender 
  * the logger, the settings mirror, its windows, and the sender-resolved `handle.ts` helpers the
  * browser's `create`/`setBounds`/`setVisible` always registered through.
  */
-export function registerBrowserFeatureHandlers(getMainWindow: () => BrowserWindow | null): void {
+export function registerBrowserFeatureHandlers(
+  getMainWindow: () => BrowserWindow | null,
+  onPageDeepLink?: (url: string, origin: string) => void,
+): void {
   const ctx: FeatureMainContext = {
     ipc: { handle, handleBare, send: handleSend },
     emit: () => undefined,
@@ -36,5 +39,7 @@ export function registerBrowserFeatureHandlers(getMainWindow: () => BrowserWindo
         handleSendFromSender(channel, schema, (payload, win) => handler(payload, asHost(win)), onInvalid),
     },
     getMainWindow: () => asHost(getMainWindow()),
+    // Phase 117 Theme G: a page's `midnite-studio://` link, refused by Chromium, confirmed by the renderer.
+    onPageDeepLink,
   });
 }

@@ -39,6 +39,11 @@ export function useSettingsSync(): void {
   useEffect(() => {
     bridge()?.browser.setPrivacy(browserPrivacy);
   }, [browserPrivacy]);
+  // Phase 117 Theme G: the ClickFix watch runs in main (it reads the system clipboard); on until told otherwise.
+  const browserClipboardWatch = useUiStore((s) => s.browserClipboardWatch);
+  useEffect(() => {
+    bridge()?.browser.setClipboardWatch({ enabled: browserClipboardWatch });
+  }, [browserClipboardWatch]);
 
   useEffect(() => {
     const api = bridge();

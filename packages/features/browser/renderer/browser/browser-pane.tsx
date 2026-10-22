@@ -16,6 +16,7 @@ import { useBrowserBounds } from './use-browser-bounds';
 import { useBrowserTabsEffects } from './use-browser-tabs';
 import { resolveInput, trimUrlForDisplay } from './resolve-input';
 import { FindBar } from './find-bar';
+import { ClipboardWarningBar } from './clipboard-warning-bar';
 import { SiteBadge } from './site-badge';
 import { DownloadPromptBar } from './download-prompt-bar';
 import { PermissionPromptBar } from './permission-prompt-bar';
@@ -455,6 +456,7 @@ export function BrowserPane({
       >
         <PermissionPromptBar />
         <DownloadPromptBar />
+        <ClipboardWarningBar />
         {activeTab?.kind !== 'page' ? <NewTabPage /> : null}
         {activeTab?.kind === 'page' && activeTab.crashed ? (
           <div

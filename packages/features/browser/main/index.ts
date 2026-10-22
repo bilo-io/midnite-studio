@@ -86,6 +86,8 @@ export {
   resetBrowserPermissionStoreForTest,
   resolveBrowserDownload,
   resolveBrowserPermission,
+  setBrowserAgentSiteLevelSource,
+  setBrowserClipboardWatch,
   setBrowserDownloads,
   setBrowserPrivacy,
   setBrowserTrackerException,
@@ -94,6 +96,8 @@ export {
   startBrowserDiscardSweep,
   stopBrowserDiscardSweep,
 } from './browser-service';
+export { createBrowserAgentSessions, type BrowserAgentSessions } from './browser-agent-session';
+export { READ_PAGE_SCRIPT } from './page-reader';
 export { DEV_SERVER_PROBE_TIMEOUT_MS, probeLoopbackPort } from './dev-server-probe';
 // Phase 117 Theme C — site verdicts. `siteVerdicts()` is the per-tab state Themes D/E/F hook into.
 export { setBrowserSiteSafety, siteVerdicts } from './browser-site-safety';
@@ -151,6 +155,7 @@ export const browserMain = defineFeatureMain<BrowserMainServices>({
       devToolsAllowed: services.devToolsAllowed ?? false,
       userDataPath: services.userDataPath,
       permissionStore: services.permissionStore,
+      onPageDeepLink: services.onPageDeepLink,
     });
     registerBrowserHandlers(ctx.ipc, services.sender);
     registerWebAppsHandlers(ctx.ipc, services.getMainWindow);
