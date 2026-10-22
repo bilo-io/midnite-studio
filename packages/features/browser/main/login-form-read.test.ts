@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fixture, loadPage, resetPage, runSnippet } from './fixtures/phishing/fixture-page';
-import { LOGIN_FORM_READ_SNIPPET, LOGIN_FORM_WORLD_ID, readLoginForm } from './login-form-read';
+import { LOGIN_FORM_READ_SNIPPET, LOGIN_FORM_READ_TIMEOUT_MS, LOGIN_FORM_WORLD_ID, readLoginForm } from './login-form-read';
 
 /**
  * The snippet is a string main hands to `executeJavaScriptInIsolatedWorld`; here it runs against
@@ -71,6 +71,23 @@ describe('LOGIN_FORM_READ_SNIPPET', () => {
     expect(runSnippet().formActionOrigins).toEqual(['https://example.com']);
   });
 
+  it('an <input> in another namespace (inside <svg>) cannot blank the read', () => {
+    loadPage(
+      '<svg><input type="password"></input></svg><form action="https://evil.example/x"><input type=password></form>',
+      'https://example.com/',
+    );
+    expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: ['https://evil.example'] });
+  });
+
+  it('counts a submitter tied to the form from outside it (form= attribute), never a type=button one', () => {
+    loadPage(
+      '<form id="f" action="/login"><input type=password><button type="button" formaction="https://x.example/y">b</button></form>' +
+        '<button form="f" formaction="https://drop.example/x">Go</button>',
+      'https://example.com/',
+    );
+    expect(runSnippet().formActionOrigins.sort()).toEqual(['https://drop.example', 'https://example.com']);
+  });
+
   it('sees a password field inside an open shadow root — but not a closed one', () => {
     loadPage('<div id="open"></div><div id="closed"></div>', 'https://example.com/');
     const doc = (globalThis as unknown as { document: ShadowDoc }).document;
@@ -128,6 +145,17 @@ describe('readLoginForm', () => {
     expect(exec).toHaveBeenCalledWith(LOGIN_FORM_WORLD_ID, [{ code: LOGIN_FORM_READ_SNIPPET }], false);
     expect(LOGIN_FORM_WORLD_ID).not.toBe(0);
     expect(LOGIN_FORM_WORLD_ID).not.toBe(999);
+  });
+
+  it('gives up on a read that never answers', async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = readLoginForm({ executeJavaScriptInIsolatedWorld: () => new Promise(() => {}) });
+      await vi.advanceTimersByTimeAsync(LOGIN_FORM_READ_TIMEOUT_MS);
+      expect(await pending).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('answers null for a malformed result or a failed read', async () => {
