@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-22 — Phase 117 Theme F — Credential-phishing detection
+
+[PR #F_PR](https://github.com/bilo-io/midnite-studio/pull/F_PR). A fixed snippet run in an isolated world (never the page's main world; DOM read through prototypes so named-property clobbering cannot lie) reports password fields and where their forms post; five rules — password on `http:`, on a lookalike, on a host first seen today, posting to another site, or on a page claiming a known sign-in brand it is not (`github-login.app`) — land on the tab's `SiteVerdict.credentialRisk` and raise C's one badge to "Login risk" / "Possible phishing". First-seen hosts persist only as truncated SHA-256 digests (0600), cleared with browsing data; the Vault's sign-in domains feed both the phishing and lookalike rules. Items: login-form read, the five rules, clipboard-read stays denied, no autofill, acceptance fixtures (http → caution, `g1thub.com` → danger, `github.com` → nothing).
+
 ## 2026-10-22 — Phase 117 Themes D + E — Quarantined downloads; tracker and fingerprinting protection
 
 [PR #974](https://github.com/bilo-io/midnite-studio/pull/974). Opt-in downloads land in a 0700 quarantine folder with `com.apple.quarantine` set, a type/size policy, a SHA-256 + Gatekeeper + optional clamscan record in `downloads.ndjson`, and never auto-open. `persist:browser` gets a `webRequest` pipeline: bundled EasyPrivacy blocklist (licence recorded), third-party cookie stripping both ways, trimmed Referer, reduced UA, a per-tab blocked counter and per-site exceptions.

@@ -118,7 +118,7 @@ Scope guardrails:
 *A page in the Browser app can neither hurt the user, nor the Mac, nor the agent that is reading it —
 and the app says what it knows about every site before the user trusts it.* Born from a browser that
 denies everything but cannot yet warn, grant, download or tell a page apart from the person.
-(40% · 24/60) — **Planned 2026-10-22.** Themes A, B, D and E landed 2026-10-22.
+(63% · 38/60) — **Planned 2026-10-22.** Themes A, B, C, D, E and F landed 2026-10-22.
 
 **Theme A — Isolation and the Chromium floor.** ✅ [PR #964](https://github.com/bilo-io/midnite-studio/pull/964).
 `browser-session-policy.ts` is the one place a session rule lives: `applyBrowserSessionPolicy` installs
@@ -201,9 +201,27 @@ and font fingerprinting are *not* defended (needs a preload; guardrail 1). The p
 minimal `TrackerBadge` + popover; PR #975 (Theme C, merged second) folded it into `site-badge.tsx`. Third-party detection uses a small multi-part-suffix heuristic, not the full
 Public Suffix List.
 
-**Theme F — Credential-phishing detection.** ◻ A login form on a lookalike or newly-seen domain,
-a password field on an `http:` page, and a sign-in page whose origin differs from the one the Vault
-knows for that web app all raise the badge; the clipboard-read permission stays denied.
+**Theme F — Credential-phishing detection.** ✅ [PR #F_PR](https://github.com/bilo-io/midnite-studio/pull/F_PR).
+`login-form-read.ts` is the one page read guardrail 1 allows: a fixed IIFE run through
+`executeJavaScriptInIsolatedWorld` in world `1117` (never 0, the page's own, nor 999) after `dom-ready`,
+`did-stop-loading` and an in-page navigation, returning `{ hasPasswordField, formActionOrigins[] }` (zod-checked)
+and installing nothing. The surprise was that the isolated world is not enough on its own: named-property
+clobbering crosses worlds (`<input name="action">` shadows `form.action`, `<img name="forms">` shadows
+`document.forms`), so the snippet calls every DOM member through its prototype. `phishing-rules.ts` judges a
+password field against five rules — `http-password`, `lookalike` (C's finding, raised to danger), `first-seen`,
+`cross-origin-action`, `sign-in-elsewhere` — into a new `SiteVerdict.credentialRisk` (board 22:40), which C's one
+badge reads as "Possible phishing" / "Login risk"; no second badge, no interstitial, but D's `originVerdictLevel`
+then refuses that page's downloads. Two calls worth knowing: rule 4 compares *sites* (registrable domain), not
+origins, because `www.` posting to `login.` is how every SSO subdomain works; and rule 5 matches a known sign-in
+host's brand label in the page's host tokens or a sign-in-shaped title ("GitHub login on `github-login.app`" has
+no confusable to catch), with generic brands (`live`, `office`, `slack`, …), brands under four letters and the
+brand's own regional domains (`google.de`) exempt. Sign-in hosts are the impersonation seed, the web apps and the
+Vault's `listWebAppSignIns` domains (also fed to C's `addKnownHosts`). "First seen today" needed memory the browser
+never had: `host-first-seen.ts` keeps `<userData>/browser-hosts-seen.json` (0600) keyed by truncated SHA-256, so no
+hostname is on disk, and "clear browsing data" deletes it. The acceptance fixtures (`main/fixtures/phishing/`) run
+the real snippet over jsdom: http form → caution, `g1thub.com` → danger, `github-login.app` → danger,
+`github.com` → nothing. Clipboard-read is proved refused (no bar) on a password page. Not done: password fields in
+cross-origin iframes or shadow roots are not seen (main-frame read only).
 
 **Theme G — The page-to-agent boundary.** ◻ Page content reaches an agent only as a provenance-
 tagged `UntrustedPageContent` envelope; agent actions are per-session allowlisted and cross-origin
@@ -365,27 +383,27 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
       leaves (network trace in the e2e); a third-party `Set-Cookie` is not stored; a cross-site
       request carries only the origin as referrer.
 
-### F — Credential-phishing detection [M · ~1d]
+### F — Credential-phishing detection [M · ~1d] ✅ DONE (PR #F_PR, 2026-10-22)
 
-- [ ] **Login-form detection without a preload.** A fixed, tested snippet run through
+- [x] **Login-form detection without a preload.** A fixed, tested snippet run through
       `webContents.executeJavaScriptInIsolatedWorld` — **never the main world**, where the page
       being judged owns `querySelectorAll` and the `type` getter and could answer "no password
       field" on exactly the pages this theme exists for; the isolated world sees the same DOM
       through pristine prototypes the page cannot reach. It returns `{ hasPasswordField,
       formActionOrigins[] }` after `dom-ready`, installs no state or listeners, and is the one
       read guardrail 1 permits (Decision 1).
-- [ ] **The rules.** Raise the badge when a password field appears on (1) an `http:` page, (2) a
+- [x] **The rules.** Raise the badge when a password field appears on (1) an `http:` page, (2) a
       lookalike (Theme C), (3) a host first seen today with no history, (4) a form whose `action`
       posts cross-origin, or (5) a sign-in page for a web app the Vault knows under a different
       origin (`listWebAppSignIns` domains). (5) is the one that catches "GitHub login on
       `github-login.app`".
-- [ ] **Clipboard-read stays denied.** Theme B excludes it from the promptable set on every
+- [x] **Clipboard-read stays denied.** Theme B excludes it from the promptable set on every
       page; the test here proves that a password-field page calling `navigator.clipboard.readText()`
       is refused with no bar shown.
-- [ ] **No autofill, by design.** The Vault holds no browser passwords and this phase adds none —
+- [x] **No autofill, by design.** The Vault holds no browser passwords and this phase adds none —
       the right place for that is the Vault app with origin-bound entries
       ([Phase 118](phase-118-vault-security-hardening.md) Decisions), not the browser.
-- [ ] *Acceptance:* a local fixture page with a password form on `http://` raises `caution`; a
+- [x] *Acceptance:* a local fixture page with a password form on `http://` raises `caution`; a
       fixture whose host confuses with a known sign-in domain raises `danger`; `https://github.com`
       raises nothing.
 
@@ -483,7 +501,7 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 - [ ] **D:** `xattr -p com.apple.quarantine` is set on every quarantined file and the ledger's
       SHA-256 matches `shasum -a 256`.
 - [ ] **E:** the network trace in the e2e shows the tracker request never leaving.
-- [ ] **F:** the three fixtures produce caution / danger / nothing.
+- [x] **F:** the three fixtures produce caution / danger / nothing (PR #F_PR).
 - [ ] **G:** the injection fixture never produces a run; the allowlist test holds; the ClickFix
       fixture raises the bar within one poll interval.
 - [ ] **Open, for a human:** one packaged-app pass through the badssl.com matrix, one real
