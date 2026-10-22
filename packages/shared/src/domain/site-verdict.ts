@@ -58,8 +58,11 @@ export type VulnerableLibrary = z.infer<typeof VulnerableLibrarySchema>;
  * - `lookalike` — the host is a lookalike (Theme C's rule) of a site the user knows (danger).
  * - `first-seen` — the host was first seen today and has no history (caution).
  * - `cross-origin-action` — the field's form posts to another origin (caution).
- * - `sign-in-elsewhere` — the page claims a known sign-in site's name (in its host or title) on
- *   an origin that is not that site: "GitHub login on `github-login.app`" (danger).
+ * - `sign-in-elsewhere` — the page's own site name carries a known sign-in brand on a site that is
+ *   not that brand's: "GitHub login on `github-login.app`" (danger).
+ * - `brand-mention` — a known sign-in brand appears only in a subdomain (`gitlab.mycorp.com`) or in
+ *   a sign-in title ("Sign in to GitHub") on another site (caution — self-hosted forges and SSO
+ *   pages look exactly like this, so it never reaches danger alone).
  */
 export const CredentialRuleSchema = z.enum([
   'http-password',
@@ -67,6 +70,7 @@ export const CredentialRuleSchema = z.enum([
   'first-seen',
   'cross-origin-action',
   'sign-in-elsewhere',
+  'brand-mention',
 ]);
 export type CredentialRule = z.infer<typeof CredentialRuleSchema>;
 
@@ -206,6 +210,7 @@ export const CREDENTIAL_RULE_LEVEL: Readonly<Record<CredentialRule, 'caution' | 
   'first-seen': 'caution',
   'cross-origin-action': 'caution',
   'sign-in-elsewhere': 'danger',
+  'brand-mention': 'caution',
 };
 
 function credentialLine(rule: CredentialRule, detail: string | undefined): SiteVerdictLine {
@@ -221,6 +226,8 @@ function credentialLine(rule: CredentialRule, detail: string | undefined): SiteV
       return { level, text: `Sends the password to another site${detail ? ` (${detail})` : ''}` };
     case 'sign-in-elsewhere':
       return { level, text: `Looks like a ${detail ?? 'known'} sign-in page, but is not on ${detail ?? 'that site'}` };
+    case 'brand-mention':
+      return { level, text: `Mentions ${detail ?? 'a known site'} on a sign-in page that is not ${detail ?? 'that site'}` };
   }
 }
 

@@ -25,10 +25,11 @@ import type { LoginFormRead } from './login-form-read';
  *    (registrable domain). Judged per site rather than per origin on purpose: `www.example.com`
  *    posting to `login.example.com` is how every single-sign-on subdomain works, while a phishing
  *    kit posts to a host it controls.
- * 5. **`sign-in-elsewhere`** — the page claims a known sign-in site's brand, in its own host's
- *    labels (`github-login.app`, `secure.paypal-verify.net`) or in a sign-in-shaped title ("Sign
- *    in to GitHub"), on a host that is not that site. This is the one that catches "GitHub login
- *    on `github-login.app`", which no skeleton rule can — the host is not a confusable of anything.
+ * 5. **`sign-in-elsewhere`** / **`brand-mention`** — the page claims a known sign-in site's brand on
+ *    a host that is not that site: in its own site label (`github-login.app` — danger), or only in
+ *    a subdomain or a sign-in title (`gitlab.mycorp.com`, "Sign in to GitHub" — caution). This is
+ *    the one that catches "GitHub login on `github-login.app`", which no skeleton rule can — the
+ *    host is not a confusable of anything. See {@link brandClaim}.
  */
 
 export type CredentialRiskInput = {
@@ -50,7 +51,13 @@ const GENERIC_BRANDS = new Set(['live', 'office', 'outlook', 'slack', 'notion', 
 /** A brand needs this many letters before it counts as a claim — `x` (x.com) never does. */
 const MIN_BRAND_LENGTH = 4;
 
-const SIGN_IN_TITLE = /\b(sign[\s-]?in|log[\s-]?in|signin|login|log on|sign on|password|verify (your )?account)\b/i;
+const SIGN_IN_TITLE = /\b(sign[\s-]?in(?:to)?|log[\s-]?into|log[\s-]?in|signin|login|log on|sign on|password|verify (your )?account)\b/i;
+
+/** "Sign in to GitHub", "Log into PayPal" — the brand a sign-in title names as its destination. */
+const SIGN_IN_TO = /\b(?:(?:sign|log)[\s-]?(?:in|on)\s+to|(?:sign|log)\s+into)\s+(?:your\s+)?([a-z0-9]+)/i;
+
+/** "Log in · PayPal", "GitHub | Sign in" — a title segment that is the brand name alone. */
+const TITLE_SEPARATOR = /\s+[-–—:]\s+|\s*[|·•]\s*/;
 
 function stripWww(host: string): string {
   return host.startsWith('www.') ? host.slice(4) : host;
@@ -61,15 +68,35 @@ export function brandOf(host: string): string {
   return registrableDomain(stripWww(host.toLowerCase())).split('.')[0] ?? '';
 }
 
-/** The host's labels outside its public suffix, split on `.`, `-` and `_`. */
-function hostTokens(host: string): string[] {
+const splitLabel = (label: string): string[] => label.split(/[-_]/).filter(Boolean);
+
+/** The page's own site label's tokens (`github-login.app` → github, login) and its subdomains' tokens. */
+function hostTokens(host: string): { site: Set<string>; subdomain: Set<string> } {
   const registrable = registrableDomain(host);
-  const suffixParts = registrable.split('.').length - 1;
   const labels = host.split('.');
-  return labels
-    .slice(0, labels.length - suffixParts)
-    .flatMap((label) => label.split(/[-_]/))
-    .filter(Boolean);
+  const siteLabelIndex = labels.length - registrable.split('.').length;
+  return {
+    site: new Set(splitLabel(labels[siteLabelIndex] ?? '')),
+    subdomain: new Set(labels.slice(0, Math.max(0, siteLabelIndex)).flatMap(splitLabel)),
+  };
+}
+
+/**
+ * The brands a sign-in-shaped title claims as its destination: the word after "sign in to", or a
+ * separator-delimited segment that is a single word ("Log in · PayPal"). Never a brand that only
+ * appears in passing — "Sign in with Google" (an SSO button) and "Sign in | Apple Federal Credit
+ * Union" (another company that shares a word) claim nothing.
+ */
+function titleBrands(title: string | undefined): Set<string> {
+  const brands = new Set<string>();
+  if (!title || !SIGN_IN_TITLE.test(title)) return brands;
+  const to = SIGN_IN_TO.exec(title);
+  if (to?.[1]) brands.add(to[1].toLowerCase());
+  for (const segment of title.split(TITLE_SEPARATOR)) {
+    const word = segment.trim().toLowerCase();
+    if (/^[a-z0-9]+$/.test(word)) brands.add(word);
+  }
+  return brands;
 }
 
 /** Is `host` that sign-in host, or a subdomain or parent of it? (`accounts.google.com` ~ `google.com`.) */
@@ -77,29 +104,41 @@ function sameFamily(host: string, known: string): boolean {
   return host === known || host.endsWith(`.${known}`) || known.endsWith(`.${host}`) || registrableDomain(host) === registrableDomain(known);
 }
 
+export type BrandClaim = { rule: 'sign-in-elsewhere' | 'brand-mention'; detail: string };
+
 /**
- * The known sign-in host this page claims to be without being it, or `null`. Exported for tests.
- * A host on the brand's own name under another suffix (`google.de`, `paypal.co.uk`) is not a claim:
+ * Which known sign-in host this page claims to be without being it, and how strongly. Exported for tests.
+ *
+ * - **`sign-in-elsewhere` (danger)** — the brand is in the page's *own site label*
+ *   (`github-login.app`, `secure.paypal-verify.net`): someone registered a name to carry it.
+ * - **`brand-mention` (caution)** — the brand is only in a subdomain (`gitlab.mycorp.com`, a
+ *   self-hosted forge) or only in the title ("Sign in to GitHub" on `mycorp.ghe.com`). Real
+ *   deployments look exactly like this, so on its own it never refuses anything.
+ *
+ * A host on the brand's own name under another suffix (`google.de`, `paypal.co.uk`) claims nothing:
  * regional sites are real, and a squatter there is a lookalike/feed matter, not this rule's.
  */
-export function signInElsewhere(host: string, title: string | undefined, signInHosts: Iterable<string>): string | null {
+export function brandClaim(host: string, title: string | undefined, signInHosts: Iterable<string>): BrandClaim | null {
   const page = stripWww(host.toLowerCase().replace(/\.$/, ''));
   const known = [...new Set([...signInHosts].map((h) => stripWww(h.toLowerCase().replace(/^\./, ''))).filter(Boolean))];
   if (known.some((k) => sameFamily(page, k))) return null;
   const pageBrand = brandOf(page);
-  const tokens = new Set(hostTokens(page));
-  const titleWords = title && SIGN_IN_TITLE.test(title) ? new Set(title.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)) : null;
+  const tokens = hostTokens(page);
+  const claimedInTitle = titleBrands(title);
 
-  // A host claim beats a title claim; within each, the shortest host names the brand
-  // (`google.com` over `accounts.google.com`).
-  const claims = (has: (brand: string) => boolean) =>
+  // Within each strength, the shortest host names the brand (`google.com` over `accounts.google.com`).
+  const first = (has: (brand: string) => boolean): string | undefined =>
     known
       .filter((k) => {
         const brand = brandOf(k);
         return brand.length >= MIN_BRAND_LENGTH && !GENERIC_BRANDS.has(brand) && brand !== pageBrand && has(brand);
       })
-      .sort((a, b) => a.length - b.length || a.localeCompare(b));
-  return claims((brand) => tokens.has(brand))[0] ?? claims((brand) => titleWords?.has(brand) ?? false)[0] ?? null;
+      .sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
+
+  const onSite = first((brand) => tokens.site.has(brand));
+  if (onSite) return { rule: 'sign-in-elsewhere', detail: onSite };
+  const mentioned = first((brand) => tokens.subdomain.has(brand) || claimedInTitle.has(brand));
+  return mentioned ? { rule: 'brand-mention', detail: mentioned } : null;
 }
 
 function originOf(url: string): URL | null {
@@ -132,8 +171,8 @@ export function judgeCredentialRisk(input: CredentialRiskInput): CredentialJudge
     reasons.push({ rule: 'lookalike', ...(input.lookalike.against ? { detail: input.lookalike.against } : {}) });
   }
 
-  const claimed = signInElsewhere(host, input.title, input.signInHosts);
-  if (claimed) reasons.push({ rule: 'sign-in-elsewhere', detail: claimed });
+  const claim = brandClaim(host, input.title, input.signInHosts);
+  if (claim) reasons.push(claim);
 
   const known = [...input.signInHosts].map((h) => stripWww(h.toLowerCase()));
   if (input.firstSeenToday && !known.some((k) => sameFamily(stripWww(host), k))) reasons.push({ rule: 'first-seen' });

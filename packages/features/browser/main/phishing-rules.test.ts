@@ -9,7 +9,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { fixture, loadPage, resetPage, runSnippet } from './fixtures/phishing/fixture-page';
-import { brandOf, judgeCredentialRisk, signInElsewhere, type CredentialRiskInput } from './phishing-rules';
+import { brandClaim, brandOf, judgeCredentialRisk, type CredentialRiskInput } from './phishing-rules';
 
 const SIGN_IN = [...COMMONLY_IMPERSONATED_HOSTS, 'open.spotify.com', 'calendar.google.com', 'youtube.com'];
 
@@ -76,6 +76,14 @@ describe('judgeCredentialRisk — the five rules', () => {
     expect(r.risk).toBeNull();
   });
 
+  it('(5) a brand in a subdomain or a title alone is caution, not danger', () => {
+    expect(judge({ url: 'https://gitlab.mycorp.com/users/sign_in' }).risk).toEqual({
+      level: 'caution',
+      reasons: [{ rule: 'brand-mention', detail: 'gitlab.com' }],
+    });
+    expect(judge({ url: 'https://sso.mycorp.com/', title: 'Sign in with Google' }).risk).toBeNull();
+  });
+
   it('(5) "GitHub login on github-login.app": danger', () => {
     const r = judge({ url: 'https://github-login.app/', title: 'GitHub' });
     expect(r.risk).toEqual({ level: 'danger', reasons: [{ rule: 'sign-in-elsewhere', detail: 'github.com' }] });
@@ -100,15 +108,27 @@ describe('judgeCredentialRisk — the five rules', () => {
   });
 });
 
-describe('signInElsewhere', () => {
+describe('brandClaim', () => {
   it.each([
     ['github-login.app', undefined, 'github.com'],
     ['secure.paypal-verify.net', undefined, 'paypal.com'],
     ['accounts-google.support', undefined, 'google.com'],
+    ['spotify-account-verify.net', 'Spotify', 'open.spotify.com'],
+  ])('%s (title %s) is a sign-in page elsewhere: %s (danger)', (host, title, expected) => {
+    expect(brandClaim(host, title, SIGN_IN)).toEqual({ rule: 'sign-in-elsewhere', detail: expected });
+  });
+
+  it.each([
+    // Self-hosted forges and enterprise tenants: the brand is real, just not on its own site.
+    ['gitlab.mycorp.com', undefined, 'gitlab.com'],
+    ['github.mycorp.com', undefined, 'github.com'],
+    ['bitbucket.mycorp.com', undefined, 'bitbucket.org'],
+    ['mycorp.ghe.com', 'Sign in to GitHub · GitHub', 'github.com'],
     ['phish.example', 'Sign in to GitHub', 'github.com'],
     ['phish.example', 'Log in · PayPal', 'paypal.com'],
-  ])('%s (title %s) claims %s', (host, title, expected) => {
-    expect(signInElsewhere(host, title, SIGN_IN)).toBe(expected);
+    ['phish.example', 'Log into PayPal', 'paypal.com'],
+  ])('%s (title %s) only mentions %s (caution)', (host, title, expected) => {
+    expect(brandClaim(host, title, SIGN_IN)).toEqual({ rule: 'brand-mention', detail: expected });
   });
 
   it.each([
@@ -117,10 +137,12 @@ describe('signInElsewhere', () => {
     ['google.de', 'Sign in – Google Accounts'],
     ['githubusercontent.com', undefined],
     ['blog.example', 'What GitHub taught us'], // a brand in a title that is not a sign-in page
+    ['sso.mycorp.com', 'Sign in with Google'], // an SSO button names the provider, not the destination
+    ['applefcu.org', 'Sign in | Apple Federal Credit Union'], // another company sharing a word
     ['live-scores.example', undefined], // generic word brands never count
     ['x-files.example', undefined], // nor brands under four letters
   ])('%s (title %s) claims nothing', (host, title) => {
-    expect(signInElsewhere(host, title, SIGN_IN)).toBeNull();
+    expect(brandClaim(host, title, SIGN_IN)).toBeNull();
   });
 
   it('brandOf takes the label before the suffix', () => {

@@ -108,6 +108,12 @@ describe('credentialRisk (Phase 117 Theme F)', () => {
     expect(lines[0]).toEqual({ level: 'danger', text: 'Looks like a github.com sign-in page, but is not on github.com' });
     expect(lines).toContainEqual({ level: 'caution', text: 'Sends the password to another site (https://drop.example)' });
   });
+
+  it('a brand mention alone is caution, never danger', () => {
+    const v = https({ credentialRisk: { level: 'caution', reasons: [{ rule: 'brand-mention', detail: 'gitlab.com' }] } });
+    expect(siteVerdictLevel(v)).toBe('caution');
+    expect(siteVerdictLines(v)[0]).toEqual({ level: 'caution', text: 'Mentions gitlab.com on a sign-in page that is not gitlab.com' });
+  });
 });
 
 describe('credentialRisk lines do not repeat the insecure-form line', () => {
