@@ -4,6 +4,7 @@ import { BrandMark } from '../../components/brand';
 import { fabCompanionState } from '../companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from '../loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from '../loops/fab-morph';
+import { useActiveLoopSpectrum } from '../loops/use-all-loops';
 import { useCompanionStore } from '../../store/companion-store';
 import { isCompanionPanelDocked, isFabPanelDocked, useUiStore } from '../../store/ui-store';
 
@@ -44,6 +45,7 @@ export function AssistantMenu() {
   const setCompanionPanelOpen = useUiStore((s) => s.setCompanionPanelOpen);
   const lastOpenedPanel = useUiStore((s) => s.lastOpenedPanel);
   const activeFabTab = useUiStore((s) => s.activeFabTab);
+  const activeSpectrum = useActiveLoopSpectrum();
   const loopsRunning = useAnyLoopRunning();
   const companionState = useCompanionStore((s) => s.state);
   const miniFabRef = useRef<HTMLButtonElement | null>(null);
@@ -94,6 +96,7 @@ export function AssistantMenu() {
           data-testid="assistant-menu"
           data-loops-running={loopsRunning.running ? 'true' : undefined}
           data-fab-tab={activeFabTab}
+          {...activeSpectrum}
           /* Phase 79 Theme H — the mini FAB wears the same four looks as the
              large one, from the one table (`companion-look.ts`). The two swap
              places with a FLIP transform, so a state visible on one and absent

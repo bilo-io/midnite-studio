@@ -89,6 +89,7 @@ import { fabCompanionState } from './features/companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from './features/loops/fab-morph';
 import { useLoopAttention } from './features/loops/use-loop-attention';
+import { useActiveLoopSpectrum } from './features/loops/use-all-loops';
 import { PaletteHost } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
@@ -616,6 +617,7 @@ function Shell() {
   // Phase 37 Theme D: the collapsed FAB wears the same tab arc as the open
   // panel, so toggling the panel never changes the button's colour.
   const activeFabTab = useUiStore((s) => s.activeFabTab);
+  const activeSpectrum = useActiveLoopSpectrum();
   // Loop mission control (Phase 35): the notice fires whether or not the FAB
   // panel is open — a loop that goes quiet unattended is the case it exists
   // for — so both live here rather than inside <FabPanel>.
@@ -1488,6 +1490,7 @@ function Shell() {
         data-testid="fab-button"
         data-loops-running={loopsRunning.running ? 'true' : undefined}
         data-fab-tab={activeFabTab}
+        {...activeSpectrum}
         /*
           Theme H. A sibling attribute to `data-loop-state`, not a
           second animation system — the rules live beside that block in

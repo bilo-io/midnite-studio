@@ -50,6 +50,7 @@ no PR, or a **Next** line that has not moved in two ticks, is stalled — mark i
 | [PR-3 · #1261](https://github.com/org/repo/pull/1261) | @kurtwarwick-ekko | `███████░░░` 70% | ~15m | 🟩 +0 🟥 -4 📄 4 | 🟡 CI 3/5 · ⛓ #1259 | — |
 | [PR-6 · #1282](https://github.com/org/repo/pull/1282) | @bilo-ekko | `██████░░░░` 60% | ? | 🟩 +325 🟥 -6002 📄 31 | 🚧 Draft · CI 6/6 · ⛓ #1262 · ⏸ held | — |
 | [TASK-B · #1252](https://github.com/org/repo/issues/1252) | @bilo-ekko | `████░░░░░░` 40% | ~45m | 🟩 +48 🟥 -12 📄 3 | 🚧 building | — |
+| [PR-2 · #1260](https://github.com/org/repo/pull/1260) | @bilo-ekko | ✅ 100% | done | 🟩 +84 🟥 -66 📄 8 | 🟣 Merged · ✅ tested · 🚀 deployed | — |
 | [TASK-A · #1251](https://github.com/org/repo/issues/1251) | — | `░░░░░░░░░░` 0% | ? | — | ⏳ Waiting on PR-1 deploy | — |
 
 - **Task** — the row's name, **always a clickable link**: to its PR once one exists, else to its
@@ -91,8 +92,10 @@ no PR, or a **Next** line that has not moved in two ticks, is stalled — mark i
   | 💬 | changes requested, or unresolved threads |
   | ⏳ | blocked on another row or on a human step |
   | ⚠️ | stalled subagent |
-  | 🟣 | merged |
-  | ✅ | done — deployed, verified, or merged as the last stage |
+  | 🟣 | Merged — a merged PR keeps this emoji for good; testing and deploys after it are tags |
+  | ✅ | done — a row with no PR that finished (a verified task, a manual step) |
+
+  Write the merged status with a capital M: `🟣 Merged`.
 
   Add the CI count as `CI <passed>/<total>` whenever checks exist. Then any **state tags** that
   apply, joined with ` · `. A state is never a note:
@@ -102,6 +105,7 @@ no PR, or a **Next** line that has not moved in two ticks, is stalled — mark i
   | `⛓ #n` | stacked on #n (its base is that PR's branch) |
   | `⏸ held` | built on purpose and parked, e.g. a draft waiting on a deploy |
   | `🔵 audited` | `/midnite-pr-audit` or `/ekko-pr-audit` ran on it this session |
+  | `✅ tested` | an acceptance test (`/ekko-test`) passed on it, before or after the merge |
   | `🚀 deployed` | the merge is live where it needed to be |
 
 - **Notes** — **six words at most**: only what Status cannot carry, meaning news since the last

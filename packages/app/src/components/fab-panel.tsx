@@ -1,13 +1,14 @@
-import { DEFAULT_LOOPS } from '@midnite/studio-shared';
-import { useEffect } from 'react';
-import type { CSSProperties } from 'react';
-import { LuSquareArrowOutUpRight, LuX } from 'react-icons/lu';
+import { useEffect, useRef } from 'react';
+import type { CSSProperties, RefObject } from 'react';
+import { LuPlus, LuSquareArrowOutUpRight, LuX } from 'react-icons/lu';
 
 import { BrandMark } from './brand';
 import { SwitchRow } from './form/toggle-rows';
 import { IconButton } from './icon-button';
-import { loopGlowColor } from '../features/loops/loop-glow';
+import { loopAccentColor } from '../features/loops/loop-glow';
 import { loopIcon } from '../features/loops/loop-icons';
+import { loopSpectrumProps } from '../features/loops/loop-spectrum';
+import { loopLabel, useAllLoops } from '../features/loops/use-all-loops';
 import { LoopTab } from '../features/loops/loop-tab';
 import { useAllLoopStatuses, type LoopStatus } from '../features/loops/loop-status';
 import { useLoopRuns } from '../features/loops/use-loop-runs';
@@ -33,8 +34,6 @@ interface FabPanelProps {
    */
   fitSignal: number;
 }
-
-const LOOP_IDS = DEFAULT_LOOPS.map((loop) => loop.id);
 
 /** The four states `styles.css`'s `[data-loop-state]` rules key their pulse cadence off. */
 type LoopGlowState = 'idle' | 'running' | 'thinking' | 'waiting';
@@ -65,7 +64,12 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
   const setFabPanelOpen = useUiStore((s) => s.setFabPanelOpen);
   const loopEnabled = useUiStore((s) => s.loopEnabled);
   const setLoopEnabled = useUiStore((s) => s.setLoopEnabled);
-  const statuses = useAllLoopStatuses(LOOP_IDS);
+  const loops = useAllLoops();
+  const loopIds = loops.map((loop) => loop.id);
+  const statuses = useAllLoopStatuses(loopIds);
+  const createCustomLoop = useUiStore((s) => s.createCustomLoop);
+  const stripRef = useRef<HTMLDivElement>(null);
+  useActiveTabInView(stripRef, activeFabTab, isOpen);
   const companionState = useCompanionStore((s) => s.state);
   const runs = useLoopRuns();
 
@@ -84,7 +88,9 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
 
   if (!isOpen) return null;
 
-  const activeIndex = LOOP_IDS.indexOf(activeFabTab);
+  const activeIndex = loopIds.indexOf(activeFabTab);
+  const activeLoop = loops[activeIndex];
+  const activeSpectrum = loopSpectrumProps(activeLoop);
   const loopState = loopGlowState(statuses[activeIndex]);
   const anyRunning = statuses.some((s) => s.running);
 
@@ -102,6 +108,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
           one set of rules in `styles.css`, whichever host sets it.
         */
         data-companion-state={fabCompanionState(companionState)}
+        {...activeSpectrum}
       >
         {/*
           Tab Bar — the detach control rides in the SAME row as the loop tabs
@@ -139,9 +146,44 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
               />
             )}
           </div>
-          {DEFAULT_LOOPS.map((loop, index) => {
+          {/*
+            "+" — a new custom loop, left of Guard so it sits at the start of
+            the focus order and never scrolls away with the tabs. It opens the
+            new loop straight into Edit mode with its "Start from" picker.
+          */}
+          <div className="flex shrink-0 items-center px-0.5">
+            <IconButton
+              icon={LuPlus}
+              label="New loop"
+              size="sm"
+              data-testid="fab-new-loop"
+              onClick={() => createCustomLoop()}
+            />
+          </div>
+          {/*
+            The tabs share whatever the row leaves, shrinking to an icon's
+            width (`min-w-9`) before the strip scrolls sideways. Built-ins
+            alone still fit the default 320px panel without scrolling; custom
+            loops past that scroll rather than wrap (a second row would cost
+            the terminal height this panel does not have) or vanish into a
+            menu (a tab you cannot see the status dot of is the one loop you
+            stop watching). The scrollbar is hidden — the active tab is kept
+            in view (`useActiveTabInView`), and a vertical wheel scrolls it.
+          */}
+          <div
+            ref={stripRef}
+            data-testid="fab-panel-tabstrip"
+            className="flex min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            onWheel={(event) => {
+              const strip = event.currentTarget;
+              if (event.deltaX === 0 && event.deltaY !== 0) strip.scrollLeft += event.deltaY;
+            }}
+          >
+          {loops.map((loop, index) => {
             const Icon = loopIcon(loop.icon);
             const status = statuses[index];
+            const spectrum = loopSpectrumProps(loop);
+            const label = loopLabel(loop);
             const isSelected = activeFabTab === loop.id;
             /*
               The "Loop" switch (directly under the tab bar) is per-loop and
@@ -154,15 +196,17 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                 key={loop.id}
                 data-fab-tab={loop.id}
                 data-selected={isSelected ? 'true' : 'false'}
+                {...(spectrum['data-fab-custom'] ? { 'data-fab-custom': 'true' } : {})}
                 onClick={() => onTabClick(loop.id as FabTab)}
-                className={`tab-loop-button relative flex-1 flex min-w-0 flex-row items-center justify-start gap-1 overflow-hidden px-1.5 py-1.5 ${
+                className={`tab-loop-button relative flex-1 basis-0 flex min-w-9 shrink-0 flex-row items-center justify-start gap-1 overflow-hidden px-1.5 py-1.5 ${
                   isSelected ? 'is-selected' : ''
                 } ${cascade.active ? 'animate-fade-in-up cascade-delay' : ''}`}
                 style={{
+                  ...spectrum.style,
                   ...(isLoopOn ? { backgroundColor: 'rgb(var(--fab-spec-3))' } : undefined),
                   ...cascade.styleFor(index),
                 }}
-                title={loop.label}
+                title={label}
               >
                 {/*
                   When a loop is running on this tab: rotating inner gradient arc
@@ -175,6 +219,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                     aria-hidden
                     data-testid={`loop-active-arc-${loop.id}`}
                     data-fab-tab={loop.id}
+                    {...(spectrum['data-fab-custom'] ? { 'data-fab-custom': 'true' } : {})}
                     className="tab-loop-active-arc pointer-events-none absolute inset-0"
                   />
                 ) : null}
@@ -191,7 +236,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                     className="tab-loop-shimmer pointer-events-none absolute inset-0"
                     style={
                       {
-                        background: `linear-gradient(100deg, transparent 43%, ${isLoopOn ? '#ffffff' : loopGlowColor(loop.id)} 50%, transparent 57%)`,
+                        background: `linear-gradient(100deg, transparent 43%, ${isLoopOn ? '#ffffff' : loopAccentColor(loop)} 50%, transparent 57%)`,
                         '--tab-i': index,
                       } as CSSProperties
                     }
@@ -201,7 +246,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
                 <span
                   className={`relative min-w-0 truncate text-xs ${isSelected ? 'font-semibold' : 'font-medium'} ${isLoopOn ? 'text-white' : loop.color}`}
                 >
-                  {loop.label}
+                  {label}
                 </span>
                 {/* The active tab's title carries its own underline sliver, in the loop's colour — white on top of the same solid colour once "Loop" is on. */}
                 {isSelected ? (
@@ -227,6 +272,7 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
               </button>
             );
           })}
+          </div>
           {/*
             Close, at the far end of the row rather than beside the detach
             slot — `companion-header.tsx`'s own close button is the last
@@ -301,10 +347,11 @@ export function FabPanel({ isOpen, width, fitSignal }: FabPanelProps) {
           whatever any descendant says about its own visibility.
         */}
         <div className="flex-1 min-h-0 relative">
-          {DEFAULT_LOOPS.map((loop) => (
+          {loops.map((loop) => (
             <div
               key={loop.id}
               data-fab-tab={loop.id}
+              {...loopSpectrumProps(loop)}
               inert={activeFabTab !== loop.id}
               className={`absolute inset-0 ${activeFabTab === loop.id ? 'visible' : 'invisible'}`}
             >
@@ -353,6 +400,24 @@ function useHydrateOnOpen(isOpen: boolean): void {
  * any longer would leave dead sessions in `terminals.json` for a relaunch to
  * rehydrate.
  */
+/**
+ * Keep the active tab inside the scrolling strip — on open, and whenever the
+ * active tab changes (a click, "+", a toast's "Open …", a deleted neighbour).
+ * `nearest` on both axes, so a tab already in view never moves the strip.
+ */
+function useActiveTabInView(
+  stripRef: RefObject<HTMLDivElement | null>,
+  activeFabTab: FabTab,
+  isOpen: boolean,
+): void {
+  useEffect(() => {
+    if (!isOpen) return;
+    const tabs = stripRef.current?.querySelectorAll<HTMLElement>('button[data-fab-tab]') ?? [];
+    const tab = Array.from(tabs).find((el) => el.dataset.fabTab === activeFabTab);
+    tab?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [stripRef, activeFabTab, isOpen]);
+}
+
 function usePruneSupersededSessions(activeFabTab: FabTab): void {
   useEffect(() => {
     const ui = useUiStore.getState();
