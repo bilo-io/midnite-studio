@@ -34,6 +34,7 @@ const LEGACY_VIEW_IDS = [
   'vault',
   // Phase 113 Theme K: Capture — screenshots, recordings and the opt-in clipboard history.
   'capture',
+  'vanguard',
   'tests',
   'database',
   'tasks',
@@ -78,6 +79,7 @@ const LEGACY_SETTINGS_PAGE_IDS = [
   'companion',
   'web-apps',
   'accounts',
+  'vanguard',
 ];
 
 describe('Studio composition', () => {

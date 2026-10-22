@@ -1,4 +1,9 @@
-import { vanguardMain } from '@midnite/studio-feature-vanguard/main';
+import {
+  createSensorRunProcess,
+  createVanguardService,
+  vanguardMain,
+  type VanguardService,
+} from '@midnite/studio-feature-vanguard/main';
 import {
   createFindingsLedger,
   sendToLiveWindow,
@@ -6,7 +11,7 @@ import {
   type FindingsLedger,
 } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
-import type { BrowserWindow } from 'electron';
+import { app, shell, type BrowserWindow } from 'electron';
 
 import { defaultLogger } from '../log';
 import { handle, handleBare, handleSend } from './handle';
@@ -38,6 +43,33 @@ export function getFindingsLedger(): FindingsLedger {
   return ledgerInstance;
 }
 
+let serviceInstance: VanguardService | null = null;
+
+/**
+ * Studio's sensor host (Phase 120 Theme B). `'after-view-opened'`: a sensor Studio's user never asked for
+ * must not start polling, so nothing runs until the Vanguard view has been opened once (persisted).
+ */
+export async function startVanguardSensors(userData: string): Promise<void> {
+  const ledger = getFindingsLedger();
+  serviceInstance = await createVanguardService({
+    userData,
+    homeDir: app.getPath('home'),
+    runProcess: createSensorRunProcess({ defaultCwd: userData }),
+    record: (finding) => ledger.record(finding),
+    autostart: 'after-view-opened',
+    onChanged: () => {
+      const win = getWindowThunk();
+      if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.vanguardChanged);
+    },
+    log: (level, message) => defaultLogger[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info'](message),
+  });
+  await serviceInstance.host.start();
+}
+
+export async function stopVanguardSensors(): Promise<void> {
+  await serviceInstance?.host.stop();
+}
+
 export function registerVanguardHandlers(getWindow: () => BrowserWindow | null): void {
   getWindowThunk = getWindow;
   const ctx: FeatureMainContext = {
@@ -48,6 +80,14 @@ export function registerVanguardHandlers(getWindow: () => BrowserWindow | null):
 
   vanguardMain.register(ctx, {
     ledger: () => getFindingsLedger(),
+    service: () => {
+      if (!serviceInstance) throw new Error('Vanguard sensors have not been started yet');
+      return serviceInstance;
+    },
+    openPath: async (path) => {
+      const failure = await shell.openPath(path);
+      if (failure) throw new Error(failure);
+    },
     warn: (issue) => defaultLogger.warn(issue),
   });
 }
