@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-22 — Phase 118 Themes A, B, D, E — Vault security hardening: lock, audit log, breach check
+
+[PR #968](https://github.com/bilo-io/midnite-studio/pull/968). Threat model documented (`docs/VAULT_SECURITY.md`); vault lock state, `VaultRead` envelope, runtime passcode service, auto-lock triggers and 60s re-auth for sensitive ops; tamper-evident SHA-256 hash-chained audit log with viewer; on-demand breach check via HIBP range API with k-anonymity. Themes A, B, D, E done.
+
 ## 2026-10-18 — Phase 113 Theme R (slice 2) — LAN streaming, system-ffmpeg transcoding and playlists in the Library
 
 [PR #909](https://github.com/bilo-io/midnite-studio/pull/909). Playlists played in sequence; an opt-in LAN server bound only to a private address the user picks, behind a 256-bit token, serving only `resolveFile`'s jailed bytes; transcoding through the system ffmpeg with a file-only protocol and container whitelist, and a binary main chooses through its own dialog. Theme R done.
