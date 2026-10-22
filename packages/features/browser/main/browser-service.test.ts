@@ -467,6 +467,20 @@ describe('navigation policy (Theme B)', () => {
     expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), { kind: 'devtools-blocked', tabId: 'tab-1' });
   });
 
+  it('decides DevTools from what the view was created with, not the deps at toggle time (Phase 117 Theme A)', () => {
+    const base = { electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}) };
+    installBrowserMain({ ...base, devToolsAllowed: true });
+    try {
+      const { win, view } = createAndGetView();
+      installBrowserMain(base);
+      toggleBrowserDevTools('tab-1');
+      expect(view.webContents.openDevTools).toHaveBeenCalled();
+      expect(win.webContents.send).not.toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ kind: 'devtools-blocked' }));
+    } finally {
+      installBrowserMain(base);
+    }
+  });
+
   it('cancels a download and names the file back to the tab that asked for it', () => {
     const { win, view } = createAndGetView();
     const browserSession = fakeSessions.get('persist:browser');

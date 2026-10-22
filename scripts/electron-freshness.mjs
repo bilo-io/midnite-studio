@@ -10,9 +10,10 @@
 // runs on — the launcher's (`gate: true` below): an out-of-window major there exits 1. `app-browser:dist`
 // and the release's Browser bundle job run it strict — a browser app cannot ship on a Chromium with no
 // security backports. Studio's pin stays a warning even under `--strict` until Phase 76 Theme A's bump
-// lands, so Studio's lag can never block a Browser release on its own. A network failure still never
-// reddens anything, strict or not: with no release index there is no verdict, so every such path
-// exits 0 with a notice.
+// lands, so Studio's lag can never block a Browser release on its own. Strict needs a verdict: with
+// no release index (offline, a 429, the 15 s timeout) it exits 1 and says so, because a gate that
+// ships the bundle whenever the network is down is not one. The warn-only default still skips with
+// a notice and exits 0.
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -77,7 +78,12 @@ async function main() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     supported = supportedMajors(await res.json());
   } catch (err) {
-    console.log(`electron-freshness: skipped (${err.message})`);
+    if (strict) {
+      console.log(`::error title=Electron floor unverified::electron-freshness: ${err.message} — --strict needs a verdict; rerun with the network up`);
+      process.exitCode = 1;
+    } else {
+      console.log(`electron-freshness: skipped (${err.message})`);
+    }
     return;
   }
   const verdicts = PINNED_PACKAGES.map(({ path: relative, gate }) => ({ relative, gate, ...judge(readPin(relative), supported) }));

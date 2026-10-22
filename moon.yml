@@ -72,7 +72,8 @@ tasks:
   # electron-freshness-strict (Phase 117 Theme A): the same check as a gate — exits 1 when the
   # launcher's pin (the runtime every app bundle runs on) is outside the window; Studio's stays a
   # warning. `app-browser:dist` and release.yml's Browser bundle job run it: a browser cannot ship on
-  # a Chromium with no security backports. A network failure still skips with a notice, never a failure.
+  # a Chromium with no security backports. With no release index (offline, 429) strict exits 1 — it
+  # needs a verdict; the warn-only `electron-freshness` still skips with a notice.
   electron-freshness-strict:
     command: 'node scripts/electron-freshness.mjs --strict'
     options:

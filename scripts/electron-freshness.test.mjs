@@ -32,7 +32,7 @@ describe('electron-freshness', () => {
     // Studio's pin out of the window never blocks a Browser release on its own.
     expect(exitCodeFor([studioLagging, inside], true)).toBe(0);
   });
-  it('--strict never fails on missing data', () => expect(exitCodeFor([{ gate: true, ...judge(null, []) }], true)).toBe(0));
+  it('--strict never fails on a pin it cannot read (no verdict on the pin is not a verdict against it)', () => expect(exitCodeFor([{ gate: true, ...judge(null, []) }], true)).toBe(0));
   it('parses --strict and nothing else', () => {
     expect(parseArgs(['--strict'])).toEqual({ strict: true });
     expect(parseArgs([])).toEqual({ strict: false });

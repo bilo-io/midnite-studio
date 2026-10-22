@@ -399,13 +399,24 @@ export const startStudioMain: StartStudioMain = () => {
 
     // Phase 117 Theme A: site isolation, the sandbox and web security stay on — a boot that finds
     // `--no-sandbox` or its kin throws in dev and logs when packaged (`chromium-switches.ts`).
-    assertSiteIsolation({
-      argv: process.argv,
-      hasSwitch: (name) => app.commandLine.hasSwitch(name),
-      getSwitchValue: (name) => app.commandLine.getSwitchValue(name),
-      isPackaged: app.isPackaged,
-      log: defaultLogger,
-    });
+    // Defined here, run at ready once the log sink is installed (below): `app.commandLine` is final
+    // when ready fires, so nothing can slip in behind the check, and a packaged boot that fails it
+    // lands in main.log rather than on a stderr no Finder launch has. A dev throw exits the process
+    // — Electron's default handler would show a dialog and keep it alive.
+    const checkSiteIsolation = (): void => {
+      try {
+        assertSiteIsolation({
+          argv: process.argv,
+          hasSwitch: (name) => app.commandLine.hasSwitch(name),
+          getSwitchValue: (name) => app.commandLine.getSwitchValue(name),
+          isPackaged: app.isPackaged,
+          log: defaultLogger,
+        });
+      } catch (err) {
+        defaultLogger.error(err instanceof Error ? err.message : String(err));
+        app.exit(1);
+      }
+    };
 
     // Chromium fixes the privileged-scheme list at startup — must precede ready.
     registerPrivilegedSchemes();
@@ -650,6 +661,7 @@ export const startStudioMain: StartStudioMain = () => {
       ].join(' ');
       setBootLine(bootLine);
       defaultLogger.info(`[boot] ${bootLine}`);
+      checkSiteIsolation();
       // Must run before the store is read: each rename ("Midnite Studio", then
       // "Midnite Studio") moved userData, and the user's repository list is
       // still under whichever name they last launched.
