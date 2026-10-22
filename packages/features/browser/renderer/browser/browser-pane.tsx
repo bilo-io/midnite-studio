@@ -15,7 +15,9 @@ import { useBrowserBounds } from './use-browser-bounds';
 import { useBrowserTabsEffects } from './use-browser-tabs';
 import { resolveInput, trimUrlForDisplay } from './resolve-input';
 import { FindBar } from './find-bar';
+import { DownloadPromptBar } from './download-prompt-bar';
 import { PermissionPromptBar } from './permission-prompt-bar';
+import { TrackerBadge } from './tracker-badge';
 
 /**
  * The browser pane: real tabs and groups over a `WebContentsView` engine
@@ -324,6 +326,7 @@ export function BrowserPane({
             ) : null}
           </div>
         </form>
+        <TrackerBadge />
         {zoomFactor !== 1 ? (
           <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground" title="Browser zoom">
             {Math.round(zoomFactor * 100)}%
@@ -445,6 +448,7 @@ export function BrowserPane({
         }}
       >
         <PermissionPromptBar />
+        <DownloadPromptBar />
         {activeTab?.kind !== 'page' ? <NewTabPage /> : null}
         {activeTab?.kind === 'page' && activeTab.crashed ? (
           <div

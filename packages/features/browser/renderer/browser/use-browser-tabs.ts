@@ -136,8 +136,31 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
         case 'download-blocked':
           useToastStore.getState().addToast({
             status: 'warning',
-            message: `Download blocked: ${event.filename} — the embedded browser cannot save files.`,
+            message: event.reason
+              ? `Download blocked: ${event.filename} — ${event.reason}`
+              : `Download blocked: ${event.filename} — downloads are off. Turn them on in Settings ▸ Browser ▸ Downloads.`,
           });
+          break;
+        case 'download-request':
+          useBrowserStore.getState().setPendingDownloadRequest(event.tabId, {
+            tabId: event.tabId,
+            requestId: event.requestId,
+            filename: event.filename,
+            size: event.size,
+            origin: event.origin,
+            fileClass: event.fileClass,
+          });
+          break;
+        case 'download-done':
+          useToastStore.getState().addToast({
+            status: 'success',
+            message: `Saved to quarantine: ${event.filename}${event.gatekeeper ? ` (Gatekeeper: ${event.gatekeeper.split(' ')[0]})` : ''}${
+              event.scan ? ` · scan: ${event.scan.split(' ')[0]}` : ''
+            } · SHA-256 ${event.sha256.slice(0, 12)}…`,
+          });
+          break;
+        case 'trackers-blocked':
+          useBrowserStore.getState().setTrackerBlocks(event.tabId, { count: event.count, hosts: event.hosts });
           break;
         case 'devtools-blocked':
           useToastStore.getState().addToast({

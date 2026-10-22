@@ -48,6 +48,8 @@ export const PREFERENCE_KEYS = [
   'automateEnabledByProject', // projects-page.tsx — Auto-mate's on/off switch, read there and set from the board toggle (Phase 95 Theme H)
   'blockedByFieldName', // projects-page.tsx
   'browserDiscardMs', // browser-page.tsx
+  'browserDownloads', // browser-page.tsx — opt-in downloads + quarantine folder (Phase 117 Theme D)
+  'browserPrivacy', // browser-page.tsx — tracker/cookie/referrer/UA switches (Phase 117 Theme E)
   'browserSpellcheck', // browser-page.tsx — Chromium spellcheck toggle (Phase 117 Theme B)
   'columnSkillByProject', // projects-page.tsx — drag-to-skill's column → skill map (Phase 95 Theme G)
   'cycleDurationS', // screen-lock-page.tsx

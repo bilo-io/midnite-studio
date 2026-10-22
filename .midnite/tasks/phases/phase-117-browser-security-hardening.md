@@ -118,7 +118,7 @@ Scope guardrails:
 *A page in the Browser app can neither hurt the user, nor the Mac, nor the agent that is reading it —
 and the app says what it knows about every site before the user trusts it.* Born from a browser that
 denies everything but cannot yet warn, grant, download or tell a page apart from the person.
-(23% · 14/60) — **Planned 2026-10-22.** Themes A and B landed 2026-10-22.
+(40% · 24/60) — **Planned 2026-10-22.** Themes A, B, D and E landed 2026-10-22.
 
 **Theme A — Isolation and the Chromium floor.** ✅ [PR #964](https://github.com/bilo-io/midnite-studio/pull/964).
 `browser-session-policy.ts` is the one place a session rule lives: `applyBrowserSessionPolicy` installs
@@ -164,13 +164,32 @@ page to revoke individual permissions or reset all with a confirmation dialog, a
 insecure forms) and from switchable feeds second (URLhaus/OpenPhish, retire.js-style library
 signatures against an offline OSV snapshot), rendered as an interstitial or an address-bar badge.
 
-**Theme D — Downloads with a quarantine.** ◻ Opt-in downloads into a dedicated quarantine folder
-with `com.apple.quarantine` set, a type/size policy, SHA-256 recorded, a Gatekeeper assessment and an
-optional local scanner, and never auto-open.
+**Theme D — Downloads with a quarantine.** ✅ [PR #974](https://github.com/bilo-io/midnite-studio/pull/974).
+Off by default (every download still cancelled); Settings ▸ Browser ▸ Downloads turns on a quarantine
+folder (`~/Downloads/Midnite Quarantine`, 0700). A pure `download-policy.ts` classifies by last extension
+(documents/media/images allowed; archives, disk images, installers, scripts, executables and unknown
+types confirm; over 1 GB or a `danger` origin refuse), and a `confirm` pauses the item the instant it
+starts, behind the same in-tab bar as Theme B, so no meaningful bytes land before the answer. On completion
+`download-quarantine.ts` sets `com.apple.quarantine` via `/usr/bin/xattr`, records SHA-256, runs `spctl
+--assess` on executables, disk images and installers, runs `clamscan` only if it is installed, and appends
+one line to `<userData>/downloads.ndjson` (0600). Nothing is ever opened. Not done: the origin-verdict
+refusal is a seam (`originVerdict`), wired when Theme C lands; there is no downloads list UI, so the
+"open from the list" confirm has nothing to guard yet; the packaged-app `xattr -p` check stays in the
+manual pass.
 
-**Theme E — Tracker and fingerprinting protection.** ◻ A `webRequest`-level blocklist, third-party
-cookie and referrer policy, UA reduction, and a per-site counter in the badge; the list and its
-licence are recorded.
+**Theme E — Tracker and fingerprinting protection.** ✅ [PR #974](https://github.com/bilo-io/midnite-studio/pull/974).
+`browser-request-filter.ts` owns the three `webRequest` listeners on `persist:browser` only (web-app
+partitions are exempt): `onBeforeRequest` cancels third-party requests matching the bundled **EasyPrivacy**
+list, `onBeforeSendHeaders` strips third-party `Cookie` and applies `strict-origin-when-cross-origin` to
+`Referer`, `onHeadersReceived` strips third-party `Set-Cookie`. EasyPrivacy ships as a generated data module
+(host-anchored rules only, ~53k of ~57k lines; cosmetic, unanchored and unmodelled-option rules are counted
+and dropped, never guessed) with its dual GPL-3 / CC BY-SA 3.0 licence and source SHA-256 beside it
+(`main/data/`). The User-Agent is reduced to the Chromium major. All four switches are on by default
+(Settings ▸ Browser ▸ Privacy); per-site exceptions persist to `browser-tracker-exceptions.json`. Canvas, audio
+and font fingerprinting are *not* defended (needs a preload; guardrail 1). The per-tab counter ships as a
+minimal `TrackerBadge` + popover; the end state is one badge (Theme C's `site-badge.tsx`), whichever of the two
+PRs merges second does the fold. Third-party detection uses a small multi-part-suffix heuristic, not the full
+Public Suffix List.
 
 **Theme F — Credential-phishing detection.** ◻ A login form on a lookalike or newly-seen domain,
 a password field on an `http:` page, and a sign-in page whose origin differs from the one the Vault
@@ -287,24 +306,24 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 
 ### D — Downloads with a quarantine [M · ~1d]
 
-- [ ] **Opt-in.** Settings ▸ Browser ▸ Downloads: off (today's cancel-everything, the default),
+- [x] **Opt-in.** Settings ▸ Browser ▸ Downloads: off (today's cancel-everything, the default),
       or on with a quarantine folder (default `~/Downloads/Midnite Quarantine`, created 0700). The
       `will-download` handler keeps calling `cancelDownload` while off.
-- [ ] **Policy before bytes.** A pure `download-policy.ts`: refuse by extension class (disk
+- [x] **Policy before bytes.** A pure `download-policy.ts`: refuse by extension class (disk
       images, installers, scripts, archives-of-executables are `confirm`; documents and media are
       `allow`; everything else `confirm`), by size cap, and by origin verdict (Theme C `danger`
       refuses outright). `confirm` shows the same bar as Theme B with the filename, size, origin
       and class.
-- [ ] **Quarantine on write.** After `item.on('done')`, main sets `com.apple.quarantine` via
+- [x] **Quarantine on write.** After `item.on('done')`, main sets `com.apple.quarantine` via
       `xattr` (the attribute Gatekeeper reads; Electron does not set it for a `DownloadItem` saved
       to a custom path), records SHA-256, size, origin URL, referrer and time in
       `<userData>/downloads.ndjson` (0600, Phase 115 B helpers), and runs `spctl --assess` on
       executables and disk images, recording the verdict.
-- [ ] **Optional local scan.** If `clamscan` is on `PATH` (user-installed), scan on completion
+- [x] **Optional local scan.** If `clamscan` is on `PATH` (user-installed), scan on completion
       and record the result; never a bundled engine (size, licence) and never an upload (Phase 115
       A would refuse it anyway). Vanguard ([Phase 120](phase-120-vanguard.md)) may later own the
       engine; this phase only leaves the seam.
-- [ ] **Never auto-open.** No `shell.openPath` on completion; "Show in Finder" only. Opening from
+- [x] **Never auto-open.** No `shell.openPath` on completion; "Show in Finder" only. Opening from
       the downloads list goes through the same confirm as Theme G's deep links.
 - [ ] *Acceptance:* a `.dmg` from a `caution` site prompts, lands in the quarantine folder with
       the attribute set (`xattr -p com.apple.quarantine`), and the ledger line matches its SHA-256;
@@ -312,26 +331,26 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 
 ### E — Tracker and fingerprinting protection [M · ~1d]
 
-- [ ] **A `webRequest` blocklist.** `onBeforeRequest` on `persist:browser` matches third-party
+- [x] **A `webRequest` blocklist.** `onBeforeRequest` on `persist:browser` matches third-party
       requests against a bundled list in ABP filter syntax, parsed once into a trie. Ship
       **EasyPrivacy** (GPLv3 / CC BY-SA 3.0 — a data file, not linked code; the licence text ships
       beside it) and record the choice; DuckDuckGo Tracker Radar's CC BY-NC-SA is the reason it is
       not shipped. Refreshing the list is a Phase 115 registry entry, default off (the bundled copy
       refreshes with the app).
-- [ ] **Cookie policy.** Third-party cookies blocked by default on `persist:browser`, in both
+- [x] **Cookie policy.** Third-party cookies blocked by default on `persist:browser`, in both
       directions: `webRequest.onHeadersReceived` strips `Set-Cookie` on third-party responses, and
       `webRequest.onBeforeSendHeaders` strips the outgoing `Cookie` header on third-party requests
       — without the second, a cookie set first-party on `tracker.example` still rides every
       cross-site beacon. Per-site exception from the badge popover. The `persist:app-<id>`
       partitions are exempt (a web app *is* the third party the user chose).
-- [ ] **Referrer and UA.** `Referrer-Policy: strict-origin-when-cross-origin` enforced by
+- [x] **Referrer and UA.** `Referrer-Policy: strict-origin-when-cross-origin` enforced by
       rewriting outgoing `Referer` headers; the UA string reduced to the Chromium major
       (`session.setUserAgent`) with a Settings switch for sites that break.
-- [ ] **No fingerprint-surface JS shims.** Canvas/audio/font fingerprinting cannot be defeated
+- [x] **No fingerprint-surface JS shims.** Canvas/audio/font fingerprinting cannot be defeated
       without a preload, and a preload is out of scope (guardrail 1). The doc says so, names the
       network-level protections that do ship, and points at the per-tab-group partition idea in
       Decisions as the stronger isolation.
-- [ ] **A counter in the badge.** Blocked requests per page, with the list in the popover.
+- [x] **A counter in the badge.** Blocked requests per page, with the list in the popover.
 - [ ] *Acceptance:* a page embedding a known tracker shows a non-zero count and the request never
       leaves (network trace in the e2e); a third-party `Set-Cookie` is not stored; a cross-site
       request carries only the origin as referrer.

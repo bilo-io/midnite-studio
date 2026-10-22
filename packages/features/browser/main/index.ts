@@ -52,6 +52,10 @@ export {
   type PermissionRequestDetails,
   type PermissionSession,
 } from './browser-security';
+// Phase 117 Themes D + E: quarantined downloads and tracker protection
+export { decideDownload, classifyFile, sanitiseFilename } from './download-policy';
+export { parseFilterList } from './filter-list';
+export { DEFAULT_PRIVACY_SETTINGS, type PrivacySettings } from './browser-request-filter';
 // Phase 117 Theme B: permissions remembered per origin & prompt hygiene
 export {
   BROWSER_PERMISSIONS_FILE,
@@ -80,7 +84,11 @@ export {
   reparentBrowserTabs,
   resetAllBrowserPermissions,
   resetBrowserPermissionStoreForTest,
+  resolveBrowserDownload,
   resolveBrowserPermission,
+  setBrowserDownloads,
+  setBrowserPrivacy,
+  setBrowserTrackerException,
   setBrowserSpellcheck,
   startBrowserDiscardSweep,
   stopBrowserDiscardSweep,

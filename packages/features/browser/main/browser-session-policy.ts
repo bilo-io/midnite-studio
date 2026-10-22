@@ -12,6 +12,7 @@ import {
   type PermissionRequestDetails,
 } from './browser-security';
 import type { PermissionGrantStore } from './permission-grant-store';
+import { installRequestFilter, type RequestFilterOptions, type RequestFilterSession } from './browser-request-filter';
 
 /**
  * One session policy, applied once per partition (Phase 117 Theme A).
@@ -28,6 +29,7 @@ import type { PermissionGrantStore } from './permission-grant-store';
  * 1. `configureSessionPermissions` — request AND check handlers (Theme B prompt + remembered grants).
  * 2. `denyAllDevices` — no WebUSB/HID/serial chooser, no `getDisplayMedia`.
  * 3. `will-download` — refused outright; Theme D's opt-in quarantine replaces the handler.
+ *    `webRequest` (Theme E, `persist:browser` only) is installed right after, owning all three listeners.
  * 4. `setSpellCheckerEnabled(false)` — Chromium's spellchecker hands typed text to the OS
  *    service; off unless the composer asks for it (the Settings switch is Theme B's page).
  *
@@ -43,7 +45,8 @@ export type PolicySession = Pick<
   | 'setDisplayMediaRequestHandler'
   | 'on'
   | 'setSpellCheckerEnabled'
->;
+> &
+  Partial<RequestFilterSession>;
 
 export type PromptablePermissionRequest = {
   origin: string;
@@ -69,6 +72,17 @@ export type BrowserSessionPolicyOptions = {
   onPermissionRequest?: (request: PromptablePermissionRequest) => void;
   /** Default `false`. `true` only from a user-facing switch — never from a page. */
   spellcheck?: boolean;
+  /**
+   * Phase 117 Theme D: when given, owns `will-download` (it cancels itself while downloads are
+   * off, so the default stays "refuse"). Absent, every download is cancelled via `onDownloadRefused`.
+   */
+  downloadHandler?: (item: never, webContents: unknown) => void;
+  /**
+   * Phase 117 Theme E: tracker blocking, third-party cookie stripping and referrer trimming on
+   * this partition. Only the browser's own partition passes it; `persist:app-<id>` partitions are
+   * exempt (a web app is the third party the user chose).
+   */
+  requestFilter?: RequestFilterOptions;
 };
 
 /**
@@ -214,8 +228,15 @@ export function applyBrowserSessionPolicy(session: PolicySession, options: Brows
   configureSessionPermissions(session, options);
   denyAllDevices(session);
   session.on('will-download', (_event, item: DownloadItemLike, webContents) => {
+    if (options.downloadHandler) {
+      options.downloadHandler(item as never, webContents);
+      return;
+    }
     cancelDownload(item, (filename) => options.onDownloadRefused(filename, webContents));
   });
+  if (options.requestFilter && session.webRequest) {
+    installRequestFilter(session as RequestFilterSession, options.requestFilter);
+  }
   session.setSpellCheckerEnabled(options.spellcheck === true);
 }
 

@@ -679,6 +679,14 @@ export const CHANNELS = {
   browserPermissionsReset: 'mstudio:browser:permissions:reset',
   /** Toggle Chromium spellchecking for browser partitions (Phase 117 Theme B). */
   browserSetSpellcheck: 'mstudio:browser:set-spellcheck',
+  /** Downloads opt-in + quarantine folder (Phase 117 Theme D). */
+  browserSetDownloads: 'mstudio:browser:set-downloads',
+  /** User answer to a download confirm (Phase 117 Theme D). */
+  browserDownloadResponse: 'mstudio:browser:download-response',
+  /** Tracker / cookie / referrer / UA switches (Phase 117 Theme E). */
+  browserSetPrivacy: 'mstudio:browser:set-privacy',
+  /** Per-site tracker-protection exception (Phase 117 Theme E). */
+  browserTrackerSiteException: 'mstudio:browser:tracker-site-exception',
 
   // --- third-party apps rail (Phase 83 Themes A/B) ---------------------------
   // One `WebContentsView` per ENABLED app, owned by `web-apps-service.ts` — the
