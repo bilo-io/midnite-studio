@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -14,7 +13,7 @@ import { describe, expect, it } from 'vitest';
  * needs a running app to test. A rule that cannot be tested without Electron belongs behind a seam.
  */
 
-const here = dirname(fileURLToPath(import.meta.url));
+const here = __dirname;
 const shared = join(here, '..', '..', '..', 'shared', 'src');
 
 /** The rule, the module that holds it, and where it is tested — paths relative to this directory. */
