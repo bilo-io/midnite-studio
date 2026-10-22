@@ -106,6 +106,16 @@ describe('useCompanionStore', () => {
     expect(options.migrate).toBeUndefined();
   });
 
+  it('toggles zen mode and never persists it', () => {
+    useCompanionStore.setState({ zenMode: false });
+    useCompanionStore.getState().toggleZenMode();
+    expect(useCompanionStore.getState().zenMode).toBe(true);
+    const partialize = useCompanionStore.persist.getOptions().partialize!;
+    expect(Object.keys(partialize(useCompanionStore.getState()))).toEqual(['transcript']);
+    useCompanionStore.getState().setZenMode(false);
+    expect(useCompanionStore.getState().zenMode).toBe(false);
+  });
+
   it('clears the transcript without touching the machine', () => {
     useCompanionStore.getState().send('enable');
     useCompanionStore.getState().addTurn({ role: 'user', text: 'x', spoken: false });

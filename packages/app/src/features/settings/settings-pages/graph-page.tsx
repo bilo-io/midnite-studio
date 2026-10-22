@@ -1,6 +1,7 @@
 import { SettingsAccordion } from '../settings-section';
-import { LuActivity, LuBot, LuColumns3, LuGitBranch, LuRows3 } from 'react-icons/lu';
+import { LuActivity, LuBot, LuColumns3, LuGitBranch, LuNetwork, LuRows3 } from 'react-icons/lu';
 
+import { KnowledgeStylePicker, useKnowledgeFiltersStore } from '@midnite/studio-frame';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { useUiStore } from '../../../store/ui-store';
 import { ActivityTimelineSettings } from '../activity-timeline-settings';
@@ -9,7 +10,8 @@ import { GraphThemePicker } from '../graph-theme-picker';
 import { ProvenanceMarkPicker } from '../provenance-mark-picker';
 
 /**
- * How the graph is drawn: the style, then the density, then the agent mark.
+ * How the graph is drawn: the style, the knowledge graph presentation style,
+ * then the density, then the agent mark.
  *
  * Three independent axes, in the order they matter — style decides what the
  * graph looks like, density only how much of it fits, and the agent mark only
@@ -20,11 +22,29 @@ import { ProvenanceMarkPicker } from '../provenance-mark-picker';
 export function GraphPage() {
   const graphShowCi = useUiStore((s) => s.graphShowCi);
   const setGraphShowCi = useUiStore((s) => s.setGraphShowCi);
+  const rendererVariant = useUiStore((s) => s.rendererVariant);
+  const setRendererVariant = useUiStore((s) => s.setRendererVariant);
   return (
     <div className="flex flex-col gap-3">
       <SettingsAccordion title="Style" icon={<LuGitBranch className="h-4 w-4" />} defaultOpen>
         <div className="p-3">
           <GraphThemePicker />
+        </div>
+      </SettingsAccordion>
+
+      <SettingsAccordion
+        title="Knowledge graph presentation"
+        icon={<LuNetwork className="h-4 w-4" />}
+        defaultOpen
+      >
+        <div className="p-3">
+          <KnowledgeStylePicker
+            activeId={rendererVariant}
+            onSelect={(id) => {
+              setRendererVariant(id);
+              useKnowledgeFiltersStore.getState().setRendererVariant(id);
+            }}
+          />
         </div>
       </SettingsAccordion>
 

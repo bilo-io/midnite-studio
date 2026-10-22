@@ -11,6 +11,7 @@ import { CompanionInputBar } from './companion-input-bar';
 import { fabCompanionState } from './companion-look';
 import { CompanionOrb } from './companion-orb';
 import { companionPorts } from './companion-ports';
+import { CompanionZenStage } from './companion-zen-stage';
 import { CompanionThread } from './companion-thread';
 
 /**
@@ -67,6 +68,7 @@ export function CompanionPanel({
   const state = useCompanionStore((s) => s.state);
   const transcript = useCompanionStore((s) => s.transcript);
   const pendingAction = useCompanionStore((s) => s.pendingAction);
+  const zenMode = useCompanionStore((s) => s.zenMode);
   const history = usePanelHistory<CompanionPanelEntry>(ROOT_ENTRY, {
     isSame: (a, b) => a.kind === b.kind,
   });
@@ -136,12 +138,13 @@ export function CompanionPanel({
         className="relative flex min-h-0 flex-1 flex-col"
         testId="companion-thread-frame"
       >
+        {/* Above the thread, so the panel's lower ground stays plain fill (companion-panel-glow.spec.ts). */}
+        <CompanionOrb state={state} />
         <PanelStack
           history={history}
           className="min-h-0 flex-1"
           render={() => <CompanionThread turns={transcript} />}
         />
-        <CompanionOrb state={state} />
         {state === 'thinking' ? <ThinkingIndicator className="shrink-0 pb-1.5" /> : null}
       </AiThreadFrame>
       {pendingAction?.kind === 'choice' ? (
@@ -154,6 +157,7 @@ export function CompanionPanel({
         reserveFabSpace={reserveFabSpace}
         onInterrupt={() => companionPorts().interrupt()}
       />
+      {zenMode ? <CompanionZenStage state={state} /> : null}
     </div>
   );
 }
