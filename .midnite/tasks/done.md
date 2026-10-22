@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-22 — Phase 117 Themes D + E — Quarantined downloads; tracker and fingerprinting protection
+
+[PR #TBD](https://github.com/bilo-io/midnite-studio/pull/TBD). Opt-in downloads land in a 0700 quarantine folder with `com.apple.quarantine` set, a type/size policy, a SHA-256 + Gatekeeper + optional clamscan record in `downloads.ndjson`, and never auto-open. `persist:browser` gets a `webRequest` pipeline: bundled EasyPrivacy blocklist (licence recorded), third-party cookie stripping both ways, trimmed Referer, reduced UA, a per-tab blocked counter and per-site exceptions.
+
 ## 2026-10-22 — Phase 117 Theme A — Isolation and the Chromium floor
 
 [PR #964](https://github.com/bilo-io/midnite-studio/pull/964). One `browser-session-policy.ts` applies every session rule to `persist:browser` and every `persist:app-<id>` in a pinned order; the per-page `webPreferences` table is pinned by test with `preload` absent and DevTools per `devToolsAllowed`; `will-attach-webview` refused and `window.open` proven `deny`; a boot assertion refuses `--no-sandbox`/site-isolation/web-security switches in Studio and the Browser; `electron-freshness --strict` gates the Browser bundle (fails on Electron 33 until Phase 76 A); the launcher's runtime — which every app bundle runs on — gets its fuses flipped and read back for the first time. Theme A ✅.
