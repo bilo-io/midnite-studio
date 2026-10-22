@@ -31,6 +31,17 @@ export const ChatModeSchema = z.enum(['ask', 'edit']);
 export type ChatMode = z.infer<typeof ChatModeSchema>;
 export const DEFAULT_CHAT_MODE: ChatMode = 'edit';
 
+/**
+ * How wide the thread is drawn. A viewer preference, not part of a chat:
+ * `default` is a readable column for both the thread and the composer, `wider`
+ * opens the thread further while the composer stays put, `full` spans the pane
+ * so the avatars sit at its edges.
+ */
+export const ChatWidthModeSchema = z.enum(['default', 'wider', 'full']);
+export type ChatWidthMode = z.infer<typeof ChatWidthModeSchema>;
+export const CHAT_WIDTH_MODES = ChatWidthModeSchema.options;
+export const DEFAULT_CHAT_WIDTH_MODE: ChatWidthMode = 'default';
+
 export const CHAT_MODES: readonly { id: ChatMode; label: string; description: string }[] = [
   { id: 'ask', label: 'Ask', description: 'Read-only: answers questions, never edits files' },
   { id: 'edit', label: 'Edit', description: 'May change files — you review every change before it lands' },

@@ -14,6 +14,7 @@ export function KitIconButton({
   busy,
   children,
   className = '',
+  size = 'md',
   'aria-pressed': ariaPressed,
   'aria-expanded': ariaExpanded,
   'data-testid': testId,
@@ -31,9 +32,9 @@ export function KitIconButton({
       aria-pressed={ariaPressed}
       aria-expanded={ariaExpanded}
       onClick={isDisabled ? undefined : onClick}
-      className={`inline-flex items-center justify-center gap-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-40 ${className}`}
+      className={`inline-flex items-center justify-center gap-1 rounded ${size === 'sm' ? 'p-1' : 'p-1.5'} text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-40 ${className}`}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
       {children}
     </button>
   );

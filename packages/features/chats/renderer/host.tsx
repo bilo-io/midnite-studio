@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import type { IconComponent } from '@midnite/studio-frame';
-import type { AgentDefinition, AgentStatus, FileDiff, RepoDescriptor } from '@midnite/studio-shared';
+import type { AgentDefinition, AgentStatus, ChatWidthMode, FileDiff, RepoDescriptor } from '@midnite/studio-shared';
 
 /**
  * The chats feature's host port — what this feature needs from the app that
@@ -178,6 +178,12 @@ export type ChatsListWidth = {
   max: number;
 };
 
+/** The viewer's thread width mode, and how to change it. Persisted by the host, like the list width. */
+export type ChatsThreadWidth = {
+  mode: ChatWidthMode;
+  setMode: (mode: ChatWidthMode) => void;
+};
+
 /** Who "You" is in a thread — the active forge account, when one is signed in. */
 export type ChatsAccount = { login?: string | undefined; displayName?: string | undefined; avatarUrl?: string | undefined };
 
@@ -202,6 +208,8 @@ export type ChatsHost = {
   useSelectedRepoId: () => string | null;
   /** The persisted width of the chat list pane. A hook. */
   useListWidth: () => ChatsListWidth;
+  /** The persisted width mode of the thread. A hook. */
+  useThreadWidth: () => ChatsThreadWidth;
   /** The agent roster and what main could learn about it on this machine. A hook. */
   useAgentRoster: () => { agents: AgentDefinition[]; status: AgentStatus[] };
   /** The agent the app treats as primary — the default engine. A hook. */

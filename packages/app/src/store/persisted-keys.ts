@@ -177,6 +177,7 @@ export const SESSION_STATE_KEYS = [
   'graphColumnVisibility', // toggled from the graph header's columns menu, not Settings — like graphColumns' widths, a view-local choice
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
+  'chatsWidthMode', // toggled from the chat pane's own header, not Settings — a view-local choice, like graphColumnVisibility
   'mediaPaneCollapsed', // side panel open state — disclosure state
   'mediaTab', // current selection — which Media tab is showing
   'mediaLastDoc', // current selection — Docs reopens the last edited doc
