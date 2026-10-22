@@ -849,6 +849,10 @@ export type MidniteStudioBridge = {
     permissionsReset: () => Promise<void>;
     /** Toggles Chromium spellcheck on the browser partition (Phase 117 Theme B). */
     setSpellcheck: (req: In<typeof S.BrowserSetSpellcheckRequest>) => void;
+    /** Site-safety switches — interstitial proceed + reputation feeds (Phase 117 Theme C). */
+    setSiteSafety: (req: In<typeof S.BrowserSetSiteSafetyRequest>) => void;
+    /** "Proceed for this session" past an interstitial; main re-checks the switch (Phase 117 Theme C). */
+    proceedSite: (req: In<typeof S.BrowserProceedSiteRequest>) => void;
     /** Phase 117 Theme D — downloads opt-in and quarantine folder. */
     setDownloads: (req: In<typeof S.BrowserSetDownloadsRequest>) => void;
     /** Phase 117 Theme D — answers a download confirm. */

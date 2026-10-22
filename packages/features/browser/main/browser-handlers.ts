@@ -26,6 +26,7 @@ import {
   setBrowserKeepAwake,
   setBrowserPrivacy,
   setBrowserSpellcheck,
+  proceedBrowserSite,
   setBrowserTrackerException,
   setBrowserVisible,
   setBrowserZoom,
@@ -33,6 +34,7 @@ import {
   stopFindInBrowserTab,
   toggleBrowserDevTools,
 } from './browser-service';
+import { setBrowserSiteSafety } from './browser-site-safety';
 import { probeLoopbackPort } from './dev-server-probe';
 
 /**
@@ -247,9 +249,23 @@ export function registerBrowserHandlers(ipc: RuntimeIpc, sender: BrowserSenderIp
   );
 
   ipc.send(
+    CHANNELS.browserSetSiteSafety,
+    schemas.BrowserSetSiteSafetyRequest,
+    (req) => setBrowserSiteSafety(req),
+    warnInvalid,
+  );
+
+  ipc.send(
     CHANNELS.browserSetDownloads,
     schemas.BrowserSetDownloadsRequest,
     (req) => setBrowserDownloads(req),
+    warnInvalid,
+  );
+
+  ipc.send(
+    CHANNELS.browserProceedSite,
+    schemas.BrowserProceedSiteRequest,
+    ({ tabId, url }) => proceedBrowserSite(tabId, url),
     warnInvalid,
   );
 

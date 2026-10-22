@@ -20,6 +20,11 @@ import type { BrowserLayout } from './browser/browser-layouts';
  */
 
 /** The app state the feature reads and the transitions it asks for. Names match Studio's `ui-store`. */
+/** Which open reputation feeds main may pull (Phase 117 Theme C) — one switch each, all default off. */
+export type BrowserReputationFeeds = { urlhaus: boolean; openphish: boolean };
+
+export const DEFAULT_BROWSER_REPUTATION_FEEDS: BrowserReputationFeeds = { urlhaus: false, openphish: false };
+
 export type BrowserUiState = {
   /** Where the pane sits: the whole content area, or beside the work on one side. */
   browserLayout: BrowserLayout;
@@ -28,6 +33,13 @@ export type BrowserUiState = {
   browserSwitcherSelected: BrowserLayout;
   /** Idle-discard threshold for a hidden tab; `0` disables discard. */
   browserDiscardMs: number;
+  /**
+   * Phase 117 Theme C — Settings ▸ Browser's "proceed past a certificate or known-bad warning for this
+   * session". Default off: the interstitial has no way past it.
+   */
+  browserAllowSiteProceed: boolean;
+  /** Phase 117 Theme C — Settings ▸ Privacy's reputation-feed switches, each default off. */
+  browserReputationFeeds: BrowserReputationFeeds;
   /**
    * How many surfaces are painted over a native view right now — a native `WebContentsView` draws
    * above the DOM, so the browser hides while this is above zero.

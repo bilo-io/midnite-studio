@@ -37,7 +37,7 @@ export type DownloadHandlerDeps = {
   /** Creates the folder (0700), synchronously. */
   ensureFolder: (folder: string) => void;
   exists: (path: string) => boolean;
-  /** Theme C's verdict for the page's origin, when it lands; absent ⇒ no verdict. */
+  /** Theme C's verdict for the page's origin (`originVerdictLevel` in browser-service); absent ⇒ no verdict. */
   originVerdict?: (origin: string) => OriginVerdictLevel | undefined;
   /** Ask the user. Resolves true on allow. */
   confirm: (request: { webContents: unknown; filename: string; size: number; origin: string; fileClass: DownloadFileClass }) => Promise<boolean>;

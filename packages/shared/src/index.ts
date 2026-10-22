@@ -23,6 +23,7 @@ export * from './companion-tune';
 export * from './council';
 export * from './domain';
 export * from './egress';
+export * from './lookalike';
 export * from './finance-accounts';
 export * from './fs';
 export * from './git-identity';
