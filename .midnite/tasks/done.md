@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-22 — Phase 117 Theme A — Isolation and the Chromium floor
+
+[PR #964](https://github.com/bilo-io/midnite-studio/pull/964). One `browser-session-policy.ts` applies every session rule to `persist:browser` and every `persist:app-<id>` in a pinned order; the per-page `webPreferences` table is pinned by test with `preload` absent and DevTools per `devToolsAllowed`; `will-attach-webview` refused and `window.open` proven `deny`; a boot assertion refuses `--no-sandbox`/site-isolation/web-security switches in Studio and the Browser; `electron-freshness --strict` gates the Browser bundle (fails on Electron 33 until Phase 76 A); the launcher's runtime — which every app bundle runs on — gets its fuses flipped and read back for the first time. Theme A ✅.
+
 ## 2026-10-18 — Phase 113 Theme R (slice 2) — LAN streaming, system-ffmpeg transcoding and playlists in the Library
 
 [PR #909](https://github.com/bilo-io/midnite-studio/pull/909). Playlists played in sequence; an opt-in LAN server bound only to a private address the user picks, behind a 256-bit token, serving only `resolveFile`'s jailed bytes; transcoding through the system ffmpeg with a file-only protocol and container whitelist, and a binary main chooses through its own dialog. Theme R done.

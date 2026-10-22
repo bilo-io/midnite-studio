@@ -118,11 +118,34 @@ Scope guardrails:
 *A page in the Browser app can neither hurt the user, nor the Mac, nor the agent that is reading it —
 and the app says what it knows about every site before the user trusts it.* Born from a browser that
 denies everything but cannot yet warn, grant, download or tell a page apart from the person.
-(0% · 0/60) — **Planned 2026-10-22.**
+(13% · 8/60) — **Planned 2026-10-22.** Theme A landed 2026-10-22.
 
-**Theme A — Isolation and the Chromium floor.** ◻ Site isolation and the fuses pinned by test;
-`webviewTag` and `window.open` provably off; the Electron-freshness warning becomes a hard gate for
-the Browser bundle; one `browser-session-policy.ts` applies every session rule in one call.
+**Theme A — Isolation and the Chromium floor.** ✅ [PR #964](https://github.com/bilo-io/midnite-studio/pull/964).
+`browser-session-policy.ts` is the one place a session rule lives: `applyBrowserSessionPolicy` installs
+deny-all permissions (request and check), device denial, the download refusal and `setSpellCheckerEnabled(false)`
+in a test-pinned order, and both `ensureSessionConfigured` (`persist:browser`) and `ensureAppSessionConfigured`
+(`persist:app-<id>`) call it and nothing else — Themes C and E add their verifier and `webRequest` listeners
+there for both partitions at once. `sandboxedPageWebPreferences` writes every dangerous flag as its safe value
+with `preload` absent and `devTools` per the composer's `devToolsAllowed` (moved from desktop's `devtools-policy.ts`
+to the runtime's `app-main/devtools.ts`; this *reverses* Phase 91 D's "browser pane DevTools left alone" — a
+packaged build could open an inspector on a tab); the browser feature's `web-preferences.test.ts` pins the table
+for a tab and a web-app view, and proves `will-attach-webview` is refused (`refuseWebviewAttach`, so a
+`webviewTag` flip cannot reopen it) and `window.open` answers `deny` for every disposition. The runtime's
+`chromium-switches.ts` (`assertSiteIsolation`) runs at boot in Studio's and the Browser's mains over
+`process.argv` + `app.commandLine.hasSwitch`: `--no-sandbox`, `--disable-site-isolation-trials`,
+`--disable-web-security` and `--disable-features=IsolateOrigins|site-per-process` throw in dev/test and log
+when packaged — there is no "launcher argv builder" to test (apps open through `shell.openPath`), so the pure
+helper is what the test covers. `electron-freshness.mjs` judges *both* pins that ship (Studio's and the
+launcher's — the runtime every bundle runs on) and `--strict` exits 1 outside the window;
+`root:electron-freshness-strict` gates the new `app-browser:dist` and `release.yml`'s Browser bundle job, and it
+fails today on Electron 33 (supported 46/45/44), as the acceptance asked — the bump is Phase 76 A (#488/#928).
+The fuses finding was the surprise: the Browser bundle has no binary (a stub is an APFS clone of the launcher's
+runtime), and the **launcher's afterPack never flipped any fuse** — `NODE_OPTIONS`, `--inspect` and no asar
+integrity, on every installed app. `apps/launcher/scripts/afterpack.cjs` now flips `lib/fuses.cjs`'s table
+(Studio's, with `OnlyLoadAppFromAsar` deliberately off because a stub runs its bundle from a folder, and
+`RunAsNode` on because bundles spawn `process.execPath` as node), reads the wire straight back and throws on a
+mismatch; `launcher:verify-fuses` reads a finished `.app`; Studio's `verify-dist` reads its own fuses back from
+the shared `lib/fuses.mjs`. The spellcheck Settings switch waits for Theme B's Settings ▸ Browser page.
 
 **Theme B — Permission prompts, remembered per origin.** ◻ Camera, microphone, geolocation and
 notifications prompt from a main-side bar (clipboard-read never does), with per-origin grants in a 0600
@@ -156,35 +179,35 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 
 ## Deliverables
 
-### A — Isolation and the Chromium floor [M · ~1d]
+### A — Isolation and the Chromium floor [M · ~1d] ✅ DONE (PR #964, 2026-10-22)
 
-- [ ] **One session policy, applied once.** A `browser-session-policy.ts` beside
+- [x] **One session policy, applied once.** A `browser-session-policy.ts` beside
       [`browser-security.ts`](../../../packages/features/browser/main/browser-security.ts) that takes
       a `BrowserSession` and installs, in order: `denyAllPermissions` (until Theme B replaces it),
       `denyAllDevices`, the `will-download` handler, `setCertificateVerifyProc` (Theme C), the
       `webRequest` listeners (Themes C and E), and `setSpellCheckerEnabled(false)` (spellcheck
       sends text to the OS; off by default, switch in Settings). `ensureSessionConfigured` in
       `browser-service.ts` calls it and nothing else.
-- [ ] **`web-preferences.test.ts` for the Browser app.** The per-tab `webPreferences` table in
+- [x] **`web-preferences.test.ts` for the Browser app.** The per-tab `webPreferences` table in
       `browser-service.ts` is pinned: `sandbox`, `contextIsolation`, `!nodeIntegration`,
       `!webviewTag`, `!nodeIntegrationInSubFrames`, `!allowRunningInsecureContent`,
       `!experimentalFeatures`, `!enableBlinkFeatures`, `preload` absent, `devTools` per
       `devToolsAllowed`. Same shape as desktop's existing test.
-- [ ] **`will-attach-webview` and `window.open` provably off.** A test that fires both on the fake
+- [x] **`will-attach-webview` and `window.open` provably off.** A test that fires both on the fake
       `webContents` and asserts `preventDefault`/`{action:'deny'}`. Today `setWindowOpenHandler`
       denies; `will-attach-webview` is not handled because `webviewTag` is off — handle it anyway so
       a future flag flip cannot reopen it.
-- [ ] **Site isolation stays on.** A startup assertion (dev and test) that
+- [x] **Site isolation stays on.** A startup assertion (dev and test) that
       `app.commandLine` carries no `--disable-site-isolation-trials`, `--no-sandbox` or
       `--disable-web-security`, and a test over the launcher argv builder.
-- [ ] **Electron freshness becomes a gate for the Browser bundle.** `root:electron-freshness`
+- [x] **Electron freshness becomes a gate for the Browser bundle.** `root:electron-freshness`
       (Phase 91 I, warn-only) gains `--strict`, which fails when the shipped major is outside
       Electron's supported window; `browser:dist` runs it strict. Studio keeps the warning until
       the bump lands (the bump itself is Phase 76 A / Renovate, not this phase).
-- [ ] **Fuses re-verified for the Browser app's own bundle.** `apps/browser`'s afterPack flips the
+- [x] **Fuses re-verified for the Browser app's own bundle.** `apps/browser`'s afterPack flips the
       same fuses as [`afterpack.cjs`](../../../packages/desktop/scripts/afterpack.cjs);
       `verify-dist` asserts them from the built binary.
-- [ ] *Acceptance:* the policy test suite passes against the fake; `browser:dist` fails on
+- [x] *Acceptance:* the policy test suite passes against the fake; `browser:dist` fails on
       Electron 33 until the bump; a tab with `window.open` and a `<webview>` opens nothing.
 
 ### B — Permission prompts, remembered per origin [M · ~1d]
@@ -414,8 +437,8 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
-- [ ] **A:** the `webPreferences` pin test and the argv test pass; `browser:dist --strict` fails on
-      an unsupported Electron major.
+- [x] **A:** the `webPreferences` pin test and the argv test pass; `app-browser:dist` (strict freshness) fails on
+      an unsupported Electron major (PR #964).
 - [ ] **B:** a grant survives restart, a revoke takes effect on the next call, and `permissions.query`
       never grants on its own.
 - [ ] **C:** the five acceptance fixtures above produce the expected verdicts; with every feed
