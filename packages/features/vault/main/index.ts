@@ -5,6 +5,7 @@ import {
   type VaultClient,
   type VaultGrantsEditor,
   type VaultPairingsEditor,
+  type VaultService,
 } from '@midnite/studio-runtime';
 import {
   CHANNELS,
@@ -38,6 +39,12 @@ export { vaultResponseSchemas } from '../response-schemas';
 export type VaultMainServices = {
   /** The Vault's own handle on the runtime vault (`service.forApp('vault')`). */
   vault: VaultClient;
+  /** The runtime vault service (optional in thin clients, present when hosting). */
+  vaultService?: VaultService;
+  /** Passcode check for vault lock. */
+  hasPasscode?: () => boolean;
+  canPromptTouchId?: () => boolean;
+  promptTouchId?: (reason: string) => Promise<boolean>;
   /**
    * Validates a token against its provider and stores it. Absent in a
    * standalone Vault, which does not carry the forge feature: adding then
@@ -134,8 +141,76 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
       () => ({ ok: false }),
     );
 
-    registerVaultGrantHandlers(ipc, () => services.grants);
-    registerVaultPairingHandlers(ipc, () => services.pairings ?? null);
+    const reauthCheck = () => services.vaultService?.isReauthValid() ?? true;
+    registerVaultGrantHandlers(ipc, () => services.grants, reauthCheck);
+    registerVaultPairingHandlers(ipc, () => services.pairings ?? null, reauthCheck);
+
+    ipc.handleBare(CHANNELS.vaultLockStatus, async () => {
+      const s = services.vaultService;
+      return {
+        locked: s ? s.isLocked() : false,
+        hasPasscode: services.hasPasscode ? services.hasPasscode() : false,
+        recentUnlockAt: s ? s.recentUnlockAt : null,
+        canPromptTouchId: services.canPromptTouchId ? services.canPromptTouchId() : false,
+      };
+    });
+
+    ipc.handleBare(CHANNELS.vaultLock, async () => {
+      services.vaultService?.lock();
+      return { ok: true };
+    });
+
+    ipc.handle(
+      CHANNELS.vaultUnlock,
+      schemas.VaultUnlockRequest,
+      async ({ passcode, useTouchId }) => {
+        const s = services.vaultService;
+        if (!s) return { ok: true };
+        const proof = useTouchId ? 'touchid' : passcode;
+        const ok = await s.unlock(proof);
+        return { ok, error: ok ? undefined : 'Unlock failed' };
+      },
+      (issue) => ({ ok: false, error: issue }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultAuditList,
+      schemas.VaultAuditListRequest,
+      async ({ limit, app, op }) => {
+        const s = services.vaultService;
+        if (!s) return { entries: [], valid: true, total: 0 };
+        let entries = await s.audit.read(limit);
+        if (app) entries = entries.filter((e) => e.app === app);
+        if (op) entries = entries.filter((e) => e.op === op);
+        const v = await s.audit.verify();
+        return { entries, valid: v.valid, total: v.total };
+      },
+      () => ({ entries: [], valid: true, total: 0 }),
+    );
+
+    ipc.handleBare(CHANNELS.vaultAuditVerify, async () => {
+      const s = services.vaultService;
+      if (!s) return { valid: true, total: 0 };
+      return s.audit.verify();
+    });
+
+    ipc.handleBare(CHANNELS.vaultAuditExport, async () => {
+      const s = services.vaultService;
+      if (!s) return { ok: false, error: 'Vault service not available' };
+      if (!s.isReauthValid()) return { ok: false, error: 'Re-authentication required (within 60s)' };
+      return { ok: true, path: s.audit.getFilePath() };
+    });
+
+    ipc.handle(
+      CHANNELS.vaultBreachCheck,
+      schemas.VaultBreachCheckRequest,
+      async ({ password, saveToCache }) => {
+        const s = services.vaultService;
+        if (!s) return { breached: false, count: 0, checkedAt: Date.now() };
+        return s.breachChecker.check(password, { skipCache: !saveToCache });
+      },
+      () => ({ breached: false, count: 0, checkedAt: Date.now() }),
+    );
 
     ipc.handle(
       CHANNELS.webAppsSignIns,

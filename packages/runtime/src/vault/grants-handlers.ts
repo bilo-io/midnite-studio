@@ -14,7 +14,11 @@ export interface VaultPairingsEditor {
  * The two pairing channels (docs/APPS.md, "Pairing"): who has paired, any conflict, and Unpair — the
  * only way an app re-pairs. Registered by the same two hosts as the grants. Never a key.
  */
-export function registerVaultPairingHandlers(ipc: FeatureMainContext['ipc'], pairings: () => VaultPairingsEditor | null): void {
+export function registerVaultPairingHandlers(
+  ipc: FeatureMainContext['ipc'],
+  pairings: () => VaultPairingsEditor | null,
+  reauthCheck?: () => boolean,
+): void {
   ipc.handle(
     CHANNELS.vaultPairingsList,
     schemas.VaultPairingsListRequest,
@@ -28,7 +32,10 @@ export function registerVaultPairingHandlers(ipc: FeatureMainContext['ipc'], pai
   ipc.handle(
     CHANNELS.vaultPairingUnpair,
     schemas.VaultPairingUnpairRequest,
-    async ({ appId }) => ({ ok: (await pairings()?.unpair(appId)) ?? false }),
+    async ({ appId }) => {
+      if (reauthCheck && !reauthCheck()) return { ok: false };
+      return { ok: (await pairings()?.unpair(appId)) ?? false };
+    },
     () => ({ ok: false }),
   );
 }
@@ -41,7 +48,11 @@ export function registerVaultPairingHandlers(ipc: FeatureMainContext['ipc'], pai
  * secret channels) but must still let its Vault view edit grants. `vault` and `studio` are not valid
  * grantees — the request schema rejects them and the handler answers `{ ok: false }`.
  */
-export function registerVaultGrantHandlers(ipc: FeatureMainContext['ipc'], grants: () => VaultGrantsEditor | null): void {
+export function registerVaultGrantHandlers(
+  ipc: FeatureMainContext['ipc'],
+  grants: () => VaultGrantsEditor | null,
+  reauthCheck?: () => boolean,
+): void {
   ipc.handle(
     CHANNELS.vaultGrantsList,
     schemas.VaultGrantsListRequest,
@@ -51,13 +62,19 @@ export function registerVaultGrantHandlers(ipc: FeatureMainContext['ipc'], grant
   ipc.handle(
     CHANNELS.vaultGrantSet,
     schemas.VaultGrantSetRequest,
-    async ({ appId, namespace, scope }) => ({ ok: (await grants()?.set(appId, namespace, scope)) ?? false }),
+    async ({ appId, namespace, scope }) => {
+      if (reauthCheck && !reauthCheck()) return { ok: false };
+      return { ok: (await grants()?.set(appId, namespace, scope)) ?? false };
+    },
     () => ({ ok: false }),
   );
   ipc.handle(
     CHANNELS.vaultGrantRevoke,
     schemas.VaultGrantRevokeRequest,
-    async ({ appId, namespace }) => ({ ok: (await grants()?.revoke(appId, namespace)) ?? false }),
+    async ({ appId, namespace }) => {
+      if (reauthCheck && !reauthCheck()) return { ok: false };
+      return { ok: (await grants()?.revoke(appId, namespace)) ?? false };
+    },
     () => ({ ok: false }),
   );
 }

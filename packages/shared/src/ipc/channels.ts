@@ -1551,6 +1551,15 @@ export const CHANNELS = {
   /** Clear one app's pairing (user-initiated, the only way to re-pair): its next hello binds afresh. */
   vaultPairingUnpair: 'mstudio:vault:pairings:unpair',
 
+  // --- vault lock, audit & breach (Phase 118) -------------------------------
+  vaultLockStatus: 'mstudio:vault:lock:status',
+  vaultLock: 'mstudio:vault:lock:lock',
+  vaultUnlock: 'mstudio:vault:lock:unlock',
+  vaultAuditList: 'mstudio:vault:audit:list',
+  vaultAuditVerify: 'mstudio:vault:audit:verify',
+  vaultAuditExport: 'mstudio:vault:audit:export',
+  vaultBreachCheck: 'mstudio:vault:breach:check',
+
   // --- finance proxy (Phase 76 Theme D) -------------------------------------
   /** Search crypto/stock symbols — provider fetches run in main. */
   financeSearch: 'mstudio:finance:search',

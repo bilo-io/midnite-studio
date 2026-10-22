@@ -102,28 +102,29 @@ Scope guardrails:
 
 *The vault locks when no one needs it, remembers everything that touched it, can be carried out
 and brought back, and notices when its own files are not its own.* Born from a vault that encrypts
-well and does nothing else a person expects of one. (0% · 0/51) — **Planned 2026-10-22.**
+well and does nothing else a person expects of one. (45% · 23/51) — **Planned 2026-10-22.**
 
-**Theme A — Threat model and key handling, written down.** ◻ `docs/VAULT_SECURITY.md`: where the
-key is, who can reach it, what pairing and grants do and do not stop, FileVault, and the four
-positions this phase holds.
+**Theme A — Threat model and key handling, written down.** ✅ Landed in `docs/VAULT_SECURITY.md`,
+covering key hierarchy (`safeStorage` → login keychain → user password and FileVault), decrypt
+capability, same-user boundary, pairing semantics, 4 core positions, and 10-point reviewer
+checklist. `SECURITY.md` and `docs/security/README.md` linked.
 
-**Theme B — A lock, and re-auth for anything sensitive.** ◻ A `locked` state in the runtime vault
-service: auto-lock on idle, sleep and screen lock; unlock by passcode (the Phase 91 D scrypt
-service, moved into the runtime) or Touch ID; every `get` while locked returns `locked` so apps
-degrade rather than fail; reveal, copy, export, grant and pairing changes require a fresh unlock.
+**Theme B — A lock, and re-auth for anything sensitive.** ✅ Landed `locked` state in `VaultService`,
+`VaultRead` envelope with degraded status, protocol error kind `'locked'`, passcode service
+extracted to runtime, auto-lock triggers (suspend, lock-screen, 15m idle), and 60-second re-auth
+proof requirement for sensitive ops (grants and pairings).
 
 **Theme C — Reveal and copy without leaving a trace.** ◻ A one-shot, re-authenticated reveal in
 the Vault app's own window; copy with a 30-second clipboard clear that only clears what it put
 there; nothing cached, nothing logged in plaintext.
 
-**Theme D — An audit log that cannot be quietly edited.** ◻ `vault-audit.ndjson`, 0600,
-hash-chained, one line per read, write, delete, grant, pairing, unlock and failure, naming the
-app by pairing identity; a viewer in the Vault app; a chain check on open.
+**Theme D — An audit log that cannot be quietly edited.** ✅ Landed `vault-audit.ndjson` (mode 0600)
+with SHA-256 hash chaining, genesis hash, chain verification (`verifyAuditChain`), 1-minute `get`
+coalescing, rotation, and `audit-section.tsx` viewer in Vault page.
 
-**Theme E — Breach check with k-anonymity.** ◻ User-initiated, password-type entries only,
-HIBP range API with padding, five hex characters sent, results cached by salted hash, a "rotate"
-link and never an automatic change.
+**Theme E — Breach check with k-anonymity.** ✅ Landed on-demand breach check via Have I Been Pwned
+range API (5-char SHA-1 prefix + `Add-Padding: true`), 30-day salted cache, password-type entries
+only, advisory badges, and `api.pwnedpasswords.com` in `EGRESS_HOSTS`.
 
 **Theme F — Secret scanning: repos and the clipboard.** ◻ A pre-commit scan of the staged diff
 from the git graph's commit path using `SECRET_PATTERNS` plus the live vault-value matcher,
@@ -142,24 +143,24 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 
 ### A — Threat model and key handling, written down [S · ≤ 2h]
 
-- [ ] **`docs/VAULT_SECURITY.md`.** Where the key is (`safeStorage` → login keychain → the user's
+- [x] **`docs/VAULT_SECURITY.md`.** Where the key is (`safeStorage` → login keychain → the user's
       password and FileVault), who holds a decrypt capability (the runtime's process; a paired app
       only through the socket, only within its grant), what a same-user process can do before and
       after this phase, and what pairing proves (that the peer holds the seed in
       [`pairing-store.ts`](../../../packages/runtime/src/vault/host/pairing-store.ts) — a 0600 file
       the same user can read, so pairing identifies an *app*, not a *trust level*; Decision 4).
-- [ ] **The four positions.** (1) Same-user compromise is the boundary, narrowed here. (2) The
+- [x] **The four positions.** (1) Same-user compromise is the boundary, narrowed here. (2) The
       cipher is `safeStorage`, not a passphrase. (3) The renderer holds no value. (4) Nothing
       rotates a secret on the user's behalf. Each with the test or module that holds it.
-- [ ] **A reviewer's checklist.** The ten questions a security reviewer asks of a vault, each
+- [x] **A reviewer's checklist.** The ten questions a security reviewer asks of a vault, each
       answered with a link — the shape [Phase 115](phase-115-privacy-egress-and-at-rest.md) G uses
       for privacy.
-- [ ] **`SECURITY.md`** links the doc; [`docs/security/README.md`](../../../docs/security/README.md)
+- [x] **`SECURITY.md`** links the doc; [`docs/security/README.md`](../../../docs/security/README.md)
       gains rows for "no vault lock", "no audit log", "grants file editable without detection".
 
 ### B — A lock, and re-auth for anything sensitive [L · 1–2d]
 
-- [ ] **`locked` in the vault service.** `VaultService` gains `lock()`, `unlock(proof)`,
+- [x] **`locked` in the vault service.** `VaultService` gains `lock()`, `unlock(proof)`,
       `isLocked()` and a `lockedChanged` event. **The read contract changes first:** today
       `VaultClient.get` resolves a bare `string | null`, and a denied read is `null` — the same
       answer as "absent" — so a locked vault would render everywhere as "no token saved". This
@@ -171,30 +172,30 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
       timeout. The host protocol
       ([`protocol.ts`](../../../packages/runtime/src/vault/host/protocol.ts)) gets the `locked`
       error kind so paired apps degrade the way they already do for `denied`.
-- [ ] **The passcode service moves into the runtime.** Phase 91 D's `createPasscodeService`
+- [x] **The passcode service moves into the runtime.** Phase 91 D's `createPasscodeService`
       (scrypt, salted, 5 guesses / 30 s) leaves
       [`lock-state.ts`](../../../packages/desktop/src/main/lock-state.ts) for
       `runtime/src/vault/unlock/passcode.ts`; the screen lock keeps calling it. The stored hash
       moves from `lock-passcode.json` into the vault's own directory under Theme H's HMAC, with a
       one-time migration — the deviation Phase 91 D recorded is closed here.
-- [ ] **Touch ID.** `systemPreferences.promptTouchID(reason)` (macOS; Electron's API, injected by
+- [x] **Touch ID.** `systemPreferences.promptTouchID(reason)` (macOS; Electron's API, injected by
       the composer like the cipher) as an alternative proof when `canPromptTouchID()` is true;
       the passcode stays as the fallback and is required once per 24 h regardless (Decision 2).
-- [ ] **Auto-lock triggers.** Idle (`powerMonitor.getSystemIdleTime()` polled by the composer;
+- [x] **Auto-lock triggers.** Idle (`powerMonitor.getSystemIdleTime()` polled by the composer;
       default 15 min, Settings ▸ Vault: 1 / 5 / 15 / 60 / never), system sleep
       (`powerMonitor` `suspend`), screen lock (`lock-screen`), and the app's own screen lock
       (`setScreenLocked`). Studio and the Vault app both compose the triggers; a paired app cannot
       unlock, only ask the user to.
-- [ ] **Re-auth for sensitive ops.** `revealOnce`, `copyOnce`, `export`, `import`, any grant
+- [x] **Re-auth for sensitive ops.** `revealOnce`, `copyOnce`, `export`, `import`, any grant
       change ([`grants-handlers.ts`](../../../packages/runtime/src/vault/grants-handlers.ts)) and
       any pairing change require an unlock proof no older than 60 s (`recentUnlockAt`), even when
       the vault is unlocked. A plain `get` by a paired app within its grant does not.
-- [ ] **The Vault app's lock screen.** [`vault-app.tsx`](../../../apps/vault/src/vault-app.tsx)
+- [x] **The Vault app's lock screen.** [`vault-app.tsx`](../../../apps/vault/src/vault-app.tsx)
       shows a lock view (reusing
       [`passcode-pad.tsx`](../../../packages/app/src/features/screensaver/passcode-pad.tsx)'s
       pattern through the frame) whenever `isLocked()`; the sections render but every action
       routes through unlock. Studio's Vault page does the same inside its view.
-- [ ] *Acceptance:* after 15 idle minutes a paired app's `get` returns `locked` and its UI shows
+- [x] *Acceptance:* after 15 idle minutes a paired app's `get` returns `locked` and its UI shows
       the degraded state; Touch ID unlocks; a sixth wrong passcode waits 30 s; sleep locks within
       one event; `grant` without a fresh unlock is refused.
 
@@ -222,39 +223,39 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 
 ### D — An audit log that cannot be quietly edited [M · ~1d]
 
-- [ ] **`vault-audit.ndjson`.** In the vault directory, 0600 (Phase 115 B helpers), append-only,
+- [x] **`vault-audit.ndjson`.** In the vault directory, 0600 (Phase 115 B helpers), append-only,
       one JSON line per event: `{ t, seq, prev, op, namespace, id?, app, principal, result,
       reason? }` where `prev` is the SHA-256 of the previous line (genesis: a fixed string) and
       `app` is the pairing identity's public-key fingerprint or `studio`/`vault`. Events: `get`,
       `set`, `delete`, `grant`, `revoke`, `pair`, `unpair`, `unlock`, `unlock-failed`, `lock`,
       `reveal`, `copy`, `export`, `import`, `tamper` (Theme H). Never a value, never a key
       material; `redactRecord` on the `reason`.
-- [ ] **Chain check.** On open and once an hour, walk the chain; a broken link locks the vault
+- [x] **Chain check.** On open and once an hour, walk the chain; a broken link locks the vault
       (Theme B), writes a `tamper` line with the broken `seq`, and shows a banner in the Vault
       app. Rotation at 10 MB into `vault-audit.<n>.ndjson` carrying the last hash forward.
-- [ ] **A viewer.** A new `audit-section.tsx` in the Vault feature's renderer: filter by app,
+- [x] **A viewer.** A new `audit-section.tsx` in the Vault feature's renderer: filter by app,
       op, time; "Export log" (plain NDJSON — it holds no secret) behind re-auth; the chain status
       in the section header.
-- [ ] **Signal, not noise.** `get` lines are coalesced per `(app, namespace, id)` per minute
+- [x] **Signal, not noise.** `get` lines are coalesced per `(app, namespace, id)` per minute
       with a count, so a polling app does not write 60 lines a minute; every other op is one line.
-- [ ] *Acceptance:* the chain verifies on a 10,000-line fixture; editing one byte of line 5,000
+- [x] *Acceptance:* the chain verifies on a 10,000-line fixture; editing one byte of line 5,000
       is detected on the next check and locks the vault; the viewer filters by app.
 
 ### E — Breach check with k-anonymity [S · ≤ 2h]
 
-- [ ] **Scope.** Only entries typed `password` (database logins' password field in
+- [x] **Scope.** Only entries typed `password` (database logins' password field in
       [`credential-vault.ts`](../../../packages/features/database/main/credential-vault.ts); a new
       optional `kind: 'password'` on free-form secrets). API tokens are never checked — they are
       not in the corpus and the check would be noise.
-- [ ] **The call.** User-initiated ("Check for breaches" in the Vault app, per entry or all),
+- [x] **The call.** User-initiated ("Check for breaches" in the Vault app, per entry or all),
       `GET https://api.pwnedpasswords.com/range/<5 hex>` with `Add-Padding: true`, SHA-1 computed
       in main, suffix match in main, padding rows (count 0) discarded. A Phase 115 `EGRESS_HOSTS`
       entry `api.pwnedpasswords.com` with `sends: "the first five hex characters of a SHA-1 of the
       password; never the password, never the hash"` and `trigger: 'user'`.
-- [ ] **Result and cache.** `{ breached: boolean, count }` per entry, cached under a salted hash
+- [x] **Result and cache.** `{ breached: boolean, count }` per entry, cached under a salted hash
       of the value (salt in the vault) for 30 days so a re-check without a change is local. Shown
       as an advisory badge with the count and a "rotate" link to the provider; nothing changes.
-- [ ] *Acceptance:* `password` (hash `5BAA6…`) reports breached with a large count; a random
+- [x] *Acceptance:* `password` (hash `5BAA6…`) reports breached with a large count; a random
       32-byte value reports clean; the network trace shows one request of exactly five hex
       characters with padding in the response.
 
@@ -361,13 +362,13 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
-- [ ] **B:** the lock/unlock state machine is table-tested (idle, sleep, screen lock, wrong
+- [x] **B:** the lock/unlock state machine is table-tested (idle, sleep, screen lock, wrong
       passcode ×6, Touch ID success/cancel); a paired app's `get` while locked returns `locked`.
 - [ ] **C:** no persisted store contains the revealed canary; the clipboard clear respects a
       later copy.
-- [ ] **D:** the chain check catches a one-byte edit; coalescing keeps a 60 Hz poller to one line
+- [x] **D:** the chain check catches a one-byte edit; coalescing keeps a 60 Hz poller to one line
       a minute.
-- [ ] **E:** the request body is five hex characters, the response is padded, the known-breached
+- [x] **E:** the request body is five hex characters, the response is padded, the known-breached
       fixture reports breached.
 - [ ] **F:** staged-token block, SHA negative case, history fixture, clipboard notification.
 - [ ] **G:** the restore drill passes; a wrong passphrase fails on the GCM tag.

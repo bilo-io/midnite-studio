@@ -1,4 +1,6 @@
 import type { RuntimeAppId } from '../app-id';
+import { createVaultAuditLog, type VaultAuditLog } from './audit/vault-audit';
+import { createBreachChecker, type BreachChecker } from './breach/hibp-check';
 import {
   createSecureJsonStore,
   decryptSecret,
@@ -6,6 +8,7 @@ import {
   type SecureJsonStore,
   type VaultCipher,
 } from './secure-store';
+import type { PasscodeService } from './unlock/passcode';
 
 /**
  * The runtime's one vault — Phase 113 Theme D, item 1.
@@ -122,6 +125,10 @@ export class VaultAccessDeniedError extends Error {
   }
 }
 
+export type VaultRead =
+  | { ok: true; value: string }
+  | { ok: false; kind: 'absent' | 'denied' | 'locked' | 'unavailable' };
+
 /** One app's handle on the vault: every call is made as {@link appId}. */
 export interface VaultClient {
   readonly appId: RuntimeAppId;
@@ -129,7 +136,9 @@ export interface VaultClient {
   isAvailable(): boolean;
   /** Whether an entry exists and decrypts — the `hasToken` answer, never the value. */
   has(namespace: VaultNamespace, key: string): Promise<boolean>;
-  /** The decrypted value, or `null` when absent, unreadable or not granted. */
+  /** The decrypted value, or an explicit reason when not ok (Theme B). */
+  read(namespace: VaultNamespace, key: string): Promise<VaultRead>;
+  /** The decrypted value, or `null` when absent, unreadable, locked or not granted (deprecated). */
   get(namespace: VaultNamespace, key: string): Promise<string | null>;
   /**
    * Encrypt and store `value`. A fingerprinted namespace requires
@@ -152,6 +161,18 @@ export interface VaultService {
   isAvailable(): boolean;
   /** A handle that makes every access as `appId`. Cheap; handles share one store per namespace. */
   forApp(appId: RuntimeAppId): VaultClient;
+
+  // Lock state & re-auth (Theme B)
+  isLocked(): boolean;
+  lock(): void;
+  unlock(proof?: unknown): boolean | Promise<boolean>;
+  onLockedChange(listener: (locked: boolean) => void): () => void;
+  readonly recentUnlockAt: number | null;
+  isReauthValid(windowMs?: number): boolean;
+
+  // Audit log & breach check (Themes D & E)
+  readonly audit: VaultAuditLog;
+  readonly breachChecker: BreachChecker;
 }
 
 export type VaultServiceOptions = {
@@ -164,6 +185,14 @@ export type VaultServiceOptions = {
   cipher: VaultCipher;
   /** Defaults to {@link allowAllVaultAccess}; Theme J replaces it with real grants. */
   authorize?: VaultAuthorize;
+  /** Passcode service for unlocking (Phase 91/118 Theme B). */
+  passcodeService?: PasscodeService;
+  /** Touch ID prompt injector for macOS (Theme B). */
+  promptTouchId?: (reason: string) => Promise<boolean>;
+  /** Whether Touch ID hardware is available and enrolled. */
+  canPromptTouchId?: () => boolean;
+  /** Initial lock state (defaults to false). */
+  initialLocked?: boolean;
 };
 
 /** The on-disk entry: `{ encrypted }`, plus `fingerprint` in a fingerprinted namespace. */
@@ -193,7 +222,14 @@ function entryParser(fingerprinted: boolean): (value: unknown) => Record<string,
 }
 
 export function createVaultService(options: VaultServiceOptions): VaultService {
-  const { directory, cipher, authorize = allowAllVaultAccess } = options;
+  const { directory, cipher, authorize = allowAllVaultAccess, passcodeService, promptTouchId } = options;
+
+  let locked = options.initialLocked ?? false;
+  let recentUnlockAt: number | null = locked ? null : Date.now();
+  const lockListeners = new Set<(locked: boolean) => void>();
+
+  const audit = createVaultAuditLog(directory);
+  const breachChecker = createBreachChecker(directory);
 
   const stores = new Map<VaultNamespace, SecureJsonStore<StoredEntry>>();
   const storeFor = (namespace: VaultNamespace): SecureJsonStore<StoredEntry> => {
@@ -223,7 +259,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
 
   const isAvailable = (): boolean => cipher.isEncryptionAvailable();
 
-  const read = async (namespace: VaultNamespace, key: string): Promise<string | null> => {
+  const internalRead = async (namespace: VaultNamespace, key: string): Promise<string | null> => {
     const held = sessionOnly.get(namespace)?.get(key);
     if (held !== undefined) return held;
     const entry = await storeFor(namespace).get(key);
@@ -231,8 +267,84 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     return decryptSecret(cipher, entry.encrypted);
   };
 
+  const isLocked = () => locked;
+
+  const lock = () => {
+    if (!locked) {
+      locked = true;
+      recentUnlockAt = null;
+      for (const listener of lockListeners) listener(true);
+      void audit.log({ op: 'lock', app: 'vault', principal: 'system', result: 'ok' });
+    }
+  };
+
+  const unlock = async (proof?: unknown): Promise<boolean> => {
+    if (proof === 'touchid' || proof === true) {
+      if (promptTouchId) {
+        const ok = await promptTouchId('Unlock Midnite Studio Vault');
+        if (ok) {
+          locked = false;
+          recentUnlockAt = Date.now();
+          for (const listener of lockListeners) listener(false);
+          void audit.log({ op: 'unlock', app: 'vault', principal: 'user', result: 'ok' });
+          return true;
+        }
+        void audit.log({ op: 'unlock-failed', app: 'vault', principal: 'user', result: 'failed', reason: 'Touch ID refused' });
+        return false;
+      }
+    }
+
+    if (typeof proof === 'string') {
+      if (passcodeService && passcodeService.hasPasscode()) {
+        const ok = passcodeService.verify(proof);
+        if (ok) {
+          locked = false;
+          recentUnlockAt = Date.now();
+          for (const listener of lockListeners) listener(false);
+          void audit.log({ op: 'unlock', app: 'vault', principal: 'user', result: 'ok' });
+          return true;
+        }
+        void audit.log({ op: 'unlock-failed', app: 'vault', principal: 'user', result: 'failed', reason: 'Wrong passcode' });
+        return false;
+      }
+    }
+
+    // Default unlock if no passcode is configured
+    if (!passcodeService || !passcodeService.hasPasscode()) {
+      locked = false;
+      recentUnlockAt = Date.now();
+      for (const listener of lockListeners) listener(false);
+      void audit.log({ op: 'unlock', app: 'vault', principal: 'user', result: 'ok' });
+      return true;
+    }
+
+    void audit.log({ op: 'unlock-failed', app: 'vault', principal: 'user', result: 'failed', reason: 'Passcode required' });
+    return false;
+  };
+
+  const isReauthValid = (windowMs = 60_000): boolean => {
+    return !locked && recentUnlockAt !== null && Date.now() - recentUnlockAt <= windowMs;
+  };
+
+  const onLockedChange = (listener: (locked: boolean) => void): (() => void) => {
+    lockListeners.add(listener);
+    return () => {
+      lockListeners.delete(listener);
+    };
+  };
+
   return {
     isAvailable,
+    isLocked,
+    lock,
+    unlock,
+    onLockedChange,
+    get recentUnlockAt() {
+      return recentUnlockAt;
+    },
+    isReauthValid,
+    audit,
+    breachChecker,
 
     forApp(appId) {
       const allowed = (namespace: VaultNamespace, key: string, op: VaultAccess['op']): boolean =>
@@ -241,18 +353,44 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
         if (!allowed(namespace, key, op)) throw new VaultAccessDeniedError({ appId, namespace, key, op });
       };
 
-      return {
+      const client: VaultClient = {
         appId,
         isAvailable,
 
         has: async (namespace, key) => {
           if (!allowed(namespace, key, 'read')) return false;
-          return (await read(namespace, key)) !== null;
+          if (sessionOnly.get(namespace)?.has(key)) return true;
+          return (await storeFor(namespace).get(key)) !== null;
+        },
+
+        read: async (namespace, key): Promise<VaultRead> => {
+          if (locked) {
+            await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'locked' });
+            return { ok: false, kind: 'locked' };
+          }
+          if (!allowed(namespace, key, 'read')) {
+            await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'denied' });
+            return { ok: false, kind: 'denied' };
+          }
+          if (!isAvailable()) {
+            const held = sessionOnly.get(namespace)?.get(key);
+            if (held !== undefined) {
+              await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'ok' });
+              return { ok: true, value: held };
+            }
+            return { ok: false, kind: 'unavailable' };
+          }
+          const val = await internalRead(namespace, key);
+          if (val === null) {
+            return { ok: false, kind: 'absent' };
+          }
+          await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'ok' });
+          return { ok: true, value: val };
         },
 
         get: async (namespace, key) => {
-          if (!allowed(namespace, key, 'read')) return null;
-          return read(namespace, key);
+          const res = await client.read(namespace, key);
+          return res.ok ? res.value : null;
         },
 
         set: async (namespace, key, value, setOptions) => {
@@ -264,6 +402,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
           }
           if (!isAvailable()) {
             if (spec.whenUnavailable === 'session') sessionMap(namespace).set(key, value);
+            await audit.log({ op: 'set', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
             return;
           }
           sessionOnly.get(namespace)?.delete(key);
@@ -271,12 +410,14 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
           // Field order matches what the old vaults wrote, so a file's diff
           // across the move is the changed entry and nothing else.
           await storeFor(namespace).set(key, spec.fingerprinted ? { fingerprint, encrypted } : { encrypted });
+          await audit.log({ op: 'set', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
         },
 
         delete: async (namespace, key) => {
           demand(namespace, key, 'delete');
           sessionOnly.get(namespace)?.delete(key);
           await storeFor(namespace).delete(key);
+          await audit.log({ op: 'delete', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
         },
 
         keys: async (namespace) => {
@@ -290,6 +431,8 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
           return (await storeFor(namespace).get(key))?.fingerprint ?? null;
         },
       };
+
+      return client;
     },
   };
 }

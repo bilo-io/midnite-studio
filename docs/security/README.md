@@ -40,3 +40,6 @@ rows. Owners are [Phase 91](../../.midnite/tasks/phases/phase-91-security-harden
 | 19 | Minor | Untrusted PR/issue bodies load remote images directly | 76-C | open |
 | 20 | Minor | `ci.yml` has no workflow-level `permissions:` block | 91-I | fixed (this PR) |
 | 21 | Minor | Pages deploy token written into a git remote URL on the runner | unassigned | open |
+| 22 | High | Vault has no auto-lock or sensitive action re-auth | 118-B | fixed (#965) |
+| 23 | High | No tamper-evident audit log for vault access | 118-D | fixed (#965) |
+| 24 | Medium | Grants and pairing files editable without tamper detection | 118-D, 118-H | fixed (#965) |

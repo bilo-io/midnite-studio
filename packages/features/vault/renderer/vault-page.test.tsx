@@ -69,7 +69,30 @@ function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { s
       return { ok: true };
     }),
   };
-  window.midniteStudio = { secrets, forgeAccounts, db, vaultGrants, vaultPairings, webApps } as unknown as typeof window.midniteStudio;
+  const vaultLock = {
+    status: vi.fn(async () => ({ locked: false, hasPasscode: false, canPromptTouchId: false, recentUnlockAt: null })),
+    lock: vi.fn(async () => ({ ok: true })),
+    unlock: vi.fn(async () => ({ ok: true })),
+  };
+  const vaultAudit = {
+    list: vi.fn(async () => ({ entries: [], valid: true, total: 0 })),
+    verify: vi.fn(async () => ({ valid: true, total: 0 })),
+    export: vi.fn(async () => ({ ok: true, path: '/tmp/audit.ndjson' })),
+  };
+  const vaultBreach = {
+    check: vi.fn(async () => ({ breached: false, count: 0, checkedAt: Date.now() })),
+  };
+  window.midniteStudio = {
+    secrets,
+    forgeAccounts,
+    db,
+    vaultGrants,
+    vaultPairings,
+    webApps,
+    vaultLock,
+    vaultAudit,
+    vaultBreach,
+  } as unknown as typeof window.midniteStudio;
   const kit = createFrameChrome();
   render(
     <FrameChromeProvider chrome={kit.chrome}>
@@ -199,5 +222,20 @@ describe('VaultPage — web-app sign-ins', () => {
     const section = await screen.findByRole('region', { name: 'Web-app sign-ins' });
     expect(await within(section).findByText(/live in Midnite Studio’s own browser sessions/)).toBeDefined();
     expect(within(section).queryAllByRole('button')).toHaveLength(0);
+  });
+
+  it('renders lock status and locks the vault upon clicking Lock Vault', async () => {
+    mount();
+    expect(await screen.findByText('Unlocked')).toBeDefined();
+    const lockBtn = screen.getByRole('button', { name: 'Lock Vault' });
+    fireEvent.click(lockBtn);
+    expect(window.midniteStudio?.vaultLock?.lock).toHaveBeenCalled();
+  });
+
+  it('renders audit section with chain status and export affordance', async () => {
+    mount();
+    expect(await screen.findByRole('region', { name: 'Audit Log' })).toBeDefined();
+    expect(screen.getByText(/Chain verified/)).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Export log' })).toBeDefined();
   });
 });

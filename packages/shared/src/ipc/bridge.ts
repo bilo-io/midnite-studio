@@ -1138,6 +1138,25 @@ export type MidniteStudioBridge = {
     unpair: (req: In<typeof S.VaultPairingUnpairRequest>) => Promise<z.infer<typeof S.VaultPairingUnpairResponse>>;
   };
 
+  /** Vault lock state & unlock (Phase 118 Theme B). */
+  vaultLock?: {
+    status: (req: In<typeof S.VaultLockStatusRequest>) => Promise<z.infer<typeof S.VaultLockStatusResponse>>;
+    lock: (req: In<typeof S.VaultLockRequest>) => Promise<z.infer<typeof S.VaultLockResponse>>;
+    unlock: (req: In<typeof S.VaultUnlockRequest>) => Promise<z.infer<typeof S.VaultUnlockResponse>>;
+  };
+
+  /** Vault tamper-evident audit log (Phase 118 Theme D). */
+  vaultAudit?: {
+    list: (req: In<typeof S.VaultAuditListRequest>) => Promise<z.infer<typeof S.VaultAuditListResponse>>;
+    verify: (req: In<typeof S.VaultAuditVerifyRequest>) => Promise<z.infer<typeof S.VaultAuditVerifyResponse>>;
+    export: (req: In<typeof S.VaultAuditExportRequest>) => Promise<z.infer<typeof S.VaultAuditExportResponse>>;
+  };
+
+  /** Vault breach checker (Phase 118 Theme E). */
+  vaultBreach?: {
+    check: (req: In<typeof S.VaultBreachCheckRequest>) => Promise<z.infer<typeof S.VaultBreachCheckResponse>>;
+  };
+
   /**
    * Finance provider fetches proxied through main (Phase 76 Theme D) so API
    * keys and CoinGecko/Twelve Data hosts stay out of the renderer.
