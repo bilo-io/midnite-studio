@@ -73,7 +73,7 @@ Scope guardrails:
 *The suite gets a watcher that sees the effects of a compromise — a new persistence item, an
 unexpected outbound connection, a file changed under a running agent — and can stop it, with one
 ledger every security finding in the suite lands in.* Born from a catalog tile with nothing behind
-it and a threat landscape in which the coding agent is the new ClickFix victim. (35% · 16/46) —
+it and a threat landscape in which the coding agent is the new ClickFix victim. (46% · 21/46) —
 **Planned 2026-10-22.**
 
 **Theme A — One finding, one ledger.** ✅ `SecurityFindingSchema` in `shared` (source, severity,
@@ -117,9 +117,26 @@ shell rc files and `~/.ssh` watched for change; the process table diffed for new
 each checked with `codesign`, `spctl` and the quarantine xattr; XProtect version and Gatekeeper
 denials read from the unified log.
 
-**Theme E — Network behaviour.** ◻ `lsof` snapshots of outbound connections per process, diffed
-against Phase 115's egress registry for the suite's own processes and against a per-session baseline
-for agent processes; a new destination from an agent session is a finding.
+**Theme E — Network behaviour.** ✅ The network sensor (`features/vanguard/main/network-sensor.ts`, parsers in
+`main/network/`) runs `/usr/sbin/lsof -i -nP -F pcnPT` through the sensor host's `runProcess` with a deadline and
+the host's abort signal, and parses it with a pure parser (`lsof.ts`) that handles the `->` and IPv6 forms and, since
+`-F` here carries no `f` field, splits file sets on a repeated field; a test also runs the real `lsof` against a socket
+it opens. Cadence is the doc's: the host ticks every 10 s and the sensor drops the passes that are not due, so it reads every
+10 s while an agent session is live, every 60 s otherwise and not at all while the window is blurred with no agent
+running; "Run now" and the first pass after start bypass the gate (a new `SensorTrigger` argument to `run`). The
+sensor ignores the cadence setting. A connection from the app or its broker (found by its script path in `ps`) to an
+address no `EGRESS_HOSTS` entry resolves to is a `high` finding; Electron's helper processes are not counted as the suite
+because Chromium's network service carries the embedded browser. Agent processes are the pty roots' `ps` subtrees: the first
+connection to each `(address, port)` per repo is recorded in `<userData>/vanguard/network-baseline.json` (0600), and one
+not seen for 30 days is `medium`, or `high` when the process is unsigned (`codesign --verify`), the address has no reverse
+name (read as "raw IP", since `-n` prints only addresses) or it is on `NETWORK_THREAT_HOSTS` (shared; paste sites, tunnels,
+request catchers; extendable by Phase 122 C). Names come from forward lookups of the registry and threat lists and reverse
+lookups of new destinations, so the sensor does make DNS queries. The Network tab shows live connections grouped by process,
+suite first, each with its registry entry or flag, above the network findings; the snapshot is a new `vanguardConnections`
+channel. Wired in Studio (app pid, broker script, live agent pty pids through a new `liveAgentSessions`, window focus) and in
+`apps/vanguard` (its own pid, agent sessions from the shared broker plus the host's records, window focus). Known noise: the
+registry lists three hosts today, so the app's other legitimate main-process egress (forge, database, LLM) flags until Phase 115
+registers it; Mute handles it. Blocking stays deferred.
 
 **Theme F — Malware scanning.** ◻ A bundled YARA ruleset for the shapes this landscape actually has
 — ClickFix command lines, Shai-Hulud markers, poisoned `postinstall` scripts, AMOS droppers — run
@@ -254,21 +271,21 @@ each written back to the ledger.
 
 ### E — Network behaviour [M · ~1d]
 
-- [ ] **Connection snapshots.** `lsof -i -nP -F pcnPT` on the cadence (10 s while a session is
+- [x] **Connection snapshots.** `lsof -i -nP -F pcnPT` on the cadence (10 s while a session is
       live, 60 s otherwise, nothing while the window is blurred and no agent runs — the visibility
       gate from Phase 76), parsed into `{pid, command, remote host, port, state}`. The parser is pure
       and fixture-tested. [M]
-- [ ] **Our own processes against the registry.** A connection from a suite process (the app, its
+- [x] **Our own processes against the registry.** A connection from a suite process (the app, its
       broker, its helpers) to a host outside Phase 115 A's `EGRESS_HOSTS` is a `network` finding at
       `high` — it is exactly the leak the registry test cannot see, since the test covers `fetch` and
       not a native module. [S]
-- [ ] **Agent sessions against a baseline.** For processes under an agent session, the first
+- [x] **Agent sessions against a baseline.** For processes under an agent session, the first
       connection to each `(host, port)` is recorded; a destination not seen in that repo's last 30
       days is `medium`, and `high` when the process is unsigned or the host is a raw IP, a
       paste-site, a tunnel service (`ngrok`, `*.trycloudflare.com`, `*.loca.lt`) or a known
       exfiltration shape (`webhook.site`, `requestbin`, `*.burpcollaborator.net`). The list is a
       `shared` constant Phase 122 C's threat feed can extend. [M]
-- [ ] **The Network tab.** The catalog's "Network Monitor" feature: live connections grouped by
+- [x] **The Network tab.** The catalog's "Network Monitor" feature: live connections grouped by
       process, the suite's processes first, each row with the registry entry that allows it or the
       finding that flags it. Read-only; blocking is a deferred decision (see Decisions). [S]
 
@@ -359,7 +376,7 @@ each written back to the ledger.
       finding naming the session; committing the change clears it on the next baseline.
 - [ ] **D:** dropping a fixture plist into a temp `LaunchAgents` yields a `persistence` finding
       within one cadence; the ClickFix grammar has zero hits on the benign-command corpus.
-- [ ] **E:** a fixture `lsof` output with one unregistered host from the app's own pid yields one
+- [x] **E:** a fixture `lsof` output with one unregistered host from the app's own pid yields one
       `high` network finding; the parser handles IPv6 and `->` forms.
 - [ ] **F:** every rule's positive fixture matches under both `yara` and the built-in matcher; the
       benign corpus matches nothing.
