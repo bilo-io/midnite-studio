@@ -150,7 +150,10 @@ export function CompanionPanel({
       {pendingAction?.kind === 'choice' ? (
         <CompanionChoiceBar label={pendingAction.label} options={pendingAction.options} />
       ) : pendingAction ? (
-        <CompanionPendingActionBar label={pendingAction.label} />
+        <CompanionPendingActionBar
+          label={pendingAction.label}
+          {...(pendingAction.kind === 'statusReport' ? { confirmLabel: 'Yes', cancelLabel: 'Not now' } : {})}
+        />
       ) : null}
       <CompanionInputBar
         disabled={state === 'thinking'}
@@ -168,7 +171,16 @@ export function CompanionPanel({
  * three through {@link companionPorts}'s `submit` so there is exactly one
  * implementation of "confirm" and one of "dismiss".
  */
-function CompanionPendingActionBar({ label }: { label: string }) {
+function CompanionPendingActionBar({
+  label,
+  confirmLabel = 'Run',
+  cancelLabel = 'Cancel',
+}: {
+  label: string;
+  /** The greeting's status-report offer reads "Yes" / "Not now" — it is a question, not a command to run. */
+  confirmLabel?: string;
+  cancelLabel?: string;
+}) {
   return (
     <div
       className="flex shrink-0 items-center gap-2 border-t border-border bg-card/40 px-2.5 py-1.5 text-xs"
@@ -181,7 +193,7 @@ function CompanionPendingActionBar({ label }: { label: string }) {
         onClick={() => companionPorts().submit('cancel')}
         className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
       >
-        Cancel
+        {cancelLabel}
       </button>
       <button
         type="button"
@@ -189,7 +201,7 @@ function CompanionPendingActionBar({ label }: { label: string }) {
         onClick={() => companionPorts().submit('confirm')}
         className="rounded-md bg-primary/15 px-2 py-1 font-medium text-primary hover:bg-primary/25"
       >
-        Run
+        {confirmLabel}
       </button>
     </div>
   );

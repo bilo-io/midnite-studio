@@ -35,7 +35,7 @@ import {
   type AuditionPort,
 } from './audition';
 import { runCommand } from './command-runtime';
-import { phrase, say, matchRepoByName, type ConciergeDeps } from './concierge';
+import { orient, phrase, say, matchRepoByName, type ConciergeDeps } from './concierge';
 import { actOnResource, confirmChoice, takeChoice, type CompanionResourcePort } from './resource-handoff';
 import { actOnProfile, type CompanionProfilesPort } from './profile-handoff';
 import { continueTune, startTuneInterview, startTuneTweak, type TuneDeps } from './tune';
@@ -273,10 +273,12 @@ async function act(
   original: string,
   depth = 0,
 ): Promise<void> {
-  // A new request replaces a pending choice (Phase 112 Theme H); a yes, a no
-  // and a "stop" are answers to it, handled by their own arms.
+  // A new request replaces a pending choice (Phase 112 Theme H) or the
+  // greeting's status-report offer; a yes, a no and a "stop" are answers to
+  // it, handled by their own arms.
+  const pendingKind = deps.pendingAction()?.kind;
   if (
-    deps.pendingAction()?.kind === 'choice' &&
+    (pendingKind === 'choice' || pendingKind === 'statusReport') &&
     !['confirm', 'stop', 'dismiss', 'repeat', 'anyway'].includes(intent.kind)
   ) {
     deps.setPendingAction(null);
@@ -301,6 +303,13 @@ async function act(
       return repeatLast(deps);
 
     case 'dismiss':
+      // "No thanks" to the status report is an answer, not a cancellation —
+      // it gets the open prompt the report would have ended on.
+      if (deps.pendingAction()?.kind === 'statusReport') {
+        replacePending(deps, null);
+        await say(deps, phrase(deps, 'prompts'));
+        return;
+      }
       if (deps.pendingAction()) {
         replacePending(deps, null);
         await say(deps, 'Left it.');
@@ -349,6 +358,10 @@ async function act(
 
     case 'help':
       return speakHelp(deps);
+
+    // "Status report." "Sitrep." — the overview the greeting offers, any time.
+    case 'status':
+      return orient(deps);
 
     // Phase 109 Theme G — persona profiles, in `profile-handoff.ts`.
     case 'profile':
@@ -604,6 +617,10 @@ async function resolvePending(deps: HandoffDeps): Promise<void> {
   }
   // Phase 112 Theme H: a yes to "three chats match" is the first one.
   if (pending.kind === 'choice') return confirmChoice(pending, deps);
+  if (pending.kind === 'statusReport') {
+    deps.setPendingAction(null);
+    return orient(deps);
+  }
   // Phase 109 Theme D: an agent's change waiting on this yes. Asked before the
   // slot clears, so the asker reads it as a yes rather than a dismissal.
   if (pending.onConfirm !== undefined) {
@@ -694,7 +711,7 @@ async function speakHelp(deps: HandoffDeps): Promise<void> {
     (settings.length > 0
       ? ' You can tell me to change my voice, what I call you, or how loud I am — or say "tune yourself".'
       : '') +
-    ` Say "what can you do" any time.`;
+    ` Say "status report" for where things stand, or "what can you do" any time.`;
 
   const markdown = [
     '**Views**',

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { fixtures } from '../../../test-support/fixtures';
@@ -85,7 +85,7 @@ describe('the companion, gated through Settings and the quick-access menu', () =
     expect(screen.queryByTestId('companion-panel')).toBeNull();
   });
 
-  it('Settings ▸ Companion enables it, and the real greet() renders the digest as one formatted turn', async () => {
+  it('Settings ▸ Companion enables it, the real greet() offers a status report, and Yes renders the digest as one formatted turn', async () => {
     renderView(
       <>
         <SettingsView />
@@ -101,27 +101,32 @@ describe('the companion, gated through Settings and the quick-access menu', () =
 
     // The real `greetCompanion()` pipeline (registered by `register-flow-ports`
     // at import time), against the real mock bridge — not a hand-fed
-    // transcript. Ported from the deleted "the greeting arrives as one
-    // formatted turn" e2e test: a `<strong>`/`<code>` pair and a real PR link,
-    // inside one bubble.
+    // transcript. The opening greets and *offers*: no overview until asked.
     expect(await screen.findByTestId('companion-state-label')).toHaveProperty(
       'textContent',
       'Ready',
     );
     const thread = screen.getByTestId('companion-thread');
-    expect(thread.querySelector('[data-turn-role="companion"] strong')?.textContent).toBe(
-      'midnite-studio',
+    expect(thread.querySelectorAll('[data-turn-role="companion"]')).toHaveLength(2);
+    expect(thread.querySelector('[data-turn-role="companion"] strong')).toBeNull();
+    const yes = screen.getByTestId('companion-pending-run');
+    expect(yes.textContent).toBe('Yes');
+    expect(screen.getByTestId('companion-pending-cancel').textContent).toBe('Not now');
+
+    // Ported from the deleted "the greeting arrives as one formatted turn"
+    // e2e test: a `<strong>`/`<code>` pair and a real PR link, inside one
+    // bubble — now behind the offer's Yes.
+    fireEvent.click(yes);
+    await waitFor(() =>
+      expect(thread.querySelector('[data-turn-role="companion"] strong')?.textContent).toBe(
+        'midnite-studio',
+      ),
     );
     expect(thread.querySelector('[data-turn-role="companion"] code')).toBeTruthy();
     expect(
       thread.querySelectorAll('[data-turn-role="companion"] a[href*="/pull/265"]'),
     ).toHaveLength(1);
-
-    // At most 3 companion turns — greeting, overview, prompt — not the six to
-    // twelve one-sentence-per-bubble fragments the pre-fix greeting produced.
-    const companionTurns = thread.querySelectorAll('[data-turn-role="companion"]');
-    expect(companionTurns.length).toBeGreaterThan(0);
-    expect(companionTurns.length).toBeLessThanOrEqual(3);
+    expect(screen.queryByTestId('companion-pending-action')).toBeNull();
   });
 
   it('the popover mirrors the last companion turn, and Repeat appears once there is one', async () => {

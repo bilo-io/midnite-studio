@@ -40,6 +40,8 @@ import type { CompanionProfileResult } from './profiles';
  */
 
 export type FakeStore = ConciergeStore & {
+  /** The last action `setPendingAction` parked — the greeting's status-report offer. */
+  pending: Parameters<ConciergeStore['setPendingAction']>[0] | null;
   /** Every turn, in order, as `role: text` — the shape most assertions want. */
   lines: () => string[];
   /** The events that reached the machine, including the ones it refused. */
@@ -53,6 +55,10 @@ export function fakeStore(initial: CompanionState = 'idle'): FakeStore {
     transcript: [] as CompanionTurn[],
     recentPhrases: {} as Partial<Record<CompanionPhraseKind, string[]>>,
     events: [],
+    pending: null,
+    setPendingAction: (action) => {
+      store.pending = action;
+    },
     send: (event) => {
       store.events.push(event);
       store.state = transition(store.state, event);
