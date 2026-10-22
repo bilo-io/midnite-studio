@@ -7271,7 +7271,7 @@ by a machine restart; rebased 21 commits onto `main` (mostly docs/todo syncs plu
 - [x] **A** — `settings-pages/diff-page.tsx`: two accordions ("Diff view" `defaultOpen`, "File
       lists" not — Decision 3), a `Choice` per preference (`diffLayout`, `diffShowOldGutter` as
       on/off per Decision 1, `commitFileView`, `changesFileView`), a "Reset to defaults" button per
-      accordion backed by a new exported `DIF980EF_DEFAULTS`/`DiffLayout` in `ui-store.ts` so the
+      accordion backed by a new exported `DIFF_PREF_DEFAULTS`/`DiffLayout` in `ui-store.ts` so the
       page and the store's own initial state cannot disagree. `diff-page.test.tsx` (RTL) covers
       render/reflect/set/reset for all four controls.
 - [x] **B** — `diff` registered in `SettingsPageId`, `SETTINGS_PAGES` (beside Graph), `PAGE_CONTENT`
