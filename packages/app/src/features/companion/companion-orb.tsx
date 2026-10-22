@@ -247,7 +247,16 @@ export function computeSphericalHarmonicVertex(
  * every layer out before the edge, and in Zen the canvas bleeds
  * {@link ORB_ZEN_GLOW_BLEED} past its box so the corona has room to bloom.
  */
-export function CompanionOrb({ state, zen = false }: { state: CompanionState; zen?: boolean }) {
+export function CompanionOrb({
+  state,
+  zen = false,
+  compact = false,
+}: {
+  state: CompanionState;
+  zen?: boolean;
+  /** Zen only: a ~240px piece for hosts that stack it with text (the screensaver). */
+  compact?: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<CompanionState>(state);
   stateRef.current = state;
@@ -772,7 +781,9 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
       */
       className={
         zen
-          ? 'pointer-events-none relative flex h-[440px] w-[440px] shrink-0 items-center justify-center overflow-visible bg-transparent sm:h-[520px] sm:w-[520px]'
+          ? compact
+            ? 'pointer-events-none relative flex h-[200px] w-[200px] shrink-0 items-center justify-center overflow-visible bg-transparent sm:h-[240px] sm:w-[240px]'
+            : 'pointer-events-none relative flex h-[440px] w-[440px] shrink-0 items-center justify-center overflow-visible bg-transparent sm:h-[520px] sm:w-[520px]'
           : 'pointer-events-none relative mx-2 my-1 flex h-72 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-transparent'
       }
     >
