@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { BrowserNavError, BrowserPermissionKind, BrowserShortcutTile } from '@midnite/studio-shared';
+import type { BrowserNavError, BrowserPermissionKind, BrowserShortcutTile, SiteVerdict } from '@midnite/studio-shared';
 
 import { PREVIEW_DEPLOY_HOSTS } from './browser/preview-deploy';
 import { WALLPAPER_STORAGE_KEY, WALLPAPER_THEMES, type WallpaperTheme } from './browser/wallpaper';
@@ -77,6 +77,12 @@ export type BrowserTab = {
    * in-DOM surface rather than Chromium's own unstyled one.
    */
   navError?: BrowserNavError | null;
+  /**
+   * Main's judgement of the page this tab shows (Phase 117 Theme C) — replaced whole on every
+   * `verdict` event, which main sends on each main-frame commit and on every finding after it.
+   * Runtime-only: a restored tab has no page yet, so it is reset to `null` on persist.
+   */
+  verdict?: SiteVerdict | null;
   /**
    * `'sleeping'` once main has discarded this tab's `WebContentsView` for
    * sitting hidden past `Settings ▸ Browser`'s idle threshold (Phase 84
@@ -689,6 +695,7 @@ export const useBrowserStore = create<BrowserState>()(
           canGoForward: false,
           crashed: false,
           navError: null,
+          verdict: null,
           // No `WebContentsView` exists for a restored tab until it is
           // activated (see the module doc above) — it is neither live nor
           // sleeping, so `state` itself is absent rather than persisting

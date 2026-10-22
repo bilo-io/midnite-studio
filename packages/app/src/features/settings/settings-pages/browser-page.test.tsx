@@ -40,6 +40,16 @@ describe('BrowserPage (Phase 117 Theme B)', () => {
     expect(setSpellcheckSpy).toHaveBeenCalledWith({ enabled: true });
   });
 
+  it('Site safety: the proceed switch is off by default and flips the store (Phase 117 Theme C)', () => {
+    useUiStore.setState({ browserAllowSiteProceed: false });
+    renderWithChrome(<BrowserPage />);
+
+    const toggle = screen.getByTestId('browser-settings-site-proceed-toggle') as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    expect(useUiStore.getState().browserAllowSiteProceed).toBe(true);
+  });
+
   it('lists remembered permissions and allows revoking an individual permission', async () => {
     const permissionsListSpy = vi.fn().mockResolvedValue([
       { origin: 'https://example.com', permission: 'geolocation', value: 'allow', grantedAt: 123456789 },

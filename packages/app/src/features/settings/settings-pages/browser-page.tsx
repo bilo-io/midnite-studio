@@ -28,6 +28,8 @@ export function BrowserPage() {
   const setDiscardMs = useUiStore((s) => s.setBrowserDiscardMs);
   const spellcheck = useUiStore((s) => s.browserSpellcheck);
   const setSpellcheck = useUiStore((s) => s.setBrowserSpellcheck);
+  const allowSiteProceed = useUiStore((s) => s.browserAllowSiteProceed);
+  const setAllowSiteProceed = useUiStore((s) => s.setBrowserAllowSiteProceed);
   const previewDeployHosts = useBrowserStore((s) => s.previewDeployHosts);
   // Local, raw text rather than deriving straight from the store: parsing on
   // every keystroke would rejoin the list and normalise blank lines out from
@@ -208,6 +210,28 @@ export function BrowserPage() {
             onChange={(event) => setSpellcheck(event.target.checked)}
             aria-label="Check spelling while typing"
             data-testid="browser-settings-spellcheck-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="site-safety">Site safety</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Allow proceeding past a site warning</div>
+            <div className="text-muted-foreground text-[11px]">
+              Adds &ldquo;Proceed for this session&rdquo; to the certificate and dangerous-site warnings. Each proceed
+              covers one host until the app quits. Off by default, so a warning has no way past it. Reputation
+              feeds live under Settings ▸ Privacy.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={allowSiteProceed}
+            onChange={(event) => setAllowSiteProceed(event.target.checked)}
+            aria-label="Allow proceeding past a site warning"
+            data-testid="browser-settings-site-proceed-toggle"
             className="rounded border border-border bg-card"
           />
         </div>

@@ -9,12 +9,14 @@
 export { browserManifest, type BrowserManifest } from '../manifest';
 export {
   BrowserHostProvider,
+  DEFAULT_BROWSER_REPUTATION_FEEDS,
   useBrowserHost,
   type BrowserContextMenuProps,
   type BrowserDismissOptions,
   type BrowserHost,
   type BrowserMenuItem,
   type BrowserModalProps,
+  type BrowserReputationFeeds,
   type BrowserUiPatch,
   type BrowserUiState,
   type BrowserUiStore,

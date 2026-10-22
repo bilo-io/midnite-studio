@@ -1863,6 +1863,16 @@ export type UiState = {
   browserSpellcheck: boolean;
   setBrowserSpellcheck: (spellcheck: boolean) => void;
   /**
+   * Phase 117 Theme C — whether the browser's certificate / known-bad interstitial offers "Proceed for
+   * this session". Default off, the same shape as `allowForceWithLease`; pushed to main by the browser
+   * pane (`use-browser-tabs.ts`) on mount and on every change.
+   */
+  browserAllowSiteProceed: boolean;
+  setBrowserAllowSiteProceed: (allow: boolean) => void;
+  /** Phase 117 Theme C — Settings ▸ Privacy's reputation-feed switches (URLhaus, OpenPhish), each default off. */
+  browserReputationFeeds: { urlhaus: boolean; openphish: boolean };
+  setBrowserReputationFeed: (feed: 'urlhaus' | 'openphish', enabled: boolean) => void;
+  /**
    * Phase 64 Theme C — the Files-view Monaco editor's own preferences,
    * mirroring the terminal font trio above exactly. `editorFontFamily: ''` is
    * this field's own "unset" state, resolved to `DEFAULT_EDITOR_FONT_FAMILY`
@@ -2351,6 +2361,8 @@ export type PersistedUi = Pick<
   | 'terminalDisposeAfterMs'
   | 'browserDiscardMs'
   | 'browserSpellcheck'
+  | 'browserAllowSiteProceed'
+  | 'browserReputationFeeds'
   | 'editorFontFamily'
   | 'editorFontSize'
   | 'editorMinimap'
@@ -2581,6 +2593,11 @@ export const useUiStore = create<UiState>()(
         set({ browserSpellcheck });
         bridge()?.browser.setSpellcheck({ enabled: browserSpellcheck });
       },
+      browserAllowSiteProceed: false,
+      setBrowserAllowSiteProceed: (browserAllowSiteProceed) => set({ browserAllowSiteProceed }),
+      browserReputationFeeds: { urlhaus: false, openphish: false },
+      setBrowserReputationFeed: (feed, enabled) =>
+        set((state) => ({ browserReputationFeeds: { ...state.browserReputationFeeds, [feed]: enabled } })),
       editorFontFamily: '',
       setEditorFontFamily: (editorFontFamily) => set({ editorFontFamily }),
       editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
@@ -3570,6 +3587,8 @@ export const useUiStore = create<UiState>()(
         terminalDisposeAfterMs: state.terminalDisposeAfterMs,
         browserDiscardMs: state.browserDiscardMs,
         browserSpellcheck: state.browserSpellcheck,
+        browserAllowSiteProceed: state.browserAllowSiteProceed,
+        browserReputationFeeds: state.browserReputationFeeds,
         editorFontFamily: state.editorFontFamily,
         editorFontSize: state.editorFontSize,
         editorMinimap: state.editorMinimap,
