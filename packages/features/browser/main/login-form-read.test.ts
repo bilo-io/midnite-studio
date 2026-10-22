@@ -12,6 +12,9 @@ import { LOGIN_FORM_READ_SNIPPET, LOGIN_FORM_WORLD_ID, readLoginForm } from './l
 
 afterEach(resetPage);
 
+/** The DOM members the shadow-root and frame tests touch (main compiles without the DOM lib). */
+type ShadowDoc = { getElementById(id: string): { attachShadow(init: { mode: 'open' | 'closed' }): { innerHTML: string } } };
+
 describe('LOGIN_FORM_READ_SNIPPET', () => {
   it('finds no password field on a page without one', () => {
     loadPage('<form action="/search"><input name="q"></form>', 'https://example.com/');
@@ -50,6 +53,39 @@ describe('LOGIN_FORM_READ_SNIPPET', () => {
       'https://example.com/',
     );
     expect(runSnippet().formActionOrigins).toEqual(['https://example.com', 'https://drop.example.net']);
+  });
+
+  it('lists plain-http targets first, so other targets can never crowd them out of the cap', () => {
+    const buttons = Array.from({ length: 12 }, (_, i) => `<button formaction="https://t${i}.example/x">${i}</button>`).join('');
+    loadPage(
+      `<form action="https://a.example/x"><input type=password>${buttons}<button formaction="http://plain.example/x">p</button></form>`,
+      'https://example.com/',
+    );
+    const read = runSnippet();
+    expect(read.formActionOrigins[0]).toBe('http://plain.example');
+    expect(read.formActionOrigins).toHaveLength(10);
+  });
+
+  it('ignores formaction on elements that cannot submit', () => {
+    loadPage('<form action="/login"><input type=password><input type=text formaction="https://drop.example.net/x"></form>', 'https://example.com/');
+    expect(runSnippet().formActionOrigins).toEqual(['https://example.com']);
+  });
+
+  it('sees a password field inside an open shadow root — but not a closed one', () => {
+    loadPage('<div id="open"></div><div id="closed"></div>', 'https://example.com/');
+    const doc = (globalThis as unknown as { document: ShadowDoc }).document;
+    doc.getElementById('closed').attachShadow({ mode: 'closed' }).innerHTML = '<form action="https://hidden.example/x"><input type=password></form>';
+    expect(runSnippet()).toEqual({ hasPasswordField: false, formActionOrigins: [] });
+    doc.getElementById('open').attachShadow({ mode: 'open' }).innerHTML = '<form action="https://shadow.example/x"><input type=password></form>';
+    expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: ['https://shadow.example'] });
+  });
+
+  it('sees a password field inside a same-origin iframe', () => {
+    loadPage('<iframe id="f"></iframe>', 'https://example.com/');
+    const doc = (globalThis as unknown as { document: ShadowDoc }).document;
+    const inner = (doc.getElementById('f') as unknown as { contentDocument: { body: { innerHTML: string } } }).contentDocument;
+    inner.body.innerHTML = '<form action="https://framed.example/x"><input type=password></form>';
+    expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: ['https://framed.example'] });
   });
 
   it('counts a password field outside any form, with no action origin', () => {
