@@ -849,6 +849,14 @@ export type MidniteStudioBridge = {
     permissionsReset: () => Promise<void>;
     /** Toggles Chromium spellcheck on the browser partition (Phase 117 Theme B). */
     setSpellcheck: (req: In<typeof S.BrowserSetSpellcheckRequest>) => void;
+    /** Phase 117 Theme D — downloads opt-in and quarantine folder. */
+    setDownloads: (req: In<typeof S.BrowserSetDownloadsRequest>) => void;
+    /** Phase 117 Theme D — answers a download confirm. */
+    respondDownload: (req: In<typeof S.BrowserDownloadResponseRequest>) => void;
+    /** Phase 117 Theme E — tracker, cookie, referrer and UA switches. */
+    setPrivacy: (req: In<typeof S.BrowserSetPrivacyRequest>) => void;
+    /** Phase 117 Theme E — per-site protection exception. */
+    setTrackerException: (req: In<typeof S.BrowserTrackerSiteExceptionRequest>) => void;
     onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
   };
 

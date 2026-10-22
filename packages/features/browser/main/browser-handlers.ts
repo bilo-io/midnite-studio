@@ -17,12 +17,16 @@ import {
   ownerWindowForBrowserTab,
   reloadBrowserTab,
   resetAllBrowserPermissions,
+  resolveBrowserDownload,
   resolveBrowserPermission,
   revokeBrowserPermission,
   setBrowserBounds,
   setBrowserDiscardMs,
+  setBrowserDownloads,
   setBrowserKeepAwake,
+  setBrowserPrivacy,
   setBrowserSpellcheck,
+  setBrowserTrackerException,
   setBrowserVisible,
   setBrowserZoom,
   stopBrowserTab,
@@ -239,6 +243,29 @@ export function registerBrowserHandlers(ipc: RuntimeIpc, sender: BrowserSenderIp
     CHANNELS.browserSetSpellcheck,
     schemas.BrowserSetSpellcheckRequest,
     ({ enabled }) => setBrowserSpellcheck(enabled),
+    warnInvalid,
+  );
+
+  ipc.send(
+    CHANNELS.browserSetDownloads,
+    schemas.BrowserSetDownloadsRequest,
+    (req) => setBrowserDownloads(req),
+    warnInvalid,
+  );
+
+  ipc.send(
+    CHANNELS.browserDownloadResponse,
+    schemas.BrowserDownloadResponseRequest,
+    ({ requestId, decision }) => resolveBrowserDownload(requestId, decision),
+    warnInvalid,
+  );
+
+  ipc.send(CHANNELS.browserSetPrivacy, schemas.BrowserSetPrivacyRequest, (req) => setBrowserPrivacy(req), warnInvalid);
+
+  ipc.send(
+    CHANNELS.browserTrackerSiteException,
+    schemas.BrowserTrackerSiteExceptionRequest,
+    ({ host, allow }) => setBrowserTrackerException(host, allow),
     warnInvalid,
   );
 }

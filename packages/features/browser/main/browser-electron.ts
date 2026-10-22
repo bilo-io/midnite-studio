@@ -1,5 +1,6 @@
 import type { BrowserEvent, CommandId } from '@midnite/studio-shared';
 
+import type { RequestFilterSession } from './browser-request-filter';
 import type { DeviceSession, DownloadItemLike, PermissionSession } from './browser-security';
 
 /**
@@ -101,6 +102,10 @@ export type BrowserSession = PermissionSession & DeviceSession & {
   on(event: 'will-download', listener: (event: unknown, item: DownloadItemLike, webContents: unknown) => void): void;
   /** Phase 117 Theme A: Chromium's spellchecker sends typed text to the OS service — off by policy. */
   setSpellCheckerEnabled(enabled: boolean): void;
+  /** Phase 117 Theme E: the one `webRequest` listener per event, owned by `browser-request-filter.ts`. */
+  webRequest?: RequestFilterSession['webRequest'];
+  getUserAgent?(): string;
+  setUserAgent?(ua: string): void;
   clearStorageData(): Promise<void>;
   clearCache(): Promise<void>;
   /** `session.cookies` — `get({})` is every cookie in the partition. */
