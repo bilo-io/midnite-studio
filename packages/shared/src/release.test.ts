@@ -5,6 +5,7 @@ import {
   appIssueBody,
   appIssueFormUrl,
   extractChangelogSection,
+  isAppIssuesUrl,
   NEW_ISSUE_URL,
   releasePageUrl,
 } from './release';
@@ -187,5 +188,45 @@ describe('appIssueBody', () => {
     const body = appIssueBody({ ...draft, version: '0.0.0', diagnostics: '  ' });
     expect(body).not.toContain('### Version');
     expect(body).not.toContain('### Errors or logs');
+  });
+});
+
+describe('a report from another suite app', () => {
+  const draft = { kind: 'bug' as const, title: '[bug] x', description: 'It broke.', diagnostics: '' };
+
+  it('files under its own App answer, in the body and in the form URL', () => {
+    expect(appIssueBody({ ...draft, app: 'midnite-monitor' })).toMatch(/^### App\n\nmidnite-monitor\n/);
+    expect(new URL(appIssueFormUrl({ ...draft, app: 'midnite-monitor' })).searchParams.get('app')).toBe(
+      'midnite-monitor',
+    );
+  });
+
+  it("falls back to Studio's answer when the app names none", () => {
+    expect(appIssueBody(draft)).toMatch(/^### App\n\nmidnite-studio\n/);
+    expect(new URL(appIssueFormUrl(draft)).searchParams.get('app')).toBe('midnite-studio');
+  });
+});
+
+describe('isAppIssuesUrl — what the report bridge may open', () => {
+  it('takes midnite-apps issue pages: the list, the form, one issue', () => {
+    expect(isAppIssuesUrl('https://github.com/bilo-io/midnite-apps/issues')).toBe(true);
+    expect(isAppIssuesUrl('https://github.com/bilo-io/midnite-apps/issues/42')).toBe(true);
+    expect(isAppIssuesUrl(appIssueFormUrl({ kind: 'bug', title: 't', description: 'd', diagnostics: '' }))).toBe(true);
+    expect(isAppIssuesUrl(NEW_ISSUE_URL)).toBe(true);
+  });
+
+  it('refuses everything else, including look-alikes', () => {
+    for (const url of [
+      'http://github.com/bilo-io/midnite-apps/issues/1',
+      'https://github.com/bilo-io/midnite-apps/pulls',
+      'https://github.com/bilo-io/midnite-apps/issuesx',
+      'https://github.com/bilo-io/midnite-studio/issues/1',
+      'https://github.com.evil.example/bilo-io/midnite-apps/issues',
+      'https://user@github.com/bilo-io/midnite-apps/issues',
+      'file:///etc/passwd',
+      'not a url',
+    ]) {
+      expect(isAppIssuesUrl(url), url).toBe(false);
+    }
   });
 });

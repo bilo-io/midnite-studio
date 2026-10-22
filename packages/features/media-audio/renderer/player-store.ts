@@ -51,6 +51,8 @@ export type PlayerActions = {
   toggleShuffle: () => void;
   cycleLoop: () => void;
   stop: () => void;
+  /** Returns the underlying `HTMLAudioElement` when running in a browser DOM. */
+  getAudioElement: () => HTMLAudioElement | null;
 };
 
 export type PlayerStore = PlayerState & PlayerActions;
@@ -207,6 +209,8 @@ export function createPlayerStore(makeAudio: () => AudioLike, random: () => numb
         audio?.pause();
         set({ ...initial, volume: get().volume, shuffle: get().shuffle, loop: get().loop });
       },
+      getAudioElement: () =>
+        typeof HTMLAudioElement !== 'undefined' && audio instanceof HTMLAudioElement ? audio : null,
     };
   });
 }

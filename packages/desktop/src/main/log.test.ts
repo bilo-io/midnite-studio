@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createLogger, defaultLogger, formatError, getLogSink, setLogSink } from './log';
-import type { LogLevel, LogSink } from './log-sink';
+import type { LogLevel, LogSink } from '@midnite/studio-runtime';
 
 /** A sink that records what it was told, and optionally blows up doing it. */
 function fakeSink(onWrite?: () => void): LogSink & { records: Array<[LogLevel, string]> } {

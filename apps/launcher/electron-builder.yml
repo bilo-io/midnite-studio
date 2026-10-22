@@ -36,6 +36,9 @@ mac:
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.inherit.plist
   notarize: false
+# Ad-hoc sign the bundle so it passes `codesign --verify --deep --strict` without a cert, which is
+# what install.sh checks. A cert, when there is one, replaces it at the signing step after this.
+afterPack: scripts/afterpack.cjs
 afterSign: scripts/notarize.cjs
 
 # The `midnite://open?app=…` router (Phase 113 Theme D): the launcher is the registered handler.

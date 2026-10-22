@@ -3,6 +3,7 @@ import type { FrameChrome } from '@midnite/studio-frame';
 import { ConfirmDialog } from '../components/confirm-dialog';
 import { useDialogs } from '../components/dialog-host';
 import { IconButton } from '../components/icon-button';
+import { Modal } from '../components/modal';
 import { PageDetachMark } from '../components/page-detach-mark';
 
 /**
@@ -17,4 +18,6 @@ export const STUDIO_CHROME = {
   ConfirmDialog,
   useDialogs,
   PageDetachMark,
+  // A feature's dialog (the report feature's) joins Studio's dismissal stack and occluder count.
+  Modal,
 } as const satisfies FrameChrome;

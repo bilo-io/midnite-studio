@@ -1245,46 +1245,7 @@ test.describe('terminal panel', () => {
 });
 
 /**
- * Written into `docs/screenshots/`, the way every visual phase here does — the
- * shots stay readable in the repo long after a test run's artefacts are gone.
- */
-test.describe('phase 15 screenshots', () => {
-  test('the panel, and the panel maximized', async ({ page }) => {
-    // Phase 56 Theme F: this test exists to produce the two PNGs below, so
-    // ungated it rewrote them on every routine `app:e2e` run rather than an
-    // explicit regeneration.
-    test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
-    await open(page, { terminalSessions: RESTORED });
-    await toggleTerminal(page);
-
-    // Revive the first two so the shot shows both states — live rows and a
-    // dimmed one — which is the thing the session list exists to tell apart.
-    /*
-      Revive first, THEN type.
-
-      The keystroke that wakes a dead session is deliberately not forwarded —
-      it belongs to the gesture, not to the command line — so typing straight
-      into a restored pane loses its first character and the shot shows a shell
-      complaining about `it status`. Waiting for the pty is what separates the
-      two, and it is the same order a person uses without thinking about it.
-    */
-    await page.locator('.xterm-screen').first().click();
-    await page.keyboard.press('Enter');
-    await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(1);
-    await page.waitForTimeout(200);
-    await page.keyboard.type('git status\r');
-    await page.waitForTimeout(400);
-
-    await page.screenshot({ path: '../../docs/screenshots/phase-15-terminals.png' });
-
-    await page.getByRole('button', { name: 'Expand terminal' }).click();
-    await page.waitForTimeout(300);
-    await page.screenshot({ path: '../../docs/screenshots/phase-15-terminal-maximized.png' });
-  });
-});
-
-/**
- * Phase 21 Theme F's own shots: the header strip alone, at two widths.
+ * Phase 21 Theme F's own tests: the header strip alone, at two widths.
  *
  * Clipped to the strip rather than the window, because the change IS the strip
  * — a full-app shot renders it 20px tall in a corner and the two-tone path,
@@ -1323,22 +1284,11 @@ test.describe('phase 21 screenshots', () => {
     await expect(header.locator('[title]').first()).toHaveText(
       '~/midnite-studio/.worktrees/theme-f/packages/app',
     );
-    // Phase 56 Theme F: the truncation assertions above are this test's real
-    // coverage, so only the screenshots are gated.
-    if (process.env.MSTUDIO_SHOTS) {
-      await header.screenshot({ path: '../../docs/screenshots/phase-21-terminal-header.png' });
-    }
 
     // Narrow enough that the ancestors have to give way — which is the whole
     // reason the path truncates from the left rather than the right. The tail
     // is what survives, and the tail is where you are.
     await page.setViewportSize({ width: 640, height: 800 });
-    await page.waitForTimeout(300);
-    if (process.env.MSTUDIO_SHOTS) {
-      await header.screenshot({
-        path: '../../docs/screenshots/phase-21-terminal-header-narrow.png',
-      });
-    }
   });
 
   /**
@@ -1360,32 +1310,10 @@ test.describe('phase 21 screenshots', () => {
     await expect.poll(async () => (await ptyCalls(page)).creates.length).toBe(2);
     await page.waitForTimeout(200);
 
-    /*
-      The whole panel, not just the list. The header's glyph is half of what
-      Theme E changes, and the list at its default width truncates every label
-      to three characters — a crop of it shows the marks swapping but nothing
-      about which session each one belongs to.
-    */
-    const list = panel(page);
-    // Phase 56 Theme F: the probe assertions above are this test's real
-    // coverage, so only the screenshots are gated.
-    if (process.env.MSTUDIO_SHOTS) {
-      await list.screenshot({
-        path: '../../docs/screenshots/phase-21-live-agent-before.png',
-      });
-    }
-
     // What main's probe found: Codex running in the plain shell, and nothing at
     // all in the session that was opened for Claude Code.
     await emitAgentChanged(page, 'codex', 'pty-1');
     await emitAgentChanged(page, null, 'pty-2');
-    await page.waitForTimeout(200);
-
-    if (process.env.MSTUDIO_SHOTS) {
-      await list.screenshot({
-        path: '../../docs/screenshots/phase-21-live-agent-after.png',
-      });
-    }
   });
 
   /**
@@ -1506,45 +1434,5 @@ test.describe('adhoc: terminal sidebar gap', () => {
     await open(page, { terminalSessions: RESTORED });
     await toggleTerminal(page);
     await expect(rows(page)).toHaveCount(3);
-
-    const list = page.locator('[data-session-list]');
-    const target = panel(page);
-
-    if (process.env.MSTUDIO_SHOTS) {
-      // "Before": inject the old top padding back, matching the real pb-1's
-      // own computed value so the simulated gap is pixel-accurate.
-      await list.evaluate((el) => {
-        const bottom = getComputedStyle(el).paddingBottom;
-        (el as HTMLElement).style.paddingTop = bottom;
-      });
-      await target.screenshot({ path: '../../docs/screenshots/adhoc-terminal-sidebar-gap-before.png' });
-
-      // "After": the real, fixed render — no inline override.
-      await list.evaluate((el) => {
-        (el as HTMLElement).style.paddingTop = '';
-      });
-      await target.screenshot({ path: '../../docs/screenshots/adhoc-terminal-sidebar-gap-after.png' });
-
-      // Dark theme too — a gap under a hairline border reads differently
-      // depending on how much the border itself stands out from the fill.
-      await page.getByRole('button', { name: 'Toggle theme' }).click();
-      await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click();
-      await expect(page.locator('html')).toHaveClass(/dark/);
-
-      await list.evaluate((el) => {
-        const bottom = getComputedStyle(el).paddingBottom;
-        (el as HTMLElement).style.paddingTop = bottom;
-      });
-      await target.screenshot({
-        path: '../../docs/screenshots/adhoc-terminal-sidebar-gap-before-dark.png',
-      });
-
-      await list.evaluate((el) => {
-        (el as HTMLElement).style.paddingTop = '';
-      });
-      await target.screenshot({
-        path: '../../docs/screenshots/adhoc-terminal-sidebar-gap-after-dark.png',
-      });
-    }
   });
 });

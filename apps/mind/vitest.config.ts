@@ -13,6 +13,8 @@ export default defineConfig({
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
       '@midnite/studio-frame/knowledge': at('../../packages/frame/src/knowledge/index.ts'),
       '@midnite/studio-knowledge': at('../../packages/knowledge/src/index.ts'),
+      '@midnite/studio-feature-report/main': at('../../packages/features/report/main/index.ts'),
+      '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
       '@midnite/studio-runtime': at('../../packages/runtime/src/index.ts'),
       '@midnite/studio-feature-notes/main': at('../../packages/features/notes/main/index.ts'),

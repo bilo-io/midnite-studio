@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -11,6 +12,8 @@ type Media = MidniteStudioBridge['media'];
  * even by accident; no git, pty or browser (`bridge.test.ts` holds the list).
  */
 export type CreatorBridge = {
+  /** Report an Issue: the dialog's channels and the Help-menu event (`createReportBridge`). */
+  report: ReportBridge;
   /** The whole Video surface — projects, the studio, renders, the toolchain, Setup and the engine. */
   video: MidniteStudioBridge['video'];
   media: Pick<Media, 'project' | 'file' | 'reveal' | 'ffmpegStatus' | 'export' | 'cancelExport' | 'onChanged' | 'onExportProgress'> & {
@@ -29,8 +32,10 @@ export type CreatorBridge = {
 export type { RendererIpc };
 
 export function createCreatorBridge(ipc: RendererIpc): CreatorBridge {
-  const { call, subscribe } = createBridgeSlice(ipc);
+  const { call, send, subscribe } = createBridgeSlice(ipc);
   return {
+    // Report an Issue — the report feature's own preload half (`@midnite/studio-feature-report/bridge`).
+    report: createReportBridge({ call, send, subscribe }),
     video: {
       project: {
         list: () => call(CHANNELS.videoProjectList),

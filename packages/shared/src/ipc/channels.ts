@@ -1294,6 +1294,15 @@ export const CHANNELS = {
    * own, different, channel prefix.
    */
   reportSubmitIssue: 'mstudio:report:submit-issue',
+  /**
+   * The report feature's own reads and hand-offs (`packages/features/report`), so a suite app wires
+   * one `report` namespace rather than `forge`, `shell` and `clipboard` beside it: `gh`'s readiness,
+   * opening a midnite-apps issue page (jailed to that repo's issues — `ReportOpenUrlRequest`), and
+   * Copy report.
+   */
+  reportGhStatus: 'mstudio:report:gh-status',
+  reportOpenUrl: 'mstudio:report:open-url',
+  reportCopy: 'mstudio:report:copy',
 
   // --- api client (Phase 66) ---------------------------------------------------
   // A Postman-compatible client. Collections live repo-local, under
@@ -1653,6 +1662,12 @@ export const EVENT_CHANNELS = {
   windowStateChanged: 'mstudio:window:state-changed',
   /** A native-menu item fired — carries a CommandId, dispatched like a keybinding. */
   menuCommand: 'mstudio:menu:command',
+  /**
+   * Main → renderer: open the report dialog — the Help ▸ Report an Issue… item of an app with no
+   * command palette (`reportIssueMenuItem`, the report feature). Studio routes the same click
+   * through `menuCommand` as `app.reportIssue` instead.
+   */
+  reportOpen: 'mstudio:report:open',
   /**
    * The tree's first main→renderer request (Phase 81 Theme F) —
    * `{ id, action: CompanionUiAction }`, sent only to `getMainWindow()`

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuX } from 'react-icons/lu';
+import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuTrash2, LuX } from 'react-icons/lu';
 
-import type { ThemeSource } from '../common/bridge';
+import type { LauncherResult, ThemeSource } from '../common/bridge';
 import { APPS, SECTION_LABELS, appById, type AppId, type LauncherApp } from '../common/catalog';
 import { getBridge } from './bridge';
 import { AppDetail } from './components/app-detail';
@@ -9,7 +9,16 @@ import type { MenuItem } from './components/app-menu';
 import { AppTable } from './components/app-table';
 import { AppTile } from './components/app-tile';
 import { LauncherWordmark } from './components/wordmark';
-import { FILTER_LABELS, FILTERS, filterCounts, visibleSections, type Filter, type SortKey } from './model';
+import {
+  FILTER_LABELS,
+  FILTERS,
+  filterCounts,
+  removableApps,
+  removalSummary,
+  visibleSections,
+  type Filter,
+  type SortKey,
+} from './model';
 import { applyTheme, readTheme } from './theme';
 import { useApps } from './use-apps';
 
@@ -55,6 +64,8 @@ export function App() {
   const [detail, setDetail] = useState<LauncherApp | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [confirmUninstall, setConfirmUninstall] = useState<LauncherApp | null>(null);
+  const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
+  const [removingAll, setRemovingAll] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: 'error' | 'info' } | null>(null);
 
   // A `midnite://` link for an app that cannot open yet lands here: its detail sheet, which is where Install lives.
@@ -149,6 +160,20 @@ export function App() {
     ];
   };
 
+  const removable = useMemo(() => removableApps(viewOf), [viewOf]);
+  // One at a time, through the same per-app ops as each tile's own Move to Trash, so every guard
+  // still applies; a running app refuses and is reported, and the rest still go.
+  const removeAll = async (targets: readonly LauncherApp[]) => {
+    setRemovingAll(true);
+    const results: { app: LauncherApp; result: LauncherResult }[] = [];
+    try {
+      for (const app of targets) results.push({ app, result: await apps.uninstall(app) });
+    } finally {
+      setRemovingAll(false);
+    }
+    setToast(removalSummary(results));
+  };
+
   const studioView = viewOf(STUDIO_APP);
   const showBanner = studioView.state === 'update' && !bannerDismissed && studio.status?.latest;
 
@@ -194,6 +219,16 @@ export function App() {
             disabled={apps.refreshing}
           >
             <LuRefreshCw size={15} className={apps.refreshing ? 'spin' : undefined} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-icon topbar-remove-all"
+            aria-label="Move all apps to Trash…"
+            title={removable.length === 0 ? 'No apps installed' : 'Move all apps to Trash…'}
+            onClick={() => setConfirmRemoveAll(true)}
+            disabled={removable.length === 0 || removingAll}
+          >
+            <LuTrash2 size={15} />
           </button>
         </div>
       </header>
@@ -315,6 +350,46 @@ export function App() {
                 }}
               >
                 Move to Trash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmRemoveAll && (
+        <div className="sheet-backdrop sheet-backdrop-center">
+          <div className="dialog" role="alertdialog" aria-modal="true" aria-labelledby="remove-all-title">
+            <h2 id="remove-all-title" className="dialog-title">
+              Move {removable.length === 1 ? 'this app' : `all ${removable.length} apps`} to the Trash?
+            </h2>
+            <ul className="dialog-list">
+              {removable.map((app) => (
+                <li key={app.id}>
+                  Midnite {app.name}
+                  {app.id === 'studio' && studio.status?.running ? ' — running, will be skipped' : ''}
+                </li>
+              ))}
+            </ul>
+            <p className="dialog-body">
+              {removable.some((app) => app.id === 'studio')
+                ? `Every app in this launcher runs in Midnite Studio today, so they all go with it. `
+                : ''}
+              An app that is running is skipped — quit it first. Midnite Apps stays, your settings, repositories and media stay where
+              they are, and you can put any of them back from the Trash.
+            </p>
+            <div className="dialog-actions">
+              <button type="button" className="btn" onClick={() => setConfirmRemoveAll(false)} autoFocus>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => {
+                  setConfirmRemoveAll(false);
+                  void removeAll(removable);
+                }}
+              >
+                Move all to Trash
               </button>
             </div>
           </div>

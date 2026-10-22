@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { vaultManifest } from '@midnite/studio-feature-vault/renderer';
@@ -8,8 +8,19 @@ import { FEATURE_PLACEMENT, FEATURE_VIEWS, placementOwners } from '@midnite/stud
 import { VaultApp } from './vault-app';
 import { VAULT_APP } from './vault-manifest';
 
+let onReportOpen: (() => void) | null = null;
+
 beforeEach(() => {
+  onReportOpen = null;
   window.midniteStudio = {
+    report: {
+      onOpen: vi.fn((handler: () => void) => {
+        onReportOpen = handler;
+        return () => undefined;
+      }),
+      bundle: vi.fn(async () => ({ text: '' })),
+      ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+    },
     secrets: { has: vi.fn(async () => ({ hasKey: false })), set: vi.fn() },
     forgeAccounts: { list: vi.fn(async () => []), add: vi.fn(), remove: vi.fn() },
     db: { listConnections: vi.fn(async () => []), deleteConnection: vi.fn() },
@@ -52,5 +63,13 @@ describe('Vault home view', () => {
     // The sign-ins are Studio's partitions: said plainly, with nothing to press.
     expect(await screen.findByText(/live in Midnite Studio’s own browser sessions/)).toBeDefined();
     expect(screen.queryByRole('button', { name: /^Sign (in to|out of)/ })).toBeNull();
+  });
+
+  it('mounts Report an Issue for midnite-vault: the menu event opens the dialog', async () => {
+    render(<VaultApp />);
+    expect(onReportOpen).not.toBeNull();
+    expect(screen.queryByText('Report an issue')).toBeNull();
+    act(() => onReportOpen?.());
+    expect(await screen.findByText('Report an issue')).toBeDefined();
   });
 });

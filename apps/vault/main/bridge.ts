@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -20,12 +21,15 @@ export type VaultBridge = {
    * they answer "needs Studio" (`NEEDS_STUDIO_SIGN_INS`): the partitions are Studio's.
    */
   webApps: Pick<MidniteStudioBridge['webApps'], 'signIns' | 'signOut'>;
+  /** Report an Issue — the report feature's own bridge half. */
+  report: ReportBridge;
 };
 
 export type { RendererIpc };
 
 export function createVaultBridge(ipc: RendererIpc): VaultBridge {
-  const { call } = createBridgeSlice(ipc);
+  const slice = createBridgeSlice(ipc);
+  const { call } = slice;
   return {
     secrets: {
       has: (req) => call(CHANNELS.secretsHas, req),
@@ -53,5 +57,6 @@ export function createVaultBridge(ipc: RendererIpc): VaultBridge {
       signIns: (req) => call(CHANNELS.webAppsSignIns, req),
       signOut: (req) => call(CHANNELS.webAppsSignOut, req),
     },
+    report: createReportBridge(slice),
   };
 }

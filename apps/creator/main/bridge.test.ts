@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 
-import { CHANNELS } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { createCreatorBridge, type RendererIpc } from './bridge';
 
@@ -15,9 +15,9 @@ function fakeIpc(): RendererIpc {
 }
 
 describe('createCreatorBridge', () => {
-  it('exposes only media — no secrets, git, pty or browser', () => {
+  it('exposes only media, video and report — no secrets, git, pty or browser', () => {
     const bridge = createCreatorBridge(fakeIpc());
-    expect(Object.keys(bridge).sort()).toEqual(['media', 'video']);
+    expect(Object.keys(bridge).sort()).toEqual(['media', 'report', 'video']);
     expect(Object.keys(bridge.media).sort()).toEqual(
       ['audio', 'cancelExport', 'doc', 'export', 'ffmpegStatus', 'file', 'image', 'music', 'onChanged', 'onExportProgress', 'project', 'reveal'].sort(),
     );
@@ -42,5 +42,19 @@ describe('createCreatorBridge', () => {
     await media.image.providers();
     await createCreatorBridge(ipc).video.project.list();
     expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([CHANNELS.mediaProjectList, CHANNELS.mediaImageProviders, CHANNELS.videoProjectList]);
+  });
+});
+
+describe('report namespace', () => {
+  it("is the report feature's own bridge: its channels over invoke, the crash report over send, the Help-menu event over on", async () => {
+    const ipc: RendererIpc = { invoke: vi.fn(async () => ({})), send: vi.fn(), on: vi.fn(() => undefined), removeListener: vi.fn() };
+    const { report } = createCreatorBridge(ipc);
+    await report.ghStatus();
+    report.error({ source: 'window', name: 'E', message: 'm', stack: '' } as never);
+    const off = report.onOpen?.(() => undefined);
+    expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([CHANNELS.reportGhStatus]);
+    expect(vi.mocked(ipc.send).mock.calls.map((c) => c[0])).toEqual([CHANNELS.reportError]);
+    expect(vi.mocked(ipc.on).mock.calls.map((c) => c[0])).toEqual([EVENT_CHANNELS.reportOpen]);
+    expect(typeof off).toBe('function');
   });
 });

@@ -4585,6 +4585,13 @@ export function buildMockBridge(data: MockFixtures) {
       logPath: async () => ({ path: null }),
       bundle: async () => ({ text: '' }),
       reveal: async () => ({ ok: true as const }),
+      // Report an Issue (the report feature): `gh` reads the same seeded state as the forge's
+      // probe — Studio shares one — and nothing is ever filed, opened or copied for real.
+      ghStatus: async () => forgeCli(),
+      submitIssue: async () => ({ ok: false, cli: forgeCli(), error: null, url: null }),
+      openUrl: async () => ({ ok: true as const }),
+      copy: async () => ({ ok: true }),
+      onOpen: () => () => {},
     },
     metrics: {
       start: (req: { intervalMs: number; freshDisk?: boolean }) => {

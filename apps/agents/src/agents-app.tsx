@@ -5,6 +5,7 @@ import { ChatsHostProvider } from '@midnite/studio-feature-chats/renderer';
 import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer';
 import { WorkflowsHostProvider } from '@midnite/studio-feature-workflows/renderer';
 import { ModelsHostProvider, useRefetchModelsOnFocus, useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/renderer';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 
 import { AGENTS_CHROME, AgentsDialogHost } from './compose/agents-chrome';
@@ -35,6 +36,7 @@ export function AgentsApp() {
               <WorkflowsHostProvider host={AGENTS_WORKFLOWS_HOST}>
                 <ModelsRefetch />
                 <AgentsHome />
+                <ReportIssueHost app="midnite-agents" />
                 <AgentsDialogHost />
               </WorkflowsHostProvider>
             </ChatsHostProvider>

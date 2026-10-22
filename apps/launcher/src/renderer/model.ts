@@ -72,3 +72,28 @@ export function visibleSections(opts: {
     return { section, apps };
   }).filter((group) => group.apps.length > 0);
 }
+
+/**
+ * What "Move all apps to Trash" removes: Studio and every app installed as its own bundle. A
+ * Studio-hosted tile is not listed — it goes with Studio. Studio comes last, after the bundles.
+ */
+export function removableApps(viewOf: (app: LauncherApp) => { state: AppInstallState; source: 'bundle' | 'studio' }): LauncherApp[] {
+  const installed = APPS.filter((app) => {
+    const view = viewOf(app);
+    return (view.state === 'installed' || view.state === 'update') && (app.id === 'studio' || view.source === 'bundle');
+  });
+  return [...installed.filter((app) => app.id !== 'studio'), ...installed.filter((app) => app.id === 'studio')];
+}
+
+/** One toast for a bulk removal: how many went, and each skipped app with its reason. */
+export function removalSummary(results: readonly { app: LauncherApp; result: { ok: boolean; message?: string } }[]): {
+  message: string;
+  tone: 'error' | 'info';
+} {
+  const moved = results.filter((r) => r.result.ok).length;
+  const skipped = results.filter((r) => !r.result.ok);
+  const noun = (n: number) => (n === 1 ? 'app' : 'apps');
+  if (skipped.length === 0) return { message: `Moved ${moved} ${noun(moved)} to the Trash.`, tone: 'info' };
+  const reasons = skipped.map(({ app, result }) => `Midnite ${app.name}: ${result.message ?? 'could not be removed.'}`).join(' ');
+  return { message: `Moved ${moved} of ${results.length} ${noun(results.length)} to the Trash. Skipped — ${reasons}`, tone: 'error' };
+}

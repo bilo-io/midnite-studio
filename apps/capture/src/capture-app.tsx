@@ -2,6 +2,7 @@ import {
   CaptureHostProvider,
   STANDALONE_CAPTURE_HOST,
 } from '@midnite/studio-feature-capture/renderer';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 
 import { CAPTURE_CHROME, CaptureDialogHost } from './compose/capture-chrome';
@@ -17,6 +18,7 @@ export function CaptureApp() {
       <CaptureHostProvider host={STANDALONE_CAPTURE_HOST}>
         <CaptureHome />
       </CaptureHostProvider>
+      <ReportIssueHost app="midnite-capture" />
       <CaptureDialogHost />
     </FrameChromeProvider>
   );

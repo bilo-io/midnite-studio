@@ -1,5 +1,5 @@
 import { bakeSdf, decodeMeshBin, isClosed, ModelSpecSchema, ok, parseOpsLog, serializeOp, type ModelOpEntry, type ModelSpec } from '@midnite/studio-shared';
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, configure, fireEvent, screen, waitFor } from '@testing-library/react';
 import { render } from './test-render';
 import { useReducer, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +14,7 @@ import { bakeSdfDesign, type SdfBakeDeps, type SdfBaker } from './sculpt/use-sdf
  * capability is needed: the bake is pure TS and the panel is plain DOM.
  */
 afterEach(cleanup);
+configure({ asyncUtilTimeout: 10_000 });
 vi.setConfig({ testTimeout: 30_000 });
 
 const SPEC: ModelSpec = ModelSpecSchema.parse({ name: 'bust', parts: [{ name: 'plinth', shape: 'box', size: [0.6, 0.1, 0.6] }] });

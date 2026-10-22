@@ -7,7 +7,6 @@ import {
   installMockBridge,
   type MockFixtures,
   prepareForVisualCapture,
-  setShotViewport,
   stubGravatars,
 } from '../shots-helper';
 
@@ -77,7 +76,7 @@ async function open(
     },
   );
   await installMockBridge(page, data);
-  await setShotViewport(page, { width: 1280, height: 800 });
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
   // A cold Vite dev server can take a while to serve the first module graph.
   await expect(page.getByRole('banner', { name: 'Window title bar' })).toBeVisible({

@@ -83,10 +83,13 @@ held. `notarize` in
 `afterSign: scripts/notarize.cjs`, which runs `@electron/notarize` only when `APPLE_ID`,
 `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` are all set and logs `skipped` otherwise, so
 builder's own flag would notarise a second time. With no certificate, an ad-hoc-signed
-`hardenedRuntime` build gets nothing from Gatekeeper, and `install.sh`'s `spctl --assess` gate says
-so. The five
+`hardenedRuntime` build gets nothing from Gatekeeper, and `install.sh`'s `spctl --assess` check says
+so in a warning. The five
 Apple/CSC secrets stay unset, until one exists. Every build ships ad-hoc signed
-(`afterpack.cjs` re-signs after electron-builder strips the signature copying `resources/`), and
+(Studio's `afterpack.cjs` re-signs after electron-builder strips the signature copying `resources/`;
+the launcher's own `apps/launcher/scripts/afterpack.cjs` does the same and fails the build if it
+cannot — up to v0.0.3 the launcher had no such hook and shipped Electron's unsealed linker
+signature, which its own installer refused), and
 `manualInstall` — the curl-installer / `brew upgrade` route rather than the in-app updater's
 "Restart to install" — is the permanent update path until then, not a placeholder for one.
 
@@ -109,14 +112,31 @@ After Studio's `release` and `publish-feed`, the `publish-suite` job:
 
 `release.yml`'s `release` job writes **`SHA256SUMS`** (`<sha256>  <basename>` for every dmg and zip)
 and uploads it with the release. `install.sh` and the launcher's in-app install check the zip's
-SHA-256 **before extracting it**, then `codesign --verify --deep --strict` and `spctl --assess` on
-the extracted bundle **before** swapping it in; the quarantine strip only runs for a bundle both
-passed. An ad-hoc-signed build fails `spctl`, so installing one needs
-`MIDNITE_STUDIO_ALLOW_UNSIGNED=1` (`MIDNITE_LAUNCHER_ALLOW_UNSIGNED=1` for the launcher). Where the
-digest comes from: `catalog.json`'s per-app `sha256` (already built from the uploaded files), then
-a `sha256` field in `midnite-studio/version.json`. **The sibling repo's `release-feed.yml` needs the
-paired edit to write that field** (it is outside this repo); until it does, a feed with no digest
-installs with a printed warning, so already-published versions stay installable. Electron fuses
+SHA-256 **before extracting it**, then `codesign --verify --deep --strict` on the extracted bundle
+**before** swapping it in — a broken seal refuses. `spctl --assess` runs too, but **a Gatekeeper
+rejection only warns**: every build is ad hoc signed until notarisation lands, Gatekeeper rejects
+all of them, and v0.0.3's original refuse-unless-`*_ALLOW_UNSIGNED=1` gate turned away every
+install. The quarantine strip still runs only for a bundle Gatekeeper accepted. Where the digest
+comes from: `catalog.json`'s per-app `sha256` (already built from the uploaded files), then a
+`sha256` field in `<app>/version.json`, which midnite-apps' `release-feed.yml` writes from the
+digest GitHub records for each uploaded zip (bilo-io/midnite-apps#7; `workflow_dispatch` with a tag
+re-derives one release's feed). A feed with no digest installs with a printed warning, so older
+versions stay installable.
+
+Three checks keep this working:
+
+- **Before publishing** — `release.yml`'s "Check the installers would accept both zips" step runs
+  [`scripts/verify-signature.mjs`](../scripts/verify-signature.mjs): each zip extracted with `ditto`
+  and checked with `codesign --verify --deep --strict`, exactly as `install.sh` does.
+- **On every PR** — `scripts/install-scripts.test.mjs` runs both installers' Gatekeeper block (with
+  `spctl` stubbed to reject) and their cleanup trap (under `set -e` a `[ -e … ] &&` as its last line
+  made every successful install exit 1), and `installer-mirror.yml` refuses a PR that edits
+  `packages/website/public/install-studio.sh` before upstream has the same bytes.
+- **After every release** — midnite-apps' `install-smoke.yml` installs each app's live release on a
+  macOS runner with its own `install.sh` and fails unless the checksum was verified and the install
+  exited 0.
+
+Electron fuses
 (`EnableEmbeddedAsarIntegrityValidation`, `OnlyLoadAppFromAsar`, `NODE_OPTIONS` and `--inspect` off)
 are flipped in `afterpack.cjs`; `RunAsNode` stays on for the terminal broker.
 

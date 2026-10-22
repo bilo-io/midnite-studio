@@ -1,10 +1,28 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { app, BrowserWindow, dialog, ipcMain, powerMonitor, shell, utilityProcess } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  powerMonitor,
+  shell,
+  utilityProcess,
+  type MenuItemConstructorOptions,
+} from 'electron';
 
 import type { ScriptWorkerHandle } from '@midnite/studio-feature-api-client/main';
-import { guardAppWindow } from '@midnite/studio-runtime';
+import { ghStatus, runInShell } from '@midnite/studio-feature-forge/main';
+import {
+  buildSuiteMenuTemplate,
+  createFileSink,
+  guardAppWindow,
+  installCrashLogging,
+} from '@midnite/studio-runtime';
+import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
 import { registerCoderHandlers } from './context';
 import { CODER_NAME, coderUserData, coderVaultDirectory, isSmoke, SMOKE_READY_LINE, USER_DATA_ENV } from './identity';
@@ -39,10 +57,35 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // Crash log + Report an Issue: the runtime's file sink, the app's own Help menu item, and the report feature's services.
+    const log = createFileSink({ dir: app.getPath('userData'), name: 'coder.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => log.write(level, message));
+    log.write('info', `${CODER_NAME} ${app.getVersion()} started`);
+    app.on('will-quit', () => log.close());
+    const reportServices = {
+      sink: () => log,
+      // The forge's cached `gh` probe and login shell, so the dialog and the Reviews tab never disagree about sign-in.
+      gh: { status: () => ghStatus(), run: (command: string, timeoutMs: number) => runInShell(command, timeoutMs) },
+      homeDir: () => app.getPath('home'),
+      openExternal: (url: string) => shell.openExternal(url),
+      writeClipboard: (text: string) => clipboard.writeText(text),
+      revealPath: (path: string) => shell.showItemInFolder(path),
+    };
+    // The menu's Report an Issue… reaches the focused window, falling back to the main one.
+    const sendToFocused = (channel: string, payload: unknown): void => {
+      const target = BrowserWindow.getFocusedWindow() ?? win;
+      if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+    };
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        buildSuiteMenuTemplate({ reportItem: reportIssueMenuItem(sendToFocused) }) as MenuItemConstructorOptions[],
+      ),
+    );
     const vaultDirectory = coderVaultDirectory(app.getPath('appData'), override);
     mkdirSync(vaultDirectory, { recursive: true });
     const registered = registerCoderHandlers({
       ipcMain,
+      report: reportServices,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);

@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-vault",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "The vault feature (Phase 113 Theme J): the Vault view and its metadata-only handlers as one package \u2014 Vault's one feature.",
   "sideEffects": false,

@@ -44,7 +44,7 @@ import { STUDIO_SLIDES_HOST } from './compose/slides-host';
 import { StudioProviders } from './compose/studio-providers';
 import { useContentBoundsSync } from './store/content-bounds-store';
 import { ErrorBoundary } from './components/error-boundary';
-import { ReportIssueHost } from './components/report-issue-dialog';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { ToastHost } from './components/toast-host';
 import {
   AGENT_NAV_ITEMS,
@@ -2167,7 +2167,10 @@ export function App() {
       </ErrorBoundary>
       <ScreensaverHost />
       <KillSwitchModal />
-      <ReportIssueHost />
+      {/* Report an Issue (the report feature): Studio's own modal through the chrome port, as before. */}
+      <FrameChromeProvider chrome={STUDIO_CHROME}>
+        <ReportIssueHost />
+      </FrameChromeProvider>
     </ShellProviders>
   );
 }

@@ -1,0 +1,348 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { composeIssueBody, ReportIssueDialog, ReportIssueHost } from './report-issue-dialog';
+import { openReportIssue, useReportIssueStore } from './report-issue-store';
+
+const bundleFn = vi.fn();
+const cliStatusFn = vi.fn();
+const submitIssueFn = vi.fn();
+const openExternalFn = vi.fn();
+const writeTextFn = vi.fn();
+let onOpenHandler: (() => void) | null = null;
+
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
+  // Only `report.*` and `appVersion`: the dialog reaches nothing else, in any app.
+  bridge: () => ({
+    report: {
+      bundle: bundleFn,
+      submitIssue: submitIssueFn,
+      ghStatus: cliStatusFn,
+      openUrl: openExternalFn,
+      copy: writeTextFn,
+      onOpen: (handler: () => void) => {
+        onOpenHandler = handler;
+        return () => {
+          onOpenHandler = null;
+        };
+      },
+    },
+    appVersion: '0.0.3',
+  }),
+  hasBridge: () => true,
+}));
+
+const READY_CLI = { reason: 'ready' as const, binPath: '/usr/bin/gh', hint: '' };
+const NOT_INSTALLED_CLI = {
+  reason: 'not-installed' as const,
+  binPath: null,
+  hint: 'brew install gh',
+};
+
+function renderDialog(onClose: () => void = () => {}, app?: string) {
+  render(<ReportIssueDialog open onClose={onClose} {...(app ? { app } : {})} />);
+}
+
+afterEach(() => {
+  cleanup();
+  bundleFn.mockReset();
+  cliStatusFn.mockReset();
+  submitIssueFn.mockReset();
+  openExternalFn.mockReset();
+  writeTextFn.mockReset();
+  useReportIssueStore.setState({ open: false });
+});
+
+describe('ReportIssueDialog — bug/feature toggle', () => {
+  it('defaults to Bug, with the "[bug] " prefix and diagnostics open', async () => {
+    bundleFn.mockResolvedValue({ text: '2026-01-01T00:00:00.000Z INFO boot' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    renderDialog();
+
+    expect(screen.getByRole('radio', { name: 'Bug' }).getAttribute('aria-checked')).toBe('true');
+    expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('[bug] ');
+    expect(screen.getByText('What happened?')).not.toBeNull();
+    // Diagnostics defaults open for a bug. `Accordion`'s collapsed body stays
+    // mounted (an `inert`, height-0 CSS transition, not an unmount) so the
+    // open/closed default is read off the header's `aria-expanded`, not off
+    // whether the block is present in the DOM.
+    await screen.findByTestId('report-issue-diagnostics');
+    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe(
+      'true',
+    );
+  });
+
+  it('switching to Feature swaps the prefill and label, and collapses diagnostics by default', async () => {
+    bundleFn.mockResolvedValue({ text: 'some log line' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    renderDialog();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Feature' }));
+
+    expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('[feat] ');
+    expect(screen.getByText("What's the problem?")).not.toBeNull();
+    await waitFor(() => expect(bundleFn).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: /Diagnostics/ }).getAttribute('aria-expanded')).toBe(
+      'false',
+    );
+  });
+
+  it('does not clobber a title the user already edited when toggling kind', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: '[bug] the sync spinner never stops' },
+    });
+    fireEvent.click(screen.getByRole('radio', { name: 'Feature' }));
+
+    expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe(
+      '[bug] the sync spinner never stops',
+    );
+  });
+});
+
+describe('ReportIssueDialog — diagnostics stay the single redaction path', () => {
+  it('renders the bundle text byte-identical, no re-formatting', async () => {
+    const text = 'boot v0.3.1\n2026-01-01T00:00:00.000Z ERROR ~/redacted/already <redacted>';
+    bundleFn.mockResolvedValue({ text });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    renderDialog();
+
+    const block = await screen.findByTestId('report-issue-diagnostics');
+    expect(block.textContent).toBe(text);
+  });
+
+  it('composeIssueBody never mutates the diagnostics text it is handed', () => {
+    const diagnostics = '~/already/redacted <redacted>';
+    const body = composeIssueBody({ kind: 'bug', description: 'a description', diagnostics });
+    expect(body).toContain(diagnostics);
+  });
+
+  it('composeIssueBody clamps to FORGE_BODY_MAX defensively', () => {
+    const body = composeIssueBody({ kind: 'bug', description: 'x'.repeat(200_000), diagnostics: '' });
+    expect(body.length).toBeLessThanOrEqual(65_536);
+  });
+});
+
+describe('ReportIssueDialog — submit', () => {
+  it('sends the composed title/body/kind and shows the created issue link on success', async () => {
+    bundleFn.mockResolvedValue({ text: 'log tail' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    submitIssueFn.mockResolvedValue({
+      ok: true,
+      cli: READY_CLI,
+      error: null,
+      url: 'https://github.com/bilo-io/midnite-apps/issues/42',
+    });
+    renderDialog();
+
+    await screen.findByTestId('report-issue-diagnostics');
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: '[bug] the sync spinner never stops' },
+    });
+    fireEvent.change(screen.getByLabelText('What happened?'), {
+      target: { value: 'Clicked sync and it spun forever.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => expect(submitIssueFn).toHaveBeenCalledTimes(1));
+    const call = submitIssueFn.mock.calls[0]![0];
+    expect(call.title).toBe('[bug] the sync spinner never stops');
+    expect(call.kind).toBe('bug');
+    expect(call.body).toContain('Clicked sync and it spun forever.');
+    expect(call.body).toContain('log tail');
+    expect(call.app).toBe('midnite-studio');
+    // The section midnite-apps' label workflow reads — without it, gh's `app:` label is stripped.
+    expect(call.body).toContain('### App\n\nmidnite-studio');
+    expect(call.body).toContain('### Version\n\n0.0.3');
+
+    const link = await screen.findByRole('button', { name: 'View issue' });
+    fireEvent.click(link);
+    expect(openExternalFn).toHaveBeenCalledWith({
+      url: 'https://github.com/bilo-io/midnite-apps/issues/42',
+    });
+  });
+
+  it('cannot be submitted with an empty description', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] something' } });
+    const submit = screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    expect(submitIssueFn).not.toHaveBeenCalled();
+  });
+
+  it("shows gh's own refusal on a failed submit", async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    submitIssueFn.mockResolvedValue({
+      ok: false,
+      cli: READY_CLI,
+      error: 'HTTP 403: Resource not accessible by integration',
+      url: null,
+    });
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] something' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It broke.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(
+      await screen.findByText('HTTP 403: Resource not accessible by integration'),
+    ).not.toBeNull();
+  });
+});
+
+describe('ReportIssueDialog — the fallback is not a dead end', () => {
+  it('without gh, Continue on GitHub opens the issue form prefilled with what was typed', async () => {
+    bundleFn.mockResolvedValue({ text: 'INFO boot\nERROR it broke' });
+    cliStatusFn.mockResolvedValue(NOT_INSTALLED_CLI);
+    const onClose = vi.fn();
+    renderDialog(onClose);
+
+    expect(await screen.findByText('brew install gh')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull();
+    await screen.findByTestId('report-issue-diagnostics');
+
+    const proceed = screen.getByRole('button', { name: 'Continue on GitHub' }) as HTMLButtonElement;
+    expect(proceed.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] Graph is blank' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), {
+      target: { value: 'Opened a repo & nothing drew.' },
+    });
+    fireEvent.click(proceed);
+
+    expect(openExternalFn).toHaveBeenCalledTimes(1);
+    const url = new URL((openExternalFn.mock.calls[0]![0] as { url: string }).url);
+    expect(`${url.origin}${url.pathname}`).toBe(
+      'https://github.com/bilo-io/midnite-apps/issues/new',
+    );
+    expect(url.searchParams.get('template')).toBe('bug.yml');
+    expect(url.searchParams.get('title')).toBe('[bug] Graph is blank');
+    expect(url.searchParams.get('app')).toBe('midnite-studio');
+    expect(url.searchParams.get('what')).toBe('Opened a repo & nothing drew.');
+    expect(url.searchParams.get('logs')).toBe('INFO boot\nERROR it broke');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('offers the browser form when gh itself refuses the issue', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    submitIssueFn.mockResolvedValue({
+      ok: false,
+      cli: READY_CLI,
+      error: 'HTTP 403: Resource not accessible by integration',
+      url: null,
+    });
+    renderDialog();
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] Crash' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It crashed.' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue on GitHub instead' }));
+
+    const url = new URL((openExternalFn.mock.calls[0]![0] as { url: string }).url);
+    expect(url.searchParams.get('title')).toBe('[bug] Crash');
+    expect(url.searchParams.get('what')).toBe('It crashed.');
+  });
+});
+
+describe('ReportIssueDialog — Copy report', () => {
+  it('copies the title and the whole composed body through the main-side clipboard', async () => {
+    bundleFn.mockResolvedValue({ text: 'log tail' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    writeTextFn.mockResolvedValue({ ok: true });
+    renderDialog();
+
+    await screen.findByTestId('report-issue-diagnostics');
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] blank graph' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It is blank.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy report' }));
+
+    await screen.findByRole('button', { name: 'Copied' });
+    const { text } = writeTextFn.mock.calls[0]![0] as { text: string };
+    expect(text.startsWith('[bug] blank graph\n\n### App\n\nmidnite-studio')).toBe(true);
+    expect(text).toContain('It is blank.');
+    expect(text).toContain('log tail');
+  });
+
+  it('stays disabled until there is a title and a description to copy', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    renderDialog();
+
+    const copy = screen.getByRole('button', { name: 'Copy report' }) as HTMLButtonElement;
+    expect(copy.disabled).toBe(true);
+  });
+});
+
+describe('ReportIssueHost — the app-wide instance', () => {
+  it('renders nothing until the store opens it, and closes back through the store', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    render(<ReportIssueHost />);
+    expect(screen.queryByTestId('report-issue-dialog')).toBeNull();
+
+    act(() => openReportIssue());
+    await screen.findByTestId('report-issue-dialog');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(useReportIssueStore.getState().open).toBe(false);
+  });
+
+  it("opens on main's report:open event — an app's Help menu item", async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    render(<ReportIssueHost app="midnite-monitor" />);
+    expect(onOpenHandler).not.toBeNull();
+
+    act(() => onOpenHandler?.());
+    await screen.findByTestId('report-issue-dialog');
+  });
+});
+
+describe('ReportIssueDialog — another app', () => {
+  it('names the filing app in the body, the form URL and the submission', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(READY_CLI);
+    submitIssueFn.mockResolvedValue({ ok: true, cli: READY_CLI, error: null, url: null });
+    renderDialog(() => {}, 'midnite-monitor');
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] CPU chart froze' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'It froze.' } });
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => expect(submitIssueFn).toHaveBeenCalledTimes(1));
+    const call = submitIssueFn.mock.calls[0]![0];
+    expect(call.app).toBe('midnite-monitor');
+    expect(call.body).toContain('### App\n\nmidnite-monitor');
+    expect(await screen.findByText(/No link came back, but it was filed\./)).not.toBeNull();
+  });
+
+  it('without gh, the form URL carries the app too', async () => {
+    bundleFn.mockResolvedValue({ text: '' });
+    cliStatusFn.mockResolvedValue(NOT_INSTALLED_CLI);
+    renderDialog(() => {}, 'midnite-monitor');
+
+    await screen.findByText('brew install gh');
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '[bug] x' } });
+    fireEvent.change(screen.getByLabelText('What happened?'), { target: { value: 'y' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue on GitHub' }));
+
+    const url = new URL((openExternalFn.mock.calls[0]![0] as { url: string }).url);
+    expect(url.searchParams.get('app')).toBe('midnite-monitor');
+  });
+});

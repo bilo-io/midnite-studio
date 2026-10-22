@@ -80,7 +80,7 @@ stage below checks it never got committed.
 - Small conventional commits. **Never add a `Co-Authored-By`, `Signed-off-by` or any other attribution trailer to a commit message.** GitHub credits such a commit to whichever account claims the trailer's email, which is how a solo repo grows contributors who never pushed a byte.
 
 ## 5 · Screenshots — whenever the change is visual
-Capture **before/after** with whatever this project's own visual-testing tooling is (a dev server + mocked backend where applicable, or the real app). Save PNGs to a temp dir, show them in this thread, and reuse them in the PR body (Stage 8). Close side panels the shot is not about (e.g. a repos list, the terminal) before capturing.
+Capture **before/after** with whatever this project's own visual-testing tooling is (a dev server + mocked backend where applicable, or the real app). Save PNGs to `/tmp/midnite-shots-<slice>/` and show them in this thread so they render inline. Never commit PNGs into `docs/screenshots/<slice>/` or anywhere in git. Close side panels the shot is not about (e.g. a repos list, the terminal) before capturing.
 
 ## 6 · Pre-push gate
 Run this project's own full test/lint/typecheck command (from `CLAUDE.md`).
@@ -91,13 +91,9 @@ Against, in order: fidelity to the agreed task → `CLAUDE.md` conventions → c
 
 ## 8 · Open the PR (draft) + report it
 - Push branch; `gh pr create --draft --base main`.
-- **Screenshots go in when the PR is created, not afterwards.** For any visual change, commit and
-  push the PNGs first, then run `gh pr create` with a body that already embeds them, so a reviewer
-  sees the change the moment the PR exists. Never open a visual PR without them and promise
-  images later. If a shot genuinely can't be captured (packaged-only, needs hardware), the body
-  says which one is missing and why.
+- **Visual changes are verified in-thread.** For any visual change, capture before/after PNGs to `/tmp/midnite-shots-<slice>/` and display them inline in the thread during Stage 5 so the human sees the change before PR creation. Do not commit PNGs into git.
 - **PR title:** a conventional-commit title for the task, no phase/size tag (there's no phase doc to size it against).
-- **PR body:** the task as described in Stage 0 (and what Stage 1 resolved, if anything) · embedded screenshots for any visual change · the `🤖 Generated with [Claude Code]` trailer.
+- **PR body:** the task as described in Stage 0 (and what Stage 1 resolved, if anything) · the `🤖 Generated with [Claude Code]` trailer. Visual changes are presented inline in the review conversation thread (Stage 5); do not commit PNGs to the repository.
 - **Report in this thread when posted:** the PR URL · a 3–5 **bullet** summary · the line diff in a ` ```diff ` fenced block (`gh pr diff <n> --patch`, trimmed) · the screenshots again if visual.
 
 ## 9 · CI green

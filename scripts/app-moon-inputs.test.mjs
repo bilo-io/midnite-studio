@@ -16,7 +16,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 /** The `inputs:` entries of one task in a moon.yml, read as plain text (the files are simple). */
 export function taskInputs(yml, task) {
   const block = new RegExp(`\\n  ${task}:\\n((?:    [^\\n]*\\n|\\n)*)`).exec(yml)?.[1] ?? '';
-  const inputs = /    inputs:\n((?:      - [^\n]*\n)+)/.exec(block)?.[1] ?? '';
+  const inputs = / {4}inputs:\n((?: {6}- [^\n]*\n)+)/.exec(block)?.[1] ?? '';
   return inputs
     .split('\n')
     .map((line) => /- '([^']+)'/.exec(line)?.[1])

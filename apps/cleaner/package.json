@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-cleaner",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "Midnite Cleaner \u2014 the workspace optimizer as its own app: scan memory, GPU and storage use and reclaim space.",
   "type": "module",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@bilo-io/ui": "0.1.0",
     "@midnite/studio-feature-optimizer": "workspace:*",
+    "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",

@@ -12,7 +12,7 @@ function fakeIpc(): RendererIpc {
 describe('createAgentsBridge', () => {
   it('exposes exactly chats, council, workflow, demoApi, mcp, ollama, agent.list and secrets.has', () => {
     const bridge = createAgentsBridge(fakeIpc());
-    expect(Object.keys(bridge).sort()).toEqual(['agent', 'chats', 'council', 'demoApi', 'mcp', 'ollama', 'secrets', 'workflow']);
+    expect(Object.keys(bridge).sort()).toEqual(['agent', 'chats', 'council', 'demoApi', 'mcp', 'ollama', 'report', 'secrets', 'workflow']);
     expect(Object.keys(bridge.agent)).toEqual(['list']);
   });
 
@@ -63,5 +63,19 @@ describe('createAgentsBridge', () => {
     ]);
     off();
     expect(ipc.removeListener).toHaveBeenCalledWith(EVENT_CHANNELS.chatsEvent, expect.any(Function));
+  });
+});
+
+describe('report namespace', () => {
+  it("is the report feature's own bridge: its channels over invoke, the crash report over send, the Help-menu event over on", async () => {
+    const ipc: RendererIpc = { invoke: vi.fn(async () => ({})), send: vi.fn(), on: vi.fn(() => undefined), removeListener: vi.fn() };
+    const { report } = createAgentsBridge(ipc);
+    await report.ghStatus();
+    report.error({ source: 'window', name: 'E', message: 'm', stack: '' } as never);
+    const off = report.onOpen?.(() => undefined);
+    expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([CHANNELS.reportGhStatus]);
+    expect(vi.mocked(ipc.send).mock.calls.map((c) => c[0])).toEqual([CHANNELS.reportError]);
+    expect(vi.mocked(ipc.on).mock.calls.map((c) => c[0])).toEqual([EVENT_CHANNELS.reportOpen]);
+    expect(typeof off).toBe('function');
   });
 });

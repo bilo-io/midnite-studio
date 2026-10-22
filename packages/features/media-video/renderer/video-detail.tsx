@@ -2,7 +2,7 @@ import { changelogEntry, parseIterations, videoFileUrl, videoProjectDir } from '
 import { useState } from 'react';
 import { LuClapperboard, LuColumns2, LuExternalLink, LuFolderOpen } from 'react-icons/lu';
 
-import { EmptyState, MediaPanelBody, MediaPanelLayout } from '@midnite/studio-frame';
+import { EmptyState, EpicAudioPlayer, MediaPanelBody, MediaPanelLayout } from '@midnite/studio-frame';
 
 import { useVideoChrome } from './chrome';
 import { openVideoFile, revealVideoFile, useVideoFiles, useVideoProjectFile } from './use-video';
@@ -52,12 +52,12 @@ function MediaPreview({ url, name, size }: { url: string; name: string; size: nu
           className="w-full rounded-md bg-black"
         />
       ) : kind === 'audio' ? (
-        <audio
+        <EpicAudioPlayer
           src={url}
-          controls
-          aria-label={name}
-          onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
-          className="w-full"
+          fileName={name}
+          ariaLabel={name}
+          onLoadedMetadataDuration={(d) => setDuration(d)}
+          className="min-h-[340px] rounded-xl"
         />
       ) : null}
       <p className="tabular-nums text-[11px] text-muted-foreground" data-testid="media-readout">

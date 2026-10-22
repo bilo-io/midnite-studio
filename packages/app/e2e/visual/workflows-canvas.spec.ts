@@ -6,7 +6,6 @@ import {
   installMockBridge,
   prepareForVisualCapture,
   setTheme,
-  SHOT_VIEWPORTS,
   type MockFixtures,
 } from '../shots-helper';
 
@@ -108,7 +107,7 @@ async function openCanvas(page: Page): Promise<void> {
   await page.locator('[data-node-id="n6"]').waitFor();
 }
 
-test.use({ viewport: SHOT_VIEWPORTS.wide });
+test.use({ viewport: { width: 1600, height: 1000 } });
 
 for (const theme of ['light', 'dark'] as const) {
   test(`the workflow canvas draws every edge kind (${theme})`, async ({ page }) => {

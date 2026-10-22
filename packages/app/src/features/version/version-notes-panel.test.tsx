@@ -14,17 +14,21 @@ vi.mock('./release-notes', () => ({
 
 vi.mock('@midnite/studio-frame', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
-  bridge: () => ({ report: { bundle: mocks.bundle } }),
+  // The report feature's dialog: `ghStatus` keeps it on the fallback, `openUrl` is how it leaves.
+  bridge: () => ({
+    report: {
+      bundle: mocks.bundle,
+      ghStatus: async () => ({ reason: 'not-installed', binPath: null, hint: '' }),
+      openUrl: async ({ url }: { url: string }) => {
+        mocks.openExternal(url);
+        return { ok: true };
+      },
+    },
+  }),
 }));
 
 vi.mock('../../services/queries', () => ({
   openExternal: mocks.openExternal,
-  // Same reasoning as `crash-reporting.test.tsx`'s identical mock: this
-  // file's scope is the wiring (Phase 93 Theme C's "wire both trigger
-  // sites"), not the composer's own behaviour, which
-  // `report-issue-dialog.test.tsx` already covers.
-  useForgeCli: () => ({ data: { reason: 'not-installed', binPath: null, hint: '' } }),
-  useSubmitAppIssue: () => ({ mutate: vi.fn(), isPending: false, data: undefined, reset: vi.fn() }),
 }));
 
 beforeEach(() => {

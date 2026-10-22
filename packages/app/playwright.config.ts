@@ -32,49 +32,10 @@ export default defineConfig({
     default gate would inherit exactly the timing thresholds that suite exists to
     keep out of it.
 
-    Phase 82 Theme A adds the second half of this list: every file whose name
-    ends `-shots.spec.ts`, dropped unless `MSTUDIO_SHOTS` is set (the literal
-    glob is in the value below — spelling it out here would close this very
-    comment, since it contains the two characters that end one). Every one of
-    those 47 files already
-    self-skips its own tests behind that same flag (`test.skip(!process.env
-    .MSTUDIO_SHOTS, …)`), so on paper this changes nothing a normal run
-    actually executes — but Playwright shards by *declared* test count before
-    any test body runs, so those self-skipping tests were still being counted
-    into the split. Measured on a real CI run: 309 of 976 declared tests were
-    shots specs, and the shard that happened to collect the most of them ran
-    122 tests in 441s wall while the lightest ran ~41 in 160s — the worst
-    shard sets the wall clock for all eight, so a third of the budget going to
-    no-ops was the single biggest lever left once Phase 56 exhausted the
-    infrastructure axis (retries, worker count, shard count). Excluding them
-    here rather than only relying on the inner `test.skip` fixes the count
-    Playwright balances shards by, not just the work each shard does.
-
-    This is a `testIgnore`, not a change to any spec's own gate: every
-    `*-shots.spec.ts` file still carries (or, for the two files that also
-    assert real behaviour — `busy-spinner.spec.ts`, `reviews-loading.spec.ts`
-    — never carried, because they were deliberately renamed off this suffix
-    and gate only their `.screenshot()` calls inline) its own `MSTUDIO_SHOTS`
-    check, so `MSTUDIO_SHOTS=1 pnpm exec playwright test --list` still shows
-    every one of them; this exclusion only stops the *declared-but-skipped*
-    tests from being scheduled into a shard at all when that flag is unset.
-
-    Phase 82 Theme D adds a third glob, unconditionally (not gated on
-    `MSTUDIO_SHOTS`, spelled out only in the value below for the same
-    close-the-comment reason as the `-shots.spec.ts` one above — this one
-    matches every path under the `e2e/visual` directory): that directory is a
-    THIRD suite with its own config (`playwright.visual.config.ts`, `moon run
-    app:visual`) and its own `toHaveScreenshot` baselines, not a shots-style
-    ad-hoc capture. Without this exclusion the functional suite would also
-    pick up every visual spec under this config — which has no
-    `snapshotPathTemplate`, no `maxDiffPixelRatio`, and none of the baselines
-    committed under that directory's own screenshots folder — and either fail
-    outright (no matching snapshot) or, worse, silently write a second,
-    wrongly-configured set of screenshots nobody asked for.
+    Phase 116 Theme B retired `*-shots.spec.ts` files and `MSTUDIO_SHOTS`.
+    Visual specs (`e2e/visual/**`) run under their own `playwright.visual.config.ts`.
   */
-  testIgnore: process.env.MSTUDIO_SHOTS
-    ? ['**/perf/**', '**/visual/**']
-    : ['**/perf/**', '**/*-shots.spec.ts', '**/visual/**'],
+  testIgnore: ['**/perf/**', '**/visual/**'],
   /*
     Playwright's default runs test *files* in parallel across workers but the
     `test()` declarations within one file sequentially. Phase 56 Theme B turns

@@ -16,6 +16,7 @@ export default defineConfig({
     dedupe: ['react', 'react-dom', '@tanstack/react-query'],
     alias: {
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
+      '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
       '@midnite/studio-feature-media-core/renderer': at('../../packages/features/media-core/renderer/index.ts'),
       '@midnite/studio-feature-media-library/renderer': at('../../packages/features/media-library/renderer/index.ts'),

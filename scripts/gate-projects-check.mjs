@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // gate-projects-check: assert every packages/* directory is claimed by exactly
 // one of the two split `gate` jobs in .github/workflows/ci.yml (Phase 82 Theme
 // E) — `gate-node` (ubuntu-24.04, 1x billing) or `gate-native` (macos-14, 10x
@@ -28,7 +27,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // gate job actually runs. If you add a target to one of the jobs' moon
 // invocations, add its project id here too — that symmetry is what this script
 // checks.
-export const NODE_PROJECTS = ['shared', 'knowledge', 'app', 'website', 'db-engine', 'frame', 'feature-optimizer', 'feature-monitor', 'feature-vault', 'feature-notes', 'feature-finance', 'feature-media-core', 'feature-media-docs', 'feature-media-images', 'feature-media-library', 'feature-models', 'feature-councils', 'feature-chats', 'feature-media-audio', 'feature-media-video', 'feature-slides', 'feature-workflows', 'feature-mcp-tools', 'feature-tests', 'feature-forge', 'feature-media-map', 'feature-media-terrain', 'feature-media-sprite', 'feature-media-model', 'feature-media-game', 'feature-api-client', 'feature-database', 'feature-sessions', 'feature-tasks', 'feature-browser', 'feature-capture'];
+export const NODE_PROJECTS = ['shared', 'knowledge', 'app', 'website', 'db-engine', 'frame', 'feature-optimizer', 'feature-monitor', 'feature-vault', 'feature-notes', 'feature-finance', 'feature-media-core', 'feature-media-docs', 'feature-media-images', 'feature-media-library', 'feature-models', 'feature-councils', 'feature-chats', 'feature-media-audio', 'feature-media-video', 'feature-slides', 'feature-workflows', 'feature-mcp-tools', 'feature-tests', 'feature-forge', 'feature-media-map', 'feature-media-terrain', 'feature-media-sprite', 'feature-media-model', 'feature-media-game', 'feature-api-client', 'feature-database', 'feature-sessions', 'feature-tasks', 'feature-browser', 'feature-capture', 'feature-report'];
 // `runtime` (Phase 113 Theme C) is on gate-native ahead of need: it is the
 // main-process layer Theme D moves the safeStorage vault and the pty broker
 // into, and platform behaviour is only validated on the platform.
@@ -39,7 +38,7 @@ export const NATIVE_PROJECTS = ['git-engine', 'desktop', 'runtime'];
  */
 
 /** Where project `id` lives on disk — the inverse of `discoverProjectIds`. */
-function projectDir(id) {
+export function projectDir(id) {
   return id.startsWith('feature-') ? `packages/features/${id.slice('feature-'.length)}` : `packages/${id}`;
 }
 

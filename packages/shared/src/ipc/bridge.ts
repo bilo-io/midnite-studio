@@ -1748,13 +1748,24 @@ export type MidniteStudioBridge = {
      * File an issue on the app's own public tracker — Phase 93.
      *
      * Always targets `bilo-io/midnite-apps` (`APP_ISSUES_REPO`), never the
-     * active repo — see `gh-app-issue.ts`. `invoke`-shaped, unlike `error`
+     * active repo — see `features/report/main/app-issue.ts`. `invoke`-shaped, unlike `error`
      * above: a submission has a real answer (the created issue's URL, or why
      * it failed) that a composer dialog waits on.
      */
     submitIssue: (
       req: In<typeof S.AppIssueSubmitRequestSchema>,
     ) => Promise<z.infer<typeof S.AppIssueSubmitResultSchema>>;
+    /** Is `gh` installed and signed in? The dialog's Submit-or-Continue-on-GitHub switch. */
+    ghStatus: () => Promise<z.infer<typeof S.ReportGhStatusResponse>>;
+    /** Open a midnite-apps issue page (the prefilled form, a filed issue) — nothing else. */
+    openUrl: (req: In<typeof S.ReportOpenUrlRequest>) => Promise<z.infer<typeof S.ReportOpenUrlResponse>>;
+    /** Copy report: title and body onto the system clipboard, main-side (`file://` has no `navigator.clipboard`). */
+    copy: (req: In<typeof S.ReportCopyRequest>) => Promise<z.infer<typeof S.ReportCopyResponse>>;
+    /**
+     * Main asks the dialog to open — a native Help menu item (`EVENT_CHANNELS.reportOpen`).
+     * Optional: Studio opens it through `app.reportIssue` on `menu.onCommand` instead.
+     */
+    onOpen?: (handler: () => void) => Unsubscribe;
   };
 
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;

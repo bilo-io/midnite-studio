@@ -18,6 +18,7 @@ export default defineConfig({
       '@midnite/studio-frame/graph': at('../../packages/frame/src/graph/index.ts'),
       '@midnite/studio-frame/diff': at('../../packages/frame/src/diff/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),
+      '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),
       '@midnite/studio-feature-api-client/renderer': at('../../packages/features/api-client/renderer/index.ts'),
       '@midnite/studio-feature-database/renderer': at('../../packages/features/database/renderer/index.ts'),
       '@midnite/studio-feature-forge/renderer': at('../../packages/features/forge/renderer/index.ts'),

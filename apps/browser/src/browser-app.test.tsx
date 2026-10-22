@@ -9,6 +9,17 @@ import { agentSessionStore } from './agent-session-store';
 import { BrowserApp } from './browser-app';
 import { browserUiStore, createBrowserUiStore } from './browser-ui-store';
 
+/** Report an Issue's slice of the bridge: only `onOpen` is read until the dialog opens (the feature's own tests cover the rest). */
+let openReport: (() => void) | null = null;
+const REPORT_BRIDGE = {
+  onOpen: vi.fn((handler: () => void) => {
+    openReport = handler;
+    return () => undefined;
+  }),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+  bundle: vi.fn(async () => ({ text: '' })),
+};
+
 /** Every bridge method answers: `on*` subscribes (returning its unsubscribe), the rest resolve `ok`. */
 function namespace(calls: string[], name: string) {
   return new Proxy(
@@ -30,7 +41,7 @@ let calls: string[] = [];
 
 beforeEach(() => {
   calls = [];
-  window.midniteStudio = {
+  window.midniteStudio = { report: REPORT_BRIDGE,
     browser: namespace(calls, 'browser'),
     webApps: namespace(calls, 'webApps'),
     clipboard: namespace(calls, 'clipboard'),
@@ -148,5 +159,16 @@ describe('createBrowserUiStore', () => {
     release();
     release();
     expect(store.getState().occluders).toBe(1);
+  });
+});
+
+describe('Report an Issue', () => {
+  it("mounts the report feature's host: main's report:open event opens its dialog", async () => {
+    openReport = null;
+    // The suite bridge already carries `report` (see beforeEach).
+    render(<BrowserApp />);
+    await waitFor(() => expect(openReport).not.toBeNull());
+    act(() => openReport?.());
+    expect(await screen.findByTestId('report-issue-dialog')).toBeDefined();
   });
 });

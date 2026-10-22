@@ -1,3 +1,4 @@
+import { reportMain, type ReportMainServices } from '@midnite/studio-feature-report/main';
 import {
   apiClientMain,
   createScriptRunnerBroker,
@@ -37,6 +38,8 @@ import { createCoderRepos, type CoderRepos } from './repos';
 
 /** The electron pieces Coder's main needs, injected so registration is testable under bare vitest. */
 export type CoderElectron = IpcContextElectron & {
+  /** Report an Issue's services — the crash log sink, home dir, and the three OS calls the dialog needs. */
+  report: ReportMainServices;
   /** Coder's own userData: its repository list, forge account records and test trust live under it. */
   userData: string;
   /**
@@ -92,6 +95,7 @@ export type CoderElectron = IpcContextElectron & {
 export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos; shutdown: () => Promise<void> } {
   const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.vaultDirectory), appId: 'coder', identity: el.pairing });
   const ctx = createIpcContext(el);
+  reportMain.register(ctx, el.report);
   const warn = el.warn ?? (() => undefined);
   const repos = createCoderRepos({ userData: el.userData });
 

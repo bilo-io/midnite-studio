@@ -25,7 +25,7 @@ import { writeZip } from './zip-writer';
  * formats over a real composed starter. Plain Node — the real-Chromium run from `file://` is Theme Q's e2e.
  */
 
-const TEMPLATE_DIR = join(process.cwd(), '..', '..', '..', 'templates', 'media-game');
+const TEMPLATE_DIR = join(__dirname, '../../../../../templates/media-game');
 // The vendored engines a dev tree has under the desktop's resources (the default every app resolved before this moved).
 const ENGINES_DIR = join(TEMPLATE_DIR, '..', '..', 'packages', 'desktop', 'resources', 'game-engines');
 vi.setConfig({ testTimeout: 30_000 });

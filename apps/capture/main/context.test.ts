@@ -15,6 +15,7 @@ import {
   type CaptureImage,
   type Timers,
 } from '@midnite/studio-feature-capture/main';
+import { reportManifest } from '@midnite/studio-feature-report/main';
 import {
   CHANNELS,
   captureFileUrl,
@@ -99,6 +100,7 @@ async function setup(
   const sent: string[] = [];
   const capture = registerCaptureAppHandlers({
     ipcMain: { handle: (c, l) => void handlers.set(c, l), on: () => undefined },
+    report: { sink: () => null, homeDir: () => '/home', openExternal: () => undefined, writeClipboard: () => undefined, revealPath: () => undefined },
     trashItem: async () => undefined,
     send: (channel) => void sent.push(channel),
     dataDir: captureDataDir(join(base, 'userData')),
@@ -115,7 +117,7 @@ async function setup(
 describe('registerCaptureAppHandlers', () => {
   it('registers exactly the capture channels', async () => {
     const { handlers } = await setup(true);
-    expect([...handlers.keys()].sort()).toEqual([...captureManifest.ipc].sort());
+    expect([...handlers.keys()].sort()).toEqual([...captureManifest.ipc, ...reportManifest.ipc].sort());
   });
 
   it('takes its default chord only once started, and releases it on dispose', async () => {

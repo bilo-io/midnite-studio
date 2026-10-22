@@ -7,6 +7,7 @@ import { ForgeHostProvider } from '@midnite/studio-feature-forge/renderer';
 import { SessionsHostProvider } from '@midnite/studio-feature-sessions/renderer';
 import { TasksHostProvider } from '@midnite/studio-feature-tasks/renderer';
 import { TestsHostProvider, useTestsStream } from '@midnite/studio-feature-tests/renderer';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, GitHostProvider } from '@midnite/studio-frame';
 
 import { CODER_CHROME, CoderDialogHost } from './compose/coder-chrome';
@@ -47,6 +48,7 @@ export function CoderApp() {
                     <TasksHostProvider host={CODER_TASKS_HOST}>
                       <TestsStream />
                       <CoderHome />
+                      <ReportIssueHost app="midnite-coder" />
                       <CoderDialogHost />
                     </TasksHostProvider>
                   </SessionsHostProvider>

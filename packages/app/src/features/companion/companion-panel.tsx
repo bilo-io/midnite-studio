@@ -9,6 +9,7 @@ import { useUiStore } from '../../store/ui-store';
 import { CompanionHeader } from './companion-header';
 import { CompanionInputBar } from './companion-input-bar';
 import { fabCompanionState } from './companion-look';
+import { CompanionOrb } from './companion-orb';
 import { companionPorts } from './companion-ports';
 import { CompanionThread } from './companion-thread';
 
@@ -132,7 +133,7 @@ export function CompanionPanel({
       */}
       <AiThreadFrame
         loading={state === 'thinking'}
-        className="flex min-h-0 flex-1 flex-col"
+        className="relative flex min-h-0 flex-1 flex-col"
         testId="companion-thread-frame"
       >
         <PanelStack
@@ -140,6 +141,7 @@ export function CompanionPanel({
           className="min-h-0 flex-1"
           render={() => <CompanionThread turns={transcript} />}
         />
+        <CompanionOrb state={state} />
         {state === 'thinking' ? <ThinkingIndicator className="shrink-0 pb-1.5" /> : null}
       </AiThreadFrame>
       {pendingAction?.kind === 'choice' ? (
