@@ -1,11 +1,31 @@
 import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  shell,
+  clipboard,
+  Menu,
+  type MenuItemConstructorOptions,
+} from 'electron';
 
-import { createFileSink, guardAppWindow, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
+import {
+  createFileSink,
+  guardAppWindow,
+  installCrashLogging,
+  type LogSink,
+} from '@midnite/studio-runtime';
 
 import { registerVanguardHandlers } from './context';
-import { VANGUARD_NAME, SMOKE_READY_LINE, USER_DATA_ENV, vanguardRuntimeDirectory, vanguardUserData, isSmoke } from './identity';
+import {
+  VANGUARD_NAME,
+  SMOKE_READY_LINE,
+  USER_DATA_ENV,
+  vanguardRuntimeDirectory,
+  vanguardUserData,
+  isSmoke,
+} from './identity';
 import { registerReport, reportMenuTemplate } from './report';
 
 /**
@@ -36,7 +56,11 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     // The runtime's crash-log sink (NDJSON, rotated, redacted), the one Studio's main writes through too.
-    const log = createFileSink({ dir: app.getPath('userData'), name: 'vanguard.log', homeDir: app.getPath('home') });
+    const log = createFileSink({
+      dir: app.getPath('userData'),
+      name: 'vanguard.log',
+      homeDir: app.getPath('home'),
+    });
     installCrashLogging((level, message) => log.write(level, message));
     crashLog = log;
     log.write('info', `${VANGUARD_NAME} ${app.getVersion()} started`);
@@ -62,6 +86,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         }) as MenuItemConstructorOptions[],
       ),
     );
+    // The window opens only once the channels are registered, so no first request finds no handler.
     void registerVanguardHandlers({
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
@@ -71,16 +96,20 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       userData: app.getPath('userData'),
       homeDir: app.getPath('home'),
       // The runtime host's broker, attached as a guest: Studio's live terminals, listed and written to.
-      runtimeDirectory: vanguardRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
+      runtimeDirectory: vanguardRuntimeDirectory(
+        app.getPath('appData'),
+        process.env[USER_DATA_ENV],
+      ),
       openPath: (path) => shell.openPath(path),
       log,
-    }).then(
-      (registered) => {
-        shutdownHandlers = registered.shutdown;
-      },
-      (error: unknown) => log.write('error', `Vanguard failed to start: ${String(error)}`),
-    );
-    openWindow();
+    })
+      .then(
+        (registered) => {
+          shutdownHandlers = registered.shutdown;
+        },
+        (error: unknown) => log.write('error', `Vanguard failed to start: ${String(error)}`),
+      )
+      .then(() => openWindow());
   });
 
   app.on('window-all-closed', () => app.quit());

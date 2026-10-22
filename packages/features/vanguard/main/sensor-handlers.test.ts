@@ -29,7 +29,8 @@ async function setup(opened = false) {
   const ctx = {
     ipc: {
       handleBare: (c: string, h: () => unknown) => void bare.set(c, h),
-      handle: (c: string, schema: { parse: (v: unknown) => unknown }, h: (p: unknown) => unknown) => void typed.set(c, (p) => h(schema.parse(p))),
+      handle: (c: string, schema: { parse: (v: unknown) => unknown }, h: (p: unknown) => unknown) =>
+        void typed.set(c, (p) => h(schema.parse(p))),
       send: () => undefined,
     },
     emit: () => undefined,

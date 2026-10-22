@@ -1,4 +1,8 @@
-import { DEFAULT_VANGUARD_SETTINGS, type NewSecurityFinding, type VanguardSettings } from '@midnite/studio-shared';
+import {
+  DEFAULT_VANGUARD_SETTINGS,
+  type NewSecurityFinding,
+  type VanguardSettings,
+} from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createSensorHost, type SensorDefinition, type SensorTimers } from './sensor-host';
@@ -18,7 +22,10 @@ function fakeTimers() {
   return { timers, fire: () => [...fns.values()].forEach((f) => f()), count: () => fns.size };
 }
 
-function setup(over: Partial<VanguardSettings> = {}, autostart: 'always' | 'after-view-opened' = 'always') {
+function setup(
+  over: Partial<VanguardSettings> = {},
+  autostart: 'always' | 'after-view-opened' = 'always',
+) {
   const settings: VanguardSettings = { ...DEFAULT_VANGUARD_SETTINGS, sensors: {}, ...over };
   const t = fakeTimers();
   const recorded: NewSecurityFinding[] = [];
@@ -38,7 +45,15 @@ function setup(over: Partial<VanguardSettings> = {}, autostart: 'always' | 'afte
   return { host, settings, t, recorded, onChanged };
 }
 
-const finding: Omit<NewSecurityFinding, 'source'> = { fingerprint: 'f', severity: 'low', category: 'config', title: 't', detail: 'd', evidence: [], remediation: [] };
+const finding: Omit<NewSecurityFinding, 'source'> = {
+  fingerprint: 'f',
+  severity: 'low',
+  category: 'config',
+  title: 't',
+  detail: 'd',
+  evidence: [],
+  remediation: [],
+};
 
 describe('sensor host', () => {
   it('runs a sensor at start, again on its timer, and reports state and the finding count', async () => {
@@ -49,6 +64,8 @@ describe('sensor host', () => {
     host.register({ id: 's', label: 'S', description: 'd', schedule: { kind: 'cadence' }, run });
     expect(host.status().sensors[0]?.state).toBe('disabled');
     await host.start();
+    // The first run is not awaited by `start`: let it finish before the timer fires.
+    await vi.waitFor(() => expect(host.status().sensors[0]?.lastRunAt).not.toBeNull());
     expect(run).toHaveBeenCalledTimes(1);
     expect(recorded[0]?.source).toBe('vanguard');
     t.fire();
@@ -61,7 +78,15 @@ describe('sensor host', () => {
 
   it('marks a throwing sensor as error without stopping the others', async () => {
     const { host } = setup();
-    host.register({ id: 'bad', label: 'B', description: '', schedule: { kind: 'none' }, run: () => { throw new Error('boom'); } });
+    host.register({
+      id: 'bad',
+      label: 'B',
+      description: '',
+      schedule: { kind: 'none' },
+      run: () => {
+        throw new Error('boom');
+      },
+    });
     const ok = vi.fn();
     host.register({ id: 'good', label: 'G', description: '', schedule: { kind: 'none' }, run: ok });
     await host.start();
@@ -84,7 +109,10 @@ describe('sensor host', () => {
   });
 
   it('honours a persisted viewOpened and the per-sensor switch', async () => {
-    const { host, settings } = setup({ viewOpened: true, sensors: { off: false } }, 'after-view-opened');
+    const { host, settings } = setup(
+      { viewOpened: true, sensors: { off: false } },
+      'after-view-opened',
+    );
     const a = vi.fn();
     const b = vi.fn();
     host.register({ id: 'on', label: '', description: '', schedule: { kind: 'none' }, run: a });
@@ -124,9 +152,16 @@ describe('sensor host', () => {
   it('never overlaps a sensor with itself, and refuses a duplicate id', async () => {
     const { host, t } = setup();
     let release: () => void = () => undefined;
-    const run = vi.fn(() => new Promise<void>((r) => { release = r; }));
+    const run = vi.fn(
+      () =>
+        new Promise<void>((r) => {
+          release = r;
+        }),
+    );
     host.register({ id: 's', label: '', description: '', schedule: { kind: 'cadence' }, run });
-    expect(() => host.register({ id: 's', label: '', description: '', schedule: { kind: 'none' } })).toThrow();
+    expect(() =>
+      host.register({ id: 's', label: '', description: '', schedule: { kind: 'none' } }),
+    ).toThrow();
     const started = host.start();
     await Promise.resolve();
     t.fire();

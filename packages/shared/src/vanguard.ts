@@ -69,12 +69,12 @@ export const VanguardSettingsGetResponse = VanguardSettingsSchema;
 
 /** A partial update: only the keys present change; `sensors` merges per id. */
 export const VanguardSettingsSetRequest = z.object({
-  sensors: z.record(z.string(), z.boolean()).optional(),
+  sensors: z.record(z.string().max(64), z.boolean()).optional(),
   cadenceSeconds: VanguardSettingsSchema.shape.cadenceSeconds.optional(),
   quarantineRetentionDays: VanguardSettingsSchema.shape.quarantineRetentionDays.optional(),
 });
 export type VanguardSettingsSetRequest = z.infer<typeof VanguardSettingsSetRequest>;
 
 /** Ask one sensor to run now (the Sensors tab's "Run now"). */
-export const VanguardSensorRunRequest = z.object({ id: z.string() });
+export const VanguardSensorRunRequest = z.object({ id: z.string().max(64) });
 export type VanguardSensorRunRequest = z.infer<typeof VanguardSensorRunRequest>;
