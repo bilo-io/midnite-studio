@@ -297,3 +297,37 @@ describe('refuseWebviewAttach', () => {
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('page deep links through openExternal (Phase 117 Theme G)', () => {
+  type Request = (wc: unknown, permission: string, callback: (granted: boolean) => void, details?: unknown) => void;
+  function requestHandler(onMidniteLink?: (url: string, origin: string) => void) {
+    const session = recordingSession();
+    applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn(), onMidniteLink });
+    return session.setPermissionRequestHandler.mock.calls[0]?.[0] as unknown as Request;
+  }
+  const page = { getURL: () => 'https://lure.example/post?id=1' };
+
+  it('always refuses Chromium and hands a midnite link to the host with the page origin', () => {
+    const onLink = vi.fn();
+    const request = requestHandler(onLink);
+    const cb = vi.fn();
+    request(page, 'openExternal', cb, { externalURL: 'midnite-studio://run?agent=claude&prompt=x' });
+    expect(cb).toHaveBeenCalledWith(false);
+    expect(onLink).toHaveBeenCalledWith('midnite-studio://run?agent=claude&prompt=x', 'https://lure.example', page);
+    request(page, 'openExternal', vi.fn(), { externalURL: 'midnite://open?app=studio' });
+    expect(onLink).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses every other external scheme silently, and a midnite link with no host hook', () => {
+    const onLink = vi.fn();
+    const request = requestHandler(onLink);
+    const cb = vi.fn();
+    request(page, 'openExternal', cb, { externalURL: 'zoommtg://join?x=1' });
+    expect(cb).toHaveBeenCalledWith(false);
+    expect(onLink).not.toHaveBeenCalled();
+    const bare = requestHandler();
+    const cb2 = vi.fn();
+    bare(page, 'openExternal', cb2, { externalURL: 'midnite-studio://run?x' });
+    expect(cb2).toHaveBeenCalledWith(false);
+  });
+});

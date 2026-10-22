@@ -89,7 +89,18 @@ export type BrowserSessionPolicyOptions = {
    * session, so this is fanned out in front of Theme E's filter rather than registered beside it.
    */
   requestGate?: (details: GateRequestDetails) => boolean;
+  /**
+   * Phase 117 Theme G: a page asked to open a `midnite-studio:`/`midnite:` link through the OS.
+   * Chromium is always refused; this hook gets the URL and the page's origin so the composer can
+   * confirm it. Any other external scheme is refused silently, as before.
+   */
+  onMidniteLink?: (url: string, origin: string, webContents: unknown) => void;
 };
+
+/** The two schemes a page may ask about; every other external protocol is simply refused. */
+export function isMidniteLink(url: string | undefined): url is string {
+  return typeof url === 'string' && /^midnite(?:-studio)?:\/\//i.test(url.trim());
+}
 
 /** What {@link BrowserSessionPolicyOptions.requestGate} sees of a request. */
 export type GateRequestDetails = { url: string; resourceType: string; webContents?: unknown };
@@ -171,13 +182,37 @@ export function mapCheckPermission(
  * Check handler answers from store only, never prompts.
  * Prompts are rate-limited to at most once per (origin, permission) per minute.
  */
+/**
+ * Phase 117 Theme G: `openExternal` is how a page's `location = 'midnite-studio://…'` reaches the OS.
+ * Returns whether it handled the request (it was `openExternal`); the caller always refuses
+ * Chromium, and a midnite link goes to the host with the page's origin to be confirmed there.
+ */
+function routeMidniteLink(webContents: unknown, permission: string, details: unknown, options: BrowserSessionPolicyOptions): boolean {
+  if (permission !== 'openExternal') return false;
+  const external = (details as PermissionRequestDetails | undefined)?.externalURL;
+  if (isMidniteLink(external) && options.onMidniteLink) {
+    const page = (webContents as { getURL?(): string } | undefined)?.getURL?.() ?? '';
+    options.onMidniteLink(external.trim(), normaliseOrigin(page), webContents);
+  }
+  return true;
+}
+
 export function configureSessionPermissions(
   session: Pick<PolicySession, 'setPermissionRequestHandler' | 'setPermissionCheckHandler'>,
   options: BrowserSessionPolicyOptions,
 ): void {
   const store = options.permissionStore;
   if (!store) {
-    denyAllPermissions(session);
+    if (!options.onMidniteLink) {
+      denyAllPermissions(session);
+      return;
+    }
+    // Deny-all, plus the one `openExternal` hand-off.
+    session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      routeMidniteLink(webContents, permission, details, options);
+      callback(false);
+    });
+    session.setPermissionCheckHandler(() => false);
     return;
   }
 
@@ -185,6 +220,10 @@ export function configureSessionPermissions(
   const lastPromptTime = new Map<string, number>();
 
   session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (routeMidniteLink(webContents, permission, details, options)) {
+      callback(false);
+      return;
+    }
     const mapped = mapRequestedPermissions(permission, details as PermissionRequestDetails | undefined);
     if (!mapped || mapped.length === 0) {
       callback(false);

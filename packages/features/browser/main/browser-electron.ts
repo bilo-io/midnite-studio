@@ -35,7 +35,7 @@ export type BrowserWebContents = {
   on(event: 'did-navigate' | 'did-navigate-in-page', listener: (event: unknown, url: string) => void): void;
   on(event: 'page-title-updated', listener: (event: unknown, title: string) => void): void;
   on(event: 'page-favicon-updated', listener: (event: unknown, favicons: string[]) => void): void;
-  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive', listener: () => void): void;
+  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive' | 'focus', listener: () => void): void;
   on(
     event: 'did-fail-load',
     listener: (event: unknown, errorCode: number, errorDescription: string, validatedUrl: string, isMainFrame: boolean) => void,
@@ -65,6 +65,12 @@ export type BrowserWebContents = {
   stopFindInPage(action: 'clearSelection'): void;
   setZoomFactor(factor: number): void;
   setWindowOpenHandler(handler: (details: { url: string; disposition: string }) => { action: 'deny' }): void;
+  /** Phase 117 Theme G: whether this page has keyboard focus (the ClickFix watch's interaction signal). */
+  isFocused?(): boolean;
+  /** Phase 117 Theme G: the agent tools' fixed scripts run in a world of their own (`page-reader.ts`). */
+  executeJavaScriptInIsolatedWorld?(worldId: number, scripts: Array<{ code: string }>): Promise<unknown>;
+  /** Phase 117 Theme G: the agent's `screenshot` tool. */
+  capturePage?(): Promise<{ toDataURL(): string }>;
 };
 
 /** A `WebContentsView`. */
@@ -85,6 +91,8 @@ export type BrowserHostWindow = {
     send(channel: string, payload: BrowserEvent | CommandId): void;
   };
   on(event: 'enter-full-screen' | 'leave-full-screen', listener: () => void): void;
+  /** Phase 117 Theme G: the ClickFix watch reads the clipboard only while a Browser window is focused. */
+  isFocused?(): boolean;
 };
 
 /**
@@ -125,4 +133,8 @@ export type BrowserElectron = {
   onDisplayMetricsChanged(listener: () => void): void;
   /** `shell.openExternal`. */
   openExternal(url: string): Promise<void>;
+  /** Phase 117 Theme G: `clipboard.readText()` for the ClickFix watch. Absent, the watch stays off. */
+  readClipboardText?(): string;
+  /** Phase 117 Theme G: `clipboard.clear()` behind the ClickFix bar's one-click clear. */
+  clearClipboard?(): void;
 };

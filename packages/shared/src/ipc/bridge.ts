@@ -857,6 +857,18 @@ export type MidniteStudioBridge = {
     setPrivacy: (req: In<typeof S.BrowserSetPrivacyRequest>) => void;
     /** Phase 117 Theme E — per-site protection exception. */
     setTrackerException: (req: In<typeof S.BrowserTrackerSiteExceptionRequest>) => void;
+    /** Phase 117 Theme G — starts an agent session on a tab with an origin allowlist. */
+    agentStart: (req: In<typeof S.BrowserAgentStartRequest>) => Promise<z.infer<typeof S.BrowserAgentStartResponse>>;
+    /** Phase 117 Theme G — the user takes the wheel back. */
+    agentStop: (req: In<typeof S.BrowserAgentStopRequest>) => void;
+    /** Phase 117 Theme G — one agent tool call; resolves once any `needsUser` pause is answered. */
+    agentTool: (req: In<typeof S.BrowserAgentToolRequest>) => Promise<z.infer<typeof S.BrowserAgentToolResponse>>;
+    /** Phase 117 Theme G — answers the agent-session bar's question. */
+    agentRespond: (req: In<typeof S.BrowserAgentRespondRequest>) => void;
+    /** Phase 117 Theme G — the ClickFix bar's "Clear clipboard". */
+    clearClipboard: (req: In<typeof S.BrowserClipboardClearRequest>) => void;
+    /** Phase 117 Theme G — the ClickFix watch switch. */
+    setClipboardWatch: (req: In<typeof S.BrowserSetClipboardWatchRequest>) => void;
     onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
   };
 

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { BrowserAgentSessionStateSchema } from '../browser-agent';
+
 /**
  * The embedded browser's tab/group/bounds/error contract (Phase 32).
  *
@@ -300,6 +302,22 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
     origin: z.string(),
     permission: BrowserPermissionKindSchema,
     displayName: z.string(),
+  }),
+  /**
+   * The agent session on this tab changed (Phase 117 Theme G): started, paused for the user,
+   * logged a step, or stopped. Main owns the session; the agent-session bar mirrors this.
+   */
+  z.object({ kind: z.literal('agent-session'), tabId: BrowserTabIdSchema, state: BrowserAgentSessionStateSchema }),
+  /**
+   * The ClickFix watch (Phase 117 Theme G): right after an interaction with this tab, a
+   * shell-pipeline-shaped command landed on the system clipboard. `preview` is one short line.
+   */
+  z.object({
+    kind: z.literal('clipboard-warning'),
+    tabId: BrowserTabIdSchema,
+    origin: z.string(),
+    label: z.string().max(120),
+    preview: z.string().max(96),
   }),
 ]);
 export type BrowserEvent = z.infer<typeof BrowserEventSchema>;

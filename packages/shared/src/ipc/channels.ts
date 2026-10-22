@@ -687,6 +687,18 @@ export const CHANNELS = {
   browserSetPrivacy: 'mstudio:browser:set-privacy',
   /** Per-site tracker-protection exception (Phase 117 Theme E). */
   browserTrackerSiteException: 'mstudio:browser:tracker-site-exception',
+  /** Starts an agent session on a tab with an origin allowlist (Phase 117 Theme G). */
+  browserAgentStart: 'mstudio:browser:agent-start',
+  /** Ends an agent session: the user takes the wheel (Phase 117 Theme G). */
+  browserAgentStop: 'mstudio:browser:agent-stop',
+  /** Runs one of the six agent tools; page text returns only as `UntrustedPageContent` (Phase 117 Theme G). */
+  browserAgentTool: 'mstudio:browser:agent-tool',
+  /** The user's answer to a `needsUser` pause (Phase 117 Theme G). */
+  browserAgentRespond: 'mstudio:browser:agent-respond',
+  /** Clears the system clipboard from the ClickFix bar (Phase 117 Theme G). */
+  browserClipboardClear: 'mstudio:browser:clipboard-clear',
+  /** The ClickFix clipboard watch switch, Settings ▸ Browser (Phase 117 Theme G). */
+  browserSetClipboardWatch: 'mstudio:browser:set-clipboard-watch',
 
   // --- third-party apps rail (Phase 83 Themes A/B) ---------------------------
   // One `WebContentsView` per ENABLED app, owned by `web-apps-service.ts` — the
