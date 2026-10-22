@@ -60,6 +60,7 @@
     "@midnite/studio-feature-optimizer": "workspace:*",
     "@midnite/studio-feature-sessions": "workspace:*",
     "@midnite/studio-feature-tests": "workspace:*",
+    "@midnite/studio-feature-vanguard": "workspace:*",
     "@midnite/studio-feature-workflows": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-knowledge": "workspace:*",

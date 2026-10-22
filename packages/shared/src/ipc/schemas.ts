@@ -5297,3 +5297,6 @@ export const GamesPlaytestRunResponse = GitOpResultOf(GamePlaytestRunResultSchem
 // Web export (Theme P).
 export const GamesExportRequest = GameExportRequestSchema;
 export const GamesExportResponse = GitOpResultOf(GameExportResultSchema);
+
+// Security findings (Phase 120 Theme A).
+export * from './security-findings';

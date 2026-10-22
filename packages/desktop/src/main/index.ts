@@ -27,6 +27,7 @@ import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
+import { configureFindingsLedger, registerVanguardHandlers } from './ipc/vanguard-handlers';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
@@ -580,6 +581,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerCompanionHandlers();
       registerUpdater(getMainWindow);
       registerReleaseNotesHandlers();
+      registerVanguardHandlers(getMainWindow);
       handle(
         CHANNELS.setupProbe,
         SetupProbeRequest,
@@ -722,6 +724,7 @@ export const startStudioMain: StartStudioMain = () => {
         subscription-gated — it costs nothing with nothing waiting).
       */
       registerWorkflowHandlers({ userData, forgePoller, getMainWindow, gateApprovalPollMs: FORGE_POLL_MS });
+      configureFindingsLedger(userData, getMainWindow);
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
           const win = getMainWindow();
