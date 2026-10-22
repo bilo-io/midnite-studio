@@ -26,7 +26,7 @@ import {
   LuX,
 } from 'react-icons/lu';
 
-import { ConfirmDialog, type ConfirmRequest } from '../../components/confirm-dialog';
+import { useDialogs } from '../../components/dialog-host';
 import { SwitchTrack } from '../../components/form/toggle-rows';
 import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
@@ -515,9 +515,13 @@ function OptionText({
 /**
  * Delete, behind a confirm — the loop's options, colour and history pairing
  * go with it, and a running session is closed first.
+ *
+ * Raised through the root `DialogHost`, not rendered here: inside the FAB
+ * panel's clipped, animated frame a `fixed` overlay is contained by the panel,
+ * so the dim painted over it while the dialog itself landed off-screen.
  */
 function DeleteLoopButton({ loop }: { loop: CustomLoop }) {
-  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const dialogs = useDialogs();
   const remove = (): void => {
     const ui = useUiStore.getState();
     const terminals = useTerminalStore.getState();
@@ -525,30 +529,26 @@ function DeleteLoopButton({ loop }: { loop: CustomLoop }) {
       if (sessionId !== undefined) terminals.closeSession(sessionId);
     }
     ui.deleteCustomLoop(loop.id);
-    setConfirm(null);
   };
   return (
-    <>
-      <button
-        type="button"
-        data-testid="custom-loop-delete"
-        onClick={() =>
-          setConfirm({
-            title: `Delete ${loopLabel(loop)}?`,
-            body: 'The loop, its sections and options are removed for good. Past runs stay in history.',
-            confirmLabel: 'Delete loop',
-            danger: true,
-            blastRadius: null,
-            warnings: ['A run in progress on this tab is stopped and its terminal closed.'],
-            onConfirm: remove,
-          })
-        }
-        className="flex h-7 items-center justify-center gap-1.5 rounded-md border border-destructive/40 text-[11px] text-destructive transition-colors hover:bg-destructive/10"
-      >
-        <LuTrash2 aria-hidden className="h-3.5 w-3.5" />
-        Delete loop
-      </button>
-      {confirm ? <ConfirmDialog request={confirm} onCancel={() => setConfirm(null)} /> : null}
-    </>
+    <button
+      type="button"
+      data-testid="custom-loop-delete"
+      onClick={() =>
+        dialogs.confirm({
+          title: `Delete ${loopLabel(loop)}?`,
+          body: 'The loop, its sections and options are removed for good. Past runs stay in history.',
+          confirmLabel: 'Delete loop',
+          danger: true,
+          blastRadius: null,
+          warnings: ['A run in progress on this tab is stopped and its terminal closed.'],
+          onConfirm: remove,
+        })
+      }
+      className="flex h-7 items-center justify-center gap-1.5 rounded-md border border-destructive/40 text-[11px] text-destructive transition-colors hover:bg-destructive/10"
+    >
+      <LuTrash2 aria-hidden className="h-3.5 w-3.5" />
+      Delete loop
+    </button>
   );
 }
