@@ -104,6 +104,9 @@ const CLASS_LABEL: Record<IntegrityClass, string> = {
   'git-config': 'Global git config',
 };
 
+/** The home-dir scope's id: not a plain token, so it can never collide with a repo id's baseline file. */
+export const USER_SCOPE_ID = '~user';
+
 const QUARANTINABLE: ReadonlySet<IntegrityClass> = new Set(['hooks', 'mcp', 'agent-config']);
 const MAX_PAUSE_ACTIONS = 3;
 
@@ -172,6 +175,11 @@ export function relevantPath(roots: IntegrityRoots, absPath: string): boolean {
     if (root === undefined) continue;
     const rel = relative(root, absPath).split(sep).join('/');
     if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) continue;
+    // Churn inside a nested checkout or an install under a watched directory never reaches the walk.
+    const parts = rel.split('/');
+    if (parts.some((part, i) => part === 'node_modules' || (part === '.git' && i > 0) || (part === 'worktrees' && parts[0] === '.claude'))) {
+      continue;
+    }
     if (matchIntegrityEntry(roots.scope, base, rel) !== undefined) return true;
     for (const entry of integrityEntriesFor(roots.scope)) {
       if (entry.base === base && entry.match !== 'prefix' && (entry.path === rel || entry.path.startsWith(`${rel}/`))) return true;
@@ -358,7 +366,7 @@ export function createIntegritySensor(deps: IntegritySensorDeps): SensorDefiniti
   async function syncScopes(c: IntegritySensorContext): Promise<Scope[]> {
     const wanted = new Map<string, Omit<Scope, 'baseline' | 'watchers' | 'timer' | 'sessionsSeen' | 'windowStart' | 'queue'>>();
     if (c.homeDir !== undefined) {
-      wanted.set('user', { id: 'user', kind: 'user', roots: { scope: 'user', home: c.homeDir }, root: '~' });
+      wanted.set(USER_SCOPE_ID, { id: USER_SCOPE_ID, kind: 'user', roots: { scope: 'user', home: c.homeDir }, root: '~' });
     }
     for (const repo of await deps.repos()) {
       const existing = scopes.get(repo.repoId);

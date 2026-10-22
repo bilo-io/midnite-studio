@@ -57,6 +57,8 @@ async function walk(dir: string, rel: string, depth: number, out: string[]): Pro
   } catch {
     return;
   }
+  // A nested checkout (Claude Code's `.claude/worktrees/<name>`, a vendored repo) is code, not config.
+  if (depth > 1 && entries.some((dirent) => dirent.name === '.git')) return;
   entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   for (const dirent of entries) {
     if (out.length >= WALK_MAX_FILES) return;

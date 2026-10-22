@@ -166,6 +166,22 @@ describe('the integrity sensor', () => {
     expect(recorded[0]!.title).toBe('Git hook appeared outside a git commit: .git/hooks/post-checkout');
   });
 
+  it("skips a nested checkout under a watched directory (Claude Code's agent worktrees)", async () => {
+    const nested = join(repo, '.claude', 'worktrees', 'agent-1');
+    await mkdir(join(nested, '.claude'), { recursive: true });
+    await writeFile(join(nested, '.git'), 'gitdir: /elsewhere\n');
+    await writeFile(join(repo, '.claude', 'settings.json'), '{}');
+    const s = sensor();
+    await s.run!(context());
+    await writeFile(join(nested, '.claude', 'settings.json'), '{"hooks":{"x":1}}');
+    await writeFile(join(nested, 'index.ts'), 'export {}');
+    await s.run!(context());
+    expect(recorded).toEqual([]);
+    const files = Object.keys(JSON.parse(await readFile(baselinePath(userData, 'repo-1'), 'utf8')).files);
+    expect(files).toContain('worktree:.claude/settings.json');
+    expect(files.some((key) => key.includes('worktrees'))).toBe(false);
+  });
+
   it('says no session was live when none was, and watches the home dir too', async () => {
     sessions = [];
     const s = sensor();
@@ -216,6 +232,8 @@ describe('the integrity sensor', () => {
     expect(relevantPath(roots, '/r/.vscode')).toBe(true);
     expect(relevantPath(roots, '/r/.claude')).toBe(true);
     expect(relevantPath(roots, '/r/.git/hooks/pre-push')).toBe(true);
+    expect(relevantPath(roots, '/r/.claude/worktrees/agent-1/src/x.ts')).toBe(false);
+    expect(relevantPath(roots, '/r/.claude/skills/node_modules/x/index.js')).toBe(false);
     expect(relevantPath({ scope: 'user', home: '/h' }, '/h/.zsh_history')).toBe(false);
     expect(relevantPath({ scope: 'user', home: '/h' }, '/h/.claude.json')).toBe(true);
   });
