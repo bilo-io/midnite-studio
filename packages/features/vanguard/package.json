@@ -6,8 +6,8 @@
   "sideEffects": false,
   "exports": {
     "./main": {
-      "types": "./dist/main/index.d.ts",
-      "default": "./dist/main/index.js"
+      "types": "./main/index.ts",
+      "default": "./main/index.ts"
     }
   },
   "scripts": {

@@ -1,5 +1,5 @@
-import { createRecordingContext } from '@midnite/studio-runtime';
-import { CHANNELS, type SecurityFinding } from '@midnite/studio-shared';
+import { createRecordingContext, type FindingsLedger } from '@midnite/studio-runtime';
+import { CHANNELS, type SecurityFinding, type SecurityFindingStatus } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 import { registerFindingsHandlers } from './findings-handlers';
 
@@ -25,14 +25,14 @@ describe('findings-handlers (Phase 120 Theme A)', () => {
     const mockLedger = {
       list: vi.fn(async () => [mockFinding]),
       get: vi.fn(async (id: string) => (id === 'f-1' ? mockFinding : null)),
-      setStatus: vi.fn(async (id: string, status: any) => ({ ...mockFinding, id, status })),
+      setStatus: vi.fn(async (id: string, status: SecurityFindingStatus) => ({ ...mockFinding, id, status })),
       record: vi.fn(),
       prune: vi.fn(),
       getSecurityDir: vi.fn(() => '/mock'),
     };
 
     registerFindingsHandlers(ctx, {
-      ledger: () => mockLedger as any,
+      ledger: () => mockLedger as unknown as FindingsLedger,
     });
 
     expect(ctx.channels).toEqual([
