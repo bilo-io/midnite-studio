@@ -50,7 +50,8 @@ export type PendingAction =
   | PendingExternalAction
   | PendingSettingAction
   | PendingOpenSettingsAction
-  | PendingChoiceAction;
+  | PendingChoiceAction
+  | PendingStatusReportAction;
 
 /** A palette command waiting on a yes. `kind` is optional so the Phase 81 shape still reads as one. */
 export type PendingCommandAction = {
@@ -124,6 +125,19 @@ export type PendingChoiceAction = {
   at: number;
   onConfirm?: undefined;
   options: readonly { ref: ResourceRef; title: string; detail?: string | undefined }[];
+};
+
+/**
+ * The greeting's "Would you like a status report?" — a yes runs the overview
+ * the opening used to recite unasked (`concierge.ts`'s `orient`); a no, or any
+ * other request, drops it.
+ */
+export type PendingStatusReportAction = {
+  kind: 'statusReport';
+  id?: undefined;
+  label: string;
+  at: number;
+  onConfirm?: undefined;
 };
 
 export type CompanionStoreState = {

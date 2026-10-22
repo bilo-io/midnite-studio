@@ -150,7 +150,10 @@ export function CompanionPanel({
       {pendingAction?.kind === 'choice' ? (
         <CompanionChoiceBar label={pendingAction.label} options={pendingAction.options} />
       ) : pendingAction ? (
-        <CompanionPendingActionBar label={pendingAction.label} />
+        <CompanionPendingActionBar
+          label={pendingAction.label}
+          {...(pendingAction.kind === 'statusReport' ? STATUS_REPORT_CHIPS : {})}
+        />
       ) : null}
       <CompanionInputBar
         disabled={state === 'thinking'}
@@ -163,12 +166,36 @@ export function CompanionPanel({
 }
 
 /**
+ * The greeting's status-report offer is a question, not a command to run — so
+ * its chips read "Yes" / "Not now" and post what the user would have said,
+ * rather than a bare "confirm" in their name.
+ */
+const STATUS_REPORT_CHIPS = {
+  confirmLabel: 'Yes',
+  confirmText: 'yes',
+  cancelLabel: 'Not now',
+  cancelText: 'no thanks',
+} as const;
+
+/**
  * The pending-action bar (Phase 81 Theme C) — the same "yes" the panel already
  * accepts spoken, typed, or on an empty Return, offered as a click too, all
  * three through {@link companionPorts}'s `submit` so there is exactly one
  * implementation of "confirm" and one of "dismiss".
  */
-function CompanionPendingActionBar({ label }: { label: string }) {
+function CompanionPendingActionBar({
+  label,
+  confirmLabel = 'Run',
+  confirmText = 'confirm',
+  cancelLabel = 'Cancel',
+  cancelText = 'cancel',
+}: {
+  label: string;
+  confirmLabel?: string;
+  confirmText?: string;
+  cancelLabel?: string;
+  cancelText?: string;
+}) {
   return (
     <div
       className="flex shrink-0 items-center gap-2 border-t border-border bg-card/40 px-2.5 py-1.5 text-xs"
@@ -178,18 +205,18 @@ function CompanionPendingActionBar({ label }: { label: string }) {
       <button
         type="button"
         data-testid="companion-pending-cancel"
-        onClick={() => companionPorts().submit('cancel')}
+        onClick={() => companionPorts().submit(cancelText)}
         className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
       >
-        Cancel
+        {cancelLabel}
       </button>
       <button
         type="button"
         data-testid="companion-pending-run"
-        onClick={() => companionPorts().submit('confirm')}
+        onClick={() => companionPorts().submit(confirmText)}
         className="rounded-md bg-primary/15 px-2 py-1 font-medium text-primary hover:bg-primary/25"
       >
-        Run
+        {confirmLabel}
       </button>
     </div>
   );
