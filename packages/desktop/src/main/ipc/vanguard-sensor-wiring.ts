@@ -52,7 +52,8 @@ export function agentPtyOutputSource(seams: VanguardWiringSeams): PtyOutputSourc
             if (!live) return;
             if (!agents.has(sessionId)) {
               const row = (await seams.listTerminals()).find((r) => r.session.id === sessionId);
-              agents.set(sessionId, row ? (agentIdOf(row) ?? null) : null);
+              // A session not saved yet is looked up again on the next chunk, never cached as "not an agent".
+              if (row) agents.set(sessionId, agentIdOf(row) ?? null);
             }
             const agentId = agents.get(sessionId);
             if (agentId) {
