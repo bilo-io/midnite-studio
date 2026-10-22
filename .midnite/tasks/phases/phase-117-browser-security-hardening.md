@@ -118,7 +118,7 @@ Scope guardrails:
 *A page in the Browser app can neither hurt the user, nor the Mac, nor the agent that is reading it —
 and the app says what it knows about every site before the user trusts it.* Born from a browser that
 denies everything but cannot yet warn, grant, download or tell a page apart from the person.
-(27% · 16/60) — **Planned 2026-10-22.** Themes A and B landed 2026-10-22.
+(23% · 14/60) — **Planned 2026-10-22.** Themes A and B landed 2026-10-22.
 
 **Theme A — Isolation and the Chromium floor.** ✅ [PR #964](https://github.com/bilo-io/midnite-studio/pull/964).
 `browser-session-policy.ts` is the one place a session rule lives: `applyBrowserSessionPolicy` installs
