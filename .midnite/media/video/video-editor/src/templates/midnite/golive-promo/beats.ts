@@ -17,6 +17,9 @@ export const ORIGIN = 0;
 
 export const bar = (b: number): number => Math.round(ORIGIN + b * BAR);
 
+/** Four beats to the bar: the HUD kit counts its scenes in beats. */
+export const BEAT = BAR / 4;
+
 /** Where each part of the showcase lands. */
 export const T = {
   /** The mark alone on black, glowing. */
@@ -38,10 +41,14 @@ export const T = {
   loops: [bar(10.5), bar(11), bar(11.5)] as const,
   /** A claim back on the light stage. */
   late: bar(12),
+  /** The neon-HUD kit's chapter card, on dark. */
+  chapter: bar(13),
+  /** One HUD scene per diagram kind, a bar each, alternating light and dark. */
+  hud: Array.from({ length: 11 }, (_, i) => bar(14 + i)),
   /** The outro, on dark: "connect with" and a row of names. */
-  connect: bar(13),
+  connect: bar(25),
   /** The lockup the film ends on. */
-  end: bar(14),
+  end: bar(26),
   /** Last frame + 1. */
-  duration: bar(15.5),
+  duration: bar(27.5),
 } as const;

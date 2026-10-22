@@ -27,9 +27,13 @@ Then, in the copied composition folder:
 1. Rename the export in `register.tsx` (e.g. `YoutubeTutorials001`), give the
    compositions episode ids instead of `Template…`, and register it in
    `src/Root.tsx`.
-2. Fix the relative imports. The copy sits one folder deeper than the
-   template, so `../../../shared/` becomes `../../../../shared/`.
-3. Fill in `content.ts`, then set `beats.ts` from the episode's own bed.
+2. Keep the relative imports as they are. `src/projects/youtube-tutorials/<episode>/`
+   sits at the same depth as `src/templates/youtube-tutorials/neon-hud/`, so
+   `../../../shared/` still resolves.
+3. Fill in `content.ts`, then set `beats.ts` from the episode's own bed. Measure
+   the tempo rather than trusting `beat_track`: the template's 123.05 is a
+   librosa tempo bin, and its track actually runs at 124.00 BPM (see episode 1's
+   `EDITORIAL_SCRIPT.md`).
 4. Fill in `project.json` (`"id": "youtube-tutorials/001-my-episode"`) and
    render:
 
@@ -44,4 +48,4 @@ diagram kind or a fix there reaches the whole series at once.
 
 | # | Title | Status |
 |---|---|---|
-| — | *(none yet)* | |
+| 1 | [Midnite video 1 — the automated workflow](midnite-video-1-automated-workflow/EDITORIAL_SCRIPT.md) (`midnite-video-1-automated-workflow`) | v1 first cut |

@@ -1,0 +1,8 @@
+{
+  "id": "youtube-tutorials/midnite-video-1-automated-workflow",
+  "title": "Midnite video 1 — the automated workflow",
+  "composition": "MidniteVideo1AutomatedWorkflow",
+  "brief": "input/BRIEF.md",
+  "script": "EDITORIAL_SCRIPT.md",
+  "template": "templates/midnite/golive-promo"
+}
