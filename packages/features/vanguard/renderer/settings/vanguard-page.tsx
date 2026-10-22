@@ -1,7 +1,7 @@
 import { SettingsAccordion, SettingsSwitchRow, bridge } from '@midnite/studio-frame';
 import { LuFolderOpen, LuRadar, LuShield, LuTimer } from 'react-icons/lu';
 
-import { useSensors, useVanguardSettings } from './use-vanguard';
+import { useSensors, useVanguardSettings } from '../use-vanguard';
 
 /**
  * Settings ▸ Vanguard (Phase 120 Theme B): each sensor on or off, the scan cadence and quarantine
