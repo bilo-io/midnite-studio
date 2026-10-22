@@ -7,6 +7,7 @@ import {
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DialogHost } from '../../components/dialog-host';
 import { useUiStore } from '../../store/ui-store';
 import { LoopComposer } from './loop-composer';
 import { loopSpectrumProps, spectrumStops } from './loop-spectrum';
@@ -21,40 +22,42 @@ function Harness({ onToggle = vi.fn() }: { onToggle?: (id: string, on: boolean) 
   const loop = useUiStore((s) => s.customLoops[0]);
   if (!loop) return null;
   return (
-    <div data-testid="host" {...loopSpectrumProps(loop)}>
-      <LoopComposer
-        loop={loop}
-        running={false}
-        waiting={false}
-        thinking={false}
-        checked={{}}
-        choiceIds={{}}
-        agents={BUILTIN_AGENTS}
-        agentId="claude"
-        model="default"
-        schedule={DEFAULT_LOOP_SCHEDULE}
-        extras=""
-        skills={{}}
-        skillSuggestions={[] as readonly KnownSkill[]}
-        reviewUsers={[]}
-        contributorOptions={[]}
-        autoRotatePercent={30}
-        repeat
-        disabled={false}
-        disabledReason={undefined}
-        onToggle={onToggle}
-        onSkill={vi.fn()}
-        onReviewUsers={vi.fn()}
-        onAutoRotate={vi.fn()}
-        onChoice={vi.fn()}
-        onAgent={vi.fn()}
-        onModel={vi.fn()}
-        onSchedule={vi.fn()}
-        onExtras={vi.fn()}
-        onStart={vi.fn()}
-        onStop={vi.fn()}
-      />
-    </div>
+    <DialogHost>
+      <div data-testid="host" {...loopSpectrumProps(loop)}>
+        <LoopComposer
+          loop={loop}
+          running={false}
+          waiting={false}
+          thinking={false}
+          checked={{}}
+          choiceIds={{}}
+          agents={BUILTIN_AGENTS}
+          agentId="claude"
+          model="default"
+          schedule={DEFAULT_LOOP_SCHEDULE}
+          extras=""
+          skills={{}}
+          skillSuggestions={[] as readonly KnownSkill[]}
+          reviewUsers={[]}
+          contributorOptions={[]}
+          autoRotatePercent={30}
+          repeat
+          disabled={false}
+          disabledReason={undefined}
+          onToggle={onToggle}
+          onSkill={vi.fn()}
+          onReviewUsers={vi.fn()}
+          onAutoRotate={vi.fn()}
+          onChoice={vi.fn()}
+          onAgent={vi.fn()}
+          onModel={vi.fn()}
+          onSchedule={vi.fn()}
+          onExtras={vi.fn()}
+          onStart={vi.fn()}
+          onStop={vi.fn()}
+        />
+      </div>
+    </DialogHost>
   );
 }
 
@@ -171,7 +174,11 @@ describe('custom loop composer', () => {
     render(<Harness />);
     fireEvent.click(screen.getByTestId('custom-loop-delete'));
     expect(useUiStore.getState().customLoops).toHaveLength(1);
-    fireEvent.click(screen.getAllByRole('button', { name: 'Delete loop' }).at(-1)!);
+    // Raised by the root DialogHost, outside the panel that clipped it.
+    const dialog = screen.getByRole('dialog', { name: 'Delete New loop?' });
+    expect(within(screen.getByTestId('host')).queryByRole('dialog')).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete loop' }));
     expect(useUiStore.getState().customLoops).toHaveLength(0);
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
