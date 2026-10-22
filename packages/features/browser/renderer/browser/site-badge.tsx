@@ -23,7 +23,8 @@ import { useDismiss } from '../ui';
  *   (reputation state, trackers blocked) is one click away.
  * - **caution** — the amber chip. Plain `http:` keeps its old "Not secure" wording; any other caution
  *   finding names itself (lookalike, mixed content, vulnerable library, insecure form).
- * - **danger** — the red chip, for a certificate failure or a feed hit the user proceeded past.
+ * - **danger** — the red chip, for a certificate failure or a feed hit the user proceeded past, or a
+ *   password field Theme F judged a likely phish ("Possible phishing").
  *
  * Theme E's tracker count rides on the same badge (`verdict.trackersBlocked`, fed by its request
  * filter in main), with its per-site exception in the popover; Theme F raises the badge through the
@@ -46,7 +47,11 @@ const LINE_TONE: Record<SiteVerdictLevel, string> = {
 export function siteBadgeLabel(verdict: SiteVerdict): string | null {
   const level = siteVerdictLevel(verdict);
   if (level === 'ok') return null;
-  if (level === 'danger') return verdict.tls === 'error' ? 'Certificate error' : 'Dangerous site';
+  if (level === 'danger') {
+    if (verdict.tls === 'error') return 'Certificate error';
+    return verdict.knownBad ? 'Dangerous site' : 'Possible phishing';
+  }
+  if (verdict.credentialRisk) return 'Login risk';
   if (verdict.lookalike) return 'Lookalike';
   if (verdict.origin.startsWith('http:') && !isLoopbackHost(verdict.displayHost)) return 'Not secure';
   if (verdict.insecureForm) return 'Insecure form';

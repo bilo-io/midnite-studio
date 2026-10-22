@@ -40,7 +40,7 @@ export type BrowserWebContents = {
   on(event: 'did-navigate' | 'did-navigate-in-page', listener: (event: unknown, url: string) => void): void;
   on(event: 'page-title-updated', listener: (event: unknown, title: string) => void): void;
   on(event: 'page-favicon-updated', listener: (event: unknown, favicons: string[]) => void): void;
-  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive', listener: () => void): void;
+  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive' | 'dom-ready', listener: () => void): void;
   on(
     event: 'did-fail-load',
     listener: (event: unknown, errorCode: number, errorDescription: string, validatedUrl: string, isMainFrame: boolean) => void,
@@ -62,6 +62,11 @@ export type BrowserWebContents = {
   ): void;
   /** Phase 117 Theme A: refused by `refuseWebviewAttach`, whatever `webviewTag` says. */
   on(event: 'will-attach-webview', listener: (event: BrowserPreventable) => void): void;
+  /**
+   * Phase 117 Theme F: the login-form read (`login-form-read.ts`). Only ever called with
+   * `LOGIN_FORM_WORLD_ID` and the fixed snippet — never world 0, the page's own.
+   */
+  executeJavaScriptInIsolatedWorld(worldId: number, scripts: Array<{ code: string }>, userGesture?: boolean): Promise<unknown>;
   /** Phase 117 Theme C: ties `webRequest` details (`webContentsId`) back to a tab. */
   readonly id: number;
   removeAllListeners(): void;

