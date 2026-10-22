@@ -20,6 +20,7 @@
     "@midnite/studio-feature-media-sprite": "workspace:*",
     "@midnite/studio-feature-media-terrain": "workspace:*",
     "@midnite/studio-feature-models": "workspace:*",
+    "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",

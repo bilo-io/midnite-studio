@@ -32,10 +32,10 @@ function setup() {
 }
 
 describe('registerMonitorHandlers', () => {
-  it('registers the feature channels plus the two crash-log reads, and nothing else', () => {
+  it('registers the feature channels plus the terminal list and hand-off, and nothing else (the crash-log reads belong to the report feature)', () => {
     const { handlers, on } = setup();
     expect([...handlers.keys(), ...on].sort()).toEqual(
-      [...monitorManifest.ipc, CHANNELS.terminalList, CHANNELS.reportLogPath, CHANNELS.reportBundle, CHANNELS.handoffOpen].sort(),
+      [...monitorManifest.ipc, CHANNELS.terminalList, CHANNELS.handoffOpen].sort(),
     );
     // metrics start/stop are one-way sends
     expect(on).toEqual(new Set([CHANNELS.metricsStart, CHANNELS.metricsStop]));
@@ -67,15 +67,5 @@ describe('registerMonitorHandlers', () => {
 
   it('hands main the sampler so it can pause on blur', () => {
     expect(setup().onMetricsService).toHaveBeenCalledTimes(1);
-  });
-
-  it('answers the crash-log reads from the log, with home redacted', () => {
-    const { handlers, log } = setup();
-    log.write('error', 'boom at /Users/someone/secret/file.ts');
-    expect(handlers.get(CHANNELS.reportLogPath)?.({}, undefined)).toEqual({ path: log.path });
-    expect(log.path.endsWith('monitor.log')).toBe(true);
-    const { text } = handlers.get(CHANNELS.reportBundle)?.({}, undefined) as { text: string };
-    expect(text).toContain('ERROR boom at');
-    expect(text).not.toContain('/Users/someone');
   });
 });

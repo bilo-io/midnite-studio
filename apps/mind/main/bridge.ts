@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -12,12 +13,15 @@ export type MindBridge = {
   notes: MidniteStudioBridge['notes'];
   /** The Knowledge tab's graph of the notebook (`main/knowledge.ts`). */
   knowledge: MidniteStudioBridge['knowledge'];
+  /** Report an Issue — the report feature's own bridge half. */
+  report: ReportBridge;
 };
 
 export type { RendererIpc };
 
 export function createMindBridge(ipc: RendererIpc): MindBridge {
-  const { call, send, subscribe } = createBridgeSlice(ipc);
+  const slice = createBridgeSlice(ipc);
+  const { call, send, subscribe } = slice;
   return {
     notes: {
       list: (req) => call(CHANNELS.notesList, req),
@@ -34,5 +38,6 @@ export function createMindBridge(ipc: RendererIpc): MindBridge {
       checkGraph: (req) => call(CHANNELS.knowledgeCheckGraph, req),
       onLayoutProgress: (handler) => subscribe(EVENT_CHANNELS.knowledgeLayoutProgress, handler),
     },
+    report: createReportBridge(slice),
   };
 }

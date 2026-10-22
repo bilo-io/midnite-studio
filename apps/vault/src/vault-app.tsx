@@ -1,3 +1,4 @@
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { VaultHostProvider } from '@midnite/studio-feature-vault/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 
@@ -17,6 +18,7 @@ export function VaultApp() {
         <VaultHome />
       </VaultHostProvider>
       <VaultDialogHost />
+      <ReportIssueHost app="midnite-vault" />
     </FrameChromeProvider>
   );
 }

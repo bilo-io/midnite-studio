@@ -1,6 +1,5 @@
 import { monitorMain, type MetricsService, type UsageSession } from '@midnite/studio-feature-monitor/main';
 import {
-  bundleFromSink,
   createIpcContext,
   registerHandoffOpener,
   type IpcContextElectron,
@@ -39,8 +38,8 @@ const NO_BROKER: TerminalList = {
 
 /**
  * Registers every channel Monitor's renderer can call: the monitor feature's (metrics, system
- * health), plus the two read-side crash-log channels the feature leaves to its composer — the log
- * sink is the composer's, not the feature's.
+ * health), the terminal list and the hand-off. The crash-log reads and Report an Issue are the
+ * report feature's (`report.ts`) — registered once, there, over the same log sink.
  */
 export function registerMonitorHandlers(el: MonitorElectron): void {
   const ctx = createIpcContext(el);
@@ -53,7 +52,4 @@ export function registerMonitorHandlers(el: MonitorElectron): void {
     warn: (issue) => el.log.write('warn', issue),
   });
   el.ipcMain.handle(CHANNELS.terminalList, () => el.listSessions?.() ?? NO_BROKER);
-  el.ipcMain.handle(CHANNELS.reportLogPath, () => ({ path: el.log.path }));
-  // No boot line: Monitor's first record is its own "started" line.
-  el.ipcMain.handle(CHANNELS.reportBundle, () => ({ text: bundleFromSink(el.log, '', el.homeDir) }));
 }

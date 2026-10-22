@@ -17,12 +17,12 @@ function fakeIpc() {
 }
 
 describe('createMonitorBridge', () => {
-  it('exposes exactly metrics, system health, the two crash-log reads and the hand-off', () => {
+  it('exposes exactly metrics, system health, the hand-off and the report feature calls', () => {
     const bridge = createMonitorBridge(fakeIpc().ipc);
     expect(Object.keys(bridge).sort()).toEqual(['handoff', 'metrics', 'monitorAgentUsage', 'report', 'systemHealth', 'systemHealthStartSshAgent', 'terminal']);
     expect(Object.keys(bridge.handoff)).toEqual(['open']);
     expect(Object.keys(bridge.terminal)).toEqual(['list']);
-    expect(Object.keys(bridge.report).sort()).toEqual(['bundle', 'logPath']);
+    expect(Object.keys(bridge.report).sort()).toEqual(['bundle', 'copy', 'error', 'ghStatus', 'logPath', 'onOpen', 'openUrl', 'reveal', 'submitIssue']);
     expect(Object.keys(bridge.metrics).sort()).toEqual(['onSample', 'start', 'stop']);
   });
 

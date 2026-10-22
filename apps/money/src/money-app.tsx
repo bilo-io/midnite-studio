@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { FinanceHostProvider } from '@midnite/studio-feature-finance/renderer';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 
 import { MONEY_CHROME, MoneyDialogHost } from './compose/money-chrome';
@@ -20,6 +21,7 @@ export function MoneyApp() {
         <FinanceHostProvider host={MONEY_FINANCE_HOST}>
           <MoneyHome />
           <MoneyDialogHost />
+          <ReportIssueHost app="midnite-money" />
         </FinanceHostProvider>
       </FrameChromeProvider>
     </QueryClientProvider>
