@@ -28,17 +28,21 @@ export const CHAT_FULL_GUTTER = 'px-4';
 export const CHAT_COLUMN = 'mx-auto w-full max-w-[50rem]';
 
 /**
- * One avatar plus its gap (24px + 12px), allowed on each side of the thread.
+ * One avatar plus its gap (24px + 12px = 4.5rem), allowed on each side of the thread.
  * In `default` that is the whole difference from the composer, so the avatars
  * sit just outside the composer's edges and message bodies line up with it.
  * `wider` and `full` break that alignment on purpose — the thread opens while
  * the composer stays at `CHAT_COLUMN` — so do not "fix" the composer to match.
  */
-const AVATAR_ALLOWANCE = '4.5rem';
-
+/**
+ * The 4.5rem is that allowance. Spelled as whole literals, never interpolated
+ * from a constant: Tailwind's scanner extracts class names from source text,
+ * so a template string would leave the rule ungenerated and the column edge
+ * to edge.
+ */
 const THREAD_MAX_WIDTH: Record<ChatWidthMode, string> = {
-  default: `max-w-[calc(50rem+${AVATAR_ALLOWANCE})]`,
-  wider: `max-w-[calc(64rem+${AVATAR_ALLOWANCE})]`,
+  default: 'max-w-[calc(50rem+4.5rem)]',
+  wider: 'max-w-[calc(64rem+4.5rem)]',
   full: 'max-w-full',
 };
 

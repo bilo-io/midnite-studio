@@ -31,7 +31,9 @@ export function ChatWidthToggle({ mode, onChange, className = '' }: { mode: Chat
             size="sm"
             aria-pressed={pressed}
             data-testid={`chat-width-${option.id}`}
-            className={pressed ? 'bg-accent text-foreground' : ''}
+            // The `aria-pressed:` variant, not a bare `text-foreground`: a variant is emitted after
+            // the button's own `text-muted-foreground`, so the pressed colour actually wins.
+            className="aria-pressed:bg-accent aria-pressed:text-foreground"
             onClick={() => {
               if (!pressed) onChange(option.id);
             }}
