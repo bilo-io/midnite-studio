@@ -253,8 +253,10 @@ the Agents pairing identity audited.
       `~/.aws`, `~/.gnupg`, `~/Library/Keychains`, the suite's vault files and every other repo in
       the registry; network allowed (an agent needs its API) unless the session opts for
       `(deny network*)` with the engine's hosts allowed. `sandbox-exec` is deprecated and still
-      ships in macOS 26; Chromium's and Firefox's renderers still use Seatbelt profiles through it.
-      The deprecation is a recorded risk (Decisions). [L]
+      ships in macOS 26 (the first task is a capability probe on the CI runner); Chromium and
+      Firefox still confine their renderers with Seatbelt profiles through the same underlying
+      `sandbox_init` API, which is the evidence the mechanism is not going away soon. The
+      deprecation is a recorded risk (Decisions). [L]
 - [ ] **Wrapping the spawn.** The broker's `create` takes an optional `confine: {profile}`; the
       command becomes `sandbox-exec -f <profile> <shell>`, the profile written 0600 under
       `<userData>/security/profiles/` and removed on exit. The same for
