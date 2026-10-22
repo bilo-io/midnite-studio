@@ -38,7 +38,7 @@ function setup(over: Partial<VanguardSettings> = {}, autostart: 'always' | 'afte
   return { host, settings, t, recorded, onChanged };
 }
 
-const finding = { fingerprint: 'f', severity: 'low', category: 'config', title: 't', detail: 'd', evidence: [], remediation: [] } as const;
+const finding: Omit<NewSecurityFinding, 'source'> = { fingerprint: 'f', severity: 'low', category: 'config', title: 't', detail: 'd', evidence: [], remediation: [] };
 
 describe('sensor host', () => {
   it('runs a sensor at start, again on its timer, and reports state and the finding count', async () => {
