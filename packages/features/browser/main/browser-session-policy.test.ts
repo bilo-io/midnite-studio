@@ -13,10 +13,10 @@ function recordingSession() {
   return {
     calls,
     handlers,
-    setPermissionRequestHandler: vi.fn(() => void calls.push('permission-request')),
-    setPermissionCheckHandler: vi.fn(() => void calls.push('permission-check')),
-    setDevicePermissionHandler: vi.fn(() => void calls.push('device')),
-    setDisplayMediaRequestHandler: vi.fn(() => void calls.push('display-media')),
+    setPermissionRequestHandler: vi.fn((_handler: unknown) => void calls.push('permission-request')),
+    setPermissionCheckHandler: vi.fn((_handler: unknown) => void calls.push('permission-check')),
+    setDevicePermissionHandler: vi.fn((_handler: unknown) => void calls.push('device')),
+    setDisplayMediaRequestHandler: vi.fn((_handler: unknown) => void calls.push('display-media')),
     on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       calls.push(`on:${event}`);
       handlers.set(event, handler);

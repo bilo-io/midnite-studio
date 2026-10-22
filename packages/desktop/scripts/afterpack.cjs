@@ -3,7 +3,7 @@
 const { chmodSync, existsSync, readdirSync, statSync, unlinkSync } = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const { join } = require('node:path');
-const { FuseV1Options, FuseVersion, flipFuses } = require('@electron/fuses');
+const { flipFuses } = require('@electron/fuses');
 
 /**
  * electron-builder afterPack hook.
@@ -67,10 +67,12 @@ exports.default = async function afterPack(context) {
   if (broken.length) console.log(`[afterPack] pruned ${broken.length} dangling symlink(s)`);
 
   /**
-   * 3. Electron fuses (Phase 91 Theme H).
+   * 3. Electron fuses (Phase 91 Theme H; the table is `lib/fuses.mjs`, shared
+   * with `verify-dist.mjs`'s read-back since Phase 117 Theme A).
    *
    * Flipped on the Electron binary BEFORE any signing, because a fuse flip
-   * rewrites the binary and would invalidate a signature made earlier.
+   * rewrites the binary and would invalidate a signature made earlier. Read
+   * straight back: a flip that did not take is a build not worth signing.
    *
    * RunAsNode stays ENABLED on purpose: `electron-builder.yml` launches the
    * terminal broker (`dist/bundle/broker.js`) via `ELECTRON_RUN_AS_NODE`, so
@@ -78,6 +80,7 @@ exports.default = async function afterPack(context) {
    * the checklist" by disabling it.
    */
   if (context.electronPlatformName === 'darwin') {
+    const { fuseConfig, fuseMismatches } = await import('./lib/fuses.mjs');
     const exe = join(
       root,
       `${context.packager.appInfo.productFilename}.app`,
@@ -85,16 +88,10 @@ exports.default = async function afterPack(context) {
       'MacOS',
       context.packager.appInfo.productFilename,
     );
-    await flipFuses(exe, {
-      version: FuseVersion.V1,
-      resetAdHocDarwinSignature: false, // step 4 signs the whole bundle
-      [FuseV1Options.RunAsNode]: true, // required by the terminal broker, see above
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
-      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-      [FuseV1Options.EnableNodeCliInspectArguments]: false,
-    });
-    console.log('[afterPack] flipped Electron fuses');
+    await flipFuses(exe, fuseConfig());
+    const mismatches = await fuseMismatches(exe);
+    if (mismatches.length > 0) throw new Error(`[afterPack] fuses not as asked:\n  ${mismatches.join('\n  ')}`);
+    console.log('[afterPack] flipped and verified Electron fuses');
   }
 
   /**

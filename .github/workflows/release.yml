@@ -231,6 +231,12 @@ jobs:
         run: pnpm install --frozen-lockfile
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Phase 117 Theme A: the Browser bundle cannot ship on an Electron major outside the supported
+      # window (no security backports). Strict here, warning-only for Studio in ci.yml until Phase 76
+      # Theme A's bump lands — the same `app-browser:dist` gate, in the job that packs the bundle.
+      - name: Chromium floor (Browser only, strict)
+        if: ${{ matrix.app == 'browser' }}
+        run: pnpm exec moon run root:electron-freshness-strict
       - name: Build the bundle
         run: pnpm exec moon run ${{ matrix.project }}:build
       - name: Check the bundle ships no Quick Kiss

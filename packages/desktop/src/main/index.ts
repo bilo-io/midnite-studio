@@ -5,6 +5,7 @@ import { totalmem } from 'node:os';
 
 import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-engine';
 import {
+  assertSiteIsolation,
   createFileSink,
   createPairingStore,
   createVaultGrants,
@@ -394,6 +395,15 @@ export const startStudioMain: StartStudioMain = () => {
         mainWindow.focus();
       }
       handleDeepLinkUrl(url);
+    });
+
+    // Phase 117 Theme A: site isolation, the sandbox and web security stay on — a boot that finds
+    // `--no-sandbox` or its kin throws in dev and logs when packaged (`chromium-switches.ts`).
+    assertSiteIsolation({
+      argv: process.argv,
+      hasSwitch: (name) => app.commandLine.hasSwitch(name),
+      isPackaged: app.isPackaged,
+      log: defaultLogger,
     });
 
     // Chromium fixes the privileged-scheme list at startup — must precede ready.

@@ -73,11 +73,22 @@ tasks:
       cache: false
 
   # macOS arm64 dmg + zip. Never in CI, never cached — same reasoning as
-  # `desktop:dist`.
+  # `desktop:dist`. afterpack.cjs flips the Electron fuses (and reads them
+  # back) before signing; `verify-fuses` is the same read on the finished app.
   dist:
     command: 'pnpm exec electron-builder --mac --config electron-builder.yml --publish never'
     deps:
       - '~:build'
+    options:
+      runInCI: false
+      cache: false
+
+  # Phase 117 Theme A: assert the shipped fuses from the built binary
+  # (`scripts/lib/fuses.cjs` is the table; every app bundle runs on this binary).
+  verify-fuses:
+    command: 'node scripts/verify-fuses.mjs'
+    deps:
+      - '~:dist'
     options:
       runInCI: false
       cache: false

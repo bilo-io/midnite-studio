@@ -62,10 +62,18 @@ tasks:
     options:
       cache: false
 
-  # electron-freshness (Phase 91 Theme I): warns, never fails, when the pinned Electron
-  # major is outside the supported three.
+  # electron-freshness (Phase 91 Theme I): warns, never fails, when a pinned Electron
+  # major (Studio's, the launcher's) is outside the supported three.
   electron-freshness:
     command: 'node scripts/electron-freshness.mjs'
+    options:
+      cache: false
+
+  # electron-freshness-strict (Phase 117 Theme A): the same check as a gate — exits 1 on an
+  # out-of-window major. `app-browser:dist` depends on it: a browser cannot ship on a Chromium
+  # with no security backports. A network failure still skips with a notice, never a failure.
+  electron-freshness-strict:
+    command: 'node scripts/electron-freshness.mjs --strict'
     options:
       cache: false
 

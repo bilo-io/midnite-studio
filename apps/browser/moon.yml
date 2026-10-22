@@ -47,6 +47,18 @@ tasks:
     outputs:
       - 'dist'
 
+  # The Browser bundle, gated (Phase 117 Theme A): the Chromium floor first — `root:electron-freshness-strict`
+  # fails on an Electron major outside the supported window — then the same build `release.yml` packs.
+  # The Browser has no binary of its own (a stub clones the launcher's runtime), so the fuses are the
+  # launcher's (`apps/launcher/scripts/afterpack.cjs`), not something this task can flip.
+  dist:
+    command: 'noop'
+    deps:
+      - 'root:electron-freshness-strict'
+      - '~:build'
+    options:
+      cache: false
+
   typecheck:
     inputs:
       - '@group(sources)'

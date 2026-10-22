@@ -20,8 +20,10 @@ import {
   type BrowserViewOptions,
 } from '@midnite/studio-feature-browser/main';
 import {
+  assertSiteIsolation,
   buildSuiteMenuTemplate,
   createFileSink,
+  devToolsAllowed,
   guardAppWindow,
   installCrashLogging,
 } from '@midnite/studio-runtime';
@@ -67,6 +69,15 @@ const log = Object.assign((message: string) => console.log(`[browser] ${message}
   warn: (message: string) => console.warn(`[browser] ${message}`),
   // eslint-disable-next-line no-console
   error: (message: string, err?: unknown) => console.error(`[browser] ${message}`, err ?? ''),
+});
+
+// Phase 117 Theme A: site isolation, the sandbox and web security stay on — a boot that finds
+// `--no-sandbox` or its kin throws in dev and logs when packaged (the runtime's `chromium-switches.ts`).
+assertSiteIsolation({
+  argv: process.argv,
+  hasSwitch: (name) => app.commandLine.hasSwitch(name),
+  isPackaged: app.isPackaged,
+  log,
 });
 
 // A smoke run is one-shot and must not collide with a real Browser's lock.
@@ -121,6 +132,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
       },
       electron: browserElectron,
+      // Phase 117 Theme A: a tab's DevTools open in dev or behind MSTUDIO_DEVTOOLS=1, never otherwise.
+      devToolsAllowed: devToolsAllowed(app.isPackaged),
       getMainWindow: () => asHost(win),
       senderWindow: (event) => {
         const sender = (event as { sender?: Electron.WebContents }).sender;
