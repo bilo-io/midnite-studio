@@ -95,6 +95,8 @@ export {
   startBrowserDiscardSweep,
   stopBrowserDiscardSweep,
 } from './browser-service';
+export { createBrowserAgentSessions, type BrowserAgentSessions } from './browser-agent-session';
+export { READ_PAGE_SCRIPT } from './page-reader';
 export { DEV_SERVER_PROBE_TIMEOUT_MS, probeLoopbackPort } from './dev-server-probe';
 export { listWebAppSignIns, signOutWebApp } from './web-app-sign-ins';
 export {

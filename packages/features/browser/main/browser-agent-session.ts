@@ -271,10 +271,12 @@ export function createBrowserAgentSessions(deps: BrowserAgentSessionDeps): Brows
       try {
         return await run(s, call);
       } catch (e) {
+        // The raw error goes to the user's log only. An exception thrown inside a page can carry the
+        // page's words, and page words reach the agent only inside the envelope.
         const message = e instanceof Error ? e.message : String(e);
-        log(s, `[error] ${call.tool}: ${message}`);
+        log(s, `[error] ${call.tool}: ${message.slice(0, 300)}`);
         push(s);
-        return fail('error', message);
+        return fail('error', `The ${call.tool} step failed on this page.`);
       }
     },
 
