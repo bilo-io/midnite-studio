@@ -1,4 +1,6 @@
-import { ACTIVITY_WAITING_AMBER } from '@midnite/studio-shared';
+import { ACTIVITY_WAITING_AMBER, isCustomLoop, type LoopDefinition } from '@midnite/studio-shared';
+
+import { spectrumHex } from './loop-spectrum';
 
 /**
  * A loop's colour, as something CSS can actually paint with (Phase 39).
@@ -58,4 +60,12 @@ export const LOOP_WAITING_COLOR = ACTIVITY_WAITING_AMBER;
  */
 export function loopGlowColor(loopId: string): string {
   return LOOP_GLOW[loopId] ?? 'currentColor';
+}
+
+/**
+ * {@link loopGlowColor} for a whole loop: a custom loop has no row in the map
+ * above — its colour is its author's hue — so it resolves to that hue's centre.
+ */
+export function loopAccentColor(loop: LoopDefinition): string {
+  return isCustomLoop(loop) ? spectrumHex(loop.hue) : loopGlowColor(loop.id);
 }

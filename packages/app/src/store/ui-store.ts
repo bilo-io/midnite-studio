@@ -23,9 +23,14 @@ import {
   type CompanionVoiceSelection,
   type Ecosystem,
   type ForgeAccount,
+  type CustomLoop,
   type LoopModel,
   type LoopRunOptions,
   type LoopSchedule,
+  createBlankCustomLoop,
+  DEFAULT_LOOPS,
+  duplicateLoopAsCustom,
+  restartCustomLoop,
   type MediaTab,
   MEDIA_TABS,
   type MetricId,
@@ -94,6 +99,7 @@ import { bridge } from '../services/bridge';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
 import { migrateLoopSwitch } from './migrate-loop-switch';
+import { mergeCustomLoops, migrateCustomLoops, omitKey } from './migrate-custom-loops';
 import { migrateAppsToWebApps } from './migrate-web-apps';
 import {
   INITIAL_SETUP_STATE,
@@ -192,8 +198,27 @@ export const FORGE_SWITCHER_PLACEMENTS: readonly ForgeSwitcherPlacement[] = [
   'hidden',
 ];
 
-/** Active tab in the FAB panel. */
-export type FabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 'overhaul';
+/** A built-in loop's tab id. */
+export type BuiltinFabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 'overhaul';
+
+/** Active tab in the FAB panel — a built-in, or a custom loop (`custom-…`). */
+export type FabTab = BuiltinFabTab | `custom-${string}`;
+
+/** Every per-loop record keyed by loop id — cleared when a custom loop is deleted. */
+const PER_LOOP_KEYS = [
+  'fabSessions',
+  'fabPrevSessions',
+  'loopModifierDefaults',
+  'loopModifierChecks',
+  'loopChoices',
+  'loopAgents',
+  'loopModels',
+  'loopSchedules',
+  'loopExtras',
+  'loopEnabled',
+  'loopModifierSkills',
+  'loopRunOptions',
+] as const;
 
 /** How the commit inspector lists a commit's files. */
 export type CommitFileView = 'tree' | 'list';
@@ -1009,6 +1034,39 @@ export type UiState = {
    */
   loopRunOptions: Record<string, LoopRunOptions>;
   setLoopRunOptions: (loopId: string, patch: LoopRunOptions) => void;
+  /**
+   * The user's own loops — tabs after the six built-ins, authored in the FAB
+   * panel's Edit mode. Persisted app-wide, per user (this blob, never a repo
+   * file): a loop is a way of working, not a property of one checkout.
+   * Validated with `CustomLoopSchema` on load (`merge`), so one broken row
+   * drops only itself.
+   */
+  customLoops: CustomLoop[];
+  /**
+   * Make a blank custom loop, put the panel on its tab and open it in Edit
+   * mode with the "Start from" picker showing. Returns the new id.
+   */
+  createCustomLoop: () => FabTab;
+  /**
+   * The "Start from" picker: refill a loop from a blank template (`null`) or
+   * as a copy of a built-in (its id), keeping the loop's own id. The copied
+   * base prompt is the built-in's as resolved now — a Settings ▸ Agent edit
+   * included.
+   */
+  startCustomLoopFrom: (loopId: string, sourceLoopId: string | null) => void;
+  /** Replace one custom loop with `edit(current)`. Any edit retires the "Start from" picker. */
+  updateCustomLoop: (loopId: string, edit: (loop: CustomLoop) => CustomLoop) => void;
+  /**
+   * Remove a custom loop and every per-loop record keyed by its id. Closing
+   * its terminal session is the caller's job (the terminal store lives
+   * downstream of this one); the tab falls back to its left neighbour.
+   */
+  deleteCustomLoop: (loopId: string) => void;
+  /** Which custom loop is in Edit mode, if any. Not persisted. */
+  customLoopEditing: string | null;
+  setCustomLoopEditing: (loopId: string | null) => void;
+  /** The loop just made by "+", until its first edit — what shows "Start from". Not persisted. */
+  customLoopFresh: string | null;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
   occluders: number;
@@ -2232,6 +2290,7 @@ export type PersistedUi = Pick<
   | 'loopEnabled'
   | 'loopModifierSkills'
   | 'loopRunOptions'
+  | 'customLoops'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'autoFetchEnabled'
@@ -2760,6 +2819,83 @@ export const useUiStore = create<UiState>()(
             ...state.loopRunOptions,
             [loopId]: { ...state.loopRunOptions[loopId], ...patch },
           },
+        })),
+      customLoops: [],
+      customLoopEditing: null,
+      customLoopFresh: null,
+      createCustomLoop: () => {
+        const loop = createBlankCustomLoop();
+        const id = loop.id as FabTab;
+        set((state) => ({
+          customLoops: [...state.customLoops, loop],
+          activeFabTab: id,
+          customLoopEditing: loop.id,
+          customLoopFresh: loop.id,
+        }));
+        return id;
+      },
+      startCustomLoopFrom: (loopId, sourceLoopId) =>
+        set((state) => {
+          const current = state.customLoops.find((loop) => loop.id === loopId);
+          if (!current) return {};
+          const source = DEFAULT_LOOPS.find((loop) => loop.id === sourceLoopId);
+          const template = source
+            ? duplicateLoopAsCustom(
+                source,
+                (state.agentSkills as Record<string, string | undefined>)[source.agentCommandId] ??
+                  source.fallbackPrompt,
+              )
+            : createBlankCustomLoop();
+          const next = restartCustomLoop(current, template);
+          return {
+            customLoops: state.customLoops.map((loop) => (loop.id === loopId ? next : loop)),
+            // The old content's per-run toggles name options that no longer exist.
+            loopModifierChecks: omitKey(state.loopModifierChecks, loopId),
+            loopModifierDefaults: omitKey(state.loopModifierDefaults, loopId),
+            loopChoices: omitKey(state.loopChoices, loopId),
+            loopModifierSkills: omitKey(state.loopModifierSkills, loopId),
+          };
+        }),
+      updateCustomLoop: (loopId, edit) =>
+        set((state) => {
+          const index = state.customLoops.findIndex((loop) => loop.id === loopId);
+          if (index < 0) return {};
+          const next = edit(state.customLoops[index]!);
+          const customLoops = [...state.customLoops];
+          customLoops[index] = { ...next, id: loopId, custom: true };
+          return {
+            customLoops,
+            ...(state.customLoopFresh === loopId ? { customLoopFresh: null } : {}),
+          };
+        }),
+      deleteCustomLoop: (loopId) =>
+        set((state) => {
+          const index = state.customLoops.findIndex((loop) => loop.id === loopId);
+          if (index < 0) return {};
+          const customLoops = state.customLoops.filter((loop) => loop.id !== loopId);
+          const cleared: Partial<UiState> = {};
+          for (const key of PER_LOOP_KEYS) {
+            (cleared as Record<string, unknown>)[key] = omitKey(
+              state[key] as Record<string, unknown>,
+              loopId,
+            );
+          }
+          // The tab to its left: the previous custom loop, or the last built-in.
+          const fallback = (customLoops[index - 1]?.id ??
+            DEFAULT_LOOPS[DEFAULT_LOOPS.length - 1]!.id) as FabTab;
+          return {
+            ...cleared,
+            customLoops,
+            ...(state.activeFabTab === loopId ? { activeFabTab: fallback } : {}),
+            ...(state.customLoopEditing === loopId ? { customLoopEditing: null } : {}),
+            ...(state.customLoopFresh === loopId ? { customLoopFresh: null } : {}),
+          };
+        }),
+      setCustomLoopEditing: (loopId) =>
+        set((state) => ({
+          customLoopEditing: loopId,
+          // Leaving the new loop's Edit mode settles it — "Start from" is for a new one.
+          ...(loopId !== state.customLoopFresh ? { customLoopFresh: null } : {}),
         })),
       updatesAutoCheck: true,
       updateChannel: 'stable',
@@ -3299,7 +3435,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 35,
+      version: 36,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
         mediaTab: state.mediaTab,
@@ -3360,6 +3496,7 @@ export const useUiStore = create<UiState>()(
         loopEnabled: state.loopEnabled,
         loopModifierSkills: state.loopModifierSkills,
         loopRunOptions: state.loopRunOptions,
+        customLoops: state.customLoops,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         autoFetchEnabled: state.autoFetchEnabled,
@@ -3556,6 +3693,8 @@ export const useUiStore = create<UiState>()(
        * until now, so a stale `false` meant nothing) is dropped to resolve on.
        * Versioned, not merge-time, so a switch the user flips off afterwards is
        * never re-dropped on the next rehydrate.
+       * v35 → v36: seed `customLoops = []` — the FAB panel's user-authored
+       * loops (Ad Hoc); see `migrate-custom-loops.ts`.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3748,6 +3887,7 @@ export const useUiStore = create<UiState>()(
         // apps list), so one rename covers a blob from any earlier version.
         if (version < 34) migrateAppsToWebApps(state);
         if (version < 35) migrateLoopSwitch(state);
+        if (version < 36) migrateCustomLoops(state);
         return state as PersistedUi;
       },
       /**
@@ -3805,6 +3945,7 @@ export const useUiStore = create<UiState>()(
           loopEnabled: { ...current.loopEnabled, ...saved.loopEnabled },
           loopModifierSkills: { ...current.loopModifierSkills, ...(saved.loopModifierSkills ?? {}) },
           loopRunOptions: { ...current.loopRunOptions, ...(saved.loopRunOptions ?? {}) },
+          ...mergeCustomLoops(saved, current),
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
           activeEnvironmentByRepo: {
             ...current.activeEnvironmentByRepo,
