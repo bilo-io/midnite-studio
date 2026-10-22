@@ -29,7 +29,7 @@ import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
-import { configureFindingsLedger, registerVanguardHandlers } from './ipc/vanguard-handlers';
+import { configureFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
@@ -744,6 +744,7 @@ export const startStudioMain: StartStudioMain = () => {
       */
       registerWorkflowHandlers({ userData, forgePoller, getMainWindow, gateApprovalPollMs: FORGE_POLL_MS });
       configureFindingsLedger(userData, getMainWindow);
+      void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
           const win = getMainWindow();
@@ -1122,6 +1123,7 @@ export const startStudioMain: StartStudioMain = () => {
         }
       }
 
+      void stopVanguardSensors();
       disposeChats();
       // The global capture chord is released and clipboard polling stops with the app (Phase 113 Theme K).
       disposeCapture();

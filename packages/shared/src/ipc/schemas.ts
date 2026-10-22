@@ -5330,3 +5330,6 @@ export const GamesExportResponse = GitOpResultOf(GameExportResultSchema);
 
 // Security findings (Phase 120 Theme A).
 export * from './security-findings';
+
+// Vanguard sensors and settings (Phase 120 Theme B).
+export * from '../vanguard';

@@ -46,6 +46,7 @@ export const FEATURE_VIEWS = {
   monitor: ['monitor'],
   vault: ['vault'],
   capture: ['capture'],
+  vanguard: ['vanguard'],
   tests: ['tests'],
   database: ['database'],
   tasks: ['tasks'],
@@ -102,6 +103,7 @@ export const FEATURE_SETTINGS_PAGES = {
   companion: ['companion'],
   'web-apps': ['web-apps'],
   forge: ['accounts'],
+  vanguard: ['vanguard'],
 } as const satisfies Partial<Record<PlacedFeature, FeatureIds>>;
 
 type IdsOf<R> = R[keyof R] extends readonly (infer Id)[] ? Id : never;
@@ -128,6 +130,7 @@ export const STUDIO_VIEW_ORDER = [
   'monitor',
   'vault',
   'capture',
+  'vanguard',
   'tests',
   'database',
   'tasks',
@@ -180,6 +183,7 @@ export const STUDIO_SETTINGS_PAGE_ORDER = [
   'companion',
   'web-apps',
   'forge',
+  'vanguard',
 ] as const satisfies readonly (keyof typeof FEATURE_SETTINGS_PAGES)[];
 
 /**

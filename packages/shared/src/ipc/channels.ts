@@ -1665,6 +1665,20 @@ export const CHANNELS = {
   securityFindingsSetStatus: 'mstudio:security:findings-set-status',
   /** Perform a remediation action on a security finding (Phase 120 Theme A & H). */
   securityFindingsAct: 'mstudio:security:findings-act',
+
+  // --- vanguard sensor host + settings (Phase 120 Theme B) ---------------------
+  /** Every registered sensor's state, for the Sensors tab. */
+  vanguardSensors: 'mstudio:vanguard:sensors',
+  /** Run one sensor now. */
+  vanguardSensorRun: 'mstudio:vanguard:sensor-run',
+  /** Read the persisted Vanguard settings. */
+  vanguardSettingsGet: 'mstudio:vanguard:settings-get',
+  /** Merge a partial update into the persisted Vanguard settings. */
+  vanguardSettingsSet: 'mstudio:vanguard:settings-set',
+  /** The view was opened: in Studio this is what lets the enabled sensors start. */
+  vanguardViewOpened: 'mstudio:vanguard:view-opened',
+  /** Reveal the quarantine folder in the OS file manager. */
+  vanguardOpenQuarantine: 'mstudio:vanguard:open-quarantine',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -1900,6 +1914,9 @@ export const EVENT_CHANNELS = {
    * Carries no payload; renderer re-fetches via securityFindingsList.
    */
   securityFindingsChanged: 'mstudio:security:findings-changed',
+
+  /** A sensor's state or the settings changed (Phase 120 Theme B). Carries nothing; re-fetch. */
+  vanguardChanged: 'mstudio:vanguard:changed',
 } as const;
 
 /**
