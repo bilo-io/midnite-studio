@@ -8,7 +8,8 @@ import {
 
 import type { BrowserHostWindow as BrowserWindow, BrowserInput as Input, BrowserView as WebContentsView } from './browser-electron';
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
-import { cancelDownload, checkNavigationUrl, denyAllDevices, denyAllPermissions } from './browser-security';
+import { checkNavigationUrl } from './browser-security';
+import { applyBrowserSessionPolicy, refuseWebviewAttach, sandboxedPageWebPreferences } from './browser-session-policy';
 
 /**
  * The main-process half of the embedded browser (Phase 32 Theme A/B).
@@ -35,7 +36,8 @@ const PARTITION = 'persist:browser';
 
 /** `WebContentsView` has no `.destroy()` — dropping every reference and
  * detaching from the window is what actually frees it. */
-type Tracked = { view: WebContentsView; win: BrowserWindow };
+/** `devTools` is what the view was *created* with (Phase 117 Theme A) — the only value `openDevTools` honours. */
+type Tracked = { view: WebContentsView; win: BrowserWindow; devTools: boolean };
 
 const tabs = new Map<string, Tracked>();
 
@@ -215,18 +217,16 @@ let securityConfigured = false;
 function ensureSessionConfigured(): void {
   if (securityConfigured) return;
   securityConfigured = true;
-  const browserSession = browserMainDeps().electron.sessionFromPartition(PARTITION);
-  denyAllPermissions(browserSession);
-  denyAllDevices(browserSession);
-  browserSession.on('will-download', (_event, item, webContents) => {
-    // Session-level, so the item arrives with the `webContents` that asked
-    // for it rather than a tab id — reverse-lookup so the notice lands on
-    // the tab the user was actually looking at.
-    const entry = [...tabs.entries()].find(([, t]) => t.view.webContents === webContents);
-    cancelDownload(item, (filename) => {
+  // Phase 117 Theme A: every session rule in one place, in one order (`browser-session-policy.ts`).
+  applyBrowserSessionPolicy(browserMainDeps().electron.sessionFromPartition(PARTITION), {
+    onDownloadRefused: (filename, webContents) => {
+      // Session-level, so the item arrives with the `webContents` that asked
+      // for it rather than a tab id — reverse-lookup so the notice lands on
+      // the tab the user was actually looking at.
+      const entry = [...tabs.entries()].find(([, t]) => t.view.webContents === webContents);
       defaultLogger(`[browser] download refused: ${filename}`);
       if (entry) send(entry[1].win, { kind: 'download-blocked', tabId: entry[0], filename });
-    });
+    },
   });
 }
 
@@ -266,24 +266,22 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   ensureSessionConfigured();
   if (tabs.has(tabId)) return;
 
+  // No preload: an embedded page must have no path to window.midniteStudio,
+  // and the cheapest way to guarantee that is to hand it nothing — the table
+  // is pinned by `web-preferences.test.ts` (Phase 117 Theme A).
+  const devTools = browserMainDeps().devToolsAllowed ?? false;
   const view = browserMainDeps().electron.createView({
-    webPreferences: {
-      partition: PARTITION,
-      contextIsolation: true,
-      nodeIntegration: false,
-      // No preload: an embedded page must have no path to window.midniteStudio,
-      // and the cheapest way to guarantee that is to hand it nothing.
-      sandbox: true,
-    },
+    webPreferences: sandboxedPageWebPreferences(PARTITION, { devTools }),
   });
 
   win.contentView.addChildView(view);
   markViewVisible(tabId, view, false);
-  tabs.set(tabId, { view, win });
+  tabs.set(tabId, { view, win, devTools });
   ensureFullScreenReapply(win);
   ensureDisplayMetricsReapply();
 
   const wc = view.webContents;
+  refuseWebviewAttach(wc);
 
   wc.on('did-navigate', (_event, navigatedUrl) => {
     send(win, {
@@ -491,8 +489,15 @@ export function stopBrowserTab(tabId: string): void {
 }
 
 export function toggleBrowserDevTools(tabId: string, mode: 'detach' | 'embed' = 'detach'): void {
-  const wc = tabs.get(tabId)?.view.webContents;
-  if (!wc) return;
+  const tracked = tabs.get(tabId);
+  if (!tracked) return;
+  const wc = tracked.view.webContents;
+  // The view was created with `devTools: false` (Phase 117 Theme A): `openDevTools` would do nothing.
+  // Decided from what the view was built with, not what the deps say now — the two can differ.
+  if (!tracked.devTools) {
+    send(tracked.win, { kind: 'devtools-blocked', tabId });
+    return;
+  }
   if (wc.isDevToolsOpened()) {
     wc.closeDevTools();
   } else {
@@ -589,7 +594,7 @@ export function reparentBrowserTabs(next: BrowserWindow): void {
     if (tracked.win === next) continue;
     if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
     if (!next.isDestroyed()) next.contentView.addChildView(tracked.view);
-    tabs.set(tabId, { view: tracked.view, win: next });
+    tabs.set(tabId, { ...tracked, win: next });
   }
 }
 

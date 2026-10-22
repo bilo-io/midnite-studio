@@ -44,6 +44,8 @@ export type BrowserWebContents = {
   on(event: 'before-input-event', listener: (event: BrowserPreventable, input: BrowserInput) => void): void;
   on(event: 'will-navigate' | 'will-redirect', listener: (details: BrowserNavigationDetails) => void): void;
   on(event: 'certificate-error', listener: (event: BrowserPreventable, url: string) => void): void;
+  /** Phase 117 Theme A: refused by `refuseWebviewAttach`, whatever `webviewTag` says. */
+  on(event: 'will-attach-webview', listener: (event: BrowserPreventable) => void): void;
   removeAllListeners(): void;
   close(): void;
   isDestroyed(): boolean;
@@ -97,6 +99,8 @@ export type BrowserCookieDomain = { domain?: string };
  */
 export type BrowserSession = PermissionSession & DeviceSession & {
   on(event: 'will-download', listener: (event: unknown, item: DownloadItemLike, webContents: unknown) => void): void;
+  /** Phase 117 Theme A: Chromium's spellchecker sends typed text to the OS service — off by policy. */
+  setSpellCheckerEnabled(enabled: boolean): void;
   clearStorageData(): Promise<void>;
   clearCache(): Promise<void>;
   /** `session.cookies` — `get({})` is every cookie in the partition. */

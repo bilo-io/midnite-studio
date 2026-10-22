@@ -21,6 +21,8 @@ export type BrowserAppElectron = IpcContextElectron & {
   report: ReportMainServices;
   /** The real `WebContentsView`/`session`/`screen`/`shell`, behind the feature's structural port. */
   electron: BrowserElectron;
+  /** Phase 117 Theme A: whether a tab's DevTools may open (`devToolsAllowed(app.isPackaged)`). */
+  devToolsAllowed?: boolean;
   /** Browser's one window — where tabs attach and the web apps live. Null before it opens and after it closes. */
   getMainWindow: () => BrowserHostWindow | null;
   /** The window that sent an IPC message (`BrowserWindow.fromWebContents(event.sender)`), null when unknown. */
@@ -79,6 +81,7 @@ export function registerBrowserAppHandlers(el: BrowserAppElectron): { shutdown: 
     electron: el.electron,
     log: el.log,
     readDiscardSettings: () => ({}),
+    devToolsAllowed: el.devToolsAllowed ?? false,
     sender: senderIpc(el),
     getMainWindow: el.getMainWindow,
   });

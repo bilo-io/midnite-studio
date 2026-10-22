@@ -26,6 +26,12 @@ export type BrowserMainDeps = {
   log: BrowserLog;
   /** Read at sweep time, so a settings change applies on the next tick. */
   readDiscardSettings: () => BrowserDiscardSettings;
+  /**
+   * Whether an embedded page's DevTools may open (Phase 117 Theme A) — the composer's
+   * `devToolsAllowed(app.isPackaged)`: dev, or the `MSTUDIO_DEVTOOLS=1` support hatch. Absent
+   * reads as `false`, so a composer that forgets it ships the packaged rule, never the dev one.
+   */
+  devToolsAllowed?: boolean;
 };
 
 let installed: BrowserMainDeps | null = null;

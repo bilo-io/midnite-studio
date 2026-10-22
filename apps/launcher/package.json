@@ -19,6 +19,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@electron/fuses": "1.8.0",
     "@electron/notarize": "^2.5.0",
     "@midnite/studio-shared": "workspace:*",
     "@testing-library/react": "^16.1.0",

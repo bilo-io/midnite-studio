@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-22 — Phase 117 Theme A — Isolation and the Chromium floor
+
+[PR #964](https://github.com/bilo-io/midnite-studio/pull/964). One `browser-session-policy.ts` applies every session rule to `persist:browser` and every `persist:app-<id>` in a pinned order; the per-page `webPreferences` table is pinned by test with `preload` absent and DevTools per `devToolsAllowed`; `will-attach-webview` refused and `window.open` proven `deny`; a boot assertion refuses `--no-sandbox`/site-isolation/web-security switches in Studio and the Browser; `electron-freshness --strict` gates the Browser bundle (fails on Electron 33 until Phase 76 A); the launcher's runtime — which every app bundle runs on — gets its fuses flipped and read back for the first time. Theme A ✅.
+
 ## 2026-10-22 — Phase 118 Themes A, B, D, E — Vault security hardening: lock, audit log, breach check
 
 [PR #968](https://github.com/bilo-io/midnite-studio/pull/968). Threat model documented (`docs/VAULT_SECURITY.md`); vault lock state, `VaultRead` envelope, runtime passcode service, auto-lock triggers and 60s re-auth for sensitive ops; tamper-evident SHA-256 hash-chained audit log with viewer; on-demand breach check via HIBP range API with k-anonymity. Themes A, B, D, E done.

@@ -38,6 +38,9 @@ function fakeSession() {
   return {
     setPermissionRequestHandler: vi.fn(),
     setPermissionCheckHandler: vi.fn(),
+    setDevicePermissionHandler: vi.fn(),
+    setDisplayMediaRequestHandler: vi.fn(),
+    setSpellCheckerEnabled: vi.fn(),
     on: vi.fn(),
     clearStorageData: vi.fn(async () => undefined),
     clearCache: vi.fn(async () => undefined),
