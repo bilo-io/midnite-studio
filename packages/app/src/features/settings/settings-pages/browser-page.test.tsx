@@ -40,6 +40,15 @@ describe('BrowserPage (Phase 117 Theme B)', () => {
     expect(setSpellcheckSpy).toHaveBeenCalledWith({ enabled: true });
   });
 
+  it('has the ClickFix clipboard watch on by default, with a switch to turn it off (Phase 117 Theme G)', () => {
+    useUiStore.setState({ browserClipboardWatch: true });
+    renderWithChrome(<BrowserPage />);
+    const toggle = screen.getByTestId('browser-settings-clipboard-watch-toggle') as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    fireEvent.click(toggle);
+    expect(useUiStore.getState().browserClipboardWatch).toBe(false);
+  });
+
   it('defaults downloads off and privacy on, and flips each switch (Phase 117 Themes D + E)', () => {
     useUiStore.setState({
       browserDownloads: { enabled: false, folder: '' },

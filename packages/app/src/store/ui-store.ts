@@ -1862,6 +1862,9 @@ export type UiState = {
   /** Phase 117 Theme B — whether spellchecking is enabled in the browser partition. */
   browserSpellcheck: boolean;
   setBrowserSpellcheck: (spellcheck: boolean) => void;
+  /** Phase 117 Theme G — the ClickFix clipboard watch. On by default; main mirrors it. */
+  browserClipboardWatch: boolean;
+  setBrowserClipboardWatch: (enabled: boolean) => void;
   /** Phase 117 Theme D — opt-in downloads; `folder: ''` is the default quarantine folder. */
   browserDownloads: { enabled: boolean; folder: string };
   setBrowserDownloads: (downloads: { enabled: boolean; folder: string }) => void;
@@ -2362,6 +2365,7 @@ export type PersistedUi = Pick<
   | 'terminalDisposeAfterMs'
   | 'browserDiscardMs'
   | 'browserSpellcheck'
+  | 'browserClipboardWatch'
   | 'browserDownloads'
   | 'browserPrivacy'
   | 'editorFontFamily'
@@ -2594,6 +2598,8 @@ export const useUiStore = create<UiState>()(
         set({ browserSpellcheck });
         bridge()?.browser.setSpellcheck({ enabled: browserSpellcheck });
       },
+      browserClipboardWatch: true,
+      setBrowserClipboardWatch: (browserClipboardWatch) => set({ browserClipboardWatch }),
       browserDownloads: { enabled: false, folder: '' },
       setBrowserDownloads: (browserDownloads) => set({ browserDownloads }),
       browserPrivacy: { blockTrackers: true, blockThirdPartyCookies: true, trimReferrer: true, reduceUserAgent: true },
@@ -3587,6 +3593,7 @@ export const useUiStore = create<UiState>()(
         terminalDisposeAfterMs: state.terminalDisposeAfterMs,
         browserDiscardMs: state.browserDiscardMs,
         browserSpellcheck: state.browserSpellcheck,
+        browserClipboardWatch: state.browserClipboardWatch,
         browserDownloads: state.browserDownloads,
         browserPrivacy: state.browserPrivacy,
         editorFontFamily: state.editorFontFamily,

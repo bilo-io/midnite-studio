@@ -1491,6 +1491,7 @@ export function buildMockBridge(data: MockFixtures) {
     */
   const browserTabIds = new Set<string>();
   const browserEventHandlers: ((e: unknown) => void)[] = [];
+  const deepLinkHandlers: ((e: unknown) => void)[] = [];
   /**
    * Every `setVisible` call, in order — the only way a spec can see
    * whether the real engine would currently be painting a tab, since
@@ -4909,7 +4910,13 @@ export function buildMockBridge(data: MockFixtures) {
       },
     },
     protocol: {
-      onDeepLink: unsubscribe,
+      // Phase 117 Theme G: a spec delivers a deep link through `window.__mstudioDeepLink(...)`.
+      onDeepLink: (handler: (e: unknown) => void) => {
+        deepLinkHandlers.push(handler);
+        return () => {
+          deepLinkHandlers.splice(deepLinkHandlers.indexOf(handler), 1);
+        };
+      },
     },
     /**
      * Phase 66 Theme H — the API Client's bridge namespace. Extended in
@@ -6136,6 +6143,13 @@ export function buildMockBridge(data: MockFixtures) {
   };
 
   (window as unknown as { __mstudioOps: unknown }).__mstudioOps = opCalls;
+  // Phase 117 Theme G: a spec's way to raise a browser event (the ClickFix bar, the agent session) or deliver a deep link.
+  (window as unknown as { __mstudioBrowserEvent: (e: unknown) => void }).__mstudioBrowserEvent = (e) => {
+    for (const h of [...browserEventHandlers]) h(e);
+  };
+  (window as unknown as { __mstudioDeepLink: (e: unknown) => void }).__mstudioDeepLink = (e) => {
+    for (const h of [...deepLinkHandlers]) h(e);
+  };
   (window as unknown as { __mstudioSearchCancels: unknown }).__mstudioSearchCancels = searchCancels;
   (window as unknown as { __mstudioPty: unknown }).__mstudioPty = ptyCalls;
   /*

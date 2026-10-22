@@ -104,6 +104,18 @@ describe('receiveAgentRun — nothing runs without the confirm', () => {
     expect(deps.start).toHaveBeenCalledWith(expect.objectContaining({ autoSend: true }));
   });
 
+  it('a run a web page asked for names the page and is never sent, even with Launch and run on (Phase 117 Theme G)', async () => {
+    const { deps, confirms } = setup({ launchAndRunEnabled: () => true });
+    expect(await receiveAgentRun(RUN, deps, { pageOrigin: 'https://lure.example' })).toBe('confirming');
+    expect(deps.start).not.toHaveBeenCalled();
+    expect(confirms[0]?.title).toBe('A web page wants to run a task in an agent');
+    expect(confirms[0]?.body).toContain('Asked for by https://lure.example.');
+    expect(confirms[0]?.body).toContain('In /Users/me/midnite-studio');
+    expect(confirms[0]?.confirmLabel).toBe('Start');
+    confirms[0]?.onConfirm();
+    expect(deps.start).toHaveBeenCalledWith(expect.objectContaining({ autoSend: false }));
+  });
+
   it('a dismissed confirm starts nothing', async () => {
     const { deps } = setup();
     await receiveAgentRun(RUN, deps);

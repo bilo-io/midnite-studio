@@ -28,6 +28,8 @@ export function BrowserPage() {
   const setDiscardMs = useUiStore((s) => s.setBrowserDiscardMs);
   const spellcheck = useUiStore((s) => s.browserSpellcheck);
   const setSpellcheck = useUiStore((s) => s.setBrowserSpellcheck);
+  const clipboardWatch = useUiStore((s) => s.browserClipboardWatch);
+  const setClipboardWatch = useUiStore((s) => s.setBrowserClipboardWatch);
   const downloads = useUiStore((s) => s.browserDownloads);
   const setDownloads = useUiStore((s) => s.setBrowserDownloads);
   const privacy = useUiStore((s) => s.browserPrivacy);
@@ -212,6 +214,28 @@ export function BrowserPage() {
             onChange={(event) => setSpellcheck(event.target.checked)}
             aria-label="Check spelling while typing"
             data-testid="browser-settings-spellcheck-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="clipboard-watch">Clipboard</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Warn when a page copies a command</div>
+            <div className="text-muted-foreground text-[11px]">
+              While a browser window is focused, Midnite checks the clipboard once a second for a shell command a
+              page just put there (a &ldquo;paste this into Terminal&rdquo; lure) and offers to clear it. Only a hash
+              is kept. On by default.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={clipboardWatch}
+            onChange={(event) => setClipboardWatch(event.target.checked)}
+            aria-label="Warn when a page copies a command"
+            data-testid="browser-settings-clipboard-watch-toggle"
             className="rounded border border-border bg-card"
           />
         </div>

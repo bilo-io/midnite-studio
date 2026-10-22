@@ -159,6 +159,14 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
             } · SHA-256 ${event.sha256.slice(0, 12)}…`,
           });
           break;
+        case 'clipboard-warning':
+          useBrowserStore.getState().setClipboardWarning(event.tabId, {
+            tabId: event.tabId,
+            origin: event.origin,
+            label: event.label,
+            preview: event.preview,
+          });
+          break;
         case 'trackers-blocked':
           useBrowserStore.getState().setTrackerBlocks(event.tabId, { count: event.count, hosts: event.hosts });
           break;
