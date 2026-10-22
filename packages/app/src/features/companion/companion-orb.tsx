@@ -218,11 +218,7 @@ export function computeSphericalHarmonicVertex(
           : h1 * harmonicAmp;
 
   const r = radius * (1 + vocalRipple);
-  return [
-    r * rSlice * Math.cos(theta),
-    r * yBase,
-    r * rSlice * Math.sin(theta),
-  ];
+  return [r * rSlice * Math.cos(theta), r * yBase, r * rSlice * Math.sin(theta)];
 }
 
 /**
@@ -300,11 +296,11 @@ export function CompanionOrb({
     const particles: OrbParticle3D[] = [];
     for (let i = 0; i < ORB_PARTICLE_COUNT; i++) {
       // 11 is coprime with the count, so this visits every band once; a shared factor clumps the swarm into rings.
-      const y = 1 - (2 * ((i * 11) % ORB_PARTICLE_COUNT + 0.5)) / ORB_PARTICLE_COUNT;
+      const y = 1 - (2 * (((i * 11) % ORB_PARTICLE_COUNT) + 0.5)) / ORB_PARTICLE_COUNT;
       particles.push({
         theta: (i / ORB_PARTICLE_COUNT) * Math.PI * 2,
         phi: Math.acos(Math.max(-1, Math.min(1, y))),
-        radiusFrac: 0.35 + ((i * 13) % 100) / 100 * 0.95,
+        radiusFrac: 0.35 + (((i * 13) % 100) / 100) * 0.95,
         vTheta: (0.005 + (i % 7) * 0.0015) * (i % 2 === 0 ? 1 : -1),
         vPhi: (0.003 + (i % 5) * 0.001) * (i % 3 === 0 ? 1 : -1),
         vRadial: 0.004 + (i % 4) * 0.0015,
@@ -372,7 +368,9 @@ export function CompanionOrb({
         return;
       }
 
-      const domAttrState = parentPanel?.getAttribute('data-companion-state') as CompanionState | null;
+      const domAttrState = parentPanel?.getAttribute(
+        'data-companion-state',
+      ) as CompanionState | null;
       const curState =
         domAttrState && domAttrState in ORB_STATE_PROFILES ? domAttrState : stateRef.current;
       const profile = ORB_STATE_PROFILES[curState];
@@ -406,7 +404,8 @@ export function CompanionOrb({
             ? 0.14 + 0.1 * Math.sin(timeSec * 4.8)
             : 0;
       const targetSpeech = Math.min(1, Math.max(rawLevel, Math.max(0, syntheticVocal)));
-      anim.speechEnv += (targetSpeech - anim.speechEnv) * (targetSpeech > anim.speechEnv ? 0.35 : 0.14);
+      anim.speechEnv +=
+        (targetSpeech - anim.speechEnv) * (targetSpeech > anim.speechEnv ? 0.35 : 0.14);
       const speech = anim.speechEnv;
 
       if (!reducedMotion) {
@@ -426,7 +425,9 @@ export function CompanionOrb({
       const fov = 320;
       const camDist = 340;
       // Slow breathing (~7s) with a faster overtone, independent of speech.
-      const breath = reducedMotion ? 0 : Math.sin(timeSec * 0.9) * 0.75 + Math.sin(timeSec * 2.3 + 1.3) * 0.25;
+      const breath = reducedMotion
+        ? 0
+        : Math.sin(timeSec * 0.9) * 0.75 + Math.sin(timeSec * 2.3 + 1.3) * 0.25;
 
       // ═══════════════════════════════════════════════════════════════════════
       // LAYER 1: Outer Volumetric Atmospheric Corona & Nebula Halo
@@ -449,10 +450,7 @@ export function CompanionOrb({
         0.38,
         `hsla(${anim.hue}, 92%, 56%, ${(0.18 + profile.fogDensity * 0.16 + speech * 0.18) * coronaGlow})`,
       );
-      coronaGrad.addColorStop(
-        0.72,
-        `hsla(${anim.secHue}, 88%, 42%, ${0.07 + speech * 0.08})`,
-      );
+      coronaGrad.addColorStop(0.72, `hsla(${anim.secHue}, 88%, 42%, ${0.07 + speech * 0.08})`);
       coronaGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = coronaGrad;
       ctx.beginPath();
@@ -477,9 +475,7 @@ export function CompanionOrb({
         }
 
         const r =
-          baseRadius *
-          c.radiusFrac *
-          (1 + Math.sin(timeSec * 1.8 + i) * 0.08 + speech * 0.18);
+          baseRadius * c.radiusFrac * (1 + Math.sin(timeSec * 1.8 + i) * 0.08 + speech * 0.18);
         const sinP = Math.sin(c.phi);
         const x3 = r * sinP * Math.cos(c.theta);
         const y3 = r * Math.cos(c.phi);
@@ -572,7 +568,15 @@ export function CompanionOrb({
       }
       // Neighbour offsets on a Fibonacci sphere are Fibonacci numbers; joining them triangulates it.
       strokeLattice(ctx, innerNodes, [5, 8, 13], anim.accHue, 0.38 + speech * 0.3, 0.75);
-      strokeLattice(ctx, projectedNodes, [8, 13, 21], anim.hue, 0.28 + speech * 0.42, 1, anim.secHue);
+      strokeLattice(
+        ctx,
+        projectedNodes,
+        [8, 13, 21],
+        anim.hue,
+        0.28 + speech * 0.42,
+        1,
+        anim.secHue,
+      );
 
       // Glowing 3D geodesic surface nodes
       for (let i = 0; i < projectedNodes.length; i++) {
@@ -593,7 +597,13 @@ export function CompanionOrb({
         if (!pt || !pt.visible) continue;
         ctx.fillStyle = `hsla(${anim.accHue}, 100%, 85%, ${pt.z < 0 ? 0.7 : 0.3})`;
         ctx.beginPath();
-        ctx.arc(pt.sx, pt.sy, Math.max(0.6, (pt.z < 0 ? 1.3 + speech : 0.8) * pt.scale), 0, Math.PI * 2);
+        ctx.arc(
+          pt.sx,
+          pt.sy,
+          Math.max(0.6, (pt.z < 0 ? 1.3 + speech : 0.8) * pt.scale),
+          0,
+          Math.PI * 2,
+        );
         ctx.fill();
       }
 
@@ -741,7 +751,7 @@ export function CompanionOrb({
       } else if (profile.mode === 'speaking' && speech > 0.08) {
         const shellCount = 2;
         for (let s = 0; s < shellCount; s++) {
-          const phase = ((timeSec * 1.8 + s * 0.5) % 1);
+          const phase = (timeSec * 1.8 + s * 0.5) % 1;
           const shellR = baseRadius * (0.45 + phase * (0.95 + speech * 0.45));
           const shellAlpha = (1 - phase) * (0.28 + speech * 0.42);
           ctx.strokeStyle = `hsla(${anim.accHue}, 98%, 72%, ${shellAlpha})`;
@@ -793,12 +803,14 @@ export function CompanionOrb({
         className={zen ? 'absolute' : 'h-full w-full'}
         style={zen ? ZEN_CANVAS_STYLE : EDGE_MASK_STYLE}
       />
-      <span
-        data-testid="companion-orb-mode-badge"
-        className="absolute bottom-1 right-2 rounded-full border border-white/10 bg-black/35 px-2 py-0.5 text-[9px] font-medium tracking-wider text-white/70 uppercase backdrop-blur-sm"
-      >
-        {profile.label}
-      </span>
+      {zen && compact ? null : (
+        <span
+          data-testid="companion-orb-mode-badge"
+          className="absolute bottom-1 right-2 rounded-full border border-white/10 bg-black/35 px-2 py-0.5 text-[9px] font-medium tracking-wider text-white/70 uppercase backdrop-blur-sm"
+        >
+          {profile.label}
+        </span>
+      )}
     </div>
   );
 }
