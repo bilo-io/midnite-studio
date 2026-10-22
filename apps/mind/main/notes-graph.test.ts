@@ -5,7 +5,14 @@ import { describe, expect, it } from 'vitest';
 import { projectGraph } from '@midnite/studio-knowledge';
 import type { Note } from '@midnite/studio-shared';
 
-import { buildNotesGraph, noteLabel, noteTags, notesFingerprint } from './notes-graph';
+import {
+  buildNotesGraph,
+  extractNoteConcepts,
+  noteChunks,
+  noteLabel,
+  noteTags,
+  notesFingerprint,
+} from './notes-graph';
 
 function note(id: string, body: string, over: Partial<Note> = {}): Note {
   return { id, repoId: 'mind', body, status: 'captured', done: false, createdAt: 1, updatedAt: 1, order: 0, ...over };
@@ -74,5 +81,47 @@ describe('notesFingerprint', () => {
     expect(notesFingerprint([a, b])).toBe(notesFingerprint([b, a]));
     expect(notesFingerprint([a, b])).not.toBe(notesFingerprint([a, { ...b, body: 'two!' }]));
     expect(notesFingerprint([a, b])).not.toBe(notesFingerprint([a, { ...b, updatedAt: 2 }]));
+  });
+});
+
+describe('SurrealDB AI Knowledge Graph ontology (Documents, Chunks, Concepts & Confidence)', () => {
+  it('segments multi-section notes into addressable chunk nodes linked via part_of', () => {
+    const multiSection = note(
+      'doc1',
+      '# RAG Architecture\nIntro to graph context.\n\n## Vector Embeddings\nChunks hold **HNSW Vectors** and `cosine_similarity`.\n---\n## Graph Traversal\nEdges carry **Confidence Score** metadata.',
+    );
+    const chunks = noteChunks(multiSection.body);
+    expect(chunks).toHaveLength(3);
+    expect(chunks.map((c) => c.label)).toEqual([
+      'RAG Architecture',
+      'Vector Embeddings',
+      'Graph Traversal',
+    ]);
+
+    const graph = buildNotesGraph([multiSection]);
+    const chunkNodes = graph.nodes.filter((n) => n.file_type === 'chunk');
+    expect(chunkNodes.map((n) => n.id)).toEqual(['chunk:doc1:0', 'chunk:doc1:1', 'chunk:doc1:2']);
+    expect(
+      graph.links.filter((l) => l.relation === 'part_of').map((l) => `${l.source}->${l.target}`),
+    ).toEqual(['chunk:doc1:0->note:doc1', 'chunk:doc1:1->note:doc1', 'chunk:doc1:2->note:doc1']);
+  });
+
+  it('extracts deduplicated concept nodes with confidence_score metadata and relates_to links', () => {
+    const concepts = extractNoteConcepts(
+      'Combine **Graph RAG** with `SurrealQL` and **Graph RAG** again.',
+    );
+    expect(concepts).toEqual([
+      { slug: 'graph-rag', label: 'Graph RAG', confidence: 0.96 },
+      { slug: 'surrealql', label: 'SurrealQL', confidence: 0.94 },
+    ]);
+
+    const graph = buildNotesGraph([
+      note('n1', 'Title\nUse **Graph RAG** with `SurrealQL` for multi-hop context.'),
+    ]);
+    const lean = projectGraph(graph);
+    const mentions = lean.links.filter((l) => l.relation === 'mentions');
+    expect(mentions).toHaveLength(2);
+    expect(mentions[0]!.confidence).toBeGreaterThan(0.85);
+    expect(lean.links.some((l) => l.relation === 'relates_to')).toBe(true);
   });
 });

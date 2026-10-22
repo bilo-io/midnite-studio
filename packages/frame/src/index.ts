@@ -286,7 +286,24 @@ export {
   DEFAULT_KNOWLEDGE_DETAIL,
   DEFAULT_KNOWLEDGE_LAYOUT,
   DEFAULT_KNOWLEDGE_VARIANT,
+  useKnowledgeFiltersStore,
 } from './knowledge/knowledge-filters-store';
+export {
+  buildScene3D,
+  buildThreeClusterPreviewPayload,
+  computeCurvedEdge2D,
+  formatSynapseScore,
+  formatTelemetryNodeMetric,
+  KNOWLEDGE_STYLE_IDS,
+  KNOWLEDGE_STYLE_META,
+  projectScenePoint,
+  SYNAPSE_CLUSTER_PALETTE,
+  TELEMETRY_CLUSTER_PALETTE,
+  type KnowledgeStyleId,
+  type KnowledgeStyleMeta,
+  type Scene3D,
+} from './knowledge/knowledge-3d-scene';
+export { KnowledgeStylePicker } from './knowledge/knowledge-style-picker';
 export { TAB_GROUP_COLORS as KNOWLEDGE_TAB_GROUP_COLORS } from './knowledge/knowledge-community-colors';
 export { SimplePopover } from './knowledge/simple-popover';
 

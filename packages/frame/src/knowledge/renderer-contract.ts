@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import { LuBoxes, LuNetwork, LuOrbit, LuSparkles } from 'react-icons/lu';
+import { LuActivity, LuBoxes, LuNetwork, LuOrbit, LuRadar, LuSparkles } from 'react-icons/lu';
 
 import type { KnowledgeGraphPayload } from '@midnite/studio-shared';
 
@@ -177,9 +177,11 @@ export type KnowledgeVariant = {
  * is what makes `load` itself referentially stable across the four entries.
  */
 const loadSigma = () => import('./use-sigma-graph');
+const load3D = () => import('./use-3d-graph');
 
 /**
- * Four sigma looks (Theme D) plus F–I (one entry per library) extend this
+ * Four sigma looks (Theme D) plus the 3D presentation styles (`telemetry-3d`, `synapse-3d`)
+ * and F–I (one entry per library) extend this
  * list; the pill bar and the overflow menu already treat it as flat — one
  * id, one persisted value, one thing to test (Decision 1) — so growing this
  * array is the whole diff those themes need here.
@@ -232,6 +234,22 @@ export const VARIANTS: readonly KnowledgeVariant[] = [
     engine: 'sigma',
     consumesWorkerLayout: true,
     load: loadSigma,
+  },
+  {
+    id: 'telemetry-3d',
+    label: 'Telemetry HUD',
+    icon: LuRadar,
+    engine: 'canvas-3d',
+    consumesWorkerLayout: true,
+    load: load3D,
+  },
+  {
+    id: 'synapse-3d',
+    label: 'Synapse Flow',
+    icon: LuActivity,
+    engine: 'canvas-3d',
+    consumesWorkerLayout: true,
+    load: load3D,
   },
 ];
 

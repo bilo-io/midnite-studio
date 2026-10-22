@@ -149,6 +149,14 @@ export type CompanionStoreState = {
    * prevent.
    */
   pendingAction: PendingAction | null;
+  /**
+   * Zen mode — the full-stage companion view (giant centred orb, last turn on
+   * each side, floating composer, hover-to-grow HUD corners). Volatile: a
+   * reload lands back in the docked column, never in a full-screen takeover.
+   */
+  zenMode: boolean;
+  setZenMode: (zen: boolean) => void;
+  toggleZenMode: () => void;
 
   /** Advance the machine. Returns the state it settled in, which may be the one it was already in. */
   send: (event: CompanionEvent) => CompanionState;
@@ -203,6 +211,10 @@ export const useCompanionStore = create<CompanionStoreState>()(
       recentPhrases: {},
       activeHandoff: null,
       pendingAction: null,
+      zenMode: false,
+
+      setZenMode: (zenMode) => set({ zenMode }),
+      toggleZenMode: () => set((current) => ({ zenMode: !current.zenMode })),
 
       send: (event) => {
         const next = transition(get().state, event);

@@ -146,13 +146,8 @@ export const PREFERENCE_KEYS = [
   // parked them in `KNOWN_ORPHANS`; Theme G's Profiles section took them out.
   'companionProfiles', // companion-profiles-section.tsx (Profiles ▸ the list, Save current as…, Rename, Delete)
   'companionActiveProfile', // companion-profiles-section.tsx (Profiles ▸ the Active badge, Set active)
-  // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
-  // real control already — the Knowledge view's own pill bar
-  // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
-  // since the pill bar is not a settings page.
-  'rendererVariant', // knowledge-variant-pills.tsx (Knowledge canvas's own renderer-switcher pills)
-  // Phase 89 Theme E's own, same reasoning as `rendererVariant` immediately
-  // above: a real control (the layout pill row) that is not a settings page.
+  'rendererVariant', // graph-page.tsx (Settings ▸ Graph ▸ Knowledge graph presentation) & knowledge-variant-pills.tsx
+  // Phase 89 Theme E's own: a real control (the layout pill row) that is not a settings page.
   'layoutId', // knowledge-layout-pills.tsx (Knowledge canvas's own layout-switcher pills)
   // The Knowledge canvas's detail budget — same reasoning again: a real
   // control (the detail pill row beside the layout pills), not a settings page.
@@ -246,7 +241,6 @@ export const KNOWN_ORPHANS = [
   'editorMinimap',
   'editorTabSize',
   'editorWordWrap',
-  'rendererVariant',
   'layoutId',
   'knowledgeDetailId',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];
