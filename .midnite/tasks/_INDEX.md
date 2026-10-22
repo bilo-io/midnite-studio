@@ -8,6 +8,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
+| [118 · Vault security hardening](phases/phase-118-vault-security-hardening.md) | ◻ TODO | — | 0/51 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [117 · Browser security hardening](phases/phase-117-browser-security-hardening.md) | ◻ TODO | — | 0/60 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [116 · Test suite diet and screenshot purge](phases/phase-116-test-suite-diet-and-screenshot-purge.md) | 🔄 WIP | — | 14/28 | `█████░░░░░` | 50% | — | C E |
 | [115 · Privacy: data leaving the Mac and data at rest](phases/phase-115-privacy-egress-and-at-rest.md) | ◻ TODO | — | 0/46 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
