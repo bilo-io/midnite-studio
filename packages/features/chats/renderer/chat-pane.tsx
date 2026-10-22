@@ -259,12 +259,13 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
     <section className="relative flex min-h-0 min-w-0 flex-1 flex-col" aria-label={chat ? chat.title : 'New chat'} data-testid="chat-pane">
       {chat ? (
         <ChatHeader chat={chat} engine={engine} streaming={streaming} widthMode={widthMode} onWidthModeChange={setWidthMode} />
-      ) : (
-        // No header before the first message: the toggle keeps its top-right seat over the new-chat screen.
+      ) : selectedId === null ? (
+        // No header before the first message: the toggle keeps its top-right seat over the new-chat
+        // screen. Not over "Opening chat…" or a load error — there is no thread to size there.
         <div className="absolute right-4 top-2 z-10">
           <ChatWidthToggle mode={widthMode} onChange={setWidthMode} />
         </div>
-      )}
+      ) : null}
       {body}
       {selectedId !== null && !chat ? null : composer}
       {chat && reviewing ? <ChatChangesModal chatId={chat.id} changeSetId={reviewing} onClose={() => setReviewing(null)} /> : null}

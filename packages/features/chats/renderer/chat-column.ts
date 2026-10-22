@@ -28,9 +28,11 @@ export const CHAT_FULL_GUTTER = 'px-4';
 export const CHAT_COLUMN = 'mx-auto w-full max-w-[50rem]';
 
 /**
- * The thread column is wider than the composer's by one avatar plus its gap
- * (24px + 12px) on each side, so the avatars sit just outside the composer's
- * edges while message bodies line up with it.
+ * One avatar plus its gap (24px + 12px), allowed on each side of the thread.
+ * In `default` that is the whole difference from the composer, so the avatars
+ * sit just outside the composer's edges and message bodies line up with it.
+ * `wider` and `full` break that alignment on purpose — the thread opens while
+ * the composer stays at `CHAT_COLUMN` — so do not "fix" the composer to match.
  */
 const AVATAR_ALLOWANCE = '4.5rem';
 

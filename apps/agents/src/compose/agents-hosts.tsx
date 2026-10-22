@@ -18,52 +18,60 @@ import { CodePreview, DiffView, MarkdownBody, Modal, Popover, Tooltip, TreeSecti
  * affordances rather than render dead buttons.
  */
 
-/** Window-local width/flag state, kept across launches in localStorage when it is there. */
-function usePersistedNumber(key: string, initial: number): [number, (value: number) => void] {
-  const [value, setValue] = useState(() => {
+/**
+ * Window-local state, kept across launches in localStorage when it is there.
+ * `decode` reads what was stored (`null` when nothing was, or storage is
+ * blocked) and `encode` writes the next value; the typed hooks below are the
+ * one lifecycle with a codec each.
+ */
+function usePersisted<T>(key: string, decode: (stored: string | null) => T, encode: (value: T) => string): [T, (value: T) => void] {
+  const [value, setValue] = useState<T>(() => {
     try {
-      const stored = Number(window.localStorage.getItem(key));
-      return Number.isFinite(stored) && stored > 0 ? stored : initial;
+      return decode(window.localStorage.getItem(key));
     } catch {
-      return initial;
+      return decode(null);
     }
   });
   const set = useCallback(
-    (next: number) => {
+    (next: T) => {
       setValue(next);
       try {
-        window.localStorage.setItem(key, String(next));
+        window.localStorage.setItem(key, encode(next));
       } catch {
-        // Private window or blocked storage: the width just does not persist.
+        // Private window or blocked storage: the value just does not persist.
       }
     },
-    [key],
+    [key, encode],
   );
   return [value, set];
 }
 
-/** The thread width mode, kept the same way; an unknown stored value falls back to the default. */
-function usePersistedWidthMode(key: string): [ChatWidthMode, (mode: ChatWidthMode) => void] {
-  const [mode, setMode] = useState<ChatWidthMode>(() => {
-    try {
-      const parsed = ChatWidthModeSchema.safeParse(window.localStorage.getItem(key));
-      return parsed.success ? parsed.data : DEFAULT_CHAT_WIDTH_MODE;
-    } catch {
-      return DEFAULT_CHAT_WIDTH_MODE;
-    }
-  });
-  const set = useCallback(
-    (next: ChatWidthMode) => {
-      setMode(next);
-      try {
-        window.localStorage.setItem(key, next);
-      } catch {
-        // Private window or blocked storage: the mode just does not persist.
-      }
+const encodeNumber = (value: number): string => String(value);
+const encodeFlag = (value: boolean): string => (value ? '1' : '0');
+const encodeWidthMode = (mode: ChatWidthMode): string => mode;
+
+/** A pane width: anything that is not a positive number reads as `initial`. */
+function usePersistedNumber(key: string, initial: number): [number, (value: number) => void] {
+  return usePersisted(
+    key,
+    (stored) => {
+      const n = Number(stored);
+      return Number.isFinite(n) && n > 0 ? n : initial;
     },
-    [key],
+    encodeNumber,
   );
-  return [mode, set];
+}
+
+/** The thread width mode; an unknown stored value falls back to the default. */
+function usePersistedWidthMode(key: string): [ChatWidthMode, (mode: ChatWidthMode) => void] {
+  return usePersisted(
+    key,
+    (stored) => {
+      const parsed = ChatWidthModeSchema.safeParse(stored);
+      return parsed.success ? parsed.data : DEFAULT_CHAT_WIDTH_MODE;
+    },
+    encodeWidthMode,
+  );
 }
 
 const openExternal = (url: string): void => {
@@ -131,28 +139,9 @@ export const AGENTS_COUNCILS_HOST = {
   useOccluder: () => undefined,
 } satisfies CouncilsHost;
 
-/** The same boolean, kept across launches in localStorage when it is there. */
+/** A boolean, the same way: `initial` until something was stored. */
 function usePersistedFlag(key: string, initial: boolean): [boolean, (value: boolean) => void] {
-  const [value, setValue] = useState(() => {
-    try {
-      const stored = window.localStorage.getItem(key);
-      return stored === null ? initial : stored === '1';
-    } catch {
-      return initial;
-    }
-  });
-  const set = useCallback(
-    (next: boolean) => {
-      setValue(next);
-      try {
-        window.localStorage.setItem(key, next ? '1' : '0');
-      } catch {
-        // Private window or blocked storage: the flag just does not persist.
-      }
-    },
-    [key],
-  );
-  return [value, set];
+  return usePersisted(key, (stored) => (stored === null ? initial : stored === '1'), encodeFlag);
 }
 
 const NO_NODE_SESSIONS: ReadonlyMap<string, never[]> = new Map();
