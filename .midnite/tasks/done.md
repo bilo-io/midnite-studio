@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-22 — Phase 117 Theme G — The page-to-agent boundary
+
+[PR #979](https://github.com/bilo-io/midnite-studio/pull/979). Page words reach an agent only inside the `UntrustedPageContent` envelope (capped, redacted, provenance-tagged; a zod walk holds the agent's wire to it). A main-side `BrowserAgentSession` with six isolated-world tools and a per-session origin allowlist asks the user before leaving the list, typing a password, submitting or downloading; while it is live the request filter denies off-list egress and the `browser-agent` vault principal can never be granted. Injection heuristics are logged; a hash-only, focus-gated ClickFix clipboard watch raises a one-click-clear bar; page `midnite-studio://run`/`clone` links carry their origin, are rate-limited per origin, confirmed with a warning and never auto-sent (the launcher rate-limits `run=` too). Theme G ✅.
+
 ## 2026-10-22 — Phase 117 Themes D + E — Quarantined downloads; tracker and fingerprinting protection
 
 [PR #974](https://github.com/bilo-io/midnite-studio/pull/974). Opt-in downloads land in a 0700 quarantine folder with `com.apple.quarantine` set, a type/size policy, a SHA-256 + Gatekeeper + optional clamscan record in `downloads.ndjson`, and never auto-open. `persist:browser` gets a `webRequest` pipeline: bundled EasyPrivacy blocklist (licence recorded), third-party cookie stripping both ways, trimmed Referer, reduced UA, a per-tab blocked counter and per-site exceptions.
