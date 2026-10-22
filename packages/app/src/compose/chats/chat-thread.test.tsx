@@ -38,7 +38,7 @@ const chat = (messages: ChatMessage[], id = 'c1'): Chat => ({
 });
 
 const noop = () => {};
-const props = { engines: [], resolvingChangeSetId: null, onEdit: noop, onRetry: noop, onOpenChanges: noop, onResolveAll: noop };
+const props = { engines: [], widthMode: 'default' as const, resolvingChangeSetId: null, onEdit: noop, onRetry: noop, onOpenChanges: noop, onResolveAll: noop };
 
 function geometry(el: HTMLElement, g: { scrollHeight: number; clientHeight: number; scrollTop: number }) {
   for (const [key, value] of Object.entries(g)) Object.defineProperty(el, key, { value, configurable: true, writable: true });

@@ -1,10 +1,10 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
-import type { Chat } from '@midnite/studio-shared';
+import type { Chat, ChatWidthMode } from '@midnite/studio-shared';
 import { LuArrowDown } from 'react-icons/lu';
 
 import { AssistantMessage, UserMessage } from './chat-message';
-import { CHAT_GUTTER, CHAT_THREAD_COLUMN } from './chat-column';
+import { chatThreadColumn, chatThreadGutter } from './chat-column';
 import { ThinkingPanel } from './thinking-panel';
 import type { ChatEngine } from './use-chat-engines';
 
@@ -44,6 +44,7 @@ export function ChatThread({
   chat,
   engines,
   streaming,
+  widthMode,
   resolvingChangeSetId,
   onEdit,
   onRetry,
@@ -53,6 +54,8 @@ export function ChatThread({
   chat: Chat;
   engines: readonly ChatEngine[];
   streaming: boolean;
+  /** How wide the column is drawn (`chat-column.ts`); the dock follows the thread. */
+  widthMode: ChatWidthMode;
   resolvingChangeSetId: string | null;
   onEdit: (messageId: string, text: string) => void;
   onRetry: (messageId: string) => void;
@@ -153,10 +156,11 @@ export function ChatThread({
         aria-relevant="additions"
         aria-busy={streaming}
         data-testid="chat-thread"
+        data-width-mode={widthMode}
         className="min-h-0 flex-1 overflow-y-auto"
       >
-        <div className={`${CHAT_GUTTER} py-6`}>
-         <div className={`${CHAT_THREAD_COLUMN} flex flex-col gap-6`}>
+        <div className={`${chatThreadGutter(widthMode)} py-6`}>
+         <div className={`${chatThreadColumn(widthMode)} flex flex-col gap-6`} data-testid="chat-thread-column">
           {messages.map((message) => {
             return message.role === 'user' ? (
               <UserMessage key={message.id} message={message} canEdit={editable} onEdit={onEdit} />
@@ -179,8 +183,8 @@ export function ChatThread({
         </div>
       </div>
       {dockedMessage ? (
-        <div ref={dock} className={`shrink-0 ${CHAT_GUTTER} pb-1 pt-2`} data-testid="chat-dock">
-          <div className={`${CHAT_THREAD_COLUMN} pr-9`}>
+        <div ref={dock} className={`shrink-0 ${chatThreadGutter(widthMode)} pb-1 pt-2`} data-testid="chat-dock">
+          <div className={`${chatThreadColumn(widthMode)} pr-9`}>
             <div className="flex gap-3">
               <span aria-hidden className="w-6 shrink-0" />
               <div className="min-w-0 flex-1">

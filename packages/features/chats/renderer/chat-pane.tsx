@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LuGitBranch } from 'react-icons/lu';
 
-import type { Chat, ChatAttachment, ChatMode } from '@midnite/studio-shared';
+import type { Chat, ChatAttachment, ChatMode, ChatWidthMode } from '@midnite/studio-shared';
 
 import { decisionsFor } from './chat-changes';
 import { ChatChangesModal } from './chat-changes-modal';
 import { ChatComposer, type ChatSettings } from './chat-composer';
 import { ChatEmptyState } from './chat-empty-state';
 import { ChatThread } from './chat-thread';
+import { ChatWidthToggle } from './chat-width-toggle';
 import { CHAT_COLUMN, CHAT_GUTTER } from './chat-column';
 import { isStreaming, useChatsStore } from './chats-store';
 import { pickEngine, useChatEngines, wireModel, type ChatEngine } from './use-chat-engines';
@@ -38,6 +39,7 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
   const repos = host.useRepos();
   const dialogs = useFrameChrome().useDialogs();
   const selectedRepoId = host.useSelectedRepoId();
+  const { mode: widthMode, setMode: setWidthMode } = host.useThreadWidth();
 
   const key = selectedId ?? NEW_KEY;
   const drafts = useRef(new Map<string, DraftText>());
@@ -243,6 +245,7 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
         chat={chat}
         engines={engines}
         streaming={streaming}
+        widthMode={widthMode}
         resolvingChangeSetId={resolving}
         onEdit={edit}
         onRetry={retry}
@@ -253,8 +256,15 @@ export function ChatPane({ selectedId }: { selectedId: string | null }) {
   }
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label={chat ? chat.title : 'New chat'} data-testid="chat-pane">
-      {chat ? <ChatHeader chat={chat} engine={engine} streaming={streaming} /> : null}
+    <section className="relative flex min-h-0 min-w-0 flex-1 flex-col" aria-label={chat ? chat.title : 'New chat'} data-testid="chat-pane">
+      {chat ? (
+        <ChatHeader chat={chat} engine={engine} streaming={streaming} widthMode={widthMode} onWidthModeChange={setWidthMode} />
+      ) : (
+        // No header before the first message: the toggle keeps its top-right seat over the new-chat screen.
+        <div className="absolute right-4 top-2 z-10">
+          <ChatWidthToggle mode={widthMode} onChange={setWidthMode} />
+        </div>
+      )}
       {body}
       {selectedId !== null && !chat ? null : composer}
       {chat && reviewing ? <ChatChangesModal chatId={chat.id} changeSetId={reviewing} onClose={() => setReviewing(null)} /> : null}
@@ -277,7 +287,19 @@ function normalise(patch: Partial<ChatSettings>, engines: readonly ChatEngine[])
   return out;
 }
 
-function ChatHeader({ chat, engine, streaming }: { chat: Chat; engine: ChatEngine | null; streaming: boolean }) {
+function ChatHeader({
+  chat,
+  engine,
+  streaming,
+  widthMode,
+  onWidthModeChange,
+}: {
+  chat: Chat;
+  engine: ChatEngine | null;
+  streaming: boolean;
+  widthMode: ChatWidthMode;
+  onWidthModeChange: (mode: ChatWidthMode) => void;
+}) {
   return (
     <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-1.5 text-xs">
       <h2 className="min-w-0 truncate text-sm font-medium" data-testid="chat-title">
@@ -293,6 +315,7 @@ function ChatHeader({ chat, engine, streaming }: { chat: Chat; engine: ChatEngin
           Answering…
         </span>
       ) : null}
+      <ChatWidthToggle mode={widthMode} onChange={onWidthModeChange} className="ml-auto" />
     </header>
   );
 }

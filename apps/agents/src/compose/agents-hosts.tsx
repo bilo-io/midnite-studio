@@ -7,7 +7,7 @@ import type { CouncilsHost } from '@midnite/studio-feature-councils/renderer';
 import type { WorkflowsHost } from '@midnite/studio-feature-workflows/renderer';
 import { useOllamaModels, useOllamaStatus, type ModelsHost } from '@midnite/studio-feature-models/renderer';
 import { bridge } from '@midnite/studio-frame';
-import { BUILTIN_AGENTS } from '@midnite/studio-shared';
+import { BUILTIN_AGENTS, ChatWidthModeSchema, DEFAULT_CHAT_WIDTH_MODE, type ChatWidthMode } from '@midnite/studio-shared';
 
 import { AiComposer, AttachMenu, MultiSelectMenu, ProviderModelPicker, useComposerMic } from './plain-composer';
 import { CodePreview, DiffView, MarkdownBody, Modal, Popover, Tooltip, TreeSection, UserAvatar } from './plain-ui';
@@ -42,6 +42,30 @@ function usePersistedNumber(key: string, initial: number): [number, (value: numb
   return [value, set];
 }
 
+/** The thread width mode, kept the same way; an unknown stored value falls back to the default. */
+function usePersistedWidthMode(key: string): [ChatWidthMode, (mode: ChatWidthMode) => void] {
+  const [mode, setMode] = useState<ChatWidthMode>(() => {
+    try {
+      const parsed = ChatWidthModeSchema.safeParse(window.localStorage.getItem(key));
+      return parsed.success ? parsed.data : DEFAULT_CHAT_WIDTH_MODE;
+    } catch {
+      return DEFAULT_CHAT_WIDTH_MODE;
+    }
+  });
+  const set = useCallback(
+    (next: ChatWidthMode) => {
+      setMode(next);
+      try {
+        window.localStorage.setItem(key, next);
+      } catch {
+        // Private window or blocked storage: the mode just does not persist.
+      }
+    },
+    [key],
+  );
+  return [mode, set];
+}
+
 const openExternal = (url: string): void => {
   // Main's window-open handler sends https links to the system browser.
   window.open(url, '_blank', 'noopener');
@@ -68,6 +92,10 @@ export const AGENTS_CHATS_HOST = {
   useListWidth: () => {
     const [size, setSize] = usePersistedNumber('midnite-agents.chatsListWidth', 280);
     return { size, setSize, initial: 280, min: 200, max: 420 };
+  },
+  useThreadWidth: () => {
+    const [mode, setMode] = usePersistedWidthMode('midnite-agents.chatsWidthMode');
+    return { mode, setMode };
   },
   useAgentRoster: () => {
     const query = useQuery({
