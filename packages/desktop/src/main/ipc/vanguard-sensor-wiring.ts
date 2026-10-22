@@ -63,10 +63,13 @@ export function agentPtyOutputSource(seams: VanguardWiringSeams): PtyOutputSourc
             if (!agentId) return;
             let decoder = decoders.get(sessionId);
             if (!decoder) decoders.set(sessionId, (decoder = new TextDecoder()));
+            const data = decoder.decode(copy, { stream: true });
+            // A lone lead byte decodes to nothing until its tail arrives.
+            if (data === '') return;
             const chunk: PtyOutputChunk = {
               sessionId,
               agentId,
-              data: decoder.decode(copy, { stream: true }),
+              data: data,
             };
             listener(chunk);
           })
