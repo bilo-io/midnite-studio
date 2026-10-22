@@ -128,10 +128,10 @@ describe('the width mode in ui-store', () => {
     expect(partialize(useUiStore.getState()).chatsWidthMode).toBe('wider');
   });
 
-  it('v35 → v36 seeds the default, keeping a mode a profile already chose', () => {
+  it('v36 → v37 seeds the default, keeping a mode a profile already chose', () => {
     const migrate = useUiStore.persist.getOptions().migrate!;
-    expect((migrate({}, 35) as { chatsWidthMode: string }).chatsWidthMode).toBe('default');
-    expect((migrate({ chatsWidthMode: 'full' }, 35) as { chatsWidthMode: string }).chatsWidthMode).toBe('full');
+    expect((migrate({}, 36) as { chatsWidthMode: string }).chatsWidthMode).toBe('default');
+    expect((migrate({ chatsWidthMode: 'full' }, 36) as { chatsWidthMode: string }).chatsWidthMode).toBe('full');
   });
 
   it('an unknown stored mode merges back to the default', () => {
