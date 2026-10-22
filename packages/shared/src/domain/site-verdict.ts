@@ -252,7 +252,11 @@ export function siteVerdictLines(verdict: SiteVerdict): SiteVerdictLine[] {
     });
   }
   if (isInsecureTransport(verdict)) lines.push({ level: 'caution', text: 'Connection is not encrypted (http)' });
-  if (verdict.insecureForm) lines.push({ level: 'caution', text: 'This page sends data over an unencrypted connection' });
+  // Theme F's own line already says it when the insecure form is a password field on http.
+  const passwordOverHttp = verdict.credentialRisk?.reasons.some((r) => r.rule === 'http-password') ?? false;
+  if (verdict.insecureForm && !passwordOverHttp) {
+    lines.push({ level: 'caution', text: 'This page sends data over an unencrypted connection' });
+  }
   if (verdict.mixedContent) {
     const n = verdict.mixedContentUrls.length;
     lines.push({ level: 'caution', text: `Loads ${n === 1 ? 'an insecure resource' : `${n} insecure resources`} (mixed content)` });

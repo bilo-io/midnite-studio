@@ -109,3 +109,17 @@ describe('credentialRisk (Phase 117 Theme F)', () => {
     expect(lines).toContainEqual({ level: 'caution', text: 'Sends the password to another site (https://drop.example)' });
   });
 });
+
+describe('credentialRisk lines do not repeat the insecure-form line', () => {
+  it('drops the generic insecure-form row when the http-password rule already says it', () => {
+    const v: SiteVerdict = {
+      ...emptySiteVerdict('http://members.example/'),
+      insecureForm: true,
+      credentialRisk: { level: 'caution', reasons: [{ rule: 'http-password' }] },
+    };
+    const texts = siteVerdictLines(v).map((l) => l.text);
+    expect(texts).toContain('Asks for a password over an unencrypted connection');
+    expect(texts).not.toContain('This page sends data over an unencrypted connection');
+    expect(siteVerdictLines({ ...v, credentialRisk: null }).map((l) => l.text)).toContain('This page sends data over an unencrypted connection');
+  });
+});
