@@ -109,7 +109,8 @@ describe('receiveAgentRun — nothing runs without the confirm', () => {
     expect(await receiveAgentRun(RUN, deps, { pageOrigin: 'https://lure.example' })).toBe('confirming');
     expect(deps.start).not.toHaveBeenCalled();
     expect(confirms[0]?.title).toBe('A web page wants to run a task in an agent');
-    expect(confirms[0]?.body).toContain('Asked for by https://lure.example.');
+    expect(confirms[0]?.warnings?.[0]).toBe('A web page (https://lure.example) asked for this, not you.');
+    expect(confirms[0]).toMatchObject({ danger: true, blastRadius: null });
     expect(confirms[0]?.body).toContain('In /Users/me/midnite-studio');
     expect(confirms[0]?.confirmLabel).toBe('Start');
     confirms[0]?.onConfirm();

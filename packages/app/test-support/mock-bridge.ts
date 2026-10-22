@@ -6143,10 +6143,7 @@ export function buildMockBridge(data: MockFixtures) {
   };
 
   (window as unknown as { __mstudioOps: unknown }).__mstudioOps = opCalls;
-  // Phase 117 Theme G: a spec's way to raise a browser event (the ClickFix bar, the agent session) or deliver a deep link.
-  (window as unknown as { __mstudioBrowserEvent: (e: unknown) => void }).__mstudioBrowserEvent = (e) => {
-    for (const h of [...browserEventHandlers]) h(e);
-  };
+  // Phase 117 Theme G: a spec's way to deliver a deep link (browser events go through `__mstudioBrowserEvent` below).
   (window as unknown as { __mstudioDeepLink: (e: unknown) => void }).__mstudioDeepLink = (e) => {
     for (const h of [...deepLinkHandlers]) h(e);
   };

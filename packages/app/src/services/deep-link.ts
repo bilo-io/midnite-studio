@@ -66,8 +66,11 @@ export function useDeepLinks(): void {
 
         confirm({
           title: 'Open this repository?',
-          body: origin !== undefined ? `${link.repo}\n\nAsked for by ${origin || 'a web page'}.` : link.repo,
+          body: link.repo,
           confirmLabel: 'Open',
+          // Opening adds a folder to the list and nothing else; a page asking for it is the warning.
+          blastRadius: null,
+          ...(origin !== undefined ? { warnings: [`A web page (${origin || 'unknown origin'}) asked for this, not you.`] } : {}),
           onConfirm: () => {
             openRepo.mutate(link.repo, {
               onSuccess: (result) => {

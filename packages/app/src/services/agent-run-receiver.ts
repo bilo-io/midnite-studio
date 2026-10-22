@@ -108,7 +108,7 @@ export async function receiveAgentRun(
   deps.confirm({
     title: fromPage ? 'A web page wants to run a task in an agent' : 'Run this task in an agent?',
     body: [
-      ...(fromPage ? [`Asked for by ${from.pageOrigin || 'a web page'}. Only go on if you started this yourself.`, ''] : []),
+      ...(fromPage ? ['Only go on if you started this yourself.', ''] : []),
       deps.preview(agent, prompt),
       '',
       `In ${found.path}`,
@@ -120,6 +120,18 @@ export async function receiveAgentRun(
           : 'It is typed into a new terminal, not sent — press Return there to run it.',
     ].join('\n'),
     confirmLabel: autoSend ? 'Launch and run' : 'Start',
+    // The blast radius is a new terminal in this checkout with this command typed in. Explicitly null,
+    // so the dialog does not sit on "Checking what this affects…": what it affects is the lines below.
+    blastRadius: null,
+    ...(fromPage
+      ? {
+          danger: true,
+          warnings: [
+            `A web page (${from.pageOrigin || 'unknown origin'}) asked for this, not you.`,
+            `It opens an agent with write access to ${found.path}.`,
+          ],
+        }
+      : {}),
     onConfirm: () =>
       deps.start({
         repoId: found.id,
