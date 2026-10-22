@@ -10,9 +10,9 @@ import {
   ORB_FOG_CLOUD_COUNT,
   ORB_INNER_SHELL_NODES,
   ORB_PARTICLE_COUNT,
-  ORB_RADIUS_FRACTION,
   ORB_STATE_PROFILES,
   ORB_ZEN_GLOW_BLEED,
+  orbBaseRadius,
   orbCoronaRadius,
   readCompanionSpeechLevel,
 } from './companion-orb';
@@ -78,11 +78,9 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
   it('gives the zen corona room to fade out unclamped at full speech and pulse', () => {
     const layoutMin = 520;
     const canvasHalf = (layoutMin * (1 + 2 * ORB_ZEN_GLOW_BLEED)) / 2;
-    // The largest the orb gets: full speech (+14%) at the top of its pulse (+3%).
-    const peakBase = layoutMin * ORB_RADIUS_FRACTION * (1 + 0.14 + 0.03);
-    const unclamped = peakBase * (1.85 + 0.35) * 1.07;
-    expect(unclamped).toBeLessThanOrEqual(canvasHalf * (0.93 + 0.07));
-    expect(orbCoronaRadius(peakBase, 1, 1, canvasHalf)).toBeCloseTo(unclamped);
+    const peakBase = orbBaseRadius(layoutMin, 1, 1);
+    const unclamped = orbCoronaRadius(peakBase, 1, 1, Number.POSITIVE_INFINITY);
+    expect(orbCoronaRadius(peakBase, 1, 1, canvasHalf)).toBe(unclamped);
   });
 
   it('lets the zen canvas bleed past its box so the glow is not cut off, while the docked canvas fills its box', () => {

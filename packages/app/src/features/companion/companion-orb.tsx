@@ -111,6 +111,14 @@ export const ORB_ZEN_GLOW_BLEED = 0.35;
 /** The orb's resting radius as a fraction of its layout box's shorter side. */
 export const ORB_RADIUS_FRACTION = 0.3;
 
+/** Backing-store pixel ratio cap for the oversized Zen canvas. */
+export const ORB_ZEN_MAX_DPR = 1.5;
+
+/** The orb's radius: swells with speech (0..1) and a gentle pulse (-1..1). */
+export function orbBaseRadius(layoutMin: number, speech: number, pulse: number): number {
+  return layoutMin * ORB_RADIUS_FRACTION * (1 + speech * 0.14 + pulse * 0.03);
+}
+
 /**
  * Where the edge mask starts fading, as a fraction of the distance from the
  * centre to the canvas edge. Everything drawn has faded to nothing by the edge
@@ -282,7 +290,8 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
 
     const particles: OrbParticle3D[] = [];
     for (let i = 0; i < ORB_PARTICLE_COUNT; i++) {
-      const y = 1 - (2 * ((i * 7) % ORB_PARTICLE_COUNT + 0.5)) / ORB_PARTICLE_COUNT;
+      // 11 is coprime with the count, so this visits every band once; a shared factor clumps the swarm into rings.
+      const y = 1 - (2 * ((i * 11) % ORB_PARTICLE_COUNT + 0.5)) / ORB_PARTICLE_COUNT;
       particles.push({
         theta: (i / ORB_PARTICLE_COUNT) * Math.PI * 2,
         phi: Math.acos(Math.max(-1, Math.min(1, y))),
@@ -330,13 +339,17 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
         return;
       }
 
-      const dpr = window.devicePixelRatio || 1;
+      // The Zen canvas covers ~2.9x its box's area for the glow, which is soft enough not to need full retina.
+      const dpr = Math.min(window.devicePixelRatio || 1, zen ? ORB_ZEN_MAX_DPR : Infinity);
       const width = canvas.clientWidth || 280;
       const height = canvas.clientHeight || 112;
 
-      if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
+      // Rounded: canvas dimensions are integers, so a fractional product would reallocate every frame.
+      const backingWidth = Math.round(width * dpr);
+      const backingHeight = Math.round(height * dpr);
+      if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
+        canvas.width = backingWidth;
+        canvas.height = backingHeight;
       }
 
       ctx.save();
@@ -400,7 +413,7 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
       const canvasHalf = Math.min(width, height) / 2;
       // The orb is sized from the layout box; in Zen the canvas is larger than that box.
       const layoutMin = Math.min(width, height) / (zen ? 1 + 2 * ORB_ZEN_GLOW_BLEED : 1);
-      const baseRadius = layoutMin * ORB_RADIUS_FRACTION * (1 + speech * 0.14 + Math.sin(anim.pulsePhase) * 0.03);
+      const baseRadius = orbBaseRadius(layoutMin, speech, Math.sin(anim.pulsePhase));
       const fov = 320;
       const camDist = 340;
       // Slow breathing (~7s) with a faster overtone, independent of speech.
@@ -606,13 +619,18 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
           dashed: true,
           voiceMod: false,
         },
-        {
-          radiusMult: 1.5,
-          tilt: [Math.PI / 2 + anim.rotX * 0.3, anim.rotZ * 0.6, anim.rotY * 0.4],
-          hue: anim.accHue,
-          dashed: true,
-          voiceMod: false,
-        },
+        // Zen only: docked, a ring this wide would turn into the edge fade and look truncated.
+        ...(zen
+          ? [
+              {
+                radiusMult: 1.5,
+                tilt: [Math.PI / 2 + anim.rotX * 0.3, anim.rotZ * 0.6, anim.rotY * 0.4] as Vec3,
+                hue: anim.accHue,
+                dashed: true,
+                voiceMod: false,
+              },
+            ]
+          : []),
       ];
 
       for (let rIdx = 0; rIdx < ringConfigs.length; rIdx++) {
@@ -789,7 +807,7 @@ const ZEN_CANVAS_STYLE: CSSProperties = {
  * on a Fibonacci sphere a vertex's nearest neighbours sit a Fibonacci number of
  * indices away, so this triangulates the shell. Offsets never wrap past the end,
  * which would join the two poles straight through the orb. Edges are batched
- * into one path for the front of the shell (`z < 0`, in `frontHue` at
+ * into one path for the front of the shell (midpoint `z < 0`, in `frontHue` at
  * `frontAlpha`) and one faint path for the back (in `backHue` when given).
  */
 function strokeLattice(
@@ -805,10 +823,11 @@ function strokeLattice(
     ctx.beginPath();
     for (let i = 0; i < nodes.length; i++) {
       const pA = nodes[i];
-      if (!pA || !pA.visible || pA.z < 0 !== front) continue;
+      if (!pA || !pA.visible) continue;
       for (const offset of offsets) {
         const pB = nodes[i + offset];
-        if (!pB || !pB.visible) continue;
+        // Classified by the edge's midpoint, so an edge over the limb is not drawn bright end to end.
+        if (!pB || !pB.visible || pA.z + pB.z < 0 !== front) continue;
         ctx.moveTo(pA.sx, pA.sy);
         ctx.lineTo(pB.sx, pB.sy);
       }
