@@ -17,14 +17,36 @@ function fakeIpc() {
 }
 
 describe('createVanguardBridge', () => {
-  it('exposes exactly vanguard, the report feature, the session list and an attach-only pty', () => {
+  it('exposes exactly vanguard, the report feature, the session list and a read-only pty', () => {
     const bridge = createVanguardBridge(fakeIpc().ipc);
     expect(Object.keys(bridge).sort()).toEqual(['pty', 'report', 'terminal', 'vanguard']);
     expect(Object.keys(bridge.terminal)).toEqual(['list']);
     // No create and no kill: Vanguard starts nothing, so it kills nothing.
-    expect(Object.keys(bridge.pty).sort()).toEqual(['input', 'onData', 'onExit', 'resize', 'snapshot', 'subscribe', 'unsubscribe']);
-    expect(Object.keys(bridge.vanguard).sort()).toEqual(['findings', 'onChanged', 'openQuarantine', 'runSensor', 'sensors', 'setSettings', 'settings', 'viewOpened']);
-    expect(Object.keys(bridge.vanguard.findings).sort()).toEqual(['act', 'list', 'onChanged', 'setStatus']);
+    // The security app renders untrusted evidence: no keystrokes into a terminal.
+    expect(bridge.pty).not.toHaveProperty('input');
+    expect(Object.keys(bridge.pty).sort()).toEqual([
+      'onData',
+      'onExit',
+      'snapshot',
+      'subscribe',
+      'unsubscribe',
+    ]);
+    expect(Object.keys(bridge.vanguard).sort()).toEqual([
+      'findings',
+      'onChanged',
+      'openQuarantine',
+      'runSensor',
+      'sensors',
+      'setSettings',
+      'settings',
+      'viewOpened',
+    ]);
+    expect(Object.keys(bridge.vanguard.findings).sort()).toEqual([
+      'act',
+      'list',
+      'onChanged',
+      'setStatus',
+    ]);
   });
 
   it('invokes the findings, sensor and settings channels', async () => {
