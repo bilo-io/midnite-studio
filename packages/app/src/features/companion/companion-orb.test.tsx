@@ -146,11 +146,13 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
     let rafCallbacks: FrameRequestCallback[] = [];
     let arcCalls = 0;
     let strokeCalls = 0;
+    let lineToCalls = 0;
 
     beforeEach(() => {
       rafCallbacks = [];
       arcCalls = 0;
       strokeCalls = 0;
+      lineToCalls = 0;
 
       vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
         rafCallbacks.push(cb);
@@ -166,7 +168,9 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
         clearRect: vi.fn(),
         beginPath: vi.fn(),
         moveTo: vi.fn(),
-        lineTo: vi.fn(),
+        lineTo: vi.fn(() => {
+          lineToCalls += 1;
+        }),
         arc: vi.fn(() => {
           arcCalls += 1;
         }),
@@ -200,7 +204,9 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
 
       // Should draw corona + core + fog clouds + both lattices + particles + vocal shells
       expect(arcCalls).toBeGreaterThan(ORB_FOG_CLOUD_COUNT + ORB_FIBONACCI_NODES);
-      expect(strokeCalls).toBeGreaterThan(20);
+      // Lattice edges are batched into a few stroked paths, so count the edges rather than strokes.
+      expect(lineToCalls).toBeGreaterThan(ORB_FIBONACCI_NODES + ORB_INNER_SHELL_NODES);
+      expect(strokeCalls).toBeGreaterThanOrEqual(4);
 
       // Switch to thinking state and verify synaptic arc mode
       rerender(<CompanionOrb state="thinking" />);
