@@ -1,5 +1,6 @@
 import type { NewSecurityFinding, SecurityFinding } from '@midnite/studio-shared';
 
+import { createPersistenceProcessSensors, type PersistenceProcessDeps } from './persistence-process-sensors';
 import { BUILTIN_SENSORS } from './sensors';
 import {
   createSensorHost,
@@ -28,6 +29,8 @@ export interface VanguardServiceOptions {
   store?: VanguardStore;
   /** Sensors to register; defaults to {@link BUILTIN_SENSORS}. */
   sensors?: readonly SensorDefinition[];
+  /** Theme D's injected seams (agent-session shells, the pty output stream); replaces its default-built sensors. */
+  persistenceProcess?: PersistenceProcessDeps;
 }
 
 export interface VanguardService {
@@ -57,6 +60,11 @@ export async function createVanguardService(
     onChanged: options.onChanged,
     ...(options.log ? { log: options.log } : {}),
   });
-  for (const def of options.sensors ?? BUILTIN_SENSORS) host.register(def);
+  const dSensors = options.persistenceProcess
+    ? createPersistenceProcessSensors(options.persistenceProcess)
+    : [];
+  const dIds = new Set(dSensors.map((d) => d.id));
+  const base = options.sensors ?? BUILTIN_SENSORS.filter((d) => !dIds.has(d.id));
+  for (const def of [...base, ...dSensors]) host.register(def);
   return { host, settings, quarantineDir: `${options.userData}/vanguard/quarantine` };
 }

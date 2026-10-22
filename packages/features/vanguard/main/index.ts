@@ -21,6 +21,11 @@ export {
   type SensorTimers,
 } from './sensor-host';
 export { BUILTIN_SENSORS } from './sensors';
+export {
+  createPersistenceProcessSensors,
+  type PersistenceProcessDeps,
+} from './persistence-process-sensors';
+export type { PtyOutputChunk, PtyOutputSource } from './clickfix';
 export { createSensorRunProcess } from './run-process';
 export {
   createVanguardService,

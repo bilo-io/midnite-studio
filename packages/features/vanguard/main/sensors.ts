@@ -1,3 +1,4 @@
+import { createPersistenceProcessSensors } from './persistence-process-sensors';
 import type { SensorDefinition } from './sensor-host';
 
 /**
@@ -5,4 +6,7 @@ import type { SensorDefinition } from './sensor-host';
  * and G (agent behaviour) each append their definition here; Theme B ships none, so the Sensors tab starts
  * with nothing registered and the host's lifecycle is exercised with fakes.
  */
-export const BUILTIN_SENSORS: readonly SensorDefinition[] = [];
+export const BUILTIN_SENSORS: readonly SensorDefinition[] = [
+  // Theme D: persistence, processes, Apple signals, terminal paste shapes.
+  ...createPersistenceProcessSensors(),
+];
