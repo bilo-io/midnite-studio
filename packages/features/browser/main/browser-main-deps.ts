@@ -1,4 +1,5 @@
 import type { BrowserElectron } from './browser-electron';
+import type { LedgerCipher } from './host-first-seen';
 import type { PermissionGrantStore } from './permission-grant-store';
 
 /**
@@ -37,6 +38,11 @@ export type BrowserMainDeps = {
   userDataPath?: string;
   /** Injected permission grant store (tests or custom compositions). */
   permissionStore?: PermissionGrantStore;
+  /**
+   * `electron.safeStorage` (Phase 117 Theme F): encrypts the first-seen ledger's HMAC key. Absent, the
+   * ledger stays in memory and nothing about visited hosts is written to disk.
+   */
+  ledgerCipher?: LedgerCipher;
 };
 
 let installed: BrowserMainDeps | null = null;

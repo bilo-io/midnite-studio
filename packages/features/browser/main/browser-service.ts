@@ -30,6 +30,7 @@ import {
   forgetCredentialTab,
   hostsFirstSeen,
   judgeTabCredentials,
+  judgeTabCredentialsOnInput,
   noteCredentialCommit,
   refreshVaultSignInHosts,
   resetCredentialPhishingForTests,
@@ -741,6 +742,8 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
     stops the page underneath from ever seeing the chord.
   */
   wc.on('before-input-event', (event, input) => {
+    // Phase 117 Theme F: typing re-reads the login form (throttled), for a password step added late.
+    if (input.type === 'keyDown') judgeTabCredentialsOnInput(tabId, wc);
     if (isModChord(input, 'w')) {
       event.preventDefault();
       sendCommand(win, 'browser.closeTab');

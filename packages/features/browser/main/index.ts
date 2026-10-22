@@ -151,6 +151,7 @@ export const browserMain = defineFeatureMain<BrowserMainServices>({
       devToolsAllowed: services.devToolsAllowed ?? false,
       userDataPath: services.userDataPath,
       permissionStore: services.permissionStore,
+      ledgerCipher: services.ledgerCipher,
     });
     registerBrowserHandlers(ctx.ipc, services.sender);
     registerWebAppsHandlers(ctx.ipc, services.getMainWindow);

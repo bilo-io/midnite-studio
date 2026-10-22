@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -6,10 +6,13 @@ import { dirname, join } from 'node:path';
  * When the browser first reached each host (Phase 117 Theme F) — the "first seen today, no history"
  * rule's only memory.
  *
- * **No readable history on disk.** The ledger keys each host by a truncated SHA-256 (64 bits), so
- * `<userData>/browser-hosts-seen.json` (0600, atomic temp+rename) is a set of opaque digests and
- * days, not a list of sites. That is obfuscation, not secrecy — someone holding the file can still
- * test a guessed host against it — which is why "Clear browsing data" deletes it outright.
+ * **No readable history on disk.** Each host is keyed by an HMAC-SHA256 under a random key, and the
+ * key itself is stored only encrypted by the OS keychain ({@link LedgerCipher}, `electron.safeStorage`
+ * from the composer). So `<userData>/browser-hosts-seen.json` (0600, atomic temp+rename) is a set of
+ * opaque digests and *day numbers* — the rule only needs the day, so no visit time is kept — and
+ * hashing a list of popular domains against it recovers nothing without the keychain. With no cipher
+ * (or one that cannot encrypt) the ledger stays in memory and nothing is written at all. "Clear
+ * browsing data" deletes the file and the key with it.
  *
  * Bounded at {@link HOSTS_SEEN_CAP} entries (oldest first-seen evicted), and written at most once per
  * {@link HOSTS_SEEN_WRITE_DELAY_MS}, since a burst of new hosts should not be a burst of writes.
@@ -19,12 +22,19 @@ export const HOSTS_SEEN_FILE = 'browser-hosts-seen.json';
 export const HOSTS_SEEN_CAP = 20_000;
 export const HOSTS_SEEN_WRITE_DELAY_MS = 2_000;
 
-type Persisted = { version: 1; hosts: Record<string, number> };
+/** `electron.safeStorage`, structurally — injected, never imported (main does not import electron). */
+export type LedgerCipher = {
+  isEncryptionAvailable(): boolean;
+  encryptString(plaintext: string): Buffer;
+  decryptString(encrypted: Buffer): string;
+};
+
+type Persisted = { version: 2; key: string; hosts: Record<string, number> };
 
 export type HostFirstSeenStore = {
-  /** Records a committed host (first visit only) and returns when it was first seen, in ms. */
+  /** Records a committed host (first visit only) and returns the local day it was first seen. */
   note(host: string): number;
-  /** When the host was first seen, or `undefined` if never. */
+  /** The local day the host was first seen, or `undefined` if never. */
   firstSeen(host: string): number | undefined;
   /** "Clear browsing data": forget every host, on disk too. */
   clear(): void;
@@ -32,30 +42,46 @@ export type HostFirstSeenStore = {
   flush(): void;
 };
 
-export function hostDigest(host: string): string {
-  const normalised = host.toLowerCase().replace(/\.$/, '').replace(/^www\./, '');
-  return createHash('sha256').update(normalised).digest('hex').slice(0, 16);
+/** Days since the epoch in local time — two instants on the same calendar day share one. */
+export function localDay(ms: number): number {
+  const d = new Date(ms);
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000);
 }
 
-export function createHostFirstSeenStore(options: { directory?: string; now?: () => number } = {}): HostFirstSeenStore {
-  const filePath = options.directory ? join(options.directory, HOSTS_SEEN_FILE) : null;
+export function hostDigest(key: Buffer, host: string): string {
+  const normalised = host.toLowerCase().replace(/\.$/, '').replace(/^www\./, '');
+  return createHmac('sha256', key).update(normalised).digest('hex').slice(0, 32);
+}
+
+export function createHostFirstSeenStore(
+  options: { directory?: string; now?: () => number; cipher?: LedgerCipher } = {},
+): HostFirstSeenStore {
+  const cipher = options.cipher;
+  const persistent = Boolean(options.directory && cipher?.isEncryptionAvailable());
+  const filePath = persistent && options.directory ? join(options.directory, HOSTS_SEEN_FILE) : null;
   const now = options.now ?? Date.now;
+  let key: Buffer = randomBytes(32);
   let hosts: Map<string, number> | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   const load = (): Map<string, number> => {
     if (hosts) return hosts;
     hosts = new Map();
-    if (!filePath) return hosts;
+    if (!filePath || !cipher) return hosts;
     try {
-      const parsed = JSON.parse(readFileSync(filePath, 'utf8')) as Persisted;
-      if (parsed && typeof parsed.hosts === 'object' && parsed.hosts !== null) {
-        const rows = Object.entries(parsed.hosts).filter(([, at]) => typeof at === 'number' && Number.isFinite(at));
-        rows.sort((a, b) => a[1] - b[1]);
-        for (const [digest, at] of rows) hosts.set(digest, at);
+      const parsed = JSON.parse(readFileSync(filePath, 'utf8')) as Partial<Persisted>;
+      if (parsed?.version !== 2 || typeof parsed.key !== 'string' || typeof parsed.hosts !== 'object' || parsed.hosts === null) {
+        return hosts;
       }
+      const stored = Buffer.from(cipher.decryptString(Buffer.from(parsed.key, 'base64')), 'hex');
+      if (stored.length !== 32) return hosts;
+      key = stored;
+      const rows = Object.entries(parsed.hosts).filter(([, day]) => typeof day === 'number' && Number.isInteger(day));
+      rows.sort((a, b) => a[1] - b[1]);
+      for (const [digest, day] of rows) hosts.set(digest, day);
     } catch {
-      // Missing or corrupt: start empty — the worst case is a host reading as new once more.
+      // Missing, corrupt, or a key the keychain no longer opens: start empty under a fresh key — the
+      // worst case is every host reading as new once more.
     }
     return hosts;
   };
@@ -65,11 +91,15 @@ export function createHostFirstSeenStore(options: { directory?: string; now?: ()
       clearTimeout(timer);
       timer = null;
     }
-    if (!filePath || !hosts) return;
+    if (!filePath || !cipher || !hosts) return;
     try {
       mkdirSync(dirname(filePath), { recursive: true });
       const tmp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-      const data: Persisted = { version: 1, hosts: Object.fromEntries(hosts) };
+      const data: Persisted = {
+        version: 2,
+        key: cipher.encryptString(key.toString('hex')).toString('base64'),
+        hosts: Object.fromEntries(hosts),
+      };
       writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 });
       renameSync(tmp, filePath);
     } catch {
@@ -86,21 +116,25 @@ export function createHostFirstSeenStore(options: { directory?: string; now?: ()
   return {
     note(host) {
       const map = load();
-      const digest = hostDigest(host);
+      const digest = hostDigest(key, host);
       const seen = map.get(digest);
       if (seen !== undefined) return seen;
-      const at = now();
-      map.set(digest, at);
+      const day = localDay(now());
+      map.set(digest, day);
       // Map keeps insertion order and new entries are the newest, so the first key is the oldest.
       while (map.size > HOSTS_SEEN_CAP) map.delete(map.keys().next().value as string);
       schedule();
-      return at;
+      return day;
     },
-    firstSeen: (host) => load().get(hostDigest(host)),
+    firstSeen: (host) => {
+      const map = load();
+      return map.get(hostDigest(key, host));
+    },
     clear() {
       if (timer) clearTimeout(timer);
       timer = null;
       hosts = new Map();
+      key = randomBytes(32);
       if (!filePath) return;
       try {
         unlinkSync(filePath);
@@ -110,11 +144,4 @@ export function createHostFirstSeenStore(options: { directory?: string; now?: ()
     },
     flush: write,
   };
-}
-
-/** Whether two instants fall on the same local calendar day. */
-export function isSameLocalDay(a: number, b: number): boolean {
-  const x = new Date(a);
-  const y = new Date(b);
-  return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
 }

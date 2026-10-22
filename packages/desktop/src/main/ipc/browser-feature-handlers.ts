@@ -1,6 +1,6 @@
 import { browserMain, type BrowserHostWindow } from '@midnite/studio-feature-browser/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
-import { app, type BrowserWindow } from 'electron';
+import { app, safeStorage, type BrowserWindow } from 'electron';
 
 import { asBrowserHostWindow, createStudioBrowserElectron } from '../browser-port';
 import { devToolsAllowed } from '../devtools-policy';
@@ -27,6 +27,8 @@ export function registerBrowserFeatureHandlers(getMainWindow: () => BrowserWindo
     log: defaultLogger,
     readDiscardSettings: () => currentSettings(),
     userDataPath: app.getPath('userData'),
+    // Phase 117 Theme F: the first-seen ledger's key is kept encrypted by the keychain.
+    ledgerCipher: safeStorage,
     // Phase 117 Theme A: an embedded page's DevTools follow the app windows' rule.
     devToolsAllowed: devToolsAllowed(app.isPackaged),
     sender: {

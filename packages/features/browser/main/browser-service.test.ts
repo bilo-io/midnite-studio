@@ -1055,7 +1055,17 @@ describe('Phase 117 Theme C — site verdicts in the service', () => {
     dir = mkdtempSync(join(tmpdir(), 'browser-c-'));
     mkdirSync(join(dir, 'browser-feeds'));
     writeFileSync(join(dir, 'browser-feeds', 'urlhaus.txt'), 'http://malware.example/\nhttps://shared.example/bad-one\nhttps://shared.example/bad-two\n');
-    installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}), userDataPath: dir });
+    installBrowserMain({
+      electron: electron as unknown as BrowserElectron,
+      log,
+      readDiscardSettings: () => ({}),
+      userDataPath: dir,
+      ledgerCipher: {
+        isEncryptionAvailable: () => true,
+        encryptString: (plain: string) => Buffer.from(plain),
+        decryptString: (blob: Buffer) => blob.toString(),
+      },
+    });
   });
   afterEach(() => {
     resetBrowserServiceForTests();
@@ -1244,7 +1254,17 @@ describe('Phase 117 Theme F — credential phishing in the service', () => {
     resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
     dir = mkdtempSync(join(tmpdir(), 'browser-f-'));
-    installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}), userDataPath: dir });
+    installBrowserMain({
+      electron: electron as unknown as BrowserElectron,
+      log,
+      readDiscardSettings: () => ({}),
+      userDataPath: dir,
+      ledgerCipher: {
+        isEncryptionAvailable: () => true,
+        encryptString: (plain: string) => Buffer.from(plain),
+        decryptString: (blob: Buffer) => blob.toString(),
+      },
+    });
   });
   afterEach(() => {
     resetBrowserServiceForTests();
@@ -1309,6 +1329,37 @@ describe('Phase 117 Theme F — credential phishing in the service', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(siteVerdicts().verdict('t')?.origin).toBe('https://elsewhere.example');
     expect(siteVerdicts().verdict('t')?.credentialRisk).toBeNull();
+  });
+
+  it("keeps each tab's reads to its own commits — another tab navigating does not drop this one's", async () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'a', 'http://members.example/login');
+    createBrowserTab(win, 'b', 'https://other.example/');
+    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const [a, b] = [calls[0]?.[0] as FakeView, calls[1]?.[0] as FakeView];
+    a.webContents.url = 'http://members.example/login';
+    a.webContents.emit('did-navigate', undefined, a.webContents.url);
+    let answer: (value: unknown) => void = () => {};
+    a.webContents.executeJavaScriptInIsolatedWorld.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    a.webContents.emit('dom-ready');
+    b.webContents.url = 'https://other.example/next';
+    b.webContents.emit('did-navigate', undefined, b.webContents.url);
+    answer({ hasPasswordField: true, formActionOrigins: [] });
+    await vi.waitFor(() => expect(siteVerdicts().verdict('a')?.credentialRisk?.reasons).toContainEqual({ rule: 'http-password' }));
+  });
+
+  it('typing re-reads the page (a password step injected with no navigation), throttled', async () => {
+    const { view } = pageWith('https://app.example/', { hasPasswordField: false, formActionOrigins: [] });
+    view.webContents.emit('did-stop-loading');
+    await vi.waitFor(() => expect(view.webContents.executeJavaScriptInIsolatedWorld).toHaveBeenCalledTimes(1));
+    view.webContents.executeJavaScriptInIsolatedWorld.mockResolvedValue({ hasPasswordField: true, formActionOrigins: ['https://drop.example.net'] });
+    const key = { type: 'keyDown', key: 'a', meta: false, control: false, shift: false, alt: false };
+    view.webContents.emit('before-input-event', { preventDefault: vi.fn() }, key);
+    view.webContents.emit('before-input-event', { preventDefault: vi.fn() }, key);
+    await vi.waitFor(() =>
+      expect(siteVerdicts().verdict('t')?.credentialRisk?.reasons).toContainEqual({ rule: 'cross-origin-action', detail: 'https://drop.example.net' }),
+    );
+    expect(view.webContents.executeJavaScriptInIsolatedWorld).toHaveBeenCalledTimes(2);
   });
 
   it('re-reads on an in-page navigation (a single-page app routing to its sign-in form)', async () => {
