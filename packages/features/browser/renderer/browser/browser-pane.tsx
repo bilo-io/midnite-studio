@@ -8,7 +8,7 @@ import { emptySiteVerdict } from '@midnite/studio-shared';
 import { IconButton, useBrowserStandalone, useBrowserUi, useBrowserUiStore, useDismiss } from '../ui';
 import { originOf, useBrowserStore, type BrowserViewportPreset } from '../browser-store';
 import { BROWSER_LAYOUT_OPTIONS } from './browser-layouts';
-import { BrowserErrorPage } from './error-page';
+import { BrowserErrorPage, sameUrl } from './error-page';
 import { BrowserLayoutIllustration } from './layout-illustration';
 import { BrowserTabStrip } from './tab-strip';
 import { NewTabPage } from './new-tab-page';
@@ -82,9 +82,19 @@ export function BrowserPane({
     activeTab?.kind === 'page' && activeTab.verdict && activeTab.verdict.origin === originOf(activeTab.url)
       ? activeTab.verdict
       : null;
+  // A refused first load (the tab never committed anything else) still reads `danger`: main commits
+  // no verdict for a URL it refused, so the badge takes it from the interstitial's own error.
+  const refusal = activeTab?.navError?.reason ? activeTab.navError : null;
+  const refusedHere = refusal !== null && activeTab != null && sameUrl(activeTab.url, refusal.validatedUrl);
   const siteVerdict =
     activeTab?.kind === 'page' && activeTab.url
-      ? (storedVerdict ?? (/^https?:/i.test(activeTab.url) ? emptySiteVerdict(activeTab.url) : null))
+      ? refusedHere
+        ? {
+            ...emptySiteVerdict(activeTab.url),
+            ...(refusal.reason === 'certificate' ? { tls: 'error' as const, tlsError: refusal.description } : {}),
+            knownBad: refusal.knownBad ?? null,
+          }
+        : (storedVerdict ?? (/^https?:/i.test(activeTab.url) ? emptySiteVerdict(activeTab.url) : null))
       : null;
   const activeDisplayHost = siteVerdict?.displayHost || undefined;
   const zoomByOrigin = useBrowserStore((s) => s.zoomByOrigin);

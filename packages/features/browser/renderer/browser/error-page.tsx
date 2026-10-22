@@ -67,7 +67,8 @@ function hostOf(url: string): string {
   }
 }
 
-function sameUrl(a: string, b: string): boolean {
+/** Two spellings of one URL (`https://a.example` and `https://a.example/`) compare equal. */
+export function sameUrl(a: string, b: string): boolean {
   try {
     return new URL(a).href === new URL(b).href;
   } catch {

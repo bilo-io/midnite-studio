@@ -370,6 +370,19 @@ describe('site verdicts (Phase 117 Theme C)', () => {
     expect(page.textContent).toContain('Settings ▸ Browser ▸ Site safety');
   });
 
+  it('a refused first load reads danger on the badge, from the interstitial\'s own error', async () => {
+    seedActivePageTab('https://expired.badssl.com/');
+    renderPane();
+    pushBrowserEvent({
+      kind: 'failed',
+      tabId: 'tab-1',
+      error: { code: -201, description: 'net::ERR_CERT_DATE_INVALID', validatedUrl: 'https://expired.badssl.com/', reason: 'certificate' },
+    });
+    await screen.findByTestId('browser-interstitial');
+    blurAddress();
+    await waitFor(() => expect(badge().getAttribute('data-level')).toBe('danger'));
+  });
+
   it('offers "Proceed for this session" once Settings allows it, and asks main for exactly that URL', async () => {
     useUiStore.setState({ browserAllowSiteProceed: true });
     seedActivePageTab();
