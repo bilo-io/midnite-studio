@@ -2,7 +2,9 @@ import {
   COMPANION_PARAGRAPH_PAUSE_MS,
   COMPANION_PHRASES,
   composeOverviewMarkdown,
+  COMPANION_TIMED_GREETINGS,
   composeOverviewSpeech,
+  dayPartAt,
   greetingBank,
   interpolatePhrase,
   markdownToSpeech,
@@ -215,7 +217,11 @@ export function phrase(
 export async function greet(deps: ConciergeDeps): Promise<void> {
   if (deps.store.send('greet') !== 'greeting') return;
   const hour = new Date(deps.now?.() ?? Date.now()).getHours();
-  await say(deps, phrase(deps, 'greetings', greetingBank(hour)));
+  // Two openings in three name the time of day; the rest draw from the whole
+  // pool, time-neutral lines included, so the greeting never feels clocked.
+  const bank =
+    (deps.rng ?? Math.random)() < 2 / 3 ? COMPANION_TIMED_GREETINGS[dayPartAt(hour)] : greetingBank(hour);
+  await say(deps, phrase(deps, 'greetings', bank));
   await offerStatusReport(deps);
 }
 

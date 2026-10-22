@@ -127,6 +127,8 @@ describe('the companion, gated through Settings and the quick-access menu', () =
       thread.querySelectorAll('[data-turn-role="companion"] a[href*="/pull/265"]'),
     ).toHaveLength(1);
     expect(screen.queryByTestId('companion-pending-action')).toBeNull();
+    // The chip speaks for the user in words they would use, not "confirm".
+    expect(thread.querySelector('[data-turn-role="user"]')?.textContent).toContain('yes');
   });
 
   it('the popover mirrors the last companion turn, and Repeat appears once there is one', async () => {

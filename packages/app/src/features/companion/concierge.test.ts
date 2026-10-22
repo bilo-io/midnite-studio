@@ -1,4 +1,9 @@
-import { COMPANION_PARAGRAPH_PAUSE_MS, emptyCompanionSnapshot } from '@midnite/studio-shared';
+import {
+  COMPANION_PARAGRAPH_PAUSE_MS,
+  emptyCompanionSnapshot,
+  greetingBank,
+  interpolatePhrase,
+} from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { greet, matchRepoByName, orient, say, sayMarkdown } from './concierge';
@@ -62,6 +67,15 @@ describe('greet', () => {
     expect(await firstLine(14)).toMatch(/afternoon/i);
     expect(await firstLine(19)).toMatch(/evening/i);
     expect(await firstLine(1)).not.toMatch(/morning|afternoon|evening/i);
+  });
+
+  it('sometimes draws from the time-neutral lines too, but never another part of the day', async () => {
+    const store = fakeStore();
+    // Past the two-in-three cut, the pick spans the hour's bank plus the neutral one.
+    await greet(fakeConciergeDeps({ store, now: () => NINE_AM, rng: () => 0.99 }));
+    const line = store.transcript[0]?.text ?? '';
+    expect(greetingBank(9).map((template) => interpolatePhrase(template, ''))).toContain(line);
+    expect(line).not.toMatch(/afternoon|evening|night/i);
   });
 
   it('speaks both lines, and marks them spoken', async () => {

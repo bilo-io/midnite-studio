@@ -152,7 +152,7 @@ export function CompanionPanel({
       ) : pendingAction ? (
         <CompanionPendingActionBar
           label={pendingAction.label}
-          {...(pendingAction.kind === 'statusReport' ? { confirmLabel: 'Yes', cancelLabel: 'Not now' } : {})}
+          {...(pendingAction.kind === 'statusReport' ? STATUS_REPORT_CHIPS : {})}
         />
       ) : null}
       <CompanionInputBar
@@ -171,15 +171,30 @@ export function CompanionPanel({
  * three through {@link companionPorts}'s `submit` so there is exactly one
  * implementation of "confirm" and one of "dismiss".
  */
+/**
+ * The greeting's status-report offer is a question, not a command to run — so
+ * its chips read "Yes" / "Not now" and post what the user would have said,
+ * rather than a bare "confirm" in their name.
+ */
+const STATUS_REPORT_CHIPS = {
+  confirmLabel: 'Yes',
+  confirmText: 'yes',
+  cancelLabel: 'Not now',
+  cancelText: 'no thanks',
+} as const;
+
 function CompanionPendingActionBar({
   label,
   confirmLabel = 'Run',
+  confirmText = 'confirm',
   cancelLabel = 'Cancel',
+  cancelText = 'cancel',
 }: {
   label: string;
-  /** The greeting's status-report offer reads "Yes" / "Not now" — it is a question, not a command to run. */
   confirmLabel?: string;
+  confirmText?: string;
   cancelLabel?: string;
+  cancelText?: string;
 }) {
   return (
     <div
@@ -190,7 +205,7 @@ function CompanionPendingActionBar({
       <button
         type="button"
         data-testid="companion-pending-cancel"
-        onClick={() => companionPorts().submit('cancel')}
+        onClick={() => companionPorts().submit(cancelText)}
         className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
       >
         {cancelLabel}
@@ -198,7 +213,7 @@ function CompanionPendingActionBar({
       <button
         type="button"
         data-testid="companion-pending-run"
-        onClick={() => companionPorts().submit('confirm')}
+        onClick={() => companionPorts().submit(confirmText)}
         className="rounded-md bg-primary/15 px-2 py-1 font-medium text-primary hover:bg-primary/25"
       >
         {confirmLabel}
