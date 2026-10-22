@@ -159,10 +159,18 @@ displaying Unicode only for uniform scripts and punycode otherwise, 1/min rate l
 (origin, permission), automatic prompt cancellation on navigation/close/discard, a Settings ▸ Browser ▸ Site permissions
 page to revoke individual permissions or reset all with a confirmation dialog, and a Chromium spellcheck toggle.
 
-**Theme C — Site verdicts: TLS, mixed content, lookalikes, known-bad, vulnerable libraries.** ◻ A
-`SiteVerdict` per tab from local rules first (certificate errors, mixed content, IDN homographs,
-insecure forms) and from switchable feeds second (URLhaus/OpenPhish, retire.js-style library
-signatures against an offline OSV snapshot), rendered as an interstitial or an address-bar badge.
+**Theme C — Site verdicts: TLS, mixed content, lookalikes, known-bad, vulnerable libraries.** ✅
+[PR #975](https://github.com/bilo-io/midnite-studio/pull/975). Main keeps one `SiteVerdict` per tab
+(`site-verdict-state.ts`, Electron-free) and pushes it as a `verdict` tab event on every commit and
+change. TLS comes from a record-only `setCertificateVerifyProc`, mixed content, insecure POSTs and
+vulnerable scripts from `webRequest.onCompleted` (Theme E owns the other three `webRequest` events),
+lookalikes from the pure `shared/lookalike.ts` (punycode, uniform-script, TR39-style skeleton against
+seed + web-app + this-session hosts), and known-bad hits from URLhaus/OpenPhish lists pulled into
+`<userData>/browser-feeds/` only while their Settings ▸ Privacy switch is on. A certificate failure or
+a feed hit shows an interstitial; "proceed for this session" is per host behind a default-off Settings ▸
+Browser ▸ Site safety switch. One `site-badge.tsx` in the address field replaces the "Not secure" chip
+(loopback http is ok) and already renders E's tracker count. Left open: bypass expiry on a changed
+certificate, Web Risk, and Decision 8's agent-session rule (Theme G).
 
 **Theme D — Downloads with a quarantine.** ◻ Opt-in downloads into a dedicated quarantine folder
 with `com.apple.quarantine` set, a type/size policy, SHA-256 recorded, a Gatekeeper assessment and an
@@ -246,41 +254,41 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
       in Settings makes the next call fail; a page cannot get a permission through
       `navigator.permissions.query` alone.
 
-### C — Site verdicts [L · 1–2d]
+### C — Site verdicts [L · 1–2d] ✅ DONE (PR #975, 2026-10-22)
 
-- [ ] **`SiteVerdict` in `shared`.** `{ origin, tls: 'ok'|'error'|'none', mixedContent: boolean,
+- [x] **`SiteVerdict` in `shared`.** `{ origin, tls: 'ok'|'error'|'none', mixedContent: boolean,
       lookalike: null | {kind:'idn-mixed-script'|'confusable', against?: string}, knownBad: null |
       {feed, category}, vulnerableLibs: Array<{library, version, cve[]}>, insecureForm: boolean }`
       with a zod schema; sent on every navigation commit as a tab event and cleared on navigate.
-- [ ] **TLS.** `session.setCertificateVerifyProc` records the verification result per request;
+- [x] **TLS.** `session.setCertificateVerifyProc` records the verification result per request;
       a failed main-frame verification shows an interstitial
       ([`error-page.tsx`](../../../packages/features/browser/renderer/browser/error-page.tsx) gains a
       `certificate` variant) with no "proceed" by default and a per-session proceed behind a
       Settings switch. `certificate-error` on the `app` emitter is *not* used for the browser
       partition (it is global); the verify proc is per session.
-- [ ] **Mixed content.** `webRequest.onBeforeRequest` on the partition flags any `http:`
+- [x] **Mixed content.** `webRequest.onBeforeRequest` on the partition flags any `http:`
       subresource under an `https:` main frame (blocked by Chromium for active content already;
       this records passive content for the badge). `allowRunningInsecureContent` stays false.
-- [ ] **Lookalike domains.** A pure `lookalike.ts`: mixed-script IDN labels, Latin confusables
+- [x] **Lookalike domains.** A pure `lookalike.ts`: mixed-script IDN labels, Latin confusables
       against the user's recent history and the Vault's known sign-in domains (Theme F), and
       `xn--` display rules for the address bar
       ([`resolve-input.ts`](../../../packages/features/browser/renderer/browser/resolve-input.ts) is
       where typed input is parsed today).
-- [ ] **Known-bad domains, from open feeds.** URLhaus (abuse.ch, CC0) and the OpenPhish community
+- [x] **Known-bad domains, from open feeds.** URLhaus (abuse.ch, CC0) and the OpenPhish community
       feed, pulled by main on a schedule into `<userData>/browser-feeds/`, matched locally by exact
       host and by URL prefix. Each feed is a Phase 115 `EGRESS_HOSTS` entry with its own switch,
       **default off**; the badge says "no reputation data" while off. Google Web Risk is a
       bring-your-own-key option (Decision 2).
-- [ ] **Vulnerable JS libraries.** `webRequest.onCompleted` for `script` resources matches the URL
+- [x] **Vulnerable JS libraries.** `webRequest.onCompleted` for `script` resources matches the URL
       and, where the CDN path carries it, the version against a retire.js-style signature table
       (bundled, versioned, refreshed with the app — not a live feed), and looks the pair up in an
       offline OSV snapshot (the same source Phase 91 I's `audit.mjs` consults). Reported as advisory
       in the badge; never blocks.
-- [ ] **The badge and the interstitial.** An address-bar badge in
+- [x] **The badge and the interstitial.** An address-bar badge in
       [`tab-strip.tsx`](../../../packages/features/browser/renderer/browser/tab-strip.tsx)'s
       address row with three states (ok / caution / danger) and a popover listing the verdict's
       lines; `danger` (TLS error, known-bad) interposes the interstitial before first paint.
-- [ ] *Acceptance:* `https://expired.badssl.com` shows the interstitial; an `http:` image under
+- [x] *Acceptance:* `https://expired.badssl.com` shows the interstitial; an `http:` image under
       `https:` flips the badge; `xn--pple-43d.com` shows as punycode with a lookalike line; a page
       loading `jquery-1.12.4.min.js` lists its CVEs; with every feed off the badge reads "no
       reputation data".
