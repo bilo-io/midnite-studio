@@ -5,7 +5,12 @@ import {
   vanguardMain,
   type VanguardService,
 } from '@midnite/studio-feature-vanguard/main';
-import { readHostSessions, sessionsGuestMain, shutdownGuestSessions } from '@midnite/studio-feature-sessions/main';
+import {
+  guestSessionRecord,
+  readHostSessions,
+  sessionsGuestMain,
+  shutdownGuestSessions,
+} from '@midnite/studio-feature-sessions/main';
 import {
   createFindingsLedger,
   createIpcContext,
@@ -25,6 +30,8 @@ export type VanguardElectron = IpcContextElectron & {
   log: LogSink;
   /** The runtime's data directory, where the runtime host (Studio) records its broker for guests. */
   runtimeDirectory: string;
+  /** Vanguard's window is visible, not minimized and focused; absent when no window exists to ask. */
+  windowFocused?: () => boolean;
   /** `shell.openPath`: resolves to an error string, empty on success. */
   openPath: (path: string) => Promise<string>;
 };
@@ -40,6 +47,7 @@ export type VanguardElectron = IpcContextElectron & {
  */
 export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ service: VanguardService; shutdown: () => Promise<void> }> {
   const ctx = createIpcContext(el);
+  const broker = createSharedBroker({ runtimeDirectory: el.runtimeDirectory, appId: 'vanguard' });
   const ledger = createFindingsLedger({ userData: el.userData, onChanged: () => el.send(EVENT_CHANNELS.securityFindingsChanged, undefined) });
   const service = await createVanguardService({
     userData: el.userData,
@@ -51,7 +59,27 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
     log: (level, message) => el.log.write(level, message),
     // No repo registry or pty sessions of its own: the integrity sensor watches the user-level agent
     // config only, and a finding resolves once its change is reverted.
-    sensorDeps: { resolve: resolveByFingerprint(ledger) },
+    sensorDeps: {
+      resolve: resolveByFingerprint(ledger),
+      // The network sensor holds Vanguard's own process to an empty registry (it composes no vault and
+      // opens no connection) and watches the host's agent sessions: the pty pids come from the shared
+      // broker, which agent they run from the host's terminal records. No broker, no sessions: the sensor
+      // then runs at the idle rate and only while this window is focused.
+      network: {
+        suite: { pid: process.pid },
+        agentSessions: async () => {
+          const known = readHostSessions(readRuntimeHostRecord(el.runtimeDirectory)?.sessionsFile);
+          const { sessions } = await broker.listSessions();
+          return sessions.flatMap((live) => {
+            const session = guestSessionRecord(live, known, 0);
+            return session.kind === 'agent'
+              ? [{ sessionId: session.id, repoId: session.repoId, pid: live.pid, title: session.name ?? session.title }]
+              : [];
+          });
+        },
+        ...(el.windowFocused ? { windowFocused: el.windowFocused } : {}),
+      },
+    },
   });
   vanguardMain.register(ctx, {
     ledger: () => ledger,
@@ -64,7 +92,7 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
   });
   // The runtime host's sessions, attach-only: listed, attached, written to. Vanguard starts and kills none.
   sessionsGuestMain.register(ctx, {
-    broker: createSharedBroker({ runtimeDirectory: el.runtimeDirectory, appId: 'vanguard' }),
+    broker,
     hostSessions: () => readHostSessions(readRuntimeHostRecord(el.runtimeDirectory)?.sessionsFile),
   });
   await service.host.start();

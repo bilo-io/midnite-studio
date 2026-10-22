@@ -2,6 +2,7 @@ import { bridge } from '@midnite/studio-frame';
 import type {
   SecurityFinding,
   SecurityFindingsListRequest,
+  VanguardConnectionsResponse,
   VanguardSensorsResponse,
   VanguardSettings,
   VanguardSettingsSetRequest,
@@ -81,4 +82,31 @@ export function useVanguardSettings(): { settings: VanguardSettings | null; upda
     if (next) setSettings(next);
   }, []);
   return { settings, update };
+}
+
+const NO_CONNECTIONS: VanguardConnectionsResponse = { at: null, active: false, connections: [] };
+
+/** The network sensor's last snapshot, refetched when the host reports a change (each pass, gated or not). */
+export function useConnections(): { snapshot: VanguardConnectionsResponse; loaded: boolean } {
+  const [snapshot, setSnapshot] = useState<VanguardConnectionsResponse>(NO_CONNECTIONS);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const refetch = (): void => {
+      void bridge()
+        ?.vanguard.connections()
+        .then((next) => {
+          if (!live) return;
+          setSnapshot(next);
+          setLoaded(true);
+        });
+    };
+    refetch();
+    const off = bridge()?.vanguard.onChanged(refetch);
+    return () => {
+      live = false;
+      off?.();
+    };
+  }, []);
+  return { snapshot, loaded };
 }

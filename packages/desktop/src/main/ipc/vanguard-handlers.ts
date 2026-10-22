@@ -12,11 +12,12 @@ import {
   type FindingsLedger,
 } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
-import { app, shell, type BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 
 import { defaultLogger } from '../log';
 import { listRepos } from '../repo-registry';
-import { listTerminals } from '../terminal-service';
+import { studioBrokerScriptPath } from '../broker-client';
+import { liveAgentSessions, listTerminals } from '../terminal-service';
 import { handle, handleBare, handleSend } from './handle';
 
 let ledgerInstance: FindingsLedger | null = null;
@@ -90,6 +91,16 @@ export async function startVanguardSensors(userData: string): Promise<void> {
       resolve: resolveByFingerprint(ledger),
       execPath: process.execPath,
       packaged: app.isPackaged,
+      // Theme E: the app's own pid and its broker's script (the registry check), the agent ptys' root pids
+      // (the per-repo baseline and the 10 s cadence) and window focus (the blur gate).
+      network: {
+        suite: { pid: process.pid, brokerMarkers: [studioBrokerScriptPath()] },
+        agentSessions: liveAgentSessions,
+        windowFocused: () =>
+          BrowserWindow.getAllWindows().some(
+            (win) => !win.isDestroyed() && win.isVisible() && !win.isMinimized() && win.isFocused(),
+          ),
+      },
     },
     log: (level, message) =>
       defaultLogger[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info'](message),

@@ -676,6 +676,8 @@ export type MidniteStudioBridge = {
     /** The view was opened: in Studio the first time lets the enabled sensors start. */
     viewOpened: () => Promise<z.infer<typeof S.VanguardSensorsResponse>>;
     openQuarantine: () => Promise<GitOpResult>;
+    /** The network sensor's last snapshot of outbound connections (Network tab). */
+    connections: () => Promise<z.infer<typeof S.VanguardConnectionsResponse>>;
     onChanged: (handler: () => void) => Unsubscribe;
   };
 

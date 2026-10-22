@@ -32,6 +32,7 @@ describe('createVanguardBridge', () => {
       'unsubscribe',
     ]);
     expect(Object.keys(bridge.vanguard).sort()).toEqual([
+      'connections',
       'findings',
       'onChanged',
       'openQuarantine',

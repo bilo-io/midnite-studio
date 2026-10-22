@@ -374,6 +374,7 @@ const bridge: Pick<
     setSettings: (req) => call(CHANNELS.vanguardSettingsSet, req),
     viewOpened: () => call(CHANNELS.vanguardViewOpened),
     openQuarantine: () => call(CHANNELS.vanguardOpenQuarantine),
+    connections: () => call(CHANNELS.vanguardConnections),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.vanguardChanged, handler),
   },
   ops: {

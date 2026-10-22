@@ -76,6 +76,26 @@ describe('sensor host', () => {
     expect(status.lastRunAt).not.toBeNull();
   });
 
+  it('tells a sensor what started a run: its start, its timer, or "Run now"', async () => {
+    const { host, t } = setup();
+    const triggers: Array<string | undefined> = [];
+    host.register({
+      id: 's',
+      label: 'S',
+      description: 'd',
+      schedule: { kind: 'interval', ms: 10_000 },
+      run: (_ctx, trigger) => {
+        triggers.push(trigger);
+      },
+    });
+    await host.start();
+    await vi.waitFor(() => expect(triggers).toEqual(['start']));
+    t.fire();
+    await vi.waitFor(() => expect(triggers).toEqual(['start', 'schedule']));
+    await host.runNow('s');
+    expect(triggers).toEqual(['start', 'schedule', 'manual']);
+  });
+
   it('marks a throwing sensor as error without stopping the others', async () => {
     const { host } = setup();
     host.register({

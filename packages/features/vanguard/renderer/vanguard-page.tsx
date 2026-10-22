@@ -1,5 +1,6 @@
 import { bridge } from '@midnite/studio-frame';
 import {
+  type NetworkConnection,
   type RemediationAction,
   type SecurityFinding,
   type SecurityFindingCategory,
@@ -13,7 +14,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { LuShield, LuShieldCheck } from 'react-icons/lu';
 
-import { useFindings, useSensors } from './use-vanguard';
+import { useConnections, useFindings, useSensors } from './use-vanguard';
 import { useVanguardUi } from './vanguard-ui-store';
 
 const SEVERITIES: readonly SecurityFindingSeverity[] = ['critical', 'high', 'medium', 'low', 'info'];
@@ -245,6 +246,115 @@ function FindingsPane({ only, emptyText }: { only?: SecurityFindingCategory; emp
   );
 }
 
+interface ProcessGroup {
+  key: string;
+  heading: string;
+  role: NetworkConnection['role'];
+  rows: NetworkConnection[];
+}
+
+function groupConnections(connections: readonly NetworkConnection[]): ProcessGroup[] {
+  const groups = new Map<string, ProcessGroup>();
+  for (const conn of connections) {
+    const key = `${conn.role}|${conn.pid}`;
+    let group = groups.get(key);
+    if (!group) {
+      const who =
+        conn.role === 'suite'
+          ? conn.label === 'broker'
+            ? 'Midnite terminal broker'
+            : 'Midnite'
+          : conn.role === 'agent'
+            ? `Agent session · ${conn.command}`
+            : conn.command;
+      group = { key, heading: `${who} (pid ${conn.pid})`, role: conn.role, rows: [] };
+      groups.set(key, group);
+    }
+    group.rows.push(conn);
+  }
+  return [...groups.values()];
+}
+
+function ConnectionRow({ conn }: { conn: NetworkConnection }) {
+  return (
+    <li className="flex flex-wrap items-center gap-2 px-3 py-1.5 text-xs">
+      <span className="font-mono">
+        {conn.hostname ?? conn.remoteHost}:{conn.remotePort}
+      </span>
+      {conn.hostname ? <span className="font-mono text-[10px] text-muted-foreground">{conn.remoteHost}</span> : null}
+      <span className="text-[10px] text-muted-foreground">
+        {conn.protocol}
+        {conn.state ? ` · ${conn.state}` : ''}
+      </span>
+      <span className="ml-auto flex items-center gap-2">
+        {conn.allowedBy ? (
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px]" title="The Phase 115 egress registry entry that allows this host">
+            allowed by {conn.allowedBy}
+          </span>
+        ) : null}
+        {conn.flagged ? (
+          <span className="flex items-center gap-1.5" title={conn.flagged.reason}>
+            <SeverityBadge severity={conn.flagged.severity} />
+            <span className="max-w-[28ch] truncate text-[10px] text-muted-foreground">{conn.flagged.reason}</span>
+          </span>
+        ) : null}
+      </span>
+    </li>
+  );
+}
+
+/** Live outbound connections grouped by process, the suite's own first, then the findings the network sensor raised. */
+function NetworkPane() {
+  const { snapshot, loaded } = useConnections();
+  const groups = useMemo(() => groupConnections(snapshot.connections), [snapshot.connections]);
+  return (
+    <div className="flex flex-col gap-4">
+      <section aria-label="Live connections" className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold">Live connections</h2>
+          <p className="text-[11px] text-muted-foreground">
+            {snapshot.at === null ? 'no snapshot yet' : `snapshot ${ago(snapshot.at)}`} · read-only
+          </p>
+        </div>
+        {snapshot.note ? (
+          <p role="status" className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
+            {snapshot.note}
+          </p>
+        ) : null}
+        {loaded && groups.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            {snapshot.at === null
+              ? 'The network sensor has not run. It starts once this view has been opened and the sensor is switched on in Settings ▸ Vanguard.'
+              : 'No outbound connections in the last snapshot.'}
+          </p>
+        ) : (
+          <ul aria-label="Processes" className="flex flex-col gap-2">
+            {groups.map((group) => (
+              <li key={group.key} className="rounded-lg border border-border">
+                <p className="border-b border-border px-3 py-1.5 text-xs font-medium">
+                  {group.heading}
+                  <span className="ml-2 text-[10px] font-normal text-muted-foreground">
+                    {group.rows.length} connection{group.rows.length === 1 ? '' : 's'}
+                  </span>
+                </p>
+                <ul className="divide-y divide-border">
+                  {group.rows.map((conn) => (
+                    <ConnectionRow key={`${conn.protocol}|${conn.remoteHost}:${conn.remotePort}`} conn={conn} />
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      <section aria-label="Network findings" className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold">Findings</h2>
+        <FindingsPane only="network" emptyText="No network findings. This tab is read-only: a finding's remedy is to stop the process." />
+      </section>
+    </div>
+  );
+}
+
 function SensorRow({ sensor }: { sensor: SensorStatus }) {
   const stateText = sensor.enabled ? sensor.state : 'off';
   return (
@@ -340,7 +450,7 @@ export function VanguardPage() {
       <div role="tabpanel">
         {tab === 'findings' ? <FindingsPane emptyText="No findings match. Nothing the sensors watch has raised a concern." /> : null}
         {tab === 'sensors' ? <SensorsPane /> : null}
-        {tab === 'network' ? <FindingsPane only="network" emptyText="No network findings. This tab is read-only: a finding's remedy is to stop the process." /> : null}
+        {tab === 'network' ? <NetworkPane /> : null}
       </div>
     </div>
   );

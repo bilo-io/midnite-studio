@@ -161,6 +161,24 @@ export async function listTerminals(): Promise<
   );
 }
 
+/**
+ * The agent sessions with a live pty, by pty root pid — what Vanguard's network sensor reads every 10 s
+ * (Phase 120 Theme E). `listTerminals` also reads and seeds every scrollback, which a poll must not do;
+ * this touches no file once the session list is loaded.
+ */
+export async function liveAgentSessions(): Promise<
+  { sessionId: string; repoId: string; pid: number; title: string }[]
+> {
+  if (sessions.length === 0) sessions = await store.load();
+  return sessions.flatMap((session) => {
+    if (session.kind !== 'agent') return [];
+    const live = livePtyFor(session.id);
+    return live === null
+      ? []
+      : [{ sessionId: session.id, repoId: session.repoId, pid: live.pid, title: session.name ?? session.title }];
+  });
+}
+
 /** Insert or update one row, keeping its position if it already exists. */
 export function saveTerminal(session: TerminalSession): void {
   const index = sessions.findIndex((s) => s.id === session.id);

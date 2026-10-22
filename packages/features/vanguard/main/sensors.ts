@@ -6,6 +6,7 @@ import {
   type IntegrityLiveSession,
   type IntegrityRepo,
 } from './integrity-sensor';
+import { createConnectionStore, createNetworkSensor, type ConnectionStore, type NetworkSensorDeps } from './network-sensor';
 import type { SensorDefinition } from './sensor-host';
 
 /**
@@ -32,6 +33,13 @@ export interface VanguardSensorDeps {
   execPath?: string;
   /** An installed build (`app.isPackaged`). */
   packaged?: boolean;
+  /**
+   * The network sensor's inputs (Phase 120 Theme E): who the suite's processes are, the agent sessions live
+   * now, and whether the window is focused. Present: the sensor is registered. Absent: it is not.
+   */
+  network?: Omit<NetworkSensorDeps, 'connections'>;
+  /** Where the network sensor leaves its snapshot; the service passes the one its handler reads. */
+  connections?: ConnectionStore;
 }
 
 export function builtinSensors(deps: VanguardSensorDeps): SensorDefinition[] {
@@ -43,6 +51,9 @@ export function builtinSensors(deps: VanguardSensorDeps): SensorDefinition[] {
       ...(deps.resolve ? { resolve: deps.resolve } : {}),
     }),
   ];
+  if (deps.network !== undefined) {
+    sensors.push(createNetworkSensor({ ...deps.network, connections: deps.connections ?? createConnectionStore() }));
+  }
   if (deps.execPath !== undefined) {
     sensors.push(
       createBundleIntegritySensor({

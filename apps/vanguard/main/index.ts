@@ -101,6 +101,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         process.env[USER_DATA_ENV],
       ),
       openPath: (path) => shell.openPath(path),
+      windowFocused: () => win !== null && !win.isDestroyed() && win.isVisible() && !win.isMinimized() && win.isFocused(),
       log,
     })
       .then(

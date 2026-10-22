@@ -4712,6 +4712,7 @@ export function buildMockBridge(data: MockFixtures) {
       }),
       viewOpened: async () => ({ active: true, sensors: [] }),
       openQuarantine: async () => ({ ok: true as const }),
+      connections: async () => ({ at: null, active: false, connections: [] }),
       onChanged: () => () => {},
     },
     metrics: {
