@@ -186,6 +186,7 @@ const bridge: Pick<
   | 'mcp'
   | 'companion'
   | 'capture'
+  | 'vanguard'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -359,6 +360,21 @@ const bridge: Pick<
     openInStudio: (req) => call(CHANNELS.captureOpenInStudio, req),
     importFromApp: (req) => call(CHANNELS.captureImport, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.captureChanged, handler),
+  },
+  vanguard: {
+    findings: {
+      list: (req) => call(CHANNELS.securityFindingsList, req),
+      setStatus: (req) => call(CHANNELS.securityFindingsSetStatus, req),
+      act: (req) => call(CHANNELS.securityFindingsAct, req),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.securityFindingsChanged, handler),
+    },
+    sensors: () => call(CHANNELS.vanguardSensors),
+    runSensor: (req) => call(CHANNELS.vanguardSensorRun, req),
+    settings: () => call(CHANNELS.vanguardSettingsGet),
+    setSettings: (req) => call(CHANNELS.vanguardSettingsSet, req),
+    viewOpened: () => call(CHANNELS.vanguardViewOpened),
+    openQuarantine: () => call(CHANNELS.vanguardOpenQuarantine),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.vanguardChanged, handler),
   },
   ops: {
     checkout: (req) => call(CHANNELS.opCheckout, req),

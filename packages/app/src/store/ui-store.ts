@@ -315,6 +315,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'updates', label: 'App Updates', group: 'system' },
   { id: 'health', label: 'System Health', group: 'system' },
   { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
+  { id: 'vanguard', label: 'Vanguard', group: 'system' },
   { id: 'optimizer', label: 'Workspace Optimizer', group: 'system' },
 ];
 

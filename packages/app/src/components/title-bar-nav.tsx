@@ -55,6 +55,7 @@ const VIEW_LABELS: Record<ViewId, string> = {
   monitor: 'Monitor',
   vault: 'Vault',
   capture: 'Capture',
+  vanguard: 'Vanguard',
   apiClient: 'API Client',
   settings: 'Settings',
 };

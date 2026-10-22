@@ -16,13 +16,14 @@
 
 import type { SettingsPageId, ViewId } from './domain/view';
 import type { MediaTab } from './media';
+import type { VanguardTab } from './vanguard';
 
 export const STUDIO_PROTOCOL = 'midnite-studio:' as const;
 
-/** Builds the link; `tab` only means something next to `view: 'media'`, and is dropped elsewhere. */
-export function studioViewLink(view: ViewId, tab?: MediaTab): string {
+/** Builds the link; `tab` only means something next to `view: 'media'` or `'vanguard'`, and is dropped elsewhere. */
+export function studioViewLink(view: ViewId, tab?: MediaTab | VanguardTab): string {
   const params = new URLSearchParams({ id: view });
-  if (tab !== undefined && view === 'media') params.set('tab', tab);
+  if (tab !== undefined && (view === 'media' || view === 'vanguard')) params.set('tab', tab);
   return `${STUDIO_PROTOCOL}//view?${params.toString()}`;
 }
 

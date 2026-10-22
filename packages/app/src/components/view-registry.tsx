@@ -15,6 +15,7 @@ import { monitorManifest, monitorViews } from '@midnite/studio-feature-monitor/r
 import { optimizerManifest, optimizerViews } from '@midnite/studio-feature-optimizer/renderer';
 import { vaultManifest, vaultViews } from '@midnite/studio-feature-vault/renderer';
 import { captureManifest, captureViews } from '@midnite/studio-feature-capture/renderer';
+import { vanguardManifest, vanguardViews } from '@midnite/studio-feature-vanguard/renderer';
 
 import { GraphView } from '@midnite/studio-frame/graph';
 import type { ViewId } from '../store/ui-store';
@@ -89,6 +90,7 @@ const OptimizerPage = lazy(() => optimizerViews.optimizer().then((Component) => 
 const MonitorPage = lazy(() => monitorViews.monitor().then((Component) => ({ default: Component })));
 const VaultPage = lazy(() => vaultViews.vault().then((Component) => ({ default: Component })));
 const CapturePage = lazy(() => captureViews.capture().then((Component) => ({ default: Component })));
+const VanguardPage = lazy(() => vanguardViews.vanguard().then((Component) => ({ default: Component })));
 const loadSessionsView = () => sessionsViews.sessions();
 const SessionsView = lazy(() => loadSessionsView().then((Component) => ({ default: Component })));
 const loadApiClientView = () => apiClientViews.apiClient();
@@ -236,6 +238,7 @@ export const VIEW_COMPONENT: Record<ViewId, ViewEntry> = {
   monitor: { Component: MonitorPage, global: monitorManifest.views[0].global },
   vault: { Component: VaultPage, global: vaultManifest.views[0].global },
   capture: { Component: CapturePage, global: captureManifest.views[0].global },
+  vanguard: { Component: VanguardPage, global: vanguardManifest.views[0].global },
   // Not global: its collections live under `.midnite/api/` in an open repo, so
   // it yields to `EmptyWorkspace` exactly like Files or Graph.
   apiClient: { Component: ApiClientView },
