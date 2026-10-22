@@ -1,4 +1,5 @@
 import type { BrowserElectron } from './browser-electron';
+import type { PermissionGrantStore } from './permission-grant-store';
 
 /**
  * What the browser and web-apps services need from whoever composes them (Phase 113 Theme L),
@@ -32,6 +33,10 @@ export type BrowserMainDeps = {
    * reads as `false`, so a composer that forgets it ships the packaged rule, never the dev one.
    */
   devToolsAllowed?: boolean;
+  /** Injected directory path for persistent storage (e.g. browser-permissions.json). */
+  userDataPath?: string;
+  /** Injected permission grant store (tests or custom compositions). */
+  permissionStore?: PermissionGrantStore;
 };
 
 let installed: BrowserMainDeps | null = null;

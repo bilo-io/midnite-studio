@@ -3,6 +3,8 @@ import {
   EVENT_CHANNELS,
   type BrowserBounds,
   type BrowserEvent,
+  type BrowserPermissionKind,
+  type BrowserPermissionRecord,
   type CommandId,
 } from '@midnite/studio-shared';
 
@@ -10,6 +12,8 @@ import type { BrowserHostWindow as BrowserWindow, BrowserInput as Input, Browser
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
 import { checkNavigationUrl } from './browser-security';
 import { applyBrowserSessionPolicy, refuseWebviewAttach, sandboxedPageWebPreferences } from './browser-session-policy';
+import { formatOriginForDisplay } from './idn-hygiene';
+import { createPermissionGrantStore, type PermissionGrantStore } from './permission-grant-store';
 
 /**
  * The main-process half of the embedded browser (Phase 32 Theme A/B).
@@ -206,6 +210,79 @@ function ensureDisplayMetricsReapply(): void {
 }
 
 let securityConfigured = false;
+let permissionStoreInstance: PermissionGrantStore | null = null;
+
+export function getBrowserPermissionStore(): PermissionGrantStore {
+  const deps = browserMainDeps();
+  if (deps.permissionStore) return deps.permissionStore;
+  if (!permissionStoreInstance) {
+    permissionStoreInstance = createPermissionGrantStore({ directory: deps.userDataPath });
+  }
+  return permissionStoreInstance;
+}
+
+export function resetBrowserPermissionStoreForTest(): void {
+  permissionStoreInstance = null;
+  securityConfigured = false;
+  pendingPermissionRequests.clear();
+}
+
+type PendingPermissionPrompt = {
+  tabId: string;
+  origin: string;
+  permissions: BrowserPermissionKind[];
+  callback: (granted: boolean) => void;
+};
+
+const pendingPermissionRequests = new Map<string, PendingPermissionPrompt>();
+
+export function cancelPendingPermissionRequestsForTab(tabId: string): void {
+  for (const [requestId, pending] of pendingPermissionRequests) {
+    if (pending.tabId === tabId) {
+      pending.callback(false);
+      pendingPermissionRequests.delete(requestId);
+    }
+  }
+}
+
+export function resolveBrowserPermission(
+  requestId: string,
+  decision: 'allow' | 'deny' | 'dismiss',
+): void {
+  const pending = pendingPermissionRequests.get(requestId);
+  if (!pending) return;
+  pendingPermissionRequests.delete(requestId);
+  const store = getBrowserPermissionStore();
+  if (decision === 'allow') {
+    for (const perm of pending.permissions) {
+      store.set(pending.origin, perm, 'allow');
+    }
+    pending.callback(true);
+  } else if (decision === 'deny') {
+    for (const perm of pending.permissions) {
+      store.set(pending.origin, perm, 'deny');
+    }
+    pending.callback(false);
+  } else {
+    pending.callback(false);
+  }
+}
+
+export function listBrowserPermissions(): BrowserPermissionRecord[] {
+  return getBrowserPermissionStore().list();
+}
+
+export function revokeBrowserPermission(origin: string, permission: string): void {
+  getBrowserPermissionStore().revoke(origin, permission);
+}
+
+export function resetAllBrowserPermissions(): void {
+  getBrowserPermissionStore().resetAll();
+}
+
+export function setBrowserSpellcheck(enabled: boolean): void {
+  browserMainDeps().electron.sessionFromPartition(PARTITION).setSpellCheckerEnabled(enabled);
+}
 
 /**
  * Configure the `persist:browser` session exactly once, on first use.
@@ -217,8 +294,35 @@ let securityConfigured = false;
 function ensureSessionConfigured(): void {
   if (securityConfigured) return;
   securityConfigured = true;
-  // Phase 117 Theme A: every session rule in one place, in one order (`browser-session-policy.ts`).
+  // Phase 117 Theme B: permission prompts remembered per origin via PermissionGrantStore.
+  const store = getBrowserPermissionStore();
   applyBrowserSessionPolicy(browserMainDeps().electron.sessionFromPartition(PARTITION), {
+    permissionStore: store,
+    onPermissionRequest: ({ origin, permission, permissions, webContents, callback }) => {
+      const entry = [...tabs.entries()].find(([, t]) => t.view.webContents === webContents);
+      if (!entry || entry[1].win.isDestroyed()) {
+        callback(false);
+        return;
+      }
+      const tabId = entry[0];
+      const requestId =
+        typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+      const displayName = formatOriginForDisplay(origin);
+      pendingPermissionRequests.set(requestId, {
+        tabId,
+        origin,
+        permissions,
+        callback,
+      });
+      send(entry[1].win, {
+        kind: 'permission-request',
+        tabId,
+        requestId,
+        origin,
+        permission,
+        displayName,
+      });
+    },
     onDownloadRefused: (filename, webContents) => {
       // Session-level, so the item arrives with the `webContents` that asked
       // for it rather than a tab id — reverse-lookup so the notice lands on
@@ -284,6 +388,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   refuseWebviewAttach(wc);
 
   wc.on('did-navigate', (_event, navigatedUrl) => {
+    cancelPendingPermissionRequestsForTab(tabId);
     send(win, {
       kind: 'navigated',
       tabId,
@@ -293,6 +398,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
     });
   });
   wc.on('did-navigate-in-page', (_event, navigatedUrl) => {
+    cancelPendingPermissionRequestsForTab(tabId);
     send(win, {
       kind: 'navigated',
       tabId,
@@ -373,6 +479,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   // here (rather than only refusing the renderer's own `browserNavigate`
   // request) is what stops a page's own link click or redirect too.
   wc.on('will-navigate', (details) => {
+    cancelPendingPermissionRequestsForTab(tabId);
     const check = checkNavigationUrl(details.url);
     if (check.allowed) return;
     details.preventDefault();
@@ -421,6 +528,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
 }
 
 export function closeBrowserTab(tabId: string): void {
+  cancelPendingPermissionRequestsForTab(tabId);
   const tracked = tabs.get(tabId);
   if (!tracked) return;
   tabs.delete(tabId);
@@ -450,6 +558,7 @@ export function closeBrowserTab(tabId: string): void {
  * `discarded` — unlike a close, it never asked for this.
  */
 export function discardBrowserTab(tabId: string): void {
+  cancelPendingPermissionRequestsForTab(tabId);
   const tracked = tabs.get(tabId);
   if (!tracked) return;
   tabs.delete(tabId);

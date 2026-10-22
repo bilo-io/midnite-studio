@@ -30,6 +30,7 @@ export type BrowserAppElectron = IpcContextElectron & {
   /** `clipboard.writeText` — synchronous, as Electron's is. */
   writeClipboard: (text: string) => void;
   log: BrowserLog;
+  userDataPath?: string;
 };
 
 /**
@@ -82,6 +83,7 @@ export function registerBrowserAppHandlers(el: BrowserAppElectron): { shutdown: 
     log: el.log,
     readDiscardSettings: () => ({}),
     devToolsAllowed: el.devToolsAllowed ?? false,
+    userDataPath: el.userDataPath,
     sender: senderIpc(el),
     getMainWindow: el.getMainWindow,
   });

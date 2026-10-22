@@ -156,6 +156,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       },
       writeClipboard: (text) => clipboard.writeText(text),
       log,
+      userDataPath: app.getPath('userData'),
     });
     shutdownHandlers = registered.shutdown;
     openWindow();

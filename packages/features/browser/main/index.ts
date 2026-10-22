@@ -22,11 +22,15 @@ export { browserMainDeps, installBrowserMain, type BrowserDiscardSettings, type 
 // Phase 117 Theme A: the one session policy and the pinned page webPreferences, for a composer's own views.
 export {
   applyBrowserSessionPolicy,
+  configureSessionPermissions,
+  mapCheckPermission,
+  mapRequestedPermissions,
   refuseWebviewAttach,
   sandboxedPageWebPreferences,
   type BrowserSessionPolicyOptions,
   type GuardedPageContents,
   type PolicySession,
+  type PromptablePermissionRequest,
 } from './browser-session-policy';
 // The security posture — every guard exported as it was from desktop's `browser-security.ts`.
 export {
@@ -38,6 +42,7 @@ export {
   isAppOrigin,
   isAudioOnlyAppCheck,
   isAudioOnlyAppRequest,
+  normaliseOrigin,
   type BrowserPermission,
   type DeviceSession,
   type DownloadItemLike,
@@ -47,16 +52,36 @@ export {
   type PermissionRequestDetails,
   type PermissionSession,
 } from './browser-security';
+// Phase 117 Theme B: permissions remembered per origin & prompt hygiene
+export {
+  BROWSER_PERMISSIONS_FILE,
+  createPermissionGrantStore,
+  type PermissionGrantStore,
+  type StoredGrant,
+  type StoredGrantsMap,
+} from './permission-grant-store';
+export {
+  formatHostForDisplay,
+  formatOriginForDisplay,
+  isUniformScript,
+} from './idn-hygiene';
 export {
   activateBrowserTab,
+  cancelPendingPermissionRequestsForTab,
   clearBrowserData,
   closeBrowserTab,
   createBrowserTab,
   destroyAllBrowserTabs,
   discardBrowserTab,
+  getBrowserPermissionStore,
   getBrowserTabOwners,
+  listBrowserPermissions,
   ownerWindowForBrowserTab,
   reparentBrowserTabs,
+  resetAllBrowserPermissions,
+  resetBrowserPermissionStoreForTest,
+  resolveBrowserPermission,
+  setBrowserSpellcheck,
   startBrowserDiscardSweep,
   stopBrowserDiscardSweep,
 } from './browser-service';
@@ -112,6 +137,8 @@ export const browserMain = defineFeatureMain<BrowserMainServices>({
       log: services.log,
       readDiscardSettings: services.readDiscardSettings,
       devToolsAllowed: services.devToolsAllowed ?? false,
+      userDataPath: services.userDataPath,
+      permissionStore: services.permissionStore,
     });
     registerBrowserHandlers(ctx.ipc, services.sender);
     registerWebAppsHandlers(ctx.ipc, services.getMainWindow);

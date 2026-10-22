@@ -3050,6 +3050,11 @@ export function buildMockBridge(data: MockFixtures) {
       setDiscardMs: (req: { ms: number }) => {
         browserDiscardMsCalls.push(req);
       },
+      respondPermission: noop,
+      permissionsList: async () => [],
+      permissionRevoke: async () => undefined,
+      permissionsReset: async () => undefined,
+      setSpellcheck: noop,
       onEvent: (handler: (e: unknown) => void) => {
         browserEventHandlers.push(handler);
         return () => {

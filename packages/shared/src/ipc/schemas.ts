@@ -154,6 +154,7 @@ import {
   BrowserBoundsSchema,
   BrowserEventSchema,
   BrowserNavErrorSchema,
+  BrowserPermissionRecordSchema,
   ClosedSessionSchema,
   CommitSchema,
   ConflictedHunkSchema,
@@ -2750,6 +2751,26 @@ export const BrowserDevServerProbeRequest = z.object({
 });
 /** Whether the connection was accepted inside the deadline. Never an error — a refusal is the answer. */
 export const BrowserDevServerProbeResponse = z.object({ listening: z.boolean() });
+
+/** Phase 117 Theme B — user response to an in-tab permission prompt. */
+export const BrowserPermissionResponseRequest = z.object({
+  requestId: z.string().min(1),
+  decision: z.enum(['allow', 'deny', 'dismiss']),
+});
+
+/** Phase 117 Theme B — list remembered site permissions. */
+export const BrowserPermissionsListResponse = z.array(BrowserPermissionRecordSchema);
+
+/** Phase 117 Theme B — revoke one remembered site permission. */
+export const BrowserPermissionRevokeRequest = z.object({
+  origin: z.string().min(1),
+  permission: z.string().min(1),
+});
+
+/** Phase 117 Theme B — toggle spellcheck on the browser partition. */
+export const BrowserSetSpellcheckRequest = z.object({
+  enabled: z.boolean(),
+});
 
 export const BrowserEventPayload = BrowserEventSchema;
 

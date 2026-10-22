@@ -33,6 +33,9 @@ export const browserManifest = defineFeatureManifest({
     CHANNELS.browserCreate,
     CHANNELS.browserClearData,
     CHANNELS.browserDevServerProbe,
+    CHANNELS.browserPermissionsList,
+    CHANNELS.browserPermissionRevoke,
+    CHANNELS.browserPermissionsReset,
     CHANNELS.webAppsEnable,
     // The partitions' sign-ins, listed and cleared for the Vault (Theme J slice 3) — they live in this
     // feature's sessions, so this feature answers them; the Vault's manifest names them too.
@@ -56,6 +59,8 @@ export const browserManifest = defineFeatureManifest({
     CHANNELS.browserZoom,
     CHANNELS.browserSetKeepAwake,
     CHANNELS.browserSetDiscardMs,
+    CHANNELS.browserPermissionResponse,
+    CHANNELS.browserSetSpellcheck,
     CHANNELS.webAppsDisable,
     CHANNELS.webAppsSetBounds,
     CHANNELS.webAppsActivate,

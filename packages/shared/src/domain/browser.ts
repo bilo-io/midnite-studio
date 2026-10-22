@@ -12,6 +12,30 @@ export const BrowserTabIdSchema = z.string().min(1);
 export type BrowserTabId = z.infer<typeof BrowserTabIdSchema>;
 
 /**
+ * Browser permissions promptable by web pages (Phase 117 Theme B).
+ * Scope: camera, microphone, geolocation, notifications.
+ * clipboard-read is never promptable and stays deny-all.
+ */
+export const BrowserPermissionKindSchema = z.enum([
+  'camera',
+  'microphone',
+  'geolocation',
+  'notifications',
+]);
+export type BrowserPermissionKind = z.infer<typeof BrowserPermissionKindSchema>;
+
+export const BrowserPermissionValueSchema = z.enum(['allow', 'deny', 'ask']);
+export type BrowserPermissionValue = z.infer<typeof BrowserPermissionValueSchema>;
+
+export const BrowserPermissionRecordSchema = z.object({
+  origin: z.string(),
+  permission: z.string(),
+  value: BrowserPermissionValueSchema,
+  grantedAt: z.number(),
+});
+export type BrowserPermissionRecord = z.infer<typeof BrowserPermissionRecordSchema>;
+
+/**
  * Default idle threshold before a hidden browser tab's `WebContentsView` is
  * discarded (Phase 84 Theme F) — `Settings ▸ Browser`'s own field, and the
  * default `browser-service.ts`'s discard sweep starts at before any renderer
@@ -214,5 +238,17 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
    * `use-browser-tabs.ts`) recreates it from the renderer's own `tab.url`.
    */
   z.object({ kind: z.literal('discarded'), tabId: BrowserTabIdSchema }),
+  /**
+   * In-tab permission prompt requested by a web page (Phase 117 Theme B).
+   * Scope: camera, microphone, geolocation, notifications.
+   */
+  z.object({
+    kind: z.literal('permission-request'),
+    tabId: BrowserTabIdSchema,
+    requestId: z.string(),
+    origin: z.string(),
+    permission: BrowserPermissionKindSchema,
+    displayName: z.string(),
+  }),
 ]);
 export type BrowserEvent = z.infer<typeof BrowserEventSchema>;

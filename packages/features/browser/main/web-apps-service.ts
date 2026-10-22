@@ -3,6 +3,7 @@ import { WEB_APP_DEFINITIONS, type WebAppId, type BrowserBounds } from '@midnite
 import type { BrowserHostWindow as BrowserWindow, BrowserView as WebContentsView } from './browser-electron';
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
 import { checkNavigationUrl } from './browser-security';
+import { getBrowserPermissionStore } from './browser-service';
 import { applyBrowserSessionPolicy, refuseWebviewAttach, sandboxedPageWebPreferences } from './browser-session-policy';
 
 /**
@@ -59,6 +60,7 @@ function ensureAppSessionConfigured(id: WebAppId): void {
   if (securedPartitions.has(partition)) return;
   securedPartitions.add(partition);
   applyBrowserSessionPolicy(browserMainDeps().electron.sessionFromPartition(partition), {
+    permissionStore: getBrowserPermissionStore(),
     onDownloadRefused: (filename) => {
       defaultLogger(`[apps] download refused: app=${id} file=${filename}`);
     },

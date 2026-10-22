@@ -1,6 +1,17 @@
-import { cancelDownload, denyAllDevices, denyAllPermissions } from './browser-security';
+import type { BrowserPermissionKind } from '@midnite/studio-shared';
+
 import type { BrowserSession } from './browser-electron';
-import type { DownloadItemLike } from './browser-security';
+import {
+  cancelDownload,
+  denyAllDevices,
+  denyAllPermissions,
+  normaliseOrigin,
+  type BrowserPermission,
+  type DownloadItemLike,
+  type PermissionCheckDetails,
+  type PermissionRequestDetails,
+} from './browser-security';
+import type { PermissionGrantStore } from './permission-grant-store';
 
 /**
  * One session policy, applied once per partition (Phase 117 Theme A).
@@ -14,7 +25,7 @@ import type { DownloadItemLike } from './browser-security';
  *
  * Order matters and is pinned by `browser-session-policy.test.ts`:
  *
- * 1. `denyAllPermissions` — request AND check handlers (Theme B replaces this with a prompt).
+ * 1. `configureSessionPermissions` — request AND check handlers (Theme B prompt + remembered grants).
  * 2. `denyAllDevices` — no WebUSB/HID/serial chooser, no `getDisplayMedia`.
  * 3. `will-download` — refused outright; Theme D's opt-in quarantine replaces the handler.
  * 4. `setSpellCheckerEnabled(false)` — Chromium's spellchecker hands typed text to the OS
@@ -34,18 +45,173 @@ export type PolicySession = Pick<
   | 'setSpellCheckerEnabled'
 >;
 
+export type PromptablePermissionRequest = {
+  origin: string;
+  permission: BrowserPermissionKind;
+  permissions: BrowserPermissionKind[];
+  webContents: unknown;
+  callback: (granted: boolean) => void;
+};
+
 export type BrowserSessionPolicyOptions = {
   /**
    * Told about every refused download, with the `webContents` that asked so the browser service
    * can route the notice to the tab the user was looking at. The item is already cancelled.
    */
   onDownloadRefused: (filename: string, webContents: unknown) => void;
+  /**
+   * Store backing remembered permissions per origin. If omitted, all permissions are denied.
+   */
+  permissionStore?: PermissionGrantStore;
+  /**
+   * Called when a promptable permission has value 'ask' and passed rate limiting.
+   */
+  onPermissionRequest?: (request: PromptablePermissionRequest) => void;
   /** Default `false`. `true` only from a user-facing switch — never from a page. */
   spellcheck?: boolean;
 };
 
+/**
+ * Maps an incoming permission request to granular promptable permission kinds (Phase 117 Theme B).
+ * Returns null for non-promptable permissions (which are strictly denied).
+ */
+export function mapRequestedPermissions(
+  permission: BrowserPermission,
+  details?: PermissionRequestDetails,
+): BrowserPermissionKind[] | null {
+  if (permission === 'camera' || permission === 'videoCapture') return ['camera'];
+  if (permission === 'microphone' || permission === 'audioCapture') return ['microphone'];
+  if (permission === 'geolocation') return ['geolocation'];
+  if (permission === 'notifications') return ['notifications'];
+  if (permission === 'media') {
+    const types = details?.mediaTypes ?? [];
+    const list: BrowserPermissionKind[] = [];
+    if (types.includes('audio')) list.push('microphone');
+    if (types.includes('video')) list.push('camera');
+    return list.length > 0 ? list : null;
+  }
+  return null;
+}
+
+/**
+ * Maps a permission check query to its granular permission kind (Phase 117 Theme B).
+ */
+export function mapCheckPermission(
+  permission: BrowserPermission,
+  details?: PermissionCheckDetails,
+): BrowserPermissionKind | null {
+  if (permission === 'camera' || permission === 'videoCapture') return 'camera';
+  if (permission === 'microphone' || permission === 'audioCapture') return 'microphone';
+  if (permission === 'geolocation') return 'geolocation';
+  if (permission === 'notifications') return 'notifications';
+  if (permission === 'media') {
+    const type = details?.mediaType;
+    if (type === 'audio') return 'microphone';
+    if (type === 'video') return 'camera';
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Configures permission request and check handlers for a browser session (Phase 117 Theme B).
+ *
+ * Scope: camera, microphone, geolocation, notifications.
+ * Non-promptable permissions (clipboard-read, midi, hid, usb, etc.) are denied immediately.
+ * Check handler answers from store only, never prompts.
+ * Prompts are rate-limited to at most once per (origin, permission) per minute.
+ */
+export function configureSessionPermissions(
+  session: Pick<PolicySession, 'setPermissionRequestHandler' | 'setPermissionCheckHandler'>,
+  options: BrowserSessionPolicyOptions,
+): void {
+  const store = options.permissionStore;
+  if (!store) {
+    denyAllPermissions(session);
+    return;
+  }
+
+  // Rate limiting map: `${origin}:${permission}` -> timestamp
+  const lastPromptTime = new Map<string, number>();
+
+  session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    const mapped = mapRequestedPermissions(permission, details as PermissionRequestDetails | undefined);
+    if (!mapped || mapped.length === 0) {
+      callback(false);
+      return;
+    }
+
+    const rawOrigin =
+      (details as PermissionRequestDetails | undefined)?.securityOrigin ||
+      (details as PermissionRequestDetails | undefined)?.requestingUrl ||
+      (webContents as { getURL?(): string } | undefined)?.getURL?.() ||
+      '';
+    const origin = normaliseOrigin(rawOrigin);
+
+    let allAllowed = true;
+    const ungranted: BrowserPermissionKind[] = [];
+    for (const p of mapped) {
+      const grant = store.get(origin, p);
+      if (grant === 'deny') {
+        callback(false);
+        return;
+      }
+      if (grant !== 'allow') {
+        allAllowed = false;
+        ungranted.push(p);
+      }
+    }
+
+    if (allAllowed) {
+      callback(true);
+      return;
+    }
+
+    // Rate limiting: at most once per (origin, permission) per minute
+    const now = Date.now();
+    for (const p of ungranted) {
+      const key = `${origin}:${p}`;
+      const last = lastPromptTime.get(key) ?? 0;
+      if (now - last < 60_000) {
+        callback(false);
+        return;
+      }
+    }
+
+    for (const p of ungranted) {
+      lastPromptTime.set(`${origin}:${p}`, now);
+    }
+
+    if (!options.onPermissionRequest) {
+      callback(false);
+      return;
+    }
+
+    options.onPermissionRequest({
+      origin,
+      permission: ungranted[0]!,
+      permissions: ungranted,
+      webContents,
+      callback,
+    });
+  });
+
+  session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+    const rawOrigin =
+      requestingOrigin ||
+      (details as PermissionCheckDetails | undefined)?.securityOrigin ||
+      (details as PermissionCheckDetails | undefined)?.requestingUrl ||
+      (webContents as { getURL?(): string } | undefined)?.getURL?.() ||
+      '';
+    const origin = normaliseOrigin(rawOrigin);
+    const mapped = mapCheckPermission(permission, details as PermissionCheckDetails | undefined);
+    if (!mapped) return false;
+    return store.get(origin, mapped) === 'allow';
+  });
+}
+
 export function applyBrowserSessionPolicy(session: PolicySession, options: BrowserSessionPolicyOptions): void {
-  denyAllPermissions(session);
+  configureSessionPermissions(session, options);
   denyAllDevices(session);
   session.on('will-download', (_event, item: DownloadItemLike, webContents) => {
     cancelDownload(item, (filename) => options.onDownloadRefused(filename, webContents));
