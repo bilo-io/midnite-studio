@@ -201,27 +201,32 @@ and font fingerprinting are *not* defended (needs a preload; guardrail 1). The p
 minimal `TrackerBadge` + popover; PR #975 (Theme C, merged second) folded it into `site-badge.tsx`. Third-party detection uses a small multi-part-suffix heuristic, not the full
 Public Suffix List.
 
-**Theme F — Credential-phishing detection.** ✅ [PR #F_PR](https://github.com/bilo-io/midnite-studio/pull/F_PR).
+**Theme F — Credential-phishing detection.** ✅ [PR #980](https://github.com/bilo-io/midnite-studio/pull/980).
 `login-form-read.ts` is the one page read guardrail 1 allows: a fixed IIFE run through
 `executeJavaScriptInIsolatedWorld` in world `1117` (never 0, the page's own, nor 999) after `dom-ready`,
-`did-stop-loading` and an in-page navigation, returning `{ hasPasswordField, formActionOrigins[] }` (zod-checked)
+`did-stop-loading`, an in-page navigation and on typing (main's `before-input-event`, throttled to 2 s, for a
+password step injected with no navigation), walking open shadow roots and same-origin frames, returning `{ hasPasswordField, formActionOrigins[] }` (zod-checked)
 and installing nothing. The surprise was that the isolated world is not enough on its own: named-property
 clobbering crosses worlds (`<input name="action">` shadows `form.action`, `<img name="forms">` shadows
 `document.forms`), so the snippet calls every DOM member through its prototype. `phishing-rules.ts` judges a
-password field against five rules — `http-password`, `lookalike` (C's finding, raised to danger), `first-seen`,
-`cross-origin-action`, `sign-in-elsewhere` — into a new `SiteVerdict.credentialRisk` (board 22:40), which C's one
+password field against six rules — `http-password`, `lookalike` (C's finding, raised to danger), `first-seen`,
+`cross-origin-action`, `sign-in-elsewhere`, `brand-mention` — into a new `SiteVerdict.credentialRisk` (board 22:40), which C's one
 badge reads as "Possible phishing" / "Login risk"; no second badge, no interstitial, but D's `originVerdictLevel`
 then refuses that page's downloads. Two calls worth knowing: rule 4 compares *sites* (registrable domain), not
-origins, because `www.` posting to `login.` is how every SSO subdomain works; and rule 5 matches a known sign-in
-host's brand label in the page's host tokens or a sign-in-shaped title ("GitHub login on `github-login.app`" has
-no confusable to catch), with generic brands (`live`, `office`, `slack`, …), brands under four letters and the
+origins, because `www.` posting to `login.` is how every SSO subdomain works; and the brand rule has two strengths
+— a known sign-in brand in the page's own site label is danger ("GitHub login on `github-login.app`" has no
+confusable to catch), one only in a subdomain or a "Sign in to X" title is caution, because self-hosted forges
+(`gitlab.mycorp.com`) and SSO pages look exactly like that (the self-review caught both reading as danger) — with
+generic brands (`live`, `office`, `slack`, …), brands under four letters and the
 brand's own regional domains (`google.de`) exempt. Sign-in hosts are the impersonation seed, the web apps and the
-Vault's `listWebAppSignIns` domains (also fed to C's `addKnownHosts`). "First seen today" needed memory the browser
-never had: `host-first-seen.ts` keeps `<userData>/browser-hosts-seen.json` (0600) keyed by truncated SHA-256, so no
-hostname is on disk, and "clear browsing data" deletes it. The acceptance fixtures (`main/fixtures/phishing/`) run
+Vault's `listWebAppSignIns` domains filtered to each app's own site (also fed to C's `addKnownHosts`). "First seen today" needed memory the browser
+never had: `host-first-seen.ts` keeps `<userData>/browser-hosts-seen.json` (0600) as an HMAC of each host under a
+key stored only `safeStorage`-encrypted (optional `ledgerCipher` dep) → day number, so neither hostnames nor visit
+times are on disk and a domain list cannot be tested against it; no cipher means memory only, and "clear browsing
+data" deletes it. The acceptance fixtures (`main/fixtures/phishing/`) run
 the real snippet over jsdom: http form → caution, `g1thub.com` → danger, `github-login.app` → danger,
 `github.com` → nothing. Clipboard-read is proved refused (no bar) on a password page. Not done: password fields in
-cross-origin iframes or shadow roots are not seen (main-frame read only).
+cross-origin iframes or closed shadow roots are not seen.
 
 **Theme G — The page-to-agent boundary.** ◻ Page content reaches an agent only as a provenance-
 tagged `UntrustedPageContent` envelope; agent actions are per-session allowlisted and cross-origin
@@ -383,7 +388,7 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
       leaves (network trace in the e2e); a third-party `Set-Cookie` is not stored; a cross-site
       request carries only the origin as referrer.
 
-### F — Credential-phishing detection [M · ~1d] ✅ DONE (PR #F_PR, 2026-10-22)
+### F — Credential-phishing detection [M · ~1d] ✅ DONE (PR #980, 2026-10-22)
 
 - [x] **Login-form detection without a preload.** A fixed, tested snippet run through
       `webContents.executeJavaScriptInIsolatedWorld` — **never the main world**, where the page
@@ -501,7 +506,7 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 - [ ] **D:** `xattr -p com.apple.quarantine` is set on every quarantined file and the ledger's
       SHA-256 matches `shasum -a 256`.
 - [ ] **E:** the network trace in the e2e shows the tracker request never leaving.
-- [x] **F:** the three fixtures produce caution / danger / nothing (PR #F_PR).
+- [x] **F:** the three fixtures produce caution / danger / nothing (PR #980).
 - [ ] **G:** the injection fixture never produces a run; the allowlist test holds; the ClickFix
       fixture raises the bar within one poll interval.
 - [ ] **Open, for a human:** one packaged-app pass through the badssl.com matrix, one real

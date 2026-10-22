@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-22 — Phase 117 Theme F — Credential-phishing detection
 
-[PR #F_PR](https://github.com/bilo-io/midnite-studio/pull/F_PR). A fixed snippet run in an isolated world (never the page's main world; DOM read through prototypes so named-property clobbering cannot lie) reports password fields and where their forms post; five rules — password on `http:`, on a lookalike, on a host first seen today, posting to another site, or on a page claiming a known sign-in brand it is not (`github-login.app`) — land on the tab's `SiteVerdict.credentialRisk` and raise C's one badge to "Login risk" / "Possible phishing". First-seen hosts persist only as truncated SHA-256 digests (0600), cleared with browsing data; the Vault's sign-in domains feed both the phishing and lookalike rules. Items: login-form read, the five rules, clipboard-read stays denied, no autofill, acceptance fixtures (http → caution, `g1thub.com` → danger, `github.com` → nothing).
+[PR #980](https://github.com/bilo-io/midnite-studio/pull/980). A fixed snippet run in an isolated world (never the page's main world; DOM read through prototypes so named-property clobbering cannot lie) reports password fields and where their forms post; six rules — password on `http:`, on a lookalike, on a host first seen today, posting to another site, on a site named for a known sign-in brand it is not (`github-login.app`, danger), or with that brand only in a subdomain or title (caution) — land on the tab's `SiteVerdict.credentialRisk` and raise C's one badge to "Login risk" / "Possible phishing". First-seen hosts persist only as keyed HMAC digests and day numbers (0600, key `safeStorage`-encrypted), cleared with browsing data; the Vault's sign-in domains feed both the phishing and lookalike rules. Items: login-form read, the rules, clipboard-read stays denied, no autofill, acceptance fixtures (http → caution, `g1thub.com` → danger, `github.com` → nothing).
 
 ## 2026-10-22 — Phase 117 Themes D + E — Quarantined downloads; tracker and fingerprinting protection
 
@@ -7271,7 +7271,7 @@ by a machine restart; rebased 21 commits onto `main` (mostly docs/todo syncs plu
 - [x] **A** — `settings-pages/diff-page.tsx`: two accordions ("Diff view" `defaultOpen`, "File
       lists" not — Decision 3), a `Choice` per preference (`diffLayout`, `diffShowOldGutter` as
       on/off per Decision 1, `commitFileView`, `changesFileView`), a "Reset to defaults" button per
-      accordion backed by a new exported `DIFF_PREF_DEFAULTS`/`DiffLayout` in `ui-store.ts` so the
+      accordion backed by a new exported `DIF980EF_DEFAULTS`/`DiffLayout` in `ui-store.ts` so the
       page and the store's own initial state cannot disagree. `diff-page.test.tsx` (RTL) covers
       render/reflect/set/reset for all four controls.
 - [x] **B** — `diff` registered in `SettingsPageId`, `SETTINGS_PAGES` (beside Graph), `PAGE_CONTENT`
