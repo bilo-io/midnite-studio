@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SiteKnownBadSchema, SiteVerdictSchema } from './site-verdict';
+
 /**
  * The embedded browser's tab/group/bounds/error contract (Phase 32).
  *
@@ -99,6 +101,14 @@ export const BrowserNavErrorSchema = z.object({
   code: z.number().int(),
   description: z.string(),
   validatedUrl: z.string(),
+  /**
+   * Set when the failure is one of Phase 117 Theme C's interstitials rather than a network error:
+   * `'certificate'` (TLS verification failed — `code` is Chromium's `-2xx`) or `'known-bad'`
+   * (a reputation feed lists the URL; `knownBad` says which). The error page shows the warning
+   * variant, and a "proceed for this session" only where Settings ▸ Browser allows it.
+   */
+  reason: z.enum(['certificate', 'known-bad']).optional(),
+  knownBad: SiteKnownBadSchema.optional(),
 });
 export type BrowserNavError = z.infer<typeof BrowserNavErrorSchema>;
 
@@ -250,5 +260,10 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
     permission: BrowserPermissionKindSchema,
     displayName: z.string(),
   }),
+  /**
+   * The tab's `SiteVerdict` (Phase 117 Theme C) — a fresh one on every main-frame navigation
+   * commit, then again on every change while the page loads. Replaces, never merges.
+   */
+  z.object({ kind: z.literal('verdict'), tabId: BrowserTabIdSchema, verdict: SiteVerdictSchema }),
 ]);
 export type BrowserEvent = z.infer<typeof BrowserEventSchema>;

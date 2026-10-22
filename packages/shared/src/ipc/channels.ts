@@ -679,6 +679,10 @@ export const CHANNELS = {
   browserPermissionsReset: 'mstudio:browser:permissions:reset',
   /** Toggle Chromium spellchecking for browser partitions (Phase 117 Theme B). */
   browserSetSpellcheck: 'mstudio:browser:set-spellcheck',
+  /** Site-safety switches: interstitial proceed + reputation feeds (Phase 117 Theme C). */
+  browserSetSiteSafety: 'mstudio:browser:set-site-safety',
+  /** "Proceed for this session" past a certificate / known-bad interstitial (Phase 117 Theme C). */
+  browserProceedSite: 'mstudio:browser:proceed-site',
 
   // --- third-party apps rail (Phase 83 Themes A/B) ---------------------------
   // One `WebContentsView` per ENABLED app, owned by `web-apps-service.ts` — the
