@@ -6,7 +6,7 @@ The Browser app ([`apps/browser`](../../../apps/browser), composing
 [`packages/features/browser`](../../../packages/features/browser)) already starts from a sound
 floor. Every tab is a `WebContentsView` on the `persist:browser` partition with `sandbox: true`,
 `contextIsolation: true`, `nodeIntegration: false` and **no preload**
-([`browser-service.ts`](../../../packages/features/browser/main/browser-service.ts) L270–276), so an
+([`browser-service.ts`](../../../packages/features/browser/main/browser-service.ts) L269–278), so an
 embedded page has no path to `window.midniteStudio`. Every permission is denied, request and check
 alike ([`denyAllPermissions`](../../../packages/features/browser/main/browser-security.ts)), every
 device is denied, `will-navigate` refuses anything but `http:`/`https:`

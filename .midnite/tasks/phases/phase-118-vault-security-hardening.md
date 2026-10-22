@@ -5,8 +5,8 @@
 The Vault is the suite's one home for secrets — the runtime's vault service
 ([`vault-service.ts`](../../../packages/runtime/src/vault/vault-service.ts)) over a `safeStorage`
 cipher that is injected, never imported ([`secure-store.ts`](../../../packages/runtime/src/vault/secure-store.ts)),
-written 0600 on every write, split into namespaces (`VAULT_NAMESPACES`: forge tokens, database
-logins, STT keys, agent API keys, web-app sign-ins), reached by other apps over a Unix socket whose
+written 0600 on every write, split into three namespaces (`VAULT_NAMESPACES`: `secrets` — API,
+STT and `agent.<id>.apiKey` keys — `forge-accounts` and `db-credentials`), reached by other apps over a Unix socket whose
 peers pair with an Ed25519 proof against a nonce
 ([`host/server.ts`](../../../packages/runtime/src/vault/host/server.ts),
 [`pairing.ts`](../../../packages/runtime/src/vault/host/pairing.ts)) and are then limited by

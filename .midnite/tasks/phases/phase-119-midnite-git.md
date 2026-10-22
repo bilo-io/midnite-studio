@@ -152,8 +152,8 @@ egress registry entries for the image registries, container-runtime detection in
 ### A — Mirror and backup, no server required [L · 1–2d]
 
 - [ ] **The mirror layout.** `~/Midnite/Git/mirrors/<host>/<owner>/<repo>.git` (bare, created
-      with `git clone --mirror` via [`clone.ts`](../../../packages/git-engine/src/commands/clone.ts)
-      gaining a `mirror: true` option; refreshed with `git remote update --prune` through the write
+      with `git clone --mirror` via [`clone.ts`](../../../packages/git-engine/src/commands/clone.ts)'s
+      `cloneRepo` gaining a `mirror: true` option; refreshed with `git remote update --prune` through the write
       queue) and `<repo>.meta/` beside it: `issues.ndjson`, `pulls.ndjson`, `reviews.ndjson`,
       `comments.ndjson`, `labels.json`, `milestones.json`, `releases.json`, `manifest.json`
       (`{ fetchedAt, headRefs: {ref: sha}, files: {name: sha256}, adapter, account }`). All files
