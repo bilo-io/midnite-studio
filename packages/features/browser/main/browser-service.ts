@@ -30,6 +30,7 @@ import {
   forgetCredentialTab,
   hostsFirstSeen,
   judgeTabCredentials,
+  judgeTabCredentialsInPage,
   judgeTabCredentialsOnInput,
   noteCredentialCommit,
   refreshVaultSignInHosts,
@@ -673,8 +674,8 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
       canGoBack: wc.navigationHistory.canGoBack(),
       canGoForward: wc.navigationHistory.canGoForward(),
     });
-    // A single-page app routing to its sign-in form commits nothing; read again.
-    judgeCredentials();
+    // A single-page app routing to its sign-in form commits nothing; read again (throttled).
+    judgeTabCredentialsInPage(tabId, wc);
   });
   wc.on('page-title-updated', (_event, title) => send(win, { kind: 'title', tabId, title }));
   wc.on('page-favicon-updated', (_event, favicons) => {

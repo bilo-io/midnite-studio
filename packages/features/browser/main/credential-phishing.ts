@@ -30,10 +30,22 @@ import { listWebAppSignIns } from './web-app-sign-ins';
 
 export const SIGN_IN_REFRESH_MS = 10 * 60_000;
 
-/** While someone types on a page, re-read it at most this often (a password step injected late). */
-export const INPUT_READ_INTERVAL_MS = 2_000;
+/**
+ * Re-reads not tied to a load event (typing, in-page navigations) run at most this often per tab,
+ * the last one trailing, and at most {@link SCHEDULED_READ_CAP} times per commit — each is a walk of
+ * the page on its main thread.
+ */
+export const SCHEDULED_READ_INTERVAL_MS = 2_000;
+export const SCHEDULED_READ_CAP = 10;
 
-type TabCommit = { generation: number; url: string; firstSeenToday: boolean; lastInputRead: number };
+type TabCommit = {
+  generation: number;
+  url: string;
+  firstSeenToday: boolean;
+  lastScheduledRead: number;
+  scheduledReads: number;
+  timer: ReturnType<typeof setTimeout> | null;
+};
 
 const commits = new Map<string, TabCommit>();
 let generation = 0;
@@ -90,16 +102,32 @@ export function noteCredentialCommit(tabId: string, url: string): void {
   try {
     const parsed = new URL(url);
     if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && !isLoopbackHost(parsed.hostname)) {
-      firstSeenToday = hostsFirstSeen().note(parsed.hostname) === localDay(Date.now());
+      const ledger = hostsFirstSeen();
+      // A ledger that forgets on restart would call every host new after each launch.
+      firstSeenToday = ledger.note(parsed.hostname) === localDay(Date.now()) && ledger.persistent;
     }
   } catch {
     // Not a URL — nothing to note.
   }
   generation += 1;
-  commits.set(tabId, { generation, url, firstSeenToday, lastInputRead: Number.NEGATIVE_INFINITY });
+  stopTimer(commits.get(tabId));
+  commits.set(tabId, {
+    generation,
+    url,
+    firstSeenToday,
+    lastScheduledRead: Number.NEGATIVE_INFINITY,
+    scheduledReads: 0,
+    timer: null,
+  });
+}
+
+function stopTimer(commit: TabCommit | undefined): void {
+  if (commit?.timer) clearTimeout(commit.timer);
+  if (commit) commit.timer = null;
 }
 
 export function forgetCredentialTab(tabId: string): void {
+  stopTimer(commits.get(tabId));
   commits.delete(tabId);
 }
 
@@ -134,17 +162,40 @@ export async function judgeTabCredentials(tabId: string, contents: CredentialCon
   }
 }
 
+/** A throttled re-read: now if the interval has passed, else once at its end; capped per commit. */
+function scheduleRead(tabId: string, contents: CredentialContents): void {
+  const commit = commits.get(tabId);
+  if (!commit || commit.timer || commit.scheduledReads >= SCHEDULED_READ_CAP) return;
+  const run = () => {
+    commit.timer = null;
+    if (commits.get(tabId) !== commit || contents.isDestroyed()) return;
+    commit.lastScheduledRead = Date.now();
+    commit.scheduledReads += 1;
+    void judgeTabCredentials(tabId, contents);
+  };
+  const wait = commit.lastScheduledRead + SCHEDULED_READ_INTERVAL_MS - Date.now();
+  if (wait <= 0) {
+    run();
+    return;
+  }
+  commit.timer = setTimeout(run, wait);
+  (commit.timer as { unref?: () => void }).unref?.();
+}
+
 /**
  * A keystroke reached the page (main's `before-input-event` — nothing runs in the page for it). The
  * reads at `dom-ready`/`did-stop-loading` miss a password step a kit injects after the email step
- * with no navigation at all, so typing re-reads: the first keystroke after each commit, then at most
- * every {@link INPUT_READ_INTERVAL_MS}.
+ * with no navigation at all, so typing re-reads — throttled, and not at all once this commit already
+ * has a finding.
  */
-export function judgeTabCredentialsOnInput(tabId: string, contents: CredentialContents, now = Date.now()): void {
-  const commit = commits.get(tabId);
-  if (!commit || now - commit.lastInputRead < INPUT_READ_INTERVAL_MS) return;
-  commit.lastInputRead = now;
-  void judgeTabCredentials(tabId, contents);
+export function judgeTabCredentialsOnInput(tabId: string, contents: CredentialContents): void {
+  if (siteVerdicts().verdict(tabId)?.credentialRisk) return;
+  scheduleRead(tabId, contents);
+}
+
+/** An in-page navigation (a single-page app routing to its sign-in form commits nothing): re-read, throttled. */
+export function judgeTabCredentialsInPage(tabId: string, contents: CredentialContents): void {
+  scheduleRead(tabId, contents);
 }
 
 async function judgeOnce(tabId: string, contents: CredentialContents): Promise<void> {
@@ -182,6 +233,7 @@ export function clearHostsFirstSeen(): void {
 }
 
 export function resetCredentialPhishingForTests(): void {
+  for (const commit of commits.values()) stopTimer(commit);
   commits.clear();
   generation = 0;
   firstSeen = null;

@@ -32,6 +32,8 @@ export type LedgerCipher = {
 type Persisted = { version: 2; key: string; hosts: Record<string, number> };
 
 export type HostFirstSeenStore = {
+  /** Whether the ledger survives a restart. When it does not, every host is "new" after each launch. */
+  readonly persistent: boolean;
   /** Records a committed host (first visit only) and returns the local day it was first seen. */
   note(host: string): number;
   /** The local day the host was first seen, or `undefined` if never. */
@@ -114,6 +116,7 @@ export function createHostFirstSeenStore(
   };
 
   return {
+    persistent: filePath !== null,
     note(host) {
       const map = load();
       const digest = hostDigest(key, host);

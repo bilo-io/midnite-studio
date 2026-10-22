@@ -59,26 +59,75 @@ const SIGN_IN_TO = /\b(?:(?:sign|log)[\s-]?(?:in|on)\s+to|(?:sign|log)\s+into)\s
 /** "Log in · PayPal", "GitHub | Sign in" — a title segment that is the brand name alone. */
 const TITLE_SEPARATOR = /\s+[-–—:]\s+|\s*[|·•]\s*/;
 
+/**
+ * Words a phishing kit pairs with a brand to make a host read as its sign-in page (`github-login`,
+ * `paypalsecure`, `appleid-verify`). A brand in a site name *with* one of these is a claim; a brand
+ * alone in a site name (`apple-orchard-club.com`, `jean-claude-art.com`) is only a mention.
+ */
+const PHISHING_KEYWORDS = new Set([
+  'login', 'logon', 'signin', 'signon', 'verify', 'verification', 'secure', 'security', 'account', 'accounts',
+  'auth', 'id', 'support', 'update', 'confirm', 'wallet', 'billing', 'password', 'recover', 'recovery',
+  'unlock', 'helpdesk', 'service',
+]);
+
+/**
+ * Shared-hosting suffixes, where the label *under* the platform is the site (`evil.netlify.app`), not
+ * the platform. A two-label guess would make every page on them one site named after the platform —
+ * and free hosting is where most phishing kits live.
+ */
+const SHARED_HOSTING_SUFFIXES = [
+  'github.io', 'gitlab.io', 'pages.dev', 'workers.dev', 'netlify.app', 'vercel.app', 'web.app',
+  'firebaseapp.com', 'herokuapp.com', 'azurewebsites.net', 'blogspot.com', 'wixsite.com', 'weebly.com',
+  'ngrok-free.app', 'ngrok.io', 'glitch.me', 'onrender.com', 'repl.co', '000webhostapp.com',
+];
+
 function stripWww(host: string): string {
   return host.startsWith('www.') ? host.slice(4) : host;
 }
 
-/** `accounts.google.com` → `google`; `example.co.uk` → `example`. */
+/** The site a host belongs to: its registrable domain, or `<label>.<platform>` on shared hosting. */
+export function siteOf(host: string): string {
+  const h = host.toLowerCase().replace(/\.$/, '');
+  for (const suffix of SHARED_HOSTING_SUFFIXES) {
+    if (h.endsWith(`.${suffix}`)) {
+      const label = h.slice(0, -suffix.length - 1).split('.').pop();
+      return label ? `${label}.${suffix}` : h;
+    }
+  }
+  return registrableDomain(h);
+}
+
+/** `accounts.google.com` → `google`; `example.co.uk` → `example`; `evil.netlify.app` → `evil`. */
 export function brandOf(host: string): string {
-  return registrableDomain(stripWww(host.toLowerCase())).split('.')[0] ?? '';
+  return siteOf(stripWww(host.toLowerCase())).split('.')[0] ?? '';
 }
 
 const splitLabel = (label: string): string[] => label.split(/[-_]/).filter(Boolean);
 
 /** The page's own site label's tokens (`github-login.app` → github, login) and its subdomains' tokens. */
-function hostTokens(host: string): { site: Set<string>; subdomain: Set<string> } {
-  const registrable = registrableDomain(host);
+function hostTokens(host: string): { site: string[]; subdomain: string[] } {
   const labels = host.split('.');
-  const siteLabelIndex = labels.length - registrable.split('.').length;
+  const siteLabelIndex = labels.length - siteOf(host).split('.').length;
   return {
-    site: new Set(splitLabel(labels[siteLabelIndex] ?? '')),
-    subdomain: new Set(labels.slice(0, Math.max(0, siteLabelIndex)).flatMap(splitLabel)),
+    site: splitLabel(labels[siteLabelIndex] ?? ''),
+    subdomain: labels.slice(0, Math.max(0, siteLabelIndex)).flatMap(splitLabel),
   };
+}
+
+
+/**
+ * How `token` carries `brand`: `'bare'` (exactly the brand, or the brand plus digits — `office365`),
+ * `'paired'` (fused with a phishing keyword — `githublogin`, `appleid`, `securepaypal`), or `null`.
+ */
+function carries(token: string, brand: string): 'bare' | 'paired' | null {
+  if (token === brand) return 'bare';
+  if (token.startsWith(brand)) {
+    const rest = token.slice(brand.length);
+    if (/^\d+$/.test(rest)) return 'bare';
+    if (PHISHING_KEYWORDS.has(rest)) return 'paired';
+  }
+  if (token.endsWith(brand) && PHISHING_KEYWORDS.has(token.slice(0, -brand.length))) return 'paired';
+  return null;
 }
 
 /**
@@ -101,7 +150,7 @@ function titleBrands(title: string | undefined): Set<string> {
 
 /** Is `host` that sign-in host, or a subdomain or parent of it? (`accounts.google.com` ~ `google.com`.) */
 function sameFamily(host: string, known: string): boolean {
-  return host === known || host.endsWith(`.${known}`) || known.endsWith(`.${host}`) || registrableDomain(host) === registrableDomain(known);
+  return host === known || host.endsWith(`.${known}`) || known.endsWith(`.${host}`) || siteOf(host) === siteOf(known);
 }
 
 export type BrandClaim = { rule: 'sign-in-elsewhere' | 'brand-mention'; detail: string };
@@ -109,14 +158,18 @@ export type BrandClaim = { rule: 'sign-in-elsewhere' | 'brand-mention'; detail: 
 /**
  * Which known sign-in host this page claims to be without being it, and how strongly. Exported for tests.
  *
- * - **`sign-in-elsewhere` (danger)** — the brand is in the page's *own site label*
- *   (`github-login.app`, `secure.paypal-verify.net`): someone registered a name to carry it.
- * - **`brand-mention` (caution)** — the brand is only in a subdomain (`gitlab.mycorp.com`, a
- *   self-hosted forge) or only in the title ("Sign in to GitHub" on `mycorp.ghe.com`). Real
- *   deployments look exactly like this, so on its own it never refuses anything.
+ * - **`sign-in-elsewhere` (danger)** — the page's *own site name* carries the brand *and* a phishing
+ *   keyword or a sign-in title naming it (`github-login.app`, `paypalsecure.com`,
+ *   `office365-login.com`, `github-login.pages.dev`), or the host spells out the real site before its
+ *   own (`paypal.com.secure-login.net`). Someone registered a name to carry it.
+ * - **`brand-mention` (caution)** — the brand is in the site name with nothing pairing it
+ *   (`apple-orchard-club.com`, `paypal-community.com`), only in a subdomain (`gitlab.mycorp.com`, a
+ *   self-hosted forge), or only in the title ("Sign in to GitHub" on `mycorp.ghe.com`). Real sites
+ *   look exactly like this, so on its own it never refuses anything.
  *
- * A host on the brand's own name under another suffix (`google.de`, `paypal.co.uk`) claims nothing:
- * regional sites are real, and a squatter there is a lookalike/feed matter, not this rule's.
+ * Generic brands (`live`, `office`, `outlook`, …) are words too: they count only when paired. A host on
+ * the brand's own name under another suffix (`google.de`, `paypal.co.uk`) claims nothing — regional
+ * sites are real, and a squatter there is a lookalike/feed matter, not this rule's.
  */
 export function brandClaim(host: string, title: string | undefined, signInHosts: Iterable<string>): BrandClaim | null {
   const page = stripWww(host.toLowerCase().replace(/\.$/, ''));
@@ -125,20 +178,30 @@ export function brandClaim(host: string, title: string | undefined, signInHosts:
   const pageBrand = brandOf(page);
   const tokens = hostTokens(page);
   const claimedInTitle = titleBrands(title);
+  const siteHasKeyword = tokens.site.some((token) => PHISHING_KEYWORDS.has(token));
 
-  // Within each strength, the shortest host names the brand (`google.com` over `accounts.google.com`).
-  const first = (has: (brand: string) => boolean): string | undefined =>
-    known
-      .filter((k) => {
-        const brand = brandOf(k);
-        return brand.length >= MIN_BRAND_LENGTH && !GENERIC_BRANDS.has(brand) && brand !== pageBrand && has(brand);
-      })
-      .sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
+  const strength = (k: string): BrandClaim['rule'] | null => {
+    const brand = brandOf(k);
+    if (brand.length < MIN_BRAND_LENGTH || brand === pageBrand || PHISHING_KEYWORDS.has(brand)) return null;
+    const ks = siteOf(k);
+    if (page.startsWith(`${ks}.`) || page.includes(`.${ks}.`)) return 'sign-in-elsewhere';
+    const onSite = tokens.site.map((token) => carries(token, brand)).filter(Boolean);
+    const paired = onSite.includes('paired') || (onSite.length > 0 && (siteHasKeyword || claimedInTitle.has(brand)));
+    if (paired) return 'sign-in-elsewhere';
+    if (GENERIC_BRANDS.has(brand)) return null;
+    if (onSite.length > 0) return 'brand-mention';
+    if (tokens.subdomain.some((token) => carries(token, brand)) || claimedInTitle.has(brand)) return 'brand-mention';
+    return null;
+  };
 
-  const onSite = first((brand) => tokens.site.has(brand));
-  if (onSite) return { rule: 'sign-in-elsewhere', detail: onSite };
-  const mentioned = first((brand) => tokens.subdomain.has(brand) || claimedInTitle.has(brand));
-  return mentioned ? { rule: 'brand-mention', detail: mentioned } : null;
+  // The strongest claim wins; within one, the shortest host names the brand (`google.com` over
+  // `accounts.google.com`).
+  const ranked = known
+    .map((k) => ({ k, rule: strength(k) }))
+    .filter((c): c is { k: string; rule: BrandClaim['rule'] } => c.rule !== null)
+    .sort((a, b) => (a.rule === b.rule ? a.k.length - b.k.length || a.k.localeCompare(b.k) : a.rule === 'sign-in-elsewhere' ? -1 : 1));
+  const best = ranked[0];
+  return best ? { rule: best.rule, detail: best.k } : null;
 }
 
 function originOf(url: string): URL | null {
@@ -178,15 +241,18 @@ export function judgeCredentialRisk(input: CredentialRiskInput): CredentialJudge
   if (input.firstSeenToday && !known.some((k) => sameFamily(stripWww(host), k))) reasons.push({ rule: 'first-seen' });
 
   let postsInsecurely = false;
-  const pageSite = registrableDomain(host);
+  const pageSite = siteOf(host);
   for (const action of input.read.formActionOrigins) {
     const target = originOf(action);
     if (!target) continue;
     if (target.protocol === 'http:' && !isLoopbackHost(target.hostname)) postsInsecurely = true;
-    if (registrableDomain(target.hostname.toLowerCase()) !== pageSite && !reasons.some((r) => r.rule === 'cross-origin-action')) {
+    if (siteOf(target.hostname) !== pageSite && !reasons.some((r) => r.rule === 'cross-origin-action')) {
       reasons.push({ rule: 'cross-origin-action', detail: target.origin });
     }
   }
+
+  // A password posted to plain http: is exposed in transit whatever page asked for it.
+  if (postsInsecurely && !httpPage) reasons.unshift({ rule: 'http-password' });
 
   if (reasons.length === 0) return { risk: null, insecureForm: postsInsecurely };
   const level = reasons.some((r) => CREDENTIAL_RULE_LEVEL[r.rule] === 'danger') ? 'danger' : 'caution';

@@ -25,7 +25,7 @@ function judge(partial: Partial<CredentialRiskInput> & { url: string }) {
 
 const rules = (r: ReturnType<typeof judge>) => r.risk?.reasons.map((reason) => reason.rule) ?? [];
 
-describe('judgeCredentialRisk — the five rules', () => {
+describe('judgeCredentialRisk — the rules', () => {
   it('fires nothing without a password field, whatever else is wrong', () => {
     const r = judge({
       url: 'http://g1thub.com/',
@@ -70,10 +70,15 @@ describe('judgeCredentialRisk — the five rules', () => {
     expect(sso.risk).toBeNull();
   });
 
-  it('(4) a form posting to http: marks the form insecure even on an https page', () => {
+  it('(1) a password form posting to http: from an https page: caution, and marks the form insecure', () => {
     const r = judge({ url: 'https://shop.example/', read: { hasPasswordField: true, formActionOrigins: ['http://shop.example'] } });
     expect(r.insecureForm).toBe(true);
-    expect(r.risk).toBeNull();
+    expect(r.risk).toEqual({ level: 'caution', reasons: [{ rule: 'http-password' }] });
+  });
+
+  it('(4) on shared hosting the site is the label under the platform', () => {
+    const r = judge({ url: 'https://a.netlify.app/', read: { hasPasswordField: true, formActionOrigins: ['https://b.netlify.app'] } });
+    expect(r.risk?.reasons).toEqual([{ rule: 'cross-origin-action', detail: 'https://b.netlify.app' }]);
   });
 
   it('(5) a brand in a subdomain or a title alone is caution, not danger', () => {
@@ -119,6 +124,26 @@ describe('brandClaim', () => {
   });
 
   it.each([
+    ['githublogin.app', undefined, 'github.com'], // fused with a keyword
+    ['paypalsecure.com', undefined, 'paypal.com'],
+    ['appleid-verify.com', undefined, 'apple.com'],
+    ['outlook-verify.com', undefined, 'outlook.com'], // a generic brand counts once paired
+    ['office365-login.com', undefined, 'office.com'],
+    ['paypal.com.secure-login.net', undefined, 'paypal.com'], // the real site spelled out before the host's own
+    ['github-login.pages.dev', undefined, 'github.com'], // shared hosting: the label under the platform is the site
+    ['paypal-verify.netlify.app', undefined, 'paypal.com'],
+    ['github-pages.example', 'Sign in to GitHub', 'github.com'], // paired by a title naming it
+  ])('%s (title %s) is a sign-in page elsewhere too: %s (danger)', (host, title, expected) => {
+    expect(brandClaim(host, title, SIGN_IN)).toEqual({ rule: 'sign-in-elsewhere', detail: expected });
+  });
+
+  it.each([
+    // A brand in a site name with nothing pairing it: words and names, or the brand's own side sites.
+    ['apple-orchard-club.com', undefined, 'apple.com'],
+    ['amazon-rainforest.org', undefined, 'amazon.com'],
+    ['jean-claude-art.com', undefined, 'claude.ai'],
+    ['paypal-community.com', undefined, 'paypal.com'],
+    ['evil.github.io', 'Sign in to GitHub', 'github.com'], // a GitHub Pages site is not github.com
     // Self-hosted forges and enterprise tenants: the brand is real, just not on its own site.
     ['gitlab.mycorp.com', undefined, 'gitlab.com'],
     ['github.mycorp.com', undefined, 'github.com'],
