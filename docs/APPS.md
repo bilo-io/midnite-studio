@@ -103,6 +103,7 @@ The apps, grouped by owner:
 | `monitor` | monitor | full view; the status-bar segment stays in the frame |
 | `vault` | vault | the metadata-only view of stored secrets, forge accounts, database logins and web-app sign-ins, plus the credential parts of Studio's Settings ▸ Accounts and ▸ Agent (through `VaultHost`) |
 | `capture` | capture | `packages/features/capture` (Theme K): stills, regions, recordings, the global chord and the opt-in clipboard history; Send to… reaches a chat, a pull-request comment and Creator only through `CaptureHost` |
+| `vanguard` | vanguard | `packages/features/vanguard` (Phase 120): the Vanguard view (findings, Sensors, Network), Settings ▸ Vanguard, the findings handlers and the sensor host; the findings ledger itself is the runtime's |
 
 A tuple layer (`media`) lists the owner first; the others reuse the folder.
 
@@ -751,6 +752,21 @@ call.** `scripts/release-bundles.test.mjs` holds it in the `--all` matrix with i
 and its three leaves land on Studio's Capture view while `runsIn` is still `studio`.
 `MIDNITE_CAPTURE_SMOKE=1` with `MIDNITE_CAPTURE_USER_DATA=<tmp>` takes no chord, never reads the clipboard,
 prints `midnite-capture:ready` and quits.
+
+### App 14: Vanguard (`apps/vanguard`) — Phase 120 Theme B
+
+Vanguard composes `packages/features/vanguard` (the view, Settings ▸ Vanguard, the findings handlers and the
+sensor host), `report` and the `sessions` guest main, copied from Monitor's template. Its sensors are the
+always-on half of the suite's security story; they write into the runtime's findings ledger
+(`<userData>/security/`), which the Guard loop (Phase 122) and the agent policy layer (Phase 121) write into too.
+The sensor host (`main/sensor-host.ts`) imports no `electron`: the composer injects `userData`, a `runProcess`
+(the runtime's no-shell runner) and the ledger's writer. **Policy differs by composer:** Vanguard's own app
+starts every enabled sensor at launch; Studio starts none until the Vanguard view has been opened once
+(persisted in `vanguard.json`, main-side like `mcp.json`), so a user who never looked at it never has `lsof` polled.
+The app **composes no vault** (`scripts/app-vault-grants.test.mjs`) and its preload exposes the `vanguard` and
+`report` namespaces plus read-only `terminal.list` and an attach-only `pty` — it can write a keystroke into a
+session it did not start (Theme H's pause), never create or kill one. The launcher's Vanguard tile lands on
+`midnite-studio://view?id=vanguard&tab=findings|sensors|network` while `runsIn` is still `studio` and `comingSoon` is true.
 
 ### App 11: Gamer (`apps/gamer`) — Phase 113 Theme S slices 1–3
 

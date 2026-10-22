@@ -2,12 +2,13 @@
   "name": "@midnite/studio-feature-vanguard",
   "version": "0.0.4",
   "private": true,
-  "description": "The vanguard feature (Phase 120): antivirus and agentic self-defense.",
+  "description": "The vanguard feature (Phase 120): the Vanguard view, the findings ledger handlers and the sensor host as one package.",
   "sideEffects": false,
   "exports": {
+    "./renderer": "./renderer/index.ts",
     "./main": {
-      "types": "./main/index.ts",
-      "default": "./main/index.ts"
+      "types": "./dist/main/index.d.ts",
+      "default": "./dist/main/index.js"
     }
   },
   "scripts": {
@@ -27,8 +28,16 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "typescript": "^5.6.3",
+    "vite": "^6.0.5",
     "vitest": "^3.2.4"
   }
 }

@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 
 import { selectCapture } from '@midnite/studio-feature-capture/renderer';
-import type { ViewId } from '@midnite/studio-shared';
+import { useVanguardUi } from '@midnite/studio-feature-vanguard/renderer';
+import type { MediaTab, VanguardTab, ViewId } from '@midnite/studio-shared';
 
 import { useDialogs } from '../components/dialog-host';
 import { useUiStore } from '../store/ui-store';
@@ -115,7 +116,8 @@ export function useDeepLinks(): void {
       if (link.kind === 'view') {
         // The launcher's tiles.
         land(link.view, (view) => {
-          if (link.tab !== undefined) useUiStore.getState().setMediaTab(link.tab);
+          if (link.tab !== undefined && view === 'vanguard') useVanguardUi.getState().setTab(link.tab as VanguardTab);
+          else if (link.tab !== undefined) useUiStore.getState().setMediaTab(link.tab as MediaTab);
           if (link.page !== undefined && view === 'settings') useUiStore.getState().setSettingsPage(link.page);
         });
         return;

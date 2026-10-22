@@ -15309,3 +15309,7 @@ PR #975. One `SiteVerdict` per browser tab, built in main and pushed as a `verdi
 
 `SecurityFindingSchema`, typed evidence schemas, remediation schemas in `@midnite/studio-shared`, append-only monthly NDJSON ledger (`findings-<yyyy-mm>.ndjson`) under `<userData>/security` with directory 0700 / file 0600 permissions, `redactRecord` on write, deduplication by fingerprint for open findings, serialized through `withLock`. Feature package `@midnite/studio-feature-vanguard` with findings handlers (`securityFindingsList`, `securityFindingsSetStatus`, `securityFindingsAct`) and `securityFindingsChanged` event wired into desktop main.
 
+
+### Phase 120 Theme B — The feature and the app (2026-10-23)
+
+`packages/features/vanguard` (manifest, view with Findings/Sensors/Network tabs, Settings page, main-side sensor host, `vanguard.json` store, sensor IPC), composed by Studio and by the new `apps/vanguard` (no vault; sessions as a guest), `'vanguard'` placement and link app id, launcher tile pointing at the view's tabs (`comingSoon` unchanged), deep-link `tab`, mock-bridge namespace for e2e. Fixed the `typecheck-node` project count (38). Screenshots in `docs/screenshots/p120-b/`.

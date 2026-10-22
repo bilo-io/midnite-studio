@@ -657,6 +657,28 @@ export type MidniteStudioBridge = {
     onChanged: (handler: (event: z.infer<typeof S.CaptureChangedPayload>) => void) => Unsubscribe;
   };
 
+  /**
+   * Vanguard (Phase 120): the findings ledger (list, set status, act) and the sensor host (state, run now,
+   * settings). `onChanged` fires on either, carrying nothing; re-fetch. Findings are the wire shape only:
+   * evidence and remediation are typed, never a shell string.
+   */
+  vanguard: {
+    findings: {
+      list: (req: In<typeof S.SecurityFindingsListRequest>) => Promise<z.infer<typeof S.SecurityFindingsListResponse>>;
+      setStatus: (req: In<typeof S.SecurityFindingsSetStatusRequest>) => Promise<z.infer<typeof S.SecurityFindingsSetStatusResponse>>;
+      act: (req: In<typeof S.SecurityFindingsActRequest>) => Promise<z.infer<typeof S.SecurityFindingsActResponse>>;
+      onChanged: (handler: () => void) => Unsubscribe;
+    };
+    sensors: () => Promise<z.infer<typeof S.VanguardSensorsResponse>>;
+    runSensor: (req: In<typeof S.VanguardSensorRunRequest>) => Promise<GitOpResult>;
+    settings: () => Promise<z.infer<typeof S.VanguardSettingsGetResponse>>;
+    setSettings: (req: In<typeof S.VanguardSettingsSetRequest>) => Promise<z.infer<typeof S.VanguardSettingsGetResponse>>;
+    /** The view was opened: in Studio the first time lets the enabled sensors start. */
+    viewOpened: () => Promise<z.infer<typeof S.VanguardSensorsResponse>>;
+    openQuarantine: () => Promise<GitOpResult>;
+    onChanged: (handler: () => void) => Unsubscribe;
+  };
+
   /** Mutating operations. None of these reject — they resolve to a GitOpResult. */
   ops: {
     checkout: (req: In<typeof S.CheckoutRequest>) => Promise<GitOpResult>;
