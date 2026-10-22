@@ -40,7 +40,9 @@ export type BrowserMainDeps = {
   permissionStore?: PermissionGrantStore;
   /**
    * `electron.safeStorage` (Phase 117 Theme F): encrypts the first-seen ledger's HMAC key. Absent, the
-   * ledger stays in memory and nothing about visited hosts is written to disk.
+   * ledger stays in memory, nothing about visited hosts is written to disk and the `first-seen` rule
+   * stays off. Studio passes it; Midnite Browser does not — an app main holds `safeStorage` only for
+   * its pairing seed (`scripts/app-vault-grants.test.mjs`).
    */
   ledgerCipher?: LedgerCipher;
   /**

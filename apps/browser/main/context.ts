@@ -10,7 +10,6 @@ import {
   type BrowserElectron,
   type BrowserHostWindow,
   type BrowserLog,
-  type BrowserMainServices,
   type BrowserSenderIpc,
 } from '@midnite/studio-feature-browser/main';
 import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
@@ -32,8 +31,6 @@ export type BrowserAppElectron = IpcContextElectron & {
   writeClipboard: (text: string) => void;
   log: BrowserLog;
   userDataPath?: string;
-  /** Phase 117 Theme F: `safeStorage`, which keeps the first-seen ledger's key encrypted. */
-  ledgerCipher?: BrowserMainServices['ledgerCipher'];
 };
 
 /**
@@ -87,7 +84,6 @@ export function registerBrowserAppHandlers(el: BrowserAppElectron): { shutdown: 
     readDiscardSettings: () => ({}),
     devToolsAllowed: el.devToolsAllowed ?? false,
     userDataPath: el.userDataPath,
-    ledgerCipher: el.ledgerCipher,
     sender: senderIpc(el),
     getMainWindow: el.getMainWindow,
   });

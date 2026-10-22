@@ -223,9 +223,10 @@ generic brands (`live`, `office`, `slack`, …), brands under four letters and t
 brand's own regional domains (`google.de`) exempt. Sign-in hosts are the impersonation seed, the web apps and the
 Vault's `listWebAppSignIns` domains filtered to each app's own site (also fed to C's `addKnownHosts`). "First seen today" needed memory the browser
 never had: `host-first-seen.ts` keeps `<userData>/browser-hosts-seen.json` (0600) as an HMAC of each host under a
-key stored only `safeStorage`-encrypted (optional `ledgerCipher` dep) → day number, so neither hostnames nor visit
-times are on disk and a domain list cannot be tested against it; no cipher means memory only, and "clear browsing
-data" deletes it. The acceptance fixtures (`main/fixtures/phishing/`) run
+key stored only `safeStorage`-encrypted (optional `ledgerCipher` dep, which Studio passes) → day number, so neither
+hostnames nor visit times are on disk and a domain list cannot be tested against it; no cipher means memory only and
+the rule off — Midnite Browser's case, since an app main may hold `safeStorage` only for its pairing seed — and
+"clear browsing data" deletes it. The acceptance fixtures (`main/fixtures/phishing/`) run
 the real snippet over jsdom: http form → caution, `g1thub.com` → danger, `github-login.app` → danger,
 `github.com` → nothing. Clipboard-read is proved refused (no bar) on a password page. The snippet is one bounded
 tree walk that skips look-alike elements (an `<input>` inside `<svg>` once blanked the whole read) and gives up after
