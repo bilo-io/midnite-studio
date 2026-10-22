@@ -29,7 +29,7 @@ export function PrivacyPage() {
         </div>
       </SettingsAccordion>
       <SettingsAccordion title="Reputation feeds" icon={<LuShieldCheck className="h-4 w-4" />} defaultOpen>
-        <div className="flex flex-col gap-4 p-3" data-settings-section="reputation-feeds">
+        <div className="flex flex-col gap-4 p-3">
           <p className="text-[11px] text-muted-foreground">
             Open lists of known-bad sites the embedded browser checks every address against. Each list is downloaded
             whole every six hours and matched on this machine, so no address you visit is ever sent anywhere. While
