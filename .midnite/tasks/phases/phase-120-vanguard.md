@@ -86,10 +86,25 @@ manifest with the `vanguard` view and a shield status-bar item), composed by Stu
 `apps/vanguard` copied from Monitor's template. The catalog tile points at real views and drops
 `comingSoon` only when C, D and H have landed.
 
-**Theme C — Integrity of the repo and the bundle.** ◻ A hash baseline over the files that decide
-what runs — the app's own bundle (`codesign --verify` at launch), `.claude/`, `.mcp.json`,
-`.cursor/`, `.githooks/`, `package.json` scripts, lockfiles — with a change attributed to the
-session that was live when it happened.
+**Theme C — Integrity of the repo and the bundle.** ✅ The watched set is `INTEGRITY_WATCHED` in
+`shared/src/vanguard-integrity.ts`, 24 entries each with a reason for the Sensors tab. The integrity sensor
+(`features/vanguard/main/integrity-sensor.ts` and its `integrity/` helpers) keeps a SHA-256 baseline per
+open repo and one for the home dir under `<userData>/security/integrity/` (dir 0700, file 0600). It
+re-scans on a debounced `fs.watch` (750 ms) and does a slow full re-hash every 5 minutes, a fixed interval
+because the 30 s cadence is not slow. A change is "committed" when `git --no-optional-locks status -z
+--ignored=matching` lists nothing for the path. Anything else is a `high` (hooks, MCP, agent config) or
+`medium` finding, reported once, and the finding resolves when the change is committed or reverted.
+`.git/hooks` and the home-dir files have no commit to vouch for them, so every change to them is reported.
+Only `package.json`'s `scripts` and `~/.claude.json`'s MCP and allowed-tools parts are hashed; Claude Code
+rewrites the rest of that file every session. Attribution names the agent ptys (the `pty-env.ts`
+fingerprint) that were live in the repo when the change was seen. The finding says this is best-effort,
+and the slot for Phase 121 G's tool call is in place but not yet wired. At launch the bundle self-check
+runs Phase 91 H's `codesign --verify --deep --strict`, `spctl --assess --type execute` and `codesign -dv`
+with the same argv, pinned by tests. Those checks live in `install.sh` and the off-graph launcher, so they
+cannot be imported. On an installed build a broken seal is `critical`. An ad-hoc signature is `info`
+until `RELEASES_ARE_NOTARISED` flips, because every release ships ad hoc today and a `critical` on each
+launch would be noise. Sensors take composer deps through `builtinSensors(deps)`, and Studio passes its
+repos, live ptys, the ledger's resolve and `process.execPath`.
 
 **Theme D — Persistence and process sensors.** ◻ LaunchAgents, LaunchDaemons, login items, cron,
 shell rc files and `~/.ssh` watched for change; the process table diffed for new executables,
@@ -174,28 +189,28 @@ each written back to the ledger.
 
 ### C — Integrity of the repo and the bundle [M · ~1d]
 
-- [ ] **The watched set.** Per open repo: `.claude/**`, `.codex/**`, `.agents/**`, `.cursor/**`,
+- [x] **The watched set.** Per open repo: `.claude/**`, `.codex/**`, `.agents/**`, `.cursor/**`,
       `.mcp.json`, `.githooks/**`, `.git/hooks/**`, `.vscode/settings.json`, `.vscode/tasks.json`,
       `package.json` (`scripts` only), every lockfile (`pnpm-lock.yaml`, `package-lock.json`,
       `yarn.lock`, `Cargo.lock`, `poetry.lock`, `go.sum`), `.env*`, `.npmrc`. Per user: `~/.claude/settings.json`,
       `~/.claude/plugins/installed_plugins.json`, `~/.claude.json`, `~/.codex/config.toml`,
       `~/.npmrc`, `~/.gitconfig`. The list is a `shared` constant with a reason per entry, so the
       Sensors tab can say why each is watched. [S]
-- [ ] **Baseline and diff.** `packages/features/vanguard/main/integrity-sensor.ts`: SHA-256 per file,
+- [x] **Baseline and diff.** `packages/features/vanguard/main/integrity-sensor.ts`: SHA-256 per file,
       baseline persisted under `<userData>/security/integrity/<repoId>.json`, `fs.watch` with a
       debounce plus a slow full re-hash on the cadence; a change outside a git commit (the file is
       dirty, or the HEAD it was committed in is newer than the last baseline) is a finding of category
       `integrity`, severity `high` for hooks/MCP/agent config, `medium` for the rest. [M]
-- [ ] **Attribution.** A change is attributed to the agent session live at that moment: the pty
+- [x] **Attribution.** A change is attributed to the agent session live at that moment: the pty
       sessions' `agentId`/`sessionId` (the write-side fingerprint
       [`pty-env.ts`](../../../packages/desktop/src/main/pty-env.ts) already puts in the environment)
       and the processes descended from them. The evidence names the session; Phase 121 G's audit
       trail, when present, names the tool call. Best-effort, stated as such in the finding. [S]
-- [ ] **The bundle verifies itself.** At launch, `codesign --verify --deep --strict` on
+- [x] **The bundle verifies itself.** At launch, `codesign --verify --deep --strict` on
       `process.execPath`'s bundle and `spctl --assess --type execute`; an ad-hoc or unsigned result
       is `info` (dev builds) unless the build is a release, in which case `critical`. The same check
       Phase 91 H's installer runs, reused rather than rewritten. [S]
-- [ ] **Tests.** The watched-set constant has a reason per entry; a hook rewritten under a fake
+- [x] **Tests.** The watched-set constant has a reason per entry; a hook rewritten under a fake
       session yields one `integrity` finding naming that session; a committed change yields none. [S]
 
 ### D — Persistence and process sensors [L · 1–2d]
@@ -334,7 +349,7 @@ each written back to the ledger.
       finding's detail is redacted on disk; `stat` shows 0700/0600.
 - [ ] **B:** the composition test passes with `vanguard` listed; `apps/vanguard` boots in a smoke run
       and `app-vault-grants` holds; the layer-boundary test proves the feature imports no sibling.
-- [ ] **C:** rewriting `.githooks/pre-commit` under a fake agent session yields one `high` integrity
+- [x] **C:** rewriting `.githooks/pre-commit` under a fake agent session yields one `high` integrity
       finding naming the session; committing the change clears it on the next baseline.
 - [ ] **D:** dropping a fixture plist into a temp `LaunchAgents` yields a `persistence` finding
       within one cadence; the ClickFix grammar has zero hits on the benign-command corpus.
