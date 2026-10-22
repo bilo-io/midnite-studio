@@ -1,4 +1,7 @@
 {
+  // The renderer half and the manifest — compiled from source by the app that
+  // composes them (Vite), so this config only typechecks. The main half has
+  // its own config (tsconfig.main.json): it is CommonJS for Electron main.
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -9,11 +12,16 @@
     "composite": false,
     "declaration": false,
     "declarationMap": false,
+    "types": ["vite/client"],
     "paths": {
+      // Source, not dist — the resolution the composing app uses.
       "@midnite/studio-shared": ["../../shared/src/index.ts"],
+      // The main half's import, for any tool that reads this (nearest)
+      // tsconfig's paths — esbuild does, when desktop's bundle inlines
+      // main/index.ts — so it, too, resolves the runtime from source.
       "@midnite/studio-runtime": ["../../runtime/src/index.ts"]
     }
   },
-  "include": ["main/**/*", "vitest.config.ts"],
+  "include": ["renderer/**/*", "manifest.ts", "manifest.test.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

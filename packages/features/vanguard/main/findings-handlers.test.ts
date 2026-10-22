@@ -25,7 +25,11 @@ describe('findings-handlers (Phase 120 Theme A)', () => {
     const mockLedger = {
       list: vi.fn(async () => [mockFinding]),
       get: vi.fn(async (id: string) => (id === 'f-1' ? mockFinding : null)),
-      setStatus: vi.fn(async (id: string, status: SecurityFindingStatus) => ({ ...mockFinding, id, status })),
+      setStatus: vi.fn(async (id: string, status: SecurityFindingStatus) => ({
+        ...mockFinding,
+        id,
+        status,
+      })),
       record: vi.fn(),
       prune: vi.fn(),
       getSecurityDir: vi.fn(() => '/mock'),
@@ -42,7 +46,9 @@ describe('findings-handlers (Phase 120 Theme A)', () => {
     ]);
 
     // Test securityFindingsList invoke
-    const listRes = (await ctx.invoke(CHANNELS.securityFindingsList, {})) as { findings: SecurityFinding[] };
+    const listRes = (await ctx.invoke(CHANNELS.securityFindingsList, {})) as {
+      findings: SecurityFinding[];
+    };
     expect(listRes.findings).toHaveLength(1);
     expect(listRes.findings[0]?.id).toBe('f-1');
 
