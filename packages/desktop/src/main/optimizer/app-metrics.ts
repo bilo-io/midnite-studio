@@ -67,8 +67,9 @@ function defaultOwnerFromMetric(metric: ProcessMetric): string | null {
  *
  * Requirements from Phase 85 Theme E:
  * 1. Prefers Electron's `cpu.percentCPUUsage` for PIDs Electron reports.
- * 2. Keeps `ps`'s resident memory (`rssBytes`), because Electron 33 on darwin
- *    cannot supply resident set / physical footprint.
+ * 2. Keeps `ps`'s resident memory (`rssBytes`), because Electron's
+ *    `ProcessMetric` on darwin still does not expose a portable resident set
+ *    we can trust over `ps` (Phase 85).
  * 3. Sets `ours: true` for every PID present in the Electron metrics array,
  *    falling back to `isOurProcess` for PTY descendants and external processes.
  * 4. Merges PIDs reported by Electron even if absent from `ps` (with `rssBytes: null`).
