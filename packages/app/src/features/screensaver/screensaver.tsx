@@ -80,7 +80,7 @@ export function Screensaver({
       corners={<LockScreenChrome />}
       suppressUnlockTrigger={pendingPill !== null}
     >
-      <ScreensaverStage {...reading} onPillClick={handlePillClick} />
+      <ScreensaverStage {...reading} orb onPillClick={handlePillClick} />
       {pendingPill ? (
         // Nested inside `LockScreen`'s own children, not a separate portal:
         // `LockScreen`'s root is `fixed inset-0 z-[200]` and this dialog's

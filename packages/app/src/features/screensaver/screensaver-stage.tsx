@@ -5,6 +5,8 @@ import { useForgePulls, useRepos } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { agentCount } from '../agent/agent-count';
 import { useTerminalStore } from '../terminal/terminal-store';
+import { CompanionOrb } from '../companion/companion-orb';
+import { useCompanionStore } from '../../store/companion-store';
 import { MODE_TINT, nextRandomIndex, WORD_SETS, type Mode } from './screensaver-words';
 
 /**
@@ -123,21 +125,36 @@ export function ScreensaverStage({
   mode,
   counts,
   paused = false,
+  orb = false,
   onPillClick,
 }: ScreensaverReading & {
   paused?: boolean;
+  /** Lock screen only: the companion orb at the centre, text then spinner below it. */
+  orb?: boolean;
   /** Phase 46 Theme C. Both call sites pass one; optional only so a future
    * read-only host isn't forced to invent a no-op. */
   onPillClick?: (key: PillKey) => void;
 }) {
   const typed = useTypedWord(mode, paused);
   const tint = { '--sv-tint': MODE_TINT[mode] } as CSSProperties;
+  const companionState = useCompanionStore((s) => s.state);
+  const spinner = (
+    <div className={orb ? 'mt-10' : 'mb-10'} style={tint} data-testid="screensaver-spinner">
+      <Spinner mode={mode} />
+    </div>
+  );
 
   return (
     <>
-      <div className="mb-10" style={tint}>
-        <Spinner mode={mode} />
-      </div>
+      {orb ? (
+        // Zen-style bleed keeps the corona unclipped; the margin below is the
+        // orb's own box, so the glow overlaps it without touching the text.
+        <div className="mb-12" data-testid="screensaver-orb">
+          <CompanionOrb state={companionState} zen compact />
+        </div>
+      ) : (
+        spinner
+      )}
 
       <h1
         data-mode={mode}
@@ -154,6 +171,8 @@ export function ScreensaverStage({
       </h1>
 
       <p className="mt-2 text-sm text-muted-foreground">{MODE_SUBTITLE[mode]}</p>
+
+      {orb ? spinner : null}
 
       <div className="mt-10 flex flex-wrap items-center justify-center gap-2.5">
         {PILLS.map(({ key, label, hueVar, destination }, i) => {
