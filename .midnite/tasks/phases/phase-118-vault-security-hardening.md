@@ -25,7 +25,7 @@ lockout) locks the *window*, not the vault. **There is no record.** No line anyw
 read which secret when; a grant abused at 03:00 looks like a grant used. **There is no way out.** A
 write-only vault with no export means a lost Keychain, a new Mac or a corrupted file is a total loss,
 and a user who wants a backup makes a plaintext one by hand. **And nothing watches the files
-themselves** — `vault-grants.json` and `vault-pairing.json` are plain JSON a same-user process can
+themselves** — `vault-grants.json` and the host's `pairings.json` are plain JSON a same-user process can
 edit to grant itself everything, and the encrypted blobs carry no MAC over the *set* of entries, so a
 swapped file is not a detected event.
 
@@ -160,10 +160,15 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 ### B — A lock, and re-auth for anything sensitive [L · 1–2d]
 
 - [ ] **`locked` in the vault service.** `VaultService` gains `lock()`, `unlock(proof)`,
-      `isLocked()` and a `lockedChanged` event; while locked, `get` resolves
-      `{ ok: false, kind: 'locked' }` (a new `VaultAccessDeniedError` kind, so every caller's
-      existing denied path handles it), `has` and `keys` still answer, and writes queue until
-      unlock or fail after a timeout. The host protocol
+      `isLocked()` and a `lockedChanged` event. **The read contract changes first:** today
+      `VaultClient.get` resolves a bare `string | null`, and a denied read is `null` — the same
+      answer as "absent" — so a locked vault would render everywhere as "no token saved". This
+      theme adds `read(namespace, key): Promise<VaultRead>` with `VaultRead = { ok: true, value }
+      | { ok: false, kind: 'absent' | 'denied' | 'locked' | 'unavailable' }`, moves every
+      main-side caller (forge accounts, db credentials, agent keys, STT) onto it, and keeps `get`
+      as a thin deprecated wrapper that maps `locked` to `null` until the last caller is gone.
+      `has` and `keys` still answer while locked; writes queue until unlock or fail after a
+      timeout. The host protocol
       ([`protocol.ts`](../../../packages/runtime/src/vault/host/protocol.ts)) gets the `locked`
       error kind so paired apps degrade the way they already do for `denied`.
 - [ ] **The passcode service moves into the runtime.** Phase 91 D's `createPasscodeService`
@@ -288,8 +293,11 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 ### G — Encrypted export and import [M · ~1d]
 
 - [ ] **The format.** `midnite-vault-export-v1`: a JSON envelope `{ v: 1, kdf: { name:
-      'scrypt', N: 2^17, r: 8, p: 1, salt }, cipher: 'aes-256-gcm', iv, tag, ciphertext }` where
-      the plaintext is the full namespace map; `node:crypto` only. Passphrase minimum 12
+      'scrypt', N: 2^17, r: 8, p: 1, maxmem: 268435456, salt }, cipher: 'aes-256-gcm', iv, tag,
+      ciphertext }` where the plaintext is the full namespace map; `node:crypto` only. `maxmem` is
+      part of the format on purpose: scrypt at these parameters needs 128·N·r = 128 MiB and
+      `crypto.scrypt`'s default `maxmem` is 32 MiB, so a caller that omits it throws
+      `ERR_CRYPTO_INVALID_SCRYPT_PARAMS` — the decrypt script in Theme A's doc passes it too. Passphrase minimum 12
       characters, strength shown, no recovery. The format and its parameters are in Theme A's
       doc so a user can decrypt with `openssl`/a script without the app.
 - [ ] **Export.** "Export vault" in the Vault app, behind Theme B's fresh unlock, writes to a
@@ -306,8 +314,10 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 ### H — Tamper detection and memory hygiene [M · ~1d]
 
 - [ ] **An HMAC over every vault file.** A `vault-integrity.json` holding, per file
-      (`vault-*.json`, `vault-grants.json`, `vault-pairing.json`, the passcode hash, the audit
-      chain head), an HMAC-SHA256 under a key that lives only `safeStorage`-encrypted. Updated
+      (`vault-*.json`, `vault-grants.json`, the pairing identity `vault-pairing.json` **and** the
+      peer list `pairings.json` — `PAIRINGS_FILE` in
+      [`pairing-store.ts`](../../../packages/runtime/src/vault/host/pairing-store.ts), the file an
+      out-of-band pairing would be written to — the passcode hash, the audit chain head), an HMAC-SHA256 under a key that lives only `safeStorage`-encrypted. Updated
       atomically with every write ([`secure-store.ts`](../../../packages/runtime/src/vault/secure-store.ts)
       is the one write path); checked on open, on `fs.watch` of the directory, and before every
       grant decision. A mismatch locks the vault, writes `tamper`, and shows the banner with the

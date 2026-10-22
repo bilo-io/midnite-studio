@@ -208,10 +208,13 @@ egress registry entries for the image registries, container-runtime detection in
       stop with the app, health check on `/api/healthz`, a restart budget, and log lines through
       the one log seam with `redactRecord`. The supervisor's state is a zod-validated
       `ForgeHostStatus` the renderer polls.
-- [ ] **Import from the mirrors.** Forgejo's migration API (`POST /api/v1/repos/migrate`,
-      `service: gitea`/`github`) run against the bare mirror over `file://` for refs and against
-      the live provider for metadata when reachable; when it is not, A's NDJSON is replayed through
-      the Forgejo API (issues, comments, labels, milestones; PRs become issues with a `pr:` label
+- [ ] **Import from the mirrors.** Refs go in from the *host* side: create the repo with
+      `POST /api/v1/user/repos` and run A's `restoreMirror` (`git push --mirror`) into it over
+      localhost HTTP. Not the migrate API over `file://`: the mirrors root is not mounted into the
+      container, and Forgejo refuses local paths and loopback URLs unless `IMPORT_LOCAL_PATHS` and
+      `ALLOW_LOCALNETWORKS` are enabled, which the generated `app.ini` deliberately leaves off.
+      Metadata comes from the live provider via `POST /api/v1/repos/migrate` when it is reachable;
+      when it is not, A's NDJSON is replayed through the Forgejo API (issues, comments, labels, milestones; PRs become issues with a `pr:` label
       and the diff attached — stated as a loss in Theme G).
 - [ ] **Upgrades.** Bumping `forge-images.json` runs Forgejo's own migration on next start after
       a backup of `db` (SQLite copy) and refuses a downgrade.
@@ -315,9 +318,12 @@ egress registry entries for the image registries, container-runtime detection in
       ([`forge-poller.ts`](../../../packages/features/forge/main/forge-poller.ts)) polls the local
       one at a shorter interval since it costs nothing.
 - [ ] **"Mirror on push".** A per-repo git-engine option that adds the local forge as a second
-      push URL (`git remote set-url --add --push origin http://127.0.0.1:<port>/…`) through the
-      write queue, with the `--end-of-options` guard and the Phase 91 C remote validation, and
-      removes it cleanly. The repo stays a plain git repo a user can read without Studio.
+      push URL through the write queue, with the `--end-of-options` guard and the Phase 91 C
+      remote validation. **Order matters:** once any `remote.origin.pushurl` exists git pushes
+      *only* to pushurls, so enabling first copies the fetch URL as a pushurl (`set-url --add
+      --push origin <original url>`) and only then adds `http://127.0.0.1:<port>/…`; disabling
+      removes both and restores the no-pushurl state, and a test pins the resulting `git config`
+      for each transition. The repo stays a plain git repo a user can read without Studio.
 - [ ] **Deep links.** `midnite://open?app=git[&view=git-mirrors|git-runners]` through
       [`midnite-link.ts`](../../../packages/shared/src/midnite-link.ts); the forge feature's
       "Open in Midnite Git" from a PR or run.
@@ -332,8 +338,11 @@ egress registry entries for the image registries, container-runtime detection in
       local forge, queue nothing to GitHub, resume when back), *tokens burnt* (revoke every forge
       token in the vault — [Phase 118](phase-118-vault-security-hardening.md) B/D — re-mint, verify
       every mirror's refs against the provider when back), *repository tampered* (diff the
-      mirror's refs and the provider's, list divergent refs with the commits on each side, offer
-      `push --mirror --force-with-lease` per ref through the force-push gate — never a bare force).
+      mirror's refs and the provider's, list divergent refs with the commits on each side, offer a
+      per-ref `push --force-with-lease=<ref>:<expect> origin <ref>` through the existing
+      force-push gate — the only lease form this repo builds. Never `--mirror` here: it
+      force-updates every ref and deletes any the mirror lacks, so it is reserved for restores
+      into an *empty* repo, below).
 - [ ] **Restore to a new remote.** `restoreMirror` from A to a freshly created repo (GitHub via
       `gh repo create`, GitLab via API, the local forge via B); refs exact.
 - [ ] **Metadata re-creation, with its losses stated.** Issues and comments re-created through

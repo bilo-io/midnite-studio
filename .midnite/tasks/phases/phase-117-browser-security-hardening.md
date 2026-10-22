@@ -124,8 +124,8 @@ denies everything but cannot yet warn, grant, download or tell a page apart from
 `webviewTag` and `window.open` provably off; the Electron-freshness warning becomes a hard gate for
 the Browser bundle; one `browser-session-policy.ts` applies every session rule in one call.
 
-**Theme B — Permission prompts, remembered per origin.** ◻ Camera, microphone, geolocation,
-notifications and clipboard-read prompt from a main-side dialog, with per-origin grants in a 0600
+**Theme B — Permission prompts, remembered per origin.** ◻ Camera, microphone, geolocation and
+notifications prompt from a main-side bar (clipboard-read never does), with per-origin grants in a 0600
 file, a Settings page to revoke, and deny-all unchanged for everything else.
 
 **Theme C — Site verdicts: TLS, mixed content, lookalikes, known-bad, vulnerable libraries.** ◻ A
@@ -199,9 +199,12 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
       `dialog`: a page must not be able to time a native dialog against a click). The check handler
       answers from the store only, never prompts.
 - [ ] **Scope of promptable permissions.** `camera`, `microphone` (`media` split by `mediaType`),
-      `geolocation`, `notifications`, `clipboard-read`. Everything else (`display-capture`,
-      `pointerLock`, `midiSysex`, `hid`, `serial`, `usb`, `bluetooth`) stays deny-all: Capture
-      owns display media, and there is no product reason for the rest.
+      `geolocation`, `notifications`. **`clipboard-read` is never promptable** — it stays
+      deny-all, which is the one rule Theme F relies on; the grant store rejects a
+      `clipboard-read: allow` entry. Everything else (`display-capture`, `pointerLock`,
+      `midiSysex`, `hid`, `serial`, `usb`) stays deny-all too: Capture owns display media, and
+      there is no product reason for the rest. (Bluetooth device choice is not a permission
+      string at all — it is `select-bluetooth-device`, which the policy answers with no device.)
 - [ ] **Revocation.** A Settings ▸ Browser ▸ Site permissions page listing every grant with a
       per-row revoke and a "Reset all". A grant also expires on a certificate change for the origin
       (Theme C).
@@ -284,9 +287,11 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
       beside it) and record the choice; DuckDuckGo Tracker Radar's CC BY-NC-SA is the reason it is
       not shipped. Refreshing the list is a Phase 115 registry entry, default off (the bundled copy
       refreshes with the app).
-- [ ] **Cookie policy.** Third-party cookies blocked by default on `persist:browser` through
-      `session.cookies` filters and `webRequest.onHeadersReceived` (strip `Set-Cookie` on
-      third-party responses); per-site exception from the badge popover. The `persist:app-<id>`
+- [ ] **Cookie policy.** Third-party cookies blocked by default on `persist:browser`, in both
+      directions: `webRequest.onHeadersReceived` strips `Set-Cookie` on third-party responses, and
+      `webRequest.onBeforeSendHeaders` strips the outgoing `Cookie` header on third-party requests
+      — without the second, a cookie set first-party on `tracker.example` still rides every
+      cross-site beacon. Per-site exception from the badge popover. The `persist:app-<id>`
       partitions are exempt (a web app *is* the third party the user chose).
 - [ ] **Referrer and UA.** `Referrer-Policy: strict-origin-when-cross-origin` enforced by
       rewriting outgoing `Referer` headers; the UA string reduced to the Chromium major
@@ -302,17 +307,21 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 
 ### F — Credential-phishing detection [M · ~1d]
 
-- [ ] **Login-form detection without a preload.** `webContents.executeJavaScript` is a main-side
-      call into the page's world and is allowed by guardrail 1 for *reads*; a fixed, tested snippet
-      returns `{ hasPasswordField, formActionOrigins[] }` after `dom-ready`. It never injects
-      state or listeners.
+- [ ] **Login-form detection without a preload.** A fixed, tested snippet run through
+      `webContents.executeJavaScriptInIsolatedWorld` — **never the main world**, where the page
+      being judged owns `querySelectorAll` and the `type` getter and could answer "no password
+      field" on exactly the pages this theme exists for; the isolated world sees the same DOM
+      through pristine prototypes the page cannot reach. It returns `{ hasPasswordField,
+      formActionOrigins[] }` after `dom-ready`, installs no state or listeners, and is the one
+      read guardrail 1 permits (Decision 1).
 - [ ] **The rules.** Raise the badge when a password field appears on (1) an `http:` page, (2) a
       lookalike (Theme C), (3) a host first seen today with no history, (4) a form whose `action`
       posts cross-origin, or (5) a sign-in page for a web app the Vault knows under a different
       origin (`listWebAppSignIns` domains). (5) is the one that catches "GitHub login on
       `github-login.app`".
-- [ ] **Clipboard-read stays denied.** Theme B never prompts for it on a page with a password
-      field; the test proves the prompt is skipped.
+- [ ] **Clipboard-read stays denied.** Theme B excludes it from the promptable set on every
+      page; the test here proves that a password-field page calling `navigator.clipboard.readText()`
+      is refused with no bar shown.
 - [ ] **No autofill, by design.** The Vault holds no browser passwords and this phase adds none —
       the right place for that is the Vault app with origin-bound entries
       ([Phase 118](phase-118-vault-security-hardening.md) Decisions), not the browser.
@@ -425,8 +434,9 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 
 1. **No preload in browser tabs; main-side reads only.** *Resolved (recommended).* The whole
    security story of the browser rests on an embedded page having no bridge. Theme F's one
-   `executeJavaScript` read is a fixed snippet that returns a value and installs nothing — a
-   narrower primitive than a preload, and tested as such.
+   `executeJavaScriptInIsolatedWorld` read is a fixed snippet that returns a value and installs
+   nothing — a narrower primitive than a preload, run in a world the page cannot tamper with, and
+   tested as such.
 2. **Reputation feeds: open feeds by default-off switch, Google Web Risk as bring-your-own-key.**
    *Resolved (recommended).* Safe Browsing's non-commercial clause rules it out for an app that
    may be sold; Web Risk's lookup leg costs money per call and sends URLs to Google, which Phase
