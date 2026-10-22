@@ -5,6 +5,7 @@ import { MidnitePilot } from "./projects/midnite/marketing/000-pilot/register";
 import { MidniteApps } from "./projects/midnite-apps/register";
 import { MidniteGolivePromo } from "./projects/midnite/marketing/001-golive-promo/register";
 import { YoutubeTutorialsMidniteVideo1 } from "./projects/youtube-tutorials/midnite-video-1-automated-workflow/register";
+import { TemplateExplainersInkMorph } from "./templates/explainers/ink-morph/register";
 import { TemplateMidniteGolivePromo } from "./templates/midnite/golive-promo/register";
 import { TemplateYoutubeTutorialsNeonHud } from "./templates/youtube-tutorials/neon-hud/register";
 
@@ -27,6 +28,7 @@ export const RemotionRoot: React.FC = () => {
       <MidniteApps />
       <TemplateMidniteGolivePromo />
       <TemplateYoutubeTutorialsNeonHud />
+      <TemplateExplainersInkMorph />
     </>
   );
 };
