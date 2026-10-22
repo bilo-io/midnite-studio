@@ -61,6 +61,8 @@ export const browserManifest = defineFeatureManifest({
     CHANNELS.browserSetDiscardMs,
     CHANNELS.browserPermissionResponse,
     CHANNELS.browserSetSpellcheck,
+    CHANNELS.browserSetSiteSafety,
+    CHANNELS.browserProceedSite,
     CHANNELS.webAppsDisable,
     CHANNELS.webAppsSetBounds,
     CHANNELS.webAppsActivate,

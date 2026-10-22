@@ -80,7 +80,7 @@ function fakeWindow() {
   } as unknown as BrowserHostWindow & { contentView: { removeChildView: ReturnType<typeof vi.fn> } };
 }
 
-const EXPECTED_COLLECTIONS = ['tabs', 'lastBounds', 'hiddenSince', 'keepAwakeTabIds', 'visibleTabIds'];
+const EXPECTED_COLLECTIONS = ['tabs', 'lastBounds', 'hiddenSince', 'keepAwakeTabIds', 'visibleTabIds', 'interstitialUrls'];
 
 describe('browser-service teardown (leak test)', () => {
   beforeEach(() => {

@@ -57,6 +57,8 @@ export function createBrowserBridge(ipc: RendererIpc): BrowserBridge {
       permissionRevoke: (req) => call(CHANNELS.browserPermissionRevoke, req),
       permissionsReset: () => call(CHANNELS.browserPermissionsReset),
       setSpellcheck: (req) => send(CHANNELS.browserSetSpellcheck, req),
+      setSiteSafety: (req) => send(CHANNELS.browserSetSiteSafety, req),
+      proceedSite: (req) => send(CHANNELS.browserProceedSite, req),
       onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
     },
     webApps: {

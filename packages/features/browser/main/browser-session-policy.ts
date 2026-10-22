@@ -1,6 +1,6 @@
 import type { BrowserPermissionKind } from '@midnite/studio-shared';
 
-import type { BrowserSession } from './browser-electron';
+import type { BrowserSession, CompletedRequestDetails } from './browser-electron';
 import {
   cancelDownload,
   denyAllDevices,
@@ -28,8 +28,14 @@ import type { PermissionGrantStore } from './permission-grant-store';
  * 1. `configureSessionPermissions` — request AND check handlers (Theme B prompt + remembered grants).
  * 2. `denyAllDevices` — no WebUSB/HID/serial chooser, no `getDisplayMedia`.
  * 3. `will-download` — refused outright; Theme D's opt-in quarantine replaces the handler.
- * 4. `setSpellCheckerEnabled(false)` — Chromium's spellchecker hands typed text to the OS
+ * 4. `setCertificateVerifyProc` (Theme C) — record-only: every verification result is reported,
+ *    Chromium's own verdict always stands (`-3`).
+ * 5. `webRequest.onCompleted` (Theme C) — observe-only; Theme E owns the blocking events.
+ * 6. `setSpellCheckerEnabled(false)` — Chromium's spellchecker hands typed text to the OS
  *    service; off unless the composer asks for it (the Settings switch is Theme B's page).
+ *
+ * Steps 4 and 5 install only when the composer passes their hook (the browser partition does;
+ * the web-app partitions have no address bar to show a verdict in).
  *
  * Structural types only, like `browser-security.ts`: every step runs against a plain fake.
  */
@@ -43,7 +49,8 @@ export type PolicySession = Pick<
   | 'setDisplayMediaRequestHandler'
   | 'on'
   | 'setSpellCheckerEnabled'
->;
+> &
+  Partial<Pick<BrowserSession, 'setCertificateVerifyProc' | 'webRequest'>>;
 
 export type PromptablePermissionRequest = {
   origin: string;
@@ -69,7 +76,19 @@ export type BrowserSessionPolicyOptions = {
   onPermissionRequest?: (request: PromptablePermissionRequest) => void;
   /** Default `false`. `true` only from a user-facing switch — never from a page. */
   spellcheck?: boolean;
+  /**
+   * Phase 117 Theme C: told every certificate verification — `error` is Chromium's error name, or
+   * `undefined` when the chain verified. The verifier never changes the outcome (it always answers
+   * `-3`, "Chromium's own result"); a proceed past a bad certificate is the tab's `certificate-error`
+   * handler's call, per host, per session.
+   */
+  onCertificateVerified?: (hostname: string, error: string | undefined) => void;
+  /** Phase 117 Theme C: every completed request on the partition (mixed content, script libraries). */
+  onRequestCompleted?: (details: CompletedRequestDetails) => void;
 };
+
+/** `setCertificateVerifyProc`'s "use the result Chromium already computed". */
+export const USE_CHROMIUM_VERIFICATION = -3;
 
 /**
  * Maps an incoming permission request to granular promptable permission kinds (Phase 117 Theme B).
@@ -216,6 +235,15 @@ export function applyBrowserSessionPolicy(session: PolicySession, options: Brows
   session.on('will-download', (_event, item: DownloadItemLike, webContents) => {
     cancelDownload(item, (filename) => options.onDownloadRefused(filename, webContents));
   });
+  const onVerified = options.onCertificateVerified;
+  if (onVerified && session.setCertificateVerifyProc) {
+    session.setCertificateVerifyProc((request, callback) => {
+      onVerified(request.hostname, request.errorCode === 0 ? undefined : request.verificationResult);
+      callback(USE_CHROMIUM_VERIFICATION);
+    });
+  }
+  const onCompleted = options.onRequestCompleted;
+  if (onCompleted && session.webRequest) session.webRequest.onCompleted((details) => onCompleted(details));
   session.setSpellCheckerEnabled(options.spellcheck === true);
 }
 

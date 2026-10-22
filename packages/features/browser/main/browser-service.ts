@@ -6,12 +6,22 @@ import {
   type BrowserPermissionKind,
   type BrowserPermissionRecord,
   type CommandId,
+  type SiteKnownBad,
 } from '@midnite/studio-shared';
 
 import type { BrowserHostWindow as BrowserWindow, BrowserInput as Input, BrowserView as WebContentsView } from './browser-electron';
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
 import { checkNavigationUrl } from './browser-security';
 import { applyBrowserSessionPolicy, refuseWebviewAttach, sandboxedPageWebPreferences } from './browser-session-policy';
+import {
+  bypassHostFor,
+  installVerdictEmitter,
+  isHostBypassed,
+  knownBadRefusal,
+  recordCertificateVerification,
+  resetSiteSafetyForTests,
+  siteVerdicts,
+} from './browser-site-safety';
 import { formatOriginForDisplay } from './idn-hygiene';
 import { createPermissionGrantStore, type PermissionGrantStore } from './permission-grant-store';
 
@@ -294,6 +304,10 @@ export function setBrowserSpellcheck(enabled: boolean): void {
 function ensureSessionConfigured(): void {
   if (securityConfigured) return;
   securityConfigured = true;
+  installVerdictEmitter((tabId, verdict) => {
+    const tracked = tabs.get(tabId);
+    if (tracked) send(tracked.win, { kind: 'verdict', tabId, verdict });
+  });
   // Phase 117 Theme B: permission prompts remembered per origin via PermissionGrantStore.
   const store = getBrowserPermissionStore();
   applyBrowserSessionPolicy(browserMainDeps().electron.sessionFromPartition(PARTITION), {
@@ -331,7 +345,73 @@ function ensureSessionConfigured(): void {
       defaultLogger(`[browser] download refused: ${filename}`);
       if (entry) send(entry[1].win, { kind: 'download-blocked', tabId: entry[0], filename });
     },
+    // Phase 117 Theme C: TLS results per host, and every completed request for the verdict.
+    onCertificateVerified: recordCertificateVerification,
+    onRequestCompleted: (details) => siteVerdicts().requestCompleted(details),
   });
+}
+
+/**
+ * The URL each tab's interstitial (Phase 117 Theme C) refused — `proceedBrowserSite` lifts only
+ * that one, so a renderer cannot ask main to bypass a host the user was never warned about.
+ */
+const interstitialUrls = new Map<string, string>();
+
+/** `net::ERR_BLOCKED_BY_CLIENT` — the honest Chromium code for "this app refused it". */
+export const KNOWN_BAD_ERROR_CODE = -20;
+
+/** Chromium's certificate errors are `-200`…`-299` (`net/base/net_error_list.h`). */
+export function isCertificateErrorCode(code: number): boolean {
+  return code <= -200 && code >= -299;
+}
+
+/**
+ * Show the known-bad interstitial instead of loading `url` — before a byte of the page arrives,
+ * so nothing paints. The verdict is committed for the refused URL so the badge reads `danger` too.
+ */
+function refuseKnownBad(win: BrowserWindow, tabId: string, url: string, hit: SiteKnownBad): void {
+  interstitialUrls.set(tabId, url);
+  defaultLogger(`[browser] known-bad (${hit.feed}) refused: ${url}`);
+  send(win, {
+    kind: 'failed',
+    tabId,
+    error: {
+      code: KNOWN_BAD_ERROR_CODE,
+      description: `Listed as ${hit.category} by ${hit.feed === 'urlhaus' ? 'URLhaus' : 'OpenPhish'}`,
+      validatedUrl: url,
+      reason: 'known-bad',
+      knownBad: hit,
+    },
+  });
+  siteVerdicts().commit(tabId, url);
+}
+
+/** Load `url` in a tab unless a reputation feed lists it. */
+function loadUnlessKnownBad(tracked: Tracked, tabId: string, url: string): void {
+  const hit = knownBadRefusal(url);
+  if (hit) {
+    refuseKnownBad(tracked.win, tabId, url, hit);
+    return;
+  }
+  void tracked.view.webContents.loadURL(url);
+}
+
+/**
+ * "Proceed for this session" from an interstitial (Phase 117 Theme C). Honoured only when the
+ * Settings ▸ Browser switch is on and `url` is the one this tab's interstitial refused; the bypass
+ * covers that host until the app quits. Decision 8: never while an agent session drives the tab —
+ * Theme G adds that check here when the session contract lands.
+ */
+export function proceedBrowserSite(tabId: string, url: string): void {
+  const tracked = tabs.get(tabId);
+  if (!tracked || interstitialUrls.get(tabId) !== url) return;
+  if (!bypassHostFor(url)) {
+    defaultLogger(`[browser] proceed refused (switch off): ${url}`);
+    return;
+  }
+  interstitialUrls.delete(tabId);
+  defaultLogger(`[browser] user proceeded past interstitial for this session: ${url}`);
+  void tracked.view.webContents.loadURL(url);
 }
 
 const send = (win: BrowserWindow, event: BrowserEvent): void => {
@@ -386,9 +466,11 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
 
   const wc = view.webContents;
   refuseWebviewAttach(wc);
+  siteVerdicts().bind(tabId, wc.id);
 
   wc.on('did-navigate', (_event, navigatedUrl) => {
     cancelPendingPermissionRequestsForTab(tabId);
+    interstitialUrls.delete(tabId);
     send(win, {
       kind: 'navigated',
       tabId,
@@ -396,6 +478,8 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
       canGoBack: wc.navigationHistory.canGoBack(),
       canGoForward: wc.navigationHistory.canGoForward(),
     });
+    // A main-frame commit: a fresh SiteVerdict (Phase 117 Theme C). In-page navigations keep theirs.
+    siteVerdicts().commit(tabId, navigatedUrl);
   });
   wc.on('did-navigate-in-page', (_event, navigatedUrl) => {
     cancelPendingPermissionRequestsForTab(tabId);
@@ -417,11 +501,20 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
     // -3 is ERR_ABORTED — a navigation superseded by another (typing a new
     // URL before the previous one finished), not a real failure to show.
     if (!isMainFrame || errorCode === -3) return;
+    const certificate = isCertificateErrorCode(errorCode);
+    if (certificate) interstitialUrls.set(tabId, validatedUrl);
     send(win, {
       kind: 'failed',
       tabId,
-      error: { code: errorCode, description: errorDescription, validatedUrl },
+      error: {
+        code: errorCode,
+        description: errorDescription,
+        validatedUrl,
+        ...(certificate ? { reason: 'certificate' as const } : {}),
+      },
     });
+    // The interstitial's badge reads `danger` from the verifier's record for this host.
+    if (certificate) siteVerdicts().commit(tabId, validatedUrl);
   });
   wc.on('render-process-gone', (_event, details) => {
     if (details.reason === 'clean-exit') return;
@@ -481,7 +574,14 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   wc.on('will-navigate', (details) => {
     cancelPendingPermissionRequestsForTab(tabId);
     const check = checkNavigationUrl(details.url);
-    if (check.allowed) return;
+    if (check.allowed) {
+      const hit = knownBadRefusal(details.url);
+      if (hit) {
+        details.preventDefault();
+        refuseKnownBad(win, tabId, details.url, hit);
+      }
+      return;
+    }
     details.preventDefault();
     send(win, {
       kind: 'failed',
@@ -494,7 +594,15 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
     });
   });
   wc.on('will-redirect', (details) => {
-    if (!checkNavigationUrl(details.url).allowed) details.preventDefault();
+    if (!checkNavigationUrl(details.url).allowed) {
+      details.preventDefault();
+      return;
+    }
+    const hit = knownBadRefusal(details.url);
+    if (hit) {
+      details.preventDefault();
+      refuseKnownBad(win, tabId, details.url, hit);
+    }
   });
 
   // `target="_blank"`/`window.open` never spawn an unmanaged BrowserWindow.
@@ -518,13 +626,22 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
     return { action: 'deny' };
   });
 
-  // The default (reject) stands: no "proceed anyway" affordance this phase.
-  wc.on('certificate-error', (event, url) => {
+  // Rejected unless the user proceeded past this host's interstitial this session (Phase 117
+  // Theme C) — the failed load then arrives on `did-fail-load` with Chromium's -2xx code and the
+  // renderer shows the certificate interstitial. `preventDefault` keeps the app-level
+  // `certificate-error` (global, every partition) out of this decision; the callback must then be
+  // answered explicitly, or the request would hang instead of failing.
+  wc.on('certificate-error', (event, certUrl, error, _certificate, callback, isMainFrame) => {
     event.preventDefault();
-    defaultLogger(`[browser] certificate error, refused: ${url}`);
+    if (isHostBypassed(certUrl)) {
+      callback?.(true);
+      return;
+    }
+    callback?.(false);
+    defaultLogger(`[browser] certificate error (${error}), refused${isMainFrame ? '' : ' subresource'}: ${certUrl}`);
   });
 
-  void wc.loadURL(url);
+  loadUnlessKnownBad(tabs.get(tabId)!, tabId, url);
 }
 
 export function closeBrowserTab(tabId: string): void {
@@ -532,6 +649,8 @@ export function closeBrowserTab(tabId: string): void {
   const tracked = tabs.get(tabId);
   if (!tracked) return;
   tabs.delete(tabId);
+  interstitialUrls.delete(tabId);
+  siteVerdicts().forget(tabId);
   lastBounds.delete(tabId);
   hiddenSince.delete(tabId);
   keepAwakeTabIds.delete(tabId);
@@ -564,6 +683,8 @@ export function discardBrowserTab(tabId: string): void {
   tabs.delete(tabId);
   hiddenSince.delete(tabId);
   visibleTabIds.delete(tabId);
+  interstitialUrls.delete(tabId);
+  siteVerdicts().forget(tabId);
   if (!tracked.win.isDestroyed()) tracked.win.contentView.removeChildView(tracked.view);
   if (!tracked.view.webContents.isDestroyed()) {
     tracked.view.webContents.removeAllListeners();
@@ -576,7 +697,7 @@ export function navigateBrowserTab(tabId: string, url: string): void {
   const tracked = tabs.get(tabId);
   if (!tracked) return;
   if (!checkNavigationUrl(url).allowed) return;
-  void tracked.view.webContents.loadURL(url);
+  loadUnlessKnownBad(tracked, tabId, url);
 }
 
 export function backBrowserTab(tabId: string): void {
@@ -725,7 +846,7 @@ export function destroyAllBrowserTabs(): void {
  * after close and compares this list's keys against its own, so a sixth collection added here
  * without a matching `delete` in {@link closeBrowserTab} fails that test.
  */
-const trackedCollections = { tabs, lastBounds, hiddenSince, keepAwakeTabIds, visibleTabIds };
+const trackedCollections = { tabs, lastBounds, hiddenSince, keepAwakeTabIds, visibleTabIds, interstitialUrls };
 
 /** Test seam: the size of every per-tab collection, keyed by name. */
 export function trackedStateSizes(): Record<keyof typeof trackedCollections, number> {
@@ -744,6 +865,8 @@ export function resetBrowserServiceForTests(): void {
   hiddenSince.clear();
   keepAwakeTabIds.clear();
   visibleTabIds.clear();
+  interstitialUrls.clear();
+  resetSiteSafetyForTests();
   discardMs = DEFAULT_BROWSER_DISCARD_MS;
   stopBrowserDiscardSweep();
 }

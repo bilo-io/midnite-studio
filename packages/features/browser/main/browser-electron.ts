@@ -43,9 +43,21 @@ export type BrowserWebContents = {
   on(event: 'found-in-page', listener: (event: unknown, result: { matches: number; activeMatchOrdinal: number }) => void): void;
   on(event: 'before-input-event', listener: (event: BrowserPreventable, input: BrowserInput) => void): void;
   on(event: 'will-navigate' | 'will-redirect', listener: (details: BrowserNavigationDetails) => void): void;
-  on(event: 'certificate-error', listener: (event: BrowserPreventable, url: string) => void): void;
+  on(
+    event: 'certificate-error',
+    listener: (
+      event: BrowserPreventable,
+      url: string,
+      error: string,
+      certificate: unknown,
+      callback: (isTrusted: boolean) => void,
+      isMainFrame: boolean,
+    ) => void,
+  ): void;
   /** Phase 117 Theme A: refused by `refuseWebviewAttach`, whatever `webviewTag` says. */
   on(event: 'will-attach-webview', listener: (event: BrowserPreventable) => void): void;
+  /** Phase 117 Theme C: ties `webRequest` details (`webContentsId`) back to a tab. */
+  readonly id: number;
   removeAllListeners(): void;
   close(): void;
   isDestroyed(): boolean;
@@ -101,10 +113,34 @@ export type BrowserSession = PermissionSession & DeviceSession & {
   on(event: 'will-download', listener: (event: unknown, item: DownloadItemLike, webContents: unknown) => void): void;
   /** Phase 117 Theme A: Chromium's spellchecker sends typed text to the OS service — off by policy. */
   setSpellCheckerEnabled(enabled: boolean): void;
+  /** Phase 117 Theme C: records every verification result (it always answers `-3`, "use Chromium's"). */
+  setCertificateVerifyProc(proc: (request: CertificateVerifyRequest, callback: (verificationResult: number) => void) => void): void;
+  /**
+   * Phase 117 Theme C/E. Electron keeps ONE listener per event per session, so each event has one
+   * owner (swarm board, 2026-10-22): Theme C owns `onCompleted` (observe-only); Theme E owns
+   * `onBeforeRequest`/`onBeforeSendHeaders`/`onHeadersReceived`.
+   */
+  webRequest: { onCompleted(listener: (details: CompletedRequestDetails) => void): void };
   clearStorageData(): Promise<void>;
   clearCache(): Promise<void>;
   /** `session.cookies` — `get({})` is every cookie in the partition. */
   cookies: { get(filter: Record<string, never>): Promise<readonly BrowserCookieDomain[]> };
+};
+
+/** What `setCertificateVerifyProc` hands its proc — the fields Theme C reads. */
+export type CertificateVerifyRequest = {
+  hostname: string;
+  /** `'net::OK'` or Chromium's error name, e.g. `'net::ERR_CERT_DATE_INVALID'`. */
+  verificationResult: string;
+  errorCode: number;
+};
+
+/** `webRequest.onCompleted`'s details — the fields Theme C reads. */
+export type CompletedRequestDetails = {
+  url: string;
+  method: string;
+  resourceType: string;
+  webContentsId?: number;
 };
 
 /** The webPreferences a view is created with — the services own the table, the composer only forwards it. */

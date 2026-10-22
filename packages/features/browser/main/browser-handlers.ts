@@ -23,12 +23,14 @@ import {
   setBrowserDiscardMs,
   setBrowserKeepAwake,
   setBrowserSpellcheck,
+  proceedBrowserSite,
   setBrowserVisible,
   setBrowserZoom,
   stopBrowserTab,
   stopFindInBrowserTab,
   toggleBrowserDevTools,
 } from './browser-service';
+import { setBrowserSiteSafety } from './browser-site-safety';
 import { probeLoopbackPort } from './dev-server-probe';
 
 /**
@@ -239,6 +241,20 @@ export function registerBrowserHandlers(ipc: RuntimeIpc, sender: BrowserSenderIp
     CHANNELS.browserSetSpellcheck,
     schemas.BrowserSetSpellcheckRequest,
     ({ enabled }) => setBrowserSpellcheck(enabled),
+    warnInvalid,
+  );
+
+  ipc.send(
+    CHANNELS.browserSetSiteSafety,
+    schemas.BrowserSetSiteSafetyRequest,
+    (req) => setBrowserSiteSafety(req),
+    warnInvalid,
+  );
+
+  ipc.send(
+    CHANNELS.browserProceedSite,
+    schemas.BrowserProceedSiteRequest,
+    ({ tabId, url }) => proceedBrowserSite(tabId, url),
     warnInvalid,
   );
 }

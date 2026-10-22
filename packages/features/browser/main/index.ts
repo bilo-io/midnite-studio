@@ -82,10 +82,14 @@ export {
   resetBrowserPermissionStoreForTest,
   resolveBrowserPermission,
   setBrowserSpellcheck,
+  proceedBrowserSite,
   startBrowserDiscardSweep,
   stopBrowserDiscardSweep,
 } from './browser-service';
 export { DEV_SERVER_PROBE_TIMEOUT_MS, probeLoopbackPort } from './dev-server-probe';
+// Phase 117 Theme C — site verdicts. `siteVerdicts()` is the per-tab state Themes D/E/F hook into.
+export { setBrowserSiteSafety, siteVerdicts } from './browser-site-safety';
+export type { SiteVerdictTracker } from './site-verdict-state';
 export { listWebAppSignIns, signOutWebApp } from './web-app-sign-ins';
 export {
   activateWebApp,
