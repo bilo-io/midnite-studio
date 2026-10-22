@@ -1,6 +1,6 @@
 import { COMPANION_LEVEL_VAR, type CompanionState } from '@midnite/studio-shared';
 import { project3D, rotate3D, type ProjectedPoint, type Vec3 } from '@midnite/studio-frame';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 
 export type OrbStateVisualProfile = {
   mode: 'idle' | 'listening' | 'thinking' | 'speaking' | 'handoff';
@@ -108,17 +108,29 @@ export const ORB_PARTICLE_COUNT = 280;
  */
 export const ORB_ZEN_GLOW_BLEED = 0.35;
 
+/** The orb's resting radius as a fraction of its layout box's shorter side. */
+export const ORB_RADIUS_FRACTION = 0.3;
+
 /**
- * Where the edge mask starts fading, as a fraction of the canvas's half-extent.
- * Everything drawn fades to nothing by the half-extent itself, so no layer can
- * meet the canvas edge with a hard line, whatever its radius.
+ * Where the edge mask starts fading, as a fraction of the distance from the
+ * centre to the canvas edge. Everything drawn has faded to nothing by the edge
+ * itself, so no layer can meet it with a hard line, whatever its radius.
  */
 export const ORB_EDGE_FADE_START = 0.82;
 
 /**
+ * A CSS mask rather than a per-frame `destination-in` fill: the compositor
+ * applies it once to the whole canvas. `closest-side` makes it an ellipse
+ * inscribed in the canvas, so a wide docked canvas keeps its horizontal room.
+ */
+const ORB_EDGE_MASK = `radial-gradient(closest-side, #000 ${ORB_EDGE_FADE_START * 100}%, transparent 100%)`;
+
+/**
  * The corona's outer radius: grows with speech and breathes with `breath`
  * (-1..1), but never past `maxRadius`, so its gradient always reaches
- * transparent inside the canvas.
+ * transparent inside the canvas. The cap breathes too, so a corona held at
+ * the cap (the docked canvas, where there is no spare room) still visibly
+ * changes size.
  */
 export function orbCoronaRadius(
   baseRadius: number,
@@ -126,7 +138,8 @@ export function orbCoronaRadius(
   breath: number,
   maxRadius: number,
 ): number {
-  return Math.min(maxRadius, baseRadius * (1.85 + speech * 0.35) * (1 + breath * 0.07));
+  const cap = maxRadius * (0.93 + 0.035 * (breath + 1));
+  return Math.min(cap, baseRadius * (1.85 + speech * 0.35) * (1 + breath * 0.07));
 }
 
 type FogCloud3D = {
@@ -222,8 +235,8 @@ export function computeSphericalHarmonicVertex(
  * - **State-Specific Synaptic Arcs & Vocal Resonance Shells**: Distinct animations
  *   and color palettes for `idle`, `listening`, `thinking`, `speaking`, and `handoff`.
  *
- * Nothing it draws is ever cut off by the canvas edge: an edge mask fades every
- * layer out before the half-extent, and in Zen the canvas bleeds
+ * Nothing it draws is ever cut off by the canvas edge: a CSS edge mask fades
+ * every layer out before the edge, and in Zen the canvas bleeds
  * {@link ORB_ZEN_GLOW_BLEED} past its box so the corona has room to bloom.
  */
 export function CompanionOrb({ state, zen = false }: { state: CompanionState; zen?: boolean }) {
@@ -387,7 +400,7 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
       const canvasHalf = Math.min(width, height) / 2;
       // The orb is sized from the layout box; in Zen the canvas is larger than that box.
       const layoutMin = Math.min(width, height) / (zen ? 1 + 2 * ORB_ZEN_GLOW_BLEED : 1);
-      const baseRadius = layoutMin * 0.3 * (1 + speech * 0.14 + Math.sin(anim.pulsePhase) * 0.03);
+      const baseRadius = layoutMin * ORB_RADIUS_FRACTION * (1 + speech * 0.14 + Math.sin(anim.pulsePhase) * 0.03);
       const fov = 320;
       const camDist = 340;
       // Slow breathing (~7s) with a faster overtone, independent of speech.
@@ -536,8 +549,8 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
         innerNodes.push(project3D(rotated, centerX, centerY, fov, camDist));
       }
       // Neighbour offsets on a Fibonacci sphere are Fibonacci numbers; joining them triangulates it.
-      strokeLattice(ctx, innerNodes, [1, 5, 8], anim.accHue, 0.38 + speech * 0.3, 0.75);
-      strokeLattice(ctx, projectedNodes, [1, 13, 21], anim.hue, 0.28 + speech * 0.42, 1, anim.secHue);
+      strokeLattice(ctx, innerNodes, [5, 8, 13], anim.accHue, 0.38 + speech * 0.3, 0.75);
+      strokeLattice(ctx, projectedNodes, [8, 13, 21], anim.hue, 0.28 + speech * 0.42, 1, anim.secHue);
 
       // Glowing 3D geodesic surface nodes
       for (let i = 0; i < projectedNodes.length; i++) {
@@ -712,22 +725,6 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
         }
       }
 
-      // Edge mask: fade every layer out before the canvas edge so nothing ends in a hard line.
-      const edgeMask = ctx.createRadialGradient(
-        centerX,
-        centerY,
-        canvasHalf * ORB_EDGE_FADE_START,
-        centerX,
-        centerY,
-        canvasHalf,
-      );
-      edgeMask.addColorStop(0, 'rgba(0, 0, 0, 1)');
-      edgeMask.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.globalCompositeOperation = 'destination-in';
-      ctx.fillStyle = edgeMask;
-      ctx.fillRect(0, 0, width, height);
-      ctx.globalCompositeOperation = 'source-over';
-
       ctx.restore();
 
       if (!reducedMotion) {
@@ -765,7 +762,7 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
         ref={canvasRef}
         data-testid="companion-orb-canvas"
         className={zen ? 'absolute' : 'h-full w-full'}
-        style={zen ? ZEN_CANVAS_STYLE : undefined}
+        style={zen ? ZEN_CANVAS_STYLE : EDGE_MASK_STYLE}
       />
       <span
         data-testid="companion-orb-mode-badge"
@@ -777,7 +774,10 @@ export function CompanionOrb({ state, zen = false }: { state: CompanionState; ze
   );
 }
 
-const ZEN_CANVAS_STYLE = {
+const EDGE_MASK_STYLE: CSSProperties = { maskImage: ORB_EDGE_MASK, WebkitMaskImage: ORB_EDGE_MASK };
+
+const ZEN_CANVAS_STYLE: CSSProperties = {
+  ...EDGE_MASK_STYLE,
   left: `${-ORB_ZEN_GLOW_BLEED * 100}%`,
   top: `${-ORB_ZEN_GLOW_BLEED * 100}%`,
   width: `${(1 + 2 * ORB_ZEN_GLOW_BLEED) * 100}%`,
@@ -785,9 +785,12 @@ const ZEN_CANVAS_STYLE = {
 };
 
 /**
- * Joins each vertex to the ones `offsets` further along the Fibonacci spiral.
- * Front-facing edges (`z < 0`) draw in `frontHue` at up to `frontAlpha`; the
- * back of the shell stays faint, in `backHue` when given.
+ * Joins each vertex to the ones `offsets` further along the Fibonacci spiral —
+ * on a Fibonacci sphere a vertex's nearest neighbours sit a Fibonacci number of
+ * indices away, so this triangulates the shell. Offsets never wrap past the end,
+ * which would join the two poles straight through the orb. Edges are batched
+ * into one path for the front of the shell (`z < 0`, in `frontHue` at
+ * `frontAlpha`) and one faint path for the back (in `backHue` when given).
  */
 function strokeLattice(
   ctx: CanvasRenderingContext2D,
@@ -798,20 +801,22 @@ function strokeLattice(
   widthScale: number,
   backHue = frontHue,
 ): void {
-  for (let i = 0; i < nodes.length; i++) {
-    const pA = nodes[i];
-    if (!pA || !pA.visible) continue;
-    const isFront = pA.z < 0;
-    const alpha = isFront ? Math.min(0.72, frontAlpha * pA.scale) : Math.min(0.2, 0.09 * pA.scale);
-    ctx.strokeStyle = `hsla(${isFront ? frontHue : backHue}, 94%, 68%, ${alpha})`;
-    ctx.lineWidth = (isFront ? 0.95 : 0.55) * pA.scale * widthScale;
-    for (const offset of offsets) {
-      const pB = nodes[(i + offset) % nodes.length];
-      if (!pB || !pB.visible) continue;
-      ctx.beginPath();
-      ctx.moveTo(pA.sx, pA.sy);
-      ctx.lineTo(pB.sx, pB.sy);
-      ctx.stroke();
+  for (const front of [false, true]) {
+    ctx.beginPath();
+    for (let i = 0; i < nodes.length; i++) {
+      const pA = nodes[i];
+      if (!pA || !pA.visible || pA.z < 0 !== front) continue;
+      for (const offset of offsets) {
+        const pB = nodes[i + offset];
+        if (!pB || !pB.visible) continue;
+        ctx.moveTo(pA.sx, pA.sy);
+        ctx.lineTo(pB.sx, pB.sy);
+      }
     }
+    ctx.strokeStyle = front
+      ? `hsla(${frontHue}, 94%, 68%, ${Math.min(0.72, frontAlpha)})`
+      : `hsla(${backHue}, 94%, 68%, 0.1)`;
+    ctx.lineWidth = (front ? 0.95 : 0.55) * widthScale;
+    ctx.stroke();
   }
 }

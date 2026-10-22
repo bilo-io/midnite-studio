@@ -102,18 +102,10 @@ export function CompanionZenStage({ state }: { state: CompanionState }) {
         </div>
         <div data-testid="companion-zen-orb" className="relative shrink-0">
           {/*
-            A radial gradient, not a box-shadow: an outer shadow is never painted
-            inside its own box, which left a dark disc with a hard edge behind the orb.
+            No halo element here: the orb's canvas bleeds past this box and draws its
+            own breathing corona. The box-shadow halo that used to sit here was never
+            painted inside its own box, leaving a dark disc with a hard edge.
           */}
-          <div
-            aria-hidden
-            data-testid="companion-zen-orb-halo"
-            className="pointer-events-none absolute -inset-[25%] rounded-full motion-safe:animate-pulse"
-            style={{
-              background:
-                'radial-gradient(circle, hsl(var(--primary) / 0.24) 0%, hsl(var(--primary) / 0.1) 40%, transparent 70%)',
-            }}
-          />
           <CompanionOrb state={state} zen />
         </div>
         <div className="relative z-10 flex min-w-0 flex-1 justify-start">

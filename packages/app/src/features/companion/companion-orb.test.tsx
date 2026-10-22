@@ -10,6 +10,7 @@ import {
   ORB_FOG_CLOUD_COUNT,
   ORB_INNER_SHELL_NODES,
   ORB_PARTICLE_COUNT,
+  ORB_RADIUS_FRACTION,
   ORB_STATE_PROFILES,
   ORB_ZEN_GLOW_BLEED,
   orbCoronaRadius,
@@ -70,8 +71,18 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
         expect(orbCoronaRadius(100, speech, breath, half)).toBeLessThanOrEqual(half);
       }
     }
-    // Breathing changes the radius when there is room for it.
-    expect(orbCoronaRadius(50, 0, 1, 1000)).toBeGreaterThan(orbCoronaRadius(50, 0, -1, 1000));
+    // Breathing still changes the radius when the corona is held at the cap (docked).
+    expect(orbCoronaRadius(100, 0, 1, half)).toBeGreaterThan(orbCoronaRadius(100, 0, -1, half));
+  });
+
+  it('gives the zen corona room to fade out unclamped at full speech and pulse', () => {
+    const layoutMin = 520;
+    const canvasHalf = (layoutMin * (1 + 2 * ORB_ZEN_GLOW_BLEED)) / 2;
+    // The largest the orb gets: full speech (+14%) at the top of its pulse (+3%).
+    const peakBase = layoutMin * ORB_RADIUS_FRACTION * (1 + 0.14 + 0.03);
+    const unclamped = peakBase * (1.85 + 0.35) * 1.07;
+    expect(unclamped).toBeLessThanOrEqual(canvasHalf * (0.93 + 0.07));
+    expect(orbCoronaRadius(peakBase, 1, 1, canvasHalf)).toBeCloseTo(unclamped);
   });
 
   it('lets the zen canvas bleed past its box so the glow is not cut off, while the docked canvas fills its box', () => {
@@ -83,6 +94,13 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
 
     rerender(<CompanionOrb state="idle" />);
     expect(screen.getByTestId('companion-orb-canvas').style.width).toBe('');
+  });
+
+  it('masks both canvases so every layer fades out before the canvas edge', () => {
+    const { rerender } = render(<CompanionOrb state="idle" zen />);
+    expect(screen.getByTestId('companion-orb-canvas').getAttribute('style')).toMatch(/mask-image:\s*radial-gradient\(closest-side/);
+    rerender(<CompanionOrb state="idle" />);
+    expect(screen.getByTestId('companion-orb-canvas').getAttribute('style')).toMatch(/mask-image:\s*radial-gradient\(closest-side/);
   });
 
   it('reads and clamps --companion-level from document.documentElement', () => {
@@ -159,7 +177,6 @@ describe('CompanionOrb 3D Jarvis spherical visualizer', () => {
           strokeCalls += 1;
         }),
         createRadialGradient: vi.fn(() => mockGrad),
-        fillRect: vi.fn(),
         globalCompositeOperation: 'source-over',
         fillStyle: '',
         strokeStyle: '',
