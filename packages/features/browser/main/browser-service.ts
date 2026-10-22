@@ -12,6 +12,21 @@ import type { BrowserHostWindow as BrowserWindow, BrowserInput as Input, Browser
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
 import { checkNavigationUrl } from './browser-security';
 import { applyBrowserSessionPolicy, refuseWebviewAttach, sandboxedPageWebPreferences } from './browser-session-policy';
+import { createDownloadHandler } from './browser-downloads';
+import {
+  createNodeQuarantineDeps,
+  defaultQuarantineFolder,
+  ensureQuarantineFolder,
+  getDownloadsSettings,
+  getPrivacySettings,
+  isTrackerExcepted,
+  pathExists,
+  setDownloadsSettings,
+  setPrivacySettings,
+  setTrackerException,
+} from './browser-protection';
+import { bundledFilterList, createUserAgentController, type PrivacySettings } from './browser-request-filter';
+import { EASYPRIVACY_RULES } from './data/easyprivacy.generated';
 import { formatOriginForDisplay } from './idn-hygiene';
 import { createPermissionGrantStore, type PermissionGrantStore } from './permission-grant-store';
 
@@ -225,6 +240,9 @@ export function resetBrowserPermissionStoreForTest(): void {
   permissionStoreInstance = null;
   securityConfigured = false;
   pendingPermissionRequests.clear();
+  pendingDownloadRequests.clear();
+  trackerBlocks.clear();
+  applyUserAgent = null;
 }
 
 type PendingPermissionPrompt = {
@@ -236,7 +254,79 @@ type PendingPermissionPrompt = {
 
 const pendingPermissionRequests = new Map<string, PendingPermissionPrompt>();
 
+/** Phase 117 Theme D — downloads waiting on the user's confirm. */
+const pendingDownloadRequests = new Map<string, { tabId: string; resolve: (allow: boolean) => void }>();
+
+export function resolveBrowserDownload(requestId: string, decision: 'allow' | 'deny'): void {
+  const pending = pendingDownloadRequests.get(requestId);
+  if (!pending) return;
+  pendingDownloadRequests.delete(requestId);
+  pending.resolve(decision === 'allow');
+}
+
+/** Phase 117 Theme E — blocked third-party requests per tab, for the address-bar counter. */
+const trackerBlocks = new Map<string, { count: number; hosts: Set<string>; timer?: ReturnType<typeof setTimeout> }>();
+
+function tabForContents(webContents: unknown): [string, { win: BrowserWindow; view: WebContentsView }] | undefined {
+  return [...tabs.entries()].find(([, t]) => t.view.webContents === webContents) as
+    | [string, { win: BrowserWindow; view: WebContentsView }]
+    | undefined;
+}
+
+function flushTrackerBlocks(tabId: string): void {
+  const entry = trackerBlocks.get(tabId);
+  const tab = tabs.get(tabId);
+  if (!entry || !tab) return;
+  entry.timer = undefined;
+  send(tab.win, { kind: 'trackers-blocked', tabId, count: entry.count, hosts: [...entry.hosts].slice(0, 100) });
+}
+
+function recordTrackerBlock(webContents: unknown, host: string): void {
+  const found = tabForContents(webContents);
+  if (!found) return;
+  const tabId = found[0];
+  const entry = trackerBlocks.get(tabId) ?? { count: 0, hosts: new Set<string>() };
+  trackerBlocks.set(tabId, entry);
+  entry.count += 1;
+  entry.hosts.add(host);
+  // Trailing throttle: a tracker-heavy page blocks hundreds of requests in a burst.
+  if (entry.timer === undefined) {
+    entry.timer = setTimeout(() => flushTrackerBlocks(tabId), 150);
+    (entry.timer as { unref?: () => void }).unref?.();
+  }
+}
+
+function resetTrackerBlocks(tabId: string): void {
+  const entry = trackerBlocks.get(tabId);
+  if (!entry) return;
+  if (entry.timer !== undefined) clearTimeout(entry.timer);
+  trackerBlocks.delete(tabId);
+  const tab = tabs.get(tabId);
+  if (tab) send(tab.win, { kind: 'trackers-blocked', tabId, count: 0, hosts: [] });
+}
+
+let applyUserAgent: ((reduce: boolean) => void) | null = null;
+
+export function setBrowserPrivacy(next: PrivacySettings): void {
+  setPrivacySettings(next);
+  applyUserAgent?.(next.reduceUserAgent);
+}
+
+export function setBrowserDownloads(next: { enabled: boolean; folder?: string }): void {
+  setDownloadsSettings({ enabled: next.enabled, folder: next.folder ?? '' });
+}
+
+export function setBrowserTrackerException(host: string, allow: boolean): void {
+  setTrackerException(host, allow, browserMainDeps().userDataPath);
+}
+
 export function cancelPendingPermissionRequestsForTab(tabId: string): void {
+  for (const [requestId, pending] of pendingDownloadRequests) {
+    if (pending.tabId === tabId) {
+      pendingDownloadRequests.delete(requestId);
+      pending.resolve(false);
+    }
+  }
   for (const [requestId, pending] of pendingPermissionRequests) {
     if (pending.tabId === tabId) {
       pending.callback(false);
@@ -296,8 +386,58 @@ function ensureSessionConfigured(): void {
   securityConfigured = true;
   // Phase 117 Theme B: permission prompts remembered per origin via PermissionGrantStore.
   const store = getBrowserPermissionStore();
-  applyBrowserSessionPolicy(browserMainDeps().electron.sessionFromPartition(PARTITION), {
+  const session = browserMainDeps().electron.sessionFromPartition(PARTITION);
+  const deps = browserMainDeps();
+  applyBrowserSessionPolicy(session, {
     permissionStore: store,
+    // Phase 117 Theme E: tracker/cookie/referrer rules on this partition only (web apps are exempt).
+    requestFilter: {
+      getSettings: getPrivacySettings,
+      isExcepted: (domain) => isTrackerExcepted(domain, deps.userDataPath),
+      onBlocked: (webContents, host) => recordTrackerBlock(webContents, host),
+      loadList: () => bundledFilterList(EASYPRIVACY_RULES),
+    },
+    // Phase 117 Theme D: opt-in, quarantined downloads; the handler cancels itself while off.
+    downloadHandler: createDownloadHandler({
+      getSettings: getDownloadsSettings,
+      defaultFolder: defaultQuarantineFolder(),
+      quarantine: createNodeQuarantineDeps(deps.userDataPath),
+      ensureFolder: ensureQuarantineFolder,
+      exists: pathExists,
+      pageUrlOf: (wc) => (wc as { getURL?(): string } | undefined)?.getURL?.() ?? '',
+      confirm: ({ webContents, filename, size, origin, fileClass }) =>
+        new Promise<boolean>((resolve) => {
+          const entry = tabForContents(webContents);
+          if (!entry || entry[1].win.isDestroyed()) {
+            resolve(false);
+            return;
+          }
+          const requestId = crypto.randomUUID();
+          pendingDownloadRequests.set(requestId, { tabId: entry[0], resolve });
+          send(entry[1].win, { kind: 'download-request', tabId: entry[0], requestId, filename, size, origin, fileClass });
+        }),
+      onRefused: (webContents, filename, reason) => {
+        defaultLogger(`[browser] download refused: ${filename}${reason ? ` (${reason})` : ''}`);
+        const entry = tabForContents(webContents);
+        if (entry) send(entry[1].win, { kind: 'download-blocked', tabId: entry[0], filename, ...(reason ? { reason } : {}) });
+      },
+      onDone: (webContents, record) => {
+        const entry = tabForContents(webContents);
+        if (entry) {
+          send(entry[1].win, {
+            kind: 'download-done',
+            tabId: entry[0],
+            filename: record.filename,
+            path: record.path,
+            sha256: record.sha256,
+            quarantined: record.quarantined,
+            ...(record.gatekeeper ? { gatekeeper: record.gatekeeper } : {}),
+            ...(record.scan ? { scan: record.scan } : {}),
+          });
+        }
+      },
+      log: (m) => defaultLogger(m),
+    }),
     onPermissionRequest: ({ origin, permission, permissions, webContents, callback }) => {
       const entry = [...tabs.entries()].find(([, t]) => t.view.webContents === webContents);
       if (!entry || entry[1].win.isDestroyed()) {
@@ -332,6 +472,9 @@ function ensureSessionConfigured(): void {
       if (entry) send(entry[1].win, { kind: 'download-blocked', tabId: entry[0], filename });
     },
   });
+  // Phase 117 Theme E: a reduced User-Agent (new pages; an open page keeps the one it started with).
+  applyUserAgent = createUserAgentController(session);
+  applyUserAgent(getPrivacySettings().reduceUserAgent);
 }
 
 const send = (win: BrowserWindow, event: BrowserEvent): void => {
@@ -389,6 +532,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
 
   wc.on('did-navigate', (_event, navigatedUrl) => {
     cancelPendingPermissionRequestsForTab(tabId);
+    resetTrackerBlocks(tabId);
     send(win, {
       kind: 'navigated',
       tabId,
@@ -529,6 +673,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
 
 export function closeBrowserTab(tabId: string): void {
   cancelPendingPermissionRequestsForTab(tabId);
+  trackerBlocks.delete(tabId);
   const tracked = tabs.get(tabId);
   if (!tracked) return;
   tabs.delete(tabId);
@@ -559,6 +704,7 @@ export function closeBrowserTab(tabId: string): void {
  */
 export function discardBrowserTab(tabId: string): void {
   cancelPendingPermissionRequestsForTab(tabId);
+  trackerBlocks.delete(tabId);
   const tracked = tabs.get(tabId);
   if (!tracked) return;
   tabs.delete(tabId);

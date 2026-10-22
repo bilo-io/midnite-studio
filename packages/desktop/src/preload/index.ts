@@ -462,6 +462,10 @@ const bridge: Pick<
     permissionRevoke: (req) => call(CHANNELS.browserPermissionRevoke, req),
     permissionsReset: () => call(CHANNELS.browserPermissionsReset),
     setSpellcheck: (req) => ipcRenderer.send(CHANNELS.browserSetSpellcheck, req),
+    setDownloads: (req) => ipcRenderer.send(CHANNELS.browserSetDownloads, req),
+    respondDownload: (req) => ipcRenderer.send(CHANNELS.browserDownloadResponse, req),
+    setPrivacy: (req) => ipcRenderer.send(CHANNELS.browserSetPrivacy, req),
+    setTrackerException: (req) => ipcRenderer.send(CHANNELS.browserTrackerSiteException, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },
   webApps: {

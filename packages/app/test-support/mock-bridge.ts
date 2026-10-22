@@ -3055,6 +3055,10 @@ export function buildMockBridge(data: MockFixtures) {
       permissionRevoke: async () => undefined,
       permissionsReset: async () => undefined,
       setSpellcheck: noop,
+      setDownloads: noop,
+      respondDownload: noop,
+      setPrivacy: noop,
+      setTrackerException: noop,
       onEvent: (handler: (e: unknown) => void) => {
         browserEventHandlers.push(handler);
         return () => {
