@@ -79,3 +79,53 @@ describe('verdict event arm', () => {
     expect(BrowserEventSchema.parse(event)).toEqual(event);
   });
 });
+
+describe('credentialRisk (Phase 117 Theme F)', () => {
+  it('starts null and validates on the wire', () => {
+    expect(emptySiteVerdict('https://example.com').credentialRisk).toBeNull();
+    const risky = https({ credentialRisk: { level: 'danger', reasons: [{ rule: 'sign-in-elsewhere', detail: 'github.com' }] } });
+    expect(SiteVerdictSchema.parse(risky)).toEqual(risky);
+    expect(() => SiteVerdictSchema.parse(https({ credentialRisk: { level: 'caution', reasons: [] } }))).toThrow();
+  });
+
+  it('raises the badge to its own level', () => {
+    expect(siteVerdictLevel(https({ credentialRisk: { level: 'caution', reasons: [{ rule: 'first-seen' }] } }))).toBe('caution');
+    expect(siteVerdictLevel(https({ credentialRisk: { level: 'danger', reasons: [{ rule: 'lookalike', detail: 'github.com' }] } }))).toBe('danger');
+  });
+
+  it('adds one popover line per rule, worst first', () => {
+    const lines = siteVerdictLines(
+      https({
+        credentialRisk: {
+          level: 'danger',
+          reasons: [
+            { rule: 'cross-origin-action', detail: 'https://drop.example' },
+            { rule: 'sign-in-elsewhere', detail: 'github.com' },
+          ],
+        },
+      }),
+    );
+    expect(lines[0]).toEqual({ level: 'danger', text: 'Looks like a github.com sign-in page, but is not on github.com' });
+    expect(lines).toContainEqual({ level: 'caution', text: 'Sends the password to another site (https://drop.example)' });
+  });
+
+  it('a brand mention alone is caution, never danger', () => {
+    const v = https({ credentialRisk: { level: 'caution', reasons: [{ rule: 'brand-mention', detail: 'gitlab.com' }] } });
+    expect(siteVerdictLevel(v)).toBe('caution');
+    expect(siteVerdictLines(v)[0]).toEqual({ level: 'caution', text: 'Mentions gitlab.com on a sign-in page that is not gitlab.com' });
+  });
+});
+
+describe('credentialRisk lines do not repeat the insecure-form line', () => {
+  it('drops the generic insecure-form row when the http-password rule already says it', () => {
+    const v: SiteVerdict = {
+      ...emptySiteVerdict('http://members.example/'),
+      insecureForm: true,
+      credentialRisk: { level: 'caution', reasons: [{ rule: 'http-password' }] },
+    };
+    const texts = siteVerdictLines(v).map((l) => l.text);
+    expect(texts).toContain('Asks for a password over an unencrypted connection');
+    expect(texts).not.toContain('This page sends data over an unencrypted connection');
+    expect(siteVerdictLines({ ...v, credentialRisk: null }).map((l) => l.text)).toContain('This page sends data over an unencrypted connection');
+  });
+});

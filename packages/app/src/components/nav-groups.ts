@@ -4,6 +4,7 @@ import { monitorManifest } from '@midnite/studio-feature-monitor/renderer';
 import { optimizerManifest } from '@midnite/studio-feature-optimizer/renderer';
 import { vaultManifest } from '@midnite/studio-feature-vault/renderer';
 import { captureManifest } from '@midnite/studio-feature-capture/renderer';
+import { vanguardManifest } from '@midnite/studio-feature-vanguard/renderer';
 
 import type { ViewId } from '../store/ui-store';
 import { VIEW_ICON } from './nav-icons';
@@ -77,6 +78,8 @@ export const WORKSPACE_NAV_ITEMS: RailNavItem[] = [
   { ...vaultManifest.views[0].rail, view: 'vault', icon: VIEW_ICON.vault },
   // Phase 113 Theme K: and for the Capture view.
   { ...captureManifest.views[0].rail, view: 'capture', icon: VIEW_ICON.capture },
+  // Phase 120 Theme B: and for the Vanguard view (chord-free).
+  { ...vanguardManifest.views[0].rail, view: 'vanguard', icon: VIEW_ICON.vanguard },
   {
     view: 'tests',
     label: 'Tests',

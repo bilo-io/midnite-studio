@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-22 — Phase 117 Theme F — Credential-phishing detection
+
+[PR #980](https://github.com/bilo-io/midnite-studio/pull/980). A fixed snippet run in an isolated world (never the page's main world; DOM read through prototypes so named-property clobbering cannot lie) reports password fields and where their forms post; six rules — password on `http:`, on a lookalike, on a host first seen today, posting to another site, on a site named for a known sign-in brand it is not (`github-login.app`, danger), or with that brand only in a subdomain or title (caution) — land on the tab's `SiteVerdict.credentialRisk` and raise C's one badge to "Login risk" / "Possible phishing". First-seen hosts persist only as keyed HMAC digests and day numbers (0600, key `safeStorage`-encrypted), cleared with browsing data; the Vault's sign-in domains feed both the phishing and lookalike rules. Items: login-form read, the rules, clipboard-read stays denied, no autofill, acceptance fixtures (http → caution, `g1thub.com` → danger, `github.com` → nothing).
+
 ## 2026-10-22 — Phase 117 Theme G — The page-to-agent boundary
 
 [PR #979](https://github.com/bilo-io/midnite-studio/pull/979). Page words reach an agent only inside the `UntrustedPageContent` envelope (capped, redacted, provenance-tagged; a zod walk holds the agent's wire to it). A main-side `BrowserAgentSession` with six isolated-world tools and a per-session origin allowlist asks the user before leaving the list, typing a password, submitting or downloading; while it is live the request filter denies off-list egress and the `browser-agent` vault principal can never be granted. Injection heuristics are logged; a hash-only, focus-gated ClickFix clipboard watch raises a one-click-clear bar; page `midnite-studio://run`/`clone` links carry their origin, are rate-limited per origin, confirmed with a warning and never auto-sent (the launcher rate-limits `run=` too). Theme G ✅.
@@ -15301,3 +15305,11 @@ PR #975. One `SiteVerdict` per browser tab, built in main and pushed as a `verdi
 
 `SecurityFindingSchema`, typed evidence schemas, remediation schemas in `@midnite/studio-shared`, append-only monthly NDJSON ledger (`findings-<yyyy-mm>.ndjson`) under `<userData>/security` with directory 0700 / file 0600 permissions, `redactRecord` on write, deduplication by fingerprint for open findings, serialized through `withLock`. Feature package `@midnite/studio-feature-vanguard` with findings handlers (`securityFindingsList`, `securityFindingsSetStatus`, `securityFindingsAct`) and `securityFindingsChanged` event wired into desktop main.
 
+
+### Phase 120 Theme B — The feature and the app (2026-10-23)
+
+`packages/features/vanguard` (manifest, view with Findings/Sensors/Network tabs, Settings page, main-side sensor host, `vanguard.json` store, sensor IPC), composed by Studio and by the new `apps/vanguard` (no vault; sessions as a guest), `'vanguard'` placement and link app id, launcher tile pointing at the view's tabs (`comingSoon` unchanged), deep-link `tab`, mock-bridge namespace for e2e. Fixed the `typecheck-node` project count (38). Screenshots in `docs/screenshots/p120-b/`.
+
+### Phase 120 Theme C — Integrity of the repo and the bundle (2026-10-23)
+
+`INTEGRITY_WATCHED` in `shared` (24 entries, a reason each); the integrity sensor in `features/vanguard/main/integrity-sensor.ts` keeps a SHA-256 baseline per open repo and for the home dir under `<userData>/security/integrity/`, re-scans on a debounced `fs.watch` and every 5 minutes, and reports a change made outside a commit as an `integrity` finding (`high` for hooks, MCP and agent config, `medium` otherwise) attributed best-effort to the live agent ptys; it resolves when the change is committed or reverted. The bundle self-check runs Phase 91 H's `codesign`/`spctl` argv at launch. Sensors take composer deps through `builtinSensors(deps)`. Backend only, no screenshots.

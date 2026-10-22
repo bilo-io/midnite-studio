@@ -73,7 +73,7 @@ Scope guardrails:
 *The suite gets a watcher that sees the effects of a compromise — a new persistence item, an
 unexpected outbound connection, a file changed under a running agent — and can stop it, with one
 ledger every security finding in the suite lands in.* Born from a catalog tile with nothing behind
-it and a threat landscape in which the coding agent is the new ClickFix victim. (11% · 5/46) —
+it and a threat landscape in which the coding agent is the new ClickFix victim. (35% · 16/46) —
 **Planned 2026-10-22.**
 
 **Theme A — One finding, one ledger.** ✅ `SecurityFindingSchema` in `shared` (source, severity,
@@ -81,10 +81,15 @@ category, evidence, remediation actions, status) and a runtime findings ledger �
 at 0600, deduplicated by fingerprint — that Vanguard, the Guard loop (Phase 122) and the agent
 policy layer (Phase 121) all write into. Channels and events for the renderer.
 
-**Theme B — The feature and the app.** ◻ `packages/features/vanguard` (renderer + main halves, a
-manifest with the `vanguard` view and a shield status-bar item), composed by Studio and by a new
-`apps/vanguard` copied from Monitor's template. The catalog tile points at real views and drops
-`comingSoon` only when C, D and H have landed.
+**Theme B — The feature and the app.** ✅ `packages/features/vanguard` (renderer + main halves) with a
+sensor host that owns every sensor's timer and state: a sensor is a plain-string id plus a definition
+added to `BUILTIN_SENSORS` in `main/sensors.ts`, so C-F add no shared constant. The view has Findings,
+Sensors and Network tabs; Settings ▸ Vanguard persists per-sensor switches, cadence and quarantine
+retention main-side in `vanguard.json`. Studio composes it (autostart after the view is first opened);
+`apps/vanguard` (port 5192, composes vanguard, report and a sessions guest, no vault) autostarts always.
+`'vanguard'` is a new placement/link app id; the launcher tile's three features point at the view's
+tabs and `comingSoon` stays true. Only the `mute` action is enabled in the UI until Theme H. Also fixed
+`typecheck-node.test.mjs`'s project count (37 to 38), broken since Theme A.
 
 **Theme C — Integrity of the repo and the bundle.** ✅ The watched set is `INTEGRITY_WATCHED` in
 `shared/src/vanguard-integrity.ts`, 24 entries each with a reason for the Sensors tab. The integrity sensor
@@ -104,7 +109,8 @@ with the same argv, pinned by tests. Those checks live in `install.sh` and the o
 cannot be imported. On an installed build a broken seal is `critical`. An ad-hoc signature is `info`
 until `RELEASES_ARE_NOTARISED` flips, because every release ships ad hoc today and a `critical` on each
 launch would be noise. Sensors take composer deps through `builtinSensors(deps)`, and Studio passes its
-repos, live ptys, the ledger's resolve and `process.execPath`.
+repos, live ptys, the ledger's resolve and `process.execPath`. The Vanguard app passes only the resolve, so
+there it watches the home-dir files.
 
 **Theme D — Persistence and process sensors.** ◻ LaunchAgents, LaunchDaemons, login items, cron,
 shell rc files and `~/.ssh` watched for change; the process table diffed for new executables,
@@ -162,26 +168,26 @@ each written back to the ledger.
 
 ### B — The feature and the app [M · ~1d]
 
-- [ ] **`packages/features/vanguard`.** `manifest.ts` (`defineFeatureManifest`, `owner: 'vanguard'`,
+- [x] **`packages/features/vanguard`.** `manifest.ts` (`defineFeatureManifest`, `owner: 'vanguard'`,
       one global `vanguard` view with a rail entry and a `shield` status-bar slot), `renderer/`
       (`vanguard-view.tsx`: findings list grouped by severity with filters by source/category/status,
       a finding detail pane with evidence and action buttons, a Sensors tab showing each sensor's last
       run and state), `main/` (the sensor host that starts/stops sensors and owns their timers; no
       `electron` — the composer injects `userData`, the window thunk and a `runProcess`). Copy the
       template [`monitor/manifest.ts`](../../../packages/features/monitor/manifest.ts) describes. [M]
-- [ ] **Studio composes it.** `vanguard` added to `STUDIO_FEATURES` in
+- [x] **Studio composes it.** `vanguard` added to `STUDIO_FEATURES` in
       [`composition.ts`](../../../apps/studio/src/composition.ts) (the composition test demands it),
       wired in `packages/app/src/compose/` the way `monitor` is, `vanguard` in the `ViewId` vocabulary
       and in [`nav-chords.ts`](../../../packages/app/src/components/nav-chords.ts) (chord-free). [S]
-- [ ] **`apps/vanguard`.** Copied from `apps/monitor` — `main/{bridge,context,identity,index,preload}.ts`,
+- [x] **`apps/vanguard`.** Copied from `apps/monitor` — `main/{bridge,context,identity,index,preload}.ts`,
       `src/{vanguard-app.tsx,vanguard-manifest.ts,compose/,views/}`, `moon.yml`, the esbuild/Vite
       configs — composing `vanguard`, `report` and `sessions` (so a finding's "pause the session" has
       a broker to talk to, as a guest: [`guest-sessions.ts`](../../../packages/features/sessions/main/guest-sessions.ts)).
       `scripts/app-vault-grants.test.mjs` holds that it composes no vault. [M]
-- [ ] **The catalog tile.** `catalog.ts`'s three features point at `view('vanguard')` with a `tab`
+- [x] **The catalog tile.** `catalog.ts`'s three features point at `view('vanguard')` with a `tab`
       each (`findings`, `sensors`, `network`); `comingSoon` stays `true` until C, D and H are checked
       off — the item that flips it is in H. [S]
-- [ ] **Settings ▸ Vanguard.** One page: each sensor on/off (all on by default once the app is
+- [x] **Settings ▸ Vanguard.** One page: each sensor on/off (all on by default once the app is
       installed, all off in Studio until the user opens the view once — a sensor the user never
       asked for must not start polling `lsof`), scan cadence, quarantine retention, "Open
       quarantine folder". Persisted main-side the way [`mcp-store.ts`](../../../packages/desktop/src/main/mcp-store.ts)

@@ -4628,6 +4628,92 @@ export function buildMockBridge(data: MockFixtures) {
       copy: async () => ({ ok: true }),
       onOpen: () => () => {},
     },
+    // Vanguard (Phase 120): a small fixed ledger and two sensors so the view, its Sensors tab and
+    // Settings > Vanguard render with content. Nothing is ever scanned, run or quarantined for real.
+    vanguard: {
+      findings: {
+        list: async () => ({
+          findings: [
+            {
+              id: 'f1',
+              fingerprint: 'fp-1',
+              source: 'vanguard' as const,
+              severity: 'high' as const,
+              category: 'persistence' as const,
+              title: 'Unrecognised launch agent',
+              detail: 'A user launch agent runs a binary from a temporary directory.',
+              evidence: [{ kind: 'path' as const, path: '~/Library/LaunchAgents/com.example.helper.plist' }],
+              remediation: [{ id: 'mute' as const }],
+              firstSeen: 1_700_000_000_000,
+              lastSeen: 1_700_000_600_000,
+              count: 2,
+              status: 'open' as const,
+            },
+            {
+              id: 'f2',
+              fingerprint: 'fp-2',
+              source: 'vanguard' as const,
+              severity: 'low' as const,
+              category: 'config' as const,
+              title: 'World-readable credentials file',
+              detail: 'A file that looks like a credentials store is readable by other users.',
+              evidence: [{ kind: 'path' as const, path: '~/.aws/credentials', mode: 0o644 }],
+              remediation: [{ id: 'mute' as const }],
+              firstSeen: 1_700_000_000_000,
+              lastSeen: 1_700_000_000_000,
+              count: 1,
+              status: 'open' as const,
+            },
+          ],
+        }),
+        setStatus: async () => ({ ok: true as const }),
+        act: async () => ({ ok: true as const }),
+        onChanged: () => () => {},
+      },
+      sensors: async () => ({
+        active: true,
+        sensors: [
+          {
+            id: 'integrity',
+            label: 'File integrity',
+            description: 'Watches launch items and shell profiles for changes.',
+            state: 'idle' as const,
+            enabled: true,
+            lastRunAt: Date.now() - 120_000,
+            lastDurationMs: 120,
+            lastFindings: 1,
+          },
+          {
+            id: 'network',
+            label: 'Network',
+            description: 'Lists outbound connections per process.',
+            state: 'disabled' as const,
+            enabled: false,
+            lastRunAt: null,
+            lastDurationMs: null,
+            lastFindings: 0,
+          },
+        ],
+      }),
+      runSensor: async () => ({ ok: true as const }),
+      settings: async () => ({
+        version: 1 as const,
+        sensors: {},
+        cadenceSeconds: 30,
+        quarantineRetentionDays: 30,
+        viewOpened: true,
+      }),
+      setSettings: async () => ({
+        version: 1 as const,
+        sensors: {},
+        cadenceSeconds: 30,
+        quarantineRetentionDays: 30,
+        viewOpened: true,
+      }),
+      viewOpened: async () => ({ active: true, sensors: [] }),
+      openQuarantine: async () => ({ ok: true as const }),
+      onChanged: () => () => {},
+    },
     metrics: {
       start: (req: { intervalMs: number; freshDisk?: boolean }) => {
         metricsCalls.push(req);

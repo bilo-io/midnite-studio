@@ -50,6 +50,44 @@ export const VulnerableLibrarySchema = z.object({
 });
 export type VulnerableLibrary = z.infer<typeof VulnerableLibrarySchema>;
 
+/**
+ * Theme F's credential-phishing rules, each fired only when the page shows a password field
+ * (read main-side, in an isolated world — see `login-form-read.ts` in the browser feature).
+ *
+ * - `http-password` — the field is on a plain-`http:` page (caution).
+ * - `lookalike` — the host is a lookalike (Theme C's rule) of a site the user knows (danger).
+ * - `first-seen` — the host was first seen today and has no history (caution).
+ * - `cross-origin-action` — the field's form posts to another origin (caution).
+ * - `sign-in-elsewhere` — the page's own site name carries a known sign-in brand on a site that is
+ *   not that brand's: "GitHub login on `github-login.app`" (danger).
+ * - `brand-mention` — a known sign-in brand appears only in a subdomain (`gitlab.mycorp.com`) or in
+ *   a sign-in title ("Sign in to GitHub") on another site (caution — self-hosted forges and SSO
+ *   pages look exactly like this, so it never reaches danger alone).
+ */
+export const CredentialRuleSchema = z.enum([
+  'http-password',
+  'lookalike',
+  'first-seen',
+  'cross-origin-action',
+  'sign-in-elsewhere',
+  'brand-mention',
+]);
+export type CredentialRule = z.infer<typeof CredentialRuleSchema>;
+
+export const SiteCredentialRiskSchema = z.object({
+  level: z.enum(['caution', 'danger']),
+  reasons: z
+    .array(
+      z.object({
+        rule: CredentialRuleSchema,
+        /** What the rule matched against, e.g. the impersonated host or the form's target origin. */
+        detail: z.string().optional(),
+      }),
+    )
+    .min(1),
+});
+export type SiteCredentialRisk = z.infer<typeof SiteCredentialRiskSchema>;
+
 /** Caps keep a verdict small on the wire however noisy the page is. */
 export const SITE_VERDICT_URL_CAP = 20;
 export const SITE_VERDICT_TRACKER_HOST_CAP = 50;
@@ -79,6 +117,8 @@ export const SiteVerdictSchema = z.object({
    * login-form read (a password field on `http:`, or a form posting to `http:`).
    */
   insecureForm: z.boolean(),
+  /** Theme F: a password field on this page fired one or more credential-phishing rules. */
+  credentialRisk: SiteCredentialRiskSchema.nullable(),
   /** Requests Theme E's blocklist refused on this page — the badge's counter. */
   trackersBlocked: z.number().int().nonnegative(),
   trackerHosts: z.array(z.string()).max(SITE_VERDICT_TRACKER_HOST_CAP),
@@ -120,6 +160,7 @@ export function emptySiteVerdict(url: string): SiteVerdict {
     reputation: 'unavailable',
     vulnerableLibs: [],
     insecureForm: false,
+    credentialRisk: null,
     trackersBlocked: 0,
     trackerHosts: [],
   };
@@ -140,13 +181,15 @@ function isInsecureTransport(verdict: SiteVerdict): boolean {
 
 /**
  * The badge's state. **danger**: a TLS failure or a known-bad feed hit (both interstitial
- * reasons, so a verdict carrying one is only ever seen past a bypass). **caution**: anything else
+ * reasons, so a verdict carrying one is only ever seen past a bypass), or a password field Theme F
+ * judged a likely phish (no interstitial — the page is already showing). **caution**: anything else
  * a careful user would want to know before typing into the page. Theme E's tracker count never
  * raises the level — blocked trackers are the protection working, not a finding.
  */
 export function siteVerdictLevel(verdict: SiteVerdict): SiteVerdictLevel {
-  if (verdict.tls === 'error' || verdict.knownBad) return 'danger';
+  if (verdict.tls === 'error' || verdict.knownBad || verdict.credentialRisk?.level === 'danger') return 'danger';
   if (
+    verdict.credentialRisk ||
     verdict.lookalike ||
     verdict.mixedContent ||
     verdict.vulnerableLibs.length > 0 ||
@@ -159,6 +202,34 @@ export function siteVerdictLevel(verdict: SiteVerdict): SiteVerdictLevel {
 }
 
 export type SiteVerdictLine = { level: SiteVerdictLevel; text: string };
+
+/** The level each credential rule carries on its own — the risk's level is the worst of them. */
+export const CREDENTIAL_RULE_LEVEL: Readonly<Record<CredentialRule, 'caution' | 'danger'>> = {
+  'http-password': 'caution',
+  lookalike: 'danger',
+  'first-seen': 'caution',
+  'cross-origin-action': 'caution',
+  'sign-in-elsewhere': 'danger',
+  'brand-mention': 'caution',
+};
+
+function credentialLine(rule: CredentialRule, detail: string | undefined): SiteVerdictLine {
+  const level = CREDENTIAL_RULE_LEVEL[rule];
+  switch (rule) {
+    case 'http-password':
+      return { level, text: 'Asks for a password over an unencrypted connection' };
+    case 'lookalike':
+      return { level, text: `Asks for a password on an address that imitates ${detail ?? 'a site you know'}` };
+    case 'first-seen':
+      return { level, text: 'Asks for a password on a site first seen today' };
+    case 'cross-origin-action':
+      return { level, text: `Sends the password to another site${detail ? ` (${detail})` : ''}` };
+    case 'sign-in-elsewhere':
+      return { level, text: `Looks like a ${detail ?? 'known'} sign-in page, but is not on ${detail ?? 'that site'}` };
+    case 'brand-mention':
+      return { level, text: `Mentions ${detail ?? 'a known site'} on a sign-in page that is not ${detail ?? 'that site'}` };
+  }
+}
 
 /** The popover's rows, worst first. Always ends with the reputation line. */
 export function siteVerdictLines(verdict: SiteVerdict): SiteVerdictLine[] {
@@ -176,6 +247,7 @@ export function siteVerdictLines(verdict: SiteVerdict): SiteVerdictLine[] {
       text: `Listed as ${what} by ${verdict.knownBad.feed === 'urlhaus' ? 'URLhaus' : 'OpenPhish'}${verdict.bypassed ? ' — you proceeded anyway' : ''}`,
     });
   }
+  for (const reason of verdict.credentialRisk?.reasons ?? []) lines.push(credentialLine(reason.rule, reason.detail));
   if (verdict.lookalike) {
     const against = verdict.lookalike.against ? ` — looks like ${verdict.lookalike.against}` : '';
     lines.push({
@@ -187,7 +259,11 @@ export function siteVerdictLines(verdict: SiteVerdict): SiteVerdictLine[] {
     });
   }
   if (isInsecureTransport(verdict)) lines.push({ level: 'caution', text: 'Connection is not encrypted (http)' });
-  if (verdict.insecureForm) lines.push({ level: 'caution', text: 'This page sends data over an unencrypted connection' });
+  // Theme F's own line already says it when the insecure form is a password field on http.
+  const passwordOverHttp = verdict.credentialRisk?.reasons.some((r) => r.rule === 'http-password') ?? false;
+  if (verdict.insecureForm && !passwordOverHttp) {
+    lines.push({ level: 'caution', text: 'This page sends data over an unencrypted connection' });
+  }
   if (verdict.mixedContent) {
     const n = verdict.mixedContentUrls.length;
     lines.push({ level: 'caution', text: `Loads ${n === 1 ? 'an insecure resource' : `${n} insecure resources`} (mixed content)` });

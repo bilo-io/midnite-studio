@@ -14,6 +14,8 @@ import {
   useUiStore,
   type SettingsPageId,
 } from '../../store/ui-store';
+import { VanguardSettingsPage } from '@midnite/studio-feature-vanguard/renderer';
+
 import { AccountsPage } from './settings-pages/accounts-page';
 import { ActivityPage } from './settings-pages/activity-page';
 import { AgentPage } from './settings-pages/agent-page';
@@ -75,6 +77,7 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   browser: () => <BrowserPage />,
   'web-apps': () => <WebAppsPage />,
   accounts: () => <AccountsPage />,
+  vanguard: () => <VanguardSettingsPage />,
   cli: () => <CliPage />,
   updates: () => <UpdatesPage />,
   health: () => <HealthPage />,

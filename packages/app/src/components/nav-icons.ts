@@ -112,6 +112,7 @@ export const VIEW_ICON: Record<ViewId, IconType> = {
   monitor: LuActivity,
   vault: LuKeyRound,
   capture: LuCamera,
+  vanguard: LuShield,
   apiClient: LuSend,
   settings: LuSettings,
 };
@@ -172,4 +173,5 @@ export const SETTINGS_PAGE_ICON: Record<SettingsPageId, IconType> = {
   cli: LuTerminal,
   updates: LuDownload,
   health: LuStethoscope,
+  vanguard: LuShield,
 };

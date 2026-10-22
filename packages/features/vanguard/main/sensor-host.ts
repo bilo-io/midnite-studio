@@ -32,7 +32,7 @@ export type SensorRunProcessResult =
 export type SensorRunProcess = (
   command: string,
   args: readonly string[],
-  options?: { cwd?: string; timeoutMs?: number },
+  options?: { cwd?: string; timeoutMs?: number; signal?: AbortSignal },
 ) => Promise<SensorRunProcessResult>;
 
 export type SensorLogLevel = 'info' | 'warn' | 'error';
@@ -153,14 +153,19 @@ export function createSensorHost(options: SensorHostOptions): SensorHost {
   let running = false;
 
   const allowed = (): boolean => options.autostart === 'always' || viewSeen;
-  const enabledFor = (slot: Slot): boolean => options.settings().sensors[slot.def.id] ?? slot.def.defaultEnabled ?? true;
+  const enabledFor = (slot: Slot): boolean =>
+    options.settings().sensors[slot.def.id] ?? slot.def.defaultEnabled ?? true;
   const changed = (): void => options.onChanged();
 
   const contextFor = (slot: Slot, counter: { n: number }): SensorContext => ({
     userData: options.userData,
     homeDir: options.homeDir,
     now,
-    runProcess: options.runProcess,
+    runProcess: (command, args, opts) =>
+      options.runProcess(command, args, {
+        ...opts,
+        signal: opts?.signal ?? (slot.abort ??= new AbortController()).signal,
+      }),
     record: async (finding) => {
       counter.n += 1;
       return options.record({ ...finding, source: 'vanguard' });
@@ -180,13 +185,17 @@ export function createSensorHost(options: SensorHostOptions): SensorHost {
     try {
       const result = await slot.def.run(contextFor(slot, counter));
       slot.lastFindings = result?.findings ?? counter.n;
-      slot.state = 'idle';
-      delete slot.error;
+      if (slot.started) {
+        slot.state = 'idle';
+        delete slot.error;
+      }
     } catch (error) {
-      slot.state = 'error';
-      slot.error = error instanceof Error ? error.message : String(error);
       slot.lastFindings = counter.n;
-      log('warn', `[${slot.def.id}] run failed: ${slot.error}`);
+      if (slot.started) {
+        slot.state = 'error';
+        slot.error = error instanceof Error ? error.message : String(error);
+        log('warn', `[${slot.def.id}] run failed: ${slot.error}`);
+      }
     } finally {
       slot.running = false;
       slot.lastRunAt = now();
@@ -212,19 +221,26 @@ export function createSensorHost(options: SensorHostOptions): SensorHost {
   async function startSlot(slot: Slot): Promise<void> {
     if (slot.started) return;
     slot.started = true;
-    slot.abort = new AbortController();
+    const abort = new AbortController();
+    slot.abort = abort;
     slot.state = 'idle';
     try {
       const disposer = await slot.def.start?.(contextFor(slot, { n: 0 }));
+      if (slot.abort !== abort || !slot.started) {
+        // Stopped while `start` was awaited: nothing may stay armed.
+        if (typeof disposer === 'function') disposer();
+        return;
+      }
       slot.dispose = typeof disposer === 'function' ? disposer : null;
     } catch (error) {
+      if (slot.abort !== abort || !slot.started) return;
       slot.state = 'error';
       slot.error = error instanceof Error ? error.message : String(error);
       log('warn', `[${slot.def.id}] start failed: ${slot.error}`);
     }
     retime(slot);
     changed();
-    await runOnce(slot);
+    void runOnce(slot);
   }
 
   async function stopSlot(slot: Slot): Promise<void> {
@@ -240,7 +256,10 @@ export function createSensorHost(options: SensorHostOptions): SensorHost {
     try {
       slot.dispose?.();
     } catch (error) {
-      log('warn', `[${slot.def.id}] dispose failed: ${error instanceof Error ? error.message : String(error)}`);
+      log(
+        'warn',
+        `[${slot.def.id}] dispose failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     slot.dispose = null;
     slot.state = 'disabled';

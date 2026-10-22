@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { VANGUARD_TABS } from '../vanguard';
+
 import {
   MapCaptureCancelRequestSchema,
   MapCaptureProgressEventSchema,
@@ -3247,7 +3249,7 @@ export const DeepLinkSchema = z.discriminatedUnion('kind', [
   /** Phase 112 Theme I — `ref` is `null` for a link whose payload failed validation, so the renderer can toast it. */
   z.object({ kind: z.literal('reveal'), ref: ResourceRefSchema.nullable() }),
   /** `midnite-studio://view?id=…` — the Midnite Apps launcher's tiles (`studio-link.ts`). */
-  z.object({ kind: z.literal('view'), view: z.enum(VIEW_IDS), tab: MediaTabSchema.optional(), page: z.enum(SETTINGS_PAGE_IDS).optional() }),
+  z.object({ kind: z.literal('view'), view: z.enum(VIEW_IDS), tab: z.union([MediaTabSchema, z.enum(VANGUARD_TABS)]).optional(), page: z.enum(SETTINGS_PAGE_IDS).optional() }),
   /**
    * `midnite-studio://run?req=…` — an agent-run hand-off (Phase 113 Theme O). `run` is `null` for a
    * payload that failed validation, so the renderer can refuse it with a toast; nothing runs either way

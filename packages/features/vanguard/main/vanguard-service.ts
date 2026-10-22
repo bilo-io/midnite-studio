@@ -8,7 +8,12 @@ import {
   type SensorLogLevel,
   type SensorRunProcess,
 } from './sensor-host';
-import { createVanguardSettingsState, createVanguardStore, type VanguardSettingsState, type VanguardStore } from './vanguard-store';
+import {
+  createVanguardSettingsState,
+  createVanguardStore,
+  type VanguardSettingsState,
+  type VanguardStore,
+} from './vanguard-store';
 
 export interface VanguardServiceOptions {
   userData: string;
@@ -38,8 +43,12 @@ export interface VanguardService {
  * Loads the settings, builds the sensor host over them and registers the shipped sensors. The composer
  * calls `host.start()` once the window machinery is ready and `host.stop()` on quit.
  */
-export async function createVanguardService(options: VanguardServiceOptions): Promise<VanguardService> {
-  const settings = await createVanguardSettingsState(options.store ?? createVanguardStore(options.userData));
+export async function createVanguardService(
+  options: VanguardServiceOptions,
+): Promise<VanguardService> {
+  const settings = await createVanguardSettingsState(
+    options.store ?? createVanguardStore(options.userData),
+  );
   const host = createSensorHost({
     userData: options.userData,
     ...(options.homeDir !== undefined ? { homeDir: options.homeDir } : {}),

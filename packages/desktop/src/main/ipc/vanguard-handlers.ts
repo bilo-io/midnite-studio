@@ -47,6 +47,11 @@ export function getFindingsLedger(): FindingsLedger {
 }
 
 let serviceInstance: VanguardService | null = null;
+let resolveService: (service: VanguardService) => void = () => undefined;
+/** Handlers register before the service is built (it reads a file first); requests wait on this. */
+const serviceReady = new Promise<VanguardService>((resolve) => {
+  resolveService = resolve;
+});
 
 /**
  * Studio's sensor host (Phase 120 Theme B). `'after-view-opened'`: a sensor Studio's user never asked for
@@ -60,6 +65,10 @@ export async function startVanguardSensors(userData: string): Promise<void> {
     runProcess: createSensorRunProcess({ defaultCwd: userData }),
     record: (finding) => ledger.record(finding),
     autostart: 'after-view-opened',
+    onChanged: () => {
+      const win = getWindowThunk();
+      if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.vanguardChanged);
+    },
     sensorDeps: {
       repos: async () => (await listRepos()).map((repo) => ({ repoId: repo.id, path: repo.path })),
       // Live ptys only. An agent pty carries the pty-env.ts fingerprint (agentId); a plain shell does not,
@@ -82,12 +91,10 @@ export async function startVanguardSensors(userData: string): Promise<void> {
       execPath: process.execPath,
       packaged: app.isPackaged,
     },
-    onChanged: () => {
-      const win = getWindowThunk();
-      if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.vanguardChanged);
-    },
-    log: (level, message) => defaultLogger[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info'](message),
+    log: (level, message) =>
+      defaultLogger[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info'](message),
   });
+  resolveService(serviceInstance);
   await serviceInstance.host.start();
 }
 
@@ -105,10 +112,7 @@ export function registerVanguardHandlers(getWindow: () => BrowserWindow | null):
 
   vanguardMain.register(ctx, {
     ledger: () => getFindingsLedger(),
-    service: () => {
-      if (!serviceInstance) throw new Error('Vanguard sensors have not been started yet');
-      return serviceInstance;
-    },
+    service: () => serviceReady,
     openPath: async (path) => {
       const failure = await shell.openPath(path);
       if (failure) throw new Error(failure);

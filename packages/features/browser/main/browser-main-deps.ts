@@ -1,4 +1,5 @@
 import type { BrowserElectron } from './browser-electron';
+import type { LedgerCipher } from './host-first-seen';
 import type { PermissionGrantStore } from './permission-grant-store';
 
 /**
@@ -37,6 +38,13 @@ export type BrowserMainDeps = {
   userDataPath?: string;
   /** Injected permission grant store (tests or custom compositions). */
   permissionStore?: PermissionGrantStore;
+  /**
+   * `electron.safeStorage` (Phase 117 Theme F): encrypts the first-seen ledger's HMAC key. Absent, the
+   * ledger stays in memory, nothing about visited hosts is written to disk and the `first-seen` rule
+   * stays off. Studio passes it; Midnite Browser does not — an app main holds `safeStorage` only for
+   * its pairing seed (`scripts/app-vault-grants.test.mjs`).
+   */
+  ledgerCipher?: LedgerCipher;
   /**
    * Phase 117 Theme G: a page asked to open a `midnite-studio://` or `midnite://` link. Chromium is
    * never allowed to launch it; the composer that can act on one (Studio) gets it here with the
