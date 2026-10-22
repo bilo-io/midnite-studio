@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { isAbsolute, join } from 'node:path';
 
 import type { DownloadFileClass } from '@midnite/studio-shared';
 
@@ -47,6 +48,13 @@ export type DownloadHandlerDeps = {
   log: (message: string) => void;
 };
 
+/** The configured folder: `~` expands, a relative or blank value falls back to the default. */
+export function resolveQuarantineFolder(configured: string, fallback: string): string {
+  const trimmed = configured.trim();
+  const expanded = trimmed === '~' || trimmed.startsWith('~/') ? join(homedir(), trimmed.slice(1)) : trimmed;
+  return expanded !== '' && isAbsolute(expanded) ? expanded : fallback;
+}
+
 export function originOf(url: string): string {
   try {
     return new URL(url).origin;
@@ -75,7 +83,7 @@ export function createDownloadHandler(deps: DownloadHandlerDeps): (item: Downloa
       return;
     }
 
-    const folder = settings.folder || deps.defaultFolder;
+    const folder = resolveQuarantineFolder(settings.folder, deps.defaultFolder);
     // Electron prompts a save dialog unless the path is set synchronously, so the folder is made
     // (0700) and the path chosen right now.
     try {

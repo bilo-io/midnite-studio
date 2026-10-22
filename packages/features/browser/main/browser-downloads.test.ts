@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createDownloadHandler, type DownloadHandlerDeps, type DownloadItemFull } from './browser-downloads';
+import { homedir } from 'node:os';
+
+import { createDownloadHandler, resolveQuarantineFolder, type DownloadHandlerDeps, type DownloadItemFull } from './browser-downloads';
 
 function item(over: Partial<{ name: string; size: number }> = {}) {
   const done: Array<(e: unknown, s: 'completed' | 'cancelled' | 'interrupted') => void> = [];
@@ -94,5 +96,14 @@ describe('createDownloadHandler', () => {
     const { it: i } = item({ name: '../../etc/evil.pdf' });
     handle(i, {});
     expect(i.setSavePath).toHaveBeenCalledWith('/q/evil.pdf');
+  });
+});
+
+describe('resolveQuarantineFolder', () => {
+  it('expands ~, keeps absolute paths and falls back otherwise', () => {
+    expect(resolveQuarantineFolder('~/q', '/d')).toBe(`${homedir()}/q`);
+    expect(resolveQuarantineFolder('/abs/q', '/d')).toBe('/abs/q');
+    expect(resolveQuarantineFolder('relative/q', '/d')).toBe('/d');
+    expect(resolveQuarantineFolder('  ', '/d')).toBe('/d');
   });
 });

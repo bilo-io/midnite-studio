@@ -288,7 +288,7 @@ function recordTrackerBlock(webContents: unknown, host: string): void {
   const entry = trackerBlocks.get(tabId) ?? { count: 0, hosts: new Set<string>() };
   trackerBlocks.set(tabId, entry);
   entry.count += 1;
-  entry.hosts.add(host);
+  if (entry.hosts.size < 200) entry.hosts.add(host);
   // Trailing throttle: a tracker-heavy page blocks hundreds of requests in a burst.
   if (entry.timer === undefined) {
     entry.timer = setTimeout(() => flushTrackerBlocks(tabId), 150);
