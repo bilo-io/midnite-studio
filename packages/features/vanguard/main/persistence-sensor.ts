@@ -2,11 +2,7 @@ import { watch as fsWatch, type FSWatcher } from 'node:fs';
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
-import type {
-  EvidenceItem,
-  NewSecurityFinding,
-  RemediationAction,
-} from '@midnite/studio-shared';
+import type { EvidenceItem, NewSecurityFinding, RemediationAction } from '@midnite/studio-shared';
 
 import { inspectExecutable, type SignatureState } from './code-signing';
 import {
@@ -116,13 +112,25 @@ export async function snapshotPersistence(
   entries.push(cronEntry(cron.ok && cron.exitCode === 0 ? cron.stdout : ''));
   // Login items: `sfltool dumpbtm` needs root on current macOS, and the AppleScript route raises a
   // "control System Events" consent prompt, so this is best-effort and silent when unreadable.
-  const btm = await ctx.runProcess('sfltool', ['dumpbtm'], { timeoutMs: 8_000, signal: ctx.signal });
+  const btm = await ctx.runProcess('sfltool', ['dumpbtm'], {
+    timeoutMs: 8_000,
+    signal: ctx.signal,
+  });
   if (btm.ok && btm.exitCode === 0 && btm.stdout.trim().length > 0)
     entries.push({
       key: 'login-item:btm',
       kind: 'login-item',
       path: 'sfltool dumpbtm',
-      hash: sha256(btm.stdout.replace(/^.*(?:Date|Time|UUID).*$/gim, '')),
+      // Only the lines that name an item: the dump also carries timestamps, UUIDs and counters that
+      // change on every read and would raise a finding each pass.
+      hash: sha256(
+        btm.stdout
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => /^(?:name|url|executable path|developer name):/i.test(l))
+          .sort()
+          .join('\n'),
+      ),
     });
   return entries;
 }
@@ -163,7 +171,10 @@ async function findingFor(
     } else detail += ' Its property list could not be read.';
     remediation.unshift({
       id: 'bootout-launch-item',
-      domain: entry.kind === 'launch-daemon' || entry.path.startsWith('/Library/') ? 'system' : `gui/${uid}`,
+      domain:
+        entry.kind === 'launch-daemon' || entry.path.startsWith('/Library/')
+          ? 'system'
+          : `gui/${uid}`,
       path: entry.path,
     });
   }
@@ -174,7 +185,8 @@ async function findingFor(
     ...(signature !== undefined ? { signature } : {}),
     home,
   });
-  if (reasons.length > 0) detail += ` ${reasons.map((r) => r[0]!.toUpperCase() + r.slice(1)).join('; ')}.`;
+  if (reasons.length > 0)
+    detail += ` ${reasons.map((r) => r[0]!.toUpperCase() + r.slice(1)).join('; ')}.`;
   remediation.push({ id: 'mute' });
   return {
     fingerprint: `persistence:${entry.key}:${entry.hash}`,
@@ -208,7 +220,10 @@ export function createPersistenceSensor(options: PersistenceSensorOptions = {}):
     }
     const diff = diffPersistence(baseline, current);
     let n = 0;
-    for (const [change, list] of [['new', diff.added], ['changed', diff.changed]] as const)
+    for (const [change, list] of [
+      ['new', diff.added],
+      ['changed', diff.changed],
+    ] as const)
       for (const entry of list) {
         await ctx.record(await findingFor(ctx, entry, change, home, uid));
         n += 1;

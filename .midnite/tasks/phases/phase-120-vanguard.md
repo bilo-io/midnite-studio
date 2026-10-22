@@ -73,7 +73,7 @@ Scope guardrails:
 *The suite gets a watcher that sees the effects of a compromise — a new persistence item, an
 unexpected outbound connection, a file changed under a running agent — and can stop it, with one
 ledger every security finding in the suite lands in.* Born from a catalog tile with nothing behind
-it and a threat landscape in which the coding agent is the new ClickFix victim. (22% · 10/46) —
+it and a threat landscape in which the coding agent is the new ClickFix victim. (33% · 15/46) —
 **Planned 2026-10-22.**
 
 **Theme A — One finding, one ledger.** ✅ `SecurityFindingSchema` in `shared` (source, severity,
@@ -96,10 +96,25 @@ what runs — the app's own bundle (`codesign --verify` at launch), `.claude/`, 
 `.cursor/`, `.githooks/`, `package.json` scripts, lockfiles — with a change attributed to the
 session that was live when it happened.
 
-**Theme D — Persistence and process sensors.** ◻ LaunchAgents, LaunchDaemons, login items, cron,
-shell rc files and `~/.ssh` watched for change; the process table diffed for new executables,
-each checked with `codesign`, `spctl` and the quarantine xattr; XProtect version and Gatekeeper
-denials read from the unified log.
+**Theme D — Persistence and process sensors.** ✅ Four sensors added to `BUILTIN_SENSORS` through one
+spread (`createPersistenceProcessSensors`), each over a pure, fixture-tested parser. *Persistence*
+baselines LaunchAgents/Daemons, shell rc files, `~/.ssh/authorized_keys`/`config`, `/etc/periodic` and the
+crontab (SHA-256 each, `<userData>/vanguard/baselines/persistence.json`); the first scan is silent, then a
+new or changed item is a `persistence` finding, `high`, or `critical` when what a plist launches (read
+with `plutil -convert json`) is unsigned, quarantined or in a hidden/temp path. *Processes* diffs
+`ps -axo pid,ppid,uid,comm,args` for new executable paths and checks each with `codesign`, `spctl` and the
+quarantine xattr; the severity ladder is `critical` (unsigned + quarantined + shell under an agent session),
+`high`, `medium`, `info` (unsigned in a dev-tool path). *Apple signals* reads XProtect's age (stale beyond 30
+days), Gatekeeper and XProtectRemediator denials from `log show`, and Gatekeeper/SIP status, the last two
+under shared fingerprints in `CONFIG_FINDING_FINGERPRINTS` so Phase 122 D dedupes with them. *Terminal paste
+shapes* matches the ClickFix grammar against a corpus of benign commands with zero false positives. Decisions:
+login items are read through `sfltool dumpbtm` only (best-effort, root-gated on current macOS) because the
+AppleScript route raises a "control System Events" consent prompt; the process parser lives in the feature,
+not generalised into the runtime, since the desktop reader carries fields this one does not. **Stubbed behind
+the contract:** the paste sensor needs the broker's output stream (`PtyOutputSource`) and the process
+sensor needs the agent-session shell pids (`agentSessions`); both are optional `persistenceProcess` deps on
+`createVanguardService`, not yet wired by either composer, so until then the paste sensor idles and `critical`
+process findings are unreachable. Phase 121 B is where a paste can be blocked.
 
 **Theme E — Network behaviour.** ◻ `lsof` snapshots of outbound connections per process, diffed
 against Phase 115's egress registry for the suite's own processes and against a per-session baseline
@@ -205,7 +220,7 @@ each written back to the ledger.
 
 ### D — Persistence and process sensors [L · 1–2d]
 
-- [ ] **Persistence locations.** `~/Library/LaunchAgents`, `/Library/LaunchAgents`,
+- [x] **Persistence locations.** `~/Library/LaunchAgents`, `/Library/LaunchAgents`,
       `/Library/LaunchDaemons`, login items (`osascript -e 'tell application "System Events" to get
       the name of every login item'` or `sfltool dumpbtm` where readable), `crontab -l`,
       `~/.zshrc`/`~/.zprofile`/`~/.bashrc`/`~/.bash_profile`/`~/.profile`, `~/.ssh/authorized_keys`
@@ -213,25 +228,25 @@ each written back to the ledger.
       `persistence` finding whose evidence carries the plist's `ProgramArguments` and the signature
       state of what it launches. `high` by default, `critical` when the target is unsigned or
       quarantined. [M]
-- [ ] **Process table.** `ps -axo pid,ppid,uid,comm,args` on the cadence (the reader in
+- [x] **Process table.** `ps -axo pid,ppid,uid,comm,args` on the cadence (the reader in
       [`agent-process.ts`](../../../packages/desktop/src/main/agent-process.ts) generalised into the
       runtime), diffed; each new executable path gets `codesign -dv --verbose=2` (team id, ad-hoc or
       not), `spctl --assess`, and `xattr -p com.apple.quarantine`. Unsigned + quarantined + spawned
       from a shell under an agent session is `critical`; unsigned from a known dev tool path
       (`node_modules/.bin`, `~/.cargo/bin`, `/opt/homebrew/bin`) is `info`. [M]
-- [ ] **Apple's own signals.** XProtect version from
+- [x] **Apple's own signals.** XProtect version from
       `/Library/Apple/System/Library/CoreServices/XProtect.bundle/Contents/Info.plist` (stale beyond
       30 days is `medium`), Gatekeeper and XProtect denials from
       `log show --last <cadence> --predicate 'subsystem == "com.apple.syspolicy"'` and
       `'process == "XProtectRemediator"'` — each denial is a finding with the log line as evidence.
       Gatekeeper off (`spctl --status`) and SIP off (`csrutil status`) are `high` config findings
       shared with Phase 122 D (same fingerprint, so they dedupe). [M]
-- [ ] **Terminal paste shapes.** A command line in an agent pty that matches the ClickFix grammar —
+- [x] **Terminal paste shapes.** A command line in an agent pty that matches the ClickFix grammar —
       `curl`/`wget` piped to `sh`/`bash`/`zsh`, `base64 -d | sh`, `osascript -e` with a
       `do shell script`, `hdiutil attach` of a freshly downloaded DMG, `xattr -d com.apple.quarantine`
       — is a `process` finding at `high` the moment it is seen in scrollback (the broker's output
       stream, read-only; Phase 121 B is where it can be *blocked*). [M]
-- [ ] **Tests.** Fixture plists (a benign Homebrew agent, an AMOS-shaped one with a hidden
+- [x] **Tests.** Fixture plists (a benign Homebrew agent, an AMOS-shaped one with a hidden
       `~/Library/Application Support/.x/x` target) classify as expected; the `ps` diff with a fixture
       table; the ClickFix grammar against a corpus of benign dev commands (`curl | jq`, `pnpm dlx`)
       with zero false positives. [S]

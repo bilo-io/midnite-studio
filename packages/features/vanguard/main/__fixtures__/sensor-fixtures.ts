@@ -26,7 +26,11 @@ export const CODESIGN_UNSIGNED = '/tmp/x: code object is not signed at all\n';
 /** A benign Homebrew launch agent. */
 export const PLIST_HOMEBREW = JSON.stringify({
   Label: 'homebrew.mxcl.postgresql@16',
-  ProgramArguments: ['/opt/homebrew/opt/postgresql@16/bin/postgres', '-D', '/opt/homebrew/var/postgresql@16'],
+  ProgramArguments: [
+    '/opt/homebrew/opt/postgresql@16/bin/postgres',
+    '-D',
+    '/opt/homebrew/var/postgresql@16',
+  ],
   RunAtLoad: true,
   KeepAlive: true,
 });

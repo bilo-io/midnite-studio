@@ -1,6 +1,9 @@
 import type { NewSecurityFinding, SecurityFinding } from '@midnite/studio-shared';
 
-import { createPersistenceProcessSensors, type PersistenceProcessDeps } from './persistence-process-sensors';
+import {
+  createPersistenceProcessSensors,
+  type PersistenceProcessDeps,
+} from './persistence-process-sensors';
 import { BUILTIN_SENSORS } from './sensors';
 import {
   createSensorHost,

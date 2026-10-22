@@ -9,11 +9,7 @@ import type { SensorDefinition } from './sensor-host';
  */
 
 export type ClickFixRule =
-  | 'pipe-to-shell'
-  | 'base64-to-shell'
-  | 'osascript-shell'
-  | 'hdiutil-download'
-  | 'clear-quarantine';
+  'pipe-to-shell' | 'base64-to-shell' | 'osascript-shell' | 'hdiutil-download' | 'clear-quarantine';
 
 const SH = String.raw`(?:sudo\s+(?:-\S+\s+)*)?(?:env\s+\S+=\S+\s+)*(?:/(?:usr/)?bin/)?(?:ba|z|da|k)?sh\b`;
 

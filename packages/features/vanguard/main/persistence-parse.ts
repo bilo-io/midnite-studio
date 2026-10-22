@@ -8,13 +8,7 @@ import type { SignatureState } from './code-signing';
 /** Pure parsing, baselining and classification for Theme D's persistence sensor. No I/O here. */
 
 export type PersistenceKind =
-  | 'launch-agent'
-  | 'launch-daemon'
-  | 'login-item'
-  | 'cron'
-  | 'shell-rc'
-  | 'ssh'
-  | 'periodic';
+  'launch-agent' | 'launch-daemon' | 'login-item' | 'cron' | 'shell-rc' | 'ssh' | 'periodic';
 
 export interface PersistenceLocation {
   kind: PersistenceKind;
@@ -29,10 +23,19 @@ export interface PersistenceLocation {
 export function persistenceLocations(home: string): PersistenceLocation[] {
   const rc = ['.zshrc', '.zprofile', '.zshenv', '.bashrc', '.bash_profile', '.profile'];
   return [
-    { kind: 'launch-agent', path: join(home, 'Library/LaunchAgents'), type: 'dir', suffix: '.plist' },
+    {
+      kind: 'launch-agent',
+      path: join(home, 'Library/LaunchAgents'),
+      type: 'dir',
+      suffix: '.plist',
+    },
     { kind: 'launch-agent', path: '/Library/LaunchAgents', type: 'dir', suffix: '.plist' },
     { kind: 'launch-daemon', path: '/Library/LaunchDaemons', type: 'dir', suffix: '.plist' },
-    ...rc.map((f): PersistenceLocation => ({ kind: 'shell-rc', path: join(home, f), type: 'file' })),
+    ...rc.map((f): PersistenceLocation => ({
+      kind: 'shell-rc',
+      path: join(home, f),
+      type: 'file',
+    })),
     { kind: 'ssh', path: join(home, '.ssh/authorized_keys'), type: 'file' },
     { kind: 'ssh', path: join(home, '.ssh/config'), type: 'file' },
     { kind: 'periodic', path: '/etc/periodic', type: 'dir' },
@@ -130,7 +133,16 @@ export function isHiddenOrTempTarget(target: string, home: string): boolean {
   if (inHome === null) return false;
   const parts = inHome.split('/');
   // A dot-directory anywhere in the path other than the conventional dev tool homes.
-  const benignDot = new Set(['.cargo', '.local', '.nvm', '.volta', '.bun', '.deno', '.pyenv', '.rbenv']);
+  const benignDot = new Set([
+    '.cargo',
+    '.local',
+    '.nvm',
+    '.volta',
+    '.bun',
+    '.deno',
+    '.pyenv',
+    '.rbenv',
+  ]);
   return parts.slice(0, -1).some((p) => p.startsWith('.') && !benignDot.has(p));
 }
 
@@ -199,4 +211,5 @@ export function cronEntry(output: string): PersistenceEntry {
 }
 
 /** Label for an item's file, used by finding titles. */
-export const itemName = (e: PersistenceEntry): string => (e.kind === 'cron' ? 'crontab' : basename(e.path));
+export const itemName = (e: PersistenceEntry): string =>
+  e.kind === 'cron' ? 'crontab' : basename(e.path);

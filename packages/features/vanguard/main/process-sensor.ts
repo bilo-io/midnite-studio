@@ -132,7 +132,11 @@ function sessionOf(
 ): string | undefined {
   const byPid = new Map(table.map((r) => [r.pid, r]));
   const seen = new Set<number>();
-  for (let cur = byPid.get(pid); cur !== undefined && !seen.has(cur.pid); cur = byPid.get(cur.ppid)) {
+  for (
+    let cur = byPid.get(pid);
+    cur !== undefined && !seen.has(cur.pid);
+    cur = byPid.get(cur.ppid)
+  ) {
     const id = sessions.get(cur.pid);
     if (id !== undefined) return id;
     seen.add(cur.pid);

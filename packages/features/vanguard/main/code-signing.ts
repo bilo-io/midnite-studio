@@ -32,7 +32,8 @@ export function parseCodesignOutput(
   if (exitCode !== 0 || /not signed at all/i.test(output)) {
     return { signed: false, adhoc: false };
   }
-  const adhoc = /^Signature=adhoc\s*$/m.test(output) || /flags=0x[0-9a-f]+\([^)]*adhoc/i.test(output);
+  const adhoc =
+    /^Signature=adhoc\s*$/m.test(output) || /flags=0x[0-9a-f]+\([^)]*adhoc/i.test(output);
   const team = /^TeamIdentifier=(\S+)\s*$/m.exec(output)?.[1];
   const authority = /^Authority=(.+)$/m.exec(output)?.[1]?.trim();
   return {

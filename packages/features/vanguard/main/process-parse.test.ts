@@ -15,7 +15,10 @@ describe('ps table', () => {
       uid: 501,
     });
     expect(rows.find((r) => r.pid === 500)!.comm).toBe(`${HOME}/Library/Application Support/.x/x`);
-    expect(rows.find((r) => r.pid === 700)).toMatchObject({ comm: '/opt/homebrew/bin/node', args: 'node server.js' });
+    expect(rows.find((r) => r.pid === 700)).toMatchObject({
+      comm: '/opt/homebrew/bin/node',
+      args: 'node server.js',
+    });
   });
   it('newExecutables skips system paths and known ones, and de-duplicates', () => {
     const known = new Set(['/opt/homebrew/bin/node']);
@@ -46,22 +49,33 @@ describe('classifyProcess', () => {
   });
   it('unsigned from a dev tool path is info', () => {
     expect(
-      classifyProcess({ ...base, path: '/opt/homebrew/bin/tool', signature: UNKNOWN_SIGNATURE }).severity,
+      classifyProcess({ ...base, path: '/opt/homebrew/bin/tool', signature: UNKNOWN_SIGNATURE })
+        .severity,
     ).toBe('info');
     expect(
-      classifyProcess({ ...base, path: `${HOME}/p/node_modules/.bin/vite`, signature: UNKNOWN_SIGNATURE })
-        .severity,
+      classifyProcess({
+        ...base,
+        path: `${HOME}/p/node_modules/.bin/vite`,
+        signature: UNKNOWN_SIGNATURE,
+      }).severity,
     ).toBe('info');
   });
   it('unsigned + quarantined elsewhere, or hidden, is high; plain unsigned is medium; signed is nothing', () => {
     expect(
-      classifyProcess({ ...base, path: '/Users/dev/bin/x', signature: { ...UNKNOWN_SIGNATURE, quarantined: true } })
-        .severity,
+      classifyProcess({
+        ...base,
+        path: '/Users/dev/bin/x',
+        signature: { ...UNKNOWN_SIGNATURE, quarantined: true },
+      }).severity,
     ).toBe('high');
-    expect(classifyProcess({ ...base, path: '/tmp/x', signature: UNKNOWN_SIGNATURE }).severity).toBe('high');
-    expect(classifyProcess({ ...base, path: '/Users/dev/bin/x', signature: UNKNOWN_SIGNATURE }).severity).toBe(
-      'medium',
-    );
-    expect(classifyProcess({ ...base, path: '/Applications/A.app/A', signature: signed }).severity).toBeNull();
+    expect(
+      classifyProcess({ ...base, path: '/tmp/x', signature: UNKNOWN_SIGNATURE }).severity,
+    ).toBe('high');
+    expect(
+      classifyProcess({ ...base, path: '/Users/dev/bin/x', signature: UNKNOWN_SIGNATURE }).severity,
+    ).toBe('medium');
+    expect(
+      classifyProcess({ ...base, path: '/Applications/A.app/A', signature: signed }).severity,
+    ).toBeNull();
   });
 });

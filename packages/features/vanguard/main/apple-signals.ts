@@ -52,7 +52,8 @@ export interface LogDenial {
   timestamp?: string;
 }
 
-const GATEKEEPER_DENIAL = /\b(denied|denying|rejected|blocked|disallow(?:ed)?|not allowed|failed assessment|revoked)\b/i;
+const GATEKEEPER_DENIAL =
+  /\b(denied|denying|rejected|blocked|disallow(?:ed)?|not allowed|failed assessment|revoked)\b/i;
 const XPROTECT_HIT = /\b(detected|remediat\w*|found|removed|blocked|infection|malware)\b/i;
 
 /**
@@ -77,7 +78,8 @@ export function parseLogDenials(ndjson: string): LogDenial[] {
     const isRemediator = (image ?? '').includes('XProtectRemediator');
     let source: LogDenial['source'] | null = null;
     if (isRemediator && XPROTECT_HIT.test(message)) source = 'xprotect';
-    else if (subsystem === 'com.apple.syspolicy' && GATEKEEPER_DENIAL.test(message)) source = 'gatekeeper';
+    else if (subsystem === 'com.apple.syspolicy' && GATEKEEPER_DENIAL.test(message))
+      source = 'gatekeeper';
     if (source === null) continue;
     out.push({
       source,
@@ -111,6 +113,9 @@ export const APPLE_SIGNALS_SENSOR_ID = 'apple-signals';
 
 export function createAppleSignalsSensor(deps: AppleSignalsDeps = {}): SensorDefinition {
   const mtime = deps.mtimeMs ?? nodeMtime;
+  // The log window overlaps the previous run's by design (a gap would lose a denial), so a line already
+  // recorded is skipped here rather than bumping its finding's count again.
+  const seen = new Set<string>();
   return {
     id: APPLE_SIGNALS_SENSOR_ID,
     label: 'Apple security signals',
@@ -140,12 +145,17 @@ export function createAppleSignalsSensor(deps: AppleSignalsDeps = {}): SensorDef
           severity: 'high',
           category: 'config',
           title: 'System Integrity Protection is turned off',
-          detail: 'csrutil reports SIP disabled: system files and processes are open to modification.',
+          detail:
+            'csrutil reports SIP disabled: system files and processes are open to modification.',
           evidence: [{ kind: 'command', command: 'csrutil', args: ['status'] }],
           remediation: [{ id: 'mute' }],
         });
 
-      const meta = await ctx.runProcess('plutil', ['-convert', 'json', '-o', '-', XPROTECT_INFO_PLIST], opts);
+      const meta = await ctx.runProcess(
+        'plutil',
+        ['-convert', 'json', '-o', '-', XPROTECT_INFO_PLIST],
+        opts,
+      );
       const updated = await mtime(XPROTECT_INFO_PLIST);
       if (updated !== null && isXProtectStale(updated, ctx.now())) {
         const version = meta.ok ? parseXProtectVersion(meta.stdout) : null;
@@ -169,16 +179,24 @@ export function createAppleSignalsSensor(deps: AppleSignalsDeps = {}): SensorDef
           opts,
         );
         if (!log.ok) continue;
-        for (const d of parseLogDenials(log.stdout))
+        for (const d of parseLogDenials(log.stdout)) {
+          const key = `${d.timestamp ?? ''}|${d.message}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          if (seen.size > 1_000) seen.delete(seen.values().next().value as string);
           await ctx.record({
             fingerprint: denialFingerprint(d),
             severity: d.source === 'xprotect' ? 'high' : 'medium',
             category: d.source === 'xprotect' ? 'malware' : 'process',
-            title: d.source === 'xprotect' ? 'XProtect reported a detection' : 'Gatekeeper denied an execution',
+            title:
+              d.source === 'xprotect'
+                ? 'XProtect reported a detection'
+                : 'Gatekeeper denied an execution',
             detail: d.message,
             evidence: [{ kind: 'command', command: d.message.slice(0, 500) }],
             remediation: [{ id: 'mute' }],
           });
+        }
       }
     },
   };

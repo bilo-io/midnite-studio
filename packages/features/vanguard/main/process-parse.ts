@@ -39,7 +39,13 @@ export function parsePsTable(text: string): ProcessRow[] {
         break;
       }
     }
-    rows.push({ pid: Number(m[1]), ppid: Number(m[2]), uid: Number(m[3]), comm, args: args || comm });
+    rows.push({
+      pid: Number(m[1]),
+      ppid: Number(m[2]),
+      uid: Number(m[3]),
+      comm,
+      args: args || comm,
+    });
   }
   return rows;
 }
@@ -83,7 +89,11 @@ export function underAgentSession(
   if (roots.size === 0) return false;
   const byPid = new Map(table.map((r) => [r.pid, r]));
   const seen = new Set<number>();
-  for (let cur = byPid.get(pid); cur !== undefined && !seen.has(cur.pid); cur = byPid.get(cur.ppid)) {
+  for (
+    let cur = byPid.get(pid);
+    cur !== undefined && !seen.has(cur.pid);
+    cur = byPid.get(cur.ppid)
+  ) {
     if (roots.has(cur.pid)) return true;
     seen.add(cur.pid);
   }
@@ -115,7 +125,8 @@ export function classifyProcess(input: {
   const reasons: string[] = [];
   if (unsigned) reasons.push(signature.signed ? 'ad-hoc signed' : 'not code-signed');
   if (signature.quarantined) reasons.push('still carries the download quarantine flag');
-  if (!signature.accepted && signature.signed) reasons.push('Gatekeeper would not assess it as acceptable');
+  if (!signature.accepted && signature.signed)
+    reasons.push('Gatekeeper would not assess it as acceptable');
   const hidden = isHiddenOrTempTarget(path, home);
   if (hidden) reasons.push('runs from a hidden or temporary location');
   if (input.agentSpawned) reasons.push('started under an agent session');
@@ -124,7 +135,8 @@ export function classifyProcess(input: {
     return { severity: 'critical', reasons };
   if (unsigned && isDevToolPath(path, home) && !signature.quarantined && !hidden)
     return { severity: 'info', reasons };
-  if ((unsigned && signature.quarantined) || (unsigned && hidden)) return { severity: 'high', reasons };
+  if ((unsigned && signature.quarantined) || (unsigned && hidden))
+    return { severity: 'high', reasons };
   if (unsigned || (signature.signed && !signature.accepted && signature.quarantined))
     return { severity: 'medium', reasons };
   return { severity: null, reasons: [] };
