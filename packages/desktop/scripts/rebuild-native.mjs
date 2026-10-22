@@ -70,11 +70,9 @@ const child = spawn(
     'electron-rebuild',
     '--version',
     electronVersion,
-    // Scope the walk to this package: electron-rebuild otherwise climbs to the
-    // workspace root and rebuilds every native module it finds there.
-    '--project-dir',
-    projectRoot,
-    '--only',
+    '--force',
+    '--build-from-source',
+    '--which-module',
     NATIVE_MODULES.join(','),
   ],
   { stdio: 'inherit', cwd: projectRoot, env },
