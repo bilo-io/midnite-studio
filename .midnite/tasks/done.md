@@ -15313,3 +15313,7 @@ PR #975. One `SiteVerdict` per browser tab, built in main and pushed as a `verdi
 ### Phase 120 Theme B — The feature and the app (2026-10-23)
 
 `packages/features/vanguard` (manifest, view with Findings/Sensors/Network tabs, Settings page, main-side sensor host, `vanguard.json` store, sensor IPC), composed by Studio and by the new `apps/vanguard` (no vault; sessions as a guest), `'vanguard'` placement and link app id, launcher tile pointing at the view's tabs (`comingSoon` unchanged), deep-link `tab`, mock-bridge namespace for e2e. Fixed the `typecheck-node` project count (38). Screenshots in `docs/screenshots/p120-b/`.
+
+### Phase 120 Theme C — Integrity of the repo and the bundle (2026-10-23)
+
+`INTEGRITY_WATCHED` in `shared` (24 entries, a reason each); the integrity sensor in `features/vanguard/main/integrity-sensor.ts` keeps a SHA-256 baseline per open repo and for the home dir under `<userData>/security/integrity/`, re-scans on a debounced `fs.watch` and every 5 minutes, and reports a change made outside a commit as an `integrity` finding (`high` for hooks, MCP and agent config, `medium` otherwise) attributed best-effort to the live agent ptys; it resolves when the change is committed or reverted. The bundle self-check runs Phase 91 H's `codesign`/`spctl` argv at launch. Sensors take composer deps through `builtinSensors(deps)`. Backend only, no screenshots.

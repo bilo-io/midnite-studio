@@ -1,6 +1,7 @@
 import {
   createSensorRunProcess,
   createVanguardService,
+  resolveByFingerprint,
   vanguardMain,
   type VanguardService,
 } from '@midnite/studio-feature-vanguard/main';
@@ -14,6 +15,10 @@ import { EVENT_CHANNELS } from '@midnite/studio-shared';
 import { app, shell, type BrowserWindow } from 'electron';
 
 import { defaultLogger } from '../log';
+import { listRepos } from '../repo-registry';
+import { observePtyOutput, sessionIdFor } from '../pty-service';
+import { listTerminals } from '../terminal-service';
+import { agentPtyOutputSource, agentSessionPids } from './vanguard-sensor-wiring';
 import { handle, handleBare, handleSend } from './handle';
 
 let ledgerInstance: FindingsLedger | null = null;
@@ -54,6 +59,8 @@ const serviceReady = new Promise<VanguardService>((resolve) => {
  * Studio's sensor host (Phase 120 Theme B). `'after-view-opened'`: a sensor Studio's user never asked for
  * must not start polling, so nothing runs until the Vanguard view has been opened once (persisted).
  */
+const ptySeams = { observe: observePtyOutput, sessionIdFor, listTerminals };
+
 export async function startVanguardSensors(userData: string): Promise<void> {
   const ledger = getFindingsLedger();
   serviceInstance = await createVanguardService({
@@ -65,6 +72,33 @@ export async function startVanguardSensors(userData: string): Promise<void> {
     onChanged: () => {
       const win = getWindowThunk();
       if (win && !win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.vanguardChanged);
+    },
+    sensorDeps: {
+      repos: async () => (await listRepos()).map((repo) => ({ repoId: repo.id, path: repo.path })),
+      // Live ptys only. An agent pty carries the pty-env.ts fingerprint (agentId); a plain shell does not,
+      // and the integrity sensor never attributes a change to one.
+      liveSessions: async () =>
+        (await listTerminals()).flatMap(({ session, live }) =>
+          live === null
+            ? []
+            : [
+                {
+                  sessionId: session.id,
+                  ...(session.kind === 'agent' && session.agentId ? { agentId: session.agentId } : {}),
+                  repoId: session.repoId,
+                  cwd: session.cwd,
+                  title: session.name ?? session.title,
+                },
+              ],
+        ),
+      resolve: resolveByFingerprint(ledger),
+      execPath: process.execPath,
+      packaged: app.isPackaged,
+      // Theme D, read-only: agent-pty output for the paste sensor, agent shell pids for the process sensor.
+      persistenceProcess: {
+        clickfix: { source: agentPtyOutputSource(ptySeams) },
+        processes: { agentSessions: agentSessionPids(ptySeams) },
+      },
     },
     log: (level, message) =>
       defaultLogger[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info'](message),

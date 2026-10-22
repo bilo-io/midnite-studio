@@ -127,6 +127,30 @@ function dropPtySubscribers(ptyId: string): void {
 const ptyDataListeners = new Map<string, (bytes: Uint8Array) => void>();
 const ptyExitListeners = new Map<string, (exitCode: number, signal?: number) => void>();
 
+// --- read-only output observers ------------------------------------------------
+//
+// A fan-out beside the ptyId-keyed listeners above, for main-side readers that watch every pty (Vanguard's
+// terminal-paste sensor, Phase 120 D). They only ever see bytes the pty already produced; there is no write
+// path here. Returns an unsubscribe.
+
+type PtyOutputObserver = (ptyId: string, bytes: Uint8Array) => void;
+const ptyOutputObservers = new Set<PtyOutputObserver>();
+
+export function observePtyOutput(observer: PtyOutputObserver): () => void {
+  ptyOutputObservers.add(observer);
+  return () => void ptyOutputObservers.delete(observer);
+}
+
+function emitPtyOutput(ptyId: string, bytes: Uint8Array): void {
+  for (const observer of ptyOutputObservers) {
+    try {
+      observer(ptyId, bytes);
+    } catch {
+      // An observer must never break a terminal.
+    }
+  }
+}
+
 /** Registers both; overwrites any previous registration for the same ptyId. */
 export function onPty(
   ptyId: string,
@@ -472,6 +496,7 @@ export async function initPtyService(deps: {
     agentWatcher?.noteOutput(ptyId);
     noteActivity(ptyId, bytes);
     ptyDataListeners.get(ptyId)?.(bytes);
+    emitPtyOutput(ptyId, bytes);
 
     for (const win of subscribersFor(ptyId)) {
       win.webContents.send(EVENT_CHANNELS.ptyData, { ptyId, data: bytes });
@@ -601,6 +626,7 @@ export async function createPty(options: {
     (ptyId, bytes) => {
       noteActivity(ptyId, bytes);
       ptyDataListeners.get(ptyId)?.(bytes);
+      emitPtyOutput(ptyId, bytes);
       for (const win of subscribersFor(ptyId)) {
         win.webContents.send(EVENT_CHANNELS.ptyData, { ptyId, data: bytes });
       }

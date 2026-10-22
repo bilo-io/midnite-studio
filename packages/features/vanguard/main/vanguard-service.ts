@@ -1,10 +1,6 @@
 import type { NewSecurityFinding, SecurityFinding } from '@midnite/studio-shared';
 
-import {
-  createPersistenceProcessSensors,
-  type PersistenceProcessDeps,
-} from './persistence-process-sensors';
-import { BUILTIN_SENSORS } from './sensors';
+import { builtinSensors, type VanguardSensorDeps } from './sensors';
 import {
   createSensorHost,
   type SensorDefinition,
@@ -30,10 +26,10 @@ export interface VanguardServiceOptions {
   log?: (level: SensorLogLevel, message: string) => void;
   /** Overridable for tests; defaults to a file store under `userData`. */
   store?: VanguardStore;
-  /** Sensors to register; defaults to {@link BUILTIN_SENSORS}. */
+  /** What the shipped sensors need from the composer (repos, live sessions, app identity). */
+  sensorDeps?: VanguardSensorDeps;
+  /** Sensors to register; defaults to {@link builtinSensors} over `sensorDeps`. */
   sensors?: readonly SensorDefinition[];
-  /** Theme D's injected seams (agent-session shells, the pty output stream); replaces its default-built sensors. */
-  persistenceProcess?: PersistenceProcessDeps;
 }
 
 export interface VanguardService {
@@ -63,11 +59,6 @@ export async function createVanguardService(
     onChanged: options.onChanged,
     ...(options.log ? { log: options.log } : {}),
   });
-  const dSensors = options.persistenceProcess
-    ? createPersistenceProcessSensors(options.persistenceProcess)
-    : [];
-  const dIds = new Set(dSensors.map((d) => d.id));
-  const base = options.sensors ?? BUILTIN_SENSORS.filter((d) => !dIds.has(d.id));
-  for (const def of [...base, ...dSensors]) host.register(def);
+  for (const def of options.sensors ?? builtinSensors(options.sensorDeps ?? {})) host.register(def);
   return { host, settings, quarantineDir: `${options.userData}/vanguard/quarantine` };
 }
