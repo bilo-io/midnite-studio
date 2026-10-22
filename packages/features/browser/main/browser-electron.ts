@@ -25,7 +25,12 @@ export type BrowserInput = {
 };
 
 /** A navigation the view is about to make — `will-navigate`/`will-redirect`'s details. */
-export type BrowserNavigationDetails = { url: string; preventDefault(): void };
+export type BrowserNavigationDetails = {
+  url: string;
+  /** Electron sets it on `will-redirect` (which fires for subframes too); `will-navigate` is main-frame only. */
+  isMainFrame?: boolean;
+  preventDefault(): void;
+};
 
 /** An event whose default can be refused (`certificate-error`, `before-input-event`). */
 export type BrowserPreventable = { preventDefault(): void };

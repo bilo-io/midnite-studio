@@ -44,8 +44,8 @@ export type SiteVerdictContext = {
   feeds: { match(url: string): SiteKnownBad | null; reputation(): 'checked' | 'unavailable' };
   /** The certificate verifier's last failure for a host, if any. */
   tlsErrorFor(host: string): string | undefined;
-  /** The user proceeded past this host's interstitial this session. */
-  isBypassed(host: string): boolean;
+  /** The user proceeded past an interstitial covering this URL (its host's certificate, or its feed entry). */
+  isBypassed(url: string): boolean;
   /** Push a changed verdict to the tab's window. */
   emit(tabId: string, verdict: SiteVerdict): void;
 };
@@ -77,10 +77,27 @@ function parse(url: string): URL | null {
   }
 }
 
+/** How many visited hosts a confusable is compared against, newest first (seed and Vault hosts are extra). */
+export const RECENT_HOSTS_CAP = 500;
+
 export function createSiteVerdictTracker(ctx: SiteVerdictContext): SiteVerdictTracker {
   const verdicts = new Map<string, SiteVerdict>();
   const tabByWebContents = new Map<number, string>();
   const known = new Set<string>(COMMONLY_IMPERSONATED_HOSTS);
+  const pinned = new Set<string>(COMMONLY_IMPERSONATED_HOSTS);
+  const visited = new Set<string>();
+
+  function rememberVisited(host: string): void {
+    if (pinned.has(host)) return;
+    visited.delete(host);
+    visited.add(host);
+    known.add(host);
+    if (visited.size > RECENT_HOSTS_CAP) {
+      const oldest = visited.values().next().value as string;
+      visited.delete(oldest);
+      if (!pinned.has(oldest)) known.delete(oldest);
+    }
+  }
 
   const tabFor = (webContentsId: number | undefined) =>
     webContentsId === undefined ? undefined : tabByWebContents.get(webContentsId);
@@ -112,14 +129,16 @@ export function createSiteVerdictTracker(ctx: SiteVerdictContext): SiteVerdictTr
         verdict.lookalike = lookalike;
         verdict.knownBad = knownBad;
         verdict.reputation = ctx.feeds.reputation();
-        verdict.bypassed = ctx.isBypassed(host);
+        verdict.bypassed = ctx.isBypassed(url);
         if (tlsError) {
           verdict.tls = 'error';
           verdict.tlsError = tlsError;
         }
-        // A host the user reached and that is not itself a lookalike becomes one a later
-        // confusable is compared against ("recent history" — this session's, in memory only).
-        if (!lookalike && !knownBad && !isLoopbackHost(host)) known.add(host.replace(/^www\./, ''));
+        // A host the user reached and that is not itself suspect becomes one a later confusable is
+        // compared against ("recent history" — this session's, in memory only, the newest
+        // RECENT_HOSTS_CAP). A host with a failed certificate is never an anchor: the real site
+        // must not be flagged as a lookalike of the impostor.
+        if (!lookalike && !knownBad && !tlsError && !isLoopbackHost(host)) rememberVisited(host.replace(/^www\./, ''));
       }
       store(tabId, verdict);
       return verdict;
@@ -136,9 +155,16 @@ export function createSiteVerdictTracker(ctx: SiteVerdictContext): SiteVerdictTr
       let changed = false;
 
       const plainHttp = target.protocol === 'http:' && !isLoopbackHost(target.hostname);
-      if (plainHttp && current.origin.startsWith('https:') && !current.mixedContentUrls.includes(details.url)) {
+      const listFull = current.mixedContentUrls.length >= SITE_VERDICT_URL_CAP;
+      if (
+        plainHttp &&
+        current.origin.startsWith('https:') &&
+        !current.mixedContentUrls.includes(details.url) &&
+        // Once the list is full a further insecure URL changes nothing the renderer shows.
+        !(listFull && current.mixedContent)
+      ) {
         next.mixedContent = true;
-        if (current.mixedContentUrls.length < SITE_VERDICT_URL_CAP) next.mixedContentUrls = [...current.mixedContentUrls, details.url];
+        if (!listFull) next.mixedContentUrls = [...current.mixedContentUrls, details.url];
         changed = true;
       }
       if (plainHttp && details.method.toUpperCase() !== 'GET' && details.method.toUpperCase() !== 'HEAD' && !current.insecureForm) {
@@ -179,7 +205,10 @@ export function createSiteVerdictTracker(ctx: SiteVerdictContext): SiteVerdictTr
     addKnownHosts(hosts) {
       for (const host of hosts) {
         const h = host.toLowerCase().replace(/^\./, '').replace(/^www\./, '');
-        if (h) known.add(h);
+        if (h) {
+          known.add(h);
+          pinned.add(h);
+        }
       }
     },
     knownHosts: () => known,

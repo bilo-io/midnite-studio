@@ -67,9 +67,23 @@ function hostOf(url: string): string {
   }
 }
 
+function sameUrl(a: string, b: string): boolean {
+  try {
+    return new URL(a).href === new URL(b).href;
+  } catch {
+    return a === b;
+  }
+}
+
 function SiteInterstitial({ tabId, error }: { tabId: string; error: BrowserNavError }) {
   const allowProceed = useBrowserUi((s) => s.browserAllowSiteProceed);
-  const canGoBack = useBrowserStore((s) => s.tabs.find((tab) => tab.id === tabId)?.canGoBack ?? false);
+  const tab = useBrowserStore((s) => s.tabs.find((candidate) => candidate.id === tabId));
+  const canGoBack = tab?.canGoBack ?? false;
+  // A link or redirect refused on a page that stayed loaded (`will-navigate`/`will-redirect`):
+  // the tab's committed URL is still that page, so the safe way out is to drop the warning and
+  // show it again — a history step back would leave it for the one before.
+  const stillOnPreviousPage = Boolean(tab?.url) && !sameUrl(tab!.url, error.validatedUrl);
+  const updateTabState = useBrowserStore((s) => s.updateTabState);
   const host = hostOf(error.validatedUrl);
   const certificate = error.reason === 'certificate';
   const feed = error.knownBad?.feed === 'openphish' ? 'OpenPhish' : 'URLhaus';
@@ -106,11 +120,14 @@ function SiteInterstitial({ tabId, error }: { tabId: string; error: BrowserNavEr
       <div className="mt-1 flex items-center gap-2">
         <button
           type="button"
-          disabled={!canGoBack}
-          onClick={() => bridge()?.browser.back({ tabId })}
+          data-testid="browser-interstitial-back"
+          disabled={!stillOnPreviousPage && !canGoBack}
+          onClick={() =>
+            stillOnPreviousPage ? updateTabState(tabId, { navError: null }) : bridge()?.browser.back({ tabId })
+          }
           className="rounded-md bg-primary disabled:opacity-50 px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
-          Go back
+          {stillOnPreviousPage ? 'Back to safety' : 'Go back'}
         </button>
         {allowProceed ? (
           <button

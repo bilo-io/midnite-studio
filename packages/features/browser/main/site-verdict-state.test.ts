@@ -1,7 +1,7 @@
 import { siteVerdictLevel, type SiteKnownBad, type SiteVerdict } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createSiteVerdictTracker, type SiteVerdictContext } from './site-verdict-state';
+import { createSiteVerdictTracker, RECENT_HOSTS_CAP, type SiteVerdictContext } from './site-verdict-state';
 
 function setup(overrides: Partial<SiteVerdictContext> = {}) {
   const emitted: Array<{ tabId: string; verdict: SiteVerdict }> = [];
@@ -109,6 +109,18 @@ describe('requestCompleted', () => {
     tracker.requestCompleted({ webContentsId: 99, url: 'http://x.example/i.png', method: 'GET', resourceType: 'image' });
     tracker.requestCompleted({ webContentsId: 7, url: 'http://x.example/', method: 'GET', resourceType: 'mainFrame' });
     expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('remembers only the newest RECENT_HOSTS_CAP visited hosts, keeps seeded ones, and never a TLS-failed host', () => {
+    const { tracker } = setup({ tlsErrorFor: (host) => (host === 'broken.example' ? 'net::ERR_CERT_DATE_INVALID' : undefined) });
+    tracker.addKnownHosts(['vault.example']);
+    tracker.commit('t1', 'https://broken.example/');
+    expect(tracker.knownHosts().has('broken.example')).toBe(false);
+    for (let i = 0; i <= RECENT_HOSTS_CAP; i++) tracker.commit('t1', `https://site${i}.example/`);
+    expect(tracker.knownHosts().has('site0.example')).toBe(false);
+    expect(tracker.knownHosts().has(`site${RECENT_HOSTS_CAP}.example`)).toBe(true);
+    expect(tracker.knownHosts().has('vault.example')).toBe(true);
+    expect(tracker.knownHosts().has('apple.com')).toBe(true);
   });
 });
 

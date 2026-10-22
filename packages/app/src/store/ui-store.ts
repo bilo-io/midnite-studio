@@ -2594,10 +2594,18 @@ export const useUiStore = create<UiState>()(
         bridge()?.browser.setSpellcheck({ enabled: browserSpellcheck });
       },
       browserAllowSiteProceed: false,
-      setBrowserAllowSiteProceed: (browserAllowSiteProceed) => set({ browserAllowSiteProceed }),
+      // Both push to main directly as well as through the browser pane's effect: Settings can be
+      // open with no pane mounted, and turning the proceed switch off must revoke bypasses now.
+      setBrowserAllowSiteProceed: (browserAllowSiteProceed) => {
+        set({ browserAllowSiteProceed });
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: get().browserReputationFeeds });
+      },
       browserReputationFeeds: { urlhaus: false, openphish: false },
-      setBrowserReputationFeed: (feed, enabled) =>
-        set((state) => ({ browserReputationFeeds: { ...state.browserReputationFeeds, [feed]: enabled } })),
+      setBrowserReputationFeed: (feed, enabled) => {
+        set((state) => ({ browserReputationFeeds: { ...state.browserReputationFeeds, [feed]: enabled } }));
+        const { browserAllowSiteProceed, browserReputationFeeds } = get();
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: browserReputationFeeds });
+      },
       editorFontFamily: '',
       setEditorFontFamily: (editorFontFamily) => set({ editorFontFamily }),
       editorFontSize: DEFAULT_EDITOR_FONT_SIZE,

@@ -13,7 +13,11 @@ import { createSiteVerdictTracker, type SiteVerdictTracker } from './site-verdic
  *   (Settings ▸ Browser) and the feed switches (Settings ▸ Privacy), all default off. Main
  *   starts with every one off, so a composer that never pushes them ships the safe defaults.
  * - **TLS** results arrive from the session's certificate verifier, per host.
- * - **Bypasses** are per host, in memory only — a "proceed for this session" ends with the app.
+ * - **Bypasses** are in memory only — a "proceed for this session" ends with the app, and turning
+ *   the Settings switch off revokes every one. The two kinds never cover for each other: a
+ *   certificate bypass is per host, and a known-bad bypass is per feed entry (`SiteKnownBad.match`),
+ *   so proceeding past one listed URL on a shared host neither accepts a bad certificate there nor
+ *   lifts the host's other listed URLs.
  */
 
 export type SiteSafetySettings = { allowProceed: boolean; feeds: Record<SiteFeedId, boolean> };
@@ -24,7 +28,8 @@ let settings: SiteSafetySettings = DEFAULT_SETTINGS;
 let feeds: ReputationFeedService | null = null;
 let tracker: SiteVerdictTracker | null = null;
 const tlsErrors = new Map<string, string>();
-const bypassedHosts = new Set<string>();
+const certificateBypassHosts = new Set<string>();
+const knownBadBypassMatches = new Set<string>();
 let emitVerdict: (tabId: string, verdict: SiteVerdict) => void = () => {};
 
 /** A service that is never enabled: no `userData` directory means nowhere to keep a list. */
@@ -59,7 +64,7 @@ export function siteVerdicts(): SiteVerdictTracker {
     tracker = createSiteVerdictTracker({
       feeds: reputationFeeds(),
       tlsErrorFor: (host) => tlsErrors.get(host),
-      isBypassed: (host) => bypassedHosts.has(host),
+      isBypassed: (url) => isCertificateBypassed(url) || isKnownBadBypassed(url),
       emit: (tabId, verdict) => emitVerdict(tabId, verdict),
     });
     // The web apps the Vault knows sign-ins for — a page impersonating one of them is a lookalike.
@@ -75,6 +80,11 @@ export function installVerdictEmitter(emit: (tabId: string, verdict: SiteVerdict
 
 export function setBrowserSiteSafety(next: SiteSafetySettings): void {
   settings = { allowProceed: next.allowProceed, feeds: { ...next.feeds } };
+  if (!settings.allowProceed) {
+    // "Off" means a warning has no way past it — including the ones already passed this session.
+    certificateBypassHosts.clear();
+    knownBadBypassMatches.clear();
+  }
   reputationFeeds().setEnabled(settings.feeds);
 }
 
@@ -96,23 +106,38 @@ function hostOf(url: string): string | null {
   }
 }
 
-/** A feed hit that should stop this navigation — `null` when unlisted or bypassed this session. */
+/** A feed hit that should stop this navigation — `null` when unlisted or that entry was bypassed. */
 export function knownBadRefusal(url: string): SiteKnownBad | null {
-  const host = hostOf(url);
-  if (!host || bypassedHosts.has(host)) return null;
-  return reputationFeeds().match(url);
+  const hit = reputationFeeds().match(url);
+  return hit && !knownBadBypassMatches.has(hit.match) ? hit : null;
 }
 
-export function isHostBypassed(url: string): boolean {
-  const host = hostOf(url);
-  return host !== null && bypassedHosts.has(host);
+function isKnownBadBypassed(url: string): boolean {
+  const hit = reputationFeeds().match(url);
+  return hit !== null && knownBadBypassMatches.has(hit.match);
 }
 
-/** Lifts the interstitial for `url`'s host until the app quits. `false` when the switch is off. */
-export function bypassHostFor(url: string): boolean {
+/** The user proceeded past a certificate interstitial for `url`'s host this session. */
+export function isCertificateBypassed(url: string): boolean {
   const host = hostOf(url);
-  if (!settings.allowProceed || !host) return false;
-  bypassedHosts.add(host);
+  return host !== null && certificateBypassHosts.has(host);
+}
+
+export type InterstitialKind = { reason: 'certificate' } | { reason: 'known-bad'; match: string };
+
+/**
+ * Lifts one interstitial until the app quits: a certificate one for its host, a known-bad one for
+ * the feed entry that matched. `false` (nothing lifted) when the Settings switch is off.
+ */
+export function bypassInterstitial(url: string, kind: InterstitialKind): boolean {
+  if (!settings.allowProceed) return false;
+  if (kind.reason === 'known-bad') {
+    knownBadBypassMatches.add(kind.match);
+    return true;
+  }
+  const host = hostOf(url);
+  if (!host) return false;
+  certificateBypassHosts.add(host);
   return true;
 }
 
@@ -122,6 +147,7 @@ export function resetSiteSafetyForTests(): void {
   tracker = null;
   settings = DEFAULT_SETTINGS;
   tlsErrors.clear();
-  bypassedHosts.clear();
+  certificateBypassHosts.clear();
+  knownBadBypassMatches.clear();
   emitVerdict = () => {};
 }

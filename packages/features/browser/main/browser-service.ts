@@ -14,10 +14,11 @@ import { browserMainDeps, defaultLogger } from './browser-main-deps';
 import { checkNavigationUrl } from './browser-security';
 import { applyBrowserSessionPolicy, refuseWebviewAttach, sandboxedPageWebPreferences } from './browser-session-policy';
 import {
-  bypassHostFor,
+  bypassInterstitial,
   installVerdictEmitter,
-  isHostBypassed,
+  isCertificateBypassed,
   knownBadRefusal,
+  type InterstitialKind,
   recordCertificateVerification,
   resetSiteSafetyForTests,
   siteVerdicts,
@@ -352,10 +353,11 @@ function ensureSessionConfigured(): void {
 }
 
 /**
- * The URL each tab's interstitial (Phase 117 Theme C) refused — `proceedBrowserSite` lifts only
- * that one, so a renderer cannot ask main to bypass a host the user was never warned about.
+ * What each tab's interstitial (Phase 117 Theme C) refused — `proceedBrowserSite` lifts only that
+ * URL, and only for that reason, so a renderer cannot ask main to bypass something the user was
+ * never warned about.
  */
-const interstitialUrls = new Map<string, string>();
+const interstitialUrls = new Map<string, { url: string; kind: InterstitialKind }>();
 
 /** `net::ERR_BLOCKED_BY_CLIENT` — the honest Chromium code for "this app refused it". */
 export const KNOWN_BAD_ERROR_CODE = -20;
@@ -366,11 +368,12 @@ export function isCertificateErrorCode(code: number): boolean {
 }
 
 /**
- * Show the known-bad interstitial instead of loading `url` — before a byte of the page arrives,
- * so nothing paints. The verdict is committed for the refused URL so the badge reads `danger` too.
+ * Show the known-bad interstitial instead of loading `url` — before a byte of the page arrives, so
+ * nothing paints. No verdict is committed: nothing navigated, so the tab's verdict still belongs to
+ * whatever page it shows (or none), and the interstitial is what speaks for the refused URL.
  */
 function refuseKnownBad(win: BrowserWindow, tabId: string, url: string, hit: SiteKnownBad): void {
-  interstitialUrls.set(tabId, url);
+  interstitialUrls.set(tabId, { url, kind: { reason: 'known-bad', match: hit.match } });
   defaultLogger(`[browser] known-bad (${hit.feed}) refused: ${url}`);
   send(win, {
     kind: 'failed',
@@ -383,7 +386,6 @@ function refuseKnownBad(win: BrowserWindow, tabId: string, url: string, hit: Sit
       knownBad: hit,
     },
   });
-  siteVerdicts().commit(tabId, url);
 }
 
 /** Load `url` in a tab unless a reputation feed lists it. */
@@ -404,8 +406,9 @@ function loadUnlessKnownBad(tracked: Tracked, tabId: string, url: string): void 
  */
 export function proceedBrowserSite(tabId: string, url: string): void {
   const tracked = tabs.get(tabId);
-  if (!tracked || interstitialUrls.get(tabId) !== url) return;
-  if (!bypassHostFor(url)) {
+  const refused = interstitialUrls.get(tabId);
+  if (!tracked || !refused || refused.url !== url) return;
+  if (!bypassInterstitial(url, refused.kind)) {
     defaultLogger(`[browser] proceed refused (switch off): ${url}`);
     return;
   }
@@ -502,7 +505,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
     // URL before the previous one finished), not a real failure to show.
     if (!isMainFrame || errorCode === -3) return;
     const certificate = isCertificateErrorCode(errorCode);
-    if (certificate) interstitialUrls.set(tabId, validatedUrl);
+    if (certificate) interstitialUrls.set(tabId, { url: validatedUrl, kind: { reason: 'certificate' } });
     send(win, {
       kind: 'failed',
       tabId,
@@ -513,8 +516,6 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
         ...(certificate ? { reason: 'certificate' as const } : {}),
       },
     });
-    // The interstitial's badge reads `danger` from the verifier's record for this host.
-    if (certificate) siteVerdicts().commit(tabId, validatedUrl);
   });
   wc.on('render-process-gone', (_event, details) => {
     if (details.reason === 'clean-exit') return;
@@ -598,6 +599,9 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
       details.preventDefault();
       return;
     }
+    // A subframe's redirect (an ad iframe bouncing to a listed URL) must not raise the full-tab
+    // interstitial over the page the user is on; Chromium's own subframe handling stands.
+    if (details.isMainFrame === false) return;
     const hit = knownBadRefusal(details.url);
     if (hit) {
       details.preventDefault();
@@ -633,7 +637,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   // answered explicitly, or the request would hang instead of failing.
   wc.on('certificate-error', (event, certUrl, error, _certificate, callback, isMainFrame) => {
     event.preventDefault();
-    if (isHostBypassed(certUrl)) {
+    if (isCertificateBypassed(certUrl)) {
       callback?.(true);
       return;
     }

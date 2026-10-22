@@ -1039,7 +1039,7 @@ describe('Phase 117 Theme C — site verdicts in the service', () => {
     fakeSessions.clear();
     dir = mkdtempSync(join(tmpdir(), 'browser-c-'));
     mkdirSync(join(dir, 'browser-feeds'));
-    writeFileSync(join(dir, 'browser-feeds', 'urlhaus.txt'), 'http://malware.example/\n');
+    writeFileSync(join(dir, 'browser-feeds', 'urlhaus.txt'), 'http://malware.example/\nhttps://shared.example/bad-one\nhttps://shared.example/bad-two\n');
     installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}), userDataPath: dir });
   });
   afterEach(() => {
@@ -1125,7 +1125,42 @@ describe('Phase 117 Theme C — site verdicts in the service', () => {
         error: expect.objectContaining({ code: KNOWN_BAD_ERROR_CODE, reason: 'known-bad', knownBad: expect.objectContaining({ feed: 'urlhaus' }) }),
       }),
     );
-    expect(sent(on).at(-1)).toMatchObject({ kind: 'verdict', verdict: { knownBad: { feed: 'urlhaus' } } });
+    // Nothing navigated, so no verdict is committed for the refused URL — the interstitial speaks for it.
+    expect(sent(on).some((event) => event.kind === 'verdict')).toBe(false);
+  });
+
+  it('a known-bad bypass lifts that feed entry only — not the host\'s other entries, nor its certificates', () => {
+    setBrowserSiteSafety({ allowProceed: true, feeds: { urlhaus: true, openphish: false } });
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://shared.example/bad-one');
+    const view = viewOf(win);
+    expect(view.webContents.loadURL).not.toHaveBeenCalled();
+
+    proceedBrowserSite('t', 'https://shared.example/bad-one');
+    expect(view.webContents.loadURL).toHaveBeenCalledWith('https://shared.example/bad-one');
+
+    const other = { url: 'https://shared.example/bad-two', preventDefault: vi.fn() };
+    view.webContents.emit('will-navigate', other);
+    expect(other.preventDefault).toHaveBeenCalled();
+
+    const callback = vi.fn();
+    view.webContents.emit('certificate-error', { preventDefault: vi.fn() }, 'https://shared.example/', 'net::ERR_CERT_DATE_INVALID', {}, callback, true);
+    expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it('turning the proceed switch off revokes every bypass granted this session', () => {
+    setBrowserSiteSafety({ allowProceed: true, feeds: { urlhaus: false, openphish: false } });
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://expired.badssl.com');
+    const view = viewOf(win);
+    const url = 'https://expired.badssl.com/';
+    view.webContents.emit('did-fail-load', undefined, -201, 'net::ERR_CERT_DATE_INVALID', url, true);
+    proceedBrowserSite('t', url);
+
+    setBrowserSiteSafety({ allowProceed: false, feeds: { urlhaus: false, openphish: false } });
+    const callback = vi.fn();
+    view.webContents.emit('certificate-error', { preventDefault: vi.fn() }, url, 'net::ERR_CERT_DATE_INVALID', {}, callback, true);
+    expect(callback).toHaveBeenCalledWith(false);
   });
 
   it('refuses a page-initiated navigation and a redirect to a known-bad URL', () => {
@@ -1139,6 +1174,10 @@ describe('Phase 117 Theme C — site verdicts in the service', () => {
     const redirect = { url: 'http://malware.example/y', preventDefault: vi.fn() };
     view.webContents.emit('will-redirect', redirect);
     expect(redirect.preventDefault).toHaveBeenCalled();
+    const subframe = { url: 'http://malware.example/ad', isMainFrame: false, preventDefault: vi.fn() };
+    view.webContents.emit('will-redirect', subframe);
+    expect(subframe.preventDefault).not.toHaveBeenCalled();
+    expect(sent(win).filter((event) => event.kind === 'failed')).toHaveLength(2);
     const fine = { url: 'https://example.org/', preventDefault: vi.fn() };
     view.webContents.emit('will-navigate', fine);
     expect(fine.preventDefault).not.toHaveBeenCalled();

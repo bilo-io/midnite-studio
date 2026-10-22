@@ -1,5 +1,7 @@
 import { domainToASCII, domainToUnicode } from 'node:url';
 
+import { isUniformScript } from '@midnite/studio-shared';
+
 /**
  * IDN uniform script and homograph hygiene (Phase 117 Theme B & C).
  *
@@ -12,66 +14,12 @@ import { domainToASCII, domainToUnicode } from 'node:url';
  * never converted to Unicode.
  */
 
-const KNOWN_SCRIPTS = [
-  'Latin',
-  'Cyrillic',
-  'Greek',
-  'Arabic',
-  'Hebrew',
-  'Han',
-  'Hiragana',
-  'Katakana',
-  'Devanagari',
-  'Bengali',
-  'Gurmukhi',
-  'Gujarati',
-  'Oriya',
-  'Tamil',
-  'Telugu',
-  'Kannada',
-  'Malayalam',
-  'Sinhala',
-  'Thai',
-  'Lao',
-  'Tibetan',
-  'Myanmar',
-  'Georgian',
-  'Ethiopic',
-  'Cherokee',
-  'Ogham',
-  'Runic',
-  'Khmer',
-  'Mongolian',
-  'Armenian',
-];
-
-const SCRIPT_REGEXES = KNOWN_SCRIPTS.map((name) => ({
-  name,
-  regex: new RegExp(`^\\p{sc=${name}}$`, 'u'),
-}));
-
-const COMMON_OR_INHERITED = /^[\p{sc=Common}\p{sc=Inherited}]$/u;
-
-export function isUniformScript(label: string): boolean {
-  let script: string | null = null;
-  for (const ch of label) {
-    if (COMMON_OR_INHERITED.test(ch)) continue;
-    let found: string | null = null;
-    for (const { name, regex } of SCRIPT_REGEXES) {
-      if (regex.test(ch)) {
-        found = name;
-        break;
-      }
-    }
-    if (!found) continue;
-    if (script === null) {
-      script = found;
-    } else if (script !== found) {
-      return false;
-    }
-  }
-  return true;
-}
+/**
+ * The one script rule, shared with the address bar's lookalike check (`@midnite/studio-shared`'s
+ * `lookalike.ts`, Phase 117 Theme C) so a host never reads as Unicode in one surface and punycode in
+ * the other. Han, Hiragana and Katakana count as one writing system there, as Chromium's IDN policy does.
+ */
+export { isUniformScript };
 
 export function formatHostForDisplay(host: string): string {
   const unicodeHost = domainToUnicode(host);

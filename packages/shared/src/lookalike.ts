@@ -201,6 +201,22 @@ export type Lookalike = {
  * - **`confusable`** — a uniform-script host (all-Cyrillic `аррӏе.com`, or ASCII `paypa1.com`) whose
  *   skeleton equals a known host's.
  */
+/**
+ * Known hosts are compared on every navigation, so their skeletons are memoised — bounded, since a
+ * long session can visit thousands of hosts.
+ */
+const SKELETON_CACHE_MAX = 5000;
+const skeletonCache = new Map<string, string>();
+function cachedSkeleton(host: string): string {
+  let skeleton = skeletonCache.get(host);
+  if (skeleton === undefined) {
+    if (skeletonCache.size >= SKELETON_CACHE_MAX) skeletonCache.clear();
+    skeleton = confusableSkeleton(host);
+    skeletonCache.set(host, skeleton);
+  }
+  return skeleton;
+}
+
 export function findLookalike(host: string, knownHosts: Iterable<string>): Lookalike | null {
   const ascii = stripWww(host.toLowerCase().replace(/\.$/, ''));
   if (ascii.length === 0) return null;
@@ -211,7 +227,7 @@ export function findLookalike(host: string, knownHosts: Iterable<string>): Looka
   const skeleton = confusableSkeleton(ascii);
   let against: string | undefined;
   for (const candidate of known) {
-    if (candidate !== ascii && confusableSkeleton(candidate) === skeleton) {
+    if (candidate !== ascii && cachedSkeleton(candidate) === skeleton) {
       against = candidate;
       break;
     }

@@ -402,5 +402,33 @@ describe('site verdicts (Phase 117 Theme C)', () => {
     const page = await screen.findByTestId('browser-interstitial');
     expect(page.textContent).toContain('This site is reported as dangerous');
     expect(page.textContent).toContain('OpenPhish lists login-paypa1.example as a phishing site');
+
+    // The link was refused on a page that stayed loaded: the way out drops the warning, it does
+    // not step history back off that page.
+    const back = screen.getByTestId('browser-interstitial-back');
+    expect(back.textContent).toBe('Back to safety');
+    fireEvent.click(back);
+    await waitFor(() => expect(screen.queryByTestId('browser-interstitial')).toBeNull());
+    const bridgeBrowser = (window as unknown as { midniteStudio: MidniteStudioBridge }).midniteStudio.browser;
+    expect(bridgeBrowser.back).not.toHaveBeenCalled();
+  });
+
+  it('a refused first load offers "Go back" through history instead', async () => {
+    seedActivePageTab('https://login-paypa1.example/signin');
+    renderPane();
+    pushBrowserEvent({
+      kind: 'failed',
+      tabId: 'tab-1',
+      error: {
+        code: -20,
+        description: 'Listed as phishing by OpenPhish',
+        validatedUrl: 'https://login-paypa1.example/signin',
+        reason: 'known-bad',
+        knownBad: { feed: 'openphish', category: 'phishing', match: 'login-paypa1.example' },
+      },
+    });
+    const back = await screen.findByTestId('browser-interstitial-back');
+    expect(back.textContent).toBe('Go back');
+    expect((back as HTMLButtonElement).disabled).toBe(true);
   });
 });
