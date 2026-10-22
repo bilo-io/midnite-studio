@@ -50,7 +50,8 @@ export type PendingAction =
   | PendingExternalAction
   | PendingSettingAction
   | PendingOpenSettingsAction
-  | PendingChoiceAction;
+  | PendingChoiceAction
+  | PendingStatusReportAction;
 
 /** A palette command waiting on a yes. `kind` is optional so the Phase 81 shape still reads as one. */
 export type PendingCommandAction = {
@@ -126,6 +127,19 @@ export type PendingChoiceAction = {
   options: readonly { ref: ResourceRef; title: string; detail?: string | undefined }[];
 };
 
+/**
+ * The greeting's "Would you like a status report?" — a yes runs the overview
+ * the opening used to recite unasked (`concierge.ts`'s `orient`); a no, or any
+ * other request, drops it.
+ */
+export type PendingStatusReportAction = {
+  kind: 'statusReport';
+  id?: undefined;
+  label: string;
+  at: number;
+  onConfirm?: undefined;
+};
+
 export type CompanionStoreState = {
   state: CompanionState;
   /** Newest LAST, exactly as a chat thread renders. Capped at {@link COMPANION_TRANSCRIPT_CAP}. */
@@ -149,6 +163,14 @@ export type CompanionStoreState = {
    * prevent.
    */
   pendingAction: PendingAction | null;
+  /**
+   * Zen mode — the full-stage companion view (giant centred orb, last turn on
+   * each side, floating composer, hover-to-grow HUD corners). Volatile: a
+   * reload lands back in the docked column, never in a full-screen takeover.
+   */
+  zenMode: boolean;
+  setZenMode: (zen: boolean) => void;
+  toggleZenMode: () => void;
 
   /** Advance the machine. Returns the state it settled in, which may be the one it was already in. */
   send: (event: CompanionEvent) => CompanionState;
@@ -203,6 +225,10 @@ export const useCompanionStore = create<CompanionStoreState>()(
       recentPhrases: {},
       activeHandoff: null,
       pendingAction: null,
+      zenMode: false,
+
+      setZenMode: (zenMode) => set({ zenMode }),
+      toggleZenMode: () => set((current) => ({ zenMode: !current.zenMode })),
 
       send: (event) => {
         const next = transition(get().state, event);

@@ -86,6 +86,15 @@ describe('Mind home view', () => {
     expect(notes.save.mock.calls[0]?.[0]).toMatchObject({ note: { repoId: 'mind', body: 'First thought' } });
     expect(screen.getAllByLabelText('Draft plan').every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
   });
+
+  it('switches to Settings and lets the user choose a 3D knowledge graph presentation style', async () => {
+    render(<MindApp />);
+    fireEvent.click(screen.getByTestId('mind-tab-settings'));
+    expect(await screen.findByTestId('knowledge-style-picker')).toBeDefined();
+    const synapseCard = screen.getByTestId('knowledge-style-card-synapse-3d');
+    fireEvent.click(synapseCard);
+    expect(synapseCard.getAttribute('aria-pressed')).toBe('true');
+  });
 });
 
 describe('Mind Report an Issue', () => {

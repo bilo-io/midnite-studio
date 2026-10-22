@@ -24,4 +24,11 @@ export const vaultResponseSchemas: Readonly<Record<VaultChannel, ZodTypeAny>> = 
   [CHANNELS.vaultPairingUnpair]: schemas.VaultPairingUnpairResponse,
   [CHANNELS.webAppsSignIns]: schemas.WebAppsSignInsResponse,
   [CHANNELS.webAppsSignOut]: schemas.WebAppsSignOutResponse,
+  [CHANNELS.vaultLockStatus]: schemas.VaultLockStatusResponse,
+  [CHANNELS.vaultLock]: schemas.VaultLockResponse,
+  [CHANNELS.vaultUnlock]: schemas.VaultUnlockResponse,
+  [CHANNELS.vaultAuditList]: schemas.VaultAuditListResponse,
+  [CHANNELS.vaultAuditVerify]: schemas.VaultAuditVerifyResponse,
+  [CHANNELS.vaultAuditExport]: schemas.VaultAuditExportResponse,
+  [CHANNELS.vaultBreachCheck]: schemas.VaultBreachCheckResponse,
 };

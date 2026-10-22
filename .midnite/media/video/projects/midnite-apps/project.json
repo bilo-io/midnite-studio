@@ -1,0 +1,8 @@
+{
+  "id": "midnite-apps",
+  "title": "Midnite Apps",
+  "composition": "MidniteApps",
+  "brief": "input/BRIEF.md",
+  "script": "EDITORIAL_SCRIPT.md",
+  "template": "templates/midnite/golive-promo"
+}

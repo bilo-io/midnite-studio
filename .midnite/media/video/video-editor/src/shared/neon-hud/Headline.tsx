@@ -1,7 +1,8 @@
 import { interpolate, random, useCurrentFrame } from "remotion";
 
 import { ramp } from "./motion";
-import { STAGE, TONES, type Tone, glow, headFontFamily } from "./palette";
+import { type Tone, glow } from "./palette";
+import { useHudSkin } from "./skin";
 
 /**
  * The two-line kinetic headline — the reference's signature.
@@ -36,7 +37,8 @@ export const Headline: React.FC<{
   aTone?: Tone;
   seed?: string;
 }> = ({ a, b, tone = "cyan", layout = "stack", aAt, bAt, size = 92, aTone, seed = "h" }) => {
-  const aColor = aTone ? TONES[aTone] : STAGE.ink;
+  const skin = useHudSkin();
+  const aColor = aTone ? skin.tones[aTone] : skin.ink;
   const aSize = layout === "stack" ? size * 0.82 : size;
   return (
     <div
@@ -46,15 +48,15 @@ export const Headline: React.FC<{
         alignItems: layout === "stack" ? "center" : "baseline",
         justifyContent: "center",
         gap: layout === "stack" ? size * 0.02 : size * 0.38,
-        fontFamily: headFontFamily,
-        fontWeight: 900,
+        fontFamily: skin.headFont,
+        fontWeight: skin.headWeight,
         letterSpacing: "0.02em",
         textTransform: "uppercase",
         lineHeight: 1.05,
       }}
     >
       <ResolveLine text={a} at={aAt} color={aColor} size={aSize} />
-      {b ? <FlyLine text={b} at={bAt} color={TONES[tone]} size={size} seed={`${seed}-${b}`} /> : null}
+      {b ? <FlyLine text={b} at={bAt} color={skin.tones[tone]} size={size} seed={`${seed}-${b}`} /> : null}
     </div>
   );
 };
@@ -66,8 +68,9 @@ const ResolveLine: React.FC<{ text: string; at: number; color: string; size: num
   size,
 }) => {
   const frame = useCurrentFrame();
+  const skin = useHudSkin();
   return (
-    <div style={{ fontSize: size, color, whiteSpace: "pre", textShadow: glow("#3fc8ff", 0.7) }}>
+    <div style={{ fontSize: size, color, whiteSpace: "pre", textShadow: glow(skin.halo, 0.7 * skin.glow) }}>
       {[...text].map((ch, i) => {
         const t = ramp(frame, at + i * 0.8, 10);
         return (
@@ -88,6 +91,7 @@ const FlyLine: React.FC<{ text: string; at: number; color: string; size: number;
   seed,
 }) => {
   const frame = useCurrentFrame();
+  const { glow: strength } = useHudSkin();
   return (
     <div style={{ fontSize: size, color, whiteSpace: "pre" }}>
       {[...text].map((ch, i) => {
@@ -111,7 +115,7 @@ const FlyLine: React.FC<{ text: string; at: number; color: string; size: number;
                 `scale(${1 + (1 - t) * 0.7})`,
               ].join(" "),
               filter: `blur(${(1 - t) * 6}px)`,
-              textShadow: glow(color, flare),
+              textShadow: glow(color, flare * strength),
             }}
           >
             {ch === " " ? " " : ch}

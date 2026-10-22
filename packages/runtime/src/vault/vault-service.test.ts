@@ -181,3 +181,75 @@ describe('runtime vault — keys', () => {
     expect(await open.keys('forge-accounts')).toEqual(['github:github.com:me']);
   });
 });
+
+describe('runtime vault — locking, re-auth and VaultRead (Phase 118 Theme B)', () => {
+  it('implements read() returning discriminated VaultRead envelope', async () => {
+    const service = createVaultService({ directory: dir, cipher });
+    const client = service.forApp('studio');
+
+    // Absent
+    expect(await client.read('secrets', 'absent-key')).toEqual({ ok: false, kind: 'absent' });
+
+    // Present
+    await client.set('secrets', 'my-key', 'secret-123');
+    expect(await client.read('secrets', 'my-key')).toEqual({ ok: true, value: 'secret-123' });
+
+    // Denied
+    const deniedService = createVaultService({ directory: dir, cipher, authorize: () => false });
+    expect(await deniedService.forApp('studio').read('secrets', 'my-key')).toEqual({ ok: false, kind: 'denied' });
+  });
+
+  it('lock() prevents reads, returning kind: locked, but allows has and keys', async () => {
+    const service = createVaultService({ directory: dir, cipher });
+    const client = service.forApp('studio');
+    await client.set('secrets', 'locked-key', 'secret-val');
+
+    expect(service.isLocked()).toBe(false);
+    expect(await client.read('secrets', 'locked-key')).toEqual({ ok: true, value: 'secret-val' });
+
+    service.lock();
+    expect(service.isLocked()).toBe(true);
+
+    // read() gives kind: 'locked'
+    expect(await client.read('secrets', 'locked-key')).toEqual({ ok: false, kind: 'locked' });
+    // deprecated get() gives null
+    expect(await client.get('secrets', 'locked-key')).toBeNull();
+
+    // has and keys still answer while locked
+    expect(await client.has('secrets', 'locked-key')).toBe(true);
+    expect(await client.keys('secrets')).toContain('locked-key');
+
+    // unlock() restores reads
+    await service.unlock();
+    expect(service.isLocked()).toBe(false);
+    expect(await client.read('secrets', 'locked-key')).toEqual({ ok: true, value: 'secret-val' });
+  });
+
+  it('notifies onLockedChange listeners', async () => {
+    const service = createVaultService({ directory: dir, cipher });
+    const events: boolean[] = [];
+    const unsubscribe = service.onLockedChange((l) => events.push(l));
+
+    service.lock();
+    await service.unlock();
+    unsubscribe();
+    service.lock();
+
+    expect(events).toEqual([true, false]);
+  });
+
+  it('tracks recentUnlockAt and validates re-auth within 60s', async () => {
+    const service = createVaultService({ directory: dir, cipher, initialLocked: true });
+    expect(service.recentUnlockAt).toBeNull();
+    expect(service.isReauthValid()).toBe(false);
+
+    await service.unlock();
+    expect(service.recentUnlockAt).toBeTypeOf('number');
+    expect(service.isReauthValid(60_000)).toBe(true);
+
+    // Locking invalidates re-auth
+    service.lock();
+    expect(service.recentUnlockAt).toBeNull();
+    expect(service.isReauthValid()).toBe(false);
+  });
+});

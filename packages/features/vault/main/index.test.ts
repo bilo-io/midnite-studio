@@ -12,11 +12,12 @@ import { vaultManifest } from '../manifest';
 
 async function setup() {
   const dir = await mkdtemp(join(tmpdir(), 'mstudio-vault-feature-'));
-  const vault = createVaultService({ directory: dir, cipher: createFakeCipher() }).forApp('vault');
+  const service = createVaultService({ directory: dir, cipher: createFakeCipher() });
+  const vault = service.forApp('vault');
   const ctx = createRecordingContext();
   const grants = createVaultGrants({ directory: dir });
-  vaultMain.register(ctx, { vault, grants });
-  return { ctx, vault, grants };
+  vaultMain.register(ctx, { vault, grants, vaultService: service });
+  return { ctx, vault, grants, service, dir };
 }
 
 describe('vault main', () => {
@@ -110,5 +111,36 @@ describe('vault main', () => {
     expect(accountFromKey('gitlab:gitlab.example.com:me')?.kind).toBe('gitlab');
     expect(accountFromKey('nonsense')).toBeNull();
     expect(accountFromKey('unknown:host:me')).toBeNull();
+  });
+
+  it('manages vault lock state and answers lock status', async () => {
+    const { ctx } = await setup();
+    const status = (await ctx.invoke(CHANNELS.vaultLockStatus)) as { locked: boolean };
+    expect(status.locked).toBe(false);
+
+    expect(await ctx.invoke(CHANNELS.vaultLock)).toEqual({ ok: true });
+    const lockedStatus = (await ctx.invoke(CHANNELS.vaultLockStatus)) as { locked: boolean };
+    expect(lockedStatus.locked).toBe(true);
+
+    expect(await ctx.invoke(CHANNELS.vaultUnlock, {})).toEqual({ ok: true });
+    const unlockedStatus = (await ctx.invoke(CHANNELS.vaultLockStatus)) as { locked: boolean };
+    expect(unlockedStatus.locked).toBe(false);
+  });
+
+  it('reads audit log and verifies audit chain', async () => {
+    const { ctx, vault } = await setup();
+    await vault.set('secrets', 'k', 'v');
+
+    const auditList = (await ctx.invoke(CHANNELS.vaultAuditList, { limit: 10 })) as {
+      entries: unknown[];
+      valid: boolean;
+      total: number;
+    };
+    expect(auditList.valid).toBe(true);
+    expect(auditList.total).toBeGreaterThan(0);
+
+    const auditVerify = (await ctx.invoke(CHANNELS.vaultAuditVerify)) as { valid: boolean; total: number };
+    expect(auditVerify.valid).toBe(true);
+    expect(auditVerify.total).toBeGreaterThan(0);
   });
 });

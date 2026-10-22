@@ -144,6 +144,9 @@ const bridge: Pick<
   | 'secrets'
   | 'vaultGrants'
   | 'vaultPairings'
+  | 'vaultLock'
+  | 'vaultAudit'
+  | 'vaultBreach'
   | 'finance'
   | 'financeAccounts'
   | 'markets'
@@ -527,6 +530,19 @@ const bridge: Pick<
   vaultPairings: {
     list: (req) => call(CHANNELS.vaultPairingsList, req),
     unpair: (req) => call(CHANNELS.vaultPairingUnpair, req),
+  },
+  vaultLock: {
+    status: (req) => call(CHANNELS.vaultLockStatus, req),
+    lock: (req) => call(CHANNELS.vaultLock, req),
+    unlock: (req) => call(CHANNELS.vaultUnlock, req),
+  },
+  vaultAudit: {
+    list: (req) => call(CHANNELS.vaultAuditList, req),
+    verify: (req) => call(CHANNELS.vaultAuditVerify, req),
+    export: (req) => call(CHANNELS.vaultAuditExport, req),
+  },
+  vaultBreach: {
+    check: (req) => call(CHANNELS.vaultBreachCheck, req),
   },
   finance: {
     search: (req) => call(CHANNELS.financeSearch, req),

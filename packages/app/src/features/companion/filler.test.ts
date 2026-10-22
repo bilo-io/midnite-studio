@@ -81,6 +81,7 @@ const SENTINEL: Record<CompanionPhraseKind, string> = {
   quotes: 'QUOTE',
   musicOffers: 'OFFER',
   prompts: 'PROMPT',
+  statusOffers: 'STATUS_OFFER',
 };
 
 const MID_SPACING = Math.round(

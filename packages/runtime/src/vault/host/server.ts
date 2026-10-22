@@ -91,12 +91,21 @@ export async function answerVaultRequest(
         return done(options.pairings.list());
       case 'pairing.unpair':
         if (appId !== 'vault') return fail('denied', 'only the Vault app unpairs an app');
+        if (!options.service.isReauthValid()) return fail('denied', 'Re-authentication required (within 60s)');
         return done(options.pairings.unpair(req.target));
       case 'has':
         return done(await vault.has(req.namespace, req.key));
-      case 'get':
+      case 'get': {
         if (appId === 'vault') return fail('denied', 'the Vault app never reads a value');
-        return done(await vault.get(req.namespace, req.key));
+        const res = await vault.read(req.namespace, req.key);
+        if (!res.ok) {
+          if (res.kind === 'locked') return fail('locked', 'Vault is locked');
+          if (res.kind === 'denied') return fail('denied', 'Access denied');
+          if (res.kind === 'unavailable') return fail('failed', 'Encryption unavailable');
+          return done(null);
+        }
+        return done(res.value);
+      }
       case 'fingerprint':
         return done(await vault.fingerprint(req.namespace, req.key));
       case 'keys':
@@ -108,7 +117,7 @@ export async function answerVaultRequest(
         await vault.delete(req.namespace, req.key);
         return done(null);
       default:
-        return answerGrants(options.grants, appId, req);
+        return answerGrants(options, appId, req);
     }
   } catch (error) {
     if (error instanceof VaultAccessDeniedError) return fail('denied', error.message);
@@ -116,11 +125,13 @@ export async function answerVaultRequest(
   }
 }
 
-function answerGrants(grants: VaultGrants | null, appId: RuntimeAppId, req: VaultHostRequest): Outcome {
+function answerGrants(options: Omit<VaultHostOptions, 'socketPath'>, appId: RuntimeAppId, req: VaultHostRequest): Outcome {
   if (appId !== 'vault') return fail('denied', 'only the Vault app edits grants');
+  const { grants, service } = options;
   if (grants === null) return fail('failed', 'this host keeps no grants');
   if (req.op === 'grants.list') return done(grants.list());
   if (req.op !== 'grants.set' && req.op !== 'grants.revoke') return fail('invalid', 'unknown op');
+  if (!service.isReauthValid()) return fail('denied', 'Re-authentication required (within 60s)');
   if (!KNOWN_APPS.has(req.grantee)) return done(false);
   const grantee = req.grantee as RuntimeAppId;
   return done(req.op === 'grants.set' ? grants.set(grantee, req.namespace, req.scope) : grants.revoke(grantee, req.namespace));

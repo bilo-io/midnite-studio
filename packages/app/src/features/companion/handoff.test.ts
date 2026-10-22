@@ -822,6 +822,68 @@ describe('submitInput — Theme C, doing things there', () => {
     });
   });
 
+  describe("the greeting's status-report offer", () => {
+    const offer = (): PendingAction => ({ kind: 'statusReport', label: 'Status report', at: Date.now() });
+    const overviewHeading = '**midnite-studio** — on `main`';
+
+    it('a yes runs the overview, then the open prompt', async () => {
+      const store = fakeStore();
+      const slot = fakePendingActionSlot();
+      slot.setPendingAction(offer());
+      await submitInput('yes', fakeHandoffDeps({ store, ...slot }));
+
+      expect(slot.pendingAction()).toBeNull();
+      const texts = store.transcript.map((turn) => turn.text);
+      expect(texts.some((text) => text.startsWith(overviewHeading))).toBe(true);
+      expect(texts.at(-1)).toBe('What would you like to do?');
+    });
+
+    it('a yes long after the offer still runs it — the chip is still showing', async () => {
+      const store = fakeStore();
+      const slot = fakePendingActionSlot();
+      slot.setPendingAction({ kind: 'statusReport', label: 'Status report', at: Date.now() - 10 * 60 * 1000 });
+      await submitInput('yes', fakeHandoffDeps({ store, ...slot }));
+      expect(store.transcript.some((turn) => turn.text.startsWith(overviewHeading))).toBe(true);
+      expect(store.lines()).not.toContain("companion: Nothing's waiting.");
+    });
+
+    it('the Yes chip and an empty Return reach the same overview', async () => {
+      const store = fakeStore();
+      const slot = fakePendingActionSlot();
+      slot.setPendingAction(offer());
+      await submitInput('confirm', fakeHandoffDeps({ store, ...slot }));
+      expect(store.transcript.some((turn) => turn.text.startsWith(overviewHeading))).toBe(true);
+    });
+
+    it('a no skips the report and asks what next — not "Left it."', async () => {
+      const store = fakeStore();
+      const slot = fakePendingActionSlot();
+      const snapshot = vi.fn();
+      slot.setPendingAction(offer());
+      await submitInput('no thanks', fakeHandoffDeps({ store, snapshot, ...slot }));
+
+      expect(slot.pendingAction()).toBeNull();
+      expect(snapshot).not.toHaveBeenCalled();
+      expect(store.lines().at(-1)).toBe('companion: What would you like to do?');
+    });
+
+    it('any other request drops the offer, so a later Return cannot run it', async () => {
+      const slot = fakePendingActionSlot();
+      slot.setPendingAction(offer());
+      await submitInput('what can you do', fakeHandoffDeps({ ...slot }));
+      expect(slot.pendingAction()).toBeNull();
+    });
+
+    it.each(['status report', 'Sitrep', 'situation report', 'where are we?'])(
+      '"%s" asks for the overview any time, offer or not',
+      async (line) => {
+        const store = fakeStore();
+        await submitInput(line, fakeHandoffDeps({ store }));
+        expect(store.transcript.some((turn) => turn.text.startsWith(overviewHeading))).toBe(true);
+      },
+    );
+  });
+
   describe('Phase 111 Theme C: switchAgent and undo', () => {
     it('switches primary agent and speaks spoken read-back', async () => {
       useUiStore.setState({ primaryAgent: 'claude', primaryModelByAgent: {} });

@@ -1,5 +1,5 @@
 import type { CompanionState } from '@midnite/studio-shared';
-import { LuSquareArrowOutUpRight, LuTrash2, LuX } from 'react-icons/lu';
+import { LuMaximize2, LuMinimize2, LuSquareArrowOutUpRight, LuTrash2, LuX } from 'react-icons/lu';
 
 import { useDialogs } from '../../components/dialog-host';
 import { IconButton } from '../../components/icon-button';
@@ -33,6 +33,8 @@ export function CompanionHeader({ state }: { state: CompanionState }) {
   */
   const turns = useCompanionStore((s) => s.transcript.length);
   const clearTranscript = useCompanionStore((s) => s.clearTranscript);
+  const zenMode = useCompanionStore((s) => s.zenMode);
+  const toggleZenMode = useCompanionStore((s) => s.toggleZenMode);
   const look = COMPANION_LOOK[state];
   const Glyph = look.icon;
 
@@ -92,6 +94,13 @@ export function CompanionHeader({ state }: { state: CompanionState }) {
         most needs explaining can explain itself — a native `disabled`
         suppresses the hover that would raise the tooltip. See `IconButton`.
       */}
+      <IconButton
+        icon={zenMode ? LuMinimize2 : LuMaximize2}
+        label={zenMode ? 'Exit Zen mode' : 'Enter Zen mode'}
+        size="sm"
+        onClick={toggleZenMode}
+        data-testid="companion-zen-toggle"
+      />
       <IconButton
         icon={LuTrash2}
         label="Clear conversation"
