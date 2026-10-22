@@ -16,7 +16,7 @@ import { app, shell, type BrowserWindow } from 'electron';
 
 import { defaultLogger } from '../log';
 import { listRepos } from '../repo-registry';
-import { observePtyOutput, sessionIdFor } from '../pty-service';
+import { observePtyOutput, onSessionExit, sessionIdFor } from '../pty-service';
 import { listTerminals } from '../terminal-service';
 import { agentPtyOutputSource, agentSessionPids } from './vanguard-sensor-wiring';
 import { handle, handleBare, handleSend } from './handle';
@@ -59,7 +59,13 @@ const serviceReady = new Promise<VanguardService>((resolve) => {
  * Studio's sensor host (Phase 120 Theme B). `'after-view-opened'`: a sensor Studio's user never asked for
  * must not start polling, so nothing runs until the Vanguard view has been opened once (persisted).
  */
-const ptySeams = { observe: observePtyOutput, sessionIdFor, listTerminals };
+const ptySeams = {
+  observe: observePtyOutput,
+  sessionIdFor,
+  listTerminals,
+  onSessionExit: (hook: (sessionId: string) => void) =>
+    onSessionExit((sessionId) => hook(sessionId)),
+};
 
 export async function startVanguardSensors(userData: string): Promise<void> {
   const ledger = getFindingsLedger();
@@ -84,7 +90,9 @@ export async function startVanguardSensors(userData: string): Promise<void> {
             : [
                 {
                   sessionId: session.id,
-                  ...(session.kind === 'agent' && session.agentId ? { agentId: session.agentId } : {}),
+                  ...(session.kind === 'agent' && session.agentId
+                    ? { agentId: session.agentId }
+                    : {}),
                   repoId: session.repoId,
                   cwd: session.cwd,
                   title: session.name ?? session.title,

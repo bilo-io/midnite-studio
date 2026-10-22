@@ -17,6 +17,8 @@ export interface VanguardWiringSeams {
   observe(observer: (ptyId: string, bytes: Uint8Array) => void): () => void;
   /** The session behind a pty, if any (pty-service's `sessionIdFor`). */
   sessionIdFor(ptyId: string): string | undefined;
+  /** A session ended (pty-service's `onSessionExit`); drops its decoder. Optional. */
+  onSessionExit?(hook: (sessionId: string) => void): () => void;
   /** The terminal sessions and their live ptys (terminal-service's `listTerminals`). */
   listTerminals(): Promise<readonly TerminalRow[]>;
 }
@@ -38,15 +40,17 @@ export function agentSessionPids(seams: VanguardWiringSeams): () => Promise<Map<
 export function agentPtyOutputSource(seams: VanguardWiringSeams): PtyOutputSource {
   return {
     subscribe(listener) {
-      const decoder = new TextDecoder();
+      /** `null`: known not to be an agent, so its output is dropped before any work. */
       const agents = new Map<string, string | null>();
+      /** One streaming decoder per agent session, so a split multi-byte character never joins another pty's bytes. */
+      const decoders = new Map<string, TextDecoder>();
       let chain: Promise<unknown> = Promise.resolve();
       let live = true;
       const unobserve = seams.observe((ptyId, bytes) => {
         const sessionId = seams.sessionIdFor(ptyId);
-        if (sessionId === undefined) return;
-        const data = decoder.decode(bytes, { stream: true });
-        // In order, and resolving an unknown session's kind once, off the output path.
+        if (sessionId === undefined || agents.get(sessionId) === null) return;
+        // The chunk's bytes are kept as they arrive; decoding and the agent lookup happen in order per session.
+        const copy = bytes.slice();
         chain = chain
           .then(async () => {
             if (!live) return;
@@ -56,16 +60,27 @@ export function agentPtyOutputSource(seams: VanguardWiringSeams): PtyOutputSourc
               if (row) agents.set(sessionId, agentIdOf(row) ?? null);
             }
             const agentId = agents.get(sessionId);
-            if (agentId) {
-              const chunk: PtyOutputChunk = { sessionId, agentId, data };
-              listener(chunk);
-            }
+            if (!agentId) return;
+            let decoder = decoders.get(sessionId);
+            if (!decoder) decoders.set(sessionId, (decoder = new TextDecoder()));
+            const chunk: PtyOutputChunk = {
+              sessionId,
+              agentId,
+              data: decoder.decode(copy, { stream: true }),
+            };
+            listener(chunk);
           })
           .catch(() => undefined);
+      });
+      const unexit = seams.onSessionExit?.((sessionId) => {
+        decoders.delete(sessionId);
+        agents.delete(sessionId);
       });
       return () => {
         live = false;
         unobserve();
+        unexit?.();
+        decoders.clear();
       };
     },
   };

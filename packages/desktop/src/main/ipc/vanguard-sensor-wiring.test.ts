@@ -24,6 +24,7 @@ function fakeSeams() {
   };
   return {
     seams,
+    emitBytes: (id: string, b: Uint8Array) => observer?.(id, b),
     emit: (id: string, text: string) => observer?.(id, new TextEncoder().encode(text)),
     attached: () => observer !== null,
   };
@@ -62,5 +63,31 @@ describe('Vanguard sensor wiring', () => {
     });
     dispose();
     expect(f.attached()).toBe(false);
+  });
+
+  it('decodes a split multi-byte character per session, and never touches a known non-agent', async () => {
+    const f = fakeSeams();
+    const got: string[] = [];
+    const lookups = { n: 0 };
+    const seams: VanguardWiringSeams = {
+      ...f.seams,
+      listTerminals: async () => (lookups.n++, rows),
+    };
+    const source = agentPtyOutputSource(seams);
+    const dispose = source.subscribe((c) => got.push(`${c.sessionId}:${c.data}`));
+    const euro = new TextEncoder().encode('é'); // two bytes
+    const emitBytes = (id: string, b: Uint8Array) => f.emitBytes(id, b);
+    emitBytes('p1', euro.slice(0, 1));
+    f.emit('p2', 'plain terminal text\n'); // interleaved non-agent chunk
+    emitBytes('p1', euro.slice(1));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(got.join('')).toBe('s-agent:é');
+    // The non-agent is now known: a further chunk is dropped synchronously, with no lookup.
+    const before = lookups.n;
+    f.emit('p2', 'more\n');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(lookups.n).toBe(before);
+    expect(got).toHaveLength(1);
+    dispose();
   });
 });
