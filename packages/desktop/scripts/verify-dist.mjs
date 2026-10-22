@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { findForbiddenArtifacts } from './lib/forbidden-artifacts.mjs';
 import { extractYamlScalar } from './lib/yaml-scalar.mjs';
 import { SQLITE_PROBE_SOURCE, sqliteProbeModulePath } from './lib/sqlite-probe.mjs';
+import { fuseMismatches } from './lib/fuses.mjs';
 
 const desktopDir = process.cwd();
 const releaseDir = join(desktopDir, 'release');
@@ -44,6 +45,16 @@ try {
   execSync(`codesign --verify --deep --strict "${appPath}"`, { stdio: 'inherit' });
 } catch (err) {
   console.error('codesign verification failed', err);
+  process.exit(1);
+}
+
+// Phase 117 Theme A: the fuses afterpack.cjs flipped, read back from the binary that shipped — a
+// flip that silently did not take (a renamed executable, a hook that did not run) would otherwise
+// pass every other gate here with NODE_OPTIONS and --inspect wide open.
+console.log('Verifying Electron fuses from the built binary...');
+const fuseProblems = await fuseMismatches(join(appPath, 'Contents', 'MacOS', 'Midnite Studio'));
+if (fuseProblems.length > 0) {
+  console.error(`Electron fuses are not as afterpack.cjs asked:\n  ${fuseProblems.join('\n  ')}`);
   process.exit(1);
 }
 

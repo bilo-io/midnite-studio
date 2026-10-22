@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCompanionStore } from '../../store/companion-store';
@@ -530,5 +531,52 @@ describe('companion ports', () => {
       ports.micPressEnd();
     }).not.toThrow();
     expect(ports.micAvailable()).toBe(false);
+  });
+});
+
+describe('Companion Zen mode', () => {
+  beforeEach(() => {
+    useCompanionStore.setState({ zenMode: false });
+  });
+
+  it('renders a 2.5x larger docked orb', () => {
+    renderPanel(<QueryClientProvider client={new QueryClient()}><CompanionPanel /></QueryClientProvider>);
+    const orb = screen.getByTestId('companion-orb');
+    expect(orb.className).toContain('h-72');
+    expect(orb.getAttribute('data-orb-size')).toBe('docked');
+  });
+
+  it('the header toggle opens the zen stage and the exit button closes it', () => {
+    renderPanel(<QueryClientProvider client={new QueryClient()}><CompanionPanel /></QueryClientProvider>);
+    expect(screen.queryByTestId('companion-zen-stage')).toBeNull();
+    fireEvent.click(screen.getByTestId('companion-zen-toggle'));
+    expect(screen.getByTestId('companion-zen-stage')).toBeTruthy();
+    expect(within(screen.getByTestId('companion-zen-orb')).getByTestId('companion-orb').getAttribute('data-orb-size')).toBe('zen');
+    fireEvent.click(screen.getByTestId('companion-zen-exit'));
+    expect(screen.queryByTestId('companion-zen-stage')).toBeNull();
+  });
+
+  it('shows only the last companion turn left and last user turn right, plus composer and HUD corners', () => {
+    useCompanionStore.setState({
+      zenMode: true,
+      transcript: [
+        { id: '1', role: 'companion', text: 'old reply', at: 1, spoken: true },
+        { id: '2', role: 'user', text: 'old ask', at: 2, spoken: false },
+        { id: '3', role: 'companion', text: 'new reply', at: 3, spoken: true },
+        { id: '4', role: 'user', text: 'new ask', at: 4, spoken: false },
+      ],
+    });
+    renderPanel(<QueryClientProvider client={new QueryClient()}><CompanionPanel /></QueryClientProvider>);
+    expect(screen.getByTestId('companion-zen-user-turn').textContent).toContain('new ask');
+    expect(screen.getByTestId('companion-zen-agent-turn').textContent).not.toContain('old reply');
+    expect(screen.getByTestId('companion-zen-composer')).toBeTruthy();
+    for (const id of ['top-left', 'top-center', 'top-right', 'bottom-left']) {
+      const hud = screen.getByTestId(`companion-zen-${id}`);
+      expect(hud.className).toContain('opacity-35');
+      expect(hud.className).toContain('hover:opacity-100');
+      expect(hud.className).toContain('hover:scale-100');
+    }
+    expect(screen.getByTestId('companion-zen-dial-cpu')).toBeTruthy();
+    expect(screen.getByTestId('companion-zen-pill-repos')).toBeTruthy();
   });
 });

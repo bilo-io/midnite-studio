@@ -5,6 +5,7 @@ import { totalmem } from 'node:os';
 
 import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-engine';
 import {
+  assertSiteIsolation,
   createFileSink,
   createPairingStore,
   createVaultGrants,
@@ -21,7 +22,7 @@ import {
   SetupProbeRequest,
   SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, ipcMain, safeStorage, session, shell, type WebContentsView } from 'electron';
+import { BrowserWindow, app, ipcMain, powerMonitor, safeStorage, session, shell, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
@@ -396,6 +397,27 @@ export const startStudioMain: StartStudioMain = () => {
       handleDeepLinkUrl(url);
     });
 
+    // Phase 117 Theme A: site isolation, the sandbox and web security stay on — a boot that finds
+    // `--no-sandbox` or its kin throws in dev and logs when packaged (`chromium-switches.ts`).
+    // Defined here, run at ready once the log sink is installed (below): `app.commandLine` is final
+    // when ready fires, so nothing can slip in behind the check, and a packaged boot that fails it
+    // lands in main.log rather than on a stderr no Finder launch has. A dev throw exits the process
+    // — Electron's default handler would show a dialog and keep it alive.
+    const checkSiteIsolation = (): void => {
+      try {
+        assertSiteIsolation({
+          argv: process.argv,
+          hasSwitch: (name) => app.commandLine.hasSwitch(name),
+          getSwitchValue: (name) => app.commandLine.getSwitchValue(name),
+          isPackaged: app.isPackaged,
+          log: defaultLogger,
+        });
+      } catch (err) {
+        defaultLogger.error(err instanceof Error ? err.message : String(err));
+        app.exit(1);
+      }
+    };
+
     // Chromium fixes the privileged-scheme list at startup — must precede ready.
     registerPrivilegedSchemes();
 
@@ -639,6 +661,7 @@ export const startStudioMain: StartStudioMain = () => {
       ].join(' ');
       setBootLine(bootLine);
       defaultLogger.info(`[boot] ${bootLine}`);
+      checkSiteIsolation();
       // Must run before the store is read: each rename ("Midnite Studio", then
       // "Midnite Studio") moved userData, and the user's repository list is
       // still under whichever name they last launched.
@@ -773,12 +796,26 @@ export const startStudioMain: StartStudioMain = () => {
       // Which key each guest app paired with — the host checks it, Studio's Vault view lists and unpairs.
       const runtimeDirectory = studioRuntimeDirectory(app.getPath('appData'), userData);
       const vaultPairings = createPairingStore({ hostDirectory: runtimeHostDirectory(runtimeDirectory) });
-      configureVaultGrants(vaultGrants, vaultPairings);
       const vaultService = createVaultService({
         directory: userData,
         cipher: safeStorage,
         authorize: vaultGrants.authorize,
       });
+      configureVaultGrants(vaultGrants, vaultPairings, vaultService);
+
+      // Auto-lock triggers (Phase 118 Theme B): sleep, screen lock, 15m idle
+      powerMonitor.on('suspend', () => vaultService.lock());
+      powerMonitor.on('lock-screen', () => vaultService.lock());
+      setInterval(() => {
+        try {
+          if (powerMonitor.getSystemIdleTime() >= 15 * 60) {
+            vaultService.lock();
+          }
+        } catch {
+          // ignore
+        }
+      }, 30_000);
+
       const studioVault = vaultService.forApp('studio');
       // Passwords live in this vault's `db-credentials` namespace and are read here, in main, to open a connection.
       registerDatabaseFeatureHandlers(getMainWindow, {

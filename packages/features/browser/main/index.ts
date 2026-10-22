@@ -19,6 +19,15 @@ export type {
 } from './browser-electron';
 export { isFromOwningWindow, registerBrowserHandlers, type BrowserSenderIpc } from './browser-handlers';
 export { browserMainDeps, installBrowserMain, type BrowserDiscardSettings, type BrowserLog, type BrowserMainDeps } from './browser-main-deps';
+// Phase 117 Theme A: the one session policy and the pinned page webPreferences, for a composer's own views.
+export {
+  applyBrowserSessionPolicy,
+  refuseWebviewAttach,
+  sandboxedPageWebPreferences,
+  type BrowserSessionPolicyOptions,
+  type GuardedPageContents,
+  type PolicySession,
+} from './browser-session-policy';
 // The security posture — every guard exported as it was from desktop's `browser-security.ts`.
 export {
   allowAppAudioOnly,
@@ -98,7 +107,12 @@ export const browserMain = defineFeatureMain<BrowserMainServices>({
   feature: browserManifest.feature,
   channels: browserManifest.ipc,
   register(ctx, services) {
-    installBrowserMain({ electron: services.electron, log: services.log, readDiscardSettings: services.readDiscardSettings });
+    installBrowserMain({
+      electron: services.electron,
+      log: services.log,
+      readDiscardSettings: services.readDiscardSettings,
+      devToolsAllowed: services.devToolsAllowed ?? false,
+    });
     registerBrowserHandlers(ctx.ipc, services.sender);
     registerWebAppsHandlers(ctx.ipc, services.getMainWindow);
   },

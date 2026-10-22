@@ -49,9 +49,9 @@ export type VaultHostOp = VaultHostRequest['op'];
 
 /**
  * Why the host refused: not allowed, a connection that has not paired (or whose key conflicts with
- * the app's binding), a request it could not parse, or the store itself failed.
+ * the app's binding), a request it could not parse, the store itself failed, or the vault is locked.
  */
-export type VaultHostErrorKind = 'denied' | 'unpaired' | 'invalid' | 'failed';
+export type VaultHostErrorKind = 'denied' | 'unpaired' | 'invalid' | 'failed' | 'locked';
 
 /** The host's first line on every connection: a fresh nonce the guest's hello must sign. */
 export type VaultHostChallenge = { t: 'challenge'; nonce: string };

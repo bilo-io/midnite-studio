@@ -1,4 +1,9 @@
-import { COMPANION_PARAGRAPH_PAUSE_MS, emptyCompanionSnapshot } from '@midnite/studio-shared';
+import {
+  COMPANION_PARAGRAPH_PAUSE_MS,
+  emptyCompanionSnapshot,
+  greetingBank,
+  interpolatePhrase,
+} from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { greet, matchRepoByName, orient, say, sayMarkdown } from './concierge';
@@ -20,47 +25,68 @@ import {
  *
  * **The cadence changed in the Phase 79 follow-up and these moved with it.**
  * Theme D posted a turn per fact, so a greeting was six to twelve bubbles and
- * these tests indexed into them. It is now three turns — greeting, one
- * consolidated markdown overview, prompt — so the assertions read the middle
- * turn's markdown rather than counting sentences. What did not change is what
+ * these tests indexed into them. `orient` is now one consolidated markdown
+ * overview then the prompt, so the assertions read that turn's markdown
+ * rather than counting sentences — and `greet` no longer runs it at all, it
+ * offers it (the status-report offer). What did not change is what
  * is *said*: `composeOverviewMarkdown` is built on the same
  * `describeSnapshot`/digest data, and `shared`'s own tests cover its wording.
  */
 
+/** 09:00 local, whatever zone CI runs in — `greet` reads the hour from `deps.now`. */
+const NINE_AM = new Date(2024, 0, 15, 9, 0, 0).getTime();
+
 describe('greet', () => {
-  it('runs greeting → one consolidated overview → prompt, and nothing else', async () => {
+  it('greets, then offers the status report instead of reciting it', async () => {
     const store = fakeStore();
-    const deps = fakeConciergeDeps({ store });
-    await greet(deps);
+    const digest = vi.fn().mockResolvedValue(digestFixture());
+    const snapshot = vi.fn().mockResolvedValue(snapshotFixture());
+    await greet(fakeConciergeDeps({ store, digest, snapshot, now: () => NINE_AM }));
 
-    const lines = store.transcript.map((turn) => turn.text);
-    // Three turns, not eight: the spoken greeting, the formatted overview, the
-    // open prompt. This is the whole of the follow-up's second fix.
-    expect(lines).toHaveLength(3);
-    expect(lines[0]).toBe('Good to see you.');
-    expect(lines[2]).toBe('What would you like to do?');
-
-    const overview = lines[1] ?? '';
-    expect(overview.startsWith('**midnite-studio** — on `main`')).toBe(true);
-    expect(overview).toContain('**Landed**');
-    expect(overview).toContain('the browser occlusion fix');
+    // Two turns: one medium-length greeting for the hour, then the question.
+    expect(store.transcript.map((turn) => turn.text)).toEqual([
+      'Good morning, the coffee is your department but the studio is ready.',
+      'Would you like a status report?',
+    ]);
+    // Parked where a yes, an empty Return or the chip can reach it.
+    expect(store.pending).toMatchObject({ kind: 'statusReport', label: 'Status report' });
+    // Nothing was fetched, so the digest's mark has not moved — a declined
+    // report carries its window to the next one.
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(digest).not.toHaveBeenCalled();
   });
 
-  it('speaks the overview as prose, with no markup read aloud', async () => {
+  it('picks a greeting that fits the time of day', async () => {
+    const at = (hour: number) => new Date(2024, 0, 15, hour, 30).getTime();
+    const firstLine = async (hour: number) => {
+      const store = fakeStore();
+      await greet(fakeConciergeDeps({ store, now: () => at(hour) }));
+      return store.transcript[0]?.text ?? '';
+    };
+    expect(await firstLine(8)).toMatch(/morning/i);
+    expect(await firstLine(14)).toMatch(/afternoon/i);
+    expect(await firstLine(19)).toMatch(/evening/i);
+    expect(await firstLine(1)).not.toMatch(/morning|afternoon|evening/i);
+  });
+
+  it('sometimes draws from the time-neutral lines too, but never another part of the day', async () => {
+    const store = fakeStore();
+    // Past the two-in-three cut, the pick spans the hour's bank plus the neutral one.
+    await greet(fakeConciergeDeps({ store, now: () => NINE_AM, rng: () => 0.99 }));
+    const line = store.transcript[0]?.text ?? '';
+    expect(greetingBank(9).map((template) => interpolatePhrase(template, ''))).toContain(line);
+    expect(line).not.toMatch(/afternoon|evening|night/i);
+  });
+
+  it('speaks both lines, and marks them spoken', async () => {
     const store = fakeStore();
     const speaker = fakeSpeaker();
-    await greet(fakeConciergeDeps({ store, speaker }));
-
-    const spoken = speaker.spoken.join(' ');
-    // The heading is spoken via `describeSnapshot`'s own sentence now, not
-    // `markdownToSpeech`'s projection of the bold-and-backticked heading —
-    // `composeOverviewSpeech` reaches for the plain sentence directly.
-    expect(spoken).toContain('You are in midnite-studio, on main.');
-    // Not one asterisk, backtick or bracket reaches the synthesiser.
-    expect(spoken).not.toMatch(/[*`[\]]/);
-    // And the turn is still marked spoken — the display text differing from
-    // the spoken text must not break the `spoken` bookkeeping.
-    expect(store.transcript[1]?.spoken).toBe(true);
+    await greet(fakeConciergeDeps({ store, speaker, now: () => NINE_AM }));
+    expect(speaker.spoken).toEqual([
+      'Good morning, the coffee is your department but the studio is ready.',
+      'Would you like a status report?',
+    ]);
+    expect(store.transcript.every((turn) => turn.spoken)).toBe(true);
   });
 
   it('ends in idle when hands-free is off', async () => {
@@ -97,6 +123,7 @@ describe('greet', () => {
     // `transition` refuses `greet` from anywhere but `idle`, and the flow
     // checks the answer rather than assuming it.
     expect(store.transcript).toHaveLength(0);
+    expect(store.pending).toBeNull();
   });
 
   it('interpolates the honorific, and collapses it cleanly when empty', async () => {
@@ -104,10 +131,28 @@ describe('greet', () => {
     await greet(
       fakeConciergeDeps({
         store: named,
+        now: () => NINE_AM,
         settings: () => ({ honorifics: ['sir'], handsFree: false, voiceInReady: false }),
       }),
     );
-    expect(named.transcript[0]?.text).toBe('Good to see you sir.');
+    expect(named.transcript.map((turn) => turn.text)).toEqual([
+      'Good morning sir, the coffee is your department but the studio is ready.',
+      'Would you like a status report sir?',
+    ]);
+  });
+
+  it('still posts the offer, unspoken, when the greeting was interrupted', async () => {
+    const controller = new AbortController();
+    const store = fakeStore();
+    const speaker = fakeSpeaker();
+    speaker.speak = async () => {
+      controller.abort();
+    };
+    await greet(fakeConciergeDeps({ store, speaker, signal: controller.signal, now: () => NINE_AM }));
+
+    expect(store.transcript.map((turn) => turn.text)).toContain('Would you like a status report?');
+    expect(store.transcript.every((turn) => turn.spoken === false)).toBe(true);
+    expect(store.pending?.kind).toBe('statusReport');
   });
 });
 

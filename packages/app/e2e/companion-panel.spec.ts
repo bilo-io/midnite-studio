@@ -243,7 +243,7 @@ test('thread rows never overlap, including after a resize at a narrow width', as
   // Wide first, so the resize below is a real width change and not the
   // panel's initial layout.
   await page.setViewportSize({ width: 1400, height: 900 });
-  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+  await expect(page.getByTestId('companion-pending-action')).toBeVisible();
 
   // Narrow enough to rewrap the tall bullet-list turn — the width the user
   // hit the bug at.
@@ -421,7 +421,7 @@ test('"take me to the graph" navigates there and names it in the thread', async 
   await page.keyboard.press('Meta+l');
   await page.keyboard.press('c');
   await expect(panel(page)).toBeVisible();
-  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+  await expect(page.getByTestId('companion-pending-action')).toBeVisible();
 
   // Off Graph first (the app's own default), so the assertion below proves a
   // real transition rather than "stayed where it already was".
@@ -440,7 +440,7 @@ test('"open settings, the companion page" lands on the Companion settings page',
   await page.keyboard.press('Meta+l');
   await page.keyboard.press('c');
   await expect(panel(page)).toBeVisible();
-  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+  await expect(page.getByTestId('companion-pending-action')).toBeVisible();
 
   await submit(page, 'open settings, the companion page');
 
@@ -463,7 +463,7 @@ test('a detached page is focused rather than reopened, and the docked view does 
   await page.keyboard.press('Meta+l');
   await page.keyboard.press('c');
   await expect(panel(page)).toBeVisible();
-  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+  await expect(page.getByTestId('companion-pending-action')).toBeVisible();
 
   await submit(page, 'show me the graph');
 
@@ -500,7 +500,7 @@ test('a navigate that would leave a dirty file defers to the unsaved-file guard,
   await page.keyboard.press('Meta+l');
   await page.keyboard.press('c');
   await expect(panel(page)).toBeVisible();
-  await expect(page.getByTestId('companion-thread')).toContainText('midnite-studio');
+  await expect(page.getByTestId('companion-pending-action')).toBeVisible();
 
   await submit(page, 'take me to the graph');
 

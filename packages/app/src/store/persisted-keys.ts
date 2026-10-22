@@ -147,13 +147,8 @@ export const PREFERENCE_KEYS = [
   // parked them in `KNOWN_ORPHANS`; Theme G's Profiles section took them out.
   'companionProfiles', // companion-profiles-section.tsx (Profiles ▸ the list, Save current as…, Rename, Delete)
   'companionActiveProfile', // companion-profiles-section.tsx (Profiles ▸ the Active badge, Set active)
-  // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
-  // real control already — the Knowledge view's own pill bar
-  // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
-  // since the pill bar is not a settings page.
-  'rendererVariant', // knowledge-variant-pills.tsx (Knowledge canvas's own renderer-switcher pills)
-  // Phase 89 Theme E's own, same reasoning as `rendererVariant` immediately
-  // above: a real control (the layout pill row) that is not a settings page.
+  'rendererVariant', // graph-page.tsx (Settings ▸ Graph ▸ Knowledge graph presentation) & knowledge-variant-pills.tsx
+  // Phase 89 Theme E's own: a real control (the layout pill row) that is not a settings page.
   'layoutId', // knowledge-layout-pills.tsx (Knowledge canvas's own layout-switcher pills)
   // The Knowledge canvas's detail budget — same reasoning again: a real
   // control (the detail pill row beside the layout pills), not a settings page.
@@ -182,6 +177,7 @@ export const SESSION_STATE_KEYS = [
   'graphColumnVisibility', // toggled from the graph header's columns menu, not Settings — like graphColumns' widths, a view-local choice
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
+  'chatsWidthMode', // toggled from the chat pane's own header, not Settings — a view-local choice, like graphColumnVisibility
   'mediaPaneCollapsed', // side panel open state — disclosure state
   'mediaTab', // current selection — which Media tab is showing
   'mediaLastDoc', // current selection — Docs reopens the last edited doc
@@ -247,7 +243,6 @@ export const KNOWN_ORPHANS = [
   'editorMinimap',
   'editorTabSize',
   'editorWordWrap',
-  'rendererVariant',
   'layoutId',
   'knowledgeDetailId',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];

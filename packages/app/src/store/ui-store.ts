@@ -4,7 +4,9 @@ import { persist } from 'zustand/middleware';
 
 import {
   clampAutomateConcurrency,
+  CHAT_WIDTH_MODES,
   DEFAULT_BROWSER_DISCARD_MS,
+  DEFAULT_CHAT_WIDTH_MODE,
   DEFAULT_COMPANION_VOLUME,
   DEFAULT_SKILL_EXECUTION_MODE,
   METRICS_IDLE_INTERVAL_MS,
@@ -12,6 +14,7 @@ import {
   type AgentCommandId,
   type AgentMode,
   type AgentOllamaBinding,
+  type ChatWidthMode,
   type WebAppId,
   type CompanionMicMode,
   type CompanionProfile,
@@ -1112,6 +1115,9 @@ export type UiState = {
   graphColumnVisibility: GraphColumnVisibility;
   navMode: NavMode;
   collapsedNavSections: string[];
+  /** The Chats thread's width mode (default / wider / full), persisted. */
+  chatsWidthMode: ChatWidthMode;
+  setChatsWidthMode: (mode: ChatWidthMode) => void;
   /** Media page (Phase 99 Theme A) — the active tab, persisted. */
   mediaTab: MediaTab;
   /** Media ▸ Video's right-hand panel tab. */
@@ -2232,6 +2238,7 @@ export type VideoPanelTab = (typeof VIDEO_PANEL_TABS)[number];
 export type PersistedUi = Pick<
   UiState,
   | 'layout'
+  | 'chatsWidthMode'
   | 'mediaTab'
   | 'mediaVideoPanelTab'
   | 'mediaPaneCollapsed'
@@ -2927,6 +2934,8 @@ export const useUiStore = create<UiState>()(
       graphColumnVisibility: DEFAULT_GRAPH_COLUMN_VISIBILITY,
       navMode: 'auto',
       collapsedNavSections: [],
+      chatsWidthMode: DEFAULT_CHAT_WIDTH_MODE,
+      setChatsWidthMode: (chatsWidthMode) => set({ chatsWidthMode }),
       mediaTab: 'doc',
       mediaVideoPanelTab: 'brief',
       setMediaVideoPanelTab: (mediaVideoPanelTab) => set({ mediaVideoPanelTab }),
@@ -3435,9 +3444,10 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 36,
+      version: 37,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
+        chatsWidthMode: state.chatsWidthMode,
         mediaTab: state.mediaTab,
         mediaVideoPanelTab: state.mediaVideoPanelTab,
         mediaPaneCollapsed: state.mediaPaneCollapsed,
@@ -3695,6 +3705,9 @@ export const useUiStore = create<UiState>()(
        * never re-dropped on the next rehydrate.
        * v35 → v36: seed `customLoops = []` — the FAB panel's user-authored
        * loops (Ad Hoc); see `migrate-custom-loops.ts`.
+       * v36 → v37: seed `chatsWidthMode = 'default'` — the Chats thread's width
+       * toggle. `??=` so a test profile seeded straight into the persist key
+       * keeps the mode it chose.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3888,6 +3901,7 @@ export const useUiStore = create<UiState>()(
         if (version < 34) migrateAppsToWebApps(state);
         if (version < 35) migrateLoopSwitch(state);
         if (version < 36) migrateCustomLoops(state);
+        if (version < 37) state.chatsWidthMode ??= DEFAULT_CHAT_WIDTH_MODE;
         return state as PersistedUi;
       },
       /**
@@ -3910,6 +3924,9 @@ export const useUiStore = create<UiState>()(
           )
             ? (saved.voiceConversationTrigger as VoiceConversationTrigger)
             : current.voiceConversationTrigger,
+          chatsWidthMode: (CHAT_WIDTH_MODES as readonly string[]).includes(saved.chatsWidthMode ?? '')
+            ? (saved.chatsWidthMode as ChatWidthMode)
+            : current.chatsWidthMode,
           mediaTab: (MEDIA_TABS as readonly string[]).includes(saved.mediaTab ?? '')
             ? (saved.mediaTab as MediaTab)
             : current.mediaTab,

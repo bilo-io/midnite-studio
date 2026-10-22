@@ -1,6 +1,7 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 
-import { devToolsAllowed } from './devtools-policy';
+import { devToolsAllowed } from './devtools';
 
 describe('devToolsAllowed', () => {
   it('allows DevTools in dev', () => {

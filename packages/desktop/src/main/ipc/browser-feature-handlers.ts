@@ -1,8 +1,9 @@
 import { browserMain, type BrowserHostWindow } from '@midnite/studio-feature-browser/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
-import type { BrowserWindow } from 'electron';
+import { app, type BrowserWindow } from 'electron';
 
 import { asBrowserHostWindow, createStudioBrowserElectron } from '../browser-port';
+import { devToolsAllowed } from '../devtools-policy';
 import { defaultLogger } from '../log';
 import { currentSettings } from '../settings-mirror';
 import { handle, handleBare, handleFromSender, handleSend, handleSendFromSender } from './handle';
@@ -25,6 +26,8 @@ export function registerBrowserFeatureHandlers(getMainWindow: () => BrowserWindo
     electron: createStudioBrowserElectron(),
     log: defaultLogger,
     readDiscardSettings: () => currentSettings(),
+    // Phase 117 Theme A: an embedded page's DevTools follow the app windows' rule.
+    devToolsAllowed: devToolsAllowed(app.isPackaged),
     sender: {
       handleFromSender: (channel, schema, handler, onInvalid) =>
         handleFromSender(channel, schema, (payload, win) => handler(payload, asHost(win)), onInvalid),

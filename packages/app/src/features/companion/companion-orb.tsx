@@ -188,7 +188,7 @@ export function computeSphericalHarmonicVertex(
  * - **State-Specific Synaptic Arcs & Vocal Resonance Shells**: Distinct animations
  *   and color palettes for `idle`, `listening`, `thinking`, `speaking`, and `handoff`.
  */
-export function CompanionOrb({ state }: { state: CompanionState }) {
+export function CompanionOrb({ state, zen = false }: { state: CompanionState; zen?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef<CompanionState>(state);
   stateRef.current = state;
@@ -346,7 +346,7 @@ export function CompanionOrb({ state }: { state: CompanionState }) {
 
       const centerX = width / 2;
       const centerY = height / 2;
-      const baseRadius = Math.min(width, height) * 0.34 * (1 + speech * 0.14 + Math.sin(anim.pulsePhase) * 0.03);
+      const baseRadius = Math.min(width, height) * (zen ? 0.3 : 0.34) * (1 + speech * 0.14 + Math.sin(anim.pulsePhase) * 0.03);
       const fov = 320;
       const camDist = 340;
 
@@ -660,7 +660,7 @@ export function CompanionOrb({ state }: { state: CompanionState }) {
       active = false;
       if (rafId !== null) cancelAnimationFrame(rafId);
     };
-  }, [state]);
+  }, [state, zen]);
 
   const profile = ORB_STATE_PROFILES[state];
 
@@ -668,8 +668,18 @@ export function CompanionOrb({ state }: { state: CompanionState }) {
     <div
       data-testid="companion-orb"
       data-orb-mode={profile.mode}
+      data-orb-size={zen ? 'zen' : 'docked'}
       aria-hidden="true"
-      className="pointer-events-none relative mx-8 my-1 flex h-28 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+      /*
+        Docked: h-72 (288px) — 2.57x the original h-28. Zen: a 440-520px
+        centred stage piece. Transparent either way, so the panel-glow pixel
+        spec's ground patch still reads pure panel fill.
+      */
+      className={
+        zen
+          ? 'pointer-events-none relative flex h-[440px] w-[440px] shrink-0 items-center justify-center overflow-visible bg-transparent sm:h-[520px] sm:w-[520px]'
+          : 'pointer-events-none relative mx-2 my-1 flex h-72 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-transparent'
+      }
     >
       <canvas
         ref={canvasRef}

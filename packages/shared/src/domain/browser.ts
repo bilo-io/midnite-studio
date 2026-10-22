@@ -187,6 +187,12 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
    */
   z.object({ kind: z.literal('download-blocked'), tabId: BrowserTabIdSchema, filename: z.string() }),
   /**
+   * DevTools were asked for on a page whose view was created with `devTools: false` (Phase 117
+   * Theme A: a packaged build, without `MSTUDIO_DEVTOOLS=1`). `openDevTools()` is a silent no-op
+   * there, and a toolbar button that does nothing reads as broken — so main says why.
+   */
+  z.object({ kind: z.literal('devtools-blocked'), tabId: BrowserTabIdSchema }),
+  /**
    * A `findInPage` match count (Theme G) — a new arm on the existing
    * discriminated union rather than a new channel, since `bridge.ts`'s
    * comment on `onEvent` already says that union is exactly what a per-tab,

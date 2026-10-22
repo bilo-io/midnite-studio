@@ -6,12 +6,13 @@ import { PAIRING_SEED_BYTES, pairingIdentityFromSeed, type PairingIdentity } fro
 import { createPairingStore, type PairingStore } from './host/pairing-store';
 import { startVaultHost } from './host/server';
 import type { VaultCipher } from './secure-store';
-import { createVaultService, type VaultAuthorize, type VaultClient } from './vault-service';
+import { createVaultService, type VaultAuthorize, type VaultClient, type VaultService } from './vault-service';
 
 export type TestVaultHost = {
   socketPath: string;
   grants: VaultGrants;
   pairings: PairingStore;
+  service: VaultService;
   /** The host's own in-process handle — what Studio reads through. */
   studio: VaultClient;
   close(): Promise<void>;
@@ -35,7 +36,7 @@ export async function startTestVaultHost(options: {
   });
   const pairings = createPairingStore({ hostDirectory: runtimeHostDirectory(options.runtimeDirectory) });
   const host = await startVaultHost({ socketPath: vaultHostSocketPath(options.runtimeDirectory), service, grants, pairings });
-  return { socketPath: host.socketPath, grants, pairings, studio: service.forApp('studio'), close: () => host.close() };
+  return { socketPath: host.socketPath, grants, pairings, service, studio: service.forApp('studio'), close: () => host.close() };
 }
 
 /** A fresh pairing key for a test guest — a random seed, never a keychain. */

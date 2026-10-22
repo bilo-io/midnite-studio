@@ -76,7 +76,7 @@ test('the composer is centred and pinned to the bottom while the thread scrolls 
   expect(geometry.composerBottom).toBeGreaterThan(geometry.viewportHeight - 80);
   // Centred in the pane, in a readable column rather than edge to edge.
   expect(geometry.composerCentreOffset).toBeLessThan(2);
-  expect(geometry.composerWidth).toBeLessThanOrEqual(768 + 1);
+  expect(geometry.composerWidth).toBeLessThanOrEqual(800 + 1);
   expect(geometry.composerWidth).toBeLessThan(geometry.paneWidth);
   expect(await log.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
 });

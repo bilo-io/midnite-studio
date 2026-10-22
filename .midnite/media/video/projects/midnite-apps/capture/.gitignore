@@ -1,0 +1,6 @@
+# Raw screencast frames, contact-sheet stills and Playwright output are
+# reproducible from the specs in shots/; the encoded clips live in ../input/clips.
+frames/
+stills/
+.pw-out/
+node_modules/

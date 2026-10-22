@@ -4955,6 +4955,93 @@ export const VaultPairingsListResponse = z.object({
 export const VaultPairingUnpairRequest = z.object({ appId: z.enum(PLACEMENT_APP_IDS) });
 export const VaultPairingUnpairResponse = z.object({ ok: z.boolean() });
 
+// --- vault lock, audit & breach (Phase 118) -----------------------------------
+
+export const VaultLockStatusRequest = z.object({});
+export const VaultLockStatusResponse = z.object({
+  locked: z.boolean(),
+  hasPasscode: z.boolean(),
+  recentUnlockAt: z.number().int().nonnegative().nullable(),
+  canPromptTouchId: z.boolean().default(false),
+});
+
+export const VaultLockRequest = z.object({});
+export const VaultLockResponse = z.object({ ok: z.boolean() });
+
+export const VaultUnlockRequest = z.object({
+  passcode: z.string().optional(),
+  useTouchId: z.boolean().optional(),
+});
+export const VaultUnlockResponse = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+});
+
+export const VaultAuditEntrySchema = z.object({
+  t: z.number().int().nonnegative(),
+  seq: z.number().int().positive(),
+  prev: z.string(),
+  op: z.enum([
+    'get',
+    'set',
+    'delete',
+    'grant',
+    'revoke',
+    'pair',
+    'unpair',
+    'unlock',
+    'unlock-failed',
+    'lock',
+    'reveal',
+    'copy',
+    'export',
+    'import',
+    'tamper',
+  ]),
+  namespace: z.string().optional(),
+  id: z.string().optional(),
+  app: z.string(),
+  principal: z.string(),
+  result: z.enum(['ok', 'denied', 'locked', 'failed']),
+  reason: z.string().optional(),
+  count: z.number().int().positive().optional(),
+});
+
+export const VaultAuditListRequest = z.object({
+  limit: z.number().int().positive().default(200),
+  app: z.string().optional(),
+  op: z.string().optional(),
+});
+export const VaultAuditListResponse = z.object({
+  entries: z.array(VaultAuditEntrySchema),
+  valid: z.boolean(),
+  total: z.number().int().nonnegative(),
+});
+
+export const VaultAuditVerifyRequest = z.object({});
+export const VaultAuditVerifyResponse = z.object({
+  valid: z.boolean(),
+  total: z.number().int().nonnegative(),
+  brokenSeq: z.number().int().positive().optional(),
+});
+
+export const VaultAuditExportRequest = z.object({});
+export const VaultAuditExportResponse = z.object({
+  ok: z.boolean(),
+  path: z.string().optional(),
+  error: z.string().optional(),
+});
+
+export const VaultBreachCheckRequest = z.object({
+  password: z.string().min(1),
+  saveToCache: z.boolean().default(true),
+});
+export const VaultBreachCheckResponse = z.object({
+  breached: z.boolean(),
+  count: z.number().int().nonnegative(),
+  checkedAt: z.number().int().nonnegative(),
+});
+
 // --- finance proxy (Phase 76 Theme D) -----------------------------------------
 
 const FinanceAssetKindSchema = z.enum(['crypto', 'stock']);

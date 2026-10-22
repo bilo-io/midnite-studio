@@ -1,6 +1,7 @@
 import { LuBug, LuFileSearch, LuFlaskConical, LuMessagesSquare, LuScanEye } from 'react-icons/lu';
 import { type IconComponent } from '@midnite/studio-frame';
 
+import { CHAT_COLUMN } from './chat-column';
 
 /**
  * The new-chat screen: a greeting and a few starting points. A suggestion fills
@@ -52,7 +53,7 @@ export function ChatEmptyState({
 }) {
   return (
     <div className="grid min-h-0 flex-1 place-items-center overflow-auto px-4 py-8" data-testid="chat-empty-state">
-      <div className="w-full max-w-2xl text-center">
+      <div className={`${CHAT_COLUMN} text-center`}>
         <span className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-muted/40 text-muted-foreground">
           <LuMessagesSquare aria-hidden className="h-5 w-5" />
         </span>

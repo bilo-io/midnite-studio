@@ -169,6 +169,20 @@ describe('runCirclepack', () => {
     // Three communities should not all collapse onto one point.
     expect(distinctCentroids.size).toBeGreaterThan(1);
   });
+
+  it('lays out a node whose id is the empty string instead of throwing', () => {
+    const graph = fixtureGraph(6);
+    graph.nodes.push({ id: '', label: '…', community: 1, community_name: 'community-1', file_type: 'code' });
+    graph.links.push({ source: '', target: 'n0', relation: 'calls', weight: 1, confidence: 1 });
+
+    const positions = layoutGraph(graph, { layoutId: 'circlepack' });
+
+    expect(Object.keys(positions)).toHaveLength(7);
+    for (const { x, y } of Object.values(positions)) {
+      expect(Number.isFinite(x)).toBe(true);
+      expect(Number.isFinite(y)).toBe(true);
+    }
+  });
 });
 
 describe('runHierarchical', () => {

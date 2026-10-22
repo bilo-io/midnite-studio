@@ -11,7 +11,11 @@ import {
   COMPANION_NEVER_AUTOSEND,
   COMPANION_PARAGRAPH_BREAK,
   COMPANION_PHRASES,
+  COMPANION_DAY_PARTS,
   COMPANION_PHRASE_KINDS,
+  COMPANION_TIMED_GREETINGS,
+  dayPartAt,
+  greetingBank,
   COMPANION_STATES,
   CompanionDigestSchema,
   COMPANION_REPEAT_TOKENS,
@@ -136,9 +140,9 @@ describe('transition', () => {
 });
 
 describe('phrase banks', () => {
-  it('has the six kinds the phase names, each non-empty', () => {
+  it('has the six kinds the phase names plus the status offer, each non-empty', () => {
     expect(COMPANION_PHRASE_KINDS.sort()).toEqual(
-      ['fillers', 'greetings', 'musicOffers', 'prompts', 'quotes', 'signoffs'].sort(),
+      ['fillers', 'greetings', 'musicOffers', 'prompts', 'quotes', 'signoffs', 'statusOffers'].sort(),
     );
     for (const kind of COMPANION_PHRASE_KINDS) {
       expect(COMPANION_PHRASES[kind].length).toBeGreaterThan(0);
@@ -163,6 +167,54 @@ describe('phrase banks', () => {
         expect(collapsed).not.toMatch(/\s{2}/);
       }
     }
+  });
+
+  it('keeps the time-neutral greetings free of any time of day', () => {
+    for (const greeting of COMPANION_PHRASES.greetings) {
+      expect(greeting).not.toMatch(/morning|afternoon|evening|night|tonight/i);
+    }
+  });
+
+  it('offers a real variety of greetings and fillers', () => {
+    expect(COMPANION_PHRASES.greetings.length).toBeGreaterThanOrEqual(10);
+    expect(COMPANION_PHRASES.fillers.length).toBeGreaterThanOrEqual(20);
+    for (const part of COMPANION_DAY_PARTS) {
+      expect(COMPANION_TIMED_GREETINGS[part].length).toBeGreaterThanOrEqual(5);
+    }
+  });
+
+  it('reads every timed greeting correctly with an empty honorific, and once with a name', () => {
+    for (const part of COMPANION_DAY_PARTS) {
+      const bank = COMPANION_TIMED_GREETINGS[part];
+      expect(new Set(bank).size).toBe(bank.length);
+      for (const template of bank) {
+        const collapsed = interpolatePhrase(template, '');
+        expect(collapsed).not.toContain('{name}');
+        expect(collapsed).not.toMatch(/\s,|,\s*,|^\s|\s$|\s{2}/);
+        expect(interpolatePhrase(template, 'boss')).toContain(' boss');
+      }
+    }
+  });
+
+  it.each([
+    [5, 'morning'],
+    [11, 'morning'],
+    [12, 'afternoon'],
+    [16, 'afternoon'],
+    [17, 'evening'],
+    [21, 'evening'],
+    [22, 'night'],
+    [0, 'night'],
+    [4, 'night'],
+  ] as const)('reads hour %i as %s', (hour, part) => {
+    expect(dayPartAt(hour)).toBe(part);
+  });
+
+  it("builds an hour's greeting bank from that part of the day plus the neutral ones, never another part's", () => {
+    const morning = greetingBank(9);
+    expect(morning).toEqual([...COMPANION_TIMED_GREETINGS.morning, ...COMPANION_PHRASES.greetings]);
+    expect(morning.some((line) => /evening|afternoon/i.test(line))).toBe(false);
+    expect(greetingBank(20).some((line) => /morning/i.test(line))).toBe(false);
   });
 
   it('keeps every bank free of attributed quotes', () => {
@@ -1259,6 +1311,23 @@ describe('parseIntent — confirm and help (Theme A, with a vocabulary)', () => 
 
   it.each(['what can you do', 'help', 'what do you know'])('reads %j as help', (text) => {
     expect(parseIntent(text, testVocabulary)).toEqual({ kind: 'help' });
+  });
+
+  it.each([
+    'status',
+    'Status report.',
+    'sitrep',
+    'Situation report',
+    'where are we?',
+    'catch me up',
+    'what did I miss',
+  ])('reads %j as status, with or without a vocabulary', (text) => {
+    expect(parseIntent(text, testVocabulary)).toEqual({ kind: 'status' });
+    expect(parseIntent(text)).toEqual({ kind: 'status' });
+  });
+
+  it('leaves a longer line about status to the rest of the grammar', () => {
+    expect(parseIntent('status of the build', testVocabulary).kind).not.toBe('status');
   });
 });
 

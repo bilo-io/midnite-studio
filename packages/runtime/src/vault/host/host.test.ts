@@ -113,6 +113,24 @@ describe('vault host — one login across two apps', () => {
     expect(await vault.grants.revoke('coder')).toBe(true);
     expect(await guest(dir, 'coder').get('forge-accounts', KEY)).toBeNull();
   });
+
+  it('answers kind: locked to a guest when the host vault is locked', async () => {
+    const dir = tempDir();
+    const host = await hostIn(dir);
+    host.grants.set('coder', 'forge-accounts', '*');
+    await host.studio.set('forge-accounts', KEY, TOKEN);
+
+    const coder = guest(dir, 'coder');
+    expect(await coder.read('forge-accounts', KEY)).toEqual({ ok: true, value: TOKEN });
+
+    host.service.lock();
+    expect(await coder.read('forge-accounts', KEY)).toEqual({ ok: false, kind: 'locked' });
+    expect(await coder.get('forge-accounts', KEY)).toBeNull();
+
+    // Unlock restores reads
+    await host.service.unlock();
+    expect(await coder.read('forge-accounts', KEY)).toEqual({ ok: true, value: TOKEN });
+  });
 });
 
 describe('vault host — no host, a late host, a second host', () => {

@@ -20,8 +20,10 @@ import {
   type BrowserViewOptions,
 } from '@midnite/studio-feature-browser/main';
 import {
+  assertSiteIsolation,
   buildSuiteMenuTemplate,
   createFileSink,
+  devToolsAllowed,
   guardAppWindow,
   installCrashLogging,
 } from '@midnite/studio-runtime';
@@ -85,6 +87,30 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     installCrashLogging((level, message) => crashLog.write(level, message));
     crashLog.write('info', `${BROWSER_NAME} ${app.getVersion()} started`);
     app.on('will-quit', () => crashLog.close());
+    // Phase 117 Theme A: site isolation, the sandbox and web security stay on — a boot that finds
+    // `--no-sandbox` or its kin throws in dev and logs when packaged (the runtime's `chromium-switches.ts`).
+    // Checked at ready, not at module top level: `app.commandLine` is final once ready fires (a switch
+    // appended later changes nothing), so nothing can slip in behind the check; the crash log exists by
+    // now, so a packaged boot that fails it is on disk and not on a stderr no Finder launch has; and a
+    // dev throw exits the process — Electron's default handler would show a dialog and keep it alive.
+    try {
+      assertSiteIsolation({
+        argv: process.argv,
+        hasSwitch: (name) => app.commandLine.hasSwitch(name),
+        getSwitchValue: (name) => app.commandLine.getSwitchValue(name),
+        isPackaged: app.isPackaged,
+        log: {
+          error: (message: string) => {
+            log.error(message);
+            crashLog.write('error', message);
+          },
+        },
+      });
+    } catch (err) {
+      log.error(err instanceof Error ? err.message : String(err));
+      app.exit(1);
+      return;
+    }
     const reportServices = {
       sink: () => crashLog,
       homeDir: () => app.getPath('home'),
@@ -121,6 +147,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
       },
       electron: browserElectron,
+      // Phase 117 Theme A: a tab's DevTools open in dev or behind MSTUDIO_DEVTOOLS=1, never otherwise.
+      devToolsAllowed: devToolsAllowed(app.isPackaged),
       getMainWindow: () => asHost(win),
       senderWindow: (event) => {
         const sender = (event as { sender?: Electron.WebContents }).sender;

@@ -15,6 +15,7 @@ import {
   setBrowserDiscardMs,
   setBrowserKeepAwake,
   setBrowserZoom,
+  toggleBrowserDevTools,
 } from './browser-service';
 import type { BrowserElectron, BrowserHostWindow } from './browser-electron';
 import { installBrowserMain, type BrowserLog } from './browser-main-deps';
@@ -52,6 +53,9 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     findInPage = vi.fn();
     stopFindInPage = vi.fn();
     isCurrentlyAudible = vi.fn(() => false);
+    isDevToolsOpened = vi.fn(() => false);
+    openDevTools = vi.fn();
+    closeDevTools = vi.fn();
     on(event: string, handler: (...args: unknown[]) => void): this {
       const list = this.handlers.get(event) ?? [];
       list.push(handler);
@@ -92,6 +96,7 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
       setPermissionCheckHandler: vi.fn(),
       setDevicePermissionHandler: vi.fn(),
       setDisplayMediaRequestHandler: vi.fn(),
+      setSpellCheckerEnabled: vi.fn(),
       handlers,
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const list = handlers.get(event) ?? [];
@@ -453,6 +458,27 @@ describe('navigation policy (Theme B)', () => {
       expect.any(String),
       { kind: 'destroyed', tabId: 'tab-1', reason: 'unresponsive' },
     );
+  });
+
+  it('refuses DevTools on a view created with devTools:false, and tells the tab why (Phase 117 Theme A)', () => {
+    const { win, view } = createAndGetView();
+    toggleBrowserDevTools('tab-1');
+    expect(view.webContents.openDevTools).not.toHaveBeenCalled();
+    expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), { kind: 'devtools-blocked', tabId: 'tab-1' });
+  });
+
+  it('decides DevTools from what the view was created with, not the deps at toggle time (Phase 117 Theme A)', () => {
+    const base = { electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}) };
+    installBrowserMain({ ...base, devToolsAllowed: true });
+    try {
+      const { win, view } = createAndGetView();
+      installBrowserMain(base);
+      toggleBrowserDevTools('tab-1');
+      expect(view.webContents.openDevTools).toHaveBeenCalled();
+      expect(win.webContents.send).not.toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ kind: 'devtools-blocked' }));
+    } finally {
+      installBrowserMain(base);
+    }
   });
 
   it('cancels a download and names the file back to the tab that asked for it', () => {

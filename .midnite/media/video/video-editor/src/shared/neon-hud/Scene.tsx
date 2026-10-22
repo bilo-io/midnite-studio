@@ -3,7 +3,8 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { Headline } from "./Headline";
 import { HudLabel, HudPill } from "./HudPill";
 import { ramp } from "./motion";
-import { STAGE, TONES, type Tone, glow, headFontFamily } from "./palette";
+import { type Tone, glow } from "./palette";
+import { useHudSkin } from "./skin";
 import { type Visual, VisualView } from "./Visuals";
 
 /**
@@ -30,6 +31,11 @@ export type SceneSpec = {
   layout?: "stack" | "inline";
   visual: Visual;
   pill?: { text: string; tone?: Tone };
+  /**
+   * Beats the scene waits before it starts building — the whole order above
+   * shifts by it. For an opening that gives the frame to something else first.
+   */
+  delay?: number;
 };
 
 export const Scene: React.FC<SceneSpec & { beat: number; beats?: number; seed?: string }> = ({
@@ -40,6 +46,7 @@ export const Scene: React.FC<SceneSpec & { beat: number; beats?: number; seed?: 
   layout = "stack",
   visual,
   pill,
+  delay = 0,
   beat,
   beats = 8,
   seed = "scene",
@@ -51,20 +58,21 @@ export const Scene: React.FC<SceneSpec & { beat: number; beats?: number; seed?: 
     extrapolateRight: "clamp",
   });
   /* The diagram only dims if there is a payoff word to give the frame to. */
-  const dim = b ? interpolate(ramp(frame, 2.25 * beat, 0.6 * beat), [0, 1], [1, 0.55]) : 1;
+  const d = delay * beat;
+  const dim = b ? interpolate(ramp(frame, d + 2.25 * beat, 0.6 * beat), [0, 1], [1, 0.55]) : 1;
 
   return (
     <AbsoluteFill style={{ opacity: fade }}>
       <AbsoluteFill style={{ alignItems: "center", paddingTop: 150 }}>
-        <Headline a={a} b={b} tone={tone} aTone={aTone} layout={layout} aAt={0.5 * beat} bAt={2 * beat} seed={seed} />
+        <Headline a={a} b={b} tone={tone} aTone={aTone} layout={layout} aAt={d + 0.5 * beat} bAt={d + 2 * beat} seed={seed} />
       </AbsoluteFill>
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", paddingTop: 260 }}>
         <div style={{ opacity: dim, transform: "scale(1.2)" }}>
-          <VisualView visual={visual} at={0} />
+          <VisualView visual={visual} at={d} />
         </div>
         {pill ? (
           <div style={{ marginTop: 36 }}>
-            <HudPill text={pill.text} tone={pill.tone ?? tone} at={2.75 * beat} />
+            <HudPill text={pill.text} tone={pill.tone ?? tone} at={d + 2.75 * beat} />
           </div>
         ) : null}
       </AbsoluteFill>
@@ -85,6 +93,7 @@ export const ChapterCard: React.FC<{ index: number; title: string; beat: number;
   beats = 8,
 }) => {
   const frame = useCurrentFrame();
+  const skin = useHudSkin();
   const end = beats * beat;
   const fade = interpolate(frame, [0, 5, end - 0.4 * beat, end], [0, 1, 1, 0], {
     extrapolateLeft: "clamp",
@@ -94,18 +103,18 @@ export const ChapterCard: React.FC<{ index: number; title: string; beat: number;
   return (
     <AbsoluteFill style={{ opacity: fade, alignItems: "center", justifyContent: "center", gap: 28 }}>
       <div style={{ opacity: ramp(frame, 0, 8) }}>
-        <HudLabel text={`chapter ${String(index).padStart(2, "0")}`} size={20} color={TONES.cyan} />
+        <HudLabel text={`chapter ${String(index).padStart(2, "0")}`} size={20} color={skin.tones.cyan} />
       </div>
-      <div style={{ width: 760 * rule, height: 2, backgroundColor: TONES.cyan, boxShadow: glow(TONES.cyan, 0.7) }} />
+      <div style={{ width: 760 * rule, height: 2, background: skin.rule, boxShadow: glow(skin.tones.cyan, 0.7 * skin.glow) }} />
       <div
         style={{
-          fontFamily: headFontFamily,
-          fontWeight: 900,
+          fontFamily: skin.headFont,
+          fontWeight: skin.headWeight,
           fontSize: 104,
-          color: STAGE.ink,
+          color: skin.ink,
           textTransform: "uppercase",
           letterSpacing: "0.02em",
-          textShadow: glow("#3fc8ff", 0.8),
+          textShadow: glow(skin.halo, 0.8 * skin.glow),
           opacity: ramp(frame, 1.25 * beat, 0.75 * beat),
           transform: `translateY(${(1 - ramp(frame, 1.25 * beat, 0.75 * beat)) * 18}px)`,
         }}

@@ -55,6 +55,14 @@ export const vaultManifest = defineFeatureManifest({
     // answers "needs Studio" (`main/index.ts`).
     CHANNELS.webAppsSignIns,
     CHANNELS.webAppsSignOut,
+    // Vault lock, audit & breach (Phase 118)
+    CHANNELS.vaultLockStatus,
+    CHANNELS.vaultLock,
+    CHANNELS.vaultUnlock,
+    CHANNELS.vaultAuditList,
+    CHANNELS.vaultAuditVerify,
+    CHANNELS.vaultAuditExport,
+    CHANNELS.vaultBreachCheck,
   ],
   events: [],
   mcpTools: [],
