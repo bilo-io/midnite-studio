@@ -8,7 +8,8 @@ import {
 
 import type { BrowserHostWindow as BrowserWindow, BrowserInput as Input, BrowserView as WebContentsView } from './browser-electron';
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
-import { cancelDownload, checkNavigationUrl, denyAllDevices, denyAllPermissions } from './browser-security';
+import { checkNavigationUrl } from './browser-security';
+import { applyBrowserSessionPolicy, refuseWebviewAttach, sandboxedPageWebPreferences } from './browser-session-policy';
 
 /**
  * The main-process half of the embedded browser (Phase 32 Theme A/B).
@@ -215,18 +216,16 @@ let securityConfigured = false;
 function ensureSessionConfigured(): void {
   if (securityConfigured) return;
   securityConfigured = true;
-  const browserSession = browserMainDeps().electron.sessionFromPartition(PARTITION);
-  denyAllPermissions(browserSession);
-  denyAllDevices(browserSession);
-  browserSession.on('will-download', (_event, item, webContents) => {
-    // Session-level, so the item arrives with the `webContents` that asked
-    // for it rather than a tab id — reverse-lookup so the notice lands on
-    // the tab the user was actually looking at.
-    const entry = [...tabs.entries()].find(([, t]) => t.view.webContents === webContents);
-    cancelDownload(item, (filename) => {
+  // Phase 117 Theme A: every session rule in one place, in one order (`browser-session-policy.ts`).
+  applyBrowserSessionPolicy(browserMainDeps().electron.sessionFromPartition(PARTITION), {
+    onDownloadRefused: (filename, webContents) => {
+      // Session-level, so the item arrives with the `webContents` that asked
+      // for it rather than a tab id — reverse-lookup so the notice lands on
+      // the tab the user was actually looking at.
+      const entry = [...tabs.entries()].find(([, t]) => t.view.webContents === webContents);
       defaultLogger(`[browser] download refused: ${filename}`);
       if (entry) send(entry[1].win, { kind: 'download-blocked', tabId: entry[0], filename });
-    });
+    },
   });
 }
 
@@ -266,15 +265,11 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   ensureSessionConfigured();
   if (tabs.has(tabId)) return;
 
+  // No preload: an embedded page must have no path to window.midniteStudio,
+  // and the cheapest way to guarantee that is to hand it nothing — the table
+  // is pinned by `web-preferences.test.ts` (Phase 117 Theme A).
   const view = browserMainDeps().electron.createView({
-    webPreferences: {
-      partition: PARTITION,
-      contextIsolation: true,
-      nodeIntegration: false,
-      // No preload: an embedded page must have no path to window.midniteStudio,
-      // and the cheapest way to guarantee that is to hand it nothing.
-      sandbox: true,
-    },
+    webPreferences: sandboxedPageWebPreferences(PARTITION, { devTools: browserMainDeps().devToolsAllowed ?? false }),
   });
 
   win.contentView.addChildView(view);
@@ -284,6 +279,7 @@ export function createBrowserTab(win: BrowserWindow, tabId: string, url: string)
   ensureDisplayMetricsReapply();
 
   const wc = view.webContents;
+  refuseWebviewAttach(wc);
 
   wc.on('did-navigate', (_event, navigatedUrl) => {
     send(win, {
