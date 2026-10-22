@@ -3244,6 +3244,12 @@ export type DeepLink = z.infer<typeof DeepLinkSchema>;
 export const DeepLinkEventSchema = z.object({
   link: DeepLinkSchema,
   known: z.boolean(),
+  /**
+   * Phase 117 Theme G: the origin of the web page that asked for this link (an embedded browser tab's
+   * `openExternal`). Absent for a link the OS delivered. The renderer names it in the confirm and never
+   * auto-sends a run that came from a page.
+   */
+  origin: z.string().max(2048).optional(),
 });
 
 // --- workflows (Phase 43) --------------------------------------------------

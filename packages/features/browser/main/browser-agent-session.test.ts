@@ -14,7 +14,8 @@ function fakeTab(page: { url: string; title?: string; text?: string; hidden?: st
       contents.url = url;
     }),
     scripts: [] as string[],
-    executeJavaScriptInIsolatedWorld: vi.fn(async (_world: number, [{ code }]: Array<{ code: string }>) => {
+    executeJavaScriptInIsolatedWorld: vi.fn(async (_world: number, scripts: Array<{ code: string }>) => {
+      const code = scripts[0]?.code ?? '';
       contents.scripts.push(code);
       if (code === READ_PAGE_SCRIPT) return { url: contents.url, title: page.title ?? '', text: page.text ?? '', hidden: page.hidden ?? [] };
       if (code.includes('isPassword')) return { found: true, isPassword: false, submitsForm: false, ...page.facts };

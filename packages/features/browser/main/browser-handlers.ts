@@ -7,6 +7,7 @@ import { defaultLogger } from './browser-main-deps';
 import {
   activateBrowserTab,
   backBrowserTab,
+  clearBrowserClipboard,
   clearBrowserData,
   closeBrowserTab,
   createBrowserTab,
@@ -19,8 +20,11 @@ import {
   resetAllBrowserPermissions,
   resolveBrowserDownload,
   resolveBrowserPermission,
+  respondBrowserAgent,
   revokeBrowserPermission,
+  runBrowserAgentTool,
   setBrowserBounds,
+  setBrowserClipboardWatch,
   setBrowserDiscardMs,
   setBrowserDownloads,
   setBrowserKeepAwake,
@@ -29,6 +33,8 @@ import {
   setBrowserTrackerException,
   setBrowserVisible,
   setBrowserZoom,
+  startBrowserAgent,
+  stopBrowserAgent,
   stopBrowserTab,
   stopFindInBrowserTab,
   toggleBrowserDevTools,
@@ -266,6 +272,35 @@ export function registerBrowserHandlers(ipc: RuntimeIpc, sender: BrowserSenderIp
     CHANNELS.browserTrackerSiteException,
     schemas.BrowserTrackerSiteExceptionRequest,
     ({ host, allow }) => setBrowserTrackerException(host, allow),
+    warnInvalid,
+  );
+
+  // Phase 117 Theme G — the page-to-agent boundary. A tool result is the only thing that carries
+  // page content across, and it carries it as `UntrustedPageContent`.
+  ipc.handle(
+    CHANNELS.browserAgentStart,
+    schemas.BrowserAgentStartRequest,
+    (req) => startBrowserAgent(req),
+    (issue) => ({ ok: false as const, message: issue }),
+  );
+  ipc.send(CHANNELS.browserAgentStop, schemas.BrowserAgentStopRequest, ({ sessionId }) => stopBrowserAgent(sessionId), warnInvalid);
+  ipc.handle(
+    CHANNELS.browserAgentTool,
+    schemas.BrowserAgentToolRequest,
+    ({ sessionId, call }) => runBrowserAgentTool(sessionId, call),
+    (issue) => ({ ok: false as const, kind: 'error' as const, message: issue }),
+  );
+  ipc.send(
+    CHANNELS.browserAgentRespond,
+    schemas.BrowserAgentRespondRequest,
+    ({ sessionId, pendingId, decision }) => respondBrowserAgent(sessionId, pendingId, decision),
+    warnInvalid,
+  );
+  ipc.send(CHANNELS.browserClipboardClear, schemas.BrowserClipboardClearRequest, () => clearBrowserClipboard(), warnInvalid);
+  ipc.send(
+    CHANNELS.browserSetClipboardWatch,
+    schemas.BrowserSetClipboardWatchRequest,
+    ({ enabled }) => setBrowserClipboardWatch(enabled),
     warnInvalid,
   );
 }

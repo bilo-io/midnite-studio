@@ -86,6 +86,7 @@ export * from './clickfix';
 export * from './injection-heuristics';
 export * from './untrusted-page-content';
 export * from './browser-agent';
+export * from './page-deep-link';
 export * from './redact-samples';
 export * from './setup';
 export * from './system-memory';

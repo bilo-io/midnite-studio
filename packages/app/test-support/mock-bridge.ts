@@ -3059,6 +3059,25 @@ export function buildMockBridge(data: MockFixtures) {
       respondDownload: noop,
       setPrivacy: noop,
       setTrackerException: noop,
+      // Phase 117 Theme G: a session starts running at once; tools answer "no session" (no page to drive).
+      agentStart: async (req: { tabId: string; goal: string; allowlist: string[] }) => {
+        const state = {
+          sessionId: `mock-agent-${req.tabId}`,
+          tabId: req.tabId,
+          goal: req.goal,
+          allowlist: req.allowlist,
+          status: 'running' as const,
+          pending: null,
+          log: [`[start] ${req.goal}`],
+        };
+        for (const h of [...browserEventHandlers]) h({ kind: 'agent-session', tabId: req.tabId, state });
+        return { ok: true as const, state };
+      },
+      agentStop: noop,
+      agentTool: async () => ({ ok: false as const, kind: 'no-session' as const, message: 'The mock bridge drives no page.' }),
+      agentRespond: noop,
+      clearClipboard: noop,
+      setClipboardWatch: noop,
       onEvent: (handler: (e: unknown) => void) => {
         browserEventHandlers.push(handler);
         return () => {

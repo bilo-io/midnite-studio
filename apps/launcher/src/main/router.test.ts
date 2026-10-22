@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { resourceRefLink } from '@midnite/studio-shared/domain/resource-ref';
 import { handoffLink } from '@midnite/studio-shared/handoff';
+import { createLinkRateLimiter, PAGE_LINK_RATE_WINDOW_MS } from '@midnite/studio-shared/page-deep-link';
 
 import { recordInstall } from './bundles/state';
 import { handleMidniteLink, installedBundleFinder, linkFromArgv, routeTarget, studioUrlFor, type RouterDeps } from './router';
@@ -125,6 +126,21 @@ describe('an agent-run hand-off (Phase 113 Theme O)', () => {
     await handleMidniteLink(handoffLink({ app: 'agents', run: RUN }), deps({ isStudioInstalled: async () => false }), a);
     expect(a.showDetail).toHaveBeenCalledWith('agents');
     expect(a.openStudioUrl).not.toHaveBeenCalled();
+  });
+
+  it('lets one run through per 10 s, dropping the rest before Studio sees them (Phase 117 Theme G)', async () => {
+    let t = 0;
+    const runLimiter = createLinkRateLimiter(PAGE_LINK_RATE_WINDOW_MS, () => t);
+    const a = actions();
+    const link = handoffLink({ app: 'agents', run: RUN });
+    expect(await handleMidniteLink(link, deps({ runLimiter }), a)).toMatchObject({ kind: 'studio' });
+    t = 3_000;
+    expect(await handleMidniteLink(link, deps({ runLimiter }), a)).toEqual({ kind: 'throttled' });
+    // A plain open is not an action: never throttled.
+    expect(await handleMidniteLink('midnite://open?app=agents', deps({ runLimiter }), a)).toMatchObject({ kind: 'studio' });
+    expect(a.openStudioUrl).toHaveBeenCalledTimes(2);
+    t = 10_000;
+    expect(await handleMidniteLink(link, deps({ runLimiter }), a)).toMatchObject({ kind: 'studio' });
   });
 
   it('drops a run parameter that is not base64url instead of forwarding it', async () => {

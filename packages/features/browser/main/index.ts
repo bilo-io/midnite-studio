@@ -86,6 +86,8 @@ export {
   resetBrowserPermissionStoreForTest,
   resolveBrowserDownload,
   resolveBrowserPermission,
+  setBrowserAgentSiteLevelSource,
+  setBrowserClipboardWatch,
   setBrowserDownloads,
   setBrowserPrivacy,
   setBrowserTrackerException,
@@ -147,6 +149,7 @@ export const browserMain = defineFeatureMain<BrowserMainServices>({
       devToolsAllowed: services.devToolsAllowed ?? false,
       userDataPath: services.userDataPath,
       permissionStore: services.permissionStore,
+      onPageDeepLink: services.onPageDeepLink,
     });
     registerBrowserHandlers(ctx.ipc, services.sender);
     registerWebAppsHandlers(ctx.ipc, services.getMainWindow);
