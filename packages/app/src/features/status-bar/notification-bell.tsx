@@ -71,17 +71,22 @@ export function NotificationBell() {
                 target makes dismissing the popover by clicking near a message
                 do something instead.
               */}
-              {toast.action ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    toast.action?.onAction();
-                  }}
-                  className="mt-2 block rounded-md border border-border px-2 py-1 text-xs text-foreground transition-colors hover:bg-accent"
-                >
-                  {toast.action.label}
-                </button>
+              {toast.action || toast.extraActions?.length ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {[...(toast.action ? [toast.action] : []), ...(toast.extraActions ?? [])].map((action) => (
+                    <button
+                      key={action.label}
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        action.onAction();
+                      }}
+                      className="block rounded-md border border-border px-2 py-1 text-xs text-foreground transition-colors hover:bg-accent"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
               ) : null}
             </div>
           ))

@@ -179,6 +179,25 @@ export async function liveAgentSessions(): Promise<
   });
 }
 
+/**
+ * One agent session's identity, for the spend reading and the per-repo limits (Phase 121 Theme F). A cheap
+ * lookup over the loaded session list — it reads no scrollback, so a poll can call it.
+ */
+export async function agentSessionDetail(
+  sessionId: string,
+): Promise<{ id: string; agentId: string; title: string; cwd: string; agentConversationId?: string } | null> {
+  if (sessions.length === 0) sessions = await store.load();
+  const session = sessions.find((s) => s.id === sessionId);
+  if (!session || session.kind !== 'agent' || !session.agentId) return null;
+  return {
+    id: session.id,
+    agentId: session.agentId,
+    title: session.name ?? session.title,
+    cwd: session.cwd,
+    ...(session.agentConversationId ? { agentConversationId: session.agentConversationId } : {}),
+  };
+}
+
 /** Insert or update one row, keeping its position if it already exists. */
 export function saveTerminal(session: TerminalSession): void {
   const index = sessions.findIndex((s) => s.id === session.id);

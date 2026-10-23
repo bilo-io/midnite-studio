@@ -23,6 +23,7 @@ import type {
   WindowRole,
   Worktree,
 } from '../domain';
+import type { AgentLimitTrip } from '../agent-limits';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SongChat } from '../media-music-chat';
@@ -2221,6 +2222,15 @@ export type MidniteStudioBridge = {
   agentAudit: {
     list: (req: In<typeof S.AgentAuditListRequest>) => Promise<z.infer<typeof S.AgentAuditListResponse>>;
     export: (req: In<typeof S.AgentAuditExportRequest>) => Promise<z.infer<typeof S.AgentAuditExportResponse>>;
+  };
+
+  /**
+   * The agent breaker (Phase 121 Theme F): a session that trips a rate or spend limit is interrupted in
+   * main and announced here; the notification's Resume / Stop / Raise buttons answer through `resolve`.
+   */
+  agentLimits: {
+    onTripped: (handler: (trip: AgentLimitTrip) => void) => Unsubscribe;
+    resolve: (req: In<typeof S.AgentLimitResolveRequest>) => Promise<GitOpResult<Record<string, never>>>;
   };
 
   /**

@@ -185,6 +185,7 @@ const bridge: Pick<
   | 'knowledge'
   | 'mcp'
   | 'agentAudit'
+  | 'agentLimits'
   | 'companion'
   | 'capture'
   | 'vanguard'
@@ -1094,6 +1095,10 @@ const bridge: Pick<
   agentAudit: {
     list: (req) => call(CHANNELS.agentAuditList, req),
     export: (req) => call(CHANNELS.agentAuditExport, req),
+  },
+  agentLimits: {
+    onTripped: (handler) => subscribe(EVENT_CHANNELS.agentLimitTripped, handler),
+    resolve: (req) => call(CHANNELS.agentLimitResolve, req),
   },
   companion: {
     snapshot: (req) => call(CHANNELS.companionSnapshot, req),

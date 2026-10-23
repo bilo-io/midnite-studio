@@ -1,4 +1,4 @@
-import { CHANNELS, defineFeatureManifest } from '@midnite/studio-shared';
+import { CHANNELS, defineFeatureManifest, EVENT_CHANNELS } from '@midnite/studio-shared';
 
 /**
  * The MCP tools feature — the `midnite` MCP server's Tools view (Phase 113
@@ -29,8 +29,8 @@ export const mcpToolsManifest = defineFeatureManifest({
   owner: 'agents',
   views: [],
   settingsPages: [],
-  ipc: [CHANNELS.mcpGet, CHANNELS.mcpSet, CHANNELS.mcpCalls, CHANNELS.agentAuditList, CHANNELS.agentAuditExport],
-  events: [],
+  ipc: [CHANNELS.mcpGet, CHANNELS.mcpSet, CHANNELS.mcpCalls, CHANNELS.agentAuditList, CHANNELS.agentAuditExport, CHANNELS.agentLimitResolve],
+  events: [EVENT_CHANNELS.agentLimitTripped],
   mcpTools: [],
 });
 

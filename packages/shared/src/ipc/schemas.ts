@@ -5339,6 +5339,9 @@ export {
   AgentAuditListResponse,
 } from '../agent-audit';
 
+// Agent limits and the breaker's toast answer (Phase 121 Theme F).
+export { AgentLimitResolveRequest } from '../agent-limits';
+
 // Security findings (Phase 120 Theme A).
 export * from './security-findings';
 

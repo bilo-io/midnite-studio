@@ -33,4 +33,5 @@ export * from './log';
 export * from './menu';
 export * from './security/findings-ledger';
 export * from './security/agent-audit';
+export * from './security/agent-breaker';
 export * from './security/command-tracker';
