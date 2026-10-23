@@ -122,8 +122,8 @@ export type GraphRowProps = {
    * only the mark depends on this.
    */
   ci?: CommitCi;
-  /** The Diff column's stat; `undefined` while loading or the column is off, `null` for a merge. */
-  diffStat?: CommitDiffStat | null;
+  /** The Diff column's stat; `undefined` while loading (a neutral placeholder) or the column is off. */
+  diffStat?: CommitDiffStat;
   /** The maximum churn lines in the visible viewport, used to scale Diff Chart bars relatively. */
   maxDiffLines?: number;
   /** Open the commit's run modal — the CI mark's click. */

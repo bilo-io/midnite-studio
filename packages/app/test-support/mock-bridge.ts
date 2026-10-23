@@ -53,7 +53,7 @@ export type PopoutRole =
   | 'apps-youtube';
 
 export type MockFixtures = {
-  commitStats?: Record<string, { added: number; deleted: number; files: number } | null>;
+  commitStats?: Record<string, { added: number; deleted: number; files: number }>;
   /**
    * The Finance dashboard's market data and simulated portfolio (`markets.*`).
    * Everything is generated in-process from a seeded PRNG — a spec that mounts
@@ -1717,12 +1717,11 @@ export function buildMockBridge(data: MockFixtures) {
         truncated: data.conflictRegionsTruncated?.[req.path] ?? false,
       }),
       commitStats: async (req: { shas: string[] }) => {
-        const stats: Record<string, { added: number; deleted: number; files: number } | null> = {};
+        const stats: Record<string, { added: number; deleted: number; files: number }> = {};
         if (data.commitStats) {
           for (const sha of req.shas) {
-            if (sha in data.commitStats) {
-              stats[sha] = data.commitStats[sha] ?? null;
-            }
+            const stat = data.commitStats[sha];
+            if (stat) stats[sha] = stat;
           }
         }
         return { stats };
