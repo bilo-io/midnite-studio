@@ -126,3 +126,51 @@ export const VanguardMalwareStatus = z.object({
   last: MalwareScanSummarySchema.nullable(),
 });
 export type VanguardMalwareStatus = z.infer<typeof VanguardMalwareStatus>;
+
+// --- Response and quarantine (Phase 120 Theme H) ------------------------------------------------------
+
+/**
+ * `<quarantineDir>/<findingId>/manifest.json`, written when a file is quarantined. The file itself sits beside
+ * it under `data/` at mode 0000. `realParent` is the original parent directory's real path at quarantine
+ * time: a restore refuses when it no longer resolves there, so a symlink swapped in meanwhile cannot redirect
+ * the file. `allowRules` are the malware rules the finding itself named, which a restore's re-scan may match.
+ */
+export const QuarantineManifestSchema = z.object({
+  version: z.literal(1),
+  findingId: z.string(),
+  findingTitle: z.string(),
+  originalPath: z.string(),
+  realParent: z.string(),
+  fileName: z.string(),
+  sha256: z.string(),
+  size: z.number().int().nonnegative(),
+  mode: z.number().int().nonnegative(),
+  uid: z.number().int(),
+  /** Extended attributes as `xattr -px` printed them (hex), re-applied on restore if a copy dropped them. */
+  xattrs: z.array(z.object({ name: z.string(), hex: z.string() })),
+  quarantinedAt: z.number().int().nonnegative(),
+  allowRules: z.array(z.string()),
+});
+export type QuarantineManifest = z.infer<typeof QuarantineManifestSchema>;
+
+export const QuarantineEntrySchema = QuarantineManifestSchema.pick({
+  findingId: true,
+  findingTitle: true,
+  originalPath: true,
+  fileName: true,
+  sha256: true,
+  size: true,
+  quarantinedAt: true,
+}).extend({
+  /** When retention purges it (Settings ▸ Vanguard ▸ Quarantine). */
+  expiresAt: z.number().int().nonnegative(),
+});
+export type QuarantineEntry = z.infer<typeof QuarantineEntrySchema>;
+
+/** The quarantine list and which response actions this app cannot run (with why), for the view. */
+export const VanguardResponseStateResponse = z.object({
+  quarantineDir: z.string(),
+  quarantine: z.array(QuarantineEntrySchema),
+  unavailable: z.record(z.string(), z.object({ reason: z.string(), dependsOn: z.string().optional() })),
+});
+export type VanguardResponseStateResponse = z.infer<typeof VanguardResponseStateResponse>;

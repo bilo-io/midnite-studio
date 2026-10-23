@@ -1,7 +1,11 @@
+import { homedir } from 'node:os';
+
 import type { NewSecurityFinding, SecurityFinding } from '@midnite/studio-shared';
 
+import { createResponseActions, type ResponseActions, type ResponseSession } from './actions';
 import { createConnectionStore, type ConnectionStore } from './network-sensor';
 import { createMalwareScanner, MALWARE_SENSOR_ID, type MalwareScanner } from './malware/scanner';
+import { createQuarantineStore, type QuarantineStore } from './response/quarantine';
 import { builtinSensors, type VanguardSensorDeps } from './sensors';
 import {
   createSensorHost,
@@ -32,6 +36,26 @@ export interface VanguardServiceOptions {
   sensorDeps?: VanguardSensorDeps;
   /** Sensors to register; defaults to {@link builtinSensors} over `sensorDeps`. */
   sensors?: readonly SensorDefinition[];
+  /** What the response actions need from the composer (Theme H). Each field has a safe default. */
+  response?: VanguardResponseOptions;
+}
+
+/**
+ * The response actions' seams. The identity fields default to this process; the composer adds what only it
+ * knows — its bundle, its terminal broker, how to reach a live session.
+ */
+export interface VanguardResponseOptions {
+  uid?: number;
+  selfPid?: number;
+  selfExecPath?: string;
+  /** Never a file target, beside `userData` (always protected): the app bundle. */
+  protectedPaths?: readonly string[];
+  /** Command-line markers of the suite's own processes (its broker's script and socket directory). */
+  protectedMarkers?: () => readonly string[];
+  sessions?: () => Promise<readonly ResponseSession[]>;
+  interrupt?: (sessionId: string) => Promise<boolean>;
+  /** The issue form's App value; Studio's by default. */
+  issueApp?: string;
 }
 
 export interface VanguardService {
@@ -41,6 +65,10 @@ export interface VanguardService {
   connections: ConnectionStore;
   /** `<userData>/vanguard/quarantine` — where Theme H puts quarantined files. */
   quarantineDir: string;
+  /** Theme H: the quarantine and its manifests. */
+  quarantine: QuarantineStore;
+  /** Theme H: plan and run a finding's response actions. */
+  response: ResponseActions;
   /** Theme F: on-demand scans, the queue downloads and flagged files are added to, and engine status. */
   scanner: MalwareScanner;
 }
@@ -87,5 +115,26 @@ export async function createVanguardService(
   const connections = createConnectionStore();
   hostRef = host;
   for (const def of options.sensors ?? builtinSensors({ ...options.sensorDeps, connections }, scanner)) host.register(def);
-  return { host, settings, connections, quarantineDir: `${options.userData}/vanguard/quarantine`, scanner };
+  const quarantineDir = `${options.userData}/vanguard/quarantine`;
+  const retentionDays = (): number => settings.get().quarantineRetentionDays;
+  const quarantine = createQuarantineStore({ quarantineDir, runProcess: options.runProcess, now: Date.now, retentionDays });
+  const r = options.response ?? {};
+  const response = createResponseActions({
+    homeDir: options.homeDir ?? homedir(),
+    uid: r.uid ?? process.getuid?.() ?? -1,
+    selfPid: r.selfPid ?? process.pid,
+    selfExecPath: r.selfExecPath ?? process.execPath,
+    protectedPaths: [options.userData, ...(r.protectedPaths ?? [])],
+    ...(r.protectedMarkers ? { protectedMarkers: r.protectedMarkers } : {}),
+    runProcess: options.runProcess,
+    quarantine,
+    rescan: (path) => scanner.check([path]),
+    ...(r.sessions ? { sessions: r.sessions } : {}),
+    ...(r.interrupt ? { interrupt: r.interrupt } : {}),
+    ...(r.issueApp ? { issueApp: r.issueApp } : {}),
+    retentionDays,
+  });
+  // Files past their retention go at start; the response-state read purges again, so a long-running app does too.
+  void quarantine.purge().catch((error: unknown) => options.log?.('warn', `quarantine purge: ${String(error)}`));
+  return { host, settings, connections, quarantineDir, quarantine, response, scanner };
 }

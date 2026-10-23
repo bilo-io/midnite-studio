@@ -1665,6 +1665,8 @@ export const CHANNELS = {
   securityFindingsSetStatus: 'mstudio:security:findings-set-status',
   /** Perform a remediation action on a security finding (Phase 120 Theme A & H). */
   securityFindingsAct: 'mstudio:security:findings-act',
+  /** What a remediation action would touch, computed now, for its blast-radius confirm (Phase 120 Theme H). */
+  securityFindingsActPreview: 'mstudio:security:findings-act-preview',
 
   // --- vanguard sensor host + settings (Phase 120 Theme B) ---------------------
   /** Every registered sensor's state, for the Sensors tab. */
@@ -1687,6 +1689,8 @@ export const CHANNELS = {
   vanguardMalwareScan: 'mstudio:vanguard:malware-scan',
   /** Stop the malware scan that is running; findings already found are kept. */
   vanguardMalwareScanCancel: 'mstudio:vanguard:malware-scan-cancel',
+  /** The quarantine list and the response actions this app cannot run (Phase 120 Theme H). */
+  vanguardResponseState: 'mstudio:vanguard:response-state',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

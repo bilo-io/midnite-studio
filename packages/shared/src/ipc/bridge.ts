@@ -667,6 +667,8 @@ export type MidniteStudioBridge = {
       list: (req: In<typeof S.SecurityFindingsListRequest>) => Promise<z.infer<typeof S.SecurityFindingsListResponse>>;
       setStatus: (req: In<typeof S.SecurityFindingsSetStatusRequest>) => Promise<z.infer<typeof S.SecurityFindingsSetStatusResponse>>;
       act: (req: In<typeof S.SecurityFindingsActRequest>) => Promise<z.infer<typeof S.SecurityFindingsActResponse>>;
+      /** What `act` would touch, computed now, for the blast-radius confirm (Phase 120 Theme H). */
+      preview: (req: In<typeof S.SecurityFindingsActRequest>) => Promise<z.infer<typeof S.SecurityFindingsActPreviewResponse>>;
       onChanged: (handler: () => void) => Unsubscribe;
     };
     sensors: () => Promise<z.infer<typeof S.VanguardSensorsResponse>>;
@@ -676,6 +678,8 @@ export type MidniteStudioBridge = {
     /** The view was opened: in Studio the first time lets the enabled sensors start. */
     viewOpened: () => Promise<z.infer<typeof S.VanguardSensorsResponse>>;
     openQuarantine: () => Promise<GitOpResult>;
+    /** The quarantine list and which response actions this app cannot run (Phase 120 Theme H). */
+    responseState: () => Promise<z.infer<typeof S.VanguardResponseStateResponse>>;
     /** The network sensor's last snapshot of outbound connections (Network tab). */
     connections: () => Promise<z.infer<typeof S.VanguardConnectionsResponse>>;
     /** Malware scanning (Phase 120 Theme F): engine availability and one on-demand scan. */

@@ -42,11 +42,53 @@ export const SecurityFindingsActRequest = z.object({
 });
 export type SecurityFindingsActRequest = z.infer<typeof SecurityFindingsActRequest>;
 
+/** Why an action cannot run here: a dependency that has not landed, or a seam this app does not have. */
+export const RemediationUnavailableSchema = z.object({
+  reason: z.string(),
+  dependsOn: z.string().optional(),
+});
+export type RemediationUnavailable = z.infer<typeof RemediationUnavailableSchema>;
+
 export const SecurityFindingsActResultSchema = z.object({
   actionId: RemediationActionIdSchema,
+  /** The finding after the outcome was appended to its ledger row. */
   finding: SecurityFindingSchema.optional(),
+  /** Set instead of acting when the action cannot run yet (Phase 121's pair) or in this app. Nothing was done. */
+  unavailable: RemediationUnavailableSchema.optional(),
+  /** `report-issue`: the prefilled midnite-apps issue form; the renderer opens it and the user submits. */
+  issueUrl: z.string().optional(),
+  /** One line on what happened ("Stopped 3 processes"). */
+  detail: z.string().optional(),
 });
 export const SecurityFindingsActResponse = GitOpResultOf(SecurityFindingsActResultSchema);
 export type SecurityFindingsActResponse = z.infer<typeof SecurityFindingsActResponse>;
+
+/**
+ * What a response action is about to touch, computed in main against the machine as it is now (Phase 120
+ * Theme H). The view puts it in the blast-radius confirm before the action runs; `act` re-checks every
+ * target again, so a preview is never a licence.
+ */
+export const ActionBlastRadiusSchema = z.object({
+  actionId: RemediationActionIdSchema,
+  /** False only for `mute` and `report-issue`, which change nothing on the machine. */
+  confirm: z.boolean(),
+  title: z.string(),
+  confirmLabel: z.string(),
+  /** One sentence on what the action does. */
+  summary: z.string(),
+  /** What dies: processes stopped, launch items unloaded. */
+  dies: z.array(z.string()),
+  /** What moves: files quarantined, restored or re-permissioned. */
+  moves: z.array(z.string()),
+  /** Which agent sessions are interrupted or end. */
+  pauses: z.array(z.string()),
+  /** Anything else worth reading first (a re-scan that matched, a running process still using a file). */
+  warnings: z.array(z.string()),
+  unavailable: RemediationUnavailableSchema.optional(),
+});
+export type ActionBlastRadius = z.infer<typeof ActionBlastRadiusSchema>;
+
+export const SecurityFindingsActPreviewResponse = GitOpResultOf(ActionBlastRadiusSchema);
+export type SecurityFindingsActPreviewResponse = z.infer<typeof SecurityFindingsActPreviewResponse>;
 
 export const SecurityFindingsChangedPayload = z.void();

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import {
   redactRecord,
   SecurityFindingSchema,
+  type FindingActionResult,
   type NewSecurityFinding,
   type SecurityFinding,
   type SecurityFindingCategory,
@@ -58,6 +59,15 @@ export interface FindingsLedger {
   list(filter?: FindingsListFilter): Promise<SecurityFinding[]>;
   get(id: string): Promise<SecurityFinding | null>;
   setStatus(id: string, status: SecurityFindingStatus): Promise<SecurityFinding | null>;
+  /**
+   * Append a response action's outcome to the finding's row (`actions: [{id, at, ok, error?}]`, Phase 120
+   * Theme H), optionally moving its status in the same write. Null when the finding is gone.
+   */
+  recordAction(
+    id: string,
+    result: FindingActionResult,
+    change?: { status: SecurityFindingStatus; resolvedBy?: string },
+  ): Promise<SecurityFinding | null>;
   prune(retention: PruneRetention): Promise<PruneResult>;
   getSecurityDir(): string;
 }
@@ -326,6 +336,26 @@ export function createFindingsLedger(options: FindingsLedgerOptions): FindingsLe
         const fileName = fileAssignments.get(id) ?? `findings-${formatYearMonth(existing.firstSeen)}.ndjson`;
         await writeMonthlyFile(fileName);
 
+        options.onChanged?.();
+        return { ...existing };
+      });
+    },
+
+    async recordAction(id, result, change) {
+      return withLock(async () => {
+        await ensureLoaded();
+        const existing = findings.get(id);
+        if (!existing) return null;
+        existing.actions = [...(existing.actions ?? []), result];
+        if (change) {
+          existing.status = change.status;
+          if (change.resolvedBy !== undefined) existing.resolvedBy = change.resolvedBy;
+          if (change.status === 'open') openFingerprints.set(existing.fingerprint, existing.id);
+          else if (openFingerprints.get(existing.fingerprint) === existing.id) openFingerprints.delete(existing.fingerprint);
+        }
+        const fileName = fileAssignments.get(id) ?? `findings-${formatYearMonth(existing.firstSeen)}.ndjson`;
+        fileAssignments.set(id, fileName);
+        await writeMonthlyFile(fileName);
         options.onChanged?.();
         return { ...existing };
       });
