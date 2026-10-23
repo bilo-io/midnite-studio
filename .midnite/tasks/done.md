@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-23 — Phase 120 Theme E — Network behaviour
+
+[PR #986](https://github.com/bilo-io/midnite-studio/pull/986). The network sensor: `lsof -i -nP -F pcnPT` parsed by a pure, fixture- and real-lsof-tested parser, read every 10 s while an agent session is live and every 60 s otherwise, and not while the window is blurred with no agent running. The app's and broker's connections are held to `EGRESS_HOSTS` (an `info` finding for an unlisted address, one constant to raise to `high` once Phase 115 A's registry is complete); agent-session processes are held to a per-repo 30-day baseline (`medium`, `high` when unsigned or when the address is one a threat-list name resolves to). DNS is forward only, over the app's own fixed lists; there are no reverse lookups and no raw-IP rung (deferred to Phase 122). The Network tab lists live connections by process with the registry entry or flag per row (new `vanguardConnections` channel). Wired in Studio and in `apps/vanguard`. Screenshots in `docs/screenshots/p120-e/`.
+
 ## 2026-10-23 — Phase 117 Theme H — Tests, the security page, and the record
 
 [PR #983](https://github.com/bilo-io/midnite-studio/pull/983). A rule-coverage map test (every browser security rule with its test file, none importing Electron), a badge-label table test, two Playwright specs that each name their browser capability and their gap (a real Chromium TLS failure behind the interstitial; a real `getUserMedia` refused then allowed through the permission bar; main's handlers stay vitest), a badge visual spec (`-darwin` baselines only; `-linux` pending), `docs/BROWSER_SECURITY.md`, two findings rows in `docs/security/README.md`, and the policy module and agent-session contract in `docs/APPS.md`. Theme H ✅. The phase awaits `/midnite-verify`.

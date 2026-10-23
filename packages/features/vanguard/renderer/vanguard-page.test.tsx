@@ -29,6 +29,7 @@ const act_ = vi.fn();
 const setStatus = vi.fn();
 const sensors = vi.fn();
 const viewOpened = vi.fn();
+const connections = vi.fn();
 
 beforeEach(() => {
   useVanguardUi.setState({ tab: 'findings' });
@@ -37,6 +38,7 @@ beforeEach(() => {
   setStatus.mockResolvedValue({ ok: true, value: finding({}) });
   sensors.mockResolvedValue({ active: true, sensors: [{ id: 'integrity', label: 'Integrity', description: 'hashes', state: 'idle', enabled: true, lastRunAt: Date.now() - 5000, lastDurationMs: 12, lastFindings: 1 }] });
   viewOpened.mockResolvedValue({ active: true, sensors: [] });
+  connections.mockResolvedValue({ at: null, active: false, connections: [] });
   window.midniteStudio = {
     vanguard: {
       findings: {
@@ -51,6 +53,7 @@ beforeEach(() => {
       sensors,
       runSensor: vi.fn().mockResolvedValue({ ok: true }),
       viewOpened,
+      connections,
       onChanged: () => () => undefined,
     },
   } as unknown as typeof window.midniteStudio;
@@ -125,6 +128,42 @@ describe('Vanguard view', () => {
     render(<VanguardPage />);
     fireEvent.click(screen.getByRole('tab', { name: 'Network' }));
     await waitFor(() => expect(list).toHaveBeenCalledWith({ category: 'network', status: 'open' }));
+  });
+
+  it('the Network tab groups live connections by process, suite first, with the registry entry or the flag on each row', async () => {
+    connections.mockResolvedValue({
+      at: Date.now() - 4000,
+      active: true,
+      connections: [
+        { pid: 100, command: 'Midnite', role: 'suite', label: 'app', protocol: 'TCP', state: 'ESTABLISHED', remoteHost: '104.16.0.1', remotePort: 443, allowedBy: 'api.pwnedpasswords.com' },
+        { pid: 100, command: 'Midnite', role: 'suite', label: 'app', protocol: 'TCP', state: 'ESTABLISHED', remoteHost: '203.0.113.7', remotePort: 443, flagged: { severity: 'info', reason: 'The app connected to a host the egress registry does not list.' } },
+        { pid: 202, command: 'node', role: 'agent', protocol: 'TCP', remoteHost: '140.82.112.3', remotePort: 443, sessionId: 's1', repoId: 'r1' },
+        { pid: 300, command: 'ssh', role: 'other', protocol: 'TCP', remoteHost: '198.51.100.9', remotePort: 22 },
+      ],
+    });
+    render(<VanguardPage />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Network' }));
+    const processes = await screen.findByRole('list', { name: 'Processes' });
+    const headings = [...processes.querySelectorAll(':scope > li > p')].map((p) => p.textContent ?? '');
+    expect(headings[0]).toContain('Midnite (pid 100)');
+    expect(headings[0]).toContain('2 connections');
+    expect(headings[1]).toContain('Agent session');
+    expect(headings[2]).toContain('ssh');
+    expect(processes.textContent).toContain('allowed by api.pwnedpasswords.com');
+    expect(processes.textContent).toContain('egress registry does not list');
+    expect(processes.textContent).toContain('140.82.112.3:443');
+    await waitFor(() => expect(list).toHaveBeenCalledWith({ category: 'network', status: 'open' }));
+  });
+
+  it('the Network tab says why it is empty when the sensor has not run, and shows the gate note when it is paused', async () => {
+    render(<VanguardPage />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Network' }));
+    expect(await screen.findByText(/network sensor has not run/)).toBeDefined();
+    cleanup();
+    connections.mockResolvedValue({ at: Date.now(), active: true, connections: [], note: 'Paused: the window is not focused and no agent session is running.' });
+    render(<VanguardPage />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Network' }));
+    expect(await screen.findByText(/Paused: the window is not focused/)).toBeDefined();
   });
 });
 

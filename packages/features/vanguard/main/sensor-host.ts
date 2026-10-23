@@ -70,6 +70,13 @@ export interface SensorRunResult {
   findings?: number;
 }
 
+/**
+ * What started a `run`: the host's timer (`schedule`), the first pass after `start` (`start`), or the Sensors
+ * tab's "Run now" (`manual`). A sensor that gates its timer-driven passes (Phase 120 Theme E's visibility
+ * gate) still answers a person who asked.
+ */
+export type SensorTrigger = 'schedule' | 'start' | 'manual';
+
 export interface SensorDefinition {
   /** Stable id: the settings key and the Sensors tab row. */
   id: string;
@@ -82,7 +89,7 @@ export interface SensorDefinition {
   /** Long-lived setup (watchers). May return a disposer, called on stop. */
   start?(ctx: SensorContext): void | (() => void) | Promise<void | (() => void)>;
   /** One pass. Throwing marks this run `error`; it does not stop the sensor. */
-  run?(ctx: SensorContext): Promise<SensorRunResult | void> | SensorRunResult | void;
+  run?(ctx: SensorContext, trigger?: SensorTrigger): Promise<SensorRunResult | void> | SensorRunResult | void;
 }
 
 export interface SensorTimers {
@@ -175,7 +182,7 @@ export function createSensorHost(options: SensorHostOptions): SensorHost {
     log: (level, message) => log(level, `[${slot.def.id}] ${message}`),
   });
 
-  async function runOnce(slot: Slot): Promise<void> {
+  async function runOnce(slot: Slot, trigger: SensorTrigger): Promise<void> {
     if (slot.running || !slot.started || slot.def.run === undefined) return;
     slot.running = true;
     slot.state = 'running';
@@ -183,7 +190,7 @@ export function createSensorHost(options: SensorHostOptions): SensorHost {
     const began = now();
     const counter = { n: 0 };
     try {
-      const result = await slot.def.run(contextFor(slot, counter));
+      const result = await slot.def.run(contextFor(slot, counter), trigger);
       slot.lastFindings = result?.findings ?? counter.n;
       if (slot.started) {
         slot.state = 'idle';
@@ -215,7 +222,7 @@ export function createSensorHost(options: SensorHostOptions): SensorHost {
     slot.timer = null;
     const ms = intervalMs(slot);
     slot.timerSeconds = options.settings().cadenceSeconds;
-    if (ms !== null) slot.timer = timers.setInterval(() => void runOnce(slot), ms);
+    if (ms !== null) slot.timer = timers.setInterval(() => void runOnce(slot, 'schedule'), ms);
   };
 
   async function startSlot(slot: Slot): Promise<void> {
@@ -240,7 +247,7 @@ export function createSensorHost(options: SensorHostOptions): SensorHost {
     }
     retime(slot);
     changed();
-    void runOnce(slot);
+    void runOnce(slot, 'start');
   }
 
   async function stopSlot(slot: Slot): Promise<void> {
@@ -330,7 +337,7 @@ export function createSensorHost(options: SensorHostOptions): SensorHost {
     async runNow(id) {
       const slot = slots.get(id);
       if (slot === undefined || !slot.started) return false;
-      await runOnce(slot);
+      await runOnce(slot, 'manual');
       return true;
     },
   };

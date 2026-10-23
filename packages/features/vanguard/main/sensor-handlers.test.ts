@@ -75,6 +75,13 @@ describe('sensor handlers', () => {
     expect(openPath).toHaveBeenCalledWith(service.quarantineDir);
   });
 
+  it('serves the network sensor’s last snapshot', async () => {
+    const { bare, service } = await setup();
+    expect(await bare.get(CHANNELS.vanguardConnections)!()).toEqual({ at: null, active: false, connections: [] });
+    service.connections.set({ at: 7, active: true, connections: [] });
+    expect(await bare.get(CHANNELS.vanguardConnections)!()).toEqual({ at: 7, active: true, connections: [] });
+  });
+
   it('answers the malware status with the engines and runs an on-demand folder scan into the ledger', async () => {
     const recorded: Record<string, unknown>[] = [];
     const { bare, typed, dir } = await setup(false, async (f) => (recorded.push(f as Record<string, unknown>), f as never));

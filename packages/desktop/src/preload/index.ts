@@ -374,6 +374,7 @@ const bridge: Pick<
     setSettings: (req) => call(CHANNELS.vanguardSettingsSet, req),
     viewOpened: () => call(CHANNELS.vanguardViewOpened),
     openQuarantine: () => call(CHANNELS.vanguardOpenQuarantine),
+    connections: () => call(CHANNELS.vanguardConnections),
     malware: {
       status: () => call(CHANNELS.vanguardMalwareStatus),
       scan: (req) => call(CHANNELS.vanguardMalwareScan, req),

@@ -36,6 +36,8 @@ export function registerSensorHandlers(
     (issue) => ({ ok: false as const, kind: 'error' as const, message: issue }),
   );
 
+  ipc.handleBare(CHANNELS.vanguardConnections, async () => (await resolve()).connections.get());
+
   ipc.handleBare(CHANNELS.vanguardSettingsGet, async () => (await resolve()).settings.get());
 
   ipc.handle(

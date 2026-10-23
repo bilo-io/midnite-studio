@@ -1,5 +1,6 @@
 import type { NewSecurityFinding, SecurityFinding } from '@midnite/studio-shared';
 
+import { createConnectionStore, type ConnectionStore } from './network-sensor';
 import { createMalwareScanner, MALWARE_SENSOR_ID, type MalwareScanner } from './malware/scanner';
 import { builtinSensors, type VanguardSensorDeps } from './sensors';
 import {
@@ -36,6 +37,8 @@ export interface VanguardServiceOptions {
 export interface VanguardService {
   host: SensorHost;
   settings: VanguardSettingsState;
+  /** The network sensor's last snapshot, for the Network tab. */
+  connections: ConnectionStore;
   /** `<userData>/vanguard/quarantine` — where Theme H puts quarantined files. */
   quarantineDir: string;
   /** Theme F: on-demand scans, the queue downloads and flagged files are added to, and engine status. */
@@ -81,7 +84,8 @@ export async function createVanguardService(
     onChanged: options.onChanged,
     ...(options.log ? { log: options.log } : {}),
   });
+  const connections = createConnectionStore();
   hostRef = host;
-  for (const def of options.sensors ?? builtinSensors(options.sensorDeps ?? {}, scanner)) host.register(def);
-  return { host, settings, quarantineDir: `${options.userData}/vanguard/quarantine`, scanner };
+  for (const def of options.sensors ?? builtinSensors({ ...options.sensorDeps, connections }, scanner)) host.register(def);
+  return { host, settings, connections, quarantineDir: `${options.userData}/vanguard/quarantine`, scanner };
 }

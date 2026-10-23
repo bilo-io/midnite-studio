@@ -4632,8 +4632,27 @@ export function buildMockBridge(data: MockFixtures) {
     // Settings > Vanguard render with content. Nothing is ever scanned, run or quarantined for real.
     vanguard: {
       findings: {
-        list: async () => ({
+        list: async (req?: { category?: string }) => ({
           findings: [
+            {
+              id: 'f3',
+              fingerprint: 'fp-3',
+              source: 'vanguard' as const,
+              severity: 'info' as const,
+              category: 'network' as const,
+              title: 'The app connected to 203.0.113.7:443, which the egress registry does not list',
+              detail:
+                'Midnite (pid 4211) holds an open TCP connection to 203.0.113.7:443. Every host the suite talks to is listed in the egress registry; this one is not.',
+              evidence: [
+                { kind: 'pid' as const, pid: 4211, command: 'Midnite' },
+                { kind: 'host' as const, host: '203.0.113.7', port: 443, protocol: 'tcp' },
+              ],
+              remediation: [{ id: 'mute' as const }],
+              firstSeen: 1_700_000_100_000,
+              lastSeen: 1_700_000_100_000,
+              count: 1,
+              status: 'open' as const,
+            },
             {
               id: 'f1',
               fingerprint: 'fp-1',
@@ -4664,7 +4683,7 @@ export function buildMockBridge(data: MockFixtures) {
               count: 1,
               status: 'open' as const,
             },
-          ],
+          ].filter((f) => !req?.category || f.category === req.category),
         }),
         setStatus: async () => ({ ok: true as const }),
         act: async () => ({ ok: true as const }),
@@ -4687,11 +4706,11 @@ export function buildMockBridge(data: MockFixtures) {
             id: 'network',
             label: 'Network',
             description: 'Lists outbound connections per process.',
-            state: 'disabled' as const,
-            enabled: false,
-            lastRunAt: null,
-            lastDurationMs: null,
-            lastFindings: 0,
+            state: 'idle' as const,
+            enabled: true,
+            lastRunAt: Date.now() - 8_000,
+            lastDurationMs: 140,
+            lastFindings: 1,
           },
         ],
       }),
@@ -4712,6 +4731,70 @@ export function buildMockBridge(data: MockFixtures) {
       }),
       viewOpened: async () => ({ active: true, sensors: [] }),
       openQuarantine: async () => ({ ok: true as const }),
+      connections: async () => ({
+        at: Date.now() - 6_000,
+        active: true,
+        connections: [
+          {
+            pid: 4211,
+            command: 'Midnite',
+            role: 'suite' as const,
+            label: 'app',
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '104.16.1.35',
+            remotePort: 443,
+            allowedBy: 'api.pwnedpasswords.com',
+          },
+          {
+            pid: 4211,
+            command: 'Midnite',
+            role: 'suite' as const,
+            label: 'app',
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '203.0.113.7',
+            remotePort: 443,
+            flagged: {
+              severity: 'info' as const,
+              reason: 'The app connected to a host the egress registry does not list.',
+            },
+          },
+          {
+            pid: 4388,
+            command: 'node',
+            role: 'agent' as const,
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '140.82.112.3',
+            remotePort: 443,
+            sessionId: 's-1',
+            repoId: 'r-1',
+            flagged: { severity: 'medium' as const, reason: 'A destination this repo has not reached in 30 days.' },
+          },
+          {
+            pid: 4390,
+            command: 'curl',
+            role: 'agent' as const,
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '198.51.100.20',
+            remotePort: 443,
+            sessionId: 's-1',
+            repoId: 'r-1',
+            flagged: { severity: 'high' as const, reason: 'The destination is a tunnel service (Cloudflare quick tunnel).' },
+          },
+          {
+            pid: 612,
+            command: 'ssh',
+            role: 'other' as const,
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '140.82.112.4',
+            remotePort: 22,
+          },
+        ],
+      }),
       // Phase 120 Theme F: no engine installed, one earlier scan. Nothing is ever scanned for real.
       malware: {
         status: async () => ({

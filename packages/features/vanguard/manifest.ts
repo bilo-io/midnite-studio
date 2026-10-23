@@ -34,6 +34,7 @@ export const vanguardManifest = defineFeatureManifest({
     CHANNELS.vanguardSettingsSet,
     CHANNELS.vanguardViewOpened,
     CHANNELS.vanguardOpenQuarantine,
+    CHANNELS.vanguardConnections,
     CHANNELS.vanguardMalwareStatus,
     CHANNELS.vanguardMalwareScan,
     CHANNELS.vanguardMalwareScanCancel,

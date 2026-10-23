@@ -18,6 +18,7 @@ export {
   type SensorRunProcessResult,
   type SensorRunResult,
   type SensorSchedule,
+  type SensorTrigger,
   type SensorTimers,
 } from './sensor-host';
 export {
@@ -35,6 +36,15 @@ export {
   type IntegrityLiveSession,
   type IntegrityRepo,
 } from './integrity-sensor';
+export {
+  createConnectionStore,
+  createNetworkSensor,
+  NETWORK_SENSOR_ID,
+  type ConnectionStore,
+  type NetworkAgentSession,
+  type NetworkSensorDeps,
+  type NetworkSuiteIdentity,
+} from './network-sensor';
 export {
   createPersistenceProcessSensors,
   type PersistenceProcessDeps,

@@ -12,12 +12,13 @@ import {
   type FindingsLedger,
 } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
-import { app, shell, type BrowserWindow } from 'electron';
+import { app, BrowserWindow, shell } from 'electron';
 
 import { defaultLogger } from '../log';
 import { listRepos } from '../repo-registry';
+import { studioBrokerScriptPath } from '../broker-client';
 import { observePtyOutput, onSessionExit, sessionIdFor } from '../pty-service';
-import { listTerminals } from '../terminal-service';
+import { liveAgentSessions, listTerminals } from '../terminal-service';
 import { probeBinary } from '../system-health';
 import { agentPtyOutputSource, agentSessionPids } from './vanguard-sensor-wiring';
 import { handle, handleBare, handleSend } from './handle';
@@ -109,6 +110,16 @@ export async function startVanguardSensors(userData: string): Promise<void> {
       persistenceProcess: {
         clickfix: { source: agentPtyOutputSource(ptySeams) },
         processes: { agentSessions: agentSessionPids(ptySeams) },
+      },
+      // Theme E: the app's own pid and its broker's script (the registry check), the agent ptys' root pids
+      // (the per-repo baseline and the 10 s cadence) and window focus (the blur gate).
+      network: {
+        suite: { pid: process.pid, brokerMarkers: [studioBrokerScriptPath()] },
+        agentSessions: liveAgentSessions,
+        windowFocused: () =>
+          BrowserWindow.getAllWindows().some(
+            (win) => !win.isDestroyed() && win.isVisible() && !win.isMinimized() && win.isFocused(),
+          ),
       },
     },
     log: (level, message) =>

@@ -2,6 +2,7 @@ import { DEFAULT_VANGUARD_SETTINGS, type SecurityFinding } from '@midnite/studio
 import { describe, expect, it } from 'vitest';
 
 import { BUNDLE_SENSOR_ID, INTEGRITY_SENSOR_ID } from './integrity-sensor';
+import { createConnectionStore, NETWORK_SENSOR_ID } from './network-sensor';
 import { createSensorHost } from './sensor-host';
 import { builtinSensors, resolveByFingerprint, type ResolvableLedger } from './sensors';
 
@@ -14,6 +15,14 @@ describe('builtinSensors', () => {
     expect(
       builtinSensors({ execPath: '/A/M.app/Contents/MacOS/M', packaged: true }).map((s) => s.id),
     ).toEqual([INTEGRITY_SENSOR_ID, BUNDLE_SENSOR_ID, ...D_IDS]);
+  });
+
+  it('ships the network sensor only when the composer supplies its inputs, and shares the snapshot it is given', () => {
+    expect(builtinSensors({}).some((s) => s.id === NETWORK_SENSOR_ID)).toBe(false);
+    const connections = createConnectionStore();
+    const sensors = builtinSensors({ network: { suite: { pid: 1 } }, connections });
+    expect(sensors.map((s) => s.id)).toEqual([INTEGRITY_SENSOR_ID, NETWORK_SENSOR_ID, ...D_IDS]);
+    expect(sensors[1]!.schedule).toEqual({ kind: 'interval', ms: 10_000 });
   });
 
   it('registers with the sensor host and shows on the Sensors tab', () => {

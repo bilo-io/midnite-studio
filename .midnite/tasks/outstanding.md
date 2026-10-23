@@ -782,3 +782,8 @@ LAN streaming, transcoding and playlists landed in [PR #909](https://github.com/
 
 Slice 2 landed in [PR #908](https://github.com/bilo-io/midnite-studio/pull/908). Left for a person on real hardware: the Screen Recording permission flow on the packaged app, and the desktop overlay (one window over the display under the pointer — no per-display overlay yet).
 
+## Vanguard network sensor: raise suite egress to `high`, and the raw-IP rung (Phase 120 Theme E)
+
+Two things Theme E deliberately left soft, agreed with their reasons:
+- **Suite egress severity.** A connection from the app or its broker to an address no `EGRESS_HOSTS` entry resolves to is rated `info` (`NETWORK_UNREGISTERED_SUITE_SEVERITY` in `shared/src/vanguard-network.ts`), because the registry lists only three hosts today and at `high` every ordinary forge, database or LLM call would raise a false finding. Once Phase 115 A's registry covers the app's real egress, change that one constant to `'high'`.
+- **The raw-IP rung.** An agent connection to a public address no name maps to is not a `high` trigger yet: deciding it needs a reverse lookup, which would send every observed destination to a resolver, and "no reverse name" flags CDN addresses anyway. Revisit it with Phase 122's threat feed, which can judge an address without asking DNS about it. The same limit means a `*.ngrok.io`-style wildcard entry is matched only by its apex's addresses.
