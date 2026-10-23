@@ -822,3 +822,11 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 - **The Chats gate discovers against the repo's primary checkout**, but an edit-mode chat runs in its own worktree whose `.mcp.json` can differ; pass the run's cwd to discovery.
 - **Allowlist keys use the display name.** A same-named server in a lower-precedence file is listed as `name (source)`, so removing the higher-precedence file renames it and drops its approval; key by source plus name instead.
 - **`status()` re-reads the config files on every poll** (15 s in the Tools view); cache by mtime if it shows up in a profile.
+
+## Phase 121 Theme D
+
+- **`publishIntended` has no supplier.** `exfiltrationRule` treats an agent `npm`/`pnpm publish` as `critical` unless the context says the session started with the user's intent to release; nothing records a session's launch intent, so every real publish from an agent session is flagged.
+- **Workflow `ai-prompt` nodes and the Docs "Ask AI" spawn are not scrubbed.** Chats and Councils are; workflows' `ollamaPrompt` and headless prompts go through their own ports.
+- **The canary value is not matched inside command lines**, only its path: the audit trail redacts the value on write, so the path is the signal.
+- **The Theme I env test is a follow-up.** Once `engineKeyEnv` lands, feed `agentSpawnEnv` through `agentEnvViolations` with the one documented variable per engine.
+- **A canary leak in a prompt pauses a session id of `chat:<id>`/`council:<id>`**, which is not a pty, so auto-pause shows its modal with "could not be reached to interrupt".

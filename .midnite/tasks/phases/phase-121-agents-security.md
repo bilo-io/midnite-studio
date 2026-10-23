@@ -115,9 +115,7 @@ file, and Theme A's detector scores every description (quoted-text discount off,
 description is the one quoting). Not done yet: nothing starts a third-party server to read its tools (see
 `outstanding.md`).
 
-**Theme D — Secrets do not leave with the prompt.** ◻ `SECRET_PATTERNS` applied to outbound
-transcripts; agent ptys inherit no vault value; canary values in the vault that raise a finding
-when read; the exfiltration grammar on agent-issued commands.
+**Theme D — Secrets do not leave with the prompt.** ✅ `shared/src/outbound-redaction.ts` scrubs a prompt with the vault's values (literal match, any shape) and `SECRET_PATTERNS` (by shape) and writes `[redacted: <kind>]`; Chats scrubs the rendered prompt and every Ollama message, Councils scrub each member and synthesis prompt, and a user message carries `redactions` so the thread shows a chip per kind. Scrollback is untouched. It deliberately skips `redactRecord`'s home-directory collapse, because a prompt needs the real working directory. The vault gains a reserved `canaries` namespace (a GitHub-PAT-shaped and an AWS-key-shaped value, also written 0600 to `~/.config/midnite/.env.canary`); Vanguard's rogue rules gain `canary-trip` (the file named in a command or a denial, or a canary value in an outbound prompt, all `critical`) and `exfiltration` (curl/wget file uploads, `base64 <keyfile> |`, scp/rsync of a dotfile, `gh secret set` from a file: `high`; an agent `npm`/`pnpm publish`: `critical`). The env test is a bound (`agentEnvViolations`): zero vault values today, at most one documented variable per engine once Theme I lands, `MSTUDIO_*` ids only. **Decisions:** vault values under 12 characters are not matched literally (a short password is also an ordinary word); the grammar's publish shape trusts a `publishIntended` hook that nothing supplies yet, so every real agent publish is `critical` (`outstanding.md`).
 
 **Theme E — A confined session.** ◻ An opt-in `sandbox-exec` profile per session — writes only
 under the repo, `userData` and a temp dir; no reads of `~/.ssh`, `~/.aws`, Keychains, other
@@ -224,27 +222,27 @@ the Agents pairing identity audited.
 
 ### D — Secrets do not leave with the prompt [M · ~1d]
 
-- [ ] **Outbound redaction.** The rendered prompt in `chat-prompt.ts`, council member prompts, and
+- [x] **Outbound redaction.** The rendered prompt in `chat-prompt.ts`, council member prompts, and
       the Ollama/API request bodies pass through `redactRecord` with `SECRET_PATTERNS` plus the
       vault-value matcher Phase 115 C adds, *before* the bytes leave the process; a redaction is
       shown in the thread as a `[redacted: <kind>]` chip so the user knows the model did not see it.
       Scrollback is untouched, as Phase 115 decided. [M]
-- [ ] **The agent's environment.** A test over [`pty-env.ts`](../../../packages/desktop/src/main/pty-env.ts),
+- [x] **The agent's environment.** A test over [`pty-env.ts`](../../../packages/desktop/src/main/pty-env.ts),
       [`login-shell.ts`](../../../packages/runtime/src/login-shell.ts) and the council/shell runners
       asserting the environment an agent pty or child receives contains no `agent.<id>.apiKey`
       value and no vault value other than the one key that engine needs (Theme I), and that
       `MSTUDIO_*` carries only ids. [S]
-- [ ] **Canaries.** The vault holds, under a reserved namespace, two generated values that nothing
+- [x] **Canaries.** The vault holds, under a reserved namespace, two generated values that nothing
       legitimate reads — one shaped like a GitHub PAT, one like an AWS key — in a file an agent's
       shell can reach (`~/.config/midnite/.env.canary`, 0600). A read of that path in the audit
       trail or in a confined session's denial log, or the value appearing in any outbound prompt,
       is a `critical` finding in Phase 120's ledger. [S]
-- [ ] **The exfiltration grammar.** Over agent-issued commands in the trail (Theme G): `curl`/`wget`
+- [x] **The exfiltration grammar.** Over agent-issued commands in the trail (Theme G): `curl`/`wget`
       with `-d @<file>`, `--upload-file`, `-F file=@`, `base64 <keyfile> |`, `scp`/`rsync` of a
       dotfile, `gh secret set` from a file, `npm publish`/`pnpm publish` from a session that did not
       start with the user's intent — each `high`, the publish shape `critical` (Shai-Hulud's
       propagation step). Shared with Phase 120 G's rule set. [M]
-- [ ] **Tests.** A vault PAT in an attachment never reaches the fake engine; the env test fails when
+- [x] **Tests.** A vault PAT in an attachment never reaches the fake engine; the env test fails when
       a key is added to the pty env; the grammar against the benign corpus. [S]
 
 ### E — A confined session [L · 1–2d]
