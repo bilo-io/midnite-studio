@@ -38,9 +38,6 @@ export type InjectionScan = { score: number; signals: InjectionSignal[] };
 /** At or above this the UI shows its banner. Chosen so no single weak signal reaches it. */
 export const INJECTION_THRESHOLD = 0.5;
 
-/** The signature a consumer that cannot import the runtime directly is handed (Theme C). */
-export type InjectionScorer = (text: string) => InjectionScan;
-
 const MAX_RUNS = 50;
 /** A match inside a code span, fence or quotation marks is usually a document quoting an attack, not making one. */
 const CODE_DISCOUNT = 0.25;
