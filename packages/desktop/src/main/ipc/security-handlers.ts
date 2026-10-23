@@ -1,5 +1,5 @@
 import { INJECTION_THRESHOLD } from '@midnite/studio-runtime';
-import { CHANNELS, SecurityScanContentRequest } from '@midnite/studio-shared';
+import { CHANNELS, SecurityScanContentRequest, type SecurityScanContentResponse } from '@midnite/studio-shared';
 
 import { handle } from './handle';
 import { scanContent } from './security-scan';
@@ -10,7 +10,7 @@ import { scanContent } from './security-scan';
  * a banner that cannot be drawn must never block a send.
  */
 export function registerSecurityHandlers(): void {
-  handle(
+  handle<typeof SecurityScanContentRequest, SecurityScanContentResponse>(
     CHANNELS.securityScanContent,
     SecurityScanContentRequest,
     (req) => scanContent(req.text),

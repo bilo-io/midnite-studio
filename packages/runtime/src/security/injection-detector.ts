@@ -50,7 +50,7 @@ const RULES: readonly Rule[] = [
   // Tag characters render as nothing and decode to ASCII: an invisible instruction channel.
   { id: 'unicode-tag-characters', weight: 0.9, structural: true, pattern: /[\u{E0000}-\u{E007F}]+/gu },
   // Zero-width and bidi controls. U+200D (ZWJ) and U+FE0F are left out: emoji need them.
-  { id: 'invisible-controls', weight: 0.4, structural: true, pattern: /[​‌⁠⁡-⁤᠎‪-‮⁦-⁩]+|(?<=.)﻿+/gsu },
+  { id: 'invisible-controls', weight: 0.4, structural: true, pattern: /[\u200B\u200C\u2060-\u2064\u180E\u202A-\u202E\u2066-\u2069]+|(?<=.)\uFEFF+/gsu },
   { id: 'html-comment', weight: 0.3, pattern: /<!--(?!\s*-->)[\s\S]{4,2000}?-->/g },
   {
     id: 'hidden-span',
