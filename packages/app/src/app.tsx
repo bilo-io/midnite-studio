@@ -125,6 +125,7 @@ import { useSessionExits } from './features/terminal/use-session-exits';
 import { useWorkflowNodeSessions } from './features/terminal/use-workflow-node-sessions';
 import { useWaitingGateToasts } from '@midnite/studio-feature-workflows/renderer';
 import { useCaptureShortcutLanding } from '@midnite/studio-feature-capture/renderer';
+import { AgentPauseModal } from '@midnite/studio-feature-vanguard/renderer';
 import { useAgentLimitToasts } from '@midnite/studio-feature-mcp-tools/renderer';
 import { RailVersion } from './features/version/rail-version';
 import { hslTokenToHex } from './lib/color';
@@ -2132,6 +2133,8 @@ export function App() {
           <PaletteHost>
             <StudioProviders>
               <Shell />
+              {/* Phase 120 Theme G: an agent paused by a critical finding asks resume or kill, whichever view is up. */}
+              <AgentPauseModal />
             </StudioProviders>
             {/*
               Silent, like Slides below: an overlay whose chunk fails to load

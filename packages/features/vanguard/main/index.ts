@@ -57,6 +57,9 @@ export {
 } from './malware/scanner';
 export type { BinaryProbe } from './malware/engines';
 export type { PtyOutputChunk, PtyOutputSource } from './clickfix';
+export * from './rogue-rules';
+export { createAutoPause, type AutoPause, type AutoPauseDeps } from './rogue-pause';
+export { createRogueAgentSensor, ROGUE_SENSOR_ID, type RogueSensorDeps } from './rogue-sensor';
 export { createSensorRunProcess } from './run-process';
 export {
   createVanguardService,

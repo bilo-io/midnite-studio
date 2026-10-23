@@ -4771,6 +4771,7 @@ export function buildMockBridge(data: MockFixtures) {
         cadenceSeconds: 30,
         quarantineRetentionDays: 30,
         viewOpened: true,
+        autoPauseSeverities: ['critical' as const],
       }),
       setSettings: async () => ({
         version: 1 as const,
@@ -4778,9 +4779,16 @@ export function buildMockBridge(data: MockFixtures) {
         cadenceSeconds: 30,
         quarantineRetentionDays: 30,
         viewOpened: true,
+        autoPauseSeverities: ['critical' as const],
       }),
       viewOpened: async () => ({ active: true, sensors: [] }),
       openQuarantine: async () => ({ ok: true as const }),
+      // Specs and screenshots fire the Phase 120 G modal with `window.__mockAgentPaused(prompt)`.
+      onAgentPaused: (handler: (prompt: unknown) => void) => {
+        (window as unknown as { __mockAgentPaused?: unknown }).__mockAgentPaused = handler;
+        return () => undefined;
+      },
+      resolveAgentPause: async () => true,
       responseState: async () => ({
         quarantineDir: '/Users/me/Library/Application Support/Midnite Studio/vanguard/quarantine',
         quarantine: [

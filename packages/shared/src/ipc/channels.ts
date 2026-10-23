@@ -1689,6 +1689,8 @@ export const CHANNELS = {
   vanguardViewOpened: 'mstudio:vanguard:view-opened',
   /** Reveal the quarantine folder in the OS file manager. */
   vanguardOpenQuarantine: 'mstudio:vanguard:open-quarantine',
+  /** The modal's answer to an auto-paused agent session: resume or kill (Phase 120 Theme G). */
+  vanguardAgentPauseResolve: 'mstudio:vanguard:agent-pause-resolve',
   /** The network sensor's last snapshot of outbound connections, for the Network tab (Phase 120 Theme E). */
   vanguardConnections: 'mstudio:vanguard:connections',
   /** Which malware scan engines are installed, and the last scan (Phase 120 Theme F). */
@@ -1940,6 +1942,9 @@ export const EVENT_CHANNELS = {
 
   /** A sensor's state or the settings changed (Phase 120 Theme B). Carries nothing; re-fetch. */
   vanguardChanged: 'mstudio:vanguard:changed',
+
+  /** A finding paused an agent session; every window shows the resume-or-kill modal (Phase 120 Theme G). Carries an AgentPausePrompt. */
+  vanguardAgentPaused: 'mstudio:vanguard:agent-paused',
 } as const;
 
 /**

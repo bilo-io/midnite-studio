@@ -13,6 +13,16 @@ describe('vanguard store', () => {
     expect(await store.load()).toMatchObject({ version: 1, viewOpened: false, sensors: {} });
   });
 
+  it('pauses on critical only by default, and reads a file written before auto-pause existed the same way', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vg-'));
+    expect((await createVanguardStore(dir).load()).autoPauseSeverities).toEqual(['critical']);
+    writeFileSync(
+      join(dir, 'vanguard.json'),
+      JSON.stringify({ version: 1, sensors: { a: false }, cadenceSeconds: 30, quarantineRetentionDays: 30, viewOpened: true }),
+    );
+    expect(await createVanguardStore(dir).load()).toMatchObject({ viewOpened: true, sensors: { a: false }, autoPauseSeverities: ['critical'] });
+  });
+
   it('loads the safe default from a corrupt or wrong-shaped file', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'vg-'));
     writeFileSync(join(dir, 'vanguard.json'), '{ nope');

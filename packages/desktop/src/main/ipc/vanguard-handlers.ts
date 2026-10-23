@@ -2,11 +2,13 @@ import { join } from 'node:path';
 
 import {
   appBundlePath,
+  createAutoPause,
   createSensorRunProcess,
   createVanguardService,
   INTERRUPT,
   resolveByFingerprint,
   vanguardMain,
+  type AutoPause,
   type VanguardService,
 } from '@midnite/studio-feature-vanguard/main';
 import {
@@ -18,10 +20,12 @@ import {
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 import { app, BrowserWindow, shell } from 'electron';
 
+import { agentAuditTrail } from '../agent-audit';
 import { defaultLogger } from '../log';
 import { listRepos } from '../repo-registry';
+import { broadcastToAllWindows } from '../window-manager';
 import { studioBrokerScriptPath } from '../broker-client';
-import { livePtyFor, observePtyOutput, onSessionExit, sessionIdFor, writePty } from '../pty-service';
+import { killPty, livePtyFor, observePtyOutput, onSessionExit, sessionIdFor, writePty } from '../pty-service';
 import { liveAgentSessions, listTerminals } from '../terminal-service';
 import { probeBinary } from '../system-health';
 import { agentPtyOutputSource, agentSessionPids } from './vanguard-sensor-wiring';
@@ -73,8 +77,38 @@ const ptySeams = {
     onSessionExit((sessionId) => hook(sessionId)),
 };
 
+/**
+ * Ctrl+C to the session's pty: the one pause write. Theme H's `pause-session`, Phase 121 F's breaker and
+ * Theme G's auto-pause all go through this same write.
+ */
+export async function interruptSession(sessionId: string): Promise<boolean> {
+  const live = livePtyFor(sessionId);
+  if (!live) return false;
+  writePty(live.ptyId, INTERRUPT);
+  return true;
+}
+
+let autoPause: AutoPause | null = null;
+
+/** The auto-pause modal's answer (resume or kill), from any window. */
+export async function resolveAgentPause(request: { id: string; action: 'resume' | 'kill' }): Promise<boolean> {
+  return (await autoPause?.resolve(request.id, request.action)) ?? false;
+}
+
 export async function startVanguardSensors(userData: string): Promise<void> {
   const ledger = getFindingsLedger();
+  autoPause = createAutoPause({
+    severities: () => serviceInstance?.settings.get().autoPauseSeverities ?? ['critical'],
+    interrupt: interruptSession,
+    kill: async (sessionId) => {
+      const live = livePtyFor(sessionId);
+      if (!live) return false;
+      killPty(live.ptyId);
+      return true;
+    },
+    announce: (prompt) => broadcastToAllWindows(EVENT_CHANNELS.vanguardAgentPaused, prompt),
+    onError: (error) => defaultLogger.warn(`vanguard auto-pause: ${String(error)}`),
+  });
   serviceInstance = await createVanguardService({
     userData,
     homeDir: app.getPath('home'),
@@ -106,6 +140,17 @@ export async function startVanguardSensors(userData: string): Promise<void> {
               ],
         ),
       resolve: resolveByFingerprint(ledger),
+      // Theme G: the audit trail, read-only, and the ledger reads the correlation rule needs.
+      rogue: {
+        reader: {
+          readSince: async (cursor) => (await agentAuditTrail()?.readSince(cursor)) ?? { records: [], cursor: null },
+        },
+        openFingerprints: async () =>
+          new Set((await ledger.list({ status: 'open', category: 'agent' })).map((f) => f.fingerprint)),
+        recentChanges: async (since) =>
+          (await ledger.list({ category: ['persistence', 'network'], since })).filter((f) => f.firstSeen >= since),
+        autoPause,
+      },
       execPath: process.execPath,
       packaged: app.isPackaged,
       // Theme D, read-only: agent-pty output for the paste sensor, agent shell pids for the process sensor.
@@ -133,12 +178,7 @@ export async function startVanguardSensors(userData: string): Promise<void> {
       protectedPaths: [appBundlePath(process.execPath)],
       protectedMarkers: () => [studioBrokerScriptPath(), join(userData, 'broker')],
       sessions: liveAgentSessions,
-      interrupt: async (sessionId) => {
-        const live = livePtyFor(sessionId);
-        if (!live) return false;
-        writePty(live.ptyId, INTERRUPT);
-        return true;
-      },
+      interrupt: interruptSession,
     },
     log: (level, message) =>
       defaultLogger[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info'](message),
@@ -176,5 +216,6 @@ export function registerVanguardHandlers(getWindow: () => BrowserWindow | null):
       if (failure) throw new Error(failure);
     },
     warn: (issue) => defaultLogger.warn(issue),
+    resolveAgentPause,
   });
 }
