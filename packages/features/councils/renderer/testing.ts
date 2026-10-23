@@ -8,3 +8,4 @@
  */
 export { CouncilCreateDialog } from './council-create-dialog';
 export { CouncilsView } from './councils-view';
+export { CouncilConfigPanel } from './council-config-panel';
