@@ -11,7 +11,7 @@ import { conflict, failure, ok } from '@midnite/studio-shared';
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';
 import { readCommitFileDiff, readRefDiff, type DiffOptions } from './diff';
-import { parseNumstat } from '../parsers/numstat-parser';
+import { COMMIT_NUMSTAT_ARGS, parseNumstat } from '../parsers/numstat-parser';
 import { STASH_FORMAT, parseStashList } from '../parsers/stash-parser';
 import { conflictedPaths } from './status';
 import { gitErrorLine } from './worktree-ops';
@@ -118,7 +118,7 @@ async function resolveParent(worktreePath: string, selector: string, parent: 1 |
 /**
  * The file list for all three of a stash's parts (Phase 22 Theme D).
  *
- * `tracked` reuses the exact `--numstat -m --first-parent` invocation
+ * `tracked` reuses the exact `COMMIT_NUMSTAT_ARGS` invocation
  * `readCommitDetail` already makes for an ordinary commit — a stash entry
  * IS a commit, and its first parent is HEAD at stash time, so "this commit's
  * own diff" already answers "what changed in the working tree". `index` is a
@@ -136,12 +136,12 @@ export async function readStashDetail(worktreePath: string, selector: string): P
   const sha = stashRes.stdout.trim();
 
   const [trackedRes, indexRes, untrackedRes] = await Promise.all([
-    execGit(worktreePath, ['show', '--numstat', '-z', '-m', '--first-parent', '--pretty=format:', '--end-of-options', sha]),
+    execGit(worktreePath, ['show', ...COMMIT_NUMSTAT_ARGS, '--pretty=format:', '--end-of-options', sha]),
     indexSha
       ? execGit(worktreePath, ['diff', '--numstat', '-z', '--end-of-options', headAtStash, indexSha])
       : Promise.resolve(null),
     untrackedSha
-      ? execGit(worktreePath, ['show', '--numstat', '-z', '--pretty=format:', '--end-of-options', untrackedSha])
+      ? execGit(worktreePath, ['show', ...COMMIT_NUMSTAT_ARGS, '--pretty=format:', '--end-of-options', untrackedSha])
       : Promise.resolve(null),
   ]);
 

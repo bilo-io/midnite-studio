@@ -126,6 +126,9 @@ export async function readCommitFileDiff(
     `-U${context}`,
     '--first-parent',
     '-m',
+    // A root commit is diffed against the empty tree even under
+    // `log.showRoot=false` — the same `--root` its numstat is read with.
+    '--root',
     '--format=',
     '--end-of-options',
     sha,

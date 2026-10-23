@@ -175,6 +175,11 @@ describe('diff commands (integration)', () => {
     expect(diff.change).toBe('added');
     expect(diff.insertions).toBe(1);
     expect(diff.deletions).toBe(0);
+
+    // `log.showRoot=false` makes a bare `git show` print nothing for a root
+    // commit; `--root` keeps its file diff, as it keeps its numstat.
+    await repo.git(['config', 'log.showRoot', 'false']);
+    expect((await readCommitFileDiff(repo.path, first, 'a.txt')).insertions).toBe(1);
   });
 
   it('reads a merge commit against its first parent instead of returning nothing', async () => {
