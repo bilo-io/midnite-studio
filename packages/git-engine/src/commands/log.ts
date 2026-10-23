@@ -2,6 +2,7 @@ import type { Commit } from '@midnite/studio-shared';
 
 import { execGit, spawnGit } from '../exec/git-exec';
 import { LOG_FORMAT, chunkRecords, parseLog, parseLogRecord } from '../parsers/log-parser';
+import { COMMIT_NUMSTAT_ARGS, parseNumstat, type NumstatFile } from '../parsers/numstat-parser';
 
 export type LogOptions = {
   /** Hard cap on commits walked. */
@@ -251,7 +252,7 @@ export type CommitDetailData = {
   body: string;
   author: CommitIdentity;
   committer: CommitIdentity;
-  files: ReturnType<typeof parseNumstat>;
+  files: NumstatFile[];
 };
 
 /**
@@ -281,17 +282,13 @@ export async function readCommitDetail(
       '--end-of-options',
       sha,
     ]),
-    // `--numstat -z` gives machine-readable counts with NUL-delimited paths.
-    //
-    // `-m --first-parent` is what makes a MERGE commit's files visible at all:
-    // `git show` prints no diff for a merge by default, so without it every
-    // merge reported zero changed files.
+    // The same numstat flags the graph row's Diff column reads with
+    // (`COMMIT_NUMSTAT_ARGS`), so the file list here always sums to that row.
+    // `-m --first-parent` among them is what makes a MERGE commit's files
+    // visible at all: `git show` prints no diff for a merge by default.
     execGit(repoPath, [
       'show',
-      '--numstat',
-      '-z',
-      '-m',
-      '--first-parent',
+      ...COMMIT_NUMSTAT_ARGS,
       '--pretty=format:',
       '--end-of-options',
       sha,
@@ -340,49 +337,4 @@ export function parseCommitDetail(detail: string, numstat: string): CommitDetail
 function toUnixSeconds(raw: string): number {
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-/**
- * Parse `--numstat -z`: `<ins>\t<del>\t<path>\0`, with renames spending two
- * extra NUL tokens (`<ins>\t<del>\t\0<from>\0<to>`). Binary files report `-`
- * for both counts.
- */
-export function parseNumstat(
-  payload: string,
-): { path: string; oldPath: string | null; insertions: number; deletions: number }[] {
-  const tokens = payload.split('\x00').filter((t) => t.length > 0);
-  const files: {
-    path: string;
-    oldPath: string | null;
-    insertions: number;
-    deletions: number;
-  }[] = [];
-
-  for (let i = 0; i < tokens.length; i += 1) {
-    const token = tokens[i];
-    if (token === undefined) continue;
-    const parts = token.split('\t');
-    if (parts.length < 3) continue;
-
-    const insertions = Number.parseInt(parts[0] ?? '0', 10) || 0;
-    const deletions = Number.parseInt(parts[1] ?? '0', 10) || 0;
-    let path = parts[2] ?? '';
-    let oldPath: string | null = null;
-
-    // Rename: the path field is empty and the next two tokens are from/to.
-    //
-    // The `from` token is kept, not discarded: a path-scoped diff cannot detect
-    // a rename without being told both sides (see commands/diff.ts `pathspec`),
-    // so dropping it here is what makes a renamed file render as a whole new
-    // file, every line green.
-    if (path.length === 0) {
-      oldPath = tokens[i + 1] ?? null;
-      path = tokens[i + 2] ?? '';
-      i += 2;
-    }
-
-    if (path.length > 0) files.push({ path, oldPath, insertions, deletions });
-  }
-
-  return files;
 }

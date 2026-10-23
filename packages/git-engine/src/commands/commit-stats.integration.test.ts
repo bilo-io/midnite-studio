@@ -113,6 +113,22 @@ describe('readCommitStats', () => {
 
     expect((await readCommitStats(repo.path, [root]))[root]).toEqual({ added: 4, deleted: 0, files: 2 });
     await expectRowMatchesDetail(root);
+
+    // `log.showRoot=false` would blank a root's diff in `git log`; `--root` keeps it.
+    await repo.git(['config', 'log.showRoot', 'false']);
+    expect((await readCommitStats(repo.path, [root]))[root]).toEqual({ added: 4, deleted: 0, files: 2 });
+    await expectRowMatchesDetail(root);
+  });
+
+  it('agrees with the inspector when the user has turned rename detection off', async () => {
+    await repo.commitFile('before.txt', 'a\nb\nc\n', 'seed');
+    await repo.git(['mv', 'before.txt', 'after.txt']);
+    const sha = await repo.commit('rename');
+    await repo.git(['config', 'diff.renames', 'false']);
+
+    // Both readers honour the same config: a delete plus an add, on both sides.
+    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({ added: 3, deleted: 3, files: 2 });
+    await expectRowMatchesDetail(sha);
   });
 
   it('is NUL-safe for paths holding tabs and newlines', async () => {

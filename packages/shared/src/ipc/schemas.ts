@@ -981,9 +981,10 @@ export const ForgeCommitRunsRequest = RepoId.extend({
 export const ForgeCommitRunsResponse = ForgeCommitRunsResultSchema;
 
 /**
- * The graph's Diff column: `+added -deleted` per commit, for a batch of visible
- * rows. `null` is a merge commit (shown as an em dash). Shas git does not know
- * are left out of the answer.
+ * The graph's Diff column: `+added -deleted` over `files` per commit, for a
+ * batch of visible rows — the sum of the per-file numstat the commit inspector
+ * lists, a merge measured against its first parent. Shas git does not know are
+ * left out of the answer, which the renderer shows as "not loaded", never 0.
  */
 export const CommitDiffStatSchema = z.object({
   added: z.number().int().nonnegative(),
@@ -995,7 +996,7 @@ export const CommitStatsRequest = RepoId.extend({
   shas: z.array(CommitShaSchema).min(1).max(COMMIT_RUNS_MAX_SHAS),
 });
 export const CommitStatsResponse = z.object({
-  stats: z.record(CommitDiffStatSchema.nullable()),
+  stats: z.record(CommitDiffStatSchema),
 });
 
 // --- forge polling (Phase 84 Theme C) ---------------------------------------

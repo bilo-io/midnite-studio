@@ -11,7 +11,7 @@ import { conflict, failure, ok } from '@midnite/studio-shared';
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';
 import { readCommitFileDiff, readRefDiff, type DiffOptions } from './diff';
-import { parseNumstat } from './log';
+import { parseNumstat } from '../parsers/numstat-parser';
 import { STASH_FORMAT, parseStashList } from '../parsers/stash-parser';
 import { conflictedPaths } from './status';
 import { gitErrorLine } from './worktree-ops';
