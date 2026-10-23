@@ -15,6 +15,7 @@ export function InjectionBanner({
   onProceed,
   onStrip,
   onDrop,
+  fenced = true,
 }: {
   /** What the banner is about: the attachment's name, a page title. */
   subject: string;
@@ -22,6 +23,8 @@ export function InjectionBanner({
   onProceed: () => void;
   onStrip: () => void;
   onDrop: () => void;
+  /** Whether what is sent is fenced as untrusted data. False where the text is the user's own prompt. */
+  fenced?: boolean;
 }) {
   const names = scan.signals.map((s) => injectionSignalLabel(s.id));
   const button = 'rounded border border-border bg-background px-2 py-0.5 text-[11px] font-medium hover:bg-accent';
@@ -35,7 +38,7 @@ export function InjectionBanner({
         <LuShieldAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
         <span>
           <span className="font-medium">{subject}</span> contains {names.join(', ')}. It may be written to steer the assistant rather
-          than to inform it. It is sent as untrusted data either way.
+          than to inform it. {fenced ? 'It is sent as untrusted data either way.' : ''}
         </span>
       </p>
       <div className="flex flex-wrap gap-1.5 pl-5">

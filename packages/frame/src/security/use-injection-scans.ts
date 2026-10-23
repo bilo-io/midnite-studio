@@ -11,6 +11,8 @@ import { bridge } from '../bridge';
  * keeps only the items that crossed the threshold. A missing bridge, a rejected call or an
  * unflagged scan all read as "nothing to show": a banner that cannot be drawn never blocks a send.
  */
+const SCAN_DEBOUNCE_MS = 250;
+
 export type ScanItem = { id: string; text: string };
 
 function fingerprint(text: string): string {
@@ -24,33 +26,34 @@ export function useInjectionScans(items: readonly ScanItem[]): Record<string, Se
   const seen = useRef(new Map<string, string>());
 
   useEffect(() => {
-    let cancelled = false;
     const live = new Set(items.map((i) => i.id));
     setFlagged((current) => {
       const next = Object.fromEntries(Object.entries(current).filter(([id]) => live.has(id)));
       return Object.keys(next).length === Object.keys(current).length ? current : next;
     });
-    for (const item of items) {
-      const key = fingerprint(item.text);
-      if (seen.current.get(item.id) === key) continue;
-      seen.current.set(item.id, key);
-      const api = bridge();
-      if (!api) continue;
-      void api.security
-        .scanContent({ text: item.text })
-        .then((scan) => {
-          if (cancelled || seen.current.get(item.id) !== key) return;
-          setFlagged((current) => {
-            const { [item.id]: _previous, ...rest } = current;
-            return scan.flagged ? { ...rest, [item.id]: scan } : rest;
-          });
-        })
-        .catch(() => undefined);
-    }
     for (const id of [...seen.current.keys()]) if (!live.has(id)) seen.current.delete(id);
-    return () => {
-      cancelled = true;
-    };
+    // Debounced: a keystroke or a paste is one scan, not one per change. A result is dropped only
+    // when its item has since changed or gone, never merely because the list was rebuilt.
+    const timer = setTimeout(() => {
+      for (const item of items) {
+        const key = fingerprint(item.text);
+        if (seen.current.get(item.id) === key) continue;
+        seen.current.set(item.id, key);
+        const api = bridge();
+        if (!api) continue;
+        void api.security
+          .scanContent({ text: item.text })
+          .then((scan) => {
+            if (seen.current.get(item.id) !== key) return;
+            setFlagged((current) => {
+              const { [item.id]: _previous, ...rest } = current;
+              return scan.flagged ? { ...rest, [item.id]: scan } : rest;
+            });
+          })
+          .catch(() => undefined);
+      }
+    }, SCAN_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
   }, [items]);
 
   return flagged;

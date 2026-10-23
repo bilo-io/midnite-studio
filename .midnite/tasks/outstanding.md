@@ -810,3 +810,4 @@ The rogue-agent sensor reads the audit trail only. The broker's pty output strea
 ## Phase 121 · Theme A — page text has no entry point into a chat, and MCP results are stamped but not fenced
 
 `pageContentToAttachment` turns Phase 117's page envelope into a `web-page` attachment, but no UI offers "send this page to a chat" yet, so only the seam exists. MCP results carry `provenance` on the wire; the stdio shim does not yet fence them in the text it hands the CLI. A council run request carries no provenance, so a pasted prompt is treated as the user's typing after the banner; only member answers are fenced. The banner does not block Send (ignoring it equals Proceed).
+The detector's discount for code spans and quotation marks is bypassable by wrapping a phrase in either; the score is a hint, the fence is the defence. Text past 400,000 characters is not scanned and the scan op refuses it.

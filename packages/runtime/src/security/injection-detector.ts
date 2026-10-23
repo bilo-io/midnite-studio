@@ -29,7 +29,7 @@ export type InjectionSignal = {
   weight: number;
   /** The first match, `[start, end)` in the scanned text. */
   span?: [number, number];
-  /** Every match (at most {@link MAX_RUNS}), what {@link stripFlaggedRuns} removes. */
+  /** Every match (capped at 1000), what {@link stripFlaggedRuns} removes. */
   runs?: Array<[number, number]>;
 };
 
@@ -38,7 +38,7 @@ export type InjectionScan = { score: number; signals: InjectionSignal[] };
 /** At or above this the UI shows its banner. Chosen so no single weak signal reaches it. */
 export const INJECTION_THRESHOLD = 0.5;
 
-const MAX_RUNS = 50;
+const MAX_RUNS = 1000;
 /** A match inside a code span, fence or quotation marks is usually a document quoting an attack, not making one. */
 const CODE_DISCOUNT = 0.25;
 /** Cap on the text scanned, so a huge attachment cannot stall main. */
@@ -56,7 +56,7 @@ const RULES: readonly Rule[] = [
     id: 'hidden-span',
     weight: 0.4,
     pattern:
-      /<(?:span|div|p|font|section)\b[^>]*(?:display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0(?:px|pt|em|rem)?\b|opacity\s*:\s*0(?:\.0+)?\b|\bhidden\b(?!\s*=\s*["']?false)|aria-hidden\s*=\s*["']true)[^>]*>[\s\S]{0,4000}?<\/(?:span|div|p|font|section)>/gi,
+      /<(?:span|div|p|font|section)\b[^>]{0,300}(?:display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0(?:px|pt|em|rem)?\b|opacity\s*:\s*0(?:\.0+)?\b|\bhidden\b(?!\s*=\s*["']?false)|aria-hidden\s*=\s*["']true)[^>]{0,300}>[\s\S]{0,4000}?<\/(?:span|div|p|font|section)>/gi,
   },
   { id: 'base64-run', weight: 0.4, pattern: /(?<![A-Za-z0-9+/=])(?<!base64,)[A-Za-z0-9+/]{200,}={0,2}(?![A-Za-z0-9+/])/g },
   {

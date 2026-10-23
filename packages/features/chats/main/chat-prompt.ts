@@ -3,6 +3,7 @@ import {
   fenceUntrusted,
   isUntrusted,
   resolveProvenance,
+  sanitizeLabel,
   UNTRUSTED_CONTENT_HEADER,
   type ChatAttachment,
   type ChatMessage,
@@ -49,9 +50,9 @@ export function renderAttachments(attachments: readonly ChatAttachment[] | undef
         const text = a.text.length > ATTACHMENT_CHAR_CAP ? `${a.text.slice(0, ATTACHMENT_CHAR_CAP)}\n… (truncated)` : a.text;
         const provenance = resolveProvenance(a.provenance, 'attachment');
         if (provenance.trust === 'untrusted') {
-          return `\n\nAttached file "${a.name}":\n${fenceUntrusted(text, { ...provenance, ref: provenance.ref || a.name })}`;
+          return `\n\nAttached file "${sanitizeLabel(a.name)}":\n${fenceUntrusted(text, { ...provenance, ref: provenance.ref || a.name })}`;
         }
-        return `\n\nAttached file "${a.name}":\n\`\`\`\n${text}\n\`\`\``;
+        return `\n\nAttached file "${sanitizeLabel(a.name)}":\n\`\`\`\n${text}\n\`\`\``;
       })
       .join('')
   );

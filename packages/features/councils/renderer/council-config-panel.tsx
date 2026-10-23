@@ -285,6 +285,7 @@ function RunComposer({
       {flagged !== undefined && proceededWith !== prompt ? (
         <InjectionBanner
           subject="This prompt"
+          fenced={false}
           scan={flagged}
           onProceed={() => setProceededWith(prompt)}
           onStrip={() => flagged.stripped !== undefined && setPrompt(flagged.stripped)}

@@ -11,7 +11,7 @@
  * pasted from somewhere else, and every member answer the synthesizer reads, which is another
  * model's output and may carry whatever that model was fed.
  */
-import { fenceUntrusted, untrustedHeaderFor, type ContentProvenance } from '@midnite/studio-shared';
+import { fenceUntrusted, sanitizeLabel, untrustedHeaderFor, type ContentProvenance } from '@midnite/studio-shared';
 
 /** What one member is asked, given the run's topic and their own role. */
 export function buildMemberPrompt(topic: string, role: string, topicProvenance?: Partial<ContentProvenance>): string {
@@ -51,9 +51,9 @@ export function buildSynthesisPrompt(
 ): string {
   const sections = entries.map((entry) => {
     if (entry.status !== 'succeeded' || entry.output.trim().length === 0) {
-      return `### ${entry.name} (${entry.role})\n[${entry.status} — no answer to include]`;
+      return `### ${sanitizeLabel(entry.name)} (${sanitizeLabel(entry.role, 200)})\n[${entry.status} — no answer to include]`;
     }
-    return `### ${entry.name} (${entry.role})\n${fenceUntrusted(entry.output.trim(), { origin: 'agent-output', ref: entry.name })}`;
+    return `### ${sanitizeLabel(entry.name)} (${sanitizeLabel(entry.role, 200)})\n${fenceUntrusted(entry.output.trim(), { origin: 'agent-output', ref: entry.name })}`;
   });
 
   const anyAnswer = entries.some((e) => e.status === 'succeeded' && e.output.trim().length > 0);
