@@ -62,6 +62,10 @@ export function classifySecret(match: string): string {
   return 'secret';
 }
 
+const OPEN = '\uE000';
+const CLOSE = '\uE001';
+const MARKER = new RegExp(`${OPEN}(\\d+)${CLOSE}`, 'g');
+
 function bump(into: Map<string, number>, kind: string, by = 1): void {
   into.set(kind, (into.get(kind) ?? 0) + by);
 }
@@ -75,9 +79,21 @@ export function mergeRedactions(a: readonly Redaction[], b: readonly Redaction[]
 
 export const redactionTotal = (redactions: readonly Redaction[]): number => redactions.reduce((n, r) => n + r.count, 0);
 
-/** Scrub one string. The vault's values go first (longest first, so a value inside a longer one is not split). */
+/**
+ * Scrub one string. The vault's values go first (longest first, so a value inside a longer one is not split).
+ *
+ * A match is held as a private-use marker until every matcher has run and only then written as its
+ * `[redacted: <kind>]` label: a label is itself text, and a later pattern (`token=…`) must not read it as a
+ * credential and eat it.
+ */
 export function redactOutbound(text: string, secrets: readonly OutboundSecret[] = []): OutboundRedaction {
   const counts = new Map<string, number>();
+  const kinds: string[] = [];
+  const mark = (kind: string): string => {
+    bump(counts, kind);
+    kinds.push(kind);
+    return `${OPEN}${kinds.length - 1}${CLOSE}`;
+  };
   let canary = false;
   let out = text;
   const literal = secrets
@@ -87,21 +103,13 @@ export function redactOutbound(text: string, secrets: readonly OutboundSecret[] 
     if (!out.includes(secret.value)) continue;
     const kind = secret.kind === 'canary' ? 'canary' : 'vault-secret';
     if (kind === 'canary') canary = true;
-    const parts = out.split(secret.value);
-    bump(counts, kind, parts.length - 1);
-    out = parts.join(redactionLabel(kind));
+    out = out.split(secret.value).map((part, i) => (i === 0 ? part : `${mark(kind)}${part}`)).join('');
   }
-  out = out.replace(URL_CREDENTIAL, (_m, scheme: string) => {
-    bump(counts, 'url-credential');
-    return `${scheme}${redactionLabel('url-credential')}@`;
-  });
+  out = out.replace(URL_CREDENTIAL, (_m, scheme: string) => `${scheme}${mark('url-credential')}@`);
   for (const pattern of SECRET_PATTERNS) {
-    out = out.replace(pattern, (match) => {
-      const kind = classifySecret(match);
-      bump(counts, kind);
-      return redactionLabel(kind);
-    });
+    out = out.replace(pattern, (match) => (match.includes(OPEN) ? match : mark(classifySecret(match))));
   }
+  out = out.replace(MARKER, (_m, index: string) => redactionLabel(kinds[Number(index)] as string));
   return { text: out, redactions: [...counts].map(([kind, count]) => ({ kind, count })), canary };
 }
 

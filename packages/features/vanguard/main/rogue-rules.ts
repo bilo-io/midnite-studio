@@ -457,9 +457,12 @@ export function exfiltrationShape(
     if (!segment.piped) return null;
     if (name === 'openssl' && args[0] !== 'base64') return null;
     if (args.some((a) => a === '-d' || a === '-D' || a === '--decode' || a === '-r')) return null;
-    const file = args.find((a) => !a.startsWith('-') && a !== 'base64' && resolveWord(a, ctx.home, ctx.cwd) !== null);
-    const resolved = file === undefined ? null : resolveWord(file, ctx.home, ctx.cwd);
-    if (resolved !== null && isKeyfile(resolved, ctx.home)) {
+    // A bare file name (`.env`, `server.pem`) is relative to the session's directory.
+    const candidates = args
+      .filter((a) => !a.startsWith('-') && a !== 'base64')
+      .map((a) => resolveWord(a, ctx.home, ctx.cwd) ?? (ctx.cwd ? posix.join(expandHome(ctx.cwd, ctx.home), a) : a));
+    const resolved = candidates.find((path) => isKeyfile(path, ctx.home)) ?? null;
+    if (resolved !== null) {
       return { id: 'encode-keyfile', severity: 'high', title: 'Agent encoded a key file for transfer', detail: `An agent session ran ${name} over ${resolved} and piped the result onward, the usual first step of sending a credential out.` };
     }
     return null;
