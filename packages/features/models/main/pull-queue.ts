@@ -126,8 +126,12 @@ async function pinInstalledDigest(model: string, baseUrl: string | undefined): P
   const ledger = getOllamaDigestLedger();
   if (!ledger) return;
   try {
-    const installed = (await ollamaTags(baseUrl ? { baseUrl } : {})).find((m) => m.name === model || m.model === model);
-    if (installed) await ledger.recordInstalled(installed);
+    // `llama3` is listed as `llama3:latest`: compare with the implicit tag spelled out.
+    const full = (name: string): string => (name.lastIndexOf(':') > name.lastIndexOf('/') ? name : `${name}:latest`);
+    const installed = (await ollamaTags(baseUrl ? { baseUrl } : {})).find((m) => full(m.name) === full(model) || full(m.model) === full(model));
+    // The manifest on this disk only speaks for a daemon on this machine.
+    const local = !baseUrl || /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(baseUrl);
+    if (installed) await ledger.recordInstalled(installed, { checkDisk: local });
   } catch {
     // Nothing to pin.
   }

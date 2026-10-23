@@ -144,7 +144,7 @@ function finding(model: string, kind: 'changed' | 'manifest-mismatch', detail: s
 
 export type OllamaDigestLedger = {
   /** A pull of `model` finished and the daemon now lists it: verify against disk, then pin. */
-  recordInstalled: (model: OllamaModel) => Promise<DigestVerification>;
+  recordInstalled: (model: OllamaModel, options?: { checkDisk?: boolean }) => Promise<DigestVerification>;
   /** The daemon's list was read: raise a finding for every pinned model whose digest moved. Returns the names. */
   checkPinned: (models: readonly OllamaModel[]) => Promise<string[]>;
   pins: () => Promise<OllamaDigestPins>;
@@ -153,6 +153,8 @@ export type OllamaDigestLedger = {
 export function createOllamaDigestLedger(deps: OllamaDigestDeps): OllamaDigestLedger {
   const modelsDir = deps.modelsDir ?? ollamaModelsDir();
   let loaded: Promise<OllamaDigestPins> | null = null;
+  // Saves go one after another, so two pulls finishing together cannot write over each other.
+  let saving: Promise<unknown> = Promise.resolve();
   const load = (): Promise<OllamaDigestPins> => (loaded ??= deps.store.load());
   const raise = (f: NewSecurityFinding): void => {
     try {
@@ -166,12 +168,15 @@ export function createOllamaDigestLedger(deps: OllamaDigestDeps): OllamaDigestLe
   return {
     pins: load,
 
-    async recordInstalled(model) {
+    async recordInstalled(model, options = {}) {
       const pins = await load();
-      const verification = await verifyManifestDigest(model.name, model.digest, {
-        modelsDir,
-        ...(deps.readFile ? { readFile: deps.readFile } : {}),
-      });
+      const verification: DigestVerification =
+        options.checkDisk === false
+          ? { status: 'unverifiable', reason: 'The daemon is not on this machine.' }
+          : await verifyManifestDigest(model.name, model.digest, {
+              modelsDir,
+              ...(deps.readFile ? { readFile: deps.readFile } : {}),
+            });
       if (verification.status === 'mismatch') {
         raise(
           finding(
@@ -196,7 +201,9 @@ export function createOllamaDigestLedger(deps: OllamaDigestDeps): OllamaDigestLe
         );
       }
       pins[model.name] = digest;
-      await deps.store.save({ ...pins });
+      const snapshot = { ...pins };
+      saving = saving.then(() => deps.store.save(snapshot)).catch(() => undefined);
+      await saving;
       return verification;
     },
 

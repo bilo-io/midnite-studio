@@ -960,6 +960,7 @@ describe('reportedModelMatches (Phase 121 Theme I)', () => {
     expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5')).toBe(true);
     expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5-20261001')).toBe(true);
     expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5[1m]')).toBe(true);
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5-latest')).toBe(true);
   });
 
   it('rejects another model, including a longer family name that merely starts with the pin', () => {

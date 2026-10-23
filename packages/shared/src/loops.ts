@@ -222,7 +222,7 @@ export function reportedModelMatches(agentId: string, pinned: LoopModel, reporte
   const cli = LOOP_MODELS.find((entry) => entry.id === pinned)?.cliModel ?? null;
   if (cli === null) return true;
   const rest = reported.startsWith(cli) ? reported.slice(cli.length) : null;
-  return rest !== null && (rest === '' || /^(-\d{8})?(\[[^\]]*\])?$/.test(rest));
+  return rest !== null && (rest === '' || /^(-(\d{8}|\d{4}-\d{2}-\d{2}|latest))?(\[[^\]]*\])?$/.test(rest));
 }
 
 /**

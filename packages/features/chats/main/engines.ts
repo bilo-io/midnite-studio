@@ -204,7 +204,7 @@ export function claudeParser(): StreamParser {
     switch (event.type) {
       case 'system':
         if (event.subtype === 'init' && sessionId) out.push({ type: 'session', id: sessionId });
-        if (event.subtype === 'init' && str(event.model)) out.push({ type: 'model', model: str(event.model) as string });
+        if (event.subtype === 'init' && str(event.model) && !event.parent_tool_use_id) out.push({ type: 'model', model: str(event.model) as string });
         break;
       case 'stream_event': {
         const inner = rec(event.event);
@@ -220,7 +220,8 @@ export function claudeParser(): StreamParser {
           if (text) out.push({ type: 'thinking', text });
         } else if (inner?.type === 'message_start') {
           const reported = str(rec(inner.message)?.model);
-          if (reported) out.push({ type: 'model', model: reported });
+          // A sub-agent's own messages name their own model; only the main thread answers for the pin.
+          if (reported && !event.parent_tool_use_id) out.push({ type: 'model', model: reported });
           out.push({ type: 'usage', usage: usage.start(rec(inner.message)) });
         } else if (inner?.type === 'message_delta') {
           const snap = usage.delta(rec(inner.usage));

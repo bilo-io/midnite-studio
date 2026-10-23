@@ -146,7 +146,7 @@ describe('a finished pull pins the model digest (Phase 121 Theme I)', () => {
     const { server, origin } = await startThrowawayServer((req, res) => {
       if (req.url === '/api/tags') {
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ models: [{ name: 'tiny:1b', model: 'tiny:1b', digest: 'abc123', size: 5, modified_at: '2026-10-23T00:00:00Z' }] }));
+        res.end(JSON.stringify({ models: [{ name: 'tiny:latest', model: 'tiny:latest', digest: 'abc123', size: 5, modified_at: '2026-10-23T00:00:00Z' }] }));
         return;
       }
       res.writeHead(200, { 'content-type': 'application/x-ndjson' });
@@ -158,8 +158,8 @@ describe('a finished pull pins the model digest (Phase 121 Theme I)', () => {
       store: { load: async () => ({}), save: async (pins) => void saved.push(pins) },
       modelsDir: '/nonexistent-models-dir',
     });
-    startOllamaPull('tiny:1b', origin);
+    startOllamaPull('tiny', origin);
     await waitForCondition(() => saved.length > 0);
-    expect(saved.at(-1)).toEqual({ 'tiny:1b': 'sha256:abc123' });
+    expect(saved.at(-1)).toEqual({ 'tiny:latest': 'sha256:abc123' });
   });
 });

@@ -90,6 +90,13 @@ describe('the digest ledger', () => {
     expect(findings).toEqual([]);
   });
 
+  it('does not read this disk for a daemon on another machine', async () => {
+    const { ledger, store, findings } = setup();
+    expect((await ledger.recordInstalled(model('llama3:8b', sha('other-build')), { checkDisk: false })).status).toBe('unverifiable');
+    expect(findings).toEqual([]);
+    expect(store.saved.at(-1)).toEqual({ 'llama3:8b': `sha256:${sha('other-build')}` });
+  });
+
   it('records an unverifiable model (no manifest on this machine) without a finding', async () => {
     const { ledger, store, findings } = setup({});
     await ledger.recordInstalled(model('llama3:8b', sha('v1')));
