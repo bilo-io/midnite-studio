@@ -136,8 +136,8 @@ describe('Vanguard view', () => {
       active: true,
       connections: [
         { pid: 100, command: 'Midnite', role: 'suite', label: 'app', protocol: 'TCP', state: 'ESTABLISHED', remoteHost: '104.16.0.1', remotePort: 443, allowedBy: 'api.pwnedpasswords.com' },
-        { pid: 100, command: 'Midnite', role: 'suite', label: 'app', protocol: 'TCP', state: 'ESTABLISHED', remoteHost: '203.0.113.7', remotePort: 443, flagged: { severity: 'high', reason: 'The app connected to a host the egress registry does not list.' } },
-        { pid: 202, command: 'node', role: 'agent', protocol: 'TCP', remoteHost: '140.82.112.3', remotePort: 443, hostname: 'lb.github.com', sessionId: 's1', repoId: 'r1' },
+        { pid: 100, command: 'Midnite', role: 'suite', label: 'app', protocol: 'TCP', state: 'ESTABLISHED', remoteHost: '203.0.113.7', remotePort: 443, flagged: { severity: 'info', reason: 'The app connected to a host the egress registry does not list.' } },
+        { pid: 202, command: 'node', role: 'agent', protocol: 'TCP', remoteHost: '140.82.112.3', remotePort: 443, sessionId: 's1', repoId: 'r1' },
         { pid: 300, command: 'ssh', role: 'other', protocol: 'TCP', remoteHost: '198.51.100.9', remotePort: 22 },
       ],
     });
@@ -151,7 +151,7 @@ describe('Vanguard view', () => {
     expect(headings[2]).toContain('ssh');
     expect(processes.textContent).toContain('allowed by api.pwnedpasswords.com');
     expect(processes.textContent).toContain('egress registry does not list');
-    expect(processes.textContent).toContain('lb.github.com:443');
+    expect(processes.textContent).toContain('140.82.112.3:443');
     await waitFor(() => expect(list).toHaveBeenCalledWith({ category: 'network', status: 'open' }));
   });
 

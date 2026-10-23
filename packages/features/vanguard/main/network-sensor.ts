@@ -1,7 +1,7 @@
 import {
   EGRESS_HOSTS,
-  matchThreatHost,
   NETWORK_THREAT_HOSTS,
+  NETWORK_UNREGISTERED_SUITE_SEVERITY,
   type EgressHost,
   type EvidenceItem,
   type NetworkConnection,
@@ -29,21 +29,23 @@ import type { SensorContext, SensorDefinition, SensorRunResult } from './sensor-
  * The network sensor (Phase 120 Theme E): `lsof` snapshots of outbound connections, read two ways.
  *
  * - **The suite's own processes against Phase 115 A's registry.** A connection from the app or its broker to
- *   an address that none of `EGRESS_HOSTS` resolves to is a `high` `network` finding: the leak the registry
- *   test cannot see, because that test covers `fetch` and not a native module. Electron's helper
+ *   an address that none of `EGRESS_HOSTS` resolves to is a `network` finding at
+ *   `NETWORK_UNREGISTERED_SUITE_SEVERITY` (`info` until the registry covers the app's real egress): the leak
+ *   the registry test cannot see, because that test covers `fetch` and not a native module. Electron's helper
  *   processes are not "the suite" here: Chromium's network service carries the embedded browser, and a
  *   page may reach anywhere.
  * - **Agent sessions against a per-repo baseline.** The first connection from a process under an agent
  *   session to each `(address, port)` is recorded; one the repo has not seen in 30 days is `medium`, and
- *   `high` for the shapes `classifyAgentDestination` names.
+ *   `high` when the process is unsigned or the address is one a threat-list name resolves to.
  *
  * Cadence and gate (the phase doc's, Phase 76's): every 10 s while an agent session is live, every 60 s
  * otherwise, and nothing at all while the window is blurred and no agent runs. The host's timer ticks at
  * the fast rate and the gate in `run` drops the passes that are not due; "Run now" and the first pass
  * after start are never gated. This sensor ignores `settings().cadenceSeconds`: the doc fixes the rate.
  *
- * `lsof -n` prints addresses, so names come from the resolver: a registry host is looked up forward, and a
- * new agent destination is looked up in reverse. No `electron` here: everything is injected.
+ * `lsof -n` prints addresses, so the resolver turns the app's own fixed name lists (`EGRESS_HOSTS` and
+ * `NETWORK_THREAT_HOSTS`) into addresses with forward lookups through the system resolver. Nothing observed
+ * is ever sent to it: there are no reverse lookups. No `electron` here: everything is injected.
  */
 
 export const NETWORK_SENSOR_ID = 'network';
@@ -99,8 +101,6 @@ export interface NetworkSensorDeps {
   resolver?: NetworkResolver;
   /** Phase 115 A's registry; defaults to `EGRESS_HOSTS`. */
   registry?: Record<string, EgressHost>;
-  /** Extra threat-list entries (Phase 122 C's feed). */
-  extraThreatHosts?(): readonly NetworkThreatHost[];
 }
 
 const clip = (text: string, max = 200): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
@@ -149,11 +149,11 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
     }
   }
 
-  async function refreshThreats(now: number, extra: readonly NetworkThreatHost[]): Promise<void> {
+  async function refreshThreats(now: number): Promise<void> {
     if (threatAt !== 0 && now - threatAt < REGISTRY_REFRESH_MS * 6) return;
     threatAt = now;
     await Promise.all(
-      [...NETWORK_THREAT_HOSTS, ...extra].map(async (entry) => {
+      NETWORK_THREAT_HOSTS.map(async (entry) => {
         const name = entry.pattern.replace(/^\*\./, '');
         const slot = threatAddresses.get(name) ?? { entry, addresses: new Set<string>() };
         for (const address of await resolver.lookup(name)) slot.addresses.add(address);
@@ -170,11 +170,7 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
     return undefined;
   }
 
-  function threatFor(address: string, hostname: string | undefined, extra: readonly NetworkThreatHost[]): NetworkThreatHost | undefined {
-    if (hostname !== undefined) {
-      const byName = matchThreatHost(hostname, extra);
-      if (byName) return byName;
-    }
+  function threatFor(address: string): NetworkThreatHost | undefined {
     for (const { entry, addresses } of threatAddresses.values()) if (addresses.has(address)) return entry;
     return undefined;
   }
@@ -191,7 +187,7 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
     return verdict;
   }
 
-  const evidenceFor = (item: Classified, row: PsRow | undefined, hostname: string | undefined): EvidenceItem[] => {
+  const evidenceFor = (item: Classified, row: PsRow | undefined): EvidenceItem[] => {
     const argv = row ? row.args.split(/\s+/).slice(1, EVIDENCE_ARGV + 1).map((arg) => clip(arg)) : [];
     return [
       {
@@ -207,7 +203,6 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
         port: item.remote.port,
         protocol: item.conn.protocol.toLowerCase(),
       },
-      ...(hostname ? [{ kind: 'host' as const, host: hostname }] : []),
     ];
   };
 
@@ -250,7 +245,6 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
       return { conn, remote, role: 'other', ...(row ? { row } : {}) };
     });
 
-    const extraThreats = deps.extraThreatHosts?.() ?? [];
     if (classified.some((c) => c.role === 'suite')) await refreshRegistry(now);
 
     let findings = 0;
@@ -279,17 +273,15 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
         if (allowed !== undefined) {
           view.allowedBy = allowed;
         } else {
-          const hostname = (await resolver.reverse(remote.host))[0];
-          if (hostname) view.hostname = hostname;
           const label = item.label ?? 'app';
           const reason = `The ${label} connected to a host the egress registry does not list.`;
-          view.flagged = { severity: 'high', reason };
+          view.flagged = { severity: NETWORK_UNREGISTERED_SUITE_SEVERITY, reason };
           // One record per socket, not per scan: the same open connection seen again is not a new event.
           const socket = `${conn.pid}|${label}|${destinationKey(remote.host, remote.port)}`;
           suiteNow.add(socket);
           if (!suiteSeen.has(socket)) {
             findings += 1;
-            await ctx.record(suiteFinding(item, label, hostname, evidenceFor(item, item.row, hostname)));
+            await ctx.record(suiteFinding(item, label, evidenceFor(item, item.row)));
           }
         }
       } else if (item.role === 'agent' && item.session) {
@@ -300,13 +292,10 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
           handledAgent.add(handled);
           if (observeDestination(baseline, repoId, key, now) === 'new') {
             baselineDirty = true;
-            const hostname = (await resolver.reverse(remote.host))[0];
-            await refreshThreats(now, extraThreats);
+            await refreshThreats(now);
             const unsigned = (await isUnsigned(ctx, conn.pid)) === true;
-            const threat = threatFor(remote.host, hostname, extraThreats);
+            const threat = threatFor(remote.host);
             const verdict = classifyAgentDestination({
-              address: remote.host,
-              ...(hostname ? { hostname } : {}),
               unsigned,
               ...(threat ? { threat } : {}),
             });
@@ -314,7 +303,7 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
             flags.set(`agent|${repoId}|${key}`, { severity: verdict.severity, reason });
             findings += 1;
             await ctx.record(
-              agentFinding(item, item.session, hostname, verdict, evidenceFor(item, item.row, hostname)),
+              agentFinding(item, item.session, verdict, evidenceFor(item, item.row)),
             );
           }
         }
@@ -386,20 +375,20 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
 function suiteFinding(
   item: Classified,
   label: string,
-  hostname: string | undefined,
   evidence: EvidenceItem[],
 ): Omit<NewSecurityFinding, 'source'> {
-  const target = `${hostname ?? item.remote.host}:${item.remote.port}`;
+  const target = `${item.remote.host}:${item.remote.port}`;
   return {
     fingerprint: `network:suite:${label}:${destinationKey(item.remote.host, item.remote.port)}`,
-    severity: 'high',
+    severity: NETWORK_UNREGISTERED_SUITE_SEVERITY,
     category: 'network',
     title: `${label === 'broker' ? 'The terminal broker' : 'Midnite'} connected to ${target}, which the egress registry does not list`,
     detail:
-      `${item.conn.command} (pid ${item.conn.pid}) holds an open ${item.conn.protocol} connection to ${item.remote.host}:${item.remote.port}` +
-      `${hostname ? ` (${hostname})` : ''}. Every host the suite talks to is listed in the egress registry; this one is not. ` +
+      `${item.conn.command} (pid ${item.conn.pid}) holds an open ${item.conn.protocol} connection to ${item.remote.host}:${item.remote.port}. ` +
+      'Every host the suite talks to is meant to be listed in the egress registry; this one is not. ' +
       'The registry test covers `fetch`, not a native module, so this is a leak it cannot see. ' +
-      'The registry may be missing a host the app is meant to reach, in which case add it there and mute this.',
+      'This is rated info for now: the registry does not yet cover the app’s forge, database and LLM calls, so most ' +
+      'hits are an ordinary call the registry has yet to list (add it there and mute this).',
     evidence,
     remediation: [
       { id: 'report-issue', title: `Unregistered egress to ${target}`, description: 'Open an issue naming the host and the process.' },
@@ -411,11 +400,10 @@ function suiteFinding(
 function agentFinding(
   item: Classified,
   session: NetworkAgentSession,
-  hostname: string | undefined,
   verdict: ReturnType<typeof classifyAgentDestination>,
   evidence: EvidenceItem[],
 ): Omit<NewSecurityFinding, 'source'> {
-  const target = `${hostname ?? item.remote.host}:${item.remote.port}`;
+  const target = `${item.remote.host}:${item.remote.port}`;
   const remediation: RemediationAction[] = [
     { id: 'pause-session', sessionId: session.sessionId, description: 'Interrupt the agent session.' },
     { id: 'kill-process-group', pid: item.conn.pid, description: 'Stop the process that connected.' },
@@ -428,7 +416,7 @@ function agentFinding(
     title: `An agent session reached a new destination: ${target}`,
     detail:
       `${item.conn.command} (pid ${item.conn.pid}), running under the agent session "${session.title ?? session.sessionId}", connected to ` +
-      `${item.remote.host}:${item.remote.port}${hostname ? ` (${hostname})` : ''}, a destination this repo has not reached in the last 30 days.` +
+      `${item.remote.host}:${item.remote.port}, a destination this repo has not reached in the last 30 days.` +
       (verdict.reasons.length > 0 ? `\n\n${verdict.reasons.join('\n')}` : '') +
       '\n\nThe connection is attributed by process ancestry and may belong to a tool the agent ran for a good reason.',
     evidence,

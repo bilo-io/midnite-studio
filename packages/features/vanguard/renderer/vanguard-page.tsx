@@ -279,9 +279,8 @@ function ConnectionRow({ conn }: { conn: NetworkConnection }) {
   return (
     <li className="flex flex-wrap items-center gap-2 px-3 py-1.5 text-xs">
       <span className="font-mono">
-        {conn.hostname ?? conn.remoteHost}:{conn.remotePort}
+        {conn.remoteHost}:{conn.remotePort}
       </span>
-      {conn.hostname ? <span className="font-mono text-[10px] text-muted-foreground">{conn.remoteHost}</span> : null}
       <span className="text-[10px] text-muted-foreground">
         {conn.protocol}
         {conn.state ? ` · ${conn.state}` : ''}

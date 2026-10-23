@@ -13,16 +13,16 @@ describe('createDnsResolver', () => {
       lookup: async () => {
         throw new Error('ENOTFOUND');
       },
-      reverse: async () => {
-        throw new Error('ENOTFOUND');
-      },
     });
     expect(await resolver.lookup('x')).toEqual([]);
-    expect(await resolver.reverse('1.2.3.4')).toEqual([]);
   });
 
   it('answers empty when a lookup runs past the deadline', async () => {
-    const resolver = createDnsResolver({ reverse: () => new Promise(() => undefined), timeoutMs: 5 });
-    expect(await resolver.reverse('1.2.3.4')).toEqual([]);
+    const resolver = createDnsResolver({ lookup: () => new Promise(() => undefined), timeoutMs: 5 });
+    expect(await resolver.lookup('x')).toEqual([]);
+  });
+
+  it('offers no reverse lookup', () => {
+    expect(Object.keys(createDnsResolver())).toEqual(['lookup']);
   });
 });

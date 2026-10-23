@@ -21,7 +21,7 @@ describe('builtinSensors', () => {
     expect(builtinSensors({}).some((s) => s.id === NETWORK_SENSOR_ID)).toBe(false);
     const connections = createConnectionStore();
     const sensors = builtinSensors({ network: { suite: { pid: 1 } }, connections });
-    expect(sensors.map((s) => s.id)).toEqual([INTEGRITY_SENSOR_ID, NETWORK_SENSOR_ID]);
+    expect(sensors.map((s) => s.id)).toEqual([INTEGRITY_SENSOR_ID, NETWORK_SENSOR_ID, ...D_IDS]);
     expect(sensors[1]!.schedule).toEqual({ kind: 'interval', ms: 10_000 });
   });
 

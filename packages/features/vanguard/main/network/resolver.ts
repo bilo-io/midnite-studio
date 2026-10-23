@@ -1,21 +1,21 @@
-import { lookup as dnsLookup, reverse as dnsReverse } from 'node:dns/promises';
+import { lookup as dnsLookup } from 'node:dns/promises';
 
 import { unmapIpv4 } from './hosts';
 
 /**
- * The two name lookups the network sensor needs (Phase 120 Theme E), because `lsof -n` prints addresses
- * and the registry and the threat list are names. Forward: a registry host to the addresses it answers
- * on. Reverse: an address to the names that point back at it. Both are best effort: a lookup that fails
- * or runs past the deadline is an empty answer, never an error.
+ * The one name lookup the network sensor makes (Phase 120 Theme E), because `lsof -n` prints addresses and
+ * the registry and the threat list are names: a name to the addresses it answers on, through the system
+ * resolver. It is only ever asked about the app's own fixed lists (`EGRESS_HOSTS`, `NETWORK_THREAT_HOSTS`),
+ * so no observed destination is sent to a resolver. There is deliberately no reverse lookup: that would
+ * hand every address an agent reached to a DNS server. Best effort: a lookup that fails or runs past the
+ * deadline is an empty answer, never an error.
  */
 export interface NetworkResolver {
   lookup(host: string): Promise<string[]>;
-  reverse(address: string): Promise<string[]>;
 }
 
 export interface DnsResolverOptions {
   lookup?: (host: string) => Promise<Array<{ address: string }>>;
-  reverse?: (address: string) => Promise<string[]>;
   timeoutMs?: number;
 }
 
@@ -35,10 +35,8 @@ async function within<T>(work: Promise<T>, ms: number, fallback: T): Promise<T> 
 export function createDnsResolver(options: DnsResolverOptions = {}): NetworkResolver {
   const timeoutMs = options.timeoutMs ?? 2000;
   const lookup = options.lookup ?? ((host) => dnsLookup(host, { all: true }));
-  const reverse = options.reverse ?? dnsReverse;
   return {
     lookup: async (host) =>
       (await within(lookup(host), timeoutMs, [])).map((entry) => unmapIpv4(entry.address.toLowerCase())),
-    reverse: (address) => within(reverse(address), timeoutMs, []),
   };
 }

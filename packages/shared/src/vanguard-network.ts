@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { SecurityFindingSeveritySchema } from './security-findings';
+import { SecurityFindingSeveritySchema, type SecurityFindingSeverity } from './security-findings';
 
 /**
  * Vanguard's network sensor contract (Phase 120 Theme E): the destination shapes that make a new
@@ -57,6 +57,14 @@ export const NETWORK_THREAT_HOSTS: readonly NetworkThreatHost[] = [
   { pattern: '*.interact.sh', kind: 'exfiltration', note: 'out-of-band interaction server' },
 ];
 
+/**
+ * How a suite connection to an address no `EGRESS_HOSTS` entry resolves to is rated. `info`, not `high`,
+ * for now: the registry lists only a handful of hosts until Phase 115 A covers the app's real egress
+ * (forge, database, LLM), and at `high` every ordinary call would raise a false finding and teach people
+ * to mute the sensor. Raise this to `high` once that registry is complete (tracked in `outstanding.md`).
+ */
+export const NETWORK_UNREGISTERED_SUITE_SEVERITY: SecurityFindingSeverity = 'info';
+
 const normalizeHost = (host: string): string => host.trim().toLowerCase().replace(/\.$/, '');
 
 /** The entry a hostname matches, or `undefined`. A `*.x` pattern matches `x` and every subdomain of it. */
@@ -91,11 +99,9 @@ export const NetworkConnectionSchema = z.object({
   label: z.string().optional(),
   protocol: z.string(),
   state: z.string().optional(),
-  /** The remote end as lsof prints it (an address, since lookups are off). */
+  /** The remote end as lsof prints it: an address, never a name (no reverse lookups are made). */
   remoteHost: z.string(),
   remotePort: z.number().int(),
-  /** The reverse-DNS name, when it was looked up. */
-  hostname: z.string().optional(),
   sessionId: z.string().optional(),
   repoId: z.string().optional(),
   /** The Phase 115 registry host that allows this connection (suite processes). */

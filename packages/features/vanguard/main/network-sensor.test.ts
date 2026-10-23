@@ -2,7 +2,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DEFAULT_VANGUARD_SETTINGS, type NewSecurityFinding, type SecurityFinding } from '@midnite/studio-shared';
+import {
+  DEFAULT_VANGUARD_SETTINGS,
+  NETWORK_THREAT_HOSTS,
+  NETWORK_UNREGISTERED_SUITE_SEVERITY,
+  type NewSecurityFinding, type SecurityFinding } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -70,9 +74,13 @@ const ctx = (): SensorContext => ({
   log: () => undefined,
 });
 
-const resolver = (forward: Record<string, string[]> = {}, reverse: Record<string, string> = {}): NetworkResolver => ({
-  lookup: async (host) => forward[host] ?? [],
-  reverse: async (address) => (reverse[address] ? [reverse[address]!] : []),
+/** Every name the sensor asked the resolver about, so a test can prove nothing observed was sent to it. */
+let lookedUp: string[] = [];
+const resolver = (forward: Record<string, string[]> = {}): NetworkResolver => ({
+  lookup: async (host) => {
+    lookedUp.push(host);
+    return forward[host] ?? [];
+  },
 });
 
 function make(overrides: Partial<NetworkSensorDeps> = {}) {
@@ -98,6 +106,7 @@ beforeEach(async () => {
   lsof = '';
   calls = [];
   recorded = [];
+  lookedUp = [];
   signed = true;
   psOk = true;
   lsofFails = null;
@@ -108,24 +117,25 @@ afterEach(async () => {
 });
 
 describe('the suite against the egress registry', () => {
-  it('raises one high network finding for the app talking to a host the registry does not list', async () => {
+  it('raises one info network finding for the app talking to a host the registry does not list', async () => {
     lsof = lsofOutput([
       { pid: APP_PID, command: 'Midnite', socks: [sock('203.0.113.7:443'), sock('104.16.0.1:443')] },
     ]);
-    const { run, connections } = make({ resolver: resolver({ 'api.registry.example': ['104.16.0.1'] }, { '203.0.113.7': 'leak.example.net' }) });
+    const { run, connections } = make({ resolver: resolver({ 'api.registry.example': ['104.16.0.1'] }) });
     const result = await run();
     expect(result).toEqual({ findings: 1 });
     expect(recorded).toHaveLength(1);
     expect(recorded[0]).toMatchObject({
-      severity: 'high',
+      severity: NETWORK_UNREGISTERED_SUITE_SEVERITY,
       category: 'network',
       fingerprint: 'network:suite:app:203.0.113.7:443',
     });
-    expect(recorded[0]!.title).toMatch(/leak\.example\.net:443/);
+    expect(recorded[0]!.severity).toBe('info');
+    expect(recorded[0]!.title).toMatch(/203\.0\.113\.7:443/);
     expect(recorded[0]!.evidence).toContainEqual({ kind: 'host', host: '203.0.113.7', port: 443, protocol: 'tcp' });
     const rows = connections.get().connections;
     expect(rows.find((r) => r.remoteHost === '104.16.0.1')).toMatchObject({ role: 'suite', allowedBy: 'api.registry.example' });
-    expect(rows.find((r) => r.remoteHost === '203.0.113.7')).toMatchObject({ flagged: { severity: 'high' } });
+    expect(rows.find((r) => r.remoteHost === '203.0.113.7')).toMatchObject({ flagged: { severity: 'info' } });
   });
 
   it('reads the IPv6 form and the broker, found by its script path', async () => {
@@ -176,7 +186,6 @@ describe('the registry lookup', () => {
     const { run } = make({
       resolver: {
         lookup: async () => (online ? ['104.16.0.1'] : []),
-        reverse: async () => [],
       },
     });
     await run();
@@ -195,7 +204,7 @@ describe('agent sessions against a per-repo baseline', () => {
 
   it('records the first connection as medium, once, and attributes it to the session', async () => {
     lsof = agentLsof('140.82.112.3:443');
-    const { run } = make({ agentSessions: () => [SESSION], resolver: resolver({}, { '140.82.112.3': 'lb.github.com' }) });
+    const { run } = make({ agentSessions: () => [SESSION], resolver: resolver() });
     await run();
     expect(recorded).toHaveLength(1);
     expect(recorded[0]).toMatchObject({
@@ -212,7 +221,7 @@ describe('agent sessions against a per-repo baseline', () => {
 
   it('survives a restart: the baseline is on disk', async () => {
     lsof = agentLsof('140.82.112.3:443');
-    const deps = { agentSessions: () => [SESSION], resolver: resolver({}, { '140.82.112.3': 'lb.github.com' }) };
+    const deps = { agentSessions: () => [SESSION], resolver: resolver() };
     await make(deps).run();
     recorded = [];
     await make(deps).run();
@@ -222,7 +231,7 @@ describe('agent sessions against a per-repo baseline', () => {
   it('treats the same destination as new for another repo, and again after 30 days', async () => {
     lsof = agentLsof('140.82.112.3:443');
     let sessions = [SESSION];
-    const { run } = make({ agentSessions: () => sessions, resolver: resolver({}, { '140.82.112.3': 'lb.github.com' }) });
+    const { run } = make({ agentSessions: () => sessions, resolver: resolver() });
     await run();
     sessions = [{ ...SESSION, repoId: 'repo-2' }];
     await run();
@@ -233,51 +242,43 @@ describe('agent sessions against a per-repo baseline', () => {
     expect(recorded).toHaveLength(3);
   });
 
-  it('is high for a raw IP, an unsigned process, and a tunnel found by reverse name', async () => {
+  it('is medium for a public address nothing names: there is no raw-IP rung', async () => {
     lsof = agentLsof('203.0.113.9:443');
     await make({ agentSessions: () => [SESSION] }).run();
-    expect(recorded.at(-1)).toMatchObject({ severity: 'high' });
-    expect(recorded.at(-1)!.detail).toMatch(/raw IP/);
+    expect(recorded.at(-1)).toMatchObject({ severity: 'medium' });
+    expect(recorded.at(-1)!.detail).not.toMatch(/raw IP/);
+  });
 
+  it('is high for an unsigned process', async () => {
     signed = false;
     lsof = agentLsof('140.82.112.3:443');
-    await make({ agentSessions: () => [{ ...SESSION, repoId: 'r-unsigned' }], resolver: resolver({}, { '140.82.112.3': 'lb.github.com' }) }).run();
+    await make({ agentSessions: () => [SESSION], resolver: resolver() }).run();
     expect(recorded.at(-1)).toMatchObject({ severity: 'high' });
     expect(recorded.at(-1)!.detail).toMatch(/no valid code signature/);
-
-    signed = true;
-    lsof = agentLsof('198.51.100.20:443');
-    await make({ agentSessions: () => [{ ...SESSION, repoId: 'r-tunnel' }], resolver: resolver({}, { '198.51.100.20': 'abc123.trycloudflare.com' }) }).run();
-    expect(recorded.at(-1)).toMatchObject({ severity: 'high' });
-    expect(recorded.at(-1)!.detail).toMatch(/tunnel service/);
   });
 
   it('is high for an address a threat-list name resolves to', async () => {
     lsof = agentLsof('198.51.100.30:443');
     const { run } = make({
       agentSessions: () => [SESSION],
-      resolver: resolver({ 'webhook.site': ['198.51.100.30'] }, { '198.51.100.30': 'ec2-198-51-100-30.compute.amazonaws.com' }),
+      resolver: resolver({ 'webhook.site': ['198.51.100.30'] }),
     });
     await run();
     expect(recorded[0]).toMatchObject({ severity: 'high' });
     expect(recorded[0]!.detail).toMatch(/request-catcher/);
   });
 
-  it('takes the feed’s extra threat entries', async () => {
-    lsof = agentLsof('198.51.100.40:443');
-    const { run } = make({
-      agentSessions: () => [SESSION],
-      resolver: resolver({}, { '198.51.100.40': 'drop.feed-bad.example' }),
-      extraThreatHosts: () => [{ pattern: '*.feed-bad.example', kind: 'exfiltration', note: 'feed' }],
-    });
-    await run();
+  it('is high for a tunnel whose apex name resolves to the address (a wildcard entry is looked up as its base)', async () => {
+    lsof = agentLsof('198.51.100.20:443');
+    await make({ agentSessions: () => [SESSION], resolver: resolver({ 'trycloudflare.com': ['198.51.100.20'] }) }).run();
     expect(recorded[0]).toMatchObject({ severity: 'high' });
+    expect(recorded[0]!.detail).toMatch(/tunnel service/);
   });
 
   it('falls back to the pty root pid when ps is unavailable', async () => {
     psOk = false;
     lsof = agentLsof('140.82.112.3:443', 200);
-    const { run } = make({ agentSessions: () => [SESSION], resolver: resolver({}, { '140.82.112.3': 'lb.github.com' }) });
+    const { run } = make({ agentSessions: () => [SESSION], resolver: resolver() });
     await run();
     expect(recorded).toHaveLength(1);
   });
@@ -290,6 +291,24 @@ describe('agent sessions against a per-repo baseline', () => {
       },
     });
     await expect(run()).resolves.toEqual({ findings: 0 });
+  });
+});
+
+describe('name lookups', () => {
+  it('only ever asks the resolver about the two fixed lists, never an observed destination', async () => {
+    lsof = lsofOutput([
+      { pid: APP_PID, command: 'Midnite', socks: [sock('203.0.113.7:443')] },
+      { pid: 202, command: 'node', socks: [sock('140.82.112.3:443'), sock('198.51.100.77:8443')] },
+    ]);
+    const { run } = make({ agentSessions: () => [SESSION] });
+    await run();
+    const fixed = new Set([
+      'api.registry.example',
+      ...NETWORK_THREAT_HOSTS.map((entry) => entry.pattern.replace(/^\*\./, '')),
+    ]);
+    expect(lookedUp.length).toBeGreaterThan(0);
+    for (const name of lookedUp) expect(fixed.has(name), name).toBe(true);
+    expect(lookedUp.some((name) => /^[\d.:]+$/.test(name))).toBe(false);
   });
 });
 
@@ -365,7 +384,7 @@ describe('failure and shape', () => {
     ]);
     const { run, connections } = make({
       agentSessions: () => [SESSION],
-      resolver: resolver({ 'api.registry.example': ['104.16.0.1'] }, { '140.82.112.3': 'lb.github.com' }),
+      resolver: resolver({ 'api.registry.example': ['104.16.0.1'] }),
     });
     await run();
     expect(connections.get().connections.map((c) => c.role)).toEqual(['suite', 'agent', 'other']);
