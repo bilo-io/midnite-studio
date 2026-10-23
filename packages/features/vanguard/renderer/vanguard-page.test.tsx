@@ -127,3 +127,92 @@ describe('Vanguard view', () => {
     await waitFor(() => expect(list).toHaveBeenCalledWith({ category: 'network', status: 'open' }));
   });
 });
+
+describe('the malware scan card on the Sensors tab', () => {
+  const engines = (yara: boolean) => [
+    { id: 'yara', label: 'YARA', installed: yara },
+    { id: 'clamscan', label: 'ClamAV', installed: false },
+    { id: 'builtin', label: 'Built-in matcher', installed: true },
+  ];
+  const mountWith = (malware: unknown, repos?: unknown): void => {
+    const current = window.midniteStudio as unknown as { vanguard: Record<string, unknown> };
+    window.midniteStudio = { ...current, vanguard: { ...current.vanguard, malware }, ...(repos ? { repos } : {}) } as unknown as typeof window.midniteStudio;
+  };
+  const open = async (): Promise<void> => {
+    render(<VanguardPage />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Sensors' }));
+    await screen.findByLabelText('Malware scan');
+  };
+
+  it('explains "no engine installed" as a calm state naming the built-in matcher, with no error', async () => {
+    mountWith({ status: vi.fn().mockResolvedValue({ engines: engines(false), running: false, queued: 0, last: null }), scan: vi.fn() });
+    await open();
+    expect(screen.getByRole('status').textContent).toContain('No scan engine is installed, which is fine');
+    expect(screen.getByRole('status').textContent).toContain('never fetches anything itself');
+    expect(screen.getByLabelText('Scan engines').textContent).toContain('Built-in matcher: active');
+    expect(screen.getByText('No scan has run yet.')).toBeDefined();
+  });
+
+  it('drops the no-engine note once yara is installed', async () => {
+    mountWith({ status: vi.fn().mockResolvedValue({ engines: engines(true), running: false, queued: 0, last: null }), scan: vi.fn() });
+    await open();
+    expect(screen.queryByText(/No scan engine is installed/)).toBeNull();
+    expect(screen.getByLabelText('Scan engines').textContent).toContain('YARA: installed');
+  });
+
+  it('scans Downloads and shows the result; a full scan asks first, with its estimate', async () => {
+    const scan = vi.fn().mockResolvedValue({ ok: true, value: { target: 'Downloads', at: 1, durationMs: 40, files: 3, detections: 1, engines: ['builtin'], errors: [] } });
+    mountWith({ status: vi.fn().mockResolvedValue({ engines: engines(false), running: false, queued: 2, last: null }), scan });
+    await open();
+    expect(screen.getByText(/2 files waiting for the sensor/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Scan Downloads' }));
+    await waitFor(() => expect(scan).toHaveBeenCalledWith({ target: 'downloads' }));
+    expect(await screen.findByText(/Downloads: 3 files, 1 detection, 40 ms/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Full scan…' }));
+    expect(screen.getByRole('group', { name: 'Confirm full scan' }).textContent).toContain('often tens of minutes');
+    expect(scan).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Start full scan' }));
+    await waitFor(() => expect(scan).toHaveBeenLastCalledWith({ target: 'full' }));
+  });
+
+  it('offers repo and folder scans only when the bridge has a repo registry and picker', async () => {
+    const scan = vi.fn().mockResolvedValue({ ok: false, kind: 'error', message: 'That repo is not open.' });
+    mountWith(
+      { status: vi.fn().mockResolvedValue({ engines: engines(false), running: false, queued: 0, last: null }), scan },
+      { list: vi.fn().mockResolvedValue([{ id: 'r1', name: 'midnite' }]), pickDirectory: vi.fn().mockResolvedValue('/work/dir') },
+    );
+    await open();
+    fireEvent.focus(screen.getByLabelText('Repo to scan'));
+    await screen.findByRole('option', { name: 'midnite' });
+    fireEvent.change(screen.getByLabelText('Repo to scan'), { target: { value: 'r1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Scan repo' }));
+    await waitFor(() => expect(scan).toHaveBeenCalledWith({ target: 'repo', repoId: 'r1' }));
+    expect(await screen.findByText('That repo is not open.')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Scan a folder…' }));
+    await waitFor(() => expect(scan).toHaveBeenCalledWith({ target: 'folder', path: '/work/dir' }));
+  });
+
+  it('shows no folder or repo controls without a repo registry', async () => {
+    mountWith({ status: vi.fn().mockResolvedValue({ engines: engines(false), running: false, queued: 0, last: null }), scan: vi.fn() });
+    await open();
+    expect(screen.queryByRole('button', { name: 'Scan a folder…' })).toBeNull();
+    expect(screen.queryByLabelText('Repo to scan')).toBeNull();
+  });
+
+  it('offers Cancel scan while a scan runs, calls the cancel channel, and reports the cancelled scan calmly', async () => {
+    let finish: (v: unknown) => void = () => undefined;
+    const scan = vi.fn().mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const cancel = vi.fn().mockImplementation(async () => {
+      finish({ ok: true, value: { target: 'your home folder', at: 1, durationMs: 90, files: 7, detections: 2, engines: ['builtin'], errors: [], cancelled: true } });
+      return { ok: true };
+    });
+    mountWith({ status: vi.fn().mockResolvedValue({ engines: engines(false), running: false, queued: 0, last: null }), scan, cancel });
+    await open();
+    expect(screen.queryByRole('button', { name: 'Cancel scan' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Scan Downloads' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel scan' }));
+    await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/Scan cancelled\. Before it stopped, your home folder: 7 files, 2 detections/)).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Cancel scan' })).toBeNull();
+  });
+});

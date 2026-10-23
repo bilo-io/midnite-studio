@@ -10,6 +10,9 @@ import {
   createPersistenceProcessSensors,
   type PersistenceProcessDeps,
 } from './persistence-process-sensors';
+import { createMalwareSensor } from './malware/malware-sensor';
+import type { BinaryProbe } from './malware/engines';
+import type { MalwareScanner } from './malware/scanner';
 import type { SensorDefinition } from './sensor-host';
 
 /**
@@ -38,9 +41,15 @@ export interface VanguardSensorDeps {
   packaged?: boolean;
   /** Theme D: the agent-session shell pids and the read-only pty output stream. */
   persistenceProcess?: PersistenceProcessDeps;
+  /**
+   * Theme F: the monitor feature's `probeBinary`, which finds `yara` and `clamscan`. A feature cannot import
+   * the monitor feature, so the composer injects it. Absent (`apps/vanguard`), engines are looked for at the Homebrew and
+   * system paths only. With none found the built-in matcher runs the bundled ruleset alone: the calm "no engine installed" state.
+   */
+  malware?: { probe?: BinaryProbe };
 }
 
-export function builtinSensors(deps: VanguardSensorDeps): SensorDefinition[] {
+export function builtinSensors(deps: VanguardSensorDeps, scanner?: MalwareScanner): SensorDefinition[] {
   const sensors: SensorDefinition[] = [
     ...BUILTIN_SENSORS,
     createIntegritySensor({
@@ -60,6 +69,8 @@ export function builtinSensors(deps: VanguardSensorDeps): SensorDefinition[] {
   }
   // Theme D: persistence, processes, Apple signals, terminal paste shapes.
   sensors.push(...createPersistenceProcessSensors(deps.persistenceProcess));
+  // Theme F: malware scanning on change. The scanner is the service's (it also answers on-demand scans).
+  if (scanner) sensors.push(createMalwareSensor({ scanner, ...(deps.repos ? { repos: deps.repos } : {}) }));
   return sensors;
 }
 

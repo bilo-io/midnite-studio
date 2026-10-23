@@ -676,6 +676,13 @@ export type MidniteStudioBridge = {
     /** The view was opened: in Studio the first time lets the enabled sensors start. */
     viewOpened: () => Promise<z.infer<typeof S.VanguardSensorsResponse>>;
     openQuarantine: () => Promise<GitOpResult>;
+    /** Malware scanning (Phase 120 Theme F): engine availability and one on-demand scan. */
+    malware: {
+      status: () => Promise<z.infer<typeof S.VanguardMalwareStatus>>;
+      scan: (req: In<typeof S.VanguardScanRequest>) => Promise<GitOpResult<z.infer<typeof S.MalwareScanSummarySchema>>>;
+      /** Stop the running scan (a no-op when none is running). Detections found so far are kept. */
+      cancel: () => Promise<GitOpResult>;
+    };
     onChanged: (handler: () => void) => Unsubscribe;
   };
 

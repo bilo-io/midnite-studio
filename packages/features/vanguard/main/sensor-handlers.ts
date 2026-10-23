@@ -61,6 +61,25 @@ export function registerSensorHandlers(
     return service.host.status();
   });
 
+  ipc.handleBare(CHANNELS.vanguardMalwareStatus, async () => (await resolve()).scanner.status());
+
+  ipc.handle(
+    CHANNELS.vanguardMalwareScan,
+    schemas.VanguardScanRequest,
+    async (req) => {
+      const result = await (await resolve()).scanner.request(req);
+      return 'error' in result
+        ? { ok: false as const, kind: 'error' as const, message: result.error }
+        : { ok: true as const, value: result };
+    },
+    (issue) => ({ ok: false as const, kind: 'error' as const, message: issue }),
+  );
+
+  ipc.handleBare(CHANNELS.vanguardMalwareScanCancel, async () => {
+    (await resolve()).scanner.cancel();
+    return { ok: true as const };
+  });
+
   ipc.handleBare(CHANNELS.vanguardOpenQuarantine, async () => {
     const service = await resolve();
     if (!services.openPath)

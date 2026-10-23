@@ -41,6 +41,11 @@ export function createVanguardBridge(ipc: RendererIpc): VanguardBridge {
       setSettings: (req) => call(CHANNELS.vanguardSettingsSet, req),
       viewOpened: () => call(CHANNELS.vanguardViewOpened),
       openQuarantine: () => call(CHANNELS.vanguardOpenQuarantine),
+      malware: {
+        status: () => call(CHANNELS.vanguardMalwareStatus),
+        scan: (req) => call(CHANNELS.vanguardMalwareScan, req),
+        cancel: () => call(CHANNELS.vanguardMalwareScanCancel),
+      },
       onChanged: (handler) => subscribe(EVENT_CHANNELS.vanguardChanged, handler),
     },
     terminal: { list: () => call(CHANNELS.terminalList) },

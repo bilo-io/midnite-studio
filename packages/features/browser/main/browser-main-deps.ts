@@ -51,6 +51,12 @@ export type BrowserMainDeps = {
    * page's origin, rate-limits it and confirms it. Absent (Midnite Browser), the link is dropped.
    */
   onPageDeepLink?: (url: string, origin: string) => void;
+  /**
+   * Phase 120 Theme F: a download finished and sits at `path` (Phase 117 Theme D's quarantine folder).
+   * Plain data, no `webContents`: Vanguard, which composes this, queues the file for a malware scan.
+   * Absent (Midnite Browser), nothing is told.
+   */
+  onDownloadDone?: (download: { path: string; filename: string; sha256: string; origin: string; quarantined: boolean }) => void;
 };
 
 let installed: BrowserMainDeps | null = null;
