@@ -17,7 +17,9 @@ import { app, BrowserWindow, shell } from 'electron';
 import { defaultLogger } from '../log';
 import { listRepos } from '../repo-registry';
 import { studioBrokerScriptPath } from '../broker-client';
+import { observePtyOutput, onSessionExit, sessionIdFor } from '../pty-service';
 import { liveAgentSessions, listTerminals } from '../terminal-service';
+import { agentPtyOutputSource, agentSessionPids } from './vanguard-sensor-wiring';
 import { handle, handleBare, handleSend } from './handle';
 
 let ledgerInstance: FindingsLedger | null = null;
@@ -58,6 +60,14 @@ const serviceReady = new Promise<VanguardService>((resolve) => {
  * Studio's sensor host (Phase 120 Theme B). `'after-view-opened'`: a sensor Studio's user never asked for
  * must not start polling, so nothing runs until the Vanguard view has been opened once (persisted).
  */
+const ptySeams = {
+  observe: observePtyOutput,
+  sessionIdFor,
+  listTerminals,
+  onSessionExit: (hook: (sessionId: string) => void) =>
+    onSessionExit((sessionId) => hook(sessionId)),
+};
+
 export async function startVanguardSensors(userData: string): Promise<void> {
   const ledger = getFindingsLedger();
   serviceInstance = await createVanguardService({
@@ -81,7 +91,9 @@ export async function startVanguardSensors(userData: string): Promise<void> {
             : [
                 {
                   sessionId: session.id,
-                  ...(session.kind === 'agent' && session.agentId ? { agentId: session.agentId } : {}),
+                  ...(session.kind === 'agent' && session.agentId
+                    ? { agentId: session.agentId }
+                    : {}),
                   repoId: session.repoId,
                   cwd: session.cwd,
                   title: session.name ?? session.title,
@@ -91,6 +103,11 @@ export async function startVanguardSensors(userData: string): Promise<void> {
       resolve: resolveByFingerprint(ledger),
       execPath: process.execPath,
       packaged: app.isPackaged,
+      // Theme D, read-only: agent-pty output for the paste sensor, agent shell pids for the process sensor.
+      persistenceProcess: {
+        clickfix: { source: agentPtyOutputSource(ptySeams) },
+        processes: { agentSessions: agentSessionPids(ptySeams) },
+      },
       // Theme E: the app's own pid and its broker's script (the registry check), the agent ptys' root pids
       // (the per-repo baseline and the 10 s cadence) and window focus (the blur gate).
       network: {

@@ -7,6 +7,10 @@ import {
   type IntegrityRepo,
 } from './integrity-sensor';
 import { createConnectionStore, createNetworkSensor, type ConnectionStore, type NetworkSensorDeps } from './network-sensor';
+import {
+  createPersistenceProcessSensors,
+  type PersistenceProcessDeps,
+} from './persistence-process-sensors';
 import type { SensorDefinition } from './sensor-host';
 
 /**
@@ -40,6 +44,8 @@ export interface VanguardSensorDeps {
   network?: Omit<NetworkSensorDeps, 'connections'>;
   /** Where the network sensor leaves its snapshot; the service passes the one its handler reads. */
   connections?: ConnectionStore;
+  /** Theme D: the agent-session shell pids and the read-only pty output stream. */
+  persistenceProcess?: PersistenceProcessDeps;
 }
 
 export function builtinSensors(deps: VanguardSensorDeps): SensorDefinition[] {
@@ -63,6 +69,8 @@ export function builtinSensors(deps: VanguardSensorDeps): SensorDefinition[] {
       }),
     );
   }
+  // Theme D: persistence, processes, Apple signals, terminal paste shapes.
+  sensors.push(...createPersistenceProcessSensors(deps.persistenceProcess));
   return sensors;
 }
 
@@ -73,7 +81,9 @@ export interface ResolvableLedger {
 }
 
 /** `resolve` over the ledger: every open finding with the fingerprint becomes `resolved`. */
-export function resolveByFingerprint(ledger: ResolvableLedger): (fingerprint: string) => Promise<void> {
+export function resolveByFingerprint(
+  ledger: ResolvableLedger,
+): (fingerprint: string) => Promise<void> {
   return async (fingerprint) => {
     for (const finding of await ledger.list({ status: 'open' })) {
       if (finding.fingerprint === fingerprint) await ledger.setStatus(finding.id, 'resolved');

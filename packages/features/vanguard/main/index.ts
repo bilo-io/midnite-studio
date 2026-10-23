@@ -45,6 +45,11 @@ export {
   type NetworkSensorDeps,
   type NetworkSuiteIdentity,
 } from './network-sensor';
+export {
+  createPersistenceProcessSensors,
+  type PersistenceProcessDeps,
+} from './persistence-process-sensors';
+export type { PtyOutputChunk, PtyOutputSource } from './clickfix';
 export { createSensorRunProcess } from './run-process';
 export {
   createVanguardService,

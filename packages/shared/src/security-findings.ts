@@ -227,3 +227,13 @@ export const NewSecurityFindingSchema = SecurityFindingSchema.partial({
   status: true,
 });
 export type NewSecurityFinding = z.infer<typeof NewSecurityFindingSchema>;
+
+/**
+ * Fingerprints for host-configuration findings more than one producer can raise (Vanguard's Apple-signals
+ * sensor, Phase 120 D; the Guard loop's host check, Phase 122 D). Both use these, so the ledger dedupes
+ * them into one open finding whichever notices first.
+ */
+export const CONFIG_FINDING_FINGERPRINTS = {
+  gatekeeperDisabled: 'config:gatekeeper-disabled',
+  sipDisabled: 'config:sip-disabled',
+} as const;
