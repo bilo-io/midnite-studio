@@ -1430,6 +1430,8 @@ export const CHANNELS = {
   agentAuditList: 'mstudio:agent-audit:list',
   /** Writes the (filtered) trail as redacted NDJSON to a path the user picks in a main-side save dialog. */
   agentAuditExport: 'mstudio:agent-audit:export',
+  /** The user's answer on a tripped-limit notification: resume, stop or raise the limit (Phase 121 Theme F). */
+  agentLimitResolve: 'mstudio:agent-limits:resolve',
 
   // --- the companion's grounding (Phase 79 Theme B) ---------------------------
   // Two invoke channels, both read-only, both *composed* in main out of the
@@ -1932,6 +1934,9 @@ export const EVENT_CHANNELS = {
    * Carries no payload; renderer re-fetches via securityFindingsList.
    */
   securityFindingsChanged: 'mstudio:security:findings-changed',
+
+  /** An agent session tripped a rate or spend limit and was interrupted (Phase 121 Theme F). Carries an AgentLimitTrip. */
+  agentLimitTripped: 'mstudio:agent-limits:tripped',
 
   /** A sensor's state or the settings changed (Phase 120 Theme B). Carries nothing; re-fetch. */
   vanguardChanged: 'mstudio:vanguard:changed',
