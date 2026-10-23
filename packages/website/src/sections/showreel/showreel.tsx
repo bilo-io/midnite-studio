@@ -3,13 +3,13 @@ import { PilotVideo } from '../hero/pilot-video';
 
 /**
  * The showreel, straight under the hero: the Midnite Apps music video, a
- * three-minute tour of every app in the suite, rendered with Remotion from
+ * tour of every app in the suite, rendered with Remotion from
  * `.midnite/media/video/projects/midnite-apps`.
  *
  * It reuses `PilotVideo` with its own clip, so it keeps the same contract: a
  * soundtrack means click-to-play, and `preload="none"` means a visitor who
  * scrolls past downloads nothing. How the clip was encoded is in
- * `public/video/README.md`.
+ * `packages/website/VIDEO.md`.
  */
 export const Showreel = () => (
   <Section id="showreel" label="Showreel">
@@ -17,7 +17,7 @@ export const Showreel = () => (
       <div className="flex flex-col items-center gap-4 text-center">
         <Eyebrow>Showreel</Eyebrow>
         <Heading level={2} typeIn>
-          Every app, in three minutes
+          The whole suite, in one video
         </Heading>
       </div>
     </Reveal>

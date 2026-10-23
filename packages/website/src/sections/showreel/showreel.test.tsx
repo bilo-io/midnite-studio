@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { PilotVideo } from '../hero/pilot-video';
 import { Showreel } from './showreel';
 
 /** jsdom's `play` rejects with "not implemented"; stub it so the click resolves. */
@@ -39,5 +40,29 @@ describe('Showreel', () => {
       /Midnite Apps showreel/,
     );
     expect(screen.getByRole('region', { name: 'Showreel' })).toBeTruthy();
+  });
+
+  it('pauses the pilot when the showreel starts, so two soundtracks never overlap', () => {
+    const pause = vi
+      .spyOn(window.HTMLMediaElement.prototype, 'pause')
+      .mockImplementation(() => undefined);
+    render(
+      <>
+        <Showreel />
+        <PilotVideo />
+      </>,
+    );
+    const pilot = screen.getByTestId('pilot-video');
+    Object.defineProperty(pilot, 'paused', { value: false });
+
+    fireEvent.play(screen.getByTestId('showreel-video'));
+
+    expect(pause).toHaveBeenCalledTimes(1);
+    expect(pause.mock.contexts[0]).toBe(pilot);
+  });
+
+  it('plays inline, so iOS keeps it in the frame', () => {
+    render(<Showreel />);
+    expect(screen.getByTestId('showreel-video')).toHaveProperty('playsInline', true);
   });
 });

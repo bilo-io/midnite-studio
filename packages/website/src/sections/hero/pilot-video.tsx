@@ -52,6 +52,13 @@ export type PilotVideoProps = {
  * (`sections/showreel/`) is the same kind of thing (a soundtracked promo that
  * waits for a click), so it passes its own clip rather than copying this.
  *
+ * **One at a time.** Every player carries `data-promo-video`, and starting one
+ * pauses the others, so two soundtracks never play over each other. The muted
+ * `HeroVideo` backdrop is not one of them and keeps looping.
+ *
+ * **`playsInline`**, so iOS Safari plays inside the frame instead of jumping to
+ * native fullscreen on the first tap.
+ *
  * Nothing here animates on its own — the only transitions are the hover states
  * on the play button, on the shared `duration-base` token that `tokens.css`
  * zeroes under `prefers-reduced-motion`, so there is no separate reduced-motion
@@ -68,6 +75,12 @@ export const PilotVideo = ({
   const [started, setStarted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
+  const pauseOthers = () => {
+    document.querySelectorAll<HTMLVideoElement>('video[data-promo-video]').forEach((other) => {
+      if (other !== videoRef.current && !other.paused) other.pause();
+    });
+  };
+
   const start = () => {
     setStarted(true);
     videoRef.current?.play().catch(() => {
@@ -81,11 +94,14 @@ export const PilotVideo = ({
       <video
         ref={videoRef}
         data-testid={testId}
+        data-promo-video=""
         className="block h-full w-full object-cover"
         controls
+        playsInline
         preload="none"
         poster={assetHref(poster)}
         aria-label={label}
+        onPlay={pauseOthers}
       >
         <source src={assetHref(src)} type="video/mp4" />
       </video>
