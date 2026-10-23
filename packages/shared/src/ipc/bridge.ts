@@ -680,6 +680,8 @@ export type MidniteStudioBridge = {
     malware: {
       status: () => Promise<z.infer<typeof S.VanguardMalwareStatus>>;
       scan: (req: In<typeof S.VanguardScanRequest>) => Promise<GitOpResult<z.infer<typeof S.MalwareScanSummarySchema>>>;
+      /** Stop the running scan (a no-op when none is running). Detections found so far are kept. */
+      cancel: () => Promise<GitOpResult>;
     };
     onChanged: (handler: () => void) => Unsubscribe;
   };

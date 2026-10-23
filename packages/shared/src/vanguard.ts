@@ -113,6 +113,8 @@ export const MalwareScanSummarySchema = z.object({
   engines: z.array(z.string()),
   /** Things that went wrong that are not detections (a timeout, an unreadable path). */
   errors: z.array(z.string()),
+  /** The user stopped the scan; `detections` and `files` cover what was examined before that. */
+  cancelled: z.boolean().optional(),
 });
 export type MalwareScanSummary = z.infer<typeof MalwareScanSummarySchema>;
 

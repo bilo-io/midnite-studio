@@ -42,6 +42,7 @@ describe('createVanguardBridge', () => {
       'settings',
       'viewOpened',
     ]);
+    expect(Object.keys(bridge.vanguard.malware).sort()).toEqual(['cancel', 'scan', 'status']);
     expect(Object.keys(bridge.vanguard.findings).sort()).toEqual([
       'act',
       'list',

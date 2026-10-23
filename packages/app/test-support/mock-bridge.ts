@@ -4732,6 +4732,7 @@ export function buildMockBridge(data: MockFixtures) {
             errors: [],
           },
         }),
+        cancel: async () => ({ ok: true as const }),
         scan: async () => ({
           ok: true as const,
           value: { target: 'a folder', at: Date.now(), durationMs: 120, files: 12, detections: 0, engines: ['builtin'], errors: [] },

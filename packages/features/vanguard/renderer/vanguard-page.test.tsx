@@ -169,7 +169,7 @@ describe('the malware scan card on the Sensors tab', () => {
     await waitFor(() => expect(scan).toHaveBeenCalledWith({ target: 'downloads' }));
     expect(await screen.findByText(/Downloads: 3 files, 1 detection, 40 ms/)).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'Full scan…' }));
-    expect(screen.getByRole('group', { name: 'Confirm full scan' }).textContent).toContain('20 to 60 minutes');
+    expect(screen.getByRole('group', { name: 'Confirm full scan' }).textContent).toContain('often tens of minutes');
     expect(scan).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Start full scan' }));
     await waitFor(() => expect(scan).toHaveBeenLastCalledWith({ target: 'full' }));
@@ -197,5 +197,22 @@ describe('the malware scan card on the Sensors tab', () => {
     await open();
     expect(screen.queryByRole('button', { name: 'Scan a folder…' })).toBeNull();
     expect(screen.queryByLabelText('Repo to scan')).toBeNull();
+  });
+
+  it('offers Cancel scan while a scan runs, calls the cancel channel, and reports the cancelled scan calmly', async () => {
+    let finish: (v: unknown) => void = () => undefined;
+    const scan = vi.fn().mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const cancel = vi.fn().mockImplementation(async () => {
+      finish({ ok: true, value: { target: 'your home folder', at: 1, durationMs: 90, files: 7, detections: 2, engines: ['builtin'], errors: [], cancelled: true } });
+      return { ok: true };
+    });
+    mountWith({ status: vi.fn().mockResolvedValue({ engines: engines(false), running: false, queued: 0, last: null }), scan, cancel });
+    await open();
+    expect(screen.queryByRole('button', { name: 'Cancel scan' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Scan Downloads' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel scan' }));
+    await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/Scan cancelled\. Before it stopped, your home folder: 7 files, 2 detections/)).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Cancel scan' })).toBeNull();
   });
 });

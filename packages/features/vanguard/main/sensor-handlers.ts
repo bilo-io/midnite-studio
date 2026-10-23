@@ -75,6 +75,11 @@ export function registerSensorHandlers(
     (issue) => ({ ok: false as const, kind: 'error' as const, message: issue }),
   );
 
+  ipc.handleBare(CHANNELS.vanguardMalwareScanCancel, async () => {
+    (await resolve()).scanner.cancel();
+    return { ok: true as const };
+  });
+
   ipc.handleBare(CHANNELS.vanguardOpenQuarantine, async () => {
     const service = await resolve();
     if (!services.openPath)

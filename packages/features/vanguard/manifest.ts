@@ -36,6 +36,7 @@ export const vanguardManifest = defineFeatureManifest({
     CHANNELS.vanguardOpenQuarantine,
     CHANNELS.vanguardMalwareStatus,
     CHANNELS.vanguardMalwareScan,
+    CHANNELS.vanguardMalwareScanCancel,
   ],
   events: [EVENT_CHANNELS.securityFindingsChanged, EVENT_CHANNELS.vanguardChanged],
   mcpTools: [],

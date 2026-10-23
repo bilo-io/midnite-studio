@@ -1683,6 +1683,8 @@ export const CHANNELS = {
   vanguardMalwareStatus: 'mstudio:vanguard:malware-status',
   /** Run one on-demand malware scan (downloads, a repo, a folder, or the home folder). */
   vanguardMalwareScan: 'mstudio:vanguard:malware-scan',
+  /** Stop the malware scan that is running; findings already found are kept. */
+  vanguardMalwareScanCancel: 'mstudio:vanguard:malware-scan-cancel',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
