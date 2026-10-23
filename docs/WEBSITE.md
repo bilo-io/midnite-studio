@@ -390,7 +390,8 @@ directory too deep.
 | `src/sections/registry.ts` | The landing page, top to bottom: a flat ordered array of `{ id, label, Component, nav? }`. `app.tsx` maps it into `<main>`; the nav reads the `nav: true` entries. **Adding a section means appending here, never editing `app.tsx`.** |
 | `src/components/` | The shared vocabulary — `Section`, `Container`, `Button`, `GlowCard`, `Eyebrow`/`Heading`/`Lede`, `Logo`, `Reveal`, and the `useReducedMotion`/`useInView` hooks, all re-exported from `index.ts`. |
 | `src/styles/tokens.css` | Every colour, radius, glow and duration. Dark-first: `:root` *is* the dark theme and light is one `prefers-color-scheme` block redefining the same names, so no component carries a `dark:` prefix. |
-| `src/sections/hero/` | The hero: the launcher mark, the typewriter headline, and `launcher-mock.tsx`, a drawn launcher window whose tiles are the real catalog and link to each app's slide. `hero-video.tsx` and `pilot-video.tsx` live here too, and are shown by the Studio section. |
+| `src/sections/hero/` | The hero: the launcher mark, the typewriter headline, and `launcher-mock.tsx`, a drawn launcher window whose tiles are the real catalog and link to each app's slide. `hero-video.tsx` and `pilot-video.tsx` live here too. The Studio section shows both, and the showreel reuses `PilotVideo` with its own clip, so a change to it changes both players. |
+| `src/sections/showreel/` | The showreel straight under the hero: the Midnite Apps music video in `PilotVideo`'s click-to-play player, with its own clip and poster. |
 | `src/sections/{suite,launcher,frame,studio}/` | The rest of the landing page: a card per app in the launcher's two groups, how the launcher installs and updates them, the eight parts of the frame every app shares, and Studio, the app that holds all of them (and that they run inside today). |
 | `src/apps/catalog.ts` | The available apps as site copy: id, name, group, tagline, pitch, features and a four-stop **spectrum** sampled from each app's logo. Copied from the launcher's catalog rather than imported, because the site is off the graph; `catalog.test.ts` checks every id has a logo in `public/img/apps/`. Coming-soon apps are deliberately absent. |
 | `src/apps/aurora.tsx`, `src/styles/apps.css` | The animated gradient behind an app: four blurred blobs and a turning sheen in that app's spectrum, read from `--app-c1`…`--app-c4`. Also the `.ws-cascade` reveal (children stagger in by `--i`), the carousel track and the thumbnails. All of it pauses in a hidden tab and stills under reduced motion. |
@@ -401,7 +402,7 @@ directory too deep.
 | `src/sections/faq/` | The FAQ. `faq.ts` holds the answers as data — the slugs are published URL fragments (`#faq-<slug>`), so they have a test rather than only a convention; `faq-section.tsx` is the tablist and the cross-fading panel. |
 | `src/sections/early-access/` | The sign-up. `issue-url.ts` composes the GitHub issue (and owns `ISSUE_TEMPLATE`, see above); `roster.ts` is the ten agent names as site copy, hard-coded rather than imported from `shared` so a marketing bundle does not pull zod in for ten strings. |
 | `src/sections/footer/` | The footer, its lane-graph horizon, and the reused version badge. |
-| `public/video/` | Empty, deliberately. [Its README](../packages/website/public/video/README.md) says what to drop in; the hero renders the poster when nothing is there. |
+| `public/video/` | The committed clips: the Studio section's pilot and backdrop, and the showreel's music video. [`VIDEO.md`](../packages/website/VIDEO.md), kept outside `public/` so it is not deployed, has the source and the `ffmpeg` line for each. |
 
 Two rules that are not obvious from the code:
 
