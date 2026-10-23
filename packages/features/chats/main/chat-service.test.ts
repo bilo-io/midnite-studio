@@ -15,12 +15,12 @@ const claude: AgentDefinition = { id: 'claude', label: 'Claude Code', command: '
 const codex: AgentDefinition = { id: 'codex', label: 'Codex', command: 'codex', args: [], accent: '#fff' };
 
 type Io = { out: (text: string) => void; err: (text: string) => void; close: (code: number | null) => void; killed: () => boolean };
-type Call = { command: string; args: readonly string[]; cwd: string; killed: boolean };
+type Call = { command: string; args: readonly string[]; cwd: string; killed: boolean; env?: Readonly<Record<string, string>> | undefined };
 
 function fakeSpawn(plan: (call: Call, io: Io, n: number) => void | Promise<void>): SpawnFn & { calls: Call[] } {
   const calls: Call[] = [];
-  const spawn = ((command: string, args: readonly string[], cwd: string): SpawnedProcess => {
-    const call: Call = { command, args, cwd, killed: false };
+  const spawn = ((command: string, args: readonly string[], cwd: string, env?: Readonly<Record<string, string>>): SpawnedProcess => {
+    const call: Call = { command, args, cwd, killed: false, env };
     calls.push(call);
     const stdout: ((c: string) => void)[] = [];
     const stderr: ((c: string) => void)[] = [];
@@ -232,6 +232,75 @@ describe('chat service: streaming a turn', () => {
     expect(second).toMatchObject({ ok: false, kind: 'error' });
     await service.cancel(chat.id);
     await service.idle();
+  });
+});
+
+describe('chat service: one key per engine, model pinned (Phase 121 Theme I)', () => {
+  const claudeInit = (model: string) => line({ type: 'system', subtype: 'init', session_id: 's1', model });
+
+  it('gives each turn the one key its own engine needs, asked for by engine id, and nothing for an engine without one', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const engineEnv = vi.fn(async (id: string): Promise<Record<string, string>> => (id === 'claude' ? { ANTHROPIC_API_KEY: 'sk-ant' } : {}));
+    const { service } = setup({ spawn, engineEnv });
+    const a = await created(service);
+    await service.send({ chatId: a.id, text: 'hi' });
+    await service.idle();
+    const b = await created(service, { engine: 'codex' });
+    await service.send({ chatId: b.id, text: 'hi' });
+    await service.idle();
+    expect(engineEnv.mock.calls.map(([id]) => id)).toEqual(['claude', 'codex']);
+    expect(spawn.calls[0]!.env).toEqual({ ANTHROPIC_API_KEY: 'sk-ant' });
+    expect(spawn.calls[1]!.env).toBeUndefined();
+  });
+
+  it('a throwing key reader never blocks the turn', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn, engineEnv: async () => Promise.reject(new Error('locked')) });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    expect(spawn.calls[0]!.env).toBeUndefined();
+  });
+
+  it('launches with the pinned model flag on every turn, and marks no turn that reports the same model', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(claudeInit('claude-opus-5-20261001'));
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn });
+    const chat = await created(service, { model: 'opus-5' });
+    await service.send({ chatId: chat.id, text: 'one' });
+    await service.idle();
+    await service.send({ chatId: chat.id, text: 'two' });
+    await service.idle();
+    for (const call of spawn.calls) {
+      expect(call.args).toEqual(expect.arrayContaining(['--model', 'claude-opus-5']));
+    }
+    expect(spawn.calls).toHaveLength(2);
+    const stored = ((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat;
+    expect(stored.messages.filter((m) => m.reportedModel !== undefined)).toEqual([]);
+  });
+
+  it('marks a turn whose output reports a different model than the pin', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(claudeInit('claude-sonnet-5-5'));
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn });
+    const chat = await created(service, { model: 'opus-5' });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    const stored = ((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat;
+    expect(lastAssistant(stored).model).toBe('opus-5');
+    expect(lastAssistant(stored).reportedModel).toBe('claude-sonnet-5-5');
   });
 });
 

@@ -29,6 +29,7 @@ import {
   ok,
   defaultTrustFor,
   reduceChangeSet,
+  reportedModelMatches,
   resolveProvenance,
   type AgentDefinition,
   type Chat,
@@ -44,6 +45,7 @@ import {
   type FileDiff,
   type ChatWorktree,
   type GitOpResult,
+  type LoopModel,
   type NewAgentAuditRecord,
   type OutboundSecret,
   type Redaction,
@@ -119,6 +121,13 @@ export type ChatServiceDeps = {
   /** The working directory of a chat with no repo: `<scratchRoot>/<chatId>`. */
   scratchRoot: string;
   spawn?: SpawnFn | undefined;
+  /**
+   * The one API key the engine being started needs, as its environment variable (Phase 121 Theme I) —
+   * `{ ANTHROPIC_API_KEY: ... }` for Claude, `{}` for an engine with no stored key. Read from the vault by
+   * main at spawn, supplied by the composer so chats never import the vault, and merged into this turn's
+   * child alone.
+   */
+  engineEnv?: ((agentId: string) => Promise<Record<string, string>>) | undefined;
   /** Streamed Ollama chat; absent means Ollama is unavailable. */
   ollamaStream?:
     | ((req: {
@@ -789,8 +798,10 @@ export function createChatService(deps: ChatServiceDeps) {
         },
       };
 
+      const engineEnv = (await deps.engineEnv?.(agent.id).catch(() => ({}))) ?? {};
       const outcome = await runProcess<null>(agent.command, invocation.args, cwd, {
         sink,
+        ...(Object.keys(engineEnv).length > 0 ? { env: engineEnv } : {}),
         timeoutMs: deps.timeoutMs ?? CHAT_TURN_TIMEOUT_MS,
         ...(deps.spawn ? { spawn: deps.spawn } : {}),
         onSpawned: (spawned) => {
@@ -840,6 +851,15 @@ export function createChatService(deps: ChatServiceDeps) {
         return result;
       case 'usage':
         pushUsage(chat, assistant, event.usage);
+        return result;
+      case 'model':
+        // The pin is what was asked for; the CLI's own output is what answered. A difference is marked on
+        // the turn (the settled message carries it), never silently shown as the pin.
+        if (chat.model && !reportedModelMatches(chat.engine, chat.model as LoopModel, event.model)) {
+          assistant.reportedModel = event.model;
+        } else {
+          delete assistant.reportedModel;
+        }
         return result;
       case 'result':
         return {

@@ -15357,3 +15357,7 @@ Provenance on the wire (`shared/src/provenance.ts`, trust derived from origin), 
 ## 2026-10-23 — Phase 121 Theme D — Secrets do not leave with the prompt
 
 [#1001](https://github.com/bilo-io/midnite-studio/pull/1001). Outbound redaction (`shared/src/outbound-redaction.ts`) over the Chats prompt, Ollama messages and Councils prompts with a `[redacted: <kind>]` chip on the user message; a reserved `canaries` vault namespace and `~/.config/midnite/.env.canary` (`runtime/src/security/canary.ts`); Vanguard's `canary-trip` and `exfiltration` rules in `rogue-rules.ts`; the `agentEnvViolations` bound with tests over the pty stamp, the login shell and a council member's env. Screenshot in `docs/screenshots/agents-security-redaction/`.
+
+### Phase 121 Theme I — Keys and models stay where they were put (2026-10-23)
+
+`runtime/src/engine-key-env.ts` (`engineKeyEnv`: one vault key per engine, as the CLI's documented variable), wired into agent ptys (`desktop/src/main/pty-env.ts#agentKeyEnv`, `pty-service.ts`), Chats turns (`engineEnv` dep) and council members (`agentKeyEnv` port); `reportedModelMatches` plus `ChatMessage.reportedModel` and the "pinned to X, reports Y" mark in the thread; `features/models/main/digest-ledger.ts` (manifest-digest check at install, pins in `ollama-digests.json`, `medium` finding on a moved digest); three pairing tests in `scripts/app-vault-grants.test.mjs`. Screenshot in `docs/screenshots/agents-security-model-pin/`. PR: https://github.com/bilo-io/midnite-studio/pull/1000

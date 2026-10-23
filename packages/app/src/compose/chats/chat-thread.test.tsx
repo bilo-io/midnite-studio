@@ -103,6 +103,25 @@ describe('ChatThread', () => {
     expect(screen.getByRole('log', { name: 'Conversation' }).getAttribute('aria-busy')).toBe('true');
   });
 
+  it('marks a turn whose output reports a different model than the pin, and no other (Phase 121 Theme I)', () => {
+    render(
+      <ChatThread
+        chat={chat([
+          m('u', 'user', 'q'),
+          m('a', 'assistant', 'r', { model: 'opus-5', reportedModel: 'claude-sonnet-5-5' }),
+          m('u2', 'user', 'again'),
+          m('a2', 'assistant', 'r2', { model: 'opus-5' }),
+        ])}
+        streaming={false}
+        {...props}
+      />,
+    );
+    const marks = screen.getAllByTestId('chat-model-mismatch');
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.textContent).toContain('opus-5');
+    expect(marks[0]!.textContent).toContain('claude-sonnet-5-5');
+  });
+
   it('renders user bubbles and assistant turns in order', () => {
     render(<ChatThread chat={chat([m('u1', 'user', 'first'), m('a1', 'assistant', 'second'), m('u2', 'user', 'third')])} streaming={false} {...props} />);
     const articles = screen.getAllByRole('article');

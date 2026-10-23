@@ -103,3 +103,55 @@ describe('every app main reads the vault through the runtime host, behind its gr
     }
   });
 });
+
+/*
+  Phase 121 Theme I — Agents' pairing identity, one test each, so a later slice cannot widen it quietly.
+  Agents is the app that runs other people's prompts through the user's engines, so the thing that proves
+  "this socket is Agents" to the vault host is worth a guard of its own: its seed file's mode, the one
+  keychain call it makes, and the vault it does not hold.
+*/
+const AGENTS_PAIRING = 'apps/agents/main/pairing.ts';
+const RUNTIME_PAIRING = 'packages/runtime/src/vault/host/pairing.ts';
+const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+describe("Agents' pairing identity (Phase 121 Theme I)", () => {
+  it('keeps its seed in userData in a user-only file: 0600 file, 0700 directory, nothing looser', async () => {
+    const agents = stripComments(await readFile(path.join(repoRoot, AGENTS_PAIRING), 'utf8'));
+    // Agents hands the runtime its own userData and nothing else decides where the seed lives.
+    expect(agents).toMatch(/pairingIdentitySource\(\{\s*userData,/);
+    const runtime = stripComments(await readFile(path.join(repoRoot, RUNTIME_PAIRING), 'utf8'));
+    expect(runtime).toMatch(/PAIRING_IDENTITY_FILE = 'vault-pairing\.json'/);
+    expect(runtime).toMatch(/writeFileSync\(tmp,[^;]*\{ mode: 0o600 \}\);/);
+    expect(runtime).toMatch(/chmodSync\(file, 0o600\)/);
+    expect(runtime).toMatch(/mkdirSync\(dirname\(file\), \{ recursive: true, mode: 0o700 \}\)/);
+    // No other mode is ever written by the seed's code path.
+    const modes = [...runtime.matchAll(/0o[0-7]{3}/g)].map((m) => m[0]);
+    expect(modes.every((mode) => mode === '0o600' || mode === '0o700')).toBe(true);
+  });
+
+  it('uses safeStorage once, as the cipher of its own pairing seed, and never in a smoke run', async () => {
+    const source = await readFile(path.join(repoRoot, AGENTS_PAIRING), 'utf8');
+    const code = stripComments(source);
+    expect(code.match(/safeStorage/g)?.length).toBe(2); // the import, and the one argument
+    expect(code).toMatch(/pairingIdentitySource\(\{[^}]*cipher: safeStorage[^}]*enabled: !smoke[^}]*\}\)/s);
+    expect(code).not.toMatch(/encryptString|decryptString|getSelectedStorageBackend|createSecureJsonStore/);
+    // Only the pairing module in Agents' main touches it.
+    expect(appMainFiles('safeStorage').filter((f) => f.startsWith('apps/agents/'))).toEqual([AGENTS_PAIRING]);
+  });
+
+  it('composes no vault: no service, no store, and the one secret it asks the host for is the Ollama key', async () => {
+    const files = execFileSync('git', ['ls-files', 'apps/agents/main', 'apps/agents/src'], { cwd: repoRoot, encoding: 'utf8' })
+      .trim()
+      .split('\n')
+      .filter((f) => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx?$/.test(f));
+    expect(files.length).toBeGreaterThan(0);
+    const secretKey = /['"`](?:agent|ollama|finance|media|forge)\.[A-Za-z0-9.<>$_{}-]*(?:apiKey|ApiKey|twelveData)['"`]/g;
+    const asked = new Set();
+    for (const file of files) {
+      const code = stripComments(await readFile(path.join(repoRoot, file), 'utf8'));
+      expect(code, file).not.toMatch(/createVaultService|createSecureJsonStore|createSecretsVault|vaultService\b/);
+      for (const m of code.matchAll(secretKey)) asked.add(m[0].slice(1, -1));
+    }
+    expect([...asked]).toEqual(['ollama.apiKey']);
+  });
+});

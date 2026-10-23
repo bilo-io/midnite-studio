@@ -157,6 +157,11 @@ export const ChatMessageSchema = z.object({
   /** Engine and model that produced an assistant turn. */
   engine: z.string().optional(),
   model: z.string().nullable().optional(),
+  /**
+   * The model the CLI's own output named, recorded only when it differs from the pinned `model`
+   * (Phase 121 Theme I) — the thread marks such a turn instead of silently showing the pin.
+   */
+  reportedModel: z.string().optional(),
   changeSet: ChatChangeSetSchema.optional(),
   /** The agent's reasoning, as streamed by engines that expose it. */
   thinking: z.string().optional(),

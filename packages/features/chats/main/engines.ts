@@ -48,6 +48,8 @@ export type ParsedEvent =
   | { type: 'thinking'; text: string }
   /** The turn's usage so far — a full snapshot, not an increment. */
   | { type: 'usage'; usage: ChatUsage }
+  /** The model id the CLI says it is running — compared with the chat's pin (Phase 121 Theme I). */
+  | { type: 'model'; model: string }
   /** The CLI's own final answer, used when no delta was streamed. */
   | { type: 'result'; text?: string; error?: string };
 
@@ -202,6 +204,7 @@ export function claudeParser(): StreamParser {
     switch (event.type) {
       case 'system':
         if (event.subtype === 'init' && sessionId) out.push({ type: 'session', id: sessionId });
+        if (event.subtype === 'init' && str(event.model) && !event.parent_tool_use_id) out.push({ type: 'model', model: str(event.model) as string });
         break;
       case 'stream_event': {
         const inner = rec(event.event);
@@ -216,6 +219,9 @@ export function claudeParser(): StreamParser {
           const text = str(delta.thinking);
           if (text) out.push({ type: 'thinking', text });
         } else if (inner?.type === 'message_start') {
+          const reported = str(rec(inner.message)?.model);
+          // A sub-agent's own messages name their own model; only the main thread answers for the pin.
+          if (reported && !event.parent_tool_use_id) out.push({ type: 'model', model: reported });
           out.push({ type: 'usage', usage: usage.start(rec(inner.message)) });
         } else if (inner?.type === 'message_delta') {
           const snap = usage.delta(rec(inner.usage));

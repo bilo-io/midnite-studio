@@ -830,3 +830,12 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 - **The canary value is not matched inside command lines**, only its path: the audit trail redacts the value on write, so the path is the signal.
 - **The Theme I env test is a follow-up.** Once `engineKeyEnv` lands, feed `agentSpawnEnv` through `agentEnvViolations` with the one documented variable per engine.
 - **A canary leak in a prompt pauses a session id of `chat:<id>`/`council:<id>`**, which is not a pty, so auto-pause shows its modal with "could not be reached to interrupt".
+
+## Phase 121 Theme I — stubs
+
+- **The Agents app passes no `engineEnv` / `agentKeyEnv`**, so its Chats and Councils spawn without a vault key (the CLI uses its own login). Agents reads only `ollama.apiKey` through the host and its grants; handing it per-engine keys needs new grants in Vault.
+- **Workflow agent nodes** are not given the engine key unless they spawn through an agent pty.
+- **Loop runs record `model` and launch with the flag, but a loop-run output is not parsed** for the model it reports, so no mismatch mark there yet.
+- **Chat model pins are Claude-only**, because `loopModelArgs` only knows `--model` for `claude`; Codex and Agy turns have nothing to mismatch against.
+- **Ollama library search is not behind a switch yet**: Phase 115 Theme A is not on `main`. Digest checks make no network call, so nothing was added.
+- **Digest pins are not cleaned** when a model is deleted, and the Agents app does not configure the digest ledger.

@@ -226,6 +226,18 @@ export const AssistantMessage = memo(function AssistantMessage({
             <span className="min-w-0 break-words">{message.error}</span>
           </p>
         ) : null}
+        {message.reportedModel ? (
+          <p
+            role="note"
+            data-testid="chat-model-mismatch"
+            className="mt-1 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
+          >
+            <LuTriangleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 break-words">
+              Pinned to {message.model ?? 'this chat’s model'}, but this reply reports <span className="font-mono">{message.reportedModel}</span>.
+            </span>
+          </p>
+        ) : null}
         {message.status === 'cancelled' ? (
           <p data-testid="chat-stopped" className="mt-1 text-[11px] italic text-muted-foreground">
             {message.error ?? 'Stopped.'}

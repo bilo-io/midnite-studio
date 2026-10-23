@@ -129,9 +129,13 @@ repos — with a badge, and the same profile for council members and one-shot ru
 turn are checked for registry age, typosquat distance, install scripts and OSV advisories;
 skills and plugins an agent adds are scanned before they load.
 
-**Theme I — Keys and models stay where they were put.** ◻ One key per engine, handed over at
-spawn and never into a prompt; model identity pinned per thread; Ollama model digests verified;
-the Agents pairing identity audited.
+**Theme I — Keys and models stay where they were put.** ✅ An engine's one API key is read from the vault
+by main at spawn (`runtime/src/engine-key-env.ts`) and goes into that child's environment alone, under the
+variable its CLI documents; Chats turns, council members and agent ptys each get their own, and Ollama and
+Copilot get none. A Chats turn that reports a model other than the pinned one is marked in the thread. Ollama
+installs are checked against the manifest on disk and pinned by digest, and a moved digest is a `medium`
+finding. Agents' pairing seed, its one `safeStorage` call and its lack of a vault each have a test. Stubs in
+`outstanding.md` (Agents app keys, loop-run mismatch, Phase 115 A's switch not on `main`).
 
 ## Deliverables
 
@@ -326,18 +330,18 @@ the Agents pairing identity audited.
 
 ### I — Keys and models stay where they were put [S · ≤ 2h]
 
-- [ ] **One key per engine, at spawn.** The engine that needs an API key gets it as the single
+- [x] **One key per engine, at spawn.** The engine that needs an API key gets it as the single
       environment variable the CLI documents, read from the vault at spawn by main and never
       echoed; Ollama gets none; a council of three engines gets three environments, not one with
       all three keys. The Theme D env test is the proof. [S]
-- [ ] **Model pinned per thread.** A Chats thread or a loop run records `model`
+- [x] **Model pinned per thread.** A Chats thread or a loop run records `model`
       ([`LoopRunRecord.model`](../../../packages/shared/src/loops.ts) already does); the engine is
       launched with that model flag on every turn, and a turn whose output reports a different model
       is marked in the thread. [S]
-- [ ] **Ollama digests.** The models feature's install path verifies the manifest digest Ollama
+- [x] **Ollama digests.** The models feature's install path verifies the manifest digest Ollama
       reports against `~/.ollama/models/manifests` and records it; a changed digest for a pinned
       model is a `medium` finding. Library search stays behind Phase 115 A's switch. [S]
-- [ ] **The pairing identity.** [`pairing.ts`](../../../apps/agents/main/pairing.ts)'s seed file
+- [x] **The pairing identity.** [`pairing.ts`](../../../apps/agents/main/pairing.ts)'s seed file
       mode, its `safeStorage` use and the fact that Agents composes no vault get one test each in
       `app-vault-grants` so a later slice cannot widen them quietly. [S]
 

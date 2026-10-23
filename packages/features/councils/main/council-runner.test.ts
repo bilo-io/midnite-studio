@@ -201,6 +201,61 @@ describe('runLocks (Phase 45 Theme E)', () => {
   });
 });
 
+describe('one key per engine (Phase 121 Theme I)', () => {
+  const keys: Record<string, Record<string, string>> = {
+    codex: { OPENAI_API_KEY: 'sk-oai' },
+    agy: { GEMINI_API_KEY: 'gem' },
+    opencode: { OPENAI_API_KEY: 'sk-oai-oc' },
+  };
+
+  it('spawns each member and the synthesizer with an environment holding only its own engine key', async () => {
+    const asked: string[] = [];
+    configureCouncilRunner({
+      createPty,
+      killPty,
+      onPty,
+      offPty,
+      listAgents,
+      agentBinding: () => undefined,
+      ollamaBaseUrl: () => 'http://127.0.0.1:11434',
+      ollamaApiKey: async () => null,
+      agentKeyEnv: async (id) => {
+        asked.push(id);
+        return keys[id] ?? {};
+      },
+    });
+    const result = await startRun('c1', 'topic');
+    expect(result.ok).toBe(true);
+    await flush();
+    const envs = vi.mocked(createPty).mock.calls.map(([opts]) => opts.env);
+    expect(envs).toHaveLength(2);
+    expect(envs).toEqual(expect.arrayContaining([{ OPENAI_API_KEY: 'sk-oai' }, { GEMINI_API_KEY: 'gem' }]));
+    expect([...asked].sort()).toEqual(['agy', 'codex']);
+  });
+
+  it('asks for no key for a member bound to Ollama, which launches through its recipe', async () => {
+    agentBackends = { codex: { backend: 'ollama', model: 'qwen3:14b' } };
+    const asked: string[] = [];
+    configureCouncilRunner({
+      createPty,
+      killPty,
+      onPty,
+      offPty,
+      listAgents,
+      agentBinding: (id) => agentBackends[id],
+      ollamaBaseUrl: () => 'http://127.0.0.1:11434',
+      ollamaApiKey: async () => null,
+      agentKeyEnv: async (id) => {
+        asked.push(id);
+        return keys[id] ?? {};
+      },
+    });
+    await startRun('c1', 'topic');
+    await flush();
+    expect(asked).toEqual(['agy']);
+  });
+});
+
 describe('Ollama binding (Phase 96 Theme H)', () => {
   it('a member bound to Ollama in the mirrored settings launches through the recipe', async () => {
     agentBackends = { codex: { backend: 'ollama', model: 'qwen3:14b' } };

@@ -8,12 +8,13 @@ import {
   type ChatsRuntimeDeps,
 } from '@midnite/studio-feature-chats/main';
 import { getConfiguredOllamaHost, ollamaChatStream, resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
-import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { engineKeyEnv, type FeatureMainContext } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { recordAudit } from '../agent-audit';
 import { mcpServersHeldForRun } from '../mcp-trust-wiring';
 import { outboundSecrets } from '../outbound-secrets';
+import { readAgentApiKey } from './secrets-handlers';
 import { getRepo } from '../repo-registry';
 import { listAgents } from '../terminal-service';
 import { broadcastToAllWindows } from '../window-manager';
@@ -27,8 +28,8 @@ import { handle, handleBare, handleSend } from './handle';
  * the Ollama stream (the models feature's client, joined here rather than
  * imported by chats).
  *
- * No key is read here: a turn spawns the roster CLI with its own login, and the
- * Ollama stream is the local daemon.
+ * The one key a turn's engine needs (`agent.<id>.apiKey`, Phase 121 Theme I) is read here, in main, at
+ * spawn, and goes into that child's environment alone; the Ollama stream is the local daemon and gets none.
  *
  * Injected at boot with a store rooted at `app.getPath('userData')`, like
  * `configureNotes`; until then the service runs on an in-memory store.
@@ -41,6 +42,7 @@ const deps: ChatsRuntimeDeps = {
   },
   emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.chatsEvent, event),
   audit: recordAudit,
+  engineEnv: async (agentId) => engineKeyEnv((await listAgents()).find((a) => a.id === agentId), readAgentApiKey),
   mcpGate: (repoId) => mcpServersHeldForRun(repoId),
   outboundSecrets,
   ollamaStream: async (req) =>
