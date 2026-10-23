@@ -93,6 +93,7 @@ export function createCommandTracker(emit: (command: TrackedCommand) => void): C
       let text = s.carry + data;
       s.carry = '';
       const open = text.lastIndexOf('\x1b]');
+      // eslint-disable-next-line no-control-regex
       if (open !== -1 && !/\x07|\x1b\\/.test(text.slice(open))) {
         s.carry = text.slice(open, open + 2048);
         text = text.slice(0, open);

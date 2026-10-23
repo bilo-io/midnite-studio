@@ -16,12 +16,12 @@ describe('mcp-tools manifest', () => {
     expect(mcpToolsManifest.views).toEqual([]);
   });
 
-  it('names exactly the three mcp channels', () => {
+  it('names the three mcp channels and the two agent-audit channels', () => {
     const known = new Set<string>(Object.values(CHANNELS));
     for (const channel of mcpToolsManifest.ipc) {
       expect(known.has(channel), channel).toBe(true);
-      expect(channel).toMatch(/^mstudio:mcp:/);
+      expect(channel).toMatch(/^mstudio:(mcp|agent-audit):/);
     }
-    expect(mcpToolsManifest.ipc).toHaveLength(3);
+    expect(mcpToolsManifest.ipc).toHaveLength(5);
   });
 });
