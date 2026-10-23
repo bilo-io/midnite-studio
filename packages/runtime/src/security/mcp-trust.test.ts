@@ -102,6 +102,21 @@ describe('config hash', () => {
   });
 });
 
+describe('hardening', () => {
+  it('a crafted toml header cannot pollute Object.prototype, and a quoted ] in a name still parses', () => {
+    parseToml('[__proto__.polluted]\nx = 1\n[mcp_servers.__proto__]\ny = 2');
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+    expect(({} as Record<string, unknown>)['y']).toBeUndefined();
+    expect(parseToml('[mcp_servers."a]b"]\ncommand = "x"')).toEqual({ mcp_servers: { 'a]b': { command: 'x' } } });
+  });
+
+  it('does not show or store secrets passed as args or URL query values', () => {
+    const c = canonicalizeMcpConfig({ command: 'srv', args: ['--token', 'sk-live-abc123', '--api-key=zzz999'], url: 'https://x.example/mcp?key=qq77' });
+    for (const secret of ['sk-live-abc123', 'zzz999', 'qq77']) expect(c.display + c.command).not.toContain(secret);
+    expect(canonicalizeMcpConfig({ command: 'srv', args: ['--token', 'other'] }).hash).not.toBe(canonicalizeMcpConfig({ command: 'srv', args: ['--token', 'sk-live-abc123'] }).hash);
+  });
+});
+
 describe('the allowlist', () => {
   it('approves a fixture .mcp.json, then asks again once an entry is edited (MCPoison)', async () => {
     await writeMcpJson({ files: { command: 'npx', args: ['-y', 'fs-mcp'] } });

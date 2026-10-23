@@ -815,3 +815,6 @@ The rogue-agent sensor reads the audit trail only. The broker's pty output strea
 - **Councils are not gated.** They run in the home directory with no repo, so they have no `repoId` to key an allowlist entry; only Chats refuse a turn (`mcpGate`). User-level servers that change after approval do gate Chats.
 - Trust entries are not cleaned when a repo is closed or a server removed from its config.
 
+- **The Chats gate discovers against the repo's primary checkout**, but an edit-mode chat runs in its own worktree whose `.mcp.json` can differ; pass the run's cwd to discovery.
+- **Allowlist keys use the display name.** A same-named server in a lower-precedence file is listed as `name (source)`, so removing the higher-precedence file renames it and drops its approval; key by source plus name instead.
+- **`status()` re-reads the config files on every poll** (15 s in the Tools view); cache by mtime if it shows up in a profile.

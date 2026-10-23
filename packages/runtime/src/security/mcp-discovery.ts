@@ -125,7 +125,7 @@ export function parseToml(text: string): Record<string, unknown> {
       continue;
     }
     if (line.startsWith('[')) {
-      const end = line.indexOf(']');
+      const end = closingBracket(line);
       const path = end > 0 ? parseKeyPath(line.slice(1, end)) : null;
       current = path ? descend(root, path) : {};
       continue;
@@ -143,16 +143,21 @@ export function parseToml(text: string): Record<string, unknown> {
     const parsed = parseValue(rest);
     if (parsed.ok) {
       const table = path.length > 1 ? descend(current, path.slice(0, -1)) : current;
-      table[path[path.length - 1] as string] = parsed.value;
+      const last = path[path.length - 1] as string;
+      if (!UNSAFE_KEYS.has(last)) table[last] = parsed.value;
     }
   }
   return root;
 }
 
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function descend(table: Record<string, unknown>, path: string[]): Record<string, unknown> {
   let node = table;
   for (const key of path) {
-    const next = node[key];
+    // A crafted header must not walk into Object.prototype; park writes in a scratch table instead.
+    if (UNSAFE_KEYS.has(key)) return {};
+    const next = Object.prototype.hasOwnProperty.call(node, key) ? node[key] : undefined;
     if (isRecord(next)) node = next;
     else {
       const made: Record<string, unknown> = {};
@@ -175,6 +180,20 @@ function stripComment(line: string): string {
     else if (ch === '#') return line.slice(0, i);
   }
   return line;
+}
+
+/** The `]` that closes a table header, skipping any inside a quoted key. */
+function closingBracket(line: string): number {
+  let quote: string | null = null;
+  for (let i = 1; i < line.length; i += 1) {
+    const ch = line[i] as string;
+    if (quote) {
+      if (ch === '\\' && quote === '"') i += 1;
+      else if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === ']') return i;
+  }
+  return -1;
 }
 
 function findEquals(line: string): number {
@@ -314,7 +333,10 @@ function parseInline(text: string): ParsedValue {
     if (eq < 0) continue;
     const path = parseKeyPath(part.slice(0, eq));
     const parsed = parseValue(part.slice(eq + 1));
-    if (path && path.length > 0 && parsed.ok) descend(out, path.slice(0, -1))[path[path.length - 1] as string] = parsed.value;
+    if (path && path.length > 0 && parsed.ok) {
+      const last = path[path.length - 1] as string;
+      if (!UNSAFE_KEYS.has(last)) descend(out, path.slice(0, -1))[last] = parsed.value;
+    }
   }
   return { ok: true, value: out };
 }

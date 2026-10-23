@@ -13,7 +13,7 @@ import { MCP_SERVER_SOURCE_LABELS, type McpServerStatus, type McpTrustVerdict } 
  */
 
 const SERVERS_KEY = ['mcp-trust'] as const;
-const POLL_MS = 5000;
+const POLL_MS = 15_000;
 
 const VERDICT_LABEL: Record<McpTrustVerdict, string> = {
   approved: 'Approved',

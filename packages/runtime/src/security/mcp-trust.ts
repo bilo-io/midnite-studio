@@ -60,6 +60,24 @@ export type CanonicalMcpConfig = {
   display: string;
 };
 
+const SECRET_FLAG = /^--?(?:[\w-]*(?:token|key|secret|password|passwd|auth|bearer)[\w-]*)$/i;
+
+/** Hides URL query values and the value after a secret-looking flag in what is shown and stored. */
+function maskArgs(args: unknown[]): unknown[] {
+  return args.map((arg, i) => {
+    if (typeof arg !== 'string') return arg;
+    const prev = args[i - 1];
+    if (typeof prev === 'string' && SECRET_FLAG.test(prev) && !arg.startsWith('-')) return `‹sha256:${short(arg)}›`;
+    const eq = /^(--?[\w-]*(?:token|key|secret|password|passwd|auth|bearer)[\w-]*=)(.+)$/i.exec(arg);
+    if (eq) return `${eq[1]}‹sha256:${short(eq[2] as string)}›`;
+    return maskQuery(arg);
+  });
+}
+
+function maskQuery(text: string): string {
+  return text.replace(/([?&][^=&\s#]+=)([^&\s#]+)/g, (_m, key: string, value: string) => `${key}‹sha256:${short(value)}›`);
+}
+
 const SECRET_MAPS = ['env', 'headers', 'http_headers', 'env_http_headers', 'bearer_token_env_var'] as const;
 
 export function canonicalizeMcpConfig(config: Record<string, unknown>): CanonicalMcpConfig {
@@ -75,13 +93,13 @@ export function canonicalizeMcpConfig(config: Record<string, unknown>): Canonica
     if ((SECRET_MAPS as readonly string[]).includes(key) && value !== null && typeof value === 'object' && !Array.isArray(value)) {
       shown[key] = Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, `‹sha256:${short(stableStringify(v))}›`]));
     } else if (typeof value === 'string') {
-      shown[key] = redactPaths(value);
+      shown[key] = redactPaths(maskQuery(value));
     } else if (Array.isArray(value)) {
-      shown[key] = value.map((v) => (typeof v === 'string' ? redactPaths(v) : v));
+      shown[key] = maskArgs(value).map((v) => (typeof v === 'string' ? redactPaths(v) : v));
     } else shown[key] = value;
   }
   const lines = JSON.stringify(JSON.parse(stableStringify(shown)) as unknown, null, 2);
-  return { transport, command: redactPaths(command), hash: sha256(stableStringify(config)), display: lines };
+  return { transport, command: redactPaths(maskQuery(command)), hash: sha256(stableStringify(config)), display: lines };
 }
 
 /** SHA-256 of a `tools/list` response, independent of the order the server lists its tools in. */
@@ -208,7 +226,7 @@ export interface McpTrust {
    */
   observeTools(repo: McpTrustRepo, serverName: string, tools: readonly McpToolDescriptor[]): Promise<McpServerStatus | null>;
   /**
-   * The names a Chats or Councils run must not proceed past: a server a cloned repo controls with no approval,
+   * The names a Chats run must not proceed past (Councils have no repo to key on yet): a server a cloned repo controls with no approval,
    * and any server (wherever it is configured) whose config or tools changed since approval or that is held.
    */
   heldForRun(repo: McpTrustRepo): Promise<string[]>;
