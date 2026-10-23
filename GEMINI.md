@@ -412,8 +412,11 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 **"sitrep"** (situation report) is a fixed request, not a free-form one. Whenever the user types it —
 or asks for a status update, a progress check, or "where are we" — answer with **one markdown table
 and nothing else above it**, one row per agent or workstream.
-[`midnite-sitrep`](.agents/skills/midnite-sitrep/SKILL.md) is the full spec — it gathers the state and
-renders the table:
+[`midnite-sitrep`](.agents/skills/midnite-sitrep/SKILL.md) is the router: it gathers the state once and
+renders the table ([`midnite-sitrep-table`](.agents/skills/midnite-sitrep-table/SKILL.md)). It adds the merge graph
+when rows depend on each other, and any other view named after it — `graph`, `sequence-diagram`,
+`histogram`, `timeline`, `ci` — each its own `midnite-sitrep-<view>` skill. The table always comes
+first:
 
 | Task | Author | Progress | ETA | Diff | Status | Notes |
 |---|---|---|---|---|---|---|
