@@ -87,6 +87,11 @@ export interface ResponseActionDeps {
   sessions?: () => Promise<readonly ResponseSession[]>;
   /** Write the interrupt to a session's pty; false when it is not live. */
   interrupt?: (sessionId: string) => Promise<boolean>;
+  /**
+   * Clears a server from the MCP allowlist (Phase 121 Theme C): every repo when `repoId` is omitted. Resolves
+   * to how many entries it cleared. Absent where the app keeps no allowlist.
+   */
+  revokeMcpServer?: (serverName: string, repoId?: string) => Promise<number>;
   /** The issue form's App dropdown value. */
   issueApp?: string;
   retentionDays: () => number;
@@ -218,6 +223,9 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
     const out: Record<string, RemediationUnavailable> = { ...REMEDIATION_PENDING };
     if (!deps.sessions || !deps.interrupt) {
       out['pause-session'] = { reason: 'This app has no terminal sessions it can reach, so it cannot pause one.' };
+    }
+    if (!deps.revokeMcpServer) {
+      out['revoke-mcp-server'] = { reason: 'This app keeps no MCP allowlist, so there is nothing to revoke from.' };
     }
     return out;
   };
@@ -518,11 +526,34 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
     };
   };
 
+  // --- revoke-mcp-server -------------------------------------------------------------------------------
+  const revokeMcp = (action: Extract<RemediationAction, { id: 'revoke-mcp-server' }>, finding: SecurityFinding): Plan => {
+    const revoke = deps.revokeMcpServer;
+    if (!revoke) return { kind: 'unavailable', unavailable: unavailable()['revoke-mcp-server']! };
+    return {
+      kind: 'ready',
+      radius: radius('revoke-mcp-server', {
+        title: 'Revoke this MCP server?',
+        confirmLabel: 'Revoke',
+        summary: `Removes “${action.serverName}” from the MCP allowlist. It asks for approval again before any Chats or Councils run uses it. The config files that define it are not touched.`,
+      }),
+      identity: `${action.serverName}\n${finding.repoId ?? ''}`,
+      run: async () => {
+        const cleared = await revoke(action.serverName, finding.repoId);
+        return {
+          ok: true,
+          detail: cleared > 0 ? `Revoked “${action.serverName}” (${cleared} allowlist entr${cleared === 1 ? 'y' : 'ies'} cleared).` : `“${action.serverName}” was not on the allowlist; nothing to clear.`,
+          status: resolvedBy('revoke-mcp-server'),
+        };
+      },
+    };
+  };
+
   return {
     now,
     unavailable,
     async plan(finding, action) {
-      const pending = REMEDIATION_PENDING[action.id];
+      const pending = REMEDIATION_PENDING[action.id] ?? (action.id === 'revoke-mcp-server' ? unavailable()['revoke-mcp-server'] : undefined);
       if (pending) return { kind: 'unavailable', unavailable: pending };
       const allowed =
         action.id === 'mute' ||
@@ -560,8 +591,9 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
         case 'chmod-600':
           return chmod600(finding, action);
         case 'revoke-mcp-server':
+          return revokeMcp(action, finding);
         case 'open-in-agents':
-          // Unreachable while REMEDIATION_PENDING names them; kept so a new id cannot slip past the switch.
+          // Unreachable while REMEDIATION_PENDING names it; kept so a new id cannot slip past the switch.
           return { kind: 'unavailable', unavailable: { reason: 'This action is not available yet.' } };
       }
     },

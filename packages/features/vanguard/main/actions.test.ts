@@ -153,22 +153,52 @@ describe('the renderer cannot name a target', () => {
   });
 });
 
-describe('Phase 121 stubs', () => {
-  it('revoke-mcp-server and open-in-agents answer calmly, record nothing and touch nothing', async () => {
-    const finding = await record({
-      category: 'agent',
+describe('revoke-mcp-server (Phase 121 Theme C)', () => {
+  const withMcpFinding = () =>
+    record({
+      category: 'supply-chain',
+      repoId: 'repo-1',
       remediation: [{ id: 'revoke-mcp-server', serverName: 'fs' }, { id: 'open-in-agents', findingId: 'x' }],
     });
+
+  it('answers calmly where the app keeps no MCP allowlist, recording nothing', async () => {
+    const finding = await withMcpFinding();
     const actions = createResponseActions(deps());
     const revoke = await runAction(ledger, actions, finding.id, { id: 'revoke-mcp-server', serverName: 'fs' });
-    expect(revoke).toMatchObject({ ok: true, value: { actionId: 'revoke-mcp-server', unavailable: { dependsOn: 'Phase 121 Theme C' } } });
+    expect(revoke).toMatchObject({ ok: true, value: { actionId: 'revoke-mcp-server', unavailable: { reason: expect.stringContaining('allowlist') } } });
+    expect(actions.unavailable()).toHaveProperty('revoke-mcp-server');
+    expect((await ledger.get(finding.id))?.actions).toBeUndefined();
+  });
+
+  it('clears the allowlist entry for the finding’s repo, behind the confirm, and resolves the finding', async () => {
+    const finding = await withMcpFinding();
+    const revokeMcpServer = vi.fn(async () => 1);
+    const actions = createResponseActions(deps({ revokeMcpServer }));
+    expect(actions.unavailable()).not.toHaveProperty('revoke-mcp-server');
+    const action = { id: 'revoke-mcp-server', serverName: 'fs' } as const;
+    const preview = await previewAction(ledger, actions, finding.id, action);
+    expect(preview).toMatchObject({ ok: true, value: { actionId: 'revoke-mcp-server', confirm: true } });
+    expect(revokeMcpServer).not.toHaveBeenCalled();
+    const result = await runAction(ledger, actions, finding.id, action, digestOf(preview));
+    expect(result).toMatchObject({ ok: true, value: { actionId: 'revoke-mcp-server' } });
+    expect(revokeMcpServer).toHaveBeenCalledWith('fs', 'repo-1');
+    expect((await ledger.get(finding.id))?.status).toBe('resolved');
+  });
+
+  it('refuses a server the finding does not name', async () => {
+    const finding = await withMcpFinding();
+    const revokeMcpServer = vi.fn(async () => 1);
+    const result = await runAction(ledger, createResponseActions(deps({ revokeMcpServer })), finding.id, { id: 'revoke-mcp-server', serverName: 'other' });
+    expect(result).toMatchObject({ ok: false });
+    expect(revokeMcpServer).not.toHaveBeenCalled();
+  });
+
+  it('open-in-agents still answers as Phase 121 Theme A’s', async () => {
+    const finding = await withMcpFinding();
+    const actions = createResponseActions(deps());
     const agents = await runAction(ledger, actions, finding.id, { id: 'open-in-agents', findingId: 'x' });
     expect(agents).toMatchObject({ ok: true, value: { unavailable: { reason: expect.stringContaining('Phase 121 Theme A') } } });
-    const preview = await previewAction(ledger, actions, finding.id, { id: 'revoke-mcp-server', serverName: 'fs' });
-    expect(preview).toMatchObject({ ok: true, value: { unavailable: { dependsOn: 'Phase 121 Theme C' } } });
-    expect((await ledger.get(finding.id))?.actions).toBeUndefined();
     expect(calls).toEqual([]);
-    expect(actions.unavailable()).toHaveProperty('revoke-mcp-server');
     expect(actions.unavailable()).toHaveProperty('open-in-agents');
   });
 });

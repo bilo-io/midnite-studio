@@ -130,6 +130,13 @@ export type ChatServiceDeps = {
    * break a turn.
    */
   audit?: ((record: NewAgentAuditRecord) => void) | undefined;
+  /**
+   * The MCP allowlist's gate (Phase 121 Theme C), supplied by the composer so chats never import the runtime
+   * allowlist. Resolves to the names of the MCP servers in the repo that are not approved (new, edited since
+   * approval, or held); a turn that would load them is refused until they are approved in the Tools view. Not
+   * asked for Ollama chats (no agent CLI loads MCP servers) or for chats with no repo.
+   */
+  mcpGate?: ((repoId: string) => Promise<readonly string[]>) | undefined;
   now?: () => number;
   newId?: () => string;
   /** The git-engine seam — injectable so a test need not make real worktrees. */
@@ -544,6 +551,13 @@ export function createChatService(deps: ChatServiceDeps) {
         error = out.error;
       } else {
         const repo = await repoFor(chat);
+        if (repo && chat.repoId && deps.mcpGate) {
+          const held = await deps.mcpGate(chat.repoId).catch(() => []);
+          if (held.length > 0) {
+            error = `${held.length === 1 ? 'The MCP server' : 'The MCP servers'} ${held.map((name) => `“${name}”`).join(', ')} in ${repo.name} ${held.length === 1 ? 'is' : 'are'} not approved. Review and approve ${held.length === 1 ? 'it' : 'them'} in Agents ▸ Tools ▸ MCP servers, then send this again.`;
+            return;
+          }
+        }
         let cwd: string;
         let baseTree: string | null = null;
         if (repo && chat.mode === 'edit') {

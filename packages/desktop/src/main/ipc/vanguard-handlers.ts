@@ -27,6 +27,7 @@ import { broadcastToAllWindows } from '../window-manager';
 import { studioBrokerScriptPath } from '../broker-client';
 import { killPty, livePtyFor, observePtyOutput, onSessionExit, sessionIdFor, writePty } from '../pty-service';
 import { liveAgentSessions, listTerminals } from '../terminal-service';
+import { revokeMcpServer } from '../mcp-trust-wiring';
 import { probeBinary } from '../system-health';
 import { agentPtyOutputSource, agentSessionPids } from './vanguard-sensor-wiring';
 import { handle, handleBare, handleSend } from './handle';
@@ -179,6 +180,7 @@ export async function startVanguardSensors(userData: string): Promise<void> {
       protectedMarkers: () => [studioBrokerScriptPath(), join(userData, 'broker')],
       sessions: liveAgentSessions,
       interrupt: interruptSession,
+      revokeMcpServer,
     },
     log: (level, message) =>
       defaultLogger[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'info'](message),

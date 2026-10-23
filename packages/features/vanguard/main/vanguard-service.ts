@@ -59,6 +59,8 @@ export interface VanguardResponseOptions {
   protectedPids?: () => readonly number[];
   sessions?: () => Promise<readonly ResponseSession[]>;
   interrupt?: (sessionId: string) => Promise<boolean>;
+  /** Clears a server from the MCP allowlist (Phase 121 Theme C); absent in an app that keeps none. */
+  revokeMcpServer?: (serverName: string, repoId?: string) => Promise<number>;
   /** The issue form's App value; Studio's by default. */
   issueApp?: string;
 }
@@ -140,6 +142,7 @@ export async function createVanguardService(
     rescan: (path) => scanner.check([path]),
     ...(r.sessions ? { sessions: r.sessions } : {}),
     ...(r.interrupt ? { interrupt: r.interrupt } : {}),
+    ...(r.revokeMcpServer ? { revokeMcpServer: r.revokeMcpServer } : {}),
     ...(r.issueApp ? { issueApp: r.issueApp } : {}),
     retentionDays,
   });
