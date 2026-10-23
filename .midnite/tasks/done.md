@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-23 — Phase 121 Theme F — Limits and a breaker
+
+PR pending. `AgentLimitsSchema` (120 calls/min, 300 writes/min, 10 pushes/h, 25 hosts and 5M tokens per session, per-repo override) and a runtime circuit breaker fed by Theme G's trail: a limit trips on the count past its threshold, interrupts the session, writes a `limit-trip` record, raises a `medium` finding and shows a bell entry with Resume / Stop / Raise limit for this session. The interrupt is an injected `interrupt(sessionId)` wired to the same Ctrl+C pty write Vanguard's `pause-session` uses, since Phase 120 G is not built. Vitest only: boundary (at the limit does not trip, one past does), sliding window, resume clears the window, raise, stop, spend, per-repo resolution, a burst read back through a real trail.
+
 ## 2026-10-23 — Phase 121 Theme G — The audit trail
 
 [PR #990](https://github.com/bilo-io/midnite-studio/pull/990). A durable, redacted, append-only NDJSON trail of agent activity (`<userData>/security/audit/agents-<day>.ndjson`, 0700/0600, 90-day retention until Phase 115 B's setting exists): the runtime writer and a standalone reader (`tail`, `list`, `readSince` with a cursor, for Phase 120 G), a schema for all nine record kinds in `shared`, producers for MCP calls, agent-pty command lines (OSC 133/633 or a line heuristic), chat turns and council runs, the MCP ring as a tail of the trail, and an Audit tab in Agents and Studio's Sessions view with filters, row expansion and a redacted export through a main-side save dialog.

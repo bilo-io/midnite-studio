@@ -798,3 +798,7 @@ Theme H built eight of the ten response actions. Three things were left on purpo
 ## Phase 121 · Theme G — audit retention follows Phase 115 B
 
 The agent audit trail keeps 90 days (`AGENT_AUDIT_DEFAULT_RETENTION_DAYS`) because Phase 115 B's "Keep local history" setting is not built. When it lands, pass it as `retentionDays` in `packages/desktop/src/main/agent-audit.ts` and Agents' `context.ts`, and add the trail's directory to "Clear all local history". The producers for `policy-decision`/`approval` (B), `install` (H), `limit-trip` (F) and `confine-denial` (E) are theirs to add; their schema and `record()` entry point exist.
+
+## Phase 121 · Theme F — the limits have no settings page
+
+The breaker reads `<userData>/security/agent-limits.json` (`{ "defaults": {...}, "repos": { "<repo path>": {...} } }`, the `AgentLimitsSettingsSchema` shape) at each check, so the limits can be edited by hand but there is no UI for them. Add a Settings ▸ Agents ▸ Limits page that writes that file (or the settings store, once Phase 115 B exists). Two more known edges: file writes are counted only for MCP tools whose name says they write, because an agent's built-in file tools never reach the audit trail; and Phase 120 G, when it lands, should call the breaker's `interrupt` seam (`agent-breaker-wiring.ts`) rather than add a second pause path.
