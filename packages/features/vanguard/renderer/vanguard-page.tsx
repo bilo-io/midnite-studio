@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LuShield, LuShieldCheck } from 'react-icons/lu';
 
 import { MalwareScanCard } from './malware-scan-card';
-import { ACTION_LABEL, FindingActions, QuarantineCard, useResponseState } from './response';
+import { ACTION_LABEL, FindingActions, QuarantineCard, UnavailableNotes, useResponseState } from './response';
 import { useConnections, useFindings, useSensors } from './use-vanguard';
 import { useVanguardUi } from './vanguard-ui-store';
 
@@ -146,6 +146,7 @@ function FindingDetail({ finding }: { finding: SecurityFinding }) {
           </button>
         )}
       </div>
+      <UnavailableNotes finding={finding} state={response} />
       {finding.actions && finding.actions.length > 0 ? (
         <div>
           <h3 className="mb-1 text-[11px] font-semibold uppercase text-muted-foreground">Actions taken</h3>

@@ -131,6 +131,8 @@ export function useResponseAction(onMessage: (message: { text: string; error: bo
           body: radius.summary,
           confirmLabel: radius.confirmLabel,
           danger: true,
+          // Measured here, not in commits: null keeps the dialog from reading as "still counting".
+          blastRadius: null,
           warnings: blastRadiusLines(radius),
           onConfirm: () => void act(findingId, action),
         });
@@ -144,7 +146,16 @@ export function useResponseAction(onMessage: (message: { text: string; error: bo
   return { run, busy };
 }
 
-/** A finding's own actions, plus Restore when its file is in quarantine. Disabled ones carry their reason. */
+/** A finding's own actions, plus Restore when its file is in quarantine. */
+function actionsFor(finding: SecurityFinding, state: VanguardResponseStateResponse): RemediationAction[] {
+  const held = state.quarantine.find((entry) => entry.findingId === finding.id);
+  return [
+    ...finding.remediation,
+    ...(held ? [{ id: 'restore-file' as const, findingId: finding.id, path: held.originalPath }] : []),
+  ];
+}
+
+/** The action buttons. A disabled one carries its reason as its title; {@link UnavailableNotes} spells it out. */
 export function FindingActions({
   finding,
   state,
@@ -155,19 +166,9 @@ export function FindingActions({
   onMessage: (message: { text: string; error: boolean } | null) => void;
 }) {
   const { run, busy } = useResponseAction(onMessage);
-  const held = state.quarantine.find((entry) => entry.findingId === finding.id);
-  const actions: RemediationAction[] = [
-    ...finding.remediation,
-    ...(held ? [{ id: 'restore-file' as const, findingId: finding.id, path: held.originalPath }] : []),
-  ];
-  const reasons = new Map<string, string>();
-  for (const action of actions) {
-    const reason = unavailableReason(action.id, state.unavailable);
-    if (reason) reasons.set(ACTION_LABEL[action.id], reason);
-  }
   return (
     <>
-      {actions.map((action, index) => {
+      {actionsFor(finding, state).map((action, index) => {
         const reason = unavailableReason(action.id, state.unavailable);
         return (
           <button
@@ -182,16 +183,26 @@ export function FindingActions({
           </button>
         );
       })}
-      {reasons.size > 0 ? (
-        <ul aria-label="Unavailable actions" className="basis-full text-[11px] text-muted-foreground">
-          {[...reasons].map(([label, reason]) => (
-            <li key={label}>
-              {label}: {reason}
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </>
+  );
+}
+
+/** Why each disabled action cannot run here, one line each, under the buttons. */
+export function UnavailableNotes({ finding, state }: { finding: SecurityFinding; state: VanguardResponseStateResponse }) {
+  const reasons = new Map<string, string>();
+  for (const action of actionsFor(finding, state)) {
+    const reason = unavailableReason(action.id, state.unavailable);
+    if (reason) reasons.set(ACTION_LABEL[action.id], reason);
+  }
+  if (reasons.size === 0) return null;
+  return (
+    <ul aria-label="Unavailable actions" className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
+      {[...reasons].map(([label, reason]) => (
+        <li key={label}>
+          {label}: {reason}
+        </li>
+      ))}
+    </ul>
   );
 }
 
