@@ -10,7 +10,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 |-------|--------|---------|------|----------|---|--------|--------|
 | [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | ◻ TODO | — | 0/44 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [121 · Agents security](phases/phase-121-agents-security.md) | 🔄 WIP | — | 8/51 | `██░░░░░░░░` | 16% | — | A B C D E H I |
-| [120 · Vanguard: antivirus and agentic self-defense](phases/phase-120-vanguard.md) | 🔄 WIP | — | 35/46 | `████████░░` | 76% | — | G |
+| [120 · Vanguard: antivirus and agentic self-defense](phases/phase-120-vanguard.md) | 🔄 WIP | — | 35/46 | `████████░░` | 76% | G | — |
 | [119 · Midnite Git: a self-hosted forge and local CI runners](phases/phase-119-midnite-git.md) | ◻ TODO | — | 0/57 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [118 · Vault security hardening](phases/phase-118-vault-security-hardening.md) | 🔄 WIP | — | 23/51 | `█████░░░░░` | 45% | — | C F G H |
 | [117 · Browser security hardening](phases/phase-117-browser-security-hardening.md) | 🔄 WIP | — | 52/60 | `█████████░` | 87% | — | — |
