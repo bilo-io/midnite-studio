@@ -43,7 +43,14 @@ describe('midnite-media-*-build skill copies', () => {
 // The sitrep family (the `midnite-sitrep` router and its `midnite-sitrep-*` views) ships in the
 // repo's three mirrors only, and the `.agents`/`.codex` copies drop the Claude-only `argument-hint`
 // and `allowed-tools` frontmatter. Everything else must match, or one CLI renders a different report.
-const sitrepSkills = readdirSync(join(root, '.claude', 'skills')).filter((name) => /^midnite-sitrep(-.+)?$/.test(name));
+// The union of all three mirrors, so a view added or left behind in only one of them is caught.
+const sitrepSkills = [
+  ...new Set(
+    ['.claude', '.agents', '.codex'].flatMap((copy) =>
+      readdirSync(join(root, copy, 'skills')).filter((name) => /^midnite-sitrep(-.+)?$/.test(name)),
+    ),
+  ),
+].sort();
 const withoutClaudeOnlyKeys = (text) => text.replace(/^(argument-hint|allowed-tools): .*\n/gm, '');
 
 describe('midnite-sitrep skill family copies', () => {
@@ -55,7 +62,9 @@ describe('midnite-sitrep skill family copies', () => {
 
   for (const skill of sitrepSkills) {
     it(`${skill} matches across .claude, .agents and .codex`, () => {
-      const reference = withoutClaudeOnlyKeys(readFileSync(join(root, '.claude', 'skills', skill, 'SKILL.md'), 'utf8'));
+      const source = join(root, '.claude', 'skills', skill, 'SKILL.md');
+      expect(existsSync(source), `.claude/skills/${skill}/SKILL.md is missing`).toBe(true);
+      const reference = withoutClaudeOnlyKeys(readFileSync(source, 'utf8'));
       for (const copy of ['.agents', '.codex']) {
         const file = join(root, copy, 'skills', skill, 'SKILL.md');
         expect(existsSync(file), `${copy}/skills/${skill}/SKILL.md is missing`).toBe(true);

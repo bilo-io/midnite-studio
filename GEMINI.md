@@ -443,9 +443,12 @@ first:
 - **A notes column**, always, of **six words at most**: news since the last sitrep, the blocker by
   name, or an ask. It never restates the status. An empty note is `—`, and most rows are empty.
 - **Succinct.** The table is the report. Add at most one or two lines under it, and only for
-  something the table cannot carry — a decision needed from the user, or a failure.
+  something the table cannot carry — a decision needed from the user, or a failure. A view the
+  user named (or the merge graph, when rows depend on each other) follows those lines under its
+  own `####` heading, within the size cap its own skill sets.
 - The same shape applies to a **recurring** status report (e.g. "every 10 minutes"): each tick is
-  one table, so the user can diff it against the last one at a glance.
+  the same table plus the same views the schedule was set up with, so the user can diff it against
+  the last one at a glance.
 
 When several agents run in parallel, give them a **shared append-only board file** in the session
 scratchpad and make every cross-agent contract change go through it *before* it is written into a

@@ -23,7 +23,10 @@ gathered, and the vocabulary every view uses. Each view has its own skill with i
 
 ## 0 · Routing
 
-- **No view named:** the table, then the graph if any row has a hard or soft dependency on another.
+- **No view named:** the table, then the graph if any row has a hard dependency on another — a
+  stacked base (`baseRefName` is another row's branch) or a plan or phase dependency. Both are
+  visible in §2's data. Soft edges (shared files) need a `files` fetch per PR, so they are drawn
+  only when the graph is rendered, never used to decide whether to render it.
 - **Views named in the arguments** (`/midnite-sitrep 988 timeline ci`): the table first, then
   each named view in the order given. The table is never dropped: it is the anchor the others
   hang off.

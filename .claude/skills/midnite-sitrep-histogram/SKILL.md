@@ -15,7 +15,7 @@ Draw one chart per metric named. With none named, draw `diff`.
 | Metric | Value per row | Source |
 |---|---|---|
 | `diff` | additions + deletions, with files in the label | the PR, or `git diff --shortstat` before one opens |
-| `ci` | wall-clock minutes of the latest run on the current head | `gh run list --branch <head> --json createdAt,updatedAt,headSha` |
+| `ci` | wall-clock minutes of the latest CI run on the current head | `gh run list --workflow ci.yml --branch <head> --json createdAt,updatedAt,headSha` (filter to the CI workflow: `vercel.yml` and others also run on PRs) |
 | `age` | hours since the PR opened, or since the worktree's first commit | `createdAt` / first commit time |
 | `stage` | minutes in the current progress stage (draft, CI, review) | the timeline event that entered it |
 
@@ -27,12 +27,12 @@ An `####` heading per metric, then one fenced `text` block:
 #### 📊 Histogram · diff · <scope>
 
 ```
-121 G  audit trail    ██████████████████████████████  3,412  📄 41
-120 H  response       ███████████████████████████▌    3,070  📄 43
-120 F  malware        █████████████████████████▉      2,957  📄 71
-120 E  network        ███████████████████▍            2,284  📄 47
-121 F  limits         █▍                                180  📄 6
-                      ┊ median 2,620
+121 G  audit trail    ██████████████████████████████  6,120  📄 41 ⚠️
+120 H  response       ███████████████                 3,070  📄 43
+120 F  malware        ██████████████▌                 2,957  📄 71
+120 E  network        ███████████▎                    2,284  📄 47
+121 F  limits         ▉                                 180  📄 6
+                                    ┊ median 2,957
 ```
 ````
 

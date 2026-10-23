@@ -13,6 +13,7 @@ Use one shell invocation:
 
 ```bash
 gh pr checks <n> -R <o>/<r> --json name,bucket,state,startedAt,completedAt,link   # per PR, current head
+gh run list -R <o>/<r> --workflow ci.yml --branch <head> -L 5 --json databaseId,headSha,createdAt,updatedAt,status,conclusion   # per PR: the run on the current head gives Wall
 gh run list -R <o>/<r> --status in_progress --json databaseId,headBranch,headSha,event,createdAt
 gh run list -R <o>/<r> --status queued      --json databaseId,headBranch,headSha,event,createdAt
 gh run view <id> -R <o>/<r> --json jobs      # only for runs whose jobs you must place on a runner
@@ -30,20 +31,20 @@ An `####` heading, then a job grid, then up to three lines:
 ````markdown
 #### 🧪 CI · <scope>
 
-| PR | gate-audit | gate-node | app-test 1/2 | gate-native | e2e 1–4 | Wall |
+| PR | gate-node | gate-audit | app-test 1/2 | gate-native | e2e 1–4 | Wall |
 |---|:-:|:-:|:-:|:-:|:-:|--:|
-| [120 H · #988](https://github.com/bilo-io/midnite-studio/pull/988) | ✅ 1m | ✅ 9m | ✅✅ 7m | ✅ 14m | ✅✅✅✅ 18m | 22m |
-| [121 G · #990](https://github.com/bilo-io/midnite-studio/pull/990) | ✅ 1m | 🔴 6m | 🟡🟡 | ⏸ | ⏸⏸⏸⏸ | 12m… |
+| [120 H · #988](https://github.com/bilo-io/midnite-studio/pull/988) | ✅ 9m | ✅ 1m | ✅✅ 7m | 🟡 | ✅🟡🟡🟡 | 16m… |
+| [121 G · #990](https://github.com/bilo-io/midnite-studio/pull/990) | 🔴 6m | ✅ 1m | ✅✅ 7m | ⏸ | ⏸⏸⏸⏸ | 12m… |
 
-macOS 5/5 running · 4 queued (#990 ×5 waits on #988's run) · cap 5
+macOS 4/5 running (#988) · 5 queued (#990's gate-native + 4 e2e wait on #988) · cap 5
 Stale: run 39898519113 (#988 @ e2c26dd9c, superseded) · run 39895732900 (main @ 71f81ebc0, behind)
 🔴 #990 gate-node: `typecheck-node.test.mjs` expected 38 projects, got 39
 ````
 
 - **Grid.**
-  - One row per PR, linked as in the table. One column per job family, in workflow order.
+  - One row per PR, linked as in the table. One column per job family, in the order `ci.yml` declares them.
   - A sharded job is one column with one mark per shard and the slowest shard's time.
-  - Use `—` for a job skipped by its path filter or label.
+  - A job skipped by its path filter or label is `⏭`, like any other skip.
 - **Cell marks.**
 
   | Mark | Meaning |
@@ -57,8 +58,8 @@ Stale: run 39898519113 (#988 @ e2c26dd9c, superseded) · run 39895732900 (main @
   | ⊘ | cancelled |
 
   Each cell shows the job's duration where known.
-- **Wall.** Wall-clock time from the run's creation to its last job finishing. Add `…` while it
-  is still running.
+- **Wall.** From the current head's CI run (`gh run list --workflow ci.yml`): `createdAt` to
+  `updatedAt` once it completes, so queue time counts. Add `…` while it is still running.
 - **Lines under the grid.** Each appears only when it applies.
   1. **Queue.** macOS jobs running and queued against the cap, and who is waiting on whom. This
      repo caps macOS at **5 concurrent jobs** (`CLAUDE.md`, CONCURRENCY), and one PR run uses

@@ -19,8 +19,12 @@ Use one shell invocation alongside the router's gather:
 | agent launched / handed back | the session's own record: the board file in the scratchpad, or the launch and notification times |
 | first commit, later pushes | `git -C <worktree> log --format='%cI %h %s' <base>..HEAD` |
 | PR opened, ready, merged | `gh api repos/<o>/<r>/issues/<n>/timeline --paginate` (`ready_for_review`, `merged`, `head_ref_force_pushed`) plus `createdAt` / `mergedAt` |
-| CI started / finished | `gh run list -R <o>/<r> --branch <head> --json databaseId,headSha,createdAt,updatedAt,status,conclusion` |
-| main moved | `git log origin/main --format='%cI %h %s' --since=<window>` (claims and merges) |
+| CI started / finished | `gh run list -R <o>/<r> --workflow ci.yml --branch <head> --json databaseId,headSha,createdAt,updatedAt,status,conclusion` (the CI workflow only; other workflows such as `vercel.yml` also run on PRs) |
+| main moved | `git log origin/main --format='%cI %h %s' --since="<start>"` (claims and merges) |
+
+`<start>` is the window's start as git reads it: `since=3h` becomes `--since="3 hours ago"` and `since=04:00Z`
+becomes `--since="<today>T04:00:00Z"`. Never pass a bare `3h` — git does not read it as hours and
+silently returns the wrong commits. With no window, start at the earliest row's launch.
 
 Never invent an event to fill a gap. A gap in the evidence is a gap in the diagram.
 
