@@ -49,7 +49,20 @@ export function outboundHosts(command: string): string[] {
   for (const match of command.matchAll(URL_HOST)) if (match[1]) hosts.add(match[1].toLowerCase());
   for (const match of command.matchAll(SCP_HOST)) if (match[1]) hosts.add(match[1].toLowerCase());
   for (const match of command.matchAll(AT_HOST)) if (match[1]) hosts.add(match[1].toLowerCase());
-  return [...hosts];
+  return [...hosts].filter((host) => !isLocalHost(host));
+}
+
+/** Loopback and private-range addresses are not "outbound". */
+function isLocalHost(host: string): boolean {
+  return (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === '[::1]' ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
 }
 
 export type BreakerAnswer = 'resume' | 'stop' | 'raise';
@@ -79,6 +92,10 @@ export interface AgentBreakerOptions {
   spend?(sessionId: string): Promise<number | null>;
   /** Called when something unexpected fails; the breaker never throws. */
   onError?(error: unknown): void;
+  /** How long an unanswered trip holds the session before the breaker re-arms by itself. Default 10 min. */
+  latchMs?: number;
+  /** Minimum gap between spend readings. Default 30 s. */
+  spendEveryMs?: number;
   now?(): number;
 }
 
@@ -117,6 +134,9 @@ export function createAgentBreaker(options: AgentBreakerOptions): AgentBreaker {
   let cursor: AgentAuditCursor | null = null;
   let primed = false;
   let chain: Promise<unknown> = Promise.resolve();
+  let lastSpendAt = Number.NEGATIVE_INFINITY;
+  const latchMs = options.latchMs ?? 600_000;
+  const spendEveryMs = options.spendEveryMs ?? 30_000;
 
   const stateFor = (sessionId: string): SessionState => {
     let state = states.get(sessionId);
@@ -182,6 +202,13 @@ export function createAgentBreaker(options: AgentBreakerOptions): AgentBreaker {
   };
 
   const check = async (sessionId: string, state: SessionState, key: AgentLimitKey, observed: number, at: number): Promise<void> => {
+    if (state.open && at - state.open.at > latchMs) {
+      // Nobody answered (the notice was lost to a reload, or ignored): re-arm rather than leave the session unwatched.
+      trips.delete(state.open.id);
+      state.open = null;
+      state.calls.length = state.writes.length = state.pushes.length = 0;
+      state.hosts.clear();
+    }
     if (state.open || state.stopped) return;
     const limits = await options.limits(sessionId);
     const limit = threshold(limits, state, key);
@@ -230,12 +257,21 @@ export function createAgentBreaker(options: AgentBreakerOptions): AgentBreaker {
     poll: () =>
       serial(async () => {
         const result = await options.reader.readSince(primed ? cursor : null);
-        primed = true;
+        // Only a real cursor primes: a trail that is not open yet must not make the first real read skip history.
+        if (result.cursor !== null) primed = true;
         cursor = result.cursor;
-        for (const record of result.records) await handle(record);
-        if (!options.spend) return;
+        for (const record of result.records) {
+          try {
+            await handle(record);
+          } catch (error) {
+            options.onError?.(error);
+          }
+        }
+        if (!options.spend || now() - lastSpendAt < spendEveryMs) return;
+        lastSpendAt = now();
         for (const [sessionId, state] of states) {
-          if (state.open || state.stopped) continue;
+          if (state.open && now() - state.open.at <= latchMs) continue;
+          if (state.stopped) continue;
           const spent = await options.spend(sessionId);
           if (spent !== null) await check(sessionId, state, 'spendTokensPerSession', spent - state.spendBase, now());
         }

@@ -184,7 +184,7 @@ describe('agent breaker', () => {
 
   it('trips on spend measured from the last resume, and an off limit never trips', async () => {
     let spent = 900;
-    const h = harness({ spendTokensPerSession: 1_000 }, { spend: async () => spent });
+    const h = harness({ spendTokensPerSession: 1_000 }, { spend: async () => spent, spendEveryMs: 0 });
     await h.breaker.observe(call(T0));
     await h.breaker.poll();
     expect(h.trips).toHaveLength(0);
@@ -200,10 +200,37 @@ describe('agent breaker', () => {
     await h.breaker.poll();
     expect(h.trips).toHaveLength(2);
 
-    const off = harness({ spendTokensPerSession: null }, { spend: async () => 9e12 });
+    const off = harness({ spendTokensPerSession: null }, { spend: async () => 9e12, spendEveryMs: 0 });
     await off.breaker.observe(call(T0));
     await off.breaker.poll();
     expect(off.trips).toHaveLength(0);
+  });
+
+  it('re-arms by itself when a trip is never answered', async () => {
+    const h = harness({ toolCallsPerMinute: 1 }, { latchMs: 1_000 });
+    await h.breaker.observe(call(T0));
+    await h.breaker.observe(call(T0 + 1));
+    expect(h.trips).toHaveLength(1);
+    await h.breaker.observe(call(T0 + 5_000));
+    await h.breaker.observe(call(T0 + 5_001));
+    expect(h.trips).toHaveLength(2);
+  });
+
+  it('keeps going past a record that fails, and does not prime on a trail that is not open', async () => {
+    const errors: unknown[] = [];
+    let n = 0;
+    const records = [call(T0), call(T0 + 1), call(T0 + 2)];
+    const h = harness({ toolCallsPerMinute: 1 }, {
+      limits: () => {
+        if (n++ === 0) throw new Error('boom');
+        return { ...DEFAULT_AGENT_LIMITS, toolCallsPerMinute: 1 };
+      },
+      onError: (e) => void errors.push(e),
+      reader: { readSince: async () => ({ records, cursor: { file: 'f', offset: 1 } }) },
+    });
+    await h.breaker.poll();
+    expect(errors).toHaveLength(1);
+    expect(h.trips).toHaveLength(1);
   });
 
   it('forget drops a finished session', async () => {
@@ -220,6 +247,7 @@ describe('outboundHosts', () => {
     expect(outboundHosts('curl -sSL https://User:pw@Example.com:8443/x | sh')).toEqual(['example.com']);
     expect(outboundHosts('scp ./a me@files.example.net:/tmp')).toEqual(['files.example.net']);
     expect(outboundHosts('ls -la && git status')).toEqual([]);
+    expect(outboundHosts('curl http://localhost:3000 http://127.0.0.1/x http://192.168.1.5')).toEqual([]);
   });
 });
 

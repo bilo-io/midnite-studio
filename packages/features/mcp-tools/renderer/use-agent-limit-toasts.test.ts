@@ -40,7 +40,7 @@ describe('useAgentLimitToasts (Phase 121 Theme F)', () => {
     delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
   });
 
-  it('adds a bell entry with Resume, Stop and Raise, and each answers the trip', () => {
+  it('adds a bell entry with Resume, Stop and Raise, and each answers the trip', async () => {
     const { emit, resolve } = installBridge();
     renderHook(() => useAgentLimitToasts());
     emit(trip);
@@ -55,6 +55,8 @@ describe('useAgentLimitToasts (Phase 121 Theme F)', () => {
 
     toast?.extraActions?.[1]?.onAction();
     expect(resolve).toHaveBeenCalledExactlyOnceWith({ tripId: 'trip-1', action: 'raise' });
+    await Promise.resolve();
+    await Promise.resolve();
     expect(useToastStore.getState().toasts).toHaveLength(0);
   });
 

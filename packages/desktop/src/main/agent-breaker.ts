@@ -55,9 +55,15 @@ export function spendTokens(totals: AgentTokenTotals): number {
 }
 
 export function startAgentBreaker(seams: AgentBreakerSeams): RunningAgentBreaker {
+  // Resolved at most every few seconds per session: the check runs per audit record, and the settings are a file.
+  const cache = new Map<string, { at: number; limits: AgentLimits }>();
   const limitsFor = async (sessionId: string): Promise<AgentLimits> => {
+    const hit = cache.get(sessionId);
+    if (hit && Date.now() - hit.at < 5_000) return hit.limits;
     const [settings, session] = await Promise.all([seams.settings(), seams.session(sessionId)]);
-    return resolveAgentLimits(settings, session?.cwd);
+    const limits = resolveAgentLimits(settings, session?.cwd);
+    cache.set(sessionId, { at: Date.now(), limits });
+    return limits;
   };
   const lazyReader: Pick<AgentAuditReader, 'readSince'> = {
     readSince: async (cursor) => (await seams.reader()?.readSince(cursor)) ?? { records: [], cursor: null },
@@ -78,7 +84,10 @@ export function startAgentBreaker(seams: AgentBreakerSeams): RunningAgentBreaker
     ...(seams.onError ? { onError: seams.onError } : {}),
   });
   const stopPolling = breaker.start(seams.pollMs ?? 5_000);
-  const offExit = seams.onSessionExit((sessionId) => breaker.forget(sessionId));
+  const offExit = seams.onSessionExit((sessionId) => {
+    cache.delete(sessionId);
+    breaker.forget(sessionId);
+  });
   return {
     breaker,
     dispose: () => {
