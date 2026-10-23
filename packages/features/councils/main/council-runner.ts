@@ -16,6 +16,7 @@ import {
   type AgentOllamaBinding,
   type CouncilRun,
   type GitOpResult,
+  type NewAgentAuditRecord,
 } from '@midnite/studio-shared';
 
 import { appendCapped, cleanCapturedOutput } from '@midnite/studio-runtime';
@@ -54,6 +55,11 @@ export type CouncilRunnerPorts = {
    * `null` when unset or when the vault refuses this app.
    */
   ollamaApiKey(): Promise<string | null>;
+  /**
+   * The audit trail's write entry point (Phase 121 Theme G): one `council-run` record when a run finishes.
+   * Optional and total — a throw is swallowed.
+   */
+  audit?(record: NewAgentAuditRecord): void;
 };
 
 let ports: CouncilRunnerPorts | null = null;
@@ -465,6 +471,20 @@ async function finishSynthesis(
     if (run.status !== 'synthesizing') return;
 
     const output = cleanCapturedOutput(new TextDecoder().decode(rawBuffer), invocation);
+    try {
+      ports?.audit?.({
+        kind: 'council-run',
+        councilId: run.councilId,
+        runId: run.id,
+        status,
+        members: run.members.length,
+        succeeded: run.members.filter((m) => m.status === 'succeeded').length,
+        synthProvider: run.synthProvider,
+        ms: Math.max(0, Date.now() - run.createdAt),
+      });
+    } catch {
+      // An audit failure must not break a run.
+    }
     await saveRun({
       ...run,
       status,

@@ -29,7 +29,7 @@ export const mcpToolsManifest = defineFeatureManifest({
   owner: 'agents',
   views: [],
   settingsPages: [],
-  ipc: [CHANNELS.mcpGet, CHANNELS.mcpSet, CHANNELS.mcpCalls],
+  ipc: [CHANNELS.mcpGet, CHANNELS.mcpSet, CHANNELS.mcpCalls, CHANNELS.agentAuditList, CHANNELS.agentAuditExport],
   events: [],
   mcpTools: [],
 });

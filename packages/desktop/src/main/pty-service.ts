@@ -141,6 +141,16 @@ export function observePtyOutput(observer: PtyOutputObserver): () => void {
   return () => void ptyOutputObservers.delete(observer);
 }
 
+// The same, for what is written *into* a pty (keystrokes, pastes) — read-only, for the audit trail's command
+// lines (Phase 121 Theme G). Observers see the string as it was handed to `writePty`; they cannot change it.
+type PtyInputObserver = (ptyId: string, data: string) => void;
+const ptyInputObservers = new Set<PtyInputObserver>();
+
+export function observePtyInput(observer: PtyInputObserver): () => void {
+  ptyInputObservers.add(observer);
+  return () => void ptyInputObservers.delete(observer);
+}
+
 function emitPtyOutput(ptyId: string, bytes: Uint8Array): void {
   for (const observer of ptyOutputObservers) {
     try {
@@ -652,6 +662,13 @@ export async function createPty(options: {
 }
 
 export function writePty(ptyId: string, data: string): void {
+  for (const observer of ptyInputObservers) {
+    try {
+      observer(ptyId, data);
+    } catch {
+      // An observer must never break a terminal.
+    }
+  }
   if (brokerClient && brokerClient.getStatus().mode === 'broker' && brokerClient.isAlive()) {
     brokerClient.writePty(ptyId, data);
   } else {

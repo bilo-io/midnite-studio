@@ -46,6 +46,7 @@ const COUNCIL: Council = {
 
 let store: Record<string, CouncilRun>;
 let ptyCounter: number;
+let audited: unknown[];
 type PtyListener = { onData: (bytes: Uint8Array) => void; onExit: (exitCode: number) => void };
 let listeners: Map<string, PtyListener>;
 
@@ -64,7 +65,9 @@ beforeEach(() => {
     agentBinding: (agentId) => agentBackends[agentId],
     ollamaBaseUrl: () => 'http://127.0.0.1:11434',
     ollamaApiKey: async () => null,
+    audit: (record) => audited.push(record),
   });
+  audited = [];
   store = {};
   ptyCounter = 0;
   listeners = new Map();
@@ -144,6 +147,9 @@ describe('startRun', () => {
     exit(synthPtyId, 0);
     await flush();
     expect(store[result.value.id]!.status).toBe('completed');
+    expect(audited).toEqual([
+      expect.objectContaining({ kind: 'council-run', councilId: 'c1', runId: result.value.id, status: 'completed', members: 2, succeeded: 1, synthProvider: 'opencode' }),
+    ]);
   });
 });
 

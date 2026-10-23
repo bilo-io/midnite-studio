@@ -11,6 +11,7 @@ import { getConfiguredOllamaHost, ollamaChatStream, resolveOllamaBaseUrl } from 
 import type { FeatureMainContext } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
+import { recordAudit } from '../agent-audit';
 import { getRepo } from '../repo-registry';
 import { listAgents } from '../terminal-service';
 import { broadcastToAllWindows } from '../window-manager';
@@ -37,6 +38,7 @@ const deps: ChatsRuntimeDeps = {
     return entry ? { id: entry.id, path: entry.path, name: basename(entry.path) } : null;
   },
   emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.chatsEvent, event),
+  audit: recordAudit,
   ollamaStream: async (req) =>
     ollamaChatStream(
       { model: req.model, messages: req.messages },

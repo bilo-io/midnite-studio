@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import type {
+  AgentAuditRecord,
   BatteryReading,
   ForgeAccount,
   ReachableRepo,
@@ -1000,6 +1001,8 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
+  /** The agent audit trail the Audit tab lists (Phase 121 Theme G); absent → an empty trail. */
+  agentAudit?: AgentAuditRecord[];
   mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean; allowCompanionSettings?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
@@ -5812,6 +5815,22 @@ export function buildMockBridge(data: MockFixtures) {
             ]
           : [],
       }),
+    },
+    // The agent audit trail (Phase 121 Theme G): the fixture's records, filtered the way main filters them.
+    agentAudit: {
+      list: async (req: { kinds?: string[]; sessionId?: string; since?: number; until?: number; limit?: number }) => {
+        const all = (data.agentAudit ?? []).filter(
+          (r) =>
+            (!req.kinds?.length || req.kinds.includes(r.kind)) &&
+            (req.sessionId === undefined || r.sessionId === req.sessionId) &&
+            (req.since === undefined || r.at >= req.since) &&
+            (req.until === undefined || r.at < req.until),
+        );
+        const sorted = [...all].sort((a, b) => b.at - a.at);
+        const limit = req.limit ?? 200;
+        return { records: sorted.slice(0, limit), truncated: sorted.length > limit };
+      },
+      export: async () => ({ ok: true as const, value: { path: '/Users/demo/Desktop/agent-audit.ndjson', count: (data.agentAudit ?? []).length } }),
     },
     windowChrome: {
       platform: 'darwin',

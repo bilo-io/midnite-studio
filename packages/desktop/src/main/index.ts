@@ -29,6 +29,8 @@ import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
+import { configureAgentAudit, recordAudit } from './agent-audit';
+import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { configureFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
 import { createActivityDetector } from './activity-detect';
@@ -100,7 +102,10 @@ import {
   getSharedBrokerLocation,
   initPtyService,
   notifyActivityDisabled,
+  observePtyInput,
+  observePtyOutput,
   onSessionExit,
+  sessionIdFor,
   setActivityDetector,
   setAgentWatcher,
 } from './pty-service';
@@ -111,6 +116,7 @@ import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
   listAgents,
+  listTerminals,
   shutdownTerminals,
   startTerminalFlush,
   watchSessionExits,
@@ -197,6 +203,7 @@ import type { StartStudioMain } from './main-contract';
 
 let mainWindow: BrowserWindow | null = null;
 const getMainWindow = (): BrowserWindow | null => mainWindow;
+let stopAgentCommandAudit: (() => void) | null = null;
 
 /** Media ▸ Games' service, created at boot (Phase 107); read at quit to stop every run. */
 let gameService: GameService | null = null;
@@ -744,6 +751,16 @@ export const startStudioMain: StartStudioMain = () => {
       */
       registerWorkflowHandlers({ userData, forgePoller, getMainWindow, gateApprovalPollMs: FORGE_POLL_MS });
       configureFindingsLedger(userData, getMainWindow);
+      // Phase 121 Theme G: the durable agent audit trail, and the command lines typed into agent ptys.
+      configureAgentAudit({ userData, homeDir: app.getPath('home'), log: (message) => defaultLogger.warn(message) });
+      stopAgentCommandAudit = startAgentCommandAudit({
+        observeInput: observePtyInput,
+        observeOutput: observePtyOutput,
+        sessionIdFor,
+        onSessionExit: (hook) => onSessionExit((sessionId) => hook(sessionId)),
+        listTerminals,
+        record: recordAudit,
+      });
       void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
@@ -1124,6 +1141,7 @@ export const startStudioMain: StartStudioMain = () => {
       }
 
       void stopVanguardSensors();
+      stopAgentCommandAudit?.();
       disposeChats();
       // The global capture chord is released and clipboard polling stops with the app (Phase 113 Theme K).
       disposeCapture();

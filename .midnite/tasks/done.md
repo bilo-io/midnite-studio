@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-23 — Phase 121 Theme G — The audit trail
+
+[PR #990](https://github.com/bilo-io/midnite-studio/pull/990). A durable, redacted, append-only NDJSON trail of agent activity (`<userData>/security/audit/agents-<day>.ndjson`, 0700/0600, 90-day retention until Phase 115 B's setting exists): the runtime writer and a standalone reader (`tail`, `list`, `readSince` with a cursor, for Phase 120 G), a schema for all nine record kinds in `shared`, producers for MCP calls, agent-pty command lines (OSC 133/633 or a line heuristic), chat turns and council runs, the MCP ring as a tail of the trail, and an Audit tab in Agents and Studio's Sessions view with filters, row expansion and a redacted export through a main-side save dialog.
+
 ## 2026-10-23 — Phase 120 Theme H — Response and quarantine
 
 [PR #988](https://github.com/bilo-io/midnite-studio/pull/988). Eight of the ten response actions are built: pause, kill the process group, `launchctl bootout` a user LaunchAgent, quarantine, restore (re-scanned first), `chmod 600`, report issue and mute. Each destructive one previews a blast radius measured from the live machine (process-group members, the sessions that end, the plist's label and program, file paths and sizes) in the frame's confirm. Main re-plans on act and refuses a stale target, the app's own processes and broker, other users' files and symlinks. Every outcome is appended to the ledger row's `actions`. The quarantine reuses Theme F's directory: 0000 files plus a manifest, no overwrite, no link followed. `revoke-mcp-server` and `open-in-agents` return a typed "available once Phase 121 lands" outcome and show disabled. The tile stays `comingSoon` until a Vanguard release exists (one-line flip, in `outstanding.md`). Screenshots in `docs/screenshots/vanguard-response/`.

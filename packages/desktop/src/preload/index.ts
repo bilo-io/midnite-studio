@@ -184,6 +184,7 @@ const bridge: Pick<
   | 'db'
   | 'knowledge'
   | 'mcp'
+  | 'agentAudit'
   | 'companion'
   | 'capture'
   | 'vanguard'
@@ -1089,6 +1090,10 @@ const bridge: Pick<
     get: () => call(CHANNELS.mcpGet),
     set: (req) => call(CHANNELS.mcpSet, req),
     calls: () => call(CHANNELS.mcpCalls),
+  },
+  agentAudit: {
+    list: (req) => call(CHANNELS.agentAuditList, req),
+    export: (req) => call(CHANNELS.agentAuditExport, req),
   },
   companion: {
     snapshot: (req) => call(CHANNELS.companionSnapshot, req),

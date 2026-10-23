@@ -24,7 +24,7 @@ const REPORT_BRIDGE = {
 
 const ok = <T,>(value: T) => async () => ({ ok: true as const, value });
 
-function stubBridge() {
+function stubBridge(extra: Record<string, unknown> = {}) {
   const has = vi.fn(async () => ({ hasKey: false }));
   const get = vi.fn();
   window.midniteStudio = { report: REPORT_BRIDGE,
@@ -55,6 +55,7 @@ function stubBridge() {
       onPullProgress: () => () => undefined,
       settings: { get: async () => ({ host: null, defaultModel: null }) },
     },
+    ...extra,
   } as unknown as typeof window.midniteStudio;
   return { has, get };
 }
@@ -89,10 +90,10 @@ describe('Agents composition', () => {
 });
 
 describe('Agents home', () => {
-  it('opens on Chats with Councils, Graphs, Models and Tools beside it', async () => {
+  it('opens on Chats with Councils, Graphs, Models, Tools and Audit beside it', async () => {
     render(<AgentsApp />);
     expect(screen.getByText('Midnite Agents')).toBeDefined();
-    expect(screen.getByRole('navigation', { name: 'Agents views' }).textContent).toBe('ChatsCouncilsGraphsModelsTools');
+    expect(screen.getByRole('navigation', { name: 'Agents views' }).textContent).toBe('ChatsCouncilsGraphsModelsToolsAudit');
     expect(screen.getByTestId('agents-tab-chats').getAttribute('aria-current')).toBe('page');
     await waitFor(() => expect(screen.getByRole('main', { name: 'Chats' })).toBeDefined());
   });
@@ -124,6 +125,17 @@ describe('Agents home', () => {
     fireEvent.click(within(screen.getByRole('main', { name: 'Tools' })).getByText('Tools'));
     await waitFor(() => expect(screen.getByText('workflow_gates_list')).toBeDefined(), { timeout: 10_000 });
     expect(screen.queryByText('model_set_spec')).toBeNull();
+  });
+
+  it('switches to Audit and shows the trail the bridge returns', async () => {
+    const list = vi.fn().mockResolvedValue({
+      records: [{ id: 'r1', at: Date.now(), kind: 'council-run', councilId: 'c', runId: 'x', status: 'completed', members: 2, succeeded: 2, synthProvider: 'codex', ms: 5 }],
+      truncated: false,
+    });
+    stubBridge({ agentAudit: { list, export: vi.fn() } });
+    render(<AgentsApp />);
+    fireEvent.click(screen.getByTestId('agents-tab-audit'));
+    await waitFor(() => expect(screen.getByText(/2\/2 members/)).toBeDefined(), { timeout: 10_000 });
   });
 
   it('never asks for a secret value: only `has` is on the bridge it was given', async () => {
