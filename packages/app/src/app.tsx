@@ -125,6 +125,7 @@ import { useSessionExits } from './features/terminal/use-session-exits';
 import { useWorkflowNodeSessions } from './features/terminal/use-workflow-node-sessions';
 import { useWaitingGateToasts } from '@midnite/studio-feature-workflows/renderer';
 import { useCaptureShortcutLanding } from '@midnite/studio-feature-capture/renderer';
+import { useAgentLimitToasts } from '@midnite/studio-feature-mcp-tools/renderer';
 import { RailVersion } from './features/version/rail-version';
 import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
@@ -2122,6 +2123,8 @@ export function App() {
   useWaitingGateToasts(openGraphsView);
   // Phase 113 Theme K — the capture chord fires while any view is up, so its landing lives here too.
   useCaptureShortcutLanding(openCaptureView);
+  // Phase 121 Theme F — a session the breaker paused is announced in the bell, with its three answers.
+  useAgentLimitToasts();
   return (
     <ShellProviders queryClient={appQueryClient}>
       <DialogHost>

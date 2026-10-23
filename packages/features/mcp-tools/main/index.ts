@@ -6,6 +6,7 @@ import {
   type AgentAuditExportRequest,
   type AgentAuditListRequest,
   type AgentAuditListResponse,
+  type AgentLimitResolveRequest,
   type GitOpResult,
   type McpCallEntry,
 } from '@midnite/studio-shared';
@@ -78,7 +79,17 @@ export function createAgentAuditPort(options: {
   };
 }
 
-export type McpToolsMainServices = { server: McpToolsServer; audit?: AgentAuditPort };
+/**
+ * The agent breaker's answer path (Phase 121 Theme F). The breaker itself is the runtime's
+ * (`security/agent-breaker.ts`) and lives where the ptys are (Studio's main); this is the one call the
+ * tripped-limit notification makes back. An app without pty sessions passes none and every answer fails.
+ */
+export type AgentLimitsPort = {
+  /** `false` when the trip is unknown or was already answered. */
+  resolve(request: AgentLimitResolveRequest): Promise<boolean>;
+};
+
+export type McpToolsMainServices = { server: McpToolsServer; audit?: AgentAuditPort; limits?: AgentLimitsPort };
 
 /**
  * A server that is never running and refuses every change — what an app with no
@@ -142,6 +153,17 @@ export const mcpToolsMain = defineFeatureMain<McpToolsMainServices>({
         } catch (error) {
           return failure(error instanceof Error ? error.message : String(error));
         }
+      },
+      (issue) => failure(issue),
+    );
+
+    const { limits } = services;
+    ipc.handle(
+      CHANNELS.agentLimitResolve,
+      schemas.AgentLimitResolveRequest,
+      async (request) => {
+        if (!limits) return failure('This app has no agent sessions to limit.');
+        return (await limits.resolve(request)) ? { ok: true, value: {} } : failure('That limit notification was already answered.');
       },
       (issue) => failure(issue),
     );

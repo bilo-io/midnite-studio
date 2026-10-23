@@ -57,4 +57,21 @@ describe('mcp-tools main', () => {
     expect(await bare.invoke(CHANNELS.agentAuditExport, {})).toMatchObject({ ok: false });
     expect(await bare.invoke(CHANNELS.agentAuditList, { limit: 0 })).toEqual({ records: [], truncated: false });
   });
+
+  it('answers a tripped-limit notification through the limits port (Phase 121 Theme F)', async () => {
+    const resolve = vi.fn(async () => true);
+    const ctx = createRecordingContext();
+    mcpToolsMain.register(ctx, { server: createNoMcpServer(), limits: { resolve } });
+    expect(await ctx.invoke(CHANNELS.agentLimitResolve, { tripId: 't1', action: 'resume' })).toEqual({ ok: true, value: {} });
+    expect(resolve).toHaveBeenCalledWith({ tripId: 't1', action: 'resume' });
+    resolve.mockResolvedValueOnce(false);
+    expect(await ctx.invoke(CHANNELS.agentLimitResolve, { tripId: 't1', action: 'stop' })).toMatchObject({ ok: false });
+    expect(await ctx.invoke(CHANNELS.agentLimitResolve, { tripId: 't1', action: 'nuke' })).toMatchObject({ ok: false });
+  });
+
+  it('fails an answer in an app with no agent sessions', async () => {
+    const ctx = createRecordingContext();
+    mcpToolsMain.register(ctx, { server: createNoMcpServer() });
+    expect(await ctx.invoke(CHANNELS.agentLimitResolve, { tripId: 't1', action: 'resume' })).toMatchObject({ ok: false });
+  });
 });

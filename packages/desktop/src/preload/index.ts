@@ -185,6 +185,7 @@ const bridge: Pick<
   | 'knowledge'
   | 'mcp'
   | 'agentAudit'
+  | 'agentLimits'
   | 'companion'
   | 'capture'
   | 'vanguard'

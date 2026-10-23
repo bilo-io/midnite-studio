@@ -31,6 +31,7 @@ import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 import { configureAgentAudit, recordAudit } from './agent-audit';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
+import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
 import { configureFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
 import { createActivityDetector } from './activity-detect';
@@ -761,6 +762,8 @@ export const startStudioMain: StartStudioMain = () => {
         listTerminals,
         record: recordAudit,
       });
+      // Phase 121 Theme F: the breaker reads the trail the line above feeds and interrupts a session that runs away.
+      startStudioAgentBreaker({ userData, getWindow: getMainWindow });
       void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
@@ -1142,6 +1145,7 @@ export const startStudioMain: StartStudioMain = () => {
 
       void stopVanguardSensors();
       stopAgentCommandAudit?.();
+      stopStudioAgentBreaker();
       disposeChats();
       // The global capture chord is released and clipboard polling stops with the app (Phase 113 Theme K).
       disposeCapture();
