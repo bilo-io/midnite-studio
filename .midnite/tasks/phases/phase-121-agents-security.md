@@ -93,7 +93,7 @@ Scope guardrails:
 
 *Everything a model reads carries where it came from, everything it is allowed to do is a policy
 the user can read, the destructive calls wait for a hand, and every call is on the record.* Born
-from a year in which the coding agent became the attack surface. (0% · 0/51) — **Planned
+from a year in which the coding agent became the attack surface. (10% · 5/51) — **Planned
 2026-10-22.**
 
 **Theme A — Untrusted content wears a tag.** ◻ Attachments, forge bodies, page text and MCP tool
@@ -120,9 +120,7 @@ repos — with a badge, and the same profile for council members and one-shot ru
 **Theme F — Limits and a breaker.** ◻ Per-session rates for tool calls, file writes, pushes and
 spend; a tripped breaker pauses the session and raises a finding.
 
-**Theme G — The audit trail.** ◻ Append-only, redacted NDJSON of every tool call, command, chat
-turn and council run, 0600, with a viewer in Agents and an export; the MCP ring becomes a tail of
-it.
+**Theme G — The audit trail.** ✅ Append-only, redacted NDJSON at `<userData>/security/audit/agents-<yyyy-mm-dd>.ndjson` (UTC days, dir 0700, files 0600), written by `packages/runtime/src/security/agent-audit.ts`: every record is validated against the `shared` schema (an unknown field is stripped, which is how `mcp-call` stays payload-free), run through `redactRecord`, clipped after redaction, and appended through one promise chain whose failures go to the log seam and nowhere else. All nine kinds have their schema and the writer's one `record()` entry point; **real producers landed now for `mcp-call` (the ring, below), `command` (agent-pty keystroke lines, with OSC 133/633 marks trusted when the shell emits them and a heuristic that skips password prompts otherwise), `chat-turn` and `council-run`** — the last two through an injected `audit` dep, so no feature imports another. `policy-decision` and `approval` (B), `install` (H), `limit-trip` (F) and `confine-denial` (E) are schema-only until their themes add producers. The ring is now a tail: `recordMcpCall` writes through the trail and `getMcpCallLog` reads its newest 50 (the old ring holds only calls made before `userData` exists, and moves in). Retention defaults to 90 days because Phase 115 B's setting is not built yet (`retentionDays` takes a number or a thunk, so wiring it is one line; see `outstanding.md`). **For Phase 120 G:** `createAgentAuditReader({ directory })` (or `trail.list/tail/readSince`) is the whole read side: `tail({ kind, limit })`, `list(filter)` and `readSince(cursor)`, which returns complete lines appended after a `{file, offset}` cursor and spans a day rollover. The viewer is an Audit tab in Agents and in Studio's Sessions view (filter by kind, session and time; a row expands to its record), through `CHANNELS.agentAuditList` and a main-side-save-dialog `agentAuditExport`; the view and channels live in the mcp-tools feature, and Studio's Sessions feature takes the pane through its host port.
 
 **Theme H — What an agent installs is checked.** ◻ Install commands and lockfile diffs after a
 turn are checked for registry age, typosquat distance, install scripts and OSV advisories;
@@ -284,7 +282,7 @@ the Agents pairing identity audited.
 
 ### G — The audit trail [M · ~1d]
 
-- [ ] **The writer.** `packages/runtime/src/security/agent-audit.ts`: append-only NDJSON per day
+- [x] **The writer.** `packages/runtime/src/security/agent-audit.ts`: append-only NDJSON per day
       under `<userData>/security/audit/agents-<yyyy-mm-dd>.ndjson`, dir 0700, file 0600, every
       record through `redactRecord`. Record kinds: `mcp-call` (tool, repoPath, duration, ok —
       no payloads, the ring's rule), `command` (an agent pty's command line, from OSC 133 prompt
@@ -292,13 +290,13 @@ the Agents pairing identity audited.
       model, thread id, provenance summary, redaction count), `council-run`, `policy-decision`
       (Theme B), `approval` (who, when, which rule), `install` (Theme H), `limit-trip` (Theme F),
       `confine-denial` (Theme E). Retention from Phase 115 B's setting. [M]
-- [ ] **The ring becomes a tail.** [`audit.ts`](../../../packages/desktop/src/main/mcp/audit.ts)'s
+- [x] **The ring becomes a tail.** [`audit.ts`](../../../packages/desktop/src/main/mcp/audit.ts)'s
       `recordMcpCall` writes through the trail; `listMcpCalls` reads the last 50 from it, so the
       Tools view changes nothing. [S]
-- [ ] **The viewer.** An Audit tab in the Agents app and in Studio's Sessions view: filter by
+- [x] **The viewer.** An Audit tab in the Agents app and in Studio's Sessions view: filter by
       session, kind, time; a row expands to its record; "Export" writes a redacted NDJSON to a
       path the user picks. Through `CHANNELS.agentAuditList`. [M]
-- [ ] **Tests.** Every record kind round-trips; a vault token in a command line is redacted on
+- [x] **Tests.** Every record kind round-trips; a vault token in a command line is redacted on
       disk; the file mode; the ring's view equals the trail's tail. [S]
 
 ### H — What an agent installs is checked [M · ~1d]
@@ -369,7 +367,7 @@ the Agents pairing identity audited.
 - [ ] **E:** on `gate-native`, the generated profile confines a shell as the tests describe; the
       session shows the badge.
 - [ ] **F:** a 121-call minute trips; 119 does not.
-- [ ] **G:** every record kind round-trips redacted; the Tools view's last-50 equals the trail's
+- [x] **G:** every record kind round-trips redacted; the Tools view's last-50 equals the trail's
       tail; `stat` shows 0700/0600.
 - [ ] **H:** the fixture typosquat and the 2-day-old package each yield their severity; the
       injected `SKILL.md` shows the warning glyph in the picker.
@@ -404,3 +402,6 @@ the Agents pairing identity audited.
 8. **Open: does Theme H's registry-age check need a network call per install?** Recommendation:
    yes, one `GET` to the registry's metadata endpoint per new package, behind a Phase 115 switch,
    cached for a day; without it the age check is skipped and the finding says so.
+9. **The trail's retention is 90 days until Phase 115 B exists.** *Decided with Theme G.* Phase 115 B's "Keep local history" select is not built, so the writer takes `retentionDays` (a number or a function) and defaults to 90; when B lands it passes its setting in. Recorded in `outstanding.md`.
+10. **Agents keeps its own trail.** *Decided with Theme G.* Each app writes under its own `userData`, so Agents' Audit tab shows its chat turns and council runs, and Studio's shows the terminal commands and MCP calls too. Phase 120 G (Vanguard) reads Studio's directory by path; nothing is shared between the two trails.
+11. **A heuristic command line can be a prompt, not a command.** *Decided with Theme G.* With no OSC marks the tracker cannot tell a shell command from text typed into an agent CLI's own prompt; both are logged as `source: 'heuristic'`, redacted like everything else, and the row says so. A password-style prompt in the last output suppresses the line.
