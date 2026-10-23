@@ -199,10 +199,20 @@ The full-scan confirm no longer quotes a number: it says a scan can take a long 
 Findings are `malware`, fingerprinted by rule and path (yara and the matcher dedupe), with a quarantine
 action that Theme H implements.
 
-**Theme G — Rogue agent behaviour.** ◻ Vanguard subscribes to Phase 121's audit trail and raises
-findings for the behaviours a compromised agent shows: reads under `~/.ssh`/`~/.aws`, `curl | sh`
-shapes, writes outside the scope jail, git writes that bypass the write queue, bursts past the rate
-limits, a persistence item appearing while a session is live.
+**Theme G — Rogue agent behaviour.** ✅ Vanguard now reads the agent audit trail (Phase 121 G) read-only and
+flags what a compromised agent looks like, in `features/vanguard/main/rogue-rules.ts`: each rule is a pure
+function over a window of trail records. A command line or sandbox refusal naming `~/.ssh`, `~/.aws`,
+`~/.gnupg`, `~/Library/Keychains`, a vault file or `~/.claude.json` is `high`; a redirect or copy out of the
+session's roots is `high`; `git push --force`, `reset --hard`, `clean -fdx`, a branch delete or a history
+rewrite typed into an agent terminal is `high` (the app's own git ops never show up as pty commands, so
+anything in the trail is outside the write queue by construction); `security find-generic-password` or
+`find-internet-password` is `critical`; a persistence item or new outbound host first seen while a session was
+live and active is `high`, with the session named in the evidence. The burst rule consumes Phase 121 F's
+`limit-trip` records rather than counting again, and holds each one a pass so it never doubles the breaker's own
+finding. A `critical` finding pauses its session through the same Ctrl+C write F's breaker and Theme H's
+`pause-session` use, then every window shows a resume-or-kill modal; Settings ▸ Vanguard ▸ Agent auto-pause has
+one switch per severity, on for `critical` only. The broker output stream is not read here (see outstanding):
+commands already reach the trail as records.
 
 **Theme H — Response and quarantine.** ✅ Every finding's remediation buttons now do something. Eight of
 the ten actions are built in `packages/features/vanguard/main/actions.ts`: pause the session (Ctrl-C to its
@@ -398,10 +408,10 @@ so Verification H's second half is still open. Screenshots in `docs/screenshots/
 
 ### G — Rogue agent behaviour [M · ~1d]
 
-- [ ] **Subscribe to the trail.** Vanguard's main half tails Phase 121 G's audit NDJSON (the
+- [x] **Subscribe to the trail.** Vanguard's main half tails Phase 121 G's audit NDJSON (the
       runtime's `security/agent-audit.ts` reader, shared with the Guard loop) and the broker output
       stream for agent ptys; both are read-only. [S]
-- [ ] **Behaviour rules.** Each a pure function over a window of trail records returning findings:
+- [x] **Behaviour rules.** Each a pure function over a window of trail records returning findings:
       a read under `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/Library/Keychains`, the suite's vault files or
       `~/.claude.json` (`high`); a write outside the session's scope jail (`high`); a `git push
       --force`, `git reset --hard`, `git clean -fdx`, branch delete or history rewrite not issued
@@ -409,12 +419,12 @@ so Verification H's second half is still open. Screenshots in `docs/screenshots/
       `security find-generic-password`/`find-internet-password` call (`critical`); a burst past
       Phase 121 F's limits (`medium`); a persistence item (Theme D) or new outbound host (Theme E)
       appearing while a session is live, correlated by time (`high`, evidence names the session). [M]
-- [ ] **Auto-pause.** A `critical` agent finding sends the interrupt byte to the session's pty
+- [x] **Auto-pause.** A `critical` agent finding sends the interrupt byte to the session's pty
       (the `INTERRUPT` [`use-loop-session.ts`](../../../packages/app/src/features/loops/use-loop-session.ts)
       already sends, now from main through the broker) and raises a modal in every suite window;
       the user resumes or kills. Opt-out per severity in Settings ▸ Vanguard, default on for
       `critical` only. [S]
-- [ ] **Tests.** A trail fixture for each rule; a benign trail (a normal `/midnite-create` run) yields
+- [x] **Tests.** A trail fixture for each rule; a benign trail (a normal `/midnite-create` run) yields
       nothing; auto-pause writes the interrupt and nothing else. [S]
 
 ### H — Response and quarantine [M · ~1d]
