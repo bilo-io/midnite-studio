@@ -88,6 +88,19 @@ export function commandWords(command: string): string[] {
   return words;
 }
 
+const PREFIX_WORDS = new Set(['sudo', 'env', 'command', 'time', 'exec', 'nice', 'nohup']);
+
+/** Index of the word that is the command itself: past env assignments (`A=1`) and wrappers such as `sudo`. */
+function commandIndex(words: readonly string[]): number {
+  let i = 0;
+  while (i < words.length) {
+    const w = words[i] as string;
+    if (PREFIX_WORDS.has(w) || /^[A-Za-z_]\w*=/.test(w) || (w.startsWith('-') && i > 0)) i += 1;
+    else break;
+  }
+  return i < words.length ? i : -1;
+}
+
 const SEPARATORS = new Set([';', '|', '&', '(', ')']);
 
 /** The simple commands of a line: the words between separators. */
@@ -182,18 +195,24 @@ const SCRATCH = ['/tmp', '/private/tmp', '/var/folders', '/private/var/folders',
 
 function writeTargets(words: readonly string[]): string[] {
   const targets: string[] = [];
-  for (let i = 0; i < words.length; i += 1) if (words[i] === '>' && words[i + 1] !== undefined) targets.push(words[i + 1] as string);
-  const cmd = words.findIndex((w) => !w.includes('=') && w !== 'sudo' && w !== 'env' && w !== 'command' && !w.startsWith('-'));
+  const rest: string[] = [];
+  for (let i = 0; i < words.length; i += 1) {
+    if (words[i] === '>') {
+      if (words[i + 1] !== undefined) targets.push(words[i + 1] as string);
+      i += 1;
+    } else rest.push(words[i] as string);
+  }
+  const cmd = commandIndex(rest);
   if (cmd === -1) return targets;
-  const name = posix.basename(words[cmd] as string);
-  const args = words.slice(cmd + 1).filter((w) => w !== '>' && !w.startsWith('-') && words[words.indexOf(w) - 1] !== '>');
+  const name = posix.basename(rest[cmd] as string);
+  const args = rest.slice(cmd + 1).filter((w) => !w.startsWith('-'));
   if (name === 'tee' || name === 'rm' || name === 'touch' || name === 'mkdir' || name === 'rmdir' || name === 'truncate') targets.push(...args);
   else if (name === 'cp' || name === 'mv' || name === 'ln' || name === 'install') {
     const last = args[args.length - 1];
     if (last !== undefined) targets.push(last);
     if (name === 'mv') targets.push(...args.slice(0, -1));
   } else if (name === 'dd') {
-    for (const w of words) if (w.startsWith('of=')) targets.push(w.slice(3));
+    for (const w of rest) if (w.startsWith('of=')) targets.push(w.slice(3));
   }
   return targets;
 }
@@ -203,10 +222,10 @@ export const writeOutsideScopeRule: RogueRule = (records, context) => {
   const out: RogueFinding[] = [];
   for (const record of records) {
     if (!record.sessionId) continue;
-    const roots = [
-      ...context.scopeRoots(record.sessionId),
-      ...(record.kind === 'command' && record.cwd ? [record.cwd] : []),
-    ].map((root) => posix.normalize(expandHome(root, context.homeDir)));
+    // The jail is the session's own roots. The record's cwd stands in only when none are known: a cwd the agent
+    // `cd`-ed into must not widen the jail.
+    const known = context.scopeRoots(record.sessionId);
+    const roots = (known.length > 0 ? known : record.kind === 'command' && record.cwd ? [record.cwd] : []).map((root) => posix.normalize(expandHome(root, context.homeDir)));
     if (roots.length === 0) continue;
     const outside = new Set<string>();
     const consider = (target: string, cwd: string | undefined): void => {
@@ -264,9 +283,9 @@ export function destructiveGit(words: readonly string[]): string | null {
     case 'clean':
       return (cluster('f') || long('force')) && (cluster('d') || cluster('x') || long('force')) ? 'git clean -fdx' : null;
     case 'branch':
-      return cluster('D') || cluster('d') || long('delete') ? 'a git branch delete' : null;
+      return flags.some((f) => /^-[dDf]+$/.test(f) && /[dD]/.test(f)) || long('delete') ? 'a git branch delete' : null;
     case 'rebase':
-      return 'a git rebase (history rewrite)';
+      return long('abort') || long('continue') || long('skip') || long('quit') ? null : 'a git rebase (history rewrite)';
     case 'commit':
       return long('amend') ? 'git commit --amend (history rewrite)' : null;
     case 'filter-branch':
@@ -288,8 +307,8 @@ export const destructiveGitRule: RogueRule = (records) => {
     if (record.kind !== 'command' || !record.sessionId) continue;
     const seen = new Set<string>();
     for (const words of segments(record.command)) {
-      const at = words.findIndex((w) => w === 'git' || w.endsWith('/git'));
-      if (at === -1) continue;
+      const at = commandIndex(words);
+      if (at === -1 || !/(^|\/)git$/.test(words[at] as string)) continue;
       const what = destructiveGit(words.slice(at));
       if (what === null || seen.has(what)) continue;
       seen.add(what);
@@ -311,13 +330,19 @@ export const destructiveGitRule: RogueRule = (records) => {
 
 // --- rule: reading a stored password -----------------------------------------------------------------
 
-const KEYCHAIN_PASSWORD = /\bsecurity\b(?:\s+-\S+)*\s+find-(?:generic|internet)-password\b/;
+const KEYCHAIN_SUBCOMMAND = /^find-(?:generic|internet)-password$/;
+
+const asksKeychain = (command: string): boolean =>
+  segments(command).some((words) => {
+    const at = commandIndex(words);
+    return at !== -1 && /(^|\/)security$/.test(words[at] as string) && words.slice(at + 1).some((w) => KEYCHAIN_SUBCOMMAND.test(w));
+  });
 
 /** `security find-generic-password` or `find-internet-password`: an agent asking the keychain for a secret. */
 export const keychainPasswordRule: RogueRule = (records) => {
   const out: RogueFinding[] = [];
   for (const record of records) {
-    if (record.kind !== 'command' || !record.sessionId || !KEYCHAIN_PASSWORD.test(record.command)) continue;
+    if (record.kind !== 'command' || !record.sessionId || !asksKeychain(record.command)) continue;
     out.push({
       rule: 'keychain-password',
       severity: 'critical',

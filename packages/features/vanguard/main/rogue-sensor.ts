@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+
 import type { AgentAuditCursor, AgentAuditRecord, SecurityFinding } from '@midnite/studio-shared';
 
 import type { IntegrityLiveSession } from './integrity/attribution';
@@ -69,7 +71,7 @@ export function createRogueAgentSensor(deps: RogueSensorDeps): SensorDefinition 
       const trips = held;
       held = read.records.filter((r) => r.kind === 'limit-trip');
       const fresh = read.records.filter((r) => r.kind !== 'limit-trip');
-      const homeDir = ctx.homeDir ?? '';
+      const homeDir = ctx.homeDir ?? homedir();
       const findings: RogueFinding[] = evaluateRogueRules([...fresh, ...trips], {
         homeDir,
         scopeRoots: (sessionId) => roots.get(sessionId) ?? [],
@@ -90,8 +92,13 @@ export function createRogueAgentSensor(deps: RogueSensorDeps): SensorDefinition 
       let raised = 0;
       for (const finding of findings) {
         if (finding.rule === 'limit-burst' && open.has(finding.fingerprint)) continue;
-        await raise(ctx, finding);
-        raised += 1;
+        // One failure (a ledger write, the pause) must not drop the rest of a batch the cursor has already passed.
+        try {
+          await raise(ctx, finding);
+          raised += 1;
+        } catch (error) {
+          ctx.log('error', `rogue agent finding not recorded: ${String(error)}`);
+        }
       }
       return { findings: raised };
     },

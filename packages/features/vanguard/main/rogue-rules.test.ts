@@ -159,6 +159,34 @@ describe('correlated-change', () => {
   });
 });
 
+describe('review fixes', () => {
+  it('does not flag a command that only mentions a dangerous one', () => {
+    expect(
+      rules([
+        cmd('git commit -m "docs: security find-generic-password usage"'),
+        cmd("grep -r 'security find-internet-password' docs/"),
+        cmd('echo git push -f'),
+        cmd('git rebase --abort'),
+        cmd('git rebase --continue'),
+        cmd('git branch --sort=-committerdate'),
+        cmd('git branch -vv'),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('still catches the real thing behind sudo or an env prefix', () => {
+    expect(rules([cmd('sudo security find-generic-password -w'), cmd('GIT_PAGER=cat git reset --hard')])).toEqual(['destructive-git', 'keychain-password']);
+  });
+
+  it('a cwd the agent moved into does not widen the jail', () => {
+    expect(rules([cmd('echo x > ./authorized_keys', { cwd: '/Users/me/.ssh' })])).toContain('write-outside-scope');
+  });
+
+  it('a repeated word does not confuse a redirect target', () => {
+    expect(rules([cmd('cp a a > /Users/me/out.txt')])).toContain('write-outside-scope');
+  });
+});
+
 describe('a benign /midnite-create run', () => {
   it('yields nothing', () => {
     const run = [

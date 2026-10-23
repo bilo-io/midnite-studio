@@ -6,9 +6,12 @@ import { LuOctagonAlert } from 'react-icons/lu';
 /**
  * The auto-pause modal (Phase 120 Theme G), mounted once from the app root so it appears whichever view is up.
  * Main has already interrupted the session by the time this shows; the user picks **Resume** (carry on) or
- * **Kill session**. Main sends it to every window, so the first answer wins and the rest see it go (a stale
- * answer resolves `false` and the modal closes anyway: it would only lie).
+ * **Kill session**. Main sends it to every window; the first answer wins, and a later one from another
+ * window resolves `false` (main no longer knows the prompt) and just closes that window's modal.
  */
+/** Escape and the backdrop do nothing: a paused critical finding is answered with a button, never by accident. */
+const noDismiss = (): void => undefined;
+
 export function AgentPauseModal() {
   const [queue, setQueue] = useState<AgentPausePrompt[]>([]);
   useEffect(() => {
@@ -27,7 +30,7 @@ export function AgentPauseModal() {
   };
 
   return (
-    <FrameModal open={prompt !== undefined} onClose={() => answer('resume')} title="An agent was paused" size="sm" role="alertdialog" scope="window" testId="agent-pause-modal">
+    <FrameModal open={prompt !== undefined} onClose={noDismiss} title="An agent was paused" size="sm" role="alertdialog" scope="window" testId="agent-pause-modal">
       {prompt ? (
         <div className="flex flex-col gap-3 p-4">
           <div className="flex items-center gap-2 text-sm font-medium">

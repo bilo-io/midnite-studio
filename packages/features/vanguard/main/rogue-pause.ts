@@ -21,6 +21,8 @@ export interface AutoPauseDeps {
   /** Show the modal in every window. */
   announce: (prompt: AgentPausePrompt) => void;
   now?: () => number;
+  /** How long an unanswered prompt holds its session before a new finding may pause it again. Default 10 min. */
+  latchMs?: number;
   onError?: (error: unknown) => void;
 }
 
@@ -40,11 +42,17 @@ export interface AutoPause {
 export function createAutoPause(deps: AutoPauseDeps): AutoPause {
   const now = deps.now ?? Date.now;
   const open = new Map<string, AgentPausePrompt>();
-  const sessionOpen = new Set<string>();
+  const latchMs = deps.latchMs ?? 600_000;
+  /** session id -> its open prompt's id. */
+  const sessionOpen = new Map<string, string>();
   return {
     async onFinding(finding) {
-      if (!deps.severities().includes(finding.severity) || sessionOpen.has(finding.sessionId)) return null;
-      sessionOpen.add(finding.sessionId);
+      if (!deps.severities().includes(finding.severity)) return null;
+      const held = sessionOpen.get(finding.sessionId);
+      const heldPrompt = held === undefined ? undefined : open.get(held);
+      // An unanswered prompt (no window was open, or it was ignored) must not leave the session unwatched forever.
+      if (heldPrompt && now() - heldPrompt.at <= latchMs) return null;
+      if (held !== undefined) open.delete(held);
       let interrupted = false;
       try {
         interrupted = await deps.interrupt(finding.sessionId);
@@ -61,6 +69,7 @@ export function createAutoPause(deps: AutoPauseDeps): AutoPause {
         at: now(),
       };
       open.set(prompt.id, prompt);
+      sessionOpen.set(finding.sessionId, prompt.id);
       try {
         deps.announce(prompt);
       } catch (error) {
@@ -72,7 +81,7 @@ export function createAutoPause(deps: AutoPauseDeps): AutoPause {
       const prompt = open.get(id);
       if (!prompt) return false;
       open.delete(id);
-      sessionOpen.delete(prompt.sessionId);
+      if (sessionOpen.get(prompt.sessionId) === id) sessionOpen.delete(prompt.sessionId);
       if (action === 'kill') {
         try {
           await deps.kill?.(prompt.sessionId);

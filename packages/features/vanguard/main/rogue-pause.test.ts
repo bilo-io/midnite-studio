@@ -57,6 +57,18 @@ describe('auto-pause', () => {
     expect(kill).toHaveBeenCalledExactlyOnceWith('s1');
   });
 
+  it('an unanswered prompt re-arms its session after the latch', async () => {
+    let t = 0;
+    const interrupt = vi.fn(async () => true);
+    const pause = createAutoPause({ severities: () => ['critical'], interrupt, announce: vi.fn(), now: () => t, latchMs: 1000 });
+    await pause.onFinding(finding('critical'));
+    t = 500;
+    expect(await pause.onFinding(finding('critical'))).toBeNull();
+    t = 2000;
+    expect(await pause.onFinding(finding('critical'))).not.toBeNull();
+    expect(interrupt).toHaveBeenCalledTimes(2);
+  });
+
   it('says so when the session could not be reached', async () => {
     const announce = vi.fn();
     const pause = createAutoPause({ severities: () => ['critical'], interrupt: async () => false, announce });
