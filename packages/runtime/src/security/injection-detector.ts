@@ -9,7 +9,8 @@
  * the weights combine as a noisy-or so no pile of weak hits becomes certain.
  *
  * Pure and synchronous: no I/O, no `electron`, never throws. Chats and Councils reach it through
- * the `security.scanContent` IPC op; Theme C consumes it by injection (`McpDescriptionScanner`).
+ * the `security.scanContent` IPC op; Theme C consumes it by injection (`InjectionScorer` in `mcp-poison.ts`), with
+ * `discountContext: false` because a tool description is the attacker's own text.
  */
 
 export type InjectionSignalId =
@@ -110,9 +111,20 @@ function quoted(text: string, start: number, end: number): boolean {
 
 const inside = (ranges: ReadonlyArray<[number, number]>, start: number, end: number): boolean => ranges.some(([a, b]) => start >= a && end <= b);
 
+export type ScoreInjectionOptions = {
+  /**
+   * `false` scores a match inside a code span, fence or quotation marks at full weight. The default `true` is
+   * for documents, where a quoted phrase is usually a document quoting an attack rather than making one; an
+   * MCP tool description is model-facing text the server's author controls outright, so its consumer (Theme
+   * C's `checkMcpTools`) turns the discount off, or quoting the instruction would be the evasion.
+   */
+  discountContext?: boolean;
+};
+
 /** Scans `text`. Never throws; an unscannable value scores 0. */
-export function scoreInjection(text: string): InjectionScan {
+export function scoreInjection(text: string, options: ScoreInjectionOptions = {}): InjectionScan {
   if (typeof text !== 'string' || text === '') return { score: 0, signals: [] };
+  const discountContext = options.discountContext ?? true;
   const scanned = text.length > MAX_SCAN_CHARS ? text.slice(0, MAX_SCAN_CHARS) : text;
   let code: Array<[number, number]> | null = null;
   const signals: InjectionSignal[] = [];
@@ -123,7 +135,7 @@ export function scoreInjection(text: string): InjectionScan {
     for (const m of scanned.matchAll(rule.pattern)) {
       if (m[0] === '') continue;
       const range: [number, number] = [m.index, m.index + m[0].length];
-      if (rule.structural) outsideCode = true;
+      if (rule.structural || !discountContext) outsideCode = true;
       else {
         code ??= codeRanges(scanned);
         if (!inside(code, range[0], range[1]) && !quoted(scanned, range[0], range[1])) outsideCode = true;

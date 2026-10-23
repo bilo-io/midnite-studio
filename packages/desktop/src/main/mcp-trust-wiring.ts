@@ -28,7 +28,9 @@ export function configureMcpTrust(userData: string, raiseFinding: (finding: NewS
       store,
       discovery: { home: homedir(), readFile: (path) => readFile(path, 'utf8').catch(() => null) },
       raiseFinding,
-      scoreText: scoreInjection,
+      // No quoted/code discount: a description is the server author's own text, so quoting the instruction
+      // must not score it lower.
+      scoreText: (text) => scoreInjection(text, { discountContext: false }),
       scoreThreshold: INJECTION_THRESHOLD,
       onError: (error) => defaultLogger.warn(`mcp trust: ${String(error)}`),
     }),

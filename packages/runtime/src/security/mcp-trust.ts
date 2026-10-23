@@ -200,8 +200,8 @@ export type McpTrustOptions = {
   /** Read-only discovery seams; the composer fills `home`, `readFile` and Phase 115 F's switch. */
   discovery: Omit<DiscoverOptions, 'repoPath'>;
   /**
-   * Theme A's injection detector, injected: `scoreInjection` and `INJECTION_THRESHOLD` once that theme is in.
-   * Absent, the pattern checks alone run.
+   * Theme A's injection detector, injected: Studio passes `scoreInjection` with `discountContext: false` and
+   * `INJECTION_THRESHOLD` (`desktop/src/main/mcp-trust-wiring.ts`). Absent, the pattern checks alone run.
    */
   scoreText?: InjectionScorer | undefined;
   scoreThreshold?: number | undefined;

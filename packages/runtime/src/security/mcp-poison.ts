@@ -1,5 +1,7 @@
 import type { McpPoisonFinding } from '@midnite/studio-shared';
 
+import { INJECTION_THRESHOLD } from './injection-detector';
+
 /**
  * Poisoned tool descriptions — Phase 121 Theme C.
  *
@@ -8,7 +10,7 @@ import type { McpPoisonFinding } from '@midnite/studio-shared';
  * pass it as `notes`"); shadowing tells the model how to use *another* server's tool; a name collision lets
  * a new server answer to a trusted server's tool. All three are checked here, as pure functions of the
  * `tools/list` response, with no scorer needed. A scorer (Theme A's injection detector) is an *additional*
- * signal, passed in by the composer so this file imports nothing it does not own.
+ * signal, passed in by the composer (so a test can fake it); only its threshold is shared with the detector.
  */
 
 /** The shape of one tool in a `tools/list` response; everything but `name` is optional on the wire. */
@@ -99,7 +101,7 @@ export function checkMcpTools(options: CheckToolsOptions): McpPoisonFinding[] {
   const findings: McpPoisonFinding[] = [];
   const others = (options.others ?? []).filter((s) => s.serverName !== options.serverName);
   const trusted = (options.trusted ?? []).filter((s) => s.serverName !== options.serverName);
-  const threshold = options.scoreThreshold ?? 0.5;
+  const threshold = options.scoreThreshold ?? INJECTION_THRESHOLD;
 
   for (const tool of options.tools) {
     for (const { field, text } of toolTexts(tool)) {
