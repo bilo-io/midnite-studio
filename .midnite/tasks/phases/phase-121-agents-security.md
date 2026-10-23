@@ -111,8 +111,9 @@ servers" card in the Tools view with a diff and Approve; a held server (an instr
 cross-server reference or a name collision with a trusted server) raises a `supply-chain` finding and
 cannot be approved. Chats refuse a turn in a repo with an unapproved server, and Vanguard's
 `revoke-mcp-server` now clears the entry. The `midnite` server's manifest is pinned by a checked-in hash
-file. Not done yet: Theme A's detector is injected but not wired, and nothing starts a third-party server
-to read its tools (see `outstanding.md`).
+file, and Theme A's detector scores every description (quoted-text discount off, since the author of the
+description is the one quoting). Not done yet: nothing starts a third-party server to read its tools (see
+`outstanding.md`).
 
 **Theme D — Secrets do not leave with the prompt.** ◻ `SECRET_PATTERNS` applied to outbound
 transcripts; agent ptys inherit no vault value; canary values in the vault that raise a finding
