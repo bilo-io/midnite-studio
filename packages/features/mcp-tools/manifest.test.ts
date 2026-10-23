@@ -16,13 +16,13 @@ describe('mcp-tools manifest', () => {
     expect(mcpToolsManifest.views).toEqual([]);
   });
 
-  it('names the three mcp channels, the two agent-audit channels and the breaker answer', () => {
+  it('names the three mcp channels, the two agent-audit channels, the breaker answer and the two MCP trust channels', () => {
     const known = new Set<string>(Object.values(CHANNELS));
     for (const channel of mcpToolsManifest.ipc) {
       expect(known.has(channel), channel).toBe(true);
-      expect(channel).toMatch(/^mstudio:(mcp|agent-audit|agent-limits):/);
+      expect(channel).toMatch(/^mstudio:(mcp|agent-audit|agent-limits|mcp-trust):/);
     }
-    expect(mcpToolsManifest.ipc).toHaveLength(6);
+    expect(mcpToolsManifest.ipc).toHaveLength(8);
     expect(mcpToolsManifest.events).toEqual([EVENT_CHANNELS.agentLimitTripped]);
   });
 });

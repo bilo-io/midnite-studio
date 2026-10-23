@@ -806,3 +806,15 @@ The breaker reads `<userData>/security/agent-limits.json` (`{ "defaults": {...},
 ## Phase 120 · Theme G — broker output stream, the modal outside Studio, queue envelopes
 
 The rogue-agent sensor reads the audit trail only. The broker's pty output stream (`agentPtyOutputSource`, already wired for the paste sensor) is not consumed: typed commands reach the trail as `command` records, and nothing in output is judged yet, so there is nothing for a second subscription to add. Revisit if a rule needs what a command printed. The auto-pause modal is mounted by Studio's app root only; `apps/vanguard` has no agent ptys and `apps/browser` and the other suite windows do not mount it, so "every suite window" means every Studio window today (the event is broadcast to all of them). The write-outside-scope and secret-path rules read command text and sandbox refusals, not file contents or tool arguments, since the trail holds neither; a read through an agent's built-in tool never shows. The destructive-git rule has no write-queue envelope to check because the queue's ops never reach the trail.
+
+## Phase 121 · Theme C — follow-ups
+
+- **Wire Theme A's injection detector.** `createMcpTrust` takes `scoreText` / `scoreThreshold` by injection (`runtime/src/security/mcp-poison.ts`). Once Theme A's `scoreInjection` and `INJECTION_THRESHOLD` are on `main`, pass them in `desktop/src/main/mcp-trust-wiring.ts`: a one-line change.
+- **Nothing starts a third-party MCP server yet**, so nothing calls `McpTrust.observeTools` and the tools hash and the poisoned-description checks only run once a caller does (executing a repo-supplied command is the very risk this theme guards). Until then servers show `new` / `config-changed` from the config hash alone.
+- **Phase 115 Theme F's switch for reading agent config** is not on `main`; discovery takes an `allowConfigRead` seam that the composer leaves at "on".
+- **Councils are not gated.** They run in the home directory with no repo, so they have no `repoId` to key an allowlist entry; only Chats refuse a turn (`mcpGate`). User-level servers that change after approval do gate Chats.
+- Trust entries are not cleaned when a repo is closed or a server removed from its config.
+
+- **The Chats gate discovers against the repo's primary checkout**, but an edit-mode chat runs in its own worktree whose `.mcp.json` can differ; pass the run's cwd to discovery.
+- **Allowlist keys use the display name.** A same-named server in a lower-precedence file is listed as `name (source)`, so removing the higher-precedence file renames it and drops its approval; key by source plus name instead.
+- **`status()` re-reads the config files on every poll** (15 s in the Tools view); cache by mtime if it shows up in a profile.

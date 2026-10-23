@@ -5342,6 +5342,9 @@ export {
 // Agent limits and the breaker's toast answer (Phase 121 Theme F).
 export { AgentLimitResolveRequest } from '../agent-limits';
 
+// MCP trust: the allowlist's list and approve (Phase 121 Theme C).
+export { McpTrustApproveRequest, McpTrustListRequest, McpTrustListResponse } from '../mcp-trust';
+
 // Security findings (Phase 120 Theme A).
 export * from './security-findings';
 

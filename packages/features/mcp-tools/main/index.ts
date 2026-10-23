@@ -9,6 +9,8 @@ import {
   type AgentLimitResolveRequest,
   type GitOpResult,
   type McpCallEntry,
+  type McpServerStatus,
+  type McpTrustApproveRequest,
 } from '@midnite/studio-shared';
 import type { z } from 'zod';
 
@@ -89,7 +91,18 @@ export type AgentLimitsPort = {
   resolve(request: AgentLimitResolveRequest): Promise<boolean>;
 };
 
-export type McpToolsMainServices = { server: McpToolsServer; audit?: AgentAuditPort; limits?: AgentLimitsPort };
+/**
+ * The MCP allowlist's two calls (Phase 121 Theme C). The allowlist itself is the runtime's
+ * (`security/mcp-trust.ts`); the composer resolves a repo id to its checkout, owns `userData`, and passes the
+ * ledger and (once Theme A lands) the injection scorer in. An app with no repositories passes none.
+ */
+export type McpTrustPort = {
+  /** Every server the repo's agents will load, each with its verdict and diff. */
+  list(repoId: string): Promise<GitOpResult<{ servers: McpServerStatus[] }>>;
+  approve(request: McpTrustApproveRequest): Promise<GitOpResult<Record<string, never>>>;
+};
+
+export type McpToolsMainServices = { server: McpToolsServer; audit?: AgentAuditPort; limits?: AgentLimitsPort; trust?: McpTrustPort };
 
 /**
  * A server that is never running and refuses every change — what an app with no
@@ -150,6 +163,34 @@ export const mcpToolsMain = defineFeatureMain<McpToolsMainServices>({
         if (!audit) return failure('This app keeps no audit trail.');
         try {
           return await audit.exportTo(request);
+        } catch (error) {
+          return failure(error instanceof Error ? error.message : String(error));
+        }
+      },
+      (issue) => failure(issue),
+    );
+
+    const { trust } = services;
+    ipc.handle(
+      CHANNELS.mcpTrustList,
+      schemas.McpTrustListRequest,
+      async (request) => {
+        if (!trust) return { ok: true, value: { servers: [] } };
+        try {
+          return await trust.list(request.repoId);
+        } catch (error) {
+          return failure(error instanceof Error ? error.message : String(error));
+        }
+      },
+      (issue) => failure(issue),
+    );
+    ipc.handle(
+      CHANNELS.mcpTrustApprove,
+      schemas.McpTrustApproveRequest,
+      async (request) => {
+        if (!trust) return failure('This app has no repositories to approve MCP servers for.');
+        try {
+          return await trust.approve(request);
         } catch (error) {
           return failure(error instanceof Error ? error.message : String(error));
         }

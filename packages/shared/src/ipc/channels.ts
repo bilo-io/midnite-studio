@@ -1432,6 +1432,10 @@ export const CHANNELS = {
   agentAuditExport: 'mstudio:agent-audit:export',
   /** The user's answer on a tripped-limit notification: resume, stop or raise the limit (Phase 121 Theme F). */
   agentLimitResolve: 'mstudio:agent-limits:resolve',
+  /** The MCP servers a repo's agents will load, each with its trust verdict and diff (Phase 121 Theme C). */
+  mcpTrustList: 'mstudio:mcp-trust:list',
+  /** Approves one server's current config (and observed tools) into the allowlist. */
+  mcpTrustApprove: 'mstudio:mcp-trust:approve',
 
   // --- the companion's grounding (Phase 79 Theme B) ---------------------------
   // Two invoke channels, both read-only, both *composed* in main out of the

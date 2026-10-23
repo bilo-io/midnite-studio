@@ -105,9 +105,16 @@ scores the text and shows a banner; the tag is a field on the wire, not a conven
 patch path; an approval card for destructive git, file and network operations; a hook template the
 user installs for the CLIs.
 
-**Theme C — MCP servers are trusted by hash, not by name.** ◻ An allowlist per repo with each
-server's tool descriptions pinned at approval; a changed description, a hidden instruction in one,
-or a tool shadowing another server's name re-asks before the server is used.
+**Theme C — MCP servers are trusted by hash, not by name.** ✅ Discovery reads the five config files
+read-only (a small TOML reader for Codex's), and `<userData>/security/mcp-trust.json` pins per
+`(repoId, serverName)` a SHA-256 of the canonicalised entry plus, once a `tools/list` has been seen, a
+hash of that. New, edited (MCPoison), changed-tools (rug-pull) and held servers show in a new "MCP
+servers" card in the Tools view with a diff and Approve; a held server (an instructing description, a
+cross-server reference or a name collision with a trusted server) raises a `supply-chain` finding and
+cannot be approved. Chats refuse a turn in a repo with an unapproved server, and Vanguard's
+`revoke-mcp-server` now clears the entry. The `midnite` server's manifest is pinned by a checked-in hash
+file. Not done yet: Theme A's detector is injected but not wired, and nothing starts a third-party server
+to read its tools (see `outstanding.md`).
 
 **Theme D — Secrets do not leave with the prompt.** ◻ `SECRET_PATTERNS` applied to outbound
 transcripts; agent ptys inherit no vault value; canary values in the vault that raise a finding
@@ -195,25 +202,25 @@ the Agents pairing identity audited.
 
 ### C — MCP servers are trusted by hash, not by name [M · ~1d]
 
-- [ ] **Discovery, read-only.** The servers a repo's agents will load: `<repo>/.mcp.json`,
+- [x] **Discovery, read-only.** The servers a repo's agents will load: `<repo>/.mcp.json`,
       `~/.claude.json`'s `mcpServers`, `~/.codex/config.toml`'s `mcp_servers`, `.cursor/mcp.json`,
       `.vscode/mcp.json`. Read with Phase 115 F's switch honoured; never written. [S]
-- [ ] **The allowlist.** `<userData>/security/mcp-trust.json`: per `(repoId, serverName)` the
+- [x] **The allowlist.** `<userData>/security/mcp-trust.json`: per `(repoId, serverName)` the
       command/URL, a SHA-256 of the canonicalised config entry, and — once the server has been
       started by the app's own tooling — a SHA-256 of its `tools/list` response. A server with no
       entry, a changed config hash (MCPoison) or a changed tools hash (rug-pull) is shown in the
       Tools view with a diff and an Approve button before any Chats or Councils run names it;
       Vanguard's `revoke-mcp-server` action clears the entry. [M]
-- [ ] **Poisoned descriptions.** Theme A's detector over every tool description and parameter
+- [x] **Poisoned descriptions.** Theme A's detector over every tool description and parameter
       description; a description that instructs the model (`<IMPORTANT>`, "before calling", "read
       ~/.ssh"), that references another server's tool by name (cross-server shadowing), or whose
       tool name collides with a tool on an already-trusted server, is a `supply-chain` finding and
       the server is held unapproved. [M]
-- [ ] **Our own server, pinned.** The suite's `midnite` server's manifest
+- [x] **Our own server, pinned.** The suite's `midnite` server's manifest
       ([`tool-manifests.ts`](../../../packages/desktop/src/main/mcp/tool-manifests.ts)) gets a
       checked-in hash test, so a description change is a reviewed diff here rather than a surprise
       in an allowlist. [S]
-- [ ] **Tests.** A fixture `.mcp.json` approved, then edited: the second read asks; a fixture tools
+- [x] **Tests.** A fixture `.mcp.json` approved, then edited: the second read asks; a fixture tools
       list with an `<IMPORTANT>` block is held; the name-collision case against two fixture servers. [S]
 
 ### D — Secrets do not leave with the prompt [M · ~1d]
