@@ -13,6 +13,7 @@ import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { recordAudit } from '../agent-audit';
 import { mcpServersHeldForRun } from '../mcp-trust-wiring';
+import { outboundSecrets } from '../outbound-secrets';
 import { readAgentApiKey } from './secrets-handlers';
 import { getRepo } from '../repo-registry';
 import { listAgents } from '../terminal-service';
@@ -43,6 +44,7 @@ const deps: ChatsRuntimeDeps = {
   audit: recordAudit,
   engineEnv: async (agentId) => engineKeyEnv((await listAgents()).find((a) => a.id === agentId), readAgentApiKey),
   mcpGate: (repoId) => mcpServersHeldForRun(repoId),
+  outboundSecrets,
   ollamaStream: async (req) =>
     ollamaChatStream(
       { model: req.model, messages: req.messages },

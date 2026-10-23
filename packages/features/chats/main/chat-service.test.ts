@@ -992,3 +992,96 @@ describe('chat service: bookkeeping', () => {
     expect(await service.resolveChanges({ chatId: 'nope', changeSetId: 'x', decisions: [{ path: 'a', action: 'accept' }] })).toMatchObject({ ok: false });
   });
 });
+
+describe('chat service: outbound redaction (Phase 121 Theme D)', () => {
+  // A vault PAT with no recognisable prefix: only the literal vault match can catch it.
+  const VAULT_PAT = 'Zq8vK2mXw9LpR4tYb7NcH3dJ6fGs1AaE';
+  const CANARY_PAT = `ghp_${'c'.repeat(36)}`;
+  const secrets = [
+    { name: 'forge-accounts:github:github.com:me', value: VAULT_PAT, kind: 'vault' as const },
+    { name: 'canaries:github-pat', value: CANARY_PAT, kind: 'canary' as const },
+  ];
+  const attachment = { id: 'a1', name: 'notes.md', text: `deploy with token ${VAULT_PAT} then done` };
+
+  it('never lets a vault token in an attachment reach the fake engine, and shows a chip on the user message', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(init('s1'));
+      io.out(done('s1'));
+      io.close(0);
+    });
+    const audit = vi.fn();
+    const { service, events } = setup({ spawn, outboundSecrets: async () => secrets, audit });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'summarise', attachments: [attachment] });
+    await service.idle();
+
+    const argv = JSON.stringify(spawn.calls.map((c) => [c.command, c.args]));
+    expect(argv).not.toContain(VAULT_PAT);
+    expect(argv).toContain('[redacted: vault-secret]');
+    const user = ((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat.messages.find((m) => m.role === 'user')!;
+    expect(user.redactions).toEqual([{ kind: 'vault-secret', count: 1 }]);
+    // The thread text itself is untouched (scrollback-style): only what was sent is scrubbed.
+    expect(user.attachments?.[0]?.text).toContain(VAULT_PAT);
+    expect(events.some((e) => e.kind === 'message' && (e.message as ChatMessage).redactions?.length === 1)).toBe(true);
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ kind: 'chat-turn', redactions: 1 }));
+  });
+
+  it('scrubs a pattern-shaped credential even with no vault source, and sends nothing else different', async () => {
+    const token = `ghp_${'a'.repeat(36)}`;
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(done('s'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: `my token is ${token}, plain words stay` });
+    await service.idle();
+    const argv = JSON.stringify(spawn.calls[0]!.args);
+    expect(argv).not.toContain(token);
+    expect(argv).toContain('[redacted: github-token]');
+    expect(argv).toContain('plain words stay');
+  });
+
+  it('flags a canary value in the prompt on the audit record, and still scrubs it', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(done('s'));
+      io.close(0);
+    });
+    const audit = vi.fn();
+    const { service } = setup({ spawn, outboundSecrets: async () => secrets, audit });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: `here: ${CANARY_PAT}` });
+    await service.idle();
+    expect(JSON.stringify(spawn.calls[0]!.args)).not.toContain(CANARY_PAT);
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ kind: 'chat-turn', canary: true }));
+  });
+
+  it('scrubs an Ollama request body, every message of the thread', async () => {
+    const seen: { role: string; content: string }[][] = [];
+    const ollamaStream = vi.fn(async (req: { messages: { role: string; content: string }[]; onDelta: (t: string) => void }) => {
+      seen.push(req.messages);
+      req.onDelta('ok');
+      return 'ok';
+    });
+    const { service } = setup({ ollamaStream: ollamaStream as never, outboundSecrets: async () => secrets });
+    const chat = await created(service, { engine: 'ollama', model: 'llama3.2:3b' });
+    await service.send({ chatId: chat.id, text: 'first', attachments: [attachment] });
+    await service.idle();
+    await service.send({ chatId: chat.id, text: 'second' });
+    await service.idle();
+    for (const body of seen) expect(JSON.stringify(body)).not.toContain(VAULT_PAT);
+    expect(JSON.stringify(seen[1])).toContain('[redacted: vault-secret]');
+  });
+
+  it('a failing secret source never breaks a turn: the patterns still run', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(done('s'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn, outboundSecrets: async () => { throw new Error('vault locked'); } });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hello' });
+    await service.idle();
+    expect(spawn.calls).toHaveLength(1);
+  });
+});

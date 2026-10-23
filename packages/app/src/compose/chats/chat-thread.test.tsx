@@ -73,6 +73,27 @@ describe('scroll helpers', () => {
 });
 
 describe('ChatThread', () => {
+  it('shows a [redacted: <kind>] chip under a user message whose outbound text was scrubbed, and none otherwise', () => {
+    render(
+      <ChatThread
+        chat={chat([
+          m('u1', 'user', 'summarise this', { redactions: [{ kind: 'vault-secret', count: 2 }, { kind: 'github-token', count: 1 }] }),
+          m('a1', 'assistant', 'ok'),
+          m('u2', 'user', 'thanks'),
+          m('a2', 'assistant', 'sure'),
+        ])}
+        streaming={false}
+        {...props}
+      />,
+    );
+    const chips = screen.getAllByTestId('redaction-chip').map((c) => c.textContent);
+    expect(chips).toEqual(['[redacted: vault-secret]×2', '[redacted: github-token]']);
+    expect(screen.getAllByTestId('chat-redactions')).toHaveLength(1);
+    expect(screen.getByRole('list', { name: 'Redacted before sending' })).toBeTruthy();
+    // The message the user typed is shown as typed.
+    expect(screen.getByText('summarise this')).toBeTruthy();
+  });
+
   it('is an announced log, busy only while a reply streams', () => {
     const { rerender } = render(<ChatThread chat={chat([m('u', 'user', 'hi'), m('a', 'assistant', 'yo')])} streaming={false} {...props} />);
     const log = screen.getByRole('log', { name: 'Conversation' });

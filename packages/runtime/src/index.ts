@@ -40,3 +40,5 @@ export * from './security/injection-detector';
 export * from './security/mcp-discovery';
 export * from './security/mcp-poison';
 export * from './security/mcp-trust';
+export * from './security/canary';
+export * from './security/agent-env-check';

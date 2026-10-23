@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 
 import type { ChatMessage as ChatMessageData } from '@midnite/studio-shared';
-import { LuCheck, LuCopy, LuFileText, LuPencil, LuRotateCcw, LuTriangleAlert } from 'react-icons/lu';
+import { LuCheck, LuCopy, LuFileText, LuPencil, LuRotateCcw, LuShieldAlert, LuTriangleAlert } from 'react-icons/lu';
 
 import { ChatChangesCard } from './chat-changes-card';
 import { ThinkingPanel } from './thinking-panel';
@@ -131,6 +131,22 @@ export const UserMessage = memo(function UserMessage({
                 <li key={a.id} className="flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[11px] text-muted-foreground">
                   <LuFileText aria-hidden className="h-3 w-3" />
                   <span className="max-w-[12rem] truncate">{a.name}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {message.redactions && message.redactions.length > 0 ? (
+            <ul className="mt-1 flex max-w-[85%] flex-wrap justify-end gap-1" aria-label="Redacted before sending" data-testid="chat-redactions">
+              {message.redactions.map((r) => (
+                <li
+                  key={r.kind}
+                  data-testid="redaction-chip"
+                  title="Removed from what was sent to the model. Your message and the terminal are unchanged."
+                  className="flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-300"
+                >
+                  <LuShieldAlert aria-hidden className="h-3 w-3" />
+                  <span>{`[redacted: ${r.kind}]`}</span>
+                  {r.count > 1 ? <span className="opacity-70">{`×${r.count}`}</span> : null}
                 </li>
               ))}
             </ul>
