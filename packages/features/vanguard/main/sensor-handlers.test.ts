@@ -75,6 +75,18 @@ describe('sensor handlers', () => {
     expect(openPath).toHaveBeenCalledWith(service.quarantineDir);
   });
 
+  it('serves the response state: the quarantine, and Phase 121’s pair plus pause as unavailable here', async () => {
+    const { bare, service } = await setup();
+    const state = (await bare.get(CHANNELS.vanguardResponseState)!()) as {
+      quarantineDir: string;
+      quarantine: unknown[];
+      unavailable: Record<string, { reason: string }>;
+    };
+    expect(state.quarantineDir).toBe(service.quarantineDir);
+    expect(state.quarantine).toEqual([]);
+    expect(Object.keys(state.unavailable).sort()).toEqual(['open-in-agents', 'pause-session', 'revoke-mcp-server']);
+  });
+
   it('serves the network sensor’s last snapshot', async () => {
     const { bare, service } = await setup();
     expect(await bare.get(CHANNELS.vanguardConnections)!()).toEqual({ at: null, active: false, connections: [] });

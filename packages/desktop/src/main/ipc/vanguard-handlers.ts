@@ -1,6 +1,9 @@
+import { dirname, join } from 'node:path';
+
 import {
   createSensorRunProcess,
   createVanguardService,
+  INTERRUPT,
   resolveByFingerprint,
   vanguardMain,
   type VanguardService,
@@ -17,7 +20,7 @@ import { app, BrowserWindow, shell } from 'electron';
 import { defaultLogger } from '../log';
 import { listRepos } from '../repo-registry';
 import { studioBrokerScriptPath } from '../broker-client';
-import { observePtyOutput, onSessionExit, sessionIdFor } from '../pty-service';
+import { livePtyFor, observePtyOutput, onSessionExit, sessionIdFor, writePty } from '../pty-service';
 import { liveAgentSessions, listTerminals } from '../terminal-service';
 import { probeBinary } from '../system-health';
 import { agentPtyOutputSource, agentSessionPids } from './vanguard-sensor-wiring';
@@ -68,6 +71,12 @@ const ptySeams = {
   onSessionExit: (hook: (sessionId: string) => void) =>
     onSessionExit((sessionId) => hook(sessionId)),
 };
+
+/** `/Applications/Midnite Studio.app` from its executable; the executable's folder in a dev run. */
+export function appBundlePath(execPath: string): string {
+  const at = execPath.indexOf('.app/');
+  return at > 0 ? execPath.slice(0, at + '.app'.length) : dirname(execPath);
+}
 
 export async function startVanguardSensors(userData: string): Promise<void> {
   const ledger = getFindingsLedger();
@@ -120,6 +129,20 @@ export async function startVanguardSensors(userData: string): Promise<void> {
           BrowserWindow.getAllWindows().some(
             (win) => !win.isDestroyed() && win.isVisible() && !win.isMinimized() && win.isFocused(),
           ),
+      },
+    },
+    // Theme H: pausing reaches a live agent pty through the pty service; the app bundle, the broker's script
+    // and its socket directory are never a target (the broker also runs `process.execPath`, which the kill
+    // planner refuses on its own).
+    response: {
+      protectedPaths: [appBundlePath(process.execPath)],
+      protectedMarkers: () => [studioBrokerScriptPath(), join(userData, 'broker')],
+      sessions: liveAgentSessions,
+      interrupt: async (sessionId) => {
+        const live = livePtyFor(sessionId);
+        if (!live) return false;
+        writePty(live.ptyId, INTERRUPT);
+        return true;
       },
     },
     log: (level, message) =>

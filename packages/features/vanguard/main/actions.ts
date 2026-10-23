@@ -76,6 +76,8 @@ export interface ResponseActionDeps {
   protectedPaths: readonly string[];
   /** Strings that mark a process as the suite's own in its command line (the broker's script, its socket dir). */
   protectedMarkers?: () => readonly string[];
+  /** Other suite processes never to stop (the runtime host, seen from a guest app). */
+  protectedPids?: () => readonly number[];
   runProcess: SensorRunProcess;
   quarantine: QuarantineStore;
   /** Re-scan one file without recording findings (the malware scanner's `check`). */
@@ -104,6 +106,8 @@ type Plan =
   | { kind: 'unavailable'; unavailable: RemediationUnavailable };
 
 export interface ResponseActions {
+  /** The clock outcomes are stamped with. */
+  now(): number;
   /** The actions this app cannot run, with why: Phase 121's pair always, plus any seam the composer left out. */
   unavailable(): Record<string, RemediationUnavailable>;
   plan(finding: SecurityFinding, action: RemediationAction): Promise<Plan>;
@@ -263,6 +267,7 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
     if (pgid <= 1) return { kind: 'refused', error: `Process ${action.pid} is in a system process group.` };
     const members = table.filter((r) => r.pgid === pgid);
     const own = ancestorsOf(table, deps.selfPid);
+    for (const pid of deps.protectedPids?.() ?? []) own.add(pid);
     const markers = (deps.protectedMarkers?.() ?? []).filter((m) => m.length > 0);
     let args = new Map<number, string>();
     if (markers.length > 0) {
@@ -295,8 +300,10 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
         title: `Stop process group ${pgid}?`,
         confirmLabel: members.length === 1 ? 'Stop 1 process' : `Stop ${members.length} processes`,
         summary: `Sends SIGTERM to every process in group ${pgid}, then SIGKILL to anything still running after ${grace / 1000} s.`,
-        dies: capped(members.map((m) => `pid ${m.pid}  ${m.comm}`)),
-        pauses: ending.map((s) => `${s.title} (pid ${s.pid}) ends with it`),
+        dies: [
+          ...ending.map((s) => `agent session ${s.title} (pid ${s.pid}) ends with it`),
+          ...capped(members.map((m) => `pid ${m.pid}  ${m.comm}`)),
+        ],
       }),
       run: async () => {
         const signal = (sig: NodeJS.Signals): void => {
@@ -483,6 +490,7 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
   };
 
   return {
+    now,
     unavailable,
     async plan(finding, action) {
       const pending = REMEDIATION_PENDING[action.id];
@@ -585,8 +593,8 @@ export async function runAction(
   actions: ResponseActions,
   findingId: string,
   action: RemediationAction,
-  now: () => number = Date.now,
 ): Promise<GitOpResult<ActOutcome>> {
+  const now = (): number => actions.now();
   const finding = await ledger.get(findingId);
   if (!finding) return failure(`Finding '${findingId}' not found`);
   let plan: Plan;

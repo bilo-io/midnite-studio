@@ -52,6 +52,8 @@ export interface VanguardResponseOptions {
   protectedPaths?: readonly string[];
   /** Command-line markers of the suite's own processes (its broker's script and socket directory). */
   protectedMarkers?: () => readonly string[];
+  /** Other suite processes never to stop (a guest app's runtime host). */
+  protectedPids?: () => readonly number[];
   sessions?: () => Promise<readonly ResponseSession[]>;
   interrupt?: (sessionId: string) => Promise<boolean>;
   /** The issue form's App value; Studio's by default. */
@@ -126,6 +128,7 @@ export async function createVanguardService(
     selfExecPath: r.selfExecPath ?? process.execPath,
     protectedPaths: [options.userData, ...(r.protectedPaths ?? [])],
     ...(r.protectedMarkers ? { protectedMarkers: r.protectedMarkers } : {}),
+    ...(r.protectedPids ? { protectedPids: r.protectedPids } : {}),
     runProcess: options.runProcess,
     quarantine,
     rescan: (path) => scanner.check([path]),

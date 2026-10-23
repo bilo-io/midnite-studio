@@ -43,6 +43,7 @@ describe('findings-handlers (Phase 120 Theme A)', () => {
       CHANNELS.securityFindingsList,
       CHANNELS.securityFindingsSetStatus,
       CHANNELS.securityFindingsAct,
+      CHANNELS.securityFindingsActPreview,
     ]);
 
     // Test securityFindingsList invoke
@@ -67,5 +68,48 @@ describe('findings-handlers (Phase 120 Theme A)', () => {
     })) as { ok: boolean; value: { actionId: string } };
     expect(actRes.ok).toBe(true);
     expect(actRes.value.actionId).toBe('mute');
+  });
+
+  it('without response actions, act runs only mute and preview says so', async () => {
+    const ctx = createRecordingContext();
+    const finding = { id: 'f-1', status: 'open' } as SecurityFinding;
+    registerFindingsHandlers(ctx, {
+      ledger: () =>
+        ({
+          get: vi.fn(async () => finding),
+          setStatus: vi.fn(async () => ({ ...finding, status: 'muted' })),
+        }) as unknown as FindingsLedger,
+    });
+    expect(await ctx.invoke(CHANNELS.securityFindingsAct, { findingId: 'f-1', action: { id: 'chmod-600', path: '/x' } })).toMatchObject({
+      ok: false,
+      kind: 'error',
+    });
+    expect(await ctx.invoke(CHANNELS.securityFindingsActPreview, { findingId: 'f-1', action: { id: 'chmod-600', path: '/x' } })).toMatchObject({
+      ok: false,
+    });
+  });
+
+  it('routes act and preview through the response actions', async () => {
+    const ctx = createRecordingContext();
+    const finding = { id: 'f-1', status: 'open', remediation: [{ id: 'mute' }] } as unknown as SecurityFinding;
+    const recordAction = vi.fn(async () => ({ ...finding, status: 'muted' }));
+    const plan = vi.fn(async () => ({
+      kind: 'ready' as const,
+      radius: { actionId: 'mute' as const, confirm: false, title: 'Mute', confirmLabel: 'Mute', summary: 's', dies: [], moves: [], pauses: [], warnings: [] },
+      run: async () => ({ ok: true as const, detail: 'Muted.', status: { status: 'muted' as const } }),
+    }));
+    registerFindingsHandlers(ctx, {
+      ledger: () => ({ get: vi.fn(async () => finding), recordAction }) as unknown as FindingsLedger,
+      response: () => ({ now: () => 7, unavailable: () => ({}), plan }),
+    });
+    expect(await ctx.invoke(CHANNELS.securityFindingsActPreview, { findingId: 'f-1', action: { id: 'mute' } })).toMatchObject({
+      ok: true,
+      value: { title: 'Mute' },
+    });
+    expect(await ctx.invoke(CHANNELS.securityFindingsAct, { findingId: 'f-1', action: { id: 'mute' } })).toMatchObject({
+      ok: true,
+      value: { actionId: 'mute', detail: 'Muted.' },
+    });
+    expect(recordAction).toHaveBeenCalledWith('f-1', { id: 'mute', at: 7, ok: true }, { status: 'muted' });
   });
 });

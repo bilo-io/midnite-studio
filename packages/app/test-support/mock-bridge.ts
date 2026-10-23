@@ -4647,7 +4647,10 @@ export function buildMockBridge(data: MockFixtures) {
                 { kind: 'pid' as const, pid: 4211, command: 'Midnite' },
                 { kind: 'host' as const, host: '203.0.113.7', port: 443, protocol: 'tcp' },
               ],
-              remediation: [{ id: 'mute' as const }],
+              remediation: [
+                { id: 'report-issue' as const, title: 'Midnite connected to an unlisted host' },
+                { id: 'mute' as const },
+              ],
               firstSeen: 1_700_000_100_000,
               lastSeen: 1_700_000_100_000,
               count: 1,
@@ -4662,7 +4665,15 @@ export function buildMockBridge(data: MockFixtures) {
               title: 'Unrecognised launch agent',
               detail: 'A user launch agent runs a binary from a temporary directory.',
               evidence: [{ kind: 'path' as const, path: '~/Library/LaunchAgents/com.example.helper.plist' }],
-              remediation: [{ id: 'mute' as const }],
+              remediation: [
+                {
+                  id: 'bootout-launch-item' as const,
+                  domain: 'gui/501',
+                  path: '~/Library/LaunchAgents/com.example.helper.plist',
+                },
+                { id: 'quarantine-file' as const, path: '/tmp/.helper/agent' },
+                { id: 'mute' as const },
+              ],
               firstSeen: 1_700_000_000_000,
               lastSeen: 1_700_000_600_000,
               count: 2,
@@ -4677,7 +4688,12 @@ export function buildMockBridge(data: MockFixtures) {
               title: 'World-readable credentials file',
               detail: 'A file that looks like a credentials store is readable by other users.',
               evidence: [{ kind: 'path' as const, path: '~/.aws/credentials', mode: 0o644 }],
-              remediation: [{ id: 'mute' as const }],
+              remediation: [
+                { id: 'chmod-600' as const, path: '~/.aws/credentials' },
+                { id: 'revoke-mcp-server' as const, serverName: 'filesystem' },
+                { id: 'open-in-agents' as const, findingId: 'f2' },
+                { id: 'mute' as const },
+              ],
               firstSeen: 1_700_000_000_000,
               lastSeen: 1_700_000_000_000,
               count: 1,
@@ -4686,7 +4702,37 @@ export function buildMockBridge(data: MockFixtures) {
           ].filter((f) => !req?.category || f.category === req.category),
         }),
         setStatus: async () => ({ ok: true as const }),
-        act: async () => ({ ok: true as const }),
+        act: async (req: { action: { id: string } }) => ({ ok: true as const, value: { actionId: req.action.id } }),
+        // Theme H: a fixed blast radius per action, so the confirm renders with content.
+        preview: async (req: { action: { id: string } }) => ({
+          ok: true as const,
+          value:
+            req.action.id === 'bootout-launch-item'
+              ? {
+                  actionId: 'bootout-launch-item' as const,
+                  confirm: true,
+                  title: 'Unload the launch item?',
+                  confirmLabel: 'Unload',
+                  summary:
+                    'Runs launchctl bootout gui/501 on it: launchd stops the item and whatever it is running. The plist stays in ~/Library/LaunchAgents and loads again at your next login unless you remove it.',
+                  dies: ['com.example.helper — runs /tmp/.helper/agent'],
+                  moves: [],
+                  pauses: [],
+                  warnings: [],
+                }
+              : {
+                  actionId: req.action.id as 'quarantine-file',
+                  confirm: true,
+                  title: 'Quarantine the file?',
+                  confirmLabel: 'Quarantine',
+                  summary:
+                    'Moves the file into Vanguard’s quarantine at mode 0000, so nothing can read or run it. Restore puts it back after a re-scan; it is deleted after 30 days.',
+                  dies: [],
+                  moves: ['/tmp/.helper/agent (48.2 KB, 0755, sha256 9f2c41d07a8e…) to quarantine'],
+                  pauses: [],
+                  warnings: ['pid 5120 is running this file; it keeps running until you stop it.'],
+                },
+        }),
         onChanged: () => () => {},
       },
       sensors: async () => ({
@@ -4731,6 +4777,32 @@ export function buildMockBridge(data: MockFixtures) {
       }),
       viewOpened: async () => ({ active: true, sensors: [] }),
       openQuarantine: async () => ({ ok: true as const }),
+      responseState: async () => ({
+        quarantineDir: '/Users/me/Library/Application Support/Midnite Studio/vanguard/quarantine',
+        quarantine: [
+          {
+            findingId: 'f9',
+            findingTitle: 'Malware rule matched: macos_stealer_keychain_dump',
+            originalPath: '~/Downloads/QuickConvert.app/Contents/MacOS/QuickConvert',
+            fileName: 'QuickConvert',
+            sha256: '4b8e0c5d3a1f9e7b2c6d8a0f1e3b5c7d9e2f4a6b8c0d1e3f5a7b9c2d4e6f8a0b',
+            size: 1_482_311,
+            quarantinedAt: Date.now() - 3 * 86_400_000,
+            expiresAt: Date.now() + 27 * 86_400_000,
+          },
+        ],
+        unavailable: {
+          'revoke-mcp-server': {
+            reason: 'Available once Phase 121 lands: revoking a server needs the MCP allowlist (Phase 121 Theme C).',
+            dependsOn: 'Phase 121 Theme C',
+          },
+          'open-in-agents': {
+            reason:
+              'Available once Phase 121 lands: a finding goes into a Chats thread only once it can be tagged untrusted (Phase 121 Theme A).',
+            dependsOn: 'Phase 121 Theme A',
+          },
+        },
+      }),
       connections: async () => ({
         at: Date.now() - 6_000,
         active: true,
