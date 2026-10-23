@@ -2238,6 +2238,15 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The MCP allowlist (Phase 121 Theme C): the servers a repo's agents will load with their trust verdicts,
+   * and the Approve button's answer. Discovery is read-only; approval writes only the app's own allowlist.
+   */
+  mcpTrust: {
+    list: (req: In<typeof S.McpTrustListRequest>) => Promise<GitOpResult<z.infer<typeof S.McpTrustListResponse>>>;
+    approve: (req: In<typeof S.McpTrustApproveRequest>) => Promise<GitOpResult<Record<string, never>>>;
+  };
+
+  /**
    * What the companion knows before it says anything (Phase 79 Theme B).
    *
    * Both calls are read-only and always resolve — a forge that cannot be
