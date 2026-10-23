@@ -106,6 +106,7 @@ export * from './workflow-test-parsers';
 export * from './security-findings';
 export * from './agent-audit';
 export * from './agent-limits';
+export * from './mcp-trust';
 export * from './vanguard';
 export * from './vanguard-network';
 export * from './workflow-templates';

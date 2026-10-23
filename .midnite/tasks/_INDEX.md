@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | ◻ TODO | — | 0/44 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
-| [121 · Agents security](phases/phase-121-agents-security.md) | 🔄 WIP | — | 8/51 | `██░░░░░░░░` | 16% | A C | B D E H I |
+| [121 · Agents security](phases/phase-121-agents-security.md) | 🔄 WIP | — | 18/51 | `████░░░░░░` | 35% | — | B D E H I |
 | [120 · Vanguard: antivirus and agentic self-defense](phases/phase-120-vanguard.md) | 🔄 WIP | — | 39/46 | `████████░░` | 85% | — | — |
 | [119 · Midnite Git: a self-hosted forge and local CI runners](phases/phase-119-midnite-git.md) | ◻ TODO | — | 0/57 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
 | [118 · Vault security hardening](phases/phase-118-vault-security-hardening.md) | 🔄 WIP | — | 23/51 | `█████░░░░░` | 45% | — | C F G H |

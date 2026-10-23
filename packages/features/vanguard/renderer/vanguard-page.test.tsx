@@ -158,7 +158,7 @@ describe('Vanguard view', () => {
     expect(act_).not.toHaveBeenCalled();
   });
 
-  it('shows Phase 121’s two actions disabled with the reason, and never calls main for them', async () => {
+  it('shows Phase 121 A’s pending action disabled with the reason, and Theme C’s revoke enabled', async () => {
     list.mockResolvedValue({
       findings: [
         finding({
@@ -174,9 +174,9 @@ describe('Vanguard view', () => {
     fireEvent.click(await screen.findByRole('button', { name: /New LaunchAgent/ }));
     const revoke = (await screen.findByRole('button', { name: 'Revoke MCP server' })) as HTMLButtonElement;
     const agents = screen.getByRole('button', { name: 'Open in Agents' }) as HTMLButtonElement;
-    expect(revoke.disabled).toBe(true);
+    // Theme C landed the MCP allowlist, so revoke is a real action now; open-in-agents still waits on Theme A.
+    expect(revoke.disabled).toBe(false);
     expect(agents.disabled).toBe(true);
-    expect(revoke.title).toContain('Phase 121 Theme C');
     expect(agents.title).toContain('Phase 121 Theme A');
     expect(screen.getByRole('list', { name: 'Unavailable actions' }).textContent).toContain('Available once Phase 121 lands');
   });

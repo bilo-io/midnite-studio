@@ -811,3 +811,15 @@ The rogue-agent sensor reads the audit trail only. The broker's pty output strea
 
 `pageContentToAttachment` turns Phase 117's page envelope into a `web-page` attachment, but no UI offers "send this page to a chat" yet, so only the seam exists. MCP results carry `provenance` on the wire; the stdio shim does not yet fence them in the text it hands the CLI. A council run request carries no provenance, so a pasted prompt is treated as the user's typing after the banner; only member answers are fenced. The banner does not block Send (ignoring it equals Proceed).
 The detector's discount for code spans and quotation marks is bypassable by wrapping a phrase in either; the score is a hint, the fence is the defence. Text past 400,000 characters is not scanned and the scan op refuses it.
+
+## Phase 121 · Theme C — follow-ups
+
+- **Wire Theme A's injection detector.** `createMcpTrust` takes `scoreText` / `scoreThreshold` by injection (`runtime/src/security/mcp-poison.ts`). Once Theme A's `scoreInjection` and `INJECTION_THRESHOLD` are on `main`, pass them in `desktop/src/main/mcp-trust-wiring.ts`: a one-line change.
+- **Nothing starts a third-party MCP server yet**, so nothing calls `McpTrust.observeTools` and the tools hash and the poisoned-description checks only run once a caller does (executing a repo-supplied command is the very risk this theme guards). Until then servers show `new` / `config-changed` from the config hash alone.
+- **Phase 115 Theme F's switch for reading agent config** is not on `main`; discovery takes an `allowConfigRead` seam that the composer leaves at "on".
+- **Councils are not gated.** They run in the home directory with no repo, so they have no `repoId` to key an allowlist entry; only Chats refuse a turn (`mcpGate`). User-level servers that change after approval do gate Chats.
+- Trust entries are not cleaned when a repo is closed or a server removed from its config.
+
+- **The Chats gate discovers against the repo's primary checkout**, but an edit-mode chat runs in its own worktree whose `.mcp.json` can differ; pass the run's cwd to discovery.
+- **Allowlist keys use the display name.** A same-named server in a lower-precedence file is listed as `name (source)`, so removing the higher-precedence file renames it and drops its approval; key by source plus name instead.
+- **`status()` re-reads the config files on every poll** (15 s in the Tools view); cache by mtime if it shows up in a profile.

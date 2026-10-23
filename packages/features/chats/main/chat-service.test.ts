@@ -235,6 +235,51 @@ describe('chat service: streaming a turn', () => {
   });
 });
 
+describe('chat service: the MCP allowlist gate (Phase 121 Theme C)', () => {
+  it('refuses a turn in a repo with an unapproved MCP server, naming it, and never starts the CLI', async () => {
+    const spawn = fakeSpawn(async (_c, io) => io.close(0));
+    const mcpGate = vi.fn(async () => ['files']);
+    const { service } = setup({ spawn, mcpGate });
+    const chat = await created(service, { mode: 'ask', repoId: 'repo:/work/app' });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    expect(mcpGate).toHaveBeenCalledWith('repo:/work/app');
+    expect(spawn.calls).toEqual([]);
+    const reply = lastAssistant((await service.get(chat.id) as { ok: true; value: { chat: Chat } }).value.chat);
+    expect(reply.status).toBe('error');
+    expect(reply.error).toContain('“files”');
+    expect(reply.error).toContain('Tools');
+  });
+
+  it('runs the turn once the gate finds nothing held, and a throwing gate never blocks it', async () => {
+    for (const mcpGate of [async () => [], async (): Promise<string[]> => Promise.reject(new Error('disk'))]) {
+      const spawn = fakeSpawn(async (_c, io) => {
+        io.out(textDelta('ok'));
+        io.close(0);
+      });
+      const { service } = setup({ spawn, mcpGate });
+      const chat = await created(service, { mode: 'ask', repoId: 'repo:/work/app' });
+      await service.send({ chatId: chat.id, text: 'hi' });
+      await service.idle();
+      expect(spawn.calls).toHaveLength(1);
+    }
+  });
+
+  it('is not asked for a chat with no repo', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const mcpGate = vi.fn(async () => ['files']);
+    const { service } = setup({ spawn, mcpGate });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    expect(mcpGate).not.toHaveBeenCalled();
+    expect(spawn.calls).toHaveLength(1);
+  });
+});
+
 describe('chat service: stop', () => {
   it('kills the process, keeps the text so far, marks the message cancelled', async () => {
     const spawn = fakeSpawn(async (_c, io) => {

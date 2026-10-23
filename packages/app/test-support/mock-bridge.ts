@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import type {
   AgentAuditRecord,
+  McpServerStatus,
   BatteryReading,
   ForgeAccount,
   ReachableRepo,
@@ -1003,6 +1004,8 @@ export type MockFixtures = {
    */
   /** The agent audit trail the Audit tab lists (Phase 121 Theme G); absent → an empty trail. */
   agentAudit?: AgentAuditRecord[];
+  /** The MCP servers the Tools view lists with their trust verdicts (Phase 121 Theme C); absent → none. */
+  mcpTrust?: McpServerStatus[];
   mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean; allowCompanionSettings?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
@@ -5860,6 +5863,17 @@ export function buildMockBridge(data: MockFixtures) {
         return { records: sorted.slice(0, limit), truncated: sorted.length > limit };
       },
       export: async () => ({ ok: true as const, value: { path: '/Users/demo/Desktop/agent-audit.ndjson', count: (data.agentAudit ?? []).length } }),
+    },
+    // The MCP allowlist (Phase 121 Theme C): the fixture's servers; Approve flips one to approved in place.
+    mcpTrust: {
+      list: async () => ({ ok: true as const, value: { servers: (data.mcpTrust ?? []).map((s) => ({ ...s })) } }),
+      approve: async (req: { serverName: string }) => {
+        const found = (data.mcpTrust ?? []).find((s) => s.serverName === req.serverName);
+        if (!found || found.verdict === 'held') return { ok: false as const, kind: 'error' as const, message: 'That server cannot be approved.' };
+        found.verdict = 'approved';
+        found.diff = { config: null, tools: [] };
+        return { ok: true as const, value: {} };
+      },
     },
     windowChrome: {
       platform: 'darwin',

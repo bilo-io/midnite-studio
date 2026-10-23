@@ -15349,3 +15349,7 @@ Fourteen YARA-subset rules in `features/vanguard/rules/*.yar` with positive fixt
 ### Phase 121 Theme A — Untrusted content wears a tag (2026-10-23)
 
 Provenance on the wire (`shared/src/provenance.ts`, trust derived from origin), the untrusted fence and once-per-prompt header (`shared/src/untrusted-fence.ts`) used by Chats' `chat-prompt.ts` and Councils' `council-prompts.ts`, the injection detector (`runtime/src/security/injection-detector.ts`, nine weighted signals, benign and attack corpora), `security.scanContent` IPC, and the proceed / strip / drop banner in the Chats composer and the Councils prompt box. MCP results are stamped in the runtime socket server. PR: https://github.com/bilo-io/midnite-studio/pull/998
+
+## 2026-10-23 — Phase 121 Theme C — MCP servers trusted by hash
+
+[#997](https://github.com/bilo-io/midnite-studio/pull/997). Read-only discovery of the five MCP config sources, an allowlist at `<userData>/security/mcp-trust.json` pinning a config hash (MCPoison) and a `tools/list` hash (rug-pull) per `(repoId, serverName)`, poisoned-description checks (instructing text, cross-server references, name collisions; Theme A's scorer injected, not yet wired) that hold a server and raise a `supply-chain` finding, a "MCP servers" card with diff and Approve in the Tools view, Vanguard's `revoke-mcp-server` made real, a Chats gate, and a checked-in hash pin over the `midnite` server's tool descriptions. Screenshot in `docs/screenshots/agents-security-mcp-trust/`.

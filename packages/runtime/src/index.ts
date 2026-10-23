@@ -36,3 +36,6 @@ export * from './security/agent-audit';
 export * from './security/agent-breaker';
 export * from './security/command-tracker';
 export * from './security/injection-detector';
+export * from './security/mcp-discovery';
+export * from './security/mcp-poison';
+export * from './security/mcp-trust';

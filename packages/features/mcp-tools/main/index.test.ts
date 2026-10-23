@@ -74,4 +74,25 @@ describe('mcp-tools main', () => {
     mcpToolsMain.register(ctx, { server: createNoMcpServer() });
     expect(await ctx.invoke(CHANNELS.agentLimitResolve, { tripId: 't1', action: 'resume' })).toMatchObject({ ok: false });
   });
+
+  it('answers the MCP trust channels from the port, an empty list without one, and never throws', async () => {
+    const servers = [{ repoId: 'r', serverName: 's', verdict: 'new' }];
+    const list = vi.fn(async () => ({ ok: true as const, value: { servers } as never }));
+    const approve = vi.fn(async () => ({ ok: true as const, value: {} }));
+    const ctx = createRecordingContext();
+    mcpToolsMain.register(ctx, { server: createNoMcpServer(), trust: { list, approve } });
+    expect(await ctx.invoke(CHANNELS.mcpTrustList, { repoId: 'r' })).toEqual({ ok: true, value: { servers } });
+    expect(list).toHaveBeenCalledWith('r');
+    expect(await ctx.invoke(CHANNELS.mcpTrustApprove, { repoId: 'r', serverName: 's', configHash: 'h' })).toEqual({ ok: true, value: {} });
+    expect(approve).toHaveBeenCalledWith({ repoId: 'r', serverName: 's', configHash: 'h' });
+    expect(await ctx.invoke(CHANNELS.mcpTrustApprove, { repoId: 'r' })).toMatchObject({ ok: false });
+
+    list.mockRejectedValueOnce(new Error('disk gone'));
+    expect(await ctx.invoke(CHANNELS.mcpTrustList, { repoId: 'r' })).toMatchObject({ ok: false });
+
+    const bare = createRecordingContext();
+    mcpToolsMain.register(bare, { server: createNoMcpServer() });
+    expect(await bare.invoke(CHANNELS.mcpTrustList, { repoId: 'r' })).toEqual({ ok: true, value: { servers: [] } });
+    expect(await bare.invoke(CHANNELS.mcpTrustApprove, { repoId: 'r', serverName: 's', configHash: 'h' })).toMatchObject({ ok: false });
+  });
 });

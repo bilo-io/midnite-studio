@@ -11,3 +11,4 @@ export { mcpToolsManifest, type McpToolsManifest } from '../manifest';
 export { McpToolsView, type McpToolsViewProps } from './mcp-tools-view';
 export { AgentAuditView, summarizeAuditRecord } from './agent-audit-view';
 export { useAgentLimitToasts } from './use-agent-limit-toasts';
+export { McpServersSection, diffLines, type DiffLine } from './mcp-servers-section';

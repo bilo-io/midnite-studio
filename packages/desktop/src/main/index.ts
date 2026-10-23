@@ -33,7 +33,7 @@ import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 import { configureAgentAudit, recordAudit } from './agent-audit';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
-import { configureFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
+import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
@@ -132,6 +132,7 @@ import { createTrustStore } from './diagnostics/trust-store';
 import { createRepoStore } from './repo-store';
 import { getMcpServerHandle, registerMcpServer } from './mcp';
 import { registerMcpHandlers } from './ipc/mcp-handlers';
+import { configureMcpTrust } from './mcp-trust-wiring';
 import { fingerprintFile } from './socket-name';
 import { configureCouncils, createCouncilsRunsStore, createCouncilsStore } from '@midnite/studio-feature-councils/main';
 import { stopDemoApi } from '@midnite/studio-feature-workflows/main';
@@ -764,6 +765,8 @@ export const startStudioMain: StartStudioMain = () => {
         listTerminals,
         record: recordAudit,
       });
+      // Phase 121 Theme C: the MCP allowlist (Vanguard's revoke action and the Tools view's Approve read it).
+      configureMcpTrust(userData, (finding) => getFindingsLedger().record(finding));
       // Phase 121 Theme F: the breaker reads the trail the line above feeds and interrupts a session that runs away.
       startStudioAgentBreaker({ userData, getWindow: getMainWindow });
       void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
