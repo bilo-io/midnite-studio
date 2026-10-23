@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 
 import type { McpTrustPort } from '@midnite/studio-feature-mcp-tools/main';
-import { createMcpTrust, createMcpTrustStore, mcpTrustFile, type McpTrust } from '@midnite/studio-runtime';
+import { INJECTION_THRESHOLD, createMcpTrust, createMcpTrustStore, mcpTrustFile, scoreInjection, type McpTrust } from '@midnite/studio-runtime';
 import { failure, type NewSecurityFinding } from '@midnite/studio-shared';
 
 import { defaultLogger } from './log';
@@ -12,8 +12,9 @@ import { getRepo } from './repo-registry';
  * Studio's one MCP allowlist (Phase 121 Theme C): the runtime's `createMcpTrust` over
  * `<userData>/security/mcp-trust.json`, the real filesystem for read-only discovery and the findings ledger.
  *
- * Two seams are deliberately left at their defaults and tracked in `outstanding.md`:
- * - `scoreText`: Theme A's injection detector is passed here once both themes are in (one line).
+ * `scoreText` is Theme A's injection detector (`scoreInjection`, at its own threshold), so a tool description that
+ * instructs the model is scored the same way an attachment is. One seam is deliberately left at its default and
+ * tracked in `outstanding.md`:
  * - `allowConfigRead`: Phase 115 Theme F's switch for reading agent config; until it exists discovery is on.
  * Nothing in the app starts a third-party MCP server yet, so nothing calls `observeTools`; every server shows
  * `new`/`config-changed` from its config hash alone, and tools are pinned the first time a caller observes them.
@@ -27,6 +28,8 @@ export function configureMcpTrust(userData: string, raiseFinding: (finding: NewS
       store,
       discovery: { home: homedir(), readFile: (path) => readFile(path, 'utf8').catch(() => null) },
       raiseFinding,
+      scoreText: scoreInjection,
+      scoreThreshold: INJECTION_THRESHOLD,
       onError: (error) => defaultLogger.warn(`mcp trust: ${String(error)}`),
     }),
   );

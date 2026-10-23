@@ -814,7 +814,6 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 
 ## Phase 121 · Theme C — follow-ups
 
-- **Wire Theme A's injection detector.** `createMcpTrust` takes `scoreText` / `scoreThreshold` by injection (`runtime/src/security/mcp-poison.ts`). Once Theme A's `scoreInjection` and `INJECTION_THRESHOLD` are on `main`, pass them in `desktop/src/main/mcp-trust-wiring.ts`: a one-line change.
 - **Nothing starts a third-party MCP server yet**, so nothing calls `McpTrust.observeTools` and the tools hash and the poisoned-description checks only run once a caller does (executing a repo-supplied command is the very risk this theme guards). Until then servers show `new` / `config-changed` from the config hash alone.
 - **Phase 115 Theme F's switch for reading agent config** is not on `main`; discovery takes an `allowConfigRead` seam that the composer leaves at "on".
 - **Councils are not gated.** They run in the home directory with no repo, so they have no `repoId` to key an allowlist entry; only Chats refuse a turn (`mcpGate`). User-level servers that change after approval do gate Chats.
