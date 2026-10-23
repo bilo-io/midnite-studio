@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { LuShield, LuShieldCheck } from 'react-icons/lu';
 
+import { MalwareScanCard } from './malware-scan-card';
 import { useFindings, useSensors } from './use-vanguard';
 import { useVanguardUi } from './vanguard-ui-store';
 
@@ -285,6 +286,7 @@ function SensorsPane() {
           Sensors are paused. They start once this view has been opened and the sensor is switched on in Settings ▸ Vanguard.
         </p>
       ) : null}
+      <MalwareScanCard />
       <ul aria-label="Sensors" className="flex flex-col gap-2">
         {sensors.sensors.map((sensor) => (
           <SensorRow key={sensor.id} sensor={sensor} />

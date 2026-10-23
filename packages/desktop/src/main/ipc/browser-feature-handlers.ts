@@ -6,6 +6,7 @@ import { asBrowserHostWindow, createStudioBrowserElectron } from '../browser-por
 import { devToolsAllowed } from '../devtools-policy';
 import { defaultLogger } from '../log';
 import { currentSettings } from '../settings-mirror';
+import { scanDownloadedFile } from './vanguard-handlers';
 import { handle, handleBare, handleFromSender, handleSend, handleSendFromSender } from './handle';
 
 /**
@@ -43,5 +44,7 @@ export function registerBrowserFeatureHandlers(
     getMainWindow: () => asHost(getMainWindow()),
     // Phase 117 Theme G: a page's `midnite-studio://` link, refused by Chromium, confirmed by the renderer.
     onPageDeepLink,
+    // Phase 120 Theme F: a finished download is queued for Vanguard's malware scan.
+    onDownloadDone: ({ path }) => scanDownloadedFile(path),
   });
 }

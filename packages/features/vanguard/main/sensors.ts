@@ -43,8 +43,8 @@ export interface VanguardSensorDeps {
   persistenceProcess?: PersistenceProcessDeps;
   /**
    * Theme F: the monitor feature's `probeBinary`, which finds `yara` and `clamscan`. A feature cannot import
-   * the monitor feature, so the composer injects it. Absent, no external engine is found and the built-in
-   * matcher runs the bundled ruleset alone (the calm "no engine installed" state).
+   * the monitor feature, so the composer injects it. Absent (`apps/vanguard`), engines are looked for at the Homebrew and
+   * system paths only. With none found the built-in matcher runs the bundled ruleset alone: the calm "no engine installed" state.
    */
   malware?: { probe?: BinaryProbe };
 }
