@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { FileChangeKindSchema } from './domain/diff';
+import { ContentProvenanceSchema } from './provenance';
 
 /**
  * Chats — conversations with the roster's agent CLIs (and local Ollama models),
@@ -110,6 +111,8 @@ export const ChatAttachmentSchema = z.object({
   name: z.string().min(1).max(260),
   /** Plain-text content, inlined into the prompt. */
   text: z.string().max(200_000),
+  /** Where it came from (Phase 121 Theme A). Absent means an attachment, which is untrusted. */
+  provenance: ContentProvenanceSchema.optional(),
 });
 export type ChatAttachment = z.infer<typeof ChatAttachmentSchema>;
 
@@ -142,6 +145,8 @@ export const ChatMessageSchema = z.object({
   status: ChatMessageStatusSchema.default('done'),
   error: z.string().optional(),
   attachments: z.array(ChatAttachmentSchema).optional(),
+  /** Where the message's own text came from. Absent: a user message is typing, an assistant one is agent output. */
+  provenance: ContentProvenanceSchema.optional(),
   /** Short tool/activity lines the agent reported ("Edited src/a.ts"). */
   activity: z.array(z.string()).optional(),
   /** Engine and model that produced an assistant turn. */
