@@ -284,7 +284,7 @@ export async function readCommitDetail(
     ]),
     // The same numstat flags the graph row's Diff column reads with
     // (`COMMIT_NUMSTAT_ARGS`), so the file list here always sums to that row.
-    // `-m --first-parent` among them is what makes a MERGE commit's files
+    // `--diff-merges=first-parent` among them is what makes a MERGE commit's files
     // visible at all: `git show` prints no diff for a merge by default.
     execGit(repoPath, [
       'show',

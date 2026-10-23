@@ -10,16 +10,17 @@ export type NumstatFile = { path: string; oldPath: string | null; insertions: nu
  * differently.
  *
  * - `-z`: NUL-delimited, so a path with a tab or newline is one field.
- * - `-m --first-parent`: a MERGE is diffed against its first parent — what the
- *   merge brought onto the branch it landed on. Without it git prints no diff
- *   for a merge at all.
+ * - `--diff-merges=first-parent`: a MERGE is diffed against its first parent —
+ *   what the merge brought onto the branch it landed on. Without it git prints
+ *   no diff for a merge at all, and the shorter `-m` would take its mode from
+ *   the user's `log.diffMerges` (`remerge` prints nothing for a clean merge).
  * - `--root`: a root commit is diffed against the empty tree, whatever
  *   `log.showRoot` says.
  *
  * Rename detection is left to git's default (`diff.renames`, on unless the user
  * turned it off), which both readers therefore share.
  */
-export const COMMIT_NUMSTAT_ARGS = ['--numstat', '-z', '-m', '--first-parent', '--root'] as const;
+export const COMMIT_NUMSTAT_ARGS = ['--numstat', '-z', '--diff-merges=first-parent', '--root'] as const;
 
 /**
  * Parse `--numstat -z`: `<ins>\t<del>\t<path>\0`, with renames spending two

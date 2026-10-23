@@ -107,8 +107,8 @@ export async function readFileDiff(
  * A path's diff inside a commit.
  *
  * `git show` on a merge commit prints nothing by default — a merge has no single
- * pre-image, so git declines to guess. `-m` asks for the diff against each
- * parent in turn; taking the first-parent diff is the conventional "what did
+ * pre-image, so git declines to guess. `--diff-merges=first-parent` asks for
+ * the diff against the first parent — the conventional "what did
  * this merge bring in relative to the branch it landed on" answer, and it's what
  * the graph's first-parent ordering already implies.
  */
@@ -124,8 +124,8 @@ export async function readCommitFileDiff(
     'show',
     ...BASE_ARGS,
     `-U${context}`,
-    '--first-parent',
-    '-m',
+    // Named outright rather than `-m`, whose mode follows `log.diffMerges`.
+    '--diff-merges=first-parent',
     // A root commit is diffed against the empty tree even under
     // `log.showRoot=false` — the same `--root` its numstat is read with.
     '--root',
