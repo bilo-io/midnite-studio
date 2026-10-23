@@ -162,7 +162,14 @@ and the file paths of any integrity, persistence or process finding. On demand, 
 Downloads, a repo, a folder, and a full home-folder scan behind its own confirm and time estimate (never the
 default). Studio wires the probe, the repos list and the download hook; the Vanguard app has no repo registry,
 folder picker or browser, so it offers Downloads and the full scan and its sensor sees no install scripts or
-downloads. A scan skips Vanguard's own rules and fixtures, so scanning this repo does not flag them.
+downloads. A scan skips Vanguard's own rules and fixtures **by content, never by location**: `vanguard-rules.mjs` also
+embeds the SHA-256 of every file under `rules/` (`OWN_FILE_DIGESTS`, with its own staleness test), and a file is
+skipped only when its bytes hash into that set, so a modified fixture dropped under any
+`packages/features/vanguard/...` path is still flagged. Scans are **cancellable**: `vanguardMalwareScanCancel`
+(shared channel, bridge, preload, the Vanguard app's bridge and the mock bridge) aborts one controller threaded
+through the scanner, the engines' `runProcess` calls and the built-in matcher's walk; the card shows *Cancel scan*
+while one runs, and a cancelled scan keeps its findings so far and reports itself as cancelled, not as a failure.
+The full-scan confirm no longer quotes a number: it says a scan can take a long time, often tens of minutes.
 Findings are `malware`, fingerprinted by rule and path (yara and the matcher dedupe), with a quarantine
 action that Theme H implements.
 
