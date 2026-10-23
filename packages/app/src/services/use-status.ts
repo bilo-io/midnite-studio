@@ -95,10 +95,15 @@ export function useStatus() {
 export type StatusCountLookup = {
   staged: (path: string) => ChangeCounts;
   unstaged: (path: string) => ChangeCounts;
+  /**
+   * True until the first real answer lands. The lookups return zeros meanwhile,
+   * so a view must show `pending` as a placeholder rather than those zeros.
+   */
+  pending: boolean;
 };
 
 export function useStatusCounts({ repoId, worktreePath }: StatusTarget): StatusCountLookup {
-  const { data } = useQuery({
+  const { data, isPlaceholderData } = useQuery({
     queryKey: keys.statusCounts(repoId ?? '', worktreePath),
     queryFn: async () => {
       const api = bridge();
@@ -115,8 +120,12 @@ export function useStatusCounts({ repoId, worktreePath }: StatusTarget): StatusC
       return (path: string): ChangeCounts =>
         byPath.get(path) ?? { path, insertions: 0, deletions: 0 };
     };
-    return { staged: index(data?.staged ?? []), unstaged: index(data?.unstaged ?? []) };
-  }, [data]);
+    return {
+      staged: index(data?.staged ?? []),
+      unstaged: index(data?.unstaged ?? []),
+      pending: isPlaceholderData || data === undefined,
+    };
+  }, [data, isPlaceholderData]);
 }
 
 const EMPTY_COUNTS = { staged: [], unstaged: [] };

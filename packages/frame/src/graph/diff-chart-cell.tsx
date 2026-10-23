@@ -1,7 +1,9 @@
 import type { CommitDiffStat } from '@midnite/studio-shared';
 
+import { DiffStatPending } from './diff-stat-cell';
+
 export interface DiffChartCellProps {
-  stat: CommitDiffStat | null | undefined;
+  stat: CommitDiffStat | undefined;
   /** Maximum additions or deletions across the currently visible viewport slice. */
   maxLines: number;
 }
@@ -9,19 +11,14 @@ export interface DiffChartCellProps {
 /**
  * One commit's diff rendered as a diverging horizontal churn bar for the Diff Chart column.
  *
- * `undefined` is "not loaded yet" or off; `null` is a merge commit (em dash).
+ * `undefined` is "not loaded yet" and draws the same neutral placeholder as the
+ * Diff column — never an empty baseline, which is what a commit with no line
+ * changes looks like.
  * Additions grow left from the centre baseline (emerald), deletions grow right (rose).
  * The lengths scale relative to the visible viewport's max churn (`maxLines`).
  */
 export function DiffChartCell({ stat, maxLines }: DiffChartCellProps) {
-  if (stat === undefined) return null;
-  if (stat === null) {
-    return (
-      <span className="text-muted-foreground" title="Merge commit — no diff shown">
-        —
-      </span>
-    );
-  }
+  if (stat === undefined) return <DiffStatPending />;
 
   const title = `${stat.files} ${stat.files === 1 ? 'file' : 'files'} changed (+${stat.added}, −${stat.deleted})`;
   const safeMax = Math.max(maxLines, 1);

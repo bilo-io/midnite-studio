@@ -365,7 +365,7 @@ describe('git-engine integration', () => {
 
     it('lists the files of a merge commit rather than reporting none', async () => {
       // `git show` prints no diff for a merge by default, so without
-      // `-m --first-parent` every merge reports zero changed files.
+      // `--diff-merges=first-parent` every merge reports zero changed files.
       const merged = await TempRepo.create();
       await merged.commitFile('base.txt', 'base\n', 'base');
       await merged.git(['checkout', '-b', 'side']);

@@ -12,7 +12,13 @@ import {
   type ChangedFile,
   type DirNode,
 } from '../../components/build-change-tree';
-import { ChangeTotals, ChangeTree, Counts, type FileSelectModifiers } from '../../components/change-tree';
+import {
+  ChangeTotals,
+  ChangeTree,
+  Counts,
+  CountsPendingContext,
+  type FileSelectModifiers,
+} from '../../components/change-tree';
 import { DIFF_BAR_CLASS } from '../../components/diff-pane-frame';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { TreeSection } from '../../components/tree-section';
@@ -257,8 +263,19 @@ export type WorkingTreeChanges = ReturnType<typeof useWorkingTreeChanges>;
  * whole checkout's totals, "view all changes", stash and the tree ⇄ list
  * toggle. `trailing` lands at the end of that header (the graph panel's close
  * button).
+ *
+ * While the line counts are still being read, every `+n −n` in it shows a
+ * placeholder rather than the zeros the lookups return meanwhile.
  */
-export function WorkingTreeFileList({
+export function WorkingTreeFileList(props: Parameters<typeof WorkingTreeFileListBody>[0]) {
+  return (
+    <CountsPendingContext.Provider value={props.model.counts.pending}>
+      <WorkingTreeFileListBody {...props} />
+    </CountsPendingContext.Provider>
+  );
+}
+
+function WorkingTreeFileListBody({
   model,
   cascading = false,
   cascadeStyleFor,
@@ -623,7 +640,7 @@ export function CommitBox({
  *   picking them was asking to read them.
  */
 export function WorkingTreeDiffPane({ model }: { model: WorkingTreeChanges }) {
-  const { repoId, target, entries, counts, total, selection, showingAll } = model;
+  const { repoId, target, entries, counts, selection, showingAll } = model;
 
   const picked = useMemo(() => {
     const paths = new Set(selection.map((item) => item.path));
@@ -634,13 +651,9 @@ export function WorkingTreeDiffPane({ model }: { model: WorkingTreeChanges }) {
 
   if (showingAll) {
     return (
-      <ChangesAccordion
-        repoId={repoId}
-        worktreePath={target.worktreePath}
-        entries={entries}
-        counts={counts}
-        totals={total}
-      />
+      <CountsPendingContext.Provider value={counts.pending}>
+        <ChangesAccordion repoId={repoId} worktreePath={target.worktreePath} entries={entries} counts={counts} />
+      </CountsPendingContext.Provider>
     );
   }
 
@@ -658,29 +671,22 @@ export function WorkingTreeDiffPane({ model }: { model: WorkingTreeChanges }) {
 
   if (selection.length > 1) {
     return (
-      <ChangesAccordion
-        // Re-keyed on the selection so a changed pick re-opens every file in it.
-        key={selection.map(itemKey).join('\u0001')}
-        repoId={repoId}
-        worktreePath={target.worktreePath}
-        entries={picked}
-        counts={counts}
-        totals={{
-          fileCount: picked.length,
-          insertions: picked.reduce((n, e) => n + countsOf(counts, e).insertions, 0),
-          deletions: picked.reduce((n, e) => n + countsOf(counts, e).deletions, 0),
-        }}
-        initiallyExpanded
-      />
+      <CountsPendingContext.Provider value={counts.pending}>
+        <ChangesAccordion
+          // Re-keyed on the selection so a changed pick re-opens every file in it.
+          key={selection.map(itemKey).join('\u0001')}
+          repoId={repoId}
+          worktreePath={target.worktreePath}
+          entries={picked}
+          counts={counts}
+          initiallyExpanded
+        />
+      </CountsPendingContext.Provider>
     );
   }
 
   return <PaneMessage>Select a file to see its diff.</PaneMessage>;
 }
-
-/** The counts a picked file's accordion row shows — the side its diff comes from. */
-const countsOf = (counts: WorkingTreeChanges['counts'], entry: StatusEntry) =>
-  entry.unstaged === 'unmodified' ? counts.staged(entry.path) : counts.unstaged(entry.path);
 
 /** Neither is ever mutated, so module-level instances avoid a render loop. */
 const EMPTY_SET: ReadonlySet<string> = new Set();

@@ -599,9 +599,15 @@ export const ForgePullDetailSchema = z.object({
   /** The branch being merged into. */
 
   baseBranch: z.string().default(''),
-  additions: z.number().int().nonnegative().default(0),
-  deletions: z.number().int().nonnegative().default(0),
-  changedFiles: z.number().int().nonnegative().default(0),
+  /**
+   * The PR's size. `null` is "this forge did not say" — Azure DevOps and
+   * Bitbucket leave line counts off the PR resource, and GitLab's come from a
+   * diff fetch that can fail — which the header leaves out rather than print
+   * as `+0 −0`, a PR that changed nothing.
+   */
+  additions: z.number().int().nonnegative().nullable().default(null),
+  deletions: z.number().int().nonnegative().nullable().default(null),
+  changedFiles: z.number().int().nonnegative().nullable().default(null),
   createdAt: z.string().nullable().default(null),
   updatedAt: z.string().nullable().default(null),
   /**

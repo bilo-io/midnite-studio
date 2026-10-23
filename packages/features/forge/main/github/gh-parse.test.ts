@@ -833,7 +833,10 @@ describe('parsePullDetail', () => {
     expect(detail?.pull.state).toBe('merged');
     expect(detail?.body).toBe('');
     expect(detail?.headSha).toBeNull();
-    expect(detail?.changedFiles).toBe(0);
+    // A withheld size is unknown, not zero — the header leaves it out.
+    expect(detail?.changedFiles).toBeNull();
+    expect(detail?.additions).toBeNull();
+    expect(detail?.deletions).toBeNull();
   });
 
   it('returns null for a payload that is not a pull request', () => {

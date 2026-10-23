@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { ChangeCounts, StatusCounts } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
-import { parseNumstat } from './log';
+import { parseNumstat } from '../parsers/numstat-parser';
 
 /**
  * `+n −n` per path for one checkout, both sides of the index.

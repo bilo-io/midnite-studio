@@ -54,7 +54,7 @@ export type PopoutRole =
   | 'apps-youtube';
 
 export type MockFixtures = {
-  commitStats?: Record<string, { added: number; deleted: number; files: number } | null>;
+  commitStats?: Record<string, { added: number; deleted: number; files: number }>;
   /**
    * The Finance dashboard's market data and simulated portfolio (`markets.*`).
    * Everything is generated in-process from a seeded PRNG — a spec that mounts
@@ -1720,12 +1720,11 @@ export function buildMockBridge(data: MockFixtures) {
         truncated: data.conflictRegionsTruncated?.[req.path] ?? false,
       }),
       commitStats: async (req: { shas: string[] }) => {
-        const stats: Record<string, { added: number; deleted: number; files: number } | null> = {};
+        const stats: Record<string, { added: number; deleted: number; files: number }> = {};
         if (data.commitStats) {
           for (const sha of req.shas) {
-            if (sha in data.commitStats) {
-              stats[sha] = data.commitStats[sha] ?? null;
-            }
+            const stat = data.commitStats[sha];
+            if (stat) stats[sha] = stat;
           }
         }
         return { stats };
@@ -1873,9 +1872,11 @@ export function buildMockBridge(data: MockFixtures) {
               // compare" (`use-base-blob-exists.ts`) both key off.
               baseSha: seeded['baseSha'] ?? null,
               baseBranch: seeded['baseBranch'] ?? '',
-              additions: seeded['additions'] ?? 0,
-              deletions: seeded['deletions'] ?? 0,
-              changedFiles: seeded['changedFiles'] ?? 0,
+              // `!== undefined`, not `??`: a seeded null is "the forge did not
+              // say", which the header must see as null rather than as 0.
+              additions: seeded['additions'] !== undefined ? seeded['additions'] : 0,
+              deletions: seeded['deletions'] !== undefined ? seeded['deletions'] : 0,
+              changedFiles: seeded['changedFiles'] !== undefined ? seeded['changedFiles'] : 0,
               createdAt: seeded['createdAt'] ?? null,
               updatedAt: seeded['updatedAt'] ?? null,
               mergeable: seeded['mergeable'] ?? null,
