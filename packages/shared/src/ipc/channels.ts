@@ -1679,6 +1679,10 @@ export const CHANNELS = {
   vanguardViewOpened: 'mstudio:vanguard:view-opened',
   /** Reveal the quarantine folder in the OS file manager. */
   vanguardOpenQuarantine: 'mstudio:vanguard:open-quarantine',
+  /** Which malware scan engines are installed, and the last scan (Phase 120 Theme F). */
+  vanguardMalwareStatus: 'mstudio:vanguard:malware-status',
+  /** Run one on-demand malware scan (downloads, a repo, a folder, or the home folder). */
+  vanguardMalwareScan: 'mstudio:vanguard:malware-scan',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

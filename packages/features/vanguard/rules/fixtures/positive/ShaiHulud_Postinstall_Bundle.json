@@ -1,0 +1,5 @@
+{
+  "name": "left-padder",
+  "version": "1.0.1",
+  "scripts": { "postinstall": "node bundle.js" }
+}

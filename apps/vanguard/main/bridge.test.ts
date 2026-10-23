@@ -33,6 +33,7 @@ describe('createVanguardBridge', () => {
     ]);
     expect(Object.keys(bridge.vanguard).sort()).toEqual([
       'findings',
+      'malware',
       'onChanged',
       'openQuarantine',
       'runSensor',
