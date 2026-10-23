@@ -4,9 +4,19 @@ import { LuPlay } from 'react-icons/lu';
 import { GlowCard } from '../../components';
 import { assetHref } from '../../routes';
 
-export type PilotVideoProps = { className?: string };
-
-const POSTER = 'video/pilot-intro-poster.jpg';
+export type PilotVideoProps = {
+  className?: string;
+  /** The MP4, relative to the site root, as `assetHref` takes it. */
+  src?: string;
+  /** The still shown before playback, relative to the site root. */
+  poster?: string;
+  /** The player's accessible name. */
+  label?: string;
+  /** The play button's accessible name. */
+  playLabel?: string;
+  /** Prefix for the `data-testid`s, so two players on one page stay addressable. */
+  testId?: string;
+};
 
 /**
  * The pilot: a framed, click-to-play clip beside the hero copy.
@@ -38,12 +48,23 @@ const POSTER = 'video/pilot-intro-poster.jpg';
  * the download page's command box wear, so the player reads as a control
  * embedded in the page rather than an embed some other tool dropped in.
  *
+ * The props default to the pilot itself. The landing page's showreel
+ * (`sections/showreel/`) is the same kind of thing (a soundtracked promo that
+ * waits for a click), so it passes its own clip rather than copying this.
+ *
  * Nothing here animates on its own — the only transitions are the hover states
  * on the play button, on the shared `duration-base` token that `tokens.css`
  * zeroes under `prefers-reduced-motion`, so there is no separate reduced-motion
  * branch to maintain.
  */
-export const PilotVideo = ({ className = '' }: PilotVideoProps) => {
+export const PilotVideo = ({
+  className = '',
+  src = 'video/pilot-intro.mp4',
+  poster = 'video/pilot-intro-poster.jpg',
+  label = 'Midnite Studio introduction: the launch promo, with sound.',
+  playLabel = 'Play the introduction video',
+  testId = 'pilot-video',
+}: PilotVideoProps) => {
   const [started, setStarted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -59,22 +80,22 @@ export const PilotVideo = ({ className = '' }: PilotVideoProps) => {
     <GlowCard bare glow="accent" className={`relative aspect-video w-full ${className}`}>
       <video
         ref={videoRef}
-        data-testid="pilot-video"
+        data-testid={testId}
         className="block h-full w-full object-cover"
         controls
         preload="none"
-        poster={assetHref(POSTER)}
-        aria-label="Midnite Studio introduction: the launch promo, with sound."
+        poster={assetHref(poster)}
+        aria-label={label}
       >
-        <source src={assetHref('video/pilot-intro.mp4')} type="video/mp4" />
+        <source src={assetHref(src)} type="video/mp4" />
       </video>
 
       {started ? null : (
         <button
           type="button"
           onClick={start}
-          data-testid="pilot-video-play"
-          aria-label="Play the introduction video"
+          data-testid={`${testId}-play`}
+          aria-label={playLabel}
           className="group absolute inset-0 flex items-center justify-center bg-black/10 transition duration-base hover:bg-black/25"
         >
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-bg-elevated/90 shadow-glow-soft transition duration-base group-hover:scale-105 sm:h-16 sm:w-16">
