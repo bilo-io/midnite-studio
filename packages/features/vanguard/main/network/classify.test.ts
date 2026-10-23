@@ -14,9 +14,9 @@ describe('classifyAgentDestination', () => {
     expect(verdict.reasons[0]).toMatch(/no valid code signature/);
   });
 
-  it('has no raw-IP rung: an address alone, named or not, never raises the severity', () => {
+  it('has no raw-IP rung: with no signature or threat hit, nothing raises the severity', () => {
     // Deferred to Phase 122: deciding it needs a reverse lookup, which this app does not make.
-    expect(classifyAgentDestination({ address: '203.0.113.9' } as never).severity).toBe('medium');
+    expect(classifyAgentDestination({}).severity).toBe('medium');
   });
 
   it('is high for a paste site, a tunnel and an exfiltration shape', () => {

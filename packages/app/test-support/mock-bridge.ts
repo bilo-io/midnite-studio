@@ -4638,7 +4638,7 @@ export function buildMockBridge(data: MockFixtures) {
               id: 'f3',
               fingerprint: 'fp-3',
               source: 'vanguard' as const,
-              severity: 'high' as const,
+              severity: 'info' as const,
               category: 'network' as const,
               title: 'The app connected to 203.0.113.7:443, which the egress registry does not list',
               detail:

@@ -99,7 +99,8 @@ export function useConnections(): { snapshot: VanguardConnectionsResponse; loade
           if (!live) return;
           setSnapshot(next);
           setLoaded(true);
-        });
+        })
+        .catch(() => undefined);
     };
     refetch();
     const off = bridge()?.vanguard.onChanged(refetch);
