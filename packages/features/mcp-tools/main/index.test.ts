@@ -95,4 +95,17 @@ describe('mcp-tools main', () => {
     expect(await bare.invoke(CHANNELS.mcpTrustList, { repoId: 'r' })).toEqual({ ok: true, value: { servers: [] } });
     expect(await bare.invoke(CHANNELS.mcpTrustApprove, { repoId: 'r', serverName: 's', configHash: 'h' })).toMatchObject({ ok: false });
   });
+
+  it('answers an approval card through the approvals port, and says so when the card is gone (Phase 121 Theme B)', async () => {
+    const answer = vi.fn((request: { id: string }) => request.id === 'live');
+    const ctx = createRecordingContext();
+    mcpToolsMain.register(ctx, { server: createNoMcpServer(), approvals: { answer } });
+    expect(await ctx.invoke(CHANNELS.toolApprovalAnswer, { id: 'live', decision: 'approve-once' })).toEqual({ ok: true, value: {} });
+    expect(await ctx.invoke(CHANNELS.toolApprovalAnswer, { id: 'gone', decision: 'deny' })).toMatchObject({ ok: false });
+    expect(await ctx.invoke(CHANNELS.toolApprovalAnswer, { id: 'live', decision: 'maybe' })).toMatchObject({ ok: false });
+
+    const bare = createRecordingContext();
+    mcpToolsMain.register(bare, { server: createNoMcpServer() });
+    expect(await bare.invoke(CHANNELS.toolApprovalAnswer, { id: 'live', decision: 'deny' })).toMatchObject({ ok: false });
+  });
 });

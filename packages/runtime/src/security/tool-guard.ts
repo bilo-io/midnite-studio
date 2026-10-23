@@ -11,6 +11,7 @@ import {
   provenanceFor,
   redactOutbound,
   type NewAgentAuditRecord,
+  type OutboundSecret,
   type TaintedToken,
   type ToolApprovalDecision,
   type ToolApprovalRequest,
@@ -104,7 +105,7 @@ export interface ToolApprovalsOptions {
   newId?: () => string;
   timeoutMs?: number;
   /** Extra secret values (the vault) to scrub from the arguments beside the shape patterns. */
-  secrets?: () => readonly { name: string; value: string; kind?: 'vault' | 'canary' }[];
+  secrets?: () => readonly OutboundSecret[] | Promise<readonly OutboundSecret[]>;
 }
 
 const ARG_LIMIT = 4000;
@@ -137,38 +138,44 @@ export function createToolApprovals(options: ToolApprovalsOptions): ToolApproval
       const key = `${ctx.tool}\u0000${decision.ruleId}`;
       if (sessionAllowed.has(key)) return Promise.resolve({ allowed: true, by: 'session' });
       return new Promise((resolve) => {
-        const id = newId();
-        const askedAt = now();
-        const request: ToolApprovalRequest = {
-          id,
-          tool: ctx.tool,
-          args: redactedArgs(ctx.input, options.secrets?.() ?? []),
-          ruleId: decision.ruleId,
-          reason: decision.reason,
-          provenance: decision.provenance,
-          ...(ctx.repoPath ? { repoPath: ctx.repoPath } : {}),
-          askedAt,
-          expiresAt: askedAt + timeoutMs,
+        const present = (secrets: readonly OutboundSecret[]): void => {
+          const id = newId();
+          const askedAt = now();
+          const request: ToolApprovalRequest = {
+            id,
+            tool: ctx.tool,
+            args: redactedArgs(ctx.input, secrets),
+            ruleId: decision.ruleId,
+            reason: decision.reason,
+            provenance: decision.provenance,
+            ...(ctx.repoPath ? { repoPath: ctx.repoPath } : {}),
+            askedAt,
+            expiresAt: askedAt + timeoutMs,
+          };
+          const timer = setTimeout(() => settle('timeout'), timeoutMs);
+          timer.unref?.();
+          const settle = (answer: ToolApprovalDecision | 'timeout'): void => {
+            if (!waiting.delete(id)) return;
+            clearTimeout(timer);
+            options.resolved?.({ id, decision: answer });
+            if (answer === 'approve-session') sessionAllowed.add(key);
+            resolve(
+              answer === 'timeout'
+                ? { allowed: false, by: 'timeout' }
+                : { allowed: answer !== 'deny', by: 'user', scope: answer === 'approve-session' ? 'session' : 'once' },
+            );
+          };
+          waiting.set(id, { request, settle });
+          try {
+            options.raise(request);
+          } catch {
+            // A window that cannot be reached leaves the card to time out, which denies.
+          }
         };
-        const timer = setTimeout(() => settle('timeout'), timeoutMs);
-        timer.unref?.();
-        const settle = (answer: ToolApprovalDecision | 'timeout'): void => {
-          if (!waiting.delete(id)) return;
-          clearTimeout(timer);
-          options.resolved?.({ id, decision: answer });
-          if (answer === 'approve-session') sessionAllowed.add(key);
-          resolve(
-            answer === 'timeout'
-              ? { allowed: false, by: 'timeout' }
-              : { allowed: answer !== 'deny', by: 'user', scope: answer === 'approve-session' ? 'session' : 'once' },
-          );
-        };
-        waiting.set(id, { request, settle });
-        try {
-          options.raise(request);
-        } catch {
-          // A window that cannot be reached leaves the card to time out, which denies.
-        }
+        // The vault read is async; with no vault the card is raised in the same tick.
+        const secrets = options.secrets?.();
+        if (secrets instanceof Promise) void secrets.then(present, () => present([]));
+        else present(secrets ?? []);
       });
     },
     answer(id, decision) {
@@ -242,6 +249,8 @@ export interface ToolGuardOptions {
 export interface ToolGuard {
   /** Judge one call; on `ask`, waits for the human. `allowed: false` carries the message to refuse with. */
   check(tool: string, input: unknown, extra?: Partial<ToolCallContext>): Promise<{ allowed: true; decision: ToolDecision } | { allowed: false; decision: ToolDecision; message: string }>;
+  /** Remembers what a result handed the agent, so a later call that reuses a path or URL from it is recognised. */
+  note(tool: string, value: unknown): void;
   /** Wraps a dispatcher so every call is judged before its handler runs. */
   wrap(dispatch: ScopedDispatch): ScopedDispatch;
   /** The decision a call would get, with no card and no audit record. */
@@ -288,6 +297,7 @@ export function createToolGuard(options: ToolGuardOptions): ToolGuard {
   return {
     check,
     evaluate,
+    note: (tool, value) => options.taint?.note(tool, value),
     wrap: (dispatch) => async (tool, input): Promise<DispatchResult> => {
       const verdict = await check(tool, input);
       if (!verdict.allowed) return { ok: false, kind: 'refused', message: verdict.message };

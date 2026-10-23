@@ -5,6 +5,7 @@ import { BrowserWindow, dialog } from 'electron';
 import { agentAuditTrail } from '../agent-audit';
 import { resolveAgentLimit } from '../agent-breaker-wiring';
 import { studioMcpTrustPort } from '../mcp-trust-wiring';
+import { answerToolApproval } from '../tool-policy-wiring';
 
 import { getMcpCallLog } from '../mcp/audit';
 import { getMcpStatus, setMcpAllowCompanionSettings, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowMaps, setMcpAllowModels, setMcpAllowMusic, setMcpAllowSprites, setMcpAllowTerrains, setMcpAllowUi, setMcpEnabled } from '../mcp';
@@ -65,6 +66,7 @@ export function registerMcpHandlers(): void {
     server: studioMcpServer,
     limits: { resolve: resolveAgentLimit },
     trust: studioMcpTrustPort,
+    approvals: { answer: answerToolApproval },
     audit: createAgentAuditPort({
       trail: agentAuditTrail,
       pickSavePath: async (defaultName) => {
