@@ -18,6 +18,7 @@ import {
   toBaseline,
   type PersistenceEntry,
 } from './persistence-parse';
+import { sha256NoFollow } from './response/target';
 import type { SensorContext, SensorDefinition } from './sensor-host';
 
 /**
@@ -164,7 +165,8 @@ async function findingFor(
       if (command !== undefined) evidence.push({ kind: 'command', command, args: rest });
       if (target !== undefined && target.startsWith('/')) {
         signature = await inspectExecutable(ctx.runProcess, target, ctx.signal);
-        evidence.push({ kind: 'path', path: target });
+        const hash = await sha256NoFollow(target);
+        evidence.push({ kind: 'path', path: target, ...(hash ? { hash } : {}) });
         remediation.push({ id: 'quarantine-file', path: target });
       }
       if (item.label !== undefined) detail += ` Label ${item.label}.`;

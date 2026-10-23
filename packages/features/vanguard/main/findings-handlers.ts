@@ -51,16 +51,20 @@ export function registerFindingsHandlers(
   ipc.handle(
     CHANNELS.securityFindingsAct,
     schemas.SecurityFindingsActRequest,
-    async ({ findingId, action }) => {
-      const ledger = services.ledger();
-      if (!services.response) {
-        const finding = await ledger.get(findingId);
-        if (!finding) return { ok: false, kind: 'error', message: `Finding '${findingId}' not found` };
-        if (action.id !== 'mute') return { ok: false, kind: 'error', message: 'Response actions are not available in this app.' };
-        const updated = await ledger.setStatus(findingId, 'muted');
-        return { ok: true, value: { actionId: 'mute', finding: updated ?? finding } };
+    async ({ findingId, action, confirmed }) => {
+      try {
+        const ledger = services.ledger();
+        if (!services.response) {
+          const finding = await ledger.get(findingId);
+          if (!finding) return { ok: false, kind: 'error', message: `Finding '${findingId}' not found` };
+          if (action.id !== 'mute') return { ok: false, kind: 'error', message: 'Response actions are not available in this app.' };
+          const updated = await ledger.setStatus(findingId, 'muted');
+          return { ok: true, value: { actionId: 'mute', finding: updated ?? finding } };
+        }
+        return await runAction(ledger, await services.response(), findingId, action, confirmed);
+      } catch (error) {
+        return { ok: false, kind: 'error', message: error instanceof Error ? error.message : String(error) };
       }
-      return runAction(ledger, await services.response(), findingId, action);
     },
     (issue) => {
       warn(issue);
@@ -74,7 +78,11 @@ export function registerFindingsHandlers(
     schemas.SecurityFindingsActRequest,
     async ({ findingId, action }) => {
       if (!services.response) return { ok: false, kind: 'error', message: 'Response actions are not available in this app.' };
-      return previewAction(services.ledger(), await services.response(), findingId, action);
+      try {
+        return await previewAction(services.ledger(), await services.response(), findingId, action);
+      } catch (error) {
+        return { ok: false, kind: 'error', message: error instanceof Error ? error.message : String(error) };
+      }
     },
     (issue) => {
       warn(issue);

@@ -48,8 +48,11 @@ export interface VanguardResponseOptions {
   uid?: number;
   selfPid?: number;
   selfExecPath?: string;
-  /** Never a file target, beside `userData` (always protected): the app bundle. */
-  protectedPaths?: readonly string[];
+  /**
+   * Never a file target, beside `userData` (always protected): the app bundle, and in a guest app the runtime
+   * host's bundle and data. A function is read at every plan, for paths a host record names.
+   */
+  protectedPaths?: readonly string[] | (() => readonly string[]);
   /** Command-line markers of the suite's own processes (its broker's script and socket directory). */
   protectedMarkers?: () => readonly string[];
   /** Other suite processes never to stop (a guest app's runtime host). */
@@ -126,7 +129,10 @@ export async function createVanguardService(
     uid: r.uid ?? process.getuid?.() ?? -1,
     selfPid: r.selfPid ?? process.pid,
     selfExecPath: r.selfExecPath ?? process.execPath,
-    protectedPaths: [options.userData, ...(r.protectedPaths ?? [])],
+    protectedPaths: () => [
+      options.userData,
+      ...(typeof r.protectedPaths === 'function' ? r.protectedPaths() : (r.protectedPaths ?? [])),
+    ],
     ...(r.protectedMarkers ? { protectedMarkers: r.protectedMarkers } : {}),
     ...(r.protectedPids ? { protectedPids: r.protectedPids } : {}),
     runProcess: options.runProcess,

@@ -224,6 +224,10 @@ export function createFindingsLedger(options: FindingsLedgerOptions): FindingsLe
             if (input.evidence && input.evidence.length > 0) {
               existing.evidence = input.evidence;
             }
+            // The actions follow the evidence: a re-detection under a new pid offers to stop that pid.
+            if (input.remediation && input.remediation.length > 0) {
+              existing.remediation = input.remediation;
+            }
             if (input.detail) {
               existing.detail = input.detail;
             }

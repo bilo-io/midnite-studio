@@ -1,6 +1,7 @@
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import {
+  appBundlePath,
   createSensorRunProcess,
   createVanguardService,
   INTERRUPT,
@@ -71,12 +72,6 @@ const ptySeams = {
   onSessionExit: (hook: (sessionId: string) => void) =>
     onSessionExit((sessionId) => hook(sessionId)),
 };
-
-/** `/Applications/Midnite Studio.app` from its executable; the executable's folder in a dev run. */
-export function appBundlePath(execPath: string): string {
-  const at = execPath.indexOf('.app/');
-  return at > 0 ? execPath.slice(0, at + '.app'.length) : dirname(execPath);
-}
 
 export async function startVanguardSensors(userData: string): Promise<void> {
   const ledger = getFindingsLedger();

@@ -211,8 +211,9 @@ a file, restore it, `chmod 600`, report the issue (main builds a redacted issue-
 and mute. Each destructive one asks main for its blast radius first (new `securityFindingsActPreview`
 channel). The radius is measured from the machine as it is now: process-group members from `ps`, the agent
 sessions that end with them, the plist's label and program, and file paths, sizes and modes. It is shown in
-the frame's confirm dialog as *Stops / Moves / Pauses* lines. Main plans again when it acts, so the dialog is
-a preview, not a licence. A stale target is refused with the error recorded: a pid whose start time is after
+the frame's confirm dialog as *Stops / Moves / Pauses* lines. Main plans again when it acts and runs only if
+the fresh plan has the digest the user confirmed, which covers the exact targets behind any capped list
+(Decision 17). A group that gained a member while the dialog was open is refused, not killed. A stale target is refused with the error recorded: a pid whose start time is after
 the finding was last seen, an executable path that changed, or a file or plist whose hash moved. The act also
 refuses the app's own process tree, its Electron helpers, the pty broker, other users' processes, system
 files, symlinks, and any file the user does not own or whose directory they cannot write. Only an action listed in the finding's own remediation can run, so the renderer can
@@ -220,13 +221,17 @@ never name a target. Every outcome is appended to the finding's ledger row as `a
 error?}]`; a failed `bootout` leaves the finding open. The quarantine reuses Theme F's
 `<userData>/vanguard/quarantine` rather than adding the second directory the plan named. It holds one
 `<findingId>/` with `manifest.json` (path, hash, mode, xattrs, size, when, which finding, the parent's
-realpath) and the file at 0000. Moves are made with link-and-unlink so nothing is overwritten, and no
-symlink is ever followed in or out. Theme F's Settings retention purges it. `restore-file` re-scans first,
+realpath) and the file at 0000, dotfiles such as `~/.claude.json` included. Moves are made with
+link-and-unlink so nothing is overwritten. No symlink is ever followed in or out: modes are set with
+`chmod -h`, xattrs with `xattr -s`, and the copy must be the same inode after the re-scan as before it. Theme F's Settings retention purges it. `restore-file` re-scans first,
 never restores over something already at the path, and refuses if the parent directory now resolves
 elsewhere. The Sensors tab gains a Quarantine card with *Restore* and *Open quarantine folder*.
+The process and persistence sensors now hash the executables they report, so the stale check compares
+hashes rather than mtimes, and a re-detection refreshes a finding's actions along with its evidence.
 `revoke-mcp-server` and `open-in-agents` stay in the closed enum but answer with a typed "available once
 Phase 121 lands" outcome; the UI shows both disabled with that reason. `apps/vanguard` runs all eight, and
-*Pause session* works there only while Studio's broker is up. The tile stays `comingSoon` until a Vanguard
+*Pause session* works there only while Studio's broker is up. It also never targets its own bundle, Studio's,
+the shared runtime directory, or Studio's userData. The tile stays `comingSoon` until a Vanguard
 release exists (see Decisions). `bootout` is tested against a fake `launchctl` seam, not a real temp domain,
 so Verification H's second half is still open. Screenshots in `docs/screenshots/vanguard-response/`.
 
@@ -543,3 +548,9 @@ so Verification H's second half is still open. Screenshots in `docs/screenshots/
     `~/Library/LaunchAgents` is unloaded. A system daemon would need escalation, which Vanguard never
     asks for. The confirm says the plist stays on disk and loads again at the next login unless it is
     also quarantined.
+17. **A confirm is a contract, not just a preview.** *Decided (self-review).* The preview carries a
+    `digest`: a hash of the radius as shown plus the exact targets behind it (every member pid and command,
+    the file's full hash and inode). `act` sends it back as `confirmed`. Main plans again and runs only if the
+    digests match. A mismatch is refused and recorded on the ledger. A missing digest on a destructive action
+    is refused without a record, since the caller skipped the dialog. Without this, a process group that grew
+    while the dialog was open would lose members the user never saw.

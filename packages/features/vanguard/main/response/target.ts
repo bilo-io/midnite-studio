@@ -10,6 +10,12 @@ import type { SecurityFinding } from '@midnite/studio-shared';
  * Theme H). Every file action runs these checks twice: once for the blast-radius preview, again at act time.
  */
 
+/** The `.app` bundle an executable runs from, or its directory when it is not in one (dev). */
+export function appBundlePath(execPath: string): string {
+  const at = execPath.indexOf('.app/');
+  return at > 0 ? execPath.slice(0, at + '.app'.length) : dirname(execPath);
+}
+
 /** Seconds of slack between a sensor's clock reading and a file's mtime or a process's start. */
 export const STALE_SLACK_MS = 5_000;
 

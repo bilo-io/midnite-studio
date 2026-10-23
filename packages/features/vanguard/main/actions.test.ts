@@ -1,7 +1,7 @@
 // vitest/node: every response action against a temp dir, with a fake process table, a fake launchctl and a
 // fake kill through the injected seams. Nothing here signals or unloads anything real.
 import { createHash } from 'node:crypto';
-import { chmod, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
+import { chmod, link, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,11 +9,33 @@ import { createFindingsLedger, type FindingsLedger } from '@midnite/studio-runti
 import type { NewSecurityFinding, RemediationAction, SecurityFinding } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createResponseActions, findingRules, issueDraft, previewAction, runAction, sameAction, type ResponseActionDeps } from './actions';
+import {
+  CHANGED_SINCE_CONFIRM,
+  createResponseActions,
+  findingRules,
+  issueDraft,
+  previewAction,
+  radiusDigest,
+  runAction as runActionConfirmed,
+  sameAction,
+  type ResponseActionDeps,
+  type ResponseActions,
+} from './actions';
 import { createQuarantineStore } from './response/quarantine';
 import type { SensorRunProcess, SensorRunProcessResult } from './sensor-host';
 
 const UID = process.getuid?.() ?? 501;
+const digestOf = (preview: Awaited<ReturnType<typeof previewAction>>): string | undefined => (preview.ok ? preview.value.digest : undefined);
+
+/**
+ * Act as the view does: preview, then act with the digest the user confirmed. Pass `confirmed` to act on a
+ * preview the test already took (so a rescan or ps call is not counted twice).
+ */
+async function runAction(l: FindingsLedger, actions: ResponseActions, id: string, action: RemediationAction, confirmed?: string) {
+  if (confirmed !== undefined) return runActionConfirmed(l, actions, id, action, confirmed);
+  const preview = await previewAction(l, actions, id, action);
+  return runActionConfirmed(l, actions, id, action, preview.ok ? preview.value.digest : undefined);
+}
 const NOW = 1_800_000_000_000;
 const sha = (text: string): string => createHash('sha256').update(text).digest('hex');
 const ok = (stdout = '', exitCode = 0, stderr = ''): SensorRunProcessResult => ({ ok: true, stdout, stderr, exitCode });
@@ -61,7 +83,7 @@ function deps(over: Partial<ResponseActionDeps> = {}): ResponseActionDeps {
     uid: UID,
     selfPid: 900,
     selfExecPath: '/Applications/Midnite Studio.app/Contents/MacOS/Midnite Studio',
-    protectedPaths: [userData],
+    protectedPaths: () => [userData],
     protectedMarkers: () => ['/Applications/Midnite Studio.app/Contents/Resources/app.asar.unpacked/dist/broker.js'],
     runProcess,
     quarantine: createQuarantineStore({ quarantineDir: join(userData, 'vanguard', 'quarantine'), runProcess, now: () => NOW, retentionDays: () => 30 }),
@@ -167,7 +189,7 @@ describe('mute and report-issue', () => {
     const actions = createResponseActions(deps({ issueApp: 'midnite-vanguard' }));
     const preview = await previewAction(ledger, actions, finding.id, { id: 'report-issue', title: 'Odd host' });
     expect(preview).toMatchObject({ ok: true, value: { confirm: false } });
-    const result = await runAction(ledger, actions, finding.id, { id: 'report-issue', title: 'Odd host' });
+    const result = await runAction(ledger, actions, finding.id, { id: 'report-issue', title: 'Odd host' }, digestOf(preview));
     if (!result.ok) throw new Error('report-issue failed');
     const url = new URL(result.value.issueUrl!);
     expect(url.searchParams.get('app')).toBe('midnite-vanguard');
@@ -194,7 +216,7 @@ describe('pause-session', () => {
     const actions = createResponseActions(deps({ interrupt }));
     const preview = await previewAction(ledger, actions, finding.id, { id: 'pause-session', sessionId: 's1' });
     expect(preview).toMatchObject({ ok: true, value: { confirm: true, pauses: ['claude · midnite (pid 4000)'], dies: [] } });
-    const result = await runAction(ledger, actions, finding.id, { id: 'pause-session', sessionId: 's1' });
+    const result = await runAction(ledger, actions, finding.id, { id: 'pause-session', sessionId: 's1' }, digestOf(preview));
     expect(interrupt).toHaveBeenCalledWith('s1');
     expect(result).toMatchObject({ ok: true, value: { finding: { status: 'open', actions: [{ id: 'pause-session', ok: true }] } } });
   });
@@ -226,6 +248,38 @@ describe('kill-process-group', () => {
       remediation: [{ id: 'kill-process-group', pid: 4100 }],
       ...over,
     });
+
+  it('runs only the plan the user confirmed: a group that grew since the preview is refused and recorded', async () => {
+    ps = table([` 4100  4000  4100 ${UID} 02:00 /tmp/evil`]);
+    const finding = await evil();
+    const kill = vi.fn();
+    const actions = createResponseActions(deps({ kill }));
+    const preview = await previewAction(ledger, actions, finding.id, { id: 'kill-process-group', pid: 4100 });
+    expect(preview).toMatchObject({ ok: true, value: { confirmLabel: 'Stop 1 process', digest: expect.any(String) } });
+    // A child joins the group while the dialog is open: it was never shown, so nothing is signalled.
+    ps = table([` 4100  4000  4100 ${UID} 02:00 /tmp/evil`, ` 4102  4100  4100 ${UID} 00:01 /usr/bin/nc`]);
+    const result = await runActionConfirmed(ledger, actions, finding.id, { id: 'kill-process-group', pid: 4100 }, digestOf(preview));
+    expect(result).toMatchObject({ ok: false, message: CHANGED_SINCE_CONFIRM });
+    expect(kill).not.toHaveBeenCalled();
+    expect((await ledger.get(finding.id))?.actions).toEqual([{ id: 'kill-process-group', at: NOW, ok: false, error: CHANGED_SINCE_CONFIRM }]);
+    expect((await ledger.get(finding.id))?.status).toBe('open');
+  });
+
+  it('refuses a destructive act with no confirmed preview, and records nothing', async () => {
+    ps = table([` 4100  4000  4100 ${UID} 02:00 /tmp/evil`]);
+    const finding = await evil();
+    const kill = vi.fn();
+    const result = await runActionConfirmed(ledger, createResponseActions(deps({ kill })), finding.id, { id: 'kill-process-group', pid: 4100 });
+    expect(result).toMatchObject({ ok: false, message: expect.stringContaining('confirm dialog') });
+    expect(kill).not.toHaveBeenCalled();
+    expect((await ledger.get(finding.id))?.actions).toBeUndefined();
+  });
+
+  it('the digest covers members a capped list hides', async () => {
+    const preview = { actionId: 'kill-process-group' as const, confirm: true, title: 't', confirmLabel: 'c', summary: 's', dies: ['…and 3 more'], moves: [], pauses: [], warnings: [] };
+    expect(radiusDigest(preview, '1:a\n2:b')).not.toBe(radiusDigest(preview, '1:a\n3:b'));
+    expect(radiusDigest({ ...preview, digest: 'ignored' }, 'x')).toBe(radiusDigest(preview, 'x'));
+  });
 
   it('names every member of the group and the session that ends with it, then SIGTERMs the group', async () => {
     ps = table([
@@ -334,12 +388,13 @@ describe('bootout-launch-item', () => {
   }
 
   it('names the label and target, runs launchctl bootout in the user domain, and resolves the finding', async () => {
-    const { path, finding, action } = await agent();
+    const { finding, action } = await agent();
     const actions = createResponseActions(deps());
     const preview = await previewAction(ledger, actions, finding.id, action);
     expect(preview).toMatchObject({ ok: true, value: { dies: ['com.example.helper — runs /tmp/.helper/agent'], summary: expect.stringContaining('loads again at your next login') } });
-    const result = await runAction(ledger, actions, finding.id, action);
-    expect(calls).toContainEqual({ command: '/bin/launchctl', args: ['bootout', `gui/${UID}`, path] });
+    const result = await runAction(ledger, actions, finding.id, action, digestOf(preview));
+    // By label, so launchd unloads the service that was hashed and shown, not whatever the file says later.
+    expect(calls).toContainEqual({ command: '/bin/launchctl', args: ['bootout', `gui/${UID}/com.example.helper`] });
     expect(result).toMatchObject({ ok: true, value: { finding: { status: 'resolved', actions: [{ id: 'bootout-launch-item', ok: true }] } } });
   });
 
@@ -396,7 +451,7 @@ describe('quarantine-file and restore-file', () => {
     const actions = createResponseActions(deps({ rescan }));
     const preview = await previewAction(ledger, actions, finding.id, { id: 'quarantine-file', path });
     expect(preview).toMatchObject({ ok: true, value: { moves: [expect.stringMatching(/tool\.bin \(13 B, 0751, sha256 [0-9a-f]{12}…\) to quarantine/)], summary: expect.stringContaining('30 days') } });
-    const result = await runAction(ledger, actions, finding.id, { id: 'quarantine-file', path });
+    const result = await runAction(ledger, actions, finding.id, { id: 'quarantine-file', path }, digestOf(preview));
     expect(result).toMatchObject({ ok: true, value: { finding: { status: 'resolved' } } });
     await expect(stat(path)).rejects.toThrow();
     const dataPath = join(userData, 'vanguard', 'quarantine', finding.id, 'data', 'tool.bin');
@@ -407,7 +462,7 @@ describe('quarantine-file and restore-file', () => {
     const restore = { id: 'restore-file' as const, findingId: finding.id, path };
     const restorePreview = await previewAction(ledger, actions, finding.id, restore);
     expect(restorePreview).toMatchObject({ ok: true, value: { moves: [expect.stringContaining(`quarantine to ${path}`)] } });
-    const restored = await runAction(ledger, actions, finding.id, restore);
+    const restored = await runAction(ledger, actions, finding.id, restore, digestOf(restorePreview));
     expect(restored).toMatchObject({ ok: true, value: { finding: { status: 'acknowledged' } } });
     expect(await readFile(path, 'utf8')).toBe('payload bytes');
     expect((await stat(path)).mode & 0o7777).toBe(0o751);
@@ -446,6 +501,34 @@ describe('quarantine-file and restore-file', () => {
     const result = await runAction(ledger, actions, finding.id, { id: 'restore-file', findingId: finding.id, path });
     expect(result).toMatchObject({ ok: false, message: expect.stringContaining('already at') });
     expect(await readFile(path, 'utf8')).toBe('new');
+  });
+
+  it('refuses a restore when an engine failed: "no match" from a scan that did not run is not clean', async () => {
+    const { path, finding } = await fileFinding('e.bin', 'x', (p) => [{ id: 'quarantine-file', path: p }]);
+    const actions = createResponseActions(deps({ rescan: async () => ({ rules: [], errors: ['yara: exited 1'] }) }));
+    await runAction(ledger, actions, finding.id, { id: 'quarantine-file', path });
+    expect(await runAction(ledger, actions, finding.id, { id: 'restore-file', findingId: finding.id, path })).toMatchObject({
+      ok: false,
+      message: expect.stringContaining('did not finish (yara: exited 1)'),
+    });
+    await expect(stat(path)).rejects.toThrow();
+  });
+
+  it('refuses to quarantine a file with other hard links', async () => {
+    const { path, finding } = await fileFinding('h.bin', 'x', (p) => [{ id: 'quarantine-file', path: p }]);
+    await link(path, join(home, 'h-other.bin'));
+    expect(await previewAction(ledger, createResponseActions(deps()), finding.id, { id: 'quarantine-file', path })).toMatchObject({
+      ok: false,
+      message: expect.stringContaining('1 other hard link'),
+    });
+  });
+
+  it('quarantines and restores a dotfile', async () => {
+    const { path, finding } = await fileFinding('.claude.json', '{"mcpServers":{}}', (p) => [{ id: 'quarantine-file', path: p }], 0o644);
+    const actions = createResponseActions(deps());
+    expect(await runAction(ledger, actions, finding.id, { id: 'quarantine-file', path })).toMatchObject({ ok: true });
+    expect(await runAction(ledger, actions, finding.id, { id: 'restore-file', findingId: finding.id, path })).toMatchObject({ ok: true });
+    expect(await readFile(path, 'utf8')).toBe('{"mcpServers":{}}');
   });
 
   it('refuses a restore when the scan cannot run', async () => {

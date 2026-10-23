@@ -1,6 +1,8 @@
+import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
 import { chmod, copyFile, link, lstat, mkdir, readdir, readFile, realpath, rename, rm, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
+import { promisify } from 'node:util';
 
 import {
   QuarantineManifestSchema,
@@ -22,6 +24,8 @@ import { sha256NoFollow } from './target';
  */
 
 export const XATTR = '/usr/bin/xattr';
+const CHMOD = '/bin/chmod';
+const execFileAsync = promisify(execFile);
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -29,6 +33,29 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** A finding id is a directory name here, so it must be one: no separators, no dot-dirs. */
 export function safeFindingDir(findingId: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(findingId) && !findingId.includes('..');
+}
+
+/**
+ * The file name a quarantine entry keeps: the original's basename. A dotfile (`.mcp.json`, `~/.claude.json`) is
+ * fine; a separator, NUL, `.` or `..` is not, since it is joined under `data/`.
+ */
+export function safeFileName(name: string): boolean {
+  return name !== '' && name !== '.' && name !== '..' && basename(name) === name && !name.includes('/') && !name.includes('\0');
+}
+
+/**
+ * `chmod` that never follows a link. On macOS (the only supported platform) it is `/bin/chmod -h`, which is the
+ * `lchmod` syscall: no open, so it works on a 0000 file, and a link swapped in changes only the link. Node's own
+ * `lchmod` opens the file first and so fails on exactly the 0000 copies this store keeps. Elsewhere a link is
+ * refused after an `lstat`.
+ */
+export async function chmodNoFollow(path: string, mode: number): Promise<void> {
+  if (process.platform === 'darwin') {
+    await execFileAsync(CHMOD, ['-h', '--', (mode & 0o7777).toString(8), path], { timeout: 5_000 });
+    return;
+  }
+  if ((await lstat(path)).isSymbolicLink()) throw new Error(`${path} is a symbolic link`);
+  await chmod(path, mode);
 }
 
 export interface QuarantineDeps {
@@ -82,11 +109,12 @@ async function isPlainDir(path: string): Promise<boolean> {
 
 /** Every extended attribute, as `xattr -px` prints it. Best-effort: a file with none, or no `xattr`, is []. */
 export async function readXattrs(runProcess: SensorRunProcess, path: string): Promise<QuarantineManifest['xattrs']> {
-  const names = await runProcess(XATTR, [path], { timeoutMs: 5_000 });
+  // `-s`: a link is read as itself, never followed.
+  const names = await runProcess(XATTR, ['-s', path], { timeoutMs: 5_000 });
   if (!names.ok || names.exitCode !== 0) return [];
   const out: QuarantineManifest['xattrs'] = [];
   for (const name of names.stdout.split('\n').map((n) => n.trim()).filter(Boolean)) {
-    const value = await runProcess(XATTR, ['-px', name, path], { timeoutMs: 5_000 });
+    const value = await runProcess(XATTR, ['-p', '-s', '-x', name, path], { timeoutMs: 5_000 });
     if (value.ok && value.exitCode === 0) out.push({ name, hex: value.stdout.replace(/\s+/g, '') });
   }
   return out;
@@ -97,7 +125,7 @@ async function reapplyXattrs(runProcess: SensorRunProcess, path: string, wanted:
   if (wanted.length === 0) return;
   const present = new Set((await readXattrs(runProcess, path)).map((x) => x.name));
   for (const { name, hex } of wanted) {
-    if (!present.has(name)) await runProcess(XATTR, ['-wx', name, hex, path], { timeoutMs: 5_000 });
+    if (!present.has(name)) await runProcess(XATTR, ['-w', '-s', '-x', name, hex, path], { timeoutMs: 5_000 });
   }
 }
 
@@ -132,7 +160,7 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
   const ensureRoot = async (): Promise<string | null> => {
     await mkdir(dir, { recursive: true, mode: DIR_MODE });
     if (!(await isPlainDir(dir))) return 'The quarantine folder is not a plain directory.';
-    await chmod(dir, DIR_MODE).catch(() => undefined);
+    await chmodNoFollow(dir, DIR_MODE).catch(() => undefined);
     return null;
   };
 
@@ -151,7 +179,7 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
     } catch {
       return { ok: false, error: 'Nothing is quarantined for this finding.' };
     }
-    if (basename(parsed.fileName) !== parsed.fileName || parsed.fileName === '' || parsed.fileName.startsWith('.')) {
+    if (!safeFileName(parsed.fileName)) {
       return { ok: false, error: 'The quarantine manifest names an unsafe file.' };
     }
     const dataDir = join(entry, 'data');
@@ -171,7 +199,8 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
   const entries = async (): Promise<QuarantineManifest[]> => {
     if (!(await isPlainDir(dir))) return [];
     const out: QuarantineManifest[] = [];
-    for (const name of await readdir(dir)) {
+    const names = await readdir(dir).catch(() => [] as string[]);
+    for (const name of names) {
       const read = await manifest(name);
       if (read.ok) out.push(read.manifest);
     }
@@ -201,6 +230,16 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
     async put(input) {
       const { finding } = input;
       if (!safeFindingDir(finding.id)) return { ok: false, error: 'This finding cannot be quarantined (its id is not a safe folder name).' };
+      const fileName = basename(input.path);
+      if (!safeFileName(fileName)) return { ok: false, error: `${input.path} does not end in a file name Vanguard can keep.` };
+      // Everything read from the original happens before the entry exists, so a failure leaves nothing behind.
+      let realParent: string;
+      try {
+        realParent = await realpath(dirname(input.path));
+      } catch {
+        return { ok: false, error: `${dirname(input.path)} no longer exists.` };
+      }
+      const xattrs = await readXattrs(deps.runProcess, input.path).catch(() => []);
       const rootError = await ensureRoot().catch((error: unknown) => String(error));
       if (rootError) return { ok: false, error: rootError };
       const entry = join(dir, finding.id);
@@ -216,20 +255,19 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
               : `Could not create the quarantine entry: ${String(error)}`,
         };
       }
-      const fileName = basename(input.path);
       const dataPath = join(dataDir, fileName);
       const manifestValue: QuarantineManifest = {
         version: 1,
         findingId: finding.id,
         findingTitle: finding.title,
         originalPath: input.path,
-        realParent: await realpath(dirname(input.path)),
+        realParent,
         fileName,
         sha256: input.sha256,
         size: input.size,
         mode: input.mode & 0o7777,
         uid: input.uid,
-        xattrs: await readXattrs(deps.runProcess, input.path),
+        xattrs,
         quarantinedAt: deps.now(),
         allowRules: [...input.allowRules],
       };
@@ -245,11 +283,34 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
       // back and refuse rather than keep it.
       const moved = await lstat(dataPath);
       if (moved.isSymbolicLink() || !moved.isFile() || (await sha256NoFollow(dataPath)) !== input.sha256) {
-        await rename(dataPath, input.path).catch(() => undefined);
-        await rm(entry, { recursive: true, force: true });
-        return { ok: false, error: `${input.path} changed while it was being quarantined; nothing was kept.` };
+        // Back where it came from, but never over something that has appeared there since: a regular file by a
+        // hard link (which cannot overwrite), a link by a rename only once the path is checked to be empty.
+        const back = moved.isFile()
+          ? await link(dataPath, input.path).then(
+              () => true,
+              () => false,
+            )
+          : await lstat(input.path).then(
+              () => false,
+              () =>
+                rename(dataPath, input.path).then(
+                  () => true,
+                  () => false,
+                ),
+            );
+        if (back) await rm(entry, { recursive: true, force: true });
+        return {
+          ok: false,
+          error: back
+            ? `${input.path} changed while it was being quarantined; it was put back and nothing was kept.`
+            : `${input.path} changed while it was being quarantined, and something now sits at that path; what was moved stays in ${dataDir}.`,
+        };
       }
-      await chmod(dataPath, 0);
+      try {
+        await chmodNoFollow(dataPath, 0);
+      } catch (error) {
+        return { ok: false, error: `${input.path} was moved into quarantine but could not be locked to 0000: ${String(error)}` };
+      }
       return { ok: true, manifest: manifestValue };
     },
 
@@ -259,12 +320,18 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
       const { manifest: m, dataPath } = read;
       let restored = false;
       try {
-        await chmod(dataPath, 0o400);
+        await chmodNoFollow(dataPath, 0o400);
         if ((await sha256NoFollow(dataPath)) !== m.sha256) {
           return { ok: false, error: 'The quarantined copy no longer matches what was quarantined; it stays where it is.' };
         }
+        const verified = await lstat(dataPath);
         const verdict = await inspect(dataPath, m);
         if (!verdict.ok) return verdict;
+        // The re-scan takes a while: the copy must still be the very file that was hashed.
+        const after = await lstat(dataPath);
+        if (!after.isFile() || after.ino !== verified.ino || after.dev !== verified.dev) {
+          return { ok: false, error: 'The quarantined copy was replaced during the re-scan; it stays where it is.' };
+        }
         try {
           await lstat(m.originalPath);
           return { ok: false, error: `Something is already at ${m.originalPath}; move it away before restoring.` };
@@ -282,7 +349,12 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
         }
         await moveFile(dataPath, m.originalPath, m.sha256, 'out');
         restored = true;
-        await chmod(m.originalPath, m.mode);
+        const landed = await lstat(m.originalPath);
+        if (!landed.isFile() || (landed.dev === verified.dev && landed.ino !== verified.ino)) {
+          await unlink(m.originalPath).catch(() => undefined);
+          return { ok: false, error: `What arrived at ${m.originalPath} was not the quarantined file; it was removed.` };
+        }
+        await chmodNoFollow(m.originalPath, m.mode);
         await reapplyXattrs(deps.runProcess, m.originalPath, m.xattrs);
         await rm(join(dir, findingId), { recursive: true, force: true });
         return { ok: true, manifest: m };
@@ -293,7 +365,7 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
         // path, where the mode would land on the user's file.
         if (!restored) {
           const [data, original] = await Promise.all([lstat(dataPath).catch(() => null), lstat(m.originalPath).catch(() => null)]);
-          if (data && !(original && original.ino === data.ino)) await chmod(dataPath, 0).catch(() => undefined);
+          if (data && !(original && original.ino === data.ino)) await chmodNoFollow(dataPath, 0).catch(() => undefined);
         }
       }
     },
@@ -302,7 +374,7 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
       const read = await manifest(findingId);
       if (!read.ok) return read;
       try {
-        await chmod(read.dataPath, 0o400);
+        await chmodNoFollow(read.dataPath, 0o400);
         if ((await sha256NoFollow(read.dataPath)) !== read.manifest.sha256) {
           return { ok: false, error: 'The quarantined copy no longer matches what was quarantined.' };
         }
@@ -310,7 +382,7 @@ export function createQuarantineStore(deps: QuarantineDeps): QuarantineStore {
       } catch (error) {
         return { ok: false, error: error instanceof Error ? error.message : String(error) };
       } finally {
-        await chmod(read.dataPath, 0).catch(() => undefined);
+        await chmodNoFollow(read.dataPath, 0).catch(() => undefined);
       }
     },
 

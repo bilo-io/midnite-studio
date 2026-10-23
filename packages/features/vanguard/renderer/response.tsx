@@ -9,12 +9,13 @@ import {
   type SecurityFinding,
   type VanguardResponseStateResponse,
 } from '@midnite/studio-shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Response actions in the view (Phase 120 Theme H). Every action but Mute and Report issue asks main for its
  * blast radius first — computed from the machine as it is now — and runs only from the confirm that shows it.
- * Main plans again when it acts, so the dialog is a preview, never a licence.
+ * Main plans again when it acts and runs only if that plan is the one confirmed (its digest), so the dialog is a
+ * preview, never a licence.
  */
 
 export const ACTION_LABEL: Record<RemediationAction['id'], string> = {
@@ -86,10 +87,19 @@ export function blastRadiusLines(radius: ActionBlastRadius): string[] {
 export function useResponseAction(onMessage: (message: { text: string; error: boolean } | null) => void) {
   const dialogs = useFrameChrome().useDialogs();
   const [busy, setBusy] = useState(false);
+  // One act at a time: a second click on the same confirm must not run the action twice.
+  const acting = useRef(false);
 
   const act = useCallback(
-    async (findingId: string, action: RemediationAction): Promise<void> => {
-      const result = await bridge()?.vanguard.findings.act({ findingId, action });
+    async (findingId: string, action: RemediationAction, confirmed?: string): Promise<void> => {
+      if (acting.current) return;
+      acting.current = true;
+      let result;
+      try {
+        result = await bridge()?.vanguard.findings.act({ findingId, action, ...(confirmed ? { confirmed } : {}) });
+      } finally {
+        acting.current = false;
+      }
       if (!result) return;
       if (!result.ok) {
         onMessage({ text: failureText(result), error: true });
@@ -134,7 +144,8 @@ export function useResponseAction(onMessage: (message: { text: string; error: bo
           // Measured here, not in commits: null keeps the dialog from reading as "still counting".
           blastRadius: null,
           warnings: blastRadiusLines(radius),
-          onConfirm: () => void act(findingId, action),
+          // Main runs it only if its fresh plan is exactly this one.
+          onConfirm: () => void act(findingId, action, radius.digest),
         });
       } finally {
         setBusy(false);

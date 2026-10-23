@@ -118,6 +118,7 @@ describe('Vanguard view', () => {
         moves: [],
         pauses: [],
         warnings: ['The plist stays.'],
+        digest: 'd1',
       },
     });
     act_.mockResolvedValue({ ok: true, value: { actionId: 'bootout-launch-item', detail: 'Unloaded com.example.helper.' } });
@@ -138,7 +139,8 @@ describe('Vanguard view', () => {
     expect(act_).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Unload' }));
     await waitFor(() =>
-      expect(act_).toHaveBeenCalledWith({ findingId: 'f1', action: { id: 'bootout-launch-item', domain: 'gui/501', path: '/a.plist' } }),
+      // With the digest of the radius the dialog showed: main runs it only if its fresh plan matches.
+      expect(act_).toHaveBeenCalledWith({ findingId: 'f1', action: { id: 'bootout-launch-item', domain: 'gui/501', path: '/a.plist' }, confirmed: 'd1' }),
     );
     expect(await screen.findByText('Unloaded com.example.helper.')).toBeDefined();
 

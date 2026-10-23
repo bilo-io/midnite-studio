@@ -64,6 +64,7 @@ export {
   type VanguardService,
   type VanguardServiceOptions,
 } from './vanguard-service';
+export { appBundlePath } from './response/target';
 export {
   createResponseActions,
   INTERRUPT,

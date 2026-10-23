@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createSensorRunProcess } from '../run-process';
 import type { SensorRunProcess } from '../sensor-host';
-import { createQuarantineStore, safeFindingDir } from './quarantine';
+import { chmodNoFollow, createQuarantineStore, safeFileName, safeFindingDir } from './quarantine';
 
 const sha = (text: string): string => createHash('sha256').update(text).digest('hex');
 const noXattr: SensorRunProcess = async () => ({ ok: true, stdout: '', stderr: '', exitCode: 0 });
@@ -52,6 +52,31 @@ describe('safeFindingDir', () => {
   });
 });
 
+describe('safeFileName', () => {
+  it('keeps a dotfile and refuses dot-dirs and separators', () => {
+    expect(safeFileName('.claude.json')).toBe(true);
+    expect(safeFileName('.mcp.json')).toBe(true);
+    for (const bad of ['', '.', '..', 'a/b', '../x', 'a\u0000b']) expect(safeFileName(bad)).toBe(false);
+  });
+});
+
+describe('chmodNoFollow', () => {
+  it('changes a 0000 file and never the target of a link', async () => {
+    const file = join(root, 'f');
+    await writeFile(file, 'x');
+    await chmod(file, 0);
+    await chmodNoFollow(file, 0o400);
+    expect((await stat(file)).mode & 0o777).toBe(0o400);
+    const target = join(root, 'secret');
+    await writeFile(target, 'k');
+    await chmod(target, 0o600);
+    const linkPath = join(root, 'l');
+    await symlink(target, linkPath);
+    await chmodNoFollow(linkPath, 0).catch(() => undefined);
+    expect((await stat(target)).mode & 0o777).toBe(0o600);
+  });
+});
+
 describe('quarantine store', () => {
   it('round-trips a file byte-for-byte with its mode', async () => {
     const q = store();
@@ -82,6 +107,33 @@ describe('quarantine store', () => {
     expect(put.ok && put.manifest.xattrs).toEqual([{ name: 'com.midnite.test', hex: Buffer.from('hello').toString('hex').toUpperCase() }]);
     expect((await q.restore('fx', async () => ({ ok: true }))).ok).toBe(true);
     expect(execFileSync('/usr/bin/xattr', ['-p', 'com.midnite.test', path]).toString().trim()).toBe('hello');
+  });
+
+  it('round-trips a dotfile (an agent config such as ~/.claude.json)', async () => {
+    const q = store();
+    const { path, result } = await put(q, 'f1', '.claude.json', '{}', 0o644);
+    expect(result.ok).toBe(true);
+    expect(await q.list()).toEqual([expect.objectContaining({ fileName: '.claude.json' })]);
+    expect((await q.restore('f1', async () => ({ ok: true }))).ok).toBe(true);
+    expect(await readFile(path, 'utf8')).toBe('{}');
+  });
+
+  it('refuses a copy replaced while the re-scan ran, and never chmods through a link', async () => {
+    const q = store();
+    const { path } = await put(q, 'f1', 'tool', 'x');
+    const secret = join(root, 'secret');
+    await writeFile(secret, 'key');
+    await chmod(secret, 0o600);
+    const data = join(dir, 'f1', 'data', 'tool');
+    const result = await q.restore('f1', async () => {
+      // Swap the copy for a link to a file outside while the scan "runs".
+      await rm(data);
+      await symlink(secret, data);
+      return { ok: true };
+    });
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('replaced during the re-scan') });
+    await expect(stat(path)).rejects.toThrow();
+    expect((await stat(secret)).mode & 0o777).toBe(0o600);
   });
 
   it('keeps the copy at 0000 when inspect refuses', async () => {

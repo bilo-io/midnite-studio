@@ -39,6 +39,11 @@ export type SecurityFindingsSetStatusResponse = z.infer<typeof SecurityFindingsS
 export const SecurityFindingsActRequest = z.object({
   findingId: z.string(),
   action: RemediationActionSchema,
+  /**
+   * The `digest` of the blast radius the user confirmed (Phase 120 Theme H). A confirmed action runs only
+   * when main's fresh plan has the same digest, so nothing runs that the dialog did not show.
+   */
+  confirmed: z.string().optional(),
 });
 export type SecurityFindingsActRequest = z.infer<typeof SecurityFindingsActRequest>;
 
@@ -85,6 +90,11 @@ export const ActionBlastRadiusSchema = z.object({
   /** Anything else worth reading first (a re-scan that matched, a running process still using a file). */
   warnings: z.array(z.string()),
   unavailable: RemediationUnavailableSchema.optional(),
+  /**
+   * A hash of everything above plus the exact targets behind any capped list (every member pid, the file's
+   * full hash). `act` sends it back as `confirmed`.
+   */
+  digest: z.string().optional(),
 });
 export type ActionBlastRadius = z.infer<typeof ActionBlastRadiusSchema>;
 

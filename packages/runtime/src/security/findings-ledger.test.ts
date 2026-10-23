@@ -372,5 +372,22 @@ describe('Security findings schema & ledger (Phase 120 Theme A)', () => {
       expect((await reloaded.get(finding.id))?.actions).toHaveLength(2);
       expect(await ledger.recordAction('missing', { id: 'mute', at: 3, ok: true })).toBeNull();
     });
+
+    it('a re-detection refreshes the actions with the evidence, so they name the pid seen now', async () => {
+      const first = await ledger.record({
+        ...base(),
+        fingerprint: 'fp-pid',
+        evidence: [{ kind: 'pid', pid: 100 }],
+        remediation: [{ id: 'kill-process-group', pid: 100 }],
+      });
+      const again = await ledger.record({
+        ...base(),
+        fingerprint: 'fp-pid',
+        evidence: [{ kind: 'pid', pid: 200 }],
+        remediation: [{ id: 'kill-process-group', pid: 200 }],
+      });
+      expect(again.id).toBe(first.id);
+      expect(again.remediation).toEqual([{ id: 'kill-process-group', pid: 200 }]);
+    });
   });
 });

@@ -1,4 +1,7 @@
+import { dirname } from 'node:path';
+
 import {
+  appBundlePath,
   createSensorRunProcess,
   createVanguardService,
   INTERRUPT,
@@ -74,6 +77,17 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
     // broker, so it works only while Studio's broker is up. Studio itself and its broker are never a target.
     response: {
       issueApp: 'midnite-vanguard',
+      // Never a file target: this app's bundle, Studio's, the runtime's shared data (vault, host record) and
+      // Studio's userData, which its host record locates through the terminal list it names.
+      protectedPaths: () => {
+        const host = readRuntimeHostRecord(el.runtimeDirectory);
+        return [
+          appBundlePath(process.execPath),
+          '/Applications/Midnite Studio.app',
+          el.runtimeDirectory,
+          ...(host?.sessionsFile ? [dirname(host.sessionsFile)] : []),
+        ];
+      },
       protectedPids: () => {
         const host = readRuntimeHostRecord(el.runtimeDirectory);
         return host ? [host.pid] : [];

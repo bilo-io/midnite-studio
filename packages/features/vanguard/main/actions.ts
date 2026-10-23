@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 
@@ -72,8 +73,8 @@ export interface ResponseActionDeps {
   selfPid: number;
   /** `process.execPath`: the app's own Electron helpers and its terminal broker all run it. */
   selfExecPath: string;
-  /** The app's bundle and userData: never a file target. */
-  protectedPaths: readonly string[];
+  /** The app's bundle and userData (and, in a guest app, the host's): never a file target. Read per plan. */
+  protectedPaths: () => readonly string[];
   /** Strings that mark a process as the suite's own in its command line (the broker's script, its socket dir). */
   protectedMarkers?: () => readonly string[];
   /** Other suite processes never to stop (the runtime host, seen from a guest app). */
@@ -101,7 +102,8 @@ type Run = () => Promise<
 >;
 
 type Plan =
-  | { kind: 'ready'; radius: ActionBlastRadius; run: Run }
+  /** `identity`: the exact targets behind the radius (every pid, the full hash), folded into its digest. */
+  | { kind: 'ready'; radius: ActionBlastRadius; identity?: string; run: Run }
   | { kind: 'refused'; error: string }
   | { kind: 'unavailable'; unavailable: RemediationUnavailable };
 
@@ -132,6 +134,12 @@ export function sameAction(a: RemediationAction, b: RemediationAction): boolean 
 export function findingRules(finding: SecurityFinding): string[] {
   const m = /^malware:(?:clamav:)?([^:]+):/.exec(finding.fingerprint);
   return finding.category === 'malware' && m ? [m[1]!] : [];
+}
+
+/** What the user confirmed: the radius as shown plus the exact targets behind it. */
+export function radiusDigest(radius: ActionBlastRadius, identity = ''): string {
+  const { digest: _digest, ...shown } = radius;
+  return createHash('sha256').update(JSON.stringify({ shown, identity })).digest('hex');
 }
 
 function confirmFlag(id: RemediationActionId): boolean {
@@ -190,7 +198,7 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
   const kill = deps.kill ?? ((pid: number, signal: NodeJS.Signals | 0) => void process.kill(pid, signal));
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const home = deps.homeDir;
-  const reach = { homeDir: home, uid: deps.uid, protectedPaths: deps.protectedPaths };
+  const reach = () => ({ homeDir: home, uid: deps.uid, protectedPaths: deps.protectedPaths() });
 
   const alive = (pid: number): boolean => {
     try {
@@ -305,6 +313,10 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
           ...capped(members.map((m) => `pid ${m.pid}  ${m.comm}`)),
         ],
       }),
+      identity: members
+        .map((m) => `${m.pid}:${m.comm}`)
+        .sort()
+        .join('\n'),
       run: async () => {
         const signal = (sig: NodeJS.Signals): void => {
           try {
@@ -345,7 +357,7 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
     if (!path.startsWith(`${home}/Library/LaunchAgents/`) || !path.endsWith('.plist')) {
       return { kind: 'refused', error: `${path} is not a launch agent in your LaunchAgents folder.` };
     }
-    const target = await checkFileTarget(path, reach);
+    const target = await checkFileTarget(path, reach());
     if (!target.ok) return { kind: 'refused', error: target.error };
     const same = await checkFileUnchanged(finding, target, home);
     if (!same.ok) return { kind: 'refused', error: same.error };
@@ -354,6 +366,9 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
     if (!item) return { kind: 'refused', error: `${path} could not be read as a property list.` };
     const label = item.label ?? path.slice(path.lastIndexOf('/') + 1, -'.plist'.length);
     const launches = launchTarget(item);
+    // By its label when the plist names one, so launchd unloads the service that was hashed and shown rather
+    // than whatever the file says by the time it re-reads it.
+    const bootoutTarget = item.label ? [`${domain}/${item.label}`] : [domain, path];
     return {
       kind: 'ready',
       radius: radius('bootout-launch-item', {
@@ -363,8 +378,9 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
         dies: [`${label}${launches ? ` — runs ${launches}` : ''}`],
         moves: [],
       }),
+      identity: `${same.sha256}\n${bootoutTarget.join(' ')}`,
       run: async () => {
-        const result = await deps.runProcess(LAUNCHCTL, ['bootout', domain, path], { timeoutMs: 15_000 });
+        const result = await deps.runProcess(LAUNCHCTL, ['bootout', ...bootoutTarget], { timeoutMs: 15_000 });
         if (!result.ok) return { ok: false, error: `launchctl bootout did not run: ${result.hint}` };
         if (result.exitCode !== 0) {
           return { ok: false, error: `launchctl bootout failed: ${(result.stderr || result.stdout).trim() || `exit ${result.exitCode}`}` };
@@ -376,10 +392,16 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
 
   // --- quarantine-file ---------------------------------------------------------------------------------
   const quarantineFile = async (finding: SecurityFinding, action: Extract<RemediationAction, { id: 'quarantine-file' }>): Promise<Plan> => {
-    const target = await checkFileTarget(action.path, reach);
+    const target = await checkFileTarget(action.path, reach());
     if (!target.ok) return { kind: 'refused', error: target.error };
     const same = await checkFileUnchanged(finding, target, home);
     if (!same.ok) return { kind: 'refused', error: same.error };
+    if (target.stat.nlink > 1) {
+      return {
+        kind: 'refused',
+        error: `${target.path} has ${target.stat.nlink - 1} other hard link${target.stat.nlink === 2 ? '' : 's'}; quarantining one name would leave the file reachable through the others.`,
+      };
+    }
     if ((await deps.quarantine.manifest(finding.id)).ok) {
       return { kind: 'refused', error: 'This finding already has a file in quarantine; restore it before quarantining another.' };
     }
@@ -394,6 +416,7 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
         moves: [`${target.path} (${formatSize(target.stat.size)}, ${formatMode(target.stat.mode)}, sha256 ${same.sha256.slice(0, 12)}…) to quarantine`],
         warnings: running.map((r) => `pid ${r.pid} is running this file; it keeps running until you stop it.`),
       }),
+      identity: `${same.sha256}\n${target.stat.dev}:${target.stat.ino}`,
       run: async () => {
         const put = await deps.quarantine.put({
           finding,
@@ -414,6 +437,10 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
   // --- restore-file ------------------------------------------------------------------------------------
   const verdictOf = (scan: RescanResult, allow: readonly string[]): { ok: true; allowed: string[] } | { ok: false; error: string } => {
     if ('error' in scan) return { ok: false, error: `The re-scan could not run (${scan.error}); the file stays in quarantine.` };
+    // An engine that failed scanned nothing: "no match" from it is not a clean verdict.
+    if (scan.errors.length > 0) {
+      return { ok: false, error: `The re-scan did not finish (${scan.errors.join('; ')}); the file stays in quarantine.` };
+    }
     const blocked = scan.rules.filter((r) => !allow.includes(r));
     if (blocked.length > 0) return { ok: false, error: `The re-scan matched ${blocked.join(', ')}; the file stays in quarantine.` };
     return { ok: true, allowed: scan.rules };
@@ -440,6 +467,7 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
           (rule) => `The re-scan still matches ${rule}, the rule this finding is about. Restore it only if you are sure that is a false positive.`,
         ),
       }),
+      identity: m.sha256,
       run: async () => {
         const restored = await deps.quarantine.restore(finding.id, async (dataPath, manifest) => {
           const again = verdictOf(await deps.rescan(dataPath), manifest.allowRules);
@@ -454,7 +482,7 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
 
   // --- chmod-600 ---------------------------------------------------------------------------------------
   const chmod600 = async (finding: SecurityFinding, action: Extract<RemediationAction, { id: 'chmod-600' }>): Promise<Plan> => {
-    const target = await checkFileTarget(action.path, reach);
+    const target = await checkFileTarget(action.path, reach());
     if (!target.ok) return { kind: 'refused', error: target.error };
     const same = await checkFileUnchanged(finding, target, home);
     if (!same.ok) return { kind: 'refused', error: same.error };
@@ -467,6 +495,7 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
         summary: 'Sets the file’s mode to 0600: only you can read or write it, and nothing can run it.',
         moves: [`${target.path}: ${formatMode(target.stat.mode)} to 0600`],
       }),
+      identity: `${same.sha256}\n${target.stat.dev}:${target.stat.ino}`,
       run: async () => {
         // On the opened descriptor, without following a link, and only if it is still the same file.
         let handle;
@@ -551,16 +580,16 @@ export interface ResponseLedger {
 
 const failure = (message: string): { ok: false; kind: 'error'; message: string } => ({ ok: false, kind: 'error', message });
 
-/** `securityFindingsActPreview`: the blast radius, never an action. */
+/** `securityFindingsActPreview`: the blast radius, never an action. Never throws. */
 export async function previewAction(
   ledger: ResponseLedger,
   actions: ResponseActions,
   findingId: string,
   action: RemediationAction,
 ): Promise<GitOpResult<ActionBlastRadius>> {
-  const finding = await ledger.get(findingId);
-  if (!finding) return failure(`Finding '${findingId}' not found`);
   try {
+    const finding = await ledger.get(findingId);
+    if (!finding) return failure(`Finding '${findingId}' not found`);
     const plan = await actions.plan(finding, action);
     if (plan.kind === 'refused') return failure(plan.error);
     if (plan.kind === 'unavailable') {
@@ -569,7 +598,7 @@ export async function previewAction(
         value: radius(action.id, { title: 'Not available', confirmLabel: 'OK', summary: plan.unavailable.reason, unavailable: plan.unavailable }),
       };
     }
-    return { ok: true, value: plan.radius };
+    return { ok: true, value: { ...plan.radius, digest: radiusDigest(plan.radius, plan.identity) } };
   } catch (error) {
     return failure(error instanceof Error ? error.message : String(error));
   }
@@ -583,50 +612,76 @@ export interface ActOutcome {
   detail?: string;
 }
 
+/** The refusal recorded when the fresh plan is not the one the user confirmed. */
+export const CHANGED_SINCE_CONFIRM =
+  'What this action would affect changed since you confirmed it, so nothing was done. Review it again before acting.';
+
 /**
- * `securityFindingsAct`: plan afresh, run, and append the outcome to the finding's row. A refusal (stale
+ * `securityFindingsAct`: plan afresh, run, and append the outcome to the finding's row. A confirmed action runs
+ * only when the fresh plan's digest is the one the user confirmed (`confirmed`); a different one is refused and
+ * recorded, and a missing one is refused without a record (the caller skipped the confirm). A refusal (stale
  * target, outside reach) and a failure are both recorded with their error and leave the status alone; an
- * action that is not available records nothing, since nothing was attempted.
+ * action that is not available records nothing, since nothing was attempted. Never throws.
  */
 export async function runAction(
   ledger: ResponseLedger,
   actions: ResponseActions,
   findingId: string,
   action: RemediationAction,
+  confirmed?: string,
 ): Promise<GitOpResult<ActOutcome>> {
-  const now = (): number => actions.now();
-  const finding = await ledger.get(findingId);
-  if (!finding) return failure(`Finding '${findingId}' not found`);
-  let plan: Plan;
   try {
-    plan = await actions.plan(finding, action);
-  } catch (error) {
-    plan = { kind: 'refused', error: error instanceof Error ? error.message : String(error) };
-  }
-  if (plan.kind === 'unavailable') return { ok: true, value: { actionId: action.id, unavailable: plan.unavailable } };
-  const notOurs = plan.kind === 'refused' && plan.error.endsWith('is not one of this finding’s actions.');
-  if (notOurs) return failure((plan as { error: string }).error);
-  let outcome: Awaited<ReturnType<Run>>;
-  if (plan.kind === 'refused') outcome = { ok: false, error: plan.error };
-  else {
+    const now = (): number => actions.now();
+    const finding = await ledger.get(findingId);
+    if (!finding) return failure(`Finding '${findingId}' not found`);
+    let plan: Plan;
     try {
-      outcome = await plan.run();
+      plan = await actions.plan(finding, action);
     } catch (error) {
-      outcome = { ok: false, error: error instanceof Error ? error.message : String(error) };
+      plan = { kind: 'refused', error: error instanceof Error ? error.message : String(error) };
     }
+    if (plan.kind === 'unavailable') return { ok: true, value: { actionId: action.id, unavailable: plan.unavailable } };
+    const notOurs = plan.kind === 'refused' && plan.error.endsWith('is not one of this finding’s actions.');
+    if (notOurs) return failure((plan as { error: string }).error);
+    if (plan.kind === 'ready' && plan.radius.confirm && confirmed === undefined) {
+      return failure('This action runs only from its confirm dialog.');
+    }
+    let outcome: Awaited<ReturnType<Run>>;
+    if (plan.kind === 'refused') outcome = { ok: false, error: plan.error };
+    else if (plan.radius.confirm && radiusDigest(plan.radius, plan.identity) !== confirmed) outcome = { ok: false, error: CHANGED_SINCE_CONFIRM };
+    else {
+      try {
+        outcome = await plan.run();
+      } catch (error) {
+        outcome = { ok: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+    const result: FindingActionResult = outcome.ok
+      ? { id: action.id, at: now(), ok: true }
+      : { id: action.id, at: now(), ok: false, error: outcome.error };
+    let updated: SecurityFinding | null = null;
+    try {
+      updated = await ledger.recordAction(finding.id, result, outcome.ok ? outcome.status : undefined);
+    } catch (error) {
+      // The action already happened; say so rather than lose it behind a write error.
+      const why = error instanceof Error ? error.message : String(error);
+      return failure(
+        outcome.ok
+          ? `${outcome.detail} The ledger could not record it (${why}).`
+          : `${outcome.error} The ledger could not record it (${why}).`,
+      );
+    }
+    if (!outcome.ok) return failure(outcome.error);
+    return {
+      ok: true,
+      value: {
+        actionId: action.id,
+        ...(updated ? { finding: updated } : {}),
+        detail: outcome.detail,
+        ...(outcome.issueUrl ? { issueUrl: outcome.issueUrl } : {}),
+      },
+    };
+  } catch (error) {
+    return failure(error instanceof Error ? error.message : String(error));
   }
-  const result: FindingActionResult = outcome.ok
-    ? { id: action.id, at: now(), ok: true }
-    : { id: action.id, at: now(), ok: false, error: outcome.error };
-  const updated = await ledger.recordAction(finding.id, result, outcome.ok ? outcome.status : undefined);
-  if (!outcome.ok) return failure(outcome.error);
-  return {
-    ok: true,
-    value: {
-      actionId: action.id,
-      ...(updated ? { finding: updated } : {}),
-      detail: outcome.detail,
-      ...(outcome.issueUrl ? { issueUrl: outcome.issueUrl } : {}),
-    },
-  };
 }
