@@ -555,7 +555,10 @@ describe('forge schemas', () => {
     });
     expect(detail.detail?.headSha).toBeNull();
     expect(detail.detail?.body).toBe('');
-    expect(detail.detail?.changedFiles).toBe(0);
+    // Withheld line stats are unknown, not zero: a forge that reports none must not read +0 −0.
+    expect(detail.detail?.additions).toBeNull();
+    expect(detail.detail?.deletions).toBeNull();
+    expect(detail.detail?.changedFiles).toBeNull();
   });
 
   it('bounds every field of a review-comment request', () => {
