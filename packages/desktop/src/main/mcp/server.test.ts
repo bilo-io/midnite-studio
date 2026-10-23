@@ -134,6 +134,7 @@ describe('startMcpServer', () => {
     expect(response).toEqual({
       id: '1',
       ok: true,
+      provenance: { origin: 'mcp-result', ref: 'ui.state', trust: 'untrusted' },
       value: {
         activeView: 'graph',
         settingsPage: null,
@@ -160,7 +161,7 @@ describe('startMcpServer', () => {
 
     // The socket survived: a second call on the same connection still answers.
     const second = await call(socket, { id: '2', tool: 'repo.list', input: {} });
-    expect(second).toEqual({ id: '2', ok: true, value: [] });
+    expect(second).toEqual({ id: '2', ok: true, value: [], provenance: { origin: 'mcp-result', ref: 'repo.list', trust: 'untrusted' } });
     socket.destroy();
   });
 
@@ -193,7 +194,7 @@ describe('startMcpServer', () => {
 
     // Still open: an ordinary call right after still answers.
     const second = await call(socket, { id: '2', tool: 'repo.list', input: {} });
-    expect(second).toEqual({ id: '2', ok: true, value: [] });
+    expect(second).toEqual({ id: '2', ok: true, value: [], provenance: { origin: 'mcp-result', ref: 'repo.list', trust: 'untrusted' } });
     socket.destroy();
   });
 
@@ -277,7 +278,7 @@ describe('startMcpServer', () => {
     expect(statSync(socketPath).mode & 0o777).toBe(0o600);
 
     const socket = await connect(socketPath);
-    expect(await call(socket, { id: 'a', tool: 'model_get_spec', input: { repoPath: '/r' } })).toEqual({ id: 'a', ok: true, value: { hello: 'run' } });
+    expect(await call(socket, { id: 'a', tool: 'model_get_spec', input: { repoPath: '/r' } })).toEqual({ id: 'a', ok: true, value: { hello: 'run' }, provenance: { origin: 'mcp-result', ref: 'model_get_spec', trust: 'untrusted' } });
     expect(await call(socket, { id: 'b', tool: 'repo.list', input: {} })).toMatchObject({ ok: false, kind: 'refused' });
     socket.destroy();
     expect(seen).toEqual(['model_get_spec', 'repo.list']);
@@ -304,7 +305,7 @@ describe('startMcpServer', () => {
       kind: 'refused',
       message: expect.stringContaining('not installed'),
     });
-    expect(await call(socket, { id: 'b', tool: 'repo.list', input: {} })).toEqual({ id: 'b', ok: true, value: [] });
+    expect(await call(socket, { id: 'b', tool: 'repo.list', input: {} })).toEqual({ id: 'b', ok: true, value: [], provenance: { origin: 'mcp-result', ref: 'repo.list', trust: 'untrusted' } });
     socket.destroy();
   });
 });
