@@ -146,7 +146,7 @@ describe('startMcpServer', () => {
     });
     expect(sent).toHaveLength(1);
 
-    const entry = getMcpCallLog().find((call) => call.tool === 'ui.state');
+    const entry = (await getMcpCallLog()).find((call) => call.tool === 'ui.state');
     expect(entry).toMatchObject({ tool: 'ui.state', repoPath: '', ok: true });
     socket.destroy();
   });
@@ -281,7 +281,7 @@ describe('startMcpServer', () => {
     expect(await call(socket, { id: 'b', tool: 'repo.list', input: {} })).toMatchObject({ ok: false, kind: 'refused' });
     socket.destroy();
     expect(seen).toEqual(['model_get_spec', 'repo.list']);
-    expect(getMcpCallLog().map((c) => [c.tool, c.ok])).toEqual([
+    expect((await getMcpCallLog()).map((c) => [c.tool, c.ok])).toEqual([
       ['repo.list', false],
       ['model_get_spec', true],
     ]);

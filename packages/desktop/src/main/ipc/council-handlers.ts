@@ -2,6 +2,7 @@ import { councilsMain } from '@midnite/studio-feature-councils/main';
 import { resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
 
+import { recordAudit } from '../agent-audit';
 import { createPty, killPty, offPty, onPty } from '../pty-service';
 import { currentSettings } from '../settings-mirror';
 import { listAgents } from '../terminal-service';
@@ -32,6 +33,7 @@ export function registerCouncilHandlers(): void {
       agentBinding: (agentId) => currentSettings().agentBackends?.[agentId],
       ollamaBaseUrl: () => resolveOllamaBaseUrl(),
       ollamaApiKey: readOllamaApiKey,
+      audit: recordAudit,
     },
   });
 }

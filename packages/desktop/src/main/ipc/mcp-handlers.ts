@@ -1,5 +1,8 @@
-import { mcpToolsMain, type McpToolsServer, type McpToolsSetRequest } from '@midnite/studio-feature-mcp-tools/main';
+import { createAgentAuditPort, mcpToolsMain, type McpToolsServer, type McpToolsSetRequest } from '@midnite/studio-feature-mcp-tools/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { BrowserWindow, dialog } from 'electron';
+
+import { agentAuditTrail } from '../agent-audit';
 
 import { getMcpCallLog } from '../mcp/audit';
 import { getMcpStatus, setMcpAllowCompanionSettings, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowMaps, setMcpAllowModels, setMcpAllowMusic, setMcpAllowSprites, setMcpAllowTerrains, setMcpAllowUi, setMcpEnabled } from '../mcp';
@@ -56,5 +59,16 @@ export function registerMcpHandlers(): void {
     emit: () => undefined,
     trashItem: () => Promise.reject(new Error('the MCP tools never trash')),
   };
-  mcpToolsMain.register(ctx, { server: studioMcpServer });
+  mcpToolsMain.register(ctx, {
+    server: studioMcpServer,
+    audit: createAgentAuditPort({
+      trail: agentAuditTrail,
+      pickSavePath: async (defaultName) => {
+        const win = BrowserWindow.getFocusedWindow();
+        const options = { defaultPath: defaultName, filters: [{ name: 'NDJSON', extensions: ['ndjson'] }] };
+        const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+        return picked.canceled || !picked.filePath ? null : picked.filePath;
+      },
+    }),
+  });
 }

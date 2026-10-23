@@ -39,6 +39,7 @@ import {
   type FileDiff,
   type ChatWorktree,
   type GitOpResult,
+  type NewAgentAuditRecord,
   siblingWorktreePath,
 } from '@midnite/studio-shared';
 
@@ -123,6 +124,12 @@ export type ChatServiceDeps = {
       }) => Promise<string>)
     | undefined;
   timeoutMs?: number | undefined;
+  /**
+   * The audit trail's write entry point (Phase 121 Theme G), supplied by the composer so chats never import
+   * the runtime trail's host. Fire-and-forget and total: a throw here is swallowed, an audit failure must not
+   * break a turn.
+   */
+  audit?: ((record: NewAgentAuditRecord) => void) | undefined;
   now?: () => number;
   newId?: () => string;
   /** The git-engine seam — injectable so a test need not make real worktrees. */
@@ -530,6 +537,7 @@ export function createChatService(deps: ChatServiceDeps) {
     let sessionId: string | undefined;
     let sessionCwd: string | undefined;
     let finalText: string | undefined;
+    const startedAt = now();
     try {
       if (chat.engine === CHAT_ENGINE_OLLAMA) {
         const out = await runOllama(chat, history, user, assistant, handle);
@@ -586,6 +594,7 @@ export function createChatService(deps: ChatServiceDeps) {
     } finally {
       closeThinking(assistant);
       assistant.finishedAt = now();
+      auditTurn(chat, user, handle.cancelled ? 'cancelled' : error ? 'error' : 'done', startedAt);
       if (changeSet) assistant.changeSet = changeSet;
       if (handle.cancelled) {
         assistant.status = 'cancelled';
@@ -608,6 +617,28 @@ export function createChatService(deps: ChatServiceDeps) {
         await persist(chat);
         deps.emit({ kind: 'message', chatId: chat.id, message: assistant });
       }
+    }
+  }
+
+  /** One `chat-turn` record: engine, model, thread, and counts — never the text. */
+  function auditTurn(chat: Chat, user: ChatMessage, status: 'done' | 'error' | 'cancelled', startedAt: number): void {
+    if (!deps.audit) return;
+    try {
+      const attachments = user.attachments?.length ?? 0;
+      deps.audit({
+        kind: 'chat-turn',
+        engine: chat.engine,
+        ...(chat.model ? { model: chat.model } : {}),
+        chatId: chat.id,
+        mode: chat.mode,
+        status,
+        ms: Math.max(0, now() - startedAt),
+        attachments,
+        ...(attachments > 0 ? { provenance: { attachment: attachments } } : {}),
+        redactions: 0,
+      });
+    } catch {
+      // Never into a turn.
     }
   }
 

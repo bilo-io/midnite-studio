@@ -41,4 +41,20 @@ describe('mcp-tools main', () => {
     expect(await ctx.invoke(CHANNELS.mcpSet, { enabled: true })).toMatchObject({ enabled: false, error: 'No server here.' });
     expect(await ctx.invoke(CHANNELS.mcpCalls)).toEqual({ calls: [] });
   });
+
+  it('answers the audit channels from the port, and an empty trail without one', async () => {
+    const list = vi.fn(async () => ({ records: [], truncated: true }));
+    const exportTo = vi.fn(async () => ({ ok: true as const, value: { path: '/tmp/a.ndjson', count: 2 } }));
+    const ctx = createRecordingContext();
+    mcpToolsMain.register(ctx, { server: createNoMcpServer(), audit: { list, exportTo } });
+    expect(await ctx.invoke(CHANNELS.agentAuditList, { kinds: ['command'], limit: 5 })).toEqual({ records: [], truncated: true });
+    expect(list).toHaveBeenCalledWith({ kinds: ['command'], limit: 5 });
+    expect(await ctx.invoke(CHANNELS.agentAuditExport, {})).toEqual({ ok: true, value: { path: '/tmp/a.ndjson', count: 2 } });
+
+    const bare = createRecordingContext();
+    mcpToolsMain.register(bare, { server: createNoMcpServer() });
+    expect(await bare.invoke(CHANNELS.agentAuditList, {})).toEqual({ records: [], truncated: false });
+    expect(await bare.invoke(CHANNELS.agentAuditExport, {})).toMatchObject({ ok: false });
+    expect(await bare.invoke(CHANNELS.agentAuditList, { limit: 0 })).toEqual({ records: [], truncated: false });
+  });
 });

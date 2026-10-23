@@ -1,5 +1,14 @@
 import { defineFeatureMain } from '@midnite/studio-runtime';
-import { CHANNELS, schemas, type McpCallEntry } from '@midnite/studio-shared';
+import {
+  CHANNELS,
+  failure,
+  schemas,
+  type AgentAuditExportRequest,
+  type AgentAuditListRequest,
+  type AgentAuditListResponse,
+  type GitOpResult,
+  type McpCallEntry,
+} from '@midnite/studio-shared';
 import type { z } from 'zod';
 
 import { mcpToolsManifest } from '../manifest';
@@ -24,10 +33,52 @@ export type McpToolsServer = {
   /** Applies the fields the request carries, persisting each before acting; an absent field keeps its value. */
   set(request: McpToolsSetRequest): Promise<McpToolsSetResult>;
   /** The last tool calls, newest first. */
-  calls(): McpCallEntry[];
+  calls(): McpCallEntry[] | Promise<McpCallEntry[]>;
 };
 
-export type McpToolsMainServices = { server: McpToolsServer };
+/**
+ * The agent audit trail the Audit tab reads (Phase 121 Theme G). The trail itself is the runtime's
+ * (`security/agent-audit.ts`); the composer supplies it, and the save dialog for the export (a main-side
+ * `dialog.showSaveDialog`, so the renderer never names a path to write).
+ */
+export type AgentAuditPort = {
+  list(request: AgentAuditListRequest): Promise<AgentAuditListResponse>;
+  /** Asks the user for a path, writes the redacted NDJSON; `path: null` when the dialog was dismissed. */
+  exportTo(request: AgentAuditExportRequest): Promise<GitOpResult<{ path: string | null; count: number }>>;
+};
+
+/** What the port needs from the runtime trail (`createAgentAudit`); structural, so a test passes a fake. */
+export type AgentAuditSource = {
+  list(filter: AgentAuditListRequest): Promise<AgentAuditListResponse>;
+  exportTo(path: string, filter: AgentAuditExportRequest): Promise<number>;
+};
+
+/**
+ * The audit port over a trail and a save dialog. `trail` is read lazily because the trail exists only once
+ * `userData` is known; before then the viewer sees an empty list and an export says so.
+ */
+export function createAgentAuditPort(options: {
+  trail: () => AgentAuditSource | null;
+  /** The main-side save dialog; `null` when dismissed. */
+  pickSavePath: (defaultName: string) => Promise<string | null>;
+  now?: () => number;
+}): AgentAuditPort {
+  return {
+    async list(request) {
+      return (await options.trail()?.list(request)) ?? { records: [], truncated: false };
+    },
+    async exportTo(request) {
+      const trail = options.trail();
+      if (!trail) return failure('The audit trail is not ready yet.');
+      const day = new Date((options.now ?? Date.now)()).toISOString().slice(0, 10);
+      const path = await options.pickSavePath(`agent-audit-${day}.ndjson`);
+      if (path === null) return { ok: true, value: { path: null, count: 0 } };
+      return { ok: true, value: { path, count: await trail.exportTo(path, request) } };
+    },
+  };
+}
+
+export type McpToolsMainServices = { server: McpToolsServer; audit?: AgentAuditPort };
 
 /**
  * A server that is never running and refuses every change — what an app with no
@@ -72,6 +123,27 @@ export const mcpToolsMain = defineFeatureMain<McpToolsMainServices>({
       (request) => server.set(request),
       () => ({ ...server.status(), error: 'invalid request' }),
     );
-    ipc.handleBare(CHANNELS.mcpCalls, () => ({ calls: server.calls() }));
+    ipc.handleBare(CHANNELS.mcpCalls, async () => ({ calls: await server.calls() }));
+
+    const { audit } = services;
+    ipc.handle(
+      CHANNELS.agentAuditList,
+      schemas.AgentAuditListRequest,
+      async (request) => (audit ? audit.list(request) : { records: [], truncated: false }),
+      () => ({ records: [], truncated: false }),
+    );
+    ipc.handle(
+      CHANNELS.agentAuditExport,
+      schemas.AgentAuditExportRequest,
+      async (request) => {
+        if (!audit) return failure('This app keeps no audit trail.');
+        try {
+          return await audit.exportTo(request);
+        } catch (error) {
+          return failure(error instanceof Error ? error.message : String(error));
+        }
+      },
+      (issue) => failure(issue),
+    );
   },
 });

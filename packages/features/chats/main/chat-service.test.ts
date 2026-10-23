@@ -142,6 +142,35 @@ describe('chat service: streaming a turn', () => {
     expect((await store.loadAll())[0]!.messages).toHaveLength(2);
   });
 
+  it('writes one chat-turn audit record with counts and never the text', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('a private answer'));
+      io.close(0);
+    });
+    const audit = vi.fn();
+    const { service } = setup({ spawn, audit });
+    const chat = await created(service, { model: 'opus' });
+    await service.send({ chatId: chat.id, text: 'a private question' });
+    await service.idle();
+    expect(audit).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'chat-turn', engine: 'claude', model: 'opus', chatId: chat.id, status: 'done', attachments: 0, redactions: 0 }),
+    );
+    expect(JSON.stringify(audit.mock.calls)).not.toContain('private');
+  });
+
+  it('survives an audit sink that throws', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn, audit: () => { throw new Error('disk full'); } });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    expect(lastAssistant(((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat).status).toBe('done');
+  });
+
   it('runs claude with streaming flags, read-only in ask mode, in the scratch dir when there is no repo', async () => {
     const spawn = fakeSpawn(async (_c, io) => {
       io.out(textDelta('ok'));
