@@ -371,6 +371,8 @@ describe('PrDetail — the review write path, assembled through the real bridge'
     expect(within(unknown).queryByText('+0')).toBeNull();
     expect(within(unknown).queryByText('−0')).toBeNull();
     expect(within(unknown).queryByText(/0 files/)).toBeNull();
+    // Nothing known, no empty size slot left holding a gap in the header line.
+    expect(unknown.querySelector('span.tabular-nums:empty')).toBeNull();
   });
 
   it('a merged pull request offers nothing to review', async () => {

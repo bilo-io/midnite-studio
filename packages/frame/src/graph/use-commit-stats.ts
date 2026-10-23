@@ -45,11 +45,9 @@ export function useCommitStats(
       queryFn: async (): Promise<Record<string, CommitDiffStat>> => {
         const api = bridge();
         if (!api || repoId === null) return {};
-        try {
-          return (await api.status.commitStats({ repoId, shas })).stats;
-        } catch {
-          return {};
-        }
+        // A failed call throws, so react-query retries it instead of caching an
+        // empty page for the session under `staleTime: Infinity`.
+        return (await api.status.commitStats({ repoId, shas })).stats;
       },
       enabled: enabled && repoId !== null,
       staleTime: Infinity,

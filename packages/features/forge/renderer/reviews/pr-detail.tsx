@@ -483,19 +483,23 @@ function PrHeader({
             Each half only when the forge said it: a null count is unknown, and
             printing it as `0 files +0 −0` would claim the PR changed nothing.
           */
-          <span className="tabular-nums">
-            {detail.changedFiles !== null ? (
-              <>
-                {formatNumber(detail.changedFiles)} {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
-              </>
-            ) : null}
-            {detail.additions !== null && detail.deletions !== null ? (
-              <>
-                <span className="text-success">+{formatNumber(detail.additions)}</span>{' '}
-                <span className="text-destructive">−{formatNumber(detail.deletions)}</span>
-              </>
-            ) : null}
-          </span>
+          detail.changedFiles === null &&
+          (detail.additions === null || detail.deletions === null) ? null : (
+            <span className="tabular-nums">
+              {detail.changedFiles !== null ? (
+                <>
+                  {formatNumber(detail.changedFiles)}{' '}
+                  {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
+                </>
+              ) : null}
+              {detail.additions !== null && detail.deletions !== null ? (
+                <>
+                  <span className="text-success">+{formatNumber(detail.additions)}</span>{' '}
+                  <span className="text-destructive">−{formatNumber(detail.deletions)}</span>
+                </>
+              ) : null}
+            </span>
+          )
         ) : loadingDetail ? (
           /*
             Bars, not nothing. This line renders from the cached listing row

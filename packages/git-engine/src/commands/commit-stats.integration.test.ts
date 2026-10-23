@@ -43,9 +43,17 @@ async function expectRowMatchesDetail(sha: string) {
 describe('readCommitStats', () => {
   it('counts a one-line edit as +1 −1 over one file (the reported case)', async () => {
     await repo.commitFile('_INDEX.md', 'one\ntwo\nthree\n', 'seed');
-    const sha = await repo.commitFile('_INDEX.md', 'one\nTWO\nthree\n', 'chore(todo): claim Phase 121 Theme G (WIP)');
+    const sha = await repo.commitFile(
+      '_INDEX.md',
+      'one\nTWO\nthree\n',
+      'chore(todo): claim Phase 121 Theme G (WIP)',
+    );
 
-    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({ added: 1, deleted: 1, files: 1 });
+    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({
+      added: 1,
+      deleted: 1,
+      files: 1,
+    });
     await expectRowMatchesDetail(sha);
   });
 
@@ -57,7 +65,11 @@ describe('readCommitStats', () => {
     await repo.git(['add', '--', 'a.ts', 'b.ts', 'c.ts']);
     const sha = await repo.commit('three files');
 
-    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({ added: 6, deleted: 0, files: 3 });
+    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({
+      added: 6,
+      deleted: 0,
+      files: 3,
+    });
     await expectRowMatchesDetail(sha);
   });
 
@@ -68,7 +80,11 @@ describe('readCommitStats', () => {
     await repo.git(['add', '--', 'img.bin', 'notes.md']);
     const sha = await repo.commit('binary + text');
 
-    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({ added: 1, deleted: 0, files: 2 });
+    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({
+      added: 1,
+      deleted: 0,
+      files: 2,
+    });
     await expectRowMatchesDetail(sha);
   });
 
@@ -77,7 +93,11 @@ describe('readCommitStats', () => {
     await repo.git(['mv', 'old-name.txt', 'new-name.txt']);
     const pure = await repo.commit('pure rename');
 
-    expect((await readCommitStats(repo.path, [pure]))[pure]).toEqual({ added: 0, deleted: 0, files: 1 });
+    expect((await readCommitStats(repo.path, [pure]))[pure]).toEqual({
+      added: 0,
+      deleted: 0,
+      files: 1,
+    });
     await expectRowMatchesDetail(pure);
 
     // A rename with an edit: still one file, carrying only the edit.
@@ -86,7 +106,11 @@ describe('readCommitStats', () => {
     await repo.git(['add', '--', 'renamed again.txt']);
     const edited = await repo.commit('rename + edit');
 
-    expect((await readCommitStats(repo.path, [edited]))[edited]).toEqual({ added: 1, deleted: 1, files: 1 });
+    expect((await readCommitStats(repo.path, [edited]))[edited]).toEqual({
+      added: 1,
+      deleted: 1,
+      files: 1,
+    });
     await expectRowMatchesDetail(edited);
   });
 
@@ -101,7 +125,21 @@ describe('readCommitStats', () => {
     const merge = await repo.head();
 
     // First-parent diff: what the side branch brought onto main.
-    expect((await readCommitStats(repo.path, [merge]))[merge]).toEqual({ added: 3, deleted: 0, files: 2 });
+    expect((await readCommitStats(repo.path, [merge]))[merge]).toEqual({
+      added: 3,
+      deleted: 0,
+      files: 2,
+    });
+    await expectRowMatchesDetail(merge);
+
+    // `-m` would take its mode from `log.diffMerges`, and `remerge` prints no
+    // numstat for a clean merge: both sides would agree on an empty +0 −0.
+    await repo.git(['config', 'log.diffMerges', 'remerge']);
+    expect((await readCommitStats(repo.path, [merge]))[merge]).toEqual({
+      added: 3,
+      deleted: 0,
+      files: 2,
+    });
     await expectRowMatchesDetail(merge);
   });
 
@@ -111,12 +149,20 @@ describe('readCommitStats', () => {
     await repo.git(['add', '--', 'a.txt', 'b.txt']);
     const root = await repo.commit('root');
 
-    expect((await readCommitStats(repo.path, [root]))[root]).toEqual({ added: 4, deleted: 0, files: 2 });
+    expect((await readCommitStats(repo.path, [root]))[root]).toEqual({
+      added: 4,
+      deleted: 0,
+      files: 2,
+    });
     await expectRowMatchesDetail(root);
 
     // `log.showRoot=false` would blank a root's diff in `git log`; `--root` keeps it.
     await repo.git(['config', 'log.showRoot', 'false']);
-    expect((await readCommitStats(repo.path, [root]))[root]).toEqual({ added: 4, deleted: 0, files: 2 });
+    expect((await readCommitStats(repo.path, [root]))[root]).toEqual({
+      added: 4,
+      deleted: 0,
+      files: 2,
+    });
     await expectRowMatchesDetail(root);
   });
 
@@ -127,7 +173,11 @@ describe('readCommitStats', () => {
     await repo.git(['config', 'diff.renames', 'false']);
 
     // Both readers honour the same config: a delete plus an add, on both sides.
-    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({ added: 3, deleted: 3, files: 2 });
+    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({
+      added: 3,
+      deleted: 3,
+      files: 2,
+    });
     await expectRowMatchesDetail(sha);
   });
 
@@ -138,15 +188,33 @@ describe('readCommitStats', () => {
     await repo.git(['add', '--', 'tab\there.txt', 'new\nline.txt']);
     const sha = await repo.commit('odd paths');
 
-    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({ added: 3, deleted: 0, files: 2 });
+    expect((await readCommitStats(repo.path, [sha]))[sha]).toEqual({
+      added: 3,
+      deleted: 0,
+      files: 2,
+    });
     await expectRowMatchesDetail(sha);
   });
 
-  it('keeps every stat aligned to its own sha across a batch past the page and IPC caps', async () => {
-    // 60 commits: past the graph's 25-row page and the 50-sha IPC cap, so any
-    // chunking, truncation or off-by-one alignment would surface here. Each
-    // commit adds a different number of lines, so a stat landing on the wrong
-    // sha cannot pass by coincidence.
+  it('still answers for the rest of a page when one sha is unknown', async () => {
+    const a = await repo.commitFile('a.txt', 'a\n', 'a');
+    const b = await repo.commitFile('b.txt', 'b\nb\n', 'b');
+    const missing = 'f'.repeat(40);
+
+    const stats = await readCommitStats(repo.path, [a, missing, b]);
+
+    expect(stats).toEqual({
+      [a]: { added: 1, deleted: 0, files: 1 },
+      [b]: { added: 2, deleted: 0, files: 1 },
+    });
+  });
+
+  it('keeps every stat aligned to its own sha across a large, shuffled batch', async () => {
+    // 60 commits in one `git log --no-walk` call, asked for out of order: any
+    // record-splitting or off-by-one alignment would surface here. Each commit
+    // adds a different number of lines, so a stat landing on the wrong sha
+    // cannot pass by coincidence. (The 25-row page and the IPC's 50-sha cap
+    // sit above this function; this pins the parser on a batch bigger than either.)
     const shas: string[] = [];
     let body = '';
     for (let n = 1; n <= 60; n += 1) {
