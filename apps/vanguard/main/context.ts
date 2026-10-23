@@ -1,6 +1,7 @@
 import {
   createSensorRunProcess,
   createVanguardService,
+  resolveByFingerprint,
   vanguardMain,
   type VanguardService,
 } from '@midnite/studio-feature-vanguard/main';
@@ -48,6 +49,9 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
     autostart: 'always',
     onChanged: () => el.send(EVENT_CHANNELS.vanguardChanged, undefined),
     log: (level, message) => el.log.write(level, message),
+    // No repo registry or pty sessions of its own: the integrity sensor watches the user-level agent
+    // config only, and a finding resolves once its change is reverted.
+    sensorDeps: { resolve: resolveByFingerprint(ledger) },
   });
   vanguardMain.register(ctx, {
     ledger: () => ledger,

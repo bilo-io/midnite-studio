@@ -1,6 +1,6 @@
 import type { NewSecurityFinding, SecurityFinding } from '@midnite/studio-shared';
 
-import { BUILTIN_SENSORS } from './sensors';
+import { builtinSensors, type VanguardSensorDeps } from './sensors';
 import {
   createSensorHost,
   type SensorDefinition,
@@ -26,7 +26,9 @@ export interface VanguardServiceOptions {
   log?: (level: SensorLogLevel, message: string) => void;
   /** Overridable for tests; defaults to a file store under `userData`. */
   store?: VanguardStore;
-  /** Sensors to register; defaults to {@link BUILTIN_SENSORS}. */
+  /** What the shipped sensors need from the composer (repos, live sessions, app identity). */
+  sensorDeps?: VanguardSensorDeps;
+  /** Sensors to register; defaults to {@link builtinSensors} over `sensorDeps`. */
   sensors?: readonly SensorDefinition[];
 }
 
@@ -57,6 +59,6 @@ export async function createVanguardService(
     onChanged: options.onChanged,
     ...(options.log ? { log: options.log } : {}),
   });
-  for (const def of options.sensors ?? BUILTIN_SENSORS) host.register(def);
+  for (const def of options.sensors ?? builtinSensors(options.sensorDeps ?? {})) host.register(def);
   return { host, settings, quarantineDir: `${options.userData}/vanguard/quarantine` };
 }

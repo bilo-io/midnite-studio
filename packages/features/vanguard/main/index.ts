@@ -20,7 +20,26 @@ export {
   type SensorSchedule,
   type SensorTimers,
 } from './sensor-host';
-export { BUILTIN_SENSORS } from './sensors';
+export {
+  BUILTIN_SENSORS,
+  builtinSensors,
+  resolveByFingerprint,
+  type ResolvableLedger,
+  type VanguardSensorDeps,
+} from './sensors';
+export {
+  BUNDLE_SENSOR_ID,
+  createBundleIntegritySensor,
+  createIntegritySensor,
+  INTEGRITY_SENSOR_ID,
+  type IntegrityLiveSession,
+  type IntegrityRepo,
+} from './integrity-sensor';
+export {
+  createPersistenceProcessSensors,
+  type PersistenceProcessDeps,
+} from './persistence-process-sensors';
+export type { PtyOutputChunk, PtyOutputSource } from './clickfix';
 export { createSensorRunProcess } from './run-process';
 export {
   createVanguardService,
