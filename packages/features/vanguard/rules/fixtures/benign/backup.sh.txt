@@ -1,0 +1,3 @@
+#!/bin/sh
+ditto -c -k --sequesterRsrc "$HOME/Documents" /tmp/documents-backup.zip
+echo done

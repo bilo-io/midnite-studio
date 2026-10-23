@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { mkdtempSync, existsSync } from 'node:fs';
+import { mkdtempSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,15 +10,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { registerSensorHandlers } from './sensor-handlers';
 import { createVanguardService } from './vanguard-service';
 
-async function setup(opened = false) {
+async function setup(opened = false, record?: (f: unknown) => Promise<never>) {
   const dir = mkdtempSync(join(tmpdir(), 'vg-'));
   const run = vi.fn();
   const service = await createVanguardService({
     userData: dir,
     runProcess: async () => ({ ok: false, reason: 'failed', hint: '' }),
-    record: async () => {
-      throw new Error('unused');
-    },
+    record:
+      record ??
+      (async () => {
+        throw new Error('unused');
+      }),
     autostart: 'after-view-opened',
     onChanged: () => undefined,
     sensors: [{ id: 's', label: 'S', description: 'd', schedule: { kind: 'none' }, run }],
@@ -78,5 +80,34 @@ describe('sensor handlers', () => {
     expect(await bare.get(CHANNELS.vanguardConnections)!()).toEqual({ at: null, active: false, connections: [] });
     service.connections.set({ at: 7, active: true, connections: [] });
     expect(await bare.get(CHANNELS.vanguardConnections)!()).toEqual({ at: 7, active: true, connections: [] });
+  });
+
+  it('answers the malware status with the engines and runs an on-demand folder scan into the ledger', async () => {
+    const recorded: Record<string, unknown>[] = [];
+    const { bare, typed, dir } = await setup(false, async (f) => (recorded.push(f as Record<string, unknown>), f as never));
+    const status = (await bare.get(CHANNELS.vanguardMalwareStatus)!()) as { engines: { id: string; installed: boolean }[] };
+    expect(status.engines.find((e) => e.id === 'builtin')?.installed).toBe(true);
+
+    const target = join(dir, 'scan-me');
+    mkdirSync(target);
+    writeFileSync(join(target, 'package.json'), '{"scripts":{"postinstall":"node setup_bun.js"}}');
+    const result = (await typed.get(CHANNELS.vanguardMalwareScan)!({ target: 'folder', path: target })) as {
+      ok: boolean;
+      value?: { detections: number };
+    };
+    expect(result.ok).toBe(true);
+    expect(result.value?.detections).toBe(1);
+    expect(recorded[0]).toMatchObject({ category: 'malware', source: 'vanguard' });
+    expect(String(recorded[0]?.['fingerprint'])).toContain('ShaiHulud_Setup_Bun');
+  });
+
+  it('answers a bad scan request with an error result, never a throw', async () => {
+    const { typed } = await setup();
+    expect(await typed.get(CHANNELS.vanguardMalwareScan)!({ target: 'folder', path: 'relative' })).toEqual({
+      ok: false,
+      kind: 'error',
+      message: 'Choose a folder to scan.',
+    });
+    expect(() => typed.get(CHANNELS.vanguardMalwareScan)!({ target: 'everything' })).toThrow();
   });
 });

@@ -49,6 +49,13 @@ export {
   createPersistenceProcessSensors,
   type PersistenceProcessDeps,
 } from './persistence-process-sensors';
+export {
+  createMalwareScanner,
+  MALWARE_SENSOR_ID,
+  type MalwareScanner,
+  type MalwareScannerDeps,
+} from './malware/scanner';
+export type { BinaryProbe } from './malware/engines';
 export type { PtyOutputChunk, PtyOutputSource } from './clickfix';
 export { createSensorRunProcess } from './run-process';
 export {

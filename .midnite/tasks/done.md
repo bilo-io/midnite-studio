@@ -15325,3 +15325,7 @@ PR #975. One `SiteVerdict` per browser tab, built in main and pushed as a `verdi
 ### Phase 120 Theme C — Integrity of the repo and the bundle (2026-10-23)
 
 `INTEGRITY_WATCHED` in `shared` (24 entries, a reason each); the integrity sensor in `features/vanguard/main/integrity-sensor.ts` keeps a SHA-256 baseline per open repo and for the home dir under `<userData>/security/integrity/`, re-scans on a debounced `fs.watch` and every 5 minutes, and reports a change made outside a commit as an `integrity` finding (`high` for hooks, MCP and agent config, `medium` otherwise) attributed best-effort to the live agent ptys; it resolves when the change is committed or reverted. The bundle self-check runs Phase 91 H's `codesign`/`spctl` argv at launch. Sensors take composer deps through `builtinSensors(deps)`. Backend only, no screenshots.
+
+### Phase 120 Theme F — Malware scanning (2026-10-23)
+
+Fourteen YARA-subset rules in `features/vanguard/rules/*.yar` with positive fixtures and a benign corpus, a pure matcher that runs them without `yara` (checked against captured and live yara 4.5.8 output), `yara` and `clamscan` engines found through the injected monitor `probeBinary` and run via `runProcess`, a `malware` sensor (new install scripts, browser downloads via a new `onDownloadDone` hook, files other sensors flag), on-demand Downloads, repo, folder and full scans on the Sensors tab with a calm no-engine state, two new channels (`vanguardMalwareStatus`, `vanguardMalwareScan`), and no network call anywhere.

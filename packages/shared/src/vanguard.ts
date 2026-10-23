@@ -78,3 +78,51 @@ export type VanguardSettingsSetRequest = z.infer<typeof VanguardSettingsSetReque
 /** Ask one sensor to run now (the Sensors tab's "Run now"). */
 export const VanguardSensorRunRequest = z.object({ id: z.string().max(64) });
 export type VanguardSensorRunRequest = z.infer<typeof VanguardSensorRunRequest>;
+
+// --- Malware scanning (Phase 120 Theme F) -------------------------------------------------------------
+
+/** What an on-demand scan covers. `full` is the whole home folder, behind its own button and estimate. */
+export const MALWARE_SCAN_TARGETS = ['downloads', 'repo', 'folder', 'full'] as const;
+export type MalwareScanTarget = (typeof MALWARE_SCAN_TARGETS)[number];
+
+/** Start one on-demand scan. `repo` needs `repoId`, `folder` needs an absolute `path`. */
+export const VanguardScanRequest = z.object({
+  target: z.enum(MALWARE_SCAN_TARGETS),
+  repoId: z.string().max(256).optional(),
+  path: z.string().max(4096).optional(),
+});
+export type VanguardScanRequest = z.infer<typeof VanguardScanRequest>;
+
+/** Which scan engines exist on this machine. `builtin` is the bundled matcher and is always installed. */
+export const MalwareEngineStatusSchema = z.object({
+  id: z.enum(['yara', 'clamscan', 'builtin']),
+  label: z.string(),
+  installed: z.boolean(),
+});
+export type MalwareEngineStatus = z.infer<typeof MalwareEngineStatusSchema>;
+
+export const MalwareScanSummarySchema = z.object({
+  /** What was scanned, as a sentence fragment ("Downloads", "a repo", "a download"). */
+  target: z.string(),
+  at: z.number().int().nonnegative(),
+  durationMs: z.number().int().nonnegative(),
+  /** Files the built-in matcher examined; null when only an external engine ran. */
+  files: z.number().int().nonnegative().nullable(),
+  detections: z.number().int().nonnegative(),
+  /** Ids of the engines that ran. */
+  engines: z.array(z.string()),
+  /** Things that went wrong that are not detections (a timeout, an unreadable path). */
+  errors: z.array(z.string()),
+  /** The user stopped the scan; `detections` and `files` cover what was examined before that. */
+  cancelled: z.boolean().optional(),
+});
+export type MalwareScanSummary = z.infer<typeof MalwareScanSummarySchema>;
+
+export const VanguardMalwareStatus = z.object({
+  engines: z.array(MalwareEngineStatusSchema),
+  running: z.boolean(),
+  /** Paths waiting for the sensor's next run (new downloads, flagged files). */
+  queued: z.number().int().nonnegative(),
+  last: MalwareScanSummarySchema.nullable(),
+});
+export type VanguardMalwareStatus = z.infer<typeof VanguardMalwareStatus>;

@@ -1681,6 +1681,12 @@ export const CHANNELS = {
   vanguardOpenQuarantine: 'mstudio:vanguard:open-quarantine',
   /** The network sensor's last snapshot of outbound connections, for the Network tab (Phase 120 Theme E). */
   vanguardConnections: 'mstudio:vanguard:connections',
+  /** Which malware scan engines are installed, and the last scan (Phase 120 Theme F). */
+  vanguardMalwareStatus: 'mstudio:vanguard:malware-status',
+  /** Run one on-demand malware scan (downloads, a repo, a folder, or the home folder). */
+  vanguardMalwareScan: 'mstudio:vanguard:malware-scan',
+  /** Stop the malware scan that is running; findings already found are kept. */
+  vanguardMalwareScanCancel: 'mstudio:vanguard:malware-scan-cancel',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

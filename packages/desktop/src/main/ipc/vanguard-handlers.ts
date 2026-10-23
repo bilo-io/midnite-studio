@@ -19,6 +19,7 @@ import { listRepos } from '../repo-registry';
 import { studioBrokerScriptPath } from '../broker-client';
 import { observePtyOutput, onSessionExit, sessionIdFor } from '../pty-service';
 import { liveAgentSessions, listTerminals } from '../terminal-service';
+import { probeBinary } from '../system-health';
 import { agentPtyOutputSource, agentSessionPids } from './vanguard-sensor-wiring';
 import { handle, handleBare, handleSend } from './handle';
 
@@ -104,6 +105,8 @@ export async function startVanguardSensors(userData: string): Promise<void> {
       execPath: process.execPath,
       packaged: app.isPackaged,
       // Theme D, read-only: agent-pty output for the paste sensor, agent shell pids for the process sensor.
+      // Theme F: yara and clamscan are found with the monitor feature's probe (desktop re-exports it).
+      malware: { probe: probeBinary },
       persistenceProcess: {
         clickfix: { source: agentPtyOutputSource(ptySeams) },
         processes: { agentSessions: agentSessionPids(ptySeams) },
@@ -124,6 +127,15 @@ export async function startVanguardSensors(userData: string): Promise<void> {
   });
   resolveService(serviceInstance);
   await serviceInstance.host.start();
+}
+
+/**
+ * Phase 120 Theme F: a finished browser download (Phase 117's hook hands the path over; Vanguard never
+ * touches `webContents`) joins the malware scanner's queue. Until the service exists, or while the sensor
+ * is not running (Studio before the view is first opened), the path waits in the bounded queue.
+ */
+export function scanDownloadedFile(path: string): void {
+  void serviceReady.then((service) => service.scanner.enqueue([path]));
 }
 
 export async function stopVanguardSensors(): Promise<void> {

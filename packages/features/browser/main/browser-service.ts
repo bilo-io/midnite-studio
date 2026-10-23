@@ -491,6 +491,13 @@ function ensureSessionConfigured(): void {
         if (entry) send(entry[1].win, { kind: 'download-blocked', tabId: entry[0], filename, ...(reason ? { reason } : {}) });
       },
       onDone: (webContents, record) => {
+        browserMainDeps().onDownloadDone?.({
+          path: record.path,
+          filename: record.filename,
+          sha256: record.sha256,
+          origin: record.origin,
+          quarantined: record.quarantined,
+        });
         const entry = tabForContents(webContents);
         if (entry) {
           send(entry[1].win, {

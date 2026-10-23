@@ -34,6 +34,7 @@ describe('createVanguardBridge', () => {
     expect(Object.keys(bridge.vanguard).sort()).toEqual([
       'connections',
       'findings',
+      'malware',
       'onChanged',
       'openQuarantine',
       'runSensor',
@@ -42,6 +43,7 @@ describe('createVanguardBridge', () => {
       'settings',
       'viewOpened',
     ]);
+    expect(Object.keys(bridge.vanguard.malware).sort()).toEqual(['cancel', 'scan', 'status']);
     expect(Object.keys(bridge.vanguard.findings).sort()).toEqual([
       'act',
       'list',

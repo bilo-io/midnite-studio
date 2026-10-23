@@ -1,0 +1,1 @@
+{"name":"tiny","version":"1.0.0","scripts":{"install":"node-gyp rebuild","test":"node test.js"},"description":"reads .npmrc docs only in text, bundle.js is not run on install","main":"bundle.js"}

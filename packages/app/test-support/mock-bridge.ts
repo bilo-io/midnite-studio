@@ -4795,6 +4795,32 @@ export function buildMockBridge(data: MockFixtures) {
           },
         ],
       }),
+      // Phase 120 Theme F: no engine installed, one earlier scan. Nothing is ever scanned for real.
+      malware: {
+        status: async () => ({
+          engines: [
+            { id: 'yara' as const, label: 'YARA', installed: false },
+            { id: 'clamscan' as const, label: 'ClamAV', installed: false },
+            { id: 'builtin' as const, label: 'Built-in matcher', installed: true },
+          ],
+          running: false,
+          queued: 0,
+          last: {
+            target: 'Downloads',
+            at: Date.now() - 600_000,
+            durationMs: 412,
+            files: 38,
+            detections: 0,
+            engines: ['builtin'],
+            errors: [],
+          },
+        }),
+        cancel: async () => ({ ok: true as const }),
+        scan: async () => ({
+          ok: true as const,
+          value: { target: 'a folder', at: Date.now(), durationMs: 120, files: 12, detections: 0, engines: ['builtin'], errors: [] },
+        }),
+      },
       onChanged: () => () => {},
     },
     metrics: {

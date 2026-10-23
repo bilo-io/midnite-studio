@@ -78,7 +78,7 @@ Scope guardrails:
 *The suite gets a watcher that sees the effects of a compromise — a new persistence item, an
 unexpected outbound connection, a file changed under a running agent — and can stop it, with one
 ledger every security finding in the suite lands in.* Born from a catalog tile with nothing behind
-it and a threat landscape in which the coding agent is the new ClickFix victim. (57% · 26/46) —
+it and a threat landscape in which the coding agent is the new ClickFix victim. (67% · 31/46) —
 **Planned 2026-10-22.**
 
 **Theme A — One finding, one ledger.** ✅ `SecurityFindingSchema` in `shared` (source, severity,
@@ -164,10 +164,40 @@ flag, above the network findings; rows show the address lsof printed, never a re
 `liveAgentSessions`, window focus) and in `apps/vanguard` (its own pid, agent sessions from the shared broker plus the
 host's records, window focus). Blocking stays deferred.
 
-**Theme F — Malware scanning.** ◻ A bundled YARA ruleset for the shapes this landscape actually has
-— ClickFix command lines, Shai-Hulud markers, poisoned `postinstall` scripts, AMOS droppers — run
-through a YARA binary when present; `clamscan` invoked, never linked, when installed. On-demand and
-on-change scans; browser downloads scanned through Phase 117's download hook.
+**Theme F — Malware scanning.** ✅ Fourteen rules in `features/vanguard/rules/*.yar` (ClickFix command lines
+and lure pages, the Shai-Hulud family incl. `setup_bun.js` and the dual npm/PyPI publisher, AMOS-style
+password-phish and collector shapes, install scripts that read credentials or pipe a download to a shell),
+each with a source comment, a positive fixture and a shared benign corpus. They are written to a subset
+(text and regex strings, `nocase`, boolean and `N of them` conditions) that a small pure matcher
+(`main/malware/yara-subset.ts`) also runs, so detection needs no install; a test checks the matcher against
+output captured from real yara 4.5.8 and, when `yara` is present, live. The `.yar` files are the source of
+truth; `scripts/vanguard-rules.mjs` embeds them in `bundled-rules.ts` because the bundled main cannot read
+them off disk, and a test fails when that copy is stale. Engines are `ScanEngine`s with `available()`,
+`scan(paths)` and a pure parser (`yara -m` and `clamscan` output): neither is linked, both run through the
+sensor host's `runProcess` (deadline, group kill, stop signal). `yara` runs the bundled rules when found, the
+built-in matcher otherwise (and whenever yara errors); the built-in matcher also checks file names (the
+`.github/workflows/*shai-hulud*` check, which a content rule cannot express); `clamscan` is added when found.
+**No engine installed is a calm, explained state on the Sensors tab, not an error.** Engines are found by the
+monitor feature's `probeBinary`, injected through `sensorDeps.malware.probe` (Studio passes desktop's
+re-export); `apps/vanguard` has no monitor and falls back to looking at the Homebrew and system paths only.
+**No network:** rules ship in the app, `freshclam` keeps ClamAV's signatures current and is the user's to run,
+and a signed rule feed is Phase 122 C's. A `malware` sensor (every 5 minutes and as soon as something is
+queued) scans new `node_modules/*/package.json` with an install script, new browser downloads (Phase 117's
+hook gains a plain-data `onDownloadDone`; Studio queues the path, and Vanguard never touches `webContents`),
+and the file paths of any integrity, persistence or process finding. On demand, from the Sensors tab:
+Downloads, a repo, a folder, and a full home-folder scan behind its own confirm and time estimate (never the
+default). Studio wires the probe, the repos list and the download hook; the Vanguard app has no repo registry,
+folder picker or browser, so it offers Downloads and the full scan and its sensor sees no install scripts or
+downloads. A scan skips Vanguard's own rules and fixtures **by content, never by location**: `vanguard-rules.mjs` also
+embeds the SHA-256 of every file under `rules/` (`OWN_FILE_DIGESTS`, with its own staleness test), and a file is
+skipped only when its bytes hash into that set, so a modified fixture dropped under any
+`packages/features/vanguard/...` path is still flagged. Scans are **cancellable**: `vanguardMalwareScanCancel`
+(shared channel, bridge, preload, the Vanguard app's bridge and the mock bridge) aborts one controller threaded
+through the scanner, the engines' `runProcess` calls and the built-in matcher's walk; the card shows *Cancel scan*
+while one runs, and a cancelled scan keeps its findings so far and reports itself as cancelled, not as a failure.
+The full-scan confirm no longer quotes a number: it says a scan can take a long time, often tens of minutes.
+Findings are `malware`, fingerprinted by rule and path (yara and the matcher dedupe), with a quarantine
+action that Theme H implements.
 
 **Theme G — Rogue agent behaviour.** ◻ Vanguard subscribes to Phase 121's audit trail and raises
 findings for the behaviours a compromised agent shows: reads under `~/.ssh`/`~/.aws`, `curl | sh`
@@ -319,24 +349,24 @@ each written back to the ledger.
 
 ### F — Malware scanning [M · ~1d]
 
-- [ ] **Engines.** `probeBinary` (the monitor feature's probe) finds `yara` and `clamscan` on the
+- [x] **Engines.** `probeBinary` (the monitor feature's probe) finds `yara` and `clamscan` on the
       login-shell PATH; each engine is a `ScanEngine` with `available()`, `scan(paths)`, and a
       parser for its output. Neither is linked; both run through `runProcess` with a deadline and
       group kill. No engine installed means the bundled ruleset still runs through a small pure
       matcher for the string/regex subset it uses — the ruleset is written to that subset so
       detection does not depend on Homebrew. [M]
-- [ ] **The ruleset.** `packages/features/vanguard/rules/*.yar`, each rule with a source comment and
+- [x] **The ruleset.** `packages/features/vanguard/rules/*.yar`, each rule with a source comment and
       a test fixture: ClickFix one-liners, the Shai-Hulud family's markers (a `bundle.js`
       `postinstall` that reads `~/.npmrc`, `.github/workflows/*shai-hulud*`, the TruffleHog download
       line, `setup_bun.js`), the Mini Shai-Hulud npm+PyPI dual-registry shape, AMOS/MacSync dropper
       strings, credential-file readers in `postinstall`/`preinstall`. Refreshed by Phase 122 C's
       signed feed, never by Vanguard itself. [M]
-- [ ] **What gets scanned, when.** On change: a new file under a watched persistence location, a
+- [x] **What gets scanned, when.** On change: a new file under a watched persistence location, a
       new executable in the process table, a new `node_modules/*/package.json` with an install
       script, anything Theme C flags. On demand: a repo, a folder, `~/Downloads`, a browser download
       (Phase 117's `will-download` hook hands the path over; Vanguard never touches `webContents`).
       Never the whole disk by default — a full scan is a button with a time estimate. [S]
-- [ ] **Tests.** Every rule has a positive fixture that matches and the benign corpus that does not;
+- [x] **Tests.** Every rule has a positive fixture that matches and the benign corpus that does not;
       the engine parsers against captured `yara`/`clamscan` output; the no-engine matcher agrees
       with `yara` on the fixtures. [S]
 
@@ -406,7 +436,7 @@ each written back to the ledger.
       within one cadence; the ClickFix grammar has zero hits on the benign-command corpus.
 - [x] **E:** a fixture `lsof` output with one unregistered host from the app's own pid yields one
       `info` network finding (`high` once the registry is complete); the parser handles IPv6 and `->` forms.
-- [ ] **F:** every rule's positive fixture matches under both `yara` and the built-in matcher; the
+- [x] **F:** every rule's positive fixture matches under both `yara` and the built-in matcher; the
       benign corpus matches nothing.
 - [ ] **G:** a trail fixture with `cat ~/.ssh/id_ed25519` yields `high`; auto-pause writes `\x03`
       to the right session and nothing to any other.

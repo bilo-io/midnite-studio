@@ -1,6 +1,7 @@
 import type { NewSecurityFinding, SecurityFinding } from '@midnite/studio-shared';
 
 import { createConnectionStore, type ConnectionStore } from './network-sensor';
+import { createMalwareScanner, MALWARE_SENSOR_ID, type MalwareScanner } from './malware/scanner';
 import { builtinSensors, type VanguardSensorDeps } from './sensors';
 import {
   createSensorHost,
@@ -40,6 +41,8 @@ export interface VanguardService {
   connections: ConnectionStore;
   /** `<userData>/vanguard/quarantine` — where Theme H puts quarantined files. */
   quarantineDir: string;
+  /** Theme F: on-demand scans, the queue downloads and flagged files are added to, and engine status. */
+  scanner: MalwareScanner;
 }
 
 /**
@@ -52,17 +55,37 @@ export async function createVanguardService(
   const settings = await createVanguardSettingsState(
     options.store ?? createVanguardStore(options.userData),
   );
+  // Declared first: the scanner asks the host to run the sensor when something is queued, the host's
+  // record feeds flagged paths to the scanner. Both only reference the other once running.
+  let hostRef: SensorHost | null = null;
+  const repos = options.sensorDeps?.repos;
+  const scanner = createMalwareScanner({
+    userData: options.userData,
+    ...(options.homeDir !== undefined ? { homeDir: options.homeDir } : {}),
+    runProcess: options.runProcess,
+    ...(options.sensorDeps?.malware?.probe ? { probe: options.sensorDeps.malware.probe } : {}),
+    record: (finding) => options.record({ ...finding, source: 'vanguard' }),
+    ...(repos ? { repos } : {}),
+    onChanged: options.onChanged,
+    onQueued: () => void hostRef?.runNow(MALWARE_SENSOR_ID),
+  });
   const host = createSensorHost({
     userData: options.userData,
     ...(options.homeDir !== undefined ? { homeDir: options.homeDir } : {}),
     runProcess: options.runProcess,
-    record: options.record,
+    record: async (finding) => {
+      const recorded = await options.record(finding);
+      // A file another sensor flagged (integrity, persistence, process) is scanned too.
+      scanner.noteFinding(finding);
+      return recorded;
+    },
     settings: settings.get,
     autostart: options.autostart,
     onChanged: options.onChanged,
     ...(options.log ? { log: options.log } : {}),
   });
   const connections = createConnectionStore();
-  for (const def of options.sensors ?? builtinSensors({ ...options.sensorDeps, connections })) host.register(def);
-  return { host, settings, connections, quarantineDir: `${options.userData}/vanguard/quarantine` };
+  hostRef = host;
+  for (const def of options.sensors ?? builtinSensors({ ...options.sensorDeps, connections }, scanner)) host.register(def);
+  return { host, settings, connections, quarantineDir: `${options.userData}/vanguard/quarantine`, scanner };
 }

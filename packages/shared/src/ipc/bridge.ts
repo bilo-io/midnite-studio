@@ -678,6 +678,13 @@ export type MidniteStudioBridge = {
     openQuarantine: () => Promise<GitOpResult>;
     /** The network sensor's last snapshot of outbound connections (Network tab). */
     connections: () => Promise<z.infer<typeof S.VanguardConnectionsResponse>>;
+    /** Malware scanning (Phase 120 Theme F): engine availability and one on-demand scan. */
+    malware: {
+      status: () => Promise<z.infer<typeof S.VanguardMalwareStatus>>;
+      scan: (req: In<typeof S.VanguardScanRequest>) => Promise<GitOpResult<z.infer<typeof S.MalwareScanSummarySchema>>>;
+      /** Stop the running scan (a no-op when none is running). Detections found so far are kept. */
+      cancel: () => Promise<GitOpResult>;
+    };
     onChanged: (handler: () => void) => Unsubscribe;
   };
 

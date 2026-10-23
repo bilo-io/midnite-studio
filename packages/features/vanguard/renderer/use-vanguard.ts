@@ -3,6 +3,7 @@ import type {
   SecurityFinding,
   SecurityFindingsListRequest,
   VanguardConnectionsResponse,
+  VanguardMalwareStatus,
   VanguardSensorsResponse,
   VanguardSettings,
   VanguardSettingsSetRequest,
@@ -110,4 +111,26 @@ export function useConnections(): { snapshot: VanguardConnectionsResponse; loade
     };
   }, []);
   return { snapshot, loaded };
+}
+
+/** Which scan engines exist and the last scan, refetched when the sensors report a change. */
+export function useMalwareStatus(): VanguardMalwareStatus | null {
+  const [status, setStatus] = useState<VanguardMalwareStatus | null>(null);
+  useEffect(() => {
+    let live = true;
+    const refetch = (): void => {
+      void bridge()
+        ?.vanguard.malware?.status()
+        .then((next) => {
+          if (live) setStatus(next);
+        });
+    };
+    refetch();
+    const off = bridge()?.vanguard.onChanged(refetch);
+    return () => {
+      live = false;
+      off?.();
+    };
+  }, []);
+  return status;
 }
