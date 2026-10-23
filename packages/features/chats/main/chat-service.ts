@@ -693,11 +693,11 @@ export function createChatService(deps: ChatServiceDeps) {
 
   /** Record what was scrubbed on the turn and on the user message, and tell the renderer so its chips appear. */
   function noteRedactions(chat: Chat, user: ChatMessage, handle: RunHandle, redactions: Redaction[], canary: boolean): void {
+    // A later attempt (a replay after a failed resume) must not erase what an earlier one already sent scrubbed.
+    handle.canary ||= canary;
+    if (redactions.length === 0) return;
     handle.redactions = redactions;
-    handle.canary = canary;
-    if (redactions.length === 0 && user.redactions === undefined) return;
-    if (redactions.length === 0) delete user.redactions;
-    else user.redactions = redactions;
+    user.redactions = redactions;
     deps.emit({ kind: 'message', chatId: chat.id, message: user });
   }
 

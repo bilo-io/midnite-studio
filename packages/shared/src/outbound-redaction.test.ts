@@ -71,6 +71,12 @@ describe('redactOutbound', () => {
     expect(r.redactions).toEqual([{ kind: 'github-token', count: 1 }]);
   });
 
+  it('does not read marker characters already in the text as its own markers', () => {
+    const r = redactOutbound('a \uE0000\uE001 b');
+    expect(r.text).not.toContain('undefined');
+    expect(r.redactions).toEqual([]);
+  });
+
   it('merges and totals redactions by kind', () => {
     const merged = mergeRedactions([{ kind: 'a', count: 1 }], [{ kind: 'a', count: 2 }, { kind: 'b', count: 1 }]);
     expect(merged).toEqual([{ kind: 'a', count: 3 }, { kind: 'b', count: 1 }]);

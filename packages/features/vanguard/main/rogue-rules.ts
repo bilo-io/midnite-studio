@@ -402,8 +402,9 @@ export function isKeyfile(path: string, home: string): boolean {
 const BENIGN_DOTFILES = new Set(['.gitignore', '.gitattributes', '.editorconfig', '.prettierrc', '.nvmrc', '.dockerignore', '.npmignore', '.eslintrc', '.gitkeep']);
 
 /** A dotfile or a path under a dot-directory: where credentials and config live in a home directory. */
-function isDotfile(word: string, home: string, cwd: string | undefined): boolean {
-  const path = resolveWord(word, home, cwd) ?? word;
+function isDotfile(word: string, home: string): boolean {
+  // The operand's own components only: a session's cwd under `.worktrees/` must not make every file a dotfile.
+  const path = expandHome(word, home);
   const parts = path.split('/').filter((p) => p !== '' && p !== '.' && p !== '..');
   const hidden = parts.find((p) => p.startsWith('.') && !BENIGN_DOTFILES.has(p));
   if (hidden === undefined) return false;
@@ -421,7 +422,7 @@ const UPLOAD_FLAGS = new Set(['-d', '--data', '--data-binary', '--data-raw', '--
 /** The exfiltration shape one simple command is, or null. */
 export function exfiltrationShape(
   segment: PipedSegment,
-  ctx: { home: string; cwd?: string | undefined; sessionIntendsPublish: boolean },
+  ctx: { home: string; cwd?: string | undefined; sessionIntendsPublish: boolean; prevCatKeyfile?: boolean },
 ): ExfilShape | null {
   const at = commandIndex(segment.words);
   if (at === -1) return null;
@@ -461,7 +462,7 @@ export function exfiltrationShape(
     const candidates = args
       .filter((a) => !a.startsWith('-') && a !== 'base64')
       .map((a) => resolveWord(a, ctx.home, ctx.cwd) ?? (ctx.cwd ? posix.join(expandHome(ctx.cwd, ctx.home), a) : a));
-    const resolved = candidates.find((path) => isKeyfile(path, ctx.home)) ?? null;
+    const resolved = candidates.find((path) => isKeyfile(path, ctx.home)) ?? (ctx.prevCatKeyfile && candidates.length === 0 ? 'the key file piped in' : null);
     if (resolved !== null) {
       return { id: 'encode-keyfile', severity: 'high', title: 'Agent encoded a key file for transfer', detail: `An agent session ran ${name} over ${resolved} and piped the result onward, the usual first step of sending a credential out.` };
     }
@@ -471,7 +472,7 @@ export function exfiltrationShape(
   if (name === 'scp' || name === 'rsync') {
     const operands = args.filter((a) => !a.startsWith('-'));
     const remote = operands.some((a) => REMOTE_SPEC.test(a));
-    const dot = operands.find((a) => !REMOTE_SPEC.test(a) && isDotfile(a, ctx.home, ctx.cwd));
+    const dot = operands.find((a) => !REMOTE_SPEC.test(a) && isDotfile(a, ctx.home));
     if (remote && dot !== undefined) {
       return { id: 'copy-dotfile', severity: 'high', title: `Agent copied a dotfile off the machine with ${name}`, detail: `An agent session ran ${name} with ${dot} and a remote destination.` };
     }
@@ -489,7 +490,7 @@ export function exfiltrationShape(
 
   if (name === 'npm' || name === 'pnpm' || name === 'yarn' || name === 'bun') {
     const sub = args.filter((a) => !a.startsWith('-'));
-    const isPublish = sub[0] === 'publish' || (name === 'yarn' && sub[0] === 'npm' && sub[1] === 'publish');
+    const isPublish = (sub.includes('publish') && sub[0] !== 'run' && sub[0] !== 'view' && sub[0] !== 'info') || (name === 'yarn' && sub[0] === 'npm' && sub[1] === 'publish');
     if (!isPublish || args.includes('--dry-run')) return null;
     if (ctx.sessionIntendsPublish) return null;
     return { id: 'publish', severity: 'critical', title: `Agent ran ${name} publish`, detail: `An agent session published a package with ${name} publish. It did not start with the user's intent to release, and this is how a stolen token spreads: Shai-Hulud's propagation step.` };
@@ -503,8 +504,17 @@ export const exfiltrationRule: RogueRule = (records, context) => {
   for (const record of records) {
     if (record.kind !== 'command' || !record.sessionId) continue;
     const seen = new Set<string>();
+    let prevCat = false;
     for (const segment of pipedSegments(record.command)) {
+      const catAt = commandIndex(segment.words);
+      const wasCat = prevCat;
+      prevCat =
+        segment.piped &&
+        catAt !== -1 &&
+        posix.basename(segment.words[catAt] as string) === 'cat' &&
+        segment.words.slice(catAt + 1).some((w) => !w.startsWith('-') && isKeyfile(resolveWord(w, context.homeDir, record.cwd) ?? posix.join(record.cwd ?? '/', w), context.homeDir));
       const shape = exfiltrationShape(segment, {
+        prevCatKeyfile: wasCat,
         home: context.homeDir,
         cwd: record.cwd,
         sessionIntendsPublish: context.publishIntended?.(record.sessionId) ?? false,

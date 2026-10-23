@@ -95,7 +95,8 @@ export function redactOutbound(text: string, secrets: readonly OutboundSecret[] 
     return `${OPEN}${kinds.length - 1}${CLOSE}`;
   };
   let canary = false;
-  let out = text;
+  // The markers are private-use characters; any already in the text must not be read back as one.
+  let out = text.replace(/[\uE000\uE001]/g, '\uFFFD');
   const literal = secrets
     .filter((s) => s.value.length >= MIN_VAULT_VALUE_LENGTH)
     .sort((a, b) => b.value.length - a.value.length);

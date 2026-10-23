@@ -73,7 +73,7 @@ export async function ensureCanaries(options: CanaryOptions): Promise<CanaryStat
 
 export interface OutboundSecretSourceOptions {
   vault: VaultClient;
-  /** How long a read is reused. Each read decrypts every entry, and a prompt is built per turn. Default 5s. */
+  /** How long a read is reused. Each read decrypts every entry, and a prompt is built per turn. Default 2s. */
   ttlMs?: number;
   now?: () => number;
 }
@@ -84,7 +84,7 @@ export interface OutboundSecretSourceOptions {
  * eating ordinary words is left out (`MIN_VAULT_VALUE_LENGTH`).
  */
 export function createOutboundSecretSource(options: OutboundSecretSourceOptions): () => Promise<readonly OutboundSecret[]> {
-  const ttl = options.ttlMs ?? 5_000;
+  const ttl = options.ttlMs ?? 2_000;
   const now = options.now ?? Date.now;
   let cached: { at: number; secrets: OutboundSecret[] } | null = null;
   let inflight: Promise<OutboundSecret[]> | null = null;
