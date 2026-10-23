@@ -37,6 +37,11 @@ Scope guardrails:
   and is only ever *invoked* as a separate program the user installed, never linked or shipped.
 - **Nothing phones home.** Vanguard itself makes no network call. Threat feeds and CVE lookups are
   Phase 122's, behind [Phase 115](phase-115-privacy-egress-and-at-rest.md) A's registry and switches.
+  One carve-out, agreed for Theme E: the network sensor resolves the app's own *fixed* name lists
+  (`EGRESS_HOSTS` and `NETWORK_THREAT_HOSTS`) forward, through the system resolver, because `lsof -n`
+  prints addresses and those lists are names. That sends no observed destination anywhere. Reverse
+  lookups of observed destinations are out: they would tell a DNS server every address an agent
+  reached, which is exactly the data this sensor exists to keep private.
 - **Every destructive response goes through the blast-radius confirm** the rest of the app uses.
   Kill, unload, quarantine and revoke each show what they touch before they touch it.
 - **Features never import each other.** Vanguard reads the agent audit trail (Phase 121 G) and the
@@ -142,18 +147,22 @@ it opens. Cadence is the doc's: the host ticks every 10 s and the sensor drops t
 10 s while an agent session is live, every 60 s otherwise and not at all while the window is blurred with no agent
 running; "Run now" and the first pass after start bypass the gate (a new `SensorTrigger` argument to `run`). The
 sensor ignores the cadence setting. A connection from the app or its broker (found by its script path in `ps`) to an
-address no `EGRESS_HOSTS` entry resolves to is a `high` finding; Electron's helper processes are not counted as the suite
-because Chromium's network service carries the embedded browser. Agent processes are the pty roots' `ps` subtrees: the first
-connection to each `(address, port)` per repo is recorded in `<userData>/vanguard/network-baseline.json` (0600), and one
-not seen for 30 days is `medium`, or `high` when the process is unsigned (`codesign --verify`), the address has no reverse
-name (read as "raw IP", since `-n` prints only addresses) or it is on `NETWORK_THREAT_HOSTS` (shared; paste sites, tunnels,
-request catchers; extendable by Phase 122 C). Names come from forward lookups of the registry and threat lists and reverse
-lookups of new destinations, so the sensor does make DNS queries. The Network tab shows live connections grouped by process,
-suite first, each with its registry entry or flag, above the network findings; the snapshot is a new `vanguardConnections`
-channel. Wired in Studio (app pid, broker script, live agent pty pids through a new `liveAgentSessions`, window focus) and in
-`apps/vanguard` (its own pid, agent sessions from the shared broker plus the host's records, window focus). Known noise: the
-registry lists three hosts today, so the app's other legitimate main-process egress (forge, database, LLM) flags until Phase 115
-registers it; Mute handles it. Blocking stays deferred.
+address no `EGRESS_HOSTS` entry resolves to is a finding rated `info`, through one constant
+(`NETWORK_UNREGISTERED_SUITE_SEVERITY`): the registry lists three hosts today, so `high` would flag every ordinary forge,
+database or LLM call and teach people to mute the sensor; it goes back to `high` once Phase 115 A's registry is complete
+(Decision 9, `outstanding.md`). Electron's helper processes are not counted as the suite because Chromium's network
+service carries the embedded browser. Agent processes are the pty roots' `ps` subtrees: the first connection to each
+`(address, port)` per repo is recorded in `<userData>/vanguard/network-baseline.json` (0600), and one not seen for 30 days is
+`medium`, or `high` when the process is unsigned (`codesign --verify`) or the address is one a `NETWORK_THREAT_HOSTS` name
+(paste sites, tunnels, request catchers) resolves to. DNS is forward only and only for the app's own fixed lists
+(`EGRESS_HOSTS`, `NETWORK_THREAT_HOSTS`) through the system resolver; no observed destination is ever looked up, so no
+reverse lookups, and the "raw IP" rung is dropped (it needs reverse DNS, and "no reverse name" flags CDN addresses),
+deferred to Phase 122's threat feed (Decision 10, `outstanding.md`). Tests assert the resolver is only ever asked names from
+those two lists. The Network tab shows live connections grouped by process, suite first, each with its registry entry or
+flag, above the network findings; rows show the address lsof printed, never a resolved name. The snapshot is a new
+`vanguardConnections` channel. Wired in Studio (app pid, broker script, live agent pty pids through a new
+`liveAgentSessions`, window focus) and in `apps/vanguard` (its own pid, agent sessions from the shared broker plus the
+host's records, window focus). Blocking stays deferred.
 
 **Theme F — Malware scanning.** ◻ A bundled YARA ruleset for the shapes this landscape actually has
 — ClickFix command lines, Shai-Hulud markers, poisoned `postinstall` scripts, AMOS droppers — run
@@ -293,15 +302,17 @@ each written back to the ledger.
       gate from Phase 76), parsed into `{pid, command, remote host, port, state}`. The parser is pure
       and fixture-tested. [M]
 - [x] **Our own processes against the registry.** A connection from a suite process (the app, its
-      broker, its helpers) to a host outside Phase 115 A's `EGRESS_HOSTS` is a `network` finding at
-      `high` — it is exactly the leak the registry test cannot see, since the test covers `fetch` and
-      not a native module. [S]
+      broker) to an address no `EGRESS_HOSTS` entry resolves to is a `network` finding, rated `info`
+      until Phase 115 A's registry covers the app's real egress (Decision 9) — it is exactly the leak
+      the registry test cannot see, since the test covers `fetch` and not a native module. [S]
 - [x] **Agent sessions against a baseline.** For processes under an agent session, the first
       connection to each `(host, port)` is recorded; a destination not seen in that repo's last 30
-      days is `medium`, and `high` when the process is unsigned or the host is a raw IP, a
+      days is `medium`, and `high` when the process is unsigned or the address belongs to a
       paste-site, a tunnel service (`ngrok`, `*.trycloudflare.com`, `*.loca.lt`) or a known
-      exfiltration shape (`webhook.site`, `requestbin`, `*.burpcollaborator.net`). The list is a
-      `shared` constant Phase 122 C's threat feed can extend. [M]
+      exfiltration shape (`webhook.site`, `requestbin`, `*.burpcollaborator.net`), found by resolving
+      the list's names forward. The "raw IP" rung is deferred to Phase 122 (Decision 10: it needs a
+      reverse lookup). The list is a `shared` constant Phase 122 C's threat
+      feed can extend. [M]
 - [x] **The Network tab.** The catalog's "Network Monitor" feature: live connections grouped by
       process, the suite's processes first, each row with the registry entry that allows it or the
       finding that flags it. Read-only; blocking is a deferred decision (see Decisions). [S]
@@ -394,7 +405,7 @@ each written back to the ledger.
 - [ ] **D:** dropping a fixture plist into a temp `LaunchAgents` yields a `persistence` finding
       within one cadence; the ClickFix grammar has zero hits on the benign-command corpus.
 - [x] **E:** a fixture `lsof` output with one unregistered host from the app's own pid yields one
-      `high` network finding; the parser handles IPv6 and `->` forms.
+      `info` network finding (`high` once the registry is complete); the parser handles IPv6 and `->` forms.
 - [ ] **F:** every rule's positive fixture matches under both `yara` and the built-in matcher; the
       benign corpus matches nothing.
 - [ ] **G:** a trail fixture with `cat ~/.ssh/id_ed25519` yields `high`; auto-pause writes `\x03`
@@ -437,3 +448,14 @@ each written back to the ledger.
 8. **Open: should a `critical` agent finding kill rather than pause?** Recommendation: pause. A
    false positive that kills a two-hour `/midnite-create` run is worse than one that interrupts it
    for a confirm; the kill is one click away in the modal.
+9. **Suite egress is `info` until the registry is complete.** *Decided.* A connection from the app or
+   its broker to an address no `EGRESS_HOSTS` entry resolves to is rated `info`, not `high`, until
+   Phase 115 A's registry covers the app's real egress (forge, database, LLM). It lists only three
+   hosts today, so at `high` every normal call would raise a false finding and teach people to mute
+   the sensor. The severity is one named constant, `NETWORK_UNREGISTERED_SUITE_SEVERITY`, so raising
+   it later is one line; `outstanding.md` tracks it.
+10. **DNS in the network sensor: forward lookups of our own lists only.** *Decided.* See "Nothing
+    phones home" above. The raw-IP trigger is dropped, since without reverse DNS it cannot be decided
+    and "no reverse name" flagged CDN addresses; it is deferred to Phase 122's threat feed
+    (`outstanding.md`). The other `high` triggers for agent sessions, an unsigned process and an
+    address a threat-list name resolves to, stay.
