@@ -13,7 +13,9 @@ import { randomUUID } from 'node:crypto';
  * "unavailable" is a first-class answer: the caller falls back to an unconfined spawn and the UI says so.
  */
 
-export const SANDBOX_EXEC = '/usr/bin/sandbox-exec';
+import { SANDBOX_EXEC, removeProfileFile } from '../broker/confine-wrap';
+
+export { SANDBOX_EXEC, isProfilePath, removeProfileFile, wrapWithSandbox, type ConfinedCommand } from '../broker/confine-wrap';
 const PROFILES_DIR = join('security', 'profiles');
 
 /** A minimal profile the probe asks the kernel to accept. */
@@ -75,15 +77,6 @@ export function writeProfileFile(userData: string, profile: string, id: string =
   return path;
 }
 
-/** Remove one profile file; never throws. */
-export function removeProfileFile(path: string): void {
-  try {
-    rmSync(path, { force: true });
-  } catch {
-    // Already gone, or not ours to remove.
-  }
-}
-
 /** On boot, delete every profile left by a session that died with the app. Returns how many. */
 export function sweepProfileFiles(userData: string): number {
   let removed = 0;
@@ -97,21 +90,6 @@ export function sweepProfileFiles(userData: string): number {
     // No directory yet.
   }
   return removed;
-}
-
-/** The path shape a broker will accept as a profile: ours, under `security/profiles`, one file deep. */
-export function isProfilePath(path: string): boolean {
-  return /\/security\/profiles\/[A-Za-z0-9._-]+\.sb$/.test(path) && !path.includes('..');
-}
-
-export interface ConfinedCommand {
-  command: string;
-  args: string[];
-}
-
-/** `sandbox-exec -f <profile> <command> <args…>` */
-export function wrapWithSandbox(profilePath: string, command: string, args: readonly string[] = []): ConfinedCommand {
-  return { command: SANDBOX_EXEC, args: ['-f', profilePath, command, ...args] };
 }
 
 /** A prepared confinement for one spawn: the profile on disk and how to take it away. */

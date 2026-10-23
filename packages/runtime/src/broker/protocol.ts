@@ -42,6 +42,13 @@ export type ControlMessage =
       rows: number;
       env: Record<string, string>;
       initialInput?: string | undefined;
+      /**
+       * Run the shell under `sandbox-exec -f <profile>` (Phase 121 Theme E). `profile` is the path of a
+       * 0600 file the host wrote under `<userData>/security/profiles/`; the broker removes it when the
+       * session exits. The reply carries `confined: true` when the broker honoured it; a broker that
+       * predates the field ignores it, so the host treats a reply without `confined` as a failure.
+       */
+      confine?: { profile: string } | undefined;
     }
   | { t: 'resize'; id?: number; ptyId: string; cols: number; rows: number }
   | { t: 'kill'; id?: number; ptyId: string }

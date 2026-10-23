@@ -10,9 +10,11 @@ import {
   createOutboundSecretSource,
   createPairingStore,
   createVaultGrants,
+  confinementAvailability,
   createVaultService,
   ensureCanaries,
   runtimeHostDirectory,
+  sweepProfileFiles,
   type VaultHost,
 } from '@midnite/studio-runtime';
 import {
@@ -33,6 +35,9 @@ import { registerSecurityHandlers } from './ipc/security-handlers';
 import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 import { configureAgentAudit, recordAudit } from './agent-audit';
+import { configureConfinement, createConfinementService } from './confinement';
+import { registerConfinementHandlers } from './ipc/confinement-handlers';
+import { currentSettings } from './settings-mirror';
 import { configureOutboundSecrets } from './outbound-secrets';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
@@ -536,6 +541,7 @@ export const startStudioMain: StartStudioMain = () => {
       const forgePoller = createStudioForgePoller();
       registerForgeFeatureHandlers(forgePoller);
       registerSettingsHandlers();
+      registerConfinementHandlers();
       registerDiagHandlers();
       registerSessionsHandlers();
       registerNotesHandlers();
@@ -776,6 +782,20 @@ export const startStudioMain: StartStudioMain = () => {
         listTerminals,
         record: recordAudit,
       });
+      // Phase 121 Theme E: confined sessions. Profiles left by sessions that died with the last run go first.
+      sweepProfileFiles(userData);
+      configureConfinement(
+        createConfinementService({
+          userData,
+          homeDir: app.getPath('home'),
+          availability: confinementAvailability,
+          enabled: () => currentSettings().confineNewSessions === true,
+          registryRepos: async () => (await listRepos()).map((repo) => repo.path),
+          audit: { record: (record) => (recordAudit(record), '') },
+          raiseFinding: (finding) => getFindingsLedger().record(finding),
+          log: (message) => defaultLogger.warn(message),
+        }),
+      );
       // Phase 121 Theme C: the MCP allowlist (Vanguard's revoke action and the Tools view's Approve read it).
       configureMcpTrust(userData, (finding) => getFindingsLedger().record(finding));
       // Phase 121 Theme F: the breaker reads the trail the line above feeds and interrupts a session that runs away.
@@ -1169,6 +1189,7 @@ export const startStudioMain: StartStudioMain = () => {
       void stopVanguardSensors();
       stopAgentCommandAudit?.();
       stopStudioAgentBreaker();
+      configureConfinement(null);
       disposeChats();
       // The global capture chord is released and clipboard polling stops with the app (Phase 113 Theme K).
       disposeCapture();

@@ -2375,6 +2375,12 @@ export type MidniteStudioBridge = {
     answer: (req: In<typeof S.ToolApprovalAnswerRequest>) => Promise<GitOpResult<Record<string, never>>>;
     hookInfo: () => Promise<GitOpResult<ToolApprovalHookInfo>>;
   };
+
+  /** Confined sessions (Phase 121 Theme E): is `sandbox-exec` usable, and are new sessions confined by default. */
+  confinement: {
+    status: () => Promise<z.infer<typeof S.ConfinementStatusResponse>>;
+  };
+  };
 };
 
 declare global {
