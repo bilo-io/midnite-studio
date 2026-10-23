@@ -40,6 +40,7 @@ import type {
   SetupRevealRequest,
   SetupRevealResponse,
 } from '../setup';
+import type { SecurityScanContentRequest, SecurityScanContentResponse } from '../security-scan';
 import type { SystemMemoryResponse } from '../system-memory';
 
 type In<T extends z.ZodTypeAny> = z.input<T>;
@@ -1894,6 +1895,11 @@ export type MidniteStudioBridge = {
   };
   /** Installed RAM (Phase 98 Theme I). */
   systemMemory: () => Promise<SystemMemoryResponse>;
+  /** The security layer's renderer-facing calls (Phase 121). */
+  security: {
+    /** Scores a draft attachment, forge body or page text for injection signals, in main. Never rejects. */
+    scanContent: (req: SecurityScanContentRequest) => Promise<SecurityScanContentResponse>;
+  };
 
   /**
    * Ollama (Phase 96 Theme B) — the main-side client and its streamed pull

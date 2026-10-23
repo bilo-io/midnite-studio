@@ -88,6 +88,7 @@ export * from './vanguard-integrity';
 export * from './injection-heuristics';
 export * from './untrusted-page-content';
 export * from './provenance';
+export * from './security-scan';
 export * from './untrusted-fence';
 export * from './browser-agent';
 export * from './page-deep-link';

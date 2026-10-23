@@ -90,7 +90,7 @@ describe('startMcpServer', () => {
     const handle = await boot();
     const socket = await connect(handle.socketPath);
     const response = await call(socket, { id: '1', tool: 'repo.list', input: {} });
-    expect(response).toEqual({ id: '1', ok: true, value: [] });
+    expect(response).toEqual({ id: '1', ok: true, value: [], provenance: { origin: 'mcp-result', ref: 'repo.list', trust: 'untrusted' } });
     socket.destroy();
   });
 
