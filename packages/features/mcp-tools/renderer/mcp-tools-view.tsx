@@ -12,6 +12,8 @@ import {
   type PlacementAppId,
 } from '@midnite/studio-shared';
 
+import { McpServersSection } from './mcp-servers-section';
+
 const MCP_STATUS_KEY = ['mcp-status'] as const;
 const AGY_STATUS_KEY = ['mcp-agy-status'] as const;
 const MCP_CALLS_KEY = ['mcp-calls'] as const;
@@ -37,6 +39,12 @@ export type McpToolsViewProps = {
    * switches, the socket and the connect command, none of which mean anything without a server.
    */
   serverAvailable?: boolean;
+  /**
+   * The repository whose MCP servers to list with their trust state (Phase 121 Theme C): Studio passes the
+   * active one. An app with no repository registry (Agents) passes none and the section is left out.
+   */
+  repoId?: string | null;
+  repoName?: string;
 };
 
 /**
@@ -46,7 +54,7 @@ export type McpToolsViewProps = {
  * any process on the machine a parsed view of every open repository) gets a
  * page a user has to go looking for, plus a diagnostics readout underneath it.
  */
-export function McpToolsView({ isAppInstalled = ALL_APPS_INSTALLED, serverAvailable = true, manifests = [] }: McpToolsViewProps = {}) {
+export function McpToolsView({ isAppInstalled = ALL_APPS_INSTALLED, serverAvailable = true, manifests = [], repoId = null, repoName }: McpToolsViewProps = {}) {
   const client = useQueryClient();
   // The allow switches belong to the app whose tools they gate; the frame's are everyone's.
   const owns = (app: PlacementAppId): boolean => serverAvailable && isAppInstalled(app);
@@ -207,6 +215,7 @@ export function McpToolsView({ isAppInstalled = ALL_APPS_INSTALLED, serverAvaila
 
   return (
     <div className="flex flex-col gap-3">
+      {repoId && <McpServersSection repoId={repoId} {...(repoName ? { repoName } : {})} />}
       <SettingsAccordion title="MCP Server" icon={<LuServer className="h-4 w-4" />} defaultOpen>
         {!serverAvailable ? (
           <div className="flex flex-col gap-2 p-3 text-xs text-muted-foreground" data-testid="mcp-no-server">
