@@ -396,10 +396,8 @@ adapter is `main/browser-port.ts` (the real Electron, plus the one cast from `Br
 - **The three pieces #853 settled**: full-window browsing (the feature's `BrowserPane`); **web apps** on the
   rail (`WebAppsRailRow`), each taking the page when opened (`components/web-app-view.tsx` over the
   feature's `WebAppPane` and its `persist:app-<id>` partition), turned on and off from a "Web apps" menu —
-  Studio's Settings ▸ Apps; and the **agent session** strip (`components/agent-session-bar.tsx`), which is
-  **still a placeholder** (`agent-session-store.ts`): starting records a goal, Step logs a simulated action,
-  Take Over ends it. Driving a tab needs an agent runtime with tools over the tabs' `WebContents`, a
-  main-side contract this slice does not add.
+  Studio's Settings ▸ Apps; and the **agent session** strip (`components/agent-session-bar.tsx`), which
+  mirrors a session that lives in main — see *The policy module and the agent-session contract* below.
 - **Keys** (`use-browser-keys.ts`): the browser commands' chords from `shared`'s `COMMANDS`, matched as
   Studio's dispatcher matches them. The app menu is only the app and edit menus, so `Mod+w` and `Mod+r`
   reach the tab commands rather than closing or reloading the window.
@@ -417,6 +415,27 @@ adapter is `main/browser-port.ts` (the real Electron, plus the one cast from `Br
   `midnite-browser-X.Y.Z-bundle.zip`.
 - **Build task**: the feature has a `main/`, so it keeps a real `build` (`tsc -b tsconfig.main.json`); only a
   renderer-only feature takes slides' no-op.
+
+**The policy module and the agent-session contract (Phase 117).** The browser's security rules are a set of
+Electron-free modules in `features/browser/main/`, each taking a structural stand-in for what it touches so it
+tests under bare vitest (`pure-rules.test.ts` lists every rule with its test file and fails if one imports
+`electron`). `browser-security.ts` holds the navigation, permission and download rules; `browser-session-policy.ts`
+is the one place a session rule is installed (`applyBrowserSessionPolicy`, called for `persist:browser` and every
+`persist:app-<id>`, in a test-pinned order); `permission-grant-store.ts`, `site-verdict-state.ts`,
+`download-policy.ts`, `filter-list.ts` and `phishing-rules.ts` are the rest. The one `webRequest` listener set
+(`browser-request-filter.ts`) fans out through `withRequestGate`, which is how an agent session gates a tab's egress.
+Tabs have no preload; main's only page reads are isolated-world scripts. [`docs/BROWSER_SECURITY.md`](BROWSER_SECURITY.md)
+is the full account.
+
+The **agent-session contract** is `BrowserAgentSession` (`main/browser-agent-session.ts`) with the wire types in
+`shared/browser-agent.ts`: six tools (`navigate`, `read`, `find`, `click`, `type`, `screenshot`) over one tab, a
+per-session origin allowlist, a pause for the user on an off-list navigation, a password field, a form submit and a
+download, and every page word returned only as `UntrustedPageContent` (`shared/untrusted-page-content.ts`, 64 KiB,
+path-redacted, provenance-tagged). The session holds no vault handle (`browser-agent` is a never-grantable vault
+principal). The renderer's `agent-session-store.ts` only mirrors it — `start`, answers and "Take over" go over
+`browser.agentStart`/`agentTool` and every change returns as an `agent-session` browser event — and the agent
+runtime that issues the tool calls is Phase 121. `apps/browser/src/compose/browser-agent-boundary.test.tsx` holds
+every tool response to the envelope.
 
 ### Vault: web-app sign-ins and Studio's credential settings (Phase 113 Theme J slice 3)
 
