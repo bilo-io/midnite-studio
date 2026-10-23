@@ -679,6 +679,10 @@ export type MidniteStudioBridge = {
     /** The view was opened: in Studio the first time lets the enabled sensors start. */
     viewOpened: () => Promise<z.infer<typeof S.VanguardSensorsResponse>>;
     openQuarantine: () => Promise<GitOpResult>;
+    /** A finding paused an agent session (Phase 120 Theme G): the modal's prompt arrives in every window. */
+    onAgentPaused: (handler: (prompt: z.infer<typeof S.AgentPausePromptSchema>) => void) => Unsubscribe;
+    /** Answer that modal: resume the session or kill it. `false` when it was already answered. */
+    resolveAgentPause: (req: In<typeof S.AgentPauseResolveRequest>) => Promise<boolean>;
     /** The quarantine list and which response actions this app cannot run (Phase 120 Theme H). */
     responseState: () => Promise<z.infer<typeof S.VanguardResponseStateResponse>>;
     /** The network sensor's last snapshot of outbound connections (Network tab). */

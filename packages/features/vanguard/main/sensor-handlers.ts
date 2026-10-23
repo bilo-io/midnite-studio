@@ -10,6 +10,8 @@ export interface SensorHandlersServices {
   service: () => VanguardService | Promise<VanguardService>;
   /** Reveal a directory in the OS file manager (`shell.openPath`); injected, since this half has no electron. */
   openPath?: (path: string) => Promise<void>;
+  /** Answer the auto-pause modal (Theme G); absent in an app with no agent sessions, where nothing ever pauses. */
+  resolveAgentPause?: (request: { id: string; action: 'resume' | 'kill' }) => Promise<boolean>;
   warn?: (issue: string) => void;
 }
 
@@ -91,6 +93,16 @@ export function registerSensorHandlers(
       unavailable: service.response.unavailable(),
     };
   });
+
+  ipc.handle(
+    CHANNELS.vanguardAgentPauseResolve,
+    schemas.AgentPauseResolveRequest,
+    async (req) => (await services.resolveAgentPause?.(req)) ?? false,
+    (issue) => {
+      warn(issue);
+      return false;
+    },
+  );
 
   ipc.handleBare(CHANNELS.vanguardOpenQuarantine, async () => {
     const service = await resolve();

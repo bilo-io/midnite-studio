@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SecurityFindingSeveritySchema } from './security-findings';
+
 /**
  * Vanguard's wire contract beyond the findings ledger (Phase 120 Theme B): the view's tabs, what a
  * sensor reports to the Sensors tab, and the persisted settings. zod only.
@@ -54,6 +56,12 @@ export const VanguardSettingsSchema = z.object({
    * never looked at Vanguard never has `lsof` polled. Vanguard's own app ignores it.
    */
   viewOpened: z.boolean(),
+  /**
+   * Phase 120 Theme G: the finding severities that pause an agent's session by themselves (Ctrl+C to its pty,
+   * then a modal to resume or kill). `critical` only unless the user opts more in. A file written before this
+   * field existed reads as the default.
+   */
+  autoPauseSeverities: z.array(SecurityFindingSeveritySchema).default(['critical']),
 });
 export type VanguardSettings = z.infer<typeof VanguardSettingsSchema>;
 
@@ -63,6 +71,7 @@ export const DEFAULT_VANGUARD_SETTINGS: VanguardSettings = {
   cadenceSeconds: 30,
   quarantineRetentionDays: 30,
   viewOpened: false,
+  autoPauseSeverities: ['critical'],
 };
 
 export const VanguardSettingsGetResponse = VanguardSettingsSchema;
@@ -72,6 +81,7 @@ export const VanguardSettingsSetRequest = z.object({
   sensors: z.record(z.string().max(64), z.boolean()).optional(),
   cadenceSeconds: VanguardSettingsSchema.shape.cadenceSeconds.optional(),
   quarantineRetentionDays: VanguardSettingsSchema.shape.quarantineRetentionDays.optional(),
+  autoPauseSeverities: z.array(SecurityFindingSeveritySchema).max(5).optional(),
 });
 export type VanguardSettingsSetRequest = z.infer<typeof VanguardSettingsSetRequest>;
 
@@ -174,3 +184,30 @@ export const VanguardResponseStateResponse = z.object({
   unavailable: z.record(z.string(), z.object({ reason: z.string(), dependsOn: z.string().optional() })),
 });
 export type VanguardResponseStateResponse = z.infer<typeof VanguardResponseStateResponse>;
+
+// --- Rogue agent behaviour (Phase 120 Theme G) --------------------------------------------------------
+
+/** The finding severities the Settings switches cover (`info` never pauses anything). */
+export const AUTO_PAUSE_SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
+
+/**
+ * Shown in every suite window when a finding paused an agent: which session, why, and the two ways out. The
+ * session has already been interrupted by the time this arrives; `findingId` is the ledger row that did it.
+ */
+export const AgentPausePromptSchema = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  findingId: z.string().optional(),
+  severity: SecurityFindingSeveritySchema,
+  title: z.string(),
+  detail: z.string(),
+  at: z.number().int().nonnegative(),
+});
+export type AgentPausePrompt = z.infer<typeof AgentPausePromptSchema>;
+
+/** The modal's answer: carry on, or end the session. */
+export const AgentPauseResolveRequest = z.object({
+  id: z.string().max(128),
+  action: z.enum(['resume', 'kill']),
+});
+export type AgentPauseResolveRequest = z.infer<typeof AgentPauseResolveRequest>;

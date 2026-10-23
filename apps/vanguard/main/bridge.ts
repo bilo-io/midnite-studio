@@ -42,6 +42,8 @@ export function createVanguardBridge(ipc: RendererIpc): VanguardBridge {
       setSettings: (req) => call(CHANNELS.vanguardSettingsSet, req),
       viewOpened: () => call(CHANNELS.vanguardViewOpened),
       openQuarantine: () => call(CHANNELS.vanguardOpenQuarantine),
+      onAgentPaused: (handler) => subscribe(EVENT_CHANNELS.vanguardAgentPaused, handler),
+      resolveAgentPause: (req) => call(CHANNELS.vanguardAgentPauseResolve, req),
       responseState: () => call(CHANNELS.vanguardResponseState),
       connections: () => call(CHANNELS.vanguardConnections),
       malware: {

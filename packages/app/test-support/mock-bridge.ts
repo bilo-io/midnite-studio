@@ -4771,6 +4771,7 @@ export function buildMockBridge(data: MockFixtures) {
         cadenceSeconds: 30,
         quarantineRetentionDays: 30,
         viewOpened: true,
+        autoPauseSeverities: ['critical' as const],
       }),
       setSettings: async () => ({
         version: 1 as const,
@@ -4778,9 +4779,12 @@ export function buildMockBridge(data: MockFixtures) {
         cadenceSeconds: 30,
         quarantineRetentionDays: 30,
         viewOpened: true,
+        autoPauseSeverities: ['critical' as const],
       }),
       viewOpened: async () => ({ active: true, sensors: [] }),
       openQuarantine: async () => ({ ok: true as const }),
+      onAgentPaused: () => () => undefined,
+      resolveAgentPause: async () => true,
       responseState: async () => ({
         quarantineDir: '/Users/me/Library/Application Support/Midnite Studio/vanguard/quarantine',
         quarantine: [

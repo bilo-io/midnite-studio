@@ -7,6 +7,7 @@ import type { VanguardManifest } from '../manifest';
  * primitives): it owns no host port, because it owns no app state beyond the selected tab.
  */
 export { vanguardManifest, type VanguardManifest } from '../manifest';
+export { AgentPauseModal } from './agent-pause-modal';
 export { VanguardSettingsPage } from './settings/vanguard-page';
 export { useVanguardUi } from './vanguard-ui-store';
 

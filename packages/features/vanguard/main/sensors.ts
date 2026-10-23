@@ -11,6 +11,7 @@ import {
   createPersistenceProcessSensors,
   type PersistenceProcessDeps,
 } from './persistence-process-sensors';
+import { createRogueAgentSensor, type RogueSensorDeps } from './rogue-sensor';
 import { createMalwareSensor } from './malware/malware-sensor';
 import type { BinaryProbe } from './malware/engines';
 import type { MalwareScanner } from './malware/scanner';
@@ -55,6 +56,11 @@ export interface VanguardSensorDeps {
    * system paths only. With none found the built-in matcher runs the bundled ruleset alone: the calm "no engine installed" state.
    */
   malware?: { probe?: BinaryProbe };
+  /**
+   * Theme G: the audit trail's reader, the open-finding and recent-change reads over the ledger, and auto-pause.
+   * Present: the rogue-agent sensor is registered. Absent (`apps/vanguard`, which has no agent ptys): it is not.
+   */
+  rogue?: Omit<RogueSensorDeps, 'liveSessions'>;
 }
 
 export function builtinSensors(deps: VanguardSensorDeps, scanner?: MalwareScanner): SensorDefinition[] {
@@ -82,6 +88,8 @@ export function builtinSensors(deps: VanguardSensorDeps, scanner?: MalwareScanne
   sensors.push(...createPersistenceProcessSensors(deps.persistenceProcess));
   // Theme F: malware scanning on change. The scanner is the service's (it also answers on-demand scans).
   if (scanner) sensors.push(createMalwareSensor({ scanner, ...(deps.repos ? { repos: deps.repos } : {}) }));
+  // Theme G: rogue agent behaviour, read from the audit trail.
+  if (deps.rogue) sensors.push(createRogueAgentSensor({ ...deps.rogue, liveSessions: deps.liveSessions ?? (() => []) }));
   return sensors;
 }
 

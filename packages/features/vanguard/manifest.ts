@@ -35,13 +35,14 @@ export const vanguardManifest = defineFeatureManifest({
     CHANNELS.vanguardSettingsSet,
     CHANNELS.vanguardViewOpened,
     CHANNELS.vanguardOpenQuarantine,
+    CHANNELS.vanguardAgentPauseResolve,
     CHANNELS.vanguardResponseState,
     CHANNELS.vanguardConnections,
     CHANNELS.vanguardMalwareStatus,
     CHANNELS.vanguardMalwareScan,
     CHANNELS.vanguardMalwareScanCancel,
   ],
-  events: [EVENT_CHANNELS.securityFindingsChanged, EVENT_CHANNELS.vanguardChanged],
+  events: [EVENT_CHANNELS.securityFindingsChanged, EVENT_CHANNELS.vanguardChanged, EVENT_CHANNELS.vanguardAgentPaused],
   mcpTools: [],
 });
 
