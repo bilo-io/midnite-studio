@@ -42,7 +42,7 @@ const base = {
   /** A unique id, assigned by the writer. */
   id: z.string(),
   /** Epoch milliseconds. */
-  at: z.number(),
+  at: z.number().finite(),
   /** The terminal or agent session the record belongs to, when it has one. */
   sessionId: z.string().optional(),
 };

@@ -3,7 +3,7 @@
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 ## 2026-10-23 — Phase 121 Theme G — The audit trail
 
-PR pending. A durable, redacted, append-only NDJSON trail of agent activity (`<userData>/security/audit/agents-<day>.ndjson`, 0700/0600, 90-day retention until Phase 115 B's setting exists): the runtime writer and a standalone reader (`tail`, `list`, `readSince` with a cursor, for Phase 120 G), a schema for all nine record kinds in `shared`, producers for MCP calls, agent-pty command lines (OSC 133/633 or a line heuristic), chat turns and council runs, the MCP ring as a tail of the trail, and an Audit tab in Agents and Studio's Sessions view with filters, row expansion and a redacted export through a main-side save dialog.
+[PR #990](https://github.com/bilo-io/midnite-studio/pull/990). A durable, redacted, append-only NDJSON trail of agent activity (`<userData>/security/audit/agents-<day>.ndjson`, 0700/0600, 90-day retention until Phase 115 B's setting exists): the runtime writer and a standalone reader (`tail`, `list`, `readSince` with a cursor, for Phase 120 G), a schema for all nine record kinds in `shared`, producers for MCP calls, agent-pty command lines (OSC 133/633 or a line heuristic), chat turns and council runs, the MCP ring as a tail of the trail, and an Audit tab in Agents and Studio's Sessions view with filters, row expansion and a redacted export through a main-side save dialog.
 
 ## 2026-10-23 — Phase 120 Theme H — Response and quarantine
 

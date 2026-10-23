@@ -1,6 +1,6 @@
 import {
   AGENT_AUDIT_RING_TAIL,
-  type AgentAuditRecordOf,
+  type AgentAuditRecord,
   type McpCallEntry,
   type NewAgentAuditRecord,
 } from '@midnite/studio-shared';
@@ -22,7 +22,7 @@ import {
 /** The slice of the runtime trail this module needs. */
 export type McpAuditTrail = {
   record(input: NewAgentAuditRecord): string;
-  tail(options: { kind: 'mcp-call'; limit: number }): Promise<{ kind: string }[]>;
+  tail(options: { kind: 'mcp-call'; limit: number }): Promise<AgentAuditRecord[]>;
 };
 
 const CAPACITY = AGENT_AUDIT_RING_TAIL;
@@ -59,8 +59,10 @@ export function recordMcpCall(entry: McpCallEntry): void {
 /** Newest first — the order the Settings page's diagnostics list wants. */
 export async function getMcpCallLog(): Promise<McpCallEntry[]> {
   if (!trail) return [...ring].reverse();
-  const records = (await trail.tail({ kind: 'mcp-call', limit: CAPACITY })) as AgentAuditRecordOf<'mcp-call'>[];
-  return records.map((r) => ({ at: r.at, tool: r.tool as McpCallEntry['tool'], repoPath: r.repoPath, ok: r.ok, ms: r.ms }));
+  const records = await trail.tail({ kind: 'mcp-call', limit: CAPACITY });
+  return records.flatMap((r) =>
+    r.kind === 'mcp-call' ? [{ at: r.at, tool: r.tool as McpCallEntry['tool'], repoPath: r.repoPath, ok: r.ok, ms: r.ms }] : [],
+  );
 }
 
 /** Test-only: the ring and the trail binding are module state, so a suite that asserts on them resets first. */

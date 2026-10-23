@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { startAgentCommandAudit } from './agent-command-audit';
 
@@ -19,7 +19,7 @@ describe('agent command audit', () => {
     });
     inputs[0]!('p1', 'npm test\r');
     inputs[0]!('p2', 'ls\r');
-    await new Promise((r) => setTimeout(r, 10));
+    await vi.waitFor(() => expect(records).toHaveLength(1));
     expect(records).toEqual([
       { kind: 'command', sessionId: 's-agent', command: 'npm test', source: 'heuristic', agentId: 'claude', cwd: '/r' },
     ]);

@@ -144,6 +144,16 @@ describe('agent audit trail', () => {
     expect(second.cursor?.file).toBe(agentAuditFileName(T0 + DAY));
   });
 
+  it('a watcher that starts before the first record still reads it', async () => {
+    const reader = createAgentAuditReader({ directory: agentAuditDirectory(dir) });
+    const start = await reader.readSince(null);
+    expect(start.records).toEqual([]);
+    const trail = make();
+    trail.record(SAMPLES.command);
+    await trail.flush();
+    expect((await reader.readSince(start.cursor)).records.map((r) => r.kind)).toEqual(['command']);
+  });
+
   it('never throws into the caller when the write fails', async () => {
     const errors: unknown[] = [];
     await writeFile(join(dir, 'security'), 'a file, not a directory');

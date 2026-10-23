@@ -205,7 +205,8 @@ export function createAgentAuditReader(options: AgentAuditReaderOptions, beforeR
   async function readSince(cursor: AgentAuditCursor | null): Promise<AgentAuditReadResult> {
     await beforeRead?.();
     const files = await listDayFiles(directory);
-    if (files.length === 0) return { records: [], cursor };
+    // Nothing on disk yet: the empty-file cursor, so whatever is written first is read, not skipped.
+    if (files.length === 0) return { records: [], cursor: cursor ?? { file: '', offset: 0 } };
 
     const endOf = async (name: string): Promise<number> => {
       const text = await readFileText(name);
