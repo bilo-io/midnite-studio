@@ -9,6 +9,7 @@ import {
   LEGACY_LOOP_DAY_SETS,
   LOOP_FREQUENCIES,
   LOOP_MODELS,
+  reportedModelMatches,
   LOOP_WEEKDAYS,
   LoopDefinitionSchema,
   LoopFrequencySchema,
@@ -951,5 +952,23 @@ describe('reviewsPrs', () => {
   it('defaults to false for a loop that does not declare it', () => {
     const parsed = LoopDefinitionSchema.parse({ ...DEFAULT_LOOPS[0]!, reviewsPrs: undefined });
     expect(parsed.reviewsPrs).toBe(false);
+  });
+});
+
+describe('reportedModelMatches (Phase 121 Theme I)', () => {
+  it('accepts the pinned id, a dated snapshot of it and a context suffix', () => {
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5')).toBe(true);
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5-20261001')).toBe(true);
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5[1m]')).toBe(true);
+  });
+
+  it('rejects another model, including a longer family name that merely starts with the pin', () => {
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5-5')).toBe(false);
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-sonnet-5')).toBe(false);
+  });
+
+  it('has nothing to compare for the default model or an engine with no model flag', () => {
+    expect(reportedModelMatches('claude', 'default', 'anything')).toBe(true);
+    expect(reportedModelMatches('codex', 'opus-5', 'gpt-x')).toBe(true);
   });
 });

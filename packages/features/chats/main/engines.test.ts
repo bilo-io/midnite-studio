@@ -234,3 +234,17 @@ describe('buildInvocation', () => {
     expect(inv.args[0]).toBe('--foo');
   });
 });
+
+describe('claudeParser reports the model that answered (Phase 121 Theme I)', () => {
+  it('emits the init event’s model, and a message_start’s, and nothing when none is named', () => {
+    const named = run(claudeParser(), [
+      '{"type":"system","subtype":"init","session_id":"s","model":"claude-opus-5-20261001"}',
+      '{"type":"stream_event","event":{"type":"message_start","message":{"model":"claude-sonnet-5-5","usage":{"output_tokens":1}}}}',
+    ]);
+    expect(named.filter((e) => e.type === 'model')).toEqual([
+      { type: 'model', model: 'claude-opus-5-20261001' },
+      { type: 'model', model: 'claude-sonnet-5-5' },
+    ]);
+    expect(run(claudeParser(), CLAUDE_LINES).filter((e) => e.type === 'model')).toEqual([]);
+  });
+});

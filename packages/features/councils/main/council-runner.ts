@@ -56,6 +56,13 @@ export type CouncilRunnerPorts = {
    */
   ollamaApiKey(): Promise<string | null>;
   /**
+   * The one API key this member's engine needs (Phase 121 Theme I), as its environment variable —
+   * `{ ANTHROPIC_API_KEY: ... }`, `{}` for none. Read in main at spawn and merged into that member's pty
+   * alone, so a council of three engines gets three environments, not one holding three keys. Not asked
+   * for an Ollama-bound member. Optional: a composer with no vault access (Agents, for now) supplies none.
+   */
+  agentKeyEnv?(agentId: string): Promise<Record<string, string>>;
+  /**
    * The audit trail's write entry point (Phase 121 Theme G): one `council-run` record when a run finishes.
    * Optional and total — a throw is swallowed.
    */
@@ -337,6 +344,10 @@ async function spawnOneShot(
     authToken ?? undefined,
   );
 
+  // One engine, one key: a member bound to Ollama gets the cloud token above and no agent key.
+  const keyEnv = binding?.model ? {} : ((await runnerPorts().agentKeyEnv?.(agent.id).catch(() => ({}))) ?? {});
+  const env = { ...keyEnv, ...launch.env };
+
   const words = [
     launch.command,
     ...launch.argsBefore,
@@ -363,7 +374,7 @@ async function spawnOneShot(
     cols: COUNCIL_PTY_COLS,
     rows: COUNCIL_PTY_ROWS,
     initialInput: `${typed}\r`,
-    ...(Object.keys(launch.env).length > 0 ? { env: launch.env } : {}),
+    ...(Object.keys(env).length > 0 ? { env } : {}),
   });
   if (!result.ok) return result;
   // `invocation` here is what the pty actually echoes back — see

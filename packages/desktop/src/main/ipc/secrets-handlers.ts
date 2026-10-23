@@ -70,6 +70,15 @@ export async function readOllamaApiKey(): Promise<string | null> {
 }
 
 /**
+ * One engine's own API key (`agent.<id>.apiKey`), for main to put in that engine's spawn environment
+ * (Phase 121 Theme I). Callers pass the key of the engine being started and no other.
+ */
+export async function readAgentApiKey(key: SecretKey): Promise<string | null> {
+  if (!vault) return null;
+  return vault.get(key);
+}
+
+/**
  * Keys that never cross the bridge, whatever asks. `secretsGet` used to hand
  * `finance.twelveData` to Settings so it could tell whether one was set; that
  * is `secretsHas`'s job now (Phase 113 Theme P), and the finance handlers read
