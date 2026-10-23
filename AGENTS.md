@@ -412,8 +412,11 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 **"sitrep"** (situation report) is a fixed request, not a free-form one. Whenever the user types it —
 or asks for a status update, a progress check, or "where are we" — answer with **one markdown table
 and nothing else above it**, one row per agent or workstream.
-[`midnite-sitrep`](.codex/skills/midnite-sitrep/SKILL.md) is the full spec — it gathers the state and
-renders the table:
+[`midnite-sitrep`](.codex/skills/midnite-sitrep/SKILL.md) is the router: it gathers the state once and
+renders the table ([`midnite-sitrep-table`](.codex/skills/midnite-sitrep-table/SKILL.md)). It adds the merge graph
+when rows depend on each other, and any other view named after it — `graph`, `sequence-diagram`,
+`histogram`, `timeline`, `ci` — each its own `midnite-sitrep-<view>` skill. The table always comes
+first:
 
 | Task | Author | Progress | ETA | Diff | Status | Notes |
 |---|---|---|---|---|---|---|
@@ -440,9 +443,12 @@ renders the table:
 - **A notes column**, always, of **six words at most**: news since the last sitrep, the blocker by
   name, or an ask. It never restates the status. An empty note is `—`, and most rows are empty.
 - **Succinct.** The table is the report. Add at most one or two lines under it, and only for
-  something the table cannot carry — a decision needed from the user, or a failure.
+  something the table cannot carry — a decision needed from the user, or a failure. A view the
+  user named (or the merge graph, when rows depend on each other) follows those lines under its
+  own `####` heading, within the size cap its own skill sets.
 - The same shape applies to a **recurring** status report (e.g. "every 10 minutes"): each tick is
-  one table, so the user can diff it against the last one at a glance.
+  the same table plus the same views the schedule was set up with, so the user can diff it against
+  the last one at a glance.
 
 When several agents run in parallel, give them a **shared append-only board file** in the session
 scratchpad and make every cross-agent contract change go through it *before* it is written into a
