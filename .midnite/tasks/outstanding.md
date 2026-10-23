@@ -807,6 +807,11 @@ The breaker reads `<userData>/security/agent-limits.json` (`{ "defaults": {...},
 
 The rogue-agent sensor reads the audit trail only. The broker's pty output stream (`agentPtyOutputSource`, already wired for the paste sensor) is not consumed: typed commands reach the trail as `command` records, and nothing in output is judged yet, so there is nothing for a second subscription to add. Revisit if a rule needs what a command printed. The auto-pause modal is mounted by Studio's app root only; `apps/vanguard` has no agent ptys and `apps/browser` and the other suite windows do not mount it, so "every suite window" means every Studio window today (the event is broadcast to all of them). The write-outside-scope and secret-path rules read command text and sandbox refusals, not file contents or tool arguments, since the trail holds neither; a read through an agent's built-in tool never shows. The destructive-git rule has no write-queue envelope to check because the queue's ops never reach the trail.
 
+## Phase 121 · Theme A — page text has no entry point into a chat, and MCP results are stamped but not fenced
+
+`pageContentToAttachment` turns Phase 117's page envelope into a `web-page` attachment, but no UI offers "send this page to a chat" yet, so only the seam exists. MCP results carry `provenance` on the wire; the stdio shim does not yet fence them in the text it hands the CLI. A council run request carries no provenance, so a pasted prompt is treated as the user's typing after the banner; only member answers are fenced. The banner does not block Send (ignoring it equals Proceed).
+The detector's discount for code spans and quotation marks is bypassable by wrapping a phrase in either; the score is a hint, the fence is the defence. Text past 400,000 characters is not scanned and the scan op refuses it.
+
 ## Phase 121 · Theme C — follow-ups
 
 - **Wire Theme A's injection detector.** `createMcpTrust` takes `scoreText` / `scoreThreshold` by injection (`runtime/src/security/mcp-poison.ts`). Once Theme A's `scoreInjection` and `INJECTION_THRESHOLD` are on `main`, pass them in `desktop/src/main/mcp-trust-wiring.ts`: a one-line change.

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import type { ChatAttachment } from './chats';
 import { InjectionHitSchema, MAX_INJECTION_HITS, scanForInjection } from './injection-heuristics';
+import { provenanceFor } from './provenance';
 import { redactPaths } from './redact';
 
 /**
@@ -111,4 +113,15 @@ export function buildUntrustedPageContent(raw: RawPageCapture, options: BuildPag
     text: body.text,
     truncated: body.truncated,
   };
+}
+
+/**
+ * Page text on its way into a chat or a council (Phase 121 Theme A): an attachment tagged
+ * `origin: 'web-page'`, `ref` the page URL, so it is fenced and scanned like any other untrusted
+ * part. This is the seam Phase 117's envelope hands off through; nothing else turns page text into
+ * a prompt part.
+ */
+export function pageContentToAttachment(content: UntrustedPageContent, id: string): ChatAttachment {
+  const name = (content.title.trim() || content.origin || 'page').slice(0, 260);
+  return { id, name, text: content.text.slice(0, 200_000), provenance: provenanceFor('web-page', content.url) };
 }

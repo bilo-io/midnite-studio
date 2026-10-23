@@ -5047,6 +5047,26 @@ export function buildMockBridge(data: MockFixtures) {
       set: async (req: { name: string; email: string }) => ({ ok: true, value: req }),
     },
     systemMemory: async () => ({ totalBytes: 16 * 1024 ** 3 }),
+    // Phase 121 Theme A: a stand-in for the runtime's detector, enough to drive the banner in tests and shots.
+    security: {
+      scanContent: async (req: { text: string }) => {
+        const hit = /ignore (?:all )?previous instructions/i.test(req.text);
+        const tags = /[\u{E0000}-\u{E007F}]/u.test(req.text);
+        const signals = [
+          ...(tags ? [{ id: 'unicode-tag-characters', weight: 0.9 }] : []),
+          ...(hit ? [{ id: 'addressed-to-model', weight: 0.6 }] : []),
+        ];
+        const score = signals.reduce((rest, s) => rest * (1 - s.weight), 1);
+        const flagged = 1 - score >= 0.5;
+        return {
+          score: Math.round((1 - score) * 1000) / 1000,
+          threshold: 0.5,
+          flagged,
+          signals,
+          ...(flagged ? { stripped: req.text.replace(/[\u{E0000}-\u{E007F}]/gu, '').replace(/ignore (?:all )?previous instructions[^.\n]*\.?/gi, '') } : {}),
+        };
+      },
+    },
     systemHealth: async () => ({
       git: { path: '/usr/bin/git', version: 'git version 2.45.0' },
       shell: '/bin/zsh',

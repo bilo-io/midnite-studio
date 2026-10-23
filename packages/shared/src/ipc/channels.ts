@@ -444,6 +444,8 @@ export const CHANNELS = {
   gitIdentitySet: 'mstudio:git-identity:set',
   /** This Mac's installed RAM, for gating model downloads (Phase 98 Theme I). */
   systemMemory: 'mstudio:system:memory',
+  /** The prompt-injection detector's score for a piece of text (Phase 121 Theme A). */
+  securityScanContent: 'mstudio:security:scan-content',
 
   // --- ollama (Phase 96 Theme B) -----------------------------------------------
   /** `GET /api/version` — reachable/unreachable is ordinary data, never a `GitOpResult` failure. */

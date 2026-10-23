@@ -179,6 +179,7 @@ const bridge: Pick<
   | 'ollama'
   | 'gitIdentity'
   | 'systemMemory'
+  | 'security'
   | 'optimizer'
   | 'protocol'
   | 'db'
@@ -1035,6 +1036,9 @@ const bridge: Pick<
     set: (req) => call(CHANNELS.gitIdentitySet, req),
   },
   systemMemory: () => call(CHANNELS.systemMemory),
+  security: {
+    scanContent: (req) => call(CHANNELS.securityScanContent, req),
+  },
   ollama: {
     status: () => call(CHANNELS.ollamaStatus),
     list: () => call(CHANNELS.ollamaList),

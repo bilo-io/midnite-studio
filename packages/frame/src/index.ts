@@ -17,6 +17,10 @@ export { bridge, hasBridge } from './bridge';
 export { noBridge, reportFailure } from './bridge-result';
 export { usePageVisible } from './lib/use-page-visible';
 
+// Prompt-injection banner (Phase 121 Theme A).
+export { InjectionBanner } from './security/injection-banner';
+export { useInjectionScans, type ScanItem } from './security/use-injection-scans';
+
 // Notifications.
 export { useToastStore, type Toast, type ToastAction, type ToastState, type ToastStatus } from './toast-store';
 

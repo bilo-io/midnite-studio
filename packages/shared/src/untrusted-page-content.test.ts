@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MAX_PAGE_TEXT_BYTES, UntrustedPageContentSchema, buildUntrustedPageContent, truncateUtf8 } from './untrusted-page-content';
+import { MAX_PAGE_TEXT_BYTES, UntrustedPageContentSchema, buildUntrustedPageContent, pageContentToAttachment, truncateUtf8 } from './untrusted-page-content';
 
 const AT = '2026-10-22T12:00:00.000Z';
 
@@ -74,5 +74,17 @@ describe('truncateUtf8', () => {
     const { text, truncated } = truncateUtf8('aé', 2);
     expect(truncated).toBe(true);
     expect(text).toBe('a');
+  });
+});
+
+describe('pageContentToAttachment', () => {
+  it('hands page text on as an untrusted web-page attachment naming the url', () => {
+    const env = buildUntrustedPageContent({ url: 'https://example.com/a', title: 'Example', text: 'Hello' }, { capturedAt: AT });
+    expect(pageContentToAttachment(env, 'att-1')).toEqual({
+      id: 'att-1',
+      name: 'Example',
+      text: 'Hello',
+      provenance: { origin: 'web-page', ref: 'https://example.com/a', trust: 'untrusted' },
+    });
   });
 });

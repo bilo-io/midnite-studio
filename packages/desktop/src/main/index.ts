@@ -27,6 +27,7 @@ import {
 import { BrowserWindow, app, ipcMain, powerMonitor, safeStorage, session, shell, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
+import { registerSecurityHandlers } from './ipc/security-handlers';
 import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 import { configureAgentAudit, recordAudit } from './agent-audit';
@@ -635,6 +636,7 @@ export const startStudioMain: StartStudioMain = () => {
         (issue) => failure(issue),
       );
       handleBare(CHANNELS.systemMemory, () => ({ totalBytes: totalmem() }));
+      registerSecurityHandlers();
       registerOptimizerHandlers(getMainWindow);
       registerTrashHandlers();
       registerPerfHandlers();

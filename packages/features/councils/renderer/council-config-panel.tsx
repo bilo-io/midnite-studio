@@ -4,12 +4,12 @@ import {
   type CouncilMember,
   type CouncilMemberProvider,
 } from '@midnite/studio-shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LuGripVertical, LuPlus, LuTrash2 } from 'react-icons/lu';
 
 import { useRemoveCouncil, useUpdateCouncilMembers } from './use-council';
 import { useStartCouncilRun } from './use-council-run';
-import { SelectField, SortableList, useFlushableSave, useSortableRow } from '@midnite/studio-frame';
+import { InjectionBanner, SelectField, SortableList, useFlushableSave, useInjectionScans, useSortableRow } from '@midnite/studio-frame';
 import { IconButton } from './ui';
 
 const PROVIDER_LABEL: Record<CouncilMemberProvider, string> = {
@@ -272,11 +272,26 @@ function RunComposer({
 }) {
   const startRun = useStartCouncilRun();
   const [prompt, setPrompt] = useState('');
+  // Phase 121 Theme A: a prompt that scores above the injection threshold (typically pasted page or
+  // issue text) gets the same banner Chats shows an attachment.
+  const scanItems = useMemo(() => [{ id: 'prompt', text: prompt }], [prompt]);
+  const flagged = useInjectionScans(scanItems)['prompt'];
+  const [proceededWith, setProceededWith] = useState<string | null>(null);
 
   const canRun = canStart && prompt.trim().length > 0 && !startRun.isPending;
 
   return (
     <div className="shrink-0 border-t border-border p-3">
+      {flagged !== undefined && proceededWith !== prompt ? (
+        <InjectionBanner
+          subject="This prompt"
+          fenced={false}
+          scan={flagged}
+          onProceed={() => setProceededWith(prompt)}
+          onStrip={() => flagged.stripped !== undefined && setPrompt(flagged.stripped)}
+          onDrop={() => setPrompt('')}
+        />
+      ) : null}
       <textarea
         value={prompt}
         onChange={(event) => setPrompt(event.target.value)}

@@ -24,7 +24,9 @@ import {
   deriveFileStatus,
   failure,
   ok,
+  defaultTrustFor,
   reduceChangeSet,
+  resolveProvenance,
   type AgentDefinition,
   type Chat,
   type ChatAttachment,
@@ -431,7 +433,10 @@ export function createChatService(deps: ChatServiceDeps) {
       text: body,
       createdAt: at,
       status: 'done',
-      ...(attachments && attachments.length > 0 ? { attachments } : {}),
+      // Stamped here, main-side, so the tag a thread persists does not depend on what the renderer said.
+      ...(attachments && attachments.length > 0
+        ? { attachments: attachments.map((a) => ({ ...a, provenance: resolveProvenance({ ...a.provenance, origin: a.provenance?.origin && defaultTrustFor(a.provenance.origin) === 'untrusted' ? a.provenance.origin : 'attachment' }, 'attachment') })) }
+        : {}),
     };
     const assistant: ChatMessage = {
       id: newId(),
