@@ -24,6 +24,7 @@ import type {
   Worktree,
 } from '../domain';
 import type { AgentLimitTrip } from '../agent-limits';
+import type { ToolApprovalRequest, ToolApprovalResolved } from '../tool-policy';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SongChat } from '../media-music-chat';
@@ -2362,6 +2363,16 @@ export type MidniteStudioBridge = {
     onUiRequest: (handler: (req: z.infer<typeof S.CompanionUiRequestSchema>) => void) => Unsubscribe;
     /** One-way: main is already holding a pending promise keyed by `id`, so nothing needs to come back from `send`. */
     uiReply: (reply: z.infer<typeof S.CompanionUiReplySchema>) => void;
+  };
+
+  /**
+   * The tool-call policy's approval card (Phase 121 Theme B): main raises a call that needs a human to every
+   * window, the first answer wins, and the rest are told to drop the card. One call, one card, never a batch.
+   */
+  toolApproval: {
+    onRequested: (handler: (request: ToolApprovalRequest) => void) => Unsubscribe;
+    onResolved: (handler: (resolved: ToolApprovalResolved) => void) => Unsubscribe;
+    answer: (req: In<typeof S.ToolApprovalAnswerRequest>) => Promise<GitOpResult<Record<string, never>>>;
   };
 };
 
