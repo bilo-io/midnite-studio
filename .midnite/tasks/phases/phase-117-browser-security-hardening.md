@@ -118,7 +118,7 @@ Scope guardrails:
 *A page in the Browser app can neither hurt the user, nor the Mac, nor the agent that is reading it —
 and the app says what it knows about every site before the user trusts it.* Born from a browser that
 denies everything but cannot yet warn, grant, download or tell a page apart from the person.
-(78% · 47/60) — **Planned 2026-10-22.** Themes A, B, C, D, E, F and G landed 2026-10-22.
+(78% · 47/60) — **Planned 2026-10-22.** Themes A, B, C, D, E, F, G and H landed 2026-10-22/23.
 
 **Theme A — Isolation and the Chromium floor.** ✅ [PR #964](https://github.com/bilo-io/midnite-studio/pull/964).
 `browser-session-policy.ts` is the one place a session rule lives: `applyBrowserSessionPolicy` installs
@@ -257,9 +257,27 @@ Decision 8 is closed too: `proceedBrowserSite` refuses "Proceed for this session
 the tab, and the user taking the wheel (which ends the session) is what re-opens it. Both are tested in
 `browser-service.agent.test.ts`. Phase 121's runtime is what will drive the tools.
 
-**Theme H — Tests, the security page, and the record.** ◻ Vitest for every pure rule, an e2e for
-the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
-`docs/security/README.md`.
+**Theme H — Tests, the security page, and the record.** ✅ [PR #983](https://github.com/bilo-io/midnite-studio/pull/983). Audit first: every pure rule already had a vitest
+file from its own theme, so the gap was the proof that it stays that way. `main/pure-rules.test.ts` lists
+each rule (policy, grants, verdict, lookalike, download policy, filter trie, login-form rules, injection
+heuristics, clipboard shape, deep-link confirm, and the rest) with its test file and fails if a test file goes
+missing or a rule module imports `electron` or `node-pty`; `site-badge-label.test.ts` adds the one rule without
+a table, the badge's wording against the verdict level. Two Playwright specs name their browser capability and
+their gap. `browser-interstitial.spec.ts` mints a self-signed server and takes Chromium's own certificate
+error (`net::ERR_CERT_*`) from a real navigation, then proves the interstitial fills the pane by real layout
+with no way past by default. `browser-permission-bar.spec.ts` runs a real `getUserMedia` (full Chromium in
+new headless, fake device; the default headless shell answers `NotSupportedError` to everything) refused,
+then allowed through the app's own bar. The gap, stated in both headers: under Playwright-against-Vite the tab
+is not an Electron `WebContentsView`, so `setCertificateVerifyProc`, `setPermissionRequestHandler` and
+`proceedSite` never run and the spec stands in for main (delivers the `failed` and `permission-request`
+events; applies the grant itself). Those handlers are vitest; the packaged-app passes stay manual.
+`e2e/visual/site-badge.spec.ts` crops the badge's ok, caution and danger states; only `-darwin` baselines
+exist (gitignored), the `-linux` ones the opt-in visual lane compares need `MSTUDIO_CROSS_PLATFORM=1
+moon run root:visual-regen` on a machine with Docker. The e2e ratchet moved 469 to 471 of 480, so it is not
+raised. `docs/BROWSER_SECURITY.md` is the page a reviewer reads first (surface table, what it does not do, the
+feeds with licences and switches including EasyPrivacy's GPL-3 / CC BY-SA, the preload position, the agent
+boundary); `docs/security/README.md` gains rows 25 (downloads unsafe-by-cancel) and 26 (no page-to-agent
+boundary); `docs/APPS.md`'s Browser section gains the policy module and the agent-session contract.
 
 ## Deliverables
 
@@ -488,19 +506,19 @@ the interstitial and the prompt, `docs/BROWSER_SECURITY.md`, and rows in
 
 ### H — Tests, the security page, and the record [S · ≤ 2h after the rest]
 
-- [ ] **Vitest for every pure rule** (policy, grants, verdict, lookalike, download policy, filter
+- [x] **Vitest for every pure rule** (policy, grants, verdict, lookalike, download policy, filter
       trie, login-form rules, injection heuristics, clipboard shape, deep-link confirm) — all under
       `browser-security.ts`'s no-Electron pattern.
-- [ ] **Two e2e specs, naming the browser capability** per
+- [x] **Two e2e specs, naming the browser capability** per
       [`docs/TESTING.md`](../../../docs/TESTING.md): the interstitial (real TLS failure, real
       navigation) and the permission bar (real `getUserMedia`). Visual baselines for the badge's
       three states.
-- [ ] **`docs/BROWSER_SECURITY.md`.** What the browser does and does not do, the feeds, their
+- [x] **`docs/BROWSER_SECURITY.md`.** What the browser does and does not do, the feeds, their
       licences and switches, the preload position, and the agent boundary — the page a reviewer
       reads first.
-- [ ] **`docs/security/README.md` rows** for the two findings this phase fixes that the audits
+- [x] **`docs/security/README.md` rows** for the two findings this phase fixes that the audits
       did not list: downloads unsafe-by-cancel, and no page-to-agent boundary.
-- [ ] **`docs/APPS.md`'s Browser section** gains the policy module and the agent-session
+- [x] **`docs/APPS.md`'s Browser section** gains the policy module and the agent-session
       contract.
 
 ## Files this phase touches

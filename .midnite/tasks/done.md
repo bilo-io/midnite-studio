@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-23 — Phase 117 Theme H — Tests, the security page, and the record
+
+[PR #983](https://github.com/bilo-io/midnite-studio/pull/983). A rule-coverage map test (every browser security rule with its test file, none importing Electron), a badge-label table test, two Playwright specs that each name their browser capability and their gap (a real Chromium TLS failure behind the interstitial; a real `getUserMedia` refused then allowed through the permission bar; main's handlers stay vitest), a badge visual spec (`-darwin` baselines only; `-linux` pending), `docs/BROWSER_SECURITY.md`, two findings rows in `docs/security/README.md`, and the policy module and agent-session contract in `docs/APPS.md`. Theme H ✅. The phase awaits `/midnite-verify`.
+
 ## 2026-10-23 — Phase 120 Theme D — Persistence and process sensors
 
 [PR #985](https://github.com/bilo-io/midnite-studio/pull/985). Four Vanguard sensors on the sensor host: persistence (LaunchAgents/Daemons, rc files, `~/.ssh`, `/etc/periodic`, crontab; baseline + `fs.watch`; plist `ProgramArguments` and signature state in the evidence), process table (new executables checked with `codesign`/`spctl`/quarantine xattr), Apple signals (XProtect age, syspolicy and XProtectRemediator denials, Gatekeeper/SIP status under shared fingerprints) and ClickFix paste shapes. The broker output stream and agent-session pids are optional injected deps, not yet wired by a composer.
