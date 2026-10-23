@@ -5330,6 +5330,14 @@ export const GamesPlaytestRunResponse = GitOpResultOf(GamePlaytestRunResultSchem
 export const GamesExportRequest = GameExportRequestSchema;
 export const GamesExportResponse = GitOpResultOf(GameExportResultSchema);
 
+// The agent audit trail (Phase 121 Theme G).
+export {
+  AgentAuditExportRequest,
+  AgentAuditExportResponse,
+  AgentAuditListRequest,
+  AgentAuditListResponse,
+} from '../agent-audit';
+
 // Security findings (Phase 120 Theme A).
 export * from './security-findings';
 

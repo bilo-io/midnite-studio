@@ -2215,6 +2215,15 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The agent audit trail (Phase 121 Theme G): a window of the durable NDJSON trail for the Audit tab,
+   * and an export of it, redacted, to a path the user picks in a main-side save dialog.
+   */
+  agentAudit: {
+    list: (req: In<typeof S.AgentAuditListRequest>) => Promise<z.infer<typeof S.AgentAuditListResponse>>;
+    export: (req: In<typeof S.AgentAuditExportRequest>) => Promise<z.infer<typeof S.AgentAuditExportResponse>>;
+  };
+
+  /**
    * What the companion knows before it says anything (Phase 79 Theme B).
    *
    * Both calls are read-only and always resolve — a forge that cannot be

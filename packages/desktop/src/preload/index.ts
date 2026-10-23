@@ -1090,6 +1090,10 @@ const bridge: Pick<
     set: (req) => call(CHANNELS.mcpSet, req),
     calls: () => call(CHANNELS.mcpCalls),
   },
+  agentAudit: {
+    list: (req) => call(CHANNELS.agentAuditList, req),
+    export: (req) => call(CHANNELS.agentAuditExport, req),
+  },
   companion: {
     snapshot: (req) => call(CHANNELS.companionSnapshot, req),
     digest: (req) => call(CHANNELS.companionDigest, req),

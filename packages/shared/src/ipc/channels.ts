@@ -1425,6 +1425,12 @@ export const CHANNELS = {
   /** The last 50 tool calls from the in-memory audit ring. Pulled, never pushed. */
   mcpCalls: 'mstudio:mcp:calls',
 
+  // --- the agent audit trail (Phase 121 Theme G) ------------------------------
+  /** A window of the durable audit trail, newest first, filtered by kind, session and time. Pulled, never pushed. */
+  agentAuditList: 'mstudio:agent-audit:list',
+  /** Writes the (filtered) trail as redacted NDJSON to a path the user picks in a main-side save dialog. */
+  agentAuditExport: 'mstudio:agent-audit:export',
+
   // --- the companion's grounding (Phase 79 Theme B) ---------------------------
   // Two invoke channels, both read-only, both *composed* in main out of the
   // Phase 57 MCP tools rather than parsing git themselves — the companion lives
