@@ -82,6 +82,16 @@ export function registerSensorHandlers(
     return { ok: true as const };
   });
 
+  ipc.handleBare(CHANNELS.vanguardResponseState, async () => {
+    const service = await resolve();
+    await service.quarantine.purge().catch((error: unknown) => warn(`quarantine purge: ${String(error)}`));
+    return {
+      quarantineDir: service.quarantineDir,
+      quarantine: await service.quarantine.list(),
+      unavailable: service.response.unavailable(),
+    };
+  });
+
   ipc.handleBare(CHANNELS.vanguardOpenQuarantine, async () => {
     const service = await resolve();
     if (!services.openPath)

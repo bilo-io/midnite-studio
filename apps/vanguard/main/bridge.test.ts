@@ -22,7 +22,8 @@ describe('createVanguardBridge', () => {
     expect(Object.keys(bridge).sort()).toEqual(['pty', 'report', 'terminal', 'vanguard']);
     expect(Object.keys(bridge.terminal)).toEqual(['list']);
     // No create and no kill: Vanguard starts nothing, so it kills nothing.
-    // The security app renders untrusted evidence: no keystrokes into a terminal.
+    // The security app renders untrusted evidence: no keystrokes into a terminal. (Pausing a session is main's
+    // own fixed Ctrl+C, reached through `findings.act`, never a renderer-supplied byte.)
     expect(bridge.pty).not.toHaveProperty('input');
     expect(Object.keys(bridge.pty).sort()).toEqual([
       'onData',
@@ -37,6 +38,7 @@ describe('createVanguardBridge', () => {
       'malware',
       'onChanged',
       'openQuarantine',
+      'responseState',
       'runSensor',
       'sensors',
       'setSettings',
@@ -48,6 +50,7 @@ describe('createVanguardBridge', () => {
       'act',
       'list',
       'onChanged',
+      'preview',
       'setStatus',
     ]);
   });

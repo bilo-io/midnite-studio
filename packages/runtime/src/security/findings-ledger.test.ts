@@ -336,4 +336,58 @@ describe('Security findings schema & ledger (Phase 120 Theme A)', () => {
       expect(await ledger.get(oldFinding.id)).toBeNull();
     });
   });
+
+  describe('recordAction (Phase 120 Theme H)', () => {
+    const base = (): NewSecurityFinding =>
+      ({
+        fingerprint: 'fp-act',
+        source: 'vanguard',
+        severity: 'high',
+        category: 'persistence',
+        title: 'Launch agent',
+        detail: 'd',
+        evidence: [],
+        remediation: [{ id: 'mute' }],
+      }) as NewSecurityFinding;
+
+    it('appends outcomes, moves the status only when asked, and survives a reload', async () => {
+      const finding = await ledger.record(base());
+      const failed = await ledger.recordAction(finding.id, { id: 'bootout-launch-item', at: 1, ok: false, error: 'exit 5' });
+      expect(failed?.status).toBe('open');
+      const done = await ledger.recordAction(
+        finding.id,
+        { id: 'quarantine-file', at: 2, ok: true },
+        { status: 'resolved', resolvedBy: 'action:quarantine-file' },
+      );
+      expect(done).toMatchObject({ status: 'resolved', resolvedBy: 'action:quarantine-file' });
+      expect(done?.actions).toEqual([
+        { id: 'bootout-launch-item', at: 1, ok: false, error: 'exit 5' },
+        { id: 'quarantine-file', at: 2, ok: true },
+      ]);
+      // A resolved finding leaves the open set: a re-detection opens a new row.
+      const again = await ledger.record(base());
+      expect(again.id).not.toBe(finding.id);
+
+      const reloaded = createFindingsLedger({ userData: tempDir, now: () => mockTime });
+      expect((await reloaded.get(finding.id))?.actions).toHaveLength(2);
+      expect(await ledger.recordAction('missing', { id: 'mute', at: 3, ok: true })).toBeNull();
+    });
+
+    it('a re-detection refreshes the actions with the evidence, so they name the pid seen now', async () => {
+      const first = await ledger.record({
+        ...base(),
+        fingerprint: 'fp-pid',
+        evidence: [{ kind: 'pid', pid: 100 }],
+        remediation: [{ id: 'kill-process-group', pid: 100 }],
+      });
+      const again = await ledger.record({
+        ...base(),
+        fingerprint: 'fp-pid',
+        evidence: [{ kind: 'pid', pid: 200 }],
+        remediation: [{ id: 'kill-process-group', pid: 200 }],
+      });
+      expect(again.id).toBe(first.id);
+      expect(again.remediation).toEqual([{ id: 'kill-process-group', pid: 200 }]);
+    });
+  });
 });

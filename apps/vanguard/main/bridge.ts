@@ -33,6 +33,7 @@ export function createVanguardBridge(ipc: RendererIpc): VanguardBridge {
         list: (req) => call(CHANNELS.securityFindingsList, req),
         setStatus: (req) => call(CHANNELS.securityFindingsSetStatus, req),
         act: (req) => call(CHANNELS.securityFindingsAct, req),
+        preview: (req) => call(CHANNELS.securityFindingsActPreview, req),
         onChanged: (handler) => subscribe(EVENT_CHANNELS.securityFindingsChanged, handler),
       },
       sensors: () => call(CHANNELS.vanguardSensors),
@@ -41,6 +42,7 @@ export function createVanguardBridge(ipc: RendererIpc): VanguardBridge {
       setSettings: (req) => call(CHANNELS.vanguardSettingsSet, req),
       viewOpened: () => call(CHANNELS.vanguardViewOpened),
       openQuarantine: () => call(CHANNELS.vanguardOpenQuarantine),
+      responseState: () => call(CHANNELS.vanguardResponseState),
       connections: () => call(CHANNELS.vanguardConnections),
       malware: {
         status: () => call(CHANNELS.vanguardMalwareStatus),

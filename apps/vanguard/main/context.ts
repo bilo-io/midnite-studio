@@ -1,6 +1,10 @@
+import { dirname } from 'node:path';
+
 import {
+  appBundlePath,
   createSensorRunProcess,
   createVanguardService,
+  INTERRUPT,
   resolveByFingerprint,
   vanguardMain,
   type VanguardService,
@@ -49,6 +53,18 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
   const ctx = createIpcContext(el);
   const broker = createSharedBroker({ runtimeDirectory: el.runtimeDirectory, appId: 'vanguard' });
   const ledger = createFindingsLedger({ userData: el.userData, onChanged: () => el.send(EVENT_CHANNELS.securityFindingsChanged, undefined) });
+  // The host's agent sessions: the pty pids come from the shared broker, which agent they run from the host's
+  // terminal records. No broker, no sessions.
+  const agentSessions = async (): Promise<{ sessionId: string; repoId: string; pid: number; title: string }[]> => {
+    const known = readHostSessions(readRuntimeHostRecord(el.runtimeDirectory)?.sessionsFile);
+    const { sessions } = await broker.listSessions();
+    return sessions.flatMap((live) => {
+      const session = guestSessionRecord(live, known, 0);
+      return session.kind === 'agent'
+        ? [{ sessionId: session.id, repoId: session.repoId, pid: live.pid, title: session.name ?? session.title }]
+        : [];
+    });
+  };
   const service = await createVanguardService({
     userData: el.userData,
     homeDir: el.homeDir,
@@ -57,6 +73,39 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
     autostart: 'always',
     onChanged: () => el.send(EVENT_CHANNELS.vanguardChanged, undefined),
     log: (level, message) => el.log.write(level, message),
+    // Theme H. Every action but Phase 121's pair; pausing reaches the host's sessions through the shared
+    // broker, so it works only while Studio's broker is up. Studio itself and its broker are never a target.
+    response: {
+      issueApp: 'midnite-vanguard',
+      // Never a file target: this app's bundle, Studio's, the runtime's shared data (vault, host record) and
+      // Studio's userData, which its host record locates through the terminal list it names.
+      protectedPaths: () => {
+        const host = readRuntimeHostRecord(el.runtimeDirectory);
+        return [
+          appBundlePath(process.execPath),
+          '/Applications/Midnite Studio.app',
+          el.runtimeDirectory,
+          ...(host?.sessionsFile ? [dirname(host.sessionsFile)] : []),
+        ];
+      },
+      protectedPids: () => {
+        const host = readRuntimeHostRecord(el.runtimeDirectory);
+        return host ? [host.pid] : [];
+      },
+      protectedMarkers: () => {
+        const host = readRuntimeHostRecord(el.runtimeDirectory);
+        return host?.broker ? [host.broker.socketPath, host.broker.directory] : [];
+      },
+      sessions: agentSessions,
+      interrupt: async (sessionId) => {
+        const client = await broker.client();
+        if (client === null) return false;
+        const live = (await client.listSessions()).find((s) => s.sessionId === sessionId);
+        if (!live) return false;
+        client.writePty(live.ptyId, INTERRUPT);
+        return true;
+      },
+    },
     // No repo registry or pty sessions of its own: the integrity sensor watches the user-level agent
     // config only, and a finding resolves once its change is reverted.
     sensorDeps: {
@@ -67,16 +116,7 @@ export async function registerVanguardHandlers(el: VanguardElectron): Promise<{ 
       // then runs at the idle rate and only while this window is focused.
       network: {
         suite: { pid: process.pid },
-        agentSessions: async () => {
-          const known = readHostSessions(readRuntimeHostRecord(el.runtimeDirectory)?.sessionsFile);
-          const { sessions } = await broker.listSessions();
-          return sessions.flatMap((live) => {
-            const session = guestSessionRecord(live, known, 0);
-            return session.kind === 'agent'
-              ? [{ sessionId: session.id, repoId: session.repoId, pid: live.pid, title: session.name ?? session.title }]
-              : [];
-          });
-        },
+        agentSessions,
         ...(el.windowFocused ? { windowFocused: el.windowFocused } : {}),
       },
     },

@@ -1,8 +1,12 @@
 import type { FeatureMainContext, FindingsLedger } from '@midnite/studio-runtime';
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
+import { previewAction, runAction, type ResponseActions } from './actions';
+
 export interface FindingsHandlersServices {
   ledger: () => FindingsLedger;
+  /** Theme H's response actions; absent, only `mute` runs (a ledger-only reader such as a test). */
+  response?: () => ResponseActions | Promise<ResponseActions>;
   warn?: (issue: string) => void;
 }
 
@@ -47,21 +51,38 @@ export function registerFindingsHandlers(
   ipc.handle(
     CHANNELS.securityFindingsAct,
     schemas.SecurityFindingsActRequest,
+    async ({ findingId, action, confirmed }) => {
+      try {
+        const ledger = services.ledger();
+        if (!services.response) {
+          const finding = await ledger.get(findingId);
+          if (!finding) return { ok: false, kind: 'error', message: `Finding '${findingId}' not found` };
+          if (action.id !== 'mute') return { ok: false, kind: 'error', message: 'Response actions are not available in this app.' };
+          const updated = await ledger.setStatus(findingId, 'muted');
+          return { ok: true, value: { actionId: 'mute', finding: updated ?? finding } };
+        }
+        return await runAction(ledger, await services.response(), findingId, action, confirmed);
+      } catch (error) {
+        return { ok: false, kind: 'error', message: error instanceof Error ? error.message : String(error) };
+      }
+    },
+    (issue) => {
+      warn(issue);
+      return { ok: false, kind: 'error', message: issue };
+    },
+  );
+
+  // The blast radius the confirm shows: computed from the machine as it is now, and never an action.
+  ipc.handle(
+    CHANNELS.securityFindingsActPreview,
+    schemas.SecurityFindingsActRequest,
     async ({ findingId, action }) => {
-      const ledger = services.ledger();
-      const finding = await ledger.get(findingId);
-      if (!finding) {
-        return { ok: false, kind: 'error', message: `Finding '${findingId}' not found` };
+      if (!services.response) return { ok: false, kind: 'error', message: 'Response actions are not available in this app.' };
+      try {
+        return await previewAction(services.ledger(), await services.response(), findingId, action);
+      } catch (error) {
+        return { ok: false, kind: 'error', message: error instanceof Error ? error.message : String(error) };
       }
-      if (action.id === 'mute') {
-        const updated = await ledger.setStatus(findingId, 'muted');
-        return { ok: true, value: { actionId: 'mute', finding: updated ?? finding } };
-      }
-      return {
-        ok: false,
-        kind: 'error',
-        message: `Action '${action.id}' is not yet implemented (scheduled for Theme H)`,
-      };
     },
     (issue) => {
       warn(issue);

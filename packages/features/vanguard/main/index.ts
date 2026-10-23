@@ -60,9 +60,20 @@ export type { PtyOutputChunk, PtyOutputSource } from './clickfix';
 export { createSensorRunProcess } from './run-process';
 export {
   createVanguardService,
+  type VanguardResponseOptions,
   type VanguardService,
   type VanguardServiceOptions,
 } from './vanguard-service';
+export { appBundlePath } from './response/target';
+export {
+  createResponseActions,
+  INTERRUPT,
+  previewAction,
+  runAction,
+  type ResponseActionDeps,
+  type ResponseActions,
+  type ResponseSession,
+} from './actions';
 export {
   createVanguardSettingsState,
   createVanguardStore,
@@ -76,7 +87,10 @@ export const vanguardMain = defineFeatureMain<VanguardMainServices>({
   feature: 'vanguard',
   channels: vanguardManifest.ipc,
   register(ctx, services) {
-    registerFindingsHandlers(ctx, services);
+    registerFindingsHandlers(ctx, {
+      ...services,
+      response: services.response ?? (async () => (await services.service()).response),
+    });
     registerSensorHandlers(ctx, services);
   },
 });

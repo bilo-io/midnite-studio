@@ -187,6 +187,28 @@ export const RemediationActionSchema = z.discriminatedUnion('id', [
 ]);
 export type RemediationAction = z.infer<typeof RemediationActionSchema>;
 
+/**
+ * Response actions that are part of the closed set but cannot run yet (Phase 120 Theme H). Both depend on
+ * Phase 121, which has not landed: `revoke-mcp-server` needs Theme C's MCP allowlist to revoke from, and
+ * `open-in-agents` needs Theme A's untrusted tagging so the finding can ride into a Chats thread without
+ * being read as instructions. Their handlers answer with this reason instead of half-working, and the view
+ * shows the button disabled with it. Delete an entry when its dependency lands.
+ */
+export const REMEDIATION_PENDING: Readonly<Partial<Record<RemediationActionId, { reason: string; dependsOn: string }>>> = {
+  'revoke-mcp-server': {
+    reason: 'Available once Phase 121 lands: revoking a server needs the MCP allowlist (Phase 121 Theme C).',
+    dependsOn: 'Phase 121 Theme C',
+  },
+  'open-in-agents': {
+    reason:
+      'Available once Phase 121 lands: a finding goes into a Chats thread only once it can be tagged untrusted (Phase 121 Theme A).',
+    dependsOn: 'Phase 121 Theme A',
+  },
+};
+
+/** Actions that act without a confirm: they change nothing on the machine (Phase 120 Theme H). */
+export const REMEDIATION_UNCONFIRMED: ReadonlySet<RemediationActionId> = new Set<RemediationActionId>(['mute', 'report-issue']);
+
 export const FindingActionResultSchema = z.object({
   id: RemediationActionIdSchema,
   at: z.number().int().nonnegative(),

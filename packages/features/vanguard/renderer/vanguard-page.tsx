@@ -1,7 +1,6 @@
 import { bridge } from '@midnite/studio-frame';
 import {
   type NetworkConnection,
-  type RemediationAction,
   type SecurityFinding,
   type SecurityFindingCategory,
   type SecurityFindingSeverity,
@@ -15,6 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LuShield, LuShieldCheck } from 'react-icons/lu';
 
 import { MalwareScanCard } from './malware-scan-card';
+import { ACTION_LABEL, FindingActions, QuarantineCard, UnavailableNotes, useResponseState } from './response';
 import { useConnections, useFindings, useSensors } from './use-vanguard';
 import { useVanguardUi } from './vanguard-ui-store';
 
@@ -97,32 +97,13 @@ function evidenceLine(item: SecurityFinding['evidence'][number]): string {
   }
 }
 
-const ACTION_LABEL: Record<RemediationAction['id'], string> = {
-  'pause-session': 'Pause session',
-  'kill-process-group': 'Kill process group',
-  'bootout-launch-item': 'Unload launch item',
-  'quarantine-file': 'Quarantine file',
-  'restore-file': 'Restore file',
-  'revoke-mcp-server': 'Revoke MCP server',
-  'chmod-600': 'Restrict to owner (chmod 600)',
-  'report-issue': 'Report issue',
-  'open-in-agents': 'Open in Agents',
-  mute: 'Mute',
-};
-
-/** Only Mute acts today; the rest arrive with Theme H's confirm-gated response actions. */
-const ACTIONS_LIVE: ReadonlySet<RemediationAction['id']> = new Set(['mute']);
-
 function FindingDetail({ finding }: { finding: SecurityFinding }) {
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const response = useResponseState();
   useEffect(() => setMessage(null), [finding.id]);
   const setStatus = async (status: SecurityFindingStatus): Promise<void> => {
     const result = await bridge()?.vanguard.findings.setStatus({ id: finding.id, status });
-    setMessage(result && !result.ok ? failureText(result) : null);
-  };
-  const act = async (action: RemediationAction): Promise<void> => {
-    const result = await bridge()?.vanguard.findings.act({ findingId: finding.id, action });
-    setMessage(result && !result.ok ? failureText(result) : null);
+    setMessage(result && !result.ok ? { text: failureText(result), error: true } : null);
   };
   return (
     <section aria-label="Finding detail" className="flex flex-col gap-3 rounded-lg border border-border p-4">
@@ -149,18 +130,7 @@ function FindingDetail({ finding }: { finding: SecurityFinding }) {
         </div>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        {finding.remediation.map((action, index) => (
-          <button
-            key={`${action.id}-${index}`}
-            type="button"
-            disabled={!ACTIONS_LIVE.has(action.id)}
-            title={ACTIONS_LIVE.has(action.id) ? undefined : 'Response actions arrive with a later slice of Phase 120.'}
-            onClick={() => void act(action)}
-            className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {ACTION_LABEL[action.id]}
-          </button>
-        ))}
+        <FindingActions finding={finding} state={response} onMessage={setMessage} />
         {finding.status !== 'acknowledged' && finding.status !== 'resolved' ? (
           <button type="button" onClick={() => void setStatus('acknowledged')} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent">
             Acknowledge
@@ -176,9 +146,22 @@ function FindingDetail({ finding }: { finding: SecurityFinding }) {
           </button>
         )}
       </div>
+      <UnavailableNotes finding={finding} state={response} />
+      {finding.actions && finding.actions.length > 0 ? (
+        <div>
+          <h3 className="mb-1 text-[11px] font-semibold uppercase text-muted-foreground">Actions taken</h3>
+          <ul aria-label="Actions taken" className="flex flex-col gap-0.5 text-[11px]">
+            {finding.actions.map((done, index) => (
+              <li key={index} className={done.ok ? '' : 'text-destructive'}>
+                {ago(done.at)} · {ACTION_LABEL[done.id]} · {done.ok ? 'done' : `failed: ${done.error ?? 'no reason given'}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {message ? (
-        <p role="status" className="text-xs text-destructive">
-          {message}
+        <p role="status" className={`text-xs ${message.error ? 'text-destructive' : 'text-muted-foreground'}`}>
+          {message.text}
         </p>
       ) : null}
     </section>
@@ -396,6 +379,7 @@ function SensorsPane() {
         </p>
       ) : null}
       <MalwareScanCard />
+      <QuarantineCard />
       <ul aria-label="Sensors" className="flex flex-col gap-2">
         {sensors.sensors.map((sensor) => (
           <SensorRow key={sensor.id} sensor={sensor} />

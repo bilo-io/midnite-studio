@@ -13,6 +13,7 @@ import {
   underAgentSession,
   type ProcessRow,
 } from './process-parse';
+import { sha256NoFollow } from './response/target';
 import type { SensorDefinition } from './sensor-host';
 
 /**
@@ -98,9 +99,11 @@ export function createProcessSensor(deps: ProcessSensorDeps = {}): SensorDefinit
         });
         if (severity === null) continue;
         const sessionId = agentSpawned ? sessionOf(row.pid, table, sessions) : undefined;
+        // Hashed so a response action can tell this executable from one replaced since (Theme H).
+        const hash = await sha256NoFollow(row.comm);
         const evidence: EvidenceItem[] = [
           { kind: 'pid', pid: row.pid, command: row.comm, ppid: row.ppid, uid: row.uid },
-          { kind: 'path', path: row.comm },
+          { kind: 'path', path: row.comm, ...(hash ? { hash } : {}) },
         ];
         if (signature.teamId !== undefined)
           evidence.push({ kind: 'command', command: `team id ${signature.teamId}` });
