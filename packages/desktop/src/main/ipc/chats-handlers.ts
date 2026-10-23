@@ -13,6 +13,7 @@ import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { recordAudit } from '../agent-audit';
 import { mcpServersHeldForRun } from '../mcp-trust-wiring';
+import { outboundSecrets } from '../outbound-secrets';
 import { getRepo } from '../repo-registry';
 import { listAgents } from '../terminal-service';
 import { broadcastToAllWindows } from '../window-manager';
@@ -41,6 +42,7 @@ const deps: ChatsRuntimeDeps = {
   emit: (event) => broadcastToAllWindows(EVENT_CHANNELS.chatsEvent, event),
   audit: recordAudit,
   mcpGate: (repoId) => mcpServersHeldForRun(repoId),
+  outboundSecrets,
   ollamaStream: async (req) =>
     ollamaChatStream(
       { model: req.model, messages: req.messages },

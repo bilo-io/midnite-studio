@@ -147,6 +147,11 @@ export const ChatMessageSchema = z.object({
   attachments: z.array(ChatAttachmentSchema).optional(),
   /** Where the message's own text came from. Absent: a user message is typing, an assistant one is agent output. */
   provenance: ContentProvenanceSchema.optional(),
+  /**
+   * Secrets scrubbed from what this user message sent (Phase 121 D): one chip per kind, `[redacted: <kind>]`, so the
+   * user knows the model did not see them. Counts only, never the values.
+   */
+  redactions: z.array(z.object({ kind: z.string().min(1), count: z.number().int().positive() })).optional(),
   /** Short tool/activity lines the agent reported ("Edited src/a.ts"). */
   activity: z.array(z.string()).optional(),
   /** Engine and model that produced an assistant turn. */

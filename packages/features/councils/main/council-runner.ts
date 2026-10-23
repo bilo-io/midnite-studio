@@ -7,6 +7,9 @@ import {
   agentInvocationArgs,
   failure,
   isOllamaCloudModelName,
+  mergeRedactions,
+  redactOutbound,
+  redactionTotal,
   ok,
   resolveAgentLaunch,
   shellQuote,
@@ -17,6 +20,8 @@ import {
   type CouncilRun,
   type GitOpResult,
   type NewAgentAuditRecord,
+  type OutboundSecret,
+  type Redaction,
 } from '@midnite/studio-shared';
 
 import { appendCapped, cleanCapturedOutput } from '@midnite/studio-runtime';
@@ -60,7 +65,16 @@ export type CouncilRunnerPorts = {
    * Optional and total — a throw is swallowed.
    */
   audit?(record: NewAgentAuditRecord): void;
+  /**
+   * The vault's secret values and the canaries (Phase 121 Theme D). Every member and synthesis prompt is scrubbed
+   * against them, and against `SECRET_PATTERNS` by shape, before it is typed into a pty. Optional: absent, only the
+   * patterns run. A throw is swallowed.
+   */
+  outboundSecrets?(): Promise<readonly OutboundSecret[]>;
 };
+
+/** What outbound redaction scrubbed from a run's prompts so far, for its one audit record. */
+const runRedactions = new Map<string, { redactions: Redaction[]; canary: boolean }>();
 
 let ports: CouncilRunnerPorts | null = null;
 
@@ -250,7 +264,7 @@ async function launchMember(
   member: LaunchTarget,
   topic: string,
 ): Promise<void> {
-  const spawned = await spawnOneShot(member.provider, buildMemberPrompt(topic, member.role));
+  const spawned = await spawnOneShot(member.provider, buildMemberPrompt(topic, member.role), runId);
   if (!spawned.ok) {
     await settleMember(runId, member.memberId, 'failed', new Uint8Array(0), '', false, spawned.message);
     return;
@@ -293,7 +307,7 @@ async function maybeSynthesize(runId: string): Promise<void> {
   }));
   const synthesisPrompt = buildSynthesisPrompt(run.prompt, entries);
 
-  const spawned = await spawnOneShot(run.synthProvider, synthesisPrompt);
+  const spawned = await spawnOneShot(run.synthProvider, synthesisPrompt, runId);
   if (!spawned.ok) {
     await finishSynthesis(runId, 'failed', new Uint8Array(0), '', false, spawned.message);
     return;
@@ -306,6 +320,20 @@ async function maybeSynthesize(runId: string): Promise<void> {
   });
 }
 
+/** The prompt with secrets scrubbed out (Phase 121 D); what it cost is tallied against the run for its audit record. */
+async function scrubPrompt(prompt: string, runId: string): Promise<string> {
+  let secrets: readonly OutboundSecret[] = [];
+  try {
+    secrets = (await runnerPorts().outboundSecrets?.()) ?? [];
+  } catch {
+    // The patterns still run.
+  }
+  const result = redactOutbound(prompt, secrets);
+  const tally = runRedactions.get(runId) ?? { redactions: [], canary: false };
+  runRedactions.set(runId, { redactions: mergeRedactions(tally.redactions, result.redactions), canary: tally.canary || result.canary });
+  return result.text;
+}
+
 /**
  * Spawn one member/synthesizer command as an unattended one-shot pty. `\r` is
  * included in `initialInput` deliberately — see this module's own doc comment
@@ -313,8 +341,10 @@ async function maybeSynthesize(runId: string): Promise<void> {
  */
 async function spawnOneShot(
   provider: CouncilMemberProvider,
-  promptText: string,
+  rawPrompt: string,
+  runId: string,
 ): Promise<{ ok: true; ptyId: string; invocation: string } | { ok: false; message: string }> {
+  const promptText = await scrubPrompt(rawPrompt, runId);
   const agents = await runnerPorts().listAgents();
   const agent = agents.find((a) => a.id === provider);
   if (!agent) return { ok: false, message: `Agent "${provider}" is not in the roster.` };
@@ -471,6 +501,8 @@ async function finishSynthesis(
     if (run.status !== 'synthesizing') return;
 
     const output = cleanCapturedOutput(new TextDecoder().decode(rawBuffer), invocation);
+    const sent = runRedactions.get(runId);
+    runRedactions.delete(runId);
     try {
       ports?.audit?.({
         kind: 'council-run',
@@ -481,6 +513,8 @@ async function finishSynthesis(
         succeeded: run.members.filter((m) => m.status === 'succeeded').length,
         synthProvider: run.synthProvider,
         ms: Math.max(0, Date.now() - run.createdAt),
+        redactions: redactionTotal(sent?.redactions ?? []),
+        ...(sent?.canary ? { canary: true } : {}),
       });
     } catch {
       // An audit failure must not break a run.

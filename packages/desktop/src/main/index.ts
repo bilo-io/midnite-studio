@@ -7,9 +7,11 @@ import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-
 import {
   assertSiteIsolation,
   createFileSink,
+  createOutboundSecretSource,
   createPairingStore,
   createVaultGrants,
   createVaultService,
+  ensureCanaries,
   runtimeHostDirectory,
   type VaultHost,
 } from '@midnite/studio-runtime';
@@ -31,6 +33,7 @@ import { registerSecurityHandlers } from './ipc/security-handlers';
 import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 import { configureAgentAudit, recordAudit } from './agent-audit';
+import { configureOutboundSecrets } from './outbound-secrets';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
 import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
@@ -871,6 +874,11 @@ export const startStudioMain: StartStudioMain = () => {
         credentials: createCredentialVault(studioVault),
       });
       configureSecrets(createSecretsVault(studioVault));
+      // Phase 121 Theme D: every outbound prompt is scrubbed against the vault's values, and two canaries are planted.
+      configureOutboundSecrets(createOutboundSecretSource({ vault: studioVault }));
+      void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch((error: unknown) =>
+        defaultLogger.warn(`canary setup failed: ${String(error)}`),
+      );
       /*
         The account registry (Phase 90 Theme B) — wired here beside every other
         userData store. `configureForgeAccounts` itself kicks off the on-disk

@@ -83,6 +83,7 @@ export * from './ollama-launch';
 export * from './perf';
 export * from './process-env';
 export * from './redact';
+export * from './outbound-redaction';
 export * from './clickfix';
 export * from './vanguard-integrity';
 export * from './injection-heuristics';

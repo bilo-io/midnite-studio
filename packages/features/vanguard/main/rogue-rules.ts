@@ -34,6 +34,8 @@ export type RogueRuleId =
   | 'write-outside-scope'
   | 'destructive-git'
   | 'keychain-password'
+  | 'exfiltration'
+  | 'canary-trip'
   | 'limit-burst'
   | 'correlated-change';
 
@@ -51,6 +53,12 @@ export interface RogueRuleContext {
    * the write rule for that session: a rule that cannot name the jail does not guess at it.
    */
   scopeRoots(sessionId: string): readonly string[];
+  /**
+   * Whether a session started with the user's intent to publish a package (Phase 121 D). Absent, or false, an
+   * agent-issued `npm publish` is the `critical` shape: Shai-Hulud's propagation step. Nothing records a
+   * session's launch intent yet, so today every real publish from an agent session lands here.
+   */
+  publishIntended?(sessionId: string): boolean;
 }
 
 export type RogueRule = (records: readonly AgentAuditRecord[], context: RogueRuleContext) => RogueFinding[];
@@ -358,6 +366,207 @@ export const keychainPasswordRule: RogueRule = (records) => {
   return out;
 };
 
+// --- rule: exfiltration shapes (Phase 121 Theme D) ----------------------------------------------------
+
+/** One simple command with whether a `|` follows it (`a | b`; `a || b` is not a pipe). */
+interface PipedSegment {
+  words: string[];
+  piped: boolean;
+}
+
+function pipedSegments(command: string): PipedSegment[] {
+  const out: PipedSegment[] = [];
+  const all = commandWords(command);
+  let current: string[] = [];
+  for (let i = 0; i < all.length; i += 1) {
+    const word = all[i] as string;
+    if (SEPARATORS.has(word)) {
+      const next = all[i + 1];
+      const isPipe = word === '|' && next !== '|' && all[i - 1] !== '|';
+      if (word === '|' && next === '|') i += 1;
+      if (current.length > 0) out.push({ words: current, piped: isPipe });
+      current = [];
+    } else current.push(word);
+  }
+  if (current.length > 0) out.push({ words: current, piped: false });
+  return out;
+}
+
+const KEYFILE_NAME = /(?:^|\/)(?:id_[a-z0-9]+|[^/]*\.(?:pem|key|p12|pfx|keystore)|credentials|\.env(?:\.[\w-]+)?|\.npmrc|\.netrc|\.pypirc|\.git-credentials|\.pgpass)$/i;
+
+/** A file whose contents are a credential: a secret path, a key or certificate, or a dotenv-style file. */
+export function isKeyfile(path: string, home: string): boolean {
+  return secretPathKind(path, home) !== null || KEYFILE_NAME.test(path);
+}
+
+const BENIGN_DOTFILES = new Set(['.gitignore', '.gitattributes', '.editorconfig', '.prettierrc', '.nvmrc', '.dockerignore', '.npmignore', '.eslintrc', '.gitkeep']);
+
+/** A dotfile or a path under a dot-directory: where credentials and config live in a home directory. */
+function isDotfile(word: string, home: string, cwd: string | undefined): boolean {
+  const path = resolveWord(word, home, cwd) ?? word;
+  const parts = path.split('/').filter((p) => p !== '' && p !== '.' && p !== '..');
+  const hidden = parts.find((p) => p.startsWith('.') && !BENIGN_DOTFILES.has(p));
+  if (hidden === undefined) return false;
+  // `.git/` internals are the repo's own, not a credential store.
+  return hidden !== '.git';
+}
+
+/** `user@host:path` or `host:path` — an scp/rsync remote. */
+const REMOTE_SPEC = /^(?:[^/\s@:]+@)?[^/\s:@]+:(?!\/\/)[^\s]*$/;
+
+type ExfilShape = { id: string; severity: 'high' | 'critical'; title: string; detail: string };
+
+const UPLOAD_FLAGS = new Set(['-d', '--data', '--data-binary', '--data-raw', '--data-urlencode', '--json']);
+
+/** The exfiltration shape one simple command is, or null. */
+export function exfiltrationShape(
+  segment: PipedSegment,
+  ctx: { home: string; cwd?: string | undefined; sessionIntendsPublish: boolean },
+): ExfilShape | null {
+  const at = commandIndex(segment.words);
+  if (at === -1) return null;
+  const name = posix.basename(segment.words[at] as string);
+  const args = segment.words.slice(at + 1);
+
+  if (name === 'curl' || name === 'wget') {
+    for (let i = 0; i < args.length; i += 1) {
+      const arg = args[i] as string;
+      const eq = arg.indexOf('=');
+      const flag = arg.startsWith('--') && eq !== -1 ? arg.slice(0, eq) : arg;
+      const attached = arg.startsWith('--') && eq !== -1 ? arg.slice(eq + 1) : (args[i + 1] ?? '');
+      const short = /^-[dFT]./.exec(arg);
+      const value = short ? arg.slice(2) : attached;
+      const flagName = short ? arg.slice(0, 2) : flag;
+      if (UPLOAD_FLAGS.has(flagName) && /^@(?!-$)/.test(value) && value.length > 1) {
+        return { id: 'upload-data', severity: 'high', title: `Agent uploaded a file with ${name} ${flagName}`, detail: `An agent session sent the contents of ${value.slice(1)} to a remote host with ${name} ${flagName} @file.` };
+      }
+      if ((flagName === '-F' || flagName === '--form') && /=@|^@/.test(value)) {
+        return { id: 'upload-form', severity: 'high', title: `Agent uploaded a file with ${name} -F`, detail: `An agent session posted a file as multipart form data with ${name} -F ${value}.` };
+      }
+      if (name === 'curl' && (flagName === '-T' || flagName === '--upload-file')) {
+        return { id: 'upload-file', severity: 'high', title: `Agent uploaded a file with ${name} --upload-file`, detail: `An agent session uploaded ${value} to a remote host with ${name}.` };
+      }
+      if (name === 'wget' && (flagName === '--post-file' || flagName === '--body-file')) {
+        return { id: 'upload-file', severity: 'high', title: 'Agent posted a file with wget', detail: `An agent session sent ${value} to a remote host with wget ${flagName}.` };
+      }
+    }
+    return null;
+  }
+
+  if (name === 'base64' || name === 'openssl' || name === 'xxd') {
+    if (!segment.piped) return null;
+    if (name === 'openssl' && args[0] !== 'base64') return null;
+    if (args.some((a) => a === '-d' || a === '-D' || a === '--decode' || a === '-r')) return null;
+    const file = args.find((a) => !a.startsWith('-') && a !== 'base64' && resolveWord(a, ctx.home, ctx.cwd) !== null);
+    const resolved = file === undefined ? null : resolveWord(file, ctx.home, ctx.cwd);
+    if (resolved !== null && isKeyfile(resolved, ctx.home)) {
+      return { id: 'encode-keyfile', severity: 'high', title: 'Agent encoded a key file for transfer', detail: `An agent session ran ${name} over ${resolved} and piped the result onward, the usual first step of sending a credential out.` };
+    }
+    return null;
+  }
+
+  if (name === 'scp' || name === 'rsync') {
+    const operands = args.filter((a) => !a.startsWith('-'));
+    const remote = operands.some((a) => REMOTE_SPEC.test(a));
+    const dot = operands.find((a) => !REMOTE_SPEC.test(a) && isDotfile(a, ctx.home, ctx.cwd));
+    if (remote && dot !== undefined) {
+      return { id: 'copy-dotfile', severity: 'high', title: `Agent copied a dotfile off the machine with ${name}`, detail: `An agent session ran ${name} with ${dot} and a remote destination.` };
+    }
+    return null;
+  }
+
+  if (name === 'gh') {
+    const sub = args.filter((a) => !a.startsWith('-'));
+    if (sub[0] === 'secret' && sub[1] === 'set') {
+      const fromFile = segment.words.includes('<') || args.some((a) => a === '-f' || a === '--env-file' || a.startsWith('--env-file=') || /\bcat\b/.test(a));
+      if (fromFile) return { id: 'gh-secret-from-file', severity: 'high', title: 'Agent set a GitHub secret from a file', detail: 'An agent session ran `gh secret set` with the value read from a file, which publishes that file to a repository or organisation.' };
+    }
+    return null;
+  }
+
+  if (name === 'npm' || name === 'pnpm' || name === 'yarn' || name === 'bun') {
+    const sub = args.filter((a) => !a.startsWith('-'));
+    const isPublish = sub[0] === 'publish' || (name === 'yarn' && sub[0] === 'npm' && sub[1] === 'publish');
+    if (!isPublish || args.includes('--dry-run')) return null;
+    if (ctx.sessionIntendsPublish) return null;
+    return { id: 'publish', severity: 'critical', title: `Agent ran ${name} publish`, detail: `An agent session published a package with ${name} publish. It did not start with the user's intent to release, and this is how a stolen token spreads: Shai-Hulud's propagation step.` };
+  }
+  return null;
+}
+
+/** Curl/wget uploads of a file, a key file encoded for transfer, a dotfile scp'd off, a secret set from a file, an unintended publish. */
+export const exfiltrationRule: RogueRule = (records, context) => {
+  const out: RogueFinding[] = [];
+  for (const record of records) {
+    if (record.kind !== 'command' || !record.sessionId) continue;
+    const seen = new Set<string>();
+    for (const segment of pipedSegments(record.command)) {
+      const shape = exfiltrationShape(segment, {
+        home: context.homeDir,
+        cwd: record.cwd,
+        sessionIntendsPublish: context.publishIntended?.(record.sessionId) ?? false,
+      });
+      if (shape === null || seen.has(shape.id)) continue;
+      seen.add(shape.id);
+      out.push({
+        rule: 'exfiltration',
+        severity: shape.severity,
+        category: 'agent',
+        fingerprint: `agents:rogue:exfiltration:${record.sessionId}:${shape.id}`,
+        title: shape.title,
+        detail: shape.detail,
+        evidence: commandEvidence(record),
+        remediation: [pauseAction(record.sessionId)],
+        sessionId: record.sessionId,
+      });
+    }
+  }
+  return out;
+};
+
+// --- rule: a canary was touched (Phase 121 Theme D) ----------------------------------------------------
+
+const CANARY_WORD = /(?:^|[/\s'"=:])\.env\.canary(?:$|[\s'"/;|&)])/;
+
+/**
+ * The canary file named in a command line, or in a refused sandbox operation; or a canary value found in an
+ * outbound prompt (a `chat-turn` or `council-run` record the outbound redaction flagged). Nothing legitimate
+ * touches any of them, so each is `critical`.
+ */
+export const canaryTripRule: RogueRule = (records) => {
+  const out: RogueFinding[] = [];
+  for (const record of records) {
+    let session: string | undefined;
+    let how: string | null = null;
+    let evidence: EvidenceItem[] = [];
+    if (record.kind === 'command' && CANARY_WORD.test(`${record.command} `)) {
+      session = record.sessionId;
+      how = 'read the canary file ~/.config/midnite/.env.canary';
+      evidence = commandEvidence(record);
+    } else if (record.kind === 'confine-denial' && CANARY_WORD.test(`${record.target} `)) {
+      session = record.sessionId;
+      how = 'was refused a read of the canary file ~/.config/midnite/.env.canary';
+      evidence = [{ kind: 'path', path: record.target }];
+    } else if ((record.kind === 'chat-turn' || record.kind === 'council-run') && record.canary === true) {
+      session = record.sessionId ?? (record.kind === 'chat-turn' ? `chat:${record.chatId}` : `council:${record.runId}`);
+      how = 'sent a canary value in an outbound prompt (it was scrubbed before it left)';
+    }
+    if (how === null || session === undefined) continue;
+    out.push({
+      rule: 'canary-trip',
+      severity: 'critical',
+      category: 'agent',
+      fingerprint: `agents:rogue:canary-trip:${session}:${record.kind}`,
+      title: 'Agent touched a canary',
+      detail: `An agent session ${how}. Nothing it was asked to do should reach it: a credential-harvesting step is the likely cause.`,
+      evidence,
+      remediation: [pauseAction(session)],
+      sessionId: session,
+    });
+  }
+  return out;
+};
+
 // --- rule: a burst past the breaker's limits ---------------------------------------------------------
 
 /**
@@ -448,6 +657,8 @@ export const ROGUE_RULES: Readonly<Record<Exclude<RogueRuleId, 'correlated-chang
   'write-outside-scope': writeOutsideScopeRule,
   'destructive-git': destructiveGitRule,
   'keychain-password': keychainPasswordRule,
+  exfiltration: exfiltrationRule,
+  'canary-trip': canaryTripRule,
   'limit-burst': limitBurstRule,
 };
 

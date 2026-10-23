@@ -78,6 +78,13 @@ export const VAULT_NAMESPACES = {
     // password for the session — instead of silently dropping what the user typed.
     whenUnavailable: 'session',
   },
+  /**
+   * The two canary values (Phase 121 Theme D): generated, shaped like a GitHub PAT and an AWS key, and written to
+   * `~/.config/midnite/.env.canary` where an agent's shell can reach them. Nothing legitimate reads this
+   * namespace except the outbound-redaction matcher, which scrubs them from every prompt and raises a critical
+   * finding if one is found there. Reserved: the per-engine key Theme I hands an agent at spawn never comes from here.
+   */
+  canaries: { fileName: 'canaries.vault.json', fingerprinted: false, whenUnavailable: 'session' },
 } as const satisfies Record<string, VaultNamespaceSpec>;
 
 type VaultNamespaceSpec = {

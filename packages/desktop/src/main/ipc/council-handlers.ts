@@ -3,6 +3,7 @@ import { resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
 
 import { recordAudit } from '../agent-audit';
+import { outboundSecrets } from '../outbound-secrets';
 import { createPty, killPty, offPty, onPty } from '../pty-service';
 import { currentSettings } from '../settings-mirror';
 import { listAgents } from '../terminal-service';
@@ -34,6 +35,7 @@ export function registerCouncilHandlers(): void {
       ollamaBaseUrl: () => resolveOllamaBaseUrl(),
       ollamaApiKey: readOllamaApiKey,
       audit: recordAudit,
+      outboundSecrets,
     },
   });
 }

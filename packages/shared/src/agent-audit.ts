@@ -87,6 +87,8 @@ export const ChatTurnAuditSchema = z.object({
   provenance: z.record(z.string(), z.number().int().nonnegative()).optional(),
   /** How many secrets were scrubbed from the turn's outbound text (Phase 121 D); 0 until then. */
   redactions: z.number().int().nonnegative(),
+  /** A canary value was in the outbound prompt (Phase 121 D): a `critical` finding. */
+  canary: z.boolean().optional(),
 });
 
 /** One council run, written when it finishes. */
@@ -100,6 +102,10 @@ export const CouncilRunAuditSchema = z.object({
   succeeded: z.number().int().nonnegative(),
   synthProvider: z.string(),
   ms: z.number(),
+  /** Secrets scrubbed from the member and synthesis prompts (Phase 121 D). */
+  redactions: z.number().int().nonnegative().optional(),
+  /** A canary value was in an outbound prompt (Phase 121 D): a `critical` finding. */
+  canary: z.boolean().optional(),
 });
 
 /** What the tool-call policy decided (Phase 121 Theme B). */

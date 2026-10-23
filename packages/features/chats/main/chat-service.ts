@@ -20,6 +20,9 @@ import {
   changeSetNeedsReview,
   chatTitleFromText,
   chatWorktreeBranch,
+  redactOutbound,
+  redactOutboundMessages,
+  redactionTotal,
   deriveChangeSetStatus,
   deriveFileStatus,
   failure,
@@ -42,6 +45,8 @@ import {
   type ChatWorktree,
   type GitOpResult,
   type NewAgentAuditRecord,
+  type OutboundSecret,
+  type Redaction,
   siblingWorktreePath,
 } from '@midnite/studio-shared';
 
@@ -139,6 +144,12 @@ export type ChatServiceDeps = {
    * asked for Ollama chats (no agent CLI loads MCP servers) or for chats with no repo.
    */
   mcpGate?: ((repoId: string) => Promise<readonly string[]>) | undefined;
+  /**
+   * The vault's secret values (and the canaries), supplied by the composer so chats never import the vault
+   * (Phase 121 Theme D). Every prompt and Ollama request body is scrubbed against them, and against
+   * `SECRET_PATTERNS` by shape, before it leaves the process. Absent: only the patterns run.
+   */
+  outboundSecrets?: (() => Promise<readonly OutboundSecret[]>) | undefined;
   now?: () => number;
   newId?: () => string;
   /** The git-engine seam — injectable so a test need not make real worktrees. */
@@ -157,7 +168,16 @@ export type GitSeam = {
   exists: (path: string) => boolean;
 };
 
-type RunHandle = { cancelled: boolean; kill: (() => void) | null; controller: AbortController; assistantId: string };
+type RunHandle = {
+  cancelled: boolean;
+  kill: (() => void) | null;
+  controller: AbortController;
+  assistantId: string;
+  /** What outbound redaction scrubbed from this turn's prompt (Phase 121 D); replaced by each attempt, never summed. */
+  redactions: Redaction[];
+  /** A canary value was in the outbound prompt. */
+  canary: boolean;
+};
 
 export type ChatService = ReturnType<typeof createChatService>;
 
@@ -456,7 +476,7 @@ export function createChatService(deps: ChatServiceDeps) {
     deps.emit({ kind: 'message', chatId: chat.id, message: assistant });
     emitChat(chat.id);
 
-    const handle: RunHandle = { cancelled: false, kill: null, controller: new AbortController(), assistantId: assistant.id };
+    const handle: RunHandle = { cancelled: false, kill: null, controller: new AbortController(), assistantId: assistant.id, redactions: [], canary: false };
     running.set(chat.id, handle);
     void runTurn(chat, history, user, assistant, handle).finally(() => {
       running.delete(chat.id);
@@ -613,7 +633,7 @@ export function createChatService(deps: ChatServiceDeps) {
     } finally {
       closeThinking(assistant);
       assistant.finishedAt = now();
-      auditTurn(chat, user, handle.cancelled ? 'cancelled' : error ? 'error' : 'done', startedAt);
+      auditTurn(chat, user, handle.cancelled ? 'cancelled' : error ? 'error' : 'done', startedAt, handle.redactions, handle.canary);
       if (changeSet) assistant.changeSet = changeSet;
       if (handle.cancelled) {
         assistant.status = 'cancelled';
@@ -640,7 +660,7 @@ export function createChatService(deps: ChatServiceDeps) {
   }
 
   /** One `chat-turn` record: engine, model, thread, and counts — never the text. */
-  function auditTurn(chat: Chat, user: ChatMessage, status: 'done' | 'error' | 'cancelled', startedAt: number): void {
+  function auditTurn(chat: Chat, user: ChatMessage, status: 'done' | 'error' | 'cancelled', startedAt: number, redactions: readonly Redaction[], canary: boolean): void {
     if (!deps.audit) return;
     try {
       const attachments = user.attachments?.length ?? 0;
@@ -654,11 +674,43 @@ export function createChatService(deps: ChatServiceDeps) {
         ms: Math.max(0, now() - startedAt),
         attachments,
         ...(attachments > 0 ? { provenance: { attachment: attachments } } : {}),
-        redactions: 0,
+        redactions: redactionTotal(redactions),
+        ...(canary ? { canary: true } : {}),
       });
     } catch {
       // Never into a turn.
     }
+  }
+
+  /** The vault's values, or none when the composer gave no source or it failed: the patterns still run. */
+  async function secretsNow(): Promise<readonly OutboundSecret[]> {
+    try {
+      return (await deps.outboundSecrets?.()) ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Record what was scrubbed on the turn and on the user message, and tell the renderer so its chips appear. */
+  function noteRedactions(chat: Chat, user: ChatMessage, handle: RunHandle, redactions: Redaction[], canary: boolean): void {
+    handle.redactions = redactions;
+    handle.canary = canary;
+    if (redactions.length === 0 && user.redactions === undefined) return;
+    if (redactions.length === 0) delete user.redactions;
+    else user.redactions = redactions;
+    deps.emit({ kind: 'message', chatId: chat.id, message: user });
+  }
+
+  async function scrubPrompt(chat: Chat, user: ChatMessage, handle: RunHandle, prompt: string): Promise<string> {
+    const result = redactOutbound(prompt, await secretsNow());
+    noteRedactions(chat, user, handle, result.redactions, result.canary);
+    return result.text;
+  }
+
+  async function scrubMessages<M extends { content: string }>(chat: Chat, user: ChatMessage, handle: RunHandle, messages: M[]): Promise<M[]> {
+    const result = redactOutboundMessages(messages, await secretsNow());
+    noteRedactions(chat, user, handle, result.redactions, result.canary);
+    return result.messages;
   }
 
   async function runOllama(chat: Chat, history: ChatMessage[], user: ChatMessage, assistant: ChatMessage, handle: RunHandle): Promise<TurnResult> {
@@ -667,7 +719,7 @@ export function createChatService(deps: ChatServiceDeps) {
     try {
       await deps.ollamaStream({
         model: chat.model,
-        messages: buildOllamaMessages(history, user),
+        messages: await scrubMessages(chat, user, handle, buildOllamaMessages(history, user)),
         signal: handle.controller.signal,
         onDelta: (text) => pushDelta(chat, assistant, text),
         onThinking: (text) => pushThinking(chat, assistant, text),
@@ -699,7 +751,7 @@ export function createChatService(deps: ChatServiceDeps) {
 
     let last: TurnResult = {};
     for (const sessionId of attempts) {
-      const prompt = buildTurnPrompt({ history, message: user, resumed: sessionId !== null });
+      const prompt = await scrubPrompt(chat, user, handle, buildTurnPrompt({ history, message: user, resumed: sessionId !== null }));
       const invocation = buildInvocation({ agent, prompt, mode: chat.mode, model: chat.model, sessionId });
       if (!invocation) return { error: `${agent.label} has no headless mode, so it cannot back a chat.` };
 
