@@ -18,6 +18,7 @@ export * from './fs-jail';
 export * from './fs-jail-write';
 export * from './read-capped';
 export * from './login-shell';
+export * from './engine-key-env';
 export * from './shell-path';
 export * from './vault';
 export * from './broker';

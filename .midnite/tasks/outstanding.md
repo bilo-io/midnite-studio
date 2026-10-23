@@ -822,3 +822,12 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 - **The Chats gate discovers against the repo's primary checkout**, but an edit-mode chat runs in its own worktree whose `.mcp.json` can differ; pass the run's cwd to discovery.
 - **Allowlist keys use the display name.** A same-named server in a lower-precedence file is listed as `name (source)`, so removing the higher-precedence file renames it and drops its approval; key by source plus name instead.
 - **`status()` re-reads the config files on every poll** (15 s in the Tools view); cache by mtime if it shows up in a profile.
+
+## Phase 121 Theme I — stubs
+
+- **The Agents app passes no `engineEnv` / `agentKeyEnv`**, so its Chats and Councils spawn without a vault key (the CLI uses its own login). Agents reads only `ollama.apiKey` through the host and its grants; handing it per-engine keys needs new grants in Vault.
+- **Workflow agent nodes** are not given the engine key unless they spawn through an agent pty.
+- **Loop runs record `model` and launch with the flag, but a loop-run output is not parsed** for the model it reports, so no mismatch mark there yet.
+- **Chat model pins are Claude-only**, because `loopModelArgs` only knows `--model` for `claude`; Codex and Agy turns have nothing to mismatch against.
+- **Ollama library search is not behind a switch yet**: Phase 115 Theme A is not on `main`. Digest checks make no network call, so nothing was added.
+- **Digest pins are not cleaned** when a model is deleted, and the Agents app does not configure the digest ledger.

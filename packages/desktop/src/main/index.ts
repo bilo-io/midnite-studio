@@ -157,7 +157,12 @@ import {
   stopAllVideoProcesses,
 } from '@midnite/studio-feature-media-video/main';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
-import { configureOllamaSettings, createOllamaSettingsStore } from '@midnite/studio-feature-models/main';
+import {
+  configureOllamaDigests,
+  configureOllamaSettings,
+  createOllamaDigestStore,
+  createOllamaSettingsStore,
+} from '@midnite/studio-feature-models/main';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerPrivilegedSchemes, setVideoFileRootProvider } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
@@ -829,6 +834,8 @@ export const startStudioMain: StartStudioMain = () => {
       });
       registerGamesHandlers(games, gameAgentService, gamePlaytests);
       configureOllamaSettings(createOllamaSettingsStore(userData));
+      // Phase 121 Theme I: installed models are pinned by manifest digest; a moved digest is a Vanguard finding.
+      configureOllamaDigests({ store: createOllamaDigestStore(userData), raiseFinding: (finding) => getFindingsLedger().record(finding) });
       configureDiagnostics(createTrustStore(userData));
       configureTests(createTestTrustStore(userData));
       /*

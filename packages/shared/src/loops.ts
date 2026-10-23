@@ -209,6 +209,23 @@ export function loopModelArgs(agentId: string, model: LoopModel): string[] {
 }
 
 /**
+ * Whether the model a CLI reported running is the one that was pinned (Phase 121 Theme I).
+ *
+ * The flag is a request; the model id in the CLI's own output is what actually answered, and a fallback
+ * or an alias that moved would make them differ. A match is the pinned id exactly, or that id followed
+ * by a dated snapshot (`-20261001`) or a context suffix (`[1m]`) — never a longer family name, so a pin on
+ * `claude-opus-5` does not accept `claude-opus-5-5`. Nothing is pinned for `default` or a non-Claude
+ * engine, so nothing can differ.
+ */
+export function reportedModelMatches(agentId: string, pinned: LoopModel, reported: string): boolean {
+  if (agentId !== 'claude') return true;
+  const cli = LOOP_MODELS.find((entry) => entry.id === pinned)?.cliModel ?? null;
+  if (cli === null) return true;
+  const rest = reported.startsWith(cli) ? reported.slice(cli.length) : null;
+  return rest !== null && (rest === '' || /^(-(\d{8}|\d{4}-\d{2}-\d{2}|latest))?(\[[^\]]*\])?$/.test(rest));
+}
+
+/**
  * The models a given provider actually offers — the second half of the
  * composer's provider/model pair.
  *

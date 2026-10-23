@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import type { OllamaPullProgressEvent } from '@midnite/studio-shared';
 
-import { ollamaPull, type OllamaPullLine } from './client';
+import { ollamaPull, ollamaTags, type OllamaPullLine } from './client';
+import { getOllamaDigestLedger } from './digest-ledger';
 
 /**
  * The main-side pull queue (Phase 96 Theme B) — one active HTTP stream per
@@ -97,6 +98,7 @@ async function runPull(state: PullState, baseUrl?: string): Promise<void> {
         });
       },
     });
+    await pinInstalledDigest(state.model, baseUrl);
   } catch (error) {
     if (state.cancelled) {
       emitPullProgress({ pullId: state.pullId, model: state.model, status: 'cancelled', done: true });
@@ -112,6 +114,26 @@ async function runPull(state: PullState, baseUrl?: string): Promise<void> {
   } finally {
     pullsById.delete(state.pullId);
     if (pullIdByModel.get(state.model) === state.pullId) pullIdByModel.delete(state.model);
+  }
+}
+
+/**
+ * Phase 121 Theme I: the pull finished, so ask the daemon what it now lists for the model, check that
+ * against the manifest on disk and pin it. Best effort — a daemon that cannot list, or a ledger that is not
+ * configured, never turns a finished pull into an error.
+ */
+async function pinInstalledDigest(model: string, baseUrl: string | undefined): Promise<void> {
+  const ledger = getOllamaDigestLedger();
+  if (!ledger) return;
+  try {
+    // `llama3` is listed as `llama3:latest`: compare with the implicit tag spelled out.
+    const full = (name: string): string => (name.lastIndexOf(':') > name.lastIndexOf('/') ? name : `${name}:latest`);
+    const installed = (await ollamaTags(baseUrl ? { baseUrl } : {})).find((m) => full(m.name) === full(model) || full(m.model) === full(model));
+    // The manifest on this disk only speaks for a daemon on this machine.
+    const local = !baseUrl || /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(baseUrl);
+    if (installed) await ledger.recordInstalled(installed, { checkDisk: local });
+  } catch {
+    // Nothing to pin.
   }
 }
 

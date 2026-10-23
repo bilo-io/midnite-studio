@@ -11,8 +11,8 @@ import {
 } from './activity-detect';
 import type { AgentWatcher } from './agent-watcher';
 import { createBrokerClient, studioBrokerLocation, type BrokerClient, type BrokerStatus } from './broker-client';
-import { readOllamaApiKey } from './ipc/secrets-handlers';
-import { agentFingerprintEnv } from './pty-env';
+import { readAgentApiKey, readOllamaApiKey } from './ipc/secrets-handlers';
+import { agentFingerprintEnv, agentKeyEnv } from './pty-env';
 import {
   inprocActivePtyPids,
   inprocCreatePty,
@@ -598,7 +598,12 @@ export async function createPty(options: {
   /** See {@link withResolvedOllamaKey} (Phase 96 Theme F). */
   useOllamaKey?: boolean | undefined;
 }): Promise<CreateResult> {
-  const resolvedEnv = await withResolvedOllamaKey(options.env, options.useOllamaKey);
+  const keyEnv = await agentKeyEnv(options.kind, options.agentId, options.useOllamaKey, readAgentApiKey);
+  // The session's own env wins over the vault's key: an explicit per-session override is deliberate.
+  const resolvedEnv = await withResolvedOllamaKey(
+    Object.keys(keyEnv).length > 0 ? { ...keyEnv, ...options.env } : options.env,
+    options.useOllamaKey,
+  );
 
   if (brokerClient && brokerClient.getStatus().mode === 'broker' && brokerClient.isAlive()) {
     const result = await brokerClient.createPty({
