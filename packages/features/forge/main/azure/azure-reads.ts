@@ -340,9 +340,11 @@ export async function pullDetail(
       headSha: lastMergeSource ? asString(lastMergeSource['commitId']) : null,
       baseSha: lastMergeTarget ? asString(lastMergeTarget['commitId']) : null,
       baseBranch: shortBranch(asString(raw['targetRefName'])) ?? '',
-      additions: 0, // Not returned by the PR resource — see `pullFiles`'s own docblock for why a byte-accurate count costs a full diff build.
-      deletions: 0,
-      changedFiles: 0,
+      // Not returned by the PR resource — see `pullFiles`'s own docblock for why a
+      // byte-accurate count costs a full diff build. Unknown, not zero.
+      additions: null,
+      deletions: null,
+      changedFiles: null,
       createdAt: asString(raw['creationDate']),
       updatedAt: asString(raw['creationDate']),
       mergeable: mapMergeable(asString(raw['mergeStatus'])),

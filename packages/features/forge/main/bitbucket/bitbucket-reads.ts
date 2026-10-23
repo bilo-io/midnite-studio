@@ -255,9 +255,11 @@ export async function pullDetail(
       headSha: extra.headSha,
       baseSha: extra.baseSha,
       baseBranch: extra.baseBranch,
-      additions: 0, // Not returned by the PR resource itself — `/diffstat` would cost a second call nothing here reads yet.
-      deletions: 0,
-      changedFiles: 0,
+      // Not returned by the PR resource itself — `/diffstat` would cost a second
+      // call nothing here reads yet. Unknown, not zero.
+      additions: null,
+      deletions: null,
+      changedFiles: null,
       createdAt: extra.createdAt,
       updatedAt: extra.updatedAt,
       mergeable: null, // Bitbucket exposes no equivalent tri-state field on this resource.

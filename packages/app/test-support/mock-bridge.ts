@@ -1869,9 +1869,11 @@ export function buildMockBridge(data: MockFixtures) {
               // compare" (`use-base-blob-exists.ts`) both key off.
               baseSha: seeded['baseSha'] ?? null,
               baseBranch: seeded['baseBranch'] ?? '',
-              additions: seeded['additions'] ?? 0,
-              deletions: seeded['deletions'] ?? 0,
-              changedFiles: seeded['changedFiles'] ?? 0,
+              // `!== undefined`, not `??`: a seeded null is "the forge did not
+              // say", which the header must see as null rather than as 0.
+              additions: seeded['additions'] !== undefined ? seeded['additions'] : 0,
+              deletions: seeded['deletions'] !== undefined ? seeded['deletions'] : 0,
+              changedFiles: seeded['changedFiles'] !== undefined ? seeded['changedFiles'] : 0,
               createdAt: seeded['createdAt'] ?? null,
               updatedAt: seeded['updatedAt'] ?? null,
               mergeable: seeded['mergeable'] ?? null,

@@ -479,10 +479,22 @@ function PrHeader({
           </span>
         </span>
         {detail !== null ? (
+          /*
+            Each half only when the forge said it: a null count is unknown, and
+            printing it as `0 files +0 −0` would claim the PR changed nothing.
+          */
           <span className="tabular-nums">
-            {formatNumber(detail.changedFiles)} {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
-            <span className="text-success">+{formatNumber(detail.additions)}</span>{' '}
-            <span className="text-destructive">−{formatNumber(detail.deletions)}</span>
+            {detail.changedFiles !== null ? (
+              <>
+                {formatNumber(detail.changedFiles)} {detail.changedFiles === 1 ? 'file' : 'files'}{' '}
+              </>
+            ) : null}
+            {detail.additions !== null && detail.deletions !== null ? (
+              <>
+                <span className="text-success">+{formatNumber(detail.additions)}</span>{' '}
+                <span className="text-destructive">−{formatNumber(detail.deletions)}</span>
+              </>
+            ) : null}
           </span>
         ) : loadingDetail ? (
           /*
