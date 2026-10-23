@@ -1,6 +1,10 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+## 2026-10-23 — Phase 120 Theme D — Persistence and process sensors
+
+[PR #985](https://github.com/bilo-io/midnite-studio/pull/985). Four Vanguard sensors on the sensor host: persistence (LaunchAgents/Daemons, rc files, `~/.ssh`, `/etc/periodic`, crontab; baseline + `fs.watch`; plist `ProgramArguments` and signature state in the evidence), process table (new executables checked with `codesign`/`spctl`/quarantine xattr), Apple signals (XProtect age, syspolicy and XProtectRemediator denials, Gatekeeper/SIP status under shared fingerprints) and ClickFix paste shapes. The broker output stream and agent-session pids are optional injected deps, not yet wired by a composer.
+
 ## 2026-10-22 — Phase 117 Theme F — Credential-phishing detection
 
 [PR #980](https://github.com/bilo-io/midnite-studio/pull/980). A fixed snippet run in an isolated world (never the page's main world; DOM read through prototypes so named-property clobbering cannot lie) reports password fields and where their forms post; six rules — password on `http:`, on a lookalike, on a host first seen today, posting to another site, on a site named for a known sign-in brand it is not (`github-login.app`, danger), or with that brand only in a subdomain or title (caution) — land on the tab's `SiteVerdict.credentialRisk` and raise C's one badge to "Login risk" / "Possible phishing". First-seen hosts persist only as keyed HMAC digests and day numbers (0600, key `safeStorage`-encrypted), cleared with browsing data; the Vault's sign-in domains feed both the phishing and lookalike rules. Items: login-form read, the rules, clipboard-read stays denied, no autofill, acceptance fixtures (http → caution, `g1thub.com` → danger, `github.com` → nothing).

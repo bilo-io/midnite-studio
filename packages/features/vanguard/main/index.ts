@@ -35,6 +35,11 @@ export {
   type IntegrityLiveSession,
   type IntegrityRepo,
 } from './integrity-sensor';
+export {
+  createPersistenceProcessSensors,
+  type PersistenceProcessDeps,
+} from './persistence-process-sensors';
+export type { PtyOutputChunk, PtyOutputSource } from './clickfix';
 export { createSensorRunProcess } from './run-process';
 export {
   createVanguardService,

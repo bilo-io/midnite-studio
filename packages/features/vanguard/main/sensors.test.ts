@@ -5,13 +5,15 @@ import { BUNDLE_SENSOR_ID, INTEGRITY_SENSOR_ID } from './integrity-sensor';
 import { createSensorHost } from './sensor-host';
 import { builtinSensors, resolveByFingerprint, type ResolvableLedger } from './sensors';
 
+/** Theme D's sensors, registered after C's. */
+const D_IDS = ['persistence', 'processes', 'apple-signals', 'terminal-paste'];
+
 describe('builtinSensors', () => {
   it('ships the integrity sensor always and the bundle check when the app says where it runs from', () => {
-    expect(builtinSensors({}).map((s) => s.id)).toEqual([INTEGRITY_SENSOR_ID]);
-    expect(builtinSensors({ execPath: '/A/M.app/Contents/MacOS/M', packaged: true }).map((s) => s.id)).toEqual([
-      INTEGRITY_SENSOR_ID,
-      BUNDLE_SENSOR_ID,
-    ]);
+    expect(builtinSensors({}).map((s) => s.id)).toEqual([INTEGRITY_SENSOR_ID, ...D_IDS]);
+    expect(
+      builtinSensors({ execPath: '/A/M.app/Contents/MacOS/M', packaged: true }).map((s) => s.id),
+    ).toEqual([INTEGRITY_SENSOR_ID, BUNDLE_SENSOR_ID, ...D_IDS]);
   });
 
   it('registers with the sensor host and shows on the Sensors tab', () => {
@@ -23,11 +25,13 @@ describe('builtinSensors', () => {
       autostart: 'always',
       onChanged: () => undefined,
     });
-    for (const sensor of builtinSensors({ execPath: '/A/M.app/Contents/MacOS/M' })) host.register(sensor);
+    for (const sensor of builtinSensors({ execPath: '/A/M.app/Contents/MacOS/M' }))
+      host.register(sensor);
     const rows = host.status().sensors;
     expect(rows.map((r) => [r.id, r.state, r.enabled])).toEqual([
       [INTEGRITY_SENSOR_ID, 'disabled', true],
       [BUNDLE_SENSOR_ID, 'disabled', true],
+      ...D_IDS.map((id) => [id, 'disabled', true]),
     ]);
     expect(rows[0]!.description).toMatch(/outside a git commit/);
   });
