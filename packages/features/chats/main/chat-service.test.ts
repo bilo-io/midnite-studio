@@ -659,6 +659,29 @@ describe('chat service: edit mode and reviewable changes', () => {
     expect(await store.loadPatches(set.id)).toEqual({ 'src/a.ts': fullPatch, 'img.png': 'BIN' });
   });
 
+  it('attaches policyReason when changes touch sensitive files like .githooks', async () => {
+    const sensitiveChanges = [
+      {
+        path: '.githooks/pre-commit',
+        oldPath: null,
+        change: 'added' as const,
+        binary: false,
+        insertions: 5,
+        deletions: 0,
+        patch: 'diff --git a/.githooks/pre-commit b/.githooks/pre-commit\nnew file mode 100755\n',
+        hunks: [{ header: '@@ -0,0 +1,5 @@', insertions: 5, deletions: 0, text: '+#!/bin/sh\n+echo hello\n' }],
+      },
+    ];
+    const ctx = setup({
+      git: fakeGit({ captureChanges: vi.fn(async () => ok(sensitiveChanges)) as never }),
+    });
+    const chat = await created(ctx.service, { mode: 'edit', repoId: 'repo:/work/app' });
+    await ctx.service.send({ chatId: chat.id, text: 'install hook' });
+    await ctx.service.idle();
+    const reply = lastAssistant(((await ctx.service.get(chat.id)) as { value: { chat: Chat } }).value.chat);
+    expect(reply.changeSet?.files[0]?.policyReason).toBe('A git hook runs on every commit.');
+  });
+
   it('summary flags a chat with changes waiting', async () => {
     const { service } = await withChanges();
     expect((await service.list())[0]!.pendingChanges).toBe(true);

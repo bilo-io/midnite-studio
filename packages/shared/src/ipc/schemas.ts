@@ -5353,4 +5353,14 @@ export * from '../vanguard';
 export * from '../vanguard-network';
 
 // The tool-call policy and its approval card (Phase 121 Theme B).
-export { ToolApprovalAnswerRequest, ToolApprovalRequestSchema, ToolApprovalResolvedSchema, ToolPolicySchema } from '../tool-policy';
+export {
+  ToolApprovalAnswerRequest,
+  type ToolApprovalHookInfo,
+  ToolApprovalHookInfoSchema,
+  ToolApprovalRequestSchema,
+  ToolApprovalResolvedSchema,
+  ToolPolicySchema,
+  formatClaudeHookSnippet,
+  formatCodexHookSnippet,
+} from '../tool-policy';
+

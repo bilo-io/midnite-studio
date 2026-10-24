@@ -439,3 +439,49 @@ export function patchConcerns(files: readonly { path: string; patch?: string | u
   }
   return concerns;
 }
+
+// --- CLI hook script and Setup wizard info -----------------------------------
+
+export const ToolApprovalHookInfoSchema = z.object({
+  scriptPath: z.string().min(1),
+  claudeSnippet: z.string().min(1),
+  codexSnippet: z.string().min(1),
+});
+export type ToolApprovalHookInfo = z.infer<typeof ToolApprovalHookInfoSchema>;
+
+/** Formats the Claude Code PreToolUse hook configuration JSON snippet. */
+export function formatClaudeHookSnippet(scriptPath: string): string {
+  return JSON.stringify(
+    {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: 'Bash|Write|Edit',
+            hooks: [{ type: 'command', command: `node "${scriptPath}"` }],
+          },
+        ],
+      },
+    },
+    null,
+    2,
+  );
+}
+
+/** Formats the Codex PreToolUse hook configuration JSON snippet. */
+export function formatCodexHookSnippet(scriptPath: string): string {
+  return JSON.stringify(
+    {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: 'Bash',
+            hooks: [{ type: 'command', command: `node "${scriptPath}"` }],
+          },
+        ],
+      },
+    },
+    null,
+    2,
+  );
+}
+

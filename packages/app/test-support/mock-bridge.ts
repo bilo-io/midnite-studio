@@ -13,6 +13,7 @@ import type {
   SyncStatusEvent,
   TestPackage,
   TestRunResult,
+  ToolApprovalRequest,
 } from '@midnite/studio-shared';
 
 /**
@@ -1006,6 +1007,8 @@ export type MockFixtures = {
   agentAudit?: AgentAuditRecord[];
   /** The MCP servers the Tools view lists with their trust verdicts (Phase 121 Theme C); absent → none. */
   mcpTrust?: McpServerStatus[];
+  /** In-flight tool-approval requests (Phase 121 Theme B). */
+  toolApprovals?: ToolApprovalRequest[];
   mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean; allowCompanionSettings?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
@@ -5874,6 +5877,23 @@ export function buildMockBridge(data: MockFixtures) {
         found.diff = { config: null, tools: [] };
         return { ok: true as const, value: {} };
       },
+    },
+    // The tool-call policy (Phase 121 Theme B): card requests and answers.
+    toolApproval: {
+      onRequested: (handler: (request: ToolApprovalRequest) => void) => {
+        for (const req of data.toolApprovals ?? []) handler(req);
+        return unsubscribe;
+      },
+      onResolved: () => unsubscribe,
+      answer: async () => ({ ok: true as const, value: {} }),
+      hookInfo: async () => ({
+        ok: true as const,
+        value: {
+          scriptPath: '/path/to/policy-hook.js',
+          claudeSnippet: '{\n  "hooks": {}\n}',
+          codexSnippet: '{\n  "hooks": {}\n}',
+        },
+      }),
     },
     windowChrome: {
       platform: 'darwin',

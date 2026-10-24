@@ -1711,6 +1711,8 @@ export const CHANNELS = {
   // --- the tool-call policy (Phase 121 Theme B) --------------------------------
   /** The user's answer on an approval card: approve once, approve for this session, or deny. */
   toolApprovalAnswer: 'mstudio:tool-approval:answer',
+  /** Hook script path and snippet template for CLI PreToolUse configuration in Setup wizard. */
+  toolApprovalHookInfo: 'mstudio:tool-approval:hook-info',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

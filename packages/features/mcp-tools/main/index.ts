@@ -12,6 +12,7 @@ import {
   type McpServerStatus,
   type McpTrustApproveRequest,
   type ToolApprovalAnswerRequest,
+  type ToolApprovalHookInfo,
 } from '@midnite/studio-shared';
 import type { z } from 'zod';
 
@@ -110,6 +111,8 @@ export type McpTrustPort = {
 export type ToolApprovalsPort = {
   /** `false` when no live card has that id: it was already answered, or it timed out. */
   answer(request: ToolApprovalAnswerRequest): boolean;
+  /** Returns the CLI hook script path and config snippets for the Setup wizard. */
+  hookInfo?(): ToolApprovalHookInfo | Promise<ToolApprovalHookInfo>;
 };
 
 export type McpToolsMainServices = { server: McpToolsServer; audit?: AgentAuditPort; limits?: AgentLimitsPort; trust?: McpTrustPort; approvals?: ToolApprovalsPort };
@@ -228,6 +231,18 @@ export const mcpToolsMain = defineFeatureMain<McpToolsMainServices>({
         return approvals.answer(request) ? { ok: true, value: {} } : failure('That approval was already answered or has timed out.');
       },
       (issue) => failure(issue),
+    );
+    ipc.handleBare(
+      CHANNELS.toolApprovalHookInfo,
+      async () => {
+        if (!approvals?.hookInfo) return failure('This app has no tool policy hook configuration.');
+        try {
+          const value = await approvals.hookInfo();
+          return { ok: true, value };
+        } catch (error) {
+          return failure(error instanceof Error ? error.message : String(error));
+        }
+      },
     );
   },
 });

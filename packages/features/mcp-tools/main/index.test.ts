@@ -108,4 +108,26 @@ describe('mcp-tools main', () => {
     mcpToolsMain.register(bare, { server: createNoMcpServer() });
     expect(await bare.invoke(CHANNELS.toolApprovalAnswer, { id: 'live', decision: 'deny' })).toMatchObject({ ok: false });
   });
+
+  it('answers tool approval hook info when provided by the approvals port', async () => {
+    const hookInfo = vi.fn(async () => ({
+      scriptPath: '/path/to/policy-hook.js',
+      claudeSnippet: 'claude config',
+      codexSnippet: 'codex config',
+    }));
+    const ctx = createRecordingContext();
+    mcpToolsMain.register(ctx, { server: createNoMcpServer(), approvals: { answer: () => true, hookInfo } });
+    expect(await ctx.invoke(CHANNELS.toolApprovalHookInfo)).toEqual({
+      ok: true,
+      value: {
+        scriptPath: '/path/to/policy-hook.js',
+        claudeSnippet: 'claude config',
+        codexSnippet: 'codex config',
+      },
+    });
+
+    const bare = createRecordingContext();
+    mcpToolsMain.register(bare, { server: createNoMcpServer() });
+    expect(await bare.invoke(CHANNELS.toolApprovalHookInfo)).toMatchObject({ ok: false });
+  });
 });

@@ -1,9 +1,11 @@
 import { createAgentAuditPort, mcpToolsMain, type McpToolsServer, type McpToolsSetRequest } from '@midnite/studio-feature-mcp-tools/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { formatClaudeHookSnippet, formatCodexHookSnippet } from '@midnite/studio-shared';
 import { BrowserWindow, dialog } from 'electron';
 
 import { agentAuditTrail } from '../agent-audit';
 import { resolveAgentLimit } from '../agent-breaker-wiring';
+import { policyHookScriptPath } from '../hooks/policy-hook-path';
 import { studioMcpTrustPort } from '../mcp-trust-wiring';
 import { answerToolApproval } from '../tool-policy-wiring';
 
@@ -66,7 +68,17 @@ export function registerMcpHandlers(): void {
     server: studioMcpServer,
     limits: { resolve: resolveAgentLimit },
     trust: studioMcpTrustPort,
-    approvals: { answer: answerToolApproval },
+    approvals: {
+      answer: answerToolApproval,
+      hookInfo: () => {
+        const scriptPath = policyHookScriptPath();
+        return {
+          scriptPath,
+          claudeSnippet: formatClaudeHookSnippet(scriptPath),
+          codexSnippet: formatCodexHookSnippet(scriptPath),
+        };
+      },
+    },
     audit: createAgentAuditPort({
       trail: agentAuditTrail,
       pickSavePath: async (defaultName) => {

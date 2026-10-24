@@ -85,6 +85,8 @@ export const ChatChangedFileSchema = z.object({
   status: ChatChangeStatusSchema,
   /** Why the last apply failed, when `status` is `conflict`. */
   conflict: z.string().optional(),
+  /** Phase 121 Theme B: why the tool policy flagged this file for approval (e.g. git hook, CI workflow, MCP config, package.json scripts). */
+  policyReason: z.string().optional(),
 });
 export type ChatChangedFile = z.infer<typeof ChatChangedFileSchema>;
 
@@ -391,8 +393,18 @@ export function reduceChangeSet(
  * Whether anything in the set still waits on the user: a conflict to resolve,
  * or a hunk (or, for a hunkless file, the file) nobody has decided yet. A set
  * whose every part is decided is `partial` but needs nothing more.
+ *
+ * When `options.reviewEnabled` is false (review turned off), normal changes are
+ * waved through, but sensitive files flagged by policy (`f.policyReason`) still
+ * require human review (Phase 121 Theme B).
  */
-export function changeSetNeedsReview(changeSet: Pick<ChatChangeSet, 'files'>): boolean {
+export function changeSetNeedsReview(
+  changeSet: Pick<ChatChangeSet, 'files'>,
+  options?: { reviewEnabled?: boolean },
+): boolean {
+  if (options?.reviewEnabled === false) {
+    return changeSet.files.some((f) => f.policyReason !== undefined);
+  }
   return changeSet.files.some(
     (f) =>
       f.status === 'conflict' ||

@@ -24,7 +24,7 @@ import type {
   Worktree,
 } from '../domain';
 import type { AgentLimitTrip } from '../agent-limits';
-import type { ToolApprovalRequest, ToolApprovalResolved } from '../tool-policy';
+import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } from '../tool-policy';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SongChat } from '../media-music-chat';
@@ -2373,6 +2373,7 @@ export type MidniteStudioBridge = {
     onRequested: (handler: (request: ToolApprovalRequest) => void) => Unsubscribe;
     onResolved: (handler: (resolved: ToolApprovalResolved) => void) => Unsubscribe;
     answer: (req: In<typeof S.ToolApprovalAnswerRequest>) => Promise<GitOpResult<Record<string, never>>>;
+    hookInfo: () => Promise<GitOpResult<ToolApprovalHookInfo>>;
   };
 };
 

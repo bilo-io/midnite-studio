@@ -28,6 +28,7 @@ import {
   failure,
   ok,
   defaultTrustFor,
+  patchConcerns,
   reduceChangeSet,
   reportedModelMatches,
   resolveProvenance,
@@ -884,10 +885,13 @@ export function createChatService(deps: ChatServiceDeps) {
       binary: boolean;
       insertions: number;
       deletions: number;
+      patch?: string | undefined;
       hunks: { header: string; insertions: number; deletions: number; text: string }[];
     }[],
   ): ChatChangeSet {
+    const concerns = new Map(patchConcerns(captured).map((c) => [c.path, c.reason]));
     const files: ChatChangedFile[] = captured.map((f) => {
+      const policyReason = concerns.get(f.path);
       const base = {
         path: f.path,
         oldPath: f.oldPath,
@@ -898,6 +902,7 @@ export function createChatService(deps: ChatServiceDeps) {
         preview: previewLines(f),
         hunks: f.hunks.map((h) => ({ header: h.header, insertions: h.insertions, deletions: h.deletions, status: 'pending' as const })),
         fileStatus: 'pending' as const,
+        ...(policyReason ? { policyReason } : {}),
       };
       return { ...base, status: deriveFileStatus(base) };
     });

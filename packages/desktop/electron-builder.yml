@@ -79,6 +79,8 @@ asarUnpack:
   # genuinely plain Node with no asar awareness, unlike a `utilityProcess`
   # (see the next entry's own note).
   - 'dist/bundle/broker.js'
+  # The CLI policy hook is invoked by external agent CLIs (Claude, Codex) as plain Node.
+  - 'dist/bundle/policy-hook.js'
   # Deliberately ABSENT — see `tts-broker.ts`'s `workerScriptPath()` doc.
   # `companion-tts-worker.js` is a `utilityProcess.fork` target, which runs
   # inside Electron's own Node integration and reads a script from *inside*
