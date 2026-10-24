@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import type {
   AgentAuditRecord,
+  ConfinementStatus,
   McpServerStatus,
   BatteryReading,
   ForgeAccount,
@@ -56,6 +57,7 @@ export type PopoutRole =
   | 'apps-youtube';
 
 export type MockFixtures = {
+  confinementStatus?: ConfinementStatus;
   commitStats?: Record<string, { added: number; deleted: number; files: number }>;
   /**
    * The Finance dashboard's market data and simulated portfolio (`markets.*`).
@@ -5921,6 +5923,9 @@ export function buildMockBridge(data: MockFixtures) {
     // Phase 55: every spec but `detached-panels-shots.spec.ts` leaves this
     // unset and runs as the main window.
     windowRole: data.windowRole ?? 'main',
+    confinement: {
+      status: async () => data.confinementStatus ?? { available: true },
+    },
   };
 
   (window as unknown as { midniteStudio: unknown }).midniteStudio = bridge;

@@ -63,6 +63,7 @@ export const PREFERENCE_KEYS = [
   'forgeScopeReposToActiveAccount', // accounts-page.tsx
   'forgeSwitcherPlacement', // accounts-page.tsx — the "Account switcher" placement select
   'forgeSyncGhAuthSwitch', // accounts-page.tsx
+  'confineNewSessions', // agent-page.tsx — "Confine new sessions"
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
   'graphShowCi', // graph-page.tsx — the "Columns" accordion

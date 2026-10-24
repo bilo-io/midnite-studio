@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import {
+  ConfinedBadge,
   EmptyState,
   ExplorerGroup,
   ExplorerNotice as Notice,
@@ -1073,6 +1074,7 @@ function SessionRow({
             </span>
           )
         ) : null}
+        {record.confined === true ? <ConfinedBadge /> : null}
         {/* A second, smaller glyph rather than swapping the provider icon —
             a loop-launched agent session still needs to say which agent. */}
         {LoopIcon ? (

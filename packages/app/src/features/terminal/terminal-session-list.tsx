@@ -23,7 +23,7 @@ import { StateDot } from '../../components/state-dot';
 import { Spinner } from '../../components/skeleton';
 import { useUiStore } from '../../store/ui-store';
 import { useActivityGlow, type ActivityGlowSessionInput } from '../activity/use-activity-glow';
-import { useGraphStore } from '@midnite/studio-frame';
+import { ConfinedBadge, useGraphStore } from '@midnite/studio-frame';
 import { closeSessionWithConfirm } from './close-session';
 import { terminalPanelElement } from './terminal-panel-element';
 import {
@@ -380,6 +380,7 @@ function SessionRow({
           activityStatus={rowActivity.status}
           ollamaBacked={session.backend === 'ollama'}
         />
+        {session.confined ? <ConfinedBadge /> : null}
         {
           // Provenance, not state (Phase 51 Theme G) — a legacy session can be
           // live (see `sessionPhase`'s own note), so this checks `legacy`

@@ -334,6 +334,8 @@ type TerminalState = {
    */
   releaseSessionsPane: (sessionId: string) => void;
   bindPty: (sessionId: string, ptyId: string) => void;
+  /** The pty came up under a sandbox profile (Phase 121 Theme E): stamp the session so the lock shows and persists. */
+  markConfined: (sessionId: string) => void;
   unbindPty: (sessionId: string) => void;
   setState: (sessionId: string, state: ConnectionState, error?: string) => void;
   /**
@@ -732,6 +734,14 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       delete exitCodes[sessionId];
       return { ptyIds: { ...state.ptyIds, [sessionId]: ptyId }, replay, exitCodes };
     }),
+
+  markConfined: (sessionId) => {
+    const current = get().sessions.find((s) => s.id === sessionId);
+    if (!current || current.confined === true) return;
+    const session = { ...current, confined: true };
+    set((state) => ({ sessions: state.sessions.map((s) => (s.id === sessionId ? session : s)) }));
+    bridge()?.terminal.save({ session });
+  },
 
   unbindPty: (sessionId) =>
     set((state) => {

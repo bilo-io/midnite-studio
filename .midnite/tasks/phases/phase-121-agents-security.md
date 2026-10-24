@@ -114,9 +114,7 @@ description is the one quoting). Not done yet: nothing starts a third-party serv
 
 **Theme D — Secrets do not leave with the prompt.** ✅ `shared/src/outbound-redaction.ts` scrubs a prompt with the vault's values (literal match, any shape) and `SECRET_PATTERNS` (by shape) and writes `[redacted: <kind>]`; Chats scrubs the rendered prompt and every Ollama message, Councils scrub each member and synthesis prompt, and a user message carries `redactions` so the thread shows a chip per kind. Scrollback is untouched. It deliberately skips `redactRecord`'s home-directory collapse, because a prompt needs the real working directory. The vault gains a reserved `canaries` namespace (a GitHub-PAT-shaped and an AWS-key-shaped value, also written 0600 to `~/.config/midnite/.env.canary`); Vanguard's rogue rules gain `canary-trip` (the file named in a command or a denial, or a canary value in an outbound prompt, all `critical`) and `exfiltration` (curl/wget file uploads, `base64 <keyfile> |`, scp/rsync of a dotfile, `gh secret set` from a file: `high`; an agent `npm`/`pnpm publish`: `critical`). The env test is a bound (`agentEnvViolations`): zero vault values today, at most one documented variable per engine once Theme I lands, `MSTUDIO_*` ids only. **Decisions:** vault values under 12 characters are not matched literally (a short password is also an ordinary word); the grammar's publish shape trusts a `publishIntended` hook that nothing supplies yet, so every real agent publish is `critical` (`outstanding.md`).
 
-**Theme E — A confined session.** ◻ An opt-in `sandbox-exec` profile per session — writes only
-under the repo, `userData` and a temp dir; no reads of `~/.ssh`, `~/.aws`, Keychains, other
-repos — with a badge, and the same profile for council members and one-shot runs.
+**Theme E — A confined session.** ✅ `SeatbeltProfile` generated per session (`packages/runtime/src/security/seatbelt-profile.ts`): writes restricted to repo, worktrees, `userData` and temp directory; reads blocked for `~/.ssh`, `~/.aws`, `~/.gnupg`, Keychains, and sibling repos. Broker `create` wraps spawns with `sandbox-exec -f <profile> <shell>`, with identical confinement wired into one-shot runs (`process-runner`), council members (`council-runner`), and Agents' `shell-runner`. Confinement status probed at boot and exposed over IPC (`confinement.status`). The frame's `ConfinedBadge` renders a lock in the terminal header, session tabs, and Sessions view. Settings ▸ Agents ▸ "Confine new sessions" switch (persisted in ui-store and synced to main) toggles default confinement. Denial watcher streams sandbox denials to the Theme G audit trail.
 
 **Theme F — Limits and a breaker.** ✅ `AgentLimitsSchema` in `shared/src/agent-limits.ts`: 120 tool calls a minute, 300 file writes a minute, 10 pushes an hour, 25 outbound hosts and 5M tokens per session (`null` turns spend off), with a per-repo override that resolves by the longest repo path containing the session's cwd. The breaker is `runtime/src/security/agent-breaker.ts`, a sliding window per session fed by Theme G's trail through `readSince` (it starts at the end of the trail, so history never trips it). A limit trips when the count goes *past* its threshold, so the 120th call is fine and the 121st trips. A trip interrupts the session, writes the `limit-trip` record, raises a `medium` `agents` finding through the existing ledger (one row per session and limit), and puts a bell entry in front of the user with Resume, Stop and "Raise limit for this session". Resume clears the session's windows; Raise doubles that one limit for the rest of the session; Stop ends the pty. **The interrupt goes through an injected `interrupt(sessionId)`, not through Phase 120 G, because G is not built.** What it does in Studio is the same Ctrl+C write to the live pty that Vanguard's `pause-session` response action already performs (`agent-breaker-wiring.ts`), so G can pass the same function or call `breaker.resolve`. What the trail can see is what is counted: tool calls are MCP calls, a file write is an MCP call whose tool name says it writes, a push is a `git push` command line, hosts are the ones named in command lines; an agent's built-in tools never reach the trail. Spend reads the agent's own transcript through the monitor feature's `buildAgentUsage` (input, output and cache writes; cache reads are not counted) and is measured from the last Resume. The limits live in a hand-editable `<userData>/security/agent-limits.json` until a settings page exists (see `outstanding.md`). The renderer half is a `useAgentLimitToasts` hook in the mcp-tools feature, which owns the two new channels.
 
@@ -248,7 +246,7 @@ finding. Agents' pairing seed, its one `safeStorage` call and its lack of a vaul
 
 ### E — A confined session [L · 1–2d]
 
-- [ ] **The profile.** `packages/runtime/src/security/seatbelt-profile.ts` generates a
+- [x] **The profile.** `packages/runtime/src/security/seatbelt-profile.ts` generates a
       `sandbox-exec` profile per session: `(deny default)` for file-write except the repo, its
       worktrees, `userData`, `$TMPDIR`, `~/.cache`, `~/.npm`, `~/.pnpm-store`, `~/.cargo`
       and the engine's own state dir (`~/.claude`, `~/.codex`); `(deny file-read*)` for `~/.ssh`,
@@ -259,17 +257,17 @@ finding. Agents' pairing seed, its one `safeStorage` call and its lack of a vaul
       Firefox still confine their renderers with Seatbelt profiles through the same underlying
       `sandbox_init` API, which is the evidence the mechanism is not going away soon. The
       deprecation is a recorded risk (Decisions). [L]
-- [ ] **Wrapping the spawn.** The broker's `create` takes an optional `confine: {profile}`; the
+- [x] **Wrapping the spawn.** The broker's `create` takes an optional `confine: {profile}`; the
       command becomes `sandbox-exec -f <profile> <shell>`, the profile written 0600 under
       `<userData>/security/profiles/` and removed on exit. The same for
       [`process-runner.ts`](../../../packages/runtime/src/process-runner.ts) (one-shot runs),
       [`council-runner.ts`](../../../packages/features/councils/main/council-runner.ts) and Agents'
       [`shell-runner.ts`](../../../apps/agents/main/shell-runner.ts). [M]
-- [ ] **The badge and the denials.** A confined session shows a lock badge in the sessions list and
+- [x] **The badge and the denials.** A confined session shows a lock badge in the sessions list and
       the terminal tab; denials (`log stream --predicate 'sender == "Sandbox"'` for the session's
       pids, or the `sandbox-exec` trace) land in the audit trail and, above a threshold, as findings.
       Settings ▸ Agents ▸ "Confine new sessions" (default off this phase). [M]
-- [ ] **Tests.** The generated profile for a fixture repo parses (`sandbox-exec -n` on CI's macOS
+- [x] **Tests.** The generated profile for a fixture repo parses (`sandbox-exec -n` on CI's macOS
       runner); inside it, `cat ~/.ssh/id_rsa` fails, a write to `/tmp/x` under `$TMPDIR` succeeds,
       a write to a sibling repo fails; `gate-native` is the job (platform behaviour stays on macOS). [S]
 

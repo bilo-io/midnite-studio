@@ -1802,6 +1802,13 @@ export type UiState = {
   forgeSyncGhAuthSwitch: boolean;
   setForgeSyncGhAuthSwitch: (value: boolean) => void;
   /**
+   * Settings ▸ Agents ▸ "Confine new sessions" (Phase 121 Theme E). New terminal and council sessions run under a
+   * macOS Seatbelt profile. Off by default this phase; mirrored into main (`use-settings-sync.ts`), which reads
+   * it at spawn.
+   */
+  confineNewSessions: boolean;
+  setConfineNewSessions: (value: boolean) => void;
+  /**
    * Execution mode when triggering skills: 'interactive' (default) or 'headless'.
    */
   skillExecutionMode: SkillExecutionMode;
@@ -2336,6 +2343,7 @@ export type PersistedUi = Pick<
   | 'forgeScopeReposToActiveAccount'
   | 'forgeSwitcherPlacement'
   | 'forgeSyncGhAuthSwitch'
+  | 'confineNewSessions'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
   | 'audioTabByRepo'
@@ -2577,6 +2585,8 @@ export const useUiStore = create<UiState>()(
       setForgeSwitcherPlacement: (forgeSwitcherPlacement) => set({ forgeSwitcherPlacement }),
       forgeSyncGhAuthSwitch: true,
       setForgeSyncGhAuthSwitch: (forgeSyncGhAuthSwitch) => set({ forgeSyncGhAuthSwitch }),
+      confineNewSessions: false,
+      setConfineNewSessions: (confineNewSessions) => set({ confineNewSessions }),
       skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
       setSkillExecutionMode: (skillExecutionMode) => set({ skillExecutionMode }),
       inactivityTimeoutS: 900,
@@ -3592,6 +3602,7 @@ export const useUiStore = create<UiState>()(
         forgeScopeReposToActiveAccount: state.forgeScopeReposToActiveAccount,
         forgeSwitcherPlacement: state.forgeSwitcherPlacement,
         forgeSyncGhAuthSwitch: state.forgeSyncGhAuthSwitch,
+        confineNewSessions: state.confineNewSessions,
         skillExecutionMode: state.skillExecutionMode,
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
