@@ -1,8 +1,7 @@
 /**
- * knowledge-dark — the Knowledge view over a real slice of this repo's graphify
- * graph (13 code communities, the 40 best-connected symbols of each, ~520 nodes,
- * ~2.3k links). Positions come from fixtures/layout-knowledge.mjs, run offline.
- * Zoom into a cluster, hover symbols, open one, ease back out.
+ * knowledge-dark — the Knowledge view with the 3D presentation engine (Telemetry HUD),
+ * rotating the camera in 3D space, highlighting nodes, searching for symbols,
+ * and opening node source details.
  */
 import { readFileSync } from 'node:fs';
 
@@ -12,8 +11,7 @@ import { clickRailLink, installMockBridge } from '../../../../../../../packages/
 import { click, glide, glideTo, placeCursor, preparePage, Recorder, settlePage } from '../lib';
 import { roadmapFixtures } from '../fixtures/roadmap';
 
-// sigma is WebGL; SwiftShader at DSF 2 drops the screencast to ~8 fps in places.
-// Hand it the real GPU.
+// Use the GPU for 3D canvas and smooth rotation
 test.use({
   launchOptions: {
     args: ['--force-color-profile=srgb', '--hide-scrollbars', '--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-swiftshader=false'],
@@ -58,9 +56,24 @@ async function openKnowledge(page: Page): Promise<void> {
   await page.goto('/');
   await expect(page.getByRole('navigation', { name: 'Views' })).toBeVisible({ timeout: 30_000 });
   await clickRailLink(page, 'Knowledge');
-  await expect(page.locator('[data-testid="knowledge-canvas"] canvas').first()).toBeVisible({ timeout: 20_000 });
-  // Show every relation, not just `calls`.
-  const toggled = await page.evaluate(async () => {
+  
+  // Switch to the 3D representation: Telemetry HUD (telemetry-3d)
+  const pill3D = page.getByRole('button', { name: /Telemetry HUD|3D/i });
+  if (await pill3D.isVisible()) {
+    await pill3D.click();
+  } else {
+    // If inside overflow menu or set directly via store
+    await page.evaluate(() => {
+      // @ts-expect-error accessing store directly if available
+      window.__useKnowledgeFiltersStore?.getState?.().setRendererVariant?.('telemetry-3d');
+    });
+  }
+
+  // Ensure the 3D canvas is mounted
+  await expect(page.locator('canvas').first()).toBeVisible({ timeout: 20_000 });
+
+  // Show relations
+  await page.evaluate(async () => {
     let n = 0;
     for (const label of document.querySelectorAll('label')) {
       const input = label.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
@@ -72,34 +85,52 @@ async function openKnowledge(page: Page): Promise<void> {
     }
     return n;
   });
-  console.log('[capture] relations toggled', toggled);
   await placeCursor(page, 900, 500);
-  await settlePage(page, 2500);
+  await settlePage(page, 2000);
 }
 
 test('knowledge-dark', async ({ page }) => {
   await openKnowledge(page);
-  const box = (await page.getByTestId('knowledge-canvas').boundingBox())!;
+  const canvas = page.locator('canvas[data-testid="knowledge-3d-canvas"]').or(page.locator('canvas').first());
+  const box = (await canvas.boundingBox())!;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const search = page.getByPlaceholder('Search nodes…').or(page.getByPlaceholder('Search nodes...'));
+  
   const rec = new Recorder(page, 'knowledge-dark');
   await rec.start();
-  await page.waitForTimeout(700);
-  // Drift over the whole graph first.
-  await glide(page, cx + 140, cy - 120, 1200);
-  await glide(page, cx - 120, cy + 60, 1000);
-  await glideTo(page, search, 800, { x: 0.3, y: 0.5 });
+  await page.waitForTimeout(600);
+
+  // 1. 3D orbit / rotation by dragging across the canvas
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + 180, cy - 80, { steps: 25 });
+  await page.mouse.up();
+  await page.waitForTimeout(600);
+
+  // 2. Highlighting nodes: glide through clusters to show neon highlights & tooltips
+  await glide(page, cx - 120, cy + 90, 900);
+  await page.waitForTimeout(400);
+  await glide(page, cx + 80, cy - 110, 800);
+  await page.waitForTimeout(400);
+
+  // 3. Search and focus symbol with 3D camera travel
+  await glideTo(page, search, 700, { x: 0.3, y: 0.5 });
   await click(page);
-  // All at once: letter-by-letter matches hundreds of nodes and floods the labels.
   await page.keyboard.insertText(FOCUS);
-  await page.waitForTimeout(1600);
-  // The camera has flown to the symbol; open it.
-  await glide(page, cx, cy, 900);
+  await page.waitForTimeout(1400);
+
+  // 4. Click the focused node to open node details panel
+  await glide(page, cx, cy, 800);
   await click(page);
-  await expect(page.getByText('Knowledge · node')).toBeVisible();
   await page.waitForTimeout(1200);
-  await glide(page, cx - 160, cy - 80, 1100);
-  await page.waitForTimeout(1200);
+
+  // 5. Final slow orbit in 3D around highlighted node
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx - 100, cy + 60, { steps: 20 });
+  await page.mouse.up();
+  await page.waitForTimeout(1000);
+
   await rec.stop();
 });

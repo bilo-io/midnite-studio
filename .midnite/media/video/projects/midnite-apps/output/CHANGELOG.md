@@ -17,3 +17,10 @@
 - Chapter 3 rewritten and extended; new second statement, build slots and chapter 4 "The whole suite"; recap "Eight apps". 44 rhymed lines, 0 spilling.
 - `shared/AppWindow`: cropped shots no longer clamped to the card (max-width/height none) — Review and Monitor are cropped.
 - Audio remuxed −42.7 ms. Measured: −16.7 LUFS integrated, LRA 3.6 LU, true peak −1.6 dBFS.
+
+## v3-zen-3d — 2026-10-25
+
+- Voiceover & subtitles: replaced all ellipses with natural punctuation marks across subtitles and TTS prompt text for cleaner Kokoro speech synthesis pacing and visual rhythm.
+- 3D Knowledge Graph: upgraded `knowledge.cap.ts` to showcase the 3D Telemetry HUD engine with 3D camera mouse orbit, dynamic node glowing/highlighting, and live symbol inspection.
+- Companion & Zen Mode: added `companion.cap.ts` transitioning from docked side-panel assistant with multi-turn conversation cards into full-screen Zen mode with pulsating orb and HUD telemetry dials.
+- Remuxed audio −42.7 ms for Remotion AAC priming offset. Encoded web-optimized 720p H.264 at CRF 26 for `packages/website/public/video/midnite-apps.mp4`.
