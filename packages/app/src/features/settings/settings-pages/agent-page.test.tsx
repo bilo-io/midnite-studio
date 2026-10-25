@@ -414,7 +414,7 @@ describe('AgentPage - Confinement (Phase 121 Theme E)', () => {
     renderView(<AgentPage />, {
       fixtures: {
         ...fixtures,
-        confinementStatus: { available: false, reason: 'sandbox-exec is not available on this machine' },
+        confinementStatus: { available: false, enabled: false, reason: 'sandbox-exec is not available on this machine' },
       },
     });
 
