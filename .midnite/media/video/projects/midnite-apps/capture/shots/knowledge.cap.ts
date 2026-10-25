@@ -52,22 +52,21 @@ async function openKnowledge(page: Page): Promise<void> {
     } as never),
     { cspGuard: false },
   );
+  // The 3D Telemetry HUD is a persisted ui-store setting (Settings ▸ Graph), so seed it.
+  await page.addInitScript(() => {
+    try {
+      const stored = localStorage.getItem('midnite-studio.ui');
+      const persisted = stored ? JSON.parse(stored) : { version: 37 };
+      persisted.state = { ...persisted.state, rendererVariant: 'telemetry-3d' };
+      localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
+    } catch {
+      // ignore
+    }
+  });
   await preparePage(page, { theme: 'dark' });
   await page.goto('/');
   await expect(page.getByRole('navigation', { name: 'Views' })).toBeVisible({ timeout: 30_000 });
   await clickRailLink(page, 'Knowledge');
-  
-  // Switch to the 3D representation: Telemetry HUD (telemetry-3d)
-  const pill3D = page.getByRole('button', { name: /Telemetry HUD|3D/i });
-  if (await pill3D.isVisible()) {
-    await pill3D.click();
-  } else {
-    // If inside overflow menu or set directly via store
-    await page.evaluate(() => {
-      // @ts-expect-error accessing store directly if available
-      window.__useKnowledgeFiltersStore?.getState?.().setRendererVariant?.('telemetry-3d');
-    });
-  }
 
   // Ensure the 3D canvas is mounted
   await expect(page.locator('canvas').first()).toBeVisible({ timeout: 20_000 });
@@ -96,7 +95,7 @@ test('knowledge-dark', async ({ page }) => {
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const search = page.getByPlaceholder('Search nodes…').or(page.getByPlaceholder('Search nodes...'));
-  
+
   const rec = new Recorder(page, 'knowledge-dark');
   await rec.start();
   await page.waitForTimeout(600);

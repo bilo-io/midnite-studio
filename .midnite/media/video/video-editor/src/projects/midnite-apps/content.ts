@@ -268,8 +268,8 @@ export const CONTENT = {
         b: "ZEN MODE",
         tone: "amber",
         shots: [
-          { src: "video/app/midnite-ai-companion.mov", from: 0.3, beats: 4, source: { width: 2912, height: 1758 }, label: "Studio ▸ Companion Panel" },
-          { file: "chats-dark.mp4", from: 0.5, beats: 4, label: "Companion ▸ Zen Stage" },
+          { file: "companion-dark.mp4", from: 0.8, beats: 4, label: "Studio ▸ Companion Panel" },
+          { file: "companion-dark.mp4", from: 4.2, beats: 4, label: "Companion ▸ Zen Stage" },
         ],
       },
       say: "The companion's on the mic — it listens when I speak;",

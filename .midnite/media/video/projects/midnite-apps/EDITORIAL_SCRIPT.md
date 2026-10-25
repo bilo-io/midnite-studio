@@ -78,7 +78,7 @@ Every join is on a 16-beat phrase line with a 12 ms equal-power crossfade (video
 |---|---|---|
 | Bed, voice-over (generated) | `input/bed.wav`, `input/voiceover.wav` | `projectFile("midnite-apps")(…)` |
 | New footage (27 clips) | `input/clips/*.mp4` | `shots[].file` |
-| Browser, companion | `assets/video/app/midnite-studio-browser.mov`, `midnite-ai-companion.mov` (shared, 2912×1758, earlier real-app recordings) | `shots[].src` + `source` |
+| Browser | `assets/video/app/midnite-studio-browser.mov` (shared, 2912×1758, earlier real-app recordings) | `shots[].src` + `source` |
 | Whooshes, riser | `assets/audio/sfx/…` via `shared/Sfx` | as video 1 |
 
 ## Timeline
@@ -112,10 +112,10 @@ dubstep drop); light at 43 for the recap; dark for the outro.
 | 19 | 144 | 2090 | 1:09.7 | **ch 03 · App to app** (drop B) | — | Chapter three... app to app... and not one reload: |
 | 20 | 152 | 2206 | 1:13.5 | MIND / NOTES THAT STICK | notes-dark 1.5 | Mind keeps the notes — type a thought, hit enter, and it's stowed; |
 | 21 | 160 | 2323 | 1:17.4 | SPACED / REVIEW | review-dark 1.6, cropped to the card | then it quizzes what you learned: show the answer, grade it Good — |
-| 22 | 168 | 2439 | 1:21.3 | THE KNOWLEDGE / GRAPH | knowledge-dark 3.5 | the knowledge graph maps the code, every symbol in the hood. |
+| 22 | 168 | 2439 | 1:21.3 | 3D KNOWLEDGE / GRAPH | knowledge-dark 0.8 | the knowledge graph maps the code, every symbol in the hood. |
 | 23 | 176 | 2555 | 1:25.2 | ASK / THE AGENT | chats-dark 7 | Chat with any agent — it'll read the code and cite the line; |
 | 24 | 184 | 2671 | 1:29.0 | A BROWSER / AGENTS DRIVE | assets midnite-studio-browser 0 | the browser's got a driver: hands off, and it's doing fine. |
-| 25 | 192 | 2787 | 1:32.9 | A COMPANION / THAT LISTENS | assets midnite-ai-companion 0.3 | The companion's on the mic — it listens when I speak; |
+| 25 | 192 | 2787 | 1:32.9 | COMPANION & / ZEN MODE | companion-dark 0.8 (4 beats) → companion-dark 4.2 (4 beats) | The companion's on the mic — it listens when I speak; |
 | 26 | 200 | 2903 | 1:36.8 | WORKFLOWS / RUN ALONE | workflows-dark 3 | workflows wire the agents into graphs that run all week. |
 | 27 | 208 | 3019 | 1:40.6 | THE SWARM / SHIPS IT (drop B again) | graph-agents-dark 9.5 | The swarm ships phase one-sixteen, and I ain't even home — |
 | 28 | 216 | 3135 | 1:44.5 | THE FORGE / BESIDE THE CODE | forge-light 3.4 → 7.6 → 10 (2, 3 beats) | the forge: four shards green, zero queued — LGTM, it's flown. |
@@ -166,7 +166,7 @@ hard at work"; models run locally. Respellings for Kokoro: "Midnite" → "Midnig
 
 ## Open items
 
-- **Two shots are the earlier real-app recordings** in `assets/video/app` (browser, companion),
+- **One shot is the earlier real-app recording** in `assets/video/app` (browser),
   because the browser is an Electron webview a plain page can't host. They are real product footage.
 - **Staged content in the captures** (see `capture/SHOTS-studio.md`): the council run's answers,
   the workflow run and the chat's streamed answer are driven in-page on the mock; Creator, Gamer,

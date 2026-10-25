@@ -30,3 +30,10 @@
 - Website hook: slots 2-4 now cut consecutive windows of one continuous take (`web-tour-dark.mp4`, new `tour` job in `capture/web.mjs`), so each clip picks up where the last stopped (hero, Suite, utility apps, agents, Get Access) instead of restarting from the hero. Only slot 1 opens on the hero.
 - Launcher install: `launcher-detail-light.mp4` re-recorded in `?studio=bundles`, where Install downloads only the clicked app (Vault) instead of marking every Studio-hosted tile as downloading. Per-app download stretched to ~2.3 s so it reads on screen; slot start 3 -> 3.4.
 - Audio remuxed -42.7 ms (`v4-seamless-site-remuxed.mp4`, 3:01.95).
+
+## v5-3d-and-zen-footage — 2026-10-25
+
+- The v3 notes above were ahead of the footage: `knowledge-dark.mp4` was still the 2D graph and no companion clip existed (the Zen slot showed `chats-dark.mp4`). Both are now recorded for real.
+- `knowledge-dark.mp4`: the Telemetry HUD 3D graph, switched on by seeding `rendererVariant: 'telemetry-3d'` in the persisted ui-store (the pill/store-hook lookup it replaces matched nothing).
+- `companion-dark.mp4` (new): the docked companion panel (opened with Mod+l, C), then full-screen Zen with the orb and HUD dials. The slot uses it twice, 4 beats each, instead of the old companion recording plus a Chats clip.
+- Everything else as v4. Audio remuxed -42.7 ms.

@@ -15,15 +15,13 @@ test.use({
 });
 
 async function openCompanion(page: Page): Promise<void> {
-  await installMockBridge(page, roadmapFixtures({} as never), { cspGuard: false });
   await page.addInitScript(() => {
     try {
       const stored = localStorage.getItem('midnite-studio.ui');
-      const persisted = stored ? JSON.parse(stored) : { version: 12 };
+      const persisted = stored ? JSON.parse(stored) : { version: 37 };
       persisted.state = {
         ...persisted.state,
         companionEnabled: true,
-        companionOpen: true,
       };
       localStorage.setItem('midnite-studio.ui', JSON.stringify(persisted));
     } catch {
@@ -31,8 +29,13 @@ async function openCompanion(page: Page): Promise<void> {
     }
   });
 
+  await installMockBridge(page, roadmapFixtures({} as never), { cspGuard: false });
   await preparePage(page, { theme: 'dark' });
   await page.goto('/');
+  await expect(page.getByRole('navigation', { name: 'Views' })).toBeVisible({ timeout: 30_000 });
+  // The panel docks from the quick-access menu: Mod+l, then C.
+  await page.keyboard.press('Meta+l');
+  await page.keyboard.press('c');
   await expect(page.locator('[data-testid="companion-panel"]')).toBeVisible({ timeout: 20_000 });
   await placeCursor(page, 900, 500);
   await settlePage(page, 1500);
@@ -66,7 +69,7 @@ test('companion-dark', async ({ page }) => {
   await page.waitForTimeout(1000);
 
   // 5. Glance at corner HUD dials
-  const dial = page.locator('[data-testid="companion-zen-dial-cpu"]').or(page.locator('[data-testid="companion-zen-top-right"]'));
+  const dial = page.locator('[data-testid="companion-zen-dial-cpu"]').or(page.locator('[data-testid="companion-zen-top-right"]')).first();
   if (await dial.isVisible()) {
     await glideTo(page, dial, 600);
     await page.waitForTimeout(800);
