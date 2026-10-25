@@ -35,15 +35,18 @@ const jobs = {
   'grid-dark': () => run('launcher-grid-dark', 'dark', '?studio=installed', grid()),
   'jump-light': () => run('launcher-jump-light', 'light', '?studio=installed', jump(JUMP)),
   'jump-dark': () => run('launcher-jump-dark', 'dark', '?studio=installed', jump(JUMP)),
-  'detail-light': () => run('launcher-detail-light', 'light', '?studio=missing', async (page) => {
-    await moveToEl(page, tile('studio'), { steps: 35 }); await sleep(500);
+  // `?studio=bundles`: Vault is a published bundle that is not installed, so Install downloads
+  // that one app and nothing else (`?studio=missing` hosts every app in Studio, so one Install
+  // marks them all as downloading). The mock's per-app download is 600 ms; stretch it to ~2.3 s.
+  'detail-light': () => run('launcher-detail-light', 'light', '?studio=bundles', async (page) => {
+    await moveToEl(page, tile('vault'), { steps: 35 }); await sleep(500);
     await click(page); await sleep(1500);
     await moveTo(page, 700, 520, 30);
-    await scrollTo; await page.mouse.wheel(0, 0);
+    await page.evaluate(() => { const st = window.setTimeout; window.setTimeout = (f, d, ...a) => st(f, d === 120 ? 460 : d, ...a); });
     const inst = page.locator('.sheet-actions .btn-primary');
     await moveToEl(page, inst, { steps: 35 }); await sleep(500);
     await click(page);
-    await sleep(3600); // fake download + install progress
+    await sleep(3600); // per-app download + install progress
     await moveTo(page, 700, 700, 30);
     await page.locator('.sheet').evaluate((el) => el.scrollTo({ top: 400, behavior: 'smooth' }));
     await sleep(1800);

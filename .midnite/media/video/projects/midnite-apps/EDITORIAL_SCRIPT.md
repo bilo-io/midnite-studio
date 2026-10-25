@@ -92,12 +92,12 @@ dubstep drop); light at 43 for the recap; dark for the outro.
 | # | Beat | Frame | Time | Slot | Footage (from s) | `say` |
 |---|---|---|---|---|---|---|
 | 1 | 0 | 0 | 0:00.0 | MIDNITE / APPS (delay 2) | web-hero-dark 1.2 | Midnite Apps — built a whole suite while the city was sleeping, |
-| 2 | 8 | 116 | 0:03.9 | THE NIGHT / SHIFT | web-hero-dark 6.5 | agents on the graveyard shift — every line they wrote, I'm keeping. |
-| 3 | 16 | 232 | 0:07.7 | NOT ONE APP / A LINEUP | web-scroll-dark 1.5 | Not one app, a whole lineup — stacked up and designed; |
-| 4 | 24 | 348 | 0:11.6 | GET / ACCESS | web-access-dark 1.5 | the site's the front door: request access, get in line. |
+| 2 | 8 | 116 | 0:03.9 | THE NIGHT / SHIFT | web-tour-dark 0.3 | agents on the graveyard shift — every line they wrote, I'm keeping. |
+| 3 | 16 | 232 | 0:07.7 | NOT ONE APP / A LINEUP | web-tour-dark 4.2 | Not one app, a whole lineup — stacked up and designed; |
+| 4 | 24 | 348 | 0:11.6 | GET / ACCESS | web-tour-dark 8.1 | the site's the front door: request access, get in line. |
 | 5 | 32 | 465 | 0:15.5 | **ch 01 · The launcher** (drop A) | — | Chapter one: the launcher — the front door to the floor: |
 | 6 | 40 | 581 | 0:19.4 | EVERY APP / ONE GRID | launcher-grid-light 0.5 | every app in a grid — what it does and what it's for. |
-| 7 | 48 | 697 | 0:23.2 | ONE CLICK / INSTALL | launcher-detail-light 3 | Missing one? Hit install — it's verified, then it swaps, |
+| 7 | 48 | 697 | 0:23.2 | ONE CLICK / INSTALL | launcher-detail-light 3.4 | Missing one? Hit install — it's verified, then it swaps, |
 | 8 | 56 | 813 | 0:27.1 | ONE / UPDATER | launcher-table-light 3 | the launcher runs the updates, so the whole suite never drops. |
 | 9 | 64 | 929 | 0:31.0 | HIT OPEN / DEEP LINK | launcher-detail-light 8.5 (4 beats) → landing-light 0.5 | Hit open and it deep-links — Studio lands on the view; |
 | 10 | 72 | 1045 | 0:34.8 | APP TO APP / IN A HEARTBEAT | launcher-jump-light 3 → gitgraph-light 10.5 → models-light 6.5 → landing-light 6.5 (2 beats each) | app to app in a heartbeat, like the window's brand new. |

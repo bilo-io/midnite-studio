@@ -24,3 +24,9 @@
 - 3D Knowledge Graph: upgraded `knowledge.cap.ts` to showcase the 3D Telemetry HUD engine with 3D camera mouse orbit, dynamic node glowing/highlighting, and live symbol inspection.
 - Companion & Zen Mode: added `companion.cap.ts` transitioning from docked side-panel assistant with multi-turn conversation cards into full-screen Zen mode with pulsating orb and HUD telemetry dials.
 - Remuxed audio −42.7 ms for Remotion AAC priming offset. Encoded web-optimized 720p H.264 at CRF 26 for `packages/website/public/video/midnite-apps.mp4`.
+
+## v4-seamless-site — 2026-10-25
+
+- Website hook: slots 2-4 now cut consecutive windows of one continuous take (`web-tour-dark.mp4`, new `tour` job in `capture/web.mjs`), so each clip picks up where the last stopped (hero, Suite, utility apps, agents, Get Access) instead of restarting from the hero. Only slot 1 opens on the hero.
+- Launcher install: `launcher-detail-light.mp4` re-recorded in `?studio=bundles`, where Install downloads only the clicked app (Vault) instead of marking every Studio-hosted tile as downloading. Per-app download stretched to ~2.3 s so it reads on screen; slot start 3 -> 3.4.
+- Audio remuxed -42.7 ms (`v4-seamless-site-remuxed.mp4`, 3:01.95).
