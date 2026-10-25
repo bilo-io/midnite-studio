@@ -35,7 +35,7 @@ import {
 } from '@midnite/studio-feature-browser/renderer';
 // The frame (Phase 113 Theme C): the chrome every app wears. The layout
 // pieces below are the first to leave this file for it.
-import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, useKnowledgeGraphExists } from '@midnite/studio-frame';
+import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, ToolApprovalHost, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
 import { STUDIO_FORGE_HOST } from './compose/forge-host';
 import { STUDIO_CHROME } from './compose/studio-chrome';
@@ -2133,6 +2133,8 @@ export function App() {
           <PaletteHost>
             <StudioProviders>
               <Shell />
+              {/* Phase 121 Theme B: a call the tool-call policy holds for a human, one card at a time. */}
+              <ToolApprovalHost />
               {/* Phase 120 Theme G: an agent paused by a critical finding asks resume or kill, whichever view is up. */}
               <AgentPauseModal />
             </StudioProviders>

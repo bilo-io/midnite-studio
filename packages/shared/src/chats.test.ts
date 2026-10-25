@@ -161,6 +161,19 @@ describe('card state machine', () => {
   it('an empty set reads as accepted (nothing to review)', () => {
     expect(deriveChangeSetStatus([])).toBe('accepted');
   });
+
+  it('a patch touching .githooks/ asks even with review off', () => {
+    const ordinary = set(file('src/index.ts'));
+    expect(changeSetNeedsReview(ordinary, { reviewEnabled: false })).toBe(false);
+
+    const sensitiveFile: ChatChangedFile = {
+      ...file('.githooks/pre-commit'),
+      policyReason: 'A git hook runs on every commit.',
+    };
+    const sensitive = set(sensitiveFile);
+    expect(changeSetNeedsReview(sensitive, { reviewEnabled: false })).toBe(true);
+    expect(changeSetNeedsReview(sensitive, { reviewEnabled: true })).toBe(true);
+  });
 });
 
 describe('chat helpers', () => {

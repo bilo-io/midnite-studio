@@ -30,6 +30,7 @@ import {
   companionSettingsSet,
   companionVoicesList,
 } from './companion-tools';
+import { checkToolCall, noteToolResult } from '../tool-policy-wiring';
 import { McpToolError } from './errors';
 import {
   gameCreate,
@@ -287,9 +288,14 @@ export async function dispatchMcpCall(tool: string, rawInput: unknown): Promise<
     };
   }
 
+  // Phase 121 Theme B: the tool-call policy judges every call before a handler runs; an `ask` waits for a human.
+  const verdict = await checkToolCall(tool, parsed.data);
+  if (!verdict.allowed) return { ok: false, kind: 'refused', message: verdict.message };
+
   try {
     const handler = MCP_HANDLERS[tool] as (input: unknown) => Promise<unknown>;
     const value = await handler(parsed.data);
+    noteToolResult(tool, value);
     return { ok: true, value };
   } catch (err) {
     if (err instanceof McpToolError) {

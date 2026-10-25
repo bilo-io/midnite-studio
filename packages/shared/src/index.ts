@@ -111,3 +111,4 @@ export * from './mcp-trust';
 export * from './vanguard';
 export * from './vanguard-network';
 export * from './workflow-templates';
+export * from './tool-policy';

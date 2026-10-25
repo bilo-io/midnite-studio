@@ -29,8 +29,8 @@ export const mcpToolsManifest = defineFeatureManifest({
   owner: 'agents',
   views: [],
   settingsPages: [],
-  ipc: [CHANNELS.mcpGet, CHANNELS.mcpSet, CHANNELS.mcpCalls, CHANNELS.agentAuditList, CHANNELS.agentAuditExport, CHANNELS.agentLimitResolve, CHANNELS.mcpTrustList, CHANNELS.mcpTrustApprove],
-  events: [EVENT_CHANNELS.agentLimitTripped],
+  ipc: [CHANNELS.mcpGet, CHANNELS.mcpSet, CHANNELS.mcpCalls, CHANNELS.agentAuditList, CHANNELS.agentAuditExport, CHANNELS.agentLimitResolve, CHANNELS.mcpTrustList, CHANNELS.mcpTrustApprove, CHANNELS.toolApprovalAnswer, CHANNELS.toolApprovalHookInfo],
+  events: [EVENT_CHANNELS.agentLimitTripped, EVENT_CHANNELS.toolApprovalRequested, EVENT_CHANNELS.toolApprovalResolved],
   mcpTools: [],
 });
 

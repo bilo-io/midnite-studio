@@ -1707,6 +1707,12 @@ export const CHANNELS = {
   vanguardMalwareScanCancel: 'mstudio:vanguard:malware-scan-cancel',
   /** The quarantine list and the response actions this app cannot run (Phase 120 Theme H). */
   vanguardResponseState: 'mstudio:vanguard:response-state',
+
+  // --- the tool-call policy (Phase 121 Theme B) --------------------------------
+  /** The user's answer on an approval card: approve once, approve for this session, or deny. */
+  toolApprovalAnswer: 'mstudio:tool-approval:answer',
+  /** Hook script path and snippet template for CLI PreToolUse configuration in Setup wizard. */
+  toolApprovalHookInfo: 'mstudio:tool-approval:hook-info',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -1951,6 +1957,11 @@ export const EVENT_CHANNELS = {
 
   /** A finding paused an agent session; every window shows the resume-or-kill modal (Phase 120 Theme G). Carries an AgentPausePrompt. */
   vanguardAgentPaused: 'mstudio:vanguard:agent-paused',
+
+  /** The tool-call policy asked about a call and is waiting for a human (Phase 121 Theme B). Carries a ToolApprovalRequest. */
+  toolApprovalRequested: 'mstudio:tool-approval:requested',
+  /** An approval card was answered or timed out; every window drops it (Phase 121 Theme B). Carries a ToolApprovalResolved. */
+  toolApprovalResolved: 'mstudio:tool-approval:resolved',
 } as const;
 
 /**

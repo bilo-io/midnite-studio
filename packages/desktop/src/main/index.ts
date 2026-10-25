@@ -36,6 +36,7 @@ import { configureAgentAudit, recordAudit } from './agent-audit';
 import { configureOutboundSecrets } from './outbound-secrets';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
+import { configureToolPolicy } from './tool-policy-wiring';
 import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
 import { createActivityDetector } from './activity-detect';
@@ -723,6 +724,8 @@ export const startStudioMain: StartStudioMain = () => {
         so a tool call reaching the socket the instant it opens never sees an
         empty registry.
       */
+      // Phase 121 Theme B: the tool-call policy is live before the socket opens, so no call meets the gap.
+      await configureToolPolicy(userData, broadcastToAllWindows);
       await registerMcpServer({
         userDataDir: userData,
         appVersion: app.getVersion(),

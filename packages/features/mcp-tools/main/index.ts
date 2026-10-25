@@ -11,6 +11,8 @@ import {
   type McpCallEntry,
   type McpServerStatus,
   type McpTrustApproveRequest,
+  type ToolApprovalAnswerRequest,
+  type ToolApprovalHookInfo,
 } from '@midnite/studio-shared';
 import type { z } from 'zod';
 
@@ -102,7 +104,18 @@ export type McpTrustPort = {
   approve(request: McpTrustApproveRequest): Promise<GitOpResult<Record<string, never>>>;
 };
 
-export type McpToolsMainServices = { server: McpToolsServer; audit?: AgentAuditPort; limits?: AgentLimitsPort; trust?: McpTrustPort };
+/**
+ * The approval card's answer path (Phase 121 Theme B). The policy and its broker are the runtime's, wired by the
+ * composer where the windows are; this is the one call the card makes back. An app with no tool policy passes none.
+ */
+export type ToolApprovalsPort = {
+  /** `false` when no live card has that id: it was already answered, or it timed out. */
+  answer(request: ToolApprovalAnswerRequest): boolean;
+  /** Returns the CLI hook script path and config snippets for the Setup wizard. */
+  hookInfo?(): ToolApprovalHookInfo | Promise<ToolApprovalHookInfo>;
+};
+
+export type McpToolsMainServices = { server: McpToolsServer; audit?: AgentAuditPort; limits?: AgentLimitsPort; trust?: McpTrustPort; approvals?: ToolApprovalsPort };
 
 /**
  * A server that is never running and refuses every change — what an app with no
@@ -207,6 +220,29 @@ export const mcpToolsMain = defineFeatureMain<McpToolsMainServices>({
         return (await limits.resolve(request)) ? { ok: true, value: {} } : failure('That limit notification was already answered.');
       },
       (issue) => failure(issue),
+    );
+
+    const { approvals } = services;
+    ipc.handle(
+      CHANNELS.toolApprovalAnswer,
+      schemas.ToolApprovalAnswerRequest,
+      async (request) => {
+        if (!approvals) return failure('This app has no tool-call policy to answer.');
+        return approvals.answer(request) ? { ok: true, value: {} } : failure('That approval was already answered or has timed out.');
+      },
+      (issue) => failure(issue),
+    );
+    ipc.handleBare(
+      CHANNELS.toolApprovalHookInfo,
+      async () => {
+        if (!approvals?.hookInfo) return failure('This app has no tool policy hook configuration.');
+        try {
+          const value = await approvals.hookInfo();
+          return { ok: true, value };
+        } catch (error) {
+          return failure(error instanceof Error ? error.message : String(error));
+        }
+      },
     );
   },
 });

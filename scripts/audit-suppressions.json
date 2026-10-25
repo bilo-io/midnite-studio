@@ -268,5 +268,29 @@
     "package": "next",
     "reason": "next is never run here: it reaches the lockfile only as a peer of next-intl under @bilo-io/shell, and no workspace package depends on it or starts a Next server. Drop when @bilo-io/shell bumps next. critical: Next.js: Unauthenticated Remote Code Execution in `use cache` functions returning typed arrays",
     "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-mrhx-c7xc-m3w5",
+    "package": "zod",
+    "reason": "zod 3 constrained collection memory exhaustion; tracked in PR #1002 for upgrade to v4. high: Zod can exhaust memory while validating oversized constrained collections",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-jr5w-w6x2-84p9",
+    "package": "electron",
+    "reason": "Electron eMudhra intermediate certificates revocation mitigation; tracked in PR #928. high: Electron: Mitigation for compromised eMudhra intermediate certificates",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-27r3-jxmh-p828",
+    "package": "body-parser",
+    "reason": "Transitive dev/testing server dependency; compressed request trailing bytes DoS. high: body-parser vulnerable to Denial of Service via trailing bytes after a compressed request body",
+    "expires": "2026-12-31"
+  },
+  {
+    "advisory": "GHSA-xcx6-jx8p-x3h5",
+    "package": "@azure/msal-node",
+    "reason": "Transitive database driver dependency; auth code flow parameter disclosure. high: MSAL Node authorization code flow may disclose parameters to an attacker-controlled endpoint",
+    "expires": "2026-12-31"
   }
 ]

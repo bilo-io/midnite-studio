@@ -15,6 +15,7 @@ import { resolveSetupItemIcon } from '../setup-icons';
 import { SetupMeta } from '../setup-meta';
 import { SetupStatusRow, setupRowStatus } from '../setup-status-row';
 import { useInstallRunner, useSetupProbe, type SetupProbeMap } from '../install-runner';
+import { PolicyHookCard } from '../policy-hook-card';
 
 export const TOOLCHAIN_GROUPS: readonly { group: SetupItemGroup; title: string; hint?: string }[] =
   [
@@ -133,6 +134,7 @@ export function ToolchainPage() {
             })}
           </section>
         ))}
+        <PolicyHookCard />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {options.length === 0 ? (

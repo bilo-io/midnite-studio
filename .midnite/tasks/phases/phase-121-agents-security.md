@@ -98,10 +98,7 @@ from a year in which the coding agent became the attack surface. (10% · 5/51) �
 
 **Theme A — Untrusted content wears a tag.** ✅ `ContentProvenanceSchema` (`origin`, `ref`, `trust`, `score?`) in `shared/src/provenance.ts`; trust is derived from the origin, so only `user` and `repo-file` can be trusted and a forge body is untrusted whatever the renderer claims. `ChatAttachment` and `ChatMessage` carry it, chat main stamps attachments on send, and the MCP socket server stamps every successful result `mcp-result` (the one place a result becomes wire, so Studio's server and private run servers both get it). `renderAttachments` and the transcript replay fence untrusted parts with `<<<UNTRUSTED origin=… ref=…>>>`, say the spec's header once per prompt, and strip any fence lookalike inside a part; council prompts use the same `fenceUntrusted` from `shared` (member answers are fenced for the synthesizer). The detector is `runtime/src/security/injection-detector.ts`: nine weighted signals combined as a noisy-or, matches in code or quotation marks discounted to a quarter, threshold 0.5, tested against this repo's own security docs and phase docs plus an attack corpus. Renderers cannot import the runtime, so a new `security.scanContent` op scores text in main and the frame's `InjectionBanner` offers proceed / strip / drop in the Chats composer and the Councils prompt box. **Decisions:** assistant turns replay unfenced unless their provenance says otherwise (they are the conversation); a council prompt is the user's typing, so only member answers are fenced; page text reaches a chat through `pageContentToAttachment` (origin `web-page`), but no "send page to chat" button exists yet (`outstanding.md`).
 
-**Theme B — Tool-call policy and a human for the destructive ones.** ◻ `ToolPolicy` in `shared`
-(allow / ask / deny per tool and argument shape), enforced in the MCP dispatcher and the chat
-patch path; an approval card for destructive git, file and network operations; a hook template the
-user installs for the CLIs.
+**Theme B — Tool-call policy and a human for the destructive ones.** ✅ `ToolPolicySchema` and default policy in `shared/src/tool-policy.ts` (evaluated first-match with per-repo overrides in `<userData>/security/tool-policy.json`); approval broker and guard in `runtime/src/security/tool-guard.ts`; enforced in `desktop/src/main/mcp/dispatch.ts`, private run servers, and the chat patch path (`patchConcerns` and `changeSetNeedsReview` in `chat-service.ts`); `ToolApprovalCard` in frame mounted in `app.tsx`; standalone CLI `PreToolUse` hook bundle (`policy-hook.js`) evaluating via MCP socket `policy.evaluate` (or allowing when app is closed); Setup wizard `PolicyHookCard` offering copyable path and config snippets for Claude Code and Codex without violating Phase 115 F.
 
 **Theme C — MCP servers are trusted by hash, not by name.** ✅ Discovery reads the five config files
 read-only (a small TOML reader for Codex's), and `<userData>/security/mcp-trust.json` pins per
@@ -170,27 +167,27 @@ finding. Agents' pairing seed, its one `safeStorage` call and its lack of a vaul
 
 ### B — Tool-call policy and a human for the destructive ones [L · 1–2d]
 
-- [ ] **`ToolPolicySchema` in `shared`.** Rules `{tool: id | glob, when?: ArgMatcher, effect:
+- [x] **`ToolPolicySchema` in `shared`.** Rules `{tool: id | glob, when?: ArgMatcher, effect:
       'allow' | 'ask' | 'deny', reason}` evaluated first-match; a built-in default policy that
       `ask`s for `git.push` with a lease, `git.reset`, branch delete, `fs.write` outside the repo,
       `workflow_gate_decide`, `ui.command` with a destructive command id, and any tool whose input
       carries untrusted provenance into a path or URL argument; `deny`s nothing by default. Per-repo
       overrides persisted main-side beside the trust store. [M]
-- [ ] **Enforced where calls are dispatched.** [`dispatch.ts`](../../../packages/desktop/src/main/mcp/dispatch.ts)
+- [x] **Enforced where calls are dispatched.** [`dispatch.ts`](../../../packages/desktop/src/main/mcp/dispatch.ts)
       consults the policy before every handler; `ask` suspends the call, raises an approval card in
       every suite window through a new `EVENT_CHANNELS.toolApprovalRequested`, and resolves on the
       answer (deny on timeout, 10 minutes). The private run server
       ([`run-server.ts`](../../../packages/runtime/src/agent-run/run-server.ts)) takes the same
       policy with the run's narrower tool list. [M]
-- [ ] **The chat patch path.** [`chat-service.ts`](../../../packages/features/chats/main/chat-service.ts)'s
+- [x] **The chat patch path.** [`chat-service.ts`](../../../packages/features/chats/main/chat-service.ts)'s
       `changeSetNeedsReview` already holds patches for review; the policy adds the cases a patch
       alone cannot see — a patch that edits `.githooks/`, `.mcp.json`, `.claude/`, `package.json`
       scripts or CI workflows is `ask` regardless of the review setting, with the reason shown. [S]
-- [ ] **The approval card.** One component in the frame: tool, arguments (redacted through
+- [x] **The approval card.** One component in the frame: tool, arguments (redacted through
       `SECRET_PATTERNS`), the provenance of any untrusted input that reached an argument, the
       policy rule that fired, Approve once / Approve for this session / Deny. Never a batch; one
       card per call, queued. [M]
-- [ ] **A hook the user installs, not the app.** For the CLIs the broker runs rather than the MCP
+- [x] **A hook the user installs, not the app.** For the CLIs the broker runs rather than the MCP
       server, Claude Code's `PreToolUse` hook and Codex's equivalent are where a policy can refuse a
       `Bash` call. Phase 115 F forbids the app writing those configs, so the Setup wizard
       ([Phase 98](phase-98-setup-wizard-overlay.md)) gains a card that shows the exact hook entry
@@ -198,7 +195,7 @@ finding. Agents' pairing seed, its one `safeStorage` call and its lack of a vaul
       uses for git hooks), and the user adds it. The script calls the app's policy over the MCP
       socket (`policy.evaluate`), so one policy serves both paths; with the app closed the hook
       allows and logs. [M]
-- [ ] **Tests.** The default policy table against a fixture of 40 calls; `ask` round-trips through
+- [x] **Tests.** The default policy table against a fixture of 40 calls; `ask` round-trips through
       a fake window; a timeout denies; a patch touching `.githooks/` asks even with review off. [S]
 
 ### C — MCP servers are trusted by hash, not by name [M · ~1d]

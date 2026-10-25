@@ -5351,3 +5351,16 @@ export * from './security-findings';
 // Vanguard sensors and settings (Phase 120 Theme B).
 export * from '../vanguard';
 export * from '../vanguard-network';
+
+// The tool-call policy and its approval card (Phase 121 Theme B).
+export {
+  ToolApprovalAnswerRequest,
+  type ToolApprovalHookInfo,
+  ToolApprovalHookInfoSchema,
+  ToolApprovalRequestSchema,
+  ToolApprovalResolvedSchema,
+  ToolPolicySchema,
+  formatClaudeHookSnippet,
+  formatCodexHookSnippet,
+} from '../tool-policy';
+

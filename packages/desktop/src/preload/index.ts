@@ -191,6 +191,7 @@ const bridge: Pick<
   | 'companion'
   | 'capture'
   | 'vanguard'
+  | 'toolApproval'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -1106,6 +1107,12 @@ const bridge: Pick<
   mcpTrust: {
     list: (req) => call(CHANNELS.mcpTrustList, req),
     approve: (req) => call(CHANNELS.mcpTrustApprove, req),
+  },
+  toolApproval: {
+    onRequested: (handler) => subscribe(EVENT_CHANNELS.toolApprovalRequested, handler),
+    onResolved: (handler) => subscribe(EVENT_CHANNELS.toolApprovalResolved, handler),
+    answer: (req) => call(CHANNELS.toolApprovalAnswer, req),
+    hookInfo: () => call(CHANNELS.toolApprovalHookInfo),
   },
   agentLimits: {
     onTripped: (handler) => subscribe(EVENT_CHANNELS.agentLimitTripped, handler),
