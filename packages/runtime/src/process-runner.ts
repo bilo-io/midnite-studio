@@ -44,13 +44,61 @@ export type SpawnFn = (
   env?: Readonly<Record<string, string>>,
 ) => SpawnedProcess;
 
+/**
+ * Safe environment allowlist for subprocesses spawned by process-runner (Phase 118 Theme H).
+ * Ambient credentials, API keys, and tokens are scrubbed so child tools only receive safe variables.
+ */
+export const SAFE_PROCESS_ENV_KEYS: readonly string[] = Object.freeze([
+  'PATH',
+  'SHELL',
+  'USER',
+  'HOME',
+  'LOGNAME',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'LC_NUMERIC',
+  'TERM',
+  'COLORTERM',
+  'NODE_ENV',
+  'SYSTEMROOT',
+  'COMSPEC',
+  'PATHEXT',
+  'XDG_CONFIG_HOME',
+  'XDG_DATA_HOME',
+  'XDG_CACHE_HOME',
+  'GIT_EXEC_PATH',
+]);
+
+/**
+ * Filters ambient environment variables against the safe allowlist.
+ */
+export function sanitizeSpawnEnv(
+  ambient: NodeJS.ProcessEnv = process.env,
+  extraEnv?: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const key of SAFE_PROCESS_ENV_KEYS) {
+    const val = ambient[key];
+    if (val !== undefined) {
+      result[key] = val;
+    }
+  }
+  if (extraEnv) {
+    Object.assign(result, extraEnv);
+  }
+  return result;
+}
+
 /** The real thing: `spawn` with everything that could change behaviour pinned. */
 export const realSpawn: SpawnFn = (command, args, cwd, extraEnv) => {
   const child = nodeSpawn(command, [...args], {
     cwd,
     env: {
-      ...process.env,
-      ...extraEnv,
+      ...sanitizeSpawnEnv(process.env, extraEnv),
       // Colour codes would land inside a JSON payload a sink is trying to parse.
       NO_COLOR: '1',
       CLICOLOR: '0',

@@ -20,7 +20,10 @@ const account = {
 
 const COOKIE_CANARY = 'sp_dc-value-never-shown';
 
-function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { signInsUnavailable?: string } = {}) {
+function mount(
+  host: VaultHost = { openWebApp: vi.fn(), forge: null },
+  opts: { signInsUnavailable?: string; tamperedFile?: string | null; locked?: boolean } = {},
+) {
   const secrets = {
     get: vi.fn(() => Promise.reject(new Error('Vault must never read a value'))),
     has: vi.fn(async ({ key }: { key: string }) => ({ hasKey: key === 'ollama.apiKey' })),
@@ -70,7 +73,13 @@ function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { s
     }),
   };
   const vaultLock = {
-    status: vi.fn(async () => ({ locked: false, hasPasscode: false, canPromptTouchId: false, recentUnlockAt: null })),
+    status: vi.fn(async () => ({
+      locked: opts.locked ?? (opts.tamperedFile ? true : false),
+      hasPasscode: false,
+      canPromptTouchId: false,
+      recentUnlockAt: null,
+      tamperedFile: opts.tamperedFile ?? null,
+    })),
     lock: vi.fn(async () => ({ ok: true })),
     unlock: vi.fn(async () => ({ ok: true })),
   };
@@ -325,6 +334,14 @@ describe('VaultPage — web-app sign-ins', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Successfully exported 3 entries/)).toBeDefined();
+    });
+  });
+
+  it('renders tamper alert banner when a tampered file is reported', async () => {
+    mount(undefined, { tamperedFile: 'vault-grants.json' });
+    await waitFor(() => {
+      const banner = screen.getByTestId('tamper-alert');
+      expect(banner.textContent).toContain('vault-grants.json');
     });
   });
 });

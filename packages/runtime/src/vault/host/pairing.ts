@@ -91,6 +91,7 @@ export function loadOrCreatePairingIdentity(options: {
   cipher: VaultCipher;
   randomBytes?: (n: number) => Buffer;
   now?: () => number;
+  onPersist?: (filePath: string) => void;
 }): PairingIdentity | null {
   const { file, cipher } = options;
   if (!cipher.isEncryptionAvailable()) return null;
@@ -121,6 +122,7 @@ export function loadOrCreatePairingIdentity(options: {
     writeFileSync(tmp, `${JSON.stringify({ version: 1, seed: ciphertext })}\n`, { mode: 0o600 });
     renameSync(tmp, file);
     chmodSync(file, 0o600);
+    options.onPersist?.(file);
   } catch {
     return null;
   }

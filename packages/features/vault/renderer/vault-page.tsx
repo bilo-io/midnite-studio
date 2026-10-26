@@ -1,6 +1,6 @@
 import { bridge } from '@midnite/studio-frame';
 import { useCallback, useEffect, useState } from 'react';
-import { LuKey, LuLock, LuLockOpen } from 'react-icons/lu';
+import { LuKey, LuLock, LuLockOpen, LuTriangleAlert } from 'react-icons/lu';
 
 import { AuditSection } from './audit-section';
 import { DbLoginsSection } from './db-logins-section';
@@ -24,6 +24,7 @@ export function VaultPage() {
   const [hasPasscode, setHasPasscode] = useState<boolean>(false);
   const [canTouchId, setCanTouchId] = useState<boolean>(false);
   const [recentUnlockAt, setRecentUnlockAt] = useState<number | null>(null);
+  const [tamperedFile, setTamperedFile] = useState<string | null>(null);
   const [passcodeDraft, setPasscodeDraft] = useState<string>('');
   const [unlockError, setUnlockError] = useState<string | null>(null);
 
@@ -36,6 +37,7 @@ export function VaultPage() {
       setHasPasscode(res.hasPasscode);
       setCanTouchId(res.canPromptTouchId);
       setRecentUnlockAt(res.recentUnlockAt);
+      setTamperedFile(res.tamperedFile ?? null);
     } catch {
       // Ignore
     }
@@ -141,6 +143,19 @@ export function VaultPage() {
           )}
         </div>
       </header>
+
+      {tamperedFile ? (
+        <div
+          role="alert"
+          data-testid="tamper-alert"
+          className="flex items-center gap-2 rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-300"
+        >
+          <LuTriangleAlert className="size-4 shrink-0 text-rose-400" />
+          <span>
+            Vault integrity violation: Tamper detected in <strong>{tamperedFile}</strong>. The vault has been locked.
+          </span>
+        </div>
+      ) : null}
 
       {unlockError ? (
         <div className="rounded bg-rose-500/10 p-2 text-xs text-rose-400">

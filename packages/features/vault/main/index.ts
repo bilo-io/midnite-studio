@@ -177,6 +177,7 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
         hasPasscode: services.hasPasscode ? services.hasPasscode() : false,
         recentUnlockAt: s ? s.recentUnlockAt : null,
         canPromptTouchId: services.canPromptTouchId ? services.canPromptTouchId() : false,
+        tamperedFile: s ? s.getTamperedFile() : null,
       };
     });
 
