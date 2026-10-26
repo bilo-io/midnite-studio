@@ -48,3 +48,7 @@ export * from './security/seatbelt-profile';
 export * from './security/confine';
 export * from './security/confine-denials';
 export * from './security/confine-roots';
+export * from './security/install-detector';
+export * from './security/package-checker';
+export * from './security/skills-audit';
+export * from './security/install-checker';
