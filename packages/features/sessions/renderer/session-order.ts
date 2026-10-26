@@ -40,6 +40,8 @@ export type ManagedLiveSession = {
   agentConversationId?: string;
   /** Phase 95 Theme J — set only for an `agent`/`script` workflow node's session; see `groupSessionsByWorkflowRun`. */
   workflowRunRef?: { workflowId: string; runId: string; nodeId: string };
+  /** Runs under a sandbox profile (Phase 121 Theme E) — the lock. */
+  confined?: boolean;
 };
 
 /**
@@ -83,6 +85,7 @@ export function mergeManagedSessions(
     createdAt: session.createdAt,
     ...(session.surface === undefined ? {} : { surface: session.surface }),
     ...(session.workflowRunRef === undefined ? {} : { workflowRunRef: session.workflowRunRef }),
+    ...(session.confined === true ? { confined: true } : {}),
   }));
 
   const closedRows: ManagedSession[] = closed.map((record) => ({ ...record, liveness: 'closed' }));

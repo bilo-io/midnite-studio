@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -281,6 +281,47 @@ describe('broker server', () => {
     stale.socket.destroy();
 
     await broker.close();
+  });
+
+  // Phase 121 Theme E: macOS-only behaviour (sandbox-exec); other platforms refuse a confined create.
+  describe.skipIf(process.platform !== 'darwin')('confined create (sandbox-exec, macOS)', () => {
+    it('wraps the shell in sandbox-exec -f <profile>, answers confined:true and removes the profile on exit', async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
+      const socketPath = join(tmp, 'confine.sock');
+      const profile = join(tmp, 'security', 'profiles', 's1.sb');
+      mkdirSync(join(tmp, 'security', 'profiles'), { recursive: true });
+      writeFileSync(profile, '(version 1)(allow default)');
+      const fake = createFakePty(77);
+      const spawnPty = vi.fn<SpawnPtyFn>(() => fake.pty);
+      const broker = createBrokerServer({ socketPath, userDataDir: tmp, spawnPty });
+      await new Promise((r) => setTimeout(r, 20));
+      const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' });
+      const create = encodeControl({ t: 'create', id: 2, sessionId: 's1', cwd: '/tmp', cols: 80, rows: 24, env: {}, confine: { profile } });
+      const { frames, socket } = await connectAndSend(socketPath, [hello, create]);
+      expect(frames[1]).toMatchObject({ message: { id: 2, ok: true, confined: true, pid: 77 } });
+      expect(spawnPty.mock.calls[0]?.[0]).toBe('/usr/bin/sandbox-exec');
+      expect(spawnPty.mock.calls[0]?.[1].slice(0, 2)).toEqual(['-f', profile]);
+      expect(existsSync(profile)).toBe(true);
+      fake.emitExit(0);
+      expect(existsSync(profile)).toBe(false);
+      socket.destroy();
+      await broker.close();
+    });
+
+    it('refuses a profile path outside security/profiles instead of spawning bare', async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'mstudio-broker-test-'));
+      const socketPath = join(tmp, 'confine-bad.sock');
+      const spawnPty = vi.fn<SpawnPtyFn>(() => createFakePty(1).pty);
+      const broker = createBrokerServer({ socketPath, userDataDir: tmp, spawnPty });
+      await new Promise((r) => setTimeout(r, 20));
+      const hello = encodeControl({ t: 'hello', id: 1, protocol: PROTOCOL, appVersion: '0.12.0', pid: process.pid, role: 'host' });
+      const create = encodeControl({ t: 'create', id: 2, sessionId: 's1', cwd: '/tmp', cols: 80, rows: 24, env: {}, confine: { profile: '/etc/passwd' } });
+      const { frames, socket } = await connectAndSend(socketPath, [hello, create]);
+      expect(frames[1]).toMatchObject({ message: { id: 2, ok: false, code: 'spawn-failed' } });
+      expect(spawnPty).not.toHaveBeenCalled();
+      socket.destroy();
+      await broker.close();
+    });
   });
 
   it('reports a spawn that fails while stale as stale-broker, not as the raw error', async () => {

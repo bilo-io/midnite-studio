@@ -188,6 +188,7 @@ const bridge: Pick<
   | 'agentAudit'
   | 'agentLimits'
   | 'mcpTrust'
+  | 'confinement'
   | 'companion'
   | 'capture'
   | 'vanguard'
@@ -1155,6 +1156,9 @@ const bridge: Pick<
   },
   windowChrome,
   windowRole,
+  confinement: {
+    status: () => call(CHANNELS.confinementStatus),
+  },
 };
 
 try {

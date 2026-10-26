@@ -7,6 +7,7 @@ import {
   LuFolder,
   LuFolderTree,
   LuGitCommitVertical,
+  LuLock,
   LuRefreshCw,
   LuRepeat,
   LuTerminal,
@@ -63,6 +64,42 @@ import { AgentKeyField } from '@midnite/studio-feature-vault/renderer';
  *   newline. Pressing Enter is the confirmation — the app never removes an
  *   installation itself.
  */
+/**
+ * "Confine new sessions" (Phase 121 Theme E): new terminal and council sessions run under a macOS Seatbelt
+ * profile — writes stay in the repo and scratch space, SSH keys, cloud credentials and other repos cannot be
+ * read. Off by default this phase. Where `sandbox-exec` is missing the switch is locked and says why.
+ */
+function ConfinementAccordion() {
+  const confine = useUiStore((s) => s.confineNewSessions);
+  const setConfine = useUiStore((s) => s.setConfineNewSessions);
+  const { data: status } = useQuery({
+    queryKey: ['confinement-status'],
+    queryFn: async () => bridge()!.confinement.status(),
+    enabled: hasBridge(),
+  });
+  const unavailable = status !== undefined && !status.available;
+  return (
+    <SettingsAccordion title="Confinement" icon={<LuLock className="h-4 w-4" />}>
+      <div className="flex flex-col gap-3 p-3">
+        <SettingsSwitchRow
+          id="confine-new-sessions"
+          label="Confine new sessions"
+          description="Runs each new agent terminal and council member under a macOS sandbox: it can write only to its repo, its worktrees and scratch space, and cannot read ~/.ssh, ~/.aws, ~/.gnupg, the keychain, the suite's vault files or any other repo you have open. Sessions already running are not changed. Network access is unchanged."
+          on={confine && !unavailable}
+          onToggle={(_id, next) => setConfine(next)}
+          disabled={unavailable}
+          {...(unavailable ? { title: status?.reason ?? 'Confinement is not available on this machine.' } : {})}
+        />
+        {unavailable ? (
+          <p data-testid="confinement-unavailable" className="text-[11px] leading-relaxed text-muted-foreground">
+            Confinement is unavailable: {status?.reason ?? 'sandbox-exec could not be used on this machine.'} Sessions run as before.
+          </p>
+        ) : null}
+      </div>
+    </SettingsAccordion>
+  );
+}
+
 export function AgentPage() {
   const queryClient = useQueryClient();
   const { data: info } = useQuery({
@@ -95,6 +132,8 @@ export function AgentPage() {
           <AgentsRoster />
         </div>
       </SettingsAccordion>
+
+ <ConfinementAccordion />
 
       <SettingsAccordion title="Session stamping" icon={<LuGitCommitVertical className="h-4 w-4" />}>
         <div className="flex flex-col gap-3 p-3">

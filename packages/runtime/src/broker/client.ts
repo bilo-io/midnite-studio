@@ -129,7 +129,9 @@ export type BrokerClient = {
     rows: number;
     env: Record<string, string>;
     initialInput?: string | undefined;
-  }) => Promise<{ ok: true; ptyId: string; pid: number } | { ok: false; message: string }>;
+    /** Spawn under `sandbox-exec -f <profile>` (Phase 121 Theme E). */
+    confine?: { profile: string } | undefined;
+  }) => Promise<{ ok: true; ptyId: string; pid: number; confined: boolean } | { ok: false; message: string }>;
   writePty: (ptyId: string, data: string) => void;
   resizePty: (ptyId: string, cols: number, rows: number) => Promise<boolean>;
   killPty: (ptyId: string) => Promise<boolean>;
@@ -719,7 +721,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
       return (primary !== null && !primary.socket.destroyed) || legacy.size > 0;
     },
 
-    async createPty(options): Promise<{ ok: true; ptyId: string; pid: number } | { ok: false; message: string }> {
+    async createPty(options): Promise<{ ok: true; ptyId: string; pid: number; confined: boolean } | { ok: false; message: string }> {
       // A guest starts sessions only on the host's broker; it never spawns one of its own.
       if (guest && (!primary || primary.socket.destroyed)) return { ok: false, message: GUEST_NO_SHARED_BROKER };
       if (!primary && !(await spawnFresh())) {
@@ -735,6 +737,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
           rows: options.rows,
           env: options.env,
           initialInput: options.initialInput,
+          ...(options.confine ? { confine: options.confine } : {}),
         });
 
       try {
@@ -760,7 +763,7 @@ export function openBrokerClient(deps: BrokerClientOptions): BrokerClient {
         if (reply.ok) {
           const ptyId = reply['ptyId'] as string;
           if (primary) recordPty(primary, ptyId, options.sessionId, deps.appId ?? null);
-          return { ok: true, ptyId, pid: reply['pid'] as number };
+          return { ok: true, ptyId, pid: reply['pid'] as number, confined: reply['confined'] === true };
         }
         return { ok: false, message: reply.message };
       } catch (err) {

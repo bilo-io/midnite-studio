@@ -38,7 +38,7 @@ import {
 import { BUILTIN_AGENTS, CHANNELS, EVENT_CHANNELS, schemas, type AgentDefinition } from '@midnite/studio-shared';
 
 import { createBrokerNodeSessions } from './broker-sessions';
-import { createShellRunner } from './shell-runner';
+import { createShellRunner, type ShellConfinement } from './shell-runner';
 
 /** The one secret Agents reads, and nothing else: the Ollama cloud key (the `secrets` namespace). */
 const OLLAMA_KEY = 'ollama.apiKey';
@@ -59,6 +59,8 @@ export type AgentsElectron = IpcContextElectron & {
   pairing: () => PairingIdentity | null;
   /** The shell a council member or script node runs in; the user's login shell by default. */
   shell?: string;
+  /** Confines a council member's shell (Phase 121 Theme E); unset runs members bare. */
+  confine?: ShellConfinement;
   /** Where the workflow engine logs. Silent by default. */
   log?: WorkflowLogger;
   /**
@@ -128,7 +130,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
 
   // Councils — members run as piped login shells (see shell-runner.ts).
   configureCouncils(createCouncilsStore(el.userData), createCouncilsRunsStore(el.userData));
-  const shellRunner = createShellRunner(el.shell === undefined ? {} : { shell: el.shell });
+  const shellRunner = createShellRunner({ ...(el.shell === undefined ? {} : { shell: el.shell }), ...(el.confine ? { confine: el.confine } : {}) });
   councilsMain.register(ctx, {
     runner: {
       ...shellRunner,

@@ -394,3 +394,33 @@ describe('AgentPage - Headless AI features use (Phase 96 Theme I)', () => {
     expect(useUiStore.getState().headlessAiOllamaModel).toBeNull();
   });
 });
+
+describe('AgentPage - Confinement (Phase 121 Theme E)', () => {
+  it('toggles the Confine new sessions switch and updates ui-store', async () => {
+    useUiStore.setState({ confineNewSessions: false });
+    renderView(<AgentPage />, { fixtures });
+
+    const switchBtn = (await screen.findByRole('switch', { name: 'Confine new sessions' })) as HTMLInputElement;
+    expect(switchBtn.checked).toBe(false);
+
+    fireEvent.click(switchBtn);
+    expect(useUiStore.getState().confineNewSessions).toBe(true);
+
+    fireEvent.click(switchBtn);
+    expect(useUiStore.getState().confineNewSessions).toBe(false);
+  });
+
+  it('disables the switch and renders notice when confinement is unavailable', async () => {
+    renderView(<AgentPage />, {
+      fixtures: {
+        ...fixtures,
+        confinementStatus: { available: false, enabled: false, reason: 'sandbox-exec is not available on this machine' },
+      },
+    });
+
+    const notice = await screen.findByTestId('confinement-unavailable');
+    expect(notice.textContent).toContain('sandbox-exec is not available on this machine');
+    const switchBtn = await screen.findByRole('switch', { name: 'Confine new sessions' });
+    expect(switchBtn.hasAttribute('disabled')).toBe(true);
+  });
+});

@@ -1,5 +1,7 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 
+import { wrapWithSandbox } from './broker/confine-wrap';
+
 /**
  * Spawning a program that belongs to the checkout rather than to us — the
  * shared engine behind both `diagnostics/runner.ts` (a repo's linter) and
@@ -114,6 +116,11 @@ export type RunProcessDeps<T> = {
   onChunk?: (chunk: string) => void;
   /** Called once, right after a successful spawn — the caller's hook for cancellation. */
   onSpawned?: (handle: { kill: () => void }) => void;
+  /**
+   * Run the command as `sandbox-exec -f <profilePath> <command> <args>` (Phase 121 Theme E). The caller
+   * wrote the profile (`prepareConfinement`); `dispose` removes it once the run settles.
+   */
+  confine?: { profilePath: string; dispose?: () => void };
 };
 
 /** Two minutes — long enough for a cold run over a real monorepo, short enough
@@ -152,12 +159,15 @@ export function runProcess<T>(
       if (settled) return;
       settled = true;
       if (timer !== undefined) clearTimeout(timer);
+      deps.confine?.dispose?.();
       resolvePromise(result);
     };
 
+    const run = deps.confine ? wrapWithSandbox(deps.confine.profilePath, command, args) : { command, args };
+
     let child: SpawnedProcess;
     try {
-      child = deps.env ? spawn(command, args, cwd, deps.env) : spawn(command, args, cwd);
+      child = deps.env ? spawn(run.command, run.args, cwd, deps.env) : spawn(run.command, run.args, cwd);
     } catch (error) {
       // `spawn` can throw synchronously (an invalid cwd, for one) rather than
       // emitting 'error'. Both paths have to reach the same reason code.

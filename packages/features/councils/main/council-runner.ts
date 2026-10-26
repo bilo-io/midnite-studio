@@ -36,7 +36,11 @@ import { getCouncil, getRun, saveRun } from './council-service';
  * back the same ports with its own broker and vault.
  */
 export type CouncilRunnerPorts = {
-  /** Spawns a one-shot pty; `initialInput` is typed into the login shell. */
+  /**
+   * Spawns a one-shot pty; `initialInput` is typed into the login shell. Phase 121 Theme E: the host's
+   * implementation decides whether the member is confined (Studio's `pty-service` follows Settings ▸ Agents ▸
+   * "Confine new sessions"; Agents' `shell-runner` takes a `confine` provider), so the runner asks for nothing here.
+   */
   createPty(options: {
     sessionId: string;
     cwd: string;

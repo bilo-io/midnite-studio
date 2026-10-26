@@ -1938,7 +1938,12 @@ export const PtyCreateRequest = z
   })
   .superRefine(agentIdMatchesKind);
 export const PtyCreateResponse = z.discriminatedUnion('ok', [
-  z.object({ ok: z.literal(true), ptyId: z.string() }),
+  z.object({
+    ok: z.literal(true),
+    ptyId: z.string(),
+    /** The session runs under a Seatbelt profile (Phase 121 Theme E) — the lock badge reads this. */
+    confined: z.boolean().optional(),
+  }),
   /** node-pty is loaded lazily and fails soft — the UI shows "terminal unavailable". */
   z.object({ ok: z.literal(false), message: z.string() }),
 ]);
@@ -5338,6 +5343,9 @@ export {
   AgentAuditListRequest,
   AgentAuditListResponse,
 } from '../agent-audit';
+
+// Confined sessions (Phase 121 Theme E).
+export { ConfinementStatusSchema as ConfinementStatusResponse } from '../confinement';
 
 // Agent limits and the breaker's toast answer (Phase 121 Theme F).
 export { AgentLimitResolveRequest } from '../agent-limits';

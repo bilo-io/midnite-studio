@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
+import { wrapWithSandbox } from '@midnite/studio-runtime';
 import { SCROLLBACK_BYTES } from '@midnite/studio-shared';
 
 import type { AgentWatcher } from './agent-watcher';
@@ -87,7 +88,7 @@ function resolveShell(): { file: string; args: string[] } {
   return { file: existsSync(shell) ? shell : '/bin/sh', args: ['-l'] };
 }
 
-export type InprocCreateResult = { ok: true; ptyId: string } | { ok: false; message: string };
+export type InprocCreateResult = { ok: true; ptyId: string; pid?: number } | { ok: false; message: string };
 
 export function inprocCreatePty(
   options: {
@@ -100,6 +101,8 @@ export function inprocCreatePty(
     initialInput?: string | undefined;
     /** Per-session env overrides (Phase 96 Theme H) — merged in last, so these always win. */
     env?: Record<string, string> | undefined;
+    /** Spawn under `sandbox-exec -f <profile>` (Phase 121 Theme E). */
+    confine?: { profile: string } | undefined;
   },
   onData: (ptyId: string, bytes: Uint8Array) => void,
   onExit: (ptyId: string, exitCode: number, signal?: number | undefined) => void,
@@ -112,7 +115,13 @@ export function inprocCreatePty(
     };
   }
 
-  const { file, args } = resolveShell();
+  const resolved = resolveShell();
+  const { file, args } = options.confine
+    ? (() => {
+        const wrapped = wrapWithSandbox(options.confine.profile, resolved.file, resolved.args);
+        return { file: wrapped.command, args: wrapped.args };
+      })()
+    : resolved;
   const id = randomUUID();
 
   try {
@@ -167,7 +176,7 @@ export function inprocCreatePty(
     });
 
     agentWatcher?.track(id, child.pid, options.agentId ?? null);
-    return { ok: true, ptyId: id };
+    return { ok: true, ptyId: id, pid: child.pid };
   } catch (error) {
     return {
       ok: false,

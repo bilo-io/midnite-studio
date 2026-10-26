@@ -1707,12 +1707,13 @@ export const CHANNELS = {
   vanguardMalwareScanCancel: 'mstudio:vanguard:malware-scan-cancel',
   /** The quarantine list and the response actions this app cannot run (Phase 120 Theme H). */
   vanguardResponseState: 'mstudio:vanguard:response-state',
-
   // --- the tool-call policy (Phase 121 Theme B) --------------------------------
   /** The user's answer on an approval card: approve once, approve for this session, or deny. */
   toolApprovalAnswer: 'mstudio:tool-approval:answer',
   /** Hook script path and snippet template for CLI PreToolUse configuration in Setup wizard. */
   toolApprovalHookInfo: 'mstudio:tool-approval:hook-info',
+  /** Whether sandbox-exec is usable here and whether new sessions are confined (Phase 121 Theme E). */
+  confinementStatus: 'mstudio:security:confinement-status',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */

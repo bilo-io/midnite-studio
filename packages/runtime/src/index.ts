@@ -44,3 +44,7 @@ export * from './security/canary';
 export * from './security/tool-guard';
 export * from './security/hook-call';
 export * from './security/agent-env-check';
+export * from './security/seatbelt-profile';
+export * from './security/confine';
+export * from './security/confine-denials';
+export * from './security/confine-roots';
