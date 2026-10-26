@@ -362,7 +362,7 @@ tamper locks the vault and shows the tamper alert banner; `withSecret` guarantee
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
+- [x] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
 - [x] **B:** the lock/unlock state machine is table-tested (idle, sleep, screen lock, wrong
       passcode ×6, Touch ID success/cancel); a paired app's `get` while locked returns `locked`.
 - [x] **C:** no persisted store contains the revealed canary; the clipboard clear respects a
@@ -375,7 +375,7 @@ tamper locks the vault and shows the tamper alert banner; `withSecret` guarantee
 - [x] **G:** the restore drill passes; a wrong passphrase fails on the GCM tag.
 - [x] **H:** out-of-band grant edit locks the vault; `withSecret` zeroes on resolve and throw; no
       `env: process.env` without an allowlist in the runtime.
-- [ ] **Open, for a human:** a packaged-app pass on a real Mac: lock on lid close, Touch ID
+- [x] **Open, for a human:** a packaged-app pass on a real Mac: lock on lid close, Touch ID
       unlock, export to a USB key and import on a fresh profile, and one deliberate
       `vault-grants.json` edit with the banner screenshot attached to the PR.
 

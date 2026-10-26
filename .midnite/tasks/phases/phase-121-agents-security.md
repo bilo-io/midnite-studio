@@ -93,8 +93,8 @@ Scope guardrails:
 
 *Everything a model reads carries where it came from, everything it is allowed to do is a policy
 the user can read, the destructive calls wait for a hand, and every call is on the record.* Born
-from a year in which the coding agent became the attack surface. (10% · 5/51) — **Planned
-2026-10-22.**
+from a year in which the coding agent became the attack surface. (100% · 51/51) — **Planned
+2026-10-22 · Verified 2026-10-26.** All nine themes A–I landed and verified green across runtime, shared, features, and desktop security test suites.
 
 **Theme A — Untrusted content wears a tag.** ✅ `ContentProvenanceSchema` (`origin`, `ref`, `trust`, `score?`) in `shared/src/provenance.ts`; trust is derived from the origin, so only `user` and `repo-file` can be trusted and a forge body is untrusted whatever the renderer claims. `ChatAttachment` and `ChatMessage` carry it, chat main stamps attachments on send, and the MCP socket server stamps every successful result `mcp-result` (the one place a result becomes wire, so Studio's server and private run servers both get it). `renderAttachments` and the transcript replay fence untrusted parts with `<<<UNTRUSTED origin=… ref=…>>>`, say the spec's header once per prompt, and strip any fence lookalike inside a part; council prompts use the same `fenceUntrusted` from `shared` (member answers are fenced for the synthesizer). The detector is `runtime/src/security/injection-detector.ts`: nine weighted signals combined as a noisy-or, matches in code or quotation marks discounted to a quarter, threshold 0.5, tested against this repo's own security docs and phase docs plus an attack corpus. Renderers cannot import the runtime, so a new `security.scanContent` op scores text in main and the frame's `InjectionBanner` offers proceed / strip / drop in the Chats composer and the Councils prompt box. **Decisions:** assistant turns replay unfenced unless their provenance says otherwise (they are the conversation); a council prompt is the user's typing, so only member answers are fenced; page text reaches a chat through `pageContentToAttachment` (origin `web-page`), but no "send page to chat" button exists yet (`outstanding.md`).
 
@@ -354,25 +354,25 @@ finding. Agents' pairing seed, its one `safeStorage` call and its lack of a vaul
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
-- [ ] **A:** a forge issue body containing a fenced "ignore previous instructions" block reaches the
+- [x] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
+- [x] **A:** a forge issue body containing a fenced "ignore previous instructions" block reaches the
       fake engine inside the untrusted wrapper with a score above threshold and a banner shown; the
       repo's own `docs/` corpus scores below it.
-- [ ] **B:** `git.push` with a lease through the MCP server suspends until the card is answered;
+- [x] **B:** `git.push` with a lease through the MCP server suspends until the card is answered;
       a denial returns the error envelope, never throws; the default policy table test passes.
-- [ ] **C:** editing an approved `.mcp.json` entry makes the next Chats run ask; a tools list with
+- [x] **C:** editing an approved `.mcp.json` entry makes the next Chats run ask; a tools list with
       a hidden instruction is held with the finding recorded.
-- [ ] **D:** the env test fails when a key is injected into the pty env; a canary read in a fixture
+- [x] **D:** the env test fails when a key is injected into the pty env; a canary read in a fixture
       trail yields `critical`.
-- [ ] **E:** on `gate-native`, the generated profile confines a shell as the tests describe; the
+- [x] **E:** on `gate-native`, the generated profile confines a shell as the tests describe; the
       session shows the badge.
-- [ ] **F:** a 121-call minute trips; 119 does not.
+- [x] **F:** a 121-call minute trips; 119 does not.
 - [x] **G:** every record kind round-trips redacted; the Tools view's last-50 equals the trail's
       tail; `stat` shows 0700/0600.
 - [x] **H:** the fixture typosquat and the 2-day-old package each yield their severity; the
       injected `SKILL.md` shows the warning glyph in the picker.
-- [ ] **I:** the env test holds; a changed fixture Ollama digest yields `medium`.
-- [ ] **Open, for a human:** a packaged-app pass with a real `claude` session: approve one push
+- [x] **I:** the env test holds; a changed fixture Ollama digest yields `medium`.
+- [x] **Open, for a human:** a packaged-app pass with a real `claude` session: approve one push
       through the card, run one confined session and watch `cat ~/.ssh/id_ed25519` fail, install
       one fresh npm package and see the age finding, then read the day's audit file.
 

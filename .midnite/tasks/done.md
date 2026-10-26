@@ -1,6 +1,11 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+
+## 2026-10-26 — Phase 121 — Agents security
+
+[Phase 121](phases/phase-121-agents-security.md) marked ✅ DONE (51/51 items verified).
+All nine themes A–I landed and verified: untrusted content tagging, tool-call policy and approval broker, MCP server trust pinning by SHA-256, outbound secret redaction and canary trip detection, seatbelt-profile per-session shell confinement, agent limits and circuit breaker, append-only redacted audit trail, package and skill installation integrity checking, and engine key environment containment. All runtime, shared, feature, and desktop test suites pass.
 ## 2026-10-23 — Phase 121 Theme F — Limits and a breaker
 
 [#993](https://github.com/bilo-io/midnite-studio/pull/993). `AgentLimitsSchema` (120 calls/min, 300 writes/min, 10 pushes/h, 25 hosts and 5M tokens per session, per-repo override) and a runtime circuit breaker fed by Theme G's trail: a limit trips on the count past its threshold, interrupts the session, writes a `limit-trip` record, raises a `medium` finding and shows a bell entry with Resume / Stop / Raise limit for this session. The interrupt is an injected `interrupt(sessionId)` wired to the same Ctrl+C pty write Vanguard's `pause-session` uses, since Phase 120 G is not built. Vitest only: boundary (at the limit does not trip, one past does), sliding window, resume clears the window, raise, stop, spend, per-repo resolution, a burst read back through a real trail.
