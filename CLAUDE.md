@@ -323,24 +323,22 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `midnite-studio/version.json`; electron-updater reads `midnite-studio/feed/latest-mac.yml`.
   Both are written per release — see
   [`/midnite-release-complete`](.claude/skills/midnite-release-complete/SKILL.md) §4.
-- **The website serves one verbatim copy of `install-studio.sh`, and a guard keeps it honest.**
-  Access to Midnite is gated behind the site's "Get access" flow, so the site links to no
-  repository, release list or installer and no longer serves the launcher's `install.sh`. The one
-  script it still hosts, **unlinked**, is Studio's `install-studio.sh`, because the app's own
-  "Update Midnite Studio" action curls it (`MIDNITE_INSTALL_COMMAND`). `packages/website/public/install-studio.sh`
-  is a byte-for-byte copy of the upstream file, and
-  [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs the two
+- **The website serves verbatim copies of `install.sh` and `install-studio.sh`, and a guard keeps them honest.**
+  Access to Midnite is gated on the website: the site does not link to the download page or display
+  any curl command. However, the site hosts the launcher installer `packages/website/public/install.sh`
+  (for `curl -fsSL ${SITE_ORIGIN}/install.sh | sh` in the terminal) and Studio's `install-studio.sh` (which
+  the app's own "Update Midnite Studio" action curls). Both are byte-for-byte copies of their upstream files in
+  `bilo-io/midnite-apps`, and [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs them
   (`moon run website:sync-install`, `-- --write` to re-sync). The check runs **post-merge** in
   `website.yml`, because upstream can change with nothing merged here; **and** `installer-mirror.yml`
   runs it on any PR that edits the copy, so **an installer change lands in midnite-apps first and is
   then re-synced here** — never the other way round. Phase 91 Theme H edited only the copy: upstream
   never got the checksum step, and every main build of the website failed until v0.0.3 surfaced it.
-  It is deliberately not a vitest — a networked test fails on a
-  plane and turns an upstream outage into a red repo-wide gate. `SITE_ORIGIN`
-  (`packages/website/src/site-origin.ts`, from `WEBSITE_ORIGIN`) is `WEBSITE_BASE`'s sibling: it
-  exists for absolute URLs read outside the page (the social-card meta tags), which
-  `import.meta.env.BASE_URL` cannot serve, and it is the site **root** — on the Pages target that
-  includes the path prefix. **Nothing on the website may link to, or print the name of, the
+  It is deliberately not a vitest — a networked test fails on a plane and turns an upstream
+  outage into a red repo-wide gate. `SITE_ORIGIN` (`packages/website/src/site-origin.ts`, from
+  `WEBSITE_ORIGIN`) is `WEBSITE_BASE`'s sibling: it exists for absolute URLs read outside the page
+  (and terminal install commands), which `import.meta.env.BASE_URL` cannot serve, and it is the site
+  **root** — on the Pages target that includes the path prefix. **Nothing on the website may link to, or print the name of, the
   `bilo-io/midnite-apps` repo** — the early-access form's prefilled-issue URL is the one deliberate exception, and it
   never shows the repo name.
 - **The two surfaces wear two near-identical brand faces, and that is deliberate.** The app's
