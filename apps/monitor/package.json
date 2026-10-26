@@ -1,8 +1,8 @@
 {
   "name": "@midnite/app-monitor",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
-  "description": "Midnite Monitor \u2014 the machine monitor as its own app: CPU, memory, GPU, disk and battery, toolchain health and the crash log.",
+  "description": "Midnite Monitor — the machine monitor as its own app: CPU, memory, GPU, disk and battery, toolchain health and the crash log.",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {

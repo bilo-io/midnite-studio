@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-shared",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "description": "Wire contract: domain types, IPC channels + zod schemas, the preload bridge type",
   "main": "./dist/index.js",
@@ -11,7 +11,9 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit",

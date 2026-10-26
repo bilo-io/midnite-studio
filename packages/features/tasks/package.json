@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-tasks",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "description": "Tasks as a feature (Phase 113 Theme O): the forge's issues and ProjectV2 boards as a table, a board and a dependency graph, with the issue detail, the issue and project dialogs and Plan with AI. Renderer-only; what an app owns (its stores, its terminals, its agent launch) comes through the TasksHost port. One of Coder's features.",
   "sideEffects": false,

@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-media-library",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "description": "Media ▸ Library as a feature (Phase 113 Theme R): folders of films, shows, music and photos — scanned locally, local artwork and metadata first, an opt-in online provider, watch progress and local playback.",
   "sideEffects": false,
