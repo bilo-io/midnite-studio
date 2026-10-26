@@ -1,3 +1,5 @@
+import { clipboard } from 'electron';
+
 import {
   registerVaultGrantHandlers,
   registerVaultPairingHandlers,
@@ -149,6 +151,28 @@ export function registerSecretsHandlers(): void {
       return vaultService.breachChecker.check(password, { skipCache: !saveToCache });
     },
     () => ({ breached: false, count: 0, checkedAt: Date.now() }),
+  );
+
+  handle(
+    CHANNELS.vaultRevealOnce,
+    schemas.VaultRevealOnceRequest,
+    async ({ namespace, key }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      const res = await vaultService.reveal(namespace, key);
+      if (!res.ok) return { ok: false, error: res.error };
+      return { ok: true, revealed: res.value };
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultCopyOnce,
+    schemas.VaultCopyOnceRequest,
+    async ({ namespace, key, timeoutSeconds }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      return vaultService.copy(namespace, key, clipboard, { timeoutSeconds });
+    },
+    (issue) => ({ ok: false, error: issue }),
   );
 
   handle(

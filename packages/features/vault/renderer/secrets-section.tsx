@@ -5,7 +5,9 @@ import {
   agentSecretKey,
   type SecretKey,
 } from '@midnite/studio-shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { SecretMaskedValue, type SecretMaskedValueHandle } from './secret-masked-value';
 
 /** What each stored secret is for — the label the list shows. */
 export const SECRET_LABELS = {
@@ -47,6 +49,10 @@ export function SecretsSection() {
   const [draft, setDraft] = useState('');
   const [breachResult, setBreachResult] = useState<{ breached: boolean; count: number } | null>(null);
   const [checkingBreach, setCheckingBreach] = useState(false);
+  const [revealedKey, setRevealedKey] = useState<SecretKey | null>(null);
+  const [copiedKey, setCopiedKey] = useState<SecretKey | null>(null);
+  const [actionError, setActionError] = useState<{ key: SecretKey; message: string } | null>(null);
+  const maskedRefs = useRef<Map<SecretKey, SecretMaskedValueHandle>>(new Map());
 
   const checkBreach = async () => {
     if (!draft.trim()) return;
@@ -95,6 +101,53 @@ export function SecretsSection() {
         void bridge()?.secrets.set({ key, value: '' }).then(refresh);
       },
     });
+
+  const handleReveal = async (key: SecretKey) => {
+    setActionError(null);
+    if (revealedKey === key) {
+      maskedRefs.current.get(key)?.mask();
+      setRevealedKey(null);
+      return;
+    }
+    const api = bridge()?.vaultSecrets;
+    if (!api) {
+      setActionError({ key, message: 'Vault secrets service not available' });
+      return;
+    }
+    try {
+      const res = await api.revealOnce({ namespace: 'secrets', key });
+      if (res.ok && res.revealed) {
+        setRevealedKey(key);
+        maskedRefs.current.get(key)?.reveal(res.revealed);
+      } else {
+        setActionError({ key, message: res.error ?? 'Reveal failed' });
+      }
+    } catch (e) {
+      setActionError({ key, message: e instanceof Error ? e.message : 'Reveal failed' });
+    }
+  };
+
+  const handleCopy = async (key: SecretKey) => {
+    setActionError(null);
+    const api = bridge()?.vaultSecrets;
+    if (!api) {
+      setActionError({ key, message: 'Vault secrets service not available' });
+      return;
+    }
+    try {
+      const res = await api.copyOnce({ namespace: 'secrets', key, timeoutSeconds: 30 });
+      if (res.ok) {
+        setCopiedKey(key);
+        setTimeout(() => {
+          setCopiedKey((curr) => (curr === key ? null : curr));
+        }, 3000);
+      } else {
+        setActionError({ key, message: res.error ?? 'Copy failed' });
+      }
+    } catch (e) {
+      setActionError({ key, message: e instanceof Error ? e.message : 'Copy failed' });
+    }
+  };
 
   const renderList = (keys: readonly SecretKey[]) => (
     <ul className="divide-y divide-border">
@@ -152,17 +205,57 @@ export function SecretsSection() {
               </button>
             </div>
           ) : (
-            <>
-              <span>{isSet === null ? '…' : isSet[key] ? 'Set' : 'Not set'}</span>
-              <button type="button" onClick={() => setEditing(key)}>
+            <div className="flex flex-wrap items-center gap-2">
+              {isSet?.[key] ? (
+                <SecretMaskedValue
+                  ref={(el) => {
+                    if (el) maskedRefs.current.set(key, el);
+                    else maskedRefs.current.delete(key);
+                  }}
+                  onMask={() => setRevealedKey((curr) => (curr === key ? null : curr))}
+                  className={revealedKey === key ? 'rounded bg-muted/60 px-2 py-0.5 text-xs' : 'hidden'}
+                  ariaLabel={`Secret value for ${labelOf(key)}`}
+                />
+              ) : null}
+              {revealedKey !== key ? <span>{isSet === null ? '…' : isSet[key] ? 'Set' : 'Not set'}</span> : null}
+              {isSet?.[key] ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void handleReveal(key)}
+                    className="rounded border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+                  >
+                    {revealedKey === key ? 'Mask' : 'Reveal'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopy(key)}
+                    className="rounded border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+                  >
+                    {copiedKey === key ? 'Copied (clears in 30s)' : 'Copy'}
+                  </button>
+                </>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setEditing(key)}
+                className="rounded border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+              >
                 {isSet?.[key] ? 'Rotate' : 'Set'}
               </button>
               {isSet?.[key] ? (
-                <button type="button" onClick={() => remove(key)}>
+                <button
+                  type="button"
+                  onClick={() => remove(key)}
+                  className="rounded border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
+                >
                   Remove
                 </button>
               ) : null}
-            </>
+              {actionError && actionError.key === key ? (
+                <span className="text-[11px] text-rose-400">{actionError.message}</span>
+              ) : null}
+            </div>
           )}
         </li>
       ))}
@@ -175,7 +268,7 @@ export function SecretsSection() {
         Secrets
       </h2>
       <p className="mb-3 text-xs text-muted-foreground">
-        Values are write-only: they are never shown again once saved.
+        Values are encrypted at rest. Reveal and copy require re-authentication and clear automatically.
       </p>
       {renderList(OTHER_KEYS)}
       <h3 id="vault-llm-keys" className="mb-1 mt-4 text-xs font-medium">

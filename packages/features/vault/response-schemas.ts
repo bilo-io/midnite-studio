@@ -31,4 +31,6 @@ export const vaultResponseSchemas: Readonly<Record<VaultChannel, ZodTypeAny>> = 
   [CHANNELS.vaultAuditVerify]: schemas.VaultAuditVerifyResponse,
   [CHANNELS.vaultAuditExport]: schemas.VaultAuditExportResponse,
   [CHANNELS.vaultBreachCheck]: schemas.VaultBreachCheckResponse,
+  [CHANNELS.vaultRevealOnce]: schemas.VaultRevealOnceResponse,
+  [CHANNELS.vaultCopyOnce]: schemas.VaultCopyOnceResponse,
 };

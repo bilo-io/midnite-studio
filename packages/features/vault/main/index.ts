@@ -2,6 +2,7 @@ import {
   defineFeatureMain,
   registerVaultGrantHandlers,
   registerVaultPairingHandlers,
+  type ClipboardAdapter,
   type VaultClient,
   type VaultGrantsEditor,
   type VaultPairingsEditor,
@@ -41,6 +42,8 @@ export type VaultMainServices = {
   vault: VaultClient;
   /** The runtime vault service (optional in thin clients, present when hosting). */
   vaultService?: VaultService;
+  /** Injected clipboard adapter for copy-once operations (Phase 118 Theme C). */
+  clipboard?: ClipboardAdapter;
   /** Passcode check for vault lock. */
   hasPasscode?: () => boolean;
   canPromptTouchId?: () => boolean;
@@ -210,6 +213,31 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
         return s.breachChecker.check(password, { skipCache: !saveToCache });
       },
       () => ({ breached: false, count: 0, checkedAt: Date.now() }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultRevealOnce,
+      schemas.VaultRevealOnceRequest,
+      async ({ namespace, key }) => {
+        const s = services.vaultService;
+        if (!s) return { ok: false, error: 'Vault service not available' };
+        const res = await s.reveal(namespace, key);
+        if (!res.ok) return { ok: false, error: res.error };
+        return { ok: true, revealed: res.value };
+      },
+      (issue) => ({ ok: false, error: issue }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultCopyOnce,
+      schemas.VaultCopyOnceRequest,
+      async ({ namespace, key, timeoutSeconds }) => {
+        const s = services.vaultService;
+        if (!s) return { ok: false, error: 'Vault service not available' };
+        if (!services.clipboard) return { ok: false, error: 'Clipboard not available' };
+        return s.copy(namespace, key, services.clipboard, { timeoutSeconds });
+      },
+      (issue) => ({ ok: false, error: issue }),
     );
 
     ipc.handle(

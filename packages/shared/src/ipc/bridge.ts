@@ -1233,6 +1233,12 @@ export type MidniteStudioBridge = {
     check: (req: In<typeof S.VaultBreachCheckRequest>) => Promise<z.infer<typeof S.VaultBreachCheckResponse>>;
   };
 
+  /** One-shot re-authenticated reveal and copy without leaving a trace (Phase 118 Theme C). */
+  vaultSecrets?: {
+    revealOnce: (req: In<typeof S.VaultRevealOnceRequest>) => Promise<z.infer<typeof S.VaultRevealOnceResponse>>;
+    copyOnce: (req: In<typeof S.VaultCopyOnceRequest>) => Promise<z.infer<typeof S.VaultCopyOnceResponse>>;
+  };
+
   /**
    * Finance provider fetches proxied through main (Phase 76 Theme D) so API
    * keys and CoinGecko/Twelve Data hosts stay out of the renderer.

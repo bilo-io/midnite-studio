@@ -10,6 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@midnite/studio-app": "workspace:*",
+    "@midnite/studio-desktop": "workspace:*",
     "@midnite/studio-shared": "workspace:*"
   },
   "devDependencies": {

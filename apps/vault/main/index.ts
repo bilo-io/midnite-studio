@@ -72,6 +72,10 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       // The runtime host's vault, over its socket: Vault never reaches the keychain itself.
       directory,
       pairing: vaultPairing(app.getPath('userData'), smoke),
+      clipboard: {
+        writeText: (text) => clipboard.writeText(text),
+        readText: () => clipboard.readText(),
+      },
     });
     openWindow();
   });

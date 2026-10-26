@@ -120,4 +120,18 @@ describe('persisted stores never hold a plaintext credential', () => {
       expect(present.has(id), `${id} is no longer persisted; delete it from the register`).toBe(true);
     }
   });
+
+  it('SecretMaskedValue is excluded from every persisted store (Phase 118 Theme C)', () => {
+    // Phase 118 Theme C: SecretMaskedValue renders secrets in a mutable ref
+    // directly to DOM text nodes. Asserts no zustand store partializes or persists it.
+    const componentSources = files.filter((f) => f.includes('secret-masked-value'));
+    expect(componentSources.length, 'SecretMaskedValue component file should be found').toBeGreaterThan(0);
+    for (const file of componentSources) {
+      const text = read(file);
+      expect(text).not.toContain('partialize');
+      expect(text).not.toContain('persist(');
+      expect(text).not.toContain('localStorage');
+      expect(text).not.toContain('sessionStorage');
+    }
+  });
 });

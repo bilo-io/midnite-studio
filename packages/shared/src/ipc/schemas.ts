@@ -5143,6 +5143,27 @@ export const VaultBreachCheckResponse = z.object({
   checkedAt: z.number().int().nonnegative(),
 });
 
+export const VaultRevealOnceRequest = z.object({
+  namespace: VaultNamespaceSchema.default('secrets'),
+  key: z.string().min(1).max(512),
+});
+export const VaultRevealOnceResponse = z.object({
+  ok: z.boolean(),
+  revealed: z.string().optional(),
+  error: z.string().optional(),
+});
+
+export const VaultCopyOnceRequest = z.object({
+  namespace: VaultNamespaceSchema.default('secrets'),
+  key: z.string().min(1).max(512),
+  timeoutSeconds: z.number().int().min(1).max(300).optional(),
+});
+export const VaultCopyOnceResponse = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+  timeoutSeconds: z.number().int().optional(),
+});
+
 // --- finance proxy (Phase 76 Theme D) -----------------------------------------
 
 const FinanceAssetKindSchema = z.enum(['crypto', 'stock']);
