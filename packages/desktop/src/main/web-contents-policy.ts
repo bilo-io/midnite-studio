@@ -30,10 +30,7 @@ export type PolicyEvent = { preventDefault(): void };
 export type PolicyTarget = {
   getType(): string;
   session: unknown;
-  on(
-    event: 'will-navigate' | 'will-redirect',
-    listener: (event: PolicyEvent, url: string) => void,
-  ): unknown;
+  on(event: 'will-navigate' | 'will-redirect', listener: (event: PolicyEvent, url: string) => void): unknown;
   setWindowOpenHandler(handler: (details: { url: string }) => { action: 'deny' }): void;
 };
 

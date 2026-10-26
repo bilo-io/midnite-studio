@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  applyAppWebContentsPolicy,
-  type PolicyEvent,
-  type PolicyTarget,
-} from './web-contents-policy';
+import { applyAppWebContentsPolicy, type PolicyEvent, type PolicyTarget } from './web-contents-policy';
 
 const APP_SESSION = { name: 'default' };
 
