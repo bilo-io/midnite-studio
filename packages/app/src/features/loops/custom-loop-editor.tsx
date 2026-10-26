@@ -32,6 +32,7 @@ import { IconButton } from '../../components/icon-button';
 import { useUiStore } from '../../store/ui-store';
 import { useTerminalStore } from '../terminal/terminal-store';
 import { loopIcon } from './loop-icons';
+import { loopsPanelElement } from './loops-panel-element';
 import { spectrumStops } from './loop-spectrum';
 import { loopLabel } from './use-all-loops';
 
@@ -516,9 +517,8 @@ function OptionText({
  * Delete, behind a confirm — the loop's options, colour and history pairing
  * go with it, and a running session is closed first.
  *
- * Raised through the root `DialogHost`, not rendered here: inside the FAB
- * panel's clipped, animated frame a `fixed` overlay is contained by the panel,
- * so the dim painted over it while the dialog itself landed off-screen.
+ * Scrim and centring stop at the loops panel's edge via `container`,
+ * so the confirmation overlays the panel rather than spanning the window.
  */
 function DeleteLoopButton({ loop }: { loop: CustomLoop }) {
   const dialogs = useDialogs();
@@ -534,13 +534,14 @@ function DeleteLoopButton({ loop }: { loop: CustomLoop }) {
     <button
       type="button"
       data-testid="custom-loop-delete"
-      onClick={() =>
+      onClick={(e) =>
         dialogs.confirm({
           title: `Delete ${loopLabel(loop)}?`,
           body: 'The loop, its sections and options are removed for good. Past runs stay in history.',
           confirmLabel: 'Delete loop',
           danger: true,
           blastRadius: null,
+          container: (e.currentTarget as HTMLElement).closest<HTMLElement>('[data-loops-panel]') ?? loopsPanelElement(),
           warnings: ['A run in progress on this tab is stopped and its terminal closed.'],
           onConfirm: remove,
         })
