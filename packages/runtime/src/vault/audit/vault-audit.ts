@@ -217,6 +217,7 @@ export function createVaultAuditLog(directory: string): VaultAuditLog {
       principal: event.principal,
       result: event.result,
       reason: event.reason,
+      ...(event.count !== undefined ? { count: event.count } : {}),
     };
     await writeRecord(record);
   };

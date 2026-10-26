@@ -1,5 +1,8 @@
 import {
   defineFeatureMain,
+  exportVaultToFile,
+  importVaultFromFile,
+  previewVaultExportFile,
   registerVaultGrantHandlers,
   registerVaultPairingHandlers,
   type ClipboardAdapter,
@@ -37,6 +40,11 @@ export { vaultResponseSchemas } from '../response-schemas';
  * Studio does not register this module: its own handlers (`desktop/.../ipc`)
  * already answer these channels over the same vault.
  */
+export type VaultDialogServices = {
+  pickSavePath: (options: { title?: string; defaultPath?: string }) => Promise<string | null>;
+  pickOpenPath: (options: { title?: string; filters?: Array<{ name: string; extensions: string[] }> }) => Promise<string | null>;
+};
+
 export type VaultMainServices = {
   /** The Vault's own handle on the runtime vault (`service.forApp('vault')`). */
   vault: VaultClient;
@@ -44,6 +52,12 @@ export type VaultMainServices = {
   vaultService?: VaultService;
   /** Injected clipboard adapter for copy-once operations (Phase 118 Theme C). */
   clipboard?: ClipboardAdapter;
+  /** Native dialogs for picking backup paths. */
+  dialogs?: VaultDialogServices;
+  /** Custom export override if provided. */
+  exportVault?: (outputPath: string, passphrase: string) => Promise<{ ok: boolean; path?: string; entryCount?: number; error?: string }>;
+  importVaultPreview?: (inputPath: string, passphrase: string) => Promise<{ ok: boolean; totalEntries?: number; entries?: any[]; error?: string }>;
+  importVault?: (inputPath: string, passphrase: string, overwriteExisting?: boolean) => Promise<{ ok: boolean; importedCount?: number; skippedCount?: number; error?: string }>;
   /** Passcode check for vault lock. */
   hasPasscode?: () => boolean;
   canPromptTouchId?: () => boolean;
@@ -293,6 +307,109 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
         return services.hookUninstall(repoPath);
       },
       (issue) => ({ ok: false, kind: 'error', message: issue }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultExport,
+      schemas.VaultExportRequest,
+      async ({ passphrase, outputPath }) => {
+        let finalPath = outputPath;
+        if (!finalPath) {
+          finalPath = (await services.dialogs?.pickSavePath({
+            title: 'Export Vault Backup',
+            defaultPath: 'midnite-vault-backup.json',
+          })) ?? undefined;
+        }
+        if (!finalPath) {
+          return { ok: false, error: 'Export cancelled' };
+        }
+        if (services.exportVault) {
+          return services.exportVault(finalPath, passphrase);
+        }
+        if (!services.vaultService) {
+          return { ok: false, error: 'Vault service not available' };
+        }
+        return exportVaultToFile(services.vaultService, finalPath, passphrase);
+      },
+      (issue) => ({ ok: false, error: issue }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultImportPreview,
+      schemas.VaultImportPreviewRequest,
+      async ({ passphrase, inputPath }) => {
+        let finalPath = inputPath;
+        if (!finalPath) {
+          finalPath = (await services.dialogs?.pickOpenPath({
+            title: 'Select Vault Backup',
+            filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+          })) ?? undefined;
+        }
+        if (!finalPath) {
+          return { ok: false, error: 'No file selected' };
+        }
+        if (services.importVaultPreview) {
+          return services.importVaultPreview(finalPath, passphrase);
+        }
+        if (!services.vaultService) {
+          return { ok: false, error: 'Vault service not available' };
+        }
+        return previewVaultExportFile(services.vaultService, finalPath, passphrase);
+      },
+      (issue) => ({ ok: false, error: issue }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultImport,
+      schemas.VaultImportRequest,
+      async ({ passphrase, inputPath, overwriteExisting }) => {
+        let finalPath = inputPath;
+        if (!finalPath) {
+          finalPath = (await services.dialogs?.pickOpenPath({
+            title: 'Select Vault Backup',
+            filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+          })) ?? undefined;
+        }
+        if (!finalPath) {
+          return { ok: false, error: 'No file selected' };
+        }
+        if (services.importVault) {
+          return services.importVault(finalPath, passphrase, overwriteExisting);
+        }
+        if (!services.vaultService) {
+          return { ok: false, error: 'Vault service not available' };
+        }
+        return importVaultFromFile(services.vaultService, finalPath, passphrase, { overwriteExisting });
+      },
+      (issue) => ({ ok: false, error: issue }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultPickExportPath,
+      schemas.VaultPickExportPathRequest,
+      async (req) => {
+        if (!services.dialogs) return { path: null };
+        const path = await services.dialogs.pickSavePath({
+          title: 'Export Vault Backup',
+          defaultPath: req?.defaultFileName ?? 'midnite-vault-backup.json',
+        });
+        return { path };
+      },
+      () => ({ path: null }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultPickImportPath,
+      schemas.VaultPickImportPathRequest,
+      async () => {
+        if (!services.dialogs) return { path: null };
+        const path = await services.dialogs.pickOpenPath({
+          title: 'Select Vault Backup',
+          filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+        });
+        return { path };
+      },
+      () => ({ path: null }),
     );
 
     ipc.handle(

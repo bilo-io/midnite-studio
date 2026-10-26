@@ -14,3 +14,4 @@ export * from './audit/vault-audit';
 export * from './breach/hibp-check';
 export * from './clipboard';
 export * from './vault-clipboard-watch';
+export * from './vault-export';

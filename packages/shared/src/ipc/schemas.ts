@@ -5208,6 +5208,59 @@ export const VaultHookUninstallResponse = z.object({
   error: z.string().optional(),
 });
 
+export const VaultExportRequest = z.object({
+  passphrase: z.string().min(12),
+  outputPath: z.string().optional(),
+});
+export const VaultExportResponse = z.object({
+  ok: z.boolean(),
+  path: z.string().optional(),
+  entryCount: z.number().int().nonnegative().optional(),
+  error: z.string().optional(),
+});
+
+export const VaultImportPreviewEntrySchema = z.object({
+  namespace: z.string(),
+  key: z.string(),
+  existsLocally: z.boolean(),
+  hasFingerprint: z.boolean(),
+});
+
+export const VaultImportPreviewRequest = z.object({
+  passphrase: z.string().min(1),
+  inputPath: z.string().optional(),
+});
+export const VaultImportPreviewResponse = z.object({
+  ok: z.boolean(),
+  totalEntries: z.number().int().nonnegative().optional(),
+  entries: z.array(VaultImportPreviewEntrySchema).optional(),
+  error: z.string().optional(),
+});
+
+export const VaultImportRequest = z.object({
+  passphrase: z.string().min(1),
+  inputPath: z.string().optional(),
+  overwriteExisting: z.boolean().default(false),
+});
+export const VaultImportResponse = z.object({
+  ok: z.boolean(),
+  importedCount: z.number().int().nonnegative().optional(),
+  skippedCount: z.number().int().nonnegative().optional(),
+  error: z.string().optional(),
+});
+
+export const VaultPickExportPathRequest = z.object({
+  defaultFileName: z.string().optional(),
+}).optional();
+export const VaultPickExportPathResponse = z.object({
+  path: z.string().nullable(),
+});
+
+export const VaultPickImportPathRequest = z.object({}).optional();
+export const VaultPickImportPathResponse = z.object({
+  path: z.string().nullable(),
+});
+
 // --- finance proxy (Phase 76 Theme D) -----------------------------------------
 
 const FinanceAssetKindSchema = z.enum(['crypto', 'stock']);

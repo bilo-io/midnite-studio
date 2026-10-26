@@ -92,6 +92,20 @@ function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { s
     hookInstall: vi.fn(async () => ({ ok: true })),
     hookUninstall: vi.fn(async () => ({ ok: true })),
   };
+  const vaultBackup = {
+    export: vi.fn(async () => ({ ok: true, path: '/tmp/backup.json', entryCount: 3 })),
+    importPreview: vi.fn(async () => ({
+      ok: true,
+      totalEntries: 2,
+      entries: [
+        { namespace: 'secrets', key: 'anthropic', existsLocally: true, hasFingerprint: false },
+        { namespace: 'db-credentials', key: 'prod', existsLocally: false, hasFingerprint: true },
+      ],
+    })),
+    import: vi.fn(async () => ({ ok: true, importedCount: 1, skippedCount: 1 })),
+    pickExportPath: vi.fn(async () => ({ path: '/tmp/backup.json' })),
+    pickImportPath: vi.fn(async () => ({ path: '/tmp/backup.json' })),
+  };
   window.midniteStudio = {
     secrets,
     forgeAccounts,
@@ -104,6 +118,7 @@ function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { s
     vaultBreach,
     vaultSecrets,
     vaultScan,
+    vaultBackup,
   } as unknown as typeof window.midniteStudio;
   const kit = createFrameChrome();
   render(
@@ -293,6 +308,23 @@ describe('VaultPage — web-app sign-ins', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/No secrets detected across 5 commits/)).toBeDefined();
+    });
+  });
+
+  it('renders encrypted export and import section and executes backup export', async () => {
+    mount();
+    expect(screen.getByText('Encrypted Backup & Restore')).toBeDefined();
+    expect(screen.getByText('midnite-vault-export-v1')).toBeDefined();
+
+    // Passphrase input
+    const input = screen.getByPlaceholderText('Enter passphrase for backup encryption / decryption...');
+    fireEvent.change(input, { target: { value: 'StrongPassphrase123!' } });
+
+    const exportBtn = screen.getByRole('button', { name: 'Export Vault' });
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Successfully exported 3 entries/)).toBeDefined();
     });
   });
 });

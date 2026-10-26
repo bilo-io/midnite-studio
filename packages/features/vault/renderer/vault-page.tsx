@@ -4,6 +4,7 @@ import { LuKey, LuLock, LuLockOpen } from 'react-icons/lu';
 
 import { AuditSection } from './audit-section';
 import { DbLoginsSection } from './db-logins-section';
+import { ExportSection } from './export-section';
 import { ForgeAccountsSection } from './forge-accounts-section';
 import { GrantsSection } from './grants-section';
 import { PairingSection } from './pairing-section';
@@ -155,6 +156,7 @@ export function VaultPage() {
       <PairingSection />
       <AuditSection />
       <SecretScanSection />
+      <ExportSection />
     </div>
   );
 }

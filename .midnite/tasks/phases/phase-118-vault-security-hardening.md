@@ -102,7 +102,7 @@ Scope guardrails:
 
 *The vault locks when no one needs it, remembers everything that touched it, can be carried out
 and brought back, and notices when its own files are not its own.* Born from a vault that encrypts
-well and does nothing else a person expects of one. (69% · 35/51) — **Planned 2026-10-22.**
+well and does nothing else a person expects of one. (80% · 41/51) — **Planned 2026-10-22.**
 
 **Theme A — Threat model and key handling, written down.** ✅ Landed in `docs/VAULT_SECURITY.md`,
 covering key hierarchy (`safeStorage` → login keychain → user password and FileVault), decrypt
@@ -130,9 +130,9 @@ only, advisory badges, and `api.pwnedpasswords.com` in `EGRESS_HOSTS`.
 commits with "Commit anyway" override; optional pre-commit hook; one-shot repository history scan with report;
 opt-in clipboard watch at ≤ 1 Hz with 60s auto-clear.
 
-**Theme G — Encrypted export and import.** ◻ A versioned, passphrase-encrypted export
-(scrypt → AES-256-GCM via `node:crypto`), re-auth to produce, re-auth to import, never a
-plaintext path; a restore drill in the docs.
+**Theme G — Encrypted export and import.** ✅ Landed `midnite-vault-export-v1` (scrypt N=2^17, r=8, p=1,
+maxmem=256MB + AES-256-GCM), 0600 backup files, passphrase strength meter, preview without commit,
+keep-existing merge, audit logging, restore drill tests, and standalone 16-line decrypt script in `docs/VAULT_SECURITY.md`.
 
 **Theme H — Tamper detection and memory hygiene.** ◻ An HMAC over every vault file, grants and
 pairing included, under a `safeStorage`-held key; mismatch locks the vault and logs; plaintext
@@ -292,7 +292,7 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 
 ### G — Encrypted export and import [M · ~1d]
 
-- [ ] **The format.** `midnite-vault-export-v1`: a JSON envelope `{ v: 1, kdf: { name:
+- [x] **The format.** `midnite-vault-export-v1`: a JSON envelope `{ v: 1, kdf: { name:
       'scrypt', N: 2^17, r: 8, p: 1, maxmem: 268435456, salt }, cipher: 'aes-256-gcm', iv, tag,
       ciphertext }` where the plaintext is the full namespace map; `node:crypto` only. `maxmem` is
       part of the format on purpose: scrypt at these parameters needs 128·N·r = 128 MiB and
@@ -300,15 +300,15 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
       `ERR_CRYPTO_INVALID_SCRYPT_PARAMS` — the decrypt script in Theme A's doc passes it too. Passphrase minimum 12
       characters, strength shown, no recovery. The format and its parameters are in Theme A's
       doc so a user can decrypt with `openssl`/a script without the app.
-- [ ] **Export.** "Export vault" in the Vault app, behind Theme B's fresh unlock, writes to a
+- [x] **Export.** "Export vault" in the Vault app, behind Theme B's fresh unlock, writes to a
       user-chosen path via the save dialog, 0600, and an audit line. Never a plaintext option;
       "Export as JSON" does not exist.
-- [ ] **Import.** Behind re-auth; a preview of entry *names* and namespaces before merge;
+- [x] **Import.** Behind re-auth; a preview of entry *names* and namespaces before merge;
       conflicts default to "keep existing"; an audit line per imported entry.
-- [ ] **A restore drill.** A documented, tested path: export on Mac A, fresh profile on Mac B
+- [x] **A restore drill.** A documented, tested path: export on Mac A, fresh profile on Mac B
       (or a throwaway `--user-data-dir`), import, every `has` true. The test runs the whole
       path with a fake cipher.
-- [ ] *Acceptance:* an export decrypts with a 20-line Node script from the doc; a wrong
+- [x] *Acceptance:* an export decrypts with a 20-line Node script from the doc; a wrong
       passphrase fails authentication, not just decryption (GCM tag); the drill test passes.
 
 ### H — Tamper detection and memory hygiene [M · ~1d]
@@ -370,7 +370,7 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 - [x] **E:** the request body is five hex characters, the response is padded, the known-breached
       fixture reports breached.
 - [x] **F:** staged-token block, SHA negative case, history fixture, clipboard notification.
-- [ ] **G:** the restore drill passes; a wrong passphrase fails on the GCM tag.
+- [x] **G:** the restore drill passes; a wrong passphrase fails on the GCM tag.
 - [ ] **H:** out-of-band grant edit locks the vault; `withSecret` zeroes on resolve and throw; no
       `env: process.env` without an allowlist in the runtime.
 - [ ] **Open, for a human:** a packaged-app pass on a real Mac: lock on lid close, Touch ID

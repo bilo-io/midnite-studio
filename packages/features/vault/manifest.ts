@@ -71,6 +71,12 @@ export const vaultManifest = defineFeatureManifest({
     CHANNELS.vaultHookStatus,
     CHANNELS.vaultHookInstall,
     CHANNELS.vaultHookUninstall,
+    // Vault encrypted export & import (Phase 118 Theme G)
+    CHANNELS.vaultExport,
+    CHANNELS.vaultImportPreview,
+    CHANNELS.vaultImport,
+    CHANNELS.vaultPickExportPath,
+    CHANNELS.vaultPickImportPath,
   ],
   events: [],
   mcpTools: [],
