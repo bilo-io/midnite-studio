@@ -2380,7 +2380,6 @@ export type MidniteStudioBridge = {
   confinement: {
     status: () => Promise<z.infer<typeof S.ConfinementStatusResponse>>;
   };
-  };
 };
 
 declare global {
