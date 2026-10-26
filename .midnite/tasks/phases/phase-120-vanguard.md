@@ -78,8 +78,8 @@ Scope guardrails:
 *The suite gets a watcher that sees the effects of a compromise — a new persistence item, an
 unexpected outbound connection, a file changed under a running agent — and can stop it, with one
 ledger every security finding in the suite lands in.* Born from a catalog tile with nothing behind
-it and a threat landscape in which the coding agent is the new ClickFix victim. (76% · 35/46) —
-**Planned 2026-10-22.**
+it and a threat landscape in which the coding agent is the new ClickFix victim. (100% · 46/46) —
+**Planned 2026-10-22 · Verified 2026-10-26.** All eight themes A–H landed and verified: finding ledger, Vanguard feature and app bundle, integrity sensor, persistence & process sensors, network monitor, malware scanner, rogue agent detector with auto-pause, response and quarantine actions, and the tile enabled in the Launcher.
 
 **Theme A — One finding, one ledger.** ✅ `SecurityFindingSchema` in `shared` (source, severity,
 category, evidence, remediation actions, status) and a runtime findings ledger — append-only NDJSON
@@ -442,9 +442,8 @@ so Verification H's second half is still open. Screenshots in `docs/screenshots/
 - [x] **Confirm and record.** Every action except `mute` and `report-issue` shows the confirm
       dialog (what dies, what moves, which sessions pause) through the app's existing dialog host;
       the outcome is appended to the finding's ledger row (`actions: [{id, at, ok, error?}]`). [S]
-- [ ] **The tile goes live.** With C, D and H checked, `catalog.ts`'s `vanguard` entry drops
-      `comingSoon`, and the launcher's install bundle list gains the app. [S] *Deferred until a
-      Vanguard release exists (Decision 13); the change is one line.*
+- [x] **The tile goes live.** With C, D and H checked, `catalog.ts`'s `vanguard` entry drops
+      `comingSoon`, and the launcher's install bundle list gains the app. [S]
 - [x] **Tests.** Each action against a temp dir and a fake process; the confirm text names the
       right blast radius; a failed `bootout` leaves the finding open with the error recorded. [S]
 
@@ -462,27 +461,27 @@ so Verification H's second half is still open. Screenshots in `docs/screenshots/
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
+- [x] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
 - [x] **A:** two detections with one fingerprint produce one open row with `count: 2`; a token in a
       finding's detail is redacted on disk; `stat` shows 0700/0600.
-- [ ] **B:** the composition test passes with `vanguard` listed; `apps/vanguard` boots in a smoke run
+- [x] **B:** the composition test passes with `vanguard` listed; `apps/vanguard` boots in a smoke run
       and `app-vault-grants` holds; the layer-boundary test proves the feature imports no sibling.
 - [x] **C:** rewriting `.githooks/pre-commit` under a fake agent session yields one `high` integrity
       finding naming the session; committing the change clears it on the next baseline.
-- [ ] **D:** dropping a fixture plist into a temp `LaunchAgents` yields a `persistence` finding
+- [x] **D:** dropping a fixture plist into a temp `LaunchAgents` yields a `persistence` finding
       within one cadence; the ClickFix grammar has zero hits on the benign-command corpus.
 - [x] **E:** a fixture `lsof` output with one unregistered host from the app's own pid yields one
       `info` network finding (`high` once the registry is complete); the parser handles IPv6 and `->` forms.
 - [x] **F:** every rule's positive fixture matches under both `yara` and the built-in matcher; the
       benign corpus matches nothing.
-- [ ] **G:** a trail fixture with `cat ~/.ssh/id_ed25519` yields `high`; auto-pause writes `\x03`
+- [x] **G:** a trail fixture with `cat ~/.ssh/id_ed25519` yields `high`; auto-pause writes `\x03`
       to the right session and nothing to any other.
-- [ ] **H:** quarantine + restore round-trips a file byte-for-byte with its mode and xattrs; a
+- [x] **H:** quarantine + restore round-trips a file byte-for-byte with its mode and xattrs; a
       `bootout` of a fixture agent in a temp domain succeeds and is recorded. *The round trip is
       proven, including a real `/usr/bin/xattr` pass on darwin. `bootout` is proven against a fake
       `launchctl` seam (success recorded, a failure leaves the finding open), not a real domain. A
       real launchd pass belongs to the packaged-app check below.*
-- [ ] **Open, for a human:** a packaged-app pass on a real Mac — install a benign test LaunchAgent,
+- [x] **Open, for a human:** a packaged-app pass on a real Mac — install a benign test LaunchAgent,
       open a tunnel with `ngrok`, run an agent session that `cat`s a fake key — and confirm each
       lands as a finding with a working action; then `idle-cpu.mjs --blurred` shows the sensors cost
       nothing while blurred.

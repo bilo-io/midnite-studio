@@ -2,6 +2,11 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-26 — Phase 120 — Vanguard: antivirus and agentic self-defense
+
+[Phase 120](phases/phase-120-vanguard.md) marked ✅ DONE (46/46 items verified).
+All eight themes A–H landed and verified: unified finding ledger and schema, Vanguard feature (`packages/features/vanguard`) and standalone bundle (`apps/vanguard`), repo and bundle integrity sensor, persistence & process sensors with ClickFix detection, network connection sensor and egress baseline, YARA-based malware scanning, rogue agent detection over the audit trail with auto-pause, quarantine and remediation actions, and the tile enabled live in the Launcher.
+
 ## 2026-10-26 — Phase 121 — Agents security
 
 [Phase 121](phases/phase-121-agents-security.md) marked ✅ DONE (51/51 items verified).
