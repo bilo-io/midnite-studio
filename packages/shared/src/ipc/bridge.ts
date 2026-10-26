@@ -1247,6 +1247,15 @@ export type MidniteStudioBridge = {
     hookUninstall: (req: In<typeof S.VaultHookUninstallRequest>) => Promise<z.infer<typeof S.VaultHookUninstallResponse>>;
   };
 
+  /** Encrypted export and import (Phase 118 Theme G). */
+  vaultBackup?: {
+    export: (req: In<typeof S.VaultExportRequest>) => Promise<z.infer<typeof S.VaultExportResponse>>;
+    importPreview: (req: In<typeof S.VaultImportPreviewRequest>) => Promise<z.infer<typeof S.VaultImportPreviewResponse>>;
+    import: (req: In<typeof S.VaultImportRequest>) => Promise<z.infer<typeof S.VaultImportResponse>>;
+    pickExportPath: (req?: In<typeof S.VaultPickExportPathRequest>) => Promise<z.infer<typeof S.VaultPickExportPathResponse>>;
+    pickImportPath: (req?: In<typeof S.VaultPickImportPathRequest>) => Promise<z.infer<typeof S.VaultPickImportPathResponse>>;
+  };
+
   /**
    * Finance provider fetches proxied through main (Phase 76 Theme D) so API
    * keys and CoinGecko/Twelve Data hosts stay out of the renderer.

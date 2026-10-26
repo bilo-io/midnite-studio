@@ -1616,6 +1616,12 @@ export const CHANNELS = {
   vaultHookStatus: 'mstudio:vault:hook:status',
   vaultHookInstall: 'mstudio:vault:hook:install',
   vaultHookUninstall: 'mstudio:vault:hook:uninstall',
+  // --- vault encrypted export & import (Phase 118 Theme G) -------------------
+  vaultExport: 'mstudio:vault:export',
+  vaultImportPreview: 'mstudio:vault:import:preview',
+  vaultImport: 'mstudio:vault:import',
+  vaultPickExportPath: 'mstudio:vault:pick:export-path',
+  vaultPickImportPath: 'mstudio:vault:pick:import-path',
 
   // --- finance proxy (Phase 76 Theme D) -------------------------------------
   /** Search crypto/stock symbols — provider fetches run in main. */

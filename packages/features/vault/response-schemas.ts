@@ -37,4 +37,9 @@ export const vaultResponseSchemas: Readonly<Record<VaultChannel, ZodTypeAny>> = 
   [CHANNELS.vaultHookStatus]: schemas.VaultHookStatusResponse,
   [CHANNELS.vaultHookInstall]: schemas.VaultHookInstallResponse,
   [CHANNELS.vaultHookUninstall]: schemas.VaultHookUninstallResponse,
+  [CHANNELS.vaultExport]: schemas.VaultExportResponse,
+  [CHANNELS.vaultImportPreview]: schemas.VaultImportPreviewResponse,
+  [CHANNELS.vaultImport]: schemas.VaultImportResponse,
+  [CHANNELS.vaultPickExportPath]: schemas.VaultPickExportPathResponse,
+  [CHANNELS.vaultPickImportPath]: schemas.VaultPickImportPathResponse,
 };

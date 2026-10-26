@@ -1,4 +1,4 @@
-import { clipboard } from 'electron';
+import { clipboard, dialog } from 'electron';
 
 import {
   installPreCommitHook,
@@ -7,6 +7,9 @@ import {
   uninstallPreCommitHook,
 } from '@midnite/studio-git-engine';
 import {
+  exportVaultToFile,
+  importVaultFromFile,
+  previewVaultExportFile,
   registerVaultGrantHandlers,
   registerVaultPairingHandlers,
   type PairingStore,
@@ -236,6 +239,94 @@ export function registerSecretsHandlers(): void {
       return uninstallPreCommitHook(repoPath);
     },
     (issue) => failure(issue),
+  );
+
+  handle(
+    CHANNELS.vaultPickExportPath,
+    schemas.VaultPickExportPathRequest,
+    async (req) => {
+      const picked = await dialog.showSaveDialog({
+        title: 'Export Vault Backup',
+        defaultPath: req?.defaultFileName ?? 'midnite-vault-backup.json',
+        filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+      });
+      return { path: picked.canceled || !picked.filePath ? null : picked.filePath };
+    },
+    () => ({ path: null }),
+  );
+
+  handle(
+    CHANNELS.vaultPickImportPath,
+    schemas.VaultPickImportPathRequest,
+    async () => {
+      const picked = await dialog.showOpenDialog({
+        title: 'Select Vault Backup',
+        properties: ['openFile'],
+        filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+      });
+      return { path: picked.canceled || !picked.filePaths[0] ? null : picked.filePaths[0] };
+    },
+    () => ({ path: null }),
+  );
+
+  handle(
+    CHANNELS.vaultExport,
+    schemas.VaultExportRequest,
+    async ({ passphrase, outputPath }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      let finalPath = outputPath;
+      if (!finalPath) {
+        const picked = await dialog.showSaveDialog({
+          title: 'Export Vault Backup',
+          defaultPath: 'midnite-vault-backup.json',
+          filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+        });
+        if (picked.canceled || !picked.filePath) return { ok: false, error: 'Export cancelled' };
+        finalPath = picked.filePath;
+      }
+      return exportVaultToFile(vaultService, finalPath, passphrase);
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultImportPreview,
+    schemas.VaultImportPreviewRequest,
+    async ({ passphrase, inputPath }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      let finalPath = inputPath;
+      if (!finalPath) {
+        const picked = await dialog.showOpenDialog({
+          title: 'Select Vault Backup',
+          properties: ['openFile'],
+          filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+        });
+        if (picked.canceled || !picked.filePaths[0]) return { ok: false, error: 'No file selected' };
+        finalPath = picked.filePaths[0];
+      }
+      return previewVaultExportFile(vaultService, finalPath, passphrase);
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultImport,
+    schemas.VaultImportRequest,
+    async ({ passphrase, inputPath, overwriteExisting }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      let finalPath = inputPath;
+      if (!finalPath) {
+        const picked = await dialog.showOpenDialog({
+          title: 'Select Vault Backup',
+          properties: ['openFile'],
+          filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+        });
+        if (picked.canceled || !picked.filePaths[0]) return { ok: false, error: 'No file selected' };
+        finalPath = picked.filePaths[0];
+      }
+      return importVaultFromFile(vaultService, finalPath, passphrase, { overwriteExisting });
+    },
+    (issue) => ({ ok: false, error: issue }),
   );
 
   handle(

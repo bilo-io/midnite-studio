@@ -79,4 +79,65 @@ Pairing verifies that the connecting socket peer holds the private Ed25519 key s
 9. **Can a rogue agent script silently inspect vault secrets?**
    No. Agent tools do not possess vault read grants. Agent runs operate within standard sandboxed runtime restrictions ([`packages/runtime/src/mcp/`](file:///Users/bilo-ekko/Dev/midnite/midnite-studio/packages/runtime/src/mcp/)).
 10. **What is the recovery path if keychain access is corrupted?**
-    Encrypted backup archives encrypted with user-selected passphrases using scrypt and AES-256-GCM.
+    Encrypted backup archives encrypted with user-selected passphrases using scrypt and AES-256-GCM ([Theme G](#7-encrypted-export-and-import-midnite-vault-export-v1)).
+
+---
+
+## 7. Encrypted Export and Import (midnite-vault-export-v1)
+
+Theme G introduces portable, offline-recoverable encrypted backups:
+
+### Envelope Specification
+```json
+{
+  "v": 1,
+  "kdf": {
+    "name": "scrypt",
+    "N": 131072,
+    "r": 8,
+    "p": 1,
+    "maxmem": 268435456,
+    "salt": "<32 hex chars (16 bytes)>"
+  },
+  "cipher": "aes-256-gcm",
+  "iv": "<24 hex chars (12 bytes)>",
+  "tag": "<32 hex chars (16 bytes)>",
+  "ciphertext": "<hex string>"
+}
+```
+
+- **Passphrase:** Minimum 12 characters, strength evaluated in UI.
+- **KDF:** `scrypt` with `N = 131072` ($2^{17}$), `r = 8`, `p = 1`. Requires `128 * N * r = 128 MiB` RAM; `maxmem: 268435456` (256 MiB) is specified explicitly because standard Node.js `scrypt` defaults to 32 MiB.
+- **Cipher:** `aes-256-gcm` with 96-bit random IV and 128-bit authentication tag. A wrong passphrase or modified ciphertext immediately fails GCM tag authentication.
+- **Permissions:** Saved files are set to mode `0600`. Plaintext export is never permitted.
+
+### Standalone Decrypt Script (Decryption without Midnite Studio)
+
+Save as `decrypt-vault.mjs` and run: `node decrypt-vault.mjs <backup-file.json> <passphrase>`:
+
+```javascript
+import { createDecipheriv, scryptSync } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
+const envelope = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+const passphrase = process.argv[3];
+const key = scryptSync(passphrase, Buffer.from(envelope.kdf.salt, 'hex'), 32, {
+  N: envelope.kdf.N,
+  r: envelope.kdf.r,
+  p: envelope.kdf.p,
+  maxmem: envelope.kdf.maxmem,
+});
+const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(envelope.iv, 'hex'));
+decipher.setAuthTag(Buffer.from(envelope.tag, 'hex'));
+const decrypted = Buffer.concat([
+  decipher.update(Buffer.from(envelope.ciphertext, 'hex')),
+  decipher.final(),
+]);
+console.log(JSON.parse(decrypted.toString('utf8')));
+```
+
+### Restore Drill (Mac A to Mac B)
+1. On **Mac A**: Unlock Vault (or authenticate within 60s), enter backup passphrase in Vault ▸ Encrypted Backup & Restore, click **Export Vault**, and save `midnite-vault-backup.json`.
+2. Transfer `midnite-vault-backup.json` to **Mac B** (e.g. via USB drive or private transfer).
+3. On **Mac B**: Open Vault ▸ Encrypted Backup & Restore, select `midnite-vault-backup.json`, enter passphrase, click **Preview Backup** to inspect entries without writing, and click **Apply Import** to restore credentials into Mac B's local keychain.
+
