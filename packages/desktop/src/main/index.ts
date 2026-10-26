@@ -30,7 +30,16 @@ import {
   SetupProbeRequest,
   SetupRevealRequest,
 } from '@midnite/studio-shared';
-import { BrowserWindow, app, ipcMain, powerMonitor, safeStorage, session, shell, type WebContentsView } from 'electron';
+import {
+  BrowserWindow,
+  app,
+  ipcMain,
+  powerMonitor,
+  safeStorage,
+  session,
+  shell,
+  type WebContentsView,
+} from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
 import { registerSecurityHandlers } from './ipc/security-handlers';
@@ -44,19 +53,39 @@ import { configureOutboundSecrets } from './outbound-secrets';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
 import { configureToolPolicy } from './tool-policy-wiring';
-import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
+import {
+  configureFindingsLedger,
+  getFindingsLedger,
+  registerVanguardHandlers,
+  startVanguardSensors,
+  stopVanguardSensors,
+} from './ipc/vanguard-handlers';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
-import { allowAppAudioOnly, denyAllDevices, destroyAllBrowserTabs, destroyAllWebApps, startBrowserDiscardSweep, startWebAppsDiscardSweep } from '@midnite/studio-feature-browser/main';
+import {
+  allowAppAudioOnly,
+  denyAllDevices,
+  destroyAllBrowserTabs,
+  destroyAllWebApps,
+  startBrowserDiscardSweep,
+  startWebAppsDiscardSweep,
+} from '@midnite/studio-feature-browser/main';
 import { installCsp } from './csp';
 import { registerBrowserFeatureHandlers } from './ipc/browser-feature-handlers';
 import { registerClaudeHandlers } from './ipc/claude-handlers';
 import { registerConflictHandlers } from './ipc/conflict-handlers';
 import { registerCouncilHandlers } from './ipc/council-handlers';
-import { registerApiClientFeatureHandlers, shutdownApiClientFeature } from './ipc/api-client-feature-handlers';
+import {
+  registerApiClientFeatureHandlers,
+  shutdownApiClientFeature,
+} from './ipc/api-client-feature-handlers';
 import { registerFinanceHandlers } from './ipc/finance-handlers';
-import { configureSecrets, configureVaultGrants, registerSecretsHandlers } from './ipc/secrets-handlers';
+import {
+  configureSecrets,
+  configureVaultGrants,
+  registerSecretsHandlers,
+} from './ipc/secrets-handlers';
 import { createSecretsVault } from './secrets-vault';
 import {
   configureForgeAccounts,
@@ -66,7 +95,10 @@ import {
   createGitlabLanguageCacheStore,
   FORGE_POLL_MS,
 } from '@midnite/studio-feature-forge/main';
-import { registerDatabaseFeatureHandlers, shutdownDatabaseFeature } from './ipc/database-feature-handlers';
+import {
+  registerDatabaseFeatureHandlers,
+  shutdownDatabaseFeature,
+} from './ipc/database-feature-handlers';
 import { configureKnowledge, registerKnowledgeHandlers } from './ipc/knowledge-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { createCompanionStore } from './companion/companion-store';
@@ -84,7 +116,10 @@ import { createNotesStore } from '@midnite/studio-feature-notes/main';
 import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { handle, handleBare } from './ipc/handle';
 import { probeSetupItems } from './setup-probe';
-import { createStudioForgePoller, registerForgeFeatureHandlers } from './ipc/forge-feature-handlers';
+import {
+  createStudioForgePoller,
+  registerForgeFeatureHandlers,
+} from './ipc/forge-feature-handlers';
 import { registerAiHandlers } from './ipc/ai-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
@@ -138,19 +173,30 @@ import { configureRegistry, listRepos, openRepo, restoreRepos } from './repo-reg
 import { reconcileWatchers, stopAllWatchers } from './watch-service';
 import { initFetchScheduler, reconcileFetchScheduler } from './fetch-scheduler';
 import { registerSettingsHandlers } from './ipc/settings-handlers';
-import { createConnectionsStore, createCredentialVault } from '@midnite/studio-feature-database/main';
+import {
+  createConnectionsStore,
+  createCredentialVault,
+} from '@midnite/studio-feature-database/main';
 import { createTrustStore } from './diagnostics/trust-store';
 import { createRepoStore } from './repo-store';
 import { getMcpServerHandle, registerMcpServer } from './mcp';
 import { registerMcpHandlers } from './ipc/mcp-handlers';
 import { configureMcpTrust } from './mcp-trust-wiring';
 import { fingerprintFile } from './socket-name';
-import { configureCouncils, createCouncilsRunsStore, createCouncilsStore } from '@midnite/studio-feature-councils/main';
+import {
+  configureCouncils,
+  createCouncilsRunsStore,
+  createCouncilsStore,
+} from '@midnite/studio-feature-councils/main';
 import { stopDemoApi } from '@midnite/studio-feature-workflows/main';
 import { registerWorkflowHandlers } from './ipc/workflow-handlers';
 import { registerVideoHandlers } from './ipc/video-handlers';
 import { registerMediaHandlers, stopMediaWatchers } from './ipc/media-handlers';
-import { configureMusicBroker, disposeMusicBroker, registerMediaAudioHandlers } from './ipc/media-audio-handlers';
+import {
+  configureMusicBroker,
+  disposeMusicBroker,
+  registerMediaAudioHandlers,
+} from './ipc/media-audio-handlers';
 import { registerMediaMusicHandlers } from './ipc/media-music-handlers';
 import { registerMediaImageHandlers } from './ipc/media-image-handlers';
 import { disposeMediaLibraryLan, registerMediaLibraryHandlers } from './ipc/media-library-handlers';
@@ -158,7 +204,11 @@ import { captureGate, disposeCapture, registerCaptureHandlers } from './ipc/capt
 import type { PermissionDetails as CapturePermissionDetails } from '@midnite/studio-feature-capture/main';
 import { engines as modelEngines, registerMediaModelHandlers } from './ipc/media-model-handlers';
 import { registerMediaSpriteHandlers } from './ipc/media-sprite-handlers';
-import { disposeMapCaptureBroker, installMapTileProtocol, registerMediaMapHandlers } from './ipc/media-map-handlers';
+import {
+  disposeMapCaptureBroker,
+  installMapTileProtocol,
+  registerMediaMapHandlers,
+} from './ipc/media-map-handlers';
 import { disposeTerrainBroker, registerMediaTerrainHandlers } from './ipc/media-terrain-handlers';
 import { configureSf3d, disposeSf3d } from './ipc/media-model-sf3d-handlers';
 import {
@@ -175,7 +225,11 @@ import {
   createOllamaSettingsStore,
 } from '@midnite/studio-feature-models/main';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
-import { installMgitFileProtocol, registerPrivilegedSchemes, setVideoFileRootProvider } from './fs-protocol';
+import {
+  installMgitFileProtocol,
+  registerPrivilegedSchemes,
+  setVideoFileRootProvider,
+} from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
 import { registerReportHandlers, setBootLine } from './ipc/report-handlers';
 import { bootMark } from './perf-marks';
@@ -374,8 +428,14 @@ export const startStudioMain: StartStudioMain = () => {
   async function handleDeepLinkUrl(rawUrl: string, origin?: string): Promise<void> {
     const parsed = parseDeepLink(rawUrl);
     if (!parsed) return;
-    if (origin !== undefined && isActingPageLinkKind(parsed.kind) && !pageLinkLimiter.allow(origin)) {
-      defaultLogger(`[deep-link] dropped a ${parsed.kind} link from ${origin || 'a page'}: one per 10 s per site`);
+    if (
+      origin !== undefined &&
+      isActingPageLinkKind(parsed.kind) &&
+      !pageLinkLimiter.allow(origin)
+    ) {
+      defaultLogger(
+        `[deep-link] dropped a ${parsed.kind} link from ${origin || 'a page'}: one per 10 s per site`,
+      );
       return;
     }
 
@@ -392,7 +452,11 @@ export const startStudioMain: StartStudioMain = () => {
       known = allRepos.some((r) => r.path === parsed.repo);
     }
 
-    win.webContents.send(EVENT_CHANNELS.deepLink, { link: parsed, known, ...(origin !== undefined ? { origin } : {}) });
+    win.webContents.send(EVENT_CHANNELS.deepLink, {
+      link: parsed,
+      known,
+      ...(origin !== undefined ? { origin } : {}),
+    });
   }
 
   if (!app.requestSingleInstanceLock()) {
@@ -491,15 +555,27 @@ export const startStudioMain: StartStudioMain = () => {
       */
       const recordingGate = captureGate(devServerOrigin);
       allowAppAudioOnly(session.defaultSession, devServerOrigin, (permission, details, origin) =>
-        recordingGate.allowsPermission(permission, details as CapturePermissionDetails | undefined, origin),
+        recordingGate.allowsPermission(
+          permission,
+          details as CapturePermissionDetails | undefined,
+          origin,
+        ),
       );
       session.defaultSession.setDisplayMediaRequestHandler((request, callback) =>
-        recordingGate.handleRequest(request, callback as Parameters<typeof recordingGate.handleRequest>[1]),
+        recordingGate.handleRequest(
+          request,
+          callback as Parameters<typeof recordingGate.handleRequest>[1],
+        ),
       );
       // Phase 91 Theme E: one navigation/window.open net for every app window, installed before any
       // exists (`web-contents-created` is only seen by listeners registered ahead of the contents).
       app.on('web-contents-created', (_event, contents) => {
-        applyAppWebContentsPolicy(contents, devServerOrigin, (href) => void shell.openExternal(href));
+        applyAppWebContentsPolicy(
+          contents,
+          session.defaultSession,
+          devServerOrigin,
+          (href) => void shell.openExternal(href),
+        );
       });
       // Phase 91 Theme E: no WebUSB/HID/serial device chooser for the app renderer. Display media
       // stays Capture's gate above, hence `displayMedia: false`.
@@ -558,7 +634,10 @@ export const startStudioMain: StartStudioMain = () => {
         // Only Studio's own scheme is acted on in-process; a page's `midnite://` link is not forwarded
         // to the launcher, where it would lose the origin that the confirm names.
         if (url.toLowerCase().startsWith('midnite-studio://')) void handleDeepLinkUrl(url, origin);
-        else defaultLogger(`[deep-link] a page's midnite:// link was not forwarded (${origin || 'unknown origin'})`);
+        else
+          defaultLogger(
+            `[deep-link] a page's midnite:// link was not forwarded (${origin || 'unknown origin'})`,
+          );
       });
       // Phase 84 Theme F: one process-wide idle sweep, started once — every
       // discard eligibility check reads live `WebContentsView`/`BrowserWindow`
@@ -772,10 +851,19 @@ export const startStudioMain: StartStudioMain = () => {
         `forge-poller.ts`'s own cadence, unconditional rather than
         subscription-gated — it costs nothing with nothing waiting).
       */
-      registerWorkflowHandlers({ userData, forgePoller, getMainWindow, gateApprovalPollMs: FORGE_POLL_MS });
+      registerWorkflowHandlers({
+        userData,
+        forgePoller,
+        getMainWindow,
+        gateApprovalPollMs: FORGE_POLL_MS,
+      });
       configureFindingsLedger(userData, getMainWindow);
       // Phase 121 Theme G: the durable agent audit trail, and the command lines typed into agent ptys.
-      configureAgentAudit({ userData, homeDir: app.getPath('home'), log: (message) => defaultLogger.warn(message) });
+      configureAgentAudit({
+        userData,
+        homeDir: app.getPath('home'),
+        log: (message) => defaultLogger.warn(message),
+      });
       stopAgentCommandAudit = startAgentCommandAudit({
         observeInput: observePtyInput,
         observeOutput: observePtyOutput,
@@ -802,7 +890,9 @@ export const startStudioMain: StartStudioMain = () => {
       configureMcpTrust(userData, (finding) => getFindingsLedger().record(finding));
       // Phase 121 Theme F: the breaker reads the trail the line above feeds and interrupts a session that runs away.
       startStudioAgentBreaker({ userData, getWindow: getMainWindow });
-      void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
+      void startVanguardSensors(userData).catch((error: unknown) =>
+        defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`),
+      );
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
           const win = getMainWindow();
@@ -834,7 +924,8 @@ export const startStudioMain: StartStudioMain = () => {
           return { ok: true };
         },
         listRepoPaths: async () => (await listRepos()).map((repo) => repo.path),
-        repoIdOf: async (path) => (await listRepos()).find((repo) => repo.path === path)?.id ?? null,
+        repoIdOf: async (path) =>
+          (await listRepos()).find((repo) => repo.path === path)?.id ?? null,
         // Pop out (Theme B): the `game` role window hosts one game's view.
         openPopoutWindow: asPopoutWindow(() => createRoleWindow('game', defaultLogger)),
         // A terrain pack imported as a game asset is exported by the Terrain feature's own code.
@@ -853,17 +944,22 @@ export const startStudioMain: StartStudioMain = () => {
       const gameLlm = createLlmCall(modelEngines);
       gameAgentService = createGameAgentService({
         resolve: (gameId) => mcpGameService.resolve(gameId),
-        squashRunCommits: async () => (await mcpGameService.settings.get()).settings.squashRunCommits,
+        squashRunCommits: async () =>
+          (await mcpGameService.settings.get()).settings.squashRunCommits,
         host: createIterativeHost(),
         tools: () => gameMcpTools,
-        ollama: ({ model, prompt, signal }) => gameLlm({ engine: { kind: 'ollama', model }, repoId: '', prompt, signal, json: true }),
+        ollama: ({ model, prompt, signal }) =>
+          gameLlm({ engine: { kind: 'ollama', model }, repoId: '', prompt, signal, json: true }),
         send: broadcastToAllWindows,
         log: defaultLogger,
       });
       registerGamesHandlers(games, gameAgentService, gamePlaytests);
       configureOllamaSettings(createOllamaSettingsStore(userData));
       // Phase 121 Theme I: installed models are pinned by manifest digest; a moved digest is a Vanguard finding.
-      configureOllamaDigests({ store: createOllamaDigestStore(userData), raiseFinding: (finding) => getFindingsLedger().record(finding) });
+      configureOllamaDigests({
+        store: createOllamaDigestStore(userData),
+        raiseFinding: (finding) => getFindingsLedger().record(finding),
+      });
       configureDiagnostics(createTrustStore(userData));
       configureTests(createTestTrustStore(userData));
       /*
@@ -883,7 +979,8 @@ export const startStudioMain: StartStudioMain = () => {
       const vaultGrants = createVaultGrants({
         directory: userData,
         onPersist: (p) => vaultIntegrity.updateFileSync(p),
-        checkIntegrity: () => vaultIntegrity.verifyFileSync(join(userData, VAULT_GRANTS_FILE)).valid,
+        checkIntegrity: () =>
+          vaultIntegrity.verifyFileSync(join(userData, VAULT_GRANTS_FILE)).valid,
       });
       // Which key each guest app paired with — the host checks it, Studio's Vault view lists and unpairs.
       const runtimeDirectory = studioRuntimeDirectory(app.getPath('appData'), userData);
@@ -921,8 +1018,8 @@ export const startStudioMain: StartStudioMain = () => {
       configureSecrets(createSecretsVault(studioVault));
       // Phase 121 Theme D: every outbound prompt is scrubbed against the vault's values, and two canaries are planted.
       configureOutboundSecrets(createOutboundSecretSource({ vault: studioVault }));
-      void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch((error: unknown) =>
-        defaultLogger.warn(`canary setup failed: ${String(error)}`),
+      void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch(
+        (error: unknown) => defaultLogger.warn(`canary setup failed: ${String(error)}`),
       );
       /*
         The account registry (Phase 90 Theme B) — wired here beside every other
@@ -930,7 +1027,10 @@ export const startStudioMain: StartStudioMain = () => {
         load without blocking boot on it; `forge-accounts.ts`'s own `ensureLoaded`
         is what a handler awaits if it fires before that resolves.
       */
-      configureForgeAccounts(createForgeAccountsStore(userData), createForgeAccountVault(studioVault));
+      configureForgeAccounts(
+        createForgeAccountsStore(userData),
+        createForgeAccountVault(studioVault),
+      );
       /*
         The Knowledge view's layout cache — keyed on `built_at_commit` plus the
         projection format version (Phase 87, Decision 2). Its own subdirectory
@@ -1133,8 +1233,12 @@ export const startStudioMain: StartStudioMain = () => {
 
       // Watch what was restored. After this the handlers reconcile on every
       // open/close, so there is exactly one place that starts a watcher at boot.
-      await reconcileWatchers((await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })));
-      reconcileFetchScheduler((await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })));
+      await reconcileWatchers(
+        (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })),
+      );
+      reconcileFetchScheduler(
+        (await listRepos()).map((repo) => ({ id: repo.id, path: repo.path })),
+      );
 
       // macOS: clicking the dock icon with no windows open reopens one.
       app.on('activate', () => {

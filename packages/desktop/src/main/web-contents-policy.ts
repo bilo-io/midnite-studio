@@ -6,10 +6,13 @@
  * `window.ts` and `window-manager.ts` (the two windows that carry the full preload bridge) came
  * to be the ones that needed it most.
  *
- * Scope: only contents whose `getType()` is `'window'`, i.e. a `BrowserWindow`'s own page. The
- * browser pane's tabs and the web-app views are `WebContentsView`s (`'browserView'`) with their
- * own `checkNavigationUrl` policy in the browser feature, which inverts this rule (they *must*
- * navigate to arbitrary http(s)) — a net that denied them would break the browser.
+ * Scope: only contents whose `getType()` is `'window'` AND that run on the app's own session
+ * (`session.defaultSession`), i.e. a `BrowserWindow`'s own page. The browser pane's tabs and the
+ * web-app views have their own `checkNavigationUrl` policy in the browser feature, which inverts
+ * this rule (they *must* navigate to arbitrary http(s)) — a net that denied them would break the
+ * browser. `getType()` alone does not tell them apart: Electron 42 reports a `WebContentsView`'s
+ * contents as `'window'` too, which sent every link clicked in a browser tab to the OS browser.
+ * Their partition does — tabs are `persist:browser`, web apps `persist:app-<id>`.
  *
  * Rule: an app window may load only its own document origin; `http(s)`/`mailto` are handed to the
  * OS browser as the **parsed `href`** (never the raw string — see `normalizeExternalUrl`); every
@@ -26,7 +29,11 @@ export type PolicyEvent = { preventDefault(): void };
 /** The slice of `WebContents` the policy touches. */
 export type PolicyTarget = {
   getType(): string;
-  on(event: 'will-navigate' | 'will-redirect', listener: (event: PolicyEvent, url: string) => void): unknown;
+  session: unknown;
+  on(
+    event: 'will-navigate' | 'will-redirect',
+    listener: (event: PolicyEvent, url: string) => void,
+  ): unknown;
   setWindowOpenHandler(handler: (details: { url: string }) => { action: 'deny' }): void;
 };
 
@@ -40,13 +47,14 @@ export function openExternalChecked(url: string, openExternal: OpenExternal): bo
   return true;
 }
 
-/** Attach the policy to one WebContents. Returns false (and attaches nothing) for non-window contents. */
+/** Attach the policy to one WebContents. Returns false (and attaches nothing) for anything but an app window. */
 export function applyAppWebContentsPolicy(
   wc: PolicyTarget,
+  appSession: unknown,
   devServerOrigin: string | null,
   openExternal: OpenExternal,
 ): boolean {
-  if (wc.getType() !== 'window') return false;
+  if (wc.getType() !== 'window' || wc.session !== appSession) return false;
   const guard = (event: PolicyEvent, url: string): void => {
     const decision = checkAppNavigationUrl(url, devServerOrigin);
     if (decision.allowed) return;
