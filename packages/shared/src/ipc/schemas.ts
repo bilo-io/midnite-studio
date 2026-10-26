@@ -5072,6 +5072,7 @@ export const VaultLockStatusResponse = z.object({
   hasPasscode: z.boolean(),
   recentUnlockAt: z.number().int().nonnegative().nullable(),
   canPromptTouchId: z.boolean().default(false),
+  tamperedFile: z.string().nullable().default(null),
 });
 
 export const VaultLockRequest = z.object({});

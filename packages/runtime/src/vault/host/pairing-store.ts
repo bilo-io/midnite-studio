@@ -38,7 +38,11 @@ export interface PairingStore {
   unpair(appId: string): boolean;
 }
 
-export function createPairingStore(options: { hostDirectory: string; now?: () => number }): PairingStore {
+export function createPairingStore(options: {
+  hostDirectory: string;
+  now?: () => number;
+  onPersist?: (filePath: string) => void;
+}): PairingStore {
   const path = join(options.hostDirectory, PAIRINGS_FILE);
   const now = options.now ?? Date.now;
   const empty = (): PairingsFile => ({ version: 1, apps: {}, conflicts: {} });
@@ -59,6 +63,7 @@ export function createPairingStore(options: { hostDirectory: string; now?: () =>
       writeFileSync(tmp, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
       renameSync(tmp, path);
       chmodSync(path, 0o600);
+      options.onPersist?.(path);
       return true;
     } catch {
       return false;

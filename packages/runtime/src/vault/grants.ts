@@ -79,7 +79,11 @@ function parse(raw: string): Loaded {
   return { grants: out, corrupt };
 }
 
-export function createVaultGrants(options: { directory: string }): VaultGrants {
+export function createVaultGrants(options: {
+  directory: string;
+  onPersist?: (filePath: string) => void;
+  checkIntegrity?: () => boolean;
+}): VaultGrants {
   const path = join(options.directory, VAULT_GRANTS_FILE);
   let cache: Loaded = { grants: {}, corrupt: false };
   let stamp = '';
@@ -106,6 +110,7 @@ export function createVaultGrants(options: { directory: string }): VaultGrants {
       writeFileSync(tmp, JSON.stringify({ version: 1, grants }, null, 2), { mode: 0o600 });
       renameSync(tmp, path);
       stamp = '';
+      options.onPersist?.(path);
       return true;
     } catch {
       return false;
@@ -113,6 +118,7 @@ export function createVaultGrants(options: { directory: string }): VaultGrants {
   };
 
   const authorize: VaultAuthorize = ({ appId, namespace, key }: VaultAccess) => {
+    if (options.checkIntegrity && !options.checkIntegrity()) return false;
     if (NEVER_GRANTED.has(appId)) return false;
     if (TRUSTED.has(appId)) return true;
     const scope = load().grants[appId]?.[namespace];

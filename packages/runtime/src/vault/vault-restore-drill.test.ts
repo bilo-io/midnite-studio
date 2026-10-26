@@ -82,10 +82,7 @@ describe('vault restore drill (Mac A -> Mac B)', () => {
 
     // 5. Import on Mac B
     const importRes = await importVaultFromFile(serviceB, exportPath, passphrase);
-    expect(importRes.ok).toBe(true);
-    if (!importRes.ok) return;
-    expect(importRes.importedCount).toBe(4);
-    expect(importRes.skippedCount).toBe(0);
+    expect(importRes).toMatchObject({ ok: true, importedCount: 4, skippedCount: 0 });
 
     // 6. Assert every entry exists and decrypts on Mac B!
     expect(await clientB.has('secrets', 'llm-key')).toBe(true);

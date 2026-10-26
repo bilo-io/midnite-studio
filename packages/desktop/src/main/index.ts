@@ -10,11 +10,13 @@ import {
   createOutboundSecretSource,
   createPairingStore,
   createVaultGrants,
+  createVaultIntegrity,
   confinementAvailability,
   createVaultService,
   ensureCanaries,
   runtimeHostDirectory,
   sweepProfileFiles,
+  VAULT_GRANTS_FILE,
   type VaultHost,
 } from '@midnite/studio-runtime';
 import {
@@ -872,15 +874,28 @@ export const startStudioMain: StartStudioMain = () => {
         shapes their handlers always had, and the wire still says only
         `hasToken`.
       */
+      // Integrity manager (Phase 118 Theme H)
+      const vaultIntegrity = createVaultIntegrity({
+        directory: userData,
+        cipher: safeStorage,
+      });
       // Grants (Phase 113 Theme J slice 2): Studio is always allowed; the grants only gate other apps' services.
-      const vaultGrants = createVaultGrants({ directory: userData });
+      const vaultGrants = createVaultGrants({
+        directory: userData,
+        onPersist: (p) => vaultIntegrity.updateFileSync(p),
+        checkIntegrity: () => vaultIntegrity.verifyFileSync(join(userData, VAULT_GRANTS_FILE)).valid,
+      });
       // Which key each guest app paired with — the host checks it, Studio's Vault view lists and unpairs.
       const runtimeDirectory = studioRuntimeDirectory(app.getPath('appData'), userData);
-      const vaultPairings = createPairingStore({ hostDirectory: runtimeHostDirectory(runtimeDirectory) });
+      const vaultPairings = createPairingStore({
+        hostDirectory: runtimeHostDirectory(runtimeDirectory),
+        onPersist: (p) => vaultIntegrity.updateFileSync(p),
+      });
       const vaultService = createVaultService({
         directory: userData,
         cipher: safeStorage,
         authorize: vaultGrants.authorize,
+        integrity: vaultIntegrity,
       });
       configureVaultGrants(vaultGrants, vaultPairings, vaultService);
 

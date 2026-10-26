@@ -108,6 +108,7 @@ export function registerSecretsHandlers(): void {
     hasPasscode: false,
     recentUnlockAt: vaultService ? vaultService.recentUnlockAt : null,
     canPromptTouchId: false,
+    tamperedFile: vaultService ? vaultService.getTamperedFile() : null,
   }));
 
   handleBare(CHANNELS.vaultLock, async () => {

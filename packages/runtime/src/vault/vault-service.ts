@@ -2,10 +2,12 @@ import { BROWSER_AGENT_PRINCIPAL, type RuntimePrincipal } from '../app-id';
 import { createVaultAuditLog, type VaultAuditLog } from './audit/vault-audit';
 import { createBreachChecker, type BreachChecker } from './breach/hibp-check';
 import { createVaultClipboardManager, type ClipboardAdapter, type VaultClipboardManager } from './clipboard';
+import { createVaultIntegrity, type VaultIntegrity } from './integrity';
 import {
   createSecureJsonStore,
   decryptSecret,
   encryptSecret,
+  withSecret as withSecretBuffer,
   type SecureJsonStore,
   type VaultCipher,
 } from './secure-store';
@@ -162,6 +164,14 @@ export interface VaultClient {
   keys(namespace: VaultNamespace): Promise<string[]>;
   /** The stored fingerprint for a fingerprinted namespace's entry, or `null`. */
   fingerprint(namespace: VaultNamespace, key: string): Promise<string | null>;
+  /**
+   * Reads decrypted secret into a buffer, invokes fn, and zeroes the buffer in finally (Phase 118 Theme H).
+   */
+  withSecret<T>(
+    namespace: VaultNamespace,
+    key: string,
+    fn: (secret: Buffer) => Promise<T> | T,
+  ): Promise<T | null>;
 }
 
 export interface VaultService {
@@ -172,11 +182,22 @@ export interface VaultService {
 
   // Lock state & re-auth (Theme B)
   isLocked(): boolean;
-  lock(): void;
+  lock(reason?: string): void;
   unlock(proof?: unknown): boolean | Promise<boolean>;
   onLockedChange(listener: (locked: boolean) => void): () => void;
   readonly recentUnlockAt: number | null;
   isReauthValid(windowMs?: number): boolean;
+
+  // Integrity (Theme H)
+  readonly integrity: VaultIntegrity;
+  getTamperedFile(): string | null;
+  resetTamper(): void;
+
+  withSecret<T>(
+    namespace: VaultNamespace,
+    key: string,
+    fn: (secret: Buffer) => Promise<T> | T,
+  ): Promise<T | null>;
 
   // Audit log & breach check (Themes D & E)
   readonly audit: VaultAuditLog;
@@ -210,6 +231,8 @@ export type VaultServiceOptions = {
   canPromptTouchId?: () => boolean;
   /** Initial lock state (defaults to false). */
   initialLocked?: boolean;
+  /** Custom integrity manager (Phase 118 Theme H). */
+  integrity?: VaultIntegrity;
 };
 
 /** The on-disk entry: `{ encrypted }`, plus `fingerprint` in a fingerprinted namespace. */
@@ -245,15 +268,36 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
   let recentUnlockAt: number | null = locked ? null : Date.now();
   const lockListeners = new Set<(locked: boolean) => void>();
 
-  const audit = createVaultAuditLog(directory);
+  const integrity = options.integrity ?? createVaultIntegrity({ directory, cipher });
+  const audit = createVaultAuditLog(
+    directory,
+    (p) => integrity.updateFile(p),
+    (p) => integrity.markWriting(p),
+  );
+  integrity.setAudit(audit);
+
+  integrity.setOnTamper((tamperedFile) => {
+    lock(`tamper: ${tamperedFile}`);
+  });
+
   const breachChecker = createBreachChecker(directory);
+
+  // Verify on startup and start watcher
+  void integrity.verifyAll();
+  integrity.startWatch();
 
   const stores = new Map<VaultNamespace, SecureJsonStore<StoredEntry>>();
   const storeFor = (namespace: VaultNamespace): SecureJsonStore<StoredEntry> => {
     let store = stores.get(namespace);
     if (!store) {
       const spec = VAULT_NAMESPACES[namespace];
-      store = createSecureJsonStore<StoredEntry>(directory, spec.fileName, entryParser(spec.fingerprinted));
+      store = createSecureJsonStore<StoredEntry>(
+        directory,
+        spec.fileName,
+        entryParser(spec.fingerprinted),
+        (filePath) => integrity.updateFile(filePath),
+        (filePath) => integrity.markWriting(filePath),
+      );
       stores.set(namespace, store);
     }
     return store;
@@ -286,16 +330,30 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
 
   const isLocked = () => locked;
 
-  const lock = () => {
+  const lock = (reason?: string) => {
     if (!locked) {
       locked = true;
       recentUnlockAt = null;
       for (const listener of lockListeners) listener(true);
-      void audit.log({ op: 'lock', app: 'vault', principal: 'system', result: 'ok' });
+      void audit.log({ op: 'lock', app: 'vault', principal: 'system', result: 'ok', reason });
     }
   };
 
   const unlock = async (proof?: unknown): Promise<boolean> => {
+    if (integrity.getTamperedFile() !== null) {
+      const check = await integrity.verifyAll();
+      if (!check.valid) {
+        void audit.log({
+          op: 'unlock-failed',
+          app: 'vault',
+          principal: 'user',
+          result: 'failed',
+          reason: `Tamper detected in ${check.tamperedFile}`,
+        });
+        return false;
+      }
+      integrity.resetTamper();
+    }
     if (proof === 'touchid' || proof === true) {
       if (promptTouchId) {
         const ok = await promptTouchId('Unlock Midnite Studio Vault');
@@ -432,6 +490,127 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     return { ok: true, timeoutSeconds: res.timeoutSeconds };
   };
 
+  const forApp = (appId: RuntimePrincipal): VaultClient => {
+    // Phase 117 Theme G: the browser agent is refused here, before any authorizer runs, so a
+    // service built with `allowAllVaultAccess` still gives an agent session nothing.
+    const allowed = (namespace: VaultNamespace, key: string, op: VaultAccess['op']): boolean =>
+      appId !== BROWSER_AGENT_PRINCIPAL && authorize({ appId, namespace, key, op });
+    const demand = (namespace: VaultNamespace, key: string, op: VaultAccess['op']): void => {
+      if (!allowed(namespace, key, op)) throw new VaultAccessDeniedError({ appId, namespace, key, op });
+    };
+
+    const client: VaultClient = {
+      appId,
+      isAvailable,
+
+      has: async (namespace, key) => {
+        if (!allowed(namespace, key, 'read')) return false;
+        if (sessionOnly.get(namespace)?.has(key)) return true;
+        return (await storeFor(namespace).get(key)) !== null;
+      },
+
+      read: async (namespace, key): Promise<VaultRead> => {
+        if (locked) {
+          await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'locked' });
+          return { ok: false, kind: 'locked' };
+        }
+        if (!allowed(namespace, key, 'read')) {
+          await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'denied' });
+          return { ok: false, kind: 'denied' };
+        }
+        if (!isAvailable()) {
+          const held = sessionOnly.get(namespace)?.get(key);
+          if (held !== undefined) {
+            await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'ok' });
+            return { ok: true, value: held };
+          }
+          return { ok: false, kind: 'unavailable' };
+        }
+        const val = await internalRead(namespace, key);
+        if (val === null) {
+          return { ok: false, kind: 'absent' };
+        }
+        await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'ok' });
+        return { ok: true, value: val };
+      },
+
+      get: async (namespace, key) => {
+        const res = await client.read(namespace, key);
+        return res.ok ? res.value : null;
+      },
+
+      set: async (namespace, key, value, setOptions) => {
+        demand(namespace, key, 'write');
+        const spec = VAULT_NAMESPACES[namespace];
+        const fingerprint = setOptions?.fingerprint;
+        if (spec.fingerprinted && fingerprint === undefined) {
+          throw new Error(`vault namespace ${namespace} requires a fingerprint`);
+        }
+        if (!isAvailable()) {
+          if (spec.whenUnavailable === 'session') sessionMap(namespace).set(key, value);
+          await audit.log({ op: 'set', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
+          return;
+        }
+        sessionOnly.get(namespace)?.delete(key);
+        const encrypted = encryptSecret(cipher, value);
+        // Field order matches what the old vaults wrote, so a file's diff
+        // across the move is the changed entry and nothing else.
+        await storeFor(namespace).set(key, spec.fingerprinted ? { fingerprint, encrypted } : { encrypted });
+        await audit.log({ op: 'set', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
+      },
+
+      delete: async (namespace, key) => {
+        demand(namespace, key, 'delete');
+        sessionOnly.get(namespace)?.delete(key);
+        await storeFor(namespace).delete(key);
+        await audit.log({ op: 'delete', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
+      },
+
+      keys: async (namespace) => {
+        const ids = new Set(await storeFor(namespace).keys());
+        for (const id of sessionOnly.get(namespace)?.keys() ?? []) ids.add(id);
+        return [...ids].filter((id) => allowed(namespace, id, 'read'));
+      },
+
+      fingerprint: async (namespace, key) => {
+        if (!allowed(namespace, key, 'read')) return null;
+        return (await storeFor(namespace).get(key))?.fingerprint ?? null;
+      },
+
+      withSecret: async <T>(
+        namespace: VaultNamespace,
+        key: string,
+        fn: (secret: Buffer) => Promise<T> | T,
+      ): Promise<T | null> => {
+        if (locked) {
+          await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'locked' });
+          return null;
+        }
+        if (!allowed(namespace, key, 'read')) {
+          await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'denied' });
+          return null;
+        }
+        const held = sessionOnly.get(namespace)?.get(key);
+        if (held !== undefined) {
+          const buf = Buffer.from(held, 'utf8');
+          try {
+            await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'ok' });
+            return await fn(buf);
+          } finally {
+            buf.fill(0);
+          }
+        }
+        if (!isAvailable()) return null;
+        const entry = await storeFor(namespace).get(key);
+        if (!entry) return null;
+        await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'ok' });
+        return withSecretBuffer(cipher, entry.encrypted, fn);
+      },
+    };
+
+    return client;
+  };
+
   return {
     isAvailable,
     isLocked,
@@ -442,100 +621,23 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       return recentUnlockAt;
     },
     isReauthValid,
+    integrity,
+    getTamperedFile: () => integrity.getTamperedFile(),
+    resetTamper: () => integrity.resetTamper(),
     audit,
     breachChecker,
     reveal,
     copy,
 
-    forApp(appId) {
-      // Phase 117 Theme G: the browser agent is refused here, before any authorizer runs, so a
-      // service built with `allowAllVaultAccess` still gives an agent session nothing.
-      const allowed = (namespace: VaultNamespace, key: string, op: VaultAccess['op']): boolean =>
-        appId !== BROWSER_AGENT_PRINCIPAL && authorize({ appId, namespace, key, op });
-      const demand = (namespace: VaultNamespace, key: string, op: VaultAccess['op']): void => {
-        if (!allowed(namespace, key, op)) throw new VaultAccessDeniedError({ appId, namespace, key, op });
-      };
-
-      const client: VaultClient = {
-        appId,
-        isAvailable,
-
-        has: async (namespace, key) => {
-          if (!allowed(namespace, key, 'read')) return false;
-          if (sessionOnly.get(namespace)?.has(key)) return true;
-          return (await storeFor(namespace).get(key)) !== null;
-        },
-
-        read: async (namespace, key): Promise<VaultRead> => {
-          if (locked) {
-            await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'locked' });
-            return { ok: false, kind: 'locked' };
-          }
-          if (!allowed(namespace, key, 'read')) {
-            await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'denied' });
-            return { ok: false, kind: 'denied' };
-          }
-          if (!isAvailable()) {
-            const held = sessionOnly.get(namespace)?.get(key);
-            if (held !== undefined) {
-              await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'ok' });
-              return { ok: true, value: held };
-            }
-            return { ok: false, kind: 'unavailable' };
-          }
-          const val = await internalRead(namespace, key);
-          if (val === null) {
-            return { ok: false, kind: 'absent' };
-          }
-          await audit.log({ op: 'get', namespace, id: key, app: appId, principal: 'guest', result: 'ok' });
-          return { ok: true, value: val };
-        },
-
-        get: async (namespace, key) => {
-          const res = await client.read(namespace, key);
-          return res.ok ? res.value : null;
-        },
-
-        set: async (namespace, key, value, setOptions) => {
-          demand(namespace, key, 'write');
-          const spec = VAULT_NAMESPACES[namespace];
-          const fingerprint = setOptions?.fingerprint;
-          if (spec.fingerprinted && fingerprint === undefined) {
-            throw new Error(`vault namespace ${namespace} requires a fingerprint`);
-          }
-          if (!isAvailable()) {
-            if (spec.whenUnavailable === 'session') sessionMap(namespace).set(key, value);
-            await audit.log({ op: 'set', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
-            return;
-          }
-          sessionOnly.get(namespace)?.delete(key);
-          const encrypted = encryptSecret(cipher, value);
-          // Field order matches what the old vaults wrote, so a file's diff
-          // across the move is the changed entry and nothing else.
-          await storeFor(namespace).set(key, spec.fingerprinted ? { fingerprint, encrypted } : { encrypted });
-          await audit.log({ op: 'set', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
-        },
-
-        delete: async (namespace, key) => {
-          demand(namespace, key, 'delete');
-          sessionOnly.get(namespace)?.delete(key);
-          await storeFor(namespace).delete(key);
-          await audit.log({ op: 'delete', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
-        },
-
-        keys: async (namespace) => {
-          const ids = new Set(await storeFor(namespace).keys());
-          for (const id of sessionOnly.get(namespace)?.keys() ?? []) ids.add(id);
-          return [...ids].filter((id) => allowed(namespace, id, 'read'));
-        },
-
-        fingerprint: async (namespace, key) => {
-          if (!allowed(namespace, key, 'read')) return null;
-          return (await storeFor(namespace).get(key))?.fingerprint ?? null;
-        },
-      };
-
-      return client;
+    withSecret: async <T>(
+      namespace: VaultNamespace,
+      key: string,
+      fn: (secret: Buffer) => Promise<T> | T,
+    ): Promise<T | null> => {
+      const client = forApp('studio');
+      return client.withSecret(namespace, key, fn);
     },
+
+    forApp,
   };
 }

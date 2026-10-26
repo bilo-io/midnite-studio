@@ -28,13 +28,44 @@ export function encryptSecret(cipher: VaultCipher, plaintext: string): string {
   return cipher.encryptString(plaintext).toString('base64');
 }
 
-/** Decrypt a stored blob; returns null when unreadable or encryption is off. */
+/**
+ * Decrypt a stored blob; returns null when unreadable or encryption is off.
+ * @deprecated Prefer {@link withSecret} which guarantees buffer zeroing after use (Phase 118 Theme H).
+ */
 export function decryptSecret(cipher: VaultCipher, encrypted: string): string | null {
   if (!cipher.isEncryptionAvailable()) return null;
   try {
     return cipher.decryptString(Buffer.from(encrypted, 'base64'));
   } catch {
     return null;
+  }
+}
+
+/** Decrypt a stored blob into a Buffer; returns null when unreadable or encryption is off. */
+export function decryptSecretToBuffer(cipher: VaultCipher, encrypted: string): Buffer | null {
+  if (!cipher.isEncryptionAvailable()) return null;
+  try {
+    const str = cipher.decryptString(Buffer.from(encrypted, 'base64'));
+    return Buffer.from(str, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Executes `fn` with decrypted secret buffer and guarantees zeroing in finally (Phase 118 Theme H).
+ */
+export async function withSecret<T>(
+  cipher: VaultCipher,
+  encrypted: string,
+  fn: (secret: Buffer) => Promise<T> | T,
+): Promise<T | null> {
+  const buf = decryptSecretToBuffer(cipher, encrypted);
+  if (!buf) return null;
+  try {
+    return await fn(buf);
+  } finally {
+    buf.fill(0);
   }
 }
 
@@ -55,6 +86,8 @@ export function createSecureJsonStore<TEntry>(
   directory: string,
   fileName: string,
   parseEntries: (value: unknown) => Record<string, TEntry>,
+  onPersist?: (filePath: string) => Promise<void> | void,
+  onBeforePersist?: (filePath: string) => (() => void) | void,
 ): SecureJsonStore<TEntry> {
   const file = join(directory, fileName);
   let cache: Record<string, TEntry> | null = null;
@@ -70,14 +103,18 @@ export function createSecureJsonStore<TEntry>(
   };
 
   const persist = async (entries: Record<string, TEntry>): Promise<void> => {
+    const doneWriting = onBeforePersist?.(file);
     try {
       await writeFile(file, `${JSON.stringify({ version: 1, entries }, null, 2)}\n`, {
         encoding: 'utf8',
         mode: VAULT_MODE,
       });
       await chmod(file, VAULT_MODE);
+      await onPersist?.(file);
     } catch {
       // A read-only data dir must not take the app down.
+    } finally {
+      doneWriting?.();
     }
   };
 

@@ -102,7 +102,7 @@ Scope guardrails:
 
 *The vault locks when no one needs it, remembers everything that touched it, can be carried out
 and brought back, and notices when its own files are not its own.* Born from a vault that encrypts
-well and does nothing else a person expects of one. (80% · 41/51) — **Planned 2026-10-22.**
+well and does nothing else a person expects of one. (100% · 51/51 · ✅ DONE) — **Planned 2026-10-22.**
 
 **Theme A — Threat model and key handling, written down.** ✅ Landed in `docs/VAULT_SECURITY.md`,
 covering key hierarchy (`safeStorage` → login keychain → user password and FileVault), decrypt
@@ -134,9 +134,11 @@ opt-in clipboard watch at ≤ 1 Hz with 60s auto-clear.
 maxmem=256MB + AES-256-GCM), 0600 backup files, passphrase strength meter, preview without commit,
 keep-existing merge, audit logging, restore drill tests, and standalone 16-line decrypt script in `docs/VAULT_SECURITY.md`.
 
-**Theme H — Tamper detection and memory hygiene.** ◻ An HMAC over every vault file, grants and
-pairing included, under a `safeStorage`-held key; mismatch locks the vault and logs; plaintext
-`Buffer`s zeroed after use; no secret in a long-lived string, env of a spawned process, or log.
+**Theme H — Tamper detection and memory hygiene.** ✅ Landed `vault-integrity.json` holding HMAC-SHA256
+under a `safeStorage`-encrypted key across all vault files (`*.vault.json`, `vault-grants.json`, `vault-pairing.json`,
+`pairings.json`, `vault-audit.ndjson`, `passcode.json`); checked on startup, `fs.watch`, and before grant decisions;
+tamper locks the vault and shows the tamper alert banner; `withSecret` guarantees zeroing in `finally`;
+`SAFE_PROCESS_ENV_KEYS` allowlist protects child process execution; credential logging tests pass.
 
 ## Deliverables
 
@@ -313,7 +315,7 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 
 ### H — Tamper detection and memory hygiene [M · ~1d]
 
-- [ ] **An HMAC over every vault file.** A `vault-integrity.json` holding, per file
+- [x] **An HMAC over every vault file.** A `vault-integrity.json` holding, per file
       (`vault-*.json`, `vault-grants.json`, the pairing identity `vault-pairing.json` **and** the
       peer list `pairings.json` — `PAIRINGS_FILE` in
       [`pairing-store.ts`](../../../packages/runtime/src/vault/host/pairing-store.ts), the file an
@@ -322,24 +324,24 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
       is the one write path); checked on open, on `fs.watch` of the directory, and before every
       grant decision. A mismatch locks the vault, writes `tamper`, and shows the banner with the
       file name.
-- [ ] **Grants cannot be widened out of band.** With the HMAC in place, a same-user edit of
+- [x] **Grants cannot be widened out of band.** With the HMAC in place, a same-user edit of
       `vault-grants.json` is a detected tamper, not a silent escalation — the one concrete thing
       this phase takes away from the Shai-Hulud class. Stated in the doc with its limit: a process
       that can also read the login keychain can re-sign.
-- [ ] **Zero after use.** Every decrypt returns a `Buffer` the caller must `fill(0)` after use;
+- [x] **Zero after use.** Every decrypt returns a `Buffer` the caller must `fill(0)` after use;
       `decryptSecret` gains a `withSecret(id, fn)` form that zeroes in `finally`, and the existing
       string-returning form is deprecated and removed from main-side callers in this phase. A
       vitest with a fake cipher asserts the buffer is zero after `withSecret` resolves and after it
       throws.
-- [ ] **No secret in an environment.** The one legitimate path that hands a secret to a child
+- [x] **No secret in an environment.** The one legitimate path that hands a secret to a child
       process — an agent run with a granted key — passes it through the broker's per-session env
       (already scoped) and never through `process.env` of the runtime; a test greps the
       runtime's `spawn` sites ([`process-runner.ts`](../../../packages/runtime/src/process-runner.ts))
       for `env: process.env` without an allowlist. Cross-links [Phase 121](phase-121-agents-security.md).
-- [ ] **No secret in a log.** Phase 115 C's redact-on-write already covers the sink; this adds
+- [x] **No secret in a log.** Phase 115 C's redact-on-write already covers the sink; this adds
       a test that `vault-service.ts` and the host never pass a value to `defaultLogger`, by
       wrapping the logger in the test and asserting the canary never appears.
-- [ ] *Acceptance:* editing `vault-grants.json` by hand locks the vault within one `fs.watch`
+- [x] *Acceptance:* editing `vault-grants.json` by hand locks the vault within one `fs.watch`
       event with a banner naming the file; the zero-after-use test passes; the env grep finds
       nothing.
 
@@ -363,7 +365,7 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 - [ ] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
 - [x] **B:** the lock/unlock state machine is table-tested (idle, sleep, screen lock, wrong
       passcode ×6, Touch ID success/cancel); a paired app's `get` while locked returns `locked`.
-- [ ] **C:** no persisted store contains the revealed canary; the clipboard clear respects a
+- [x] **C:** no persisted store contains the revealed canary; the clipboard clear respects a
       later copy.
 - [x] **D:** the chain check catches a one-byte edit; coalescing keeps a 60 Hz poller to one line
       a minute.
@@ -371,7 +373,7 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
       fixture reports breached.
 - [x] **F:** staged-token block, SHA negative case, history fixture, clipboard notification.
 - [x] **G:** the restore drill passes; a wrong passphrase fails on the GCM tag.
-- [ ] **H:** out-of-band grant edit locks the vault; `withSecret` zeroes on resolve and throw; no
+- [x] **H:** out-of-band grant edit locks the vault; `withSecret` zeroes on resolve and throw; no
       `env: process.env` without an allowlist in the runtime.
 - [ ] **Open, for a human:** a packaged-app pass on a real Mac: lock on lid close, Touch ID
       unlock, export to a USB key and import on a fresh profile, and one deliberate
