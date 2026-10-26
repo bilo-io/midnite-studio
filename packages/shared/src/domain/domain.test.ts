@@ -8,6 +8,7 @@ import {
   conflict,
   failure,
   ok,
+  secretsFailure,
   siblingWorktreePath,
 } from './index';
 
@@ -40,6 +41,18 @@ describe('GitOpResult', () => {
 
   it('rejects a failure with no kind', () => {
     expect(() => GitOpResultSchema.parse({ ok: false, message: 'x' })).toThrow();
+  });
+
+  it('accepts a secrets blocked failure with findings', () => {
+    const res = GitOpResultSchema.parse(
+      secretsFailure([{ file: 'a.ts', line: 1, column: 5, pattern: 'github-token', masked: 'ghp_...1234' }]),
+    );
+    expect(res).toEqual({
+      ok: false,
+      kind: 'secrets',
+      findings: [{ file: 'a.ts', line: 1, column: 5, pattern: 'github-token', masked: 'ghp_...1234' }],
+      message: 'Secrets detected in staged changes',
+    });
   });
 
   it('rejects an unknown conflict op', () => {

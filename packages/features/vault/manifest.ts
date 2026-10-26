@@ -66,6 +66,11 @@ export const vaultManifest = defineFeatureManifest({
     // Vault reveal & copy without leaving a trace (Phase 118 Theme C)
     CHANNELS.vaultRevealOnce,
     CHANNELS.vaultCopyOnce,
+    // Vault secret scanning & hooks (Phase 118 Theme F)
+    CHANNELS.vaultScanHistory,
+    CHANNELS.vaultHookStatus,
+    CHANNELS.vaultHookInstall,
+    CHANNELS.vaultHookUninstall,
   ],
   events: [],
   mcpTools: [],

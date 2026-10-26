@@ -102,7 +102,7 @@ Scope guardrails:
 
 *The vault locks when no one needs it, remembers everything that touched it, can be carried out
 and brought back, and notices when its own files are not its own.* Born from a vault that encrypts
-well and does nothing else a person expects of one. (45% · 23/51) — **Planned 2026-10-22.**
+well and does nothing else a person expects of one. (69% · 35/51) — **Planned 2026-10-22.**
 
 **Theme A — Threat model and key handling, written down.** ✅ Landed in `docs/VAULT_SECURITY.md`,
 covering key hierarchy (`safeStorage` → login keychain → user password and FileVault), decrypt
@@ -126,10 +126,9 @@ coalescing, rotation, and `audit-section.tsx` viewer in Vault page.
 range API (5-char SHA-1 prefix + `Add-Padding: true`), 30-day salted cache, password-type entries
 only, advisory badges, and `api.pwnedpasswords.com` in `EGRESS_HOSTS`.
 
-**Theme F — Secret scanning: repos and the clipboard.** ◻ A pre-commit scan of the staged diff
-from the git graph's commit path using `SECRET_PATTERNS` plus the live vault-value matcher,
-blocking with an override; an opt-in clipboard watch for vault values and token shapes; a
-one-shot repo history scan with a report.
+**Theme F — Secret scanning: repos and the clipboard.** ✅ Staged-diff pre-commit scan blocks secret
+commits with "Commit anyway" override; optional pre-commit hook; one-shot repository history scan with report;
+opt-in clipboard watch at ≤ 1 Hz with 60s auto-clear.
 
 **Theme G — Encrypted export and import.** ◻ A versioned, passphrase-encrypted export
 (scrypt → AES-256-GCM via `node:crypto`), re-auth to produce, re-auth to import, never a
@@ -261,33 +260,33 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 
 ### F — Secret scanning: repos and the clipboard [L · 1–2d]
 
-- [ ] **A scanner in `shared`.** `scan-secrets.ts`: `SECRET_PATTERNS` from
+- [x] **A scanner in `shared`.** `scan-secrets.ts`: `SECRET_PATTERNS` from
       [`redact.ts`](../../../packages/shared/src/redact.ts) plus a high-entropy string rule
       (Shannon entropy over base64/hex runs ≥ 20 chars, with the same negative cases as Phase 91 G:
       commit SHAs, UUIDs, lockfile integrity hashes) returning `{ line, column, pattern, masked }`.
       In main it is composed with Phase 115 C's live vault-value matcher so a *stored* token is
       caught even when its shape is prefixless (Azure, Bitbucket).
-- [ ] **Pre-commit in the git graph.** The commit path (`git-engine`'s
+- [x] **Pre-commit in the git graph.** The commit path (`git-engine`'s
       [`commit.ts`](../../../packages/git-engine/src/commands/commit.ts), through the write queue)
       scans the staged diff (`git diff --cached -z`) before `git commit`; a hit returns a
       `GitOpResult` of kind `'secrets'` listing masked matches, and the commit modal shows them
       with "Commit anyway" behind the blast-radius confirm. Not a git hook: it must work in a
       repo whose hooks the user owns, and [`hooks.ts`](../../../packages/git-engine/src/commands/hooks.ts)
       gets an *optional* "install a pre-commit scan" for commits made outside Studio.
-- [ ] **Agent commits are covered.** A commit made by an agent run through Studio's own commit
+- [x] **Agent commits are covered.** A commit made by an agent run through Studio's own commit
       op hits the same scan; a commit the agent makes in its own shell is covered only by the
       optional hook — stated in the doc and cross-linked to
       [Phase 121](phase-121-agents-security.md).
-- [ ] **A one-shot history scan.** "Scan repository history" in the Vault app (and the Coder
+- [x] **A one-shot history scan.** "Scan repository history" in the Vault app (and the Coder
       app's repo settings) walks `git log -p -z` through the scanner in a worker with progress,
       produces a report (file, commit, pattern, masked) and the standard "this is in history;
       rotate the secret, then rewrite if you must" guidance; never rewrites.
-- [ ] **The clipboard watch.** Opt-in (Settings ▸ Vault): main polls the clipboard hash at ≤ 1 Hz
+- [x] **The clipboard watch.** Opt-in (Settings ▸ Vault): main polls the clipboard hash at ≤ 1 Hz
       and, when the text matches a vault value or a token shape, shows a notification "A secret is
       on your clipboard" with "Clear now"; auto-clear after 60 s is a second switch. Shares the
       shape matcher with [Phase 117](phase-117-browser-security-hardening.md) G's ClickFix rule;
       the host-wide version is [Phase 120](phase-120-vanguard.md)'s.
-- [ ] *Acceptance:* staging a file with a `ghp_` token blocks the commit with the masked match;
+- [x] *Acceptance:* staging a file with a `ghp_` token blocks the commit with the masked match;
       "Commit anyway" works; a 40-hex SHA does not trip the scanner; the history scan of a fixture
       repo finds a token three commits back; copying a stored token triggers the notification.
 
@@ -370,7 +369,7 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
       a minute.
 - [x] **E:** the request body is five hex characters, the response is padded, the known-breached
       fixture reports breached.
-- [ ] **F:** staged-token block, SHA negative case, history fixture, clipboard notification.
+- [x] **F:** staged-token block, SHA negative case, history fixture, clipboard notification.
 - [ ] **G:** the restore drill passes; a wrong passphrase fails on the GCM tag.
 - [ ] **H:** out-of-band grant edit locks the vault; `withSecret` zeroes on resolve and throw; no
       `env: process.env` without an allowlist in the runtime.

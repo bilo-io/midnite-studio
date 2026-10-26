@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
-import type { StatusEntry } from '@midnite/studio-shared';
+import type { SecretFinding, StatusEntry } from '@midnite/studio-shared';
 
-import { LuList, LuListTree, LuMinus, LuPackage, LuPlus, LuSparkles, LuUndo2 } from 'react-icons/lu';
+import { LuList, LuListTree, LuMinus, LuPackage, LuPlus, LuSparkles, LuTriangleAlert, LuUndo2 } from 'react-icons/lu';
 import { AiOutlineDiff } from 'react-icons/ai';
 
 import {
@@ -474,6 +474,7 @@ export function CommitBox({
     if (key) setDraft(key, value);
   };
   const [error, setError] = useState('');
+  const [secretFindings, setSecretFindings] = useState<SecretFinding[] | null>(null);
   // "Write with AI": the text it replaced, kept so one click restores it. The
   // draft is set programmatically, which the browser's own undo stack never
   // sees, so Cmd+Z alone could not bring it back.
@@ -482,13 +483,20 @@ export function CommitBox({
   const agentId = useUiStore((s) => s.primaryAgent);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const onCommit = async () => {
-    const result = await commit.mutateAsync({ message });
+  const onCommit = async (bypassSecretsCheck = false) => {
+    const result = await commit.mutateAsync({ message, bypassSecretsCheck });
     if (result.ok) {
       setMessage('');
       setError('');
+      setSecretFindings(null);
     } else {
-      setError(result.kind === 'error' ? result.message : 'The commit conflicted.');
+      if (result.kind === 'secrets') {
+        setSecretFindings(result.findings);
+        setError('');
+      } else {
+        setError(result.kind === 'error' ? result.message : 'The commit conflicted.');
+        setSecretFindings(null);
+      }
     }
   };
 
@@ -557,6 +565,44 @@ export function CommitBox({
         <p role="alert" className="rounded-md bg-destructive/10 px-2 py-1 text-xs text-destructive">
           {error}
         </p>
+      ) : null}
+      {secretFindings && secretFindings.length > 0 ? (
+        <div role="alert" className="space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-300">
+          <div className="flex items-center gap-1.5 font-medium text-amber-200">
+            <LuTriangleAlert className="size-3.5 shrink-0 text-amber-400" />
+            <span>Potential secrets detected in staged changes</span>
+          </div>
+          <ul className="list-disc space-y-0.5 pl-4 font-mono text-[11px] text-amber-300/90">
+            {secretFindings.slice(0, 3).map((f, i) => (
+              <li key={i}>
+                {f.file ? `${f.file}:${f.line} ` : `line ${f.line} `}
+                <span className="text-amber-400">[{f.pattern}]</span> {f.masked}
+              </li>
+            ))}
+            {secretFindings.length > 3 ? (
+              <li className="list-none text-muted-foreground">
+                +{secretFindings.length - 3} more finding{secretFindings.length - 3 === 1 ? '' : 's'}
+              </li>
+            ) : null}
+          </ul>
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => void onCommit(true)}
+              className="rounded bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-200 hover:bg-amber-500/30"
+              data-testid="commit-anyway-button"
+            >
+              Commit anyway
+            </button>
+            <button
+              type="button"
+              onClick={() => setSecretFindings(null)}
+              className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       ) : null}
       <div className="gradient-border relative rounded-md">
         <textarea

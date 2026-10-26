@@ -86,6 +86,12 @@ function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { s
     revealOnce: vi.fn(async ({ key }: { key: string }) => ({ ok: true, revealed: `revealed-secret-for-${key}` })),
     copyOnce: vi.fn(async () => ({ ok: true, timeoutSeconds: 30 })),
   };
+  const vaultScan = {
+    history: vi.fn(async () => ({ ok: true, scannedCommits: 5, findings: [], advice: '' })),
+    hookStatus: vi.fn(async () => ({ installed: false })),
+    hookInstall: vi.fn(async () => ({ ok: true })),
+    hookUninstall: vi.fn(async () => ({ ok: true })),
+  };
   window.midniteStudio = {
     secrets,
     forgeAccounts,
@@ -97,6 +103,7 @@ function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { s
     vaultAudit,
     vaultBreach,
     vaultSecrets,
+    vaultScan,
   } as unknown as typeof window.midniteStudio;
   const kit = createFrameChrome();
   render(
@@ -271,5 +278,21 @@ describe('VaultPage — web-app sign-ins', () => {
     expect(await screen.findByText('revealed-secret-for-ollama.apiKey')).toBeDefined();
     // Button switches to Mask
     expect(screen.getByRole('button', { name: 'Mask' })).toBeDefined();
+  });
+
+  it('renders secret scanning section and scans repository history', async () => {
+    mount();
+    expect(screen.getByText('Secret Scanning')).toBeDefined();
+    expect(screen.getByText('Repository History Scan')).toBeDefined();
+
+    const input = screen.getByPlaceholderText('/path/to/repository');
+    fireEvent.change(input, { target: { value: '/repos/sample' } });
+
+    const scanBtn = screen.getByTestId('scan-history-button');
+    fireEvent.click(scanBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/No secrets detected across 5 commits/)).toBeDefined();
+    });
   });
 });

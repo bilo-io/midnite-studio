@@ -48,6 +48,14 @@ export type VaultMainServices = {
   hasPasscode?: () => boolean;
   canPromptTouchId?: () => boolean;
   promptTouchId?: (reason: string) => Promise<boolean>;
+  scanRepoHistory?: (repoPath: string, options?: { maxCommits?: number }) => Promise<{
+    scannedCommits: number;
+    findings: any[];
+    advice: string;
+  }>;
+  hookStatus?: (repoPath: string) => Promise<{ installed: boolean; hookPath?: string }>;
+  hookInstall?: (repoPath: string) => Promise<{ ok: boolean; message?: string }>;
+  hookUninstall?: (repoPath: string) => Promise<{ ok: boolean; message?: string }>;
   /**
    * Validates a token against its provider and stores it. Absent in a
    * standalone Vault, which does not carry the forge feature: adding then
@@ -238,6 +246,53 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
         return s.copy(namespace, key, services.clipboard, { timeoutSeconds });
       },
       (issue) => ({ ok: false, error: issue }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultScanHistory,
+      schemas.VaultScanHistoryRequest,
+      async ({ repoPath, maxCommits }) => {
+        if (!services.scanRepoHistory) {
+          return { ok: false, scannedCommits: 0, findings: [], advice: '', error: 'History scan not available' };
+        }
+        try {
+          const report = await services.scanRepoHistory(repoPath, { maxCommits });
+          return { ok: true, scannedCommits: report.scannedCommits, findings: report.findings, advice: report.advice };
+        } catch (err) {
+          return { ok: false, scannedCommits: 0, findings: [], advice: '', error: String(err) };
+        }
+      },
+      (issue) => ({ ok: false, scannedCommits: 0, findings: [], advice: '', error: issue }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultHookStatus,
+      schemas.VaultHookStatusRequest,
+      async ({ repoPath }) => {
+        if (!services.hookStatus) return { installed: false };
+        return services.hookStatus(repoPath);
+      },
+      () => ({ installed: false }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultHookInstall,
+      schemas.VaultHookInstallRequest,
+      async ({ repoPath }) => {
+        if (!services.hookInstall) return { ok: false, kind: 'error', message: 'Hook management not available' };
+        return services.hookInstall(repoPath);
+      },
+      (issue) => ({ ok: false, kind: 'error', message: issue }),
+    );
+
+    ipc.handle(
+      CHANNELS.vaultHookUninstall,
+      schemas.VaultHookUninstallRequest,
+      async ({ repoPath }) => {
+        if (!services.hookUninstall) return { ok: false, kind: 'error', message: 'Hook management not available' };
+        return services.hookUninstall(repoPath);
+      },
+      (issue) => ({ ok: false, kind: 'error', message: issue }),
     );
 
     ipc.handle(

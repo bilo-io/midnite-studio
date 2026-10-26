@@ -26,6 +26,7 @@ export {
 export { AgentKeyField } from './agent-key-field';
 export { ForgeAccountAddForm, ForgeAccountRemoveButton, ForgeCredentialsNote } from './forge-account-credentials';
 export { SecretMaskedValue, type SecretMaskedValueHandle, type SecretMaskedValueProps } from './secret-masked-value';
+export { SecretScanSection } from './secret-scan-section';
 
 type ViewIds = VaultManifest['views'][number]['id'];
 

@@ -1239,6 +1239,14 @@ export type MidniteStudioBridge = {
     copyOnce: (req: In<typeof S.VaultCopyOnceRequest>) => Promise<z.infer<typeof S.VaultCopyOnceResponse>>;
   };
 
+  /** Secret scanning & pre-commit hook management (Phase 118 Theme F). */
+  vaultScan?: {
+    history: (req: In<typeof S.VaultScanHistoryRequest>) => Promise<z.infer<typeof S.VaultScanHistoryResponse>>;
+    hookStatus: (req: In<typeof S.VaultHookStatusRequest>) => Promise<z.infer<typeof S.VaultHookStatusResponse>>;
+    hookInstall: (req: In<typeof S.VaultHookInstallRequest>) => Promise<z.infer<typeof S.VaultHookInstallResponse>>;
+    hookUninstall: (req: In<typeof S.VaultHookUninstallRequest>) => Promise<z.infer<typeof S.VaultHookUninstallResponse>>;
+  };
+
   /**
    * Finance provider fetches proxied through main (Phase 76 Theme D) so API
    * keys and CoinGecko/Twelve Data hosts stay out of the renderer.
