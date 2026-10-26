@@ -113,3 +113,4 @@ export * from './vanguard';
 export * from './vanguard-network';
 export * from './workflow-templates';
 export * from './tool-policy';
+export * from './package-check';

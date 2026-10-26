@@ -246,6 +246,7 @@ export const ChatSkillSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(2_000),
   scope: z.enum(['project', 'user', 'plugin']),
+  warning: z.string().optional(),
 });
 export type ChatSkill = z.infer<typeof ChatSkillSchema>;
 

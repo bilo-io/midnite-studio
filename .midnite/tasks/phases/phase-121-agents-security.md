@@ -120,9 +120,7 @@ description is the one quoting). Not done yet: nothing starts a third-party serv
 
 **Theme G — The audit trail.** ✅ Append-only, redacted NDJSON at `<userData>/security/audit/agents-<yyyy-mm-dd>.ndjson` (UTC days, dir 0700, files 0600), written by `packages/runtime/src/security/agent-audit.ts`: every record is validated against the `shared` schema (an unknown field is stripped, which is how `mcp-call` stays payload-free), run through `redactRecord`, clipped after redaction, and appended through one promise chain whose failures go to the log seam and nowhere else. All nine kinds have their schema and the writer's one `record()` entry point; **real producers landed now for `mcp-call` (the ring, below), `command` (agent-pty keystroke lines, with OSC 133/633 marks trusted when the shell emits them and a heuristic that skips password prompts otherwise), `chat-turn` and `council-run`** — the last two through an injected `audit` dep, so no feature imports another. `policy-decision` and `approval` (B), `install` (H), `limit-trip` (F) and `confine-denial` (E) are schema-only until their themes add producers. The ring is now a tail: `recordMcpCall` writes through the trail and `getMcpCallLog` reads its newest 50 (the old ring holds only calls made before `userData` exists, and moves in). Retention defaults to 90 days because Phase 115 B's setting is not built yet (`retentionDays` takes a number or a thunk, so wiring it is one line; see `outstanding.md`). **For Phase 120 G:** `createAgentAuditReader({ directory })` (or `trail.list/tail/readSince`) is the whole read side: `tail({ kind, limit })`, `list(filter)` and `readSince(cursor)`, which returns complete lines appended after a `{file, offset}` cursor and spans a day rollover. The viewer is an Audit tab in Agents and in Studio's Sessions view (filter by kind, session and time; a row expands to its record), through `CHANNELS.agentAuditList` and a main-side-save-dialog `agentAuditExport`; the view and channels live in the mcp-tools feature, and Studio's Sessions feature takes the pane through its host port.
 
-**Theme H — What an agent installs is checked.** ◻ Install commands and lockfile diffs after a
-turn are checked for registry age, typosquat distance, install scripts and OSV advisories;
-skills and plugins an agent adds are scanned before they load.
+**Theme H — What an agent installs is checked.** ✅ Install commands in the trail and lockfile diffs after turns are parsed into candidates across npm, pypi, cargo, homebrew, rubygems and go; checked for registry age (< 7d slopsquat window), Levenshtein edit distance <= 2 from top packages (typosquats), install/postinstall lifecycle scripts and sensitive reads (~/.npmrc, env, .git/config), and known poisoned versions. Skills and plugins under .claude, .codex, and .agents are scanned for prompt injection with Theme A's detector, network calls to untrusted hosts, and compiled binaries; flagged skills are surfaced in the Chats `/` picker (`chat-skills.ts`) with an amber warning glyph rather than hidden.
 
 **Theme I — Keys and models stay where they were put.** ✅ An engine's one API key is read from the vault
 by main at spawn (`runtime/src/engine-key-env.ts`) and goes into that child's environment alone, under the
@@ -303,24 +301,24 @@ finding. Agents' pairing seed, its one `safeStorage` call and its lack of a vaul
 
 ### H — What an agent installs is checked [M · ~1d]
 
-- [ ] **Seeing the install.** Two signals: an install command in the trail (`npm i|install|add`,
+- [x] **Seeing the install.** Two signals: an install command in the trail (`npm i|install|add`,
       `pnpm add|install`, `yarn add`, `pip install`, `pipx`, `uv add`, `cargo add`, `brew install`,
       `gem install`, `go get`) and a lockfile diff after a turn (Phase 120 C's integrity sensor hands
       the changed lockfile over). Each new `(ecosystem, name, version)` is a candidate. [S]
-- [ ] **The checks.** Registry age — a package or version published fewer than 7 days ago is
+- [x] **The checks.** Registry age — a package or version published fewer than 7 days ago is
       `medium` (the slopsquatting window; Renovate's `minimumReleaseAge: 3 days` from Phase 91 I is
       the precedent); the name's edit distance ≤ 2 from a top-5000 name of its registry is `high`
       (typosquat); `install`/`postinstall`/`preinstall` scripts present is `medium`, `high` if the
       script reads `~/.npmrc`, env or `.git/config`; an OSV hit (Phase 122 B's client) is the
       advisory's severity; a name on Phase 122 C's poisoned-version list is `critical`. Registry
       metadata calls go through Phase 115 A's `guardedFetch` with their own registry entry. [M]
-- [ ] **Skills and plugins.** A new directory under `~/.claude/plugins`, `~/.claude/skills`,
+- [x] **Skills and plugins.** A new directory under `~/.claude/plugins`, `~/.claude/skills`,
       `<repo>/.claude/skills`, `.codex/skills` or `.agents/skills` (Phase 120 C watches them) is
       scanned: Theme A's detector over every `SKILL.md`, any `curl`/`fetch` to a non-registry host
       in its scripts, any binary. Flagged skills are listed in the Chats `/` picker
       ([`chat-skills.ts`](../../../packages/features/chats/main/chat-skills.ts)) with a warning
       glyph rather than hidden. [M]
-- [ ] **Tests.** Fixture registry responses for a 2-day-old package, a typosquat of `lodash`, a
+- [x] **Tests.** Fixture registry responses for a 2-day-old package, a typosquat of `lodash`, a
       `postinstall` reading `~/.npmrc`; a fixture plugin with an injected `SKILL.md`. [S]
 
 ### I — Keys and models stay where they were put [S · ≤ 2h]
@@ -371,7 +369,7 @@ finding. Agents' pairing seed, its one `safeStorage` call and its lack of a vaul
 - [ ] **F:** a 121-call minute trips; 119 does not.
 - [x] **G:** every record kind round-trips redacted; the Tools view's last-50 equals the trail's
       tail; `stat` shows 0700/0600.
-- [ ] **H:** the fixture typosquat and the 2-day-old package each yield their severity; the
+- [x] **H:** the fixture typosquat and the 2-day-old package each yield their severity; the
       injected `SKILL.md` shows the warning glyph in the picker.
 - [ ] **I:** the env test holds; a changed fixture Ollama digest yields `medium`.
 - [ ] **Open, for a human:** a packaged-app pass with a real `claude` session: approve one push
