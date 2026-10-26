@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// website-sync-install: keep packages/website/public/install-studio.sh identical to the upstream installers in the PUBLIC bilo-io/midnite-apps repo.
+// website-sync-install: keep packages/website/public/install.sh (launcher) and
+// install-studio.sh identical to the upstream installers in the PUBLIC bilo-io/midnite-apps repo.
 //
 // The download page tells visitors to pipe the *site's* copy into `sh`
 // (src/pages/download-page.tsx), which is shorter and served from the host they
@@ -30,12 +31,12 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const RAW = 'https://raw.githubusercontent.com/bilo-io/midnite-apps/main';
 
 /**
- * The site's copy, served at `<origin>/install-studio.sh` by any static host. Upstream is public, so
- * no credential is involved. It is Studio's installer, kept only for the app's own "Update Midnite
- * Studio" action: the website neither links to it nor prints it. The launcher's `install.sh` is no
- * longer served (access is gated).
+ * The site's copies, each served at `<origin>/<file>` by any static host. Upstream is public, so no
+ * credential is involved. `install.sh` is the LAUNCHER's installer (what the download page pipes
+ * into sh); `install-studio.sh` is Studio's, kept for the app's own "Update Midnite Studio".
  */
 const TARGETS = [
+  { upstream: `${RAW}/midnite-launcher/install.sh`, label: 'packages/website/public/install.sh' },
   { upstream: `${RAW}/midnite-studio/install.sh`, label: 'packages/website/public/install-studio.sh' },
 ].map((t) => ({ ...t, local: path.join(repoRoot, t.label) }));
 
