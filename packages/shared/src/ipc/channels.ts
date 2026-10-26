@@ -1607,6 +1607,10 @@ export const CHANNELS = {
   vaultAuditVerify: 'mstudio:vault:audit:verify',
   vaultAuditExport: 'mstudio:vault:audit:export',
   vaultBreachCheck: 'mstudio:vault:breach:check',
+  /** Reveal a secret once over a dedicated short-lived channel (Phase 118 Theme C). */
+  vaultRevealOnce: 'mstudio:vault:reveal-once',
+  /** Copy a secret directly to clipboard with SHA-256 auto-clear timer (Phase 118 Theme C). */
+  vaultCopyOnce: 'mstudio:vault:copy-once',
 
   // --- finance proxy (Phase 76 Theme D) -------------------------------------
   /** Search crypto/stock symbols — provider fetches run in main. */

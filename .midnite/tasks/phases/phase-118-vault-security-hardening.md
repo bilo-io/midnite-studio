@@ -114,7 +114,7 @@ checklist. `SECURITY.md` and `docs/security/README.md` linked.
 extracted to runtime, auto-lock triggers (suspend, lock-screen, 15m idle), and 60-second re-auth
 proof requirement for sensitive ops (grants and pairings).
 
-**Theme C — Reveal and copy without leaving a trace.** ◻ A one-shot, re-authenticated reveal in
+**Theme C — Reveal and copy without leaving a trace.** ✅ A one-shot, re-authenticated reveal in
 the Vault app's own window; copy with a 30-second clipboard clear that only clears what it put
 there; nothing cached, nothing logged in plaintext.
 
@@ -201,23 +201,23 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 
 ### C — Reveal and copy without leaving a trace [M · ~1d]
 
-- [ ] **`revealOnce` and `copyOnce`.** Two new main-side ops on the Vault feature's own handler
+- [x] **`revealOnce` and `copyOnce`.** Two new main-side ops on the Vault feature's own handler
       set — *not* on the host protocol, so a paired app can never call them — each requiring
       Theme B's fresh unlock. `revealOnce` returns the value once over a dedicated, short-lived
       channel that the preload exposes only to the Vault window (verified by a test over the
       Vault app's channel list in [`vault-manifest.ts`](../../../apps/vault/src/vault-manifest.ts));
       `copyOnce` never returns it: main writes the clipboard itself.
-- [ ] **Clipboard clear.** After `copyOnce`, main hashes what it wrote and, 30 s later (Settings:
+- [x] **Clipboard clear.** After `copyOnce`, main hashes what it wrote and, 30 s later (Settings:
       15 / 30 / 60), clears the clipboard *only if* the current text still hashes the same —
       never wiping something the user copied since. No NSPasteboard "concealed" type is available
       from Electron, so Universal Clipboard is named as a limitation in Theme A's doc.
-- [ ] **Shown, not stored.** The revealed value is rendered by a component that holds it in a
+- [x] **Shown, not stored.** The revealed value is rendered by a component that holds it in a
       ref, masks it after 30 s or on blur, and is excluded from every persisted store (the
       `persisted-secrets.test.ts` register names the component). No `console`, no log line, no
       React DevTools-visible prop: the value is drawn into a `<canvas>`-free plain text node and
       the test asserts no store contains it after reveal.
-- [ ] **Audit.** Each reveal and copy writes a Theme D line with the entry id — never the value.
-- [ ] *Acceptance:* reveal shows the value and masks it at 30 s; copy then paste works within
+- [x] **Audit.** Each reveal and copy writes a Theme D line with the entry id — never the value.
+- [x] *Acceptance:* reveal shows the value and masks it at 30 s; copy then paste works within
       30 s and the clipboard is empty at 31 s unless the user copied something else; a paired app
       calling `revealOnce` over the socket gets `invalid`.
 

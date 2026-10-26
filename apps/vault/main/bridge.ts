@@ -11,6 +11,8 @@ import { CHANNELS } from '@midnite/studio-shared/ipc/channels';
  */
 export type VaultBridge = {
   secrets: Pick<MidniteStudioBridge['secrets'], 'has' | 'set'>;
+  /** One-shot re-authenticated reveal and copy (Phase 118 Theme C). */
+  vaultSecrets: NonNullable<MidniteStudioBridge['vaultSecrets']>;
   forgeAccounts: Pick<MidniteStudioBridge['forgeAccounts'], 'list' | 'add' | 'remove'>;
   db: Pick<MidniteStudioBridge['db'], 'listConnections' | 'deleteConnection'>;
   vaultGrants: MidniteStudioBridge['vaultGrants'];
@@ -34,6 +36,10 @@ export function createVaultBridge(ipc: RendererIpc): VaultBridge {
     secrets: {
       has: (req) => call(CHANNELS.secretsHas, req),
       set: (req) => call(CHANNELS.secretsSet, req),
+    },
+    vaultSecrets: {
+      revealOnce: (req) => call(CHANNELS.vaultRevealOnce, req),
+      copyOnce: (req) => call(CHANNELS.vaultCopyOnce, req),
     },
     forgeAccounts: {
       list: (req) => call(CHANNELS.forgeAccounts, req),

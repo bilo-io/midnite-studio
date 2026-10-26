@@ -3,6 +3,7 @@ import {
   connectRuntimeVault,
   createIpcContext,
   vaultHostSocketPath,
+  type ClipboardAdapter,
   type IpcContextElectron,
   type PairingIdentity,
 } from '@midnite/studio-runtime';
@@ -13,6 +14,8 @@ export type VaultElectron = IpcContextElectron & {
   directory: string;
   /** Vault's pairing key (`pairing.ts`): unpaired, the host lets it list and unpair nothing. */
   pairing: () => PairingIdentity | null;
+  /** Injected clipboard adapter for copy-once operations (Phase 118 Theme C). */
+  clipboard?: ClipboardAdapter;
 };
 
 /**
@@ -23,6 +26,6 @@ export type VaultElectron = IpcContextElectron & {
  */
 export function registerVaultHandlers(el: VaultElectron): { close(): void } {
   const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.directory), appId: 'vault', identity: el.pairing });
-  vaultMain.register(createIpcContext(el), { vault, grants: vault.grants, pairings: vault.pairing });
+  vaultMain.register(createIpcContext(el), { vault, grants: vault.grants, pairings: vault.pairing, clipboard: el.clipboard });
   return { close: () => vault.close() };
 }

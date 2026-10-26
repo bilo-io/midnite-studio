@@ -1,6 +1,7 @@
 import { BROWSER_AGENT_PRINCIPAL, type RuntimePrincipal } from '../app-id';
 import { createVaultAuditLog, type VaultAuditLog } from './audit/vault-audit';
 import { createBreachChecker, type BreachChecker } from './breach/hibp-check';
+import { createVaultClipboardManager, type ClipboardAdapter, type VaultClipboardManager } from './clipboard';
 import {
   createSecureJsonStore,
   decryptSecret,
@@ -180,6 +181,15 @@ export interface VaultService {
   // Audit log & breach check (Themes D & E)
   readonly audit: VaultAuditLog;
   readonly breachChecker: BreachChecker;
+
+  // Reveal & copy (Theme C)
+  reveal(namespace: VaultNamespace, key: string): Promise<{ ok: true; value: string } | { ok: false; error: string }>;
+  copy(
+    namespace: VaultNamespace,
+    key: string,
+    clipboard: ClipboardAdapter,
+    options?: { timeoutSeconds?: number },
+  ): Promise<{ ok: boolean; error?: string; timeoutSeconds?: number }>;
 }
 
 export type VaultServiceOptions = {
@@ -340,6 +350,88 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     };
   };
 
+  let clipboardManager: VaultClipboardManager | null = null;
+
+  const reveal = async (
+    namespace: VaultNamespace,
+    key: string,
+  ): Promise<{ ok: true; value: string } | { ok: false; error: string }> => {
+    if (locked) {
+      await audit.log({ op: 'reveal', namespace, id: key, app: 'vault', principal: 'user', result: 'locked' });
+      return { ok: false, error: 'Vault is locked' };
+    }
+    if (!isReauthValid()) {
+      await audit.log({
+        op: 'reveal',
+        namespace,
+        id: key,
+        app: 'vault',
+        principal: 'user',
+        result: 'denied',
+        reason: 'Re-authentication required',
+      });
+      return { ok: false, error: 'Re-authentication required (within 60s)' };
+    }
+    const val = await internalRead(namespace, key);
+    if (val === null) {
+      await audit.log({
+        op: 'reveal',
+        namespace,
+        id: key,
+        app: 'vault',
+        principal: 'user',
+        result: 'denied',
+        reason: 'Secret not found',
+      });
+      return { ok: false, error: 'Secret not found' };
+    }
+    await audit.log({ op: 'reveal', namespace, id: key, app: 'vault', principal: 'user', result: 'ok' });
+    return { ok: true, value: val };
+  };
+
+  const copy = async (
+    namespace: VaultNamespace,
+    key: string,
+    clipboard: ClipboardAdapter,
+    options?: { timeoutSeconds?: number },
+  ): Promise<{ ok: boolean; error?: string; timeoutSeconds?: number }> => {
+    if (locked) {
+      await audit.log({ op: 'copy', namespace, id: key, app: 'vault', principal: 'user', result: 'locked' });
+      return { ok: false, error: 'Vault is locked' };
+    }
+    if (!isReauthValid()) {
+      await audit.log({
+        op: 'copy',
+        namespace,
+        id: key,
+        app: 'vault',
+        principal: 'user',
+        result: 'denied',
+        reason: 'Re-authentication required',
+      });
+      return { ok: false, error: 'Re-authentication required (within 60s)' };
+    }
+    const val = await internalRead(namespace, key);
+    if (val === null) {
+      await audit.log({
+        op: 'copy',
+        namespace,
+        id: key,
+        app: 'vault',
+        principal: 'user',
+        result: 'denied',
+        reason: 'Secret not found',
+      });
+      return { ok: false, error: 'Secret not found' };
+    }
+    if (!clipboardManager) {
+      clipboardManager = createVaultClipboardManager(clipboard);
+    }
+    const res = clipboardManager.copySecret(val, options);
+    await audit.log({ op: 'copy', namespace, id: key, app: 'vault', principal: 'user', result: 'ok' });
+    return { ok: true, timeoutSeconds: res.timeoutSeconds };
+  };
+
   return {
     isAvailable,
     isLocked,
@@ -352,6 +444,8 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     isReauthValid,
     audit,
     breachChecker,
+    reveal,
+    copy,
 
     forApp(appId) {
       // Phase 117 Theme G: the browser agent is refused here, before any authorizer runs, so a

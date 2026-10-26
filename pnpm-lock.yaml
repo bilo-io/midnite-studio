@@ -1125,6 +1125,12 @@ importers:
 
   apps/studio:
     dependencies:
+      '@midnite/studio-app':
+        specifier: workspace:*
+        version: link:../../packages/app
+      '@midnite/studio-desktop':
+        specifier: workspace:*
+        version: link:../../packages/desktop
       '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../../packages/shared

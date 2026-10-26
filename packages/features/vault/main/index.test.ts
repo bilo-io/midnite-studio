@@ -10,14 +10,21 @@ import { CHANNELS } from '@midnite/studio-shared';
 import { accountFromKey, NEEDS_STUDIO_SIGN_INS, vaultMain } from './index';
 import { vaultManifest } from '../manifest';
 
-async function setup() {
+async function setup(clipboardText = '') {
   const dir = await mkdtemp(join(tmpdir(), 'mstudio-vault-feature-'));
   const service = createVaultService({ directory: dir, cipher: createFakeCipher() });
   const vault = service.forApp('vault');
   const ctx = createRecordingContext();
   const grants = createVaultGrants({ directory: dir });
-  vaultMain.register(ctx, { vault, grants, vaultService: service });
-  return { ctx, vault, grants, service, dir };
+  let clip = clipboardText;
+  const clipboard = {
+    writeText: (t: string) => {
+      clip = t;
+    },
+    readText: () => clip,
+  };
+  vaultMain.register(ctx, { vault, grants, vaultService: service, clipboard });
+  return { ctx, vault, grants, service, dir, getClipboard: () => clip };
 }
 
 describe('vault main', () => {
@@ -142,5 +149,20 @@ describe('vault main', () => {
     const auditVerify = (await ctx.invoke(CHANNELS.vaultAuditVerify)) as { valid: boolean; total: number };
     expect(auditVerify.valid).toBe(true);
     expect(auditVerify.total).toBeGreaterThan(0);
+  });
+
+  it('revealOnce returns revealed secret value and logs audit', async () => {
+    const { ctx, vault } = await setup();
+    await vault.set('secrets', 'ollama.apiKey', 'ollama-secret-123');
+    const res = await ctx.invoke(CHANNELS.vaultRevealOnce, { namespace: 'secrets', key: 'ollama.apiKey' });
+    expect(res).toEqual({ ok: true, revealed: 'ollama-secret-123' });
+  });
+
+  it('copyOnce writes secret directly to clipboard and auto-clears', async () => {
+    const { ctx, vault, getClipboard } = await setup();
+    await vault.set('secrets', 'ollama.apiKey', 'ollama-secret-123');
+    const res = await ctx.invoke(CHANNELS.vaultCopyOnce, { namespace: 'secrets', key: 'ollama.apiKey' });
+    expect(res).toEqual({ ok: true, timeoutSeconds: 30 });
+    expect(getClipboard()).toBe('ollama-secret-123');
   });
 });

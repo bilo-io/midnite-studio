@@ -82,6 +82,10 @@ function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { s
   const vaultBreach = {
     check: vi.fn(async () => ({ breached: false, count: 0, checkedAt: Date.now() })),
   };
+  const vaultSecrets = {
+    revealOnce: vi.fn(async ({ key }: { key: string }) => ({ ok: true, revealed: `revealed-secret-for-${key}` })),
+    copyOnce: vi.fn(async () => ({ ok: true, timeoutSeconds: 30 })),
+  };
   window.midniteStudio = {
     secrets,
     forgeAccounts,
@@ -92,6 +96,7 @@ function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { s
     vaultLock,
     vaultAudit,
     vaultBreach,
+    vaultSecrets,
   } as unknown as typeof window.midniteStudio;
   const kit = createFrameChrome();
   render(
@@ -237,5 +242,34 @@ describe('VaultPage — web-app sign-ins', () => {
     expect(await screen.findByRole('region', { name: 'Audit Log' })).toBeDefined();
     expect(screen.getByText(/Chain verified/)).toBeDefined();
     expect(screen.getByRole('button', { name: 'Export log' })).toBeDefined();
+  });
+
+  it('supports reveal and copy for set secrets (Phase 118 Theme C)', async () => {
+    mount();
+    // ollama.apiKey is mock-seeded as hasKey: true
+    const revealBtn = await screen.findByRole('button', { name: 'Reveal' });
+    expect(revealBtn).toBeDefined();
+
+    const copyBtn = screen.getByRole('button', { name: 'Copy' });
+    expect(copyBtn).toBeDefined();
+
+    // Clicking copy invokes copyOnce
+    fireEvent.click(copyBtn);
+    expect(window.midniteStudio?.vaultSecrets?.copyOnce).toHaveBeenCalledWith({
+      namespace: 'secrets',
+      key: 'ollama.apiKey',
+      timeoutSeconds: 30,
+    });
+    expect(await screen.findByText('Copied (clears in 30s)')).toBeDefined();
+
+    // Clicking reveal invokes revealOnce and reveals the secret value in DOM
+    fireEvent.click(revealBtn);
+    expect(window.midniteStudio?.vaultSecrets?.revealOnce).toHaveBeenCalledWith({
+      namespace: 'secrets',
+      key: 'ollama.apiKey',
+    });
+    expect(await screen.findByText('revealed-secret-for-ollama.apiKey')).toBeDefined();
+    // Button switches to Mask
+    expect(screen.getByRole('button', { name: 'Mask' })).toBeDefined();
   });
 });
