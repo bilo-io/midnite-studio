@@ -55,7 +55,8 @@ export function createVaultClipboardWatch(deps: VaultClipboardWatchDeps): VaultC
   const cancelEvery =
     deps.clearInterval ?? ((h) => clearInterval(h as ReturnType<typeof setInterval>));
   const after = deps.setTimeout ?? setTimeout;
-  const cancelAfter = deps.clearTimeout ?? clearTimeout;
+  const cancelAfter: (handle: unknown) => void =
+    deps.clearTimeout ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
 
   const clearNow = (targetText: string) => {
     try {
@@ -105,7 +106,7 @@ export function createVaultClipboardWatch(deps: VaultClipboardWatchDeps): VaultC
       deps.onSecretDetected(hit);
 
       if (deps.isAutoClearEnabled?.()) {
-        if (autoClearHandle) cancelAfter(autoClearHandle as any);
+        if (autoClearHandle) cancelAfter(autoClearHandle);
         autoClearHandle = after(() => {
           clearNow(text);
         }, VAULT_CLIPBOARD_AUTO_CLEAR_MS);
@@ -124,7 +125,7 @@ export function createVaultClipboardWatch(deps: VaultClipboardWatchDeps): VaultC
       pollHandle = null;
     }
     if (autoClearHandle) {
-      cancelAfter(autoClearHandle as any);
+      cancelAfter(autoClearHandle);
       autoClearHandle = null;
     }
     lastHash = null;

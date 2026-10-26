@@ -8,7 +8,6 @@ import {
   LuSearch,
   LuShieldAlert,
   LuShieldCheck,
-  LuTriangleAlert,
 } from 'react-icons/lu';
 
 export function SecretScanSection() {
@@ -25,7 +24,6 @@ export function SecretScanSection() {
   const [hookBusy, setHookBusy] = useState(false);
 
   const [clipboardWatchOn, setClipboardWatchOn] = useState(false);
-  const [clipboardAutoClearOn, setClipboardAutoClearOn] = useState(false);
 
   const checkHook = useCallback(async () => {
     if (!repoPath.trim()) return;
