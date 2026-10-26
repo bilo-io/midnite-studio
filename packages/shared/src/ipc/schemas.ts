@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { SecretFindingSchema } from '../scan-secrets';
 import { VANGUARD_TABS } from '../vanguard';
 
 import {
@@ -1737,6 +1738,8 @@ export const CommitRequest = OpBase.extend({
   amend: z.boolean().default(false),
   /** Stage every tracked modification first (`commit -a`). */
   all: z.boolean().default(false),
+  /** Bypass the pre-commit secret scan ("Commit anyway", Phase 118 Theme F). */
+  bypassSecretsCheck: z.boolean().default(false),
 });
 
 export const FetchRequest = OpBase.extend({
@@ -5167,6 +5170,42 @@ export const VaultCopyOnceResponse = z.object({
   ok: z.boolean(),
   error: z.string().optional(),
   timeoutSeconds: z.number().int().optional(),
+});
+
+export const VaultScanHistoryRequest = z.object({
+  repoPath: z.string().min(1),
+  maxCommits: z.number().int().positive().optional(),
+});
+export const VaultScanHistoryResponse = z.object({
+  ok: z.boolean(),
+  scannedCommits: z.number().int().nonnegative(),
+  findings: z.array(SecretFindingSchema),
+  advice: z.string(),
+  error: z.string().optional(),
+});
+
+export const VaultHookStatusRequest = z.object({
+  repoPath: z.string().min(1),
+});
+export const VaultHookStatusResponse = z.object({
+  installed: z.boolean(),
+  hookPath: z.string().optional(),
+});
+
+export const VaultHookInstallRequest = z.object({
+  repoPath: z.string().min(1),
+});
+export const VaultHookInstallResponse = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+});
+
+export const VaultHookUninstallRequest = z.object({
+  repoPath: z.string().min(1),
+});
+export const VaultHookUninstallResponse = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
 });
 
 // --- finance proxy (Phase 76 Theme D) -----------------------------------------

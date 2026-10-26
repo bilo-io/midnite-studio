@@ -1611,6 +1611,11 @@ export const CHANNELS = {
   vaultRevealOnce: 'mstudio:vault:reveal-once',
   /** Copy a secret directly to clipboard with SHA-256 auto-clear timer (Phase 118 Theme C). */
   vaultCopyOnce: 'mstudio:vault:copy-once',
+  // --- vault secret scanning & hooks (Phase 118 Theme F) --------------------
+  vaultScanHistory: 'mstudio:vault:scan:history',
+  vaultHookStatus: 'mstudio:vault:hook:status',
+  vaultHookInstall: 'mstudio:vault:hook:install',
+  vaultHookUninstall: 'mstudio:vault:hook:uninstall',
 
   // --- finance proxy (Phase 76 Theme D) -------------------------------------
   /** Search crypto/stock symbols — provider fetches run in main. */

@@ -7,6 +7,7 @@ import { DbLoginsSection } from './db-logins-section';
 import { ForgeAccountsSection } from './forge-accounts-section';
 import { GrantsSection } from './grants-section';
 import { PairingSection } from './pairing-section';
+import { SecretScanSection } from './secret-scan-section';
 import { SecretsSection } from './secrets-section';
 import { WebAppSignInsSection } from './web-app-sign-ins-section';
 
@@ -153,6 +154,7 @@ export function VaultPage() {
       <GrantsSection />
       <PairingSection />
       <AuditSection />
+      <SecretScanSection />
     </div>
   );
 }

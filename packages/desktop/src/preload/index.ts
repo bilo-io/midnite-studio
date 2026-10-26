@@ -148,6 +148,7 @@ const bridge: Pick<
   | 'vaultAudit'
   | 'vaultBreach'
   | 'vaultSecrets'
+  | 'vaultScan'
   | 'finance'
   | 'financeAccounts'
   | 'markets'
@@ -597,6 +598,12 @@ const bridge: Pick<
   vaultSecrets: {
     revealOnce: (req) => call(CHANNELS.vaultRevealOnce, req),
     copyOnce: (req) => call(CHANNELS.vaultCopyOnce, req),
+  },
+  vaultScan: {
+    history: (req) => call(CHANNELS.vaultScanHistory, req),
+    hookStatus: (req) => call(CHANNELS.vaultHookStatus, req),
+    hookInstall: (req) => call(CHANNELS.vaultHookInstall, req),
+    hookUninstall: (req) => call(CHANNELS.vaultHookUninstall, req),
   },
   finance: {
     search: (req) => call(CHANNELS.financeSearch, req),

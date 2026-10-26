@@ -1,13 +1,19 @@
 import { clipboard } from 'electron';
 
 import {
+  installPreCommitHook,
+  isPreCommitHookInstalled,
+  scanRepoHistory,
+  uninstallPreCommitHook,
+} from '@midnite/studio-git-engine';
+import {
   registerVaultGrantHandlers,
   registerVaultPairingHandlers,
   type PairingStore,
   type VaultGrants,
   type VaultService,
 } from '@midnite/studio-runtime';
-import { CHANNELS, schemas, type SecretKey } from '@midnite/studio-shared';
+import { CHANNELS, failure, schemas, type SecretKey } from '@midnite/studio-shared';
 
 import type { SecretsVault } from '../secrets-vault';
 import { handle, handleBare, handleSend } from './handle';
@@ -173,6 +179,63 @@ export function registerSecretsHandlers(): void {
       return vaultService.copy(namespace, key, clipboard, { timeoutSeconds });
     },
     (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultScanHistory,
+    schemas.VaultScanHistoryRequest,
+    async ({ repoPath, maxCommits }) => {
+      try {
+        const report = await scanRepoHistory(repoPath, { maxCommits });
+        return {
+          ok: true,
+          scannedCommits: report.scannedCommits,
+          findings: report.findings,
+          advice: report.advice,
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          scannedCommits: 0,
+          findings: [],
+          advice: '',
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+    (issue) => ({ ok: false, scannedCommits: 0, findings: [], advice: '', error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultHookStatus,
+    schemas.VaultHookStatusRequest,
+    async ({ repoPath }) => {
+      try {
+        const installed = await isPreCommitHookInstalled(repoPath);
+        return { installed };
+      } catch {
+        return { installed: false };
+      }
+    },
+    () => ({ installed: false }),
+  );
+
+  handle(
+    CHANNELS.vaultHookInstall,
+    schemas.VaultHookInstallRequest,
+    async ({ repoPath }) => {
+      return installPreCommitHook(repoPath);
+    },
+    (issue) => failure(issue),
+  );
+
+  handle(
+    CHANNELS.vaultHookUninstall,
+    schemas.VaultHookUninstallRequest,
+    async ({ repoPath }) => {
+      return uninstallPreCommitHook(repoPath);
+    },
+    (issue) => failure(issue),
   );
 
   handle(

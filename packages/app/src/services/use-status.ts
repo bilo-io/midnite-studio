@@ -522,8 +522,13 @@ export const useConflictApplyHunk = (target: StatusTarget) =>
   );
 
 export const useCommit = () =>
-  useGitOp<{ message: string; amend?: boolean }>('commit', (api, args, ctx) =>
-    api.ops.commit({ ...ctx, message: args.message, amend: args.amend ?? false }),
+  useGitOp<{ message: string; amend?: boolean; bypassSecretsCheck?: boolean }>('commit', (api, args, ctx) =>
+    api.ops.commit({
+      ...ctx,
+      message: args.message,
+      amend: args.amend ?? false,
+      bypassSecretsCheck: args.bypassSecretsCheck ?? false,
+    }),
   );
 
 /**

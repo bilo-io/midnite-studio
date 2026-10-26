@@ -135,6 +135,49 @@ describe('commit', () => {
     expect(await commit(repo.path, { message: 'sweep', all: true })).toEqual({ ok: true });
     expect((await getStatus(repo.path)).entries).toEqual([]);
   });
+
+  it('blocks a commit when staged changes contain a secret token (Phase 118 Theme F)', async () => {
+    await repo.writeFile('token.env', 'GITHUB_TOKEN=ghp_abcdef1234567890abcdef12345678\n');
+    await stagePaths(repo.path, ['token.env']);
+
+    const result = await commit(repo.path, { message: 'leaky commit' });
+    expect(result.ok).toBe(false);
+    if (result.ok || result.kind !== 'secrets') throw new Error('expected secrets failure');
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      file: 'token.env',
+      pattern: 'github-token',
+      masked: 'ghp_...5678',
+    });
+
+    // Bypassing the check ("Commit anyway") succeeds
+    const bypassResult = await commit(repo.path, { message: 'leaky commit', bypassSecretsCheck: true });
+    expect(bypassResult).toEqual({ ok: true });
+  });
+
+  it('does not block a commit containing a 40-hex commit SHA', async () => {
+    await repo.writeFile('ref.txt', 'commit: 4a5e1d7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e\n');
+    await stagePaths(repo.path, ['ref.txt']);
+
+    const result = await commit(repo.path, { message: 'add commit reference' });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('blocks a commit matching a live vault secret', async () => {
+    const liveSecret = 'very-confidential-vault-value-xyz';
+    await repo.writeFile('config.json', `{"key": "${liveSecret}"}\n`);
+    await stagePaths(repo.path, ['config.json']);
+
+    const result = await commit(repo.path, {
+      message: 'commit with vault secret',
+      extraSecrets: [liveSecret],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok || result.kind !== 'secrets') throw new Error('expected secrets failure');
+    expect(result.findings[0]).toMatchObject({
+      pattern: 'vault-secret',
+    });
+  });
 });
 
 // Diff coverage lives in diff.integration.test.ts as of Phase 12 Theme D:

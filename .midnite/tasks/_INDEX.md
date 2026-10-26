@@ -12,7 +12,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | [121 · Agents security](phases/phase-121-agents-security.md) | 🔄 WIP | — | 42/51 | `████████░░` | 82% | — | — |
 | [120 · Vanguard: antivirus and agentic self-defense](phases/phase-120-vanguard.md) | 🔄 WIP | — | 39/46 | `████████░░` | 85% | — | — |
 | [119 · Midnite Git: a self-hosted forge and local CI runners](phases/phase-119-midnite-git.md) | ◻ TODO | — | 0/57 | `░░░░░░░░░░` | 0% | — | A B C D E F G H |
-| [118 · Vault security hardening](phases/phase-118-vault-security-hardening.md) | 🔄 WIP | F | 28/51 | `██████░░░░` | 55% | — | G H |
+| [118 · Vault security hardening](phases/phase-118-vault-security-hardening.md) | 🔄 WIP | — | 35/51 | `███████░░░` | 69% | — | G H |
 | [117 · Browser security hardening](phases/phase-117-browser-security-hardening.md) | 🔄 WIP | — | 52/60 | `█████████░` | 87% | — | — |
 | [116 · Test suite diet and screenshot purge](phases/phase-116-test-suite-diet-and-screenshot-purge.md) | 🔄 WIP | — | 14/28 | `█████░░░░░` | 50% | — | C E |
 | [115 · Privacy: data leaving the Mac and data at rest](phases/phase-115-privacy-egress-and-at-rest.md) | ◻ TODO | — | 0/46 | `░░░░░░░░░░` | 0% | — | A B C D E F G |
