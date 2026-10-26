@@ -499,7 +499,9 @@ export const startStudioMain: StartStudioMain = () => {
       // Phase 91 Theme E: one navigation/window.open net for every app window, installed before any
       // exists (`web-contents-created` is only seen by listeners registered ahead of the contents).
       app.on('web-contents-created', (_event, contents) => {
-        applyAppWebContentsPolicy(contents, devServerOrigin, (href) => void shell.openExternal(href));
+        applyAppWebContentsPolicy(contents, session.defaultSession, devServerOrigin, (href) =>
+          void shell.openExternal(href),
+        );
       });
       // Phase 91 Theme E: no WebUSB/HID/serial device chooser for the app renderer. Display media
       // stays Capture's gate above, hence `displayMedia: false`.
