@@ -56,7 +56,7 @@ export type VaultMainServices = {
   dialogs?: VaultDialogServices;
   /** Custom export override if provided. */
   exportVault?: (outputPath: string, passphrase: string) => Promise<{ ok: boolean; path?: string; entryCount?: number; error?: string }>;
-  importVaultPreview?: (inputPath: string, passphrase: string) => Promise<{ ok: boolean; totalEntries?: number; entries?: any[]; error?: string }>;
+  importVaultPreview?: (inputPath: string, passphrase: string) => Promise<{ ok: boolean; totalEntries?: number; entries?: unknown[]; error?: string }>;
   importVault?: (inputPath: string, passphrase: string, overwriteExisting?: boolean) => Promise<{ ok: boolean; importedCount?: number; skippedCount?: number; error?: string }>;
   /** Passcode check for vault lock. */
   hasPasscode?: () => boolean;
@@ -64,7 +64,7 @@ export type VaultMainServices = {
   promptTouchId?: (reason: string) => Promise<boolean>;
   scanRepoHistory?: (repoPath: string, options?: { maxCommits?: number }) => Promise<{
     scannedCommits: number;
-    findings: any[];
+    findings: unknown[];
     advice: string;
   }>;
   hookStatus?: (repoPath: string) => Promise<{ installed: boolean; hookPath?: string }>;

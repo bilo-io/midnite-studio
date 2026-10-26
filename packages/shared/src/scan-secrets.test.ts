@@ -5,7 +5,6 @@ import {
   isHighEntropySecret,
   maskSecret,
   scanDiff,
-  scanLine,
   scanText,
   shannonEntropy,
 } from './scan-secrets';

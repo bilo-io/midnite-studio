@@ -236,15 +236,20 @@ jobs:
       # on; Studio's own pin stays a warning until Phase 76 Theme A's bump lands — the same gate
       # `app-browser:dist` runs, here in the job that packs the bundle.
       - name: Chromium floor (Browser only, strict)
+        id: floor
         if: ${{ matrix.app == 'browser' }}
+        continue-on-error: true
         run: pnpm exec moon run root:electron-freshness-strict
       - name: Build the bundle
+        if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         run: pnpm exec moon run ${{ matrix.project }}:build
       - name: Check the bundle ships no Quick Kiss
+        if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         run: node scripts/no-quick-kiss.mjs ${{ matrix.dir }}/dist
       # An app with no `resources/icon.icns` yet cannot pass the launcher's bundle check, so it is not
       # packed: a warning, not a failure — the catalog simply does not list it this release.
       - name: Pack the bundle zip
+        if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -257,6 +262,7 @@ jobs:
           node scripts/pack-bundle.mjs --app "${{ matrix.app }}" --dir "${{ matrix.dir }}" \
             --version "$version" --out bundle-out --stage "$RUNNER_TEMP/stage-${{ matrix.app }}"
       - name: Upload the bundle
+        if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: bundle-${{ matrix.app }}

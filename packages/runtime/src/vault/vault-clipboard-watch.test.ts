@@ -84,7 +84,7 @@ describe('createVaultClipboardWatch (Phase 118 Theme F)', () => {
     const clipboard = createMockClipboard('');
     let scheduledTimer: (() => void) | null = null;
 
-    const fakeSetTimeout = (fn: () => void) => {
+    const fakeSetTimeout = (fn: () => void, _ms: number): unknown => {
       scheduledTimer = fn;
       return 123;
     };
@@ -94,7 +94,7 @@ describe('createVaultClipboardWatch (Phase 118 Theme F)', () => {
       isEnabled: () => true,
       isAutoClearEnabled: () => true,
       onSecretDetected: () => {},
-      setTimeout: fakeSetTimeout as any,
+      setTimeout: fakeSetTimeout,
     });
 
     clipboard.setText('ghp_abcdef1234567890abcdef12345678');

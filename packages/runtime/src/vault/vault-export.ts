@@ -5,17 +5,13 @@ import {
   scrypt,
 } from 'node:crypto';
 import { chmod, readFile, writeFile } from 'node:fs/promises';
-import { promisify } from 'node:util';
 
-import type { VaultAuditLog } from './audit/vault-audit';
 import {
   VAULT_NAMESPACE_IDS,
   type VaultClient,
   type VaultNamespace,
   type VaultService,
 } from './vault-service';
-
-const scryptAsync = promisify(scrypt);
 
 export const EXPORT_FORMAT_VERSION = 1;
 export const EXPORT_FORMAT_ID = 'midnite-vault-export-v1';
