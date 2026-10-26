@@ -319,8 +319,7 @@ export const APPS: readonly LauncherApp[] = [
     like: 'Like CrowdStrike, Little Snitch and SentinelOne',
     vision:
       'Defend your machine against rogue agent actions, malicious tool executions, and external threats with proactive behavioral defense and runtime isolation.',
-    // Phase 120 Theme B: every leaf lands on the Vanguard view, on its own tab. `comingSoon` stays until
-    // the sensors (Themes C, D) and the response actions (Theme H) have landed.
+    // Phase 120 Theme B: every leaf lands on the Vanguard view, on its own tab.
     home: view('vanguard', 'findings'),
     features: [
       { id: 'antivirus', label: 'Antivirus', blurb: 'Real-time filesystem and process scanning', target: view('vanguard', 'findings') },
@@ -328,7 +327,6 @@ export const APPS: readonly LauncherApp[] = [
       { id: 'network', label: 'Network Monitor', blurb: 'Inspect outbound connections and API calls', target: view('vanguard', 'network') },
     ],
     runsIn: 'studio',
-    comingSoon: true,
   },
   {
     id: 'startup',

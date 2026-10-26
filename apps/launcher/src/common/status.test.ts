@@ -93,6 +93,14 @@ describe('deriveAppState', () => {
   it('is Coming soon for apps marked comingSoon, regardless of Studio or bundles', () => {
     const state = deriveAppState('science', studio('0.4.1'), apps());
     expect(state).toMatchObject({ state: 'coming-soon', studioFallback: false });
-    expect(deriveAppState('vanguard', null, null).state).toBe('coming-soon');
+    expect(deriveAppState('startup', null, null).state).toBe('coming-soon');
+  });
+
+  it('resolves Vanguard as a live Studio-hosted app', () => {
+    expect(deriveAppState('vanguard', studio('0.4.1'), apps())).toMatchObject({
+      state: 'installed',
+      source: 'studio',
+      studioFallback: true,
+    });
   });
 });
