@@ -18,8 +18,7 @@ import { COVER, INK, STAGE } from "./palette";
  *             scene scales up inside it, so the next shot was *in* the last one.
  * - `wipe`  — a dry-brush band drags across at an angle, the next scene behind it.
  * - `almond`— an eye-shaped slit opens from a hairline to the full frame.
- * - `cut`   — none. The reference cuts hard exactly once; so should a film made
- *             from this.
+ * - `cut`   — none. The reference makes one deliberate hard cut; keep it to one.
  */
 export type RevealSpec =
   | { kind: "cut" }
@@ -35,7 +34,7 @@ export const Reveal: React.FC<{ spec: RevealSpec; frames: number; children: Reac
 }) => {
   const frame = onTwos(useCurrentFrame());
   if (spec.kind === "cut" || frame >= frames) return <AbsoluteFill>{children}</AbsoluteFill>;
-  const p = interpolate(frame, [0, frames], [0, 1], { extrapolateRight: "clamp" });
+  const p = interpolate(frame, [0, frames - 2], [0, 1], { extrapolateRight: "clamp" });
 
   if (spec.kind === "bloom") {
     const r = Easing.in(Easing.cubic)(p) * COVER * 1.5;

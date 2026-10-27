@@ -23,7 +23,7 @@ accent, the length and the line.
 | 1 | screen | void → paper screen | cut (chalk smear) | [ ] | ember | 5s | [ ] |
 | 2 | overhead | paper | lens, through the screen | [an object seen from above; its contents] | magenta | 7s | [ ] |
 | 3 | title | paper wash | bloom of the last scene's ink | title band: [title] / [author] | — | 8s | [ ] |
-| 4 | room | void + paper light | **hard cut** (the only one) | [a setting, two tones] | ember | 6s | [ ] |
+| 4 | room | void + paper light | **hard cut** (the only deliberate one) | [a setting, two tones] | ember | 6s | [ ] |
 | 5 | lens | paper | bloom | [a portrait or object made of splats, around one crisp lens] | teal | 7s | [ ] |
 | 6 | slit | void + teal panel | cut, out of the lens | [a figure in a narrow panel] | magenta | 6s | [ ] |
 | 7 | almond | void | dry-brush wipe | [an eye-shaped window onto marbling] | magenta | 5s | [ ] |

@@ -64,7 +64,7 @@ export const Credit: React.FC<{
           const [px, py] = jitter(i - 1);
           const on = t >= 22 + i * 2 + between(0, 6, id, "at", i);
           return (
-            <tspan key={i} dx={jx - px} dy={jy - py} opacity={on ? 1 : 0}>
+            <tspan key={i} dx={jx - px} dy={jy - py} fillOpacity={on ? 1 : 0}>
               {ch}
             </tspan>
           );

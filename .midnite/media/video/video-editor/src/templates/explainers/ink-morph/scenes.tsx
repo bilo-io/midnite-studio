@@ -199,7 +199,7 @@ export const RoomScene: React.FC<SceneProps> = ({ frames, accent }) => {
   return (
     <Stage>
       <Void />
-      <g transform={`rotate(${interpolate(t, [0, frames], [-3, 2])} 960 540) translate(960 540) scale(1.08) translate(-960 -540)`}>
+      <g transform={`rotate(${interpolate(t, [0, frames], [-3, 2], CLAMP)} 960 540) translate(960 540) scale(1.08) translate(-960 -540)`}>
         <path d={`M0 0 H${W} L${across(ceil)[1]} ${ceil} H${across(ceil)[0]} Z`} fill={INK.paper} />
         <Boil id="room-boil" amount={2}>
           {Array.from({ length: 9 }, (_, i) => {
@@ -294,9 +294,9 @@ export const LensScene: React.FC<SceneProps> = ({ accent }) => {
 export const SlitScene: React.FC<SceneProps> = ({ frames, accent }) => {
   const t = useT();
   const close = ramp(t, 0, 12, Easing.out(Easing.cubic));
-  const cx = interpolate(t, [0, frames], [960, 1000]);
+  const cx = interpolate(t, [0, frames], [960, 1000], CLAMP);
   const hw = interpolate(close, [0, 1], [1100, 190]);
-  const tilt = interpolate(t, [0, frames], [0, -7]);
+  const tilt = interpolate(t, [0, frames], [0, -7], CLAMP);
   const strokes: string[] = Array.from({ length: 5 }, (_, i) =>
     openPath(
       Array.from({ length: 6 }, (_, k): Pt => [
@@ -501,13 +501,14 @@ const CUP = `M440 420 H780 L740 760 Q610 800 480 760 Z M780 470 Q880 500 850 600
 
 export const CreditsScene: React.FC<SceneProps> = ({ frames }) => {
   const t = useT();
+  const slot = Math.floor(frames / CONTENT.credits.length);
   return (
     <Stage>
       <Void />
-      {CONTENT.credits.slice(0, 2).map((credit, k) => {
-        const tc = t - k * 120;
-        if (tc < 0 || tc >= 120) return null;
-        const erase = Math.round(ramp(tc, 106, 118) * 4) / 4;
+      {CONTENT.credits.map((credit, k) => {
+        const tc = t - k * slot;
+        if (tc < 0 || tc >= slot) return null;
+        const erase = Math.round(ramp(tc, slot - 14, slot - 2) * 4) / 4;
         const left = k % 2 === 0;
         return (
           <g key={k} opacity={1 - erase}>

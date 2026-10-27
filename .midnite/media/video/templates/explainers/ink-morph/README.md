@@ -56,7 +56,7 @@ shot. The transitions, roughly in order of how often it uses them:
 | **Push-through** | the camera flies into an object (a screen, a lens, a cup) until its inside is the next shot | `lens` reveal; scene 2, and the lens → slit pair |
 | **Dry-brush wipe** | a ragged black band drags across the frame at an angle, bristles leading | `wipe` reveal; scene 7, and the title band |
 | **Aperture** | a narrow slit, or an eye-shaped almond, opens out of black | the slit and almond scenes; `almond` reveal into scene 8 |
-| **Hard cut** | used once, to a stark two-tone room. Its rarity is what gives it force | `cut`; scene 4 |
+| **Hard cut** | one deliberate hard cut, into a stark two-tone room (scene 4); its rarity gives it force. Scenes 1, 6 and 10 also use `cut`, but only as structural entry/exit points (opening, the slit, the credits) | `cut`; scenes 1, 4, 6, 10 |
 
 **Type appears twice.** The title card is a black dry-brush band painted across
 a pale wash, with the title in a bookish serif behind the brush head, the
@@ -100,5 +100,5 @@ beat trimmed to roughly half.
 4. Render `TemplateInkMorphAnnotated` first: it labels each scene, its reveal
    and its VO line over the picture.
 
-Rules worth keeping: one accent per scene; a hard cut only once; nothing fades
+Rules worth keeping: one accent per scene; one deliberate hard cut (plus the structural ones at the open, the slit and the credits); nothing fades
 on; anything that moves reads `useDrawing()` or `onTwos()`, never the raw frame.
