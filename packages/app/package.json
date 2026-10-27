@@ -81,7 +81,7 @@
     "graphology": "^0.26.0",
     "lightweight-charts": "^5.2.1",
     "lowlight": "3.3.0",
-    "maplibre-gl": "^5",
+    "maplibre-gl": "^6.0.0",
     "mdast-util-to-string": "^4.0.0",
     "monaco-editor": "0.57.0",
     "react": "^19.0.0",
