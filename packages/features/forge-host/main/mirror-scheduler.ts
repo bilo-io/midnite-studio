@@ -24,6 +24,13 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
   let handle: unknown = null;
   let running: Promise<MirrorResult[]> | null = null;
   let stopped = true;
+  let recording: Promise<unknown> = Promise.resolve();
+  /** `record` is usually load-modify-save on one file, so two hosts finishing together must not interleave. */
+  const record = (result: MirrorResult): Promise<void> => {
+    const next = recording.then(() => deps.record(result));
+    recording = next.catch(() => undefined);
+    return next;
+  };
 
   const keyOf = (r: MirrorConfigRepo) => `${r.host}/${r.owner}/${r.repo}`;
 
@@ -34,9 +41,14 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
     const lanes = [...byHost.values()].map(async (repos) => {
       const out: MirrorResult[] = [];
       for (const repo of repos) {
-        const result = await deps.refresh(repo, config);
-        await deps.record(result);
-        out.push(result);
+        try {
+          const result = await deps.refresh(repo, config);
+          await record(result);
+          out.push(result);
+        } catch (error) {
+          // One repo's failure must not drop the rest of its lane, nor the other hosts' results.
+          out.push({ key: keyOf(repo), status: 'failed', reason: error instanceof Error ? error.message : String(error), at: new Date(now()).toISOString(), incremental: false, refs: 0 });
+        }
       }
       return out;
     });
@@ -45,10 +57,15 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
 
   /** One run at a time: a second request joins the one in flight. */
   function exclusive(select: Parameters<typeof run>[0]): Promise<MirrorResult[]> {
-    running ??= run(select).finally(() => {
-      running = null;
-    });
-    return running;
+    const start = (): Promise<MirrorResult[]> => {
+      const current = run(select).finally(() => {
+        if (running === current) running = null;
+      });
+      running = current;
+      return current;
+    };
+    // Queue behind a run in flight rather than joining it: the in-flight run may have selected fewer repos.
+    return running ? running.then(start, start) : start();
   }
 
   const isDue = (repo: MirrorConfigRepo, config: MirrorConfig): boolean => {
@@ -59,15 +76,21 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
 
   async function tick(): Promise<void> {
     if (stopped) return;
-    await exclusive(isDue).catch(() => []);
+    await exclusive(isDue).catch(() => []); // a failed config load: arm() below retries
     await arm();
   }
 
   async function arm(): Promise<void> {
     if (stopped) return;
-    const config = await deps.load();
-    if (config.interval === 'manual') return;
-    handle = setTimer(() => void tick(), INTERVAL_MS[config.interval]);
+    let interval: MirrorConfig['interval'];
+    try {
+      interval = (await deps.load()).interval;
+    } catch {
+      interval = 'hourly'; // an unreadable config must not end the schedule; retry in an hour
+    }
+    if (stopped || interval === 'manual') return;
+    if (handle !== null) clearTimer(handle);
+    handle = setTimer(() => void tick(), INTERVAL_MS[interval]);
   }
 
   return {

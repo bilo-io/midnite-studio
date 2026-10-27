@@ -61,6 +61,47 @@ describe('mirror scheduler', () => {
     expect(two.peak()).toBe(2);
   });
 
+  it('queues a manual run behind one in flight instead of joining it', async () => {
+    const h = harness({ repos: [repo('a.com', '1'), repo('b.com', '2')], state: { 'b.com/o/2': { at: new Date(0).toISOString(), status: 'ok' } } }, 0);
+    // interval daily, now=0: neither is "due" for repo 2 (fresh), only repo 1 is
+    const first = h.scheduler.start();
+    const manual = h.scheduler.runNow();
+    await first;
+    expect((await manual).map((r) => r.key).sort()).toEqual(['a.com/o/1', 'b.com/o/2']);
+  });
+
+  it('records a thrown refresh as failed and keeps the rest of the results', async () => {
+    const cfg = MirrorConfigSchema.parse({ repos: [repo('a.com', 'boom'), repo('a.com', 'fine')] });
+    const scheduler = createMirrorScheduler({
+      load: async () => cfg,
+      record: async () => {},
+      refresh: async (r) => {
+        if (r.repo === 'boom') throw new Error('kaput');
+        return ok(`${r.host}/${r.owner}/${r.repo}`, 'x');
+      },
+    });
+    const results = await scheduler.runNow();
+    expect(results.map((r) => [r.key, r.status])).toEqual([['a.com/o/boom', 'failed'], ['a.com/o/fine', 'ok']]);
+  });
+
+  it('survives an unreadable config when re-arming', async () => {
+    let calls = 0;
+    const timers: number[] = [];
+    const scheduler = createMirrorScheduler({
+      load: async () => {
+        calls += 1;
+        if (calls > 1) throw new Error('EIO');
+        return MirrorConfigSchema.parse({});
+      },
+      record: async () => {},
+      refresh: async (r) => ok(r.repo, 'x'),
+      setTimer: (_fn, ms) => timers.push(ms),
+      clearTimer: () => {},
+    });
+    await scheduler.start();
+    expect(timers).toEqual([INTERVAL_MS.hourly]);
+  });
+
   it('does not re-arm after stop', async () => {
     const h = harness({ repos: [] }, 0);
     await h.scheduler.start();

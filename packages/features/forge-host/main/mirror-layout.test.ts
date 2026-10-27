@@ -21,6 +21,10 @@ describe('mirror layout', () => {
     expect(() => mirrorPaths('/r', { host: 'h.com', owner: 'ok', repo: bad })).toThrow(/unsafe/);
   });
 
+  it('accepts dot-prefixed repo names such as .github', () => {
+    expect(mirrorPaths('/r', { host: 'h.com', owner: 'org', repo: '.github' }).bare).toBe('/r/h.com/org/.github.git');
+  });
+
   it('defaults under ~/Midnite/Git/mirrors', () => {
     expect(defaultMirrorRoot('/h')).toBe(join('/h', 'Midnite', 'Git', 'mirrors'));
   });
@@ -30,6 +34,8 @@ describe('mirror layout', () => {
     ['git@github.com:a/b.git', true],
     ['file:///tmp/x', true],
     ['/Volumes/usb/b.git', true],
+    ['https://user:token@github.com/a/b', false],
+    ['https://user@github.com/a/b', true],
     ['--upload-pack=evil', false],
     ['ext::sh -c evil', false],
     ['fd::3', false],

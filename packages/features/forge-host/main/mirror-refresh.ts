@@ -34,7 +34,7 @@ export type RefreshOptions = {
  * manifest. A problem after the fetch marks the mirror `degraded` and **keeps the previous manifest**
  * (it is the last known-good record); a problem fetching at all is `failed`.
  */
-export async function refreshMirror({ root, repo, url, source, now = () => new Date(), backoff }: RefreshOptions): Promise<MirrorResult> {
+async function refreshMirrorUnguarded({ root, repo, url, source, now = () => new Date(), backoff }: RefreshOptions): Promise<MirrorResult> {
   const key = mirrorKey(repo);
   const at = now().toISOString();
   const result = (status: MirrorStatus, extra: Partial<MirrorResult> = {}): MirrorResult => ({ key, status, at, incremental: false, refs: 0, ...extra });
@@ -62,7 +62,7 @@ export async function refreshMirror({ root, repo, url, source, now = () => new D
   const previous = await readManifest(paths.meta);
   if (previous) {
     const check = await verifyManifest(paths.meta, previous);
-    if (!check.ok) return result('degraded', { reason: `metadata changed since last run: ${check.problems.join(', ')}`, refs: refCount });
+    if (!check.ok) return result('degraded', { reason: `metadata changed since last run: ${check.problems.join(', ')} (delete the .meta folder to rebuild it)`, refs: refCount });
   }
 
   const head = await source.defaultBranch();
@@ -79,4 +79,24 @@ export async function refreshMirror({ root, repo, url, source, now = () => new D
   const check = written ? await verifyManifest(paths.meta, written) : ({ ok: false, problems: ['manifest unreadable'] } as const);
   if (!check.ok) return result('degraded', { reason: check.problems.join(', '), refs: refCount, incremental: since !== null });
   return result('ok', { refs: refCount, incremental: since !== null });
+}
+
+/**
+ * The public entry: never rejects. A source that throws (a rate limit past its retries, a network
+ * error) after some metadata files were rewritten leaves them disagreeing with the kept manifest, so
+ * the run is reported `degraded` rather than thrown into the scheduler.
+ */
+export async function refreshMirror(options: RefreshOptions): Promise<MirrorResult> {
+  try {
+    return await refreshMirrorUnguarded(options);
+  } catch (error) {
+    return {
+      key: mirrorKey(options.repo),
+      status: 'degraded',
+      reason: `refresh interrupted: ${error instanceof Error ? error.message : String(error)}`,
+      at: (options.now ?? (() => new Date()))().toISOString(),
+      incremental: false,
+      refs: 0,
+    };
+  }
 }

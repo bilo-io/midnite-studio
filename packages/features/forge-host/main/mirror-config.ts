@@ -40,12 +40,18 @@ export const MirrorConfigSchema = z.object({
 export type MirrorConfig = z.infer<typeof MirrorConfigSchema>;
 export type MirrorConfigRepo = z.infer<typeof MirrorRepoSchema>;
 
+/** Throws on an unreadable or invalid file (the caller reports it); only a missing file yields the defaults. */
 export async function loadMirrorConfig(file: string): Promise<MirrorConfig> {
+  let text: string;
   try {
-    return MirrorConfigSchema.parse(JSON.parse(await readFile(file, 'utf8')));
-  } catch {
-    return MirrorConfigSchema.parse({});
+    text = await readFile(file, 'utf8');
+  } catch (error) {
+    // Only a missing file means "nothing configured yet". Any other failure must not read as an empty
+    // list, because the next save would overwrite the user's repos with it.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return MirrorConfigSchema.parse({});
+    throw error;
   }
+  return MirrorConfigSchema.parse(JSON.parse(text));
 }
 
 export async function saveMirrorConfig(file: string, config: MirrorConfig): Promise<void> {

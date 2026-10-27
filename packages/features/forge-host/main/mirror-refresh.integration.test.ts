@@ -100,6 +100,14 @@ describe('refreshMirror', () => {
     expect(result.reason).toMatch(/on the forge/);
   });
 
+  it('reports a source that throws as degraded instead of rejecting', async () => {
+    const source = await sourceFor();
+    const broken: MetadataSource = { ...source, records: async () => { throw new Error('429 after retries'); } };
+    const result = await refreshMirror({ root, repo, url: upstream.path, source: broken });
+    expect(result).toMatchObject({ status: 'degraded' });
+    expect(result.reason).toContain('429 after retries');
+  });
+
   it('fails, not degrades, when the remote cannot be fetched or is unsafe', async () => {
     expect((await refreshMirror({ root, repo, url: join(root, 'nope') })).status).toBe('failed');
     expect(await refreshMirror({ root, repo, url: '--upload-pack=x' })).toMatchObject({ status: 'failed', reason: 'unsafe remote URL' });
@@ -115,6 +123,10 @@ describe('restoreMirror', () => {
     await execGit(root, ['init', '--bare', '--', target], { write: true, throwOnError: true });
     expect(await restoreMirror(bare, target)).toEqual({ ok: true });
     expect(await listRefs(target)).toEqual(await listRefs(bare));
+  });
+
+  it('refuses an unsafe target', async () => {
+    expect(await restoreMirror(mirrorPaths(root, repo).bare, '--receive-pack=x')).toEqual({ ok: false, message: 'unsafe restore target' });
   });
 
   it('reports a push failure', async () => {

@@ -18,7 +18,8 @@ export type MirrorPaths = {
   meta: string;
 };
 
-const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+// A leading `.` or `_` is allowed (`.github`, `_config`), a leading `-` is not; `.` and `..` fail the `..`/length checks.
+const SEGMENT = /^(?:[A-Za-z0-9_]|\.[A-Za-z0-9_])[A-Za-z0-9._-]*$/;
 // Host may carry a port (`127.0.0.1:3000`); `:` is not a path separator on macOS, but keep it out of file names.
 const HOST = /^[A-Za-z0-9][A-Za-z0-9.-]*(:\d{1,5})?$/;
 
@@ -55,6 +56,8 @@ export function isSafeRemoteUrl(url: string): boolean {
   // Whitespace or any control character (code < 32, DEL) could smuggle a second argument or a newline.
   if (/\s/.test(url) || [...url].some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127)) return false;
   if (/^[A-Za-z][A-Za-z0-9+.-]*::/.test(url)) return false; // transport helpers: ext::, fd::
+  // `user:token@host` would put a credential in plaintext config and the repo's remote.origin.url; those live in the vault.
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^/@]*:[^/@]*@/.test(url)) return false;
   if (/^(https?|ssh|git|file):\/\//i.test(url)) return true;
   if (/^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^:]/.test(url)) return true; // scp-like
   return url.startsWith('/'); // an absolute path: a USB disk, a fixture

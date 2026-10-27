@@ -1,5 +1,7 @@
 import { cloneRepo, execGit, writeQueue } from '@midnite/studio-git-engine';
 
+import { isSafeRemoteUrl } from './mirror-layout';
+
 /** The git half of a mirror: clone, refresh, check, list and restore. Everything is argv, never a shell. */
 
 const lastLine = (text: string, fallback: string): string =>
@@ -61,6 +63,7 @@ export async function listRefs(bare: string): Promise<Record<string, string>> {
  * per-ref leases for a live repo instead).
  */
 export async function restoreMirror(bare: string, targetUrl: string): Promise<GitStep> {
+  if (!isSafeRemoteUrl(targetUrl)) return { ok: false, message: 'unsafe restore target' };
   const result = await writeQueue.run(bare, () => execGit(bare, ['push', '--mirror', '--', targetUrl], { write: true }));
   return result.exitCode === 0 ? { ok: true } : { ok: false, message: lastLine(result.stderr, 'git push --mirror failed.') };
 }

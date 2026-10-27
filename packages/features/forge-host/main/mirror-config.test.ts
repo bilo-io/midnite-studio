@@ -7,12 +7,12 @@ import { describe, expect, it } from 'vitest';
 import { MirrorConfigSchema, loadMirrorConfig, saveMirrorConfig } from './mirror-config';
 
 describe('mirror config', () => {
-  it('defaults to a daily interval and no repos, and survives a missing or corrupt file', async () => {
+  it('defaults on a missing file but throws on a corrupt one, so a save cannot wipe the repo list', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'forge-host-cfg-'));
     try {
       expect(await loadMirrorConfig(join(dir, 'none.json'))).toMatchObject({ interval: 'daily', repos: [] });
       await writeFile(join(dir, 'bad.json'), '{nope');
-      expect((await loadMirrorConfig(join(dir, 'bad.json'))).repos).toEqual([]);
+      await expect(loadMirrorConfig(join(dir, 'bad.json'))).rejects.toThrow();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
