@@ -129,8 +129,9 @@ quarantine xattr; the severity ladder is `critical` (unsigned + quarantined + sh
 days), Gatekeeper and XProtectRemediator denials from `log show`, and Gatekeeper/SIP status, the last two
 under shared fingerprints in `CONFIG_FINDING_FINGERPRINTS` so Phase 122 D dedupes with them. *Terminal paste
 shapes* matches the ClickFix grammar against a corpus of benign commands with zero false positives. Decisions:
-login items are read through `sfltool dumpbtm` only (best-effort, root-gated on current macOS) because the
-AppleScript route raises a "control System Events" consent prompt; the process parser lives in the feature,
+login items are read through `sfltool dumpbtm` only, because the AppleScript route raises a "control System
+Events" consent prompt — and since `sfltool dumpbtm` itself asks for an administrator password on every call on
+current macOS, it runs only behind the default-off `scanLoginItems` setting (Settings ▸ Vanguard ▸ Scanning, #1039); the process parser lives in the feature,
 not generalised into the runtime, since the desktop reader carries fields this one does not. **Wired in Studio:** the paste sensor reads
 agent-pty output through a new read-only `observePtyOutput` fan-out in `pty-service.ts` (fed by both the
 broker and in-proc paths; no write path), and the process sensor gets the live agent shells' pids from

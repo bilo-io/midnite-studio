@@ -254,7 +254,7 @@ export function createPersistenceSensor(options: PersistenceSensorOptions = {}):
     id: PERSISTENCE_SENSOR_ID,
     label: 'Persistence',
     description:
-      'LaunchAgents and Daemons, login items, crontab, shell startup files, ~/.ssh and /etc/periodic, watched for new or changed items.',
+      'LaunchAgents and Daemons, crontab, shell startup files, ~/.ssh and /etc/periodic (and login items, if opted in under Scanning), watched for new or changed items.',
     schedule: { kind: 'cadence' },
     start(ctx) {
       const home = ctx.homeDir;
