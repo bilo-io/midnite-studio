@@ -410,6 +410,9 @@ export function VanguardPage() {
     void bridge()?.vanguard.viewOpened();
   }, []);
   return (
+    // The view scrolls itself: hosts give it a bounded box (Studio's overflow-hidden view box), so
+    // without this the tab lists were clipped instead of scrolled.
+    <div className="h-full min-h-0 overflow-y-auto" data-testid="vanguard-scroll">
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
       <header className="flex items-center gap-2">
         <LuShield aria-hidden className="h-5 w-5" />
@@ -437,6 +440,7 @@ export function VanguardPage() {
         {tab === 'sensors' ? <SensorsPane /> : null}
         {tab === 'network' ? <NetworkPane /> : null}
       </div>
+    </div>
     </div>
   );
 }
