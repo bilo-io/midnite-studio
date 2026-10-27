@@ -11,8 +11,9 @@ import {
 } from './activity-detect';
 import type { AgentWatcher } from './agent-watcher';
 import { createBrokerClient, studioBrokerLocation, type BrokerClient, type BrokerStatus } from './broker-client';
-import { readOllamaApiKey } from './ipc/secrets-handlers';
-import { agentFingerprintEnv } from './pty-env';
+import { confinementService } from './confinement';
+import { readAgentApiKey, readOllamaApiKey } from './ipc/secrets-handlers';
+import { agentFingerprintEnv, agentKeyEnv } from './pty-env';
 import {
   inprocActivePtyPids,
   inprocCreatePty,
@@ -126,6 +127,40 @@ function dropPtySubscribers(ptyId: string): void {
 
 const ptyDataListeners = new Map<string, (bytes: Uint8Array) => void>();
 const ptyExitListeners = new Map<string, (exitCode: number, signal?: number) => void>();
+
+// --- read-only output observers ------------------------------------------------
+//
+// A fan-out beside the ptyId-keyed listeners above, for main-side readers that watch every pty (Vanguard's
+// terminal-paste sensor, Phase 120 D). They only ever see bytes the pty already produced; there is no write
+// path here. Returns an unsubscribe.
+
+type PtyOutputObserver = (ptyId: string, bytes: Uint8Array) => void;
+const ptyOutputObservers = new Set<PtyOutputObserver>();
+
+export function observePtyOutput(observer: PtyOutputObserver): () => void {
+  ptyOutputObservers.add(observer);
+  return () => void ptyOutputObservers.delete(observer);
+}
+
+// The same, for what is written *into* a pty (keystrokes, pastes) — read-only, for the audit trail's command
+// lines (Phase 121 Theme G). Observers see the string as it was handed to `writePty`; they cannot change it.
+type PtyInputObserver = (ptyId: string, data: string) => void;
+const ptyInputObservers = new Set<PtyInputObserver>();
+
+export function observePtyInput(observer: PtyInputObserver): () => void {
+  ptyInputObservers.add(observer);
+  return () => void ptyInputObservers.delete(observer);
+}
+
+function emitPtyOutput(ptyId: string, bytes: Uint8Array): void {
+  for (const observer of ptyOutputObservers) {
+    try {
+      observer(ptyId, bytes);
+    } catch {
+      // An observer must never break a terminal.
+    }
+  }
+}
 
 /** Registers both; overwrites any previous registration for the same ptyId. */
 export function onPty(
@@ -450,7 +485,7 @@ export function dropScrollback(sessionId: string): void {
   }
 }
 
-export type CreateResult = { ok: true; ptyId: string } | { ok: false; message: string };
+export type CreateResult = { ok: true; ptyId: string; confined?: boolean; pid?: number } | { ok: false; message: string };
 
 export async function initPtyService(deps: {
   userDataDir: string;
@@ -472,6 +507,7 @@ export async function initPtyService(deps: {
     agentWatcher?.noteOutput(ptyId);
     noteActivity(ptyId, bytes);
     ptyDataListeners.get(ptyId)?.(bytes);
+    emitPtyOutput(ptyId, bytes);
 
     for (const win of subscribersFor(ptyId)) {
       win.webContents.send(EVENT_CHANNELS.ptyData, { ptyId, data: bytes });
@@ -562,12 +598,55 @@ export async function createPty(options: {
   env?: Record<string, string> | undefined;
   /** See {@link withResolvedOllamaKey} (Phase 96 Theme F). */
   useOllamaKey?: boolean | undefined;
+  /**
+   * Phase 121 Theme E: run under a Seatbelt profile. Unset follows Settings ▸ Agents ▸ "Confine new
+   * sessions"; `true` fails closed when confinement is unavailable, `false` opts out. Never on the wire
+   * from the renderer: main decides.
+   */
+  confine?: boolean | undefined;
 }): Promise<CreateResult> {
-  const resolvedEnv = await withResolvedOllamaKey(options.env, options.useOllamaKey);
+  const confinement = confinementService();
+  const confined = (await confinement?.prepare(options.sessionId, options.cwd, options.confine)) ?? null;
+  if (confined && !confined.ok) return { ok: false, message: confined.message };
+  const result = await createPtyUnconfined(options, confined?.ok ? confined.profile : undefined);
+  if (confined?.ok) {
+    if (result.ok) {
+      const pid = sessions.get(result.ptyId)?.pid ?? result.pid;
+      if (pid !== undefined) confinement?.track(options.sessionId, pid);
+      const off = onSessionExit((sessionId) => {
+        if (sessionId !== options.sessionId) return;
+        off();
+        confined.release();
+      });
+    } else {
+      confined.release();
+    }
+  }
+  return result.ok && confined?.ok ? { ...result, confined: true } : result;
+}
+
+async function createPtyUnconfined(options: {
+  sessionId: string;
+  kind?: string | undefined;
+  cwd: string;
+  cols: number;
+  rows: number;
+  agentId?: string | undefined;
+  initialInput?: string | undefined;
+  env?: Record<string, string> | undefined;
+  useOllamaKey?: boolean | undefined;
+}, confineProfile: string | undefined): Promise<CreateResult> {
+  const keyEnv = await agentKeyEnv(options.kind, options.agentId, options.useOllamaKey, readAgentApiKey);
+  // The session's own env wins over the vault's key: an explicit per-session override is deliberate.
+  const resolvedEnv = await withResolvedOllamaKey(
+    Object.keys(keyEnv).length > 0 ? { ...keyEnv, ...options.env } : options.env,
+    options.useOllamaKey,
+  );
 
   if (brokerClient && brokerClient.getStatus().mode === 'broker' && brokerClient.isAlive()) {
     const result = await brokerClient.createPty({
       ...options,
+      ...(confineProfile ? { confine: { profile: confineProfile } } : {}),
       env: {
         ...process.env,
         TERM_PROGRAM: 'midnite-studio',
@@ -577,6 +656,11 @@ export async function createPty(options: {
       } as Record<string, string>,
     });
 
+    if (result.ok && confineProfile && !result.confined) {
+      // A broker that did not honour the profile is a broker that ran the shell bare: end it, fail closed.
+      void brokerClient.killPty(result.ptyId);
+      return { ok: false, message: 'The terminal backend did not confine this session, so it was ended.' };
+    }
     if (result.ok) {
       sessions.set(result.ptyId, {
         ptyId: result.ptyId,
@@ -590,17 +674,18 @@ export async function createPty(options: {
       });
       sessionIdByPty.set(result.ptyId, options.sessionId);
       agentWatcher?.track(result.ptyId, result.pid, options.agentId ?? null);
-      return { ok: true, ptyId: result.ptyId };
+      return { ok: true, ptyId: result.ptyId, pid: result.pid };
     }
     return { ok: false, message: result.message };
   }
 
   // Fallback to inproc
   const inprocRes = inprocCreatePty(
-    { ...options, env: resolvedEnv },
+    { ...options, env: resolvedEnv, ...(confineProfile ? { confine: { profile: confineProfile } } : {}) },
     (ptyId, bytes) => {
       noteActivity(ptyId, bytes);
       ptyDataListeners.get(ptyId)?.(bytes);
+      emitPtyOutput(ptyId, bytes);
       for (const win of subscribersFor(ptyId)) {
         win.webContents.send(EVENT_CHANNELS.ptyData, { ptyId, data: bytes });
       }
@@ -626,6 +711,13 @@ export async function createPty(options: {
 }
 
 export function writePty(ptyId: string, data: string): void {
+  for (const observer of ptyInputObservers) {
+    try {
+      observer(ptyId, data);
+    } catch {
+      // An observer must never break a terminal.
+    }
+  }
   if (brokerClient && brokerClient.getStatus().mode === 'broker' && brokerClient.isAlive()) {
     brokerClient.writePty(ptyId, data);
   } else {

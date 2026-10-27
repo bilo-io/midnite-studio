@@ -354,6 +354,27 @@ describe('PrDetail — the review write path, assembled through the real bridge'
     expect(recorded().at(-1)?.request).toMatchObject({ reviewers: ['octo-cat', 'hubot'] });
   });
 
+  it('states the size the forge reported, and leaves out what it did not — never +0 −0', async () => {
+    await openPull();
+    const region = screen.getByRole('region', { name: 'Pull request #201' });
+    await waitFor(() => expect(within(region).getByText('+40')).toBeTruthy());
+    expect(within(region).getByText('−4')).toBeTruthy();
+    cleanup();
+
+    // Azure DevOps and Bitbucket carry no line counts on the PR resource.
+    await openPull({
+      ...base,
+      forge: { ...base.forge, pullDetail: { '201': { ...DETAIL, additions: null, deletions: null, changedFiles: null } } },
+    });
+    const unknown = screen.getByRole('region', { name: 'Pull request #201' });
+    await waitFor(() => expect(within(unknown).getByText(/wants to merge/).textContent).toContain('into'));
+    expect(within(unknown).queryByText('+0')).toBeNull();
+    expect(within(unknown).queryByText('−0')).toBeNull();
+    expect(within(unknown).queryByText(/0 files/)).toBeNull();
+    // Nothing known, no empty size slot left holding a gap in the header line.
+    expect(unknown.querySelector('span.tabular-nums:empty')).toBeNull();
+  });
+
   it('a merged pull request offers nothing to review', async () => {
     await openPull({
       ...base,

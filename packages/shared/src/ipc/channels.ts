@@ -74,7 +74,7 @@ export const CHANNELS = {
    * — the gate on a pull request's "Fetch to compare" button (Phase 26 Theme H).
    */
   blobExists: 'mstudio:blob:exists',
-  /** `+added -deleted` per commit for the graph's Diff column (batched, merges are null). */
+  /** `+added -deleted` per commit for the graph's Diff column (batched; a merge against its first parent). */
   commitStats: 'mstudio:commit:stats',
 
   // --- remotes -------------------------------------------------------------
@@ -444,6 +444,8 @@ export const CHANNELS = {
   gitIdentitySet: 'mstudio:git-identity:set',
   /** This Mac's installed RAM, for gating model downloads (Phase 98 Theme I). */
   systemMemory: 'mstudio:system:memory',
+  /** The prompt-injection detector's score for a piece of text (Phase 121 Theme A). */
+  securityScanContent: 'mstudio:security:scan-content',
 
   // --- ollama (Phase 96 Theme B) -----------------------------------------------
   /** `GET /api/version` — reachable/unreachable is ordinary data, never a `GitOpResult` failure. */
@@ -669,6 +671,40 @@ export const CHANNELS = {
    * it, main just needs to know" shape. `0` disables discard entirely.
    */
   browserSetDiscardMs: 'mstudio:browser:set-discard-ms',
+  /** User response to an in-tab permission prompt (Phase 117 Theme B). */
+  browserPermissionResponse: 'mstudio:browser:permission-response',
+  /** List remembered site permissions for Settings ▸ Browser (Phase 117 Theme B). */
+  browserPermissionsList: 'mstudio:browser:permissions:list',
+  /** Revoke one site permission (Phase 117 Theme B). */
+  browserPermissionRevoke: 'mstudio:browser:permission:revoke',
+  /** Reset all site permissions (Phase 117 Theme B). */
+  browserPermissionsReset: 'mstudio:browser:permissions:reset',
+  /** Toggle Chromium spellchecking for browser partitions (Phase 117 Theme B). */
+  browserSetSpellcheck: 'mstudio:browser:set-spellcheck',
+  /** Site-safety switches: interstitial proceed + reputation feeds (Phase 117 Theme C). */
+  browserSetSiteSafety: 'mstudio:browser:set-site-safety',
+  /** "Proceed for this session" past a certificate / known-bad interstitial (Phase 117 Theme C). */
+  browserProceedSite: 'mstudio:browser:proceed-site',
+  /** Downloads opt-in + quarantine folder (Phase 117 Theme D). */
+  browserSetDownloads: 'mstudio:browser:set-downloads',
+  /** User answer to a download confirm (Phase 117 Theme D). */
+  browserDownloadResponse: 'mstudio:browser:download-response',
+  /** Tracker / cookie / referrer / UA switches (Phase 117 Theme E). */
+  browserSetPrivacy: 'mstudio:browser:set-privacy',
+  /** Per-site tracker-protection exception (Phase 117 Theme E). */
+  browserTrackerSiteException: 'mstudio:browser:tracker-site-exception',
+  /** Starts an agent session on a tab with an origin allowlist (Phase 117 Theme G). */
+  browserAgentStart: 'mstudio:browser:agent-start',
+  /** Ends an agent session: the user takes the wheel (Phase 117 Theme G). */
+  browserAgentStop: 'mstudio:browser:agent-stop',
+  /** Runs one of the six agent tools; page text returns only as `UntrustedPageContent` (Phase 117 Theme G). */
+  browserAgentTool: 'mstudio:browser:agent-tool',
+  /** The user's answer to a `needsUser` pause (Phase 117 Theme G). */
+  browserAgentRespond: 'mstudio:browser:agent-respond',
+  /** Clears the system clipboard from the ClickFix bar (Phase 117 Theme G). */
+  browserClipboardClear: 'mstudio:browser:clipboard-clear',
+  /** The ClickFix clipboard watch switch, Settings ▸ Browser (Phase 117 Theme G). */
+  browserSetClipboardWatch: 'mstudio:browser:set-clipboard-watch',
 
   // --- third-party apps rail (Phase 83 Themes A/B) ---------------------------
   // One `WebContentsView` per ENABLED app, owned by `web-apps-service.ts` — the
@@ -1294,6 +1330,15 @@ export const CHANNELS = {
    * own, different, channel prefix.
    */
   reportSubmitIssue: 'mstudio:report:submit-issue',
+  /**
+   * The report feature's own reads and hand-offs (`packages/features/report`), so a suite app wires
+   * one `report` namespace rather than `forge`, `shell` and `clipboard` beside it: `gh`'s readiness,
+   * opening a midnite-apps issue page (jailed to that repo's issues — `ReportOpenUrlRequest`), and
+   * Copy report.
+   */
+  reportGhStatus: 'mstudio:report:gh-status',
+  reportOpenUrl: 'mstudio:report:open-url',
+  reportCopy: 'mstudio:report:copy',
 
   // --- api client (Phase 66) ---------------------------------------------------
   // A Postman-compatible client. Collections live repo-local, under
@@ -1381,6 +1426,18 @@ export const CHANNELS = {
   mcpSet: 'mstudio:mcp:set',
   /** The last 50 tool calls from the in-memory audit ring. Pulled, never pushed. */
   mcpCalls: 'mstudio:mcp:calls',
+
+  // --- the agent audit trail (Phase 121 Theme G) ------------------------------
+  /** A window of the durable audit trail, newest first, filtered by kind, session and time. Pulled, never pushed. */
+  agentAuditList: 'mstudio:agent-audit:list',
+  /** Writes the (filtered) trail as redacted NDJSON to a path the user picks in a main-side save dialog. */
+  agentAuditExport: 'mstudio:agent-audit:export',
+  /** The user's answer on a tripped-limit notification: resume, stop or raise the limit (Phase 121 Theme F). */
+  agentLimitResolve: 'mstudio:agent-limits:resolve',
+  /** The MCP servers a repo's agents will load, each with its trust verdict and diff (Phase 121 Theme C). */
+  mcpTrustList: 'mstudio:mcp-trust:list',
+  /** Approves one server's current config (and observed tools) into the allowlist. */
+  mcpTrustApprove: 'mstudio:mcp-trust:approve',
 
   // --- the companion's grounding (Phase 79 Theme B) ---------------------------
   // Two invoke channels, both read-only, both *composed* in main out of the
@@ -1542,6 +1599,30 @@ export const CHANNELS = {
   /** Clear one app's pairing (user-initiated, the only way to re-pair): its next hello binds afresh. */
   vaultPairingUnpair: 'mstudio:vault:pairings:unpair',
 
+  // --- vault lock, audit & breach (Phase 118) -------------------------------
+  vaultLockStatus: 'mstudio:vault:lock:status',
+  vaultLock: 'mstudio:vault:lock:lock',
+  vaultUnlock: 'mstudio:vault:lock:unlock',
+  vaultAuditList: 'mstudio:vault:audit:list',
+  vaultAuditVerify: 'mstudio:vault:audit:verify',
+  vaultAuditExport: 'mstudio:vault:audit:export',
+  vaultBreachCheck: 'mstudio:vault:breach:check',
+  /** Reveal a secret once over a dedicated short-lived channel (Phase 118 Theme C). */
+  vaultRevealOnce: 'mstudio:vault:reveal-once',
+  /** Copy a secret directly to clipboard with SHA-256 auto-clear timer (Phase 118 Theme C). */
+  vaultCopyOnce: 'mstudio:vault:copy-once',
+  // --- vault secret scanning & hooks (Phase 118 Theme F) --------------------
+  vaultScanHistory: 'mstudio:vault:scan:history',
+  vaultHookStatus: 'mstudio:vault:hook:status',
+  vaultHookInstall: 'mstudio:vault:hook:install',
+  vaultHookUninstall: 'mstudio:vault:hook:uninstall',
+  // --- vault encrypted export & import (Phase 118 Theme G) -------------------
+  vaultExport: 'mstudio:vault:export',
+  vaultImportPreview: 'mstudio:vault:import:preview',
+  vaultImport: 'mstudio:vault:import',
+  vaultPickExportPath: 'mstudio:vault:pick:export-path',
+  vaultPickImportPath: 'mstudio:vault:pick:import-path',
+
   // --- finance proxy (Phase 76 Theme D) -------------------------------------
   /** Search crypto/stock symbols — provider fetches run in main. */
   financeSearch: 'mstudio:finance:search',
@@ -1605,6 +1686,49 @@ export const CHANNELS = {
    * changes.
    */
   knowledgeCheckGraph: 'mstudio:knowledge:check-graph',
+
+  // --- security findings ---------------------------------------------------
+  /** List security findings with optional filters (Phase 120 Theme A). */
+  securityFindingsList: 'mstudio:security:findings-list',
+  /** Update the status of a security finding (Phase 120 Theme A). */
+  securityFindingsSetStatus: 'mstudio:security:findings-set-status',
+  /** Perform a remediation action on a security finding (Phase 120 Theme A & H). */
+  securityFindingsAct: 'mstudio:security:findings-act',
+  /** What a remediation action would touch, computed now, for its blast-radius confirm (Phase 120 Theme H). */
+  securityFindingsActPreview: 'mstudio:security:findings-act-preview',
+
+  // --- vanguard sensor host + settings (Phase 120 Theme B) ---------------------
+  /** Every registered sensor's state, for the Sensors tab. */
+  vanguardSensors: 'mstudio:vanguard:sensors',
+  /** Run one sensor now. */
+  vanguardSensorRun: 'mstudio:vanguard:sensor-run',
+  /** Read the persisted Vanguard settings. */
+  vanguardSettingsGet: 'mstudio:vanguard:settings-get',
+  /** Merge a partial update into the persisted Vanguard settings. */
+  vanguardSettingsSet: 'mstudio:vanguard:settings-set',
+  /** The view was opened: in Studio this is what lets the enabled sensors start. */
+  vanguardViewOpened: 'mstudio:vanguard:view-opened',
+  /** Reveal the quarantine folder in the OS file manager. */
+  vanguardOpenQuarantine: 'mstudio:vanguard:open-quarantine',
+  /** The modal's answer to an auto-paused agent session: resume or kill (Phase 120 Theme G). */
+  vanguardAgentPauseResolve: 'mstudio:vanguard:agent-pause-resolve',
+  /** The network sensor's last snapshot of outbound connections, for the Network tab (Phase 120 Theme E). */
+  vanguardConnections: 'mstudio:vanguard:connections',
+  /** Which malware scan engines are installed, and the last scan (Phase 120 Theme F). */
+  vanguardMalwareStatus: 'mstudio:vanguard:malware-status',
+  /** Run one on-demand malware scan (downloads, a repo, a folder, or the home folder). */
+  vanguardMalwareScan: 'mstudio:vanguard:malware-scan',
+  /** Stop the malware scan that is running; findings already found are kept. */
+  vanguardMalwareScanCancel: 'mstudio:vanguard:malware-scan-cancel',
+  /** The quarantine list and the response actions this app cannot run (Phase 120 Theme H). */
+  vanguardResponseState: 'mstudio:vanguard:response-state',
+  // --- the tool-call policy (Phase 121 Theme B) --------------------------------
+  /** The user's answer on an approval card: approve once, approve for this session, or deny. */
+  toolApprovalAnswer: 'mstudio:tool-approval:answer',
+  /** Hook script path and snippet template for CLI PreToolUse configuration in Setup wizard. */
+  toolApprovalHookInfo: 'mstudio:tool-approval:hook-info',
+  /** Whether sandbox-exec is usable here and whether new sessions are confined (Phase 121 Theme E). */
+  confinementStatus: 'mstudio:security:confinement-status',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -1653,6 +1777,12 @@ export const EVENT_CHANNELS = {
   windowStateChanged: 'mstudio:window:state-changed',
   /** A native-menu item fired — carries a CommandId, dispatched like a keybinding. */
   menuCommand: 'mstudio:menu:command',
+  /**
+   * Main → renderer: open the report dialog — the Help ▸ Report an Issue… item of an app with no
+   * command palette (`reportIssueMenuItem`, the report feature). Studio routes the same click
+   * through `menuCommand` as `app.reportIssue` instead.
+   */
+  reportOpen: 'mstudio:report:open',
   /**
    * The tree's first main→renderer request (Phase 81 Theme F) —
    * `{ id, action: CompanionUiAction }`, sent only to `getMainWindow()`
@@ -1828,6 +1958,26 @@ export const EVENT_CHANNELS = {
    * wait forever on progress `getMainWindow()` never sends it.
    */
   knowledgeLayoutProgress: 'mstudio:knowledge:layout-progress',
+
+  /**
+   * Security findings changed in the ledger (Phase 120 Theme A).
+   * Carries no payload; renderer re-fetches via securityFindingsList.
+   */
+  securityFindingsChanged: 'mstudio:security:findings-changed',
+
+  /** An agent session tripped a rate or spend limit and was interrupted (Phase 121 Theme F). Carries an AgentLimitTrip. */
+  agentLimitTripped: 'mstudio:agent-limits:tripped',
+
+  /** A sensor's state or the settings changed (Phase 120 Theme B). Carries nothing; re-fetch. */
+  vanguardChanged: 'mstudio:vanguard:changed',
+
+  /** A finding paused an agent session; every window shows the resume-or-kill modal (Phase 120 Theme G). Carries an AgentPausePrompt. */
+  vanguardAgentPaused: 'mstudio:vanguard:agent-paused',
+
+  /** The tool-call policy asked about a call and is waiting for a human (Phase 121 Theme B). Carries a ToolApprovalRequest. */
+  toolApprovalRequested: 'mstudio:tool-approval:requested',
+  /** An approval card was answered or timed out; every window drops it (Phase 121 Theme B). Carries a ToolApprovalResolved. */
+  toolApprovalResolved: 'mstudio:tool-approval:resolved',
 } as const;
 
 /**

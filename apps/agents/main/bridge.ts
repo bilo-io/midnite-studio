@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -11,12 +12,15 @@ import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
  * reaches this window (`bridge.test.ts` holds the list).
  */
 export type AgentsBridge = {
+  /** Report an Issue: the dialog's channels and the Help-menu event (`createReportBridge`). */
+  report: ReportBridge;
   chats: MidniteStudioBridge['chats'];
   council: MidniteStudioBridge['council'];
   /** No `onNodeSessionStarted` (Agents has no terminal to adopt a session into) and no `setDefaults` (no Settings page). */
   workflow: Omit<MidniteStudioBridge['workflow'], 'onNodeSessionStarted' | 'setDefaults'>;
   demoApi: MidniteStudioBridge['demoApi'];
   mcp: MidniteStudioBridge['mcp'];
+  agentAudit: MidniteStudioBridge['agentAudit'];
   ollama: MidniteStudioBridge['ollama'];
   agent: Pick<MidniteStudioBridge['agent'], 'list'>;
   secrets: Pick<MidniteStudioBridge['secrets'], 'has'>;
@@ -25,8 +29,10 @@ export type AgentsBridge = {
 export type { RendererIpc };
 
 export function createAgentsBridge(ipc: RendererIpc): AgentsBridge {
-  const { call, subscribe } = createBridgeSlice(ipc);
+  const { call, send, subscribe } = createBridgeSlice(ipc);
   return {
+    // Report an Issue — the report feature's own preload half (`@midnite/studio-feature-report/bridge`).
+    report: createReportBridge({ call, send, subscribe }),
     chats: {
       list: () => call(CHANNELS.chatsList),
       get: (req) => call(CHANNELS.chatsGet, req),
@@ -83,6 +89,10 @@ export function createAgentsBridge(ipc: RendererIpc): AgentsBridge {
       get: () => call(CHANNELS.mcpGet),
       set: (req) => call(CHANNELS.mcpSet, req),
       calls: () => call(CHANNELS.mcpCalls),
+    },
+    agentAudit: {
+      list: (req) => call(CHANNELS.agentAuditList, req),
+      export: (req) => call(CHANNELS.agentAuditExport, req),
     },
     ollama: {
       status: () => call(CHANNELS.ollamaStatus),

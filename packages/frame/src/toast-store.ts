@@ -21,6 +21,11 @@ export interface Toast {
   message: string;
   status: ToastStatus;
   action?: ToastAction;
+  /**
+   * More buttons beside `action`, in order (Phase 121 Theme F's tripped-limit notice has three answers:
+   * Resume, Stop, Raise limit). Rendered by the bell only; the transient toast stack shows `action` alone.
+   */
+  extraActions?: ToastAction[];
 }
 
 export interface ToastState {

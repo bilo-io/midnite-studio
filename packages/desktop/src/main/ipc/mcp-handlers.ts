@@ -1,5 +1,13 @@
-import { mcpToolsMain, type McpToolsServer, type McpToolsSetRequest } from '@midnite/studio-feature-mcp-tools/main';
+import { createAgentAuditPort, mcpToolsMain, type McpToolsServer, type McpToolsSetRequest } from '@midnite/studio-feature-mcp-tools/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { formatClaudeHookSnippet, formatCodexHookSnippet } from '@midnite/studio-shared';
+import { BrowserWindow, dialog } from 'electron';
+
+import { agentAuditTrail } from '../agent-audit';
+import { resolveAgentLimit } from '../agent-breaker-wiring';
+import { policyHookScriptPath } from '../hooks/policy-hook-path';
+import { studioMcpTrustPort } from '../mcp-trust-wiring';
+import { answerToolApproval } from '../tool-policy-wiring';
 
 import { getMcpCallLog } from '../mcp/audit';
 import { getMcpStatus, setMcpAllowCompanionSettings, setMcpAllowGames, setMcpAllowGateDecide, setMcpAllowMaps, setMcpAllowModels, setMcpAllowMusic, setMcpAllowSprites, setMcpAllowTerrains, setMcpAllowUi, setMcpEnabled } from '../mcp';
@@ -56,5 +64,29 @@ export function registerMcpHandlers(): void {
     emit: () => undefined,
     trashItem: () => Promise.reject(new Error('the MCP tools never trash')),
   };
-  mcpToolsMain.register(ctx, { server: studioMcpServer });
+  mcpToolsMain.register(ctx, {
+    server: studioMcpServer,
+    limits: { resolve: resolveAgentLimit },
+    trust: studioMcpTrustPort,
+    approvals: {
+      answer: answerToolApproval,
+      hookInfo: () => {
+        const scriptPath = policyHookScriptPath();
+        return {
+          scriptPath,
+          claudeSnippet: formatClaudeHookSnippet(scriptPath),
+          codexSnippet: formatCodexHookSnippet(scriptPath),
+        };
+      },
+    },
+    audit: createAgentAuditPort({
+      trail: agentAuditTrail,
+      pickSavePath: async (defaultName) => {
+        const win = BrowserWindow.getFocusedWindow();
+        const options = { defaultPath: defaultName, filters: [{ name: 'NDJSON', extensions: ['ndjson'] }] };
+        const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+        return picked.canceled || !picked.filePath ? null : picked.filePath;
+      },
+    }),
+  });
 }

@@ -105,10 +105,6 @@ test('selecting a code file shows the read-only highlighted preview', async ({ p
   // write channel to begin with (e.g. claude-home).
   await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
   await expect(page.getByText('const answer = 42;')).toBeVisible();
-  await page.waitForTimeout(400);
-  if (process.env.MSTUDIO_SHOTS) {
-    await page.screenshot({ path: '../../docs/screenshots/phase-16/files-code.png' });
-  }
 });
 
 test('files view automatically renders README.md on root browse', async ({ page }) => {
@@ -271,9 +267,4 @@ test('status badges mark changed rows, including a rollup on the collapsed direc
   // README.md has no status entry at all — no badge, not a false "clean" one.
   const readme = page.getByRole('treeitem', { name: /^README\.md$/ });
   await expect(readme.getByText('M', { exact: true })).toHaveCount(0);
-
-  await page.waitForTimeout(200);
-  if (process.env.MSTUDIO_SHOTS) {
-    await page.screenshot({ path: '../../docs/screenshots/phase-24-f/status-badges.png' });
-  }
 });

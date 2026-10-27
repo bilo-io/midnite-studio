@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-runtime",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "The runtime layer (Phase 113): main-process services no window owns, and the contract a feature's main half is registered against. Main-only; may import electron. Holds the services every app shares: the vault and the pty broker client (Theme D).",
   "main": "./dist/index.js",
@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "electron": "^41.0.0",
+    "electron": "^42.11.5",
     "typescript": "^5.6.3",
     "vitest": "^3.2.4"
   }

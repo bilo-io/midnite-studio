@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import {
+  ConfinedBadge,
   EmptyState,
   ExplorerGroup,
   ExplorerNotice as Notice,
@@ -174,7 +175,36 @@ function dotTooltipFor(
  * `window.ts` sets for a second live copy — it fetches a list and renders
  * it, seeds nothing, and drives no reveal, unlike `BrowserPane`.
  */
-export function SessionsView({
+export function SessionsView(props: { onResume?: (session: ManagedSession) => void } = {}) {
+  const host = useSessionsHost();
+  const AuditPane = host.AuditPane;
+  const [tab, setTab] = useState<'sessions' | 'audit'>('sessions');
+  // An app that supplies no audit pane (Coder, Vanguard) gets the list alone, exactly as before.
+  if (!AuditPane) return <SessionsManager {...props} />;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <nav aria-label="Sessions views" className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
+        {(['sessions', 'audit'] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            data-testid={`sessions-tab-${id}`}
+            aria-current={tab === id ? 'page' : undefined}
+            onClick={() => setTab(id)}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+              tab === id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+            }`}
+          >
+            {id === 'sessions' ? 'Sessions' : 'Audit'}
+          </button>
+        ))}
+      </nav>
+      <div className="min-h-0 flex-1">{tab === 'audit' ? <AuditPane /> : <SessionsManager {...props} />}</div>
+    </div>
+  );
+}
+
+function SessionsManager({
   onResume,
 }: {
   onResume?: (session: ManagedSession) => void;
@@ -1044,6 +1074,7 @@ function SessionRow({
             </span>
           )
         ) : null}
+        {record.confined === true ? <ConfinedBadge /> : null}
         {/* A second, smaller glyph rather than swapping the provider icon —
             a loop-launched agent session still needs to say which agent. */}
         {LoopIcon ? (

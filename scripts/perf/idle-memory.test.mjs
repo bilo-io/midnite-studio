@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  HEAP_LOG_LINE,
   SETTLE_MS,
   formatIdleTable,
   parseHeapLogLine,

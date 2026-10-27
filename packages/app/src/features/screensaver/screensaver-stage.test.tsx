@@ -65,3 +65,14 @@ describe('ScreensaverStage pills (Phase 46 Theme C)', () => {
     expect(heading.getAttribute('data-mode')).toBe('idle');
   });
 });
+
+describe('ScreensaverStage orb layout', () => {
+  it('stacks orb, typed title, then spinner in DOM order when orb is set', () => {
+    const { container } = render(<ScreensaverStage mode="idle" counts={counts} orb />);
+    const orb = container.querySelector('[data-testid="screensaver-orb"]')!;
+    const title = container.querySelector('.screensaver-title')!;
+    const spinner = container.querySelector('[data-testid="screensaver-spinner"]')!;
+    expect(orb.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(title.compareDocumentPosition(spinner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

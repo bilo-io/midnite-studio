@@ -695,11 +695,6 @@ test.describe('graph themes', () => {
       await expect(page.getByRole('button', { name: new RegExp(`^${label}`) })).toBeVisible();
     }
 
-    await page.waitForTimeout(300);
-    if (process.env.MSTUDIO_SHOTS) {
-      await page.screenshot({ path: '../../docs/screenshots/phase-14/settings.png' });
-    }
-
     /*
       Motion and Density are the APPEARANCE page, not this one — Phase 16 split
       what used to be one settings screen, and asserting all four in one place
@@ -712,21 +707,6 @@ test.describe('graph themes', () => {
     // The appearance runtime the shell has always shipped and the app never called.
     await expect(page.getByRole('radiogroup', { name: 'Motion' })).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: 'Density' })).toBeVisible();
-  });
-
-  test('screenshot each style', async ({ page }) => {
-    await openGraph(page);
-
-    for (const label of THEMES) {
-      await chooseTheme(page, label);
-      // Let the fade settle, or the shot catches the graph mid-entrance.
-      await page.waitForTimeout(300);
-      if (process.env.MSTUDIO_SHOTS) {
-        await page.screenshot({
-          path: `../../docs/screenshots/phase-14/${label.toLowerCase().replace(/ /g, '-')}.png`,
-        });
-      }
-    }
   });
 });
 

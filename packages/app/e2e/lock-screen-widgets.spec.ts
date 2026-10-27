@@ -107,8 +107,6 @@ test.describe('lock screen widgets', () => {
     const sysmonBox = await sysmon.boundingBox();
     expect(batteryBox && sysmonBox && batteryBox.y < sysmonBox.y).toBe(true);
     expect(batteryBox && batteryBox.y < 100).toBe(true);
-
-    await page.screenshot({ path: '/tmp/lock-screen-widgets.png' });
   });
 
   test('renders nothing for battery on a machine with no battery', async ({ page }) => {

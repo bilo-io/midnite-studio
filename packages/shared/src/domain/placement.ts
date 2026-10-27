@@ -29,6 +29,7 @@ export const PlacementAppIdSchema = z.enum([
   'creator',
   'media',
   'gamer',
+  'vanguard',
 ]);
 export type PlacementAppId = z.infer<typeof PlacementAppIdSchema>;
 
@@ -70,6 +71,7 @@ export const FEATURE_PLACEMENT = {
   'quick-access': 'frame',
   rebase: 'frame',
   repos: 'frame',
+  report: 'frame', // Report an Issue: the dialog and its main half, in every app (packages/features/report)
   screensaver: 'frame',
   search: 'frame',
   settings: 'frame',
@@ -89,6 +91,7 @@ export const FEATURE_PLACEMENT = {
   diagnostics: 'monitor',
   vault: 'vault',
   capture: 'capture',
+  vanguard: 'vanguard',
   'web-apps': 'browser',
   notes: 'mind',
   agent: 'agents',

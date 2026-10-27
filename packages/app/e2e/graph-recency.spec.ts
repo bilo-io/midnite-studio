@@ -13,7 +13,6 @@ import { installMockBridge, type MockFixtures } from '../test-support/mock-bridg
  * That is what this file is for — plus the shot at the end, which is the only
  * thing that can say the five tiers actually look different from one another.
  */
-const OUT = '../../docs/screenshots/adhoc-commit-recency-tiers';
 
 const sha = (i: number) => `${i}`.padStart(40, 'a');
 
@@ -23,10 +22,10 @@ const sha = (i: number) => `${i}`.padStart(40, 'a');
  * boundary would change tier partway through the run.
  */
 const TIERS = [
-  { key: 'fresh', secondsAgo: 90, subject: 'feat(graph): under six minutes — fresh' },
-  { key: 'recent', secondsAgo: 480, subject: 'feat(graph): eight minutes — recent' },
-  { key: 'fading', secondsAgo: 840, subject: 'fix(graph): fourteen minutes — fading' },
-  { key: 'muted', secondsAgo: 1440, subject: 'refactor(graph): twenty-four minutes — muted' },
+  { key: 'fresh', secondsAgo: 180, subject: 'feat(graph): under twelve minutes — fresh' },
+  { key: 'recent', secondsAgo: 960, subject: 'feat(graph): sixteen minutes — recent' },
+  { key: 'fading', secondsAgo: 1680, subject: 'fix(graph): twenty-eight minutes — fading' },
+  { key: 'muted', secondsAgo: 2880, subject: 'refactor(graph): forty-eight minutes — muted' },
   { key: 'normal', secondsAgo: 7200, subject: 'chore: two hours — normal' },
 ] as const;
 
@@ -163,35 +162,5 @@ test.describe('commit recency decay', () => {
     const [r, g, b] = rgb(recent!);
     expect(g).toBeGreaterThan(r!);
     expect(g).toBeGreaterThan(b!);
-  });
-
-  test('screenshot the five tiers', async ({ page }) => {
-    await openGraph(page);
-    // Let the entrance fade settle, or the shot catches the graph mid-fade.
-    await page.waitForTimeout(400);
-    // `animations: 'disabled'` rewinds every animation to its first frame,
-    // which for these is the resting end of each pulse — the trough.
-    if (process.env.MSTUDIO_SHOTS) {
-      await page.screenshot({ path: `${OUT}/tiers-trough.png`, animations: 'disabled' });
-    }
-
-    /*
-      And the peak, which is the half of the pulse worth looking at. Parked
-      rather than caught: a negative delay equal to half the 2s period puts
-      every pulse on its 50% keyframe, and `paused` holds it there, so the shot
-      is the same picture every run instead of whenever the timeout landed.
-    */
-    await page.addStyleTag({
-      content: `
-        .commit-text-pulse, .commit-text-pulse-muted, .commit-row-glow {
-          animation-delay: -1s !important;
-          animation-play-state: paused !important;
-        }
-        .commit-row-shimmer::after { animation-play-state: paused !important; }
-      `,
-    });
-    if (process.env.MSTUDIO_SHOTS) {
-      await page.screenshot({ path: `${OUT}/tiers-peak.png` });
-    }
   });
 });

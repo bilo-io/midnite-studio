@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
-import type { StatusEntry } from '@midnite/studio-shared';
+import type { SecretFinding, StatusEntry } from '@midnite/studio-shared';
 
-import { LuList, LuListTree, LuMinus, LuPackage, LuPlus, LuSparkles, LuUndo2 } from 'react-icons/lu';
+import { LuList, LuListTree, LuMinus, LuPackage, LuPlus, LuSparkles, LuTriangleAlert, LuUndo2 } from 'react-icons/lu';
 import { AiOutlineDiff } from 'react-icons/ai';
 
 import {
@@ -12,7 +12,13 @@ import {
   type ChangedFile,
   type DirNode,
 } from '../../components/build-change-tree';
-import { ChangeTotals, ChangeTree, Counts, type FileSelectModifiers } from '../../components/change-tree';
+import {
+  ChangeTotals,
+  ChangeTree,
+  Counts,
+  CountsPendingContext,
+  type FileSelectModifiers,
+} from '../../components/change-tree';
 import { DIFF_BAR_CLASS } from '../../components/diff-pane-frame';
 import { IconButton, type IconComponent } from '../../components/icon-button';
 import { TreeSection } from '../../components/tree-section';
@@ -257,8 +263,19 @@ export type WorkingTreeChanges = ReturnType<typeof useWorkingTreeChanges>;
  * whole checkout's totals, "view all changes", stash and the tree ⇄ list
  * toggle. `trailing` lands at the end of that header (the graph panel's close
  * button).
+ *
+ * While the line counts are still being read, every `+n −n` in it shows a
+ * placeholder rather than the zeros the lookups return meanwhile.
  */
-export function WorkingTreeFileList({
+export function WorkingTreeFileList(props: Parameters<typeof WorkingTreeFileListBody>[0]) {
+  return (
+    <CountsPendingContext.Provider value={props.model.counts.pending}>
+      <WorkingTreeFileListBody {...props} />
+    </CountsPendingContext.Provider>
+  );
+}
+
+function WorkingTreeFileListBody({
   model,
   cascading = false,
   cascadeStyleFor,
@@ -457,6 +474,7 @@ export function CommitBox({
     if (key) setDraft(key, value);
   };
   const [error, setError] = useState('');
+  const [secretFindings, setSecretFindings] = useState<SecretFinding[] | null>(null);
   // "Write with AI": the text it replaced, kept so one click restores it. The
   // draft is set programmatically, which the browser's own undo stack never
   // sees, so Cmd+Z alone could not bring it back.
@@ -465,13 +483,20 @@ export function CommitBox({
   const agentId = useUiStore((s) => s.primaryAgent);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const onCommit = async () => {
-    const result = await commit.mutateAsync({ message });
+  const onCommit = async (bypassSecretsCheck = false) => {
+    const result = await commit.mutateAsync({ message, bypassSecretsCheck });
     if (result.ok) {
       setMessage('');
       setError('');
+      setSecretFindings(null);
     } else {
-      setError(result.kind === 'error' ? result.message : 'The commit conflicted.');
+      if (result.kind === 'secrets') {
+        setSecretFindings(result.findings);
+        setError('');
+      } else {
+        setError(result.kind === 'error' ? result.message : 'The commit conflicted.');
+        setSecretFindings(null);
+      }
     }
   };
 
@@ -540,6 +565,44 @@ export function CommitBox({
         <p role="alert" className="rounded-md bg-destructive/10 px-2 py-1 text-xs text-destructive">
           {error}
         </p>
+      ) : null}
+      {secretFindings && secretFindings.length > 0 ? (
+        <div role="alert" className="space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-300">
+          <div className="flex items-center gap-1.5 font-medium text-amber-200">
+            <LuTriangleAlert className="size-3.5 shrink-0 text-amber-400" />
+            <span>Potential secrets detected in staged changes</span>
+          </div>
+          <ul className="list-disc space-y-0.5 pl-4 font-mono text-[11px] text-amber-300/90">
+            {secretFindings.slice(0, 3).map((f, i) => (
+              <li key={i}>
+                {f.file ? `${f.file}:${f.line} ` : `line ${f.line} `}
+                <span className="text-amber-400">[{f.pattern}]</span> {f.masked}
+              </li>
+            ))}
+            {secretFindings.length > 3 ? (
+              <li className="list-none text-muted-foreground">
+                +{secretFindings.length - 3} more finding{secretFindings.length - 3 === 1 ? '' : 's'}
+              </li>
+            ) : null}
+          </ul>
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => void onCommit(true)}
+              className="rounded bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-200 hover:bg-amber-500/30"
+              data-testid="commit-anyway-button"
+            >
+              Commit anyway
+            </button>
+            <button
+              type="button"
+              onClick={() => setSecretFindings(null)}
+              className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       ) : null}
       <div className="gradient-border relative rounded-md">
         <textarea
@@ -623,7 +686,7 @@ export function CommitBox({
  *   picking them was asking to read them.
  */
 export function WorkingTreeDiffPane({ model }: { model: WorkingTreeChanges }) {
-  const { repoId, target, entries, counts, total, selection, showingAll } = model;
+  const { repoId, target, entries, counts, selection, showingAll } = model;
 
   const picked = useMemo(() => {
     const paths = new Set(selection.map((item) => item.path));
@@ -634,13 +697,9 @@ export function WorkingTreeDiffPane({ model }: { model: WorkingTreeChanges }) {
 
   if (showingAll) {
     return (
-      <ChangesAccordion
-        repoId={repoId}
-        worktreePath={target.worktreePath}
-        entries={entries}
-        counts={counts}
-        totals={total}
-      />
+      <CountsPendingContext.Provider value={counts.pending}>
+        <ChangesAccordion repoId={repoId} worktreePath={target.worktreePath} entries={entries} counts={counts} />
+      </CountsPendingContext.Provider>
     );
   }
 
@@ -658,29 +717,22 @@ export function WorkingTreeDiffPane({ model }: { model: WorkingTreeChanges }) {
 
   if (selection.length > 1) {
     return (
-      <ChangesAccordion
-        // Re-keyed on the selection so a changed pick re-opens every file in it.
-        key={selection.map(itemKey).join('\u0001')}
-        repoId={repoId}
-        worktreePath={target.worktreePath}
-        entries={picked}
-        counts={counts}
-        totals={{
-          fileCount: picked.length,
-          insertions: picked.reduce((n, e) => n + countsOf(counts, e).insertions, 0),
-          deletions: picked.reduce((n, e) => n + countsOf(counts, e).deletions, 0),
-        }}
-        initiallyExpanded
-      />
+      <CountsPendingContext.Provider value={counts.pending}>
+        <ChangesAccordion
+          // Re-keyed on the selection so a changed pick re-opens every file in it.
+          key={selection.map(itemKey).join('\u0001')}
+          repoId={repoId}
+          worktreePath={target.worktreePath}
+          entries={picked}
+          counts={counts}
+          initiallyExpanded
+        />
+      </CountsPendingContext.Provider>
     );
   }
 
   return <PaneMessage>Select a file to see its diff.</PaneMessage>;
 }
-
-/** The counts a picked file's accordion row shows — the side its diff comes from. */
-const countsOf = (counts: WorkingTreeChanges['counts'], entry: StatusEntry) =>
-  entry.unstaged === 'unmodified' ? counts.staged(entry.path) : counts.unstaged(entry.path);
 
 /** Neither is ever mutated, so module-level instances avoid a render loop. */
 const EMPTY_SET: ReadonlySet<string> = new Set();

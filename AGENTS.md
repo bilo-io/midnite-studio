@@ -192,7 +192,8 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 - **macOS (arm64) is the only officially supported platform for now — Linux and Windows are
   deferred, not abandoned.** `moon run desktop:dist` already built for macOS alone; the rest of
   the repo now matches. **Every CI job that exercises platform behaviour runs on a `macos-*`
-  runner** — `e2e`, `gate-native` and `gate-locale`. Phase 82 Themes E/H had put them on
+  runner** — `e2e` (4 shards) and `gate-native` (hostile-locale tests folded in Phase 116 Theme D;
+  formerly standalone `gate-locale`). Phase 82 Themes E/H had put them on
   `ubuntu-24.04` purely for the 1x billing rate. **This repo is public**
   (`gh api repos/bilo-io/midnite-studio -q .visibility` returns `public`; an earlier version of
   this file said private, which was wrong), so standard GitHub-hosted runner minutes are free and
@@ -208,9 +209,10 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   (measured: peak simultaneous `macos-14` jobs was exactly 5; in one run 13 of 16 macOS jobs were
   cancelled having never started a step). Jobs drained in 3-4 sequential batches, each paying a
   fresh macOS VM boot, and the wild variance was the tell — queueing, not slower tests. So
-  `gate-node` and `gate-node-app-test` are back on `ubuntu-24.04` and `e2e` is sharded **4 ways,
-  not 8**: past the cap, extra shards buy no parallelism and cost a VM boot, install and browser
-  download each. **This is not a partial un-deferring of Linux** — those two jobs are zod, React,
+  `gate-node` and `gate-node-app-test` (sharded 2 ways, Phase 116 Theme D) are on `ubuntu-*` and
+  `e2e` is sharded **4 ways**: with `gate-native` (1 job) and `e2e` (4 shards), total PR macOS
+  jobs are exactly 5, fitting the 5-job cap with zero queueing. Past the cap, extra shards
+  buy no parallelism and cost a VM boot, install and browser download each. **This is not a partial un-deferring of Linux** — those two jobs are zod, React,
   Vite and jsdom, where the runner OS is invisible; nothing the product depends on is validated
   there. The rule is unchanged in the direction that matters: **never move a job that exercises
   platform behaviour off macOS**, and when adding a macOS job, count the total against 5 first.
@@ -321,21 +323,22 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
   `midnite-studio/version.json`; electron-updater reads `midnite-studio/feed/latest-mac.yml`.
   Both are written per release — see
   [`/midnite-release-complete`](.claude/skills/midnite-release-complete/SKILL.md) §4.
-- **The website serves one verbatim copy of `install-studio.sh`, and a guard keeps it honest.**
-  Access to Midnite is gated behind the site's "Get access" flow, so the site links to no
-  repository, release list or installer and no longer serves the launcher's `install.sh`. The one
-  script it still hosts, **unlinked**, is Studio's `install-studio.sh`, because the app's own
-  "Update Midnite Studio" action curls it (`MIDNITE_INSTALL_COMMAND`). `packages/website/public/install-studio.sh`
-  is a byte-for-byte copy of the upstream file, and
-  [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs the two
+- **The website serves verbatim copies of `install.sh` and `install-studio.sh`, and a guard keeps them honest.**
+  Access to Midnite is gated on the website: the site does not link to the download page or display
+  any curl command. However, the site hosts the launcher installer `packages/website/public/install.sh`
+  (for `curl -fsSL ${SITE_ORIGIN}/install.sh | sh` in the terminal) and Studio's `install-studio.sh` (which
+  the app's own "Update Midnite Studio" action curls). Both are byte-for-byte copies of their upstream files in
+  `bilo-io/midnite-apps`, and [`scripts/website-sync-install.mjs`](scripts/website-sync-install.mjs) diffs them
   (`moon run website:sync-install`, `-- --write` to re-sync). The check runs **post-merge** in
-  `website.yml`, not as a PR gate: upstream can change with nothing merged here, so there is no
-  pull request for a gate to block. It is deliberately not a vitest — a networked test fails on a
-  plane and turns an upstream outage into a red repo-wide gate. `SITE_ORIGIN`
-  (`packages/website/src/site-origin.ts`, from `WEBSITE_ORIGIN`) is `WEBSITE_BASE`'s sibling: it
-  exists for absolute URLs read outside the page (the social-card meta tags), which
-  `import.meta.env.BASE_URL` cannot serve, and it is the site **root** — on the Pages target that
-  includes the path prefix. **Nothing on the website may link to, or print the name of, the
+  `website.yml`, because upstream can change with nothing merged here; **and** `installer-mirror.yml`
+  runs it on any PR that edits the copy, so **an installer change lands in midnite-apps first and is
+  then re-synced here** — never the other way round. Phase 91 Theme H edited only the copy: upstream
+  never got the checksum step, and every main build of the website failed until v0.0.3 surfaced it.
+  It is deliberately not a vitest — a networked test fails on a plane and turns an upstream
+  outage into a red repo-wide gate. `SITE_ORIGIN` (`packages/website/src/site-origin.ts`, from
+  `WEBSITE_ORIGIN`) is `WEBSITE_BASE`'s sibling: it exists for absolute URLs read outside the page
+  (and terminal install commands), which `import.meta.env.BASE_URL` cannot serve, and it is the site
+  **root** — on the Pages target that includes the path prefix. **Nothing on the website may link to, or print the name of, the
   `bilo-io/midnite-apps` repo** — the early-access form's prefilled-issue URL is the one deliberate exception, and it
   never shows the repo name.
 - **The two surfaces wear two near-identical brand faces, and that is deliberate.** The app's
@@ -407,8 +410,11 @@ explanatory messages. If a boundary rule fires, the fix is an IPC channel, not a
 **"sitrep"** (situation report) is a fixed request, not a free-form one. Whenever the user types it —
 or asks for a status update, a progress check, or "where are we" — answer with **one markdown table
 and nothing else above it**, one row per agent or workstream.
-[`midnite-sitrep`](.codex/skills/midnite-sitrep/SKILL.md) is the full spec — it gathers the state and
-renders the table:
+[`midnite-sitrep`](.codex/skills/midnite-sitrep/SKILL.md) is the router: it gathers the state once and
+renders the table ([`midnite-sitrep-table`](.codex/skills/midnite-sitrep-table/SKILL.md)). It adds the merge graph
+when rows depend on each other, and any other view named after it — `graph`, `sequence-diagram`,
+`histogram`, `timeline`, `ci` — each its own `midnite-sitrep-<view>` skill. The table always comes
+first:
 
 | Task | Author | Progress | ETA | Diff | Status | Notes |
 |---|---|---|---|---|---|---|
@@ -435,9 +441,12 @@ renders the table:
 - **A notes column**, always, of **six words at most**: news since the last sitrep, the blocker by
   name, or an ask. It never restates the status. An empty note is `—`, and most rows are empty.
 - **Succinct.** The table is the report. Add at most one or two lines under it, and only for
-  something the table cannot carry — a decision needed from the user, or a failure.
+  something the table cannot carry — a decision needed from the user, or a failure. A view the
+  user named (or the merge graph, when rows depend on each other) follows those lines under its
+  own `####` heading, within the size cap its own skill sets.
 - The same shape applies to a **recurring** status report (e.g. "every 10 minutes"): each tick is
-  one table, so the user can diff it against the last one at a glance.
+  the same table plus the same views the schedule was set up with, so the user can diff it against
+  the last one at a glance.
 
 When several agents run in parallel, give them a **shared append-only board file** in the session
 scratchpad and make every cross-agent contract change go through it *before* it is written into a
@@ -454,6 +463,23 @@ One phase per PR where practical. Work the checklist in `.midnite/tasks/phases/p
 `moon run :typecheck :lint :test` green, append an entry to `.midnite/tasks/done.md`, update the
 phase doc's own `## Headlines` paragraph for each theme that landed, and update the phase's row in
 the table in `.midnite/tasks/_INDEX.md` (the row only — no prose goes in the index).
+
+## A PR is ready for review only after a self-review
+
+A PR opens as a **draft** and stays one until at least one self-review has run on its current diff
+and the findings worth acting on are fixed and pushed. Only then does it leave draft
+(`gh pr ready`), and only after that may anyone be requested as a reviewer. The phase skills
+already carry this as their self-review stage before `gh pr ready`; this section makes it the rule
+for every PR a session opens, skill or not.
+
+- **A draft never has a reviewer requested on it** — no `--reviewer` on `gh pr create --draft`, no
+  `--add-reviewer` while `isDraft` is true.
+- **"Request a review now" means self-review, fix, push, ready, then request — now, in that
+  order.** It never means skipping the self-review. Say what the self-review found and fixed.
+- **A diff that changes after the self-review** gets reviewed again before any re-request.
+
+Why: on 2026-10-21 a session requested a reviewer on two draft PRs in another repo before any
+self-review had run, which pinged a colleague to read unfinished work.
 
 ## Onboarding another repo
 

@@ -28,9 +28,16 @@ function findVariantControl(name: RegExp): { element: HTMLElement; pressedAttr: 
 }
 
 describe('KnowledgeVariantPills', () => {
-  it('renders one control per registered variant — Theme D’s four sigma looks', () => {
+  it('renders one control per registered variant — Theme D’s four sigma looks plus 3D presentation styles', () => {
     render(<KnowledgeVariantPills activeId="atlas" onSelect={vi.fn()} />);
-    for (const name of [/^atlas$/i, /^constellation$/i, /^orbit$/i, /^clusters$/i]) {
+    for (const name of [
+      /^atlas$/i,
+      /^constellation$/i,
+      /^orbit$/i,
+      /^clusters$/i,
+      /^telemetry hud$/i,
+      /^synapse flow$/i,
+    ]) {
       expect(findVariantControl(name).element).toBeTruthy();
     }
   });

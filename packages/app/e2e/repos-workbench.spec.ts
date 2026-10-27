@@ -314,8 +314,4 @@ test('commit message input has equal inset on all sides when empty', async ({ pa
   expect(Math.abs(left - right)).toBeLessThanOrEqual(1.5);
   expect(Math.abs(top - bottom)).toBeLessThanOrEqual(1.5);
   expect(Math.abs(left - top)).toBeLessThanOrEqual(1.5);
-
-  if (process.env.MSTUDIO_SHOTS) {
-    await page.screenshot({ path: '/tmp/changes-commit-input.png' });
-  }
 });

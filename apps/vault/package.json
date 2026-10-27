@@ -1,8 +1,8 @@
 {
   "name": "@midnite/app-vault",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
-  "description": "Midnite Vault \u2014 stored secrets, forge accounts and database logins as their own app: set, rotate or remove, never read back.",
+  "description": "Midnite Vault — stored secrets, forge accounts and database logins as their own app: set, rotate or remove, never read back.",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@bilo-io/ui": "0.1.0",
+    "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-feature-vault": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
@@ -29,7 +30,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "electron": "^41.0.0",
+    "electron": "^42.11.5",
     "esbuild": "^0.28.0",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.49",

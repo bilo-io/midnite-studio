@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 
 import type { ChatMessage as ChatMessageData } from '@midnite/studio-shared';
-import { LuCheck, LuCopy, LuFileText, LuPencil, LuRotateCcw, LuTriangleAlert } from 'react-icons/lu';
+import { LuCheck, LuCopy, LuFileText, LuPencil, LuRotateCcw, LuShieldAlert, LuTriangleAlert } from 'react-icons/lu';
 
 import { ChatChangesCard } from './chat-changes-card';
 import { ThinkingPanel } from './thinking-panel';
@@ -135,6 +135,22 @@ export const UserMessage = memo(function UserMessage({
               ))}
             </ul>
           ) : null}
+          {message.redactions && message.redactions.length > 0 ? (
+            <ul className="mt-1 flex max-w-[85%] flex-wrap justify-end gap-1" aria-label="Redacted before sending" data-testid="chat-redactions">
+              {message.redactions.map((r) => (
+                <li
+                  key={r.kind}
+                  data-testid="redaction-chip"
+                  title="Removed from what was sent to the model. Your message and the terminal are unchanged."
+                  className="flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] text-amber-700 dark:text-amber-300"
+                >
+                  <LuShieldAlert aria-hidden className="h-3 w-3" />
+                  <span>{`[redacted: ${r.kind}]`}</span>
+                  {r.count > 1 ? <span className="opacity-70">{`×${r.count}`}</span> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <div className={ACTIONS}>
             <CopyButton text={message.text} label="Copy message" />
             {canEdit ? <IconButton icon={LuPencil} label="Edit message" size="sm" onClick={() => setEditing(true)} /> : null}
@@ -208,6 +224,18 @@ export const AssistantMessage = memo(function AssistantMessage({
           <p role="alert" data-testid="chat-error" className="mt-1 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
             <LuTriangleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0 break-words">{message.error}</span>
+          </p>
+        ) : null}
+        {message.reportedModel ? (
+          <p
+            role="note"
+            data-testid="chat-model-mismatch"
+            className="mt-1 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400"
+          >
+            <LuTriangleAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 break-words">
+              Pinned to {message.model ?? 'this chat’s model'}, but this reply reports <span className="font-mono">{message.reportedModel}</span>.
+            </span>
           </p>
         ) : null}
         {message.status === 'cancelled' ? (

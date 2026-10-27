@@ -366,13 +366,12 @@ export async function pullDetail(
   const mergeable = mergeStatus === 'can_be_merged' ? 'MERGEABLE' : mergeStatus === 'cannot_be_merged' ? 'CONFLICTING' : 'UNKNOWN';
 
   const diff = await fetchMrDiff(forge, account, number);
-  const changedFiles = diff ? diff.files.length : Number.parseInt(asStringLoose(raw['changes_count']), 10) || 0;
-  let additions = 0;
-  let deletions = 0;
-  for (const f of diff?.files ?? []) {
-    additions += f.insertions;
-    deletions += f.deletions;
-  }
+  // Line counts are the sum of the diff's own files; with no diff they are
+  // unknown (null), never zero. `changes_count` still answers the file count.
+  const fallbackFiles = Number.parseInt(asStringLoose(raw['changes_count']), 10);
+  const changedFiles = diff ? diff.files.length : Number.isFinite(fallbackFiles) ? fallbackFiles : null;
+  const additions = diff ? diff.files.reduce((n, f) => n + f.insertions, 0) : null;
+  const deletions = diff ? diff.files.reduce((n, f) => n + f.deletions, 0) : null;
 
   const commitsResult = await glGet<unknown[]>(
     forge,

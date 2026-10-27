@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-slides",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "Slides as a feature (Phase 113 Theme Q): the markdown deck presenter, its modal and the Present button — composed by Studio and Creator.",
   "sideEffects": false,

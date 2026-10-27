@@ -1,3 +1,4 @@
+import { reportMain, type ReportMainServices } from '@midnite/studio-feature-report/main';
 import { mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 
@@ -8,7 +9,7 @@ import {
   createCouncilsRunsStore,
   createCouncilsStore,
 } from '@midnite/studio-feature-councils/main';
-import { createNoMcpServer, mcpToolsMain } from '@midnite/studio-feature-mcp-tools/main';
+import { createAgentAuditPort, createNoMcpServer, mcpToolsMain } from '@midnite/studio-feature-mcp-tools/main';
 import {
   configureOllamaSettings,
   createOllamaSettingsStore,
@@ -26,6 +27,7 @@ import {
 } from '@midnite/studio-feature-workflows/main';
 import {
   connectRuntimeVault,
+  createAgentAudit,
   createIpcContext,
   createSharedBroker,
   ensureLoginShellPathAsync,
@@ -36,13 +38,15 @@ import {
 import { BUILTIN_AGENTS, CHANNELS, EVENT_CHANNELS, schemas, type AgentDefinition } from '@midnite/studio-shared';
 
 import { createBrokerNodeSessions } from './broker-sessions';
-import { createShellRunner } from './shell-runner';
+import { createShellRunner, type ShellConfinement } from './shell-runner';
 
 /** The one secret Agents reads, and nothing else: the Ollama cloud key (the `secrets` namespace). */
 const OLLAMA_KEY = 'ollama.apiKey';
 
 /** The electron pieces Agents' main needs, injected so registration is testable under bare vitest. */
 export type AgentsElectron = IpcContextElectron & {
+  /** Report an Issue's services — the crash log sink, home dir, and the three OS calls the dialog needs. */
+  report: ReportMainServices;
   /** Agents' own userData: chats, councils and the Ollama settings live under it. */
   userData: string;
   /**
@@ -55,6 +59,8 @@ export type AgentsElectron = IpcContextElectron & {
   pairing: () => PairingIdentity | null;
   /** The shell a council member or script node runs in; the user's login shell by default. */
   shell?: string;
+  /** Confines a council member's shell (Phase 121 Theme E); unset runs members bare. */
+  confine?: ShellConfinement;
   /** Where the workflow engine logs. Silent by default. */
   log?: WorkflowLogger;
   /**
@@ -62,6 +68,8 @@ export type AgentsElectron = IpcContextElectron & {
    * launchd's bare PATH, where `claude`, `codex` and the rest are ENOENT. The runtime's probe by default.
    */
   loginPath?: () => Promise<void>;
+  /** The main-side save dialog behind the audit trail's Export; `null` when dismissed. Absent → Export answers a failure. */
+  pickSavePath?: (defaultName: string) => Promise<string | null>;
 };
 
 /**
@@ -77,6 +85,15 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
   // The stores write straight into `userData` and treat a missing directory as read-only; Electron creates it lazily.
   mkdirSync(el.userData, { recursive: true });
   const ctx = createIpcContext(el);
+  // The audit trail (Phase 121 Theme G) under Agents' own userData: its chat turns and council runs. Studio's
+  // trail holds the terminal commands and MCP calls — Agents has no pty server and runs no MCP server.
+  const trail = createAgentAudit({
+    userData: el.userData,
+    homeDir: homedir(),
+    onError: (error) => el.report.sink()?.write('warn', `agent audit write failed: ${String(error)}`),
+  });
+  void trail.prune();
+  reportMain.register(ctx, el.report);
   // Started now, not awaited: the roster below waits on it, and every agent CLI spawn reads the roster first.
   const pathReady = (el.loginPath ?? ensureLoginShellPathAsync)().catch(() => undefined);
   const roster = async (): Promise<AgentDefinition[]> => {
@@ -94,6 +111,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
     agents: roster,
     resolveRepo: () => null,
     emit: (event) => el.send(EVENT_CHANNELS.chatsEvent, event),
+    audit: (record) => trail.record(record),
     ollamaStream: async (req) =>
       ollamaChatStream(
         { model: req.model, messages: req.messages },
@@ -112,7 +130,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
 
   // Councils — members run as piped login shells (see shell-runner.ts).
   configureCouncils(createCouncilsStore(el.userData), createCouncilsRunsStore(el.userData));
-  const shellRunner = createShellRunner(el.shell === undefined ? {} : { shell: el.shell });
+  const shellRunner = createShellRunner({ ...(el.shell === undefined ? {} : { shell: el.shell }), ...(el.confine ? { confine: el.confine } : {}) });
   councilsMain.register(ctx, {
     runner: {
       ...shellRunner,
@@ -120,6 +138,7 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
       agentBinding: () => undefined,
       ollamaBaseUrl: () => resolveOllamaBaseUrl(),
       ollamaApiKey: ollamaKey,
+      audit: (record) => trail.record(record),
     },
   });
 
@@ -146,7 +165,10 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
   });
 
   // MCP tools — the Tools tab. The `midnite` server is Studio's, so this one reports itself as off.
-  mcpToolsMain.register(ctx, { server: createNoMcpServer('Midnite Agents does not run the MCP server — Midnite Studio does.') });
+  mcpToolsMain.register(ctx, {
+    server: createNoMcpServer('Midnite Agents does not run the MCP server — Midnite Studio does.'),
+    audit: createAgentAuditPort({ trail: () => trail, pickSavePath: el.pickSavePath ?? (async () => null) }),
+  });
 
   // The roster, as the renderer's `useAgents` asks for it. Install status is unknown here (no probe),
   // which the renderer reads as "assume it works" — a missing CLI surfaces as the turn's own error.

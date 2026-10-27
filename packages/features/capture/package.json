@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-capture",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "Capture as a feature (Phase 113 Theme K): screen, window and region screenshots, screen recordings, the global capture shortcut, an opt-in clipboard history and Send to… — every capture taken on a user action and kept on this machine.",
   "sideEffects": false,

@@ -2,9 +2,8 @@ import type { ChildProcess } from 'node:child_process';
 import type * as net from 'node:net';
 import { join } from 'node:path';
 
-import { createBrokerService, type BrokerClient } from '@midnite/studio-runtime';
+import { capFile, createBrokerService, type BrokerClient } from '@midnite/studio-runtime';
 
-import { capFile } from './log-sink';
 import { brokerSocketName, fingerprintFile } from './socket-name';
 
 /**

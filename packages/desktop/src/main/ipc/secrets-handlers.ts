@@ -1,10 +1,22 @@
+import { clipboard, dialog } from 'electron';
+
 import {
+  installPreCommitHook,
+  isPreCommitHookInstalled,
+  scanRepoHistory,
+  uninstallPreCommitHook,
+} from '@midnite/studio-git-engine';
+import {
+  exportVaultToFile,
+  importVaultFromFile,
+  previewVaultExportFile,
   registerVaultGrantHandlers,
   registerVaultPairingHandlers,
   type PairingStore,
   type VaultGrants,
+  type VaultService,
 } from '@midnite/studio-runtime';
-import { CHANNELS, schemas, type SecretKey } from '@midnite/studio-shared';
+import { CHANNELS, failure, schemas, type SecretKey } from '@midnite/studio-shared';
 
 import type { SecretsVault } from '../secrets-vault';
 import { handle, handleBare, handleSend } from './handle';
@@ -19,13 +31,20 @@ let grants: VaultGrants | null = null;
 
 let pairings: PairingStore | null = null;
 
+let vaultService: VaultService | null = null;
+
 /**
  * The runtime's per-app grants (Phase 113 Theme J slice 2), configured beside the vault service, and
  * the host's guest pairings, which Studio's Vault view lists and unpairs in-process.
  */
-export function configureVaultGrants(next: VaultGrants, nextPairings: PairingStore | null = null): void {
+export function configureVaultGrants(
+  next: VaultGrants,
+  nextPairings: PairingStore | null = null,
+  nextVaultService: VaultService | null = null,
+): void {
   grants = next;
   pairings = nextPairings;
+  vaultService = nextVaultService;
 }
 
 async function readTwelveDataKey(): Promise<string | null> {
@@ -62,6 +81,15 @@ export async function readOllamaApiKey(): Promise<string | null> {
 }
 
 /**
+ * One engine's own API key (`agent.<id>.apiKey`), for main to put in that engine's spawn environment
+ * (Phase 121 Theme I). Callers pass the key of the engine being started and no other.
+ */
+export async function readAgentApiKey(key: SecretKey): Promise<string | null> {
+  if (!vault) return null;
+  return vault.get(key);
+}
+
+/**
  * Keys that never cross the bridge, whatever asks. `secretsGet` used to hand
  * `finance.twelveData` to Settings so it could tell whether one was set; that
  * is `secretsHas`'s job now (Phase 113 Theme P), and the finance handlers read
@@ -71,8 +99,236 @@ export async function readOllamaApiKey(): Promise<string | null> {
 export const MAIN_ONLY_SECRETS: readonly SecretKey[] = ['finance.twelveData'];
 
 export function registerSecretsHandlers(): void {
-  registerVaultGrantHandlers({ handle, handleBare, send: handleSend }, () => grants);
-  registerVaultPairingHandlers({ handle, handleBare, send: handleSend }, () => pairings);
+  const reauthCheck = () => vaultService?.isReauthValid() ?? true;
+  registerVaultGrantHandlers({ handle, handleBare, send: handleSend }, () => grants, reauthCheck);
+  registerVaultPairingHandlers({ handle, handleBare, send: handleSend }, () => pairings, reauthCheck);
+
+  handleBare(CHANNELS.vaultLockStatus, async () => ({
+    locked: vaultService ? vaultService.isLocked() : false,
+    hasPasscode: false,
+    recentUnlockAt: vaultService ? vaultService.recentUnlockAt : null,
+    canPromptTouchId: false,
+    tamperedFile: vaultService ? vaultService.getTamperedFile() : null,
+  }));
+
+  handleBare(CHANNELS.vaultLock, async () => {
+    vaultService?.lock();
+    return { ok: true };
+  });
+
+  handle(
+    CHANNELS.vaultUnlock,
+    schemas.VaultUnlockRequest,
+    async ({ passcode, useTouchId }) => {
+      if (!vaultService) return { ok: true };
+      const proof = useTouchId ? 'touchid' : passcode;
+      const ok = await vaultService.unlock(proof);
+      return { ok, error: ok ? undefined : 'Unlock failed' };
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultAuditList,
+    schemas.VaultAuditListRequest,
+    async ({ limit, app, op }) => {
+      if (!vaultService) return { entries: [], valid: true, total: 0 };
+      let entries = await vaultService.audit.read(limit);
+      if (app) entries = entries.filter((e) => e.app === app);
+      if (op) entries = entries.filter((e) => e.op === op);
+      const v = await vaultService.audit.verify();
+      return { entries, valid: v.valid, total: v.total };
+    },
+    () => ({ entries: [], valid: true, total: 0 }),
+  );
+
+  handleBare(CHANNELS.vaultAuditVerify, async () => {
+    if (!vaultService) return { valid: true, total: 0 };
+    return vaultService.audit.verify();
+  });
+
+  handleBare(CHANNELS.vaultAuditExport, async () => {
+    if (!vaultService) return { ok: false, error: 'Vault service not available' };
+    if (!vaultService.isReauthValid()) return { ok: false, error: 'Re-authentication required (within 60s)' };
+    return { ok: true, path: vaultService.audit.getFilePath() };
+  });
+
+  handle(
+    CHANNELS.vaultBreachCheck,
+    schemas.VaultBreachCheckRequest,
+    async ({ password, saveToCache }) => {
+      if (!vaultService) return { breached: false, count: 0, checkedAt: Date.now() };
+      return vaultService.breachChecker.check(password, { skipCache: !saveToCache });
+    },
+    () => ({ breached: false, count: 0, checkedAt: Date.now() }),
+  );
+
+  handle(
+    CHANNELS.vaultRevealOnce,
+    schemas.VaultRevealOnceRequest,
+    async ({ namespace, key }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      const res = await vaultService.reveal(namespace, key);
+      if (!res.ok) return { ok: false, error: res.error };
+      return { ok: true, revealed: res.value };
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultCopyOnce,
+    schemas.VaultCopyOnceRequest,
+    async ({ namespace, key, timeoutSeconds }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      return vaultService.copy(namespace, key, clipboard, { timeoutSeconds });
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultScanHistory,
+    schemas.VaultScanHistoryRequest,
+    async ({ repoPath, maxCommits }) => {
+      try {
+        const report = await scanRepoHistory(repoPath, { maxCommits });
+        return {
+          ok: true,
+          scannedCommits: report.scannedCommits,
+          findings: report.findings,
+          advice: report.advice,
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          scannedCommits: 0,
+          findings: [],
+          advice: '',
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    },
+    (issue) => ({ ok: false, scannedCommits: 0, findings: [], advice: '', error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultHookStatus,
+    schemas.VaultHookStatusRequest,
+    async ({ repoPath }) => {
+      try {
+        const installed = await isPreCommitHookInstalled(repoPath);
+        return { installed };
+      } catch {
+        return { installed: false };
+      }
+    },
+    () => ({ installed: false }),
+  );
+
+  handle(
+    CHANNELS.vaultHookInstall,
+    schemas.VaultHookInstallRequest,
+    async ({ repoPath }) => {
+      return installPreCommitHook(repoPath);
+    },
+    (issue) => failure(issue),
+  );
+
+  handle(
+    CHANNELS.vaultHookUninstall,
+    schemas.VaultHookUninstallRequest,
+    async ({ repoPath }) => {
+      return uninstallPreCommitHook(repoPath);
+    },
+    (issue) => failure(issue),
+  );
+
+  handle(
+    CHANNELS.vaultPickExportPath,
+    schemas.VaultPickExportPathRequest,
+    async (req) => {
+      const picked = await dialog.showSaveDialog({
+        title: 'Export Vault Backup',
+        defaultPath: req?.defaultFileName ?? 'midnite-vault-backup.json',
+        filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+      });
+      return { path: picked.canceled || !picked.filePath ? null : picked.filePath };
+    },
+    () => ({ path: null }),
+  );
+
+  handle(
+    CHANNELS.vaultPickImportPath,
+    schemas.VaultPickImportPathRequest,
+    async () => {
+      const picked = await dialog.showOpenDialog({
+        title: 'Select Vault Backup',
+        properties: ['openFile'],
+        filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+      });
+      return { path: picked.canceled || !picked.filePaths[0] ? null : picked.filePaths[0] };
+    },
+    () => ({ path: null }),
+  );
+
+  handle(
+    CHANNELS.vaultExport,
+    schemas.VaultExportRequest,
+    async ({ passphrase, outputPath }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      let finalPath = outputPath;
+      if (!finalPath) {
+        const picked = await dialog.showSaveDialog({
+          title: 'Export Vault Backup',
+          defaultPath: 'midnite-vault-backup.json',
+          filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+        });
+        if (picked.canceled || !picked.filePath) return { ok: false, error: 'Export cancelled' };
+        finalPath = picked.filePath;
+      }
+      return exportVaultToFile(vaultService, finalPath, passphrase);
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultImportPreview,
+    schemas.VaultImportPreviewRequest,
+    async ({ passphrase, inputPath }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      let finalPath = inputPath;
+      if (!finalPath) {
+        const picked = await dialog.showOpenDialog({
+          title: 'Select Vault Backup',
+          properties: ['openFile'],
+          filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+        });
+        if (picked.canceled || !picked.filePaths[0]) return { ok: false, error: 'No file selected' };
+        finalPath = picked.filePaths[0];
+      }
+      return previewVaultExportFile(vaultService, finalPath, passphrase);
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
+
+  handle(
+    CHANNELS.vaultImport,
+    schemas.VaultImportRequest,
+    async ({ passphrase, inputPath, overwriteExisting }) => {
+      if (!vaultService) return { ok: false, error: 'Vault service not available' };
+      let finalPath = inputPath;
+      if (!finalPath) {
+        const picked = await dialog.showOpenDialog({
+          title: 'Select Vault Backup',
+          properties: ['openFile'],
+          filters: [{ name: 'Vault Backup JSON', extensions: ['json'] }],
+        });
+        if (picked.canceled || !picked.filePaths[0]) return { ok: false, error: 'No file selected' };
+        finalPath = picked.filePaths[0];
+      }
+      return importVaultFromFile(vaultService, finalPath, passphrase, { overwriteExisting });
+    },
+    (issue) => ({ ok: false, error: issue }),
+  );
 
   handle(
     CHANNELS.secretsGet,

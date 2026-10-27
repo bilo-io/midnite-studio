@@ -41,16 +41,17 @@ cache hit and would ship with the wrong prefix.
 
 ### `WEBSITE_ORIGIN`, its sibling
 
-`base` covers every URL the *browser* resolves. It cannot help **an absolute URL
-read outside the page**, such as the social-card image in the meta tags: there is
-no page for it to be relative to. So the site's own public root is also spelled out absolutely, in
+`base` covers every URL the *browser* resolves. It cannot help **text a visitor
+copies out of the page and pastes into a terminal**, which is what the download
+page's `curl -fsSL <origin>/install.sh | sh` is: there is no page for it to be
+relative to. So the site's own public root is also spelled out absolutely, in
 [`src/site-origin.ts`](../packages/website/src/site-origin.ts).
 
 `WEBSITE_ORIGIN` overrides it; unset, it is the live Vercel deployment
-(`https://midnite-studio-website.vercel.app`). It is the site **root**, not the
+(`https://midnite-apps.vercel.app`). It is the site **root**, not the
 bare host — on Vercel those are the same thing, but the Pages target serves the
 site under `/midnite-apps/midnite-studio/`, so there the prefix has to be part of
-the value or the absolute URL 404s. Set it together with `WEBSITE_BASE` or not
+the value or the pasted command 404s. Set it together with `WEBSITE_BASE` or not
 at all, and it is in the `website:build` `inputs` for the same cache reason.
 
 The default is read by `site-origin.ts` rather than written into the two `define`
@@ -66,10 +67,10 @@ so both sides import it from there instead of each spelling the URL. The site
 takes that one file by a source alias (`vite.config.ts`, `vitest.config.ts`,
 `tsconfig.json`), not through the package barrel, so the bundle picks up no zod.
 
-## Access is gated: no repo, release or installer links
+## Access is gated: no repo, release or visible install command on the site
 
 **The site links to nothing a visitor could use to fetch a build without asking.** Every
-download or install call to action routes to the early-access section; `/download/` is now an
+download or install call to action routes to the early-access section; `/download/` is an
 "how access works" page with no command, no `.dmg` and no release list. The footer, FAQ and
 download page carry no link to, or mention of, `bilo-io/midnite-apps` (guarded by tests in
 `footer.test.tsx`, `faq.test.ts` and `download-page.test.tsx`). The version feed is gone too:
@@ -77,17 +78,19 @@ download page carry no link to, or mention of, `bilo-io/midnite-apps` (guarded b
 The one deliberate exception is the early-access form's prefilled-issue URL, which is the gate
 itself; its preview no longer prints the repo name.
 
-The launcher's `install.sh` is no longer served from the site. The one script the site still hosts,
-unlinked, is Studio's `public/install-studio.sh`, because the app's "Update Midnite Studio" action
-curls it (`MIDNITE_INSTALL_COMMAND`, from `shared`'s `install-command.ts`). It is a verbatim copy,
-checked rather than trusted:
-[`scripts/website-sync-install.mjs`](../scripts/website-sync-install.mjs) fetches upstream and
-either `--check`s (exit 1 with a unified diff) or `--write`s. `moon run website:sync-install` is
-`--check`; `moon run website:sync-install -- --write` re-syncs. It is a moon task and **not a
-vitest**, deliberately: a test that reaches the network fails on a plane and turns an upstream
-outage into a red repo-wide gate. CI runs it post-merge in `website.yml`'s build job, since upstream
-can change with nothing merged here. Retiring it for good means moving the in-app update off the
-site first.
+### `install.sh` and `install-studio.sh`, served from the site for terminal use
+
+While the download page and curl command are not visible on the website UI, the site hosts and serves
+both installers statically at `/install.sh` (the launcher installer) and `/install-studio.sh` (Studio's
+installer, used by the in-app "Update Midnite Studio" action):
+
+- `curl -fsSL https://midnite-apps.vercel.app/install.sh | sh` installs the Midnite Apps launcher.
+- Both scripts are byte-for-byte copies of their upstream counterparts in `bilo-io/midnite-apps`.
+- [`scripts/website-sync-install.mjs`](../scripts/website-sync-install.mjs) verifies both against upstream
+  (`moon run website:sync-install` / `-- --write` to re-sync). It is a moon task and **not a
+  vitest**, deliberately: a test that reaches the network fails on a plane and turns an upstream
+  outage into a red repo-wide gate. CI runs it post-merge in `website.yml`'s build job, since upstream
+  can change with nothing merged here.
 
 ## The brand face — Damion, an open stand-in for the app's
 
@@ -390,18 +393,19 @@ directory too deep.
 | `src/sections/registry.ts` | The landing page, top to bottom: a flat ordered array of `{ id, label, Component, nav? }`. `app.tsx` maps it into `<main>`; the nav reads the `nav: true` entries. **Adding a section means appending here, never editing `app.tsx`.** |
 | `src/components/` | The shared vocabulary — `Section`, `Container`, `Button`, `GlowCard`, `Eyebrow`/`Heading`/`Lede`, `Logo`, `Reveal`, and the `useReducedMotion`/`useInView` hooks, all re-exported from `index.ts`. |
 | `src/styles/tokens.css` | Every colour, radius, glow and duration. Dark-first: `:root` *is* the dark theme and light is one `prefers-color-scheme` block redefining the same names, so no component carries a `dark:` prefix. |
-| `src/sections/hero/` | The hero: the launcher mark, the typewriter headline, and `launcher-mock.tsx`, a drawn launcher window whose tiles are the real catalog and link to each app's slide. `hero-video.tsx` and `pilot-video.tsx` live here too, and are shown by the Studio section. |
+| `src/sections/hero/` | The hero: the launcher mark, the typewriter headline, and `launcher-mock.tsx`, a drawn launcher window whose tiles are the real catalog and link to each app's slide. `hero-video.tsx` and `pilot-video.tsx` live here too. The Studio section shows both, and the showreel reuses `PilotVideo` with its own clip, so a change to it changes both players. |
+| `src/sections/showreel/` | The showreel straight under the hero: the Midnite Apps music video in `PilotVideo`'s click-to-play player, with its own clip and poster. |
 | `src/sections/{suite,launcher,frame,studio}/` | The rest of the landing page: a card per app in the launcher's two groups, how the launcher installs and updates them, the eight parts of the frame every app shares, and Studio, the app that holds all of them (and that they run inside today). |
 | `src/apps/catalog.ts` | The available apps as site copy: id, name, group, tagline, pitch, features and a four-stop **spectrum** sampled from each app's logo. Copied from the launcher's catalog rather than imported, because the site is off the graph; `catalog.test.ts` checks every id has a logo in `public/img/apps/`. Coming-soon apps are deliberately absent. |
 | `src/apps/aurora.tsx`, `src/styles/apps.css` | The animated gradient behind an app: four blurred blobs and a turning sheen in that app's spectrum, read from `--app-c1`…`--app-c4`. Also the `.ws-cascade` reveal (children stagger in by `--i`), the carousel track and the thumbnails. All of it pauses in a hidden tab and stills under reduced motion. |
 | `src/pages/apps/` | `/apps` — one hero per app in a scroll-snap carousel: logo, wordmark, pills (status, version, group, where it runs, platform), pitch and features, cascading in as each slide arrives. The fragment follows the slide (`/apps/#coder`), and the page glow cross-fades to the active app's colours. |
-| `src/pages/download-page.tsx` | `/download` — "Get Midnite": how access works, with every call to action routed to the early-access section. No install command, no release links. |
+| `src/pages/download-page.tsx` | `/download` — "Get Midnite": how access works, with every call to action routed to the early-access section. No install command or release links shown on the site. |
 | `src/pages/pricing-page.tsx` | `/pricing` — three columns (Free, Individual, Team). Public repos free; private repos are the paid boundary. No checkout — CTAs route to the early-access form. Prices are constants in this file ($8/mo Individual, $12/seat Team with a 5-seat minimum). |
-| `src/site-origin.ts` | `SITE_ORIGIN`, the site's absolute public root — for absolute URLs read outside the page (social-card meta tags), which `BASE_URL` cannot serve. |
+| `src/site-origin.ts` | `SITE_ORIGIN`, the site's absolute public root — for absolute URLs read outside the page and the terminal install command. |
 | `src/sections/faq/` | The FAQ. `faq.ts` holds the answers as data — the slugs are published URL fragments (`#faq-<slug>`), so they have a test rather than only a convention; `faq-section.tsx` is the tablist and the cross-fading panel. |
 | `src/sections/early-access/` | The sign-up. `issue-url.ts` composes the GitHub issue (and owns `ISSUE_TEMPLATE`, see above); `roster.ts` is the ten agent names as site copy, hard-coded rather than imported from `shared` so a marketing bundle does not pull zod in for ten strings. |
 | `src/sections/footer/` | The footer, its lane-graph horizon, and the reused version badge. |
-| `public/video/` | Empty, deliberately. [Its README](../packages/website/public/video/README.md) says what to drop in; the hero renders the poster when nothing is there. |
+| `public/video/` | The committed clips: the Studio section's pilot and backdrop, and the showreel's music video. [`VIDEO.md`](../packages/website/VIDEO.md), kept outside `public/` so it is not deployed, has the source and the `ffmpeg` line for each. |
 
 Two rules that are not obvious from the code:
 

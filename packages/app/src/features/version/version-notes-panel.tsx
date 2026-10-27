@@ -5,7 +5,7 @@ import { LuBug, LuExternalLink, LuFileText, LuLoaderCircle } from 'react-icons/l
 
 import { RELEASE_CHANGELOG_PAGE_URL, RELEASE_LIST_URL, releasePageUrl } from '@midnite/studio-shared';
 
-import { ReportIssueDialog } from '../../components/report-issue-dialog';
+import { ReportIssueDialog } from '@midnite/studio-feature-report/renderer';
 import { ExternalLink } from '../markdown/external-link';
 import { MARKDOWN_PROSE_CLASSES } from '../markdown/prose';
 import { openExternal } from '../../services/queries';

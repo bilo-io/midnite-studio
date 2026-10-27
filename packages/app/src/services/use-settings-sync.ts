@@ -28,6 +28,24 @@ export function useSettingsSync(): void {
   // both run in main with no renderer store to read, so the binding has to
   // cross the same way `forgeSyncGhAuthSwitch` does.
   const agentBackends = useUiStore((s) => s.agentBackends);
+  // Phase 121 Theme E: pty-service reads this at spawn, in main.
+  const confineNewSessions = useUiStore((s) => s.confineNewSessions);
+
+  // Phase 117 Themes D + E: the browser partition's downloads opt-in and privacy switches live in
+  // main, which runs protection-on / downloads-off until the first push.
+  const browserDownloads = useUiStore((s) => s.browserDownloads);
+  const browserPrivacy = useUiStore((s) => s.browserPrivacy);
+  useEffect(() => {
+    bridge()?.browser.setDownloads(browserDownloads);
+  }, [browserDownloads]);
+  useEffect(() => {
+    bridge()?.browser.setPrivacy(browserPrivacy);
+  }, [browserPrivacy]);
+  // Phase 117 Theme G: the ClickFix watch runs in main (it reads the system clipboard); on until told otherwise.
+  const browserClipboardWatch = useUiStore((s) => s.browserClipboardWatch);
+  useEffect(() => {
+    bridge()?.browser.setClipboardWatch({ enabled: browserClipboardWatch });
+  }, [browserClipboardWatch]);
 
   useEffect(() => {
     const api = bridge();
@@ -43,6 +61,7 @@ export function useSettingsSync(): void {
       browserDiscardMs,
       forgeSyncGhAuthSwitch,
       agentBackends,
+      confineNewSessions,
     });
   }, [
     autoFetchEnabled,
@@ -51,5 +70,6 @@ export function useSettingsSync(): void {
     browserDiscardMs,
     forgeSyncGhAuthSwitch,
     agentBackends,
+    confineNewSessions,
   ]);
 }

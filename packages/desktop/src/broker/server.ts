@@ -6,6 +6,8 @@ import { dirname, join } from 'node:path';
 
 import { SCROLLBACK_BYTES, perfEnabled } from '@midnite/studio-shared';
 
+import { isProfilePath, removeProfileFile, wrapWithSandbox } from '@midnite/studio-runtime/broker/confine-wrap';
+
 import { startHeapSampler } from '../heap-sampler';
 import {
   BROKER_APP_ID_PATTERN,
@@ -79,6 +81,8 @@ type Session = {
   cwd: string;
   /** The app id of the connection that created it (`null` when it declared none) — see {@link Identity}. */
   owner: string | null;
+  /** The sandbox profile this session runs under, removed when it exits (Phase 121 Theme E). */
+  confineProfile?: string;
 };
 
 /**
@@ -611,7 +615,22 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
         }
 
         const id = randomUUID();
-        const { sessionId, cwd, cols, rows, env, initialInput } = msg;
+        const { sessionId, cwd, cols, rows, env, initialInput, confine } = msg;
+
+        // Phase 121 Theme E: the confined spawn is `sandbox-exec -f <profile> <shell>`. A profile path the
+        // broker does not recognise, or a platform without sandbox-exec, is refused rather than spawned bare.
+        if (confine && (process.platform !== 'darwin' || !isProfilePath(confine.profile))) {
+          socket.write(
+            encodeControl({
+              t: 'reply',
+              id: msg.id,
+              ok: false,
+              code: 'spawn-failed',
+              message: 'Cannot confine this session: no valid sandbox profile.',
+            }),
+          );
+          return;
+        }
 
         // Resolve shell
         let shellFile = process.env['SHELL'] ?? '/bin/zsh';
@@ -621,6 +640,12 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
           shellArgs = [];
         } else if (!existsSync(shellFile)) {
           shellFile = '/bin/sh';
+        }
+
+        if (confine) {
+          const wrapped = wrapWithSandbox(confine.profile, shellFile, shellArgs);
+          shellFile = wrapped.command;
+          shellArgs = wrapped.args;
         }
 
         try {
@@ -645,6 +670,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             rows,
             cwd,
             owner: creator.appId,
+            ...(confine ? { confineProfile: confine.profile } : {}),
           };
           sessions.set(id, session);
 
@@ -679,6 +705,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
           pty.onExit(({ exitCode, signal }) => {
             if (hasSentExit) return;
             hasSentExit = true;
+            if (session.confineProfile) removeProfileFile(session.confineProfile);
             // Whatever the process printed on its way out must reach the client
             // BEFORE the exit frame, or a terminal shows an exited session with
             // its last line missing.
@@ -705,12 +732,14 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
               ok: true,
               ptyId: id,
               pid: pty.pid,
+              ...(confine ? { confined: true } : {}),
             }),
           );
           checkIdle();
         } catch (err) {
           // The bundle may have been replaced between the check above and the
           // spawn; a failure that coincides with staleness is reported as such.
+          if (confine) removeProfileFile(confine.profile);
           const staleAfter = isStale();
           socket.write(
             encodeControl({

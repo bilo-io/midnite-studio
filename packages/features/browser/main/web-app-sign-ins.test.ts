@@ -20,6 +20,7 @@ function fakeSession(cookies: FakeCookie[]) {
     setPermissionCheckHandler: vi.fn(),
     setDevicePermissionHandler: vi.fn(),
     setDisplayMediaRequestHandler: vi.fn(),
+    setSpellCheckerEnabled: vi.fn(),
     on: vi.fn(),
     clearStorageData: vi.fn(async () => {
       cookies.length = 0;

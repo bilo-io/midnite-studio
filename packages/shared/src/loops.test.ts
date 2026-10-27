@@ -9,6 +9,7 @@ import {
   LEGACY_LOOP_DAY_SETS,
   LOOP_FREQUENCIES,
   LOOP_MODELS,
+  reportedModelMatches,
   LOOP_WEEKDAYS,
   LoopDefinitionSchema,
   LoopFrequencySchema,
@@ -20,7 +21,6 @@ import {
   LOOP_AUTO_ROTATE,
   LOOP_SKILL_SLOT,
   LoopModifierSchema,
-  ROUTINE_PR_SKILL_TEMPLATE,
   composeLoopPrompt,
   loopModifierFragment,
   normaliseLoopSkill,
@@ -352,6 +352,10 @@ describe('LOOP_FREQUENCIES', () => {
   it('covers every id the schema accepts, so no stored pick renders as a raw token', () => {
     expect(LOOP_FREQUENCIES.map((f) => f.id)).toEqual(LoopFrequencySchema.options);
   });
+
+  it('offers the minute cadences fastest-first, straight after the neutral option', () => {
+    expect(LOOP_FREQUENCIES.slice(0, 6).map((f) => f.label)).toEqual(['Continuous', '1m', '2m', '5m', '10m', '15m']);
+  });
 });
 
 describe('LOOP_WEEKDAYS', () => {
@@ -594,16 +598,18 @@ describe('DEFAULT_LOOPS', () => {
     expect(patrol?.modifiers.find((m) => m.id === 'pr-feedback')?.defaultOn).toBe(false);
   });
 
-  it('puts Routine first on Patrol, on by default, ahead of the other task boxes', () => {
+  it('configures Approve routine PRs on Patrol in the run group, on by default as a switch', () => {
     const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
     const boxes = patrol.modifiers.filter((m) => m.control === 'checkbox');
-    expect(boxes.map((m) => m.id)).toEqual(['routine', 'pr-review', 'pr-feedback', 'security-review']);
-    expect(boxes.map((m) => m.label)).toEqual(['Routine', 'Review PRs', 'Reply to PRs', 'Security review']);
+    expect(boxes.map((m) => m.id)).toEqual(['pr-review', 'pr-feedback', 'security-review']);
+    expect(boxes.map((m) => m.label)).toEqual(['Review PRs', 'Reply to PRs', 'Security review']);
 
-    const routine = patrol.modifiers[0]!;
+    const routine = patrol.modifiers.find((m) => m.id === 'routine')!;
     expect(routine.id).toBe('routine');
-    expect(routine.group).toBe('tasks');
-    expect(routine.providesTask).toBe(true);
+    expect(routine.label).toBe('Approve routine PRs');
+    expect(routine.group).toBe('run');
+    expect(routine.control).toBe('switch');
+    expect(routine.providesTask).toBeUndefined();
     expect(routine.defaultOn).toBe(true);
     expect(routine.promptFragment).toBe(ROUTINE_PR_FRAGMENT);
   });
@@ -618,36 +624,42 @@ describe('DEFAULT_LOOPS', () => {
     expect(DEFAULT_LOOPS.flatMap((l) => l.modifiers).some((m) => m.label === 'Answer feedback')).toBe(false);
   });
 
-  it('scopes the Routine rule to the routine label and approves only without critical issues', () => {
+  it('approves only routine-labelled PRs, only without critical issues, and does not restrict the pass', () => {
     expect(ROUTINE_PR_FRAGMENT).toContain('`routine` label');
     expect(ROUTINE_PR_FRAGMENT).toMatch(/no critical issues, approve/);
     expect(ROUTINE_PR_FRAGMENT).toContain('"LGTM" or "🚀"');
     expect(ROUTINE_PR_FRAGMENT).toContain('do not approve');
-    expect(ROUTINE_PR_FRAGMENT).toContain('PRs without the `routine` label are unaffected');
+    // The label narrows what is approved, never what the pass looks at: the
+    // old "list the open PRs carrying the label" was read as the search.
+    expect(ROUTINE_PR_FRAGMENT).not.toMatch(/list the open PRs carrying/);
+    expect(ROUTINE_PR_FRAGMENT).toContain('Do not restrict reviews to `routine` PRs');
+    expect(ROUTINE_PR_FRAGMENT).toContain('review all PRs targeted by the rest of the prompt');
   });
 
-  it('carries the Routine approve rule on the Patrol line only when the box is on', () => {
+  it('carries the Routine approve rule on the Patrol line only when the switch is on', () => {
     const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
     const on = composeLoopPrompt(patrol.fallbackPrompt, patrol, { modifierIds: ['routine', 'pr-review'] });
     expect(on).toContain(ROUTINE_PR_FRAGMENT);
-    // Tasks emit in declaration order, so Routine leads the line.
-    expect(on.startsWith(`/loop ${ROUTINE_PR_FRAGMENT} /pr-review`)).toBe(true);
+    // Tasks emit first, then run rules:
+    expect(on).toBe(`/loop /pr-review ${ROUTINE_PR_FRAGMENT}`);
 
     const off = composeLoopPrompt(patrol.fallbackPrompt, patrol, { modifierIds: ['pr-review'] });
     expect(off).not.toContain(ROUTINE_PR_FRAGMENT);
     expect(off).not.toContain('routine');
   });
 
-  it('starts a fresh Patrol run with Routine and Review PRs ticked', () => {
+  it('starts a fresh Patrol run with Review PRs and Routine ticked', () => {
     // The composer's resolution order is run check ?? saved default ?? defaultOn,
-    // and `loopModifierDefaults` is sparse — so a profile saved before Routine
-    // existed has no entry for it and resolves to on, with no migration.
+    // and `loopModifierDefaults` is sparse.
     const patrol = DEFAULT_LOOPS.find((l) => l.id === 'watchdog')!;
-    const savedBeforeRoutine: Record<string, boolean> = { 'pr-review': true, 'pr-feedback': true };
-    const ticked = patrol.modifiers
-      .filter((m) => m.group === 'tasks' && (savedBeforeRoutine[m.id] ?? m.defaultOn))
+    const tasks = patrol.modifiers
+      .filter((m) => m.group === 'tasks' && m.defaultOn)
       .map((m) => m.id);
-    expect(ticked).toEqual(['routine', 'pr-review', 'pr-feedback']);
+    expect(tasks).toEqual(['pr-review']);
+    const runRules = patrol.modifiers
+      .filter((m) => m.group === 'run' && m.defaultOn)
+      .map((m) => m.id);
+    expect(runRules).toEqual(['routine', 'worktree-only']);
   });
 
   it('has Triage only override the Routine approval rule too', () => {
@@ -686,7 +698,6 @@ describe('DEFAULT_LOOPS', () => {
     // modifier and marked none of them would be unstartable.
     for (const entry of DEFAULT_LOOPS.filter((l) => l.requiresModifier)) {
       expect(entry.modifiers.filter((m) => m.providesTask).map((m) => m.id), entry.id).toEqual([
-        'routine',
         'pr-review',
         'pr-feedback',
         'security-review',
@@ -819,7 +830,6 @@ describe('skill field — skillTemplate / loopModifierFragment', () => {
         'medic:triage-only',
         'watchdog:pr-feedback',
         'watchdog:pr-review',
-        'watchdog:routine',
         'watchdog:security-review',
         'watchdog:triage-only',
       ].sort(),
@@ -860,7 +870,7 @@ describe('skill field — skillTemplate / loopModifierFragment', () => {
     expect(loopModifierFragment(review, '')).toBe('/pr-review');
     expect(loopModifierFragment(review)).toBe('/pr-review');
     expect(loopModifierFragment(modifier('watchdog', 'routine'), '/ekko-pr-review')).toBe(
-      ROUTINE_PR_SKILL_TEMPLATE.replace(LOOP_SKILL_SLOT, '/ekko-pr-review'),
+      ROUTINE_PR_FRAGMENT,
     );
     expect(loopModifierFragment(modifier('watchdog', 'triage-only'), 'midnite-triage')).toContain(
       'run /midnite-triage instead',
@@ -942,5 +952,24 @@ describe('reviewsPrs', () => {
   it('defaults to false for a loop that does not declare it', () => {
     const parsed = LoopDefinitionSchema.parse({ ...DEFAULT_LOOPS[0]!, reviewsPrs: undefined });
     expect(parsed.reviewsPrs).toBe(false);
+  });
+});
+
+describe('reportedModelMatches (Phase 121 Theme I)', () => {
+  it('accepts the pinned id, a dated snapshot of it and a context suffix', () => {
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5')).toBe(true);
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5-20261001')).toBe(true);
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5[1m]')).toBe(true);
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5-latest')).toBe(true);
+  });
+
+  it('rejects another model, including a longer family name that merely starts with the pin', () => {
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-opus-5-5')).toBe(false);
+    expect(reportedModelMatches('claude', 'opus-5', 'claude-sonnet-5')).toBe(false);
+  });
+
+  it('has nothing to compare for the default model or an engine with no model flag', () => {
+    expect(reportedModelMatches('claude', 'default', 'anything')).toBe(true);
+    expect(reportedModelMatches('codex', 'opus-5', 'gpt-x')).toBe(true);
   });
 });

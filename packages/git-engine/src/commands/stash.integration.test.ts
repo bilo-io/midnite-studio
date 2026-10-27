@@ -236,6 +236,19 @@ describe('readStashDetail', () => {
     expect(detail?.untracked.map((f) => f.path)).toEqual(['new.txt']);
   });
 
+  it('still reports the untracked part when log.showRoot is off', async () => {
+    // The untracked part is a ROOT commit; a bare `git show` of one prints no
+    // diff under `log.showRoot=false`, which emptied this list.
+    await repo.commitFile('a.txt', 'one\n', 'base');
+    await repo.writeFile('new.txt', 'x\ny\n');
+    await stashPush(repo.path, { includeUntracked: true });
+    await repo.git(['config', 'log.showRoot', 'false']);
+
+    const detail = await readStashDetail(repo.path, 'stash@{0}');
+    expect(detail?.untracked).toEqual([{ path: 'new.txt', oldPath: null, insertions: 2, deletions: 0 }]);
+    expect((await readStashFileDiff(repo.path, 'stash@{0}', 'untracked', 'new.txt'))?.insertions).toBe(2);
+  });
+
   it('returns null for a selector with no matching stash', async () => {
     await repo.commitFile('a.txt', 'one\n', 'base');
     expect(await readStashDetail(repo.path, 'stash@{0}')).toBeNull();

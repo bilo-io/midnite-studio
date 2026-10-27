@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-media-model",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "Media ▸ Models as a feature (Phase 113 Theme S): the 3D editor tab composed through media-core's registry by Gamer and Studio.",
   "sideEffects": false,

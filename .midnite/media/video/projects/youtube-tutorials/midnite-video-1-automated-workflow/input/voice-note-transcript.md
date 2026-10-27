@@ -1,0 +1,23 @@
+# Voice note — how midnite skills, loops and the general workflow work
+
+_Transcribed locally with whisper-large-v3-turbo (5:47). Lightly punctuated; "midnight" → "midnite", "clawed" → "Claude". [?] marks words the model was unsure of._
+
+Yeah, I get you. It's more about the sort of mental model around how I'm managing this, and the workflow itself. I'll get you a high-level thing — I'm just too lazy right now.
+
+But effectively, what I use is a lot of different skills, and those are very key. But then I'll also use loops. So I can have one loop that basically runs an ideation skill, which interviews me, asking me what to do next. And it always gives me options, so basically everything's just multiple choice now. If I want to build a new feature, I let it come up with four different options for what we should add next, and then I pick one, and then it asks me for each one. It's like planning mode, basically, but on crack. And then it writes a plan, and that gets stored as a markdown file in my repo. So that's what the ideation skill does.
+
+The creation skill picks up a task from the backlog. And there's also a refinement skill — so you can have a document written, and then another one to refine the doc so a dumber model can execute it, which is often good. And then you have the create skill side. That was just my OCD — ideate and create — which picks up the tasks. Then I use loops; I think I mentioned that already.
+
+And then I created a swarm skill. Everything's prefixed with midnite, but that's beside the point. The swarm skill lets me choose a pickup, or actually do whatever, but I have to specify whether it should work in worktrees. It then spawns sub-agents, and those sub-agents just go and — sometimes they talk to each other — but they basically have that orchestrator. That's your main session, the one I'm looking at the whole time. So basically with Claude, I just let a smart model manage the orchestration, and it does the work on the smaller sub-agents, ideally with faster models — it dynamically picks which one to use. That's why you need to refine your plan: so that you basically use fewer tokens. That's the ultimate thing — I want to extend my token usage as far as possible. So that's why I do that.
+
+I don't know if there's anything else right now that I can think of, but yeah — all these tools and apps, those are just a fucking front end for a terminal. The key workflow is what I just explained. And I want to write it up properly — maybe create a fucking YouTube video for it. I could probably do that and send it to Night Store [?], if I have enough usage.
+
+What I basically do is really check up on what Anthropic's doing every month or so — you know, the insider devs at Anthropic [?] — although now they're automating themselves away too. So yeah, that's it. Very unstructured. But in the last two months — over a million — I didn't write a single line of code, but my laptop wrote over a million lines of code.
+
+There are also obviously review agents, and I keep advancing the system — like having different models review, because Claude itself recommended having different models review.
+
+Oh, and in the midnite swarm skill, the other thing I do — and you can always add parameters; if you forget something, it asks you — is this: Claude has a command. You've got compact, but then there's this command I discovered recently called auto-compact. It can only compact the orchestrator session — I don't think it can run compact on the sub-agents; I tried that — but it makes sense on the orchestrator anyway. So whenever it gets to a certain percentage of its context window — I usually go between 20 and 40 percent — it can safely auto-compact.
+
+And then sub-agents also have auto-rotation. The orchestrator does that: it watches the sub-agents, and I don't let them get beyond 500,000 tokens — so 50% of the context window. The sub-agent then writes onto a scratchpad — everything happens in worktrees — it writes onto a SCRATCHPAD.md just what it thought, so that if my fucking laptop crashes and I have to force-restart it because my RAM is being consumed — which is my biggest problem now, compute — none of that work is lost. With `claude --resume` or whatever, you can resume a session post-restart, and then the orchestrator will see what's going on. So that's how the session can basically keep going forever, as long as I have work to do and enough usage left for the week.
+
+So basically I just built a token factory — a token-usage-optimised development environment. That's the key thing. But I'm pretty sure a five-minute YouTube video would have explained this much better, so I'll just use this as the prompt — this whole voice note.

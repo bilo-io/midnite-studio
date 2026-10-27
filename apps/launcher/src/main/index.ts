@@ -1,5 +1,6 @@
 import { join, resolve } from 'node:path';
 
+import { createLinkRateLimiter } from '@midnite/studio-shared/page-deep-link';
 import { app, BrowserWindow, Menu, shell } from 'electron';
 
 import { LAUNCHER_CHANNELS } from '../common/bridge';
@@ -13,8 +14,9 @@ import { identityForApp, productionBundleDeps } from './bundles/production';
 import { updateInstalledBundles } from './bundles/updates';
 import { fetchCatalog } from './feed';
 import { applyDevIdentity, pinDataDir } from './identity';
-import { registerIpc, takePendingApp } from './ipc';
+import { registerIpc, takePendingApp, type SelfIpc } from './ipc';
 import { handleMidniteLink, linkFromArgv } from './router';
+import { launcherSelfStatus, startSelfUpdate } from './self-update';
 import { findStudio } from './studio';
 import { isAdHocSigned, loadAutoUpdater, runLauncherUpdates } from './updater';
 
@@ -96,6 +98,9 @@ function bringForward(): void {
   mainWindow.focus();
 }
 
+/** Phase 117 Theme G: at most one `midnite://open?run=…` per 10 s reaches Studio's run confirm. */
+const runLimiter = createLinkRateLimiter();
+
 function openLink(raw: string): void {
   if (!ready) {
     pendingLink = raw;
@@ -103,7 +108,11 @@ function openLink(raw: string): void {
   }
   void handleMidniteLink(
     raw,
-    { findAppBundle: lockstepBundleFinder(bundleRoots().installRoot, app.getVersion()), isStudioInstalled: async () => (await findStudio()) !== null },
+    {
+      findAppBundle: lockstepBundleFinder(bundleRoots().installRoot, app.getVersion()),
+      isStudioInstalled: async () => (await findStudio()) !== null,
+      runLimiter,
+    },
     {
       openBundle: (path) => shell.openPath(path).then((error) => (error === '' ? undefined : Promise.reject(new Error(error)))),
       openStudioUrl: (url) => shell.openExternal(url),
@@ -175,6 +184,15 @@ if (!app.requestSingleInstanceLock()) {
         ]),
       );
     }
+    const selfIpc: SelfIpc = {
+      status: () => launcherSelfStatus({ current: app.getVersion(), isPackaged: app.isPackaged }),
+      update: () =>
+        startSelfUpdate({
+          isPackaged: app.isPackaged,
+          logPath: join(app.getPath('logs'), 'self-update.log'),
+          onFailed: (message) => mainWindow?.webContents.send(LAUNCHER_CHANNELS.selfUpdateFailed, message),
+        }),
+    };
     registerIpc(() => mainWindow, {
       ops: createAppsOps({
         runtimeVersion: app.getVersion(),
@@ -189,7 +207,7 @@ if (!app.requestSingleInstanceLock()) {
         onProgress: (event) => mainWindow?.webContents.send(LAUNCHER_CHANNELS.appProgress, event),
       }),
       findBundle: (id) => lockstepBundleFinder(bundleRoots().installRoot, app.getVersion())(id),
-    });
+    }, selfIpc);
     createWindow();
     ready = true;
     const first = pendingLink ?? linkFromArgv(process.argv);

@@ -20,7 +20,7 @@ export const AGENTS_APP = {
   accent: '#8b5cf6',
   home: 'chats',
   features: [chatsManifest.feature, councilsManifest.feature, workflowsManifest.feature, modelsManifest.feature, 'mcp-tools'],
-  views: ['chats', 'councils', 'workflows', 'models', 'tools'],
+  views: ['chats', 'councils', 'workflows', 'models', 'tools', 'audit'],
 } as const;
 
 export type AgentsApp = typeof AGENTS_APP;

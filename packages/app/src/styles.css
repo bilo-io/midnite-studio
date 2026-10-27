@@ -1704,6 +1704,30 @@ html[data-motion='reduced'] .landing-slide-in {
 }
 
 /*
+ * A custom loop (user-authored, `shared/src/custom-loops.ts`) has no row of
+ * its own here — its hue is the author's, so `loop-spectrum.ts` computes the
+ * arc and the five stops and sets them inline beside `data-fab-custom`. The
+ * stops are plain (inherited) custom properties and need nothing more; the
+ * arc pair is registered `inherits: false`, so it arrives as the unregistered
+ * `--fab-custom-arc-*` twins and is mapped back here on exactly the selectors
+ * the built-in rows above name, pseudo-elements included. The tab arc is
+ * matched on its OWN attribute (the arc span carries `data-fab-custom` too)
+ * rather than as a descendant, so a custom panel host can never repaint a
+ * built-in tab's arc, and placed after the built-in rows so it wins the tie
+ * against the host's descendant rule when a built-in tab is the active one.
+ */
+[data-fab-custom],
+[data-fab-custom]::before,
+[data-fab-custom]::after,
+[data-fab-custom] .loop-run-glow,
+.tab-loop-active-arc[data-fab-custom],
+.tab-loop-active-arc[data-fab-custom]::before,
+.tab-loop-active-arc[data-fab-custom]::after {
+  --fab-arc-from: var(--fab-custom-arc-from, 0deg);
+  --fab-arc-to: var(--fab-custom-arc-to, 360deg);
+}
+
+/*
  * The same six arcs again, sampled — the sub-spectrum as five *colours*
  * rather than two angles.
  *
@@ -4522,14 +4546,14 @@ html[data-motion='reduced'] .graph-badge-glow {
  * (features/graph/graph-row.tsx) picks the tier; these are the layers it
  * composes, each dropped or muted in turn:
  *
- *   < 6m     shimmer + lane ink         + text pulse         + row glow
- *   6m-10m             lane ink         + text pulse         + row glow
- *   10m-20m            lane ink         + text pulse
- *   20m-30m            lane ink (muted) + text pulse (muted)
- *   >= 30m   nothing
+ *   < 12m    shimmer + lane ink         + text pulse         + row glow
+ *   12m-20m            lane ink         + text pulse         + row glow
+ *   20m-40m            lane ink         + text pulse
+ *   40m-60m            lane ink (muted) + text pulse (muted)
+ *   >= 60m   nothing
  *
- * The row glow is the layer 'fading' (10m-20m) drops; the lane-coloured text
- * pulse is the one layer that survives all the way to 'muted' (20m-30m),
+ * The row glow is the layer 'fading' (20m-40m) drops; the lane-coloured text
+ * pulse is the one layer that survives all the way to 'muted' (40m-60m),
  * just turned down there rather than removed — `.commit-text-lane-muted` and
  * `.commit-text-pulse-muted` are the same rules as their un-muted siblings
  * with lower colour alpha and a narrower opacity swing.
@@ -4552,7 +4576,7 @@ html[data-motion='reduced'] .graph-badge-glow {
   color: hsl(var(--lane-h) var(--lane-s) var(--lane-ink-l));
 }
 
-/* 'muted' (20m-30m): the same rule, alpha'd down rather than dropped — the
+/* 'muted' (40m-60m): the same rule, alpha'd down rather than dropped — the
  * branch-colour highlight is still there, just quieter than `.commit-text-lane`. */
 .commit-text-lane-muted {
   color: hsl(var(--lane-h) var(--lane-s) var(--lane-ink-l) / 0.6);
@@ -4580,7 +4604,7 @@ html[data-motion='reduced'] .graph-badge-glow {
   animation: commit-text-pulse 2s ease-in-out infinite paused;
 }
 
-/* 'muted' (20m-30m): the same pulse, both dimensions turned down — a
+/* 'muted' (40m-60m): the same pulse, both dimensions turned down — a
  * narrower opacity swing (0.82-1 rather than 0.6-1) and roughly half the
  * colour alpha at every stop, so the branch highlight is still visibly
  * pulsing but reads as settling rather than freshly landed. */

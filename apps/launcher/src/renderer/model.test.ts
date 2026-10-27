@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { APPS } from '../common/catalog';
-import { appNumber, filterCounts, matchesQuery, visibleSections } from './model';
+import { appNumber, filterCounts, matchesQuery, removableApps, removalSummary, visibleSections } from './model';
 
 const app = (id: string) => APPS.find((a) => a.id === id)!;
 
@@ -55,5 +55,31 @@ describe('launcher model', () => {
       'Monitor',
       'Vault',
     ]);
+  });
+
+  it('removes Studio and own-bundle apps, never a Studio-hosted tile, Studio last', () => {
+    const removable = removableApps((a) =>
+      a.id === 'studio'
+        ? { state: 'update', source: 'studio' }
+        : a.id === 'cleaner'
+          ? { state: 'installed', source: 'bundle' }
+          : a.id === 'vault'
+            ? { state: 'not-installed', source: 'bundle' }
+            : { state: 'installed', source: 'studio' },
+    );
+    expect(removable.map((a) => a.id)).toEqual(['cleaner', 'studio']);
+    expect(removableApps(() => ({ state: 'not-installed', source: 'bundle' }))).toEqual([]);
+  });
+
+  it('summarises a bulk removal, naming each skipped app and why', () => {
+    expect(removalSummary([{ app: app('studio'), result: { ok: true } }])).toEqual({ message: 'Moved 1 app to the Trash.', tone: 'info' });
+    const partial = removalSummary([
+      { app: app('cleaner'), result: { ok: true } },
+      { app: app('studio'), result: { ok: false, message: 'Midnite Studio is running — quit it first.' } },
+    ]);
+    expect(partial.tone).toBe('error');
+    expect(partial.message).toBe(
+      'Moved 1 of 2 apps to the Trash. Skipped — Midnite Studio: Midnite Studio is running — quit it first.',
+    );
   });
 });

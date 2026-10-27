@@ -11,11 +11,14 @@ import {
   protocol,
   shell,
   utilityProcess,
+  clipboard,
+  Menu,
+  type MenuItemConstructorOptions,
 } from 'electron';
 
 import type { CaptureWorkerHandle } from '@midnite/studio-feature-media-map/main';
 import type { TerrainWorkerHandle } from '@midnite/studio-feature-media-terrain/main';
-import { guardAppWindow } from '@midnite/studio-runtime';
+import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, MSTUDIO_GAME_SCHEME, MSTUDIO_TILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
 import { createGamerAgentHost, type GamerAgentHost } from './agent-host';
@@ -23,6 +26,7 @@ import { gamerMediaRoot, registerGamerHandlers, type GamerServices } from './con
 import { installGamerFileProtocol } from './file-protocol';
 import { asGameWindow, createGamerGameElectron, gamePageContents } from './game-electron';
 import { GAMER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, gamerUserData, gamerVaultDirectory, isSmoke } from './identity';
+import { registerReport, reportMenuTemplate } from './report';
 import { gamerPairing } from './pairing';
 
 /**
@@ -35,6 +39,7 @@ import { gamerPairing } from './pairing';
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
+let crashLog: LogSink | null = null;
 let services: GamerServices | null = null;
 let agentHost: GamerAgentHost | null = null;
 
@@ -89,6 +94,32 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // The runtime's crash-log sink (NDJSON, rotated, redacted) — what Report an Issue reads.
+    crashLog = createFileSink({ dir: app.getPath('userData'), name: 'gamer.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => crashLog?.write(level, message));
+    crashLog.write('info', `${GAMER_NAME} ${app.getVersion()} started`);
+    const sendToWindow = (channel: string, payload: unknown): void => {
+      if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
+    };
+    registerReport(
+      { ipcMain, trashItem: (path) => shell.trashItem(path), send: sendToWindow },
+      {
+        sink: () => crashLog,
+        homeDir: () => app.getPath('home'),
+        bootLine: () => `${GAMER_NAME} ${app.getVersion()}`,
+        openExternal: (url) => shell.openExternal(url),
+        writeClipboard: (text) => clipboard.writeText(text),
+        revealPath: (path) => shell.showItemInFolder(path),
+      },
+    );
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        reportMenuTemplate((channel, payload) => {
+          const target = BrowserWindow.getFocusedWindow() ?? win;
+          if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+        }) as MenuItemConstructorOptions[],
+      ),
+    );
     const userData = app.getPath('userData');
     const mediaRoot = gamerMediaRoot(userData);
     // Terrain's PBR tiles ship beside the bundle; the feature finds them through this override.

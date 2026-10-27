@@ -3,14 +3,27 @@ import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
 
 import { LIGHT } from "../../../shared/brand";
 import { monoFontFamily } from "../../../shared/fonts";
-import { LiquidWipe } from "../../../shared/LiquidWipe";
+import { MarkBug, OnStage, StageAtmosphere } from "../../../shared/golive/hud";
+import {
+  type Approach,
+  Breath,
+  Claim,
+  LoopCard,
+  Lockup,
+  Outro,
+  Slugs,
+  StageWipes,
+  Statement,
+} from "../../../shared/golive/parts";
+import { StageProvider } from "../../../shared/golive/stage";
 import { MidniteWordmark } from "../../../shared/MidniteWordmark";
+import { ChapterCard, Scene, type SceneSpec } from "../../../shared/neon-hud/Scene";
+import { Say } from "../../../shared/neon-hud/Say";
 import { Particles } from "../../../shared/Particles";
 import { SmokeStreak } from "../../../shared/SmokeStreak";
-import { T } from "./beats";
+import { BAR, BEAT, T } from "./beats";
 import { CONTENT } from "./content";
-import { type Approach, Breath, Claim, LoopCard, Lockup, Outro, Slugs, Statement } from "./parts";
-import { WIPES, themeAt, themeMixAt, wipeAt, wipeProgress } from "./wipes";
+import { STAGE, themeAt, themeMixAt, wipeAt, wipeProgress } from "./wipes";
 
 /**
  * The go-live promo, as a template: its whole grammar in fifteen bars, with a
@@ -21,10 +34,19 @@ import { WIPES, themeAt, themeMixAt, wipeAt, wipeProgress } from "./wipes";
  * sequences: what lands on which beat. What it says is in `content.ts`; when it
  * lands is in `beats.ts`; which stage it lands on is in `wipes.ts`.
  *
+ * Since the neon-HUD kit joined it, the showcase has a HUD act after the late
+ * claim: a chapter card and one scene per diagram kind, turning the stage over
+ * every bar so each is seen on both pages. The kit's colours come from
+ * `OnStage` (`shared/golive/hud.tsx`), which hands it midnite's skin at the
+ * stage's own mix.
+ *
  * `annotate` draws the documentation over the picture: the section, its stage,
  * the wipe in flight, and a timeline of every section coloured by theme. The
  * `TemplateGolivePromoAnnotated` composition is this with it on.
  */
+
+/** The HUD act's scenes, widened so the optional `say` reads the same on every one. */
+const HUD: readonly (SceneSpec & { say?: string })[] = CONTENT.hud;
 
 type Section = { id: string; from: number; to: number; title: string; note: string };
 
@@ -41,7 +63,15 @@ export const SECTIONS: readonly Section[] = [
   { id: "breath", from: T.breath, to: T.drop, title: "Breath", note: "Motes accelerate in and all reach the mark before the drop." },
   { id: "drop", from: T.drop, to: T.loops[0], title: "Drop", note: "SHORT wipe to dark + shimmer across the stage. Slugs typed." },
   { id: "loops", from: T.loops[0], to: T.late, title: "Colour cards", note: "One every half bar, each in its own colour, with a wash." },
-  { id: "late", from: T.late, to: T.connect, title: "Claim · light again", note: "The stage can turn over inside an act, too." },
+  { id: "late", from: T.late, to: T.chapter, title: "Claim · light again", note: "The stage can turn over inside an act, too." },
+  { id: "chapter", from: T.chapter, to: T.hud[0], title: "HUD · chapter card", note: "The neon-HUD kit's chapter card, in midnite's skin, on dark." },
+  ...HUD.map((h, i) => ({
+    id: `hud-${i}`,
+    from: T.hud[i],
+    to: i < T.hud.length - 1 ? T.hud[i + 1] : T.connect,
+    title: `HUD · ${h.visual.kind}`,
+    note: `Headline + ${h.visual.kind}${h.say ? " + say line" : ""}, on ${i % 2 === 0 ? "light" : "dark"}.`,
+  })),
   { id: "connect", from: T.connect, to: T.end, title: "Outro · connect with", note: "Wipe to dark. Lower case, titles' font. Names shimmer in turn." },
   { id: "end", from: T.end, to: T.duration, title: "Outro · lockup", note: "The film ends on the lockup — rhymes with the intro." },
 ];
@@ -49,6 +79,7 @@ export const SECTIONS: readonly Section[] = [
 const APPROACH: readonly Approach[] = ["top", "right", "bottom", "left"];
 
 export const Template: React.FC<{ annotate?: boolean }> = ({ annotate = false }) => (
+  <StageProvider stage={STAGE}>
   <AbsoluteFill style={{ backgroundColor: "#000" }}>
     <Backdrop />
 
@@ -109,9 +140,33 @@ export const Template: React.FC<{ annotate?: boolean }> = ({ annotate = false })
       );
     })}
 
-    <Sequence from={T.late} durationInFrames={T.connect - T.late} name="Late claim">
+    <Sequence from={T.late} durationInFrames={T.chapter - T.late} name="Late claim">
       <Claim title={CONTENT.late.title} shot={CONTENT.late.shot} at={T.late} theme={themeAt(T.late)} from="left" />
     </Sequence>
+
+    <Sequence from={T.chapter} durationInFrames={T.connect - T.chapter} name="HUD atmosphere">
+      <StageAtmosphere at={T.chapter} />
+      <MarkBug at={T.chapter} />
+    </Sequence>
+
+    <Sequence from={T.chapter} durationInFrames={T.hud[0] - T.chapter} name="HUD chapter">
+      <OnStage at={T.chapter}>
+        <ChapterCard index={1} title={CONTENT.chapter} beat={BEAT} beats={4} />
+      </OnStage>
+    </Sequence>
+
+    {HUD.map((h, i) => {
+      const at = T.hud[i];
+      const until = i < T.hud.length - 1 ? T.hud[i + 1] : T.connect;
+      return (
+        <Sequence key={i} from={at} durationInFrames={until - at} name={`HUD ${i + 1} · ${h.visual.kind}`}>
+          <OnStage at={at}>
+            <Scene {...h} beat={BEAT} beats={4} seed={`tpl-hud-${i}`} />
+            {h.say ? <Say text={h.say} beat={BEAT} beats={4} from={2.5} /> : null}
+          </OnStage>
+        </Sequence>
+      );
+    })}
 
     <Sequence from={T.connect} durationInFrames={T.duration - T.connect} name="Outro">
       <Outro
@@ -125,6 +180,7 @@ export const Template: React.FC<{ annotate?: boolean }> = ({ annotate = false })
 
     {annotate ? <Annotations /> : null}
   </AbsoluteFill>
+  </StageProvider>
 );
 
 /**
@@ -140,18 +196,10 @@ const Backdrop: React.FC = () => {
     extrapolateRight: "clamp",
   });
   return (
-    <AbsoluteFill>
-      {WIPES.map((wipe) => (
-        <Fragment key={wipe.id}>
-          <LiquidWipe
-            id={wipe.id}
-            progress={wipeProgress(frame, wipe)}
-            background={wipe.background}
-            direction={wipe.direction}
-            accent={wipe.accent}
-            seed={wipe.seed}
-          />
-          {wipe.id === "tpl-wipe-statement-light" && glow > 0 ? (
+    <StageWipes
+      over={{
+        "tpl-wipe-statement-light":
+          glow > 0 ? (
             <AbsoluteFill style={{ opacity: glow }}>
               <AbsoluteFill
                 style={{
@@ -162,10 +210,9 @@ const Backdrop: React.FC = () => {
               />
               <Particles count={18} theme="light" intensity={0.5} speed={1.15} />
             </AbsoluteFill>
-          ) : null}
-        </Fragment>
-      ))}
-    </AbsoluteFill>
+          ) : null,
+      }}
+    />
   );
 };
 
@@ -194,7 +241,7 @@ const Annotations: React.FC = () => {
   const section = SECTIONS.find((s) => frame >= s.from && frame < s.to) ?? SECTIONS[SECTIONS.length - 1];
   const wipe = wipeAt(frame);
   const mix = themeMixAt(frame, 960);
-  const bar = (frame / 51.0808).toFixed(2);
+  const bar = (frame / BAR).toFixed(2);
 
   const chip: React.CSSProperties = {
     fontFamily: monoFontFamily,

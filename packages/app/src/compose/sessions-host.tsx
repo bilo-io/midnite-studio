@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { AgentAuditView } from '@midnite/studio-feature-mcp-tools/renderer';
 import { useWorkflowRevealStore, useWorkflows } from '@midnite/studio-feature-workflows/renderer';
 import type { ManagedSession, SessionsHost } from '@midnite/studio-feature-sessions/renderer';
 import { useGraphStore } from '@midnite/studio-frame';
@@ -107,6 +108,7 @@ export const STUDIO_SESSIONS_HOST = {
   resolveAgentIcon,
   Tooltip,
   MultiSelectMenu,
+  AuditPane: AgentAuditView,
   history: {
     useHistory: useSessionHistory,
     useRefresh: useRefreshSessionHistory,

@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
@@ -9,6 +9,17 @@ import { CREATOR_REPO_ID as MAIN_REPO_ID } from '../main/context';
 import { CREATOR_REPO_ID } from './compose/creator-host';
 import { CreatorApp } from './creator-app';
 import { CREATOR_APP, CREATOR_TABS } from './creator-manifest';
+
+/** Report an Issue's slice of the bridge: only `onOpen` is read until the dialog opens (the feature's own tests cover the rest). */
+let openReport: (() => void) | null = null;
+const REPORT_BRIDGE = {
+  onOpen: vi.fn((handler: () => void) => {
+    openReport = handler;
+    return () => undefined;
+  }),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+  bundle: vi.fn(async () => ({ text: '' })),
+};
 
 const ok = <T,>(value: T) => ({ ok: true as const, value });
 const media = {
@@ -93,7 +104,7 @@ const video = {
 
 beforeEach(() => {
   localStorage.clear();
-  window.midniteStudio = { media, video } as unknown as typeof window.midniteStudio;
+  window.midniteStudio = { report: REPORT_BRIDGE, media, video } as unknown as typeof window.midniteStudio;
 });
 
 afterEach(() => {
@@ -168,5 +179,16 @@ describe('Creator home view', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Presenting plan.md' })).toBeNull());
     expect(useSlidesStore.getState().deck).toBeNull();
+  });
+});
+
+describe('Report an Issue', () => {
+  it("mounts the report feature's host: main's report:open event opens its dialog", async () => {
+    openReport = null;
+    // The suite bridge already carries `report` (see beforeEach).
+    render(<CreatorApp />);
+    await waitFor(() => expect(openReport).not.toBeNull());
+    act(() => openReport?.());
+    expect(await screen.findByTestId('report-issue-dialog')).toBeDefined();
   });
 });

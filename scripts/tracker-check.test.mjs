@@ -4,7 +4,6 @@ import {
   computeProgress,
   fixTrackerIndex,
   isExcludedItem,
-  parseIndex,
   parsePhaseDoc,
   runTrackerChecks,
 } from './tracker-check.mjs';

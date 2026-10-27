@@ -1,8 +1,8 @@
 {
   "name": "@midnite/app-cleaner",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
-  "description": "Midnite Cleaner \u2014 the workspace optimizer as its own app: scan memory, GPU and storage use and reclaim space.",
+  "description": "Midnite Cleaner — the workspace optimizer as its own app: scan memory, GPU and storage use and reclaim space.",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -13,6 +13,7 @@
   "dependencies": {
     "@bilo-io/ui": "0.1.0",
     "@midnite/studio-feature-optimizer": "workspace:*",
+    "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
@@ -29,7 +30,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "electron": "^41.0.0",
+    "electron": "^42.11.5",
     "esbuild": "^0.28.0",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.49",

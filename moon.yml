@@ -62,10 +62,20 @@ tasks:
     options:
       cache: false
 
-  # electron-freshness (Phase 91 Theme I): warns, never fails, when the pinned Electron
-  # major is outside the supported three.
+  # electron-freshness (Phase 91 Theme I): warns, never fails, when a pinned Electron
+  # major (Studio's, the launcher's) is outside the supported three.
   electron-freshness:
     command: 'node scripts/electron-freshness.mjs'
+    options:
+      cache: false
+
+  # electron-freshness-strict (Phase 117 Theme A): the same check as a gate — exits 1 when the
+  # launcher's pin (the runtime every app bundle runs on) is outside the window; Studio's stays a
+  # warning. `app-browser:dist` and release.yml's Browser bundle job run it: a browser cannot ship on
+  # a Chromium with no security backports. With no release index (offline, 429) strict exits 1 — it
+  # needs a verdict; the warn-only `electron-freshness` still skips with a notice.
+  electron-freshness-strict:
+    command: 'node scripts/electron-freshness.mjs --strict'
     options:
       cache: false
 
@@ -132,6 +142,28 @@ tasks:
   # duration bounds.
   e2e-budget:
     command: 'node scripts/e2e-budget.mjs'
+    options:
+      cache: false
+
+  # test-node (Phase 116 Theme A): workspace-level Vitest multi-project run
+  # covering all 35 node-portable packages plus scripts/**/*.test.mjs in a single
+  # shared process pool, cutting gate-node from 35 cold Vite boots to 1.
+  test-node:
+    command: 'pnpm exec vitest run --config vitest.node-gate.config.ts'
+    options:
+      cache: false
+
+  # lint-all (Phase 116 Theme A): single-pass eslint across the entire workspace
+  # with persistent caching, replacing 36 sequential eslint invocations.
+  lint-all:
+    command: 'pnpm exec eslint . --cache --cache-location .moon/cache/eslint/'
+    options:
+      cache: false
+
+  # typecheck-node (Phase 116 Theme A): batched parallel tsc --noEmit runner
+  # covering the 36 node-portable packages without moon's 36-task spawn tax.
+  typecheck-node:
+    command: 'node scripts/typecheck-node.mjs'
     options:
       cache: false
 

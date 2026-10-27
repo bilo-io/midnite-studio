@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { optimizerManifest } from '@midnite/studio-feature-optimizer/main';
+import { reportManifest } from '@midnite/studio-feature-report/main';
 import { CHANNELS } from '@midnite/studio-shared';
 
 import { registerCleanerHandlers, type CleanerElectron } from './context';
@@ -14,6 +15,7 @@ function fake() {
   const trashItem = vi.fn(async () => undefined);
   const el: CleanerElectron = {
     ipcMain: { handle: (channel, listener) => void handlers.set(channel, listener), on: () => undefined },
+    report: { sink: () => null, homeDir: () => '/home', openExternal: () => undefined, writeClipboard: () => undefined, revealPath: () => undefined },
     trashItem,
     send,
     pickDirectory: async () => '/picked',
@@ -40,6 +42,8 @@ describe('registerCleanerHandlers', () => {
     const { handlers } = fake();
     const allowed = new Set<string>([
       ...optimizerManifest.ipc,
+      ...reportManifest.ipc,
+      ...reportManifest.sends,
       CHANNELS.optimizerTrashSummary,
       CHANNELS.optimizerTrashEmpty,
       CHANNELS.repoPickDirectory,

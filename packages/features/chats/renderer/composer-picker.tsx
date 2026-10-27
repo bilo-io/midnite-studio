@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { LuFileText, LuSparkles } from 'react-icons/lu';
+import { LuFileText, LuSparkles, LuTriangleAlert } from 'react-icons/lu';
 
 import { splitHighlight, type FileMatch, type MatchRange, type PickerKind, type SkillMatch } from './composer-tokens';
 
@@ -12,15 +12,25 @@ import { splitHighlight, type FileMatch, type MatchRange, type PickerKind, type 
  * the field and close the picker before the click lands.
  */
 
-export type PickerRow = { key: string; title: string; titleRange: MatchRange | null; subtitle: string; subtitleRange: MatchRange | null };
+export type PickerRow = {
+  key: string;
+  title: string;
+  titleRange: MatchRange | null;
+  subtitle: string;
+  subtitleRange: MatchRange | null;
+  warning?: string | undefined;
+};
 
 export function skillRows(matches: readonly SkillMatch[]): PickerRow[] {
   return matches.map(({ skill, range }) => ({
     key: skill.name,
     title: skill.name,
     titleRange: range,
-    subtitle: skill.description || (skill.scope === 'plugin' ? 'Plugin skill' : skill.scope === 'user' ? 'Your skill' : 'Project skill'),
+    subtitle: skill.warning
+      ? `⚠️ ${skill.warning}`
+      : skill.description || (skill.scope === 'plugin' ? 'Plugin skill' : skill.scope === 'user' ? 'Your skill' : 'Project skill'),
     subtitleRange: null,
+    warning: skill.warning,
   }));
 }
 
@@ -97,18 +107,24 @@ export function ComposerPicker({
               role="option"
               aria-selected={index === active}
               data-testid="chat-picker-option"
+              data-has-warning={Boolean(row.warning)}
+              title={row.warning ? `Security Warning: ${row.warning}` : undefined}
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={() => onHover(index)}
               onClick={() => onPick(index)}
               className={`flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 ${index === active ? 'bg-accent text-accent-foreground' : ''}`}
             >
-              <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {row.warning ? (
+                <LuTriangleAlert aria-hidden className="h-3.5 w-3.5 shrink-0 text-amber-500" data-testid="chat-skill-warning-glyph" />
+              ) : (
+                <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              )}
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xs">
+                <div className="flex items-center gap-1.5 truncate text-xs">
                   {kind === 'skill' ? <span className="text-muted-foreground">/</span> : null}
                   <Highlighted text={row.title} range={row.titleRange} />
                 </div>
-                <div className="truncate text-[10px] text-muted-foreground" title={row.subtitle}>
+                <div className={`truncate text-[10px] ${row.warning ? 'text-amber-500/90 font-medium' : 'text-muted-foreground'}`} title={row.subtitle}>
                   <Highlighted text={row.subtitle} range={row.subtitleRange} />
                 </div>
               </div>

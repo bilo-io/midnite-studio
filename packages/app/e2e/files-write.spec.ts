@@ -53,9 +53,6 @@ test('New File creates an inline row, pre-filled and selected, that becomes a re
   await expect(input).toBeVisible();
   await expect(input).toHaveValue('Untitled');
   await expect(input).toBeFocused();
-  if (process.env.MSTUDIO_SHOTS) {
-    await page.screenshot({ path: '../../docs/screenshots/phase-24-c/inline-create.png' });
-  }
 
   await input.fill('notes.md');
   await input.press('Enter');

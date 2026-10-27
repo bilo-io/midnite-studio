@@ -1752,7 +1752,7 @@ describe('v31 -> v32 migration (Phase 109 Theme B)', () => {
     expect(state.companionNames).toEqual(['Nova', 'Companion']);
     expect(state.companionVoices).toEqual({ system: 'urn:voice:1', local: 'bf_emma' });
     expect(state.voiceConversationTrigger).toBe('wake');
-    expect(useUiStore.persist.getOptions().version).toBe(35);
+    expect(useUiStore.persist.getOptions().version).toBe(37);
   });
 
   it('migrates a v32 payload to v33', () => {
@@ -1785,7 +1785,7 @@ describe('v32 -> v33 migration (Phase 111 Theme A)', () => {
     const state = useUiStore.getState();
     expect(state.primaryAgent).toBe('codex');
     expect(state.primaryModelByAgent).toEqual({});
-    expect(useUiStore.persist.getOptions().version).toBe(35);
+    expect(useUiStore.persist.getOptions().version).toBe(37);
   });
 
   it('leaves a v34 payload alone', () => {

@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { TempRepo } from '../testing/temp-repo';
-import { getHooksPath } from './hooks';
+import {
+  getHooksPath,
+  installPreCommitHook,
+  isPreCommitHookInstalled,
+  uninstallPreCommitHook,
+} from './hooks';
 
 describe('getHooksPath', () => {
   const repos: TempRepo[] = [];
@@ -40,5 +45,25 @@ describe('getHooksPath', () => {
     await repo.git(['config', 'core.hooksPath', 'unset-me']);
     await repo.git(['config', '--unset', 'core.hooksPath']);
     await expect(getHooksPath(repo.path)).resolves.toBeNull();
+  });
+
+  it('installs, detects, and uninstalls the pre-commit hook (Phase 118 Theme F)', async () => {
+    const repo = await makeRepo();
+    expect(await isPreCommitHookInstalled(repo.path)).toBe(false);
+
+    // Install
+    const installRes = await installPreCommitHook(repo.path);
+    expect(installRes).toEqual({ ok: true });
+    expect(await isPreCommitHookInstalled(repo.path)).toBe(true);
+
+    // Idempotent install
+    const secondInstall = await installPreCommitHook(repo.path);
+    expect(secondInstall).toEqual({ ok: true });
+    expect(await isPreCommitHookInstalled(repo.path)).toBe(true);
+
+    // Uninstall
+    const uninstallRes = await uninstallPreCommitHook(repo.path);
+    expect(uninstallRes).toEqual({ ok: true });
+    expect(await isPreCommitHookInstalled(repo.path)).toBe(false);
   });
 });

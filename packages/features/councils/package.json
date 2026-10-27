@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-councils",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "The councils feature (Phase 113 Theme N): the council store, run orchestration and handlers in main; the Councils view, panel history and create/config panes in the renderer. Agents' second view.",
   "sideEffects": false,

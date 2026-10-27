@@ -41,3 +41,17 @@ describe('trimUrlForDisplay', () => {
     expect(trimUrlForDisplay('not a url')).toBe('not a url');
   });
 });
+
+describe('trimUrlForDisplay with a verdict display host (Phase 117 Theme C)', () => {
+  it('shows the Unicode form main judged safe, keeping the port and path', () => {
+    expect(trimUrlForDisplay('https://xn--mnchen-3ya.de:8443/a', 'münchen.de')).toBe('münchen.de:8443/a');
+  });
+
+  it('never relabels a URL with a display host for a different site', () => {
+    expect(trimUrlForDisplay('https://example.com/', 'apple.com')).toBe('example.com');
+  });
+
+  it('keeps punycode for a lookalike, whose display host is the punycode itself', () => {
+    expect(trimUrlForDisplay('https://xn--pple-43d.com/', 'xn--pple-43d.com')).toBe('xn--pple-43d.com');
+  });
+});

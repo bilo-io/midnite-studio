@@ -5,18 +5,26 @@
  * and always attributed: unlike upstream's `debate`/`critique` formats, no
  * shuffle or A/B/C relabeling happens here, so `buildSynthesisPrompt` can name
  * every member by their real name and role directly.
+ *
+ * Two parts of these prompts are not the user's own typing and are fenced as untrusted data
+ * (Phase 121 Theme A, the same `fenceUntrusted` Chats uses): a topic whose provenance says it was
+ * pasted from somewhere else, and every member answer the synthesizer reads, which is another
+ * model's output and may carry whatever that model was fed.
  */
+import { fenceUntrusted, sanitizeLabel, untrustedHeaderFor, type ContentProvenance } from '@midnite/studio-shared';
 
 /** What one member is asked, given the run's topic and their own role. */
-export function buildMemberPrompt(topic: string, role: string): string {
+export function buildMemberPrompt(topic: string, role: string, topicProvenance?: Partial<ContentProvenance>): string {
+  const header = untrustedHeaderFor([topicProvenance], 'user');
   return [
+    ...(header === '' ? [] : [header, '']),
     'You are one member of a brainstorming council. Answer briefly and directly from your',
     "assigned role's perspective — you are not the only voice being consulted, so favor a",
     'sharp, opinionated take over a balanced survey.',
     '',
     `Your role: ${role}`,
     '',
-    `Topic: ${topic}`,
+    `Topic: ${fenceUntrusted(topic, topicProvenance, 'user')}`,
   ].join('\n');
 }
 
@@ -36,22 +44,29 @@ export type CouncilSynthesisEntry = {
  * Skeptic's answer timed out" instead of reading like the panel had one fewer
  * member than it did.
  */
-export function buildSynthesisPrompt(topic: string, entries: readonly CouncilSynthesisEntry[]): string {
+export function buildSynthesisPrompt(
+  topic: string,
+  entries: readonly CouncilSynthesisEntry[],
+  topicProvenance?: Partial<ContentProvenance>,
+): string {
   const sections = entries.map((entry) => {
     if (entry.status !== 'succeeded' || entry.output.trim().length === 0) {
-      return `### ${entry.name} (${entry.role})\n[${entry.status} — no answer to include]`;
+      return `### ${sanitizeLabel(entry.name)} (${sanitizeLabel(entry.role, 200)})\n[${entry.status} — no answer to include]`;
     }
-    return `### ${entry.name} (${entry.role})\n${entry.output.trim()}`;
+    return `### ${sanitizeLabel(entry.name)} (${sanitizeLabel(entry.role, 200)})\n${fenceUntrusted(entry.output.trim(), { origin: 'agent-output', ref: entry.name })}`;
   });
 
+  const anyAnswer = entries.some((e) => e.status === 'succeeded' && e.output.trim().length > 0);
+  const header = anyAnswer ? untrustedHeaderFor([{ origin: 'agent-output' }]) : untrustedHeaderFor([topicProvenance], 'user');
   return [
+    ...(header === '' ? [] : [header]),
     'You are synthesizing a brainstorming council\'s answers into one considered write-up.',
     'Distill the panel\'s answers below into a single, coherent brainstorm: pull out the',
     'strongest ideas, note real disagreements between members rather than papering over them,',
     'and end with a short list of concrete next steps. Write the synthesis itself — do not',
     'restate this instruction, and do not simply summarize each member in turn.',
     '',
-    `Topic: ${topic}`,
+    `Topic: ${fenceUntrusted(topic, topicProvenance, 'user')}`,
     '',
     ...sections,
   ].join('\n\n');

@@ -53,6 +53,10 @@ export const STUDIO_CHATS_HOST = {
       ...LAYOUT_BOUNDS.chatsListWidth,
     };
   },
+  useThreadWidth: () => ({
+    mode: useUiStore((s) => s.chatsWidthMode),
+    setMode: useUiStore((s) => s.setChatsWidthMode),
+  }),
   useAgentRoster: () => useAgents(),
   usePrimaryAgent: () => useUiStore((s) => s.primaryAgent),
   useLocalModels: () => {

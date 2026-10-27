@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { SecretFindingSchema } from '../scan-secrets';
+import { VANGUARD_TABS } from '../vanguard';
+
 import {
   MapCaptureCancelRequestSchema,
   MapCaptureProgressEventSchema,
@@ -7,6 +10,13 @@ import {
   MapCaptureResultSchema,
 } from '../media-map-capture';
 import { MapOpenEventSchema } from '../media-map-mcp';
+import {
+  APP_ISSUE_URL_MAX,
+  APP_ISSUES_URL_PREFIX,
+  DEFAULT_ISSUE_APP,
+  isAppIssuesUrl,
+  ISSUE_APP_PATTERN,
+} from '../release';
 import {
   CaptureAttachmentResponseSchema,
   CaptureChangedSchema,
@@ -69,6 +79,7 @@ import {
 } from '../media-library';
 
 import { AiPlanBlueprintSchema } from '../ai-plan-blueprint';
+import { BrowserAgentSessionStateSchema, BrowserAgentToolCallSchema, BrowserAgentToolResultSchema } from '../browser-agent';
 import {
   AccountConnectorIdSchema,
   AccountConnectorInfoSchema,
@@ -147,6 +158,7 @@ import {
   BrowserBoundsSchema,
   BrowserEventSchema,
   BrowserNavErrorSchema,
+  BrowserPermissionRecordSchema,
   ClosedSessionSchema,
   CommitSchema,
   ConflictedHunkSchema,
@@ -970,9 +982,10 @@ export const ForgeCommitRunsRequest = RepoId.extend({
 export const ForgeCommitRunsResponse = ForgeCommitRunsResultSchema;
 
 /**
- * The graph's Diff column: `+added -deleted` per commit, for a batch of visible
- * rows. `null` is a merge commit (shown as an em dash). Shas git does not know
- * are left out of the answer.
+ * The graph's Diff column: `+added -deleted` over `files` per commit, for a
+ * batch of visible rows — the sum of the per-file numstat the commit inspector
+ * lists, a merge measured against its first parent. Shas git does not know are
+ * left out of the answer, which the renderer shows as "not loaded", never 0.
  */
 export const CommitDiffStatSchema = z.object({
   added: z.number().int().nonnegative(),
@@ -984,7 +997,7 @@ export const CommitStatsRequest = RepoId.extend({
   shas: z.array(CommitShaSchema).min(1).max(COMMIT_RUNS_MAX_SHAS),
 });
 export const CommitStatsResponse = z.object({
-  stats: z.record(CommitDiffStatSchema.nullable()),
+  stats: z.record(CommitDiffStatSchema),
 });
 
 // --- forge polling (Phase 84 Theme C) ---------------------------------------
@@ -1725,6 +1738,8 @@ export const CommitRequest = OpBase.extend({
   amend: z.boolean().default(false),
   /** Stage every tracked modification first (`commit -a`). */
   all: z.boolean().default(false),
+  /** Bypass the pre-commit secret scan ("Commit anyway", Phase 118 Theme F). */
+  bypassSecretsCheck: z.boolean().default(false),
 });
 
 export const FetchRequest = OpBase.extend({
@@ -1926,7 +1941,12 @@ export const PtyCreateRequest = z
   })
   .superRefine(agentIdMatchesKind);
 export const PtyCreateResponse = z.discriminatedUnion('ok', [
-  z.object({ ok: z.literal(true), ptyId: z.string() }),
+  z.object({
+    ok: z.literal(true),
+    ptyId: z.string(),
+    /** The session runs under a Seatbelt profile (Phase 121 Theme E) — the lock badge reads this. */
+    confined: z.boolean().optional(),
+  }),
   /** node-pty is loaded lazily and fails soft — the UI shows "terminal unavailable". */
   z.object({ ok: z.literal(false), message: z.string() }),
 ]);
@@ -2744,6 +2764,96 @@ export const BrowserDevServerProbeRequest = z.object({
 /** Whether the connection was accepted inside the deadline. Never an error — a refusal is the answer. */
 export const BrowserDevServerProbeResponse = z.object({ listening: z.boolean() });
 
+/** Phase 117 Theme B — user response to an in-tab permission prompt. */
+export const BrowserPermissionResponseRequest = z.object({
+  requestId: z.string().min(1),
+  decision: z.enum(['allow', 'deny', 'dismiss']),
+});
+
+/** Phase 117 Theme B — list remembered site permissions. */
+export const BrowserPermissionsListResponse = z.array(BrowserPermissionRecordSchema);
+
+/** Phase 117 Theme B — revoke one remembered site permission. */
+export const BrowserPermissionRevokeRequest = z.object({
+  origin: z.string().min(1),
+  permission: z.string().min(1),
+});
+
+/** Phase 117 Theme B — toggle spellcheck on the browser partition. */
+export const BrowserSetSpellcheckRequest = z.object({
+  enabled: z.boolean(),
+});
+
+/**
+ * Phase 117 Theme C — the site-safety switches main needs, pushed on mount and on change.
+ * `allowProceed` (Settings ▸ Browser, default off) unlocks "proceed for this session" on a
+ * certificate or known-bad interstitial; `feeds` (Settings ▸ Privacy, every one default off)
+ * are the reputation feeds main may pull. Off means no request leaves for that feed.
+ */
+export const BrowserSetSiteSafetyRequest = z.object({
+  allowProceed: z.boolean(),
+  feeds: z.object({ urlhaus: z.boolean(), openphish: z.boolean() }),
+});
+
+/**
+ * Phase 117 Theme C — "proceed for this session" on an interstitial. Main honours it only when
+ * `allowProceed` is on and the URL is the one that tab's interstitial refused; the bypass lasts
+ * until the app quits and covers that host only.
+ */
+export const BrowserProceedSiteRequest = z.object({
+  tabId: z.string().min(1),
+  url: z.string().url(),
+});
+
+/** Phase 117 Theme D — downloads opt-in; `folder` empty means the default quarantine folder. */
+export const BrowserSetDownloadsRequest = z.object({
+  enabled: z.boolean(),
+  folder: z.string().max(1024).optional(),
+});
+
+/** Phase 117 Theme D — answer to a `download-request` confirm. */
+export const BrowserDownloadResponseRequest = z.object({
+  requestId: z.string().min(1),
+  decision: z.enum(['allow', 'deny']),
+});
+
+/** Phase 117 Theme E — the four protection switches. */
+export const BrowserSetPrivacyRequest = z.object({
+  blockTrackers: z.boolean(),
+  blockThirdPartyCookies: z.boolean(),
+  trimReferrer: z.boolean(),
+  reduceUserAgent: z.boolean(),
+});
+
+/** Phase 117 Theme G — start an agent session on a tab, with the origins it may use. */
+export const BrowserAgentStartRequest = z.object({
+  tabId: z.string().min(1),
+  goal: z.string().min(1).max(500),
+  allowlist: z.array(z.string().min(1).max(2048)).min(1).max(32),
+});
+export const BrowserAgentStartResponse = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), state: BrowserAgentSessionStateSchema }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+export const BrowserAgentStopRequest = z.object({ sessionId: z.string().min(1) });
+export const BrowserAgentToolRequest = z.object({ sessionId: z.string().min(1), call: BrowserAgentToolCallSchema });
+/** Page content only ever as `UntrustedPageContent` — `browser-agent-boundary.test.ts` walks this. */
+export const BrowserAgentToolResponse = BrowserAgentToolResultSchema;
+export const BrowserAgentRespondRequest = z.object({
+  sessionId: z.string().min(1),
+  pendingId: z.string().min(1),
+  decision: z.enum(['allow', 'deny']),
+});
+/** Phase 117 Theme G — the ClickFix bar's one-click clear. */
+export const BrowserClipboardClearRequest = z.object({ tabId: z.string().min(1) });
+export const BrowserSetClipboardWatchRequest = z.object({ enabled: z.boolean() });
+
+/** Phase 117 Theme E — allow (or re-protect) one site's third-party traffic. */
+export const BrowserTrackerSiteExceptionRequest = z.object({
+  host: z.string().min(1).max(253),
+  allow: z.boolean(),
+});
+
 export const BrowserEventPayload = BrowserEventSchema;
 
 export type BrowserEventPayloadType = z.infer<typeof BrowserEventPayload>;
@@ -3148,7 +3258,7 @@ export const DeepLinkSchema = z.discriminatedUnion('kind', [
   /** Phase 112 Theme I — `ref` is `null` for a link whose payload failed validation, so the renderer can toast it. */
   z.object({ kind: z.literal('reveal'), ref: ResourceRefSchema.nullable() }),
   /** `midnite-studio://view?id=…` — the Midnite Apps launcher's tiles (`studio-link.ts`). */
-  z.object({ kind: z.literal('view'), view: z.enum(VIEW_IDS), tab: MediaTabSchema.optional(), page: z.enum(SETTINGS_PAGE_IDS).optional() }),
+  z.object({ kind: z.literal('view'), view: z.enum(VIEW_IDS), tab: z.union([MediaTabSchema, z.enum(VANGUARD_TABS)]).optional(), page: z.enum(SETTINGS_PAGE_IDS).optional() }),
   /**
    * `midnite-studio://run?req=…` — an agent-run hand-off (Phase 113 Theme O). `run` is `null` for a
    * payload that failed validation, so the renderer can refuse it with a toast; nothing runs either way
@@ -3166,6 +3276,12 @@ export type DeepLink = z.infer<typeof DeepLinkSchema>;
 export const DeepLinkEventSchema = z.object({
   link: DeepLinkSchema,
   known: z.boolean(),
+  /**
+   * Phase 117 Theme G: the origin of the web page that asked for this link (an embedded browser tab's
+   * `openExternal`). Absent for a link the OS delivered. The renderer names it in the confirm and never
+   * auto-sends a run that came from a page.
+   */
+  origin: z.string().max(2048).optional(),
 });
 
 // --- workflows (Phase 43) --------------------------------------------------
@@ -4304,19 +4420,27 @@ export const ReportLogPathResponse = z.object({ path: z.string().nullable() });
 /** The diagnostics block, already redacted. Empty when there is nothing to report. */
 export const ReportBundleResponse = z.object({ text: z.string() });
 
+/** An app's slug on midnite-apps' tracker — `midnite-studio`. It becomes a `--label`, so its shape is fixed. */
+export const AppIssueAppSchema = z.string().max(64).regex(ISSUE_APP_PATTERN, 'not a midnite app slug');
+
 /**
  * File an issue on `bilo-io/midnite-apps` — Phase 93.
  *
  * `title` is capped the same 1 KB `ErrorReportSchema.message` is; `body` reuses
  * `FORGE_BODY_MAX` (65,536), the same generous ceiling every other forge write
  * body carries, since it is a description plus a diagnostics block rather than
- * a short line. `kind` picks the label pair (`gh-app-issue.ts`) and the
+ * a short line. `kind` picks the label pair (`features/report/main/app-issue.ts`, with `app`) and the
  * composer's default title prefix — it never reaches `gh` as a flag of its own.
  */
 export const AppIssueSubmitRequestSchema = z.object({
   title: z.string().trim().min(1, 'a title is required').max(1024),
   body: z.string().max(FORGE_BODY_MAX),
   kind: z.enum(['bug', 'feature']),
+  /**
+   * Which app the issue is about (Report feature, PR B of the suite-wide reporter): its `app: <slug>`
+   * label. Optional on the wire — Studio's reports predate it — and defaulted to Studio's slug.
+   */
+  app: AppIssueAppSchema.default(DEFAULT_ISSUE_APP),
 });
 export type AppIssueSubmitRequest = z.infer<typeof AppIssueSubmitRequestSchema>;
 
@@ -4335,6 +4459,38 @@ export const AppIssueSubmitResultSchema = ForgeWriteResultSchema.extend({
   url: z.string().nullable().default(null),
 });
 export type AppIssueSubmitResult = z.infer<typeof AppIssueSubmitResultSchema>;
+
+/*
+  The rest of the report bridge (the report feature, `packages/features/report`). The dialog reaches
+  main through `report.*` and nothing else, so an app wires one namespace, not four: these three
+  stand in for `forge.cliStatus`, `shell.openExternal` and `clipboard.writeText`, each narrowed to
+  what reporting needs.
+*/
+
+/** `gh`'s readiness, for the dialog to choose between Submit and Continue on GitHub. */
+export const ReportGhStatusResponse = ForgeCliStatusSchema;
+
+/**
+ * Open one of midnite-apps' issue pages — the prefilled form, or the issue just filed. Jailed to
+ * {@link APP_ISSUES_URL_PREFIX} here AND re-checked in the handler, unlike `OpenExternalRequest`'s
+ * protocol-only allowlist: an app with nothing else to open gets no general-purpose opener.
+ */
+export const ReportOpenUrlRequest = z.object({
+  url: z
+    .string()
+    .max(APP_ISSUE_URL_MAX)
+    .refine(isAppIssuesUrl, { message: `only ${APP_ISSUES_URL_PREFIX} pages can be opened` }),
+});
+export const ReportOpenUrlResponse = GitOpResultSchema;
+
+/**
+ * Copy report: the whole title and body, so it is capped like a body rather than at
+ * `CLIPBOARD_MAX_LENGTH` — a report with its diagnostics tail runs far past 8 KB.
+ */
+export const ReportCopyRequest = z.object({
+  text: z.string().min(1).max(FORGE_BODY_MAX + 1026),
+});
+export const ReportCopyResponse = ClipboardWriteTextResponse;
 
 // --- MCP server (Phase 57 Themes E, F) --------------------------------------
 //
@@ -4908,6 +5064,204 @@ export const VaultPairingsListResponse = z.object({
 export const VaultPairingUnpairRequest = z.object({ appId: z.enum(PLACEMENT_APP_IDS) });
 export const VaultPairingUnpairResponse = z.object({ ok: z.boolean() });
 
+// --- vault lock, audit & breach (Phase 118) -----------------------------------
+
+export const VaultLockStatusRequest = z.object({});
+export const VaultLockStatusResponse = z.object({
+  locked: z.boolean(),
+  hasPasscode: z.boolean(),
+  recentUnlockAt: z.number().int().nonnegative().nullable(),
+  canPromptTouchId: z.boolean().default(false),
+  tamperedFile: z.string().nullable().default(null),
+});
+
+export const VaultLockRequest = z.object({});
+export const VaultLockResponse = z.object({ ok: z.boolean() });
+
+export const VaultUnlockRequest = z.object({
+  passcode: z.string().optional(),
+  useTouchId: z.boolean().optional(),
+});
+export const VaultUnlockResponse = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+});
+
+export const VaultAuditEntrySchema = z.object({
+  t: z.number().int().nonnegative(),
+  seq: z.number().int().positive(),
+  prev: z.string(),
+  op: z.enum([
+    'get',
+    'set',
+    'delete',
+    'grant',
+    'revoke',
+    'pair',
+    'unpair',
+    'unlock',
+    'unlock-failed',
+    'lock',
+    'reveal',
+    'copy',
+    'export',
+    'import',
+    'tamper',
+  ]),
+  namespace: z.string().optional(),
+  id: z.string().optional(),
+  app: z.string(),
+  principal: z.string(),
+  result: z.enum(['ok', 'denied', 'locked', 'failed']),
+  reason: z.string().optional(),
+  count: z.number().int().positive().optional(),
+});
+
+export const VaultAuditListRequest = z.object({
+  limit: z.number().int().positive().default(200),
+  app: z.string().optional(),
+  op: z.string().optional(),
+});
+export const VaultAuditListResponse = z.object({
+  entries: z.array(VaultAuditEntrySchema),
+  valid: z.boolean(),
+  total: z.number().int().nonnegative(),
+});
+
+export const VaultAuditVerifyRequest = z.object({});
+export const VaultAuditVerifyResponse = z.object({
+  valid: z.boolean(),
+  total: z.number().int().nonnegative(),
+  brokenSeq: z.number().int().positive().optional(),
+});
+
+export const VaultAuditExportRequest = z.object({});
+export const VaultAuditExportResponse = z.object({
+  ok: z.boolean(),
+  path: z.string().optional(),
+  error: z.string().optional(),
+});
+
+export const VaultBreachCheckRequest = z.object({
+  password: z.string().min(1),
+  saveToCache: z.boolean().default(true),
+});
+export const VaultBreachCheckResponse = z.object({
+  breached: z.boolean(),
+  count: z.number().int().nonnegative(),
+  checkedAt: z.number().int().nonnegative(),
+});
+
+export const VaultRevealOnceRequest = z.object({
+  namespace: VaultNamespaceSchema.default('secrets'),
+  key: z.string().min(1).max(512),
+});
+export const VaultRevealOnceResponse = z.object({
+  ok: z.boolean(),
+  revealed: z.string().optional(),
+  error: z.string().optional(),
+});
+
+export const VaultCopyOnceRequest = z.object({
+  namespace: VaultNamespaceSchema.default('secrets'),
+  key: z.string().min(1).max(512),
+  timeoutSeconds: z.number().int().min(1).max(300).optional(),
+});
+export const VaultCopyOnceResponse = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+  timeoutSeconds: z.number().int().optional(),
+});
+
+export const VaultScanHistoryRequest = z.object({
+  repoPath: z.string().min(1),
+  maxCommits: z.number().int().positive().optional(),
+});
+export const VaultScanHistoryResponse = z.object({
+  ok: z.boolean(),
+  scannedCommits: z.number().int().nonnegative(),
+  findings: z.array(SecretFindingSchema),
+  advice: z.string(),
+  error: z.string().optional(),
+});
+
+export const VaultHookStatusRequest = z.object({
+  repoPath: z.string().min(1),
+});
+export const VaultHookStatusResponse = z.object({
+  installed: z.boolean(),
+  hookPath: z.string().optional(),
+});
+
+export const VaultHookInstallRequest = z.object({
+  repoPath: z.string().min(1),
+});
+export const VaultHookInstallResponse = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+});
+
+export const VaultHookUninstallRequest = z.object({
+  repoPath: z.string().min(1),
+});
+export const VaultHookUninstallResponse = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+});
+
+export const VaultExportRequest = z.object({
+  passphrase: z.string().min(12),
+  outputPath: z.string().optional(),
+});
+export const VaultExportResponse = z.object({
+  ok: z.boolean(),
+  path: z.string().optional(),
+  entryCount: z.number().int().nonnegative().optional(),
+  error: z.string().optional(),
+});
+
+export const VaultImportPreviewEntrySchema = z.object({
+  namespace: z.string(),
+  key: z.string(),
+  existsLocally: z.boolean(),
+  hasFingerprint: z.boolean(),
+});
+
+export const VaultImportPreviewRequest = z.object({
+  passphrase: z.string().min(1),
+  inputPath: z.string().optional(),
+});
+export const VaultImportPreviewResponse = z.object({
+  ok: z.boolean(),
+  totalEntries: z.number().int().nonnegative().optional(),
+  entries: z.array(VaultImportPreviewEntrySchema).optional(),
+  error: z.string().optional(),
+});
+
+export const VaultImportRequest = z.object({
+  passphrase: z.string().min(1),
+  inputPath: z.string().optional(),
+  overwriteExisting: z.boolean().default(false),
+});
+export const VaultImportResponse = z.object({
+  ok: z.boolean(),
+  importedCount: z.number().int().nonnegative().optional(),
+  skippedCount: z.number().int().nonnegative().optional(),
+  error: z.string().optional(),
+});
+
+export const VaultPickExportPathRequest = z.object({
+  defaultFileName: z.string().optional(),
+}).optional();
+export const VaultPickExportPathResponse = z.object({
+  path: z.string().nullable(),
+});
+
+export const VaultPickImportPathRequest = z.object({}).optional();
+export const VaultPickImportPathResponse = z.object({
+  path: z.string().nullable(),
+});
+
 // --- finance proxy (Phase 76 Theme D) -----------------------------------------
 
 const FinanceAssetKindSchema = z.enum(['crypto', 'stock']);
@@ -5095,3 +5449,40 @@ export const GamesPlaytestRunResponse = GitOpResultOf(GamePlaytestRunResultSchem
 // Web export (Theme P).
 export const GamesExportRequest = GameExportRequestSchema;
 export const GamesExportResponse = GitOpResultOf(GameExportResultSchema);
+
+// The agent audit trail (Phase 121 Theme G).
+export {
+  AgentAuditExportRequest,
+  AgentAuditExportResponse,
+  AgentAuditListRequest,
+  AgentAuditListResponse,
+} from '../agent-audit';
+
+// Confined sessions (Phase 121 Theme E).
+export { ConfinementStatusSchema as ConfinementStatusResponse } from '../confinement';
+
+// Agent limits and the breaker's toast answer (Phase 121 Theme F).
+export { AgentLimitResolveRequest } from '../agent-limits';
+
+// MCP trust: the allowlist's list and approve (Phase 121 Theme C).
+export { McpTrustApproveRequest, McpTrustListRequest, McpTrustListResponse } from '../mcp-trust';
+
+// Security findings (Phase 120 Theme A).
+export * from './security-findings';
+
+// Vanguard sensors and settings (Phase 120 Theme B).
+export * from '../vanguard';
+export * from '../vanguard-network';
+
+// The tool-call policy and its approval card (Phase 121 Theme B).
+export {
+  ToolApprovalAnswerRequest,
+  type ToolApprovalHookInfo,
+  ToolApprovalHookInfoSchema,
+  ToolApprovalRequestSchema,
+  ToolApprovalResolvedSchema,
+  ToolPolicySchema,
+  formatClaudeHookSnippet,
+  formatCodexHookSnippet,
+} from '../tool-policy';
+

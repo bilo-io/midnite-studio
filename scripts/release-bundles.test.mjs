@@ -19,7 +19,7 @@ function job(yml, id) {
   const start = yml.search(new RegExp(`^  ${id}:$`, 'm'));
   expect(start, `job ${id}`).toBeGreaterThanOrEqual(0);
   const rest = yml.slice(start + 1);
-  const next = rest.search(/^  [a-z][a-z0-9-]*:$/m);
+  const next = rest.search(/^ {2}[a-z][a-z0-9-]*:$/m);
   return next < 0 ? rest : rest.slice(0, next);
 }
 
@@ -139,6 +139,16 @@ describe('apps/capture (Theme K)', () => {
   });
 });
 
+describe('apps/vanguard (Phase 120 Theme B)', () => {
+  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
+  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
+  it('is in the --all matrix, as app-vanguard, with the icon a release needs to pack it', () => {
+    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'vanguard', project: 'app-vanguard', dir: 'apps/vanguard' });
+    const icns = readFileSync(path.join(repoRoot, 'apps/vanguard/resources/icon.icns'));
+    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
+  });
+});
+
 describe('apps/agents (Theme N)', () => {
   const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
   const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
@@ -206,7 +216,7 @@ describe('release.yml', () => {
   });
   it('uses one macOS job, and CI stays at or under the cap of 5 concurrent', () => {
     expect(macosJobs(release)).toBe(1);
-    // ci.yml's count is the baseline this slice did not raise (gate-native, gate-locale, e2e, package).
+    // ci.yml's count is the baseline this slice did not raise (gate-native, e2e, package).
     expect(macosJobs(read('.github/workflows/ci.yml'))).toBeLessThanOrEqual(5);
   });
 });

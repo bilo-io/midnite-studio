@@ -1,9 +1,11 @@
 # Template — the go-live promo
 
 The grammar of [`projects/midnite/marketing/001-golive-promo`](../../../projects/midnite/marketing/001-golive-promo)
-(88s, eight rounds of client edits) in a **26-second, fifteen-bar showcase**.
-Every kind of beat the promo has appears once. Wherever the promo had copy or a
-screen recording, the template has a placeholder in square brackets.
+(88s, eight rounds of client edits) in a **47-second, 27.5-bar showcase**.
+Every kind of beat the promo has appears once, and then the **HUD act** puts the
+whole neon-HUD kit (`templates/youtube-tutorials/neon-hud`) on the same two
+stages, in midnite's skin. Wherever the promo had copy or a screen recording,
+the template has a placeholder in square brackets.
 
 - **`TemplateGolivePromo`**: the showcase as it would be cut.
 - **`TemplateGolivePromoAnnotated`**: the same, with the documentation drawn
@@ -24,15 +26,22 @@ node scripts/render.mjs templates/midnite/golive-promo check --still 440   # one
 |---|---|---|
 | `video-editor/src/templates/midnite/golive-promo/content.ts` | every word and every placeholder | turn the showcase into a first cut |
 | `…/beats.ts` | the bar grid, and the frame each section lands on | retime to a real track |
-| `…/wipes.ts` | every change of stage, and `themeAt` / `themeMixAt` | move a light/dark flip |
-| `…/parts.tsx` | the building blocks: placeholder card, strike, claim, statement, breath, slugs, colour card, outro, lockup | change how a kind of beat looks |
+| `…/wipes.ts` | every change of stage, built into a `Stage` with `themeAt` / `themeMixAt` | move a light/dark flip |
+| `video-editor/src/shared/golive/stage.ts` | `wipeTo`, `createStage`, `StageProvider` / `useStage`, `LONG_WIPE` / `SHORT_WIPE` | change how the stage schedule works |
+| `video-editor/src/shared/golive/parts.tsx` | the building blocks: `StageWipes`, placeholder card, strike, claim, statement, breath, slugs, colour card, outro, lockup | change how a kind of beat looks |
+| `video-editor/src/shared/golive/hud.tsx` | `OnStage`, `StageAtmosphere`, `MarkBug`: the HUD kit standing on the stage | change how HUD scenes follow a wipe |
+| `video-editor/src/shared/neon-hud/skin.ts` | the HUD kit's skins: `NEON` (its original look), `BRAND_DARK`, `BRAND_LIGHT`, `brandSkin(mix)` | retune the HUD in midnite's colours |
 | `…/Template.tsx` | the sequence of sections, the backdrop, the annotation overlay | add, drop or reorder sections |
 | `input/BRIEF.md` | a brief in the promo's five-stage shape, with blanks | start the next brief |
 
 Nothing in the template imports from the promo's folder. It builds only on
 `video-editor/src/shared/` (brand tokens, fonts, `MidniteWordmark`,
 `LiquidWipe`, `ShimmerLine`, `TypedTitle`, `Typewriter`, `SmokeStreak`,
-`Particles`, `loopIcons`), so the promo can keep changing without breaking it.
+`Particles`, `loopIcons`, and the `golive/` and `neon-hud/` kits), so the promo
+can keep changing without breaking it. The parts and the stage live in
+`shared/golive/` rather than in the template so a project can use them without
+copying the template: `projects/youtube-tutorials/midnite-video-1-automated-workflow`
+is the first.
 
 ## The timeline
 
@@ -53,9 +62,11 @@ At the promo's own tempo: one bar is 51.08 frames (1.70s) at 30fps.
 | 9.25–9.75 | 472–498 | slugs | dark | one typed line every quarter bar | `/ideate`, `/create`, `/review` |
 | 10.5–11.5 | 536–587 | Colour cards | dark | one every half bar, each with a shimmer | "Agent Loops" |
 | 12 | 613 | Claim · light again | **light** | short wipe → | "Agent Graphs" |
-| 13 | 664 | Outro · connect with | **dark** | short wipe ← | "connect with" and the forges |
-| 14 | 715 | Outro · lockup | dark | lockup builds; call to action | the last boom |
-| 15.5 | 792 | end | | | |
+| 13 | 664 | HUD · chapter card | **dark** | short wipe ← | — (the neon-HUD kit from here) |
+| 14–24 | 715–1226 | HUD · eleven scenes, one a bar | **light / dark** alternating | short wipe on every bar, → then ← | — one of each HUD visual: terminal, cards, flow, chart, … with a `say` caption |
+| 25 | 1277 | Outro · connect with | **dark** | short wipe ← | "connect with" and the forges |
+| 26 | 1328 | Outro · lockup | dark | lockup builds; call to action | the last boom |
+| 27.5 | 1405 | end | | | |
 
 ## The two stages
 
@@ -87,6 +98,28 @@ transcribed from midnite-studio's own `tokens.css` into `shared/brand.ts`:
   covers them with no hard edge.
 - **Light windows on a dark stage** (the promo's v7 Multi-window) read as
   separate objects. On white paper the gaps between white windows disappear.
+
+## The HUD on the stage
+
+The neon-HUD kit draws every colour from a **skin** (`neon-hud/skin.ts`, read
+with `useHudSkin`). Its default, `NEON`, is the kit's original look, so the
+YouTube template renders unchanged. The go-live kit supplies midnite's:
+
+- **`brandSkin(mix)`** blends `BRAND_DARK` and `BRAND_LIGHT` at the stage's
+  mix: Poppins headlines, the brand ramp for the chapter rule, the HUD tones
+  pulled toward the brand's violet, and glow cut to about half on dark and
+  almost none on light (a neon halo on white paper reads as a smudge).
+- **Wrap HUD scenes in `OnStage at={…}`**. It reads `themeMixAt` under the
+  centre of the frame and provides the blended skin, so a headline crossing a
+  wipe changes ink with the page rather than after it.
+- **`StageAtmosphere`** is the HUD backdrop's lift, motes and vignette without
+  its page, laid over `StageWipes`.
+- **`MarkBug`** puts the mark in the top-left corner, cut for the stage under
+  it. A HUD headline is centred, so it has no line head for the mark to sit at
+  the way a claim's title does. Hide it under anything that draws the mark
+  itself.
+- **`Say`** (`neon-hud/Say.tsx`) is the spoken-line caption from the YouTube
+  series, now part of the kit.
 
 ## Transitions
 

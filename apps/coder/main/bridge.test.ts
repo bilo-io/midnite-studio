@@ -28,6 +28,7 @@ describe('createCoderBridge', () => {
       'log',
       'pty',
       'remotes',
+      'report',
       'repos',
       'status',
       'terminal',
@@ -126,5 +127,19 @@ describe('createCoderBridge', () => {
     }
     const invoked = new Set(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0]));
     for (const channel of [...apiClientManifest.ipc, ...databaseManifest.ipc]) expect(invoked.has(channel), channel).toBe(true);
+  });
+});
+
+describe('report namespace', () => {
+  it("is the report feature's own bridge: its channels over invoke, the crash report over send, the Help-menu event over on", async () => {
+    const ipc: RendererIpc = { invoke: vi.fn(async () => ({})), send: vi.fn(), on: vi.fn(() => undefined), removeListener: vi.fn() };
+    const { report } = createCoderBridge(ipc);
+    await report.ghStatus();
+    report.error({ source: 'window', name: 'E', message: 'm', stack: '' } as never);
+    const off = report.onOpen?.(() => undefined);
+    expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([CHANNELS.reportGhStatus]);
+    expect(vi.mocked(ipc.send).mock.calls.map((c) => c[0])).toEqual([CHANNELS.reportError]);
+    expect(vi.mocked(ipc.on).mock.calls.map((c) => c[0])).toEqual([EVENT_CHANNELS.reportOpen]);
+    expect(typeof off).toBe('function');
   });
 });

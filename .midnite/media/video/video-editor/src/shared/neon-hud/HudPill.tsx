@@ -1,7 +1,8 @@
 import { useCurrentFrame } from "remotion";
 
 import { ramp } from "./motion";
-import { TONES, type Tone, boxGlow, hudMonoFamily } from "./palette";
+import { type Tone, boxGlow } from "./palette";
+import { useHudSkin } from "./skin";
 
 /**
  * The small bordered caption under a visual — "NO SOLO REASONING",
@@ -15,9 +16,10 @@ export const HudPill: React.FC<{ text: string; at: number; tone?: Tone; size?: n
   size = 15,
 }) => {
   const frame = useCurrentFrame();
+  const skin = useHudSkin();
   const border = ramp(frame, at, 9);
   const ink = ramp(frame, at + 5, 8);
-  const color = TONES[tone];
+  const color = skin.tones[tone];
   return (
     <div
       style={{
@@ -27,13 +29,13 @@ export const HudPill: React.FC<{ text: string; at: number; tone?: Tone; size?: n
         borderRadius: 4,
         transform: `scaleX(${border})`,
         opacity: border,
-        boxShadow: boxGlow(color, 0.6),
-        fontFamily: hudMonoFamily,
+        boxShadow: boxGlow(color, 0.6 * skin.glow),
+        fontFamily: skin.monoFont,
         fontSize: size,
         letterSpacing: "0.32em",
         textTransform: "uppercase",
         color,
-        backgroundColor: "rgba(3,10,18,0.6)",
+        backgroundColor: `${skin.panel}99`,
       }}
     >
       <span style={{ opacity: ink }}>{text}</span>
@@ -44,21 +46,24 @@ export const HudPill: React.FC<{ text: string; at: number; tone?: Tone; size?: n
 /** A bare mono caption — the tiny labels inside cards and under nodes. */
 export const HudLabel: React.FC<{ text: string; color?: string; size?: number; opacity?: number }> = ({
   text,
-  color = "#9fd8ff",
+  color,
   size = 13,
   opacity = 1,
-}) => (
-  <div
-    style={{
-      fontFamily: hudMonoFamily,
-      fontSize: size,
-      letterSpacing: "0.28em",
-      textTransform: "uppercase",
-      color,
-      opacity,
-      whiteSpace: "nowrap",
-    }}
-  >
-    {text}
-  </div>
-);
+}) => {
+  const skin = useHudSkin();
+  return (
+    <div
+      style={{
+        fontFamily: skin.monoFont,
+        fontSize: size,
+        letterSpacing: "0.28em",
+        textTransform: "uppercase",
+        color: color ?? skin.label,
+        opacity,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {text}
+    </div>
+  );
+};

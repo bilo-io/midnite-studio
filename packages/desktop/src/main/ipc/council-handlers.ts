@@ -1,12 +1,14 @@
 import { councilsMain } from '@midnite/studio-feature-councils/main';
 import { resolveOllamaBaseUrl } from '@midnite/studio-feature-models/main';
-import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { engineKeyEnv, type FeatureMainContext } from '@midnite/studio-runtime';
 
+import { recordAudit } from '../agent-audit';
+import { outboundSecrets } from '../outbound-secrets';
 import { createPty, killPty, offPty, onPty } from '../pty-service';
 import { currentSettings } from '../settings-mirror';
 import { listAgents } from '../terminal-service';
 import { handle, handleBare, handleSend } from './handle';
-import { readOllamaApiKey } from './secrets-handlers';
+import { readAgentApiKey, readOllamaApiKey } from './secrets-handlers';
 
 /**
  * Agent councils (Phase 34) are the councils feature's main half (Phase 113
@@ -32,6 +34,9 @@ export function registerCouncilHandlers(): void {
       agentBinding: (agentId) => currentSettings().agentBackends?.[agentId],
       ollamaBaseUrl: () => resolveOllamaBaseUrl(),
       ollamaApiKey: readOllamaApiKey,
+      agentKeyEnv: async (agentId) => engineKeyEnv((await listAgents()).find((a) => a.id === agentId), readAgentApiKey),
+      audit: recordAudit,
+      outboundSecrets,
     },
   });
 }

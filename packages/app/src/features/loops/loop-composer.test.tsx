@@ -92,14 +92,20 @@ describe('LoopComposer — idle', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
-  it('lists Patrol\'s task boxes with Routine first and "Reply to PRs" in place of "Answer feedback"', () => {
+  it('lists Patrol\'s task boxes with "Reply to PRs" in place of "Answer feedback", and Routine in run', () => {
     const { container } = renderComposer();
     const tasks = container.querySelector('[data-loop-group="tasks"]') as HTMLElement;
-    const names = within(tasks)
+    const taskNames = within(tasks)
       .getAllByRole('switch')
       .map((box) => box.closest('label')?.textContent?.trim());
-    expect(names).toEqual(['Routine', 'Review PRs', 'Reply to PRs', 'Security review']);
+    expect(taskNames).toEqual(['Review PRs', 'Reply to PRs', 'Security review']);
     expect(screen.queryByRole('switch', { name: 'Answer feedback' })).toBeNull();
+
+    const run = container.querySelector('[data-loop-group="run"]') as HTMLElement;
+    const runNames = within(run)
+      .getAllByRole('switch')
+      .map((box) => box.closest('label')?.textContent?.trim());
+    expect(runNames).toContain('Approve routine PRs');
   });
 
   it('groups the controls under their section headings, in declared order', () => {

@@ -2,7 +2,6 @@ import { expect, test, type Page } from '@playwright/test';
 
 import {
   clickRailLink,
-  createShotTaker,
   fixtures,
   installMockBridge,
   type MockFixtures,
@@ -30,8 +29,6 @@ import {
  * See `pr-detail.bridge.test.tsx`'s own doc comment for the rest of the
  * original assertions, ported one-for-one.
  */
-
-const OUT = '../../docs/screenshots/phase-20-reviews-loading';
 
 /* Long enough to open a tab and settle before the answer lands, short enough
    that four tests do not add a minute to the suite. */
@@ -125,24 +122,7 @@ function prRow(page: Page, title: string) {
     .getByRole('button', { name: new RegExp(title) });
 }
 
-/**
- * One loading state, photographed.
- *
- * `animations: 'disabled'` is the whole reason this is a helper rather than a
- * bare `page.screenshot`. Without it these shots catch the app mid-transition:
- * the shell's sidebar is halfway through its expand, the view is halfway
- * through its fade, and the skeleton bars are wherever `animate-pulse` happened
- * to be — which came out as a washed-out grey page that showed none of the work
- * it was supposed to document. Playwright fast-forwards finite animations to
- * their end state and cancels infinite ones to their first frame, so the chrome
- * settles and the bars sit at full opacity, the same way every time.
- */
-const shoot = createShotTaker(OUT, { animations: 'disabled' });
-
 test('the Files tab in dark, mid-fetch', async ({ page }) => {
-  // The bars are `bg-muted`, so they follow the theme rather than being a grey
-  // that only works on one ground. This is the shot that would catch it if that
-  // stopped being true.
   await setTheme(page, 'dark');
   await openReviews(page);
   await prRow(page, pull.title).click();
@@ -151,12 +131,6 @@ test('the Files tab in dark, mid-fetch', async ({ page }) => {
 
   const files = page.getByRole('tab', { name: 'Files', exact: true });
   await files.click();
-  // The strip and the panel read the same state, and the shot is only worth
-  // keeping if it shows them agreeing.
   await expect(files).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByText('Loading the diff…')).toBeAttached();
-
-  if (process.env.MSTUDIO_SHOTS) {
-    await shoot(page, 'files-loading-dark');
-  }
 });

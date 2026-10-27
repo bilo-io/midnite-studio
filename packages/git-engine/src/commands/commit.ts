@@ -1,5 +1,5 @@
 import type { GitOpResult } from '@midnite/studio-shared';
-import { failure, ok } from '@midnite/studio-shared';
+import { failure, ok, scanDiff, secretsFailure } from '@midnite/studio-shared';
 
 import { execGit } from '../exec/git-exec';
 import { writeQueue } from '../exec/write-queue';
@@ -10,6 +10,10 @@ export type CommitOptions = {
   amend?: boolean;
   /** Stage every tracked modification first (`commit -a`). */
   all?: boolean;
+  /** Bypass pre-commit secret scanning ("Commit anyway", Phase 118 Theme F). */
+  bypassSecretsCheck?: boolean;
+  /** Optional live secret values to check for (e.g. from the vault). */
+  extraSecrets?: string[];
 };
 
 /**
@@ -19,6 +23,9 @@ export type CommitOptions = {
  * A commit message is arbitrary user text — quotes, newlines, backticks, emoji,
  * a leading `-` — and `-m` would need escaping that is impossible to get right
  * across shells. stdin needs none.
+ *
+ * Before committing, the staged diff is scanned for secrets (Phase 118 Theme F).
+ * A hit blocks the commit with a `secrets` result unless `bypassSecretsCheck` is set.
  *
  * The user's `~/.gitconfig` applies unchanged, so `commit.gpgsign`, hooks,
  * `user.name`/`user.email` and `commit.template` all behave exactly as they do
@@ -33,12 +40,33 @@ export async function commit(
   if (options.amend) args.push('--amend');
   if (options.all) args.push('--all');
 
-  const res = await writeQueue.run(worktreePath, () =>
-    execGit(worktreePath, args, { write: true, stdin: options.message }),
-  );
+  return writeQueue.run(worktreePath, async () => {
+    // 1. Secret scanning pre-commit check (Phase 118 Theme F)
+    if (!options.bypassSecretsCheck) {
+      let diffArgs = ['diff', '--cached'];
+      if (options.all) {
+        // If commit -a, also inspect unstaged tracked changes
+        diffArgs = ['diff', 'HEAD'];
+      }
+      let diffRes = await execGit(worktreePath, diffArgs);
+      if (diffRes.exitCode !== 0 && options.all) {
+        // Fall back to --cached if HEAD is unborn
+        diffRes = await execGit(worktreePath, ['diff', '--cached']);
+      }
+      if (diffRes.exitCode === 0 && diffRes.stdout) {
+        const findings = scanDiff(diffRes.stdout, { extraSecrets: options.extraSecrets });
+        if (findings.length > 0) {
+          return secretsFailure(findings);
+        }
+      }
+    }
 
-  if (res.exitCode === 0) return ok();
-  return failure(describeCommitFailure(res.stdout, res.stderr), res.stderr || res.stdout);
+    // 2. Execute git commit
+    const res = await execGit(worktreePath, args, { write: true, stdin: options.message });
+
+    if (res.exitCode === 0) return ok();
+    return failure(describeCommitFailure(res.stdout, res.stderr), res.stderr || res.stdout);
+  });
 }
 
 /**

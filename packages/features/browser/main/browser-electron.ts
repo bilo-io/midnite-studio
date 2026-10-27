@@ -1,5 +1,6 @@
 import type { BrowserEvent, CommandId } from '@midnite/studio-shared';
 
+import type { RequestFilterSession } from './browser-request-filter';
 import type { DeviceSession, DownloadItemLike, PermissionSession } from './browser-security';
 
 /**
@@ -25,7 +26,12 @@ export type BrowserInput = {
 };
 
 /** A navigation the view is about to make — `will-navigate`/`will-redirect`'s details. */
-export type BrowserNavigationDetails = { url: string; preventDefault(): void };
+export type BrowserNavigationDetails = {
+  url: string;
+  /** Electron sets it on `will-redirect` (which fires for subframes too); `will-navigate` is main-frame only. */
+  isMainFrame?: boolean;
+  preventDefault(): void;
+};
 
 /** An event whose default can be refused (`certificate-error`, `before-input-event`). */
 export type BrowserPreventable = { preventDefault(): void };
@@ -34,7 +40,7 @@ export type BrowserWebContents = {
   on(event: 'did-navigate' | 'did-navigate-in-page', listener: (event: unknown, url: string) => void): void;
   on(event: 'page-title-updated', listener: (event: unknown, title: string) => void): void;
   on(event: 'page-favicon-updated', listener: (event: unknown, favicons: string[]) => void): void;
-  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive', listener: () => void): void;
+  on(event: 'did-start-loading' | 'did-stop-loading' | 'unresponsive' | 'dom-ready' | 'focus', listener: () => void): void;
   on(
     event: 'did-fail-load',
     listener: (event: unknown, errorCode: number, errorDescription: string, validatedUrl: string, isMainFrame: boolean) => void,
@@ -43,7 +49,27 @@ export type BrowserWebContents = {
   on(event: 'found-in-page', listener: (event: unknown, result: { matches: number; activeMatchOrdinal: number }) => void): void;
   on(event: 'before-input-event', listener: (event: BrowserPreventable, input: BrowserInput) => void): void;
   on(event: 'will-navigate' | 'will-redirect', listener: (details: BrowserNavigationDetails) => void): void;
-  on(event: 'certificate-error', listener: (event: BrowserPreventable, url: string) => void): void;
+  on(
+    event: 'certificate-error',
+    listener: (
+      event: BrowserPreventable,
+      url: string,
+      error: string,
+      certificate: unknown,
+      callback: (isTrusted: boolean) => void,
+      isMainFrame: boolean,
+    ) => void,
+  ): void;
+  /** Phase 117 Theme A: refused by `refuseWebviewAttach`, whatever `webviewTag` says. */
+  on(event: 'will-attach-webview', listener: (event: BrowserPreventable) => void): void;
+  /**
+   * Fixed scripts in a world of their own, never world 0 (the page's own): Phase 117 Theme F's
+   * login-form read (`login-form-read.ts`, `LOGIN_FORM_WORLD_ID`) and Theme G's agent tools
+   * (`page-reader.ts`, `AGENT_WORLD_ID`).
+   */
+  executeJavaScriptInIsolatedWorld(worldId: number, scripts: Array<{ code: string }>, userGesture?: boolean): Promise<unknown>;
+  /** Phase 117 Theme C: ties `webRequest` details (`webContentsId`) back to a tab. */
+  readonly id: number;
   removeAllListeners(): void;
   close(): void;
   isDestroyed(): boolean;
@@ -62,6 +88,10 @@ export type BrowserWebContents = {
   stopFindInPage(action: 'clearSelection'): void;
   setZoomFactor(factor: number): void;
   setWindowOpenHandler(handler: (details: { url: string; disposition: string }) => { action: 'deny' }): void;
+  /** Phase 117 Theme G: whether this page has keyboard focus (the ClickFix watch's interaction signal). */
+  isFocused?(): boolean;
+  /** Phase 117 Theme G: the agent's `screenshot` tool. */
+  capturePage?(): Promise<{ toDataURL(): string }>;
 };
 
 /** A `WebContentsView`. */
@@ -82,6 +112,8 @@ export type BrowserHostWindow = {
     send(channel: string, payload: BrowserEvent | CommandId): void;
   };
   on(event: 'enter-full-screen' | 'leave-full-screen', listener: () => void): void;
+  /** Phase 117 Theme G: the ClickFix watch reads the clipboard only while a Browser window is focused. */
+  isFocused?(): boolean;
 };
 
 /**
@@ -97,10 +129,40 @@ export type BrowserCookieDomain = { domain?: string };
  */
 export type BrowserSession = PermissionSession & DeviceSession & {
   on(event: 'will-download', listener: (event: unknown, item: DownloadItemLike, webContents: unknown) => void): void;
+  /** Phase 117 Theme A: Chromium's spellchecker sends typed text to the OS service — off by policy. */
+  setSpellCheckerEnabled(enabled: boolean): void;
+  /** Phase 117 Theme C: records every verification result (it always answers `-3`, "use Chromium's"). */
+  setCertificateVerifyProc?(proc: (request: CertificateVerifyRequest, callback: (verificationResult: number) => void) => void): void;
+  /**
+   * Phase 117 Theme C/E. Electron keeps ONE listener per event per session, so each event has one
+   * owner (swarm board, 2026-10-22): Theme E's `browser-request-filter.ts` owns `onBeforeRequest`,
+   * `onBeforeSendHeaders` and `onHeadersReceived`; Theme C owns `onCompleted` (observe-only).
+   */
+  webRequest?: RequestFilterSession['webRequest'] & {
+    onCompleted?(listener: (details: CompletedRequestDetails) => void): void;
+  };
+  getUserAgent?(): string;
+  setUserAgent?(ua: string): void;
   clearStorageData(): Promise<void>;
   clearCache(): Promise<void>;
   /** `session.cookies` — `get({})` is every cookie in the partition. */
   cookies: { get(filter: Record<string, never>): Promise<readonly BrowserCookieDomain[]> };
+};
+
+/** What `setCertificateVerifyProc` hands its proc — the fields Theme C reads. */
+export type CertificateVerifyRequest = {
+  hostname: string;
+  /** `'net::OK'` or Chromium's error name, e.g. `'net::ERR_CERT_DATE_INVALID'`. */
+  verificationResult: string;
+  errorCode: number;
+};
+
+/** `webRequest.onCompleted`'s details — the fields Theme C reads. */
+export type CompletedRequestDetails = {
+  url: string;
+  method: string;
+  resourceType: string;
+  webContentsId?: number;
 };
 
 /** The webPreferences a view is created with — the services own the table, the composer only forwards it. */
@@ -116,4 +178,8 @@ export type BrowserElectron = {
   onDisplayMetricsChanged(listener: () => void): void;
   /** `shell.openExternal`. */
   openExternal(url: string): Promise<void>;
+  /** Phase 117 Theme G: `clipboard.readText()` for the ClickFix watch. Absent, the watch stays off. */
+  readClipboardText?(): string;
+  /** Phase 117 Theme G: `clipboard.clear()` behind the ClickFix bar's one-click clear. */
+  clearClipboard?(): void;
 };

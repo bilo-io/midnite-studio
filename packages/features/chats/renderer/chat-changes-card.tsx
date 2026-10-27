@@ -125,6 +125,12 @@ export function ChatChangesCard({
                   <Counts insertions={file.insertions} deletions={file.deletions} />
                   {file.status !== 'pending' ? <ChangeStatusChip status={file.status} /> : null}
                 </span>
+                {file.policyReason ? (
+                  <span className="flex items-center gap-1 border-t border-border/30 bg-amber-500/10 px-3 py-1 text-[10px] text-amber-600 dark:text-amber-400" data-testid="chat-changes-policy-reason">
+                    <LuTriangleAlert aria-hidden className="h-3 w-3 shrink-0" />
+                    <span>{file.policyReason}</span>
+                  </span>
+                ) : null}
                 {index < PREVIEWED_FILES && file.preview.length > 0 ? (
                   <span className="block bg-muted/30 px-3 py-1 font-mono text-[11px] leading-[16px]" data-testid="chat-changes-preview">
                     {file.preview.slice(0, 4).map((line, i) => (

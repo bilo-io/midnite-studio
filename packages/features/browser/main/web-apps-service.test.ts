@@ -71,6 +71,7 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
       setPermissionCheckHandler: vi.fn(),
       setDevicePermissionHandler: vi.fn(),
       setDisplayMediaRequestHandler: vi.fn(),
+      setSpellCheckerEnabled: vi.fn(),
       handlers,
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const list = handlers.get(event) ?? [];

@@ -1,5 +1,5 @@
 import type { RuntimeIpc } from '@midnite/studio-runtime';
-import { CHANNELS, ok, schemas } from '@midnite/studio-shared';
+import { CHANNELS, failure, ok, schemas } from '@midnite/studio-shared';
 import type { z } from 'zod';
 
 import type { BrowserHostWindow } from './browser-electron';
@@ -7,23 +7,40 @@ import { defaultLogger } from './browser-main-deps';
 import {
   activateBrowserTab,
   backBrowserTab,
+  clearBrowserClipboard,
   clearBrowserData,
   closeBrowserTab,
   createBrowserTab,
   findInBrowserTab,
   forwardBrowserTab,
+  listBrowserPermissions,
   navigateBrowserTab,
   ownerWindowForBrowserTab,
   reloadBrowserTab,
+  resetAllBrowserPermissions,
+  resolveBrowserDownload,
+  resolveBrowserPermission,
+  respondBrowserAgent,
+  revokeBrowserPermission,
+  runBrowserAgentTool,
   setBrowserBounds,
+  setBrowserClipboardWatch,
   setBrowserDiscardMs,
+  setBrowserDownloads,
   setBrowserKeepAwake,
+  setBrowserPrivacy,
+  setBrowserSpellcheck,
+  proceedBrowserSite,
+  setBrowserTrackerException,
   setBrowserVisible,
   setBrowserZoom,
+  startBrowserAgent,
+  stopBrowserAgent,
   stopBrowserTab,
   stopFindInBrowserTab,
   toggleBrowserDevTools,
 } from './browser-service';
+import { setBrowserSiteSafety } from './browser-site-safety';
 import { probeLoopbackPort } from './dev-server-probe';
 
 /**
@@ -202,5 +219,104 @@ export function registerBrowserHandlers(ipc: RuntimeIpc, sender: BrowserSenderIp
     schemas.BrowserDevServerProbeRequest,
     async ({ port }) => ({ listening: await probeLoopbackPort(port) }),
     () => ({ listening: false }),
+  );
+
+  ipc.send(
+    CHANNELS.browserPermissionResponse,
+    schemas.BrowserPermissionResponseRequest,
+    ({ requestId, decision }) => resolveBrowserPermission(requestId, decision),
+    warnInvalid,
+  );
+
+  ipc.handleBare(CHANNELS.browserPermissionsList, async () => {
+    return listBrowserPermissions();
+  });
+
+  ipc.handle(
+    CHANNELS.browserPermissionRevoke,
+    schemas.BrowserPermissionRevokeRequest,
+    async ({ origin, permission }) => {
+      revokeBrowserPermission(origin, permission);
+      return ok();
+    },
+    (issue) => failure(issue),
+  );
+
+  ipc.handleBare(CHANNELS.browserPermissionsReset, async () => {
+    resetAllBrowserPermissions();
+    return ok();
+  });
+
+  ipc.send(
+    CHANNELS.browserSetSpellcheck,
+    schemas.BrowserSetSpellcheckRequest,
+    ({ enabled }) => setBrowserSpellcheck(enabled),
+    warnInvalid,
+  );
+
+  ipc.send(
+    CHANNELS.browserSetSiteSafety,
+    schemas.BrowserSetSiteSafetyRequest,
+    (req) => setBrowserSiteSafety(req),
+    warnInvalid,
+  );
+
+  ipc.send(
+    CHANNELS.browserSetDownloads,
+    schemas.BrowserSetDownloadsRequest,
+    (req) => setBrowserDownloads(req),
+    warnInvalid,
+  );
+
+  ipc.send(
+    CHANNELS.browserProceedSite,
+    schemas.BrowserProceedSiteRequest,
+    ({ tabId, url }) => proceedBrowserSite(tabId, url),
+    warnInvalid,
+  );
+
+  ipc.send(
+    CHANNELS.browserDownloadResponse,
+    schemas.BrowserDownloadResponseRequest,
+    ({ requestId, decision }) => resolveBrowserDownload(requestId, decision),
+    warnInvalid,
+  );
+
+  ipc.send(CHANNELS.browserSetPrivacy, schemas.BrowserSetPrivacyRequest, (req) => setBrowserPrivacy(req), warnInvalid);
+
+  ipc.send(
+    CHANNELS.browserTrackerSiteException,
+    schemas.BrowserTrackerSiteExceptionRequest,
+    ({ host, allow }) => setBrowserTrackerException(host, allow),
+    warnInvalid,
+  );
+
+  // Phase 117 Theme G — the page-to-agent boundary. A tool result is the only thing that carries
+  // page content across, and it carries it as `UntrustedPageContent`.
+  ipc.handle(
+    CHANNELS.browserAgentStart,
+    schemas.BrowserAgentStartRequest,
+    (req) => startBrowserAgent(req),
+    (issue) => ({ ok: false as const, message: issue.slice(0, 500) }),
+  );
+  ipc.send(CHANNELS.browserAgentStop, schemas.BrowserAgentStopRequest, ({ sessionId }) => stopBrowserAgent(sessionId), warnInvalid);
+  ipc.handle(
+    CHANNELS.browserAgentTool,
+    schemas.BrowserAgentToolRequest,
+    ({ sessionId, call }) => runBrowserAgentTool(sessionId, call),
+    (issue) => ({ ok: false as const, kind: 'error' as const, message: issue.slice(0, 500) }),
+  );
+  ipc.send(
+    CHANNELS.browserAgentRespond,
+    schemas.BrowserAgentRespondRequest,
+    ({ sessionId, pendingId, decision }) => respondBrowserAgent(sessionId, pendingId, decision),
+    warnInvalid,
+  );
+  ipc.send(CHANNELS.browserClipboardClear, schemas.BrowserClipboardClearRequest, () => clearBrowserClipboard(), warnInvalid);
+  ipc.send(
+    CHANNELS.browserSetClipboardWatch,
+    schemas.BrowserSetClipboardWatchRequest,
+    ({ enabled }) => setBrowserClipboardWatch(enabled),
+    warnInvalid,
   );
 }

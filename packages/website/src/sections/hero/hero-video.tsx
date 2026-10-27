@@ -14,7 +14,7 @@ const VIDEO_POSTER = 'video/hero-poster.jpg';
 /**
  * The product clip, and the poster it degrades to.
  *
- * `public/video/hero.mp4` **is committed** — see `public/video/README.md`
+ * `public/video/hero.mp4` **is committed** — see `packages/website/VIDEO.md`
  * for the source and the encode commands. It was not always: this element
  * shipped for a while with an empty `public/video/`, so every visitor silently
  * got the `error`-triggered fallback below instead of a video, which is what

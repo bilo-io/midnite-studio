@@ -146,7 +146,12 @@ export function registerStatusHandlers(): void {
     CHANNELS.opCommit,
     schemas.CommitRequest,
     inWorkdir((cwd, req) =>
-      commit(cwd, { message: req.message, amend: req.amend, all: req.all }),
+      commit(cwd, {
+        message: req.message,
+        amend: req.amend,
+        all: req.all,
+        bypassSecretsCheck: req.bypassSecretsCheck,
+      }),
     ),
   );
   handleOp(

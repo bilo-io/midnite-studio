@@ -7,6 +7,7 @@ settings:
 overrides:
   '@types/react': ^19.0.0
   '@types/react-dom': ^19.0.0
+  dompurify: ^3.4.17
 
 patchedDependencies:
   node-pty@1.1.0:
@@ -83,6 +84,9 @@ importers:
       '@midnite/studio-feature-models':
         specifier: workspace:*
         version: link:../../packages/features/models
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-feature-workflows':
         specifier: workspace:*
         version: link:../../packages/features/workflows
@@ -139,8 +143,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -171,6 +175,9 @@ importers:
       '@midnite/studio-feature-browser':
         specifier: workspace:*
         version: link:../../packages/features/browser
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -218,8 +225,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -250,6 +257,9 @@ importers:
       '@midnite/studio-feature-capture':
         specifier: workspace:*
         version: link:../../packages/features/capture
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -294,8 +304,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -326,6 +336,9 @@ importers:
       '@midnite/studio-feature-optimizer':
         specifier: workspace:*
         version: link:../../packages/features/optimizer
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -370,8 +383,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -411,6 +424,9 @@ importers:
       '@midnite/studio-feature-forge':
         specifier: workspace:*
         version: link:../../packages/features/forge
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-feature-sessions':
         specifier: workspace:*
         version: link:../../packages/features/sessions
@@ -479,8 +495,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -523,6 +539,9 @@ importers:
       '@midnite/studio-feature-media-video':
         specifier: workspace:*
         version: link:../../packages/features/media-video
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-feature-slides':
         specifier: workspace:*
         version: link:../../packages/features/slides
@@ -573,8 +592,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -626,6 +645,9 @@ importers:
       '@midnite/studio-feature-models':
         specifier: workspace:*
         version: link:../../packages/features/models
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -682,8 +704,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -724,6 +746,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@electron/fuses':
+        specifier: 1.8.0
+        version: 1.8.0
       '@electron/notarize':
         specifier: ^2.5.0
         version: 2.5.0
@@ -746,8 +771,8 @@ importers:
         specifier: ^4.3.4
         version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       electron-builder:
         specifier: ^25.1.8
         version: 25.1.8(electron-builder-squirrel-windows@25.1.8)
@@ -778,6 +803,9 @@ importers:
       '@midnite/studio-feature-media-library':
         specifier: workspace:*
         version: link:../../packages/features/media-library
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -825,8 +853,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -857,6 +885,9 @@ importers:
       '@midnite/studio-feature-notes':
         specifier: workspace:*
         version: link:../../packages/features/notes
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -907,8 +938,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -939,6 +970,9 @@ importers:
       '@midnite/studio-feature-finance':
         specifier: workspace:*
         version: link:../../packages/features/finance
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -986,8 +1020,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -1018,6 +1052,9 @@ importers:
       '@midnite/studio-feature-monitor':
         specifier: workspace:*
         version: link:../../packages/features/monitor
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
@@ -1062,8 +1099,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -1088,6 +1125,12 @@ importers:
 
   apps/studio:
     dependencies:
+      '@midnite/studio-app':
+        specifier: workspace:*
+        version: link:../../packages/app
+      '@midnite/studio-desktop':
+        specifier: workspace:*
+        version: link:../../packages/desktop
       '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -1105,11 +1148,96 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@1.21.7)(jsdom@25.0.1)(tsx@4.23.12)
 
+  apps/vanguard:
+    dependencies:
+      '@bilo-io/ui':
+        specifier: 0.1.0
+        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
+      '@midnite/studio-feature-sessions':
+        specifier: workspace:*
+        version: link:../../packages/features/sessions
+      '@midnite/studio-feature-vanguard':
+        specifier: workspace:*
+        version: link:../../packages/features/vanguard
+      '@midnite/studio-frame':
+        specifier: workspace:*
+        version: link:../../packages/frame
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      react-icons:
+        specifier: ^5.7.0
+        version: 5.7.0(react@19.2.8)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+      zustand:
+        specifier: ^5.0.3
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.5(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+      autoprefixer:
+        specifier: ^10.4.20
+        version: 10.5.4(postcss@8.5.26)
+      electron:
+        specifier: ^42.11.5
+        version: 42.11.18
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.2
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      postcss:
+        specifier: ^8.4.49
+        version: 8.5.26
+      tailwindcss:
+        specifier: ^3.4.17
+        version: 3.4.19(tsx@4.23.12)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@1.21.7)(jsdom@25.0.1)(tsx@4.23.12)
+
   apps/vault:
     dependencies:
       '@bilo-io/ui':
         specifier: 0.1.0
         version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../packages/features/report
       '@midnite/studio-feature-vault':
         specifier: workspace:*
         version: link:../../packages/features/vault
@@ -1157,8 +1285,8 @@ importers:
         specifier: ^10.4.20
         version: 10.5.4(postcss@8.5.26)
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
@@ -1279,6 +1407,9 @@ importers:
       '@midnite/studio-feature-optimizer':
         specifier: workspace:*
         version: link:../features/optimizer
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../features/report
       '@midnite/studio-feature-sessions':
         specifier: workspace:*
         version: link:../features/sessions
@@ -1291,6 +1422,9 @@ importers:
       '@midnite/studio-feature-tests':
         specifier: workspace:*
         version: link:../features/tests
+      '@midnite/studio-feature-vanguard':
+        specifier: workspace:*
+        version: link:../features/vanguard
       '@midnite/studio-feature-vault':
         specifier: workspace:*
         version: link:../features/vault
@@ -1494,8 +1628,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       better-sqlite3:
-        specifier: ^11.8.1
-        version: 11.10.0
+        specifier: ^12.10.1
+        version: 12.11.1
       mariadb:
         specifier: ^3.4.0
         version: 3.5.4
@@ -1543,8 +1677,8 @@ importers:
         specifier: ^1.30.0
         version: 1.32.1(zod@3.25.76)
       better-sqlite3:
-        specifier: ^11.8.1
-        version: 11.10.0
+        specifier: ^12.10.1
+        version: 12.11.1
       dugite:
         specifier: ^2.7.1
         version: 2.7.1
@@ -1663,12 +1797,18 @@ importers:
       '@midnite/studio-feature-optimizer':
         specifier: workspace:*
         version: link:../features/optimizer
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../features/report
       '@midnite/studio-feature-sessions':
         specifier: workspace:*
         version: link:../features/sessions
       '@midnite/studio-feature-tests':
         specifier: workspace:*
         version: link:../features/tests
+      '@midnite/studio-feature-vanguard':
+        specifier: workspace:*
+        version: link:../features/vanguard
       '@midnite/studio-feature-workflows':
         specifier: workspace:*
         version: link:../features/workflows
@@ -1700,8 +1840,8 @@ importers:
         specifier: ^1.4.3
         version: 1.4.3
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       electron-builder:
         specifier: ^25.1.8
         version: 25.1.8(electron-builder-squirrel-windows@25.1.8)
@@ -3245,6 +3385,64 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@1.21.7)(jsdom@25.0.1)(tsx@4.23.12)
 
+  packages/features/report:
+    dependencies:
+      '@bilo-io/ui':
+        specifier: 0.1.0
+        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-frame':
+        specifier: workspace:*
+        version: link:../../frame
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../runtime
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../shared
+      react-icons:
+        specifier: ^5.7.0
+        version: 5.7.0(react@19.2.8)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.5(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@1.21.7)(jsdom@25.0.1)(tsx@4.23.12)
+
   packages/features/sessions:
     dependencies:
       '@midnite/studio-frame':
@@ -3469,6 +3667,58 @@ importers:
       zod:
         specifier: ^3.23.8
         version: 3.25.76
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.5(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@22.20.1)(jiti@1.21.7)(jsdom@25.0.1)(tsx@4.23.12)
+
+  packages/features/vanguard:
+    dependencies:
+      '@midnite/studio-frame':
+        specifier: workspace:*
+        version: link:../../frame
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../runtime
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../shared
+      react-icons:
+        specifier: ^5.7.0
+        version: 5.7.0(react@19.2.8)
       zustand:
         specifier: ^5.0.2
         version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
@@ -3771,8 +4021,8 @@ importers:
         specifier: ^22.10.2
         version: 22.20.1
       electron:
-        specifier: ^41.0.0
-        version: 41.10.7
+        specifier: ^42.11.5
+        version: 42.11.18
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -6237,8 +6487,9 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  better-sqlite3@11.10.0:
-    resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
+  better-sqlite3@12.11.1:
+    resolution: {integrity: sha512-dq9AtApgg5PGFtBzPFSBl3HZQjHok5gaQCM6zh2Yk0aSmDCs1CbnVI8/HgASQkNKsWFpseIO9beg5xxpYhbIfA==}
+    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x || 26.x}
 
   bidi-js@1.1.0:
     resolution: {integrity: sha512-fX1Onk0tdVPC7obPWB5EbJ1z7NVhLq4m2xZLq2YXBkxzMXIGRpNMU88n0EPgWseKl12J7zXs7qrDxPK4sRs2fg==}
@@ -6728,8 +6979,8 @@ packages:
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
 
-  dompurify@3.4.15:
-    resolution: {integrity: sha512-EUBjM+B+lkDE41iE82DDSCfkoPGfXx8IxFxPMjNzm/Uk4xDet77rTN9wqlxlVg71kK7XGuUMv6wUxJUwwv+Xyw==}
+  dompurify@3.4.17:
+    resolution: {integrity: sha512-B/pSlYVHQ58kqISD/yDjuJ1yfzI34m1gF4lAod2bwSRhiN4K5Cl3H8Af7hqB2PmTL911tdEudnnXn5FnhRoz0w==}
 
   dotenv-expand@11.0.7:
     resolution: {integrity: sha512-zIHwmZPRshsCdpMDyVsqGmgyP0yT8GAgXUnkdAoJisxvf33k7yO6OuoKmcTGuXPWSsm8Oh88nZicRLA9Y0rUeA==}
@@ -6784,8 +7035,8 @@ packages:
   electron-updater@6.8.9:
     resolution: {integrity: sha512-ZhVxM9iGONUpZGI1FxdMRgJjUFXi7AYGVa5PwKlO1tV1/4zDxQmfKpXOHVztKrd6L9rLcFjERvi1Mf2vxyTkig==}
 
-  electron@41.10.7:
-    resolution: {integrity: sha512-AqIiefddlf5i+HYCGatr8VlBuEbWJpad4/yloBFYcMB2r57j7xhW1ogiJ+BfA5kxQyfmSs5yjwy54Me+wJn1jw==}
+  electron@42.11.18:
+    resolution: {integrity: sha512-hbzodG06x/l7uq+oeyob5ugv6qZBmJRWC7Uto5QEE99xSHUARz6d+++Rz+79T/ssTYTQkONW4ciTTcJuAbXKIQ==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
@@ -8905,7 +9156,6 @@ packages:
 
   sherpa-onnx-darwin-arm64@1.13.7:
     resolution: {integrity: sha512-5NCE50hAvr3n2pdett0SgfPBJXaFZE0bqHwbHyiq+IKZ8Ids0l4M0VrG+ImGYIafCwie+oC3uAJ+pKj9xg/k+w==}
-    cpu: [arm64]
     os: [darwin]
 
   sherpa-onnx-darwin-x64@1.13.7:
@@ -12140,7 +12390,7 @@ snapshots:
 
   baseline-browser-mapping@2.11.19: {}
 
-  better-sqlite3@11.10.0:
+  better-sqlite3@12.11.1:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
@@ -12670,7 +12920,7 @@ snapshots:
       '@babel/runtime': 7.29.7
       csstype: 3.2.3
 
-  dompurify@3.4.15:
+  dompurify@3.4.17:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
@@ -12762,7 +13012,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@41.10.7:
+  electron@42.11.18:
     dependencies:
       '@electron-internal/extract-zip': 1.0.5
       '@electron/get': 5.1.0
@@ -14315,7 +14565,7 @@ snapshots:
 
   monaco-editor@0.57.0:
     dependencies:
-      dompurify: 3.4.15
+      dompurify: 3.4.17
       marked: 14.0.0
 
   ms@2.1.3: {}

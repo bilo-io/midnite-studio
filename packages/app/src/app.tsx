@@ -35,7 +35,7 @@ import {
 } from '@midnite/studio-feature-browser/renderer';
 // The frame (Phase 113 Theme C): the chrome every app wears. The layout
 // pieces below are the first to leave this file for it.
-import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, useKnowledgeGraphExists } from '@midnite/studio-frame';
+import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, ToolApprovalHost, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
 import { STUDIO_FORGE_HOST } from './compose/forge-host';
 import { STUDIO_CHROME } from './compose/studio-chrome';
@@ -44,7 +44,7 @@ import { STUDIO_SLIDES_HOST } from './compose/slides-host';
 import { StudioProviders } from './compose/studio-providers';
 import { useContentBoundsSync } from './store/content-bounds-store';
 import { ErrorBoundary } from './components/error-boundary';
-import { ReportIssueHost } from './components/report-issue-dialog';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { ToastHost } from './components/toast-host';
 import {
   AGENT_NAV_ITEMS,
@@ -89,6 +89,7 @@ import { fabCompanionState } from './features/companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from './features/loops/fab-morph';
 import { useLoopAttention } from './features/loops/use-loop-attention';
+import { useActiveLoopSpectrum } from './features/loops/use-all-loops';
 import { PaletteHost } from './components/palette-host';
 import { ResizeHandle } from './components/resizable/resize-handle';
 import { useResizable } from './components/resizable/use-resizable';
@@ -124,6 +125,8 @@ import { useSessionExits } from './features/terminal/use-session-exits';
 import { useWorkflowNodeSessions } from './features/terminal/use-workflow-node-sessions';
 import { useWaitingGateToasts } from '@midnite/studio-feature-workflows/renderer';
 import { useCaptureShortcutLanding } from '@midnite/studio-feature-capture/renderer';
+import { AgentPauseModal } from '@midnite/studio-feature-vanguard/renderer';
+import { useAgentLimitToasts } from '@midnite/studio-feature-mcp-tools/renderer';
 import { RailVersion } from './features/version/rail-version';
 import { hslTokenToHex } from './lib/color';
 import { idlePreload } from './lib/idle-preload';
@@ -616,6 +619,7 @@ function Shell() {
   // Phase 37 Theme D: the collapsed FAB wears the same tab arc as the open
   // panel, so toggling the panel never changes the button's colour.
   const activeFabTab = useUiStore((s) => s.activeFabTab);
+  const activeSpectrum = useActiveLoopSpectrum();
   // Loop mission control (Phase 35): the notice fires whether or not the FAB
   // panel is open — a loop that goes quiet unattended is the case it exists
   // for — so both live here rather than inside <FabPanel>.
@@ -1488,6 +1492,7 @@ function Shell() {
         data-testid="fab-button"
         data-loops-running={loopsRunning.running ? 'true' : undefined}
         data-fab-tab={activeFabTab}
+        {...activeSpectrum}
         /*
           Theme H. A sibling attribute to `data-loop-state`, not a
           second animation system — the rules live beside that block in
@@ -2119,6 +2124,8 @@ export function App() {
   useWaitingGateToasts(openGraphsView);
   // Phase 113 Theme K — the capture chord fires while any view is up, so its landing lives here too.
   useCaptureShortcutLanding(openCaptureView);
+  // Phase 121 Theme F — a session the breaker paused is announced in the bell, with its three answers.
+  useAgentLimitToasts();
   return (
     <ShellProviders queryClient={appQueryClient}>
       <DialogHost>
@@ -2126,6 +2133,10 @@ export function App() {
           <PaletteHost>
             <StudioProviders>
               <Shell />
+              {/* Phase 121 Theme B: a call the tool-call policy holds for a human, one card at a time. */}
+              <ToolApprovalHost />
+              {/* Phase 120 Theme G: an agent paused by a critical finding asks resume or kill, whichever view is up. */}
+              <AgentPauseModal />
             </StudioProviders>
             {/*
               Silent, like Slides below: an overlay whose chunk fails to load
@@ -2167,7 +2178,10 @@ export function App() {
       </ErrorBoundary>
       <ScreensaverHost />
       <KillSwitchModal />
-      <ReportIssueHost />
+      {/* Report an Issue (the report feature): Studio's own modal through the chrome port, as before. */}
+      <FrameChromeProvider chrome={STUDIO_CHROME}>
+        <ReportIssueHost />
+      </FrameChromeProvider>
     </ShellProviders>
   );
 }

@@ -331,11 +331,7 @@ export function collectDeclaredE2eCount(root = repoRoot) {
       {
         cwd: root,
         encoding: 'utf8',
-        env: {
-          ...process.env,
-          // Ensure MSTUDIO_SHOTS is unset so screenshot-only specs are skipped/ignored
-          MSTUDIO_SHOTS: '',
-        },
+        env: process.env,
         maxBuffer: 10 * 1024 * 1024,
       },
     );

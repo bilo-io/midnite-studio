@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "A desktop workspace around a repository — git client, terminal, agents, embedded browser and forge. Electron + typed IPC, Vite + React renderer",
   "packageManager": "pnpm@9.15.9",
@@ -13,7 +13,7 @@
     "test": "moon run :test",
     "typecheck": "moon run :typecheck",
     "lint": "moon run :lint",
-    "postinstall": "node scripts/fix-node-pty.cjs"
+    "postinstall": "node scripts/fix-node-pty.cjs && node scripts/ensure-electron.mjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -28,7 +28,8 @@
     ],
     "overrides": {
       "@types/react": "^19.0.0",
-      "@types/react-dom": "^19.0.0"
+      "@types/react-dom": "^19.0.0",
+      "dompurify": "^3.4.17"
     },
     "peerDependencyRules": {
       "ignoreMissing": [

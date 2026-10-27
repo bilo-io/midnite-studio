@@ -183,12 +183,27 @@ export function runForceAtlas2(
  * `community` value, packed by `graphology-layout/circlepack`. Not iterative
  * (a single deterministic pack), so it reports one `onProgress` call rather
  * than batching like ForceAtlas2.
+ *
+ * The pack runs on a shadow graph whose keys are prefixed, never on `graph`
+ * itself: circlepack stores each node's key as `id || null`, so a node whose
+ * id is `""` (graphify emits one) has its position filed under `"null"` and
+ * the read-back of `posMap[""].x` throws — failing the whole layout. A prefix
+ * makes every key non-empty and keeps it from colliding with a real `"null"`.
  */
 export function runCirclepack(graph: Graph, onProgress?: (done: number, total: number) => void): void {
-  circlepack.assign(graph, {
+  const shadow = new Graph({ type: 'undirected' });
+  graph.forEachNode((id, attributes) => {
+    shadow.addNode(`n:${id}`, { community: attributes.community });
+  });
+  circlepack.assign(shadow, {
     hierarchyAttributes: CIRCLEPACK_SETTINGS.hierarchyAttributes,
     scale: CIRCLEPACK_SETTINGS.scale,
     rng: deterministicRng(),
+  });
+  graph.forEachNode((id) => {
+    const packed = shadow.getNodeAttributes(`n:${id}`);
+    graph.setNodeAttribute(id, 'x', packed.x);
+    graph.setNodeAttribute(id, 'y', packed.y);
   });
   onProgress?.(1, 1);
 }

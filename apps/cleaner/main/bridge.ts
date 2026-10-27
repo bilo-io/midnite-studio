@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -10,6 +11,8 @@ import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
  * holds the list).
  */
 export type CleanerBridge = {
+  /** Report an Issue: the dialog's channels and the Help-menu event (`createReportBridge`). */
+  report: ReportBridge;
   optimizer: MidniteStudioBridge['optimizer'];
   metrics: MidniteStudioBridge['metrics'];
   repos: Pick<MidniteStudioBridge['repos'], 'pickDirectory'>;
@@ -20,6 +23,8 @@ export type { RendererIpc };
 export function createCleanerBridge(ipc: RendererIpc): CleanerBridge {
   const { call, send, subscribe } = createBridgeSlice(ipc);
   return {
+    // Report an Issue — the report feature's own preload half (`@midnite/studio-feature-report/bridge`).
+    report: createReportBridge({ call, send, subscribe }),
     optimizer: {
       scan: (req) => call(CHANNELS.optimizerScan, req),
       onScanProgress: (handler) => subscribe(EVENT_CHANNELS.optimizerScanProgress, handler),

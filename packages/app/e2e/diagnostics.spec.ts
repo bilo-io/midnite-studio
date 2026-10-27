@@ -108,20 +108,12 @@ test.describe('diagnostics segment', () => {
  * legible, whether the directory is beside it, and whether the warning reads as
  * a warning rather than as chrome.
  */
-test.describe('phase 18 screenshots', () => {
-  const SHOTS = '../../docs/screenshots/phase-18';
-
+test.describe('trust prompt and counts flyout', () => {
   test('the trust prompt, and the counts flyout', async ({ page }) => {
     await open(page, DIAG({ trust: 'untrusted' }));
     await page.getByTestId('diagnostics-enable').click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('node_modules/.bin/eslint');
-    // `toBeVisible()` ignores opacity — Phase 12 learned this the hard way, on
-    // a shot of a sync strip that was still mid-fade and therefore not there.
-    await page.waitForTimeout(400);
-    if (process.env.MSTUDIO_SHOTS) {
-      await page.screenshot({ path: `${SHOTS}/diagnostics-trust-prompt.png` });
-    }
 
     await page.keyboard.press('Escape');
     await open(
@@ -134,9 +126,6 @@ test.describe('phase 18 screenshots', () => {
           warningCount: 7,
           rows: ROWS,
           withheld: 0,
-          // Recent, so the shot reads "4 minutes ago" rather than the
-          // four-figure hour count a fixed epoch produces once the calendar
-          // moves past it.
           ranAt: Date.now() - 4 * 60_000,
           durationMs: 812,
         },
@@ -145,9 +134,5 @@ test.describe('phase 18 screenshots', () => {
     await expect(page.getByTestId('diag-errors')).toBeVisible();
     await page.getByTestId('diagnostics-segment').click();
     await expect(page.getByTestId('diagnostics-segment-panel')).toBeVisible();
-    await page.waitForTimeout(400);
-    if (process.env.MSTUDIO_SHOTS) {
-      await page.screenshot({ path: `${SHOTS}/diagnostics-flyout.png` });
-    }
   });
 });

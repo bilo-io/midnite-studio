@@ -47,6 +47,12 @@ describe('ChatChangesCard', () => {
     expect(screen.getByText('old.ts → new.ts')).toBeTruthy();
   });
 
+  it('shows policy reason when present on a file', () => {
+    const sensitive = file('.githooks/pre-commit', ['pending'], { policyReason: 'A git hook runs on every commit.' });
+    render(<ChatChangesCard changeSet={set(sensitive)} onOpen={() => {}} onResolveAll={() => {}} />);
+    expect(screen.getByTestId('chat-changes-policy-reason').textContent).toContain('A git hook runs on every commit.');
+  });
+
   it('previews only the first two files, lists four, and counts the rest', () => {
     const many = set(...['a', 'b', 'c', 'd', 'e', 'f'].map((n) => file(`${n}.ts`)));
     render(<ChatChangesCard changeSet={many} onOpen={() => {}} onResolveAll={() => {}} />);

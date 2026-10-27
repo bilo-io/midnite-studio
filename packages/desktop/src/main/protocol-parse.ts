@@ -5,10 +5,12 @@ import {
   type AgentRunHandoff,
   MEDIA_TABS,
   SETTINGS_PAGE_IDS,
+  VANGUARD_TABS,
   VIEW_IDS,
   type MediaTab,
   type ResourceRef,
   type SettingsPageId,
+  type VanguardTab,
   type ViewId,
 } from '@midnite/studio-shared';
 
@@ -17,7 +19,7 @@ export type DeepLink =
   | { kind: 'clone'; url: string }
   | { kind: 'reveal'; ref: ResourceRef | null }
   | { kind: 'run'; run: AgentRunHandoff | null }
-  | { kind: 'view'; view: ViewId; tab?: MediaTab; page?: SettingsPageId }
+  | { kind: 'view'; view: ViewId; tab?: MediaTab | VanguardTab; page?: SettingsPageId }
   | { kind: 'capture'; id: string | null };
 
 /**
@@ -86,6 +88,9 @@ export function parseDeepLink(raw: string): DeepLink | null {
       const tab = parsed.searchParams.get('tab');
       if (view === 'media' && tab !== null && (MEDIA_TABS as readonly string[]).includes(tab)) {
         return { kind: 'view', view, tab: tab as MediaTab };
+      }
+      if (view === 'vanguard' && tab !== null && (VANGUARD_TABS as readonly string[]).includes(tab)) {
+        return { kind: 'view', view, tab: tab as VanguardTab };
       }
       const page = parsed.searchParams.get('page');
       if (view === 'settings' && page !== null && (SETTINGS_PAGE_IDS as readonly string[]).includes(page)) {

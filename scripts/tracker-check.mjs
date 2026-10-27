@@ -11,9 +11,9 @@ import process from 'node:process';
  */
 export function isExcludedItem(text) {
   return (
-    /^(?:[\[(]?\s*(?:⏳|❌)|\*{1,2}(?:⏳|❌))/u.test(text) ||
+    /^(?:[[(]?\s*(?:⏳|❌)|\*{1,2}(?:⏳|❌))/u.test(text) ||
     /^(?:⏳\s*deferred|❌\s*OUT OF SCOPE)/iu.test(text) ||
-    /(?:[\[(]\s*(?:⏳\s*deferred|❌\s*OUT OF SCOPE)\s*[\])])$/iu.test(text)
+    /(?:[[(]\s*(?:⏳\s*deferred|❌\s*OUT OF SCOPE)\s*[\])])$/iu.test(text)
   );
 }
 
@@ -287,7 +287,7 @@ export function runTrackerChecks(params = {}) {
   const warnings = [];
 
   // Rule 1: Every phase doc has an index row
-  for (const [num, entry] of docPhases.entries()) {
+  for (const num of docPhases.keys()) {
     if (!indexPhases.has(num)) {
       violations.push({
         phase: num,

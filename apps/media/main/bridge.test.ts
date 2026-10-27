@@ -18,7 +18,8 @@ function fakeIpc(): RendererIpc {
 describe('createMediaBridge', () => {
   it('exposes only the library — no secrets, media store, git, pty or browser', () => {
     const bridge = createMediaBridge(fakeIpc());
-    expect(Object.keys(bridge)).toEqual(['media']);
+    expect(Object.keys(bridge)).toEqual(['media', 'report']);
+    expect(Object.keys(bridge.report).sort()).toEqual(['bundle', 'copy', 'error', 'ghStatus', 'logPath', 'onOpen', 'openUrl', 'reveal', 'submitIssue']);
     expect(Object.keys(bridge.media).sort()).toEqual(['library', 'onChanged']);
     expect(Object.keys(bridge.media.library).sort()).toEqual(
       [

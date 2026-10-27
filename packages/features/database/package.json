@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-database",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "The Database tool as a feature (Phase 113 Theme O): saved connections, the pooled query service and the credential vault binding in main; the connection tree, query tabs, editor and results grid in the renderer. One of Coder's features.",
   "sideEffects": false,

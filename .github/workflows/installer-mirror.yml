@@ -1,0 +1,29 @@
+name: Installer mirror
+
+# `packages/website/public/install-studio.sh` is a byte-for-byte mirror of midnite-apps'
+# `midnite-studio/install.sh`, and an edit belongs upstream first. Phase 91 Theme H edited only the
+# mirror: upstream never got the checksum step, and website.yml's post-merge drift guard then failed
+# every main build from 2026-10-19 until it was noticed after v0.0.3.
+#
+# website.yml still checks after merge, because upstream can change with nothing merged here. This is
+# the other half: a pull request that edits the mirror is checked against upstream before it can
+# merge, so the order is always "land in midnite-apps, then re-sync"
+# (`moon run website:sync-install -- --write`). Path-filtered, so an upstream change can never turn
+# an unrelated PR red; the script has no dependencies, so it needs no install.
+on:
+  pull_request:
+    paths:
+      - 'packages/website/public/install-studio.sh'
+      - 'scripts/website-sync-install.mjs'
+      - '.github/workflows/installer-mirror.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check install-studio.sh against upstream
+        run: node scripts/website-sync-install.mjs --check

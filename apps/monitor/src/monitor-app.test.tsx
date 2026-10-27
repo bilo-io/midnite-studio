@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { monitorManifest } from '@midnite/studio-feature-monitor/renderer';
@@ -7,6 +7,16 @@ import { FEATURE_PLACEMENT, FEATURE_VIEWS, placementOwners } from '@midnite/stud
 
 import { MonitorApp } from './monitor-app';
 import { MONITOR_APP } from './monitor-manifest';
+
+let onReportOpen: (() => void) | null = null;
+const report = {
+  onOpen: vi.fn((handler: () => void) => {
+    onReportOpen = handler;
+    return () => undefined;
+  }),
+  bundle: vi.fn(async () => ({ text: '' })),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+};
 
 beforeEach(() => {
   window.midniteStudio = {
@@ -21,6 +31,8 @@ beforeEach(() => {
     report: {
       logPath: vi.fn().mockResolvedValue({ path: '/tmp/monitor.log' }),
       bundle: vi.fn().mockResolvedValue({ text: 'boot' }),
+      ghStatus: report.ghStatus,
+      onOpen: report.onOpen,
     },
   } as unknown as typeof window.midniteStudio;
 });
@@ -89,5 +101,15 @@ describe('Monitor home view', () => {
     render(<MonitorApp />);
     (await screen.findByRole('button', { name: 'Open in Studio' })).click();
     expect(await screen.findByRole('status')).toBeDefined();
+  });
+});
+
+describe('Monitor Report an Issue', () => {
+  it('mounts the dialog for midnite-monitor: the Help menu event opens it', async () => {
+    render(<MonitorApp />);
+    await waitFor(() => expect(onReportOpen).not.toBeNull());
+    expect(screen.queryByText('Report an issue')).toBeNull();
+    act(() => onReportOpen?.());
+    expect(await screen.findByText('Report an issue')).toBeDefined();
   });
 });

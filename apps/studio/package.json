@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-studio",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "Midnite Studio as a composition — every feature plus the frame. The dev harness (`moon run studio:start`); packages/app and packages/desktop are its renderer and main internals.",
   "type": "module",
@@ -10,6 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@midnite/studio-app": "workspace:*",
+    "@midnite/studio-desktop": "workspace:*",
     "@midnite/studio-shared": "workspace:*"
   },
   "devDependencies": {

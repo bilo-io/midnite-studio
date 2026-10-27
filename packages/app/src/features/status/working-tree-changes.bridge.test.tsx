@@ -182,6 +182,32 @@ describe('the panel layout', () => {
   });
 });
 
+describe('the all-changes header', () => {
+  it('is the sum of the rows beneath it, even for a partially staged file', async () => {
+    // `src/both.ts` is staged AND edited again: the Changes list shows it twice
+    // (+1 −1 staged, +2 −1 unstaged), the all-changes accordion once, on the
+    // worktree side its diff reads. The accordion header must add up its own
+    // rows (+2 −1 and +3 −0), not the list's two-sided roll-up (+6 −2).
+    renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, {
+      fixtures: {
+        ...DATA,
+        statusEntries: [entry('src/staged.ts', 'modified', 'unmodified'), entry('src/both.ts', 'modified', 'modified')],
+        statusCounts: {
+          'staged:src/staged.ts': { insertions: 3, deletions: 0 },
+          'staged:src/both.ts': { insertions: 1, deletions: 1 },
+          'unstaged:src/both.ts': { insertions: 2, deletions: 1 },
+        },
+      },
+      uiState: UI,
+    });
+
+    const header = await screen.findByTestId('changes-accordion-header');
+    await waitFor(() => expect(within(header).getByText('+5')).not.toBeNull());
+    expect(within(header).getByText('−1')).not.toBeNull();
+    expect(within(screen.getByTestId('working-tree-header-bar')).getByText('+6')).not.toBeNull();
+  });
+});
+
 describe('what the panel shows with nothing picked', () => {
   it('shows every changed file, collapsed', async () => {
     renderView(<WorkingTreeInlinePanel active onClose={() => {}} />, { fixtures: DATA, uiState: UI });

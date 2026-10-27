@@ -112,7 +112,7 @@ export const SECRET_PATTERNS: RegExp[] = [
  * capture group — the scheme is worth keeping, so the report still says which
  * remote failed.
  */
-const URL_CREDENTIAL = /(:\/\/)[^/\s:@]+:[^/\s@]+@/g;
+export const URL_CREDENTIAL = /(:\/\/)[^/\s:@]+:[^/\s@]+@/g;
 
 /**
  * A home directory this process did not name, matched by shape.

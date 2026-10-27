@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { financeManifest, useFinanceStore } from '@midnite/studio-feature-finance/renderer';
@@ -16,6 +16,7 @@ function stubBridge(hasKey: boolean) {
   const get = vi.fn();
   window.midniteStudio = {
     secrets: { has, get },
+    report,
     finance: { search: ok([]), quote: ok({ price: 1, currency: 'USD' }), history: ok([]) },
     markets: {
       series: ok({ series: {} }),
@@ -29,6 +30,16 @@ function stubBridge(hasKey: boolean) {
   } as unknown as typeof window.midniteStudio;
   return { has, get };
 }
+
+let onReportOpen: (() => void) | null = null;
+const report = {
+  onOpen: vi.fn((handler: () => void) => {
+    onReportOpen = handler;
+    return () => undefined;
+  }),
+  bundle: vi.fn(async () => ({ text: '' })),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+};
 
 beforeEach(() => {
   // The store is module-level; every test starts un-hydrated, as a fresh window would.
@@ -74,5 +85,15 @@ describe('Money home', () => {
     render(<MoneyApp />);
     await waitFor(() => expect(has).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+  });
+});
+
+describe('Money Report an Issue', () => {
+  it('mounts the dialog for midnite-money: the Help menu event opens it', async () => {
+    render(<MoneyApp />);
+    await waitFor(() => expect(onReportOpen).not.toBeNull());
+    expect(screen.queryByText('Report an issue')).toBeNull();
+    act(() => onReportOpen?.());
+    expect(await screen.findByText('Report an issue')).toBeDefined();
   });
 });

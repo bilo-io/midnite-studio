@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { TbBoxAlignBottomFilled, TbBoxAlignRightFilled } from 'react-icons/tb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
@@ -94,11 +95,29 @@ describe('TerminalHeader', () => {
   it('offers to dock right while at the bottom, and back to the bottom once on the right', () => {
     render(<TerminalHeader {...baseProps} />);
 
-    fireEvent.click(screen.getByLabelText('Dock terminal to the right'));
+    const rightBtn = screen.getByLabelText('Dock terminal to the right');
+    const expectedRightIcon = document.createElement('div');
+    render(<TbBoxAlignRightFilled className="h-3.5 w-3.5" strokeWidth={2} />, {
+      container: expectedRightIcon,
+    });
+    expect(rightBtn.querySelector('svg')?.outerHTML).toBe(
+      expectedRightIcon.querySelector('svg')?.outerHTML,
+    );
+
+    fireEvent.click(rightBtn);
     expect(useUiStore.getState().terminalDock).toBe('right');
 
     expect(screen.queryByLabelText('Dock terminal to the right')).toBeNull();
-    fireEvent.click(screen.getByLabelText('Dock terminal to the bottom'));
+    const bottomBtn = screen.getByLabelText('Dock terminal to the bottom');
+    const expectedBottomIcon = document.createElement('div');
+    render(<TbBoxAlignBottomFilled className="h-3.5 w-3.5" strokeWidth={2} />, {
+      container: expectedBottomIcon,
+    });
+    expect(bottomBtn.querySelector('svg')?.outerHTML).toBe(
+      expectedBottomIcon.querySelector('svg')?.outerHTML,
+    );
+
+    fireEvent.click(bottomBtn);
     expect(useUiStore.getState().terminalDock).toBe('bottom');
   });
 });

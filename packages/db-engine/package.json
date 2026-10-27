@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-db-engine",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "Pure Node/TS database layer — Postgres/MySQL/MariaDB/MSSQL drivers behind one interface, connection pooling, schema introspection, statement sniffing. No electron imports.",
   "main": "./dist/index.js",
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@midnite/studio-shared": "workspace:*",
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^12.10.1",
     "mariadb": "^3.4.0",
     "mysql2": "^3.11.5",
     "pg": "^8.13.1",

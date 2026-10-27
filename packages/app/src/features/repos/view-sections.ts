@@ -230,6 +230,7 @@ export const VIEW_FILTERS: Record<ViewId, ViewFilter> = {
   monitor: WORK_IN_PROGRESS,
   vault: WORK_IN_PROGRESS,
   capture: WORK_IN_PROGRESS,
+  vanguard: WORK_IN_PROGRESS,
   // No dedicated sidebar section (its collections live under `.midnite/api/`
   // in the tree, not the sidebar) — same reasoning as `tasks` above.
   apiClient: WORK_IN_PROGRESS,

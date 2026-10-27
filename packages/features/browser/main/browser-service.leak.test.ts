@@ -55,6 +55,7 @@ const session = () => ({
   setPermissionCheckHandler: vi.fn(),
   setDevicePermissionHandler: vi.fn(),
   setDisplayMediaRequestHandler: vi.fn(),
+  setSpellCheckerEnabled: vi.fn(),
   on: vi.fn(),
   clearStorageData: vi.fn(async () => undefined),
   clearCache: vi.fn(async () => undefined),
@@ -79,7 +80,7 @@ function fakeWindow() {
   } as unknown as BrowserHostWindow & { contentView: { removeChildView: ReturnType<typeof vi.fn> } };
 }
 
-const EXPECTED_COLLECTIONS = ['tabs', 'lastBounds', 'hiddenSince', 'keepAwakeTabIds', 'visibleTabIds'];
+const EXPECTED_COLLECTIONS = ['tabs', 'lastBounds', 'hiddenSince', 'keepAwakeTabIds', 'visibleTabIds', 'interstitialUrls'];
 
 describe('browser-service teardown (leak test)', () => {
   beforeEach(() => {

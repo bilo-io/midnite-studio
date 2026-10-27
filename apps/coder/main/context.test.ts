@@ -11,6 +11,7 @@ import { connectionFingerprint, databaseManifest } from '@midnite/studio-feature
 import { __resetForgeAccountsForTests, forgeManifest } from '@midnite/studio-feature-forge/main';
 import { sessionsManifest } from '@midnite/studio-feature-sessions/main';
 import { testsManifest } from '@midnite/studio-feature-tests/main';
+import { reportManifest } from '@midnite/studio-feature-report/main';
 import {
   createFakeCipher,
   createVaultGrants,
@@ -134,6 +135,7 @@ async function setup(
   const sends = new Map<string, (event: unknown, raw: unknown) => void>();
   const { repos, shutdown } = registerCoderHandlers({
     ipcMain: { handle: (c, l) => void handlers.set(c, l), on: (c, l) => void sends.set(c, l) },
+    report: { sink: () => null, homeDir: () => '/home', openExternal: () => undefined, writeClipboard: () => undefined, revealPath: () => undefined },
     trashItem: async () => undefined,
     send: () => undefined,
     userData: join(dir, 'userData'),
@@ -171,9 +173,9 @@ describe('registerCoderHandlers', () => {
       ...CODER_GIT_CHANNELS,
     ];
     expect([...handlers.keys()].sort()).toEqual(
-      [...forgeManifest.ipc, ...testsManifest.ipc, ...apiClientManifest.ipc, ...databaseManifest.ipc, ...sessionsManifest.ipc, ...own].sort(),
+      [...forgeManifest.ipc, ...testsManifest.ipc, ...apiClientManifest.ipc, ...databaseManifest.ipc, ...sessionsManifest.ipc, ...reportManifest.ipc, ...own].sort(),
     );
-    expect([...sends.keys()].sort()).toEqual([...forgeManifest.sends, ...testsManifest.sends, ...sessionsManifest.sends].sort());
+    expect([...sends.keys()].sort()).toEqual([...forgeManifest.sends, ...testsManifest.sends, ...sessionsManifest.sends, ...reportManifest.sends].sort());
     for (const channel of [CHANNELS.secretsGet, CHANNELS.secretsSet, CHANNELS.secretsHas]) expect(handlers.has(channel)).toBe(false);
     // Coder starts no terminal session and ends none.
     for (const channel of [CHANNELS.ptyCreate, CHANNELS.ptyKill]) expect(handlers.has(channel) || sends.has(channel)).toBe(false);
