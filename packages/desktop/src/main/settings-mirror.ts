@@ -30,7 +30,16 @@ const DEFAULT_SETTINGS: SettingsSyncPayload = {
   agentBackends: {},
   // Phase 121 Theme E: confinement is off until Settings ▸ Agents turns it on.
   confineNewSessions: false,
+  // Phase 115 Theme F: reads of ~/.claude and ~/.codex stay on until the user switches them off.
+  readAgentHistory: true,
+  // Phase 115 Theme B: history is kept forever until the user picks a limit.
+  historyRetentionDays: null,
 };
+
+/** Whether main may read `~/.claude` / `~/.codex` right now (Phase 115 Theme F). */
+export function agentHistoryReadsEnabled(): boolean {
+  return current.readAgentHistory !== false;
+}
 
 let current: SettingsSyncPayload = DEFAULT_SETTINGS;
 

@@ -1,4 +1,4 @@
-import { appendFileSync, chmodSync, lstatSync, mkdirSync, readdirSync } from 'node:fs';
+import { appendFileSync, chmodSync, lstatSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
 import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
@@ -18,16 +18,43 @@ import { basename, dirname, join, resolve, sep } from 'node:path';
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
 
-/** Throws when `target` sits inside `~/.claude*` or `~/.codex`, other than under `skills/`. */
+/**
+ * `realpath` of `target`, or of its deepest existing ancestor with the missing tail re-appended — a
+ * write usually targets a file that does not exist yet, but the directory it lands in may be a symlink.
+ */
+function resolveThroughSymlinks(target: string): string {
+  const missing: string[] = [];
+  let probe = resolve(target);
+  for (;;) {
+    try {
+      return join(realpathSync(probe), ...missing.reverse());
+    } catch {
+      const parent = dirname(probe);
+      if (parent === probe) return resolve(target);
+      missing.push(basename(probe));
+      probe = parent;
+    }
+  }
+}
+
+/**
+ * Throws when `target` sits inside `~/.claude*` or `~/.codex`, other than under `skills/`. Symlinks are
+ * resolved first, so a link into `~/.claude` cannot carry a write past the guard.
+ */
 export function assertNotAgentConfig(target: string, home: string = homedir()): void {
   const abs = resolve(target);
-  const rel = abs.startsWith(home + sep) ? abs.slice(home.length + 1).split(sep) : null;
-  if (!rel || rel.length === 0) return;
-  const top = (rel[0] ?? '').toLowerCase(); // APFS is case-insensitive
-  const isAgentDir = top === '.codex' || top === '.claude' || top.startsWith('.claude.');
-  if (!isAgentDir) return;
-  if ((rel[1] ?? '').toLowerCase() === 'skills') return;
-  throw new Error(`refusing to write agent config: ${abs}`);
+  const real = resolveThroughSymlinks(abs);
+  for (const candidate of new Set([abs, real])) {
+    for (const h of new Set([home, resolveThroughSymlinks(home)])) {
+      const rel = candidate.startsWith(h + sep) ? candidate.slice(h.length + 1).split(sep) : null;
+      if (!rel || rel.length === 0) continue;
+      const top = (rel[0] ?? '').toLowerCase(); // APFS is case-insensitive
+      const isAgentDir = top === '.codex' || top === '.claude' || top.startsWith('.claude.');
+      if (!isAgentDir) continue;
+      if ((rel[1] ?? '').toLowerCase() === 'skills') continue;
+      throw new Error(`refusing to write agent config: ${abs}`);
+    }
+  }
 }
 
 /** `mkdir -p` at 0700, and tighten the leaf if it already existed with a looser mode. */

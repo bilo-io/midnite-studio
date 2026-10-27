@@ -123,8 +123,14 @@ export async function scanSkillRoots(roots: readonly SkillRoot[], limit = MAX_CH
 }
 
 /** The whole discovery for one chat: its engine's roots (plus Claude's plugins), scanned. */
-export async function discoverChatSkills(opts: { engine: string; repoPath: string | null; home: string }): Promise<ChatSkill[]> {
+export async function discoverChatSkills(opts: {
+  engine: string;
+  repoPath: string | null;
+  home: string;
+  /** Phase 115 F: `false` skips the reads of `~/.claude/settings.json` and the plugin manifest. Default `true`. */
+  readAgentConfig?: boolean;
+}): Promise<ChatSkill[]> {
   const roots = chatSkillRoots(opts.engine, opts.repoPath, opts.home);
-  if (opts.engine === 'claude') roots.push(...(await claudePluginSkillRoots(opts.home)));
+  if (opts.engine === 'claude' && opts.readAgentConfig !== false) roots.push(...(await claudePluginSkillRoots(opts.home)));
   return scanSkillRoots(roots);
 }

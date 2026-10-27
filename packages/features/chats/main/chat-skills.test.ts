@@ -97,6 +97,20 @@ describe('claude plugins', () => {
     ]);
   });
 
+  it('skips the plugin manifest and settings.json when reading agent config is switched off (Phase 115 F)', async () => {
+    const home = await temp();
+    const on = join(home, 'plugins', 'vercel');
+    await skill(join(on, 'skills'), 'deploy', md('deploy', 'Deploy'));
+    await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+    await writeFile(
+      join(home, '.claude', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ plugins: { 'vercel@mkt': [{ installPath: on }] } }),
+    );
+    const base = { engine: 'claude', repoPath: null, home };
+    expect((await discoverChatSkills(base)).map((s) => s.name)).toEqual(['vercel:deploy']);
+    expect(await discoverChatSkills({ ...base, readAgentConfig: false })).toEqual([]);
+  });
+
   it('treats a missing or malformed manifest as no plugins', async () => {
     const home = await temp();
     expect(await claudePluginSkillRoots(home)).toEqual([]);

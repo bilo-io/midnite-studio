@@ -111,6 +111,12 @@ export function watchSessionExits(): void {
   });
 }
 
+/** Ids of every saved or live session — the scrollback retention and "Clear" must never touch (Phase 115 B). */
+export async function listSessionIds(): Promise<string[]> {
+  if (sessions.length === 0) sessions = await store.load();
+  return sessions.map((s) => s.id);
+}
+
 /**
  * Restore every saved session and seed its output buffer.
  *

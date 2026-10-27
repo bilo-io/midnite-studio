@@ -37,6 +37,8 @@ export type ChatsMainServices = {
   repoPath: (repoId: string | null) => string | null;
   /** The user's home directory — where user-level skills live. */
   home: () => string;
+  /** Phase 115 F: whether Studio may read `~/.claude`'s settings and plugins (Settings ▸ Privacy). Default on. */
+  readAgentHistory?: () => boolean;
 };
 
 /** A chat id that is safe as one path segment — the scratch dir is `<scratchRoot>/<id>`. */
@@ -70,7 +72,7 @@ export const chatsMain = defineFeatureMain<ChatsMainServices>({
     ipc.handle(
       CHANNELS.chatsSkills,
       schemas.ChatsSkillsRequest,
-      async (req) => ok({ skills: await discoverChatSkills({ engine: req.engine, repoPath: services.repoPath(req.repoId), home: services.home() }) }),
+      async (req) => ok({ skills: await discoverChatSkills({ engine: req.engine, repoPath: services.repoPath(req.repoId), home: services.home(), readAgentConfig: services.readAgentHistory?.() ?? true }) }),
       invalid,
     );
     ipc.handle(

@@ -196,6 +196,7 @@ const bridge: Pick<
   | 'capture'
   | 'vanguard'
   | 'toolApproval'
+  | 'privacy'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -519,6 +520,12 @@ const bridge: Pick<
     activate: (req) => ipcRenderer.send(CHANNELS.webAppsActivate, req),
     signIns: (req) => call(CHANNELS.webAppsSignIns, req),
     signOut: (req) => call(CHANNELS.webAppsSignOut, req),
+  },
+  privacy: {
+    historyStats: () => call(CHANNELS.privacyHistoryStats),
+    clearHistory: () => call(CHANNELS.privacyHistoryClear),
+    fileVault: () => call(CHANNELS.privacyFileVault),
+    openFileVault: () => call(CHANNELS.privacyOpenFileVault),
   },
   agent: {
     list: () => call(CHANNELS.agentList),

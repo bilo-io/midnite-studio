@@ -819,6 +819,14 @@ export type MidniteStudioBridge = {
    * `pty.snapshot` is separate from `terminal.list` — the list answers once for
    * every record, a transcript is fetched for exactly one.
    */
+  /** Local history housekeeping and the at-rest note (Phase 115 Theme B). */
+  privacy: {
+    historyStats: () => Promise<z.infer<typeof S.PrivacyHistoryStatsResponse>>;
+    clearHistory: () => Promise<z.infer<typeof S.PrivacyHistoryClearResponse>>;
+    fileVault: () => Promise<z.infer<typeof S.PrivacyFileVaultResponse>>;
+    openFileVault: () => Promise<void>;
+  };
+
   sessions: {
     history: () => Promise<z.infer<typeof S.SessionsHistoryResponse>>;
     transcript: (

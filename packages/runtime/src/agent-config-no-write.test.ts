@@ -16,8 +16,8 @@ const SCAN_DIRS = ['packages', 'apps'];
 const SKIP = new Set(['node_modules', 'dist', 'out', 'release', '.vite', 'e2e', 'website']);
 
 const WRITE_CALL =
-  /\b(writeFile|writeFileSync|appendFile|appendFileSync|rename|renameSync|rm|rmSync|unlink|unlinkSync|mkdir|mkdirSync|copyFile|copyFileSync|symlink|symlinkSync|writePrivateFile|appendPrivateFileSync)\s*\(/;
-const AGENT_PATH = /\.claude\b|\.codex\b|\.mcp\.json|['"`]settings\.json['"`]/;
+  /\b(writeFile|writeFileSync|appendFile|appendFileSync|rename|renameSync|rm|rmSync|unlink|unlinkSync|mkdir|mkdirSync|copyFile|copyFileSync|cp|cpSync|symlink|symlinkSync|link|linkSync|truncate|truncateSync|chmod|chmodSync|createWriteStream|writePrivateFile|appendPrivateFileSync|ensurePrivateDir|ensurePrivateDirSync)\s*\(/;
+const AGENT_PATH = /\.claude\b|\.codex\b|\.mcp\.json|['"`]settings\.json['"`]|\bclaudeHome\s*\(|\bcodexHome\s*\(/;
 
 /** Writes of repo-scaffold skills, which are skills and not settings. Path suffix → reason. */
 const ALLOWLIST: Record<string, string> = {};
@@ -32,13 +32,13 @@ function* walk(dir: string): Generator<string> {
   }
 }
 
-/** Offending `file:line` entries: a write call and an agent path within the same 3-line window. */
+/** Offending `file:line` entries: a write call and an agent path within the same 5-line window. */
 function findAgentConfigWrites(source: string): number[] {
   const lines = source.split('\n');
   const hits: number[] = [];
   lines.forEach((line, i) => {
     if (!WRITE_CALL.test(line) || /^\s*(\/\/|\*)/.test(line)) return;
-    const window = lines.slice(i, i + 3).join('\n');
+    const window = lines.slice(i, i + 5).join('\n');
     if (AGENT_PATH.test(window)) hits.push(i + 1);
   });
   return hits;
@@ -50,6 +50,10 @@ describe('agent config is never written', () => {
     expect(findAgentConfigWrites(bad)).toEqual([1]);
     expect(findAgentConfigWrites("await writeFile(join(dir, 'notes.md'), data);")).toEqual([]);
     expect(findAgentConfigWrites("// await writeFile(join(home, '.codex'))")).toEqual([]);
+    // Calls the first version missed: copies, streams, truncation and the fs-scope helper.
+    expect(findAgentConfigWrites("await cp(src, join(home, '.codex', 'config.toml'));")).toEqual([1]);
+    expect(findAgentConfigWrites("createWriteStream(join(claudeHome(), 'x'));")).toEqual([1]);
+    expect(findAgentConfigWrites("await writeFile(\n  join(\n    home,\n    '.claude',\n    'settings.json'), d);")).toEqual([1]);
   });
 
   it('finds no write to .claude, .codex, .mcp.json or settings.json in source', () => {

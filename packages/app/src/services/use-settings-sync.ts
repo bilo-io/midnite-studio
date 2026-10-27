@@ -30,6 +30,9 @@ export function useSettingsSync(): void {
   const agentBackends = useUiStore((s) => s.agentBackends);
   // Phase 121 Theme E: pty-service reads this at spawn, in main.
   const confineNewSessions = useUiStore((s) => s.confineNewSessions);
+  // Phase 115 Themes B + F: main reads the agents' history and prunes its own, so both cross the same way.
+  const readAgentHistory = useUiStore((s) => s.readAgentHistory);
+  const historyRetentionDays = useUiStore((s) => s.historyRetentionDays);
 
   // Phase 117 Themes D + E: the browser partition's downloads opt-in and privacy switches live in
   // main, which runs protection-on / downloads-off until the first push.
@@ -62,6 +65,8 @@ export function useSettingsSync(): void {
       forgeSyncGhAuthSwitch,
       agentBackends,
       confineNewSessions,
+      readAgentHistory,
+      historyRetentionDays,
     });
   }, [
     autoFetchEnabled,
@@ -71,5 +76,7 @@ export function useSettingsSync(): void {
     forgeSyncGhAuthSwitch,
     agentBackends,
     confineNewSessions,
+    readAgentHistory,
+    historyRetentionDays,
   ]);
 }

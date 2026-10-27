@@ -64,6 +64,8 @@ export const PREFERENCE_KEYS = [
   'forgeSwitcherPlacement', // accounts-page.tsx — the "Account switcher" placement select
   'forgeSyncGhAuthSwitch', // accounts-page.tsx
   'confineNewSessions', // agent-page.tsx — "Confine new sessions"
+  'readAgentHistory', // privacy-page.tsx — "Read Claude and Codex history" (Phase 115 Theme F)
+  'historyRetentionDays', // privacy-page.tsx — "Keep local history" (Phase 115 Theme B)
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
   'graphShowCi', // graph-page.tsx — the "Columns" accordion
