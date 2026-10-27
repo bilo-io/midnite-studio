@@ -58,8 +58,12 @@ function writable(path: string): boolean {
 /** The variables `install.sh` reads; inherited from a shell they would pin a version or skip the reopen. */
 const INSTALLER_ENV = ['MIDNITE_LAUNCHER_NO_OPEN', 'MIDNITE_LAUNCHER_VERSION'];
 
-/** The URL is an argument (`$1`), never spliced into the script string. */
-export const SELF_UPDATE_SCRIPT = 'curl -fsSL "$1" | sh';
+/**
+ * The website's `curl -fsSL <url> | sh`, but downloaded first: a pipe's status is `sh`'s, and `sh` on
+ * the empty input of a failed `curl` exits 0, so an offline or 404 update would never be reported.
+ * The URL is an argument (`$1`), never spliced into the script string.
+ */
+export const SELF_UPDATE_SCRIPT = 'f=$(mktemp) && curl -fsSL "$1" -o "$f" && sh "$f"; rc=$?; rm -f "$f"; exit $rc';
 
 export function startSelfUpdate(deps: SelfUpdateDeps): LauncherResult {
   if (!deps.isPackaged) return { ok: false, message: 'A dev run cannot update itself — build and install the launcher instead.' };
