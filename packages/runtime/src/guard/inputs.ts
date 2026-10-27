@@ -13,6 +13,9 @@ export type KnownGuardInputKey =
   | 'kev'
   | 'ghsa'
   | 'threatFeed'
+  | 'installedPackages'
+  | 'mcpServers'
+  | 'suppressions'
   | 'ports'
   | 'brew'
   | 'history'
@@ -34,6 +37,9 @@ export const DEFAULT_INPUT_SWITCHES: Readonly<Record<string, string>> = {
   auditTrail: 'privacy.agent.auditTrail',
 };
 
+/** The `inputsSkipped` value for an input no resolver is registered for. */
+export const NO_RESOLVER = 'no-resolver';
+
 export interface GuardInputResolverContext {
   userData?: string;
   repos?: readonly string[];
@@ -52,7 +58,8 @@ export interface ResolvedGuardInputs {
  * For each input:
  * 1. If its associated switch is explicitly false, it is skipped (`skipped[input] = switchName`).
  * 2. If a resolver is provided in `context.resolvers`, it runs once and the result is stored.
- * 3. Otherwise, an empty or default container is provided for fixture checks.
+ * 3. Otherwise there is nothing that can produce it, so it is skipped with {@link NO_RESOLVER} rather than
+ *    handed to a check as empty data: a check that ran on `{}` would report "clean" for a sweep that looked at nothing.
  */
 export async function resolveGuardInputs(
   needed: readonly GuardInputKey[],
@@ -81,7 +88,7 @@ export async function resolveGuardInputs(
         skipped[key] = `error: ${message}`;
       }
     } else {
-      inputs[key] = {};
+      skipped[key] = NO_RESOLVER;
     }
   }
 

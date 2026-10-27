@@ -14,31 +14,64 @@ async function read(dir: string, path: string, out: LockedPackage[]): Promise<vo
   }
 }
 
-/** What is actually installed under `<repo>/node_modules` (top level and scopes), as the lockfile may lag it. */
+/** `name@1.2.3` or `@scope+name@1.2.3_peer@4` (a `.pnpm` virtual-store folder) to the package name, or null. */
+export function pnpmStoreName(dir: string): string | null {
+  const base = dir.replace(/_.*$/, '').replace(/\(.*$/, '');
+  const at = base.lastIndexOf('@');
+  if (at <= 0) return null;
+  return base.slice(0, at).replace('+', '/');
+}
+
+async function scanModules(root: string, out: LockedPackage[]): Promise<void> {
+  let names: string[];
+  try {
+    names = await readdir(root);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (name.startsWith('.')) continue;
+    if (name.startsWith('@')) {
+      let scoped: string[] = [];
+      try {
+        scoped = await readdir(join(root, name));
+      } catch {
+        // unreadable scope
+      }
+      for (const inner of scoped) await read(join(root, name, inner), join(root, name, inner, 'package.json'), out);
+    } else {
+      await read(join(root, name), join(root, name, 'package.json'), out);
+    }
+  }
+}
+
+/**
+ * What is actually installed under `<repo>/node_modules` (top level and scopes), as the lockfile may lag it, and
+ * pnpm's virtual store `node_modules/.pnpm/<name>@<version>/node_modules/<name>`, where transitive packages live.
+ */
 export async function resolveInstalledNodeModules(repos: readonly string[]): Promise<LockedPackage[]> {
   const out: LockedPackage[] = [];
   for (const repo of repos) {
     const root = join(repo, 'node_modules');
-    let names: string[];
+    await scanModules(root, out);
+    let store: string[] = [];
     try {
-      names = await readdir(root);
+      store = await readdir(join(root, '.pnpm'));
     } catch {
-      continue;
+      // not a pnpm install
     }
-    for (const name of names) {
-      if (name.startsWith('.')) continue;
-      if (name.startsWith('@')) {
-        let scoped: string[] = [];
-        try {
-          scoped = await readdir(join(root, name));
-        } catch {
-          // unreadable scope
-        }
-        for (const inner of scoped) await read(join(root, name, inner), join(root, name, inner, 'package.json'), out);
-      } else {
-        await read(join(root, name), join(root, name, 'package.json'), out);
-      }
+    for (const dir of store) {
+      const name = pnpmStoreName(dir);
+      if (!name) continue;
+      const pkgDir = join(root, '.pnpm', dir, 'node_modules', name);
+      await read(pkgDir, join(pkgDir, 'package.json'), out);
     }
   }
-  return out;
+  const seen = new Set<string>();
+  return out.filter((p) => {
+    const key = `${p.name}@${p.version}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

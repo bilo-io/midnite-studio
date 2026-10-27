@@ -46,49 +46,44 @@ export function calculateNextWake(schedule: LoopSchedule, fromTimeMs: number): n
   const allowedDays = new Set(resolveLoopDays(schedule.days).map((d) => DAY_INDICES[d]));
 
   const candidateMs = fromTimeMs + cadenceMs;
-  const candidate = new Date(candidateMs);
 
   const [fromH, fromM] = schedule.from.split(':').map((v) => parseInt(v, 10)) as [number, number];
   const [toH, toM] = schedule.to.split(':').map((v) => parseInt(v, 10)) as [number, number];
   const fromMinutes = fromH * 60 + fromM;
   const toMinutes = toH * 60 + toM;
   const hasWindow = fromMinutes !== toMinutes;
+  const overnight = hasWindow && fromMinutes > toMinutes;
 
-  // Search forward up to 14 days for the next valid slot
-  for (let dayOffset = 0; dayOffset < 14; dayOffset += 1) {
-    const dayOfWeek = candidate.getDay();
-    if (allowedDays.has(dayOfWeek)) {
-      if (!hasWindow) {
-        return candidate.getTime();
-      }
+  const dayAllowed = (date: Date): boolean => allowedDays.has(date.getDay());
+  const previousDay = (date: Date): Date => {
+    const d = new Date(date);
+    d.setDate(d.getDate() - 1);
+    return d;
+  };
 
-      const candidateMinutes = candidate.getHours() * 60 + candidate.getMinutes();
+  // An overnight window belongs to the day it opens on: Mon 22:00-06:00 includes Tue 02:00, and it is Monday's
+  // membership in `days` that decides whether Tue 02:00 is inside it.
+  const inWindow = (date: Date): boolean => {
+    if (!hasWindow) return dayAllowed(date);
+    const minutes = date.getHours() * 60 + date.getMinutes();
+    if (!overnight) return dayAllowed(date) && minutes >= fromMinutes && minutes < toMinutes;
+    if (minutes >= fromMinutes) return dayAllowed(date);
+    if (minutes < toMinutes) return dayAllowed(previousDay(date));
+    return false;
+  };
 
-      if (fromMinutes < toMinutes) {
-        // Normal daytime window (e.g. 09:00 to 17:00)
-        if (candidateMinutes >= fromMinutes && candidateMinutes < toMinutes) {
-          return candidate.getTime();
-        }
-        if (candidateMinutes < fromMinutes) {
-          candidate.setHours(fromH, fromM, 0, 0);
-          return candidate.getTime();
-        }
-      } else {
-        // Overnight window (e.g. 22:00 to 06:00)
-        if (candidateMinutes >= fromMinutes || candidateMinutes < toMinutes) {
-          return candidate.getTime();
-        }
-        candidate.setHours(fromH, fromM, 0, 0);
-        return candidate.getTime();
-      }
-    }
+  const candidate = new Date(candidateMs);
+  if (inWindow(candidate)) return candidateMs;
 
-    // Advance to start of next day
-    candidate.setDate(candidate.getDate() + 1);
-    candidate.setHours(fromH, fromM, 0, 0);
+  // Otherwise the next time a window opens on an allowed day (midnight when there is no window).
+  for (let dayOffset = 0; dayOffset < 15; dayOffset += 1) {
+    const opens = new Date(candidateMs);
+    opens.setDate(opens.getDate() + dayOffset);
+    if (hasWindow) opens.setHours(fromH, fromM, 0, 0);
+    else opens.setHours(0, 0, 0, 0);
+    if (opens.getTime() > candidateMs && dayAllowed(opens)) return opens.getTime();
   }
-
-  return candidate.getTime();
+  return candidateMs;
 }
 
 export interface NextWakeStore {

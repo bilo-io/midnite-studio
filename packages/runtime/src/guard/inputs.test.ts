@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveGuardInputs } from './inputs';
+import { NO_RESOLVER, resolveGuardInputs } from './inputs';
 
 describe('resolveGuardInputs (Phase 122 Theme A)', () => {
   it('resolves needed inputs and executes resolvers once', async () => {
@@ -48,5 +48,11 @@ describe('resolveGuardInputs (Phase 122 Theme A)', () => {
 
     expect(inputs.threatFeed).toBeUndefined();
     expect(skipped.threatFeed).toContain('error: Network timeout');
+  });
+
+  it('skips an input with no resolver instead of handing checks empty data', async () => {
+    const { inputs, skipped } = await resolveGuardInputs(['installedPackages']);
+    expect(inputs.installedPackages).toBeUndefined();
+    expect(skipped.installedPackages).toBe(NO_RESOLVER);
   });
 });
