@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { EXTERNAL_LINKS, LAUNCHER_CHANNELS, THEME_SOURCES, type LauncherResult, type LauncherSelfStatus } from '../common/bridge';
 import { APP_IDS, type AppId } from '../common/catalog';
 import type { createAppsOps } from './bundles/apps-ops';
-import { DOWNLOAD_URL, GITHUB_URL, RELEASES_URL, SITE_URL } from './constants';
+import { DOWNLOAD_URL, RELEASES_URL, SITE_URL } from './constants';
 import { fetchStudioRelease } from './feed';
 import { installStudio } from './install';
 import { appLink } from './links';
@@ -119,9 +119,6 @@ export function registerIpc(getWindow: () => BrowserWindow | null, apps: AppsIpc
     switch (parsed.data) {
       case 'website':
         url = SITE_URL;
-        break;
-      case 'github':
-        url = GITHUB_URL;
         break;
       case 'releases':
         url = RELEASES_URL;

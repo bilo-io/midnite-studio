@@ -33,6 +33,8 @@ export const LAUNCHER_CHANNELS = {
   selfStatus: 'launcher:self:status',
   /** Re-runs the launcher installer, which quits this app, replaces it and reopens it. */
   selfUpdate: 'launcher:self:update',
+  /** main → renderer: the installer exited non-zero before it could quit this app. */
+  selfUpdateFailed: 'launcher:self:update-failed',
   linkOpen: 'launcher:link:open',
   themeSet: 'launcher:theme:set',
 } as const;
@@ -94,7 +96,7 @@ export type AppsStatus = {
 
 export type AppInstallProgress = { id: AppId; progress: InstallProgress };
 
-export const EXTERNAL_LINKS = ['website', 'github', 'releases', 'notes', 'download'] as const;
+export const EXTERNAL_LINKS = ['website', 'releases', 'notes', 'download'] as const;
 export type ExternalLink = (typeof EXTERNAL_LINKS)[number];
 
 export const THEME_SOURCES = ['system', 'light', 'dark'] as const;
@@ -128,6 +130,8 @@ export type LauncherBridge = {
     status(): Promise<LauncherSelfStatus>;
     /** Starts the installer and returns; on success this app quits shortly after. Never throws. */
     update(): Promise<LauncherResult>;
+    /** Fires with a message when a started update failed and this app is still running. */
+    onFailed(listener: (message: string) => void): () => void;
   };
   links: {
     open(link: ExternalLink): Promise<LauncherResult>;

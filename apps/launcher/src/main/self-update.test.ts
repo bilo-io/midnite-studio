@@ -16,9 +16,15 @@ afterEach(async () => {
 
 function fakeSpawn() {
   const unref = vi.fn();
-  const spawn = vi.fn(() => ({ unref, once: vi.fn() }));
-  return { spawn, unref };
+  const listeners = new Map<string, (arg: never) => void>();
+  const spawn = vi.fn(() => ({
+    unref,
+    once: (event: string, listener: (arg: never) => void) => void listeners.set(event, listener),
+  }));
+  return { spawn, unref, emit: (event: 'exit' | 'error', arg: unknown) => listeners.get(event)?.(arg as never) };
 }
+
+const writable = () => true;
 
 describe('startSelfUpdate', () => {
   it('refuses in a dev run and spawns nothing', () => {
@@ -34,7 +40,8 @@ describe('startSelfUpdate', () => {
       isPackaged: true,
       logPath: join(dir, 'logs', 'self-update.log'),
       spawn,
-      env: { PATH: '/usr/bin:/bin', MIDNITE_LAUNCHER_NO_OPEN: '1' },
+      isWritable: writable,
+      env: { PATH: '/usr/bin:/bin', MIDNITE_LAUNCHER_NO_OPEN: '1', MIDNITE_LAUNCHER_VERSION: '0.0.3' },
     });
     expect(result).toEqual({ ok: true });
     expect(spawn).toHaveBeenCalledTimes(1);
@@ -42,7 +49,7 @@ describe('startSelfUpdate', () => {
     expect(command).toBe('/bin/sh');
     expect(args).toEqual(['-c', SELF_UPDATE_SCRIPT, 'sh', 'https://midnite-apps.vercel.app/install.sh']);
     expect(options.detached).toBe(true);
-    // The installer reopens the launcher it quit — an inherited NO_OPEN would leave none running.
+    // An inherited NO_OPEN would leave no launcher running; an inherited VERSION would pin an old one.
     expect(options.env).toEqual({ PATH: '/usr/bin:/bin' });
     expect(unref).toHaveBeenCalled();
   });
@@ -51,7 +58,29 @@ describe('startSelfUpdate', () => {
     const spawn = vi.fn(() => {
       throw new Error('EAGAIN');
     });
-    expect(startSelfUpdate({ isPackaged: true, logPath: join(dir, 'self-update.log'), spawn })).toEqual({ ok: false, message: 'EAGAIN' });
+    expect(startSelfUpdate({ isPackaged: true, logPath: join(dir, 'self-update.log'), spawn, isWritable: writable })).toEqual({
+      ok: false,
+      message: 'EAGAIN',
+    });
+  });
+
+  it('refuses up front when the install needs sudo, which a detached installer cannot prompt for', () => {
+    const { spawn } = fakeSpawn();
+    const result = startSelfUpdate({ isPackaged: true, logPath: join(dir, 'self-update.log'), spawn, isWritable: () => false });
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(/administrator password.*curl -fsSL https:\/\/midnite-apps\.vercel\.app\/install\.sh \| sh/);
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it('reports an installer that exits non-zero, and stays quiet on success', () => {
+    const { spawn, emit } = fakeSpawn();
+    const onFailed = vi.fn();
+    const logPath = join(dir, 'self-update.log');
+    startSelfUpdate({ isPackaged: true, logPath, spawn, isWritable: writable, onFailed });
+    emit('exit', 0);
+    expect(onFailed).not.toHaveBeenCalled();
+    emit('exit', 22);
+    expect(onFailed).toHaveBeenCalledWith(`The update failed (exit 22) — see ${logPath}.`);
   });
 });
 

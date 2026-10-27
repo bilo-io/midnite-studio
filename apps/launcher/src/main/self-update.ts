@@ -1,9 +1,9 @@
 import { spawn as nodeSpawn } from 'node:child_process';
-import { closeSync, mkdirSync, openSync } from 'node:fs';
+import { accessSync, closeSync, constants, existsSync, mkdirSync, openSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import type { LauncherResult, LauncherSelfStatus } from '../common/bridge';
-import { LAUNCHER_FEED_URL, LAUNCHER_INSTALL_URL } from './constants';
+import { INSTALL_DIR, LAUNCHER_BUNDLE_PATH, LAUNCHER_INSTALL_URL, LAUNCHER_VERSION_URL } from './constants';
 import { fetchLatestRelease } from './feed';
 
 /**
@@ -20,7 +20,7 @@ import { fetchLatestRelease } from './feed';
 export async function launcherSelfStatus(
   deps: { current: string; isPackaged: boolean; fetchImpl?: typeof fetch },
 ): Promise<LauncherSelfStatus> {
-  const feed = await fetchLatestRelease(LAUNCHER_FEED_URL, deps.fetchImpl);
+  const feed = await fetchLatestRelease(LAUNCHER_VERSION_URL, deps.fetchImpl);
   return { current: deps.current, latest: feed.release, feedError: feed.error, canUpdate: deps.isPackaged };
 }
 
@@ -28,7 +28,11 @@ type SpawnLike = (
   command: string,
   args: readonly string[],
   options: { detached: boolean; stdio: ['ignore', number, number]; env: NodeJS.ProcessEnv },
-) => { unref(): void; once(event: 'error', listener: (error: Error) => void): unknown };
+) => {
+  unref(): void;
+  once(event: 'error', listener: (error: Error) => void): unknown;
+  once(event: 'exit', listener: (code: number | null) => void): unknown;
+};
 
 export type SelfUpdateDeps = {
   isPackaged: boolean;
@@ -36,27 +40,54 @@ export type SelfUpdateDeps = {
   logPath: string;
   spawn?: SpawnLike;
   env?: NodeJS.ProcessEnv;
+  /** Whether this user can write `path` — `install.sh`'s own `[ -w ]` test, which decides whether it needs sudo. */
+  isWritable?: (path: string) => boolean;
+  /** The installer exited non-zero; on success it quits this app, so nobody is left to hear about it. */
+  onFailed?: (message: string) => void;
 };
+
+function writable(path: string): boolean {
+  try {
+    accessSync(path, constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The variables `install.sh` reads; inherited from a shell they would pin a version or skip the reopen. */
+const INSTALLER_ENV = ['MIDNITE_LAUNCHER_NO_OPEN', 'MIDNITE_LAUNCHER_VERSION'];
 
 /** The URL is an argument (`$1`), never spliced into the script string. */
 export const SELF_UPDATE_SCRIPT = 'curl -fsSL "$1" | sh';
 
 export function startSelfUpdate(deps: SelfUpdateDeps): LauncherResult {
   if (!deps.isPackaged) return { ok: false, message: 'A dev run cannot update itself — build and install the launcher instead.' };
+  const isWritable = deps.isWritable ?? writable;
+  // Detached, with no terminal, `sudo` cannot prompt — and install.sh would only find that out after
+  // it had already quit this app. So the case that needs a password is refused up front.
+  if (!isWritable(INSTALL_DIR) || (existsSync(LAUNCHER_BUNDLE_PATH) && !isWritable(LAUNCHER_BUNDLE_PATH))) {
+    return {
+      ok: false,
+      message: `Updating needs an administrator password here — run \`curl -fsSL ${LAUNCHER_INSTALL_URL} | sh\` in Terminal.`,
+    };
+  }
   const spawn = deps.spawn ?? (nodeSpawn as unknown as SpawnLike);
   let log: number | null = null;
   try {
     mkdirSync(dirname(deps.logPath), { recursive: true });
     log = openSync(deps.logPath, 'a');
-    // `MIDNITE_LAUNCHER_NO_OPEN` would leave the user with no launcher at all after it quits.
     const env = { ...(deps.env ?? process.env) };
-    delete env['MIDNITE_LAUNCHER_NO_OPEN'];
+    for (const name of INSTALLER_ENV) delete env[name];
     const child = spawn('/bin/sh', ['-c', SELF_UPDATE_SCRIPT, 'sh', LAUNCHER_INSTALL_URL], {
       detached: true,
       stdio: ['ignore', log, log],
       env,
     });
-    child.once('error', () => undefined);
+    child.once('error', (error) => deps.onFailed?.(`The update could not start: ${error.message}`));
+    child.once('exit', (code) => {
+      if (code !== 0) deps.onFailed?.(`The update failed (exit ${code ?? 'signal'}) — see ${deps.logPath}.`);
+    });
     child.unref();
     return { ok: true };
   } catch (error) {

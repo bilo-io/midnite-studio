@@ -51,4 +51,7 @@ An ad-hoc-signed launcher cannot swap itself in place (Squirrel.Mac refuses a bu
 does not match the running one), so `updater.ts` only checks. **Update launcher** — a banner when
 `midnite-launcher/version.json` is newer, and always in the status bar — runs `self-update.ts`
 instead: the website's `install.sh`, detached, which quits this app, replaces the bundle and
-reopens it. Its output lands in `~/Library/Logs/Midnite Apps/self-update.log`.
+reopens it. Its output lands in `~/Library/Logs/Midnite Apps/self-update.log`, and a non-zero exit
+(the launcher is still running, so it failed before the quit) comes back as an error toast. It is
+refused up front when `/Applications` or the bundle needs `sudo` — a detached installer has no
+terminal to prompt in — and while an app install is in flight, which the quit would cut short.

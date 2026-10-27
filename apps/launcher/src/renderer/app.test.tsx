@@ -66,6 +66,24 @@ describe('<App>', () => {
     expect(await screen.findByText(/it will quit and reopen/)).toBeDefined();
   });
 
+  it('re-enables Update and shows the error when a started update fails', async () => {
+    const bridge = createMockBridge('launcher-update');
+    let fail: (message: string) => void = () => undefined;
+    bridge.self.onFailed = (listener) => {
+      fail = listener;
+      return () => undefined;
+    };
+    window.midniteLauncher = bridge as LauncherBridge;
+    render(<App />);
+    await screen.findByText('Midnite Apps 0.0.2 is available.');
+    const [banner] = screen.getAllByRole('button', { name: 'Update launcher' });
+    fireEvent.click(banner!);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Updating…' })).toHaveLength(2));
+    act(() => fail('The update failed (exit 22)'));
+    expect(await screen.findByText('The update failed (exit 22)')).toBeDefined();
+    expect(screen.getAllByRole('button', { name: 'Update launcher' }).every((b) => !(b as HTMLButtonElement).disabled)).toBe(true);
+  });
+
   it('shows no launcher banner when the launcher is current, but keeps the status-bar Update', async () => {
     mount('installed');
     await screen.findByLabelText('Open Midnite Coder');
@@ -75,6 +93,7 @@ describe('<App>', () => {
     expect(update.parentElement?.textContent).toBe('v0.0.1Update launcher');
     expect(screen.queryByText(/Launcher 0\.0\.1/)).toBeNull();
     expect(screen.queryByText('Midnite app suite')).toBeNull();
+    expect(screen.queryByRole('button', { name: /GitHub/ })).toBeNull();
   });
 
   it('shows the update banner and the Updates filter count when Studio is behind', async () => {

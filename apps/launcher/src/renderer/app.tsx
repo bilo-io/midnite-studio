@@ -69,13 +69,22 @@ export function App() {
   const [removingAll, setRemovingAll] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: 'error' | 'info' } | null>(null);
   const [self, setSelf] = useState<LauncherSelfStatus | null>(null);
-  const [selfBannerDismissed, setSelfBannerDismissed] = useState(false);
+  /** The version whose banner was dismissed — a newer one found by Check again shows again. */
+  const [selfBannerDismissed, setSelfBannerDismissed] = useState<string | null>(null);
   const [selfUpdating, setSelfUpdating] = useState(false);
 
   const checkSelf = useCallback(() => {
     void bridge.self.status().then(setSelf, () => undefined);
   }, [bridge]);
   useEffect(checkSelf, [checkSelf]);
+  useEffect(
+    () =>
+      bridge.self.onFailed((message) => {
+        setSelfUpdating(false);
+        setToast({ message, tone: 'error' });
+      }),
+    [bridge],
+  );
 
   // A `midnite://` link for an app that cannot open yet lands here: its detail sheet, which is where Install lives.
   useEffect(() => {
@@ -178,6 +187,17 @@ export function App() {
     });
   };
   const selfBehind = self?.latest != null && compareVersions(self.latest.version, self.current) > 0;
+  // install.sh quits this app, which would cut an app install off half-written.
+  const anyInstalling = APPS.some((app) => viewOf(app).installing);
+  const selfUpdateDisabled = self === null || !self.canUpdate || selfUpdating || anyInstalling;
+  const selfUpdateTitle =
+    self?.canUpdate === false
+      ? 'A dev run cannot update itself'
+      : anyInstalling
+        ? 'Wait for the install in progress to finish'
+        : selfBehind
+          ? `Update to Midnite Apps ${self?.latest?.version}`
+          : 'Re-install the latest Midnite Apps';
 
   const removable = useMemo(() => removableApps(viewOf), [viewOf]);
   // One at a time, through the same per-app ops as each tile's own Move to Trash, so every guard
@@ -255,15 +275,15 @@ export function App() {
       </header>
 
       <main className="content">
-        {selfBehind && !selfBannerDismissed && self?.latest && (
+        {selfBehind && self?.latest && selfBannerDismissed !== self.latest.version && (
           <div className="banner" role="status">
             <span className="pill pill-solid">Update</span>
             <span className="banner-text">Midnite Apps {self.latest.version} is available.</span>
             <div className="banner-actions">
-              <button type="button" className="btn btn-primary btn-compact" onClick={updateSelf} disabled={selfUpdating || !self.canUpdate}>
+              <button type="button" className="btn btn-primary btn-compact" onClick={updateSelf} disabled={selfUpdateDisabled} title={selfUpdateTitle}>
                 {selfUpdating ? 'Updating…' : 'Update launcher'}
               </button>
-              <button type="button" className="btn btn-icon" aria-label="Dismiss" onClick={() => setSelfBannerDismissed(true)}>
+              <button type="button" className="btn btn-icon" aria-label="Dismiss" onClick={() => setSelfBannerDismissed(self.latest?.version ?? null)}>
                 <LuX size={14} />
               </button>
             </div>
@@ -349,9 +369,6 @@ export function App() {
           <button type="button" className="link eyebrow" onClick={() => void bridge.links.open('website')}>
             Website ↗
           </button>
-          <button type="button" className="link eyebrow" onClick={() => void bridge.links.open('github')}>
-            GitHub ↗
-          </button>
           <span className="eyebrow">
             {APPS.length} apps · macOS {bridge.platform.arch}
           </span>
@@ -363,8 +380,8 @@ export function App() {
               type="button"
               className="link eyebrow"
               onClick={updateSelf}
-              disabled={selfUpdating || self?.canUpdate === false}
-              title={self?.canUpdate === false ? 'A dev run cannot update itself' : 'Re-install the latest Midnite Apps'}
+              disabled={selfUpdateDisabled}
+              title={selfUpdateTitle}
             >
               {selfUpdating ? 'Updating…' : 'Update launcher'}
             </button>

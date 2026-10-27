@@ -107,6 +107,7 @@ export function createMockBridge(mode: string | null): LauncherBridge {
         canUpdate: true,
       }),
       update: ok,
+      onFailed: () => () => undefined,
     },
     links: { open: ok },
     theme: { set: () => undefined },

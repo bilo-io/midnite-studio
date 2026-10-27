@@ -186,7 +186,12 @@ if (!app.requestSingleInstanceLock()) {
     }
     const selfIpc: SelfIpc = {
       status: () => launcherSelfStatus({ current: app.getVersion(), isPackaged: app.isPackaged }),
-      update: () => startSelfUpdate({ isPackaged: app.isPackaged, logPath: join(app.getPath('logs'), 'self-update.log') }),
+      update: () =>
+        startSelfUpdate({
+          isPackaged: app.isPackaged,
+          logPath: join(app.getPath('logs'), 'self-update.log'),
+          onFailed: (message) => mainWindow?.webContents.send(LAUNCHER_CHANNELS.selfUpdateFailed, message),
+        }),
     };
     registerIpc(() => mainWindow, {
       ops: createAppsOps({

@@ -31,11 +31,12 @@ export function studioZipUrl(version: string): string {
 export const MIN_FRAMEWORK_BYTES = 100 * 1024 * 1024;
 
 export const SITE_URL = 'https://midnite-apps.vercel.app';
-export const GITHUB_URL = `https://github.com/${RELEASES_REPO}`;
 export const RELEASES_URL = `https://github.com/${RELEASES_REPO}/releases`;
 export const DOWNLOAD_URL = `${SITE_URL}/download/`;
 
 /** The launcher's own release feed — `midnite-launcher/version.json`, written per release beside Studio's. */
-export const LAUNCHER_FEED_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/midnite-launcher/version.json`;
+export const LAUNCHER_VERSION_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/midnite-launcher/version.json`;
 /** The launcher installer the website serves (a verbatim copy of `midnite-launcher/install.sh`) — what Update re-runs. */
 export const LAUNCHER_INSTALL_URL = `${SITE_URL}/install.sh`;
+/** Where `install.sh` puts the launcher (`$DEST/$APP`). */
+export const LAUNCHER_BUNDLE_PATH = join(INSTALL_DIR, 'Midnite Apps.app');
