@@ -77,6 +77,27 @@ describe('createForgeMetadataSource', () => {
     await expect(createForgeMetadataSource({ adapter: noCli, forge, account: 'a' }).records('issues', null)).rejects.toThrow('not-authenticated');
   });
 
+  it('refuses a listing that hit the cap rather than export a silent partial', async () => {
+    const source = createForgeMetadataSource({ adapter: fake(), forge, account: 'a', limit: 2 });
+    await expect(source.records('issues', null)).rejects.toThrow('cap');
+  });
+
+  it('does not mistake a number or word in an error for a rate limit, and fetches a pull conversation once', async () => {
+    const bad = fake({ listPulls: async () => ({ cli, pulls: [], error: 'pull #403 not found; secondary email missing' }) });
+    await expect(createForgeMetadataSource({ adapter: bad, forge, account: 'a' }).records('pulls', null)).rejects.not.toBeInstanceOf(RateLimitError);
+    const adapter = fake();
+    const source = createForgeMetadataSource({ adapter, forge, account: 'a' });
+    await source.records('comments', null);
+    await source.records('reviews', null);
+    expect(adapter.pullComments).toHaveBeenCalledTimes(3);
+  });
+
+  it('treats an unreadable updatedAt as changed and tolerates clock skew', async () => {
+    const adapter = fake({ listIssues: async () => ({ cli, issues: [issue(1, 'garbage'), issue(2, '2026-01-31T23:58:00Z'), issue(3, '2025-01-01T00:00:00Z')], disabled: false, error: null }) });
+    const source = createForgeMetadataSource({ adapter, forge, account: 'a' });
+    expect((await source.records('issues', '2026-02-01T00:00:00Z')).map((r) => r.id)).toEqual([1, 2]);
+  });
+
   it('plugs into exportMetadata end to end', async () => {
     const { mkdtemp, readFile, rm } = await import('node:fs/promises');
     const { tmpdir } = await import('node:os');

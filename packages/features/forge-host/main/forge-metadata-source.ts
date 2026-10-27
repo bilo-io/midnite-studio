@@ -37,7 +37,7 @@ export type ForgeMetadataSourceOptions = {
   defaultBranch?: () => Promise<{ ref: string; sha: string } | null>;
 };
 
-const RATE_LIMIT = /rate.?limit|abuse|secondary|\b(403|429)\b|too many requests/i;
+const RATE_LIMIT = /rate.?limit|too many requests|\b(?:http|status)\s*(?:403|429)\b/i;
 
 /** An adapter reports failure in `error`, never by throwing; turn it back into what the export understands. */
 function unwrap<T extends { error: string | null; cli?: { reason: string; hint?: string } }>(result: T, what: string): T {
@@ -51,8 +51,13 @@ function unwrap<T extends { error: string | null; cli?: { reason: string; hint?:
   return result;
 }
 
-const isAfter = (iso: string | null | undefined, since: string | null): boolean =>
-  since === null || (iso != null && Date.parse(iso) >= Date.parse(since));
+/** Clock skew and a change landing between listing and stamping `fetchedAt` must not drop an update. */
+const SKEW_MS = 5 * 60_000;
+const isAfter = (iso: string | null | undefined, since: string | null): boolean => {
+  if (since === null) return true;
+  const at = iso ? Date.parse(iso) : Number.NaN;
+  return Number.isNaN(at) || at >= Date.parse(since) - SKEW_MS; // an unreadable date counts as changed
+};
 
 /**
  * Wrap a `ForgeAdapter` into the `MetadataSource` port (Phase 119 Theme A). Create one per refresh:
@@ -71,16 +76,48 @@ export function createForgeMetadataSource(options: ForgeMetadataSourceOptions): 
   const limit = options.limit ?? 1000;
   let issues: Promise<ForgeIssue[]> | null = null;
   let pulls: Promise<ForgePull[]> | null = null;
+  const pullConvo = new Map<number, Promise<ForgePullCommentsResult>>();
+  // Memoised per refresh; a rejection clears only its own entry, so a backoff retry re-fetches.
+  const memo = <T>(slot: () => Promise<T> | null, set: (p: Promise<T> | null) => void, load: () => Promise<T>): Promise<T> => {
+    const existing = slot();
+    if (existing) return existing;
+    const created: Promise<T> = load().catch((error) => {
+      if (slot() === created) set(null);
+      throw error;
+    });
+    set(created);
+    return created;
+  };
+  const truncated = (what: string): Error => new Error(`${what}: listing hit the ${limit} cap, the export would be incomplete`);
   const listIssues = () =>
-    (issues ??= adapter.listIssues(forge, { limit, state: 'all' }).then((r) => (r.disabled ? [] : unwrap(r, 'issues').issues)));
-  const listPulls = () => (pulls ??= adapter.listPulls(forge, { limit, state: 'all' }).then((r) => unwrap(r, 'pulls').pulls));
-  // A rejected listing must not be memoised, or a backoff retry would re-throw the same error forever.
-  const forget = <T>(p: Promise<T>, reset: () => void): Promise<T> => p.catch((e) => { reset(); throw e; });
+    memo(() => issues, (p) => (issues = p), async () => {
+      const r = await adapter.listIssues(forge, { limit, state: 'all' });
+      if (r.disabled) return [];
+      const found = unwrap(r, 'issues').issues;
+      if (found.length >= limit) throw truncated('issues');
+      return found;
+    });
+  const listPulls = () =>
+    memo(() => pulls, (p) => (pulls = p), async () => {
+      const found = unwrap(await adapter.listPulls(forge, { limit, state: 'all' }), 'pulls').pulls;
+      if (found.length >= limit) throw truncated('pulls');
+      return found;
+    });
+  /** `comments` and `reviews` both read one pull's conversation: fetch it once. */
+  const pullConversation = async (number: number): Promise<ForgePullCommentsResult> => {
+    let call = pullConvo.get(number);
+    if (!call) {
+      call = adapter.pullComments(forge, number).then((r) => unwrap(r, `pull #${number} comments`));
+      pullConvo.set(number, call);
+      call.catch(() => pullConvo.delete(number));
+    }
+    return call;
+  };
 
   const conversation = (c: ForgeComment, scope: 'issue' | 'pull', number: number): MetadataRecord => ({ ...c, id: `${scope}${number}:${c.id}`, scope, number });
 
   async function pullsToRead(since: string | null): Promise<ForgePull[]> {
-    const all = await forget(listPulls(), () => (pulls = null));
+    const all = await listPulls();
     return all.filter((p) => p.state === 'open' || isAfter(p.closedAt ?? p.mergedAt, since));
   }
 
@@ -90,21 +127,21 @@ export function createForgeMetadataSource(options: ForgeMetadataSourceOptions): 
     defaultBranch: options.defaultBranch ?? (async () => null),
     async records(kind: NdjsonKind, since: string | null): Promise<MetadataRecord[]> {
       if (kind === 'issues') {
-        const all = await forget(listIssues(), () => (issues = null));
+        const all = await listIssues();
         return all.filter((i) => isAfter(i.updatedAt, since)).map((i) => ({ ...i, id: i.number }));
       }
       if (kind === 'pulls') {
-        const all = await forget(listPulls(), () => (pulls = null));
+        const all = await listPulls();
         return all.map((p) => ({ ...p, id: p.number }));
       }
       if (kind === 'comments') {
         const out: MetadataRecord[] = [];
-        for (const issue of (await forget(listIssues(), () => (issues = null))).filter((i) => isAfter(i.updatedAt, since))) {
+        for (const issue of (await listIssues()).filter((i) => isAfter(i.updatedAt, since))) {
           const r = unwrap(await adapter.issueComments(forge, issue.number), `issue #${issue.number} comments`);
           out.push(...r.comments.map((c) => conversation(c, 'issue', issue.number)));
         }
         for (const pull of await pullsToRead(since)) {
-          const r = unwrap(await adapter.pullComments(forge, pull.number), `pull #${pull.number} comments`);
+          const r = await pullConversation(pull.number);
           out.push(...r.comments.filter((c) => c.kind === 'comment').map((c) => conversation(c, 'pull', pull.number)));
         }
         return out;
@@ -112,7 +149,7 @@ export function createForgeMetadataSource(options: ForgeMetadataSourceOptions): 
       // reviews: verdicts from the conversation, plus inline threads
       const out: MetadataRecord[] = [];
       for (const pull of await pullsToRead(since)) {
-        const r = unwrap(await adapter.pullComments(forge, pull.number), `pull #${pull.number} reviews`);
+        const r = await pullConversation(pull.number);
         out.push(...r.comments.filter((c) => c.kind === 'review').map((c) => conversation(c, 'pull', pull.number)));
         const t = unwrap(await adapter.pullThreads(forge, pull.number), `pull #${pull.number} threads`);
         out.push(...t.threads.map((thread) => ({ ...thread, id: `pull${pull.number}:thread:${thread.id}`, scope: 'thread', number: pull.number })));
@@ -121,7 +158,7 @@ export function createForgeMetadataSource(options: ForgeMetadataSourceOptions): 
     },
     async snapshot(kind: SnapshotKind): Promise<unknown> {
       if (kind === 'releases') return [];
-      const all = await forget(listIssues(), () => (issues = null));
+      const all = await listIssues();
       if (kind === 'labels') {
         const byName = new Map<string, { name: string; color: string }>();
         for (const label of all.flatMap((i) => i.labels)) byName.set(label.name, label);

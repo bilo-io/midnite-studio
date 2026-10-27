@@ -1,7 +1,7 @@
 import type { ReachableRepo } from '@midnite/studio-shared';
 
 import type { MirrorConfig, MirrorConfigRepo } from './mirror-config';
-import { isSafeRemoteUrl, isSafeSegment, mirrorKey } from './mirror-layout';
+import { isSafeRemoteUrl, isSafeSegment, mirrorKey, mirrorPaths } from './mirror-layout';
 
 /**
  * The repo picker's model (Phase 119 Theme A): what is on offer, what is chosen, and the edits to
@@ -31,11 +31,17 @@ const SOURCE_RANK: Record<PickerSource, number> = { open: 0, added: 1, reachable
  */
 export function buildPickerRows({ config, open = [], reachable = [] }: PickerInput): PickerRow[] {
   const rows = new Map<string, PickerRow>();
-  const chosen = new Set(config.repos.map(mirrorKey));
-  const untouched = config.repos.length === 0 && Object.keys(config.state).length === 0;
+  const chosen = new Set(config.repos.map((r) => mirrorKey({ ...r, host: r.host.toLowerCase() })));
+  const untouched = !config.picked && config.repos.length === 0 && Object.keys(config.state).length === 0;
   const add = (repo: MirrorConfigRepo, source: PickerSource, isPrivate = false): void => {
+    repo = { ...repo, host: repo.host.toLowerCase() };
     const key = mirrorKey(repo);
-    if (rows.has(key)) return;
+    const existing = rows.get(key);
+    if (existing) {
+      // The same repo from a second source: keep the first row, but never lose that it is private.
+      if (isPrivate) existing.private = true;
+      return;
+    }
     rows.set(key, { host: repo.host, owner: repo.owner, repo: repo.repo, url: repo.url, key, source, private: isPrivate, selected: chosen.has(key) || (untouched && source === 'open') });
   };
   for (const repo of open) if (isPickable(repo)) add(repo, 'open');
@@ -50,13 +56,19 @@ export function buildPickerRows({ config, open = [], reachable = [] }: PickerInp
 }
 
 function isPickable(repo: MirrorConfigRepo): boolean {
-  return isSafeSegment(repo.owner) && isSafeSegment(repo.repo) && isSafeRemoteUrl(repo.url) && repo.host.length > 0;
+  if (!isSafeRemoteUrl(repo.url)) return false;
+  try {
+    mirrorPaths('/', repo); // the one place host, owner and repo become path segments
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** The config with `rows`' selected repos as its `repos`; interval, root and run state are untouched. */
 export function applySelection(config: MirrorConfig, rows: readonly PickerRow[]): MirrorConfig {
   const repos = rows.filter((r) => r.selected).map(({ host, owner, repo, url }) => ({ host, owner, repo, url }));
-  return { ...config, repos };
+  return { ...config, repos, picked: true };
 }
 
 export function toggleRow(rows: readonly PickerRow[], key: string): PickerRow[] {
@@ -73,11 +85,13 @@ export function parseRepoUrl(input: string): ParsedRepoUrl {
   if (!match) return { ok: false, reason: 'expected host/owner/repo' };
   const [, host, owner, repo] = match as unknown as [string, string, string, string];
   if (!isSafeSegment(owner) || !isSafeSegment(repo)) return { ok: false, reason: 'owner or repo name is not allowed in a mirror path' };
-  return { ok: true, repo: { host: host.toLowerCase(), owner, repo, url } };
+  const parsed = { host: host.toLowerCase(), owner, repo, url };
+  if (!isPickable(parsed)) return { ok: false, reason: 'host is not allowed in a mirror path' };
+  return { ok: true, repo: parsed };
 }
 
 /** Add a parsed repo to the config (selected), idempotently. */
 export function addRepo(config: MirrorConfig, repo: MirrorConfigRepo): MirrorConfig {
   if (config.repos.some((r) => mirrorKey(r) === mirrorKey(repo))) return config;
-  return { ...config, repos: [...config.repos, repo] };
+  return { ...config, repos: [...config.repos, repo], picked: true };
 }

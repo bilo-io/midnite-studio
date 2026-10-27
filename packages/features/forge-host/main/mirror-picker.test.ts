@@ -34,6 +34,23 @@ describe('buildPickerRows', () => {
 });
 
 describe('selection edits', () => {
+  it('an emptied selection is a choice: it is not re-defaulted to the open repos', () => {
+    const rows = buildPickerRows({ config: cfg(), open, reachable: [reach] }).map((r) => ({ ...r, selected: false }));
+    const saved = applySelection(cfg(), rows);
+    expect(saved.picked).toBe(true);
+    expect(buildPickerRows({ config: saved, open, reachable: [reach] }).some((r) => r.selected)).toBe(false);
+  });
+
+  it('keeps private when a repo is both open and reachable, and merges host casing', () => {
+    const rows = buildPickerRows({
+      config: cfg(),
+      open: [{ host: 'GitHub.com', owner: 'bilo-io', repo: 'notes', url: 'https://github.com/bilo-io/notes.git' }],
+      reachable: [reach],
+    });
+    expect(rows.filter((r) => r.repo === 'notes')).toHaveLength(1);
+    expect(rows.find((r) => r.repo === 'notes')).toMatchObject({ source: 'open', private: true, host: 'github.com' });
+  });
+
   it('round-trips toggles into the config and leaves other fields alone', () => {
     const base = { ...cfg(), interval: 'weekly' as const };
     const rows = toggleRow(buildPickerRows({ config: base, open, reachable: [reach] }), 'github.com/bilo-io/notes');
