@@ -199,6 +199,7 @@ describe('Guard Sweep Runner (Phase 122 Theme A)', () => {
       checks: [checkOsv],
       ledger,
       sweepsStore,
+      context: { resolvers: { osv: () => ({}) } },
       now: () => clockTime,
     });
 
@@ -220,5 +221,12 @@ describe('Guard Sweep Runner (Phase 122 Theme A)', () => {
     // Because checkOsv was skipped, the finding should REMAIN open
     openFindings = await ledger.list({ status: 'open', source: 'guard' });
     expect(openFindings).toHaveLength(1);
+  });
+
+  it('skips a check whose input has no resolver and records the skipped input', async () => {
+    const result = await runGuardSweep({ userData: testDir, checks: [checkOsv], ledger, sweepsStore, now: () => clockTime });
+    expect(result.record.checksRun).toEqual([]);
+    expect(result.record.inputsSkipped).toEqual({ osv: 'no-resolver' });
+    expect(result.findings).toEqual([]);
   });
 });

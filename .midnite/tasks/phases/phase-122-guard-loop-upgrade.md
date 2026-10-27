@@ -115,7 +115,7 @@ for candidate files, an installed-`node_modules` resolver, and the `poisoned-pac
 `remove-package` action), `mcp-servers` (`critical`, `revoke-mcp-server`) and `slopsquat` (`high` for listed names,
 `medium` for one edit from a short built-in popular list) checks. Not done: the feed itself and its publishing
 workflow live in `bilo-io/midnite-apps`, so `THREAT_FEED_PUBLIC_KEY_PEM` is empty and no feed is trusted yet; the
-plugins/skills re-scan; the installed-package resolver does not yet descend into pnpm's `node_modules/.pnpm`; wiring into the sweep (the `installedPackages` and `mcpServers` inputs have no resolver registered yet). The loader keeps serving the last verified feed when a download fails verification and refuses a validly signed feed with a lower `version` than the cached one.
+plugins/skills re-scan; the installed-package resolver now descends into pnpm's `node_modules/.pnpm` and the `installedPackages` and `mcpServers` inputs have resolvers (PR pending), but while `THREAT_FEED_PUBLIC_KEY_PEM` is empty the `threatFeed` input is skipped, so all three checks are recorded as skipped in each sweep rather than reporting clean. The loader keeps serving the last verified feed when a download fails verification and refuses a validly signed feed with a lower `version` than the cached one.
 
 **Theme D — The Mac itself.** ◻ Listening ports, outdated software, FileVault/firewall/
 Gatekeeper/SIP/remote-login state, SSH key modes and passphrases, secrets in dotfiles and `.env`
@@ -215,7 +215,7 @@ repo.
       a candidate file. Seeded with the Shai-Hulud waves' package-versions (from the Microsoft,
       Sygnia, CSA and StepSecurity write-ups), the ClickFix domain lists from the Microsoft and
       Unit 42 reports, and the ClickFix command grammars Phase 120 D uses. [M]
-- [~] **Local checks.** ◐ PARTIAL: `poisoned-packages`, `mcp-servers` and `slopsquat` landed; the plugins/skills re-scan (Phase 121 H) and wiring the checks and their resolvers into the scheduled sweep are open. — `guard/checks/poisoned-packages.ts` (every open repo's lockfile and
+- [~] **Local checks.** ◐ PARTIAL: `poisoned-packages`, `mcp-servers` and `slopsquat` landed; the plugins/skills re-scan (Phase 121 H) is open; wiring the checks into the scheduled sweep landed in the Phase 122 wiring PR. — `guard/checks/poisoned-packages.ts` (every open repo's lockfile and
       `node_modules/*/package.json` against `poisonedPackages`; a hit is `critical` with
       `update-package`/`remove-package` and a link to the campaign write-up),
       `guard/checks/mcp-servers.ts` (Phase 121 C's discovered servers against `mcpServers`;

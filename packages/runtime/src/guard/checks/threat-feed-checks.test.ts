@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { ThreatFeed } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 
-import { resolveInstalledNodeModules } from '../lockfiles/node-modules';
+import { pnpmStoreName, resolveInstalledNodeModules } from '../lockfiles/node-modules';
 import type { LockedPackage } from '../lockfiles/types';
 import { mcpServersCheck, poisonedPackagesCheck, slopsquatCheck, withinOneEdit } from './threat-feed-checks';
 
@@ -67,5 +67,29 @@ describe('threat-feed checks (Phase 122 Theme C)', () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it('resolveInstalledNodeModules descends into pnpm\'s .pnpm virtual store and dedupes', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'nm-'));
+    try {
+      const store = join(root, 'node_modules/.pnpm');
+      await mkdir(join(store, 'deep@3.1.0_peer@1.0.0/node_modules/deep'), { recursive: true });
+      await mkdir(join(store, '@s+c@4.0.0/node_modules/@s/c'), { recursive: true });
+      await mkdir(join(root, 'node_modules/deep'), { recursive: true });
+      await writeFile(join(store, 'deep@3.1.0_peer@1.0.0/node_modules/deep/package.json'), JSON.stringify({ name: 'deep', version: '3.1.0' }));
+      await writeFile(join(store, '@s+c@4.0.0/node_modules/@s/c/package.json'), JSON.stringify({ name: '@s/c', version: '4.0.0' }));
+      await writeFile(join(root, 'node_modules/deep/package.json'), JSON.stringify({ name: 'deep', version: '3.1.0' }));
+      expect((await resolveInstalledNodeModules([root])).map((p) => `${p.name}@${p.version}`).sort()).toEqual(['@s/c@4.0.0', 'deep@3.1.0']);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('pnpmStoreName reads scoped, peer-suffixed and malformed folder names', () => {
+    expect(pnpmStoreName('@s+c@4.0.0')).toBe('@s/c');
+    expect(pnpmStoreName('deep@3.1.0_peer@1.0.0')).toBe('deep');
+    expect(pnpmStoreName('string_decoder@1.3.0')).toBe('string_decoder');
+    expect(pnpmStoreName('@s+a_b@1.0.0_x@2')).toBe('@s/a_b');
+    expect(pnpmStoreName('node_modules')).toBeNull();
   });
 });

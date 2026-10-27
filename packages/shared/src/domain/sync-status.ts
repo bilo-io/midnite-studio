@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { LoopScheduleSchema } from '../loops';
 import { AgentOllamaBindingSchema } from '../ollama-launch';
 import { WebAppIdSchema } from './web-apps';
 
@@ -98,5 +99,11 @@ export const SettingsSyncPayloadSchema = z.object({
    * prunes scrollback and archived transcripts on start and daily. Main defaults to `null`.
    */
   historyRetentionDays: z.number().int().positive().nullable().optional(),
+  /**
+   * Phase 122 Theme A: the Guard loop's schedule (`ui-store`'s `loopSchedules.guard`). The recurring sweep runs in
+   * main, with or without an agent, so main needs the schedule rather than asking the renderer on each tick.
+   * Missing means no schedule: the sweep stays off.
+   */
+  guardSchedule: LoopScheduleSchema.optional(),
 });
 export type SettingsSyncPayload = z.infer<typeof SettingsSyncPayloadSchema>;

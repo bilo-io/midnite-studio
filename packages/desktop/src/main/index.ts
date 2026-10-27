@@ -125,7 +125,8 @@ import {
   setAgentWatcher,
 } from './pty-service';
 import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
-import { configureLoopRuns, noteSessionExit } from './loop-runs';
+import { configureLoopRuns, noteSessionExit, setGuardSummaryProvider } from './loop-runs';
+import { latestGuardSweepSummary, startGuardSweeps, stopGuardSweeps } from './guard-sweep-wiring';
 import { createLoopRunsStore } from './loop-runs-store';
 import { createTerminalStore } from './terminal-store';
 import {
@@ -815,6 +816,9 @@ export const startStudioMain: StartStudioMain = () => {
       configureMcpTrust(userData, (finding) => getFindingsLedger().record(finding));
       // Phase 121 Theme F: the breaker reads the trail the line above feeds and interrupts a session that runs away.
       startStudioAgentBreaker({ userData, getWindow: getMainWindow });
+      // Phase 122: the scheduled Guard sweep (checks and resolvers of Themes B and C) and its summary on a Guard run's record.
+      setGuardSummaryProvider(latestGuardSweepSummary);
+      startGuardSweeps({ userData });
       void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
@@ -1214,6 +1218,7 @@ export const startStudioMain: StartStudioMain = () => {
         }
       }
 
+      stopGuardSweeps();
       void stopVanguardSensors();
       stopAgentCommandAudit?.();
       stopStudioAgentBreaker();

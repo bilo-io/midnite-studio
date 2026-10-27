@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-27 — Phase 122 Themes B+C (wiring) — Guard sweep runs the new checks
+
+The scheduled Guard sweep now runs `lockfile-cves`, `poisoned-packages`, `mcp-servers` and `slopsquat` with real resolvers (`guard/default-checks.ts`, `guard/resolvers.ts`, `desktop/src/main/guard-sweep-wiring.ts`), the schedule mirrored into main via `SettingsSyncPayload.guardSchedule`. Fixes #1025's review findings (no-resolver skips, overnight `calculateNextWake`, Guard run `findingsSummary` filled in main) and descends into pnpm's `.pnpm` store. Themes B and C stay `◐ PARTIAL`.
+
 ## 2026-10-27 — Phase 122 Theme C (partial) — The threat feed
 
 Signed threat-feed schema, an Ed25519 verifier and cached loader, `scripts/threat-feed-check.mjs`, an installed-`node_modules` resolver and the `poisoned-packages`, `mcp-servers` and `slopsquat` Guard checks (new `remove-package` action). The published feed and workflow in midnite-apps, the plugins/skills re-scan and sweep wiring stay open; no feed is trusted until a public key is configured.

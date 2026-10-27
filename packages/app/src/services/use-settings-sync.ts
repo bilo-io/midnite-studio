@@ -33,6 +33,8 @@ export function useSettingsSync(): void {
   // Phase 115 Themes B + F: main reads the agents' history and prunes its own, so both cross the same way.
   const readAgentHistory = useUiStore((s) => s.readAgentHistory);
   const historyRetentionDays = useUiStore((s) => s.historyRetentionDays);
+  // Phase 122: the Guard sweep runs in main on this schedule.
+  const guardSchedule = useUiStore((s) => s.loopSchedules['guard']);
 
   // Phase 117 Themes D + E: the browser partition's downloads opt-in and privacy switches live in
   // main, which runs protection-on / downloads-off until the first push.
@@ -67,6 +69,7 @@ export function useSettingsSync(): void {
       confineNewSessions,
       readAgentHistory,
       historyRetentionDays,
+      ...(guardSchedule ? { guardSchedule } : {}),
     });
   }, [
     autoFetchEnabled,
@@ -78,5 +81,6 @@ export function useSettingsSync(): void {
     confineNewSessions,
     readAgentHistory,
     historyRetentionDays,
+    guardSchedule,
   ]);
 }

@@ -110,3 +110,63 @@ describe('GuardScheduler (Phase 122 Theme A)', () => {
     scheduler.stop();
   });
 });
+
+describe('calculateNextWake overnight windows (Phase 122)', () => {
+  // Local-time dates: 2026-10-26 is a Monday.
+  const at = (day: number, h: number, m = 0): number => new Date(2026, 9, day, h, m).getTime();
+  const overnight: LoopSchedule = { enabled: true, from: '22:00', to: '06:00', frequency: 'hourly', days: ['mon'] };
+
+  it('stays inside the window across midnight when the opening day is allowed', () => {
+    expect(calculateNextWake(overnight, at(26, 23, 30))).toBe(at(27, 0, 30)); // Mon 23:30 -> Tue 00:30
+  });
+
+  it('attributes the small hours to the previous day: Tue 02:00 is inside Monday\'s window', () => {
+    expect(calculateNextWake(overnight, at(27, 1, 0))).toBe(at(27, 2, 0));
+  });
+
+  it('does not wake in the small hours of an allowed day whose previous day is not', () => {
+    // Mon 04:00 belongs to Sunday's window, and Sunday is not allowed: wait for Mon 22:00.
+    expect(calculateNextWake(overnight, at(26, 3, 0))).toBe(at(26, 22, 0));
+  });
+
+  it('opens at the window start after the gap', () => {
+    expect(calculateNextWake(overnight, at(26, 10, 0))).toBe(at(26, 22, 0));
+  });
+
+  it('skips to the next allowed day when this one is not', () => {
+    expect(calculateNextWake(overnight, at(27, 12, 0))).toBe(at(33, 22, 0)); // next Monday, Nov 2
+  });
+});
+
+describe('GuardScheduler.reschedule / onError (Phase 122)', () => {
+  const schedule: LoopSchedule = { enabled: true, from: '00:00', to: '00:00', frequency: 'hourly', days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] };
+
+  it('recomputes the wake from the new schedule instead of reusing the persisted one', async () => {
+    const now = Date.now();
+    let saved: number | null = now + 24 * 60 * 60 * 1000;
+    const scheduler = createGuardScheduler({
+      getSchedule: () => schedule,
+      onSweep: async () => undefined,
+      store: { load: async () => saved, save: async (v) => void (saved = v) },
+      now: () => now,
+    });
+    await scheduler.start();
+    expect(scheduler.getNextWake()).toBe(now + 24 * 60 * 60 * 1000);
+    await scheduler.reschedule();
+    expect(scheduler.getNextWake()).toBe(now + 60 * 60 * 1000);
+    scheduler.stop();
+  });
+
+  it('reports a failed sweep through onError', async () => {
+    const errors: unknown[] = [];
+    const scheduler = createGuardScheduler({
+      getSchedule: () => ({ ...schedule, enabled: false }),
+      onSweep: async () => {
+        throw new Error('disk full');
+      },
+      onError: (e) => errors.push(e),
+    });
+    await scheduler.sweepNow();
+    expect(errors).toHaveLength(1);
+  });
+});
