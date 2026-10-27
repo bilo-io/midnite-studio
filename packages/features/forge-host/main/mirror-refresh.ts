@@ -48,8 +48,17 @@ async function refreshMirrorUnguarded({ root, repo, url, source, now = () => new
   }
 
   await ensurePrivateDir(paths.parent);
-  const fetched = (await isMirrorPresent(paths.bare)) ? await mirrorUpdate(paths.bare) : await mirrorClone(paths.parent, url, paths.name);
-  if (!fetched.ok) return result('failed', { reason: fetched.message });
+  const existed = await isMirrorPresent(paths.bare);
+  const fetched = existed ? await mirrorUpdate(paths.bare) : await mirrorClone(paths.parent, url, paths.name);
+  if (!fetched.ok) {
+    // On some git versions a corrupt object makes the update itself fail before our fsck runs. If the
+    // mirror was already there and fsck confirms damage, that is `degraded`, not an unreachable remote.
+    if (existed) {
+      const damage = await mirrorFsck(paths.bare);
+      if (!damage.ok) return result('degraded', { reason: `git fsck: ${damage.message}`, refs: Object.keys(await listRefs(paths.bare)).length });
+    }
+    return result('failed', { reason: fetched.message });
+  }
 
   const fsck = await mirrorFsck(paths.bare);
   const refs = await listRefs(paths.bare);
