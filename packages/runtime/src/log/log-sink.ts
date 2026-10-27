@@ -188,8 +188,11 @@ export function createFileSink(options: FileSinkOptions): LogSink {
     onFailure?.(`[log] file sink disabled: ${redactPaths(reason, homeDir)}`);
   }
 
+  let dirReady = false;
   function ensureDir(): void {
+    if (dirReady) return;
     ensurePrivateDirSync(dir);
+    dirReady = true;
   }
 
   /** Append `text`, rotating first if it would push the file past `maxBytes`. */

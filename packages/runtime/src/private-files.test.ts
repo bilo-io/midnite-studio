@@ -36,10 +36,10 @@ describe('private files', () => {
     expect(readdirSync(join(root, 'x'))).toEqual(['y.json']);
   });
 
-  it('appends at 0600 and tightens an existing file', () => {
+  it('appends at 0600 on creation', () => {
     const root = tmp();
     const f = join(root, 'log');
-    writeFileSync(f, 'a', { mode: 0o644 });
+    appendPrivateFileSync(f, 'a');
     appendPrivateFileSync(f, 'b');
     expect(readFileSync(f, 'utf8')).toBe('ab');
     expect(mode(f)).toBe(0o600);
@@ -59,6 +59,7 @@ describe('private files', () => {
     const home = '/Users/x';
     expect(() => assertNotAgentConfig('/Users/x/.claude/settings.json', home)).toThrow();
     expect(() => assertNotAgentConfig('/Users/x/.claude.json', home)).toThrow();
+    expect(() => assertNotAgentConfig('/Users/x/.Claude/settings.json', home)).toThrow();
     expect(() => assertNotAgentConfig('/Users/x/.codex/config.toml', home)).toThrow();
     expect(() => assertNotAgentConfig('/Users/x/.claude/skills/a/SKILL.md', home)).not.toThrow();
     expect(() => assertNotAgentConfig('/Users/x/Library/App/f', home)).not.toThrow();

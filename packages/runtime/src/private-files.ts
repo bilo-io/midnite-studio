@@ -1,5 +1,6 @@
-import { appendFileSync, chmodSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { appendFileSync, chmodSync, lstatSync, mkdirSync, readdirSync } from 'node:fs';
 import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 
@@ -22,10 +23,10 @@ export function assertNotAgentConfig(target: string, home: string = homedir()): 
   const abs = resolve(target);
   const rel = abs.startsWith(home + sep) ? abs.slice(home.length + 1).split(sep) : null;
   if (!rel || rel.length === 0) return;
-  const top = rel[0] ?? '';
+  const top = (rel[0] ?? '').toLowerCase(); // APFS is case-insensitive
   const isAgentDir = top === '.codex' || top === '.claude' || top.startsWith('.claude.');
   if (!isAgentDir) return;
-  if (rel[1] === 'skills') return;
+  if ((rel[1] ?? '').toLowerCase() === 'skills') return;
   throw new Error(`refusing to write agent config: ${abs}`);
 }
 
@@ -50,10 +51,9 @@ export async function writePrivateFile(
 ): Promise<void> {
   assertNotAgentConfig(path);
   await ensurePrivateDir(dirname(path));
-  const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.tmp`);
+  const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`);
   try {
     await writeFile(tmp, data, { mode: FILE_MODE, encoding });
-    await chmod(tmp, FILE_MODE);
     await rename(tmp, path);
   } catch (err) {
     await rm(tmp, { force: true }).catch(() => undefined);
@@ -61,11 +61,10 @@ export async function writePrivateFile(
   }
 }
 
-/** Append at 0600 (the mode applies when the file is created; an existing one is tightened). */
+/** Append at 0600. The mode applies on creation; older files are tightened by `tightenHistoryModes`. */
 export function appendPrivateFileSync(path: string, text: string): void {
   assertNotAgentConfig(path);
   appendFileSync(path, text, { mode: FILE_MODE });
-  chmodSync(path, FILE_MODE);
 }
 
 export type TightenResult = { dirs: number; files: number };
@@ -79,10 +78,11 @@ export function tightenTree(roots: readonly string[]): TightenResult {
   const walk = (p: string): void => {
     let st;
     try {
-      st = statSync(p);
+      st = lstatSync(p);
     } catch {
       return;
     }
+    if (st.isSymbolicLink()) return;
     const want = st.isDirectory() ? DIR_MODE : FILE_MODE;
     if ((st.mode & 0o777) !== want) {
       try {

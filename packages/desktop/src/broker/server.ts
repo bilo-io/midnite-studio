@@ -384,13 +384,13 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
   }
 
   async function flushAllScrollback(): Promise<void> {
-    try {
-      for (const [sessionId, bytes] of scrollbackBySession.entries()) {
+    for (const [sessionId, bytes] of scrollbackBySession.entries()) {
+      try {
         const file = join(scrollbackDir, `${safeId(sessionId)}.bin`);
         await writePrivateFile(file, trimScrollback(bytes));
+      } catch (err) {
+        log(`[broker] error flushing scrollback: ${err instanceof Error ? err.message : String(err)}`);
       }
-    } catch (err) {
-      log(`[broker] error flushing scrollback: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

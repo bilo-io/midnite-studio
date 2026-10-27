@@ -1,4 +1,4 @@
-import { copyFile, readFile, rename, rm } from 'node:fs/promises';
+import { chmod, copyFile, readFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { ensurePrivateDir, writePrivateFile } from '@midnite/studio-runtime';
@@ -190,10 +190,12 @@ async function archiveTranscript(
   }
   try {
     await rename(from, to);
+    await chmod(to, 0o600).catch(() => undefined);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EXDEV') return;
     try {
       await copyFile(from, to);
+      await chmod(to, 0o600).catch(() => undefined);
       await rm(from, { force: true });
     } catch {
       // Nothing further to try. The record is still appended below — a history
