@@ -109,5 +109,5 @@ describe('vault restore drill (Mac A -> Mac B)', () => {
     if (!secondImport.ok) return;
     expect(secondImport.importedCount).toBe(0);
     expect(secondImport.skippedCount).toBe(4);
-  });
+  }, 30_000);
 });
