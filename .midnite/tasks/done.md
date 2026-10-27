@@ -8,7 +8,7 @@ The scheduled Guard sweep now runs `lockfile-cves`, `poisoned-packages`, `mcp-se
 
 ## 2026-10-27 — Phase 115 Themes C, D — Scrub secrets on write, no plaintext key without a Keychain
 
-Log records, chats, patches and archived transcripts are scrubbed on write against the vault's live values (so prefixless Azure and Bitbucket tokens go too) plus the shape patterns; live scrollback stays byte-exact. With no working Keychain the `secrets` vault holds keys for the session, the plaintext `agentApiKeys` copy is removed anyway, and the user is told (toast plus a note on Settings ▸ Agents). Also: main's Claude/Codex history switch now fails closed until the renderer's first settings push. PR TBD.
+Log records, chats, patches and archived transcripts are scrubbed on write against the vault's live values (so prefixless Azure and Bitbucket tokens go too) plus the shape patterns; live scrollback stays byte-exact. With no working Keychain the `secrets` vault holds keys for the session, the plaintext `agentApiKeys` copy is removed anyway, and the user is told (toast plus a note on Settings ▸ Agents). Also: main's Claude/Codex history switch now fails closed until the renderer's first settings push. PR #1035.
 
 ## 2026-10-27 — Phase 122 Theme C (partial) — The threat feed
 
