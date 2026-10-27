@@ -6,6 +6,10 @@
 
 New `packages/features/forge-host` main half: bare `--mirror` clone/refresh, fsck + head verification (`degraded` keeps the previous manifest), NDJSON metadata through a `MetadataSource` port with incremental id-merge, SHA-256 manifest, `restoreMirror`, config and a per-host-serial scheduler. `cloneRepo` gained `{mirror}`. Adapter composer, repo picker and the encrypted metadata archive remain open.
 
+## 2026-10-27 — Phase 122 Theme B (partial) — Lockfile CVEs
+
+Lockfile parsers (pnpm, package-lock, yarn classic, requirements.txt, Cargo.lock, go.sum), an OSV client with an injected fetch and a `modified`-keyed advisory cache, CISA KEV, the CVSS severity ladder and the `lockfile-cves` Guard check with `update-package`/`pin-package` actions and suppression support. GHSA/NVD, installed software and the remaining lockfile formats stay open.
+
 ## 2026-10-27 — Phase 115 Themes B, F (partial) — Owner-only history, agent config never written
 
 Owner-only file helpers (`runtime/src/private-files.ts`) applied to every history store with a boot-time mode migration, plus a source-scan test and runtime guard that refuse writes to `~/.claude*`/`~/.codex`. Retention, clear-history, FileVault note and the Claude/Codex read switch remain open.

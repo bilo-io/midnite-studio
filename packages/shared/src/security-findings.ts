@@ -97,6 +97,8 @@ export const RemediationActionIdSchema = z.enum([
   'report-issue',
   'open-in-agents',
   'mute',
+  'update-package',
+  'pin-package',
 ]);
 export type RemediationActionId = z.infer<typeof RemediationActionIdSchema>;
 
@@ -173,6 +175,26 @@ export const MuteActionSchema = z.object({
 });
 export type MuteAction = z.infer<typeof MuteActionSchema>;
 
+/** Guard Theme B: bump a dependency to the version that fixes an advisory. Runs through the agent pass (Theme G). */
+export const UpdatePackageActionSchema = z.object({
+  id: z.literal('update-package'),
+  name: z.string(),
+  from: z.string(),
+  to: z.string(),
+  description: z.string().optional(),
+});
+export type UpdatePackageAction = z.infer<typeof UpdatePackageActionSchema>;
+
+/** Guard Theme B: the fix is only on a newer major, so the action pins a override at that version. */
+export const PinPackageActionSchema = z.object({
+  id: z.literal('pin-package'),
+  name: z.string(),
+  from: z.string(),
+  to: z.string(),
+  description: z.string().optional(),
+});
+export type PinPackageAction = z.infer<typeof PinPackageActionSchema>;
+
 export const RemediationActionSchema = z.discriminatedUnion('id', [
   PauseSessionActionSchema,
   KillProcessGroupActionSchema,
@@ -184,6 +206,8 @@ export const RemediationActionSchema = z.discriminatedUnion('id', [
   ReportIssueActionSchema,
   OpenInAgentsActionSchema,
   MuteActionSchema,
+  UpdatePackageActionSchema,
+  PinPackageActionSchema,
 ]);
 export type RemediationAction = z.infer<typeof RemediationActionSchema>;
 
@@ -195,6 +219,14 @@ export type RemediationAction = z.infer<typeof RemediationActionSchema>;
  * with Phase 121 Theme C: it runs wherever the composer supplies the MCP allowlist.)
  */
 export const REMEDIATION_PENDING: Readonly<Partial<Record<RemediationActionId, { reason: string; dependsOn: string }>>> = {
+  'update-package': {
+    reason: 'Run from the Guard tab once Phase 122 Theme G lands; until then the finding names the version to move to.',
+    dependsOn: 'Phase 122 Theme G',
+  },
+  'pin-package': {
+    reason: 'Run from the Guard tab once Phase 122 Theme G lands; until then the finding names the version to pin.',
+    dependsOn: 'Phase 122 Theme G',
+  },
   'open-in-agents': {
     reason:
       'Available once Phase 121 lands: a finding goes into a Chats thread only once it can be tagged untrusted (Phase 121 Theme A).',

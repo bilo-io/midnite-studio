@@ -592,6 +592,8 @@ export function createResponseActions(deps: ResponseActionDeps): ResponseActions
           return chmod600(finding, action);
         case 'revoke-mcp-server':
           return revokeMcp(action, finding);
+        case 'update-package':
+        case 'pin-package':
         case 'open-in-agents':
           // Unreachable while REMEDIATION_PENDING names it; kept so a new id cannot slip past the switch.
           return { kind: 'unavailable', unavailable: { reason: 'This action is not available yet.' } };
