@@ -43,6 +43,13 @@ afterEach(() => {
 });
 
 describe('MonitorPage', () => {
+  it('owns its own scroll container so content taller than the pane scrolls', () => {
+    render(<MonitorPage />);
+    const scroller = screen.getByTestId('monitor-scroll');
+    expect(scroller.className).toContain('overflow-y-auto');
+    expect(scroller.className).toContain('min-h-0');
+  });
+
   it('waits for a sample, then draws usage, disk and battery', () => {
     render(<MonitorPage />);
     expect(screen.getByText('Waiting for the first sample…')).toBeTruthy();
