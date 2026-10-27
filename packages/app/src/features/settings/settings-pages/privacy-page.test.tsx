@@ -66,3 +66,32 @@ describe('PrivacyPage local history and agent reads (Phase 115 Themes B + F)', (
     expect(screen.getByRole('button', { name: /Clear all local history/ })).toBeTruthy();
   });
 });
+
+describe('PrivacyPage automatic network (Phase 115 Theme A)', () => {
+  beforeEach(() => {
+    useUiStore.setState({ egressAllAutomaticOff: false, egressSwitches: {} });
+  });
+  afterEach(cleanup);
+
+  it('generates one switch per automatic registry switch, on by default', () => {
+    renderPage();
+    expect((screen.getByRole('switch', { name: 'Market prices, FX and finance news' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('switch', { name: 'Guard vulnerability feeds (OSV, CISA KEV)' }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('stores a per-host switch without touching the master', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('switch', { name: 'Market prices, FX and finance news' }));
+    expect(useUiStore.getState().egressSwitches).toEqual({ markets: false });
+    expect(useUiStore.getState().egressAllAutomaticOff).toBe(false);
+  });
+
+  it('the master switch disables the rest and keeps their stored values', () => {
+    useUiStore.setState({ egressSwitches: { markets: true } });
+    renderPage();
+    fireEvent.click(screen.getByRole('switch', { name: 'Turn off all automatic network' }));
+    expect(useUiStore.getState().egressAllAutomaticOff).toBe(true);
+    expect((screen.getByRole('switch', { name: 'Market prices, FX and finance news' }) as HTMLInputElement).disabled).toBe(true);
+    expect(useUiStore.getState().egressSwitches).toEqual({ markets: true });
+  });
+});

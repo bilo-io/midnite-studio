@@ -12,6 +12,7 @@ import {
   createVaultGrants,
   createVaultIntegrity,
   confinementAvailability,
+  configureGuardedFetch,
   createVaultService,
   ensureCanaries,
   runtimeHostDirectory,
@@ -466,6 +467,9 @@ export const startStudioMain: StartStudioMain = () => {
 
     // Chromium fixes the privileged-scheme list at startup — must precede ready.
     registerPrivilegedSchemes();
+
+    // Phase 115 Theme A: every main-side outbound request reads its switch from the renderer's mirrored settings.
+    configureGuardedFetch({ getSettings: () => currentSettings().egress });
 
     void app.whenReady().then(async () => {
       bootMark('when-ready');

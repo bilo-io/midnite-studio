@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-28 — Phase 115 Theme A (partial) — One list of outbound hosts, one seam, one master switch
+
+`EGRESS_ENTRIES` in `shared` (owner, sends, trigger, switch, renderer), `guardedFetch` in `runtime/src/net` refusing unregistered hosts and switched-off ones, Guard OSV/KEV, Finance, TMDB, Ollama search, sherpa download, API client and workflows moved onto it, `buildCsp` hosts derived from the registry, Settings ▸ Privacy "Automatic network calls" (master plus generated switches, weather switch) mirrored into main, and a source-scan test with a commented ratchet of the callers still on a raw client. Launcher switches, the remaining raw clients and the idle e2e stay open.
+
 ## 2026-10-27 — Phase 122 Themes B+C (wiring) — Guard sweep runs the new checks
 
 The scheduled Guard sweep now runs `lockfile-cves`, `poisoned-packages`, `mcp-servers` and `slopsquat` with real resolvers (`guard/default-checks.ts`, `guard/resolvers.ts`, `desktop/src/main/guard-sweep-wiring.ts`), the schedule mirrored into main via `SettingsSyncPayload.guardSchedule`. Fixes #1025's review findings (no-resolver skips, overnight `calculateNextWake`, Guard run `findingsSummary` filled in main) and descends into pnpm's `.pnpm` store. Themes B and C stay `◐ PARTIAL`.

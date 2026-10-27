@@ -55,3 +55,4 @@ export * from './security/package-checker';
 export * from './security/skills-audit';
 export * from './security/install-checker';
 export * from './guard';
+export * from './net/guarded-fetch';

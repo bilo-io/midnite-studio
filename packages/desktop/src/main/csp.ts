@@ -6,6 +6,8 @@
  * `csp.test.ts` and the Vite dev-server middleware can share one string.
  */
 
+import { rendererConnectOrigins } from '@midnite/studio-shared';
+
 export type CspBuildOptions = {
   /** When true, widen `script-src` and `connect-src` for Vite HMR. */
   dev: boolean;
@@ -31,9 +33,8 @@ export function buildCsp(opts: CspBuildOptions): string {
     "'self'",
     'mstudio-file:',
     'mstudio-tile:',
-    'https://api.open-meteo.com',
-    'https://geocoding-api.open-meteo.com',
-    'https://ipwho.is',
+    // Phase 115 Theme A: the renderer's hosts come from the registry, so the two lists cannot drift.
+    ...rendererConnectOrigins(),
   ];
 
   if (opts.dev && opts.devServerOrigin) {

@@ -12,7 +12,7 @@ import {
   mediaLibraryMain,
   type LibraryLanController,
 } from '@midnite/studio-feature-media-library/main';
-import type { FeatureMainContext } from '@midnite/studio-runtime';
+import { guardedFetchFor, type FeatureMainContext } from '@midnite/studio-runtime';
 import { app, BrowserWindow, dialog } from 'electron';
 
 import { setLibraryFileResolver } from '../fs-protocol';
@@ -53,7 +53,7 @@ export function registerMediaLibraryHandlers(): void {
     },
     ...libraryEmitters(broadcastToAllWindows),
     readKey: () => readSecret('media.tmdbApiKey'),
-    online: createTmdbProvider((input, init) => fetch(input, init)),
+    online: createTmdbProvider(guardedFetchFor('media-library')),
     homeDir: homedir(),
   });
   setLibraryFileResolver(libraryFileResolver(library));

@@ -1,3 +1,4 @@
+import { guardedFetchFor } from '@midnite/studio-runtime';
 import type { GitOpResult, OllamaSearchResultItem } from '@midnite/studio-shared';
 import { failure, ok } from '@midnite/studio-shared';
 
@@ -182,7 +183,7 @@ export async function searchOllamaLibrary(
   };
 
   try {
-    const html = await fetchSearchHtml(trimmed, scope, opts.fetchImpl ?? fetch);
+    const html = await fetchSearchHtml(trimmed, scope, opts.fetchImpl ?? guardedFetchFor('models'));
     const items = parseOllamaSearchHtml(html);
     if (items.length === 0 && !isGenuinelyEmptyPage(html)) {
       return serveStale() ?? failure('Could not parse ollama.com search results.', undefined, 'parse');

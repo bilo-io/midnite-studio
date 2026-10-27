@@ -33,6 +33,12 @@ export function useSettingsSync(): void {
   // Phase 115 Themes B + F: main reads the agents' history and prunes its own, so both cross the same way.
   const readAgentHistory = useUiStore((s) => s.readAgentHistory);
   const historyRetentionDays = useUiStore((s) => s.historyRetentionDays);
+  // Phase 115 Theme A: `guardedFetch` runs in main, so the egress switches (generated ones plus the two bespoke
+  // flags) cross the same way.
+  const egressAllAutomaticOff = useUiStore((s) => s.egressAllAutomaticOff);
+  const egressSwitches = useUiStore((s) => s.egressSwitches);
+  const locateByIpEnabled = useUiStore((s) => s.locateByIpEnabled);
+  const reputationFeeds = useUiStore((s) => s.browserReputationFeeds);
   // Phase 122: the Guard sweep runs in main on this schedule.
   const guardSchedule = useUiStore((s) => s.loopSchedules['guard']);
 
@@ -69,6 +75,15 @@ export function useSettingsSync(): void {
       confineNewSessions,
       readAgentHistory,
       historyRetentionDays,
+      egress: {
+        allAutomaticOff: egressAllAutomaticOff,
+        switches: {
+          ...egressSwitches,
+          'locate-by-ip': locateByIpEnabled,
+          'reputation-urlhaus': reputationFeeds.urlhaus,
+          'reputation-openphish': reputationFeeds.openphish,
+        },
+      },
       ...(guardSchedule ? { guardSchedule } : {}),
     });
   }, [
@@ -81,6 +96,10 @@ export function useSettingsSync(): void {
     confineNewSessions,
     readAgentHistory,
     historyRetentionDays,
+    egressAllAutomaticOff,
+    egressSwitches,
+    locateByIpEnabled,
+    reputationFeeds,
     guardSchedule,
   ]);
 }

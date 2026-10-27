@@ -5,6 +5,7 @@ import { Readable } from 'node:stream';
 
 import bz2 from 'unbzip2-stream';
 
+import { guardedFetchFor } from '@midnite/studio-runtime';
 import { failure, ok, type GitOpResult } from '@midnite/studio-shared';
 
 import { SttError, type SttProvider } from './types';
@@ -91,7 +92,7 @@ function requireSherpaOnnx(): SherpaOnnxAsrModule {
 }
 
 function defaultDeps(directory: string): CompanionLocalSttDeps {
-  return { directory, fetchImpl: fetch, loadModule: requireSherpaOnnx };
+  return { directory, fetchImpl: guardedFetchFor('app'), loadModule: requireSherpaOnnx };
 }
 
 let configured: CompanionLocalSttDeps | null = null;

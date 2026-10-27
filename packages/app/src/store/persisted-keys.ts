@@ -65,6 +65,8 @@ export const PREFERENCE_KEYS = [
   'forgeSyncGhAuthSwitch', // accounts-page.tsx
   'confineNewSessions', // agent-page.tsx — "Confine new sessions"
   'readAgentHistory', // privacy-page.tsx — "Read Claude and Codex history" (Phase 115 Theme F)
+  'egressAllAutomaticOff', // privacy-page.tsx — "Turn off all automatic network" (Phase 115 Theme A)
+  'egressSwitches', // privacy-page.tsx — one switch per automatic registry entry (Phase 115 Theme A)
   'historyRetentionDays', // privacy-page.tsx — "Keep local history" (Phase 115 Theme B)
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
