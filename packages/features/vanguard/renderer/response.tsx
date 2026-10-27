@@ -31,6 +31,7 @@ export const ACTION_LABEL: Record<RemediationAction['id'], string> = {
   mute: 'Mute',
   'update-package': 'Update package',
   'pin-package': 'Pin package',
+  'remove-package': 'Remove package',
 };
 
 /** A failed envelope's message; a conflict never comes back from these channels, but the type allows one. */
