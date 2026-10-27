@@ -70,7 +70,11 @@ describe('<App>', () => {
     mount('installed');
     await screen.findByLabelText('Open Midnite Coder');
     expect(screen.queryByText(/Midnite Apps .* is available/)).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Update launcher' })).toHaveLength(1);
+    const update = screen.getByRole('button', { name: 'Update launcher' });
+    // The version sits beside its Update, without the redundant "Launcher" label.
+    expect(update.parentElement?.textContent).toBe('v0.0.1Update launcher');
+    expect(screen.queryByText(/Launcher 0\.0\.1/)).toBeNull();
+    expect(screen.queryByText('Midnite app suite')).toBeNull();
   });
 
   it('shows the update banner and the Updates filter count when Studio is behind', async () => {

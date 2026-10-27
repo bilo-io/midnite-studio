@@ -204,7 +204,6 @@ export function App() {
         </div>
         <div className="topbar-tabs">
           <span className="tab tab-active">Launcher</span>
-          <span className="tab">Midnite app suite</span>
         </div>
         <div className="topbar-right">
           <div className="segmented" role="group" aria-label="Layout">
@@ -353,17 +352,22 @@ export function App() {
           <button type="button" className="link eyebrow" onClick={() => void bridge.links.open('github')}>
             GitHub ↗
           </button>
-          <button
-            type="button"
-            className="link eyebrow"
-            onClick={updateSelf}
-            disabled={selfUpdating || self?.canUpdate === false}
-            title={self?.canUpdate === false ? 'A dev run cannot update itself' : 'Re-install the latest Midnite Apps'}
-          >
-            {selfUpdating ? 'Updating…' : 'Update launcher'}
-          </button>
           <span className="eyebrow">
-            {APPS.length} apps · Launcher {bridge.launcherVersion} · macOS {bridge.platform.arch}
+            {APPS.length} apps · macOS {bridge.platform.arch}
+          </span>
+          <span className="statusbar-version">
+            <span className="eyebrow statusbar-version-number" title="Midnite Apps version">
+              v{bridge.launcherVersion}
+            </span>
+            <button
+              type="button"
+              className="link eyebrow"
+              onClick={updateSelf}
+              disabled={selfUpdating || self?.canUpdate === false}
+              title={self?.canUpdate === false ? 'A dev run cannot update itself' : 'Re-install the latest Midnite Apps'}
+            >
+              {selfUpdating ? 'Updating…' : 'Update launcher'}
+            </button>
           </span>
         </span>
       </footer>
