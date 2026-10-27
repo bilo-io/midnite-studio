@@ -25,6 +25,8 @@ import {
 } from '@midnite/studio-shared';
 import { Collapse } from '@bilo-io/ui';
 import { useId, useState, type ReactNode } from 'react';
+
+import { GradientSlider } from './gradient-slider';
 import {
   LuBrain,
   LuCalendarDays,
@@ -636,16 +638,15 @@ function AutoRotateSlider({
         <label htmlFor={id}>Auto-rotate subagents</label>
         <span className="font-mono text-[10px] text-foreground">{percent}%</span>
       </div>
-      <input
+      <GradientSlider
         id={id}
-        type="range"
         min={LOOP_AUTO_ROTATE.min}
         max={LOOP_AUTO_ROTATE.max}
         step={LOOP_AUTO_ROTATE.step}
         value={percent}
-        onChange={(event) => onPercent(Number(event.target.value))}
-        aria-valuetext={`${percent}% context`}
-        className="h-1.5 w-full cursor-pointer accent-primary"
+        onValueChange={onPercent}
+        valueText={`${percent}% context`}
+        testId="auto-rotate-slider"
       />
     </div>
   );
