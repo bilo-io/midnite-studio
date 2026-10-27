@@ -25,6 +25,7 @@ import { agentHistoryReadsEnabled, currentSettings, onSettingsChange } from './s
  * switches are not in the tree, so while the Guard schedule is enabled the OSV and KEV feeds are on (package
  * coordinates and CVE ids only) and the threat feed is skipped until a trusted key is built in.
  */
+const MAX_SUMMARY_AGE_MS = 2 * 24 * 60 * 60 * 1000;
 let scheduler: GuardScheduler | null = null;
 let store: GuardSweepsStore | null = null;
 let stopWatching: (() => void) | null = null;
@@ -45,6 +46,7 @@ export function startGuardSweeps(options: { userData: string }): void {
   const sweeper = createGuardScheduler({
     userData,
     getSchedule: guardSchedule,
+    onError: (error) => defaultLogger.warn(`guard sweep failed: ${String(error)}`),
     onSweep: async () => {
       const result = await runGuardSweep({
         userData,
@@ -72,8 +74,7 @@ export function startGuardSweeps(options: { userData: string }): void {
     const next = JSON.stringify(guardSchedule());
     if (next === armed) return;
     armed = next;
-    sweeper.stop();
-    void sweeper.start().catch((error: unknown) => defaultLogger.warn(`guard sweep: ${String(error)}`));
+    void sweeper.reschedule().catch((error: unknown) => defaultLogger.warn(`guard sweep: ${String(error)}`));
   });
   void sweeper.start().catch((error: unknown) => defaultLogger.warn(`guard sweep: ${String(error)}`));
 }
@@ -88,7 +89,8 @@ export function stopGuardSweeps(): void {
 /** The latest sweep's severity counts, for a Guard run's ledger record (`loop-runs.ts`); `undefined` before any sweep. */
 export async function latestGuardSweepSummary(): Promise<LoopRunFindingsSummary | undefined> {
   const latest = await store?.latest();
-  if (!latest) return undefined;
+  // Counts from a sweep that stopped long ago are not this run's findings.
+  if (!latest || Date.now() - latest.endedAt > MAX_SUMMARY_AGE_MS) return undefined;
   const { critical, high, medium, low, info } = latest.counts;
   return { critical, high, medium, low, info, total: critical + high + medium + low + info };
 }

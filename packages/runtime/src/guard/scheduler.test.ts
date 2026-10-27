@@ -137,3 +137,36 @@ describe('calculateNextWake overnight windows (Phase 122)', () => {
     expect(calculateNextWake(overnight, at(27, 12, 0))).toBe(at(33, 22, 0)); // next Monday, Nov 2
   });
 });
+
+describe('GuardScheduler.reschedule / onError (Phase 122)', () => {
+  const schedule: LoopSchedule = { enabled: true, from: '00:00', to: '00:00', frequency: 'hourly', days: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] };
+
+  it('recomputes the wake from the new schedule instead of reusing the persisted one', async () => {
+    const now = Date.now();
+    let saved: number | null = now + 24 * 60 * 60 * 1000;
+    const scheduler = createGuardScheduler({
+      getSchedule: () => schedule,
+      onSweep: async () => undefined,
+      store: { load: async () => saved, save: async (v) => void (saved = v) },
+      now: () => now,
+    });
+    await scheduler.start();
+    expect(scheduler.getNextWake()).toBe(now + 24 * 60 * 60 * 1000);
+    await scheduler.reschedule();
+    expect(scheduler.getNextWake()).toBe(now + 60 * 60 * 1000);
+    scheduler.stop();
+  });
+
+  it('reports a failed sweep through onError', async () => {
+    const errors: unknown[] = [];
+    const scheduler = createGuardScheduler({
+      getSchedule: () => ({ ...schedule, enabled: false }),
+      onSweep: async () => {
+        throw new Error('disk full');
+      },
+      onError: (e) => errors.push(e),
+    });
+    await scheduler.sweepNow();
+    expect(errors).toHaveLength(1);
+  });
+});

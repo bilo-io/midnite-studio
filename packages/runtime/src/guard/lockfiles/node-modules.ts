@@ -16,10 +16,9 @@ async function read(dir: string, path: string, out: LockedPackage[]): Promise<vo
 
 /** `name@1.2.3` or `@scope+name@1.2.3_peer@4` (a `.pnpm` virtual-store folder) to the package name, or null. */
 export function pnpmStoreName(dir: string): string | null {
-  const base = dir.replace(/_.*$/, '').replace(/\(.*$/, '');
-  const at = base.lastIndexOf('@');
-  if (at <= 0) return null;
-  return base.slice(0, at).replace('+', '/');
+  // `@scope+name@1.2.3_peer@4`: the name is everything before the first `@` that follows it, and may itself hold `_`.
+  const match = /^(@?[^@]+)@\d/.exec(dir);
+  return match ? match[1]!.replace('+', '/') : null;
 }
 
 async function scanModules(root: string, out: LockedPackage[]): Promise<void> {

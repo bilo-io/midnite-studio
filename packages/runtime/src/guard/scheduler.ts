@@ -119,6 +119,8 @@ export function createFileNextWakeStore(userData: string): NextWakeStore {
 export interface GuardSchedulerOptions {
   getSchedule: () => LoopSchedule | Promise<LoopSchedule>;
   onSweep: () => Promise<unknown>;
+  /** A sweep that threw; the scheduler carries on to the next one. */
+  onError?: (error: unknown) => void;
   userData?: string;
   store?: NextWakeStore;
   now?: () => number;
@@ -128,6 +130,8 @@ export interface GuardScheduler {
   start(): Promise<void>;
   stop(): void;
   sweepNow(): Promise<void>;
+  /** Recompute the next wake from the current schedule, ignoring the persisted one (the schedule changed). */
+  reschedule(): Promise<void>;
   getNextWake(): number | null;
 }
 
@@ -183,8 +187,8 @@ export function createGuardScheduler(options: GuardSchedulerOptions): GuardSched
     sweeping = (async () => {
       try {
         await options.onSweep();
-      } catch {
-        // Sweep failure handled gracefully
+      } catch (error) {
+        options.onError?.(error); // a failed sweep must not stop the next one
       }
     })().finally(() => {
       sweeping = null;
@@ -232,6 +236,11 @@ export function createGuardScheduler(options: GuardSchedulerOptions): GuardSched
         clearTimeout(timer);
         timer = null;
       }
+    },
+
+    async reschedule(): Promise<void> {
+      running = true;
+      await scheduleNext();
     },
 
     async sweepNow(): Promise<void> {

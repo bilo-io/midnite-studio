@@ -55,7 +55,11 @@ function rawCommand(config: Record<string, unknown>): string {
 export function createGuardResolvers(options: GuardResolverOptions): Record<string, Resolver> {
   const repos = async (): Promise<readonly string[]> => options.repos();
   let lockfiles: ReturnType<typeof resolveLockfiles> | null = null;
-  const lockedPackages = (): ReturnType<typeof resolveLockfiles> => (lockfiles ??= repos().then(resolveLockfiles));
+  const lockedPackages = (): ReturnType<typeof resolveLockfiles> => (lockfiles ??= repos().then((list) => {
+      // No open repo means nothing was looked at, which must not read as a clean sweep that resolves old findings.
+      if (list.length === 0) throw new Error('no repository is open');
+      return resolveLockfiles(list);
+    }));
 
   return {
     lockfiles: () => lockedPackages(),

@@ -88,6 +88,8 @@ describe('threat-feed checks (Phase 122 Theme C)', () => {
   it('pnpmStoreName reads scoped, peer-suffixed and malformed folder names', () => {
     expect(pnpmStoreName('@s+c@4.0.0')).toBe('@s/c');
     expect(pnpmStoreName('deep@3.1.0_peer@1.0.0')).toBe('deep');
+    expect(pnpmStoreName('string_decoder@1.3.0')).toBe('string_decoder');
+    expect(pnpmStoreName('@s+a_b@1.0.0_x@2')).toBe('@s/a_b');
     expect(pnpmStoreName('node_modules')).toBeNull();
   });
 });
