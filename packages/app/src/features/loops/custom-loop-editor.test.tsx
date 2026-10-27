@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DialogHost } from '../../components/dialog-host';
 import { useUiStore } from '../../store/ui-store';
 import { LoopComposer } from './loop-composer';
+import { loopsPanelElement } from './loops-panel-element';
 import { loopSpectrumProps, spectrumStops } from './loop-spectrum';
 
 afterEach(cleanup);
@@ -23,7 +24,7 @@ function Harness({ onToggle = vi.fn() }: { onToggle?: (id: string, on: boolean) 
   if (!loop) return null;
   return (
     <DialogHost>
-      <div data-testid="host" {...loopSpectrumProps(loop)}>
+      <div data-testid="host" className="relative" data-loops-panel {...loopSpectrumProps(loop)}>
         <LoopComposer
           loop={loop}
           running={false}
@@ -174,11 +175,22 @@ describe('custom loop composer', () => {
     render(<Harness />);
     fireEvent.click(screen.getByTestId('custom-loop-delete'));
     expect(useUiStore.getState().customLoops).toHaveLength(1);
-    // Raised by the root DialogHost, outside the panel that clipped it.
-    const dialog = screen.getByRole('dialog', { name: 'Delete New loop?' });
-    expect(within(screen.getByTestId('host')).queryByRole('dialog')).toBeNull();
+    // Contained inside the loops panel host, stopped at the panel's edge.
+    const host = screen.getByTestId('host');
+    const dialog = within(host).getByRole('dialog', { name: 'Delete New loop?' });
+    expect(dialog).toBeTruthy();
+    expect(dialog.classList.contains('absolute')).toBe(true);
+    expect(dialog.classList.contains('fixed')).toBe(false);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete loop' }));
     expect(useUiStore.getState().customLoops).toHaveLength(0);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('resolves the loops panel container element when mounted', () => {
+    expect(loopsPanelElement()).toBeNull();
+    const { unmount } = render(<div data-loops-panel id="test-loops-panel" />);
+    expect(loopsPanelElement()?.id).toBe('test-loops-panel');
+    unmount();
+    expect(loopsPanelElement()).toBeNull();
   });
 });

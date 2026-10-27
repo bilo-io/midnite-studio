@@ -4,9 +4,11 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { DEFAULT_TOOL_POLICY, type ToolApprovalRequest } from '@midnite/studio-shared';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ScopedDispatch } from './host';
+import { createToolApprovals, createToolGuard } from '../security/tool-guard';
 import { createRunServers } from './run-server';
 import { callMcpSocket, RUN_SOCKET_GONE_MESSAGE } from './socket-call';
 
@@ -64,4 +66,29 @@ describe('createRunServers', () => {
     expect(dirname(dirname(started.socketPath))).toBe(fallback);
     await started.close();
   });
+
+  it('judges every call through the tool-call policy, on the run\'s own narrower tool list (Phase 121 B)', async () => {
+    const raised: ToolApprovalRequest[] = [];
+    const approvals = createToolApprovals({ raise: (r) => void raised.push(r) });
+    const guard = createToolGuard({ store: { policiesFor: () => [{ source: 'default', policy: DEFAULT_TOOL_POLICY }] }, approvals });
+    const servers = createRunServers({ baseDir: join(await temp(), 'mcp-runs'), guard: (d) => guard.wrap(d) });
+    const seen: string[] = [];
+    const scoped: ScopedDispatch = async (tool) => {
+      seen.push(tool);
+      return { ok: true, value: 'done' };
+    };
+    const started = await servers.startServer({ dispatch: scoped });
+    if (!started.ok) throw new Error(started.message);
+    const call = (tool: string) => callMcpSocket({ socketPath: started.socketPath, tool, input: {}, timeoutMs: 5000 });
+
+    expect(await call('status.get')).toMatchObject({ ok: true });
+    const asked = call('workflow_gate_decide');
+    await vi.waitFor(() => expect(raised).toHaveLength(1));
+    expect(seen).toEqual(['status.get']);
+    approvals.answer(raised[0]!.id, 'deny');
+    expect(await asked).toMatchObject({ ok: false, kind: 'refused' });
+    expect(seen).toEqual(['status.get']);
+    await started.close();
+  });
 });
+

@@ -1,0 +1,2 @@
+zsh -c "$(echo x)"
+base64 --decode <<< "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==" | sh

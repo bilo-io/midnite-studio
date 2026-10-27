@@ -28,6 +28,14 @@ export function BrowserPage() {
   const setDiscardMs = useUiStore((s) => s.setBrowserDiscardMs);
   const spellcheck = useUiStore((s) => s.browserSpellcheck);
   const setSpellcheck = useUiStore((s) => s.setBrowserSpellcheck);
+  const clipboardWatch = useUiStore((s) => s.browserClipboardWatch);
+  const setClipboardWatch = useUiStore((s) => s.setBrowserClipboardWatch);
+  const allowSiteProceed = useUiStore((s) => s.browserAllowSiteProceed);
+  const setAllowSiteProceed = useUiStore((s) => s.setBrowserAllowSiteProceed);
+  const downloads = useUiStore((s) => s.browserDownloads);
+  const setDownloads = useUiStore((s) => s.setBrowserDownloads);
+  const privacy = useUiStore((s) => s.browserPrivacy);
+  const setPrivacy = useUiStore((s) => s.setBrowserPrivacy);
   const previewDeployHosts = useBrowserStore((s) => s.previewDeployHosts);
   // Local, raw text rather than deriving straight from the store: parsing on
   // every keystroke would rejoin the list and normalise blank lines out from
@@ -214,6 +222,50 @@ export function BrowserPage() {
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="site-safety">Site safety</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Allow proceeding past a site warning</div>
+            <div className="text-muted-foreground text-[11px]">
+              Adds &ldquo;Proceed for this session&rdquo; to the certificate and dangerous-site warnings. Each proceed
+              covers one host until the app quits. Off by default, so a warning has no way past it. Reputation
+              feeds live under Settings ▸ Privacy.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={allowSiteProceed}
+            onChange={(event) => setAllowSiteProceed(event.target.checked)}
+            aria-label="Allow proceeding past a site warning"
+            data-testid="browser-settings-site-proceed-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="clipboard-watch">Clipboard</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Warn when a page copies a command</div>
+            <div className="text-muted-foreground text-[11px]">
+              While a browser window is focused, Midnite checks the clipboard once a second for a shell command a
+              page just put there (a &ldquo;paste this into Terminal&rdquo; lure) and offers to clear it. Only a hash
+              is kept. On by default.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={clipboardWatch}
+            onChange={(event) => setClipboardWatch(event.target.checked)}
+            aria-label="Warn when a page copies a command"
+            data-testid="browser-settings-clipboard-watch-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-foreground text-xs" data-settings-section="site-permissions">Site permissions</h3>
           {permissions.length > 0 ? (
@@ -254,6 +306,73 @@ export function BrowserPage() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="downloads">Downloads</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Allow downloads</div>
+            <div className="text-muted-foreground text-[11px]">
+              Off by default: every download is cancelled. When on, files are saved to a quarantine folder with
+              macOS&apos;s quarantine flag set, hashed (SHA-256) and logged. Installers, disk images, scripts and
+              archives ask first; nothing is ever opened for you.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={downloads.enabled}
+            onChange={(event) => setDownloads({ ...downloads, enabled: event.target.checked })}
+            aria-label="Allow downloads"
+            data-testid="browser-settings-downloads-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="text-muted-foreground text-[11px]">Quarantine folder (blank = ~/Downloads/Midnite Quarantine)</span>
+          <input
+            type="text"
+            value={downloads.folder}
+            disabled={!downloads.enabled}
+            onChange={(event) => setDownloads({ ...downloads, folder: event.target.value })}
+            placeholder="~/Downloads/Midnite Quarantine"
+            aria-label="Quarantine folder"
+            data-testid="browser-settings-downloads-folder"
+            className="rounded border border-border bg-card px-2 py-1 font-mono text-[11px] disabled:opacity-50"
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="privacy">Privacy</h3>
+        <p className="text-muted-foreground text-[11px]">
+          Network-level protections for the embedded browser, on by default. Canvas, audio and font
+          fingerprinting are not defended against: that needs a script inside the page, which Midnite never injects.
+          Tracker list: EasyPrivacy (CC BY-SA 3.0 / GPL 3), bundled with the app.
+        </p>
+        {(
+          [
+            ['blockTrackers', 'Block known trackers', 'Cancels third-party requests that match the EasyPrivacy list.'],
+            ['blockThirdPartyCookies', 'Block third-party cookies', 'Strips cookies sent to, and set by, other sites. Turn off if a login or payment frame breaks.'],
+            ['trimReferrer', 'Trim the referrer', 'Other sites see only your site\'s origin, never the full address.'],
+            ['reduceUserAgent', 'Reduce the user agent', 'Reports only the Chromium major version, with no app or Electron version.'],
+          ] as const
+        ).map(([key, label, hint]) => (
+          <div key={key} className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-medium text-foreground">{label}</div>
+              <div className="text-muted-foreground text-[11px]">{hint}</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={privacy[key]}
+              onChange={(event) => setPrivacy({ ...privacy, [key]: event.target.checked })}
+              aria-label={label}
+              data-testid={`browser-settings-privacy-${key}`}
+              className="rounded border border-border bg-card"
+            />
+          </div>
+        ))}
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">

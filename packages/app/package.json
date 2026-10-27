@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-app",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "description": "Renderer: Vite + React SPA. Talks to the main process only through window.midniteStudio.",
   "type": "module",
@@ -51,6 +51,7 @@
     "@midnite/studio-feature-optimizer": "workspace:*",
     "@midnite/studio-feature-vault": "workspace:*",
     "@midnite/studio-feature-capture": "workspace:*",
+    "@midnite/studio-feature-vanguard": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-shared": "workspace:*",

@@ -73,6 +73,27 @@ describe('scroll helpers', () => {
 });
 
 describe('ChatThread', () => {
+  it('shows a [redacted: <kind>] chip under a user message whose outbound text was scrubbed, and none otherwise', () => {
+    render(
+      <ChatThread
+        chat={chat([
+          m('u1', 'user', 'summarise this', { redactions: [{ kind: 'vault-secret', count: 2 }, { kind: 'github-token', count: 1 }] }),
+          m('a1', 'assistant', 'ok'),
+          m('u2', 'user', 'thanks'),
+          m('a2', 'assistant', 'sure'),
+        ])}
+        streaming={false}
+        {...props}
+      />,
+    );
+    const chips = screen.getAllByTestId('redaction-chip').map((c) => c.textContent);
+    expect(chips).toEqual(['[redacted: vault-secret]×2', '[redacted: github-token]']);
+    expect(screen.getAllByTestId('chat-redactions')).toHaveLength(1);
+    expect(screen.getByRole('list', { name: 'Redacted before sending' })).toBeTruthy();
+    // The message the user typed is shown as typed.
+    expect(screen.getByText('summarise this')).toBeTruthy();
+  });
+
   it('is an announced log, busy only while a reply streams', () => {
     const { rerender } = render(<ChatThread chat={chat([m('u', 'user', 'hi'), m('a', 'assistant', 'yo')])} streaming={false} {...props} />);
     const log = screen.getByRole('log', { name: 'Conversation' });
@@ -80,6 +101,25 @@ describe('ChatThread', () => {
     expect(log.getAttribute('aria-busy')).toBe('false');
     rerender(<ChatThread chat={chat([m('u', 'user', 'hi'), m('a', 'assistant', 'yo', { status: 'streaming' })])} streaming {...props} />);
     expect(screen.getByRole('log', { name: 'Conversation' }).getAttribute('aria-busy')).toBe('true');
+  });
+
+  it('marks a turn whose output reports a different model than the pin, and no other (Phase 121 Theme I)', () => {
+    render(
+      <ChatThread
+        chat={chat([
+          m('u', 'user', 'q'),
+          m('a', 'assistant', 'r', { model: 'opus-5', reportedModel: 'claude-sonnet-5-5' }),
+          m('u2', 'user', 'again'),
+          m('a2', 'assistant', 'r2', { model: 'opus-5' }),
+        ])}
+        streaming={false}
+        {...props}
+      />,
+    );
+    const marks = screen.getAllByTestId('chat-model-mismatch');
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.textContent).toContain('opus-5');
+    expect(marks[0]!.textContent).toContain('claude-sonnet-5-5');
   });
 
   it('renders user bubbles and assistant turns in order', () => {

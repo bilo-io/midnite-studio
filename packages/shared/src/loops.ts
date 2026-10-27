@@ -209,6 +209,23 @@ export function loopModelArgs(agentId: string, model: LoopModel): string[] {
 }
 
 /**
+ * Whether the model a CLI reported running is the one that was pinned (Phase 121 Theme I).
+ *
+ * The flag is a request; the model id in the CLI's own output is what actually answered, and a fallback
+ * or an alias that moved would make them differ. A match is the pinned id exactly, or that id followed
+ * by a dated snapshot (`-20261001`) or a context suffix (`[1m]`) — never a longer family name, so a pin on
+ * `claude-opus-5` does not accept `claude-opus-5-5`. Nothing is pinned for `default` or a non-Claude
+ * engine, so nothing can differ.
+ */
+export function reportedModelMatches(agentId: string, pinned: LoopModel, reported: string): boolean {
+  if (agentId !== 'claude') return true;
+  const cli = LOOP_MODELS.find((entry) => entry.id === pinned)?.cliModel ?? null;
+  if (cli === null) return true;
+  const rest = reported.startsWith(cli) ? reported.slice(cli.length) : null;
+  return rest !== null && (rest === '' || /^(-(\d{8}|\d{4}-\d{2}-\d{2}|latest))?(\[[^\]]*\])?$/.test(rest));
+}
+
+/**
  * The models a given provider actually offers — the second half of the
  * composer's provider/model pair.
  *
@@ -699,31 +716,20 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * into the fragment by {@link loopModifierFragment}.
  */
 /**
- * Patrol's "Routine" box — the one rule a patrol pass applies to PRs carrying
- * the `routine` label. Exported so the composer test can assert the line
- * carries it exactly when the box is on.
+ * Patrol's "Approve routine PRs" switch in the Run section — the standing rule
+ * a patrol pass applies to PRs carrying the `routine` label. Exported so the
+ * composer and prompt tests can assert the line carries it exactly when the switch is on.
  *
  * Three promises, all load-bearing: it approves only labelled PRs, it approves
  * only when the review turns up nothing critical, and the approval says
  * "LGTM" or "🚀" and nothing else — the findings, if any, are left as review
  * comments the way an ordinary review leaves them.
  *
- * The label decides what gets approved, not what the pass looks at. The first
- * wording ("list the open PRs carrying the `routine` label") was read as the
- * pass's search: an agent ran `gh search prs --label routine` and the Review
- * PRs box beside it never saw an unlabelled PR. So the rule now says outright
- * that it adds to the pass and that the other PRs still get the rest of it.
+ * It does not restrict reviews to `routine` PRs: all PRs targeted by the prompt
+ * are reviewed, and routine ones get approved if clean.
  */
 export const ROUTINE_PR_FRAGMENT =
-  'Routine PRs: on each pass, review every open PR carrying the `routine` label; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. This rule adds to the pass rather than narrowing it: do not filter the pass down to the label, and give PRs without the `routine` label whatever the rest of this prompt asks for.';
-
-/**
- * {@link ROUTINE_PR_FRAGMENT} with a chosen review skill — the same rule, but
- * the review it runs on each labelled PR is that skill rather than whatever
- * the agent would do unprompted.
- */
-export const ROUTINE_PR_SKILL_TEMPLATE =
-  'Routine PRs: on each pass, review every open PR carrying the `routine` label with {skill}; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. This rule adds to the pass rather than narrowing it: do not filter the pass down to the label, and give PRs without the `routine` label whatever the rest of this prompt asks for.';
+  'When reviewing PRs, if an open PR carries the `routine` label and the review finds no critical issues, approve it with a body of just "LGTM" or "🚀" (otherwise leave findings as review comments and do not approve). Do not restrict reviews to `routine` PRs — review all PRs targeted by the rest of the prompt.';
 
 /**
  * Patrol's and Medic's "Triage only" — look and report, touch nothing. The
@@ -999,25 +1005,6 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     reviewsPrs: true,
     modifiers: [
       {
-        // First and on by default: PRs someone has labelled `routine` are the
-        // ones the owner has already said need no deliberation, so a patrol
-        // pass clears them without being asked. It only *adds* a rule for that
-        // label — unlabelled PRs still get whatever the boxes below say, or
-        // nothing, and the fragment says so, since an agent once took it as the
-        // pass's whole search.
-        // The approval body is the repo's own convention: "LGTM" or "🚀" only.
-        id: 'routine',
-        label: 'Routine',
-        description:
-          'Approves open PRs labelled `routine` with "LGTM" or 🚀 unless the review finds something critical. Other PRs still get the rest of the pass.',
-        promptFragment: ROUTINE_PR_FRAGMENT,
-        skillTemplate: ROUTINE_PR_SKILL_TEMPLATE,
-        group: 'tasks',
-        control: 'checkbox',
-        providesTask: true,
-        defaultOn: true,
-      },
-      {
         id: 'pr-review',
         label: 'Review PRs',
         description:
@@ -1070,6 +1057,19 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         control: 'switch',
         providesTask: true,
         defaultOn: false,
+      },
+      {
+        // Standing run policy on by default: PRs someone has labelled `routine`
+        // get approved if clean without needing human deliberation.
+        // It does not narrow the pass — all targeted PRs still get reviewed.
+        id: 'routine',
+        label: 'Approve routine PRs',
+        description:
+          'Approves open PRs labelled `routine` with "LGTM" or 🚀 unless the review finds something critical. Other PRs still get the rest of the pass.',
+        promptFragment: ROUTINE_PR_FRAGMENT,
+        group: 'run',
+        control: 'switch',
+        defaultOn: true,
       },
       {
         id: 'auto-approve',

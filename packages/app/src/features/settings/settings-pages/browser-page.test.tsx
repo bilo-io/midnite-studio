@@ -40,6 +40,48 @@ describe('BrowserPage (Phase 117 Theme B)', () => {
     expect(setSpellcheckSpy).toHaveBeenCalledWith({ enabled: true });
   });
 
+  it('has the ClickFix clipboard watch on by default, with a switch to turn it off (Phase 117 Theme G)', () => {
+    useUiStore.setState({ browserClipboardWatch: true });
+    renderWithChrome(<BrowserPage />);
+    const toggle = screen.getByTestId('browser-settings-clipboard-watch-toggle') as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    fireEvent.click(toggle);
+    expect(useUiStore.getState().browserClipboardWatch).toBe(false);
+  });
+
+  it('Site safety: the proceed switch is off by default, flips the store and tells main (Phase 117 Theme C)', () => {
+    const setSiteSafetySpy = vi.fn();
+    (window as unknown as { midniteStudio: { browser: { setSiteSafety: typeof setSiteSafetySpy } } }).midniteStudio.browser.setSiteSafety = setSiteSafetySpy;
+    useUiStore.setState({ browserAllowSiteProceed: false, browserReputationFeeds: { urlhaus: true, openphish: false } });
+    renderWithChrome(<BrowserPage />);
+
+    const toggle = screen.getByTestId('browser-settings-site-proceed-toggle') as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    expect(useUiStore.getState().browserAllowSiteProceed).toBe(true);
+    // No browser pane is mounted here, so this push is the only way main hears about it.
+    expect(setSiteSafetySpy).toHaveBeenCalledWith({ allowProceed: true, feeds: { urlhaus: true, openphish: false } });
+  });
+
+  it('defaults downloads off and privacy on, and flips each switch (Phase 117 Themes D + E)', () => {
+    useUiStore.setState({
+      browserDownloads: { enabled: false, folder: '' },
+      browserPrivacy: { blockTrackers: true, blockThirdPartyCookies: true, trimReferrer: true, reduceUserAgent: true },
+    });
+    renderWithChrome(<BrowserPage />);
+
+    const downloads = screen.getByTestId('browser-settings-downloads-toggle') as HTMLInputElement;
+    expect(downloads.checked).toBe(false);
+    expect((screen.getByTestId('browser-settings-downloads-folder') as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(downloads);
+    expect(useUiStore.getState().browserDownloads.enabled).toBe(true);
+
+    const trackers = screen.getByTestId('browser-settings-privacy-blockTrackers') as HTMLInputElement;
+    expect(trackers.checked).toBe(true);
+    fireEvent.click(trackers);
+    expect(useUiStore.getState().browserPrivacy).toMatchObject({ blockTrackers: false, blockThirdPartyCookies: true });
+  });
+
   it('lists remembered permissions and allows revoking an individual permission', async () => {
     const permissionsListSpy = vi.fn().mockResolvedValue([
       { origin: 'https://example.com', permission: 'geolocation', value: 'allow', grantedAt: 123456789 },

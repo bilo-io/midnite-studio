@@ -1,0 +1,1 @@
+We scan history with TruffleHog. See https://github.com/trufflesecurity/trufflehog for usage.

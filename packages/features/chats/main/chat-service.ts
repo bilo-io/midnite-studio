@@ -20,11 +20,18 @@ import {
   changeSetNeedsReview,
   chatTitleFromText,
   chatWorktreeBranch,
+  redactOutbound,
+  redactOutboundMessages,
+  redactionTotal,
   deriveChangeSetStatus,
   deriveFileStatus,
   failure,
   ok,
+  defaultTrustFor,
+  patchConcerns,
   reduceChangeSet,
+  reportedModelMatches,
+  resolveProvenance,
   type AgentDefinition,
   type Chat,
   type ChatAttachment,
@@ -39,6 +46,10 @@ import {
   type FileDiff,
   type ChatWorktree,
   type GitOpResult,
+  type LoopModel,
+  type NewAgentAuditRecord,
+  type OutboundSecret,
+  type Redaction,
   siblingWorktreePath,
 } from '@midnite/studio-shared';
 
@@ -111,6 +122,13 @@ export type ChatServiceDeps = {
   /** The working directory of a chat with no repo: `<scratchRoot>/<chatId>`. */
   scratchRoot: string;
   spawn?: SpawnFn | undefined;
+  /**
+   * The one API key the engine being started needs, as its environment variable (Phase 121 Theme I) —
+   * `{ ANTHROPIC_API_KEY: ... }` for Claude, `{}` for an engine with no stored key. Read from the vault by
+   * main at spawn, supplied by the composer so chats never import the vault, and merged into this turn's
+   * child alone.
+   */
+  engineEnv?: ((agentId: string) => Promise<Record<string, string>>) | undefined;
   /** Streamed Ollama chat; absent means Ollama is unavailable. */
   ollamaStream?:
     | ((req: {
@@ -123,6 +141,25 @@ export type ChatServiceDeps = {
       }) => Promise<string>)
     | undefined;
   timeoutMs?: number | undefined;
+  /**
+   * The audit trail's write entry point (Phase 121 Theme G), supplied by the composer so chats never import
+   * the runtime trail's host. Fire-and-forget and total: a throw here is swallowed, an audit failure must not
+   * break a turn.
+   */
+  audit?: ((record: NewAgentAuditRecord) => void) | undefined;
+  /**
+   * The MCP allowlist's gate (Phase 121 Theme C), supplied by the composer so chats never import the runtime
+   * allowlist. Resolves to the names of the MCP servers in the repo that are not approved (new, edited since
+   * approval, or held); a turn that would load them is refused until they are approved in the Tools view. Not
+   * asked for Ollama chats (no agent CLI loads MCP servers) or for chats with no repo.
+   */
+  mcpGate?: ((repoId: string) => Promise<readonly string[]>) | undefined;
+  /**
+   * The vault's secret values (and the canaries), supplied by the composer so chats never import the vault
+   * (Phase 121 Theme D). Every prompt and Ollama request body is scrubbed against them, and against
+   * `SECRET_PATTERNS` by shape, before it leaves the process. Absent: only the patterns run.
+   */
+  outboundSecrets?: (() => Promise<readonly OutboundSecret[]>) | undefined;
   now?: () => number;
   newId?: () => string;
   /** The git-engine seam — injectable so a test need not make real worktrees. */
@@ -141,7 +178,16 @@ export type GitSeam = {
   exists: (path: string) => boolean;
 };
 
-type RunHandle = { cancelled: boolean; kill: (() => void) | null; controller: AbortController; assistantId: string };
+type RunHandle = {
+  cancelled: boolean;
+  kill: (() => void) | null;
+  controller: AbortController;
+  assistantId: string;
+  /** What outbound redaction scrubbed from this turn's prompt (Phase 121 D); replaced by each attempt, never summed. */
+  redactions: Redaction[];
+  /** A canary value was in the outbound prompt. */
+  canary: boolean;
+};
 
 export type ChatService = ReturnType<typeof createChatService>;
 
@@ -417,7 +463,10 @@ export function createChatService(deps: ChatServiceDeps) {
       text: body,
       createdAt: at,
       status: 'done',
-      ...(attachments && attachments.length > 0 ? { attachments } : {}),
+      // Stamped here, main-side, so the tag a thread persists does not depend on what the renderer said.
+      ...(attachments && attachments.length > 0
+        ? { attachments: attachments.map((a) => ({ ...a, provenance: resolveProvenance({ ...a.provenance, origin: a.provenance?.origin && defaultTrustFor(a.provenance.origin) === 'untrusted' ? a.provenance.origin : 'attachment' }, 'attachment') })) }
+        : {}),
     };
     const assistant: ChatMessage = {
       id: newId(),
@@ -437,7 +486,7 @@ export function createChatService(deps: ChatServiceDeps) {
     deps.emit({ kind: 'message', chatId: chat.id, message: assistant });
     emitChat(chat.id);
 
-    const handle: RunHandle = { cancelled: false, kill: null, controller: new AbortController(), assistantId: assistant.id };
+    const handle: RunHandle = { cancelled: false, kill: null, controller: new AbortController(), assistantId: assistant.id, redactions: [], canary: false };
     running.set(chat.id, handle);
     void runTurn(chat, history, user, assistant, handle).finally(() => {
       running.delete(chat.id);
@@ -530,12 +579,20 @@ export function createChatService(deps: ChatServiceDeps) {
     let sessionId: string | undefined;
     let sessionCwd: string | undefined;
     let finalText: string | undefined;
+    const startedAt = now();
     try {
       if (chat.engine === CHAT_ENGINE_OLLAMA) {
         const out = await runOllama(chat, history, user, assistant, handle);
         error = out.error;
       } else {
         const repo = await repoFor(chat);
+        if (repo && chat.repoId && deps.mcpGate) {
+          const held = await deps.mcpGate(chat.repoId).catch(() => []);
+          if (held.length > 0) {
+            error = `${held.length === 1 ? 'The MCP server' : 'The MCP servers'} ${held.map((name) => `“${name}”`).join(', ')} in ${repo.name} ${held.length === 1 ? 'is' : 'are'} not approved. Review and approve ${held.length === 1 ? 'it' : 'them'} in Agents ▸ Tools ▸ MCP servers, then send this again.`;
+            return;
+          }
+        }
         let cwd: string;
         let baseTree: string | null = null;
         if (repo && chat.mode === 'edit') {
@@ -586,6 +643,7 @@ export function createChatService(deps: ChatServiceDeps) {
     } finally {
       closeThinking(assistant);
       assistant.finishedAt = now();
+      auditTurn(chat, user, handle.cancelled ? 'cancelled' : error ? 'error' : 'done', startedAt, handle.redactions, handle.canary);
       if (changeSet) assistant.changeSet = changeSet;
       if (handle.cancelled) {
         assistant.status = 'cancelled';
@@ -611,13 +669,67 @@ export function createChatService(deps: ChatServiceDeps) {
     }
   }
 
+  /** One `chat-turn` record: engine, model, thread, and counts — never the text. */
+  function auditTurn(chat: Chat, user: ChatMessage, status: 'done' | 'error' | 'cancelled', startedAt: number, redactions: readonly Redaction[], canary: boolean): void {
+    if (!deps.audit) return;
+    try {
+      const attachments = user.attachments?.length ?? 0;
+      deps.audit({
+        kind: 'chat-turn',
+        engine: chat.engine,
+        ...(chat.model ? { model: chat.model } : {}),
+        chatId: chat.id,
+        mode: chat.mode,
+        status,
+        ms: Math.max(0, now() - startedAt),
+        attachments,
+        ...(attachments > 0 ? { provenance: { attachment: attachments } } : {}),
+        redactions: redactionTotal(redactions),
+        ...(canary ? { canary: true } : {}),
+      });
+    } catch {
+      // Never into a turn.
+    }
+  }
+
+  /** The vault's values, or none when the composer gave no source or it failed: the patterns still run. */
+  async function secretsNow(): Promise<readonly OutboundSecret[]> {
+    try {
+      return (await deps.outboundSecrets?.()) ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Record what was scrubbed on the turn and on the user message, and tell the renderer so its chips appear. */
+  function noteRedactions(chat: Chat, user: ChatMessage, handle: RunHandle, redactions: Redaction[], canary: boolean): void {
+    // A later attempt (a replay after a failed resume) must not erase what an earlier one already sent scrubbed.
+    handle.canary ||= canary;
+    if (redactions.length === 0) return;
+    handle.redactions = redactions;
+    user.redactions = redactions;
+    deps.emit({ kind: 'message', chatId: chat.id, message: user });
+  }
+
+  async function scrubPrompt(chat: Chat, user: ChatMessage, handle: RunHandle, prompt: string): Promise<string> {
+    const result = redactOutbound(prompt, await secretsNow());
+    noteRedactions(chat, user, handle, result.redactions, result.canary);
+    return result.text;
+  }
+
+  async function scrubMessages<M extends { content: string }>(chat: Chat, user: ChatMessage, handle: RunHandle, messages: M[]): Promise<M[]> {
+    const result = redactOutboundMessages(messages, await secretsNow());
+    noteRedactions(chat, user, handle, result.redactions, result.canary);
+    return result.messages;
+  }
+
   async function runOllama(chat: Chat, history: ChatMessage[], user: ChatMessage, assistant: ChatMessage, handle: RunHandle): Promise<TurnResult> {
     if (!deps.ollamaStream) return { error: 'Ollama is not available.' };
     if (!chat.model) return { error: 'Pick an Ollama model for this chat first.' };
     try {
       await deps.ollamaStream({
         model: chat.model,
-        messages: buildOllamaMessages(history, user),
+        messages: await scrubMessages(chat, user, handle, buildOllamaMessages(history, user)),
         signal: handle.controller.signal,
         onDelta: (text) => pushDelta(chat, assistant, text),
         onThinking: (text) => pushThinking(chat, assistant, text),
@@ -649,7 +761,7 @@ export function createChatService(deps: ChatServiceDeps) {
 
     let last: TurnResult = {};
     for (const sessionId of attempts) {
-      const prompt = buildTurnPrompt({ history, message: user, resumed: sessionId !== null });
+      const prompt = await scrubPrompt(chat, user, handle, buildTurnPrompt({ history, message: user, resumed: sessionId !== null }));
       const invocation = buildInvocation({ agent, prompt, mode: chat.mode, model: chat.model, sessionId });
       if (!invocation) return { error: `${agent.label} has no headless mode, so it cannot back a chat.` };
 
@@ -687,8 +799,10 @@ export function createChatService(deps: ChatServiceDeps) {
         },
       };
 
+      const engineEnv = (await deps.engineEnv?.(agent.id).catch(() => ({}))) ?? {};
       const outcome = await runProcess<null>(agent.command, invocation.args, cwd, {
         sink,
+        ...(Object.keys(engineEnv).length > 0 ? { env: engineEnv } : {}),
         timeoutMs: deps.timeoutMs ?? CHAT_TURN_TIMEOUT_MS,
         ...(deps.spawn ? { spawn: deps.spawn } : {}),
         onSpawned: (spawned) => {
@@ -739,6 +853,15 @@ export function createChatService(deps: ChatServiceDeps) {
       case 'usage':
         pushUsage(chat, assistant, event.usage);
         return result;
+      case 'model':
+        // The pin is what was asked for; the CLI's own output is what answered. A difference is marked on
+        // the turn (the settled message carries it), never silently shown as the pin.
+        if (chat.model && !reportedModelMatches(chat.engine, chat.model as LoopModel, event.model)) {
+          assistant.reportedModel = event.model;
+        } else {
+          delete assistant.reportedModel;
+        }
+        return result;
       case 'result':
         return {
           ...result,
@@ -762,10 +885,13 @@ export function createChatService(deps: ChatServiceDeps) {
       binary: boolean;
       insertions: number;
       deletions: number;
+      patch?: string | undefined;
       hunks: { header: string; insertions: number; deletions: number; text: string }[];
     }[],
   ): ChatChangeSet {
+    const concerns = new Map(patchConcerns(captured).map((c) => [c.path, c.reason]));
     const files: ChatChangedFile[] = captured.map((f) => {
+      const policyReason = concerns.get(f.path);
       const base = {
         path: f.path,
         oldPath: f.oldPath,
@@ -776,6 +902,7 @@ export function createChatService(deps: ChatServiceDeps) {
         preview: previewLines(f),
         hunks: f.hunks.map((h) => ({ header: h.header, insertions: h.insertions, deletions: h.deletions, status: 'pending' as const })),
         fileStatus: 'pending' as const,
+        ...(policyReason ? { policyReason } : {}),
       };
       return { ...base, status: deriveFileStatus(base) };
     });

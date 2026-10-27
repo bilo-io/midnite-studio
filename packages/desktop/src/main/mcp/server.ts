@@ -13,6 +13,7 @@ import {
 
 import { defaultLogger, type Logger } from '../log';
 import { mcpSocketName } from '../socket-name';
+import { createRunToolGuard, evaluateHookCall, POLICY_EVALUATE_TOOL } from '../tool-policy-wiring';
 import { recordMcpCall } from './audit';
 import { dispatchMcpCall, type McpDispatchResult } from './dispatch';
 import { MCP_TOOL_MANIFESTS } from './tool-manifests';
@@ -90,12 +91,22 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
         : studioInstalledApps,
       manifests: MCP_TOOL_MANIFESTS,
     });
-  const dispatch =
-    opts.dispatch ??
-    (async (tool: string, input: unknown): Promise<McpDispatchResult> =>
-      isMcpToolId(tool) && !listing.isListed(tool)
-        ? { ok: false, kind: 'refused', message: `"${tool}" belongs to an app that is not installed.` }
-        : dispatchMcpCall(tool, input));
+  /*
+    Phase 121 Theme B. The global tool registry is judged inside `dispatchMcpCall`, before every handler. A private
+    run's server answers through its own `dispatch`, which does not pass there, so it gets a guard of its own (its own
+    session approvals), released when the server closes. `policy.evaluate` is how a CLI's PreToolUse hook asks the same
+    policy about a call the app never sees: answered here, ahead of both, and not an MCP tool.
+  */
+  const privateGuard = opts.dispatch ? createRunToolGuard() : null;
+  const inner =
+    opts.dispatch && privateGuard
+      ? privateGuard.wrap(opts.dispatch)
+      : async (tool: string, input: unknown): Promise<McpDispatchResult> =>
+          isMcpToolId(tool) && !listing.isListed(tool)
+            ? { ok: false, kind: 'refused', message: `"${tool}" belongs to an app that is not installed.` }
+            : dispatchMcpCall(tool, input);
+  const dispatch = async (tool: string, input: unknown): Promise<McpDispatchResult> =>
+    tool === POLICY_EVALUATE_TOOL && !opts.dispatch ? evaluateHookCall(input) : inner(tool, input);
 
   const started = await startMcpSocketServer({
     socketPath,
@@ -113,6 +124,18 @@ export async function startMcpServer(opts: StartMcpServerOptions): Promise<Start
       log(`[mcp] ${tool} ${result.ok ? 'ok' : 'err'} ${ms}ms ${repoPath || '-'}`);
     },
   });
-  if (!started.ok) return started;
-  return { ok: true, handle: { socketPath: started.handle.socketPath, close: started.handle.close } };
+  if (!started.ok) {
+    privateGuard?.release();
+    return started;
+  }
+  return {
+    ok: true,
+    handle: {
+      socketPath: started.handle.socketPath,
+      close: async () => {
+        privateGuard?.release();
+        await started.handle.close();
+      },
+    },
+  };
 }

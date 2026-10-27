@@ -29,6 +29,7 @@ export const PlacementAppIdSchema = z.enum([
   'creator',
   'media',
   'gamer',
+  'vanguard',
 ]);
 export type PlacementAppId = z.infer<typeof PlacementAppIdSchema>;
 
@@ -90,6 +91,7 @@ export const FEATURE_PLACEMENT = {
   diagnostics: 'monitor',
   vault: 'vault',
   capture: 'capture',
+  vanguard: 'vanguard',
   'web-apps': 'browser',
   notes: 'mind',
   agent: 'agents',

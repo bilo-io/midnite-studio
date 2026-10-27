@@ -12,3 +12,7 @@ export * from './host';
 export * from './unlock/passcode';
 export * from './audit/vault-audit';
 export * from './breach/hibp-check';
+export * from './clipboard';
+export * from './vault-clipboard-watch';
+export * from './vault-export';
+export * from './integrity';

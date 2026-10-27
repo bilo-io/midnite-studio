@@ -52,6 +52,10 @@ export {
   type PermissionRequestDetails,
   type PermissionSession,
 } from './browser-security';
+// Phase 117 Themes D + E: quarantined downloads and tracker protection
+export { decideDownload, classifyFile, sanitiseFilename } from './download-policy';
+export { parseFilterList } from './filter-list';
+export { DEFAULT_PRIVACY_SETTINGS, type PrivacySettings } from './browser-request-filter';
 // Phase 117 Theme B: permissions remembered per origin & prompt hygiene
 export {
   BROWSER_PERMISSIONS_FILE,
@@ -80,12 +84,24 @@ export {
   reparentBrowserTabs,
   resetAllBrowserPermissions,
   resetBrowserPermissionStoreForTest,
+  resolveBrowserDownload,
   resolveBrowserPermission,
+  setBrowserAgentSiteLevelSource,
+  setBrowserClipboardWatch,
+  setBrowserDownloads,
+  setBrowserPrivacy,
+  setBrowserTrackerException,
   setBrowserSpellcheck,
+  proceedBrowserSite,
   startBrowserDiscardSweep,
   stopBrowserDiscardSweep,
 } from './browser-service';
+export { createBrowserAgentSessions, type BrowserAgentSessions } from './browser-agent-session';
+export { READ_PAGE_SCRIPT } from './page-reader';
 export { DEV_SERVER_PROBE_TIMEOUT_MS, probeLoopbackPort } from './dev-server-probe';
+// Phase 117 Theme C — site verdicts. `siteVerdicts()` is the per-tab state Themes D/E/F hook into.
+export { setBrowserSiteSafety, siteVerdicts } from './browser-site-safety';
+export type { SiteVerdictTracker } from './site-verdict-state';
 export { listWebAppSignIns, signOutWebApp } from './web-app-sign-ins';
 export {
   activateWebApp,
@@ -139,6 +155,8 @@ export const browserMain = defineFeatureMain<BrowserMainServices>({
       devToolsAllowed: services.devToolsAllowed ?? false,
       userDataPath: services.userDataPath,
       permissionStore: services.permissionStore,
+      ledgerCipher: services.ledgerCipher,
+      onPageDeepLink: services.onPageDeepLink,
     });
     registerBrowserHandlers(ctx.ipc, services.sender);
     registerWebAppsHandlers(ctx.ipc, services.getMainWindow);

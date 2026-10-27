@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { BROWSER_AGENT_PRINCIPAL } from '../app-id';
 import { createVaultGrants, VAULT_GRANTS_FILE } from './grants';
 import { createFakeCipher } from './testing';
 import { createVaultService, VaultAccessDeniedError } from './vault-service';
@@ -98,5 +99,31 @@ describe('vault grants', () => {
     grants.set('browser', 'secrets', ['agent.claude.apiKey']);
     const raw = await readFile(join(dir, VAULT_GRANTS_FILE), 'utf8');
     expect(JSON.parse(raw)).toEqual({ version: 1, grants: { browser: { secrets: ['agent.claude.apiKey'] } } });
+  });
+});
+
+describe('the browser agent principal (Phase 117 Theme G)', () => {
+  it('can never be granted, so an agent session reads no vault value', async () => {
+    const { grants, service } = setup();
+    await service.forApp('studio').set('secrets', 'agent.claude.apiKey', 'sk-live-1');
+    expect(grants.set(BROWSER_AGENT_PRINCIPAL, 'secrets', '*')).toBe(false);
+    const agent = service.forApp(BROWSER_AGENT_PRINCIPAL);
+    expect(await agent.get('secrets', 'agent.claude.apiKey')).toBeNull();
+    expect(await agent.read('secrets', 'agent.claude.apiKey')).toEqual({ ok: false, kind: 'denied' });
+    expect(await agent.has('secrets', 'agent.claude.apiKey')).toBe(false);
+    expect(await agent.keys('secrets')).toEqual([]);
+    await expect(agent.set('secrets', 'x', 'y')).rejects.toBeInstanceOf(VaultAccessDeniedError);
+  });
+
+  it('stays denied when a hand-edited grants file names it', async () => {
+    await writeFile(join(dir, VAULT_GRANTS_FILE), JSON.stringify({ version: 1, grants: { 'browser-agent': { secrets: '*' } } }));
+    const { grants } = setup();
+    expect(grants.authorize({ appId: BROWSER_AGENT_PRINCIPAL, namespace: 'secrets', key: 'a', op: 'read' })).toBe(false);
+  });
+
+  it('is refused by the vault service even with an allow-everything authorizer', async () => {
+    const service = createVaultService({ directory: dir, cipher: createFakeCipher() });
+    await service.forApp('studio').set('secrets', 'k', 'v');
+    expect(await service.forApp(BROWSER_AGENT_PRINCIPAL).get('secrets', 'k')).toBeNull();
   });
 });

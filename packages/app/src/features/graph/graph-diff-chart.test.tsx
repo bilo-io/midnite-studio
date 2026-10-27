@@ -114,14 +114,14 @@ describe('Diff Chart column integration', () => {
     expect(Number(delBar?.getAttribute('width'))).toBeCloseTo(11.5, 1);
   });
 
-  it('renders merge commit em-dash in diff chart cell', () => {
-    const { container } = renderRow({
-      diffStat: null,
-      maxDiffLines: 100,
-    });
+  it('renders a not-yet-loaded stat as a placeholder in both diff cells, never +0 −0', () => {
+    const { container } = renderRow({ maxDiffLines: 100 });
 
-    const diffChartCell = container.querySelector('[data-testid="diff-chart-cell"]');
-    expect(diffChartCell?.textContent?.trim()).toBe('—');
+    for (const testId of ['diff-cell', 'diff-chart-cell']) {
+      const cell = container.querySelector(`[data-testid="${testId}"]`);
+      expect(cell?.textContent?.trim()).toBe('…');
+      expect(cell?.textContent).not.toMatch(/\+0/);
+    }
   });
 
   it('toggles Diff Chart visibility through ColumnsMenu', () => {

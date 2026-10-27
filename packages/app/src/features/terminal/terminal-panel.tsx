@@ -174,6 +174,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
         path={activeLiveCwd ?? active?.cwd ?? cwd}
         state={activeState}
         agent={activeAgent}
+        confined={active?.confined === true}
         repos={repos}
         listable={listable}
         showList={showList}

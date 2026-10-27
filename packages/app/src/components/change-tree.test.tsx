@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildChangeTree, flattenBySize, type ChangedFile } from './build-change-tree';
-import { ChangeTotals, ChangeTree, Counts } from './change-tree';
+import { ChangeTotals, ChangeTree, Counts, CountsPendingContext } from './change-tree';
 
 afterEach(cleanup);
 
@@ -16,6 +16,19 @@ describe('Counts', () => {
     render(<Counts insertions={15} deletions={3} />);
     expect(screen.getByText('+15')).not.toBeNull();
     expect(screen.getByText('−3')).not.toBeNull();
+  });
+
+  it('shows a placeholder, never +0 −0, while the counts are not loaded', () => {
+    const { container } = render(
+      <CountsPendingContext.Provider value>
+        <ChangeTotals fileCount={2} insertions={0} deletions={0} />
+      </CountsPendingContext.Provider>,
+    );
+    expect(screen.getByTestId('counts-pending').textContent).toBe('…');
+    expect(container.textContent).not.toContain('+0');
+    expect(container.textContent).not.toContain('−0');
+    // The file count comes from status, not the counts, so it still shows.
+    expect(screen.getByText('2 files')).not.toBeNull();
   });
 });
 

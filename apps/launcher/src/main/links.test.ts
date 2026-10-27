@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { VIEW_IDS } from '@midnite/studio-shared/domain/view';
 import { MEDIA_TABS } from '@midnite/studio-shared/media';
+import { VANGUARD_TABS } from '@midnite/studio-shared/vanguard';
 
 import { APPS, APP_IDS } from '../common/catalog';
 import { appLink, targetLink } from './links';
@@ -15,7 +16,7 @@ describe('catalog → midnite-studio links', () => {
     }
   });
 
-  it('points every home and feature at a view Studio knows (and a real media tab)', () => {
+  it('points every home and feature at a view Studio knows (and a real tab)', () => {
     for (const app of APPS) {
       for (const target of [app.home, ...app.features.map((f) => f.target)]) {
         const url = new URL(targetLink(target));
@@ -27,7 +28,7 @@ describe('catalog → midnite-studio links', () => {
         expect(url.hostname).toBe('view');
         expect(VIEW_IDS).toContain(url.searchParams.get('id'));
         const tab = url.searchParams.get('tab');
-        if (tab !== null) expect(MEDIA_TABS).toContain(tab);
+        if (tab !== null) expect(url.searchParams.get('id') === 'vanguard' ? VANGUARD_TABS : MEDIA_TABS).toContain(tab);
       }
     }
   });
@@ -43,6 +44,8 @@ describe('catalog → midnite-studio links', () => {
     expect(appLink('mind', 'tasks')).toBe('midnite-studio://view?id=notes');
     expect(appLink('vault')).toBe('midnite-studio://view?id=vault');
     expect(appLink('capture', 'recordings')).toBe('midnite-studio://view?id=capture');
+    expect(appLink('vanguard', 'network')).toBe('midnite-studio://view?id=vanguard&tab=network');
+    expect(appLink('vanguard')).toBe('midnite-studio://view?id=vanguard&tab=findings');
     expect(appLink('agents', 'models')).toBe('midnite-studio://view?id=models');
     expect(appLink('monitor')).toBe('midnite-studio://view?id=settings');
     expect(appLink('monitor', 'sessions')).toBe('midnite-studio://view?id=sessions');

@@ -1,5 +1,5 @@
 import { LuChevronDown, LuChevronRight, LuFile as FileIcon, LuFolder } from 'react-icons/lu';
-import type { CSSProperties, ReactNode } from 'react';
+import { createContext, useContext, type CSSProperties, type ReactNode } from 'react';
 
 import type { ChangedFile, DirNode, FileNode, TreeNode } from './build-change-tree';
 import { formatNumber } from '../lib/format-number';
@@ -282,6 +282,14 @@ function FileRow<T extends ChangedFile>({
 }
 
 /**
+ * True while the line counts beneath it have not been read yet. Every
+ * {@link Counts} inside shows a neutral placeholder instead of a number: a count
+ * that has not arrived is not a file that changed nothing, so it never reads
+ * as `+0 −0`. The working-tree views provide it from `useStatusCounts`.
+ */
+export const CountsPendingContext = createContext(false);
+
+/**
  * The `+n −n` pair.
  *
  * `tabular-nums` so the columns line up down the list rather than jittering with
@@ -306,6 +314,18 @@ export function Counts({
   /** The roll-up totals are bold; per-row counts stay `font-medium`. */
   bold?: boolean;
 }) {
+  const pending = useContext(CountsPendingContext);
+  if (pending) {
+    return (
+      <span
+        className="shrink-0 text-[11px] text-muted-foreground/50"
+        title="Line counts not loaded yet"
+        data-testid="counts-pending"
+      >
+        …
+      </span>
+    );
+  }
   return (
     <span
       className={`shrink-0 text-[11px] tabular-nums ${bold ? 'font-bold' : 'font-medium'}`}

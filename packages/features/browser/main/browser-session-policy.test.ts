@@ -72,6 +72,44 @@ describe('applyBrowserSessionPolicy', () => {
     expect(onDownloadRefused).toHaveBeenCalledWith('ubuntu.iso', asker);
   });
 
+  it('Theme C: records certificate verifications without changing the outcome, and observes completed requests', () => {
+    const session = {
+      ...recordingSession(),
+      setCertificateVerifyProc: vi.fn(),
+      webRequest: { onCompleted: vi.fn(), onBeforeRequest: vi.fn(), onBeforeSendHeaders: vi.fn(), onHeadersReceived: vi.fn() },
+    };
+    session.setCertificateVerifyProc.mockImplementation(() => void session.calls.push('verify-proc'));
+    session.webRequest.onCompleted.mockImplementation(() => void session.calls.push('on-completed'));
+    const onCertificateVerified = vi.fn();
+    const onRequestCompleted = vi.fn();
+    applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn(), onCertificateVerified, onRequestCompleted });
+    expect(session.calls.slice(-3)).toEqual(['verify-proc', 'on-completed', 'spellcheck:false']);
+
+    const proc = session.setCertificateVerifyProc.mock.calls[0]![0] as (
+      request: { hostname: string; verificationResult: string; errorCode: number },
+      callback: (result: number) => void,
+    ) => void;
+    const callback = vi.fn();
+    proc({ hostname: 'expired.badssl.com', verificationResult: 'net::ERR_CERT_DATE_INVALID', errorCode: -201 }, callback);
+    proc({ hostname: 'example.com', verificationResult: 'net::OK', errorCode: 0 }, callback);
+    expect(onCertificateVerified).toHaveBeenNthCalledWith(1, 'expired.badssl.com', 'net::ERR_CERT_DATE_INVALID');
+    expect(onCertificateVerified).toHaveBeenNthCalledWith(2, 'example.com', undefined);
+    expect(callback).toHaveBeenCalledWith(-3);
+    expect(callback).not.toHaveBeenCalledWith(0);
+
+    const listener = session.webRequest.onCompleted.mock.calls[0]![0] as (details: unknown) => void;
+    const details = { url: 'http://x/i.png', method: 'GET', resourceType: 'image', webContentsId: 3 };
+    listener(details);
+    expect(onRequestCompleted).toHaveBeenCalledWith(details);
+  });
+
+  it('Theme C: installs neither hook when the composer passes none (the web-app partitions)', () => {
+    const session = { ...recordingSession(), setCertificateVerifyProc: vi.fn(), webRequest: { onCompleted: vi.fn(), onBeforeRequest: vi.fn(), onBeforeSendHeaders: vi.fn(), onHeadersReceived: vi.fn() } };
+    applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn() });
+    expect(session.setCertificateVerifyProc).not.toHaveBeenCalled();
+    expect(session.webRequest.onCompleted).not.toHaveBeenCalled();
+  });
+
   it('turns spellcheck on only when the composer asks', () => {
     const session = recordingSession();
     applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn(), spellcheck: true });
@@ -210,6 +248,56 @@ describe('applyBrowserSessionPolicy', () => {
   });
 });
 
+describe('requestGate (Phase 117 Theme G)', () => {
+  type Listener = (details: { url: string; resourceType: string; webContents?: unknown }, cb: (r: { cancel?: boolean }) => void) => void;
+  function webRequestSession() {
+    const before: Listener[] = [];
+    const session = {
+      ...recordingSession(),
+      webRequest: {
+        onBeforeRequest: vi.fn((l: Listener) => void before.push(l)),
+        onBeforeSendHeaders: vi.fn(),
+        onHeadersReceived: vi.fn(),
+      },
+    };
+    return { session, before };
+  }
+  const filter = (blocked: string[]) => ({
+    getSettings: () => ({ blockTrackers: true, blockThirdPartyCookies: false, trimReferrer: false, reduceUserAgent: false }),
+    isExcepted: () => false,
+    onBlocked: vi.fn(),
+    loadList: () => ({ match: ({ url }: { url: string }) => (blocked.some((b) => url.includes(b)) ? 'tracker.example' : null) }) as never,
+  });
+
+  it('runs in front of the tracker filter on the one onBeforeRequest listener', () => {
+    const { session, before } = webRequestSession();
+    applyBrowserSessionPolicy(session, {
+      onDownloadRefused: vi.fn(),
+      requestFilter: filter(['tracker.example']),
+      requestGate: (d) => d.url.startsWith('https://attacker.example'),
+    });
+    expect(before).toHaveLength(1);
+    const page = { getURL: () => 'https://example.com/' };
+    const run = (url: string) => {
+      const cb = vi.fn();
+      before[0]!({ url, resourceType: 'xhr', webContents: page }, cb);
+      return cb.mock.calls[0]?.[0];
+    };
+    expect(run('https://attacker.example/collect')).toEqual({ cancel: true });
+    expect(run('https://tracker.example/pixel')).toEqual({ cancel: true });
+    expect(run('https://example.com/api')).toEqual({});
+  });
+
+  it('installs alone when there is no filter (a partition without tracker rules)', () => {
+    const { session, before } = webRequestSession();
+    applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn(), requestGate: () => true });
+    expect(before).toHaveLength(1);
+    const cb = vi.fn();
+    before[0]!({ url: 'https://x.example', resourceType: 'mainFrame' }, cb);
+    expect(cb).toHaveBeenCalledWith({ cancel: true });
+  });
+});
+
 describe('sandboxedPageWebPreferences', () => {
   it('never carries a preload, and names every dangerous flag as its safe value', () => {
     const prefs = sandboxedPageWebPreferences('persist:browser', { devTools: false });
@@ -245,5 +333,39 @@ describe('refuseWebviewAttach', () => {
     const event = { preventDefault: vi.fn() };
     handlers.get('will-attach-webview')?.(event);
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('page deep links through openExternal (Phase 117 Theme G)', () => {
+  type Request = (wc: unknown, permission: string, callback: (granted: boolean) => void, details?: unknown) => void;
+  function requestHandler(onMidniteLink?: (url: string, origin: string) => void) {
+    const session = recordingSession();
+    applyBrowserSessionPolicy(session, { onDownloadRefused: vi.fn(), onMidniteLink });
+    return session.setPermissionRequestHandler.mock.calls[0]?.[0] as unknown as Request;
+  }
+  const page = { getURL: () => 'https://lure.example/post?id=1' };
+
+  it('always refuses Chromium and hands a midnite link to the host with the page origin', () => {
+    const onLink = vi.fn();
+    const request = requestHandler(onLink);
+    const cb = vi.fn();
+    request(page, 'openExternal', cb, { externalURL: 'midnite-studio://run?agent=claude&prompt=x' });
+    expect(cb).toHaveBeenCalledWith(false);
+    expect(onLink).toHaveBeenCalledWith('midnite-studio://run?agent=claude&prompt=x', 'https://lure.example', page);
+    request(page, 'openExternal', vi.fn(), { externalURL: 'midnite://open?app=studio' });
+    expect(onLink).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses every other external scheme silently, and a midnite link with no host hook', () => {
+    const onLink = vi.fn();
+    const request = requestHandler(onLink);
+    const cb = vi.fn();
+    request(page, 'openExternal', cb, { externalURL: 'zoommtg://join?x=1' });
+    expect(cb).toHaveBeenCalledWith(false);
+    expect(onLink).not.toHaveBeenCalled();
+    const bare = requestHandler();
+    const cb2 = vi.fn();
+    bare(page, 'openExternal', cb2, { externalURL: 'midnite-studio://run?x' });
+    expect(cb2).toHaveBeenCalledWith(false);
   });
 });

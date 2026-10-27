@@ -3,11 +3,12 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { GoArrowLeft, GoArrowRight, GoSync, GoX } from 'react-icons/go';
 
 import { bridge, motionMs, useFocusTrap } from '@midnite/studio-frame';
+import { emptySiteVerdict } from '@midnite/studio-shared';
 
 import { IconButton, useBrowserStandalone, useBrowserUi, useBrowserUiStore, useDismiss } from '../ui';
 import { originOf, useBrowserStore, type BrowserViewportPreset } from '../browser-store';
 import { BROWSER_LAYOUT_OPTIONS } from './browser-layouts';
-import { BrowserErrorPage } from './error-page';
+import { BrowserErrorPage, sameUrl } from './error-page';
 import { BrowserLayoutIllustration } from './layout-illustration';
 import { BrowserTabStrip } from './tab-strip';
 import { NewTabPage } from './new-tab-page';
@@ -15,6 +16,9 @@ import { useBrowserBounds } from './use-browser-bounds';
 import { useBrowserTabsEffects } from './use-browser-tabs';
 import { resolveInput, trimUrlForDisplay } from './resolve-input';
 import { FindBar } from './find-bar';
+import { ClipboardWarningBar } from './clipboard-warning-bar';
+import { SiteBadge } from './site-badge';
+import { DownloadPromptBar } from './download-prompt-bar';
 import { PermissionPromptBar } from './permission-prompt-bar';
 
 /**
@@ -67,6 +71,34 @@ export function BrowserPane({
   const tabs = useBrowserStore((s) => s.tabs);
   const activeTabId = useBrowserStore((s) => s.activeTabId);
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+
+  /*
+    The site badge (Phase 117 Theme C) reads main's verdict for the page. Until the first one arrives
+    — a restored tab, or the instant before `did-navigate` reports — the URL alone still yields the
+    local verdict (plain http is "Not secure"), so the address row never shows http as if it were https.
+    It hides while the address is being edited: the badge describes the page, not the draft. A verdict
+    for another origin (a refused or failed navigation never commits its URL to the tab) is not this
+    page's, so it falls back too — the interstitial is what speaks for the refused page.
+  */
+  const storedVerdict =
+    activeTab?.kind === 'page' && activeTab.verdict && activeTab.verdict.origin === originOf(activeTab.url)
+      ? activeTab.verdict
+      : null;
+  // A refused first load (the tab never committed anything else) still reads `danger`: main commits
+  // no verdict for a URL it refused, so the badge takes it from the interstitial's own error.
+  const refusal = activeTab?.navError?.reason ? activeTab.navError : null;
+  const refusedHere = refusal !== null && activeTab != null && sameUrl(activeTab.url, refusal.validatedUrl);
+  const siteVerdict =
+    activeTab?.kind === 'page' && activeTab.url
+      ? refusedHere
+        ? {
+            ...emptySiteVerdict(activeTab.url),
+            ...(refusal.reason === 'certificate' ? { tls: 'error' as const, tlsError: refusal.description } : {}),
+            knownBad: refusal.knownBad ?? null,
+          }
+        : (storedVerdict ?? (/^https?:/i.test(activeTab.url) ? emptySiteVerdict(activeTab.url) : null))
+      : null;
+  const activeDisplayHost = siteVerdict?.displayHost || undefined;
   const zoomByOrigin = useBrowserStore((s) => s.zoomByOrigin);
   const findOpen = useBrowserStore((s) => s.findOpen);
 
@@ -107,8 +139,8 @@ export function BrowserPane({
   // effect (keyed on `editing`) does not immediately overwrite it back to
   // the trimmed form on the very render that opens editing.
   useEffect(() => {
-    if (!editing) setDraft(activeTab?.url ? trimUrlForDisplay(activeTab.url) : '');
-  }, [activeTab?.url, activeTab?.id, editing]);
+    if (!editing) setDraft(activeTab?.url ? trimUrlForDisplay(activeTab.url, activeDisplayHost) : '');
+  }, [activeTab?.url, activeTab?.id, activeDisplayHost, editing]);
 
   // Focus selects the full URL — runs after the DOM has the full-URL value
   // `onFocus` just set, so `.select()` selects the real thing rather than
@@ -178,24 +210,6 @@ export function BrowserPane({
   const browserLayout = useBrowserUi((s) => s.browserLayout);
   const fullScreen = browserLayout === 'full';
 
-  /*
-    An explicit "Not secure" chip for `http:`, nothing at all for `https:`
-    (Theme G, resolved deliberately — see the phase doc's `## Decisions`).
-    No padlock for the secure case: one that is always there teaches
-    nothing, and the one omission that would actively mislead is rendering
-    plaintext http identically to https.
-  */
-  const activeScheme =
-    activeTab?.kind === 'page' && activeTab.url
-      ? (() => {
-          try {
-            return new URL(activeTab.url).protocol;
-          } catch {
-            return null;
-          }
-        })()
-      : null;
-  const notSecure = activeScheme === 'http:';
 
   // The tab's own zoom (Theme G) — rendered only when it is not 1, so a
   // permanently-visible "100%" is not noise on every tab, every time.
@@ -284,11 +298,7 @@ export function BrowserPane({
         )}
         <form onSubmit={onSubmit} className="relative min-w-0 flex-1">
           <div className="gradient-border gradient-border--glow browser-search-sync relative flex items-center rounded border border-border bg-card">
-            {notSecure ? (
-              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 rounded bg-[hsl(var(--browser-insecure)/0.15)] px-1 py-0.5 text-[10px] font-medium leading-none text-[hsl(var(--browser-insecure))] z-10">
-                Not secure
-              </span>
-            ) : null}
+            {siteVerdict && !editing && activeTab ? <SiteBadge tabId={activeTab.id} verdict={siteVerdict} /> : null}
             <input
               ref={addressRef}
               type="text"
@@ -310,8 +320,8 @@ export function BrowserPane({
               }}
               placeholder="Search or enter address"
               aria-label="Address"
-              className={`w-full rounded border-0 bg-transparent py-1 pr-2 text-xs outline-none ${
-                notSecure ? 'pl-[4.75rem]' : 'pl-2'
+              className={`min-w-0 flex-1 rounded border-0 bg-transparent py-1 pr-2 text-xs outline-none ${
+                siteVerdict && !editing ? 'pl-1' : 'pl-2'
               }`}
             />
             {editing && draft.trim().length > 0 ? (
@@ -445,6 +455,8 @@ export function BrowserPane({
         }}
       >
         <PermissionPromptBar />
+        <DownloadPromptBar />
+        <ClipboardWarningBar />
         {activeTab?.kind !== 'page' ? <NewTabPage /> : null}
         {activeTab?.kind === 'page' && activeTab.crashed ? (
           <div

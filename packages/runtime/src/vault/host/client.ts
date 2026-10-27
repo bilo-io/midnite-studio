@@ -213,6 +213,20 @@ export function connectRuntimeVault(options: ConnectRuntimeVaultOptions): Remote
       return reply?.ok && typeof reply.result === 'string' ? reply.result : null;
     },
     fingerprint: (namespace, key) => read<string | null>({ op: 'fingerprint', namespace, key }, null),
+    withSecret: async <T>(
+      namespace: VaultNamespace,
+      key: string,
+      fn: (secret: Buffer) => Promise<T> | T,
+    ): Promise<T | null> => {
+      const reply = await request({ op: 'get', namespace, key });
+      if (!reply?.ok || typeof reply.result !== 'string') return null;
+      const buf = Buffer.from(reply.result, 'utf8');
+      try {
+        return await fn(buf);
+      } finally {
+        buf.fill(0);
+      }
+    },
     keys: (namespace) => read<string[]>({ op: 'keys', namespace }, []),
     set: (namespace, key, value, setOptions) =>
       write({ op: 'set', namespace, key, value, ...(setOptions?.fingerprint === undefined ? {} : { fingerprint: setOptions.fingerprint }) }, 'write'),

@@ -81,5 +81,11 @@ export const SettingsSyncPayloadSchema = z.object({
    * set it still validates.
    */
   agentBackends: z.record(z.string(), AgentOllamaBindingSchema).optional(),
+  /**
+   * Phase 121 Theme E: new terminal and council sessions start under a Seatbelt profile. Read in main
+   * at spawn, so it is mirrored rather than asked for. Optional like every field here; main defaults
+   * to `false` (confinement is off until switched on).
+   */
+  confineNewSessions: z.boolean().optional(),
 });
 export type SettingsSyncPayload = z.infer<typeof SettingsSyncPayloadSchema>;

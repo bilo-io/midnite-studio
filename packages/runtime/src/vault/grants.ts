@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { schemas } from '@midnite/studio-shared';
 
-import type { RuntimeAppId } from '../app-id';
+import { BROWSER_AGENT_PRINCIPAL, type RuntimeAppId, type RuntimePrincipal } from '../app-id';
 import type { VaultAccess, VaultAuthorize, VaultNamespace } from './vault-service';
 
 /**
@@ -27,7 +27,13 @@ import type { VaultAccess, VaultAuthorize, VaultNamespace } from './vault-servic
 export const VAULT_GRANTS_FILE = 'vault-grants.json';
 
 /** The apps that need no grant. */
-const TRUSTED: ReadonlySet<RuntimeAppId> = new Set<RuntimeAppId>(['studio', 'vault']);
+const TRUSTED: ReadonlySet<RuntimePrincipal> = new Set<RuntimePrincipal>(['studio', 'vault']);
+
+/**
+ * Principals no grant can ever cover (Phase 117 Theme G). The browser agent's default scope is
+ * empty and stays empty: `set` refuses it and `authorize` denies it even if a hand-edited file names it.
+ */
+const NEVER_GRANTED: ReadonlySet<RuntimePrincipal> = new Set<RuntimePrincipal>([BROWSER_AGENT_PRINCIPAL]);
 
 export type VaultGrantScope = '*' | string[];
 export type VaultGrantsMap = Record<string, Partial<Record<VaultNamespace, VaultGrantScope>>>;
@@ -36,8 +42,8 @@ export interface VaultGrants {
   /** Plug into `createVaultService({ authorize })`. */
   readonly authorize: VaultAuthorize;
   list(): { grants: VaultGrantsMap; corrupt: boolean };
-  /** Returns false when the write failed or the app is trusted (nothing to grant). */
-  set(appId: RuntimeAppId, namespace: VaultNamespace, scope: VaultGrantScope): boolean;
+  /** Returns false when the write failed, the app is trusted (nothing to grant) or the principal is never granted. */
+  set(appId: RuntimePrincipal, namespace: VaultNamespace, scope: VaultGrantScope): boolean;
   /** Drops one namespace's grant, or every grant the app holds. */
   revoke(appId: RuntimeAppId, namespace?: VaultNamespace): boolean;
 }
@@ -73,7 +79,11 @@ function parse(raw: string): Loaded {
   return { grants: out, corrupt };
 }
 
-export function createVaultGrants(options: { directory: string }): VaultGrants {
+export function createVaultGrants(options: {
+  directory: string;
+  onPersist?: (filePath: string) => void;
+  checkIntegrity?: () => boolean;
+}): VaultGrants {
   const path = join(options.directory, VAULT_GRANTS_FILE);
   let cache: Loaded = { grants: {}, corrupt: false };
   let stamp = '';
@@ -100,6 +110,7 @@ export function createVaultGrants(options: { directory: string }): VaultGrants {
       writeFileSync(tmp, JSON.stringify({ version: 1, grants }, null, 2), { mode: 0o600 });
       renameSync(tmp, path);
       stamp = '';
+      options.onPersist?.(path);
       return true;
     } catch {
       return false;
@@ -107,6 +118,8 @@ export function createVaultGrants(options: { directory: string }): VaultGrants {
   };
 
   const authorize: VaultAuthorize = ({ appId, namespace, key }: VaultAccess) => {
+    if (options.checkIntegrity && !options.checkIntegrity()) return false;
+    if (NEVER_GRANTED.has(appId)) return false;
     if (TRUSTED.has(appId)) return true;
     const scope = load().grants[appId]?.[namespace];
     if (scope === undefined) return false;
@@ -120,7 +133,7 @@ export function createVaultGrants(options: { directory: string }): VaultGrants {
       return { grants: structuredClone(grants), corrupt };
     },
     set: (appId, namespace, scope) => {
-      if (TRUSTED.has(appId)) return false;
+      if (TRUSTED.has(appId) || NEVER_GRANTED.has(appId)) return false;
       // A corrupt file starts over from nothing — that only ever narrows what was readable.
       const grants = structuredClone(load().grants);
       grants[appId] = { ...grants[appId], [namespace]: scope };

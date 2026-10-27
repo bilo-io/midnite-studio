@@ -175,11 +175,16 @@ describe('diff commands (integration)', () => {
     expect(diff.change).toBe('added');
     expect(diff.insertions).toBe(1);
     expect(diff.deletions).toBe(0);
+
+    // `log.showRoot=false` makes a bare `git show` print nothing for a root
+    // commit; `--root` keeps its file diff, as it keeps its numstat.
+    await repo.git(['config', 'log.showRoot', 'false']);
+    expect((await readCommitFileDiff(repo.path, first, 'a.txt')).insertions).toBe(1);
   });
 
   it('reads a merge commit against its first parent instead of returning nothing', async () => {
     // `git show` on a merge prints no diff at all by default — a merge has no
-    // single pre-image. Without -m/--first-parent this returns empty hunks.
+    // single pre-image. Without --diff-merges this returns empty hunks.
     await repo.commitFile('base.txt', 'base\n', 'base');
     await repo.git(['checkout', '-b', 'feature']);
     await repo.commitFile('feature.txt', 'from feature\n', 'feature work');
@@ -192,6 +197,23 @@ describe('diff commands (integration)', () => {
 
     expect(diff.hunks.length).toBeGreaterThan(0);
     expect(diff.hunks[0]!.lines.find((l) => l.kind === 'add')?.text).toBe('from feature');
+  });
+
+  it('reads a merge against its first parent whatever log.diffMerges says', async () => {
+    // `-m` takes its mode from `log.diffMerges`; `remerge` prints nothing for
+    // a clean merge. `--diff-merges=first-parent` names the mode outright.
+    await repo.commitFile('base.txt', 'base\n', 'base');
+    await repo.git(['checkout', '-b', 'feature']);
+    await repo.commitFile('feature.txt', 'from feature\n', 'feature work');
+    await repo.git(['checkout', 'main']);
+    await repo.commitFile('main.txt', 'from main\n', 'main work');
+    await repo.git(['merge', '--no-ff', '-m', 'merge feature', 'feature']);
+    const mergeSha = await repo.head();
+    await repo.git(['config', 'log.diffMerges', 'remerge']);
+
+    const diff = await readCommitFileDiff(repo.path, mergeSha, 'feature.txt');
+
+    expect(diff.hunks[0]?.lines.find((l) => l.kind === 'add')?.text).toBe('from feature');
   });
 
   it('reads a deleted path with its real name, not the fallback', async () => {

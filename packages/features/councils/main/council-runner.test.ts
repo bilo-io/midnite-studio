@@ -1,5 +1,6 @@
 // @vitest-environment node
 import type { AgentDefinition, Council, CouncilRun } from '@midnite/studio-shared';
+import { agentEnvViolations } from '@midnite/studio-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./council-service', () => ({
@@ -46,6 +47,7 @@ const COUNCIL: Council = {
 
 let store: Record<string, CouncilRun>;
 let ptyCounter: number;
+let audited: unknown[];
 type PtyListener = { onData: (bytes: Uint8Array) => void; onExit: (exitCode: number) => void };
 let listeners: Map<string, PtyListener>;
 
@@ -64,7 +66,9 @@ beforeEach(() => {
     agentBinding: (agentId) => agentBackends[agentId],
     ollamaBaseUrl: () => 'http://127.0.0.1:11434',
     ollamaApiKey: async () => null,
+    audit: (record) => audited.push(record),
   });
+  audited = [];
   store = {};
   ptyCounter = 0;
   listeners = new Map();
@@ -144,6 +148,9 @@ describe('startRun', () => {
     exit(synthPtyId, 0);
     await flush();
     expect(store[result.value.id]!.status).toBe('completed');
+    expect(audited).toEqual([
+      expect.objectContaining({ kind: 'council-run', councilId: 'c1', runId: result.value.id, status: 'completed', members: 2, succeeded: 1, synthProvider: 'opencode' }),
+    ]);
   });
 });
 
@@ -191,6 +198,61 @@ describe('runLocks (Phase 45 Theme E)', () => {
 
     expect(store[result.value.id]!.status).toBe('completed');
     expect(runLocksSizeForTests()).toBe(0);
+  });
+});
+
+describe('one key per engine (Phase 121 Theme I)', () => {
+  const keys: Record<string, Record<string, string>> = {
+    codex: { OPENAI_API_KEY: 'sk-oai' },
+    agy: { GEMINI_API_KEY: 'gem' },
+    opencode: { OPENAI_API_KEY: 'sk-oai-oc' },
+  };
+
+  it('spawns each member and the synthesizer with an environment holding only its own engine key', async () => {
+    const asked: string[] = [];
+    configureCouncilRunner({
+      createPty,
+      killPty,
+      onPty,
+      offPty,
+      listAgents,
+      agentBinding: () => undefined,
+      ollamaBaseUrl: () => 'http://127.0.0.1:11434',
+      ollamaApiKey: async () => null,
+      agentKeyEnv: async (id) => {
+        asked.push(id);
+        return keys[id] ?? {};
+      },
+    });
+    const result = await startRun('c1', 'topic');
+    expect(result.ok).toBe(true);
+    await flush();
+    const envs = vi.mocked(createPty).mock.calls.map(([opts]) => opts.env);
+    expect(envs).toHaveLength(2);
+    expect(envs).toEqual(expect.arrayContaining([{ OPENAI_API_KEY: 'sk-oai' }, { GEMINI_API_KEY: 'gem' }]));
+    expect([...asked].sort()).toEqual(['agy', 'codex']);
+  });
+
+  it('asks for no key for a member bound to Ollama, which launches through its recipe', async () => {
+    agentBackends = { codex: { backend: 'ollama', model: 'qwen3:14b' } };
+    const asked: string[] = [];
+    configureCouncilRunner({
+      createPty,
+      killPty,
+      onPty,
+      offPty,
+      listAgents,
+      agentBinding: (id) => agentBackends[id],
+      ollamaBaseUrl: () => 'http://127.0.0.1:11434',
+      ollamaApiKey: async () => null,
+      agentKeyEnv: async (id) => {
+        asked.push(id);
+        return keys[id] ?? {};
+      },
+    });
+    await startRun('c1', 'topic');
+    await flush();
+    expect(asked).toEqual(['agy']);
   });
 });
 
@@ -247,5 +309,64 @@ describe('retryMember', () => {
     expect(after.status).toBe('running');
     expect(after.synthesisOutput).toBeUndefined();
     expect(after.members.find((m) => m.memberId === 'm-agy')!.status).toBe('running');
+  });
+});
+
+describe('outbound redaction and the member environment (Phase 121 Theme D)', () => {
+  const VAULT_PAT = 'Zq8vK2mXw9LpR4tYb7NcH3dJ6fGs1AaE';
+  const CANARY = `ghp_${'c'.repeat(36)}`;
+  const vault = [
+    { name: 'forge-accounts:github:github.com:me', value: VAULT_PAT, kind: 'vault' as const },
+    { name: 'canaries:github-pat', value: CANARY, kind: 'canary' as const },
+    { name: 'secrets:agent.codex.apiKey', value: 'sk-codex-secret-value-0002-abcdef', kind: 'vault' as const },
+  ];
+
+  beforeEach(() => {
+    configureCouncilRunner({
+      createPty,
+      killPty,
+      onPty,
+      offPty,
+      listAgents,
+      agentBinding: (agentId) => agentBackends[agentId],
+      ollamaBaseUrl: () => 'http://127.0.0.1:11434',
+      ollamaApiKey: async () => null,
+      audit: (record) => audited.push(record),
+      outboundSecrets: async () => vault,
+    });
+  });
+
+  it('types no vault value into any member or synthesis pty, and says how many it scrubbed on the audit record', async () => {
+    const result = await startRun('c1', `use ${VAULT_PAT} and ${CANARY} for the deploy`);
+    if (!result.ok) throw new Error('expected ok');
+    await flush();
+    const memberPtys = [...listeners.keys()];
+    for (const id of memberPtys) exit(id, 0);
+    await flush();
+    const synth = [...listeners.keys()].find((id) => !memberPtys.includes(id))!;
+    exit(synth, 0);
+    await flush();
+
+    const typed = vi.mocked(createPty).mock.calls.map(([opts]) => opts.initialInput ?? '').join('\n');
+    expect(createPty).toHaveBeenCalledTimes(3);
+    expect(typed).not.toContain(VAULT_PAT);
+    expect(typed).not.toContain(CANARY);
+    expect(typed).toContain('[redacted: vault-secret]');
+    // Members' own output is quoted into the synthesis prompt; the topic is there too, scrubbed again.
+    expect(audited).toEqual([expect.objectContaining({ kind: 'council-run', canary: true, redactions: expect.any(Number) })]);
+    expect((audited[0] as { redactions: number }).redactions).toBeGreaterThanOrEqual(4);
+  });
+
+  it('hands each member pty no vault value in its environment (no Ollama cloud binding, so no key at all)', async () => {
+    await startRun('c1', 'topic');
+    await flush();
+    for (const [opts] of vi.mocked(createPty).mock.calls) {
+      expect(agentEnvViolations(opts.env ?? {}, { vaultValues: vault })).toEqual([]);
+    }
+  });
+
+  it('the env check fails a member pty whose env gains a key', async () => {
+    const env = { ANTHROPIC_API_KEY: vault[2]!.value };
+    expect(agentEnvViolations(env, { vaultValues: vault })).toHaveLength(1);
   });
 });

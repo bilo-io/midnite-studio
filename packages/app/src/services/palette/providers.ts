@@ -66,6 +66,7 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   monitor: 'System Monitor',
   vault: 'Vault',
   capture: 'Capture',
+  vanguard: 'Vanguard',
   apiClient: 'API Client',
   settings: 'Settings',
 };
@@ -101,6 +102,7 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
   monitor: 'cpu ram memory gpu disk battery health toolchain crash log diagnostics metrics',
   vault: 'secrets credentials key token password forge account login keychain',
   capture: 'screenshot screen recording record region window clipboard pasteboard snip grab',
+  vanguard: 'security antivirus malware defense sensors findings threat persistence launchagent integrity',
   apiClient: 'api client http request postman collection rest graphql send response',
   settings: 'preferences configuration options theme',
 };

@@ -96,6 +96,11 @@ export type SessionsHost = {
   Tooltip: ComponentType<GitTooltipProps>;
   MultiSelectMenu: ComponentType<GitMultiSelectProps>;
 
+  /**
+   * The agent audit trail (Phase 121 Theme G), as a second tab beside the list. The pane is the mcp-tools
+   * feature's `AgentAuditView`, which a feature may not import, so the composing app hands it over. Absent → no tab.
+   */
+  AuditPane?: ComponentType;
   history?: SessionsHistoryPort;
   graph?: SessionsGraphPort;
   workflows?: SessionsWorkflowPort;

@@ -120,6 +120,7 @@ const outfiles = [
   'preload',
   'broker',
   'mcp-shim',
+  'policy-hook',
   'script-runner-worker',
   'companion-tts-worker',
   'music-worker',
@@ -163,9 +164,9 @@ await Promise.all([
   ...outfiles.map(({ name, entry, out }) =>
     build({
       ...common,
-      // The MCP stdio shim is spawned under the host Node, not Electron's
-      // bundled Node — keep its syntax floor at node20.
-      target: name === 'mcp-shim' ? 'node20' : common.target,
+      // The MCP stdio shim and the CLI policy hook are spawned under the host Node, not Electron's
+      // bundled Node — keep their syntax floor at node20.
+      target: name === 'mcp-shim' || name === 'policy-hook' ? 'node20' : common.target,
       entryPoints: [entry],
       outfile: out,
     }),

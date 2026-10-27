@@ -6,16 +6,10 @@ import { DiffChartCell } from './diff-chart-cell';
 describe('DiffChartCell', () => {
   afterEach(cleanup);
 
-  it('renders nothing when stat is undefined (loading / off)', () => {
-    const { container } = render(<DiffChartCell stat={undefined} maxLines={100} />);
-    expect(container.firstChild).toBeNull();
-  });
-
-  it('renders em dash when stat is null (merge commit)', () => {
-    render(<DiffChartCell stat={null} maxLines={100} />);
-    const dash = screen.getByTitle('Merge commit — no diff shown');
-    expect(dash).toBeDefined();
-    expect(dash.textContent).toBe('—');
+  it('renders a neutral placeholder, not an empty baseline, while the stat is not loaded', () => {
+    render(<DiffChartCell stat={undefined} maxLines={100} />);
+    expect(screen.getByTestId('diff-stat-pending').getAttribute('title')).toBe('Diff stat not loaded yet');
+    expect(screen.queryByTestId('diff-chart-cell-container')).toBeNull();
   });
 
   it('renders additions and deletions with diverging positioning', () => {

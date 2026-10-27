@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 import type { CouncilRunnerPorts } from '@midnite/studio-feature-councils/main';
+import { wrapWithSandbox } from '@midnite/studio-runtime';
 
 /**
  * The council runner's pty port, without a pty.
@@ -26,7 +27,15 @@ export type ShellRunner = Pick<CouncilRunnerPorts, 'createPty' | 'killPty' | 'on
   killAll(): void;
 };
 
-export function createShellRunner(options: { shell?: string } = {}): ShellRunner {
+/**
+ * Phase 121 Theme E: how a member's shell is confined. Asked once per member; `null` runs it bare, a
+ * profile runs it as `sandbox-exec -f <profile> <shell> -l` and `release` removes the profile when the
+ * shell has exited. Agents has no setting of its own for this yet, so the host supplies the provider
+ * (or none): see `outstanding.md`.
+ */
+export type ShellConfinement = (request: { sessionId: string; cwd: string }) => Promise<{ profile: string; release: () => void } | null>;
+
+export function createShellRunner(options: { shell?: string; confine?: ShellConfinement } = {}): ShellRunner {
   const live = new Map<string, Live>();
   let seq = 0;
 
@@ -40,18 +49,23 @@ export function createShellRunner(options: { shell?: string } = {}): ShellRunner
   };
 
   return {
-    async createPty({ cwd, initialInput, env }) {
+    async createPty({ sessionId, cwd, initialInput, env }) {
       const shell = options.shell ?? process.env['SHELL'] ?? '/bin/zsh';
       let child: ChildProcessWithoutNullStreams;
+      let release: (() => void) | null = null;
       try {
+        const confined = (await options.confine?.({ sessionId, cwd })) ?? null;
+        release = confined?.release ?? null;
+        const run = confined ? wrapWithSandbox(confined.profile, shell, ['-l']) : { command: shell, args: ['-l'] };
         // Its own process group, so a kill reaches the agent CLI the shell started, not just the shell.
-        child = spawn(shell, ['-l'], {
+        child = spawn(run.command, run.args, {
           cwd,
           env: { ...process.env, ...env },
           stdio: ['pipe', 'pipe', 'pipe'],
           detached: true,
         });
       } catch (err) {
+        release?.();
         return { ok: false, message: err instanceof Error ? err.message : 'could not start a shell' };
       }
       const ptyId = `shell-${++seq}`;
@@ -68,6 +82,7 @@ export function createShellRunner(options: { shell?: string } = {}): ShellRunner
       child.on('close', (code) => settle(code ?? 1));
       function settle(code: number): void {
         if (entry.exited !== null) return;
+        release?.();
         entry.exited = code;
         entry.onExit?.(code);
       }

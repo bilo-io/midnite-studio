@@ -1,0 +1,11 @@
+{
+  "name": "midnite-example",
+  "version": "2.4.0",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "postinstall": "node scripts/patch-deps.js",
+    "prepare": "husky install"
+  },
+  "dependencies": { "zod": "^3.23.0" }
+}

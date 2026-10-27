@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { OllamaPullProgressEvent } from '@midnite/studio-shared';
 
+import { configureOllamaDigests } from './digest-ledger';
 import {
   cancelOllamaPull,
   configureOllamaPullQueue,
@@ -41,6 +42,7 @@ async function waitForCondition(check: () => boolean, timeoutMs = 2000): Promise
 let activeServer: Server | undefined;
 
 afterEach(async () => {
+  configureOllamaDigests(null);
   resetOllamaPullQueueState();
   configureOllamaPullQueue(null);
   if (activeServer) await stopServer(activeServer);
@@ -136,5 +138,28 @@ describe('progress throttling', () => {
     } finally {
       process.env.OLLAMA_HOST = originalBaseUrl;
     }
+  });
+});
+
+describe('a finished pull pins the model digest (Phase 121 Theme I)', () => {
+  it('lists the model after success and records the digest the daemon reports', async () => {
+    const { server, origin } = await startThrowawayServer((req, res) => {
+      if (req.url === '/api/tags') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ models: [{ name: 'tiny:latest', model: 'tiny:latest', digest: 'abc123', size: 5, modified_at: '2026-10-23T00:00:00Z' }] }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/x-ndjson' });
+      res.end('{"status":"success"}\n');
+    });
+    activeServer = server;
+    const saved: Record<string, string>[] = [];
+    configureOllamaDigests({
+      store: { load: async () => ({}), save: async (pins) => void saved.push(pins) },
+      modelsDir: '/nonexistent-models-dir',
+    });
+    startOllamaPull('tiny', origin);
+    await waitForCondition(() => saved.length > 0);
+    expect(saved.at(-1)).toEqual({ 'tiny:latest': 'sha256:abc123' });
   });
 });

@@ -1,6 +1,6 @@
 import type { BrowserPermissionKind } from '@midnite/studio-shared';
 
-import type { BrowserSession } from './browser-electron';
+import type { BrowserSession, CompletedRequestDetails } from './browser-electron';
 import {
   cancelDownload,
   denyAllDevices,
@@ -12,6 +12,7 @@ import {
   type PermissionRequestDetails,
 } from './browser-security';
 import type { PermissionGrantStore } from './permission-grant-store';
+import { installRequestFilter, type RequestFilterOptions, type RequestFilterSession } from './browser-request-filter';
 
 /**
  * One session policy, applied once per partition (Phase 117 Theme A).
@@ -28,8 +29,15 @@ import type { PermissionGrantStore } from './permission-grant-store';
  * 1. `configureSessionPermissions` — request AND check handlers (Theme B prompt + remembered grants).
  * 2. `denyAllDevices` — no WebUSB/HID/serial chooser, no `getDisplayMedia`.
  * 3. `will-download` — refused outright; Theme D's opt-in quarantine replaces the handler.
- * 4. `setSpellCheckerEnabled(false)` — Chromium's spellchecker hands typed text to the OS
+ * 4. `setCertificateVerifyProc` (Theme C) — record-only: every verification result is reported,
+ *    Chromium's own verdict always stands (`-3`).
+ * 5. `webRequest` — Theme C's observe-only `onCompleted`, then Theme E's request filter
+ *    (`persist:browser` only), which owns `onBeforeRequest`/`onBeforeSendHeaders`/`onHeadersReceived`.
+ * 6. `setSpellCheckerEnabled(false)` — Chromium's spellchecker hands typed text to the OS
  *    service; off unless the composer asks for it (the Settings switch is Theme B's page).
+ *
+ * Steps 4 and 5 install only when the composer passes their hook (the browser partition does;
+ * the web-app partitions have no address bar to show a verdict in).
  *
  * Structural types only, like `browser-security.ts`: every step runs against a plain fake.
  */
@@ -43,7 +51,8 @@ export type PolicySession = Pick<
   | 'setDisplayMediaRequestHandler'
   | 'on'
   | 'setSpellCheckerEnabled'
->;
+> &
+  Partial<Pick<BrowserSession, 'setCertificateVerifyProc' | 'webRequest' | 'getUserAgent' | 'setUserAgent'>>;
 
 export type PromptablePermissionRequest = {
   origin: string;
@@ -69,7 +78,77 @@ export type BrowserSessionPolicyOptions = {
   onPermissionRequest?: (request: PromptablePermissionRequest) => void;
   /** Default `false`. `true` only from a user-facing switch — never from a page. */
   spellcheck?: boolean;
+  /**
+   * Phase 117 Theme C: told every certificate verification — `error` is Chromium's error name, or
+   * `undefined` when the chain verified. The verifier never changes the outcome (it always answers
+   * `-3`, "Chromium's own result"); a proceed past a bad certificate is the tab's `certificate-error`
+   * handler's call, per host, per session.
+   */
+  onCertificateVerified?: (hostname: string, error: string | undefined) => void;
+  /** Phase 117 Theme C: every completed request on the partition (mixed content, script libraries). */
+  onRequestCompleted?: (details: CompletedRequestDetails) => void;
+  /**
+   * Phase 117 Theme D: when given, owns `will-download` (it cancels itself while downloads are
+   * off, so the default stays "refuse"). Absent, every download is cancelled via `onDownloadRefused`.
+   */
+  downloadHandler?: (item: never, webContents: unknown) => void;
+  /**
+   * Phase 117 Theme E: tracker blocking, third-party cookie stripping and referrer trimming on
+   * this partition. Only the browser's own partition passes it; `persist:app-<id>` partitions are
+   * exempt (a web app is the third party the user chose).
+   */
+  requestFilter?: RequestFilterOptions;
+  /**
+   * Phase 117 Theme G: asked about every request before anything else on `onBeforeRequest`; `true`
+   * cancels it. The agent session's egress rule uses it. Electron keeps one listener per event per
+   * session, so this is fanned out in front of Theme E's filter rather than registered beside it.
+   */
+  requestGate?: (details: GateRequestDetails) => boolean;
+  /**
+   * Phase 117 Theme G: a page asked to open a `midnite-studio:`/`midnite:` link through the OS.
+   * Chromium is always refused; this hook gets the URL and the page's origin so the composer can
+   * confirm it. Any other external scheme is refused silently, as before.
+   */
+  onMidniteLink?: (url: string, origin: string, webContents: unknown) => void;
 };
+
+/** `setCertificateVerifyProc`'s "use the result Chromium already computed". */
+export const USE_CHROMIUM_VERIFICATION = -3;
+
+/** The two schemes a page may ask about; every other external protocol is simply refused. */
+export function isMidniteLink(url: string | undefined): url is string {
+  return typeof url === 'string' && /^midnite(?:-studio)?:\/\//i.test(url.trim());
+}
+
+/** What {@link BrowserSessionPolicyOptions.requestGate} sees of a request. */
+export type GateRequestDetails = { url: string; resourceType: string; webContents?: unknown };
+
+type BeforeRequestListener = Parameters<RequestFilterSession['webRequest']['onBeforeRequest']>[0];
+
+/**
+ * The session as Theme E's filter should see it once a gate is installed: the same object, except
+ * `onBeforeRequest` registers a listener that asks the gate first. One real listener, two rules.
+ */
+export function withRequestGate(session: RequestFilterSession, gate: (details: GateRequestDetails) => boolean): RequestFilterSession {
+  const webRequest = session.webRequest;
+  const gated: RequestFilterSession['webRequest'] = {
+    onBeforeRequest: (listener: BeforeRequestListener) =>
+      webRequest.onBeforeRequest((details, callback) => {
+        if (gate(details)) {
+          callback({ cancel: true });
+          return;
+        }
+        listener(details, callback);
+      }),
+    onBeforeSendHeaders: (listener) => webRequest.onBeforeSendHeaders(listener),
+    onHeadersReceived: (listener) => webRequest.onHeadersReceived(listener),
+  };
+  return {
+    webRequest: gated,
+    ...(session.getUserAgent ? { getUserAgent: () => session.getUserAgent!() } : {}),
+    ...(session.setUserAgent ? { setUserAgent: (ua: string) => session.setUserAgent!(ua) } : {}),
+  };
+}
 
 /**
  * Maps an incoming permission request to granular promptable permission kinds (Phase 117 Theme B).
@@ -121,13 +200,37 @@ export function mapCheckPermission(
  * Check handler answers from store only, never prompts.
  * Prompts are rate-limited to at most once per (origin, permission) per minute.
  */
+/**
+ * Phase 117 Theme G: `openExternal` is how a page's `location = 'midnite-studio://…'` reaches the OS.
+ * Returns whether it handled the request (it was `openExternal`); the caller always refuses
+ * Chromium, and a midnite link goes to the host with the page's origin to be confirmed there.
+ */
+function routeMidniteLink(webContents: unknown, permission: string, details: unknown, options: BrowserSessionPolicyOptions): boolean {
+  if (permission !== 'openExternal') return false;
+  const external = (details as PermissionRequestDetails | undefined)?.externalURL;
+  if (isMidniteLink(external) && options.onMidniteLink) {
+    const page = (webContents as { getURL?(): string } | undefined)?.getURL?.() ?? '';
+    options.onMidniteLink(external.trim(), normaliseOrigin(page), webContents);
+  }
+  return true;
+}
+
 export function configureSessionPermissions(
   session: Pick<PolicySession, 'setPermissionRequestHandler' | 'setPermissionCheckHandler'>,
   options: BrowserSessionPolicyOptions,
 ): void {
   const store = options.permissionStore;
   if (!store) {
-    denyAllPermissions(session);
+    if (!options.onMidniteLink) {
+      denyAllPermissions(session);
+      return;
+    }
+    // Deny-all, plus the one `openExternal` hand-off.
+    session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      routeMidniteLink(webContents, permission, details, options);
+      callback(false);
+    });
+    session.setPermissionCheckHandler(() => false);
     return;
   }
 
@@ -135,6 +238,10 @@ export function configureSessionPermissions(
   const lastPromptTime = new Map<string, number>();
 
   session.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (routeMidniteLink(webContents, permission, details, options)) {
+      callback(false);
+      return;
+    }
     const mapped = mapRequestedPermissions(permission, details as PermissionRequestDetails | undefined);
     if (!mapped || mapped.length === 0) {
       callback(false);
@@ -214,8 +321,27 @@ export function applyBrowserSessionPolicy(session: PolicySession, options: Brows
   configureSessionPermissions(session, options);
   denyAllDevices(session);
   session.on('will-download', (_event, item: DownloadItemLike, webContents) => {
+    if (options.downloadHandler) {
+      options.downloadHandler(item as never, webContents);
+      return;
+    }
     cancelDownload(item, (filename) => options.onDownloadRefused(filename, webContents));
   });
+  const onVerified = options.onCertificateVerified;
+  if (onVerified && session.setCertificateVerifyProc) {
+    session.setCertificateVerifyProc((request, callback) => {
+      onVerified(request.hostname, request.errorCode === 0 ? undefined : request.verificationResult);
+      callback(USE_CHROMIUM_VERIFICATION);
+    });
+  }
+  const onCompleted = options.onRequestCompleted;
+  if (onCompleted && session.webRequest?.onCompleted) session.webRequest.onCompleted((details) => onCompleted(details));
+  if (session.webRequest && (options.requestFilter || options.requestGate)) {
+    const base = session as RequestFilterSession;
+    const target = options.requestGate ? withRequestGate(base, options.requestGate) : base;
+    if (options.requestFilter) installRequestFilter(target, options.requestFilter);
+    else target.webRequest.onBeforeRequest((_details, callback) => callback({}));
+  }
   session.setSpellCheckerEnabled(options.spellcheck === true);
 }
 

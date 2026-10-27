@@ -18,6 +18,7 @@ function installBridge(createImpl?: ReturnType<typeof vi.fn>) {
   const onEvent = vi.fn(() => () => {});
   const setKeepAwake = vi.fn();
   const setDiscardMs = vi.fn();
+  const setSiteSafety = vi.fn();
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
     browser: {
       create,
@@ -27,6 +28,7 @@ function installBridge(createImpl?: ReturnType<typeof vi.fn>) {
       onEvent,
       setKeepAwake,
       setDiscardMs,
+      setSiteSafety,
     } as unknown as MidniteStudioBridge['browser'],
   } as Partial<MidniteStudioBridge>;
   return { create, activate, setVisible, close, onEvent, setKeepAwake, setDiscardMs };

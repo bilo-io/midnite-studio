@@ -207,14 +207,19 @@ test.describe('FAB loop console', () => {
     const start = composer.getByTestId('loop-extras-send');
     await expect(start).toBeEnabled();
 
-    // Switching off the two default-on tasks leaves a bare `/loop` — an agent
+    // Switching off the default-on task leaves a bare `/loop` — an agent
     // launched and told nothing — so Start goes away rather than sending it.
-    await composer.getByRole('switch', { name: 'Routine' }).uncheck();
-    await expect(start).toBeEnabled();
+    // The "Approve routine PRs" switch in Run is a standing policy, not a task.
     await composer.getByRole('switch', { name: 'Review PRs' }).uncheck();
     await expect(start).toBeDisabled();
     await start.hover();
     await expect(page.getByRole('tooltip')).toContainText(/Pick a task/);
+
+    // Turning on another task enables Start again:
+    await composer.getByRole('switch', { name: 'Reply to PRs' }).check();
+    await expect(start).toBeEnabled();
+    await composer.getByRole('switch', { name: 'Reply to PRs' }).uncheck();
+    await expect(start).toBeDisabled();
 
     // A standing rule is not a task: the autonomy radio does not satisfy it.
     await composer.getByRole('radio', { name: 'Recommended' }).check();
@@ -230,10 +235,10 @@ test.describe('FAB loop console', () => {
     await openFab(page, 'Patrol');
 
     const composer = page.getByTestId('loop-composer-watchdog');
-    // "Routine" and "Review PRs" are `defaultOn`, so they arrive checked;
+    // "Review PRs" and "Approve routine PRs" are `defaultOn`, so they arrive checked;
     // replying to PRs is the extra pass.
-    await expect(composer.getByRole('switch', { name: 'Routine' })).toBeChecked();
     await expect(composer.getByRole('switch', { name: 'Review PRs' })).toBeChecked();
+    await expect(composer.getByRole('switch', { name: 'Approve routine PRs' })).toBeChecked();
     await composer.getByRole('switch', { name: 'Reply to PRs' }).check();
     await composer.getByRole('radio', { name: 'Ready only' }).check();
     await composer.getByRole('radio', { name: 'Recommended' }).check();
@@ -257,16 +262,17 @@ test.describe('FAB loop console', () => {
     const [run] = await loopRuns(page);
     expect(run?.['loopId']).toBe('watchdog');
     /*
-      Patrol's "Routine" fragment, spelled out rather than imported: under
+      Patrol's "Approve routine PRs" fragment, spelled out rather than imported: under
       Playwright `@midnite/studio-shared` resolves to shared's compiled `dist`
       and exposes no named exports (see `midnite-menu.spec.ts`). `loops.test.ts`
-      pins the constant itself; this only proves it reaches the line first.
+      pins the constant itself; this only proves it reaches the line.
     */
     const ROUTINE_PR_FRAGMENT =
-      'Routine PRs: on each pass, review every open PR carrying the `routine` label; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. This rule adds to the pass rather than narrowing it: do not filter the pass down to the label, and give PRs without the `routine` label whatever the rest of this prompt asks for.';
+      'When reviewing PRs, if an open PR carries the `routine` label and the review finds no critical issues, approve it with a body of just "LGTM" or "🚀" (otherwise leave findings as review comments and do not approve). Do not restrict reviews to `routine` PRs — review all PRs targeted by the rest of the prompt.';
     // Tasks, then scope, then the standing rules, then the window, extras last.
     expect(run?.['composedPrompt']).toBe(
-      `/loop ${ROUTINE_PR_FRAGMENT} /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. ` +
+      '/loop /pr-review /pr-feedback Look only at PRs that are ready for review — skip drafts. ' +
+        `${ROUTINE_PR_FRAGMENT} ` +
         'Do every piece of work in its own git worktree — never edit the primary checkout. ' +
         'Never stop to ask: keep advancing and always take the recommended option. ' +
         'Auto-rotate subagents at 30% context. ' +
@@ -275,7 +281,7 @@ test.describe('FAB loop console', () => {
         'Skip drafts.',
     );
     // Only what is on — the unflipped "Triage only" fragment must not ride along.
-    expect(run?.['checkedModifierIds']).toEqual(['routine', 'pr-review', 'pr-feedback', 'worktree-only']);
+    expect(run?.['checkedModifierIds']).toEqual(['pr-review', 'pr-feedback', 'routine', 'worktree-only']);
     // The model is a `--model` flag, so the ledger records it beside the line.
     expect(run?.['model']).toBe('opus-5');
   });

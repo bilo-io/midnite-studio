@@ -5,6 +5,7 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  dialog,
   ipcMain,
   Menu,
   shell,
@@ -84,6 +85,11 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       // The runtime host's vault, over its socket: Agents never reaches the keychain itself.
       vaultDirectory,
       pairing: agentsPairing(app.getPath('userData'), smoke),
+      pickSavePath: async (defaultName) => {
+        const options = { defaultPath: defaultName, filters: [{ name: 'NDJSON', extensions: ['ndjson'] }] };
+        const picked = win !== null && !win.isDestroyed() ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+        return picked.canceled || !picked.filePath ? null : picked.filePath;
+      },
     });
     // A council member's or script node's shell is its own process group, so it would outlive Agents unless
     // killed here, and an in-flight workflow run must be cancelled so its node's process group dies with it.

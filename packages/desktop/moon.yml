@@ -62,6 +62,8 @@ dependsOn:
     scope: 'development'
   - id: 'feature-report'
     scope: 'development'
+  - id: 'feature-vanguard'
+    scope: 'development'
   - id: 'feature-media-video'
     scope: 'development'
   - id: 'feature-media-map'
@@ -122,6 +124,7 @@ tasks:
       - 'feature-media-library:build'
       - 'feature-capture:build'
       - 'feature-report:build'
+      - 'feature-vanguard:build'
       - 'feature-models:build'
       - 'feature-councils:build'
       - 'feature-workflows:build'
@@ -200,6 +203,8 @@ tasks:
       - '/packages/features/media-model/manifest.ts'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/vanguard/main/**/*'
+      - '/packages/features/vanguard/manifest.ts'
 
   # Same reasoning as `typecheck`, for the same reason it bites harder here:
   # vitest RESOLVES `@midnite/studio-shared` at run time, through the package's
@@ -230,6 +235,7 @@ tasks:
       - 'feature-media-library:build'
       - 'feature-capture:build'
       - 'feature-report:build'
+      - 'feature-vanguard:build'
       - 'feature-models:build'
       - 'feature-councils:build'
       - 'feature-workflows:build'
@@ -314,6 +320,8 @@ tasks:
       - '/packages/features/media-model/manifest.ts'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/vanguard/main/**/*'
+      - '/packages/features/vanguard/manifest.ts'
 
   lint:
     inputs:
@@ -409,6 +417,8 @@ tasks:
       - '/packages/features/media-model/manifest.ts'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/vanguard/main/**/*'
+      - '/packages/features/vanguard/manifest.ts'
     outputs:
       - 'dist/bundle'
 

@@ -1,0 +1,166 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { fixture, loadPage, resetPage, runSnippet } from './fixtures/phishing/fixture-page';
+import { LOGIN_FORM_READ_SNIPPET, LOGIN_FORM_READ_TIMEOUT_MS, LOGIN_FORM_WORLD_ID, readLoginForm } from './login-form-read';
+
+/**
+ * The snippet is a string main hands to `executeJavaScriptInIsolatedWorld`; here it runs against
+ * jsdom's document instead, which is the same DOM API surface. What jsdom cannot show is the world
+ * boundary itself (it has one world) — that is Electron's guarantee, pinned below by the world id
+ * the read asks for. Fixtures live in `fixtures/phishing/` and are shared with `phishing-rules.test.ts`.
+ */
+
+afterEach(resetPage);
+
+/** The DOM members the shadow-root and frame tests touch (main compiles without the DOM lib). */
+type ShadowDoc = { getElementById(id: string): { attachShadow(init: { mode: 'open' | 'closed' }): { innerHTML: string } } };
+
+describe('LOGIN_FORM_READ_SNIPPET', () => {
+  it('finds no password field on a page without one', () => {
+    loadPage('<form action="/search"><input name="q"></form>', 'https://example.com/');
+    expect(runSnippet()).toEqual({ hasPasswordField: false, formActionOrigins: [] });
+  });
+
+  it('finds the password field and resolves a relative action against the page', () => {
+    loadPage(fixture('github-real.html'), 'https://github.com/login');
+    expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: ['https://github.com'] });
+  });
+
+  it('matches type="PASSWORD" case-insensitively and reads past named-input clobbering', () => {
+    loadPage(fixture('github-login-app.html'), 'https://github-login.app/');
+    // `<input name="action">` makes `form.action` the input element and `<input name="getAttribute">`
+    // shadows the method — the snippet reads through the prototypes and still sees the real target.
+    expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: ['https://collect.example.net'] });
+  });
+
+  it('reads past a clobbered document.forms / querySelectorAll on the document', () => {
+    loadPage(
+      '<img name="querySelectorAll"><img name="forms"><form action="https://elsewhere.example/p"><input type=password></form>',
+      'https://example.com/',
+    );
+    expect(runSnippet().formActionOrigins).toEqual(['https://elsewhere.example']);
+  });
+
+  it('reads past a clobbered document.URL / baseURI, and an empty action posts to the page', () => {
+    loadPage('<img name="URL" src="x"><img name="baseURI" src="x"><form><input type=password></form>', 'https://example.com/login');
+    // An empty action resolves against the document's real URL (jsdom's, here) — never against a clobbering <img>.
+    expect(runSnippet().formActionOrigins).toEqual([new URL((globalThis as unknown as { location: { href: string } }).location.href).origin]);
+  });
+
+  it("counts a submit button's formaction as a target too", () => {
+    loadPage(
+      '<form action="/login"><input type=password><button formaction="https://drop.example.net/x">Go</button></form>',
+      'https://example.com/',
+    );
+    expect(runSnippet().formActionOrigins).toEqual(['https://example.com', 'https://drop.example.net']);
+  });
+
+  it('lists plain-http targets first, so other targets can never crowd them out of the cap', () => {
+    const buttons = Array.from({ length: 12 }, (_, i) => `<button formaction="https://t${i}.example/x">${i}</button>`).join('');
+    loadPage(
+      `<form action="https://a.example/x"><input type=password>${buttons}<button formaction="http://plain.example/x">p</button></form>`,
+      'https://example.com/',
+    );
+    const read = runSnippet();
+    expect(read.formActionOrigins[0]).toBe('http://plain.example');
+    expect(read.formActionOrigins).toHaveLength(10);
+  });
+
+  it('ignores formaction on elements that cannot submit', () => {
+    loadPage('<form action="/login"><input type=password><input type=text formaction="https://drop.example.net/x"></form>', 'https://example.com/');
+    expect(runSnippet().formActionOrigins).toEqual(['https://example.com']);
+  });
+
+  it('an <input> in another namespace (inside <svg>) cannot blank the read', () => {
+    loadPage(
+      '<svg><input type="password"></input></svg><form action="https://evil.example/x"><input type=password></form>',
+      'https://example.com/',
+    );
+    expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: ['https://evil.example'] });
+  });
+
+  it('counts a submitter tied to the form from outside it (form= attribute), never a type=button one', () => {
+    loadPage(
+      '<form id="f" action="/login"><input type=password><button type="button" formaction="https://x.example/y">b</button></form>' +
+        '<button form="f" formaction="https://drop.example/x">Go</button>',
+      'https://example.com/',
+    );
+    expect(runSnippet().formActionOrigins.sort()).toEqual(['https://drop.example', 'https://example.com']);
+  });
+
+  it('sees a password field inside an open shadow root — but not a closed one', () => {
+    loadPage('<div id="open"></div><div id="closed"></div>', 'https://example.com/');
+    const doc = (globalThis as unknown as { document: ShadowDoc }).document;
+    doc.getElementById('closed').attachShadow({ mode: 'closed' }).innerHTML = '<form action="https://hidden.example/x"><input type=password></form>';
+    expect(runSnippet()).toEqual({ hasPasswordField: false, formActionOrigins: [] });
+    doc.getElementById('open').attachShadow({ mode: 'open' }).innerHTML = '<form action="https://shadow.example/x"><input type=password></form>';
+    expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: ['https://shadow.example'] });
+  });
+
+  it('sees a password field inside a same-origin iframe', () => {
+    loadPage('<iframe id="f"></iframe>', 'https://example.com/');
+    const doc = (globalThis as unknown as { document: ShadowDoc }).document;
+    const inner = (doc.getElementById('f') as unknown as { contentDocument: { body: { innerHTML: string } } }).contentDocument;
+    inner.body.innerHTML = '<form action="https://framed.example/x"><input type=password></form>';
+    expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: ['https://framed.example'] });
+  });
+
+  it('counts a password field outside any form, with no action origin', () => {
+    loadPage('<div><input type="password"></div>', 'https://example.com/');
+    expect(runSnippet()).toEqual({ hasPasswordField: true, formActionOrigins: [] });
+  });
+
+  it('uses the form owner (form= attribute) and skips non-web actions', () => {
+    loadPage(
+      '<form id="f" action="https://auth.example.org/x"></form><input type="password" form="f">' +
+        '<form action="javascript:void 0"><input type="password"></form>',
+      'https://example.com/',
+    );
+    expect(runSnippet().formActionOrigins).toEqual(['https://auth.example.org']);
+  });
+
+  it('installs nothing: no new globals, no listeners', () => {
+    loadPage(fixture('http-login.html'), 'http://members.example/');
+    const win = (globalThis as unknown as { window: object }).window;
+    const before = new Set(Object.getOwnPropertyNames(win));
+    const addListener = vi.spyOn(EventTarget.prototype, 'addEventListener');
+    runSnippet();
+    expect(addListener).not.toHaveBeenCalled();
+    expect(Object.getOwnPropertyNames(win).filter((name) => !before.has(name))).toEqual([]);
+    addListener.mockRestore();
+  });
+
+  it('is fixed text: nothing interpolated from outside, no observers, timers or listeners in it', () => {
+    expect(LOGIN_FORM_READ_SNIPPET).not.toMatch(/addEventListener|MutationObserver|setTimeout|setInterval|postMessage|fetch\(|window\.\w+\s*=/);
+  });
+});
+
+describe('readLoginForm', () => {
+  it('runs the fixed snippet in its own isolated world — never world 0, never 999', async () => {
+    const exec = vi.fn(async () => ({ hasPasswordField: true, formActionOrigins: ['https://a.example'] }));
+    expect(await readLoginForm({ executeJavaScriptInIsolatedWorld: exec })).toEqual({
+      hasPasswordField: true,
+      formActionOrigins: ['https://a.example'],
+    });
+    expect(exec).toHaveBeenCalledWith(LOGIN_FORM_WORLD_ID, [{ code: LOGIN_FORM_READ_SNIPPET }], false);
+    expect(LOGIN_FORM_WORLD_ID).not.toBe(0);
+    expect(LOGIN_FORM_WORLD_ID).not.toBe(999);
+  });
+
+  it('gives up on a read that never answers', async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = readLoginForm({ executeJavaScriptInIsolatedWorld: () => new Promise(() => {}) });
+      await vi.advanceTimersByTimeAsync(LOGIN_FORM_READ_TIMEOUT_MS);
+      expect(await pending).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('answers null for a malformed result or a failed read', async () => {
+    expect(await readLoginForm({ executeJavaScriptInIsolatedWorld: async () => ({ hasPasswordField: 'yes' }) })).toBeNull();
+    expect(await readLoginForm({ executeJavaScriptInIsolatedWorld: async () => Promise.reject(new Error('gone')) })).toBeNull();
+    expect(await readLoginForm({} as never)).toBeNull();
+  });
+});

@@ -20,6 +20,7 @@ export type AgentsBridge = {
   workflow: Omit<MidniteStudioBridge['workflow'], 'onNodeSessionStarted' | 'setDefaults'>;
   demoApi: MidniteStudioBridge['demoApi'];
   mcp: MidniteStudioBridge['mcp'];
+  agentAudit: MidniteStudioBridge['agentAudit'];
   ollama: MidniteStudioBridge['ollama'];
   agent: Pick<MidniteStudioBridge['agent'], 'list'>;
   secrets: Pick<MidniteStudioBridge['secrets'], 'has'>;
@@ -88,6 +89,10 @@ export function createAgentsBridge(ipc: RendererIpc): AgentsBridge {
       get: () => call(CHANNELS.mcpGet),
       set: (req) => call(CHANNELS.mcpSet, req),
       calls: () => call(CHANNELS.mcpCalls),
+    },
+    agentAudit: {
+      list: (req) => call(CHANNELS.agentAuditList, req),
+      export: (req) => call(CHANNELS.agentAuditExport, req),
     },
     ollama: {
       status: () => call(CHANNELS.ollamaStatus),

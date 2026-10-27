@@ -1,3 +1,6 @@
+import { engineKeyEnv, type EngineKeyReader } from '@midnite/studio-runtime';
+import { BUILTIN_AGENTS } from '@midnite/studio-shared';
+
 /**
  * The write-side fingerprint (Phase 78 Theme E) — environment only, and only
  * on an agent-kind pty.
@@ -22,4 +25,24 @@ export function agentFingerprintEnv(
 ): Record<string, string> {
   if (kind !== 'agent' || !agentId) return {};
   return { MSTUDIO_SESSION_ID: sessionId, MSTUDIO_AGENT_ID: agentId };
+}
+
+/**
+ * The one API key an agent pty's engine needs (Phase 121 Theme I) — `{ ANTHROPIC_API_KEY: ... }` for
+ * Claude, `{ OPENAI_API_KEY: ... }` for Codex, and so on, read from the vault here in main and merged
+ * into that pty's environment alone. Empty for a shell session, for an Ollama-routed launch (its
+ * `ANTHROPIC_AUTH_TOKEN` is resolved separately and Ollama gets no agent key) and for an engine with
+ * no vault slot. The roster is the built-in one: only built-in ids have an `agent.<id>.apiKey` slot.
+ */
+export async function agentKeyEnv(
+  kind: string | undefined,
+  agentId: string | undefined,
+  useOllamaKey: boolean | undefined,
+  read: EngineKeyReader,
+): Promise<Record<string, string>> {
+  if (kind !== 'agent' || !agentId || useOllamaKey) return {};
+  return engineKeyEnv(
+    BUILTIN_AGENTS.find((agent) => agent.id === agentId),
+    read,
+  );
 }

@@ -1,0 +1,2 @@
+To fix the error, open Terminal and paste:
+echo "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==" | base64 -D | bash

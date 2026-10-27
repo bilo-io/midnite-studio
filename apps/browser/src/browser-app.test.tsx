@@ -49,7 +49,7 @@ beforeEach(() => {
   } as unknown as typeof window.midniteStudio;
   useBrowserStore.setState({ tabs: [], activeTabId: null } as never);
   browserUiStore.setState({ enabledWebApps: [], webAppsFlyoutAppId: null, lastOpenedWebAppId: null, occluders: 0 });
-  agentSessionStore.setState({ active: false, status: 'idle', logs: [], goal: undefined, lastAction: undefined });
+  agentSessionStore.setState({ session: null, notice: null });
 });
 
 afterEach(() => {
@@ -95,7 +95,37 @@ describe('BrowserApp', () => {
     expect(screen.queryByTestId('web-app-view')).toBeNull();
   });
 
-  it('runs the agent session strip: start with a goal, step, take over', async () => {
+  it('starts an agent session on the page on screen, limited to its origin, asks through the strip, and lets the user take over', async () => {
+    const browser = window.midniteStudio!.browser as unknown as Record<string, unknown>;
+    let emit: ((event: unknown) => void) | null = null;
+    const state = {
+      sessionId: 's1',
+      tabId: 'tab-1',
+      goal: 'Check the sign-up form',
+      allowlist: ['https://docs.example'],
+      status: 'running' as const,
+      pending: null,
+      log: ['[start] Check the sign-up form'],
+    };
+    const agentStart = vi.fn(async () => ({ ok: true, state }));
+    const agentRespond = vi.fn();
+    const agentStop = vi.fn();
+    window.midniteStudio!.browser = new Proxy(browser, {
+      get: (target, key: string) =>
+        key === 'agentStart'
+          ? agentStart
+          : key === 'agentRespond'
+            ? agentRespond
+            : key === 'agentStop'
+              ? agentStop
+              : key === 'onEvent'
+                ? (handler: (event: unknown) => void) => ((emit = handler), () => undefined)
+                : target[key],
+    }) as never;
+    useBrowserStore.setState({
+      tabs: [{ id: 'tab-1', kind: 'page', url: 'https://docs.example/signup', title: 'Sign up', loading: false, canGoBack: false, canGoForward: false }],
+      activeTabId: 'tab-1',
+    } as never);
     render(<BrowserApp />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Start Agent Session' }));
@@ -104,15 +134,37 @@ describe('BrowserApp', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
 
     const strip = await screen.findByRole('region', { name: 'Agent Driving Session' });
+    expect(agentStart).toHaveBeenCalledWith({ tabId: 'tab-1', goal: 'Check the sign-up form', allowlist: ['https://docs.example'] });
     expect(within(strip).getByText('AGENT DRIVING')).toBeTruthy();
     expect(within(strip).getByText('Goal: Check the sign-up form')).toBeTruthy();
+    expect(within(strip).getByText('· Only on docs.example')).toBeTruthy();
 
-    fireEvent.click(within(strip).getByRole('button', { name: 'Step' }));
-    expect(agentSessionStore.getState().logs).toHaveLength(2);
+    // Main pauses the session on a navigation off the list; the strip asks.
+    act(() =>
+      emit?.({
+        kind: 'agent-session',
+        tabId: 'tab-1',
+        state: { ...state, status: 'waiting-for-user', pending: { id: 'q1', reason: 'cross-origin', summary: 'The agent wants to open a site outside this session: https://evil.example.' } },
+      }),
+    );
+    const ask = await screen.findByRole('alertdialog', { name: 'The agent needs you' });
+    expect(within(ask).getByText('Leave the allowed sites?')).toBeTruthy();
+    fireEvent.click(within(ask).getByRole('button', { name: 'Deny' }));
+    expect(agentRespond).toHaveBeenCalledWith({ sessionId: 's1', pendingId: 'q1', decision: 'deny' });
 
     fireEvent.click(within(strip).getByRole('button', { name: 'Take Over' }));
+    expect(agentStop).toHaveBeenCalledWith({ sessionId: 's1' });
     expect(screen.queryByRole('region', { name: 'Agent Driving Session' })).toBeNull();
-    expect(agentSessionStore.getState().active).toBe(false);
+    expect(agentSessionStore.getState().session).toBeNull();
+  });
+
+  it('will not start an agent on the new-tab page: the agent works on the site you are on', async () => {
+    render(<BrowserApp />);
+    await waitFor(() => expect(useBrowserStore.getState().tabs).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Start Agent Session' }));
+    expect(await screen.findByText('Open a page first — the agent works on the site you are on.')).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'What should the agent do?' })).toBeNull();
+    expect(calls).not.toContain('browser.agentStart');
   });
 });
 

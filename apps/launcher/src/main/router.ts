@@ -1,6 +1,7 @@
 import { SETTINGS_PAGE_IDS, VIEW_IDS } from '@midnite/studio-shared/domain/view';
 import { MEDIA_TABS } from '@midnite/studio-shared/media';
 import { parseMidniteLink, type MidniteAppId, type MidniteLinkTarget } from '@midnite/studio-shared/midnite-link';
+import type { LinkRateLimiter } from '@midnite/studio-shared/page-deep-link';
 import { studioRevealLinkFromParam, studioRunLinkFromParam, studioSettingsLink, studioViewLink } from '@midnite/studio-shared/studio-link';
 
 import { findInstalled } from './bundles/state';
@@ -27,12 +28,19 @@ import { appLink } from './links';
 export type RouteDecision =
   | { kind: 'bundle'; path: string }
   | { kind: 'studio'; url: string }
-  | { kind: 'detail'; app: MidniteAppId };
+  | { kind: 'detail'; app: MidniteAppId }
+  /** Phase 117 Theme G: a second agent run inside the rate window, dropped before it reaches Studio. */
+  | { kind: 'throttled' };
 
 export type RouterDeps = {
   /** Path of the installed per-app bundle's Dock stub, or `null`. */
   findAppBundle(app: MidniteAppId): Promise<string | null>;
   isStudioInstalled(): Promise<boolean>;
+  /**
+   * Phase 117 Theme G: the page deep-link rule for `run=` links. The OS does not say which page sent
+   * a `midnite://` link, so every run shares one key: one per 10 s, the rest dropped. Absent, none is.
+   */
+  runLimiter?: LinkRateLimiter;
 };
 
 /** Step 1, from the installed-state record under `installRoot`. */
@@ -72,6 +80,7 @@ export async function handleMidniteLink(
 ): Promise<RouteDecision | null> {
   const target = parseMidniteLink(raw, { views: VIEW_IDS, tabs: MEDIA_TABS, pages: SETTINGS_PAGE_IDS });
   if (target === null) return null;
+  if (target.run !== undefined && deps.runLimiter && !deps.runLimiter.allow('run')) return { kind: 'throttled' };
   const decision = await routeTarget(target, deps);
   try {
     if (decision.kind === 'bundle') await actions.openBundle(decision.path);

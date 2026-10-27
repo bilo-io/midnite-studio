@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { FileChangeKindSchema } from './domain/diff';
+import { ContentProvenanceSchema } from './provenance';
 
 /**
  * Chats — conversations with the roster's agent CLIs (and local Ollama models),
@@ -84,6 +85,8 @@ export const ChatChangedFileSchema = z.object({
   status: ChatChangeStatusSchema,
   /** Why the last apply failed, when `status` is `conflict`. */
   conflict: z.string().optional(),
+  /** Phase 121 Theme B: why the tool policy flagged this file for approval (e.g. git hook, CI workflow, MCP config, package.json scripts). */
+  policyReason: z.string().optional(),
 });
 export type ChatChangedFile = z.infer<typeof ChatChangedFileSchema>;
 
@@ -110,6 +113,8 @@ export const ChatAttachmentSchema = z.object({
   name: z.string().min(1).max(260),
   /** Plain-text content, inlined into the prompt. */
   text: z.string().max(200_000),
+  /** Where it came from (Phase 121 Theme A). Absent means an attachment, which is untrusted. */
+  provenance: ContentProvenanceSchema.optional(),
 });
 export type ChatAttachment = z.infer<typeof ChatAttachmentSchema>;
 
@@ -142,11 +147,23 @@ export const ChatMessageSchema = z.object({
   status: ChatMessageStatusSchema.default('done'),
   error: z.string().optional(),
   attachments: z.array(ChatAttachmentSchema).optional(),
+  /** Where the message's own text came from. Absent: a user message is typing, an assistant one is agent output. */
+  provenance: ContentProvenanceSchema.optional(),
+  /**
+   * Secrets scrubbed from what this user message sent (Phase 121 D): one chip per kind, `[redacted: <kind>]`, so the
+   * user knows the model did not see them. Counts only, never the values.
+   */
+  redactions: z.array(z.object({ kind: z.string().min(1), count: z.number().int().positive() })).optional(),
   /** Short tool/activity lines the agent reported ("Edited src/a.ts"). */
   activity: z.array(z.string()).optional(),
   /** Engine and model that produced an assistant turn. */
   engine: z.string().optional(),
   model: z.string().nullable().optional(),
+  /**
+   * The model the CLI's own output named, recorded only when it differs from the pinned `model`
+   * (Phase 121 Theme I) — the thread marks such a turn instead of silently showing the pin.
+   */
+  reportedModel: z.string().optional(),
   changeSet: ChatChangeSetSchema.optional(),
   /** The agent's reasoning, as streamed by engines that expose it. */
   thinking: z.string().optional(),
@@ -229,6 +246,7 @@ export const ChatSkillSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(2_000),
   scope: z.enum(['project', 'user', 'plugin']),
+  warning: z.string().optional(),
 });
 export type ChatSkill = z.infer<typeof ChatSkillSchema>;
 
@@ -376,8 +394,18 @@ export function reduceChangeSet(
  * Whether anything in the set still waits on the user: a conflict to resolve,
  * or a hunk (or, for a hunkless file, the file) nobody has decided yet. A set
  * whose every part is decided is `partial` but needs nothing more.
+ *
+ * When `options.reviewEnabled` is false (review turned off), normal changes are
+ * waved through, but sensitive files flagged by policy (`f.policyReason`) still
+ * require human review (Phase 121 Theme B).
  */
-export function changeSetNeedsReview(changeSet: Pick<ChatChangeSet, 'files'>): boolean {
+export function changeSetNeedsReview(
+  changeSet: Pick<ChatChangeSet, 'files'>,
+  options?: { reviewEnabled?: boolean },
+): boolean {
+  if (options?.reviewEnabled === false) {
+    return changeSet.files.some((f) => f.policyReason !== undefined);
+  }
   return changeSet.files.some(
     (f) =>
       f.status === 'conflict' ||

@@ -7,17 +7,25 @@ import { getGlobalGitIdentity, setGlobalGitIdentity } from '@midnite/studio-git-
 import {
   assertSiteIsolation,
   createFileSink,
+  createOutboundSecretSource,
   createPairingStore,
   createVaultGrants,
+  createVaultIntegrity,
+  confinementAvailability,
   createVaultService,
+  ensureCanaries,
   runtimeHostDirectory,
+  sweepProfileFiles,
+  VAULT_GRANTS_FILE,
   type VaultHost,
 } from '@midnite/studio-runtime';
 import {
   EVENT_CHANNELS,
   CHANNELS,
+  createLinkRateLimiter,
   GitIdentitySetRequest,
   failure,
+  isActingPageLinkKind,
   perfEnabled,
   SetupProbeRequest,
   SetupRevealRequest,
@@ -25,8 +33,18 @@ import {
 import { BrowserWindow, app, ipcMain, powerMonitor, safeStorage, session, shell, type WebContentsView } from 'electron';
 import { parseDeepLink } from './protocol-parse';
 import { registerCliHandlers } from './ipc/cli-handlers';
+import { registerSecurityHandlers } from './ipc/security-handlers';
 import { registerUpdater } from './update-service';
 import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
+import { configureAgentAudit, recordAudit } from './agent-audit';
+import { configureConfinement, createConfinementService } from './confinement';
+import { registerConfinementHandlers } from './ipc/confinement-handlers';
+import { currentSettings } from './settings-mirror';
+import { configureOutboundSecrets } from './outbound-secrets';
+import { startAgentCommandAudit } from './ipc/agent-command-audit';
+import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
+import { configureToolPolicy } from './tool-policy-wiring';
+import { configureFindingsLedger, getFindingsLedger, registerVanguardHandlers, startVanguardSensors, stopVanguardSensors } from './ipc/vanguard-handlers';
 
 import { createActivityDetector } from './activity-detect';
 import { createAgentWatcher, realAgentWatcherDeps } from './agent-watcher';
@@ -97,7 +115,10 @@ import {
   getSharedBrokerLocation,
   initPtyService,
   notifyActivityDisabled,
+  observePtyInput,
+  observePtyOutput,
   onSessionExit,
+  sessionIdFor,
   setActivityDetector,
   setAgentWatcher,
 } from './pty-service';
@@ -108,6 +129,7 @@ import { createTerminalStore } from './terminal-store';
 import {
   configureTerminals,
   listAgents,
+  listTerminals,
   shutdownTerminals,
   startTerminalFlush,
   watchSessionExits,
@@ -121,6 +143,7 @@ import { createTrustStore } from './diagnostics/trust-store';
 import { createRepoStore } from './repo-store';
 import { getMcpServerHandle, registerMcpServer } from './mcp';
 import { registerMcpHandlers } from './ipc/mcp-handlers';
+import { configureMcpTrust } from './mcp-trust-wiring';
 import { fingerprintFile } from './socket-name';
 import { configureCouncils, createCouncilsRunsStore, createCouncilsStore } from '@midnite/studio-feature-councils/main';
 import { stopDemoApi } from '@midnite/studio-feature-workflows/main';
@@ -145,7 +168,12 @@ import {
   stopAllVideoProcesses,
 } from '@midnite/studio-feature-media-video/main';
 import { registerOllamaHandlers } from './ipc/ollama-handlers';
-import { configureOllamaSettings, createOllamaSettingsStore } from '@midnite/studio-feature-models/main';
+import {
+  configureOllamaDigests,
+  configureOllamaSettings,
+  createOllamaDigestStore,
+  createOllamaSettingsStore,
+} from '@midnite/studio-feature-models/main';
 import { migrateAnyLegacyRepoStore } from './userdata-migration';
 import { installMgitFileProtocol, registerPrivilegedSchemes, setVideoFileRootProvider } from './fs-protocol';
 import { registerPerfHandlers } from './ipc/perf-handlers';
@@ -194,6 +222,7 @@ import type { StartStudioMain } from './main-contract';
 
 let mainWindow: BrowserWindow | null = null;
 const getMainWindow = (): BrowserWindow | null => mainWindow;
+let stopAgentCommandAudit: (() => void) | null = null;
 
 /** Media ▸ Games' service, created at boot (Phase 107); read at quit to stop every run. */
 let gameService: GameService | null = null;
@@ -334,14 +363,26 @@ export const startStudioMain: StartStudioMain = () => {
   }
 
   let pendingDeepLink: string | null = null;
+  // Phase 117 Theme G: a run or clone from one web page's origin, at most once per 10 s.
+  const pageLinkLimiter = createLinkRateLimiter();
 
-  async function handleDeepLinkUrl(rawUrl: string): Promise<void> {
+  /**
+   * `origin` is set only for a link a page inside an embedded browser tab asked for (the tab's
+   * `openExternal`, refused in the browser feature and handed here). It travels to the renderer, which
+   * names the page in the confirm and never auto-sends a run that came from one.
+   */
+  async function handleDeepLinkUrl(rawUrl: string, origin?: string): Promise<void> {
     const parsed = parseDeepLink(rawUrl);
     if (!parsed) return;
+    if (origin !== undefined && isActingPageLinkKind(parsed.kind) && !pageLinkLimiter.allow(origin)) {
+      defaultLogger(`[deep-link] dropped a ${parsed.kind} link from ${origin || 'a page'}: one per 10 s per site`);
+      return;
+    }
 
     const win = getMainWindow();
     if (!win || win.isDestroyed()) {
-      pendingDeepLink = rawUrl;
+      // A page's link is not held for later: the page that asked is gone with the window.
+      if (origin === undefined) pendingDeepLink = rawUrl;
       return;
     }
 
@@ -351,7 +392,7 @@ export const startStudioMain: StartStudioMain = () => {
       known = allRepos.some((r) => r.path === parsed.repo);
     }
 
-    win.webContents.send(EVENT_CHANNELS.deepLink, { link: parsed, known });
+    win.webContents.send(EVENT_CHANNELS.deepLink, { link: parsed, known, ...(origin !== undefined ? { origin } : {}) });
   }
 
   if (!app.requestSingleInstanceLock()) {
@@ -458,7 +499,9 @@ export const startStudioMain: StartStudioMain = () => {
       // Phase 91 Theme E: one navigation/window.open net for every app window, installed before any
       // exists (`web-contents-created` is only seen by listeners registered ahead of the contents).
       app.on('web-contents-created', (_event, contents) => {
-        applyAppWebContentsPolicy(contents, devServerOrigin, (href) => void shell.openExternal(href));
+        applyAppWebContentsPolicy(contents, session.defaultSession, devServerOrigin, (href) =>
+          void shell.openExternal(href),
+        );
       });
       // Phase 91 Theme E: no WebUSB/HID/serial device chooser for the app renderer. Display media
       // stays Capture's gate above, hence `displayMedia: false`.
@@ -502,6 +545,7 @@ export const startStudioMain: StartStudioMain = () => {
       const forgePoller = createStudioForgePoller();
       registerForgeFeatureHandlers(forgePoller);
       registerSettingsHandlers();
+      registerConfinementHandlers();
       registerDiagHandlers();
       registerSessionsHandlers();
       registerNotesHandlers();
@@ -512,7 +556,12 @@ export const startStudioMain: StartStudioMain = () => {
       registerTestsFeatureHandlers(getMainWindow);
       registerPtyHandlers(getMainWindow);
       // The browser feature's channels (Phase 113 Theme L) — browser tabs and the web-apps rail, one registration.
-      registerBrowserFeatureHandlers(getMainWindow);
+      registerBrowserFeatureHandlers(getMainWindow, (url, origin) => {
+        // Only Studio's own scheme is acted on in-process; a page's `midnite://` link is not forwarded
+        // to the launcher, where it would lose the origin that the confirm names.
+        if (url.toLowerCase().startsWith('midnite-studio://')) void handleDeepLinkUrl(url, origin);
+        else defaultLogger(`[deep-link] a page's midnite:// link was not forwarded (${origin || 'unknown origin'})`);
+      });
       // Phase 84 Theme F: one process-wide idle sweep, started once — every
       // discard eligibility check reads live `WebContentsView`/`BrowserWindow`
       // state at tick time, so there is nothing to reconcile per repo or per
@@ -580,6 +629,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerCompanionHandlers();
       registerUpdater(getMainWindow);
       registerReleaseNotesHandlers();
+      registerVanguardHandlers(getMainWindow);
       handle(
         CHANNELS.setupProbe,
         SetupProbeRequest,
@@ -605,6 +655,7 @@ export const startStudioMain: StartStudioMain = () => {
         (issue) => failure(issue),
       );
       handleBare(CHANNELS.systemMemory, () => ({ totalBytes: totalmem() }));
+      registerSecurityHandlers();
       registerOptimizerHandlers(getMainWindow);
       registerTrashHandlers();
       registerPerfHandlers();
@@ -683,6 +734,8 @@ export const startStudioMain: StartStudioMain = () => {
         so a tool call reaching the socket the instant it opens never sees an
         empty registry.
       */
+      // Phase 121 Theme B: the tool-call policy is live before the socket opens, so no call meets the gap.
+      await configureToolPolicy(userData, broadcastToAllWindows);
       await registerMcpServer({
         userDataDir: userData,
         appVersion: app.getVersion(),
@@ -722,6 +775,36 @@ export const startStudioMain: StartStudioMain = () => {
         subscription-gated — it costs nothing with nothing waiting).
       */
       registerWorkflowHandlers({ userData, forgePoller, getMainWindow, gateApprovalPollMs: FORGE_POLL_MS });
+      configureFindingsLedger(userData, getMainWindow);
+      // Phase 121 Theme G: the durable agent audit trail, and the command lines typed into agent ptys.
+      configureAgentAudit({ userData, homeDir: app.getPath('home'), log: (message) => defaultLogger.warn(message) });
+      stopAgentCommandAudit = startAgentCommandAudit({
+        observeInput: observePtyInput,
+        observeOutput: observePtyOutput,
+        sessionIdFor,
+        onSessionExit: (hook) => onSessionExit((sessionId) => hook(sessionId)),
+        listTerminals,
+        record: recordAudit,
+      });
+      // Phase 121 Theme E: confined sessions. Profiles left by sessions that died with the last run go first.
+      sweepProfileFiles(userData);
+      configureConfinement(
+        createConfinementService({
+          userData,
+          homeDir: app.getPath('home'),
+          availability: confinementAvailability,
+          enabled: () => currentSettings().confineNewSessions === true,
+          registryRepos: async () => (await listRepos()).map((repo) => repo.path),
+          audit: { record: (record) => (recordAudit(record), '') },
+          raiseFinding: (finding) => getFindingsLedger().record(finding),
+          log: (message) => defaultLogger.warn(message),
+        }),
+      );
+      // Phase 121 Theme C: the MCP allowlist (Vanguard's revoke action and the Tools view's Approve read it).
+      configureMcpTrust(userData, (finding) => getFindingsLedger().record(finding));
+      // Phase 121 Theme F: the breaker reads the trail the line above feeds and interrupts a session that runs away.
+      startStudioAgentBreaker({ userData, getWindow: getMainWindow });
+      void startVanguardSensors(userData).catch((error: unknown) => defaultLogger.warn(`vanguard sensors failed to start: ${String(error)}`));
       configureVideo(createVideoProjectsStore(userData), {
         emit: (channel, payload) => {
           const win = getMainWindow();
@@ -781,6 +864,8 @@ export const startStudioMain: StartStudioMain = () => {
       });
       registerGamesHandlers(games, gameAgentService, gamePlaytests);
       configureOllamaSettings(createOllamaSettingsStore(userData));
+      // Phase 121 Theme I: installed models are pinned by manifest digest; a moved digest is a Vanguard finding.
+      configureOllamaDigests({ store: createOllamaDigestStore(userData), raiseFinding: (finding) => getFindingsLedger().record(finding) });
       configureDiagnostics(createTrustStore(userData));
       configureTests(createTestTrustStore(userData));
       /*
@@ -791,15 +876,28 @@ export const startStudioMain: StartStudioMain = () => {
         shapes their handlers always had, and the wire still says only
         `hasToken`.
       */
+      // Integrity manager (Phase 118 Theme H)
+      const vaultIntegrity = createVaultIntegrity({
+        directory: userData,
+        cipher: safeStorage,
+      });
       // Grants (Phase 113 Theme J slice 2): Studio is always allowed; the grants only gate other apps' services.
-      const vaultGrants = createVaultGrants({ directory: userData });
+      const vaultGrants = createVaultGrants({
+        directory: userData,
+        onPersist: (p) => vaultIntegrity.updateFileSync(p),
+        checkIntegrity: () => vaultIntegrity.verifyFileSync(join(userData, VAULT_GRANTS_FILE)).valid,
+      });
       // Which key each guest app paired with — the host checks it, Studio's Vault view lists and unpairs.
       const runtimeDirectory = studioRuntimeDirectory(app.getPath('appData'), userData);
-      const vaultPairings = createPairingStore({ hostDirectory: runtimeHostDirectory(runtimeDirectory) });
+      const vaultPairings = createPairingStore({
+        hostDirectory: runtimeHostDirectory(runtimeDirectory),
+        onPersist: (p) => vaultIntegrity.updateFileSync(p),
+      });
       const vaultService = createVaultService({
         directory: userData,
         cipher: safeStorage,
         authorize: vaultGrants.authorize,
+        integrity: vaultIntegrity,
       });
       configureVaultGrants(vaultGrants, vaultPairings, vaultService);
 
@@ -823,6 +921,11 @@ export const startStudioMain: StartStudioMain = () => {
         credentials: createCredentialVault(studioVault),
       });
       configureSecrets(createSecretsVault(studioVault));
+      // Phase 121 Theme D: every outbound prompt is scrubbed against the vault's values, and two canaries are planted.
+      configureOutboundSecrets(createOutboundSecretSource({ vault: studioVault }));
+      void ensureCanaries({ vault: studioVault, homeDir: app.getPath('home') }).catch((error: unknown) =>
+        defaultLogger.warn(`canary setup failed: ${String(error)}`),
+      );
       /*
         The account registry (Phase 90 Theme B) — wired here beside every other
         userData store. `configureForgeAccounts` itself kicks off the on-disk
@@ -1100,6 +1203,10 @@ export const startStudioMain: StartStudioMain = () => {
         }
       }
 
+      void stopVanguardSensors();
+      stopAgentCommandAudit?.();
+      stopStudioAgentBreaker();
+      configureConfinement(null);
       disposeChats();
       // The global capture chord is released and clipboard polling stops with the app (Phase 113 Theme K).
       disposeCapture();

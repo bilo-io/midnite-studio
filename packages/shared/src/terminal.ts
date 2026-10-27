@@ -716,6 +716,12 @@ export const TerminalSessionSchema = z
      */
     backend: z.enum(['native', 'ollama']).optional(),
     ollamaModel: z.string().min(1).optional(),
+    /**
+     * The session's shell runs under a Seatbelt profile (Phase 121 Theme E), stamped from the pty's
+     * create reply. Absent means unconfined. Persisted so the lock survives a reload and shows on a
+     * closed row; main, not this field, enforces it.
+     */
+    confined: z.boolean().optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;

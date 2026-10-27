@@ -48,7 +48,12 @@ export const PREFERENCE_KEYS = [
   'automateEnabledByProject', // projects-page.tsx — Auto-mate's on/off switch, read there and set from the board toggle (Phase 95 Theme H)
   'blockedByFieldName', // projects-page.tsx
   'browserDiscardMs', // browser-page.tsx
+  'browserDownloads', // browser-page.tsx — opt-in downloads + quarantine folder (Phase 117 Theme D)
+  'browserPrivacy', // browser-page.tsx — tracker/cookie/referrer/UA switches (Phase 117 Theme E)
   'browserSpellcheck', // browser-page.tsx — Chromium spellcheck toggle (Phase 117 Theme B)
+  'browserClipboardWatch', // browser-page.tsx — the ClickFix clipboard watch (Phase 117 Theme G)
+  'browserAllowSiteProceed', // browser-page.tsx — proceed past a site warning (Phase 117 Theme C)
+  'browserReputationFeeds', // privacy-page.tsx — URLhaus / OpenPhish switches (Phase 117 Theme C)
   'columnSkillByProject', // projects-page.tsx — drag-to-skill's column → skill map (Phase 95 Theme G)
   'cycleDurationS', // screen-lock-page.tsx
   'disabledEcosystems', // optimizer-settings-page.tsx
@@ -58,6 +63,7 @@ export const PREFERENCE_KEYS = [
   'forgeScopeReposToActiveAccount', // accounts-page.tsx
   'forgeSwitcherPlacement', // accounts-page.tsx — the "Account switcher" placement select
   'forgeSyncGhAuthSwitch', // accounts-page.tsx
+  'confineNewSessions', // agent-page.tsx — "Confine new sessions"
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
   'graphShowCi', // graph-page.tsx — the "Columns" accordion

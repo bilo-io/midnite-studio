@@ -1,8 +1,8 @@
 {
   "name": "@midnite/app-vault",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
-  "description": "Midnite Vault \u2014 stored secrets, forge accounts and database logins as their own app: set, rotate or remove, never read back.",
+  "description": "Midnite Vault — stored secrets, forge accounts and database logins as their own app: set, rotate or remove, never read back.",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {

@@ -6,7 +6,7 @@ import {
   type BrowserViewOptions,
 } from '@midnite/studio-feature-browser/main';
 import type { WebAppId } from '@midnite/studio-shared';
-import { screen, session, shell, WebContentsView, type BrowserWindow } from 'electron';
+import { clipboard, screen, session, shell, WebContentsView, type BrowserWindow } from 'electron';
 
 /**
  * Studio's Electron for the browser feature's main half (Phase 113 Theme L) — the `WebContentsView`,
@@ -25,6 +25,9 @@ export function createStudioBrowserElectron(): BrowserElectron {
       screen.on('display-metrics-changed', listener);
     },
     openExternal: (url: string) => shell.openExternal(url),
+    // Phase 117 Theme G: the ClickFix watch reads the system clipboard from main, and its bar clears it.
+    readClipboardText: () => clipboard.readText(),
+    clearClipboard: () => clipboard.clear(),
   };
   return electron as unknown as BrowserElectron;
 }

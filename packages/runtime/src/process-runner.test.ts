@@ -109,6 +109,18 @@ describe('runProcess', () => {
     expect(await withStderr).toMatchObject({ ok: false, reason: 'parse-failed', hint: 'boom' });
   });
 
+  it('runs under sandbox-exec when given a profile, and disposes the profile once it settles', async () => {
+    const child = fakeChild();
+    const spawn = vi.fn<SpawnFn>(() => child.process);
+    const dispose = vi.fn();
+    const promise = runProcess('vitest', ['run'], '/repo', { spawn, sink: echoSink, confine: { profilePath: '/u/security/profiles/p.sb', dispose } });
+    expect(spawn).toHaveBeenCalledWith('/usr/bin/sandbox-exec', ['-f', '/u/security/profiles/p.sb', 'vitest', 'run'], '/repo');
+    expect(dispose).not.toHaveBeenCalled();
+    child.close(0);
+    await promise;
+    expect(dispose).toHaveBeenCalledTimes(1);
+  });
+
   it('never rejects, whatever the child does', async () => {
     const child = fakeChild();
     const promise = runProcess('x', [], '/repo', { spawn: () => child.process, sink: echoSink });

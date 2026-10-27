@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
 import * as net from 'node:net';
 import { dirname } from 'node:path';
 
-import { MCP_MAX_REQUEST_BYTES, MCP_MAX_RESPONSE_BYTES, type McpRequest, type McpResponse } from '@midnite/studio-shared';
+import { MCP_MAX_REQUEST_BYTES, MCP_MAX_RESPONSE_BYTES, provenanceFor, type McpRequest, type McpResponse } from '@midnite/studio-shared';
 
 import type { DispatchResult, ScopedDispatch } from '../agent-run/host';
 import { createFrameDecoder, encodeJsonFrame } from '../broker/protocol';
@@ -71,7 +71,8 @@ export async function startMcpSocketServer(opts: StartMcpSocketServerOptions): P
     const result = await dispatch(tool, raw.input);
     opts.onCall?.({ tool, input: raw.input, result, ms: Date.now() - startedAt });
     const response: McpResponse = result.ok
-      ? { id, ok: true, value: result.value }
+      ? // Every result leaves stamped (Phase 121 Theme A): what a tool returned is data, whoever's tool it is.
+        { id, ok: true, value: result.value, provenance: provenanceFor('mcp-result', tool) }
       : { id, ok: false, kind: result.kind, message: result.message };
     // A result over the cap is refused with its byte count rather than silently truncated.
     const byteLength = Buffer.byteLength(JSON.stringify(response), 'utf8');

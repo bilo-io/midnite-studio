@@ -146,6 +146,8 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('Memory'),
     section('Spellcheck'),
     section('Site permissions'),
+    section('Downloads'),
+    section('Privacy'),
     section('Data'),
   ],
   'web-apps': [
@@ -165,6 +167,11 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('App Updates'),
   ],
   health: [],
+  vanguard: [
+    section('Sensors'),
+    section('Scanning'),
+    section('Quarantine'),
+  ],
   optimizer: [
     section('Workspace Optimizer'),
     section('System caches'),

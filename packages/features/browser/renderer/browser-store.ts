@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import type { BrowserNavError, BrowserPermissionKind, BrowserShortcutTile } from '@midnite/studio-shared';
+import type { BrowserNavError, BrowserPermissionKind, BrowserShortcutTile, SiteVerdict } from '@midnite/studio-shared';
 
 import { PREVIEW_DEPLOY_HOSTS } from './browser/preview-deploy';
 import { WALLPAPER_STORAGE_KEY, WALLPAPER_THEMES, type WallpaperTheme } from './browser/wallpaper';
@@ -77,6 +77,12 @@ export type BrowserTab = {
    * in-DOM surface rather than Chromium's own unstyled one.
    */
   navError?: BrowserNavError | null;
+  /**
+   * Main's judgement of the page this tab shows (Phase 117 Theme C) — replaced whole on every
+   * `verdict` event, which main sends on each main-frame commit and on every finding after it.
+   * Runtime-only: a restored tab has no page yet, so it is reset to `null` on persist.
+   */
+  verdict?: SiteVerdict | null;
   /**
    * `'sleeping'` once main has discarded this tab's `WebContentsView` for
    * sitting hidden past `Settings ▸ Browser`'s idle threshold (Phase 84
@@ -212,6 +218,19 @@ export type BrowserPermissionRequest = {
   displayName: string;
 };
 
+/** A download waiting on the user's confirm (Phase 117 Theme D). */
+export type BrowserDownloadRequest = {
+  tabId: string;
+  requestId: string;
+  filename: string;
+  size: number;
+  origin: string;
+  fileClass: string;
+};
+
+/** A ClickFix hit: a page just put a shell command on the clipboard (Phase 117 Theme G). */
+export type BrowserClipboardWarning = { tabId: string; origin: string; label: string; preview: string };
+
 type BrowserState = {
   tabs: BrowserTab[];
   groups: BrowserTabGroup[];
@@ -219,6 +238,10 @@ type BrowserState = {
   recentlyClosed: ClosedTab[];
   /** Pending in-tab permission prompts keyed by tabId (Phase 117 Theme B). */
   pendingPermissionRequests: Record<string, BrowserPermissionRequest | undefined>;
+  /** Pending download confirms keyed by tabId (Phase 117 Theme D). */
+  pendingDownloadRequests: Record<string, BrowserDownloadRequest | undefined>;
+  /** ClickFix warnings keyed by tabId (Phase 117 Theme G). Runtime only, never persisted. */
+  clipboardWarnings: Record<string, BrowserClipboardWarning | undefined>;
   /**
    * The preview-deploy matcher's host allowlist (Phase 71 Theme D), seeded
    * with {@link PREVIEW_DEPLOY_HOSTS} and editable from the Browser settings
@@ -341,6 +364,9 @@ type BrowserState = {
   setFindResult: (result: { matches: number; activeMatchOrdinal: number } | null) => void;
   setPendingPermissionRequest: (tabId: string, request: BrowserPermissionRequest | undefined) => void;
   clearPendingPermissionRequest: (tabId: string) => void;
+  setPendingDownloadRequest: (tabId: string, request: BrowserDownloadRequest | undefined) => void;
+  /** Phase 117 Theme G: raise (or, with `undefined`, dismiss) a tab's ClickFix bar. */
+  setClipboardWarning: (tabId: string, warning: BrowserClipboardWarning | undefined) => void;
 };
 
 /**
@@ -364,6 +390,8 @@ export const useBrowserStore = create<BrowserState>()(
       findOpen: false,
       findResult: null,
       pendingPermissionRequests: {},
+      pendingDownloadRequests: {},
+      clipboardWarnings: {},
 
       openTab: (url, originRepoId) => {
         const tab: BrowserTab = { ...makeTab(url), ...(originRepoId ? { originRepoId } : {}) };
@@ -409,16 +437,29 @@ export const useBrowserStore = create<BrowserState>()(
 
           const pending = { ...state.pendingPermissionRequests };
           delete pending[id];
+          const downloads = { ...state.pendingDownloadRequests };
+          delete downloads[id];
+          const clipboardWarnings = { ...state.clipboardWarnings };
+          delete clipboardWarnings[id];
 
           if (remaining.length === 0) {
             const fresh = makeTab();
-            return { tabs: [fresh], activeTabId: fresh.id, recentlyClosed, pendingPermissionRequests: pending };
+            return {
+              tabs: [fresh],
+              activeTabId: fresh.id,
+              recentlyClosed,
+              pendingPermissionRequests: pending,
+              pendingDownloadRequests: downloads,
+              clipboardWarnings,
+            };
           }
           return {
             tabs: remaining,
             activeTabId: nextActiveAfterClose(state.tabs, state.activeTabId, id),
             recentlyClosed,
             pendingPermissionRequests: pending,
+            pendingDownloadRequests: downloads,
+            clipboardWarnings,
           };
         }),
 
@@ -608,6 +649,22 @@ export const useBrowserStore = create<BrowserState>()(
           },
         })),
 
+      setClipboardWarning: (tabId, warning) =>
+        set((state) => {
+          const next = { ...state.clipboardWarnings };
+          if (warning) next[tabId] = warning;
+          else delete next[tabId];
+          return { clipboardWarnings: next };
+        }),
+
+      setPendingDownloadRequest: (tabId, request) =>
+        set((state) => {
+          const next = { ...state.pendingDownloadRequests };
+          if (request) next[tabId] = request;
+          else delete next[tabId];
+          return { pendingDownloadRequests: next };
+        }),
+
       clearPendingPermissionRequest: (tabId) =>
         set((state) => {
           if (!state.pendingPermissionRequests[tabId]) return state;
@@ -689,6 +746,7 @@ export const useBrowserStore = create<BrowserState>()(
           canGoForward: false,
           crashed: false,
           navError: null,
+          verdict: null,
           // No `WebContentsView` exists for a restored tab until it is
           // activated (see the module doc above) — it is neither live nor
           // sleeping, so `state` itself is absent rather than persisting

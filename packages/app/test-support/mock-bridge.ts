@@ -1,5 +1,8 @@
 import { expect, type Page } from '@playwright/test';
 import type {
+  AgentAuditRecord,
+  ConfinementStatus,
+  McpServerStatus,
   BatteryReading,
   ForgeAccount,
   ReachableRepo,
@@ -11,6 +14,7 @@ import type {
   SyncStatusEvent,
   TestPackage,
   TestRunResult,
+  ToolApprovalRequest,
 } from '@midnite/studio-shared';
 
 /**
@@ -53,7 +57,8 @@ export type PopoutRole =
   | 'apps-youtube';
 
 export type MockFixtures = {
-  commitStats?: Record<string, { added: number; deleted: number; files: number } | null>;
+  confinementStatus?: ConfinementStatus;
+  commitStats?: Record<string, { added: number; deleted: number; files: number }>;
   /**
    * The Finance dashboard's market data and simulated portfolio (`markets.*`).
    * Everything is generated in-process from a seeded PRNG — a spec that mounts
@@ -1000,6 +1005,12 @@ export type MockFixtures = {
    * `terminal.spec.ts`'s zero-scroll-room assertion by a pixel. Only
    * `mcp-shots.spec.ts` now passes `{ enabled: true }`.
    */
+  /** The agent audit trail the Audit tab lists (Phase 121 Theme G); absent → an empty trail. */
+  agentAudit?: AgentAuditRecord[];
+  /** The MCP servers the Tools view lists with their trust verdicts (Phase 121 Theme C); absent → none. */
+  mcpTrust?: McpServerStatus[];
+  /** In-flight tool-approval requests (Phase 121 Theme B). */
+  toolApprovals?: ToolApprovalRequest[];
   mcp?: { enabled?: boolean; allowUi?: boolean; allowGateDecide?: boolean; allowModels?: boolean; allowGames?: boolean; allowTerrains?: boolean; allowSprites?: boolean; allowMaps?: boolean; allowMusic?: boolean; allowCompanionSettings?: boolean };
   /**
    * Phase 33 Theme G — the Tests view's discovered suites, trust grants and
@@ -1491,6 +1502,7 @@ export function buildMockBridge(data: MockFixtures) {
     */
   const browserTabIds = new Set<string>();
   const browserEventHandlers: ((e: unknown) => void)[] = [];
+  const deepLinkHandlers: ((e: unknown) => void)[] = [];
   /**
    * Every `setVisible` call, in order — the only way a spec can see
    * whether the real engine would currently be painting a tab, since
@@ -1506,6 +1518,8 @@ export function buildMockBridge(data: MockFixtures) {
   const browserKeepAwakeCalls: Array<{ tabId: string; keepAwake: boolean }> = [];
   /** Every `browser.setDiscardMs` call, in order (Phase 84 Theme F) — pushed on mount and on Settings change. */
   const browserDiscardMsCalls: Array<{ ms: number }> = [];
+  /** Every `browser.proceedSite` call (Phase 117 Theme C) — the interstitial's "proceed" button. */
+  const browserProceedCalls: Array<{ tabId: string; url: string }> = [];
   /** Every `webApps.enable`/`disable`/`activate` call, in order (Phase 83 Theme C) — the apps-rail e2e spec's assertion surface. */
   const webAppsEnableCalls: string[] = [];
   const webAppsDisableCalls: string[] = [];
@@ -1714,12 +1728,11 @@ export function buildMockBridge(data: MockFixtures) {
         truncated: data.conflictRegionsTruncated?.[req.path] ?? false,
       }),
       commitStats: async (req: { shas: string[] }) => {
-        const stats: Record<string, { added: number; deleted: number; files: number } | null> = {};
+        const stats: Record<string, { added: number; deleted: number; files: number }> = {};
         if (data.commitStats) {
           for (const sha of req.shas) {
-            if (sha in data.commitStats) {
-              stats[sha] = data.commitStats[sha] ?? null;
-            }
+            const stat = data.commitStats[sha];
+            if (stat) stats[sha] = stat;
           }
         }
         return { stats };
@@ -1867,9 +1880,11 @@ export function buildMockBridge(data: MockFixtures) {
               // compare" (`use-base-blob-exists.ts`) both key off.
               baseSha: seeded['baseSha'] ?? null,
               baseBranch: seeded['baseBranch'] ?? '',
-              additions: seeded['additions'] ?? 0,
-              deletions: seeded['deletions'] ?? 0,
-              changedFiles: seeded['changedFiles'] ?? 0,
+              // `!== undefined`, not `??`: a seeded null is "the forge did not
+              // say", which the header must see as null rather than as 0.
+              additions: seeded['additions'] !== undefined ? seeded['additions'] : 0,
+              deletions: seeded['deletions'] !== undefined ? seeded['deletions'] : 0,
+              changedFiles: seeded['changedFiles'] !== undefined ? seeded['changedFiles'] : 0,
               createdAt: seeded['createdAt'] ?? null,
               updatedAt: seeded['updatedAt'] ?? null,
               mergeable: seeded['mergeable'] ?? null,
@@ -3055,6 +3070,33 @@ export function buildMockBridge(data: MockFixtures) {
       permissionRevoke: async () => undefined,
       permissionsReset: async () => undefined,
       setSpellcheck: noop,
+      setSiteSafety: noop,
+      proceedSite: (req: { tabId: string; url: string }) => {
+        browserProceedCalls.push(req);
+      },
+      setDownloads: noop,
+      respondDownload: noop,
+      setPrivacy: noop,
+      setTrackerException: noop,
+      // Phase 117 Theme G: a session starts running at once; tools answer "no session" (no page to drive).
+      agentStart: async (req: { tabId: string; goal: string; allowlist: string[] }) => {
+        const state = {
+          sessionId: `mock-agent-${req.tabId}`,
+          tabId: req.tabId,
+          goal: req.goal,
+          allowlist: req.allowlist,
+          status: 'running' as const,
+          pending: null,
+          log: [`[start] ${req.goal}`],
+        };
+        for (const h of [...browserEventHandlers]) h({ kind: 'agent-session', tabId: req.tabId, state });
+        return { ok: true as const, state };
+      },
+      agentStop: noop,
+      agentTool: async () => ({ ok: false as const, kind: 'no-session' as const, message: 'The mock bridge drives no page.' }),
+      agentRespond: noop,
+      clearClipboard: noop,
+      setClipboardWatch: noop,
       onEvent: (handler: (e: unknown) => void) => {
         browserEventHandlers.push(handler);
         return () => {
@@ -4598,6 +4640,281 @@ export function buildMockBridge(data: MockFixtures) {
       copy: async () => ({ ok: true }),
       onOpen: () => () => {},
     },
+    // Vanguard (Phase 120): a small fixed ledger and two sensors so the view, its Sensors tab and
+    // Settings > Vanguard render with content. Nothing is ever scanned, run or quarantined for real.
+    vanguard: {
+      findings: {
+        list: async (req?: { category?: string }) => ({
+          findings: [
+            {
+              id: 'f3',
+              fingerprint: 'fp-3',
+              source: 'vanguard' as const,
+              severity: 'info' as const,
+              category: 'network' as const,
+              title: 'The app connected to 203.0.113.7:443, which the egress registry does not list',
+              detail:
+                'Midnite (pid 4211) holds an open TCP connection to 203.0.113.7:443. Every host the suite talks to is listed in the egress registry; this one is not.',
+              evidence: [
+                { kind: 'pid' as const, pid: 4211, command: 'Midnite' },
+                { kind: 'host' as const, host: '203.0.113.7', port: 443, protocol: 'tcp' },
+              ],
+              remediation: [
+                { id: 'report-issue' as const, title: 'Midnite connected to an unlisted host' },
+                { id: 'mute' as const },
+              ],
+              firstSeen: 1_700_000_100_000,
+              lastSeen: 1_700_000_100_000,
+              count: 1,
+              status: 'open' as const,
+            },
+            {
+              id: 'f1',
+              fingerprint: 'fp-1',
+              source: 'vanguard' as const,
+              severity: 'high' as const,
+              category: 'persistence' as const,
+              title: 'Unrecognised launch agent',
+              detail: 'A user launch agent runs a binary from a temporary directory.',
+              evidence: [{ kind: 'path' as const, path: '~/Library/LaunchAgents/com.example.helper.plist' }],
+              remediation: [
+                {
+                  id: 'bootout-launch-item' as const,
+                  domain: 'gui/501',
+                  path: '~/Library/LaunchAgents/com.example.helper.plist',
+                },
+                { id: 'quarantine-file' as const, path: '/tmp/.helper/agent' },
+                { id: 'mute' as const },
+              ],
+              firstSeen: 1_700_000_000_000,
+              lastSeen: 1_700_000_600_000,
+              count: 2,
+              status: 'open' as const,
+            },
+            {
+              id: 'f2',
+              fingerprint: 'fp-2',
+              source: 'vanguard' as const,
+              severity: 'low' as const,
+              category: 'config' as const,
+              title: 'World-readable credentials file',
+              detail: 'A file that looks like a credentials store is readable by other users.',
+              evidence: [{ kind: 'path' as const, path: '~/.aws/credentials', mode: 0o644 }],
+              remediation: [
+                { id: 'chmod-600' as const, path: '~/.aws/credentials' },
+                { id: 'revoke-mcp-server' as const, serverName: 'filesystem' },
+                { id: 'open-in-agents' as const, findingId: 'f2' },
+                { id: 'mute' as const },
+              ],
+              firstSeen: 1_700_000_000_000,
+              lastSeen: 1_700_000_000_000,
+              count: 1,
+              status: 'open' as const,
+            },
+          ].filter((f) => !req?.category || f.category === req.category),
+        }),
+        setStatus: async () => ({ ok: true as const }),
+        act: async (req: { action: { id: string } }) => ({ ok: true as const, value: { actionId: req.action.id } }),
+        // Theme H: a fixed blast radius per action, so the confirm renders with content.
+        preview: async (req: { action: { id: string } }) => ({
+          ok: true as const,
+          value:
+            req.action.id === 'bootout-launch-item'
+              ? {
+                  actionId: 'bootout-launch-item' as const,
+                  confirm: true,
+                  title: 'Unload the launch item?',
+                  confirmLabel: 'Unload',
+                  summary:
+                    'Runs launchctl bootout gui/501 on it: launchd stops the item and whatever it is running. The plist stays in ~/Library/LaunchAgents and loads again at your next login unless you remove it.',
+                  dies: ['com.example.helper — runs /tmp/.helper/agent'],
+                  moves: [],
+                  pauses: [],
+                  warnings: [],
+                }
+              : {
+                  actionId: req.action.id as 'quarantine-file',
+                  confirm: true,
+                  title: 'Quarantine the file?',
+                  confirmLabel: 'Quarantine',
+                  summary:
+                    'Moves the file into Vanguard’s quarantine at mode 0000, so nothing can read or run it. Restore puts it back after a re-scan; it is deleted after 30 days.',
+                  dies: [],
+                  moves: ['/tmp/.helper/agent (48.2 KB, 0755, sha256 9f2c41d07a8e…) to quarantine'],
+                  pauses: [],
+                  warnings: ['pid 5120 is running this file; it keeps running until you stop it.'],
+                },
+        }),
+        onChanged: () => () => {},
+      },
+      sensors: async () => ({
+        active: true,
+        sensors: [
+          {
+            id: 'integrity',
+            label: 'File integrity',
+            description: 'Watches launch items and shell profiles for changes.',
+            state: 'idle' as const,
+            enabled: true,
+            lastRunAt: Date.now() - 120_000,
+            lastDurationMs: 120,
+            lastFindings: 1,
+          },
+          {
+            id: 'network',
+            label: 'Network',
+            description: 'Lists outbound connections per process.',
+            state: 'idle' as const,
+            enabled: true,
+            lastRunAt: Date.now() - 8_000,
+            lastDurationMs: 140,
+            lastFindings: 1,
+          },
+        ],
+      }),
+      runSensor: async () => ({ ok: true as const }),
+      settings: async () => ({
+        version: 1 as const,
+        sensors: {},
+        cadenceSeconds: 30,
+        quarantineRetentionDays: 30,
+        viewOpened: true,
+        autoPauseSeverities: ['critical' as const],
+      }),
+      setSettings: async () => ({
+        version: 1 as const,
+        sensors: {},
+        cadenceSeconds: 30,
+        quarantineRetentionDays: 30,
+        viewOpened: true,
+        autoPauseSeverities: ['critical' as const],
+      }),
+      viewOpened: async () => ({ active: true, sensors: [] }),
+      openQuarantine: async () => ({ ok: true as const }),
+      // Specs and screenshots fire the Phase 120 G modal with `window.__mockAgentPaused(prompt)`.
+      onAgentPaused: (handler: (prompt: unknown) => void) => {
+        (window as unknown as { __mockAgentPaused?: unknown }).__mockAgentPaused = handler;
+        return () => undefined;
+      },
+      resolveAgentPause: async () => true,
+      responseState: async () => ({
+        quarantineDir: '/Users/me/Library/Application Support/Midnite Studio/vanguard/quarantine',
+        quarantine: [
+          {
+            findingId: 'f9',
+            findingTitle: 'Malware rule matched: macos_stealer_keychain_dump',
+            originalPath: '~/Downloads/QuickConvert.app/Contents/MacOS/QuickConvert',
+            fileName: 'QuickConvert',
+            sha256: '4b8e0c5d3a1f9e7b2c6d8a0f1e3b5c7d9e2f4a6b8c0d1e3f5a7b9c2d4e6f8a0b',
+            size: 1_482_311,
+            quarantinedAt: Date.now() - 3 * 86_400_000,
+            expiresAt: Date.now() + 27 * 86_400_000,
+          },
+        ],
+        unavailable: {
+          'revoke-mcp-server': {
+            reason: 'Available once Phase 121 lands: revoking a server needs the MCP allowlist (Phase 121 Theme C).',
+            dependsOn: 'Phase 121 Theme C',
+          },
+          'open-in-agents': {
+            reason:
+              'Available once Phase 121 lands: a finding goes into a Chats thread only once it can be tagged untrusted (Phase 121 Theme A).',
+            dependsOn: 'Phase 121 Theme A',
+          },
+        },
+      }),
+      connections: async () => ({
+        at: Date.now() - 6_000,
+        active: true,
+        connections: [
+          {
+            pid: 4211,
+            command: 'Midnite',
+            role: 'suite' as const,
+            label: 'app',
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '104.16.1.35',
+            remotePort: 443,
+            allowedBy: 'api.pwnedpasswords.com',
+          },
+          {
+            pid: 4211,
+            command: 'Midnite',
+            role: 'suite' as const,
+            label: 'app',
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '203.0.113.7',
+            remotePort: 443,
+            flagged: {
+              severity: 'info' as const,
+              reason: 'The app connected to a host the egress registry does not list.',
+            },
+          },
+          {
+            pid: 4388,
+            command: 'node',
+            role: 'agent' as const,
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '140.82.112.3',
+            remotePort: 443,
+            sessionId: 's-1',
+            repoId: 'r-1',
+            flagged: { severity: 'medium' as const, reason: 'A destination this repo has not reached in 30 days.' },
+          },
+          {
+            pid: 4390,
+            command: 'curl',
+            role: 'agent' as const,
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '198.51.100.20',
+            remotePort: 443,
+            sessionId: 's-1',
+            repoId: 'r-1',
+            flagged: { severity: 'high' as const, reason: 'The destination is a tunnel service (Cloudflare quick tunnel).' },
+          },
+          {
+            pid: 612,
+            command: 'ssh',
+            role: 'other' as const,
+            protocol: 'TCP',
+            state: 'ESTABLISHED',
+            remoteHost: '140.82.112.4',
+            remotePort: 22,
+          },
+        ],
+      }),
+      // Phase 120 Theme F: no engine installed, one earlier scan. Nothing is ever scanned for real.
+      malware: {
+        status: async () => ({
+          engines: [
+            { id: 'yara' as const, label: 'YARA', installed: false },
+            { id: 'clamscan' as const, label: 'ClamAV', installed: false },
+            { id: 'builtin' as const, label: 'Built-in matcher', installed: true },
+          ],
+          running: false,
+          queued: 0,
+          last: {
+            target: 'Downloads',
+            at: Date.now() - 600_000,
+            durationMs: 412,
+            files: 38,
+            detections: 0,
+            engines: ['builtin'],
+            errors: [],
+          },
+        }),
+        cancel: async () => ({ ok: true as const }),
+        scan: async () => ({
+          ok: true as const,
+          value: { target: 'a folder', at: Date.now(), durationMs: 120, files: 12, detections: 0, engines: ['builtin'], errors: [] },
+        }),
+      },
+      onChanged: () => () => {},
+    },
     metrics: {
       start: (req: { intervalMs: number; freshDisk?: boolean }) => {
         metricsCalls.push(req);
@@ -4735,6 +5052,26 @@ export function buildMockBridge(data: MockFixtures) {
       set: async (req: { name: string; email: string }) => ({ ok: true, value: req }),
     },
     systemMemory: async () => ({ totalBytes: 16 * 1024 ** 3 }),
+    // Phase 121 Theme A: a stand-in for the runtime's detector, enough to drive the banner in tests and shots.
+    security: {
+      scanContent: async (req: { text: string }) => {
+        const hit = /ignore (?:all )?previous instructions/i.test(req.text);
+        const tags = /[\u{E0000}-\u{E007F}]/u.test(req.text);
+        const signals = [
+          ...(tags ? [{ id: 'unicode-tag-characters', weight: 0.9 }] : []),
+          ...(hit ? [{ id: 'addressed-to-model', weight: 0.6 }] : []),
+        ];
+        const score = signals.reduce((rest, s) => rest * (1 - s.weight), 1);
+        const flagged = 1 - score >= 0.5;
+        return {
+          score: Math.round((1 - score) * 1000) / 1000,
+          threshold: 0.5,
+          flagged,
+          signals,
+          ...(flagged ? { stripped: req.text.replace(/[\u{E0000}-\u{E007F}]/gu, '').replace(/ignore (?:all )?previous instructions[^.\n]*\.?/gi, '') } : {}),
+        };
+      },
+    },
     systemHealth: async () => ({
       git: { path: '/usr/bin/git', version: 'git version 2.45.0' },
       shell: '/bin/zsh',
@@ -4886,7 +5223,13 @@ export function buildMockBridge(data: MockFixtures) {
       },
     },
     protocol: {
-      onDeepLink: unsubscribe,
+      // Phase 117 Theme G: a spec delivers a deep link through `window.__mstudioDeepLink(...)`.
+      onDeepLink: (handler: (e: unknown) => void) => {
+        deepLinkHandlers.push(handler);
+        return () => {
+          deepLinkHandlers.splice(deepLinkHandlers.indexOf(handler), 1);
+        };
+      },
     },
     /**
      * Phase 66 Theme H — the API Client's bridge namespace. Extended in
@@ -5510,6 +5853,50 @@ export function buildMockBridge(data: MockFixtures) {
           : [],
       }),
     },
+    // The agent audit trail (Phase 121 Theme G): the fixture's records, filtered the way main filters them.
+    agentAudit: {
+      list: async (req: { kinds?: string[]; sessionId?: string; since?: number; until?: number; limit?: number }) => {
+        const all = (data.agentAudit ?? []).filter(
+          (r) =>
+            (!req.kinds?.length || req.kinds.includes(r.kind)) &&
+            (req.sessionId === undefined || r.sessionId === req.sessionId) &&
+            (req.since === undefined || r.at >= req.since) &&
+            (req.until === undefined || r.at < req.until),
+        );
+        const sorted = [...all].sort((a, b) => b.at - a.at);
+        const limit = req.limit ?? 200;
+        return { records: sorted.slice(0, limit), truncated: sorted.length > limit };
+      },
+      export: async () => ({ ok: true as const, value: { path: '/Users/demo/Desktop/agent-audit.ndjson', count: (data.agentAudit ?? []).length } }),
+    },
+    // The MCP allowlist (Phase 121 Theme C): the fixture's servers; Approve flips one to approved in place.
+    mcpTrust: {
+      list: async () => ({ ok: true as const, value: { servers: (data.mcpTrust ?? []).map((s) => ({ ...s })) } }),
+      approve: async (req: { serverName: string }) => {
+        const found = (data.mcpTrust ?? []).find((s) => s.serverName === req.serverName);
+        if (!found || found.verdict === 'held') return { ok: false as const, kind: 'error' as const, message: 'That server cannot be approved.' };
+        found.verdict = 'approved';
+        found.diff = { config: null, tools: [] };
+        return { ok: true as const, value: {} };
+      },
+    },
+    // The tool-call policy (Phase 121 Theme B): card requests and answers.
+    toolApproval: {
+      onRequested: (handler: (request: ToolApprovalRequest) => void) => {
+        for (const req of data.toolApprovals ?? []) handler(req);
+        return unsubscribe;
+      },
+      onResolved: () => unsubscribe,
+      answer: async () => ({ ok: true as const, value: {} }),
+      hookInfo: async () => ({
+        ok: true as const,
+        value: {
+          scriptPath: '/path/to/policy-hook.js',
+          claudeSnippet: '{\n  "hooks": {}\n}',
+          codexSnippet: '{\n  "hooks": {}\n}',
+        },
+      }),
+    },
     windowChrome: {
       platform: 'darwin',
       /*
@@ -5536,6 +5923,9 @@ export function buildMockBridge(data: MockFixtures) {
     // Phase 55: every spec but `detached-panels-shots.spec.ts` leaves this
     // unset and runs as the main window.
     windowRole: data.windowRole ?? 'main',
+    confinement: {
+      status: async () => data.confinementStatus ?? { available: true },
+    },
   };
 
   (window as unknown as { midniteStudio: unknown }).midniteStudio = bridge;
@@ -6113,6 +6503,10 @@ export function buildMockBridge(data: MockFixtures) {
   };
 
   (window as unknown as { __mstudioOps: unknown }).__mstudioOps = opCalls;
+  // Phase 117 Theme G: a spec's way to deliver a deep link (browser events go through `__mstudioBrowserEvent` below).
+  (window as unknown as { __mstudioDeepLink: (e: unknown) => void }).__mstudioDeepLink = (e) => {
+    for (const h of [...deepLinkHandlers]) h(e);
+  };
   (window as unknown as { __mstudioSearchCancels: unknown }).__mstudioSearchCancels = searchCancels;
   (window as unknown as { __mstudioPty: unknown }).__mstudioPty = ptyCalls;
   /*
@@ -6208,6 +6602,9 @@ export function buildMockBridge(data: MockFixtures) {
   ];
   (window as unknown as { __mstudioBrowserVisibleCalls: unknown }).__mstudioBrowserVisibleCalls =
     () => [...browserVisibleCalls];
+  (window as unknown as { __mstudioBrowserProceedCalls: unknown }).__mstudioBrowserProceedCalls = () => [
+    ...browserProceedCalls,
+  ];
   (window as unknown as { __mstudioBrowserZoomCalls: unknown }).__mstudioBrowserZoomCalls = () => [
     ...browserZoomCalls,
   ];

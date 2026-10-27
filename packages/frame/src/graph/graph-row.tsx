@@ -122,8 +122,8 @@ export type GraphRowProps = {
    * only the mark depends on this.
    */
   ci?: CommitCi;
-  /** The Diff column's stat; `undefined` while loading or the column is off, `null` for a merge. */
-  diffStat?: CommitDiffStat | null;
+  /** The Diff column's stat; `undefined` while loading (a neutral placeholder) or the column is off. */
+  diffStat?: CommitDiffStat;
   /** The maximum churn lines in the visible viewport, used to scale Diff Chart bars relatively. */
   maxDiffLines?: number;
   /** Open the commit's run modal — the CI mark's click. */
@@ -614,15 +614,15 @@ function GraphRowInner({
  * Each tier drops or mutes one layer of the one before it, so a commit fades
  * out of notice rather than snapping back to plain text:
  *
- * - `'fresh'`  (< 6m)     shimmer sweep + lane-coloured subject + pulsing text
+ * - `'fresh'`  (< 12m)    shimmer sweep + lane-coloured subject + pulsing text
  *                         glow, row glow and opacity
- * - `'recent'` (6m–10m)   the same, shimmer gone
- * - `'fading'` (10m–20m)  row glow gone; the lane-coloured subject keeps its
+ * - `'recent'` (12m–20m)  the same, shimmer gone
+ * - `'fading'` (20m–40m)  row glow gone; the lane-coloured subject keeps its
  *                         text glow and opacity pulse
- * - `'muted'`  (20m–30m)  the same layers as `'fading'`, but attenuated: both
+ * - `'muted'`  (40m–60m)  the same layers as `'fading'`, but attenuated: both
  *                         the branch-colour intensity and the opacity swing
  *                         are turned down, rather than dropped
- * - `'normal'` (>= 30m)   nothing
+ * - `'normal'` (>= 60m)   nothing
  *
  * The boundaries are minutes, not seconds, because the date column beside it
  * only resolves to the minute — a tier that turned over mid-minute would change
@@ -630,18 +630,29 @@ function GraphRowInner({
  */
 export type CommitRecencyTier = 'fresh' | 'recent' | 'fading' | 'muted' | 'normal';
 
-/** The oldest a commit can be and still carry any recency styling, in ms. */
-export const RECENCY_WINDOW_MS = 1_800_000;
+/** The oldest a commit can be and still carry any recency styling, in ms (one hour). */
+export const RECENCY_WINDOW_MS = 3_600_000;
+
+/**
+ * Where each tier ends, as a fraction of `RECENCY_WINDOW_MS`: 12m / 20m / 40m / 60m
+ * of the hour. Resizing the window moves every boundary together.
+ */
+export const RECENCY_TIER_FRACTIONS = {
+  fresh: 1 / 5,
+  recent: 1 / 3,
+  fading: 2 / 3,
+  muted: 1,
+} as const;
 
 export function commitRecencyTier(
   committerDateSeconds: number,
   nowMs: number = Date.now(),
 ): CommitRecencyTier {
   const deltaMs = nowMs - committerDateSeconds * 1000;
-  if (deltaMs < 360_000) return 'fresh';
-  if (deltaMs < 600_000) return 'recent';
-  if (deltaMs < 1_200_000) return 'fading';
-  if (deltaMs < RECENCY_WINDOW_MS) return 'muted';
+  if (deltaMs < RECENCY_WINDOW_MS * RECENCY_TIER_FRACTIONS.fresh) return 'fresh';
+  if (deltaMs < RECENCY_WINDOW_MS * RECENCY_TIER_FRACTIONS.recent) return 'recent';
+  if (deltaMs < RECENCY_WINDOW_MS * RECENCY_TIER_FRACTIONS.fading) return 'fading';
+  if (deltaMs < RECENCY_WINDOW_MS * RECENCY_TIER_FRACTIONS.muted) return 'muted';
   return 'normal';
 }
 

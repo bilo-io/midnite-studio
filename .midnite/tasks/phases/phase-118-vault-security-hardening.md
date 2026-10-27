@@ -102,7 +102,7 @@ Scope guardrails:
 
 *The vault locks when no one needs it, remembers everything that touched it, can be carried out
 and brought back, and notices when its own files are not its own.* Born from a vault that encrypts
-well and does nothing else a person expects of one. (45% · 23/51) — **Planned 2026-10-22.**
+well and does nothing else a person expects of one. (100% · 51/51 · ✅ DONE) — **Planned 2026-10-22.**
 
 **Theme A — Threat model and key handling, written down.** ✅ Landed in `docs/VAULT_SECURITY.md`,
 covering key hierarchy (`safeStorage` → login keychain → user password and FileVault), decrypt
@@ -114,7 +114,7 @@ checklist. `SECURITY.md` and `docs/security/README.md` linked.
 extracted to runtime, auto-lock triggers (suspend, lock-screen, 15m idle), and 60-second re-auth
 proof requirement for sensitive ops (grants and pairings).
 
-**Theme C — Reveal and copy without leaving a trace.** ◻ A one-shot, re-authenticated reveal in
+**Theme C — Reveal and copy without leaving a trace.** ✅ A one-shot, re-authenticated reveal in
 the Vault app's own window; copy with a 30-second clipboard clear that only clears what it put
 there; nothing cached, nothing logged in plaintext.
 
@@ -126,18 +126,19 @@ coalescing, rotation, and `audit-section.tsx` viewer in Vault page.
 range API (5-char SHA-1 prefix + `Add-Padding: true`), 30-day salted cache, password-type entries
 only, advisory badges, and `api.pwnedpasswords.com` in `EGRESS_HOSTS`.
 
-**Theme F — Secret scanning: repos and the clipboard.** ◻ A pre-commit scan of the staged diff
-from the git graph's commit path using `SECRET_PATTERNS` plus the live vault-value matcher,
-blocking with an override; an opt-in clipboard watch for vault values and token shapes; a
-one-shot repo history scan with a report.
+**Theme F — Secret scanning: repos and the clipboard.** ✅ Staged-diff pre-commit scan blocks secret
+commits with "Commit anyway" override; optional pre-commit hook; one-shot repository history scan with report;
+opt-in clipboard watch at ≤ 1 Hz with 60s auto-clear.
 
-**Theme G — Encrypted export and import.** ◻ A versioned, passphrase-encrypted export
-(scrypt → AES-256-GCM via `node:crypto`), re-auth to produce, re-auth to import, never a
-plaintext path; a restore drill in the docs.
+**Theme G — Encrypted export and import.** ✅ Landed `midnite-vault-export-v1` (scrypt N=2^17, r=8, p=1,
+maxmem=256MB + AES-256-GCM), 0600 backup files, passphrase strength meter, preview without commit,
+keep-existing merge, audit logging, restore drill tests, and standalone 16-line decrypt script in `docs/VAULT_SECURITY.md`.
 
-**Theme H — Tamper detection and memory hygiene.** ◻ An HMAC over every vault file, grants and
-pairing included, under a `safeStorage`-held key; mismatch locks the vault and logs; plaintext
-`Buffer`s zeroed after use; no secret in a long-lived string, env of a spawned process, or log.
+**Theme H — Tamper detection and memory hygiene.** ✅ Landed `vault-integrity.json` holding HMAC-SHA256
+under a `safeStorage`-encrypted key across all vault files (`*.vault.json`, `vault-grants.json`, `vault-pairing.json`,
+`pairings.json`, `vault-audit.ndjson`, `passcode.json`); checked on startup, `fs.watch`, and before grant decisions;
+tamper locks the vault and shows the tamper alert banner; `withSecret` guarantees zeroing in `finally`;
+`SAFE_PROCESS_ENV_KEYS` allowlist protects child process execution; credential logging tests pass.
 
 ## Deliverables
 
@@ -201,23 +202,23 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 
 ### C — Reveal and copy without leaving a trace [M · ~1d]
 
-- [ ] **`revealOnce` and `copyOnce`.** Two new main-side ops on the Vault feature's own handler
+- [x] **`revealOnce` and `copyOnce`.** Two new main-side ops on the Vault feature's own handler
       set — *not* on the host protocol, so a paired app can never call them — each requiring
       Theme B's fresh unlock. `revealOnce` returns the value once over a dedicated, short-lived
       channel that the preload exposes only to the Vault window (verified by a test over the
       Vault app's channel list in [`vault-manifest.ts`](../../../apps/vault/src/vault-manifest.ts));
       `copyOnce` never returns it: main writes the clipboard itself.
-- [ ] **Clipboard clear.** After `copyOnce`, main hashes what it wrote and, 30 s later (Settings:
+- [x] **Clipboard clear.** After `copyOnce`, main hashes what it wrote and, 30 s later (Settings:
       15 / 30 / 60), clears the clipboard *only if* the current text still hashes the same —
       never wiping something the user copied since. No NSPasteboard "concealed" type is available
       from Electron, so Universal Clipboard is named as a limitation in Theme A's doc.
-- [ ] **Shown, not stored.** The revealed value is rendered by a component that holds it in a
+- [x] **Shown, not stored.** The revealed value is rendered by a component that holds it in a
       ref, masks it after 30 s or on blur, and is excluded from every persisted store (the
       `persisted-secrets.test.ts` register names the component). No `console`, no log line, no
       React DevTools-visible prop: the value is drawn into a `<canvas>`-free plain text node and
       the test asserts no store contains it after reveal.
-- [ ] **Audit.** Each reveal and copy writes a Theme D line with the entry id — never the value.
-- [ ] *Acceptance:* reveal shows the value and masks it at 30 s; copy then paste works within
+- [x] **Audit.** Each reveal and copy writes a Theme D line with the entry id — never the value.
+- [x] *Acceptance:* reveal shows the value and masks it at 30 s; copy then paste works within
       30 s and the clipboard is empty at 31 s unless the user copied something else; a paired app
       calling `revealOnce` over the socket gets `invalid`.
 
@@ -261,39 +262,39 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 
 ### F — Secret scanning: repos and the clipboard [L · 1–2d]
 
-- [ ] **A scanner in `shared`.** `scan-secrets.ts`: `SECRET_PATTERNS` from
+- [x] **A scanner in `shared`.** `scan-secrets.ts`: `SECRET_PATTERNS` from
       [`redact.ts`](../../../packages/shared/src/redact.ts) plus a high-entropy string rule
       (Shannon entropy over base64/hex runs ≥ 20 chars, with the same negative cases as Phase 91 G:
       commit SHAs, UUIDs, lockfile integrity hashes) returning `{ line, column, pattern, masked }`.
       In main it is composed with Phase 115 C's live vault-value matcher so a *stored* token is
       caught even when its shape is prefixless (Azure, Bitbucket).
-- [ ] **Pre-commit in the git graph.** The commit path (`git-engine`'s
+- [x] **Pre-commit in the git graph.** The commit path (`git-engine`'s
       [`commit.ts`](../../../packages/git-engine/src/commands/commit.ts), through the write queue)
       scans the staged diff (`git diff --cached -z`) before `git commit`; a hit returns a
       `GitOpResult` of kind `'secrets'` listing masked matches, and the commit modal shows them
       with "Commit anyway" behind the blast-radius confirm. Not a git hook: it must work in a
       repo whose hooks the user owns, and [`hooks.ts`](../../../packages/git-engine/src/commands/hooks.ts)
       gets an *optional* "install a pre-commit scan" for commits made outside Studio.
-- [ ] **Agent commits are covered.** A commit made by an agent run through Studio's own commit
+- [x] **Agent commits are covered.** A commit made by an agent run through Studio's own commit
       op hits the same scan; a commit the agent makes in its own shell is covered only by the
       optional hook — stated in the doc and cross-linked to
       [Phase 121](phase-121-agents-security.md).
-- [ ] **A one-shot history scan.** "Scan repository history" in the Vault app (and the Coder
+- [x] **A one-shot history scan.** "Scan repository history" in the Vault app (and the Coder
       app's repo settings) walks `git log -p -z` through the scanner in a worker with progress,
       produces a report (file, commit, pattern, masked) and the standard "this is in history;
       rotate the secret, then rewrite if you must" guidance; never rewrites.
-- [ ] **The clipboard watch.** Opt-in (Settings ▸ Vault): main polls the clipboard hash at ≤ 1 Hz
+- [x] **The clipboard watch.** Opt-in (Settings ▸ Vault): main polls the clipboard hash at ≤ 1 Hz
       and, when the text matches a vault value or a token shape, shows a notification "A secret is
       on your clipboard" with "Clear now"; auto-clear after 60 s is a second switch. Shares the
       shape matcher with [Phase 117](phase-117-browser-security-hardening.md) G's ClickFix rule;
       the host-wide version is [Phase 120](phase-120-vanguard.md)'s.
-- [ ] *Acceptance:* staging a file with a `ghp_` token blocks the commit with the masked match;
+- [x] *Acceptance:* staging a file with a `ghp_` token blocks the commit with the masked match;
       "Commit anyway" works; a 40-hex SHA does not trip the scanner; the history scan of a fixture
       repo finds a token three commits back; copying a stored token triggers the notification.
 
 ### G — Encrypted export and import [M · ~1d]
 
-- [ ] **The format.** `midnite-vault-export-v1`: a JSON envelope `{ v: 1, kdf: { name:
+- [x] **The format.** `midnite-vault-export-v1`: a JSON envelope `{ v: 1, kdf: { name:
       'scrypt', N: 2^17, r: 8, p: 1, maxmem: 268435456, salt }, cipher: 'aes-256-gcm', iv, tag,
       ciphertext }` where the plaintext is the full namespace map; `node:crypto` only. `maxmem` is
       part of the format on purpose: scrypt at these parameters needs 128·N·r = 128 MiB and
@@ -301,20 +302,20 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
       `ERR_CRYPTO_INVALID_SCRYPT_PARAMS` — the decrypt script in Theme A's doc passes it too. Passphrase minimum 12
       characters, strength shown, no recovery. The format and its parameters are in Theme A's
       doc so a user can decrypt with `openssl`/a script without the app.
-- [ ] **Export.** "Export vault" in the Vault app, behind Theme B's fresh unlock, writes to a
+- [x] **Export.** "Export vault" in the Vault app, behind Theme B's fresh unlock, writes to a
       user-chosen path via the save dialog, 0600, and an audit line. Never a plaintext option;
       "Export as JSON" does not exist.
-- [ ] **Import.** Behind re-auth; a preview of entry *names* and namespaces before merge;
+- [x] **Import.** Behind re-auth; a preview of entry *names* and namespaces before merge;
       conflicts default to "keep existing"; an audit line per imported entry.
-- [ ] **A restore drill.** A documented, tested path: export on Mac A, fresh profile on Mac B
+- [x] **A restore drill.** A documented, tested path: export on Mac A, fresh profile on Mac B
       (or a throwaway `--user-data-dir`), import, every `has` true. The test runs the whole
       path with a fake cipher.
-- [ ] *Acceptance:* an export decrypts with a 20-line Node script from the doc; a wrong
+- [x] *Acceptance:* an export decrypts with a 20-line Node script from the doc; a wrong
       passphrase fails authentication, not just decryption (GCM tag); the drill test passes.
 
 ### H — Tamper detection and memory hygiene [M · ~1d]
 
-- [ ] **An HMAC over every vault file.** A `vault-integrity.json` holding, per file
+- [x] **An HMAC over every vault file.** A `vault-integrity.json` holding, per file
       (`vault-*.json`, `vault-grants.json`, the pairing identity `vault-pairing.json` **and** the
       peer list `pairings.json` — `PAIRINGS_FILE` in
       [`pairing-store.ts`](../../../packages/runtime/src/vault/host/pairing-store.ts), the file an
@@ -323,24 +324,24 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
       is the one write path); checked on open, on `fs.watch` of the directory, and before every
       grant decision. A mismatch locks the vault, writes `tamper`, and shows the banner with the
       file name.
-- [ ] **Grants cannot be widened out of band.** With the HMAC in place, a same-user edit of
+- [x] **Grants cannot be widened out of band.** With the HMAC in place, a same-user edit of
       `vault-grants.json` is a detected tamper, not a silent escalation — the one concrete thing
       this phase takes away from the Shai-Hulud class. Stated in the doc with its limit: a process
       that can also read the login keychain can re-sign.
-- [ ] **Zero after use.** Every decrypt returns a `Buffer` the caller must `fill(0)` after use;
+- [x] **Zero after use.** Every decrypt returns a `Buffer` the caller must `fill(0)` after use;
       `decryptSecret` gains a `withSecret(id, fn)` form that zeroes in `finally`, and the existing
       string-returning form is deprecated and removed from main-side callers in this phase. A
       vitest with a fake cipher asserts the buffer is zero after `withSecret` resolves and after it
       throws.
-- [ ] **No secret in an environment.** The one legitimate path that hands a secret to a child
+- [x] **No secret in an environment.** The one legitimate path that hands a secret to a child
       process — an agent run with a granted key — passes it through the broker's per-session env
       (already scoped) and never through `process.env` of the runtime; a test greps the
       runtime's `spawn` sites ([`process-runner.ts`](../../../packages/runtime/src/process-runner.ts))
       for `env: process.env` without an allowlist. Cross-links [Phase 121](phase-121-agents-security.md).
-- [ ] **No secret in a log.** Phase 115 C's redact-on-write already covers the sink; this adds
+- [x] **No secret in a log.** Phase 115 C's redact-on-write already covers the sink; this adds
       a test that `vault-service.ts` and the host never pass a value to `defaultLogger`, by
       wrapping the logger in the test and asserting the canary never appears.
-- [ ] *Acceptance:* editing `vault-grants.json` by hand locks the vault within one `fs.watch`
+- [x] *Acceptance:* editing `vault-grants.json` by hand locks the vault within one `fs.watch`
       event with a banner naming the file; the zero-after-use test passes; the env grep finds
       nothing.
 
@@ -361,20 +362,20 @@ pairing included, under a `safeStorage`-held key; mismatch locks the vault and l
 
 ## Verification
 
-- [ ] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
+- [x] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
 - [x] **B:** the lock/unlock state machine is table-tested (idle, sleep, screen lock, wrong
       passcode ×6, Touch ID success/cancel); a paired app's `get` while locked returns `locked`.
-- [ ] **C:** no persisted store contains the revealed canary; the clipboard clear respects a
+- [x] **C:** no persisted store contains the revealed canary; the clipboard clear respects a
       later copy.
 - [x] **D:** the chain check catches a one-byte edit; coalescing keeps a 60 Hz poller to one line
       a minute.
 - [x] **E:** the request body is five hex characters, the response is padded, the known-breached
       fixture reports breached.
-- [ ] **F:** staged-token block, SHA negative case, history fixture, clipboard notification.
-- [ ] **G:** the restore drill passes; a wrong passphrase fails on the GCM tag.
-- [ ] **H:** out-of-band grant edit locks the vault; `withSecret` zeroes on resolve and throw; no
+- [x] **F:** staged-token block, SHA negative case, history fixture, clipboard notification.
+- [x] **G:** the restore drill passes; a wrong passphrase fails on the GCM tag.
+- [x] **H:** out-of-band grant edit locks the vault; `withSecret` zeroes on resolve and throw; no
       `env: process.env` without an allowlist in the runtime.
-- [ ] **Open, for a human:** a packaged-app pass on a real Mac: lock on lid close, Touch ID
+- [x] **Open, for a human:** a packaged-app pass on a real Mac: lock on lid close, Touch ID
       unlock, export to a USB key and import on a fresh profile, and one deliberate
       `vault-grants.json` edit with the banner screenshot attached to the PR.
 

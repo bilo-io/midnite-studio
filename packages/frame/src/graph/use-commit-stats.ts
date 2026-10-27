@@ -17,7 +17,8 @@ import { useSettledRange } from './use-commit-ci';
  * cached for the session by its sha list and scrolling back is free.
  *
  * `enabled` is the column being shown on a visible graph; off, it asks for
- * nothing. A merge commit's value is `null` (rendered as an em dash).
+ * nothing. A sha with no entry yet is "not loaded" — the cell shows a neutral
+ * placeholder for it, never `+0 −0`.
  */
 export function useCommitStats(
   repoId: string | null,
@@ -25,7 +26,7 @@ export function useCommitStats(
   rowCount: number,
   range: RowRange | null,
   enabled: boolean,
-): Map<string, CommitDiffStat | null> {
+): Map<string, CommitDiffStat> {
   const { queryKeys: keys } = useGitHost();
   const settled = useSettledRange(range);
   const startIndex = settled?.startIndex ?? -1;
@@ -41,14 +42,12 @@ export function useCommitStats(
   const results = useQueries({
     queries: pages.map((shas) => ({
       queryKey: keys.commitStats(repoId ?? '', shas),
-      queryFn: async (): Promise<Record<string, CommitDiffStat | null>> => {
+      queryFn: async (): Promise<Record<string, CommitDiffStat>> => {
         const api = bridge();
         if (!api || repoId === null) return {};
-        try {
-          return (await api.status.commitStats({ repoId, shas })).stats;
-        } catch {
-          return {};
-        }
+        // A failed call throws, so react-query retries it instead of caching an
+        // empty page for the session under `staleTime: Infinity`.
+        return (await api.status.commitStats({ repoId, shas })).stats;
       },
       enabled: enabled && repoId !== null,
       staleTime: Infinity,
@@ -58,7 +57,7 @@ export function useCommitStats(
   const signature = results.map((result, index) => `${pages[index]?.[0] ?? ''}@${result.dataUpdatedAt}`).join('|');
   const datas = results.map((result) => result.data);
   return useMemo(() => {
-    const out = new Map<string, CommitDiffStat | null>();
+    const out = new Map<string, CommitDiffStat>();
     for (const data of datas) if (data) for (const [sha, stat] of Object.entries(data)) out.set(sha, stat);
     return out;
     // `signature` moves exactly when a page's data does; `datas` is a fresh array every render.

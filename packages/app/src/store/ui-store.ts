@@ -315,6 +315,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'updates', label: 'App Updates', group: 'system' },
   { id: 'health', label: 'System Health', group: 'system' },
   { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
+  { id: 'vanguard', label: 'Vanguard', group: 'system' },
   { id: 'optimizer', label: 'Workspace Optimizer', group: 'system' },
 ];
 
@@ -1801,6 +1802,13 @@ export type UiState = {
   forgeSyncGhAuthSwitch: boolean;
   setForgeSyncGhAuthSwitch: (value: boolean) => void;
   /**
+   * Settings ▸ Agents ▸ "Confine new sessions" (Phase 121 Theme E). New terminal and council sessions run under a
+   * macOS Seatbelt profile. Off by default this phase; mirrored into main (`use-settings-sync.ts`), which reads
+   * it at spawn.
+   */
+  confineNewSessions: boolean;
+  setConfineNewSessions: (value: boolean) => void;
+  /**
    * Execution mode when triggering skills: 'interactive' (default) or 'headless'.
    */
   skillExecutionMode: SkillExecutionMode;
@@ -1862,6 +1870,30 @@ export type UiState = {
   /** Phase 117 Theme B — whether spellchecking is enabled in the browser partition. */
   browserSpellcheck: boolean;
   setBrowserSpellcheck: (spellcheck: boolean) => void;
+  /** Phase 117 Theme G — the ClickFix clipboard watch. On by default; main mirrors it. */
+  browserClipboardWatch: boolean;
+  setBrowserClipboardWatch: (enabled: boolean) => void;
+  /** Phase 117 Theme D — opt-in downloads; `folder: ''` is the default quarantine folder. */
+  browserDownloads: { enabled: boolean; folder: string };
+  setBrowserDownloads: (downloads: { enabled: boolean; folder: string }) => void;
+  /** Phase 117 Theme E — tracker blocking, third-party cookies, referrer trimming, reduced UA. */
+  browserPrivacy: {
+    blockTrackers: boolean;
+    blockThirdPartyCookies: boolean;
+    trimReferrer: boolean;
+    reduceUserAgent: boolean;
+  };
+  setBrowserPrivacy: (privacy: UiState['browserPrivacy']) => void;
+  /**
+   * Phase 117 Theme C — whether the browser's certificate / known-bad interstitial offers "Proceed for
+   * this session". Default off, the same shape as `allowForceWithLease`; pushed to main by the browser
+   * pane (`use-browser-tabs.ts`) on mount and on every change.
+   */
+  browserAllowSiteProceed: boolean;
+  setBrowserAllowSiteProceed: (allow: boolean) => void;
+  /** Phase 117 Theme C — Settings ▸ Privacy's reputation-feed switches (URLhaus, OpenPhish), each default off. */
+  browserReputationFeeds: { urlhaus: boolean; openphish: boolean };
+  setBrowserReputationFeed: (feed: 'urlhaus' | 'openphish', enabled: boolean) => void;
   /**
    * Phase 64 Theme C — the Files-view Monaco editor's own preferences,
    * mirroring the terminal font trio above exactly. `editorFontFamily: ''` is
@@ -2311,6 +2343,7 @@ export type PersistedUi = Pick<
   | 'forgeScopeReposToActiveAccount'
   | 'forgeSwitcherPlacement'
   | 'forgeSyncGhAuthSwitch'
+  | 'confineNewSessions'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
   | 'audioTabByRepo'
@@ -2351,6 +2384,11 @@ export type PersistedUi = Pick<
   | 'terminalDisposeAfterMs'
   | 'browserDiscardMs'
   | 'browserSpellcheck'
+  | 'browserClipboardWatch'
+  | 'browserAllowSiteProceed'
+  | 'browserReputationFeeds'
+  | 'browserDownloads'
+  | 'browserPrivacy'
   | 'editorFontFamily'
   | 'editorFontSize'
   | 'editorMinimap'
@@ -2547,6 +2585,8 @@ export const useUiStore = create<UiState>()(
       setForgeSwitcherPlacement: (forgeSwitcherPlacement) => set({ forgeSwitcherPlacement }),
       forgeSyncGhAuthSwitch: true,
       setForgeSyncGhAuthSwitch: (forgeSyncGhAuthSwitch) => set({ forgeSyncGhAuthSwitch }),
+      confineNewSessions: false,
+      setConfineNewSessions: (confineNewSessions) => set({ confineNewSessions }),
       skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
       setSkillExecutionMode: (skillExecutionMode) => set({ skillExecutionMode }),
       inactivityTimeoutS: 900,
@@ -2581,6 +2621,25 @@ export const useUiStore = create<UiState>()(
         set({ browserSpellcheck });
         bridge()?.browser.setSpellcheck({ enabled: browserSpellcheck });
       },
+      browserClipboardWatch: true,
+      setBrowserClipboardWatch: (browserClipboardWatch) => set({ browserClipboardWatch }),
+      browserAllowSiteProceed: false,
+      // Both push to main directly as well as through the browser pane's effect: Settings can be
+      // open with no pane mounted, and turning the proceed switch off must revoke bypasses now.
+      setBrowserAllowSiteProceed: (browserAllowSiteProceed) => {
+        set({ browserAllowSiteProceed });
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: get().browserReputationFeeds });
+      },
+      browserReputationFeeds: { urlhaus: false, openphish: false },
+      setBrowserReputationFeed: (feed, enabled) => {
+        set((state) => ({ browserReputationFeeds: { ...state.browserReputationFeeds, [feed]: enabled } }));
+        const { browserAllowSiteProceed, browserReputationFeeds } = get();
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: browserReputationFeeds });
+      },
+      browserDownloads: { enabled: false, folder: '' },
+      setBrowserDownloads: (browserDownloads) => set({ browserDownloads }),
+      browserPrivacy: { blockTrackers: true, blockThirdPartyCookies: true, trimReferrer: true, reduceUserAgent: true },
+      setBrowserPrivacy: (browserPrivacy) => set({ browserPrivacy }),
       editorFontFamily: '',
       setEditorFontFamily: (editorFontFamily) => set({ editorFontFamily }),
       editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
@@ -3543,6 +3602,7 @@ export const useUiStore = create<UiState>()(
         forgeScopeReposToActiveAccount: state.forgeScopeReposToActiveAccount,
         forgeSwitcherPlacement: state.forgeSwitcherPlacement,
         forgeSyncGhAuthSwitch: state.forgeSyncGhAuthSwitch,
+        confineNewSessions: state.confineNewSessions,
         skillExecutionMode: state.skillExecutionMode,
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
@@ -3570,6 +3630,11 @@ export const useUiStore = create<UiState>()(
         terminalDisposeAfterMs: state.terminalDisposeAfterMs,
         browserDiscardMs: state.browserDiscardMs,
         browserSpellcheck: state.browserSpellcheck,
+        browserClipboardWatch: state.browserClipboardWatch,
+        browserAllowSiteProceed: state.browserAllowSiteProceed,
+        browserReputationFeeds: state.browserReputationFeeds,
+        browserDownloads: state.browserDownloads,
+        browserPrivacy: state.browserPrivacy,
         editorFontFamily: state.editorFontFamily,
         editorFontSize: state.editorFontSize,
         editorMinimap: state.editorMinimap,

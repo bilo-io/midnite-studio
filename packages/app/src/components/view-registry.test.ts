@@ -56,6 +56,8 @@ describe('VIEW_COMPONENT', () => {
         'vault',
         // Phase 113 Theme K: the machine's screen, not one checkout's.
         'capture',
+        // Phase 120 Theme B: the machine's sensors, not one checkout's.
+        'vanguard',
         'database',
         'sessions',
         'notes',

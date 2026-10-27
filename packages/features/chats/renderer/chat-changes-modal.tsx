@@ -200,6 +200,12 @@ function FilePane({
           <LuCheck aria-hidden className="h-3 w-3" /> Accept file
         </button>
       </div>
+      {file.policyReason ? (
+        <p data-testid="chat-modal-file-policy-reason" className="flex shrink-0 items-center gap-1.5 border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+          <LuTriangleAlert aria-hidden className="h-3.5 w-3.5 shrink-0" />
+          <span>{file.policyReason}</span>
+        </p>
+      ) : null}
       {file.conflict ? (
         <p data-testid="chat-modal-file-conflict" className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">
           {file.conflict}

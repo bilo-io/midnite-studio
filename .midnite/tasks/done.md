@@ -1,6 +1,52 @@
 # Done — append-only log
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
+
+## 2026-10-26 — Phase 120 — Vanguard: antivirus and agentic self-defense
+
+[Phase 120](phases/phase-120-vanguard.md) marked ✅ DONE (46/46 items verified).
+All eight themes A–H landed and verified: unified finding ledger and schema, Vanguard feature (`packages/features/vanguard`) and standalone bundle (`apps/vanguard`), repo and bundle integrity sensor, persistence & process sensors with ClickFix detection, network connection sensor and egress baseline, YARA-based malware scanning, rogue agent detection over the audit trail with auto-pause, quarantine and remediation actions, and the tile enabled live in the Launcher.
+
+## 2026-10-26 — Phase 121 — Agents security
+
+[Phase 121](phases/phase-121-agents-security.md) marked ✅ DONE (51/51 items verified).
+All nine themes A–I landed and verified: untrusted content tagging, tool-call policy and approval broker, MCP server trust pinning by SHA-256, outbound secret redaction and canary trip detection, seatbelt-profile per-session shell confinement, agent limits and circuit breaker, append-only redacted audit trail, package and skill installation integrity checking, and engine key environment containment. All runtime, shared, feature, and desktop test suites pass.
+## 2026-10-23 — Phase 121 Theme F — Limits and a breaker
+
+[#993](https://github.com/bilo-io/midnite-studio/pull/993). `AgentLimitsSchema` (120 calls/min, 300 writes/min, 10 pushes/h, 25 hosts and 5M tokens per session, per-repo override) and a runtime circuit breaker fed by Theme G's trail: a limit trips on the count past its threshold, interrupts the session, writes a `limit-trip` record, raises a `medium` finding and shows a bell entry with Resume / Stop / Raise limit for this session. The interrupt is an injected `interrupt(sessionId)` wired to the same Ctrl+C pty write Vanguard's `pause-session` uses, since Phase 120 G is not built. Vitest only: boundary (at the limit does not trip, one past does), sliding window, resume clears the window, raise, stop, spend, per-repo resolution, a burst read back through a real trail.
+
+## 2026-10-23 — Phase 121 Theme G — The audit trail
+
+[PR #990](https://github.com/bilo-io/midnite-studio/pull/990). A durable, redacted, append-only NDJSON trail of agent activity (`<userData>/security/audit/agents-<day>.ndjson`, 0700/0600, 90-day retention until Phase 115 B's setting exists): the runtime writer and a standalone reader (`tail`, `list`, `readSince` with a cursor, for Phase 120 G), a schema for all nine record kinds in `shared`, producers for MCP calls, agent-pty command lines (OSC 133/633 or a line heuristic), chat turns and council runs, the MCP ring as a tail of the trail, and an Audit tab in Agents and Studio's Sessions view with filters, row expansion and a redacted export through a main-side save dialog.
+
+## 2026-10-23 — Phase 120 Theme H — Response and quarantine
+
+[PR #988](https://github.com/bilo-io/midnite-studio/pull/988). Eight of the ten response actions are built: pause, kill the process group, `launchctl bootout` a user LaunchAgent, quarantine, restore (re-scanned first), `chmod 600`, report issue and mute. Each destructive one previews a blast radius measured from the live machine (process-group members, the sessions that end, the plist's label and program, file paths and sizes) in the frame's confirm. Main re-plans on act and refuses a stale target, the app's own processes and broker, other users' files and symlinks. Every outcome is appended to the ledger row's `actions`. The quarantine reuses Theme F's directory: 0000 files plus a manifest, no overwrite, no link followed. `revoke-mcp-server` and `open-in-agents` return a typed "available once Phase 121 lands" outcome and show disabled. The tile stays `comingSoon` until a Vanguard release exists (one-line flip, in `outstanding.md`). Screenshots in `docs/screenshots/vanguard-response/`.
+
+## 2026-10-23 — Phase 120 Theme E — Network behaviour
+
+[PR #986](https://github.com/bilo-io/midnite-studio/pull/986). The network sensor: `lsof -i -nP -F pcnPT` parsed by a pure, fixture- and real-lsof-tested parser, read every 10 s while an agent session is live and every 60 s otherwise, and not while the window is blurred with no agent running. The app's and broker's connections are held to `EGRESS_HOSTS` (an `info` finding for an unlisted address, one constant to raise to `high` once Phase 115 A's registry is complete); agent-session processes are held to a per-repo 30-day baseline (`medium`, `high` when unsigned or when the address is one a threat-list name resolves to). DNS is forward only, over the app's own fixed lists; there are no reverse lookups and no raw-IP rung (deferred to Phase 122). The Network tab lists live connections by process with the registry entry or flag per row (new `vanguardConnections` channel). Wired in Studio and in `apps/vanguard`. Screenshots in `docs/screenshots/p120-e/`.
+
+## 2026-10-23 — Phase 117 Theme H — Tests, the security page, and the record
+
+[PR #983](https://github.com/bilo-io/midnite-studio/pull/983). A rule-coverage map test (every browser security rule with its test file, none importing Electron), a badge-label table test, two Playwright specs that each name their browser capability and their gap (a real Chromium TLS failure behind the interstitial; a real `getUserMedia` refused then allowed through the permission bar; main's handlers stay vitest), a badge visual spec (`-darwin` baselines only; `-linux` pending), `docs/BROWSER_SECURITY.md`, two findings rows in `docs/security/README.md`, and the policy module and agent-session contract in `docs/APPS.md`. Theme H ✅. The phase awaits `/midnite-verify`.
+
+## 2026-10-23 — Phase 120 Theme D — Persistence and process sensors
+
+[PR #985](https://github.com/bilo-io/midnite-studio/pull/985). Four Vanguard sensors on the sensor host: persistence (LaunchAgents/Daemons, rc files, `~/.ssh`, `/etc/periodic`, crontab; baseline + `fs.watch`; plist `ProgramArguments` and signature state in the evidence), process table (new executables checked with `codesign`/`spctl`/quarantine xattr), Apple signals (XProtect age, syspolicy and XProtectRemediator denials, Gatekeeper/SIP status under shared fingerprints) and ClickFix paste shapes. The broker output stream and agent-session pids are optional injected deps, not yet wired by a composer.
+
+## 2026-10-22 — Phase 117 Theme F — Credential-phishing detection
+
+[PR #980](https://github.com/bilo-io/midnite-studio/pull/980). A fixed snippet run in an isolated world (never the page's main world; DOM read through prototypes so named-property clobbering cannot lie) reports password fields and where their forms post; six rules — password on `http:`, on a lookalike, on a host first seen today, posting to another site, on a site named for a known sign-in brand it is not (`github-login.app`, danger), or with that brand only in a subdomain or title (caution) — land on the tab's `SiteVerdict.credentialRisk` and raise C's one badge to "Login risk" / "Possible phishing". First-seen hosts persist only as keyed HMAC digests and day numbers (0600, key `safeStorage`-encrypted), cleared with browsing data; the Vault's sign-in domains feed both the phishing and lookalike rules. Items: login-form read, the rules, clipboard-read stays denied, no autofill, acceptance fixtures (http → caution, `g1thub.com` → danger, `github.com` → nothing).
+
+## 2026-10-22 — Phase 117 Theme G — The page-to-agent boundary
+
+[PR #979](https://github.com/bilo-io/midnite-studio/pull/979). Page words reach an agent only inside the `UntrustedPageContent` envelope (capped, redacted, provenance-tagged; a zod walk holds the agent's wire to it). A main-side `BrowserAgentSession` with six isolated-world tools and a per-session origin allowlist asks the user before leaving the list, typing a password, submitting or downloading; while it is live the request filter denies off-list egress and the `browser-agent` vault principal can never be granted. Injection heuristics are logged; a hash-only, focus-gated ClickFix clipboard watch raises a one-click-clear bar; page `midnite-studio://run`/`clone` links carry their origin, are rate-limited per origin, confirmed with a warning and never auto-sent (the launcher rate-limits `run=` too). Theme G ✅.
+
+## 2026-10-22 — Phase 117 Themes D + E — Quarantined downloads; tracker and fingerprinting protection
+
+[PR #974](https://github.com/bilo-io/midnite-studio/pull/974). Opt-in downloads land in a 0700 quarantine folder with `com.apple.quarantine` set, a type/size policy, a SHA-256 + Gatekeeper + optional clamscan record in `downloads.ndjson`, and never auto-open. `persist:browser` gets a `webRequest` pipeline: bundled EasyPrivacy blocklist (licence recorded), third-party cookie stripping both ways, trimmed Referer, reduced UA, a per-tab blocked counter and per-site exceptions.
+
 ## 2026-10-22 — Phase 117 Theme A — Isolation and the Chromium floor
 
 [PR #964](https://github.com/bilo-io/midnite-studio/pull/964). One `browser-session-policy.ts` applies every session rule to `persist:browser` and every `persist:app-<id>` in a pinned order; the per-page `webPreferences` table is pinned by test with `preload` absent and DevTools per `devToolsAllowed`; `will-attach-webview` refused and `window.open` proven `deny`; a boot assertion refuses `--no-sandbox`/site-isolation/web-security switches in Studio and the Browser; `electron-freshness --strict` gates the Browser bundle (fails on Electron 33 until Phase 76 A); the launcher's runtime — which every app bundle runs on — gets its fuses flipped and read back for the first time. Theme A ✅.
@@ -15284,3 +15330,48 @@ No `Xenova/` or `onnx-community/` melody repo exists, `facebook/musicgen-melody`
 ### Phase 91 Themes A–J — Security hardening and CVE readiness (2026-10-19)
 
 Four PRs, built as a two-lane swarm. **#917 (A–C)** stops the rebase editor from generating a shell script (a constant 0700 helper plus a 0600 todo file), puts `--end-of-options` and `SafeRefString`/`SafeArgvString`/`SafePathspecString` on every git positional, and pins git's transports (`GIT_PROTOCOL_FROM_USER=0`, `GIT_ALLOW_PROTOCOL`, remotes resolved against `listRemotes`, `FetchRequest.all` in place of the `--all` sentinel). **#918 (D–F)** gates DevTools behind `app.isPackaged` (`MSTUDIO_DEVTOOLS=1` as the escape hatch), minifies the release bundle, moves lock authority into main, replaces the per-window guards with one `web-contents-created` policy, and adds teardown and leak tests. **#923 (G–H)** makes `log.ts` redact once for console and sink, widens `SECRET_PATTERNS` (PEM, AWS, Google, Stripe, npm, Slack `xapp-`, GitLab OAuth, `key=value`), writes the vault at 0600 and adds a persisted-secrets lint. `release.yml` publishes `SHA256SUMS`, and `install.sh`, `install-studio.sh` and the launcher's `installStudio` check length, SHA-256 and `codesign` before extracting. **#925 (I–J)** adds top-level `permissions` to `ci.yml`, a `root:audit` gate (`pnpm audit --audit-level=high` through expiring `audit-suppressions.json` entries), `SECURITY.md` (private reporting on `bilo-io/midnite-apps`) and a 21-row finding index in `docs/security/README.md`. Still open: the acceptance and human passes (77/95), including the idle-CPU number for Phase 84's visibility gates, and triage of the advisories suppressed until 2026-12-31. Follow-on privacy work (egress, data at rest, inbound surfaces) is planned as Phase 115.
+
+### Phase 117 Theme C — Site verdicts: TLS, mixed content, lookalikes, known-bad, vulnerable libraries (2026-10-22)
+
+PR #975. One `SiteVerdict` per browser tab, built in main and pushed as a `verdict` event: a record-only certificate verify proc (TLS), `webRequest.onCompleted` (mixed content, insecure POSTs, vulnerable scripts from a bundled advisory snapshot), the pure `shared/lookalike.ts` (mixed-script IDNs shown as punycode, confusables against seed, web-app and this-session hosts), and URLhaus/OpenPhish lists pulled only while their Settings ▸ Privacy switch is on and matched locally. Certificate failures and feed hits show an interstitial, with a per-session proceed (per host for certificates, per feed entry for known-bad) behind a default-off Settings ▸ Browser ▸ Site safety switch. A three-state badge in the address field replaces the "Not secure" chip and folds in Theme E's tracker count and per-site exception (TrackerBadge removed), and Theme D's download policy refuses a `danger` origin. Left open: bypass expiry on a changed certificate, Google Web Risk, and the no-bypass-during-an-agent-session rule (Theme G).
+
+### Phase 120 Theme A — One finding, one ledger (2026-10-22)
+
+`SecurityFindingSchema`, typed evidence schemas, remediation schemas in `@midnite/studio-shared`, append-only monthly NDJSON ledger (`findings-<yyyy-mm>.ndjson`) under `<userData>/security` with directory 0700 / file 0600 permissions, `redactRecord` on write, deduplication by fingerprint for open findings, serialized through `withLock`. Feature package `@midnite/studio-feature-vanguard` with findings handlers (`securityFindingsList`, `securityFindingsSetStatus`, `securityFindingsAct`) and `securityFindingsChanged` event wired into desktop main.
+
+
+### Phase 120 Theme B — The feature and the app (2026-10-23)
+
+`packages/features/vanguard` (manifest, view with Findings/Sensors/Network tabs, Settings page, main-side sensor host, `vanguard.json` store, sensor IPC), composed by Studio and by the new `apps/vanguard` (no vault; sessions as a guest), `'vanguard'` placement and link app id, launcher tile pointing at the view's tabs (`comingSoon` unchanged), deep-link `tab`, mock-bridge namespace for e2e. Fixed the `typecheck-node` project count (38). Screenshots in `docs/screenshots/p120-b/`.
+
+### Phase 120 Theme C — Integrity of the repo and the bundle (2026-10-23)
+
+`INTEGRITY_WATCHED` in `shared` (24 entries, a reason each); the integrity sensor in `features/vanguard/main/integrity-sensor.ts` keeps a SHA-256 baseline per open repo and for the home dir under `<userData>/security/integrity/`, re-scans on a debounced `fs.watch` and every 5 minutes, and reports a change made outside a commit as an `integrity` finding (`high` for hooks, MCP and agent config, `medium` otherwise) attributed best-effort to the live agent ptys; it resolves when the change is committed or reverted. The bundle self-check runs Phase 91 H's `codesign`/`spctl` argv at launch. Sensors take composer deps through `builtinSensors(deps)`. Backend only, no screenshots.
+
+### Phase 120 Theme F — Malware scanning (2026-10-23)
+
+Fourteen YARA-subset rules in `features/vanguard/rules/*.yar` with positive fixtures and a benign corpus, a pure matcher that runs them without `yara` (checked against captured and live yara 4.5.8 output), `yara` and `clamscan` engines found through the injected monitor `probeBinary` and run via `runProcess`, a `malware` sensor (new install scripts, browser downloads via a new `onDownloadDone` hook, files other sensors flag), on-demand Downloads, repo, folder and full scans on the Sensors tab with a calm no-engine state, two new channels (`vanguardMalwareStatus`, `vanguardMalwareScan`), and no network call anywhere.
+
+### Phase 120 Theme G — Rogue agent behaviour (2026-10-23)
+
+`features/vanguard/main/rogue-rules.ts` (pure rules over audit-trail records: secret-path reads, writes outside the scope jail, destructive git typed into an agent terminal, keychain password reads, limit bursts, persistence or host changes correlated with a live session), `rogue-sensor.ts` (follows the trail from its end through the runtime reader, holds a `limit-trip` one pass so Phase 121 F's own finding is never doubled), `rogue-pause.ts` (a finding at an opted-in severity sends Ctrl+C through the shared interrupt seam and announces a resume-or-kill modal to every window, one open prompt per session), `VanguardSettings.autoPauseSeverities` (default `critical`), the Settings ▸ Vanguard ▸ Agent auto-pause switches, and `AgentPauseModal` mounted from the app root. Fixture per rule, a benign `/midnite-create` trail yielding nothing, auto-pause writing the interrupt and nothing else. Stubs in `outstanding.md`. PR #995.
+
+### Phase 121 Theme A — Untrusted content wears a tag (2026-10-23)
+
+Provenance on the wire (`shared/src/provenance.ts`, trust derived from origin), the untrusted fence and once-per-prompt header (`shared/src/untrusted-fence.ts`) used by Chats' `chat-prompt.ts` and Councils' `council-prompts.ts`, the injection detector (`runtime/src/security/injection-detector.ts`, nine weighted signals, benign and attack corpora), `security.scanContent` IPC, and the proceed / strip / drop banner in the Chats composer and the Councils prompt box. MCP results are stamped in the runtime socket server. PR: https://github.com/bilo-io/midnite-studio/pull/998
+
+## 2026-10-23 — Phase 121 Theme C — MCP servers trusted by hash
+
+[#997](https://github.com/bilo-io/midnite-studio/pull/997). Read-only discovery of the five MCP config sources, an allowlist at `<userData>/security/mcp-trust.json` pinning a config hash (MCPoison) and a `tools/list` hash (rug-pull) per `(repoId, serverName)`, poisoned-description checks (instructing text, cross-server references, name collisions; Theme A's scorer injected, not yet wired) that hold a server and raise a `supply-chain` finding, a "MCP servers" card with diff and Approve in the Tools view, Vanguard's `revoke-mcp-server` made real, a Chats gate, and a checked-in hash pin over the `midnite` server's tool descriptions. Screenshot in `docs/screenshots/agents-security-mcp-trust/`.
+
+## 2026-10-23 — Phase 121 Theme D — Secrets do not leave with the prompt
+
+[#1001](https://github.com/bilo-io/midnite-studio/pull/1001). Outbound redaction (`shared/src/outbound-redaction.ts`) over the Chats prompt, Ollama messages and Councils prompts with a `[redacted: <kind>]` chip on the user message; a reserved `canaries` vault namespace and `~/.config/midnite/.env.canary` (`runtime/src/security/canary.ts`); Vanguard's `canary-trip` and `exfiltration` rules in `rogue-rules.ts`; the `agentEnvViolations` bound with tests over the pty stamp, the login shell and a council member's env. Screenshot in `docs/screenshots/agents-security-redaction/`.
+
+### Phase 121 Theme I — Keys and models stay where they were put (2026-10-23)
+
+`runtime/src/engine-key-env.ts` (`engineKeyEnv`: one vault key per engine, as the CLI's documented variable), wired into agent ptys (`desktop/src/main/pty-env.ts#agentKeyEnv`, `pty-service.ts`), Chats turns (`engineEnv` dep) and council members (`agentKeyEnv` port); `reportedModelMatches` plus `ChatMessage.reportedModel` and the "pinned to X, reports Y" mark in the thread; `features/models/main/digest-ledger.ts` (manifest-digest check at install, pins in `ollama-digests.json`, `medium` finding on a moved digest); three pairing tests in `scripts/app-vault-grants.test.mjs`. Screenshot in `docs/screenshots/agents-security-model-pin/`. PR: https://github.com/bilo-io/midnite-studio/pull/1000
+
+## 2026-10-26 — Phase 118 Theme H — Tamper detection and memory hygiene (Phase 118 Complete)
+
+An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` under `safeStorage`-encrypted key in `vault-integrity.key`) with startup verification, `fs.watch` monitoring, and pre-grant authorization checks. Out-of-band edits to `vault-grants.json` immediately lock the vault, log `tamper` audit records, and display a tamper warning banner in the Vault page. `withSecret` guarantees buffer zeroing in `finally` upon resolve and throw. `process-runner.ts` child process execution is sanitized with `SAFE_PROCESS_ENV_KEYS`. Credential logging prevention verified. Phase 118 is 100% complete (51/51 ✅ DONE).

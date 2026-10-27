@@ -6,6 +6,7 @@ import { Footer } from './footer/footer';
 import { Frame } from './frame/frame';
 import { Hero } from './hero/hero';
 import { Launcher } from './launcher/launcher';
+import { Showreel } from './showreel/showreel';
 import { Studio } from './studio/studio';
 import { Suite } from './suite/suite';
 import { Trusted } from './trusted/trusted';
@@ -51,6 +52,7 @@ export type SectionEntry = {
  */
 export const SECTIONS: readonly SectionEntry[] = [
   { id: 'hero', label: 'Midnite Apps', Component: Hero },
+  { id: 'showreel', label: 'Showreel', Component: Showreel },
   { id: 'suite', label: 'Suite', Component: Suite, nav: true },
   { id: 'launcher', label: 'Launcher', Component: Launcher, nav: true },
   { id: 'frame', label: 'The frame', Component: Frame },

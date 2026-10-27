@@ -1,6 +1,9 @@
-# `public/video/` — the hero's clips
+# `public/video/` — the site's clips
 
-Two clips, both committed, both **MP4 (H.264) only**.
+This file lives beside the package rather than in `public/video/` on purpose: Vite copies
+everything in `public/` into the deployed site, so a README there would be served to visitors.
+
+Three clips, all committed, all **MP4 (H.264) only**.
 
 ## Why no WebM
 
@@ -26,6 +29,27 @@ ffmpeg -i "$SRC" -vf "scale=1280:-2" -c:v libx264 -preset slow -crf 26 -pix_fmt 
   -c:a aac -b:a 128k -movflags +faststart pilot-intro.mp4          # ~6.6 MB
 ffmpeg -ss 3 -i "$SRC" -frames:v 1 -vf "scale=1280:-2" -q:v 4 pilot-intro-poster.jpg
 ```
+
+## `midnite-apps.mp4` + `midnite-apps-poster.jpg`
+
+The landing page's showreel, straight under the hero (`sections/showreel/showreel.tsx`): the
+Midnite Apps music video, a tour of every app. It has a soundtrack, so it uses the pilot's
+click-to-play player (`PilotVideo` with its own `src` and `poster`).
+
+Source: the latest Remotion render,
+`.midnite/media/video/projects/midnite-apps/output/v2-dubstep-remix.mp4` (128 MB, 1080p, 3:02;
+gitignored there). The poster is the "Midnite Apps" title card at 3.5 s.
+
+```sh
+SRC=.midnite/media/video/projects/midnite-apps/output/v2-dubstep-remix.mp4
+ffmpeg -i "$SRC" -vf "scale=1280:-2" -c:v libx264 -preset slow -crf 26 -pix_fmt yuv420p \
+  -c:a aac -b:a 128k -movflags +faststart midnite-apps.mp4          # ~19 MB
+ffmpeg -ss 3.5 -i "$SRC" -frames:v 1 -vf "scale=1280:-2" -q:v 4 midnite-apps-poster.jpg
+```
+
+A new render replaces both files under the same names; the section's copy names no duration, so
+it stays true. Each replacement adds the clip to git history again, so re-encode only for a render
+worth shipping.
 
 ## `hero.mp4` + `hero-poster.jpg`
 

@@ -93,7 +93,11 @@ export async function verifyAuditChain(
 
 export type CoalesceKey = `${string}:${string}:${string}:${VaultAuditResult}`;
 
-export function createVaultAuditLog(directory: string): VaultAuditLog {
+export function createVaultAuditLog(
+  directory: string,
+  onPersist?: (filePath: string) => Promise<void> | void,
+  onBeforePersist?: (filePath: string) => (() => void) | void,
+): VaultAuditLog {
   const filePath = join(directory, AUDIT_FILE_NAME);
   let initialized = false;
   let lastSeq = 0;
@@ -135,11 +139,15 @@ export function createVaultAuditLog(directory: string): VaultAuditLog {
       // Ignore rotation errors
     }
 
-    await appendFile(filePath, line + '\n', { encoding: 'utf8', mode: VAULT_MODE });
+    const doneWriting = onBeforePersist?.(filePath);
     try {
+      await appendFile(filePath, line + '\n', { encoding: 'utf8', mode: VAULT_MODE });
       await chmod(filePath, VAULT_MODE);
+      await onPersist?.(filePath);
     } catch {
-      // Ignore chmod errors on systems that don't support it
+      // Ignore write/chmod errors if directory was deleted or is read-only
+    } finally {
+      doneWriting?.();
     }
     lastSeq = record.seq;
     lastHash = lineHash;
@@ -217,6 +225,7 @@ export function createVaultAuditLog(directory: string): VaultAuditLog {
       principal: event.principal,
       result: event.result,
       reason: event.reason,
+      ...(event.count !== undefined ? { count: event.count } : {}),
     };
     await writeRecord(record);
   };

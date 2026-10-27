@@ -1,6 +1,10 @@
 import { useStore } from 'zustand';
 
-import type { BrowserUiState, BrowserUiStore } from '@midnite/studio-feature-browser/renderer';
+import {
+  DEFAULT_BROWSER_REPUTATION_FEEDS,
+  type BrowserUiState,
+  type BrowserUiStore,
+} from '@midnite/studio-feature-browser/renderer';
 import { createPersistedStore } from '@midnite/studio-frame';
 import { DEFAULT_BROWSER_DISCARD_MS, WEB_APP_IDS, type WebAppId } from '@midnite/studio-shared';
 
@@ -40,6 +44,11 @@ export function createBrowserUiStore(storage?: Storage) {
       enabledWebApps: Array.isArray(initial.enabledWebApps) ? initial.enabledWebApps.filter(isWebAppId) : [],
       lastOpenedWebAppId: isWebAppId(initial.lastOpenedWebAppId) ? initial.lastOpenedWebAppId : null,
       browserDiscardMs: typeof initial.browserDiscardMs === 'number' ? initial.browserDiscardMs : DEFAULT_BROWSER_DISCARD_MS,
+
+      // Browser has no Settings window yet, so its site-safety switches hold their defaults: no
+      // proceed past an interstitial, no reputation feed pulled (Phase 117 Theme C).
+      browserAllowSiteProceed: false,
+      browserReputationFeeds: DEFAULT_BROWSER_REPUTATION_FEEDS,
 
       browserLayout: 'full',
       browserLauncherOpen: false,

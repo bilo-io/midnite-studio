@@ -10,9 +10,9 @@ function fakeIpc(): RendererIpc {
 }
 
 describe('createAgentsBridge', () => {
-  it('exposes exactly chats, council, workflow, demoApi, mcp, ollama, agent.list and secrets.has', () => {
+  it('exposes exactly chats, council, workflow, demoApi, mcp, agentAudit, ollama, agent.list and secrets.has', () => {
     const bridge = createAgentsBridge(fakeIpc());
-    expect(Object.keys(bridge).sort()).toEqual(['agent', 'chats', 'council', 'demoApi', 'mcp', 'ollama', 'report', 'secrets', 'workflow']);
+    expect(Object.keys(bridge).sort()).toEqual(['agent', 'agentAudit', 'chats', 'council', 'demoApi', 'mcp', 'ollama', 'report', 'secrets', 'workflow']);
     expect(Object.keys(bridge.agent)).toEqual(['list']);
   });
 
@@ -39,6 +39,7 @@ describe('createAgentsBridge', () => {
     await bridge.secrets.has({ key: 'ollama.apiKey' });
     await bridge.workflow.runs.list({ workflowId: 'w' });
     await bridge.mcp.get();
+    await bridge.agentAudit.list({});
     expect(vi.mocked(ipc.invoke).mock.calls.map((c) => c[0])).toEqual([
       CHANNELS.chatsList,
       CHANNELS.councilRunStart,
@@ -47,6 +48,7 @@ describe('createAgentsBridge', () => {
       CHANNELS.secretsHas,
       CHANNELS.workflowRunsList,
       CHANNELS.mcpGet,
+      CHANNELS.agentAuditList,
     ]);
   });
 

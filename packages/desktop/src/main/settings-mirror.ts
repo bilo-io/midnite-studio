@@ -28,6 +28,8 @@ const DEFAULT_SETTINGS: SettingsSyncPayload = {
   // yet, so a council or workflow agent node run before the renderer's
   // first sync resolves every agent as native, same as after it.
   agentBackends: {},
+  // Phase 121 Theme E: confinement is off until Settings ▸ Agents turns it on.
+  confineNewSessions: false,
 };
 
 let current: SettingsSyncPayload = DEFAULT_SETTINGS;

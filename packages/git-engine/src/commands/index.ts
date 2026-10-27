@@ -10,6 +10,7 @@ export * from './conflict-resolve';
 export * from './diff';
 export * from './git-identity';
 export * from './grep';
+export * from './history-scan';
 export * from './hooks';
 export * from './ignore';
 export * from './init';
