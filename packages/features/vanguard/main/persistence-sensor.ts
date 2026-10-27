@@ -87,7 +87,7 @@ const BASELINE_FILE = 'baselines/persistence.json';
 
 /** Snapshots every watched item: a hash per file, and one for the crontab. */
 export async function snapshotPersistence(
-  ctx: Pick<SensorContext, 'runProcess' | 'signal'>,
+  ctx: Pick<SensorContext, 'runProcess' | 'signal' | 'settings'>,
   home: string,
   fs: PersistenceFs,
 ): Promise<PersistenceEntry[]> {
