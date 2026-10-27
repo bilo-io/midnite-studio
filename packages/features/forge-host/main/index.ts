@@ -8,3 +8,4 @@ export * from './mirror-refresh';
 export * from './mirror-scheduler';
 export * from './forge-metadata-source';
 export * from './mirror-picker';
+export * from './mirror-host';

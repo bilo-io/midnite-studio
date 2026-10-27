@@ -88,6 +88,7 @@ import { registerScaffoldHandlers } from './ipc/scaffold-handlers';
 import { handle, handleBare } from './ipc/handle';
 import { probeSetupItems } from './setup-probe';
 import { createStudioForgePoller, registerForgeFeatureHandlers } from './ipc/forge-feature-handlers';
+import { createStudioMirrorHost, MIRROR_START_DELAY_MS } from './ipc/mirror-host-wiring';
 import { registerAiHandlers } from './ipc/ai-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
@@ -548,6 +549,15 @@ export const startStudioMain: StartStudioMain = () => {
       // accounts, projects and the poll subscriptions — register here, onto it.
       const forgePoller = createStudioForgePoller();
       registerForgeFeatureHandlers(forgePoller);
+      // Phase 119 Theme A: the mirror scheduler. Idle until the user has picked repos in mirrors.json;
+      // started after a delay so a due first run does not compete with boot, stopped on quit.
+      const mirrorHost = createStudioMirrorHost(app.getPath('userData'));
+      const mirrorStartTimer = setTimeout(() => void mirrorHost.start(), MIRROR_START_DELAY_MS);
+      mirrorStartTimer.unref();
+      app.on('will-quit', () => {
+        clearTimeout(mirrorStartTimer);
+        mirrorHost.stop();
+      });
       registerSettingsHandlers();
       registerConfinementHandlers();
       registerDiagHandlers();

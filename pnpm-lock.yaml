@@ -1749,6 +1749,9 @@ importers:
       '@midnite/studio-feature-forge':
         specifier: workspace:*
         version: link:../features/forge
+      '@midnite/studio-feature-forge-host':
+        specifier: workspace:*
+        version: link:../features/forge-host
       '@midnite/studio-feature-mcp-tools':
         specifier: workspace:*
         version: link:../features/mcp-tools

@@ -42,6 +42,7 @@
     "@midnite/studio-feature-database": "workspace:*",
     "@midnite/studio-feature-finance": "workspace:*",
     "@midnite/studio-feature-forge": "workspace:*",
+    "@midnite/studio-feature-forge-host": "workspace:*",
     "@midnite/studio-feature-mcp-tools": "workspace:*",
     "@midnite/studio-feature-media-audio": "workspace:*",
     "@midnite/studio-feature-media-core": "workspace:*",
