@@ -20,6 +20,8 @@ describe('settings-mirror', () => {
       forgeSyncGhAuthSwitch: true,
       agentBackends: {},
       confineNewSessions: false,
+      readAgentHistory: true,
+      historyRetentionDays: null,
     });
   });
 

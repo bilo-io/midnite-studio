@@ -196,6 +196,7 @@ const bridge: Pick<
   | 'capture'
   | 'vanguard'
   | 'toolApproval'
+  | 'privacy'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
