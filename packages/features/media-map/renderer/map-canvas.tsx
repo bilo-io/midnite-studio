@@ -1,5 +1,5 @@
 import { mapSource, mapTileUrl, type MapView } from '@midnite/studio-shared';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, type KeyboardEvent, type ReactNode, type Ref } from 'react';
 
@@ -224,7 +224,7 @@ export default function MapCanvas({
 
     const onMoveEnd = () => onViewChangeRef.current(readView(map));
     // Tile failures are counted, never logged one by one.
-    const onError = (event: { error?: Error & { status?: number }; sourceId?: string }) => {
+    const onError = (event: { error?: { message: string; status?: number }; sourceId?: string }) => {
       const status = event.error?.status;
       if (event.sourceId) mapStatusStore.recordTileError(event.sourceId, status === undefined ? 'network' : String(status));
       else mapStatusStore.patch({ styleFailed: true });

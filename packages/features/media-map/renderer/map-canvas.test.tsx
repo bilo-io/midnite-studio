@@ -45,7 +45,8 @@ vi.mock('maplibre-gl', () => {
     }
   }
   class Control {}
-  return { default: { Map, AttributionControl: Control, NavigationControl: Control } };
+  // v6 ships ESM with named exports only, so the fake is the module itself, not a `default`.
+  return { Map, AttributionControl: Control, NavigationControl: Control };
 });
 
 import MapCanvas, { type MapCanvasHandle } from './map-canvas';
