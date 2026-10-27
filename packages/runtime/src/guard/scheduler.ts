@@ -182,17 +182,30 @@ export function createGuardScheduler(options: GuardSchedulerOptions): GuardSched
     }
   }
 
+  let sweeping: Promise<void> | null = null;
+  function runSweep(): Promise<void> {
+    if (sweeping) return sweeping;
+    sweeping = (async () => {
+      try {
+        await options.onSweep();
+      } catch {
+        // Sweep failure handled gracefully
+      }
+    })().finally(() => {
+      sweeping = null;
+    });
+    return sweeping;
+  }
+
   async function triggerSweep(): Promise<void> {
-    try {
-      await options.onSweep();
-    } catch {
-      // Sweep failure handled gracefully
-    }
+    await runSweep();
     await scheduleNext();
   }
 
   return {
     async start(): Promise<void> {
+      if (timer) clearTimeout(timer);
+      timer = null;
       running = true;
       const schedule = await options.getSchedule();
       if (!schedule.enabled) {
@@ -231,11 +244,7 @@ export function createGuardScheduler(options: GuardSchedulerOptions): GuardSched
         clearTimeout(timer);
         timer = null;
       }
-      try {
-        await options.onSweep();
-      } catch {
-        // Sweep failure handled gracefully
-      }
+      await runSweep();
       if (running) {
         await scheduleNext();
       }

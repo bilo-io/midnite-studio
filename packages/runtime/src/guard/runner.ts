@@ -61,6 +61,7 @@ export async function runGuardSweep(options: GuardSweepOptions): Promise<GuardSw
   const currentFindings: SecurityFinding[] = [];
   const currentFingerprints = new Set<string>();
 
+  const failedCheckIds = new Set<string>();
   for (const check of checksToRun) {
     try {
       const produced = await check.run(inputs);
@@ -78,7 +79,8 @@ export async function runGuardSweep(options: GuardSweepOptions): Promise<GuardSw
         currentFingerprints.add(normalized.fingerprint);
       }
     } catch {
-      // Check failure should not crash entire sweep
+      // Check failure should not crash the sweep, nor count as a clean run
+      failedCheckIds.add(check.id);
     }
   }
 
@@ -90,7 +92,7 @@ export async function runGuardSweep(options: GuardSweepOptions): Promise<GuardSw
   }
 
   // 5. Move open findings from previous sweeps that were not re-seen to resolved
-  const ranCheckIds = new Set(checksToRun.map((c) => c.id));
+  const ranCheckIds = new Set(checksToRun.filter((c) => !failedCheckIds.has(c.id)).map((c) => c.id));
   const openFindings = await options.ledger.list({ status: 'open', source: 'guard' });
 
   for (const openFinding of openFindings) {

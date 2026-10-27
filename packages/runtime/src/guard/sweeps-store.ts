@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
 import {
   GuardSweepRecordSchema,
@@ -76,7 +76,10 @@ export function createGuardSweepsStore(userData: string): GuardSweepsStore {
         const trimmed = next.length > MAX_STORED_GUARD_SWEEPS ? next.slice(next.length - MAX_STORED_GUARD_SWEEPS) : next;
         cache = trimmed;
         try {
-          await writeFile(ledgerPath, JSON.stringify({ version: 1, records: trimmed }, null, 2) + '\n', 'utf8');
+          await mkdir(dirname(ledgerPath), { recursive: true, mode: 0o700 });
+          const tmp = `${ledgerPath}.${process.pid}.tmp`;
+          await writeFile(tmp, JSON.stringify({ version: 1, records: trimmed }, null, 2) + '\n', 'utf8');
+          await rename(tmp, ledgerPath);
         } catch {
           // Ignore write failure in read-only environment
         }
