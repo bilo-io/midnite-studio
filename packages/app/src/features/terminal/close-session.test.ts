@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { TerminalSession } from '@midnite/studio-shared';
 
@@ -31,6 +31,11 @@ beforeEach(() => {
     states: { [session.id]: 'open' },
     foregroundCommand: {},
   });
+});
+
+afterEach(() => {
+  // vitest 4 hands back the existing spy for an already-spied method, so calls leak across tests.
+  vi.restoreAllMocks();
 });
 
 describe('closeSessionWithConfirm', () => {
