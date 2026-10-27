@@ -99,6 +99,7 @@ export const RemediationActionIdSchema = z.enum([
   'mute',
   'update-package',
   'pin-package',
+  'remove-package',
 ]);
 export type RemediationActionId = z.infer<typeof RemediationActionIdSchema>;
 
@@ -195,6 +196,15 @@ export const PinPackageActionSchema = z.object({
 });
 export type PinPackageAction = z.infer<typeof PinPackageActionSchema>;
 
+/** Guard Theme C: a package the threat feed names as poisoned is taken out, not upgraded. */
+export const RemovePackageActionSchema = z.object({
+  id: z.literal('remove-package'),
+  name: z.string(),
+  version: z.string(),
+  description: z.string().optional(),
+});
+export type RemovePackageAction = z.infer<typeof RemovePackageActionSchema>;
+
 export const RemediationActionSchema = z.discriminatedUnion('id', [
   PauseSessionActionSchema,
   KillProcessGroupActionSchema,
@@ -208,6 +218,7 @@ export const RemediationActionSchema = z.discriminatedUnion('id', [
   MuteActionSchema,
   UpdatePackageActionSchema,
   PinPackageActionSchema,
+  RemovePackageActionSchema,
 ]);
 export type RemediationAction = z.infer<typeof RemediationActionSchema>;
 
@@ -221,6 +232,10 @@ export type RemediationAction = z.infer<typeof RemediationActionSchema>;
 export const REMEDIATION_PENDING: Readonly<Partial<Record<RemediationActionId, { reason: string; dependsOn: string }>>> = {
   'update-package': {
     reason: 'Run from the Guard tab once Phase 122 Theme G lands; until then the finding names the version to move to.',
+    dependsOn: 'Phase 122 Theme G',
+  },
+  'remove-package': {
+    reason: 'Run from the Guard tab once Phase 122 Theme G lands; until then remove the package and rotate anything it could read.',
     dependsOn: 'Phase 122 Theme G',
   },
   'pin-package': {

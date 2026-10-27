@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-27 — Phase 122 Theme C (partial) — The threat feed
+
+Signed threat-feed schema, an Ed25519 verifier and cached loader, `scripts/threat-feed-check.mjs`, an installed-`node_modules` resolver and the `poisoned-packages`, `mcp-servers` and `slopsquat` Guard checks (new `remove-package` action). The published feed and workflow in midnite-apps, the plugins/skills re-scan and sweep wiring stay open; no feed is trusted until a public key is configured.
+
 ## 2026-10-27 — Phase 115 Themes B, F (finished) — Retention, clear-all, FileVault note, Claude/Codex read switch
 
 Settings ▸ Privacy gains a "Keep local history" select (Forever/90/30/7 days, pruned by mtime on change and daily, live sessions skipped), "Clear all local history" behind a confirm with file count and bytes, a FileVault note, and the Claude/Codex disclosure with a "Read Claude and Codex history" switch that gates usage, conversation lookup and plugin reads. `assertNotAgentConfig` resolves realpath; the static no-write scan is wider. [PR #1031](https://github.com/bilo-io/midnite-studio/pull/1031).
