@@ -1,5 +1,5 @@
 /** OSV ecosystem names (https://ospec.dev/ecosystems). */
-export type LockEcosystem = 'npm' | 'PyPI' | 'crates.io' | 'Go';
+export type LockEcosystem = 'npm' | 'PyPI' | 'crates.io' | 'Go' | 'RubyGems' | 'SwiftURL';
 
 /** One resolved package out of a lockfile (Phase 122 Theme B). */
 export interface LockedPackage {

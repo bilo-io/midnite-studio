@@ -53,6 +53,17 @@ export interface ResolvedGuardInputs {
 }
 
 /**
+ * Why an input cannot be produced at all, known without running anything: its switch is off, or no resolver is
+ * registered. `null` means it may be resolved. The runner uses this to drop checks before fetching for them.
+ */
+export function staticInputSkip(key: GuardInputKey, context: GuardInputResolverContext = {}): string | null {
+  const switchId = DEFAULT_INPUT_SWITCHES[key] ?? `privacy.${key}`;
+  const isEnabled = context.switches?.[switchId] !== false && context.switches?.[key] !== false;
+  if (!isEnabled) return switchId;
+  return context.resolvers?.[key] ? null : NO_RESOLVER;
+}
+
+/**
  * Resolves inputs needed across checks for a sweep.
  *
  * For each input:
@@ -70,11 +81,9 @@ export async function resolveGuardInputs(
   const uniqueNeeded = Array.from(new Set(needed));
 
   for (const key of uniqueNeeded) {
-    const switchId = DEFAULT_INPUT_SWITCHES[key] ?? `privacy.${key}`;
-    const isEnabled = context.switches?.[switchId] !== false && context.switches?.[key] !== false;
-
-    if (!isEnabled) {
-      skipped[key] = switchId;
+    const staticSkip = staticInputSkip(key, context);
+    if (staticSkip !== null) {
+      skipped[key] = staticSkip;
       continue;
     }
 
@@ -87,8 +96,6 @@ export async function resolveGuardInputs(
         const message = err instanceof Error ? err.message : String(err);
         skipped[key] = `error: ${message}`;
       }
-    } else {
-      skipped[key] = NO_RESOLVER;
     }
   }
 

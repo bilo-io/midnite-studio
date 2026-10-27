@@ -3,6 +3,9 @@ import { join } from 'node:path';
 
 import type { LockedPackage } from './types';
 
+/** How many `.pnpm` store folders are read at once. */
+const PNPM_SCAN_CONCURRENCY = 32;
+
 async function read(dir: string, path: string, out: LockedPackage[]): Promise<void> {
   try {
     const pkg = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')) as { name?: unknown; version?: unknown };
@@ -59,11 +62,16 @@ export async function resolveInstalledNodeModules(repos: readonly string[]): Pro
     } catch {
       // not a pnpm install
     }
-    for (const dir of store) {
-      const name = pnpmStoreName(dir);
-      if (!name) continue;
-      const pkgDir = join(root, '.pnpm', dir, 'node_modules', name);
-      await read(pkgDir, join(pkgDir, 'package.json'), out);
+    // The virtual store holds thousands of folders; read them in bounded parallel batches rather than one by one.
+    for (let i = 0; i < store.length; i += PNPM_SCAN_CONCURRENCY) {
+      await Promise.all(
+        store.slice(i, i + PNPM_SCAN_CONCURRENCY).map(async (dir) => {
+          const name = pnpmStoreName(dir);
+          if (!name) return;
+          const pkgDir = join(root, '.pnpm', dir, 'node_modules', name);
+          await read(pkgDir, join(pkgDir, 'package.json'), out);
+        }),
+      );
     }
   }
   const seen = new Set<string>();

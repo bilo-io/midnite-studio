@@ -8,7 +8,7 @@ import {
 
 import type { FindingsLedger } from '../security/findings-ledger';
 import type { GuardCheck } from './check';
-import { resolveGuardInputs, type GuardInputResolverContext } from './inputs';
+import { resolveGuardInputs, staticInputSkip, type GuardInputResolverContext } from './inputs';
 import { createGuardSweepsStore, type GuardSweepsStore } from './sweeps-store';
 
 export interface GuardSweepOptions {
@@ -42,11 +42,19 @@ export async function runGuardSweep(options: GuardSweepOptions): Promise<GuardSw
   const sweepsStore = options.sweepsStore ?? createGuardSweepsStore(options.userData);
 
   // 1. Gather all needed inputs and resolve
-  const neededKeys = Array.from(new Set(options.checks.flatMap((c) => c.needs)));
-  const { inputs, skipped } = await resolveGuardInputs(neededKeys, {
-    userData: options.userData,
-    ...options.context,
-  });
+  // An input no check could use (its switch is off, or nothing resolves it) is recorded as skipped, and every check
+  // that needs one is dropped *before* resolving, so a feed is never fetched on behalf of a check that cannot run.
+  const context = { userData: options.userData, ...options.context };
+  const staticSkips: Record<string, string> = {};
+  for (const key of new Set(options.checks.flatMap((c) => c.needs))) {
+    const reason = staticInputSkip(key, context);
+    if (reason !== null) staticSkips[key] = reason;
+  }
+  const runnable = options.checks.filter((c) => !c.needs.some((key) => staticSkips[key] !== undefined));
+  const neededKeys = Array.from(new Set(runnable.flatMap((c) => c.needs)));
+  const resolved = await resolveGuardInputs(neededKeys, context);
+  const inputs = resolved.inputs;
+  const skipped = { ...staticSkips, ...resolved.skipped };
 
   // 2. Filter checks whose needed inputs were skipped
   const checksToRun: GuardCheck[] = [];

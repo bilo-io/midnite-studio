@@ -88,8 +88,40 @@ export function parsePackageLock(content: string, opts: ParseOptions): LockedPac
   return dedupe(out);
 }
 
-/** `yarn.lock` classic (v1). Berry's YAML form is not read yet, so a berry file yields nothing. */
+/**
+ * `yarn.lock` berry (v2+): each block is `"name@npm:range, ...":` then `version:` and `resolution: "name@npm:ver"`.
+ * Workspace, patch, git and other protocols resolve to no registry package and are skipped.
+ */
+export function parseYarnBerryLock(content: string, opts: ParseOptions): LockedPackage[] {
+  const out: LockedPackage[] = [];
+  let version: string | null = null;
+  for (const raw of content.split('\n')) {
+    if (!raw.startsWith(' ')) {
+      version = null;
+      continue;
+    }
+    const v = /^ {2}version:\s*(.+)$/.exec(raw);
+    if (v) {
+      version = unquote(v[1]!);
+      continue;
+    }
+    const r = /^ {2}resolution:\s*(.+)$/.exec(raw);
+    if (r && version) {
+      const resolution = unquote(r[1]!);
+      const at = resolution.indexOf('@npm:', 1);
+      if (at > 0) {
+        const name = resolution.slice(0, at);
+        out.push({ ecosystem: 'npm', name, version, direct: opts.directNames?.has(name) ?? false, path: opts.path });
+      }
+      version = null;
+    }
+  }
+  return dedupe(out);
+}
+
+/** `yarn.lock` classic (v1); a berry file (it opens with a `__metadata:` block) goes to {@link parseYarnBerryLock}. */
 export function parseYarnLock(content: string, opts: ParseOptions): LockedPackage[] {
+  if (/^__metadata:/m.test(content)) return parseYarnBerryLock(content, opts);
   const out: LockedPackage[] = [];
   let names: string[] = [];
   for (const raw of content.split('\n')) {
@@ -148,6 +180,76 @@ export function parseGoSum(content: string, opts: ParseOptions): LockedPackage[]
   return dedupe(out);
 }
 
+const pypiName = (name: string): string => name.toLowerCase().replace(/[_.]+/g, '-');
+
+/** `poetry.lock`: `[[package]]` tables; packages installed from a directory, file, or VCS are not on PyPI and are skipped. */
+export function parsePoetryLock(content: string, opts: ParseOptions): LockedPackage[] {
+  const out: LockedPackage[] = [];
+  for (const block of content.split(/^\[\[package\]\]\s*$/m).slice(1)) {
+    const name = /^name\s*=\s*"([^"]+)"/m.exec(block)?.[1];
+    const version = /^version\s*=\s*"([^"]+)"/m.exec(block)?.[1];
+    const sourceType = /^\[package\.source\][^[]*?^type\s*=\s*"([^"]+)"/m.exec(block)?.[1];
+    if (!name || !version || (sourceType && ['directory', 'file', 'git', 'url'].includes(sourceType))) continue;
+    const n = pypiName(name);
+    out.push({ ecosystem: 'PyPI', name: n, version, direct: opts.directNames?.has(n) ?? false, path: opts.path });
+  }
+  return dedupe(out);
+}
+
+/** `uv.lock`: `[[package]]` tables; only `source = { registry = ... }` entries are index packages (editable, virtual and git are skipped). */
+export function parseUvLock(content: string, opts: ParseOptions): LockedPackage[] {
+  const out: LockedPackage[] = [];
+  for (const block of content.split(/^\[\[package\]\]\s*$/m).slice(1)) {
+    const name = /^name\s*=\s*"([^"]+)"/m.exec(block)?.[1];
+    const version = /^version\s*=\s*"([^"]+)"/m.exec(block)?.[1];
+    if (!name || !version || !/^source\s*=\s*\{\s*registry\s*=/m.test(block)) continue;
+    const n = pypiName(name);
+    out.push({ ecosystem: 'PyPI', name: n, version, direct: opts.directNames?.has(n) ?? false, path: opts.path });
+  }
+  return dedupe(out);
+}
+
+/** `Gemfile.lock`: `name (version)` lines under `GEM`'s `specs:`; `DEPENDENCIES` names the direct ones; platform suffixes are dropped. */
+export function parseGemfileLock(content: string, opts: ParseOptions): LockedPackage[] {
+  const out: LockedPackage[] = [];
+  const direct = new Set<string>();
+  let section = '';
+  let inSpecs = false;
+  for (const raw of content.split('\n')) {
+    if (raw !== '' && !raw.startsWith(' ')) {
+      section = raw.trim();
+      inSpecs = false;
+      continue;
+    }
+    if (section === 'GEM') {
+      if (/^ {2}specs:\s*$/.test(raw)) inSpecs = true;
+      else if (inSpecs) {
+        const m = /^ {4}(\S+) \(([^)]+)\)\s*$/.exec(raw);
+        if (m) out.push({ ecosystem: 'RubyGems', name: m[1]!, version: m[2]!.split('-')[0]!, direct: false, path: opts.path });
+      }
+    } else if (section === 'DEPENDENCIES') {
+      const m = /^ {2}(\S+?)!?(?: \(.*\))?\s*$/.exec(raw);
+      if (m) direct.add(m[1]!);
+    }
+  }
+  return dedupe(out.map((p) => ({ ...p, direct: direct.has(p.name) })));
+}
+
+/** `Package.resolved` (SwiftPM, v1 `object.pins` and v2/v3 `pins`): OSV's `SwiftURL` name is the repository URL without scheme or `.git`. */
+export function parsePackageResolved(content: string, opts: ParseOptions): LockedPackage[] {
+  const json = JSON.parse(content) as { pins?: unknown; object?: { pins?: unknown } };
+  const pins = Array.isArray(json.pins) ? json.pins : Array.isArray(json.object?.pins) ? json.object.pins : [];
+  const out: LockedPackage[] = [];
+  for (const pin of pins as Array<{ location?: unknown; repositoryURL?: unknown; state?: { version?: unknown } }>) {
+    const url = typeof pin.location === 'string' ? pin.location : pin.repositoryURL;
+    const version = pin.state?.version;
+    if (typeof url !== 'string' || typeof version !== 'string') continue; // a branch or revision pin has no version
+    const name = url.replace(/^[a-z+]+:\/\//i, '').replace(/^[^@/]+@/, '').replace(/\.git$/, '').replace(/\/$/, '');
+    out.push({ ecosystem: 'SwiftURL', name, version, direct: false, path: opts.path });
+  }
+  return dedupe(out);
+}
+
 /** Lockfile basenames and the parser that reads each. */
 export const LOCKFILE_PARSERS: Readonly<Record<string, (content: string, opts: ParseOptions) => LockedPackage[]>> = {
   'pnpm-lock.yaml': parsePnpmLock,
@@ -156,6 +258,10 @@ export const LOCKFILE_PARSERS: Readonly<Record<string, (content: string, opts: P
   'requirements.txt': parseRequirementsTxt,
   'Cargo.lock': parseCargoLock,
   'go.sum': parseGoSum,
+  'poetry.lock': parsePoetryLock,
+  'uv.lock': parseUvLock,
+  'Gemfile.lock': parseGemfileLock,
+  'Package.resolved': parsePackageResolved,
 };
 
 /** Parses a lockfile by its basename; an unknown name or an unreadable body yields no packages, never a throw. */
