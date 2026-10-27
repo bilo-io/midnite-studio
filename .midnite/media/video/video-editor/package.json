@@ -9,7 +9,7 @@
     "@remotion/cli": "4.0.536",
     "@remotion/google-fonts": "4.0.536",
     "@remotion/install-whisper-cpp": "4.0.536",
-    "@remotion/tailwind-v4": "4.0.534",
+    "@remotion/tailwind-v4": "4.0.538",
     "@remotion/transitions": "4.0.538",
     "react": "19.3.1",
     "react-dom": "19.3.1",
