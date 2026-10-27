@@ -83,7 +83,7 @@ describe('duplicateLoopAsCustom', () => {
     expect(copy.fallbackPrompt).toBe('/loop /guard-it');
     expect(copy.sections.map((s) => s.label)).toEqual(['Tasks', 'Scope', 'Policies']);
     const own = copy.modifiers.filter((m) => m.section !== undefined).map((m) => m.id);
-    expect(own).toEqual(['secret-scan', 'dep-audit', 'security-review', 'sbom', 'report-only']);
+    expect(own).toEqual(['secret-scan', 'dep-audit', 'security-review', 'sbom', 'fix-findings', 'report-only']);
     // The Severity gate radio rides along in the Scope section; autonomy stays shared.
     const severity = copy.choices.find((c) => c.id === 'severity')!;
     expect(severity.section).toBe(copy.sections[1]!.id);

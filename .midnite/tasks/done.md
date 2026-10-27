@@ -15379,3 +15379,8 @@ Provenance on the wire (`shared/src/provenance.ts`, trust derived from origin), 
 ## 2026-10-26 — Phase 118 Theme H — Tamper detection and memory hygiene (Phase 118 Complete)
 
 An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` under `safeStorage`-encrypted key in `vault-integrity.key`) with startup verification, `fs.watch` monitoring, and pre-grant authorization checks. Out-of-band edits to `vault-grants.json` immediately lock the vault, log `tamper` audit records, and display a tamper warning banner in the Vault page. `withSecret` guarantees buffer zeroing in `finally` upon resolve and throw. `process-runner.ts` child process execution is sanitized with `SAFE_PROCESS_ENV_KEYS`. Credential logging prevention verified. Phase 118 is 100% complete (51/51 ✅ DONE).
+
+### Phase 122 Theme A — The sweep runner (2026-10-27)
+
+`packages/runtime/src/guard/` (`check.ts` defining `GuardCheck` with pure `run(inputs)` and stable `<checkId>:<subject>` fingerprints producing `SecurityFinding`s, `inputs.ts` resolving named inputs once per sweep with privacy switch gating, `sweeps-store.ts` managing `guard-sweeps.json` and `<userData>/security/sweeps/<id>.json`, `runner.ts` running eligible checks, recording into findings ledger with deduplication and `resolvedBy: 'sweep'`, and `scheduler.ts` scheduling main-side sweeps on Guard's `LoopSchedule` with persisted `nextWake` surviving reloads). Guard loop prompt composition attaches sweep findings JSON with untrusted provenance per Phase 121 A, and adds *Fix the sweep's findings* modifier beside *Report only*.
+

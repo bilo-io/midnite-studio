@@ -58,7 +58,7 @@ export interface FindingsLedger {
   record(input: NewSecurityFinding): Promise<SecurityFinding>;
   list(filter?: FindingsListFilter): Promise<SecurityFinding[]>;
   get(id: string): Promise<SecurityFinding | null>;
-  setStatus(id: string, status: SecurityFindingStatus): Promise<SecurityFinding | null>;
+  setStatus(id: string, status: SecurityFindingStatus, resolvedBy?: string): Promise<SecurityFinding | null>;
   /**
    * Append a response action's outcome to the finding's row (`actions: [{id, at, ok, error?}]`, Phase 120
    * Theme H), optionally moving its status in the same write. Null when the finding is gone.
@@ -324,13 +324,16 @@ export function createFindingsLedger(options: FindingsLedgerOptions): FindingsLe
       return item ? { ...item } : null;
     },
 
-    async setStatus(id: string, status: SecurityFindingStatus): Promise<SecurityFinding | null> {
+    async setStatus(id: string, status: SecurityFindingStatus, resolvedBy?: string): Promise<SecurityFinding | null> {
       return withLock(async () => {
         await ensureLoaded();
         const existing = findings.get(id);
         if (!existing) return null;
 
         existing.status = status;
+        if (resolvedBy !== undefined) {
+          existing.resolvedBy = resolvedBy;
+        }
         if (status === 'open') {
           openFingerprints.set(existing.fingerprint, existing.id);
         } else if (openFingerprints.get(existing.fingerprint) === existing.id) {

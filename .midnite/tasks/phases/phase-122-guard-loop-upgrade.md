@@ -88,10 +88,10 @@ Scope guardrails:
 *Guard stops being a prompt and becomes a sweep: the lockfiles against three advisory sources, the
 machine against a checklist, the installed agents' servers and packages against the campaigns of
 the year, every finding with a severity and a button — and the model pass does the fixing, not the
-finding.* Born from a loop that does nothing when no agent is installed. (0% · 0/44) —
+finding.* Born from a loop that does nothing when no agent is installed. (11% · 5/44) —
 **Planned 2026-10-22.**
 
-**Theme A — The sweep runner.** ◻ `packages/runtime/src/guard/`: checks as pure functions over
+**Theme A — The sweep runner.** ✅ `packages/runtime/src/guard/`: checks as pure functions over
 fetched inputs, run on the loop's schedule by main with or without an agent, writing into
 Phase 120's ledger; the agent pass receives the findings file; the run record gains a findings
 summary.
@@ -130,27 +130,27 @@ repo.
 
 ### A — The sweep runner [M · ~1d]
 
-- [ ] **The check contract.** `packages/runtime/src/guard/check.ts`: `GuardCheck = {id, title,
+- [x] **The check contract.** `packages/runtime/src/guard/check.ts`: `GuardCheck = {id, title,
       category, needs: Input[], run(inputs): SecurityFinding[]}` where inputs are named fetched
       things (`lockfiles`, `osv`, `kev`, `ghsa`, `threatFeed`, `ports`, `brew`, `history`,
       `auditTrail`, …) resolved once per sweep by `guard/inputs.ts`, so a check never fetches and
       every check is a fixture test. Findings use Phase 120 A's `SecurityFindingSchema` with
       `source: 'guard'` and a fingerprint stable across sweeps (`<checkId>:<subject>`). [M]
-- [ ] **The scheduler, in main.** The Guard loop's `LoopSchedule` (days, window, cadence — the
+- [x] **The scheduler, in main.** The Guard loop's `LoopSchedule` (days, window, cadence — the
       fields [`loops.ts`](../../../packages/shared/src/loops.ts) already persists) now also arms a
       main-side timer for the sweep, independent of whether a pty run starts: `guard/scheduler.ts`
       with the next-wake persisted so a relaunch resumes, plus "Sweep now" from the tab. A sweep
       runs whether or not an agent is installed. [M]
-- [ ] **Writing the ledger.** Each sweep's findings go through the runtime ledger's `record`
+- [x] **Writing the ledger.** Each sweep's findings go through the runtime ledger's `record`
       (dedupe by fingerprint bumps `count`/`lastSeen`); findings from the previous sweep not seen in
       this one move to `resolved` with `resolvedBy: 'sweep'`. A `GuardSweepRecord` (`startedAt`,
       `endedAt`, `checksRun`, `inputsSkipped` with the switch that skipped each, counts by severity)
       is appended beside the loop-run ledger. [S]
-- [ ] **The agent pass gets the file.** When the Guard loop also runs its pty pass, the composed
+- [x] **The agent pass gets the file.** When the Guard loop also runs its pty pass, the composed
       prompt (`loopModifierFragment` in `loops.ts`) gains a line pointing at the sweep's findings
       JSON (`<userData>/security/sweeps/<id>.json`), attached with `provenance: untrusted` per
       Phase 121 A, and the modifiers gain *Fix the sweep's findings* beside *Report only*. [S]
-- [ ] **Tests.** A fixture sweep with two checks and one skipped input; dedupe across two sweeps;
+- [x] **Tests.** A fixture sweep with two checks and one skipped input; dedupe across two sweeps;
       resolved-by-sweep; the scheduler's next-wake survives a reload. [S]
 
 ### B — CVEs against the lockfiles and the installed software [L · 1–2d]
@@ -330,7 +330,7 @@ repo.
 ## Verification
 
 - [ ] `moon run :typecheck :lint :test` green after every theme (CI is the gate; no local full run).
-- [ ] **A:** a fixture sweep writes findings the ledger dedupes on the second run and resolves on
+- [x] **A:** a fixture sweep writes findings the ledger dedupes on the second run and resolves on
       the third; the scheduler re-arms after a simulated relaunch; the agent prompt carries the
       findings path tagged untrusted.
 - [ ] **B:** this repo's `pnpm-lock.yaml` parses to the same package set `pnpm ls --depth Infinity
