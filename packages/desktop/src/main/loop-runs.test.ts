@@ -55,6 +55,21 @@ describe('startLoopRun', () => {
     expect(run.startedAt).toBeGreaterThan(0);
     expect(await listLoopRuns()).toEqual([run]);
   });
+
+  it('records findingsSummary when provided on start (Phase 122 Theme A)', async () => {
+    configure(fakeStore());
+    const summary = { critical: 1, high: 2, medium: 0, low: 0, info: 0, total: 3 };
+    const run = await startLoopRun({
+      loopId: 'guard',
+      sessionId: 's-guard',
+      composedPrompt: '/loop /midnite-address-issue',
+      checkedModifierIds: ['fix-findings'],
+      findingsSummary: summary,
+    });
+
+    expect(run.findingsSummary).toEqual(summary);
+    expect((await listLoopRuns())[0]?.findingsSummary).toEqual(summary);
+  });
 });
 
 describe('the in-memory ledger is capped, not just the disk copy (Phase 45 Theme D)', () => {

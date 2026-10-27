@@ -27,6 +27,8 @@
  */
 import { z } from 'zod';
 
+import { fenceUntrusted } from './untrusted-fence';
+
 /**
  * Which kind of on/off a modifier is — an additive job (`'checkbox'`, the
  * historical name) or a standing policy (`'switch'`). Every modifier is drawn
@@ -621,6 +623,16 @@ export type LoopRunStatus = z.infer<typeof LoopRunStatusSchema>;
  * a past run cost. Optional — records written before the picker existed have
  * no answer, and inventing `'default'` for them would be a guess.
  */
+export const LoopRunFindingsSummarySchema = z.object({
+  critical: z.number().int().nonnegative().default(0),
+  high: z.number().int().nonnegative().default(0),
+  medium: z.number().int().nonnegative().default(0),
+  low: z.number().int().nonnegative().default(0),
+  info: z.number().int().nonnegative().default(0),
+  total: z.number().int().nonnegative().default(0),
+});
+export type LoopRunFindingsSummary = z.infer<typeof LoopRunFindingsSummarySchema>;
+
 export const LoopRunRecordSchema = z.object({
   id: z.string().min(1),
   loopId: z.string().min(1),
@@ -633,6 +645,7 @@ export const LoopRunRecordSchema = z.object({
   model: LoopModelSchema.optional(),
   exitCode: z.number().int().optional(),
   status: LoopRunStatusSchema,
+  findingsSummary: LoopRunFindingsSummarySchema.optional(),
 });
 export type LoopRunRecord = z.infer<typeof LoopRunRecordSchema>;
 
@@ -797,6 +810,17 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
           'Generate or update a software bill of materials for the current build.',
         group: 'tasks',
         control: 'checkbox',
+        defaultOn: false,
+      },
+      {
+        id: 'fix-findings',
+        label: "Fix the sweep's findings",
+        description:
+          "Fixes findings discovered by the security sweep, proposing PRs rather than reporting only.",
+        promptFragment:
+          "Fix the sweep's findings: address security findings discovered by the sweep and open PRs for remediations.",
+        group: 'run',
+        control: 'switch',
         defaultOn: false,
       },
       {
@@ -1334,6 +1358,11 @@ export interface LoopSelection {
   /** Rotate subagents at this percentage of their context window. */
   autoRotatePercent?: number;
   /**
+   * Path to the latest sweep findings JSON file (<userData>/security/sweeps/<id>.json),
+   * attached to prompt with untrusted provenance (Phase 122 Theme A).
+   */
+  sweepFindingsPath?: string;
+  /**
    * The tab bar's "Loop" switch (`loopEnabled`). `false` drops the leading `/loop` from the
    * base, so the agent does one pass and the session stays open in the
    * terminal. Missing means on.
@@ -1366,14 +1395,37 @@ export function normaliseLoopSkill(raw: string | undefined): string {
 }
 
 /**
+ * The sweep findings prompt fragment fenced with untrusted provenance (Phase 122 Theme A).
+ */
+export function loopSweepFindingsFragment(path: string): string {
+  return fenceUntrusted(`Latest sweep findings: ${path}`, {
+    origin: 'attachment',
+    ref: path,
+    trust: 'untrusted',
+  });
+}
+
+/**
  * What one *on* option contributes to the line: its `skillTemplate` with the
  * picked skill in the slot, or its default `promptFragment` when nothing was
- * picked (or the option takes no skill).
+ * picked (or the option takes no skill). When `fix-findings` is on and a sweep
+ * findings path is available, appends the untrusted-fenced findings link.
  */
-export function loopModifierFragment(modifier: LoopModifier, skill?: string): string {
+export function loopModifierFragment(
+  modifier: LoopModifier,
+  skill?: string,
+  options?: { sweepFindingsPath?: string },
+): string {
   const chosen = normaliseLoopSkill(skill);
-  if (chosen.length === 0 || modifier.skillTemplate === undefined) return modifier.promptFragment;
-  return modifier.skillTemplate.split(LOOP_SKILL_SLOT).join(chosen);
+  const base =
+    chosen.length === 0 || modifier.skillTemplate === undefined
+      ? modifier.promptFragment
+      : modifier.skillTemplate.split(LOOP_SKILL_SLOT).join(chosen);
+
+  if (modifier.id === 'fix-findings' && options?.sweepFindingsPath) {
+    return `${base} ${loopSweepFindingsFragment(options.sweepFindingsPath)}`;
+  }
+  return base;
 }
 
 /** The Users filter's sentence, or `null` when no user is picked. */
@@ -1418,7 +1470,11 @@ export function composeLoopPrompt(
   for (const group of LOOP_GROUPS) {
     for (const modifier of loop.modifiers) {
       if (modifier.group === group.id && on.has(modifier.id)) {
-        fragments.push(loopModifierFragment(modifier, selection.skills?.[modifier.id]));
+        fragments.push(
+          loopModifierFragment(modifier, selection.skills?.[modifier.id], {
+            sweepFindingsPath: selection.sweepFindingsPath,
+          }),
+        );
       }
     }
     for (const choice of loop.choices) {
@@ -1435,6 +1491,10 @@ export function composeLoopPrompt(
     if (group.id === 'run' && selection.autoRotatePercent !== undefined) {
       fragments.push(loopAutoRotateFragment(selection.autoRotatePercent));
     }
+  }
+
+  if (selection.sweepFindingsPath && !on.has('fix-findings')) {
+    fragments.push(loopSweepFindingsFragment(selection.sweepFindingsPath));
   }
 
   const schedule = loopScheduleFragment(selection.schedule);

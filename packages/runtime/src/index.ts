@@ -52,3 +52,4 @@ export * from './security/install-detector';
 export * from './security/package-checker';
 export * from './security/skills-audit';
 export * from './security/install-checker';
+export * from './guard';

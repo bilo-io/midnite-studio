@@ -255,3 +255,26 @@ export const CONFIG_FINDING_FINGERPRINTS = {
   gatekeeperDisabled: 'config:gatekeeper-disabled',
   sipDisabled: 'config:sip-disabled',
 } as const;
+
+// --- Guard sweep record (Phase 122 Theme A) ---------------------------------
+
+export const SeverityCountsSchema = z.object({
+  critical: z.number().int().nonnegative().default(0),
+  high: z.number().int().nonnegative().default(0),
+  medium: z.number().int().nonnegative().default(0),
+  low: z.number().int().nonnegative().default(0),
+  info: z.number().int().nonnegative().default(0),
+});
+export type SeverityCounts = z.infer<typeof SeverityCountsSchema>;
+
+export const GuardSweepRecordSchema = z.object({
+  id: z.string().min(1),
+  startedAt: z.number().int().nonnegative(),
+  endedAt: z.number().int().nonnegative(),
+  checksRun: z.array(z.string()),
+  inputsSkipped: z.record(z.string(), z.string()),
+  counts: SeverityCountsSchema,
+  findingsPath: z.string().optional(),
+});
+export type GuardSweepRecord = z.infer<typeof GuardSweepRecordSchema>;
+

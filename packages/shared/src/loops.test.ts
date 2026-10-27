@@ -23,6 +23,7 @@ import {
   LoopModifierSchema,
   composeLoopPrompt,
   loopModifierFragment,
+  loopSweepFindingsFragment,
   normaliseLoopSkill,
   onceOffBasePrompt,
   loopModelArgs,
@@ -796,6 +797,12 @@ describe('LoopRunRecordSchema', () => {
   it('rejects an unknown status', () => {
     expect(LoopRunRecordSchema.safeParse({ ...running, status: 'paused' }).success).toBe(false);
   });
+
+  it('records optional findings summary (Phase 122 Theme A)', () => {
+    const summary = { critical: 1, high: 2, medium: 3, low: 0, info: 1, total: 7 };
+    const withSummary = { ...running, findingsSummary: summary };
+    expect(LoopRunRecordSchema.parse(withSummary).findingsSummary).toEqual(summary);
+  });
 });
 
 describe('loopModelsFor', () => {
@@ -973,3 +980,41 @@ describe('reportedModelMatches (Phase 121 Theme I)', () => {
     expect(reportedModelMatches('codex', 'opus-5', 'gpt-x')).toBe(true);
   });
 });
+
+describe('Guard loop upgrade — Theme A (The sweep runner)', () => {
+  const guard = DEFAULT_LOOPS.find((l) => l.id === 'guard')!;
+
+  it('includes fix-findings modifier in Guard loop definition beside report-only', () => {
+    const fixModifier = guard.modifiers.find((m) => m.id === 'fix-findings');
+    expect(fixModifier).toBeDefined();
+    expect(fixModifier!.label).toBe("Fix the sweep's findings");
+    expect(fixModifier!.group).toBe('run');
+  });
+
+  it('fences sweep findings path with untrusted provenance', () => {
+    const fragment = loopSweepFindingsFragment('/path/to/sweeps/s1.json');
+    expect(fragment).toContain('<<<UNTRUSTED origin="attachment" ref="/path/to/sweeps/s1.json">>>');
+    expect(fragment).toContain('/path/to/sweeps/s1.json');
+    expect(fragment).toContain('<<<END UNTRUSTED>>>');
+  });
+
+  it('composes prompt carrying untrusted-tagged sweep findings path when fix-findings is enabled', () => {
+    const prompt = composeLoopPrompt(guard.fallbackPrompt, guard, {
+      modifierIds: ['fix-findings'],
+      sweepFindingsPath: '/Users/test/security/sweeps/sweep-123.json',
+    });
+    expect(prompt).toContain("Fix the sweep's findings");
+    expect(prompt).toContain('<<<UNTRUSTED origin="attachment" ref="/Users/test/security/sweeps/sweep-123.json">>>');
+    expect(prompt).toContain('/Users/test/security/sweeps/sweep-123.json');
+  });
+
+  it('attaches sweep findings path when provided even without fix-findings', () => {
+    const prompt = composeLoopPrompt(guard.fallbackPrompt, guard, {
+      modifierIds: ['report-only'],
+      sweepFindingsPath: '/Users/test/security/sweeps/sweep-456.json',
+    });
+    expect(prompt).toContain('Report only');
+    expect(prompt).toContain('<<<UNTRUSTED origin="attachment" ref="/Users/test/security/sweeps/sweep-456.json">>>');
+  });
+});
+
