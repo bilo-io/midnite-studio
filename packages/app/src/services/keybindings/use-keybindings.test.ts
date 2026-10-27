@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { COMMAND_IDS, type CommandId } from '@midnite/studio-shared';
 
@@ -8,8 +8,8 @@ import { useUiStore } from '../../store/ui-store';
 import { shouldEscapeTerminal, useKeybindings } from './use-keybindings';
 import type { CommandRuntime } from './use-command-handlers';
 
-const fakeRuntime = (): { runtime: CommandRuntime; run: Record<CommandId, ReturnType<typeof vi.fn>> } => {
-  const run = {} as Record<CommandId, ReturnType<typeof vi.fn>>;
+const fakeRuntime = (): { runtime: CommandRuntime; run: Record<CommandId, Mock> } => {
+  const run = {} as Record<CommandId, Mock>;
   const runtime = {} as CommandRuntime;
   for (const id of COMMAND_IDS) {
     run[id] = vi.fn();

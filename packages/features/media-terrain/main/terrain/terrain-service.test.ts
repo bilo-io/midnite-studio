@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { TERRAIN_BUILD_CANCELLED, type TerrainStats } from '@midnite/studio-shared';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { decodePng, encodePngGrey16, encodePngRgba8 } from '@midnite/studio-runtime';
 import { createTerrainService, NOT_AN_IMAGE, type TerrainServiceDeps } from './terrain-service';
@@ -36,7 +36,7 @@ afterEach(async () => {
   await rm(repo, { recursive: true, force: true });
 });
 
-type FakeBroker = TerrainBroker & { build: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> };
+type FakeBroker = TerrainBroker & { build: Mock; cancel: Mock };
 
 /** A broker whose build writes `heights.f32` into the out dir (as the real worker would) and resolves `result`. */
 function fakeBroker(result: () => TerrainRunResult | Promise<TerrainRunResult>): FakeBroker {

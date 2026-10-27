@@ -146,7 +146,10 @@ async function settle(): Promise<void> {
   for (let i = 0; i < 40; i += 1) await new Promise((resolve) => setTimeout(resolve, 1));
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  // A prior test may not await its run to the end; give its lock a few turns to drain
+  // (under CI load the drain can land after the next beforeEach has started).
+  for (let i = 0; i < 200 && runLocksSizeForTests() > 0; i += 1) await new Promise((r) => setTimeout(r, 5));
   expect(runLocksSizeForTests()).toBe(0);
   resetGateWaitersForTests();
 });

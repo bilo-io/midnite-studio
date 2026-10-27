@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { parseModelSidecar, parseOpsLog, type ModelSculptPart, type ModelSpec } from '@midnite/studio-shared';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it, vi } from 'vitest';

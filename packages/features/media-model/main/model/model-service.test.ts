@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { GitOpResult, ModelGenerateProgressEvent, ModelGenerateRequest } from '@midnite/studio-shared';
 import { failure, ok } from '@midnite/studio-shared';
 import { ModelSpecSchema } from '@midnite/studio-shared';

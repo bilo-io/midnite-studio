@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi, type Mock } from 'vitest';
 
 // Imported dynamically below, after the mocks are in place — `fs-handlers.ts`
 // pulls in `@midnite/studio-git-engine` at module scope, and only `dirStats`/
@@ -113,7 +113,7 @@ describe('fs read handlers — dirStats + showItemInFolder (Phase 24 Theme C)', 
 async function importHandlers() {
   const { CHANNELS } = await import('@midnite/studio-shared');
   const { registerFsHandlers } = await import('./fs-handlers');
-  const ipcMain = (await import('electron')).ipcMain as unknown as { handle: ReturnType<typeof vi.fn> };
+  const ipcMain = (await import('electron')).ipcMain as unknown as { handle: Mock };
   ipcMain.handle.mockClear();
   registerFsHandlers();
   const calls = ipcMain.handle.mock.calls as [string, (event: unknown, raw: unknown) => unknown][];

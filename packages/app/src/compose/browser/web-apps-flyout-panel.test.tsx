@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { cleanup, fireEvent, render as baseRender, screen, type RenderOptions } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
@@ -11,8 +11,8 @@ import { StudioProviders } from '../studio-providers';
 const render = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) => baseRender(ui, { wrapper: StudioProviders, ...options });
 
 function installBridge(): {
-  activate: ReturnType<typeof vi.fn>;
-  detach: ReturnType<typeof vi.fn>;
+  activate: Mock;
+  detach: Mock;
 } {
   const activate = vi.fn();
   const detach = vi.fn();

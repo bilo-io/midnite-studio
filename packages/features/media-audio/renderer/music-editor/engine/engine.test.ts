@@ -1,5 +1,5 @@
 import { SongSchema, type Song } from '@midnite/studio-shared';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import { createMusicEngine, type EngineHost, type InstrumentHandle } from './engine';
 import type { ScheduledNote } from './scheduler';
@@ -12,7 +12,7 @@ function fakeHost() {
   }[] = [];
   const clickParts: { clicks: readonly { time: number; accent: boolean }[]; disposed: boolean }[] =
     [];
-  const instruments: { play: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] = [];
+  const instruments: { play: Mock; dispose: Mock }[] = [];
   const transport = {
     start: vi.fn(),
     pause: vi.fn(),

@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import type { ChildProcess } from 'node:child_process';
 
 import { FFMPEG_EXPORT_FORMATS } from '@midnite/studio-shared';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import {
   buildFfmpegArgs,
@@ -59,7 +59,7 @@ describe('progress parsing', () => {
 });
 
 function fakeChild() {
-  const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; kill: ReturnType<typeof vi.fn> };
+  const child = new EventEmitter() as EventEmitter & { stderr: EventEmitter; kill: Mock };
   child.stderr = new EventEmitter();
   child.kill = vi.fn(() => child.emit('close', null));
   return child;

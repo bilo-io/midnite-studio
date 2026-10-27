@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { decodeMeshBin, isClosed, parseModelSidecar, parseOpsLog, type ModelSpec } from '@midnite/studio-shared';
 import type { Mesh, Object3D, SkinnedMesh } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';

@@ -2,7 +2,7 @@ import { createElement } from 'react';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { useClearProjectItemField, useForgeProjectItems, useForgeProjects, useSetProjectItemField } from './queries';
 
@@ -16,10 +16,10 @@ import { useClearProjectItemField, useForgeProjectItems, useForgeProjects, useSe
 
 type Bridge = {
   forgeProject: {
-    list: ReturnType<typeof vi.fn>;
-    items: ReturnType<typeof vi.fn>;
-    setField: ReturnType<typeof vi.fn>;
-    clearField: ReturnType<typeof vi.fn>;
+    list: Mock;
+    items: Mock;
+    setField: Mock;
+    clearField: Mock;
   };
 };
 

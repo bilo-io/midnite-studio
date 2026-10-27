@@ -1,6 +1,6 @@
 // @vitest-environment node
 import type { ForgeAccount } from '@midnite/studio-shared';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { forgeAccountToken } from './forge-accounts';
 import { runInShell } from './github/gh-shell';
@@ -143,7 +143,7 @@ function gitlabFetch(projects: unknown[], languages: (id: number) => Promise<Res
   });
 }
 
-function languageCalls(fetchMock: ReturnType<typeof vi.fn>): string[] {
+function languageCalls(fetchMock: Mock): string[] {
   return fetchMock.mock.calls.map((c) => String(c[0])).filter((href) => href.includes('/languages'));
 }
 

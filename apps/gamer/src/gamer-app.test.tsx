@@ -1,6 +1,6 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
 
@@ -97,7 +97,7 @@ describe('Midnite Gamer', () => {
 
   it('mounts the sprite render host at its root, so a "render from 3D" job has a window to draw in', async () => {
     render(<GamerApp />);
-    const sprite = (window as unknown as { midniteStudio: { media: { sprite: { onRenderRequest: ReturnType<typeof vi.fn> } } } }).midniteStudio.media.sprite;
+    const sprite = (window as unknown as { midniteStudio: { media: { sprite: { onRenderRequest: Mock } } } }).midniteStudio.media.sprite;
     await waitFor(() => expect(sprite.onRenderRequest).toHaveBeenCalled());
   });
 });

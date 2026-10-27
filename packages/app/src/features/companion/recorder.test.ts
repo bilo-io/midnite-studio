@@ -1,5 +1,5 @@
 import { COMPANION_RECORDER_MIME, COMPANION_RECORDER_TIMESLICE_MS } from '@midnite/studio-shared';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
@@ -315,7 +315,7 @@ describe('createRecorder', () => {
  * `transcribe` sends it, so main honours the choice instead of resolving its own.
  */
 describe('transcribe — the persisted STT provider', () => {
-  function installTranscribe(): ReturnType<typeof vi.fn> {
+  function installTranscribe(): Mock {
     const bridgeTranscribe = vi.fn().mockResolvedValue({ ok: true, value: { text: 'hi' } });
     (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
       companion: { transcribe: bridgeTranscribe },

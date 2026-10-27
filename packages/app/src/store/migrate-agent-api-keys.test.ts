@@ -1,12 +1,12 @@
 // vitest/jsdom: pure store + bridge logic, no browser capability needed.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { migrateLegacyAgentApiKeys } from './migrate-agent-api-keys';
 import { useUiStore } from './ui-store';
 
 type FakeSecrets = {
-  set: ReturnType<typeof vi.fn>;
-  has: ReturnType<typeof vi.fn>;
+  set: Mock;
+  has: Mock;
 };
 
 function install(secrets: FakeSecrets) {

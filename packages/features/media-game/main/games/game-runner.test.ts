@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { EVENT_CHANNELS, GAMES_MAX_RUNNING } from '@midnite/studio-shared';
 
@@ -130,13 +130,13 @@ const logger = Object.assign(vi.fn(), { info: vi.fn(), warn: vi.fn(), error: vi.
 
 describe('createGameRunner', () => {
   let win: ReturnType<typeof fakeWindow>;
-  let send: ReturnType<typeof vi.fn>;
+  let send: Mock<(channel: string, payload: unknown) => void>;
   let runner: ReturnType<typeof createGameRunner>;
 
   beforeEach(() => {
     fakeSessions.clear();
     win = fakeWindow();
-    send = vi.fn();
+    send = vi.fn<(channel: string, payload: unknown) => void>();
     runner = createGameRunner({ getWindow: () => win, electron, log: logger, send });
   });
   afterEach(() => {

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { Forge, ForgeIssue, WorkflowNode } from '@midnite/studio-shared';
 
@@ -34,7 +34,7 @@ function fakeAdapter(over: Partial<ForgeAdapter>): ForgeAdapter {
   return over as ForgeAdapter;
 }
 
-function forgeDeps(adapter: ForgeAdapter | null): ForgeExecutorDeps & { resolveAdapter: ReturnType<typeof vi.fn> } {
+function forgeDeps(adapter: ForgeAdapter | null): ForgeExecutorDeps & { resolveAdapter: Mock } {
   return { resolveAdapter: vi.fn(async () => (adapter ? { forge: FORGE, adapter } : null)) };
 }
 
