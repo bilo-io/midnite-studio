@@ -185,7 +185,7 @@ export const UpdatePackageActionSchema = z.object({
 });
 export type UpdatePackageAction = z.infer<typeof UpdatePackageActionSchema>;
 
-/** Guard Theme B: the fix is only on a newer major, so the action pins a override at that version. */
+/** Guard Theme B: the fix is only on a newer major, so the action pins an override at that version. */
 export const PinPackageActionSchema = z.object({
   id: z.literal('pin-package'),
   name: z.string(),

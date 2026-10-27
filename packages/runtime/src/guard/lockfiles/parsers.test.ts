@@ -91,6 +91,12 @@ snapshots:
     expect(parseGoSum(body, { path }).map((p) => `${p.name}@${p.version}`)).toEqual(['github.com/a/b@1.2.3']);
   });
 
+  it('pnpm v6 scoped names with a numeric second segment are not read as v5', () => {
+    const body = `packages:\n\n  '@scope/2fa@1.0.0':\n    resolution: {}\n`;
+    expect(parsePnpmLock(body, { path }).map((p) => `${p.name}@${p.version}`)).toEqual(['@scope/2fa@1.0.0']);
+    expect(parseLockfile('constructor', 'x', { path })).toEqual([]);
+  });
+
   it('parseLockfile dispatches by basename and never throws on garbage', () => {
     expect(parseLockfile('package-lock.json', '{not json', { path })).toEqual([]);
     expect(parseLockfile('unknown.lock', 'x', { path })).toEqual([]);

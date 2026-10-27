@@ -54,7 +54,10 @@ export function fixedVersions(advisory: GuardOsvAdvisory, ecosystem: string, nam
   const out = new Set<string>();
   for (const a of advisory.affected ?? []) {
     if (a.package && (a.package.name !== name || a.package.ecosystem !== ecosystem)) continue;
-    for (const r of a.ranges ?? []) for (const e of r.events ?? []) if (e.fixed) out.add(e.fixed);
+    for (const r of a.ranges ?? []) {
+      if (r.type !== 'ECOSYSTEM' && r.type !== 'SEMVER') continue; // GIT ranges carry commit SHAs
+      for (const e of r.events ?? []) if (e.fixed) out.add(e.fixed);
+    }
   }
   return [...out];
 }

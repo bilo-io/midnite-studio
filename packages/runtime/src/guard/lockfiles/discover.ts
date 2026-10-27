@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { LOCKFILE_PARSERS, parseLockfile } from './parsers';
@@ -18,7 +18,7 @@ export async function discoverLockfiles(root: string, depth = 0): Promise<string
   }
   const found: string[] = [];
   for (const entry of entries) {
-    if (entry.isFile() && entry.name in LOCKFILE_PARSERS) found.push(join(root, entry.name));
+    if (entry.isFile() && Object.hasOwn(LOCKFILE_PARSERS, entry.name)) found.push(join(root, entry.name));
     else if (entry.isDirectory() && depth < MAX_DEPTH && !SKIP_DIRS.has(entry.name) && !entry.name.startsWith('.')) {
       found.push(...(await discoverLockfiles(join(root, entry.name), depth + 1)));
     }
@@ -32,8 +32,8 @@ export async function resolveLockfiles(repos: readonly string[]): Promise<Locked
   for (const repo of repos) {
     for (const path of await discoverLockfiles(repo)) {
       try {
+        if ((await stat(path)).size > MAX_BYTES) continue;
         const body = await readFile(path, 'utf8');
-        if (body.length > MAX_BYTES) continue;
         out.push(...parseLockfile(path.slice(path.lastIndexOf('/') + 1), body, { path }));
       } catch {
         // unreadable lockfile: skipped

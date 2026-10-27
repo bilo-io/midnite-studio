@@ -11,7 +11,7 @@ const adv = (over: Partial<GuardOsvAdvisory> = {}): GuardOsvAdvisory => ({
   aliases: ['CVE-2021-1'],
   summary: 'Prototype pollution',
   database_specific: { severity: 'HIGH' },
-  affected: [{ package: { name: 'lodash', ecosystem: 'npm' }, ranges: [{ events: [{ fixed: '4.17.21' }] }] }],
+  affected: [{ package: { name: 'lodash', ecosystem: 'npm' }, ranges: [{ type: 'SEMVER', events: [{ fixed: '4.17.21' }] }] }],
   ...over,
 });
 const run = (inputs: Record<string, unknown>) => createLockfileCvesCheck(() => NOW).run({ lockfiles: [pkg], osv: { [osvKey(pkg)]: [adv()] }, ...inputs }) as ReturnType<typeof Array.prototype.concat>;
@@ -26,7 +26,7 @@ describe('lockfile-cves check (Phase 122 Theme B)', () => {
   });
 
   it('uses pin-package when the fix is only on a newer major, and no action when there is none', () => {
-    const major = adv({ affected: [{ package: { name: 'lodash', ecosystem: 'npm' }, ranges: [{ events: [{ fixed: '5.0.0' }] }] }] });
+    const major = adv({ affected: [{ package: { name: 'lodash', ecosystem: 'npm' }, ranges: [{ type: 'SEMVER', events: [{ fixed: '5.0.0' }] }] }] });
     expect(run({ osv: { [osvKey(pkg)]: [major] } })[0].remediation[0]).toMatchObject({ id: 'pin-package', to: '5.0.0' });
     expect(run({ osv: { [osvKey(pkg)]: [adv({ affected: [] })] } })[0].remediation).toEqual([]);
   });
@@ -48,5 +48,18 @@ describe('lockfile-cves check (Phase 122 Theme B)', () => {
     expect(createLockfileCvesCheck().run({})).toEqual([]);
     expect(createLockfileCvesCheck().run({ lockfiles: [pkg], osv: [], kev: [], suppressions: 'x' })).toEqual([]);
     expect(parseSuppressions([{ advisory: 'A', expires: '2030-01-01' }, { nope: 1 }, 'x'])).toHaveLength(1);
+  });
+});
+
+describe('review fixes', () => {
+  it('collapses a GHSA and its alias into one finding, and ignores GIT-range SHAs', () => {
+    const git = adv({ id: 'CVE-2021-1', aliases: [], affected: [{ ranges: [{ type: 'GIT', events: [{ fixed: '3f2a9c0' }] }] }] });
+    const out = run({ osv: { [osvKey(pkg)]: [adv({ affected: [{ package: { name: 'lodash', ecosystem: 'npm' }, ranges: [{ type: 'SEMVER', events: [{ fixed: '4.17.21' }] }] }] }), git] } });
+    expect(out).toHaveLength(1);
+    expect(out[0].remediation[0]).toMatchObject({ to: '4.17.21' });
+  });
+
+  it('an unparseable expiry does not suppress', () => {
+    expect(run({ suppressions: [{ advisory: 'GHSA-aaaa', expires: 'someday' }] })[0].severity).toBe('high');
   });
 });

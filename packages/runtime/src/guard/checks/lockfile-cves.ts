@@ -32,8 +32,8 @@ function isSuppressed(suppressions: readonly AuditSuppression[], ids: readonly s
     if (!ids.includes(s.advisory)) return false;
     if (s.package && s.package !== name) return false;
     if (s.expires) {
-      const t = Date.parse(`${s.expires}T23:59:59Z`);
-      if (Number.isFinite(t) && t < now) return false; // expired suppressions stop applying
+      const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(s.expires) ? `${s.expires}T23:59:59Z` : s.expires);
+      if (!Number.isFinite(t) || t < now) return false; // expired or unparseable: stops applying
     }
     return true;
   });
@@ -66,8 +66,11 @@ export function createLockfileCvesCheck(now: () => number = () => Date.now()): G
       const findings: SecurityFinding[] = [];
 
       for (const pkg of packages) {
+        const covered = new Set<string>(); // one finding per vulnerability, however many ids OSV files it under
         for (const adv of osv[osvKey(pkg)] ?? []) {
           const ids = [adv.id, ...(adv.aliases ?? [])];
+          if (ids.some((id) => covered.has(id))) continue;
+          ids.forEach((id) => covered.add(id));
           const kevHit = ids.map((id) => kev[id]).find((e): e is KevEntry => e !== undefined);
           let severity = advisorySeverity(adv);
           if (kevHit) severity = 'critical';

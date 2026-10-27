@@ -39,7 +39,7 @@ export function parsePnpmLock(content: string, opts: ParseOptions): LockedPackag
       key = key.replace(/\(.*$/, '');
       let name: string;
       let version: string;
-      const v5 = /^(.+)\/(\d[^/_]*)(?:_.*)?$/.exec(key); // v5: name/1.2.3[_peer@x]
+      const v5 = key.indexOf('@', 1) < 0 || /_.*@/.test(key) && !/@\d/.test(key.replace(/_.*$/, '')) ? /^(.+)\/(\d[^/_]*)(?:_.*)?$/.exec(key) : null; // v5: name/1.2.3[_peer@x]
       if (v5) {
         name = v5[1]!;
         version = v5[2]!;
@@ -160,7 +160,7 @@ export const LOCKFILE_PARSERS: Readonly<Record<string, (content: string, opts: P
 
 /** Parses a lockfile by its basename; an unknown name or an unreadable body yields no packages, never a throw. */
 export function parseLockfile(basename: string, content: string, opts: ParseOptions): LockedPackage[] {
-  const parser = LOCKFILE_PARSERS[basename];
+  const parser = Object.hasOwn(LOCKFILE_PARSERS, basename) ? LOCKFILE_PARSERS[basename] : undefined;
   if (!parser) return [];
   try {
     return parser(content, opts);
