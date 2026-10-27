@@ -57,7 +57,7 @@ import type { PasscodeService } from './unlock/passcode';
 /** The one place each namespace's on-disk file and degraded-mode behaviour is written down. */
 export const VAULT_NAMESPACES = {
   /** App-wide secrets keyed by `SecretKey` (Phase 76 Theme D — the Twelve Data key). */
-  secrets: { fileName: 'secrets.vault.json', fingerprinted: false, whenUnavailable: 'drop' },
+  secrets: { fileName: 'secrets.vault.json', fingerprinted: false, whenUnavailable: 'session' },
   /**
    * Forge personal access tokens keyed `${provider}:${host}:${login}` (Phase 90
    * Theme B). The one namespace that keeps a token for the session when the
@@ -185,6 +185,8 @@ export interface VaultService {
   lock(reason?: string): void;
   unlock(proof?: unknown): boolean | Promise<boolean>;
   onLockedChange(listener: (locked: boolean) => void): () => void;
+  /** Fires after any entry is set or deleted in any namespace (Phase 115 Theme C: refreshes the write-scrubber's values). */
+  onEntriesChanged(listener: () => void): () => void;
   readonly recentUnlockAt: number | null;
   isReauthValid(windowMs?: number): boolean;
 
@@ -316,6 +318,17 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
       sessionOnly.set(namespace, map);
     }
     return map;
+  };
+
+  const entryListeners = new Set<() => void>();
+  const entriesChanged = (): void => {
+    for (const listener of entryListeners) {
+      try {
+        listener();
+      } catch {
+        // A listener must never fail a vault write.
+      }
+    }
   };
 
   const isAvailable = (): boolean => cipher.isEncryptionAvailable();
@@ -549,6 +562,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
         if (!isAvailable()) {
           if (spec.whenUnavailable === 'session') sessionMap(namespace).set(key, value);
           await audit.log({ op: 'set', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
+          entriesChanged();
           return;
         }
         sessionOnly.get(namespace)?.delete(key);
@@ -557,6 +571,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
         // across the move is the changed entry and nothing else.
         await storeFor(namespace).set(key, spec.fingerprinted ? { fingerprint, encrypted } : { encrypted });
         await audit.log({ op: 'set', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
+        entriesChanged();
       },
 
       delete: async (namespace, key) => {
@@ -564,6 +579,7 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
         sessionOnly.get(namespace)?.delete(key);
         await storeFor(namespace).delete(key);
         await audit.log({ op: 'delete', namespace, id: key, app: appId, principal: 'user', result: 'ok' });
+        entriesChanged();
       },
 
       keys: async (namespace) => {
@@ -617,6 +633,12 @@ export function createVaultService(options: VaultServiceOptions): VaultService {
     lock,
     unlock,
     onLockedChange,
+    onEntriesChanged: (listener) => {
+      entryListeners.add(listener);
+      return () => {
+        entryListeners.delete(listener);
+      };
+    },
     get recentUnlockAt() {
       return recentUnlockAt;
     },

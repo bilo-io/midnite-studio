@@ -28,7 +28,12 @@ describe('locateAgentConversation and the Read Claude and Codex history switch',
   });
 
   it('finds the conversation while the switch is on (the default)', async () => {
+    applySettingsSync({ autoFetchEnabled: true, autoFetchIntervalMs: 60_000, readAgentHistory: true });
     expect(await locateAgentConversation('claude', cwd, 5_000, 15_000, { claudeProjectsDir: root })).toBe(uuid);
+  });
+
+  it('answers null before the renderer has pushed its settings (fail closed)', async () => {
+    expect(await locateAgentConversation('claude', cwd, 5_000, 15_000, { claudeProjectsDir: root })).toBeNull();
   });
 
   it('answers null without touching the directory once the switch is off', async () => {

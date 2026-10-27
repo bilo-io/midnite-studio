@@ -57,7 +57,7 @@ export { readTwelveDataKey };
 
 /**
  * The brokerage accounts' credential store (Phase 113 Theme P slice 2): main-only, read by the
- * accounts service to sign a request and by nothing else. A write with no vault is dropped, like
+ * accounts service to sign a request and by nothing else. A write with no vault is dropped; with an unusable keychain it is held for the session, like
  * every other secret's, and reads as absent — the account then reports its credentials missing.
  */
 export const accountCredentials = {
@@ -109,6 +109,7 @@ export function registerSecretsHandlers(): void {
     recentUnlockAt: vaultService ? vaultService.recentUnlockAt : null,
     canPromptTouchId: false,
     tamperedFile: vaultService ? vaultService.getTamperedFile() : null,
+    keychainAvailable: vaultService ? vaultService.isAvailable() : true,
   }));
 
   handleBare(CHANNELS.vaultLock, async () => {

@@ -43,3 +43,14 @@ describe('settings-mirror', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('agentHistoryReadsEnabled (Phase 115 Theme F leftover)', () => {
+  it('fails closed until the renderer has pushed its settings', async () => {
+    const { agentHistoryReadsEnabled } = await import('./settings-mirror');
+    expect(agentHistoryReadsEnabled()).toBe(false);
+    applySettingsSync({ autoFetchEnabled: true, autoFetchIntervalMs: 60_000, readAgentHistory: true });
+    expect(agentHistoryReadsEnabled()).toBe(true);
+    applySettingsSync({ autoFetchEnabled: true, autoFetchIntervalMs: 60_000, readAgentHistory: false });
+    expect(agentHistoryReadsEnabled()).toBe(false);
+  });
+});

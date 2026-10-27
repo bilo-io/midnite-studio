@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { migrateLegacyAgentApiKeys } from './migrate-agent-api-keys';
+import { useToastStore } from './toast-store';
 import { useUiStore } from './ui-store';
 
 type FakeSecrets = {
@@ -86,5 +87,38 @@ describe('migrateLegacyAgentApiKeys', () => {
     useUiStore.setState({ agentApiKeys: { claude: 'sk-secret' } });
     await migrateLegacyAgentApiKeys();
     for (const s of spies) expect(JSON.stringify(s.mock.calls)).not.toContain('sk-secret');
+  });
+});
+
+describe('migrateLegacyAgentApiKeys — no Keychain (Phase 115 Theme D)', () => {
+  beforeEach(() => {
+    useUiStore.setState({ agentApiKeys: {} });
+    useToastStore.setState({ toasts: [] });
+  });
+  afterEach(() => {
+    delete (window as unknown as { midniteStudio?: unknown }).midniteStudio;
+  });
+
+  it('removes the plaintext copy once the vault holds it for the session, and says so', async () => {
+    const { secrets } = fakeVault();
+    (window as unknown as { midniteStudio: unknown }).midniteStudio = {
+      secrets,
+      vaultLock: { status: vi.fn(async () => ({ keychainAvailable: false })) },
+    };
+    useUiStore.setState({ agentApiKeys: { claude: 'sk-a' } });
+    await migrateLegacyAgentApiKeys();
+    expect(useUiStore.getState().agentApiKeys).toEqual({});
+    expect(useToastStore.getState().toasts.map((t) => t.message).join(' ')).toMatch(/Keychain unavailable/);
+  });
+
+  it('stays quiet when the Keychain works', async () => {
+    const { secrets } = fakeVault();
+    (window as unknown as { midniteStudio: unknown }).midniteStudio = {
+      secrets,
+      vaultLock: { status: vi.fn(async () => ({ keychainAvailable: true })) },
+    };
+    useUiStore.setState({ agentApiKeys: { claude: 'sk-a' } });
+    await migrateLegacyAgentApiKeys();
+    expect(useToastStore.getState().toasts).toEqual([]);
   });
 });

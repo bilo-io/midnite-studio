@@ -100,6 +100,21 @@ function ConfinementAccordion() {
   );
 }
 
+/** Phase 115 Theme D: no usable Keychain means vault entries (agent API keys included) last until quit. */
+function KeychainNote() {
+  const { data } = useQuery({
+    queryKey: ['vault-keychain-status'],
+    queryFn: async () => bridge()!.vaultLock?.status({}),
+    enabled: hasBridge(),
+  });
+  if (!data || data.keychainAvailable) return null;
+  return (
+    <p data-testid="keychain-unavailable" className="text-[11px] leading-relaxed text-amber-500">
+      Keychain unavailable: API keys you enter last until you quit.
+    </p>
+  );
+}
+
 export function AgentPage() {
   const queryClient = useQueryClient();
   const { data: info } = useQuery({
@@ -129,6 +144,7 @@ export function AgentPage() {
               }}
             />
           </div>
+          <KeychainNote />
           <AgentsRoster />
         </div>
       </SettingsAccordion>

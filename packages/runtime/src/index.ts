@@ -17,6 +17,7 @@ export * from './host';
 export * from './fs-jail';
 export * from './fs-jail-write';
 export * from './private-files';
+export * from './disk-redaction';
 export * from './read-capped';
 export * from './login-shell';
 export * from './engine-key-env';

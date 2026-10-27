@@ -104,11 +104,11 @@ catalog checks. An idle e2e test proves no request leaves with every switch off.
 history, chats, logs and voice, with a one-time migration of existing files. A retention limit the
 user chooses (default: keep). "Clear all local history". FileVault named as the at-rest protection.
 
-**Theme C — Scrub secrets before they reach disk.** ◻ Log records, archived session transcripts
+**Theme C — Scrub secrets before they reach disk.** ✅ DONE (PR TBD). Landed: `runtime/src/disk-redaction.ts` (a synchronous snapshot of the vault's live values plus `redactOutbound`'s shape patterns, home directory kept) applied to log records, chats and patches on write, and to archived transcripts as they move out of scrollback (live scrollback stays byte-exact; non-UTF-8 bytes scrub as latin1). Main refreshes the snapshot at boot, on every vault set/delete (new `VaultService.onEntriesChanged`) and on unlock, and keeps the last snapshot while the vault is locked. Reused Phase 121's matcher rather than a second one, so the label is `[redacted: vault-secret]`, not `[redacted:<namespace>]`. Original text: Log records, archived session transcripts
 and chats pass through `redactRecord` on write. A vault-value matcher catches the prefixless tokens
 (Azure DevOps, Bitbucket). Scrollback stays byte-exact.
 
-**Theme D — No plaintext key when the Keychain is missing.** ◻ The legacy `agentApiKeys` copy
+**Theme D — No plaintext key when the Keychain is missing.** ✅ DONE (PR TBD). Landed: the `secrets` vault namespace now holds a value for the session when encryption is unavailable (`whenUnavailable: 'session'`, like forge PATs), so `secrets.has` answers true and the migration drops the localStorage copy; `vaultLock.status` carries `keychainAvailable`, which drives a one-time warning toast at migration and a persistent note on Settings ▸ Agents. Also fixed (#1031 leftover): main's `agentHistoryReadsEnabled()` now fails closed until the renderer's first settings push. Original text: The legacy `agentApiKeys` copy
 moves to session memory instead of staying in localStorage, with a visible notice, matching how
 forge PATs already degrade.
 
@@ -189,26 +189,26 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### C — Scrub secrets before they reach disk [M · ~1d]
 
-- [ ] **Redact on write.** `log-sink.ts` record bodies, archived session transcripts and chat
+- [x] **Redact on write.** `log-sink.ts` record bodies, archived session transcripts and chat
       messages pass through `redactRecord` before they are written. Scrollback does not.
-- [ ] **A vault-value matcher.** On vault load and change, main builds a set of the live secret
+- [x] **A vault-value matcher.** On vault load and change, main builds a set of the live secret
       values (≥ 12 chars) and `redactRecord` replaces any occurrence with `[redacted:<namespace>]`.
       This catches prefixless Azure DevOps and Bitbucket tokens and anything the patterns miss.
       The values never leave main.
-- [ ] **Tests.** A log record containing a stored Azure PAT and a transcript containing a stored
+- [x] **Tests.** A log record containing a stored Azure PAT and a transcript containing a stored
       `sk-` key are written scrubbed, and a 40-hex commit SHA is not redacted (the Phase 91 G
       negative case).
-- [ ] *Acceptance:* `grep -r <test-token> <userData>` finds nothing after a scripted session that
+- [x] *Acceptance:* `grep -r <test-token> <userData>` finds nothing after a scripted session that
       pasted it into a chat and an agent prompt.
 
 ### D — No plaintext key when the Keychain is missing [S · ≤ 2h]
 
-- [ ] **Session-only fallback.** When `safeStorage.isEncryptionAvailable()` is false,
+- [x] **Session-only fallback.** When `safeStorage.isEncryptionAvailable()` is false,
       `migrate-agent-api-keys.ts` hands the key to the vault's session-only degrade (as forge PATs
       already do) and removes it from `midnite-studio.ui` anyway.
-- [ ] **Tell the user.** A one-time notice and a persistent note on Settings ▸ Agents: "Keychain
+- [x] **Tell the user.** A one-time notice and a persistent note on Settings ▸ Agents: "Keychain
       unavailable — keys last until you quit."
-- [ ] *Acceptance:* with encryption forced off, the persisted `midnite-studio.ui` blob holds no
+- [x] *Acceptance:* with encryption forced off, the persisted `midnite-studio.ui` blob holds no
       `agentApiKeys` value after first run, and the key still works until quit.
 
 ### E — Inbound surfaces that check who's asking [M · ~1d]

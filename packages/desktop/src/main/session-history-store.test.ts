@@ -191,3 +191,26 @@ describe('session history store', () => {
     expect(reopened[0]?.agentConversationId).toBe('uuid-123');
   });
 });
+
+describe('archived transcripts are scrubbed on write (Phase 115 Theme C)', () => {
+  it('scrubs a stored secret out of the archive, and keeps an unmatched transcript byte-identical', async () => {
+    const { setDiskRedactionSecrets } = await import('@midnite/studio-runtime');
+    const token = 'q3b7m2x9k4v8n1c5z6a0w7e2r4t9y1u3i5o8p0l2k4j6h8g1f3d5';
+    setDiskRedactionSecrets([{ name: 'secrets:k', value: token, kind: 'vault' }]);
+    try {
+      const dir = await tempDir();
+      const store = createSessionHistoryStore(dir);
+      const from = await seedScrollbackFile(dir, 'dirty', `export T=${token}\r\n`);
+      await store.append(closed({ id: 'dirty' }), from);
+      const dirty = Buffer.from(await store.transcript('dirty')).toString();
+      expect(dirty).not.toContain(token);
+      expect(dirty).toContain('export T=');
+
+      const clean = await seedScrollbackFile(dir, 'clean', 'ls\r\n');
+      await store.append(closed({ id: 'clean' }), clean);
+      expect(Buffer.from(await store.transcript('clean')).toString()).toBe('ls\r\n');
+    } finally {
+      setDiskRedactionSecrets([]);
+    }
+  });
+});

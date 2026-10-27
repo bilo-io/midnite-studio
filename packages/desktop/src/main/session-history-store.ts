@@ -1,7 +1,7 @@
 import { chmod, copyFile, readFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { ensurePrivateDir, writePrivateFile } from '@midnite/studio-runtime';
+import { ensurePrivateDir, redactBytesForDisk, writePrivateFile } from '@midnite/studio-runtime';
 import {
   ClosedSessionSchema,
   MAX_CLOSED_SESSIONS,
@@ -187,6 +187,18 @@ async function archiveTranscript(
     await ensurePrivateDir(transcriptDir);
   } catch {
     return;
+  }
+  try {
+    // Phase 115 Theme C: live scrollback stays byte-exact, but the archive is a document at rest,
+    // so a stored secret that reached the terminal is scrubbed on the way in.
+    const scrubbed = redactBytesForDisk(await readFile(from));
+    if (scrubbed !== null) {
+      await writePrivateFile(to, scrubbed);
+      await rm(from, { force: true });
+      return;
+    }
+  } catch {
+    // Unreadable: fall through to the rename, which reports its own failure.
   }
   try {
     await rename(from, to);

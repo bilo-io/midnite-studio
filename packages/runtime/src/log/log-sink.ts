@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { redactPaths } from '@midnite/studio-shared';
 
+import { redactForDisk } from '../disk-redaction';
 import { appendPrivateFileSync, ensurePrivateDirSync } from '../private-files';
 
 /**
@@ -231,7 +232,7 @@ export function createFileSink(options: FileSinkOptions): LogSink {
   }
 
   function serialise(level: LogLevel, message: string): string {
-    const record: LogRecord = { t: now(), level, msg: redactPaths(message, homeDir) };
+    const record: LogRecord = { t: now(), level, msg: redactForDisk(redactPaths(message, homeDir)) };
     // A message containing a newline would otherwise split one record into two
     // lines, and the tail parser reads line by line. `JSON.stringify` escapes
     // them, which is the other half of why the format is NDJSON.
