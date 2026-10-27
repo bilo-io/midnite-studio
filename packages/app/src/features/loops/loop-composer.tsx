@@ -23,10 +23,9 @@ import {
   isCustomLoop,
   type CustomLoop,
 } from '@midnite/studio-shared';
-import { Collapse } from '@bilo-io/ui';
+import { Collapse, Slider } from '@bilo-io/ui';
 import { useId, useState, type ReactNode } from 'react';
 
-import { GradientSlider } from './gradient-slider';
 import {
   LuBrain,
   LuCalendarDays,
@@ -621,6 +620,20 @@ function CustomLoopHeader({ loop }: { loop: CustomLoop }) {
 }
 
 /**
+ * The loop's own spectrum as colour stops: `--fab-spec-1…5` cascade from the
+ * nearest `[data-fab-tab]` (inline on a custom loop, `styles.css` rows for
+ * built-ins), so the fallbacks only matter outside the Loops panel. The
+ * library Slider joins them into a ramp and rings focus in the middle stop.
+ */
+const LOOP_SPECTRUM = [
+  'rgb(var(--fab-spec-1, 244 63 94))',
+  'rgb(var(--fab-spec-2, 245 158 11))',
+  'rgb(var(--fab-spec-3, 16 185 129))',
+  'rgb(var(--fab-spec-4, 59 130 246))',
+  'rgb(var(--fab-spec-5, 139 92 246))',
+];
+
+/**
  * When a subagent hands over to a fresh one — a percentage of its context
  * window, sent as "Auto-rotate subagents at N% context." on every run.
  */
@@ -638,15 +651,16 @@ function AutoRotateSlider({
         <label htmlFor={id}>Auto-rotate subagents</label>
         <span className="font-mono text-[10px] text-foreground">{percent}%</span>
       </div>
-      <GradientSlider
+      <Slider
         id={id}
         min={LOOP_AUTO_ROTATE.min}
         max={LOOP_AUTO_ROTATE.max}
         step={LOOP_AUTO_ROTATE.step}
         value={percent}
         onValueChange={onPercent}
-        valueText={`${percent}% context`}
-        testId="auto-rotate-slider"
+        gradient={LOOP_SPECTRUM}
+        aria-valuetext={`${percent}% context`}
+        data-testid="auto-rotate-slider"
       />
     </div>
   );

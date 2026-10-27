@@ -12,7 +12,7 @@
     "dist": "node ../../scripts/electron-freshness.mjs --strict && pnpm run build"
   },
   "dependencies": {
-    "@bilo-io/ui": "0.1.0",
+    "@bilo-io/ui": "0.2.0",
     "@midnite/studio-feature-browser": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",

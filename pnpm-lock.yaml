@@ -52,8 +52,8 @@ importers:
   apps/agents:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-chats':
         specifier: workspace:*
         version: link:../../packages/features/chats
@@ -170,8 +170,8 @@ importers:
   apps/browser:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-browser':
         specifier: workspace:*
         version: link:../../packages/features/browser
@@ -252,8 +252,8 @@ importers:
   apps/capture:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-capture':
         specifier: workspace:*
         version: link:../../packages/features/capture
@@ -331,8 +331,8 @@ importers:
   apps/cleaner:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-optimizer':
         specifier: workspace:*
         version: link:../../packages/features/optimizer
@@ -410,8 +410,8 @@ importers:
   apps/coder:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-db-engine':
         specifier: workspace:*
         version: link:../../packages/db-engine
@@ -522,8 +522,8 @@ importers:
   apps/creator:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-media-audio':
         specifier: workspace:*
         version: link:../../packages/features/media-audio
@@ -619,8 +619,8 @@ importers:
   apps/gamer:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-media-core':
         specifier: workspace:*
         version: link:../../packages/features/media-core
@@ -795,8 +795,8 @@ importers:
   apps/media:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-media-core':
         specifier: workspace:*
         version: link:../../packages/features/media-core
@@ -880,8 +880,8 @@ importers:
   apps/mind:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-notes':
         specifier: workspace:*
         version: link:../../packages/features/notes
@@ -965,8 +965,8 @@ importers:
   apps/money:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-finance':
         specifier: workspace:*
         version: link:../../packages/features/finance
@@ -1047,8 +1047,8 @@ importers:
   apps/monitor:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-monitor':
         specifier: workspace:*
         version: link:../../packages/features/monitor
@@ -1151,8 +1151,8 @@ importers:
   apps/vanguard:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
@@ -1233,8 +1233,8 @@ importers:
   apps/vault:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
@@ -1312,11 +1312,11 @@ importers:
   packages/app:
     dependencies:
       '@bilo-io/shell':
-        specifier: 0.1.0
-        version: 0.1.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@24.19.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@24.19.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@dagrejs/dagre':
         specifier: ^3.1.1
         version: 3.1.1
@@ -1867,8 +1867,8 @@ importers:
   packages/features/api-client:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../frame
@@ -2163,8 +2163,8 @@ importers:
   packages/features/database:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-db-engine':
         specifier: workspace:*
         version: link:../../db-engine
@@ -2291,8 +2291,8 @@ importers:
   packages/features/forge:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../frame
@@ -3413,8 +3413,8 @@ importers:
   packages/features/report:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../frame
@@ -3669,8 +3669,8 @@ importers:
   packages/features/tests:
     dependencies:
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../frame
@@ -3904,11 +3904,11 @@ importers:
   packages/frame:
     dependencies:
       '@bilo-io/shell':
-        specifier: 0.1.0
-        version: 0.1.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@bilo-io/ui':
-        specifier: 0.1.0
-        version: 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.2.0
+        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -4288,16 +4288,16 @@ packages:
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
 
-  '@bilo-io/shell@0.1.0':
-    resolution: {integrity: sha512-oNhRXKR0tbjYBc1wIUncNOchoEl9VZraFAMhhS0qp4W4dei5RKUcm7t6lNE4N7faivZdBWIDeGnbqYrbikezqA==, tarball: https://npm.pkg.github.com/download/@bilo-io/shell/0.1.0/d6acfad07592790e6de5256ef317eb41ac184377}
+  '@bilo-io/shell@0.2.0':
+    resolution: {integrity: sha512-rls1u9KwM8qp+vyuTDHfltxOQ4Z7vFbv/VmgM+qKZ1137miCrzJ+ieSQ6lK+qu6CQ+qcb3VU2LnvKDIVn7QEaQ==, tarball: https://npm.pkg.github.com/download/@bilo-io/shell/0.2.0/c97a2c290661c43d65eb9f6e996fcb714ddc65c5}
     peerDependencies:
       '@tanstack/react-query': ^5
       next-intl: ^4
       react: ^19.0.0
       react-dom: ^19.0.0
 
-  '@bilo-io/ui@0.1.0':
-    resolution: {integrity: sha512-NvUGS2wBP3x5iwEkQ1V3AeT998BIcjmqufaV5WDTvg4tmCH86RyH/LpSAJ8SXr2UPXVrLPkErZPRLHUoyB2bNA==, tarball: https://npm.pkg.github.com/download/@bilo-io/ui/0.1.0/b7b6b3446380a6dc80999914db058c10fb1f8127}
+  '@bilo-io/ui@0.2.0':
+    resolution: {integrity: sha512-/lr6C6ojQkU4y5ha2oiPMdw23kgaMPmxAhzc2sjpMO31GYwzcaPsEtjcOWbnVxzs/qPl2F/lSpzqeLMpjuP48Q==, tarball: https://npm.pkg.github.com/download/@bilo-io/ui/0.2.0/7678af2f9fc962184bbcd757525ba9b7a59edc32}
     peerDependencies:
       react: ^19.0.0
       react-dom: ^19.0.0
@@ -9216,7 +9216,6 @@ packages:
 
   sherpa-onnx-darwin-arm64@1.13.7:
     resolution: {integrity: sha512-5NCE50hAvr3n2pdett0SgfPBJXaFZE0bqHwbHyiq+IKZ8Ids0l4M0VrG+ImGYIafCwie+oC3uAJ+pKj9xg/k+w==}
-    cpu: [arm64]
     os: [darwin]
 
   sherpa-onnx-darwin-x64@1.13.7:
@@ -10325,9 +10324,9 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@bilo-io/shell@0.1.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@bilo-io/shell@0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@bilo-io/ui': 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@bilo-io/ui': 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tanstack/react-query': 5.102.3(react@19.2.8)
       clsx: 2.1.1
       lucide-react: 1.34.0(react@19.2.8)
@@ -10339,9 +10338,9 @@ snapshots:
       - '@types/react'
       - supports-color
 
-  '@bilo-io/shell@0.1.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@24.19.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@bilo-io/shell@0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@24.19.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@bilo-io/ui': 0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@bilo-io/ui': 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tanstack/react-query': 5.102.3(react@19.2.8)
       clsx: 2.1.1
       lucide-react: 1.34.0(react@19.2.8)
@@ -10353,7 +10352,7 @@ snapshots:
       - '@types/react'
       - supports-color
 
-  '@bilo-io/ui@0.1.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@bilo-io/ui@0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       class-variance-authority: 0.7.1
       clsx: 2.1.1
