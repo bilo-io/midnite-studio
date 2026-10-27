@@ -196,6 +196,14 @@ function fakeMedia(): RecorderMedia {
 }
 
 describe('CapturePage', () => {
+  it('owns its own scroll container so content taller than the pane scrolls', async () => {
+    mount();
+    await screen.findByText('Pick what to capture.');
+    const scroller = screen.getByTestId('capture-scroll');
+    expect(scroller.className).toContain('overflow-y-auto');
+    expect(scroller.className).toContain('min-h-0');
+  });
+
   it('captures nothing on mount — not even source thumbnails', async () => {
     const { capture } = mount();
     expect(await screen.findByText('Pick what to capture.')).toBeTruthy();
