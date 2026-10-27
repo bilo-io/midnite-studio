@@ -6,6 +6,7 @@ import {
   configureLoopRuns,
   listLoopRuns,
   noteSessionExit,
+  setGuardSummaryProvider,
   startLoopRun,
   stopLoopRun,
 } from './loop-runs';
@@ -69,6 +70,19 @@ describe('startLoopRun', () => {
 
     expect(run.findingsSummary).toEqual(summary);
     expect((await listLoopRuns())[0]?.findingsSummary).toEqual(summary);
+  });
+
+  it('fills a Guard run\'s findingsSummary from the latest sweep, and only for Guard', async () => {
+    configure(fakeStore());
+    const summary = { critical: 0, high: 1, medium: 0, low: 0, info: 0, total: 1 };
+    setGuardSummaryProvider(async () => summary);
+    try {
+      const base = { sessionId: 's', composedPrompt: '/loop x', checkedModifierIds: [] };
+      expect((await startLoopRun({ ...base, loopId: 'guard' })).findingsSummary).toEqual(summary);
+      expect((await startLoopRun({ ...base, loopId: 'medic', sessionId: 's2' })).findingsSummary).toBeUndefined();
+    } finally {
+      setGuardSummaryProvider(null);
+    }
   });
 });
 

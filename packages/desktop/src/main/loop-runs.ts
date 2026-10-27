@@ -71,6 +71,15 @@ export async function listLoopRuns(): Promise<LoopRunRecord[]> {
   return [...runs];
 }
 
+/**
+ * Where a Guard run's findings summary comes from (Phase 122): main's own latest sweep, so the renderer never has
+ * to know the counts. Set by `guard-sweep-wiring.ts` at boot; absent in tests.
+ */
+let guardSummaryProvider: (() => Promise<LoopRunFindingsSummary | undefined>) | null = null;
+export function setGuardSummaryProvider(provider: (() => Promise<LoopRunFindingsSummary | undefined>) | null): void {
+  guardSummaryProvider = provider;
+}
+
 export async function startLoopRun(req: {
   loopId: string;
   sessionId: string;
@@ -79,6 +88,8 @@ export async function startLoopRun(req: {
   model?: LoopModel | undefined;
   findingsSummary?: LoopRunFindingsSummary | undefined;
 }): Promise<LoopRunRecord> {
+  const findingsSummary =
+    req.findingsSummary ?? (req.loopId === 'guard' ? await guardSummaryProvider?.().catch(() => undefined) : undefined);
   return withLock(async () => {
     await ensureLoaded();
     const record: LoopRunRecord = {
@@ -92,7 +103,7 @@ export async function startLoopRun(req: {
       // `.optional()` field, and an explicit `undefined` key would survive the
       // JSON round-trip as a present-but-empty property in the ledger file.
       ...(req.model === undefined ? {} : { model: req.model }),
-      ...(req.findingsSummary === undefined ? {} : { findingsSummary: req.findingsSummary }),
+      ...(findingsSummary === undefined ? {} : { findingsSummary }),
       status: 'running',
     };
     /*
