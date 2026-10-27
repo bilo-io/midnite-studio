@@ -17,7 +17,7 @@ import { EndedStrip } from './ended-banner';
 import { enableUnicode11 } from './enable-unicode11';
 import { createFitCoalescer } from './fit-coalescer';
 import { createInputQueue, type InputQueue } from './input-queue';
-import { isXtermFocusReport } from './is-xterm-focus-report';
+import { isXtermFocusReport, isXtermMouseReport, shouldWakeDeadPane } from './is-xterm-focus-report';
 import { parseOsc7 } from './parse-osc7';
 import { createReplayGate, gateLiveWrite, replayLiveHandoff, type ReplayGate } from './replay-gate';
 import { attachTerminalLinks } from './terminal-links';
@@ -712,7 +712,7 @@ export function TerminalView({
           // DOM focus — including the programmatic `.focus()` below that
           // fires just from selecting this session in the sidebar. Those
           // aren't the user typing, so they must not clear the glyph.
-          if (session.kind !== 'shell' && !isXtermFocusReport(data)) {
+          if (session.kind !== 'shell' && !isXtermFocusReport(data) && !isXtermMouseReport(data)) {
             // Typing at an agent answers the question the "waiting" glyph is
             // asking, so the glyph drops back to idle on the first keystroke
             // rather than sitting there until the next footer repaint proves
@@ -739,8 +739,11 @@ export function TerminalView({
         // can still have DEC focus-tracking latched on from whatever TUI was
         // running. Switching tabs or Cmd-Tabbing away fires a focus/blur
         // report through this same `onData` stream — that's not the user
-        // asking to wake this session, so it must not revive one.
-        if (isXtermFocusReport(data)) return;
+        // asking to wake this session, so it must not revive one. Mouse
+        // tracking latches the same way: a stopped loop's pane kept its
+        // agent TUI's mode, so merely hovering it emitted mouse reports here
+        // and restarted the loop. Only a keystroke or paste wakes a pane.
+        if (!shouldWakeDeadPane(data)) return;
         void startRef.current(term.cols, term.rows, initialInputRef.current);
       });
 
