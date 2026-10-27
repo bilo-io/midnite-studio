@@ -34,7 +34,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // vitest 4 hands back the existing spy for an already-spied method, so calls leak across tests.
+  // vitest 4 hands back the existing spy for an already-spied method, and restoreAllMocks no longer
+  // resets call history, so calls would leak across tests without the clear.
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
