@@ -1,0 +1,22 @@
+{
+  // The manifest and (later) the renderer half — compiled from source by the app that composes them,
+  // so this config only typechecks. The main half has its own config (tsconfig.main.json).
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"],
+    "paths": {
+      "@midnite/studio-shared": ["../../shared/src/index.ts"],
+      "@midnite/studio-runtime": ["../../runtime/src/index.ts"],
+      "@midnite/studio-git-engine": ["../../git-engine/src/index.ts"]
+    }
+  },
+  "include": ["main/**/*", "manifest.ts", "manifest.test.ts", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

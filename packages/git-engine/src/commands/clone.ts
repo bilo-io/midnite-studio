@@ -22,8 +22,15 @@ export type CloneResult = { ok: true; path: string } | { ok: false; message: str
  * clone has no `index.lock` — no repo, and therefore no registry entry, for
  * anything else in the app to be racing against yet.
  */
-export async function cloneRepo(destDir: string, url: string, name: string): Promise<CloneResult> {
-  const result = await execGit(destDir, ['clone', '--', url, name], { write: true });
+export async function cloneRepo(
+  destDir: string,
+  url: string,
+  name: string,
+  /** `mirror: true` makes a bare `--mirror` copy (every ref, no worktree) — Phase 119 Theme A's backup. */
+  options: { mirror?: boolean } = {},
+): Promise<CloneResult> {
+  const flags = options.mirror ? ['--mirror'] : [];
+  const result = await execGit(destDir, ['clone', ...flags, '--', url, name], { write: true });
   if (result.exitCode !== 0) {
     const line =
       result.stderr

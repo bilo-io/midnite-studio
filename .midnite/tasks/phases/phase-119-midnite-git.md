@@ -111,7 +111,7 @@ own Mac, in a forge you can read with your own git client, with jobs that run in
 own.* Born from a suite that speaks to four forges and owns none. (0% · 0/57) — **Planned
 2026-10-22.**
 
-**Theme A — Mirror and backup, no server required.** ◻ Every reachable repo as a bare `--mirror`
+**Theme A — Mirror and backup, no server required.** ◐ Engine landed (PR pending), adapter wiring and UI open. New headless `packages/features/forge-host` (main only, placed under `coder` until Theme C's git app exists): `cloneRepo` gained `{mirror}`; layout with path-segment and remote-URL validation; bare mirror refresh through the write queue; `git fsck`, ref listing and head comparison marking a mirror `degraded` (previous manifest kept) or `failed`; NDJSON/JSON metadata through a `MetadataSource` port (forge cannot be imported, so the composer will wrap `ForgeAdapter`), merged by `id` on incremental runs; SHA-256 manifest verify; `restoreMirror` (`push --mirror`); a per-host-serial scheduler over `mirrors.json`, all 0600/0700 via `private-files`. `for-each-ref` has no `-z`, so refs are `%00`-terminated. Open: adapter composer, picker, encrypted archive. Every reachable repo as a bare `--mirror`
 under `~/Midnite/Git/mirrors`, forge metadata (issues, PRs, reviews, labels, milestones, releases)
 as NDJSON beside it, fetched on a schedule through the existing adapter, verified by `git fsck` and
 a manifest, restorable with one command.
@@ -151,36 +151,36 @@ egress registry entries for the image registries, container-runtime detection in
 
 ### A — Mirror and backup, no server required [L · 1–2d]
 
-- [ ] **The mirror layout.** `~/Midnite/Git/mirrors/<host>/<owner>/<repo>.git` (bare, created
+- [x] ✅ (PR pending)  **The mirror layout.** `~/Midnite/Git/mirrors/<host>/<owner>/<repo>.git` (bare, created
       with `git clone --mirror` via [`clone.ts`](../../../packages/git-engine/src/commands/clone.ts)'s
       `cloneRepo` gaining a `mirror: true` option; refreshed with `git remote update --prune` through the write
       queue) and `<repo>.meta/` beside it: `issues.ndjson`, `pulls.ndjson`, `reviews.ndjson`,
       `comments.ndjson`, `labels.json`, `milestones.json`, `releases.json`, `manifest.json`
       (`{ fetchedAt, headRefs: {ref: sha}, files: {name: sha256}, adapter, account }`). All files
       0600 in 0700 dirs (Phase 115 B helpers); the root is user-configurable.
-- [ ] **Metadata through the adapter.** A new optional `exportRepo(forge, sink)` on
+- [ ] ◐ PARTIAL **Metadata through the adapter.** *(landed: the `MetadataSource` port, id-merge incremental export, backoff on `RateLimitError`; open: the composer that wraps `ForgeAdapter` into the port, and GitHub releases.)* A new optional `exportRepo(forge, sink)` on
       `ForgeAdapter`, with a default implementation that composes the existing `listIssues`,
       `listPulls`, `pullComments`, `pullThreads`, `issueComments`, `listWorkflows` and `listRuns`
       pages; GitHub adds releases and assets (manifest only, binaries optional) via
       [`gh-cli.ts`](../../../packages/features/forge/main/github/gh-cli.ts). Rate-limit aware:
       incremental since `manifest.fetchedAt`, backoff on 403/429, never more than one repo at a
       time per host.
-- [ ] **Selection and schedule.** From [`reachable-repos.ts`](../../../packages/features/forge/main/reachable-repos.ts),
+- [ ] ◐ PARTIAL **Selection and schedule.** *(landed: `mirrors.json` config, hourly/daily/weekly/manual, per-host-serial scheduler; open: the picker over `reachable-repos` and starting it from the app, Theme C.)* From [`reachable-repos.ts`](../../../packages/features/forge/main/reachable-repos.ts),
       the user picks repos (default: every repo Studio has open, plus any the user adds); the
       interval is hourly / daily / weekly / manual (default daily); a run is a main-side scheduler
       in `forge-host`, not a loop. Every outbound call is already a registered forge host under
       Phase 115 A.
-- [ ] **Verification.** After every refresh: `git fsck --no-dangling` on the bare repo, head refs
+- [x] ✅ (PR pending)  **Verification.** After every refresh: `git fsck --no-dangling` on the bare repo, head refs
       compared to the adapter's view of the default branch, the manifest's SHA-256 per metadata
       file recomputed; a mismatch marks the mirror `degraded` with the reason and keeps the
       previous manifest.
-- [ ] **Restore.** `restoreMirror(target)`: `git push --mirror <target>` for the refs (works to
+- [x] ✅ (PR pending)  **Restore.** `restoreMirror(target)`: `git push --mirror <target>` for the refs (works to
       any remote: a fresh GitHub repo, the local forge, a USB disk); metadata restore is
       Theme G's job and is best-effort by nature.
-- [ ] **Encrypt the metadata archive, optionally.** A switch that wraps `<repo>.meta/` in
+- [ ] ⏳ deferred **Encrypt the metadata archive, optionally.** *(waits on Phase 118 G's export format.)* A switch that wraps `<repo>.meta/` in
       [Phase 118](phase-118-vault-security-hardening.md) G's export format with a passphrase;
       the bare repo stays plain git on a FileVault disk (Decision 4).
-- [ ] *Acceptance:* a fresh profile mirrors this repository and its issues in one run; a second
+- [ ] ◐ PARTIAL *Acceptance:* *(incremental refresh, `degraded` on a corrupt object and on a tampered metadata file, and exact `restoreMirror` are tested against local fixtures; mirroring this repo and its issues needs the adapter composer.)* a fresh profile mirrors this repository and its issues in one run; a second
       run is incremental (network trace shows `since=`); corrupting one object makes the mirror
       `degraded`; `restoreMirror` to a temp bare repo reproduces every ref.
 
