@@ -941,12 +941,28 @@ export const startStudioMain: StartStudioMain = () => {
       const outboundSource = createOutboundSecretSource({ vault: studioVault, ttlMs: 0 });
       configureOutboundSecrets(createOutboundSecretSource({ vault: studioVault }));
       // Phase 115 Theme C: the same values, as a synchronous snapshot, scrub what history writes to disk.
+      // Loads never overlap: a change that lands mid-load queues exactly one more, so the snapshot cannot
+      // end up older than the last write.
+      let refreshing = false;
+      let refreshAgain = false;
       const refreshDiskSecrets = (): void => {
         // A locked vault reads as empty; keep the last snapshot rather than scrub with nothing.
         if (vaultService.isLocked()) return;
+        if (refreshing) {
+          refreshAgain = true;
+          return;
+        }
+        refreshing = true;
         void outboundSource()
           .then((secrets) => setDiskRedactionSecrets(secrets))
-          .catch(() => undefined);
+          .catch(() => undefined)
+          .finally(() => {
+            refreshing = false;
+            if (refreshAgain) {
+              refreshAgain = false;
+              refreshDiskSecrets();
+            }
+          });
       };
       refreshDiskSecrets();
       vaultService.onEntriesChanged(refreshDiskSecrets);

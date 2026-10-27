@@ -104,7 +104,7 @@ function ConfinementAccordion() {
 function KeychainNote() {
   const { data } = useQuery({
     queryKey: ['vault-keychain-status'],
-    queryFn: async () => bridge()!.vaultLock?.status({}),
+    queryFn: async () => (await bridge()?.vaultLock?.status({})) ?? null,
     enabled: hasBridge(),
   });
   if (!data || data.keychainAvailable) return null;

@@ -22,14 +22,16 @@ export function setDiskRedactionSecrets(secrets: readonly OutboundSecret[]): voi
 /** Scrub one string. */
 export function redactForDisk(text: string): string {
   if (text.length === 0) return text;
-  return redactOutbound(text, known).text;
+  const out = redactOutbound(text, known);
+  // Untouched text is returned as it came: redactOutbound also rewrites its own private-use marker characters.
+  return out.redactions.length === 0 ? text : out.text;
 }
 
 /** Scrub every string leaf of a JSON-able value (arrays and plain objects), returning a copy. */
 export function redactJsonForDisk<T>(value: T): T {
   const walk = (v: unknown, depth: number): unknown => {
     if (typeof v === 'string') return redactForDisk(v);
-    if (depth > 24) return v;
+    if (depth > 64) return v;
     if (Array.isArray(v)) return v.map((x) => walk(x, depth + 1));
     if (v !== null && typeof v === 'object') {
       const out: Record<string, unknown> = {};

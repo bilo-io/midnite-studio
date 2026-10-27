@@ -193,7 +193,11 @@ async function archiveTranscript(
     // so a stored secret that reached the terminal is scrubbed on the way in.
     const scrubbed = redactBytesForDisk(await readFile(from));
     if (scrubbed !== null) {
-      await writePrivateFile(to, scrubbed);
+      try {
+        await writePrivateFile(to, scrubbed);
+      } catch {
+        // Fail closed: never archive the unscrubbed bytes. The record is still appended; its transcript is lost.
+      }
       await rm(from, { force: true });
       return;
     }
