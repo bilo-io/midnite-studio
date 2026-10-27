@@ -88,7 +88,7 @@ Scope guardrails:
 *Guard stops being a prompt and becomes a sweep: the lockfiles against three advisory sources, the
 machine against a checklist, the installed agents' servers and packages against the campaigns of
 the year, every finding with a severity and a button — and the model pass does the fixing, not the
-finding.* Born from a loop that does nothing when no agent is installed. (11% · 5/44) —
+finding.* Born from a loop that does nothing when no agent is installed. (21% · 9/42) —
 **Planned 2026-10-22.**
 
 **Theme A — The sweep runner.** ✅ `packages/runtime/src/guard/`: checks as pure functions over
@@ -96,10 +96,16 @@ fetched inputs, run on the loop's schedule by main with or without an agent, wri
 Phase 120's ledger; the agent pass receives the findings file; the run record gains a findings
 summary.
 
-**Theme B — CVEs against the lockfiles and the installed software.** ◻ Every open repo's lockfiles
-parsed and batched to OSV, cross-referenced with the GitHub Advisory Database (with a forge token)
-and CISA KEV, NVD optional; Homebrew, `/Applications` and macOS itself checked against KEV and
-Electron freshness; one finding per advisory per package with the fix version as the action.
+**Theme B — CVEs against the lockfiles and the installed software.** ◐ PARTIAL (PR pending). Landed in
+`runtime/src/guard/`: lockfile parsers (`lockfiles/`: pnpm v5/v6/v9, package-lock v1–v3, yarn classic,
+requirements.txt, Cargo.lock, go.sum — line parsers, no YAML dependency), an OSV client (`feeds/osv.ts`: batches
+of 500, `next_page_token` pagination, per-advisory cache keyed by `modified`) that takes an *injected* fetch because
+Phase 115 A's `guardedFetch` is not in the tree yet, CISA KEV (`feeds/kev.ts`), the CVSS v3 severity ladder, and the
+`lockfile-cves` check: one finding per (advisory, package, lockfile), KEV raises to `critical`, an unexpired
+`audit-suppressions.json` entry yields `info`. The closed action set gains `update-package` / `pin-package`
+(listed in `REMEDIATION_PENDING` until Theme G runs them). Still open: GHSA/NVD, installed software (brew,
+`/Applications`, `sw_vers`, Electron freshness), yarn berry/poetry/uv/Gemfile/Package.resolved, and wiring the
+check and its resolvers into the scheduled sweep.
 
 **Theme C — The threat feed.** ◻ A signed `threat-feed.json` published beside the midnite-apps
 catalog: poisoned package versions, malicious MCP server fingerprints, slopsquat names, ClickFix
@@ -155,18 +161,18 @@ repo.
 
 ### B — CVEs against the lockfiles and the installed software [L · 1–2d]
 
-- [ ] **Lockfile parsers.** `guard/lockfiles/`: `pnpm-lock.yaml` (v6 and v9), `package-lock.json`
+- [~] **Lockfile parsers.** ◐ PARTIAL (PR pending): pnpm v5/v6/v9, package-lock v1–v3, yarn classic, requirements.txt, Cargo.lock and go.sum landed; yarn berry, poetry, uv, Gemfile.lock and Package.resolved remain. — `guard/lockfiles/`: `pnpm-lock.yaml` (v6 and v9), `package-lock.json`
       (v2/v3), `yarn.lock` (classic and berry), `Cargo.lock`, `poetry.lock`, `uv.lock`,
       `requirements.txt` (pinned lines only), `go.sum`, `Gemfile.lock`, `Package.resolved`. Each
       yields `{ecosystem, name, version, direct: boolean, path}` using OSV's ecosystem names. Fixture
       per format from real files in this repo and small hand-made ones. [M]
-- [ ] **OSV client.** `guard/feeds/osv.ts` over Phase 115 A's `guardedFetch`: `querybatch` in
+- [x] **OSV client.** `guard/feeds/osv.ts` over Phase 115 A's `guardedFetch`: `querybatch` in
       chunks of 500 queries, pagination by `next_page_token` per query, hydration of each new id
       through `GET /v1/vulns/{id}` into a `<userData>/security/feeds/osv/<id>.json` cache keyed by
       `modified`, so a daily sweep of a 1 695-entry lockfile re-fetches only what changed. Severity
       from the advisory's CVSS vector when present, else `database_specific.severity`, else
       `medium`. [M]
-- [ ] **GHSA and KEV.** `guard/feeds/ghsa.ts`: the GitHub Advisory Database through the forge
+- [~] **GHSA and KEV.** ◐ PARTIAL: KEV landed (daily `If-Modified-Since`, entry-by-entry validation, cache fallback); GHSA and NVD remain. — `guard/feeds/ghsa.ts`: the GitHub Advisory Database through the forge
       feature's existing GitHub credential (a `delegated: 'gh'` account uses `gh api`), optional,
       adding the GHSA's `withdrawn`, `cvss` and `patched_versions` to OSV's view.
       `guard/feeds/kev.ts`: the JSON feed downloaded once a day with `If-Modified-Since`, validated
@@ -180,12 +186,12 @@ repo.
       matched against KEV's `vendorProject`/`product` and against OSV's `GIT`/`Homebrew`-style
       ranges where they exist; an outdated item with no CVE is `low`, with a CVE `high`, in KEV
       `critical`. [M]
-- [ ] **The finding and its action.** One finding per `(advisory, package)` naming the direct
+- [x] **The finding and its action.** One finding per `(advisory, package)` naming the direct
       dependency that pulls it in (the lockfile's dependency path as evidence), with `update-package
       {name, from, to}` as the action when a fixed version exists and `pin-package` when a fix is
       only on a newer major; `audit-suppressions.json`'s unexpired entries are honoured so the sweep
       and CI agree. [S]
-- [ ] **Tests.** Every parser against its fixtures; the OSV client against recorded responses
+- [x] **Tests.** Every parser against its fixtures; the OSV client against recorded responses
       including a paginated one; KEV schema validation on a fixture; the severity ladder; a
       suppressed advisory yields `info`. [S]
 
