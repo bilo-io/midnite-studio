@@ -1,12 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { useDevicePixelRatio } from './use-device-pixel-ratio';
 
 type FakeQuery = {
   query: string;
   handlers: Set<() => void>;
-  removeEventListener: ReturnType<typeof vi.fn>;
+  removeEventListener: Mock;
 };
 
 /**

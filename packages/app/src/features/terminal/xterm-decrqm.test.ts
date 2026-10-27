@@ -1,5 +1,5 @@
 import { Terminal } from '@xterm/xterm';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 /**
  * What a program gets back when it asks the terminal what it supports.
@@ -18,7 +18,7 @@ import { describe, expect, it, vi } from 'vitest';
  * of its own — but it is what fails if anything in this app ever starts
  * intercepting DECRQM again and lying about a capability.
  */
-function reply(data: string): { term: Terminal; onData: ReturnType<typeof vi.fn> } {
+function reply(data: string): { term: Terminal; onData: Mock } {
   const term = new Terminal({ cols: 80, rows: 24 });
   const onData = vi.fn();
   term.onData(onData);

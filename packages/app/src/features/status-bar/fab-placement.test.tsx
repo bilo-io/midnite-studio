@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { useRef } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { StudioProviders } from '../../compose/studio-providers';
 import { fabPlacementFor, useFabPlacementFlip, type FabPlacement } from './fab-placement';
@@ -34,7 +34,7 @@ function FlipHarness({ placement }: { placement: FabPlacement }) {
 describe('useFabPlacementFlip', () => {
   const rect = (w: number) =>
     ({ left: 0, top: 0, width: w, height: w, right: w, bottom: w, x: 0, y: 0 }) as DOMRect;
-  let animate: ReturnType<typeof vi.fn>;
+  let animate: Mock;
   beforeEach(() => {
     animate = vi.fn(() => ({ cancel: vi.fn() }));
     Element.prototype.animate = animate as unknown as Element['animate'];

@@ -1,5 +1,5 @@
 // vitest/jsdom: the recording flow over a fake stream and recorder — no real screen.
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
@@ -53,7 +53,7 @@ function api(overrides: Partial<MidniteStudioBridge['capture']> = {}) {
     })),
     recordingAbort: vi.fn(async () => ({ ok: true })),
     ...overrides,
-  } as unknown as MidniteStudioBridge['capture'] & Record<string, ReturnType<typeof vi.fn>>;
+  } as unknown as MidniteStudioBridge['capture'] & Record<string, Mock>;
 }
 
 describe('startRecording', () => {

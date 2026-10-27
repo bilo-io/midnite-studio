@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { ok, type AgentDefinition, type Chat, type ChatEvent, type ChatMessage } from '@midnite/studio-shared';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { SpawnedProcess, SpawnFn } from '@midnite/studio-runtime';
 import { createMemoryChatStore } from './chat-store';
@@ -708,7 +708,7 @@ describe('chat service: edit mode and reviewable changes', () => {
       changeSetId: message.changeSet!.id,
       decisions: [{ path: 'src/a.ts', action: 'accept', hunks: [1] }],
     });
-    const applied = (deps.git!.applyFilePatches as ReturnType<typeof vi.fn>).mock.calls[0]![1][0].patch as string;
+    const applied = (deps.git!.applyFilePatches as Mock).mock.calls[0]![1][0].patch as string;
     expect(applied.startsWith(header)).toBe(true);
     expect(applied).toContain('@@ -20,2 +21,3 @@');
     expect(applied).not.toContain('@@ -1,2 +1,3 @@');
@@ -740,7 +740,7 @@ describe('chat service: edit mode and reviewable changes', () => {
 
   it('answers a conflict envelope, marks the file conflict, and still applies the rest', async () => {
     const { service, chat, message, deps } = await withChanges();
-    (deps.git!.applyFilePatches as ReturnType<typeof vi.fn>).mockImplementationOnce(async (_r: string, patches: readonly { path: string }[]) =>
+    (deps.git!.applyFilePatches as Mock).mockImplementationOnce(async (_r: string, patches: readonly { path: string }[]) =>
       patches.map((p) => (p.path === 'src/a.ts' ? { path: p.path, ok: false, reason: 'Your working tree changed since this edit was made, so it no longer applies.' } : { path: p.path, ok: true })),
     );
 

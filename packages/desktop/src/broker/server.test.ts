@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSy
 import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import {
   createFrameDecoder,
@@ -382,7 +382,7 @@ describe('broker server', () => {
     // The connection that asked is still live: input still reaches the pty.
     const ptyId = (frames[1] as { message: { ptyId: string } }).message.ptyId;
     socket.write(encodeControl({ t: 'resize', id: 4, ptyId, cols: 10, rows: 5 }));
-    await waitFor(() => (fake.pty.resize as ReturnType<typeof vi.fn>).mock.calls.length > 0);
+    await waitFor(() => (fake.pty.resize as Mock).mock.calls.length > 0);
     expect(fake.pty.resize).toHaveBeenCalledWith(10, 5);
 
     // A successor binds the original path; new connections reach the retired one at its new path.

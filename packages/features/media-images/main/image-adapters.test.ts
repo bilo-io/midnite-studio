@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import { agyArgs, agyImagePrompt, createAgyImageProvider } from './agy';
 import {
@@ -24,7 +24,7 @@ const deps = (fetchImpl: typeof fetch, apiKey: string | null = 'k-test') => ({
   signal: new AbortController().signal,
   onImage: vi.fn(),
 });
-const call = (fetchMock: ReturnType<typeof vi.fn>, i = 0) => {
+const call = (fetchMock: Mock, i = 0) => {
   const [url, init] = fetchMock.mock.calls[i] as [string, RequestInit];
   return { url, init, body: JSON.parse(String(init.body)) as Record<string, unknown> };
 };

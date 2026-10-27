@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import {
   compute3DShapeVertex,
@@ -12,8 +12,8 @@ import {
 } from './epic-audio-player';
 
 describe('EpicAudioPlayer (5-Layer 3D Visualizer & Floating Player)', () => {
-  let playSpy: ReturnType<typeof vi.fn>;
-  let pauseSpy: ReturnType<typeof vi.fn>;
+  let playSpy: Mock;
+  let pauseSpy: Mock;
 
   beforeEach(() => {
     playSpy = vi.fn().mockImplementation(function (this: HTMLMediaElement) {

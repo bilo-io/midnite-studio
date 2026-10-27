@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -198,8 +198,8 @@ function fakeWindow() {
   };
   return win as unknown as BrowserHostWindow & {
     emit: (event: string) => void;
-    isVisible: ReturnType<typeof vi.fn>;
-    isMinimized: ReturnType<typeof vi.fn>;
+    isVisible: Mock;
+    isMinimized: Mock;
   };
 }
 
@@ -216,7 +216,7 @@ describe('browser-service lifecycle', () => {
     createBrowserTab(win, 'tab-1', 'https://example.com');
 
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(1);
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
     expect(view.setVisible).toHaveBeenCalledWith(false);
     expect(view.webContents.loadURL).toHaveBeenCalledWith('https://example.com');
@@ -237,8 +237,8 @@ describe('browser-service lifecycle', () => {
 
     activateBrowserTab('b');
 
-    const viewA = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
-    const viewB = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[1]?.[0] as FakeView;
+    const viewA = (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
+    const viewB = (win.contentView.addChildView as Mock).mock.calls[1]?.[0] as FakeView;
     expect(viewA.visible).toBe(false);
     expect(viewB.visible).toBe(true);
   });
@@ -249,8 +249,8 @@ describe('browser-service lifecycle', () => {
     createBrowserTab(main, 'a', 'https://a.example');
     createBrowserTab(popout, 'b', 'https://b.example');
 
-    const viewA = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
-    const viewB = (popout.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    const viewA = (main.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
+    const viewB = (popout.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
     viewA.setVisible(true); // simulate 'a' already being the shown tab in main
 
     // 'b' lives in a different window than 'a' — activating it must not hide
@@ -266,8 +266,8 @@ describe('browser-service lifecycle', () => {
     const popout = fakeWindow();
     createBrowserTab(main, 'a', 'https://a.example');
     createBrowserTab(main, 'b', 'https://b.example');
-    const viewA = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
-    const viewB = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[1]?.[0] as FakeView;
+    const viewA = (main.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
+    const viewB = (main.contentView.addChildView as Mock).mock.calls[1]?.[0] as FakeView;
 
     reparentBrowserTabs(popout);
 
@@ -289,7 +289,7 @@ describe('browser-service lifecycle', () => {
   it('close destroys the view and detaches it from the window', () => {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     closeBrowserTab('tab-1');
@@ -301,7 +301,7 @@ describe('browser-service lifecycle', () => {
   it('close drops every per-tab listener before closing the contents (Phase 45 Theme E)', () => {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     expect(view.webContents.handlers.size).toBeGreaterThan(0);
@@ -341,7 +341,7 @@ describe('browser-service lifecycle', () => {
   it('gives the view no preload and a sandboxed, partitioned session', () => {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     const webPreferences = view.options['webPreferences'] as Record<string, unknown>;
@@ -371,7 +371,7 @@ describe('navigation policy (Theme B)', () => {
   function createAndGetView(): { win: ReturnType<typeof fakeWindow>; view: FakeView } {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
     return { win, view };
   }
@@ -403,7 +403,7 @@ describe('navigation policy (Theme B)', () => {
   it('denies every window-open request, and hands an http(s) one back as "open as new tab"', () => {
     const { win, view } = createAndGetView();
     expect(view.webContents.setWindowOpenHandler).toHaveBeenCalledTimes(1);
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock.calls[0]?.[0] as (
       details: unknown,
     ) => { action: string };
 
@@ -420,7 +420,7 @@ describe('navigation policy (Theme B)', () => {
 
   it('a background-tab disposition (middle-click / Mod+click) opens without activating', () => {
     const { win, view } = createAndGetView();
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock.calls[0]?.[0] as (
       details: unknown,
     ) => { action: string };
 
@@ -437,7 +437,7 @@ describe('navigation policy (Theme B)', () => {
 
   it('a new-window disposition still opens as a tab and activates, same as foreground-tab', () => {
     const { win, view } = createAndGetView();
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock.calls[0]?.[0] as (
       details: unknown,
     ) => { action: string };
 
@@ -454,7 +454,7 @@ describe('navigation policy (Theme B)', () => {
 
   it('denies a window-open to a blocked scheme WITHOUT offering to reopen it as a tab', () => {
     const { win, view } = createAndGetView();
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock.calls[0]?.[0] as (
       details: unknown,
     ) => { action: string };
 
@@ -555,7 +555,7 @@ describe('Mod+w / Mod+t owned by hand (before-input-event)', () => {
   function createAndGetView(): { win: ReturnType<typeof fakeWindow>; view: FakeView } {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
     return { win, view };
   }
@@ -643,13 +643,13 @@ describe('bounds, zoom and sender scoping (Theme E/G)', () => {
 
   function createAndGetView(win: ReturnType<typeof fakeWindow>, tabId = 'tab-1'): FakeView {
     createBrowserTab(win, tabId, 'https://example.com');
-    return (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    return (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
   }
 
   it('scales an incoming bounds push by the host window zoom factor', () => {
     const win = fakeWindow();
     const view = createAndGetView(win);
-    (win.webContents as unknown as { getZoomFactor: ReturnType<typeof vi.fn> }).getZoomFactor.mockReturnValue(
+    (win.webContents as unknown as { getZoomFactor: Mock }).getZoomFactor.mockReturnValue(
       1.5,
     );
 
@@ -751,7 +751,7 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
 
   function createAndGetView(win: ReturnType<typeof fakeWindow>, tabId = 'tab-1'): FakeView {
     createBrowserTab(win, tabId, 'https://example.com');
-    return (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    return (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
   }
 
   it('discardBrowserTab tears the view down and tells the renderer', () => {
@@ -781,7 +781,7 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
     // activation; `createBrowserTab` treats a tab id it no longer tracks as
     // brand new, so this is the whole recreate path, tested at this layer.
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = (win.contentView.addChildView as Mock).mock.calls;
     const secondView = calls[calls.length - 1]?.[0] as FakeView;
 
     expect(secondView).not.toBe(firstView);
@@ -825,7 +825,7 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
     const win = fakeWindow();
     const view = createAndGetView(win);
     activateBrowserTab('tab-1');
-    (win.isMinimized as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    (win.isMinimized as Mock).mockReturnValue(true);
     setBrowserDiscardMs(1);
 
     runBrowserDiscardSweep(); // records hiddenSince now that the window reads minimized
@@ -853,7 +853,7 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
   it('an audible tab is never discarded by the sweep', () => {
     const win = fakeWindow();
     const view = createAndGetView(win);
-    (view.webContents.isCurrentlyAudible as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    (view.webContents.isCurrentlyAudible as Mock).mockReturnValue(true);
     setBrowserDiscardMs(1);
 
     runBrowserDiscardSweep();
@@ -889,7 +889,7 @@ describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
   function setupTab(tabId = 'tab-1', url = 'https://example.com') {
     const win = fakeWindow();
     createBrowserTab(win, tabId, url);
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    const view = (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
     const sess = fakeSessions.get('persist:browser');
     expect(sess).toBeDefined();
     return { win, view, sess: sess! };
@@ -897,14 +897,14 @@ describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
 
   it('prompts the renderer on ungranted permission request and resolves allow', () => {
     const { win, view, sess } = setupTab('tab-1', 'https://example.com/app');
-    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
     expect(handler).toBeTypeOf('function');
 
     const callback = vi.fn();
     handler(view.webContents, 'geolocation', callback, { securityOrigin: 'https://example.com' });
 
     // Verify permission-request event sent to window
-    const sendCalls = (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls;
+    const sendCalls = (win.webContents.send as Mock).mock.calls;
     const promptCall = sendCalls.find(
       ([channel, payload]) => channel === EVENT_CHANNELS.browserEvent && payload?.kind === 'permission-request',
     );
@@ -940,7 +940,7 @@ describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
 
   it('resolves deny and remembers decision', () => {
     const { win, view, sess } = setupTab('tab-1', 'https://example.com');
-    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
 
     const callback = vi.fn();
     handler(view.webContents, 'camera', callback, {
@@ -948,7 +948,7 @@ describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
       mediaTypes: ['video'],
     });
 
-    const sendCalls = (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls;
+    const sendCalls = (win.webContents.send as Mock).mock.calls;
     const promptCall = sendCalls.find(
       ([channel, payload]) => channel === EVENT_CHANNELS.browserEvent && payload?.kind === 'permission-request',
     );
@@ -976,12 +976,12 @@ describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
 
   it('resolves dismiss without persisting to store', () => {
     const { win, view, sess } = setupTab('tab-1', 'https://example.com');
-    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
 
     const callback = vi.fn();
     handler(view.webContents, 'notifications', callback, { securityOrigin: 'https://example.com' });
 
-    const sendCalls = (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls;
+    const sendCalls = (win.webContents.send as Mock).mock.calls;
     const promptCall = sendCalls.find(
       ([channel, payload]) => channel === EVENT_CHANNELS.browserEvent && payload?.kind === 'permission-request',
     );
@@ -994,7 +994,7 @@ describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
 
   it('denies and cancels pending requests when tab navigates', () => {
     const { view, sess } = setupTab('tab-1', 'https://example.com');
-    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
 
     const callback = vi.fn();
     handler(view.webContents, 'geolocation', callback, { securityOrigin: 'https://example.com' });
@@ -1006,7 +1006,7 @@ describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
 
   it('cancels pending requests when tab is closed or discarded', () => {
     const { view, sess } = setupTab('tab-1', 'https://example.com');
-    const handler = (sess.setPermissionRequestHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
 
     const callback = vi.fn();
     handler(view.webContents, 'geolocation', callback, { securityOrigin: 'https://example.com' });
@@ -1075,9 +1075,9 @@ describe('Phase 117 Theme C — site verdicts in the service', () => {
   });
 
   const viewOf = (win: BrowserHostWindow, index = 0) =>
-    (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[index]?.[0] as FakeView;
+    (win.contentView.addChildView as Mock).mock.calls[index]?.[0] as FakeView;
   const sent = (win: BrowserHostWindow) =>
-    (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[1] as { kind: string } & Record<string, unknown>);
+    (win.webContents.send as Mock).mock.calls.map((call) => call[1] as { kind: string } & Record<string, unknown>);
 
   it('installs the certificate verifier and the completed-request observer on persist:browser', () => {
     createBrowserTab(fakeWindow(), 't', 'https://example.com');
@@ -1274,9 +1274,9 @@ describe('Phase 117 Theme F — credential phishing in the service', () => {
   });
 
   const viewOf = (win: BrowserHostWindow) =>
-    (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
   const verdicts = (win: BrowserHostWindow) =>
-    (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls
+    (win.webContents.send as Mock).mock.calls
       .map((call) => call[1] as { kind: string; verdict?: { credentialRisk: unknown; insecureForm: boolean } })
       .filter((event) => event.kind === 'verdict');
 
@@ -1335,7 +1335,7 @@ describe('Phase 117 Theme F — credential phishing in the service', () => {
     const win = fakeWindow();
     createBrowserTab(win, 'a', 'http://members.example/login');
     createBrowserTab(win, 'b', 'https://other.example/');
-    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = (win.contentView.addChildView as Mock).mock.calls;
     const [a, b] = [calls[0]?.[0] as FakeView, calls[1]?.[0] as FakeView];
     a.webContents.url = 'http://members.example/login';
     a.webContents.emit('did-navigate', undefined, a.webContents.url);
@@ -1382,7 +1382,7 @@ describe('Phase 117 Theme F — credential phishing in the service', () => {
     request(view.webContents, 'clipboard-read', callback, { securityOrigin: 'https://login.example' });
     expect(callback).toHaveBeenCalledWith(false);
     expect(check(view.webContents, 'clipboard-read', 'https://login.example')).toBe(false);
-    const sent = (win.webContents.send as ReturnType<typeof vi.fn>).mock.calls.map((call) => (call[1] as { kind: string }).kind);
+    const sent = (win.webContents.send as Mock).mock.calls.map((call) => (call[1] as { kind: string }).kind);
     expect(sent).not.toContain('permission-request');
   });
 

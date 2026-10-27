@@ -1,5 +1,5 @@
 import { COMPANION_LEVEL_VAR } from '@midnite/studio-shared';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import {
   createCompanionSpeaker,
@@ -478,9 +478,9 @@ async function flushAsync(): Promise<void> {
 
 type FakeSource = {
   buffer: unknown;
-  connect: ReturnType<typeof vi.fn>;
-  start: ReturnType<typeof vi.fn>;
-  stop: ReturnType<typeof vi.fn>;
+  connect: Mock;
+  start: Mock;
+  stop: Mock;
   onended: (() => void) | null;
 };
 

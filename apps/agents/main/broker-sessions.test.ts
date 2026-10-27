@@ -2,7 +2,7 @@
 import type { StartNodeSessionParams } from '@midnite/studio-feature-workflows/main';
 import type { BrokerClient, SharedBroker } from '@midnite/studio-runtime';
 import { BUILTIN_AGENTS, WORKFLOW_SESSION_REPO_ID } from '@midnite/studio-shared';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import { createBrokerNodeSessions } from './broker-sessions';
 import { AGENT_NODE_NEEDS_TERMINAL } from './node-session';
@@ -24,7 +24,7 @@ function fakeClient() {
     onExit: (l: typeof onExit) => ((onExit = l), () => undefined),
     createPty: vi.fn(async () => ({ ok: true as const, ptyId: `pty-${++seq}`, pid: 99 })),
     killPty: vi.fn(async (ptyId: string) => (onExit?.(ptyId, 137), true)),
-  } as unknown as BrokerClient & { createPty: ReturnType<typeof vi.fn>; killPty: ReturnType<typeof vi.fn> };
+  } as unknown as BrokerClient & { createPty: Mock; killPty: Mock };
   return { client, emit: (ptyId: string, text: string) => onData?.(ptyId, new TextEncoder().encode(text)) };
 }
 

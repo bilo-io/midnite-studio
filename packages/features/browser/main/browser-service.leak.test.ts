@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 /**
  * Phase 91 Theme F — the leak test the teardown contract deserves. `browser-service.test.ts`
@@ -77,7 +77,7 @@ function fakeWindow() {
     contentView: { addChildView: vi.fn(), removeChildView: vi.fn() },
     webContents: { send: vi.fn(), isDestroyed: () => false, getZoomFactor: () => 1 },
     on: vi.fn(),
-  } as unknown as BrowserHostWindow & { contentView: { removeChildView: ReturnType<typeof vi.fn> } };
+  } as unknown as BrowserHostWindow & { contentView: { removeChildView: Mock } };
 }
 
 const EXPECTED_COLLECTIONS = ['tabs', 'lastBounds', 'hiddenSince', 'keepAwakeTabIds', 'visibleTabIds', 'interstitialUrls'];
