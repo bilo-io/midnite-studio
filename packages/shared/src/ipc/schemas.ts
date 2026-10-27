@@ -5089,6 +5089,8 @@ export const VaultLockStatusResponse = z.object({
   recentUnlockAt: z.number().int().nonnegative().nullable(),
   canPromptTouchId: z.boolean().default(false),
   tamperedFile: z.string().nullable().default(null),
+  /** False when the OS keychain cannot encrypt: secrets then last until quit (Phase 115 Theme D). */
+  keychainAvailable: z.boolean().default(true),
 });
 
 export const VaultLockRequest = z.object({});

@@ -82,15 +82,31 @@ describe('runtime vault — on-disk compatibility', () => {
   });
 });
 
+describe('runtime vault — entry-change hook (Phase 115 Theme C)', () => {
+  it('fires after a set and a delete, so the write-scrubber can refresh its values', async () => {
+    const service = createVaultService({ directory: dir, cipher });
+    const listener = vi.fn();
+    const off = service.onEntriesChanged(listener);
+    const vault = service.forApp('studio');
+    await vault.set('secrets', 'k', 'v');
+    await vault.delete('secrets', 'k');
+    expect(listener).toHaveBeenCalledTimes(2);
+    off();
+    await vault.set('secrets', 'k2', 'v');
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('runtime vault — degraded mode keeps each namespace’s old behaviour', () => {
-  it('drops secrets; holds db passwords and forge tokens for the session', async () => {
+  it('holds secrets, db passwords and forge tokens for the session (Phase 115 D: none is written)', async () => {
     cipher.setAvailable(false);
     const vault = createVaultService({ directory: dir, cipher }).forApp('studio');
     await vault.set('secrets', 'k', 'v');
     await vault.set('db-credentials', 'c1', 'pw', { fingerprint: 'fp' });
     await vault.set('forge-accounts', 'a', 'tok');
 
-    expect(await vault.get('secrets', 'k')).toBeNull();
+    expect(await vault.get('secrets', 'k')).toBe('v');
+    expect(await vault.has('secrets', 'k')).toBe(true);
     expect(await vault.get('db-credentials', 'c1')).toBe('pw');
     expect(await vault.get('forge-accounts', 'a')).toBe('tok');
     expect(cipher.encrypted).toEqual([]);

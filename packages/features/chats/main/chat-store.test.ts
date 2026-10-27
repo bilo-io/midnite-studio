@@ -105,3 +105,29 @@ describe('chat store', () => {
     expect(await createChatStore(dir).loadPatches('cs')).toBeNull();
   });
 });
+
+describe('chat store — redaction on write (Phase 115 Theme C)', () => {
+  it('writes a stored secret scrubbed, while the in-memory chat is untouched', async () => {
+    const { setDiskRedactionSecrets } = await import('@midnite/studio-runtime');
+    const { readFile } = await import('node:fs/promises');
+    const dir = await mkdtemp(join(tmpdir(), 'midnite-chat-redact-'));
+    const token = 'q3b7m2x9k4v8n1c5z6a0w7e2r4t9y1u3i5o8p0l2k4j6h8g1f3d5';
+    setDiskRedactionSecrets([{ name: 'forge-accounts:azure', value: token, kind: 'vault' }]);
+    try {
+      const store = createChatStore(dir);
+      const c = chat('c1', {
+        messages: [{ id: 'm1', role: 'user', text: `use ${token} and commit ${'a'.repeat(40)}`, createdAt: 1, status: 'done' }],
+      });
+      await store.save(c);
+      const raw = await readFile(join(dir, 'chats', 'c1.json'), 'utf8');
+      expect(raw).not.toContain(token);
+      expect(raw).toContain('a'.repeat(40));
+      expect(c.messages[0]?.text).toContain(token);
+      await store.savePatches('p1', { 'a.ts': `+ const k = '${token}'` });
+      expect(await readFile(join(dir, 'chats', 'patches', 'p1.json'), 'utf8')).not.toContain(token);
+    } finally {
+      setDiskRedactionSecrets([]);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});

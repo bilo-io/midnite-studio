@@ -6,8 +6,8 @@ import type { SecretKey } from '@midnite/studio-shared';
 /**
  * App-wide secrets (Phase 76 Theme D) — since Phase 113 Theme D a binding
  * over the runtime vault's `secrets` namespace, made as whichever app holds
- * the {@link VaultClient}. Same file, same entries, same behaviour: a `set`
- * with no working keychain is dropped.
+ * the {@link VaultClient}. Same file, same entries. A `set`
+ * with no working keychain is held for the session (Phase 115 Theme D), never written.
  */
 const FILE_NAME = VAULT_NAMESPACES.secrets.fileName;
 const NS = 'secrets';

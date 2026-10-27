@@ -30,18 +30,26 @@ const DEFAULT_SETTINGS: SettingsSyncPayload = {
   agentBackends: {},
   // Phase 121 Theme E: confinement is off until Settings ▸ Agents turns it on.
   confineNewSessions: false,
-  // Phase 115 Theme F: reads of ~/.claude and ~/.codex stay on until the user switches them off.
+  // Phase 115 Theme F: reads of ~/.claude and ~/.codex stay on until the user switches them off (but are
+  // held back until the first push, see `agentHistoryReadsEnabled`).
   readAgentHistory: true,
   // Phase 115 Theme B: history is kept forever until the user picks a limit.
   historyRetentionDays: null,
 };
 
-/** Whether main may read `~/.claude` / `~/.codex` right now (Phase 115 Theme F). */
-export function agentHistoryReadsEnabled(): boolean {
-  return current.readAgentHistory !== false;
-}
-
 let current: SettingsSyncPayload = DEFAULT_SETTINGS;
+/** Whether the renderer has pushed its settings yet. The persisted switches live in its store, not here. */
+let synced = false;
+
+/**
+ * Whether main may read `~/.claude` / `~/.codex` right now (Phase 115 Theme F).
+ *
+ * Fails closed until the renderer's first settings push: main cannot read the persisted switch itself, and a
+ * user who turned it off must not have their history read during boot just because the default is on.
+ */
+export function agentHistoryReadsEnabled(): boolean {
+  return synced && current.readAgentHistory !== false;
+}
 
 export type SettingsChangeListener = (settings: SettingsSyncPayload) => void;
 const listeners = new Set<SettingsChangeListener>();
@@ -54,6 +62,7 @@ export function currentSettings(): SettingsSyncPayload {
 /** Called from `settings-handlers.ts` on every `CHANNELS.settingsSync` message. */
 export function applySettingsSync(payload: SettingsSyncPayload): void {
   current = payload;
+  synced = true;
   for (const listener of listeners) listener(current);
 }
 
@@ -66,5 +75,6 @@ export function onSettingsChange(listener: SettingsChangeListener): () => void {
 /** Test-only reset — module state otherwise outlives every test in a file. */
 export function resetSettingsMirrorForTests(): void {
   current = DEFAULT_SETTINGS;
+  synced = false;
   listeners.clear();
 }

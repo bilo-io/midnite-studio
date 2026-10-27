@@ -1,7 +1,7 @@
 import { readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { writePrivateFile } from '@midnite/studio-runtime';
+import { redactJsonForDisk, writePrivateFile } from '@midnite/studio-runtime';
 import { StoredChatSchema, type Chat } from '@midnite/studio-shared';
 
 /**
@@ -83,7 +83,7 @@ export function createChatStore(userDataDir: string): ChatStore {
     save: (chat) =>
       serial(chat.id, async () => {
         try {
-          await writeAtomic(fileFor(chat.id), `${JSON.stringify({ version: 1, chat })}\n`);
+          await writeAtomic(fileFor(chat.id), `${JSON.stringify(redactJsonForDisk({ version: 1, chat }))}\n`);
         } catch {
           // A read-only data dir must not take the app down.
         }
@@ -96,7 +96,7 @@ export function createChatStore(userDataDir: string): ChatStore {
 
     savePatches: async (changeSetId, patches) => {
       try {
-        await writeAtomic(patchFileFor(changeSetId), JSON.stringify(patches));
+        await writeAtomic(patchFileFor(changeSetId), JSON.stringify(redactJsonForDisk(patches)));
       } catch {
         // Same posture as `save`.
       }

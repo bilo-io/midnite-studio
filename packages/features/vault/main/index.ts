@@ -178,6 +178,7 @@ export const vaultMain = defineFeatureMain<VaultMainServices>({
         recentUnlockAt: s ? s.recentUnlockAt : null,
         canPromptTouchId: services.canPromptTouchId ? services.canPromptTouchId() : false,
         tamperedFile: s ? s.getTamperedFile() : null,
+        keychainAvailable: s ? s.isAvailable() : true,
       };
     });
 
