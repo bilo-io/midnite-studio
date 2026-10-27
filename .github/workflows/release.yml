@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       # Same reasoning as ci.yml's `gate`/`package` jobs: @bilo-io/ui and
@@ -195,7 +195,7 @@ jobs:
       # node builtins only — no install needed.
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
       - name: Compute the bundle matrix
         id: matrix
         shell: bash
@@ -225,7 +225,7 @@ jobs:
           version: 9.15.9
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -421,7 +421,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       - name: Install
@@ -519,7 +519,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
 
       - name: Download the launcher
         uses: actions/download-artifact@v8
