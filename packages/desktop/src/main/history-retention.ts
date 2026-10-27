@@ -14,7 +14,7 @@ import { basename, join } from 'node:path';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type Entry = { path: string; bytes: number; mtimeMs: number };
-export type HistoryTotals = { files: number; bytes: number };
+export type HistoryTotals = { files: number; bytes: number; /** File names (no extension) of removed archived transcripts, i.e. session ids. */ transcriptIds?: string[] };
 
 async function filesIn(dir: string): Promise<Entry[]> {
   let names: string[];
@@ -87,5 +87,8 @@ export async function pruneHistory(
   if (opts.days === null || !(opts.days > 0)) return { files: 0, bytes: 0 };
   const cutoff = (opts.now ?? Date.now()) - opts.days * DAY_MS;
   const c = await candidates(userData, opts.liveIds);
-  return removeAll([...c.scrollback, ...c.transcripts].filter((e) => e.mtimeMs < cutoff));
+  const old = [...c.scrollback, ...c.transcripts].filter((e) => e.mtimeMs < cutoff);
+  const out = await removeAll(old);
+  const transcriptIds = c.transcripts.filter((e) => old.includes(e)).map((e) => basename(e.path, '.bin'));
+  return { ...out, transcriptIds };
 }

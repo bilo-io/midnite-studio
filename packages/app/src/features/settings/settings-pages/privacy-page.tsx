@@ -127,7 +127,7 @@ function AgentHistorySection() {
         <SettingsSwitchRow
           id="read-agent-history"
           label="Read Claude and Codex history"
-          description="When off, none of those files are opened. Token usage and session conversation lookup show a prompt to turn this back on."
+          description="When off, Claude's settings and plugin list and the transcripts under ~/.claude/projects and ~/.codex/sessions are not read. Token usage shows a prompt to turn this back on."
           on={readAgentHistory}
           onToggle={(_id, next) => setReadAgentHistory(next)}
         />

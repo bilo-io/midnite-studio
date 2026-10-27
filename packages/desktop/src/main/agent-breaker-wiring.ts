@@ -1,3 +1,4 @@
+import { agentHistoryReadsEnabled } from './settings-mirror';
 import { homedir } from 'node:os';
 
 import { buildAgentUsage } from '@midnite/studio-feature-monitor/main';
@@ -42,6 +43,7 @@ export function startStudioAgentBreaker(options: { userData: string; getWindow: 
     session: agentSessionDetail,
     settings: agentLimitsSettingsReader(options.userData),
     usage: async (session) => {
+      if (!agentHistoryReadsEnabled()) return null; // Phase 115 F: the Privacy switch stops transcript reads
       const usage = await buildAgentUsage(homedir(), [session]);
       return usage.sessions[0]?.totals ?? null;
     },

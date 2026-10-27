@@ -9,6 +9,7 @@ import { defaultLogger } from '../log';
 import { currentSettings, onSettingsChange } from '../settings-mirror';
 import { nullSessionHistoryStore, type SessionHistoryStore } from '../session-history-store';
 import { listSessionIds } from '../terminal-service';
+import { safeId } from '../terminal-store';
 import { handleBare } from './handle';
 
 /**
@@ -25,7 +26,8 @@ export function configurePrivacy(next: SessionHistoryStore): void {
   sessionHistory = next;
 }
 
-const liveIds = async (): Promise<Set<string>> => new Set(await listSessionIds());
+// Files are named by `safeId(id)`, so protect that spelling.
+const liveIds = async (): Promise<Set<string>> => new Set((await listSessionIds()).map(safeId));
 
 /** `fdesetup status` needs no admin: "FileVault is On." / "FileVault is Off.". */
 function readFileVault(): Promise<'on' | 'off' | 'unknown'> {
@@ -44,6 +46,11 @@ async function pruneNow(): Promise<void> {
   if (days === null) return;
   try {
     const out = await pruneHistory(app.getPath('userData'), { days, liveIds: await liveIds() });
+    // Drop the closed-session rows whose transcripts were just pruned.
+    if (out.transcriptIds?.length) {
+      const gone = new Set(out.transcriptIds);
+      for (const row of await sessionHistory.list()) if (gone.has(safeId(row.id))) await sessionHistory.purge(row.id);
+    }
     if (out.files > 0) defaultLogger.info(`[privacy] retention (${days}d) removed ${out.files} history files`);
   } catch (error) {
     defaultLogger.warn(`[privacy] retention prune failed: ${String(error)}`);

@@ -30,7 +30,7 @@ describe('pruneHistory', () => {
     await put('scrollback/live.bin', 10, 30); // old but live
     await put('scrollback/dead.bin', 10, 30);
     const out = await pruneHistory(root, { days: 7, liveIds: new Set(['live']), now: NOW });
-    expect(out).toEqual({ files: 2, bytes: 20 });
+    expect(out).toEqual({ files: 2, bytes: 20, transcriptIds: ['old'] });
     expect(await readdir(join(root, 'session-history'))).toEqual(['fresh.bin']);
     expect(await readdir(join(root, 'scrollback'))).toEqual(['live.bin']);
   });
