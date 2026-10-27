@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
 import * as net from 'node:net';
 import { dirname, join } from 'node:path';
 
 import { SCROLLBACK_BYTES, perfEnabled } from '@midnite/studio-shared';
 
+import { writePrivateFile } from '@midnite/studio-runtime/private-files';
 import { isProfilePath, removeProfileFile, wrapWithSandbox } from '@midnite/studio-runtime/broker/confine-wrap';
 
 import { startHeapSampler } from '../heap-sampler';
@@ -385,10 +385,9 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
 
   async function flushAllScrollback(): Promise<void> {
     try {
-      await mkdir(scrollbackDir, { recursive: true });
       for (const [sessionId, bytes] of scrollbackBySession.entries()) {
         const file = join(scrollbackDir, `${safeId(sessionId)}.bin`);
-        await writeFile(file, trimScrollback(bytes));
+        await writePrivateFile(file, trimScrollback(bytes));
       }
     } catch (err) {
       log(`[broker] error flushing scrollback: ${err instanceof Error ? err.message : String(err)}`);

@@ -1,6 +1,7 @@
-import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { copyFile, readFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { ensurePrivateDir, writePrivateFile } from '@midnite/studio-runtime';
 import {
   ClosedSessionSchema,
   MAX_CLOSED_SESSIONS,
@@ -108,7 +109,7 @@ export function createSessionHistoryStore(directory: string): SessionHistoryStor
   const save = async (closed: readonly ClosedSession[]): Promise<void> => {
     const state: StoredState = { version: 1, closed: [...closed] };
     try {
-      await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+      await writePrivateFile(file, `${JSON.stringify(state, null, 2)}\n`);
     } catch {
       // A read-only data dir must not take the app down. The archive holds for
       // this session and is gone next launch — the same trade `trust-store.ts`
@@ -183,7 +184,7 @@ async function archiveTranscript(
 ): Promise<void> {
   if (from === null) return;
   try {
-    await mkdir(transcriptDir, { recursive: true });
+    await ensurePrivateDir(transcriptDir);
   } catch {
     return;
   }

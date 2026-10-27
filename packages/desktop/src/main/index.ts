@@ -17,6 +17,7 @@ import {
   runtimeHostDirectory,
   sweepProfileFiles,
   VAULT_GRANTS_FILE,
+  tightenHistoryModes,
   type VaultHost,
 } from '@midnite/studio-runtime';
 import {
@@ -669,6 +670,13 @@ export const startStudioMain: StartStudioMain = () => {
       // on mount, and an empty answer there shows the empty state for a frame
       // even though repos are about to appear.
       const userData = app.getPath('userData');
+      // Phase 115 B: history stores are owner-only; tighten what older builds left at the umask.
+      const tightened = tightenHistoryModes(userData);
+      if (tightened.dirs + tightened.files > 0) {
+        defaultLogger.info(
+          `[privacy] tightened ${tightened.dirs} dirs and ${tightened.files} files under userData to owner-only`,
+        );
+      }
       /*
         The file under main's one log seam — Phase 65 Theme A.
 

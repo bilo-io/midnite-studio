@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-27 — Phase 115 Themes B, F (partial) — Owner-only history, agent config never written
+
+Owner-only file helpers (`runtime/src/private-files.ts`) applied to every history store with a boot-time mode migration, plus a source-scan test and runtime guard that refuse writes to `~/.claude*`/`~/.codex`. Retention, clear-history, FileVault note and the Claude/Codex read switch remain open.
+
 ## 2026-10-26 — Phase 120 — Vanguard: antivirus and agentic self-defense
 
 [Phase 120](phases/phase-120-vanguard.md) marked ✅ DONE (46/46 items verified).

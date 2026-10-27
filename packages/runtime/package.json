@@ -10,6 +10,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./private-files": {
+      "types": "./dist/private-files.d.ts",
+      "default": "./dist/private-files.js"
+    },
     "./broker/*": {
       "types": "./dist/broker/*.d.ts",
       "default": "./dist/broker/*.js"
