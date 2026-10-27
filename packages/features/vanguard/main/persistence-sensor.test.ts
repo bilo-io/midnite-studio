@@ -25,7 +25,11 @@ function memFs(files: Record<string, string>) {
   return { fs, files, watchers };
 }
 
-function ctxFor(run: SensorRunProcess, recorded: NewSecurityFinding[]): SensorContext {
+function ctxFor(
+  run: SensorRunProcess,
+  recorded: NewSecurityFinding[],
+  settings = DEFAULT_VANGUARD_SETTINGS,
+): SensorContext {
   return {
     userData: '/u',
     homeDir: HOME,
@@ -43,7 +47,7 @@ function ctxFor(run: SensorRunProcess, recorded: NewSecurityFinding[]): SensorCo
         status: 'open',
       } as never;
     },
-    settings: () => DEFAULT_VANGUARD_SETTINGS,
+    settings: () => settings,
     signal: new AbortController().signal,
     log: () => undefined,
   };
@@ -126,5 +130,27 @@ describe('persistence sensor', () => {
     expect(recorded).toHaveLength(1);
     dispose();
     expect(m.watchers).toHaveLength(0);
+  });
+
+  it('never runs sfltool unless login-item scanning is opted in — it raises a password prompt', async () => {
+    const calls: string[] = [];
+    const spy: SensorRunProcess = async (cmd, args, opts) => (calls.push(cmd), run(cmd, args, opts));
+    const sensor = createPersistenceSensor({ fs: memFs({}).fs });
+    await sensor.run!(ctxFor(spy, []));
+    expect(calls).not.toContain('sfltool');
+
+    // Turning it on records the login items as the baseline rather than reporting them all as new.
+    const recorded: NewSecurityFinding[] = [];
+    let dump = 'Name: Alpha\n';
+    const withBtm: SensorRunProcess = async (cmd, args, opts) =>
+      cmd === 'sfltool' ? (calls.push(cmd), { ok: true, stdout: dump, stderr: '', exitCode: 0 }) : spy(cmd, args, opts);
+    const optedIn = ctxFor(withBtm, recorded, { ...DEFAULT_VANGUARD_SETTINGS, scanLoginItems: true });
+    await sensor.run!(optedIn);
+    expect(calls).toContain('sfltool');
+    expect(recorded).toHaveLength(0);
+
+    dump = 'Name: Alpha\nName: Beta\n';
+    await sensor.run!(optedIn);
+    expect(recorded.map((f) => f.title)).toEqual(['Changed Login item: sfltool dumpbtm']);
   });
 });

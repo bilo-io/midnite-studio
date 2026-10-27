@@ -4786,6 +4786,7 @@ export function buildMockBridge(data: MockFixtures) {
         quarantineRetentionDays: 30,
         viewOpened: true,
         autoPauseSeverities: ['critical' as const],
+        scanLoginItems: false,
       }),
       setSettings: async () => ({
         version: 1 as const,
@@ -4794,6 +4795,7 @@ export function buildMockBridge(data: MockFixtures) {
         quarantineRetentionDays: 30,
         viewOpened: true,
         autoPauseSeverities: ['critical' as const],
+        scanLoginItems: false,
       }),
       viewOpened: async () => ({ active: true, sensors: [] }),
       openQuarantine: async () => ({ ok: true as const }),

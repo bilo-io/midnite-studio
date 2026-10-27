@@ -82,6 +82,13 @@ export function VanguardSettingsPage() {
               className="w-24 rounded-md border border-border bg-background px-2 py-1 text-right"
             />
           </label>
+          <SettingsSwitchRow
+            id="vanguard-scan-login-items"
+            label="Scan login items"
+            description="Reads macOS login items with sfltool, which asks for your administrator password on every scan. Off by default."
+            on={settings?.scanLoginItems ?? false}
+            onToggle={(_id, next) => void update({ scanLoginItems: next })}
+          />
         </div>
       </SettingsAccordion>
       <SettingsAccordion title="Quarantine" icon={<LuShield className="h-4 w-4" />}>
