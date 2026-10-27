@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { ModelSpecSchema } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 

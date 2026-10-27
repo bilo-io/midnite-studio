@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { MODEL_MAX_PARTS, ModelSpecSchema, type ModelPatchOp } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 

@@ -1,5 +1,6 @@
+// @vitest-environment node
 import { SF3D_LICENCE_SHA256, type Sf3dProgressEvent, type Sf3dStatus } from '@midnite/studio-shared';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { Sf3dInstaller } from './installer';
 import { cubeTetGrid } from './marching-tets';
@@ -310,7 +311,7 @@ describe('SF3D service', () => {
 
   it('answers every op with the envelope, even when the installer throws', async () => {
     const { service, installer, disposeEngine } = setup();
-    (installer.consent as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('disk full'));
+    (installer.consent as unknown as Mock).mockRejectedValueOnce(new Error('disk full'));
     expect(await service.handle({ op: 'consent', licenceSha256: SF3D_LICENCE_SHA256, revenueAcknowledged: true })).toEqual({ ok: false, kind: 'error', message: 'disk full' });
     expect(await service.handle({ op: 'cancelInstall' })).toMatchObject({ ok: true });
     expect(await service.handle({ op: 'uninstall' })).toMatchObject({ ok: true, value: { state: 'not-installed' } });

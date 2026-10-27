@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { MCP_CONTENT_KEY, MCP_TOOLS, MODEL_MCP_TOOL_IDS, MODEL_MAX_PARTS, parseModelSidecar, type McpToolOutput } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { buildScene, ModelSpecSchema, sceneBounds } from '@midnite/studio-shared';
 import { Box3, Color, Mesh, MeshPhongMaterial, MeshStandardMaterial, type Object3D } from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
