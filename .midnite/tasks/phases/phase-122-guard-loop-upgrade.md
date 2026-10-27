@@ -88,7 +88,7 @@ Scope guardrails:
 *Guard stops being a prompt and becomes a sweep: the lockfiles against three advisory sources, the
 machine against a checklist, the installed agents' servers and packages against the campaigns of
 the year, every finding with a severity and a button — and the model pass does the fixing, not the
-finding.* Born from a loop that does nothing when no agent is installed. (21% · 9/42) —
+finding.* Born from a loop that does nothing when no agent is installed. (28% · 11/40) —
 **Planned 2026-10-22.**
 
 **Theme A — The sweep runner.** ✅ `packages/runtime/src/guard/`: checks as pure functions over
@@ -107,10 +107,15 @@ Phase 115 A's `guardedFetch` is not in the tree yet, CISA KEV (`feeds/kev.ts`), 
 `/Applications`, `sw_vers`, Electron freshness), yarn berry/poetry/uv/Gemfile/Package.resolved, and wiring the
 check and its resolvers into the scheduled sweep.
 
-**Theme C — The threat feed.** ◻ A signed `threat-feed.json` published beside the midnite-apps
-catalog: poisoned package versions, malicious MCP server fingerprints, slopsquat names, ClickFix
-domains and command grammars, YARA rule updates; checked locally against `node_modules`, MCP
-configs, plugins and the browser history, never uploaded.
+**Theme C — The threat feed.** ◐ PARTIAL (PR pending). Landed: `ThreatFeedSchema` in `shared/src/threat-feed.ts`
+(every entry carries an https `ref`), an Ed25519 detached-signature verifier and cached loader
+(`guard/feeds/threat-feed.ts`; the signature covers `canonicalJson`, a tampered byte or a malformed entry rejects the
+whole file, and a bad signature is reported rather than papered over with an older copy), `scripts/threat-feed-check.mjs`
+for candidate files, an installed-`node_modules` resolver, and the `poisoned-packages` (`critical`, new
+`remove-package` action), `mcp-servers` (`critical`, `revoke-mcp-server`) and `slopsquat` (`high` for listed names,
+`medium` for one edit from a short built-in popular list) checks. Not done: the feed itself and its publishing
+workflow live in `bilo-io/midnite-apps`, so `THREAT_FEED_PUBLIC_KEY_PEM` is empty and no feed is trusted yet; the
+plugins/skills re-scan; wiring into the sweep.
 
 **Theme D — The Mac itself.** ◻ Listening ports, outdated software, FileVault/firewall/
 Gatekeeper/SIP/remote-login state, SSH key modes and passphrases, secrets in dotfiles and `.env`
@@ -197,20 +202,20 @@ repo.
 
 ### C — The threat feed [M · ~1d]
 
-- [ ] **The feed's shape.** `packages/shared/src/threat-feed.ts`: `ThreatFeedSchema` with
+- [x] **The feed's shape.** `packages/shared/src/threat-feed.ts`: `ThreatFeedSchema` with
       `version`, `publishedAt`, `poisonedPackages: {ecosystem, name, versions[], campaign, ref}[]`,
       `mcpServers: {nameOrUrl, configHash?, toolsHash?, campaign, ref}[]`,
       `slopsquatNames: {ecosystem, name, ref}[]`, `clickfixDomains: string[]`,
       `commandGrammars: {id, regex, severity, ref}[]`, `yaraRules: {id, sha256, url}[]`, each entry
       with a public reference. Signed: a detached Ed25519 signature over the canonical JSON, the
       public key checked into `shared`, verified before any entry is used. [M]
-- [ ] **Publishing it.** `threat-feed.json` and `.sig` live in `bilo-io/midnite-apps` beside
+- [~] **Publishing it.** ◐ PARTIAL: `scripts/threat-feed-check.mjs` and the verifier landed here; the feed, its `.sig` and the publishing workflow in `bilo-io/midnite-apps` (and its seed data) are open, so `THREAT_FEED_PUBLIC_KEY_PEM` is empty and no feed is trusted yet. — `threat-feed.json` and `.sig` live in `bilo-io/midnite-apps` beside
       `catalog.json`, written by a workflow there from a `threats/*.yaml` directory with a review;
       this repo holds the schema, the verifier and a `scripts/threat-feed-check.mjs` that validates
       a candidate file. Seeded with the Shai-Hulud waves' package-versions (from the Microsoft,
       Sygnia, CSA and StepSecurity write-ups), the ClickFix domain lists from the Microsoft and
       Unit 42 reports, and the ClickFix command grammars Phase 120 D uses. [M]
-- [ ] **Local checks.** `guard/checks/poisoned-packages.ts` (every open repo's lockfile and
+- [~] **Local checks.** ◐ PARTIAL: `poisoned-packages`, `mcp-servers` and `slopsquat` landed; the plugins/skills re-scan (Phase 121 H) and wiring the checks and their resolvers into the scheduled sweep are open. — `guard/checks/poisoned-packages.ts` (every open repo's lockfile and
       `node_modules/*/package.json` against `poisonedPackages`; a hit is `critical` with
       `update-package`/`remove-package` and a link to the campaign write-up),
       `guard/checks/mcp-servers.ts` (Phase 121 C's discovered servers against `mcpServers`;
@@ -218,7 +223,7 @@ repo.
       `slopsquatNames` and the edit-distance rule, `high`), plugins and skills (Phase 121 H's scan,
       re-run on the sweep). Nothing about the user's repos is sent anywhere — the feed is pulled
       whole. [M]
-- [ ] **Tests.** Signature verification refuses a tampered byte; a fixture lockfile with one
+- [x] **Tests.** Signature verification refuses a tampered byte; a fixture lockfile with one
       poisoned version; the MCP fingerprint match; the feed-check script on a malformed file. [S]
 
 ### D — The Mac itself [L · 1–2d]
