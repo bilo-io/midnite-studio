@@ -62,6 +62,12 @@ export const VanguardSettingsSchema = z.object({
    * field existed reads as the default.
    */
   autoPauseSeverities: z.array(SecurityFindingSeveritySchema).default(['critical']),
+  /**
+   * The persistence sensor reads login items with `sfltool dumpbtm`, which on current macOS raises an
+   * administrator password prompt on every scan rather than failing quietly. Off unless the user opts in;
+   * a file written before this field existed reads as off.
+   */
+  scanLoginItems: z.boolean().default(false),
 });
 export type VanguardSettings = z.infer<typeof VanguardSettingsSchema>;
 
@@ -72,6 +78,7 @@ export const DEFAULT_VANGUARD_SETTINGS: VanguardSettings = {
   quarantineRetentionDays: 30,
   viewOpened: false,
   autoPauseSeverities: ['critical'],
+  scanLoginItems: false,
 };
 
 export const VanguardSettingsGetResponse = VanguardSettingsSchema;
@@ -82,6 +89,7 @@ export const VanguardSettingsSetRequest = z.object({
   cadenceSeconds: VanguardSettingsSchema.shape.cadenceSeconds.optional(),
   quarantineRetentionDays: VanguardSettingsSchema.shape.quarantineRetentionDays.optional(),
   autoPauseSeverities: z.array(SecurityFindingSeveritySchema).max(5).optional(),
+  scanLoginItems: z.boolean().optional(),
 });
 export type VanguardSettingsSetRequest = z.infer<typeof VanguardSettingsSetRequest>;
 

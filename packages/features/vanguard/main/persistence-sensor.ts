@@ -29,6 +29,9 @@ import type { SensorContext, SensorDefinition } from './sensor-host';
  * or hidden.
  */
 
+/** The one entry login items are folded into (see `snapshotPersistence`). */
+const BTM_KEY = 'login-item:btm';
+
 /** The filesystem seam, so the sensor runs under bare vitest against fixtures. */
 export interface PersistenceFs {
   readdir(dir: string): Promise<string[]>;
@@ -111,15 +114,17 @@ export async function snapshotPersistence(
   }
   const cron = await ctx.runProcess('crontab', ['-l'], { timeoutMs: 5_000, signal: ctx.signal });
   entries.push(cronEntry(cron.ok && cron.exitCode === 0 ? cron.stdout : ''));
-  // Login items: `sfltool dumpbtm` needs root on current macOS, and the AppleScript route raises a
-  // "control System Events" consent prompt, so this is best-effort and silent when unreadable.
+  // Login items: `sfltool dumpbtm` needs root on current macOS and asks for an administrator password on
+  // every call, and the AppleScript route raises a "control System Events" consent prompt — so it runs only
+  // when the user has opted in (Settings ▸ Vanguard ▸ Scanning).
+  if (!ctx.settings().scanLoginItems) return entries;
   const btm = await ctx.runProcess('sfltool', ['dumpbtm'], {
     timeoutMs: 8_000,
     signal: ctx.signal,
   });
   if (btm.ok && btm.exitCode === 0 && btm.stdout.trim().length > 0)
     entries.push({
-      key: 'login-item:btm',
+      key: BTM_KEY,
       kind: 'login-item',
       path: 'sfltool dumpbtm',
       // Only the lines that name an item: the dump also carries timestamps, UUIDs and counters that
@@ -221,9 +226,12 @@ export function createPersistenceSensor(options: PersistenceSensorOptions = {}):
       return 0;
     }
     const diff = diffPersistence(baseline, current);
+    // Login items are one aggregate entry that exists only while opted in, so its first appearance is the
+    // switch being turned on, not a new item; only a change to it is news.
+    const added = diff.added.filter((e) => e.key !== BTM_KEY);
     let n = 0;
     for (const [change, list] of [
-      ['new', diff.added],
+      ['new', added],
       ['changed', diff.changed],
     ] as const)
       for (const entry of list) {
@@ -231,7 +239,8 @@ export function createPersistenceSensor(options: PersistenceSensorOptions = {}):
         n += 1;
       }
     // Accept the current state as the baseline: a finding is raised once, and the ledger holds it.
-    if (n > 0 || diff.removed.length > 0) await fs.writeJson(file, toBaseline(current));
+    if (diff.added.length > 0 || diff.changed.length > 0 || diff.removed.length > 0)
+      await fs.writeJson(file, toBaseline(current));
     return n;
   }
 
@@ -245,7 +254,7 @@ export function createPersistenceSensor(options: PersistenceSensorOptions = {}):
     id: PERSISTENCE_SENSOR_ID,
     label: 'Persistence',
     description:
-      'LaunchAgents and Daemons, login items, crontab, shell startup files, ~/.ssh and /etc/periodic, watched for new or changed items.',
+      'LaunchAgents and Daemons, crontab, shell startup files, ~/.ssh and /etc/periodic (and login items, if opted in under Scanning), watched for new or changed items.',
     schedule: { kind: 'cadence' },
     start(ctx) {
       const home = ctx.homeDir;
