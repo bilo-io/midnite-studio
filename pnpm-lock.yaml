@@ -1749,6 +1749,9 @@ importers:
       '@midnite/studio-feature-forge':
         specifier: workspace:*
         version: link:../features/forge
+      '@midnite/studio-feature-forge-host':
+        specifier: workspace:*
+        version: link:../features/forge-host
       '@midnite/studio-feature-mcp-tools':
         specifier: workspace:*
         version: link:../features/mcp-tools
@@ -9216,7 +9219,6 @@ packages:
 
   sherpa-onnx-darwin-arm64@1.13.7:
     resolution: {integrity: sha512-5NCE50hAvr3n2pdett0SgfPBJXaFZE0bqHwbHyiq+IKZ8Ids0l4M0VrG+ImGYIafCwie+oC3uAJ+pKj9xg/k+w==}
-    cpu: [arm64]
     os: [darwin]
 
   sherpa-onnx-darwin-x64@1.13.7:

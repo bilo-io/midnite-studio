@@ -46,6 +46,7 @@ export {
   resolveAdapter,
   type RepoRemotesResolver,
 } from './repo-forge';
+export { adapterFor } from './registry';
 export { githubWhoami } from './whoami';
 
 /**
