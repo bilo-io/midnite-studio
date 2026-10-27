@@ -1,0 +1,7 @@
+{
+  "id": "templates/explainers/ink-morph",
+  "title": "Template — ink-morph explainer",
+  "composition": "TemplateInkMorph",
+  "brief": "input/BRIEF.md",
+  "madeFrom": "reference: vimeo.com/35720685 (BUCK for Good Books, \"Metamorphosis\") — grammar only"
+}
