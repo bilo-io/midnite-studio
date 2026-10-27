@@ -87,5 +87,16 @@ export const SettingsSyncPayloadSchema = z.object({
    * to `false` (confinement is off until switched on).
    */
   confineNewSessions: z.boolean().optional(),
+  /**
+   * Phase 115 Theme F: Settings ▸ Privacy ▸ "Read Claude and Codex history". Main reads `~/.claude` and
+   * `~/.codex` for usage, conversation ids and plugin skills; `false` stops every one of those reads.
+   * Optional like every field here; main defaults to `true`.
+   */
+  readAgentHistory: z.boolean().optional(),
+  /**
+   * Phase 115 Theme B: Settings ▸ Privacy ▸ "Keep local history", in days; `null` keeps forever. Main
+   * prunes scrollback and archived transcripts on start and daily. Main defaults to `null`.
+   */
+  historyRetentionDays: z.number().int().positive().nullable().optional(),
 });
 export type SettingsSyncPayload = z.infer<typeof SettingsSyncPayloadSchema>;

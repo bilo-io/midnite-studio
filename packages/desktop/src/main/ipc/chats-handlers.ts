@@ -12,6 +12,7 @@ import { engineKeyEnv, type FeatureMainContext } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { recordAudit } from '../agent-audit';
+import { agentHistoryReadsEnabled } from '../settings-mirror';
 import { mcpServersHeldForRun } from '../mcp-trust-wiring';
 import { outboundSecrets } from '../outbound-secrets';
 import { readAgentApiKey } from './secrets-handlers';
@@ -80,5 +81,6 @@ export function registerChatsHandlers(): void {
     runtime: () => runtime,
     repoPath: (repoId) => (repoId ? (getRepo(repoId)?.path ?? null) : null),
     home: homedir,
+    readAgentHistory: agentHistoryReadsEnabled,
   });
 }

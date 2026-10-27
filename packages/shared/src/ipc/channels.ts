@@ -576,6 +576,14 @@ export const CHANNELS = {
   agentClaudeUpdate: 'mstudio:agent:claude-update',
   /** Reveal an agent binary or directory in the OS file manager. */
   agentRevealPath: 'mstudio:agent:reveal-path',
+  /** Phase 115 B: count and size of the local history "Clear all local history" would delete. */
+  privacyHistoryStats: 'mstudio:privacy:history-stats',
+  /** Phase 115 B: delete scrollback, archived transcripts and logs (never live sessions or chats). */
+  privacyHistoryClear: 'mstudio:privacy:history-clear',
+  /** Phase 115 B: FileVault on/off, for the at-rest note. */
+  privacyFileVault: 'mstudio:privacy:file-vault',
+  /** Phase 115 B: open System Settings ▸ Privacy & Security ▸ FileVault. */
+  privacyOpenFileVault: 'mstudio:privacy:open-file-vault',
 
   // --- session history (Phase 67) ------------------------------------------
   // The sessions you *closed*. `terminal:*` above owns rows that still exist;

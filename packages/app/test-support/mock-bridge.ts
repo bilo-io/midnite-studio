@@ -2491,6 +2491,12 @@ export function buildMockBridge(data: MockFixtures) {
         `purge` mutates the seeded array rather than no-op'ing, because the one
         thing worth asserting about a delete is that the row went.
       */
+    privacy: {
+      historyStats: async () => ({ files: 148, bytes: 52_428_800 }),
+      clearHistory: async () => ({ removedFiles: 148, removedBytes: 52_428_800 }),
+      fileVault: async () => ({ status: 'on' as const }),
+      openFileVault: async () => undefined,
+    },
     sessions: {
       history: async () => ({ sessions: [...closedSessions] }),
       transcript: async (req: { sessionId: string }) => ({

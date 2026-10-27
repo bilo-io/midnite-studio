@@ -520,6 +520,12 @@ const bridge: Pick<
     signIns: (req) => call(CHANNELS.webAppsSignIns, req),
     signOut: (req) => call(CHANNELS.webAppsSignOut, req),
   },
+  privacy: {
+    historyStats: () => call(CHANNELS.privacyHistoryStats),
+    clearHistory: () => call(CHANNELS.privacyHistoryClear),
+    fileVault: () => call(CHANNELS.privacyFileVault),
+    openFileVault: () => call(CHANNELS.privacyOpenFileVault),
+  },
   agent: {
     list: () => call(CHANNELS.agentList),
     recheck: () => call(CHANNELS.agentRecheck),

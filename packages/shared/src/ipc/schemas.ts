@@ -2278,6 +2278,20 @@ export const LoopRunStopRequest = z.object({ sessionId: z.string().min(1) });
 export const LoopRunStopResponse = GitOpResultSchema;
 
 export const ClaudeInfoResponse = ClaudeInfoSchema;
+
+// --- privacy: local history and at-rest note (Phase 115 Theme B) -------------
+
+/** What "Clear all local history" would delete: the blast radius the confirm dialog shows. */
+export const PrivacyHistoryStatsResponse = z.object({
+  files: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+});
+export const PrivacyHistoryClearResponse = z.object({
+  removedFiles: z.number().int().nonnegative(),
+  removedBytes: z.number().int().nonnegative(),
+});
+/** `fdesetup status`, read without admin: `unknown` when the probe could not run. */
+export const PrivacyFileVaultResponse = z.object({ status: z.enum(['on', 'off', 'unknown']) });
 /**
  * Update runs to completion in main; chunks stream on the event channel while
  * it does. Failures resolve — the settings page renders them like any other.
@@ -3079,6 +3093,8 @@ export const MonitorAgentUsageResponse = z.object({
     }),
   ),
   agents: z.array(z.object({ agentId: z.string().min(1), sessions: z.number().int().nonnegative(), totals: AgentTokenTotalsSchema })),
+  /** Phase 115 Theme F: `true` when "Read Claude and Codex history" is off, so nothing was read. */
+  disabled: z.boolean().optional(),
 });
 export type MonitorAgentUsage = z.infer<typeof MonitorAgentUsageResponse>;
 

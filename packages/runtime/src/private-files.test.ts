@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -64,6 +64,22 @@ describe('private files', () => {
     expect(() => assertNotAgentConfig('/Users/x/.claude/skills/a/SKILL.md', home)).not.toThrow();
     expect(() => assertNotAgentConfig('/Users/x/Library/App/f', home)).not.toThrow();
     expect(() => assertNotAgentConfig('/other/.claude/settings.json', home)).not.toThrow();
+  });
+
+  it('resolves symlinks, so a link cannot carry a write into agent config', () => {
+    const home = tmp();
+    mkdirSync(join(home, '.claude', 'skills'), { recursive: true });
+    mkdirSync(join(home, 'Library'));
+    symlinkSync(join(home, '.claude'), join(home, 'Library', 'link'));
+    symlinkSync(join(home, '.claude'), join(home, '.claude', 'skills', 'escape'));
+    // A link outside, into the config dir, whether or not the leaf exists yet.
+    expect(() => assertNotAgentConfig(join(home, 'Library', 'link', 'settings.json'), home)).toThrow();
+    expect(() => assertNotAgentConfig(join(home, 'Library', 'link', 'new', 'x.json'), home)).toThrow();
+    // A link that hides inside the allowed skills/ dir but points back at the config.
+    expect(() => assertNotAgentConfig(join(home, '.claude', 'skills', 'escape', 'settings.json'), home)).toThrow();
+    // A real skills write and an ordinary write still pass, through the tmpdir's own /var symlink too.
+    expect(() => assertNotAgentConfig(join(home, '.claude', 'skills', 'a', 'SKILL.md'), home)).not.toThrow();
+    expect(() => assertNotAgentConfig(join(home, 'Library', 'f'), home)).not.toThrow();
   });
 });
 

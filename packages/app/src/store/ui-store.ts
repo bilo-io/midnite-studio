@@ -1809,6 +1809,18 @@ export type UiState = {
   confineNewSessions: boolean;
   setConfineNewSessions: (value: boolean) => void;
   /**
+   * Settings ▸ Privacy ▸ "Read Claude and Codex history" (Phase 115 Theme F). On by default; off stops every
+   * main-side read of `~/.claude` and `~/.codex`. Mirrored into main (`use-settings-sync.ts`).
+   */
+  readAgentHistory: boolean;
+  setReadAgentHistory: (value: boolean) => void;
+  /**
+   * Settings ▸ Privacy ▸ "Keep local history" (Phase 115 Theme B), in days; `null` keeps forever (default).
+   * Applies to scrollback and archived transcripts; mirrored into main, which prunes on start and daily.
+   */
+  historyRetentionDays: number | null;
+  setHistoryRetentionDays: (value: number | null) => void;
+  /**
    * Execution mode when triggering skills: 'interactive' (default) or 'headless'.
    */
   skillExecutionMode: SkillExecutionMode;
@@ -2344,6 +2356,8 @@ export type PersistedUi = Pick<
   | 'forgeSwitcherPlacement'
   | 'forgeSyncGhAuthSwitch'
   | 'confineNewSessions'
+  | 'readAgentHistory'
+  | 'historyRetentionDays'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
   | 'audioTabByRepo'
@@ -2587,6 +2601,10 @@ export const useUiStore = create<UiState>()(
       setForgeSyncGhAuthSwitch: (forgeSyncGhAuthSwitch) => set({ forgeSyncGhAuthSwitch }),
       confineNewSessions: false,
       setConfineNewSessions: (confineNewSessions) => set({ confineNewSessions }),
+      readAgentHistory: true,
+      setReadAgentHistory: (readAgentHistory) => set({ readAgentHistory }),
+      historyRetentionDays: null,
+      setHistoryRetentionDays: (historyRetentionDays) => set({ historyRetentionDays }),
       skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
       setSkillExecutionMode: (skillExecutionMode) => set({ skillExecutionMode }),
       inactivityTimeoutS: 900,
@@ -3603,6 +3621,8 @@ export const useUiStore = create<UiState>()(
         forgeSwitcherPlacement: state.forgeSwitcherPlacement,
         forgeSyncGhAuthSwitch: state.forgeSyncGhAuthSwitch,
         confineNewSessions: state.confineNewSessions,
+        readAgentHistory: state.readAgentHistory,
+        historyRetentionDays: state.historyRetentionDays,
         skillExecutionMode: state.skillExecutionMode,
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,

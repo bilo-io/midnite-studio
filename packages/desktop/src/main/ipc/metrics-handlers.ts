@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import type { BrowserWindow } from 'electron';
 
 import { defaultLogger } from '../log';
+import { agentHistoryReadsEnabled } from '../settings-mirror';
 import { DESKTOP_OLLAMA } from '../system-health';
 import { listTerminals } from '../terminal-service';
 import { handle, handleBare, handleSend } from './handle';
@@ -27,6 +28,7 @@ export function registerMetricsHandlers(getWindow: () => BrowserWindow | null): 
     warn: (issue) => defaultLogger.warn(issue),
     // Live agent sessions only; Monitor reads each one's own transcript under the real home.
     homeDir: homedir(),
+    readAgentHistory: agentHistoryReadsEnabled,
     agentSessions: async () =>
       (await listTerminals()).flatMap(({ session, live }) =>
         live !== null && session.kind === 'agent' && session.agentId

@@ -77,6 +77,7 @@ import { configureCompanionTtsBroker, disposeCompanionTtsBroker } from './compan
 import { createSttCredentials } from './companion/stt/credentials';
 import { configureUiBridge } from './companion/ui-bridge';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
+import { configurePrivacy, registerPrivacyHandlers } from './ipc/privacy-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';
 import { configureChats, disposeChats, registerChatsHandlers } from './ipc/chats-handlers';
 import { configureNotes, registerNotesHandlers } from './ipc/notes-handlers';
@@ -549,6 +550,7 @@ export const startStudioMain: StartStudioMain = () => {
       registerConfinementHandlers();
       registerDiagHandlers();
       registerSessionsHandlers();
+      registerPrivacyHandlers();
       registerNotesHandlers();
       registerChatsHandlers();
       // The Database feature's channels (Phase 113 Theme O) register below, beside its stores and the vault.
@@ -770,6 +772,7 @@ export const startStudioMain: StartStudioMain = () => {
       */
       const sessionHistory = createSessionHistoryStore(userData);
       configureSessions(sessionHistory);
+      configurePrivacy(sessionHistory);
       configureTerminals(createTerminalStore(userData), userData, sessionHistory);
       configureCouncils(createCouncilsStore(userData), createCouncilsRunsStore(userData));
       /*
