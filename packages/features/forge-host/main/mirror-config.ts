@@ -35,6 +35,8 @@ export const MirrorConfigSchema = z.object({
   root: z.string().optional(),
   interval: z.enum(MIRROR_INTERVALS).default('daily'),
   repos: z.array(MirrorRepoSchema).default([]),
+  /** Set once the user has saved a selection, so an empty one is a choice and not "never configured". */
+  picked: z.boolean().default(false),
   state: z.record(MirrorStateEntrySchema).default({}),
 });
 export type MirrorConfig = z.infer<typeof MirrorConfigSchema>;

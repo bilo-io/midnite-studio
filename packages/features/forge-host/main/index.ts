@@ -6,3 +6,5 @@ export * from './mirror-manifest';
 export * from './mirror-metadata';
 export * from './mirror-refresh';
 export * from './mirror-scheduler';
+export * from './forge-metadata-source';
+export * from './mirror-picker';
