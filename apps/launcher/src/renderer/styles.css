@@ -300,6 +300,26 @@ button:disabled {
   gap: 18px;
 }
 
+/* The launcher's own version and its Update sit together, in the accent, so they read as one control. */
+.statusbar-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statusbar-version .eyebrow {
+  color: var(--violet);
+}
+
+.statusbar-version-number {
+  /* `v0.0.1`, not the eyebrow's `V0.0.1`. */
+  text-transform: none;
+}
+
+.statusbar-version .link:hover:not(:disabled) {
+  color: var(--fg);
+}
+
 /* ── Buttons, links, pills ─────────────────────────────────────────────── */
 
 .btn {

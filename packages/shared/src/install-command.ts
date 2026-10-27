@@ -19,7 +19,7 @@
  */
 
 /** The public site's live root, and the default every builder below falls back to. */
-export const MIDNITE_SITE_ORIGIN = 'https://midnite-studio-website.vercel.app';
+export const MIDNITE_SITE_ORIGIN = 'https://midnite-apps.vercel.app';
 
 /** The site's two installers, each a byte-for-byte copy of its upstream script. */
 export type InstallerFile = 'install.sh' | 'install-studio.sh';

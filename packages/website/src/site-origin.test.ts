@@ -9,7 +9,7 @@ describe('SITE_ORIGIN', () => {
    * is what catches the default being edited in one place and not the other.
    */
   it('defaults to the live deployment', () => {
-    expect(SITE_ORIGIN).toBe('https://midnite-studio-website.vercel.app');
+    expect(SITE_ORIGIN).toBe('https://midnite-apps.vercel.app');
   });
 
   /** `${SITE_ORIGIN}/install.sh` must never produce a double slash. */
