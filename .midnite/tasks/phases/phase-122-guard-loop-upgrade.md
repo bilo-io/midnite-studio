@@ -88,7 +88,7 @@ Scope guardrails:
 *Guard stops being a prompt and becomes a sweep: the lockfiles against three advisory sources, the
 machine against a checklist, the installed agents' servers and packages against the campaigns of
 the year, every finding with a severity and a button — and the model pass does the fixing, not the
-finding.* Born from a loop that does nothing when no agent is installed. (20% · 9/44) —
+finding.* Born from a loop that does nothing when no agent is installed. (21% · 9/42) —
 **Planned 2026-10-22.**
 
 **Theme A — The sweep runner.** ✅ `packages/runtime/src/guard/`: checks as pure functions over
