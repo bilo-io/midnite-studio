@@ -74,6 +74,8 @@ export async function resolveInstalledNodeModules(repos: readonly string[]): Pro
       );
     }
   }
+  // The store is read in parallel, so completion order varies; sort for a stable result.
+  out.sort((a, b) => `${a.name}@${a.version}`.localeCompare(`${b.name}@${b.version}`));
   const seen = new Set<string>();
   return out.filter((p) => {
     const key = `${p.name}@${p.version}`;

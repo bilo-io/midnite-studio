@@ -95,11 +95,14 @@ export function parsePackageLock(content: string, opts: ParseOptions): LockedPac
 export function parseYarnBerryLock(content: string, opts: ParseOptions): LockedPackage[] {
   const out: LockedPackage[] = [];
   let version: string | null = null;
-  for (const raw of content.split('\n')) {
+  let inMetadata = false;
+  for (const raw of content.split(/\r?\n/)) {
     if (!raw.startsWith(' ')) {
       version = null;
+      inMetadata = raw.startsWith('__metadata:');
       continue;
     }
+    if (inMetadata) continue;
     const v = /^ {2}version:\s*(.+)$/.exec(raw);
     if (v) {
       version = unquote(v[1]!);
@@ -108,9 +111,16 @@ export function parseYarnBerryLock(content: string, opts: ParseOptions): LockedP
     const r = /^ {2}resolution:\s*(.+)$/.exec(raw);
     if (r && version) {
       const resolution = unquote(r[1]!);
-      const at = resolution.indexOf('@npm:', 1);
+      let at = resolution.indexOf('@npm:', 1);
+      // An alias resolves to `alias@npm:real@npm:1.2.3`; the real package is what OSV knows.
+      const inner = at > 0 ? resolution.indexOf('@npm:', at + 5) : -1;
+      let from = 0;
+      if (inner > 0) {
+        from = at + 5;
+        at = inner;
+      }
       if (at > 0) {
-        const name = resolution.slice(0, at);
+        const name = resolution.slice(from, at);
         out.push({ ecosystem: 'npm', name, version, direct: opts.directNames?.has(name) ?? false, path: opts.path });
       }
       version = null;
@@ -188,7 +198,8 @@ export function parsePoetryLock(content: string, opts: ParseOptions): LockedPack
   for (const block of content.split(/^\[\[package\]\]\s*$/m).slice(1)) {
     const name = /^name\s*=\s*"([^"]+)"/m.exec(block)?.[1];
     const version = /^version\s*=\s*"([^"]+)"/m.exec(block)?.[1];
-    const sourceType = /^\[package\.source\][^[]*?^type\s*=\s*"([^"]+)"/m.exec(block)?.[1];
+    const sourceBlock = block.split(/^\[package\.source\]\s*$/m)[1]?.split(/^\[/m)[0] ?? '';
+    const sourceType = /^type\s*=\s*"([^"]+)"/m.exec(sourceBlock)?.[1];
     if (!name || !version || (sourceType && ['directory', 'file', 'git', 'url'].includes(sourceType))) continue;
     const n = pypiName(name);
     out.push({ ecosystem: 'PyPI', name: n, version, direct: opts.directNames?.has(n) ?? false, path: opts.path });
@@ -215,7 +226,7 @@ export function parseGemfileLock(content: string, opts: ParseOptions): LockedPac
   const direct = new Set<string>();
   let section = '';
   let inSpecs = false;
-  for (const raw of content.split('\n')) {
+  for (const raw of content.split(/\r?\n/)) {
     if (raw !== '' && !raw.startsWith(' ')) {
       section = raw.trim();
       inSpecs = false;
@@ -244,7 +255,7 @@ export function parsePackageResolved(content: string, opts: ParseOptions): Locke
     const url = typeof pin.location === 'string' ? pin.location : pin.repositoryURL;
     const version = pin.state?.version;
     if (typeof url !== 'string' || typeof version !== 'string') continue; // a branch or revision pin has no version
-    const name = url.replace(/^[a-z+]+:\/\//i, '').replace(/^[^@/]+@/, '').replace(/\.git$/, '').replace(/\/$/, '');
+    const name = url.replace(/^[a-z+]+:\/\//i, '').replace(/^[^@/]+@/, '').replace(/^([^/:]+):(?!\d+\/)/, '$1/').replace(/\.git$/, '').replace(/\/$/, '');
     out.push({ ecosystem: 'SwiftURL', name, version, direct: false, path: opts.path });
   }
   return dedupe(out);

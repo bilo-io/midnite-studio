@@ -134,4 +134,21 @@ BUNDLED WITH
   it('parseLockfile never throws on a malformed Package.resolved', () => {
     expect(parseLockfile('Package.resolved', '{not json', opts)).toEqual([]);
   });
+
+  it('reads a berry alias as the real package, ignoring __metadata', () => {
+    const body = '__metadata:\n  version: 8\n"string-width-cjs@npm:string-width@^4.2.0":\n  version: 4.2.3\n  resolution: "string-width-cjs@npm:string-width@npm:4.2.3"\n';
+    expect(parseYarnBerryLock(body, opts).map((p) => `${p.name}@${p.version}`)).toEqual(['string-width@4.2.3']);
+  });
+  it('reads a CRLF Gemfile.lock', () => {
+    const body = 'GEM\r\n  remote: https://rubygems.org/\r\n  specs:\r\n    rack (3.0.0)\r\n\r\nDEPENDENCIES\r\n  rack\r\n';
+    expect(parseGemfileLock(body, opts).map((p) => `${p.name}@${p.version}:${p.direct}`)).toEqual(['rack@3.0.0:true']);
+  });
+  it('normalises scp-style SwiftPM locations', () => {
+    const body = JSON.stringify({ pins: [{ location: 'git@github.com:apple/swift-nio.git', state: { version: '1.0.0' } }] });
+    expect(parsePackageResolved(body, opts)[0]?.name).toBe('github.com/apple/swift-nio');
+  });
+  it('skips a poetry git package even with brackets in its source', () => {
+    const body = '[[package]]\nname = "g"\nversion = "1"\n\n[package.source]\nurl = "https://x/[y]"\ntype = "git"\n';
+    expect(parsePoetryLock(body, opts)).toEqual([]);
+  });
 });
