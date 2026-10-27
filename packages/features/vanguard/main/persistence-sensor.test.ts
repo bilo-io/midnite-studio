@@ -134,7 +134,10 @@ describe('persistence sensor', () => {
 
   it('never runs sfltool unless login-item scanning is opted in — it raises a password prompt', async () => {
     const calls: string[] = [];
-    const spy: SensorRunProcess = async (cmd, args, opts) => (calls.push(cmd), run(cmd, args, opts));
+    const spy: SensorRunProcess = async (cmd, args, opts) => (
+      calls.push(cmd),
+      run(cmd, args, opts)
+    );
     const sensor = createPersistenceSensor({ fs: memFs({}).fs });
     await sensor.run!(ctxFor(spy, []));
     expect(calls).not.toContain('sfltool');
@@ -143,8 +146,13 @@ describe('persistence sensor', () => {
     const recorded: NewSecurityFinding[] = [];
     let dump = 'Name: Alpha\n';
     const withBtm: SensorRunProcess = async (cmd, args, opts) =>
-      cmd === 'sfltool' ? (calls.push(cmd), { ok: true, stdout: dump, stderr: '', exitCode: 0 }) : spy(cmd, args, opts);
-    const optedIn = ctxFor(withBtm, recorded, { ...DEFAULT_VANGUARD_SETTINGS, scanLoginItems: true });
+      cmd === 'sfltool'
+        ? (calls.push(cmd), { ok: true, stdout: dump, stderr: '', exitCode: 0 })
+        : spy(cmd, args, opts);
+    const optedIn = ctxFor(withBtm, recorded, {
+      ...DEFAULT_VANGUARD_SETTINGS,
+      scanLoginItems: true,
+    });
     await sensor.run!(optedIn);
     expect(calls).toContain('sfltool');
     expect(recorded).toHaveLength(0);

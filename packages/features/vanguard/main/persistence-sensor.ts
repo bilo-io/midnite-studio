@@ -239,7 +239,8 @@ export function createPersistenceSensor(options: PersistenceSensorOptions = {}):
         n += 1;
       }
     // Accept the current state as the baseline: a finding is raised once, and the ledger holds it.
-    if (diff.added.length > 0 || diff.changed.length > 0 || diff.removed.length > 0) await fs.writeJson(file, toBaseline(current));
+    if (diff.added.length > 0 || diff.changed.length > 0 || diff.removed.length > 0)
+      await fs.writeJson(file, toBaseline(current));
     return n;
   }
 
