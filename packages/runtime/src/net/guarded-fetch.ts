@@ -8,8 +8,9 @@ import { EGRESS_ENTRIES, findEgressEntry, privacySwitchOn, type EgressHost, type
  * no entry is refused too: a new outbound host starts as a registry entry. `egress-registry.test.ts` fails on
  * any `fetch` in main-side code that does not come through here.
  *
- * Imports no `electron`: the host injects Electron's `net.fetch` as the transport and the settings mirror as
- * `getSettings`.
+ * Only the first URL is checked: the transport follows redirects and the hop is not re-validated (a known gap,
+ * recorded in the phase doc). Imports no `electron`: the host injects the settings mirror as `getSettings`/`ready`
+ * (and may inject a transport; the default is Node's `fetch`).
  */
 
 export class EgressBlockedError extends Error {
@@ -34,50 +35,68 @@ export class EgressUnregisteredError extends Error {
   }
 }
 
-export type GuardedFetch = (owner: string, url: string | URL, init?: RequestInit) => Promise<Response>;
+export type GuardedFetchInput = string | URL | Request;
+export type GuardedFetch = (owner: string, input: GuardedFetchInput, init?: RequestInit) => Promise<Response>;
 
 export type GuardedFetchOptions = {
   /** The last privacy settings the renderer pushed; absent means every switch at its default. */
   getSettings?: () => EgressSettings | undefined;
+  /**
+   * Whether the renderer has pushed its settings yet. Until it has, a call that a switch can turn off fails
+   * closed: main cannot read the persisted switches itself, and a user who turned one off must not be called
+   * on during boot because the default is on. Omitted means always ready.
+   */
+  ready?: () => boolean;
   /** The real client. Defaults to `globalThis.fetch`. */
-  transport?: (url: string, init?: RequestInit) => Promise<Response>;
+  transport?: (input: string | Request, init?: RequestInit) => Promise<Response>;
 };
 
-/** The entry that permits `owner` to reach `url`, or why it cannot. Pure, so callers can pre-check. */
-export function resolveEgress(owner: string, url: string | URL): EgressHost | undefined {
-  const exact = findEgressEntry(url);
-  if (exact) return exact;
-  return EGRESS_ENTRIES.find((e) => e.host === '*' && e.owner === owner);
+const urlOf = (input: GuardedFetchInput): string => (typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+
+/**
+ * The entry that permits `owner` to reach `input`, or `undefined`. An owner that registered `*` (a
+ * user-supplied URL) is judged by its own `*` entry for any host that is not its own: a request the user
+ * composed is not an automatic call of whichever feature happens to own that host. Pure.
+ */
+export function resolveEgress(owner: string, input: GuardedFetchInput): EgressHost | undefined {
+  const exact = findEgressEntry(urlOf(input));
+  const wildcard = EGRESS_ENTRIES.find((e) => e.host === '*' && e.owner === owner);
+  if (exact && (exact.owner === owner || !wildcard)) return exact;
+  return wildcard;
 }
 
 export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFetch {
-  return async (owner, url, init) => {
-    const href = typeof url === 'string' ? url : url.href;
+  return async (owner, input, init) => {
+    const href = urlOf(input);
     let host = '';
     try {
       host = new URL(href).hostname;
     } catch {
       // fall through: an unparseable URL has no entry
     }
-    const entry = resolveEgress(owner, href);
+    const entry = resolveEgress(owner, input);
     if (!entry) throw new EgressUnregisteredError(host || href, owner);
-    if (entry.switch && !privacySwitchOn(options.getSettings?.(), entry.switch)) throw new EgressBlockedError(host, entry.switch);
-    const transport = options.transport ?? ((u, i) => globalThis.fetch(u, i));
-    return transport(href, init);
+    if (entry.switch) {
+      if (options.ready && !options.ready()) throw new EgressBlockedError(host, `${entry.switch}, awaiting settings`);
+      if (!privacySwitchOn(options.getSettings?.(), entry.switch)) throw new EgressBlockedError(host, entry.switch);
+    }
+    const transport = options.transport ?? ((i, n) => globalThis.fetch(i, n));
+    // A Request keeps its method, headers and body; a URL object is passed as its string.
+    return transport(input instanceof URL ? input.href : input, init);
   };
 }
 
 let configured: GuardedFetch = createGuardedFetch();
 
-/** The host's one-time wiring: Electron's `net.fetch` and the settings mirror. Call before any caller runs. */
+/** The host's one-time wiring: the settings mirror (and optionally Electron's `net.fetch`). Call before any caller runs. */
 export function configureGuardedFetch(options: GuardedFetchOptions): void {
   configured = createGuardedFetch(options);
 }
 
 /** `guardedFetch('finance', url, init)` — the process-wide seam. */
-export const guardedFetch: GuardedFetch = (owner, url, init) => configured(owner, url, init);
+export const guardedFetch: GuardedFetch = (owner, input, init) => configured(owner, input, init);
 
 /** A `fetch`-shaped function bound to one owner, for the services that take `fetchImpl`. */
-export function guardedFetchFor(owner: string): (input: string | URL | Request, init?: RequestInit) => Promise<Response> {
-  return (input, init) => guardedFetch(owner, typeof input === 'string' || input instanceof URL ? input : input.url, init);
+export function guardedFetchFor(owner: string): (input: GuardedFetchInput, init?: RequestInit) => Promise<Response> {
+  return (input, init) => guardedFetch(owner, input, init);
 }

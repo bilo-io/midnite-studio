@@ -151,19 +151,20 @@ describe('guardedFetch', () => {
 
   it('passes a registered host and calls the transport', async () => {
     const calls: string[] = [];
-    const guarded = createGuardedFetch({ transport: (u) => (calls.push(u), ok()) });
+    const guarded = createGuardedFetch({ transport: (u) => (calls.push(String(u)), ok()) });
     await guarded('guard', 'https://api.osv.dev/v1/querybatch');
     expect(calls).toEqual(['https://api.osv.dev/v1/querybatch']);
   });
 
   it('refuses a host whose switch is off, and every automatic host under the master switch', async () => {
     const calls: string[] = [];
-    const transport = (u: string) => (calls.push(u), ok());
+    const transport = (u: string | Request) => (calls.push(String(u)), ok());
     const off = createGuardedFetch({ transport, getSettings: () => ({ switches: { 'guard-feeds': false } }) });
     await expect(off('guard', 'https://api.osv.dev/v1/querybatch')).rejects.toBeInstanceOf(EgressBlockedError);
     const master = createGuardedFetch({ transport, getSettings: () => ({ allAutomaticOff: true }) });
-    for (const entry of EGRESS_ENTRIES.filter((e) => e.trigger === 'automatic' && e.host !== '*')) {
-      await expect(master(entry.owner, `https://${entry.host}/`), entry.host).rejects.toBeInstanceOf(EgressBlockedError);
+    for (const entry of EGRESS_ENTRIES.filter((e) => e.trigger === 'automatic')) {
+      const url = entry.host === '*' ? 'https://feeds.example.org/rss' : `https://${entry.host}/`;
+      await expect(master(entry.owner, url), `${entry.owner}/${entry.host}`).rejects.toBeInstanceOf(EgressBlockedError);
     }
     expect(calls).toEqual([]);
   });
@@ -183,5 +184,27 @@ describe('guardedFetch', () => {
     expect(privacySwitchOn(undefined, 'markets')).toBe(true);
     expect(privacySwitchOn(undefined, 'locate-by-ip')).toBe(false);
     expect(privacySwitchOn({ allAutomaticOff: true, switches: { markets: true } }, 'markets')).toBe(false);
+  });
+
+  it('fails closed on a switchable host until settings have been pushed', async () => {
+    let ready = false;
+    const guarded = createGuardedFetch({ transport: ok, ready: () => ready });
+    await expect(guarded('guard', 'https://api.osv.dev/v1/querybatch')).rejects.toBeInstanceOf(EgressBlockedError);
+    await expect(guarded('models', 'https://ollama.com/search')).resolves.toBeInstanceOf(Response);
+    ready = true;
+    await expect(guarded('guard', 'https://api.osv.dev/v1/querybatch')).resolves.toBeInstanceOf(Response);
+  });
+
+  it('judges a user-composed request to a switched host by the owner’s `*` entry, not that host’s switch', async () => {
+    const guarded = createGuardedFetch({ transport: ok, getSettings: () => ({ allAutomaticOff: true }) });
+    await expect(guarded('api-client', 'https://api.coingecko.com/api/v3/ping')).resolves.toBeInstanceOf(Response);
+  });
+
+  it('passes a Request through with its method, headers and body', async () => {
+    const seen: unknown[] = [];
+    const guarded = createGuardedFetch({ transport: (input) => (seen.push(input), ok()) });
+    const request = new Request('https://example.com/x', { method: 'POST', body: 'b' });
+    await guarded('api-client', request);
+    expect(seen[0]).toBe(request);
   });
 });

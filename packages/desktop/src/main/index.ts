@@ -42,7 +42,7 @@ import { registerReleaseNotesHandlers } from './ipc/release-notes-handlers';
 import { configureAgentAudit, recordAudit } from './agent-audit';
 import { configureConfinement, createConfinementService } from './confinement';
 import { registerConfinementHandlers } from './ipc/confinement-handlers';
-import { currentSettings } from './settings-mirror';
+import { currentSettings, settingsSynced } from './settings-mirror';
 import { configureOutboundSecrets } from './outbound-secrets';
 import { startAgentCommandAudit } from './ipc/agent-command-audit';
 import { startStudioAgentBreaker, stopStudioAgentBreaker } from './agent-breaker-wiring';
@@ -469,7 +469,7 @@ export const startStudioMain: StartStudioMain = () => {
     registerPrivilegedSchemes();
 
     // Phase 115 Theme A: every main-side outbound request reads its switch from the renderer's mirrored settings.
-    configureGuardedFetch({ getSettings: () => currentSettings().egress });
+    configureGuardedFetch({ getSettings: () => currentSettings().egress, ready: settingsSynced });
 
     void app.whenReady().then(async () => {
       bootMark('when-ready');

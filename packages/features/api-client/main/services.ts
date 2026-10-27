@@ -46,7 +46,7 @@ export const unavailableScriptRunner: ScriptRunner = {
 
 const defaults: ApiClientServices = {
   workdir: async () => null,
-  fetch: (input, init) => guardedFetch('api-client', input instanceof Request ? input.url : input, init),
+  fetch: (input, init) => guardedFetch('api-client', input, init),
   scriptRunner: unavailableScriptRunner,
 };
 

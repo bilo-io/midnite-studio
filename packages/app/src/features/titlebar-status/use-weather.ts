@@ -52,8 +52,8 @@ export function useWeather(locationOverride: WeatherLocation | null) {
   const locateByIpStored = useUiStore((s) => s.locateByIpEnabled);
   const allAutomaticOff = useUiStore((s) => s.egressAllAutomaticOff);
   const egressSwitches = useUiStore((s) => s.egressSwitches);
-  const locateByIpEnabled = privacySwitchOn({ allAutomaticOff, switches: { ...egressSwitches, 'locate-by-ip': locateByIpStored } }, 'locate-by-ip');
   const weatherOn = privacySwitchOn({ allAutomaticOff, switches: egressSwitches }, 'weather');
+  const locateByIpEnabled = weatherOn && privacySwitchOn({ allAutomaticOff, switches: { ...egressSwitches, 'locate-by-ip': locateByIpStored } }, 'locate-by-ip');
   const [resolvedCoords, setResolvedCoords] = useState<WeatherLocation | null>(() => {
     if (locationOverride) return locationOverride;
     return readCachedCoords();

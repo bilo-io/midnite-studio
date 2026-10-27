@@ -91,7 +91,7 @@ export const EGRESS_ENTRIES: readonly EgressHost[] = [
   entry({ host: 'api.maptiler.com', owner: 'media-map', sends: 'tile coordinates and the user’s MapTiler key', trigger: 'user' }),
   entry({ host: 'tiles.openfreemap.org', owner: 'media-map', sends: 'GET only: map tile coordinates', trigger: 'user' }),
   entry({ host: 'huggingface.co', owner: 'models', sends: 'GET only: a model download the user asked for', trigger: 'user' }),
-  entry({ host: '*', owner: 'finance', sends: 'a plain GET of an RSS feed URL the user added to the news list', trigger: 'user' }),
+  entry({ host: '*', owner: 'finance', sends: 'a plain GET of an RSS feed URL the user added to the news list', trigger: 'automatic', switch: 'markets' }),
   entry({ host: '*', owner: 'api-client', sends: 'whatever request the user composes, to the URL they typed', trigger: 'user' }),
   entry({ host: '*', owner: 'workflows', sends: 'whatever the workflow’s HTTP node is set to send, to its URL', trigger: 'user' }),
 ];
