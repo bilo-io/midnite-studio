@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-27 — Phase 115 Themes B, F (finished) — Retention, clear-all, FileVault note, Claude/Codex read switch
+
+Settings ▸ Privacy gains a "Keep local history" select (Forever/90/30/7 days, pruned by mtime on change and daily, live sessions skipped), "Clear all local history" behind a confirm with file count and bytes, a FileVault note, and the Claude/Codex disclosure with a "Read Claude and Codex history" switch that gates usage, conversation lookup and plugin reads. `assertNotAgentConfig` resolves realpath; the static no-write scan is wider. [PR #1031](https://github.com/bilo-io/midnite-studio/pull/1031).
+
 ## 2026-10-27 — Phase 119 Theme A (partial) — Mirror and backup engine
 
 New `packages/features/forge-host` main half: bare `--mirror` clone/refresh, fsck + head verification (`degraded` keeps the previous manifest), NDJSON metadata through a `MetadataSource` port with incremental id-merge, SHA-256 manifest, `restoreMirror`, config and a per-host-serial scheduler. `cloneRepo` gained `{mirror}`. Adapter composer, repo picker and the encrypted metadata archive remain open.
