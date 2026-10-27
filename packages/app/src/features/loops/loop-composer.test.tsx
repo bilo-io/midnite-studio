@@ -610,6 +610,16 @@ describe('LoopComposer — run options', () => {
     expect(props.onAutoRotate).toHaveBeenCalledWith(55);
   });
 
+  it('paints the auto-rotate slider with the loop spectrum, filled to its value', () => {
+    renderComposer({ autoRotatePercent: 55 });
+    const slider = screen.getByTestId('auto-rotate-slider');
+    // The ramp reads --fab-spec-1…5 from the loop's own [data-fab-tab] ancestor.
+    expect(slider.className).toContain('loop-range');
+    expect(slider.className).not.toContain('accent-primary');
+    // (55 - 10) / (100 - 10) = 50%
+    expect(slider.style.getPropertyValue('--loop-range-pct')).toBe('50%');
+  });
+
   it('has no Loop switch of its own — the tab bar owns it', () => {
     const { container } = renderComposer();
     expect(screen.queryByRole('switch', { name: 'Loop' })).toBeNull();
