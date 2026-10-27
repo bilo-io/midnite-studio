@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-27 — Phase 119 Theme A (partial) — Mirror and backup engine
+
+New `packages/features/forge-host` main half: bare `--mirror` clone/refresh, fsck + head verification (`degraded` keeps the previous manifest), NDJSON metadata through a `MetadataSource` port with incremental id-merge, SHA-256 manifest, `restoreMirror`, config and a per-host-serial scheduler. `cloneRepo` gained `{mirror}`. Adapter composer, repo picker and the encrypted metadata archive remain open.
+
 ## 2026-10-27 — Phase 115 Themes B, F (partial) — Owner-only history, agent config never written
 
 Owner-only file helpers (`runtime/src/private-files.ts`) applied to every history store with a boot-time mode migration, plus a source-scan test and runtime guard that refuse writes to `~/.claude*`/`~/.codex`. Retention, clear-history, FileVault note and the Claude/Codex read switch remain open.

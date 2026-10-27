@@ -2370,6 +2370,31 @@ importers:
         specifier: ^4.0.0
         version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
 
+  packages/features/forge-host:
+    dependencies:
+      '@midnite/studio-git-engine':
+        specifier: workspace:*
+        version: link:../../git-engine
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../runtime
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../shared
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+
   packages/features/mcp-tools:
     dependencies:
       '@midnite/studio-frame':
@@ -9191,6 +9216,7 @@ packages:
 
   sherpa-onnx-darwin-arm64@1.13.7:
     resolution: {integrity: sha512-5NCE50hAvr3n2pdett0SgfPBJXaFZE0bqHwbHyiq+IKZ8Ids0l4M0VrG+ImGYIafCwie+oC3uAJ+pKj9xg/k+w==}
+    cpu: [arm64]
     os: [darwin]
 
   sherpa-onnx-darwin-x64@1.13.7:

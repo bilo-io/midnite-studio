@@ -139,6 +139,8 @@ export const FEATURE_PACKAGE_SPLITS = {
   'media-library': { folder: 'media', placement: 'media' },
   // The MCP server's Tools view (Phase 113 Theme N): a package out of the `agent` folder, which the Agents app owns.
   'mcp-tools': { folder: 'agent', placement: 'agents' },
+  // Phase 119 Theme A: Midnite Git's engine. Coder owns it until Theme C gives the git app its own placement.
+  'forge-host': { folder: 'forge', placement: 'coder' },
 } as const satisfies Readonly<Record<string, { folder: PlacedFeature; placement: Placement }>>;
 
 /**
