@@ -23,7 +23,7 @@ import {
   isCustomLoop,
   type CustomLoop,
 } from '@midnite/studio-shared';
-import { Collapse, Slider } from '@bilo-io/ui';
+import { Collapse, Slider, sliderValue } from '@bilo-io/ui';
 import { useId, useState, type ReactNode } from 'react';
 
 import {
@@ -624,6 +624,8 @@ function CustomLoopHeader({ loop }: { loop: CustomLoop }) {
  * nearest `[data-fab-tab]` (inline on a custom loop, `styles.css` rows for
  * built-ins), so the fallbacks only matter outside the Loops panel. The
  * library Slider joins them into a ramp and rings focus in the middle stop.
+ * The fallbacks mirror the default spectrum's `--fab-spec-*` fallbacks in
+ * `styles.css`; retune both together.
  */
 const LOOP_SPECTRUM = [
   'rgb(var(--fab-spec-1, 244 63 94))',
@@ -645,11 +647,18 @@ function AutoRotateSlider({
   onPercent: (percent: number) => void;
 }) {
   const id = useId();
+  // What the knob shows: an off-step stored value snaps, so the readout matches it.
+  const shown = sliderValue(
+    percent,
+    LOOP_AUTO_ROTATE.min,
+    LOOP_AUTO_ROTATE.max,
+    LOOP_AUTO_ROTATE.step,
+  );
   return (
     <div className="flex min-w-0 flex-col gap-1 pt-1" data-testid="auto-rotate-field">
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <label htmlFor={id}>Auto-rotate subagents</label>
-        <span className="font-mono text-[10px] text-foreground">{percent}%</span>
+        <span className="font-mono text-[10px] text-foreground">{shown}%</span>
       </div>
       <Slider
         id={id}
@@ -659,7 +668,7 @@ function AutoRotateSlider({
         value={percent}
         onValueChange={onPercent}
         gradient={LOOP_SPECTRUM}
-        aria-valuetext={`${percent}% context`}
+        aria-valuetext={`${shown}% context`}
         data-testid="auto-rotate-slider"
       />
     </div>

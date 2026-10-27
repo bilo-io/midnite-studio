@@ -610,18 +610,22 @@ describe('LoopComposer — run options', () => {
     expect(props.onAutoRotate).toHaveBeenCalledWith(55);
   });
 
-  it('paints the auto-rotate slider with the loop spectrum, filled to its value', () => {
+  it('paints the auto-rotate slider with the loop spectrum', () => {
     renderComposer({ autoRotatePercent: 55 });
     const slider = screen.getByTestId('auto-rotate-slider');
     const root = slider.closest<HTMLElement>('[data-slider]')!;
-    // The library Slider's ramp is the loop's --fab-spec-1…5, which cascade from
-    // its own [data-fab-tab] ancestor; the focus ring takes the middle stop.
+    // The ramp is the loop's --fab-spec-1…5, which cascade from its own
+    // [data-fab-tab] ancestor. Fill and focus are the library's own tests.
     const ramp = root.style.getPropertyValue('--slider-ramp');
-    expect(ramp).toMatch(/^linear-gradient\(90deg, rgb\(var\(--fab-spec-1/);
+    expect(ramp).toContain('--fab-spec-1');
     expect(ramp).toContain('--fab-spec-5');
-    expect(root.style.getPropertyValue('--slider-focus')).toContain('--fab-spec-3');
-    // (55 - 10) / (100 - 10) = 0.5
-    expect(root.style.getPropertyValue('--slider-frac')).toBe('0.5');
+  });
+
+  it('shows the snapped auto-rotate value when the stored one is off-step', () => {
+    renderComposer({ autoRotatePercent: 33 });
+    expect(screen.getByTestId('auto-rotate-field').textContent).toContain('35%');
+    const slider = screen.getByRole('slider', { name: 'Auto-rotate subagents' });
+    expect(slider.getAttribute('aria-valuetext')).toBe('35% context');
   });
 
   it('has no Loop switch of its own — the tab bar owns it', () => {
