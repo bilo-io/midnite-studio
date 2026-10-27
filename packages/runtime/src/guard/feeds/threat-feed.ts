@@ -40,10 +40,22 @@ export interface ThreatFeedOptions {
   publicKeyPem?: string;
 }
 
-/** Downloads the feed and its signature, verifies, caches; offline or failing, the last verified copy is used. */
+async function readCached(options: ThreatFeedOptions, file: string, sigFile: string): Promise<ThreatFeedResult> {
+  try {
+    return verifyThreatFeed(await readFile(file, 'utf8'), await readFile(sigFile, 'utf8'), options.publicKeyPem);
+  } catch {
+    return { ok: false, reason: 'the feed could not be downloaded and none is cached' };
+  }
+}
+
+/**
+ * Downloads the feed and its signature, verifies, caches. Offline, mid-publish (body and `.sig` out of step) or
+ * failing verification, the last verified copy is used; a download older than that copy is refused (no rollback).
+ */
 export async function loadThreatFeed(options: ThreatFeedOptions): Promise<ThreatFeedResult> {
   const file = join(options.cacheDir, 'threat-feed.json');
   const sigFile = join(options.cacheDir, 'threat-feed.sig');
+  let failure: ThreatFeedResult | null = null;
   try {
     const [bodyRes, sigRes] = await Promise.all([options.fetch(options.url), options.fetch(`${options.url}.sig`)]);
     if (bodyRes.ok && sigRes.ok) {
@@ -51,24 +63,24 @@ export async function loadThreatFeed(options: ThreatFeedOptions): Promise<Threat
       const sig = await sigRes.text();
       const verified = verifyThreatFeed(body, sig, options.publicKeyPem);
       if (verified.ok) {
+        const cached = await readCached(options, file, sigFile);
+        if (cached.ok && cached.feed.version > verified.feed.version) return cached; // a replayed older feed
         try {
           await mkdir(options.cacheDir, { recursive: true, mode: 0o700 });
+          await writeFile(`${sigFile}.tmp`, sig, 'utf8');
           await writeFile(`${file}.tmp`, body, 'utf8');
+          await rename(`${sigFile}.tmp`, sigFile);
           await rename(`${file}.tmp`, file);
-          await writeFile(sigFile, sig, 'utf8');
         } catch {
           // cache is best-effort
         }
         return verified;
       }
-      return verified; // a bad signature is reported, not papered over with an older copy
+      failure = verified;
     }
   } catch {
     // offline: fall through to the cache
   }
-  try {
-    return verifyThreatFeed(await readFile(file, 'utf8'), await readFile(sigFile, 'utf8'), options.publicKeyPem);
-  } catch {
-    return { ok: false, reason: 'the feed could not be downloaded and none is cached' };
-  }
+  const cached = await readCached(options, file, sigFile);
+  return cached.ok ? cached : (failure ?? cached);
 }

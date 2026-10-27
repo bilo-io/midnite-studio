@@ -43,6 +43,12 @@ describe('threat-feed checks (Phase 122 Theme C)', () => {
     expect(withinOneEdit('react', 'react')).toBe(false);
     expect(withinOneEdit('reactt', 'react')).toBe(true);
     expect(withinOneEdit('re', 'react')).toBe(false);
+    expect(withinOneEdit('lodahs', 'lodash')).toBe(true);
+    expect((out[1] as { remediation: unknown[] }).remediation).toEqual([]);
+  });
+
+  it('a partial feed object does not throw', () => {
+    expect(() => mcpServersCheck.run({ threatFeed: { poisonedPackages: [] }, mcpServers: [{ serverName: 'a', command: 'b' }] })).not.toThrow();
   });
 
   it('every check reports nothing without a feed', () => {

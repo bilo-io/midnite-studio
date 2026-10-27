@@ -115,7 +115,7 @@ for candidate files, an installed-`node_modules` resolver, and the `poisoned-pac
 `remove-package` action), `mcp-servers` (`critical`, `revoke-mcp-server`) and `slopsquat` (`high` for listed names,
 `medium` for one edit from a short built-in popular list) checks. Not done: the feed itself and its publishing
 workflow live in `bilo-io/midnite-apps`, so `THREAT_FEED_PUBLIC_KEY_PEM` is empty and no feed is trusted yet; the
-plugins/skills re-scan; wiring into the sweep.
+plugins/skills re-scan; the installed-package resolver does not yet descend into pnpm's `node_modules/.pnpm`; wiring into the sweep (the `installedPackages` and `mcpServers` inputs have no resolver registered yet). The loader keeps serving the last verified feed when a download fails verification and refuses a validly signed feed with a lower `version` than the cached one.
 
 **Theme D — The Mac itself.** ◻ Listening ports, outdated software, FileVault/firewall/
 Gatekeeper/SIP/remote-login state, SSH key modes and passphrases, secrets in dotfiles and `.env`

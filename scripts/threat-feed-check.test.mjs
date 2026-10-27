@@ -1,6 +1,7 @@
 // vitest/node: pure logic, no browser capability needed.
 import { generateKeyPairSync, sign } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { canonicalJson as sharedCanonicalJson } from '../packages/shared/src/vanguard-integrity.ts';
 import { canonicalJson, validateFeed, verifySignature } from './threat-feed-check.mjs';
 
 const good = {
@@ -12,6 +13,10 @@ const good = {
 };
 
 describe('threat-feed-check', () => {
+  it('keeps its canonicalJson byte-identical to the shared one the app verifies with', () => {
+    for (const v of [good, { b: [1, { z: 1, a: null }], a: 'x' }, 'str', 3, null]) expect(canonicalJson(v)).toBe(sharedCanonicalJson(v));
+  });
+
   it('accepts a well-formed feed', () => expect(validateFeed(good)).toEqual([]));
 
   it('rejects a malformed one entry by entry', () => {

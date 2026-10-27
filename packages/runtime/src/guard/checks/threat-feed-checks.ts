@@ -4,11 +4,13 @@ import type { ThreatFeed } from '@midnite/studio-shared';
 import { createGuardFinding, type GuardCheck } from '../check';
 import type { LockedPackage } from '../lockfiles/types';
 
-/** The `threatFeed` input: a verified feed, or the reason there is none (a skipped input, never an empty "clean"). */
-export type ThreatFeedInput = ThreatFeed | undefined;
-
-const asFeed = (raw: unknown): ThreatFeed | null =>
-  raw !== null && typeof raw === 'object' && !Array.isArray(raw) && Array.isArray((raw as ThreatFeed).poisonedPackages) ? (raw as ThreatFeed) : null;
+/** A verified feed with every list present, or null; a hand-built or partial object never throws inside a check. */
+const asFeed = (raw: unknown): ThreatFeed | null => {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const f = raw as Partial<ThreatFeed>;
+  if (!Array.isArray(f.poisonedPackages) && !Array.isArray(f.mcpServers) && !Array.isArray(f.slopsquatNames)) return null;
+  return { ...(f as ThreatFeed), poisonedPackages: f.poisonedPackages ?? [], mcpServers: f.mcpServers ?? [], slopsquatNames: f.slopsquatNames ?? [] };
+};
 const asPackages = (raw: unknown): LockedPackage[] => (Array.isArray(raw) ? (raw as LockedPackage[]) : []);
 
 export const POISONED_PACKAGES_CHECK_ID = 'poisoned-packages';
@@ -97,10 +99,14 @@ export const SLOPSQUAT_CHECK_ID = 'slopsquat';
 /** Popular npm names a one-letter slip is worth flagging against. Deliberately short: the feed carries the real list. */
 export const POPULAR_NPM_NAMES: readonly string[] = ['react', 'lodash', 'express', 'axios', 'typescript', 'webpack', 'moment', 'chalk', 'commander', 'eslint', 'prettier', 'vue', 'jquery', 'request'];
 
-/** Levenshtein distance, early-out above 1 since only a single edit matters here. */
+/** True for exactly one insertion, deletion, substitution or adjacent transposition (identical names are not "near"). */
 export function withinOneEdit(a: string, b: string): boolean {
   if (a === b) return false;
   if (Math.abs(a.length - b.length) > 1) return false;
+  if (a.length === b.length) {
+    const d = [...a].map((ch, i) => (ch === b[i] ? -1 : i)).filter((i) => i >= 0);
+    if (d.length === 2 && d[1] === d[0]! + 1 && a[d[0]!] === b[d[1]!] && a[d[1]!] === b[d[0]!]) return true;
+  }
   let i = 0;
   while (i < a.length && i < b.length && a[i] === b[i]) i++;
   if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
@@ -133,7 +139,8 @@ export const slopsquatCheck: GuardCheck = {
           title: listed ? `${pkg.name} is a known slopsquat name` : `${pkg.name} is one edit from ${near}`,
           detail: listed ? `Listed in the threat feed (${listed.ref}). Check that you meant this package.` : `Check that you meant ${pkg.name} and not ${near}.`,
           evidence: [{ kind: 'path', path: pkg.path }],
-          remediation: [{ id: 'remove-package', name: pkg.name, version: pkg.version }],
+          // A heuristic hit gets no destructive action: preact is one edit from react.
+          remediation: listed ? [{ id: 'remove-package', name: pkg.name, version: pkg.version }] : [],
         }),
       );
     }

@@ -11,13 +11,7 @@ export const ThreatFeedSchema = z.object({
   version: z.number().int().positive(),
   publishedAt: z.string().min(1),
   poisonedPackages: z.array(z.object({ ecosystem: z.string().min(1), name: z.string().min(1), versions: z.array(z.string().min(1)).min(1), campaign: z.string().min(1), ref: Ref })).default([]),
-  mcpServers: z
-    .array(
-      z
-        .object({ nameOrUrl: z.string().min(1), configHash: z.string().optional(), toolsHash: z.string().optional(), campaign: z.string().min(1), ref: Ref })
-        .refine((e) => e.configHash !== undefined || e.toolsHash !== undefined || e.nameOrUrl.length > 0),
-    )
-    .default([]),
+  mcpServers: z.array(z.object({ nameOrUrl: z.string().min(1), configHash: z.string().optional(), toolsHash: z.string().optional(), campaign: z.string().min(1), ref: Ref })).default([]),
   slopsquatNames: z.array(z.object({ ecosystem: z.string().min(1), name: z.string().min(1), ref: Ref })).default([]),
   clickfixDomains: z.array(z.string().min(1)).default([]),
   commandGrammars: z
@@ -48,4 +42,5 @@ export type ThreatFeed = z.infer<typeof ThreatFeedSchema>;
  */
 export const THREAT_FEED_PUBLIC_KEY_PEM = '';
 
+// scripts/threat-feed-check.test.mjs pins the standalone script's copy byte-for-byte to it.
 // The signature covers `canonicalJson` (keys sorted at every depth), exported from `./vanguard-integrity`.

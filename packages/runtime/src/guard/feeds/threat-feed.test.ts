@@ -47,11 +47,29 @@ describe('threat feed (Phase 122 Theme C)', () => {
       return { ok: true, status: 200, headers: { get: () => null }, json: async () => JSON.parse(text), text: async () => text };
     };
 
-    it('caches a verified feed, serves it offline, and does not fall back on a bad signature', async () => {
+    it('reports a bad signature when nothing is cached', async () => {
+      const r = await loadThreatFeed({ cacheDir: dir, url: 'https://x/f.json', publicKeyPem: pem, fetch: mk({ body: body.replace('1.0.0', '9.9.9') }) });
+      expect(r).toMatchObject({ ok: false, reason: expect.stringContaining('signature') });
+    });
+
+    it('refuses a validly signed feed older than the cached one', async () => {
+      const mkSigned = (v: number): FeedFetch => async (url) => {
+        const f = { ...feed, version: v };
+        const text = url.endsWith('.sig') ? sign(null, Buffer.from(canonicalJson(f)), privateKey).toString('base64') : JSON.stringify(f);
+        return { ok: true, status: 200, headers: { get: () => null }, json: async () => JSON.parse(text), text: async () => text };
+      };
+      const opts = { cacheDir: dir, url: 'https://x/f.json', publicKeyPem: pem };
+      await loadThreatFeed({ ...opts, fetch: mkSigned(5) });
+      const r = await loadThreatFeed({ ...opts, fetch: mkSigned(3) });
+      expect(r.ok && r.feed.version).toBe(5);
+    });
+
+    it('caches a verified feed, serves it offline, and falls back to it on a mismatched signature', async () => {
       const opts = { cacheDir: dir, url: 'https://x/threat-feed.json', publicKeyPem: pem };
       expect((await loadThreatFeed({ ...opts, fetch: mk({}) })).ok).toBe(true);
       expect((await loadThreatFeed({ ...opts, fetch: mk({ down: true }) })).ok).toBe(true);
-      expect((await loadThreatFeed({ ...opts, fetch: mk({ body: body.replace('1.0.0', '9.9.9') }) })).ok).toBe(false);
+      // a body out of step with its signature (mid-publish) keeps serving the last verified copy
+      expect((await loadThreatFeed({ ...opts, fetch: mk({ body: body.replace('1.0.0', '9.9.9') }) })).ok).toBe(true);
     });
   });
 });
