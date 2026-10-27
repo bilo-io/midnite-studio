@@ -55,7 +55,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       # @bilo-io/ui and @bilo-io/shell come from GitHub Packages, which requires
