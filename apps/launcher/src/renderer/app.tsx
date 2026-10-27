@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuTrash2, LuX } from 'react-icons/lu';
 
-import type { LauncherResult, ThemeSource } from '../common/bridge';
+import type { LauncherResult, LauncherSelfStatus, ThemeSource } from '../common/bridge';
 import { APPS, SECTION_LABELS, appById, type AppId, type LauncherApp } from '../common/catalog';
+import { compareVersions } from '../common/version';
 import { getBridge } from './bridge';
 import { AppDetail } from './components/app-detail';
 import type { MenuItem } from './components/app-menu';
@@ -67,6 +68,14 @@ export function App() {
   const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
   const [removingAll, setRemovingAll] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: 'error' | 'info' } | null>(null);
+  const [self, setSelf] = useState<LauncherSelfStatus | null>(null);
+  const [selfBannerDismissed, setSelfBannerDismissed] = useState(false);
+  const [selfUpdating, setSelfUpdating] = useState(false);
+
+  const checkSelf = useCallback(() => {
+    void bridge.self.status().then(setSelf, () => undefined);
+  }, [bridge]);
+  useEffect(checkSelf, [checkSelf]);
 
   // A `midnite://` link for an app that cannot open yet lands here: its detail sheet, which is where Install lives.
   useEffect(() => {
@@ -160,6 +169,16 @@ export function App() {
     ];
   };
 
+  // The installer quits this app, swaps the bundle and reopens it; nothing to wait for here.
+  const updateSelf = () => {
+    setSelfUpdating(true);
+    void bridge.self.update().then((r) => {
+      if (!r.ok) setSelfUpdating(false);
+      report(r, 'Updating Midnite Apps — it will quit and reopen in a moment.');
+    });
+  };
+  const selfBehind = self?.latest != null && compareVersions(self.latest.version, self.current) > 0;
+
   const removable = useMemo(() => removableApps(viewOf), [viewOf]);
   // One at a time, through the same per-app ops as each tile's own Move to Trash, so every guard
   // still applies; a running app refuses and is reported, and the rest still go.
@@ -215,7 +234,10 @@ export function App() {
             type="button"
             className="btn btn-icon topbar-refresh"
             aria-label="Check again"
-            onClick={() => void apps.refresh()}
+            onClick={() => {
+              void apps.refresh();
+              checkSelf();
+            }}
             disabled={apps.refreshing}
           >
             <LuRefreshCw size={15} className={apps.refreshing ? 'spin' : undefined} />
@@ -234,6 +256,20 @@ export function App() {
       </header>
 
       <main className="content">
+        {selfBehind && !selfBannerDismissed && self?.latest && (
+          <div className="banner" role="status">
+            <span className="pill pill-solid">Update</span>
+            <span className="banner-text">Midnite Apps {self.latest.version} is available.</span>
+            <div className="banner-actions">
+              <button type="button" className="btn btn-primary btn-compact" onClick={updateSelf} disabled={selfUpdating || !self.canUpdate}>
+                {selfUpdating ? 'Updating…' : 'Update launcher'}
+              </button>
+              <button type="button" className="btn btn-icon" aria-label="Dismiss" onClick={() => setSelfBannerDismissed(true)}>
+                <LuX size={14} />
+              </button>
+            </div>
+          </div>
+        )}
         {showBanner && studio.status?.latest && (
           <div className="banner" role="status">
             <span className="pill pill-solid">Update</span>
@@ -316,6 +352,15 @@ export function App() {
           </button>
           <button type="button" className="link eyebrow" onClick={() => void bridge.links.open('github')}>
             GitHub ↗
+          </button>
+          <button
+            type="button"
+            className="link eyebrow"
+            onClick={updateSelf}
+            disabled={selfUpdating || self?.canUpdate === false}
+            title={self?.canUpdate === false ? 'A dev run cannot update itself' : 'Re-install the latest Midnite Apps'}
+          >
+            {selfUpdating ? 'Updating…' : 'Update launcher'}
           </button>
           <span className="eyebrow">
             {APPS.length} apps · Launcher {bridge.launcherVersion} · macOS {bridge.platform.arch}

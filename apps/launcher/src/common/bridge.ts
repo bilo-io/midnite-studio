@@ -29,6 +29,10 @@ export const LAUNCHER_CHANNELS = {
   appShow: 'launcher:app:show',
   /** renderer → main: the app a link asked for before the renderer was listening, once. */
   appPending: 'launcher:app:pending',
+  /** The running launcher against `midnite-launcher/version.json`. */
+  selfStatus: 'launcher:self:status',
+  /** Re-runs the launcher installer, which quits this app, replaces it and reopens it. */
+  selfUpdate: 'launcher:self:update',
   linkOpen: 'launcher:link:open',
   themeSet: 'launcher:theme:set',
 } as const;
@@ -38,6 +42,15 @@ export type StudioInstall = { path: string; version: string | null };
 
 /** The newest published release, from `midnite-studio/version.json`. */
 export type StudioRelease = { version: string; releasedAt: string | null; notesUrl: string | null };
+
+/** The running launcher against its own feed. `latest` is `null` with `feedError` set when it could not be read. */
+export type LauncherSelfStatus = {
+  current: string;
+  latest: StudioRelease | null;
+  feedError: string | null;
+  /** `false` in a dev run — the stock Electron binary is not something the installer can replace. */
+  canUpdate: boolean;
+};
 
 export type StudioStatus = {
   installed: StudioInstall | null;
@@ -109,6 +122,12 @@ export type LauncherBridge = {
     onShow(listener: (id: AppId) => void): () => void;
     /** An app a link asked for before the renderer mounted, consumed once. */
     takePending(): Promise<AppId | null>;
+  };
+  /** The launcher itself. */
+  self: {
+    status(): Promise<LauncherSelfStatus>;
+    /** Starts the installer and returns; on success this app quits shortly after. Never throws. */
+    update(): Promise<LauncherResult>;
   };
   links: {
     open(link: ExternalLink): Promise<LauncherResult>;

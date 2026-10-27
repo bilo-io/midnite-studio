@@ -14,8 +14,9 @@ import { identityForApp, productionBundleDeps } from './bundles/production';
 import { updateInstalledBundles } from './bundles/updates';
 import { fetchCatalog } from './feed';
 import { applyDevIdentity, pinDataDir } from './identity';
-import { registerIpc, takePendingApp } from './ipc';
+import { registerIpc, takePendingApp, type SelfIpc } from './ipc';
 import { handleMidniteLink, linkFromArgv } from './router';
+import { launcherSelfStatus, startSelfUpdate } from './self-update';
 import { findStudio } from './studio';
 import { isAdHocSigned, loadAutoUpdater, runLauncherUpdates } from './updater';
 
@@ -183,6 +184,10 @@ if (!app.requestSingleInstanceLock()) {
         ]),
       );
     }
+    const selfIpc: SelfIpc = {
+      status: () => launcherSelfStatus({ current: app.getVersion(), isPackaged: app.isPackaged }),
+      update: () => startSelfUpdate({ isPackaged: app.isPackaged, logPath: join(app.getPath('logs'), 'self-update.log') }),
+    };
     registerIpc(() => mainWindow, {
       ops: createAppsOps({
         runtimeVersion: app.getVersion(),
@@ -197,7 +202,7 @@ if (!app.requestSingleInstanceLock()) {
         onProgress: (event) => mainWindow?.webContents.send(LAUNCHER_CHANNELS.appProgress, event),
       }),
       findBundle: (id) => lockstepBundleFinder(bundleRoots().installRoot, app.getVersion())(id),
-    });
+    }, selfIpc);
     createWindow();
     ready = true;
     const first = pendingLink ?? linkFromArgv(process.argv);

@@ -37,6 +37,10 @@ const bridge: LauncherBridge = {
     },
     takePending: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.appPending),
   },
+  self: {
+    status: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.selfStatus),
+    update: () => ipcRenderer.invoke(LAUNCHER_CHANNELS.selfUpdate),
+  },
   links: {
     open: (link) => ipcRenderer.invoke(LAUNCHER_CHANNELS.linkOpen, link),
   },

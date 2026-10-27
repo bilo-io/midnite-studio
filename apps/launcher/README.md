@@ -46,3 +46,9 @@ namespaced feed (`midnite-launcher/feed`), then `bundles/updates.ts` re-clones s
 older runtime and reinstalls bundles the catalog has moved past. No app runs an updater —
 `eslint.config.mjs` (`NO_APP_UPDATER`) and `scripts/single-updater.test.mjs` keep electron-updater
 to this launcher and Studio's own (until Phase 113 Theme G).
+
+An ad-hoc-signed launcher cannot swap itself in place (Squirrel.Mac refuses a build whose signature
+does not match the running one), so `updater.ts` only checks. **Update launcher** — a banner when
+`midnite-launcher/version.json` is newer, and always in the status bar — runs `self-update.ts`
+instead: the website's `install.sh`, detached, which quits this app, replaces the bundle and
+reopens it. Its output lands in `~/Library/Logs/Midnite Apps/self-update.log`.

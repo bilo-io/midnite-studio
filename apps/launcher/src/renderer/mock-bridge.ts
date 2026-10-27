@@ -98,6 +98,16 @@ export function createMockBridge(mode: string | null): LauncherBridge {
       onShow: () => () => undefined,
       takePending: async () => null,
     },
+    // `?studio=launcher-update` puts the launcher itself one release behind its feed.
+    self: {
+      status: async () => ({
+        current: '0.0.1',
+        latest: { version: mode === 'launcher-update' ? '0.0.2' : '0.0.1', releasedAt: null, notesUrl: null },
+        feedError: null,
+        canUpdate: true,
+      }),
+      update: ok,
+    },
     links: { open: ok },
     theme: { set: () => undefined },
   };

@@ -30,7 +30,12 @@ export function studioZipUrl(version: string): string {
 /** The Electron framework binary is ~150 MB; anything under 100 MB is a truncated copy (install.sh's guard). */
 export const MIN_FRAMEWORK_BYTES = 100 * 1024 * 1024;
 
-export const SITE_URL = 'https://midnite-studio-website.vercel.app';
+export const SITE_URL = 'https://midnite-apps.vercel.app';
 export const GITHUB_URL = `https://github.com/${RELEASES_REPO}`;
 export const RELEASES_URL = `https://github.com/${RELEASES_REPO}/releases`;
 export const DOWNLOAD_URL = `${SITE_URL}/download/`;
+
+/** The launcher's own release feed — `midnite-launcher/version.json`, written per release beside Studio's. */
+export const LAUNCHER_FEED_URL = `https://raw.githubusercontent.com/${RELEASES_REPO}/main/midnite-launcher/version.json`;
+/** The launcher installer the website serves (a verbatim copy of `midnite-launcher/install.sh`) — what Update re-runs. */
+export const LAUNCHER_INSTALL_URL = `${SITE_URL}/install.sh`;
