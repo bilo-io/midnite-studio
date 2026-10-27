@@ -27,6 +27,7 @@
       "@midnite/studio-knowledge": ["./packages/knowledge/src/index.ts"],
       "@midnite/studio-knowledge/*": ["./packages/knowledge/src/*"],
       "@midnite/studio-runtime": ["./packages/runtime/src/index.ts"],
+      "@midnite/studio-runtime/private-files": ["./packages/runtime/src/private-files.ts"],
       "@midnite/studio-runtime/broker/*": ["./packages/runtime/src/broker/*"],
       "@midnite/studio-runtime/app-main/*": ["./packages/runtime/src/app-main/*"],
       "@midnite/studio-runtime/agent-run/*": ["./packages/runtime/src/agent-run/*"],

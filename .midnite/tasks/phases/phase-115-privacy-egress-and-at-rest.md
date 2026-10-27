@@ -100,7 +100,7 @@ fetch to an unregistered host. Settings ▸ Privacy is generated from the regist
 automatic call and one master switch. The launcher gets the same switches for its update and
 catalog checks. An idle e2e test proves no request leaves with every switch off.
 
-**Theme B — History that is yours alone.** ◻ 0700 dirs and 0600 files for scrollback, session
+**Theme B — History that is yours alone.** ◐ PARTIAL (PR pending). Landed: `ensurePrivateDir`/`writePrivateFile`/`appendPrivateFileSync`/`tightenTree` in `runtime/src/private-files.ts` (atomic 0600 writes, 0700 dirs), applied to terminals.json, scrollback (main store and broker flush), session history and transcripts, chats and patches, and the NDJSON log; `tightenHistoryModes` migrates existing files at boot. No voice-recording store exists on disk to cover. Open: retention select, "Clear all local history", FileVault note. 0700 dirs and 0600 files for scrollback, session
 history, chats, logs and voice, with a one-time migration of existing files. A retention limit the
 user chooses (default: keep). "Clear all local history". FileVault named as the at-rest protection.
 
@@ -116,7 +116,7 @@ forge PATs already degrade.
 signed URLs instead of the long-lived token. The MCP and broker sockets require a per-launch
 token from a 0600 file. The CSP drops `'unsafe-inline'` by hashing the no-flash theme script.
 
-**Theme F — Claude's and Codex's settings are never written.** ◻ A test fails on any write path to
+**Theme F — Claude's and Codex's settings are never written.** ◐ PARTIAL (PR pending). Landed: `agent-config-no-write.test.ts` source scan (no allowlist entries needed today) and `assertNotAgentConfig`, which every private write calls and which throws under `~/.claude*`/`~/.codex` except `skills/`. Open: the Privacy-page disclosure and the "Read Claude and Codex history" switch. A test fails on any write path to
 `~/.claude*`, `.mcp.json` or `~/.codex/config.toml`. Reading `~/.claude`/`~/.codex` transcripts is
 disclosed in Settings ▸ Privacy, with an off switch (default on).
 
@@ -165,14 +165,14 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### B — History that is yours alone [M · ~1d]
 
-- [ ] **One helper for private paths.** `ensurePrivateDir(path)` (0700) and
+- [x] **One helper for private paths.** `ensurePrivateDir(path)` (0700) and
       `writePrivateFile(path, data)` (0600, atomic rename) in `runtime`, with tests that stat the
       modes.
-- [ ] **Apply it to every history store.** Scrollback (`broker/server.ts`, `terminal-store.ts`),
+- [x] **Apply it to every history store.** Scrollback (`broker/server.ts`, `terminal-store.ts`),
       session history and archived transcripts (`session-history-store.ts`), chats and patches
       (`chat-store.ts`), the NDJSON log (`log-sink.ts`), and voice recordings and transcriptions
       (locate and add to this list first).
-- [ ] **Migrate existing files once.** On first launch after upgrade, `chmod` the existing dirs
+- [x] **Migrate existing files once.** On first launch after upgrade, `chmod` the existing dirs
       and files to 0700/0600 under `userData`. Idempotent, logged once, never fatal.
 - [ ] **Retention.** A Settings ▸ Privacy "Keep local history" select (Forever · 90 · 30 · 7
       days), **default Forever**. Applies to scrollback and archived session transcripts on start
@@ -233,12 +233,12 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### F — Claude's and Codex's settings are never written [S · ≤ 2h]
 
-- [ ] **A test that holds the line.** A vitest that scans main-side source for write calls
+- [x] **A test that holds the line.** A vitest that scans main-side source for write calls
       (`writeFile`, `appendFile`, `rename`, `rm`, `mkdir`, `copyFile`, `symlink`) whose path
       expression mentions `.claude`, `.codex`, `.mcp.json` or `settings.json` outside an allowlist,
       and fails. The allowlist holds only repo-scaffold writes of `.claude/skills` and
       `.codex/skills` (skills, not settings), each with a comment.
-- [ ] **A runtime guard too.** Make `writePrivateFile` (Theme B) refuse targets under
+- [x] **A runtime guard too.** Make `writePrivateFile` (Theme B) refuse targets under
       `~/.claude*` or `~/.codex` except `*/skills/**`, so a future write fails loudly in dev.
 - [ ] **Disclose the reads, with a switch.** Settings ▸ Privacy says Studio reads
       `~/.claude/settings.json` (`enabledPlugins`), `~/.claude` usage, and `~/.codex/sessions` for

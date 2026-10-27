@@ -1,7 +1,9 @@
-import { appendFileSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync } from 'node:fs';
+import { readFileSync, renameSync, statSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { redactPaths } from '@midnite/studio-shared';
+
+import { appendPrivateFileSync, ensurePrivateDirSync } from '../private-files';
 
 /**
  * The file under main's one log seam — Phase 65 Theme A. In the runtime since the report feature
@@ -186,8 +188,11 @@ export function createFileSink(options: FileSinkOptions): LogSink {
     onFailure?.(`[log] file sink disabled: ${redactPaths(reason, homeDir)}`);
   }
 
+  let dirReady = false;
   function ensureDir(): void {
-    mkdirSync(dir, { recursive: true });
+    if (dirReady) return;
+    ensurePrivateDirSync(dir);
+    dirReady = true;
   }
 
   /** Append `text`, rotating first if it would push the file past `maxBytes`. */
@@ -201,7 +206,7 @@ export function createFileSink(options: FileSinkOptions): LogSink {
       if (sizeOf(path) + Buffer.byteLength(text) > maxBytes) {
         rotateFiles(dir, name, generations);
       }
-      appendFileSync(path, text);
+      appendPrivateFileSync(path, text);
     } catch (err) {
       degrade(err);
     }

@@ -1,6 +1,7 @@
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { writePrivateFile } from '@midnite/studio-runtime';
 import { StoredChatSchema, type Chat } from '@midnite/studio-shared';
 
 /**
@@ -39,11 +40,7 @@ export type ChatStore = {
 /** A chat id becomes a filename; keep only characters that cannot escape the directory. */
 const safeName = (id: string): string => id.replace(/[^a-zA-Z0-9._-]/g, '_');
 
-async function writeAtomic(file: string, text: string): Promise<void> {
-  const tmp = `${file}.${process.pid}.tmp`;
-  await writeFile(tmp, text, 'utf8');
-  await rename(tmp, file);
-}
+const writeAtomic = (file: string, text: string): Promise<void> => writePrivateFile(file, text);
 
 export function createChatStore(userDataDir: string): ChatStore {
   const dir = join(userDataDir, 'chats');
@@ -86,7 +83,6 @@ export function createChatStore(userDataDir: string): ChatStore {
     save: (chat) =>
       serial(chat.id, async () => {
         try {
-          await mkdir(dir, { recursive: true });
           await writeAtomic(fileFor(chat.id), `${JSON.stringify({ version: 1, chat })}\n`);
         } catch {
           // A read-only data dir must not take the app down.
@@ -100,7 +96,6 @@ export function createChatStore(userDataDir: string): ChatStore {
 
     savePatches: async (changeSetId, patches) => {
       try {
-        await mkdir(patchDir, { recursive: true });
         await writeAtomic(patchFileFor(changeSetId), JSON.stringify(patches));
       } catch {
         // Same posture as `save`.
