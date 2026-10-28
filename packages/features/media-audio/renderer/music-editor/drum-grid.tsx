@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { type Song } from '@midnite/studio-shared';
 import { useMemo, useState } from 'react';
 import { LuChevronLeft, LuChevronRight } from 'react-icons/lu';
@@ -80,17 +81,13 @@ export function DrumGrid({ song, trackId, onCommit, engine }: Props) {
         </label>
         <label className="flex items-center gap-1 text-muted-foreground">
           Swing
-          <input
+          <BrandSlider
             aria-label="Swing"
-            type="range"
             min={0}
             max={100}
             value={Math.round(cfg.swing * 200)}
-            onChange={(e) =>
-              onCommit(
-                setGrid(song, trackId, { swing: Number(e.target.value) / 200 }, bar),
-                `swing:${trackId}`,
-              )
+            onValueChange={(next) =>
+              onCommit(setGrid(song, trackId, { swing: next / 200 }, bar), `swing:${trackId}`)
             }
             className="w-28"
           />
@@ -98,14 +95,13 @@ export function DrumGrid({ song, trackId, onCommit, engine }: Props) {
         </label>
         <label className="flex items-center gap-1 text-muted-foreground">
           Velocity
-          <input
+          <BrandSlider
             aria-label="Step velocity"
-            type="range"
             min={1}
             max={127}
             disabled={selectedVelocity === 0}
             value={selectedVelocity || DEFAULT_STEP_VELOCITY}
-            onChange={(e) =>
+            onValueChange={(next) =>
               selected &&
               onCommit(
                 toggleStep(
@@ -113,7 +109,7 @@ export function DrumGrid({ song, trackId, onCommit, engine }: Props) {
                   trackId,
                   ref(selected.pitch, selected.step),
                   bar,
-                  Number(e.target.value),
+                  next,
                 ),
                 `vel:${trackId}`,
               )

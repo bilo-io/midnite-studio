@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { MAP_CACHE_CAP_MB } from '@midnite/studio-shared';
 import { useEffect, useState } from 'react';
 
@@ -46,14 +47,13 @@ export function MapSettingsSection() {
         </p>
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           Cap
-          <input
-            type="range"
+          <BrandSlider
             aria-label="Map cache size limit"
             min={MAP_CACHE_CAP_MB.min}
             max={MAP_CACHE_CAP_MB.max}
             step={MAP_CACHE_CAP_MB.step}
             value={cap}
-            onChange={(event) => setCap(Number(event.target.value))}
+            onValueChange={setCap}
             onPointerUp={() => run.mutate({ op: 'set-cap', capMB: cap })}
             onKeyUp={() => run.mutate({ op: 'set-cap', capMB: cap })}
             className="flex-1"

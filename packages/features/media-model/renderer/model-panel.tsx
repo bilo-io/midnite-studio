@@ -17,7 +17,7 @@ import { useMemo, useState, type DragEvent } from 'react';
 import { LuInfo, LuSquare, LuX } from 'react-icons/lu';
 import { SiOllama } from 'react-icons/si';
 
-import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout, RingSpinner as Spinner } from '@midnite/studio-frame';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout, RingSpinner as Spinner, BrandSlider } from '@midnite/studio-frame';
 
 import { ModelComposer } from './model-composer';
 import { useAgentRoster, type ModelPickerProvider } from './host';
@@ -221,16 +221,15 @@ function ProceduralPanel({
               </p>
               <label className="flex items-center gap-2">
                 Refinement passes
-                <input
-                  type="range"
+                <BrandSlider
                   aria-label="Refinement passes"
                   min={1}
                   max={MODEL_ITERATIONS_MAX}
                   step={1}
                   value={prefs.maxIterations}
                   disabled={running}
-                  onChange={(event) => prefs.set({ maxIterations: Number(event.target.value) })}
-                  className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+                  onValueChange={(next) => prefs.set({ maxIterations: next })}
+                  className="flex-1"
                 />
                 <span className="tabular-nums w-7 text-right text-[11px] text-foreground">{prefs.maxIterations}</span>
               </label>

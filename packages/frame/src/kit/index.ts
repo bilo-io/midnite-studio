@@ -1,3 +1,4 @@
+export { BRAND_SPECTRUM, BrandSlider } from './brand-slider';
 export { KitIconButton } from './kit-icon-button';
 export { KitModal } from './kit-modal';
 export { KitContextMenu, type KitContextMenuProps } from './context-menu';

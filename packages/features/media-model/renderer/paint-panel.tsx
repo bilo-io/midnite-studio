@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import {
   addPbrLayer,
   applyPbrPreset,
@@ -320,9 +321,8 @@ function LayerRow({
         <LuTrash2 aria-hidden className="h-3.5 w-3.5" />
       </button>
       <div className="flex basis-full flex-wrap items-center gap-1 pl-6">
-        <input
+        <BrandSlider
           aria-label={`${layer.name} opacity`}
-          type="range"
           min={0}
           max={1}
           step={0.05}
@@ -330,7 +330,7 @@ function LayerRow({
           key={`${layer.id}-${layer.opacity ?? 1}`}
           onPointerUp={(e) => onEdit({ opacity: Number((e.target as HTMLInputElement).value) })}
           onKeyUp={(e) => onEdit({ opacity: Number((e.target as HTMLInputElement).value) })}
-          className="h-1 w-14"
+          className="w-14"
         />
         <select aria-label={`${layer.name} blend mode`} value={layer.blend ?? 'normal'} onChange={(e) => onEdit({ blend: e.target.value as (typeof PAINT_BLEND_MODES)[number] })} className={`${FIELD} w-20`}>
           {PAINT_BLEND_MODES.map((m) => (

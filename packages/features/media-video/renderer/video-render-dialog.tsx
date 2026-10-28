@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import {
   DEFAULT_VIDEO_ENGINE,
   VIDEO_CODEC_INFO,
@@ -96,14 +97,13 @@ export function VideoRenderDialog({
             Quality (crf {takesCrf ? crf : '—'}){' '}
             <span className="text-muted-foreground">lower is better</span>
           </span>
-          <input
+          <BrandSlider
             aria-label="Quality (crf)"
-            type="range"
             min={0}
             max={51}
             value={crf}
             disabled={!takesCrf}
-            onChange={(event) => setCrf(Number(event.target.value))}
+            onValueChange={setCrf}
           />
         </label>
         {takesScale ? (

@@ -32,7 +32,7 @@ import {
   type Material,
 } from 'three';
 
-import { RingSpinner as Spinner, usePageVisible, useWindowFocused } from '@midnite/studio-frame';
+import { RingSpinner as Spinner, usePageVisible, useWindowFocused, BrandSlider } from '@midnite/studio-frame';
 
 import { CHUNK_MESH_BUDGET, lodToRender, nextChunksToMesh } from './chunk-stream';
 import { ClassBrushPalette, type BrushState } from './class-brush';
@@ -679,14 +679,13 @@ export default function TerrainViewer({
           <span className="font-medium text-foreground">Onion skin</span>
           <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             Opacity: {Math.round(onionOpacity * 100)}%
-            <input
-              type="range"
+            <BrandSlider
               min={0}
               max={1}
               step={0.05}
               value={onionOpacity}
-              onChange={(e) => setOnionOpacity(Number(e.target.value))}
-              className="h-1.5 w-20 accent-primary cursor-pointer"
+              onValueChange={setOnionOpacity}
+              className="w-20"
             />
           </label>
         </div>

@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import type { WorkflowRun } from '@midnite/studio-shared';
 import { useEffect, useState } from 'react';
 import { LuChevronLeft, LuChevronRight, LuPause, LuPlay, LuSkipBack, LuSkipForward } from 'react-icons/lu';
@@ -82,14 +83,13 @@ export function RunReplayControls({
         disabled={step >= total}
       />
       <IconButton icon={LuSkipForward} label="Last step" size="sm" onClick={() => onStepChange(total)} disabled={step >= total} />
-      <input
-        type="range"
+      <BrandSlider
         min={0}
         max={total}
         value={step}
-        onChange={(event) => onStepChange(Number(event.target.value))}
+        onValueChange={onStepChange}
         aria-label="Replay step"
-        className="mx-1 h-1 w-20 accent-primary"
+        className="mx-1 w-20"
       />
       <span className="text-[11px] tabular-nums text-muted-foreground">
         {step} / {total}

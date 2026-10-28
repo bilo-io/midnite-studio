@@ -2,7 +2,7 @@ import { GAME_JUICE_DEFAULTS, type GameJuicePatch, type GameJuiceSettings } from
 import { useCallback, useEffect, useState } from 'react';
 import { LuSparkles } from 'react-icons/lu';
 
-import { SettingsSwitchRow } from '@midnite/studio-frame';
+import { SettingsSwitchRow, BrandSlider } from '@midnite/studio-frame';
 import { Popover } from './chrome';
 import { bridge } from '@midnite/studio-frame';
 import { useGameJuiceStore } from './game-juice-store';
@@ -167,16 +167,15 @@ function Slider({
   return (
     <label className={`flex items-center gap-2 px-2 py-1 ${disabled ? 'opacity-50' : ''}`}>
       <span className="w-16 text-foreground">{label}</span>
-      <input
-        type="range"
+      <BrandSlider
         min={min}
         max={max}
         step={step}
         value={value}
         disabled={disabled}
         aria-label={label}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+        onValueChange={onChange}
+        className="flex-1"
       />
       <span className="w-9 text-right text-muted-foreground tabular-nums">{format(value)}</span>
     </label>

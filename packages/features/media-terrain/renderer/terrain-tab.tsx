@@ -1,4 +1,4 @@
-import { EmptyState, RingSpinner as Spinner, useMediaKit, type IconComponent, type MediaSelection } from '@midnite/studio-frame';
+import { EmptyState, RingSpinner as Spinner, useMediaKit, type IconComponent, type MediaSelection, BrandSlider } from '@midnite/studio-frame';
 import { TERRAIN_SHADING_MODES, type TerrainSpec } from '@midnite/studio-shared';
 import { useEffect, useMemo, useState } from 'react';
 import { LuBrush, LuEye, LuGrid2X2, LuLayers, LuMountain, LuMove, LuRoute, LuSun, LuTrendingUp } from 'react-icons/lu';
@@ -143,15 +143,14 @@ function TerrainViewport({
         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <LuSun aria-hidden className="h-3.5 w-3.5" />
           Time of day
-          <input
-            type="range"
+          <BrandSlider
             min={0}
             max={24}
             step={0.25}
             value={timeOfDay}
             aria-label="Time of day"
-            onChange={(event) => onTimeOfDay(Number(event.target.value))}
-            className="w-28 accent-[hsl(var(--primary))]"
+            onValueChange={onTimeOfDay}
+            className="w-28"
           />
           <span className="w-9 tabular-nums">{`${String(Math.floor(timeOfDay)).padStart(2, '0')}:${String(Math.round((timeOfDay % 1) * 60)).padStart(2, '0')}`}</span>
         </label>

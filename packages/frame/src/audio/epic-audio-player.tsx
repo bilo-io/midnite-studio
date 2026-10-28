@@ -1,3 +1,4 @@
+import { BrandSlider } from '../kit/brand-slider';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   LuMusic,
@@ -1135,18 +1136,16 @@ export function EpicAudioPlayer({
   }, []);
 
   // Seek
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = (time: number) => {
     const audio = audioRef.current;
     if (!audio) return;
-    const time = Number(e.target.value);
     audio.currentTime = time;
     setCurrentTime(time);
   };
 
   // Volume
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVolumeChange = (val: number) => {
     const audio = audioRef.current;
-    const val = Number(e.target.value);
     setVolume(val);
     if (audio) {
       audio.volume = val;
@@ -1328,22 +1327,14 @@ export function EpicAudioPlayer({
             </span>
 
             <div className="relative flex flex-1 items-center">
-              <input
-                type="range"
+              <BrandSlider
                 min={0}
                 max={duration || 100}
                 step={0.1}
                 value={currentTime}
-                onChange={handleSeek}
+                onValueChange={handleSeek}
                 aria-label="Seek track"
-                className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/15 accent-cyan-400 transition-all hover:bg-white/25 focus:outline-none"
-                style={{
-                  background: `linear-gradient(to right, rgb(6, 182, 212) 0%, rgb(217, 70, 239) ${
-                    duration ? (currentTime / duration) * 100 : 0
-                  }%, rgba(255, 255, 255, 0.15) ${
-                    duration ? (currentTime / duration) * 100 : 0
-                  }%, rgba(255, 255, 255, 0.15) 100%)`,
-                }}
+                className="w-full"
               />
             </div>
 
@@ -1426,15 +1417,14 @@ export function EpicAudioPlayer({
                 )}
               </button>
 
-              <input
-                type="range"
+              <BrandSlider
                 min={0}
                 max={1}
                 step={0.01}
                 value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
+                onValueChange={handleVolumeChange}
                 aria-label="Adjust volume"
-                className="h-1.5 w-16 cursor-pointer appearance-none rounded-full bg-white/20 accent-cyan-400 sm:w-20"
+                className="w-16 sm:w-20"
               />
             </div>
           </div>

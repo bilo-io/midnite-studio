@@ -8,7 +8,7 @@ import {
   type AudioProviderId,
 } from '@midnite/studio-shared';
 
-import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout, PromptTextarea } from '@midnite/studio-frame';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout, PromptTextarea, BrandSlider } from '@midnite/studio-frame';
 
 import type { AudioPromptFormProps } from './host';
 import { toPrompt } from './prompt-form-state';
@@ -97,13 +97,12 @@ export function BasicPromptForm({
         </label>
         <label className={LABEL}>
           Duration — {formatDuration(state.durationS)}
-          <input
-            type="range"
+          <BrandSlider
             aria-label="Duration"
             min={AUDIO_DURATION_MIN_S}
             max={maxDuration}
             value={Math.min(state.durationS, maxDuration)}
-            onChange={(e) => dispatch({ type: 'duration', value: Number(e.target.value) })}
+            onValueChange={(next) => dispatch({ type: 'duration', value: next })}
           />
         </label>
         <label className="flex items-center gap-2 text-xs">

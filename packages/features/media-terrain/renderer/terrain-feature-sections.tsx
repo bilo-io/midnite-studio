@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { BUILT_IN_FOLIAGE_DESIGNS, DEFAULT_FOLIAGE_ASSETS, MEDIA_ROOT_DIR, mstudioFileUrl, type TerrainRoadKeyResult, type TerrainSpec } from '@midnite/studio-shared';
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { LuDices, LuPipette, LuRotateCcw } from 'react-icons/lu';
@@ -158,22 +159,20 @@ export function RoadsSection({
         </figure>
       </div>
       <Row label="Tolerance">
-        <input
-          type="range"
+        <BrandSlider
           aria-label="Road colour tolerance"
           min={0}
           max={1}
           step={0.01}
           value={tolerance}
-          onChange={(event) => {
-            const next = Number(event.target.value);
+          onValueChange={(next) => {
             setTolerance(next);
             schedulePreview(next);
           }}
           onPointerUp={commitTolerance}
           onKeyUp={commitTolerance}
           onBlur={commitTolerance}
-          className="h-1.5 min-w-0 flex-1 cursor-pointer accent-primary"
+          className="min-w-0 flex-1"
         />
         <span className="w-8 text-right font-mono text-[11px] text-muted-foreground">{tolerance.toFixed(2)}</span>
       </Row>

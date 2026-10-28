@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import type { Song, SongEffect, SongEffectType, SongTrack } from '@midnite/studio-shared';
 import { LuChevronLeft, LuChevronRight, LuPower, LuTrash2 } from 'react-icons/lu';
 
@@ -131,18 +132,14 @@ function EffectCard({
         {spec.params.map((p) => (
           <label key={p.key} className="flex items-center gap-2 text-[10px] text-muted-foreground">
             <span className="w-14 shrink-0">{p.label}</span>
-            <input
-              type="range"
+            <BrandSlider
               aria-label={`${spec.label} ${p.label}`}
               min={p.min}
               max={p.max}
               step={p.step}
               value={effectParam(fx, p.key)}
-              onChange={(e) =>
-                onCommit(
-                  setEffectParam(song, trackId, fx.id, p.key, Number(e.target.value)),
-                  `fx:${fx.id}:${p.key}`,
-                )
+              onValueChange={(next) =>
+                onCommit(setEffectParam(song, trackId, fx.id, p.key, next), `fx:${fx.id}:${p.key}`)
               }
               className="min-w-0 flex-1"
             />

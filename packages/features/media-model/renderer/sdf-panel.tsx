@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import {
   applySdfOps,
   DEFAULT_SDF_TREE,
@@ -497,22 +498,20 @@ function BlendSlider({
   return (
     <div className="flex items-center gap-1.5">
       <span className="w-20 shrink-0 text-[11px] text-muted-foreground">{label}</span>
-      <input
+      <BrandSlider
         aria-label={`${label} slider`}
-        type="range"
         min={0}
         max={0.5}
         step={0.005}
         value={draft}
-        onChange={(event) => {
-          const k = Number(event.target.value);
+        onValueChange={(k) => {
           setDraft(k);
           onPreview(k);
         }}
         onPointerUp={release}
         onKeyUp={release}
         onBlur={release}
-        className="h-1 min-w-0 flex-1 accent-primary"
+        className="min-w-0 flex-1"
       />
       <NumberField
         label={label}

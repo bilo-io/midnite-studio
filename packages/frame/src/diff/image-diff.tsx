@@ -1,3 +1,4 @@
+import { BrandSlider } from '../kit/brand-slider';
 import { useState } from 'react';
 
 import type { ImageDiffSources, ImageSide } from './image-sources';
@@ -91,14 +92,13 @@ export function ImageDiff({
               ))}
             </div>
             {effective === 'two-up' ? null : (
-              <input
-                type="range"
+              <BrandSlider
                 min={0}
                 max={100}
                 value={position}
-                onChange={(event) => setPosition(Number(event.target.value))}
+                onValueChange={setPosition}
                 aria-label={effective === 'swipe' ? 'Swipe position' : 'New revision opacity'}
-                className="w-28 accent-primary"
+                className="w-28"
               />
             )}
           </div>

@@ -1,3 +1,4 @@
+import { BrandSlider } from '../kit/brand-slider';
 import { useState } from 'react';
 
 import { LuSearch, LuUsers } from 'react-icons/lu';
@@ -123,13 +124,12 @@ export function KnowledgeFiltersPanel({
           <span>Min weight</span>
           <span>{filters.minWeight.toFixed(2)}</span>
         </span>
-        <input
-          type="range"
+        <BrandSlider
           min={0}
           max={1}
           step={0.05}
           value={filters.minWeight}
-          onChange={(event) => onMinWeightChange(Number(event.target.value))}
+          onValueChange={onMinWeightChange}
         />
       </label>
 
@@ -138,13 +138,12 @@ export function KnowledgeFiltersPanel({
           <span>Min confidence</span>
           <span>{filters.minConfidence.toFixed(2)}</span>
         </span>
-        <input
-          type="range"
+        <BrandSlider
           min={0}
           max={1}
           step={0.05}
           value={filters.minConfidence}
-          onChange={(event) => onMinConfidenceChange(Number(event.target.value))}
+          onValueChange={onMinConfidenceChange}
         />
       </label>
 
