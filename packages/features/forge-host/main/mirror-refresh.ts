@@ -27,6 +27,8 @@ export type RefreshOptions = {
   source?: MetadataSource;
   now?: () => Date;
   backoff?: BackoffOptions;
+  /** Fired on quit: stops the git child and the export; the result is then `failed` with reason `aborted`. */
+  signal?: AbortSignal;
 };
 
 /**
@@ -34,7 +36,7 @@ export type RefreshOptions = {
  * manifest. A problem after the fetch marks the mirror `degraded` and **keeps the previous manifest**
  * (it is the last known-good record); a problem fetching at all is `failed`.
  */
-async function refreshMirrorUnguarded({ root, repo, url, source, now = () => new Date(), backoff }: RefreshOptions): Promise<MirrorResult> {
+async function refreshMirrorUnguarded({ root, repo, url, source, now = () => new Date(), backoff, signal }: RefreshOptions): Promise<MirrorResult> {
   const key = mirrorKey(repo);
   const at = now().toISOString();
   const result = (status: MirrorStatus, extra: Partial<MirrorResult> = {}): MirrorResult => ({ key, status, at, incremental: false, refs: 0, ...extra });
@@ -49,8 +51,9 @@ async function refreshMirrorUnguarded({ root, repo, url, source, now = () => new
 
   await ensurePrivateDir(paths.parent);
   const existed = await isMirrorPresent(paths.bare);
-  const fetched = existed ? await mirrorUpdate(paths.bare) : await mirrorClone(paths.parent, url, paths.name);
+  const fetched = existed ? await mirrorUpdate(paths.bare, signal) : await mirrorClone(paths.parent, url, paths.name, signal);
   if (!fetched.ok) {
+    if (signal?.aborted) return result('failed', { reason: 'aborted' });
     // On some git versions a corrupt object makes the update itself fail before our fsck runs. If the
     // mirror was already there and fsck confirms damage, that is `degraded`, not an unreachable remote.
     if (existed) {
@@ -80,7 +83,7 @@ async function refreshMirrorUnguarded({ root, repo, url, source, now = () => new
   }
 
   const since = previous?.fetchedAt ?? null;
-  await exportMetadata({ source, metaDir: paths.meta, since, backoff });
+  await exportMetadata({ source, metaDir: paths.meta, since, backoff, signal });
   const files = await hashMetaFiles(paths.meta);
   await writeManifest(paths.meta, { fetchedAt: at, headRefs: refs, files, adapter: source.adapter, account: source.account });
 
@@ -99,6 +102,9 @@ export async function refreshMirror(options: RefreshOptions): Promise<MirrorResu
   try {
     return await refreshMirrorUnguarded(options);
   } catch (error) {
+    if (options.signal?.aborted && error instanceof Error && error.name === 'AbortError') {
+      return { key: mirrorKey(options.repo), status: 'failed', reason: 'aborted', at: (options.now ?? (() => new Date()))().toISOString(), incremental: false, refs: 0 };
+    }
     return {
       key: mirrorKey(options.repo),
       status: 'degraded',

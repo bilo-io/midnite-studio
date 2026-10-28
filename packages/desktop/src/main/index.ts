@@ -554,7 +554,8 @@ export const startStudioMain: StartStudioMain = () => {
       const forgePoller = createStudioForgePoller();
       registerForgeFeatureHandlers(forgePoller);
       // Phase 119 Theme A: the mirror scheduler. Idle until the user has picked repos in mirrors.json;
-      // started after a delay so a due first run does not compete with boot, stopped on quit.
+      // started after a delay so a due first run does not compete with boot. On quit stop() also aborts a run
+      // in flight: git children are killed, and a cut clone leaves only a `.partial` dir, never a mirror.
       const mirrorHost = createStudioMirrorHost(app.getPath('userData'));
       const mirrorStartTimer = setTimeout(() => void mirrorHost.start(), MIRROR_START_DELAY_MS);
       mirrorStartTimer.unref();

@@ -1,8 +1,9 @@
 import type { Forge } from '@midnite/studio-shared';
 
-import { loadMirrorConfig, saveMirrorConfig, type MirrorConfig, type MirrorConfigRepo } from './mirror-config';
+import { loadMirrorConfig, updateMirrorConfig, type MirrorConfig, type MirrorConfigRepo } from './mirror-config';
 import { createForgeMetadataSource, type ForgeReadAdapter } from './forge-metadata-source';
-import { defaultMirrorRoot } from './mirror-layout';
+import { remoteDefaultBranch } from './mirror-git';
+import { defaultMirrorRoot, mirrorPaths } from './mirror-layout';
 import type { MetadataSource } from './mirror-metadata';
 import { refreshMirror, type MirrorResult } from './mirror-refresh';
 import { createMirrorScheduler } from './mirror-scheduler';
@@ -21,6 +22,7 @@ export type MirrorHostDeps = {
   home?: string;
   warn?: (message: string) => void;
   /** Test seams. */
+  defaultBranch?: typeof remoteDefaultBranch;
   refresh?: typeof refreshMirror;
   now?: () => number;
   setTimer?: (fn: () => void, ms: number) => unknown;
@@ -30,38 +32,43 @@ export type MirrorHostDeps = {
 /**
  * Phase 119 Theme A's host: the scheduler wired to `mirrors.json`, the real refresh, and a metadata
  * source composed per repo from the app's adapter. `start()` runs what is due and keeps the timer;
- * `stop()` (on quit) clears it. Nothing here throws into the app: a repo that cannot be resolved is
+ * `stop()` (on quit) clears it and aborts a run in flight. Nothing here throws into the app: a repo that cannot be resolved is
  * mirrored as refs only, and a config that cannot be read is reported and retried by the scheduler.
  */
 export function createMirrorHost(deps: MirrorHostDeps) {
   const refresh = deps.refresh ?? refreshMirror;
   const warn = deps.warn ?? (() => undefined);
-  /** `record` rewrites the file, so two lanes finishing together serialise here too. */
-  let saving: Promise<unknown> = Promise.resolve();
+  const defaultBranch = deps.defaultBranch ?? remoteDefaultBranch;
 
-  async function sourceFor(repo: MirrorConfigRepo): Promise<MetadataSource | undefined> {
+  async function sourceFor(repo: MirrorConfigRepo, root: string, signal: AbortSignal): Promise<MetadataSource | undefined> {
     let resolved: ResolvedMirrorForge | null = null;
     try {
       resolved = await deps.resolve(repo);
     } catch (error) {
       warn(`mirror ${repo.host}/${repo.owner}/${repo.repo}: no adapter (${error instanceof Error ? error.message : String(error)}); refs only`);
     }
-    return resolved ? createForgeMetadataSource(resolved) : undefined;
+    return resolved ? createForgeMetadataSource({ ...resolved, defaultBranch: () => defaultBranch(mirrorPaths(root, repo).bare, signal) }) : undefined;
   }
 
   const scheduler = createMirrorScheduler({
     load: () => loadMirrorConfig(deps.configFile),
-    record: (result: MirrorResult) => {
-      const next = saving.then(async () => {
-        const config = await loadMirrorConfig(deps.configFile);
+    // `updateMirrorConfig` is the file's one serialiser: it re-reads the file and this changes only `state`,
+    // so a selection saved meanwhile survives. State is kept only for repos still selected at write time,
+    // which also prunes the entries of de-selected repos and ignores a run that finished after de-selection.
+    record: async (result: MirrorResult) => {
+      await updateMirrorConfig(deps.configFile, (config) => {
+        const selected = new Set(config.repos.map((r) => `${r.host}/${r.owner}/${r.repo}`));
         const entry = { at: result.at, status: result.status, ...(result.reason ? { reason: result.reason } : {}) };
-        await saveMirrorConfig(deps.configFile, { ...config, state: { ...config.state, [result.key]: entry } });
+        const state = Object.fromEntries(Object.entries(config.state).filter(([key]) => selected.has(key)));
+        if (selected.has(result.key)) state[result.key] = entry;
+        return { ...config, state };
       });
-      saving = next.catch(() => undefined);
-      return next;
     },
-    refresh: async (repo: MirrorConfigRepo, config: MirrorConfig) =>
-      refresh({ root: config.root ?? defaultMirrorRoot(deps.home), repo, url: repo.url, source: await sourceFor(repo) }),
+    warn,
+    refresh: async (repo: MirrorConfigRepo, config: MirrorConfig, signal: AbortSignal) => {
+      const root = config.root ?? defaultMirrorRoot(deps.home);
+      return refresh({ root, repo, url: repo.url, source: await sourceFor(repo, root, signal), signal });
+    },
     now: deps.now,
     setTimer: deps.setTimer,
     clearTimer: deps.clearTimer,

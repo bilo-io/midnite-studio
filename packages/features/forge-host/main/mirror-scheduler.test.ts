@@ -110,4 +110,53 @@ describe('mirror scheduler', () => {
     await new Promise((r) => setImmediate(r));
     expect(h.timers).toHaveLength(1);
   });
+
+  it('keeps a successful refresh when persisting it fails, and does not re-run it on the next tick', async () => {
+    const cfg = MirrorConfigSchema.parse({ interval: 'hourly', repos: [repo('a.com', 'x')] });
+    const warnings: string[] = [];
+    let refreshes = 0;
+    let nowMs = Date.parse('2026-10-27T00:00:00.000Z');
+    const scheduler = createMirrorScheduler({
+      load: async () => cfg,
+      record: async () => {
+        throw new Error('EACCES');
+      },
+      warn: (m) => warnings.push(m),
+      refresh: async (r) => {
+        refreshes += 1;
+        return ok(`${r.host}/${r.owner}/${r.repo}`, new Date(nowMs).toISOString());
+      },
+      now: () => nowMs,
+      setTimer: () => 1,
+      clearTimer: () => {},
+    });
+    const first = await scheduler.runNow();
+    expect(first.map((r) => r.status)).toEqual(['ok']);
+    expect(warnings[0]).toMatch(/could not be saved.*EACCES/);
+    await scheduler.start(); // due? no: the unsaved run counts
+    expect(refreshes).toBe(1);
+    nowMs += INTERVAL_MS.hourly;
+    await scheduler.start();
+    expect(refreshes).toBe(2);
+  });
+
+  it('aborts the signal on stop and records nothing for an aborted run', async () => {
+    const cfg = MirrorConfigSchema.parse({ repos: [repo('a.com', 'x'), repo('a.com', 'y')] });
+    const recorded: string[] = [];
+    let seen: AbortSignal | undefined;
+    const scheduler = createMirrorScheduler({
+      load: async () => cfg,
+      record: async (r) => void recorded.push(r.key),
+      refresh: async (r, _c, signal) => {
+        seen = signal;
+        scheduler.stop();
+        return { ...ok(`${r.host}/${r.owner}/${r.repo}`, 'x'), status: 'failed', reason: 'aborted' };
+      },
+      setTimer: () => 1,
+      clearTimer: () => {},
+    });
+    await scheduler.start();
+    expect(seen?.aborted).toBe(true);
+    expect(recorded).toEqual([]);
+  });
 });

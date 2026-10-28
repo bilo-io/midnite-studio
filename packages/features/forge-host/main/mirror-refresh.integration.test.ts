@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { TempRepo, execGit } from '@midnite/studio-git-engine';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { listRefs, restoreMirror } from './mirror-git';
+import { isMirrorPresent, listRefs, mirrorClone, remoteDefaultBranch, restoreMirror } from './mirror-git';
 import { mirrorPaths } from './mirror-layout';
 import { readManifest } from './mirror-manifest';
 import type { MetadataSource } from './mirror-metadata';
@@ -133,5 +133,29 @@ describe('restoreMirror', () => {
     await refreshMirror({ root, repo, url: upstream.path });
     const result = await restoreMirror(mirrorPaths(root, repo).bare, join(root, 'missing.git'));
     expect(result.ok).toBe(false);
+  });
+
+  it('reads the remote default branch and tip with ls-remote', async () => {
+    const sha = (await upstream.git(['rev-parse', 'HEAD'])).trim();
+    const branch = (await upstream.git(['symbolic-ref', 'HEAD'])).trim();
+    await refreshMirror({ root, repo, url: upstream.path });
+    expect(await remoteDefaultBranch(mirrorPaths(root, repo).bare)).toEqual({ ref: branch, sha });
+    expect(await remoteDefaultBranch(join(root, 'missing'))).toBeNull();
+  });
+
+  it('an aborted clone leaves no mirror and no partial directory behind', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const out = await mirrorClone(root, upstream.path, 'x.git', controller.signal);
+    expect(out).toEqual({ ok: false, message: 'aborted' });
+    expect(await readdir(root)).toEqual([]);
+    expect(await isMirrorPresent(join(root, 'x.git'))).toBe(false);
+  });
+
+  it('a refresh aborted before it starts reports failed/aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const result = await refreshMirror({ root, repo, url: upstream.path, source: await sourceFor(), signal: controller.signal });
+    expect(result).toMatchObject({ status: 'failed', reason: 'aborted' });
   });
 });
