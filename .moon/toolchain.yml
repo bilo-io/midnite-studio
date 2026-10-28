@@ -6,7 +6,7 @@ node:
   version: '24.22.0'
   packageManager: 'pnpm'
   pnpm:
-    version: '9.15.0'
+    version: '10.34.5'
 
   # moon's default is to run `pnpm dedupe` whenever it sees the lockfile change.
   # In CI every fresh checkout looks like a change, so this fires on every job —
