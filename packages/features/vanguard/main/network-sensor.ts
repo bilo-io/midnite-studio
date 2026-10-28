@@ -111,6 +111,12 @@ export interface NetworkSensorDeps {
    * finding. Absent: every registry host counts as allowed.
    */
   egressSettings?: () => EgressSettings | undefined;
+  /**
+   * Whether the renderer has pushed its settings yet (the signal `configureGuardedFetch({ ready })` takes). Present
+   * and false: a registry host with a switch counts as off, matching guardedFetch, which refuses such a call until the
+   * first sync; hosts with no switch stay allowed. Absent: the settings are taken as they read.
+   */
+  egressReady?: () => boolean;
 }
 
 /** What the registry says about a destination address. */
@@ -181,11 +187,12 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
   /** Any host whose switch is on (or that has none) claims the address; only off hosts matching means switched-off. */
   function registryVerdict(address: string): RegistryVerdict {
     const settings = deps.egressSettings?.();
+    const notReady = deps.egressReady !== undefined && !deps.egressReady();
     let off: string | undefined;
     for (const [host, addresses] of registryAddresses) {
       if (!addresses.has(address)) continue;
-      const sw = deps.egressSettings ? registry[host]?.switch : undefined;
-      if (sw === undefined || privacySwitchOn(settings, sw)) return { kind: 'allowed', host };
+      const sw = deps.egressSettings || deps.egressReady ? registry[host]?.switch : undefined;
+      if (sw === undefined || (!notReady && privacySwitchOn(settings, sw))) return { kind: 'allowed', host };
       off ??= host;
     }
     return off !== undefined ? { kind: 'switched-off', host: off } : { kind: 'unlisted' };

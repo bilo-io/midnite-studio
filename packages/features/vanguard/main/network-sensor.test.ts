@@ -236,6 +236,36 @@ describe('registry hosts whose privacy switch is off', () => {
   });
 });
 
+describe('egress not yet synced (boot)', () => {
+  const registry = {
+    'sw.example': { host: 'sw.example', owner: 'test', sends: 'x', trigger: 'automatic', switch: 'weather' },
+    'free.example': { host: 'free.example', owner: 'test', sends: 'x', trigger: 'user' },
+  } as const;
+  const forward = { 'sw.example': ['198.51.100.1'], 'free.example': ['198.51.100.3'] };
+  const run1 = async (address: string, overrides: Partial<NetworkSensorDeps>) => {
+    lsof = lsofOutput([{ pid: APP_PID, command: 'Midnite', socks: [sock(`${address}:443`)] }]);
+    const { run } = make({ registry: { ...registry }, resolver: resolver(forward), ...overrides });
+    return run();
+  };
+
+  it('flags a switchable host as off while not ready', async () => {
+    expect(await run1('198.51.100.1', { egressReady: () => false })).toEqual({ findings: 1 });
+    expect(recorded[0]!.fingerprint).toBe('network:suite:off:app:198.51.100.1:443');
+  });
+
+  it('allows a switch-less host while not ready', async () => {
+    expect(await run1('198.51.100.3', { egressReady: () => false })).toEqual({ findings: 0 });
+  });
+
+  it('behaves as before once ready', async () => {
+    expect(await run1('198.51.100.1', { egressReady: () => true, egressSettings: () => ({}) })).toEqual({ findings: 0 });
+  });
+
+  it('is unchanged with no egressReady dep', async () => {
+    expect(await run1('198.51.100.1', {})).toEqual({ findings: 0 });
+  });
+});
+
 describe('the registry lookup', () => {
   it('asks again soon when a registry host did not resolve, instead of trusting the gap', async () => {
     lsof = lsofOutput([{ pid: APP_PID, command: 'Midnite', socks: [sock('104.16.0.1:443')] }]);

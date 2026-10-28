@@ -283,11 +283,43 @@ describe('guardedFetch redirects', () => {
     const creds = { authorization: 'Bearer t', cookie: 'a=b', 'proxy-authorization': 'x', 'x-keep': '1' };
     const cross = scripted([redirect(302, 'https://data-api.binance.vision/x'), new Response('ok')]);
     await createGuardedFetch({ transport: cross.transport })('finance', 'https://api.coingecko.com/x', { headers: creds });
-    expect([...new Headers(cross.calls[1]!.init?.headers).keys()]).toEqual(['x-keep']);
+    expect([...new Headers(cross.calls[1]!.init?.headers).keys()]).toEqual([]);
 
     const same = scripted([redirect(302, '/y'), new Response('ok')]);
     await createGuardedFetch({ transport: same.transport })('finance', 'https://api.coingecko.com/x', { headers: creds });
     expect(new Headers(same.calls[1]!.init?.headers).get('authorization')).toBe('Bearer t');
+  });
+
+  it('drops a custom secret header cross-origin, keeps it same-origin, keeps safelisted ones', async () => {
+    const headers = { 'x-api-key': 'k', accept: 'application/json', 'user-agent': 'ua', 'accept-language': 'en' };
+    const cross = scripted([redirect(302, 'https://other.example.org/x'), new Response('ok')]);
+    await createGuardedFetch({ transport: cross.transport })('api-client', 'https://a.example.com/x', { headers });
+    expect([...new Headers(cross.calls[1]!.init?.headers).keys()].sort()).toEqual(['accept', 'accept-language', 'user-agent']);
+
+    const same = scripted([redirect(302, '/y'), new Response('ok')]);
+    await createGuardedFetch({ transport: same.transport })('api-client', 'https://a.example.com/x', { headers });
+    expect(new Headers(same.calls[1]!.init?.headers).get('x-api-key')).toBe('k');
+  });
+
+  it('keeps content-type cross-origin on a 307 but drops it on a 303', async () => {
+    const init = { method: 'POST', body: '{}', headers: { 'content-type': 'application/json', 'x-api-key': 'k' } };
+    const keep = scripted([redirect(307, 'https://other.example.org/x'), new Response('ok')]);
+    await createGuardedFetch({ transport: keep.transport })('api-client', 'https://a.example.com/x', init);
+    expect([...new Headers(keep.calls[1]!.init?.headers).keys()]).toEqual(['content-type']);
+
+    const drop = scripted([redirect(303, 'https://other.example.org/x'), new Response('ok')]);
+    await createGuardedFetch({ transport: drop.transport })('api-client', 'https://a.example.com/x', init);
+    expect([...new Headers(drop.calls[1]!.init?.headers).keys()]).toEqual([]);
+  });
+
+  it('refuses an https to http downgrade and allows an http to https upgrade', async () => {
+    const down = scripted([redirect(302, 'http://a.example.com/x')]);
+    await expect(createGuardedFetch({ transport: down.transport })('api-client', 'https://a.example.com/x')).rejects.toBeInstanceOf(EgressRedirectError);
+    expect(down.calls).toHaveLength(1);
+
+    const up = scripted([redirect(302, 'https://a.example.com/x'), new Response('ok')]);
+    const res = await createGuardedFetch({ transport: up.transport })('api-client', 'http://a.example.com/x');
+    expect(await res.text()).toBe('ok');
   });
 
   it('passes a caller-set manual or error redirect through untouched', async () => {
