@@ -186,7 +186,7 @@ repo.
       `critical` with `dueDate` and `knownRansomwareCampaignUse` in the evidence. NVD is a third
       optional source behind its own switch and API key (its public rate limit is small), used only
       to enrich a CVE no other source scores. [M]
-- [~] **Installed software.** ◐ PARTIAL (PR pending): brew outdated, app bundles, `sw_vers` and the KEV-name match landed; OSV ranges and the Electron-freshness check are open. — `brew outdated --json` and `brew list --versions`, `/Applications`
+- [ ] **Installed software.** ◐ PARTIAL (PR pending): brew outdated, app bundles, `sw_vers` and the KEV-name match landed; OSV ranges and the Electron-freshness check are open. — `brew outdated --json` and `brew list --versions`, `/Applications`
       bundle `CFBundleShortVersionString`s, `sw_vers`, the suite's own Electron (the
       [`electron-freshness.mjs`](../../../scripts/electron-freshness.mjs) rule, now a check), each
       matched against KEV's `vendorProject`/`product` and against OSV's `GIT`/`Homebrew`-style
