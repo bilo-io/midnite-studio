@@ -229,4 +229,30 @@ describe('Guard Sweep Runner (Phase 122 Theme A)', () => {
     expect(result.record.inputsSkipped).toEqual({ osv: 'no-resolver' });
     expect(result.findings).toEqual([]);
   });
+
+  it('does not resolve inputs that only a check which cannot run needs', async () => {
+    const resolved: string[] = [];
+    const both: GuardCheck = { id: 'needs-both', title: 'b', category: 'network', needs: ['ports', 'osv'], run: () => [] };
+    await runGuardSweep({
+      userData: testDir,
+      checks: [checkPorts, both],
+      ledger,
+      sweepsStore,
+      context: {
+        switches: { 'privacy.feed.osv': false },
+        resolvers: {
+          ports: () => {
+            resolved.push('ports');
+            return { open: [] };
+          },
+          osv: () => {
+            resolved.push('osv');
+            return {};
+          },
+        },
+      },
+      now: () => clockTime,
+    });
+    expect(resolved).toEqual(['ports']);
+  });
 });

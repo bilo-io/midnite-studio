@@ -103,9 +103,10 @@ of 500, `next_page_token` pagination, per-advisory cache keyed by `modified`) th
 Phase 115 A's `guardedFetch` is not in the tree yet, CISA KEV (`feeds/kev.ts`), the CVSS v3 severity ladder, and the
 `lockfile-cves` check: one finding per (advisory, package, lockfile), KEV raises to `critical`, an unexpired
 `audit-suppressions.json` entry yields `info`. The closed action set gains `update-package` / `pin-package`
-(listed in `REMEDIATION_PENDING` until Theme G runs them). Still open: GHSA/NVD, installed software (brew,
-`/Applications`, `sw_vers`, Electron freshness), yarn berry/poetry/uv/Gemfile/Package.resolved, and wiring the
-check and its resolvers into the scheduled sweep.
+(listed in `REMEDIATION_PENDING` until Theme G runs them). The remaining lockfile parsers then landed (yarn berry, poetry, uv, Gemfile.lock as `RubyGems`, Package.resolved as
+`SwiftURL`), the sweep wiring landed earlier, and the runner now drops checks whose inputs are statically skipped
+*before* resolving, so no feed is fetched for a check that cannot run; the `.pnpm` store scan reads 32 folders at a
+time. Still open: GHSA/NVD and installed software (brew, `/Applications`, `sw_vers`, Electron freshness).
 
 **Theme C — The threat feed.** ◐ PARTIAL (PR pending). Landed: `ThreatFeedSchema` in `shared/src/threat-feed.ts`
 (every entry carries an https `ref`), an Ed25519 detached-signature verifier and cached loader
@@ -166,7 +167,7 @@ repo.
 
 ### B — CVEs against the lockfiles and the installed software [L · 1–2d]
 
-- [~] **Lockfile parsers.** ◐ PARTIAL (PR pending): pnpm v5/v6/v9, package-lock v1–v3, yarn classic, requirements.txt, Cargo.lock and go.sum landed; yarn berry, poetry, uv, Gemfile.lock and Package.resolved remain. — `guard/lockfiles/`: `pnpm-lock.yaml` (v6 and v9), `package-lock.json`
+- [x] **Lockfile parsers.** ✅ DONE (PR pending): pnpm v5/v6/v9, package-lock v1–v3, yarn classic and berry, requirements.txt, poetry.lock, uv.lock, Cargo.lock, go.sum, Gemfile.lock (`RubyGems`) and Package.resolved (`SwiftURL`). — `guard/lockfiles/`: `pnpm-lock.yaml` (v6 and v9), `package-lock.json`
       (v2/v3), `yarn.lock` (classic and berry), `Cargo.lock`, `poetry.lock`, `uv.lock`,
       `requirements.txt` (pinned lines only), `go.sum`, `Gemfile.lock`, `Package.resolved`. Each
       yields `{ecosystem, name, version, direct: boolean, path}` using OSV's ecosystem names. Fixture
