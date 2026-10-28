@@ -68,8 +68,10 @@ export function resolveEgress(owner: string, input: GuardedFetchInput): EgressHo
 
 const MAX_REDIRECTS = 5;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-/** Credentials that must not follow a redirect to another origin. */
-const CROSS_ORIGIN_STRIPPED = ['authorization', 'cookie', 'proxy-authorization'];
+/** The only caller headers that follow a redirect to another origin; everything else (custom secrets included) is dropped. */
+const CROSS_ORIGIN_KEPT = new Set(['accept', 'accept-language', 'accept-encoding', 'user-agent']);
+/** Kept cross-origin only when the body is retained (307/308). */
+const CROSS_ORIGIN_KEPT_WITH_BODY = new Set(['content-type', 'content-language']);
 
 export class EgressRedirectError extends Error {
   readonly code = 'EGRESS_REDIRECT';
@@ -136,6 +138,9 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFe
       if (hop >= MAX_REDIRECTS) throw new EgressRedirectError(`${owner}: more than ${MAX_REDIRECTS} redirects from ${first}.`);
 
       const next = new URL(location, current);
+      if (new URL(current).protocol === 'https:' && next.protocol === 'http:') {
+        throw new EgressRedirectError(`${owner}: refused a redirect from ${current} to ${next.href}: https to http downgrade.`);
+      }
       check(owner, next.href);
 
       if (response.status === 303 || ((response.status === 301 || response.status === 302) && method === 'POST')) {
@@ -148,8 +153,12 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFe
         throw new EgressRedirectError(`${owner}: a ${response.status} redirect from ${current} needs the request body resent, but it is a stream.`);
       }
       if (next.origin !== new URL(current).origin) {
-        headers = new Headers(headers);
-        for (const name of CROSS_ORIGIN_STRIPPED) headers.delete(name);
+        const kept = new Headers();
+        const keepsBody = body !== undefined && body !== null;
+        for (const [name, value] of headers) {
+          if (CROSS_ORIGIN_KEPT.has(name) || (keepsBody && CROSS_ORIGIN_KEPT_WITH_BODY.has(name))) kept.set(name, value);
+        }
+        headers = kept;
       }
       void response.body?.cancel().catch(() => undefined);
       current = next.href;

@@ -29,7 +29,7 @@ import { killPty, livePtyFor, observePtyOutput, onSessionExit, sessionIdFor, wri
 import { liveAgentSessions, listTerminals } from '../terminal-service';
 import { revokeMcpServer } from '../mcp-trust-wiring';
 import { probeBinary } from '../system-health';
-import { currentSettings } from '../settings-mirror';
+import { currentSettings, settingsSynced } from '../settings-mirror';
 import { agentPtyOutputSource, agentSessionPids } from './vanguard-sensor-wiring';
 import { handle, handleBare, handleSend } from './handle';
 
@@ -168,6 +168,7 @@ export async function startVanguardSensors(userData: string): Promise<void> {
         suite: { pid: process.pid, brokerMarkers: [studioBrokerScriptPath()] },
         agentSessions: liveAgentSessions,
         egressSettings: () => currentSettings().egress,
+        egressReady: settingsSynced,
         windowFocused: () =>
           BrowserWindow.getAllWindows().some(
             (win) => !win.isDestroyed() && win.isVisible() && !win.isMinimized() && win.isFocused(),
