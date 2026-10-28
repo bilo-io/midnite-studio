@@ -1,4 +1,4 @@
-// Usage: node web.mjs [hero|scroll|access ...]
+// Usage: node web.mjs [hero|scroll|access|tour ...]
 import { launch, startRec, finishRec, sleep, moveTo, moveToEl, click, scrollTo } from './lib.mjs';
 const URL = 'http://localhost:5291/';
 const KEY = { 'midnite-studio.website.theme': 'dark' };
@@ -53,6 +53,30 @@ const jobs = {
       await click(page);
       await page.keyboard.type('you@studio.dev', { delay: 90 });
       await sleep(1800);
+    });
+  },
+  // tour: one continuous take, hero -> Suite -> Launcher -> Studio -> Get Access -> email, so
+  // consecutive video slots cut consecutive windows and each starts where the last one stopped
+  async tour() {
+    await run('web-tour-dark', async (page) => {
+      await sleep(400);
+      await moveTo(page, 1200, 500, 20);
+      await scrollTo(page, 861, 1800); await sleep(500);
+      await scrollTo(page, 2832, 1500); await sleep(500);
+      await scrollTo(page, 5091, 1800); await sleep(600);
+      const btn = page.locator('a:has-text("Get Access")').first();
+      const b = await btn.boundingBox();
+      await moveTo(page, b.x + b.width / 2, b.y + b.height / 2, 45);
+      await sleep(700);
+      await click(page);
+      await sleep(2000);
+      const input = page.locator('#early-access-email');
+      await input.waitFor();
+      await moveToEl(page, input, { steps: 40 });
+      await sleep(300);
+      await click(page);
+      await page.keyboard.type('you@studio.dev', { delay: 90 });
+      await sleep(1500);
     });
   },
 };

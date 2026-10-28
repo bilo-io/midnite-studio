@@ -37,11 +37,11 @@ Midnite Apps music video, a tour of every app. It has a soundtrack, so it uses t
 click-to-play player (`PilotVideo` with its own `src` and `poster`).
 
 Source: the latest Remotion render,
-`.midnite/media/video/projects/midnite-apps/output/v2-dubstep-remix.mp4` (128 MB, 1080p, 3:02;
+`.midnite/media/video/projects/midnite-apps/output/v5-3d-and-zen-footage-remuxed.mp4` (124 MB, 1080p, 3:02;
 gitignored there). The poster is the "Midnite Apps" title card at 3.5 s.
 
 ```sh
-SRC=.midnite/media/video/projects/midnite-apps/output/v2-dubstep-remix.mp4
+SRC=.midnite/media/video/projects/midnite-apps/output/v5-3d-and-zen-footage-remuxed.mp4
 ffmpeg -i "$SRC" -vf "scale=1280:-2" -c:v libx264 -preset slow -crf 26 -pix_fmt yuv420p \
   -c:a aac -b:a 128k -movflags +faststart midnite-apps.mp4          # ~19 MB
 ffmpeg -ss 3.5 -i "$SRC" -frames:v 1 -vf "scale=1280:-2" -q:v 4 midnite-apps-poster.jpg

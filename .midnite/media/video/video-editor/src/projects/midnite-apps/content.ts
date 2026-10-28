@@ -75,7 +75,7 @@ export const CONTENT = {
       clip: {
         a: "THE NIGHT",
         b: "SHIFT",
-        shots: [{ file: "web-hero-dark.mp4", from: 6.5, label: "the website" }],
+        shots: [{ file: "web-tour-dark.mp4", from: 0.3, label: "the website" }],
       },
       say: "agents on the graveyard shift — every line they wrote, I'm keeping.",
     },
@@ -84,7 +84,7 @@ export const CONTENT = {
         a: "NOT ONE APP",
         aTone: "red",
         b: "A LINEUP",
-        shots: [{ file: "web-scroll-dark.mp4", from: 1.5, label: "the website" }],
+        shots: [{ file: "web-tour-dark.mp4", from: 4.2, label: "the website" }],
       },
       say: "Not one app, a whole lineup — stacked up and designed;",
     },
@@ -93,7 +93,7 @@ export const CONTENT = {
         a: "GET",
         b: "ACCESS",
         tone: "green",
-        shots: [{ file: "web-access-dark.mp4", from: 1.5, label: "the website" }],
+        shots: [{ file: "web-tour-dark.mp4", from: 8.1, label: "the website" }],
       },
       say: "the site's the front door: request access, get in line.",
     },
@@ -113,7 +113,7 @@ export const CONTENT = {
         a: "ONE CLICK",
         b: "INSTALL",
         tone: "green",
-        shots: [{ file: "launcher-detail-light.mp4", from: 3, label: "Midnite Apps" }],
+        shots: [{ file: "launcher-detail-light.mp4", from: 3.4, label: "Midnite Apps" }],
       },
       say: "Missing one? Hit install — it's verified, then it swaps,",
     },
@@ -200,7 +200,7 @@ export const CONTENT = {
     // ── The breakdown (beat 128), then the riser into drop B ──────────────
     {
       statement: ["Every app is", "one window."],
-      say: "Every app's a view... and every view's in one place:",
+      say: "Every app's a view, and every view's in one place:",
     },
     {
       clip: {
@@ -214,7 +214,7 @@ export const CONTENT = {
     // ── Drop B (beat 144): chapter 3, app to app ───────────────────────────
     // The browser and the companion are the earlier real-app recordings in assets/video/app (the browser is an
     // Electron <webview>, which a plain page cannot host); everything else was recorded on seeded data in capture/.
-    { chapter: "App to app", say: "Chapter three... app to app... and not one reload:" },
+    { chapter: "App to app", say: "Chapter three: app to app — and not one reload:" },
     {
       clip: {
         a: "MIND",
@@ -237,10 +237,10 @@ export const CONTENT = {
     },
     {
       clip: {
-        a: "THE KNOWLEDGE",
+        a: "3D KNOWLEDGE",
         b: "GRAPH",
         tone: "green",
-        shots: [{ file: "knowledge-dark.mp4", from: 3.5, label: "Studio ▸ Knowledge" }],
+        shots: [{ file: "knowledge-dark.mp4", from: 0.8, label: "Studio ▸ Knowledge 3D" }],
       },
       say: "the knowledge graph maps the code, every symbol in the hood.",
     },
@@ -264,11 +264,12 @@ export const CONTENT = {
     },
     {
       clip: {
-        a: "A COMPANION",
-        b: "THAT LISTENS",
+        a: "COMPANION &",
+        b: "ZEN MODE",
         tone: "amber",
         shots: [
-          { src: "video/app/midnite-ai-companion.mov", from: 0.3, source: { width: 2912, height: 1758 }, label: "Studio ▸ Companion" },
+          { file: "companion-dark.mp4", from: 0.8, beats: 4, label: "Studio ▸ Companion Panel" },
+          { file: "companion-dark.mp4", from: 4.2, beats: 4, label: "Companion ▸ Zen Stage" },
         ],
       },
       say: "The companion's on the mic — it listens when I speak;",
@@ -329,7 +330,7 @@ export const CONTENT = {
     // ── The breakdown again (beat 240), under the build ────────────────────
     {
       statement: ["You've seen", "half of it."],
-      say: "You've seen half the suite... and now the bass begins to build —",
+      say: "You've seen half the suite, and now the bass begins to build —",
     },
     {
       clip: {
@@ -355,7 +356,7 @@ export const CONTENT = {
         tone: "amber",
         shots: [{ file: "launcher-jump-light.mp4", from: 6, label: "Midnite Apps" }],
       },
-      say: "so hold your breath... count it down... and let it drop.",
+      say: "so hold your breath, count it down, and let it drop.",
     },
 
     // ── The dubstep drop (beat 272): chapter 4, the whole suite ────────────

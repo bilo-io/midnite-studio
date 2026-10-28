@@ -78,7 +78,7 @@ Every join is on a 16-beat phrase line with a 12 ms equal-power crossfade (video
 |---|---|---|
 | Bed, voice-over (generated) | `input/bed.wav`, `input/voiceover.wav` | `projectFile("midnite-apps")(…)` |
 | New footage (27 clips) | `input/clips/*.mp4` | `shots[].file` |
-| Browser, companion | `assets/video/app/midnite-studio-browser.mov`, `midnite-ai-companion.mov` (shared, 2912×1758, earlier real-app recordings) | `shots[].src` + `source` |
+| Browser | `assets/video/app/midnite-studio-browser.mov` (shared, 2912×1758, earlier real-app recordings) | `shots[].src` + `source` |
 | Whooshes, riser | `assets/audio/sfx/…` via `shared/Sfx` | as video 1 |
 
 ## Timeline
@@ -92,12 +92,12 @@ dubstep drop); light at 43 for the recap; dark for the outro.
 | # | Beat | Frame | Time | Slot | Footage (from s) | `say` |
 |---|---|---|---|---|---|---|
 | 1 | 0 | 0 | 0:00.0 | MIDNITE / APPS (delay 2) | web-hero-dark 1.2 | Midnite Apps — built a whole suite while the city was sleeping, |
-| 2 | 8 | 116 | 0:03.9 | THE NIGHT / SHIFT | web-hero-dark 6.5 | agents on the graveyard shift — every line they wrote, I'm keeping. |
-| 3 | 16 | 232 | 0:07.7 | NOT ONE APP / A LINEUP | web-scroll-dark 1.5 | Not one app, a whole lineup — stacked up and designed; |
-| 4 | 24 | 348 | 0:11.6 | GET / ACCESS | web-access-dark 1.5 | the site's the front door: request access, get in line. |
+| 2 | 8 | 116 | 0:03.9 | THE NIGHT / SHIFT | web-tour-dark 0.3 | agents on the graveyard shift — every line they wrote, I'm keeping. |
+| 3 | 16 | 232 | 0:07.7 | NOT ONE APP / A LINEUP | web-tour-dark 4.2 | Not one app, a whole lineup — stacked up and designed; |
+| 4 | 24 | 348 | 0:11.6 | GET / ACCESS | web-tour-dark 8.1 | the site's the front door: request access, get in line. |
 | 5 | 32 | 465 | 0:15.5 | **ch 01 · The launcher** (drop A) | — | Chapter one: the launcher — the front door to the floor: |
 | 6 | 40 | 581 | 0:19.4 | EVERY APP / ONE GRID | launcher-grid-light 0.5 | every app in a grid — what it does and what it's for. |
-| 7 | 48 | 697 | 0:23.2 | ONE CLICK / INSTALL | launcher-detail-light 3 | Missing one? Hit install — it's verified, then it swaps, |
+| 7 | 48 | 697 | 0:23.2 | ONE CLICK / INSTALL | launcher-detail-light 3.4 | Missing one? Hit install — it's verified, then it swaps, |
 | 8 | 56 | 813 | 0:27.1 | ONE / UPDATER | launcher-table-light 3 | the launcher runs the updates, so the whole suite never drops. |
 | 9 | 64 | 929 | 0:31.0 | HIT OPEN / DEEP LINK | launcher-detail-light 8.5 (4 beats) → landing-light 0.5 | Hit open and it deep-links — Studio lands on the view; |
 | 10 | 72 | 1045 | 0:34.8 | APP TO APP / IN A HEARTBEAT | launcher-jump-light 3 → gitgraph-light 10.5 → models-light 6.5 → landing-light 6.5 (2 beats each) | app to app in a heartbeat, like the window's brand new. |
@@ -112,10 +112,10 @@ dubstep drop); light at 43 for the recap; dark for the outro.
 | 19 | 144 | 2090 | 1:09.7 | **ch 03 · App to app** (drop B) | — | Chapter three... app to app... and not one reload: |
 | 20 | 152 | 2206 | 1:13.5 | MIND / NOTES THAT STICK | notes-dark 1.5 | Mind keeps the notes — type a thought, hit enter, and it's stowed; |
 | 21 | 160 | 2323 | 1:17.4 | SPACED / REVIEW | review-dark 1.6, cropped to the card | then it quizzes what you learned: show the answer, grade it Good — |
-| 22 | 168 | 2439 | 1:21.3 | THE KNOWLEDGE / GRAPH | knowledge-dark 3.5 | the knowledge graph maps the code, every symbol in the hood. |
+| 22 | 168 | 2439 | 1:21.3 | 3D KNOWLEDGE / GRAPH | knowledge-dark 0.8 | the knowledge graph maps the code, every symbol in the hood. |
 | 23 | 176 | 2555 | 1:25.2 | ASK / THE AGENT | chats-dark 7 | Chat with any agent — it'll read the code and cite the line; |
 | 24 | 184 | 2671 | 1:29.0 | A BROWSER / AGENTS DRIVE | assets midnite-studio-browser 0 | the browser's got a driver: hands off, and it's doing fine. |
-| 25 | 192 | 2787 | 1:32.9 | A COMPANION / THAT LISTENS | assets midnite-ai-companion 0.3 | The companion's on the mic — it listens when I speak; |
+| 25 | 192 | 2787 | 1:32.9 | COMPANION & / ZEN MODE | companion-dark 0.8 (4 beats) → companion-dark 4.2 (4 beats) | The companion's on the mic — it listens when I speak; |
 | 26 | 200 | 2903 | 1:36.8 | WORKFLOWS / RUN ALONE | workflows-dark 3 | workflows wire the agents into graphs that run all week. |
 | 27 | 208 | 3019 | 1:40.6 | THE SWARM / SHIPS IT (drop B again) | graph-agents-dark 9.5 | The swarm ships phase one-sixteen, and I ain't even home — |
 | 28 | 216 | 3135 | 1:44.5 | THE FORGE / BESIDE THE CODE | forge-light 3.4 → 7.6 → 10 (2, 3 beats) | the forge: four shards green, zero queued — LGTM, it's flown. |
@@ -166,7 +166,7 @@ hard at work"; models run locally. Respellings for Kokoro: "Midnite" → "Midnig
 
 ## Open items
 
-- **Two shots are the earlier real-app recordings** in `assets/video/app` (browser, companion),
+- **One shot is the earlier real-app recording** in `assets/video/app` (browser),
   because the browser is an Electron webview a plain page can't host. They are real product footage.
 - **Staged content in the captures** (see `capture/SHOTS-studio.md`): the council run's answers,
   the workflow run and the chat's streamed answer are driven in-page on the mock; Creator, Gamer,
