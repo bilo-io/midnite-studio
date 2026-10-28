@@ -140,3 +140,48 @@ test('the same list visibly settles under full motion — the cascade this prove
 
   expect(midCascade.equals(settled)).toBe(false);
 });
+
+/**
+ * Phase 84 Theme K.7: the budget, read off the browser's own animation
+ * timeline rather than a wall clock (which flakes under CI load). Every
+ * animation a cascading list starts is finite, and the latest one ends within
+ * 400 ms of the reveal — `CASCADE_MAX_STEPS (12) x CASCADE_STEP_MS (18) + the
+ * 180 ms fade-in-up` = 396 ms. After it settles nothing on the list is
+ * animating, so `idle-cpu` has nothing of the cascade's to count.
+ */
+test('a full cascade ends within 400ms on the animation timeline, and leaves nothing running', async ({
+  page,
+}) => {
+  await openActions(page, false);
+  const runList = page.getByRole('list', { name: 'Workflow runs' });
+  await expect(runList).toBeVisible();
+
+  const timings = () =>
+    runList.evaluate((el) =>
+      el
+        .getAnimations({ subtree: true })
+        .map((a) => ({
+          name: (a as CSSAnimation).animationName ?? (a as CSSTransition).transitionProperty ?? '?',
+          t: a.effect?.getComputedTiming(),
+        }))
+        .map(({ name, t }) => ({
+          name: String(name),
+          end: Number(t?.endTime),
+          infinite: t?.iterations === Infinity,
+        })),
+    );
+
+  const cascade = async () => (await timings()).filter((t) => t.name.startsWith('fade-in'));
+  await expect.poll(async () => (await cascade()).length).toBeGreaterThan(0);
+  const started = await cascade();
+  expect(started.every((t) => !t.infinite && Number.isFinite(t.end))).toBe(true);
+  expect(Math.max(...started.map((t) => t.end))).toBeLessThanOrEqual(400);
+
+  // Nothing the cascade adds loops. The only infinite animations on this list
+  // are the Actions status glows (`actions-glow-pulse-*`), which predate the
+  // phase and are not a reveal's business.
+  const infinite = new Set((await timings()).filter((t) => t.infinite).map((t) => t.name));
+  expect([...infinite].filter((n) => !n.startsWith('actions-glow-pulse'))).toEqual([]);
+
+  await expect.poll(async () => (await cascade()).length, { timeout: 3000 }).toBe(0);
+});

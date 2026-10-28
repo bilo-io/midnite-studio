@@ -233,7 +233,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // with two seeded matches posts real numbered chips in the panel, and "two" opens the second chat in a
 // real Chats view across a view switch — the chip bar's layout and the focus staying in the input are
 // browser behaviour. Chip resolution, expiry and replacement are `handoff-resource.test.ts` (vitest).
-export const MAX_DECLARED_E2E = 480;
+// Raised 480 -> 482 for Phase 84 Themes E.6 and K.7 (one test each): counting the xterms a real terminal
+// panel mounts with ten sessions open, and reading a cascade's end time off the browser's own animation
+// timeline (`getAnimations`), both need a real browser. The policy and the cascade arithmetic are vitest.
+export const MAX_DECLARED_E2E = 482;
 
 // Visual baselines are capped by `visual-budget.mjs` (100 PNGs / 3 MB), not
 // here. Phase 90 Theme L's `e2e/visual/account-switcher.spec.ts` adds four

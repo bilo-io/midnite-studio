@@ -81,4 +81,27 @@ test.describe('terminal reveal', () => {
     // since both instances fit the same, unchanged target height.
     expect(after.resizes.length).toBe(resizesBeforeCollapse + 1);
   });
+  /**
+   * Phase 84 Theme E.6, the renderer half: ten open sessions, one visible,
+   * and only the visible one plus the three most recent keep an xterm. The
+   * main/broker floor per session is `memory-report.mjs --hidden-sessions`;
+   * this counts the xterms themselves, which needs the real terminal panel.
+   */
+  test('ten open sessions mount four xterms; the other six are inert placeholders', async ({
+    page,
+  }) => {
+    await open(page);
+    await toggleTerminal(page);
+    await expect(page.locator('.xterm-screen')).toBeVisible();
+
+    for (let n = 1; n < 10; n += 1) {
+      await page.getByRole('button', { name: 'New terminal or agent' }).click();
+      // The picker opens with its first row, plain Terminal, highlighted.
+      await page.keyboard.press('Enter');
+      await expect(page.locator('[data-session-row]')).toHaveCount(n + 1);
+    }
+
+    await expect(page.locator('[data-terminal-session-disposed]')).toHaveCount(6);
+    await expect(page.locator('.xterm')).toHaveCount(4);
+  });
 });
