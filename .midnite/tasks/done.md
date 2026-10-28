@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-28 — Phase 122 Theme B (partial) — Installed software check
+
+`installed-software` Guard check plus `guard/software.ts` inventory (brew outdated, `/Applications` bundle versions, `sw_vers`) through an injected `exec`; outdated is `low`, KEV-named `high`, overdue or ransomware-linked `critical`. Desktop wires `execFile`. GHSA/NVD, OSV ranges for installed software and Electron freshness remain open.
+
 ## 2026-10-28 — Phase 84 Themes E.6 + K.7 — the two numbers, measured in a real browser
 
 E.6: `terminal-reveal.spec.ts` opens ten terminal sessions and counts the xterms the panel actually mounts: 4 (visible + 3 recent), 6 inert `data-terminal-session-disposed` placeholders. K.7: `cascade-reduced-motion.spec.ts` reads the cascade off `getAnimations()`: every cascade animation is a finite `fade-in-up`, latest end 396 ms (12 x 18 + 180), none running after settling; no new infinite animation (the Actions glows predate the phase). Closes Themes E and K; F.5 (10-minute discard threshold) stays open.

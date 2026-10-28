@@ -52,7 +52,8 @@ describe('the default sweep, end to end (Phase 122 B + C)', () => {
       context: { resolvers: createGuardResolvers({ userData: dir, home: dir, repos: () => [repo], fetch }) },
     });
     expect(record.checksRun).toEqual(['lockfile-cves']);
-    expect(Object.keys(record.inputsSkipped)).toEqual(['threatFeed']);
+    expect(Object.keys(record.inputsSkipped)).toEqual(['installedSoftware', 'threatFeed']);
+    expect(record.inputsSkipped.installedSoftware).toBe('no-resolver'); // the host supplies exec
     expect(record.inputsSkipped.threatFeed).toContain('no trusted threat-feed key');
     expect(findings.map((f) => f.fingerprint)).toEqual([expect.stringContaining('lockfile-cves:')]);
   });
