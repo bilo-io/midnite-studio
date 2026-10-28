@@ -50,7 +50,7 @@ Scope guardrails:
 > another. H needs A–D and whichever of E–G and J–L it rolls out. I closes the phase. Suggested swarm:
 > A+C, then B, then D+L, then E+J, then F+K, then G, then H, then I.
 
-## Open decisions (resolve in `/midnite-refine` before E–G)
+## Open decisions (resolve in `/midnite-refine` before E–G and J–L)
 
 1. **Terminal sessions across apps.** All apps attach to the same pty broker (runtime `broker/client.ts`).
    Default proposed: each app lists only the sessions it created (sessions tagged with the creating
@@ -75,7 +75,7 @@ Scope guardrails:
 Studio's traffic-light inset, and the bridge reports `frameless` so the title bar draws itself.
 
 **Theme B — The shared shell.** ◻ `AppShell` in the frame: `TitleBar` + `AppFrame` + the app's logo and
-name, a nav built from the app's manifest, and named slots for the panels.
+name, a nav built from the app's manifest, and named slots for the panels and the footer.
 
 **Theme C — The launcher's logo, in the window.** ◻ `generate-app-logos.cjs` also writes the logos where
 the frame can import them; the shell's brand mark is that file.
@@ -101,9 +101,8 @@ the shell.
 **Theme J — The status bar.** ◻ Studio's footer moves into the frame as a segment host; suite-wide
 segments ship with it, Studio's repo-bound segments stay Studio's through a slot.
 
-**Theme K — The system monitor core.** ◻ The monitor feature's metrics and system-health sampling move
-into the runtime so every app's main can host them; the status bar's monitor segment and flyout read it
-in every app.
+**Theme K — The system monitor core.** ◻ Every app composes the monitor feature's main half (system
+health and metrics sampling) and its flyout; the status bar's monitor segment reads it in every app.
 
 **Theme L — Settings at the foot of the nav.** ◻ Every app's rail ends in a pinned Settings entry that
 opens the frame's settings view: the suite-wide pages plus the app's own.
@@ -219,9 +218,9 @@ opens the frame's settings view: the suite-wide pages plus the app's own.
 
 ### K — The system monitor core [M · ~1d]
 
-- [ ] **Sampling in the runtime.** The monitor feature's `main/system-health.ts` and `main/metrics`
-  sampler move behind a runtime service (`packages/runtime/src/monitor/`) that every app's main starts,
-  sampling only while a window is visible (the Phase 84 visibility gates).
+- [ ] **Sampling in every app.** Each app composes `packages/features/monitor` and its main registers the
+  feature's `main/system-health.ts` and `main/metrics` sampler (apps compose features, so nothing moves
+  to the runtime), sampling only while a window is visible (the Phase 84 visibility gates).
 - [ ] **One channel set.** The existing `mstudio:system:health` and `mstudio:metrics:*` channels are served
   by each app's main from that service; agent usage and token spend stay Studio-only.
 - [ ] **The segment and flyout.** A monitor segment (CPU, memory, sparkline) joins the suite segments in
