@@ -206,233 +206,240 @@ export function CapturePage({ media = browserRecorderMedia() }: { media?: Record
   const current = captures.find((c) => c.id === selected) ?? null;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
-      <header>
-        <h1 className="text-lg font-semibold">Capture</h1>
-        <p className="text-xs text-muted-foreground">
-          Screenshots and screen recordings, taken when you press a button and saved on this machine
-          only.
-        </p>
-      </header>
+    // The view owns its scroll: hosts give it a bounded, overflow-hidden box (Studio's view slot), so
+    // without this the page was clipped at the window's edge instead of scrolling.
+    <div className="h-full min-h-0 overflow-y-auto" data-testid="capture-scroll">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-6">
+        <header>
+          <h1 className="text-lg font-semibold">Capture</h1>
+          <p className="text-xs text-muted-foreground">
+            Screenshots and screen recordings, taken when you press a button and saved on this
+            machine only.
+          </p>
+        </header>
 
-      {state.unavailable ? (
-        <p className="text-xs text-muted-foreground">Capture is not available in this window.</p>
-      ) : null}
+        {state.unavailable ? (
+          <p className="text-xs text-muted-foreground">Capture is not available in this window.</p>
+        ) : null}
 
-      {status && !permitted ? (
-        <PermissionPanel permission={status.permission} onChanged={() => void state.refresh()} />
-      ) : null}
+        {status && !permitted ? (
+          <PermissionPanel permission={status.permission} onChanged={() => void state.refresh()} />
+        ) : null}
 
-      {status && permitted ? (
+        {status && permitted ? (
+          <section
+            aria-labelledby="capture-tools"
+            className="rounded-lg border border-border p-4 text-xs"
+          >
+            <h2 id="capture-tools" className="sr-only">
+              Capture tools
+            </h2>
+            <div
+              className="mb-3 flex flex-wrap items-center gap-2"
+              role="toolbar"
+              aria-label="What to capture"
+            >
+              {TOOLS.filter((t) => t.id !== 'record' || status.canRecord).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  aria-pressed={tool === t.id}
+                  onClick={() => pickTool(t.id)}
+                  disabled={recording !== null}
+                >
+                  {t.label}
+                </button>
+              ))}
+              <span className="flex-1" />
+              {tool !== 'record' ? (
+                <label className="flex items-center gap-1">
+                  Delay
+                  <select
+                    value={delay}
+                    onChange={(e) => setDelay(Number(e.target.value) as (typeof DELAYS)[number])}
+                    aria-label="Delay"
+                  >
+                    {DELAYS.map((d) => (
+                      <option key={d} value={d}>
+                        {d === 0 ? 'None' : `${d} s`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+
+            {countdown !== null ? (
+              <p role="status" className="mb-2">
+                Capturing in {countdown}…
+              </p>
+            ) : null}
+
+            {recording ? (
+              <div role="status" className="mb-2 flex items-center gap-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-destructive" aria-hidden />
+                <span className="flex-1">Recording {recording.name}</span>
+                <button type="button" onClick={() => void stopRecording()}>
+                  Stop recording
+                </button>
+              </div>
+            ) : null}
+
+            {tool === null ? <p className="text-muted-foreground">Pick what to capture.</p> : null}
+
+            {tool === 'region' && !region && overlay === 'idle' ? (
+              <div className="flex items-center gap-2">
+                <p className="flex-1 text-muted-foreground">
+                  Freezes the screen under the pointer, then you drag the region to keep — on the
+                  screen itself.
+                </p>
+                <button type="button" disabled={busy || countdown !== null} onClick={freeze}>
+                  Freeze screen
+                </button>
+              </div>
+            ) : null}
+
+            {overlay === 'open' ? (
+              <p role="status" className="text-muted-foreground">
+                Drag on the screen to choose a region — Enter takes the whole screen, Escape
+                cancels.
+              </p>
+            ) : null}
+
+            {(tool === 'screen' || tool === 'window' || tool === 'record') && !recording ? (
+              sources === null ? (
+                <p className="text-muted-foreground">
+                  Looking for {tool === 'window' ? 'windows' : 'screens'}…
+                </p>
+              ) : sources.length === 0 ? (
+                <p className="text-muted-foreground">Nothing to capture was found.</p>
+              ) : (
+                <ul
+                  className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+                  aria-label={tool === 'window' ? 'Windows' : 'Screens'}
+                >
+                  {sources.map((source) => (
+                    <li key={source.id}>
+                      <button
+                        type="button"
+                        className="flex w-full flex-col gap-1 rounded border border-border p-2 text-left"
+                        disabled={busy || countdown !== null}
+                        onClick={() =>
+                          tool === 'record' ? void record(source) : takeStill(source)
+                        }
+                        aria-label={`${tool === 'record' ? 'Record' : 'Capture'} ${source.name}`}
+                      >
+                        {source.thumbnail ? (
+                          <img
+                            src={source.thumbnail}
+                            alt=""
+                            className="aspect-video w-full rounded object-cover"
+                          />
+                        ) : null}
+                        <span className="truncate">{source.name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )
+            ) : null}
+          </section>
+        ) : null}
+
+        {region ? (
+          <RegionPicker
+            frame={region}
+            onCapture={(rect) => void finishRegion(rect)}
+            onCancel={cancelRegion}
+          />
+        ) : null}
+
+        {error || state.overlayError ? (
+          <p role="alert" className="text-xs text-destructive">
+            {error ?? state.overlayError}
+          </p>
+        ) : null}
+
         <section
-          aria-labelledby="capture-tools"
+          aria-labelledby="capture-recent"
           className="rounded-lg border border-border p-4 text-xs"
         >
-          <h2 id="capture-tools" className="sr-only">
-            Capture tools
+          <h2 id="capture-recent" className="mb-2 text-sm font-medium">
+            Recent captures
           </h2>
-          <div
-            className="mb-3 flex flex-wrap items-center gap-2"
-            role="toolbar"
-            aria-label="What to capture"
-          >
-            {TOOLS.filter((t) => t.id !== 'record' || status.canRecord).map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                aria-pressed={tool === t.id}
-                onClick={() => pickTool(t.id)}
-                disabled={recording !== null}
-              >
-                {t.label}
-              </button>
-            ))}
-            <span className="flex-1" />
-            {tool !== 'record' ? (
-              <label className="flex items-center gap-1">
-                Delay
-                <select
-                  value={delay}
-                  onChange={(e) => setDelay(Number(e.target.value) as (typeof DELAYS)[number])}
-                  aria-label="Delay"
-                >
-                  {DELAYS.map((d) => (
-                    <option key={d} value={d}>
-                      {d === 0 ? 'None' : `${d} s`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-          </div>
-
-          {countdown !== null ? (
-            <p role="status" className="mb-2">
-              Capturing in {countdown}…
-            </p>
-          ) : null}
-
-          {recording ? (
-            <div role="status" className="mb-2 flex items-center gap-2">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-destructive" aria-hidden />
-              <span className="flex-1">Recording {recording.name}</span>
-              <button type="button" onClick={() => void stopRecording()}>
-                Stop recording
-              </button>
-            </div>
-          ) : null}
-
-          {tool === null ? <p className="text-muted-foreground">Pick what to capture.</p> : null}
-
-          {tool === 'region' && !region && overlay === 'idle' ? (
-            <div className="flex items-center gap-2">
-              <p className="flex-1 text-muted-foreground">
-                Freezes the screen under the pointer, then you drag the region to keep — on the
-                screen itself.
-              </p>
-              <button type="button" disabled={busy || countdown !== null} onClick={freeze}>
-                Freeze screen
-              </button>
-            </div>
-          ) : null}
-
-          {overlay === 'open' ? (
-            <p role="status" className="text-muted-foreground">
-              Drag on the screen to choose a region — Enter takes the whole screen, Escape cancels.
-            </p>
-          ) : null}
-
-          {(tool === 'screen' || tool === 'window' || tool === 'record') && !recording ? (
-            sources === null ? (
-              <p className="text-muted-foreground">
-                Looking for {tool === 'window' ? 'windows' : 'screens'}…
-              </p>
-            ) : sources.length === 0 ? (
-              <p className="text-muted-foreground">Nothing to capture was found.</p>
-            ) : (
-              <ul
-                className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-                aria-label={tool === 'window' ? 'Windows' : 'Screens'}
-              >
-                {sources.map((source) => (
-                  <li key={source.id}>
+          {captures.length === 0 ? (
+            <p className="text-muted-foreground">No captures yet.</p>
+          ) : (
+            <div className="flex flex-col gap-3 md:flex-row">
+              <ul className="grid flex-1 grid-cols-3 gap-2 sm:grid-cols-4" aria-label="Captures">
+                {captures.map((item) => (
+                  <li key={item.id}>
                     <button
                       type="button"
-                      className="flex w-full flex-col gap-1 rounded border border-border p-2 text-left"
-                      disabled={busy || countdown !== null}
-                      onClick={() => (tool === 'record' ? void record(source) : takeStill(source))}
-                      aria-label={`${tool === 'record' ? 'Record' : 'Capture'} ${source.name}`}
+                      aria-pressed={selected === item.id}
+                      aria-label={describe(item)}
+                      className="block w-full overflow-hidden rounded border border-border"
+                      onClick={() => setSelected(item.id)}
                     >
-                      {source.thumbnail ? (
+                      {item.kind === 'screenshot' ? (
                         <img
-                          src={source.thumbnail}
+                          src={captureFileUrl(item.fileName)}
                           alt=""
-                          className="aspect-video w-full rounded object-cover"
+                          className="aspect-video w-full object-cover"
                         />
-                      ) : null}
-                      <span className="truncate">{source.name}</span>
+                      ) : (
+                        <span className="flex aspect-video w-full items-center justify-center bg-muted">
+                          ▶︎
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
               </ul>
-            )
-          ) : null}
-        </section>
-      ) : null}
-
-      {region ? (
-        <RegionPicker
-          frame={region}
-          onCapture={(rect) => void finishRegion(rect)}
-          onCancel={cancelRegion}
-        />
-      ) : null}
-
-      {error || state.overlayError ? (
-        <p role="alert" className="text-xs text-destructive">
-          {error ?? state.overlayError}
-        </p>
-      ) : null}
-
-      <section
-        aria-labelledby="capture-recent"
-        className="rounded-lg border border-border p-4 text-xs"
-      >
-        <h2 id="capture-recent" className="mb-2 text-sm font-medium">
-          Recent captures
-        </h2>
-        {captures.length === 0 ? (
-          <p className="text-muted-foreground">No captures yet.</p>
-        ) : (
-          <div className="flex flex-col gap-3 md:flex-row">
-            <ul className="grid flex-1 grid-cols-3 gap-2 sm:grid-cols-4" aria-label="Captures">
-              {captures.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    aria-pressed={selected === item.id}
-                    aria-label={describe(item)}
-                    className="block w-full overflow-hidden rounded border border-border"
-                    onClick={() => setSelected(item.id)}
-                  >
-                    {item.kind === 'screenshot' ? (
-                      <img
-                        src={captureFileUrl(item.fileName)}
-                        alt=""
-                        className="aspect-video w-full object-cover"
-                      />
-                    ) : (
-                      <span className="flex aspect-video w-full items-center justify-center bg-muted">
-                        ▶︎
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {current && status ? (
-              <aside aria-label="Preview" className="flex w-full flex-col gap-2 md:w-72">
-                {current.kind === 'screenshot' ? (
-                  <img
-                    src={captureFileUrl(current.fileName)}
-                    alt={current.sourceName ?? 'Screenshot'}
-                    className="w-full rounded border border-border"
-                  />
-                ) : (
-                  <video
-                    src={captureFileUrl(current.fileName)}
-                    controls
-                    className="w-full rounded border border-border"
-                  />
-                )}
-                <p className="text-muted-foreground">{describe(current)}</p>
-                <div className="flex flex-wrap gap-2">
+              {current && status ? (
+                <aside aria-label="Preview" className="flex w-full flex-col gap-2 md:w-72">
                   {current.kind === 'screenshot' ? (
-                    <button type="button" onClick={() => void api?.copy({ id: current.id })}>
-                      Copy
+                    <img
+                      src={captureFileUrl(current.fileName)}
+                      alt={current.sourceName ?? 'Screenshot'}
+                      className="w-full rounded border border-border"
+                    />
+                  ) : (
+                    <video
+                      src={captureFileUrl(current.fileName)}
+                      controls
+                      className="w-full rounded border border-border"
+                    />
+                  )}
+                  <p className="text-muted-foreground">{describe(current)}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {current.kind === 'screenshot' ? (
+                      <button type="button" onClick={() => void api?.copy({ id: current.id })}>
+                        Copy
+                      </button>
+                    ) : null}
+                    <button type="button" onClick={() => void api?.reveal({ id: current.id })}>
+                      Show in Finder
                     </button>
-                  ) : null}
-                  <button type="button" onClick={() => void api?.reveal({ id: current.id })}>
-                    Show in Finder
-                  </button>
-                  <button type="button" onClick={() => void remove(current)}>
-                    Delete
-                  </button>
-                </div>
-                <SendTo item={current} status={status} />
-              </aside>
-            ) : null}
-          </div>
-        )}
-      </section>
+                    <button type="button" onClick={() => void remove(current)}>
+                      Delete
+                    </button>
+                  </div>
+                  <SendTo item={current} status={status} />
+                </aside>
+              ) : null}
+            </div>
+          )}
+        </section>
 
-      <ClipboardSection
-        enabled={clipboard.enabled}
-        entries={clipboard.entries}
-        onToggle={(enabled) => void changeSettings({ clipboardHistory: enabled })}
-      />
+        <ClipboardSection
+          enabled={clipboard.enabled}
+          entries={clipboard.entries}
+          onToggle={(enabled) => void changeSettings({ clipboardHistory: enabled })}
+        />
 
-      {status ? <SettingsSection status={status} onChange={changeSettings} /> : null}
+        {status ? <SettingsSection status={status} onChange={changeSettings} /> : null}
+      </div>
     </div>
   );
 }
