@@ -3,7 +3,7 @@ $schema: 'https://moonrepo.dev/schemas/toolchain.json'
 node:
   # Keep in lockstep with `.prototools` (what proto actually installs). A mismatch
   # here makes moon rewrite each package.json's `engines.node` on every run.
-  version: '24.22.0'
+  version: '24.22.1'
   packageManager: 'pnpm'
   pnpm:
     version: '10.34.5'
