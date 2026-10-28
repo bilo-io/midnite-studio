@@ -24,6 +24,11 @@ export interface GuardCheck {
   title: string;
   category: SecurityFindingCategory;
   needs: readonly GuardInputKey[];
+  /**
+   * The subset of `needs` the check can run without. A skipped optional input (its switch is off, or it failed to
+   * resolve) is still recorded in `inputsSkipped`, but no longer drops the check; `run` sees the key absent.
+   */
+  optional?: readonly GuardInputKey[];
   run(inputs: Record<string, unknown>): SecurityFinding[] | Promise<SecurityFinding[]>;
 }
 

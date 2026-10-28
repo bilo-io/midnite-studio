@@ -73,6 +73,7 @@ export const EGRESS_ENTRIES: readonly EgressHost[] = [
   entry({ host: 'news.google.com', owner: 'finance', sends: 'GET only: a news search query for a held asset', trigger: 'automatic', switch: 'markets' }),
   entry({ host: 'api.osv.dev', owner: 'guard', sends: 'package names and versions found in the user’s repositories, to look up advisories', trigger: 'automatic', switch: 'guard-feeds' }),
   entry({ host: 'www.cisa.gov', owner: 'guard', sends: 'GET only: the public Known Exploited Vulnerabilities list', trigger: 'automatic', switch: 'guard-feeds' }),
+  entry({ host: 'electronjs.org', owner: 'guard', sends: 'GET only: the public Electron release index, no identifiers', trigger: 'automatic', switch: 'guard-feeds' }),
   entry({ host: 'cdn.jsdelivr.net', owner: 'media-video', sends: 'GET only: a pinned animation library, loaded by a video render the user started, no identifiers', trigger: 'user' }),
   entry({ host: 'midnite-apps.vercel.app', owner: 'launcher', sends: 'GET only: the app catalog, no identifiers', trigger: 'automatic', switch: 'launcher-catalog' }),
   entry({ host: 'raw.githubusercontent.com', owner: 'launcher', sends: 'GET only: the Studio update feed, no identifiers', trigger: 'automatic', switch: 'launcher-updates' }),

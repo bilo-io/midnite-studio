@@ -12,6 +12,8 @@ export type KnownGuardInputKey =
   | 'osv'
   | 'kev'
   | 'ghsa'
+  | 'electronMajors'
+  | 'electronPins'
   | 'threatFeed'
   | 'installedPackages'
   | 'mcpServers'
@@ -32,6 +34,7 @@ export const DEFAULT_INPUT_SWITCHES: Readonly<Record<string, string>> = {
   osv: 'privacy.feed.osv',
   kev: 'privacy.feed.kev',
   ghsa: 'privacy.feed.ghsa',
+  electronMajors: 'privacy.feed.electron',
   threatFeed: 'privacy.feed.threatFeed',
   brew: 'privacy.system.brew',
   installedSoftware: 'privacy.system.brew',
