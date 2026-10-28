@@ -61,7 +61,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       # @bilo-io/ui and @bilo-io/shell come from GitHub Packages, which requires
@@ -77,13 +77,16 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # The site hosts one unlinked copy of Studio's installer (`install-studio.sh`),
-      # which the app's own update action curls. A committed copy of someone
-      # else's file drifts silently, so it is checked against upstream on every
-      # build. Post-merge on `main`: upstream can change with nothing merged
-      # here, so there is no pull request for a gate to block.
+      # The site serves its own copy of the installer, so the download page can
+      # tell visitors to pipe *this host* into `sh` rather than a third-party
+      # URL. A committed copy of someone else's file drifts, and the way it
+      # drifts here is silent — an installer that keeps working while installing
+      # the wrong thing — so the copy is checked against upstream on every
+      # build. This job runs post-merge on `main`, which is the right shape for
+      # it: upstream can change with nothing merged here at all, so there is no
+      # pull request for a gate to block and this is a loud alarm instead.
       # Re-sync with `node scripts/website-sync-install.mjs --write`.
-      - name: Check install-studio.sh against upstream
+      - name: Check install.sh against upstream
         run: pnpm exec moon run website:sync-install
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}

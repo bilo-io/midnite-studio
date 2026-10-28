@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_LOOP_SCHEDULE,
   LOOP_AUTO_ROTATE,
+  customLoopForRun,
+  customLoopNeedsOption,
+  isCustomLoop,
   resolveLoopChoice,
   type LoopDefinition,
   type LoopModel,
@@ -18,6 +21,7 @@ import { LoopHistory } from './loop-history';
 import { contributorOptions } from './loop-option-row';
 import { useLoopStatus } from './loop-status';
 import { useLoopSession } from './use-loop-session';
+import { loopLabel } from './use-all-loops';
 import { useKnownSkills, useRepoStats, useRepos } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { agentInitialInput } from '../terminal/terminal-panel';
@@ -143,6 +147,20 @@ export function LoopTab({
   );
   /** Is there a skill on the line at all? Only asked of a `requiresModifier` loop. */
   const hasTask = loop.modifiers.some((m) => checked[m.id] && m.providesTask);
+  /*
+    A custom loop's gate is its own: when its base prompt says nothing beyond
+    a bare `/loop`, Start needs one of the author's options on (one with words
+    in it — an empty fragment adds nothing), for the same reason Patrol needs
+    a task. The shared Run switches do not count; a policy is not a job.
+  */
+  const custom = isCustomLoop(loop) ? loop : null;
+  const needsOption =
+    custom !== null &&
+    customLoopNeedsOption(custom) &&
+    !custom.modifiers.some((m) => m.section !== undefined && checked[m.id] && m.promptFragment.trim() !== '');
+  const blocked = custom ? needsOption : loop.requiresModifier === true && !hasTask;
+  /** What the run composes from — a custom loop minus the options still waiting for words. */
+  const runLoop = useMemo(() => (custom ? customLoopForRun(custom) : loop), [custom, loop]);
 
   const status = useLoopStatus(loop.id);
   const agents = useAgents();
@@ -161,7 +179,7 @@ export function LoopTab({
       : loop.agentId;
   // The roster's own command, not the id — see `useLoopSession`'s note.
   const command = agents.agents.find((a) => a.id === agentId)?.command ?? agentId;
-  const { start, stop } = useLoopSession(loop, {
+  const { start, stop } = useLoopSession(runLoop, {
     repoId: selectedRepoId,
     cwd,
     basePrompt,
@@ -267,9 +285,11 @@ export function LoopTab({
             contributorOptions={contributors}
             autoRotatePercent={autoRotatePercent}
             repeat={repeat}
-            disabled={!repo || (loop.requiresModifier && !hasTask)}
+            disabled={!repo || blocked}
             disabledReason={
-              repo
+              repo && custom
+                ? 'Turn on an option — the base prompt alone gives the loop nothing to do.'
+                : repo
                 ? // Patrol's base is a bare `/loop`: with no task box checked there
                   // is no skill on the line at all, so Start would launch an agent
                   // and tell it nothing. The autonomy radio does not count — a
@@ -318,7 +338,7 @@ export function LoopTab({
         ) : (
           <p className="p-3 text-[11px] text-muted-foreground">
             {repo
-              ? `Press Start to run ${loop.label} in ${repo.name}.`
+              ? `Press Start to run ${loopLabel(loop)} in ${repo.name}.`
               : 'Select a repository to run a loop.'}
           </p>
         )}

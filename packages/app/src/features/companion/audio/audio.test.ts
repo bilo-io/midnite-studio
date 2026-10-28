@@ -6,7 +6,7 @@ import {
   midiToFrequency,
   type CompanionMelody,
 } from '@midnite/studio-shared';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import {
   __resetCompanionAudioForTest,
@@ -65,12 +65,12 @@ function fakeContext(over: { currentTime?: number; state?: string } = {}) {
     type: string;
     frequency: ReturnType<typeof fakeParam>;
     detune: ReturnType<typeof fakeParam>;
-    start: ReturnType<typeof vi.fn>;
-    stop: ReturnType<typeof vi.fn>;
-    connect: ReturnType<typeof vi.fn>;
+    start: Mock;
+    stop: Mock;
+    connect: Mock;
   }[] = [];
-  const gains: { gain: ReturnType<typeof fakeParam>; connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> }[] = [];
-  const sources: { buffer: unknown; loop: boolean; start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn>; connect: ReturnType<typeof vi.fn> }[] = [];
+  const gains: { gain: ReturnType<typeof fakeParam>; connect: Mock; disconnect: Mock }[] = [];
+  const sources: { buffer: unknown; loop: boolean; start: Mock; stop: Mock; connect: Mock }[] = [];
 
   const ctx = {
     currentTime: over.currentTime ?? 0,
@@ -404,7 +404,7 @@ describe('renderElevatorLoop', () => {
   function fakeOffline(sampleRate = 48_000) {
     const inner = fakeContext();
     const buffers: { length: number }[] = [];
-    const filters: { type: string; frequency: { value: number }; connect: ReturnType<typeof vi.fn> }[] = [];
+    const filters: { type: string; frequency: { value: number }; connect: Mock }[] = [];
     const rendered = { length: 1 } as AudioBuffer;
     let requested = { channels: 0, length: 0, sampleRate: 0 };
 

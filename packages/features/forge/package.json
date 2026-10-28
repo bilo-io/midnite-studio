@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-forge",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "The forge feature (Phase 113 Theme O): the forge providers, account registry, poller and handlers in main; the forge status vocabulary, forge queries, Reviews and Actions in the renderer. Coder's forge layer — one package for three placement folders (forge, reviews, actions).",
   "sideEffects": false,
@@ -18,7 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@bilo-io/ui": "0.1.0",
+    "@bilo-io/ui": "0.2.0",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
@@ -49,6 +49,6 @@
     "react-dom": "^19.0.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.5",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.0"
   }
 }

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { decodeMeshBin, isClosed, MCP_CONTENT_KEY, parseModelSidecar, parseOpsLog, type McpContentBlock } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 

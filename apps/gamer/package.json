@@ -1,6 +1,6 @@
 {
   "name": "@midnite/app-gamer",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "Midnite Gamer - maps, terrain, sprites, models and games, with play-tests and the game agent loop, as their own app.",
   "type": "module",
@@ -11,7 +11,7 @@
     "build": "vite build && node scripts/bundle-main.mjs"
   },
   "dependencies": {
-    "@bilo-io/ui": "0.1.0",
+    "@bilo-io/ui": "0.2.0",
     "@midnite/studio-feature-media-core": "workspace:*",
     "@midnite/studio-feature-media-game": "workspace:*",
     "@midnite/studio-feature-media-images": "workspace:*",
@@ -20,6 +20,7 @@
     "@midnite/studio-feature-media-sprite": "workspace:*",
     "@midnite/studio-feature-media-terrain": "workspace:*",
     "@midnite/studio-feature-models": "workspace:*",
+    "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
@@ -40,13 +41,13 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "electron": "^33.2.0",
+    "electron": "^42.11.5",
     "esbuild": "^0.28.0",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.6.3",
     "vite": "^6.0.5",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.0"
   }
 }

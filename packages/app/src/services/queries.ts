@@ -2,8 +2,6 @@ import { knowledgeKeys } from '@midnite/studio-frame';
 
 import type {
   AiPlanBlueprint,
-  AppIssueSubmitRequest,
-  AppIssueSubmitResult,
   ClosedSession,
   DiagnosticsCandidate,
   DiagnosticsCommand,
@@ -47,7 +45,6 @@ export {
   useCancelTestRun,
 } from '@midnite/studio-feature-tests/renderer';
 import {
-  EMPTY_CLI,
   FORGE_STALE_MS,
   forgeKeys,
   useForgeCapabilities,
@@ -849,25 +846,6 @@ export function useKnownSkills(repoId: string | null, enabled = true) {
 
 /** How many pages `useForgeProjectItems` walks before it stops and reports `truncated`. */
 
-/**
- * File an issue on the app's own public tracker — Phase 93.
- *
- * Unlike every other write above, this one takes **no `repoId`**: it always
- * targets `bilo-io/midnite-apps` (see `gh-app-issue.ts`), independent of
- * whichever repo is open in the git client, or whether one is open at all. No
- * cache to invalidate either — there is no local listing of that board's
- * issues for a success here to affect.
- */
-export function useSubmitAppIssue() {
-  return useMutation({
-    mutationFn: async (input: AppIssueSubmitRequest): Promise<AppIssueSubmitResult> => {
-      const api = bridge();
-      if (!api) return NO_APP_ISSUE_WRITE;
-      return api.report.submitIssue(input);
-    },
-  });
-}
-
 /*
   ─── Phase 54 Theme G: the two issue writes ─────────────────────────────────
 
@@ -971,8 +949,6 @@ export function usePlanBlueprint() {
 
 /** Same reasoning, for the `ForgeIssueCreateResult` shape. */
 /** Same reasoning, for the `ForgeProjectCreateResult` shape. */
-/** Same reasoning as `NO_FORGE_WRITE`, for `AppIssueSubmitResult`'s extra `url` field. */
-const NO_APP_ISSUE_WRITE: AppIssueSubmitResult = { ok: false, cli: EMPTY_CLI, error: null, url: null };
 
 // --- session history (Phase 67) ---------------------------------------------
 

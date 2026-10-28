@@ -97,10 +97,7 @@ describe('persisted-keys partition', () => {
         // look like. Phase 83 Theme A's `enabledWebApps` sat here the same way,
         // for exactly one phase slice, and is gone the same way: Theme E
         // built `web-apps-page.tsx`.
-        // Phase 89 Theme A's own: `rendererVariant` has a real control (the
-        // Knowledge view's pill bar) but no settings page.
-        'rendererVariant',
-        // Phase 89 Theme E's own, same reasoning: the layout pill row.
+        // Phase 89 Theme E's own: the layout pill row.
         'layoutId',
         // The Knowledge canvas's detail budget, same reasoning: the detail pill row.
         'knowledgeDetailId',

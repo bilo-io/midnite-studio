@@ -1,0 +1,2 @@
+osascript -e 'display notification "Build finished" with title "CI"'
+osascript -e 'tell application "Terminal" to activate'

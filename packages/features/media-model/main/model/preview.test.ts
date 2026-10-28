@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { inflateSync } from 'node:zlib';
 
 import {

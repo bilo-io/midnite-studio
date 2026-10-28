@@ -1,5 +1,7 @@
 import { createPortal } from 'react-dom';
 
+import { ConfinedBadge } from '@midnite/studio-frame';
+
 import type { AgentDefinition, AgentStatus, RepoDescriptor } from '@midnite/studio-shared';
 import {
   LuChevronDown,
@@ -10,7 +12,7 @@ import {
   LuTriangleAlert,
   LuX,
 } from 'react-icons/lu';
-import { CgEditFlipH, CgEditFlipV } from 'react-icons/cg';
+import { TbBoxAlignBottomFilled, TbBoxAlignRightFilled } from 'react-icons/tb';
 
 import {
   usePopoutHeaderActions,
@@ -38,6 +40,8 @@ export type TerminalHeaderProps = {
    * shell. Drives the leading glyph only; the path beside it is Theme D's.
    */
   agent: AgentDefinition | undefined;
+  /** The active session runs under a sandbox profile (Phase 121 Theme E) — draws the lock. */
+  confined?: boolean;
   repos: readonly RepoDescriptor[] | undefined;
   /** False while there is at most one session — the list toggle governs nothing. */
   listable: boolean;
@@ -65,6 +69,7 @@ export function TerminalHeader({
   path,
   state,
   agent,
+  confined,
   repos,
   listable,
   showList,
@@ -111,9 +116,9 @@ export function TerminalHeader({
       />
       <IconButton
         // The glyph shows where the click sends the panel, matching the label.
-        // `CgEditFlipH` draws a VERTICAL divider (right dock); `CgEditFlipV` a
-        // HORIZONTAL one (bottom dock).
-        icon={dock === 'right' ? CgEditFlipV : CgEditFlipH}
+        // Docked at bottom -> click docks to right (TbBoxAlignRightFilled).
+        // Docked at right -> click docks to bottom (TbBoxAlignBottomFilled).
+        icon={dock === 'right' ? TbBoxAlignBottomFilled : TbBoxAlignRightFilled}
         label={dock === 'right' ? 'Dock terminal to the bottom' : 'Dock terminal to the right'}
         size="sm"
         onClick={() => useUiStore.getState().toggleTerminalDock()}
@@ -141,6 +146,7 @@ export function TerminalHeader({
     const pathAndDot = (
       <>
         <StateDot state={state} />
+        {confined ? <ConfinedBadge /> : null}
         <HeaderPath path={path} repos={repos} />
         {broker.mode === 'inproc' && broker.reason ? (
           <Tooltip label={`Sessions will not survive quit — ${broker.reason}`}>
@@ -194,6 +200,7 @@ export function TerminalHeader({
         )}
       </div>
       <StateDot state={state} />
+      {confined ? <ConfinedBadge /> : null}
       <HeaderPath path={path} repos={repos} />
 
       {broker.mode === 'inproc' && broker.reason ? (

@@ -6,6 +6,7 @@ import {
   configureLoopRuns,
   listLoopRuns,
   noteSessionExit,
+  setGuardSummaryProvider,
   startLoopRun,
   stopLoopRun,
 } from './loop-runs';
@@ -54,6 +55,34 @@ describe('startLoopRun', () => {
     expect(run.status).toBe('running');
     expect(run.startedAt).toBeGreaterThan(0);
     expect(await listLoopRuns()).toEqual([run]);
+  });
+
+  it('records findingsSummary when provided on start (Phase 122 Theme A)', async () => {
+    configure(fakeStore());
+    const summary = { critical: 1, high: 2, medium: 0, low: 0, info: 0, total: 3 };
+    const run = await startLoopRun({
+      loopId: 'guard',
+      sessionId: 's-guard',
+      composedPrompt: '/loop /midnite-address-issue',
+      checkedModifierIds: ['fix-findings'],
+      findingsSummary: summary,
+    });
+
+    expect(run.findingsSummary).toEqual(summary);
+    expect((await listLoopRuns())[0]?.findingsSummary).toEqual(summary);
+  });
+
+  it('fills a Guard run\'s findingsSummary from the latest sweep, and only for Guard', async () => {
+    configure(fakeStore());
+    const summary = { critical: 0, high: 1, medium: 0, low: 0, info: 0, total: 1 };
+    setGuardSummaryProvider(async () => summary);
+    try {
+      const base = { sessionId: 's', composedPrompt: '/loop x', checkedModifierIds: [] };
+      expect((await startLoopRun({ ...base, loopId: 'guard' })).findingsSummary).toEqual(summary);
+      expect((await startLoopRun({ ...base, loopId: 'medic', sessionId: 's2' })).findingsSummary).toBeUndefined();
+    } finally {
+      setGuardSummaryProvider(null);
+    }
   });
 });
 

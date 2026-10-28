@@ -8,6 +8,7 @@ import {
   EmptyState,
   safeLocalStorage,
   SimplePopover,
+  useKnowledgeFiltersStore,
   type KnowledgeHost,
   type KnowledgeSettings,
   type KnowledgeSourcePreviewProps,
@@ -91,7 +92,18 @@ export function createMindKnowledgeHost(storage: Storage | undefined = safeLocal
     useCorpus: () => corpus,
     useSettings: () => useStore(store, (s) => s) as KnowledgeSettings,
     getSettings: read,
-    setSettings: (patch) => store.getState().patch(patch),
+    setSettings: (patch) => {
+      store.getState().patch(patch);
+      if (patch.rendererVariant !== undefined) {
+        useKnowledgeFiltersStore.setState({ rendererVariant: patch.rendererVariant });
+      }
+      if (patch.layoutId !== undefined) {
+        useKnowledgeFiltersStore.setState({ layoutId: patch.layoutId });
+      }
+      if (patch.detailId !== undefined) {
+        useKnowledgeFiltersStore.setState({ detailId: patch.detailId });
+      }
+    },
     prefersReducedMotion: () =>
       typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
     panelBounds: BOUNDS,

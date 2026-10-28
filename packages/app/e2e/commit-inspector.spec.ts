@@ -122,32 +122,3 @@ test('the file list and the diff can be resized against each other', async ({ pa
   const after = (await pane.boundingBox())?.width ?? 0;
   expect(after).toBeGreaterThan(before + 40);
 });
-
-// --- screenshots ----------------------------------------------------------
-
-/**
- * The phase doc's verification shot: the inspector in tree mode with a diff
- * open. Written to `docs/screenshots/phase-12/`, alongside the earlier phases'.
- */
-test('screenshot the inspector', async ({ page }) => {
-  // Phase 56 Theme F: this test exists to produce the two PNGs below, so
-  // ungated it rewrote them on every routine `app:e2e` run rather than an
-  // explicit regeneration — the same reason `footer-monitor.spec.ts`'s own
-  // `screenshots` test gates itself this way.
-  test.skip(!process.env.MSTUDIO_SHOTS, 'set MSTUDIO_SHOTS=1 to regenerate');
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await openCommit(page);
-
-  await files(page)
-    .getByRole('button', { name: 'packages/desktop/src/main/window.ts', exact: true })
-    .click();
-  await expect(page.getByTestId('diff-view')).toBeVisible();
-  // Let the cascade and the diff's own fade settle, or the shot catches the app
-  // mid-animation and reads as a rendering bug.
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: '../../docs/screenshots/phase-12/inspector-tree-with-diff.png' });
-
-  await page.getByRole('button', { name: 'List the files by how much changed' }).click();
-  await page.waitForTimeout(300);
-  await page.screenshot({ path: '../../docs/screenshots/phase-12/inspector-list-view.png' });
-});

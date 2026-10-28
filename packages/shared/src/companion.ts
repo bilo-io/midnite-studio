@@ -171,12 +171,30 @@ export function transition(state: CompanionState, event: CompanionEvent): Compan
  * per the phase's own guardrail.
  */
 export const COMPANION_PHRASES = {
+  /*
+    One medium-length sentence, and nothing about the repo: the opening no
+    longer recites the overview, it offers it (`statusOffers`), so the
+    greeting carries the warmth the recital used to stand in for. These are
+    the time-neutral ones — `greetingBank` adds the hour's own
+    (`COMPANION_TIMED_GREETINGS`), so no line here may name a time of day.
+  */
   greetings: [
-    'Good to see you{name}.',
-    'Welcome back{name}.',
-    'Evening{name}. The studio is yours.',
-    'Right{name}, let us see where things stand.',
-    'Back at it{name}.',
+    'Good day{name}, the studio is warmed up and ready whenever you are.',
+    'Welcome back{name}, everything is right where you left it and waiting on you.',
+    'Hello again{name}, it is good to have you back at the desk with me.',
+    'Back at it{name}, and I have kept an eye on things while you were away.',
+    'Good to see you{name}, the repos are tidy and the terminal is warm.',
+    'Hey there{name}, pull up a chair and let us get something worthwhile done.',
+    'Nice to have you back{name}, the studio felt a little empty without you.',
+    'There you are{name}, I was just starting to wonder where you had got to.',
+    'Ready when you are{name}, the whole studio is standing by for your first move.',
+    'Hello{name}, it is a fine day to ship something we are proud of.',
+  ],
+  /** The question that follows every greeting — a yes runs the overview `orient` used to recite unasked. */
+  statusOffers: [
+    'Would you like a status report{name}?',
+    'Shall I run you through where things stand{name}?',
+    'Want a quick status report before we start{name}?',
   ],
   signoffs: [
     'Okay{name}, as per your request.',
@@ -191,6 +209,21 @@ export const COMPANION_PHRASES = {
     'One moment. A merge conflict is git admitting it has no opinion.',
     'Working on it. The word "patch" comes from actual paper tape, with actual holes.',
     'Nearly there. A shallow clone is the only kind that forgets on purpose.',
+    'Hang tight. Git was tracking its own source within days of its first line, back in 2005.',
+    'Bear with me. A commit hash is a fingerprint of everything that came before it.',
+    'Almost. In 1947 an actual moth was taped into a logbook as the first real bug found.',
+    'One second. Rubber duck debugging works because explaining a problem is half of solving it.',
+    'Working on it. Every rebase is a small act of rewriting history, politely.',
+    'Still going. A detached HEAD sounds alarming, but it only means no branch is checked out.',
+    'Nearly done. The first published program was written for a machine that was never built.',
+    'Just a moment. Unix time counts the seconds since the first of January, 1970.',
+    'Hold on. A blame view names who last touched a line, not who broke it.',
+    'On it. Bisect finds the commit that broke something by halving the search every step.',
+    'Patience. The reflog remembers where HEAD has been, which is how lost commits get found.',
+    'Still thinking. The shortest useful commit message is still longer than "fix".',
+    'Bear with me. A fast-forward merge is the only kind that leaves no merge commit behind.',
+    'Almost there. A stash is a shelf, not a safe, so nothing should live on it forever.',
+    'One moment. Tabs versus spaces is older than most of the code it has ever touched.',
   ],
   quotes: [
     'Make it work, make it right, make it fast — in that order.',
@@ -211,6 +244,60 @@ export const COMPANION_PHRASES = {
     'What next{name}?',
   ],
 } as const;
+
+/** The four parts of a day the greeting can tell apart, by the local clock. */
+export const COMPANION_DAY_PARTS = ['morning', 'afternoon', 'evening', 'night'] as const;
+export type CompanionDayPart = (typeof COMPANION_DAY_PARTS)[number];
+
+/** 05–11 morning, 12–16 afternoon, 17–21 evening, 22–04 night. */
+export function dayPartAt(hour: number): CompanionDayPart {
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  if (hour >= 17 && hour < 22) return 'evening';
+  return 'night';
+}
+
+/**
+ * Greetings that only make sense at one time of day — kept out of
+ * {@link COMPANION_PHRASES} so the plain `greetings` bank stays safe to read at
+ * any hour (Settings ▸ Companion's voice preview picks from it unclocked).
+ */
+export const COMPANION_TIMED_GREETINGS: Record<CompanionDayPart, readonly string[]> = {
+  morning: [
+    'Good morning{name}, the coffee is your department but the studio is ready.',
+    'Morning{name}, a fresh day and a clean slate, so let us make it count.',
+    'Good morning{name}, I hope you slept well, because the repos certainly did.',
+    'Morning{name}, the studio is up early too and ready when you are.',
+    'Rise and shine{name}, everything is warmed up and waiting for your first move.',
+    'Top of the morning{name}, it looks like a good day to ship something.',
+  ],
+  afternoon: [
+    'Good afternoon{name}, the day is half done and the best part is still ahead.',
+    'Afternoon{name}, I hope lunch was good, because the studio is ready to go.',
+    'Good afternoon{name}, there is plenty of daylight left to get something across the line.',
+    'Afternoon{name}, welcome back to the desk, everything is where you left it.',
+    'Good afternoon{name}, let us turn the rest of the day into something worth merging.',
+  ],
+  evening: [
+    'Good evening{name}, the studio is quiet and all yours for the session.',
+    'Evening{name}, the lights are on and everything is ready when you are.',
+    'Good evening{name}, a calm hour like this is the best time for real work.',
+    'Evening{name}, I kept the studio warm while the day wound down.',
+    'Good evening{name}, let us see what we can finish before the day is out.',
+  ],
+  night: [
+    'Burning the midnight oil{name}, and the studio is right here with you.',
+    'Late one tonight{name}, so let us keep it focused and get you to bed.',
+    'Still up{name}, and the quiet hours suit focused work just fine.',
+    'The night shift it is{name}, and the studio is wide awake for it.',
+    'Working late{name}, so I will keep things short and out of your way.',
+  ],
+};
+
+/** Every greeting fit for `hour` (local, 0–23): that part of the day's own, then the time-neutral ones. */
+export function greetingBank(hour: number): readonly string[] {
+  return [...COMPANION_TIMED_GREETINGS[dayPartAt(hour)], ...COMPANION_PHRASES.greetings];
+}
 
 export type CompanionPhraseKind = keyof typeof COMPANION_PHRASES;
 export const COMPANION_PHRASE_KINDS = Object.keys(COMPANION_PHRASES) as CompanionPhraseKind[];
@@ -2599,6 +2686,28 @@ export const COMPANION_CONFIRM_TOKENS = [
   'run it',
 ] as const;
 
+/**
+ * Asks for the overview the greeting now only offers — whole utterances, so
+ * "status of the build" stays free for a command or a navigation to read.
+ */
+export const COMPANION_STATUS_TOKENS = [
+  'status',
+  'status report',
+  'status update',
+  'a status report',
+  'give me a status report',
+  'where are we',
+  'where do things stand',
+  'where things stand',
+  'catch me up',
+  'what did i miss',
+  'sitrep',
+  'a sitrep',
+  'give me a sitrep',
+  'situation report',
+  'give me a situation report',
+] as const;
+
 /** Asks what the companion can do (Theme C's spoken/posted summary). */
 export const COMPANION_HELP_TOKENS = [
   'what can you do',
@@ -2894,6 +3003,8 @@ export const CompanionIntentSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('confirm') }),
   /** "What can you do?" A spoken/posted summary built from the vocabulary (Theme C). */
   z.object({ kind: z.literal('help') }),
+  /** "Status report." "Where are we?" The overview the greeting offers, asked for any time. */
+  z.object({ kind: z.literal('status') }),
   /**
    * "Use voice Bella." "Volume 50." "Call me boss." (Phase 109 Theme C.)
    *
@@ -3081,6 +3192,8 @@ export function parseIntent(text: string, vocabulary?: CompanionVocabulary): Com
   if (COMPANION_STOP_TOKENS.some((token) => token === lower)) return { kind: 'stop' };
   if (COMPANION_REPEAT_TOKENS.some((token) => token === lower)) return { kind: 'repeat' };
   if (COMPANION_ANYWAY_TOKENS.some((token) => token === lower)) return { kind: 'anyway' };
+  // Before the command verbs, so no verb phrase gets a look at "status report".
+  if (COMPANION_STATUS_TOKENS.some((token) => token === lower)) return { kind: 'status' };
 
   // Phase 109 Theme C: "turn elevator music off" changes the *offer*, and the
   // music check below would otherwise read it as "stop the music now".

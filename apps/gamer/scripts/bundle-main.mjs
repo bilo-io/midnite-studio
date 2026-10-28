@@ -22,6 +22,7 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
     '@midnite/studio-feature-media-core/main': feature('media-core', 'main/index.ts'),
     '@midnite/studio-feature-media-map/main': feature('media-map', 'main/index.ts'),
     '@midnite/studio-feature-media-map/map-capture-worker': feature('media-map', 'main/map/worker-entry.ts'),

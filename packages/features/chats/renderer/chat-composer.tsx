@@ -10,14 +10,14 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { ChatAttachment, ChatMode, ChatSkill } from '@midnite/studio-shared';
+import { provenanceFor, resolveProvenance, type ChatAttachment, type ChatMode, type ChatSkill } from '@midnite/studio-shared';
 import { LuFileText, LuPaperclip, LuX } from 'react-icons/lu';
 
 import { ModePicker, NO_REPO_ID, RepoPicker } from './chat-options';
 import { ComposerPicker, fileRows, skillRows } from './composer-picker';
 import { findPills, findTrigger, insertToken, matchFiles, matchSkills, pillAtCaret, removePill, type PillToken } from './composer-tokens';
 import { pickerModel, type ChatEngine } from './use-chat-engines';
-import { useToastStore } from '@midnite/studio-frame';
+import { InjectionBanner, useInjectionScans, useToastStore } from '@midnite/studio-frame';
 import { AiComposer, AttachMenu, ProviderModelPicker, useComposerMic } from './ui';
 import { type ChatsPickerProvider as PickerProvider, useChatsHost } from './host';
 
@@ -111,6 +111,12 @@ export function ChatComposer({
   const input = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+
+  // Phase 121 Theme A: an attachment that scores above the injection threshold gets a banner until
+  // the user proceeds, strips it or drops it. Scanning is in main; this only renders its answer.
+  const scanItems = useMemo(() => attachments.map((a) => ({ id: a.id, text: a.text })), [attachments]);
+  const flagged = useInjectionScans(scanItems);
+  const [proceeded, setProceeded] = useState<ReadonlySet<string>>(() => new Set());
 
   useEffect(() => {
     input.current?.focus();
@@ -235,7 +241,7 @@ export function ChatComposer({
           useToastStore.getState().addToast({ message: `${file.name} is not a text file.`, status: 'warning' });
           continue;
         }
-        next.push({ id: attachmentId(), name: file.name, text });
+        next.push({ id: attachmentId(), name: file.name, text, provenance: provenanceFor('attachment', file.name) });
       }
       onAttachmentsChange(next);
     },
@@ -329,6 +335,24 @@ export function ChatComposer({
                 }
               />
             ) : null}
+            {attachments
+              .filter((a) => flagged[a.id] !== undefined && !proceeded.has(a.id))
+              .map((a) => {
+                const scan = flagged[a.id]!;
+                return (
+                  <InjectionBanner
+                    key={a.id}
+                    subject={a.name}
+                    scan={scan}
+                    onProceed={() => {
+                      setProceeded((current) => new Set(current).add(a.id));
+                      onAttachmentsChange(attachments.map((x) => (x.id === a.id ? { ...x, provenance: { ...resolveProvenance(x.provenance), score: scan.score } } : x)));
+                    }}
+                    onStrip={() => onAttachmentsChange(attachments.map((x) => (x.id === a.id && scan.stripped !== undefined ? { ...x, text: scan.stripped } : x)))}
+                    onDrop={() => onAttachmentsChange(attachments.filter((x) => x.id !== a.id))}
+                  />
+                );
+              })}
             {attachments.length > 0 ? (
               <ul className="mb-1.5 flex flex-wrap gap-1" aria-label="Attached files" data-testid="chat-attachments">
                 {attachments.map((a) => (

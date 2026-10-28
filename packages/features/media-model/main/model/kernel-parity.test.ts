@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { buildScene, ModelSpecSchema, rotationMatrix, sceneBounds, signedVolume, triangulatePolygon, type ModelPartInput } from '@midnite/studio-shared';
 import { Euler, Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';

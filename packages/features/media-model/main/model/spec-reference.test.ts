@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { MODEL_MAX_PARTS, MODEL_SHAPES } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 

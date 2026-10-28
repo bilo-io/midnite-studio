@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { MCP_CONTENT_KEY, parseModelSidecar, RIG_EXAMPLE_BIPED, RIG_EXAMPLE_VEHICLE } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 

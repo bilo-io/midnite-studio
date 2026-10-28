@@ -1,5 +1,8 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createShellRunner } from './shell-runner';
 
@@ -84,5 +87,22 @@ describe('createShellRunner', () => {
     );
     runner.killAll();
     expect(await Promise.all(exits.map((m) => m.exited))).not.toContain(0);
+  });
+});
+
+// Real sandbox-exec: macOS only (it runs in gate-native), skipped elsewhere because Seatbelt does not exist there.
+describe.skipIf(process.platform !== 'darwin')('createShellRunner confinement (sandbox-exec, macOS)', () => {
+  it('runs the member under the profile and releases it once the shell has exited', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'shell-confine-')));
+    const profile = join(dir, 'p.sb');
+    const target = join(dir, 'target.txt');
+    writeFileSync(profile, `(version 1)\n(allow default)\n(deny file-write* (literal "${target}"))\n`);
+    const release = vi.fn();
+    const runner = createShellRunner({ shell: '/bin/sh', confine: async () => ({ profile, release }) });
+    const created = await runner.createPty({ sessionId: 's', cwd: dir, cols: 80, rows: 24, initialInput: `echo hi > ${target}; exit $?\r` });
+    if (!created.ok) throw new Error(created.message);
+    const code = await new Promise<number>((resolve) => runner.onPty(created.ptyId, () => undefined, resolve));
+    expect(code).not.toBe(0);
+    expect(release).toHaveBeenCalledTimes(1);
   });
 });

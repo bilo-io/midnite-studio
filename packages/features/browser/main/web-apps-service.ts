@@ -2,7 +2,9 @@ import { WEB_APP_DEFINITIONS, type WebAppId, type BrowserBounds } from '@midnite
 
 import type { BrowserHostWindow as BrowserWindow, BrowserView as WebContentsView } from './browser-electron';
 import { browserMainDeps, defaultLogger } from './browser-main-deps';
-import { cancelDownload, checkNavigationUrl, denyAllDevices, denyAllPermissions } from './browser-security';
+import { checkNavigationUrl } from './browser-security';
+import { getBrowserPermissionStore } from './browser-service';
+import { applyBrowserSessionPolicy, refuseWebviewAttach, sandboxedPageWebPreferences } from './browser-session-policy';
 
 /**
  * The main-process half of the third-party apps rail (Phase 83 Themes A/B).
@@ -47,22 +49,21 @@ let appsDiscardSweepTimer: ReturnType<typeof setInterval> | null = null;
 const securedPartitions = new Set<string>();
 
 /**
- * Configure one app's `persist:app-<id>` session exactly once. Reuses
- * `browser-security.ts`'s posture verbatim: deny every permission (request
- * AND check), and cancel any download loudly rather than starting one
- * nobody asked for a destination for.
+ * Configure one app's `persist:app-<id>` session exactly once — the same
+ * policy, in the same order, as the browser's own partition
+ * (`browser-session-policy.ts`, Phase 117 Theme A): deny every permission
+ * (request AND check) and every device, cancel any download loudly rather
+ * than starting one nobody asked for a destination for, spellcheck off.
  */
 function ensureAppSessionConfigured(id: WebAppId): void {
   const partition = WEB_APP_DEFINITIONS[id].partition;
   if (securedPartitions.has(partition)) return;
   securedPartitions.add(partition);
-  const appSession = browserMainDeps().electron.sessionFromPartition(partition);
-  denyAllPermissions(appSession);
-  denyAllDevices(appSession);
-  appSession.on('will-download', (_event, item) => {
-    cancelDownload(item, (filename) => {
+  applyBrowserSessionPolicy(browserMainDeps().electron.sessionFromPartition(partition), {
+    permissionStore: getBrowserPermissionStore(),
+    onDownloadRefused: (filename) => {
       defaultLogger(`[apps] download refused: app=${id} file=${filename}`);
-    });
+    },
   });
 }
 
@@ -77,21 +78,19 @@ export function enableWebApp(win: BrowserWindow, id: WebAppId): void {
   if (apps.has(id)) return;
 
   const definition = WEB_APP_DEFINITIONS[id];
+  // No preload: an embedded app must have no path to window.midniteStudio —
+  // the same pinned table as the browser's own views (`web-preferences.test.ts`).
   const view = browserMainDeps().electron.createView({
-    webPreferences: {
-      partition: definition.partition,
-      contextIsolation: true,
-      nodeIntegration: false,
-      // No preload: an embedded app must have no path to window.midniteStudio —
-      // same rule Phase 32 wrote for the browser's own views.
-      sandbox: true,
-    },
+    webPreferences: sandboxedPageWebPreferences(definition.partition, {
+      devTools: browserMainDeps().devToolsAllowed ?? false,
+    }),
   });
 
   win.contentView.addChildView(view);
   apps.set(id, { view, win });
 
   const wc = view.webContents;
+  refuseWebviewAttach(wc);
 
   // Only `http:`/`https:` proceed — identical to the browser's own policy.
   // No event pushed back to the renderer: an app view has no chrome for one

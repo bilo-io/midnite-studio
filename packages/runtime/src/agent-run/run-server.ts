@@ -27,7 +27,16 @@ export type RunServers = {
 
 const SOCKET_NAME = 's.sock';
 
-export function createRunServers(opts: { baseDir: string; log?: (line: string) => void; tempDir?: () => string }): RunServers {
+export function createRunServers(opts: {
+  baseDir: string;
+  log?: (line: string) => void;
+  tempDir?: () => string;
+  /**
+   * Wraps each run's dispatcher with the tool-call policy (Phase 121 Theme B): the run's own narrower tool list
+   * is still what the dispatcher answers; the guard judges each call before it reaches a handler.
+   */
+  guard?: (dispatch: ScopedDispatch) => ScopedDispatch;
+}): RunServers {
   const live = new Map<string, McpSocketServerHandle>();
   const removeDir = (dir: string): void => {
     try {
@@ -55,7 +64,7 @@ export function createRunServers(opts: { baseDir: string; log?: (line: string) =
   async function startServer({ dispatch }: { dispatch: ScopedDispatch }) {
     const dir = freshDir();
     if (!dir) return { ok: false as const, message: 'path too long for a Unix socket' };
-    const started = await startMcpSocketServer({ socketPath: join(dir, SOCKET_NAME), dispatch, ...(opts.log ? { log: opts.log } : {}) });
+    const started = await startMcpSocketServer({ socketPath: join(dir, SOCKET_NAME), dispatch: opts.guard ? opts.guard(dispatch) : dispatch, ...(opts.log ? { log: opts.log } : {}) });
     if (!started.ok) {
       removeDir(dir);
       return { ok: false as const, message: started.message };

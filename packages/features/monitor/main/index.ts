@@ -49,6 +49,8 @@ export type MonitorMainServices = {
    */
   agentSessions?: () => Promise<readonly UsageSession[]>;
   homeDir?: string;
+  /** Phase 115 F: `false` means Settings ▸ Privacy has Claude/Codex history reads off; nothing is read. Default on. */
+  readAgentHistory?: () => boolean;
 };
 
 export const monitorMain = defineFeatureMain<MonitorMainServices>({
@@ -73,6 +75,7 @@ export const monitorMain = defineFeatureMain<MonitorMainServices>({
     ipc.handleBare(CHANNELS.systemHealth, (): Promise<SystemHealth> => readSystemHealth(services.ollama));
     ipc.handleBare(CHANNELS.systemHealthStartSshAgent, () => startSshAgent());
     ipc.handleBare(CHANNELS.monitorAgentUsage, async () => {
+      if (services.readAgentHistory && !services.readAgentHistory()) return { sessions: [], agents: [], disabled: true };
       const sessions = (await services.agentSessions?.()) ?? [];
       return buildAgentUsage(services.homeDir ?? '', services.homeDir ? sessions : []);
     });

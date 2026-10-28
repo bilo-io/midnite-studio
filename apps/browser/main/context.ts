@@ -1,3 +1,4 @@
+import { reportMain, type ReportMainServices } from '@midnite/studio-feature-report/main';
 import {
   browserMain,
   destroyAllBrowserTabs,
@@ -16,8 +17,12 @@ import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 /** The electron pieces Browser's main needs, injected so registration is testable under bare vitest. */
 export type BrowserAppElectron = IpcContextElectron & {
+  /** Report an Issue's services — the crash log sink, home dir, and the three OS calls the dialog needs. */
+  report: ReportMainServices;
   /** The real `WebContentsView`/`session`/`screen`/`shell`, behind the feature's structural port. */
   electron: BrowserElectron;
+  /** Phase 117 Theme A: whether a tab's DevTools may open (`devToolsAllowed(app.isPackaged)`). */
+  devToolsAllowed?: boolean;
   /** Browser's one window — where tabs attach and the web apps live. Null before it opens and after it closes. */
   getMainWindow: () => BrowserHostWindow | null;
   /** The window that sent an IPC message (`BrowserWindow.fromWebContents(event.sender)`), null when unknown. */
@@ -25,6 +30,7 @@ export type BrowserAppElectron = IpcContextElectron & {
   /** `clipboard.writeText` — synchronous, as Electron's is. */
   writeClipboard: (text: string) => void;
   log: BrowserLog;
+  userDataPath?: string;
 };
 
 /**
@@ -71,10 +77,13 @@ function senderIpc(el: BrowserAppElectron): BrowserSenderIpc {
  */
 export function registerBrowserAppHandlers(el: BrowserAppElectron): { shutdown: () => void } {
   const ctx = createIpcContext(el);
+  reportMain.register(ctx, el.report);
   browserMain.register(ctx, {
     electron: el.electron,
     log: el.log,
     readDiscardSettings: () => ({}),
+    devToolsAllowed: el.devToolsAllowed ?? false,
+    userDataPath: el.userDataPath,
     sender: senderIpc(el),
     getMainWindow: el.getMainWindow,
   });

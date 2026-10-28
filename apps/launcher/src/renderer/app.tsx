@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuX } from 'react-icons/lu';
+import { LuLayoutGrid, LuMonitor, LuMoon, LuRefreshCw, LuSearch, LuSun, LuTable, LuTrash2, LuX } from 'react-icons/lu';
 
-import type { ThemeSource } from '../common/bridge';
+import type { LauncherResult, LauncherSelfStatus, ThemeSource } from '../common/bridge';
 import { APPS, SECTION_LABELS, appById, type AppId, type LauncherApp } from '../common/catalog';
+import { compareVersions } from '../common/version';
 import { getBridge } from './bridge';
 import { AppDetail } from './components/app-detail';
 import type { MenuItem } from './components/app-menu';
 import { AppTable } from './components/app-table';
 import { AppTile } from './components/app-tile';
 import { LauncherWordmark } from './components/wordmark';
-import { FILTER_LABELS, FILTERS, filterCounts, visibleSections, type Filter, type SortKey } from './model';
+import {
+  FILTER_LABELS,
+  FILTERS,
+  filterCounts,
+  removableApps,
+  removalSummary,
+  visibleSections,
+  type Filter,
+  type SortKey,
+} from './model';
 import { applyTheme, readTheme } from './theme';
 import { useApps } from './use-apps';
 
@@ -55,7 +65,26 @@ export function App() {
   const [detail, setDetail] = useState<LauncherApp | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [confirmUninstall, setConfirmUninstall] = useState<LauncherApp | null>(null);
+  const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
+  const [removingAll, setRemovingAll] = useState(false);
   const [toast, setToast] = useState<{ message: string; tone: 'error' | 'info' } | null>(null);
+  const [self, setSelf] = useState<LauncherSelfStatus | null>(null);
+  /** The version whose banner was dismissed — a newer one found by Check again shows again. */
+  const [selfBannerDismissed, setSelfBannerDismissed] = useState<string | null>(null);
+  const [selfUpdating, setSelfUpdating] = useState(false);
+
+  const checkSelf = useCallback(() => {
+    void bridge.self.status().then(setSelf, () => undefined);
+  }, [bridge]);
+  useEffect(checkSelf, [checkSelf]);
+  useEffect(
+    () =>
+      bridge.self.onFailed((message) => {
+        setSelfUpdating(false);
+        setToast({ message, tone: 'error' });
+      }),
+    [bridge],
+  );
 
   // A `midnite://` link for an app that cannot open yet lands here: its detail sheet, which is where Install lives.
   useEffect(() => {
@@ -149,6 +178,41 @@ export function App() {
     ];
   };
 
+  // The installer quits this app, swaps the bundle and reopens it; nothing to wait for here.
+  const updateSelf = () => {
+    setSelfUpdating(true);
+    void bridge.self.update().then((r) => {
+      if (!r.ok) setSelfUpdating(false);
+      report(r, 'Updating Midnite Apps — it will quit and reopen in a moment.');
+    });
+  };
+  const selfBehind = self?.latest != null && compareVersions(self.latest.version, self.current) > 0;
+  // install.sh quits this app, which would cut an app install off half-written.
+  const anyInstalling = APPS.some((app) => viewOf(app).installing);
+  const selfUpdateDisabled = self === null || !self.canUpdate || selfUpdating || anyInstalling;
+  const selfUpdateTitle =
+    self?.canUpdate === false
+      ? 'A dev run cannot update itself'
+      : anyInstalling
+        ? 'Wait for the install in progress to finish'
+        : selfBehind
+          ? `Update to Midnite Apps ${self?.latest?.version}`
+          : 'Re-install the latest Midnite Apps';
+
+  const removable = useMemo(() => removableApps(viewOf), [viewOf]);
+  // One at a time, through the same per-app ops as each tile's own Move to Trash, so every guard
+  // still applies; a running app refuses and is reported, and the rest still go.
+  const removeAll = async (targets: readonly LauncherApp[]) => {
+    setRemovingAll(true);
+    const results: { app: LauncherApp; result: LauncherResult }[] = [];
+    try {
+      for (const app of targets) results.push({ app, result: await apps.uninstall(app) });
+    } finally {
+      setRemovingAll(false);
+    }
+    setToast(removalSummary(results));
+  };
+
   const studioView = viewOf(STUDIO_APP);
   const showBanner = studioView.state === 'update' && !bannerDismissed && studio.status?.latest;
 
@@ -160,7 +224,6 @@ export function App() {
         </div>
         <div className="topbar-tabs">
           <span className="tab tab-active">Launcher</span>
-          <span className="tab">Midnite app suite</span>
         </div>
         <div className="topbar-right">
           <div className="segmented" role="group" aria-label="Layout">
@@ -190,15 +253,42 @@ export function App() {
             type="button"
             className="btn btn-icon topbar-refresh"
             aria-label="Check again"
-            onClick={() => void apps.refresh()}
+            onClick={() => {
+              void apps.refresh();
+              checkSelf();
+            }}
             disabled={apps.refreshing}
           >
             <LuRefreshCw size={15} className={apps.refreshing ? 'spin' : undefined} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-icon topbar-remove-all"
+            aria-label="Move all apps to Trash…"
+            title={removable.length === 0 ? 'No apps installed' : 'Move all apps to Trash…'}
+            onClick={() => setConfirmRemoveAll(true)}
+            disabled={removable.length === 0 || removingAll}
+          >
+            <LuTrash2 size={15} />
           </button>
         </div>
       </header>
 
       <main className="content">
+        {selfBehind && self?.latest && selfBannerDismissed !== self.latest.version && (
+          <div className="banner" role="status">
+            <span className="pill pill-solid">Update</span>
+            <span className="banner-text">Midnite Apps {self.latest.version} is available.</span>
+            <div className="banner-actions">
+              <button type="button" className="btn btn-primary btn-compact" onClick={updateSelf} disabled={selfUpdateDisabled} title={selfUpdateTitle}>
+                {selfUpdating ? 'Updating…' : 'Update launcher'}
+              </button>
+              <button type="button" className="btn btn-icon" aria-label="Dismiss" onClick={() => setSelfBannerDismissed(self.latest?.version ?? null)}>
+                <LuX size={14} />
+              </button>
+            </div>
+          </div>
+        )}
         {showBanner && studio.status?.latest && (
           <div className="banner" role="status">
             <span className="pill pill-solid">Update</span>
@@ -279,11 +369,22 @@ export function App() {
           <button type="button" className="link eyebrow" onClick={() => void bridge.links.open('website')}>
             Website ↗
           </button>
-          <button type="button" className="link eyebrow" onClick={() => void bridge.links.open('github')}>
-            GitHub ↗
-          </button>
           <span className="eyebrow">
-            {APPS.length} apps · Launcher {bridge.launcherVersion} · macOS {bridge.platform.arch}
+            {APPS.length} apps · macOS {bridge.platform.arch}
+          </span>
+          <span className="statusbar-version">
+            <span className="eyebrow statusbar-version-number" title="Midnite Apps version">
+              v{bridge.launcherVersion}
+            </span>
+            <button
+              type="button"
+              className="link eyebrow"
+              onClick={updateSelf}
+              disabled={selfUpdateDisabled}
+              title={selfUpdateTitle}
+            >
+              {selfUpdating ? 'Updating…' : 'Update launcher'}
+            </button>
           </span>
         </span>
       </footer>
@@ -315,6 +416,46 @@ export function App() {
                 }}
               >
                 Move to Trash
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmRemoveAll && (
+        <div className="sheet-backdrop sheet-backdrop-center">
+          <div className="dialog" role="alertdialog" aria-modal="true" aria-labelledby="remove-all-title">
+            <h2 id="remove-all-title" className="dialog-title">
+              Move {removable.length === 1 ? 'this app' : `all ${removable.length} apps`} to the Trash?
+            </h2>
+            <ul className="dialog-list">
+              {removable.map((app) => (
+                <li key={app.id}>
+                  Midnite {app.name}
+                  {app.id === 'studio' && studio.status?.running ? ' — running, will be skipped' : ''}
+                </li>
+              ))}
+            </ul>
+            <p className="dialog-body">
+              {removable.some((app) => app.id === 'studio')
+                ? `Every app in this launcher runs in Midnite Studio today, so they all go with it. `
+                : ''}
+              An app that is running is skipped — quit it first. Midnite Apps stays, your settings, repositories and media stay where
+              they are, and you can put any of them back from the Trash.
+            </p>
+            <div className="dialog-actions">
+              <button type="button" className="btn" onClick={() => setConfirmRemoveAll(false)} autoFocus>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => {
+                  setConfirmRemoveAll(false);
+                  void removeAll(removable);
+                }}
+              >
+                Move all to Trash
               </button>
             </div>
           </div>

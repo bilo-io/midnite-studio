@@ -49,6 +49,7 @@ export const PLACEMENT_APPS = [
   'creator',
   'media',
   'gamer',
+  'vanguard',
 ];
 
 /** Studio, the internal superset that composes every feature (Decision 5). */

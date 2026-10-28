@@ -90,11 +90,5 @@ test('Edit swaps the read-only preview for a Monaco editor with a gutter', async
   await expect(page.getByTestId('code-editor')).toBeVisible();
   await expect(page.locator('.monaco-editor .margin')).toBeVisible();
   await expect(page.locator('.monaco-editor .view-lines')).toContainText('const answer = 42;');
-  // Phase 56 Theme F: this test's own assertions are the coverage, so only
-  // the incidental screenshot is gated — an unconditional skip would drop
-  // real functional coverage on every routine run.
-  if (process.env.MSTUDIO_SHOTS) {
-    await page.screenshot({ path: '../../docs/screenshots/phase-24-d/editor-clean.png' });
-  }
 });
 

@@ -32,9 +32,9 @@ export {
 } from './forge-poller';
 export { type ForgePollSubscriptions } from './handlers/forge-poll-handlers';
 export { gitConfigPath, readGitConfigRemotes, remotesFromGitConfig } from './git-config-remotes';
-export { createAppIssue } from './github/gh-app-issue';
 export { listPulls, listRuns } from './github/gh-cli';
-export { ghStatus } from './github/gh-shell';
+// Studio hands both to the report feature, so the dialog and the forge share one gh probe cache.
+export { ghStatus, runInShell } from './github/gh-shell';
 export { configureGitlabLanguageCache, createGitlabLanguageCacheStore } from './gitlab/gitlab-languages';
 export { configureForgeFetch, type ForgeFetch } from './http';
 export {
@@ -46,6 +46,7 @@ export {
   resolveAdapter,
   type RepoRemotesResolver,
 } from './repo-forge';
+export { adapterFor } from './registry';
 export { githubWhoami } from './whoami';
 
 /**

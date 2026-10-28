@@ -94,21 +94,21 @@ Scope guardrails:
 and a test says so.* Born from a security reviewer's three questions, and from the answers being
 true without anything to prove them. (0% · 0/46) — **Planned 2026-10-19.**
 
-**Theme A — One list of every outbound host.** ◻ An `EGRESS_HOSTS` registry in `shared` (host,
+**Theme A — One list of every outbound host.** ◐ PARTIAL ([PR #1045](https://github.com/bilo-io/midnite-studio/pull/1045)). First slice landed: `EGRESS_ENTRIES` (and the host-keyed `EGRESS_HOSTS` the Vanguard sensor reads) in `shared/src/egress.ts` now carries `owner`, `switch`, `renderer` and a `PRIVACY_SWITCHES` id list; `guardedFetch`/`guardedFetchFor` in `runtime/src/net/guarded-fetch.ts` refuse an unregistered host (`EgressUnregisteredError`) or one whose switch is off (`EgressBlockedError`), reading the switches from a new `egress` field on the settings mirror. Moved onto it: Guard's OSV/KEV fetch, Finance markets, TMDB, Ollama library search, sherpa model download, the API client and the workflow HTTP node (the last two register once as `host: '*'`). `buildCsp`'s renderer hosts come from the registry. Settings ▸ Privacy gains "Automatic network calls": a master "Turn off all automatic network" plus one generated switch per automatic entry (weather now has its own, gating the forecast as well as the IP lookup). `egress-registry.test.ts` scans main-side code for raw `fetch`/`net.fetch`/`https.get`, with a commented `UNMIGRATED` ratchet. Two gaps from that slice are closed: `guardedFetch` now follows redirects itself (transport called with `redirect: 'manual'`, at most 5 hops, each `Location` re-checked against the registry and switches, 303/301/302-POST turned into a body-less GET, `authorization`/`cookie`/`proxy-authorization` dropped on a cross-origin hop, a caller's own `manual`/`error` passed through), and Vanguard's network sensor reads the same settings mirror so an address only a switched-off host resolves to is a `medium` finding rather than "expected" (an address an enabled host also resolves to stays allowed). Still open: the launcher's update/catalog switches (off the graph, own settings), map tiles/Overpass, forges, image providers, Whisper and the two model downloads still hold raw clients (listed in the test's ratchet), user-supplied-host registration for forges, Alpaca and Kraken, and the idle e2e with everything off. Original text: An `EGRESS_HOSTS` registry in `shared` (host,
 owner, what is sent, automatic or user-initiated, the switch that gates it). A test fails on a
 fetch to an unregistered host. Settings ▸ Privacy is generated from the registry, with a switch per
 automatic call and one master switch. The launcher gets the same switches for its update and
 catalog checks. An idle e2e test proves no request leaves with every switch off.
 
-**Theme B — History that is yours alone.** ◻ 0700 dirs and 0600 files for scrollback, session
+**Theme B — History that is yours alone.** ✅ DONE ([PR #1031](https://github.com/bilo-io/midnite-studio/pull/1031)). Landed: `ensurePrivateDir`/`writePrivateFile`/`appendPrivateFileSync`/`tightenTree` in `runtime/src/private-files.ts` (atomic 0600 writes, 0700 dirs), applied to terminals.json, scrollback (main store and broker flush), session history and transcripts, chats and patches, and the NDJSON log; `tightenHistoryModes` migrates existing files at boot. No voice-recording store exists on disk to cover. Also landed (#1031): Settings ▸ Privacy ▸ Local history — "Keep local history" select (Forever default, 90/30/7 days) driven by `desktop/src/main/history-retention.ts` (mtime prune of scrollback and archived transcripts on a setting change and daily, live sessions skipped), "Clear all local history" behind a confirm showing file count and bytes (scrollback, transcripts, logs and closed-session rows; never chats, settings or live sessions — Decision 8 settled: no), and a FileVault note from `fdesetup status` linking the pane when off. 0700 dirs and 0600 files for scrollback, session
 history, chats, logs and voice, with a one-time migration of existing files. A retention limit the
 user chooses (default: keep). "Clear all local history". FileVault named as the at-rest protection.
 
-**Theme C — Scrub secrets before they reach disk.** ◻ Log records, archived session transcripts
+**Theme C — Scrub secrets before they reach disk.** ✅ DONE ([PR #1035](https://github.com/bilo-io/midnite-studio/pull/1035)). Landed: `runtime/src/disk-redaction.ts` (a synchronous snapshot of the vault's live values plus `redactOutbound`'s shape patterns, home directory kept) applied to log records, chats and patches on write, and to archived transcripts as they move out of scrollback (live scrollback stays byte-exact; non-UTF-8 bytes scrub as latin1). Main refreshes the snapshot at boot, on every vault set/delete (new `VaultService.onEntriesChanged`) and on unlock, and keeps the last snapshot while the vault is locked. Reused Phase 121's matcher rather than a second one, so the label is `[redacted: vault-secret]`, not `[redacted:<namespace>]`. Original text: Log records, archived session transcripts
 and chats pass through `redactRecord` on write. A vault-value matcher catches the prefixless tokens
 (Azure DevOps, Bitbucket). Scrollback stays byte-exact.
 
-**Theme D — No plaintext key when the Keychain is missing.** ◻ The legacy `agentApiKeys` copy
+**Theme D — No plaintext key when the Keychain is missing.** ✅ DONE ([PR #1035](https://github.com/bilo-io/midnite-studio/pull/1035)). Landed: the `secrets` vault namespace now holds a value for the session when encryption is unavailable (`whenUnavailable: 'session'`, like forge PATs), so `secrets.has` answers true and the migration drops the localStorage copy; `vaultLock.status` carries `keychainAvailable`, which drives a one-time warning toast at migration and a persistent note on Settings ▸ Agents. Also fixed (#1031 leftover): main's `agentHistoryReadsEnabled()` now fails closed until the renderer's first settings push. Original text: The legacy `agentApiKeys` copy
 moves to session memory instead of staying in localStorage, with a visible notice, matching how
 forge PATs already degrade.
 
@@ -116,7 +116,7 @@ forge PATs already degrade.
 signed URLs instead of the long-lived token. The MCP and broker sockets require a per-launch
 token from a 0600 file. The CSP drops `'unsafe-inline'` by hashing the no-flash theme script.
 
-**Theme F — Claude's and Codex's settings are never written.** ◻ A test fails on any write path to
+**Theme F — Claude's and Codex's settings are never written.** ✅ DONE ([PR #1031](https://github.com/bilo-io/midnite-studio/pull/1031)). Landed: `agent-config-no-write.test.ts` source scan (no allowlist entries needed today) and `assertNotAgentConfig`, which every private write calls and which throws under `~/.claude*`/`~/.codex` except `skills/`. Also landed (#1031): the Privacy-page disclosure and the "Read Claude and Codex history" switch (default on), mirrored into main; off stops usage totals, conversation-id lookup and the plugin/`enabledPlugins` reads, and Token spend shows an enable prompt. `assertNotAgentConfig` now resolves realpath so a symlink cannot bypass it, and the static scan also covers cp/link/truncate/chmod/createWriteStream and `claudeHome()` over a 5-line window. A test fails on any write path to
 `~/.claude*`, `.mcp.json` or `~/.codex/config.toml`. Reading `~/.claude`/`~/.codex` transcripts is
 disclosed in Settings ▸ Privacy, with an off switch (default on).
 
@@ -127,32 +127,32 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### A — One list of every outbound host [L · 1–2d]
 
-- [ ] **`EGRESS_HOSTS` in `shared`.** A new `packages/shared/src/egress.ts`: one entry per host
+- [x] **`EGRESS_HOSTS` in `shared`.** A new `packages/shared/src/egress.ts`: one entry per host
       with `host` (exact or a `*.` suffix), `owner` (feature id or `launcher`), `sends` (one plain
       sentence: "GET only, no identifiers", "coordinates", "the user's prompt"), `trigger`
       (`automatic` | `user`) and `switch` (a `PrivacySwitchId`, required when `trigger` is
       `automatic`). zod schema, no other imports, per `shared`'s boundary.
-- [ ] **Populate it from Finding 1.** Every host in Finding 1, plus every user-triggered provider
+- [~] **Populate it from Finding 1.** Every host in Finding 1, plus every user-triggered provider
       (OpenAI, Gemini, Ollama cloud, the forges, Alpaca, Kraken). The API client and workflow HTTP
       executor go to user-supplied URLs, so they register once as `owner: 'api-client'`/`'workflows'`
       with `host: '*'` and `trigger: 'user'`.
-- [ ] **One egress seam in main.** A `guardedFetch(owner, url, init)` in `runtime` that looks the
+- [~] **One egress seam in main.** A `guardedFetch(owner, url, init)` in `runtime` that looks the
       host up in `EGRESS_HOSTS`, refuses (with a typed error) when the entry's switch is off, and
       otherwise calls `fetch`. Move every main-side `fetch` in Finding 1 onto it. The renderer's
       direct calls (weather) move behind main or check the same switch.
-- [ ] **A test that fails on an unregistered host.** A vitest that scans `packages/**/main/**`,
+- [x] **A test that fails on an unregistered host.** A vitest that scans `packages/**/main/**`,
       `packages/runtime/**` and `apps/launcher/src/main/**` for `fetch(`, `net.request(`,
       `https.get(` and `http.request(` outside `guardedFetch`, and fails on any match not on a short,
       commented allowlist (electron-updater, which brings its own client). Same shape as
       `persisted-secrets.test.ts`.
-- [ ] **`connect-src` derived from the registry.** `buildCsp` takes its renderer hosts from
+- [x] **`connect-src` derived from the registry.** `buildCsp` takes its renderer hosts from
       `EGRESS_HOSTS` entries marked `renderer: true`, so the two lists cannot drift.
-- [ ] **Settings ▸ Privacy generated from the registry.** One switch per `automatic` entry,
+- [x] **Settings ▸ Privacy generated from the registry.** One switch per `automatic` entry,
       grouped by owner, each showing its `sends` sentence. Plus one master switch, "Turn off all
       automatic network", which overrides the rest without changing their stored values. Extends
       [`privacy-page.tsx`](../../../packages/app/src/features/settings/settings-pages/privacy-page.tsx)
       and keeps Phase 76 D's `ipwho.is` switch.
-- [ ] **Open-Meteo gets its own switch.** Today only the IP-location fallback is gated.
+- [x] **Open-Meteo gets its own switch.** Today only the IP-location fallback is gated.
 - [ ] **The launcher's update and catalog checks get switches.** Stored in the launcher's own
       settings (off the graph — it takes the switch ids from `shared` by source path, as it does
       `studio-link`). Off means no request at start. A manual "Check now" stays.
@@ -165,50 +165,50 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### B — History that is yours alone [M · ~1d]
 
-- [ ] **One helper for private paths.** `ensurePrivateDir(path)` (0700) and
+- [x] **One helper for private paths.** `ensurePrivateDir(path)` (0700) and
       `writePrivateFile(path, data)` (0600, atomic rename) in `runtime`, with tests that stat the
       modes.
-- [ ] **Apply it to every history store.** Scrollback (`broker/server.ts`, `terminal-store.ts`),
+- [x] **Apply it to every history store.** Scrollback (`broker/server.ts`, `terminal-store.ts`),
       session history and archived transcripts (`session-history-store.ts`), chats and patches
       (`chat-store.ts`), the NDJSON log (`log-sink.ts`), and voice recordings and transcriptions
       (locate and add to this list first).
-- [ ] **Migrate existing files once.** On first launch after upgrade, `chmod` the existing dirs
+- [x] **Migrate existing files once.** On first launch after upgrade, `chmod` the existing dirs
       and files to 0700/0600 under `userData`. Idempotent, logged once, never fatal.
-- [ ] **Retention.** A Settings ▸ Privacy "Keep local history" select (Forever · 90 · 30 · 7
+- [x] **Retention.** A Settings ▸ Privacy "Keep local history" select (Forever · 90 · 30 · 7
       days), **default Forever**. Applies to scrollback and archived session transcripts on start
       and once a day. Chats are excluded (they are documents, not logs). Prune by mtime and skip
       live sessions.
-- [ ] **"Clear all local history".** A button behind the blast-radius confirm (file count and
+- [x] **"Clear all local history".** A button behind the blast-radius confirm (file count and
       bytes) that deletes scrollback, archived transcripts and logs, never live sessions, chats or
       settings.
-- [ ] **Name the at-rest protection.** A note on the Privacy page and in Theme G's statement:
+- [x] **Name the at-rest protection.** A note on the Privacy page and in Theme G's statement:
       history is protected by macOS file permissions and FileVault. The note links to the FileVault
       pane when FileVault is off (read with `fdesetup status`, no admin needed).
-- [ ] *Acceptance:* a fresh profile and an upgraded profile both show 0700/0600 across every store
+- [x] *Acceptance:* a fresh profile and an upgraded profile both show 0700/0600 across every store
       above. A 7-day limit deletes an 8-day-old transcript and keeps a live one.
 
 ### C — Scrub secrets before they reach disk [M · ~1d]
 
-- [ ] **Redact on write.** `log-sink.ts` record bodies, archived session transcripts and chat
+- [x] **Redact on write.** `log-sink.ts` record bodies, archived session transcripts and chat
       messages pass through `redactRecord` before they are written. Scrollback does not.
-- [ ] **A vault-value matcher.** On vault load and change, main builds a set of the live secret
+- [x] **A vault-value matcher.** On vault load and change, main builds a set of the live secret
       values (≥ 12 chars) and `redactRecord` replaces any occurrence with `[redacted:<namespace>]`.
       This catches prefixless Azure DevOps and Bitbucket tokens and anything the patterns miss.
       The values never leave main.
-- [ ] **Tests.** A log record containing a stored Azure PAT and a transcript containing a stored
+- [x] **Tests.** A log record containing a stored Azure PAT and a transcript containing a stored
       `sk-` key are written scrubbed, and a 40-hex commit SHA is not redacted (the Phase 91 G
       negative case).
-- [ ] *Acceptance:* `grep -r <test-token> <userData>` finds nothing after a scripted session that
+- [x] *Acceptance:* `grep -r <test-token> <userData>` finds nothing after a scripted session that
       pasted it into a chat and an agent prompt.
 
 ### D — No plaintext key when the Keychain is missing [S · ≤ 2h]
 
-- [ ] **Session-only fallback.** When `safeStorage.isEncryptionAvailable()` is false,
+- [x] **Session-only fallback.** When `safeStorage.isEncryptionAvailable()` is false,
       `migrate-agent-api-keys.ts` hands the key to the vault's session-only degrade (as forge PATs
       already do) and removes it from `midnite-studio.ui` anyway.
-- [ ] **Tell the user.** A one-time notice and a persistent note on Settings ▸ Agents: "Keychain
+- [x] **Tell the user.** A one-time notice and a persistent note on Settings ▸ Agents: "Keychain
       unavailable — keys last until you quit."
-- [ ] *Acceptance:* with encryption forced off, the persisted `midnite-studio.ui` blob holds no
+- [x] *Acceptance:* with encryption forced off, the persisted `midnite-studio.ui` blob holds no
       `agentApiKeys` value after first run, and the key still works until quit.
 
 ### E — Inbound surfaces that check who's asking [M · ~1d]
@@ -233,18 +233,18 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### F — Claude's and Codex's settings are never written [S · ≤ 2h]
 
-- [ ] **A test that holds the line.** A vitest that scans main-side source for write calls
+- [x] **A test that holds the line.** A vitest that scans main-side source for write calls
       (`writeFile`, `appendFile`, `rename`, `rm`, `mkdir`, `copyFile`, `symlink`) whose path
       expression mentions `.claude`, `.codex`, `.mcp.json` or `settings.json` outside an allowlist,
       and fails. The allowlist holds only repo-scaffold writes of `.claude/skills` and
       `.codex/skills` (skills, not settings), each with a comment.
-- [ ] **A runtime guard too.** Make `writePrivateFile` (Theme B) refuse targets under
+- [x] **A runtime guard too.** Make `writePrivateFile` (Theme B) refuse targets under
       `~/.claude*` or `~/.codex` except `*/skills/**`, so a future write fails loudly in dev.
-- [ ] **Disclose the reads, with a switch.** Settings ▸ Privacy says Studio reads
+- [x] **Disclose the reads, with a switch.** Settings ▸ Privacy says Studio reads
       `~/.claude/settings.json` (`enabledPlugins`), `~/.claude` usage, and `~/.codex/sessions` for
       the usage and conversation views. A switch, "Read Claude and Codex history" (default **on**),
       stops those reads, and the views show an enable prompt.
-- [ ] *Acceptance:* the test fails on an injected `writeFile(join(home, '.claude', 'settings.json'))`.
+- [x] *Acceptance:* the test fails on an injected `writeFile(join(home, '.claude', 'settings.json'))`.
       With the switch off, a full usage-view load makes no `fs` read under `~/.claude` or `~/.codex`
       (spy test).
 

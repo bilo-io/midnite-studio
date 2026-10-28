@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { BrowserAgentSessionStateSchema } from '../browser-agent';
+import { SiteKnownBadSchema, SiteVerdictSchema } from './site-verdict';
+
 /**
  * The embedded browser's tab/group/bounds/error contract (Phase 32).
  *
@@ -10,6 +13,44 @@ import { z } from 'zod';
 
 export const BrowserTabIdSchema = z.string().min(1);
 export type BrowserTabId = z.infer<typeof BrowserTabIdSchema>;
+
+/**
+ * Browser permissions promptable by web pages (Phase 117 Theme B).
+ * Scope: camera, microphone, geolocation, notifications.
+ * clipboard-read is never promptable and stays deny-all.
+ */
+export const BrowserPermissionKindSchema = z.enum([
+  'camera',
+  'microphone',
+  'geolocation',
+  'notifications',
+]);
+export type BrowserPermissionKind = z.infer<typeof BrowserPermissionKindSchema>;
+
+export const BrowserPermissionValueSchema = z.enum(['allow', 'deny', 'ask']);
+export type BrowserPermissionValue = z.infer<typeof BrowserPermissionValueSchema>;
+
+export const BrowserPermissionRecordSchema = z.object({
+  origin: z.string(),
+  permission: z.string(),
+  value: BrowserPermissionValueSchema,
+  grantedAt: z.number(),
+});
+export type BrowserPermissionRecord = z.infer<typeof BrowserPermissionRecordSchema>;
+
+/** What a downloaded file is, by extension — drives the confirm policy (Phase 117 Theme D). */
+export const DownloadFileClassSchema = z.enum([
+  'document',
+  'media',
+  'image',
+  'archive',
+  'disk-image',
+  'installer',
+  'script',
+  'executable',
+  'other',
+]);
+export type DownloadFileClass = z.infer<typeof DownloadFileClassSchema>;
 
 /**
  * Default idle threshold before a hidden browser tab's `WebContentsView` is
@@ -75,6 +116,14 @@ export const BrowserNavErrorSchema = z.object({
   code: z.number().int(),
   description: z.string(),
   validatedUrl: z.string(),
+  /**
+   * Set when the failure is one of Phase 117 Theme C's interstitials rather than a network error:
+   * `'certificate'` (TLS verification failed — `code` is Chromium's `-2xx`) or `'known-bad'`
+   * (a reputation feed lists the URL; `knownBad` says which). The error page shows the warning
+   * variant, and a "proceed for this session" only where Settings ▸ Browser allows it.
+   */
+  reason: z.enum(['certificate', 'known-bad']).optional(),
+  knownBad: SiteKnownBadSchema.optional(),
 });
 export type BrowserNavError = z.infer<typeof BrowserNavErrorSchema>;
 
@@ -185,7 +234,43 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
    * A download was cancelled. Downloads are out of scope this phase, and
    * cancelling loudly (a notice naming the file) beats dropping silently.
    */
-  z.object({ kind: z.literal('download-blocked'), tabId: BrowserTabIdSchema, filename: z.string() }),
+  z.object({
+    kind: z.literal('download-blocked'),
+    tabId: BrowserTabIdSchema,
+    filename: z.string(),
+    /** Why (Phase 117 Theme D): absent when downloads are simply off. */
+    reason: z.string().optional(),
+  }),
+  /**
+   * A download the policy wants confirmed before any byte is written (Phase 117 Theme D) —
+   * answered with `browser.respondDownload`.
+   */
+  z.object({
+    kind: z.literal('download-request'),
+    tabId: BrowserTabIdSchema,
+    requestId: z.string(),
+    filename: z.string(),
+    size: z.number(),
+    origin: z.string(),
+    fileClass: DownloadFileClassSchema,
+  }),
+  /** A download finished and was quarantined and recorded (Phase 117 Theme D). */
+  z.object({
+    kind: z.literal('download-done'),
+    tabId: BrowserTabIdSchema,
+    filename: z.string(),
+    path: z.string(),
+    sha256: z.string(),
+    quarantined: z.boolean(),
+    gatekeeper: z.string().optional(),
+    scan: z.string().optional(),
+  }),
+  /**
+   * DevTools were asked for on a page whose view was created with `devTools: false` (Phase 117
+   * Theme A: a packaged build, without `MSTUDIO_DEVTOOLS=1`). `openDevTools()` is a silent no-op
+   * there, and a toolbar button that does nothing reads as broken — so main says why.
+   */
+  z.object({ kind: z.literal('devtools-blocked'), tabId: BrowserTabIdSchema }),
   /**
    * A `findInPage` match count (Theme G) — a new arm on the existing
    * discriminated union rather than a new channel, since `bridge.ts`'s
@@ -208,5 +293,38 @@ export const BrowserEventSchema = z.discriminatedUnion('kind', [
    * `use-browser-tabs.ts`) recreates it from the renderer's own `tab.url`.
    */
   z.object({ kind: z.literal('discarded'), tabId: BrowserTabIdSchema }),
+  /**
+   * In-tab permission prompt requested by a web page (Phase 117 Theme B).
+   * Scope: camera, microphone, geolocation, notifications.
+   */
+  z.object({
+    kind: z.literal('permission-request'),
+    tabId: BrowserTabIdSchema,
+    requestId: z.string(),
+    origin: z.string(),
+    permission: BrowserPermissionKindSchema,
+    displayName: z.string(),
+  }),
+  /**
+   * The agent session on this tab changed (Phase 117 Theme G): started, paused for the user,
+   * logged a step, or stopped. Main owns the session; the agent-session bar mirrors this.
+   */
+  z.object({ kind: z.literal('agent-session'), tabId: BrowserTabIdSchema, state: BrowserAgentSessionStateSchema }),
+  /**
+   * The ClickFix watch (Phase 117 Theme G): right after an interaction with this tab, a
+   * shell-pipeline-shaped command landed on the system clipboard. `preview` is one short line.
+   */
+  z.object({
+    kind: z.literal('clipboard-warning'),
+    tabId: BrowserTabIdSchema,
+    origin: z.string(),
+    label: z.string().max(120),
+    preview: z.string().max(96),
+  }),
+  /**
+   * The tab's `SiteVerdict` (Phase 117 Theme C) — a fresh one on every main-frame navigation
+   * commit, then again on every change while the page loads. Replaces, never merges.
+   */
+  z.object({ kind: z.literal('verdict'), tabId: BrowserTabIdSchema, verdict: SiteVerdictSchema }),
 ]);
 export type BrowserEvent = z.infer<typeof BrowserEventSchema>;

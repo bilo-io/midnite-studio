@@ -1,20 +1,40 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { EVENT_CHANNELS } from '@midnite/studio-shared';
 
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { setBrowserSiteSafety, siteVerdicts } from './browser-site-safety';
+import { LOGIN_FORM_WORLD_ID } from './login-form-read';
+import { HOSTS_SEEN_FILE } from './host-first-seen';
 import {
+  KNOWN_BAD_ERROR_CODE,
+  clearBrowserData,
+  originVerdictLevel,
+  proceedBrowserSite,
   activateBrowserTab,
   closeBrowserTab,
   createBrowserTab,
   destroyAllBrowserTabs,
   discardBrowserTab,
+  getBrowserPermissionStore,
   isTabDiscardEligible,
+  listBrowserPermissions,
   ownerWindowForBrowserTab,
   reparentBrowserTabs,
+  resetAllBrowserPermissions,
+  resetBrowserPermissionStoreForTest,
   resetBrowserServiceForTests,
+  resolveBrowserPermission,
+  revokeBrowserPermission,
   runBrowserDiscardSweep,
   setBrowserBounds,
   setBrowserDiscardMs,
   setBrowserKeepAwake,
+  setBrowserSpellcheck,
   setBrowserZoom,
+  toggleBrowserDevTools,
 } from './browser-service';
 import type { BrowserElectron, BrowserHostWindow } from './browser-electron';
 import { installBrowserMain, type BrowserLog } from './browser-main-deps';
@@ -34,7 +54,9 @@ import { installBrowserMain, type BrowserLog } from './browser-main-deps';
  * initialization" the moment the mock factory runs.
  */
 const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => {
+  let nextWebContentsId = 1;
   class FakeWebContents {
+    id = nextWebContentsId++;
     destroyed = false;
     handlers = new Map<string, ((...args: unknown[]) => void)[]>();
     navigationHistory = {
@@ -52,11 +74,25 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
     findInPage = vi.fn();
     stopFindInPage = vi.fn();
     isCurrentlyAudible = vi.fn(() => false);
+    isDevToolsOpened = vi.fn(() => false);
+    openDevTools = vi.fn();
+    closeDevTools = vi.fn();
+    // Phase 117 Theme F: the login-form read. `null` (no answer) unless a test says otherwise.
+    executeJavaScriptInIsolatedWorld = vi.fn(async (..._args: unknown[]): Promise<unknown> => null);
+    url = '';
+    title = '';
+    getURL = vi.fn(() => this.url);
+    getTitle = vi.fn(() => this.title);
     on(event: string, handler: (...args: unknown[]) => void): this {
       const list = this.handlers.get(event) ?? [];
       list.push(handler);
       this.handlers.set(event, list);
       return this;
+    }
+    emit(event: string, ...args: unknown[]) {
+      for (const handler of this.handlers.get(event) ?? []) {
+        handler(...args);
+      }
     }
     isDestroyed(): boolean {
       return this.destroyed;
@@ -92,6 +128,14 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
       setPermissionCheckHandler: vi.fn(),
       setDevicePermissionHandler: vi.fn(),
       setDisplayMediaRequestHandler: vi.fn(),
+      setSpellCheckerEnabled: vi.fn(),
+      setCertificateVerifyProc: vi.fn(),
+      webRequest: {
+        onCompleted: vi.fn(),
+        onBeforeRequest: vi.fn(),
+        onBeforeSendHeaders: vi.fn(),
+        onHeadersReceived: vi.fn(),
+      },
       handlers,
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const list = handlers.get(event) ?? [];
@@ -154,14 +198,15 @@ function fakeWindow() {
   };
   return win as unknown as BrowserHostWindow & {
     emit: (event: string) => void;
-    isVisible: ReturnType<typeof vi.fn>;
-    isMinimized: ReturnType<typeof vi.fn>;
+    isVisible: Mock;
+    isMinimized: Mock;
   };
 }
 
 describe('browser-service lifecycle', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -171,7 +216,7 @@ describe('browser-service lifecycle', () => {
     createBrowserTab(win, 'tab-1', 'https://example.com');
 
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(1);
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
     expect(view.setVisible).toHaveBeenCalledWith(false);
     expect(view.webContents.loadURL).toHaveBeenCalledWith('https://example.com');
@@ -192,8 +237,8 @@ describe('browser-service lifecycle', () => {
 
     activateBrowserTab('b');
 
-    const viewA = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
-    const viewB = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[1]?.[0] as FakeView;
+    const viewA = (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
+    const viewB = (win.contentView.addChildView as Mock).mock.calls[1]?.[0] as FakeView;
     expect(viewA.visible).toBe(false);
     expect(viewB.visible).toBe(true);
   });
@@ -204,8 +249,8 @@ describe('browser-service lifecycle', () => {
     createBrowserTab(main, 'a', 'https://a.example');
     createBrowserTab(popout, 'b', 'https://b.example');
 
-    const viewA = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
-    const viewB = (popout.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    const viewA = (main.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
+    const viewB = (popout.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
     viewA.setVisible(true); // simulate 'a' already being the shown tab in main
 
     // 'b' lives in a different window than 'a' — activating it must not hide
@@ -221,8 +266,8 @@ describe('browser-service lifecycle', () => {
     const popout = fakeWindow();
     createBrowserTab(main, 'a', 'https://a.example');
     createBrowserTab(main, 'b', 'https://b.example');
-    const viewA = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
-    const viewB = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[1]?.[0] as FakeView;
+    const viewA = (main.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
+    const viewB = (main.contentView.addChildView as Mock).mock.calls[1]?.[0] as FakeView;
 
     reparentBrowserTabs(popout);
 
@@ -244,7 +289,7 @@ describe('browser-service lifecycle', () => {
   it('close destroys the view and detaches it from the window', () => {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     closeBrowserTab('tab-1');
@@ -256,7 +301,7 @@ describe('browser-service lifecycle', () => {
   it('close drops every per-tab listener before closing the contents (Phase 45 Theme E)', () => {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     expect(view.webContents.handlers.size).toBeGreaterThan(0);
@@ -296,7 +341,7 @@ describe('browser-service lifecycle', () => {
   it('gives the view no preload and a sandboxed, partitioned session', () => {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     const webPreferences = view.options['webPreferences'] as Record<string, unknown>;
@@ -318,6 +363,7 @@ describe('browser-service lifecycle', () => {
 describe('navigation policy (Theme B)', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -325,7 +371,7 @@ describe('navigation policy (Theme B)', () => {
   function createAndGetView(): { win: ReturnType<typeof fakeWindow>; view: FakeView } {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
     return { win, view };
   }
@@ -357,7 +403,7 @@ describe('navigation policy (Theme B)', () => {
   it('denies every window-open request, and hands an http(s) one back as "open as new tab"', () => {
     const { win, view } = createAndGetView();
     expect(view.webContents.setWindowOpenHandler).toHaveBeenCalledTimes(1);
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock.calls[0]?.[0] as (
       details: unknown,
     ) => { action: string };
 
@@ -374,7 +420,7 @@ describe('navigation policy (Theme B)', () => {
 
   it('a background-tab disposition (middle-click / Mod+click) opens without activating', () => {
     const { win, view } = createAndGetView();
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock.calls[0]?.[0] as (
       details: unknown,
     ) => { action: string };
 
@@ -391,7 +437,7 @@ describe('navigation policy (Theme B)', () => {
 
   it('a new-window disposition still opens as a tab and activates, same as foreground-tab', () => {
     const { win, view } = createAndGetView();
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock.calls[0]?.[0] as (
       details: unknown,
     ) => { action: string };
 
@@ -408,7 +454,7 @@ describe('navigation policy (Theme B)', () => {
 
   it('denies a window-open to a blocked scheme WITHOUT offering to reopen it as a tab', () => {
     const { win, view } = createAndGetView();
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as (
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock.calls[0]?.[0] as (
       details: unknown,
     ) => { action: string };
 
@@ -455,6 +501,27 @@ describe('navigation policy (Theme B)', () => {
     );
   });
 
+  it('refuses DevTools on a view created with devTools:false, and tells the tab why (Phase 117 Theme A)', () => {
+    const { win, view } = createAndGetView();
+    toggleBrowserDevTools('tab-1');
+    expect(view.webContents.openDevTools).not.toHaveBeenCalled();
+    expect(win.webContents.send).toHaveBeenCalledWith(expect.any(String), { kind: 'devtools-blocked', tabId: 'tab-1' });
+  });
+
+  it('decides DevTools from what the view was created with, not the deps at toggle time (Phase 117 Theme A)', () => {
+    const base = { electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}) };
+    installBrowserMain({ ...base, devToolsAllowed: true });
+    try {
+      const { win, view } = createAndGetView();
+      installBrowserMain(base);
+      toggleBrowserDevTools('tab-1');
+      expect(view.webContents.openDevTools).toHaveBeenCalled();
+      expect(win.webContents.send).not.toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ kind: 'devtools-blocked' }));
+    } finally {
+      installBrowserMain(base);
+    }
+  });
+
   it('cancels a download and names the file back to the tab that asked for it', () => {
     const { win, view } = createAndGetView();
     const browserSession = fakeSessions.get('persist:browser');
@@ -474,6 +541,7 @@ describe('navigation policy (Theme B)', () => {
 describe('Mod+w / Mod+t owned by hand (before-input-event)', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
@@ -487,7 +555,7 @@ describe('Mod+w / Mod+t owned by hand (before-input-event)', () => {
   function createAndGetView(): { win: ReturnType<typeof fakeWindow>; view: FakeView } {
     const win = fakeWindow();
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
     return { win, view };
   }
@@ -568,19 +636,20 @@ describe('Mod+w / Mod+t owned by hand (before-input-event)', () => {
 describe('bounds, zoom and sender scoping (Theme E/G)', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
 
   function createAndGetView(win: ReturnType<typeof fakeWindow>, tabId = 'tab-1'): FakeView {
     createBrowserTab(win, tabId, 'https://example.com');
-    return (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    return (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
   }
 
   it('scales an incoming bounds push by the host window zoom factor', () => {
     const win = fakeWindow();
     const view = createAndGetView(win);
-    (win.webContents as unknown as { getZoomFactor: ReturnType<typeof vi.fn> }).getZoomFactor.mockReturnValue(
+    (win.webContents as unknown as { getZoomFactor: Mock }).getZoomFactor.mockReturnValue(
       1.5,
     );
 
@@ -675,13 +744,14 @@ describe('isTabDiscardEligible (Phase 84 Theme F)', () => {
 describe('browser tab discard (Phase 84 Theme F)', () => {
   beforeEach(() => {
     resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
     fakeSessions.clear();
   });
   afterEach(() => vi.clearAllMocks());
 
   function createAndGetView(win: ReturnType<typeof fakeWindow>, tabId = 'tab-1'): FakeView {
     createBrowserTab(win, tabId, 'https://example.com');
-    return (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    return (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
   }
 
   it('discardBrowserTab tears the view down and tells the renderer', () => {
@@ -711,7 +781,7 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
     // activation; `createBrowserTab` treats a tab id it no longer tracks as
     // brand new, so this is the whole recreate path, tested at this layer.
     createBrowserTab(win, 'tab-1', 'https://example.com');
-    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = (win.contentView.addChildView as Mock).mock.calls;
     const secondView = calls[calls.length - 1]?.[0] as FakeView;
 
     expect(secondView).not.toBe(firstView);
@@ -755,7 +825,7 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
     const win = fakeWindow();
     const view = createAndGetView(win);
     activateBrowserTab('tab-1');
-    (win.isMinimized as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    (win.isMinimized as Mock).mockReturnValue(true);
     setBrowserDiscardMs(1);
 
     runBrowserDiscardSweep(); // records hiddenSince now that the window reads minimized
@@ -783,7 +853,7 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
   it('an audible tab is never discarded by the sweep', () => {
     const win = fakeWindow();
     const view = createAndGetView(win);
-    (view.webContents.isCurrentlyAudible as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    (view.webContents.isCurrentlyAudible as Mock).mockReturnValue(true);
     setBrowserDiscardMs(1);
 
     runBrowserDiscardSweep();
@@ -805,5 +875,522 @@ describe('browser tab discard (Phase 84 Theme F)', () => {
 
     expect(view.webContents.close).not.toHaveBeenCalled();
     vi.restoreAllMocks();
+  });
+});
+
+describe('browser-service permissions and settings (Phase 117 Theme B)', () => {
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
+    fakeSessions.clear();
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  function setupTab(tabId = 'tab-1', url = 'https://example.com') {
+    const win = fakeWindow();
+    createBrowserTab(win, tabId, url);
+    const view = (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
+    const sess = fakeSessions.get('persist:browser');
+    expect(sess).toBeDefined();
+    return { win, view, sess: sess! };
+  }
+
+  it('prompts the renderer on ungranted permission request and resolves allow', () => {
+    const { win, view, sess } = setupTab('tab-1', 'https://example.com/app');
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf('function');
+
+    const callback = vi.fn();
+    handler(view.webContents, 'geolocation', callback, { securityOrigin: 'https://example.com' });
+
+    // Verify permission-request event sent to window
+    const sendCalls = (win.webContents.send as Mock).mock.calls;
+    const promptCall = sendCalls.find(
+      ([channel, payload]) => channel === EVENT_CHANNELS.browserEvent && payload?.kind === 'permission-request',
+    );
+    expect(promptCall).toBeDefined();
+    const payload = promptCall![1];
+    expect(payload).toMatchObject({
+      kind: 'permission-request',
+      tabId: 'tab-1',
+      origin: 'https://example.com',
+      permission: 'geolocation',
+      displayName: 'https://example.com',
+    });
+    expect(payload.requestId).toBeTypeOf('string');
+
+    // Resolve as allow
+    resolveBrowserPermission(payload.requestId, 'allow');
+    expect(callback).toHaveBeenCalledWith(true);
+
+    // Verify stored
+    const records = listBrowserPermissions();
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      origin: 'https://example.com',
+      permission: 'geolocation',
+      value: 'allow',
+    });
+
+    // Subsequent request for same origin + permission auto-grants without prompting again
+    const callback2 = vi.fn();
+    handler(view.webContents, 'geolocation', callback2, { securityOrigin: 'https://example.com' });
+    expect(callback2).toHaveBeenCalledWith(true);
+  });
+
+  it('resolves deny and remembers decision', () => {
+    const { win, view, sess } = setupTab('tab-1', 'https://example.com');
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
+
+    const callback = vi.fn();
+    handler(view.webContents, 'camera', callback, {
+      securityOrigin: 'https://example.com',
+      mediaTypes: ['video'],
+    });
+
+    const sendCalls = (win.webContents.send as Mock).mock.calls;
+    const promptCall = sendCalls.find(
+      ([channel, payload]) => channel === EVENT_CHANNELS.browserEvent && payload?.kind === 'permission-request',
+    );
+    expect(promptCall).toBeDefined();
+
+    resolveBrowserPermission(promptCall![1].requestId, 'deny');
+    expect(callback).toHaveBeenCalledWith(false);
+
+    expect(listBrowserPermissions()).toEqual([
+      expect.objectContaining({
+        origin: 'https://example.com',
+        permission: 'camera',
+        value: 'deny',
+      }),
+    ]);
+
+    // Subsequent request is denied immediately without sending another prompt
+    const callback2 = vi.fn();
+    handler(view.webContents, 'camera', callback2, {
+      securityOrigin: 'https://example.com',
+      mediaTypes: ['video'],
+    });
+    expect(callback2).toHaveBeenCalledWith(false);
+  });
+
+  it('resolves dismiss without persisting to store', () => {
+    const { win, view, sess } = setupTab('tab-1', 'https://example.com');
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
+
+    const callback = vi.fn();
+    handler(view.webContents, 'notifications', callback, { securityOrigin: 'https://example.com' });
+
+    const sendCalls = (win.webContents.send as Mock).mock.calls;
+    const promptCall = sendCalls.find(
+      ([channel, payload]) => channel === EVENT_CHANNELS.browserEvent && payload?.kind === 'permission-request',
+    );
+    expect(promptCall).toBeDefined();
+
+    resolveBrowserPermission(promptCall![1].requestId, 'dismiss');
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(listBrowserPermissions()).toHaveLength(0);
+  });
+
+  it('denies and cancels pending requests when tab navigates', () => {
+    const { view, sess } = setupTab('tab-1', 'https://example.com');
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
+
+    const callback = vi.fn();
+    handler(view.webContents, 'geolocation', callback, { securityOrigin: 'https://example.com' });
+
+    // Navigation triggers cancellation
+    view.webContents.emit('did-navigate', {}, 'https://other.example');
+    expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it('cancels pending requests when tab is closed or discarded', () => {
+    const { view, sess } = setupTab('tab-1', 'https://example.com');
+    const handler = (sess.setPermissionRequestHandler as Mock).mock.calls[0]?.[0];
+
+    const callback = vi.fn();
+    handler(view.webContents, 'geolocation', callback, { securityOrigin: 'https://example.com' });
+
+    closeBrowserTab('tab-1');
+    expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it('revokes individual permission and resets all permissions', () => {
+    setupTab('tab-1', 'https://example.com');
+
+    const store = getBrowserPermissionStore();
+    store.set('https://example.com', 'camera', 'allow');
+    store.set('https://example.com', 'geolocation', 'allow');
+    store.set('https://other.com', 'microphone', 'deny');
+
+    expect(listBrowserPermissions()).toHaveLength(3);
+
+    revokeBrowserPermission('https://example.com', 'camera');
+    const remaining = listBrowserPermissions();
+    expect(remaining).toHaveLength(2);
+    expect(remaining.some((r) => r.permission === 'camera')).toBe(false);
+
+    resetAllBrowserPermissions();
+    expect(listBrowserPermissions()).toHaveLength(0);
+  });
+
+  it('setBrowserSpellcheck delegates to partition session', () => {
+    setupTab('tab-1', 'https://example.com');
+    const sess = fakeSessions.get('persist:browser')!;
+
+    setBrowserSpellcheck(true);
+    expect(sess.setSpellCheckerEnabled).toHaveBeenCalledWith(true);
+
+    setBrowserSpellcheck(false);
+    expect(sess.setSpellCheckerEnabled).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('Phase 117 Theme C — site verdicts in the service', () => {
+  let dir: string;
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
+    fakeSessions.clear();
+    dir = mkdtempSync(join(tmpdir(), 'browser-c-'));
+    mkdirSync(join(dir, 'browser-feeds'));
+    writeFileSync(join(dir, 'browser-feeds', 'urlhaus.txt'), 'http://malware.example/\nhttps://shared.example/bad-one\nhttps://shared.example/bad-two\n');
+    installBrowserMain({
+      electron: electron as unknown as BrowserElectron,
+      log,
+      readDiscardSettings: () => ({}),
+      userDataPath: dir,
+      ledgerCipher: {
+        isEncryptionAvailable: () => true,
+        encryptString: (plain: string) => Buffer.from(plain),
+        decryptString: (blob: Buffer) => blob.toString(),
+      },
+    });
+  });
+  afterEach(() => {
+    resetBrowserServiceForTests();
+    rmSync(dir, { recursive: true, force: true });
+    installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}) });
+    vi.clearAllMocks();
+  });
+
+  const viewOf = (win: BrowserHostWindow, index = 0) =>
+    (win.contentView.addChildView as Mock).mock.calls[index]?.[0] as FakeView;
+  const sent = (win: BrowserHostWindow) =>
+    (win.webContents.send as Mock).mock.calls.map((call) => call[1] as { kind: string } & Record<string, unknown>);
+
+  it('installs the certificate verifier and the completed-request observer on persist:browser', () => {
+    createBrowserTab(fakeWindow(), 't', 'https://example.com');
+    const sess = fakeSessions.get('persist:browser')!;
+    expect(sess.setCertificateVerifyProc).toHaveBeenCalledTimes(1);
+    expect(sess.webRequest.onCompleted).toHaveBeenCalledTimes(1);
+  });
+
+  it('pushes a fresh verdict on every main-frame commit, and records mixed content from onCompleted', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://example.com');
+    const view = viewOf(win);
+    view.webContents.emit('did-navigate', undefined, 'https://example.com/');
+    expect(sent(win).at(-1)).toMatchObject({ kind: 'verdict', tabId: 't', verdict: { tls: 'ok', mixedContent: false } });
+
+    const onCompleted = fakeSessions.get('persist:browser')!.webRequest.onCompleted.mock.calls[0]![0] as (d: unknown) => void;
+    onCompleted({ url: 'http://cdn.example/a.png', method: 'GET', resourceType: 'image', webContentsId: view.webContents.id });
+    expect(sent(win).at(-1)).toMatchObject({ kind: 'verdict', verdict: { mixedContent: true } });
+  });
+
+  it('marks a certificate failure as the certificate interstitial, and rejects the certificate', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://expired.badssl.com');
+    const view = viewOf(win);
+    const callback = vi.fn();
+    view.webContents.emit('certificate-error', { preventDefault: vi.fn() }, 'https://expired.badssl.com/', 'net::ERR_CERT_DATE_INVALID', {}, callback, true);
+    expect(callback).toHaveBeenCalledWith(false);
+    view.webContents.emit('did-fail-load', undefined, -201, 'net::ERR_CERT_DATE_INVALID', 'https://expired.badssl.com/', true);
+    expect(sent(win)).toContainEqual(
+      expect.objectContaining({ kind: 'failed', error: expect.objectContaining({ code: -201, reason: 'certificate' }) }),
+    );
+  });
+
+  it('proceeds past a certificate interstitial only with the Settings switch on, then trusts that host', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://expired.badssl.com');
+    const view = viewOf(win);
+    const url = 'https://expired.badssl.com/';
+    view.webContents.emit('did-fail-load', undefined, -201, 'net::ERR_CERT_DATE_INVALID', url, true);
+    view.webContents.loadURL.mockClear();
+
+    proceedBrowserSite('t', url);
+    expect(view.webContents.loadURL).not.toHaveBeenCalled();
+
+    setBrowserSiteSafety({ allowProceed: true, feeds: { urlhaus: false, openphish: false } });
+    proceedBrowserSite('t', 'https://other.example/');
+    expect(view.webContents.loadURL).not.toHaveBeenCalled();
+    proceedBrowserSite('t', url);
+    expect(view.webContents.loadURL).toHaveBeenCalledWith(url);
+
+    const callback = vi.fn();
+    view.webContents.emit('certificate-error', { preventDefault: vi.fn() }, url, 'net::ERR_CERT_DATE_INVALID', {}, callback, true);
+    expect(callback).toHaveBeenCalledWith(true);
+  });
+
+  it('refuses a known-bad URL before loading it, but only while its feed is on', () => {
+    const off = fakeWindow();
+    createBrowserTab(off, 'a', 'http://malware.example/');
+    expect(viewOf(off).webContents.loadURL).toHaveBeenCalledWith('http://malware.example/');
+    viewOf(off).webContents.emit('did-navigate', undefined, 'http://malware.example/');
+    expect(sent(off).at(-1)).toMatchObject({ kind: 'verdict', verdict: { reputation: 'unavailable' } });
+
+    setBrowserSiteSafety({ allowProceed: false, feeds: { urlhaus: true, openphish: false } });
+    const on = fakeWindow();
+    createBrowserTab(on, 'b', 'http://malware.example/payload');
+    expect(viewOf(on).webContents.loadURL).not.toHaveBeenCalled();
+    expect(sent(on)).toContainEqual(
+      expect.objectContaining({
+        kind: 'failed',
+        error: expect.objectContaining({ code: KNOWN_BAD_ERROR_CODE, reason: 'known-bad', knownBad: expect.objectContaining({ feed: 'urlhaus' }) }),
+      }),
+    );
+    // Nothing navigated, so no verdict is committed for the refused URL — the interstitial speaks for it.
+    expect(sent(on).some((event) => event.kind === 'verdict')).toBe(false);
+  });
+
+  it('a known-bad bypass lifts that feed entry only — not the host\'s other entries, nor its certificates', () => {
+    setBrowserSiteSafety({ allowProceed: true, feeds: { urlhaus: true, openphish: false } });
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://shared.example/bad-one');
+    const view = viewOf(win);
+    expect(view.webContents.loadURL).not.toHaveBeenCalled();
+
+    proceedBrowserSite('t', 'https://shared.example/bad-one');
+    expect(view.webContents.loadURL).toHaveBeenCalledWith('https://shared.example/bad-one');
+
+    const other = { url: 'https://shared.example/bad-two', preventDefault: vi.fn() };
+    view.webContents.emit('will-navigate', other);
+    expect(other.preventDefault).toHaveBeenCalled();
+
+    const callback = vi.fn();
+    view.webContents.emit('certificate-error', { preventDefault: vi.fn() }, 'https://shared.example/', 'net::ERR_CERT_DATE_INVALID', {}, callback, true);
+    expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it('turning the proceed switch off revokes every bypass granted this session', () => {
+    setBrowserSiteSafety({ allowProceed: true, feeds: { urlhaus: false, openphish: false } });
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://expired.badssl.com');
+    const view = viewOf(win);
+    const url = 'https://expired.badssl.com/';
+    view.webContents.emit('did-fail-load', undefined, -201, 'net::ERR_CERT_DATE_INVALID', url, true);
+    proceedBrowserSite('t', url);
+
+    setBrowserSiteSafety({ allowProceed: false, feeds: { urlhaus: false, openphish: false } });
+    const callback = vi.fn();
+    view.webContents.emit('certificate-error', { preventDefault: vi.fn() }, url, 'net::ERR_CERT_DATE_INVALID', {}, callback, true);
+    expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it('refuses a page-initiated navigation and a redirect to a known-bad URL', () => {
+    setBrowserSiteSafety({ allowProceed: false, feeds: { urlhaus: true, openphish: false } });
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://example.com');
+    const view = viewOf(win);
+    const nav = { url: 'http://malware.example/x', preventDefault: vi.fn() };
+    view.webContents.emit('will-navigate', nav);
+    expect(nav.preventDefault).toHaveBeenCalled();
+    const redirect = { url: 'http://malware.example/y', preventDefault: vi.fn() };
+    view.webContents.emit('will-redirect', redirect);
+    expect(redirect.preventDefault).toHaveBeenCalled();
+    const subframe = { url: 'http://malware.example/ad', isMainFrame: false, preventDefault: vi.fn() };
+    view.webContents.emit('will-redirect', subframe);
+    expect(subframe.preventDefault).not.toHaveBeenCalled();
+    expect(sent(win).filter((event) => event.kind === 'failed')).toHaveLength(2);
+    const fine = { url: 'https://example.org/', preventDefault: vi.fn() };
+    view.webContents.emit('will-navigate', fine);
+    expect(fine.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('folds Theme E\'s blocked-tracker count into the tab\'s verdict, throttled, and a new page starts at zero', () => {
+    vi.useFakeTimers();
+    try {
+      const win = fakeWindow();
+      createBrowserTab(win, 't', 'https://news.example/');
+      const view = viewOf(win);
+      view.webContents.emit('did-navigate', undefined, 'https://news.example/');
+      const onBeforeRequest = fakeSessions.get('persist:browser')!.webRequest.onBeforeRequest.mock.calls[0]![0] as (
+        d: unknown,
+        cb: (r: { cancel?: boolean }) => void,
+      ) => void;
+      (view.webContents as unknown as { getURL: () => string }).getURL = () => 'https://news.example/';
+      const block = (url: string) =>
+        onBeforeRequest({ url, resourceType: 'script', webContents: view.webContents }, () => undefined);
+      block('https://www.google-analytics.com/analytics.js');
+      block('https://www.google-analytics.com/collect');
+      vi.advanceTimersByTime(200);
+      expect(sent(win).at(-1)).toMatchObject({ kind: 'verdict', verdict: { trackersBlocked: 2, trackerHosts: ['google-analytics.com'] } });
+      expect(sent(win).some((event) => event.kind === 'trackers-blocked')).toBe(false);
+
+      view.webContents.emit('did-navigate', undefined, 'https://news.example/next');
+      expect(sent(win).at(-1)).toMatchObject({ kind: 'verdict', verdict: { trackersBlocked: 0, trackerHosts: [] } });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('answers Theme D\'s originVerdict seam from the open tabs\' verdicts', () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', 'https://expired.badssl.com/');
+    const view = viewOf(win);
+    expect(originVerdictLevel('https://expired.badssl.com')).toBeUndefined();
+    view.webContents.emit('did-navigate', undefined, 'https://expired.badssl.com/');
+    expect(originVerdictLevel('https://expired.badssl.com')).toBe('safe');
+    siteVerdicts().patch('t', { tls: 'error' });
+    expect(originVerdictLevel('https://expired.badssl.com')).toBe('danger');
+  });
+});
+
+describe('Phase 117 Theme F — credential phishing in the service', () => {
+  let dir: string;
+  beforeEach(() => {
+    resetBrowserServiceForTests();
+    resetBrowserPermissionStoreForTest();
+    fakeSessions.clear();
+    dir = mkdtempSync(join(tmpdir(), 'browser-f-'));
+    installBrowserMain({
+      electron: electron as unknown as BrowserElectron,
+      log,
+      readDiscardSettings: () => ({}),
+      userDataPath: dir,
+      ledgerCipher: {
+        isEncryptionAvailable: () => true,
+        encryptString: (plain: string) => Buffer.from(plain),
+        decryptString: (blob: Buffer) => blob.toString(),
+      },
+    });
+  });
+  afterEach(() => {
+    resetBrowserServiceForTests();
+    rmSync(dir, { recursive: true, force: true });
+    installBrowserMain({ electron: electron as unknown as BrowserElectron, log, readDiscardSettings: () => ({}) });
+    vi.clearAllMocks();
+  });
+
+  const viewOf = (win: BrowserHostWindow) =>
+    (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
+  const verdicts = (win: BrowserHostWindow) =>
+    (win.webContents.send as Mock).mock.calls
+      .map((call) => call[1] as { kind: string; verdict?: { credentialRisk: unknown; insecureForm: boolean } })
+      .filter((event) => event.kind === 'verdict');
+
+  /** A tab that has committed `url` and whose page answers the login-form read with `read`. */
+  function pageWith(url: string, read: unknown, title = '') {
+    const win = fakeWindow();
+    createBrowserTab(win, 't', url);
+    const view = viewOf(win);
+    view.webContents.url = url;
+    view.webContents.title = title;
+    view.webContents.executeJavaScriptInIsolatedWorld.mockResolvedValue(read);
+    view.webContents.emit('did-navigate', undefined, url);
+    return { win, view };
+  }
+
+  it('reads the page in its own isolated world on dom-ready, and raises caution for a password on http:', async () => {
+    const { win, view } = pageWith('http://members.example/login', { hasPasswordField: true, formActionOrigins: ['http://members.example'] });
+    view.webContents.emit('dom-ready');
+    await vi.waitFor(() =>
+      expect(siteVerdicts().verdict('t')?.credentialRisk).toEqual({ level: 'caution', reasons: [{ rule: 'http-password' }, { rule: 'first-seen' }] }),
+    );
+    expect(view.webContents.executeJavaScriptInIsolatedWorld).toHaveBeenCalledWith(LOGIN_FORM_WORLD_ID, [expect.objectContaining({ code: expect.any(String) })], false);
+    expect(siteVerdicts().verdict('t')?.insecureForm).toBe(true);
+    expect(verdicts(win).at(-1)?.verdict?.credentialRisk).toBeTruthy();
+  });
+
+  it('"GitHub login on github-login.app" is danger — and Theme D then refuses its downloads', async () => {
+    const { view } = pageWith('https://github-login.app/', { hasPasswordField: true, formActionOrigins: [] }, 'GitHub');
+    view.webContents.emit('did-stop-loading');
+    await vi.waitFor(() => expect(originVerdictLevel('https://github-login.app')).toBe('danger'));
+  });
+
+  it('leaves the verdict alone when the page has no password field', async () => {
+    const { view } = pageWith('https://news.example/', { hasPasswordField: false, formActionOrigins: [] });
+    view.webContents.emit('dom-ready');
+    await vi.waitFor(() => expect(view.webContents.executeJavaScriptInIsolatedWorld).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(siteVerdicts().verdict('t')?.credentialRisk).toBeNull();
+  });
+
+  it('drops a read that lands after the tab committed another page', async () => {
+    const { view } = pageWith('http://members.example/login', undefined);
+    let answer: (value: unknown) => void = () => {};
+    view.webContents.executeJavaScriptInIsolatedWorld.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    view.webContents.emit('dom-ready');
+    view.webContents.url = 'https://elsewhere.example/';
+    view.webContents.emit('did-navigate', undefined, 'https://elsewhere.example/');
+    answer({ hasPasswordField: true, formActionOrigins: [] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(siteVerdicts().verdict('t')?.origin).toBe('https://elsewhere.example');
+    expect(siteVerdicts().verdict('t')?.credentialRisk).toBeNull();
+  });
+
+  it("keeps each tab's reads to its own commits — another tab navigating does not drop this one's", async () => {
+    const win = fakeWindow();
+    createBrowserTab(win, 'a', 'http://members.example/login');
+    createBrowserTab(win, 'b', 'https://other.example/');
+    const calls = (win.contentView.addChildView as Mock).mock.calls;
+    const [a, b] = [calls[0]?.[0] as FakeView, calls[1]?.[0] as FakeView];
+    a.webContents.url = 'http://members.example/login';
+    a.webContents.emit('did-navigate', undefined, a.webContents.url);
+    let answer: (value: unknown) => void = () => {};
+    a.webContents.executeJavaScriptInIsolatedWorld.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    a.webContents.emit('dom-ready');
+    b.webContents.url = 'https://other.example/next';
+    b.webContents.emit('did-navigate', undefined, b.webContents.url);
+    answer({ hasPasswordField: true, formActionOrigins: [] });
+    await vi.waitFor(() => expect(siteVerdicts().verdict('a')?.credentialRisk?.reasons).toContainEqual({ rule: 'http-password' }));
+  });
+
+  it('typing re-reads the page (a password step injected with no navigation), throttled', async () => {
+    const { view } = pageWith('https://app.example/', { hasPasswordField: false, formActionOrigins: [] });
+    view.webContents.emit('did-stop-loading');
+    await vi.waitFor(() => expect(view.webContents.executeJavaScriptInIsolatedWorld).toHaveBeenCalledTimes(1));
+    view.webContents.executeJavaScriptInIsolatedWorld.mockResolvedValue({ hasPasswordField: true, formActionOrigins: ['https://drop.example.net'] });
+    const key = { type: 'keyDown', key: 'a', meta: false, control: false, shift: false, alt: false };
+    view.webContents.emit('before-input-event', { preventDefault: vi.fn() }, key);
+    view.webContents.emit('before-input-event', { preventDefault: vi.fn() }, key);
+    await vi.waitFor(() =>
+      expect(siteVerdicts().verdict('t')?.credentialRisk?.reasons).toContainEqual({ rule: 'cross-origin-action', detail: 'https://drop.example.net' }),
+    );
+    expect(view.webContents.executeJavaScriptInIsolatedWorld).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-reads on an in-page navigation (a single-page app routing to its sign-in form)', async () => {
+    const { view } = pageWith('https://app.example/', { hasPasswordField: false, formActionOrigins: [] });
+    view.webContents.executeJavaScriptInIsolatedWorld.mockResolvedValue({ hasPasswordField: true, formActionOrigins: ['https://drop.example.net'] });
+    view.webContents.emit('did-navigate-in-page', undefined, 'https://app.example/#/login');
+    await vi.waitFor(() =>
+      expect(siteVerdicts().verdict('t')?.credentialRisk?.reasons).toContainEqual({ rule: 'cross-origin-action', detail: 'https://drop.example.net' }),
+    );
+  });
+
+  it('clipboard-read stays denied on a password page — refused with no bar', async () => {
+    const { win, view } = pageWith('https://login.example/', { hasPasswordField: true, formActionOrigins: [] });
+    view.webContents.emit('dom-ready');
+    await vi.waitFor(() => expect(siteVerdicts().verdict('t')?.credentialRisk).not.toBeNull());
+    const sess = fakeSessions.get('persist:browser')!;
+    const request = sess.setPermissionRequestHandler.mock.calls[0]?.[0] as (...args: unknown[]) => void;
+    const check = sess.setPermissionCheckHandler.mock.calls[0]?.[0] as (...args: unknown[]) => boolean;
+    const callback = vi.fn();
+    request(view.webContents, 'clipboard-read', callback, { securityOrigin: 'https://login.example' });
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(check(view.webContents, 'clipboard-read', 'https://login.example')).toBe(false);
+    const sent = (win.webContents.send as Mock).mock.calls.map((call) => (call[1] as { kind: string }).kind);
+    expect(sent).not.toContain('permission-request');
+  });
+
+  it('records first-seen hosts as digests, and "clear browsing data" deletes the ledger', async () => {
+    pageWith('https://first.example/', null);
+    destroyAllBrowserTabs(); // flushes the ledger
+    expect(existsSync(join(dir, HOSTS_SEEN_FILE))).toBe(true);
+    await clearBrowserData();
+    expect(existsSync(join(dir, HOSTS_SEEN_FILE))).toBe(false);
   });
 });

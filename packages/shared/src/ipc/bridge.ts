@@ -23,6 +23,8 @@ import type {
   WindowRole,
   Worktree,
 } from '../domain';
+import type { AgentLimitTrip } from '../agent-limits';
+import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } from '../tool-policy';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
 import type { SongChat } from '../media-music-chat';
@@ -39,6 +41,7 @@ import type {
   SetupRevealRequest,
   SetupRevealResponse,
 } from '../setup';
+import type { SecurityScanContentRequest, SecurityScanContentResponse } from '../security-scan';
 import type { SystemMemoryResponse } from '../system-memory';
 
 type In<T extends z.ZodTypeAny> = z.input<T>;
@@ -657,6 +660,45 @@ export type MidniteStudioBridge = {
     onChanged: (handler: (event: z.infer<typeof S.CaptureChangedPayload>) => void) => Unsubscribe;
   };
 
+  /**
+   * Vanguard (Phase 120): the findings ledger (list, set status, act) and the sensor host (state, run now,
+   * settings). `onChanged` fires on either, carrying nothing; re-fetch. Findings are the wire shape only:
+   * evidence and remediation are typed, never a shell string.
+   */
+  vanguard: {
+    findings: {
+      list: (req: In<typeof S.SecurityFindingsListRequest>) => Promise<z.infer<typeof S.SecurityFindingsListResponse>>;
+      setStatus: (req: In<typeof S.SecurityFindingsSetStatusRequest>) => Promise<z.infer<typeof S.SecurityFindingsSetStatusResponse>>;
+      act: (req: In<typeof S.SecurityFindingsActRequest>) => Promise<z.infer<typeof S.SecurityFindingsActResponse>>;
+      /** What `act` would touch, computed now, for the blast-radius confirm (Phase 120 Theme H). */
+      preview: (req: In<typeof S.SecurityFindingsActRequest>) => Promise<z.infer<typeof S.SecurityFindingsActPreviewResponse>>;
+      onChanged: (handler: () => void) => Unsubscribe;
+    };
+    sensors: () => Promise<z.infer<typeof S.VanguardSensorsResponse>>;
+    runSensor: (req: In<typeof S.VanguardSensorRunRequest>) => Promise<GitOpResult>;
+    settings: () => Promise<z.infer<typeof S.VanguardSettingsGetResponse>>;
+    setSettings: (req: In<typeof S.VanguardSettingsSetRequest>) => Promise<z.infer<typeof S.VanguardSettingsGetResponse>>;
+    /** The view was opened: in Studio the first time lets the enabled sensors start. */
+    viewOpened: () => Promise<z.infer<typeof S.VanguardSensorsResponse>>;
+    openQuarantine: () => Promise<GitOpResult>;
+    /** A finding paused an agent session (Phase 120 Theme G): the modal's prompt arrives in every window. */
+    onAgentPaused: (handler: (prompt: z.infer<typeof S.AgentPausePromptSchema>) => void) => Unsubscribe;
+    /** Answer that modal: resume the session or kill it. `false` when it was already answered. */
+    resolveAgentPause: (req: In<typeof S.AgentPauseResolveRequest>) => Promise<boolean>;
+    /** The quarantine list and which response actions this app cannot run (Phase 120 Theme H). */
+    responseState: () => Promise<z.infer<typeof S.VanguardResponseStateResponse>>;
+    /** The network sensor's last snapshot of outbound connections (Network tab). */
+    connections: () => Promise<z.infer<typeof S.VanguardConnectionsResponse>>;
+    /** Malware scanning (Phase 120 Theme F): engine availability and one on-demand scan. */
+    malware: {
+      status: () => Promise<z.infer<typeof S.VanguardMalwareStatus>>;
+      scan: (req: In<typeof S.VanguardScanRequest>) => Promise<GitOpResult<z.infer<typeof S.MalwareScanSummarySchema>>>;
+      /** Stop the running scan (a no-op when none is running). Detections found so far are kept. */
+      cancel: () => Promise<GitOpResult>;
+    };
+    onChanged: (handler: () => void) => Unsubscribe;
+  };
+
   /** Mutating operations. None of these reject — they resolve to a GitOpResult. */
   ops: {
     checkout: (req: In<typeof S.CheckoutRequest>) => Promise<GitOpResult>;
@@ -777,6 +819,14 @@ export type MidniteStudioBridge = {
    * `pty.snapshot` is separate from `terminal.list` — the list answers once for
    * every record, a transcript is fetched for exactly one.
    */
+  /** Local history housekeeping and the at-rest note (Phase 115 Theme B). */
+  privacy: {
+    historyStats: () => Promise<z.infer<typeof S.PrivacyHistoryStatsResponse>>;
+    clearHistory: () => Promise<z.infer<typeof S.PrivacyHistoryClearResponse>>;
+    fileVault: () => Promise<z.infer<typeof S.PrivacyFileVaultResponse>>;
+    openFileVault: () => Promise<void>;
+  };
+
   sessions: {
     history: () => Promise<z.infer<typeof S.SessionsHistoryResponse>>;
     transcript: (
@@ -839,6 +889,40 @@ export type MidniteStudioBridge = {
     setKeepAwake: (req: In<typeof S.BrowserSetKeepAwakeRequest>) => void;
     /** Phase 84 Theme F — the idle-discard threshold; pushed on mount and on change. */
     setDiscardMs: (req: In<typeof S.BrowserSetDiscardMsRequest>) => void;
+    /** Responds to a pending in-tab permission prompt (Phase 117 Theme B). */
+    respondPermission: (req: In<typeof S.BrowserPermissionResponseRequest>) => void;
+    /** Lists every remembered site permission (Phase 117 Theme B). */
+    permissionsList: () => Promise<z.infer<typeof S.BrowserPermissionsListResponse>>;
+    /** Revokes one remembered site permission (Phase 117 Theme B). */
+    permissionRevoke: (req: In<typeof S.BrowserPermissionRevokeRequest>) => Promise<void>;
+    /** Resets all remembered site permissions (Phase 117 Theme B). */
+    permissionsReset: () => Promise<void>;
+    /** Toggles Chromium spellcheck on the browser partition (Phase 117 Theme B). */
+    setSpellcheck: (req: In<typeof S.BrowserSetSpellcheckRequest>) => void;
+    /** Site-safety switches — interstitial proceed + reputation feeds (Phase 117 Theme C). */
+    setSiteSafety: (req: In<typeof S.BrowserSetSiteSafetyRequest>) => void;
+    /** "Proceed for this session" past an interstitial; main re-checks the switch (Phase 117 Theme C). */
+    proceedSite: (req: In<typeof S.BrowserProceedSiteRequest>) => void;
+    /** Phase 117 Theme D — downloads opt-in and quarantine folder. */
+    setDownloads: (req: In<typeof S.BrowserSetDownloadsRequest>) => void;
+    /** Phase 117 Theme D — answers a download confirm. */
+    respondDownload: (req: In<typeof S.BrowserDownloadResponseRequest>) => void;
+    /** Phase 117 Theme E — tracker, cookie, referrer and UA switches. */
+    setPrivacy: (req: In<typeof S.BrowserSetPrivacyRequest>) => void;
+    /** Phase 117 Theme E — per-site protection exception. */
+    setTrackerException: (req: In<typeof S.BrowserTrackerSiteExceptionRequest>) => void;
+    /** Phase 117 Theme G — starts an agent session on a tab with an origin allowlist. */
+    agentStart: (req: In<typeof S.BrowserAgentStartRequest>) => Promise<z.infer<typeof S.BrowserAgentStartResponse>>;
+    /** Phase 117 Theme G — the user takes the wheel back. */
+    agentStop: (req: In<typeof S.BrowserAgentStopRequest>) => void;
+    /** Phase 117 Theme G — one agent tool call; resolves once any `needsUser` pause is answered. */
+    agentTool: (req: In<typeof S.BrowserAgentToolRequest>) => Promise<z.infer<typeof S.BrowserAgentToolResponse>>;
+    /** Phase 117 Theme G — answers the agent-session bar's question. */
+    agentRespond: (req: In<typeof S.BrowserAgentRespondRequest>) => void;
+    /** Phase 117 Theme G — the ClickFix bar's "Clear clipboard". */
+    clearClipboard: (req: In<typeof S.BrowserClipboardClearRequest>) => void;
+    /** Phase 117 Theme G — the ClickFix watch switch. */
+    setClipboardWatch: (req: In<typeof S.BrowserSetClipboardWatchRequest>) => void;
     onEvent: (handler: (e: z.infer<typeof S.BrowserEventPayload>) => void) => Unsubscribe;
   };
 
@@ -1136,6 +1220,48 @@ export type MidniteStudioBridge = {
   vaultPairings?: {
     list: (req: In<typeof S.VaultPairingsListRequest>) => Promise<z.infer<typeof S.VaultPairingsListResponse>>;
     unpair: (req: In<typeof S.VaultPairingUnpairRequest>) => Promise<z.infer<typeof S.VaultPairingUnpairResponse>>;
+  };
+
+  /** Vault lock state & unlock (Phase 118 Theme B). */
+  vaultLock?: {
+    status: (req: In<typeof S.VaultLockStatusRequest>) => Promise<z.infer<typeof S.VaultLockStatusResponse>>;
+    lock: (req: In<typeof S.VaultLockRequest>) => Promise<z.infer<typeof S.VaultLockResponse>>;
+    unlock: (req: In<typeof S.VaultUnlockRequest>) => Promise<z.infer<typeof S.VaultUnlockResponse>>;
+  };
+
+  /** Vault tamper-evident audit log (Phase 118 Theme D). */
+  vaultAudit?: {
+    list: (req: In<typeof S.VaultAuditListRequest>) => Promise<z.infer<typeof S.VaultAuditListResponse>>;
+    verify: (req: In<typeof S.VaultAuditVerifyRequest>) => Promise<z.infer<typeof S.VaultAuditVerifyResponse>>;
+    export: (req: In<typeof S.VaultAuditExportRequest>) => Promise<z.infer<typeof S.VaultAuditExportResponse>>;
+  };
+
+  /** Vault breach checker (Phase 118 Theme E). */
+  vaultBreach?: {
+    check: (req: In<typeof S.VaultBreachCheckRequest>) => Promise<z.infer<typeof S.VaultBreachCheckResponse>>;
+  };
+
+  /** One-shot re-authenticated reveal and copy without leaving a trace (Phase 118 Theme C). */
+  vaultSecrets?: {
+    revealOnce: (req: In<typeof S.VaultRevealOnceRequest>) => Promise<z.infer<typeof S.VaultRevealOnceResponse>>;
+    copyOnce: (req: In<typeof S.VaultCopyOnceRequest>) => Promise<z.infer<typeof S.VaultCopyOnceResponse>>;
+  };
+
+  /** Secret scanning & pre-commit hook management (Phase 118 Theme F). */
+  vaultScan?: {
+    history: (req: In<typeof S.VaultScanHistoryRequest>) => Promise<z.infer<typeof S.VaultScanHistoryResponse>>;
+    hookStatus: (req: In<typeof S.VaultHookStatusRequest>) => Promise<z.infer<typeof S.VaultHookStatusResponse>>;
+    hookInstall: (req: In<typeof S.VaultHookInstallRequest>) => Promise<z.infer<typeof S.VaultHookInstallResponse>>;
+    hookUninstall: (req: In<typeof S.VaultHookUninstallRequest>) => Promise<z.infer<typeof S.VaultHookUninstallResponse>>;
+  };
+
+  /** Encrypted export and import (Phase 118 Theme G). */
+  vaultBackup?: {
+    export: (req: In<typeof S.VaultExportRequest>) => Promise<z.infer<typeof S.VaultExportResponse>>;
+    importPreview: (req: In<typeof S.VaultImportPreviewRequest>) => Promise<z.infer<typeof S.VaultImportPreviewResponse>>;
+    import: (req: In<typeof S.VaultImportRequest>) => Promise<z.infer<typeof S.VaultImportResponse>>;
+    pickExportPath: (req?: In<typeof S.VaultPickExportPathRequest>) => Promise<z.infer<typeof S.VaultPickExportPathResponse>>;
+    pickImportPath: (req?: In<typeof S.VaultPickImportPathRequest>) => Promise<z.infer<typeof S.VaultPickImportPathResponse>>;
   };
 
   /**
@@ -1748,13 +1874,24 @@ export type MidniteStudioBridge = {
      * File an issue on the app's own public tracker — Phase 93.
      *
      * Always targets `bilo-io/midnite-apps` (`APP_ISSUES_REPO`), never the
-     * active repo — see `gh-app-issue.ts`. `invoke`-shaped, unlike `error`
+     * active repo — see `features/report/main/app-issue.ts`. `invoke`-shaped, unlike `error`
      * above: a submission has a real answer (the created issue's URL, or why
      * it failed) that a composer dialog waits on.
      */
     submitIssue: (
       req: In<typeof S.AppIssueSubmitRequestSchema>,
     ) => Promise<z.infer<typeof S.AppIssueSubmitResultSchema>>;
+    /** Is `gh` installed and signed in? The dialog's Submit-or-Continue-on-GitHub switch. */
+    ghStatus: () => Promise<z.infer<typeof S.ReportGhStatusResponse>>;
+    /** Open a midnite-apps issue page (the prefilled form, a filed issue) — nothing else. */
+    openUrl: (req: In<typeof S.ReportOpenUrlRequest>) => Promise<z.infer<typeof S.ReportOpenUrlResponse>>;
+    /** Copy report: title and body onto the system clipboard, main-side (`file://` has no `navigator.clipboard`). */
+    copy: (req: In<typeof S.ReportCopyRequest>) => Promise<z.infer<typeof S.ReportCopyResponse>>;
+    /**
+     * Main asks the dialog to open — a native Help menu item (`EVENT_CHANNELS.reportOpen`).
+     * Optional: Studio opens it through `app.reportIssue` on `menu.onCommand` instead.
+     */
+    onOpen?: (handler: () => void) => Unsubscribe;
   };
 
   systemHealth: () => Promise<z.infer<typeof S.SystemHealthResponse>>;
@@ -1790,6 +1927,11 @@ export type MidniteStudioBridge = {
   };
   /** Installed RAM (Phase 98 Theme I). */
   systemMemory: () => Promise<SystemMemoryResponse>;
+  /** The security layer's renderer-facing calls (Phase 121). */
+  security: {
+    /** Scores a draft attachment, forge body or page text for injection signals, in main. Never rejects. */
+    scanContent: (req: SecurityScanContentRequest) => Promise<SecurityScanContentResponse>;
+  };
 
   /**
    * Ollama (Phase 96 Theme B) — the main-side client and its streamed pull
@@ -2116,6 +2258,33 @@ export type MidniteStudioBridge = {
   };
 
   /**
+   * The agent audit trail (Phase 121 Theme G): a window of the durable NDJSON trail for the Audit tab,
+   * and an export of it, redacted, to a path the user picks in a main-side save dialog.
+   */
+  agentAudit: {
+    list: (req: In<typeof S.AgentAuditListRequest>) => Promise<z.infer<typeof S.AgentAuditListResponse>>;
+    export: (req: In<typeof S.AgentAuditExportRequest>) => Promise<z.infer<typeof S.AgentAuditExportResponse>>;
+  };
+
+  /**
+   * The agent breaker (Phase 121 Theme F): a session that trips a rate or spend limit is interrupted in
+   * main and announced here; the notification's Resume / Stop / Raise buttons answer through `resolve`.
+   */
+  agentLimits: {
+    onTripped: (handler: (trip: AgentLimitTrip) => void) => Unsubscribe;
+    resolve: (req: In<typeof S.AgentLimitResolveRequest>) => Promise<GitOpResult<Record<string, never>>>;
+  };
+
+  /**
+   * The MCP allowlist (Phase 121 Theme C): the servers a repo's agents will load with their trust verdicts,
+   * and the Approve button's answer. Discovery is read-only; approval writes only the app's own allowlist.
+   */
+  mcpTrust: {
+    list: (req: In<typeof S.McpTrustListRequest>) => Promise<GitOpResult<z.infer<typeof S.McpTrustListResponse>>>;
+    approve: (req: In<typeof S.McpTrustApproveRequest>) => Promise<GitOpResult<Record<string, never>>>;
+  };
+
+  /**
    * What the companion knows before it says anything (Phase 79 Theme B).
    *
    * Both calls are read-only and always resolve — a forge that cannot be
@@ -2225,6 +2394,22 @@ export type MidniteStudioBridge = {
     onUiRequest: (handler: (req: z.infer<typeof S.CompanionUiRequestSchema>) => void) => Unsubscribe;
     /** One-way: main is already holding a pending promise keyed by `id`, so nothing needs to come back from `send`. */
     uiReply: (reply: z.infer<typeof S.CompanionUiReplySchema>) => void;
+  };
+
+  /**
+   * The tool-call policy's approval card (Phase 121 Theme B): main raises a call that needs a human to every
+   * window, the first answer wins, and the rest are told to drop the card. One call, one card, never a batch.
+   */
+  toolApproval: {
+    onRequested: (handler: (request: ToolApprovalRequest) => void) => Unsubscribe;
+    onResolved: (handler: (resolved: ToolApprovalResolved) => void) => Unsubscribe;
+    answer: (req: In<typeof S.ToolApprovalAnswerRequest>) => Promise<GitOpResult<Record<string, never>>>;
+    hookInfo: () => Promise<GitOpResult<ToolApprovalHookInfo>>;
+  };
+
+  /** Confined sessions (Phase 121 Theme E): is `sandbox-exec` usable, and are new sessions confined by default. */
+  confinement: {
+    status: () => Promise<z.infer<typeof S.ConfinementStatusResponse>>;
   };
 };
 

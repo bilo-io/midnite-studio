@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
 import { base64ToArrayBuffer, createGmInstrument } from './gm-sampler';
 
 // Fake Tone: the factory is tested for its routing decisions, not for audio.
 function fakeTone() {
-  const node = () => {
+  // A function, not an arrow: vitest 4 calls a mock's implementation with `new` when the mock is constructed.
+  const node = function () {
     const self = { connect: vi.fn(() => self), dispose: vi.fn(), triggerAttackRelease: vi.fn(), frequency: { value: 0 } };
     return self;
   };
@@ -33,7 +34,7 @@ describe('createGmInstrument', () => {
     const instrument = await createGmInstrument({ program: 0, channel: 9, bridge, loadTone: load(fakeTone()) });
     expect(instrument.source).toBe('drum-kit');
     expect(instrument.missing).toBe(false);
-    expect((bridge as { gm: { load: ReturnType<typeof vi.fn> } }).gm.load).not.toHaveBeenCalled();
+    expect((bridge as { gm: { load: Mock } }).gm.load).not.toHaveBeenCalled();
   });
 
   it('builds a Sampler from cached samples', async () => {

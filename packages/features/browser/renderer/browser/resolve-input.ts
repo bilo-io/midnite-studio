@@ -7,12 +7,28 @@ export type SearchEngine = 'google' | 'duckduckgo' | 'bing';
  * Falls back to the raw value for anything `URL` cannot parse — a blank new
  * tab, say — so the field never renders empty when it has a real value.
  */
-export function trimUrlForDisplay(url: string): string {
+/** `true` when `unicode` is the same host as the ASCII `hostname` (WHATWG URL punycodes an IDN). */
+function sameHost(unicode: string, hostname: string): boolean {
+  try {
+    return new URL(`http://${unicode}`).hostname === hostname;
+  } catch {
+    return false;
+  }
+}
+
+export function trimUrlForDisplay(url: string, displayHost?: string): string {
   if (!url) return url;
   try {
     const parsed = new URL(url);
     const path = parsed.pathname === '/' ? '' : parsed.pathname;
-    return `${parsed.host}${path}${parsed.search}${parsed.hash}`;
+    // `displayHost` is the verdict's (Phase 117 Theme C): the Unicode form of an IDN host only when
+    // `lookalike.ts` judged it safe to show, else the punycode `URL` already gives. Never trusted for
+    // a different host than the URL's own — that would let a stale verdict relabel a new page.
+    const host =
+      displayHost && displayHost !== parsed.hostname && sameHost(displayHost, parsed.hostname)
+        ? `${displayHost}${parsed.port ? `:${parsed.port}` : ''}`
+        : parsed.host;
+    return `${host}${path}${parsed.search}${parsed.hash}`;
   } catch {
     return url;
   }

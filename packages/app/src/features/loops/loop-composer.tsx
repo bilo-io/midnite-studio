@@ -16,12 +16,16 @@ import {
   type LoopDefinition,
   type LoopFrequency,
   type LoopGroup,
+  type LoopModifier,
   type LoopModel,
   type LoopSchedule,
   type LoopWeekday,
+  isCustomLoop,
+  type CustomLoop,
 } from '@midnite/studio-shared';
-import { Collapse } from '@bilo-io/ui';
+import { Collapse, Slider, sliderValue } from '@bilo-io/ui';
 import { useId, useState, type ReactNode } from 'react';
+
 import {
   LuBrain,
   LuCalendarDays,
@@ -42,7 +46,10 @@ import { resolveAgentIcon } from '../../components/icons';
 import type { IconComponent } from '../../components/icon-button';
 import { appendDictation } from '../media/voice/use-voice-thread';
 import { IconSelect, MultiIconSelect, type IconSelectOption } from '../../components/select/icon-select';
+import { useUiStore } from '../../store/ui-store';
+import { CustomLoopEditor, CustomLoopToolbar } from './custom-loop-editor';
 import { LoopOptionRow } from './loop-option-row';
+import { loopLabel } from './use-all-loops';
 
 /**
  * A glyph per section heading — the composer's five headings were five
@@ -209,6 +216,19 @@ export function LoopComposer({
       ? (agent?.label ?? agentId)
       : `${agent?.label ?? agentId} · ${modelLabel}`;
   const scheduleSummary = loopScheduleSummary(schedule);
+  const rowProps: SettingsRowProps = {
+    loopId: loop.id,
+    checked,
+    choiceIds,
+    skills,
+    skillSuggestions,
+    reviewUsers,
+    contributorOptions,
+    onModifierToggle: onToggle,
+    onSkill,
+    onReviewUsers,
+    onChoice,
+  };
 
   return (
     <div
@@ -234,6 +254,7 @@ export function LoopComposer({
         />
       ) : (
         <div className="flex flex-col">
+          {isCustomLoop(loop) ? <CustomLoopHeader loop={loop} /> : null}
           {/*
             Every accordion below renders its full content — no cap, no
             scrollbar of its own. The cap that keeps a tall loop's settings
@@ -244,26 +265,24 @@ export function LoopComposer({
             here and a second inside history's own expanded list.
           */}
           <div className="flex flex-col">
-            {LOOP_GROUPS.map((group) => (
-              <SettingsGroup
-                key={group.id}
-                loop={loop}
-                group={group.id}
-                label={group.label}
-                open={!closed[group.id]}
-                onToggle={() => toggleSection(group.id)}
-                checked={checked}
-                choiceIds={choiceIds}
-                skills={skills}
-                skillSuggestions={skillSuggestions}
-                reviewUsers={reviewUsers}
-                contributorOptions={contributorOptions}
-                onModifierToggle={onToggle}
-                onSkill={onSkill}
-                onReviewUsers={onReviewUsers}
-                onChoice={onChoice}
-              />
-            ))}
+            {isCustomLoop(loop) ? (
+              <CustomLoopSections loop={loop} closed={closed} toggleSection={toggleSection} rows={rowProps} />
+            ) : (
+              LOOP_GROUPS.map((group) => (
+                <SettingsGroup
+                  key={group.id}
+                  id={group.id}
+                  group={group.id}
+                  label={group.label}
+                  modifiers={loop.modifiers.filter((m) => m.group === group.id)}
+                  choices={loop.choices.filter((c) => c.group === group.id)}
+                  usersFilter={group.id === 'scope' && loop.reviewsPrs === true}
+                  open={!closed[group.id]}
+                  onToggle={() => toggleSection(group.id)}
+                  {...rowProps}
+                />
+              ))
+            )}
           </div>
 
           {/*
@@ -320,8 +339,8 @@ export function LoopComposer({
               enterToSend={false}
               rows={2}
               placeholder="Extra instructions…"
-              ariaLabel={`Extra instructions for ${loop.label}`}
-              sendAriaLabel={`Start ${loop.label} with these instructions`}
+              ariaLabel={`Extra instructions for ${loopLabel(loop)}`}
+              sendAriaLabel={`Start ${loopLabel(loop)} with these instructions`}
               sendTooltip={disabled ? disabledReason : 'Start (Cmd/Ctrl+Enter)'}
               mic={mic}
               testIdPrefix="loop-extras"
@@ -348,6 +367,7 @@ function ComposerSection({
   id,
   title,
   group,
+  icon,
   meta,
   open,
   onToggle,
@@ -355,6 +375,8 @@ function ComposerSection({
 }: {
   id: string;
   title: string;
+  /** Overrides the id's own glyph — a custom loop's sections have ids no table knows. */
+  icon?: IconComponent;
   /** Set only on the three sections the loop registry itself declares. */
   group?: LoopGroup;
   /** What the section says while shut — the reason closing one is safe. */
@@ -364,7 +386,7 @@ function ComposerSection({
   children: ReactNode;
 }) {
   const bodyId = useId();
-  const Icon = SECTION_ICONS[id] ?? LuSettings2;
+  const Icon = icon ?? SECTION_ICONS[id] ?? LuSettings2;
   return (
     <section
       data-loop-section={id}
@@ -413,29 +435,8 @@ function ComposerSection({
  * (off runs the command once, without `/loop`) and, on a loop that reviews
  * PRs, the Scope section's Users filter.
  */
-function SettingsGroup({
-  loop,
-  group,
-  label,
-  open,
-  onToggle,
-  checked,
-  choiceIds,
-  skills,
-  skillSuggestions,
-  reviewUsers,
-  contributorOptions,
-  onModifierToggle,
-  onSkill,
-  onReviewUsers,
-  onChoice,
-}: {
-  loop: LoopDefinition;
-  group: LoopGroup;
-  label: string;
-  open: boolean;
-  /** Opens or shuts the section. */
-  onToggle: () => void;
+type SettingsRowProps = {
+  loopId: string;
   checked: Record<string, boolean>;
   choiceIds: Record<string, string>;
   skills: Record<string, string>;
@@ -447,16 +448,57 @@ function SettingsGroup({
   onSkill: (modifierId: string, skill: string) => void;
   onReviewUsers: (users: string[]) => void;
   onChoice: (choiceId: string, optionId: string) => void;
+};
+
+function SettingsGroup({
+  id,
+  group,
+  label,
+  icon,
+  modifiers,
+  choices,
+  usersFilter,
+  emptyHint,
+  open,
+  onToggle,
+  loopId,
+  checked,
+  choiceIds,
+  skills,
+  skillSuggestions,
+  reviewUsers,
+  contributorOptions,
+  onModifierToggle,
+  onSkill,
+  onReviewUsers,
+  onChoice,
+}: SettingsRowProps & {
+  id: string;
+  /** Set on the three registry sections; a custom loop's own sections have none. */
+  group?: LoopGroup;
+  label: string;
+  icon?: IconComponent;
+  modifiers: readonly LoopModifier[];
+  choices: readonly LoopChoice[];
+  /** Draw the Users filter (a loop that `reviewsPrs`) at the end of this section. */
+  usersFilter: boolean;
+  /**
+   * What an empty section says. Absent, an empty section is not drawn at all,
+   * which is right for a built-in's fixed groups; a custom loop's author made
+   * the section, so it says it is waiting for options instead of vanishing.
+   */
+  emptyHint?: string;
+  open: boolean;
+  /** Opens or shuts the section. */
+  onToggle: () => void;
 }) {
-  const modifiers = loop.modifiers.filter((m) => m.group === group);
   // Jobs before standing policies; a stable sort keeps declaration order within each.
   const ordered = [
     ...modifiers.filter((m) => m.control !== 'switch'),
     ...modifiers.filter((m) => m.control === 'switch'),
   ];
-  const choices = loop.choices.filter((c) => c.group === group);
-  const usersFilter = group === 'scope' && loop.reviewsPrs;
-  if (modifiers.length === 0 && choices.length === 0 && !usersFilter) return null;
+  const empty = modifiers.length === 0 && choices.length === 0 && !usersFilter;
+  if (empty && emptyHint === undefined) return null;
 
   /*
     What the heading says while the section is shut: how many of its controls
@@ -467,13 +509,15 @@ function SettingsGroup({
 
   return (
     <ComposerSection
-      id={group}
-      group={group}
+      id={id}
+      {...(group ? { group } : {})}
+      {...(icon ? { icon } : {})}
       title={label}
       meta={onCount > 0 ? `${onCount} on` : undefined}
       open={open}
       onToggle={onToggle}
     >
+      {empty ? <p className="text-[11px] text-muted-foreground">{emptyHint}</p> : null}
       {ordered.map((modifier) => (
         <LoopOptionRow
           key={modifier.id}
@@ -488,7 +532,7 @@ function SettingsGroup({
       {choices.map((choice) => (
         <ChoiceRow
           key={choice.id}
-          loopId={loop.id}
+          loopId={loopId}
           choice={choice}
           selectedId={choiceIds[choice.id]}
           onChoice={onChoice}
@@ -512,6 +556,86 @@ function SettingsGroup({
 }
 
 /**
+ * A custom loop's sections: the author's own, in their order, then the shared
+ * Run section every loop has (the common switches, Autonomy, and the Users
+ * filter on a loop that reviews PRs) — which the author cannot edit, exactly
+ * as a built-in's Model and Schedule are not. In Edit mode the author's own
+ * sections give way to the editor; Run stays, so the form keeps its footing.
+ */
+function CustomLoopSections({
+  loop,
+  closed,
+  toggleSection,
+  rows,
+}: {
+  loop: CustomLoop;
+  closed: Record<string, true>;
+  toggleSection: (id: string) => void;
+  rows: SettingsRowProps;
+}) {
+  const editing = useUiStore((s) => s.customLoopEditing === loop.id);
+  return (
+    <>
+      {editing ? (
+        <CustomLoopEditor loop={loop} />
+      ) : (
+        loop.sections.map((section) => {
+          const id = `custom-${section.id}`;
+          return (
+            <SettingsGroup
+              key={section.id}
+              id={id}
+              label={section.label || 'Untitled section'}
+              icon={LuListChecks}
+              modifiers={loop.modifiers.filter((m) => m.section === section.id)}
+              choices={loop.choices.filter((c) => c.section === section.id)}
+              usersFilter={false}
+              emptyHint="No options yet — Edit to add some."
+              open={!closed[id]}
+              onToggle={() => toggleSection(id)}
+              {...rows}
+            />
+          );
+        })
+      )}
+      <SettingsGroup
+        id="run"
+        group="run"
+        label="Run"
+        modifiers={loop.modifiers.filter((m) => m.section === undefined)}
+        choices={loop.choices.filter((c) => c.section === undefined)}
+        usersFilter={loop.reviewsPrs === true}
+        open={!closed['run']}
+        onToggle={() => toggleSection('run')}
+        {...rows}
+      />
+    </>
+  );
+}
+
+/** The Edit toggle row — only a custom loop has one. */
+function CustomLoopHeader({ loop }: { loop: CustomLoop }) {
+  const editing = useUiStore((s) => s.customLoopEditing === loop.id);
+  return <CustomLoopToolbar loop={loop} editing={editing} />;
+}
+
+/**
+ * The loop's own spectrum as colour stops: `--fab-spec-1…5` cascade from the
+ * nearest `[data-fab-tab]` (inline on a custom loop, `styles.css` rows for
+ * built-ins), so the fallbacks only matter outside the Loops panel. The
+ * library Slider joins them into a ramp and rings focus in the middle stop.
+ * The fallbacks mirror the default spectrum's `--fab-spec-*` fallbacks in
+ * `styles.css`; retune both together.
+ */
+const LOOP_SPECTRUM = [
+  'rgb(var(--fab-spec-1, 244 63 94))',
+  'rgb(var(--fab-spec-2, 245 158 11))',
+  'rgb(var(--fab-spec-3, 16 185 129))',
+  'rgb(var(--fab-spec-4, 59 130 246))',
+  'rgb(var(--fab-spec-5, 139 92 246))',
+];
+
+/**
  * When a subagent hands over to a fresh one — a percentage of its context
  * window, sent as "Auto-rotate subagents at N% context." on every run.
  */
@@ -523,22 +647,29 @@ function AutoRotateSlider({
   onPercent: (percent: number) => void;
 }) {
   const id = useId();
+  // What the knob shows: an off-step stored value snaps, so the readout matches it.
+  const shown = sliderValue(
+    percent,
+    LOOP_AUTO_ROTATE.min,
+    LOOP_AUTO_ROTATE.max,
+    LOOP_AUTO_ROTATE.step,
+  );
   return (
     <div className="flex min-w-0 flex-col gap-1 pt-1" data-testid="auto-rotate-field">
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <label htmlFor={id}>Auto-rotate subagents</label>
-        <span className="font-mono text-[10px] text-foreground">{percent}%</span>
+        <span className="font-mono text-[10px] text-foreground">{shown}%</span>
       </div>
-      <input
+      <Slider
         id={id}
-        type="range"
         min={LOOP_AUTO_ROTATE.min}
         max={LOOP_AUTO_ROTATE.max}
         step={LOOP_AUTO_ROTATE.step}
         value={percent}
-        onChange={(event) => onPercent(Number(event.target.value))}
-        aria-valuetext={`${percent}% context`}
-        className="h-1.5 w-full cursor-pointer accent-primary"
+        onValueChange={onPercent}
+        gradient={LOOP_SPECTRUM}
+        aria-valuetext={`${shown}% context`}
+        data-testid="auto-rotate-slider"
       />
     </div>
   );
@@ -710,7 +841,7 @@ function ScheduleRows({
           type="time"
           value={schedule.from}
           disabled={!schedule.enabled}
-          aria-label={`Run ${loop.label} from`}
+          aria-label={`Run ${loopLabel(loop)} from`}
           onChange={(event) => onSchedule({ ...schedule, from: event.target.value })}
           className="loop-spectrum-field min-w-0 flex-1 rounded px-1 py-[2px] text-[10px] outline-none disabled:opacity-50"
         />
@@ -721,7 +852,7 @@ function ScheduleRows({
           type="time"
           value={schedule.to}
           disabled={!schedule.enabled}
-          aria-label={`Run ${loop.label} until`}
+          aria-label={`Run ${loopLabel(loop)} until`}
           onChange={(event) => onSchedule({ ...schedule, to: event.target.value })}
           className="loop-spectrum-field min-w-0 flex-1 rounded px-1 py-[2px] text-[10px] outline-none disabled:opacity-50"
         />

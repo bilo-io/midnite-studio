@@ -1,6 +1,7 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { writePrivateFile } from '@midnite/studio-runtime';
 import { SCROLLBACK_BYTES, type TerminalSession } from '@midnite/studio-shared';
 
 /**
@@ -46,7 +47,6 @@ export function scrollbackPath(directory: string, sessionId: string): string {
 
 export function createTerminalStore(directory: string): TerminalStore {
   const file = join(directory, FILE_NAME);
-  const scrollbackDir = join(directory, SCROLLBACK_DIR);
   const logFile = (sessionId: string) => scrollbackPath(directory, sessionId);
 
   return {
@@ -63,7 +63,7 @@ export function createTerminalStore(directory: string): TerminalStore {
     save: async (sessions) => {
       const state: StoredState = { version: 1, sessions: [...sessions] };
       try {
-        await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+        await writePrivateFile(file, `${JSON.stringify(state, null, 2)}\n`);
       } catch {
         // A read-only data dir shouldn't take the app down.
       }
@@ -79,8 +79,7 @@ export function createTerminalStore(directory: string): TerminalStore {
 
     writeScrollback: async (sessionId, bytes) => {
       try {
-        await mkdir(scrollbackDir, { recursive: true });
-        await writeFile(logFile(sessionId), bytes);
+        await writePrivateFile(logFile(sessionId), bytes);
       } catch {
         // Losing scrollback is a worse restore, not a broken app.
       }

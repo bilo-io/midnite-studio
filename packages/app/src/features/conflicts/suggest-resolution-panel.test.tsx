@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { CouncilRun, MidniteStudioBridge } from '@midnite/studio-shared';
 
@@ -32,8 +32,8 @@ function installBridge({
   start,
   get,
 }: {
-  start: ReturnType<typeof vi.fn>;
-  get: ReturnType<typeof vi.fn>;
+  start: Mock;
+  get: Mock;
 }) {
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
     council: {

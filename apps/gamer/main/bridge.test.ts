@@ -17,7 +17,8 @@ function fakeIpc(): RendererIpc {
 describe('createGamerBridge', () => {
   it('exposes only games and media — no secrets, git, pty or browser', () => {
     const bridge = createGamerBridge(fakeIpc());
-    expect(Object.keys(bridge).sort()).toEqual(['games', 'media']);
+    expect(Object.keys(bridge).sort()).toEqual(['games', 'media', 'report']);
+    expect(Object.keys(bridge.report).sort()).toEqual(['bundle', 'copy', 'error', 'ghStatus', 'logPath', 'onOpen', 'openUrl', 'reveal', 'submitIssue']);
     expect(Object.keys(bridge.media).sort()).toEqual(
       ['cancelExport', 'export', 'ffmpegStatus', 'file', 'map', 'model', 'onChanged', 'onExportProgress', 'project', 'reveal', 'sprite', 'terrain'].sort(),
     );

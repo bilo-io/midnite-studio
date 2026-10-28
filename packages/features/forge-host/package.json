@@ -1,0 +1,29 @@
+{
+  "name": "@midnite/studio-feature-forge-host",
+  "version": "0.0.5",
+  "private": true,
+  "description": "The forge-host feature (Phase 119): Midnite Git's mirror and backup engine, and later the local forge supervisor. Main half only until the app (Theme C) lands.",
+  "sideEffects": false,
+  "exports": {
+    "./main": {
+      "types": "./dist/main/index.d.ts",
+      "default": "./dist/main/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.main.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@midnite/studio-git-engine": "workspace:*",
+    "@midnite/studio-runtime": "workspace:*",
+    "@midnite/studio-shared": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.6.3",
+    "vitest": "^4.0.0"
+  }
+}

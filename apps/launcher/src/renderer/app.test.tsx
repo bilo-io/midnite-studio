@@ -7,7 +7,7 @@ import { APPS, SECTION_ORDER } from '../common/catalog';
 import { App } from './app';
 import { createMockBridge } from './mock-bridge';
 
-function mount(mode: 'installed' | 'update' | null) {
+function mount(mode: 'installed' | 'update' | 'bundles' | 'launcher-update' | null) {
   const bridge = createMockBridge(mode);
   const open = vi.spyOn(bridge.apps, 'open');
   window.midniteLauncher = bridge as LauncherBridge;
@@ -53,6 +53,47 @@ describe('<App>', () => {
     expect(await screen.findByText(/Midnite Coder/, { selector: '[role="dialog"] *' })).toBeDefined();
     act(() => show('money'));
     expect(await screen.findByText(/Midnite Money/, { selector: '[role="dialog"] *' })).toBeDefined();
+  });
+
+  it('offers to update the launcher itself when its feed is newer, and always from the status bar', async () => {
+    const { bridge } = mount('launcher-update');
+    const update = vi.spyOn(bridge.self, 'update');
+    expect(await screen.findByText('Midnite Apps 0.0.2 is available.')).toBeDefined();
+    const buttons = screen.getAllByRole('button', { name: 'Update launcher' });
+    expect(buttons).toHaveLength(2);
+    fireEvent.click(buttons[0]!);
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/it will quit and reopen/)).toBeDefined();
+  });
+
+  it('re-enables Update and shows the error when a started update fails', async () => {
+    const bridge = createMockBridge('launcher-update');
+    let fail: (message: string) => void = () => undefined;
+    bridge.self.onFailed = (listener) => {
+      fail = listener;
+      return () => undefined;
+    };
+    window.midniteLauncher = bridge as LauncherBridge;
+    render(<App />);
+    await screen.findByText('Midnite Apps 0.0.2 is available.');
+    const [banner] = screen.getAllByRole('button', { name: 'Update launcher' });
+    fireEvent.click(banner!);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Updating…' })).toHaveLength(2));
+    act(() => fail('The update failed (exit 22)'));
+    expect(await screen.findByText('The update failed (exit 22)')).toBeDefined();
+    expect(screen.getAllByRole('button', { name: 'Update launcher' }).every((b) => !(b as HTMLButtonElement).disabled)).toBe(true);
+  });
+
+  it('shows no launcher banner when the launcher is current, but keeps the status-bar Update', async () => {
+    mount('installed');
+    await screen.findByLabelText('Open Midnite Coder');
+    expect(screen.queryByText(/Midnite Apps .* is available/)).toBeNull();
+    const update = screen.getByRole('button', { name: 'Update launcher' });
+    // The version sits beside its Update, without the redundant "Launcher" label.
+    expect(update.parentElement?.textContent).toBe('v0.0.1Update launcher');
+    expect(screen.queryByText(/Launcher 0\.0\.1/)).toBeNull();
+    expect(screen.queryByText('Midnite app suite')).toBeNull();
+    expect(screen.queryByRole('button', { name: /GitHub/ })).toBeNull();
   });
 
   it('shows the update banner and the Updates filter count when Studio is behind', async () => {
@@ -154,5 +195,49 @@ describe('<App>', () => {
     expect(document.documentElement.dataset['theme']).toBeUndefined();
     expect(localStorage.getItem('midnite-launcher.theme')).toBeNull();
     expect(setNative).toHaveBeenLastCalledWith('system');
+  });
+
+  it('moves every installed app to the Trash in one go, after a confirm that lists them', async () => {
+    const { bridge } = mount('bundles');
+    const removeBundle = vi.spyOn(bridge.apps, 'uninstall');
+    const removeStudio = vi.spyOn(bridge.studio, 'uninstall');
+    const button = screen.getByRole('button', { name: 'Move all apps to Trash…' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('Move all 3 apps to the Trash?')).toBeDefined();
+    expect(within(dialog).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Midnite Cleaner',
+      'Midnite Monitor',
+      'Midnite Studio',
+    ]);
+    expect(removeBundle).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Move all to Trash' }));
+    });
+    expect(removeBundle.mock.calls).toEqual([['cleaner'], ['monitor']]);
+    expect(removeStudio).toHaveBeenCalledOnce();
+    expect(await screen.findByText('Moved 3 apps to the Trash.')).toBeDefined();
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(true));
+  });
+
+  it('skips an app that refuses, keeps going, and says which and why', async () => {
+    const { bridge } = mount('bundles');
+    vi.spyOn(bridge.studio, 'uninstall').mockResolvedValue({ ok: false, message: 'Midnite Studio is running — quit it first.' });
+    const button = screen.getByRole('button', { name: 'Move all apps to Trash…' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Move all to Trash' }));
+    });
+    const toast = await screen.findByRole('alert');
+    expect(toast.textContent).toContain('Moved 2 of 3 apps to the Trash.');
+    expect(toast.textContent).toContain('Midnite Studio: Midnite Studio is running — quit it first.');
+  });
+
+  it('offers nothing to remove while no app is installed', async () => {
+    mount(null);
+    await screen.findAllByLabelText(/^Install Midnite /);
+    expect(screen.getByRole('button', { name: 'Move all apps to Trash…' }).hasAttribute('disabled')).toBe(true);
   });
 });

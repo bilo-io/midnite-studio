@@ -10,13 +10,21 @@ import { CHANNELS } from '@midnite/studio-shared';
 import { accountFromKey, NEEDS_STUDIO_SIGN_INS, vaultMain } from './index';
 import { vaultManifest } from '../manifest';
 
-async function setup() {
+async function setup(clipboardText = '') {
   const dir = await mkdtemp(join(tmpdir(), 'mstudio-vault-feature-'));
-  const vault = createVaultService({ directory: dir, cipher: createFakeCipher() }).forApp('vault');
+  const service = createVaultService({ directory: dir, cipher: createFakeCipher() });
+  const vault = service.forApp('vault');
   const ctx = createRecordingContext();
   const grants = createVaultGrants({ directory: dir });
-  vaultMain.register(ctx, { vault, grants });
-  return { ctx, vault, grants };
+  let clip = clipboardText;
+  const clipboard = {
+    writeText: (t: string) => {
+      clip = t;
+    },
+    readText: () => clip,
+  };
+  vaultMain.register(ctx, { vault, grants, vaultService: service, clipboard });
+  return { ctx, vault, grants, service, dir, getClipboard: () => clip };
 }
 
 describe('vault main', () => {
@@ -110,5 +118,51 @@ describe('vault main', () => {
     expect(accountFromKey('gitlab:gitlab.example.com:me')?.kind).toBe('gitlab');
     expect(accountFromKey('nonsense')).toBeNull();
     expect(accountFromKey('unknown:host:me')).toBeNull();
+  });
+
+  it('manages vault lock state and answers lock status', async () => {
+    const { ctx } = await setup();
+    const status = (await ctx.invoke(CHANNELS.vaultLockStatus)) as { locked: boolean };
+    expect(status.locked).toBe(false);
+
+    expect(await ctx.invoke(CHANNELS.vaultLock)).toEqual({ ok: true });
+    const lockedStatus = (await ctx.invoke(CHANNELS.vaultLockStatus)) as { locked: boolean };
+    expect(lockedStatus.locked).toBe(true);
+
+    expect(await ctx.invoke(CHANNELS.vaultUnlock, {})).toEqual({ ok: true });
+    const unlockedStatus = (await ctx.invoke(CHANNELS.vaultLockStatus)) as { locked: boolean };
+    expect(unlockedStatus.locked).toBe(false);
+  });
+
+  it('reads audit log and verifies audit chain', async () => {
+    const { ctx, vault } = await setup();
+    await vault.set('secrets', 'k', 'v');
+
+    const auditList = (await ctx.invoke(CHANNELS.vaultAuditList, { limit: 10 })) as {
+      entries: unknown[];
+      valid: boolean;
+      total: number;
+    };
+    expect(auditList.valid).toBe(true);
+    expect(auditList.total).toBeGreaterThan(0);
+
+    const auditVerify = (await ctx.invoke(CHANNELS.vaultAuditVerify)) as { valid: boolean; total: number };
+    expect(auditVerify.valid).toBe(true);
+    expect(auditVerify.total).toBeGreaterThan(0);
+  });
+
+  it('revealOnce returns revealed secret value and logs audit', async () => {
+    const { ctx, vault } = await setup();
+    await vault.set('secrets', 'ollama.apiKey', 'ollama-secret-123');
+    const res = await ctx.invoke(CHANNELS.vaultRevealOnce, { namespace: 'secrets', key: 'ollama.apiKey' });
+    expect(res).toEqual({ ok: true, revealed: 'ollama-secret-123' });
+  });
+
+  it('copyOnce writes secret directly to clipboard and auto-clears', async () => {
+    const { ctx, vault, getClipboard } = await setup();
+    await vault.set('secrets', 'ollama.apiKey', 'ollama-secret-123');
+    const res = await ctx.invoke(CHANNELS.vaultCopyOnce, { namespace: 'secrets', key: 'ollama.apiKey' });
+    expect(res).toEqual({ ok: true, timeoutSeconds: 30 });
+    expect(getClipboard()).toBe('ollama-secret-123');
   });
 });

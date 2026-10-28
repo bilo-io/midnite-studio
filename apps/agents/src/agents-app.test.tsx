@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { chatsManifest } from '@midnite/studio-feature-chats/renderer';
@@ -11,12 +11,23 @@ import { featurePackagePlacement, FEATURE_PLACEMENT, placementOwners } from '@mi
 import { AgentsApp } from './agents-app';
 import { AGENTS_APP } from './agents-manifest';
 
+/** Report an Issue's slice of the bridge: only `onOpen` is read until the dialog opens (the feature's own tests cover the rest). */
+let openReport: (() => void) | null = null;
+const REPORT_BRIDGE = {
+  onOpen: vi.fn((handler: () => void) => {
+    openReport = handler;
+    return () => undefined;
+  }),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+  bundle: vi.fn(async () => ({ text: '' })),
+};
+
 const ok = <T,>(value: T) => async () => ({ ok: true as const, value });
 
-function stubBridge() {
+function stubBridge(extra: Record<string, unknown> = {}) {
   const has = vi.fn(async () => ({ hasKey: false }));
   const get = vi.fn();
-  window.midniteStudio = {
+  window.midniteStudio = { report: REPORT_BRIDGE,
     secrets: { has, get },
     agent: { list: async () => ({ agents: [{ id: 'claude', label: 'Claude', command: 'claude', args: [], accent: '#d97757' }], status: [], probe: 'unknown' }) },
     chats: {
@@ -44,6 +55,7 @@ function stubBridge() {
       onPullProgress: () => () => undefined,
       settings: { get: async () => ({ host: null, defaultModel: null }) },
     },
+    ...extra,
   } as unknown as typeof window.midniteStudio;
   return { has, get };
 }
@@ -78,10 +90,10 @@ describe('Agents composition', () => {
 });
 
 describe('Agents home', () => {
-  it('opens on Chats with Councils, Graphs, Models and Tools beside it', async () => {
+  it('opens on Chats with Councils, Graphs, Models, Tools and Audit beside it', async () => {
     render(<AgentsApp />);
     expect(screen.getByText('Midnite Agents')).toBeDefined();
-    expect(screen.getByRole('navigation', { name: 'Agents views' }).textContent).toBe('ChatsCouncilsGraphsModelsTools');
+    expect(screen.getByRole('navigation', { name: 'Agents views' }).textContent).toBe('ChatsCouncilsGraphsModelsToolsAudit');
     expect(screen.getByTestId('agents-tab-chats').getAttribute('aria-current')).toBe('page');
     await waitFor(() => expect(screen.getByRole('main', { name: 'Chats' })).toBeDefined());
   });
@@ -115,11 +127,33 @@ describe('Agents home', () => {
     expect(screen.queryByText('model_set_spec')).toBeNull();
   });
 
+  it('switches to Audit and shows the trail the bridge returns', async () => {
+    const list = vi.fn().mockResolvedValue({
+      records: [{ id: 'r1', at: Date.now(), kind: 'council-run', councilId: 'c', runId: 'x', status: 'completed', members: 2, succeeded: 2, synthProvider: 'codex', ms: 5 }],
+      truncated: false,
+    });
+    stubBridge({ agentAudit: { list, export: vi.fn() } });
+    render(<AgentsApp />);
+    fireEvent.click(screen.getByTestId('agents-tab-audit'));
+    await waitFor(() => expect(screen.getByText(/2\/2 members/)).toBeDefined(), { timeout: 10_000 });
+  });
+
   it('never asks for a secret value: only `has` is on the bridge it was given', async () => {
     const { get } = stubBridge();
     render(<AgentsApp />);
     fireEvent.click(screen.getByTestId('agents-tab-models'));
     await waitFor(() => expect(screen.getByText("Ollama isn't running")).toBeDefined());
     expect(get).not.toHaveBeenCalled();
+  });
+});
+
+describe('Report an Issue', () => {
+  it("mounts the report feature's host: main's report:open event opens its dialog", async () => {
+    openReport = null;
+    // The suite bridge already carries `report` (see beforeEach).
+    render(<AgentsApp />);
+    await waitFor(() => expect(openReport).not.toBeNull());
+    act(() => openReport?.());
+    expect(await screen.findByTestId('report-issue-dialog')).toBeDefined();
   });
 });

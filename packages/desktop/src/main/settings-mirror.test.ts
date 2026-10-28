@@ -19,6 +19,9 @@ describe('settings-mirror', () => {
       browserDiscardMs: 10 * 60 * 1000,
       forgeSyncGhAuthSwitch: true,
       agentBackends: {},
+      confineNewSessions: false,
+      readAgentHistory: true,
+      historyRetentionDays: null,
     });
   });
 
@@ -38,5 +41,16 @@ describe('settings-mirror', () => {
     unsubscribe();
     applySettingsSync({ autoFetchEnabled: false, autoFetchIntervalMs: 30_000 });
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('agentHistoryReadsEnabled (Phase 115 Theme F leftover)', () => {
+  it('fails closed until the renderer has pushed its settings', async () => {
+    const { agentHistoryReadsEnabled } = await import('./settings-mirror');
+    expect(agentHistoryReadsEnabled()).toBe(false);
+    applySettingsSync({ autoFetchEnabled: true, autoFetchIntervalMs: 60_000, readAgentHistory: true });
+    expect(agentHistoryReadsEnabled()).toBe(true);
+    applySettingsSync({ autoFetchEnabled: true, autoFetchIntervalMs: 60_000, readAgentHistory: false });
+    expect(agentHistoryReadsEnabled()).toBe(false);
   });
 });

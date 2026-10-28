@@ -41,6 +41,8 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
   const tabs = useBrowserStore((s) => s.tabs);
   const activeTabId = useBrowserStore((s) => s.activeTabId);
   const browserDiscardMs = useBrowserUi((s) => s.browserDiscardMs);
+  const allowSiteProceed = useBrowserUi((s) => s.browserAllowSiteProceed);
+  const reputationFeeds = useBrowserUi((s) => s.browserReputationFeeds);
   const previousActive = useRef<string | null>(null);
   // The create-set implied by the activation effect below (":120" in the
   // phase doc) — hoisted rather than duplicated, since the close-diff effect
@@ -65,6 +67,17 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
     }
   }, [tabs]);
 
+  // Phase 117 Theme C: the site-safety switches are renderer state main must know before the first
+  // tab loads — a feed switched on is what makes main refuse a listed URL — so they are pushed ahead
+  // of the activation effect below (effects run in order, and so do the IPC messages they send).
+  // Main starts with everything off, so a renderer that never pushes ships the safe defaults.
+  useEffect(() => {
+    bridge()?.browser.setSiteSafety({
+      allowProceed: allowSiteProceed,
+      feeds: { urlhaus: reputationFeeds.urlhaus, openphish: reputationFeeds.openphish },
+    });
+  }, [allowSiteProceed, reputationFeeds.urlhaus, reputationFeeds.openphish]);
+
   // Mirrored into a ref so the `create().then()` below can tell, once it
   // actually resolves, whether it is still talking about the current pane
   // state rather than the one that was true when the effect fired.
@@ -76,6 +89,7 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
       const update = useBrowserStore.getState().updateTabState;
       switch (event.kind) {
         case 'navigated': {
+          useBrowserStore.getState().clearPendingPermissionRequest(event.tabId);
           update(event.tabId, {
             url: event.url,
             canGoBack: event.canGoBack,
@@ -115,6 +129,9 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
         case 'failed':
           update(event.tabId, { loading: false, navError: event.error });
           break;
+        case 'verdict':
+          update(event.tabId, { verdict: event.verdict });
+          break;
         case 'found':
           // Only the active tab's find bar can be open, so this is never
           // keyed per tab (Theme G) — see `browser-store.ts`'s own comment.
@@ -135,7 +152,50 @@ export function useBrowserTabsEffects(open: boolean, settled: boolean, onTabRead
         case 'download-blocked':
           useToastStore.getState().addToast({
             status: 'warning',
-            message: `Download blocked: ${event.filename} — the embedded browser cannot save files.`,
+            message: event.reason
+              ? `Download blocked: ${event.filename} — ${event.reason}`
+              : `Download blocked: ${event.filename} — downloads are off. Turn them on in Settings ▸ Browser ▸ Downloads.`,
+          });
+          break;
+        case 'download-request':
+          useBrowserStore.getState().setPendingDownloadRequest(event.tabId, {
+            tabId: event.tabId,
+            requestId: event.requestId,
+            filename: event.filename,
+            size: event.size,
+            origin: event.origin,
+            fileClass: event.fileClass,
+          });
+          break;
+        case 'download-done':
+          useToastStore.getState().addToast({
+            status: 'success',
+            message: `Saved to quarantine: ${event.filename}${event.gatekeeper ? ` (Gatekeeper: ${event.gatekeeper.split(' ')[0]})` : ''}${
+              event.scan ? ` · scan: ${event.scan.split(' ')[0]}` : ''
+            } · SHA-256 ${event.sha256.slice(0, 12)}…`,
+          });
+          break;
+        case 'clipboard-warning':
+          useBrowserStore.getState().setClipboardWarning(event.tabId, {
+            tabId: event.tabId,
+            origin: event.origin,
+            label: event.label,
+            preview: event.preview,
+          });
+          break;
+        case 'devtools-blocked':
+          useToastStore.getState().addToast({
+            status: 'warning',
+            message: 'DevTools are off in a packaged build. Launch with MSTUDIO_DEVTOOLS=1 to allow them.',
+          });
+          break;
+        case 'permission-request':
+          useBrowserStore.getState().setPendingPermissionRequest(event.tabId, {
+            tabId: event.tabId,
+            requestId: event.requestId,
+            origin: event.origin,
+            permission: event.permission,
+            displayName: event.displayName,
           });
           break;
         case 'discarded':

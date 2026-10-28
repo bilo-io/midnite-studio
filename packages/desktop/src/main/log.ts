@@ -1,6 +1,6 @@
 import { redactPaths } from '@midnite/studio-shared';
 
-import type { LogLevel, LogSink } from './log-sink';
+import type { LogLevel, LogSink } from '@midnite/studio-runtime';
 
 /**
  * The main process's one log seam.

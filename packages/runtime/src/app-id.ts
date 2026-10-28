@@ -14,3 +14,14 @@ import type { PlacementAppId } from '@midnite/studio-shared';
  * call site changing shape.
  */
 export type RuntimeAppId = PlacementAppId | 'studio';
+
+/**
+ * The principal an agent session in a browser tab acts as (Phase 117 Theme G). It is not an app and
+ * holds no grant: the vault refuses it whatever the authorizer says (`vault-service.ts`), and the
+ * grants file can never give it one (`grants.ts`). An agent reading untrusted pages with no private
+ * data to reach is one leg of the lethal trifecta removed.
+ */
+export const BROWSER_AGENT_PRINCIPAL = 'browser-agent' as const;
+
+/** Who a vault access is made as: an app, or the browser agent. */
+export type RuntimePrincipal = RuntimeAppId | typeof BROWSER_AGENT_PRINCIPAL;

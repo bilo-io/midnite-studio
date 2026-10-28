@@ -9,7 +9,9 @@ import { useUiStore } from '../../store/ui-store';
 import { CompanionHeader } from './companion-header';
 import { CompanionInputBar } from './companion-input-bar';
 import { fabCompanionState } from './companion-look';
+import { CompanionOrb } from './companion-orb';
 import { companionPorts } from './companion-ports';
+import { CompanionZenStage } from './companion-zen-stage';
 import { CompanionThread } from './companion-thread';
 
 /**
@@ -66,6 +68,7 @@ export function CompanionPanel({
   const state = useCompanionStore((s) => s.state);
   const transcript = useCompanionStore((s) => s.transcript);
   const pendingAction = useCompanionStore((s) => s.pendingAction);
+  const zenMode = useCompanionStore((s) => s.zenMode);
   const history = usePanelHistory<CompanionPanelEntry>(ROOT_ENTRY, {
     isSame: (a, b) => a.kind === b.kind,
   });
@@ -132,9 +135,11 @@ export function CompanionPanel({
       */}
       <AiThreadFrame
         loading={state === 'thinking'}
-        className="flex min-h-0 flex-1 flex-col"
+        className="relative flex min-h-0 flex-1 flex-col"
         testId="companion-thread-frame"
       >
+        {/* Above the thread, so the panel's lower ground stays plain fill (companion-panel-glow.spec.ts). */}
+        <CompanionOrb state={state} />
         <PanelStack
           history={history}
           className="min-h-0 flex-1"
@@ -145,16 +150,32 @@ export function CompanionPanel({
       {pendingAction?.kind === 'choice' ? (
         <CompanionChoiceBar label={pendingAction.label} options={pendingAction.options} />
       ) : pendingAction ? (
-        <CompanionPendingActionBar label={pendingAction.label} />
+        <CompanionPendingActionBar
+          label={pendingAction.label}
+          {...(pendingAction.kind === 'statusReport' ? STATUS_REPORT_CHIPS : {})}
+        />
       ) : null}
       <CompanionInputBar
         disabled={state === 'thinking'}
         reserveFabSpace={reserveFabSpace}
         onInterrupt={() => companionPorts().interrupt()}
       />
+      {zenMode ? <CompanionZenStage state={state} /> : null}
     </div>
   );
 }
+
+/**
+ * The greeting's status-report offer is a question, not a command to run — so
+ * its chips read "Yes" / "Not now" and post what the user would have said,
+ * rather than a bare "confirm" in their name.
+ */
+const STATUS_REPORT_CHIPS = {
+  confirmLabel: 'Yes',
+  confirmText: 'yes',
+  cancelLabel: 'Not now',
+  cancelText: 'no thanks',
+} as const;
 
 /**
  * The pending-action bar (Phase 81 Theme C) — the same "yes" the panel already
@@ -162,7 +183,19 @@ export function CompanionPanel({
  * three through {@link companionPorts}'s `submit` so there is exactly one
  * implementation of "confirm" and one of "dismiss".
  */
-function CompanionPendingActionBar({ label }: { label: string }) {
+function CompanionPendingActionBar({
+  label,
+  confirmLabel = 'Run',
+  confirmText = 'confirm',
+  cancelLabel = 'Cancel',
+  cancelText = 'cancel',
+}: {
+  label: string;
+  confirmLabel?: string;
+  confirmText?: string;
+  cancelLabel?: string;
+  cancelText?: string;
+}) {
   return (
     <div
       className="flex shrink-0 items-center gap-2 border-t border-border bg-card/40 px-2.5 py-1.5 text-xs"
@@ -172,18 +205,18 @@ function CompanionPendingActionBar({ label }: { label: string }) {
       <button
         type="button"
         data-testid="companion-pending-cancel"
-        onClick={() => companionPorts().submit('cancel')}
+        onClick={() => companionPorts().submit(cancelText)}
         className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
       >
-        Cancel
+        {cancelLabel}
       </button>
       <button
         type="button"
         data-testid="companion-pending-run"
-        onClick={() => companionPorts().submit('confirm')}
+        onClick={() => companionPorts().submit(confirmText)}
         className="rounded-md bg-primary/15 px-2 py-1 font-medium text-primary hover:bg-primary/25"
       >
-        Run
+        {confirmLabel}
       </button>
     </div>
   );

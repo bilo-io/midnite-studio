@@ -1,0 +1,81 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# The mcp-tools feature package (Phase 119 Theme A) — Midnite Git's mirror engine (main only). Same shape as
+# feature-models (see docs/APPS.md, "Packages").
+id: 'feature-forge-host'
+language: 'typescript'
+layer: 'library'
+
+# `app-<id>` names the apps that compose this feature, from the placement map
+# (`FEATURE_PACKAGE_SPLITS['forge-host']` = coder, until the git app exists); Studio composes every feature.
+# `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
+tags:
+  - 'layer-feature'
+  - 'app-coder'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'runtime'
+  - 'git-engine'
+
+tasks:
+  # Only the main half emits; the renderer half is compiled by the app.
+  build:
+    command: 'pnpm exec tsc -b tsconfig.main.json'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+      - 'git-engine:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'
+    outputs:
+      - 'dist'
+
+  # Both configs: the renderer half against source, the main half against
+  # shared/runtime's built declarations (project references), hence the builds.
+  typecheck:
+    # package.json's `typecheck` runs `tsc --noEmit` over both configs.
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
+      - 'git-engine:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'
+
+  test:
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'
+
+  lint:
+    inputs:
+      - 'main/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

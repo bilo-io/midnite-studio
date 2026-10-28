@@ -555,7 +555,10 @@ describe('forge schemas', () => {
     });
     expect(detail.detail?.headSha).toBeNull();
     expect(detail.detail?.body).toBe('');
-    expect(detail.detail?.changedFiles).toBe(0);
+    // Withheld line stats are unknown, not zero: a forge that reports none must not read +0 −0.
+    expect(detail.detail?.additions).toBeNull();
+    expect(detail.detail?.deletions).toBeNull();
+    expect(detail.detail?.changedFiles).toBeNull();
   });
 
   it('bounds every field of a review-comment request', () => {
@@ -2195,7 +2198,8 @@ describe('crash reporting contract (Phase 65)', () => {
       'mstudio:diag:trust-status',
       'mstudio:diag:untrust',
     ]);
-    expect(Object.values(CHANNELS).filter((name) => name.startsWith('mstudio:report:'))).toHaveLength(5);
+    // Five from Phase 65/93, three from the report feature (gh-status, open-url, copy).
+    expect(Object.values(CHANNELS).filter((name) => name.startsWith('mstudio:report:'))).toHaveLength(8);
   });
 });
 
@@ -2203,7 +2207,8 @@ describe('app issue submission contract (Phase 93)', () => {
   const request = { title: '[bug] it crashed', body: 'diagnostics here', kind: 'bug' as const };
 
   it('round-trips a valid request', () => {
-    expect(schemas.AppIssueSubmitRequestSchema.parse(request)).toEqual(request);
+    // `app` is filled in: a request from before the report feature files as Studio.
+    expect(schemas.AppIssueSubmitRequestSchema.parse(request)).toEqual({ ...request, app: 'midnite-studio' });
   });
 
   it('admits exactly two kinds', () => {
@@ -2432,5 +2437,33 @@ describe('lock contract (Phase 91 Theme D)', () => {
     expect(schemas.LockSetPasscodeRequest.safeParse('12').success).toBe(false);
     expect(schemas.LockSetPasscodeRequest.safeParse('abcd').success).toBe(false);
     expect(schemas.LockVerifyRequest.safeParse('').success).toBe(false);
+  });
+});
+
+describe('report feature contract', () => {
+  it('defaults a submit to Studio and refuses an app slug that is not one', () => {
+    const base = { title: '[bug] x', body: 'b', kind: 'bug' as const };
+    expect(schemas.AppIssueSubmitRequestSchema.parse(base).app).toBe('midnite-studio');
+    expect(schemas.AppIssueSubmitRequestSchema.parse({ ...base, app: 'midnite-monitor' }).app).toBe('midnite-monitor');
+    for (const app of ['studio', 'midnite-', "midnite-x' --label 'y", 'MIDNITE-STUDIO']) {
+      expect(schemas.AppIssueSubmitRequestSchema.safeParse({ ...base, app }).success, app).toBe(false);
+    }
+  });
+
+  it('opens only midnite-apps issue pages', () => {
+    expect(schemas.ReportOpenUrlRequest.safeParse({ url: 'https://github.com/bilo-io/midnite-apps/issues/3' }).success).toBe(true);
+    expect(schemas.ReportOpenUrlRequest.safeParse({ url: 'https://example.com/' }).success).toBe(false);
+  });
+
+  it('copies a report longer than the general clipboard cap', () => {
+    const text = 'x'.repeat(schemas.CLIPBOARD_MAX_LENGTH + 1);
+    expect(schemas.ReportCopyRequest.safeParse({ text }).success).toBe(true);
+    expect(schemas.ReportCopyRequest.safeParse({ text: '' }).success).toBe(false);
+  });
+
+  it('declares its channels under mstudio:report:*', () => {
+    for (const channel of [CHANNELS.reportGhStatus, CHANNELS.reportOpenUrl, CHANNELS.reportCopy, EVENT_CHANNELS.reportOpen]) {
+      expect(channel).toMatch(/^mstudio:report:/);
+    }
   });
 });

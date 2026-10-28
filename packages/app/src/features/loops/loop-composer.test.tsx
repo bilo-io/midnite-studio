@@ -92,14 +92,20 @@ describe('LoopComposer — idle', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
-  it('lists Patrol\'s task boxes with Routine first and "Reply to PRs" in place of "Answer feedback"', () => {
+  it('lists Patrol\'s task boxes with "Reply to PRs" in place of "Answer feedback", and Routine in run', () => {
     const { container } = renderComposer();
     const tasks = container.querySelector('[data-loop-group="tasks"]') as HTMLElement;
-    const names = within(tasks)
+    const taskNames = within(tasks)
       .getAllByRole('switch')
       .map((box) => box.closest('label')?.textContent?.trim());
-    expect(names).toEqual(['Routine', 'Review PRs', 'Reply to PRs', 'Security review']);
+    expect(taskNames).toEqual(['Review PRs', 'Reply to PRs', 'Security review']);
     expect(screen.queryByRole('switch', { name: 'Answer feedback' })).toBeNull();
+
+    const run = container.querySelector('[data-loop-group="run"]') as HTMLElement;
+    const runNames = within(run)
+      .getAllByRole('switch')
+      .map((box) => box.closest('label')?.textContent?.trim());
+    expect(runNames).toContain('Approve routine PRs');
   });
 
   it('groups the controls under their section headings, in declared order', () => {
@@ -602,6 +608,24 @@ describe('LoopComposer — run options', () => {
     expect(slider.value).toBe('30');
     fireEvent.change(slider, { target: { value: '55' } });
     expect(props.onAutoRotate).toHaveBeenCalledWith(55);
+  });
+
+  it('paints the auto-rotate slider with the loop spectrum', () => {
+    renderComposer({ autoRotatePercent: 55 });
+    const slider = screen.getByTestId('auto-rotate-slider');
+    const root = slider.closest<HTMLElement>('[data-slider]')!;
+    // The ramp is the loop's --fab-spec-1…5, which cascade from its own
+    // [data-fab-tab] ancestor. Fill and focus are the library's own tests.
+    const ramp = root.style.getPropertyValue('--slider-ramp');
+    expect(ramp).toContain('--fab-spec-1');
+    expect(ramp).toContain('--fab-spec-5');
+  });
+
+  it('shows the snapped auto-rotate value when the stored one is off-step', () => {
+    renderComposer({ autoRotatePercent: 33 });
+    expect(screen.getByTestId('auto-rotate-field').textContent).toContain('35%');
+    const slider = screen.getByRole('slider', { name: 'Auto-rotate subagents' });
+    expect(slider.getAttribute('aria-valuetext')).toBe('35% context');
   });
 
   it('has no Loop switch of its own — the tab bar owns it', () => {

@@ -6,7 +6,8 @@ import { renderSongToWav } from './offline';
 // Fake Tone: only the offline plumbing is under test, not audio.
 function fakeTone() {
   const parts: unknown[][] = [];
-  const node = () => {
+  // A function, not an arrow: vitest 4 calls a mock's implementation with `new` when the mock is constructed.
+  const node = function () {
     const self = {
       connect: vi.fn(() => self),
       dispose: vi.fn(),
@@ -29,7 +30,7 @@ function fakeTone() {
       Synth: vi.fn(),
       getDestination: () => ({}),
       Frequency: () => ({ toNote: () => 'C4', toMidi: () => 60 }),
-      Part: vi.fn((_cb: unknown, events: unknown[]) => {
+      Part: vi.fn(function (_cb: unknown, events: unknown[]) {
         parts.push(events);
         return { start: vi.fn() };
       }),

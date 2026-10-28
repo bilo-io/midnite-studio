@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { CHAT_ENGINE_OLLAMA, type ChatSkill } from '@midnite/studio-shared';
 
-import { parseSkillFrontmatter, readSkillHead, SKILL_NAME } from '@midnite/studio-runtime';
+import { auditSkillDirectory, parseSkillFrontmatter, readSkillHead, SKILL_NAME } from '@midnite/studio-runtime';
 
 /**
  * Skill discovery for the Chats composer's `/` picker.
@@ -98,14 +98,17 @@ export async function scanSkillRoots(roots: readonly SkillRoot[], limit = MAX_CH
         .sort();
       const found = await Promise.all(
         dirs.map(async (dir): Promise<ChatSkill | null> => {
-          const head = await readSkillHead(join(root.dir, dir, 'SKILL.md'));
+          const skillDir = join(root.dir, dir);
+          const head = await readSkillHead(join(skillDir, 'SKILL.md'));
           if (head === null) return null;
           const front = parseSkillFrontmatter(head);
           const base = (front?.name ?? dir).trim();
           const name = `${root.prefix ?? ''}${base}`;
           if (!SKILL_NAME.test(base) || name.length > 200) return null;
           const description = (front?.description ?? '').replace(/\s+/g, ' ').trim().slice(0, 2_000);
-          return { name, description, scope: root.scope };
+          const findings = await auditSkillDirectory(skillDir).catch(() => []);
+          const warning = findings.length > 0 ? findings[0]?.message : undefined;
+          return { name, description, scope: root.scope, warning };
         }),
       );
       return found.filter((s): s is ChatSkill => s !== null);
@@ -120,8 +123,14 @@ export async function scanSkillRoots(roots: readonly SkillRoot[], limit = MAX_CH
 }
 
 /** The whole discovery for one chat: its engine's roots (plus Claude's plugins), scanned. */
-export async function discoverChatSkills(opts: { engine: string; repoPath: string | null; home: string }): Promise<ChatSkill[]> {
+export async function discoverChatSkills(opts: {
+  engine: string;
+  repoPath: string | null;
+  home: string;
+  /** Phase 115 F: `false` skips the reads of `~/.claude/settings.json` and the plugin manifest. Default `true`. */
+  readAgentConfig?: boolean;
+}): Promise<ChatSkill[]> {
   const roots = chatSkillRoots(opts.engine, opts.repoPath, opts.home);
-  if (opts.engine === 'claude') roots.push(...(await claudePluginSkillRoots(opts.home)));
+  if (opts.engine === 'claude' && opts.readAgentConfig !== false) roots.push(...(await claudePluginSkillRoots(opts.home)));
   return scanSkillRoots(roots);
 }

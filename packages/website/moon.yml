@@ -62,7 +62,7 @@ tasks:
     deps:
       - 'website:build'
 
-  # sync-install: assert `public/install-studio.sh` is still byte-identical to the
+  # sync-install: assert `public/install.sh` and `install-studio.sh` are still byte-identical to the
   # upstream installer in bilo-io/midnite-apps. `--check` diffs and fails;
   # `--write` re-syncs (`moon run website:sync-install -- --write`).
   #

@@ -74,8 +74,8 @@ const alias = { '@midnite/studio-desktop/main': resolve(root, 'src/main/index.ts
 const common = {
   bundle: true,
   platform: 'node',
-  // Electron 33 runs Node 20.
-  target: 'node20',
+  // Electron 42 runs Node 24.15 (Chromium M148).
+  target: 'node24',
   format: 'cjs',
   sourcemap: wantSourcemap,
   /*
@@ -120,6 +120,7 @@ const outfiles = [
   'preload',
   'broker',
   'mcp-shim',
+  'policy-hook',
   'script-runner-worker',
   'companion-tts-worker',
   'music-worker',
@@ -130,6 +131,7 @@ const outfiles = [
   // Phase 113 Theme K slice 2: the desktop region overlay's own preload — three calls, nothing else.
   'capture-overlay-preload',
 ].map((name) => ({
+  name,
   entry: entryOf(name),
   out: resolve(root, `dist/bundle/${name}.js`),
 }));
@@ -159,7 +161,16 @@ const overlayOut = resolve(root, 'dist/bundle/capture-overlay.js');
 if (!wantSourcemap) rmSync(`${overlayOut}.map`, { force: true });
 
 await Promise.all([
-  ...outfiles.map(({ entry, out }) => build({ ...common, entryPoints: [entry], outfile: out })),
+  ...outfiles.map(({ name, entry, out }) =>
+    build({
+      ...common,
+      // The MCP stdio shim and the CLI policy hook are spawned under the host Node, not Electron's
+      // bundled Node — keep their syntax floor at node20.
+      target: name === 'mcp-shim' || name === 'policy-hook' ? 'node20' : common.target,
+      entryPoints: [entry],
+      outfile: out,
+    }),
+  ),
   build({
     bundle: true,
     platform: 'browser',

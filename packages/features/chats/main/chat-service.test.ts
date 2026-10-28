@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { ok, type AgentDefinition, type Chat, type ChatEvent, type ChatMessage } from '@midnite/studio-shared';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { SpawnedProcess, SpawnFn } from '@midnite/studio-runtime';
 import { createMemoryChatStore } from './chat-store';
@@ -15,12 +15,12 @@ const claude: AgentDefinition = { id: 'claude', label: 'Claude Code', command: '
 const codex: AgentDefinition = { id: 'codex', label: 'Codex', command: 'codex', args: [], accent: '#fff' };
 
 type Io = { out: (text: string) => void; err: (text: string) => void; close: (code: number | null) => void; killed: () => boolean };
-type Call = { command: string; args: readonly string[]; cwd: string; killed: boolean };
+type Call = { command: string; args: readonly string[]; cwd: string; killed: boolean; env?: Readonly<Record<string, string>> | undefined };
 
 function fakeSpawn(plan: (call: Call, io: Io, n: number) => void | Promise<void>): SpawnFn & { calls: Call[] } {
   const calls: Call[] = [];
-  const spawn = ((command: string, args: readonly string[], cwd: string): SpawnedProcess => {
-    const call: Call = { command, args, cwd, killed: false };
+  const spawn = ((command: string, args: readonly string[], cwd: string, env?: Readonly<Record<string, string>>): SpawnedProcess => {
+    const call: Call = { command, args, cwd, killed: false, env };
     calls.push(call);
     const stdout: ((c: string) => void)[] = [];
     const stderr: ((c: string) => void)[] = [];
@@ -142,6 +142,35 @@ describe('chat service: streaming a turn', () => {
     expect((await store.loadAll())[0]!.messages).toHaveLength(2);
   });
 
+  it('writes one chat-turn audit record with counts and never the text', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('a private answer'));
+      io.close(0);
+    });
+    const audit = vi.fn();
+    const { service } = setup({ spawn, audit });
+    const chat = await created(service, { model: 'opus' });
+    await service.send({ chatId: chat.id, text: 'a private question' });
+    await service.idle();
+    expect(audit).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'chat-turn', engine: 'claude', model: 'opus', chatId: chat.id, status: 'done', attachments: 0, redactions: 0 }),
+    );
+    expect(JSON.stringify(audit.mock.calls)).not.toContain('private');
+  });
+
+  it('survives an audit sink that throws', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn, audit: () => { throw new Error('disk full'); } });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    expect(lastAssistant(((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat).status).toBe('done');
+  });
+
   it('runs claude with streaming flags, read-only in ask mode, in the scratch dir when there is no repo', async () => {
     const spawn = fakeSpawn(async (_c, io) => {
       io.out(textDelta('ok'));
@@ -203,6 +232,120 @@ describe('chat service: streaming a turn', () => {
     expect(second).toMatchObject({ ok: false, kind: 'error' });
     await service.cancel(chat.id);
     await service.idle();
+  });
+});
+
+describe('chat service: one key per engine, model pinned (Phase 121 Theme I)', () => {
+  const claudeInit = (model: string) => line({ type: 'system', subtype: 'init', session_id: 's1', model });
+
+  it('gives each turn the one key its own engine needs, asked for by engine id, and nothing for an engine without one', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const engineEnv = vi.fn(async (id: string): Promise<Record<string, string>> => (id === 'claude' ? { ANTHROPIC_API_KEY: 'sk-ant' } : {}));
+    const { service } = setup({ spawn, engineEnv });
+    const a = await created(service);
+    await service.send({ chatId: a.id, text: 'hi' });
+    await service.idle();
+    const b = await created(service, { engine: 'codex' });
+    await service.send({ chatId: b.id, text: 'hi' });
+    await service.idle();
+    expect(engineEnv.mock.calls.map(([id]) => id)).toEqual(['claude', 'codex']);
+    expect(spawn.calls[0]!.env).toEqual({ ANTHROPIC_API_KEY: 'sk-ant' });
+    expect(spawn.calls[1]!.env).toBeUndefined();
+  });
+
+  it('a throwing key reader never blocks the turn', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn, engineEnv: async () => Promise.reject(new Error('locked')) });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    expect(spawn.calls[0]!.env).toBeUndefined();
+  });
+
+  it('launches with the pinned model flag on every turn, and marks no turn that reports the same model', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(claudeInit('claude-opus-5-20261001'));
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn });
+    const chat = await created(service, { model: 'opus-5' });
+    await service.send({ chatId: chat.id, text: 'one' });
+    await service.idle();
+    await service.send({ chatId: chat.id, text: 'two' });
+    await service.idle();
+    for (const call of spawn.calls) {
+      expect(call.args).toEqual(expect.arrayContaining(['--model', 'claude-opus-5']));
+    }
+    expect(spawn.calls).toHaveLength(2);
+    const stored = ((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat;
+    expect(stored.messages.filter((m) => m.reportedModel !== undefined)).toEqual([]);
+  });
+
+  it('marks a turn whose output reports a different model than the pin', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(claudeInit('claude-sonnet-5-5'));
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn });
+    const chat = await created(service, { model: 'opus-5' });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    const stored = ((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat;
+    expect(lastAssistant(stored).model).toBe('opus-5');
+    expect(lastAssistant(stored).reportedModel).toBe('claude-sonnet-5-5');
+  });
+});
+
+describe('chat service: the MCP allowlist gate (Phase 121 Theme C)', () => {
+  it('refuses a turn in a repo with an unapproved MCP server, naming it, and never starts the CLI', async () => {
+    const spawn = fakeSpawn(async (_c, io) => io.close(0));
+    const mcpGate = vi.fn(async () => ['files']);
+    const { service } = setup({ spawn, mcpGate });
+    const chat = await created(service, { mode: 'ask', repoId: 'repo:/work/app' });
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    expect(mcpGate).toHaveBeenCalledWith('repo:/work/app');
+    expect(spawn.calls).toEqual([]);
+    const reply = lastAssistant((await service.get(chat.id) as { ok: true; value: { chat: Chat } }).value.chat);
+    expect(reply.status).toBe('error');
+    expect(reply.error).toContain('“files”');
+    expect(reply.error).toContain('Tools');
+  });
+
+  it('runs the turn once the gate finds nothing held, and a throwing gate never blocks it', async () => {
+    for (const mcpGate of [async () => [], async (): Promise<string[]> => Promise.reject(new Error('disk'))]) {
+      const spawn = fakeSpawn(async (_c, io) => {
+        io.out(textDelta('ok'));
+        io.close(0);
+      });
+      const { service } = setup({ spawn, mcpGate });
+      const chat = await created(service, { mode: 'ask', repoId: 'repo:/work/app' });
+      await service.send({ chatId: chat.id, text: 'hi' });
+      await service.idle();
+      expect(spawn.calls).toHaveLength(1);
+    }
+  });
+
+  it('is not asked for a chat with no repo', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(textDelta('ok'));
+      io.close(0);
+    });
+    const mcpGate = vi.fn(async () => ['files']);
+    const { service } = setup({ spawn, mcpGate });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hi' });
+    await service.idle();
+    expect(mcpGate).not.toHaveBeenCalled();
+    expect(spawn.calls).toHaveLength(1);
   });
 });
 
@@ -516,6 +659,29 @@ describe('chat service: edit mode and reviewable changes', () => {
     expect(await store.loadPatches(set.id)).toEqual({ 'src/a.ts': fullPatch, 'img.png': 'BIN' });
   });
 
+  it('attaches policyReason when changes touch sensitive files like .githooks', async () => {
+    const sensitiveChanges = [
+      {
+        path: '.githooks/pre-commit',
+        oldPath: null,
+        change: 'added' as const,
+        binary: false,
+        insertions: 5,
+        deletions: 0,
+        patch: 'diff --git a/.githooks/pre-commit b/.githooks/pre-commit\nnew file mode 100755\n',
+        hunks: [{ header: '@@ -0,0 +1,5 @@', insertions: 5, deletions: 0, text: '+#!/bin/sh\n+echo hello\n' }],
+      },
+    ];
+    const ctx = setup({
+      git: fakeGit({ captureChanges: vi.fn(async () => ok(sensitiveChanges)) as never }),
+    });
+    const chat = await created(ctx.service, { mode: 'edit', repoId: 'repo:/work/app' });
+    await ctx.service.send({ chatId: chat.id, text: 'install hook' });
+    await ctx.service.idle();
+    const reply = lastAssistant(((await ctx.service.get(chat.id)) as { value: { chat: Chat } }).value.chat);
+    expect(reply.changeSet?.files[0]?.policyReason).toBe('A git hook runs on every commit.');
+  });
+
   it('summary flags a chat with changes waiting', async () => {
     const { service } = await withChanges();
     expect((await service.list())[0]!.pendingChanges).toBe(true);
@@ -542,7 +708,7 @@ describe('chat service: edit mode and reviewable changes', () => {
       changeSetId: message.changeSet!.id,
       decisions: [{ path: 'src/a.ts', action: 'accept', hunks: [1] }],
     });
-    const applied = (deps.git!.applyFilePatches as ReturnType<typeof vi.fn>).mock.calls[0]![1][0].patch as string;
+    const applied = (deps.git!.applyFilePatches as Mock).mock.calls[0]![1][0].patch as string;
     expect(applied.startsWith(header)).toBe(true);
     expect(applied).toContain('@@ -20,2 +21,3 @@');
     expect(applied).not.toContain('@@ -1,2 +1,3 @@');
@@ -574,7 +740,7 @@ describe('chat service: edit mode and reviewable changes', () => {
 
   it('answers a conflict envelope, marks the file conflict, and still applies the rest', async () => {
     const { service, chat, message, deps } = await withChanges();
-    (deps.git!.applyFilePatches as ReturnType<typeof vi.fn>).mockImplementationOnce(async (_r: string, patches: readonly { path: string }[]) =>
+    (deps.git!.applyFilePatches as Mock).mockImplementationOnce(async (_r: string, patches: readonly { path: string }[]) =>
       patches.map((p) => (p.path === 'src/a.ts' ? { path: p.path, ok: false, reason: 'Your working tree changed since this edit was made, so it no longer applies.' } : { path: p.path, ok: true })),
     );
 
@@ -847,5 +1013,98 @@ describe('chat service: bookkeeping', () => {
     expect(await service.update({ id: 'nope', title: 'x' })).toMatchObject({ ok: false });
     expect(await service.changeDiffs('nope', 'x')).toMatchObject({ ok: false });
     expect(await service.resolveChanges({ chatId: 'nope', changeSetId: 'x', decisions: [{ path: 'a', action: 'accept' }] })).toMatchObject({ ok: false });
+  });
+});
+
+describe('chat service: outbound redaction (Phase 121 Theme D)', () => {
+  // A vault PAT with no recognisable prefix: only the literal vault match can catch it.
+  const VAULT_PAT = 'Zq8vK2mXw9LpR4tYb7NcH3dJ6fGs1AaE';
+  const CANARY_PAT = `ghp_${'c'.repeat(36)}`;
+  const secrets = [
+    { name: 'forge-accounts:github:github.com:me', value: VAULT_PAT, kind: 'vault' as const },
+    { name: 'canaries:github-pat', value: CANARY_PAT, kind: 'canary' as const },
+  ];
+  const attachment = { id: 'a1', name: 'notes.md', text: `deploy with token ${VAULT_PAT} then done` };
+
+  it('never lets a vault token in an attachment reach the fake engine, and shows a chip on the user message', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(init('s1'));
+      io.out(done('s1'));
+      io.close(0);
+    });
+    const audit = vi.fn();
+    const { service, events } = setup({ spawn, outboundSecrets: async () => secrets, audit });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'summarise', attachments: [attachment] });
+    await service.idle();
+
+    const argv = JSON.stringify(spawn.calls.map((c) => [c.command, c.args]));
+    expect(argv).not.toContain(VAULT_PAT);
+    expect(argv).toContain('[redacted: vault-secret]');
+    const user = ((await service.get(chat.id)) as { value: { chat: Chat } }).value.chat.messages.find((m) => m.role === 'user')!;
+    expect(user.redactions).toEqual([{ kind: 'vault-secret', count: 1 }]);
+    // The thread text itself is untouched (scrollback-style): only what was sent is scrubbed.
+    expect(user.attachments?.[0]?.text).toContain(VAULT_PAT);
+    expect(events.some((e) => e.kind === 'message' && (e.message as ChatMessage).redactions?.length === 1)).toBe(true);
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ kind: 'chat-turn', redactions: 1 }));
+  });
+
+  it('scrubs a pattern-shaped credential even with no vault source, and sends nothing else different', async () => {
+    const token = `ghp_${'a'.repeat(36)}`;
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(done('s'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: `my token is ${token}, plain words stay` });
+    await service.idle();
+    const argv = JSON.stringify(spawn.calls[0]!.args);
+    expect(argv).not.toContain(token);
+    expect(argv).toContain('[redacted: github-token]');
+    expect(argv).toContain('plain words stay');
+  });
+
+  it('flags a canary value in the prompt on the audit record, and still scrubs it', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(done('s'));
+      io.close(0);
+    });
+    const audit = vi.fn();
+    const { service } = setup({ spawn, outboundSecrets: async () => secrets, audit });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: `here: ${CANARY_PAT}` });
+    await service.idle();
+    expect(JSON.stringify(spawn.calls[0]!.args)).not.toContain(CANARY_PAT);
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({ kind: 'chat-turn', canary: true }));
+  });
+
+  it('scrubs an Ollama request body, every message of the thread', async () => {
+    const seen: { role: string; content: string }[][] = [];
+    const ollamaStream = vi.fn(async (req: { messages: { role: string; content: string }[]; onDelta: (t: string) => void }) => {
+      seen.push(req.messages);
+      req.onDelta('ok');
+      return 'ok';
+    });
+    const { service } = setup({ ollamaStream: ollamaStream as never, outboundSecrets: async () => secrets });
+    const chat = await created(service, { engine: 'ollama', model: 'llama3.2:3b' });
+    await service.send({ chatId: chat.id, text: 'first', attachments: [attachment] });
+    await service.idle();
+    await service.send({ chatId: chat.id, text: 'second' });
+    await service.idle();
+    for (const body of seen) expect(JSON.stringify(body)).not.toContain(VAULT_PAT);
+    expect(JSON.stringify(seen[1])).toContain('[redacted: vault-secret]');
+  });
+
+  it('a failing secret source never breaks a turn: the patterns still run', async () => {
+    const spawn = fakeSpawn(async (_c, io) => {
+      io.out(done('s'));
+      io.close(0);
+    });
+    const { service } = setup({ spawn, outboundSecrets: async () => { throw new Error('vault locked'); } });
+    const chat = await created(service);
+    await service.send({ chatId: chat.id, text: 'hello' });
+    await service.idle();
+    expect(spawn.calls).toHaveLength(1);
   });
 });

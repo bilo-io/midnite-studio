@@ -18,10 +18,7 @@ export default defineConfig({
     include: ['renderer/**/*.test.{ts,tsx}', 'main/**/*.test.ts', 'manifest.test.ts'],
     environment: 'jsdom',
     // The main half runs under plain Node: its ArrayBuffer/Uint8Array checks (the glTF loader, the PNG and
-    // mesh codecs) fail across jsdom's realm. One glob instead of a header on each of ~30 moved files.
-    environmentMatchGlobs: [
-      ['main/**', 'node'],
-      ['manifest.test.ts', 'node'],
-    ],
+    // mesh codecs) fail across jsdom's realm. Vitest 4 removed `environmentMatchGlobs`, and this config is a
+    // project of the workspace gate, so each main/** test file carries a `@vitest-environment node` header.
   },
 });

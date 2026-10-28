@@ -12,7 +12,12 @@ const open = () => renderView(<MediaView />, { fixtures, uiState: { selectedRepo
 beforeEach(() => {
   useUiStore.setState({ mediaTab: 'audio', mediaPaneCollapsed: {}, activeView: 'media', audioTabByRepo: {} });
 });
-afterEach(cleanup);
+// The audio tab lazy-loads the music engine; let that import finish so vitest 4 does not tear the
+// environment down mid-load (EnvironmentTeardownError).
+afterEach(async () => {
+  cleanup();
+  await import('../../../../features/media-audio/renderer/music-editor/engine/engine');
+});
 
 describe('Audio modes', () => {
   it('defaults to Generator for a repo with no saved choice', async () => {

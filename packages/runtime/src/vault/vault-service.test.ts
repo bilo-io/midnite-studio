@@ -2,7 +2,7 @@ import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeCipher, type FakeCipher } from './testing';
 import {
@@ -82,15 +82,31 @@ describe('runtime vault — on-disk compatibility', () => {
   });
 });
 
+describe('runtime vault — entry-change hook (Phase 115 Theme C)', () => {
+  it('fires after a set and a delete, so the write-scrubber can refresh its values', async () => {
+    const service = createVaultService({ directory: dir, cipher });
+    const listener = vi.fn();
+    const off = service.onEntriesChanged(listener);
+    const vault = service.forApp('studio');
+    await vault.set('secrets', 'k', 'v');
+    await vault.delete('secrets', 'k');
+    expect(listener).toHaveBeenCalledTimes(2);
+    off();
+    await vault.set('secrets', 'k2', 'v');
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('runtime vault — degraded mode keeps each namespace’s old behaviour', () => {
-  it('drops secrets; holds db passwords and forge tokens for the session', async () => {
+  it('holds secrets, db passwords and forge tokens for the session (Phase 115 D: none is written)', async () => {
     cipher.setAvailable(false);
     const vault = createVaultService({ directory: dir, cipher }).forApp('studio');
     await vault.set('secrets', 'k', 'v');
     await vault.set('db-credentials', 'c1', 'pw', { fingerprint: 'fp' });
     await vault.set('forge-accounts', 'a', 'tok');
 
-    expect(await vault.get('secrets', 'k')).toBeNull();
+    expect(await vault.get('secrets', 'k')).toBe('v');
+    expect(await vault.has('secrets', 'k')).toBe(true);
     expect(await vault.get('db-credentials', 'c1')).toBe('pw');
     expect(await vault.get('forge-accounts', 'a')).toBe('tok');
     expect(cipher.encrypted).toEqual([]);
@@ -179,5 +195,173 @@ describe('runtime vault — keys', () => {
     cipher.setAvailable(false);
     await open.set('forge-accounts', 'github:github.com:me', 'token');
     expect(await open.keys('forge-accounts')).toEqual(['github:github.com:me']);
+  });
+});
+
+describe('runtime vault — locking, re-auth and VaultRead (Phase 118 Theme B)', () => {
+  it('implements read() returning discriminated VaultRead envelope', async () => {
+    const service = createVaultService({ directory: dir, cipher });
+    const client = service.forApp('studio');
+
+    // Absent
+    expect(await client.read('secrets', 'absent-key')).toEqual({ ok: false, kind: 'absent' });
+
+    // Present
+    await client.set('secrets', 'my-key', 'secret-123');
+    expect(await client.read('secrets', 'my-key')).toEqual({ ok: true, value: 'secret-123' });
+
+    // Denied
+    const deniedService = createVaultService({ directory: dir, cipher, authorize: () => false });
+    expect(await deniedService.forApp('studio').read('secrets', 'my-key')).toEqual({ ok: false, kind: 'denied' });
+  });
+
+  it('lock() prevents reads, returning kind: locked, but allows has and keys', async () => {
+    const service = createVaultService({ directory: dir, cipher });
+    const client = service.forApp('studio');
+    await client.set('secrets', 'locked-key', 'secret-val');
+
+    expect(service.isLocked()).toBe(false);
+    expect(await client.read('secrets', 'locked-key')).toEqual({ ok: true, value: 'secret-val' });
+
+    service.lock();
+    expect(service.isLocked()).toBe(true);
+
+    // read() gives kind: 'locked'
+    expect(await client.read('secrets', 'locked-key')).toEqual({ ok: false, kind: 'locked' });
+    // deprecated get() gives null
+    expect(await client.get('secrets', 'locked-key')).toBeNull();
+
+    // has and keys still answer while locked
+    expect(await client.has('secrets', 'locked-key')).toBe(true);
+    expect(await client.keys('secrets')).toContain('locked-key');
+
+    // unlock() restores reads
+    await service.unlock();
+    expect(service.isLocked()).toBe(false);
+    expect(await client.read('secrets', 'locked-key')).toEqual({ ok: true, value: 'secret-val' });
+  });
+
+  it('notifies onLockedChange listeners', async () => {
+    const service = createVaultService({ directory: dir, cipher });
+    const events: boolean[] = [];
+    const unsubscribe = service.onLockedChange((l) => events.push(l));
+
+    service.lock();
+    await service.unlock();
+    unsubscribe();
+    service.lock();
+
+    expect(events).toEqual([true, false]);
+  });
+
+  it('tracks recentUnlockAt and validates re-auth within 60s', async () => {
+    const service = createVaultService({ directory: dir, cipher, initialLocked: true });
+    expect(service.recentUnlockAt).toBeNull();
+    expect(service.isReauthValid()).toBe(false);
+
+    await service.unlock();
+    expect(service.recentUnlockAt).toBeTypeOf('number');
+    expect(service.isReauthValid(60_000)).toBe(true);
+
+    // Locking invalidates re-auth
+    service.lock();
+    expect(service.recentUnlockAt).toBeNull();
+    expect(service.isReauthValid()).toBe(false);
+  });
+
+  describe('reveal and copy (Theme C)', () => {
+    it('reveal returns value and logs reveal audit event when re-auth is valid', async () => {
+      const service = createVaultService({ directory: dir, cipher });
+      await service.forApp('studio').set('secrets', 'api-key', 'secret-val-42');
+
+      const res = await service.reveal('secrets', 'api-key');
+      expect(res).toEqual({ ok: true, value: 'secret-val-42' });
+
+      const auditEntries = await service.audit.read();
+      const revealEntry = auditEntries.find((e) => e.op === 'reveal');
+      expect(revealEntry).toBeDefined();
+      expect(revealEntry?.namespace).toBe('secrets');
+      expect(revealEntry?.id).toBe('api-key');
+      expect(revealEntry?.result).toBe('ok');
+      // Must NEVER contain the secret value in the audit record!
+      expect(JSON.stringify(revealEntry)).not.toContain('secret-val-42');
+    });
+
+    it('reveal refuses when locked', async () => {
+      const service = createVaultService({ directory: dir, cipher });
+      await service.forApp('studio').set('secrets', 'api-key', 'secret-val-42');
+      service.lock();
+
+      const res = await service.reveal('secrets', 'api-key');
+      expect(res).toEqual({ ok: false, error: 'Vault is locked' });
+
+      const auditEntries = await service.audit.read();
+      const revealEntry = auditEntries.find((e) => e.op === 'reveal');
+      expect(revealEntry?.result).toBe('locked');
+    });
+
+    it('reveal refuses when re-auth has expired', async () => {
+      const now = 1_000_000;
+      const dateSpy = vi.spyOn(Date, 'now').mockReturnValue(now);
+      const service = createVaultService({ directory: dir, cipher });
+      await service.forApp('studio').set('secrets', 'api-key', 'secret-val-42');
+
+      // Fast forward time past the 60s window (120s later)
+      dateSpy.mockReturnValue(now + 120_000);
+
+      const res = await service.reveal('secrets', 'api-key');
+      dateSpy.mockRestore();
+
+      expect(res).toEqual({ ok: false, error: 'Re-authentication required (within 60s)' });
+
+      const auditEntries = await service.audit.read();
+      const revealEntry = auditEntries.find((e) => e.op === 'reveal' && e.result === 'denied');
+      expect(revealEntry).toBeDefined();
+      expect(revealEntry?.reason).toBe('Re-authentication required');
+    });
+
+    it('copy writes secret to clipboard, logs copy audit, and auto-clears on timeout', async () => {
+      const service = createVaultService({ directory: dir, cipher });
+      await service.forApp('studio').set('secrets', 'copy-key', 'clipboard-secret-token');
+
+      let text = '';
+      const mockClipboard = {
+        writeText: (t: string) => {
+          text = t;
+        },
+        readText: () => text,
+      };
+
+      const res = await service.copy('secrets', 'copy-key', mockClipboard, { timeoutSeconds: 30 });
+      expect(res).toEqual({ ok: true, timeoutSeconds: 30 });
+      expect(text).toBe('clipboard-secret-token');
+
+      const auditEntries = await service.audit.read();
+      const copyEntry = auditEntries.find((e) => e.op === 'copy');
+      expect(copyEntry).toBeDefined();
+      expect(copyEntry?.namespace).toBe('secrets');
+      expect(copyEntry?.id).toBe('copy-key');
+      expect(copyEntry?.result).toBe('ok');
+      // Must NEVER contain the secret value in the audit record!
+      expect(JSON.stringify(copyEntry)).not.toContain('clipboard-secret-token');
+    });
+
+    it('copy refuses when locked', async () => {
+      const service = createVaultService({ directory: dir, cipher });
+      await service.forApp('studio').set('secrets', 'copy-key', 'val');
+      service.lock();
+
+      let text = '';
+      const mockClipboard = {
+        writeText: (t: string) => {
+          text = t;
+        },
+        readText: () => text,
+      };
+
+      const res = await service.copy('secrets', 'copy-key', mockClipboard);
+      expect(res).toEqual({ ok: false, error: 'Vault is locked' });
+      expect(text).toBe('');
+    });
   });
 });

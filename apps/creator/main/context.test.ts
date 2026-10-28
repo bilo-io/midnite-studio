@@ -11,6 +11,7 @@ import { mediaAudioManifest } from '@midnite/studio-feature-media-audio/main';
 import { mediaDocsManifest } from '@midnite/studio-feature-media-docs/main';
 import { mediaVideoManifest } from '@midnite/studio-feature-media-video/main';
 import { mediaImagesManifest } from '@midnite/studio-feature-media-images/main';
+import { reportManifest } from '@midnite/studio-feature-report/main';
 import { CHANNELS, MEDIA_ROOT_DIR, mstudioFileUrl } from '@midnite/studio-shared';
 
 import { CREATOR_REPO_ID, registerCreatorHandlers } from './context';
@@ -30,6 +31,7 @@ async function setup() {
   const readKey = vi.fn(async () => null);
   const media = registerCreatorHandlers({
     ipcMain: { handle: (c, l) => void handlers.set(c, l), on: () => undefined },
+    report: { sink: () => null, homeDir: () => '/home', openExternal: () => undefined, writeClipboard: () => undefined, revealPath: () => undefined },
     trashItem: async () => undefined,
     send: () => undefined,
     mediaRoot: dir,
@@ -55,7 +57,7 @@ describe('registerCreatorHandlers', () => {
   it('registers exactly media-core, Docs, Images, Audio and Video channels', async () => {
     const { handlers } = await setup();
     expect([...handlers.keys()].sort()).toEqual(
-      [...mediaCoreManifest.ipc, ...mediaDocsManifest.ipc, ...mediaImagesManifest.ipc, ...mediaAudioManifest.ipc, ...mediaVideoManifest.ipc].sort(),
+      [...mediaCoreManifest.ipc, ...mediaDocsManifest.ipc, ...mediaImagesManifest.ipc, ...mediaAudioManifest.ipc, ...mediaVideoManifest.ipc, ...reportManifest.ipc].sort(),
     );
   });
 

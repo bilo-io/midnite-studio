@@ -6,7 +6,7 @@
   "type": "module",
   "license": "UNLICENSED",
   "devDependencies": {
-    "hyperframes": "0.8.114"
+    "hyperframes": "0.8.191"
   },
   "scripts": {
     "assets": "node ../scripts/sync-assets.mjs",

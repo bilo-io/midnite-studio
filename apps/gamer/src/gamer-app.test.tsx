@@ -1,6 +1,6 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
 
@@ -12,9 +12,20 @@ import { GAMER_APP, GAMER_TABS } from './gamer-manifest';
 const ok = <T,>(value: T) => ({ ok: true as const, value });
 const off = () => () => undefined;
 
+let onReportOpen: (() => void) | null = null;
+const report = {
+  onOpen: vi.fn((handler: () => void) => {
+    onReportOpen = handler;
+    return () => undefined;
+  }),
+  bundle: vi.fn(async () => ({ text: '' })),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+};
+
 beforeEach(() => {
   window.localStorage.clear();
   (window as unknown as { midniteStudio: unknown }).midniteStudio = {
+    report,
     games: {
       settings: { get: vi.fn().mockResolvedValue({ root: null, resolvedRoot: '/games', issue: null }), set: vi.fn() },
       list: vi.fn().mockResolvedValue({ games: [] }),
@@ -86,7 +97,17 @@ describe('Midnite Gamer', () => {
 
   it('mounts the sprite render host at its root, so a "render from 3D" job has a window to draw in', async () => {
     render(<GamerApp />);
-    const sprite = (window as unknown as { midniteStudio: { media: { sprite: { onRenderRequest: ReturnType<typeof vi.fn> } } } }).midniteStudio.media.sprite;
+    const sprite = (window as unknown as { midniteStudio: { media: { sprite: { onRenderRequest: Mock } } } }).midniteStudio.media.sprite;
     await waitFor(() => expect(sprite.onRenderRequest).toHaveBeenCalled());
+  });
+});
+
+describe('Gamer Report an Issue', () => {
+  it('mounts the dialog for midnite-gamer: the Help menu event opens it', async () => {
+    render(<GamerApp />);
+    await waitFor(() => expect(onReportOpen).not.toBeNull());
+    expect(screen.queryByText('Report an issue')).toBeNull();
+    act(() => onReportOpen?.());
+    expect(await screen.findByText('Report an issue')).toBeDefined();
   });
 });

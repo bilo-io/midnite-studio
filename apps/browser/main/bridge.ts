@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -12,6 +13,8 @@ import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
  * holds the list).
  */
 export type BrowserBridge = {
+  /** Report an Issue: the dialog's channels and the Help-menu event (`createReportBridge`). */
+  report: ReportBridge;
   browser: MidniteStudioBridge['browser'];
   /**
    * The web apps' views. Not `signIns`/`signOut`: those are the Vault's (Studio's Vault view lists and
@@ -27,6 +30,8 @@ export type { RendererIpc };
 export function createBrowserBridge(ipc: RendererIpc): BrowserBridge {
   const { call, send, subscribe } = createBridgeSlice(ipc);
   return {
+    // Report an Issue — the report feature's own preload half (`@midnite/studio-feature-report/bridge`).
+    report: createReportBridge({ call, send, subscribe }),
     browser: {
       create: (req) => call(CHANNELS.browserCreate, req),
       close: (req) => send(CHANNELS.browserClose, req),
@@ -47,6 +52,23 @@ export function createBrowserBridge(ipc: RendererIpc): BrowserBridge {
       devServerProbe: (req) => call(CHANNELS.browserDevServerProbe, req),
       setKeepAwake: (req) => send(CHANNELS.browserSetKeepAwake, req),
       setDiscardMs: (req) => send(CHANNELS.browserSetDiscardMs, req),
+      respondPermission: (req) => send(CHANNELS.browserPermissionResponse, req),
+      permissionsList: () => call(CHANNELS.browserPermissionsList),
+      permissionRevoke: (req) => call(CHANNELS.browserPermissionRevoke, req),
+      permissionsReset: () => call(CHANNELS.browserPermissionsReset),
+      setSpellcheck: (req) => send(CHANNELS.browserSetSpellcheck, req),
+      setSiteSafety: (req) => send(CHANNELS.browserSetSiteSafety, req),
+      proceedSite: (req) => send(CHANNELS.browserProceedSite, req),
+      setDownloads: (req) => send(CHANNELS.browserSetDownloads, req),
+      respondDownload: (req) => send(CHANNELS.browserDownloadResponse, req),
+      setPrivacy: (req) => send(CHANNELS.browserSetPrivacy, req),
+      setTrackerException: (req) => send(CHANNELS.browserTrackerSiteException, req),
+      agentStart: (req) => call(CHANNELS.browserAgentStart, req),
+      agentStop: (req) => send(CHANNELS.browserAgentStop, req),
+      agentTool: (req) => call(CHANNELS.browserAgentTool, req),
+      agentRespond: (req) => send(CHANNELS.browserAgentRespond, req),
+      clearClipboard: (req) => send(CHANNELS.browserClipboardClear, req),
+      setClipboardWatch: (req) => send(CHANNELS.browserSetClipboardWatch, req),
       onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
     },
     webApps: {

@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-models",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "The models feature (Phase 113 Theme N): the Ollama client, pull queue and settings in main; the Models view, pull queue store and model hooks in the renderer. Agents' third view.",
   "sideEffects": false,
@@ -41,6 +41,6 @@
     "react-dom": "^19.0.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.5",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.0"
   }
 }

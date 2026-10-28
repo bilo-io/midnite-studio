@@ -1,0 +1,18 @@
+export {
+  compute3DShapeVertex,
+  computeGlowTier,
+  EpicAudioPlayer,
+  EpicAudioVisualizerCanvas,
+  formatAudioTime,
+  getShapeRadiusMultiplier,
+  PARTICLE_COUNT_3D,
+  project3D,
+  rotate3D,
+  SHAPE_NAMES,
+  SPECTRUM_NAMES,
+  type EpicAudioPlayerProps,
+  type EpicAudioVisualizerCanvasProps,
+  type ProjectedPoint,
+  type ShapeKind,
+  type Vec3,
+} from '@midnite/studio-frame';

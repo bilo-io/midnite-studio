@@ -114,6 +114,8 @@ export function denyAllDevices(
 export type PermissionRequestDetails = {
   /** Present only for `media`. `['audio']`, `['video']`, or both. */
   mediaTypes?: readonly string[];
+  /** Present only for `openExternal`: the URL a page asked the OS to open (Phase 117 Theme G). */
+  externalURL?: string;
   /**
    * The origin asking, as a URL spec rather than a serialised origin — so
    * `"file:///"` for the packaged bundle and `"http://localhost:5173/"` (with
@@ -183,11 +185,11 @@ export function isAppOrigin(origin: string | undefined, devServerOrigin: string 
 }
 
 /** `http://localhost:5173/` and `http://localhost:5173` are one origin; make them one string. */
-function normaliseOrigin(raw: string): string {
+export function normaliseOrigin(raw: string): string {
   try {
-    return new URL(raw).origin;
+    return new URL(raw.trim()).origin;
   } catch {
-    return raw.replace(/\/+$/, '');
+    return raw.trim().replace(/\/+$/, '').toLowerCase();
   }
 }
 

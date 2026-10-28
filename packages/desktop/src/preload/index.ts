@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+import { createReportBridge } from '@midnite/studio-feature-report/bridge';
+
 import {
   APP_VERSION_ARG,
   CHANNELS,
@@ -142,6 +144,12 @@ const bridge: Pick<
   | 'secrets'
   | 'vaultGrants'
   | 'vaultPairings'
+  | 'vaultLock'
+  | 'vaultAudit'
+  | 'vaultBreach'
+  | 'vaultSecrets'
+  | 'vaultScan'
+  | 'vaultBackup'
   | 'finance'
   | 'financeAccounts'
   | 'markets'
@@ -174,13 +182,21 @@ const bridge: Pick<
   | 'ollama'
   | 'gitIdentity'
   | 'systemMemory'
+  | 'security'
   | 'optimizer'
   | 'protocol'
   | 'db'
   | 'knowledge'
   | 'mcp'
+  | 'agentAudit'
+  | 'agentLimits'
+  | 'mcpTrust'
+  | 'confinement'
   | 'companion'
   | 'capture'
+  | 'vanguard'
+  | 'toolApproval'
+  | 'privacy'
 > = {
   /*
     A plain value, not a channel: it never changes for the life of the process,
@@ -355,6 +371,31 @@ const bridge: Pick<
     importFromApp: (req) => call(CHANNELS.captureImport, req),
     onChanged: (handler) => subscribe(EVENT_CHANNELS.captureChanged, handler),
   },
+  vanguard: {
+    findings: {
+      list: (req) => call(CHANNELS.securityFindingsList, req),
+      setStatus: (req) => call(CHANNELS.securityFindingsSetStatus, req),
+      act: (req) => call(CHANNELS.securityFindingsAct, req),
+      preview: (req) => call(CHANNELS.securityFindingsActPreview, req),
+      onChanged: (handler) => subscribe(EVENT_CHANNELS.securityFindingsChanged, handler),
+    },
+    sensors: () => call(CHANNELS.vanguardSensors),
+    runSensor: (req) => call(CHANNELS.vanguardSensorRun, req),
+    settings: () => call(CHANNELS.vanguardSettingsGet),
+    setSettings: (req) => call(CHANNELS.vanguardSettingsSet, req),
+    viewOpened: () => call(CHANNELS.vanguardViewOpened),
+    openQuarantine: () => call(CHANNELS.vanguardOpenQuarantine),
+    onAgentPaused: (handler) => subscribe(EVENT_CHANNELS.vanguardAgentPaused, handler),
+    resolveAgentPause: (req) => call(CHANNELS.vanguardAgentPauseResolve, req),
+    responseState: () => call(CHANNELS.vanguardResponseState),
+    connections: () => call(CHANNELS.vanguardConnections),
+    malware: {
+      status: () => call(CHANNELS.vanguardMalwareStatus),
+      scan: (req) => call(CHANNELS.vanguardMalwareScan, req),
+      cancel: () => call(CHANNELS.vanguardMalwareScanCancel),
+    },
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.vanguardChanged, handler),
+  },
   ops: {
     checkout: (req) => call(CHANNELS.opCheckout, req),
     branchCreate: (req) => call(CHANNELS.opBranchCreate, req),
@@ -452,6 +493,23 @@ const bridge: Pick<
     devServerProbe: (req) => call(CHANNELS.browserDevServerProbe, req),
     setKeepAwake: (req) => ipcRenderer.send(CHANNELS.browserSetKeepAwake, req),
     setDiscardMs: (req) => ipcRenderer.send(CHANNELS.browserSetDiscardMs, req),
+    respondPermission: (req) => ipcRenderer.send(CHANNELS.browserPermissionResponse, req),
+    permissionsList: () => call(CHANNELS.browserPermissionsList),
+    permissionRevoke: (req) => call(CHANNELS.browserPermissionRevoke, req),
+    permissionsReset: () => call(CHANNELS.browserPermissionsReset),
+    setSpellcheck: (req) => ipcRenderer.send(CHANNELS.browserSetSpellcheck, req),
+    setSiteSafety: (req) => ipcRenderer.send(CHANNELS.browserSetSiteSafety, req),
+    proceedSite: (req) => ipcRenderer.send(CHANNELS.browserProceedSite, req),
+    setDownloads: (req) => ipcRenderer.send(CHANNELS.browserSetDownloads, req),
+    respondDownload: (req) => ipcRenderer.send(CHANNELS.browserDownloadResponse, req),
+    setPrivacy: (req) => ipcRenderer.send(CHANNELS.browserSetPrivacy, req),
+    setTrackerException: (req) => ipcRenderer.send(CHANNELS.browserTrackerSiteException, req),
+    agentStart: (req) => call(CHANNELS.browserAgentStart, req),
+    agentStop: (req) => ipcRenderer.send(CHANNELS.browserAgentStop, req),
+    agentTool: (req) => call(CHANNELS.browserAgentTool, req),
+    agentRespond: (req) => ipcRenderer.send(CHANNELS.browserAgentRespond, req),
+    clearClipboard: (req) => ipcRenderer.send(CHANNELS.browserClipboardClear, req),
+    setClipboardWatch: (req) => ipcRenderer.send(CHANNELS.browserSetClipboardWatch, req),
     onEvent: (handler) => subscribe(EVENT_CHANNELS.browserEvent, handler),
   },
   webApps: {
@@ -462,6 +520,12 @@ const bridge: Pick<
     activate: (req) => ipcRenderer.send(CHANNELS.webAppsActivate, req),
     signIns: (req) => call(CHANNELS.webAppsSignIns, req),
     signOut: (req) => call(CHANNELS.webAppsSignOut, req),
+  },
+  privacy: {
+    historyStats: () => call(CHANNELS.privacyHistoryStats),
+    clearHistory: () => call(CHANNELS.privacyHistoryClear),
+    fileVault: () => call(CHANNELS.privacyFileVault),
+    openFileVault: () => call(CHANNELS.privacyOpenFileVault),
   },
   agent: {
     list: () => call(CHANNELS.agentList),
@@ -525,6 +589,36 @@ const bridge: Pick<
   vaultPairings: {
     list: (req) => call(CHANNELS.vaultPairingsList, req),
     unpair: (req) => call(CHANNELS.vaultPairingUnpair, req),
+  },
+  vaultLock: {
+    status: (req) => call(CHANNELS.vaultLockStatus, req),
+    lock: (req) => call(CHANNELS.vaultLock, req),
+    unlock: (req) => call(CHANNELS.vaultUnlock, req),
+  },
+  vaultAudit: {
+    list: (req) => call(CHANNELS.vaultAuditList, req),
+    verify: (req) => call(CHANNELS.vaultAuditVerify, req),
+    export: (req) => call(CHANNELS.vaultAuditExport, req),
+  },
+  vaultBreach: {
+    check: (req) => call(CHANNELS.vaultBreachCheck, req),
+  },
+  vaultSecrets: {
+    revealOnce: (req) => call(CHANNELS.vaultRevealOnce, req),
+    copyOnce: (req) => call(CHANNELS.vaultCopyOnce, req),
+  },
+  vaultScan: {
+    history: (req) => call(CHANNELS.vaultScanHistory, req),
+    hookStatus: (req) => call(CHANNELS.vaultHookStatus, req),
+    hookInstall: (req) => call(CHANNELS.vaultHookInstall, req),
+    hookUninstall: (req) => call(CHANNELS.vaultHookUninstall, req),
+  },
+  vaultBackup: {
+    export: (req) => call(CHANNELS.vaultExport, req),
+    importPreview: (req) => call(CHANNELS.vaultImportPreview, req),
+    import: (req) => call(CHANNELS.vaultImport, req),
+    pickExportPath: (req) => call(CHANNELS.vaultPickExportPath, req),
+    pickImportPath: (req) => call(CHANNELS.vaultPickImportPath, req),
   },
   finance: {
     search: (req) => call(CHANNELS.financeSearch, req),
@@ -954,19 +1048,9 @@ const bridge: Pick<
     enabled: perfEnabled(process.env),
     mark: (m) => ipcRenderer.send(MSTUDIO_PERF_MARK, m),
   },
-  report: {
-    // `send`, not `call`: a crash report has no answer worth awaiting, and the
-    // renderer making it may be seconds from a `render-process-gone` reload.
-    error: (r) => ipcRenderer.send(CHANNELS.reportError, r),
-    logPath: () => call(CHANNELS.reportLogPath),
-    bundle: () => call(CHANNELS.reportBundle),
-    // Deliberately argument-free — main reveals the file it owns. See
-    // `CHANNELS.reportReveal`.
-    reveal: () => call(CHANNELS.reportReveal),
-    // `invoke`-shaped, unlike `error` above — a submission has a real answer
-    // (the created issue's URL, or why it failed) worth awaiting.
-    submitIssue: (r) => call(CHANNELS.reportSubmitIssue, r),
-  },
+  // The report feature's own preload half — the crash channel, the crash log and Report an Issue —
+  // so Studio and every extracted app expose exactly the channels its main half registers.
+  report: createReportBridge({ call, send: (channel, req) => ipcRenderer.send(channel, req), subscribe }),
   systemHealth: () => call(CHANNELS.systemHealth),
   systemHealthStartSshAgent: () => call(CHANNELS.systemHealthStartSshAgent),
   monitorAgentUsage: () => call(CHANNELS.monitorAgentUsage),
@@ -981,6 +1065,9 @@ const bridge: Pick<
     set: (req) => call(CHANNELS.gitIdentitySet, req),
   },
   systemMemory: () => call(CHANNELS.systemMemory),
+  security: {
+    scanContent: (req) => call(CHANNELS.securityScanContent, req),
+  },
   ollama: {
     status: () => call(CHANNELS.ollamaStatus),
     list: () => call(CHANNELS.ollamaList),
@@ -1041,6 +1128,24 @@ const bridge: Pick<
     set: (req) => call(CHANNELS.mcpSet, req),
     calls: () => call(CHANNELS.mcpCalls),
   },
+  agentAudit: {
+    list: (req) => call(CHANNELS.agentAuditList, req),
+    export: (req) => call(CHANNELS.agentAuditExport, req),
+  },
+  mcpTrust: {
+    list: (req) => call(CHANNELS.mcpTrustList, req),
+    approve: (req) => call(CHANNELS.mcpTrustApprove, req),
+  },
+  toolApproval: {
+    onRequested: (handler) => subscribe(EVENT_CHANNELS.toolApprovalRequested, handler),
+    onResolved: (handler) => subscribe(EVENT_CHANNELS.toolApprovalResolved, handler),
+    answer: (req) => call(CHANNELS.toolApprovalAnswer, req),
+    hookInfo: () => call(CHANNELS.toolApprovalHookInfo),
+  },
+  agentLimits: {
+    onTripped: (handler) => subscribe(EVENT_CHANNELS.agentLimitTripped, handler),
+    resolve: (req) => call(CHANNELS.agentLimitResolve, req),
+  },
   companion: {
     snapshot: (req) => call(CHANNELS.companionSnapshot, req),
     digest: (req) => call(CHANNELS.companionDigest, req),
@@ -1078,6 +1183,9 @@ const bridge: Pick<
   },
   windowChrome,
   windowRole,
+  confinement: {
+    status: () => call(CHANNELS.confinementStatus),
+  },
 };
 
 try {

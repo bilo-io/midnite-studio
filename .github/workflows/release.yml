@@ -51,7 +51,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       # Same reasoning as ci.yml's `gate`/`package` jobs: @bilo-io/ui and
@@ -152,6 +152,12 @@ jobs:
       - name: Check the launcher ships no Quick Kiss
         run: node scripts/no-quick-kiss.mjs apps/launcher/dist
 
+      # Both zips, extracted and codesign-verified exactly as install.sh does before it installs —
+      # the launcher shipped every release up to v0.0.3 with no sealed resources, so its own installer
+      # refused it, and nothing here noticed. Fails before anything is uploaded or published.
+      - name: Check the installers would accept both zips
+        run: node scripts/verify-signature.mjs packages/desktop/release/*.zip apps/launcher/release/*.zip
+
       # The explicit allowlist below is what `release` actually publishes;
       # this upload only needs to be a superset of it plus the dmg (a human
       # download target, not an updater input, but worth carrying along).
@@ -195,7 +201,7 @@ jobs:
       # node builtins only — no install needed.
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
       - name: Compute the bundle matrix
         id: matrix
         shell: bash
@@ -231,19 +237,31 @@ jobs:
           version: 10.34.5
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Phase 117 Theme A: the Browser bundle cannot ship on an Electron major outside the supported
+      # window (no security backports). Strict judges the launcher's pin — the runtime a bundle runs
+      # on; Studio's own pin stays a warning until Phase 76 Theme A's bump lands — the same gate
+      # `app-browser:dist` runs, here in the job that packs the bundle.
+      - name: Chromium floor (Browser only, strict)
+        id: floor
+        if: ${{ matrix.app == 'browser' }}
+        continue-on-error: true
+        run: pnpm exec moon run root:electron-freshness-strict
       - name: Build the bundle
+        if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         run: pnpm exec moon run ${{ matrix.project }}:build
       - name: Check the bundle ships no Quick Kiss
+        if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         run: node scripts/no-quick-kiss.mjs ${{ matrix.dir }}/dist
       # An app with no `resources/icon.icns` yet cannot pass the launcher's bundle check, so it is not
       # packed: a warning, not a failure — the catalog simply does not list it this release.
       - name: Pack the bundle zip
+        if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -256,6 +274,7 @@ jobs:
           node scripts/pack-bundle.mjs --app "${{ matrix.app }}" --dir "${{ matrix.dir }}" \
             --version "$version" --out bundle-out --stage "$RUNNER_TEMP/stage-${{ matrix.app }}"
       - name: Upload the bundle
+        if: ${{ matrix.app != 'browser' || steps.floor.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: bundle-${{ matrix.app }}
@@ -420,7 +439,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       - name: Install
@@ -518,7 +537,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
 
       - name: Download the launcher
         uses: actions/download-artifact@v8

@@ -1,15 +1,19 @@
 import { monitorMain, type MetricsService, type UsageSession } from '@midnite/studio-feature-monitor/main';
-import { createIpcContext, registerHandoffOpener, type IpcContextElectron } from '@midnite/studio-runtime';
+import {
+  createIpcContext,
+  registerHandoffOpener,
+  type IpcContextElectron,
+  type LogSink,
+} from '@midnite/studio-runtime';
 import { CHANNELS, type schemas } from '@midnite/studio-shared';
 import type { z } from 'zod';
-
-import type { CrashLog } from './crash-log';
 
 /** The electron pieces Monitor's main needs, injected so registration is testable under bare vitest. */
 export type MonitorElectron = IpcContextElectron & {
   /** Handed the sampler so main can pause it as the window blurs or hides. */
   onMetricsService(service: MetricsService): void;
-  log: CrashLog;
+  /** Monitor's crash log — the runtime's file sink, the same one Studio's main writes through. */
+  log: LogSink;
   /**
    * The live terminal sessions, read-only. Monitor owns no pty broker: main composes this over the
    * runtime host's broker as a guest (`shared-sessions.ts`); absent it, Monitor lists none.
@@ -34,8 +38,8 @@ const NO_BROKER: TerminalList = {
 
 /**
  * Registers every channel Monitor's renderer can call: the monitor feature's (metrics, system
- * health), plus the two read-side crash-log channels the feature leaves to its composer — the log
- * sink is the composer's, not the feature's.
+ * health), the terminal list and the hand-off. The crash-log reads and Report an Issue are the
+ * report feature's (`report.ts`) — registered once, there, over the same log sink.
  */
 export function registerMonitorHandlers(el: MonitorElectron): void {
   const ctx = createIpcContext(el);
@@ -48,6 +52,4 @@ export function registerMonitorHandlers(el: MonitorElectron): void {
     warn: (issue) => el.log.write('warn', issue),
   });
   el.ipcMain.handle(CHANNELS.terminalList, () => el.listSessions?.() ?? NO_BROKER);
-  el.ipcMain.handle(CHANNELS.reportLogPath, () => ({ path: el.log.path }));
-  el.ipcMain.handle(CHANNELS.reportBundle, () => ({ text: el.log.bundle() }));
 }

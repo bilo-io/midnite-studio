@@ -1,8 +1,8 @@
 {
   "name": "@midnite/studio-feature-media-docs",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
-  "description": "Media \u25b8 Docs as a feature (Phase 113 Theme Q): the markdown doc editor, its explorer, AI-thread model and exports \u2014 Creator first, composed through media-core\u2019s tab registry.",
+  "description": "Media ▸ Docs as a feature (Phase 113 Theme Q): the markdown doc editor, its explorer, AI-thread model and exports — Creator first, composed through media-core’s tab registry.",
   "sideEffects": false,
   "exports": {
     "./renderer": "./renderer/index.ts",
@@ -58,6 +58,6 @@
     "react-dom": "^19.0.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.5",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.0"
   }
 }

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SecretFindingSchema, type SecretFinding } from '../scan-secrets';
+
 /**
  * The result envelope every mutating op returns.
  *
@@ -65,6 +67,14 @@ export const GitOpFailureSchema = z.discriminatedUnion('kind', [
      */
     code: z.enum(['stale-write', 'non-fast-forward', 'stale-lease', 'parse']).optional(),
   }),
+  z.object({
+    ok: z.literal(false),
+    kind: z.literal('secrets'),
+    /** Secret findings that blocked the operation (Phase 118 Theme F). */
+    findings: z.array(SecretFindingSchema),
+    message: z.string().default('Secrets detected in staged changes'),
+    stderr: z.string().optional(),
+  }),
 ]);
 
 export const GitOpResultSchema = z.union([z.object({ ok: z.literal(true) }), GitOpFailureSchema]);
@@ -84,6 +94,16 @@ export const conflict = <T = void>(op: ConflictOp, files: string[]): GitOpResult
   kind: 'conflict',
   op,
   files,
+});
+
+export const secretsFailure = <T = void>(
+  findings: SecretFinding[],
+  message = 'Secrets detected in staged changes',
+): GitOpResult<T> => ({
+  ok: false,
+  kind: 'secrets',
+  findings,
+  message,
 });
 
 export const failure = <T = void>(

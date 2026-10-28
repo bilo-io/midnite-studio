@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { buildScene, ModelSpecSchema, parseModelSidecar, rasterizeMask, referenceCamera } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 

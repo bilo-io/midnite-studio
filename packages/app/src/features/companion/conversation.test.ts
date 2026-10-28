@@ -4,7 +4,7 @@
  * transcriber, so frames are plain arrays and time is frame counts.
  */
 import { ok, failure } from '@midnite/studio-shared';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
@@ -102,11 +102,11 @@ describe('createUtteranceSegmenter', () => {
 
 describe('the conversation session', () => {
   let onFrame: ((frame: Float32Array) => void) | null;
-  let close: ReturnType<typeof vi.fn>;
-  let transcribe: ReturnType<typeof vi.fn>;
+  let close: Mock;
+  let transcribe: Mock;
   let speaking: boolean;
 
-  const owner = (): ConversationOwner & { deliver: ReturnType<typeof vi.fn> } => ({ deliver: vi.fn() });
+  const owner = (): ConversationOwner & { deliver: Mock } => ({ deliver: vi.fn() });
   /** One spoken phrase: speech, then the pause that ends it. */
   const say = async (): Promise<void> => {
     for (let index = 0; index < 5; index += 1) onFrame?.(silence());
@@ -291,7 +291,7 @@ describe('the conversation session', () => {
   describe('during a voice audition (Phase 109 Theme F)', () => {
     let bargeable: boolean;
     let expectingReply: boolean;
-    let bargeIn: ReturnType<typeof vi.fn>;
+    let bargeIn: Mock;
 
     beforeEach(() => {
       bargeable = false;

@@ -257,9 +257,9 @@ export function parsePullDetail(payload: unknown): ForgePullDetail | null {
     baseSha: asString(row['baseRefOid']),
     baseBranch: asString(row['baseRefName']) ?? '',
 
-    additions: asInt(row['additions']) ?? 0,
-    deletions: asInt(row['deletions']) ?? 0,
-    changedFiles: asInt(row['changedFiles']) ?? 0,
+    additions: asInt(row['additions']),
+    deletions: asInt(row['deletions']),
+    changedFiles: asInt(row['changedFiles']),
     createdAt: asTimestamp(row['createdAt']),
     updatedAt: asTimestamp(row['updatedAt']),
     mergeable: asString(row['mergeable']),

@@ -24,6 +24,7 @@ const LABEL: Record<ViewId, string> = {
   workflows: 'Graphs',
   models: 'Models',
   tools: 'Tools',
+  audit: 'Audit',
 };
 
 /** Agents' own tools and the frame's: no Gamer, Creator or Coder tool is offered by an app that is not installed. */
@@ -48,6 +49,9 @@ function ToolsTab() {
   );
 }
 
+/** The agent audit trail (Phase 121 Theme G): Agents' own chat turns and council runs, newest first. */
+const AuditView = lazy(() => import('@midnite/studio-feature-mcp-tools/renderer').then((m) => ({ default: m.AgentAuditView })));
+
 /** Each view as a lazy chunk, loaded the way Studio's registry loads it. */
 const VIEWS: Record<ViewId, ComponentType> = {
   chats: lazy(() => chatsViews.chats().then((Component) => ({ default: Component }))),
@@ -55,11 +59,12 @@ const VIEWS: Record<ViewId, ComponentType> = {
   workflows: lazy(() => workflowsViews.workflows().then((Component) => ({ default: Component }))),
   models: lazy(() => modelsViews.models().then((Component) => ({ default: Component }))),
   tools: ToolsTab,
+  audit: AuditView,
 };
 
 /**
- * What Agents shows on open — Chats, with Councils, Graphs, Models and Tools beside it as tabs: the accent mark and
- * name, the five view tabs, then the active feature's own view. Each view fills the window below the
+ * What Agents shows on open — Chats, with Councils, Graphs, Models, Tools and Audit beside it as tabs: the accent mark and
+ * name, the six view tabs, then the active feature's own view. Each view fills the window below the
  * header exactly as it fills Studio's content area.
  */
 export function AgentsHome({ initial = AGENTS_APP.home }: { initial?: ViewId }) {

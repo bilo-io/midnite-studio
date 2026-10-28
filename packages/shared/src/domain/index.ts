@@ -6,6 +6,7 @@ export * from './api-script-surface';
 export * from './web-apps';
 export * from './blame';
 export * from './browser';
+export * from './site-verdict';
 export * from './checks-verdict';
 export * from './commit';
 export * from './commit-ci';

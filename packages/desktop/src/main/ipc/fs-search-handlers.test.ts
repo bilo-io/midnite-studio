@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 const { resolveWorkdir, readGrep } = vi.hoisted(() => ({
   resolveWorkdir: vi.fn(),
@@ -77,7 +77,7 @@ type SearchResult =
 async function importSearchHandler() {
   const { CHANNELS } = await import('@midnite/studio-shared');
   const { registerFsSearchHandlers } = await import('./fs-search-handlers');
-  const ipcMain = (await import('electron')).ipcMain as unknown as { handle: ReturnType<typeof vi.fn> };
+  const ipcMain = (await import('electron')).ipcMain as unknown as { handle: Mock };
   ipcMain.handle.mockClear();
   registerFsSearchHandlers();
   const calls = ipcMain.handle.mock.calls as [string, (event: unknown, raw: unknown) => unknown][];

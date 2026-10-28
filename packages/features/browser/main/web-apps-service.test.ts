@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import {
   activateWebApp,
@@ -71,6 +71,7 @@ const { FakeWebContentsView, fakeSessions, makeFakeSession } = vi.hoisted(() => 
       setPermissionCheckHandler: vi.fn(),
       setDevicePermissionHandler: vi.fn(),
       setDisplayMediaRequestHandler: vi.fn(),
+      setSpellCheckerEnabled: vi.fn(),
       handlers,
       on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const list = handlers.get(event) ?? [];
@@ -136,7 +137,7 @@ describe('web-apps-service lifecycle', () => {
     enableWebApp(win, 'spotify');
 
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(1);
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
     const webPreferences = view.options['webPreferences'] as Record<string, unknown>;
     expect(webPreferences['partition']).toBe('persist:app-spotify');
@@ -168,7 +169,7 @@ describe('web-apps-service lifecycle', () => {
     enableWebApp(win, 'spotify');
     enableWebApp(win, 'youtube');
 
-    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = (win.contentView.addChildView as Mock).mock.calls;
     const spotifyView = calls[0]?.[0] as FakeView;
     const youtubeView = calls[1]?.[0] as FakeView;
     expect((spotifyView.options['webPreferences'] as Record<string, unknown>)['partition']).toBe(
@@ -182,7 +183,7 @@ describe('web-apps-service lifecycle', () => {
   it('disabling destroys the view and detaches it from the window', () => {
     const win = fakeWindow();
     enableWebApp(win, 'spotify');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     disableWebApp('spotify');
@@ -246,7 +247,7 @@ describe('web-apps-service navigation policy', () => {
   function createAndGetView(id: 'spotify' | 'google-calendar' | 'youtube' = 'spotify') {
     const win = fakeWindow();
     enableWebApp(win, id);
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
     return { win, view };
   }
@@ -273,7 +274,7 @@ describe('web-apps-service navigation policy', () => {
 
   it('denies every window-open request and routes an allowed one to the system browser', async () => {
     const { view } = createAndGetView();
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock
       .calls[0]?.[0] as (details: unknown) => { action: string };
 
     expect(handler({ url: 'https://opened.example' })).toEqual({ action: 'deny' });
@@ -282,7 +283,7 @@ describe('web-apps-service navigation policy', () => {
 
   it('does not open externally for a blocked scheme', async () => {
     const { view } = createAndGetView();
-    const handler = (view.webContents.setWindowOpenHandler as ReturnType<typeof vi.fn>).mock
+    const handler = (view.webContents.setWindowOpenHandler as Mock).mock
       .calls[0]?.[0] as (details: unknown) => { action: string };
 
     expect(handler({ url: 'file:///etc/passwd' })).toEqual({ action: 'deny' });
@@ -300,9 +301,9 @@ describe('web-apps-service bounds', () => {
   it('scales an incoming bounds push by the host window zoom factor', () => {
     const win = fakeWindow();
     enableWebApp(win, 'spotify');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
-    (win.webContents as unknown as { getZoomFactor: ReturnType<typeof vi.fn> }).getZoomFactor.mockReturnValue(
+    (win.webContents as unknown as { getZoomFactor: Mock }).getZoomFactor.mockReturnValue(
       1.5,
     );
 
@@ -327,7 +328,7 @@ describe('web-apps-service activation (Theme C)', () => {
     const win = fakeWindow();
     enableWebApp(win, 'spotify');
     enableWebApp(win, 'youtube');
-    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = (win.contentView.addChildView as Mock).mock.calls;
     const spotifyView = calls[0]?.[0] as FakeView;
     const youtubeView = calls[1]?.[0] as FakeView;
 
@@ -342,9 +343,9 @@ describe('web-apps-service activation (Theme C)', () => {
     const popoutWin = fakeWindow();
     enableWebApp(mainWin, 'spotify');
     enableWebApp(popoutWin, 'youtube');
-    const spotifyView = (mainWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const spotifyView = (mainWin.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
-    const youtubeView = (popoutWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const youtubeView = (popoutWin.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     activateWebApp(mainWin, 'spotify');
@@ -359,7 +360,7 @@ describe('web-apps-service activation (Theme C)', () => {
     const win = fakeWindow();
     enableWebApp(win, 'spotify');
     enableWebApp(win, 'youtube');
-    const calls = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls;
+    const calls = (win.contentView.addChildView as Mock).mock.calls;
     const spotifyView = calls[0]?.[0] as FakeView;
     const youtubeView = calls[1]?.[0] as FakeView;
 
@@ -373,7 +374,7 @@ describe('web-apps-service activation (Theme C)', () => {
     const mainWin = fakeWindow();
     const popoutWin = fakeWindow();
     enableWebApp(popoutWin, 'youtube');
-    const youtubeView = (popoutWin.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const youtubeView = (popoutWin.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     activateWebApp(mainWin, null);
@@ -398,7 +399,7 @@ describe('web-apps-service reparenting (Theme D)', () => {
     const main = fakeWindow();
     const popout = fakeWindow();
     enableWebApp(main, 'spotify');
-    const view = (main.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (main.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
     view.setVisible(false);
 
@@ -413,7 +414,7 @@ describe('web-apps-service reparenting (Theme D)', () => {
     const main = fakeWindow();
     const popout = fakeWindow();
     enableWebApp(popout, 'spotify');
-    const view = (popout.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (popout.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     reparentWebAppView('spotify', main, { visible: false });
@@ -425,7 +426,7 @@ describe('web-apps-service reparenting (Theme D)', () => {
   it('a same-window reparent is a no-op move but still applies the requested visibility', () => {
     const win = fakeWindow();
     enableWebApp(win, 'spotify');
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const view = (win.contentView.addChildView as Mock).mock
       .calls[0]?.[0] as FakeView;
 
     reparentWebAppView('spotify', win, { visible: false });
@@ -488,7 +489,7 @@ describe('apps idle discard and wake', () => {
     enableWebApp(win, 'spotify');
     setWebAppBounds('spotify', { x: 10, y: 20, width: 300, height: 400 });
 
-    const view = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as FakeView;
+    const view = (win.contentView.addChildView as Mock).mock.calls[0]?.[0] as FakeView;
 
     // Initially active in flyout
     activateWebApp(win, 'spotify');
@@ -514,7 +515,7 @@ describe('apps idle discard and wake', () => {
     expect(isWebAppDiscarded('spotify')).toBe(false);
     expect(win.contentView.addChildView).toHaveBeenCalledTimes(2);
 
-    const recreatedView = (win.contentView.addChildView as ReturnType<typeof vi.fn>).mock
+    const recreatedView = (win.contentView.addChildView as Mock).mock
       .calls[1]?.[0] as FakeView;
     expect(recreatedView.visible).toBe(true);
     expect(recreatedView.bounds).toEqual({ x: 10, y: 20, width: 300, height: 400 });

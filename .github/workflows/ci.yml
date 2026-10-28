@@ -124,10 +124,10 @@ concurrency:
 #
 # The variance is itself the signature: queueing, not slower tests. The fix
 # keeps every job that has real macOS behaviour to validate ON macOS — `e2e`
-# (the `Meta+k` platform tax), `gate-native` (dugite, node-pty) and
-# `gate-locale` (which runs desktop + git-engine and so needs those same native
-# modules) — and sends only the genuinely platform-agnostic jobs back to Linux.
-# That leaves 6 macOS jobs on a PR run against a cap of 5, roughly one batch.
+# (the `Meta+k` platform tax) and `gate-native` (dugite, node-pty, plus hostile
+# locale tests folded in Phase 116 Theme D) — and sends only the genuinely
+# platform-agnostic jobs back to Linux. That leaves exactly 5 macOS jobs on a
+# PR run (1 gate-native + 4 e2e shards), fitting the cap with zero queueing.
 #
 # **This is not a partial un-deferring of Linux.** Nothing is validated on Linux
 # that the product depends on; `gate-node` and `gate-node-app-test` are zod,
@@ -187,8 +187,8 @@ jobs:
     #
     # Nothing in shared/app/website/db-engine imports `electron` or shells out to
     # a real git binary (the package-boundary rules in CLAUDE.md guarantee it), so
-    # there is no macOS behaviour here to validate — unlike `e2e`, `gate-native`
-    # and `gate-locale`, which all stay on macOS precisely because there is.
+    # there is no macOS behaviour here to validate — unlike `e2e` and `gate-native`,
+    # which both stay on macOS precisely because there is.
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
@@ -208,7 +208,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       # @bilo-io/ui and @bilo-io/shell come from GitHub Packages, which requires
@@ -256,46 +256,13 @@ jobs:
       # the 71s this step measured at, together with shared/website/db-engine's
       # full typecheck+lint+test and root:test), and only the vitest run itself
       # is the expensive part worth sharding.
+      # Consolidated single-pass tasks (Phase 116 Theme A):
+      # - root:typecheck-node batches tsc --noEmit across all 36 node-portable packages
+      # - root:lint-all runs eslint once with cache across the workspace
+      # - root:test-node boots Vitest once across 35 packages + root tests in one worker pool
+      # (app:test runs sharded in gate-node-app-test below).
       - name: Typecheck, lint, test (node-portable packages, app:test excluded)
-        run: >-
-          pnpm exec moon run
-          shared:typecheck shared:lint shared:test
-          knowledge:typecheck knowledge:lint knowledge:test
-          app:typecheck app:lint
-          website:typecheck website:lint website:test
-          db-engine:typecheck db-engine:lint db-engine:test
-          frame:typecheck frame:lint frame:test
-          feature-optimizer:typecheck feature-optimizer:lint feature-optimizer:test
-          feature-monitor:typecheck feature-monitor:lint feature-monitor:test
-          feature-vault:typecheck feature-vault:lint feature-vault:test
-          feature-notes:typecheck feature-notes:lint feature-notes:test
-          feature-finance:typecheck feature-finance:lint feature-finance:test
-          feature-tests:typecheck feature-tests:lint feature-tests:test
-          feature-forge:typecheck feature-forge:lint feature-forge:test
-          feature-browser:typecheck feature-browser:lint feature-browser:test
-          feature-api-client:typecheck feature-api-client:lint feature-api-client:test
-          feature-database:typecheck feature-database:lint feature-database:test
-          feature-sessions:typecheck feature-sessions:lint feature-sessions:test
-          feature-tasks:typecheck feature-tasks:lint feature-tasks:test
-          feature-media-core:typecheck feature-media-core:lint feature-media-core:test
-          feature-media-docs:typecheck feature-media-docs:lint feature-media-docs:test
-          feature-media-images:typecheck feature-media-images:lint feature-media-images:test
-          feature-media-library:typecheck feature-media-library:lint feature-media-library:test
-          feature-capture:typecheck feature-capture:lint feature-capture:test
-          feature-models:typecheck feature-models:lint feature-models:test
-          feature-councils:typecheck feature-councils:lint feature-councils:test
-          feature-workflows:typecheck feature-workflows:lint feature-workflows:test
-          feature-mcp-tools:typecheck feature-mcp-tools:lint feature-mcp-tools:test
-          feature-chats:typecheck feature-chats:lint feature-chats:test
-          feature-slides:typecheck feature-slides:lint feature-slides:test
-          feature-media-video:typecheck feature-media-video:lint feature-media-video:test
-          feature-media-audio:typecheck feature-media-audio:lint feature-media-audio:test
-          feature-media-map:typecheck feature-media-map:lint feature-media-map:test
-          feature-media-terrain:typecheck feature-media-terrain:lint feature-media-terrain:test
-          feature-media-sprite:typecheck feature-media-sprite:lint feature-media-sprite:test
-          feature-media-model:typecheck feature-media-model:lint feature-media-model:test
-          feature-media-game:typecheck feature-media-game:lint feature-media-game:test
-          root:test
+        run: pnpm exec moon run root:typecheck-node root:lint-all root:test-node
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -367,7 +334,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       - name: Install
@@ -383,18 +350,15 @@ jobs:
         run: pnpm exec moon run root:electron-freshness
 
   gate-node-app-test:
-    # `ubuntu-24.04` for the same reason as `gate-node` above: these are jsdom
-    # unit tests with no macOS behaviour in them, and four of them held four of
-    # the five available macOS slots. The N=4 model in the comment block was
-    # measured on ubuntu-24.04 in the first place, so moving back restores the
-    # conditions those numbers were taken under. Note the comment two paragraphs
-    # up already recorded the symptom — "the fourth queued ~108s late" — before
-    # the cause was understood.
+    # `ubuntu-26.04` for the same reason as `gate-node` above: these are jsdom
+    # unit tests with no macOS behaviour in them. Reduced from 4 shards to 2 in
+    # Phase 116 Theme D to save two Ubuntu runner setups and ~170s of duplicate
+    # install overhead while keeping shard wall-clock balanced.
     runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -412,7 +376,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       - name: Install
@@ -420,17 +384,17 @@ jobs:
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 'app:test (shard ${{ matrix.shard }}/4)'
-        run: pnpm exec moon run app:test -- --shard=${{ matrix.shard }}/4
+      - name: 'app:test (shard ${{ matrix.shard }}/2)'
+        run: pnpm exec moon run app:test -- --shard=${{ matrix.shard }}/2
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   gate-native:
-    # macos-14, 10x billing — reserved for the two packages that genuinely need
-    # it: git-engine's integration tests shell out to dugite's bundled git, and
-    # desktop links node-pty against Electron's native module ABI. Both are
-    # meaningfully faster and cheaper to keep here than to fight for portability
-    # they do not have.
+    # macos-14, 10x billing — reserved for packages that genuinely need
+    # it: git-engine's integration tests shell out to dugite's bundled git, desktop
+    # links node-pty against Electron's native module ABI, and hostile locale
+    # testing (Phase 116 Theme D folded gate-locale in here to eliminate a 321s
+    # macOS VM boot and free a macOS runner slot).
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v7
@@ -450,7 +414,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       - name: Install
@@ -474,36 +438,10 @@ jobs:
           GIT_COMMITTER_NAME: ci
           GIT_COMMITTER_EMAIL: ci@example.com
 
-  gate-locale:
-    # Phase 85 Theme A — hostile-locale CI gate. Runs desktop and git-engine tests
-    # under LC_ALL=de_DE.UTF-8 on macos-14 to ensure subprocess parsers and numeric
-    # formatting do not break under comma locales.
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: GitHub Packages auth (user-level npmrc)
-        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
-        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
-        env:
-          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-        with:
-          version: 10.34.5
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.22.0
-          cache: pnpm
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-        env:
-          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      # Hostile-locale test pass folded into gate-native (Phase 116 Theme D;
+      # formerly standalone gate-locale). Runs desktop and git-engine tests
+      # under LC_ALL=de_DE.UTF-8 on macos-14 to ensure subprocess parsers and numeric
+      # formatting do not break under comma locales, without booting a second macOS VM.
       - name: Test under hostile locale (desktop, git-engine)
         run: pnpm exec moon run desktop:test git-engine:test
         env:
@@ -632,7 +570,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       - name: Install
@@ -753,65 +691,19 @@ jobs:
     # Stays on macOS: this is the job with a measured platform tax in its own
     # history (the `Meta+k` paragraph above), so it runs where the product ships.
     #
-    # 8 shards -> 4 -> 3. Past the 5-job macOS concurrency cap, sharding buys no
-    # parallelism at all and costs a VM boot + install + browser download per
-    # extra shard: 8 shards ran 5-then-3, so the run was two batches deep before
-    # any other job could start. At 4 they fit one batch beside gate-native and
-    # gate-locale. The comment above already suspected this ("if anything they
-    # are now over-sharded") on runtime grounds alone.
-    #
-    # 4 -> 3 is about `package`, and the evidence is run 35098062963 (6a35394b,
-    # main, an otherwise idle pool -- the first clean measurement of the 4-shard
-    # config). It pins the cap at exactly 5: gate-locale, gate-native and e2e
-    # shards 2/3/4 all started within 8-10s, and the SIXTH macOS job (e2e shard
-    # 1) waited 3m02s -- starting 9 seconds after gate-locale finished, i.e. the
-    # instant a slot opened. Not a coincidence; that is the cap being observed.
-    #
-    # The gate phase finished in 11m40s, but the run took 19m25s, and the whole
-    # difference is `package`. It `needs` gate-node + gate-node-app-test +
-    # gate-native -- all three done by 3m19s, and none of them e2e -- yet it sat
-    # 8m29s waiting for a macOS slot behind the e2e shards before running its
-    # own 7m36s.
-    #
-    # Three shards makes the macOS set exactly 5 (gate-locale, gate-native,
-    # e2e 1-3), so nothing queues at the start and `package` inherits
-    # gate-native's slot at ~3m20s instead of ~9m.
-    #
-    # MEASURED, run 35102704143 (the #414 PR run itself, clean pool). The
-    # design claim holds exactly: all five macOS jobs started within 6-8s of
-    # creation -- zero queueing, against the 3m02s the sixth job waited under
-    # the 4-shard config. PR wall-clock 10m10s, against 11m40s for the 4-shard
-    # gate phase. So PRs got slightly FASTER, where this comment originally
-    # predicted "close to a wash": losing the sixth job's queue wait is worth
-    # more than the fatter shard costs.
-    #
-    # Per-shard cost came in BELOW the linear extrapolation. Predicted ~11-12m
-    # by scaling the 4-way shards' 8m08s-9m28s; measured 9m02s / 9m19s /
-    # 10m03s. Fixed per-shard overhead (VM boot + install + browser) dominates
-    # more than a content-only model assumes, so shard time grows sub-linearly
-    # as the count drops. Treat the 8-way (3m56s-5m58s) -> 4-way -> 3-way
-    # series as sub-linear, not linear, when next re-sharding.
-    #
-    # STILL UNVALIDATED: the main-push total. `package` is main-only (see its
-    # `if:`), so no PR run can exercise the slot hand-off this change is FOR,
-    # and the first post-merge run (35109430383) is not evidence either -- six
-    # Renovate PRs fired within 90s of it, putting seven runs against the
-    # 5-slot cap. The ~19.5m -> ~11.5m projection therefore remains a model.
-    # Measure it on an uncontended main push before quoting it as fact.
+    # Sharding history: 8 shards -> 4 -> 3 -> 4.
+    # In Phase 116 Theme D, gate-locale was folded into gate-native, freeing 1 of
+    # the 5 concurrent macOS slots. e2e was expanded from 3 to 4 shards, matching
+    # exactly 5 concurrent macOS jobs (1 gate-native + 4 e2e) with zero queueing.
+    # Timeout is set to 25m to provide headroom for the pre-Theme-C suite (~13-17m/shard).
     runs-on: macos-14
-    # Raised from 15: a third of the suite per shard instead of a quarter.
-    # Measured 3-way shards were 9m02s-10m03s (run 35102704143). Raised again to 30
-    # (2026-10-15): shards now run 157 tests in ~17m plus ~3m setup, and main's run
-    # 38726701008 and PR #865's e2e (1) were cancelled at 20m with every test passed.
-    # The paragraph below is why a number is set at all rather than inheriting
-    # GitHub's 6-hour default.
-    timeout-minutes: 30
+    timeout-minutes: 25
     strategy:
       # Every shard reports. Cancelling siblings on the first failure would hide
       # three quarters of a broken suite behind whichever shard happened to fail.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
 
@@ -827,7 +719,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       - name: Install
@@ -883,8 +775,8 @@ jobs:
       # everything except a named `KNOWN_RED` list of files still being repaired;
       # Theme H emptied that list and retired the ratchet, so CI now blocks on
       # the same suite a human runs locally.
-      - name: E2E (shard ${{ matrix.shard }}/3)
-        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/3
+      - name: E2E (shard ${{ matrix.shard }}/4)
+        run: pnpm exec moon run app:e2e -- --shard=${{ matrix.shard }}/4
         env:
           GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -969,7 +861,13 @@ jobs:
       - name: Enable corepack, activate the pinned pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@9.15.0 --activate
+          corepack prepare pnpm@10.34.5 --activate
+
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install (--ignore-scripts — see the job comment above)
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -1030,7 +928,7 @@ jobs:
           version: 10.34.5
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.0
+          node-version: 24.22.1
           cache: pnpm
 
       - name: Install

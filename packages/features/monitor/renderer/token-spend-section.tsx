@@ -43,6 +43,10 @@ export function TokenSpendSection() {
       <h2 id="monitor-tokens" className="mb-2 text-sm font-medium">Token spend</h2>
       {usage === undefined ? (
         <p className="text-xs text-muted-foreground">Reading transcripts…</p>
+      ) : usage?.disabled ? (
+        <p className="text-xs text-muted-foreground">
+          Reading Claude and Codex history is off. Turn on &ldquo;Read Claude and Codex history&rdquo; in Settings ▸ Privacy to see token spend.
+        </p>
       ) : usage === null || usage.sessions.length === 0 ? (
         <p className="text-xs text-muted-foreground">No live agent sessions.</p>
       ) : (

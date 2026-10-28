@@ -2,7 +2,10 @@ import {
   COMPANION_PARAGRAPH_PAUSE_MS,
   COMPANION_PHRASES,
   composeOverviewMarkdown,
+  COMPANION_TIMED_GREETINGS,
   composeOverviewSpeech,
+  dayPartAt,
+  greetingBank,
   interpolatePhrase,
   markdownToSpeech,
   pickHonorific,
@@ -18,6 +21,7 @@ import {
   type RepoDescriptor,
 } from '@midnite/studio-shared';
 
+import type { PendingStatusReportAction } from '../../store/companion-store';
 import type { Speaker } from './ports';
 import type { CompanionEvent } from '@midnite/studio-shared';
 
@@ -47,6 +51,8 @@ export type ConciergeStore = {
   addTurn: (turn: { role: CompanionTurn['role']; text: string; spoken: boolean }) => CompanionTurn;
   markSpoken: (id: string) => void;
   notePhrase: (kind: CompanionPhraseKind, phrase: string) => void;
+  /** Where the greeting parks its status-report offer, so a yes reaches `resolvePending`. */
+  setPendingAction: (action: PendingStatusReportAction) => void;
 };
 
 export type ConciergeSettings = {
@@ -178,16 +184,30 @@ export async function sayMarkdown(deps: ConciergeDeps, markdown: string): Promis
   return say(deps, markdown, 'companion', sanitizeForSpeech(markdownToSpeech(markdown)));
 }
 
-/** Pick a phrase, resolve the honorific, and remember the pick so the next one differs. */
-export function phrase(deps: ConciergeDeps, kind: CompanionPhraseKind): string {
-  const bank = COMPANION_PHRASES[kind];
+/**
+ * Pick a phrase, resolve the honorific, and remember the pick so the next one differs.
+ *
+ * `bank` overrides the kind's own list while keeping its no-repeat memory —
+ * the greeting passes the hour's bank under `greetings`.
+ */
+export function phrase(
+  deps: ConciergeDeps,
+  kind: CompanionPhraseKind,
+  bank: readonly string[] = COMPANION_PHRASES[kind],
+): string {
   const picked = pickPhrase(bank, deps.store.recentPhrases[kind] ?? [], deps.rng);
   deps.store.notePhrase(kind, picked);
   return interpolatePhrase(picked, pickHonorific(deps.settings().honorifics, deps.rng));
 }
 
 /**
- * The full opening: greeting, then everything {@link orient} says.
+ * The opening: a greeting fit for the hour, then an offer of the status report.
+ *
+ * The overview is **offered, not recited** — a yes (spoken, typed, an empty
+ * Return or the chip) reaches `handoff.ts`'s `resolvePending`, which runs
+ * {@link orient}; a no gets the open prompt. The digest's "last greeted" mark
+ * only moves inside `orient`, so a declined report carries its window to the
+ * next one rather than losing it.
  *
  * Only runs from `idle` — `transition`'s own table refuses `greet` from
  * anywhere else, and this checks the answer rather than assuming it, so
@@ -196,8 +216,30 @@ export function phrase(deps: ConciergeDeps, kind: CompanionPhraseKind): string {
  */
 export async function greet(deps: ConciergeDeps): Promise<void> {
   if (deps.store.send('greet') !== 'greeting') return;
-  await say(deps, phrase(deps, 'greetings'));
-  await orient(deps);
+  const hour = new Date(deps.now?.() ?? Date.now()).getHours();
+  // Two openings in three name the time of day; the rest draw from the whole
+  // pool, time-neutral lines included, so the greeting never feels clocked.
+  const bank =
+    (deps.rng ?? Math.random)() < 2 / 3 ? COMPANION_TIMED_GREETINGS[dayPartAt(hour)] : greetingBank(hour);
+  await say(deps, phrase(deps, 'greetings', bank));
+  await offerStatusReport(deps);
+}
+
+/**
+ * Ask, park the yes, and land the machine — `finish` without its prompt,
+ * because the offer *is* the question. Posted unspoken after an interrupt, as
+ * `finish` does, so the thread still says whose turn it is.
+ */
+async function offerStatusReport(deps: ConciergeDeps): Promise<void> {
+  const offer = phrase(deps, 'statusOffers');
+  deps.store.setPendingAction({ kind: 'statusReport', label: 'Status report', at: Date.now() });
+  if (deps.signal.aborted) {
+    deps.store.addTurn({ role: 'companion', text: offer, spoken: false });
+  } else {
+    await say(deps, offer);
+  }
+  const settings = deps.settings();
+  deps.store.send(settings.handsFree && settings.voiceInReady ? 'listen' : 'settle');
 }
 
 /**
@@ -218,9 +260,9 @@ export async function greet(deps: ConciergeDeps): Promise<void> {
  *
  * The cost is that the digest is now awaited *before* anything is posted,
  * where it used to arrive after the snapshot lines were already on screen.
- * Acceptable because `greet` has already posted the greeting, so the panel is
- * never blank while this waits — and a consolidated turn cannot be posted in
- * pieces by definition.
+ * Acceptable because something is already on screen while this waits — the
+ * user's own "yes" to the greeting's offer, or the previous repo's thread —
+ * and a consolidated turn cannot be posted in pieces by definition.
  */
 export async function orient(deps: ConciergeDeps): Promise<void> {
   const repo = deps.repo();

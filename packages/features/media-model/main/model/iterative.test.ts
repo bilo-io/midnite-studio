@@ -1,3 +1,4 @@
+// @vitest-environment node
 import {
   MODEL_MCP_TOOL_IDS,
   failure,

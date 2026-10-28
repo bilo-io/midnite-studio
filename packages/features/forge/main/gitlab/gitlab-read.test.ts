@@ -252,4 +252,32 @@ describe('pullDetail', () => {
     expect(result.detail?.mergeable).toBe('MERGEABLE');
     expect(result.detail?.baseSha).toBe('base');
   });
+
+  it('reports line counts as unknown, not zero, when the diff cannot be read', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          id: 10,
+          iid: 3,
+          title: 'Add feature',
+          state: 'opened',
+          author: { username: 'alice' },
+          source_branch: 'feature',
+          web_url: 'https://gitlab.com/group/project/-/merge_requests/3',
+          target_branch: 'main',
+          changes_count: '4',
+          diff_refs: { base_sha: 'base', start_sha: 'start', head_sha: 'head' },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(500, { message: 'boom' })) // diffs
+      .mockResolvedValueOnce(jsonResponse(200, [])) // commits
+      .mockResolvedValueOnce(jsonResponse(200, { approved: false, approvals_required: 0 })); // approvals
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await pullDetail(forge, account(), 3);
+    expect(result.detail?.changedFiles).toBe(4);
+    expect(result.detail?.additions).toBeNull();
+    expect(result.detail?.deletions).toBeNull();
+  });
 });

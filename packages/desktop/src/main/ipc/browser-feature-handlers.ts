@@ -1,10 +1,12 @@
 import { browserMain, type BrowserHostWindow } from '@midnite/studio-feature-browser/main';
 import type { FeatureMainContext } from '@midnite/studio-runtime';
-import type { BrowserWindow } from 'electron';
+import { app, safeStorage, type BrowserWindow } from 'electron';
 
 import { asBrowserHostWindow, createStudioBrowserElectron } from '../browser-port';
+import { devToolsAllowed } from '../devtools-policy';
 import { defaultLogger } from '../log';
 import { currentSettings } from '../settings-mirror';
+import { scanDownloadedFile } from './vanguard-handlers';
 import { handle, handleBare, handleFromSender, handleSend, handleSendFromSender } from './handle';
 
 /**
@@ -14,7 +16,10 @@ import { handle, handleBare, handleFromSender, handleSend, handleSendFromSender 
  * the logger, the settings mirror, its windows, and the sender-resolved `handle.ts` helpers the
  * browser's `create`/`setBounds`/`setVisible` always registered through.
  */
-export function registerBrowserFeatureHandlers(getMainWindow: () => BrowserWindow | null): void {
+export function registerBrowserFeatureHandlers(
+  getMainWindow: () => BrowserWindow | null,
+  onPageDeepLink?: (url: string, origin: string) => void,
+): void {
   const ctx: FeatureMainContext = {
     ipc: { handle, handleBare, send: handleSend },
     emit: () => undefined,
@@ -25,6 +30,11 @@ export function registerBrowserFeatureHandlers(getMainWindow: () => BrowserWindo
     electron: createStudioBrowserElectron(),
     log: defaultLogger,
     readDiscardSettings: () => currentSettings(),
+    userDataPath: app.getPath('userData'),
+    // Phase 117 Theme F: the first-seen ledger's key is kept encrypted by the keychain.
+    ledgerCipher: safeStorage,
+    // Phase 117 Theme A: an embedded page's DevTools follow the app windows' rule.
+    devToolsAllowed: devToolsAllowed(app.isPackaged),
     sender: {
       handleFromSender: (channel, schema, handler, onInvalid) =>
         handleFromSender(channel, schema, (payload, win) => handler(payload, asHost(win)), onInvalid),
@@ -32,5 +42,9 @@ export function registerBrowserFeatureHandlers(getMainWindow: () => BrowserWindo
         handleSendFromSender(channel, schema, (payload, win) => handler(payload, asHost(win)), onInvalid),
     },
     getMainWindow: () => asHost(getMainWindow()),
+    // Phase 117 Theme G: a page's `midnite-studio://` link, refused by Chromium, confirmed by the renderer.
+    onPageDeepLink,
+    // Phase 120 Theme F: a finished download is queued for Vanguard's malware scan.
+    onDownloadDone: ({ path }) => scanDownloadedFile(path),
   });
 }

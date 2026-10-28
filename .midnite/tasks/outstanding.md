@@ -782,3 +782,60 @@ LAN streaming, transcoding and playlists landed in [PR #909](https://github.com/
 
 Slice 2 landed in [PR #908](https://github.com/bilo-io/midnite-studio/pull/908). Left for a person on real hardware: the Screen Recording permission flow on the packaged app, and the desktop overlay (one window over the display under the pointer — no per-display overlay yet).
 
+## Vanguard network sensor: raise suite egress to `high`, and the raw-IP rung (Phase 120 Theme E)
+
+Two things Theme E deliberately left soft, agreed with their reasons:
+- **Suite egress severity.** A connection from the app or its broker to an address no `EGRESS_HOSTS` entry resolves to is rated `info` (`NETWORK_UNREGISTERED_SUITE_SEVERITY` in `shared/src/vanguard-network.ts`), because the registry lists only three hosts today and at `high` every ordinary forge, database or LLM call would raise a false finding. Once Phase 115 A's registry covers the app's real egress, change that one constant to `'high'`.
+- **The raw-IP rung.** An agent connection to a public address no name maps to is not a `high` trigger yet: deciding it needs a reverse lookup, which would send every observed destination to a resolver, and "no reverse name" flags CDN addresses anyway. Revisit it with Phase 122's threat feed, which can judge an address without asking DNS about it. The same limit means a `*.ngrok.io`-style wildcard entry is matched only by its apex's addresses.
+
+## Vanguard response: the two Phase 121 actions, and the tile (Phase 120 Theme H)
+
+Theme H built eight of the ten response actions. Three things were left on purpose, each agreed with its reason (Phase 120 Decisions 12 and 13):
+- **`revoke-mcp-server`, against Phase 121 Theme C.** The action stays in the closed enum. Its handler returns `{ unavailable: { reason, dependsOn: 'Phase 121 Theme C' } }` and the button is disabled with that reason, because there is no per-agent MCP allowlist to revoke from yet. Once Phase 121 C lands, replace the `REMEDIATION_PENDING['revoke-mcp-server']` entry in `shared/src/security-findings.ts` with a planner in `features/vanguard/main/actions.ts` that removes the server through C's own seam. It must be injected by the composer and must not be imported from another feature.
+- **`open-in-agents`, against Phase 121 Theme A.** Same shape, with `dependsOn: 'Phase 121 Theme A'`. It needs A's untrusted-attachment tagging before a finding's evidence (which came off the machine, not from the user) can be composed into a Chats thread. Once A lands, drop the `REMEDIATION_PENDING` entry and route the action through the link router to Chats with the finding attached and tagged untrusted.
+- **The Vanguard tile goes live once a Vanguard release exists.** Delete `comingSoon: true` from the `vanguard` entry in `apps/launcher/src/common/catalog.ts`, and update the comment above it. The install bundle list needs no edit: `scripts/release-bundles.mjs` already builds every app with a `moon.yml`, `apps/vanguard` among them, and the launcher lists what the release's `catalog.json` carries. Then tick Phase 120 §H's "The tile goes live".
+
+## Phase 121 · Theme G — audit retention follows Phase 115 B
+
+The agent audit trail keeps 90 days (`AGENT_AUDIT_DEFAULT_RETENTION_DAYS`) because Phase 115 B's "Keep local history" setting is not built. When it lands, pass it as `retentionDays` in `packages/desktop/src/main/agent-audit.ts` and Agents' `context.ts`, and add the trail's directory to "Clear all local history". The producers for `policy-decision`/`approval` (B), `install` (H), `limit-trip` (F) and `confine-denial` (E) are theirs to add; their schema and `record()` entry point exist.
+
+## Phase 121 · Theme F — the limits have no settings page
+
+The breaker reads `<userData>/security/agent-limits.json` (`{ "defaults": {...}, "repos": { "<repo path>": {...} } }`, the `AgentLimitsSettingsSchema` shape) at each check, so the limits can be edited by hand but there is no UI for them. Add a Settings ▸ Agents ▸ Limits page that writes that file (or the settings store, once Phase 115 B exists). Two more known edges: file writes are counted only for MCP tools whose name says they write, because an agent's built-in file tools never reach the audit trail; and Phase 120 G, when it lands, should call the breaker's `interrupt` seam (`agent-breaker-wiring.ts`) rather than add a second pause path.
+
+## Phase 120 · Theme G — broker output stream, the modal outside Studio, queue envelopes
+
+The rogue-agent sensor reads the audit trail only. The broker's pty output stream (`agentPtyOutputSource`, already wired for the paste sensor) is not consumed: typed commands reach the trail as `command` records, and nothing in output is judged yet, so there is nothing for a second subscription to add. Revisit if a rule needs what a command printed. The auto-pause modal is mounted by Studio's app root only; `apps/vanguard` has no agent ptys and `apps/browser` and the other suite windows do not mount it, so "every suite window" means every Studio window today (the event is broadcast to all of them). The write-outside-scope and secret-path rules read command text and sandbox refusals, not file contents or tool arguments, since the trail holds neither; a read through an agent's built-in tool never shows. The destructive-git rule has no write-queue envelope to check because the queue's ops never reach the trail.
+
+## Phase 121 · Theme A — page text has no entry point into a chat, and MCP results are stamped but not fenced
+
+`pageContentToAttachment` turns Phase 117's page envelope into a `web-page` attachment, but no UI offers "send this page to a chat" yet, so only the seam exists. MCP results carry `provenance` on the wire; the stdio shim does not yet fence them in the text it hands the CLI. A council run request carries no provenance, so a pasted prompt is treated as the user's typing after the banner; only member answers are fenced. The banner does not block Send (ignoring it equals Proceed).
+The detector's discount for code spans and quotation marks is bypassable by wrapping a phrase in either; the score is a hint, the fence is the defence. Text past 400,000 characters is not scanned and the scan op refuses it.
+
+## Phase 121 · Theme C — follow-ups
+
+- **Nothing starts a third-party MCP server yet**, so nothing calls `McpTrust.observeTools` and the tools hash and the poisoned-description checks only run once a caller does (executing a repo-supplied command is the very risk this theme guards). Until then servers show `new` / `config-changed` from the config hash alone.
+- **Phase 115 Theme F's switch for reading agent config** is not on `main`; discovery takes an `allowConfigRead` seam that the composer leaves at "on".
+- **Councils are not gated.** They run in the home directory with no repo, so they have no `repoId` to key an allowlist entry; only Chats refuse a turn (`mcpGate`). User-level servers that change after approval do gate Chats.
+- Trust entries are not cleaned when a repo is closed or a server removed from its config.
+
+- **The Chats gate discovers against the repo's primary checkout**, but an edit-mode chat runs in its own worktree whose `.mcp.json` can differ; pass the run's cwd to discovery.
+- **Allowlist keys use the display name.** A same-named server in a lower-precedence file is listed as `name (source)`, so removing the higher-precedence file renames it and drops its approval; key by source plus name instead.
+- **`status()` re-reads the config files on every poll** (15 s in the Tools view); cache by mtime if it shows up in a profile.
+
+## Phase 121 Theme D
+
+- **`publishIntended` has no supplier.** `exfiltrationRule` treats an agent `npm`/`pnpm publish` as `critical` unless the context says the session started with the user's intent to release; nothing records a session's launch intent, so every real publish from an agent session is flagged.
+- **Workflow `ai-prompt` nodes and the Docs "Ask AI" spawn are not scrubbed.** Chats and Councils are; workflows' `ollamaPrompt` and headless prompts go through their own ports.
+- **The canary value is not matched inside command lines**, only its path: the audit trail redacts the value on write, so the path is the signal.
+- **The Theme I env test is a follow-up.** Once `engineKeyEnv` lands, feed `agentSpawnEnv` through `agentEnvViolations` with the one documented variable per engine.
+- **A canary leak in a prompt pauses a session id of `chat:<id>`/`council:<id>`**, which is not a pty, so auto-pause shows its modal with "could not be reached to interrupt".
+
+## Phase 121 Theme I — stubs
+
+- **The Agents app passes no `engineEnv` / `agentKeyEnv`**, so its Chats and Councils spawn without a vault key (the CLI uses its own login). Agents reads only `ollama.apiKey` through the host and its grants; handing it per-engine keys needs new grants in Vault.
+- **Workflow agent nodes** are not given the engine key unless they spawn through an agent pty.
+- **Loop runs record `model` and launch with the flag, but a loop-run output is not parsed** for the model it reports, so no mismatch mark there yet.
+- **Chat model pins are Claude-only**, because `loopModelArgs` only knows `--model` for `claude`; Codex and Agy turns have nothing to mismatch against.
+- **Ollama library search is not behind a switch yet**: Phase 115 Theme A is not on `main`. Digest checks make no network call, so nothing was added.
+- **Digest pins are not cleaned** when a model is deleted, and the Agents app does not configure the digest ledger.

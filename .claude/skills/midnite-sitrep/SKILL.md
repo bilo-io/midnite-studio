@@ -1,178 +1,135 @@
 ---
 name: midnite-sitrep
-description: Post the standing sitrep table for whatever is in flight — swarm subagents, an execution plan's PRs, or a named set of PRs — one row each with a clickable PR link, a progress bar, an ETA, a 🟩/🟥/📄 line diff and an emoji status. Read-only. Use when the user says "sitrep", asks for status or "where are we", or a recurring status tick fires; also "which can merge / merge order / dependency graph" (adds a merge graph).
-argument-hint: "[optional: PR numbers/URLs, a plan name, or a repo — defaults to what this session has in flight]"
+description: Post the standing sitrep for whatever is in flight — swarm subagents, an execution plan's PRs, or a named set of PRs. Defaults to the status table (one row each with a clickable PR link, a progress bar, an ETA, a 🟩/🟥/📄 line diff and an emoji status) and routes to the other views by name — graph, sequence-diagram, histogram, timeline, ci. Read-only. Use when the user says "sitrep", asks for status or "where are we", or a recurring status tick fires; also "which can merge / merge order / dependency graph", "when is it all done", "where is CI stuck" or "what happened when".
+argument-hint: "[optional scope: PR numbers/URLs, a plan name, or a repo — defaults to what this session has in flight] [optional views: table graph sequence-diagram histogram timeline ci]"
 allowed-tools: Bash, Read, Glob, Grep, ListAgents
 ---
 
-The one format every status report takes — ad hoc or on a recurring tick — so the user can diff
-one table against the last at a glance. **Read-only**: this skill changes nothing, posts nothing,
-and messages no one. It reports.
+The one family every status report comes from, ad hoc or on a recurring tick, so the user can
+diff one report against the last at a glance. **Read-only:** no view changes anything, posts
+anything, or messages anyone. They report.
 
-**Conversation style — enforced.** The table is the report. Nothing above it. At most two lines (the §6 merge graph, when it applies, is exempt)
-under it: the whole-batch line (below), plus one line only for a decision the user owes or a
-failure the table cannot carry.
+This skill is the **router and the shared rules**. It defines what the rows are, how they are
+gathered, and the vocabulary every view uses. Each view has its own skill with its exact format:
+
+| View | Skill | Answers | When it runs |
+|---|---|---|---|
+| table | [`midnite-sitrep-table`](../midnite-sitrep-table/SKILL.md) | Where is each row? | **Always**, first |
+| graph | [`midnite-sitrep-graph`](../midnite-sitrep-graph/SKILL.md) | What can merge, and in what order? | When asked, or **automatically** when rows depend on each other |
+| sequence-diagram | [`midnite-sitrep-sequence-diagram`](../midnite-sitrep-sequence-diagram/SKILL.md) | What happened, when, and who handed off to whom? | When asked |
+| histogram | [`midnite-sitrep-histogram`](../midnite-sitrep-histogram/SKILL.md) | Which row is the outlier (size, CI time, age)? | When asked |
+| timeline | [`midnite-sitrep-timeline`](../midnite-sitrep-timeline/SKILL.md) | When is all of it done, wave by wave? | When asked |
+| ci | [`midnite-sitrep-ci`](../midnite-sitrep-ci/SKILL.md) | Which job is slow, failing or stuck in the queue? | When asked |
+
+## 0 · Routing
+
+- **No view named:** the table, then the graph if any row has a hard dependency on another — a
+  stacked base (`baseRefName` is another row's branch) or a plan or phase dependency. Both are
+  visible in §2's data. Soft edges (shared files) need a `files` fetch per PR, so they are drawn
+  only when the graph is rendered, never used to decide whether to render it.
+- **Views named in the arguments** (`/midnite-sitrep 988 timeline ci`): the table first, then
+  each named view in the order given. The table is never dropped: it is the anchor the others
+  hang off.
+- **A sub-skill invoked directly** (`/midnite-sitrep-ci 988`) renders only that view, using
+  §1 and §2 below for its rows and data.
+- Read each view's skill before rendering it. Formats are exact; do not improvise one from memory.
+- **Gather once, render many.** One pass of §2 feeds every view in the report. Fetch the extra data
+  a named view needs (its skill says which) in the same pass.
 
 ## 1 · What the rows are
 
-Take the scope from `$ARGUMENTS` if given (PR numbers or URLs, a plan name, a repo). Otherwise,
-the rows are whatever **this session** has in flight, in this order of preference:
+Take the scope from the arguments if one is given (PR numbers or URLs, a plan name, a repo).
+Otherwise the rows are whatever **this session** has in flight, in this order of preference:
 
 1. The subagents it launched (`ListAgents`), each keyed by the thing it owns.
-2. The tasks of the execution plan it is driving — every task, including ones not started, so
-   the table shows the whole plan, not just the live part.
+2. The tasks of the execution plan it is driving. Include every task, including ones not
+   started, so the report shows the whole plan and not just the live part.
 3. The PRs it opened.
 
-If there is still nothing to report, say so in one line instead of posting an empty table.
+If there is still nothing to report, say so in one line instead of posting an empty view.
 
-One row per agent or task, identified by what it owns (phase, task id, PR) — never by an internal
-agent id.
+One row per agent or task, identified by what it owns (phase, theme, task id, PR). Never use an
+internal agent id.
 
 ## 2 · Gather — external state, not self-reports
 
-Fetch every PR in one pass per repo, all calls in one shell invocation:
+Fetch every PR in one pass per repo, with all calls in one shell invocation:
 
 ```bash
-gh pr view <n> -R <owner>/<repo> --json number,url,title,author,state,isDraft,mergeable,mergedAt,baseRefName,reviewDecision,additions,deletions,changedFiles,statusCheckRollup
+gh pr view <n> -R <owner>/<repo> --json number,url,title,author,state,isDraft,mergeable,mergedAt,createdAt,baseRefName,headRefOid,reviewDecision,additions,deletions,changedFiles,statusCheckRollup
 ```
 
-Pass the right account's token in the same command (`GH_TOKEN="$(gh auth token -u <user>)" gh …`)
-when the repo's owner is not the active `gh` account — never `gh auth switch`.
+If the repo's owner is not the active `gh` account, pass the right account's token in the same
+command (`GH_TOKEN="$(gh auth token -u <user>)" gh …`). Never run `gh auth switch`.
 
-For a row with no PR yet, the evidence is the worktree: does it exist, is there a diff (measure with
-`git diff --shortstat` against the base branch, e.g. `main`), and what do the **Done** / **Next** lines
-in `.worktrees/*/SCRATCHPAD.md` say (when the repo keeps scratchpads). A subagent reporting "done" with
-no PR, or a **Next** line that has not moved in two ticks, is stalled — mark it ⚠️, whatever it last said.
+For a row with no PR yet, the evidence is the worktree:
+- Does it exist?
+- Is there a diff? Measure it with `git diff --shortstat` against the base branch, e.g. `main`.
+- What do the **Done** / **Next** lines in `.worktrees/*/SCRATCHPAD.md` say (when the repo keeps
+  scratchpads)?
 
-## 3 · The table
+A subagent that reports "done" with no PR is stalled. So is one whose **Next** line has not moved
+in two ticks. Mark it ⚠️, whatever it last said.
 
-| Task | Author | Progress | ETA | Diff | Status | Notes |
-|---|---|---|---|---|---|---|
-| [PR-1 · #1259](https://github.com/org/repo/pull/1259) | @bilo-ekko | `████████░░` 80% | ~2h | 🟩 +1515 🟥 -28 📄 17 | 🟢 Ready · CI 7/7 · 🔵 audited | tell me before merging |
-| [PR-3 · #1261](https://github.com/org/repo/pull/1261) | @kurtwarwick-ekko | `███████░░░` 70% | ~15m | 🟩 +0 🟥 -4 📄 4 | 🟡 CI 3/5 · ⛓ #1259 | — |
-| [PR-6 · #1282](https://github.com/org/repo/pull/1282) | @bilo-ekko | `██████░░░░` 60% | ? | 🟩 +325 🟥 -6002 📄 31 | 🚧 Draft · CI 6/6 · ⛓ #1262 · ⏸ held | — |
-| [TASK-B · #1252](https://github.com/org/repo/issues/1252) | @bilo-ekko | `████░░░░░░` 40% | ~45m | 🟩 +48 🟥 -12 📄 3 | 🚧 building | — |
-| [TASK-A · #1251](https://github.com/org/repo/issues/1251) | — | `░░░░░░░░░░` 0% | ? | — | ⏳ Waiting on PR-1 deploy | — |
+## 3 · Shared vocabulary
 
-- **Task** — the row's name, **always a clickable link**: to its PR once one exists, else to its
-  issue, else the branch name in code. Link text is `<task> · #<n>`.
-- **Author** — the PR author's login as `@login`, from `author.login`; `dependabot` for a bot. Before
-  a PR exists, whoever the row's work is being built for (the issue's assignee, or the session's own
-  account); `—` when there is no one yet.
-- **Progress** — a 10-cell bar in backticks, then the percentage: `█` × round(% / 10), `░` for the
-  rest. Unknown is `░░░░░░░░░░` `?`, never blank. Derive it from observable state, on this scale:
+Every view uses these, so a row reads the same in each.
 
-  | % | State |
-  |---|---|
-  | 0 | not started |
-  | 10–50 | building — worktree exists, commits landing, by stages done |
-  | 60 | PR open as a draft |
-  | 70 | PR ready, CI running |
-  | 80 | PR ready, CI green, awaiting review |
-  | 90 | merged |
-  | 100 | deployed or verified — or merged, where merging is the last stage |
+**Progress**: a 10-cell bar in backticks, then the percentage. Fill `█` × round(% / 10) cells and
+`░` the rest. Unknown is `░░░░░░░░░░` `?`, never blank. Complete is `✅ 100%`.
 
-- **ETA** — wall-clock time until the row reaches 100%, from *observed* pace (elapsed time against
-  the % so far, this session's real CI durations, stages left) — never an agent's own claim. `?`
-  with no basis yet, `done` at 100%. A row waiting on a human (review, merge, deploy) is `?` with
-  the reason in Status.
-- **Diff** — MUST ALWAYS use `🟩 +<additions> 🟥 -<deletions> 📄 <changedFiles>`. Derived straight
-  from the PR, or during local development in worktrees before a PR opens, derived from
-  `git diff --shortstat` (against the base branch, e.g. `main`), or `—` when empty. Plain text or code
-  block formats like `+X/-Y` or `0/0` are strictly forbidden. A stacked PR's diff is against its base
-  branch, which the `⛓ #n` tag in Status names.
-- **Status** — one emoji, then a few words:
+| % | State |
+|---|---|
+| 0 | not started |
+| 10–50 | building: worktree exists, commits landing, by stages done |
+| 60 | PR open as a draft |
+| 70 | PR ready, CI running |
+| 80 | PR ready, CI green, awaiting review |
+| 90 | merged |
+| 100 | deployed or verified, or merged where merging is the last stage |
 
-  | Emoji | Meaning |
-  |---|---|
-  | ⬜ | not started |
-  | 🚧 | building, or draft PR |
-  | 🟡 | CI running |
-  | 🔴 | CI failing, or merge conflict |
-  | 🟢 | ready — CI green, awaiting review |
-  | 💬 | changes requested, or unresolved threads |
-  | ⏳ | blocked on another row or on a human step |
-  | ⚠️ | stalled subagent |
-  | 🟣 | merged |
-  | ✅ | done — deployed, verified, or merged as the last stage |
+**Status emoji**: one per row.
 
-  Add the CI count as `CI <passed>/<total>` whenever checks exist. Then any **state tags** that
-  apply, joined with ` · `. A state is never a note:
+| Emoji | Meaning |
+|---|---|
+| ⬜ | not started |
+| 🚧 | building, or draft PR |
+| 🟡 | CI running |
+| 🔴 | CI failing, or merge conflict |
+| 🟢 | ready: CI green, awaiting review |
+| 💬 | changes requested, or unresolved threads |
+| ⏳ | blocked on another row or on a human step |
+| ⚠️ | stalled subagent |
+| 🟣 | Merged, with a capital M. A merged PR keeps this emoji for good; testing and deploys after it are tags |
+| ✅ | done: a row with no PR that finished (a verified task, a manual step) |
 
-  | Tag | Meaning |
-  |---|---|
-  | `⛓ #n` | stacked on #n (its base is that PR's branch) |
-  | `⏸ held` | built on purpose and parked, e.g. a draft waiting on a deploy |
-  | `🔵 audited` | `/midnite-pr-audit` or `/ekko-pr-audit` ran on it this session |
-  | `🚀 deployed` | the merge is live where it needed to be |
+**State tags** follow the status, joined with ` · `. A state is never a note.
 
-- **Notes** — **six words at most**: only what Status cannot carry, meaning news since the last
-  tick, the blocker by name, or an ask ("tell me before merging"). Never restate the status, a tag,
-  the CI count or the diff. Empty is `—`, and most rows should be empty.
+| Tag | Meaning |
+|---|---|
+| `⛓ #n` | stacked on #n (its base is that PR's branch) |
+| `⏸ held` | built on purpose and parked, e.g. a draft waiting on a deploy |
+| `🔵 audited` | `/midnite-pr-audit` or `/ekko-pr-audit` ran on it this session |
+| `✅ tested` | an acceptance test (`/ekko-test`) passed on it, before or after the merge |
+| `🚀 deployed` | the merge is live where it needed to be |
 
-## 4 · Under the table
+**ETA**: wall-clock time until a row reaches 100%. Derive it from *observed* pace: elapsed time
+against the % so far, this session's real CI durations, and stages left. Never use an agent's own
+claim. Use `?` when there is no basis yet, and `done` at 100%.
 
-One line for the whole batch: an overall bar over every row (the mean %) and the ETA until
-*all* of it is done — parallel rows do not add, a later wave does:
+## 4 · Conversation style — enforced
 
-`████████░░░░░░░░░░░░ 40% overall · 5/8 in review · all done ~?, waiting on review`
-
-Then, only if there is one, a single line naming the decision the user owes.
+- **The table comes first, with nothing above it.**
+- Under the table, at most two lines: the whole-batch line (see `midnite-sitrep-table`) and one
+  line, only when needed, for a decision the user owes or a failure no view can carry.
+- Every other view goes after those lines under its own `####` heading. Views are exempt from the
+  two-line limit, but each keeps to the size cap in its own skill.
+- No narrating the `gh` calls, and no prose between views.
 
 ## 5 · Recurring ticks
 
-On a recurring schedule, each tick is this same table and nothing more. When every row is at
-100% (or the scope the user named is done), post the final table and cancel the recurring job
-that drives the ticks — do not leave it running past the work it was scoped to.
-
-## 6 · Merge graph — on request, or when rows depend on each other
-
-When the user asks which PRs can merge, in what order, or for a dependency graph — or when the rows
-include stacked PRs or plan dependencies — follow the table with a merge graph. This section is
-exempt from the line limit on what goes under the table.
-
-**Derive the edges from external state, not memory:**
-
-- **Hard (`──▶`, must merge first):** `baseRefName` is another PR's branch · the branch has merge
-  commits pulling in another PR's head · `go.mod` / lockfile pins another PR's commit · the PR body
-  or the plan's `Depends on` / `dependsOn` names it.
-- **Soft (`┄┄`, rebase only, order free):** two open PRs change the same files
-  (`gh pr view <n> --json files`). Name the files in parentheses, abbreviated.
-
-**Mark each node:** ✅ can merge now (every hard dependency merged, CI green, no conflict) ·
-⏳ blocked · 🔴 failing or conflicting · 🟣 merged.
-
-**Format** — an `####` heading, one fenced `text` block, then a numbered merge order:
-
-````markdown
-#### 🔀 Merge graph · <plan or scope>
-
-```
-✅ can merge now   ⏳ blocked   ──▶ must merge first   ┄┄ same files (rebase, order free)
-
-<repo>
-  ✅ #130  PR-2   config contract ──┬──▶ ⏳ #139  PR-8   nature gating
-                                    └──▶ ⏳ #140  PR-10  carbon row
-  ✅ #132  PR-3   event contract  ────▶ #140
-  ✅ #131  PR-1   credits on      ┄┄ #130 (types · utils)
-
-<repo> ▸ <repo>
-  ✅ #1263 PR-5   suggested_amounts ──▶ ⏳ #504  PR-6   passthrough
-
-not built
-  TASK-B #129 ──▶ PR-11 #126 ──▶ PR-12 #127 release
-```
-
-**Merge order**
-1. **#130** — re-target #139 and #140 onto `main` first
-2. **#131 · #132** — rebase onto #130
-````
-
-- Group by repo. A cross-repo chain (a pin, a proto consumer) gets its own `<repo> ▸ <repo>` group.
-- A node's full line (`mark #n task label`) appears once; every later mention is the bare `#n`.
-  Labels are three words at most. Align the columns.
-- Fan-out uses `┬ ├ └`. Tasks with no PR yet go in a last `not built` chain.
-- **Merge order:** at most eight numbered lines. PRs that can land together share a line, joined with
-  ` · `. After the `—`, name only the action the merge needs: a re-target, a rebase, a re-pin, a
-  human sign-off. Nothing else.
-- Read-only still applies: the graph names the re-targets and rebases, it never performs them.
+- On a recurring schedule, each tick is the same report, the table plus whichever views the
+  schedule was set up with, and nothing more.
+- Do not add views tick by tick; that breaks the diff.
+- When every row is at 100%, or the named scope is done, post the final report and cancel the
+  recurring job that drives the ticks. Do not leave it running past the work it was scoped to.

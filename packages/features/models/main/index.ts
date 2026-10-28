@@ -14,6 +14,7 @@ import {
   ollamaVersion,
   resolveOllamaBaseUrl,
 } from './client';
+import { getOllamaDigestLedger } from './digest-ledger';
 import { searchOllamaLibrary } from './library-search';
 import { cancelOllamaPull, configureOllamaPullQueue, startOllamaPull } from './pull-queue';
 import { getConfiguredOllamaHost, getOllamaSettings, setOllamaSettings } from './settings-service';
@@ -21,6 +22,16 @@ import { getConfiguredOllamaHost, getOllamaSettings, setOllamaSettings } from '.
 export { modelsManifest, type ModelsManifest } from '../manifest';
 export * from './client';
 export { runOllamaPrompt, type OllamaHeadlessDeps } from './ollama-headless';
+export {
+  configureOllamaDigests,
+  createOllamaDigestLedger,
+  createOllamaDigestStore,
+  manifestPathFor,
+  ollamaModelsDir,
+  verifyManifestDigest,
+  type OllamaDigestLedger,
+  type OllamaDigestStore,
+} from './digest-ledger';
 export { searchOllamaLibrary } from './library-search';
 export { cancelOllamaPull, configureOllamaPullQueue, resetOllamaPullQueueState, startOllamaPull } from './pull-queue';
 export {
@@ -89,7 +100,10 @@ export const modelsMain = defineFeatureMain<ModelsMainServices>({
 
     ipc.handleBare(CHANNELS.ollamaList, async () => {
       try {
-        return ok({ models: await ollamaTags({ baseUrl: await resolveHost() }) });
+        const models = await ollamaTags({ baseUrl: await resolveHost() });
+        // Phase 121 Theme I: a pinned model whose digest moved without a pull is a finding, raised here.
+        void getOllamaDigestLedger()?.checkPinned(models).catch(() => undefined);
+        return ok({ models });
       } catch (error) {
         return failure(errorMessage(error));
       }

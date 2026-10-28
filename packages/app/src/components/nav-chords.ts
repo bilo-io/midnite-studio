@@ -30,6 +30,7 @@ export const VIEW_COMMAND: Partial<Record<ViewId, CommandId>> = {
   search: 'search.open',
   graph: 'view.graph',
   tasks: 'view.issues',
+  // `vanguard` has none: it is reached from the rail, the palette or a link, never a chord.
 };
 
 /** The rail tooltip's text for a view, or `undefined` where there is no chord. */

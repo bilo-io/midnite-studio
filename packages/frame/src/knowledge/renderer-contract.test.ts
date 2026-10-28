@@ -9,15 +9,26 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_VARIANT_ID, resolveVariant, VARIANTS } from './renderer-contract';
 
 describe('renderer-contract', () => {
-  it('registers Theme D’s four sigma looks: atlas, constellation, orbit, clusters', () => {
-    expect(VARIANTS.map((v) => v.id)).toEqual(['atlas', 'constellation', 'orbit', 'clusters']);
+  it('registers Theme D’s four sigma looks plus the 3D presentation styles (telemetry-3d, synapse-3d)', () => {
+    expect(VARIANTS.map((v) => v.id)).toEqual([
+      'atlas',
+      'constellation',
+      'orbit',
+      'clusters',
+      'telemetry-3d',
+      'synapse-3d',
+    ]);
     expect(DEFAULT_VARIANT_ID).toBe('atlas');
   });
 
-  it('every entry shares engine: sigma and the same load() reference — no remount switching looks', () => {
-    expect(VARIANTS.every((v) => v.engine === 'sigma')).toBe(true);
-    const loads = new Set(VARIANTS.map((v) => v.load));
-    expect(loads.size).toBe(1);
+  it('sigma looks share one load() reference and 3D styles share one load() reference — no remount switching within an engine', () => {
+    const sigmaVariants = VARIANTS.filter((v) => v.engine === 'sigma');
+    expect(sigmaVariants).toHaveLength(4);
+    expect(new Set(sigmaVariants.map((v) => v.load)).size).toBe(1);
+
+    const threeDVariants = VARIANTS.filter((v) => v.engine === 'canvas-3d');
+    expect(threeDVariants).toHaveLength(2);
+    expect(new Set(threeDVariants.map((v) => v.load)).size).toBe(1);
   });
 
   it('resolves a known id to its own registry entry', () => {
@@ -25,6 +36,8 @@ describe('renderer-contract', () => {
     expect(resolveVariant('constellation').id).toBe('constellation');
     expect(resolveVariant('orbit').id).toBe('orbit');
     expect(resolveVariant('clusters').id).toBe('clusters');
+    expect(resolveVariant('telemetry-3d').id).toBe('telemetry-3d');
+    expect(resolveVariant('synapse-3d').id).toBe('synapse-3d');
   });
 
   it('falls back to the default variant for an unknown or removed id — Decision 1', () => {

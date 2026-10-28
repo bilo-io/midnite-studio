@@ -1,6 +1,7 @@
-import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, readFile, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { ensurePrivateDir, redactBytesForDisk, writePrivateFile } from '@midnite/studio-runtime';
 import {
   ClosedSessionSchema,
   MAX_CLOSED_SESSIONS,
@@ -108,7 +109,7 @@ export function createSessionHistoryStore(directory: string): SessionHistoryStor
   const save = async (closed: readonly ClosedSession[]): Promise<void> => {
     const state: StoredState = { version: 1, closed: [...closed] };
     try {
-      await writeFile(file, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+      await writePrivateFile(file, `${JSON.stringify(state, null, 2)}\n`);
     } catch {
       // A read-only data dir must not take the app down. The archive holds for
       // this session and is gone next launch — the same trade `trust-store.ts`
@@ -183,16 +184,34 @@ async function archiveTranscript(
 ): Promise<void> {
   if (from === null) return;
   try {
-    await mkdir(transcriptDir, { recursive: true });
+    await ensurePrivateDir(transcriptDir);
   } catch {
     return;
   }
   try {
+    // Phase 115 Theme C: live scrollback stays byte-exact, but the archive is a document at rest,
+    // so a stored secret that reached the terminal is scrubbed on the way in.
+    const scrubbed = redactBytesForDisk(await readFile(from));
+    if (scrubbed !== null) {
+      try {
+        await writePrivateFile(to, scrubbed);
+      } catch {
+        // Fail closed: never archive the unscrubbed bytes. The record is still appended; its transcript is lost.
+      }
+      await rm(from, { force: true });
+      return;
+    }
+  } catch {
+    // Unreadable: fall through to the rename, which reports its own failure.
+  }
+  try {
     await rename(from, to);
+    await chmod(to, 0o600).catch(() => undefined);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EXDEV') return;
     try {
       await copyFile(from, to);
+      await chmod(to, 0o600).catch(() => undefined);
       await rm(from, { force: true });
     } catch {
       // Nothing further to try. The record is still appended below — a history

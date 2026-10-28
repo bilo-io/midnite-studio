@@ -1,6 +1,7 @@
 // Type-only, by source path: erased at build, so neither bundle pulls `shared`'s zod.
 import type { ViewId } from '@midnite/studio-shared/domain/view';
 import type { MediaTab } from '@midnite/studio-shared/media';
+import type { VanguardTab } from '@midnite/studio-shared/vanguard';
 
 /**
  * The Midnite app suite, as the launcher lists it.
@@ -18,7 +19,7 @@ import type { MediaTab } from '@midnite/studio-shared/media';
 
 /** Where in Studio a feature (or an app's front door) lands. */
 export type StudioTarget =
-  | { kind: 'view'; view: ViewId; tab?: MediaTab }
+  | { kind: 'view'; view: ViewId; tab?: MediaTab | VanguardTab }
   /** Studio's browser panel, opened on a page. */
   | { kind: 'browser'; url: string };
 
@@ -89,7 +90,7 @@ export const APP_IDS = [
 ] as const;
 export type AppId = (typeof APP_IDS)[number];
 
-const view = (v: ViewId, tab?: MediaTab): StudioTarget =>
+const view = (v: ViewId, tab?: MediaTab | VanguardTab): StudioTarget =>
   tab === undefined ? { kind: 'view', view: v } : { kind: 'view', view: v, tab };
 
 /**
@@ -318,14 +319,14 @@ export const APPS: readonly LauncherApp[] = [
     like: 'Like CrowdStrike, Little Snitch and SentinelOne',
     vision:
       'Defend your machine against rogue agent actions, malicious tool executions, and external threats with proactive behavioral defense and runtime isolation.',
-    home: view('landing'),
+    // Phase 120 Theme B: every leaf lands on the Vanguard view, on its own tab.
+    home: view('vanguard', 'findings'),
     features: [
-      { id: 'antivirus', label: 'Antivirus', blurb: 'Real-time filesystem and process scanning', target: view('landing') },
-      { id: 'self-defense', label: 'Agentic Self-Defense', blurb: 'Guardrails and behavioral anomaly detection', target: view('landing') },
-      { id: 'network', label: 'Network Monitor', blurb: 'Inspect outbound connections and API calls', target: view('landing') },
+      { id: 'antivirus', label: 'Antivirus', blurb: 'Real-time filesystem and process scanning', target: view('vanguard', 'findings') },
+      { id: 'self-defense', label: 'Agentic Self-Defense', blurb: 'Guardrails and behavioral anomaly detection', target: view('vanguard', 'sensors') },
+      { id: 'network', label: 'Network Monitor', blurb: 'Inspect outbound connections and API calls', target: view('vanguard', 'network') },
     ],
     runsIn: 'studio',
-    comingSoon: true,
   },
   {
     id: 'startup',

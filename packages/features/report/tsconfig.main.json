@@ -1,0 +1,18 @@
+{
+  // The main half (plus the manifest it reads), built to dist/ as CommonJS:
+  // desktop's tsc reaches it through a project reference and its esbuild
+  // bundle inlines it, exactly like knowledge or git-engine. `bridge.ts` (the preload half) is
+  // built here too, so desktop's tsc can reach it through the same reference.
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "types": ["node"]
+  },
+  "include": ["main/**/*", "manifest.ts", "bridge.ts"],
+  "exclude": ["dist", "node_modules"],
+  "references": [{ "path": "../../shared" }, { "path": "../../runtime" }]
+}

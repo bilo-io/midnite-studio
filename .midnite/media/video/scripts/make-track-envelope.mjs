@@ -77,6 +77,29 @@ const JOBS = [
     frames: 2640,
     name: "The_Iron_Aria",
   },
+  /* Midnite video 1's two cuts: each cut's own music, so its mark pulses with the song it plays. */
+  {
+    track: "projects/youtube-tutorials/midnite-video-1-automated-workflow/input/bed.wav",
+    out: "video-editor/src/projects/youtube-tutorials/midnite-video-1-automated-workflow/energy-bed.ts",
+    fps: 30,
+    frames: 3368,
+    name: "Midnite video 1's bed",
+  },
+  {
+    track: "projects/youtube-tutorials/midnite-video-1-automated-workflow/input/iron-aria.wav",
+    out: "video-editor/src/projects/youtube-tutorials/midnite-video-1-automated-workflow/energy-iron-aria.ts",
+    fps: 30,
+    frames: 3831,
+    name: "Midnite video 1's Iron Aria cut",
+  },
+  /* Midnite Apps: video 1's song with a dubstep remix in its second half, 376 beats (v2). */
+  {
+    track: "projects/midnite-apps/input/bed.wav",
+    out: "video-editor/src/projects/midnite-apps/energy-bed.ts",
+    fps: 30,
+    frames: 5458,
+    name: "Midnite Apps' bed",
+  },
 ];
 
 /** Decode rate. Nyquist is 4kHz, which is ten times anything this looks at. */

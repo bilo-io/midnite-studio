@@ -58,6 +58,7 @@ The frame:
 | `quick-access` | frame | the Mod+l menu; its N capture will write into Mind when installed |
 | `rebase` | frame |  |
 | `repos` | frame |  |
+| `report` | frame | Report an Issue: the dialog, its frame modal and its main half (`packages/features/report`), so every app files to midnite-apps the way Studio does |
 | `screensaver` | frame |  |
 | `search` | frame |  |
 | `settings` | frame |  |
@@ -102,6 +103,7 @@ The apps, grouped by owner:
 | `monitor` | monitor | full view; the status-bar segment stays in the frame |
 | `vault` | vault | the metadata-only view of stored secrets, forge accounts, database logins and web-app sign-ins, plus the credential parts of Studio's Settings ▸ Accounts and ▸ Agent (through `VaultHost`) |
 | `capture` | capture | `packages/features/capture` (Theme K): stills, regions, recordings, the global chord and the opt-in clipboard history; Send to… reaches a chat, a pull-request comment and Creator only through `CaptureHost` |
+| `vanguard` | vanguard | `packages/features/vanguard` (Phase 120): the Vanguard view (findings, Sensors, Network), Settings ▸ Vanguard, the findings handlers and the sensor host; the findings ledger itself is the runtime's |
 
 A tuple layer (`media`) lists the owner first; the others reuse the folder.
 
@@ -394,10 +396,8 @@ adapter is `main/browser-port.ts` (the real Electron, plus the one cast from `Br
 - **The three pieces #853 settled**: full-window browsing (the feature's `BrowserPane`); **web apps** on the
   rail (`WebAppsRailRow`), each taking the page when opened (`components/web-app-view.tsx` over the
   feature's `WebAppPane` and its `persist:app-<id>` partition), turned on and off from a "Web apps" menu —
-  Studio's Settings ▸ Apps; and the **agent session** strip (`components/agent-session-bar.tsx`), which is
-  **still a placeholder** (`agent-session-store.ts`): starting records a goal, Step logs a simulated action,
-  Take Over ends it. Driving a tab needs an agent runtime with tools over the tabs' `WebContents`, a
-  main-side contract this slice does not add.
+  Studio's Settings ▸ Apps; and the **agent session** strip (`components/agent-session-bar.tsx`), which
+  mirrors a session that lives in main — see *The policy module and the agent-session contract* below.
 - **Keys** (`use-browser-keys.ts`): the browser commands' chords from `shared`'s `COMMANDS`, matched as
   Studio's dispatcher matches them. The app menu is only the app and edit menus, so `Mod+w` and `Mod+r`
   reach the tab commands rather than closing or reloading the window.
@@ -415,6 +415,27 @@ adapter is `main/browser-port.ts` (the real Electron, plus the one cast from `Br
   `midnite-browser-X.Y.Z-bundle.zip`.
 - **Build task**: the feature has a `main/`, so it keeps a real `build` (`tsc -b tsconfig.main.json`); only a
   renderer-only feature takes slides' no-op.
+
+**The policy module and the agent-session contract (Phase 117).** The browser's security rules are a set of
+Electron-free modules in `features/browser/main/`, each taking a structural stand-in for what it touches so it
+tests under bare vitest (`pure-rules.test.ts` lists every rule with its test file and fails if one imports
+`electron`). `browser-security.ts` holds the navigation, permission and download rules; `browser-session-policy.ts`
+is the one place a session rule is installed (`applyBrowserSessionPolicy`, called for `persist:browser` and every
+`persist:app-<id>`, in a test-pinned order); `permission-grant-store.ts`, `site-verdict-state.ts`,
+`download-policy.ts`, `filter-list.ts` and `phishing-rules.ts` are the rest. The one `webRequest` listener set
+(`browser-request-filter.ts`) fans out through `withRequestGate`, which is how an agent session gates a tab's egress.
+Tabs have no preload; main's only page reads are isolated-world scripts. [`docs/BROWSER_SECURITY.md`](BROWSER_SECURITY.md)
+is the full account.
+
+The **agent-session contract** is `BrowserAgentSession` (`main/browser-agent-session.ts`) with the wire types in
+`shared/browser-agent.ts`: six tools (`navigate`, `read`, `find`, `click`, `type`, `screenshot`) over one tab, a
+per-session origin allowlist, a pause for the user on an off-list navigation, a password field, a form submit and a
+download, and every page word returned only as `UntrustedPageContent` (`shared/untrusted-page-content.ts`, 64 KiB,
+path-redacted, provenance-tagged). The session holds no vault handle (`browser-agent` is a never-grantable vault
+principal). The renderer's `agent-session-store.ts` only mirrors it — `start`, answers and "Take over" go over
+`browser.agentStart`/`agentTool` and every change returns as an `agent-session` browser event — and the agent
+runtime that issues the tool calls is Phase 121. `apps/browser/src/compose/browser-agent-boundary.test.tsx` holds
+every tool response to the envelope.
 
 ### Vault: web-app sign-ins and Studio's credential settings (Phase 113 Theme J slice 3)
 
@@ -731,6 +752,21 @@ call.** `scripts/release-bundles.test.mjs` holds it in the `--all` matrix with i
 and its three leaves land on Studio's Capture view while `runsIn` is still `studio`.
 `MIDNITE_CAPTURE_SMOKE=1` with `MIDNITE_CAPTURE_USER_DATA=<tmp>` takes no chord, never reads the clipboard,
 prints `midnite-capture:ready` and quits.
+
+### App 14: Vanguard (`apps/vanguard`) — Phase 120 Theme B
+
+Vanguard composes `packages/features/vanguard` (the view, Settings ▸ Vanguard, the findings handlers and the
+sensor host), `report` and the `sessions` guest main, copied from Monitor's template. Its sensors are the
+always-on half of the suite's security story; they write into the runtime's findings ledger
+(`<userData>/security/`), which the Guard loop (Phase 122) and the agent policy layer (Phase 121) write into too.
+The sensor host (`main/sensor-host.ts`) imports no `electron`: the composer injects `userData`, a `runProcess`
+(the runtime's no-shell runner) and the ledger's writer. **Policy differs by composer:** Vanguard's own app
+starts every enabled sensor at launch; Studio starts none until the Vanguard view has been opened once
+(persisted in `vanguard.json`, main-side like `mcp.json`), so a user who never looked at it never has `lsof` polled.
+The app **composes no vault** (`scripts/app-vault-grants.test.mjs`) and its preload exposes the `vanguard` and
+`report` namespaces plus read-only `terminal.list` and an attach-only `pty` — it can write a keystroke into a
+session it did not start (Theme H's pause), never create or kill one. The launcher's Vanguard tile lands on
+`midnite-studio://view?id=vanguard&tab=findings|sensors|network` while `runsIn` is still `studio` and `comingSoon` is true.
 
 ### App 11: Gamer (`apps/gamer`) — Phase 113 Theme S slices 1–3
 

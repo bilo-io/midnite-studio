@@ -20,7 +20,10 @@ const account = {
 
 const COOKIE_CANARY = 'sp_dc-value-never-shown';
 
-function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { signInsUnavailable?: string } = {}) {
+function mount(
+  host: VaultHost = { openWebApp: vi.fn(), forge: null },
+  opts: { signInsUnavailable?: string; tamperedFile?: string | null; locked?: boolean } = {},
+) {
   const secrets = {
     get: vi.fn(() => Promise.reject(new Error('Vault must never read a value'))),
     has: vi.fn(async ({ key }: { key: string }) => ({ hasKey: key === 'ollama.apiKey' })),
@@ -69,7 +72,63 @@ function mount(host: VaultHost = { openWebApp: vi.fn(), forge: null }, opts: { s
       return { ok: true };
     }),
   };
-  window.midniteStudio = { secrets, forgeAccounts, db, vaultGrants, vaultPairings, webApps } as unknown as typeof window.midniteStudio;
+  const vaultLock = {
+    status: vi.fn(async () => ({
+      locked: opts.locked ?? (opts.tamperedFile ? true : false),
+      hasPasscode: false,
+      canPromptTouchId: false,
+      recentUnlockAt: null,
+      tamperedFile: opts.tamperedFile ?? null,
+    })),
+    lock: vi.fn(async () => ({ ok: true })),
+    unlock: vi.fn(async () => ({ ok: true })),
+  };
+  const vaultAudit = {
+    list: vi.fn(async () => ({ entries: [], valid: true, total: 0 })),
+    verify: vi.fn(async () => ({ valid: true, total: 0 })),
+    export: vi.fn(async () => ({ ok: true, path: '/tmp/audit.ndjson' })),
+  };
+  const vaultBreach = {
+    check: vi.fn(async () => ({ breached: false, count: 0, checkedAt: Date.now() })),
+  };
+  const vaultSecrets = {
+    revealOnce: vi.fn(async ({ key }: { key: string }) => ({ ok: true, revealed: `revealed-secret-for-${key}` })),
+    copyOnce: vi.fn(async () => ({ ok: true, timeoutSeconds: 30 })),
+  };
+  const vaultScan = {
+    history: vi.fn(async () => ({ ok: true, scannedCommits: 5, findings: [], advice: '' })),
+    hookStatus: vi.fn(async () => ({ installed: false })),
+    hookInstall: vi.fn(async () => ({ ok: true })),
+    hookUninstall: vi.fn(async () => ({ ok: true })),
+  };
+  const vaultBackup = {
+    export: vi.fn(async () => ({ ok: true, path: '/tmp/backup.json', entryCount: 3 })),
+    importPreview: vi.fn(async () => ({
+      ok: true,
+      totalEntries: 2,
+      entries: [
+        { namespace: 'secrets', key: 'anthropic', existsLocally: true, hasFingerprint: false },
+        { namespace: 'db-credentials', key: 'prod', existsLocally: false, hasFingerprint: true },
+      ],
+    })),
+    import: vi.fn(async () => ({ ok: true, importedCount: 1, skippedCount: 1 })),
+    pickExportPath: vi.fn(async () => ({ path: '/tmp/backup.json' })),
+    pickImportPath: vi.fn(async () => ({ path: '/tmp/backup.json' })),
+  };
+  window.midniteStudio = {
+    secrets,
+    forgeAccounts,
+    db,
+    vaultGrants,
+    vaultPairings,
+    webApps,
+    vaultLock,
+    vaultAudit,
+    vaultBreach,
+    vaultSecrets,
+    vaultScan,
+    vaultBackup,
+  } as unknown as typeof window.midniteStudio;
   const kit = createFrameChrome();
   render(
     <FrameChromeProvider chrome={kit.chrome}>
@@ -199,5 +258,90 @@ describe('VaultPage — web-app sign-ins', () => {
     const section = await screen.findByRole('region', { name: 'Web-app sign-ins' });
     expect(await within(section).findByText(/live in Midnite Studio’s own browser sessions/)).toBeDefined();
     expect(within(section).queryAllByRole('button')).toHaveLength(0);
+  });
+
+  it('renders lock status and locks the vault upon clicking Lock Vault', async () => {
+    mount();
+    expect(await screen.findByText('Unlocked')).toBeDefined();
+    const lockBtn = screen.getByRole('button', { name: 'Lock Vault' });
+    fireEvent.click(lockBtn);
+    expect(window.midniteStudio?.vaultLock?.lock).toHaveBeenCalled();
+  });
+
+  it('renders audit section with chain status and export affordance', async () => {
+    mount();
+    expect(await screen.findByRole('region', { name: 'Audit Log' })).toBeDefined();
+    expect(screen.getByText(/Chain verified/)).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Export log' })).toBeDefined();
+  });
+
+  it('supports reveal and copy for set secrets (Phase 118 Theme C)', async () => {
+    mount();
+    // ollama.apiKey is mock-seeded as hasKey: true
+    const revealBtn = await screen.findByRole('button', { name: 'Reveal' });
+    expect(revealBtn).toBeDefined();
+
+    const copyBtn = screen.getByRole('button', { name: 'Copy' });
+    expect(copyBtn).toBeDefined();
+
+    // Clicking copy invokes copyOnce
+    fireEvent.click(copyBtn);
+    expect(window.midniteStudio?.vaultSecrets?.copyOnce).toHaveBeenCalledWith({
+      namespace: 'secrets',
+      key: 'ollama.apiKey',
+      timeoutSeconds: 30,
+    });
+    expect(await screen.findByText('Copied (clears in 30s)')).toBeDefined();
+
+    // Clicking reveal invokes revealOnce and reveals the secret value in DOM
+    fireEvent.click(revealBtn);
+    expect(window.midniteStudio?.vaultSecrets?.revealOnce).toHaveBeenCalledWith({
+      namespace: 'secrets',
+      key: 'ollama.apiKey',
+    });
+    expect(await screen.findByText('revealed-secret-for-ollama.apiKey')).toBeDefined();
+    // Button switches to Mask
+    expect(screen.getByRole('button', { name: 'Mask' })).toBeDefined();
+  });
+
+  it('renders secret scanning section and scans repository history', async () => {
+    mount();
+    expect(screen.getByText('Secret Scanning')).toBeDefined();
+    expect(screen.getByText('Repository History Scan')).toBeDefined();
+
+    const input = screen.getByPlaceholderText('/path/to/repository');
+    fireEvent.change(input, { target: { value: '/repos/sample' } });
+
+    const scanBtn = screen.getByTestId('scan-history-button');
+    fireEvent.click(scanBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/No secrets detected across 5 commits/)).toBeDefined();
+    });
+  });
+
+  it('renders encrypted export and import section and executes backup export', async () => {
+    mount();
+    expect(screen.getByText('Encrypted Backup & Restore')).toBeDefined();
+    expect(screen.getByText('midnite-vault-export-v1')).toBeDefined();
+
+    // Passphrase input
+    const input = screen.getByPlaceholderText('Enter passphrase for backup encryption / decryption...');
+    fireEvent.change(input, { target: { value: 'StrongPassphrase123!' } });
+
+    const exportBtn = screen.getByRole('button', { name: 'Export Vault' });
+    fireEvent.click(exportBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Successfully exported 3 entries/)).toBeDefined();
+    });
+  });
+
+  it('renders tamper alert banner when a tampered file is reported', async () => {
+    mount(undefined, { tamperedFile: 'vault-grants.json' });
+    await waitFor(() => {
+      const banner = screen.getByTestId('tamper-alert');
+      expect(banner.textContent).toContain('vault-grants.json');
+    });
   });
 });

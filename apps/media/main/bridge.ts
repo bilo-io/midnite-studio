@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -12,12 +13,15 @@ type Media = MidniteStudioBridge['media'];
  */
 export type MediaBridge = {
   media: Pick<Media, 'library' | 'onChanged'>;
+  /** Report an Issue — the report feature's own bridge half. */
+  report: ReportBridge;
 };
 
 export type { RendererIpc };
 
 export function createMediaBridge(ipc: RendererIpc): MediaBridge {
-  const { call, subscribe } = createBridgeSlice(ipc);
+  const slice = createBridgeSlice(ipc);
+  const { call, subscribe } = slice;
   return {
     media: {
       library: {
@@ -51,5 +55,6 @@ export function createMediaBridge(ipc: RendererIpc): MediaBridge {
       },
       onChanged: (handler) => subscribe(EVENT_CHANNELS.mediaChanged, handler),
     },
+    report: createReportBridge(slice),
   };
 }

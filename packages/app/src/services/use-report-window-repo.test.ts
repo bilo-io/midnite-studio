@@ -1,12 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
 import { useUiStore } from '../store/ui-store';
 import { useReportWindowRepo } from './use-report-window-repo';
 
-let reportRepo: ReturnType<typeof vi.fn>;
+let reportRepo: Mock;
 
 beforeEach(() => {
   reportRepo = vi.fn();

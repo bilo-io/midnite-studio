@@ -1,4 +1,5 @@
 import { createClaudeConversationAdapter } from './claude';
+import { agentHistoryReadsEnabled } from '../settings-mirror';
 import { createCodexConversationAdapter } from './codex';
 import type { AgentConversationAdapter } from './types';
 
@@ -44,6 +45,8 @@ export async function locateAgentConversation(
   until?: number,
   options?: AgentConversationLocatorOptions,
 ): Promise<string | null> {
+  // Phase 115 F: with "Read Claude and Codex history" off, no transcript directory is touched.
+  if (!agentHistoryReadsEnabled()) return null;
   const adapter = getAgentConversationAdapter(agentId, options);
   if (!adapter) return null;
   return adapter.locate(cwd, since, until);

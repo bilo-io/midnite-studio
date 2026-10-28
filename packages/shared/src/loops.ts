@@ -27,6 +27,8 @@
  */
 import { z } from 'zod';
 
+import { fenceUntrusted } from './untrusted-fence';
+
 /**
  * Which kind of on/off a modifier is — an additive job (`'checkbox'`, the
  * historical name) or a standing policy (`'switch'`). Every modifier is drawn
@@ -209,6 +211,23 @@ export function loopModelArgs(agentId: string, model: LoopModel): string[] {
 }
 
 /**
+ * Whether the model a CLI reported running is the one that was pinned (Phase 121 Theme I).
+ *
+ * The flag is a request; the model id in the CLI's own output is what actually answered, and a fallback
+ * or an alias that moved would make them differ. A match is the pinned id exactly, or that id followed
+ * by a dated snapshot (`-20261001`) or a context suffix (`[1m]`) — never a longer family name, so a pin on
+ * `claude-opus-5` does not accept `claude-opus-5-5`. Nothing is pinned for `default` or a non-Claude
+ * engine, so nothing can differ.
+ */
+export function reportedModelMatches(agentId: string, pinned: LoopModel, reported: string): boolean {
+  if (agentId !== 'claude') return true;
+  const cli = LOOP_MODELS.find((entry) => entry.id === pinned)?.cliModel ?? null;
+  if (cli === null) return true;
+  const rest = reported.startsWith(cli) ? reported.slice(cli.length) : null;
+  return rest !== null && (rest === '' || /^(-(\d{8}|\d{4}-\d{2}-\d{2}|latest))?(\[[^\]]*\])?$/.test(rest));
+}
+
+/**
  * The models a given provider actually offers — the second half of the
  * composer's provider/model pair.
  *
@@ -233,6 +252,10 @@ export function loopModelsFor(agentId: string): readonly (typeof LOOP_MODELS)[nu
  */
 export const LoopFrequencySchema = z.enum([
   'continuous',
+  '1m',
+  '2m',
+  '5m',
+  '10m',
   '15m',
   '30m',
   'hourly',
@@ -249,6 +272,10 @@ export const LOOP_FREQUENCIES: readonly {
   promptFragment: string | null;
 }[] = [
   { id: 'continuous', label: 'Continuous', promptFragment: null },
+  { id: '1m', label: '1m', promptFragment: 'Pace yourself to roughly one pass every minute.' },
+  { id: '2m', label: '2m', promptFragment: 'Pace yourself to roughly one pass every 2 minutes.' },
+  { id: '5m', label: '5m', promptFragment: 'Pace yourself to roughly one pass every 5 minutes.' },
+  { id: '10m', label: '10m', promptFragment: 'Pace yourself to roughly one pass every 10 minutes.' },
   {
     id: '15m',
     label: '15m',
@@ -596,6 +623,16 @@ export type LoopRunStatus = z.infer<typeof LoopRunStatusSchema>;
  * a past run cost. Optional — records written before the picker existed have
  * no answer, and inventing `'default'` for them would be a guess.
  */
+export const LoopRunFindingsSummarySchema = z.object({
+  critical: z.number().int().nonnegative().default(0),
+  high: z.number().int().nonnegative().default(0),
+  medium: z.number().int().nonnegative().default(0),
+  low: z.number().int().nonnegative().default(0),
+  info: z.number().int().nonnegative().default(0),
+  total: z.number().int().nonnegative().default(0),
+});
+export type LoopRunFindingsSummary = z.infer<typeof LoopRunFindingsSummarySchema>;
+
 export const LoopRunRecordSchema = z.object({
   id: z.string().min(1),
   loopId: z.string().min(1),
@@ -608,6 +645,7 @@ export const LoopRunRecordSchema = z.object({
   model: LoopModelSchema.optional(),
   exitCode: z.number().int().optional(),
   status: LoopRunStatusSchema,
+  findingsSummary: LoopRunFindingsSummarySchema.optional(),
 });
 export type LoopRunRecord = z.infer<typeof LoopRunRecordSchema>;
 
@@ -691,25 +729,20 @@ export const AUTONOMY_CHOICE: LoopChoice = {
  * into the fragment by {@link loopModifierFragment}.
  */
 /**
- * Patrol's "Routine" box — the one rule a patrol pass applies to PRs carrying
- * the `routine` label. Exported so the composer test can assert the line
- * carries it exactly when the box is on.
+ * Patrol's "Approve routine PRs" switch in the Run section — the standing rule
+ * a patrol pass applies to PRs carrying the `routine` label. Exported so the
+ * composer and prompt tests can assert the line carries it exactly when the switch is on.
  *
- * Three promises, all load-bearing: it touches only labelled PRs, it approves
+ * Three promises, all load-bearing: it approves only labelled PRs, it approves
  * only when the review turns up nothing critical, and the approval says
  * "LGTM" or "🚀" and nothing else — the findings, if any, are left as review
  * comments the way an ordinary review leaves them.
+ *
+ * It does not restrict reviews to `routine` PRs: all PRs targeted by the prompt
+ * are reviewed, and routine ones get approved if clean.
  */
 export const ROUTINE_PR_FRAGMENT =
-  'Routine PRs: on each pass, list the open PRs carrying the `routine` label and review each one; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. PRs without the `routine` label are unaffected by this rule.';
-
-/**
- * {@link ROUTINE_PR_FRAGMENT} with a chosen review skill — the same rule, but
- * the review it runs on each labelled PR is that skill rather than whatever
- * the agent would do unprompted.
- */
-export const ROUTINE_PR_SKILL_TEMPLATE =
-  'Routine PRs: on each pass, list the open PRs carrying the `routine` label and review each one with {skill}; if the review finds no critical issues, approve it with a body of just "LGTM" or "🚀", otherwise leave the findings as review comments and do not approve. PRs without the `routine` label are unaffected by this rule.';
+  'When reviewing PRs, if an open PR carries the `routine` label and the review finds no critical issues, approve it with a body of just "LGTM" or "🚀" (otherwise leave findings as review comments and do not approve). Do not restrict reviews to `routine` PRs — review all PRs targeted by the rest of the prompt.';
 
 /**
  * Patrol's and Medic's "Triage only" — look and report, touch nothing. The
@@ -777,6 +810,17 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
           'Generate or update a software bill of materials for the current build.',
         group: 'tasks',
         control: 'checkbox',
+        defaultOn: false,
+      },
+      {
+        id: 'fix-findings',
+        label: "Fix the sweep's findings",
+        description:
+          "Fixes findings discovered by the security sweep, proposing PRs rather than reporting only.",
+        promptFragment:
+          "Fix the sweep's findings: address security findings discovered by the sweep and open PRs for remediations.",
+        group: 'run',
+        control: 'switch',
         defaultOn: false,
       },
       {
@@ -985,23 +1029,6 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
     reviewsPrs: true,
     modifiers: [
       {
-        // First and on by default: PRs someone has labelled `routine` are the
-        // ones the owner has already said need no deliberation, so a patrol
-        // pass clears them without being asked. It only *adds* a rule for that
-        // label — unlabelled PRs get whatever the boxes below say, or nothing.
-        // The approval body is the repo's own convention: "LGTM" or "🚀" only.
-        id: 'routine',
-        label: 'Routine',
-        description:
-          'Reviews open PRs labelled `routine` and approves them with "LGTM" or 🚀 unless the review finds something critical.',
-        promptFragment: ROUTINE_PR_FRAGMENT,
-        skillTemplate: ROUTINE_PR_SKILL_TEMPLATE,
-        group: 'tasks',
-        control: 'checkbox',
-        providesTask: true,
-        defaultOn: true,
-      },
-      {
         id: 'pr-review',
         label: 'Review PRs',
         description:
@@ -1054,6 +1081,19 @@ export const DEFAULT_LOOPS: readonly LoopDefinition[] = [
         control: 'switch',
         providesTask: true,
         defaultOn: false,
+      },
+      {
+        // Standing run policy on by default: PRs someone has labelled `routine`
+        // get approved if clean without needing human deliberation.
+        // It does not narrow the pass — all targeted PRs still get reviewed.
+        id: 'routine',
+        label: 'Approve routine PRs',
+        description:
+          'Approves open PRs labelled `routine` with "LGTM" or 🚀 unless the review finds something critical. Other PRs still get the rest of the pass.',
+        promptFragment: ROUTINE_PR_FRAGMENT,
+        group: 'run',
+        control: 'switch',
+        defaultOn: true,
       },
       {
         id: 'auto-approve',
@@ -1318,6 +1358,11 @@ export interface LoopSelection {
   /** Rotate subagents at this percentage of their context window. */
   autoRotatePercent?: number;
   /**
+   * Path to the latest sweep findings JSON file (<userData>/security/sweeps/<id>.json),
+   * attached to prompt with untrusted provenance (Phase 122 Theme A).
+   */
+  sweepFindingsPath?: string;
+  /**
    * The tab bar's "Loop" switch (`loopEnabled`). `false` drops the leading `/loop` from the
    * base, so the agent does one pass and the session stays open in the
    * terminal. Missing means on.
@@ -1350,14 +1395,37 @@ export function normaliseLoopSkill(raw: string | undefined): string {
 }
 
 /**
+ * The sweep findings prompt fragment fenced with untrusted provenance (Phase 122 Theme A).
+ */
+export function loopSweepFindingsFragment(path: string): string {
+  return fenceUntrusted(`Latest sweep findings: ${path}`, {
+    origin: 'attachment',
+    ref: path,
+    trust: 'untrusted',
+  });
+}
+
+/**
  * What one *on* option contributes to the line: its `skillTemplate` with the
  * picked skill in the slot, or its default `promptFragment` when nothing was
- * picked (or the option takes no skill).
+ * picked (or the option takes no skill). When `fix-findings` is on and a sweep
+ * findings path is available, appends the untrusted-fenced findings link.
  */
-export function loopModifierFragment(modifier: LoopModifier, skill?: string): string {
+export function loopModifierFragment(
+  modifier: LoopModifier,
+  skill?: string,
+  options?: { sweepFindingsPath?: string },
+): string {
   const chosen = normaliseLoopSkill(skill);
-  if (chosen.length === 0 || modifier.skillTemplate === undefined) return modifier.promptFragment;
-  return modifier.skillTemplate.split(LOOP_SKILL_SLOT).join(chosen);
+  const base =
+    chosen.length === 0 || modifier.skillTemplate === undefined
+      ? modifier.promptFragment
+      : modifier.skillTemplate.split(LOOP_SKILL_SLOT).join(chosen);
+
+  if (modifier.id === 'fix-findings' && options?.sweepFindingsPath) {
+    return `${base} ${loopSweepFindingsFragment(options.sweepFindingsPath)}`;
+  }
+  return base;
 }
 
 /** The Users filter's sentence, or `null` when no user is picked. */
@@ -1402,7 +1470,11 @@ export function composeLoopPrompt(
   for (const group of LOOP_GROUPS) {
     for (const modifier of loop.modifiers) {
       if (modifier.group === group.id && on.has(modifier.id)) {
-        fragments.push(loopModifierFragment(modifier, selection.skills?.[modifier.id]));
+        fragments.push(
+          loopModifierFragment(modifier, selection.skills?.[modifier.id], {
+            sweepFindingsPath: selection.sweepFindingsPath,
+          }),
+        );
       }
     }
     for (const choice of loop.choices) {
@@ -1419,6 +1491,10 @@ export function composeLoopPrompt(
     if (group.id === 'run' && selection.autoRotatePercent !== undefined) {
       fragments.push(loopAutoRotateFragment(selection.autoRotatePercent));
     }
+  }
+
+  if (selection.sweepFindingsPath && !on.has('fix-findings')) {
+    fragments.push(loopSweepFindingsFragment(selection.sweepFindingsPath));
   }
 
   const schedule = loopScheduleFragment(selection.schedule);

@@ -134,6 +134,9 @@ export const AppWindow: React.FC<{
             top: offsetTop,
             width: source.width * scale,
             height: source.height * scale,
+            /* A crop draws the frame larger than the card; without these it is clamped back to the card's size. */
+            maxWidth: "none",
+            maxHeight: "none",
             display: "block",
           }}
         />

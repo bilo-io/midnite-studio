@@ -36,3 +36,6 @@ Two positions are held deliberately; please read them before spending time on on
 
 Findings from our own audits, and their status, are indexed in
 [`docs/security/README.md`](docs/security/README.md).
+
+For full details on key handling, threat modeling, and vault architecture, see
+[`docs/VAULT_SECURITY.md`](docs/VAULT_SECURITY.md).

@@ -20,6 +20,48 @@ that mirror is what the in-app release-notes popover actually reads (see
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-10-26
+
+### Added
+- **Midnite Vanguard** (Phase 120): Antivirus and agentic self-defense app and feature suite. Includes a tamper-evident findings ledger, bundle and repo integrity verification, process and persistence sensors, network egress and malware sensors, automated containment and quarantine, and rogue agent detection. Vanguard is now live as an enabled suite app tile in Midnite Apps launcher.
+- **Agents Security Hardening** (Phase 121): Comprehensive protection against prompt injection and unauthorized execution. Includes untrusted content tagging, tool-call policy enforcement with chat review gating, CLI policy hook, MCP server trust pinned by SHA-256 hash, prompt secret leakage scrubbing, confined agent sessions with OS isolation, execution rate limits and circuit breakers, durable append-only agent audit trail, package install verification, and key/model residency controls.
+- **Vault Security Hardening** (Phase 118): Tamper detection and memory hygiene for secret zeroing, secret scanning across repositories and clipboard history, zero-trace reveal and copy, password-protected encrypted vault export and import, auto-lock timeouts, detailed security audit log, and breach checking.
+- **Browser Security** (Phase 117): Chromium floor and isolation with single-session policy, origin permission prompts remembered per site, security verdicts (TLS status, mixed content, vulnerable libraries, lookalike domains), quarantined downloads, tracker and fingerprinting protection, credential-phishing detection, and page-to-agent boundary defense.
+- **Report an Issue**: Dedicated `@midnite/feature-report` dialog wired across all suite apps (Gamer, Media, Mind, Money, Monitor, Vault, Agents, Browser, Capture, Cleaner, Coder, Creator), standardizing issue creation and diagnostics copying.
+- **Custom Loops & Management**: Create and configure custom loops with a `+` tab, "Start from" template picker, inline edit mode, and per-loop color coding. Routine approvals moved to the run group with policy prompt configuration, and loops confirmation modal now overlays directly within the loops panel.
+- **Visuals & Audio Experience**: 3D Jarvis volumetric spherical orb companion visualizer with time-of-day greetings and status summaries, 5-layer 3D fractal & sacred-geometry visualizer across all audio players, thread width display modes (default / wider / full) in chat threads, and 3D knowledge graph styling with Zen mode.
+
+### Changed
+- Consolidated CI pipelines: folded gate-locale into gate-native, rebalanced Playwright e2e runs into 4 shards, and consolidated node gates.
+- Updated dock alignment toggle icons to `react-icons/tb` (`TbBoxAlign`).
+- Commit highlight tiers span the last hour instead of 30 minutes.
+
+### Fixed
+- Graph commit diff stats now accurately match per-file numstats.
+- Companion orb visualizer glow is no longer clipped, with brighter core rendering.
+- Circlepack layout in knowledge visualization no longer crashes when encountering empty node identifiers.
+- Delete confirmation dialog for custom loops now appears reliably.
+- Addressed security audit advisories with DOMPurify 3.4.17 bump and transitive Next.js advisory suppressions.
+
+## [0.0.4] - 2026-10-21
+
+### Added
+- **Move all apps to Trash** from Midnite Apps' top bar. One confirm lists every app it will remove. An app that is still running is skipped, and the toast says why. The launcher itself stays.
+- Loops can run every 1, 2, 5 or 10 minutes.
+- Every Loops option is a switch with a tooltip and a preview of the prompt it adds. Options that run a skill have a field for choosing a different one.
+- Patrol has a **Routine** task, on by default. It reviews open PRs labelled `routine` and approves the ones with no critical issues.
+- Patrol can be limited to chosen users' PRs, and has an auto-rotate setting for subagents' context.
+
+### Changed
+- Patrol's "Answer feedback" task is now called **Reply to PRs**.
+- **Triage only** runs `/midnite-sitrep` instead of `/midnite-triage`.
+
+### Fixed
+- `install.sh` and `install-studio.sh` warn when Gatekeeper rejects an ad hoc signed release, instead of refusing it. That rejection turned away every 0.0.3 install. Both still check the zip's SHA-256 checksum, a broken code signature is still refused, and a successful install no longer exits with status 1.
+- Midnite Apps is properly ad hoc signed. The 0.0.3 launcher download had an invalid signature, so `install.sh` could not install it. Releases now check both downloads the same way the installers do before they are published.
+- The Loop switch under the Loops tab bar now controls whether a command repeats (`/loop`) or runs once, and is on by default. The duplicate switch in the Run section is gone.
+- Patrol's Routine task no longer limits a pass to PRs labelled `routine`. Other PRs still get the rest of the pass.
+
 ## [0.0.3] - 2026-10-21
 
 Covers everything since 0.0.1; the 0.0.2 test release shipped without notes.
@@ -58,7 +100,9 @@ Covers everything since 0.0.1; the 0.0.2 test release shipped without notes.
 - User-level skills management option accessible via the Midnite menu.
 - Full two-pane Notes manager with Monaco code editor, Markdown preview, and persistent disk storage.
 
-[Unreleased]: https://github.com/bilo-io/midnite-studio/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/bilo-io/midnite-studio/compare/v0.0.5...HEAD
+[0.0.5]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.5
+[0.0.4]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.4
 [0.0.3]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.3
 [0.0.1]: https://github.com/bilo-io/midnite-studio/releases/tag/v0.0.1
 

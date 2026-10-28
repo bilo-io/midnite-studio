@@ -4,7 +4,9 @@ import { persist } from 'zustand/middleware';
 
 import {
   clampAutomateConcurrency,
+  CHAT_WIDTH_MODES,
   DEFAULT_BROWSER_DISCARD_MS,
+  DEFAULT_CHAT_WIDTH_MODE,
   DEFAULT_COMPANION_VOLUME,
   DEFAULT_SKILL_EXECUTION_MODE,
   METRICS_IDLE_INTERVAL_MS,
@@ -12,6 +14,7 @@ import {
   type AgentCommandId,
   type AgentMode,
   type AgentOllamaBinding,
+  type ChatWidthMode,
   type WebAppId,
   type CompanionMicMode,
   type CompanionProfile,
@@ -23,9 +26,14 @@ import {
   type CompanionVoiceSelection,
   type Ecosystem,
   type ForgeAccount,
+  type CustomLoop,
   type LoopModel,
   type LoopRunOptions,
   type LoopSchedule,
+  createBlankCustomLoop,
+  DEFAULT_LOOPS,
+  duplicateLoopAsCustom,
+  restartCustomLoop,
   type MediaTab,
   MEDIA_TABS,
   type MetricId,
@@ -94,6 +102,7 @@ import { bridge } from '../services/bridge';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
 import { migrateLoopSwitch } from './migrate-loop-switch';
+import { mergeCustomLoops, migrateCustomLoops, omitKey } from './migrate-custom-loops';
 import { migrateAppsToWebApps } from './migrate-web-apps';
 import {
   INITIAL_SETUP_STATE,
@@ -192,8 +201,27 @@ export const FORGE_SWITCHER_PLACEMENTS: readonly ForgeSwitcherPlacement[] = [
   'hidden',
 ];
 
-/** Active tab in the FAB panel. */
-export type FabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 'overhaul';
+/** A built-in loop's tab id. */
+export type BuiltinFabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 'overhaul';
+
+/** Active tab in the FAB panel — a built-in, or a custom loop (`custom-…`). */
+export type FabTab = BuiltinFabTab | `custom-${string}`;
+
+/** Every per-loop record keyed by loop id — cleared when a custom loop is deleted. */
+const PER_LOOP_KEYS = [
+  'fabSessions',
+  'fabPrevSessions',
+  'loopModifierDefaults',
+  'loopModifierChecks',
+  'loopChoices',
+  'loopAgents',
+  'loopModels',
+  'loopSchedules',
+  'loopExtras',
+  'loopEnabled',
+  'loopModifierSkills',
+  'loopRunOptions',
+] as const;
 
 /** How the commit inspector lists a commit's files. */
 export type CommitFileView = 'tree' | 'list';
@@ -287,6 +315,7 @@ export const SETTINGS_PAGES: { id: SettingsPageId; label: string; group: Setting
   { id: 'updates', label: 'App Updates', group: 'system' },
   { id: 'health', label: 'System Health', group: 'system' },
   { id: 'monitor', label: 'Monitor & Diagnostics', group: 'system' },
+  { id: 'vanguard', label: 'Vanguard', group: 'system' },
   { id: 'optimizer', label: 'Workspace Optimizer', group: 'system' },
 ];
 
@@ -1009,6 +1038,39 @@ export type UiState = {
    */
   loopRunOptions: Record<string, LoopRunOptions>;
   setLoopRunOptions: (loopId: string, patch: LoopRunOptions) => void;
+  /**
+   * The user's own loops — tabs after the six built-ins, authored in the FAB
+   * panel's Edit mode. Persisted app-wide, per user (this blob, never a repo
+   * file): a loop is a way of working, not a property of one checkout.
+   * Validated with `CustomLoopSchema` on load (`merge`), so one broken row
+   * drops only itself.
+   */
+  customLoops: CustomLoop[];
+  /**
+   * Make a blank custom loop, put the panel on its tab and open it in Edit
+   * mode with the "Start from" picker showing. Returns the new id.
+   */
+  createCustomLoop: () => FabTab;
+  /**
+   * The "Start from" picker: refill a loop from a blank template (`null`) or
+   * as a copy of a built-in (its id), keeping the loop's own id. The copied
+   * base prompt is the built-in's as resolved now — a Settings ▸ Agent edit
+   * included.
+   */
+  startCustomLoopFrom: (loopId: string, sourceLoopId: string | null) => void;
+  /** Replace one custom loop with `edit(current)`. Any edit retires the "Start from" picker. */
+  updateCustomLoop: (loopId: string, edit: (loop: CustomLoop) => CustomLoop) => void;
+  /**
+   * Remove a custom loop and every per-loop record keyed by its id. Closing
+   * its terminal session is the caller's job (the terminal store lives
+   * downstream of this one); the tab falls back to its left neighbour.
+   */
+  deleteCustomLoop: (loopId: string) => void;
+  /** Which custom loop is in Edit mode, if any. Not persisted. */
+  customLoopEditing: string | null;
+  setCustomLoopEditing: (loopId: string | null) => void;
+  /** The loop just made by "+", until its first edit — what shows "Start from". Not persisted. */
+  customLoopFresh: string | null;
   updatesAutoCheck: boolean;
   updateChannel: 'stable' | 'beta';
   occluders: number;
@@ -1054,6 +1116,9 @@ export type UiState = {
   graphColumnVisibility: GraphColumnVisibility;
   navMode: NavMode;
   collapsedNavSections: string[];
+  /** The Chats thread's width mode (default / wider / full), persisted. */
+  chatsWidthMode: ChatWidthMode;
+  setChatsWidthMode: (mode: ChatWidthMode) => void;
   /** Media page (Phase 99 Theme A) — the active tab, persisted. */
   mediaTab: MediaTab;
   /** Media ▸ Video's right-hand panel tab. */
@@ -1604,12 +1669,6 @@ export type UiState = {
   openKillSwitch: (flow?: { workflowId: string; runId?: string }) => void;
   closeKillSwitch: () => void;
   /**
-   * The app-wide report-an-issue dialog (`ReportIssueHost`), opened by `app.reportIssue` from the
-   * Help menu or the palette. Transient, like `killSwitchOpen` beside it.
-   */
-  reportIssueOpen: boolean;
-  setReportIssueOpen: (open: boolean) => void;
-  /**
    * Which skill each entry of the sidebar's midnite menu invokes.
    *
    * A setting rather than a constant because a skill is a *file in the user's
@@ -1743,6 +1802,34 @@ export type UiState = {
   forgeSyncGhAuthSwitch: boolean;
   setForgeSyncGhAuthSwitch: (value: boolean) => void;
   /**
+   * Settings ▸ Agents ▸ "Confine new sessions" (Phase 121 Theme E). New terminal and council sessions run under a
+   * macOS Seatbelt profile. Off by default this phase; mirrored into main (`use-settings-sync.ts`), which reads
+   * it at spawn.
+   */
+  confineNewSessions: boolean;
+  setConfineNewSessions: (value: boolean) => void;
+  /**
+   * Settings ▸ Privacy ▸ "Read Claude and Codex history" (Phase 115 Theme F). On by default; off stops every
+   * main-side read of `~/.claude` and `~/.codex`. Mirrored into main (`use-settings-sync.ts`).
+   */
+  readAgentHistory: boolean;
+  setReadAgentHistory: (value: boolean) => void;
+  /**
+   * Settings ▸ Privacy ▸ "Turn off all automatic network" (Phase 115 Theme A). Overrides every per-host switch
+   * without changing its stored value. Mirrored into main for `guardedFetch` (`use-settings-sync.ts`).
+   */
+  egressAllAutomaticOff: boolean;
+  setEgressAllAutomaticOff: (value: boolean) => void;
+  /** Stored position of each generated Privacy switch (`PrivacySwitchId`); absent ids use the registry default (on). */
+  egressSwitches: Record<string, boolean>;
+  setEgressSwitch: (id: string, on: boolean) => void;
+  /**
+   * Settings ▸ Privacy ▸ "Keep local history" (Phase 115 Theme B), in days; `null` keeps forever (default).
+   * Applies to scrollback and archived transcripts; mirrored into main, which prunes on start and daily.
+   */
+  historyRetentionDays: number | null;
+  setHistoryRetentionDays: (value: number | null) => void;
+  /**
    * Execution mode when triggering skills: 'interactive' (default) or 'headless'.
    */
   skillExecutionMode: SkillExecutionMode;
@@ -1801,6 +1888,33 @@ export type UiState = {
    */
   browserDiscardMs: number;
   setBrowserDiscardMs: (ms: number) => void;
+  /** Phase 117 Theme B — whether spellchecking is enabled in the browser partition. */
+  browserSpellcheck: boolean;
+  setBrowserSpellcheck: (spellcheck: boolean) => void;
+  /** Phase 117 Theme G — the ClickFix clipboard watch. On by default; main mirrors it. */
+  browserClipboardWatch: boolean;
+  setBrowserClipboardWatch: (enabled: boolean) => void;
+  /** Phase 117 Theme D — opt-in downloads; `folder: ''` is the default quarantine folder. */
+  browserDownloads: { enabled: boolean; folder: string };
+  setBrowserDownloads: (downloads: { enabled: boolean; folder: string }) => void;
+  /** Phase 117 Theme E — tracker blocking, third-party cookies, referrer trimming, reduced UA. */
+  browserPrivacy: {
+    blockTrackers: boolean;
+    blockThirdPartyCookies: boolean;
+    trimReferrer: boolean;
+    reduceUserAgent: boolean;
+  };
+  setBrowserPrivacy: (privacy: UiState['browserPrivacy']) => void;
+  /**
+   * Phase 117 Theme C — whether the browser's certificate / known-bad interstitial offers "Proceed for
+   * this session". Default off, the same shape as `allowForceWithLease`; pushed to main by the browser
+   * pane (`use-browser-tabs.ts`) on mount and on every change.
+   */
+  browserAllowSiteProceed: boolean;
+  setBrowserAllowSiteProceed: (allow: boolean) => void;
+  /** Phase 117 Theme C — Settings ▸ Privacy's reputation-feed switches (URLhaus, OpenPhish), each default off. */
+  browserReputationFeeds: { urlhaus: boolean; openphish: boolean };
+  setBrowserReputationFeed: (feed: 'urlhaus' | 'openphish', enabled: boolean) => void;
   /**
    * Phase 64 Theme C — the Files-view Monaco editor's own preferences,
    * mirroring the terminal font trio above exactly. `editorFontFamily: ''` is
@@ -2180,6 +2294,7 @@ export type VideoPanelTab = (typeof VIDEO_PANEL_TABS)[number];
 export type PersistedUi = Pick<
   UiState,
   | 'layout'
+  | 'chatsWidthMode'
   | 'mediaTab'
   | 'mediaVideoPanelTab'
   | 'mediaPaneCollapsed'
@@ -2238,6 +2353,7 @@ export type PersistedUi = Pick<
   | 'loopEnabled'
   | 'loopModifierSkills'
   | 'loopRunOptions'
+  | 'customLoops'
   | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'autoFetchEnabled'
@@ -2248,6 +2364,11 @@ export type PersistedUi = Pick<
   | 'forgeScopeReposToActiveAccount'
   | 'forgeSwitcherPlacement'
   | 'forgeSyncGhAuthSwitch'
+  | 'confineNewSessions'
+  | 'readAgentHistory'
+  | 'egressAllAutomaticOff'
+  | 'egressSwitches'
+  | 'historyRetentionDays'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
   | 'audioTabByRepo'
@@ -2287,6 +2408,12 @@ export type PersistedUi = Pick<
   | 'terminalKeepRecentSessions'
   | 'terminalDisposeAfterMs'
   | 'browserDiscardMs'
+  | 'browserSpellcheck'
+  | 'browserClipboardWatch'
+  | 'browserAllowSiteProceed'
+  | 'browserReputationFeeds'
+  | 'browserDownloads'
+  | 'browserPrivacy'
   | 'editorFontFamily'
   | 'editorFontSize'
   | 'editorMinimap'
@@ -2451,7 +2578,6 @@ export const useUiStore = create<UiState>()(
       automateEnabledByProject: {},
       automateCapByProject: {},
       killSwitchOpen: false,
-      reportIssueOpen: false,
       killSwitchFlowWorkflowId: null,
       killSwitchFlowRunId: null,
       blockedByFieldName: 'Blocked by',
@@ -2484,6 +2610,16 @@ export const useUiStore = create<UiState>()(
       setForgeSwitcherPlacement: (forgeSwitcherPlacement) => set({ forgeSwitcherPlacement }),
       forgeSyncGhAuthSwitch: true,
       setForgeSyncGhAuthSwitch: (forgeSyncGhAuthSwitch) => set({ forgeSyncGhAuthSwitch }),
+      confineNewSessions: false,
+      setConfineNewSessions: (confineNewSessions) => set({ confineNewSessions }),
+      readAgentHistory: true,
+      setReadAgentHistory: (readAgentHistory) => set({ readAgentHistory }),
+      egressAllAutomaticOff: false,
+      setEgressAllAutomaticOff: (egressAllAutomaticOff) => set({ egressAllAutomaticOff }),
+      egressSwitches: {},
+      setEgressSwitch: (id, on) => set((state) => ({ egressSwitches: { ...state.egressSwitches, [id]: on } })),
+      historyRetentionDays: null,
+      setHistoryRetentionDays: (historyRetentionDays) => set({ historyRetentionDays }),
       skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
       setSkillExecutionMode: (skillExecutionMode) => set({ skillExecutionMode }),
       inactivityTimeoutS: 900,
@@ -2513,6 +2649,30 @@ export const useUiStore = create<UiState>()(
       setTerminalDisposeAfterMs: (terminalDisposeAfterMs) => set({ terminalDisposeAfterMs }),
       browserDiscardMs: DEFAULT_BROWSER_DISCARD_MS,
       setBrowserDiscardMs: (browserDiscardMs) => set({ browserDiscardMs }),
+      browserSpellcheck: false,
+      setBrowserSpellcheck: (browserSpellcheck) => {
+        set({ browserSpellcheck });
+        bridge()?.browser.setSpellcheck({ enabled: browserSpellcheck });
+      },
+      browserClipboardWatch: true,
+      setBrowserClipboardWatch: (browserClipboardWatch) => set({ browserClipboardWatch }),
+      browserAllowSiteProceed: false,
+      // Both push to main directly as well as through the browser pane's effect: Settings can be
+      // open with no pane mounted, and turning the proceed switch off must revoke bypasses now.
+      setBrowserAllowSiteProceed: (browserAllowSiteProceed) => {
+        set({ browserAllowSiteProceed });
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: get().browserReputationFeeds });
+      },
+      browserReputationFeeds: { urlhaus: false, openphish: false },
+      setBrowserReputationFeed: (feed, enabled) => {
+        set((state) => ({ browserReputationFeeds: { ...state.browserReputationFeeds, [feed]: enabled } }));
+        const { browserAllowSiteProceed, browserReputationFeeds } = get();
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: browserReputationFeeds });
+      },
+      browserDownloads: { enabled: false, folder: '' },
+      setBrowserDownloads: (browserDownloads) => set({ browserDownloads }),
+      browserPrivacy: { blockTrackers: true, blockThirdPartyCookies: true, trimReferrer: true, reduceUserAgent: true },
+      setBrowserPrivacy: (browserPrivacy) => set({ browserPrivacy }),
       editorFontFamily: '',
       setEditorFontFamily: (editorFontFamily) => set({ editorFontFamily }),
       editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
@@ -2768,6 +2928,83 @@ export const useUiStore = create<UiState>()(
             [loopId]: { ...state.loopRunOptions[loopId], ...patch },
           },
         })),
+      customLoops: [],
+      customLoopEditing: null,
+      customLoopFresh: null,
+      createCustomLoop: () => {
+        const loop = createBlankCustomLoop();
+        const id = loop.id as FabTab;
+        set((state) => ({
+          customLoops: [...state.customLoops, loop],
+          activeFabTab: id,
+          customLoopEditing: loop.id,
+          customLoopFresh: loop.id,
+        }));
+        return id;
+      },
+      startCustomLoopFrom: (loopId, sourceLoopId) =>
+        set((state) => {
+          const current = state.customLoops.find((loop) => loop.id === loopId);
+          if (!current) return {};
+          const source = DEFAULT_LOOPS.find((loop) => loop.id === sourceLoopId);
+          const template = source
+            ? duplicateLoopAsCustom(
+                source,
+                (state.agentSkills as Record<string, string | undefined>)[source.agentCommandId] ??
+                  source.fallbackPrompt,
+              )
+            : createBlankCustomLoop();
+          const next = restartCustomLoop(current, template);
+          return {
+            customLoops: state.customLoops.map((loop) => (loop.id === loopId ? next : loop)),
+            // The old content's per-run toggles name options that no longer exist.
+            loopModifierChecks: omitKey(state.loopModifierChecks, loopId),
+            loopModifierDefaults: omitKey(state.loopModifierDefaults, loopId),
+            loopChoices: omitKey(state.loopChoices, loopId),
+            loopModifierSkills: omitKey(state.loopModifierSkills, loopId),
+          };
+        }),
+      updateCustomLoop: (loopId, edit) =>
+        set((state) => {
+          const index = state.customLoops.findIndex((loop) => loop.id === loopId);
+          if (index < 0) return {};
+          const next = edit(state.customLoops[index]!);
+          const customLoops = [...state.customLoops];
+          customLoops[index] = { ...next, id: loopId, custom: true };
+          return {
+            customLoops,
+            ...(state.customLoopFresh === loopId ? { customLoopFresh: null } : {}),
+          };
+        }),
+      deleteCustomLoop: (loopId) =>
+        set((state) => {
+          const index = state.customLoops.findIndex((loop) => loop.id === loopId);
+          if (index < 0) return {};
+          const customLoops = state.customLoops.filter((loop) => loop.id !== loopId);
+          const cleared: Partial<UiState> = {};
+          for (const key of PER_LOOP_KEYS) {
+            (cleared as Record<string, unknown>)[key] = omitKey(
+              state[key] as Record<string, unknown>,
+              loopId,
+            );
+          }
+          // The tab to its left: the previous custom loop, or the last built-in.
+          const fallback = (customLoops[index - 1]?.id ??
+            DEFAULT_LOOPS[DEFAULT_LOOPS.length - 1]!.id) as FabTab;
+          return {
+            ...cleared,
+            customLoops,
+            ...(state.activeFabTab === loopId ? { activeFabTab: fallback } : {}),
+            ...(state.customLoopEditing === loopId ? { customLoopEditing: null } : {}),
+            ...(state.customLoopFresh === loopId ? { customLoopFresh: null } : {}),
+          };
+        }),
+      setCustomLoopEditing: (loopId) =>
+        set((state) => ({
+          customLoopEditing: loopId,
+          // Leaving the new loop's Edit mode settles it — "Start from" is for a new one.
+          ...(loopId !== state.customLoopFresh ? { customLoopFresh: null } : {}),
+        })),
       updatesAutoCheck: true,
       updateChannel: 'stable',
       occluders: 0,
@@ -2798,6 +3035,8 @@ export const useUiStore = create<UiState>()(
       graphColumnVisibility: DEFAULT_GRAPH_COLUMN_VISIBILITY,
       navMode: 'auto',
       collapsedNavSections: [],
+      chatsWidthMode: DEFAULT_CHAT_WIDTH_MODE,
+      setChatsWidthMode: (chatsWidthMode) => set({ chatsWidthMode }),
       mediaTab: 'doc',
       mediaVideoPanelTab: 'brief',
       setMediaVideoPanelTab: (mediaVideoPanelTab) => set({ mediaVideoPanelTab }),
@@ -3279,7 +3518,6 @@ export const useUiStore = create<UiState>()(
           killSwitchFlowRunId: flow?.runId ?? null,
         }),
       closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
-      setReportIssueOpen: (reportIssueOpen) => set({ reportIssueOpen }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
@@ -3307,9 +3545,10 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'midnite-studio.ui',
-      version: 35,
+      version: 37,
       partialize: (state): PersistedUi => ({
         layout: state.layout,
+        chatsWidthMode: state.chatsWidthMode,
         mediaTab: state.mediaTab,
         mediaVideoPanelTab: state.mediaVideoPanelTab,
         mediaPaneCollapsed: state.mediaPaneCollapsed,
@@ -3368,6 +3607,7 @@ export const useUiStore = create<UiState>()(
         loopEnabled: state.loopEnabled,
         loopModifierSkills: state.loopModifierSkills,
         loopRunOptions: state.loopRunOptions,
+        customLoops: state.customLoops,
         hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         autoFetchEnabled: state.autoFetchEnabled,
@@ -3395,6 +3635,11 @@ export const useUiStore = create<UiState>()(
         forgeScopeReposToActiveAccount: state.forgeScopeReposToActiveAccount,
         forgeSwitcherPlacement: state.forgeSwitcherPlacement,
         forgeSyncGhAuthSwitch: state.forgeSyncGhAuthSwitch,
+        confineNewSessions: state.confineNewSessions,
+        readAgentHistory: state.readAgentHistory,
+        egressAllAutomaticOff: state.egressAllAutomaticOff,
+        egressSwitches: state.egressSwitches,
+        historyRetentionDays: state.historyRetentionDays,
         skillExecutionMode: state.skillExecutionMode,
         repoGroups: state.repoGroups,
         repoGroupMembership: state.repoGroupMembership,
@@ -3421,6 +3666,12 @@ export const useUiStore = create<UiState>()(
         terminalKeepRecentSessions: state.terminalKeepRecentSessions,
         terminalDisposeAfterMs: state.terminalDisposeAfterMs,
         browserDiscardMs: state.browserDiscardMs,
+        browserSpellcheck: state.browserSpellcheck,
+        browserClipboardWatch: state.browserClipboardWatch,
+        browserAllowSiteProceed: state.browserAllowSiteProceed,
+        browserReputationFeeds: state.browserReputationFeeds,
+        browserDownloads: state.browserDownloads,
+        browserPrivacy: state.browserPrivacy,
         editorFontFamily: state.editorFontFamily,
         editorFontSize: state.editorFontSize,
         editorMinimap: state.editorMinimap,
@@ -3564,6 +3815,11 @@ export const useUiStore = create<UiState>()(
        * until now, so a stale `false` meant nothing) is dropped to resolve on.
        * Versioned, not merge-time, so a switch the user flips off afterwards is
        * never re-dropped on the next rehydrate.
+       * v35 → v36: seed `customLoops = []` — the FAB panel's user-authored
+       * loops (Ad Hoc); see `migrate-custom-loops.ts`.
+       * v36 → v37: seed `chatsWidthMode = 'default'` — the Chats thread's width
+       * toggle. `??=` so a test profile seeded straight into the persist key
+       * keeps the mode it chose.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Record<string, unknown> & {
@@ -3756,6 +4012,8 @@ export const useUiStore = create<UiState>()(
         // apps list), so one rename covers a blob from any earlier version.
         if (version < 34) migrateAppsToWebApps(state);
         if (version < 35) migrateLoopSwitch(state);
+        if (version < 36) migrateCustomLoops(state);
+        if (version < 37) state.chatsWidthMode ??= DEFAULT_CHAT_WIDTH_MODE;
         return state as PersistedUi;
       },
       /**
@@ -3778,6 +4036,9 @@ export const useUiStore = create<UiState>()(
           )
             ? (saved.voiceConversationTrigger as VoiceConversationTrigger)
             : current.voiceConversationTrigger,
+          chatsWidthMode: (CHAT_WIDTH_MODES as readonly string[]).includes(saved.chatsWidthMode ?? '')
+            ? (saved.chatsWidthMode as ChatWidthMode)
+            : current.chatsWidthMode,
           mediaTab: (MEDIA_TABS as readonly string[]).includes(saved.mediaTab ?? '')
             ? (saved.mediaTab as MediaTab)
             : current.mediaTab,
@@ -3813,6 +4074,7 @@ export const useUiStore = create<UiState>()(
           loopEnabled: { ...current.loopEnabled, ...saved.loopEnabled },
           loopModifierSkills: { ...current.loopModifierSkills, ...(saved.loopModifierSkills ?? {}) },
           loopRunOptions: { ...current.loopRunOptions, ...(saved.loopRunOptions ?? {}) },
+          ...mergeCustomLoops(saved, current),
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
           activeEnvironmentByRepo: {
             ...current.activeEnvironmentByRepo,

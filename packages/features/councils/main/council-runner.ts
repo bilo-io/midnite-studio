@@ -7,6 +7,9 @@ import {
   agentInvocationArgs,
   failure,
   isOllamaCloudModelName,
+  mergeRedactions,
+  redactOutbound,
+  redactionTotal,
   ok,
   resolveAgentLaunch,
   shellQuote,
@@ -16,6 +19,9 @@ import {
   type AgentOllamaBinding,
   type CouncilRun,
   type GitOpResult,
+  type NewAgentAuditRecord,
+  type OutboundSecret,
+  type Redaction,
 } from '@midnite/studio-shared';
 
 import { appendCapped, cleanCapturedOutput } from '@midnite/studio-runtime';
@@ -30,7 +36,11 @@ import { getCouncil, getRun, saveRun } from './council-service';
  * back the same ports with its own broker and vault.
  */
 export type CouncilRunnerPorts = {
-  /** Spawns a one-shot pty; `initialInput` is typed into the login shell. */
+  /**
+   * Spawns a one-shot pty; `initialInput` is typed into the login shell. Phase 121 Theme E: the host's
+   * implementation decides whether the member is confined (Studio's `pty-service` follows Settings ▸ Agents ▸
+   * "Confine new sessions"; Agents' `shell-runner` takes a `confine` provider), so the runner asks for nothing here.
+   */
   createPty(options: {
     sessionId: string;
     cwd: string;
@@ -54,7 +64,28 @@ export type CouncilRunnerPorts = {
    * `null` when unset or when the vault refuses this app.
    */
   ollamaApiKey(): Promise<string | null>;
+  /**
+   * The one API key this member's engine needs (Phase 121 Theme I), as its environment variable —
+   * `{ ANTHROPIC_API_KEY: ... }`, `{}` for none. Read in main at spawn and merged into that member's pty
+   * alone, so a council of three engines gets three environments, not one holding three keys. Not asked
+   * for an Ollama-bound member. Optional: a composer with no vault access (Agents, for now) supplies none.
+   */
+  agentKeyEnv?(agentId: string): Promise<Record<string, string>>;
+  /**
+   * The audit trail's write entry point (Phase 121 Theme G): one `council-run` record when a run finishes.
+   * Optional and total — a throw is swallowed.
+   */
+  audit?(record: NewAgentAuditRecord): void;
+  /**
+   * The vault's secret values and the canaries (Phase 121 Theme D). Every member and synthesis prompt is scrubbed
+   * against them, and against `SECRET_PATTERNS` by shape, before it is typed into a pty. Optional: absent, only the
+   * patterns run. A throw is swallowed.
+   */
+  outboundSecrets?(): Promise<readonly OutboundSecret[]>;
 };
+
+/** What outbound redaction scrubbed from a run's prompts so far, for its one audit record. */
+const runRedactions = new Map<string, { redactions: Redaction[]; canary: boolean }>();
 
 let ports: CouncilRunnerPorts | null = null;
 
@@ -244,7 +275,7 @@ async function launchMember(
   member: LaunchTarget,
   topic: string,
 ): Promise<void> {
-  const spawned = await spawnOneShot(member.provider, buildMemberPrompt(topic, member.role));
+  const spawned = await spawnOneShot(member.provider, buildMemberPrompt(topic, member.role), runId);
   if (!spawned.ok) {
     await settleMember(runId, member.memberId, 'failed', new Uint8Array(0), '', false, spawned.message);
     return;
@@ -287,7 +318,7 @@ async function maybeSynthesize(runId: string): Promise<void> {
   }));
   const synthesisPrompt = buildSynthesisPrompt(run.prompt, entries);
 
-  const spawned = await spawnOneShot(run.synthProvider, synthesisPrompt);
+  const spawned = await spawnOneShot(run.synthProvider, synthesisPrompt, runId);
   if (!spawned.ok) {
     await finishSynthesis(runId, 'failed', new Uint8Array(0), '', false, spawned.message);
     return;
@@ -300,6 +331,20 @@ async function maybeSynthesize(runId: string): Promise<void> {
   });
 }
 
+/** The prompt with secrets scrubbed out (Phase 121 D); what it cost is tallied against the run for its audit record. */
+async function scrubPrompt(prompt: string, runId: string): Promise<string> {
+  let secrets: readonly OutboundSecret[] = [];
+  try {
+    secrets = (await runnerPorts().outboundSecrets?.()) ?? [];
+  } catch {
+    // The patterns still run.
+  }
+  const result = redactOutbound(prompt, secrets);
+  const tally = runRedactions.get(runId) ?? { redactions: [], canary: false };
+  runRedactions.set(runId, { redactions: mergeRedactions(tally.redactions, result.redactions), canary: tally.canary || result.canary });
+  return result.text;
+}
+
 /**
  * Spawn one member/synthesizer command as an unattended one-shot pty. `\r` is
  * included in `initialInput` deliberately — see this module's own doc comment
@@ -307,8 +352,10 @@ async function maybeSynthesize(runId: string): Promise<void> {
  */
 async function spawnOneShot(
   provider: CouncilMemberProvider,
-  promptText: string,
+  rawPrompt: string,
+  runId: string,
 ): Promise<{ ok: true; ptyId: string; invocation: string } | { ok: false; message: string }> {
+  const promptText = await scrubPrompt(rawPrompt, runId);
   const agents = await runnerPorts().listAgents();
   const agent = agents.find((a) => a.id === provider);
   if (!agent) return { ok: false, message: `Agent "${provider}" is not in the roster.` };
@@ -330,6 +377,10 @@ async function spawnOneShot(
     runnerPorts().ollamaBaseUrl(),
     authToken ?? undefined,
   );
+
+  // One engine, one key: a member bound to Ollama gets the cloud token above and no agent key.
+  const keyEnv = binding?.model ? {} : ((await runnerPorts().agentKeyEnv?.(agent.id).catch(() => ({}))) ?? {});
+  const env = { ...keyEnv, ...launch.env };
 
   const words = [
     launch.command,
@@ -357,7 +408,7 @@ async function spawnOneShot(
     cols: COUNCIL_PTY_COLS,
     rows: COUNCIL_PTY_ROWS,
     initialInput: `${typed}\r`,
-    ...(Object.keys(launch.env).length > 0 ? { env: launch.env } : {}),
+    ...(Object.keys(env).length > 0 ? { env } : {}),
   });
   if (!result.ok) return result;
   // `invocation` here is what the pty actually echoes back — see
@@ -465,6 +516,24 @@ async function finishSynthesis(
     if (run.status !== 'synthesizing') return;
 
     const output = cleanCapturedOutput(new TextDecoder().decode(rawBuffer), invocation);
+    const sent = runRedactions.get(runId);
+    runRedactions.delete(runId);
+    try {
+      ports?.audit?.({
+        kind: 'council-run',
+        councilId: run.councilId,
+        runId: run.id,
+        status,
+        members: run.members.length,
+        succeeded: run.members.filter((m) => m.status === 'succeeded').length,
+        synthProvider: run.synthProvider,
+        ms: Math.max(0, Date.now() - run.createdAt),
+        redactions: redactionTotal(sent?.redactions ?? []),
+        ...(sent?.canary ? { canary: true } : {}),
+      });
+    } catch {
+      // An audit failure must not break a run.
+    }
     await saveRun({
       ...run,
       status,

@@ -19,6 +19,7 @@ import { PresentButton } from '@midnite/studio-feature-slides/renderer';
 import { type FsScopeInput } from '../file-tree';
 import { useBlameStore } from './blame-store';
 import { CodePreview } from './code-preview';
+import { EpicAudioPlayer } from './epic-audio-player';
 import { MarkdownPreview } from './markdown-preview';
 
 // Code-split: Monaco (Phase 64 Theme A/C) is the heaviest dependency in the
@@ -315,8 +316,8 @@ export function FilePreview({ scope, relPath, targetLine, onNavigate }: FilePrev
             <video src={mediaUrl} controls className="max-h-full max-w-full" />
           </div>
         ) : kind === 'audio' ? (
-          <div className="flex flex-1 items-center justify-center p-4">
-            <audio src={mediaUrl} controls />
+          <div className="flex min-h-0 flex-1 p-3 sm:p-4">
+            <EpicAudioPlayer src={mediaUrl} fileName={fileName} />
           </div>
         ) : kind === 'pdf' ? (
           // Chromium's built-in viewer, fed the right content-type by the

@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-database",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "The Database tool as a feature (Phase 113 Theme O): saved connections, the pooled query service and the credential vault binding in main; the connection tree, query tabs, editor and results grid in the renderer. One of Coder's features.",
   "sideEffects": false,
@@ -18,7 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@bilo-io/ui": "0.1.0",
+    "@bilo-io/ui": "0.2.0",
     "@midnite/studio-db-engine": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
@@ -44,6 +44,6 @@
     "react-dom": "^19.0.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.5",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.0"
   }
 }

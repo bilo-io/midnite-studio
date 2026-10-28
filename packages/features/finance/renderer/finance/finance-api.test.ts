@@ -1,12 +1,12 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import { getHistory, getQuote, searchAssets, StockApiKeyMissingError } from './finance-api';
 
 function stubFinance(
   finance: Partial<{
-    search: ReturnType<typeof vi.fn>;
-    quote: ReturnType<typeof vi.fn>;
-    history: ReturnType<typeof vi.fn>;
+    search: Mock;
+    quote: Mock;
+    history: Mock;
   }>,
 ): void {
   vi.stubGlobal('window', {

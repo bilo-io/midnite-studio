@@ -1,3 +1,4 @@
+import { createReportBridge, type ReportBridge } from '@midnite/studio-feature-report/bridge';
 import { createBridgeSlice, type RendererIpc } from '@midnite/studio-runtime/app-main/bridge-slice';
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 import { CHANNELS } from '@midnite/studio-shared/ipc/channels';
@@ -10,6 +11,8 @@ import { CHANNELS } from '@midnite/studio-shared/ipc/channels';
  */
 export type VaultBridge = {
   secrets: Pick<MidniteStudioBridge['secrets'], 'has' | 'set'>;
+  /** One-shot re-authenticated reveal and copy (Phase 118 Theme C). */
+  vaultSecrets: NonNullable<MidniteStudioBridge['vaultSecrets']>;
   forgeAccounts: Pick<MidniteStudioBridge['forgeAccounts'], 'list' | 'add' | 'remove'>;
   db: Pick<MidniteStudioBridge['db'], 'listConnections' | 'deleteConnection'>;
   vaultGrants: MidniteStudioBridge['vaultGrants'];
@@ -20,16 +23,23 @@ export type VaultBridge = {
    * they answer "needs Studio" (`NEEDS_STUDIO_SIGN_INS`): the partitions are Studio's.
    */
   webApps: Pick<MidniteStudioBridge['webApps'], 'signIns' | 'signOut'>;
+  /** Report an Issue — the report feature's own bridge half. */
+  report: ReportBridge;
 };
 
 export type { RendererIpc };
 
 export function createVaultBridge(ipc: RendererIpc): VaultBridge {
-  const { call } = createBridgeSlice(ipc);
+  const slice = createBridgeSlice(ipc);
+  const { call } = slice;
   return {
     secrets: {
       has: (req) => call(CHANNELS.secretsHas, req),
       set: (req) => call(CHANNELS.secretsSet, req),
+    },
+    vaultSecrets: {
+      revealOnce: (req) => call(CHANNELS.vaultRevealOnce, req),
+      copyOnce: (req) => call(CHANNELS.vaultCopyOnce, req),
     },
     forgeAccounts: {
       list: (req) => call(CHANNELS.forgeAccounts, req),
@@ -53,5 +63,6 @@ export function createVaultBridge(ipc: RendererIpc): VaultBridge {
       signIns: (req) => call(CHANNELS.webAppsSignIns, req),
       signOut: (req) => call(CHANNELS.webAppsSignOut, req),
     },
+    report: createReportBridge(slice),
   };
 }

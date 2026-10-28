@@ -32,7 +32,6 @@ export function ChangesAccordion({
   worktreePath,
   entries: rawEntries,
   counts,
-  totals,
   leading,
   emptyMessage = 'No uncommitted changes.',
   initiallyExpanded = false,
@@ -45,7 +44,6 @@ export function ChangesAccordion({
     staged: (path: string) => ChangeCounts;
     unstaged: (path: string) => ChangeCounts;
   };
-  totals: { fileCount: number; insertions: number; deletions: number };
   /** Rendered before the totals — the tab's checkout label, or nothing. */
   leading?: React.ReactNode;
   emptyMessage?: string;
@@ -90,6 +88,20 @@ export function ChangesAccordion({
   */
   const countsFor = (entry: StatusEntry) =>
     entry.unstaged === 'unmodified' ? counts.staged(entry.path) : counts.unstaged(entry.path);
+
+  /*
+    The header is the sum of the rows below it, taken from those same rows —
+    never a figure computed elsewhere. A caller once passed the Changes panel's
+    roll-up (index side PLUS worktree side), so a partially staged file put
+    more lines in the header than any row under it showed.
+  */
+  const totals = entries.reduce(
+    (sum, entry) => {
+      const row = countsFor(entry);
+      return { ...sum, insertions: sum.insertions + row.insertions, deletions: sum.deletions + row.deletions };
+    },
+    { fileCount: entries.length, insertions: 0, deletions: 0 },
+  );
 
   if (entries.length === 0) {
     return <Empty>{emptyMessage}</Empty>;

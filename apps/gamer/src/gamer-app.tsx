@@ -5,6 +5,7 @@ import { ModelHostProvider } from '@midnite/studio-feature-media-model/renderer'
 import { SpriteHostProvider } from '@midnite/studio-feature-media-sprite/renderer';
 import { SpriteRenderHost } from '@midnite/studio-feature-media-sprite/events';
 import { TerrainHostProvider } from '@midnite/studio-feature-media-terrain/renderer';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -49,6 +50,7 @@ export function GamerApp() {
           </GameHostProvider>
         </MediaHostProvider>
         <GamerDialogHost />
+        <ReportIssueHost app="midnite-gamer" />
       </FrameChromeProvider>
     </QueryClientProvider>
   );

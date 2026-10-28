@@ -1,0 +1,2 @@
+<p>Verify you are human by ticking the box.</p>
+<button onclick="navigator.clipboard.writeText('https://example.com/share/abc')">Copy link</button>

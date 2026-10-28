@@ -177,6 +177,7 @@ import {
   MusicSaveResultSchema,
   MusicSetTempoInputSchema,
 } from './media-music-mcp';
+import type { ContentProvenance } from './provenance';
 import { WorkflowGateDecisionSchema } from './workflow';
 
 /**
@@ -1699,7 +1700,8 @@ export type McpRequest = {
 };
 
 export type McpResponse =
-  | { id: string; ok: true; value: unknown }
+  /** `provenance` (Phase 121 Theme A): stamped by the socket server on every result, always `mcp-result`, untrusted. */
+  | { id: string; ok: true; value: unknown; provenance?: ContentProvenance }
   | {
       id: string;
       ok: false;

@@ -1,6 +1,6 @@
 // vitest/jsdom: composition, the home view and the two ports — none of it needs a real browser.
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { optimizerManifest } from '@midnite/studio-feature-optimizer/renderer';
 import { FEATURE_PLACEMENT, FEATURE_VIEWS, placementOwners } from '@midnite/studio-shared';
@@ -10,8 +10,20 @@ import { CLEANER_APP } from './cleaner-manifest';
 import { CLEANER_SETTINGS_KEY, createCleanerHost } from './compose/cleaner-host';
 import { dialogStore } from './compose/cleaner-chrome';
 
+/** Report an Issue's slice of the bridge: only `onOpen` is read until the dialog opens (the feature's own tests cover the rest). */
+let openReport: (() => void) | null = null;
+const REPORT_BRIDGE = {
+  onOpen: vi.fn((handler: () => void) => {
+    openReport = handler;
+    return () => undefined;
+  }),
+  ghStatus: vi.fn(async () => ({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' })),
+  bundle: vi.fn(async () => ({ text: '' })),
+};
+
 afterEach(() => {
   cleanup();
+  window.midniteStudio = undefined;
   dialogStore.setState({ request: null });
 });
 
@@ -93,5 +105,22 @@ describe('Cleaner ports', () => {
       expect(ran).toBe(1);
       expect(screen.queryByRole('dialog')).toBeNull();
     });
+  });
+});
+
+describe('Report an Issue', () => {
+  it("mounts the report feature's host: main's report:open event opens its dialog", async () => {
+    openReport = null;
+    // The optimizer view subscribes to the scan and metrics streams on mount; the rest of its bridge is idle here.
+    const idle = () => () => undefined;
+    window.midniteStudio = {
+      report: REPORT_BRIDGE,
+      optimizer: { onScanProgress: idle, onSystemScanProgress: idle },
+      metrics: { start: vi.fn(), stop: vi.fn(), onSample: idle },
+    } as unknown as typeof window.midniteStudio;
+    render(<CleanerApp host={createCleanerHost(memory())} />);
+    await waitFor(() => expect(openReport).not.toBeNull());
+    act(() => openReport?.());
+    expect(await screen.findByTestId('report-issue-dialog')).toBeDefined();
   });
 });

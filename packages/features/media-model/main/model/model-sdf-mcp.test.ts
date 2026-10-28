@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { decodeMeshBin, isClosed, parseModelSidecar, parseOpsLog } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 

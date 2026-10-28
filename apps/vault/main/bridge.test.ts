@@ -15,12 +15,14 @@ const ipc = (): RendererIpc => ({
 describe('createVaultBridge', () => {
   it('exposes exactly the metadata and write calls — and no secrets.get', () => {
     const bridge = createVaultBridge(ipc());
-    expect(Object.keys(bridge).sort()).toEqual(['db', 'forgeAccounts', 'secrets', 'vaultGrants', 'vaultPairings', 'webApps']);
+    expect(Object.keys(bridge).sort()).toEqual(['db', 'forgeAccounts', 'report', 'secrets', 'vaultGrants', 'vaultPairings', 'vaultSecrets', 'webApps']);
     expect(Object.keys(bridge.webApps).sort()).toEqual(['signIns', 'signOut']);
     expect(Object.keys(bridge.vaultPairings).sort()).toEqual(['list', 'unpair']);
     expect(Object.keys(bridge.secrets).sort()).toEqual(['has', 'set']);
+    expect(Object.keys(bridge.vaultSecrets).sort()).toEqual(['copyOnce', 'revealOnce']);
     expect(Object.keys(bridge.forgeAccounts).sort()).toEqual(['add', 'list', 'remove']);
     expect(Object.keys(bridge.vaultGrants).sort()).toEqual(['list', 'revoke', 'set']);
+    expect(Object.keys(bridge.report).sort()).toEqual(['bundle', 'copy', 'error', 'ghStatus', 'logPath', 'onOpen', 'openUrl', 'reveal', 'submitIssue']);
     expect(Object.keys(bridge.db).sort()).toEqual(['deleteConnection', 'listConnections']);
   });
 
@@ -32,8 +34,18 @@ describe('createVaultBridge', () => {
     await bridge.forgeAccounts.list({});
     await bridge.db.listConnections();
     await bridge.vaultGrants.list({});
+    await bridge.vaultSecrets.revealOnce({ key: 'ollama.apiKey' });
+    await bridge.vaultSecrets.copyOnce({ key: 'ollama.apiKey' });
     const channels = vi.mocked(wire.invoke).mock.calls.map((c) => c[0]);
-    expect(channels).toEqual([CHANNELS.secretsHas, CHANNELS.secretsSet, CHANNELS.forgeAccounts, CHANNELS.dbListConnections, CHANNELS.vaultGrantsList]);
+    expect(channels).toEqual([
+      CHANNELS.secretsHas,
+      CHANNELS.secretsSet,
+      CHANNELS.forgeAccounts,
+      CHANNELS.dbListConnections,
+      CHANNELS.vaultGrantsList,
+      CHANNELS.vaultRevealOnce,
+      CHANNELS.vaultCopyOnce,
+    ]);
     expect(channels).not.toContain(CHANNELS.secretsGet);
   });
 });

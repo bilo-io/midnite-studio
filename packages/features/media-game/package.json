@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-media-game",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "Media ▸ Games as a feature (Phase 113 Theme S): a tab composed through media-core's registry by Gamer and Studio.",
   "sideEffects": false,
@@ -44,6 +44,6 @@
     "react-dom": "^19.0.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.5",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.0"
   }
 }

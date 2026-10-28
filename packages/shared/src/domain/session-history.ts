@@ -64,6 +64,8 @@ export const ClosedSessionSchema = z.object({
   reason: z.enum(['closed', 'exited', 'superseded']),
   /** Size of the archived transcript, so a list can say so without reading it. */
   transcriptBytes: z.number().int().nonnegative(),
+  /** Runs under a sandbox profile (Phase 121 Theme E) — shows the lock badge on history rows. */
+  confined: z.boolean().optional(),
 });
 export type ClosedSession = z.infer<typeof ClosedSessionSchema>;
 
@@ -110,5 +112,6 @@ export function closedFromSession(session: TerminalSession, ending: SessionEndin
     exitCode: ending.exitCode,
     reason: ending.reason,
     transcriptBytes: ending.transcriptBytes,
+    ...(session.confined === true ? { confined: true } : {}),
   };
 }

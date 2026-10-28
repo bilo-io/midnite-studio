@@ -56,6 +56,11 @@ vi.mock('./browser-service', () => ({
   stopBrowserTab: vi.fn(),
   stopFindInBrowserTab: vi.fn(),
   toggleBrowserDevTools: vi.fn(),
+  listBrowserPermissions: vi.fn(() => []),
+  resolveBrowserPermission: vi.fn(),
+  revokeBrowserPermission: vi.fn(),
+  resetAllBrowserPermissions: vi.fn(),
+  setBrowserSpellcheck: vi.fn(),
 }));
 
 vi.mock('./dev-server-probe', () => ({ probeLoopbackPort: vi.fn() }));

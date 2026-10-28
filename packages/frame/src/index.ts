@@ -17,6 +17,12 @@ export { bridge, hasBridge } from './bridge';
 export { noBridge, reportFailure } from './bridge-result';
 export { usePageVisible } from './lib/use-page-visible';
 
+// Prompt-injection banner (Phase 121 Theme A).
+export { ConfinedBadge } from './security/confined-badge';
+export { InjectionBanner } from './security/injection-banner';
+export { useInjectionScans, type ScanItem } from './security/use-injection-scans';
+export { ToolApprovalCard, ToolApprovalHost, useToolApprovalQueue } from './security/tool-approval-card';
+
 // Notifications.
 export { useToastStore, type Toast, type ToastAction, type ToastState, type ToastStatus } from './toast-store';
 
@@ -223,6 +229,7 @@ export { SETTINGS_SECTIONS, settingsSectionId, type SettingsSection } from './se
 
 // The chrome port — chrome still implemented in packages/app, reached through context.
 export { FrameChromeProvider, useFrameChrome, useOptionalFrameChrome, type FrameChrome } from './chrome/chrome-port';
+export { FrameModal } from './chrome/frame-modal';
 export type {
   BlastRadius,
   BlastRadiusKind,
@@ -230,6 +237,7 @@ export type {
   FrameDialogs,
   FrameMenuEntry,
   FrameMenuItem,
+  FrameModalProps,
   FramePromptRequest,
   IconButtonProps,
   IconComponent,
@@ -284,7 +292,24 @@ export {
   DEFAULT_KNOWLEDGE_DETAIL,
   DEFAULT_KNOWLEDGE_LAYOUT,
   DEFAULT_KNOWLEDGE_VARIANT,
+  useKnowledgeFiltersStore,
 } from './knowledge/knowledge-filters-store';
+export {
+  buildScene3D,
+  buildThreeClusterPreviewPayload,
+  computeCurvedEdge2D,
+  formatSynapseScore,
+  formatTelemetryNodeMetric,
+  KNOWLEDGE_STYLE_IDS,
+  KNOWLEDGE_STYLE_META,
+  projectScenePoint,
+  SYNAPSE_CLUSTER_PALETTE,
+  TELEMETRY_CLUSTER_PALETTE,
+  type KnowledgeStyleId,
+  type KnowledgeStyleMeta,
+  type Scene3D,
+} from './knowledge/knowledge-3d-scene';
+export { KnowledgeStylePicker } from './knowledge/knowledge-style-picker';
 export { TAB_GROUP_COLORS as KNOWLEDGE_TAB_GROUP_COLORS } from './knowledge/knowledge-community-colors';
 export { SimplePopover } from './knowledge/simple-popover';
 
@@ -336,3 +361,23 @@ export { useGraphStore } from './graph/graph-store';
 export type { ActiveAgentWorktreeSession } from './graph/agent-session';
 export type { DragPayload, DropEvent } from './graph/graph-dnd';
 export type { SyncAction } from './graph/ref-sync';
+
+// Shared 3D audio visualizer and player.
+export {
+  compute3DShapeVertex,
+  computeGlowTier,
+  EpicAudioPlayer,
+  EpicAudioVisualizerCanvas,
+  formatAudioTime,
+  getShapeRadiusMultiplier,
+  PARTICLE_COUNT_3D,
+  project3D,
+  rotate3D,
+  SHAPE_NAMES,
+  SPECTRUM_NAMES,
+  type EpicAudioPlayerProps,
+  type EpicAudioVisualizerCanvasProps,
+  type ProjectedPoint,
+  type ShapeKind,
+  type Vec3,
+} from './audio/epic-audio-player';

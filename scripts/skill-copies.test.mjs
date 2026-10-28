@@ -39,3 +39,37 @@ describe('midnite-media-*-build skill copies', () => {
     });
   }
 });
+
+// The sitrep family (the `midnite-sitrep` router and its `midnite-sitrep-*` views) ships in the
+// repo's three mirrors only, and the `.agents`/`.codex` copies drop the Claude-only `argument-hint`
+// and `allowed-tools` frontmatter. Everything else must match, or one CLI renders a different report.
+// The union of all three mirrors, so a view added or left behind in only one of them is caught.
+const sitrepSkills = [
+  ...new Set(
+    ['.claude', '.agents', '.codex'].flatMap((copy) =>
+      readdirSync(join(root, copy, 'skills')).filter((name) => /^midnite-sitrep(-.+)?$/.test(name)),
+    ),
+  ),
+].sort();
+const withoutClaudeOnlyKeys = (text) => text.replace(/^(argument-hint|allowed-tools): .*\n/gm, '');
+
+describe('midnite-sitrep skill family copies', () => {
+  it('finds the router and its views', () => {
+    expect(sitrepSkills).toEqual(
+      expect.arrayContaining(['midnite-sitrep', 'midnite-sitrep-table', 'midnite-sitrep-graph', 'midnite-sitrep-ci']),
+    );
+  });
+
+  for (const skill of sitrepSkills) {
+    it(`${skill} matches across .claude, .agents and .codex`, () => {
+      const source = join(root, '.claude', 'skills', skill, 'SKILL.md');
+      expect(existsSync(source), `.claude/skills/${skill}/SKILL.md is missing`).toBe(true);
+      const reference = withoutClaudeOnlyKeys(readFileSync(source, 'utf8'));
+      for (const copy of ['.agents', '.codex']) {
+        const file = join(root, copy, 'skills', skill, 'SKILL.md');
+        expect(existsSync(file), `${copy}/skills/${skill}/SKILL.md is missing`).toBe(true);
+        expect(readFileSync(file, 'utf8'), `${copy}/skills/${skill}/SKILL.md differs from .claude`).toBe(reference);
+      }
+    });
+  }
+});

@@ -113,6 +113,24 @@ describe('vault host — one login across two apps', () => {
     expect(await vault.grants.revoke('coder')).toBe(true);
     expect(await guest(dir, 'coder').get('forge-accounts', KEY)).toBeNull();
   });
+
+  it('answers kind: locked to a guest when the host vault is locked', async () => {
+    const dir = tempDir();
+    const host = await hostIn(dir);
+    host.grants.set('coder', 'forge-accounts', '*');
+    await host.studio.set('forge-accounts', KEY, TOKEN);
+
+    const coder = guest(dir, 'coder');
+    expect(await coder.read('forge-accounts', KEY)).toEqual({ ok: true, value: TOKEN });
+
+    host.service.lock();
+    expect(await coder.read('forge-accounts', KEY)).toEqual({ ok: false, kind: 'locked' });
+    expect(await coder.get('forge-accounts', KEY)).toBeNull();
+
+    // Unlock restores reads
+    await host.service.unlock();
+    expect(await coder.read('forge-accounts', KEY)).toEqual({ ok: true, value: TOKEN });
+  });
 });
 
 describe('vault host — no host, a late host, a second host', () => {
@@ -303,5 +321,21 @@ describe('vault host — pairing', () => {
     expect(statSync(file).mode & 0o777).toBe(0o600);
     expect(statSync(join(dir, 'host')).mode & 0o777).toBe(0o700);
     expect(readFileSync(file, 'utf8')).toContain(keyOf('coder').publicKey);
+  });
+
+  it('refuses revealOnce and copyOnce over the host socket with invalid (Theme C acceptance)', async () => {
+    const dir = tempDir();
+    await grantedHost(dir);
+    const key = keyOf('coder');
+    const peer = await rawPeer(dir);
+    expect(await peer.send({ id: 0, appId: 'coder', op: 'hello', publicKey: key.publicKey, proof: key.prove('coder', peer.nonce) })).toMatchObject({ ok: true });
+
+    // A paired app attempting to call revealOnce over the socket is rejected as 'invalid'
+    const revealRes = await peer.send({ id: 1, appId: 'coder', op: 'revealOnce', namespace: 'secrets', key: 'some-key' });
+    expect(revealRes).toMatchObject({ ok: false, error: 'invalid' });
+
+    // A paired app attempting to call copyOnce over the socket is rejected as 'invalid'
+    const copyRes = await peer.send({ id: 2, appId: 'coder', op: 'copyOnce', namespace: 'secrets', key: 'some-key' });
+    expect(copyRes).toMatchObject({ ok: false, error: 'invalid' });
   });
 });

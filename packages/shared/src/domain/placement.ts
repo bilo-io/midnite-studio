@@ -29,6 +29,7 @@ export const PlacementAppIdSchema = z.enum([
   'creator',
   'media',
   'gamer',
+  'vanguard',
 ]);
 export type PlacementAppId = z.infer<typeof PlacementAppIdSchema>;
 
@@ -70,6 +71,7 @@ export const FEATURE_PLACEMENT = {
   'quick-access': 'frame',
   rebase: 'frame',
   repos: 'frame',
+  report: 'frame', // Report an Issue: the dialog and its main half, in every app (packages/features/report)
   screensaver: 'frame',
   search: 'frame',
   settings: 'frame',
@@ -89,6 +91,7 @@ export const FEATURE_PLACEMENT = {
   diagnostics: 'monitor',
   vault: 'vault',
   capture: 'capture',
+  vanguard: 'vanguard',
   'web-apps': 'browser',
   notes: 'mind',
   agent: 'agents',
@@ -136,6 +139,8 @@ export const FEATURE_PACKAGE_SPLITS = {
   'media-library': { folder: 'media', placement: 'media' },
   // The MCP server's Tools view (Phase 113 Theme N): a package out of the `agent` folder, which the Agents app owns.
   'mcp-tools': { folder: 'agent', placement: 'agents' },
+  // Phase 119 Theme A: Midnite Git's engine. Coder owns it until Theme C gives the git app its own placement.
+  'forge-host': { folder: 'forge', placement: 'coder' },
 } as const satisfies Readonly<Record<string, { folder: PlacedFeature; placement: Placement }>>;
 
 /**

@@ -1,6 +1,17 @@
 import { join } from 'node:path';
 
-import { app, BrowserWindow, clipboard, ipcMain, Menu, screen, session, shell, WebContentsView } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  ipcMain,
+  Menu,
+  screen,
+  session,
+  shell,
+  WebContentsView,
+  type MenuItemConstructorOptions,
+} from 'electron';
 
 import {
   denyAllPermissions,
@@ -8,7 +19,15 @@ import {
   type BrowserHostWindow,
   type BrowserViewOptions,
 } from '@midnite/studio-feature-browser/main';
-import { guardAppWindow } from '@midnite/studio-runtime';
+import {
+  assertSiteIsolation,
+  buildSuiteMenuTemplate,
+  createFileSink,
+  devToolsAllowed,
+  guardAppWindow,
+  installCrashLogging,
+} from '@midnite/studio-runtime';
+import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
 import { registerBrowserAppHandlers } from './context';
 import { BROWSER_NAME, browserUserData, isSmoke, SMOKE_READY_LINE, USER_DATA_ENV } from './identity';
@@ -40,6 +59,9 @@ const browserElectron = {
     screen.on('display-metrics-changed', listener);
   },
   openExternal: (url: string) => shell.openExternal(url),
+  // Phase 117 Theme G: the ClickFix watch reads the system clipboard from main, and its bar clears it.
+  readClipboardText: () => clipboard.readText(),
+  clearClipboard: () => clipboard.clear(),
 } as unknown as BrowserElectron;
 
 const asHost = (w: BrowserWindow | null): BrowserHostWindow | null => (w ? (w as unknown as BrowserHostWindow) : null);
@@ -63,22 +85,73 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    // Crash log + Report an Issue: the runtime's file sink, the app's own Help menu item, and the report feature's services.
+    const crashLog = createFileSink({ dir: app.getPath('userData'), name: 'browser.log', homeDir: app.getPath('home') });
+    installCrashLogging((level, message) => crashLog.write(level, message));
+    crashLog.write('info', `${BROWSER_NAME} ${app.getVersion()} started`);
+    app.on('will-quit', () => crashLog.close());
+    // Phase 117 Theme A: site isolation, the sandbox and web security stay on — a boot that finds
+    // `--no-sandbox` or its kin throws in dev and logs when packaged (the runtime's `chromium-switches.ts`).
+    // Checked at ready, not at module top level: `app.commandLine` is final once ready fires (a switch
+    // appended later changes nothing), so nothing can slip in behind the check; the crash log exists by
+    // now, so a packaged boot that fails it is on disk and not on a stderr no Finder launch has; and a
+    // dev throw exits the process — Electron's default handler would show a dialog and keep it alive.
+    try {
+      assertSiteIsolation({
+        argv: process.argv,
+        hasSwitch: (name) => app.commandLine.hasSwitch(name),
+        getSwitchValue: (name) => app.commandLine.getSwitchValue(name),
+        isPackaged: app.isPackaged,
+        log: {
+          error: (message: string) => {
+            log.error(message);
+            crashLog.write('error', message);
+          },
+        },
+      });
+    } catch (err) {
+      log.error(err instanceof Error ? err.message : String(err));
+      app.exit(1);
+      return;
+    }
+    const reportServices = {
+      sink: () => crashLog,
+      homeDir: () => app.getPath('home'),
+      openExternal: (url: string) => shell.openExternal(url),
+      writeClipboard: (text: string) => clipboard.writeText(text),
+      revealPath: (path: string) => shell.showItemInFolder(path),
+    };
+    // The menu's Report an Issue… reaches the focused window, falling back to the main one.
+    const sendToFocused = (channel: string, payload: unknown): void => {
+      const target = BrowserWindow.getFocusedWindow() ?? win;
+      if (target !== null && !target.isDestroyed()) target.webContents.send(channel, payload);
+    };
+    // App, Edit and Help only. Electron's default View/Window menus would put Close Window on Mod+w and
+    // Reload on Mod+r, so those chords would close or reload Browser itself instead of reaching the tab
+    // commands the renderer binds them to (`use-browser-keys.ts`).
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        buildSuiteMenuTemplate({
+          reportItem: reportIssueMenuItem(sendToFocused),
+          omit: { view: true, window: true },
+        }) as MenuItemConstructorOptions[],
+      ),
+    );
     // The app window's own session asks for nothing — no camera, microphone, notifications or the
     // rest. Studio replaces Electron's allow-everything default the same way (`allowAppAudioOnly`, for
     // its companion's microphone); Browser's renderer has no use for any, so it denies them all. The
     // pages a tab shows are on `persist:browser`, which the feature denies separately.
     denyAllPermissions(session.defaultSession);
-    // The app and Edit menus only (Quit, Hide; copy and paste). Electron's default menu would put Close
-    // Window on Mod+w and Reload on Mod+r, so those chords would close or reload Browser itself instead of
-    // reaching the tab commands the renderer binds them to (`use-browser-keys.ts`).
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }]));
     const registered = registerBrowserAppHandlers({
       ipcMain,
+      report: reportServices,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
         if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
       },
       electron: browserElectron,
+      // Phase 117 Theme A: a tab's DevTools open in dev or behind MSTUDIO_DEVTOOLS=1, never otherwise.
+      devToolsAllowed: devToolsAllowed(app.isPackaged),
       getMainWindow: () => asHost(win),
       senderWindow: (event) => {
         const sender = (event as { sender?: Electron.WebContents }).sender;
@@ -86,6 +159,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       },
       writeClipboard: (text) => clipboard.writeText(text),
       log,
+      userDataPath: app.getPath('userData'),
     });
     shutdownHandlers = registered.shutdown;
     openWindow();

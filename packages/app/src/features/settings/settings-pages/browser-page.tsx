@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import type { BrowserPermissionRecord } from '@midnite/studio-shared';
 import { useDialogs } from '../../../components/dialog-host';
 import { bridge } from '../../../services/bridge';
 import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
@@ -25,11 +26,58 @@ export function BrowserPage() {
   const linkTarget = useUiStore((s) => s.linkTarget);
   const discardMs = useUiStore((s) => s.browserDiscardMs);
   const setDiscardMs = useUiStore((s) => s.setBrowserDiscardMs);
+  const spellcheck = useUiStore((s) => s.browserSpellcheck);
+  const setSpellcheck = useUiStore((s) => s.setBrowserSpellcheck);
+  const clipboardWatch = useUiStore((s) => s.browserClipboardWatch);
+  const setClipboardWatch = useUiStore((s) => s.setBrowserClipboardWatch);
+  const allowSiteProceed = useUiStore((s) => s.browserAllowSiteProceed);
+  const setAllowSiteProceed = useUiStore((s) => s.setBrowserAllowSiteProceed);
+  const downloads = useUiStore((s) => s.browserDownloads);
+  const setDownloads = useUiStore((s) => s.setBrowserDownloads);
+  const privacy = useUiStore((s) => s.browserPrivacy);
+  const setPrivacy = useUiStore((s) => s.setBrowserPrivacy);
   const previewDeployHosts = useBrowserStore((s) => s.previewDeployHosts);
   // Local, raw text rather than deriving straight from the store: parsing on
   // every keystroke would rejoin the list and normalise blank lines out from
   // under the cursor mid-edit. Committed to the store on blur instead.
   const [hostsText, setHostsText] = useState(() => previewDeployHosts.join('\n'));
+  const [permissions, setPermissions] = useState<BrowserPermissionRecord[]>([]);
+
+  const refreshPermissions = useCallback(() => {
+    void bridge()
+      ?.browser.permissionsList()
+      .then((list) => {
+        setPermissions(list ?? []);
+      })
+      .catch(() => {
+        setPermissions([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    refreshPermissions();
+  }, [refreshPermissions]);
+
+  const onRevokePermission = (origin: string, permission: string) => {
+    void bridge()
+      ?.browser.permissionRevoke({ origin, permission })
+      .then(refreshPermissions);
+  };
+
+  const onResetAllPermissions = () => {
+    dialogs.confirm({
+      title: 'Reset all site permissions?',
+      body: 'Clears every remembered permission grant and denial across all sites in the embedded browser. Sites will prompt again on their next request.',
+      confirmLabel: 'Reset all',
+      danger: true,
+      blastRadius: null,
+      onConfirm: () => {
+        void bridge()
+          ?.browser.permissionsReset()
+          .then(refreshPermissions);
+      },
+    });
+  };
 
   const onClearData = () => {
     dialogs.confirm({
@@ -151,6 +199,180 @@ export function BrowserPage() {
             <span className="text-muted-foreground">min</span>
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="spellcheck">Spellcheck</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Check spelling while typing</div>
+            <div className="text-muted-foreground text-[11px]">
+              Chromium&apos;s spellchecker sends typed text to the OS spellchecking service. Off by default.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={spellcheck}
+            onChange={(event) => setSpellcheck(event.target.checked)}
+            aria-label="Check spelling while typing"
+            data-testid="browser-settings-spellcheck-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="site-safety">Site safety</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Allow proceeding past a site warning</div>
+            <div className="text-muted-foreground text-[11px]">
+              Adds &ldquo;Proceed for this session&rdquo; to the certificate and dangerous-site warnings. Each proceed
+              covers one host until the app quits. Off by default, so a warning has no way past it. Reputation
+              feeds live under Settings ▸ Privacy.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={allowSiteProceed}
+            onChange={(event) => setAllowSiteProceed(event.target.checked)}
+            aria-label="Allow proceeding past a site warning"
+            data-testid="browser-settings-site-proceed-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="clipboard-watch">Clipboard</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Warn when a page copies a command</div>
+            <div className="text-muted-foreground text-[11px]">
+              While a browser window is focused, Midnite checks the clipboard once a second for a shell command a
+              page just put there (a &ldquo;paste this into Terminal&rdquo; lure) and offers to clear it. Only a hash
+              is kept. On by default.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={clipboardWatch}
+            onChange={(event) => setClipboardWatch(event.target.checked)}
+            aria-label="Warn when a page copies a command"
+            data-testid="browser-settings-clipboard-watch-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-foreground text-xs" data-settings-section="site-permissions">Site permissions</h3>
+          {permissions.length > 0 ? (
+            <button
+              type="button"
+              onClick={onResetAllPermissions}
+              data-testid="reset-all-permissions-btn"
+              className="rounded border border-border px-2.5 py-1 text-[11px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+            >
+              Reset all
+            </button>
+          ) : null}
+        </div>
+        <p className="text-muted-foreground text-[11px]">
+          Permissions remembered for sites in the embedded browser (camera, microphone, location, notifications).
+        </p>
+        {permissions.length === 0 ? (
+          <div className="text-muted-foreground text-[11px] py-1">No site permissions remembered yet.</div>
+        ) : (
+          <div className="flex flex-col divide-y divide-border border border-border rounded-md overflow-hidden">
+            {permissions.map((p) => (
+              <div key={`${p.origin}:${p.permission}`} className="flex items-center justify-between px-3 py-2 bg-card/50">
+                <div className="flex flex-col">
+                  <span className="font-mono text-[11px] text-foreground">{p.origin}</span>
+                  <span className="text-[10px] text-muted-foreground capitalize">
+                    {p.permission} • <strong className={p.value === 'allow' ? 'text-primary' : 'text-destructive'}>{p.value}</strong>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRevokePermission(p.origin, p.permission)}
+                  data-testid={`revoke-permission-${p.origin}-${p.permission}`}
+                  className="rounded border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground hover:bg-accent"
+                >
+                  Revoke
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="downloads">Downloads</h3>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="font-medium text-foreground">Allow downloads</div>
+            <div className="text-muted-foreground text-[11px]">
+              Off by default: every download is cancelled. When on, files are saved to a quarantine folder with
+              macOS&apos;s quarantine flag set, hashed (SHA-256) and logged. Installers, disk images, scripts and
+              archives ask first; nothing is ever opened for you.
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={downloads.enabled}
+            onChange={(event) => setDownloads({ ...downloads, enabled: event.target.checked })}
+            aria-label="Allow downloads"
+            data-testid="browser-settings-downloads-toggle"
+            className="rounded border border-border bg-card"
+          />
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="text-muted-foreground text-[11px]">Quarantine folder (blank = ~/Downloads/Midnite Quarantine)</span>
+          <input
+            type="text"
+            value={downloads.folder}
+            disabled={!downloads.enabled}
+            onChange={(event) => setDownloads({ ...downloads, folder: event.target.value })}
+            placeholder="~/Downloads/Midnite Quarantine"
+            aria-label="Quarantine folder"
+            data-testid="browser-settings-downloads-folder"
+            className="rounded border border-border bg-card px-2 py-1 font-mono text-[11px] disabled:opacity-50"
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">
+        <h3 className="font-semibold text-foreground text-xs" data-settings-section="privacy">Privacy</h3>
+        <p className="text-muted-foreground text-[11px]">
+          Network-level protections for the embedded browser, on by default. Canvas, audio and font
+          fingerprinting are not defended against: that needs a script inside the page, which Midnite never injects.
+          Tracker list: EasyPrivacy (CC BY-SA 3.0 / GPL 3), bundled with the app.
+        </p>
+        {(
+          [
+            ['blockTrackers', 'Block known trackers', 'Cancels third-party requests that match the EasyPrivacy list.'],
+            ['blockThirdPartyCookies', 'Block third-party cookies', 'Strips cookies sent to, and set by, other sites. Turn off if a login or payment frame breaks.'],
+            ['trimReferrer', 'Trim the referrer', 'Other sites see only your site\'s origin, never the full address.'],
+            ['reduceUserAgent', 'Reduce the user agent', 'Reports only the Chromium major version, with no app or Electron version.'],
+          ] as const
+        ).map(([key, label, hint]) => (
+          <div key={key} className="flex items-center justify-between gap-4">
+            <div>
+              <div className="font-medium text-foreground">{label}</div>
+              <div className="text-muted-foreground text-[11px]">{hint}</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={privacy[key]}
+              onChange={(event) => setPrivacy({ ...privacy, [key]: event.target.checked })}
+              aria-label={label}
+              data-testid={`browser-settings-privacy-${key}`}
+              className="rounded border border-border bg-card"
+            />
+          </div>
+        ))}
       </div>
 
       <div className="flex flex-col gap-3 border border-border rounded-lg p-4 bg-card">

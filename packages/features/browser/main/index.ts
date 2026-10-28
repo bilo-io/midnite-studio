@@ -19,6 +19,19 @@ export type {
 } from './browser-electron';
 export { isFromOwningWindow, registerBrowserHandlers, type BrowserSenderIpc } from './browser-handlers';
 export { browserMainDeps, installBrowserMain, type BrowserDiscardSettings, type BrowserLog, type BrowserMainDeps } from './browser-main-deps';
+// Phase 117 Theme A: the one session policy and the pinned page webPreferences, for a composer's own views.
+export {
+  applyBrowserSessionPolicy,
+  configureSessionPermissions,
+  mapCheckPermission,
+  mapRequestedPermissions,
+  refuseWebviewAttach,
+  sandboxedPageWebPreferences,
+  type BrowserSessionPolicyOptions,
+  type GuardedPageContents,
+  type PolicySession,
+  type PromptablePermissionRequest,
+} from './browser-session-policy';
 // The security posture — every guard exported as it was from desktop's `browser-security.ts`.
 export {
   allowAppAudioOnly,
@@ -29,6 +42,7 @@ export {
   isAppOrigin,
   isAudioOnlyAppCheck,
   isAudioOnlyAppRequest,
+  normaliseOrigin,
   type BrowserPermission,
   type DeviceSession,
   type DownloadItemLike,
@@ -38,20 +52,56 @@ export {
   type PermissionRequestDetails,
   type PermissionSession,
 } from './browser-security';
+// Phase 117 Themes D + E: quarantined downloads and tracker protection
+export { decideDownload, classifyFile, sanitiseFilename } from './download-policy';
+export { parseFilterList } from './filter-list';
+export { DEFAULT_PRIVACY_SETTINGS, type PrivacySettings } from './browser-request-filter';
+// Phase 117 Theme B: permissions remembered per origin & prompt hygiene
+export {
+  BROWSER_PERMISSIONS_FILE,
+  createPermissionGrantStore,
+  type PermissionGrantStore,
+  type StoredGrant,
+  type StoredGrantsMap,
+} from './permission-grant-store';
+export {
+  formatHostForDisplay,
+  formatOriginForDisplay,
+  isUniformScript,
+} from './idn-hygiene';
 export {
   activateBrowserTab,
+  cancelPendingPermissionRequestsForTab,
   clearBrowserData,
   closeBrowserTab,
   createBrowserTab,
   destroyAllBrowserTabs,
   discardBrowserTab,
+  getBrowserPermissionStore,
   getBrowserTabOwners,
+  listBrowserPermissions,
   ownerWindowForBrowserTab,
   reparentBrowserTabs,
+  resetAllBrowserPermissions,
+  resetBrowserPermissionStoreForTest,
+  resolveBrowserDownload,
+  resolveBrowserPermission,
+  setBrowserAgentSiteLevelSource,
+  setBrowserClipboardWatch,
+  setBrowserDownloads,
+  setBrowserPrivacy,
+  setBrowserTrackerException,
+  setBrowserSpellcheck,
+  proceedBrowserSite,
   startBrowserDiscardSweep,
   stopBrowserDiscardSweep,
 } from './browser-service';
+export { createBrowserAgentSessions, type BrowserAgentSessions } from './browser-agent-session';
+export { READ_PAGE_SCRIPT } from './page-reader';
 export { DEV_SERVER_PROBE_TIMEOUT_MS, probeLoopbackPort } from './dev-server-probe';
+// Phase 117 Theme C — site verdicts. `siteVerdicts()` is the per-tab state Themes D/E/F hook into.
+export { setBrowserSiteSafety, siteVerdicts } from './browser-site-safety';
+export type { SiteVerdictTracker } from './site-verdict-state';
 export { listWebAppSignIns, signOutWebApp } from './web-app-sign-ins';
 export {
   activateWebApp,
@@ -98,7 +148,16 @@ export const browserMain = defineFeatureMain<BrowserMainServices>({
   feature: browserManifest.feature,
   channels: browserManifest.ipc,
   register(ctx, services) {
-    installBrowserMain({ electron: services.electron, log: services.log, readDiscardSettings: services.readDiscardSettings });
+    installBrowserMain({
+      electron: services.electron,
+      log: services.log,
+      readDiscardSettings: services.readDiscardSettings,
+      devToolsAllowed: services.devToolsAllowed ?? false,
+      userDataPath: services.userDataPath,
+      permissionStore: services.permissionStore,
+      ledgerCipher: services.ledgerCipher,
+      onPageDeepLink: services.onPageDeepLink,
+    });
     registerBrowserHandlers(ctx.ipc, services.sender);
     registerWebAppsHandlers(ctx.ipc, services.getMainWindow);
   },

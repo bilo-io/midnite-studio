@@ -25,6 +25,9 @@ export {
 // remove button and note, and Settings ▸ Agent's write-only key field.
 export { AgentKeyField } from './agent-key-field';
 export { ForgeAccountAddForm, ForgeAccountRemoveButton, ForgeCredentialsNote } from './forge-account-credentials';
+export { SecretMaskedValue, type SecretMaskedValueHandle, type SecretMaskedValueProps } from './secret-masked-value';
+export { SecretScanSection } from './secret-scan-section';
+export { ExportSection } from './export-section';
 
 type ViewIds = VaultManifest['views'][number]['id'];
 

@@ -1,5 +1,5 @@
 import { renderHook as baseRenderHook, waitFor, type RenderHookOptions } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
@@ -10,7 +10,7 @@ import { StudioProviders } from '../studio-providers';
 const renderHook = <R, P>(hook: (props: P) => R, options?: Omit<RenderHookOptions<P>, 'wrapper'>) =>
   baseRenderHook(hook, { wrapper: StudioProviders, ...options });
 
-function installBridge(createImpl?: ReturnType<typeof vi.fn>) {
+function installBridge(createImpl?: Mock) {
   const create = createImpl ?? vi.fn().mockResolvedValue({ ok: true });
   const activate = vi.fn();
   const setVisible = vi.fn();
@@ -18,6 +18,7 @@ function installBridge(createImpl?: ReturnType<typeof vi.fn>) {
   const onEvent = vi.fn(() => () => {});
   const setKeepAwake = vi.fn();
   const setDiscardMs = vi.fn();
+  const setSiteSafety = vi.fn();
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {
     browser: {
       create,
@@ -27,6 +28,7 @@ function installBridge(createImpl?: ReturnType<typeof vi.fn>) {
       onEvent,
       setKeepAwake,
       setDiscardMs,
+      setSiteSafety,
     } as unknown as MidniteStudioBridge['browser'],
   } as Partial<MidniteStudioBridge>;
   return { create, activate, setVisible, close, onEvent, setKeepAwake, setDiscardMs };

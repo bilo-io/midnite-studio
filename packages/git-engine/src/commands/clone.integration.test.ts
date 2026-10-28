@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { execGit } from '../exec/git-exec';
 import { TempRepo } from '../testing/temp-repo';
 import { cloneRepo } from './clone';
 
@@ -28,6 +29,17 @@ describe('cloneRepo', () => {
     expect(result).toEqual({ ok: true, path: join(destDir, 'cloned-repo') });
     expect(existsSync(join(destDir, 'cloned-repo', 'README.md'))).toBe(true);
     expect(existsSync(join(destDir, 'cloned-repo', '.git'))).toBe(true);
+  });
+
+  it('makes a bare mirror with every ref when asked', async () => {
+    await source.git(['branch', 'topic']);
+    const result = await cloneRepo(destDir, source.path, 'm.git', { mirror: true });
+
+    expect(result).toEqual({ ok: true, path: join(destDir, 'm.git') });
+    expect(existsSync(join(destDir, 'm.git', 'HEAD'))).toBe(true);
+    expect(existsSync(join(destDir, 'm.git', '.git'))).toBe(false);
+    const refs = await execGit(join(destDir, 'm.git'), ['for-each-ref', '--format=%(refname)']);
+    expect(refs.stdout).toContain('refs/heads/topic');
   });
 
   it('reports failure for a URL that resolves to nothing', async () => {

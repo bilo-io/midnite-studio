@@ -2,7 +2,7 @@ import { createElement } from 'react';
 
 import { cleanup, renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
@@ -25,7 +25,7 @@ type RelayHandler = (message: RelayMessage) => void;
  * this test can push messages into directly, standing in for main's real
  * `relayToOtherWindows`.
  */
-function installBridge(): { relay: ReturnType<typeof vi.fn>; emit: RelayHandler } {
+function installBridge(): { relay: Mock; emit: RelayHandler } {
   let handler: RelayHandler | null = null;
   const relay = vi.fn();
   (window as unknown as { midniteStudio: Partial<MidniteStudioBridge> }).midniteStudio = {

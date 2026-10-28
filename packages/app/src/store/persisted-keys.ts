@@ -48,6 +48,12 @@ export const PREFERENCE_KEYS = [
   'automateEnabledByProject', // projects-page.tsx — Auto-mate's on/off switch, read there and set from the board toggle (Phase 95 Theme H)
   'blockedByFieldName', // projects-page.tsx
   'browserDiscardMs', // browser-page.tsx
+  'browserDownloads', // browser-page.tsx — opt-in downloads + quarantine folder (Phase 117 Theme D)
+  'browserPrivacy', // browser-page.tsx — tracker/cookie/referrer/UA switches (Phase 117 Theme E)
+  'browserSpellcheck', // browser-page.tsx — Chromium spellcheck toggle (Phase 117 Theme B)
+  'browserClipboardWatch', // browser-page.tsx — the ClickFix clipboard watch (Phase 117 Theme G)
+  'browserAllowSiteProceed', // browser-page.tsx — proceed past a site warning (Phase 117 Theme C)
+  'browserReputationFeeds', // privacy-page.tsx — URLhaus / OpenPhish switches (Phase 117 Theme C)
   'columnSkillByProject', // projects-page.tsx — drag-to-skill's column → skill map (Phase 95 Theme G)
   'cycleDurationS', // screen-lock-page.tsx
   'disabledEcosystems', // optimizer-settings-page.tsx
@@ -57,6 +63,11 @@ export const PREFERENCE_KEYS = [
   'forgeScopeReposToActiveAccount', // accounts-page.tsx
   'forgeSwitcherPlacement', // accounts-page.tsx — the "Account switcher" placement select
   'forgeSyncGhAuthSwitch', // accounts-page.tsx
+  'confineNewSessions', // agent-page.tsx — "Confine new sessions"
+  'readAgentHistory', // privacy-page.tsx — "Read Claude and Codex history" (Phase 115 Theme F)
+  'egressAllAutomaticOff', // privacy-page.tsx — "Turn off all automatic network" (Phase 115 Theme A)
+  'egressSwitches', // privacy-page.tsx — one switch per automatic registry entry (Phase 115 Theme A)
+  'historyRetentionDays', // privacy-page.tsx — "Keep local history" (Phase 115 Theme B)
   'graphDensity', // density-picker.tsx (via graph-page.tsx)
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
   'graphShowCi', // graph-page.tsx — the "Columns" accordion
@@ -66,6 +77,7 @@ export const PREFERENCE_KEYS = [
   'launchAndRunEnabled', // cli-page.tsx
   'linkTarget', // browser-page.tsx — the "Link handling" section (Phase 71 Theme A)
   'loopModifierDefaults', // agent-page.tsx — the Loops accordion
+  'customLoops', // agent-page.tsx — the Loops accordion lists them beside the built-ins; authored in the FAB panel's Edit mode (Ad Hoc)
   'metricsIdleIntervalMs', // monitor-page.tsx
   'navMode', // sidebar-page.tsx
   'navVisibility', // sidebar-page.tsx — Sidenav toggles
@@ -146,13 +158,8 @@ export const PREFERENCE_KEYS = [
   // parked them in `KNOWN_ORPHANS`; Theme G's Profiles section took them out.
   'companionProfiles', // companion-profiles-section.tsx (Profiles ▸ the list, Save current as…, Rename, Delete)
   'companionActiveProfile', // companion-profiles-section.tsx (Profiles ▸ the Active badge, Set active)
-  // Phase 89 Theme A's own, on the same `loopEnabled` reasoning: it has a
-  // real control already — the Knowledge view's own pill bar
-  // (`knowledge-variant-pills.tsx`) — just not one under `features/settings/`,
-  // since the pill bar is not a settings page.
-  'rendererVariant', // knowledge-variant-pills.tsx (Knowledge canvas's own renderer-switcher pills)
-  // Phase 89 Theme E's own, same reasoning as `rendererVariant` immediately
-  // above: a real control (the layout pill row) that is not a settings page.
+  'rendererVariant', // graph-page.tsx (Settings ▸ Graph ▸ Knowledge graph presentation) & knowledge-variant-pills.tsx
+  // Phase 89 Theme E's own: a real control (the layout pill row) that is not a settings page.
   'layoutId', // knowledge-layout-pills.tsx (Knowledge canvas's own layout-switcher pills)
   // The Knowledge canvas's detail budget — same reasoning again: a real
   // control (the detail pill row beside the layout pills), not a settings page.
@@ -181,6 +188,7 @@ export const SESSION_STATE_KEYS = [
   'graphColumnVisibility', // toggled from the graph header's columns menu, not Settings — like graphColumns' widths, a view-local choice
   'graphColumns', // drag-resized pixel widths, clamped at runtime by useGraphColumns — a measurement, not a visibility choice
   'layout', // drag-resized pane pixel sizes — a measurement, not a visibility choice
+  'chatsWidthMode', // toggled from the chat pane's own header, not Settings — a view-local choice, like graphColumnVisibility
   'mediaPaneCollapsed', // side panel open state — disclosure state
   'mediaTab', // current selection — which Media tab is showing
   'mediaLastDoc', // current selection — Docs reopens the last edited doc
@@ -246,7 +254,6 @@ export const KNOWN_ORPHANS = [
   'editorMinimap',
   'editorTabSize',
   'editorWordWrap',
-  'rendererVariant',
   'layoutId',
   'knowledgeDetailId',
 ] as const satisfies readonly (typeof PREFERENCE_KEYS)[number][];

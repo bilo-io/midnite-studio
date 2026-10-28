@@ -2,7 +2,7 @@ import { createElement } from 'react';
 
 import { cleanup, renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { MidniteStudioBridge } from '@midnite/studio-shared';
 
@@ -70,8 +70,8 @@ describe('notes delta merge', () => {
 });
 
 describe('notes sync through useBroadcastSync', () => {
-  let relay: ReturnType<typeof vi.fn>;
-  let save: ReturnType<typeof vi.fn>;
+  let relay: Mock;
+  let save: Mock;
   let emit: (m: RelayMessage) => void;
 
   beforeEach(() => {

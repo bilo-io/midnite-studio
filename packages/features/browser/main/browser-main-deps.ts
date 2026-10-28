@@ -1,4 +1,6 @@
 import type { BrowserElectron } from './browser-electron';
+import type { LedgerCipher } from './host-first-seen';
+import type { PermissionGrantStore } from './permission-grant-store';
 
 /**
  * What the browser and web-apps services need from whoever composes them (Phase 113 Theme L),
@@ -26,6 +28,35 @@ export type BrowserMainDeps = {
   log: BrowserLog;
   /** Read at sweep time, so a settings change applies on the next tick. */
   readDiscardSettings: () => BrowserDiscardSettings;
+  /**
+   * Whether an embedded page's DevTools may open (Phase 117 Theme A) — the composer's
+   * `devToolsAllowed(app.isPackaged)`: dev, or the `MSTUDIO_DEVTOOLS=1` support hatch. Absent
+   * reads as `false`, so a composer that forgets it ships the packaged rule, never the dev one.
+   */
+  devToolsAllowed?: boolean;
+  /** Injected directory path for persistent storage (e.g. browser-permissions.json). */
+  userDataPath?: string;
+  /** Injected permission grant store (tests or custom compositions). */
+  permissionStore?: PermissionGrantStore;
+  /**
+   * `electron.safeStorage` (Phase 117 Theme F): encrypts the first-seen ledger's HMAC key. Absent, the
+   * ledger stays in memory, nothing about visited hosts is written to disk and the `first-seen` rule
+   * stays off. Studio passes it; Midnite Browser does not — an app main holds `safeStorage` only for
+   * its pairing seed (`scripts/app-vault-grants.test.mjs`).
+   */
+  ledgerCipher?: LedgerCipher;
+  /**
+   * Phase 117 Theme G: a page asked to open a `midnite-studio://` or `midnite://` link. Chromium is
+   * never allowed to launch it; the composer that can act on one (Studio) gets it here with the
+   * page's origin, rate-limits it and confirms it. Absent (Midnite Browser), the link is dropped.
+   */
+  onPageDeepLink?: (url: string, origin: string) => void;
+  /**
+   * Phase 120 Theme F: a download finished and sits at `path` (Phase 117 Theme D's quarantine folder).
+   * Plain data, no `webContents`: Vanguard, which composes this, queues the file for a malware scan.
+   * Absent (Midnite Browser), nothing is told.
+   */
+  onDownloadDone?: (download: { path: string; filename: string; sha256: string; origin: string; quarantined: boolean }) => void;
 };
 
 let installed: BrowserMainDeps | null = null;

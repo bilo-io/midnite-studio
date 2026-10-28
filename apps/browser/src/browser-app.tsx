@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { BrowserHostProvider } from '@midnite/studio-feature-browser/renderer';
+import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider } from '@midnite/studio-frame';
 
 import { BrowserShell } from './components/browser-shell';
@@ -20,6 +21,7 @@ export function BrowserApp() {
       <FrameChromeProvider chrome={BROWSER_CHROME}>
         <BrowserHostProvider host={BROWSER_APP_HOST}>
           <BrowserShell />
+          <ReportIssueHost app="midnite-browser" />
           <BrowserDialogHost />
         </BrowserHostProvider>
       </FrameChromeProvider>

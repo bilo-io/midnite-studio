@@ -2,7 +2,12 @@ import * as net from 'node:net';
 
 import type { RuntimeAppId } from '../../app-id';
 import type { VaultGrantScope, VaultGrantsMap } from '../grants';
-import { VaultAccessDeniedError, type VaultClient, type VaultNamespace } from '../vault-service';
+import {
+  VaultAccessDeniedError,
+  type VaultClient,
+  type VaultNamespace,
+  type VaultRead,
+} from '../vault-service';
 import type { PairingIdentity } from './pairing';
 import type { PairingsListing } from './pairing-store';
 import { createLineSplitter, type VaultHostChallenge, type VaultHostReply } from './protocol';
@@ -193,8 +198,35 @@ export function connectRuntimeVault(options: ConnectRuntimeVaultOptions): Remote
     appId,
     isAvailable: () => available,
     has: (namespace, key) => read({ op: 'has', namespace, key }, false),
-    get: (namespace, key) => read<string | null>({ op: 'get', namespace, key }, null),
+    read: async (namespace, key): Promise<VaultRead> => {
+      const reply = await request({ op: 'get', namespace, key });
+      if (reply === null) return { ok: false, kind: 'unavailable' };
+      if (!reply.ok) {
+        if (reply.error === 'locked') return { ok: false, kind: 'locked' };
+        if (reply.error === 'denied') return { ok: false, kind: 'denied' };
+        return { ok: false, kind: 'unavailable' };
+      }
+      return reply.result === null ? { ok: false, kind: 'absent' } : { ok: true, value: reply.result as string };
+    },
+    get: async (namespace, key) => {
+      const reply = await request({ op: 'get', namespace, key });
+      return reply?.ok && typeof reply.result === 'string' ? reply.result : null;
+    },
     fingerprint: (namespace, key) => read<string | null>({ op: 'fingerprint', namespace, key }, null),
+    withSecret: async <T>(
+      namespace: VaultNamespace,
+      key: string,
+      fn: (secret: Buffer) => Promise<T> | T,
+    ): Promise<T | null> => {
+      const reply = await request({ op: 'get', namespace, key });
+      if (!reply?.ok || typeof reply.result !== 'string') return null;
+      const buf = Buffer.from(reply.result, 'utf8');
+      try {
+        return await fn(buf);
+      } finally {
+        buf.fill(0);
+      }
+    },
     keys: (namespace) => read<string[]>({ op: 'keys', namespace }, []),
     set: (namespace, key, value, setOptions) =>
       write({ op: 'set', namespace, key, value, ...(setOptions?.fingerprint === undefined ? {} : { fingerprint: setOptions.fingerprint }) }, 'write'),

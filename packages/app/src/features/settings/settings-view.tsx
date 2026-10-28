@@ -14,6 +14,8 @@ import {
   useUiStore,
   type SettingsPageId,
 } from '../../store/ui-store';
+import { VanguardSettingsPage } from '@midnite/studio-feature-vanguard/renderer';
+
 import { AccountsPage } from './settings-pages/accounts-page';
 import { ActivityPage } from './settings-pages/activity-page';
 import { AgentPage } from './settings-pages/agent-page';
@@ -29,6 +31,7 @@ import { GraphPage } from './settings-pages/graph-page';
 import { HealthPage } from './settings-pages/health-page';
 import { STUDIO_MCP_TOOL_MANIFESTS } from '../../compose/mcp-tool-manifests';
 import { McpToolsView } from '@midnite/studio-feature-mcp-tools/renderer';
+import { useActiveWorktree } from '../../services/use-status';
 import { MonitorPage } from './settings-pages/monitor-page';
 import { OllamaSettingsPage } from './settings-pages/ollama-page';
 import { PrivacyPage } from './settings-pages/privacy-page';
@@ -50,6 +53,12 @@ import { WorkflowsPage } from './settings-pages/workflows-page';
  * The pre-16 "Graph style" and "Appearance" sections became the first two
  * pages one-to-one; Terminal and Agent are new.
  */
+/** Settings ▸ MCP Server: the server's switches, plus the active repository's MCP servers and their trust (Phase 121 Theme C). */
+function StudioMcpPage() {
+  const { repoId } = useActiveWorktree();
+  return <McpToolsView manifests={STUDIO_MCP_TOOL_MANIFESTS} repoId={repoId} />;
+}
+
 const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   appearance: () => <AppearancePage />,
   activity: () => <ActivityPage />,
@@ -69,12 +78,13 @@ const PAGE_CONTENT: Record<SettingsPageId, () => React.ReactNode> = {
   gitSafety: () => <GitSafetyPage />,
   trashSafety: () => <optimizerSettingsPages.trashSafety />,
   apiClient: () => <ApiClientPage />,
-  mcp: () => <McpToolsView manifests={STUDIO_MCP_TOOL_MANIFESTS} />,
+  mcp: () => <StudioMcpPage />,
   companion: () => <CompanionPage />,
   monitor: () => <MonitorPage />,
   browser: () => <BrowserPage />,
   'web-apps': () => <WebAppsPage />,
   accounts: () => <AccountsPage />,
+  vanguard: () => <VanguardSettingsPage />,
   cli: () => <CliPage />,
   updates: () => <UpdatesPage />,
   health: () => <HealthPage />,

@@ -1,6 +1,6 @@
 {
   "name": "@midnite/studio-feature-api-client",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "private": true,
   "description": "The API client feature (Phase 113 Theme O): collections, environments, history, the send engine, the collection runner and the sandboxed script runner in main; the request builder, response viewer and collection tree in the renderer. One of Coder's features.",
   "sideEffects": false,
@@ -22,7 +22,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@bilo-io/ui": "0.1.0",
+    "@bilo-io/ui": "0.2.0",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
@@ -45,6 +45,6 @@
     "react-dom": "^19.0.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.5",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.0"
   }
 }
