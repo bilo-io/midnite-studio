@@ -14,6 +14,7 @@ import {
   type CustomLoopModifier,
   type CustomOptionPatch,
 } from '@midnite/studio-shared';
+import { Slider } from '@bilo-io/ui';
 import { useId, useState, type ReactNode } from 'react';
 import {
   LuArrowDown,
@@ -236,7 +237,8 @@ function IconField({ loop, onIcon }: { loop: CustomLoop; onIcon: (icon: string) 
  */
 function ColourField({ hue, onHue }: { hue: number; onHue: (hue: number) => void }) {
   const sliderId = useId();
-  const ramp = spectrumStops(hue).map((stop) => `rgb(${stop})`).join(', ');
+  const spectrum = spectrumStops(hue).map((stop) => `rgb(${stop})`);
+  const ramp = spectrum.join(', ');
   return (
     <div className="flex flex-col gap-1" data-testid="custom-loop-colour">
       <span className="text-[11px] text-muted-foreground">Colour</span>
@@ -264,16 +266,17 @@ function ColourField({ hue, onHue }: { hue: number; onHue: (hue: number) => void
         <label htmlFor={sliderId} className="shrink-0 text-[10px] text-muted-foreground">
           Custom hue
         </label>
-        <input
+        <Slider
           id={sliderId}
-          type="range"
           min={0}
           max={359}
           step={1}
           value={Math.round(hue)}
-          onChange={(event) => onHue(Number(event.target.value))}
+          onValueChange={onHue}
+          gradient={spectrum}
           aria-valuetext={`${Math.round(hue)}°`}
-          className="h-1.5 min-w-0 flex-1 cursor-pointer accent-primary"
+          data-testid="custom-hue-slider"
+          className="min-w-0 flex-1"
         />
         <span className="w-8 shrink-0 text-right font-mono text-[10px] text-foreground">{Math.round(hue)}°</span>
       </div>
