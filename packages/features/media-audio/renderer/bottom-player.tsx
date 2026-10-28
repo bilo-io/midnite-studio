@@ -154,7 +154,8 @@ export function BottomPlayer() {
             <BrandSlider
               aria-label="Seek"
               min={0}
-              max={player.duration || 0}
+              max={player.duration || 1}
+              disabled={!player.duration}
               step={0.1}
               value={Math.min(player.currentTime, player.duration || 0)}
               onValueChange={player.seek}

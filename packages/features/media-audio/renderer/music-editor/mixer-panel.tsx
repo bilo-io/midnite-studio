@@ -109,16 +109,20 @@ function Strip({
       />
       <span className="text-[10px] text-muted-foreground">{panText(channel.pan)}</span>
       <div className="flex h-24 items-stretch gap-1.5">
-        <BrandSlider
-          aria-label={`${name} volume`}
-          min={VOLUME_RANGE.min}
-          max={VOLUME_RANGE.max}
-          step={0.01}
-          value={channel.volume}
-          onValueChange={(next) => onChange({ volume: next }, 'vol')}
-          onDoubleClick={() => onChange({ volume: VOLUME_RANGE.default })}
-          style={{ writingMode: 'vertical-lr', direction: 'rtl', width: 16 }}
-        />
+        {/* The library Slider is horizontal-only: rotate a 96px one into the 24px-wide, 96px-tall fader slot. */}
+        <div className="relative h-24 w-6 shrink-0">
+          <BrandSlider
+            aria-label={`${name} volume`}
+            min={VOLUME_RANGE.min}
+            max={VOLUME_RANGE.max}
+            step={0.01}
+            value={channel.volume}
+            onValueChange={(next) => onChange({ volume: next }, 'vol')}
+            onDoubleClick={() => onChange({ volume: VOLUME_RANGE.default })}
+            className="w-24"
+            style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%) rotate(-90deg)' }}
+          />
+        </div>
         <LevelMeter engine={engine} trackId={id as string | 'master'} label={`${name} level`} />
       </div>
       <span className="text-[10px] tabular-nums text-muted-foreground">
