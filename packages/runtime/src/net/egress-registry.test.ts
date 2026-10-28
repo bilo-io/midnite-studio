@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EGRESS_ENTRIES, EGRESS_HOSTS, EgressHostSchema, findEgressEntry, privacySwitchOn, rendererConnectOrigins } from '@midnite/studio-shared';
 
-import { EgressBlockedError, EgressUnregisteredError, createGuardedFetch } from './guarded-fetch';
+import { EgressBlockedError, EgressRedirectError, EgressUnregisteredError, createGuardedFetch } from './guarded-fetch';
 
 /**
  * Phase 115 Theme A — a main-side request to an unregistered host fails CI.
@@ -206,5 +206,110 @@ describe('guardedFetch', () => {
     const request = new Request('https://example.com/x', { method: 'POST', body: 'b' });
     await guarded('api-client', request);
     expect(seen[0]).toBe(request);
+  });
+});
+
+describe('guardedFetch redirects', () => {
+  type Call = { url: string; init: RequestInit | undefined };
+  const redirect = (status: number, location: string) => new Response(null, { status, headers: { location } });
+  /** A transport that plays a script of responses and records what it was called with. */
+  const scripted = (responses: Response[]) => {
+    const calls: Call[] = [];
+    const transport = (input: string | Request, init?: RequestInit) => {
+      calls.push({ url: typeof input === 'string' ? input : input.url, init });
+      return Promise.resolve(responses.shift() ?? new Response('end'));
+    };
+    return { calls, transport };
+  };
+
+  it('follows an allowed hop, resolving a relative Location, and returns the final response', async () => {
+    const { calls, transport } = scripted([redirect(302, '/v2/other'), new Response('done')]);
+    const res = await createGuardedFetch({ transport })('guard', 'https://api.osv.dev/v1/x');
+    expect(await res.text()).toBe('done');
+    expect(calls.map((c) => c.url)).toEqual(['https://api.osv.dev/v1/x', 'https://api.osv.dev/v2/other']);
+    expect(calls.every((c) => c.init?.redirect === 'manual')).toBe(true);
+  });
+
+  it('refuses a hop to an unregistered host', async () => {
+    const { calls, transport } = scripted([redirect(302, 'https://evil.example.com/x')]);
+    await expect(createGuardedFetch({ transport })('guard', 'https://api.osv.dev/v1/x')).rejects.toBeInstanceOf(EgressUnregisteredError);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('refuses a hop onto a host whose switch is off', async () => {
+    const { calls, transport } = scripted([redirect(302, 'https://data-api.binance.vision/x')]);
+    // The first check sees the switch on; by the hop the user has turned it off.
+    let reads = 0;
+    const guarded = createGuardedFetch({ transport, getSettings: () => ({ switches: { markets: reads++ === 0 } }) });
+    await expect(guarded('finance', 'https://api.coingecko.com/x')).rejects.toBeInstanceOf(EgressBlockedError);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('stops after five redirects with a clear error', async () => {
+    const { calls, transport } = scripted(Array.from({ length: 10 }, () => redirect(302, '/loop')));
+    await expect(createGuardedFetch({ transport })('guard', 'https://api.osv.dev/start')).rejects.toBeInstanceOf(EgressRedirectError);
+    expect(calls).toHaveLength(6);
+  });
+
+  it('turns a 303 into a body-less GET', async () => {
+    const { calls, transport } = scripted([redirect(303, '/done'), new Response('ok')]);
+    await createGuardedFetch({ transport })('guard', 'https://api.osv.dev/v1/x', {
+      method: 'POST',
+      body: 'payload',
+      headers: { 'content-type': 'text/plain' },
+    });
+    expect(calls[0]!.init).toMatchObject({ method: 'POST', body: 'payload' });
+    expect(calls[1]!.init?.method).toBe('GET');
+    expect(calls[1]!.init?.body).toBeUndefined();
+    expect(new Headers(calls[1]!.init?.headers).has('content-type')).toBe(false);
+  });
+
+  it('keeps method and body across a 307', async () => {
+    const { calls, transport } = scripted([redirect(307, '/again'), new Response('ok')]);
+    await createGuardedFetch({ transport })('guard', 'https://api.osv.dev/v1/x', { method: 'POST', body: 'payload' });
+    expect(calls[1]!.init).toMatchObject({ method: 'POST', body: 'payload' });
+  });
+
+  it('refuses to resend a streamed body on a 307', async () => {
+    const { transport } = scripted([redirect(307, '/again')]);
+    const body = new ReadableStream({ start: (c) => c.close() });
+    await expect(
+      createGuardedFetch({ transport })('guard', 'https://api.osv.dev/v1/x', { method: 'POST', body, duplex: 'half' } as RequestInit),
+    ).rejects.toBeInstanceOf(EgressRedirectError);
+  });
+
+  it('drops credentials on a cross-origin hop and keeps them on a same-origin one', async () => {
+    // Both hosts belong to the `finance` owner.
+    const creds = { authorization: 'Bearer t', cookie: 'a=b', 'proxy-authorization': 'x', 'x-keep': '1' };
+    const cross = scripted([redirect(302, 'https://data-api.binance.vision/x'), new Response('ok')]);
+    await createGuardedFetch({ transport: cross.transport })('finance', 'https://api.coingecko.com/x', { headers: creds });
+    expect([...new Headers(cross.calls[1]!.init?.headers).keys()]).toEqual(['x-keep']);
+
+    const same = scripted([redirect(302, '/y'), new Response('ok')]);
+    await createGuardedFetch({ transport: same.transport })('finance', 'https://api.coingecko.com/x', { headers: creds });
+    expect(new Headers(same.calls[1]!.init?.headers).get('authorization')).toBe('Bearer t');
+  });
+
+  it('passes a caller-set manual or error redirect through untouched', async () => {
+    for (const mode of ['manual', 'error'] as const) {
+      const { calls, transport } = scripted([redirect(302, 'https://evil.example.com/x')]);
+      const res = await createGuardedFetch({ transport })('guard', 'https://api.osv.dev/v1/x', { redirect: mode });
+      expect(res.status).toBe(302);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.init).toEqual({ redirect: mode });
+    }
+  });
+
+  it('takes method and headers from a Request input, and refuses to resend its body on a 307', async () => {
+    const get = scripted([redirect(307, '/again'), new Response('ok')]);
+    await createGuardedFetch({ transport: get.transport })('guard', new Request('https://api.osv.dev/v1/x', { headers: { 'x-a': '1' } }));
+    expect(get.calls[0]!.url).toBe('https://api.osv.dev/v1/x');
+    expect(get.calls[1]!.url).toBe('https://api.osv.dev/again');
+    expect(get.calls[1]!.init?.method).toBe('GET');
+    expect(new Headers(get.calls[1]!.init?.headers).get('x-a')).toBe('1');
+
+    const post = scripted([redirect(307, '/again')]);
+    const req = new Request('https://api.osv.dev/v1/x', { method: 'POST', body: 'hi' });
+    await expect(createGuardedFetch({ transport: post.transport })('guard', req)).rejects.toBeInstanceOf(EgressRedirectError);
   });
 });
