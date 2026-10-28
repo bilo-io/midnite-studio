@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { TERRAIN_CLASSES, TERRAIN_CLASS_COLOURS, type TerrainClass } from '@midnite/studio-shared';
 import { LuEraser } from 'react-icons/lu';
 
@@ -23,13 +24,12 @@ export function ClassBrushPalette({
         <span className="text-xs font-semibold">Land-Cover Brush</span>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground">Radius: {brush.radiusPx}px</span>
-          <input
-            type="range"
+          <BrandSlider
             min={1}
             max={64}
             value={brush.radiusPx}
-            onChange={(e) => onChange({ radiusPx: Number(e.target.value) })}
-            className="h-1.5 w-20 cursor-pointer accent-primary"
+            onValueChange={(next) => onChange({ radiusPx: next })}
+            className="w-20"
           />
         </div>
       </div>

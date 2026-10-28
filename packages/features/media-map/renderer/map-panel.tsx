@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { MAP_SOURCES, type MapProjectFile } from '@midnite/studio-shared';
 
 import { MapCaptureSection } from './map-capture-section';
@@ -17,14 +18,13 @@ function FramingSection({ framing }: { framing: Framing }) {
       <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">3D and frame</h3>
       <label className="flex items-center justify-between gap-2">
         <span>3D exaggeration · {terrain3d.exaggeration.toFixed(1)}×</span>
-        <input
-          type="range"
+        <BrandSlider
           min={1}
           max={3}
           step={0.1}
           value={terrain3d.exaggeration}
           aria-label="3D exaggeration"
-          onChange={(e) => framing.setTerrain3d({ ...terrain3d, exaggeration: Number(e.target.value) })}
+          onValueChange={(next) => framing.setTerrain3d({ ...terrain3d, exaggeration: next })}
         />
       </label>
       {frame && visible ? (

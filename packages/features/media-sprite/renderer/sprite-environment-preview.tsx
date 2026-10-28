@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { backgroundLayerFile, MEDIA_ROOT_DIR, mstudioFileUrl, type SpriteAssetSpec } from '@midnite/studio-shared';
 import { useState } from 'react';
 
@@ -80,7 +81,7 @@ function ParallaxPreview({ spec, url }: { spec: Extract<SpriteEnvironmentSpec, {
       </div>
       <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
         Camera
-        <input aria-label="Camera" type="range" min={0} max={w} value={camera} onChange={(e) => setCamera(Number(e.target.value))} className="flex-1" />
+        <BrandSlider aria-label="Camera" min={0} max={w} value={camera} onValueChange={setCamera} className="flex-1" />
       </label>
       <ul className="flex flex-wrap gap-x-3 text-[10px] text-muted-foreground" aria-label="Scroll factors">
         {spec.layers.map((l) => (

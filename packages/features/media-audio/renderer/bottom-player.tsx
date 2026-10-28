@@ -15,7 +15,7 @@ import {
   LuVolumeX,
 } from 'react-icons/lu';
 
-import { EpicAudioVisualizerCanvas, SHAPE_NAMES, useFrameChrome } from '@midnite/studio-frame';
+import { EpicAudioVisualizerCanvas, SHAPE_NAMES, useFrameChrome, BrandSlider } from '@midnite/studio-frame';
 
 import { currentTrack, usePlayer, type LoopMode } from './player-store';
 import { formatDuration } from './waveform';
@@ -151,15 +151,14 @@ export function BottomPlayer() {
           </p>
           <div className="flex items-center gap-2 text-[10px] tabular-nums text-white/70">
             <span>{formatDuration(player.currentTime)}</span>
-            <input
-              type="range"
+            <BrandSlider
               aria-label="Seek"
               min={0}
               max={player.duration || 0}
               step={0.1}
               value={Math.min(player.currentTime, player.duration || 0)}
-              onChange={(event) => player.seek(Number(event.target.value))}
-              className="h-1.5 min-w-0 flex-1 cursor-pointer accent-cyan-400"
+              onValueChange={player.seek}
+              className="min-w-0 flex-1"
             />
             <span>{formatDuration(player.duration || null)}</span>
           </div>
@@ -187,15 +186,14 @@ export function BottomPlayer() {
             size="sm"
             onClick={() => player.setVolume(player.volume === 0 ? 0.8 : 0)}
           />
-          <input
-            type="range"
+          <BrandSlider
             aria-label="Volume"
             min={0}
             max={1}
             step={0.01}
             value={player.volume}
-            onChange={(event) => player.setVolume(Number(event.target.value))}
-            className="h-1.5 w-20 cursor-pointer accent-cyan-400"
+            onValueChange={player.setVolume}
+            className="w-20"
           />
           {!expanded ? (
             <button

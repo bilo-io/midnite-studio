@@ -26,7 +26,7 @@ import {
   useExpandPrompt,
   type AudioPromptFormProps,
 } from '@midnite/studio-feature-media-audio/renderer';
-import { MEDIA_PROMPT_BOX, MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '@midnite/studio-frame';
+import { MEDIA_PROMPT_BOX, MediaPanelBody, MediaPanelFooter, MediaPanelLayout, BrandSlider } from '@midnite/studio-frame';
 
 import type { IconComponent } from '../../../components/icon-button';
 import { AiComposer, AttachMenu, ProviderModelPicker, useComposerMic, type PickerProvider } from '../../../components/ai-thread';
@@ -284,14 +284,12 @@ export function PromptForm({
         <div className="flex gap-2">
           <label className={`flex-1 ${field}`}>
             Duration ({formatDuration(state.durationS)})
-            <input
-              type="range"
+            <BrandSlider
               min={AUDIO_DURATION_MIN_S}
               max={local ? AUDIO_LOCAL_MAX_DURATION_S : AUDIO_DURATION_MAX_S}
               step={5}
               value={state.durationS}
-              onChange={(event) => dispatch({ type: 'duration', value: Number(event.target.value) })}
-              className="accent-primary"
+              onValueChange={(next) => dispatch({ type: 'duration', value: next })}
             />
           </label>
           <label className={`w-20 ${field}`}>

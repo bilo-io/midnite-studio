@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { clipTiming, type ModelSpec } from '@midnite/studio-shared';
 import { useEffect, useRef } from 'react';
 import { LuPause, LuPlay, LuRepeat, LuSkipBack } from 'react-icons/lu';
@@ -64,16 +65,15 @@ export function ClipTimeline({ spec, view, onView }: { spec: ModelSpec; view: Ri
         onClick={() => onView(view.playing ? { playing: false } : { playing: true, time: view.time >= duration && !view.loop ? 0 : view.time })}
       />
       <IconButton icon={LuRepeat} label="Loop playback" size="sm" aria-pressed={view.loop} onClick={() => onView({ loop: !view.loop })} />
-      <input
-        type="range"
+      <BrandSlider
         aria-label="Scrub"
         min={0}
         max={duration || 1}
         step={0.01}
         value={Math.min(view.time, duration || 1)}
         disabled={!clip}
-        onChange={(event) => onView({ time: Number(event.target.value), playing: false })}
-        className="h-1 min-w-0 flex-1 accent-primary"
+        onValueChange={(next) => onView({ time: next, playing: false })}
+        className="min-w-0 flex-1"
       />
       <span className="w-20 shrink-0 text-right tabular-nums" data-testid="timeline-time">
         {view.time.toFixed(2)} / {duration.toFixed(2)}s

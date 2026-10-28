@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { SettingsAccordion } from '../settings-section';
 import { LuFilter, LuLayoutList, LuPanelLeft, LuRefreshCw } from 'react-icons/lu';
 
@@ -392,14 +393,13 @@ export function SidebarPage() {
             hint="Fetch all listed repositories automatically. Range is 10s to 10m."
           >
             <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min="10"
-                max="600"
-                step="1"
+              <BrandSlider
+                min={10}
+                max={600}
+                step={1}
                 disabled={!autoFetchEnabled}
                 value={autoFetchIntervalMs ? Math.round(autoFetchIntervalMs / 1000) : 60}
-                onChange={(e) => setAutoFetchIntervalMs(parseInt(e.target.value) * 1000)}
+                onValueChange={(next) => setAutoFetchIntervalMs(next * 1000)}
                 className="flex-1 disabled:opacity-50"
               />
               <input

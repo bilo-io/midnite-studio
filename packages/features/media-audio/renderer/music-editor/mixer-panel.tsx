@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import type { Song, SongMixerChannel } from '@midnite/studio-shared';
 
 import { EffectsChain } from './effects-chain';
@@ -96,27 +97,25 @@ function Strip({
       <span title={name} className="w-full truncate text-center text-[10px] font-medium">
         {name}
       </span>
-      <input
-        type="range"
+      <BrandSlider
         aria-label={`${name} pan`}
         min={PAN_RANGE.min}
         max={PAN_RANGE.max}
         step={0.01}
         value={channel.pan}
-        onChange={(e) => onChange({ pan: Number(e.target.value) }, 'pan')}
+        onValueChange={(next) => onChange({ pan: next }, 'pan')}
         onDoubleClick={() => onChange({ pan: 0 })}
         className="w-full"
       />
       <span className="text-[10px] text-muted-foreground">{panText(channel.pan)}</span>
       <div className="flex h-24 items-stretch gap-1.5">
-        <input
-          type="range"
+        <BrandSlider
           aria-label={`${name} volume`}
           min={VOLUME_RANGE.min}
           max={VOLUME_RANGE.max}
           step={0.01}
           value={channel.volume}
-          onChange={(e) => onChange({ volume: Number(e.target.value) }, 'vol')}
+          onValueChange={(next) => onChange({ volume: next }, 'vol')}
           onDoubleClick={() => onChange({ volume: VOLUME_RANGE.default })}
           style={{ writingMode: 'vertical-lr', direction: 'rtl', width: 16 }}
         />

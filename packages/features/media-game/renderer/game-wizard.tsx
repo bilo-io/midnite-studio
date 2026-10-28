@@ -17,7 +17,7 @@ import {
 import { useEffect, useRef, type Dispatch } from 'react';
 import { LuChevronLeft, LuChevronRight } from 'react-icons/lu';
 
-import { SettingsSwitchRow } from '@midnite/studio-frame';
+import { SettingsSwitchRow, BrandSlider } from '@midnite/studio-frame';
 import {
   BASE_PITCH,
   CAMERA_LABEL,
@@ -181,15 +181,14 @@ function TuneStep({ wizard }: { wizard: Wizard }) {
               {options.dayNight.minutesPerDay} min
             </output>
           </span>
-          <input
-            type="range"
+          <BrandSlider
             aria-label="Minutes per game day"
             min={GAME_DAY_MINUTES_MIN}
             max={GAME_DAY_MINUTES_MAX}
             step={1}
             value={options.dayNight.minutesPerDay}
-            onChange={(event) =>
-              set({ ...options, dayNight: { ...options.dayNight, minutesPerDay: Number(event.target.value) } })
+            onValueChange={(next) =>
+              set({ ...options, dayNight: { ...options.dayNight, minutesPerDay: next } })
             }
           />
         </label>
