@@ -1,13 +1,15 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { THREAT_FEED_PUBLIC_KEY_PEM } from '@midnite/studio-shared';
 
 import { discoverMcpServers } from '../security/mcp-discovery';
 import { canonicalizeMcpConfig } from '../security/mcp-trust';
+import { pinnedMajor, type ElectronPin } from './checks/electron-freshness';
 import { parseSuppressions, type AuditSuppression } from './checks/lockfile-cves';
 import type { GuardMcpServer } from './checks/threat-feed-checks';
 import { createOsvClient, type FeedFetch } from './feeds/osv';
+import { loadElectronMajors } from './feeds/electron-releases';
 import { loadKev } from './feeds/kev';
 import { loadThreatFeed } from './feeds/threat-feed';
 import type { GuardInputResolverContext } from './inputs';
@@ -50,6 +52,32 @@ function rawCommand(config: Record<string, unknown>): string {
   return [typeof config['command'] === 'string' ? config['command'] : '', ...args].filter((p) => p !== '').join(' ');
 }
 
+/** Every `electron` pin in an open repo's root, `packages/*` and `apps/*` package.json files (where this suite writes them). */
+async function readElectronPins(repo: string): Promise<ElectronPin[]> {
+  const files = ['package.json'];
+  for (const dir of ['packages', 'apps']) {
+    try {
+      for (const entry of await readdir(join(repo, dir), { withFileTypes: true })) if (entry.isDirectory()) files.push(`${dir}/${entry.name}/package.json`);
+    } catch {
+      // no such directory
+    }
+  }
+  const out: ElectronPin[] = [];
+  for (const file of files) {
+    const text = await readText(join(repo, file));
+    if (text === null) continue;
+    try {
+      const pkg = JSON.parse(text) as { dependencies?: Record<string, unknown>; devDependencies?: Record<string, unknown> };
+      const range = pkg.dependencies?.['electron'] ?? pkg.devDependencies?.['electron'];
+      const major = typeof range === 'string' ? pinnedMajor(range) : null;
+      if (typeof range === 'string' && major !== null) out.push({ file, repo, range, major });
+    } catch {
+      // a malformed package.json pins nothing
+    }
+  }
+  return out;
+}
+
 /**
  * The input resolvers for one sweep (build a fresh set per sweep: `lockfiles` and `installedPackages` are read
  * once and shared by the checks and by the OSV query). Every resolver either returns real data or throws, which the
@@ -73,6 +101,12 @@ export function createGuardResolvers(options: GuardResolverOptions): Record<stri
       const packages = await lockedPackages();
       return createOsvClient({ fetch: options.fetch, cacheDir: join(options.userData, 'security', 'feeds', 'osv') }).query(packages);
     },
+    electronPins: async () => {
+      const list = await repos();
+      if (list.length === 0) throw new Error('no repository is open');
+      return (await Promise.all(list.map(readElectronPins))).flat();
+    },
+    electronMajors: () => loadElectronMajors({ fetch: options.fetch, cacheDir: join(options.userData, 'security', 'feeds', 'electron') }),
     kev: () => loadKev({ fetch: options.fetch, cacheDir: join(options.userData, 'security', 'feeds', 'kev') }),
     suppressions: async (): Promise<AuditSuppression[]> => {
       const out: AuditSuppression[] = [];

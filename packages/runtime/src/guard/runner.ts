@@ -25,6 +25,9 @@ export interface GuardSweepResult {
   findings: SecurityFinding[];
 }
 
+/** The inputs a check cannot run without: `needs` minus the ones it marks `optional`. */
+const requiredNeeds = (check: GuardCheck): readonly string[] => check.needs.filter((key) => !check.optional?.includes(key));
+
 /**
  * Runs one recurring Guard sweep (Phase 122 Theme A).
  *
@@ -50,7 +53,7 @@ export async function runGuardSweep(options: GuardSweepOptions): Promise<GuardSw
     const reason = staticInputSkip(key, context);
     if (reason !== null) staticSkips[key] = reason;
   }
-  const runnable = options.checks.filter((c) => !c.needs.some((key) => staticSkips[key] !== undefined));
+  const runnable = options.checks.filter((c) => !requiredNeeds(c).some((key) => staticSkips[key] !== undefined));
   const neededKeys = Array.from(new Set(runnable.flatMap((c) => c.needs)));
   const resolved = await resolveGuardInputs(neededKeys, context);
   const inputs = resolved.inputs;
@@ -59,7 +62,7 @@ export async function runGuardSweep(options: GuardSweepOptions): Promise<GuardSw
   // 2. Filter checks whose needed inputs were skipped
   const checksToRun: GuardCheck[] = [];
   for (const check of options.checks) {
-    const hasSkippedInput = check.needs.some((key) => Boolean(skipped[key]));
+    const hasSkippedInput = requiredNeeds(check).some((key) => Boolean(skipped[key]));
     if (!hasSkippedInput) {
       checksToRun.push(check);
     }

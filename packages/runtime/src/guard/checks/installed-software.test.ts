@@ -19,6 +19,10 @@ describe('installed-software check', () => {
     expect(f?.detail).toContain('brew upgrade openssl');
   });
 
+  it('declares KEV optional, so the check survives the KEV switch being off', () => {
+    expect(check.optional).toEqual(['kev']);
+  });
+
   it('skips items that are current', async () => {
     expect(await check.run({ installedSoftware: [item({ outdated: false }), { source: 'app', name: 'Foo', version: '1' }], kev: {} })).toEqual([]);
   });

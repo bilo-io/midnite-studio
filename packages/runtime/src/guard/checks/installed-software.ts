@@ -49,6 +49,8 @@ export function createInstalledSoftwareCheck(now: () => number = () => Date.now(
     title: 'Outdated software on this Mac',
     category: 'vulnerability',
     needs: ['installedSoftware', 'kev'],
+    // KEV only raises an item that is already behind; with the feed off the check still reports what is outdated.
+    optional: ['kev'],
     run(raw): SecurityFinding[] {
       const inputs = raw as Partial<InstalledSoftwareInputs>;
       const items = Array.isArray(inputs.installedSoftware) ? inputs.installedSoftware : [];
