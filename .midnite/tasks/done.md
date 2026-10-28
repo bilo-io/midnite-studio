@@ -6,6 +6,10 @@
 
 `installed-software` Guard check plus `guard/software.ts` inventory (brew outdated, `/Applications` bundle versions, `sw_vers`) through an injected `exec`; outdated is `low`, KEV-named `high`, overdue or ransomware-linked `critical`. Desktop wires `execFile`. GHSA/NVD, OSV ranges for installed software and Electron freshness remain open.
 
+## 2026-10-28 — Phase 84 Themes E.6 + K.7 — the two numbers, measured in a real browser
+
+E.6: `terminal-reveal.spec.ts` opens ten terminal sessions and counts the xterms the panel actually mounts: 4 (visible + 3 recent), 6 inert `data-terminal-session-disposed` placeholders. K.7: `cascade-reduced-motion.spec.ts` reads the cascade off `getAnimations()`: every cascade animation is a finite `fade-in-up`, latest end 396 ms (12 x 18 + 180), none running after settling; no new infinite animation (the Actions glows predate the phase). Closes Themes E and K; F.5 (10-minute discard threshold) stays open.
+
 ## 2026-10-28 — Phase 115 Theme A (partial) — One list of outbound hosts, one seam, one master switch
 
 `EGRESS_ENTRIES` in `shared` (owner, sends, trigger, switch, renderer), `guardedFetch` in `runtime/src/net` refusing unregistered hosts and switched-off ones, Guard OSV/KEV, Finance, TMDB, Ollama search, sherpa download, API client and workflows moved onto it, `buildCsp` hosts derived from the registry, Settings ▸ Privacy "Automatic network calls" (master plus generated switches, weather switch) mirrored into main, and a source-scan test with a commented ratchet of the callers still on a raw client. Launcher switches, the remaining raw clients and the idle e2e stay open.
