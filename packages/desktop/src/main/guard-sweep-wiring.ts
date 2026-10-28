@@ -1,4 +1,6 @@
+import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
+import { promisify } from 'node:util';
 
 import {
   createGuardScheduler,
@@ -16,6 +18,8 @@ import { getFindingsLedger } from './ipc/vanguard-handlers';
 import { defaultLogger } from './log';
 import { listRepos } from './repo-registry';
 import { agentHistoryReadsEnabled, currentSettings, onSettingsChange } from './settings-mirror';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Studio's one scheduled Guard sweep (Phase 122 Themes A to C): the runtime's scheduler over the loop's schedule
@@ -61,6 +65,7 @@ export function startGuardSweeps(options: { userData: string }): void {
             repos: async () => (await listRepos()).map((repo) => repo.path),
             fetch: guardedFetchFor('guard'),
             allowConfigRead: agentHistoryReadsEnabled,
+            exec: async (file, args) => (await execFileAsync(file, [...args], { timeout: 60_000, maxBuffer: 16 * 1024 * 1024 })).stdout,
           }),
         },
       });

@@ -106,7 +106,7 @@ Phase 115 A's `guardedFetch` is not in the tree yet, CISA KEV (`feeds/kev.ts`), 
 (listed in `REMEDIATION_PENDING` until Theme G runs them). The remaining lockfile parsers then landed (yarn berry, poetry, uv, Gemfile.lock as `RubyGems`, Package.resolved as
 `SwiftURL`), the sweep wiring landed earlier, and the runner now drops checks whose inputs are statically skipped
 *before* resolving, so no feed is fetched for a check that cannot run; the `.pnpm` store scan reads 32 folders at a
-time. Still open: GHSA/NVD and installed software (brew, `/Applications`, `sw_vers`, Electron freshness).
+time. The `installed-software` check landed (PR pending): `software.ts` inventories `brew outdated --json=v2`, each `/Applications` bundle's `CFBundleShortVersionString` (PlistBuddy) and `sw_vers` through an injected `exec` (desktop wires `execFile`; no sudo), and the check rates an outdated item `low`, KEV-named `high`, and `critical` when overdue or ransomware-linked. KEV carries no version ranges, so it only raises items already behind; OSV `Homebrew` ranges and the Electron-freshness rule are not done. Still open: GHSA/NVD, OSV matching for installed software, Electron freshness.
 
 **Theme C — The threat feed.** ◐ PARTIAL (PR pending). Landed: `ThreatFeedSchema` in `shared/src/threat-feed.ts`
 (every entry carries an https `ref`), an Ed25519 detached-signature verifier and cached loader
@@ -186,7 +186,7 @@ repo.
       `critical` with `dueDate` and `knownRansomwareCampaignUse` in the evidence. NVD is a third
       optional source behind its own switch and API key (its public rate limit is small), used only
       to enrich a CVE no other source scores. [M]
-- [ ] **Installed software.** `brew outdated --json` and `brew list --versions`, `/Applications`
+- [~] **Installed software.** ◐ PARTIAL (PR pending): brew outdated, app bundles, `sw_vers` and the KEV-name match landed; OSV ranges and the Electron-freshness check are open. — `brew outdated --json` and `brew list --versions`, `/Applications`
       bundle `CFBundleShortVersionString`s, `sw_vers`, the suite's own Electron (the
       [`electron-freshness.mjs`](../../../scripts/electron-freshness.mjs) rule, now a check), each
       matched against KEV's `vendorProject`/`product` and against OSV's `GIT`/`Homebrew`-style

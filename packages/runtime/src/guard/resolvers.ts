@@ -11,6 +11,7 @@ import { createOsvClient, type FeedFetch } from './feeds/osv';
 import { loadKev } from './feeds/kev';
 import { loadThreatFeed } from './feeds/threat-feed';
 import type { GuardInputResolverContext } from './inputs';
+import { resolveInstalledSoftware, type ExecFile } from './software';
 import { resolveLockfiles } from './lockfiles/discover';
 import { resolveInstalledNodeModules } from './lockfiles/node-modules';
 
@@ -26,6 +27,8 @@ export interface GuardResolverOptions {
   fetch: FeedFetch;
   /** Phase 115 F's switch for reading agent config (MCP discovery). */
   allowConfigRead?: () => boolean;
+  /** Runs a binary for the installed-software inventory; without it that input has no resolver and is skipped. */
+  exec?: ExecFile;
   threatFeedUrl?: string;
   publicKeyPem?: string;
 }
@@ -61,7 +64,9 @@ export function createGuardResolvers(options: GuardResolverOptions): Record<stri
       return resolveLockfiles(list);
     }));
 
+  const exec = options.exec;
   return {
+    ...(exec ? { installedSoftware: () => resolveInstalledSoftware(exec) } : {}),
     lockfiles: () => lockedPackages(),
     installedPackages: async () => resolveInstalledNodeModules(await repos()),
     osv: async () => {

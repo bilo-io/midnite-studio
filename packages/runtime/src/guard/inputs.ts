@@ -18,6 +18,7 @@ export type KnownGuardInputKey =
   | 'suppressions'
   | 'ports'
   | 'brew'
+  | 'installedSoftware'
   | 'history'
   | 'auditTrail';
 
@@ -33,6 +34,7 @@ export const DEFAULT_INPUT_SWITCHES: Readonly<Record<string, string>> = {
   ghsa: 'privacy.feed.ghsa',
   threatFeed: 'privacy.feed.threatFeed',
   brew: 'privacy.system.brew',
+  installedSoftware: 'privacy.system.brew',
   history: 'privacy.browser.history',
   auditTrail: 'privacy.agent.auditTrail',
 };

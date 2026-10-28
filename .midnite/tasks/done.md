@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-28 — Phase 122 Theme B (partial) — Installed software check
+
+`installed-software` Guard check plus `guard/software.ts` inventory (brew outdated, `/Applications` bundle versions, `sw_vers`) through an injected `exec`; outdated is `low`, KEV-named `high`, overdue or ransomware-linked `critical`. Desktop wires `execFile`. GHSA/NVD, OSV ranges for installed software and Electron freshness remain open.
+
 ## 2026-10-28 — Phase 115 Theme A (partial) — One list of outbound hosts, one seam, one master switch
 
 `EGRESS_ENTRIES` in `shared` (owner, sends, trigger, switch, renderer), `guardedFetch` in `runtime/src/net` refusing unregistered hosts and switched-off ones, Guard OSV/KEV, Finance, TMDB, Ollama search, sherpa download, API client and workflows moved onto it, `buildCsp` hosts derived from the registry, Settings ▸ Privacy "Automatic network calls" (master plus generated switches, weather switch) mirrored into main, and a source-scan test with a commented ratchet of the callers still on a raw client. Launcher switches, the remaining raw clients and the idle e2e stay open.
