@@ -5,7 +5,9 @@ export type MirrorSchedulerDeps = {
   load: () => Promise<MirrorConfig>;
   /** Persist one run's outcome into the config's `state`. */
   record: (result: MirrorResult) => Promise<void>;
-  refresh: (repo: MirrorConfigRepo, config: MirrorConfig) => Promise<MirrorResult>;
+  refresh: (repo: MirrorConfigRepo, config: MirrorConfig, signal: AbortSignal) => Promise<MirrorResult>;
+  /** Where a persist failure goes; the refresh outcome is kept either way. */
+  warn?: (message: string) => void;
   now?: () => number;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
@@ -24,13 +26,13 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
   let handle: unknown = null;
   let running: Promise<MirrorResult[]> | null = null;
   let stopped = true;
-  let recording: Promise<unknown> = Promise.resolve();
-  /** `record` is usually load-modify-save on one file, so two hosts finishing together must not interleave. */
-  const record = (result: MirrorResult): Promise<void> => {
-    const next = recording.then(() => deps.record(result));
-    recording = next.catch(() => undefined);
-    return next;
-  };
+  let controller = new AbortController();
+  /**
+   * Last successful run per repo whose outcome could not be persisted. Without it the repo would stay
+   * "never run" in `state` and be re-mirrored every tick, burning the provider's rate limit.
+   * (`deps.record` serialises its own writes: the file's one serialiser lives with the file.)
+   */
+  const unsaved = new Map<string, string>();
 
   const keyOf = (r: MirrorConfigRepo) => `${r.host}/${r.owner}/${r.repo}`;
 
@@ -42,9 +44,17 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
       const out: MirrorResult[] = [];
       for (const repo of repos) {
         try {
-          const result = await deps.refresh(repo, config);
-          await record(result);
+          const signal = controller.signal;
+          const result = await deps.refresh(repo, config, signal);
           out.push(result);
+          if (signal.aborted) break; // a quit mid-run: nothing to record, and the rest of the lane waits for next boot
+          try {
+            await deps.record(result);
+            unsaved.delete(result.key);
+          } catch (error) {
+            unsaved.set(result.key, result.at);
+            deps.warn?.(`mirror ${result.key}: ran (${result.status}) but its state could not be saved: ${error instanceof Error ? error.message : String(error)}`);
+          }
         } catch (error) {
           // One repo's failure must not drop the rest of its lane, nor the other hosts' results.
           out.push({ key: keyOf(repo), status: 'failed', reason: error instanceof Error ? error.message : String(error), at: new Date(now()).toISOString(), incremental: false, refs: 0 });
@@ -70,7 +80,8 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
 
   const isDue = (repo: MirrorConfigRepo, config: MirrorConfig): boolean => {
     if (config.interval === 'manual') return false;
-    const last = config.state[keyOf(repo)]?.at;
+    const key = keyOf(repo);
+    const last = [config.state[key]?.at, unsaved.get(key)].filter((v): v is string => !!v).sort().pop();
     return !last || now() - Date.parse(last) >= INTERVAL_MS[config.interval];
   };
 
@@ -96,10 +107,12 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
   return {
     async start(): Promise<void> {
       stopped = false;
+      controller = new AbortController();
       await tick();
     },
     stop(): void {
       stopped = true;
+      controller.abort();
       if (handle !== null) clearTimer(handle);
       handle = null;
     },

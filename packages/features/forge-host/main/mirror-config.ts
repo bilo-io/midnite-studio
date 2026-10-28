@@ -60,3 +60,26 @@ export async function saveMirrorConfig(file: string, config: MirrorConfig): Prom
   await ensurePrivateDir(dirname(file));
   await writePrivateFile(file, `${JSON.stringify(MirrorConfigSchema.parse(config), null, 2)}\n`);
 }
+
+const writers = new Map<string, Promise<unknown>>();
+
+/**
+ * The one serialiser for `mirrors.json` writes: read the file fresh, apply `mutate`, save, one writer at
+ * a time per file. Every writer (the host recording a run, a future picker IPC) goes through it, so
+ * none of them saves a copy that was read before another one's write. It does not stop a user editing
+ * the file by hand between the read and the write; that window is the read-to-rename of one tiny file.
+ * A rejected update (invalid file, failed write) rejects only its own caller.
+ */
+export function updateMirrorConfig(file: string, mutate: (config: MirrorConfig) => MirrorConfig): Promise<MirrorConfig> {
+  const next = (writers.get(file) ?? Promise.resolve()).then(async () => {
+    const updated = mutate(await loadMirrorConfig(file));
+    await saveMirrorConfig(file, updated);
+    return updated;
+  });
+  const tail = next.catch(() => undefined);
+  writers.set(file, tail);
+  void tail.then(() => {
+    if (writers.get(file) === tail) writers.delete(file);
+  });
+  return next;
+}

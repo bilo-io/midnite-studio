@@ -89,18 +89,27 @@ export type ExportMetadataOptions = {
   /** The previous manifest's `fetchedAt`; null does a full export. */
   since: string | null;
   backoff?: BackoffOptions;
+  /** Checked between reads, never between writes. */
+  signal?: AbortSignal;
 };
 
 /** Write every metadata file for one repo. Each file is atomic and 0600; the manifest is the caller's last step. */
-export async function exportMetadata({ source, metaDir, since, backoff }: ExportMetadataOptions): Promise<void> {
+export async function exportMetadata({ source, metaDir, since, backoff, signal }: ExportMetadataOptions): Promise<void> {
+  // Read everything first, write after: a quit lands between reads (nothing on disk changed), never
+  // halfway through the files, which would leave them disagreeing with the kept manifest.
+  const pending: { file: string; content: string }[] = [];
   for (const kind of NDJSON_KINDS) {
+    signal?.throwIfAborted();
     const fresh = await withBackoff(() => source.records(kind, since), backoff);
     const file = join(metaDir, `${kind}.ndjson`);
     const merged = mergeRecords(since === null ? [] : await readNdjson(file), fresh);
-    await writePrivateFile(file, merged.map((r) => JSON.stringify(r)).join('\n') + (merged.length > 0 ? '\n' : ''));
+    pending.push({ file, content: merged.map((r) => JSON.stringify(r)).join('\n') + (merged.length > 0 ? '\n' : '') });
   }
   for (const kind of SNAPSHOT_KINDS) {
+    signal?.throwIfAborted();
     const data = await withBackoff(() => source.snapshot(kind), backoff);
-    await writePrivateFile(join(metaDir, `${kind}.json`), `${JSON.stringify(data ?? [], null, 2)}\n`);
+    pending.push({ file: join(metaDir, `${kind}.json`), content: `${JSON.stringify(data ?? [], null, 2)}\n` });
   }
+  signal?.throwIfAborted();
+  for (const { file, content } of pending) await writePrivateFile(file, content);
 }
