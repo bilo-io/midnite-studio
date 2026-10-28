@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { useEffect, useRef, useState } from 'react';
 
 import { tidy, type Vec3 } from './editor-state';
@@ -169,18 +170,17 @@ export function SliderField({
   return (
     <div className="flex items-center gap-1.5">
       <span className="w-24 shrink-0 text-[11px] text-muted-foreground">{label}</span>
-      <input
+      <BrandSlider
         aria-label={`${label} slider`}
-        type="range"
         min={min}
         max={max}
         step={step}
         value={draft}
-        onChange={(event) => setDraft(Number(event.target.value))}
+        onValueChange={setDraft}
         onPointerUp={() => commit(draft)}
         onKeyUp={() => commit(draft)}
         onBlur={() => commit(draft)}
-        className="h-1 min-w-0 flex-1 accent-primary"
+        className="min-w-0 flex-1"
       />
       <NumberField label={label} value={value} step={step} min={min} max={max} onCommit={(next) => next !== undefined && commit(next)} />
     </div>

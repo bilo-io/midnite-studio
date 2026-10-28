@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { useMemo } from 'react';
 
 import { SettingsAccordion } from '../settings-section';
@@ -346,26 +347,24 @@ function StatusOverrideRow({
 
         <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
           Speed
-          <input
-            type="range"
+          <BrandSlider
             min={1}
             max={20}
             step={0.5}
             value={resolvedStyle.speed}
-            onChange={(event) => setSpeed(Number(event.target.value))}
+            onValueChange={setSpeed}
             className="w-16"
           />
         </label>
 
         <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
           Intensity
-          <input
-            type="range"
+          <BrandSlider
             min={0}
             max={1}
             step={0.05}
             value={resolvedStyle.intensity}
-            onChange={(event) => setIntensity(Number(event.target.value))}
+            onValueChange={setIntensity}
             className="w-16"
           />
         </label>

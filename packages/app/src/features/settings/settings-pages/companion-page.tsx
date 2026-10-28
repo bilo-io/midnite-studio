@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import {
   COMPANION_LOCAL_VOICES,
   COMPANION_PHRASES,
@@ -363,16 +364,15 @@ export function CompanionPage() {
             hint="Volume for the companion's whistle and elevator music — not the speaking voice, which uses system volume."
           >
             <div className="flex items-center gap-2">
-              <input
-                type="range"
+              <BrandSlider
                 min={0}
                 max={100}
                 step={5}
                 value={Math.round(companionVolume * 100)}
-                onChange={(event) => setFromPage('companionVolume', Number(event.target.value) / 100)}
+                onValueChange={(next) => setFromPage('companionVolume', next / 100)}
                 aria-label="Companion volume"
                 data-testid="companion-volume"
-                className="h-1.5 w-40 accent-[hsl(var(--primary))]"
+                className="w-40"
               />
               <span className="w-9 text-right text-[11px] tabular-nums text-muted-foreground">
                 {Math.round(companionVolume * 100)}%

@@ -1,5 +1,5 @@
 import { undoableCommit, useGameAgentEvents, useGameAgentStore, type GameAgentUi, type GameThreadEntry } from '@midnite/studio-feature-media-game/renderer';
-import { bridge, MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '@midnite/studio-frame';
+import { bridge, MediaPanelBody, MediaPanelFooter, MediaPanelLayout, BrandSlider } from '@midnite/studio-frame';
 import { GAME_PASSES_MAX, type GameAgentRunRequest, type GameSummary } from '@midnite/studio-shared';
 import { useCallback, useState, type ReactNode } from 'react';
 
@@ -49,8 +49,8 @@ function EngineFields({ disabled }: { disabled?: boolean }) {
       </select>
       <label className="flex flex-1 items-center gap-2">
         Passes
-        <input type="range" aria-label="Refinement passes" min={1} max={GAME_PASSES_MAX} value={passes} disabled={disabled}
-          onChange={(e) => setPasses(Number(e.target.value))} className="flex-1 accent-primary" />
+        <BrandSlider aria-label="Refinement passes" min={1} max={GAME_PASSES_MAX} value={passes} disabled={disabled}
+          onValueChange={setPasses} className="flex-1" />
         <span className="w-6 text-right tabular-nums text-foreground">{passes}</span>
       </label>
     </div>

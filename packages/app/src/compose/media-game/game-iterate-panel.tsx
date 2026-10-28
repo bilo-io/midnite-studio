@@ -16,7 +16,7 @@ import { useAgents } from '../../features/terminal/use-agents';
 import { agentPickerProviders } from '../../features/media/agent-model-picker';
 import { useModelProviders } from '@midnite/studio-feature-media-model/events';
 import { textModels } from '@midnite/studio-feature-media-model/kernel';
-import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout } from '@midnite/studio-frame';
+import { MediaPanelBody, MediaPanelFooter, MediaPanelLayout, BrandSlider } from '@midnite/studio-frame';
 import { MEDIA_PROMPT_BOX } from '@midnite/studio-frame';
 import { useGameAgentStore, type GameEngineChoice } from './game-agent-store';
 import { GameEditThread } from './game-edit-thread';
@@ -198,16 +198,15 @@ export function GameEngineFields({ disabled = false }: { disabled?: boolean }) {
       ) : null}
       <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
         Passes
-        <input
-          type="range"
+        <BrandSlider
           aria-label="Refinement passes"
           min={1}
           max={GAME_PASSES_MAX}
           step={1}
           value={passes}
           disabled={disabled}
-          onChange={(event) => setPasses(Number(event.target.value))}
-          className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+          onValueChange={setPasses}
+          className="flex-1"
         />
         <span className="w-6 text-right tabular-nums text-foreground">{passes}</span>
       </label>
@@ -338,16 +337,15 @@ export function GameIteratePanel({ game, children }: { game: GameSummary; childr
 
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           Passes
-          <input
-            type="range"
+          <BrandSlider
             aria-label="Refinement passes"
             min={1}
             max={GAME_PASSES_MAX}
             step={1}
             value={passes}
             disabled={busy}
-            onChange={(event) => setPasses(Number(event.target.value))}
-            className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+            onValueChange={setPasses}
+            className="flex-1"
           />
           <span className="w-6 text-right tabular-nums text-foreground">{passes}</span>
         </label>

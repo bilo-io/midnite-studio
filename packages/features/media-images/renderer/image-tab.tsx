@@ -10,7 +10,7 @@ import { useEffect, useMemo, useReducer, useState } from 'react';
 import { LuImage, LuSparkles } from 'react-icons/lu';
 import { PiSparkleFill } from 'react-icons/pi';
 
-import { EmptyState, EmptyStateButton, useFrameChrome, useMediaKit, type MediaSelection } from '@midnite/studio-frame';
+import { EmptyState, EmptyStateButton, useFrameChrome, useMediaKit, type MediaSelection, BrandSlider } from '@midnite/studio-frame';
 
 import { BasicCreatePanel } from './basic-create-panel';
 import { createPanelReducer, initialCreateState } from './create-panel-state';
@@ -158,14 +158,13 @@ function ImageTabBody({ repoId }: { repoId: string }) {
           <>
             <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               JPEG/WebP quality
-              <input
-                type="range"
+              <BrandSlider
                 min={1}
                 max={100}
                 value={quality}
-                onChange={(event) => setQuality(Number(event.target.value))}
+                onValueChange={setQuality}
                 aria-label="Export quality"
-                className="w-24 accent-primary"
+                className="w-24"
               />
               <span className="w-6 tabular-nums">{quality}</span>
             </label>

@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import {
   AUDIO_DURATION_MAX_S,
   AUDIO_DURATION_MIN_S,
@@ -41,14 +42,12 @@ export function AudioSettingsSection() {
         </label>
         <label className={field}>
           Default duration ({formatDuration(prefs.durationS)})
-          <input
-            type="range"
+          <BrandSlider
             min={AUDIO_DURATION_MIN_S}
             max={AUDIO_DURATION_MAX_S}
             step={5}
             value={prefs.durationS}
-            onChange={(event) => prefs.set({ durationS: Number(event.target.value) })}
-            className="accent-primary"
+            onValueChange={(next) => prefs.set({ durationS: next })}
           />
         </label>
         <label className={field}>

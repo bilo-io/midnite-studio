@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { SettingsAccordion } from '../settings-section';
 import { LuHistory, LuTimer } from 'react-icons/lu';
 
@@ -73,15 +74,14 @@ export function WorkflowsPage() {
             <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
               {formatDuration(WORKFLOW_TIMEOUT_MIN_S)}
             </span>
-            <input
-              type="range"
+            <BrandSlider
               min={WORKFLOW_TIMEOUT_MIN_S}
               max={WORKFLOW_TIMEOUT_MAX_S}
               step={5}
               value={clampedTimeoutS}
-              onChange={(e) => changeTimeout(Number(e.target.value))}
+              onValueChange={changeTimeout}
               aria-label="Default node timeout"
-              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+              className="flex-1"
             />
             <span className="w-8 text-xs text-muted-foreground tabular-nums">
               {formatDuration(WORKFLOW_TIMEOUT_MAX_S)}
@@ -112,15 +112,14 @@ export function WorkflowsPage() {
             <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
               {WORKFLOW_RUN_HISTORY_CAP_MIN}
             </span>
-            <input
-              type="range"
+            <BrandSlider
               min={WORKFLOW_RUN_HISTORY_CAP_MIN}
               max={WORKFLOW_RUN_HISTORY_CAP_MAX}
               step={1}
               value={clampedCap}
-              onChange={(e) => changeCap(Number(e.target.value))}
+              onValueChange={changeCap}
               aria-label="Runs kept per workflow"
-              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+              className="flex-1"
             />
             <span className="w-8 text-xs text-muted-foreground tabular-nums">
               {WORKFLOW_RUN_HISTORY_CAP_MAX}

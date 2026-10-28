@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import type { AgentDefinition, SessionActivity, TerminalSession } from '@midnite/studio-shared';
 import { SettingsAccordion } from '../settings-section';
 import { LuActivity, LuBot, LuMonitor, LuSquareTerminal, LuTimer, LuType } from 'react-icons/lu';
@@ -258,15 +259,14 @@ export function TerminalPage() {
             <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
               {TERMINAL_FONT_SIZE_MIN}
             </span>
-            <input
-              type="range"
+            <BrandSlider
               min={TERMINAL_FONT_SIZE_MIN}
               max={TERMINAL_FONT_SIZE_MAX}
               step={1}
               value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
+              onValueChange={setFontSize}
               aria-label="Font size"
-              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+              className="flex-1"
             />
             <span className="w-8 text-xs text-muted-foreground tabular-nums">{TERMINAL_FONT_SIZE_MAX}</span>
           </div>
@@ -287,15 +287,14 @@ export function TerminalPage() {
             <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
               {TERMINAL_LINE_HEIGHT_MIN.toFixed(1)}
             </span>
-            <input
-              type="range"
+            <BrandSlider
               min={TERMINAL_LINE_HEIGHT_MIN}
               max={TERMINAL_LINE_HEIGHT_MAX}
               step={0.05}
               value={lineHeight}
-              onChange={(e) => setLineHeight(Number(e.target.value))}
+              onValueChange={setLineHeight}
               aria-label="Line height"
-              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+              className="flex-1"
             />
             <span className="w-8 text-xs text-muted-foreground tabular-nums">
               {TERMINAL_LINE_HEIGHT_MAX.toFixed(1)}

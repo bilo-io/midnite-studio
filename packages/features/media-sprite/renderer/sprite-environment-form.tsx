@@ -2,7 +2,7 @@ import { MAP_MAX_SIDE, MAP_MIN_SIDE, spriteFolderLabel, TILESET_COLLISIONS, TILE
 import { LuFileInput, LuPlus, LuTrash2 } from 'react-icons/lu';
 
 import { IconButton } from './chrome';
-import { useMediaKit } from '@midnite/studio-frame';
+import { useMediaKit, BrandSlider } from '@midnite/studio-frame';
 
 import { useMapEngine } from './host';
 import { ENV_KINDS, parsePropLines, TERRAIN_PRESETS, type EnvForm, type EnvKind, type EnvTerrainRow } from './sprite-form';
@@ -337,7 +337,7 @@ function MapFields({ repoId, form, onChange, onImportMap }: { repoId: string; fo
       {form.mapProps ? (
         <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
           Density
-          <input aria-label="Decoration density" type="range" min={0.05} max={1} step={0.05} value={form.mapDensity} onChange={(e) => onChange({ mapDensity: Number(e.target.value) })} className="flex-1" />
+          <BrandSlider aria-label="Decoration density" min={0.05} max={1} step={0.05} value={form.mapDensity} onValueChange={(next) => onChange({ mapDensity: next })} className="flex-1" />
           <span className="w-8 tabular-nums">{Math.round(form.mapDensity * 100)}%</span>
         </label>
       ) : null}

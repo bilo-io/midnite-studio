@@ -1,3 +1,4 @@
+import { BrandSlider } from '@midnite/studio-frame';
 import { useEffect, useState } from 'react';
 import { SettingsAccordion } from '../settings-section';
 import { LuClock, LuLock, LuMapPin, LuX } from 'react-icons/lu';
@@ -106,15 +107,14 @@ export function ScreenLockPage() {
             <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
               {formatDuration(INACTIVITY_MIN_S)}
             </span>
-            <input
-              type="range"
+            <BrandSlider
               min={0}
               max={INACTIVITY_PRESETS_S.length - 1}
               step={1}
               value={nearestInactivityPresetIndex(idleTimeout)}
-              onChange={(e) => setInactivityTimeout(INACTIVITY_PRESETS_S[Number(e.target.value)]!)}
+              onValueChange={(next) => setInactivityTimeout(INACTIVITY_PRESETS_S[next]!)}
               aria-label="Inactivity timeout"
-              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+              className="flex-1"
             />
             <span className="w-8 text-xs text-muted-foreground tabular-nums">
               {formatDuration(INACTIVITY_MAX_S)}
@@ -142,15 +142,14 @@ export function ScreenLockPage() {
               <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
                 {CYCLE_MIN_S}s
               </span>
-              <input
-                type="range"
+              <BrandSlider
                 min={CYCLE_MIN_S}
                 max={CYCLE_MAX_S}
                 step={1}
                 value={cycleDuration}
-                onChange={(e) => setCycleDuration(Number(e.target.value))}
+                onValueChange={setCycleDuration}
                 aria-label="Cycle duration"
-                className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-border accent-primary"
+                className="flex-1"
               />
               <span className="w-8 text-xs text-muted-foreground tabular-nums">{CYCLE_MAX_S}s</span>
             </div>
