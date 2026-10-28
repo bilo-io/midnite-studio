@@ -300,14 +300,16 @@ describe('guardedFetch redirects', () => {
     }
   });
 
-  it('takes method, headers and body from a Request input', async () => {
-    const { calls, transport } = scripted([redirect(307, '/again'), new Response('ok')]);
-    const req = new Request('https://api.osv.dev/v1/x', { method: 'POST', body: 'hi', headers: { 'x-a': '1' } });
-    await createGuardedFetch({ transport })('guard', req);
-    expect(calls[0]!.url).toBe('https://api.osv.dev/v1/x');
-    expect(calls[1]!.url).toBe('https://api.osv.dev/again');
-    expect(calls[1]!.init?.method).toBe('POST');
-    expect(new Headers(calls[1]!.init?.headers).get('x-a')).toBe('1');
-    expect(new TextDecoder().decode(calls[1]!.init?.body as ArrayBuffer)).toBe('hi');
+  it('takes method and headers from a Request input, and refuses to resend its body on a 307', async () => {
+    const get = scripted([redirect(307, '/again'), new Response('ok')]);
+    await createGuardedFetch({ transport: get.transport })('guard', new Request('https://api.osv.dev/v1/x', { headers: { 'x-a': '1' } }));
+    expect(get.calls[0]!.url).toBe('https://api.osv.dev/v1/x');
+    expect(get.calls[1]!.url).toBe('https://api.osv.dev/again');
+    expect(get.calls[1]!.init?.method).toBe('GET');
+    expect(new Headers(get.calls[1]!.init?.headers).get('x-a')).toBe('1');
+
+    const post = scripted([redirect(307, '/again')]);
+    const req = new Request('https://api.osv.dev/v1/x', { method: 'POST', body: 'hi' });
+    await expect(createGuardedFetch({ transport: post.transport })('guard', req)).rejects.toBeInstanceOf(EgressRedirectError);
   });
 });

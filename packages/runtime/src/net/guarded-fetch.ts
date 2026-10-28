@@ -112,9 +112,8 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFe
     let method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
     let headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
     let body: NonNullable<RequestInit['body']> | ArrayBuffer | null | undefined = init?.body ?? undefined;
-    if (body === undefined && input instanceof Request && input.body !== null) {
-      body = await input.clone().arrayBuffer();
-    }
+    // A Request's body is consumed by the first hop; it is not buffered up front, so a 307/308 that needs it throws.
+    let requestBodyConsumed = body === undefined && input instanceof Request && input.body !== null;
     const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
     const { body: _body, ...rest } = init ?? {};
 
@@ -142,9 +141,10 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFe
       if (response.status === 303 || ((response.status === 301 || response.status === 302) && method === 'POST')) {
         if (method !== 'GET' && method !== 'HEAD') method = 'GET';
         body = undefined;
+        requestBodyConsumed = false;
         headers = new Headers(headers);
         for (const name of ['content-type', 'content-length', 'content-encoding']) headers.delete(name);
-      } else if (body !== undefined && body !== null && isOneShot(body)) {
+      } else if (requestBodyConsumed || (body !== undefined && body !== null && isOneShot(body))) {
         throw new EgressRedirectError(`${owner}: a ${response.status} redirect from ${current} needs the request body resent, but it is a stream.`);
       }
       if (next.origin !== new URL(current).origin) {
@@ -157,7 +157,9 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFe
   };
 }
 
-const isOneShot = (body: object | string): boolean => typeof ReadableStream !== 'undefined' && body instanceof ReadableStream;
+const isOneShot = (body: object | string): boolean =>
+  typeof body === 'object' &&
+  ((typeof ReadableStream !== 'undefined' && body instanceof ReadableStream) || Symbol.asyncIterator in body || typeof (body as { pipe?: unknown }).pipe === 'function');
 
 let configured: GuardedFetch = createGuardedFetch();
 
