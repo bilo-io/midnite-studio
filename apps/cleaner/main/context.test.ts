@@ -58,10 +58,19 @@ describe('registerCleanerHandlers', () => {
     expect(res.message).toContain(CHANNELS.optimizerClean);
   });
 
-  it('answers an unported operation with a message, never a rejection', async () => {
+  it('answers a host-bound operation with a message, never a rejection', async () => {
     const { invoke } = fake();
-    expect(await invoke(CHANNELS.optimizerScan, {})).toEqual({ ok: false, message: NOT_PORTED });
-    expect(await invoke(CHANNELS.optimizerSystemCatalogue)).toEqual({ ok: true, value: [] });
+    expect(await invoke(CHANNELS.optimizerProcesses)).toEqual({ ok: false, message: NOT_PORTED });
+    expect(await invoke(CHANNELS.optimizerKill, { pid: 1, expectArgv: 'x' })).toEqual({ ok: false, message: NOT_PORTED });
+  });
+
+  it('serves the scanners from the feature package — the catalogue and a workspace scan are real', async () => {
+    const { invoke } = fake();
+    const catalogue = (await invoke(CHANNELS.optimizerSystemCatalogue)) as { ok: boolean; value: unknown[] };
+    expect(catalogue.ok).toBe(true);
+    expect(catalogue.value.length).toBeGreaterThan(0);
+    // No repo registry and no extra root: a scan has nothing to walk, and says so rather than failing.
+    expect(await invoke(CHANNELS.optimizerScan, {})).toMatchObject({ ok: true, value: { items: [], totalBytes: 0 } });
   });
 
   it('answers the directory picker from the injected dialog', async () => {

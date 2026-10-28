@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "react-icons": "^5.7.0",

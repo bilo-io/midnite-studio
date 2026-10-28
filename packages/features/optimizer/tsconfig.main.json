@@ -13,5 +13,5 @@
   },
   "include": ["main/**/*", "manifest.ts"],
   "exclude": ["dist", "node_modules"],
-  "references": [{ "path": "../../shared" }, { "path": "../../runtime" }]
+  "references": [{ "path": "../../shared" }, { "path": "../../runtime" }, { "path": "../../git-engine" }]
 }

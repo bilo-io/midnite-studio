@@ -11,6 +11,7 @@ export default defineConfig({
       // suite needs no build ahead of it (the runtime alias mirrors shared's).
       '@midnite/studio-shared': fileURLToPath(new URL('../../shared/src/index.ts', import.meta.url)),
       '@midnite/studio-runtime': fileURLToPath(new URL('../../runtime/src/index.ts', import.meta.url)),
+      '@midnite/studio-git-engine': fileURLToPath(new URL('../../git-engine/src/index.ts', import.meta.url)),
     },
   },
   test: {

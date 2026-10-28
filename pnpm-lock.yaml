@@ -3366,6 +3366,9 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../frame
+      '@midnite/studio-git-engine':
+        specifier: workspace:*
+        version: link:../../git-engine
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../../runtime

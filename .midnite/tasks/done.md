@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 113 Theme H (slice) — Cleaner's scanners live in the feature package
+
+The optimizer's detectors, workspace scan, system-cache registry/scan/clean and reclaim commands (and their tests) moved from `packages/desktop/src/main/optimizer/` into `packages/features/optimizer/main/scanners/`, behind a `RepoSource` port and a log seam; `createScannerServices({repos?, log?})` assembles them. Installed Cleaner now really lists, scans and cleans system caches and runs reclaim commands; Studio binds the same code to its repo registry and log. GPU probe, process table and kill stay in desktop.
+
 ## 2026-10-28 — Phase 122 Theme B (partial) — Installed software check
 
 `installed-software` Guard check plus `guard/software.ts` inventory (brew outdated, `/Applications` bundle versions, `sw_vers`) through an injected `exec`; outdated is `low`, KEV-named `high`, overdue or ransomware-linked `critical`. Desktop wires `execFile`. GHSA/NVD, OSV ranges for installed software and Electron freshness remain open.

@@ -13,8 +13,42 @@ import {
 } from '@midnite/studio-shared';
 
 import { optimizerManifest } from '../manifest';
+import type { OptimizerLog } from './scanners/log';
+import { noopLog } from './scanners/log';
+import {
+  cleanItems,
+  knownRoots,
+  NO_REPOS,
+  scanWorkspace,
+  type RepoSource,
+} from './scanners/scan-service';
+import { DEFAULT_SYSTEM_CACHE_ENTRIES } from './scanners/system-cache-registry';
+import {
+  cleanSystemCaches,
+  runReclaimCommand,
+  scanSystemCaches,
+} from './scanners/system-cache-service';
 
 export { optimizerManifest, type OptimizerManifest } from '../manifest';
+export {
+  dirBytes,
+  knownRoots,
+  MAX_WALK_ENTRIES,
+  newWalkState,
+  NO_REPOS,
+  readDirSafe,
+  scanWorkspace,
+  cleanItems,
+  type RepoSource,
+  type WalkState,
+} from './scanners/scan-service';
+export {
+  cleanSystemCaches,
+  runReclaimCommand,
+  scanSystemCaches,
+} from './scanners/system-cache-service';
+export { DEFAULT_SYSTEM_CACHE_ENTRIES } from './scanners/system-cache-registry';
+export { noopLog, type OptimizerLog } from './scanners/log';
 
 /**
  * The optimizer feature's main half (Phase 59 Themes C–E; a feature package
@@ -212,3 +246,46 @@ export const optimizerMain = defineFeatureMain<OptimizerMainServices>({
     );
   },
 });
+
+/** The services the feature can provide on its own — everything that needs only the filesystem. */
+export type ScannerServices = Pick<
+  OptimizerMainServices,
+  | 'scanWorkspace'
+  | 'knownRoots'
+  | 'cleanItems'
+  | 'systemCatalogue'
+  | 'scanSystemCaches'
+  | 'cleanSystemCaches'
+  | 'runReclaimCommand'
+>;
+
+/**
+ * The scanner-backed half of {@link OptimizerMainServices} (Phase 113 Theme H): the workspace
+ * scan, the system-cache scan, the clean paths and the reclaim commands. What stays host-owned is
+ * what reaches into Electron, the pty broker or the browser — the GPU probe and the process table.
+ * `repos` is the host's repo registry (Studio); a host with none (Cleaner) omits it and a workspace
+ * scan covers only the extra root the user picks, with no root a clean may confine to.
+ */
+export function createScannerServices(
+  opts: { repos?: RepoSource; log?: OptimizerLog } = {},
+): ScannerServices {
+  const repos = opts.repos ?? NO_REPOS;
+  const log = opts.log ?? noopLog;
+  return {
+    scanWorkspace: (scan) => scanWorkspace({ repos, log, ...scan }),
+    knownRoots: () => knownRoots(repos),
+    cleanItems: (paths, roots, trash) => cleanItems(paths, roots, trash, log),
+    // Static — labels/producers/ecosystem only, no paths (see the channel's docblock).
+    systemCatalogue: () =>
+      DEFAULT_SYSTEM_CACHE_ENTRIES.map((entry) => ({
+        entryId: entry.id,
+        label: entry.label,
+        producer: entry.producer,
+        ecosystem: entry.ecosystem,
+        reclaim: entry.reclaim,
+      })),
+    scanSystemCaches: (scan) => scanSystemCaches({ log, ...scan }),
+    cleanSystemCaches: (entryIds, trash) => cleanSystemCaches(entryIds, trash, log),
+    runReclaimCommand: (entryId) => runReclaimCommand(entryId),
+  };
+}
