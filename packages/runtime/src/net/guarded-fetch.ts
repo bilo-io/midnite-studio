@@ -111,7 +111,7 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFe
     // Pull a Request apart once: later hops need its method, headers and body as plain values.
     let method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
     let headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
-    let body: BodyInit | null | undefined = init?.body ?? undefined;
+    let body: NonNullable<RequestInit['body']> | ArrayBuffer | null | undefined = init?.body ?? undefined;
     if (body === undefined && input instanceof Request && input.body !== null) {
       body = await input.clone().arrayBuffer();
     }
@@ -157,7 +157,7 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): GuardedFe
   };
 }
 
-const isOneShot = (body: BodyInit): boolean => typeof ReadableStream !== 'undefined' && body instanceof ReadableStream;
+const isOneShot = (body: object | string): boolean => typeof ReadableStream !== 'undefined' && body instanceof ReadableStream;
 
 let configured: GuardedFetch = createGuardedFetch();
 

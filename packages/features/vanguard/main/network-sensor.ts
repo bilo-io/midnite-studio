@@ -2,7 +2,9 @@ import {
   EGRESS_HOSTS,
   NETWORK_THREAT_HOSTS,
   NETWORK_UNREGISTERED_SUITE_SEVERITY,
+  privacySwitchOn,
   type EgressHost,
+  type EgressSettings,
   type EvidenceItem,
   type NetworkConnection,
   type NetworkThreatHost,
@@ -51,6 +53,8 @@ import type { SensorContext, SensorDefinition, SensorRunResult } from './sensor-
 export const NETWORK_SENSOR_ID = 'network';
 export const NETWORK_LIVE_MS = 10_000;
 export const NETWORK_IDLE_MS = 60_000;
+/** Egress to a host the user switched off in Settings ▸ Privacy: above the unregistered `info`, below a threat hit. */
+export const NETWORK_SWITCHED_OFF_SEVERITY = 'medium' as const;
 /** The timer fires every 10 s, so an idle pass is due a little before 60 s has strictly passed. */
 const IDLE_SLACK_MS = 500;
 const LSOF = '/usr/sbin/lsof';
@@ -101,7 +105,16 @@ export interface NetworkSensorDeps {
   resolver?: NetworkResolver;
   /** Phase 115 A's registry; defaults to `EGRESS_HOSTS`. */
   registry?: Record<string, EgressHost>;
+  /**
+   * The privacy switches as the host mirrors them (the same read it hands `configureGuardedFetch`). Present: an
+   * address that only switched-off registry hosts resolve to is not "expected", and the suite reaching it is its own
+   * finding. Absent: every registry host counts as allowed.
+   */
+  egressSettings?: () => EgressSettings | undefined;
 }
+
+/** What the registry says about a destination address. */
+type RegistryVerdict = { kind: 'allowed'; host: string } | { kind: 'switched-off'; host: string } | { kind: 'unlisted' };
 
 const clip = (text: string, max = 200): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
@@ -165,9 +178,17 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
     }
   }
 
-  function allowedBy(address: string): string | undefined {
-    for (const [host, addresses] of registryAddresses) if (addresses.has(address)) return host;
-    return undefined;
+  /** Any host whose switch is on (or that has none) claims the address; only off hosts matching means switched-off. */
+  function registryVerdict(address: string): RegistryVerdict {
+    const settings = deps.egressSettings?.();
+    let off: string | undefined;
+    for (const [host, addresses] of registryAddresses) {
+      if (!addresses.has(address)) continue;
+      const sw = deps.egressSettings ? registry[host]?.switch : undefined;
+      if (sw === undefined || privacySwitchOn(settings, sw)) return { kind: 'allowed', host };
+      off ??= host;
+    }
+    return off !== undefined ? { kind: 'switched-off', host: off } : { kind: 'unlisted' };
   }
 
   function threatFor(address: string): NetworkThreatHost | undefined {
@@ -269,9 +290,19 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
       };
 
       if (item.role === 'suite') {
-        const allowed = allowedBy(remote.host);
-        if (allowed !== undefined) {
-          view.allowedBy = allowed;
+        const verdict = registryVerdict(remote.host);
+        if (verdict.kind === 'allowed') {
+          view.allowedBy = verdict.host;
+        } else if (verdict.kind === 'switched-off') {
+          const label = item.label ?? 'app';
+          const reason = `The ${label} connected to ${verdict.host} while its privacy switch is off.`;
+          view.flagged = { severity: NETWORK_SWITCHED_OFF_SEVERITY, reason };
+          const socket = `${conn.pid}|${label}|off|${destinationKey(remote.host, remote.port)}`;
+          suiteNow.add(socket);
+          if (!suiteSeen.has(socket)) {
+            findings += 1;
+            await ctx.record(switchedOffFinding(item, label, verdict.host, evidenceFor(item, item.row)));
+          }
         } else {
           const label = item.label ?? 'app';
           const reason = `The ${label} connected to a host the egress registry does not list.`;
@@ -392,6 +423,30 @@ function suiteFinding(
     evidence,
     remediation: [
       { id: 'report-issue', title: `Unregistered egress to ${target}`, description: 'Open an issue naming the host and the process.' },
+      { id: 'mute', description: 'Mute this destination.' },
+    ],
+  };
+}
+
+function switchedOffFinding(
+  item: Classified,
+  label: string,
+  host: string,
+  evidence: EvidenceItem[],
+): Omit<NewSecurityFinding, 'source'> {
+  const target = `${item.remote.host}:${item.remote.port}`;
+  return {
+    fingerprint: `network:suite:off:${label}:${destinationKey(item.remote.host, item.remote.port)}`,
+    severity: NETWORK_SWITCHED_OFF_SEVERITY,
+    category: 'network',
+    title: `${label === 'broker' ? 'The terminal broker' : 'Midnite'} sent egress to ${host} while its privacy switch is off`,
+    detail:
+      `${item.conn.command} (pid ${item.conn.pid}) holds an open ${item.conn.protocol} connection to ${target}, an address ${host} resolves to. ` +
+      'That host is in the egress registry, but its switch in Settings ▸ Privacy is off (or "turn off all automatic network" is on), ' +
+      'so nothing in the app is meant to be calling it. No other enabled registry host resolves to this address.',
+    evidence,
+    remediation: [
+      { id: 'report-issue', title: `Egress to ${host} while switched off`, description: 'Open an issue naming the host and the process.' },
       { id: 'mute', description: 'Mute this destination.' },
     ],
   };

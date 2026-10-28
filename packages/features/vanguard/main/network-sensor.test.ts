@@ -179,6 +179,63 @@ describe('the suite against the egress registry', () => {
   });
 });
 
+describe('registry hosts whose privacy switch is off', () => {
+  const registry = {
+    'on.example': { host: 'on.example', owner: 'test', sends: 'x', trigger: 'automatic', switch: 'weather' },
+    'off.example': { host: 'off.example', owner: 'test', sends: 'x', trigger: 'automatic', switch: 'markets' },
+    'free.example': { host: 'free.example', owner: 'test', sends: 'x', trigger: 'user' },
+  } as const;
+  const forward = { 'on.example': ['198.51.100.1', '198.51.100.9'], 'off.example': ['198.51.100.2', '198.51.100.9'], 'free.example': ['198.51.100.3'] };
+  const offMarkets = () => ({ switches: { markets: false } });
+  const go = (overrides: Partial<NetworkSensorDeps> = {}) =>
+    make({ registry: { ...registry }, resolver: resolver(forward), egressSettings: offMarkets, ...overrides });
+  const appTo = (...addresses: string[]) => {
+    lsof = lsofOutput([{ pid: APP_PID, command: 'Midnite', socks: addresses.map((a) => sock(`${a}:443`)) }]);
+  };
+
+  it('allows an address an on host resolves to, and one on a host with no switch', async () => {
+    appTo('198.51.100.1', '198.51.100.3');
+    const { run, connections } = go();
+    expect(await run()).toEqual({ findings: 0 });
+    expect(connections.get().connections.map((r) => r.allowedBy).sort()).toEqual(['free.example', 'on.example']);
+  });
+
+  it('raises a medium finding for an address only a switched-off host resolves to, and flags the row', async () => {
+    appTo('198.51.100.2');
+    const { run, connections } = go();
+    expect(await run()).toEqual({ findings: 1 });
+    expect(recorded[0]).toMatchObject({ severity: 'medium', category: 'network', fingerprint: 'network:suite:off:app:198.51.100.2:443' });
+    expect(recorded[0]!.severity).not.toBe(NETWORK_UNREGISTERED_SUITE_SEVERITY);
+    expect(recorded[0]!.title).toMatch(/off\.example.*privacy switch is off/);
+    const row = connections.get().connections[0]!;
+    expect(row.allowedBy).toBeUndefined();
+    expect(row.flagged).toMatchObject({ severity: 'medium', reason: expect.stringMatching(/privacy switch is off/) });
+    await run();
+    expect(recorded).toHaveLength(1);
+  });
+
+  it('does not flag a shared CDN address an on host also resolves to', async () => {
+    appTo('198.51.100.9');
+    const { run, connections } = go();
+    expect(await run()).toEqual({ findings: 0 });
+    expect(connections.get().connections[0]!.allowedBy).toBe('on.example');
+  });
+
+  it('treats every automatic host as off under the master switch, but not a host with no switch', async () => {
+    appTo('198.51.100.1', '198.51.100.3');
+    const { run } = go({ egressSettings: () => ({ allAutomaticOff: true }) });
+    expect(await run()).toEqual({ findings: 1 });
+    expect(recorded[0]!.fingerprint).toBe('network:suite:off:app:198.51.100.1:443');
+  });
+
+  it('keeps today\'s behaviour with no egressSettings dep', async () => {
+    appTo('198.51.100.2');
+    const { run, connections } = go({ egressSettings: undefined });
+    expect(await run()).toEqual({ findings: 0 });
+    expect(connections.get().connections[0]!.allowedBy).toBe('off.example');
+  });
+});
+
 describe('the registry lookup', () => {
   it('asks again soon when a registry host did not resolve, instead of trusting the gap', async () => {
     lsof = lsofOutput([{ pid: APP_PID, command: 'Midnite', socks: [sock('104.16.0.1:443')] }]);
