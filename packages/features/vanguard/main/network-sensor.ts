@@ -136,7 +136,7 @@ export function createNetworkSensor(deps: NetworkSensorDeps): SensorDefinition {
     if (registryAt !== 0 && now - registryAt < REGISTRY_REFRESH_MS) return;
     registryAt = now;
     await Promise.all(
-      Object.keys(registry).map(async (host) => {
+      Object.keys(registry).filter((host) => !host.includes('*')).map(async (host) => {
         const found = registryAddresses.get(host) ?? new Set<string>();
         for (const address of await resolver.lookup(host)) found.add(address);
         registryAddresses.set(host, found);

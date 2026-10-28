@@ -1,3 +1,5 @@
+import { guardedFetch } from '@midnite/studio-runtime';
+
 /**
  * The one HTTP seam for the Finance dashboard. Every provider call goes
  * through a `Fetcher`, so tests inject a fixture and nothing in the suite can
@@ -12,7 +14,7 @@ export type Fetcher = (
   text: () => Promise<string>;
 }>;
 
-export const defaultFetcher: Fetcher = (url, init) => fetch(url, init);
+export const defaultFetcher: Fetcher = (url, init) => guardedFetch('finance', url, init);
 
 /** A response that says "slow down" — the service backs the provider off rather than retrying. */
 export class RateLimitedError extends Error {

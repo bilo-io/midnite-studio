@@ -1,4 +1,4 @@
-import { HTTP_RESPONSE_CAP_BYTES, readCapped } from '@midnite/studio-runtime';
+import { HTTP_RESPONSE_CAP_BYTES, guardedFetch, readCapped } from '@midnite/studio-runtime';
 
 import type { NodeExecutor, NodeOutcome } from '../executor-registry';
 import { interpolate, interpolateRecord } from '../interpolate';
@@ -106,7 +106,7 @@ export const httpExecutor: NodeExecutor = async (node, context): Promise<NodeOut
 
   const startedAt = Date.now();
   try {
-    const response = await fetch(target, {
+    const response = await guardedFetch('workflows', target, {
       method: config.method,
       headers: headers.value,
       ...(body === undefined ? {} : { body }),

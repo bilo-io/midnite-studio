@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { EgressSettingsSchema } from '../egress';
 import { LoopScheduleSchema } from '../loops';
 import { AgentOllamaBindingSchema } from '../ollama-launch';
 import { WebAppIdSchema } from './web-apps';
@@ -94,6 +95,12 @@ export const SettingsSyncPayloadSchema = z.object({
    * Optional like every field here; main defaults to `true`.
    */
   readAgentHistory: z.boolean().optional(),
+  /**
+   * Phase 115 Theme A: the position of every egress switch plus the master, composed in the renderer from the
+   * generated switches and the two bespoke ones (`locateByIpEnabled`, the reputation feeds). `guardedFetch`
+   * reads it. Optional; main treats absence as every switch at its default.
+   */
+  egress: EgressSettingsSchema.optional(),
   /**
    * Phase 115 Theme B: Settings ▸ Privacy ▸ "Keep local history", in days; `null` keeps forever. Main
    * prunes scrollback and archived transcripts on start and daily. Main defaults to `null`.

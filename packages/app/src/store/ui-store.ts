@@ -1815,6 +1815,15 @@ export type UiState = {
   readAgentHistory: boolean;
   setReadAgentHistory: (value: boolean) => void;
   /**
+   * Settings ▸ Privacy ▸ "Turn off all automatic network" (Phase 115 Theme A). Overrides every per-host switch
+   * without changing its stored value. Mirrored into main for `guardedFetch` (`use-settings-sync.ts`).
+   */
+  egressAllAutomaticOff: boolean;
+  setEgressAllAutomaticOff: (value: boolean) => void;
+  /** Stored position of each generated Privacy switch (`PrivacySwitchId`); absent ids use the registry default (on). */
+  egressSwitches: Record<string, boolean>;
+  setEgressSwitch: (id: string, on: boolean) => void;
+  /**
    * Settings ▸ Privacy ▸ "Keep local history" (Phase 115 Theme B), in days; `null` keeps forever (default).
    * Applies to scrollback and archived transcripts; mirrored into main, which prunes on start and daily.
    */
@@ -2357,6 +2366,8 @@ export type PersistedUi = Pick<
   | 'forgeSyncGhAuthSwitch'
   | 'confineNewSessions'
   | 'readAgentHistory'
+  | 'egressAllAutomaticOff'
+  | 'egressSwitches'
   | 'historyRetentionDays'
   | 'activeEnvironmentByRepo'
   | 'projectBoardByRepo'
@@ -2603,6 +2614,10 @@ export const useUiStore = create<UiState>()(
       setConfineNewSessions: (confineNewSessions) => set({ confineNewSessions }),
       readAgentHistory: true,
       setReadAgentHistory: (readAgentHistory) => set({ readAgentHistory }),
+      egressAllAutomaticOff: false,
+      setEgressAllAutomaticOff: (egressAllAutomaticOff) => set({ egressAllAutomaticOff }),
+      egressSwitches: {},
+      setEgressSwitch: (id, on) => set((state) => ({ egressSwitches: { ...state.egressSwitches, [id]: on } })),
       historyRetentionDays: null,
       setHistoryRetentionDays: (historyRetentionDays) => set({ historyRetentionDays }),
       skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
@@ -3622,6 +3637,8 @@ export const useUiStore = create<UiState>()(
         forgeSyncGhAuthSwitch: state.forgeSyncGhAuthSwitch,
         confineNewSessions: state.confineNewSessions,
         readAgentHistory: state.readAgentHistory,
+        egressAllAutomaticOff: state.egressAllAutomaticOff,
+        egressSwitches: state.egressSwitches,
         historyRetentionDays: state.historyRetentionDays,
         skillExecutionMode: state.skillExecutionMode,
         repoGroups: state.repoGroups,

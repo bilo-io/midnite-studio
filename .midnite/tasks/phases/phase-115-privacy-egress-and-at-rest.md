@@ -94,7 +94,7 @@ Scope guardrails:
 and a test says so.* Born from a security reviewer's three questions, and from the answers being
 true without anything to prove them. (0% · 0/46) — **Planned 2026-10-19.**
 
-**Theme A — One list of every outbound host.** ◻ An `EGRESS_HOSTS` registry in `shared` (host,
+**Theme A — One list of every outbound host.** ◐ PARTIAL ([PR #1045](https://github.com/bilo-io/midnite-studio/pull/1045)). First slice landed: `EGRESS_ENTRIES` (and the host-keyed `EGRESS_HOSTS` the Vanguard sensor reads) in `shared/src/egress.ts` now carries `owner`, `switch`, `renderer` and a `PRIVACY_SWITCHES` id list; `guardedFetch`/`guardedFetchFor` in `runtime/src/net/guarded-fetch.ts` refuse an unregistered host (`EgressUnregisteredError`) or one whose switch is off (`EgressBlockedError`), reading the switches from a new `egress` field on the settings mirror. Moved onto it: Guard's OSV/KEV fetch, Finance markets, TMDB, Ollama library search, sherpa model download, the API client and the workflow HTTP node (the last two register once as `host: '*'`). `buildCsp`'s renderer hosts come from the registry. Settings ▸ Privacy gains "Automatic network calls": a master "Turn off all automatic network" plus one generated switch per automatic entry (weather now has its own, gating the forecast as well as the IP lookup). `egress-registry.test.ts` scans main-side code for raw `fetch`/`net.fetch`/`https.get`, with a commented `UNMIGRATED` ratchet. Still open: the launcher's update/catalog switches (off the graph, own settings), map tiles/Overpass, forges, image providers, Whisper and the two model downloads still hold raw clients (listed in the test's ratchet), user-supplied-host registration for forges, Alpaca and Kraken, and the idle e2e with everything off. Original text: An `EGRESS_HOSTS` registry in `shared` (host,
 owner, what is sent, automatic or user-initiated, the switch that gates it). A test fails on a
 fetch to an unregistered host. Settings ▸ Privacy is generated from the registry, with a switch per
 automatic call and one master switch. The launcher gets the same switches for its update and
@@ -127,32 +127,32 @@ generated from Theme A's registry, answering the three questions in plain langua
 
 ### A — One list of every outbound host [L · 1–2d]
 
-- [ ] **`EGRESS_HOSTS` in `shared`.** A new `packages/shared/src/egress.ts`: one entry per host
+- [x] **`EGRESS_HOSTS` in `shared`.** A new `packages/shared/src/egress.ts`: one entry per host
       with `host` (exact or a `*.` suffix), `owner` (feature id or `launcher`), `sends` (one plain
       sentence: "GET only, no identifiers", "coordinates", "the user's prompt"), `trigger`
       (`automatic` | `user`) and `switch` (a `PrivacySwitchId`, required when `trigger` is
       `automatic`). zod schema, no other imports, per `shared`'s boundary.
-- [ ] **Populate it from Finding 1.** Every host in Finding 1, plus every user-triggered provider
+- [~] **Populate it from Finding 1.** Every host in Finding 1, plus every user-triggered provider
       (OpenAI, Gemini, Ollama cloud, the forges, Alpaca, Kraken). The API client and workflow HTTP
       executor go to user-supplied URLs, so they register once as `owner: 'api-client'`/`'workflows'`
       with `host: '*'` and `trigger: 'user'`.
-- [ ] **One egress seam in main.** A `guardedFetch(owner, url, init)` in `runtime` that looks the
+- [~] **One egress seam in main.** A `guardedFetch(owner, url, init)` in `runtime` that looks the
       host up in `EGRESS_HOSTS`, refuses (with a typed error) when the entry's switch is off, and
       otherwise calls `fetch`. Move every main-side `fetch` in Finding 1 onto it. The renderer's
       direct calls (weather) move behind main or check the same switch.
-- [ ] **A test that fails on an unregistered host.** A vitest that scans `packages/**/main/**`,
+- [x] **A test that fails on an unregistered host.** A vitest that scans `packages/**/main/**`,
       `packages/runtime/**` and `apps/launcher/src/main/**` for `fetch(`, `net.request(`,
       `https.get(` and `http.request(` outside `guardedFetch`, and fails on any match not on a short,
       commented allowlist (electron-updater, which brings its own client). Same shape as
       `persisted-secrets.test.ts`.
-- [ ] **`connect-src` derived from the registry.** `buildCsp` takes its renderer hosts from
+- [x] **`connect-src` derived from the registry.** `buildCsp` takes its renderer hosts from
       `EGRESS_HOSTS` entries marked `renderer: true`, so the two lists cannot drift.
-- [ ] **Settings ▸ Privacy generated from the registry.** One switch per `automatic` entry,
+- [x] **Settings ▸ Privacy generated from the registry.** One switch per `automatic` entry,
       grouped by owner, each showing its `sends` sentence. Plus one master switch, "Turn off all
       automatic network", which overrides the rest without changing their stored values. Extends
       [`privacy-page.tsx`](../../../packages/app/src/features/settings/settings-pages/privacy-page.tsx)
       and keeps Phase 76 D's `ipwho.is` switch.
-- [ ] **Open-Meteo gets its own switch.** Today only the IP-location fallback is gated.
+- [x] **Open-Meteo gets its own switch.** Today only the IP-location fallback is gated.
 - [ ] **The launcher's update and catalog checks get switches.** Stored in the launcher's own
       settings (off the graph — it takes the switch ids from `shared` by source path, as it does
       `studio-link`). Off means no request at start. A manual "Check now" stays.

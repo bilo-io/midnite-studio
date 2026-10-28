@@ -51,6 +51,11 @@ export function agentHistoryReadsEnabled(): boolean {
   return synced && current.readAgentHistory !== false;
 }
 
+/** Whether the renderer has pushed its settings yet (`guardedFetch` fails closed until it has). */
+export function settingsSynced(): boolean {
+  return synced;
+}
+
 export type SettingsChangeListener = (settings: SettingsSyncPayload) => void;
 const listeners = new Set<SettingsChangeListener>();
 

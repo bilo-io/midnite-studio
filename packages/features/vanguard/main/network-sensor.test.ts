@@ -91,7 +91,7 @@ function make(overrides: Partial<NetworkSensorDeps> = {}) {
     agentSessions: () => [],
     windowFocused: () => true,
     resolver: resolver(),
-    registry: { 'api.registry.example': { host: 'api.registry.example', sends: 'x', trigger: 'user' } },
+    registry: { 'api.registry.example': { host: 'api.registry.example', owner: 'test', sends: 'x', trigger: 'user' } },
     ...overrides,
   });
   const run = async (trigger: SensorTrigger = 'manual') => {

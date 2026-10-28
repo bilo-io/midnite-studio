@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LuDatabase, LuEye, LuMapPin, LuShieldCheck } from 'react-icons/lu';
+import { LuDatabase, LuEye, LuGlobe, LuMapPin, LuShieldCheck } from 'react-icons/lu';
 
 import { useFrameChrome } from '@midnite/studio-frame';
+import { BESPOKE_PRIVACY_SWITCHES, PRIVACY_SWITCH_DEFAULTS, egressSwitchGroups, type PrivacySwitchId } from '@midnite/studio-shared';
 
 import { SelectField } from '../../../components/form/select-field';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
@@ -137,6 +138,49 @@ function AgentHistorySection() {
 }
 
 /**
+ * Phase 115 Theme A — one switch per automatic network call, generated from `EGRESS_HOSTS` (shared), plus a
+ * master switch that overrides them without touching their stored values. The two switches with their own
+ * rows below (IP location, reputation feeds) are skipped here; `use-settings-sync.ts` mirrors all of them
+ * into main for `guardedFetch`.
+ */
+function AutomaticNetworkSection() {
+  const allOff = useUiStore((s) => s.egressAllAutomaticOff);
+  const setAllOff = useUiStore((s) => s.setEgressAllAutomaticOff);
+  const switches = useUiStore((s) => s.egressSwitches);
+  const setSwitch = useUiStore((s) => s.setEgressSwitch);
+  const groups = egressSwitchGroups().filter((g) => !BESPOKE_PRIVACY_SWITCHES.includes(g.id) && g.owner !== 'launcher');
+  return (
+    <SettingsAccordion title="Automatic network calls" icon={<LuGlobe className="h-4 w-4" />} defaultOpen>
+      <div className="flex flex-col gap-4 p-3">
+        <p className="text-[11px] text-muted-foreground">
+          Everything the app fetches on its own, without you asking. There is no telemetry, analytics or crash upload.
+          Calls you start yourself (an API request, a model search) are not listed here.
+        </p>
+        <SettingsSwitchRow
+          id="egress-all-automatic-off"
+          label="Turn off all automatic network"
+          description="Stops every call below, plus IP location and the reputation feeds, without changing their own settings."
+          on={allOff}
+          onToggle={(_id, next) => setAllOff(next)}
+        />
+        {groups.map((group) => (
+          <SettingsSwitchRow
+            key={group.id}
+            id={`egress-${group.id}`}
+            label={group.label}
+            description={`${group.entries.map((e) => e.host).join(', ')} — ${[...new Set(group.entries.map((e) => e.sends))].join('; ')}.`}
+            on={switches[group.id] ?? PRIVACY_SWITCH_DEFAULTS[group.id as PrivacySwitchId]}
+            onToggle={(_id, next) => setSwitch(group.id, next)}
+            disabled={allOff}
+            {...(allOff ? { title: 'Turned off by “Turn off all automatic network”' } : {})}
+          />
+        ))}
+      </div>
+    </SettingsAccordion>
+  );
+}
+
+/**
  * Phase 76 Theme D — privacy controls for network lookups the renderer would
  * otherwise make silently on first load. Phase 117 Theme C adds the browser's
  * reputation feeds: each one a Phase 115 `EGRESS_HOSTS` entry, off by default.
@@ -151,6 +195,7 @@ export function PrivacyPage() {
     <div className="flex flex-col gap-3">
       <LocalHistorySection />
       <AgentHistorySection />
+      <AutomaticNetworkSection />
       <SettingsAccordion title="Location" icon={<LuMapPin className="h-4 w-4" />} defaultOpen>
         <div className="flex flex-col gap-4 p-3">
           <SettingsSwitchRow

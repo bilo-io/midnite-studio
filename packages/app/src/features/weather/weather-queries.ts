@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { privacySwitchOn } from '@midnite/studio-shared';
+
+import { useUiStore } from '../../store/ui-store';
+
 import { getCurrentWeather, searchLocations } from './weather-api';
 import { locationKey, type WeatherLocation, type WeatherUnit } from './weather-types';
 
@@ -36,10 +40,14 @@ export function useCurrentWeather(
 /** Debounced by the caller, matching `useFinanceSearch`'s own contract. */
 export function useLocationSearch(query: string) {
   const trimmed = query.trim();
+  // Phase 115 Theme A: the geocoder is registered under the `weather` switch, so it stops with it.
+  const allAutomaticOff = useUiStore((s) => s.egressAllAutomaticOff);
+  const egressSwitches = useUiStore((s) => s.egressSwitches);
+  const weatherOn = privacySwitchOn({ allAutomaticOff, switches: egressSwitches }, 'weather');
   return useQuery({
     queryKey: ['weather', 'search', trimmed],
     queryFn: () => searchLocations(trimmed),
-    enabled: trimmed.length >= 2,
+    enabled: trimmed.length >= 2 && weatherOn,
     staleTime: SEARCH_STALE_MS,
   });
 }

@@ -1,3 +1,4 @@
+import { guardedFetch } from '@midnite/studio-runtime';
 import type { ScriptContext, ScriptRun } from '@midnite/studio-shared';
 
 /**
@@ -45,7 +46,7 @@ export const unavailableScriptRunner: ScriptRunner = {
 
 const defaults: ApiClientServices = {
   workdir: async () => null,
-  fetch: (input, init) => globalThis.fetch(input, init),
+  fetch: (input, init) => guardedFetch('api-client', input, init),
   scriptRunner: unavailableScriptRunner,
 };
 
