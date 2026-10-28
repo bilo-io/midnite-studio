@@ -196,9 +196,15 @@ jobs:
           # moon compares against the merge base to decide what is affected.
           fetch-depth: 0
 
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9.15.9
+          version: 10.34.5
 
       - uses: actions/setup-node@v7
         with:
@@ -316,9 +322,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9.15.9
+          version: 10.34.5
 
       - uses: actions/setup-node@v7
         with:
@@ -352,9 +364,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9.15.9
+          version: 10.34.5
 
       - uses: actions/setup-node@v7
         with:
@@ -384,9 +402,15 @@ jobs:
           # moon compares against the merge base to decide what is affected.
           fetch-depth: 0
 
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9.15.9
+          version: 10.34.5
 
       - uses: actions/setup-node@v7
         with:
@@ -534,9 +558,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9.15.9
+          version: 10.34.5
 
       - uses: actions/setup-node@v7
         with:
@@ -677,9 +707,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9.15.9
+          version: 10.34.5
 
       - uses: actions/setup-node@v7
         with:
@@ -825,7 +861,13 @@ jobs:
       - name: Enable corepack, activate the pinned pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@9.15.0 --activate
+          corepack prepare pnpm@10.34.5 --activate
+
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install (--ignore-scripts — see the job comment above)
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -875,9 +917,15 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@v7
+      - name: GitHub Packages auth (user-level npmrc)
+        # pnpm 10 ignores env-expanded auth in the project .npmrc; user-level is honoured.
+        run: echo "//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}" >> ~/.npmrc
+        env:
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
-          version: 9.15.9
+          version: 10.34.5
       - uses: actions/setup-node@v7
         with:
           node-version: 24.22.1

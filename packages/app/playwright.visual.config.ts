@@ -41,8 +41,9 @@ import { defineConfig, devices } from '@playwright/test';
  * these Linux baselines (and the `visual` CI lane behind them) are deferred scope. What
  * that task runs, unchanged:
  *
- *   docker run --rm -v "$PWD:/w" -w /w mcr.microsoft.com/playwright:v1.64.0-noble bash -c "
- *     corepack enable && corepack prepare pnpm@9.15.0 --activate &&
+ *   docker run --rm -e GITHUB_PACKAGES_TOKEN -v "$PWD:/w" -w /w mcr.microsoft.com/playwright:v1.64.0-noble bash -c "
+ *     corepack enable && corepack prepare pnpm@10.34.5 --activate &&
+ *     echo '//npm.pkg.github.com/:_authToken='\$GITHUB_PACKAGES_TOKEN >> ~/.npmrc &&
  *     pnpm install --frozen-lockfile --ignore-scripts &&
  *     cd packages/app && pnpm exec playwright test --config playwright.visual.config.ts -u"
  *

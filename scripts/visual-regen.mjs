@@ -32,11 +32,13 @@ import { dirname, resolve } from 'node:path';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const IMAGE = 'mcr.microsoft.com/playwright:v1.64.0-noble';
-const PNPM = 'pnpm@9.15.0';
+const PNPM = 'pnpm@10.34.5';
 
 const INNER = [
   'corepack enable',
   `corepack prepare ${PNPM} --activate`,
+  // pnpm 10 drops env-expanded auth from the project .npmrc; the user-level one is honoured.
+  'echo "//npm.pkg.github.com/:_authToken=$GITHUB_PACKAGES_TOKEN" >> ~/.npmrc',
   'pnpm install --frozen-lockfile --ignore-scripts',
   'cd packages/app && pnpm exec playwright test --config playwright.visual.config.ts -u',
 ].join(' && ');
@@ -83,7 +85,7 @@ process.stdout.write(`visual-regen: running the visual suite with -u inside ${IM
 
 const run = spawnSync(
   'docker',
-  ['run', '--rm', '-v', `${REPO_ROOT}:/w`, '-w', '/w', IMAGE, 'bash', '-c', INNER],
+  ['run', '--rm', '-e', 'GITHUB_PACKAGES_TOKEN', '-v', `${REPO_ROOT}:/w`, '-w', '/w', IMAGE, 'bash', '-c', INNER],
   { stdio: 'inherit' },
 );
 
