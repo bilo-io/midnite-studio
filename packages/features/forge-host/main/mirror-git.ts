@@ -1,4 +1,4 @@
-import { rename, rm } from 'node:fs/promises';
+import { rename, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { execGit, writeQueue } from '@midnite/studio-git-engine';
@@ -39,6 +39,7 @@ const killOnAbort = (signal?: AbortSignal) => {
  */
 export async function mirrorClone(parent: string, url: string, name: string, signal?: AbortSignal): Promise<GitStep> {
   const partial = `${name}.partial`;
+  if (await stat(join(parent, name)).then(() => true, () => false)) return { ok: false, message: `${name} exists but is not a git mirror; move it away` };
   await rm(join(parent, partial), { recursive: true, force: true });
   const result = await execGit(parent, ['clone', '--mirror', '--', url, partial], { write: true, ...killOnAbort(signal) });
   if (result.exitCode !== 0 || signal?.aborted) {
@@ -56,12 +57,12 @@ export async function mirrorUpdate(bare: string, signal?: AbortSignal): Promise<
 }
 
 /**
- * The remote's default branch and its tip (`git ls-remote --symref <url> HEAD`), for the head-vs-forge
- * divergence check. `null` when it cannot be read: the check is then skipped, never failed.
+ * The remote's default branch and its tip (`git ls-remote --symref origin HEAD`, run inside the mirror so
+ * it uses the same remote and credentials as the fetch), for the head-vs-forge divergence check. `null`
+ * when it cannot be read: the check is then skipped, never failed.
  */
-export async function remoteDefaultBranch(url: string, signal?: AbortSignal): Promise<{ ref: string; sha: string } | null> {
-  if (!isSafeRemoteUrl(url)) return null;
-  const result = await execGit(process.cwd(), ['ls-remote', '--symref', '--', url, 'HEAD'], killOnAbort(signal));
+export async function remoteDefaultBranch(bare: string, signal?: AbortSignal): Promise<{ ref: string; sha: string } | null> {
+  const result = await execGit(bare, ['ls-remote', '--symref', 'origin', 'HEAD'], killOnAbort(signal));
   if (result.exitCode !== 0) return null;
   let ref: string | null = null;
   let sha: string | null = null;

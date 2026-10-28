@@ -24,6 +24,7 @@ const realPorts: MirrorForgePorts = { parse: parseRemoteUrl, activeAccountFor, a
  * account for its host has nothing to authenticate with: its adapter would answer every listing with an
  * error and the repo would read `degraded` on every run, so it is refs only instead.
  */
+/** `null` also covers a gh-delegated GitHub whose `gh` identity cannot be read. */
 export async function resolveMirrorForge(repo: MirrorConfigRepo, ports: MirrorForgePorts = realPorts): Promise<ResolvedMirrorForge | null> {
   const forge = ports.parse(repo.url);
   if (!forge) return null;
@@ -33,7 +34,8 @@ export async function resolveMirrorForge(repo: MirrorConfigRepo, ports: MirrorFo
   if (!adapter) return null;
   // Record who the adapter really acts as: the account's login, or for a `gh`-delegated GitHub the
   // identity `gh` is signed in as (the same lookup the workflow gate uses), never a placeholder.
-  const login = account ? account.login : ((await ports.githubWhoami(forge.host))?.login ?? 'unknown');
+  const login = account ? account.login : (await ports.githubWhoami(forge.host))?.login;
+  if (!login) return null; // `gh` is not signed in: the adapter could not read anything, so refs only
   return { forge, adapter, account: login };
 }
 

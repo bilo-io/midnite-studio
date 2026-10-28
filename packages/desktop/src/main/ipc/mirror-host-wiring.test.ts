@@ -43,6 +43,10 @@ describe('resolveMirrorForge', () => {
     expect(whoami).not.toHaveBeenCalled();
   });
 
+  it('is refs only for GitHub when gh has no identity', async () => {
+    expect(await resolveMirrorForge(repoOf('https://github.com/o/r.git'), ports({}))).toBeNull();
+  });
+
   it('is null for an unparseable url or a forge with no adapter', async () => {
     expect(await resolveMirrorForge(repoOf('https://x.com/o/r.git'), ports({ parse: () => null }))).toBeNull();
     expect(await resolveMirrorForge(repoOf('https://github.com/o/r.git'), ports({ adapterFor: (() => null) as never }))).toBeNull();

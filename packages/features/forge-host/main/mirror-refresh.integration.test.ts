@@ -138,7 +138,8 @@ describe('restoreMirror', () => {
   it('reads the remote default branch and tip with ls-remote', async () => {
     const sha = (await upstream.git(['rev-parse', 'HEAD'])).trim();
     const branch = (await upstream.git(['symbolic-ref', 'HEAD'])).trim();
-    expect(await remoteDefaultBranch(upstream.path)).toEqual({ ref: branch, sha });
+    await refreshMirror({ root, repo, url: upstream.path });
+    expect(await remoteDefaultBranch(mirrorPaths(root, repo).bare)).toEqual({ ref: branch, sha });
     expect(await remoteDefaultBranch(join(root, 'missing'))).toBeNull();
   });
 

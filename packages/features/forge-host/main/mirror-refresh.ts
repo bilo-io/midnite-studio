@@ -102,7 +102,7 @@ export async function refreshMirror(options: RefreshOptions): Promise<MirrorResu
   try {
     return await refreshMirrorUnguarded(options);
   } catch (error) {
-    if (options.signal?.aborted) {
+    if (options.signal?.aborted && error instanceof Error && error.name === 'AbortError') {
       return { key: mirrorKey(options.repo), status: 'failed', reason: 'aborted', at: (options.now ?? (() => new Date()))().toISOString(), incremental: false, refs: 0 };
     }
     return {

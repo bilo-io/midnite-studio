@@ -3,7 +3,7 @@ import type { Forge } from '@midnite/studio-shared';
 import { loadMirrorConfig, updateMirrorConfig, type MirrorConfig, type MirrorConfigRepo } from './mirror-config';
 import { createForgeMetadataSource, type ForgeReadAdapter } from './forge-metadata-source';
 import { remoteDefaultBranch } from './mirror-git';
-import { defaultMirrorRoot } from './mirror-layout';
+import { defaultMirrorRoot, mirrorPaths } from './mirror-layout';
 import type { MetadataSource } from './mirror-metadata';
 import { refreshMirror, type MirrorResult } from './mirror-refresh';
 import { createMirrorScheduler } from './mirror-scheduler';
@@ -40,14 +40,14 @@ export function createMirrorHost(deps: MirrorHostDeps) {
   const warn = deps.warn ?? (() => undefined);
   const defaultBranch = deps.defaultBranch ?? remoteDefaultBranch;
 
-  async function sourceFor(repo: MirrorConfigRepo, signal: AbortSignal): Promise<MetadataSource | undefined> {
+  async function sourceFor(repo: MirrorConfigRepo, root: string, signal: AbortSignal): Promise<MetadataSource | undefined> {
     let resolved: ResolvedMirrorForge | null = null;
     try {
       resolved = await deps.resolve(repo);
     } catch (error) {
       warn(`mirror ${repo.host}/${repo.owner}/${repo.repo}: no adapter (${error instanceof Error ? error.message : String(error)}); refs only`);
     }
-    return resolved ? createForgeMetadataSource({ ...resolved, defaultBranch: () => defaultBranch(repo.url, signal) }) : undefined;
+    return resolved ? createForgeMetadataSource({ ...resolved, defaultBranch: () => defaultBranch(mirrorPaths(root, repo).bare, signal) }) : undefined;
   }
 
   const scheduler = createMirrorScheduler({
@@ -65,8 +65,10 @@ export function createMirrorHost(deps: MirrorHostDeps) {
       });
     },
     warn,
-    refresh: async (repo: MirrorConfigRepo, config: MirrorConfig, signal: AbortSignal) =>
-      refresh({ root: config.root ?? defaultMirrorRoot(deps.home), repo, url: repo.url, source: await sourceFor(repo, signal), signal }),
+    refresh: async (repo: MirrorConfigRepo, config: MirrorConfig, signal: AbortSignal) => {
+      const root = config.root ?? defaultMirrorRoot(deps.home);
+      return refresh({ root, repo, url: repo.url, source: await sourceFor(repo, root, signal), signal });
+    },
     now: deps.now,
     setTimer: deps.setTimer,
     clearTimer: deps.clearTimer,

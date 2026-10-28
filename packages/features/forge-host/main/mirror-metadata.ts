@@ -95,8 +95,8 @@ export type ExportMetadataOptions = {
 
 /** Write every metadata file for one repo. Each file is atomic and 0600; the manifest is the caller's last step. */
 export async function exportMetadata({ source, metaDir, since, backoff, signal }: ExportMetadataOptions): Promise<void> {
-  // Read everything first, write after: a quit lands between reads (nothing on disk changed), never
-  // halfway through the files, which would leave them disagreeing with the kept manifest.
+  // Read everything first, write after: a quit lands between reads (nothing on disk changed). Once the
+  // writes start they run to completion (they are local and fast), so a quit does not split them.
   const pending: { file: string; content: string }[] = [];
   for (const kind of NDJSON_KINDS) {
     signal?.throwIfAborted();

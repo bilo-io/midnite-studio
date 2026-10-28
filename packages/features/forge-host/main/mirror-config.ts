@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 import { ensurePrivateDir, writePrivateFile } from '@midnite/studio-runtime';
 import { z } from 'zod';
@@ -70,7 +70,8 @@ const writers = new Map<string, Promise<unknown>>();
  * the file by hand between the read and the write; that window is the read-to-rename of one tiny file.
  * A rejected update (invalid file, failed write) rejects only its own caller.
  */
-export function updateMirrorConfig(file: string, mutate: (config: MirrorConfig) => MirrorConfig): Promise<MirrorConfig> {
+export function updateMirrorConfig(rawFile: string, mutate: (config: MirrorConfig) => MirrorConfig): Promise<MirrorConfig> {
+  const file = resolve(rawFile); // one queue per file however its path is spelled
   const next = (writers.get(file) ?? Promise.resolve()).then(async () => {
     const updated = mutate(await loadMirrorConfig(file));
     await saveMirrorConfig(file, updated);

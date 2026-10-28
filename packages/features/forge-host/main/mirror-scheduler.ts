@@ -38,6 +38,9 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
 
   async function run(select: (repo: MirrorConfigRepo, config: MirrorConfig) => boolean): Promise<MirrorResult[]> {
     const config = await deps.load();
+    // Forget unsaved run times of repos no longer selected, so a re-added repo is not treated as freshly run.
+    const selected = new Set(config.repos.map(keyOf));
+    for (const key of unsaved.keys()) if (!selected.has(key)) unsaved.delete(key);
     const byHost = new Map<string, MirrorConfigRepo[]>();
     for (const repo of config.repos) if (select(repo, config)) byHost.set(repo.host, [...(byHost.get(repo.host) ?? []), repo]);
     const lanes = [...byHost.values()].map(async (repos) => {
@@ -45,6 +48,7 @@ export function createMirrorScheduler(deps: MirrorSchedulerDeps) {
       for (const repo of repos) {
         try {
           const signal = controller.signal;
+          if (signal.aborted) break;
           const result = await deps.refresh(repo, config, signal);
           out.push(result);
           if (signal.aborted) break; // a quit mid-run: nothing to record, and the rest of the lane waits for next boot
