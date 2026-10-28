@@ -41,7 +41,7 @@ Recorded here when a phase punts on something; pick these up post-MVP.
      `e2e`'s N=8 were both measured on ubuntu-24.04 2-core runners. macos-14 is a different
      machine; re-measure before trusting either number.
 
-- **Phase 84 Themes E.6/F.5: the RENDERER-side number.** Theme J's `--hidden-sessions`/
+- **Phase 84 Theme F.5: the RENDERER-side number.** (E.6's half landed 2026-10-28 as an e2e: 10 sessions, 4 xterms mounted. Only F remains.) Theme J's `--hidden-sessions`/
   `--hidden-tabs` modes (`memory-report.mjs`) measured the main/broker floor per open-but-
   unrendered session (8931.2 KB) and the renderer floor per open tab (~79.8 MB) — both driven at
   the IPC layer, since this harness has no UI to click. What that cannot see is the *renderer-side
@@ -70,15 +70,6 @@ Recorded here when a phase punts on something; pick these up post-MVP.
   staged/unstaged change trees), Projects (`ProjectItemsTable` virtual rows), and Sessions (nested
   repo groups and session rows) are now wired with `useCascadeReveal` and `useRevealCount`, and
   `view-registry.tsx` registers `cascade: true` for all three views, pinned by `view-registry.test.ts`.
-
-- **Phase 84 Theme K.7's perf number.** "A full cascade settles in ≤ ~400ms; no new infinite
-  animation; `idle-cpu.mjs` unchanged" was not measured against a packaged build in this PR — the
-  same "needs `moon run app:build desktop:bundle` first" gap Themes E.6/F.5/G.5/H.4 each hit.
-  Satisfied by construction in the meantime: every timer Theme K adds is the one self-clearing
-  `setTimeout` in `use-cascade-reveal.ts`, sized `(steps + 1) × stepMs + 250ms`, and no
-  `setInterval`/`requestAnimationFrame` loop exists anywhere in the new code — `idle-cpu.mjs`
-  should read exactly as it did before this theme once a cascade settles, but that has not been
-  run and recorded.
 
 - **Phase 84 Theme G.5's number.** "Graph → Files → Graph time-to-first-row before/after; heap of
   the kept-alive Graph at 20k rows" was not measured in the Theme G/H PR. Unlike H.4's `popoutRss`
