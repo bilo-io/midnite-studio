@@ -450,3 +450,54 @@ export {
   type ShapeKind,
   type Vec3,
 } from './audio/epic-audio-player';
+
+// Suite preferences (Phase 123 Theme L.2) — the stores that persist through the suite-prefs file.
+export {
+  resolveSystemMotion,
+  useAppearanceStore,
+  useAppearanceSync,
+  useResolvedMotion,
+  type AccentId,
+  type AppearanceState,
+  type BgIntensity,
+  type Density,
+  type Motion,
+  type ShimmerDirection,
+  type UiFont,
+  type VisualEffects,
+} from './prefs/appearance-store';
+export {
+  useActivityPaletteStore,
+  type ActivityPaletteState,
+  type AgentStyleMode,
+  type ShellStyleMode,
+} from './prefs/activity-palette-store';
+export { createPaletteStore, type PaletteState } from './prefs/palette-store';
+export {
+  DEFAULT_WORLD_CLOCK_ZONES,
+  useTitlebarStatusStore,
+  type StatusPillItem,
+  type TitlebarStatusState,
+} from './prefs/titlebar-status-store';
+export { sharedSettingsStorage } from './prefs/shared-settings-storage';
+export {
+  registerSuitePrefsStore,
+  subscribeSuitePrefs,
+  suitePrefsStorage,
+} from './prefs/suite-prefs-storage';
+
+// The settings view and its page contract (Phase 123 Theme L.3).
+export { ChordsPage } from './settings/chords-page';
+export {
+  CHORDS_PAGE_ID,
+  SETTINGS_GROUPS,
+  SUITE_SETTINGS_PAGES,
+  appSettingsPages,
+  settingsPageProblems,
+  suiteSettingsPages,
+  type SettingsGroupId,
+  type SettingsPageDef,
+  type SettingsPageKey,
+  type SuiteSettingsPageId,
+} from './settings/settings-pages';
+export { SettingsView, type SettingsViewProps } from './settings/settings-view';

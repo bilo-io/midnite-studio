@@ -136,18 +136,31 @@ clock/weather, battery and theme toggle move to the frame too.
 sampling on blur, hide and minimise exactly as `apps/monitor` does; the status bar's monitor segment opens
 the metrics-only `MonitorFlyout`, whose "Open Monitor" hands off to the Monitor app.
 
-**Theme L — Settings at the foot of the nav.** ◐ A runtime `suite-prefs` file shared by every app holds
-appearance, palette, motion, title-bar status and companion voice settings; the settings view moves to the
-frame and shows the suite-wide pages plus each app's own. **L.1 landed** (`feature/p123-l1`): the contract in
-`shared/src/suite-prefs.ts` (seven groups — `activityPalette` got its own key beside `palette`, because the two
-stores write separately and a write replaces one key whole), `createSuitePrefsService` in
-`runtime/src/suite-prefs/` (atomic temp+rename writes, read-merge-write per key under one lock, a corrupt file
-moved to `.bad-<ts>` with one warn, a directory `fs.watch` debounced 100 ms that skips its own writes), the
-`suitePrefsGet/Set/Changed` channels, Studio's handler and preload slice, and a renderer-side first-boot seed
-from `midnite.settings` / `midnite.titlebar-status`. Surprise: `palette-store` and `activity-palette-store`
-both persist `activePaletteId` into the same `midnite.settings` blob, so each clobbers the other's selection
-today; the seed routes the value by whether it names an activity preset, and L.2 ends the collision. The
-renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
+**Theme L — Settings at the foot of the nav.** ✅ A runtime `suite-prefs` file shared by every app holds
+appearance, palette, motion, title-bar status and companion voice settings; the settings view lives in the
+frame and shows the suite-wide pages plus each app's own. **L.1** (#1063): the contract in
+`shared/src/suite-prefs.ts`, `createSuitePrefsService` in `runtime/src/suite-prefs/` (atomic writes,
+read-merge-write per key, corrupt-file recovery, debounced watch), the `suitePrefsGet/Set/Changed` channels
+and Studio's first-boot seed from localStorage. **L.2**: `appearance`, `activity-palette`, `palette` and
+`titlebar-status` stores moved to `packages/frame/src/prefs/` (one-line re-exports at their old paths) and
+persist through `suitePrefsStorage(key, version, fallback)` — read the group from the file, else the old
+localStorage blob; write the group to the file only, dropping a write equal to what the file holds, which is
+what stops `suitePrefsChanged` ping-ponging. `useAppearanceSync` subscribes to `suitePrefsChanged` and each
+store re-hydrates its own group, so a theme change in one app shows in every open one. No bridge (vitest, a
+plain browser) keeps the storage fully synchronous. The palette store is a factory
+(`createPaletteStore<P>()`) because `StudioPalette`'s xterm/monaco types are the app's; the app instantiates
+it. This ends the `activePaletteId` collision the seed worked around (two groups, two keys). **L.3**:
+`SettingsView` takes `pages: SettingsPageDef[]` with every piece of state controllable (Studio keeps page,
+folded groups and nav width in its ui-store; Studio's own list stays `SETTINGS_PAGES`), `SettingsGroupId`
+and `SETTINGS_GROUPS` moved to the frame, `suiteSettingsPages()` builds the five suite pages plus a
+read-only `ChordsPage` (rows straight from `COMMANDS`, `view.settings` shows `⌘,`), `appSettingsPages()`
+resolves a manifest's `settings` ids and `settingsPageProblems()` is the assertion each app's test will make.
+The chords page id is `'chords'`, outside `SettingsPageId` (that union is Studio's persisted-page registry).
+**L.4**: each def carries `scope: 'suite' | 'app'`; a test asserts a suite page's write reaches suite-prefs
+and not localStorage, and an app page's the reverse. **Open for Theme H:** the suite page *components*
+(Appearance, Privacy, Terminal, Companion, Monitor) still live in `packages/app` and import feature code, so
+the frame cannot supply them — H hands them to `suiteSettingsPages()` per app and fills each manifest's
+`settings`. Verified in vitest (no visual change to Studio, so no screenshots).
 
 ## Deliverables
 
@@ -504,7 +517,7 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   - *Done when* a test renders the cluster with no samples (asserts empty), then one sample (asserts CPU), and
     clicks Open Monitor (asserts the hand-off call).
 
-### L — Settings at the foot of the nav [M · ~1d]
+### L — Settings at the foot of the nav [M · ~1d] — ✅ DONE (2026-10-29)
 
 - [x] **The suite-prefs file.** ✅ DONE (2026-10-29, branch `feature/p123-l1`). Net-new `packages/runtime/src/suite-prefs/` (service) and
   `packages/shared/src/suite-prefs.ts` (contract):
@@ -522,13 +535,13 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
     the localStorage keys stay as a fallback for one release.
   - *Done when* runtime tests cover read-defaults, write-merge, corrupt-file recovery and the change event,
     and a Studio test covers the seed.
-- [ ] **Renderer stores on suite-prefs.** `appearance-store.ts`, `palette-store.ts`,
+- [x] **Renderer stores on suite-prefs.** ✅ DONE (2026-10-29) `appearance-store.ts`, `palette-store.ts`,
   `activity-palette-store.ts` and `titlebar-status-store.ts` move to `packages/frame/src/prefs/` and
   hydrate from / write to suite-prefs via the bridge instead of `sharedSettingsStorage`; a
   `suitePrefsChanged` event re-hydrates, so a theme change in one app shows in every open app.
   `useAppearanceSync()` moves with them.
   - *Done when* a test fires `suitePrefsChanged` with a new accent and asserts `data-*` attributes update.
-- [ ] **The settings view in the frame.** `settings-view.tsx` and its page shell → net-new
+- [x] **The settings view in the frame.** ✅ DONE (2026-10-29) `settings-view.tsx` and its page shell → net-new
   `packages/frame/src/settings/settings-view.tsx`
   `SettingsView({ pages }: { pages: readonly { id: SettingsPageId; label: string; group: SettingsGroupId; Page: ComponentType }[] })`
   (`SettingsGroupId` moves from `ui-store.ts` to the frame with it).
@@ -537,7 +550,7 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   table in `ui-store.ts:290` becomes Studio's list.
   - *Done when* a test renders Vanguard's settings and asserts the five suite pages, plus the chords page
     listing `view.settings` as `⌘,`.
-- [ ] **Shared pages, one store; app pages, its own.** Suite pages read and write suite-prefs only; an app's
+- [x] **Shared pages, one store; app pages, its own.** ✅ DONE (2026-10-29) Suite pages read and write suite-prefs only; an app's
   own page persists however it does today (e.g. Cleaner's `midnite-cleaner.settings`). (Open decision 6.)
   - *Done when* asserted in the test above by inspecting which store each page's write reaches.
 
