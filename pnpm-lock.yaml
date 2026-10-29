@@ -1827,6 +1827,9 @@ importers:
       '@midnite/studio-feature-sessions':
         specifier: workspace:*
         version: link:../features/sessions
+      '@midnite/studio-feature-terminal':
+        specifier: workspace:*
+        version: link:../features/terminal
       '@midnite/studio-feature-tests':
         specifier: workspace:*
         version: link:../features/tests
@@ -3698,6 +3701,9 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../frame
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../runtime
       '@midnite/studio-shared':
         specifier: workspace:*
         version: link:../../shared

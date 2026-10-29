@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -13,9 +14,11 @@ import {
   getOrLocateConversationId,
   resetTerminalsForTest,
   saveTerminal,
+  setTerminalPorts,
   shutdownTerminals,
   watchSessionExits,
   whenArchivesSettle,
+  type TerminalPorts,
 } from './terminal-service';
 
 /**
@@ -28,9 +31,7 @@ import {
  * returns rather than what was last written to disk 15 seconds ago.
  */
 /*
-  `vi.hoisted`, because `vi.mock` is hoisted above the imports and its factory
-  closes over both of these — a plain `const` here would still be in its
-  temporal dead zone when the mocked module is first pulled in.
+  `vi.hoisted`, so the port below can close over these before the imports above have run.
 */
 const { ring, exitHooks, mockLocate } = vi.hoisted(() => ({
   ring: new Map<string, Uint8Array>(),
@@ -38,26 +39,26 @@ const { ring, exitHooks, mockLocate } = vi.hoisted(() => ({
   mockLocate: vi.fn(),
 }));
 
-vi.mock('./agent-conversation', () => ({
-  locateAgentConversation: (...args: unknown[]) => mockLocate(...args),
-}));
-
-vi.mock('./pty-service', () => ({
-  activityFor: () => null,
-  dropScrollback: (id: string) => {
-    ring.delete(id);
+setTerminalPorts({
+  pty: {
+    activityFor: () => null,
+    dropScrollback: (id: string) => {
+      ring.delete(id);
+    },
+    livePtyFor: () => null,
+    onSessionExit: (hook: (sessionId: string, exitCode: number) => void) => {
+      exitHooks.push(hook);
+      return () => {
+        exitHooks.splice(exitHooks.indexOf(hook), 1);
+      };
+    },
+    readScrollback: (id: string) => ring.get(id) ?? new Uint8Array(0),
+    scrollbackSessionIds: () => [...ring.keys()],
+    seedScrollback: () => {},
   },
-  livePtyFor: () => null,
-  onSessionExit: (hook: (sessionId: string, exitCode: number) => void) => {
-    exitHooks.push(hook);
-    return () => {
-      exitHooks.splice(exitHooks.indexOf(hook), 1);
-    };
-  },
-  readScrollback: (id: string) => ring.get(id) ?? new Uint8Array(0),
-  scrollbackSessionIds: () => [...ring.keys()],
-  seedScrollback: () => {},
-}));
+  locateAgentConversation: (...args: Parameters<TerminalPorts['locateAgentConversation']>) => mockLocate(...args),
+  log: () => {},
+});
 
 let dirs: string[] = [];
 

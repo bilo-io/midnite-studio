@@ -1,70 +1,28 @@
-import { CHANNELS, schemas } from '@midnite/studio-shared';
+import { terminalMain } from '@midnite/studio-feature-terminal/main';
+import type { FeatureMainContext } from '@midnite/studio-runtime';
 
 import { defaultLogger } from '../log';
 import { agentProbe } from '../agent-probe-runtime';
 import { getBrokerStatus } from '../pty-service';
-import {
-  forgetTerminal,
-  listAgents,
-  listTerminals,
-  reorderTerminals,
-  saveTerminal,
-} from '../terminal-service';
-import { handleBare, handleSend } from './handle';
-
-const warnInvalid = (issue: string): void => {
-  defaultLogger.warn(issue);
-};
+import { handle, handleBare, handleSend } from './handle';
 
 /**
- * The durable half of the terminal — session rows, not processes.
- *
- * `list` and the agent roster are `invoke`s because the renderer cannot start
- * without their answers. Save, forget and reorder are one-way `send`s: they are
- * bookkeeping, and a dropped one costs the user an ordering, not correctness —
- * the next change rewrites the whole list anyway.
+ * The durable half of the terminal — session rows, not processes. The handlers are the terminal
+ * feature's main half (Phase 123 Theme E.3); this is Studio's composition of it. The pty channels stay in
+ * `pty-handlers.ts` (they are sender-aware and bound to windows).
  */
 export function registerTerminalHandlers(): void {
-  handleBare(CHANNELS.terminalList, async () => ({
-    sessions: await listTerminals(),
-    broker: getBrokerStatus(),
-  }));
-  /*
-    The roster and what this machine has of it, in one answer. `status` may be
-    shorter than `agents`, or empty outright — a probe that could not resolve an
-    entry omits it rather than calling it missing, and one that has not answered
-    yet ships `probe: 'checking'` rather than making a file read wait on a login
-    shell. The renderer shows that as "checking…" and never as installed or
-    missing; the answer follows on the `agentStatus` event.
-  */
-  handleBare(CHANNELS.agentList, async () => {
-    const agents = await listAgents();
-    const probe = agentProbe();
-    // A list before anything has probed (tests, a very early renderer) starts
-    // one; it never waits on it — the answer arrives on `agentStatus`.
-    if (!probe.started()) void probe.start();
-    return { agents, ...probe.snapshot() };
+  // Nothing the terminal registers pushes an event or trashes a file; both are refused loudly.
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    emit: () => {
+      throw new Error('terminal handlers never emit');
+    },
+    trashItem: () => Promise.reject(new Error('terminal never trashes')),
+  };
+  terminalMain.register(ctx, {
+    brokerStatus: getBrokerStatus,
+    agentProbe: () => agentProbe(),
+    warn: (issue) => defaultLogger.warn(issue),
   });
-  handleBare(CHANNELS.agentRecheck, () => agentProbe().start({ force: true }));
-
-  handleSend(
-    CHANNELS.terminalSave,
-    schemas.TerminalSaveRequest,
-    ({ session }) => saveTerminal(session),
-    warnInvalid,
-  );
-
-  handleSend(
-    CHANNELS.terminalForget,
-    schemas.TerminalForgetRequest,
-    ({ sessionId, reason }) => forgetTerminal(sessionId, reason ?? 'closed'),
-    warnInvalid,
-  );
-
-  handleSend(
-    CHANNELS.terminalReorder,
-    schemas.TerminalReorderRequest,
-    ({ sessionIds }) => reorderTerminals(sessionIds),
-    warnInvalid,
-  );
 }
