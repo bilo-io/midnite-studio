@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUiStore } from '../../../store/ui-store';
 import { lastCompanionSettingChange, resetCompanionSettingUndoForTest, undoLastCompanionSetting } from '@midnite/studio-feature-companion/renderer';
 import { CompanionPage } from './companion-page';
+import '../../../../test-support/install-companion-host';
 
 /**
  * Phase 109 Theme B — Settings ▸ Companion writes through the one companion
@@ -13,7 +14,8 @@ import { CompanionPage } from './companion-page';
  * that" can reach a change made on this page.
  */
 
-vi.mock('@midnite/studio-feature-companion/renderer', () => ({
+vi.mock('@midnite/studio-feature-companion/renderer', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-feature-companion/renderer')>()),
   companionTtsSpeaker: {
     speak: () => Promise.resolve(),
     speakWithEngine: () => Promise.resolve(true),
@@ -24,9 +26,6 @@ vi.mock('@midnite/studio-feature-companion/renderer', () => ({
     retryLocalVoice: vi.fn(),
     reloadLocalVoice: vi.fn(),
   },
-}));
-
-vi.mock('@midnite/studio-feature-companion/renderer', () => ({
   refreshMicAvailability: () => Promise.resolve(true),
 }));
 

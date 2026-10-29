@@ -69,14 +69,6 @@ import { useStudioTerrainOpenListener } from './compose/media-terrain/use-terrai
 import { useMediaOpenListeners } from './features/media/media-open-request';
 import { useSpriteOpenListener } from './compose/media-sprite/use-sprite-open-listener';
 import { loadSpriteRenderJob } from './compose/media-sprite/load-render-job';
-/*
-  Side-effect import: Phase 79 Themes F and G register their four members of
-  `companion-ports` (interrupt, the two mic gestures, mic availability) at
-  module scope, and apply the persisted companion volume. Imported here because
-  this is the only module guaranteed to run before the panel first renders —
-  there is nothing to call.
-*/
-import './features/companion/voice-ports';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from './features/loops/fab-morph';
 import { useLoopAttention } from './features/loops/use-loop-attention';

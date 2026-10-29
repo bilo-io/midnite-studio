@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { __setConversationDepsForTest, conversationOwner, resetCompanionPorts, setCompanionPorts } from '@midnite/studio-feature-companion/renderer';
+import '../../../test-support/install-companion-host';
 
 /*
   Pass-through: the real `setNextTranscriptSink`, plus a copy of the sink a
@@ -16,7 +17,7 @@ import { __setConversationDepsForTest, conversationOwner, resetCompanionPorts, s
 const pushSink = vi.hoisted(() => ({ current: null as ((text: string) => void) | null }));
 vi.mock('@midnite/studio-feature-companion/renderer', async () => {
   const actual = await vi.importActual<typeof import('@midnite/studio-feature-companion/renderer')>(
-    '../../features/companion/voice-ports',
+    '@midnite/studio-feature-companion/renderer',
   );
   return {
     ...actual,

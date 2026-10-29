@@ -6,6 +6,7 @@ import { CreatePanel } from '../image/create-panel';
 import { PromptForm } from '../audio/prompt-form';
 import { initialPromptForm } from '@midnite/studio-feature-media-audio/renderer';
 import { initialCreateState } from '../image/create-panel-state';
+import '../../../../test-support/install-companion-host';
 
 afterEach(cleanup);
 

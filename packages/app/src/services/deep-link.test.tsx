@@ -14,6 +14,7 @@ import { revealResource } from '@midnite/studio-feature-companion/renderer';
 import { selectCapture } from '@midnite/studio-feature-capture/renderer';
 
 import { useDeepLinks } from './deep-link';
+import '../../test-support/install-companion-host';
 
 const mocks = vi.hoisted(() => ({
   onDeepLink: null as ((e: { link: DeepLink; known: boolean }) => void) | null,
@@ -73,7 +74,10 @@ const emit = (link: DeepLink, known: boolean) => {
   });
 };
 
-vi.mock('@midnite/studio-feature-companion/renderer', () => ({ revealResource: vi.fn() }));
+vi.mock('@midnite/studio-feature-companion/renderer', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-feature-companion/renderer')>()),
+  revealResource: vi.fn(),
+}));
 vi.mock('@midnite/studio-feature-capture/renderer', () => ({ selectCapture: vi.fn() }));
 
 describe('useDeepLinks', () => {

@@ -4,6 +4,7 @@ import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store'
 import { useDatabaseConnectionsStore, useWorkbenchStore } from '@midnite/studio-feature-database/renderer';
 import { useUiStore } from '../../../store/ui-store';
 import { TOOLS_REVEALERS } from './tools';
+import '../../../../test-support/install-companion-host';
 
 const ctx = { caller: 'companion', focusedWindow: false } as const;
 

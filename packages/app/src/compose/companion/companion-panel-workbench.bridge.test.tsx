@@ -4,16 +4,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fixtures } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
 import { SettingsView } from '../../features/settings/settings-view';
-import { useCompanionStore } from '@midnite/studio-feature-companion/renderer';
 import { useUiStore } from '../../store/ui-store';
-import { CompanionPanelSlot } from '@midnite/studio-feature-companion/renderer';
-// Imported for its module-scope side effect: registers the REAL
-// submit/greet/interrupt/repeat ports (`setCompanionPorts` at import time —
-// see the file's own doc comment on why that is deliberate, not an effect).
-// `companion-panel.test.tsx` calls `resetCompanionPorts()` in its own
-// `beforeEach` to swap these back out for fakes; this file never does, so
-// `greetCompanion()` below is the real pipeline against the real mock bridge.
-import './register-flow-ports';
+import { CompanionPanelSlot, useCompanionStore } from '@midnite/studio-feature-companion/renderer';
+// The package barrel registers the REAL submit/greet/interrupt/repeat ports as it loads
+// (`setCompanionPorts` at import time), and `companion-panel.test.tsx` in the package swaps them
+// for fakes; this file never does, so `greetCompanion()` below is the real pipeline.
 import { QuickAccessMenu } from '../../features/quick-access/quick-access-menu';
 
 /**

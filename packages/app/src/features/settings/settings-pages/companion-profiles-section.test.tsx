@@ -6,6 +6,7 @@ import { DialogHost } from '../../../components/dialog-host';
 import { useUiStore } from '../../../store/ui-store';
 import { lastCompanionSettingChange, resetCompanionSettingUndoForTest, saveCompanionProfile } from '@midnite/studio-feature-companion/renderer';
 import { CompanionProfilesSection } from './companion-profiles-section';
+import '../../../../test-support/install-companion-host';
 
 /**
  * Phase 109 Theme G — Settings ▸ Companion ▸ Profiles: the list with its

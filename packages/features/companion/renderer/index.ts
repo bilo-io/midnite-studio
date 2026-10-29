@@ -31,9 +31,10 @@ export {
 export { createDefaultCompanionHost, type DefaultCompanionHostOptions } from './default-host';
 
 export { CompanionPanel, CompanionPanelSlot } from './companion-panel';
+export { CompanionBootstrap } from './companion-bootstrap';
 export { setCommandRuntime } from './command-runtime';
 export { McpSettingConfirmHost } from './mcp-setting-confirm';
-export { useCompanionUiRequests } from './ui-requests';
+export { resolveUiAction, useCompanionUiRequests } from './ui-requests';
 export { useCompanionHandoffWatch, useCompanionSpeakerWiring } from './register-flow-ports';
 export { useCompanionEnabledSync } from './use-companion-enabled';
 export { COMPANION_LOOK, CompanionGlyph, fabCompanionState } from './companion-look';
