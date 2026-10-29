@@ -2,6 +2,15 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 123 Theme F — The companion panel as a feature
+
+`packages/features/companion` takes the whole companion: the renderer (`renderer/`, behind the `CompanionHost` port
+in `host.tsx`) and the main half (`main/`, behind `CompanionMainServices`, registered as `companionMain`). Studio's
+adapter is `packages/app/src/compose/companion-host.tsx`; its revealers, sources and live follow-up reads live in
+`packages/app/src/compose/companion/`. The default host sits in the package (the frame may not import a feature) and
+follows suite-prefs (`companion.enabled`, `voices`, `sttEngine`, `sttProvider`). Importing the barrel reads no host
+(`import-without-host.test.ts`). Package suite: 1,045 tests under two vitest projects (renderer on jsdom, main on node).
+
 ## 2026-10-29 — Phase 123 Theme D — The chords, everywhere
 
 `useKeybindings` (with a `Partial` `CommandRuntime` and host-supplied `KeybindingGates`), `shouldEscapeTerminal`, the chord parser and the whole command palette (store, fuzzy scoring, frecency, `createCommandSource`, `CommandPalette`, `PaletteHost`) moved to `packages/frame/src/commands/`, with re-exports at Studio's old paths. A chord with no handler reaches the page; the palette lists only commands with handlers. `SUITE_COMMANDS` and `view.settings` (`Mod+,`, no menu accelerator) land in `shared/src/keybindings.ts`. Studio's behaviour and tests are unchanged.
