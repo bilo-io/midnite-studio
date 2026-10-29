@@ -130,11 +130,20 @@ describe('persist v1 -> v2 (Phase 64 Theme B)', () => {
     expect(useAppearanceStore.getState().uiFont).toBe('serif');
   });
 
-  it('only serializes its own eight fields, never a sibling store\'s (partialize)', () => {
+  it("only serializes its own eight fields, never a sibling store's (partialize)", () => {
     const partialize = useAppearanceStore.persist.getOptions().partialize;
     const serialized = partialize?.(useAppearanceStore.getState());
     expect(Object.keys(serialized ?? {}).sort()).toEqual(
-      ['accent', 'background', 'bgIntensity', 'density', 'effects', 'motion', 'shimmer', 'uiFont'].sort(),
+      [
+        'accent',
+        'background',
+        'bgIntensity',
+        'density',
+        'effects',
+        'motion',
+        'shimmer',
+        'uiFont',
+      ].sort(),
     );
   });
 });
