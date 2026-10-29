@@ -8,8 +8,12 @@ import { libraryFileResolver } from '@midnite/studio-feature-media-library/main'
 import { connectRuntimeVault, guardAppWindow, vaultHostSocketPath, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
 
-import { mediaLibraryDataDir, registerMediaHandlers } from '@midnite/studio-module-media/main';
-import { installMediaFileProtocol } from '@midnite/studio-module-media/main';
+import {
+  createMediaKeyReader,
+  installMediaFileProtocol,
+  mediaLibraryDataDir,
+  registerMediaHandlers,
+} from '@midnite/studio-module-media/main';
 import {
   MEDIA_NAME,
   SMOKE_READY_LINE,
@@ -19,7 +23,6 @@ import {
   mediaVaultDirectory,
 } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
-import { createMediaKeyReader } from '@midnite/studio-module-media/main';
 import { mediaPairing } from './pairing';
 
 /**

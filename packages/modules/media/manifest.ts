@@ -11,7 +11,7 @@ export const mediaManifest = defineModuleManifest({
   accent: '#facc15',
   features: ['media'],
   views: [
-    { id: 'media', global: false }
+    { id: 'media', global: false },
   ],
 });
 

@@ -10,9 +10,7 @@ export const moneyManifest = defineModuleManifest({
   glyph: 'PiCoinsFill',
   accent: '#84cc16',
   features: ['finance'],
-  views: [
-
-  ],
+  views: [],
 });
 
 export type MoneyManifest = typeof moneyManifest;

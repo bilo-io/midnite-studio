@@ -11,7 +11,7 @@ export const vanguardManifest = defineModuleManifest({
   accent: '#e11d48',
   features: ['vanguard'],
   views: [
-    { id: 'vanguard', global: false }
+    { id: 'vanguard', global: false },
   ],
 });
 
