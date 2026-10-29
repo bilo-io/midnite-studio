@@ -48,7 +48,7 @@ const UNMIGRATED: Record<string, string> = {
   'packages/desktop/src/main/ipc/media-map-handlers.ts': 'tile and geocode fetch injected into media-map; follow-up: register tile hosts, then bind',
   'packages/desktop/src/main/ipc/release-notes-handlers.ts': 'GitHub release notes for the update dialog; follow-up: register and gate',
   'packages/runtime/src/vault/breach/hibp-check.ts': 'user-triggered Pwned Passwords check, api.pwnedpasswords.com is registered; follow-up: bind',
-  'packages/desktop/src/main/companion/stt/openai-whisper.ts': 'user-triggered transcription to api.openai.com with the user’s key; follow-up: register and bind',
+  'packages/features/companion/main/stt/openai-whisper.ts': 'user-triggered transcription to api.openai.com with the user’s key; follow-up: register and bind',
   'packages/features/media-audio/main/music/gm-sample-cache.ts': 'one-time General MIDI sample download the user starts; follow-up: register the host and bind',
   'packages/features/media-model/main/model/sf3d/installer.ts': 'model download the user starts; follow-up: register the host and bind',
   'apps/launcher/src/main': 'the launcher is off the graph and cannot import the runtime; follow-up: launcher switches (Theme A, second slice)',
