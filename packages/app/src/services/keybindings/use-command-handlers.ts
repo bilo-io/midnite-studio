@@ -591,6 +591,8 @@ export function useCommandHandlers(): CommandRuntime {
       run: () => useUiStore.getState().setScreensaverOpen(true, false),
     },
     'app.reportIssue': { enabled: true, run: openReportIssue },
+    // Phase 123 Theme D: `Mod+,`. Settings is never hidden from the rail, so no nav-visibility gate.
+    'view.settings': { enabled: true, run: () => useUiStore.getState().setActiveView('settings') },
 
     'markdown.presentAsSlides': activeMarkdown
       ? { enabled: true, run: () => useSlidesStore.getState().presentActive() }
