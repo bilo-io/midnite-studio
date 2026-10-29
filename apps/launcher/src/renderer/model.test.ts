@@ -13,8 +13,11 @@ describe('launcher model', () => {
 
   it('searches names, taglines and features, every word', () => {
     expect(matchesQuery(app('gamer'), 'terrain')).toBe(true);
-    expect(matchesQuery(app('coder'), 'midnite db')).toBe(true);
-    expect(matchesQuery(app('coder'), 'terrain')).toBe(false);
+    expect(matchesQuery(app('agents'), 'midnite db')).toBe(true);
+    expect(matchesQuery(app('agents'), 'terrain')).toBe(false);
+    // An absorbed app is found through the host that carries its module.
+    expect(matchesQuery(app('vanguard'), 'cleaner')).toBe(true);
+    expect(matchesQuery(app('mind'), 'screenshots')).toBe(true);
   });
 
   it('counts and groups by section, dropping empty ones', () => {
@@ -23,7 +26,7 @@ describe('launcher model', () => {
     expect(filterCounts(() => 'update')).toEqual({ all: n, installed: n, updates: n, 'not-installed': 0 });
 
     const all = visibleSections({ filter: 'all', query: '', sort: 'suite', stateOf: () => 'installed' });
-    expect(all.map((g) => g.section)).toEqual(['suite', 'utilities']);
+    expect(all.map((g) => g.section)).toEqual(['suite']);
     expect(all[0]!.apps[0]!.id).toBe('studio');
 
     const found = visibleSections({ filter: 'all', query: 'sprites', sort: 'suite', stateOf: () => 'installed' });
@@ -33,48 +36,39 @@ describe('launcher model', () => {
 
     const byName = visibleSections({ filter: 'all', query: '', sort: 'name', stateOf: () => 'installed' });
     expect(byName.find((g) => g.section === 'suite')!.apps.map((a) => a.name)).toEqual([
-      'Accountant',
       'Agents',
       'Browser',
-      'Coder',
-      'Creator',
       'Gamer',
       'Health',
       'Media',
       'Mind',
       'Money',
       'Science',
-      'Simulator',
       'Startup',
       'Studio',
       'Vanguard',
     ]);
-    expect(byName.find((g) => g.section === 'utilities')!.apps.map((a) => a.name)).toEqual([
-      'Capture',
-      'Cleaner',
-      'Monitor',
-      'Vault',
-    ]);
+    expect(byName.find((g) => g.section === 'utilities')).toBeUndefined();
   });
 
   it('removes Studio and own-bundle apps, never a Studio-hosted tile, Studio last', () => {
     const removable = removableApps((a) =>
       a.id === 'studio'
         ? { state: 'update', source: 'studio' }
-        : a.id === 'cleaner'
+        : a.id === 'gamer'
           ? { state: 'installed', source: 'bundle' }
-          : a.id === 'vault'
+          : a.id === 'vanguard'
             ? { state: 'not-installed', source: 'bundle' }
             : { state: 'installed', source: 'studio' },
     );
-    expect(removable.map((a) => a.id)).toEqual(['cleaner', 'studio']);
+    expect(removable.map((a) => a.id)).toEqual(['gamer', 'studio']);
     expect(removableApps(() => ({ state: 'not-installed', source: 'bundle' }))).toEqual([]);
   });
 
   it('summarises a bulk removal, naming each skipped app and why', () => {
     expect(removalSummary([{ app: app('studio'), result: { ok: true } }])).toEqual({ message: 'Moved 1 app to the Trash.', tone: 'info' });
     const partial = removalSummary([
-      { app: app('cleaner'), result: { ok: true } },
+      { app: app('gamer'), result: { ok: true } },
       { app: app('studio'), result: { ok: false, message: 'Midnite Studio is running — quit it first.' } },
     ]);
     expect(partial.tone).toBe('error');

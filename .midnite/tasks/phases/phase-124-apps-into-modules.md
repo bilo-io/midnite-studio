@@ -84,8 +84,13 @@ error (fixed on #1060) blocked every project that builds the runtime.
 **Theme E — Hosts are built from modules.** ◻ Every suite app (its own features included, e.g. a `gamer`
 module) is a list of modules rendered as nav groups in Phase 123's `AppShell`; Studio composes all of them.
 
-**Theme F — Launcher and catalog.** ◻ 11 apps, module chips on each tile, the detail sheet grouped by
-module, and the Utilities section dropped.
+**Theme F — Launcher and catalog.** ✅ Eleven tiles, each with `modules` (the host's own first, absorbed apps
+folded in with their old tagline and vision); module chips on multi-module tiles, the detail sheet grouped by
+module with an "Open module" per group (`module:<id>` through `appLink`/`apps.open`); Accountant and Simulator
+are `comingSoon` modules, `SECTION_ORDER` is `['suite']`. Surprises: the launcher takes `shared` by type only, so
+the retired ids are mirrored locally (`LEGACY_APP_HOSTS`, `LEGACY_BUNDLE_APP_IDS`) with a test tying them to
+`shared/src/modules.ts`; bundle install/uninstall stays keyed on `BUNDLE_APP_IDS` so the six still-built apps
+keep working until Theme H, and old `coder`/`vault`/... links resolve to the host's module.
 
 **Theme G — Migration.** ◻ Old ids alias to host + module in links, placement and MCP tool owners; a
 launcher with a retired app installed offers its host and opens it on that module; the retired app's data
@@ -170,17 +175,17 @@ release, icon and test legs are deleted.
 
 ## Theme F — Launcher and catalog `[M]`
 
-- [ ] **F.1** [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts): `APP_IDS` drops `coder`,
+- [x] **F.1** [`catalog.ts`](../../../apps/launcher/src/common/catalog.ts): `APP_IDS` drops `coder`,
   `creator`, `cleaner`, `vault`, `monitor`, `capture`, `accountant`, `simulator`; each `LauncherApp`
   gains `modules: readonly LauncherModule[]` (id, name, glyph, features), with the absorbed apps'
   features, taglines and visions folded into their module entries. `[M]`
-- [ ] **F.2** Money gains an `accountant` module and Science a `simulator` module, both marked
+- [x] **F.2** Money gains an `accountant` module and Science a `simulator` module, both marked
   `comingSoon` at module level; Money itself stays installable. `[S]`
-- [ ] **F.3** Tiles show module chips (e.g. *Agents · Coder · Creator*); the detail sheet groups features
+- [x] **F.3** Tiles show module chips (e.g. *Agents · Coder · Creator*); the detail sheet groups features
   under each module, and each module is openable on its own. `[M]`
-- [ ] **F.4** `SECTION_ORDER` becomes `['suite']`; `AppSection` keeps `'utilities'` in the type for later
+- [x] **F.4** `SECTION_ORDER` becomes `['suite']`; `AppSection` keeps `'utilities'` in the type for later
   use but nothing is placed there. `[S]`
-- [ ] **F.5** Update [`model.test.ts`](../../../apps/launcher/src/renderer/model.test.ts),
+- [x] **F.5** Update [`model.test.ts`](../../../apps/launcher/src/renderer/model.test.ts),
   [`status.test.ts`](../../../apps/launcher/src/common/status.test.ts) and
   [`catalog.example.json`](../../../apps/launcher/catalog.example.json) to the 11-app catalog. `[S]`
 
