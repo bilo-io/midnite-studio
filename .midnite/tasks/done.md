@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 123 Theme K — The system monitor core
+
+PR pending. `bindMetricsToWindow` in the runtime (one pause/resume/stop rule for Studio's main and `apps/monitor`); the status bar's monitor cluster moved into the frame as `createMonitorSegment({ Flyout, openMonitor })` with the flyout and hand-off injected; `Sparkline`/`MetricDonut` moved to `frame/src/metrics/`; `hiddenMetrics` and `metricsIdleIntervalMs` moved from `ui-store` to the suite-prefs `monitor` group with a one-time migration. The other apps' own `monitorMain.register` calls land with Theme H's roll-out.
+
 ## 2026-10-29 — Phase 123 Themes E and J (partial) — the terminal panel as a feature, the status bar in the frame
 
 [#1068](https://github.com/bilo-io/midnite-studio/pull/1068). `packages/features/terminal/renderer` (panel, session list, xterm, store, unload policy, replay gate) behind a `TerminalHost` port with Studio's adapter in `compose/terminal-host.tsx` and a default host for every other app; sessions carry an optional `appId` with a suite-prefs "Show all apps" toggle; a broker that never attached says so in the panel. The status bar's segment host, density and overflow moved to `packages/frame/src/shell/status-bar/` with `suiteSegments(panels)` for every app. Open: E.3 (main half) and J.4 (title-bar cluster, waits on L.2).

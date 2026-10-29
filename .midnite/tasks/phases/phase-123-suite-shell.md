@@ -151,9 +151,19 @@ Studio test holds Studio's five entries to the same metadata. Studio's bar is a 
 still lives in Studio's `styles.css` — whichever app mounts the bar first in Theme H brings it along. Open: J.4,
 the title bar's right cluster, waits on L.2 moving `titlebar-status-store` to the frame.
 
-**Theme K — The system monitor core.** ◻ Every app registers the monitor feature's `monitorMain` and pauses
+**Theme K — The system monitor core.** ✅ ([PR pending]) Every app registers the monitor feature's `monitorMain` and pauses
 sampling on blur, hide and minimise exactly as `apps/monitor` does; the status bar's monitor segment opens
-the metrics-only `MonitorFlyout`, whose "Open Monitor" hands off to the Monitor app.
+the metrics-only `MonitorFlyout`, whose "Open Monitor" hands off to the Monitor app. What landed: `bindMetricsToWindow(win, service)` in
+`runtime/src/app-main/bind-metrics.ts` is the one pause/resume/stop rule, used by Studio's main
+(replacing its local copy) and `apps/monitor`. The cluster is now `createMonitorSegment({ Flyout, openMonitor })`
+in `frame/src/shell/status-bar/monitor/`, drawn through the status-bar chrome port; the flyout and the
+hand-off are injected because the frame never imports a feature (Studio's wrapper is the unchanged
+`features/monitor/monitor-cluster.tsx` export). `Sparkline` and `MetricDonut` moved to `frame/src/metrics/`
+(the feature re-exports them). `hiddenMetrics` and `metricsIdleIntervalMs` left `ui-store` for the
+`monitor` suite-prefs group (`useMonitorPrefsStore`), migrated once from the old `midnite-studio.ui` blob;
+the settings page, battery segment and optimizer host read them from there. **Open for Theme H:** each
+standalone app's own `monitorMain.register` and `bindMetricsToWindow` call lands with its roll-out — K ships
+the helper, the segment and the prefs, not thirteen mains. No visual change, so no screenshots.
 
 **Theme L — Settings at the foot of the nav.** ✅ A runtime `suite-prefs` file shared by every app holds
 appearance, palette, motion, title-bar status and companion voice settings; the settings view lives in the
@@ -521,9 +531,9 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
   - ⏳ Open after PR #1068: waits on Theme L.2, which moves `titlebar-status-store.ts` to
     `packages/frame/src/prefs/` onto suite-prefs. Moving the cluster first would mean moving that store twice.
 
-### K — The system monitor core [M · ~1d]
+### K — The system monitor core [M · ~1d] — ✅ DONE (2026-10-29)
 
-- [ ] **Sampling in every app.** Each app's main calls `monitorMain.register(ctx, { onMetricsService })` and
+- [x] **Sampling in every app.** (helper + Studio + Monitor; the other apps' mains register it in H) Each app's main calls `monitorMain.register(ctx, { onMetricsService })` and
   binds `service.pause()` on `blur`, `hide`, `minimize` and `resume()` on `focus`, `show`, `restore`, and
   `stop()` on `closed` — the pattern in [`apps/monitor/main/index.ts`](../../../apps/monitor/main/index.ts)
   (lines 109–114) and `desktop/src/main/ipc/metrics-handlers.ts`, extracted once as net-new
@@ -531,9 +541,9 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
   `export function bindMetricsToWindow(win: PausableWindow, service: { pause(): void; resume(): void; stop(): void }): void`.
   No `agentSessions` service is passed outside Studio, so `monitorAgentUsage` answers empty.
   - *Done when* `bind-metrics.test.ts` drives a fake window through each event and asserts the calls.
-- [ ] **One channel set.** `metricsStart`, `metricsStop`, `metricsSample` and `systemHealth` are served by each
+- [x] **One channel set.** `metricsStart`, `metricsStop`, `metricsSample` and `systemHealth` are served by each
   app's main from that registration; nothing new in `channels.ts`.
-- [ ] **The segment and flyout.** `MonitorCluster` (`packages/app/src/features/monitor/monitor-cluster.tsx`)
+- [x] **The segment and flyout.** `MonitorCluster` (`packages/app/src/features/monitor/monitor-cluster.tsx`)
   and its helpers (`metric-chart`, `metric-icons`, `metric-geometry`, `metric-palette`, `metric-path`,
   `format-bytes`) move to `packages/frame/src/shell/status-bar/monitor/`, reading `hiddenMetrics` and
   `metricsIdleIntervalMs` from suite-prefs. It opens `MonitorFlyout` (metrics only: CPU/RAM/GPU timelines and
