@@ -15,6 +15,7 @@ describe('money manifest', () => {
   it('composes placed features and contributes exactly their registered views', () => {
     for (const feature of moneyManifest.features) expect(Object.keys(FEATURE_PLACEMENT)).toContain(feature);
     const registered = moneyManifest.features.flatMap((f) => [...((FEATURE_VIEWS as Record<string, readonly string[]>)[f] ?? [])]);
-    expect(moneyManifest.views.map((v) => v.id).sort()).toEqual(registered.sort());
+    // `views: []` infers `never[]`; widen it so the comparison typechecks.
+    expect((moneyManifest.views as readonly { id: string }[]).map((v) => v.id).sort()).toEqual(registered.sort());
   });
 });
