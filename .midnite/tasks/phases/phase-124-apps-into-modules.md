@@ -68,7 +68,7 @@ group, proven case by case in `layer-boundaries.test.mjs`, and the layer added t
 
 Landed as the layer's rules and template, not a package: `packages/modules/_template/` holds `.tmpl` files (so pnpm, moon and the lockfile see nothing until Theme C adds the first real module), `ModuleManifest`/`defineModuleManifest` live in `shared`, eslint gains module renderer/main/manifest blocks plus a ban on features, the frame and the runtime importing a module, `layer-boundaries.test.mjs` proves every edge, `gate-projects-check` maps `packages/modules/*` to `module-<name>`, and the runtime's `mountModuleMains` rejects two modules in one host declaring the same IPC channel.
 
-**Theme C — Coder and Creator become modules.** ✅ (PR pending, stacked on #1060) `packages/modules/coder` and
+**Theme C — Coder and Creator become modules.** ✅ (PR #1065) `packages/modules/coder` and
 `packages/modules/creator` now hold both apps' composition, views and module-side main halves; `apps/coder`
 and `apps/creator` shrink to a window, identity, pairing and the bundle script, and re-export the module's
 root as `CoderApp` / `CreatorApp`.
