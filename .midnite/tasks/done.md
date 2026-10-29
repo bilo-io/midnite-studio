@@ -2,6 +2,14 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 124 Theme B — The modules layer
+
+`packages/modules/_template` (`.tmpl` package skeleton), `ModuleManifest` in `shared`, eslint blocks for module renderer/main/manifest plus features/frame/runtime never importing a module, an allowed and a forbidden case per edge in `layer-boundaries.test.mjs`, `gate-projects-check` support for `packages/modules/*`, and `mountModuleMains` in the runtime (two modules in one host register disjoint IPC channels).
+
+## 2026-10-29 — Phase 123 Theme L.1 — The suite-prefs file
+
+`shared/src/suite-prefs.ts` (seven defaulted groups: appearance, palette, activityPalette, titlebarStatus, companion, terminal, monitor), `runtime/src/suite-prefs/` service over `<appData>/Midnite Runtime/suite-prefs.json` (atomic writes, read-merge-write per key, corrupt file moved aside, debounced `fs.watch`), `mstudio:suite-prefs:get/set/changed` served by Studio's main and preload, and a renderer-side first-boot seed from `midnite.settings` and `midnite.titlebar-status`.
+
 ## 2026-10-29 — Phase 124 Theme A — The module contract
 
 `shared/src/modules.ts`: `MODULE_IDS`, `APP_MODULES` (keyed by `ModuleHostId`, Studio lists every module), `RETIRED_APP_ALIASES` (coder, creator, vault, cleaner, monitor, capture, accountant, simulator → host + module), with a test holding the invariants.

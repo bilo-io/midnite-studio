@@ -8,8 +8,8 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
-| [124 · Merge suite apps into modules](phases/phase-124-apps-into-modules.md) | 🔄 WIP | — | 8/46 | `██░░░░░░░░` | 17% | B | C D E G H I |
-| [123 · One shell for every suite app](phases/phase-123-suite-shell.md) | 🔄 WIP | x1 | 0/56 | `░░░░░░░░░░` | 0% | A B C | D E F G H I J K L |
+| [124 · Merge suite apps into modules](phases/phase-124-apps-into-modules.md) | 🔄 WIP | — | 12/46 | `███░░░░░░░` | 26% | — | C D E G H I |
+| [123 · One shell for every suite app](phases/phase-123-suite-shell.md) | 🔄 WIP | x1 | 1/56 | `░░░░░░░░░░` | 2% | A B C | D E F G H I J K L |
 | [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | 🔄 WIP | — | 12/41 | `███░░░░░░░` | 29% | B C | D E F G H |
 | [121 · Agents security](phases/phase-121-agents-security.md) | ✅ DONE | — | 51/51 | `██████████` | 100% | — | — |
 | [120 · Vanguard: antivirus and agentic self-defense](phases/phase-120-vanguard.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |

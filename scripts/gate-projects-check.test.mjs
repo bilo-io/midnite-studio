@@ -62,4 +62,8 @@ describe('discoverProjectIds', () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain('feature-vault: in packages/ but not in NODE_PROJECTS');
   });
+
+  it('maps packages/modules/<name> to module-<name>, skipping the container and _template', () => {
+    expect(discoverProjectIds(['shared', 'modules'], [], ['coder', '_template'])).toEqual(['shared', 'module-coder']);
+  });
 });

@@ -55,6 +55,14 @@ export const bootStudioRenderer: BootStudioRenderer = (container) => {
     much smaller module graph.
   */
   if (role === 'main') {
+    /*
+      Phase 123 Theme L.1: the first boot after the suite-prefs file exists copies this
+      renderer's localStorage settings into it, so other suite apps start from Studio's
+      choices. Main window only (one writer), fire and forget — it never delays paint.
+    */
+    void import('./store/suite-prefs-seed').then(({ seedSuitePrefsFromLocalStorage }) =>
+      seedSuitePrefsFromLocalStorage(window.midniteStudio?.suitePrefs, globalThis.localStorage),
+    ).catch(() => undefined);
     void import('./app').then(({ App }) => {
       createRoot(container).render(
         <StrictMode>
