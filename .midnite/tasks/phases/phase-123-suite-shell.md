@@ -92,9 +92,20 @@ cluster is `@bilo-io/ui`'s `ThemeToggle` until J.4.
 `SUITE_APP_IDS`; `generate-app-logos.cjs` also writes a 256 px copy per app into the frame, and a drift test
 keeps it byte-identical to the launcher's. Landed: `suite-apps.ts` in shared (launcher `catalog.ts` takes it by source path; the launcher's Vite alias is now the same regex vitest already used), 19 PNGs in `packages/frame/src/shell/app-logos/` copied byte-for-byte from the launcher (`launcher.png` excluded) and written by `generate-app-logos.cjs` from now on, and `appLogoUrl`. The drift test compares Vite `?inline` data URLs rather than SHA-256 because the renderer may not import node builtins; equal strings mean equal bytes.
 
-**Theme D — The chords, everywhere.** ◻ `useKeybindings` moves into the frame; `SUITE_COMMANDS` (derived from
-`COMMANDS`) is what every app binds, including the new `view.settings` on `Mod+,`, with the yield rules from
-`YIELD_ROOTS` unchanged.
+**Theme D — The chords, everywhere.** ✅ The dispatcher, the chord parser and the palette live in
+`packages/frame/src/commands/`. `useKeybindings(runtime, gates?)` takes a `Partial` `CommandRuntime`: candidates
+with no handler are dropped before the browser/terminal/rest resolution, so a chord that is not the app's reaches
+the page un-`preventDefault`ed. What only Studio's window knows — the browser pane, and the quick-access menu and
+two switcher HUDs that own the keyboard — comes in as `KeybindingGates` (`browserOpen`, `blocked`), which Studio's
+`services/keybindings/use-keybindings.ts` binds as a module constant; its 40-odd tests stay there and pass
+unchanged, and the frame has its own suite-app test. `SUITE_COMMANDS` (derived from `COMMANDS`) and
+`view.settings` on `Mod+,` are in `shared/src/keybindings.ts`; Studio's handler is `setActiveView('settings')`,
+companion access `never` like every `view.*`. The palette's store, scoring, frecency and rendering moved too
+(`CommandPalette`, `createCommandSource`, `PaletteHost`): the command rows are every `COMMANDS` entry with a
+handler, and Studio's `Palette` wraps the frame surface with its repo-bound sources, its palette-safe filter and
+its dismissal stack. Surprise: the "Mod+t does not escape `.xterm`" check in the doc does not describe Studio —
+`terminal.new` is not a yield command there, so the frame test proves the yield with `fab.toggle` (`Ctrl+L` off
+macOS) instead of changing Studio.
 
 **Theme E — The terminal panel as a feature.** ◻ `packages/features/terminal`: the 63-file renderer folder and
 the main `terminal-service` / `pty-service` / `pty-env`, with its reach into `ui-store` and Studio components
@@ -264,9 +275,9 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
 - [x] **A drift check.** `app-logo.test.ts` asserts every `SUITE_APP_IDS` entry has a frame logo and that its
   SHA-256 equals the launcher's file, so a regenerate that skips one, or a hand-edited PNG, fails.
 
-### D — The chords, everywhere [M · ~1d]
+### D — The chords, everywhere [M · ~1d] — ✅ DONE (2026-10-29)
 
-- [ ] **The dispatcher in the frame.** `useKeybindings(runtime: CommandRuntime)` moves from
+- [x] **The dispatcher in the frame.** `useKeybindings(runtime: CommandRuntime)` moves from
   [`packages/app/src/services/keybindings/use-keybindings.ts`](../../../packages/app/src/services/keybindings/use-keybindings.ts)
   to net-new `packages/frame/src/commands/use-keybindings.ts`, with `CommandRuntime` (today
   `Record<CommandId, CommandEntry>` in `use-command-handlers.ts:50`) widened to
@@ -275,14 +286,14 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   re-exports it; `app.tsx` and `detached-root.tsx` keep their imports.
   - *Done when* `use-keybindings.test.ts` moves with it and passes unchanged, plus one new case: a chord whose
     command has no handler is not `preventDefault`ed (it reaches the page).
-- [ ] **The suite subset.** In `keybindings.ts`:
+- [x] **The suite subset.** In `keybindings.ts`:
   `export const SUITE_COMMANDS: readonly CommandId[] = COMMANDS.filter((c) => SUITE_COMMAND_IDS.has(c.id)).map((c) => c.id)`
   with `SUITE_COMMAND_IDS` (a `Set<string>`) = `terminal.*` (all six), `fab.toggle`, `companion.toggle`, `notes.toggle`,
   `panel.back`, `panel.forward`, `palette.open`, `app.reload`, `app.hardReload`, `app.lock`, `app.zoomIn`,
   `app.zoomOut`, `app.zoomReset`, `view.settings`. Derived from `COMMANDS`, never a second table.
   - *Done when* a test asserts every `SUITE_COMMANDS` id is in `COMMAND_IDS` and that the list contains no
     repo-bound command (`sync.*`, `view.graph`).
-- [ ] **`view.settings` on `Mod+,`.** New `COMMANDS` entry
+- [x] **`view.settings` on `Mod+,`.** New `COMMANDS` entry
   `{ id: 'view.settings', label: 'Open Settings', group: 'view', chord: 'Mod+,', scope: 'app' }` — `Mod+,` is
   unbound today (grep of `keybindings.ts` and `menu.ts`) and is the macOS convention. No menu accelerator
   (CLAUDE.md: chords route through the renderer). Studio's handler is `setActiveView('settings')`; an app's
@@ -290,12 +301,12 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   - *Done when* [`keybindings.test.ts`](../../../packages/app/src/services/keybindings/keybindings.test.ts)'s
     chord-uniqueness check passes and `menu.test.ts` still finds no accelerator for it, and `use-keybindings.test.ts`
     fires `Meta+,` and asserts the handler ran.
-- [ ] **Terminal yield.** `GLOBAL_CHORDS` and `TERMINAL_YIELD_COMMANDS` (from `YIELD_ROOTS`) apply in every app
+- [x] **Terminal yield.** `GLOBAL_CHORDS` and `TERMINAL_YIELD_COMMANDS` (from `YIELD_ROOTS`) apply in every app
   exactly as in Studio: `Ctrl+`` and `Mod+k` escape the terminal; `fab.toggle`, `panel.back`,
   `panel.forward` yield to the shell off macOS.
   - *Done when* a test mounts the frame dispatcher with focus inside a `.xterm` element and asserts `Ctrl+``
     fires `terminal.toggle` while `Mod+t` does not.
-- [ ] **Palette in every app.** `PaletteHost` ([`components/palette-host.tsx`](../../../packages/app/src/components/palette-host.tsx)) and the palette's command list move to
+- [x] **Palette in every app.** `PaletteHost` ([`components/palette-host.tsx`](../../../packages/app/src/components/palette-host.tsx)) and the palette's command list move to
   `packages/frame/src/commands/palette/`, filtered to the commands the app has handlers for, so `Mod+k` lists
   only what works there.
   - *Done when* a test renders the palette with handlers for three commands and asserts exactly those three
