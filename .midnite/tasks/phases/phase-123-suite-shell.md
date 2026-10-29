@@ -128,9 +128,21 @@ injecting first.
 reach — that Studio fills fully and other apps fill with stubs. One thread per app; settings and voice shared
 through suite-prefs.
 
-**Theme G — The FAB and Loops as a feature.** ◻ `packages/features/loops`: the FAB, quick-access menu, Loops
-panel and composer, reaching the terminal and companion only through `LoopsHost` slots. The run ledger moves
-to the runtime as one file per app under `<appData>/Midnite Runtime/loop-runs/`, merged on read.
+**Theme G — The FAB and Loops as a feature.** ✅ (PR pending). `packages/features/loops/renderer` holds the FAB
+launchers, the quick-access menu, the Loops panel, composer, custom-loop editor, halo, morph and run history,
+behind a `LoopsHost` port; Studio's adapter is `packages/app/src/compose/loops-host.tsx` and the old
+`features/loops/*` and `features/quick-access` paths are re-export shims (component shims bind the host and
+Studio's chrome; hooks fall back to a module-level active host, since `app.tsx`, the lock screen and Settings
+call them outside any provider). The port is wider than the doc's five members, because the loops read far
+more of the terminal and `ui-store` than a render slot covers: `useLoopsState` (the loops' slice of the UI
+store, which `ui-store` satisfies as is), `useTerminal` (a narrow terminal-store read), plus slots for the
+tooltip, selects, the extras composer, agent icons, repos, roster and the dismissal rule set. A leaf whose
+feature the app lacks (`companion`, `openNotes`, `setupStore` absent) is hidden. `FabTab` moved to shared. The
+ledger is `packages/runtime/src/loop-runs/`: one `<appId>.json` per app under `Midnite Runtime/loop-runs/`,
+atomic writes, merged newest-first on read with `appId` tagged, a corrupt file skipped with one warn, an
+`fs.watch` on the directory, and Studio's old `<userData>/loop-runs.json` copied to `studio.json` once.
+Surprise: two tests need the app's `virtual:midnite-styles-raw` and the Studio chrome, so they stay in the app and
+run through the shims; the two that mock the feature's own modules moved.
 
 **Theme H — Every app on the shell.** ◻ The thirteen extracted apps adopt `AppShell` in three PRs of four or
 five apps, each with its own nav, Settings, status bar and panels; Studio moves onto it last in its own PR.
@@ -434,16 +446,16 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
 
 ### G — The FAB and Loops as a feature [L · 1–2d]
 
-- [ ] **Extract.** `packages/app/src/features/loops` (29 files, ~5.6k lines, including `fab-launchers.tsx`)
+- [x] **Extract.** `packages/app/src/features/loops` (29 files, ~5.6k lines, including `fab-launchers.tsx`)
   and `features/quick-access` (3 files) → net-new `packages/features/loops/renderer`. Listed in
   `STUDIO_FEATURES`.
   - *Done when* the moved tests pass and layer-boundaries stays green.
-- [ ] **`LoopsHost` slots.** Net-new `packages/features/loops/renderer/host.tsx`:
+- [x] **`LoopsHost` slots.** Net-new `packages/features/loops/renderer/host.tsx`:
   `{ renderTerminal(props: { sessionId: string }): ReactNode; renderCompanionLauncher(): ReactNode; startAgent(input: StartAgentInput): Promise<string>; openNotes(): void; setupStore?: SetupPort }`.
   `AppShell`'s composer in each app fills them from the terminal and companion features; the loops package
   imports neither.
   - *Done when* `grep -r "features/terminal\|features/companion" packages/features/loops` is empty.
-- [ ] **The ledger in the runtime, one file per app.** `loop-runs.ts` / `loop-runs-store.ts` →
+- [x] **The ledger in the runtime, one file per app.** `loop-runs.ts` / `loop-runs-store.ts` →
   net-new `packages/runtime/src/loop-runs/`. Each app writes only
   `<appData>/Midnite Runtime/loop-runs/<appId>.json` (`MAX_STORED_LOOP_RUNS = 200` per file, written by atomic
   temp-file + rename); `listLoopRuns()` reads and merges every file in the directory, newest first, each run
@@ -453,7 +465,7 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
   - `loopRunsChanged` fires on the app's own writes and on an `fs.watch` of the directory.
   - *Done when* a runtime test writes from two fake apps and asserts the merged list and that a corrupt file is
     skipped with one `warn`, and a migration test asserts the copy.
-- [ ] **The menu's leaves.** Loops (L), Companion (C), Notes (N), Repeat (R), Setup (S), Report Issue (I) and
+- [x] **The menu's leaves.** Loops (L), Companion (C), Notes (N), Repeat (R), Setup (S), Report Issue (I) and
   Guided tour (G) keep their mnemonics after `Mod+l`; a leaf whose feature the app does not carry is **hidden,
   not disabled** (the existing "Coming soon" I/G stay disabled).
   - *Done when* `quick-access-menu.test.tsx` renders with `panels: { companion: false }` and asserts no C row.

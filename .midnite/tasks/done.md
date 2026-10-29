@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 123 Theme G — the FAB and Loops as a feature
+
+`packages/features/loops/renderer` (FAB launchers, quick-access menu, Loops panel and composer) behind a `LoopsHost` port, Studio's adapter in `compose/loops-host.tsx`, a default host for every other app; menu leaves hidden when the app lacks the feature. The run ledger moved to `packages/runtime/src/loop-runs/`: one file per app, merged on read, `appId`-tagged, Studio's old file copied once.
+
 ## 2026-10-29 — Phase 123 Themes E and J (partial) — the terminal panel as a feature, the status bar in the frame
 
 [#1068](https://github.com/bilo-io/midnite-studio/pull/1068). `packages/features/terminal/renderer` (panel, session list, xterm, store, unload policy, replay gate) behind a `TerminalHost` port with Studio's adapter in `compose/terminal-host.tsx` and a default host for every other app; sessions carry an optional `appId` with a suite-prefs "Show all apps" toggle; a broker that never attached says so in the panel. The status bar's segment host, density and overflow moved to `packages/frame/src/shell/status-bar/` with `suiteSegments(panels)` for every app. Open: E.3 (main half) and J.4 (title-bar cluster, waits on L.2).
