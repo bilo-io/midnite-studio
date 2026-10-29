@@ -37,6 +37,8 @@
       "@midnite/studio-module-money/bridge": ["./packages/modules/money/main/bridge.ts"],
       "@midnite/studio-module-media/main": ["./packages/modules/media/main/index.ts"],
       "@midnite/studio-module-media/bridge": ["./packages/modules/media/main/bridge.ts"],
+      "@midnite/studio-module-browser/main": ["./packages/modules/browser/main/index.ts"],
+      "@midnite/studio-module-browser/bridge": ["./packages/modules/browser/main/bridge.ts"],
       "@midnite/studio-module-vault/main": ["./packages/modules/vault/main/index.ts"],
       "@midnite/studio-module-vault/bridge": ["./packages/modules/vault/main/bridge.ts"],
       "@midnite/studio-module-cleaner/main": ["./packages/modules/cleaner/main/index.ts"],
