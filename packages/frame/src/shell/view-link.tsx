@@ -33,7 +33,7 @@ export function RailChordTooltip({ label, children }: { label: ReactNode; side?:
   const show = () => setOpen(true);
   const hide = () => setOpen(false);
   return (
-    <span className="relative flex" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
+    <span className="relative flex flex-col" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
       {cloneElement(children, { 'aria-describedby': id })}
       <span
         id={id}
