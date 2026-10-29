@@ -7,7 +7,7 @@ import { installMockBridge } from '../test-support/mock-bridge';
  *
  * Phase 82 Theme C wave 5 moved this file's 3 tier tests and the
  * click-to-open-popover test to
- * `src/features/titlebar-cluster/battery-segment.bridge.test.tsx`, seeding
+ * `src/features/battery/battery-segment.bridge.test.tsx`, seeding
  * `useMetricsStore` directly instead of routing through the mock bridge's
  * `metricsSamples` fixture — the exact same store write `useMetricsStream`'s
  * `onSample` subscription performs, so nothing about the component's
