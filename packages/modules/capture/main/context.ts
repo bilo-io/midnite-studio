@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import {
   CAPTURE_DATA_DIR,
   captureEmitter,
-  captureMain,
   createCaptureService,
   type CaptureElectron,
   type CaptureOverlayOpener,
@@ -15,7 +14,7 @@ import {
 import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
 import { CAPTURE_DEFAULT_SETTINGS } from '@midnite/studio-shared';
 
-import { CAPTURE_APP_SHORTCUT } from './identity';
+import { CAPTURE_APP_SHORTCUT, captureModuleMain } from './module';
 
 /** The electron pieces Capture's main needs, injected so registration is testable under bare vitest. */
 export type CaptureAppElectron = IpcContextElectron & {
@@ -69,7 +68,7 @@ export function registerCaptureAppHandlers(el: CaptureAppElectron): CaptureServi
     ...(el.now ? { now: el.now } : {}),
     ...(el.timers ? { timers: el.timers } : {}),
   });
-  captureMain.register(ctx, { capture });
+  captureModuleMain.register(ctx, { capture });
   return capture;
 }
 

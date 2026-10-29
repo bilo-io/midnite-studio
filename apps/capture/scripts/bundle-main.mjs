@@ -21,6 +21,9 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-module-capture/overlay-bridge': at('../../../packages/modules/capture/main/overlay-bridge.ts'),
+    '@midnite/studio-module-capture/bridge': at('../../../packages/modules/capture/main/bridge.ts'),
+    '@midnite/studio-module-capture/main': at('../../../packages/modules/capture/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
     '@midnite/studio-feature-report/bridge': at('../../../packages/features/report/bridge.ts'),
     '@midnite/studio-feature-capture/main': at('../../../packages/features/capture/main/index.ts'),

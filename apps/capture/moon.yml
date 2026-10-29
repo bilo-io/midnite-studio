@@ -15,6 +15,7 @@ dependsOn:
   - 'runtime'
   - 'feature-capture'
   - 'feature-report'
+  - 'module-capture'
 
 tasks:
   build:
@@ -38,6 +39,9 @@ tasks:
       - '/packages/features/capture/manifest.ts'
       - '/packages/features/capture/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/capture/main/**/*'
+      - '/packages/modules/capture/renderer/**/*'
+      - '/packages/modules/capture/manifest.ts'
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/report/main/**/*'
@@ -59,6 +63,9 @@ tasks:
       - '/packages/features/capture/manifest.ts'
       - '/packages/features/capture/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/capture/main/**/*'
+      - '/packages/modules/capture/renderer/**/*'
+      - '/packages/modules/capture/manifest.ts'
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/report/main/**/*'
@@ -76,6 +83,9 @@ tasks:
       - '/packages/features/capture/manifest.ts'
       - '/packages/features/capture/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/capture/main/**/*'
+      - '/packages/modules/capture/renderer/**/*'
+      - '/packages/modules/capture/manifest.ts'
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/report/main/**/*'

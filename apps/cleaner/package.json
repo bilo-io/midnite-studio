@@ -15,6 +15,7 @@
     "@midnite/studio-feature-optimizer": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-module-cleaner": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "react": "^19.0.0",

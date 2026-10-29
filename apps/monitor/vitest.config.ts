@@ -8,6 +8,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@midnite/studio-module-monitor/renderer': at('../../packages/modules/monitor/renderer/index.ts'),
+      '@midnite/studio-module-monitor/bridge': at('../../packages/modules/monitor/main/bridge.ts'),
+      '@midnite/studio-module-monitor/main': at('../../packages/modules/monitor/main/index.ts'),
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
