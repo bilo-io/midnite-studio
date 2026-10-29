@@ -1,0 +1,98 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Money module package (Phase 124 Theme E): the money host's compose code, views and main bridge, moved out
+# of apps/money. Same task shape as a feature package.
+id: 'module-money'
+language: 'typescript'
+layer: 'library'
+
+# `app-<id>` names the apps that mount this module: its host and Studio. `scripts/affected-apps.mjs` reads them.
+tags:
+  - 'layer-module'
+  - 'app-money'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-report'
+  - 'feature-finance'
+
+tasks:
+  # Only the main half emits; the renderer half is compiled by the app.
+  build:
+    command: 'pnpm exec tsc -b tsconfig.main.json'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+      - 'feature-report:build'
+      - 'feature-finance:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/finance/manifest.ts'
+      - '/packages/features/finance/main/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
+      - 'feature-report:build'
+      - 'feature-finance:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/finance/renderer/**/*'
+      - '/packages/features/finance/manifest.ts'
+      - '/packages/features/finance/main/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/finance/renderer/**/*'
+      - '/packages/features/finance/manifest.ts'
+      - '/packages/features/finance/main/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

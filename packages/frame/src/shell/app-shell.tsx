@@ -97,12 +97,25 @@ function AppShellFrame({
   const settingsActive = activeView === SETTINGS_VIEW;
   const shellNav = useMemo<ShellNavConfig>(
     () => ({
-      pinned: nav.views.map(({ id, label, icon: Icon }) => ({
-        href: pathForNavView(id),
-        label,
-        icon: <Icon className="h-4 w-4" />,
+      // A grouped nav (Phase 124 Theme E) is one titled section per module; a flat one is pinned rows.
+      pinned:
+        nav.groups !== undefined
+          ? []
+          : nav.views.map(({ id, label, icon: Icon }) => ({
+              href: pathForNavView(id),
+              label,
+              icon: <Icon className="h-4 w-4" />,
+            })),
+      sections: (nav.groups ?? []).map((group) => ({
+        key: group.id,
+        title: group.label,
+        collapsible: false,
+        items: group.views.map(({ id, label, icon: Icon }) => ({
+          href: pathForNavView(id),
+          label,
+          icon: <Icon className="h-4 w-4" />,
+        })),
       })),
-      sections: [],
       brand: ({ expanded }) => (
         <div className="flex min-w-0 flex-1 items-center gap-2 px-1">
           <span

@@ -17,7 +17,7 @@ import {
   type LogSink,
 } from '@midnite/studio-runtime';
 
-import { registerVanguardHandlers } from './context';
+import { registerVanguardHandlers } from '@midnite/studio-module-vanguard/main';
 import {
   VANGUARD_NAME,
   SMOKE_READY_LINE,
