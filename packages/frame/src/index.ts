@@ -516,3 +516,19 @@ export {
   subscribeSuitePrefs,
   suitePrefsStorage,
 } from './prefs/suite-prefs-storage';
+
+// The settings view and its page contract (Phase 123 Theme L.3).
+export { ChordsPage } from './settings/chords-page';
+export {
+  CHORDS_PAGE_ID,
+  SETTINGS_GROUPS,
+  SUITE_SETTINGS_PAGES,
+  appSettingsPages,
+  settingsPageProblems,
+  suiteSettingsPages,
+  type SettingsGroupId,
+  type SettingsPageDef,
+  type SettingsPageKey,
+  type SuiteSettingsPageId,
+} from './settings/settings-pages';
+export { SettingsView, type SettingsViewProps } from './settings/settings-view';

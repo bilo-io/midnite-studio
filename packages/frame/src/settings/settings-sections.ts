@@ -39,9 +39,7 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('Preview'),
     section('Reset'),
   ],
-  privacy: [
-    section('Location'),
-  ],
+  privacy: [section('Location')],
   graph: [
     section('Style'),
     section('Row density'),
@@ -49,24 +47,15 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('Columns'),
     section('Activity timeline'),
   ],
-  diff: [
-    section('Diff view'),
-    section('File lists'),
-  ],
+  diff: [section('Diff view'), section('File lists')],
   sidebar: [
     section('Navigation'),
     section('Sidenav'),
     section('View filters'),
     section('Repository Sync'),
   ],
-  search: [
-    section('Search Defaults'),
-  ],
-  screenLock: [
-    section('Screensaver'),
-    section('Weather'),
-    section('Screen Lock'),
-  ],
+  search: [section('Search Defaults')],
+  screenLock: [section('Screensaver'), section('Weather'), section('Screen Lock')],
   terminal: [
     section('General'),
     section('Memory'),
@@ -92,10 +81,7 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('Column → skill'),
     section('Auto-mate'),
   ],
-  workflows: [
-    section('Defaults'),
-    section('Run history'),
-  ],
+  workflows: [section('Defaults'), section('Run history')],
   media: [
     section('General'),
     section('Video'),
@@ -105,15 +91,9 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('Games'),
   ],
   ollama: [],
-  gitSafety: [
-    section('Force-push'),
-  ],
-  trashSafety: [
-    section('Empty Trash'),
-  ],
-  apiClient: [
-    section('Requests'),
-  ],
+  gitSafety: [section('Force-push')],
+  trashSafety: [section('Empty Trash')],
+  apiClient: [section('Requests')],
   mcp: [
     section('MCP Server'),
     section('Let agents steer the UI'),
@@ -136,10 +116,7 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('Personality'),
     section('Profiles'),
   ],
-  monitor: [
-    section('Metrics'),
-    section('Diagnostics'),
-  ],
+  monitor: [section('Metrics'), section('Diagnostics')],
   browser: [
     section('Link handling'),
     section('Preview deployments'),
@@ -150,9 +127,7 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('Privacy'),
     section('Data'),
   ],
-  'web-apps': [
-    section('Third-party apps'),
-  ],
+  'web-apps': [section('Third-party apps')],
   accounts: [
     section('Accounts'),
     section('Add an account'),
@@ -160,20 +135,9 @@ export const SETTINGS_SECTIONS: Record<SettingsPageId, readonly SettingsSection[
     section('How this works'),
     section('Reachable repositories'),
   ],
-  cli: [
-    section('Command line integration'),
-  ],
-  updates: [
-    section('App Updates'),
-  ],
+  cli: [section('Command line integration')],
+  updates: [section('App Updates')],
   health: [],
-  vanguard: [
-    section('Sensors'),
-    section('Scanning'),
-    section('Quarantine'),
-  ],
-  optimizer: [
-    section('Workspace Optimizer'),
-    section('System caches'),
-  ],
+  vanguard: [section('Sensors'), section('Scanning'), section('Quarantine')],
+  optimizer: [section('Workspace Optimizer'), section('System caches')],
 };
