@@ -1,7 +1,8 @@
+// @vitest-environment node
 import type { RepoDescriptor, StatusResult } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { McpDispatchResult } from '../mcp/dispatch';
+import type { CompanionDispatchResult as McpDispatchResult } from './services';
 import { buildCompanionSnapshot, FORGE_TIMEOUT_MS, type CompanionSnapshotDeps } from './snapshot';
 
 const repo: RepoDescriptor = {

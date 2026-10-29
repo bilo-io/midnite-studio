@@ -1,30 +1,29 @@
+// @vitest-environment node
 import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { STUB_COMPANION_SERVICES, configureCompanionServices } from '../services';
+
 /**
  * Phase 79 Theme F — the recogniser's key vault.
  *
- * Mocked exactly as `db/credential-vault.test.ts` mocks it, and for its stated
- * reason: the module imports `electron`, so `safeStorage` has to be in place
- * before it loads, and desktop's `module: "commonjs"` tsconfig forbids a
- * top-level await to do it with.
+ * The keychain is injected through `configureCompanionServices` (Phase 123 Theme F: this package
+ * imports no `electron`), so a test hands in a fake `safeStorage` in a `beforeAll`.
  */
 const { encryptString, decryptString, isEncryptionAvailable } = vi.hoisted(() => ({
   encryptString: vi.fn((value: string) => Buffer.from(`enc:${value}`)),
   decryptString: vi.fn((buf: Buffer) => buf.toString('utf8').replace(/^enc:/, '')),
   isEncryptionAvailable: vi.fn(() => true),
 }));
-vi.mock('electron', () => ({
-  safeStorage: { encryptString, decryptString, isEncryptionAvailable },
-}));
 
 let createSttCredentials: typeof import('./credentials').createSttCredentials;
 let parseVaultState: typeof import('./credentials').parseVaultState;
 let nullSttCredentials: typeof import('./credentials').nullSttCredentials;
 beforeAll(async () => {
+  configureCompanionServices({ ...STUB_COMPANION_SERVICES, safeStorage: { encryptString, decryptString, isEncryptionAvailable } });
   ({ createSttCredentials, parseVaultState, nullSttCredentials } = await import('./credentials'));
 });
 

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,7 +7,7 @@ import { COMPANION_DEFAULT_DIGEST_WINDOW_MS } from '@midnite/studio-shared';
 import type { Commit, GraphRow, Ref, RepoDescriptor } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { McpDispatchResult } from '../mcp/dispatch';
+import type { CompanionDispatchResult as McpDispatchResult } from './services';
 import { createCompanionStore, nullCompanionStore } from './companion-store';
 import {
   buildCompanionDigest,

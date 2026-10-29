@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 import { failure, type GitOpResult } from '@midnite/studio-shared';
-import { utilityProcess } from 'electron';
 
+import { companionServices } from './services';
 import type { CompanionTtsStatusValue } from './tts';
 import { kokoroModelOnDisk } from './tts-model-files';
 
@@ -102,10 +102,10 @@ export function workerScriptPath(dirname: string = __dirname): string {
 }
 
 function defaultSpawn(): TtsWorkerHandle {
-  return utilityProcess.fork(workerScriptPath(), [], {
-    serviceName: 'mstudio-companion-tts',
-    stdio: 'ignore',
-  });
+  // `forkUtility` is Electron's `utilityProcess.fork`, injected (this package imports no `electron`).
+  const fork = companionServices().forkUtility;
+  if (!fork) throw new Error('This app has no local voice worker.');
+  return fork(workerScriptPath(), [], { serviceName: 'mstudio-companion-tts', stdio: 'ignore' }) as TtsWorkerHandle;
 }
 
 let deps: TtsBrokerDeps = { spawn: defaultSpawn };

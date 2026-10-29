@@ -38,6 +38,7 @@
     "@midnite/studio-feature-capture": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-feature-chats": "workspace:*",
+    "@midnite/studio-feature-companion": "workspace:*",
     "@midnite/studio-feature-councils": "workspace:*",
     "@midnite/studio-feature-database": "workspace:*",
     "@midnite/studio-feature-finance": "workspace:*",

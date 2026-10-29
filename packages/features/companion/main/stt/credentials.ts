@@ -1,7 +1,7 @@
 import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { safeStorage } from 'electron';
+import { companionServices } from '../services';
 
 import { STT_PROVIDER_IDS, type SttProviderId } from '@midnite/studio-shared';
 
@@ -29,7 +29,7 @@ import { STT_PROVIDER_IDS, type SttProviderId } from '@midnite/studio-shared';
  *   anything. The only caller that ever decrypts is the transcribe path, one
  *   request at a time.
  *
- * **Degrades rather than blocks** when `safeStorage.isEncryptionAvailable()`
+ * **Degrades rather than blocks** when `isEncryptionAvailable()`
  * is false, exactly as the connection vault does: the key is held for the
  * session in memory and asked for again next launch. That is a dev-machine
  * case — the only ship target is mac arm64, where `safeStorage` backs onto
@@ -49,6 +49,11 @@ export type SttCredentials = {
 type StoredState = { version: 1; keys: Partial<Record<SttProviderId, string>> };
 
 const FILE_NAME = 'companion-stt.vault.json';
+
+/** The app's keychain verdict — false where it injected none, which is the "keys last for the session" path. */
+function isEncryptionAvailable(): boolean {
+  return companionServices().safeStorage?.isEncryptionAvailable() ?? false;
+}
 
 export function createSttCredentials(directory: string): SttCredentials {
   const file = join(directory, FILE_NAME);
@@ -89,16 +94,16 @@ export function createSttCredentials(directory: string): SttCredentials {
   };
 
   return {
-    isAvailable: () => safeStorage.isEncryptionAvailable(),
+    isAvailable: () => isEncryptionAvailable(),
 
     get: async (provider) => {
       const inMemory = sessionOnly.get(provider);
       if (inMemory !== undefined) return inMemory;
-      if (!safeStorage.isEncryptionAvailable()) return null;
+      if (!isEncryptionAvailable()) return null;
       const encrypted = (await load())[provider];
       if (encrypted === undefined) return null;
       try {
-        return safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
+        return companionServices().safeStorage!.decryptString(Buffer.from(encrypted, 'base64'));
       } catch {
         // The OS keychain entry is gone or unreadable (a migrated machine, a
         // reset keychain). "No key stored" is the recoverable answer; the
@@ -116,7 +121,7 @@ export function createSttCredentials(directory: string): SttCredentials {
         await persist(keys);
         return;
       }
-      if (!safeStorage.isEncryptionAvailable()) {
+      if (!isEncryptionAvailable()) {
         // Degrade: usable now, gone next launch. Reported to the UI through
         // `encryptionAvailable: false` rather than a silent success.
         sessionOnly.set(provider, trimmed);
@@ -124,7 +129,7 @@ export function createSttCredentials(directory: string): SttCredentials {
       }
       await persist({
         ...(await load()),
-        [provider]: safeStorage.encryptString(trimmed).toString('base64'),
+        [provider]: companionServices().safeStorage!.encryptString(trimmed).toString('base64'),
       });
     },
 

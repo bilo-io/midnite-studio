@@ -7,8 +7,7 @@ import {
   type StatusResult,
 } from '@midnite/studio-shared';
 
-import { dispatchMcpCall, type McpDispatchResult } from '../mcp/dispatch';
-import { livePtyActivityCounts } from '../pty-service';
+import { companionServices, type CompanionDispatchResult as McpDispatchResult } from './services';
 
 /**
  * Where the repo stands, right now — Phase 79 Theme B.
@@ -48,8 +47,8 @@ export type CompanionSnapshotDeps = {
 };
 
 export const defaultSnapshotDeps: CompanionSnapshotDeps = {
-  dispatch: dispatchMcpCall,
-  sessionCounts: livePtyActivityCounts,
+  dispatch: (tool, input) => companionServices().dispatch(tool, input),
+  sessionCounts: () => companionServices().sessionCounts(),
 };
 
 /** Resolve `value` to `null` if it has not settled within `ms`. Never rejects. */

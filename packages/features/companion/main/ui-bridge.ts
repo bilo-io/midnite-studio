@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-import type { BrowserWindow } from 'electron';
-
 import {
   EVENT_CHANNELS,
   failure,
@@ -59,9 +57,12 @@ type PendingEntry = {
 const pending = new Map<string, PendingEntry>();
 
 /** Set once at boot (`main/index.ts`, alongside `registerMcpServer`) — the same thunk `registerWindowHandlers` and every other main-window consumer already share. */
-let mainWindowGetter: (() => BrowserWindow | null) | null = null;
+/** The slice of a `BrowserWindow` this module drives — structural, because this package imports no `electron`. */
+export type UiBridgeWindow = { isDestroyed(): boolean; webContents: { send(channel: string, payload: unknown): void } };
 
-export function configureUiBridge(getMainWindow: () => BrowserWindow | null): void {
+let mainWindowGetter: (() => UiBridgeWindow | null) | null = null;
+
+export function configureUiBridge(getMainWindow: () => UiBridgeWindow | null): void {
   mainWindowGetter = getMainWindow;
 }
 

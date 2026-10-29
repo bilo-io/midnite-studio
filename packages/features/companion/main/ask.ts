@@ -20,8 +20,9 @@ import {
   type GitOpResult,
 } from '@midnite/studio-shared';
 
-import { OUTPUT_TAIL_CAP, runProcess, type ProcessSink, type SpawnFn } from '../process-runner';
-import { listAgents } from '../terminal-service';
+import { OUTPUT_TAIL_CAP, runProcess, type ProcessSink, type SpawnFn } from '@midnite/studio-runtime';
+
+import { companionServices } from './services';
 
 /** Lives in `shared` since Phase 113 Theme N (the workflows feature resolves a headless CLI too); kept importable from here. */
 export { resolveHeadlessAgent };
@@ -115,7 +116,7 @@ export type CompanionAskDeps = {
   home?: (() => string) | undefined;
 };
 
-export const defaultAskDeps: CompanionAskDeps = { agents: listAgents };
+export const defaultAskDeps: CompanionAskDeps = { agents: () => companionServices().agents() };
 
 /**
  * The system prompt, per job.

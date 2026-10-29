@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { CompanionVocabulary } from '@midnite/studio-shared';
 import { describe, expect, it } from 'vitest';
 

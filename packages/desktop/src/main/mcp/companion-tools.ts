@@ -11,8 +11,8 @@ import {
   type McpToolOutput,
 } from '@midnite/studio-shared';
 
-import { companionTtsModelOnDisk } from '../companion/tts-broker';
-import { requestUiAction, UI_BRIDGE_TIMEOUT_MESSAGE } from '../companion/ui-bridge';
+import { companionTtsModelOnDisk } from '@midnite/studio-feature-companion/main/tts-broker';
+import { requestUiAction, UI_BRIDGE_TIMEOUT_MESSAGE } from '@midnite/studio-feature-companion/main/ui-bridge';
 import { McpToolError } from './errors';
 import { getMcpAllowCompanionSettings } from './ui-gate';
 

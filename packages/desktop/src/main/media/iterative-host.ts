@@ -5,7 +5,7 @@ import { app } from 'electron';
 
 import type { IterativeHost } from '@midnite/studio-feature-media-model/main';
 
-import { resolveHeadlessAgent } from '../companion/ask';
+import { resolveHeadlessAgent } from '@midnite/studio-feature-companion/main/ask';
 import { mcpShimScriptPath } from '../mcp';
 import { startMcpServer } from '../mcp/server';
 import { OUTPUT_TAIL_CAP, runProcess, type ProcessSink } from '../process-runner';

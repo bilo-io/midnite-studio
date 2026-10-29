@@ -13,8 +13,9 @@ import {
   type RepoDescriptor,
 } from '@midnite/studio-shared';
 
-import { confineToRoot } from '../fs-scope';
-import { dispatchMcpCall, type McpDispatchResult } from '../mcp/dispatch';
+import { confineToRoot } from '@midnite/studio-runtime';
+
+import { companionServices, type CompanionDispatchResult as McpDispatchResult } from './services';
 import { nullCompanionStore, type CompanionStore } from './companion-store';
 
 /**
@@ -69,7 +70,7 @@ export async function readTrackerFile(repoRoot: string, relPath: string): Promis
 }
 
 export const defaultDigestDeps: CompanionDigestDeps = {
-  dispatch: dispatchMcpCall,
+  dispatch: (tool, input) => companionServices().dispatch(tool, input),
   store: nullCompanionStore,
   readTracker: readTrackerFile,
 };

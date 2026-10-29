@@ -1,3 +1,4 @@
+// @vitest-environment node
 import {
   BUILTIN_AGENTS,
   COMPANION_ASK_FALLBACK,
@@ -8,7 +9,7 @@ import {
 } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { SpawnedProcess, SpawnFn } from '../process-runner';
+import type { SpawnedProcess, SpawnFn } from '@midnite/studio-runtime';
 import {
   askCompanion,
   buildAskPrompt,

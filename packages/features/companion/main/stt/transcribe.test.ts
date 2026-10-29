@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { COMPANION_STT_MAX_BYTES, type SttProviderId } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 

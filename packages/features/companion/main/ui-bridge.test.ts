@@ -1,5 +1,5 @@
+// @vitest-environment node
 import { EVENT_CHANNELS } from '@midnite/studio-shared';
-import type { BrowserWindow } from 'electron';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -8,15 +8,16 @@ import {
   resetUiBridgeForTests,
   resolveUiReply,
   UI_BRIDGE_TIMEOUT_MESSAGE,
+  type UiBridgeWindow,
 } from './ui-bridge';
 
-/** A `BrowserWindow` stand-in narrow enough for this module's own use of it. */
-function fakeWindow(): { win: BrowserWindow; sends: unknown[] } {
+/** A `UiBridgeWindow` stand-in narrow enough for this module's own use of it. */
+function fakeWindow(): { win: UiBridgeWindow; sends: unknown[] } {
   const sends: unknown[] = [];
   const win = {
     isDestroyed: () => false,
     webContents: { send: (_channel: string, payload: unknown) => sends.push(payload) },
-  } as unknown as BrowserWindow;
+  } as unknown as UiBridgeWindow;
   return { win, sends };
 }
 
@@ -42,7 +43,7 @@ describe('requestUiAction', () => {
   });
 
   it('answers refused when the registered window has been destroyed', async () => {
-    const win = { isDestroyed: () => true, webContents: { send: vi.fn() } } as unknown as BrowserWindow;
+    const win = { isDestroyed: () => true, webContents: { send: vi.fn() } } as unknown as UiBridgeWindow;
     configureUiBridge(() => win);
     const result = await requestUiAction({ kind: 'state' });
     expect(result.ok).toBe(false);
