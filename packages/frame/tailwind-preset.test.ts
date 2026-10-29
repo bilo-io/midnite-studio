@@ -18,6 +18,12 @@ describe('frameContent', () => {
     expect(globs.some((g) => g.includes('/packages/features/optimizer/renderer/'))).toBe(true);
   });
 
+  it("scans @bilo-io/shell's dist, which AppShell renders (Phase 123 Theme B)", () => {
+    const shell = globs.find((g) => g.includes('@bilo-io/shell/dist'));
+    expect(shell).toBeDefined();
+    expect(existsSync(globDir(shell!))).toBe(true);
+  });
+
   it('every glob directory exists', () => {
     for (const g of globs.filter((x) => !x.includes('node_modules'))) {
       expect(existsSync(globDir(g)), g).toBe(true);

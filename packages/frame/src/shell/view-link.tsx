@@ -19,7 +19,7 @@ export type ViewLinkOptions = {
 };
 
 /** The class the active row carries so the app's brand accent colours it (decision 11). */
-export const APP_ACCENT_ACTIVE_CLASS = 'app-accent-active text-[color:var(--app-accent)]';
+export const APP_ACCENT_ACTIVE_CLASS = 'app-accent-active !text-[color:var(--app-accent)]';
 
 /**
  * The rail's own tooltip for an app that brings none: shown on hover and keyboard focus, beside the row
