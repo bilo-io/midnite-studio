@@ -35,9 +35,9 @@ describe('<App>', () => {
 
   it('opens an app in Studio on its own view once Studio is installed', async () => {
     const { open } = mount('installed');
-    const button = await screen.findByLabelText('Open Midnite Coder');
+    const button = await screen.findByLabelText('Open Midnite Agents');
     fireEvent.click(button);
-    expect(open).toHaveBeenCalledWith('coder', undefined);
+    expect(open).toHaveBeenCalledWith('agents', undefined);
   });
 
   it('opens an app\'s detail sheet when a midnite:// link asks for one (live and parked)', async () => {
@@ -47,10 +47,10 @@ describe('<App>', () => {
       show = listener as typeof show;
       return () => undefined;
     };
-    bridge.apps.takePending = async () => 'coder';
+    bridge.apps.takePending = async () => 'agents';
     window.midniteLauncher = bridge as LauncherBridge;
     render(<App />);
-    expect(await screen.findByText(/Midnite Coder/, { selector: '[role="dialog"] *' })).toBeDefined();
+    expect(await screen.findByText(/Midnite Agents/, { selector: '[role="dialog"] *' })).toBeDefined();
     act(() => show('money'));
     expect(await screen.findByText(/Midnite Money/, { selector: '[role="dialog"] *' })).toBeDefined();
   });
@@ -86,7 +86,7 @@ describe('<App>', () => {
 
   it('shows no launcher banner when the launcher is current, but keeps the status-bar Update', async () => {
     mount('installed');
-    await screen.findByLabelText('Open Midnite Coder');
+    await screen.findByLabelText('Open Midnite Agents');
     expect(screen.queryByText(/Midnite Apps .* is available/)).toBeNull();
     const update = screen.getByRole('button', { name: 'Update launcher' });
     // The version sits beside its Update, without the redundant "Launcher" label.
@@ -115,7 +115,7 @@ describe('<App>', () => {
   it('opens a detail sheet whose features open Studio straight onto them', async () => {
     const { open } = mount('installed');
     await screen.findByLabelText('Open Midnite Gamer');
-    const tile = screen.getAllByRole('article').find((a) => within(a).queryByText('Gamer'))!;
+    const tile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('Open Midnite Gamer'))!;
     fireEvent.click(within(tile).getByRole('button', { name: /Details/ }));
     const sheet = screen.getByRole('dialog');
     expect(sheet.getAttribute('aria-label')).toBe('Midnite Gamer');
@@ -126,9 +126,49 @@ describe('<App>', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('shows module chips on a multi-module tile and none on a single-module one', async () => {
+    mount('installed');
+    await screen.findByLabelText('Open Midnite Agents');
+    const agents = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Agents'))!;
+    expect(within(within(agents).getByLabelText('Midnite Agents modules')).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Agents',
+      'Coder',
+      'Creator',
+    ]);
+    const browser = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Browser'))!;
+    expect(within(browser).queryByLabelText('Midnite Browser modules')).toBeNull();
+  });
+
+  it('groups the detail sheet by module and opens a module on its own', async () => {
+    const { open } = mount('installed');
+    await screen.findByLabelText('Open Midnite Vanguard');
+    const tile = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Vanguard'))!;
+    fireEvent.click(within(tile).getAllByRole('button', { name: /Details/ })[0]!);
+    const sheet = screen.getByRole('dialog');
+    for (const name of ['Vanguard', 'Vault', 'Cleaner', 'Monitor']) {
+      expect(within(sheet).getByRole('region', { name: `${name} module` })).toBeDefined();
+    }
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Open Cleaner module' }));
+    expect(open).toHaveBeenCalledWith('vanguard', 'module:cleaner');
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Open Secrets' }));
+    expect(open).toHaveBeenCalledWith('vanguard', 'secrets');
+  });
+
+  it('lists a coming-soon module with no way to open it', async () => {
+    mount('installed');
+    await screen.findByLabelText('Open Midnite Money');
+    const tile = screen.getAllByRole('article').find((el) => within(el).queryByLabelText('Open Midnite Money'))!;
+    fireEvent.click(within(tile).getAllByRole('button', { name: /Details/ })[0]!);
+    const sheet = screen.getByRole('dialog');
+    const accountant = within(sheet).getByRole('region', { name: 'Accountant module' });
+    expect(within(accountant).getByText('Coming soon')).toBeDefined();
+    expect(within(accountant).queryByRole('button')).toBeNull();
+    expect(within(sheet).getByRole('button', { name: 'Open Money module' })).toBeDefined();
+  });
+
   it('switches to the table and remembers it', async () => {
     mount('installed');
-    await screen.findByLabelText('Open Midnite Coder');
+    await screen.findByLabelText('Open Midnite Agents');
     fireEvent.click(within(screen.getByLabelText('Layout')).getByRole('button', { name: 'Table' }));
     expect(screen.getAllByRole('table')).toHaveLength(SECTION_ORDER.length);
     expect(localStorage.getItem('midnite-launcher.layout')).toBe('table');
@@ -137,8 +177,8 @@ describe('<App>', () => {
   it('asks before moving Studio to the Trash, naming what goes with it', async () => {
     const { bridge } = mount('installed');
     const uninstall = vi.spyOn(bridge.studio, 'uninstall');
-    await screen.findByLabelText('Open Midnite Coder');
-    fireEvent.click(screen.getByLabelText('More for Midnite Coder'));
+    await screen.findByLabelText('Open Midnite Agents');
+    fireEvent.click(screen.getByLabelText('More for Midnite Agents'));
     fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: /Move Midnite Studio to Trash/ }));
     const dialog = screen.getByRole('alertdialog');
     expect(within(dialog).getByText(`all ${APPS.length} of them go with it`, { exact: false })).toBeDefined();
@@ -152,8 +192,8 @@ describe('<App>', () => {
 
   it('renders coming-soon apps with disabled button, limited menu, and safe detail view', async () => {
     mount('installed');
-    await screen.findByLabelText('Open Midnite Coder');
-    const scienceTile = screen.getAllByRole('article').find((a) => within(a).queryByText('Science'))!;
+    await screen.findByLabelText('Open Midnite Agents');
+    const scienceTile = screen.getAllByRole('article').find((a) => within(a).queryByLabelText('More for Midnite Science'))!;
     expect(within(scienceTile).getAllByText('Coming soon').length).toBeGreaterThanOrEqual(2);
     expect(within(scienceTile).queryByText('Runs in Studio')).toBeNull();
     const comingSoonBtn = within(scienceTile).getByRole('button', { name: 'Coming soon' });
@@ -182,7 +222,7 @@ describe('<App>', () => {
   it('switches theme from the top bar, remembers it, and tells main', async () => {
     const { bridge } = mount('installed');
     const setNative = vi.spyOn(bridge.theme, 'set');
-    await screen.findByLabelText('Open Midnite Coder');
+    await screen.findByLabelText('Open Midnite Agents');
     const themes = screen.getByLabelText('Theme');
     expect(within(themes).getByLabelText('System theme').getAttribute('aria-pressed')).toBe('true');
 
@@ -207,15 +247,15 @@ describe('<App>', () => {
     const dialog = screen.getByRole('alertdialog');
     expect(within(dialog).getByText('Move all 3 apps to the Trash?')).toBeDefined();
     expect(within(dialog).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      'Midnite Cleaner',
-      'Midnite Monitor',
+      'Midnite Gamer',
+      'Midnite Mind',
       'Midnite Studio',
     ]);
     expect(removeBundle).not.toHaveBeenCalled();
     await act(async () => {
       fireEvent.click(within(dialog).getByRole('button', { name: 'Move all to Trash' }));
     });
-    expect(removeBundle.mock.calls).toEqual([['cleaner'], ['monitor']]);
+    expect(removeBundle.mock.calls).toEqual([['gamer'], ['mind']]);
     expect(removeStudio).toHaveBeenCalledOnce();
     expect(await screen.findByText('Moved 3 apps to the Trash.')).toBeDefined();
     await waitFor(() => expect(button.hasAttribute('disabled')).toBe(true));

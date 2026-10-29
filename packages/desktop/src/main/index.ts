@@ -128,6 +128,7 @@ import {
   setAgentWatcher,
 } from './pty-service';
 import { registerLoopRunsHandlers } from './ipc/loop-runs-handlers';
+import { registerSuitePrefsHandlers } from './ipc/suite-prefs-handlers';
 import { configureLoopRuns, noteSessionExit, setGuardSummaryProvider } from './loop-runs';
 import { latestGuardSweepSummary, startGuardSweeps, stopGuardSweeps } from './guard-sweep-wiring';
 import { createLoopRunsStore } from './loop-runs-store';
@@ -920,6 +921,13 @@ export const startStudioMain: StartStudioMain = () => {
       });
       // Which key each guest app paired with — the host checks it, Studio's Vault view lists and unpairs.
       const runtimeDirectory = studioRuntimeDirectory(app.getPath('appData'), userData);
+      // The suite-prefs file every suite app shares (Phase 123 Theme L.1), in the same runtime directory.
+      const suitePrefs = registerSuitePrefsHandlers({
+        runtimeDirectory,
+        log: defaultLogger,
+        broadcast: broadcastToAllWindows,
+      });
+      app.on('will-quit', () => suitePrefs.close());
       const vaultPairings = createPairingStore({
         hostDirectory: runtimeHostDirectory(runtimeDirectory),
         onPersist: (p) => vaultIntegrity.updateFileSync(p),

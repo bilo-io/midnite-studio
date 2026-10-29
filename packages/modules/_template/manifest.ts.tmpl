@@ -1,0 +1,16 @@
+import { defineModuleManifest } from '@midnite/studio-shared';
+
+/**
+ * The __ID__ module (Phase 124 Theme B template). Pure data both halves read: it imports
+ * `@midnite/studio-shared` and nothing else. `module` must be an id in `MODULE_IDS`, and each
+ * host in `APP_MODULES` that lists it mounts it as one nav group (glyph + label, views beneath).
+ */
+export const __ID__Manifest = defineModuleManifest({
+  module: '__ID__',
+  label: '__LABEL__',
+  glyph: 'LuBox',
+  accent: '#6366f1',
+  // Feature package folders it composes (FEATURE_PLACEMENT keys).
+  features: [],
+  views: [],
+});

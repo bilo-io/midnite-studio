@@ -1737,6 +1737,11 @@ export const CHANNELS = {
   toolApprovalHookInfo: 'mstudio:tool-approval:hook-info',
   /** Whether sandbox-exec is usable here and whether new sessions are confined (Phase 121 Theme E). */
   confinementStatus: 'mstudio:security:confinement-status',
+  // --- suite-prefs (Phase 123 Theme L.1) --------------------------------------
+  /** The suite-wide preferences file, every group defaulted, plus which groups it actually holds. */
+  suitePrefsGet: 'mstudio:suite-prefs:get',
+  /** Replace one group (`{ key, value }`, validated against that key's schema). */
+  suitePrefsSet: 'mstudio:suite-prefs:set',
 } as const;
 
 /** One-way pushes from main → renderer (`webContents.send`). */
@@ -1986,6 +1991,11 @@ export const EVENT_CHANNELS = {
   toolApprovalRequested: 'mstudio:tool-approval:requested',
   /** An approval card was answered or timed out; every window drops it (Phase 121 Theme B). Carries a ToolApprovalResolved. */
   toolApprovalResolved: 'mstudio:tool-approval:resolved',
+  /**
+   * The suite-prefs file changed — this app's own write, or another app's seen through
+   * `fs.watch` (debounced 100 ms). Carries a SuitePrefsSnapshot (Phase 123 Theme L.1).
+   */
+  suitePrefsChanged: 'mstudio:suite-prefs:changed',
 } as const;
 
 /**

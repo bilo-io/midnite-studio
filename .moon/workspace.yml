@@ -16,6 +16,8 @@ projects:
     # scripts/gate-projects-check.mjs requires for every packages/* folder.
     - 'packages/*/moon.yml'
     - 'packages/features/*/moon.yml'
+    # Phase 124 Theme B: a module package, one layer above the features it composes.
+    - 'packages/modules/*/moon.yml'
     # `apps/*` holds whole installable products built from `packages/*` — the
     # Midnite Apps launcher first. Same task inheritance as a package.
     - 'apps/*'

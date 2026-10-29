@@ -125,9 +125,18 @@ clock/weather, battery and theme toggle move to the frame too.
 sampling on blur, hide and minimise exactly as `apps/monitor` does; the status bar's monitor segment opens
 the metrics-only `MonitorFlyout`, whose "Open Monitor" hands off to the Monitor app.
 
-**Theme L — Settings at the foot of the nav.** ◻ A runtime `suite-prefs` file shared by every app holds
+**Theme L — Settings at the foot of the nav.** ◐ A runtime `suite-prefs` file shared by every app holds
 appearance, palette, motion, title-bar status and companion voice settings; the settings view moves to the
-frame and shows the suite-wide pages plus each app's own.
+frame and shows the suite-wide pages plus each app's own. **L.1 landed** (`feature/p123-l1`): the contract in
+`shared/src/suite-prefs.ts` (seven groups — `activityPalette` got its own key beside `palette`, because the two
+stores write separately and a write replaces one key whole), `createSuitePrefsService` in
+`runtime/src/suite-prefs/` (atomic temp+rename writes, read-merge-write per key under one lock, a corrupt file
+moved to `.bad-<ts>` with one warn, a directory `fs.watch` debounced 100 ms that skips its own writes), the
+`suitePrefsGet/Set/Changed` channels, Studio's handler and preload slice, and a renderer-side first-boot seed
+from `midnite.settings` / `midnite.titlebar-status`. Surprise: `palette-store` and `activity-palette-store`
+both persist `activePaletteId` into the same `midnite.settings` blob, so each clobbers the other's selection
+today; the seed routes the value by whether it names an activity preset, and L.2 ends the collision. The
+renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
 
 ## Deliverables
 
@@ -486,7 +495,7 @@ frame and shows the suite-wide pages plus each app's own.
 
 ### L — Settings at the foot of the nav [M · ~1d]
 
-- [ ] **The suite-prefs file.** Net-new `packages/runtime/src/suite-prefs/` (service) and
+- [x] **The suite-prefs file.** ✅ DONE (2026-10-29, branch `feature/p123-l1`). Net-new `packages/runtime/src/suite-prefs/` (service) and
   `packages/shared/src/suite-prefs.ts` (contract):
   - `SuitePrefsSchema = z.object({ version: z.literal(1), appearance: AppearancePrefsSchema, palette: …, titlebarStatus: …, companion: …, terminal: …, monitor: … }).partial()`
     with each group `.passthrough()`-free and defaulted on read.

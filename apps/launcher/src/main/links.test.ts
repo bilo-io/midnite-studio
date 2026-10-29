@@ -34,21 +34,39 @@ describe('catalog → midnite-studio links', () => {
   });
 
   it('opens a named feature, and falls back to the home for an unknown one', () => {
-    expect(appLink('coder', 'db')).toBe('midnite-studio://view?id=database');
+    expect(appLink('agents', 'db')).toBe('midnite-studio://view?id=database');
     expect(appLink('gamer')).toBe('midnite-studio://view?id=media&tab=game');
     expect(appLink('gamer', 'nope')).toBe('midnite-studio://view?id=media&tab=game');
-    expect(appLink('cleaner')).toBe('midnite-studio://view?id=optimizer');
-    expect(appLink('coder', 'tasks')).toBe('midnite-studio://view?id=tasks');
+    expect(appLink('vanguard', 'optimizer')).toBe('midnite-studio://view?id=optimizer');
+    expect(appLink('agents', 'tasks')).toBe('midnite-studio://view?id=tasks');
     // Knowledge lives in the frame now (Phase 113 placement map), not in Mind.
     expect(appLink('mind', 'knowledge')).toBe('midnite-studio://view?id=notes');
     expect(appLink('mind', 'tasks')).toBe('midnite-studio://view?id=notes');
-    expect(appLink('vault')).toBe('midnite-studio://view?id=vault');
-    expect(appLink('capture', 'recordings')).toBe('midnite-studio://view?id=capture');
+    expect(appLink('vanguard', 'secrets')).toBe('midnite-studio://view?id=vault');
+    expect(appLink('mind', 'recordings')).toBe('midnite-studio://view?id=capture');
     expect(appLink('vanguard', 'network')).toBe('midnite-studio://view?id=vanguard&tab=network');
     expect(appLink('vanguard')).toBe('midnite-studio://view?id=vanguard&tab=findings');
     expect(appLink('agents', 'models')).toBe('midnite-studio://view?id=models');
+    expect(appLink('vanguard', 'sessions')).toBe('midnite-studio://view?id=sessions');
+    expect(appLink('mind', 'review')).toBe('midnite-studio://view?id=notes');
+  });
+
+  it('opens a module on its own front door with module:<id>', () => {
+    expect(appLink('agents', 'module:coder')).toBe('midnite-studio://view?id=sessions');
+    expect(appLink('vanguard', 'module:cleaner')).toBe('midnite-studio://view?id=optimizer');
+    expect(appLink('vanguard', 'module:monitor')).toBe('midnite-studio://view?id=settings');
+    expect(appLink('gamer', 'module:creator')).toBe('midnite-studio://view?id=media&tab=doc');
+    expect(appLink('agents', 'module:nope')).toBe('midnite-studio://view?id=chats');
+  });
+
+  it('still resolves a retired app id (an old link) to its host, on the module it became', () => {
+    expect(appLink('coder')).toBe('midnite-studio://view?id=sessions');
+    expect(appLink('coder', 'db')).toBe('midnite-studio://view?id=database');
+    expect(appLink('cleaner')).toBe('midnite-studio://view?id=optimizer');
+    expect(appLink('vault')).toBe('midnite-studio://view?id=vault');
+    expect(appLink('capture', 'recordings')).toBe('midnite-studio://view?id=capture');
     expect(appLink('monitor')).toBe('midnite-studio://view?id=settings');
     expect(appLink('monitor', 'sessions')).toBe('midnite-studio://view?id=sessions');
-    expect(appLink('mind', 'review')).toBe('midnite-studio://view?id=notes');
+    expect(appLink('creator')).toBe('midnite-studio://view?id=media&tab=doc');
   });
 });
