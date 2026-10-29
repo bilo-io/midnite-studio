@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,19 +8,20 @@ import type { RepoDescriptor, Worktree } from '@midnite/studio-shared';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ArtifactDetector } from './detectors';
-import { listRepos, worktreesFor } from '../repo-registry';
 import {
   classify,
   cleanItems,
   MAX_WALK_DEPTH,
-  scanWorkspace,
+  scanWorkspace as scanWorkspaceImpl,
   staleWorktreeCandidates,
+  type RepoSource,
 } from './scan-service';
 
-vi.mock('../repo-registry', () => ({
-  listRepos: vi.fn(),
-  worktreesFor: vi.fn(),
-}));
+const listRepos = vi.fn<RepoSource['listRepos']>();
+const worktreesFor = vi.fn<RepoSource['worktreesFor']>();
+// Every scan in this file runs against the same mocked repo source.
+const scanWorkspace = (opts: Parameters<typeof scanWorkspaceImpl>[0]) =>
+  scanWorkspaceImpl({ repos: { listRepos, worktreesFor }, ...opts });
 
 vi.mock('@midnite/studio-git-engine', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@midnite/studio-git-engine')>();
@@ -115,10 +117,10 @@ describe('scanWorkspace (fixture-tree walk)', () => {
   });
 
   function mockSingleRepo(repoPath: string): void {
-    vi.mocked(listRepos).mockResolvedValue([
+    listRepos.mockResolvedValue([
       { id: 'repo', path: repoPath, name: 'repo', headRef: null, worktrees: [] },
     ]);
-    vi.mocked(worktreesFor).mockResolvedValue([
+    worktreesFor.mockResolvedValue([
       worktree({ path: repoPath, branch: 'main', isMain: true }),
     ]);
   }
@@ -127,10 +129,10 @@ describe('scanWorkspace (fixture-tree walk)', () => {
    *  per-root budget test, which needs `collectRoots()` to walk them in a
    *  known order rather than as two worktrees of one repo. */
   function mockRepos(entries: readonly { id: string; path: string }[]): void {
-    vi.mocked(listRepos).mockResolvedValue(
+    listRepos.mockResolvedValue(
       entries.map(({ id, path }) => ({ id, path, name: id, headRef: null, worktrees: [] })),
     );
-    vi.mocked(worktreesFor).mockImplementation(async (repoId: string) => {
+    worktreesFor.mockImplementation(async (repoId: string) => {
       const entry = entries.find((e) => e.id === repoId);
       return entry ? [worktree({ path: entry.path, branch: 'main', isMain: true })] : [];
     });
@@ -491,10 +493,10 @@ describe('scanWorkspace (fixture-tree walk)', () => {
     await mkdir(stalePath, { recursive: true });
     await writeFile(join(stalePath, 'marker.txt'), 'x'.repeat(7));
 
-    vi.mocked(listRepos).mockResolvedValue([
+    listRepos.mockResolvedValue([
       { id: 'repo', path: repoPath, name: 'repo', headRef: 'main', worktrees: [] },
     ]);
-    vi.mocked(worktreesFor).mockResolvedValue([
+    worktreesFor.mockResolvedValue([
       worktree({ path: repoPath, branch: 'main', isMain: true }),
       worktree({ path: stalePath, branch: 'feature/gone', isMain: false }),
     ]);

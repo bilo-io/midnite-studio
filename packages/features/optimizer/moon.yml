@@ -22,6 +22,7 @@ dependsOn:
   - 'shared'
   - 'frame'
   - 'runtime'
+  - 'git-engine'
 
 tasks:
   # Only the main half emits; the renderer half is compiled by the app.
@@ -33,6 +34,7 @@ tasks:
       - 'root:install'
       - 'shared:build'
       - 'runtime:build'
+      - 'git-engine:build'
     inputs:
       - 'main/**/*'
       - 'manifest.ts'
@@ -40,6 +42,7 @@ tasks:
       - 'package.json'
       - '/packages/shared/src/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'
     outputs:
       - 'dist'
 
@@ -53,6 +56,7 @@ tasks:
     deps:
       - 'shared:build'
       - 'runtime:build'
+      - 'git-engine:build'
     inputs:
       - 'renderer/**/*'
       - 'main/**/*'
@@ -64,6 +68,7 @@ tasks:
       - '/packages/shared/src/**/*'
       - '/packages/frame/src/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'
 
   test:
     inputs:
@@ -76,6 +81,7 @@ tasks:
       - '/packages/shared/src/**/*'
       - '/packages/frame/src/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'
 
   lint:
     inputs:

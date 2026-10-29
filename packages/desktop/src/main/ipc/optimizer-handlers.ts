@@ -1,12 +1,15 @@
 import { shell, type BrowserWindow } from 'electron';
 
-import { optimizerMain, type OptimizerMainServices } from '@midnite/studio-feature-optimizer/main';
+import {
+  DEFAULT_SYSTEM_CACHE_ENTRIES,
+  optimizerMain,
+  type OptimizerMainServices,
+} from '@midnite/studio-feature-optimizer/main';
 import { sendToLiveWindow, type FeatureMainContext } from '@midnite/studio-runtime';
 
 import { getGpuStats } from '../optimizer/gpu-service';
 import { getProcessTableResult, killProcess } from '../optimizer/kill-service';
 import { cleanItems, knownRoots, scanWorkspace } from '../optimizer/scan-service';
-import { DEFAULT_SYSTEM_CACHE_ENTRIES } from '../optimizer/system-cache-registry';
 import {
   cleanSystemCaches,
   runReclaimCommand,

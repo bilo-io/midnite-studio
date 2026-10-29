@@ -255,4 +255,30 @@ describe('Guard Sweep Runner (Phase 122 Theme A)', () => {
     });
     expect(resolved).toEqual(['ports']);
   });
+
+  it('runs a check whose only skipped input it marked optional, and still records the skip', async () => {
+    let seen: Record<string, unknown> = {};
+    const soft: GuardCheck = {
+      id: 'soft',
+      title: 's',
+      category: 'network',
+      needs: ['ports', 'osv'],
+      optional: ['osv'],
+      run: (inputs) => {
+        seen = inputs;
+        return [];
+      },
+    };
+    const result = await runGuardSweep({
+      userData: testDir,
+      checks: [soft],
+      ledger,
+      sweepsStore,
+      context: { switches: { 'privacy.feed.osv': false }, resolvers: { ports: () => ({ open: [] }), osv: () => ({}) } },
+      now: () => clockTime,
+    });
+    expect(result.record.checksRun).toEqual(['soft']);
+    expect(result.record.inputsSkipped).toEqual({ osv: 'privacy.feed.osv' });
+    expect(Object.keys(seen)).toEqual(['ports']);
+  });
 });

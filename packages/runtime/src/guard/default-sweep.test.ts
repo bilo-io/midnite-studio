@@ -40,6 +40,7 @@ describe('the default sweep, end to end (Phase 122 B + C)', () => {
         affected: [{ package: { name: 'lodash', ecosystem: 'npm' }, ranges: [{ type: 'SEMVER', events: [{ introduced: '0' }, { fixed: '4.17.21' }] }] }],
       });
     }
+    if (url.includes('electronjs.org')) return res([{ version: '41.0.0' }, { version: '40.0.0' }, { version: '39.0.0' }]);
     return res({ vulnerabilities: [] }); // KEV
   };
 
@@ -51,7 +52,7 @@ describe('the default sweep, end to end (Phase 122 B + C)', () => {
       ledger,
       context: { resolvers: createGuardResolvers({ userData: dir, home: dir, repos: () => [repo], fetch }) },
     });
-    expect(record.checksRun).toEqual(['lockfile-cves']);
+    expect(record.checksRun).toEqual(['lockfile-cves', 'electron-freshness']);
     expect(Object.keys(record.inputsSkipped)).toEqual(['installedSoftware', 'threatFeed']);
     expect(record.inputsSkipped.installedSoftware).toBe('no-resolver'); // the host supplies exec
     expect(record.inputsSkipped.threatFeed).toContain('no trusted threat-feed key');
