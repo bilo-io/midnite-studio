@@ -41,7 +41,7 @@ The frame:
 | `browser` | frame | the panel; now `packages/features/browser` together with `web-apps` (`FEATURE_PACKAGE_FOLDERS.browser`), which the Browser app composes full-window |
 | `changes` | frame | working-tree changes belong to the git graph |
 | `commit` | frame |  |
-| `companion` | frame |  |
+| `companion` | frame | now `packages/features/companion` (Phase 123 Theme F): the panel, voice and reveal engine behind the `CompanionHost` port, and the main half (STT, TTS, ask) behind `CompanionMainServices`; Studio's revealers, sources and adapter live in `packages/app/src/compose/companion/` |
 | `conflicts` | frame |  |
 | `dashboard` | frame | widget grid; widgets belong to apps |
 | `diff` | frame |  |
