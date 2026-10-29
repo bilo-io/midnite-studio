@@ -19,6 +19,17 @@ dependsOn:
   - 'frame'
 
 tasks:
+  # No main half, so nothing emits. The inherited `build` (`tsc -b`, `outputs: dist`) can never produce
+  # its output, and `app:build` → `desktop:dist` depends on it — so it is a no-op here, with no outputs.
+  build:
+    command: 'noop'
+    options:
+      mergeArgs: 'replace'
+      mergeDeps: 'replace'
+      mergeOutputs: 'replace'
+    deps: []
+    outputs: []
+
   typecheck:
     command: 'pnpm run typecheck'
     options:
