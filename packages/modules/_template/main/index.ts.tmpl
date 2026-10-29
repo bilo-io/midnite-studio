@@ -1,0 +1,10 @@
+import { defineFeatureMain } from '@midnite/studio-runtime';
+
+// The module's main half. Register through the FeatureMainContext the host hands in — never
+// `electron`. Its `channels` must be disjoint from every other module mounted in the same host
+// (`mountModuleMains` in the runtime checks).
+export const __ID__Main = defineFeatureMain<Record<string, never>>({
+  feature: '__ID__',
+  channels: [],
+  register() {},
+});

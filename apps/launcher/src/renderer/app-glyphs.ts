@@ -22,6 +22,8 @@ import {
   PiVaultFill,
 } from 'react-icons/pi';
 
+import type { ModuleId } from '@midnite/studio-shared/modules';
+
 import type { AppId } from '../common/catalog';
 
 /**
@@ -30,30 +32,45 @@ import type { AppId } from '../common/catalog';
  *
  * Phosphor's **Fill** weight, not Lucide: Lucide is outline-only, and a solid
  * glyph holds up at tile size over the moon's black-and-colour halves where a
- * 2 px stroke breaks up. Coder is the one exception, by choice: Lucide's outline
- * `</>` says "code" more plainly than Phosphor's filled version.
+ * 2 px stroke breaks up.
  */
 export const APP_GLYPHS: Record<AppId, IconType> = {
   agents: PiRobotFill,
-  // The outline `</>` reads better than Phosphor's filled code-in-a-square.
-  coder: LuCode,
   gamer: PiGameControllerFill,
-  creator: PiPaletteFill,
   media: PiMonitorPlayFill,
   money: PiChartLineUpFill,
   mind: PiBrainFill,
   browser: PiGlobeFill,
-  cleaner: PiSparkleFill,
-  vault: PiVaultFill,
-  capture: PiCameraFill,
-  monitor: PiPulseFill,
   studio: PiRocketLaunchFill,
   science: PiFlaskFill,
-  accountant: PiCalculatorFill,
   startup: PiBuildingsFill,
-  simulator: PiPlanetFill,
   health: PiHeartbeatFill,
   vanguard: PiShieldCheckFill,
+};
+
+/**
+ * Each module's glyph, drawn on its chip (Phase 124 Theme F). A host's own module wears its app's
+ * glyph; an absorbed app keeps the one it had as an app, so a Coder chip still reads as Coder.
+ */
+export const MODULE_GLYPHS: Record<ModuleId, IconType> = {
+  agents: PiRobotFill,
+  // The outline `</>` reads better than Phosphor's filled code-in-a-square.
+  coder: LuCode,
+  creator: PiPaletteFill,
+  media: PiMonitorPlayFill,
+  gamer: PiGameControllerFill,
+  vanguard: PiShieldCheckFill,
+  vault: PiVaultFill,
+  cleaner: PiSparkleFill,
+  monitor: PiPulseFill,
+  mind: PiBrainFill,
+  capture: PiCameraFill,
+  money: PiChartLineUpFill,
+  accountant: PiCalculatorFill,
+  science: PiFlaskFill,
+  simulator: PiPlanetFill,
+  browser: PiGlobeFill,
+  studio: PiRocketLaunchFill,
 };
 
 /**

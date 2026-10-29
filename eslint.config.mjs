@@ -117,6 +117,27 @@ const LAYER_OTHER_FEATURE = [
     message: 'A feature never imports another feature, by package name or by relative path.',
   },
 ];
+/*
+  Phase 124 Theme B — the module layer. A module composes features + the frame + shared; apps
+  compose modules. Nothing below a module (a feature, the frame, the runtime) imports one, and a
+  module never imports another module.
+*/
+const LAYER_MODULE = {
+  group: ['@midnite/studio-module-*', '@midnite/studio-module-*/**', '**/modules/*/renderer/**', '**/modules/*/main/**', '**/modules/*/manifest'],
+  message:
+    'Nothing below an app imports a module (docs/APPS.md): modules sit above features and the frame, and only an app composes them. If a lower layer needs it, give it a seam (a port, a slot, a prop).',
+};
+const LAYER_OTHER_MODULE = [
+  {
+    group: ['@midnite/studio-module-*', '@midnite/studio-module-*/**'],
+    message:
+      'A module never imports another module (docs/APPS.md) — a host mounts each independently. Declare a host port (the notes/renderer/host.tsx pattern) for what another module owns; if both need the code, it belongs in a feature, the frame or shared.',
+  },
+  {
+    regex: '^(\\.\\./)+[a-z0-9-]+/(renderer|main)(/|$)',
+    message: 'A module never imports another module, by package name or by relative path.',
+  },
+];
 const LAYER_RUNTIME_FROM_RENDERER = {
   group: ['@midnite/studio-runtime', '@midnite/studio-runtime/*'],
   message:
@@ -290,6 +311,7 @@ export default tseslint.config(
       ...APP_PATTERNS,
       MAPLIBRE_LAZY,
       LAYER_APP,
+      LAYER_MODULE,
       LAYER_FEATURE_FROM_FRAME,
       LAYER_RUNTIME_FROM_RENDERER,
     ]),
@@ -305,6 +327,7 @@ export default tseslint.config(
       ...APP_PATTERNS,
       MAPLIBRE_LAZY,
       LAYER_APP,
+      LAYER_MODULE,
       ...LAYER_OTHER_FEATURE,
       LAYER_RUNTIME_FROM_RENDERER,
       {
@@ -322,6 +345,7 @@ export default tseslint.config(
       NO_APP_UPDATER,
       ...APP_PATTERNS,
       LAYER_APP,
+      LAYER_MODULE,
       ...LAYER_OTHER_FEATURE,
       LAYER_RUNTIME_FROM_RENDERER,
     ]),
@@ -340,6 +364,7 @@ export default tseslint.config(
           "A feature's main half reaches Electron only through the FeatureMainContext its composer hands it (`@midnite/studio-runtime`), so it stays testable under plain vitest.",
       },
       LAYER_APP,
+      LAYER_MODULE,
       ...LAYER_OTHER_FEATURE,
       LAYER_FRAME_FROM_MAIN,
       LAYER_DESKTOP,
@@ -362,6 +387,57 @@ export default tseslint.config(
     ]),
   },
 
+  // --- Boundary: module renderer half (Phase 124 Theme B) --------------------
+  // Composes features' `/renderer` entries and the frame; above them, below every app.
+  {
+    files: ['packages/modules/*/renderer/**/*.{ts,tsx}'],
+    rules: deny([
+      NO_APP_UPDATER,
+      ...APP_PATTERNS,
+      MAPLIBRE_LAZY,
+      LAYER_APP,
+      ...LAYER_OTHER_MODULE,
+      ...APP_LAYER_PATTERNS,
+      {
+        regex: '^(\\.\\./)+main(/|$)',
+        message: "The renderer half never imports its own main half — that runs in another process. Share data through `manifest.ts` or shared.",
+      },
+    ]),
+  },
+
+  // --- Boundary: module main half (Phase 124 Theme B) -------------------------
+  // Registers against the runtime's FeatureMainContext, like a feature; never imports electron.
+  {
+    files: ['packages/modules/*/main/**/*.ts'],
+    rules: deny([
+      NO_APP_UPDATER,
+      {
+        group: ['electron', 'electron/*'],
+        message:
+          "A module's main half reaches Electron only through the FeatureMainContext its host hands it (`@midnite/studio-runtime`), so it stays testable under plain vitest.",
+      },
+      LAYER_APP,
+      ...LAYER_OTHER_MODULE,
+      LAYER_FRAME_FROM_MAIN,
+      LAYER_DESKTOP,
+      {
+        regex: '^(\\.\\./)+renderer(/|$)',
+        message: 'The main half never imports its own renderer half. Share data through `manifest.ts` or shared.',
+      },
+    ]),
+  },
+
+  // --- Boundary: module manifest (Phase 124 Theme B) --------------------------
+  {
+    files: ['packages/modules/*/manifest.ts'],
+    rules: deny([
+      {
+        regex: '^(?!@midnite/studio-shared$)',
+        message: "A module manifest is pure data both halves read — it imports `@midnite/studio-shared` and nothing else.",
+      },
+    ]),
+  },
+
   // --- Boundary: runtime (Phase 113 Theme C) ----------------------------------
   // Main-only (electron allowed), beneath every feature and app.
   {
@@ -369,6 +445,7 @@ export default tseslint.config(
     rules: deny([
       NO_APP_UPDATER,
       LAYER_APP,
+      LAYER_MODULE,
       {
         ...LAYER_FEATURE_FROM_FRAME,
         message: 'The runtime never imports a feature: features register against it (FeatureMainContext), not the other way round.',

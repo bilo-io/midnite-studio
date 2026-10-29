@@ -27,6 +27,7 @@ import type { AgentLimitTrip } from '../agent-limits';
 import type { ToolApprovalHookInfo, ToolApprovalRequest, ToolApprovalResolved } from '../tool-policy';
 import type { CompanionDigest, CompanionSnapshot } from '../companion';
 import type { CommandId } from '../keybindings';
+import type { SuitePrefsSetRequest, SuitePrefsSetResponse, SuitePrefsSnapshot } from '../suite-prefs';
 import type { SongChat } from '../media-music-chat';
 import type { ModelLibraryMigrateResult, ModelLibraryNode } from '../media-model-library';
 import type { ModelMeshResult } from '../media-model-mesh';
@@ -1011,6 +1012,18 @@ export type MidniteStudioBridge = {
    * a reloaded renderer cannot lose an `endedAt`. `onChanged` carries nothing:
    * the list is capped-small, so consumers just re-fetch it.
    */
+  /**
+   * The suite-prefs file (Phase 123 Theme L.1): preferences every suite app shares, in
+   * `<appData>/Midnite Runtime/suite-prefs.json`. `get` always answers every group (defaults
+   * filled); `stored` names the groups the file actually holds. `set` replaces one group whole.
+   * `onChanged` fires on this app's own writes and on another app's, seen through a file watch.
+   */
+  suitePrefs: {
+    get: () => Promise<SuitePrefsSnapshot>;
+    set: (req: SuitePrefsSetRequest) => Promise<SuitePrefsSetResponse>;
+    onChanged: (handler: (snapshot: SuitePrefsSnapshot) => void) => Unsubscribe;
+  };
+
   loopRuns: {
     list: () => Promise<z.infer<typeof S.LoopRunsListResponse>>;
     start: (
