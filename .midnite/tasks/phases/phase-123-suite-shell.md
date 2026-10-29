@@ -75,10 +75,18 @@ Scope guardrails:
 never imports `electron`); each app spreads the options into its own `new BrowserWindow` and its preload
 exposes the same `windowChrome` slice Studio's does. Landed: `suite-window.ts` (`suiteWindowOptions`, `windowFrameless`, `attachWindowChrome`, `toggleMaximize`, `TRAFFIC_LIGHT_POSITION`) and `window-chrome-preload.ts` (`createWindowChromeBridge`) in the runtime, with Studio's desktop `window-chrome.ts` and preload now thin callers of them (behaviour unchanged). `ChromeableWindow` also carries `isFocused`/`isDestroyed`, which the state push needs. **Left open:** no app's own `BrowserWindow` or preload adopts the options yet — a frameless window with no renderer-drawn title bar has no drag region, so wiring each app waits for Theme B/H (as does the double-click e2e and the per-app security assertion).
 
-**Theme B — The shared shell.** ◻ `AppShell` in `packages/frame/src/shell/`: `ShellProviders` + `TitleBar` +
-`AppFrame` from `@bilo-io/shell` (a new frame dependency), the app's logo and name, a nav built from the
-manifest's new `nav` field with Settings in the footer, the app accent on the logo tile and active nav item
-only, and named slots for the panels, the footer and Studio's title-bar extras.
+**Theme B — The shared shell.** ✅ `AppShell` in `packages/frame/src/shell/`: `ShellProviders` + `TitleBar` +
+`AppFrame` from `@bilo-io/shell`, the app's logo and name, a nav built from the manifest's new `nav` field with
+Settings in the footer, the app accent on the logo tile and active nav item only, and named slots for the
+panels, the footer and Studio's title-bar extras. Landed (stacked on #1059): `app-shell.tsx`, `nav-config.ts`
+(`NavConfig`, `NavView`, `ShellManifestFields`, `navConfigProblems`, `navChordFor`) and `view-link.tsx`
+(`createViewLink`) with tests, and a `nav` field on all twelve existing app manifests (Creator, Gamer and Media
+derive theirs from their media-tab descriptors). Surprises: `@bilo-io/shell` was already a frame dependency
+(Phase 113), so no lockfile change; `IconComponent` already lived in the frame's `chrome/types.ts`, so
+`nav-config.ts` re-exports it; and `frameContent` never scanned `@bilo-io/shell`'s dist, so an app rendering
+`AppShell` drew the phone-width bottom tabs instead of the rail until the glob was added. Studio's own
+`ViewLink`, `Tooltip` and `ThemeToggle` stay in `packages/app` — Studio passes them in at H, and the right
+cluster is `@bilo-io/ui`'s `ThemeToggle` until J.4.
 
 **Theme C — The launcher's logo, in the window.** ✅ The app-id list moves to `packages/shared` as
 `SUITE_APP_IDS`; `generate-app-logos.cjs` also writes a 256 px copy per app into the frame, and a drift test
@@ -177,9 +185,9 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   - *Done when* one app's main test (Vanguard) asserts its `BrowserWindow` options contain both the
     `suiteWindowOptions` keys and `sandbox: true`.
 
-### B — The shared shell [M · ~1d]
+### B — The shared shell [M · ~1d] — ✅ DONE (2026-10-29)
 
-- [ ] **`AppShell`.** Net-new `packages/frame/src/shell/app-shell.tsx`; `packages/frame/package.json` gains
+- [x] **`AppShell`.** Net-new `packages/frame/src/shell/app-shell.tsx`; `packages/frame/package.json` gains
   `@bilo-io/shell` (same version as `packages/app`). Signature:
   ```ts
   export type AppShellProps = {
@@ -197,7 +205,7 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
     renders the slim strip, as Studio's `framed` branch does (`app.tsx:1466`).
   - *Done when* `app-shell.test.tsx` renders the name, the logo `<img>` with `src === appLogoUrl(app)`, and the
     view, and the slim strip for `frameless: false`.
-- [ ] **Nav from the manifest.** Each `apps/<id>/src/<id>-manifest.ts` constant (e.g. `VANGUARD_APP`) gains:
+- [x] **Nav from the manifest.** Each `apps/<id>/src/<id>-manifest.ts` constant (e.g. `VANGUARD_APP`) gains:
   ```ts
   nav: { views: readonly { id: string; label: string; icon: IconComponent; command?: CommandId }[] };
   panels?: { terminal?: boolean; companion?: boolean; fab?: boolean };   // absent = all true
@@ -210,26 +218,26 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   - `apps/browser/src/browser-manifest.ts` does not exist: H.1 creates it.
   - *Done when* a test per app asserts `nav.views.length >= 1` and every `command` is a valid `CommandId`
     (`isCommandId`).
-- [ ] **Nav links with chords.** `ViewLink` (`app.tsx:236`, not exported today) moves to
+- [x] **Nav links with chords.** `ViewLink` (`app.tsx:236`, not exported today) moves to
   `packages/frame/src/shell/view-link.tsx` as `createViewLink(onNavigate, chordFor)`; the tooltip shows only
   the chord (CLAUDE.md's rail rule). `nav-chords.ts`'s `navChord` stays Studio's and is passed in as
   `chordFor`; other apps derive `chordFor` from `nav.views[].command`.
   - *Done when* `view-link.test.tsx` asserts the tooltip text equals the chord and a click calls `onNavigate`
     with `preventDefault`.
-- [ ] **Settings at the foot.** `AppShell` renders the Settings button in `AppFrame`'s nav `footer` slot, last,
+- [x] **Settings at the foot.** `AppShell` renders the Settings button in `AppFrame`'s nav `footer` slot, last,
   with Studio's markup (`app.tsx:1335`): `aria-label="Settings"`, `aria-current="page"` when active,
   `LuSettings`, label when expanded. It calls `onNavigate('settings')`.
   - *Done when* `app-shell.test.tsx` asserts the footer's last button is labelled Settings and sets
     `aria-current` when `activeView === 'settings'`.
-- [ ] **Panel slots.** `AppShell` mounts each `panels.*` component it is given and nothing else; the frame
+- [x] **Panel slots.** `AppShell` mounts each `panels.*` component it is given and nothing else; the frame
   imports no feature (each app's composer imports the feature and passes the component).
   - *Done when* `app-shell.test.tsx` renders with `panels: { terminal: Stub }` and asserts the stub is present
     and no companion/fab container exists.
-- [ ] **Studio's title-bar extras stay Studio's.** `TitleBarPrimaryAgent`, `TitleBarAgents`, `TitleBarOllama`
+- [x] **Studio's title-bar extras stay Studio's.** `TitleBarPrimaryAgent`, `TitleBarAgents`, `TitleBarOllama`
   go in `titleBarEnd`, which only Studio fills. The suite-wide right cluster (`TitleBarStatus`,
   `TitleBarBattery`, `ThemeToggle`) is J.4's and renders after it.
   - *Done when* the test asserts `titleBarEnd` renders before the theme toggle.
-- [ ] **Accent: brand only.** The manifest `accent` sets `--app-accent` on the shell root and colours only the
+- [x] **Accent: brand only.** The manifest `accent` sets `--app-accent` on the shell root and colours only the
   logo tile and the active nav item; the user's appearance accent (suite-prefs, L.1) drives everything else.
   - *Done when* `app-shell.test.tsx` asserts `--app-accent` on the root and that the active nav link carries
     the accent class, and the I.2 baseline shows Vanguard's red only on those two.

@@ -260,5 +260,9 @@ export function frameContent(appDir: string, features: string[], modules: string
     ...features.map((f) => resolve(FRAME_DIR, '../features', f, 'renderer/**/*.{ts,tsx}')),
     ...modules.map((m) => resolve(FRAME_DIR, '../modules', m, 'renderer/**/*.{ts,tsx}')),
     resolve(appDir, 'node_modules/@bilo-io/ui/dist/**/*.js'),
+    // `AppShell` (Phase 123 Theme B) renders `@bilo-io/shell`'s AppFrame and TitleBar, whose layout
+    // classes (the desktop rail's `md:` breakpoint among them) live in its dist. Resolved through the
+    // frame, which is what depends on it — an app need not.
+    resolve(FRAME_DIR, 'node_modules/@bilo-io/shell/dist/**/*.js'),
   ];
 }
