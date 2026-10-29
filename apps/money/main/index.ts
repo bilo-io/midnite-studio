@@ -5,7 +5,7 @@ import { app, BrowserWindow, ipcMain, shell, clipboard, Menu, type MenuItemConst
 
 import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 
-import { registerMoneyHandlers } from './context';
+import { registerMoneyHandlers } from '@midnite/studio-module-money/main';
 import { MONEY_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, moneyUserData, moneyVaultDirectory } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
 import { moneyPairing } from './pairing';

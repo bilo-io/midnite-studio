@@ -8,7 +8,7 @@ import type { Config } from 'tailwindcss';
  */
 const config: Config = {
   presets: [frameTailwindPreset],
-  content: frameContent(__dirname, ['finance']),
+  content: frameContent(__dirname, ['finance'], ['money']),
 };
 
 export default config;

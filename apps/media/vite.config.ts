@@ -15,6 +15,7 @@ export default defineConfig({
     // One React and one React Query across the features, whose copies are peers.
     dedupe: ['react', 'react-dom', '@tanstack/react-query'],
     alias: {
+      '@midnite/studio-module-media/renderer': at('../../packages/modules/media/renderer/index.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
       '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),

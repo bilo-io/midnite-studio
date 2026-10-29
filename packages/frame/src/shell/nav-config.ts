@@ -21,12 +21,37 @@ export type NavView = {
 };
 
 /**
+ * One module's slice of the rail (Phase 124 Theme E): a titled group of views. The group wears the
+ * module's accent on its label only — the window keeps the host's accent.
+ */
+export type NavGroup = {
+  /** The module id (`ModuleId`) the group belongs to. */
+  id: string;
+  label: string;
+  icon: IconComponent;
+  /** The module's accent colour, shown on the group label alone. */
+  accent?: string;
+  views: readonly NavView[];
+};
+
+/**
  * An app's views, in rail order. Settings is never one of them — `AppShell` puts it in the rail's
  * footer — and a single-view app lists its tabs here so the rail is never one item (decision 4).
  */
 export type NavConfig = {
   views: readonly NavView[];
+  /**
+   * The same views grouped by module, in rail order (Phase 124 Theme E). When present, `views` is the
+   * flat concatenation of the groups' views (`navFromGroups` builds both), and the shell renders each
+   * group under its label; absent, the rail is one flat list as before.
+   */
+  groups?: readonly NavGroup[];
 };
+
+/** A nav config from module groups: `groups` as given, `views` their flat concatenation. */
+export function navFromGroups(groups: readonly NavGroup[]): NavConfig {
+  return { views: groups.flatMap((g) => g.views), groups };
+}
 
 /** Which panels an app carries. Absent, or a key left out, means on (decision 12). */
 export type ShellPanels = {
@@ -64,6 +89,18 @@ export function navConfigProblems(nav: NavConfig): string[] {
     if (view.id === SETTINGS_VIEW) problems.push('Settings belongs in the footer, not in nav.views');
     if (view.command !== undefined && !isCommandId(view.command)) {
       problems.push(`view "${view.id}" names unknown command "${String(view.command)}"`);
+    }
+  }
+  if (nav.groups !== undefined) {
+    const groupIds = new Set<string>();
+    for (const group of nav.groups) {
+      if (groupIds.has(group.id)) problems.push(`duplicate group id "${group.id}"`);
+      groupIds.add(group.id);
+      if (group.views.length === 0) problems.push(`group "${group.id}" has no views`);
+    }
+    const grouped = nav.groups.flatMap((g) => g.views.map((v) => v.id));
+    if (grouped.join('\n') !== nav.views.map((v) => v.id).join('\n')) {
+      problems.push('nav.views is not the flat concatenation of nav.groups');
     }
   }
   return problems;

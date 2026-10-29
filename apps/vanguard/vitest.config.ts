@@ -8,6 +8,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@midnite/studio-module-vanguard/bridge': at('../../packages/modules/vanguard/main/bridge.ts'),
+      '@midnite/studio-module-vanguard/main': at('../../packages/modules/vanguard/main/index.ts'),
+      '@midnite/studio-module-vanguard/renderer': at('../../packages/modules/vanguard/renderer/index.ts'),
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),

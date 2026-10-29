@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { createVanguardBridge } from './bridge';
+import { createVanguardBridge } from '@midnite/studio-module-vanguard/bridge';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Vanguard exposes the slice it needs.
 try {
