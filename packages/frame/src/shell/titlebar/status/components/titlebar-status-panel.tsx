@@ -8,7 +8,7 @@ import {
   LuX,
 } from 'react-icons/lu';
 
-import { useTitlebarStatusStore } from '../titlebar-status-store';
+import { useTitlebarStatusStore } from '../../../../prefs/titlebar-status-store';
 import type { PanelView } from '../titlebar-status-types';
 import { CalendarSection } from './calendar-section';
 import { TimeSection } from './time-section';

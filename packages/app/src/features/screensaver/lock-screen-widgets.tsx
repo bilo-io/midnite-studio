@@ -12,13 +12,13 @@ import {
   useFinanceStore,
 } from '@midnite/studio-feature-finance/renderer';
 
-import { BatteryIcon } from '../battery/battery-icon';
 import {
+  BatteryIcon,
   getBatteryFlashClass,
   getBatteryFlashTier,
   getBatteryTier,
   getBatteryTierClasses,
-} from '../battery/battery-style';
+} from '@midnite/studio-frame';
 import { useMetricsStore } from '../../store/metrics-store';
 import { METRIC_LABELS, metricColor, metricFill } from '../monitor/metric-palette';
 import { MetricChart } from '../monitor/metric-chart';

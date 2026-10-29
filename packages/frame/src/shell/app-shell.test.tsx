@@ -5,6 +5,7 @@ import { LuRadar, LuShieldAlert } from 'react-icons/lu';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AppShell, type AppShellProps } from './app-shell';
+import { useMetricsStore } from '../metrics/metrics-store';
 import { appLogoUrl } from './app-logo';
 import type { NavConfig } from './nav-config';
 
@@ -114,6 +115,29 @@ describe('AppShell', () => {
     const extras = screen.getByTestId('studio-extras');
     const toggle = screen.getByTestId('app-shell-theme-toggle');
     expect(extras.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('renders the status pill, the battery and the theme toggle in the right cluster (J.4)', () => {
+    useMetricsStore.getState().push({
+      at: Date.now(),
+      battery: {
+        percent: 85,
+        hasBattery: true,
+        isCharging: false,
+        devices: [{ id: 'internal', name: 'Computer', type: 'internal', percent: 85 }],
+      },
+    });
+    (window as { midniteStudio?: unknown }).midniteStudio = { windowChrome: chrome(true),
+      metrics: { onSample: () => () => {}, start: vi.fn(), stop: vi.fn() },
+    };
+    renderShell({ titleBarEnd: <span data-testid="studio-extras" /> });
+    const end = screen.getByTestId('app-shell-titlebar-end');
+    const extras = within(end).getByTestId('studio-extras');
+    for (const id of ['titlebar-status-pill', 'battery-segment', 'app-shell-theme-toggle']) {
+      const node = within(end).getByTestId(id);
+      expect(extras.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+    useMetricsStore.getState().reset();
   });
 
   it('sets --app-accent on the root and the accent class on the active nav row only', () => {

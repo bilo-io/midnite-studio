@@ -479,6 +479,26 @@ export {
 } from './shell/status-bar/status-bar-chrome';
 export { SUITE_SEGMENT_META, suiteSegments, type AppPanels, type SuitePanel } from './shell/status-bar/suite-segments';
 
+// The title bar's right cluster (Phase 123 Theme J.4).
+export { TitleBarCluster } from './shell/titlebar/titlebar-cluster';
+export { TitleBarStatus } from './shell/titlebar/status/titlebar-status';
+export { TitleBarBattery } from './shell/titlebar/battery/battery-titlebar';
+export { BatterySegment } from './shell/titlebar/battery/battery-segment';
+export { BatteryIcon } from './shell/titlebar/battery/battery-icon';
+export {
+  getBatteryFlashClass,
+  getBatteryFlashTier,
+  getBatteryTier,
+  getBatteryTierClasses,
+} from './shell/titlebar/battery/battery-style';
+export { ThemeToggle as FrameThemeToggle } from './shell/titlebar/theme-toggle';
+export {
+  DEFAULT_TITLE_BAR_HOST,
+  TitleBarHostProvider,
+  useTitleBarHost,
+  type TitleBarHost,
+} from './shell/titlebar/titlebar-host';
+
 // Suite preferences (Phase 123 Theme L.2) — the stores that persist through the suite-prefs file.
 export {
   resolveSystemMotion,
