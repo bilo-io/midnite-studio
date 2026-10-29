@@ -18,18 +18,18 @@ export function createMockBridge(mode: string | null): LauncherBridge {
     running: false,
     checkedAt: Date.now(),
   };
-  // `?studio=bundles` seeds the per-app states: cleaner Installed, monitor Update (catalog newer),
-  // vault published but Not installed, the rest hosted by Studio. Studio itself is installed.
+  // `?studio=bundles` seeds the per-app states: gamer Installed, mind Update (catalog newer),
+  // vanguard published but Not installed, the rest hosted by Studio. Studio itself is installed.
   const runtimeVersion = '0.4.1';
   const bundles = mode === 'bundles';
   if (bundles) status = { ...status, installed: { path: '/Applications/Midnite Studio.app', version: '0.4.1' } };
   let installed: InstalledBundle[] = bundles
     ? [
-        { id: 'cleaner', version: '0.4.1', runtimeVersion },
-        { id: 'monitor', version: '0.4.0', runtimeVersion },
+        { id: 'gamer', version: '0.4.1', runtimeVersion },
+        { id: 'mind', version: '0.4.0', runtimeVersion },
       ]
     : [];
-  const published = bundles ? ['cleaner', 'monitor', 'vault'] : [];
+  const published = bundles ? ['gamer', 'mind', 'vanguard'] : [];
   const appsStatus = (): AppsStatus => ({
     runtimeVersion,
     canManageBundles: true,

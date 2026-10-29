@@ -1,4 +1,4 @@
-import { APP_IDS, appById, type AppId } from '../../common/catalog';
+import { APP_IDS, LEGACY_BUNDLE_NAMES, appById, type AppId, type LegacyBundleAppId } from '../../common/catalog';
 import { isAppRunning } from '../running';
 import type { BundleOpsDeps } from './install-bundle';
 import { stubIdentity, type BundleRoots, type StubIdentity } from './layout';
@@ -10,10 +10,13 @@ import { runtimeFromExecPath } from './stub';
  * parameters, which is how every test runs against temp dirs.
  */
 
-/** The stub identity for a catalog app, or `null` for Studio (a full app) and unknown ids. */
+/** The stub identity for a catalog app or a retired-but-still-built one, or `null` for Studio (a full app) and unknown ids. */
 export function identityForApp(id: string): StubIdentity | null {
-  if (id === 'studio' || !(APP_IDS as readonly string[]).includes(id)) return null;
-  return stubIdentity(id, appById(id as AppId).name);
+  if (id === 'studio') return null;
+  if ((APP_IDS as readonly string[]).includes(id)) return stubIdentity(id, appById(id as AppId).name);
+  // Retired by Phase 124 but still built until Theme H: an installed Midnite Cleaner keeps its identity.
+  if (Object.hasOwn(LEGACY_BUNDLE_NAMES, id)) return stubIdentity(id, LEGACY_BUNDLE_NAMES[id as LegacyBundleAppId]);
+  return null;
 }
 
 /**

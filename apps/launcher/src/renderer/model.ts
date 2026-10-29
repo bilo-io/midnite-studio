@@ -27,7 +27,7 @@ export function matchesFilter(filter: Filter, state: AppInstallState): boolean {
   }
 }
 
-/** Case-insensitive match over everything a tile shows — name, pitch, features. */
+/** Case-insensitive match over everything a tile shows — name, pitch, modules, features. */
 export function matchesQuery(app: LauncherApp, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (q === '') return true;
@@ -35,6 +35,7 @@ export function matchesQuery(app: LauncherApp, query: string): boolean {
     `midnite ${app.name}`,
     app.tagline,
     app.like,
+    ...app.modules.flatMap((m) => [m.name, m.tagline]),
     ...app.features.flatMap((f) => [f.label, f.blurb]),
   ]
     .join(' ')
