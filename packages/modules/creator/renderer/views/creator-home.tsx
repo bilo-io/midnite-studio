@@ -1,7 +1,8 @@
 import { MediaShell } from '@midnite/studio-feature-media-core/renderer';
 import { PiPaletteFill } from 'react-icons/pi';
 
-import { CREATOR_APP, CREATOR_TABS } from '../creator-manifest';
+import { creatorManifest } from '../../manifest';
+import { CREATOR_TABS } from '../creator-tabs';
 
 /** What Creator shows on open: the accent mark and name on top, the media shell with its tabs below. */
 export function CreatorHome() {
@@ -11,12 +12,12 @@ export function CreatorHome() {
         <span
           aria-hidden
           className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
-          style={{ backgroundColor: CREATOR_APP.accent }}
+          style={{ backgroundColor: creatorManifest.accent }}
         >
           <PiPaletteFill className="h-4 w-4" />
         </span>
-        <p className="text-sm font-semibold leading-tight">{CREATOR_APP.name}</p>
-        <p className="text-xs text-muted-foreground">{CREATOR_APP.tagline}</p>
+        <p className="text-sm font-semibold leading-tight">Midnite Creator</p>
+        <p className="text-xs text-muted-foreground">Docs and images, every asset a file</p>
       </header>
       <main className="min-h-0 flex-1" aria-label="Media">
         <MediaShell tabs={CREATOR_TABS} />

@@ -31,12 +31,10 @@ import {
 import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS, MUSIC_MIDI_FILE_EXTENSIONS, failure, ok, type FfmpegStatus, type SecretKey } from '@midnite/studio-shared';
 
-/**
- * The one "repository" Creator's media is scoped to. The renderer's media store addresses
- * everything by `repoId`; Creator has no repository list, so it has one id that main resolves to
- * its own media root (`<userData>/media`, holding `.midnite/media/<tab>/`).
- */
-export const CREATOR_REPO_ID = 'creator';
+import { CREATOR_REPO_ID } from '../manifest';
+
+/** The one "repository" media is scoped to (`manifest.ts`); main resolves it to the host's media root (`<userData>/media`, holding `.midnite/media/<tab>/`). */
+export { CREATOR_REPO_ID };
 
 /** The electron pieces Creator's main needs, injected so registration is testable under bare vitest. */
 export type CreatorElectron = IpcContextElectron & {
