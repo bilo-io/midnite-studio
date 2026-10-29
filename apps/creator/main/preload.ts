@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { createCreatorBridge } from './bridge';
+import { createCreatorBridge } from '@midnite/studio-module-creator/bridge';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Creator exposes the slice it needs.
 try {

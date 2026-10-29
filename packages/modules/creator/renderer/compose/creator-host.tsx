@@ -7,6 +7,10 @@ import type { ImagesHost } from '@midnite/studio-feature-media-images/renderer';
 import { createPersistedStore } from '@midnite/studio-frame';
 import { useEffect, type RefObject } from 'react';
 
+import { CREATOR_REPO_ID } from '../../manifest';
+
+export { CREATOR_REPO_ID };
+
 /**
  * The host ports Creator implements (Phase 113 Theme Q).
  *
@@ -16,7 +20,6 @@ import { useEffect, type RefObject } from 'react';
  * never in Studio's. Docs has no AI thread (Creator has no agents yet) and Images uses the
  * feature's plain create form.
  */
-export const CREATOR_REPO_ID = 'creator';
 
 export const CREATOR_MEDIA_HOST = createStandaloneMediaHost({
   repoId: CREATOR_REPO_ID,

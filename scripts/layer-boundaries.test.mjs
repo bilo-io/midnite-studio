@@ -60,7 +60,7 @@ const SLIDES = 'packages/features/slides/renderer/deck.tsx';
 // Phase 113 Theme O slice 2: the git graph and diff live in the frame; Coder's git main is an app's own.
 const FRAME_GRAPH = 'packages/frame/src/graph/ci-cell.tsx';
 const FRAME_DIFF = 'packages/frame/src/diff/diff-cell.tsx';
-const CODER_MAIN = 'apps/coder/main/git.ts';
+const CODER_MAIN = 'packages/modules/coder/main/git.ts';
 // Phase 113 Theme G: Studio's composition, and the two entries that hand over to its internals.
 const STUDIO_COMPOSITION = 'apps/studio/src/composition.ts';
 const STUDIO_RENDERER_ENTRY = 'apps/studio/entry/renderer.ts';

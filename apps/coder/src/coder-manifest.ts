@@ -5,6 +5,7 @@ import { sessionsManifest } from '@midnite/studio-feature-sessions/renderer';
 import { tasksManifest } from '@midnite/studio-feature-tasks/renderer';
 import { testsManifest } from '@midnite/studio-feature-tests/renderer';
 import type { NavConfig } from '@midnite/studio-frame';
+import { CODER_HOME, CODER_VIEWS, type CoderViewId } from '@midnite/studio-module-coder/manifest';
 import { LuDatabase, LuFlaskConical, LuGitGraph, LuGitPullRequest, LuHistory, LuListTodo, LuPlay, LuSend } from 'react-icons/lu';
 
 /**
@@ -40,11 +41,12 @@ export const CODER_APP = {
   name: 'Midnite Coder',
   tagline: 'Pull requests, checks and tests',
   accent: '#2e7cfa',
-  home: 'reviews',
+  home: CODER_HOME,
   features: [forgeManifest.feature, testsManifest.feature, apiClientManifest.feature, databaseManifest.feature, sessionsManifest.feature, tasksManifest.feature],
-  views: ['reviews', 'actions', 'tasks', 'tests', 'graph', 'apiClient', 'database', 'sessions'],
+  views: CODER_VIEWS,
   nav: CODER_NAV,
 } as const;
 
 export type CoderAppManifest = typeof CODER_APP;
-export type CoderViewId = (typeof CODER_APP.views)[number];
+export type { CoderViewId };
+
