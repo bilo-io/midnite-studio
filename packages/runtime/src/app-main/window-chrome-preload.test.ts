@@ -22,7 +22,7 @@ describe('createWindowChromeBridge', () => {
     const onFull = vi.fn();
     const off = bridge.onFullscreenChange(onFull);
     expect(i.on).toHaveBeenCalledWith(EVENT_CHANNELS.windowStateChanged, expect.any(Function));
-    const listener = (i.on as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    const listener = (i.on as ReturnType<typeof vi.fn>).mock.calls[0]![1];
     listener({}, { fullScreen: true, focused: false });
     expect(onFull).toHaveBeenCalledWith(true);
     off();
