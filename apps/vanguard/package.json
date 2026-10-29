@@ -2,7 +2,7 @@
   "name": "@midnite/app-vanguard",
   "version": "0.0.5",
   "private": true,
-  "description": "Midnite Vanguard — antivirus and agentic self-defense as its own app: the findings ledger, the sensors that fill it and the response to each.",
+  "description": "Midnite Vanguard \u2014 antivirus and agentic self-defense as its own app: the findings ledger, the sensors that fill it and the response to each.",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -16,6 +16,7 @@
     "@midnite/studio-feature-sessions": "workspace:*",
     "@midnite/studio-feature-vanguard": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-module-vanguard": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "react": "^19.0.0",

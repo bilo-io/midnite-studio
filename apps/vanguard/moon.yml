@@ -17,6 +17,7 @@ dependsOn:
   - 'feature-report'
   - 'feature-sessions'
   - 'feature-vanguard'
+  - 'module-vanguard'
 
 tasks:
   build:
@@ -46,6 +47,9 @@ tasks:
       - '/packages/features/sessions/main/**/*'
       - '/packages/features/sessions/manifest.ts'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/vanguard/main/**/*'
+      - '/packages/modules/vanguard/renderer/**/*'
+      - '/packages/modules/vanguard/manifest.ts'
     outputs:
       - 'dist'
 
@@ -69,6 +73,9 @@ tasks:
       - '/packages/features/sessions/main/**/*'
       - '/packages/features/sessions/manifest.ts'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/vanguard/main/**/*'
+      - '/packages/modules/vanguard/renderer/**/*'
+      - '/packages/modules/vanguard/manifest.ts'
 
   test:
     inputs:
@@ -88,3 +95,6 @@ tasks:
       - '/packages/features/sessions/main/**/*'
       - '/packages/features/sessions/manifest.ts'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/vanguard/main/**/*'
+      - '/packages/modules/vanguard/renderer/**/*'
+      - '/packages/modules/vanguard/manifest.ts'

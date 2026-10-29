@@ -2,7 +2,7 @@
   "name": "@midnite/app-money",
   "version": "0.0.5",
   "private": true,
-  "description": "Midnite Money — stocks, crypto and a simulated portfolio as their own app: a watchlist, markets, allocation and news, over the finance feature.",
+  "description": "Midnite Money \u2014 stocks, crypto and a simulated portfolio as their own app: a watchlist, markets, allocation and news, over the finance feature.",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -15,6 +15,7 @@
     "@midnite/studio-feature-finance": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-module-money": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
