@@ -33,6 +33,7 @@ export * from './agent-run-handoff';
 export * from './handoff';
 export * from './midnite-link';
 export * from './studio-link';
+export * from './suite-apps';
 export * from './ipc';
 export * from './keybindings';
 export * from './loops';

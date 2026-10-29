@@ -9,3 +9,15 @@ export {
   FORBIDDEN_CHROMIUM_SWITCHES,
   type SiteIsolationBoot,
 } from './chromium-switches';
+export {
+  attachWindowChrome,
+  suiteWindowOptions,
+  toggleMaximize,
+  TRAFFIC_LIGHT_POSITION,
+  windowFrameless,
+  windowStateOf,
+  type ChromeableWindow,
+  type SuiteWindowOptions,
+  type WindowState,
+} from './suite-window';
+export { createWindowChromeBridge } from './window-chrome-preload';

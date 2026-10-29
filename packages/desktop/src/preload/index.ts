@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 import { createReportBridge } from '@midnite/studio-feature-report/bridge';
+import { createWindowChromeBridge } from '@midnite/studio-runtime/app-main/window-chrome-preload';
 
 import {
   APP_VERSION_ARG,
@@ -9,7 +10,6 @@ import {
   HOME_DIR_ARG,
   HOSTNAME_ARG,
   MSTUDIO_PERF_MARK,
-  WINDOW_FRAMELESS_ARG,
   WINDOW_ROLE_ARG,
   WindowRoleSchema,
   perfEnabled,
@@ -51,11 +51,6 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): Unsubscri
   };
 }
 
-// Single-sourced from the main process's window options — never re-derived from
-// `process.platform` here (see WINDOW_FRAMELESS_ARG).
-const framelessArg = process.argv.find((a) => a.startsWith(WINDOW_FRAMELESS_ARG));
-const frameless = framelessArg?.slice(WINDOW_FRAMELESS_ARG.length) === '1';
-
 // Same route, same reason: only main can ask Electron for the packaged app's
 // version, and the renderer's own package.json is a different fact that happens
 // to agree (see APP_VERSION_ARG). `0.0.0` when the switch is absent — which
@@ -79,27 +74,15 @@ const hostnameArg = process.argv.find((a) => a.startsWith(HOSTNAME_ARG));
 const hostname = hostnameArg?.slice(HOSTNAME_ARG.length) ?? '';
 
 /**
- * The `@bilo-io/shell` WindowChromeBridge implementation backing <TitleBar>.
- *
- * Fullscreen and focus are derived from one `window:state-changed` push rather
- * than three channels: the window emits them together and a single payload
- * keeps them from arriving out of order.
+ * The `@bilo-io/shell` WindowChromeBridge backing <TitleBar> — the runtime's shared implementation
+ * (Phase 123 A), which every suite app's preload uses. `frameless` is single-sourced from the main
+ * process's window options (`WINDOW_FRAMELESS_ARG`), never re-derived from `process.platform`.
  */
-const windowChrome: WindowChromeBridge = {
-  platform: process.platform as DesktopPlatform,
-  frameless,
-  onFullscreenChange: (handler) =>
-    subscribe<{ fullScreen: boolean }>(EVENT_CHANNELS.windowStateChanged, (state) =>
-      handler(state.fullScreen),
-    ),
-  onFocusChange: (handler) =>
-    subscribe<{ focused: boolean }>(EVENT_CHANNELS.windowStateChanged, (state) =>
-      handler(state.focused),
-    ),
-  setBackgroundColor: (color) => {
-    ipcRenderer.send(CHANNELS.windowSetBackground, color);
-  },
-};
+const windowChrome: WindowChromeBridge = createWindowChromeBridge(
+  ipcRenderer,
+  process.argv,
+  process.platform as DesktopPlatform,
+);
 
 /**
  * The exposed surface, group by group, as each phase's handlers land. Typed as a

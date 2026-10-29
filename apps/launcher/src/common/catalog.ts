@@ -2,6 +2,7 @@
 import type { ViewId } from '@midnite/studio-shared/domain/view';
 import type { MediaTab } from '@midnite/studio-shared/media';
 import type { VanguardTab } from '@midnite/studio-shared/vanguard';
+import { SUITE_APP_IDS, type SuiteAppId } from '@midnite/studio-shared/suite-apps';
 
 /**
  * The Midnite app suite, as the launcher lists it.
@@ -67,28 +68,8 @@ export type LauncherApp = {
   comingSoon?: boolean;
 };
 
-export const APP_IDS = [
-  'studio',
-  'agents',
-  'coder',
-  'gamer',
-  'creator',
-  'media',
-  'money',
-  'mind',
-  'browser',
-  'science',
-  'accountant',
-  'vanguard',
-  'startup',
-  'simulator',
-  'health',
-  'cleaner',
-  'vault',
-  'capture',
-  'monitor',
-] as const;
-export type AppId = (typeof APP_IDS)[number];
+export const APP_IDS = SUITE_APP_IDS;
+export type AppId = SuiteAppId;
 
 const view = (v: ViewId, tab?: MediaTab | VanguardTab): StudioTarget =>
   tab === undefined ? { kind: 'view', view: v } : { kind: 'view', view: v, tab };
