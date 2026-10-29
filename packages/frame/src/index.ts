@@ -103,6 +103,16 @@ export { Spinner, WidgetLoader, type SpinnerMode, type SpinnerVariant } from './
 export { EmptyState, EmptyStateButton } from './layout/empty-state';
 export { MARKDOWN_PROSE_CLASSES } from './layout/markdown-prose';
 export { motionMs, REVEAL_MS } from './layout/motion';
+// Reveal tweens and the shared clock (Phase 123 Theme E — moved out of packages/app for the terminal feature).
+export {
+  usePanelRevealFade,
+  useReveal,
+  useRevealSize,
+  useSessionRevealFade,
+  type Reveal,
+  type RevealSize,
+} from './layout/use-reveal';
+export { __nowSubscriberCount, __nowTimerCount, useNow } from './lib/use-now';
 export { ExplorerGroup, ExplorerNotice, ExplorerSearch } from './layout/explorer';
 export { StateDot, type DotState } from './layout/state-dot';
 export { TREE_INDENT } from './layout/tree-indent';
@@ -450,6 +460,26 @@ export {
   type ShapeKind,
   type Vec3,
 } from './audio/epic-audio-player';
+
+// ── the status bar host (Phase 123 Theme J) ──────────────────────────────────
+export { collapseFor, densityFor, type CollapsibleSegment, type Density as StatusDensity, type WidthSample } from './lib/density';
+export { StatusBar, type StatusBarProps } from './shell/status-bar/status-bar';
+export type { StatusGroup, StatusSegment, StatusZone } from './shell/status-bar/segments';
+export { withSeparators, strandedSeparators, type RenderItem, type RenderedKind } from './shell/status-bar/segments-groups';
+export { OverflowPopover } from './shell/status-bar/overflow-popover';
+export { useZoneDensities, type ZoneDensities } from './shell/status-bar/use-overflow';
+export { StatusToggle, type StatusToggleProps } from './shell/status-bar/status-toggle';
+export { showsName, showsNameAt, type ToggleLabelState } from './shell/status-bar/status-toggle-label';
+export { StatusSeparator } from './shell/status-bar/status-separator';
+export {
+  DEFAULT_STATUS_BAR_CHROME,
+  StatusBarChromeProvider,
+  useStatusBarChrome,
+  type StatusBarChrome,
+  type StatusBarPopoverProps,
+  type StatusBarTooltipProps,
+} from './shell/status-bar/status-bar-chrome';
+export { SUITE_SEGMENT_META, suiteSegments, type AppPanels, type SuitePanel } from './shell/status-bar/suite-segments';
 
 // Suite preferences (Phase 123 Theme L.2) — the stores that persist through the suite-prefs file.
 export {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { SUITE_SEGMENT_META } from '@midnite/studio-frame';
+
 import { STATUS_SEGMENTS, type StatusZone } from './segments';
 
 const zones: StatusZone[] = ['left', 'center', 'right'];
@@ -54,6 +56,17 @@ describe('STATUS_SEGMENTS', () => {
     for (const zone of zones) {
       const priorities = STATUS_SEGMENTS.filter((s) => s.zone === zone).map((s) => s.priority);
       expect(priorities).toEqual([...priorities].sort((a, b) => a - b));
+    }
+  });
+});
+
+describe('the suite segments in Studio’s bar (Phase 123 Theme J)', () => {
+  it('carry the frame’s metadata, so every app’s bar overflows in Studio’s order', () => {
+    for (const { panel: _panel, ...meta } of SUITE_SEGMENT_META) {
+      const studio = STATUS_SEGMENTS.find((s) => s.id === meta.id);
+      expect(studio, meta.id).toBeDefined();
+      const { El: _El, ...studioMeta } = studio!;
+      expect(studioMeta).toEqual(meta);
     }
   });
 });

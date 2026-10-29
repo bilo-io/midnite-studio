@@ -391,13 +391,14 @@ describe('useTerminalStore', () => {
    * instead of the cold-restore `'exited'` path.
    */
   describe('hydrate', () => {
-    const session = (id: string) => ({
+    const session = (id: string, appId?: 'browser') => ({
       id,
       kind: 'shell' as const,
       title: 'midnite-studio',
       cwd: '/repos/midnite-studio',
       repoId: 'repo:midnite-studio',
       createdAt: 1_787_000_000,
+      ...(appId ? { appId } : {}),
     });
 
     const mockBridge = (
@@ -482,6 +483,22 @@ describe('useTerminalStore', () => {
       await useTerminalStore.getState().hydrate();
 
       expect(useTerminalStore.getState().activity['s-1']).toBeUndefined();
+    });
+
+    it('makes this window\u2019s own app\u2019s session active, not another app\u2019s (Phase 123 Theme E)', async () => {
+      useTerminalStore.setState({ appId: 'browser' });
+      mockBridge(
+        [
+          { session: session('studio-row'), scrollback: new Uint8Array(), live: null },
+          { session: session('browser-row', 'browser'), scrollback: new Uint8Array(), live: null },
+        ],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+
+      expect(useTerminalStore.getState().activeId).toBe('browser-row');
+      useTerminalStore.setState({ appId: 'studio' });
     });
 
     it('marks a dead row exited with its replay', async () => {
