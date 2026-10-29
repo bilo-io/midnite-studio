@@ -35,8 +35,6 @@ import {
 import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 import { CAPTURE_OVERLAY_ARG, MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
 
-import { captureDataDir, registerCaptureAppHandlers } from './context';
-import { installCaptureFileProtocol } from './file-protocol';
 import {
   CAPTURE_NAME,
   captureUserData,
@@ -45,10 +43,13 @@ import {
   USER_DATA_ENV,
 } from './identity';
 import {
+  captureDataDir,
+  installCaptureFileProtocol,
   installCapturePermissions,
   isCaptureAppOrigin,
+  registerCaptureAppHandlers,
   type CapturePermissionSession,
-} from './permissions';
+} from '@midnite/studio-module-capture/main';
 
 /**
  * Midnite Capture's main process — the entry the bundle's `package.json` names (`main.cjs`), run by the

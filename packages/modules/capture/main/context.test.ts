@@ -25,7 +25,7 @@ import {
 
 import { captureDataDir, registerCaptureAppHandlers } from './context';
 import { installCaptureFileProtocol, resolveCaptureAppFileUrl } from './file-protocol';
-import { CAPTURE_APP_SHORTCUT } from './identity';
+import { CAPTURE_APP_SHORTCUT } from './module';
 
 const dirs: string[] = [];
 afterEach(async () => {

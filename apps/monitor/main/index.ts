@@ -6,10 +6,9 @@ import { createFileSink, guardAppWindow, installCrashLogging, type LogSink } fro
 
 import type { MetricsService } from '@midnite/studio-feature-monitor/main';
 
-import { registerMonitorHandlers } from './context';
+import { createMonitorSessions, registerMonitorHandlers } from '@midnite/studio-module-monitor/main';
 import { MONITOR_NAME, SMOKE_READY_LINE, USER_DATA_ENV, monitorRuntimeDirectory, monitorUserData, isSmoke } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
-import { createMonitorSessions } from './shared-sessions';
 
 /**
  * Midnite Monitor's main process — the entry the bundle's `package.json` names (`main.cjs`), run by

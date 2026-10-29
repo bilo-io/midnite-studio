@@ -1,0 +1,103 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Vault module package (Phase 124 Theme D): the vault app's compose code, views and main bridge, moved
+# out of apps/vault. Same task shape as a feature package.
+id: 'module-vault'
+language: 'typescript'
+layer: 'library'
+
+# `app-<id>` names the apps that mount this module: the app it came from (until Phase 124 Theme H
+# retires it), its host from `APP_MODULES`, and Studio. `scripts/affected-apps.mjs` reads them.
+tags:
+  - 'layer-module'
+  - 'app-vault'
+  - 'app-vanguard'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-vault'
+  - 'feature-report'
+
+tasks:
+  # Only the main half emits; the renderer half is compiled by the app.
+  build:
+    command: 'pnpm exec tsc -b tsconfig.main.json'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+      - 'feature-vault:build'
+      - 'feature-report:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/vault/main/**/*'
+      - '/packages/features/vault/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/report/manifest.ts'
+    outputs:
+      - 'dist'
+
+  # Both configs: the renderer half against source, the main half against
+  # shared/runtime's built declarations (project references), hence the builds.
+  typecheck:
+    # package.json's `typecheck` runs `tsc --noEmit` over both configs.
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
+      - 'feature-vault:build'
+      - 'feature-report:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/vault/renderer/**/*'
+      - '/packages/features/vault/manifest.ts'
+      - '/packages/features/vault/main/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/vault/renderer/**/*'
+      - '/packages/features/vault/manifest.ts'
+      - '/packages/features/vault/main/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

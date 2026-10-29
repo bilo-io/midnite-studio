@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { createCaptureBridge } from './bridge';
+import { createCaptureBridge } from '@midnite/studio-module-capture/bridge';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Capture exposes the slice it needs.
 try {

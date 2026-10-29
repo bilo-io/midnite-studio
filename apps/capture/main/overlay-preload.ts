@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 import { CAPTURE_OVERLAY_GLOBAL } from '@midnite/studio-shared/ipc/channels';
 
-import { createOverlayBridge } from './overlay-bridge';
+import { createOverlayBridge } from '@midnite/studio-module-capture/overlay-bridge';
 
 // The region overlay window's only preload: the three overlay calls, under their own global — never the
 // app window's `midniteStudio` bridge.

@@ -15,6 +15,7 @@
     "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-module-monitor": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "react": "^19.0.0",

@@ -12,12 +12,8 @@ export const USER_DATA_ENV = 'MIDNITE_CAPTURE_USER_DATA';
 /** What a smoke run prints once the window has loaded `index.html`. */
 export const SMOKE_READY_LINE = 'midnite-capture:ready';
 
-/**
- * The chord Midnite Capture ships with — the standalone app is the one a user installs *for* the
- * shortcut. Studio ships none. It is registered only while the app runs, and the user can change or
- * remove it in Capture's settings; a chord another app holds is reported, never fought over.
- */
-export const CAPTURE_APP_SHORTCUT = 'CommandOrControl+Shift+2';
+/** The chord Midnite Capture ships with — defined by the Capture module, re-exported for the app's tests and callers. */
+export { CAPTURE_APP_SHORTCUT } from '@midnite/studio-module-capture/main';
 
 /**
  * Capture's own userData: `<appData>/Midnite Runtime/apps/capture`, under the runtime's data directory

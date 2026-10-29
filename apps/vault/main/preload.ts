@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { createVaultBridge } from './bridge';
+import { createVaultBridge } from '@midnite/studio-module-vault/bridge';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Vault exposes the slice it needs.
 try {
