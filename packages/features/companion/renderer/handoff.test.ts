@@ -1,7 +1,7 @@
 import { COMPANION_COMMAND_IDS } from '@midnite/studio-shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { overlayDepth } from './ext';
+import { getCompanionHost } from './host';
 import type { CommandRuntime } from '@midnite/studio-frame';
 import { setCommandRuntime } from './command-runtime';
 import {
@@ -23,7 +23,6 @@ import { useUiStore } from './ext';
 // when a dialog actually opens — nothing in these fakes opens one, so it is
 // mocked here rather than exercised, precisely for the one test that needs it
 // to answer non-zero.
-vi.mock('../../components/dialog-host', () => ({ overlayDepth: vi.fn(() => 0) }));
 
 /**
  * The hand-off and the read-back, against fakes — Phase 79 Theme E.
@@ -614,7 +613,7 @@ describe('submitInput — Theme C, doing things there', () => {
 
     it("says to check the dialog when the command left one open, and never answers for it", async () => {
       const store = fakeStore();
-      vi.mocked(overlayDepth).mockReturnValueOnce(0).mockReturnValueOnce(1);
+      vi.spyOn(getCompanionHost(), 'overlayDepth').mockReturnValueOnce(0).mockReturnValueOnce(1);
       const run = vi.fn();
       setCommandRuntime(runtimeWith({ 'terminal.toggle': { run, enabled: true } }));
       await submitInput('toggle the terminal', fakeHandoffDeps({ store, vocabulary: () => vocabulary }));

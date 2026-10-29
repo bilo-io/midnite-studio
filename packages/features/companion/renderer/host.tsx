@@ -304,7 +304,21 @@ let installed: CompanionHost | null = null;
 
 /** Install the host (idempotent; the provider calls it, and so can a test or a non-React boot). */
 export function installCompanionHost(host: CompanionHost): void {
+  if (installed === host) return;
   installed = host;
+  for (const listener of installListeners) listener(host);
+}
+
+const installListeners = new Set<(host: CompanionHost) => void>();
+
+/**
+ * Run `listener` against the host now (if one is installed) and again whenever a different one is
+ * installed. For module-level wiring that must follow the host's stores — a module cannot subscribe at
+ * import time, because the host is installed by whoever composes the companion, after imports resolve.
+ */
+export function onCompanionHostInstalled(listener: (host: CompanionHost) => void): void {
+  installListeners.add(listener);
+  if (installed) listener(installed);
 }
 
 /** The installed host. Throws a pointed error when nothing composed the companion yet. */

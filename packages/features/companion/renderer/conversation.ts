@@ -15,6 +15,7 @@ import {
 } from './recorder';
 import { companionTtsSpeaker } from './speaker';
 import { describeMicFailure, reportVoiceError } from './voice-ports';
+import { onCompanionHostInstalled } from './host';
 
 /**
  * Conversation mode: the composer's second voice control.
@@ -540,8 +541,12 @@ export function stopConversation(owner?: ConversationOwner): void {
   window is not one anybody is talking to, the same rule `watchCompanionSilence`
   applies to speech.
 */
-useUiStore.subscribe((state, previous) => {
-  if (previous.voiceConversation && !state.voiceConversation) stopConversation();
+let unwatchSetting: (() => void) | null = null;
+onCompanionHostInstalled((host) => {
+  unwatchSetting?.();
+  unwatchSetting = host.ui.subscribe((state, previous) => {
+    if (previous.voiceConversation && !state.voiceConversation) stopConversation();
+  });
 });
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {

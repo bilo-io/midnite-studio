@@ -188,7 +188,7 @@ export function createDefaultCompanionHost(options: DefaultCompanionHostOptions 
               className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-xs outline-none"
             />
             {trailing}
-            <button type="button" disabled={!canSend} onClick={onSend} data-testid={`${testIdPrefix}-send`}>
+            <button type="button" disabled={!canSend} aria-disabled={canSend ? undefined : true} onClick={onSend} data-testid={`${testIdPrefix}-send`}>
               Send
             </button>
           </div>

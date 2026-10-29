@@ -1,4 +1,4 @@
-import { Fragment, createElement, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { Fragment, cloneElement, createElement, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 
 import { createFrameChrome } from '@midnite/studio-frame';
@@ -78,6 +78,17 @@ export const useTestComposerMic: CompanionHost['hooks']['useComposerMic'] = (opt
   return { available, reason, held, pressStart };
 };
 
+/** Opens on focus, like the kit's, with `role="tooltip"` — enough for the suites that read a label. */
+const TestTooltip: CompanionHost['components']['Tooltip'] = ({ label, children }) => {
+  const [open, setOpen] = useState(false);
+  return createElement(
+    Fragment,
+    null,
+    cloneElement(children, { onFocus: () => setOpen(true), onBlur: () => setOpen(false) } as never),
+    open ? createElement('span', { role: 'tooltip' }, label) : null,
+  );
+};
+
 const DefaultComposer = createDefaultCompanionHost().components.AiComposer;
 
 /** The default composer plus the mic button the real one draws (testid `<prefix>-mic`). */
@@ -91,14 +102,16 @@ const TestAiComposer: CompanionHost['components']['AiComposer'] = (props) =>
         null,
         props.leading,
         props.mic
-          ? createElement('button', {
-              type: 'button',
-              'aria-label': 'Hold to talk',
-              'aria-disabled': props.mic.available ? undefined : true,
-              'data-testid': `${props.testIdPrefix ?? 'ai-composer'}-mic`,
-              title: props.mic.available ? 'Hold to talk' : props.mic.reason,
-              onPointerDown: props.mic.pressStart,
-            })
+          ? createElement(
+              TestTooltip,
+              { label: props.mic.available ? 'Hold to talk' : props.mic.reason, children: createElement('button', {
+                type: 'button',
+                'aria-label': 'Hold to talk',
+                'aria-disabled': props.mic.available ? undefined : true,
+                'data-testid': `${props.testIdPrefix ?? 'ai-composer'}-mic`,
+                onPointerDown: props.mic.pressStart,
+              }) },
+            )
           : null,
       ),
     },
@@ -132,7 +145,7 @@ export function createTestCompanionHost(overrides: Partial<CompanionHost> = {}):
         },
       },
     },
-    components: { ...base.components, DialogHost: TestDialogHost, AiComposer: TestAiComposer },
+    components: { ...base.components, DialogHost: TestDialogHost, AiComposer: TestAiComposer, Tooltip: TestTooltip },
     hooks: { ...base.hooks, useComposerMic: useTestComposerMic },
     catalog: {
       viewLabels: TEST_VIEW_LABELS,

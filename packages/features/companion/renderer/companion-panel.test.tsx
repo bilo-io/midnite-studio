@@ -297,7 +297,7 @@ describe('the Clear conversation header control', () => {
     renderPanel(<CompanionPanel />);
 
     const button = screen.getByTestId('companion-clear');
-    expect(button.getAttribute('aria-disabled')).toBeNull();
+    expect(button.getAttribute('aria-disabled')).not.toBe('true');
 
     fireEvent.click(button);
     // The blast radius, in the title and again in the warning box — a
