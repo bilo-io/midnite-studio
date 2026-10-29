@@ -8,6 +8,7 @@ import {
 import { bridge } from '@midnite/studio-frame';
 import { useCompanionStore } from './companion-store';
 import { useUiStore } from './ext';
+import { onCompanionHostInstalled, tryGetCompanionHost } from './host';
 import { setCompanionVolume } from './audio/context';
 import { toWavBlob } from './audio/wav';
 import { bargeInAudition } from './audition';
@@ -479,7 +480,8 @@ export function registerVoicePorts(): void {
       void micPressEnd();
     },
   });
-  setCompanionVolume(useUiStore.getState().companionVolume);
+  const host = tryGetCompanionHost();
+  if (host) setCompanionVolume(host.ui.getState().companionVolume);
 }
 
 /**
@@ -544,13 +546,19 @@ function stopAll(): void {
 }
 
 registerVoicePorts();
+// The persisted volume is the host's to read, and the host arrives after imports resolve.
+onCompanionHostInstalled((host) => setCompanionVolume(host.ui.getState().companionVolume));
 /**
  * Kept so a test can dispose it. There is exactly one of these for the life of
  * the renderer — the store subscription and the `visibilitychange` listener
  * both outlive every panel — and a test that left it running would see its own
  * `useUiStore.setState` fire the real one.
  */
-let moduleWatcher: (() => void) | null = watchCompanionSilence();
+let moduleWatcher: (() => void) | null = null;
+onCompanionHostInstalled(() => {
+  moduleWatcher?.();
+  moduleWatcher = watchCompanionSilence();
+});
 
 /** Reset the availability cache and drop the module-level watcher. Tests only. */
 export function __resetVoicePortsForTest(): void {

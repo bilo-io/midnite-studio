@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DialogHost } from '../../../components/dialog-host';
 import { useUiStore } from '../../../store/ui-store';
-import { saveCompanionProfile } from '../../companion/profiles';
-import { lastCompanionSettingChange, resetCompanionSettingUndoForTest } from '../../companion/settings-apply';
+import { lastCompanionSettingChange, resetCompanionSettingUndoForTest, saveCompanionProfile } from '@midnite/studio-feature-companion/renderer';
 import { CompanionProfilesSection } from './companion-profiles-section';
 
 /**

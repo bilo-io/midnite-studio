@@ -6,8 +6,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { setCompanionPorts, resetCompanionPorts } from '../../features/companion/companion-ports';
-import { __setConversationDepsForTest, conversationOwner } from '../../features/companion/conversation';
+import { __setConversationDepsForTest, conversationOwner, resetCompanionPorts, setCompanionPorts } from '@midnite/studio-feature-companion/renderer';
 
 /*
   Pass-through: the real `setNextTranscriptSink`, plus a copy of the sink a
@@ -15,8 +14,8 @@ import { __setConversationDepsForTest, conversationOwner } from '../../features/
   without a microphone, since `voice-ports.ts` keeps its delivery internal.
 */
 const pushSink = vi.hoisted(() => ({ current: null as ((text: string) => void) | null }));
-vi.mock('../../features/companion/voice-ports', async () => {
-  const actual = await vi.importActual<typeof import('../../features/companion/voice-ports')>(
+vi.mock('@midnite/studio-feature-companion/renderer', async () => {
+  const actual = await vi.importActual<typeof import('@midnite/studio-feature-companion/renderer')>(
     '../../features/companion/voice-ports',
   );
   return {

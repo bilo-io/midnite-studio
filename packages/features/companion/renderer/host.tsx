@@ -321,6 +321,11 @@ export function onCompanionHostInstalled(listener: (host: CompanionHost) => void
   if (installed) listener(installed);
 }
 
+/** The installed host, or null before one is. For module-level wiring that may run first. */
+export function tryGetCompanionHost(): CompanionHost | null {
+  return installed;
+}
+
 /** The installed host. Throws a pointed error when nothing composed the companion yet. */
 export function getCompanionHost(): CompanionHost {
   if (!installed) {

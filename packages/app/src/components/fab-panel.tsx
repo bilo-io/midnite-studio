@@ -12,12 +12,11 @@ import { loopLabel, useAllLoops } from '../features/loops/use-all-loops';
 import { LoopTab } from '../features/loops/loop-tab';
 import { useAllLoopStatuses, type LoopStatus } from '../features/loops/loop-status';
 import { useLoopRuns } from '../features/loops/use-loop-runs';
-import { fabCompanionState } from '../features/companion/companion-look';
+import { fabCompanionState, useCompanionStore } from '@midnite/studio-feature-companion/renderer';
 import { useTerminalStore } from '../features/terminal/terminal-store';
 import { useCascadeReveal } from '../lib/use-cascade-reveal';
 import { useWindowFocusGate } from '../lib/use-window-focus-gate';
 import { bridge } from '../services/bridge';
-import { useCompanionStore } from '../store/companion-store';
 import { useUiStore, type FabTab } from '../store/ui-store';
 
 interface FabPanelProps {

@@ -1,11 +1,10 @@
 import { useRef } from 'react';
 
 import { BrandMark } from '../../components/brand';
-import { fabCompanionState } from '../companion/companion-look';
+import { fabCompanionState, useCompanionStore } from '@midnite/studio-feature-companion/renderer';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from '../loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from '../loops/fab-morph';
 import { useActiveLoopSpectrum } from '../loops/use-all-loops';
-import { useCompanionStore } from '../../store/companion-store';
 import { isCompanionPanelDocked, isFabPanelDocked, useUiStore } from '../../store/ui-store';
 
 /**

@@ -10,7 +10,7 @@ import { DialogHost } from '../components/dialog-host';
 import { ToastHost } from '../components/toast-host';
 import { useToastStore } from '../store/toast-store';
 import { useUiStore } from '../store/ui-store';
-import { revealResource } from '../features/companion/reveal/reveal';
+import { revealResource } from '@midnite/studio-feature-companion/renderer';
 import { selectCapture } from '@midnite/studio-feature-capture/renderer';
 
 import { useDeepLinks } from './deep-link';
@@ -73,7 +73,7 @@ const emit = (link: DeepLink, known: boolean) => {
   });
 };
 
-vi.mock('../features/companion/reveal/reveal', () => ({ revealResource: vi.fn() }));
+vi.mock('@midnite/studio-feature-companion/renderer', () => ({ revealResource: vi.fn() }));
 vi.mock('@midnite/studio-feature-capture/renderer', () => ({ selectCapture: vi.fn() }));
 
 describe('useDeepLinks', () => {

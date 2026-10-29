@@ -3,11 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../../store/ui-store';
-import {
-  lastCompanionSettingChange,
-  resetCompanionSettingUndoForTest,
-  undoLastCompanionSetting,
-} from '../../companion/settings-apply';
+import { lastCompanionSettingChange, resetCompanionSettingUndoForTest, undoLastCompanionSetting } from '@midnite/studio-feature-companion/renderer';
 import { CompanionPage } from './companion-page';
 
 /**
@@ -17,7 +13,7 @@ import { CompanionPage } from './companion-page';
  * that" can reach a change made on this page.
  */
 
-vi.mock('../../companion/speaker', () => ({
+vi.mock('@midnite/studio-feature-companion/renderer', () => ({
   companionTtsSpeaker: {
     speak: () => Promise.resolve(),
     speakWithEngine: () => Promise.resolve(true),
@@ -30,7 +26,7 @@ vi.mock('../../companion/speaker', () => ({
   },
 }));
 
-vi.mock('../../companion/voice-ports', () => ({
+vi.mock('@midnite/studio-feature-companion/renderer', () => ({
   refreshMicAvailability: () => Promise.resolve(true),
 }));
 
