@@ -21,9 +21,14 @@ import type { TerrainWorkerHandle } from '@midnite/studio-feature-media-terrain/
 import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, MSTUDIO_GAME_SCHEME, MSTUDIO_TILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
-import { createGamerAgentHost, type GamerAgentHost } from './agent-host';
-import { gamerMediaRoot, registerGamerHandlers, type GamerServices } from './context';
-import { installGamerFileProtocol } from './file-protocol';
+import {
+  createGamerAgentHost,
+  type GamerAgentHost,
+  gamerMediaRoot,
+  type GamerServices,
+  installGamerFileProtocol,
+  registerGamerHandlers,
+} from '@midnite/studio-module-gamer/main';
 import { asGameWindow, createGamerGameElectron, gamePageContents } from './game-electron';
 import { GAMER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, gamerUserData, gamerVaultDirectory, isSmoke } from './identity';
 import { registerReport, reportMenuTemplate } from './report';

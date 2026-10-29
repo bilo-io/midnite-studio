@@ -43,6 +43,8 @@
       "@midnite/studio-module-mind/bridge": ["./packages/modules/mind/main/bridge.ts"],
       "@midnite/studio-module-agents/main": ["./packages/modules/agents/main/index.ts"],
       "@midnite/studio-module-agents/bridge": ["./packages/modules/agents/main/bridge.ts"],
+      "@midnite/studio-module-gamer/main": ["./packages/modules/gamer/main/index.ts"],
+      "@midnite/studio-module-gamer/bridge": ["./packages/modules/gamer/main/bridge.ts"],
       "@midnite/studio-module-vault/main": ["./packages/modules/vault/main/index.ts"],
       "@midnite/studio-module-vault/bridge": ["./packages/modules/vault/main/bridge.ts"],
       "@midnite/studio-module-cleaner/main": ["./packages/modules/cleaner/main/index.ts"],
