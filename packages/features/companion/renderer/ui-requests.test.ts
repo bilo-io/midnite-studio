@@ -29,8 +29,17 @@ vi.mock('@midnite/studio-frame', async (importOriginal) => ({
 }));
 
 import { resolveUiAction } from './ui-requests';
-import { REVEALERS } from './reveal/revealers';
+import { getCompanionHost } from './host';
 import { unavailableRevealer } from './reveal/revealers/stub';
+
+/** The host's revealer table, read live — the host is replaced before every test. */
+const REVEALERS = new Proxy({} as Record<string, unknown>, {
+  get: (_t, kind: string) => (getCompanionHost().revealers as Record<string, unknown>)[kind],
+  set: (_t, kind: string, value) => {
+    (getCompanionHost().revealers as Record<string, unknown>)[kind] = value;
+    return true;
+  },
+});
 import { useRevealHistory } from './reveal/reveal-history';
 import { runCommand, setCommandRuntime } from './command-runtime';
 import { useCompanionStore } from './companion-store';

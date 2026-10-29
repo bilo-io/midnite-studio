@@ -34,9 +34,7 @@ vi.mock('@midnite/studio-frame', async (importOriginal) => ({
 }));
 
 import { handleCompanionRelayAction, navigateCompanion, resolveNavigation, type NavigationState } from './navigate';
-import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
-import { useFileEditorStore } from './testing';
-import { useIssueModalStore } from './testing';
+import { openedBrowserUrls, useFileEditorStore, useIssueModalStore } from './testing';
 import { useUiStore } from './ext';
 
 const navigate = (
@@ -146,7 +144,7 @@ describe('navigateCompanion', () => {
       selectedRepoId: 'r1',
     });
     useFileEditorStore.setState({ target: null, content: '', savedContent: '', pendingNav: null });
-    useBrowserStore.setState({ tabs: [], activeTabId: null, browserOpen: false } as never);
+    openedBrowserUrls.length = 0;
   });
 
   afterEach(() => {
@@ -211,7 +209,7 @@ describe('navigateCompanion', () => {
   it('opens a url in the docked browser, saying only the host', async () => {
     const outcome = await navigateCompanion(navigate({ url: 'https://example.com/pr/1' }));
     expect(useUiStore.getState().browserOpen).toBe(true);
-    expect(useBrowserStore.getState().tabs.some((t) => t.url === 'https://example.com/pr/1')).toBe(true);
+    expect(openedBrowserUrls.includes('https://example.com/pr/1')).toBe(true);
     expect(outcome.say).toBe('Opening example.com.');
     expect(mocks.focusRole).not.toHaveBeenCalled();
   });
@@ -220,7 +218,7 @@ describe('navigateCompanion', () => {
     useUiStore.setState({ browserDetached: true });
     const outcome = await navigateCompanion(navigate({ url: 'https://example.com/pr/1' }));
     expect(mocks.focusRole).toHaveBeenCalledWith({ role: 'browser' });
-    expect(useBrowserStore.getState().tabs.some((t) => t.url === 'https://example.com/pr/1')).toBe(true);
+    expect(openedBrowserUrls.includes('https://example.com/pr/1')).toBe(true);
     expect(outcome.say).toBe('Opening example.com.');
   });
 

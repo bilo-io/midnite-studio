@@ -1,5 +1,4 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useCompanionStore } from './companion-store';
@@ -540,14 +539,14 @@ describe('Companion Zen mode', () => {
   });
 
   it('renders a 2.5x larger docked orb', () => {
-    renderPanel(<QueryClientProvider client={new QueryClient()}><CompanionPanel /></QueryClientProvider>);
+    renderPanel(<CompanionPanel />);
     const orb = screen.getByTestId('companion-orb');
     expect(orb.className).toContain('h-72');
     expect(orb.getAttribute('data-orb-size')).toBe('docked');
   });
 
   it('the header toggle opens the zen stage and the exit button closes it', () => {
-    renderPanel(<QueryClientProvider client={new QueryClient()}><CompanionPanel /></QueryClientProvider>);
+    renderPanel(<CompanionPanel />);
     expect(screen.queryByTestId('companion-zen-stage')).toBeNull();
     fireEvent.click(screen.getByTestId('companion-zen-toggle'));
     expect(screen.getByTestId('companion-zen-stage')).toBeTruthy();
@@ -566,7 +565,7 @@ describe('Companion Zen mode', () => {
         { id: '4', role: 'user', text: 'new ask', at: 4, spoken: false },
       ],
     });
-    renderPanel(<QueryClientProvider client={new QueryClient()}><CompanionPanel /></QueryClientProvider>);
+    renderPanel(<CompanionPanel />);
     expect(screen.getByTestId('companion-zen-user-turn').textContent).toContain('new ask');
     expect(screen.getByTestId('companion-zen-agent-turn').textContent).not.toContain('old reply');
     expect(screen.getByTestId('companion-zen-composer')).toBeTruthy();

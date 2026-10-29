@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DialogHost } from './ext-ui';
+import { renderPanel } from './render-panel';
 import { useUiStore } from './ext';
 import { CompanionHeader } from './companion-header';
 
@@ -25,11 +25,7 @@ describe('CompanionHeader', () => {
   afterEach(cleanup);
 
   it('detaches through the bridge and closes through the store, docked', () => {
-    render(
-      <DialogHost>
-        <CompanionHeader state="idle" />
-      </DialogHost>,
-    );
+    renderPanel(<CompanionHeader state="idle" />);
 
     fireEvent.click(screen.getByLabelText('Detach the Companion into its own window'));
     expect(mocks.detach).toHaveBeenCalledWith({ role: 'companion' });
@@ -49,11 +45,7 @@ describe('CompanionHeader', () => {
    */
   it('hides detach and close in a popout, but keeps Clear', () => {
     mocks.windowRole = 'companion';
-    render(
-      <DialogHost>
-        <CompanionHeader state="idle" />
-      </DialogHost>,
-    );
+    renderPanel(<CompanionHeader state="idle" />);
 
     expect(screen.queryByLabelText('Detach the Companion into its own window')).toBeNull();
     expect(screen.queryByLabelText('Close the Companion')).toBeNull();

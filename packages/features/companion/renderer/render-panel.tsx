@@ -1,7 +1,10 @@
 import { render } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 
+import { FrameChromeProvider } from '@midnite/studio-frame';
+
 import { DialogHost } from './ext-ui';
+import { testChrome } from './testing';
 
 /**
  * Render a companion panel the way the app actually mounts one — inside a
@@ -22,7 +25,7 @@ import { DialogHost } from './ext-ui';
  * Passed as `render`'s `wrapper` rather than wrapped at the call site, because
  * the `rerender` several cases rely on keeps the wrapper only that way.
  */
-const withDialogs = ({ children }: { children: ReactNode }) => <DialogHost>{children}</DialogHost>;
+const withDialogs = ({ children }: { children: ReactNode }) => <FrameChromeProvider chrome={testChrome}><DialogHost>{children}</DialogHost></FrameChromeProvider>;
 
 export function renderPanel(ui: ReactElement): ReturnType<typeof render> {
   return render(ui, { wrapper: withDialogs });

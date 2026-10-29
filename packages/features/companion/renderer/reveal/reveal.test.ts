@@ -4,7 +4,6 @@ import { RESOURCE_KINDS, type ResourceRef } from '@midnite/studio-shared';
 
 import type { NavigationState } from '../navigate';
 import { revealResource, revealSay, type RevealDeps } from './reveal';
-import { REVEALERS } from './revealers';
 import { unavailableRevealer } from './revealers/stub';
 import { REVEAL_HISTORY_LIMIT, lastRevealed, useRevealHistory } from './reveal-history';
 import type { RevealOutcome, RevealerTable } from './types';
@@ -38,6 +37,13 @@ const baseState: NavigationState = {
   repoId: 'r1',
 };
 
+/** Where each kind opens — the view column of Studio's revealer table, kept here so the engine's tests need no Studio. */
+const VIEW_OF: Record<string, string | null> = {
+  commit: 'graph', ref: 'graph', path: 'graph', commitFile: 'graph', file: 'files', pull: 'reviews', issue: 'tasks',
+  ciRun: 'actions', dbTable: 'database', apiRequest: 'apiClient', browserTab: null, setting: 'settings', chat: 'chats',
+  session: 'sessions', council: 'councils', workflow: 'workflows', board: 'tasks', card: 'tasks', note: 'notes', media: 'media',
+};
+
 const revealed = (label: string): RevealOutcome => ({ ok: true, did: 'revealed', label });
 
 /** Every kind succeeds with its own kind as the label, and records what it was asked. */
@@ -46,7 +52,7 @@ function fakeRevealers(seen: { ref: ResourceRef; focusedWindow: boolean }[]): Re
     RESOURCE_KINDS.map((kind) => [
       kind,
       {
-        view: REVEALERS[kind].view,
+        view: VIEW_OF[kind] ?? null,
         reveal: async (ref: ResourceRef, ctx: { focusedWindow: boolean }) => {
           seen.push({ ref, focusedWindow: ctx.focusedWindow });
           return revealed(kind);
@@ -179,12 +185,6 @@ describe('the stub revealer (what a kind with no opener yet answers)', () => {
     const outcome = await revealResource(ref, { caller: 'companion' }, deps);
     expect(outcome).toMatchObject({ ok: false, reason: 'unavailable' });
     expect(revealSay(outcome)).toMatch(/^I can't pick out .+ yet\.$/);
-  });
-
-  it('routes a live session to no view and a closed one to Sessions', () => {
-    const view = REVEALERS.session.view as (ref: { kind: 'session'; id: string; closed?: boolean }) => string | null;
-    expect(view({ kind: 'session', id: 's' })).toBeNull();
-    expect(view({ kind: 'session', id: 's', closed: true })).toBe('sessions');
   });
 });
 
