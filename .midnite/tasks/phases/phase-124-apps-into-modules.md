@@ -61,7 +61,7 @@ three of them. Planned 2026-10-29.
 retired-app alias map, so every list that names an app id can be rewritten against one source. Landed as
 `packages/shared/src/modules.ts` (+ test). `APP_MODULES` is keyed by its own `ModuleHostId` (the nine
 hosts that carry modules), not `MidniteAppId`, which lacks science today; Startup and Health carry none.
-Studio lists every module, so the "creator in exactly three hosts" test excludes Studio. PR pending.
+Studio lists every module, so the "creator in exactly three hosts" test excludes Studio. PR #1058.
 
 **Theme B — The modules layer.** ◻ `packages/modules/<id>` with a renderer and a main half, a new eslint
 group, proven case by case in `layer-boundaries.test.mjs`, and the layer added to `docs/APPS.md`.
