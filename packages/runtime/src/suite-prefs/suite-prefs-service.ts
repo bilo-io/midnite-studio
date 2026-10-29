@@ -66,11 +66,25 @@ export type SuitePrefsService = {
   close(): void;
 };
 
-const defaultWatch: SuitePrefsWatchFn = (directory, listener) => fsWatch(directory, { persistent: false }, listener);
+/**
+ * `fs.watch`, with its `error` event handled: an FSWatcher is an EventEmitter, and an
+ * `error` with no listener (the directory removed under it) would be an uncaught
+ * exception in main. Here it closes the watcher and warns instead.
+ */
+function defaultWatchWith(warn: (message: string) => void): SuitePrefsWatchFn {
+  return (directory, listener) => {
+    const watcher = fsWatch(directory, { persistent: false }, listener);
+    watcher.on('error', (err) => {
+      warn(`suite-prefs: watching ${directory} stopped (${String(err)}); other apps' changes show after a restart`);
+      watcher.close();
+    });
+    return watcher;
+  };
+}
 
 export function createSuitePrefsService(options: SuitePrefsServiceOptions): SuitePrefsService {
   const { directory, warn } = options;
-  const watchFn = options.watch ?? defaultWatch;
+  const watchFn = options.watch ?? defaultWatchWith(warn);
   const now = options.now ?? Date.now;
   const debounceMs = options.debounceMs ?? SUITE_PREFS_WATCH_DEBOUNCE_MS;
   const filePath = join(directory, SUITE_PREFS_FILE_NAME);

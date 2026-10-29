@@ -25,7 +25,7 @@ export const SEED_SETTINGS_KEY = 'midnite.settings';
 export const SEED_TITLEBAR_STATUS_KEY = 'midnite.titlebar-status';
 
 type SeedStorage = Pick<Storage, 'getItem'>;
-export type SeedOutcome = 'seeded' | 'already-present' | 'nothing-to-seed' | 'unavailable';
+export type SeedOutcome = 'seeded' | 'partial' | 'already-present' | 'nothing-to-seed' | 'unavailable';
 
 /** A zustand `persist` blob's `state`, or null when absent or unparseable. */
 function persistedState(storage: SeedStorage, key: string): Record<string, unknown> | null {
@@ -91,8 +91,14 @@ export async function seedSuitePrefsFromLocalStorage(
     if (snapshot.stored.length > 0) return 'already-present';
     const requests = buildSeedRequests(storage);
     if (requests.length === 0) return 'nothing-to-seed';
-    for (const request of requests) await bridge.set(request);
-    return 'seeded';
+    let failed = false;
+    for (const request of requests) {
+      const result = await bridge.set(request);
+      if (!result.ok) failed = true;
+    }
+    // A refused group leaves the file partly seeded; the next boot sees groups present and
+    // does not retry, so say so rather than claim success.
+    return failed ? 'partial' : 'seeded';
   } catch {
     return 'unavailable';
   }

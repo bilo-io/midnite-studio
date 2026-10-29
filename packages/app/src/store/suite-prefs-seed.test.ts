@@ -143,6 +143,14 @@ describe('suite-prefs seed (Studio, first boot)', () => {
     expect(requests).toEqual([]);
   });
 
+  it('reports a partial seed when main refuses a group', async () => {
+    const { bridge } = memoryBridge();
+    bridge.set = vi.fn(async (req: SuitePrefsSetRequest) =>
+      req.key === 'palette' ? { ok: false as const, error: 'nope' } : { ok: true as const, snapshot: resolveSuitePrefs({}) },
+    );
+    expect(await seedSuitePrefsFromLocalStorage(bridge, storage({ [SEED_SETTINGS_KEY]: STUDIO_SETTINGS }))).toBe('partial');
+  });
+
   it('is unavailable, not thrown, without a bridge or when the bridge fails', async () => {
     expect(await seedSuitePrefsFromLocalStorage(undefined, storage({}))).toBe('unavailable');
     const failing: MidniteStudioBridge['suitePrefs'] = {
