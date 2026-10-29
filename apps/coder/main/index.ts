@@ -24,7 +24,7 @@ import {
 } from '@midnite/studio-runtime';
 import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
-import { registerCoderHandlers } from './context';
+import { registerCoderHandlers } from '@midnite/studio-module-coder/main';
 import { CODER_NAME, coderUserData, coderVaultDirectory, isSmoke, SMOKE_READY_LINE, USER_DATA_ENV } from './identity';
 import { coderPairing } from './pairing';
 

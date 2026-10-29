@@ -1,0 +1,148 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# The Creator module (Phase 124 Theme C): Docs, Images, Video and Audio over media-core, plus the Slides deck.
+# Same task shape as a feature package.
+id: 'module-creator'
+language: 'typescript'
+layer: 'library'
+
+# `app-<id>` names the apps that mount this module (`APP_MODULES`; `app-creator` until Theme H retires it).
+# `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
+tags:
+  - 'layer-module'
+  - 'app-creator'
+  - 'app-agents'
+  - 'app-media'
+  - 'app-gamer'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-media-core'
+  - 'feature-media-docs'
+  - 'feature-media-images'
+  - 'feature-media-video'
+  - 'feature-media-audio'
+  - 'feature-slides'
+  - 'feature-report'
+
+tasks:
+  # Only the main half emits; the renderer half is compiled by the app.
+  build:
+    command: 'pnpm exec tsc -b tsconfig.main.json'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+      - 'feature-report:build'
+      - 'feature-media-core:build'
+      - 'feature-media-docs:build'
+      - 'feature-media-images:build'
+      - 'feature-media-video:build'
+      - 'feature-media-audio:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-video/main/**/*'
+      - '/packages/features/media-audio/main/**/*'
+    outputs:
+      - 'dist'
+
+  # Both configs: the renderer half against source, the main half against
+  # shared/runtime's built declarations (project references), hence the builds.
+  typecheck:
+    # package.json's `typecheck` runs `tsc --noEmit` over both configs.
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
+      - 'feature-report:build'
+      - 'feature-media-core:build'
+      - 'feature-media-docs:build'
+      - 'feature-media-images:build'
+      - 'feature-media-video:build'
+      - 'feature-media-audio:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/media-core/renderer/**/*'
+      - '/packages/features/media-core/manifest.ts'
+      - '/packages/features/media-docs/renderer/**/*'
+      - '/packages/features/media-docs/manifest.ts'
+      - '/packages/features/media-images/renderer/**/*'
+      - '/packages/features/media-images/manifest.ts'
+      - '/packages/features/media-video/renderer/**/*'
+      - '/packages/features/media-video/manifest.ts'
+      - '/packages/features/media-audio/renderer/**/*'
+      - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/slides/renderer/**/*'
+      - '/packages/features/slides/manifest.ts'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-video/main/**/*'
+      - '/packages/features/media-audio/main/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/media-core/renderer/**/*'
+      - '/packages/features/media-core/manifest.ts'
+      - '/packages/features/media-docs/renderer/**/*'
+      - '/packages/features/media-docs/manifest.ts'
+      - '/packages/features/media-images/renderer/**/*'
+      - '/packages/features/media-images/manifest.ts'
+      - '/packages/features/media-video/renderer/**/*'
+      - '/packages/features/media-video/manifest.ts'
+      - '/packages/features/media-audio/renderer/**/*'
+      - '/packages/features/media-audio/manifest.ts'
+      - '/packages/features/slides/renderer/**/*'
+      - '/packages/features/slides/manifest.ts'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-video/main/**/*'
+      - '/packages/features/media-audio/main/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

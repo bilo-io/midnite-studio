@@ -4,6 +4,7 @@ import { forgeManifest } from '@midnite/studio-feature-forge/renderer';
 import { sessionsManifest } from '@midnite/studio-feature-sessions/renderer';
 import { tasksManifest } from '@midnite/studio-feature-tasks/renderer';
 import { testsManifest } from '@midnite/studio-feature-tests/renderer';
+import { CODER_HOME, CODER_VIEWS, type CoderViewId } from '@midnite/studio-module-coder/manifest';
 
 /**
  * Coder's app manifest — pure data (Phase 113 Theme O slices 1-4).
@@ -20,10 +21,11 @@ export const CODER_APP = {
   name: 'Midnite Coder',
   tagline: 'Pull requests, checks and tests',
   accent: '#2e7cfa',
-  home: 'reviews',
+  home: CODER_HOME,
   features: [forgeManifest.feature, testsManifest.feature, apiClientManifest.feature, databaseManifest.feature, sessionsManifest.feature, tasksManifest.feature],
-  views: ['reviews', 'actions', 'tasks', 'tests', 'graph', 'apiClient', 'database', 'sessions'],
+  views: CODER_VIEWS,
 } as const;
 
 export type CoderAppManifest = typeof CODER_APP;
-export type CoderViewId = (typeof CODER_APP.views)[number];
+export type { CoderViewId };
+

@@ -68,8 +68,18 @@ group, proven case by case in `layer-boundaries.test.mjs`, and the layer added t
 
 Landed as the layer's rules and template, not a package: `packages/modules/_template/` holds `.tmpl` files (so pnpm, moon and the lockfile see nothing until Theme C adds the first real module), `ModuleManifest`/`defineModuleManifest` live in `shared`, eslint gains module renderer/main/manifest blocks plus a ban on features, the frame and the runtime importing a module, `layer-boundaries.test.mjs` proves every edge, `gate-projects-check` maps `packages/modules/*` to `module-<name>`, and the runtime's `mountModuleMains` rejects two modules in one host declaring the same IPC channel.
 
-**Theme C — Coder and Creator become modules.** ◻ Their compose code, views and main bridges move out of
-`apps/coder` and `apps/creator` into `packages/modules/{coder,creator}`.
+**Theme C — Coder and Creator become modules.** ✅ (PR #1065) `packages/modules/coder` and
+`packages/modules/creator` now hold both apps' composition, views and module-side main halves; `apps/coder`
+and `apps/creator` shrink to a window, identity, pairing and the bundle script, and re-export the module's
+root as `CoderApp` / `CreatorApp`.
+
+Coder's module carries the feature host ports, the read-only git host, the Tasks hand-off, `CoderHome`, and main's
+`registerCoderHandlers`, bridge, repository list, git channels and the system-git shim (with their tests). Creator's
+carries the media shell composition (Docs, Images, Video, Audio, Slides deck), `registerCreatorHandlers`, its bridge
+and file protocol. Both manifests are data in `manifest.ts`; `CREATOR_REPO_ID` moved there so the two halves share
+it without importing each other. Both mains still register through their own composers, not `defineFeatureMain`:
+folding them into `mountModuleMains` is E.3. Studio is unaffected: it composes through `packages/app`, never an app,
+and listing modules in `composition.ts` is E.5.
 
 **Theme D — Vault, Cleaner, Monitor and Capture become modules.** ◻ The same move for the four utility
 apps, into `packages/modules/{vault,cleaner,monitor,capture}`.
@@ -126,17 +136,17 @@ release, icon and test legs are deleted.
 
 ## Theme C — Coder and Creator become modules `[L]`
 
-- [ ] **C.1** `packages/modules/coder`: move [`apps/coder/src/compose/`](../../../apps/coder/src/compose/)
+- [x] **C.1** `packages/modules/coder`: move [`apps/coder/src/compose/`](../../../apps/coder/src/compose/)
   (git host, tasks host, commit panel, agent hand-off), its views and the manifest data in
   [`coder-manifest.ts`](../../../apps/coder/src/coder-manifest.ts) into the module. `[L]`
-- [ ] **C.2** Coder's main half: the bridge, repos, git and script-runner pieces from
+- [x] **C.2** Coder's main half: the bridge, repos, git and script-runner pieces from
   [`apps/coder/main/`](../../../apps/coder/main/) that are module logic (not window/identity/pairing,
   which stay host concerns) move to `packages/modules/coder/main`. Their tests move with them. `[L]`
-- [ ] **C.3** `packages/modules/creator`: Docs, Images, Audio, Video (and Slides, per
+- [x] **C.3** `packages/modules/creator`: Docs, Images, Audio, Video (and Slides, per
   [`placement.ts`](../../../packages/shared/src/domain/placement.ts)) from `apps/creator`, renderer and
   main. Nothing in it may assume a particular host. `[L]`
-- [ ] **C.4** Studio's composition consumes both modules with no behaviour change; its existing tests stay
-  green unedited. `[M]`
+- [x] **C.4** Studio's composition consumes both modules with no behaviour change; its existing tests stay
+  green unedited. `[M]` Studio never imported the apps, so it is unchanged and its tests are untouched; `composition.ts` listing modules is E.5.
 
 ## Theme D — Vault, Cleaner, Monitor and Capture become modules `[L]`
 

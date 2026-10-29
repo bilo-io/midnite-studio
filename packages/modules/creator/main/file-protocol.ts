@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { confineToRoot } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
 
-import { CREATOR_REPO_ID } from './context';
+import { CREATOR_REPO_ID } from '../manifest';
 
 /**
  * Creator's `mstudio-file://` handler (Phase 113 Theme Q). The Images gallery addresses a picture

@@ -38,7 +38,7 @@ const UNMIGRATED: Record<string, string> = {
   'apps/gamer/main/game-electron.ts': 'net.fetch of a file:// URL for the game protocol',
   'apps/capture/main/index.ts': 'net.fetch of a file:// URL for the capture protocol',
   'apps/media/main/index.ts': 'file:// protocol handler, and the app composer injecting `net.fetch` (follow-up: bind to guardedFetch)',
-  'apps/creator/main/context.ts': 'app composer default (follow-up: bind to guardedFetch)',
+  'packages/modules/creator/main/context.ts': 'app composer default (follow-up: bind to guardedFetch)',
   'packages/features/monitor/main/system-health.ts': 'GET to the user’s own local Ollama /api/version',
   'packages/features/models/main/client.ts': 'the user’s own local Ollama server (loopback)',
   'packages/features/forge/main/http.ts': 'forge providers on user-chosen hosts (github, gitlab, self-hosted); follow-up: register per provider',

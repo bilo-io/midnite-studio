@@ -1,10 +1,10 @@
 import { mediaCoreManifest } from '@midnite/studio-feature-media-core/renderer';
-import { mediaAudioManifest, mediaAudioTab } from '@midnite/studio-feature-media-audio/renderer';
-import { mediaDocsManifest, mediaDocsTab } from '@midnite/studio-feature-media-docs/renderer';
-import { mediaImagesManifest, mediaImagesTab } from '@midnite/studio-feature-media-images/renderer';
-import { mediaVideoManifest, mediaVideoTab } from '@midnite/studio-feature-media-video/renderer';
+import { mediaAudioManifest } from '@midnite/studio-feature-media-audio/renderer';
+import { mediaDocsManifest } from '@midnite/studio-feature-media-docs/renderer';
+import { mediaImagesManifest } from '@midnite/studio-feature-media-images/renderer';
+import { mediaVideoManifest } from '@midnite/studio-feature-media-video/renderer';
 import { slidesManifest } from '@midnite/studio-feature-slides/renderer';
-import type { MediaTabDescriptor } from '@midnite/studio-frame';
+import { CREATOR_TABS } from '@midnite/studio-module-creator/renderer';
 
 /**
  * Creator's app manifest — pure data (Phase 113 Theme Q).
@@ -23,7 +23,7 @@ export const CREATOR_APP = {
   features: [mediaCoreManifest.feature, mediaDocsManifest.feature, mediaImagesManifest.feature, mediaVideoManifest.feature, mediaAudioManifest.feature, slidesManifest.feature],
 } as const;
 
-/** The tabs Creator registers with its `MediaShell`, in strip order. */
-export const CREATOR_TABS: readonly MediaTabDescriptor[] = [mediaDocsTab, mediaImagesTab, mediaVideoTab, mediaAudioTab];
+/** The tabs Creator registers with its `MediaShell`, in strip order — the module's. */
+export { CREATOR_TABS };
 
 export type CreatorApp = typeof CREATOR_APP;
