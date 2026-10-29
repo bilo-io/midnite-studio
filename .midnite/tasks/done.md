@@ -15436,3 +15436,7 @@ An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` un
 
 `packages/runtime/src/guard/` (`check.ts` defining `GuardCheck` with pure `run(inputs)` and stable `<checkId>:<subject>` fingerprints producing `SecurityFinding`s, `inputs.ts` resolving named inputs once per sweep with privacy switch gating, `sweeps-store.ts` managing `guard-sweeps.json` and `<userData>/security/sweeps/<id>.json`, `runner.ts` running eligible checks, recording into findings ledger with deduplication and `resolvedBy: 'sweep'`, and `scheduler.ts` scheduling main-side sweeps on Guard's `LoopSchedule` with persisted `nextWake` surviving reloads). Guard loop prompt composition attaches sweep findings JSON with untrusted provenance per Phase 121 A, and adds *Fix the sweep's findings* modifier beside *Report only*.
 
+
+### Phase 124 Theme C — Coder and Creator become modules (2026-10-29)
+
+`packages/modules/{coder,creator}` (manifest, renderer, main, own vitest/tsconfig/moon project) take the compose code, views, bridges, handlers, repository list, git channels and file protocol out of `apps/coder` and `apps/creator`, which keep identity, pairing, window and the esbuild bundle (aliased to the module sources) and re-export the module root. Tests moved with the code; eslint boundaries, `gate-projects-check` (`module-coder`, `module-creator`), the egress scan and `tsconfig.base` paths follow. Stacked on #1060.
