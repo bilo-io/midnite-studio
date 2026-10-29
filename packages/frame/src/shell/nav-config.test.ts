@@ -2,7 +2,7 @@
 import { LuShield } from 'react-icons/lu';
 import { describe, expect, it } from 'vitest';
 
-import { displayChord, navChordFor, navConfigProblems, navViewForPath, pathForNavView } from './nav-config';
+import { displayChord, navChordFor, navConfigProblems, navFromGroups, navViewForPath, pathForNavView } from './nav-config';
 
 describe('nav config', () => {
   it('accepts a sound nav', () => {
@@ -46,5 +46,25 @@ describe('nav config', () => {
     expect(chordFor('graph')).toBe('⌘⇧G');
     expect(chordFor('chats')).toBeUndefined();
     expect(chordFor('plain')).toBeUndefined();
+  });
+});
+
+describe('nav groups (Phase 124 Theme E)', () => {
+  const view = (id: string) => ({ id, label: id, icon: (() => null) as never });
+  it('navFromGroups flattens the groups into views and is sound', () => {
+    const nav = navFromGroups([
+      { id: 'agents', label: 'Agents', icon: (() => null) as never, views: [view('chats')] },
+      { id: 'coder', label: 'Coder', icon: (() => null) as never, views: [view('reviews'), view('tests')] },
+    ]);
+    expect(nav.views.map((v) => v.id)).toEqual(['chats', 'reviews', 'tests']);
+    expect(navConfigProblems(nav)).toEqual([]);
+  });
+
+  it('flags a views list that drifted from its groups, and an empty or duplicate group', () => {
+    const group = { id: 'a', label: 'A', icon: (() => null) as never, views: [view('x')] };
+    expect(navConfigProblems({ views: [view('y')], groups: [group] })).toContain('nav.views is not the flat concatenation of nav.groups');
+    expect(navConfigProblems({ views: [view('x')], groups: [group, { ...group, views: [] }] })).toEqual(
+      expect.arrayContaining(['duplicate group id "a"', 'group "a" has no views']),
+    );
   });
 });

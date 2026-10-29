@@ -16,6 +16,7 @@ dependsOn:
   - 'runtime'
   - 'feature-report'
   - 'feature-finance'
+  - 'module-money'
 
 tasks:
   build:
@@ -43,6 +44,9 @@ tasks:
       - '/packages/features/finance/manifest.ts'
       - '/packages/features/finance/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/money/main/**/*'
+      - '/packages/modules/money/renderer/**/*'
+      - '/packages/modules/money/manifest.ts'
     outputs:
       - 'dist'
 
@@ -64,6 +68,9 @@ tasks:
       - 'main/**/*'
       - '/packages/features/finance/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/money/main/**/*'
+      - '/packages/modules/money/renderer/**/*'
+      - '/packages/modules/money/manifest.ts'
 
   test:
     inputs:
@@ -81,3 +88,6 @@ tasks:
       - 'main/**/*'
       - '/packages/features/finance/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/money/main/**/*'
+      - '/packages/modules/money/renderer/**/*'
+      - '/packages/modules/money/manifest.ts'

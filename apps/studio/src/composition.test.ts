@@ -1,8 +1,14 @@
 // vitest/node: no browser capability needed — reads package manifests, the page and the bundle script as text.
 import { describe, expect, it } from 'vitest';
-import { STUDIO_COMPOSITION, STUDIO_FEATURES } from './composition';
+import { STUDIO_COMPOSITION, STUDIO_FEATURES, STUDIO_MODULES } from './composition';
 
 const featurePackages = import.meta.glob('../../../packages/features/*/package.json', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+}) as Record<string, string>;
+
+const modulePackages = import.meta.glob('../../../packages/modules/*/package.json', {
   eager: true,
   query: '?raw',
   import: 'default',
@@ -14,6 +20,13 @@ describe('studio composition', () => {
       .map((p) => /features\/([^/]+)\/package\.json$/.exec(p)?.[1])
       .sort();
     expect([...STUDIO_FEATURES].sort()).toEqual(onDisk);
+  });
+
+  it('composes every module package under packages/modules, and only those', () => {
+    const onDisk = Object.keys(modulePackages)
+      .map((p) => /modules\/([^/]+)\/package\.json$/.exec(p)?.[1])
+      .sort();
+    expect([...STUDIO_MODULES].sort()).toEqual(onDisk);
   });
 
   it('names the renderer and main internals by their real package names', () => {
