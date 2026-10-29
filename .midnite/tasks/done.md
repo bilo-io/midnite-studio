@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 123 Theme B — The shared shell
+
+`AppShell` in `packages/frame/src/shell/` (`ShellProviders` > `AppFrame` + frameless `TitleBar`, the launcher logo on an accent tile, a rail from the manifest `nav` with Settings last in the footer, a clipping view slot, `panels` / `footer` / `titleBarEnd` slots, `--app-accent` on the root and only the active row), `createViewLink` (chord-only tooltip, in-app navigation) and `nav-config.ts`. Every existing app manifest gains `nav`, checked by a per-app manifest test. `frameContent` now scans `@bilo-io/shell`'s dist. No app renders the shell yet — that is Theme H.
+
 ## 2026-10-29 — Phase 124 Theme A — The module contract
 
 `shared/src/modules.ts`: `MODULE_IDS`, `APP_MODULES` (keyed by `ModuleHostId`, Studio lists every module), `RETIRED_APP_ALIASES` (coder, creator, vault, cleaner, monitor, capture, accountant, simulator → host + module), with a test holding the invariants.
