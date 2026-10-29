@@ -15,6 +15,7 @@ dependsOn:
   - 'frame'
   - 'runtime'
   - 'feature-report'
+  - 'module-vault'
   - 'feature-vault'
 
 tasks:
@@ -44,6 +45,9 @@ tasks:
       - '/packages/features/vault/response-schemas.ts'
       - '/packages/features/vault/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/vault/main/**/*'
+      - '/packages/modules/vault/renderer/**/*'
+      - '/packages/modules/vault/manifest.ts'
     outputs:
       - 'dist'
 
@@ -66,6 +70,9 @@ tasks:
       - 'main/**/*'
       - '/packages/features/vault/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/vault/main/**/*'
+      - '/packages/modules/vault/renderer/**/*'
+      - '/packages/modules/vault/manifest.ts'
 
   test:
     inputs:
@@ -84,3 +91,6 @@ tasks:
       - 'main/**/*'
       - '/packages/features/vault/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/vault/main/**/*'
+      - '/packages/modules/vault/renderer/**/*'
+      - '/packages/modules/vault/manifest.ts'

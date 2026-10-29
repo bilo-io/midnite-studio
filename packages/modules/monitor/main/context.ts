@@ -1,12 +1,7 @@
-import { monitorMain, type MetricsService, type UsageSession } from '@midnite/studio-feature-monitor/main';
-import {
-  createIpcContext,
-  registerHandoffOpener,
-  type IpcContextElectron,
-  type LogSink,
-} from '@midnite/studio-runtime';
-import { CHANNELS, type schemas } from '@midnite/studio-shared';
-import type { z } from 'zod';
+import { type MetricsService, type UsageSession } from '@midnite/studio-feature-monitor/main';
+import { createIpcContext, type IpcContextElectron, type LogSink } from '@midnite/studio-runtime';
+
+import { monitorModuleMain, type TerminalList } from './module';
 
 /** The electron pieces Monitor's main needs, injected so registration is testable under bare vitest. */
 export type MonitorElectron = IpcContextElectron & {
@@ -29,27 +24,18 @@ export type MonitorElectron = IpcContextElectron & {
   openExternal?: (url: string) => Promise<void>;
 };
 
-type TerminalList = z.infer<typeof schemas.TerminalListResponse>;
-
-const NO_BROKER: TerminalList = {
-  sessions: [],
-  broker: { mode: 'inproc', reason: 'Monitor has no terminal broker of its own' },
-};
-
 /**
  * Registers every channel Monitor's renderer can call: the monitor feature's (metrics, system
  * health), the terminal list and the hand-off. The crash-log reads and Report an Issue are the
  * report feature's (`report.ts`) — registered once, there, over the same log sink.
  */
 export function registerMonitorHandlers(el: MonitorElectron): void {
-  const ctx = createIpcContext(el);
-  // A session lives in Studio: "Open in Studio" leaves through the launcher's router.
-  registerHandoffOpener(ctx.ipc, { openExternal: el.openExternal ?? (async () => Promise.reject(new Error('no opener'))) });
-  monitorMain.register(ctx, {
+  monitorModuleMain.register(createIpcContext(el), {
     onMetricsService: el.onMetricsService,
     ...(el.homeDir ? { homeDir: el.homeDir } : {}),
     ...(el.agentSessions ? { agentSessions: el.agentSessions } : {}),
     warn: (issue) => el.log.write('warn', issue),
+    ...(el.listSessions ? { listSessions: el.listSessions } : {}),
+    ...(el.openExternal ? { openExternal: el.openExternal } : {}),
   });
-  el.ipcMain.handle(CHANNELS.terminalList, () => el.listSessions?.() ?? NO_BROKER);
 }

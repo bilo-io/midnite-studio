@@ -11,6 +11,9 @@ adapter is `packages/app/src/compose/companion-host.tsx`; its revealers, sources
 follows suite-prefs (`companion.enabled`, `voices`, `sttEngine`, `sttProvider`). Importing the barrel reads no host
 (`import-without-host.test.ts`). Package suite: 1,045 tests under two vitest projects (renderer on jsdom, main on node).
 
+## 2026-10-29 — Phase 124 Theme D — Vault, Cleaner, Monitor and Capture become modules
+
+`packages/modules/{vault,cleaner,monitor,capture}`: renderer compose/views/manifest data and main bridge/context/services moved out of `apps/<id>` (D.1–D.4), each main half a `defineFeatureMain` module; apps keep window, identity, pairing, preload and report menu. Stacked on #1060.
 ## 2026-10-29 — Phase 123 Theme D — The chords, everywhere
 
 `useKeybindings` (with a `Partial` `CommandRuntime` and host-supplied `KeybindingGates`), `shouldEscapeTerminal`, the chord parser and the whole command palette (store, fuzzy scoring, frecency, `createCommandSource`, `CommandPalette`, `PaletteHost`) moved to `packages/frame/src/commands/`, with re-exports at Studio's old paths. A chord with no handler reaches the page; the palette lists only commands with handlers. `SUITE_COMMANDS` and `view.settings` (`Mod+,`, no menu accelerator) land in `shared/src/keybindings.ts`. Studio's behaviour and tests are unchanged.
