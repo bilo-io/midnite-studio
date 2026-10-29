@@ -27,6 +27,7 @@ const stores = new Map<SuitePrefsKey, Set<StoreHandle>>();
 /** The last value known to be in the file, per group, as JSON. */
 const known = new Map<SuitePrefsKey, string>();
 let snapshot: SuitePrefsSnapshot | null = null;
+let unsubscribe: (() => void) | undefined;
 
 const suitePrefs = () => bridge()?.suitePrefs;
 
@@ -39,6 +40,11 @@ function stable(value: unknown): string {
         )
       : v,
   );
+}
+
+function restore(key: SuitePrefsKey, previous: string | undefined): void {
+  if (previous === undefined) known.delete(key);
+  else known.set(key, previous);
 }
 
 function remember(next: SuitePrefsSnapshot): void {
@@ -56,6 +62,8 @@ export function suitePrefsStorage<T>(
       const api = suitePrefs();
       // No bridge: stay synchronous, so a store hydrates before first paint as it always has.
       if (!api) return fallback ? fallback.getItem(name) : null;
+      // Listen from the first read, so every store re-hydrates, not only the ones a mounted hook names.
+      subscribeSuitePrefs();
       return (async () => {
         try {
           const current = snapshot ?? (await api.get());
@@ -75,15 +83,20 @@ export function suitePrefsStorage<T>(
       const state = value.state as unknown;
       const serialised = stable(state);
       if (known.get(key) === serialised) return;
+      // Advance before the write, not after: the echo of this very write can reach `onChanged`
+      // before the reply does, and must read as ours rather than as another app's change.
+      const previous = known.get(key);
+      known.set(key, serialised);
       return (
         api
           .set({ key, value: state } as never)
           .then((result) => {
             if (result.ok) remember(result.snapshot);
+            else restore(key, previous);
           })
           // A failed write must not become an unhandled rejection on every preference click; the
-          // next change retries because `known` was not advanced.
-          .catch(() => undefined)
+          // next change retries because `known` goes back to what the file held.
+          .catch(() => restore(key, previous))
       );
     },
     removeItem: (name) => fallback?.removeItem(name),
@@ -103,8 +116,10 @@ export function registerSuitePrefsStore(key: SuitePrefsKey, store: StoreHandle):
  */
 export function subscribeSuitePrefs(): () => void {
   const api = suitePrefs();
-  if (!api) return () => undefined;
-  return api.onChanged((next) => {
+  // One listener per process, however many components or stores ask: each extra one would only
+  // re-hydrate the same stores again.
+  if (!api || unsubscribe) return () => undefined;
+  unsubscribe = api.onChanged((next) => {
     const changed: SuitePrefsKey[] = [];
     for (const key of next.stored) {
       if (known.get(key) !== stable(next.prefs[key])) changed.push(key);
@@ -114,10 +129,13 @@ export function subscribeSuitePrefs(): () => void {
       for (const store of stores.get(key) ?? []) void store.persist.rehydrate();
     }
   });
+  return () => undefined;
 }
 
 /** Test seam: forget everything cached. */
 export function resetSuitePrefsStorage(): void {
   snapshot = null;
   known.clear();
+  unsubscribe?.();
+  unsubscribe = undefined;
 }

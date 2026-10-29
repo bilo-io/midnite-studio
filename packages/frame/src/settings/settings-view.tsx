@@ -65,7 +65,9 @@ export function SettingsView(props: SettingsViewProps) {
   const [localCollapsed, setLocalCollapsed] = useState<readonly SettingsGroupId[]>([]);
   const [localWidth, setLocalWidth] = useState<number>(NAV_WIDTH.initial);
 
-  const page = props.activePage ?? localPage ?? pages[0]?.id;
+  const wanted = props.activePage ?? localPage;
+  // A stale id (a retired page, one this app does not list) falls back to the first page rather than a blank pane.
+  const page = pages.some((entry) => entry.id === wanted) ? wanted : pages[0]?.id;
   const collapsed = props.collapsedGroups ?? localCollapsed;
   const select = (id: SettingsPageKey) =>
     props.onPageChange ? props.onPageChange(id) : setLocalPage(id);

@@ -97,10 +97,7 @@ import {
 } from '@midnite/studio-feature-tasks/renderer/state';
 import { useFileEditorStore } from './file-editor-store';
 
-import {
-  cycleBrowserLayout,
-  type BrowserLayout,
-} from '@midnite/studio-feature-browser/renderer/store';
+import { cycleBrowserLayout, type BrowserLayout } from '@midnite/studio-feature-browser/renderer/store';
 import { bridge } from '../services/bridge';
 import { adoptRenamedPersistKey } from './persist-rename';
 import { renameLegacySkillsIn } from './migrate-skill-renames';
@@ -190,7 +187,11 @@ export type LinkTarget = 'in-app' | 'system';
  * `account.switcher.open` falls back to Settings ▸ Accounts.
  */
 export type ForgeSwitcherPlacement =
-  'titlebar-right' | 'titlebar-left' | 'rail-top' | 'rail-bottom' | 'hidden';
+  | 'titlebar-right'
+  | 'titlebar-left'
+  | 'rail-top'
+  | 'rail-bottom'
+  | 'hidden';
 
 export const FORGE_SWITCHER_PLACEMENTS: readonly ForgeSwitcherPlacement[] = [
   'titlebar-right',
@@ -441,6 +442,7 @@ export type LayoutSizes = {
   graphInlineListWidth: number;
 };
 
+
 export const DEFAULT_LAYOUT: LayoutSizes = {
   // Wide enough for a repository row's full contents: name, ahead/behind pair,
   // the three sync buttons and the row's three menus. At 256 the name was the
@@ -661,6 +663,7 @@ export type TerminalDock = 'bottom' | 'right';
  * with its own restore button rather than a height that happens to be tall.
  */
 export const TERMINAL_VIEW_RESERVE = 88;
+
 
 /**
  * One project board's view state (Phase 52 Theme D) — declared by the Tasks
@@ -2608,8 +2611,7 @@ export const useUiStore = create<UiState>()(
       egressAllAutomaticOff: false,
       setEgressAllAutomaticOff: (egressAllAutomaticOff) => set({ egressAllAutomaticOff }),
       egressSwitches: {},
-      setEgressSwitch: (id, on) =>
-        set((state) => ({ egressSwitches: { ...state.egressSwitches, [id]: on } })),
+      setEgressSwitch: (id, on) => set((state) => ({ egressSwitches: { ...state.egressSwitches, [id]: on } })),
       historyRetentionDays: null,
       setHistoryRetentionDays: (historyRetentionDays) => set({ historyRetentionDays }),
       skillExecutionMode: DEFAULT_SKILL_EXECUTION_MODE,
@@ -2653,30 +2655,17 @@ export const useUiStore = create<UiState>()(
       // open with no pane mounted, and turning the proceed switch off must revoke bypasses now.
       setBrowserAllowSiteProceed: (browserAllowSiteProceed) => {
         set({ browserAllowSiteProceed });
-        bridge()?.browser.setSiteSafety({
-          allowProceed: browserAllowSiteProceed,
-          feeds: get().browserReputationFeeds,
-        });
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: get().browserReputationFeeds });
       },
       browserReputationFeeds: { urlhaus: false, openphish: false },
       setBrowserReputationFeed: (feed, enabled) => {
-        set((state) => ({
-          browserReputationFeeds: { ...state.browserReputationFeeds, [feed]: enabled },
-        }));
+        set((state) => ({ browserReputationFeeds: { ...state.browserReputationFeeds, [feed]: enabled } }));
         const { browserAllowSiteProceed, browserReputationFeeds } = get();
-        bridge()?.browser.setSiteSafety({
-          allowProceed: browserAllowSiteProceed,
-          feeds: browserReputationFeeds,
-        });
+        bridge()?.browser.setSiteSafety({ allowProceed: browserAllowSiteProceed, feeds: browserReputationFeeds });
       },
       browserDownloads: { enabled: false, folder: '' },
       setBrowserDownloads: (browserDownloads) => set({ browserDownloads }),
-      browserPrivacy: {
-        blockTrackers: true,
-        blockThirdPartyCookies: true,
-        trimReferrer: true,
-        reduceUserAgent: true,
-      },
+      browserPrivacy: { blockTrackers: true, blockThirdPartyCookies: true, trimReferrer: true, reduceUserAgent: true },
       setBrowserPrivacy: (browserPrivacy) => set({ browserPrivacy }),
       editorFontFamily: '',
       setEditorFontFamily: (editorFontFamily) => set({ editorFontFamily }),
@@ -2823,11 +2812,7 @@ export const useUiStore = create<UiState>()(
       fabPanelOpen: false,
       companionPanelOpen: false,
       setCompanionPanelOpen: (companionPanelOpen) =>
-        set(
-          companionPanelOpen
-            ? { companionPanelOpen, lastOpenedPanel: 'companion' }
-            : { companionPanelOpen },
-        ),
+        set(companionPanelOpen ? { companionPanelOpen, lastOpenedPanel: 'companion' } : { companionPanelOpen }),
       toggleCompanionPanel: () =>
         set((state) => {
           const companionPanelOpen = !state.companionPanelOpen;
@@ -2853,7 +2838,9 @@ export const useUiStore = create<UiState>()(
         const current = get().detachedPages;
         if (current.includes(role) === detached) return;
         set({
-          detachedPages: detached ? [...current, role] : current.filter((entry) => entry !== role),
+          detachedPages: detached
+            ? [...current, role]
+            : current.filter((entry) => entry !== role),
         });
       },
       activityTimelineOpen: false,
@@ -3020,8 +3007,7 @@ export const useUiStore = create<UiState>()(
       setUpdatesAutoCheck: (updatesAutoCheck) => set({ updatesAutoCheck }),
       setUpdateChannel: (updateChannel) => set({ updateChannel }),
       setupState: INITIAL_SETUP_STATE,
-      updateSetupState: (patch) =>
-        set((state) => ({ setupState: { ...state.setupState, ...patch } })),
+      updateSetupState: (patch) => set((state) => ({ setupState: { ...state.setupState, ...patch } })),
       setSetupPageSkipped: (pageId, skipped) =>
         set((state) => ({
           setupState: {
@@ -3034,11 +3020,9 @@ export const useUiStore = create<UiState>()(
       workflowPaletteCollapsed: false,
       setWorkflowPaletteCollapsed: (workflowPaletteCollapsed) => set({ workflowPaletteCollapsed }),
       workflowInspectorCollapsed: true,
-      setWorkflowInspectorCollapsed: (workflowInspectorCollapsed) =>
-        set({ workflowInspectorCollapsed }),
+      setWorkflowInspectorCollapsed: (workflowInspectorCollapsed) => set({ workflowInspectorCollapsed }),
       workflowRunPanelCollapsed: true,
-      setWorkflowRunPanelCollapsed: (workflowRunPanelCollapsed) =>
-        set({ workflowRunPanelCollapsed }),
+      setWorkflowRunPanelCollapsed: (workflowRunPanelCollapsed) => set({ workflowRunPanelCollapsed }),
 
       layout: DEFAULT_LAYOUT,
       graphColumns: DEFAULT_GRAPH_COLUMNS,
@@ -3137,9 +3121,7 @@ export const useUiStore = create<UiState>()(
       // normal-height panel) so the session is not disrupted — only the
       // fullscreen state is cleared.
       setActiveView: (view) =>
-        useFileEditorStore
-          .getState()
-          .guardNavigation(() => set((state) => navigateTo(state, view))),
+        useFileEditorStore.getState().guardNavigation(() => set((state) => navigateTo(state, view))),
       // The title bar's Back/Forward buttons change `activeView` exactly like
       // `setActiveView` does, so they carry the same guard.
       goBack: () =>
@@ -3161,9 +3143,7 @@ export const useUiStore = create<UiState>()(
       setSettingsPage: (settingsPage) => set({ settingsPage }),
       // See `repoSwitchReset` for what a switch invalidates.
       selectRepo: (selectedRepoId) =>
-        useFileEditorStore
-          .getState()
-          .guardNavigation(() => set({ ...repoSwitchReset(), selectedRepoId })),
+        useFileEditorStore.getState().guardNavigation(() => set({ ...repoSwitchReset(), selectedRepoId })),
       selectWorktree: (selectedWorktreePath) =>
         useFileEditorStore.getState().guardNavigation(() => set({ selectedWorktreePath })),
       selectCommit: (sha) => set({ graphSelection: sha === null ? null : { kind: 'commit', sha } }),
@@ -3181,13 +3161,10 @@ export const useUiStore = create<UiState>()(
       openWorkingCopyInGraph: (target = {}) =>
         useFileEditorStore.getState().guardNavigation(() =>
           set((state) => {
-            const switchingRepo =
-              target.repoId !== undefined && target.repoId !== state.selectedRepoId;
+            const switchingRepo = target.repoId !== undefined && target.repoId !== state.selectedRepoId;
             return {
               ...(switchingRepo ? { ...repoSwitchReset(), selectedRepoId: target.repoId } : {}),
-              ...(target.worktreePath !== undefined
-                ? { selectedWorktreePath: target.worktreePath }
-                : {}),
+              ...(target.worktreePath !== undefined ? { selectedWorktreePath: target.worktreePath } : {}),
               ...navigateTo(state, 'graph'),
               graphSelection: { kind: 'working-tree' },
               graphWorkingCopyReveal: state.graphWorkingCopyReveal + 1,
@@ -3216,7 +3193,8 @@ export const useUiStore = create<UiState>()(
       toggleTerminalDock: () =>
         set((state) => ({ terminalDock: state.terminalDock === 'right' ? 'bottom' : 'right' })),
       setTerminalSidebarSide: (terminalSidebarSide) => set({ terminalSidebarSide }),
-      toggleTerminalList: () => set((state) => ({ terminalListOpen: !state.terminalListOpen })),
+      toggleTerminalList: () =>
+        set((state) => ({ terminalListOpen: !state.terminalListOpen })),
       /*
         Asymmetric on purpose. Closing is unambiguous, so it just happens;
         OPENING raises the launcher instead, and `openBrowser` is what
@@ -3292,8 +3270,7 @@ export const useUiStore = create<UiState>()(
         set((state) => ({ activityTimelineGridlines: !state.activityTimelineGridlines })),
       setActivityTimelineGridlines: (activityTimelineGridlines) =>
         set({ activityTimelineGridlines }),
-      setActivityTimelineBarLayout: (activityTimelineBarLayout) =>
-        set({ activityTimelineBarLayout }),
+      setActivityTimelineBarLayout: (activityTimelineBarLayout) => set({ activityTimelineBarLayout }),
       setActivityTimelineAreaLayout: (activityTimelineAreaLayout) =>
         set({ activityTimelineAreaLayout }),
       setActiveFabTab: (activeFabTab) => set({ activeFabTab }),
@@ -3304,7 +3281,8 @@ export const useUiStore = create<UiState>()(
           return { activeFabTab: tab };
         });
       },
-      openFabTab: (tab) => set({ fabPanelOpen: true, activeFabTab: tab, lastOpenedPanel: 'fab' }),
+      openFabTab: (tab) =>
+        set({ fabPanelOpen: true, activeFabTab: tab, lastOpenedPanel: 'fab' }),
       setLayout: (key, value) => set((state) => ({ layout: { ...state.layout, [key]: value } })),
       setGraphColumn: (key, value) =>
         set((state) => ({ graphColumns: { ...state.graphColumns, [key]: value } })),
@@ -3331,7 +3309,9 @@ export const useUiStore = create<UiState>()(
           return {
             collapsedRepoSections: {
               ...state.collapsedRepoSections,
-              [repoId]: closed.includes(key) ? closed.filter((k) => k !== key) : [...closed, key],
+              [repoId]: closed.includes(key)
+                ? closed.filter((k) => k !== key)
+                : [...closed, key],
             },
           };
         }),
@@ -3408,7 +3388,8 @@ export const useUiStore = create<UiState>()(
       setGraphProvenanceFilter: (graphProvenanceFilter) => set({ graphProvenanceFilter }),
       setGraphProvenanceMark: (graphProvenanceMark) => set({ graphProvenanceMark }),
       setGraphShowCi: (graphShowCi) => set({ graphShowCi }),
-      toggleDiffOldGutter: () => set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
+      toggleDiffOldGutter: () =>
+        set((state) => ({ diffShowOldGutter: !state.diffShowOldGutter })),
       setDiffLayout: (diffLayout) => set({ diffLayout }),
       toggleDiffLayout: () =>
         set((state) => ({ diffLayout: state.diffLayout === 'split' ? 'unified' : 'split' })),
@@ -3513,11 +3494,7 @@ export const useUiStore = create<UiState>()(
                 })()
               : { ...current, [key]: template };
           return {
-            columnSkillByProject: touchProjectView(
-              state.columnSkillByProject,
-              projectId,
-              nextColumns,
-            ),
+            columnSkillByProject: touchProjectView(state.columnSkillByProject, projectId, nextColumns),
           };
         }),
       setAutomateEnabled: (projectId, enabled) =>
@@ -3526,10 +3503,7 @@ export const useUiStore = create<UiState>()(
         })),
       setAutomateCap: (projectId, cap) =>
         set((state) => ({
-          automateCapByProject: {
-            ...state.automateCapByProject,
-            [projectId]: clampAutomateConcurrency(cap),
-          },
+          automateCapByProject: { ...state.automateCapByProject, [projectId]: clampAutomateConcurrency(cap) },
         })),
       openKillSwitch: (flow) =>
         set({
@@ -3537,8 +3511,7 @@ export const useUiStore = create<UiState>()(
           killSwitchFlowWorkflowId: flow?.workflowId ?? null,
           killSwitchFlowRunId: flow?.runId ?? null,
         }),
-      closeKillSwitch: () =>
-        set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
+      closeKillSwitch: () => set({ killSwitchOpen: false, killSwitchFlowWorkflowId: null, killSwitchFlowRunId: null }),
       setAgentSkill: (id, skill) =>
         set((state) => ({ agentSkills: { ...state.agentSkills, [id]: skill } })),
       setPrimaryAgent: (id) => set({ primaryAgent: id }),
@@ -4057,17 +4030,13 @@ export const useUiStore = create<UiState>()(
           )
             ? (saved.voiceConversationTrigger as VoiceConversationTrigger)
             : current.voiceConversationTrigger,
-          chatsWidthMode: (CHAT_WIDTH_MODES as readonly string[]).includes(
-            saved.chatsWidthMode ?? '',
-          )
+          chatsWidthMode: (CHAT_WIDTH_MODES as readonly string[]).includes(saved.chatsWidthMode ?? '')
             ? (saved.chatsWidthMode as ChatWidthMode)
             : current.chatsWidthMode,
           mediaTab: (MEDIA_TABS as readonly string[]).includes(saved.mediaTab ?? '')
             ? (saved.mediaTab as MediaTab)
             : current.mediaTab,
-          mediaVideoPanelTab: (VIDEO_PANEL_TABS as readonly string[]).includes(
-            saved.mediaVideoPanelTab ?? '',
-          )
+          mediaVideoPanelTab: (VIDEO_PANEL_TABS as readonly string[]).includes(saved.mediaVideoPanelTab ?? '')
             ? (saved.mediaVideoPanelTab as VideoPanelTab)
             : current.mediaVideoPanelTab,
           mediaPaneCollapsed: { ...current.mediaPaneCollapsed, ...saved.mediaPaneCollapsed },
@@ -4083,10 +4052,7 @@ export const useUiStore = create<UiState>()(
             which reaches the terminal as the string "undefined".
           */
           agentSkills: { ...current.agentSkills, ...saved.agentSkills },
-          primaryModelByAgent: {
-            ...current.primaryModelByAgent,
-            ...(saved.primaryModelByAgent ?? {}),
-          },
+          primaryModelByAgent: { ...current.primaryModelByAgent, ...(saved.primaryModelByAgent ?? {}) },
           agentModes: { ...current.agentModes, ...(saved.agentModes ?? {}) },
           agentApiKeys: { ...current.agentApiKeys, ...(saved.agentApiKeys ?? {}) },
           agentBackends: { ...current.agentBackends, ...(saved.agentBackends ?? {}) },
@@ -4100,10 +4066,7 @@ export const useUiStore = create<UiState>()(
           loopModels: { ...current.loopModels, ...saved.loopModels },
           loopSchedules: { ...current.loopSchedules, ...saved.loopSchedules },
           loopEnabled: { ...current.loopEnabled, ...saved.loopEnabled },
-          loopModifierSkills: {
-            ...current.loopModifierSkills,
-            ...(saved.loopModifierSkills ?? {}),
-          },
+          loopModifierSkills: { ...current.loopModifierSkills, ...(saved.loopModifierSkills ?? {}) },
           loopRunOptions: { ...current.loopRunOptions, ...(saved.loopRunOptions ?? {}) },
           ...mergeCustomLoops(saved, current),
           repoGroupMembership: { ...current.repoGroupMembership, ...saved.repoGroupMembership },
@@ -4117,10 +4080,7 @@ export const useUiStore = create<UiState>()(
           projectViewByProject: { ...current.projectViewByProject, ...saved.projectViewByProject },
           cardSkillByTask: { ...current.cardSkillByTask, ...saved.cardSkillByTask },
           columnSkillByProject: { ...current.columnSkillByProject, ...saved.columnSkillByProject },
-          automateEnabledByProject: {
-            ...current.automateEnabledByProject,
-            ...saved.automateEnabledByProject,
-          },
+          automateEnabledByProject: { ...current.automateEnabledByProject, ...saved.automateEnabledByProject },
           automateCapByProject: { ...current.automateCapByProject, ...saved.automateCapByProject },
         };
       },
@@ -4179,8 +4139,7 @@ const MEDIA_LAYOUT_KEYS = {
 } as const satisfies Record<MediaTab, Record<MediaPane, keyof LayoutSizes>>;
 
 /** The `LayoutSizes` keys holding one Media tab's explorer/detail widths. */
-export const mediaLayoutKeys = (tab: MediaTab): (typeof MEDIA_LAYOUT_KEYS)[MediaTab] =>
-  MEDIA_LAYOUT_KEYS[tab];
+export const mediaLayoutKeys = (tab: MediaTab): (typeof MEDIA_LAYOUT_KEYS)[MediaTab] => MEDIA_LAYOUT_KEYS[tab];
 
 /**
  * v28 → v29 (Phase 99 Theme A): the `video` view became Media's Video tab.
@@ -4192,10 +4151,8 @@ export const mediaLayoutKeys = (tab: MediaTab): (typeof MEDIA_LAYOUT_KEYS)[Media
 export function migrateVideoToMedia(state: Record<string, unknown>): Record<string, unknown> {
   const layout = state.layout as Record<string, unknown> | undefined;
   if (layout) {
-    if (typeof layout.videoProjectListWidth === 'number')
-      layout.mediaVideoExplorerWidth = layout.videoProjectListWidth;
-    if (typeof layout.videoDetailWidth === 'number')
-      layout.mediaVideoDetailWidth = layout.videoDetailWidth;
+    if (typeof layout.videoProjectListWidth === 'number') layout.mediaVideoExplorerWidth = layout.videoProjectListWidth;
+    if (typeof layout.videoDetailWidth === 'number') layout.mediaVideoDetailWidth = layout.videoDetailWidth;
     delete layout.videoProjectListWidth;
     delete layout.videoDetailWidth;
   }
@@ -4242,9 +4199,7 @@ export function migrateChangesToGraph(state: Record<string, unknown>): Record<st
  * is untouched: that page id kept its name (only its label reads "Tasks").
  * Mutates and returns the raw blob; exported for its test.
  */
-export function migrateIssuesAndProjectsToTasks(
-  state: Record<string, unknown>,
-): Record<string, unknown> {
+export function migrateIssuesAndProjectsToTasks(state: Record<string, unknown>): Record<string, unknown> {
   const layout = state.layout as Record<string, unknown> | undefined;
   if (layout && typeof layout === 'object') delete layout.issuesListWidth;
   for (const key of ['navVisibility', 'sectionFilters'] as const) {

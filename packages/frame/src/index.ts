@@ -42,11 +42,7 @@ export { noBridge, reportFailure } from './bridge-result';
 // Commands (Phase 123 Theme D) — the keybinding dispatcher and the command palette every suite app mounts.
 export { chordFromEvent, isMac, type ChordEvent } from './commands/chord';
 export type { CommandEntry, CommandRuntime } from './commands/command-runtime';
-export {
-  shouldEscapeTerminal,
-  useKeybindings,
-  type KeybindingGates,
-} from './commands/use-keybindings';
+export { shouldEscapeTerminal, useKeybindings, type KeybindingGates } from './commands/use-keybindings';
 export {
   chordOf,
   filterCommands,
@@ -84,12 +80,7 @@ export {
   type CommandSourceOptions,
 } from './commands/palette/command-source';
 export { CommandPalette, type CommandPaletteProps } from './commands/palette/palette';
-export {
-  PaletteHost,
-  usePalette,
-  type PaletteApi,
-  type PaletteHostProps,
-} from './commands/palette/palette-host';
+export { PaletteHost, usePalette, type PaletteApi, type PaletteHostProps } from './commands/palette/palette-host';
 export { CASCADE_MAX_STEPS, CASCADE_STEP_MS, cascadeStyle } from './lib/cascade';
 export { usePageVisible } from './lib/use-page-visible';
 
@@ -97,20 +88,10 @@ export { usePageVisible } from './lib/use-page-visible';
 export { ConfinedBadge } from './security/confined-badge';
 export { InjectionBanner } from './security/injection-banner';
 export { useInjectionScans, type ScanItem } from './security/use-injection-scans';
-export {
-  ToolApprovalCard,
-  ToolApprovalHost,
-  useToolApprovalQueue,
-} from './security/tool-approval-card';
+export { ToolApprovalCard, ToolApprovalHost, useToolApprovalQueue } from './security/tool-approval-card';
 
 // Notifications.
-export {
-  useToastStore,
-  type Toast,
-  type ToastAction,
-  type ToastState,
-  type ToastStatus,
-} from './toast-store';
+export { useToastStore, type Toast, type ToastAction, type ToastState, type ToastStatus } from './toast-store';
 
 // Layout — the first pieces out of app.tsx.
 export { CONTENT_BOX } from './layout/content-box';
@@ -311,19 +292,10 @@ export { RadioRow, SwitchRow, SwitchTrack } from './form/toggle-rows';
 
 // Settings scaffolding — the frame owns the Settings view; apps contribute pages.
 export { SettingsAccordion } from './settings/settings-section';
-export {
-  SETTINGS_SECTIONS,
-  settingsSectionId,
-  type SettingsSection,
-} from './settings/settings-sections';
+export { SETTINGS_SECTIONS, settingsSectionId, type SettingsSection } from './settings/settings-sections';
 
 // The chrome port — chrome still implemented in packages/app, reached through context.
-export {
-  FrameChromeProvider,
-  useFrameChrome,
-  useOptionalFrameChrome,
-  type FrameChrome,
-} from './chrome/chrome-port';
+export { FrameChromeProvider, useFrameChrome, useOptionalFrameChrome, type FrameChrome } from './chrome/chrome-port';
 export { FrameModal } from './chrome/frame-modal';
 export type {
   BlastRadius,
@@ -340,12 +312,7 @@ export type {
 
 // Media — the tab-registry contract and the kit port media tabs compose (Phase 113 Theme Q).
 export { mediaPanelId, mediaTabId, type MediaTabDescriptor } from './media/media-tab';
-export {
-  MediaKitProvider,
-  useMediaKit,
-  type MediaKit,
-  type MediaQueryKeys,
-} from './media/media-kit';
+export { MediaKitProvider, useMediaKit, type MediaKit, type MediaQueryKeys } from './media/media-kit';
 export type {
   ExportToolbarProps,
   MediaAccordionProps,
