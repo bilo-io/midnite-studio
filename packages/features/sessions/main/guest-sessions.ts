@@ -2,7 +2,14 @@ import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
 import type { BrokerClient, BrokerSessionInfo, FeatureMainContext, SharedBroker } from '@midnite/studio-runtime';
-import { CHANNELS, EVENT_CHANNELS, schemas, TerminalSessionSchema, type TerminalSession } from '@midnite/studio-shared';
+import {
+  CHANNELS,
+  EVENT_CHANNELS,
+  schemas,
+  SuiteAppIdSchema,
+  TerminalSessionSchema,
+  type TerminalSession,
+} from '@midnite/studio-shared';
 import type { z } from 'zod';
 
 type TerminalList = z.infer<typeof schemas.TerminalListResponse>;
@@ -56,6 +63,8 @@ export function guestSessionRecord(live: BrokerSessionInfo, known: Map<string, T
   const recorded = known.get(live.sessionId);
   if (recorded) return recorded;
   const fromApp = live.owner !== null && live.owner !== 'studio' ? (APP_LABEL[live.owner] ?? live.owner) : null;
+  // The owner, as the session's app (Phase 123 Theme E) — so a guest lists under its own app.
+  const ownerApp = fromApp ? SuiteAppIdSchema.safeParse(live.owner) : null;
   return {
     id: live.sessionId,
     kind: 'shell',
@@ -64,6 +73,7 @@ export function guestSessionRecord(live: BrokerSessionInfo, known: Map<string, T
     cwd: live.cwd,
     repoId: live.cwd,
     createdAt: now,
+    ...(ownerApp?.success ? { appId: ownerApp.data } : {}),
   };
 }
 

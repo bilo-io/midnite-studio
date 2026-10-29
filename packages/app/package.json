@@ -49,6 +49,7 @@
     "@midnite/studio-feature-mcp-tools": "workspace:*",
     "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-feature-notes": "workspace:*",
+    "@midnite/studio-feature-terminal": "workspace:*",
     "@midnite/studio-feature-optimizer": "workspace:*",
     "@midnite/studio-feature-vault": "workspace:*",
     "@midnite/studio-feature-capture": "workspace:*",

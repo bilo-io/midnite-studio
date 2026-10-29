@@ -9,6 +9,8 @@
  */
 import { z } from 'zod';
 
+import { SuiteAppIdSchema, type SuiteAppId } from './suite-apps';
+
 /**
  * What a session is.
  *
@@ -722,9 +724,20 @@ export const TerminalSessionSchema = z
      * closed row; main, not this field, enforces it.
      */
     confined: z.boolean().optional(),
+    /**
+     * The suite app whose window opened this session (Phase 123 Theme E). Absent means
+     * `'studio'` — every record written before the field existed — so nothing on disk
+     * migrates; read it through {@link sessionAppId}.
+     */
+    appId: SuiteAppIdSchema.optional(),
   })
   .superRefine(agentIdMatchesKind);
 export type TerminalSession = z.infer<typeof TerminalSessionSchema>;
+
+/** The app a session belongs to, with the absent-means-studio default applied. */
+export function sessionAppId(session: Pick<TerminalSession, 'appId'>): SuiteAppId {
+  return session.appId ?? 'studio';
+}
 
 /**
  * `kind` and `agentId` are one fact, so neither half may travel alone.
