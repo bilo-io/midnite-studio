@@ -65,6 +65,10 @@ const CODER_MAIN = 'apps/coder/main/git.ts';
 const STUDIO_COMPOSITION = 'apps/studio/src/composition.ts';
 const STUDIO_RENDERER_ENTRY = 'apps/studio/entry/renderer.ts';
 const STUDIO_MAIN_ENTRY = 'apps/studio/entry/main.ts';
+// Phase 124 Theme B: the module layer, between features and apps.
+const MODULE_RENDERER = 'packages/modules/coder/renderer/coder-view.tsx';
+const MODULE_MAIN = 'packages/modules/coder/main/index.ts';
+const MODULE_MANIFEST = 'packages/modules/coder/manifest.ts';
 
 /** [description, file, import specifier, substring the firing message must contain] */
 const REJECTED = [
@@ -146,6 +150,26 @@ const REJECTED = [
   ["Studio's main entry imports another app", STUDIO_MAIN_ENTRY, '@midnite/app-coder', 'never imports another app'],
   ["Studio's main entry imports the frame", STUDIO_MAIN_ENTRY, '@midnite/studio-frame', 'A main-process module has no renderer'],
   ["Studio's main entry imports electron-updater", STUDIO_MAIN_ENTRY, 'electron-updater', 'No app runs its own updater'],
+
+  // --- Phase 124 Theme B: modules sit above features and the frame, below apps ------------------
+  ['a module imports another module (package name)', MODULE_RENDERER, '@midnite/studio-module-creator/renderer', 'never imports another module'],
+  ['a module imports another module (relative path)', MODULE_RENDERER, '../../creator/renderer/index', 'never imports another module'],
+  ["a module's main half imports another module's main half", MODULE_MAIN, '@midnite/studio-module-creator/main', 'never imports another module'],
+  ['a module imports an app', MODULE_RENDERER, '@midnite/studio-app/store/ui-store', 'Nothing below an app imports one'],
+  ['a module imports a suite app', MODULE_RENDERER, '../../../../apps/browser/src/index', 'Nothing below an app imports one'],
+  ["a module's main half imports an app", MODULE_MAIN, '@midnite/app-browser', 'Nothing below an app imports one'],
+  ['a module renderer imports electron', MODULE_RENDERER, 'electron', 'no node integration'],
+  ["a module's main half imports electron", MODULE_MAIN, 'electron', 'FeatureMainContext'],
+  ['a module renderer imports the runtime', MODULE_RENDERER, '@midnite/studio-runtime', 'main-process only'],
+  ["a module renderer imports a feature's main half", MODULE_RENDERER, '@midnite/studio-feature-optimizer/main', "feature's main half runs in the main process"],
+  ["a module's main half imports the frame", MODULE_MAIN, '@midnite/studio-frame', 'no renderer'],
+  ['a module manifest imports anything but shared', MODULE_MANIFEST, '@midnite/studio-feature-optimizer', 'pure data'],
+  ['a feature renderer imports a module (package name)', FEATURE_RENDERER, '@midnite/studio-module-coder/renderer', 'Nothing below an app imports a module'],
+  ['a feature renderer imports a module (relative path)', FEATURE_RENDERER, '../../../modules/coder/renderer/index', 'Nothing below an app imports a module'],
+  ['a feature main half imports a module', FEATURE_MAIN, '@midnite/studio-module-coder/main', 'Nothing below an app imports a module'],
+  ['the frame imports a module (package name)', FRAME, '@midnite/studio-module-coder/renderer', 'Nothing below an app imports a module'],
+  ['the frame imports a module (relative path)', FRAME, '../../../modules/coder/renderer/index', 'Nothing below an app imports a module'],
+  ['the runtime imports a module', RUNTIME, '@midnite/studio-module-coder/main', 'Nothing below an app imports a module'],
 ];
 
 /** [description, file, import specifier] — must produce no no-restricted-imports message. */
@@ -185,6 +209,16 @@ const ALLOWED = [
   // Theme G: the one seam each Studio entry hands over through.
   ["Studio's renderer entry mounts its shell", STUDIO_RENDERER_ENTRY, '@midnite/studio-app/boot'],
   ["Studio's main entry starts its main process", STUDIO_MAIN_ENTRY, '@midnite/studio-desktop/main'],
+  // Phase 124 Theme B: an app composes modules; a module composes features, the frame and shared.
+  ['a suite app imports a module renderer half', SUITE_APP, '@midnite/studio-module-coder/renderer'],
+  ["Studio's composition imports a module", STUDIO_COMPOSITION, '@midnite/studio-module-coder/renderer'],
+  ["a module imports a feature's renderer half", MODULE_RENDERER, '@midnite/studio-feature-optimizer/renderer'],
+  ['a module renderer imports the frame', MODULE_RENDERER, '@midnite/studio-frame'],
+  ['a module renderer imports shared', MODULE_RENDERER, '@midnite/studio-shared'],
+  ['a module renderer imports its own files', MODULE_RENDERER, '../manifest'],
+  ['a module main half imports the runtime', MODULE_MAIN, '@midnite/studio-runtime'],
+  ["a module's main half imports a feature's main half", MODULE_MAIN, '@midnite/studio-feature-optimizer/main'],
+  ['a module manifest imports shared', MODULE_MANIFEST, '@midnite/studio-shared'],
 ];
 
 describe('eslint layer boundaries (Phase 113 Theme C)', () => {

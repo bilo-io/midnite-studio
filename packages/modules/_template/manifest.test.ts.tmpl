@@ -1,0 +1,10 @@
+import { describe, expect, it } from 'vitest';
+import { MODULE_IDS } from '@midnite/studio-shared';
+
+import { __ID__Manifest } from './manifest';
+
+describe('__ID__ manifest', () => {
+  it('names a real module id', () => {
+    expect(MODULE_IDS).toContain(__ID__Manifest.module);
+  });
+});

@@ -2,4 +2,6 @@ packages:
   - 'packages/*'
   # Phase 113 Theme C — one package per extracted feature.
   - 'packages/features/*'
+  # Phase 124 Theme B — one package per module (`_template` has no package.json, so is never matched).
+  - 'packages/modules/*'
   - 'apps/*'
