@@ -2,7 +2,7 @@
   "name": "@midnite/studio-module-cleaner",
   "version": "0.0.0",
   "private": true,
-  "description": "The cleaner module (Phase 124): Cleaner \u2014 features and views one app mounts as a nav group.",
+  "description": "The cleaner module (Phase 124): Cleaner — features and views one app mounts as a nav group.",
   "sideEffects": false,
   "exports": {
     "./renderer": "./renderer/index.ts",
