@@ -107,10 +107,21 @@ its dismissal stack. Surprise: the "Mod+t does not escape `.xterm`" check in the
 `terminal.new` is not a yield command there, so the frame test proves the yield with `fab.toggle` (`Ctrl+L` off
 macOS) instead of changing Studio.
 
-**Theme E — The terminal panel as a feature.** ◻ `packages/features/terminal`: the 63-file renderer folder and
-the main `terminal-service` / `pty-service` / `pty-env`, with its reach into `ui-store` and Studio components
-behind a `TerminalHost` port. Sessions gain an optional `appId`; each app lists its own by default with a
-"Show all apps" toggle.
+**Theme E — The terminal panel as a feature.** ◐ 5/6 ([#1068](https://github.com/bilo-io/midnite-studio/pull/1068)).
+`packages/features/terminal/renderer` now holds the panel, the session list, every xterm, the store, the unload
+policy and the replay gate (27 test files moved with it), behind a `TerminalHost` port: panel layout and prefs,
+font, repos, palette, link routing, a tooltip, popover and avatar slot, and three optional actions (configure an
+agent, reveal a session, show its commits). Studio's adapter is `packages/app/src/compose/terminal-host.tsx`,
+and the old `features/terminal/*` paths are re-export shims that bind each component to it, so no render site
+changed. The default host sits in the feature, not the frame as the doc first placed it: the frame may not
+import a feature, so it could not name the port's type. `use-reveal` and `use-now` moved to the frame. Studio's
+glue (start-agent, submit-command, reveal-session, the switcher overlay) stays in the app — it drives Studio's
+FAB and primary agent. Sessions carry an optional `appId` (absent = studio); only a non-Studio window stamps it,
+so Studio's records are unchanged on disk. The list filters to its own app with a "Show all apps" toggle on
+suite-prefs `terminal.showAllApps`, shown only once another app's session is present; until someone toggles it,
+each app takes its host's default (Studio: all). A broker that never attached now says so in the empty panel.
+Open: E.3, the main half — `pty-service` reaches `electron`, the window manager and confinement, which need
+injecting first.
 
 **Theme F — The companion panel as a feature.** ◻ `packages/features/companion`: the whole companion
 (renderer and `desktop/src/main/companion`) behind a fat `CompanionHost` port — one method per cross-feature
@@ -127,10 +138,18 @@ five apps, each with its own nav, Settings, status bar and panels; Studio moves 
 **Theme I — Proof.** ◻ Playwright shell flows in Vanguard and Vault, one visual baseline per shell variant,
 an idle-CPU number for a blurred suite app, and `docs/APPS.md`.
 
-**Theme J — The status bar.** ◻ The status bar moves into the frame and takes its segments as a prop. Every
-app gets the terminal and palette toggles, the bell, the monitor and the assistant menu (each hidden when its
-panel is absent); the update pill, MCP indicator and repo-bound segments stay Studio's. The title bar's
-clock/weather, battery and theme toggle move to the frame too.
+**Theme J — The status bar.** ◐ 3/4 ([#1068](https://github.com/bilo-io/midnite-studio/pull/1068)).
+`packages/frame/src/shell/status-bar/` is the segment host: `StatusBar({ segments, fab, liveRegions })`, the
+separator grouping, per-zone density (`lib/density.ts` moved with it) and the overflow popover. Its tooltip and
+popover come through an optional `StatusBarChromeProvider` — the default is a `title` and the frame's
+`SimplePopover`; Studio installs its own, whose portalled popover is what lets a collapsed segment's label show
+in the overflow panel. `suiteSegments(panels)` gives every app the five suite segments at Studio's zones and
+priorities, dropping any whose panel is absent. The frame owns where each segment sits and the app passes the
+component, because each one belongs to a feature (terminal, companion, monitor) the frame may not import; a
+Studio test holds Studio's five entries to the same metadata. Studio's bar is a wrapper over the frame's, with
+`STATUS_SEGMENTS` and its two live regions passed in, so it looks the same. The `.status-label` density CSS
+still lives in Studio's `styles.css` — whichever app mounts the bar first in Theme H brings it along. Open: J.4,
+the title bar's right cluster, waits on L.2 moving `titlebar-status-store` to the frame.
 
 **Theme K — The system monitor core.** ◻ Every app registers the monitor feature's `monitorMain` and pauses
 sampling on blur, hide and minimise exactly as `apps/monitor` does; the status bar's monitor segment opens
@@ -314,7 +333,7 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
 
 ### E — The terminal panel as a feature [L · 1–2d]
 
-- [ ] **Extract the renderer.** `packages/app/src/features/terminal` (63 files, ~11.5k lines, about half
+- [x] **Extract the renderer.** `packages/app/src/features/terminal` (63 files, ~11.5k lines, about half
   tests) → net-new `packages/features/terminal/renderer`, laid out like
   [`packages/features/monitor`](../../../packages/features/monitor/) (`package.json` name
   `@midnite/studio-feature-terminal`, `./renderer` and `./main` exports, `manifest.ts` via
@@ -324,7 +343,7 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   - `useTerminalStore` (`terminal-store.ts`) and `session-mount-policy.ts` move inside the feature.
   - *Done when* `composition.test.ts` and every moved terminal test pass, and `scripts/layer-boundaries.test.mjs`
     stays green.
-- [ ] **`TerminalHost` port.** Net-new `packages/features/terminal/renderer/host.tsx`
+- [x] **`TerminalHost` port.** Net-new `packages/features/terminal/renderer/host.tsx`
   (`TerminalHostProvider`, `useTerminalHost`) replacing every reach into `packages/app`:
   - Layout and prefs: `terminalMaximized`, `terminalSidebarSide`, `terminalListOpen`, `layout`/`setLayout`,
     `terminalKeepRecentSessions`, `terminalDisposeAfterMs` (today `ui-store.ts` 1879–2648).
@@ -345,7 +364,11 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   `inproc-pty.ts` and `node-pty` stay in `packages/desktop` and arrive as an injected service (the feature
   may not import `node-pty`).
   - *Done when* the moved main tests pass and Studio's `main/index.ts` boots with `terminalMain.register`.
-- [ ] **Sessions carry the app.** `TerminalSessionSchema`
+  - ⏳ Open after PR #1068: `pty-service.ts` reaches `electron`, the window manager, confinement and the
+    secrets handlers, and `terminal-service.ts` the agents and session-history stores — moving them needs those
+    behind injected services first, a theme's worth of its own. The renderer half landed without it; the
+    main half still lives in `packages/desktop`.
+- [x] **Sessions carry the app.** `TerminalSessionSchema`
   ([`shared/src/terminal.ts:624`](../../../packages/shared/src/terminal.ts)) gains `appId: SuiteAppIdSchema.optional()`;
   absent means `'studio'` (every existing record). `ptyCreate`'s payload carries it; each app's main stamps
   its own id. No persisted-store migration: the field is optional and read with a default.
@@ -354,11 +377,11 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
     owning app's logo. Studio shows all by default. (Open decision 1.)
   - *Done when* a schema test parses a record without `appId` as studio, and `terminal-session-list.test.tsx`
     asserts the filter and the toggle.
-- [ ] **Unload and rehydrate unchanged.** `DEFAULT_KEEP_RECENT_SESSIONS = 3` and
+- [x] **Unload and rehydrate unchanged.** `DEFAULT_KEEP_RECENT_SESSIONS = 3` and
   `DEFAULT_SESSION_DISPOSE_AFTER_MS = 2 * 60 * 1000` (`session-mount-policy.ts:33-34`) and `replay-gate.ts`
   come with the feature unchanged.
   - *Done when* the Phase 84 E.6 mount-count test passes from its new location.
-- [ ] **Broker failure is visible.** An app whose broker attach fails shows the existing broker-status message
+- [x] **Broker failure is visible.** An app whose broker attach fails shows the existing broker-status message
   in the panel (`getBrokerStatus`), not an empty dock, and logs once through the runtime's `warn`.
   - *Done when* a test with a failing broker client asserts the status text renders.
 
@@ -457,21 +480,21 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
 
 ### J — The status bar [M · ~1d]
 
-- [ ] **A segment host in the frame.** `status-bar.tsx`, `segments.ts`, `segments-groups.ts`,
+- [x] **A segment host in the frame.** `status-bar.tsx`, `segments.ts`, `segments-groups.ts`,
   `overflow-popover.tsx`, `use-overflow.ts`, `status-toggle.tsx`, `status-separator.tsx` → net-new
   `packages/frame/src/shell/status-bar/`. `StatusBar` becomes
   `StatusBar({ segments, fab }: { segments: readonly StatusSegment[]; fab?: ReactNode })`; `STATUS_SEGMENTS`
   stays Studio's list and is passed in. The `StatusSegment` / `StatusZone` / `StatusGroup` types are
   unchanged.
   - *Done when* the moved status-bar tests pass with `segments={STATUS_SEGMENTS}`.
-- [ ] **Suite segments.** Net-new `packages/frame/src/shell/status-bar/suite-segments.ts`
+- [x] **Suite segments.** Net-new `packages/frame/src/shell/status-bar/suite-segments.ts`
   `export function suiteSegments(panels: AppPanels): StatusSegment[]` returning terminal-toggle (20),
   palette-toggle (40), monitor (42), notification-bell (50), assistant-menu (60) with today's zones,
   groups and priorities. A toggle whose panel is absent is left out — never a dead button. The bell reads
   the frame's `toast-store.ts`. (Open decision 5.)
   - *Done when* `suite-segments.test.ts` asserts `panels: { terminal: false }` drops terminal-toggle and the
     rest keep their priorities.
-- [ ] **Studio's segments stay Studio's.** Repos/explorer/browser/activity/files toggles, diagnostics, the
+- [x] **Studio's segments stay Studio's.** Repos/explorer/browser/activity/files toggles, diagnostics, the
   progress trio, automate, finance, test- and checks-verdict, liveness, the MCP indicator and the update pill
   remain in `packages/app` and reach the bar only through Studio's `segments` prop. The update pill stays
   Studio-only because the launcher alone updates suite apps (CLAUDE.md).
@@ -482,6 +505,8 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   `packages/frame/src/shell/titlebar/` and render in every app after `titleBarEnd`. Weather keeps its existing
   network fetch and its existing error state.
   - *Done when* `app-shell.test.tsx` asserts all three render in a non-Studio shell.
+  - ⏳ Open after PR #1068: waits on Theme L.2, which moves `titlebar-status-store.ts` to
+    `packages/frame/src/prefs/` onto suite-prefs. Moving the cluster first would mean moving that store twice.
 
 ### K — The system monitor core [M · ~1d]
 
