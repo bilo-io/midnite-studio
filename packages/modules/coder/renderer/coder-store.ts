@@ -1,7 +1,7 @@
 import { createPersistedStore } from '@midnite/studio-frame';
 import { useStore } from 'zustand';
 
-import { CODER_APP, type CoderViewId } from './coder-manifest';
+import { CODER_HOME, type CoderViewId } from '../manifest';
 
 /**
  * What Coder remembers across launches, in this window's localStorage: the selected repository, the
@@ -18,7 +18,7 @@ export type CoderState = Persisted & {
 
 export const coderStore = createPersistedStore<CoderState, Persisted>({
   key: 'midnite-coder.ui',
-  defaults: { selectedRepoId: null, view: CODER_APP.home, writesEnabled: false },
+  defaults: { selectedRepoId: null, view: CODER_HOME, writesEnabled: false },
   pick: ({ selectedRepoId, view, writesEnabled }) => ({ selectedRepoId, view, writesEnabled }),
   state: (set, initial) => ({
     ...initial,
