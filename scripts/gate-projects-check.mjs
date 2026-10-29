@@ -39,7 +39,9 @@ export const NATIVE_PROJECTS = ['git-engine', 'desktop', 'runtime'];
 
 /** Where project `id` lives on disk — the inverse of `discoverProjectIds`. */
 export function projectDir(id) {
-  return id.startsWith('feature-') ? `packages/features/${id.slice('feature-'.length)}` : `packages/${id}`;
+  if (id.startsWith('feature-')) return `packages/features/${id.slice('feature-'.length)}`;
+  if (id.startsWith('module-')) return `packages/modules/${id.slice('module-'.length)}`;
+  return `packages/${id}`;
 }
 
 /**
@@ -107,6 +109,9 @@ export function checkGateCoverage(discovered, nodeProjects, nativeProjects) {
  */
 export const FEATURES_DIR = 'features';
 
+/** Same for `packages/modules` (Phase 124 Theme B): children are projects `module-<name>`. */
+export const MODULES_DIR = 'modules';
+
 /**
  * Map the directories found on disk to moon project ids, the same way
  * `.moon/workspace.yml` does: every `packages/<x>` is project `<x>`, except the
@@ -116,12 +121,14 @@ export const FEATURES_DIR = 'features';
  *
  * @param {string[]} packageDirs — directory names directly under packages/
  * @param {string[]} featureDirs — directory names directly under packages/features/
+ * @param {string[]} [moduleDirs] — directory names directly under packages/modules/ (`_`-prefixed templates skipped)
  * @returns {string[]}
  */
-export function discoverProjectIds(packageDirs, featureDirs) {
+export function discoverProjectIds(packageDirs, featureDirs, moduleDirs = []) {
   return [
-    ...packageDirs.filter((name) => name !== FEATURES_DIR),
+    ...packageDirs.filter((name) => name !== FEATURES_DIR && name !== MODULES_DIR),
     ...featureDirs.map((name) => `feature-${name}`),
+    ...moduleDirs.filter((name) => !name.startsWith('_')).map((name) => `module-${name}`),
   ];
 }
 
@@ -140,6 +147,7 @@ async function main() {
   const discovered = discoverProjectIds(
     await listDirs(packagesDir),
     await listDirs(path.join(packagesDir, FEATURES_DIR)),
+    await listDirs(path.join(packagesDir, MODULES_DIR)),
   );
 
   const result = checkGateCoverage(discovered, NODE_PROJECTS, NATIVE_PROJECTS);

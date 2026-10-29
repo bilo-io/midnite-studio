@@ -63,8 +63,10 @@ retired-app alias map, so every list that names an app id can be rewritten again
 hosts that carry modules), not `MidniteAppId`, which lacks science today; Startup and Health carry none.
 Studio lists every module, so the "creator in exactly three hosts" test excludes Studio. PR #1058.
 
-**Theme B — The modules layer.** ◻ `packages/modules/<id>` with a renderer and a main half, a new eslint
+**Theme B — The modules layer.** ✅ (PR pending, stacked on #1058) `packages/modules/<id>` with a renderer and a main half, a new eslint
 group, proven case by case in `layer-boundaries.test.mjs`, and the layer added to `docs/APPS.md`.
+
+Landed as the layer's rules and template, not a package: `packages/modules/_template/` holds `.tmpl` files (so pnpm, moon and the lockfile see nothing until Theme C adds the first real module), `ModuleManifest`/`defineModuleManifest` live in `shared`, eslint gains module renderer/main/manifest blocks plus a ban on features, the frame and the runtime importing a module, `layer-boundaries.test.mjs` proves every edge, `gate-projects-check` maps `packages/modules/*` to `module-<name>`, and the runtime's `mountModuleMains` rejects two modules in one host declaring the same IPC channel.
 
 **Theme C — Coder and Creator become modules.** ◻ Their compose code, views and main bridges move out of
 `apps/coder` and `apps/creator` into `packages/modules/{coder,creator}`.
@@ -103,17 +105,17 @@ release, icon and test legs are deleted.
 
 ## Theme B — The modules layer `[M]`
 
-- [ ] **B.1** Scaffold `packages/modules/` with a package template (`renderer/`, `main/`, `manifest.ts`,
+- [x] **B.1** Scaffold `packages/modules/` with a package template (`renderer/`, `main/`, `manifest.ts`,
   `moon.yml`, `tsconfig*.json`, `vitest.config.ts`) mirroring a feature package such as
   [`packages/features/vault`](../../../packages/features/vault/). A module manifest names its id, label,
   glyph (`react-icons`), accent, the features it composes and the views it contributes. `[M]`
-- [ ] **B.2** [`eslint.config.mjs`](../../../eslint.config.mjs): a `modules` group — may import features,
+- [x] **B.2** [`eslint.config.mjs`](../../../eslint.config.mjs): a `modules` group — may import features,
   the frame, `shared`; may not import an app, another module, `packages/app` or `electron` (main halves
   receive what they need from the host, as features do). Features and the frame may not import a module. `[M]`
-- [ ] **B.3** [`layer-boundaries.test.mjs`](../../../scripts/layer-boundaries.test.mjs): one allowed and
+- [x] **B.3** [`layer-boundaries.test.mjs`](../../../scripts/layer-boundaries.test.mjs): one allowed and
   one forbidden case per new edge (app→module ✓, module→feature ✓, module→module ✗, module→app ✗,
   feature→module ✗, frame→module ✗). `[S]`
-- [ ] **B.4** A module's main half plugs in through the same seam features use
+- [x] **B.4** A module's main half plugs in through the same seam features use
   ([`runtime/src/feature-main.ts`](../../../packages/runtime/src/feature-main.ts)); a test asserts two
   modules mounted in one host register disjoint IPC channels. `[M]`
 

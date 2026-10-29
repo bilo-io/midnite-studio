@@ -117,3 +117,4 @@ export * from './tool-policy';
 export * from './package-check';
 export * from './scan-secrets';
 export * from './threat-feed';
+export * from './module-manifest';
