@@ -5,6 +5,10 @@
 ## 2026-10-29 — Phase 124 Theme D — Vault, Cleaner, Monitor and Capture become modules
 
 `packages/modules/{vault,cleaner,monitor,capture}`: renderer compose/views/manifest data and main bridge/context/services moved out of `apps/<id>` (D.1–D.4), each main half a `defineFeatureMain` module; apps keep window, identity, pairing, preload and report menu. Stacked on #1060.
+## 2026-10-29 — Phase 123 Theme D — The chords, everywhere
+
+`useKeybindings` (with a `Partial` `CommandRuntime` and host-supplied `KeybindingGates`), `shouldEscapeTerminal`, the chord parser and the whole command palette (store, fuzzy scoring, frecency, `createCommandSource`, `CommandPalette`, `PaletteHost`) moved to `packages/frame/src/commands/`, with re-exports at Studio's old paths. A chord with no handler reaches the page; the palette lists only commands with handlers. `SUITE_COMMANDS` and `view.settings` (`Mod+,`, no menu accelerator) land in `shared/src/keybindings.ts`. Studio's behaviour and tests are unchanged.
+
 ## 2026-10-29 — Phase 123 Theme B — The shared shell
 
 `AppShell` in `packages/frame/src/shell/` (`ShellProviders` > `AppFrame` + frameless `TitleBar`, the launcher logo on an accent tile, a rail from the manifest `nav` with Settings last in the footer, a clipping view slot, `panels` / `footer` / `titleBarEnd` slots, `--app-accent` on the root and only the active row), `createViewLink` (chord-only tooltip, in-app navigation) and `nav-config.ts`. Every existing app manifest gains `nav`, checked by a per-app manifest test. `frameContent` now scans `@bilo-io/shell`'s dist. No app renders the shell yet — that is Theme H.
