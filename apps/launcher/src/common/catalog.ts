@@ -3,6 +3,7 @@ import type { ViewId } from '@midnite/studio-shared/domain/view';
 import type { MediaTab } from '@midnite/studio-shared/media';
 import type { ModuleId } from '@midnite/studio-shared/modules';
 import type { VanguardTab } from '@midnite/studio-shared/vanguard';
+import type { SuiteAppId } from '@midnite/studio-shared/suite-apps';
 
 /**
  * The Midnite app suite, as the launcher lists it.
@@ -106,7 +107,7 @@ export const APP_IDS = [
   'vanguard',
   'startup',
   'health',
-] as const;
+] as const satisfies readonly SuiteAppId[];
 export type AppId = (typeof APP_IDS)[number];
 
 /**

@@ -1,6 +1,14 @@
 import { BrowserWindow } from 'electron';
 
-import { CHANNELS, EVENT_CHANNELS, schemas } from '@midnite/studio-shared';
+import {
+  attachWindowChrome as attachSuiteWindowChrome,
+  TRAFFIC_LIGHT_POSITION as SUITE_TRAFFIC_LIGHT_POSITION,
+  toggleMaximize,
+  windowFrameless as suiteWindowFrameless,
+  windowStateOf,
+  type WindowState,
+} from '@midnite/studio-runtime';
+import { CHANNELS, schemas } from '@midnite/studio-shared';
 
 import { defaultLogger } from './log';
 import { isScreenLocked } from './lock-state';
@@ -16,53 +24,18 @@ import { handleBareFromSender, handleSendFromSender } from './ipc/handle';
  * nothing here needs a per-platform branch in the renderer.
  */
 export function windowFrameless(): boolean {
-  return process.platform === 'darwin';
+  return suiteWindowFrameless(process.platform);
 }
 
-/**
- * Inset for native macOS window controls (traffic lights) hosted inside
- * `@bilo-io/shell`'s 48px `<TitleBar>` (`TITLE_BAR_HEIGHT`).
- *
- * macOS window buttons have a 14px diameter in a 16px frame. An inset of
- * `{ x: 16, y: 13 }` aligns their center with the 24px vertical center of the
- * 48px bar's interactive controls (back/forward, search pill, repo badge),
- * resolving the vertical offset where `y: 16` placed them noticeably low.
- */
-export const TRAFFIC_LIGHT_POSITION = { x: 16, y: 13 } as const;
+/** Inset for the native traffic lights — owned by the runtime's `suite-window.ts` since Phase 123 Theme A. */
+export const TRAFFIC_LIGHT_POSITION = SUITE_TRAFFIC_LIGHT_POSITION;
 
-/**
- * Forward the window's fullscreen/focus/maximize transitions to the renderer.
- *
- * The title bar needs all three: it collapses its traffic-light clearance in
- * fullscreen (macOS hides the lights there), dims while the window is blurred
- * like a native bar, and shows the right maximize affordance. `env(titlebar-area-*)`
- * is not populated on macOS, so these events are the only source of truth.
- */
+/** Forward the window's fullscreen/focus/maximize transitions to the renderer (the runtime's shared implementation). */
 export function attachWindowChrome(win: BrowserWindow): void {
-  const sendFullscreen = (value: boolean): void => {
-    if (!win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.windowStateChanged, stateOf(win, { fullScreen: value }));
-  };
-
-  win.on('enter-full-screen', () => sendFullscreen(true));
-  win.on('leave-full-screen', () => sendFullscreen(false));
-  win.on('focus', () => pushState(win));
-  win.on('blur', () => pushState(win));
-  win.on('maximize', () => pushState(win));
-  win.on('unmaximize', () => pushState(win));
+  attachSuiteWindowChrome(win);
 }
 
-export type WindowState = { maximized: boolean; fullScreen: boolean; focused: boolean };
-
-const stateOf = (win: BrowserWindow, override: Partial<WindowState> = {}): WindowState => ({
-  maximized: win.isMaximized(),
-  fullScreen: win.isFullScreen(),
-  focused: win.isFocused(),
-  ...override,
-});
-
-const pushState = (win: BrowserWindow): void => {
-  if (!win.isDestroyed()) win.webContents.send(EVENT_CHANNELS.windowStateChanged, stateOf(win));
-};
+export type { WindowState };
 
 const warnInvalid = (issue: string): void => {
   defaultLogger.warn(issue);
@@ -92,14 +65,9 @@ export function registerWindowChrome(): void {
     CHANNELS.windowMaximizeToggle,
     schemas.SendVoidSchema,
     (_payload, win) => {
-      if (!win || win.isDestroyed()) return;
-      // A frameless window has no native title bar for macOS to apply the
-      // double-click-to-zoom gesture to, so the renderer reports the
-      // double-click and the zoom happens here. Fullscreen is left alone —
-      // zoom is meaningless there and macOS ignores it.
-      if (win.isFullScreen()) return;
-      if (win.isMaximized()) win.unmaximize();
-      else win.maximize();
+      if (!win) return;
+      // The zoom gesture a frameless window lacks natively — the runtime's shared logic (no-op in fullscreen).
+      toggleMaximize(win);
     },
     warnInvalid,
   );
@@ -154,7 +122,7 @@ export function registerWindowChrome(): void {
 
   handleBareFromSender(CHANNELS.windowState, (win) =>
     win && !win.isDestroyed()
-      ? stateOf(win)
+      ? windowStateOf(win)
       : { maximized: false, fullScreen: false, focused: false },
   );
 

@@ -14,6 +14,7 @@
 
 // Main-process access.
 export { bridge, hasBridge } from './bridge';
+export { appLogoUrl } from './shell/app-logo';
 export { noBridge, reportFailure } from './bridge-result';
 export { usePageVisible } from './lib/use-page-visible';
 
