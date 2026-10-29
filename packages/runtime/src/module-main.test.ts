@@ -46,7 +46,12 @@ describe('mountModuleMains', () => {
       feature: 'coder',
       channels: ['coder:echo'],
       register(c) {
-        c.ipc.handle('coder:echo', z.object({ n: z.number() }), (p) => p.n, (issue) => issue);
+        c.ipc.handle<z.ZodObject<{ n: z.ZodNumber }>, number | string>(
+          'coder:echo',
+          z.object({ n: z.number() }),
+          (p) => p.n,
+          (issue) => issue,
+        );
       },
     });
     mountModuleMains(ctx, [{ module: m, services: null }]);
