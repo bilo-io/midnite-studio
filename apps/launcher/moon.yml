@@ -23,6 +23,7 @@ tasks:
       - 'tsconfig.json'
       - 'package.json'
       - '/packages/shared/src/studio-link.ts'
+      - '/packages/shared/src/suite-apps.ts'
     outputs:
       - 'dist'
 
@@ -31,6 +32,7 @@ tasks:
       - '@group(sources)'
       - '@group(configs)'
       - '/packages/shared/src/studio-link.ts'
+      - '/packages/shared/src/suite-apps.ts'
       - '/packages/shared/src/domain/view.ts'
       - '/packages/shared/src/media.ts'
 
@@ -40,6 +42,7 @@ tasks:
       - 'vitest.config.ts'
       - 'package.json'
       - '/packages/shared/src/studio-link.ts'
+      - '/packages/shared/src/suite-apps.ts'
 
   # Build, then run the built launcher in Electron.
   start:

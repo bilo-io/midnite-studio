@@ -8,7 +8,7 @@ import { defineConfig } from 'vite';
  * `dist/renderer/index.html` over `file://`, where an absolute `/assets/…`
  * would resolve against the filesystem root.
  *
- * `@midnite/studio-shared/studio-link` is aliased to its one source file, the
+ * `@midnite/studio-shared/<file>` is aliased to its one source file, the
  * same move `packages/website` makes for `install-command`: the package barrel
  * pulls every zod schema in the wire contract, and `studio-link.ts` imports
  * types only.
@@ -18,11 +18,13 @@ export default defineConfig({
   root: fileURLToPath(new URL('./src/renderer', import.meta.url)),
   base: './',
   resolve: {
-    alias: {
-      '@midnite/studio-shared/studio-link': fileURLToPath(
-        new URL('../../packages/shared/src/studio-link.ts', import.meta.url),
-      ),
-    },
+    // Any `@midnite/studio-shared/<file>` to that one source file (the same rule as vitest.config.ts).
+    alias: [
+      {
+        find: /^@midnite\/studio-shared\/(.*)$/,
+        replacement: fileURLToPath(new URL('../../packages/shared/src/$1', import.meta.url)),
+      },
+    ],
   },
   server: { port: 5175, strictPort: true },
   build: {

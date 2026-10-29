@@ -70,19 +70,19 @@ Scope guardrails:
 
 ## Headlines
 
-**Theme A — A frameless window for every app.** ◻ `packages/runtime/src/app-main/suite-window.ts` exports
+**Theme A — A frameless window for every app.** ◐ PARTIAL (helpers landed, PR pending) `packages/runtime/src/app-main/suite-window.ts` exports
 `suiteWindowOptions(platform)` and `attachWindowChrome(win, send)` over a structural window type (the runtime
 never imports `electron`); each app spreads the options into its own `new BrowserWindow` and its preload
-exposes the same `windowChrome` slice Studio's does.
+exposes the same `windowChrome` slice Studio's does. Landed: `suite-window.ts` (`suiteWindowOptions`, `windowFrameless`, `attachWindowChrome`, `toggleMaximize`, `TRAFFIC_LIGHT_POSITION`) and `window-chrome-preload.ts` (`createWindowChromeBridge`) in the runtime, with Studio's desktop `window-chrome.ts` and preload now thin callers of them (behaviour unchanged). `ChromeableWindow` also carries `isFocused`/`isDestroyed`, which the state push needs. **Left open:** no app's own `BrowserWindow` or preload adopts the options yet — a frameless window with no renderer-drawn title bar has no drag region, so wiring each app waits for Theme B/H (as does the double-click e2e and the per-app security assertion).
 
 **Theme B — The shared shell.** ◻ `AppShell` in `packages/frame/src/shell/`: `ShellProviders` + `TitleBar` +
 `AppFrame` from `@bilo-io/shell` (a new frame dependency), the app's logo and name, a nav built from the
 manifest's new `nav` field with Settings in the footer, the app accent on the logo tile and active nav item
 only, and named slots for the panels, the footer and Studio's title-bar extras.
 
-**Theme C — The launcher's logo, in the window.** ◻ The app-id list moves to `packages/shared` as
-`SUITE_APP_IDS`; `generate-app-logos.cjs` also writes a 256 px copy per app into the frame, and a hash test
-keeps it byte-identical to the launcher's.
+**Theme C — The launcher's logo, in the window.** ✅ The app-id list moves to `packages/shared` as
+`SUITE_APP_IDS`; `generate-app-logos.cjs` also writes a 256 px copy per app into the frame, and a drift test
+keeps it byte-identical to the launcher's. Landed: `suite-apps.ts` in shared (launcher `catalog.ts` takes it by source path; the launcher's Vite alias is now the same regex vitest already used), 19 PNGs in `packages/frame/src/shell/app-logos/` copied byte-for-byte from the launcher (`launcher.png` excluded) and written by `generate-app-logos.cjs` from now on, and `appLogoUrl`. The drift test compares Vite `?inline` data URLs rather than SHA-256 because the renderer may not import node builtins; equal strings mean equal bytes.
 
 **Theme D — The chords, everywhere.** ◻ `useKeybindings` moves into the frame; `SUITE_COMMANDS` (derived from
 `COMMANDS`) is what every app binds, including the new `view.settings` on `Mod+,`, with the yield rules from
@@ -134,7 +134,7 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
 
 ### A — A frameless window for every app [M · half-day]
 
-- [ ] **The window options.** Net-new `packages/runtime/src/app-main/suite-window.ts`, exported from the
+- [x] **The window options.** Net-new `packages/runtime/src/app-main/suite-window.ts`, exported from the
   folder's [`index.ts`](../../../packages/runtime/src/app-main/index.ts):
   - `export const TRAFFIC_LIGHT_POSITION = { x: 16, y: 13 } as const;` (moved from
     [`window-chrome.ts`](../../../packages/desktop/src/main/window-chrome.ts), which re-exports it).
@@ -147,7 +147,7 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
     `new BrowserWindow({...})` call, sizes and `webPreferences` visible in its own main, exactly as
     `guardAppWindow` takes a structural `GuardableWebContents` rather than the class.
   - *Done when* `suite-window.test.ts` asserts both platform branches, including the exact argument string.
-- [ ] **Chrome events over a structural window.** In the same file:
+- [x] **Chrome events over a structural window.** In the same file:
   - `export type ChromeableWindow = { isFullScreen(): boolean; isMaximized(): boolean; maximize(): void; unmaximize(): void; on(event: 'enter-full-screen' | 'leave-full-screen' | 'focus' | 'blur' | 'maximize' | 'unmaximize', fn: () => void): unknown; webContents: { send(channel: string, ...args: unknown[]): void } }`.
   - `export function attachWindowChrome(win: ChromeableWindow): void` — the body of the desktop's
     `attachWindowChrome`, sending `EVENT_CHANNELS.windowStateChanged` with `WindowState = { maximized; fullScreen; focused }`.
@@ -158,7 +158,7 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
     unchanged); `window.ts:117` and `window-manager.ts:392` keep calling them.
   - *Done when* `suite-window.test.ts` drives a fake `ChromeableWindow` through enter/leave full screen and a
     toggle while full-screen (no-op) and while maximised (unmaximise).
-- [ ] **The preload slice.** Net-new `packages/runtime/src/app-main/window-chrome-preload.ts` exporting
+- [x] **The preload slice.** Net-new `packages/runtime/src/app-main/window-chrome-preload.ts` exporting
   `createWindowChromeBridge(ipc: RendererIpc, argv: readonly string[], platform: DesktopPlatform): WindowChromeBridge`
   — parses `WINDOW_FRAMELESS_ARG` from `argv` the way
   [`desktop/src/preload/index.ts:56`](../../../packages/desktop/src/preload/index.ts) does, and subscribes
@@ -236,7 +236,7 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
 
 ### C — The launcher's logo, in the window [S · ≤ 2h]
 
-- [ ] **The id list in shared.** Net-new `packages/shared/src/suite-apps.ts`:
+- [x] **The id list in shared.** Net-new `packages/shared/src/suite-apps.ts`:
   `export const SUITE_APP_IDS = [...] as const; export type SuiteAppId = (typeof SUITE_APP_IDS)[number];`
   plus `export const SuiteAppIdSchema = z.enum(SUITE_APP_IDS);`, holding exactly today's
   [`catalog.ts:70`](../../../apps/launcher/src/common/catalog.ts) `APP_IDS` (19 ids, including the ones with
@@ -244,16 +244,16 @@ renderer stores (L.2) and the frame's settings view (L.3, L.4) wait on B and D.
   (`@midnite/studio-shared/suite-apps`, the one-file rule) and keeps `export type AppId = SuiteAppId`.
   - *Done when* the launcher's existing catalog tests pass unchanged and a shared test asserts the list has
     no duplicates.
-- [ ] **One more output.** `generate-app-logos.cjs` also writes
+- [x] **One more output.** `generate-app-logos.cjs` also writes
   `packages/frame/src/shell/app-logos/<id>.png` — a byte-for-byte copy of the 256 px
   `apps/launcher/src/renderer/assets/app-logos/<id>.png` it already writes, for every id in `SUITE_APP_IDS`.
   Run via `moon run launcher:logos`; the PNGs are committed.
   - *Done when* the regenerated tree has 19 PNGs in the frame.
-- [ ] **The lookup.** Net-new `packages/frame/src/shell/app-logo.ts`:
+- [x] **The lookup.** Net-new `packages/frame/src/shell/app-logo.ts`:
   `const LOGOS = import.meta.glob<string>('./app-logos/*.png', { eager: true, import: 'default' });`
   `export function appLogoUrl(id: SuiteAppId): string` — the launcher's `app-icon.tsx:8` pattern. An id with no
   file throws in dev (the drift test makes that unreachable).
-- [ ] **A drift check.** `app-logo.test.ts` asserts every `SUITE_APP_IDS` entry has a frame logo and that its
+- [x] **A drift check.** `app-logo.test.ts` asserts every `SUITE_APP_IDS` entry has a frame logo and that its
   SHA-256 equals the launcher's file, so a regenerate that skips one, or a hand-edited PNG, fails.
 
 ### D — The chords, everywhere [M · ~1d]

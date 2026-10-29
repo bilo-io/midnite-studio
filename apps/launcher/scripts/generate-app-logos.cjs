@@ -17,6 +17,7 @@
  * Outputs (one per app, plus `launcher` — the launcher's own mark):
  *   resources/app-logos/<id>.png             1024 px masters, each app's .icns is built from
  *   src/renderer/assets/app-logos/<id>.png   256 px, what the launcher draws
+ *   packages/frame/src/shell/app-logos/<id>.png  a byte copy of that 256 px file, what each app's window shows (Phase 123 C; not `launcher`)
  *   every app's icon.icns                    from those masters, by `app-icons.cjs` — so the Dock matches the tile
  */
 const { execFileSync } = require('node:child_process');
@@ -33,6 +34,7 @@ const ROOT = join(__dirname, '..');
 const STUDIO_ICNS = join(ROOT, '..', '..', 'packages', 'desktop', 'resources', 'icon.icns');
 const MASTER_DIR = join(ROOT, 'resources', 'app-logos');
 const UI_DIR = join(ROOT, 'src', 'renderer', 'assets', 'app-logos');
+const FRAME_DIR = join(ROOT, '..', '..', 'packages', 'frame', 'src', 'shell', 'app-logos');
 
 function studioIcon1024() {
   const tmp = mkdtempSync(join(tmpdir(), 'midnite-logo-'));
@@ -154,12 +156,16 @@ app.whenReady().then(async () => {
     await win.loadURL('about:blank');
     mkdirSync(MASTER_DIR, { recursive: true });
     mkdirSync(UI_DIR, { recursive: true });
+    mkdirSync(FRAME_DIR, { recursive: true });
     for (const { id, accent, brand, svg } of apps) {
       const [master, ui] = await win.webContents.executeJavaScript(
         `(${compose.toString()})(${JSON.stringify({ base, svg, accent, brand })})`,
       );
       writeFileSync(join(MASTER_DIR, `${id}.png`), Buffer.from(master.split(',')[1], 'base64'));
-      writeFileSync(join(UI_DIR, `${id}.png`), Buffer.from(ui.split(',')[1], 'base64'));
+      const uiPng = Buffer.from(ui.split(',')[1], 'base64');
+      writeFileSync(join(UI_DIR, `${id}.png`), uiPng);
+      // The launcher's own mark is not a suite app; every other id gets a copy in the frame.
+      if (id !== 'launcher') writeFileSync(join(FRAME_DIR, `${id}.png`), uiPng);
       console.log(`  ${id}`);
     }
     for (const line of writeAppIcons()) console.log(`  ${line}`);

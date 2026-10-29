@@ -14,6 +14,10 @@
 
 `shared/src/modules.ts`: `MODULE_IDS`, `APP_MODULES` (keyed by `ModuleHostId`, Studio lists every module), `RETIRED_APP_ALIASES` (coder, creator, vault, cleaner, monitor, capture, accountant, simulator → host + module), with a test holding the invariants.
 
+## 2026-10-29 — Phase 123 Theme C and Theme A (helpers) — suite app ids, frame logos, shared window chrome
+
+`SUITE_APP_IDS` moved to `packages/shared/src/suite-apps.ts` (launcher catalog imports it); the 19 launcher logos are copied into `packages/frame/src/shell/app-logos/` by `generate-app-logos.cjs` with `appLogoUrl` and a byte-identity drift test. Runtime gains `suiteWindowOptions`, `attachWindowChrome`, `toggleMaximize` and `createWindowChromeBridge`; Studio's desktop chrome and preload call them unchanged. Per-app window adoption waits for Theme B/H.
+
 ## 2026-10-29 — Phase 113 Theme H (slice) — Cleaner's scanners live in the feature package
 
 The optimizer's detectors, workspace scan, system-cache registry/scan/clean and reclaim commands (and their tests) moved from `packages/desktop/src/main/optimizer/` into `packages/features/optimizer/main/scanners/`, behind a `RepoSource` port and a log seam; `createScannerServices({repos?, log?})` assembles them. Installed Cleaner now really lists, scans and cleans system caches and runs reclaim commands; Studio binds the same code to its repo registry and log. GPU probe, process table and kill stay in desktop.
