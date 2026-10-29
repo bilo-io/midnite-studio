@@ -1,6 +1,7 @@
 import type {
   AgentDefinition,
   SessionActivity,
+  SuiteAppId,
   TerminalSession,
   TerminalSessionKind,
   TerminalSurface,
@@ -97,6 +98,13 @@ type TerminalState = {
   reattachedDismissed: boolean;
   /** Backend broker status (broker vs fail-soft inproc). */
   broker: { mode: 'broker' | 'inproc'; reason?: string };
+  /**
+   * The app this window is (Phase 123 Theme E), set by `TerminalHostProvider`.
+   * `openSession` stamps it on every new record — except Studio's, which stays
+   * absent so every Studio record reads exactly as it did before the field.
+   */
+  appId: SuiteAppId;
+  setAppId: (appId: SuiteAppId) => void;
   /** Whether the legacy sessions banner has been dismissed for this launch. */
   legacyBannerDismissed: boolean;
   /**
@@ -358,6 +366,10 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
   reattachedSessionIds: [],
   reattachedDismissed: false,
   broker: { mode: 'broker' },
+  appId: 'studio',
+  setAppId: (appId) => {
+    if (get().appId !== appId) set({ appId });
+  },
   legacyBannerDismissed: false,
   sessionsPaneSessionId: null,
   legacy: {},
@@ -536,6 +548,7 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       ...(request.forgeAccountKey === undefined ? {} : { forgeAccountKey: request.forgeAccountKey }),
       ...(request.backend === undefined ? {} : { backend: request.backend }),
       ...(request.ollamaModel === undefined ? {} : { ollamaModel: request.ollamaModel }),
+      ...(get().appId === 'studio' ? {} : { appId: get().appId }),
     };
 
     set((state) => ({

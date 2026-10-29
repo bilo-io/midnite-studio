@@ -2,6 +2,7 @@ import { type AgentDefinition } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 
 import { ResizeHandle, useResizable, useRevealSize } from '@midnite/studio-frame';
+import { useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
 import { useMountedSessionIds } from './session-mount-policy';
 import { TerminalHeader } from './terminal-header';
@@ -25,7 +26,12 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   // The panel and the session list show main-surface sessions plus Kanban
   // ones (`inMainPanel`) — a FAB loop's session (Phase 35) renders inside the
   // FAB panel and nowhere else, so it stays out.
-  const sessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
+  const host = useTerminalHost();
+  // Another app's session stays out of this panel unless "Show all apps" is on (Theme E).
+  const [showAllApps] = useShowAllApps();
+  const sessions = useTerminalStore((s) => s.sessions)
+    .filter(inMainPanel)
+    .filter((s) => visibleInApp(s, host.appId, showAllApps));
   const activeId = useTerminalStore((s) => s.activeId);
   /*
     The one session the Sessions page's detail pane is hosting right now, if
@@ -36,7 +42,6 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   const hydrated = useTerminalStore((s) => s.hydrated);
   const pendingInput = useTerminalStore((s) => s.pendingInput);
   const brokerStatus = brokerStatusText(useTerminalStore((s) => s.broker));
-  const host = useTerminalHost();
   const { maximized, side, listOpen, keepRecent, disposeAfterMs } = host.usePanelPrefs();
   const listWidth = host.useListWidth();
 

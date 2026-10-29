@@ -1,10 +1,11 @@
-import { createContext, useContext, type ComponentType, type ReactElement, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, type ComponentType, type ReactElement, type ReactNode } from 'react';
 
 import type { IconComponent } from '@midnite/studio-frame';
 import type { ActivityStatus, AgentDefinition, RepoDescriptor, SuiteAppId } from '@midnite/studio-shared';
 import type { ITheme } from '@xterm/xterm';
 
 import type { TerminalFontSettings } from './terminal-font';
+import { useTerminalStore } from './terminal-store';
 
 /**
  * The terminal feature's host port (Phase 123 Theme E) — everything the panel
@@ -131,6 +132,12 @@ export type TerminalHost = {
 const TerminalHostContext = createContext<TerminalHost | null>(null);
 
 export function TerminalHostProvider({ host, children }: { host: TerminalHost; children: ReactNode }) {
+  /*
+    The store is a module singleton the whole window shares, so the window's
+    app id lives there for `openSession` to stamp. A layout effect, so it is in
+    place before any child's plain effect (the panel's first-terminal open) runs.
+  */
+  useLayoutEffect(() => useTerminalStore.getState().setAppId(host.appId), [host.appId]);
   return <TerminalHostContext.Provider value={host}>{children}</TerminalHostContext.Provider>;
 }
 

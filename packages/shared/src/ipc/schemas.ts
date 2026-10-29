@@ -290,6 +290,7 @@ import {
   TerminalSessionSchema,
   agentIdMatchesKind,
 } from '../terminal';
+import { SuiteAppIdSchema } from '../suite-apps';
 import {
   CouncilMemberProviderSchema,
   CouncilMemberSchema,
@@ -1938,6 +1939,12 @@ export const PtyCreateRequest = z
      * meaningful when `env` was built from a `backend: 'ollama'` binding.
      */
     useOllamaKey: z.boolean().optional(),
+    /**
+     * The suite app opening this pty (Phase 123 Theme E), copied from the session record.
+     * Absent means `'studio'`. Carried for the main half to stamp once it is the
+     * feature's (E.3); today the record the renderer saves is what holds it.
+     */
+    appId: SuiteAppIdSchema.optional(),
   })
   .superRefine(agentIdMatchesKind);
 export const PtyCreateResponse = z.discriminatedUnion('ok', [

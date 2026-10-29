@@ -203,6 +203,7 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
         ...(initialInput === undefined ? {} : { initialInput }),
         ...(env === undefined ? {} : { env }),
         ...(useOllamaKey ? { useOllamaKey: true } : {}),
+        ...(session.appId === undefined ? {} : { appId: session.appId }),
       });
 
       if (!result.ok) {
@@ -229,6 +230,7 @@ export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Ar
       session.agentId,
       session.repoId,
       session.cwd,
+      session.appId,
       session.backend,
       session.ollamaModel,
     ],

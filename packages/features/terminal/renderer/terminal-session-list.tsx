@@ -8,16 +8,20 @@ import {
   type ActivityGlowSessionInput,
   ConfinedBadge,
   useGraphStore,
+  appLogoUrl,
 } from '@midnite/studio-frame';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   commitsForLiveSession,
+  sessionAppId,
   type AgentDefinition,
+  type SuiteAppId,
   type TerminalSession,
 } from '@midnite/studio-shared';
 import {
   LuChevronRight,
+  LuLayers,
   LuMoon,
   LuPanelLeft,
   LuPanelRight,
@@ -26,6 +30,7 @@ import {
   LuX,
 } from 'react-icons/lu';
 
+import { useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
 import { closeSessionWithConfirm } from './close-session';
 import { terminalPanelElement } from './terminal-panel-element';
@@ -62,8 +67,17 @@ export function TerminalSessionList({
   const dialogs = useDialogs();
   // Main-surface and Kanban sessions — a FAB loop's session (Phase 35) never
   // lists here, because it renders in the FAB's own tab.
-  const sessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
+  const panelSessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
   const activeId = useTerminalStore((s) => s.activeId);
+  /*
+    Each app lists its own sessions; "Show all apps" lists every one the broker
+    holds (Phase 123 Theme E). The toggle only appears once another app's
+    session is actually here — with none, it would switch nothing.
+  */
+  const [showAllApps, setShowAllApps] = useShowAllApps();
+  const hasForeign = panelSessions.some((s) => sessionAppId(s) !== host.appId);
+  const sessions = panelSessions.filter((s) => visibleInApp(s, host.appId, showAllApps));
+  const tagApps = hasForeign && showAllApps;
 
   /*
     Subscribed once for the whole list rather than per row: the probe reports a
@@ -167,10 +181,25 @@ export function TerminalSessionList({
               resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
               isAgentRow={isAgentRow(session, liveAgentId)}
               legacy={Boolean(legacy[session.id])}
+              appTag={tagApps ? sessionAppId(session) : undefined}
             />
           ))}
         </SortableList>
       </div>
+      {hasForeign ? (
+        <button
+          type="button"
+          aria-pressed={showAllApps}
+          data-testid="terminal-show-all-apps"
+          className={`flex shrink-0 items-center gap-1.5 border-t border-border px-2 py-1 text-left text-[11px] ${
+            showAllApps ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setShowAllApps(!showAllApps)}
+        >
+          <LuLayers aria-hidden className="h-3 w-3 shrink-0" />
+          Show all apps
+        </button>
+      ) : null}
       {hasLegacy && !legacyBannerDismissed ? (
         /*
           A docked footer strip below every row, not a card floating above them
@@ -237,6 +266,7 @@ function SessionRow({
   resolvedAgentId,
   isAgentRow: rowIsAgent,
   legacy,
+  appTag,
 }: {
   session: TerminalSession;
   active: boolean;
@@ -263,6 +293,8 @@ function SessionRow({
   isAgentRow: boolean;
   /** Whether a legacy broker peer answered this session's `list` — provenance, not lifecycle. */
   legacy: boolean;
+  /** The owning app, shown as its logo — set only while the list mixes apps. */
+  appTag?: SuiteAppId | undefined;
 }) {
   const host = useTerminalHost();
   const { IconButton, useDialogs } = useFrameChrome();
@@ -387,6 +419,15 @@ function SessionRow({
           activityStatus={rowActivity.status}
           ollamaBacked={session.backend === 'ollama'}
         />
+        {appTag ? (
+          <img
+            src={appLogoUrl(appTag)}
+            alt={appTag}
+            title={appTag}
+            data-testid="terminal-session-app"
+            className="h-3 w-3 shrink-0 rounded-sm"
+          />
+        ) : null}
         {session.confined ? <ConfinedBadge /> : null}
         {
           // Provenance, not state (Phase 51 Theme G) — a legacy session can be
