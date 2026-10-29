@@ -2,7 +2,7 @@ import type { CompanionSettings } from '@midnite/studio-shared';
 
 import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useGameRunStore } from '@midnite/studio-feature-media-game/renderer';
-import type { CompanionHost, RevealerTable } from '@midnite/studio-feature-companion/renderer';
+import { installCompanionHost, type CompanionHost, type RevealerTable } from '@midnite/studio-feature-companion/renderer';
 
 import { AiComposer, AiThreadFrame, LevelMeterBars, ThinkingIndicator, useComposerMic } from '../components/ai-thread';
 import { DialogHost, overlayDepth } from '../components/dialog-host';
@@ -47,13 +47,16 @@ type AssertStoreMatchesSlice = [StoreCompanionKey] extends [keyof CompanionSetti
   : never;
 export const _assertStoreMatchesSlice: AssertStoreMatchesSlice = true;
 
+/** Total over `ResourceKind`: a kind added to `ResourceRefSchema` with no Studio revealer fails typecheck here. */
+const STUDIO_REVEALERS = { ...GIT_REVEALERS, ...AGENT_REVEALERS, ...NOTES_MEDIA_REVEALERS, ...TOOLS_REVEALERS } satisfies RevealerTable;
+
 /**
  * Studio's side of the companion feature's host port (Phase 123 Theme F): the UI store, the reveal and
  * resolve tables written against Studio's own stores, the app's vocabulary and chrome.
  */
 export const STUDIO_COMPANION_HOST: CompanionHost = {
   ui: useUiStore as unknown as CompanionHost['ui'],
-  revealers: { ...AGENT_REVEALERS, ...GIT_REVEALERS, ...NOTES_MEDIA_REVEALERS, ...TOOLS_REVEALERS } as Partial<RevealerTable>,
+  revealers: STUDIO_REVEALERS,
   sources: DEFAULT_SOURCES,
   followUp: studioFollowUpReads,
   catalog: {
@@ -95,3 +98,10 @@ export const STUDIO_COMPANION_HOST: CompanionHost = {
   },
   hooks: { useComposerMic, useDismissable: useDismissable as CompanionHost['hooks']['useDismissable'] },
 };
+
+/*
+  Installed at module load as well as by `CompanionHostProvider`: `App` and `DetachedRoot` call companion
+  hooks in their own bodies, before the `StudioProviders` they render has mounted, and those read the host.
+  Both composition roots import this module, so the host exists before the first render.
+*/
+installCompanionHost(STUDIO_COMPANION_HOST);

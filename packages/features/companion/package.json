@@ -3,7 +3,12 @@
   "version": "0.0.5",
   "private": true,
   "description": "The companion as a feature (Phase 123 Theme F): the orb, panel, thread, voice and zen stage (renderer) behind a CompanionHost port, and the snapshot, digest, ask, STT and TTS services (main) behind CompanionMainServices. Placed in the frame.",
-  "sideEffects": false,
+  "sideEffects": [
+    "./renderer/voice-ports.ts",
+    "./renderer/register-flow-ports.ts",
+    "./renderer/conversation.ts",
+    "./renderer/companion-store.ts"
+  ],
   "exports": {
     "./renderer": "./renderer/index.ts",
     "./main": {

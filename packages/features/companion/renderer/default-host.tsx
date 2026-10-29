@@ -111,7 +111,11 @@ function followSuitePrefs(ui: CompanionStore<CompanionUiState>, getBridge: typeo
     });
     applying = false;
   };
-  void api.suitePrefs.get().then((snapshot) => apply(snapshot.prefs.companion));
+  // A change made before the first read resolves must not be overwritten by that (older) snapshot.
+  let changedLocally = false;
+  void api.suitePrefs.get().then((snapshot) => {
+    if (!changedLocally) apply(snapshot.prefs.companion);
+  });
   api.suitePrefs.onChanged((snapshot) => apply(snapshot.prefs.companion));
   ui.subscribe((state, previous) => {
     if (applying) return;
@@ -123,6 +127,7 @@ function followSuitePrefs(ui: CompanionStore<CompanionUiState>, getBridge: typeo
     ) {
       return;
     }
+    changedLocally = true;
     void api.suitePrefs.set({
       key: 'companion',
       value: {

@@ -63,3 +63,20 @@ describe('the default companion host', () => {
     expect(host.sources).toEqual([]);
   });
 });
+
+describe('the first read of suite-prefs', () => {
+  it('does not overwrite a change made before it resolves', async () => {
+    const snapshot = { prefs: { companion: { enabled: false, voices: { system: null, local: null }, sttEngine: 'server', sttProvider: null } } };
+    let resolveGet: (value: typeof snapshot) => void = () => undefined;
+    const bridge = () =>
+      ({
+        suitePrefs: { get: () => new Promise((resolve) => (resolveGet = resolve)), onChanged: () => () => undefined, set: vi.fn() },
+      }) as never;
+    const host = createDefaultCompanionHost({ getBridge: bridge });
+    host.ui.setState({ companionEnabled: true });
+    resolveGet(snapshot);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(host.ui.getState().companionEnabled).toBe(true);
+  });
+});

@@ -6,7 +6,7 @@ import { CHANNELS, defineFeatureManifest, EVENT_CHANNELS } from '@midnite/studio
  *
  * Contributes no view and no settings page: the companion is a panel every app mounts, and its
  * Settings ▸ Companion pages stay registered with the settings view that renders them. It owns
- * the fourteen `mstudio:companion:*` channels and the one event main pushes (a UI request the
+ * the thirteen `mstudio:companion:*` request channels (eleven invokes, two sends) and the one event main pushes (a UI request the
  * renderer answers over `companionUiReply`).
  *
  * Imports `@midnite/studio-shared` and nothing else — the main-process composer reads this file too.
