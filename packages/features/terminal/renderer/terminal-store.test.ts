@@ -391,13 +391,14 @@ describe('useTerminalStore', () => {
    * instead of the cold-restore `'exited'` path.
    */
   describe('hydrate', () => {
-    const session = (id: string) => ({
+    const session = (id: string, appId?: 'browser') => ({
       id,
       kind: 'shell' as const,
       title: 'midnite-studio',
       cwd: '/repos/midnite-studio',
       repoId: 'repo:midnite-studio',
       createdAt: 1_787_000_000,
+      ...(appId ? { appId } : {}),
     });
 
     const mockBridge = (
@@ -489,7 +490,7 @@ describe('useTerminalStore', () => {
       mockBridge(
         [
           { session: session('studio-row'), scrollback: new Uint8Array(), live: null },
-          { session: { ...session('browser-row'), appId: 'browser' as const }, scrollback: new Uint8Array(), live: null },
+          { session: session('browser-row', 'browser'), scrollback: new Uint8Array(), live: null },
         ],
         vi.fn(),
       );
