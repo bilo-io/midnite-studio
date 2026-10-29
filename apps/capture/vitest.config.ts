@@ -9,6 +9,10 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', '@tanstack/react-query'],
     alias: {
+      '@midnite/studio-module-capture/renderer': at('../../packages/modules/capture/renderer/index.ts'),
+      '@midnite/studio-module-capture/overlay-bridge': at('../../packages/modules/capture/main/overlay-bridge.ts'),
+      '@midnite/studio-module-capture/bridge': at('../../packages/modules/capture/main/bridge.ts'),
+      '@midnite/studio-module-capture/main': at('../../packages/modules/capture/main/index.ts'),
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),

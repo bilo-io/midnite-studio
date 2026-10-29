@@ -24,7 +24,7 @@ export function taskInputs(yml, task) {
 }
 
 const isMainSide = (input) =>
-  input === 'main/**/*' || input === '/packages/runtime/src/**/*' || /^\/packages\/features\/[^/]+\/main\/\*\*\/\*$/.test(input);
+  input === 'main/**/*' || input === '/packages/runtime/src/**/*' || /^\/packages\/(features|modules)\/[^/]+\/main\/\*\*\/\*$/.test(input);
 
 const apps = readdirSync(path.join(repoRoot, 'apps')).filter(
   (dir) => existsSync(path.join(repoRoot, 'apps', dir, 'main')) && existsSync(path.join(repoRoot, 'apps', dir, 'moon.yml')),

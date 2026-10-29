@@ -16,6 +16,7 @@ dependsOn:
   - 'runtime'
   - 'feature-optimizer'
   - 'feature-report'
+  - 'module-cleaner'
 
 tasks:
   build:
@@ -39,6 +40,9 @@ tasks:
       - '/packages/features/optimizer/manifest.ts'
       - '/packages/features/optimizer/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/cleaner/main/**/*'
+      - '/packages/modules/cleaner/renderer/**/*'
+      - '/packages/modules/cleaner/manifest.ts'
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/report/main/**/*'
@@ -60,6 +64,9 @@ tasks:
       - 'main/**/*'
       - '/packages/features/optimizer/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/cleaner/main/**/*'
+      - '/packages/modules/cleaner/renderer/**/*'
+      - '/packages/modules/cleaner/manifest.ts'
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/report/main/**/*'
@@ -77,6 +84,9 @@ tasks:
       - 'main/**/*'
       - '/packages/features/optimizer/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/cleaner/main/**/*'
+      - '/packages/modules/cleaner/renderer/**/*'
+      - '/packages/modules/cleaner/manifest.ts'
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/report/main/**/*'

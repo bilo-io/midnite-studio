@@ -5,7 +5,7 @@ import { app, BrowserWindow, clipboard, ipcMain, Menu, shell, type MenuItemConst
 
 import { createFileSink, guardAppWindow, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 
-import { registerVaultHandlers } from './context';
+import { registerVaultHandlers } from '@midnite/studio-module-vault/main';
 import { VAULT_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, vaultDirectory, vaultUserData } from './identity';
 import { vaultPairing } from './pairing';
 import { registerReport, reportMenuTemplate } from './report';

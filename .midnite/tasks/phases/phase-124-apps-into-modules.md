@@ -81,8 +81,15 @@ it without importing each other. Both mains still register through their own com
 folding them into `mountModuleMains` is E.3. Studio is unaffected: it composes through `packages/app`, never an app,
 and listing modules in `composition.ts` is E.5.
 
-**Theme D — Vault, Cleaner, Monitor and Capture become modules.** ◻ The same move for the four utility
-apps, into `packages/modules/{vault,cleaner,monitor,capture}`.
+**Theme D — Vault, Cleaner, Monitor and Capture become modules.** ✅ (PR pending) The four utility apps' renderer
+compose code, views and manifest data, and their main bridge/context/services, moved into
+`packages/modules/{vault,cleaner,monitor,capture}`; each module's main half is a `defineFeatureMain` module
+(`<id>ModuleMain`) mountable through `mountModuleMains`. The apps stay as thin hosts (window, identity,
+pairing, preload, report menu) until Theme H. Preloads import the module's `./bridge` subpath so no runtime
+barrel reaches a sandboxed preload; Capture also exports `./overlay-bridge`. `frameContent` gained a `modules`
+argument so Tailwind scans module renderers; `tsconfig.base.json` maps module mains/bridges to source; the
+vault-grants and moon-input guards now scan `packages/modules/*/main` too. Surprise: B's `runtime:build` type
+error (fixed on #1060) blocked every project that builds the runtime.
 
 **Theme E — Hosts are built from modules.** ◻ Every suite app (its own features included, e.g. a `gamer`
 module) is a list of modules rendered as nav groups in Phase 123's `AppShell`; Studio composes all of them.
@@ -150,13 +157,13 @@ release, icon and test legs are deleted.
 
 ## Theme D — Vault, Cleaner, Monitor and Capture become modules `[L]`
 
-- [ ] **D.1** `packages/modules/vault` from `apps/vault` (renderer views + the module half of
+- [x] **D.1** `packages/modules/vault` from `apps/vault` (renderer views + the module half of
   [`apps/vault/main/`](../../../apps/vault/main/)). The vault service itself stays in
   [`runtime/src/vault/`](../../../packages/runtime/src/vault/). `[M]`
-- [ ] **D.2** `packages/modules/cleaner` from `apps/cleaner`, over the optimizer feature. **Starts after
+- [x] **D.2** `packages/modules/cleaner` from `apps/cleaner`, over the optimizer feature. **Starts after
   Phase 113 Theme H (PR #1056) merges**, so the scanners are already in the feature package. `[M]`
-- [ ] **D.3** `packages/modules/monitor` from `apps/monitor` (health, diagnostics, crash log). `[M]`
-- [ ] **D.4** `packages/modules/capture` from `apps/capture` (screenshots, recordings, clipboard history),
+- [x] **D.3** `packages/modules/monitor` from `apps/monitor` (health, diagnostics, crash log). `[M]`
+- [x] **D.4** `packages/modules/capture` from `apps/capture` (screenshots, recordings, clipboard history),
   including the permission prompts its main half raises. `[M]`
 
 ## Theme E — Hosts are built from modules `[L]`

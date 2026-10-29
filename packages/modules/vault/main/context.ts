@@ -1,4 +1,3 @@
-import { vaultMain } from '@midnite/studio-feature-vault/main';
 import {
   connectRuntimeVault,
   createIpcContext,
@@ -7,6 +6,8 @@ import {
   type IpcContextElectron,
   type PairingIdentity,
 } from '@midnite/studio-runtime';
+
+import { vaultModuleMain } from './module';
 
 /** The electron pieces Vault's main needs, injected so registration is testable under bare vitest. */
 export type VaultElectron = IpcContextElectron & {
@@ -26,6 +27,6 @@ export type VaultElectron = IpcContextElectron & {
  */
 export function registerVaultHandlers(el: VaultElectron): { close(): void } {
   const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.directory), appId: 'vault', identity: el.pairing });
-  vaultMain.register(createIpcContext(el), { vault, grants: vault.grants, pairings: vault.pairing, clipboard: el.clipboard });
+  vaultModuleMain.register(createIpcContext(el), { vault, grants: vault.grants, pairings: vault.pairing, clipboard: el.clipboard });
   return { close: () => vault.close() };
 }
