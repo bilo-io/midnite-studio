@@ -1,6 +1,6 @@
 import type { QueryKey } from '@tanstack/react-query';
 
-import { appQueryClient } from '../../../../services/query-client';
+import { appQueryClient } from '../../../services/query-client';
 
 /**
  * Small helpers the resolver's sources share. Nothing here fetches: `cached`

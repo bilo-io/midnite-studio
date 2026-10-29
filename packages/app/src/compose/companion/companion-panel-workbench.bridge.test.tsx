@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { fixtures } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
-import { SettingsView } from '../settings/settings-view';
-import { useCompanionStore } from './companion-store';
-import { useUiStore } from './ext';
-import { CompanionPanelSlot } from './companion-panel';
+import { SettingsView } from '../../features/settings/settings-view';
+import { useCompanionStore } from '@midnite/studio-feature-companion/renderer';
+import { useUiStore } from '../../store/ui-store';
+import { CompanionPanelSlot } from '@midnite/studio-feature-companion/renderer';
 // Imported for its module-scope side effect: registers the REAL
 // submit/greet/interrupt/repeat ports (`setCompanionPorts` at import time —
 // see the file's own doc comment on why that is deliberate, not an effect).
@@ -14,7 +14,7 @@ import { CompanionPanelSlot } from './companion-panel';
 // `beforeEach` to swap these back out for fakes; this file never does, so
 // `greetCompanion()` below is the real pipeline against the real mock bridge.
 import './register-flow-ports';
-import { QuickAccessMenu } from '../quick-access/quick-access-menu';
+import { QuickAccessMenu } from '../../features/quick-access/quick-access-menu';
 
 /**
  * Migrated from `e2e/companion-panel.spec.ts` (Phase 82 Theme C, wave 4).

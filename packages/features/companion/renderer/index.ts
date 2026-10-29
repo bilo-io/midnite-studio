@@ -84,5 +84,5 @@ export type {
   RevealerTable,
   FamilyRevealers,
 } from './reveal/types';
-export type { ResourceMatch, ResourceSource } from './reveal/resolve';
+export type { ResourceCandidate, ResourceMatch, ResourceSource, SourceQuery } from './reveal/resolve';
 export { unavailableRevealer } from './reveal/revealers/stub';

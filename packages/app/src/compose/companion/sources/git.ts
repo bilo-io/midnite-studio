@@ -1,8 +1,8 @@
 import type { Commit, ForgeIssuesResult, ForgePullsResult, ForgeRunsResult } from '@midnite/studio-shared';
 
-import { bridge } from '../../../../services/bridge';
-import { keys } from '../../../../services/queries';
-import type { ResourceCandidate, ResourceSource, SourceQuery } from '../resolve';
+import { bridge } from '../../../services/bridge';
+import { keys } from '../../../services/queries';
+import type { ResourceCandidate, ResourceSource, SourceQuery } from '@midnite/studio-feature-companion/renderer';
 import { cached, isoMs } from './util';
 
 /**

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { useNotesStore } from '../../../../store/notes-store';
-import { useUiStore } from '../../../../store/ui-store';
-import { useMediaOpenRequest } from '../../../media/media-open-request';
+import { useNotesStore } from '../../../store/notes-store';
+import { useUiStore } from '../../../store/ui-store';
+import { useMediaOpenRequest } from '../../../features/media/media-open-request';
 import { useModelOpenRequest } from '@midnite/studio-feature-media-model/events';
 import { useTerrainOpenRequest } from '@midnite/studio-feature-media-terrain/renderer';
 import { NOTES_MEDIA_REVEALERS } from './notes-media';

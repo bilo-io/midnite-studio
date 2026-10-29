@@ -1,13 +1,13 @@
 import type { ResourceRef } from '@midnite/studio-shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useSessionsStore } from '../../../../store/sessions-store';
-import { useUiStore } from '../../../../store/ui-store';
+import { useSessionsStore } from '../../../store/sessions-store';
+import { useUiStore } from '../../../store/ui-store';
 import { useWorkflowRevealStore } from '@midnite/studio-feature-workflows/renderer';
 import { useChatsStore } from '@midnite/studio-feature-chats/renderer';
 import { useCouncilsHistoryStore } from '@midnite/studio-feature-councils/renderer';
 import { useBoardSelectionStore } from '@midnite/studio-feature-tasks/renderer/state';
-import type { RevealContext } from '../types';
+import type { RevealContext } from '@midnite/studio-feature-companion/renderer';
 import { AGENT_REVEALERS } from './agent';
 
 const mocks = vi.hoisted(() => ({
@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@midnite/studio-frame', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@midnite/studio-frame')>()), bridge: () => mocks.bridge }));
-vi.mock('../../../terminal/reveal-session', () => ({ revealSession: mocks.revealSession }));
+vi.mock('../../../features/terminal/reveal-session', () => ({ revealSession: mocks.revealSession }));
 
 const ctx: RevealContext = { caller: 'companion', focusedWindow: false };
 const run = (ref: ResourceRef) =>

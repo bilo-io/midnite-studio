@@ -1,13 +1,13 @@
 import { resourceRefLabel, type MediaKind, type SpriteOpenEvent } from '@midnite/studio-shared';
 
-import { bridge } from '../../../../services/bridge';
-import { useNotesStore } from '../../../../store/notes-store';
-import { useUiStore } from '../../../../store/ui-store';
-import { useMediaOpenRequest, type MediaOpenKind } from '../../../media/media-open-request';
+import { bridge } from '../../../services/bridge';
+import { useNotesStore } from '../../../store/notes-store';
+import { useUiStore } from '../../../store/ui-store';
+import { useMediaOpenRequest, type MediaOpenKind } from '../../../features/media/media-open-request';
 import { useModelOpenRequest } from '@midnite/studio-feature-media-model/events';
 import { useSpriteOpenRequest } from '@midnite/studio-feature-media-sprite/events';
 import { useTerrainOpenRequest } from '@midnite/studio-feature-media-terrain/renderer';
-import type { FamilyRevealers } from '../types';
+import type { FamilyRevealers } from '@midnite/studio-feature-companion/renderer';
 
 /**
  * Notes + media — Phase 112 Theme E. The engine has already switched repo and

@@ -44,11 +44,11 @@ vi.mock('@midnite/studio-frame', async (importOriginal) => ({
   }),
 }));
 
-import { keys } from '../../../../services/queries';
-import { appQueryClient } from '../../../../services/query-client';
+import { keys } from '../../../services/queries';
+import { appQueryClient } from '../../../services/query-client';
 import { useApiClientStore } from '@midnite/studio-feature-api-client/renderer';
-import { useNotesStore } from '../../../../store/notes-store';
-import type { ResourceSource, SourceQuery } from '../resolve';
+import { useNotesStore } from '../../../store/notes-store';
+import type { ResourceSource, SourceQuery } from '@midnite/studio-feature-companion/renderer';
 import { GIT_SOURCES } from './git';
 import { NOTES_MEDIA_SOURCES, noteTitle } from './notes-media';
 import { TOOLS_SOURCES } from './tools';

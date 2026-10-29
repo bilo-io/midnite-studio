@@ -1,8 +1,8 @@
 import { SPRITE_GROUP_IDS, SPRITE_SPEC_FILE, TERRAIN_SPEC_FILE, type MediaKind } from '@midnite/studio-shared';
 
-import { bridge } from '../../../../services/bridge';
-import { useNotesStore } from '../../../../store/notes-store';
-import type { ResourceCandidate, ResourceSource } from '../resolve';
+import { bridge } from '../../../services/bridge';
+import { useNotesStore } from '../../../store/notes-store';
+import type { ResourceCandidate, ResourceSource } from '@midnite/studio-feature-companion/renderer';
 import { basename, mapLimit, stripExtension } from './util';
 
 /**

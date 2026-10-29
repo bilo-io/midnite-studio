@@ -1,9 +1,9 @@
 import type { ForgeProjectsResult } from '@midnite/studio-shared';
 
-import { bridge } from '../../../../services/bridge';
-import { keys, type ForgeProjectItemsPage } from '../../../../services/queries';
-import { sessionLabel, useTerminalStore } from '../../../terminal/terminal-store';
-import type { ResourceCandidate, ResourceSource } from '../resolve';
+import { bridge } from '../../../services/bridge';
+import { keys, type ForgeProjectItemsPage } from '../../../services/queries';
+import { sessionLabel, useTerminalStore } from '../../../features/terminal/terminal-store';
+import type { ResourceCandidate, ResourceSource } from '@midnite/studio-feature-companion/renderer';
 import { cachedOne } from './util';
 
 /**

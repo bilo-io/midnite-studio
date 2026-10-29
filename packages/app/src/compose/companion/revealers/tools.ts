@@ -1,13 +1,13 @@
 import { resourceRefLabel, type SettingsPageId } from '@midnite/studio-shared';
 
-import { bridge } from '../../../../services/bridge';
+import { bridge } from '../../../services/bridge';
 import { apiTabId, useApiClientStore } from '@midnite/studio-feature-api-client/renderer';
 import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { openQueryTab, previewSql, useDatabaseConnectionsStore } from '@midnite/studio-feature-database/renderer';
-import { useUiStore } from '../../../../store/ui-store';
-import { SETTINGS_SECTIONS } from '../../../settings/settings-sections';
-import { liveNavigationState } from '../../navigate';
-import type { FamilyRevealers, RevealOutcome } from '../types';
+import { useUiStore } from '../../../store/ui-store';
+import { SETTINGS_SECTIONS } from '../../../features/settings/settings-sections';
+import { liveNavigationState } from '@midnite/studio-feature-companion/renderer';
+import type { FamilyRevealers, RevealOutcome } from '@midnite/studio-feature-companion/renderer';
 
 /**
  * Tools + settings — Phase 112 Theme F. The engine has already switched repo

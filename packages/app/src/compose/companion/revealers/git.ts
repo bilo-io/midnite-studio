@@ -1,14 +1,14 @@
 import { resourceRefLabel, type ResourceRef } from '@midnite/studio-shared';
 
-import { bridge } from '../../../../services/bridge';
-import { useActionsStore } from '../../../../store/actions-store';
-import { openIssueModal } from '../../../../store/issue-modal-store';
-import { useReviewsStore } from '../../../../store/reviews-store';
-import { useUiStore } from '../../../../store/ui-store';
-import { useCommitFileRequest } from '../../../commit/commit-file-request';
-import { useFilesStore } from '../../../files/files-store';
-import { revealCommit } from '../../../graph/reveal-commit';
-import type { FamilyRevealers, RevealOutcome } from '../types';
+import { bridge } from '../../../services/bridge';
+import { useActionsStore } from '../../../store/actions-store';
+import { openIssueModal } from '../../../store/issue-modal-store';
+import { useReviewsStore } from '../../../store/reviews-store';
+import { useUiStore } from '../../../store/ui-store';
+import { useCommitFileRequest } from '../../../features/commit/commit-file-request';
+import { useFilesStore } from '../../../features/files/files-store';
+import { revealCommit } from '../../../features/graph/reveal-commit';
+import type { FamilyRevealers, RevealOutcome } from '@midnite/studio-feature-companion/renderer';
 
 /**
  * Git + forge — Phase 112 Theme C.

@@ -1,13 +1,13 @@
 import type { ApiCollectionSummary, PostmanItem, SchemaTree } from '@midnite/studio-shared';
 
-import { bridge } from '../../../../services/bridge';
-import { keys } from '../../../../services/queries';
+import { bridge } from '../../../services/bridge';
+import { keys } from '../../../services/queries';
 import { useApiClientStore } from '@midnite/studio-feature-api-client/renderer';
 import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useDatabaseConnectionsStore } from '@midnite/studio-feature-database/renderer';
-import { SETTINGS_PAGES } from '../../../../store/ui-store';
-import { SETTINGS_SECTIONS } from '../../../settings/settings-sections';
-import type { ResourceCandidate, ResourceSource } from '../resolve';
+import { SETTINGS_PAGES } from '../../../store/ui-store';
+import { SETTINGS_SECTIONS } from '../../../features/settings/settings-sections';
+import type { ResourceCandidate, ResourceSource } from '@midnite/studio-feature-companion/renderer';
 import { cachedOne } from './util';
 
 /**

@@ -1,18 +1,18 @@
 import type { ResourceRef } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useActionsStore } from '../../../../store/actions-store';
-import { useIssueModalStore } from '../../../../store/issue-modal-store';
-import { useReviewsStore } from '../../../../store/reviews-store';
-import { useUiStore } from '../../../../store/ui-store';
-import { useCommitFileRequest } from '../../../commit/commit-file-request';
-import { useFilesStore } from '../../../files/files-store';
-import type { RevealContext } from '../types';
+import { useActionsStore } from '../../../store/actions-store';
+import { useIssueModalStore } from '../../../store/issue-modal-store';
+import { useReviewsStore } from '../../../store/reviews-store';
+import { useUiStore } from '../../../store/ui-store';
+import { useCommitFileRequest } from '../../../features/commit/commit-file-request';
+import { useFilesStore } from '../../../features/files/files-store';
+import type { RevealContext } from '@midnite/studio-feature-companion/renderer';
 import { GIT_REVEALERS } from './git';
 
 const mocks = vi.hoisted(() => ({ revealCommit: vi.fn(), refs: vi.fn(), stashList: vi.fn() }));
 
-vi.mock('../../../graph/reveal-commit', () => ({ revealCommit: mocks.revealCommit }));
+vi.mock('../../../features/graph/reveal-commit', () => ({ revealCommit: mocks.revealCommit }));
 vi.mock('@midnite/studio-frame', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   bridge: () => ({ repos: { refs: mocks.refs }, stash: { list: mocks.stashList } }),

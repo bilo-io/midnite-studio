@@ -1,4 +1,4 @@
-import type { ResourceSource } from '../resolve';
+import type { ResourceSource } from '@midnite/studio-feature-companion/renderer';
 import { AGENT_SOURCES } from './agent';
 import { GIT_SOURCES } from './git';
 import { NOTES_MEDIA_SOURCES } from './notes-media';
