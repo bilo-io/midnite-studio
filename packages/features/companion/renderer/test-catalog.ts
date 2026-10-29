@@ -1,4 +1,4 @@
-import type { CommandId, CompanionAccess, SettingsPageId, ViewId } from '@midnite/studio-shared';
+import type { CommandId, CompanionAccess, PageWindowRole, SettingsPageId, ViewId } from '@midnite/studio-shared';
 
 /**
  * A frozen copy of Studio's view labels, keywords, settings pages and command access, for the
@@ -206,4 +206,26 @@ export const TEST_COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'window.detachFab': 'direct',
   'window.detachBrowser': 'direct',
   'window.detachCompanion': 'direct',
+};
+
+/** The human name each page role wears in a tooltip and a popout's title bar. */
+export const TEST_PAGE_ROLE_TITLE: Record<PageWindowRole, string> = {
+  graph: 'Timeline',
+  actions: 'Actions',
+  files: 'File Explorer',
+  database: 'DB Explorer',
+  dashboard: 'Dashboard',
+  search: 'Search',
+  tests: 'Tests',
+  tasks: 'Tasks',
+  reviews: 'Reviews',
+  history: 'History',
+  optimizer: 'Workspace Optimizer',
+  sessions: 'Sessions',
+  chats: 'Chats',
+  councils: 'Councils',
+  workflows: 'Graphs',
+  media: 'Media',
+  models: 'Models',
+  notes: 'Notes',
 };
