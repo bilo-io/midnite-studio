@@ -251,13 +251,14 @@ const FRAME_DIR = dirname(fileURLToPath(import.meta.url));
  * Tailwind emits only classes it has SEEN, and the frame and each feature are compiled
  * into an app's build from source, so their globs must be scanned or their layout
  * collapses with nothing failing. `features` are directory names under
- * `packages/features/` (e.g. `'optimizer'`).
+ * `packages/features/` (e.g. `'optimizer'`); `modules` likewise under `packages/modules/` (Phase 124).
  */
-export function frameContent(appDir: string, features: string[]): string[] {
+export function frameContent(appDir: string, features: string[], modules: string[] = []): string[] {
   return [
     resolve(appDir, 'src/**/*.{ts,tsx,html}'),
     resolve(FRAME_DIR, 'src/**/*.{ts,tsx}'),
     ...features.map((f) => resolve(FRAME_DIR, '../features', f, 'renderer/**/*.{ts,tsx}')),
+    ...modules.map((m) => resolve(FRAME_DIR, '../modules', m, 'renderer/**/*.{ts,tsx}')),
     resolve(appDir, 'node_modules/@bilo-io/ui/dist/**/*.js'),
   ];
 }

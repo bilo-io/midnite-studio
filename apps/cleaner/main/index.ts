@@ -19,7 +19,7 @@ import {
 } from '@midnite/studio-runtime';
 import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
-import { registerCleanerHandlers } from './context';
+import { registerCleanerHandlers } from '@midnite/studio-module-cleaner/main';
 import { CLEANER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, cleanerUserData, isSmoke } from './identity';
 
 /**

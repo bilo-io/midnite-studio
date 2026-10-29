@@ -263,6 +263,9 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-module-capture':
+        specifier: workspace:*
+        version: link:../../packages/modules/capture
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -342,6 +345,9 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-module-cleaner':
+        specifier: workspace:*
+        version: link:../../packages/modules/cleaner
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -1058,6 +1064,9 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-module-monitor':
+        specifier: workspace:*
+        version: link:../../packages/modules/monitor
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -1244,6 +1253,9 @@ importers:
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-module-vault':
+        specifier: workspace:*
+        version: link:../../packages/modules/vault
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -4039,6 +4051,250 @@ importers:
         specifier: ^4.0.0
         version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
 
+  packages/modules/capture:
+    dependencies:
+      '@midnite/studio-feature-capture':
+        specifier: workspace:*
+        version: link:../../features/capture
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../features/report
+      '@midnite/studio-frame':
+        specifier: workspace:*
+        version: link:../../frame
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../runtime
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../shared
+      react-icons:
+        specifier: ^5.7.0
+        version: 5.7.0(react@19.2.8)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.5(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+
+  packages/modules/cleaner:
+    dependencies:
+      '@midnite/studio-feature-optimizer':
+        specifier: workspace:*
+        version: link:../../features/optimizer
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../features/report
+      '@midnite/studio-frame':
+        specifier: workspace:*
+        version: link:../../frame
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../runtime
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../shared
+      react-icons:
+        specifier: ^5.7.0
+        version: 5.7.0(react@19.2.8)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.5(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+
+  packages/modules/monitor:
+    dependencies:
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../features/monitor
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../features/report
+      '@midnite/studio-frame':
+        specifier: workspace:*
+        version: link:../../frame
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../runtime
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../shared
+      react-icons:
+        specifier: ^5.7.0
+        version: 5.7.0(react@19.2.8)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.5(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+
+  packages/modules/vault:
+    dependencies:
+      '@midnite/studio-feature-report':
+        specifier: workspace:*
+        version: link:../../features/report
+      '@midnite/studio-feature-vault':
+        specifier: workspace:*
+        version: link:../../features/vault
+      '@midnite/studio-frame':
+        specifier: workspace:*
+        version: link:../../frame
+      '@midnite/studio-runtime':
+        specifier: workspace:*
+        version: link:../../runtime
+      '@midnite/studio-shared':
+        specifier: workspace:*
+        version: link:../../shared
+      react-icons:
+        specifier: ^5.7.0
+        version: 5.7.0(react@19.2.8)
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+      zustand:
+        specifier: ^5.0.2
+        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
+    devDependencies:
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.5(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+      jsdom:
+        specifier: ^25.0.1
+        version: 25.0.1
+      react:
+        specifier: ^19.0.0
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.8)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
+      vitest:
+        specifier: ^4.0.0
+        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
+
   packages/runtime:
     dependencies:
       '@midnite/studio-shared':
@@ -4398,7 +4654,7 @@ packages:
     engines: {node: '>=22.12.0'}
 
   '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {gitHosted: true, integrity: sha512-MXgzlTDEEndJB3TBbvd5uFQO/8gaINo1Hfen8vef5rq/VHVPeB63uuv/uO5+8GFsAJ/rauu6XB79S6K4+aXc+w==, tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -9288,6 +9544,7 @@ packages:
 
   sherpa-onnx-darwin-arm64@1.13.7:
     resolution: {integrity: sha512-5NCE50hAvr3n2pdett0SgfPBJXaFZE0bqHwbHyiq+IKZ8Ids0l4M0VrG+ImGYIafCwie+oC3uAJ+pKj9xg/k+w==}
+    cpu: [arm64]
     os: [darwin]
 
   sherpa-onnx-darwin-x64@1.13.7:

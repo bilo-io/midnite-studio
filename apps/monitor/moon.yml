@@ -15,6 +15,7 @@ dependsOn:
   - 'frame'
   - 'runtime'
   - 'feature-report'
+  - 'module-monitor'
   - 'feature-monitor'
 
 tasks:
@@ -43,6 +44,9 @@ tasks:
       - '/packages/features/monitor/manifest.ts'
       - '/packages/features/monitor/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/monitor/main/**/*'
+      - '/packages/modules/monitor/renderer/**/*'
+      - '/packages/modules/monitor/manifest.ts'
     outputs:
       - 'dist'
 
@@ -64,6 +68,9 @@ tasks:
       - 'main/**/*'
       - '/packages/features/monitor/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/monitor/main/**/*'
+      - '/packages/modules/monitor/renderer/**/*'
+      - '/packages/modules/monitor/manifest.ts'
 
   test:
     inputs:
@@ -81,3 +88,6 @@ tasks:
       - 'main/**/*'
       - '/packages/features/monitor/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/monitor/main/**/*'
+      - '/packages/modules/monitor/renderer/**/*'
+      - '/packages/modules/monitor/manifest.ts'
