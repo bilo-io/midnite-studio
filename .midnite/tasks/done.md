@@ -15455,3 +15455,7 @@ An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` un
 ### Phase 124 Theme C — Coder and Creator become modules (2026-10-29)
 
 `packages/modules/{coder,creator}` (manifest, renderer, main, own vitest/tsconfig/moon project) take the compose code, views, bridges, handlers, repository list, git channels and file protocol out of `apps/coder` and `apps/creator`, which keep identity, pairing, window and the esbuild bundle (aliased to the module sources) and re-export the module root. Tests moved with the code; eslint boundaries, `gate-projects-check` (`module-coder`, `module-creator`), the egress scan and `tsconfig.base` paths follow. Stacked on #1060.
+
+### Phase 124 Theme E (partial) — Hosts are built from modules (2026-10-29)
+
+E.4 `&module=` on `midnite://open`; E.5 `STUDIO_MODULES` and the every-module-is-listed test; E.2 mechanism (`NavConfig.groups`, `navFromGroups`, grouped `AppShell` sections); E.1 for Vanguard, Money and Media (`packages/modules/{vanguard,money,media}`). Also moved the four stale app manifest tests into their modules. E.1 (Agents, Gamer, Mind, Browser), E.2's per-host groups and E.3 stay open; see the phase doc's Headlines.
