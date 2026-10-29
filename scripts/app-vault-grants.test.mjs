@@ -34,7 +34,7 @@ export function vaultServiceCalls(source) {
 function appMainFiles(pattern) {
   let out = '';
   try {
-    out = execFileSync('git', ['grep', '-l', '-E', pattern, '--', 'apps/*/main/*.ts'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    out = execFileSync('git', ['grep', '-l', '-E', pattern, '--', 'apps/*/main/*.ts', 'packages/modules/*/main/*.ts'], { cwd: repoRoot, encoding: 'utf8' }).trim();
   } catch (error) {
     if (error.status !== 1) throw error;
   }
@@ -99,7 +99,9 @@ describe('every app main reads the vault through the runtime host, behind its gr
   it('reaches it as a guest in every app that reads a key', () => {
     const guests = appMainFiles('connectRuntimeVault');
     for (const app of ['agents', 'coder', 'creator', 'gamer', 'media', 'money', 'vault']) {
-      expect(guests.some((f) => f.startsWith(`apps/${app}/main/`))).toBe(true);
+      // Vault's guest connection moved into its module (Phase 124 Theme D); the rest still live in apps.
+      const dirs = app === 'vault' ? ['packages/modules/vault/main/'] : [`apps/${app}/main/`];
+      expect(guests.some((f) => dirs.some((d) => f.startsWith(d)))).toBe(true);
     }
   });
 });

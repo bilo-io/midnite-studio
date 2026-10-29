@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 124 Theme D — Vault, Cleaner, Monitor and Capture become modules
+
+`packages/modules/{vault,cleaner,monitor,capture}`: renderer compose/views/manifest data and main bridge/context/services moved out of `apps/<id>` (D.1–D.4), each main half a `defineFeatureMain` module; apps keep window, identity, pairing, preload and report menu. Stacked on #1060.
+
 ## 2026-10-29 — Phase 124 Theme B — The modules layer
 
 `packages/modules/_template` (`.tmpl` package skeleton), `ModuleManifest` in `shared`, eslint blocks for module renderer/main/manifest plus features/frame/runtime never importing a module, an allowed and a forbidden case per edge in `layer-boundaries.test.mjs`, `gate-projects-check` support for `packages/modules/*`, and `mountModuleMains` in the runtime (two modules in one host register disjoint IPC channels).
