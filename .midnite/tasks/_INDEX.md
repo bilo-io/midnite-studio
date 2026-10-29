@@ -9,7 +9,7 @@ Completed work is logged append-only in [`done.md`](done.md). Deferred scope liv
 | Phase | Status | Refined | Done | Progress | % | 🔄 WIP | ◻ TODO |
 |-------|--------|---------|------|----------|---|--------|--------|
 | [124 · Merge suite apps into modules](phases/phase-124-apps-into-modules.md) | 🔄 WIP | — | 20/46 | `████░░░░░░` | 43% | E | G H I |
-| [123 · One shell for every suite app](phases/phase-123-suite-shell.md) | 🔄 WIP | x1 | 28/56 | `█████░░░░░` | 50% | F L | E G H I J K |
+| [123 · One shell for every suite app](phases/phase-123-suite-shell.md) | 🔄 WIP | x1 | 31/56 | `██████░░░░` | 55% | F | E G H I J K |
 | [122 · Guard loop upgrade](phases/phase-122-guard-loop-upgrade.md) | 🔄 WIP | — | 12/41 | `███░░░░░░░` | 29% | B C | D E F G H |
 | [121 · Agents security](phases/phase-121-agents-security.md) | ✅ DONE | — | 51/51 | `██████████` | 100% | — | — |
 | [120 · Vanguard: antivirus and agentic self-defense](phases/phase-120-vanguard.md) | ✅ DONE | — | 46/46 | `██████████` | 100% | — | — |

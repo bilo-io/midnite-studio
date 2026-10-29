@@ -272,15 +272,9 @@ export type { AgentCommandId } from '@midnite/studio-shared';
  * `collapsedSettingsGroups`) for the same reason the repositories panel's are:
  * a user who lives in one category should be able to fold the rest away.
  */
-export type SettingsGroupId = 'general' | 'git' | 'tools' | 'ai' | 'system';
-
-export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
-  { id: 'general', label: 'General & UI' },
-  { id: 'git', label: 'Git & Diff' },
-  { id: 'tools', label: 'Developer Tools' },
-  { id: 'ai', label: 'AI & Extensibility' },
-  { id: 'system', label: 'System & Maintenance' },
-];
+// Moved to the frame (Phase 123 Theme L.3): the groups belong to the settings view, which every app shares.
+export { SETTINGS_GROUPS, type SettingsGroupId } from '@midnite/studio-frame';
+import type { SettingsGroupId } from '@midnite/studio-frame';
 
 /**
  * Order matters twice over: within a group it is the render order, and across
