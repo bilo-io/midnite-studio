@@ -1,29 +1,13 @@
-import { DEFAULT_LOOPS } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../store/ui-store';
-import type { LoopStatus } from '../loops/loop-status';
+import { useTerminalStore } from '../terminal/terminal-store';
 
 import { AssistantMenu } from './assistant-menu';
 
-const IDLE: LoopStatus = {
-  sessionId: undefined,
-  phase: undefined,
-  activity: undefined,
-  running: false,
-  waiting: false,
-  thinking: false,
-};
-
-let statuses: LoopStatus[] = DEFAULT_LOOPS.map(() => IDLE);
-
-vi.mock('../loops/loop-status', () => ({
-  useAllLoopStatuses: () => statuses,
-}));
-
 beforeEach(() => {
-  statuses = DEFAULT_LOOPS.map(() => IDLE);
+  useTerminalStore.setState({ sessions: [], states: {}, activity: {} });
   // `quickAccessOpen` is a real, shared store field now that this component
   // renders `QuickAccessMenu` off it rather than its own local `open` state
   // — reset explicitly, or a prior test's click leaks into this one.
@@ -85,10 +69,9 @@ describe('AssistantMenu', () => {
   });
 
   it('glows while a loop is live, same as the large FAB', () => {
-    statuses = DEFAULT_LOOPS.map((loop) =>
-      loop.id === 'watchdog' ? { ...IDLE, running: true } : IDLE,
-    );
-    useUiStore.setState({ fabPanelOpen: true, activeFabTab: 'watchdog' });
+    // A live pty on the watchdog loop's own session — the status the halo and the glow read.
+    useTerminalStore.setState({ sessions: [{ id: 's-watchdog' } as never], states: { 's-watchdog': 'open' } });
+    useUiStore.setState({ fabPanelOpen: true, activeFabTab: 'watchdog', fabSessions: { watchdog: 's-watchdog' } });
     render(<AssistantMenu />);
     expect(trigger().className).toContain('loop-run-glow');
     expect(trigger().getAttribute('data-loops-running')).toBe('true');

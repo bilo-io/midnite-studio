@@ -27,6 +27,7 @@ import {
   type Ecosystem,
   type ForgeAccount,
   type CustomLoop,
+  type FabTab,
   type LoopModel,
   type LoopRunOptions,
   type LoopSchedule,
@@ -201,11 +202,8 @@ export const FORGE_SWITCHER_PLACEMENTS: readonly ForgeSwitcherPlacement[] = [
   'hidden',
 ];
 
-/** A built-in loop's tab id. */
-export type BuiltinFabTab = 'guard' | 'innovate' | 'automate' | 'watchdog' | 'medic' | 'overhaul';
-
-/** Active tab in the FAB panel — a built-in, or a custom loop (`custom-…`). */
-export type FabTab = BuiltinFabTab | `custom-${string}`;
+// Moved to `@midnite/studio-shared` (Phase 123 Theme G) so the loops feature can name them.
+export type { BuiltinFabTab, FabTab } from '@midnite/studio-shared';
 
 /** Every per-loop record keyed by loop id — cleared when a custom loop is deleted. */
 const PER_LOOP_KEYS = [

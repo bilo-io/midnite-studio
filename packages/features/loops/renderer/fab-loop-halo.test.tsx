@@ -1,8 +1,11 @@
 import { DEFAULT_LOOPS } from '@midnite/studio-shared';
 import { cleanup, render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createDefaultLoopsHost } from './default-host';
 import { FabLoopHalo } from './fab-loop-halo';
+import { LoopsHostProvider } from './host';
 import type { LoopStatus } from './loop-status';
 
 const IDLE: LoopStatus = {
@@ -21,9 +24,13 @@ vi.mock('./loop-status', () => ({
   useAllLoopStatuses: () => statuses,
 }));
 
-vi.mock('../../lib/use-window-focus', () => ({
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
   useWindowFocused: () => focused,
 }));
+
+const host = createDefaultLoopsHost('vanguard');
+const wrap = (ui: ReactElement) => <LoopsHostProvider host={host}>{ui}</LoopsHostProvider>;
 
 const at = (id: string, patch: Partial<LoopStatus>) => {
   const index = DEFAULT_LOOPS.findIndex((loop) => loop.id === id);
@@ -41,7 +48,7 @@ afterEach(cleanup);
 
 describe('FabLoopHalo', () => {
   it('renders nothing while every loop is idle', () => {
-    render(<FabLoopHalo tab="innovate" />);
+    render(wrap(<FabLoopHalo tab="innovate" />));
     expect(screen.queryByTestId('fab-loop-halo')).toBeNull();
   });
 
@@ -54,7 +61,7 @@ describe('FabLoopHalo', () => {
   it('wears the active tab, not the running loop, and is one span however many run', () => {
     at('medic', { running: true });
     at('watchdog', { running: true });
-    render(<FabLoopHalo tab="innovate" />);
+    render(wrap(<FabLoopHalo tab="innovate" />));
     expect(screen.getAllByTestId('fab-loop-halo')).toHaveLength(1);
     expect(halo().dataset['fabTab']).toBe('innovate');
   });
@@ -67,7 +74,7 @@ describe('FabLoopHalo', () => {
   it('swaps to the steady amber state while any loop is waiting', () => {
     at('automate', { running: true, waiting: true });
     at('medic', { running: true, thinking: true });
-    render(<FabLoopHalo tab="automate" />);
+    render(wrap(<FabLoopHalo tab="automate" />));
     expect(halo().className).toContain('is-waiting');
     expect(halo().className).not.toContain('is-pulsing');
     // Waiting outranks thinking on the one shared halo.
@@ -76,7 +83,7 @@ describe('FabLoopHalo', () => {
 
   it('breathes faster while a loop is thinking', () => {
     at('medic', { running: true, thinking: true });
-    render(<FabLoopHalo tab="medic" />);
+    render(wrap(<FabLoopHalo tab="medic" />));
     expect(halo().className).toContain('is-pulsing');
     expect(halo().className).toContain('is-thinking');
   });
@@ -85,7 +92,7 @@ describe('FabLoopHalo', () => {
   it('stops pulsing when the window loses focus', () => {
     focused = false;
     at('medic', { running: true });
-    render(<FabLoopHalo tab="medic" />);
+    render(wrap(<FabLoopHalo tab="medic" />));
     expect(halo().className).not.toContain('is-pulsing');
     expect(halo().className).not.toContain('is-waiting');
   });

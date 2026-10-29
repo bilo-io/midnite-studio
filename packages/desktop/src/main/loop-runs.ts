@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
+import { MAX_STORED_LOOP_RUNS, nullLoopRunsStore, type LoopRunsStore } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS, type LoopModel, type LoopRunFindingsSummary, type LoopRunRecord } from '@midnite/studio-shared';
 import type { BrowserWindow } from 'electron';
 
-import { MAX_STORED_LOOP_RUNS, nullLoopRunsStore, type LoopRunsStore } from './loop-runs-store';
 
 /**
  * The loop-run ledger (Phase 35).
@@ -16,7 +16,8 @@ import { MAX_STORED_LOOP_RUNS, nullLoopRunsStore, type LoopRunsStore } from './l
  * last quit, and is finalised `stopped` on load — the same honest posture the
  * broker takes with a dead session.
  *
- * State is one in-memory array + one JSON file, serialised through a single
+ * State is one in-memory array + this app's own JSON file under the runtime's
+ * `loop-runs/` directory (one writer per file, so apps never race), serialised through a single
  * mutation queue (`withLock`) the way `council-runner.ts` learned to: two
  * finalisations racing (a Stop and the exit it causes) must not clobber each
  * other's write.
@@ -34,7 +35,7 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
-function emitChanged(): void {
+export function emitChanged(): void {
   const win = getWindowThunk();
   if (win && !win.isDestroyed()) {
     win.webContents.send(EVENT_CHANNELS.loopRunsChanged);
@@ -66,8 +67,14 @@ async function ensureLoaded(): Promise<void> {
   await loaded;
 }
 
+/**
+ * Every suite app's runs, merged and newest first, each tagged with its `appId`
+ * (Phase 123 Theme G) — the store reads the whole `loop-runs/` directory. A store
+ * with no `loadAll` (a test's, the null one) lists just this app's own.
+ */
 export async function listLoopRuns(): Promise<LoopRunRecord[]> {
   await ensureLoaded();
+  if (store.loadAll) return store.loadAll();
   return [...runs];
 }
 
