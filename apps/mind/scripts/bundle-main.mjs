@@ -20,6 +20,8 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-module-mind/bridge': at('../../../packages/modules/mind/main/bridge.ts'),
+    '@midnite/studio-module-mind/main': at('../../../packages/modules/mind/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
     '@midnite/studio-feature-notes/main': at('../../../packages/features/notes/main/index.ts'),
     // The knowledge engine's `main` is tsc output; bundle its source, so no prior tsc build is needed.
