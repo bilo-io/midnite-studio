@@ -58,7 +58,7 @@ describe('guest sessions — the host’s sessions, from an app with no pty serv
     const list = (await ctx.invoke(CHANNELS.terminalList)) as { sessions: { session: TerminalSession; live: { ptyId: string } }[] };
     expect(list.sessions.map((s) => s.session)).toEqual([
       studioRecord,
-      { id: 'a1', kind: 'shell', title: 'widgets', name: 'Started by Midnite Agents', cwd: '/work/widgets', repoId: '/work/widgets', createdAt: 5000 },
+      { id: 'a1', kind: 'shell', title: 'widgets', name: 'Started by Midnite Agents', cwd: '/work/widgets', repoId: '/work/widgets', createdAt: 5000, appId: 'agents' },
     ]);
     expect(list.sessions[1]!.live.ptyId).toBe('p-a1');
   });

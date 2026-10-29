@@ -60,8 +60,10 @@ describe('TerminalPanel under the default host', () => {
       </Shell>,
     );
     const status = await screen.findByTestId('terminal-broker-status');
-    expect(status.textContent).toBe('Sessions will not survive quit — connect ENOENT broker.sock');
+    expect(status.textContent).toBe('Could not reach the terminal broker — connect ENOENT broker.sock');
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(useTerminalStore.getState().broker).toEqual({ mode: 'inproc', reason: 'connect ENOENT broker.sock' });
+    expect(useTerminalStore.getState().broker).toEqual({ mode: 'unreachable', reason: 'connect ENOENT broker.sock' });
+    // Not hydrated: nothing auto-opens over sessions that were never read, and the next mount retries.
+    expect(useTerminalStore.getState().hydrated).toBe(false);
   });
 });

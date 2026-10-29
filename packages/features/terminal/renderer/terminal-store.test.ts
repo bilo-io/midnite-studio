@@ -484,6 +484,22 @@ describe('useTerminalStore', () => {
       expect(useTerminalStore.getState().activity['s-1']).toBeUndefined();
     });
 
+    it('makes this window\u2019s own app\u2019s session active, not another app\u2019s (Phase 123 Theme E)', async () => {
+      useTerminalStore.setState({ appId: 'browser' });
+      mockBridge(
+        [
+          { session: session('studio-row'), scrollback: new Uint8Array(), live: null },
+          { session: { ...session('browser-row'), appId: 'browser' as const }, scrollback: new Uint8Array(), live: null },
+        ],
+        vi.fn(),
+      );
+
+      await useTerminalStore.getState().hydrate();
+
+      expect(useTerminalStore.getState().activeId).toBe('browser-row');
+      useTerminalStore.setState({ appId: 'studio' });
+    });
+
     it('marks a dead row exited with its replay', async () => {
       const scrollback = new TextEncoder().encode('$ git status\r\n');
       mockBridge(

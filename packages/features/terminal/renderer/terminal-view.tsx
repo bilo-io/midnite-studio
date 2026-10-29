@@ -3,7 +3,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type ITheme } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { bridge, shouldEscapeTerminal, useSessionRevealFade } from '@midnite/studio-frame';
 import { useTerminalHost } from './host';
@@ -195,7 +195,9 @@ export function TerminalView({
   // Held in a ref: the effects below run once per session and must read the
   // host's current callbacks, not the ones from the first render.
   const hostRef = useRef(host);
-  hostRef.current = host;
+  useLayoutEffect(() => {
+    hostRef.current = host;
+  }, [host]);
   const {
     fontFamily: terminalFontFamily,
     fontSize: terminalFontSize,

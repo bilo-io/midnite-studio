@@ -6,6 +6,7 @@ import type {
   TerminalSessionKind,
   TerminalSurface,
 } from '@midnite/studio-shared';
+import { sessionAppId } from '@midnite/studio-shared';
 import { create } from 'zustand';
 
 import {
@@ -97,7 +98,11 @@ type TerminalState = {
   /** Whether the reattached note badge was dismissed by the user. */
   reattachedDismissed: boolean;
   /** Backend broker status (broker vs fail-soft inproc). */
-  broker: { mode: 'broker' | 'inproc'; reason?: string };
+  /**
+   * Backend broker status: serving, fail-soft in-process, or (Phase 123 Theme E)
+   * `unreachable` — the restore itself failed, so nothing is known about the mode.
+   */
+  broker: { mode: 'broker' | 'inproc' | 'unreachable'; reason?: string };
   /**
    * The app this window is (Phase 123 Theme E), set by `TerminalHostProvider`.
    * `openSession` stamps it on every new record — except Studio's, which stays
@@ -418,12 +423,14 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
         Phase 123 Theme E: a failed attach must read as a failed attach, not
         as a dock with nothing in it. The panel renders `broker.reason`
         (`brokerStatusText`) wherever it would otherwise say "no terminals".
-        Logged once per failed restore — `hydrated` stops a second one.
+        Logged once per failed restore.
       */
       const reason = error instanceof Error ? error.message : String(error);
       // eslint-disable-next-line no-console -- the one log line the phase asks for (E.6)
       console.warn(`[terminal] could not reach the terminal broker: ${reason}`);
-      set({ hydrated: true, broker: { mode: 'inproc', reason } });
+      // `hydrated` stays false: no first-terminal auto-open over sessions that
+      // were never read, and the next mount retries the restore.
+      set({ broker: { mode: 'unreachable', reason } });
       return;
     }
     const sessions = res.sessions;
@@ -480,7 +487,12 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
         activeId:
           live.length > 0
             ? state.activeId
-            : (restored.find((s) => inMainPanel(s))?.id ?? null),
+            : // This window's own app first (Theme E): a session another app owns
+              // may be filtered out of this panel, and an active id it hides
+              // reads as an empty panel.
+              (restored.find((s) => inMainPanel(s) && sessionAppId(s) === get().appId)?.id ??
+              restored.find((s) => inMainPanel(s))?.id ??
+              null),
         states: {
           ...Object.fromEntries(restored.map((s) => [s.id, 'exited' as const])),
           // A live row binds straight to 'open' — it survived whatever
@@ -811,6 +823,9 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
  */
 export function brokerStatusText(broker: TerminalState['broker']): string | null {
   if (broker.mode === 'broker') return null;
+  if (broker.mode === 'unreachable') {
+    return `Could not reach the terminal broker${broker.reason ? ` — ${broker.reason}` : ''}`;
+  }
   return broker.reason ? `Sessions will not survive quit — ${broker.reason}` : 'Sessions will not survive quit';
 }
 

@@ -2,7 +2,7 @@ import { type AgentDefinition } from '@midnite/studio-shared';
 import { useEffect } from 'react';
 
 import { ResizeHandle, useResizable, useRevealSize } from '@midnite/studio-frame';
-import { useShowAllApps, visibleInApp } from './app-filter';
+import { useAppFilterLoaded, useShowAllApps, visibleInApp } from './app-filter';
 import { useTerminalHost } from './host';
 import { useMountedSessionIds } from './session-mount-policy';
 import { TerminalHeader } from './terminal-header';
@@ -29,6 +29,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   const host = useTerminalHost();
   // Another app's session stays out of this panel unless "Show all apps" is on (Theme E).
   const [showAllApps] = useShowAllApps();
+  const filterLoaded = useAppFilterLoaded();
   const sessions = useTerminalStore((s) => s.sessions)
     .filter(inMainPanel)
     .filter((s) => visibleInApp(s, host.appId, showAllApps));
@@ -89,9 +90,9 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
    * there for a shell alongside it.
    */
   useEffect(() => {
-    if (!hydrated || sessions.length > 0 || !cwd || !repoId) return;
+    if (!hydrated || !filterLoaded || sessions.length > 0 || !cwd || !repoId) return;
     useTerminalStore.getState().openSession({ kind: 'shell', title: repoName, cwd, repoId });
-  }, [hydrated, sessions.length, cwd, repoId, repoName]);
+  }, [hydrated, filterLoaded, sessions.length, cwd, repoId, repoName]);
 
   const openNew = (agent?: AgentDefinition) => {
     if (!cwd || !repoId) return;

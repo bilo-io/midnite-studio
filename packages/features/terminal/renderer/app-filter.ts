@@ -16,24 +16,30 @@ import { useTerminalHost } from './host';
 type AppFilterState = {
   /** The persisted choice, or `null` while the file holds no `terminal` group. */
   stored: boolean | null;
+  /** Whether the first `suitePrefs.get` has answered (or there is none) — the panel's auto-open waits on it. */
+  loaded: boolean;
 };
 
-const useAppFilterStore = create<AppFilterState>(() => ({ stored: null }));
+const useAppFilterStore = create<AppFilterState>(() => ({ stored: null, loaded: false }));
 
 let subscribed = false;
 
 function applySnapshot(snapshot: SuitePrefsSnapshot) {
   useAppFilterStore.setState({
     stored: snapshot.stored.includes('terminal') ? snapshot.prefs.terminal.showAllApps : null,
+    loaded: true,
   });
 }
 
 function ensureSubscribed() {
   if (subscribed) return;
   const api = bridge()?.suitePrefs;
-  if (!api) return;
+  if (!api) {
+    useAppFilterStore.setState({ loaded: true });
+    return;
+  }
   subscribed = true;
-  api.get().then(applySnapshot, () => undefined);
+  api.get().then(applySnapshot, () => useAppFilterStore.setState({ loaded: true }));
   api.onChanged(applySnapshot);
 }
 
@@ -49,6 +55,16 @@ export function useShowAllApps(): [boolean, (showAll: boolean) => void] {
   return [stored ?? host.showAllAppsByDefault, set];
 }
 
+/**
+ * Whether the stored choice has been read. Until it has, the filter runs on the
+ * host default, which can hide sessions the user asked to see — so nothing that
+ * acts on "this app has no sessions" should act yet.
+ */
+export function useAppFilterLoaded(): boolean {
+  useEffect(ensureSubscribed, []);
+  return useAppFilterStore((s) => s.loaded);
+}
+
 /** Whether `session` lists in `appId`'s window. */
 export function visibleInApp(session: Pick<TerminalSession, 'appId'>, appId: SuiteAppId, showAll: boolean): boolean {
   return showAll || sessionAppId(session) === appId;
@@ -57,5 +73,5 @@ export function visibleInApp(session: Pick<TerminalSession, 'appId'>, appId: Sui
 /** Test seam: forget the subscription and the cached choice. */
 export function __resetAppFilter() {
   subscribed = false;
-  useAppFilterStore.setState({ stored: null });
+  useAppFilterStore.setState({ stored: null, loaded: false });
 }
