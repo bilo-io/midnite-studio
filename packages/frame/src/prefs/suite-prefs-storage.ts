@@ -75,9 +75,16 @@ export function suitePrefsStorage<T>(
       const state = value.state as unknown;
       const serialised = stable(state);
       if (known.get(key) === serialised) return;
-      return api.set({ key, value: state } as never).then((result) => {
-        if (result.ok) remember(result.snapshot);
-      });
+      return (
+        api
+          .set({ key, value: state } as never)
+          .then((result) => {
+            if (result.ok) remember(result.snapshot);
+          })
+          // A failed write must not become an unhandled rejection on every preference click; the
+          // next change retries because `known` was not advanced.
+          .catch(() => undefined)
+      );
     },
     removeItem: (name) => fallback?.removeItem(name),
   };
