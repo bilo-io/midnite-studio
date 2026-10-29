@@ -4,8 +4,8 @@ import { isAbsolute, join, sep } from 'node:path';
 
 import type { Ecosystem, ReclaimCost } from '@midnite/studio-shared';
 
-import { defaultLogger, type Logger } from '../log';
-import { runProcess, type ProcessSink } from '../process-runner';
+import { noopLog, type OptimizerLog } from './log';
+import { runProcess, type ProcessSink } from '@midnite/studio-runtime';
 
 /**
  * Phase 73's system-cache registry — a completely separate, allowlist-only
@@ -268,7 +268,7 @@ function collectStdout(): ProcessSink<string> {
  */
 export async function resolveSystemCacheEntries(
   entries: readonly SystemCacheEntry[],
-  log: Logger = defaultLogger,
+  log: OptimizerLog = noopLog,
 ): Promise<ResolvedSystemCacheEntry[]> {
   const home = homedir();
   const resolved: ResolvedSystemCacheEntry[] = [];

@@ -1,15 +1,15 @@
-import type { OptimizerMainServices } from '@midnite/studio-feature-optimizer/main';
+import { createScannerServices, type OptimizerMainServices } from '@midnite/studio-feature-optimizer/main';
 
 /**
- * The optimizer's services as a standalone Cleaner process can honestly provide them (Phase 113 H2).
+ * The optimizer's services as a standalone Cleaner process provides them (Phase 113 Theme H).
  *
- * Studio's implementations (`packages/desktop/src/main/optimizer/`) reach the repo registry, the
- * browser, web-app and pty owners and Electron's metrics — Studio-only state a Cleaner process does
- * not have, and which cannot be imported across the layer rule. Porting the scanners (the system
- * cache registry, detectors, the process table) into the feature package behind runtime ports is
- * Theme H3's; until then each operation that needs them answers with a plain message the optimizer
- * UI already renders as an error, rather than a handler that does not exist. What is real here is
- * the wiring: window, bridge, validated IPC, progress events, single-flight, trash.
+ * The scanner half is real: the system-cache scan, clean and reclaim commands, and the workspace
+ * scan over the one extra root a user picks, all from the feature package (`createScannerServices`).
+ * Cleaner has no repo registry, so a scan sees no registered worktrees and `knownRoots` is empty —
+ * a workspace item a scan finds is refused at clean time ("no longer resolves under a known root")
+ * until a root-confirmation flow exists; the system-cache clean is allowlist-based and is not
+ * affected. What stays "not available yet" is what reaches into Electron or another app's
+ * state: the process table, the kill action and the GPU probe (Studio's `kill-service` / `gpu-service`).
  */
 export const NOT_PORTED = 'This part of the optimizer is not available in Midnite Cleaner yet.';
 
@@ -18,14 +18,8 @@ const notPorted = (): never => {
 };
 
 export const CLEANER_OPTIMIZER_SERVICES: OptimizerMainServices = {
-  scanWorkspace: async () => notPorted(),
-  knownRoots: async () => [],
-  cleanItems: async () => notPorted(),
+  ...createScannerServices(),
   getGpuStats: async () => ({ model: null, vramBytes: null, loadPercent: null }),
   getProcessTableResult: async () => notPorted(),
   killProcess: async () => ({ ok: false, message: NOT_PORTED }),
-  systemCatalogue: () => [],
-  scanSystemCaches: async () => notPorted(),
-  cleanSystemCaches: async () => notPorted(),
-  runReclaimCommand: async () => ({ ok: false, message: NOT_PORTED }),
 };

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
@@ -19,8 +20,8 @@ vi.mock('node:os', async (importOriginal) => {
 // `pnpm` or `brew` — this suite must pass on a machine with none of them
 // installed, and must not depend on what happens to be on this one's PATH.
 const runProcessMock = vi.hoisted(() => vi.fn());
-vi.mock('../process-runner', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../process-runner')>();
+vi.mock('@midnite/studio-runtime', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@midnite/studio-runtime')>();
   return { ...actual, runProcess: runProcessMock };
 });
 

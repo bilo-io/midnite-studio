@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,12 +12,12 @@ vi.mock('node:os', async (importOriginal) => {
 });
 
 const runProcessMock = vi.hoisted(() => vi.fn());
-vi.mock('../process-runner', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../process-runner')>();
+vi.mock('@midnite/studio-runtime', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@midnite/studio-runtime')>();
   return { ...actual, runProcess: runProcessMock };
 });
 
-import { defaultLogger } from '../log';
+import { noopLog } from './log';
 import type { SystemCacheEntry } from './system-cache-registry';
 import { cleanSystemCaches, scanSystemCaches, sizeOneEntry } from './system-cache-service';
 
@@ -94,7 +95,7 @@ describe('scanSystemCaches / cleanSystemCaches', () => {
         { entry, path: dir },
         5, // a small injected budget — the real 50,000 would need 50,001 real files
         new AbortController().signal,
-        defaultLogger,
+        noopLog,
       );
 
       expect(item.approximate).toBe(true);
@@ -110,7 +111,7 @@ describe('scanSystemCaches / cleanSystemCaches', () => {
         { entry, path: small },
         5,
         new AbortController().signal,
-        defaultLogger,
+        noopLog,
       );
 
       expect(item.approximate).toBe(false);

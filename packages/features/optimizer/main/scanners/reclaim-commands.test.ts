@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // `runProcess` is stubbed so this suite never actually spawns `brew`, `go`
@@ -5,8 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // must not depend on what happens to be on this one's PATH. Same pattern as
 // `system-cache-registry.test.ts`'s own mock.
 const runProcessMock = vi.hoisted(() => vi.fn());
-vi.mock('../process-runner', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../process-runner')>();
+vi.mock('@midnite/studio-runtime', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@midnite/studio-runtime')>();
   return { ...actual, runProcess: runProcessMock };
 });
 
