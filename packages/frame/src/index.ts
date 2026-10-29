@@ -101,6 +101,16 @@ export { Spinner, WidgetLoader, type SpinnerMode, type SpinnerVariant } from './
 export { EmptyState, EmptyStateButton } from './layout/empty-state';
 export { MARKDOWN_PROSE_CLASSES } from './layout/markdown-prose';
 export { motionMs, REVEAL_MS } from './layout/motion';
+// Reveal tweens and the shared clock (Phase 123 Theme E — moved out of packages/app for the terminal feature).
+export {
+  usePanelRevealFade,
+  useReveal,
+  useRevealSize,
+  useSessionRevealFade,
+  type Reveal,
+  type RevealSize,
+} from './layout/use-reveal';
+export { __nowSubscriberCount, __nowTimerCount, useNow } from './lib/use-now';
 export { ExplorerGroup, ExplorerNotice, ExplorerSearch } from './layout/explorer';
 export { StateDot, type DotState } from './layout/state-dot';
 export { TREE_INDENT } from './layout/tree-indent';

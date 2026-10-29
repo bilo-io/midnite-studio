@@ -4,7 +4,7 @@ import { renderHook } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { resetAgentProbeStore, useAgentProbeStore } from '../agent/agent-probe-store';
+import { resetAgentProbeStore, useAgentProbeStore } from '@midnite/studio-frame';
 import { useAgents } from './use-agents';
 
 describe('useAgents reads the shared probe store', () => {

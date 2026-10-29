@@ -21,7 +21,7 @@
  */
 
 /** Feature packages (`packages/features/<name>`) Studio composes. */
-export const STUDIO_FEATURES = ['optimizer', 'monitor', 'vault', 'notes', 'finance', 'media-core', 'media-docs', 'media-images', 'media-library', 'models', 'councils', 'chats', 'media-audio', 'media-video', 'slides', 'workflows', 'mcp-tools', 'tests', 'forge', 'media-map', 'media-terrain', 'media-sprite', 'media-model', 'media-game', 'api-client', 'database', 'sessions', 'tasks', 'browser', 'capture', 'report', 'vanguard', 'forge-host'] as const;
+export const STUDIO_FEATURES = ['optimizer', 'monitor', 'vault', 'notes', 'finance', 'media-core', 'media-docs', 'media-images', 'media-library', 'models', 'councils', 'chats', 'media-audio', 'media-video', 'slides', 'workflows', 'mcp-tools', 'tests', 'forge', 'media-map', 'media-terrain', 'media-sprite', 'media-model', 'media-game', 'api-client', 'database', 'sessions', 'tasks', 'browser', 'capture', 'report', 'vanguard', 'forge-host', 'terminal'] as const;
 
 export const STUDIO_COMPOSITION = {
   id: 'studio',

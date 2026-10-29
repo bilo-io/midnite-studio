@@ -8,6 +8,7 @@ import {
   GrokIcon,
   OpenClaudeIcon,
   OpenCodeIcon,
+  resolveAgentIcon,
 } from '../../components/icons';
 import { buildAgentSections, NO_WORKTREE, PROPRIETARY_IDS, type AgentSection } from './new-session-menu';
 
@@ -32,6 +33,7 @@ const build = (over: Partial<Parameters<typeof buildAgentSections>[0]> = {}) =>
     agents,
     status: allInstalled,
     hasWorktree: true,
+    resolveIcon: resolveAgentIcon,
     ...over,
   });
 

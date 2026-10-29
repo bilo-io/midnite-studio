@@ -1,0 +1,50 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# The terminal feature package (Phase 123 Theme E) — the terminal panel: the
+# session list, every session's xterm, the panel store and its unload policy,
+# behind a TerminalHost port. Renderer-only for now: the main half
+# (terminal-service, pty-service) still lives in packages/desktop.
+id: 'feature-terminal'
+language: 'typescript'
+layer: 'library'
+
+# `FEATURE_PLACEMENT.terminal` = frame, so it reaches every app (`app-all`).
+# `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
+tags:
+  - 'layer-feature'
+  - 'app-all'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+
+tasks:
+  typecheck:
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    inputs:
+      - 'renderer/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'vitest-setup.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

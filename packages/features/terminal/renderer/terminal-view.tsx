@@ -1,0 +1,916 @@
+import type { TerminalSession } from '@midnite/studio-shared';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
+import { Terminal, type ITheme } from '@xterm/xterm';
+import '@xterm/xterm/css/xterm.css';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { bridge, shouldEscapeTerminal, useSessionRevealFade } from '@midnite/studio-frame';
+import { useTerminalHost } from './host';
+import { EndedStrip } from './ended-banner';
+import { enableUnicode11 } from './enable-unicode11';
+import { createFitCoalescer } from './fit-coalescer';
+import { createInputQueue, type InputQueue } from './input-queue';
+import { isXtermFocusReport, isXtermMouseReport, shouldWakeDeadPane } from './is-xterm-focus-report';
+import { parseOsc7 } from './parse-osc7';
+import { createReplayGate, gateLiveWrite, replayLiveHandoff, type ReplayGate } from './replay-gate';
+import { attachTerminalLinks } from './terminal-links';
+import { agentInput } from './terminal-panel';
+import { terminalFontOptions } from './terminal-font';
+import { sessionPhase, useTerminalStore } from './terminal-store';
+import { useAgents } from './use-agents';
+import { useDevicePixelRatio } from './use-device-pixel-ratio';
+import { useTerminalIpc } from './use-terminal-ipc';
+import { grantedWebglKeys, useXtermBudget, useXtermWebglSlot } from './xterm-budget';
+
+/**
+ * How long OSC 7 has to stay quiet before the store is told.
+ *
+ * Short enough that a `cd` re-labels the header before you have finished
+ * reading the prompt, long enough that a prompt which re-announces the same
+ * directory on every Enter collapses into one write.
+ */
+const OSC7_QUIET_MS = 80;
+
+/** A few KiB — enough for a burst typed while a pty is starting, not a hostage buffer for one that never binds. */
+const INPUT_QUEUE_CAP_BYTES = 4096;
+
+/**
+ * One session's xterm.
+ *
+ * Adapted from midnite's web terminal; the transport is IPC rather than a
+ * WebSocket, but the two hard-won parts are the same.
+ *
+ * 1. **Deferred open.** `term.open()` on a 0x0 element leaves xterm's render
+ *    service without valid dimensions, and a later scroll or fit throws
+ *    "Cannot read properties of undefined (reading 'dimensions')", killing the
+ *    panel. Open is deferred to the first ResizeObserver callback that reports
+ *    real dimensions.
+ *
+ * 2. **safeFit.** Same reasoning for every subsequent fit: bail out unless the
+ *    element is measurable, and swallow the throw if it stops being so mid-fit.
+ *
+ * Rendering: the WebGL addon, not the DOM renderer. Powerline prompts
+ * (powerlevel10k et al) use private-use glyphs (U+E0B0...) that none of the
+ * macOS system monospace fonts contain; only the webgl/canvas renderers honor
+ * `customGlyphs` and draw those shapes themselves, which is how VS Code shows
+ * them without a Nerd Font installed. The font stack still leads with common
+ * Nerd Fonts so users who have one get its full symbol set.
+ *
+ * Every open session mounts one of these at once, and only the active one is
+ * visible. Inactive panes are hidden with `invisible`, never `display: none` —
+ * a display-none element measures 0x0, which is exactly the state that breaks
+ * xterm above. `visibility: hidden` keeps the layout box, so a background
+ * terminal still knows how wide it is and its shell keeps the right column
+ * count.
+ */
+/**
+ * Fallback themes, used only before `usePaletteStore` hydrates or if a
+ * palette somehow fails to resolve — `resolveTerminalPalette` always returns
+ * a real `StudioPalette` (Phase 64 Theme B), whose own `terminal` field is
+ * what every mounted xterm actually renders with. These carry all 16 ANSI
+ * keys now too (they had none before this phase — xterm's built-in defaults
+ * supplied them), matching `github-dark`/`github-light`'s own `terminal`
+ * values exactly so the fallback and the default preset never disagree.
+ */
+const DARK_THEME: ITheme = {
+  background: '#09090b',
+  foreground: '#e4e4e7',
+  cursor: '#e4e4e7',
+  selectionBackground: '#3f3f46',
+  black: '#484f58',
+  red: '#ff7b72',
+  green: '#3fb950',
+  yellow: '#d29922',
+  blue: '#58a6ff',
+  magenta: '#bc8cff',
+  cyan: '#39c5cf',
+  white: '#b1bac4',
+  brightBlack: '#6e7681',
+  brightRed: '#ffa198',
+  brightGreen: '#56d364',
+  brightYellow: '#e3b341',
+  brightBlue: '#79c0ff',
+  brightMagenta: '#d2a8ff',
+  brightCyan: '#56d4dd',
+  brightWhite: '#f0f6fc',
+};
+
+const LIGHT_THEME: ITheme = {
+  background: '#ffffff',
+  foreground: '#18181b',
+  cursor: '#18181b',
+  selectionBackground: '#d4d4d8',
+  black: '#24292f',
+  red: '#cf222e',
+  green: '#116329',
+  yellow: '#4d2d00',
+  blue: '#0969da',
+  magenta: '#8250df',
+  cyan: '#1b7c83',
+  white: '#6e7781',
+  brightBlack: '#57606a',
+  brightRed: '#a40e26',
+  brightGreen: '#1a7f37',
+  brightYellow: '#633c01',
+  brightBlue: '#218bff',
+  brightMagenta: '#a475f9',
+  brightCyan: '#3192aa',
+  brightWhite: '#8c959f',
+};
+
+const isDark = (): boolean => document.documentElement.classList.contains('dark');
+
+/**
+ * DEC private-mode resets, written after a restored transcript.
+ *
+ * The replayed bytes are parsed exactly like live output, so if the shell was
+ * last showing a full-screen program (vim, an agent's TUI) that had turned on
+ * mouse tracking or the alternate screen, that mode survives into the revived
+ * pane even though its process is dead. The visible symptom: hovering the
+ * inert pane spams mouse-report escape codes at whatever plain shell starts
+ * next, which echoes them back as garbage. Force every such mode off after
+ * replay so a revived pane always starts in xterm's default, boring state —
+ * DECRST of a mode that is already off is a no-op, so this is safe even when
+ * nothing needs resetting.
+ */
+const RESET_MODES =
+  '\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1005l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?1049l\x1b[?47l\x1b[?25h\x1b[?2026l';
+
+export function TerminalView({
+  session,
+  active,
+  autoFocus = true,
+  initialInput,
+  fitSignal,
+  layoutClassName,
+}: {
+  session: TerminalSession;
+  active: boolean;
+  /**
+   * Whether becoming ready should steal keyboard focus (Phase 41 Theme E).
+   * Every existing host wants `active` to mean both things at once — the
+   * panel and the FAB tabs each show exactly one session and it is always
+   * the one the user meant to type into. A Kanban card's mini terminal
+   * breaks that: it is genuinely visible (so `active`, not `invisible`)
+   * without ever being the thing you clicked, and a card scrolling into
+   * view has no business dragging focus out of wherever it actually was.
+   */
+  autoFocus?: boolean;
+  /** Typed in when this session first starts — the agent's command. */
+  initialInput?: string | undefined;
+  /** Bumped once a reveal tween settles — fits and repaints, once, at the end. */
+  fitSignal: number;
+  /**
+   * The outer box's positioning classes. Defaults to the main panel's stacked
+   * layout (`absolute inset-0`, which needs a positioned ancestor); a host
+   * that gives the view a box of its own (the FAB pane, Phase 35) passes its
+   * own classes instead of fighting the absolute placement.
+   */
+  layoutClassName?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  /** Set only when the WebGL addon actually loaded — null on the DOM-renderer fallback. */
+  const webglRef = useRef<WebglAddon | null>(null);
+  const [ready, setReady] = useState(false);
+
+  /**
+   * Input typed before this session's pty is ready (Phase 51 Theme E) — built
+   * fresh per session inside the mount effect below, alongside `termRef`, and
+   * discarded (not flushed) in that same effect's cleanup: a session that ends
+   * without ever binding a pty has nothing worth sending.
+   */
+  const inputQueueRef = useRef<InputQueue | null>(null);
+
+  /**
+   * Cell metrics (Phase 51 Theme B) — read reactively so the live-apply
+   * effect below re-runs on every change, but NOT a dependency of the mount
+   * effect that constructs the `Terminal` (that effect deliberately runs
+   * once per session; it reads the current value off the store directly at
+   * construction time instead).
+   */
+  const host = useTerminalHost();
+  // Held in a ref: the effects below run once per session and must read the
+  // host's current callbacks, not the ones from the first render.
+  const hostRef = useRef(host);
+  hostRef.current = host;
+  const {
+    fontFamily: terminalFontFamily,
+    fontSize: terminalFontSize,
+    lineHeight: terminalLineHeight,
+  } = host.useFont();
+  /**
+   * The last size actually sent to the shell, so `safeFit` can skip a resize
+   * that would repeat it.
+   *
+   * The two-nested-box tween pins this component's own container at its
+   * final size for the length of a reveal — only the ANCESTOR's clip region
+   * grows — so both the ResizeObserver (on mount) and the settle-triggered
+   * `fitSignal` effect below can end up calling `safeFit` for the same
+   * dimensions. Sending the SIGWINCH once per genuine size change, not once
+   * per caller, is the guardrail this dedupes against.
+   */
+  const lastSentRef = useRef<{ cols: number; rows: number } | null>(null);
+
+  /**
+   * Holds output that arrives while a live-rebind snapshot is in flight.
+   *
+   * `null` means "nothing to gate" — the ordinary revive/replay path, where
+   * every chunk writes straight through. Set to a fresh, closed gate only for
+   * the live-rebind branch in `openWhenSized`, and released once that
+   * snapshot has been written — see the mount effect below.
+   */
+  const replayGateRef = useRef<ReplayGate | null>(null);
+
+  /*
+    Phase 30 Theme G: the activity guess itself moved to main, at
+    `pty-service.ts`'s single `ptyData` send site — mounting the detector
+    inside this view meant it went dark the moment `app.tsx`'s
+    `terminalReveal.mounted` unmounted every `TerminalView` on a collapse,
+    which is exactly when the status bar's agent count is the only thing
+    still looking. `use-terminal-ipc.ts`'s `onActivity` subscription is
+    mounted per session and does not unmount with the panel.
+  */
+  const writeToTerm = useCallback((bytes: Uint8Array) => {
+    termRef.current?.write(bytes);
+  }, []);
+
+  const write = useCallback(
+    (bytes: Uint8Array) => gateLiveWrite(replayGateRef.current, bytes, writeToTerm),
+    [writeToTerm],
+  );
+
+  const { connectionState, error, start, sendInput, sendResize } = useTerminalIpc(session, write);
+
+  // Refs so the mount effect can stay dependency-free and run exactly once.
+  const sendInputRef = useRef(sendInput);
+  sendInputRef.current = sendInput;
+  const sendResizeRef = useRef(sendResize);
+  sendResizeRef.current = sendResize;
+  const startRef = useRef(start);
+  startRef.current = start;
+  const initialInputRef = useRef(initialInput);
+  initialInputRef.current = initialInput;
+  const stateRef = useRef(connectionState);
+  stateRef.current = connectionState;
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [replayed, setReplayed] = useState(connectionState !== 'open');
+  useSessionRevealFade(rootRef, active, replayed);
+
+  /**
+   * Flush queued input the moment this session's pty is actually ready.
+   *
+   * `connectionState` becoming `'open'` is set in the same store update as
+   * `bindPty` (`use-terminal-ipc.ts`'s `start()`), so this fires as soon as
+   * React has committed that transition — well before another keystroke
+   * could plausibly race it. The flush goes out through `sendInput` first,
+   * synchronously, so a queued byte can never be overtaken by a live one:
+   * `onData` only calls `sendInputRef.current` once `stateRef.current` is
+   * already `'open'`, which this same render made true.
+   */
+  useEffect(() => {
+    if (connectionState !== 'open') return;
+    const queued = inputQueueRef.current?.flush();
+    if (queued) sendInputRef.current(queued);
+  }, [connectionState]);
+
+  /**
+   * Whether the process probe has EVER named a foreground command for this
+   * shell session — not just its current answer, which goes back to `null`
+   * at a bare prompt.
+   *
+   * Read at call-time inside the mount effect's `onTitleChange` handler
+   * (below): once the process tree has spoken for a session, a held command
+   * name outranks whatever the prompt's own OSC title says next — a title
+   * update is only trusted before the probe has ever had anything to say.
+   */
+  const foregroundCommand = useTerminalStore((s) => s.foregroundCommand[session.id]);
+  const sawForegroundCommandRef = useRef(false);
+  if (foregroundCommand) sawForegroundCommandRef.current = true;
+
+  /**
+   * Fit and send one resize, only if the container currently measures.
+   *
+   * Hoisted to component scope (rather than declared inside the mount effect)
+   * so `fitSignal`'s own effect below can call the same function the mount
+   * effect and the `ResizeObserver` use — every fit path in this component is
+   * this one function.
+   */
+  const safeFit = useCallback(() => {
+    const el = containerRef.current;
+    if (!fitRef.current || !termRef.current || !el) return;
+    if (el.clientWidth === 0 || el.clientHeight === 0) return;
+    try {
+      fitRef.current.fit();
+      const { cols, rows } = termRef.current;
+      const last = lastSentRef.current;
+      if (last && last.cols === cols && last.rows === rows) return;
+      lastSentRef.current = { cols, rows };
+      sendResizeRef.current(cols, rows);
+    } catch {
+      // Container stopped being measurable mid-fit.
+    }
+  }, []);
+
+  /**
+   * Fit and repaint once a reveal tween settles.
+   *
+   * A tween resizes the CONTAINER continuously without a `ResizeObserver`
+   * firing per frame (the two-nested-box trick — the outer box animates, the
+   * inner one is pinned at its final size throughout), so nothing else calls
+   * `safeFit` while the animation runs. This is what tells the shell its new
+   * size exactly once, at the end, rather than never.
+   */
+  useEffect(() => {
+    safeFit();
+    const term = termRef.current;
+    if (term) term.refresh(0, term.rows - 1);
+  }, [fitSignal, safeFit]);
+
+  /**
+   * A DPR change (moved to a display with a different scale factor, or the
+   * OS changed scaling on the current one) leaves the WebGL glyph atlas
+   * rasterised for the wrong pixel grid — `safeFit()` alone can't rescue it,
+   * since it early-returns when `cols`/`rows` are unchanged, which a DPR
+   * change at a constant window size leaves them.
+   *
+   * Order matters: clear the stale atlas *before* fitting or refreshing —
+   * clearing after a refresh would repaint from the stale atlas and then
+   * throw it away, and fitting before clearing measures cells against the
+   * old rasterisation. `webglRef` is null on the DOM-renderer fallback,
+   * which needs the refit but has no atlas to clear.
+   */
+  const dpr = useDevicePixelRatio();
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    try {
+      webglRef.current?.clearTextureAtlas();
+    } catch {
+      // Addon already disposed (a lost GPU context) — nothing to clear.
+    }
+    safeFit();
+    term.refresh(0, term.rows - 1);
+  }, [dpr, safeFit]);
+
+  /**
+   * Attempts to (re)acquire the WebGL addon on the CURRENT `termRef.current`,
+   * retrying once immediately on a context loss if the process-wide budget
+   * still grants this session a slot at that moment (Phase 51 Theme C).
+   *
+   * A ref, not a plain function, so `openWhenSized` below (declared inside
+   * the mount effect, which runs once per session) can call today's version
+   * without becoming a dependency of that effect — the same pattern this
+   * component already uses for `sendInputRef`/`startRef`/etc.
+   *
+   * A lost context is worth one immediate retry rather than a permanent fall
+   * to the DOM renderer: the addon's own ~3s internal restoration window has
+   * already had its chance to absorb a transient GPU hiccup by the time
+   * `onContextLoss` reaches us, so what's left is either Chromium's own
+   * eviction (another context freed up almost immediately, and retrying wins
+   * it back) or a GPU that is genuinely gone for now (the retry fails too,
+   * and this session stays on the DOM renderer until the next budget
+   * transition tries again).
+   */
+  const acquireWebglRef = useRef<() => void>(() => {});
+  acquireWebglRef.current = () => {
+    const term = termRef.current;
+    if (!term) return;
+    const setRenderer = useXtermBudget.getState().setRenderer;
+    let retried = false;
+    const attempt = () => {
+      try {
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => {
+          webgl.dispose();
+          if (webglRef.current === webgl) webglRef.current = null;
+          setRenderer(session.id, 'dom');
+          const stillGranted = grantedWebglKeys(useXtermBudget.getState().mounts).has(session.id);
+          if (stillGranted && !retried) {
+            retried = true;
+            attempt();
+          }
+        });
+        term.loadAddon(webgl);
+        webglRef.current = webgl;
+        setRenderer(session.id, 'webgl');
+      } catch {
+        // WebGL unavailable; DOM renderer remains active.
+        setRenderer(session.id, 'dom');
+      }
+    };
+    attempt();
+  };
+
+  /**
+   * React to the process-wide budget granting or revoking this session's
+   * slot AFTER the initial mount (Phase 51 Theme C) — the initial acquisition
+   * itself happens inline in `openWhenSized`, before the very first `fit()`,
+   * so that call is never the one comparing DOM-renderer metrics against a
+   * later WebGL-renderer refit and sending a spurious "resize" for no actual
+   * size change. This effect only corrects a LATER mismatch between
+   * `webglRef.current` and what the budget currently grants: an eviction (a
+   * newer, more-recently-visible mount took the slot) disposes it; a later
+   * regrant (this session becomes visible again, or the budget frees up)
+   * reacquires — `acquireWebglRef` is a no-op if `termRef.current` is gone.
+   */
+  const grantedWebgl = useXtermWebglSlot(session.id, active);
+  useEffect(() => {
+    if (!ready) return;
+    if (!grantedWebgl && webglRef.current) {
+      webglRef.current.dispose();
+      webglRef.current = null;
+      useXtermBudget.getState().setRenderer(session.id, 'dom');
+    } else if (grantedWebgl && !webglRef.current) {
+      acquireWebglRef.current();
+    }
+  }, [grantedWebgl, ready, session.id]);
+
+  /**
+   * A `Settings ▸ Terminal` font/line-height change reaches every already-
+   * mounted terminal — not just the next one created — by writing the
+   * options onto the live instance rather than rebuilding it. Rebuilding
+   * would drop the pane's scrollback and re-fetch up to 1 MiB of snapshot
+   * per session for what is only a font tweak.
+   */
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    Object.assign(
+      term.options,
+      terminalFontOptions({
+        fontFamily: terminalFontFamily,
+        fontSize: terminalFontSize,
+        lineHeight: terminalLineHeight,
+      }),
+    );
+    safeFit();
+    term.refresh(0, term.rows - 1);
+  }, [terminalFontFamily, terminalFontSize, terminalLineHeight, safeFit]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (termRef.current || !container) return;
+
+    const inputQueue = createInputQueue(INPUT_QUEUE_CAP_BYTES);
+    inputQueueRef.current = inputQueue;
+
+    const initialFont = hostRef.current.getFont();
+    const term = new Terminal({
+      convertEol: false,
+      cursorBlink: true,
+      ...terminalFontOptions({
+        fontFamily: initialFont.fontFamily,
+        fontSize: initialFont.fontSize,
+        lineHeight: initialFont.lineHeight,
+      }),
+      // Honored by the WebGL renderer below: box-drawing and powerline glyphs
+      // are drawn by xterm itself instead of looked up in the font.
+      customGlyphs: true,
+      theme: isDark() ? DARK_THEME : LIGHT_THEME,
+      // The scrollback a real terminal has; the default 1000 loses the top of a
+      // long build log, which is exactly the part you want.
+      scrollback: 10_000,
+      // `term.unicode`, for `enableUnicode11` below.
+      allowProposedApi: true,
+    });
+    enableUnicode11(term);
+
+    /**
+     * A session's own idea of its name, from the OSC 0/2 "set window title"
+     * sequence xterm parses out of the byte stream itself.
+     *
+     * An agent always trusts it — it is the CLI's own chrome. A shell trusts
+     * it only until the process probe has named a real foreground command at
+     * least once (Theme E): a held command name is a better answer than
+     * whatever a prompt's own title escape says next, and reverting to the
+     * title on every bare-prompt repaint would fight the hold.
+     */
+    const titleSub = term.onTitleChange((title) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      if (session.kind === 'shell' && sawForegroundCommandRef.current) return;
+      useTerminalStore.getState().setAutoName(session.id, trimmed);
+    });
+
+    /**
+     * Where the shell actually is, from the OSC 7 sequence it emits on `cd`.
+     *
+     * Registered for every session, shell and agent alike: a shell that never
+     * emits the sequence — macOS `zsh` out of the box, or a bare `sh` — simply
+     * never fires this, and the header goes on showing the cwd the session was
+     * opened at. Handling it costs nothing on a session that has nothing to
+     * say.
+     *
+     * Returning false leaves the sequence for any other handler and for
+     * xterm's default, which is to ignore an OSC 7 it was not asked about.
+     *
+     * Debounced, because a shell configured to emit OSC 7 from its prompt
+     * re-announces the same directory on every Enter. The timer is cleared on
+     * teardown alongside the handler that arms it — an unmounted session must
+     * not write to the store a beat later.
+     */
+    let cwdTimer: ReturnType<typeof setTimeout> | null = null;
+    const oscSub = term.parser.registerOscHandler(7, (payload) => {
+      const next = parseOsc7(payload, bridge()?.hostname);
+      if (next === null) return false;
+
+      if (cwdTimer) clearTimeout(cwdTimer);
+      cwdTimer = setTimeout(() => {
+        cwdTimer = null;
+        useTerminalStore.getState().setLiveCwd(session.id, next);
+      }, OSC7_QUIET_MS);
+      return false;
+    });
+
+    /**
+     * Which keystrokes escape the terminal.
+     *
+     * Returning false swallows the event for xterm and lets it reach the app's
+     * capture-phase handler. The allow-list is tiny by necessity: Ctrl+C, Ctrl+D
+     * and friends belong to the shell, and stealing them would make the panel
+     * useless.
+     */
+    term.attachCustomKeyEventHandler((event) => {
+      /**
+       * Shift+Enter and Cmd+Enter mean "insert a newline / line break, don't submit."
+       *
+       * xterm has no concept of modifier keys on Enter — left alone it sends
+       * a bare '\r' (CR), which is indistinguishable from plain Enter and submits
+       * whatever the shell (or an agent CLI) is reading.
+       *
+       * For Shift+Enter: sending '\n' (linefeed / ^J / 0x0A) inserts a newline so
+       * the cursor / caret continues on a new line without submitting (plain Enter
+       * sends '\r' to submit).
+       *
+       * Note: `event.preventDefault()` and handling both keydown and keypress are
+       * necessary so the browser does not dispatch a default keypress / beforeinput
+       * that xterm would otherwise capture and translate to '\r'.
+       */
+      if (event.key === 'Enter' && event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (event.type === 'keydown') {
+          if (stateRef.current === 'open') sendInputRef.current('\n');
+          else if (stateRef.current === 'starting') inputQueue.push('\n');
+        }
+        event.preventDefault();
+        return false;
+      }
+
+      if (event.type !== 'keydown') return true;
+
+      /**
+       * For Cmd+Enter: readline- and Ink-based CLIs, Claude Code included,
+       * already treat Meta+Enter (ESC then CR — the same sequence a terminal sends
+       * for Option+Enter) as a literal newline, so sending that sequence ourselves
+       * gets Cmd+Enter to mean the same thing without the CLI needing to know
+       * anything about Cmd specifically.
+       */
+      if (event.key === 'Enter' && event.metaKey && !event.ctrlKey && !event.altKey) {
+        // Same readiness gate `onData` uses below: while the pty is still
+        // starting this queues rather than sending into a session that may
+        // not exist yet, which is a different bug wearing the same clothes as
+        // the one this theme fixes for typed input.
+        if (stateRef.current === 'open') sendInputRef.current('\x1b\r');
+        else if (stateRef.current === 'starting') inputQueue.push('\x1b\r');
+        event.preventDefault();
+        return false;
+      }
+
+      return !shouldEscapeTerminal(event);
+    });
+
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+
+    /**
+     * Cmd+click (Ctrl elsewhere) opens a URL in the output.
+     *
+     * Registered before `open()` on purpose: a link provider is a parser-side
+     * concern, and the rows a session replays are already in the buffer by the
+     * time anything is hovered. `openLinkFromEvent` rather than a bare navigation
+     * for the same reason `ExternalLink` avoids one — the renderer is a
+     * `file://` origin with no browser chrome to come back from — and, since
+     * Phase 71 Theme D, routed through the same entry point every other link
+     * in the app uses (Theme B left this one file on the bare `openExternal`
+     * callback; `terminal-links.ts`'s opener has always been injected).
+     *
+     * The click goes through `openLinkFromEvent`, the same modifier grammar
+     * every other link in the app uses. Cmd/Ctrl is what activates a terminal
+     * link at all (see `terminal-links.ts` for why a plain click cannot), so
+     * the two gestures that reach here are Cmd+click — the system browser —
+     * and Cmd+Shift+click — `gh`'s PR, issue and run URLs on their native
+     * view, anything else in the Midnite browser. Not Alt: xterm spends
+     * Alt+click on moving the shell cursor.
+     */
+    const links = attachTerminalLinks(term, (url, event) => hostRef.current.openLink(url, event));
+
+    let dataSub: { dispose: () => void } | null = null;
+    /**
+     * Set once this effect's own cleanup runs, so an in-flight snapshot
+     * request from a torn-down instance never writes into (or releases the
+     * gate of) a `term` this cleanup already disposed. StrictMode's dev-only
+     * mount→cleanup→remount does exactly this to every effect once; without
+     * the guard, the throwaway instance's response would land on an already-
+     * disposed xterm.
+     */
+    let cancelled = false;
+
+    const openWhenSized = () => {
+      if (termRef.current) return;
+      const el = containerRef.current;
+      if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
+
+      term.open(el);
+      termRef.current = term;
+      // Must load after open() and before the first `safeFit()` below — a
+      // fit computed against the DOM renderer's own metrics, followed later
+      // by one against the WebGL renderer's slightly different ones, reads
+      // as a genuine size change and sends a spurious resize even though the
+      // container never moved (Phase 51 Theme C). The process-wide budget
+      // (`xterm-budget.ts`) can still evict this session moments later via
+      // the reactive effect above; that is a real, later transition and not
+      // a race with the very first fit.
+      acquireWebglRef.current();
+      fitRef.current = fit;
+      safeFit();
+
+      /**
+       * A live session replays main's CURRENT ring buffer, not the saved
+       * transcript — the reason the pane used to come up blank on reveal. A
+       * remount builds a NEW xterm with an empty screen regardless of which
+       * branch runs, so re-writing on every mount is correct, not a doubling:
+       * each mount writes exactly once.
+       *
+       * `stateRef.current === 'open'` here means the store already has this
+       * session bound to a live pty from BEFORE this mount — a remount after
+       * the panel was fully hidden and shown again, or (Theme B) after a
+       * renderer reload rebinds `hydrate()` straight to `'open'`. Either way
+       * there is a process to ask, and `peekReplay` would answer with the
+       * disk-restored transcript from whenever the app last booted, not what
+       * that process has printed since.
+       */
+      if (stateRef.current === 'open') {
+        const ptyId = useTerminalStore.getState().ptyIds[session.id];
+        const api = bridge();
+        if (ptyId && api) {
+          replayGateRef.current = replayLiveHandoff(
+            () => api.pty.snapshot({ ptyId }).then(({ bytes }) => bytes),
+            (bytes) => {
+              if (bytes.length > 0) {
+                term.write(bytes);
+              }
+              setReplayed(true);
+            },
+            writeToTerm,
+            () => cancelled,
+          );
+        } else {
+          const gate = createReplayGate();
+          gate.release(writeToTerm);
+          replayGateRef.current = gate;
+          setReplayed(true);
+        }
+      } else {
+        /**
+         * Replay a restored transcript before anything else is written.
+         *
+         * Read, not consumed. Taking it destructively meant a second mount
+         * under StrictMode saw nothing to replay, and the auto-start below
+         * read "no replay" as "brand new" and revived a shell the user never
+         * asked for.
+         */
+        const replay = useTerminalStore.getState().peekReplay(session.id);
+        if (replay && replay.length > 0) {
+          term.write(replay);
+          term.write(RESET_MODES);
+        }
+        setReplayed(true);
+      }
+
+      /**
+       * Keystrokes reach the shell - or wake a dead session.
+       *
+       * A restored terminal has no process, so the first keystroke starts one
+       * rather than being sent into the void. It is deliberately not forwarded
+       * afterwards: the shell is still coming up, and the character that woke
+       * it belongs to the gesture, not to the command line.
+       */
+      dataSub = term.onData((data) => {
+        if (stateRef.current === 'open') {
+          sendInputRef.current(data);
+          // A shell's name now comes from the process tree (Theme E), not
+          // from reconstructing a command line out of keystrokes — zsh's
+          // application-cursor mode made that reconstruction wrong by
+          // construction (an arrow key's `ESC O A` decoded as literal `A`).
+          //
+          // `data` also carries xterm's own DEC focus-report bytes
+          // (`ESC[I`/`ESC[O]`) whenever the hidden textarea gains or loses
+          // DOM focus — including the programmatic `.focus()` below that
+          // fires just from selecting this session in the sidebar. Those
+          // aren't the user typing, so they must not clear the glyph.
+          if (session.kind !== 'shell' && !isXtermFocusReport(data) && !isXtermMouseReport(data)) {
+            // Typing at an agent answers the question the "waiting" glyph is
+            // asking, so the glyph drops back to idle on the first keystroke
+            // rather than sitting there until the next footer repaint proves
+            // it stale. The detector re-arms on the very next chunk of output.
+            useTerminalStore.getState().setActivity(session.id, undefined);
+          }
+          return;
+        }
+        if (stateRef.current === 'starting') {
+          // The race Phase 51 Theme E fixes: `pty.create` can resolve and
+          // flip the store to `'open'` before this component's own re-render
+          // catches up, so `stateRef.current` still reads `'starting'` for a
+          // moment even once the session is genuinely ready. Buffering here
+          // instead of dropping means that moment costs nothing — the queue
+          // flushes in order the instant `connectionState` is observed as
+          // `'open'` (the effect above), through the same `sendInput` path a
+          // live keystroke uses.
+          inputQueue.push(data);
+          return;
+        }
+        if (stateRef.current === 'unavailable') return;
+        // A dead pane stays mounted (FAB tabs in particular sit `exited`
+        // unattended while the user works elsewhere), and its xterm instance
+        // can still have DEC focus-tracking latched on from whatever TUI was
+        // running. Switching tabs or Cmd-Tabbing away fires a focus/blur
+        // report through this same `onData` stream — that's not the user
+        // asking to wake this session, so it must not revive one. Mouse
+        // tracking latches the same way: a stopped loop's pane kept its
+        // agent TUI's mode, so merely hovering it emitted mouse reports here
+        // and restarted the loop. Only a keystroke or paste wakes a pane.
+        if (!shouldWakeDeadPane(data)) return;
+        void startRef.current(term.cols, term.rows, initialInputRef.current);
+      });
+
+      setReady(true);
+
+      /*
+        A brand-new session starts straight away; a restored one waits to be
+        asked, which is what makes reopening the app with a dozen of them free.
+
+        Keyed on the connection state rather than on whether a transcript was
+        found. `idle` means this session has never had a process in this run;
+        a restored one hydrates as `exited`. The transcript is a poor proxy for
+        the same question — a session saved before it printed anything restores
+        with an empty one, and would then be revived on sight.
+      */
+      if (stateRef.current === 'idle') {
+        void startRef.current(term.cols, term.rows, initialInputRef.current);
+      }
+    };
+
+    /**
+     * At most one `fit()` per animation frame — a drag-resize can fire this
+     * observer's callback faster than once per frame, and `fit()` is a full
+     * xterm re-measure plus reflow, not something to run per observation.
+     * `lastSentRef` (inside `safeFit`) still dedupes the IPC `resize` this
+     * produces when cols/rows land unchanged; that guard runs after the
+     * measurement and does nothing about the measurement storm itself.
+     */
+    const fitCoalescer = createFitCoalescer(safeFit);
+    const observer = new ResizeObserver(() => {
+      if (!termRef.current) openWhenSized();
+      else fitCoalescer.schedule();
+    });
+    observer.observe(container);
+    openWhenSized();
+
+    /**
+     * Force a repaint when the window comes back from being minimized.
+     *
+     * Minimizing changes nothing about the panel's own dimensions, so the
+     * ResizeObserver above never fires — but Chromium can leave the WebGL
+     * canvas showing stale or blank pixels once the window is unminimized,
+     * since nothing told it to redraw. `visibilitychange` catches exactly
+     * that transition (Electron ties `document.hidden` to the window's
+     * minimized state) and `refresh` forces every row to redraw regardless of
+     * whether the size actually changed — which is why an actual resize,
+     * which does go through `safeFit`, has always been enough to fix it.
+     */
+    const onVisibilityChange = () => {
+      if (document.hidden || !termRef.current) return;
+      safeFit();
+      termRef.current.refresh(0, termRef.current.rows - 1);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+      fitCoalescer.cancel();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (cwdTimer) clearTimeout(cwdTimer);
+      dataSub?.dispose();
+      links.dispose();
+      titleSub?.dispose();
+      oscSub.dispose();
+      term.dispose();
+      termRef.current = null;
+      fitRef.current = null;
+      webglRef.current = null;
+      // Discarded, not flushed — a session ending before it ever bound a pty
+      // has nothing worth sending, and the queue instance itself is about to
+      // be replaced (or simply dropped) by whatever runs this effect next.
+      inputQueue.clear();
+      inputQueueRef.current = null;
+      setReady(false);
+    };
+    // One xterm per session, built once: `session.id` is the only dep that can
+    // legitimately rebuild it. `session.kind` is read here too, but it never
+    // changes for a session's lifetime, so it needs no entry of its own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.id]);
+
+  // Re-theme in place rather than recreating the terminal - a rebuild would
+  // wipe the scrollback and kill the shell. Extended for Phase 64 Theme B to
+  // also depend on the active palette (or its terminal override): every
+  // mounted xterm already registers its own observer here, so a palette
+  // switch is O(mounted terminals) assignments and nothing heavier — no new
+  // broadcast, per the phase doc's own instruction to reuse this path.
+  useEffect(() => {
+    const applyTheme = () => {
+      if (!termRef.current) return;
+      const dark = isDark();
+      termRef.current.options.theme =
+        hostRef.current.terminalTheme(dark ? 'dark' : 'light') ?? (dark ? DARK_THEME : LIGHT_THEME);
+    };
+    const observer = new MutationObserver(applyTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    const unsubPalette = hostRef.current.subscribeTheme(applyTheme);
+    applyTheme();
+    return () => {
+      observer.disconnect();
+      unsubPalette();
+    };
+  }, []);
+
+  // Focus follows selection, so switching sessions leaves you able to type.
+  // `focusSignal` also refires this when the session list asks to move focus
+  // into an ALREADY-active session — see terminal-store's own comment on it.
+  // `suppressAutoFocus` is the one case that skips it: the session list's own
+  // arrow-key navigation, which changes the active session but wants to stay
+  // in the list until an explicit sideways arrow hands focus over.
+  const focusSignal = useTerminalStore((s) => s.focusSignal);
+  const exitCode = useTerminalStore((s) => s.exitCodes[session.id]);
+  const { agents } = useAgents();
+  const agent = session.kind === 'agent' ? agents.find((a) => a.id === session.agentId) : undefined;
+  const phase = sessionPhase(session, connectionState);
+
+  useEffect(() => {
+    if (!active || !ready || !autoFocus) return;
+    if (useTerminalStore.getState().suppressAutoFocus) {
+      useTerminalStore.getState().clearSuppressAutoFocus();
+      return;
+    }
+    // `ready` arrives asynchronously, so this can fire after the user has
+    // opened a menu or popover (the `+` picker beside this pane). Taking focus
+    // from it would read as focus leaving and close it under them.
+    if (hostRef.current.focusIsInOpenMenu()) return;
+    termRef.current?.focus();
+  }, [active, ready, autoFocus, focusSignal]);
+
+  return (
+    <div
+      ref={rootRef}
+      className={`${layoutClassName ?? 'absolute inset-0'} flex flex-col ${
+        active ? (replayed ? '' : 'opacity-0') : 'invisible'
+      }`}
+      aria-hidden={!active}
+    >
+      {connectionState === 'unavailable' ? (
+        <p className="p-3 text-xs text-destructive">
+          {error ?? 'The terminal backend is unavailable.'}
+        </p>
+      ) : null}
+
+      <div className="min-h-0 flex-1 p-1">
+        <div ref={containerRef} className="h-full w-full" />
+      </div>
+
+      {phase === 'ended' ? (
+        <EndedStrip
+          exitCode={exitCode}
+          resume={agent?.resume}
+          onStartShell={() => {
+            if (termRef.current) {
+              void start(termRef.current.cols, termRef.current.rows, undefined);
+            }
+          }}
+          onResume={() => {
+            if (termRef.current && agent && agent.resume) {
+              void start(
+                termRef.current.cols,
+                termRef.current.rows,
+                agentInput({ ...agent, args: agent.resume }),
+              );
+            }
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}

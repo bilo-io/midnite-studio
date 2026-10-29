@@ -1,0 +1,248 @@
+import {
+  OLLAMA_DEFAULT_BASE_URL,
+  isOllamaCloudModelName,
+  ollamaLaunchRecipe,
+  type TerminalSession,
+} from '@midnite/studio-shared';
+import { useCallback, useEffect, useRef } from 'react';
+
+import { bridge } from '@midnite/studio-frame';
+import { useTerminalStore, type ConnectionState } from './terminal-store';
+
+export type { ConnectionState };
+
+/**
+ * One session's pty.
+ *
+ * Keyed by `sessionId` rather than owning "the" terminal: several of these run
+ * at once now, one per mounted xterm, and each filters the shared `pty:data`
+ * stream down to its own id.
+ *
+ * There is no longer a kill-on-cwd-change effect. A session is created against
+ * a directory explicitly and stays there; the old effect not only killed the
+ * shell when the selected worktree changed, it never restarted one — `start()`
+ * is reached only from the panel's deferred-open path, which early-returns once
+ * the terminal exists. The visible symptom was a dead pane after switching
+ * worktree.
+ */
+export function useTerminalIpc(session: TerminalSession, onData: (bytes: Uint8Array) => void) {
+  const ptyId = useTerminalStore((s) => s.ptyIds[session.id]);
+  const connectionState = useTerminalStore((s) => s.states[session.id] ?? 'idle');
+  const error = useTerminalStore((s) => s.errors[session.id]);
+
+  // The data handler changes identity on every render of the consumer; keeping
+  // it in a ref means the IPC subscription is created once and never churns.
+  const onDataRef = useRef(onData);
+  onDataRef.current = onData;
+
+  // Read the live pty id inside callbacks without making them change identity.
+  const ptyIdRef = useRef<string | undefined>(ptyId);
+  ptyIdRef.current = ptyId;
+
+  useEffect(() => {
+    const api = bridge();
+    if (!api) return;
+
+    const offData = api.pty.onData(({ ptyId: id, data }) => {
+      if (ptyIdRef.current === id) onDataRef.current(data);
+    });
+    const offExit = api.pty.onExit(({ ptyId: id, exitCode }) => {
+      if (ptyIdRef.current !== id) return;
+      const store = useTerminalStore.getState();
+      store.setExitCode(session.id, exitCode);
+      store.unbindPty(session.id);
+      store.setState(session.id, 'exited');
+      /*
+        The dead shell's directory dies with it. A revive respawns at
+        `session.cwd` (below), so a `liveCwd` left over from the last process
+        would have the header naming a directory the new shell is not in — and,
+        through `resolveRepoForPath`, a repository it was never in.
+      */
+      store.setLiveCwd(session.id, undefined);
+      /*
+        And so does what was running in it. `undefined` restores *never probed*
+        rather than asserting `null`: a revived session re-runs its agent, and a
+        stale `null` would have the row show a terminal glyph over it until the
+        next probe landed.
+      */
+      store.setLiveAgentId(session.id, undefined);
+    });
+    /*
+      What is actually running in this pty, from main's process probe. Arrives
+      only on a change, so there is nothing to throttle here.
+    */
+    const offAgent = api.pty.onAgentChanged(({ ptyId: id, agentId }) => {
+      if (ptyIdRef.current !== id) return;
+      useTerminalStore.getState().setLiveAgentId(session.id, agentId);
+    });
+    /*
+      What the shell's foreground process is, from main's `ps stat` probe
+      (Theme E) — replacing the keystroke-reconstruction naming that got
+      arrow-key sequences wrong. A non-null command also names a SHELL
+      session; an agent's name comes from its own OSC title instead, so this
+      never touches `autoNames` for one. `null` updates only `foregroundCommand`
+      (read by the row's close-confirm) — a bare-prompt answer holds the
+      session's displayed name rather than clearing it.
+    */
+    const offCommand = api.pty.onCommandChanged(({ ptyId: id, command }) => {
+      if (ptyIdRef.current !== id) return;
+      const store = useTerminalStore.getState();
+      store.setForegroundCommand(session.id, command);
+      if (command && session.kind === 'shell') store.setAutoName(session.id, command);
+    });
+    /*
+      The activity guess is NOT subscribed here. This hook lives inside
+      `TerminalView`, and every `TerminalView` unmounts when the terminal
+      panel collapses — main emits `pty:activity` on a change only, so a rung
+      change during a collapse was simply lost, and the session list drew the
+      stale glyph until the NEXT change. `use-agent-activity.ts` holds the one
+      always-mounted subscription instead.
+    */
+    return () => {
+      offData();
+      offExit();
+      offAgent();
+      offCommand();
+    };
+  }, [session.id, session.kind]);
+
+  /**
+   * Subscribe THIS window to the session's pty output (Phase 55) — main and
+   * every popout rendering the same session both need this now that
+   * `ptyData`/`ptyExit` fan out per-subscriber rather than to a single
+   * hard-coded window (see `pty-service.ts`'s registry). Keyed on `ptyId`
+   * rather than `session.id`: it is only known once `start()` resolves, and a
+   * revived session gets a new one.
+   */
+  useEffect(() => {
+    if (!ptyId) return undefined;
+    const api = bridge();
+    if (!api) return undefined;
+    api.pty.subscribe({ ptyId });
+    return () => api.pty.unsubscribe({ ptyId });
+  }, [ptyId]);
+
+  /**
+   * Start a shell for this session. Safe to call repeatedly — a live one wins.
+   *
+   * For an agent session the command is handed to main as `initialInput` rather
+   * than spawned directly: a login shell resolves nvm- and asdf-managed
+   * binaries the way the user's own terminal does, and leaves them at a prompt
+   * when the agent exits instead of at a dead pane.
+   */
+  const start = useCallback(
+    async (cols: number, rows: number, initialInput?: string) => {
+      const api = bridge();
+      if (!api) return;
+
+      const store = useTerminalStore.getState();
+      if (store.ptyIds[session.id]) return;
+      /*
+        `ptyIds` alone is not enough: it is only written once `pty.create` has
+        RESOLVED, so two calls in the same tick both see it empty and both spawn
+        a shell. The second `bindPty` then overwrites the first, orphaning a
+        live process nothing holds an id for — it is never killed, and it never
+        appears in the session list.
+        `starting` is set synchronously below, so it is the marker that covers
+        the await. StrictMode's double-invoked mount effect made this happen on
+        every single terminal opened under the dev server, which is how the app
+        is run day to day.
+      */
+      if (store.states[session.id] === 'starting') return;
+
+      store.awakeSession(session.id);
+      store.setState(session.id, 'starting');
+
+      /*
+        Phase 96 Theme H: `session.backend`/`ollamaModel` were stamped at
+        `openSession()` time (`start-agent.ts`) from the SAME resolver this
+        recomputes here — recomputed rather than carried on the session
+        record because this is the one point already async, so it can read
+        the daemon's real host (`ollama.status()`) instead of the compile-time
+        default `startAgent()` had to use. A daemon that cannot be reached
+        falls back to that same default rather than blocking the launch.
+      */
+      let env: Record<string, string> | undefined;
+      /*
+        Phase 96 Theme F: a cloud-model binding either rides the local
+        daemon's own `ollama signin` session (no key needed — `base` stays
+        the daemon) or, signed out with a vault key set, targets
+        `https://ollama.com` directly with that key. The renderer cannot
+        read the vault, so it never puts the real key in `env` itself — it
+        sends `useOllamaKey: true` and main substitutes it into the
+        recipe's `ANTHROPIC_AUTH_TOKEN` sentinel right before spawning (see
+        `pty-service.ts#withResolvedOllamaKey`). Signed in, or with no vault
+        key at all, this resolves exactly as Theme H shipped it.
+      */
+      let useOllamaKey = false;
+      if (session.kind === 'agent' && session.backend === 'ollama' && session.ollamaModel && session.agentId) {
+        const status = await api.ollama.status().catch(() => null);
+        let base = status?.host ?? OLLAMA_DEFAULT_BASE_URL;
+        if (isOllamaCloudModelName(session.ollamaModel)) {
+          const [signIn, hasKey] = await Promise.all([
+            api.ollama.signInStatus().catch(() => ({ signedIn: false })),
+            api.secrets.has({ key: 'ollama.apiKey' }).catch(() => ({ hasKey: false })),
+          ]);
+          if (!signIn.signedIn && hasKey.hasKey) {
+            base = 'https://ollama.com';
+            useOllamaKey = true;
+          }
+        }
+        const recipe = ollamaLaunchRecipe(session.agentId, session.ollamaModel, base);
+        if (recipe && Object.keys(recipe.env).length > 0) env = recipe.env;
+      }
+
+      const result = await api.pty.create({
+        sessionId: session.id,
+        kind: session.kind,
+        ...(session.agentId === undefined ? {} : { agentId: session.agentId }),
+        repoId: session.repoId,
+        cwd: session.cwd,
+        cols,
+        rows,
+        ...(initialInput === undefined ? {} : { initialInput }),
+        ...(env === undefined ? {} : { env }),
+        ...(useOllamaKey ? { useOllamaKey: true } : {}),
+      });
+
+      if (!result.ok) {
+        // node-pty failing to load is not a crash — the pane says so and the
+        // rest of the app is untouched.
+        useTerminalStore.getState().setState(session.id, 'unavailable', result.message);
+        return;
+      }
+
+      const next = useTerminalStore.getState();
+      next.bindPty(session.id, result.ptyId);
+      if (result.confined) next.markConfined(session.id);
+      next.setState(session.id, 'open');
+      // A queued paste (the Agent page's uninstall command) is spent the
+      // moment a pty has received it. Without this, reviving the session
+      // after an `exit` would re-type a destructive command at the fresh
+      // prompt. Agent commands are different on purpose: they come from
+      // `agentInput`, not this map, and SHOULD re-run on revive.
+      next.clearPendingInput(session.id);
+    },
+    [
+      session.id,
+      session.kind,
+      session.agentId,
+      session.repoId,
+      session.cwd,
+      session.backend,
+      session.ollamaModel,
+    ],
+  );
+
+  const sendInput = useCallback((data: string) => {
+    const id = ptyIdRef.current;
+    if (id) bridge()?.pty.input({ ptyId: id, data });
+  }, []);
+
+  const sendResize = useCallback((cols: number, rows: number) => {
+    const id = ptyIdRef.current;
+    if (id) bridge()?.pty.resize({ ptyId: id, cols, rows });
+  }, []);
+
+  return { connectionState, error, start, sendInput, sendResize, hasPty: Boolean(ptyId) };
+}
