@@ -105,8 +105,12 @@ function openWindow(): void {
   // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   // Sampling is tied to whether anyone can see the window: a hidden Monitor must not spawn `ioreg` for hours.
-  // `metrics` is handed over by `registerMonitorHandlers` before the window exists.
-  if (metrics !== null) bindMetricsToWindow(win, metrics);
+  // Resolved at event time: `metrics` is handed over by `registerMonitorHandlers`, which a window may beat.
+  bindMetricsToWindow(win, {
+    pause: () => metrics?.pause(),
+    resume: () => metrics?.resume(),
+    stop: () => metrics?.stop(),
+  });
   win.on('closed', () => {
     win = null;
   });

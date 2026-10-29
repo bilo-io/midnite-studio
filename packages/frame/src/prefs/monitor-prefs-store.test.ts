@@ -31,4 +31,13 @@ describe('monitor prefs store', () => {
     // copied under our own key, so it survives ui-store's next save dropping them
     expect(JSON.parse(localStorage.getItem('midnite.monitor-prefs') ?? '{}').state.hiddenMetrics).toEqual(['gpu']);
   });
+
+  it('ignores an out-of-range legacy cadence', async () => {
+    localStorage.setItem(
+      'midnite-studio.ui',
+      JSON.stringify({ state: { hiddenMetrics: [], metricsIdleIntervalMs: 0 }, version: 37 }),
+    );
+    await useMonitorPrefsStore.persist.rehydrate();
+    expect(useMonitorPrefsStore.getState().metricsIdleIntervalMs).toBe(METRICS_IDLE_INTERVAL_MS);
+  });
 });

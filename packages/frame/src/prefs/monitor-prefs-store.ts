@@ -47,7 +47,9 @@ function legacyUiFallback(): PersistStorage<MonitorPrefs> | undefined {
               ? old.hiddenMetrics.filter((id): id is MetricId => (METRIC_IDS as readonly string[]).includes(id))
               : [],
             metricsIdleIntervalMs:
-              typeof old.metricsIdleIntervalMs === 'number' ? old.metricsIdleIntervalMs : METRICS_IDLE_INTERVAL_MS,
+              Number.isInteger(old.metricsIdleIntervalMs) && (old.metricsIdleIntervalMs as number) > 0
+                ? (old.metricsIdleIntervalMs as number)
+                : METRICS_IDLE_INTERVAL_MS,
           },
           version: 1,
         };
