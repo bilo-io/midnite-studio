@@ -84,6 +84,22 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: 'Settings' }).getAttribute('aria-current')).toBe('page');
   });
 
+  it('keeps rail rows mounted when the caller passes a fresh onNavigate each render', () => {
+    const { rerender } = renderShell({ onNavigate: () => {} });
+    const rail = () => screen.getByRole('navigation', { name: 'Views' });
+    const before = within(rail()).getByRole('link', { name: 'Sensors' });
+    const onNavigate = vi.fn();
+    rerender(
+      <AppShell app="vanguard" name="Midnite Vanguard" accent="#e11d48" nav={NAV} activeView="findings" onNavigate={onNavigate}>
+        <p>the active view</p>
+      </AppShell>,
+    );
+    const after = within(rail()).getByRole('link', { name: 'Sensors' });
+    expect(after).toBe(before);
+    after.click();
+    expect(onNavigate).toHaveBeenCalledWith('sensors');
+  });
+
   it('mounts only the panels it is given', () => {
     const Stub = () => <div data-testid="terminal-stub" />;
     const { container } = renderShell({ panels: { terminal: Stub } });

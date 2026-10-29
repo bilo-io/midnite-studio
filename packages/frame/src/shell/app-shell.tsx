@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 
 import { AppFrame, ShellProviders, TitleBar, type NavConfig as ShellNavConfig } from '@bilo-io/shell';
 import { ThemeToggle } from '@bilo-io/ui';
@@ -79,10 +79,20 @@ function AppShellFrame({
   const logo = appLogoUrl(app);
 
   const resolvedChordFor = useMemo(() => chordFor ?? navChordFor(nav), [chordFor, nav]);
+  // The link component's identity must not follow a caller's inline `onNavigate` / `chordFor`: a new
+  // component type on every render would remount every rail row and drop keyboard focus mid-Tab. So the
+  // component is built once per tooltip and reads the latest callbacks through refs.
+  const navigateRef = useRef(onNavigate);
+  const chordRef = useRef(resolvedChordFor);
+  useLayoutEffect(() => {
+    navigateRef.current = onNavigate;
+    chordRef.current = resolvedChordFor;
+  });
+  const navigate = useCallback((view: string) => navigateRef.current(view), []);
   const ViewLink = useMemo(() => {
     const options: ViewLinkOptions = tooltip === undefined ? {} : { Tooltip: tooltip };
-    return createViewLink(onNavigate, resolvedChordFor, options);
-  }, [onNavigate, resolvedChordFor, tooltip]);
+    return createViewLink(navigate, (view) => chordRef.current(view), options);
+  }, [navigate, tooltip]);
 
   const settingsActive = activeView === SETTINGS_VIEW;
   const shellNav = useMemo<ShellNavConfig>(
@@ -115,7 +125,7 @@ function AppShellFrame({
         <div className="flex w-full flex-col gap-1 pb-3">
           <button
             type="button"
-            onClick={() => onNavigate(SETTINGS_VIEW)}
+            onClick={() => navigate(SETTINGS_VIEW)}
             aria-label="Settings"
             aria-current={settingsActive ? 'page' : undefined}
             title="Settings"
@@ -131,7 +141,7 @@ function AppShellFrame({
         </div>
       ),
     }),
-    [nav, logo, name, onNavigate, settingsActive],
+    [nav, logo, name, navigate, settingsActive],
   );
 
   // The suite-wide right cluster. Theme J moves TitleBarStatus / TitleBarBattery / Studio's ThemeToggle
