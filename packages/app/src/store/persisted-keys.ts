@@ -72,13 +72,11 @@ export const PREFERENCE_KEYS = [
   'graphProvenanceMark', // provenance-mark-picker.tsx (via graph-page.tsx)
   'graphShowCi', // graph-page.tsx — the "Columns" accordion
   'graphTheme', // graph-theme-picker.tsx (via graph-page.tsx)
-  'hiddenMetrics', // monitor-page.tsx
   'inactivityTimeoutS', // screen-lock-page.tsx
   'launchAndRunEnabled', // cli-page.tsx
   'linkTarget', // browser-page.tsx — the "Link handling" section (Phase 71 Theme A)
   'loopModifierDefaults', // agent-page.tsx — the Loops accordion
   'customLoops', // agent-page.tsx — the Loops accordion lists them beside the built-ins; authored in the FAB panel's Edit mode (Ad Hoc)
-  'metricsIdleIntervalMs', // monitor-page.tsx
   'navMode', // sidebar-page.tsx
   'navVisibility', // sidebar-page.tsx — Sidenav toggles
   'optimizerEnabled', // optimizer-settings-page.tsx

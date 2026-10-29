@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { METRIC_IDS, METRICS_IDLE_INTERVAL_MS } from './domain/metrics';
 import { ActivityStatusSchema, ActivityStatusStyleSchema, DEFAULT_ACTIVITY_PALETTE_ID } from './activity-palette';
 
 /**
@@ -155,7 +156,12 @@ export const TerminalPrefsSchema = z.object({
 });
 export type TerminalPrefs = z.infer<typeof TerminalPrefsSchema>;
 
-export const MonitorPrefsSchema = z.object({});
+export const MonitorPrefsSchema = z.object({
+  /** Theme K: readouts turned off in the status bar's monitor segment. Stored hidden, so a metric added later shows by default. */
+  hiddenMetrics: z.array(z.enum(METRIC_IDS)).default([]),
+  /** Theme K: sampling cadence with the flyout closed. Opening it always escalates. */
+  metricsIdleIntervalMs: z.number().int().positive().default(METRICS_IDLE_INTERVAL_MS),
+});
 export type MonitorPrefs = z.infer<typeof MonitorPrefsSchema>;
 
 // ── the file ──────────────────────────────────────────────────────────────────
