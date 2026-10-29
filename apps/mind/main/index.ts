@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, ipcMain, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
 
-import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
+import { guardAppWindow, createFileSink, importRetiredAppData, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 
 import type { NotesStore } from '@midnite/studio-feature-notes/main';
 
@@ -26,6 +26,8 @@ app.setName(MIND_NAME);
 // A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
 if (smoke) app.dock?.hide();
 app.setPath('userData', mindUserData(app.getPath('appData'), process.env[USER_DATA_ENV]));
+// Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
+if (process.env[USER_DATA_ENV] === undefined || process.env[USER_DATA_ENV] === '') importRetiredAppData({ appData: app.getPath('appData'), host: 'mind' });
 
 // A smoke run is one-shot and must not collide with a real Mind's lock.
 if (!smoke && !app.requestSingleInstanceLock()) {

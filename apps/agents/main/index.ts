@@ -16,6 +16,7 @@ import {
   buildSuiteMenuTemplate,
   createFileSink,
   guardAppWindow,
+  importRetiredAppData,
   installCrashLogging,
 } from '@midnite/studio-runtime';
 import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
@@ -38,6 +39,8 @@ app.setName(AGENTS_NAME);
 // A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
 if (smoke) app.dock?.hide();
 app.setPath('userData', agentsUserData(app.getPath('appData'), override));
+// Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
+if (override === undefined || override === '') importRetiredAppData({ appData: app.getPath('appData'), host: 'agents' });
 
 // A smoke run is one-shot and must not collide with a real Agents' lock.
 if (!smoke && !app.requestSingleInstanceLock()) {

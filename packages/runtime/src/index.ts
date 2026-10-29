@@ -13,6 +13,7 @@ export * from './window-events';
 export * from './testing';
 export * from './app-id';
 export * from './data-directory';
+export * from './migrate/retired-app-data';
 export * from './host';
 export * from './fs-jail';
 export * from './fs-jail-write';
