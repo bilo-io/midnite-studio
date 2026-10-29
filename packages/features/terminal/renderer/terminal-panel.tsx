@@ -6,7 +6,7 @@ import { useTerminalHost } from './host';
 import { useMountedSessionIds } from './session-mount-policy';
 import { TerminalHeader } from './terminal-header';
 import { TerminalSessionList } from './terminal-session-list';
-import { inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
+import { brokerStatusText, inMainPanel, resolveSessionAgentId, useTerminalStore } from './terminal-store';
 import { LazyTerminalView } from './lazy-terminal-view';
 import { ReattachedNote } from './reattached-note';
 import { useAgents } from './use-agents';
@@ -35,6 +35,7 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
   const sessionsPaneSessionId = useTerminalStore((s) => s.sessionsPaneSessionId);
   const hydrated = useTerminalStore((s) => s.hydrated);
   const pendingInput = useTerminalStore((s) => s.pendingInput);
+  const brokerStatus = brokerStatusText(useTerminalStore((s) => s.broker));
   const host = useTerminalHost();
   const { maximized, side, listOpen, keepRecent, disposeAfterMs } = host.usePanelPrefs();
   const listWidth = host.useListWidth();
@@ -230,9 +231,17 @@ export function TerminalPanel({ cwd, repoId, repoName, fitSignal }: TerminalPane
           )}
 
           {sessions.length === 0 ? (
-            <p className="p-3 text-xs text-muted-foreground">
-              {cwd ? 'No terminals open. Use + to start one.' : 'No worktree selected.'}
-            </p>
+            <div className="space-y-1 p-3 text-xs">
+              {/* A broker that never attached is the reason the dock is empty — say so first. */}
+              {brokerStatus ? (
+                <p role="status" data-testid="terminal-broker-status" className="text-amber-500">
+                  {brokerStatus}
+                </p>
+              ) : null}
+              <p className="text-muted-foreground">
+                {cwd ? 'No terminals open. Use + to start one.' : 'No worktree selected.'}
+              </p>
+            </div>
           ) : null}
         </div>
       </div>

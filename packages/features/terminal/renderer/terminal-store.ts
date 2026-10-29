@@ -398,7 +398,22 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
       return;
     }
 
-    const res = await api.terminal.list();
+    let res: Awaited<ReturnType<typeof api.terminal.list>>;
+    try {
+      res = await api.terminal.list();
+    } catch (error) {
+      /*
+        Phase 123 Theme E: a failed attach must read as a failed attach, not
+        as a dock with nothing in it. The panel renders `broker.reason`
+        (`brokerStatusText`) wherever it would otherwise say "no terminals".
+        Logged once per failed restore — `hydrated` stops a second one.
+      */
+      const reason = error instanceof Error ? error.message : String(error);
+      // eslint-disable-next-line no-console -- the one log line the phase asks for (E.6)
+      console.warn(`[terminal] could not reach the terminal broker: ${reason}`);
+      set({ hydrated: true, broker: { mode: 'inproc', reason } });
+      return;
+    }
     const sessions = res.sessions;
     const broker = res.broker ?? { mode: 'broker' };
 
@@ -777,6 +792,15 @@ export const useTerminalStore = create<TerminalState>()((set, get) => ({
  * For "does the panel RENDER it", use `inMainPanel` below. The two were one
  * predicate until a card's `>_` button needed somewhere to send you.
  */
+/**
+ * The panel's sentence for a broker that is not serving sessions, or `null`
+ * when it is. The same words the header's warning glyph carries.
+ */
+export function brokerStatusText(broker: TerminalState['broker']): string | null {
+  if (broker.mode === 'broker') return null;
+  return broker.reason ? `Sessions will not survive quit — ${broker.reason}` : 'Sessions will not survive quit';
+}
+
 export function onMainSurface(session: Pick<TerminalSession, 'surface'>): boolean {
   return session.surface === undefined || session.surface === 'main';
 }

@@ -5,8 +5,7 @@
   "description": "The terminal panel as a feature (Phase 123 Theme E): the session list, every session's xterm, the panel store and its unload policy, behind a TerminalHost port. Placed in the frame: every midnite app composes it.",
   "sideEffects": false,
   "exports": {
-    "./renderer": "./renderer/index.ts",
-    "./renderer/testing": "./renderer/testing.ts"
+    "./renderer": "./renderer/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
