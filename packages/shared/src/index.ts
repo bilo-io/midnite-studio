@@ -32,6 +32,7 @@ export * from './launcher-data-dir';
 export * from './agent-run-handoff';
 export * from './handoff';
 export * from './midnite-link';
+export * from './modules';
 export * from './studio-link';
 export * from './ipc';
 export * from './keybindings';

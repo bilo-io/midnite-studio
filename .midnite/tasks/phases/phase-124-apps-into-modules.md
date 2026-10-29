@@ -57,8 +57,11 @@ another app already sat beside. Rather than delete the code, this phase introduc
 same composition (Coder, Creator, Vault, …) can be mounted in whichever host it belongs to — Creator in
 three of them. Planned 2026-10-29.
 
-**Theme A — The module contract.** ◻ `shared` gains `MODULE_IDS`, the app → modules map and the
-retired-app alias map, so every list that names an app id can be rewritten against one source.
+**Theme A — The module contract.** ✅ `shared` gains `MODULE_IDS`, the app → modules map and the
+retired-app alias map, so every list that names an app id can be rewritten against one source. Landed as
+`packages/shared/src/modules.ts` (+ test). `APP_MODULES` is keyed by its own `ModuleHostId` (the nine
+hosts that carry modules), not `MidniteAppId`, which lacks science today; Startup and Health carry none.
+Studio lists every module, so the "creator in exactly three hosts" test excludes Studio. PR pending.
 
 **Theme B — The modules layer.** ◻ `packages/modules/<id>` with a renderer and a main half, a new eslint
 group, proven case by case in `layer-boundaries.test.mjs`, and the layer added to `docs/APPS.md`.
@@ -88,14 +91,14 @@ release, icon and test legs are deleted.
 
 ## Theme A — The module contract `[S]`
 
-- [ ] **A.1** Add `packages/shared/src/modules.ts`: `MODULE_IDS` (`agents`, `coder`, `creator`, `media`,
+- [x] **A.1** Add `packages/shared/src/modules.ts`: `MODULE_IDS` (`agents`, `coder`, `creator`, `media`,
   `gamer`, `vanguard`, `vault`, `cleaner`, `monitor`, `mind`, `capture`, `money`, `accountant`, `science`,
   `simulator`, `browser`, `studio`), a `ModuleId` type, and `APP_MODULES: Record<MidniteAppId, readonly
   ModuleId[]>` matching the table in the framing (host's own module first). `[S]`
-- [ ] **A.2** `RETIRED_APP_ALIASES: Record<RetiredAppId, { app: MidniteAppId; module: ModuleId }>` for
+- [x] **A.2** `RETIRED_APP_ALIASES: Record<RetiredAppId, { app: MidniteAppId; module: ModuleId }>` for
   `coder → agents/coder`, `creator → agents/creator`, `vault|cleaner|monitor → vanguard/<id>`,
   `capture → mind/capture`, `accountant → money/accountant`, `simulator → science/simulator`. `[S]`
-- [ ] **A.3** Unit tests: every module appears in at least one app; every retired id resolves to a host
+- [x] **A.3** Unit tests: every module appears in at least one app; every retired id resolves to a host
   that lists that module; `creator` is listed by exactly `agents`, `media`, `gamer`. `[S]`
 
 ## Theme B — The modules layer `[M]`
