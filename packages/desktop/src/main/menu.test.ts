@@ -142,3 +142,15 @@ describe('the Help menu', () => {
     expect(report?.accelerator).toBeUndefined();
   });
 });
+
+describe('view.settings (Phase 123 Theme D)', () => {
+  /** `Mod+,` routes through the renderer's dispatcher like every chord — no native accelerator anywhere. */
+  it('carries no native accelerator on Mod+, in any menu', () => {
+    const template = buildMenu(() => null) as unknown as Item[];
+    const walk = (items: Item[]): Item[] =>
+      items.flatMap((item) => [item, ...(Array.isArray(item.submenu) ? walk(item.submenu as Item[]) : [])]);
+    const accelerators = walk(template).map((item) => item.accelerator);
+    expect(accelerators).not.toContain('CmdOrCtrl+,');
+    expect(accelerators).not.toContain('Cmd+,');
+  });
+});

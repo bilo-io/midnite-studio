@@ -215,6 +215,7 @@ export const COMMAND_ACCESS: Record<CommandId, CompanionAccess> = {
   'app.reportIssue': 'direct',
   // See the docblock above: a deliberate `never`, not Decision 5's `direct`.
   'view.graph': 'never',
+  'view.settings': 'never',
   'graph.focus': 'direct',
   'status.focus': 'direct',
   'status.commit': 'confirm',

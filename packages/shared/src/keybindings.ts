@@ -327,6 +327,14 @@ export const COMMANDS = [
    */
   { id: 'app.reportIssue', label: 'Report an Issue…', group: 'view' },
   /**
+   * `Mod+,` — the macOS convention for Preferences, and free everywhere else in the keymap
+   * (Phase 123 Theme D). `app` scope: from inside a shell it should still open Settings, and
+   * `Ctrl+,` off macOS is no readline binding. No native menu accelerator, per every chord here —
+   * keystrokes route through the renderer's dispatcher. Studio's handler is
+   * `setActiveView('settings')`; a suite app's is its shell's `onNavigate('settings')`.
+   */
+  { id: 'view.settings', label: 'Open Settings', group: 'view', chord: 'Mod+,', scope: 'app' },
+  /**
    * Mod+Shift+g navigates to the Graph view from anywhere. `app` scope like
    * `repos.toggle`: you rarely need this while mid-command with the terminal
    * focused, and it must not conflict with the terminal's own Ctrl+G binding.
@@ -574,3 +582,36 @@ export const TERMINAL_YIELD_COMMANDS: readonly CommandId[] =
 
 export const isCommandId = (value: string): value is CommandId =>
   (COMMAND_IDS as readonly string[]).includes(value);
+
+/**
+ * The commands every suite app binds (Phase 123 Theme D): the shell's panels, the palette, the
+ * window pair, zoom, lock and Settings — none of them repo-bound. A `Set` of ids rather than a
+ * second table: labels, groups and chords stay `COMMANDS`' alone, and `SUITE_COMMANDS` below is
+ * derived from it in `COMMANDS` order.
+ */
+const SUITE_COMMAND_IDS: ReadonlySet<string> = new Set([
+  'terminal.toggle',
+  'terminal.toggleHalfMaximized',
+  'terminal.toggleDock',
+  'terminal.focus',
+  'terminal.new',
+  'terminal.close',
+  'fab.toggle',
+  'companion.toggle',
+  'notes.toggle',
+  'panel.back',
+  'panel.forward',
+  'palette.open',
+  'app.reload',
+  'app.hardReload',
+  'app.lock',
+  'app.zoomIn',
+  'app.zoomOut',
+  'app.zoomReset',
+  'view.settings',
+]);
+
+/** What a suite app's `CommandRuntime` may carry; Studio binds every `CommandId`. */
+export const SUITE_COMMANDS: readonly CommandId[] = COMMANDS.filter((c) =>
+  SUITE_COMMAND_IDS.has(c.id),
+).map((c) => c.id);

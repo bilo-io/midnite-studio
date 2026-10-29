@@ -30,8 +30,9 @@ describe('palette providers', () => {
     const source = createCommandSource(runtime, onSelect);
     expect(source.key).toBe('commands');
 
+    // Only the commands the runtime has a handler for (Phase 123 Theme D).
     const items = source.items();
-    expect(items.length).toBeGreaterThan(10);
+    expect(items.map((i) => i.id).sort()).toEqual(['command:sync.pull', 'command:terminal.toggle']);
 
     const toggleCmd = items.find((i) => i.id === 'command:terminal.toggle');
     expect(toggleCmd).toBeDefined();
@@ -55,7 +56,10 @@ describe('palette providers', () => {
    */
   it('groups commands by their CommandGroup, not one flat "Commands" bucket', () => {
     const onSelect = vi.fn();
-    const runtime = {} as unknown as CommandRuntime;
+    const runtime = {
+      'terminal.toggle': { enabled: true, run: vi.fn() },
+      'sync.pull': { enabled: true, run: vi.fn() },
+    } as unknown as CommandRuntime;
     const items = createCommandSource(runtime, onSelect).items();
 
     const pull = items.find((i) => i.id === 'command:sync.pull');
