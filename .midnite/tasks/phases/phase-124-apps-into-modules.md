@@ -112,9 +112,23 @@ the retired ids are mirrored locally (`LEGACY_APP_HOSTS`, `LEGACY_BUNDLE_APP_IDS
 `shared/src/modules.ts`; bundle install/uninstall stays keyed on `BUNDLE_APP_IDS` so the six still-built apps
 keep working until Theme H, and old `coder`/`vault`/... links resolve to the host's module.
 
-**Theme G — Migration.** ◻ Old ids alias to host + module in links, placement and MCP tool owners; a
-launcher with a retired app installed offers its host and opens it on that module; the retired app's data
-moves into the host's.
+**Theme G — Migration.** 🔄 G.1–G.4 landed (PR pending); G.5 open. A `midnite://open?app=coder` link (any retired
+id) now parses to `app: agents, module: coder` with `legacyApp: coder` kept on the target, `MIDNITE_APP_IDS` is the
+eight hosts bar Science, and hand-offs may still *name* a retired id (`HandoffAppId`; Studio's hosted set lists
+them) so no caller changed. `placement.ts` gains `FEATURE_HOSTS` / `placementHosts` (`forge → agents`,
+`media → agents, media, gamer`) derived from `APP_MODULES`; the placement table itself is untouched because ~30
+manifests and their tests still name the module-level owner. `forge.*` tools are owned by `agents`, and a lone
+Coder bundle keeps listing them (`legacyToolOwner`) until H. The launcher router opens the host's bundle, falls
+back to the old bundle while the host is missing, and forwards to Studio on the module; a host tile whose retired
+app is installed says "Replaces Coder", the sheet offers the host, and once it is installed offers to move the
+old bundle to the Trash (`common/migration.ts`). `importRetiredAppData` (`runtime/src/migrate/`) copies each
+retired app's app-local files into its host's directory once, never overwrites, leaves the source, writes a
+`.migrated/<id>.json` marker, and is called from Agents, Vanguard and Mind's main. Vault secrets are not in the
+plan: they already live in the shared runtime vault. Open: G.5 (a final release per retired app is an
+irreversible release action, so it is left to a human run); opening a host *bundle* from a link does not land on
+the module (a bundle is opened, not handed the link) and the hosts do not mount the other modules' main halves or
+MCP tools until E.3 (`music_*` stay with a Creator bundle or Studio until then); Creator's data imports into
+Agents only (its alias host), not Media or Gamer.
 
 **Theme H — Retire the six apps.** ◻ `apps/{coder,creator,cleaner,vault,monitor,capture}` and their pack,
 release, icon and test legs are deleted.
@@ -211,17 +225,17 @@ release, icon and test legs are deleted.
 
 ## Theme G — Migration `[M]`
 
-- [ ] **G.1** [`midnite-link.ts`](../../../packages/shared/src/midnite-link.ts): `MIDNITE_APP_IDS` loses the
+- [x] **G.1** [`midnite-link.ts`](../../../packages/shared/src/midnite-link.ts): `MIDNITE_APP_IDS` loses the
   retired ids; a link naming one resolves through `RETIRED_APP_ALIASES` to host + module instead of
   failing. Test every retired id round-trips. `[M]`
-- [ ] **G.2** [`placement.ts`](../../../packages/shared/src/domain/placement.ts) places features on
+- [x] **G.2** [`placement.ts`](../../../packages/shared/src/domain/placement.ts) places features on
   host apps (`forge → agents`, `media → ['agents','media','gamer']`, …) and
   [`mcp-tool-owners.ts`](../../../packages/shared/src/mcp-tool-owners.ts) re-homes tool owners
   (`forge.* → agents`), so an installed host serves exactly the tools its modules own. `[M]`
-- [ ] **G.3** Launcher: when a retired app is installed, its host's tile shows *"Replaces Coder"* and
+- [x] **G.3** Launcher: when a retired app is installed, its host's tile shows *"Replaces Coder"* and
   offers to install the host; once the host is installed, opening the retired app's bookmark opens the
   host on that module, and the launcher offers to remove the old bundle. `[M]`
-- [ ] **G.4** Data: on first launch a host imports a retired app's per-app data (settings, Capture's
+- [x] **G.4** Data: on first launch a host imports a retired app's per-app data (settings, Capture's
   clipboard history and recordings index, Vault's per-app state) from that app's `userData`, once, with a
   marker so it never re-runs; the source is left in place. Vault secrets keep going through the runtime
   vault service, never copied as files. `[M]`
