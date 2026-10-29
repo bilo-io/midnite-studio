@@ -15,6 +15,28 @@
 // Main-process access.
 export { bridge, hasBridge } from './bridge';
 export { appLogoUrl } from './shell/app-logo';
+
+// The shared shell (Phase 123 Theme B) — what every suite app's window wears.
+export { AppShell, type AppShellPanels, type AppShellProps } from './shell/app-shell';
+export {
+  SETTINGS_VIEW,
+  displayChord,
+  navChordFor,
+  navConfigProblems,
+  navViewForPath,
+  pathForNavView,
+  type NavConfig,
+  type NavView,
+  type ShellManifestFields,
+  type ShellPanels,
+} from './shell/nav-config';
+export {
+  APP_ACCENT_ACTIVE_CLASS,
+  RailChordTooltip,
+  createViewLink,
+  type ViewLinkOptions,
+  type ViewLinkTooltip,
+} from './shell/view-link';
 export { noBridge, reportFailure } from './bridge-result';
 export { usePageVisible } from './lib/use-page-visible';
 

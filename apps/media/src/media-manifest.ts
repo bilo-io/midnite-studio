@@ -1,6 +1,16 @@
 import { mediaCoreManifest } from '@midnite/studio-feature-media-core/renderer';
 import { mediaLibraryManifest, mediaLibraryTab } from '@midnite/studio-feature-media-library/renderer';
-import type { MediaTabDescriptor } from '@midnite/studio-frame';
+import type { MediaTabDescriptor, NavConfig } from '@midnite/studio-frame';
+
+/** The tabs Media registers with its `MediaShell`, in strip order. */
+export const MEDIA_TABS: readonly MediaTabDescriptor[] = [mediaLibraryTab];
+
+/**
+ * The shell's rail (Phase 123 Theme B): one row per media tab, from the same descriptors the
+ * `MediaShell` strip reads, so the two cannot drift. Settings is never listed — `AppShell` puts it at
+ * the rail's foot. `panels` is absent, so the app carries every panel (decision 12).
+ */
+const MEDIA_NAV: NavConfig = { views: MEDIA_TABS.map(({ id, label, icon }) => ({ id, label, icon })) };
 
 /**
  * Midnite Media's app manifest — pure data (Phase 113 Theme R).
@@ -17,9 +27,7 @@ export const MEDIA_APP = {
   accent: '#facc15',
   home: 'media',
   features: [mediaCoreManifest.feature, mediaLibraryManifest.feature],
+  nav: MEDIA_NAV,
 } as const;
-
-/** The tabs Media registers with its `MediaShell`, in strip order. */
-export const MEDIA_TABS: readonly MediaTabDescriptor[] = [mediaLibraryTab];
 
 export type MediaApp = typeof MEDIA_APP;

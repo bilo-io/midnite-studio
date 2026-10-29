@@ -1,4 +1,17 @@
 import { captureManifest } from '@midnite/studio-feature-capture/renderer';
+import type { NavConfig } from '@midnite/studio-frame';
+import { LuCamera } from 'react-icons/lu';
+
+/**
+ * The shell's rail (Phase 123 Theme B): its one view (Settings sits below it, so the rail is never one
+ * item). Settings is never listed — `AppShell` puts it at the rail's foot. `panels` is absent, so the
+ * app carries every panel (decision 12).
+ */
+const CAPTURE_NAV: NavConfig = {
+  views: [
+    { id: 'capture', label: 'Capture', icon: LuCamera },
+  ],
+};
 
 /**
  * Midnite Capture's app manifest — pure data (Phase 113 Theme K).
@@ -14,6 +27,7 @@ export const CAPTURE_APP = {
   accent: '#f97316',
   home: 'capture',
   features: [captureManifest.feature],
+  nav: CAPTURE_NAV,
 } as const;
 
 export type CaptureApp = typeof CAPTURE_APP;
