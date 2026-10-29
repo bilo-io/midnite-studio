@@ -30,6 +30,7 @@ function renderShell(props: Partial<AppShellProps> = {}) {
 
 afterEach(() => {
   cleanup();
+  useMetricsStore.getState().reset();
   delete (window as { midniteStudio?: unknown }).midniteStudio;
 });
 
@@ -137,7 +138,6 @@ describe('AppShell', () => {
       const node = within(end).getByTestId(id);
       expect(extras.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
-    useMetricsStore.getState().reset();
   });
 
   it('sets --app-accent on the root and the accent class on the active nav row only', () => {

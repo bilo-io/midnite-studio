@@ -3,6 +3,8 @@ import type { FeatureMainContext } from '@midnite/studio-runtime';
 
 import { defaultLogger } from '../log';
 import { agentProbe } from '../agent-probe-runtime';
+// Binds the terminal service's pty, locator and log ports (a side effect of the shim) before any handler runs.
+import '../terminal-service';
 import { getBrokerStatus } from '../pty-service';
 import { handle, handleBare, handleSend } from './handle';
 

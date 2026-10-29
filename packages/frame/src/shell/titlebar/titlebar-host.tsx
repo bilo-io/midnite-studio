@@ -4,8 +4,9 @@ import { createContext, useContext, type ReactNode } from 'react';
  * What the title bar's right cluster reads from the app (Phase 123 Theme J.4).
  *
  * Studio keeps both in its own `ui-store`, which the frame may not import, so they arrive here. The
- * defaults are what an app with no such settings gets: a metrics poll at the idle cadence and every
- * automatic network call on, except IP geolocation (off until someone turns it on, as in Studio).
+ * defaults are what an app that does not fill the host gets: a metrics poll at the idle cadence and no
+ * automatic network call at all (the privacy master switch reads "off"), so an app that has not wired the
+ * user's privacy settings never fetches weather behind them.
  */
 export type TitleBarHost = {
   /** Cadence of the battery's metrics poll while its popover is closed. */
@@ -18,7 +19,7 @@ export type TitleBarHost = {
 
 export const DEFAULT_TITLE_BAR_HOST: TitleBarHost = {
   metricsIdleIntervalMs: 5000,
-  egress: { allAutomaticOff: false, switches: {} },
+  egress: { allAutomaticOff: true, switches: {} },
   locateByIpEnabled: false,
 };
 
