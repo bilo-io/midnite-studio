@@ -14,7 +14,7 @@ import { handle, handleBare, handleSend } from './handle';
  * System-metrics IPC, system health included — the handlers themselves are the
  * monitor feature's main half (Phase 113 Theme I); this is Studio's
  * composition of it. The sampler stays electron-free: it takes its window
- * lifecycle as `pause()`/`resume()` calls from {@link bindMetricsToWindow}.
+ * lifecycle as `pause()`/`resume()` calls from the runtime's `bindMetricsToWindow` (Phase 123 Theme K).
  */
 export function registerMetricsHandlers(getWindow: () => BrowserWindow | null): MetricsService {
   const ctx: FeatureMainContext = {
@@ -41,20 +41,4 @@ export function registerMetricsHandlers(getWindow: () => BrowserWindow | null): 
   });
   if (!service) throw new Error('monitor feature did not hand back its sampler');
   return service;
-}
-
-/**
- * Tie sampling to whether anyone can see the footer. Blur and hide stop it
- * outright — the single largest saving in the feature (an `ioreg` every five
- * seconds for hours, for a sparkline nobody is looking at). Separate from
- * `registerMetricsHandlers` because the window does not exist yet then.
- */
-export function bindMetricsToWindow(service: MetricsService, win: BrowserWindow): void {
-  win.on('blur', () => service.pause());
-  win.on('focus', () => service.resume());
-  win.on('hide', () => service.pause());
-  win.on('show', () => service.resume());
-  win.on('minimize', () => service.pause());
-  win.on('restore', () => service.resume());
-  win.on('closed', () => service.stop());
 }

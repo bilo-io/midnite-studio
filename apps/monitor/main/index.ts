@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, ipcMain, shell, clipboard, Menu, type MenuItemConstructorOptions } from 'electron';
 
-import { createFileSink, guardAppWindow, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
+import { bindMetricsToWindow, createFileSink, guardAppWindow, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 
 import type { MetricsService } from '@midnite/studio-feature-monitor/main';
 
@@ -105,14 +105,9 @@ function openWindow(): void {
   // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   // Sampling is tied to whether anyone can see the window: a hidden Monitor must not spawn `ioreg` for hours.
-  win.on('blur', () => metrics?.pause());
-  win.on('focus', () => metrics?.resume());
-  win.on('hide', () => metrics?.pause());
-  win.on('show', () => metrics?.resume());
-  win.on('minimize', () => metrics?.pause());
-  win.on('restore', () => metrics?.resume());
+  // `metrics` is handed over by `registerMonitorHandlers` before the window exists.
+  if (metrics !== null) bindMetricsToWindow(win, metrics);
   win.on('closed', () => {
-    metrics?.stop();
     win = null;
   });
   win.once('ready-to-show', () => {
