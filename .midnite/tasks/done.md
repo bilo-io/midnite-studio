@@ -15464,3 +15464,7 @@ An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` un
 ### Phase 124 Theme C — Coder and Creator become modules (2026-10-29)
 
 `packages/modules/{coder,creator}` (manifest, renderer, main, own vitest/tsconfig/moon project) take the compose code, views, bridges, handlers, repository list, git channels and file protocol out of `apps/coder` and `apps/creator`, which keep identity, pairing, window and the esbuild bundle (aliased to the module sources) and re-export the module root. Tests moved with the code; eslint boundaries, `gate-projects-check` (`module-coder`, `module-creator`), the egress scan and `tsconfig.base` paths follow. Stacked on #1060.
+
+### Phase 123 J.4 and E.3 (slice) — the title bar's right cluster; the terminal's session list on the feature (2026-10-29)
+
+J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `packages/frame/src/shell/titlebar/`, and `AppShell` renders them after `titleBarEnd`; Studio fills a `TitleBarHost` (metrics idle cadence, privacy switches) and its own popover through `compose/titlebar-host.tsx`. E.3 (slice): `terminal-service`, the three stores and `pty-env` moved to `packages/features/terminal/main` (built like `feature-monitor`), `terminalMain` registers the list, roster and save/forget/reorder channels, and desktop binds the pty, locator and logger ports. Still open: `pty-service`, `inproc-pty`, `pty-handlers`.
