@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
+import type { IconType } from 'react-icons';
 import { LuArrowUpRight, LuX } from 'react-icons/lu';
 
-import { FRAME_PARTS, type LauncherApp } from '../../common/catalog';
+import { FRAME_PARTS, MODULE_FEATURE_PREFIX, type AppFeature, type LauncherApp } from '../../common/catalog';
+import { MODULE_GLYPHS } from '../app-glyphs';
 import { appNumber } from '../model';
 import type { AppView } from '../use-apps';
 import { AppIcon } from './app-icon';
@@ -9,9 +11,39 @@ import { PrimaryAction, type ActionHandlers } from './primary-action';
 import { StatusPill } from './status-pill';
 import { AppWordmark } from './wordmark';
 
+type FeatureGroup = {
+  id: string;
+  /** The module's name, or `null` for an app with no modules (Startup, Health). */
+  heading: string | null;
+  moduleId: string | null;
+  glyph: IconType | null;
+  tagline: string | null;
+  vision: string | null;
+  soon: boolean;
+  features: readonly AppFeature[];
+};
+
+/** One group per module — an app with no modules gets a single ungrouped list. */
+export function featureGroups(app: LauncherApp): FeatureGroup[] {
+  if (app.modules.length === 0) {
+    return [{ id: 'features', heading: null, moduleId: null, glyph: null, tagline: null, vision: null, soon: false, features: app.features }];
+  }
+  return app.modules.map((m) => ({
+    id: m.id,
+    heading: m.name,
+    moduleId: m.id,
+    glyph: MODULE_GLYPHS[m.id],
+    // A host's own module reads as the app; an absorbed one carries its old tagline and vision.
+    tagline: m.vision === undefined ? null : m.tagline,
+    vision: m.vision ?? null,
+    soon: m.comingSoon === true,
+    features: m.features,
+  }));
+}
+
 /**
- * The full sheet for one app: the vision, every feature (each one opens Studio
- * straight onto it), and the shared frame it is built on.
+ * The full sheet for one app: the vision, its features grouped by module (each feature, and each
+ * module, opens Studio straight onto it), and the shared frame it is built on.
  */
 export function AppDetail({
   app,
@@ -25,6 +57,7 @@ export function AppDetail({
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const groups = featureGroups(app);
   const canOpen = view.state === 'installed' || view.state === 'update';
   const homeFeature = app.features.find((f) => JSON.stringify(f.target) === JSON.stringify(app.home));
 
@@ -74,30 +107,51 @@ export function AppDetail({
           <p className="sheet-vision">{app.vision}</p>
         </section>
 
-        <section className="sheet-section">
-          <h3 className="eyebrow">Features</h3>
-          <ul className="feature-list">
-            {app.features.map((f) => (
-              <li key={f.id} className="feature-row">
-                <span>
-                  <span className="feature-label">{f.label}</span>
-                  <span className="feature-blurb">{f.blurb}</span>
-                </span>
-                {!app.comingSoon && (
-                  <button
-                    type="button"
-                    className="link"
-                    disabled={!canOpen}
-                    onClick={() => handlers.onOpen(app, f.id)}
-                    aria-label={`Open ${f.label}`}
-                  >
-                    Open <LuArrowUpRight size={12} aria-hidden="true" />
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
+        {groups.map((group) => (
+          <section key={group.id} className="sheet-section" aria-label={group.heading ? `${group.heading} module` : 'Features'}>
+            <div className="module-head">
+              <h3 className="eyebrow">
+                {group.glyph && <group.glyph size={13} aria-hidden="true" />}
+                {group.heading ?? 'Features'}
+                {group.soon && <span className="module-soon">Coming soon</span>}
+              </h3>
+              {group.moduleId && !app.comingSoon && !group.soon && (
+                <button
+                  type="button"
+                  className="link"
+                  disabled={!canOpen}
+                  onClick={() => handlers.onOpen(app, `${MODULE_FEATURE_PREFIX}${group.moduleId}`)}
+                  aria-label={`Open ${group.heading} module`}
+                >
+                  Open module <LuArrowUpRight size={12} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {group.tagline && <p className="module-tagline">{group.tagline}</p>}
+            {group.vision && <p className="sheet-vision">{group.vision}</p>}
+            <ul className="feature-list">
+              {group.features.map((f) => (
+                <li key={f.id} className="feature-row">
+                  <span>
+                    <span className="feature-label">{f.label}</span>
+                    <span className="feature-blurb">{f.blurb}</span>
+                  </span>
+                  {!app.comingSoon && !group.soon && (
+                    <button
+                      type="button"
+                      className="link"
+                      disabled={!canOpen}
+                      onClick={() => handlers.onOpen(app, f.id)}
+                      aria-label={`Open ${f.label}`}
+                    >
+                      Open <LuArrowUpRight size={12} aria-hidden="true" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
 
         <section className="sheet-section">
           <h3 className="eyebrow">Built on the Midnite frame</h3>
