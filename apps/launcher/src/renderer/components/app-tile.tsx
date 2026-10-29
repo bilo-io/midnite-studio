@@ -1,4 +1,5 @@
 import type { LauncherApp } from '../../common/catalog';
+import { replacesLine } from '../../common/migration';
 import { appNumber } from '../model';
 import type { AppView } from '../use-apps';
 import { AppIcon } from './app-icon';
@@ -65,6 +66,10 @@ export function AppTile({ app, view, handlers, menuItems }: TileProps) {
             );
           })}
         </ul>
+      )}
+
+      {replacesLine(view.replaces) !== null && (
+        <p className="tile-replaces">{replacesLine(view.replaces)}</p>
       )}
 
       <ul className="tile-features" aria-label={`Midnite ${app.name} features`}>
