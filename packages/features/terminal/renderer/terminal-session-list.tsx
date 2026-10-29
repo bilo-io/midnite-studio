@@ -1,0 +1,627 @@
+import {
+  useFrameChrome,
+  SortableList,
+  useSortableRow,
+  StateDot,
+  RingSpinner as Spinner,
+  useActivityGlow,
+  type ActivityGlowSessionInput,
+  ConfinedBadge,
+  useGraphStore,
+  appLogoUrl,
+} from '@midnite/studio-frame';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import {
+  commitsForLiveSession,
+  sessionAppId,
+  type AgentDefinition,
+  type SuiteAppId,
+  type TerminalSession,
+} from '@midnite/studio-shared';
+import {
+  LuChevronRight,
+  LuLayers,
+  LuMoon,
+  LuPanelLeft,
+  LuPanelRight,
+  LuPencil,
+  LuRotateCcw,
+  LuX,
+} from 'react-icons/lu';
+
+import { useShowAllApps, visibleInApp } from './app-filter';
+import { useTerminalHost } from './host';
+import { closeSessionWithConfirm } from './close-session';
+import { terminalPanelElement } from './terminal-panel-element';
+import {
+  inMainPanel,
+  isAgentRow,
+  resolveSessionAgentId,
+  sessionLabel,
+  sessionPhase,
+  useTerminalStore,
+  type SessionActivity,
+} from './terminal-store';
+
+/** A stable empty `sessions` array — `useActivityGlow` does no memoising of its own, so a fresh `[]` literal every render would defeat nothing here, but a shared reference costs nothing to reach for either. */
+const EMPTY_GLOW_SESSIONS: readonly ActivityGlowSessionInput[] = [];
+
+/**
+ * The list of open terminals, VS Code style.
+ *
+ * Rendered only past one session: a list of one is chrome that explains
+ * nothing. Its existence is also what earns the reversal of Phase 9's
+ * unmount-when-hidden rule — a background shell is only defensible when there
+ * is somewhere to see it and stop it.
+ */
+export function TerminalSessionList({
+  agents,
+  width,
+}: {
+  agents: AgentDefinition[];
+  width: number;
+}) {
+  const host = useTerminalHost();
+  const { useDialogs } = useFrameChrome();
+  const dialogs = useDialogs();
+  // Main-surface and Kanban sessions — a FAB loop's session (Phase 35) never
+  // lists here, because it renders in the FAB's own tab.
+  const panelSessions = useTerminalStore((s) => s.sessions).filter(inMainPanel);
+  const activeId = useTerminalStore((s) => s.activeId);
+  /*
+    Each app lists its own sessions; "Show all apps" lists every one the broker
+    holds (Phase 123 Theme E). The toggle only appears once another app's
+    session is actually here — with none, it would switch nothing.
+  */
+  const [showAllApps, setShowAllApps] = useShowAllApps();
+  const hasForeign = panelSessions.some((s) => sessionAppId(s) !== host.appId);
+  const sessions = panelSessions.filter((s) => visibleInApp(s, host.appId, showAllApps));
+  const tagApps = hasForeign && showAllApps;
+
+  /*
+    Subscribed once for the whole list rather than per row: the probe reports a
+    change for one session at a time, and the map is a stable reference between
+    those, so a row only re-renders when its own entry moves.
+  */
+  const liveAgentId = useTerminalStore((s) => s.liveAgentId);
+  const { side } = host.usePanelPrefs();
+
+  const border = side === 'left' ? 'border-r' : 'border-l';
+
+  /**
+   * Docking lives in a context menu rather than a header button.
+   *
+   * It is set once and then never again; spending permanent chrome on it would
+   * cost more attention than the preference is worth.
+   */
+  const showDockMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    dialogs.openMenu?.(event, [
+      {
+        label: side === 'left' ? 'Move to right' : 'Move to left',
+        icon: side === 'left' ? LuPanelRight : LuPanelLeft,
+        onSelect: () =>
+          host.actions.setSidebarSide(side === 'left' ? 'right' : 'left'),
+      },
+    ]);
+  };
+
+  /**
+   * Up/down moves the active session; the arrow pointing at the terminal pane
+   * hands focus over to it. Which key that is depends on the dock side — the
+   * pane is always on the OTHER side from the list, never a fixed direction.
+   *
+   * Left/right in the other direction is deliberately not handled here: that
+   * key belongs to the shell (cursor movement, agent UIs) once focus is
+   * actually in the terminal, not to this list.
+   */
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (sessions.length === 0) return;
+    const index = sessions.findIndex((s) => s.id === activeId);
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
+      const next = sessions[Math.min(Math.max(index + delta, 0), sessions.length - 1)];
+      if (next) useTerminalStore.getState().setActiveFromListNav(next.id);
+      return;
+    }
+
+    const towardPanel = side === 'left' ? 'ArrowRight' : 'ArrowLeft';
+    if (event.key === towardPanel) {
+      event.preventDefault();
+      useTerminalStore.getState().focusActiveSession();
+    }
+  };
+
+  const legacy = useTerminalStore((s) => s.legacy);
+  const legacyBannerDismissed = useTerminalStore((s) => s.legacyBannerDismissed);
+  const dismissLegacyBanner = useTerminalStore((s) => s.dismissLegacyBanner);
+
+  const hasLegacy = Object.values(legacy).some(Boolean);
+
+  return (
+    <div
+      /*
+        Named for the e2e suite, which has to tell this column apart from the
+        repos sidebar and from the pane beside it — both are plain divs, and
+        which SIDE this one sits on is exactly what the docking test asserts.
+      */
+      data-session-list
+      tabIndex={0}
+      /*
+        pb-1 only, not py-1: `TerminalHeader` sits directly above this and
+        already carries its own `py-1` plus a `border-b` — a matching `pt-1`
+        here stacked on top of that, opening a visible gap between the
+        header's rule and the first row that no other edge of the list gets.
+        `repos-panel.tsx`'s sidebar list is the same shape (a bordered list
+        under its own header row) and settles it the same way, with `pb-2`
+        and no top pad — this keeps that convention rather than inventing a
+        new one. The bottom keeps its own 4px so the last row does not sit
+        flush against the pane's raw edge.
+      */
+      className={`flex h-full shrink-0 flex-col ${border} border-border outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring`}
+      style={{ width }}
+      onContextMenu={showDockMenu}
+      onKeyDown={onKeyDown}
+    >
+      <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto pb-1">
+        <SortableList
+          ids={sessions.map((s) => s.id)}
+          onReorder={(ids) => useTerminalStore.getState().reorder(ids)}
+        >
+          {sessions.map((session) => (
+            <SessionRow
+              key={session.id}
+              session={session}
+              active={session.id === activeId}
+              agent={agents.find((a) => a.id === session.agentId)}
+              runningAgent={agents.find((a) => a.id === resolveSessionAgentId(session, liveAgentId))}
+              resolvedAgentId={resolveSessionAgentId(session, liveAgentId)}
+              isAgentRow={isAgentRow(session, liveAgentId)}
+              legacy={Boolean(legacy[session.id])}
+              appTag={tagApps ? sessionAppId(session) : undefined}
+            />
+          ))}
+        </SortableList>
+      </div>
+      {hasForeign ? (
+        <button
+          type="button"
+          aria-pressed={showAllApps}
+          data-testid="terminal-show-all-apps"
+          className={`flex shrink-0 items-center gap-1.5 border-t border-border px-2 py-1 text-left text-[11px] ${
+            showAllApps ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setShowAllApps(!showAllApps)}
+        >
+          <LuLayers aria-hidden className="h-3 w-3 shrink-0" />
+          Show all apps
+        </button>
+      ) : null}
+      {hasLegacy && !legacyBannerDismissed ? (
+        /*
+          A docked footer strip below every row, not a card floating above them
+          (Phase adhoc). No `mx`/`my` — it spans the panel edge to edge like
+          `conflict-banner.tsx`'s own bordered strip, with only inner padding
+          keeping its text off the border. `bg-amber-500/5` rather than the
+          `/10` `conflict-banner.tsx` uses for a bordered strip: this one sits
+          docked at the bottom under the session rows rather than pinned above
+          the whole view, so a lighter tint reads as attached chrome instead of
+          another opaque panel competing with the rows for attention.
+        */
+        <div
+          role="alert"
+          className="shrink-0 border-t border-amber-500/20 bg-amber-500/5 px-2 py-2 text-xs text-amber-200"
+        >
+          <p className="font-medium">From a previous version — restart sessions?</p>
+          {/*
+            Dismiss is primary and comes first (left), Restart is secondary and
+            comes second (right) — Dismiss is the safe default that leaves
+            every session as it reattached, while Restart reopens live shells.
+          */}
+          <div className="mt-1.5 flex gap-2">
+            <button
+              type="button"
+              onClick={dismissLegacyBanner}
+              className="rounded bg-primary px-2 py-0.5 font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Dismiss
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const store = useTerminalStore.getState();
+                for (const session of sessions) {
+                  if (legacy[session.id]) {
+                    store.closeSession(session.id);
+                    store.openSession({
+                      kind: session.kind,
+                      agentId: session.agentId,
+                      title: session.title,
+                      cwd: session.cwd,
+                      repoId: session.repoId,
+                    });
+                  }
+                }
+                dismissLegacyBanner();
+              }}
+              className="rounded px-2 py-0.5 font-medium text-muted-foreground hover:text-foreground"
+            >
+              Restart
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SessionRow({
+  session,
+  active,
+  agent,
+  runningAgent,
+  resolvedAgentId,
+  isAgentRow: rowIsAgent,
+  legacy,
+  appTag,
+}: {
+  session: TerminalSession;
+  active: boolean;
+  /**
+   * The roster entry this session was *opened for*. Feeds the label only.
+   *
+   * Kept apart from `runningAgent` on purpose: the live probe drives icons and
+   * nothing else this phase. `sessionLabel` already resolves four ways and a
+   * fifth input into that ordering wants its own design pass — so a shell that
+   * is running Codex shows Codex's mark and keeps the name it had.
+   */
+  agent: AgentDefinition | undefined;
+  /** What is *actually running*, from main's process probe. Drives the mark. */
+  runningAgent: AgentDefinition | undefined;
+  /**
+   * `resolveSessionAgentId(session, liveAgentId)` — the same resolved id
+   * `runningAgent` was looked up from, kept apart because `useActivityGlow`
+   * (Phase 95 Theme C) wants the bare id even when the roster has no
+   * matching `AgentDefinition` for it (`runningAgent` would be `undefined`
+   * either way, and that must not read as "plain shell").
+   */
+  resolvedAgentId: string | undefined;
+  /** `isAgentRow(session, liveAgentId)` — gates the activity glyph. */
+  isAgentRow: boolean;
+  /** Whether a legacy broker peer answered this session's `list` — provenance, not lifecycle. */
+  legacy: boolean;
+  /** The owning app, shown as its logo — set only while the list mixes apps. */
+  appTag?: SuiteAppId | undefined;
+}) {
+  const host = useTerminalHost();
+  const { IconButton, useDialogs } = useFrameChrome();
+  const dialogs = useDialogs();
+  const state = useTerminalStore((s) => s.states[session.id] ?? 'idle');
+  const activity = useTerminalStore((s) => s.activity[session.id]);
+  const autoName = useTerminalStore((s) => s.autoNames[session.id]);
+  const { side } = host.usePanelPrefs();
+  const { setNodeRef, style, attributes, listeners, isDragging } = useSortableRow(session.id);
+
+  const phase = sessionPhase(session, state);
+  const live = phase === 'live';
+  const name = sessionLabel(session, autoName, agent?.label);
+
+  // Phase 95 Theme C — the row's own icon wears the ring, not the whole
+  // row: `AgentAvatar` already IS this row's identity badge (its mark), so
+  // the addition here is only the glow around it, sized down to the icon.
+  const rowActivity = useActivityGlow(
+    live
+      ? { sessions: [{ sessionId: session.id, agentId: resolvedAgentId, activity, running: live }] }
+      : { sessions: EMPTY_GLOW_SESSIONS },
+  );
+
+  const rowCount = useGraphStore((s) => s.rows.length);
+  const commits = useMemo(
+    () => useGraphStore.getState().rows.map((r) => r.commit),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rowCount],
+  );
+
+  const sessionCommits = useMemo(
+    () => (rowIsAgent ? commitsForLiveSession(commits, session) : []),
+    [rowIsAgent, commits, session],
+  );
+  const commitCount = sessionCommits.length;
+
+  const [pulsing, setPulsing] = useState(false);
+  const prevCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!rowIsAgent || !live) return;
+    if (prevCountRef.current !== null && commitCount > prevCountRef.current) {
+      const isReduced =
+        typeof document !== 'undefined' &&
+        document.documentElement.getAttribute('data-motion') === 'reduced';
+      if (!isReduced) {
+        setPulsing(true);
+        const timer = setTimeout(() => setPulsing(false), 800);
+        return () => clearTimeout(timer);
+      }
+    }
+    prevCountRef.current = commitCount;
+  }, [commitCount, rowIsAgent, live]);
+
+  const rename = () => {
+    dialogs.prompt?.({
+      title: 'Rename session',
+      label: 'Session name',
+      initialValue: name,
+      confirmLabel: 'Rename',
+      container: terminalPanelElement(),
+      onConfirm: (value) => useTerminalStore.getState().renameSession(session.id, value),
+    });
+  };
+
+  const showMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dialogs.openMenu?.(event, [
+      { label: 'Rename session…', icon: LuPencil, onSelect: rename },
+      // The prompt dialog itself cannot submit an empty value, so clearing a
+      // custom name back to the live guess is a separate, explicit action
+      // rather than "rename to nothing".
+      {
+        label: 'Reset to detected name',
+        icon: LuRotateCcw,
+        disabled: session.name === undefined,
+        disabledReason: 'This session has no custom name.',
+        onSelect: () => useTerminalStore.getState().renameSession(session.id, undefined),
+      },
+      { type: 'separator' },
+      {
+        label: 'Sleep session',
+        icon: LuMoon,
+        disabled: phase !== 'live',
+        disabledReason: 'Only a live session can be slept.',
+        onSelect: () => useTerminalStore.getState().sleepSession(session.id),
+      },
+      { type: 'separator' },
+      {
+        label: side === 'left' ? 'Move to right' : 'Move to left',
+        icon: side === 'left' ? LuPanelRight : LuPanelLeft,
+        onSelect: () =>
+          host.actions.setSidebarSide(side === 'left' ? 'right' : 'left'),
+      },
+    ]);
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      // A drag gesture needs a row to grab by; the close button and the label
+      // are both inside it and neither is the drag handle.
+      data-session-row
+      data-phase={phase}
+      className={`group flex w-full cursor-pointer select-none items-center gap-1.5 px-2 py-1.5 text-xs ${
+        active ? 'bg-accent/60' : 'hover:bg-accent/30'
+      } ${isDragging ? 'opacity-80' : ''} ${phase !== 'live' ? 'opacity-60' : ''} ${
+        pulsing ? 'session-row-pulse' : ''
+      }`}
+      onContextMenu={showMenu}
+      onClick={() => useTerminalStore.getState().setActive(session.id)}
+      onDoubleClick={rename}
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-1 text-left">
+        <host.AgentAvatar
+          agent={runningAgent}
+          live={live}
+          activityStatus={rowActivity.status}
+          ollamaBacked={session.backend === 'ollama'}
+        />
+        {appTag ? (
+          <img
+            src={appLogoUrl(appTag)}
+            alt={appTag}
+            title={appTag}
+            data-testid="terminal-session-app"
+            className="h-3 w-3 shrink-0 rounded-sm"
+          />
+        ) : null}
+        {session.confined ? <ConfinedBadge /> : null}
+        {
+          // Provenance, not state (Phase 51 Theme G) — a legacy session can be
+          // live (see `sessionPhase`'s own note), so this checks `legacy`
+          // first and independently of `phase`. Falls back to the ordinary
+          // asleep mark only when the row is neither.
+          legacy ? (
+            <LuMoon
+              className="h-3 w-3 shrink-0 text-muted-foreground"
+              aria-label="From a previous run"
+              title="From a previous run"
+            />
+          ) : phase === 'asleep' ? (
+            <LuMoon className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Asleep" />
+          ) : null
+        }
+        {/*
+          The repo name, then the session's own name — "Claude · Claude" for
+          every agent session (Phase 19's shape) said the same thing twice and
+          named neither session. Shrinking the repo name rather than the
+          session name keeps the part that actually tells two Claude sessions
+          apart from being what truncates first.
+        */}
+        <span
+          /*
+            Shrinks four times faster than the session name beside it. Phase 19
+            said this in words — "shrinking the repo name rather than the
+            session name keeps the part that actually tells two Claude sessions
+            apart from being what truncates first" — and then wrote the opposite
+            in CSS: this span was `shrink` (basis auto, so content-sized until
+            something overflows) while the name was `flex-1` (basis ZERO, so it
+            only ever got the leftovers). At the list's default 176px the repo
+            name rendered in full and the session name became a single letter
+            and an ellipsis, which is the one half that cannot be guessed —
+            especially now that there are four agents it could be naming.
+          */
+          className={`min-w-0 shrink-[4] truncate ${live ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}
+        >
+          {session.title}
+        </span>
+        <LuChevronRight aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+        <span
+          /*
+            Named for the e2e suite. Phase 19 split this row into a repo name
+            AND a session name, both of them `truncate`, so a spec locator
+            written as `span.truncate` quietly began matching two spans per row
+            and asserting on whichever came first. A hook on the half that
+            carries the session's own identity is what stops that recurring.
+          */
+          data-session-name
+          className={`min-w-0 shrink truncate ${live ? '' : 'text-muted-foreground'}`}
+        >
+          {name}
+        </span>
+      </div>
+
+      {rowIsAgent && live && commitCount > 0 ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            host.actions.showSessionCommits?.(
+              session.id,
+              sessionCommits.map((c) => c.sha),
+            );
+          }}
+          data-testid="terminal-session-commit-count"
+          aria-label={`${commitCount} commit${commitCount === 1 ? '' : 's'}`}
+          title={`${commitCount} commit${commitCount === 1 ? '' : 's'} made during this session`}
+          className={`shrink-0 rounded px-1 text-[10px] tabular-nums font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
+            pulsing ? 'session-row-pulse text-primary' : ''
+          }`}
+        >
+          {commitCount}
+        </button>
+      ) : null}
+
+      {/*
+        Only a live agent gets one — gated on what is *running*
+        (`isAgentRow`), not on what the session was opened as, so a plain
+        shell running an agent typed by hand gets the glyph too. An exited
+        row is a transcript — a blinking caret on it would be an invented
+        signal.
+      */}
+      {rowIsAgent && live ? <ActivityIndicator activity={activity} /> : null}
+
+      <div className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute flex items-center justify-center transition-opacity group-hover:opacity-0"
+        >
+          <StateDot state={phase === 'asleep' ? 'asleep' : state} />
+        </span>
+        <IconButton
+          icon={LuX}
+          label="Close terminal"
+          size="sm"
+          className="opacity-0 transition-opacity group-hover:opacity-100"
+          onClick={(event) => {
+            event.stopPropagation();
+            closeSessionWithConfirm(dialogs, session);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Whether a live agent looks to be generating, back waiting on you, idle, or
+ * simply unknown — a second, distinct glyph beside the connection dot, which
+ * only ever says whether the PROCESS is alive.
+ *
+ * Four drawn shapes rather than four icons, because the state IS the motion:
+ * an arc going round is work in progress, an ellipsis rolling is a question
+ * left open, a caret ticking is a prompt with nobody at it, and a dim static
+ * dot is "live, and the detector has not spoken" — a real fourth state, not a
+ * synonym for idle. Drawing that unspoken case as a confident idle caret is
+ * what let the detector sit broken from Claude Code 2.1.x onward without
+ * anyone noticing; a quiet, visibly-unsure mark is what would have surfaced it
+ * on day one. An icon has to be decoded; these are the same marks a terminal
+ * already uses for the same things. The 14px slot is fixed so the row's
+ * connection dot does not shift sideways each time the glyph under it changes.
+ *
+ * `data-activity` is the hook Playwright and the reduced-motion CSS rule both
+ * need — the sibling of `data-phase` above it.
+ */
+export function ActivityIndicator({ activity }: { activity: SessionActivity | undefined }) {
+  return (
+    <span
+      data-activity={activity ?? 'unknown'}
+      className="flex size-3.5 shrink-0 items-center justify-center"
+    >
+      {activity === 'thinking' ? (
+        <Spinner label="Thinking" />
+      ) : activity === 'waiting' ? (
+        <WaitingDots />
+      ) : activity === 'idle' ? (
+        <IdleCaret />
+      ) : (
+        <UnknownDot />
+      )}
+    </span>
+  );
+}
+
+/**
+ * "…" as three dots riding a wave, amber like the old question mark was: this
+ * is still the one state that wants something from you.
+ *
+ * The delays are negative so the wave is already halfway through on the first
+ * paint — a row that appears mid-answer should not have to wait a full cycle
+ * before it looks like it is waiting.
+ */
+const WAVE_DOTS = [0, 1, 2];
+
+function WaitingDots() {
+  return (
+    <span role="img" aria-label="Waiting for input" className="flex items-center gap-[1.5px]">
+      {WAVE_DOTS.map((index) => (
+        <span
+          key={index}
+          className="size-1 animate-dot-wave rounded-full bg-amber-500"
+          style={{ animationDelay: `${(index - 2) * 160}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** A prompt with nobody typing at it: the terminal's own caret, blinking. */
+function IdleCaret() {
+  return (
+    <span
+      role="img"
+      aria-label="Idle"
+      className="h-2.5 w-[2px] animate-caret-blink rounded-[1px] bg-muted-foreground/70"
+    />
+  );
+}
+
+/**
+ * "Live, and the detector has not spoken" — a real fourth state, deliberately
+ * the quietest mark in the slot: a 4px dot at 35% opacity, smaller than the
+ * `StateDot` beside it (`size-1.5`) so the pair never reads as two connection
+ * dots. Shown for an agent with no marker set at all, or one main's detector
+ * has explicitly said `null` about — never a guess.
+ */
+function UnknownDot() {
+  return (
+    <span
+      role="img"
+      aria-label="Activity unknown"
+      className="size-1 rounded-full bg-muted-foreground/35"
+    />
+  );
+}

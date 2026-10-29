@@ -1,0 +1,22 @@
+{
+  // The renderer half and the manifest — compiled from source by the app that
+  // composes them (Vite), so this config only typechecks. The terminal's main
+  // half still lives in packages/desktop (see the phase doc, Theme E).
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["vite/client"],
+    "paths": {
+      "@midnite/studio-shared": ["../../shared/src/index.ts"]
+    }
+  },
+  "include": ["renderer/**/*", "manifest.ts", "manifest.test.ts", "vitest.config.ts", "vitest-setup.ts"],
+  "exclude": ["node_modules", "dist"]
+}

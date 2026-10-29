@@ -12,6 +12,7 @@ import {
   TerminalSessionSchema,
   TerminalSurfaceSchema,
   buildResumeCommand,
+  sessionAppId,
   type AgentDefinition,
 } from './terminal';
 import { AgentListResponse, TerminalSaveRequest } from './ipc/schemas';
@@ -655,3 +656,18 @@ describe('backends (Phase 96 Theme H)', () => {
   });
 });
 
+
+describe('the session app (Phase 123 Theme E)', () => {
+  const base = { id: 's-1', kind: 'shell', title: 'midnite', cwd: '/repos/midnite', repoId: 'repo:midnite', createdAt: 1 };
+
+  it('parses a record written before the field existed as Studio', () => {
+    const session = TerminalSessionSchema.parse(base);
+    expect(session.appId).toBeUndefined();
+    expect(sessionAppId(session)).toBe('studio');
+  });
+
+  it('keeps an app that stamped itself, and rejects one that is not a suite app', () => {
+    expect(sessionAppId(TerminalSessionSchema.parse({ ...base, appId: 'browser' }))).toBe('browser');
+    expect(TerminalSessionSchema.safeParse({ ...base, appId: 'launcher' }).success).toBe(false);
+  });
+});

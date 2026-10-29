@@ -243,6 +243,8 @@ export type FramePromptRequest = {
   placeholder?: string;
   /** Returns an error message, or null when the value is acceptable. */
   validate?: (value: string) => string | null;
+  /** Render inside this (positioned) element rather than over the window — see `ConfirmRequest.container`. */
+  container?: HTMLElement | null;
   onConfirm: (value: string) => void;
 };
 
