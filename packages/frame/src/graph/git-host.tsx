@@ -37,7 +37,7 @@ import type { SyncAction } from './ref-sync';
  *
  * Studio implements it from `ui-store`, its query hooks and its own chrome
  * (`packages/app/src/compose/git-host.tsx`); Midnite Coder from its own small store over a read-only
- * main (`apps/coder/src/compose/git-host.tsx`). The required members are what a read-only graph needs;
+ * main (`packages/modules/coder/renderer/compose/git-host.tsx`). The required members are what a read-only graph needs;
  * every optional one is something only Studio has today — a write op, an agent, a terminal, the
  * conflict studio — and the graph leaves that control out without it. A member is added only for
  * something the views really read, so the port stays a list, never a service locator.

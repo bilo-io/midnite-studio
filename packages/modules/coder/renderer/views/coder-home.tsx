@@ -11,7 +11,7 @@ import { testsViews } from '@midnite/studio-feature-tests/renderer';
 import { bridge, RingSpinner } from '@midnite/studio-frame';
 import type { RepoDescriptor } from '@midnite/studio-shared';
 
-import { CODER_APP, type CoderViewId } from '../coder-manifest';
+import { coderManifest, CODER_VIEWS, type CoderViewId } from '../../manifest';
 import { useCoderStore } from '../coder-store';
 
 const LABEL: Record<CoderViewId, string> = {
@@ -141,12 +141,12 @@ export function CoderHome() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
-        <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ backgroundColor: CODER_APP.accent }}>
+        <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ backgroundColor: coderManifest.accent }}>
           <LuCode className="h-4 w-4" />
         </span>
-        <p className="text-sm font-semibold leading-tight">{CODER_APP.name}</p>
+        <p className="text-sm font-semibold leading-tight">Midnite Coder</p>
         <nav aria-label="Coder views" className="ml-4 flex items-center gap-1">
-          {CODER_APP.views.map((id) => (
+          {CODER_VIEWS.map((id) => (
             <button
               key={id}
               type="button"

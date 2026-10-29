@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { createCoderBridge } from './bridge';
+import { createCoderBridge } from '@midnite/studio-module-coder/bridge';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Coder exposes the slice it needs.
 try {

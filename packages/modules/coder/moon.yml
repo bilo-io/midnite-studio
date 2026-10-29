@@ -1,0 +1,142 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# The Coder module (Phase 124 Theme C): reviews, CI runs, tests, API collections, databases and
+# sessions, composed over the forge, tests, api-client, database, sessions and tasks features.
+# Same task shape as a feature package.
+id: 'module-coder'
+language: 'typescript'
+layer: 'library'
+
+# `app-<id>` names the apps that mount this module (`APP_MODULES`; `app-coder` until Theme H retires it).
+# `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
+tags:
+  - 'layer-module'
+  # APP_MODULES hosts that list coder: agents (while its own app, app-coder) and studio.
+  - 'app-coder'
+  - 'app-agents'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'git-engine'
+  - 'feature-forge'
+  - 'feature-tests'
+  - 'feature-api-client'
+  - 'feature-database'
+  - 'feature-sessions'
+  - 'feature-tasks'
+  - 'feature-report'
+
+tasks:
+  # Only the main half emits; the renderer half is compiled by the app.
+  build:
+    command: 'pnpm exec tsc -b tsconfig.main.json'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+      - 'git-engine:build'
+      - 'feature-forge:build'
+      - 'feature-tests:build'
+      - 'feature-api-client:build'
+      - 'feature-database:build'
+      - 'feature-sessions:build'
+      - 'feature-report:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/git-engine/src/**/*'
+      - '/packages/features/forge/main/**/*'
+      - '/packages/features/tests/main/**/*'
+      - '/packages/features/api-client/main/**/*'
+      - '/packages/features/database/main/**/*'
+      - '/packages/features/sessions/main/**/*'
+      - '/packages/features/report/main/**/*'
+    outputs:
+      - 'dist'
+
+  # Both configs: the renderer half against source, the main half against
+  # shared/runtime's built declarations (project references), hence the builds.
+  typecheck:
+    # package.json's `typecheck` runs `tsc --noEmit` over both configs.
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
+      - 'git-engine:build'
+      - 'feature-forge:build'
+      - 'feature-tests:build'
+      - 'feature-api-client:build'
+      - 'feature-database:build'
+      - 'feature-sessions:build'
+      - 'feature-report:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/forge/renderer/**/*'
+      - '/packages/features/forge/manifest.ts'
+      - '/packages/features/tests/renderer/**/*'
+      - '/packages/features/tests/manifest.ts'
+      - '/packages/features/api-client/renderer/**/*'
+      - '/packages/features/api-client/manifest.ts'
+      - '/packages/features/database/renderer/**/*'
+      - '/packages/features/database/manifest.ts'
+      - '/packages/features/sessions/renderer/**/*'
+      - '/packages/features/sessions/manifest.ts'
+      - '/packages/features/tasks/renderer/**/*'
+      - '/packages/features/tasks/manifest.ts'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/forge/main/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/forge/renderer/**/*'
+      - '/packages/features/forge/manifest.ts'
+      - '/packages/features/tests/renderer/**/*'
+      - '/packages/features/tests/manifest.ts'
+      - '/packages/features/api-client/renderer/**/*'
+      - '/packages/features/api-client/manifest.ts'
+      - '/packages/features/database/renderer/**/*'
+      - '/packages/features/database/manifest.ts'
+      - '/packages/features/sessions/renderer/**/*'
+      - '/packages/features/sessions/manifest.ts'
+      - '/packages/features/tasks/renderer/**/*'
+      - '/packages/features/tasks/manifest.ts'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/forge/main/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'
