@@ -34,6 +34,7 @@ export * from './handoff';
 export * from './midnite-link';
 export * from './modules';
 export * from './studio-link';
+export * from './suite-prefs';
 export * from './ipc';
 export * from './keybindings';
 export * from './loops';

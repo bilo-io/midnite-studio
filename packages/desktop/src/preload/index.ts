@@ -138,6 +138,7 @@ const bridge: Pick<
   | 'agent'
   | 'council'
   | 'loopRuns'
+  | 'suitePrefs'
   | 'chats'
   | 'workflow'
   | 'demoApi'
@@ -923,6 +924,11 @@ const bridge: Pick<
       edit: (req) => call(CHANNELS.mediaDocEdit, req),
       export: (req) => call(CHANNELS.mediaDocExport, req),
     },
+  },
+  suitePrefs: {
+    get: () => call(CHANNELS.suitePrefsGet),
+    set: (req) => call(CHANNELS.suitePrefsSet, req),
+    onChanged: (handler) => subscribe(EVENT_CHANNELS.suitePrefsChanged, handler),
   },
   loopRuns: {
     list: () => call(CHANNELS.loopRunsList),
