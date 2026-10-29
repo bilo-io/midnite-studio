@@ -2,6 +2,10 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 124 Theme A — The module contract
+
+`shared/src/modules.ts`: `MODULE_IDS`, `APP_MODULES` (keyed by `ModuleHostId`, Studio lists every module), `RETIRED_APP_ALIASES` (coder, creator, vault, cleaner, monitor, capture, accountant, simulator → host + module), with a test holding the invariants.
+
 ## 2026-10-29 — Phase 123 Theme C and Theme A (helpers) — suite app ids, frame logos, shared window chrome
 
 `SUITE_APP_IDS` moved to `packages/shared/src/suite-apps.ts` (launcher catalog imports it); the 19 launcher logos are copied into `packages/frame/src/shell/app-logos/` by `generate-app-logos.cjs` with `appLogoUrl` and a byte-identity drift test. Runtime gains `suiteWindowOptions`, `attachWindowChrome`, `toggleMaximize` and `createWindowChromeBridge`; Studio's desktop chrome and preload call them unchanged. Per-app window adoption waits for Theme B/H.
