@@ -60,3 +60,22 @@ class FiringResizeObserver implements ResizeObserver {
 if (typeof globalThis.ResizeObserver === 'undefined') {
   globalThis.ResizeObserver = FiringResizeObserver;
 }
+
+/*
+  jsdom has no `matchMedia`, and `@bilo-io/ui`'s theme provider (inside `ShellProviders`, which the
+  shared shell's tests mount — Phase 123 Theme B) reads `prefers-color-scheme` through it. A query
+  that never matches is the honest default: the test environment has no colour scheme.
+*/
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  window.matchMedia = (query: string): MediaQueryList =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}
