@@ -1,6 +1,9 @@
 import { notesManifest } from '@midnite/studio-feature-notes/renderer';
-import type { NavConfig } from '@midnite/studio-frame';
+import { navFromModules, type NavConfig } from '@midnite/studio-frame';
 import { LuNetwork, LuNotebookPen } from 'react-icons/lu';
+import { APP_MODULES } from '@midnite/studio-shared';
+import { PiBrainFill } from 'react-icons/pi';
+import { mindManifest } from '../manifest';
 
 /**
  * The shell's rail (Phase 123 Theme B): the app's views, in its existing tab order. Settings is never
@@ -13,6 +16,15 @@ const MIND_NAV: NavConfig = {
     { id: 'knowledge', label: 'Knowledge', icon: LuNetwork },
   ],
 };
+
+/**
+ * The rail, derived from `APP_MODULES.mind` (Phase 124 Theme E.2): one titled group per module the host mounts,
+ * this module's views beneath. Modules the host does not mount yet have no entry, so wiring one in (E.3) adds
+ * its group here and nothing else.
+ */
+const MIND_HOST_NAV: NavConfig = navFromModules(APP_MODULES.mind, {
+  mind: { id: 'mind', label: mindManifest.label, icon: PiBrainFill, accent: mindManifest.accent, views: MIND_NAV.views },
+});
 
 /**
  * Mind's app manifest — pure data (Phase 113 Theme M).
@@ -29,7 +41,7 @@ export const MIND_APP = {
   accent: '#0ea5e9',
   home: 'notes',
   features: [notesManifest.feature],
-  nav: MIND_NAV,
+  nav: MIND_HOST_NAV,
 } as const;
 
 export type MindApp = typeof MIND_APP;

@@ -15468,3 +15468,7 @@ An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` un
 ### Phase 124 Theme E (partial) — Hosts are built from modules (2026-10-29)
 
 E.4 `&module=` on `midnite://open`; E.5 `STUDIO_MODULES` and the every-module-is-listed test; E.2 mechanism (`NavConfig.groups`, `navFromGroups`, grouped `AppShell` sections); E.1 for Vanguard, Money and Media (`packages/modules/{vanguard,money,media}`). Also moved the four stale app manifest tests into their modules. E.1 (Agents, Gamer, Mind, Browser), E.2's per-host groups and E.3 stay open; see the phase doc's Headlines.
+
+### Phase 124 Theme E (rest) — Agents, Gamer, Mind and Browser modules; nav from modules (2026-10-30)
+
+E.1 finished: `packages/modules/{agents,gamer,mind,browser}` (renderer + bridge/context main halves, manifests, own vitest/tsconfig/moon projects; Gamer's workers and fixtures moved with it, its Electron glue stayed in the host; Mind's knowledge engine import is allowed by the module boundary rules). E.2: `navFromModules` in the frame, and each host's manifest derives its nav group from `APP_MODULES`. E.3 (wiring other modules into hosts) stays open; see the phase doc's Headlines.
