@@ -4,6 +4,26 @@ import { forgeManifest } from '@midnite/studio-feature-forge/renderer';
 import { sessionsManifest } from '@midnite/studio-feature-sessions/renderer';
 import { tasksManifest } from '@midnite/studio-feature-tasks/renderer';
 import { testsManifest } from '@midnite/studio-feature-tests/renderer';
+import type { NavConfig } from '@midnite/studio-frame';
+import { LuDatabase, LuFlaskConical, LuGitGraph, LuGitPullRequest, LuHistory, LuListTodo, LuPlay, LuSend } from 'react-icons/lu';
+
+/**
+ * The shell's rail (Phase 123 Theme B): the app's views, in its existing tab order. Settings is never
+ * listed — `AppShell` puts it at the rail's foot. `panels` is absent, so the app carries every panel
+ * (decision 12).
+ */
+const CODER_NAV: NavConfig = {
+  views: [
+    { id: 'reviews', label: 'Reviews', icon: LuGitPullRequest },
+    { id: 'actions', label: 'Actions', icon: LuPlay },
+    { id: 'tasks', label: 'Tasks', icon: LuListTodo },
+    { id: 'tests', label: 'Tests', icon: LuFlaskConical },
+    { id: 'graph', label: 'Graph', icon: LuGitGraph },
+    { id: 'apiClient', label: 'API', icon: LuSend, command: 'view.apiClient' },
+    { id: 'database', label: 'Database', icon: LuDatabase },
+    { id: 'sessions', label: 'Sessions', icon: LuHistory },
+  ],
+};
 
 /**
  * Coder's app manifest — pure data (Phase 113 Theme O slices 1-4).
@@ -23,6 +43,7 @@ export const CODER_APP = {
   home: 'reviews',
   features: [forgeManifest.feature, testsManifest.feature, apiClientManifest.feature, databaseManifest.feature, sessionsManifest.feature, tasksManifest.feature],
   views: ['reviews', 'actions', 'tasks', 'tests', 'graph', 'apiClient', 'database', 'sessions'],
+  nav: CODER_NAV,
 } as const;
 
 export type CoderAppManifest = typeof CODER_APP;

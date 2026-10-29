@@ -1,4 +1,17 @@
 import { financeManifest } from '@midnite/studio-feature-finance/renderer';
+import type { NavConfig } from '@midnite/studio-frame';
+import { LuChartCandlestick } from 'react-icons/lu';
+
+/**
+ * The shell's rail (Phase 123 Theme B): its one view (Settings sits below it, so the rail is never one
+ * item). Settings is never listed — `AppShell` puts it at the rail's foot. `panels` is absent, so the
+ * app carries every panel (decision 12).
+ */
+const MONEY_NAV: NavConfig = {
+  views: [
+    { id: 'markets', label: 'Markets', icon: LuChartCandlestick },
+  ],
+};
 
 /**
  * Money's app manifest — pure data (Phase 113 Theme P).
@@ -15,6 +28,7 @@ export const MONEY_APP = {
   accent: '#84cc16',
   home: 'markets',
   features: [financeManifest.feature],
+  nav: MONEY_NAV,
 } as const;
 
 export type MoneyApp = typeof MONEY_APP;

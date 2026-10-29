@@ -4,7 +4,17 @@ import { mediaDocsManifest, mediaDocsTab } from '@midnite/studio-feature-media-d
 import { mediaImagesManifest, mediaImagesTab } from '@midnite/studio-feature-media-images/renderer';
 import { mediaVideoManifest, mediaVideoTab } from '@midnite/studio-feature-media-video/renderer';
 import { slidesManifest } from '@midnite/studio-feature-slides/renderer';
-import type { MediaTabDescriptor } from '@midnite/studio-frame';
+import type { MediaTabDescriptor, NavConfig } from '@midnite/studio-frame';
+
+/** The tabs Creator registers with its `MediaShell`, in strip order. */
+export const CREATOR_TABS: readonly MediaTabDescriptor[] = [mediaDocsTab, mediaImagesTab, mediaVideoTab, mediaAudioTab];
+
+/**
+ * The shell's rail (Phase 123 Theme B): one row per media tab, from the same descriptors the
+ * `MediaShell` strip reads, so the two cannot drift. Settings is never listed — `AppShell` puts it at
+ * the rail's foot. `panels` is absent, so the app carries every panel (decision 12).
+ */
+const CREATOR_NAV: NavConfig = { views: CREATOR_TABS.map(({ id, label, icon }) => ({ id, label, icon })) };
 
 /**
  * Creator's app manifest — pure data (Phase 113 Theme Q).
@@ -21,9 +31,7 @@ export const CREATOR_APP = {
   accent: '#ec4899',
   home: 'media',
   features: [mediaCoreManifest.feature, mediaDocsManifest.feature, mediaImagesManifest.feature, mediaVideoManifest.feature, mediaAudioManifest.feature, slidesManifest.feature],
+  nav: CREATOR_NAV,
 } as const;
-
-/** The tabs Creator registers with its `MediaShell`, in strip order. */
-export const CREATOR_TABS: readonly MediaTabDescriptor[] = [mediaDocsTab, mediaImagesTab, mediaVideoTab, mediaAudioTab];
 
 export type CreatorApp = typeof CREATOR_APP;
