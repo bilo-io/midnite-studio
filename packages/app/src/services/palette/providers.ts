@@ -1,6 +1,5 @@
 import type {
   AgentDefinition,
-  CommandGroup,
   CommandId,
   ForgeAccount,
   ForgeIssue,
@@ -10,7 +9,10 @@ import type {
   TerminalSession,
   Worktree,
 } from '@midnite/studio-shared';
-import { COMMANDS } from '@midnite/studio-shared';
+import {
+  createCommandSource as createFrameCommandSource,
+  type CommandSourceOptions,
+} from '@midnite/studio-frame';
 import { GoIssueOpened } from 'react-icons/go';
 import {
   LuArrowRightLeft,
@@ -35,7 +37,6 @@ import {
 import type { CommandRuntime } from '../../services/keybindings/use-command-handlers';
 import { isNavViewVisible } from '../../components/nav-visibility';
 import { useUiStore, VIEW_IDS, SETTINGS_PAGES, type ViewId } from '../../store/ui-store';
-import { chordOf, groupCommands } from '../../store/palette-store';
 import { openIssueModal } from '../../store/issue-modal-store';
 import { REPO_ISSUES_SOURCE_ID } from '@midnite/studio-feature-tasks/renderer/state';
 import { useFilesStore } from '../../features/files/files-store';
@@ -120,62 +121,16 @@ export const VIEW_KEYWORDS: Record<ViewId, string> = {
 const HIDDEN_WHEN_DISABLED = new Set<CommandId>(['browser.openDevServer']);
 
 /**
- * `CommandGroup` reaches here from `shared/src/keybindings.ts` specifically so
- * the palette can group commands (Theme A) — display labels for the heading
- * a group of commands renders under when the palette is open unfiltered.
- * `buildFlatRows` (`palette.tsx`) groups on this string, not on `CommandGroup`
- * itself, so the mapping lives at the one place that emits palette items for
- * a command (Phase 23 Theme E, reopened).
+ * Studio's command rows: the frame's command source (Phase 123 Theme D — every command with a
+ * handler), narrowed to the palette-safe list and with Studio's glyphs.
  */
-const COMMAND_GROUP_LABELS: Record<CommandGroup, string> = {
-  repository: 'Repository',
-  view: 'View',
-  sync: 'Sync',
-  terminal: 'Terminal',
-  status: 'Status',
-  graph: 'Graph',
-  operation: 'Operations',
-  palette: 'Palette',
-  files: 'Files',
-  window: 'Window',
+export const STUDIO_COMMAND_OPTIONS: CommandSourceOptions = {
+  include: (id, runtime) => isPaletteSafe(id) && !(HIDDEN_WHEN_DISABLED.has(id) && !runtime[id]?.enabled),
+  icon: (id) => COMMAND_ICONS[id],
 };
 
 export function createCommandSource(runtime: CommandRuntime, onSelect: () => void): PaletteSource {
-  return {
-    key: 'commands',
-    items: () => {
-      const safeCommands = COMMANDS.filter(
-        (cmd) =>
-          isPaletteSafe(cmd.id) && !(HIDDEN_WHEN_DISABLED.has(cmd.id) && !runtime[cmd.id]?.enabled),
-      );
-
-      const items: PaletteItem[] = [];
-      for (const [group, commands] of groupCommands(safeCommands)) {
-        const displayGroup = COMMAND_GROUP_LABELS[group] ?? 'Commands';
-        for (const cmd of commands) {
-          const entry = runtime[cmd.id];
-          const chord = chordOf(cmd);
-          const icon = COMMAND_ICONS[cmd.id];
-
-          items.push({
-            id: `command:${cmd.id}`,
-            label: cmd.label,
-            group: displayGroup,
-            icon,
-            chord,
-            disabled: !entry?.enabled,
-            disabledReason: entry?.disabledReason,
-            run: () => {
-              if (!entry?.enabled) return;
-              onSelect();
-              entry.run();
-            },
-          });
-        }
-      }
-      return items;
-    },
-  };
+  return createFrameCommandSource(runtime, onSelect, STUDIO_COMMAND_OPTIONS);
 }
 
 export function createViewsSource(onSelect: () => void): PaletteSource {

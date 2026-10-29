@@ -9,7 +9,7 @@ import { isAgentUnconfigured } from '../../features/agent/agent-install-status';
 import { useDevServerFor } from '@midnite/studio-feature-browser/renderer';
 import { openReportIssue } from '@midnite/studio-feature-report/renderer';
 import { toggleNotes } from '../../features/notes/notes-window';
-import { useGraphStore } from '@midnite/studio-frame';
+import { useGraphStore, type CommandEntry } from '@midnite/studio-frame';
 import { useSetupStore } from '../../features/setup/setup-store';
 import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { syncAffordances } from '../../features/status/sync-availability';
@@ -40,13 +40,12 @@ import { useCloseRepo, usePickAndOpenRepo, useRepos } from '../queries';
 import { useFetch, usePull, usePush, useStatus } from '../use-status';
 import { invalidateForWatchKind } from '../watch-invalidation';
 
-export type CommandEntry = {
-  run: () => void;
-  enabled: boolean;
-  /** Present only when disabled — appended to the tooltip, per icon-button.tsx. */
-  disabledReason?: string;
-};
+export type { CommandEntry };
 
+/**
+ * Studio's runtime is total over `CommandId` — the frame's `CommandRuntime` (Phase 123 Theme D) is
+ * the `Partial` a suite app binds, and this record is assignable to it.
+ */
 export type CommandRuntime = Record<CommandId, CommandEntry>;
 
 const NO_REPO = 'Open a repository first';

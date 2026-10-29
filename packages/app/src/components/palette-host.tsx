@@ -1,36 +1,14 @@
-import { useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+
+import { PaletteHost as FramePaletteHost } from '@midnite/studio-frame';
 
 import { Palette } from './palette';
-import { usePaletteStore, type PaletteMode } from '../store/palette-store';
 
-/**
- * Shaped after `dialog-host.tsx`: one place mounted once in `app.tsx` that
- * owns the surface and hands callers an imperative `open`/`close`, rather than
- * every command handler and title-bar button reaching into store internals
- * directly.
- *
- * Unlike `DialogHost`, the open/closed bit itself lives in `palette-store.ts`
- * (zustand), not local `useState` behind a Context — `use-keybindings.ts`
- * needs to read it from outside React entirely. `usePalette()` is a thin
- * wrapper for API parity with `useDialogs()`, not a second source of truth.
- */
-export type PaletteApi = {
-  open: (mode?: PaletteMode) => void;
-  close: () => void;
-};
-
-export function usePalette(): PaletteApi {
-  const open = usePaletteStore((s) => s.open);
-  const close = usePaletteStore((s) => s.close);
-  return useMemo(() => ({ open, close }), [open, close]);
-}
+// Moved to the frame (Phase 123 Theme D) — `packages/frame/src/commands/palette/palette-host.tsx`.
+// Studio mounts the frame's host with its own `Palette`, which builds Studio's runtime and its
+// repo-bound sources inside itself; `app.tsx` and `detached-root.tsx` keep this import.
+export { usePalette, type PaletteApi } from '@midnite/studio-frame';
 
 export function PaletteHost({ children }: { children: ReactNode }) {
-  const isOpen = usePaletteStore((s) => s.isOpen);
-  return (
-    <>
-      {children}
-      {isOpen ? <Palette /> : null}
-    </>
-  );
+  return <FramePaletteHost palette={Palette}>{children}</FramePaletteHost>;
 }

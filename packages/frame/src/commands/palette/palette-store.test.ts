@@ -10,7 +10,7 @@ import {
   MAX_FRECENCY_ENTRIES,
   useFrecencyStore,
   type FrecencyMap,
-} from '../services/palette/frecency-store';
+} from './frecency-store';
 
 const command = (id: string, label: string, group: CommandDescriptor['group']): CommandDescriptor =>
   ({ id, label, group }) as CommandDescriptor;

@@ -366,3 +366,15 @@ describe('terminalSwitcherOpen keyboard gating', () => {
     expect(run['palette.open']).not.toHaveBeenCalled();
   });
 });
+
+describe('view.settings (Phase 123 Theme D)', () => {
+  it('opens Settings on Meta+,', () => {
+    useUiStore.setState({ quickAccessOpen: false, browserSwitcherOpen: false, terminalSwitcherOpen: false });
+    const { runtime, run } = fakeRuntime();
+    renderHook(() => useKeybindings(runtime));
+
+    dispatch({ key: ',', metaKey: true });
+
+    expect(run['view.settings']).toHaveBeenCalledTimes(1);
+  });
+});

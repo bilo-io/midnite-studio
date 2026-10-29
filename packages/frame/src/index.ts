@@ -38,6 +38,50 @@ export {
   type ViewLinkTooltip,
 } from './shell/view-link';
 export { noBridge, reportFailure } from './bridge-result';
+
+// Commands (Phase 123 Theme D) — the keybinding dispatcher and the command palette every suite app mounts.
+export { chordFromEvent, isMac, type ChordEvent } from './commands/chord';
+export type { CommandEntry, CommandRuntime } from './commands/command-runtime';
+export { shouldEscapeTerminal, useKeybindings, type KeybindingGates } from './commands/use-keybindings';
+export {
+  chordOf,
+  filterCommands,
+  groupCommands,
+  matchesQuery,
+  parsePaletteQuery,
+  usePaletteStore,
+  type PaletteMode,
+  type ParsedPaletteQuery,
+} from './commands/palette/palette-store';
+export { fuzzyMatch, fuzzyMatchPath, type FuzzyMatchResult } from './commands/palette/fuzzy-match';
+export {
+  MAX_FRECENCY_ENTRIES,
+  bumpFrecency,
+  evictLowestWeight,
+  frecencyMultiplier,
+  frecencyWeight,
+  recencyDecay,
+  useFrecencyStore,
+  type FrecencyEntry,
+  type FrecencyMap,
+} from './commands/palette/frecency-store';
+export {
+  SOURCE_WEIGHTS,
+  highlightMatches,
+  scorePaletteItem,
+  type PaletteItem,
+  type PaletteSource,
+  type PaletteSourceKey,
+  type ScoredPaletteItem,
+} from './commands/palette/source';
+export {
+  COMMAND_GROUP_LABELS,
+  createCommandSource,
+  type CommandSourceOptions,
+} from './commands/palette/command-source';
+export { CommandPalette, type CommandPaletteProps } from './commands/palette/palette';
+export { PaletteHost, usePalette, type PaletteApi, type PaletteHostProps } from './commands/palette/palette-host';
+export { CASCADE_MAX_STEPS, CASCADE_STEP_MS, cascadeStyle } from './lib/cascade';
 export { usePageVisible } from './lib/use-page-visible';
 
 // Prompt-injection banner (Phase 121 Theme A).
