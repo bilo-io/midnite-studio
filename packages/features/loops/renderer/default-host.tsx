@@ -239,7 +239,7 @@ function DefaultExtrasComposer(props: LoopsExtrasComposerProps) {
 }
 
 /** Escape and an outside press close it; the app's layered rule set is Studio's. */
-function useDefaultDismissable({ open, surfaceRef, onDismiss }: Parameters<LoopsHost['useDismissable']>[0]): void {
+function useDefaultDismissable({ open, surfaceRef, trigger, onDismiss }: Parameters<LoopsHost['useDismissable']>[0]): void {
   const latest = useRef(onDismiss);
   latest.current = onDismiss;
   useEffect(() => {
@@ -249,7 +249,11 @@ function useDefaultDismissable({ open, surfaceRef, onDismiss }: Parameters<Loops
     };
     const onPointer = (event: PointerEvent) => {
       const surface = surfaceRef.current;
-      if (surface && event.target instanceof Node && !surface.contains(event.target)) latest.current();
+      if (!surface || !(event.target instanceof Node) || surface.contains(event.target)) return;
+      // A press on the trigger is the trigger's own toggle, not an outside press.
+      const opener = typeof trigger === 'function' ? trigger() : trigger && 'current' in trigger ? trigger.current : trigger;
+      if (opener?.contains(event.target)) return;
+      latest.current();
     };
     document.addEventListener('keydown', onKey);
     document.addEventListener('pointerdown', onPointer);
@@ -257,7 +261,7 @@ function useDefaultDismissable({ open, surfaceRef, onDismiss }: Parameters<Loops
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onPointer);
     };
-  }, [open, surfaceRef]);
+  }, [open, surfaceRef, trigger]);
 }
 
 export type DefaultLoopsHostOptions = {

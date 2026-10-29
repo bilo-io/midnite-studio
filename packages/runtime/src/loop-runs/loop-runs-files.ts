@@ -48,6 +48,9 @@ export const nullLoopRunsStore: LoopRunsStore = {
   save: async () => {},
 };
 
+/** `<appId>.json` — a stray backup or temp file is not an app's ledger. */
+const APP_FILE = /^[a-z][a-z0-9-]*\.json$/;
+
 type StoredState = { version: 1; runs: unknown[] };
 
 /** Drops one bad entry rather than the file. */
@@ -157,8 +160,9 @@ export function createLoopRunsFiles(options: LoopRunsFilesOptions): LoopRunsFile
       const state: StoredState = { version: 1, runs: [...trimmed] };
       try {
         await writePrivateFile(filePath, `${JSON.stringify(state, null, 2)}\n`);
-      } catch {
-        // A read-only data dir shouldn't take the app down.
+      } catch (err) {
+        // A read-only data dir shouldn't take the app down, but a ledger that cannot save should say so.
+        warn(`loop-runs: could not write ${filePath} (${String(err)})`);
       }
     },
 
@@ -170,7 +174,7 @@ export function createLoopRunsFiles(options: LoopRunsFilesOptions): LoopRunsFile
         return [];
       }
       const merged: LoopRunRecord[] = [];
-      for (const name of names.filter((entry) => entry.endsWith('.json')).sort()) {
+      for (const name of names.filter((entry) => APP_FILE.test(entry)).sort()) {
         const runs = await readFileRuns(join(directory, name));
         if (!runs) continue;
         const owner = name.slice(0, -'.json'.length);
@@ -183,8 +187,12 @@ export function createLoopRunsFiles(options: LoopRunsFilesOptions): LoopRunsFile
       try {
         await stat(filePath);
         return false; // This app already has a ledger; the old file is not read again.
-      } catch {
-        // No file yet — fall through.
+      } catch (err) {
+        // Only "no file yet" falls through; any other failure must not risk overwriting a ledger.
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          warn(`loop-runs: could not check ${filePath} (${String(err)}); not migrating`);
+          return false;
+        }
       }
       try {
         await stat(legacyFile);

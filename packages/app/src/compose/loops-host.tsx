@@ -72,8 +72,9 @@ export const STUDIO_LOOPS_HOST = {
   loopsState: () => useUiStore.getState(),
   useTerminal: (selector) => useTerminalStore(selector),
   terminalState: () => useTerminalStore.getState(),
-  startAgent: ({ extraArgs, ...input }) =>
-    Promise.resolve(startAgent({ ...input, ...(extraArgs !== undefined ? { extraArgs: [...extraArgs] } : {}) }).id),
+  // `async` so a synchronous throw from `startAgent` is a rejection the caller can handle.
+  startAgent: async ({ extraArgs, ...input }) =>
+    startAgent({ ...input, ...(extraArgs !== undefined ? { extraArgs: [...extraArgs] } : {}) }).id,
   renderTerminal: (props) => <StudioLoopTerminal {...props} />,
   renderCompanionLauncher: () => <CompanionLauncher />,
   companion: {

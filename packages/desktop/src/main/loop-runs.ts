@@ -74,7 +74,9 @@ async function ensureLoaded(): Promise<void> {
  */
 export async function listLoopRuns(): Promise<LoopRunRecord[]> {
   await ensureLoaded();
-  if (store.loadAll) return store.loadAll();
+  // Through the mutation queue, so a read never lands between a mutation and its save.
+  const loadAll = store.loadAll;
+  if (loadAll) return withLock(() => loadAll());
   return [...runs];
 }
 

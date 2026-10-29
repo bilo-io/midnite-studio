@@ -1093,7 +1093,7 @@ export const startStudioMain: StartStudioMain = () => {
             appId: 'studio',
             warn: (message) => defaultLogger.warn(message),
           });
-          await loopRunFiles.migrateFrom(join(userData, 'loop-runs.json'));
+          await loopRunFiles.migrateFrom(join(userData, 'loop-runs.json')).catch(() => false);
           loopRunFiles.onChanged(emitLoopRunsChanged);
           loopRunFiles.watch();
           app.on('will-quit', () => loopRunFiles.close());
