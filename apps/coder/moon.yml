@@ -1,7 +1,7 @@
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
 # Midnite Coder (Phase 113 Theme O) — the forge (Reviews, Actions), Tests, the API client, the
-# Database tool, Sessions and Tasks as their own app: `packages/features/{forge,tests,api-client,database,sessions,tasks}` +
+# Database tool, Sessions and Tasks as their own app (composed by `packages/modules/coder` since Phase 124 Theme C): `packages/features/{forge,tests,api-client,database,sessions,tasks}` +
 # `packages/frame` + `shared`, composed in src/.
 # `resources/icon.icns` is what makes a release pack it (`moon run launcher:icons` writes it from the launcher's tile logo).
 id: 'app-coder'
@@ -24,6 +24,7 @@ dependsOn:
   - 'feature-sessions'
   - 'feature-tasks'
   - 'feature-report'
+  - 'module-coder'
 
 tasks:
   build:
@@ -67,6 +68,9 @@ tasks:
       - '/packages/features/report/bridge.ts'
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
+      - '/packages/modules/coder/renderer/**/*'
+      - '/packages/modules/coder/main/**/*'
+      - '/packages/modules/coder/manifest.ts'
     outputs:
       - 'dist'
 
@@ -104,6 +108,9 @@ tasks:
       - '/packages/features/report/bridge.ts'
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
+      - '/packages/modules/coder/renderer/**/*'
+      - '/packages/modules/coder/main/**/*'
+      - '/packages/modules/coder/manifest.ts'
 
   test:
     inputs:
@@ -137,3 +144,6 @@ tasks:
       - '/packages/features/report/bridge.ts'
       - '/packages/git-engine/src/**/*'
       - '/packages/db-engine/src/**/*'
+      - '/packages/modules/coder/renderer/**/*'
+      - '/packages/modules/coder/main/**/*'
+      - '/packages/modules/coder/manifest.ts'

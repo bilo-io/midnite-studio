@@ -28,6 +28,9 @@ const common = {
     '@midnite/studio-feature-media-images/main': at('../../../packages/features/media-images/main/index.ts'),
     '@midnite/studio-feature-media-video/main': at('../../../packages/features/media-video/main/index.ts'),
     '@midnite/studio-feature-media-audio/main': at('../../../packages/features/media-audio/main/index.ts'),
+    // The Creator module's main half and bridge, from source (Phase 124 Theme C).
+    '@midnite/studio-module-creator/main': at('../../../packages/modules/creator/main/index.ts'),
+    '@midnite/studio-module-creator/bridge': at('../../../packages/modules/creator/main/bridge.ts'),
     // The channel names alone, by source path: the shared barrel drags every zod schema (~400 KB) into the preload.
     '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
     // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.

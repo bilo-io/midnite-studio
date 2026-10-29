@@ -2,7 +2,7 @@
   "name": "@midnite/app-coder",
   "version": "0.0.5",
   "private": true,
-  "description": "Midnite Coder — pull requests and reviews, CI runs, a repository's tests, its API collections and its databases, as their own app over the forge, tests, API client and Database features.",
+  "description": "Midnite Coder \u2014 pull requests and reviews, CI runs, a repository's tests, its API collections and its databases, as their own app over the forge, tests, API client and Database features.",
   "type": "module",
   "main": "src/index.ts",
   "scripts": {
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@bilo-io/ui": "0.2.0",
+    "@midnite/studio-db-engine": "workspace:*",
     "@midnite/studio-feature-api-client": "workspace:*",
     "@midnite/studio-feature-database": "workspace:*",
     "@midnite/studio-feature-forge": "workspace:*",
@@ -20,8 +21,8 @@
     "@midnite/studio-feature-tasks": "workspace:*",
     "@midnite/studio-feature-tests": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
-    "@midnite/studio-db-engine": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
+    "@midnite/studio-module-coder": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",

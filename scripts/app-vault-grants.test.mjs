@@ -99,9 +99,8 @@ describe('every app main reads the vault through the runtime host, behind its gr
   it('reaches it as a guest in every app that reads a key', () => {
     const guests = appMainFiles('connectRuntimeVault');
     for (const app of ['agents', 'coder', 'creator', 'gamer', 'media', 'money', 'vault']) {
-      // Vault's guest connection moved into its module (Phase 124 Theme D); the rest still live in apps.
-      const dirs = app === 'vault' ? ['packages/modules/vault/main/'] : [`apps/${app}/main/`];
-      expect(guests.some((f) => dirs.some((d) => f.startsWith(d)))).toBe(true);
+      // Vault's guest connection lives in its module since Phase 124 Theme D; Theme C's modules (coder, creator) hold theirs too.
+      expect(guests.some((f) => f.startsWith(`apps/${app}/main/`) || f.startsWith(`packages/modules/${app}/main/`))).toBe(true);
     }
   });
 });

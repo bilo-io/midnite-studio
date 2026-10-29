@@ -82,7 +82,13 @@
       "@midnite/studio-feature-media-model/sf3d-worker": ["./packages/features/media-model/main/model/sf3d/worker-entry.ts"],
       "@midnite/studio-feature-media-game/main": ["./packages/features/media-game/main/index.ts"],
       "@midnite/studio-feature-workflows/main": ["./packages/features/workflows/main/index.ts"],
-      "@midnite/studio-feature-mcp-tools/main": ["./packages/features/mcp-tools/main/index.ts"]
+      "@midnite/studio-feature-mcp-tools/main": ["./packages/features/mcp-tools/main/index.ts"],
+      "@midnite/studio-module-coder/main": ["./packages/modules/coder/main/index.ts"],
+      "@midnite/studio-module-coder/bridge": ["./packages/modules/coder/main/bridge.ts"],
+      "@midnite/studio-module-coder/manifest": ["./packages/modules/coder/manifest.ts"],
+      "@midnite/studio-module-creator/main": ["./packages/modules/creator/main/index.ts"],
+      "@midnite/studio-module-creator/bridge": ["./packages/modules/creator/main/bridge.ts"],
+      "@midnite/studio-module-creator/manifest": ["./packages/modules/creator/manifest.ts"]
     }
   }
 }

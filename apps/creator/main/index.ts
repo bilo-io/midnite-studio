@@ -28,8 +28,7 @@ import {
 import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 import { MSTUDIO_FILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
-import { creatorMediaRoot, registerCreatorHandlers } from './context';
-import { installCreatorFileProtocol } from './file-protocol';
+import { creatorMediaRoot, installCreatorFileProtocol, registerCreatorHandlers } from '@midnite/studio-module-creator/main';
 import { CREATOR_NAME, SMOKE_READY_LINE, USER_DATA_ENV, creatorUserData, isSmoke } from './identity';
 import { creatorPairing } from './pairing';
 
