@@ -3,7 +3,7 @@ import type { IconType } from 'react-icons';
 import { LuArrowUpRight, LuX } from 'react-icons/lu';
 
 import { FRAME_PARTS, MODULE_FEATURE_PREFIX, type AppFeature, type LauncherApp, type LegacyBundleAppId } from '../../common/catalog';
-import { replacesLine, swapOffer } from '../../common/migration';
+import { joinNames, replacesLine, swapOffer } from '../../common/migration';
 import { MODULE_GLYPHS } from '../app-glyphs';
 import { appNumber } from '../model';
 import type { AppView } from '../use-apps';
@@ -63,7 +63,7 @@ export function AppDetail({
   const closeRef = useRef<HTMLButtonElement>(null);
   const groups = featureGroups(app);
   const canOpen = view.state === 'installed' || view.state === 'update';
-  const offer = swapOffer(view.replaces, canOpen);
+  const offer = swapOffer(view.replaces, canOpen && view.source === 'bundle');
   const homeFeature = app.features.find((f) => JSON.stringify(f.target) === JSON.stringify(app.home));
 
   useEffect(() => {
@@ -112,8 +112,8 @@ export function AppDetail({
             <h3 className="eyebrow">{replacesLine(view.replaces)}</h3>
             <p className="sheet-note">
               {offer === 'install-host'
-                ? `Midnite ${app.name} now carries what ${view.replaces.map((r) => r.name).join(' and ')} did. Install it to move over; your old app keeps working until then.`
-                : `Midnite ${app.name} has everything ${view.replaces.map((r) => r.name).join(' and ')} had. Your data is already here; the old app can go.`}
+                ? `Midnite ${app.name} now carries what ${joinNames(view.replaces)} did. Install it to move over; your old app keeps working until then.`
+                : `Midnite ${app.name} has everything ${joinNames(view.replaces)} had. Your data is already here; the old app can go.`}
             </p>
             {offer === 'remove-old' &&
               view.replaces.map((r) => (

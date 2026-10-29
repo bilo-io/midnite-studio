@@ -71,7 +71,9 @@ export function studioUrlFor(target: MidniteLinkTarget): string {
 export async function routeTarget(target: MidniteLinkTarget, deps: RouterDeps): Promise<RouteDecision> {
   let bundle = target.run === undefined ? await deps.findAppBundle(target.app) : null;
   // The host is not installed but the app it replaced still is: keep the old link working.
-  if (bundle === null && target.run === undefined && target.legacyApp !== undefined) {
+  // A link that carries a view, page or resource goes to Studio instead: an old bundle would drop it.
+  const carriesTarget = target.view !== undefined || target.page !== undefined || target.ref !== undefined;
+  if (bundle === null && target.run === undefined && !carriesTarget && target.legacyApp !== undefined) {
     bundle = await deps.findAppBundle(target.legacyApp);
   }
   if (bundle !== null) return { kind: 'bundle', path: bundle };

@@ -24,12 +24,17 @@ export function replacedBundles(host: AppId, apps: AppsStatus | null): ReplacedB
   });
 }
 
+/** `Coder`, `Coder and Creator`, `Coder, Creator and Vault`. */
+export function joinNames(replaced: readonly ReplacedBundle[]): string {
+  const names = replaced.map((r) => r.name);
+  const last = names.pop();
+  return names.length === 0 ? (last ?? '') : `${names.join(', ')} and ${last}`;
+}
+
 /** `Replaces Coder`, `Replaces Cleaner and Vault`, `Replaces Coder, Creator and Vault`. */
 export function replacesLine(replaced: readonly ReplacedBundle[]): string | null {
   if (replaced.length === 0) return null;
-  const names = replaced.map((r) => r.name);
-  const last = names.pop();
-  return `Replaces ${names.length === 0 ? last : `${names.join(', ')} and ${last}`}`;
+  return `Replaces ${joinNames(replaced)}`;
 }
 
 /**

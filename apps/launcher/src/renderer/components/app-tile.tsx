@@ -68,9 +68,7 @@ export function AppTile({ app, view, handlers, menuItems }: TileProps) {
         </ul>
       )}
 
-      {replacesLine(view.replaces) !== null && (
-        <p className="tile-replaces">{replacesLine(view.replaces)}</p>
-      )}
+      {view.replaces.length > 0 && <p className="tile-replaces">{replacesLine(view.replaces)}</p>}
 
       <ul className="tile-features" aria-label={`Midnite ${app.name} features`}>
         {app.features.map((f) => (

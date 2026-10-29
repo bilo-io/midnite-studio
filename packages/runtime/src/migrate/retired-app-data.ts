@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, normalize } from 'node:path';
 
 import { RETIRED_APP_ALIASES, type ModuleHostId, type RetiredAppId } from '@midnite/studio-shared';
@@ -90,7 +90,12 @@ export function importRetiredAppData(opts: {
           continue;
         }
         mkdirSync(dirname(to), { recursive: true });
-        cpSync(from, to, { recursive: true, errorOnExist: true, force: false });
+        // Into a temp name, then a rename: an interrupted copy never leaves a half-filled entry that a
+        // later launch would take for a finished one.
+        const partial = `${to}.importing`;
+        rmSync(partial, { recursive: true, force: true });
+        cpSync(from, partial, { recursive: true, verbatimSymlinks: true });
+        renameSync(partial, to);
         copied.push(entry);
       }
       mkdirSync(dirname(marker), { recursive: true });
