@@ -73,4 +73,26 @@ describe('midnite:// links', () => {
     expect(parseMidniteLink('midnite://open?app=coder&view=anything')).toEqual({ app: 'coder', view: 'anything' });
     expect(parseMidniteLink('midnite://open?app=coder&view=a%20b')).toEqual({ app: 'coder' });
   });
+  describe('module param (Phase 124 Theme E)', () => {
+    it('round-trips a module the app hosts, ahead of view', () => {
+      const link = midniteOpenLink({ app: 'vanguard', module: 'vault', view: 'vault' });
+      expect(link).toBe('midnite://open?app=vanguard&module=vault&view=vault');
+      expect(parseMidniteLink(link)).toEqual({ app: 'vanguard', module: 'vault', view: 'vault' });
+    });
+
+    it('parses a module-only link and stays optional for every older link', () => {
+      expect(parseMidniteLink('midnite://open?app=agents&module=creator')).toEqual({ app: 'agents', module: 'creator' });
+      expect(parseMidniteLink('midnite://open?app=agents&view=chats')).toEqual({ app: 'agents', view: 'chats' });
+    });
+
+    it('drops a module the app does not carry, or an unknown one, and still opens the app', () => {
+      expect(parseMidniteLink('midnite://open?app=media&module=vault')).toEqual({ app: 'media' });
+      expect(parseMidniteLink('midnite://open?app=agents&module=nope')).toEqual({ app: 'agents' });
+      expect(parseMidniteLink('midnite://open?app=coder&module=coder')).toEqual({ app: 'coder' });
+    });
+
+    it('lets Studio address any module', () => {
+      expect(parseMidniteLink('midnite://open?app=studio&module=capture')).toEqual({ app: 'studio', module: 'capture' });
+    });
+  });
 });

@@ -16,6 +16,7 @@ dependsOn:
   - 'feature-report'
   - 'feature-media-core'
   - 'feature-media-library'
+  - 'module-media'
 
 tasks:
   build:
@@ -45,6 +46,9 @@ tasks:
       - '/packages/features/media-library/manifest.ts'
       - '/packages/features/media-library/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/media/main/**/*'
+      - '/packages/modules/media/renderer/**/*'
+      - '/packages/modules/media/manifest.ts'
     outputs:
       - 'dist'
 
@@ -68,6 +72,9 @@ tasks:
       - '/packages/features/media-library/manifest.ts'
       - '/packages/features/media-library/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/media/main/**/*'
+      - '/packages/modules/media/renderer/**/*'
+      - '/packages/modules/media/manifest.ts'
 
   test:
     inputs:
@@ -87,3 +94,6 @@ tasks:
       - '/packages/features/media-library/manifest.ts'
       - '/packages/features/media-library/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/media/main/**/*'
+      - '/packages/modules/media/renderer/**/*'
+      - '/packages/modules/media/manifest.ts'

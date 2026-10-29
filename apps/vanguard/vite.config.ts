@@ -13,6 +13,7 @@ export default defineConfig({
   css: { postcss: at('./') },
   resolve: {
     alias: {
+      '@midnite/studio-module-vanguard/renderer': at('../../packages/modules/vanguard/renderer/index.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
       '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),

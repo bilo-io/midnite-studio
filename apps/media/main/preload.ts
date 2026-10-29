@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { createMediaBridge } from './bridge';
+import { createMediaBridge } from '@midnite/studio-module-media/bridge';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Media exposes the slice it needs.
 try {

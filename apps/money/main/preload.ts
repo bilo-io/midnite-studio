@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { createMoneyBridge } from './bridge';
+import { createMoneyBridge } from '@midnite/studio-module-money/bridge';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Money exposes the slice it needs.
 try {

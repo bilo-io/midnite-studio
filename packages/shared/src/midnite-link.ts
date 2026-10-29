@@ -1,5 +1,5 @@
 /**
- * `midnite://open?app=<id>[&view=<ViewId>][&tab=<MediaTab>|&page=<SettingsPageId>]` — the one
+ * `midnite://open?app=<id>[&module=<ModuleId>][&view=<ViewId>][&tab=<MediaTab>|&page=<SettingsPageId>]` — the one
  * link that opens any midnite app, spelled once for both ends of it (Phase 113 Theme D).
  *
  * Where `midnite-studio://` can only ever land in Studio, `midnite://` names the *app* and lets
@@ -19,6 +19,7 @@
 import type { PlacementAppId } from './domain/placement';
 import type { SettingsPageId, ViewId } from './domain/view';
 import type { MediaTab } from './media';
+import { APP_MODULES, MODULE_IDS, type ModuleHostId, type ModuleId } from './modules';
 
 export const MIDNITE_PROTOCOL = 'midnite:' as const;
 
@@ -51,6 +52,12 @@ export const _allAppsListed: _AllAppsListed = true;
 
 export type MidniteLinkTarget = {
   app: MidniteAppId;
+  /**
+   * A module of the app (Phase 124 Theme E): lands on that module's nav group. Only kept when the
+   * app hosts it (`APP_MODULES`); a link naming a module its app does not carry drops the param and
+   * still opens the app.
+   */
+  module?: ModuleId;
   view?: ViewId;
   /** Only with `view: 'media'`, as in `studioViewLink`; ignored by `page`. */
   tab?: MediaTab;
@@ -80,6 +87,7 @@ export type MidniteLinkVocabulary = {
 
 export function midniteOpenLink(target: MidniteLinkTarget): string {
   const params = new URLSearchParams({ app: target.app });
+  if (target.module !== undefined) params.set('module', target.module);
   if (target.view !== undefined) params.set('view', target.view);
   if (target.page !== undefined) params.set('page', target.page);
   else if (target.tab !== undefined && target.view === 'media') params.set('tab', target.tab);
@@ -120,6 +128,7 @@ export function parseMidniteLink(raw: unknown, vocabulary: MidniteLinkVocabulary
     if (value === null || !SLUG.test(value)) return undefined;
     return allowed === undefined || allowed.includes(value) ? value : undefined;
   };
+  const module = pick('module', MODULE_IDS);
   const view = pick('view', vocabulary.views);
   const tab = pick('tab', vocabulary.tabs);
   const page = pick('page', vocabulary.pages);
@@ -129,8 +138,15 @@ export function parseMidniteLink(raw: unknown, vocabulary: MidniteLinkVocabulary
   const run = url.searchParams.get('run');
   if (run !== null && RUN_PARAM.test(run)) target.run = run;
 
+  if (module !== undefined && hostsModule(target.app, module as ModuleId)) target.module = module as ModuleId;
   if (view !== undefined) target.view = view as ViewId;
   if (page !== undefined && (view === undefined || view === 'settings')) target.page = page as SettingsPageId;
   else if (tab !== undefined && view === 'media') target.tab = tab as MediaTab;
   return target;
+}
+
+/** Whether `app` carries `module`: a host lists it in `APP_MODULES`; an app that is no host (a retired id) carries none. */
+function hostsModule(app: MidniteAppId, module: ModuleId): boolean {
+  const modules = (APP_MODULES as Record<string, readonly ModuleId[] | undefined>)[app as ModuleHostId];
+  return modules?.includes(module) ?? false;
 }

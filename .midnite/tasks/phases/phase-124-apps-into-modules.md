@@ -91,8 +91,18 @@ argument so Tailwind scans module renderers; `tsconfig.base.json` maps module ma
 vault-grants and moon-input guards now scan `packages/modules/*/main` too. Surprise: B's `runtime:build` type
 error (fixed on #1060) blocked every project that builds the runtime.
 
-**Theme E — Hosts are built from modules.** ◻ Every suite app (its own features included, e.g. a `gamer`
+**Theme E — Hosts are built from modules.** 🔄 Every suite app (its own features included, e.g. a `gamer`
 module) is a list of modules rendered as nav groups in Phase 123's `AppShell`; Studio composes all of them.
+Landed: E.4 (`midnite://open` takes `&module=<ModuleId>`, kept only when `APP_MODULES` says the app hosts it; the
+launcher router does not act on it yet), E.5 (`STUDIO_MODULES` plus an "every module is listed" test; the bare
+`STUDIO_FEATURES` list stays complete because `packages/app` still composes features directly), and the mechanism
+half of E.2 (`NavConfig.groups`, `navFromGroups`, `AppShell` renders one titled section per group). E.1 landed for
+Vanguard, Money and Media only (`packages/modules/{vanguard,money,media}`: renderer + bridge/context main halves
+moved out of the hosts, no `module.ts` yet). Open: E.1 for Agents, Gamer, Mind and Browser (Mind's main needs the
+`knowledge` engine, which a module may not import; Gamer and Agents carry workers, a dugite stub and the agent
+host; Browser's `layer-boundaries` fixture points at its `src/browser-app.tsx`), E.2 per-host `groups`, and E.3
+(mounting other modules in a host, `mountModuleMains`, preload bridge unions). Surprise: the four app manifest
+tests Theme D left behind imported a moved file and were failing on main; they now live in the modules.
 
 **Theme F — Launcher and catalog.** ✅ Eleven tiles, each with `modules` (the host's own first, absorbed apps
 folded in with their old tagline and vision); module chips on multi-module tiles, the detail sheet grouped by
@@ -176,10 +186,10 @@ release, icon and test legs are deleted.
 - [ ] **E.3** Wire the hosts: Agents ← coder, creator · Media ← creator · Gamer ← creator · Vanguard ←
   vault, cleaner, monitor · Mind ← capture. Each host's `main/index.ts` mounts its modules' main halves;
   each preload exposes the union of their bridge slices. `[L]`
-- [ ] **E.4** `midnite://open` links address a module: a new optional `&module=<ModuleId>` param on
+- [x] **E.4** `midnite://open` links address a module: a new optional `&module=<ModuleId>` param on
   `midnite://open?app=<id>[&view=<ViewId>]` lands on that nav group (`buildMidniteLink` / its parser in
   [`midnite-link.ts`](../../../packages/shared/src/midnite-link.ts)). `[M]`
-- [ ] **E.5** Studio's [`composition.ts`](../../../apps/studio/src/composition.ts) lists modules rather than
+- [x] **E.5** Studio's [`composition.ts`](../../../apps/studio/src/composition.ts) lists modules rather than
   bare features where a module exists; the "every feature is listed" test becomes "every module is
   listed". Studio's visual baselines do not move. `[M]`
 

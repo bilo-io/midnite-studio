@@ -8,7 +8,7 @@ import type { Config } from 'tailwindcss';
  */
 const config: Config = {
   presets: [frameTailwindPreset],
-  content: frameContent(__dirname, ['vanguard']),
+  content: frameContent(__dirname, ['vanguard'], ['vanguard']),
 };
 
 export default config;

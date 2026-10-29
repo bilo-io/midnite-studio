@@ -11,9 +11,9 @@ describe('buildTypecheckTargets', () => {
     ]);
   });
 
-  it('maps all 46 NODE_PROJECTS', () => {
+  it('maps all 49 NODE_PROJECTS', () => {
     const targets = buildTypecheckTargets(NODE_PROJECTS, projectDir, '/repo');
-    expect(targets).toHaveLength(46);
+    expect(targets).toHaveLength(49);
     expect(targets.every((t) => t.configPath.endsWith('tsconfig.json'))).toBe(true);
   });
 });

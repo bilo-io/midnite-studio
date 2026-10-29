@@ -20,6 +20,8 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-module-media/bridge': at('../../../packages/modules/media/main/bridge.ts'),
+    '@midnite/studio-module-media/main': at('../../../packages/modules/media/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
     '@midnite/studio-feature-media-library/main': at('../../../packages/features/media-library/main/index.ts'),
     // The channel names alone, by source path: the shared barrel drags every zod schema (~400 KB) into the preload.
