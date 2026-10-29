@@ -74,7 +74,7 @@ import { configureKnowledge, registerKnowledgeHandlers } from './ipc/knowledge-h
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
 import { createCompanionStore } from '@midnite/studio-feature-companion/main/companion-store';
 import { configureCompanion } from '@midnite/studio-feature-companion/main/digest';
-import { configureLocalStt, configureStt } from '@midnite/studio-feature-companion/main/stt';
+import { configureLocalStt, configureStt } from '@midnite/studio-feature-companion/main/stt/index';
 import { configureCompanionTtsBroker, disposeCompanionTtsBroker } from '@midnite/studio-feature-companion/main/tts-broker';
 import { createSttCredentials } from '@midnite/studio-feature-companion/main/stt/credentials';
 import { configureUiBridge } from '@midnite/studio-feature-companion/main/ui-bridge';

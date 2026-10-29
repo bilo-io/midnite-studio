@@ -9,20 +9,15 @@ const alias = {
   '@midnite/studio-runtime': fileURLToPath(new URL('../../runtime/src/index.ts', import.meta.url)),
 };
 
-// Two projects: the renderer needs jsdom and a host installed before every test; main is plain Node.
+// One flat project (the root node gate loads each package's config as a project and cannot nest more):
+// the renderer needs jsdom and a host before every test, so the main half's tests opt into node with a
+// `@vitest-environment node` docblock.
 export default defineConfig({
   plugins: [react()],
   resolve: { alias },
   test: {
-    projects: [
-      {
-        extends: true,
-        test: { name: 'renderer', include: ['renderer/**/*.test.{ts,tsx}'], environment: 'jsdom', setupFiles: ['./renderer/test-setup.ts'] },
-      },
-      {
-        extends: true,
-        test: { name: 'main', include: ['main/**/*.test.ts', 'manifest.test.ts'], environment: 'node' },
-      },
-    ],
+    include: ['renderer/**/*.test.{ts,tsx}', 'main/**/*.test.ts', 'manifest.test.ts'],
+    environment: 'jsdom',
+    setupFiles: ['./renderer/test-setup.ts'],
   },
 });

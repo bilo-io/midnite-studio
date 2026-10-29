@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 
 import { CHANNELS, EVENT_CHANNELS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
