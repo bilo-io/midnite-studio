@@ -2,6 +2,7 @@ import type { LauncherApp } from '../../common/catalog';
 import { appNumber } from '../model';
 import type { AppView } from '../use-apps';
 import { AppIcon } from './app-icon';
+import { MODULE_GLYPHS } from '../app-glyphs';
 import { AppMenu, type MenuItem } from './app-menu';
 import { PrimaryAction, type ActionHandlers } from './primary-action';
 import { StatusPill } from './status-pill';
@@ -51,6 +52,20 @@ export function AppTile({ app, view, handlers, menuItems }: TileProps) {
           <span className="tile-like">{app.like}</span>
         </span>
       </button>
+
+      {app.modules.length > 1 && (
+        <ul className="tile-modules" aria-label={`Midnite ${app.name} modules`}>
+          {app.modules.map((m) => {
+            const Glyph = MODULE_GLYPHS[m.id];
+            return (
+              <li key={m.id} className="module-chip" data-soon={m.comingSoon || undefined}>
+                <Glyph size={12} aria-hidden="true" />
+                {m.name}
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <ul className="tile-features" aria-label={`Midnite ${app.name} features`}>
         {app.features.map((f) => (

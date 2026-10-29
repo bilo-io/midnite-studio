@@ -1177,3 +1177,57 @@ button:disabled {
     width: 180px;
   }
 }
+
+/* Phase 124 Theme F — module chips on a tile, module groups on the detail sheet. */
+.tile-modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0 20px;
+  list-style: none;
+}
+
+.module-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.module-chip[data-soon] {
+  border-style: dashed;
+  color: var(--fg-subtle);
+  font-weight: 400;
+}
+
+.module-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.module-head .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.module-soon {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px dashed var(--line);
+  color: var(--fg-subtle);
+  font-weight: 400;
+}
+
+.module-tagline {
+  margin: 4px 0 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+}

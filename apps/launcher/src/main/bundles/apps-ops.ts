@@ -1,4 +1,4 @@
-import { APP_IDS, type AppId } from '../../common/catalog';
+import { BUNDLE_APP_IDS, type AppId, type BundleAppId } from '../../common/catalog';
 import type { AppInstallProgress, AppsStatus, LauncherResult } from '../../common/bridge';
 import type { Catalog } from '../../common/catalog-feed';
 import type { InstalledState } from '../../common/installed-state';
@@ -46,9 +46,9 @@ export function createAppsOps(deps: AppsOpsDeps) {
     },
 
     /** Install and update are one operation: verify-then-swap over whatever is there. */
-    async install(raw: AppId): Promise<LauncherResult> {
+    async install(raw: BundleAppId): Promise<LauncherResult> {
       try {
-        const identity = (APP_IDS as readonly string[]).includes(raw) ? deps.identityFor(raw) : null;
+        const identity = (BUNDLE_APP_IDS as readonly string[]).includes(raw) ? deps.identityFor(raw) : null;
         if (identity === null) return fail('Midnite Studio installs as a full app, not a bundle.');
         const bundleDeps = deps.bundleDeps();
         if (bundleDeps === null) return fail('Installing apps needs the packaged Midnite Apps launcher.');
@@ -59,7 +59,7 @@ export function createAppsOps(deps: AppsOpsDeps) {
         }
         return await deps.install(entry, identity, {
           ...bundleDeps,
-          onProgress: (progress) => deps.onProgress?.({ id: raw, progress }),
+          onProgress: (progress) => deps.onProgress?.({ id: raw as AppId, progress }),
         });
       } catch (error) {
         return fail(asMessage(error));
@@ -67,9 +67,9 @@ export function createAppsOps(deps: AppsOpsDeps) {
     },
 
     /** Removes exactly this app's bundle + stub + record. Studio has its own uninstall. */
-    async uninstall(raw: AppId): Promise<LauncherResult> {
+    async uninstall(raw: BundleAppId): Promise<LauncherResult> {
       try {
-        const identity = (APP_IDS as readonly string[]).includes(raw) ? deps.identityFor(raw) : null;
+        const identity = (BUNDLE_APP_IDS as readonly string[]).includes(raw) ? deps.identityFor(raw) : null;
         if (identity === null) return fail('Use Midnite Studio’s own Move to Trash for Studio.');
         const bundleDeps = deps.bundleDeps();
         if (bundleDeps === null) return fail('Removing apps needs the packaged Midnite Apps launcher.');

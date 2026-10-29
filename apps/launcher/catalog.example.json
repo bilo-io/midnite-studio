@@ -11,6 +11,76 @@
       "minimumRuntimeVersion": "0.1.0",
       "releasedAt": "2026-10-14T09:00:00Z",
       "notesUrl": "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-studio/v0.1.0"
+    },
+    {
+      "id": "agents",
+      "version": "0.1.0",
+      "bundleUrl": "https://github.com/bilo-io/midnite-apps/releases/download/midnite-agents/v0.1.0/midnite-agents-0.1.0-arm64.zip",
+      "size": 61865984,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "minimumRuntimeVersion": "0.1.0",
+      "releasedAt": "2026-10-14T09:00:00Z",
+      "notesUrl": "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-agents/v0.1.0"
+    },
+    {
+      "id": "gamer",
+      "version": "0.1.0",
+      "bundleUrl": "https://github.com/bilo-io/midnite-apps/releases/download/midnite-gamer/v0.1.0/midnite-gamer-0.1.0-arm64.zip",
+      "size": 61865984,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "minimumRuntimeVersion": "0.1.0",
+      "releasedAt": "2026-10-14T09:00:00Z",
+      "notesUrl": "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-gamer/v0.1.0"
+    },
+    {
+      "id": "media",
+      "version": "0.1.0",
+      "bundleUrl": "https://github.com/bilo-io/midnite-apps/releases/download/midnite-media/v0.1.0/midnite-media-0.1.0-arm64.zip",
+      "size": 61865984,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "minimumRuntimeVersion": "0.1.0",
+      "releasedAt": "2026-10-14T09:00:00Z",
+      "notesUrl": "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-media/v0.1.0"
+    },
+    {
+      "id": "money",
+      "version": "0.1.0",
+      "bundleUrl": "https://github.com/bilo-io/midnite-apps/releases/download/midnite-money/v0.1.0/midnite-money-0.1.0-arm64.zip",
+      "size": 61865984,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "minimumRuntimeVersion": "0.1.0",
+      "releasedAt": "2026-10-14T09:00:00Z",
+      "notesUrl": "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-money/v0.1.0"
+    },
+    {
+      "id": "mind",
+      "version": "0.1.0",
+      "bundleUrl": "https://github.com/bilo-io/midnite-apps/releases/download/midnite-mind/v0.1.0/midnite-mind-0.1.0-arm64.zip",
+      "size": 61865984,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "minimumRuntimeVersion": "0.1.0",
+      "releasedAt": "2026-10-14T09:00:00Z",
+      "notesUrl": "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-mind/v0.1.0"
+    },
+    {
+      "id": "browser",
+      "version": "0.1.0",
+      "bundleUrl": "https://github.com/bilo-io/midnite-apps/releases/download/midnite-browser/v0.1.0/midnite-browser-0.1.0-arm64.zip",
+      "size": 61865984,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "minimumRuntimeVersion": "0.1.0",
+      "releasedAt": "2026-10-14T09:00:00Z",
+      "notesUrl": "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-browser/v0.1.0"
+    },
+    {
+      "id": "vanguard",
+      "version": "0.1.0",
+      "bundleUrl": "https://github.com/bilo-io/midnite-apps/releases/download/midnite-vanguard/v0.1.0/midnite-vanguard-0.1.0-arm64.zip",
+      "size": 61865984,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "minimumRuntimeVersion": "0.1.0",
+      "releasedAt": "2026-10-14T09:00:00Z",
+      "notesUrl": "https://github.com/bilo-io/midnite-apps/releases/tag/midnite-vanguard/v0.1.0"
     }
   ]
 }

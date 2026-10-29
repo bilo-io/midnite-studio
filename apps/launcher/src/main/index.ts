@@ -4,7 +4,7 @@ import { createLinkRateLimiter } from '@midnite/studio-shared/page-deep-link';
 import { app, BrowserWindow, Menu, shell } from 'electron';
 
 import { LAUNCHER_CHANNELS } from '../common/bridge';
-import type { AppId } from '../common/catalog';
+import { tileIdFor } from '../common/catalog';
 import { lockstepBundleFinder } from './bundles/open';
 import { productionBundleRoots } from './bundles/layout';
 import { createAppsOps } from './bundles/apps-ops';
@@ -116,8 +116,11 @@ function openLink(raw: string): void {
     {
       openBundle: (path) => shell.openPath(path).then((error) => (error === '' ? undefined : Promise.reject(new Error(error)))),
       openStudioUrl: (url) => shell.openExternal(url),
-      showDetail: (id: AppId) => {
+      showDetail: (requested) => {
         bringForward();
+        // A retired app's id shows its host's tile (Phase 124): the tile that carries it now.
+        const id = tileIdFor(requested);
+        if (id === null) return;
         const send = () => mainWindow?.webContents.send(LAUNCHER_CHANNELS.appShow, id);
         // A window still loading has no listener yet: park it for the renderer to take on mount.
         if (mainWindow === null || mainWindow.webContents.isLoading()) takePendingApp(id);
