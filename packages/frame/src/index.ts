@@ -458,3 +458,23 @@ export {
   type ShapeKind,
   type Vec3,
 } from './audio/epic-audio-player';
+
+// ── the status bar host (Phase 123 Theme J) ──────────────────────────────────
+export { collapseFor, densityFor, type CollapsibleSegment, type Density, type WidthSample } from './lib/density';
+export { StatusBar, type StatusBarProps } from './shell/status-bar/status-bar';
+export type { StatusGroup, StatusSegment, StatusZone } from './shell/status-bar/segments';
+export { withSeparators, strandedSeparators, type RenderItem, type RenderedKind } from './shell/status-bar/segments-groups';
+export { OverflowPopover } from './shell/status-bar/overflow-popover';
+export { useZoneDensities, type ZoneDensities } from './shell/status-bar/use-overflow';
+export { StatusToggle, type StatusToggleProps } from './shell/status-bar/status-toggle';
+export { showsName, showsNameAt, type ToggleLabelState } from './shell/status-bar/status-toggle-label';
+export { StatusSeparator } from './shell/status-bar/status-separator';
+export {
+  DEFAULT_STATUS_BAR_CHROME,
+  StatusBarChromeProvider,
+  useStatusBarChrome,
+  type StatusBarChrome,
+  type StatusBarPopoverProps,
+  type StatusBarTooltipProps,
+} from './shell/status-bar/status-bar-chrome';
+export { SUITE_SEGMENT_META, suiteSegments, type AppPanels, type SuitePanel } from './shell/status-bar/suite-segments';
