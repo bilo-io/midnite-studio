@@ -73,8 +73,9 @@ export const STUDIO_COMPANION_HOST: CompanionHost = {
   agentProbeStatus: () => useAgentProbeStore.getState().status,
   terminal: {
     store: useTerminalStore as unknown as CompanionHost['terminal']['store'],
-    startAgent: startAgent as CompanionHost['terminal']['startAgent'],
-    skillHandoff: skillHandoff as CompanionHost['terminal']['skillHandoff'],
+    // Called through a closure so the host is built without touching either module's exports.
+    startAgent: (input) => (startAgent as CompanionHost['terminal']['startAgent'])(input),
+    skillHandoff: (options, context) => (skillHandoff as CompanionHost['terminal']['skillHandoff'])(options, context),
   },
   screensaver: {
     SysmonWidget: LockScreenSysmonWidget,
