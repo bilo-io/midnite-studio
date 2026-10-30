@@ -1,4 +1,4 @@
-import { planHandoff, type HandoffRequest, type MidniteAppId } from '@midnite/studio-shared';
+import { planHandoff, type HandoffRequest, type HandoffAppId } from '@midnite/studio-shared';
 
 import { bridge } from '../bridge';
 
@@ -18,7 +18,7 @@ export type AppHandoffOutcome =
 
 export type AppHandoffDeps = {
   /** The apps this process hosts — usually just itself. */
-  hosted: ReadonlySet<MidniteAppId>;
+  hosted: ReadonlySet<HandoffAppId>;
   /** In-process navigation for a hosted target; absent, a local request is refused. */
   navigate?: (request: HandoffRequest) => void;
   /** Opens a `midnite://` link; defaults to the bridge's `handoff.open`. */

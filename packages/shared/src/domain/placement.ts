@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { APP_MODULES, MODULE_HOST_IDS, RETIRED_APP_ALIASES, type ModuleHostId, type ModuleId, type RetiredAppId } from '../modules';
+
 /**
  * The Phase 113 placement map — which layer owns each renderer feature folder.
  * `docs/APPS.md` is the prose; this const is its machine-readable twin, and
@@ -170,4 +172,34 @@ export function featurePackagePlacement(name: string): Placement | undefined {
 /** The layer(s) that own a feature, owner first. */
 export function placementOwners(placement: Placement): readonly PlacementLayer[] {
   return typeof placement === 'string' ? [placement] : placement;
+}
+
+/**
+ * Phase 124 Theme G: where a placement layer lives now that apps are lists of modules. A layer
+ * names the module (or retired app) that owns a folder; the host apps are the apps whose module
+ * list carries it, in `MODULE_HOST_IDS` order and without Studio (which carries everything).
+ * `frame` is every app's, so it has no host of its own. `creator` is mounted in three.
+ */
+export function placementHosts(layer: PlacementLayer): readonly ModuleHostId[] {
+  if (layer === 'frame') return [];
+  return MODULE_HOST_IDS.filter((host) => host !== 'studio' && APP_MODULES[host].includes(layer as ModuleId));
+}
+
+/** The host app(s) of a folder: each owner's hosts, deduplicated, owner's first. */
+export function placementHostApps(placement: Placement): readonly ModuleHostId[] {
+  const hosts: ModuleHostId[] = [];
+  for (const owner of placementOwners(placement)) {
+    for (const host of placementHosts(owner)) if (!hosts.includes(host)) hosts.push(host);
+  }
+  return hosts;
+}
+
+/** `FEATURE_PLACEMENT` re-expressed on host apps: `forge -> ['agents']`, `media -> ['agents', 'media', 'gamer']`. */
+export const FEATURE_HOSTS: Readonly<Record<PlacedFeature, readonly ModuleHostId[]>> = Object.fromEntries(
+  (Object.keys(FEATURE_PLACEMENT) as PlacedFeature[]).map((folder) => [folder, placementHostApps(FEATURE_PLACEMENT[folder])]),
+) as Record<PlacedFeature, readonly ModuleHostId[]>;
+
+/** The host an installed retired app counts as: Coder installed is Agents' work installed. */
+export function retiredAppHost(app: string): ModuleHostId | undefined {
+  return Object.hasOwn(RETIRED_APP_ALIASES, app) ? RETIRED_APP_ALIASES[app as RetiredAppId].app : undefined;
 }

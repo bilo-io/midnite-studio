@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import type { IconType } from 'react-icons';
 import { LuArrowUpRight, LuX } from 'react-icons/lu';
 
-import { FRAME_PARTS, MODULE_FEATURE_PREFIX, type AppFeature, type LauncherApp } from '../../common/catalog';
+import { FRAME_PARTS, MODULE_FEATURE_PREFIX, type AppFeature, type LauncherApp, type LegacyBundleAppId } from '../../common/catalog';
+import { joinNames, replacesLine, swapOffer } from '../../common/migration';
 import { MODULE_GLYPHS } from '../app-glyphs';
 import { appNumber } from '../model';
 import type { AppView } from '../use-apps';
@@ -49,16 +50,20 @@ export function AppDetail({
   app,
   view,
   handlers,
+  onRemoveReplaced,
   onClose,
 }: {
   app: LauncherApp;
   view: AppView;
   handlers: ActionHandlers;
+  /** Moves a retired app's old bundle to the Trash (offered once this host is installed). */
+  onRemoveReplaced?: (id: LegacyBundleAppId) => void;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const groups = featureGroups(app);
   const canOpen = view.state === 'installed' || view.state === 'update';
+  const offer = swapOffer(view.replaces, canOpen && view.source === 'bundle');
   const homeFeature = app.features.find((f) => JSON.stringify(f.target) === JSON.stringify(app.home));
 
   useEffect(() => {
@@ -101,6 +106,23 @@ export function AppDetail({
           <StatusPill state={view.state} installing={view.installing} />
           <PrimaryAction app={app} view={view} handlers={handlers} />
         </div>
+
+        {offer !== null && (
+          <section className="sheet-section sheet-swap" aria-label="Replaces an installed app">
+            <h3 className="eyebrow">{replacesLine(view.replaces)}</h3>
+            <p className="sheet-note">
+              {offer === 'install-host'
+                ? `Midnite ${app.name} now carries what ${joinNames(view.replaces)} did. Install it to move over; your old app keeps working until then.`
+                : `Midnite ${app.name} has everything ${joinNames(view.replaces)} had. Your data is already here; the old app can go.`}
+            </p>
+            {offer === 'remove-old' &&
+              view.replaces.map((r) => (
+                <button key={r.id} type="button" className="btn" onClick={() => onRemoveReplaced?.(r.id)}>
+                  Move Midnite {r.name} to Trash
+                </button>
+              ))}
+          </section>
+        )}
 
         <section className="sheet-section">
           <h3 className="eyebrow">Vision</h3>

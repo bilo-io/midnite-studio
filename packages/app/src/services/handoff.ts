@@ -1,8 +1,9 @@
 import {
   MIDNITE_APP_IDS,
+  RETIRED_APP_IDS,
   planHandoff,
   type HandoffRequest,
-  type MidniteAppId,
+  type HandoffAppId,
   type ResourceRef,
 } from '@midnite/studio-shared';
 
@@ -20,7 +21,7 @@ import { useUiStore } from '../store/ui-store';
  * standalone app would host only itself plus the frame; a hand-off to anything else becomes
  * `external` and goes to the transport below as a `midnite://open` link, for the launcher's router.
  */
-export const STUDIO_HOSTED_APPS: ReadonlySet<MidniteAppId> = new Set(MIDNITE_APP_IDS);
+export const STUDIO_HOSTED_APPS: ReadonlySet<HandoffAppId> = new Set<HandoffAppId>([...MIDNITE_APP_IDS, ...RETIRED_APP_IDS]);
 
 export type HandoffOutcome =
   | { ok: true; via: 'local' | 'external' }
@@ -46,7 +47,7 @@ export const bridgeHandoffTransport: ExternalHandoffTransport = async (link) => 
 };
 
 export type HandoffDeps = {
-  hosted: ReadonlySet<MidniteAppId>;
+  hosted: ReadonlySet<HandoffAppId>;
   navigate: (request: HandoffRequest) => void;
   reveal: (ref: ResourceRef) => Promise<RevealOutcome>;
   external: ExternalHandoffTransport | null;

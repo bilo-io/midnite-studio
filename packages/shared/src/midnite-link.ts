@@ -16,36 +16,43 @@
  * only checked for being a short slug.
  */
 
-import type { PlacementAppId } from './domain/placement';
 import type { SettingsPageId, ViewId } from './domain/view';
 import type { MediaTab } from './media';
-import { APP_MODULES, MODULE_IDS, type ModuleHostId, type ModuleId } from './modules';
+import {
+  APP_MODULES,
+  MODULE_IDS,
+  RETIRED_APP_ALIASES,
+  RETIRED_APP_IDS,
+  type ModuleHostId,
+  type ModuleId,
+  type RetiredAppId,
+} from './modules';
 
 export const MIDNITE_PROTOCOL = 'midnite:' as const;
 
-/** Every app a `midnite://` link can name: the placement map's twelve, plus Studio itself. */
-export type MidniteAppId = PlacementAppId | 'studio';
+/**
+ * Every app a `midnite://` link resolves to: the hosts that carry modules, minus Science (no feature
+ * yet), plus Studio itself. Phase 124 Theme G: the apps merged into a host are no longer here — a
+ * link naming one (`RetiredAppId`) is rewritten to host + module by `parseMidniteLink`.
+ */
+export type MidniteAppId = Exclude<ModuleHostId, 'science'>;
+
+/** What a link or a hand-off may *name*: a live app, or a retired one that still resolves to its host. */
+export type HandoffAppId = MidniteAppId | RetiredAppId;
 
 /**
- * The runtime twin of `MidniteAppId`. `placement.ts` imports zod, so its `PLACEMENT_APP_IDS`
- * cannot be taken here; `midnite-link.test.ts` holds the two lists equal, and the two
- * assertions below make a missing or extra id a compile error.
+ * The runtime twin of `MidniteAppId`. `midnite-link.test.ts` holds it equal to `MODULE_HOST_IDS`
+ * minus Science, and the two assertions below make a missing or extra id a compile error.
  */
 export const MIDNITE_APP_IDS = [
   'studio',
-  'cleaner',
-  'monitor',
-  'vault',
-  'capture',
-  'browser',
-  'mind',
   'agents',
-  'coder',
-  'money',
-  'creator',
   'media',
   'gamer',
   'vanguard',
+  'mind',
+  'money',
+  'browser',
 ] as const satisfies readonly MidniteAppId[];
 type _AllAppsListed = MidniteAppId extends (typeof MIDNITE_APP_IDS)[number] ? true : never;
 export const _allAppsListed: _AllAppsListed = true;
@@ -76,7 +83,16 @@ export type MidniteLinkTarget = {
    * validates it against `AgentRunHandoffSchema` on arrival.
    */
   run?: string;
+  /**
+   * Set when the link named a retired app (`app=coder`): the id it used. `app` and `module` already
+   * hold where it lives now; the launcher's router reads this to open a still-installed old bundle
+   * when the host is not installed yet.
+   */
+  legacyApp?: RetiredAppId;
 };
+
+/** A target as a caller writes it: `app` may be a retired id, which the link keeps and the parser resolves. */
+export type MidniteLinkInput = Omit<MidniteLinkTarget, 'app' | 'legacyApp'> & { app: HandoffAppId };
 
 /** The lists the parser filters `view`/`tab`/`page` against; each optional. */
 export type MidniteLinkVocabulary = {
@@ -85,7 +101,7 @@ export type MidniteLinkVocabulary = {
   pages?: readonly string[];
 };
 
-export function midniteOpenLink(target: MidniteLinkTarget): string {
+export function midniteOpenLink(target: MidniteLinkInput): string {
   const params = new URLSearchParams({ app: target.app });
   if (target.module !== undefined) params.set('module', target.module);
   if (target.view !== undefined) params.set('view', target.view);
@@ -119,9 +135,23 @@ export function parseMidniteLink(raw: unknown, vocabulary: MidniteLinkVocabulary
   const action = url.hostname || url.pathname.replace(/^\/\//, '').split('/')[0];
   if (action !== 'open') return null;
 
-  const app = url.searchParams.get('app');
-  if (app === null || !(MIDNITE_APP_IDS as readonly string[]).includes(app)) return null;
-  const target: MidniteLinkTarget = { app: app as MidniteAppId };
+  const named = url.searchParams.get('app');
+  if (named === null) return null;
+  let app: MidniteAppId;
+  let legacyApp: RetiredAppId | undefined;
+  if ((MIDNITE_APP_IDS as readonly string[]).includes(named)) {
+    app = named as MidniteAppId;
+  } else if ((RETIRED_APP_IDS as readonly string[]).includes(named)) {
+    // A retired id lands on its host, on the module it became (Phase 124 Theme G).
+    const alias = RETIRED_APP_ALIASES[named as RetiredAppId];
+    if (!(MIDNITE_APP_IDS as readonly string[]).includes(alias.app)) return null;
+    app = alias.app as MidniteAppId;
+    legacyApp = named as RetiredAppId;
+  } else {
+    return null;
+  }
+  const target: MidniteLinkTarget = { app };
+  if (legacyApp !== undefined) target.legacyApp = legacyApp;
 
   const pick = (key: string, allowed: readonly string[] | undefined): string | undefined => {
     const value = url.searchParams.get(key);
@@ -139,13 +169,14 @@ export function parseMidniteLink(raw: unknown, vocabulary: MidniteLinkVocabulary
   if (run !== null && RUN_PARAM.test(run)) target.run = run;
 
   if (module !== undefined && hostsModule(target.app, module as ModuleId)) target.module = module as ModuleId;
+  else if (legacyApp !== undefined) target.module = RETIRED_APP_ALIASES[legacyApp].module;
   if (view !== undefined) target.view = view as ViewId;
   if (page !== undefined && (view === undefined || view === 'settings')) target.page = page as SettingsPageId;
   else if (tab !== undefined && view === 'media') target.tab = tab as MediaTab;
   return target;
 }
 
-/** Whether `app` carries `module`: a host lists it in `APP_MODULES`; an app that is no host (a retired id) carries none. */
+/** Whether `app` carries `module`: a host lists it in `APP_MODULES`; an app that is no host carries none. */
 function hostsModule(app: MidniteAppId, module: ModuleId): boolean {
   const modules = (APP_MODULES as Record<string, readonly ModuleId[] | undefined>)[app as ModuleHostId];
   return modules?.includes(module) ?? false;
