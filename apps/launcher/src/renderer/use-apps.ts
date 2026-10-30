@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { AppsStatus, InstallProgress, LauncherResult } from '../common/bridge';
-import type { AppId, LauncherApp } from '../common/catalog';
+import type { AppId, BundleAppId, LauncherApp } from '../common/catalog';
+import { replacedBundles, type ReplacedBundle } from '../common/migration';
 import { deriveAppState, type AppState } from '../common/status';
 import { getBridge } from './bridge';
 import { useStudio, type StudioController } from './use-studio';
@@ -12,6 +13,8 @@ export type AppView = AppState & {
   progress: InstallProgress | null;
   /** Why no version is known (offline feed), for the version line. */
   feedError: string | null;
+  /** Retired apps still installed as their own bundle that this app replaces (Phase 124 Theme G.3). */
+  replaces: ReplacedBundle[];
 };
 
 export type AppsController = {
@@ -20,6 +23,8 @@ export type AppsController = {
   viewOf: (app: LauncherApp) => AppView;
   install: (app: LauncherApp) => Promise<LauncherResult>;
   uninstall: (app: LauncherApp) => Promise<LauncherResult>;
+  /** Moves a retired app's old bundle to the Trash, once its host is installed. */
+  removeReplaced: (id: BundleAppId) => Promise<LauncherResult>;
   refreshing: boolean;
   refresh: () => Promise<void>;
 };
@@ -71,6 +76,7 @@ export function useApps(): AppsController {
         installing: app.id === 'studio' || hostedByStudio ? studio.installing : bundleBusy,
         progress: app.id === 'studio' || hostedByStudio ? studio.progress : (busy[app.id] ?? null),
         feedError: studio.status?.feedError ?? null,
+        replaces: replacedBundles(app.id, status),
       };
     },
     [studio.status, studio.installing, studio.progress, status, busy],
@@ -101,8 +107,17 @@ export function useApps(): AppsController {
     [studio, refreshApps],
   );
 
+  const removeReplaced = useCallback(
+    async (id: BundleAppId): Promise<LauncherResult> => {
+      const result = await getBridge().apps.uninstall(id);
+      await refreshApps();
+      return result;
+    },
+    [refreshApps],
+  );
+
   return useMemo(
-    () => ({ studio, status, viewOf, install, uninstall, refreshing: studio.refreshing || refreshingApps, refresh }),
-    [studio, status, viewOf, install, uninstall, refreshingApps, refresh],
+    () => ({ studio, status, viewOf, install, uninstall, removeReplaced, refreshing: studio.refreshing || refreshingApps, refresh }),
+    [studio, status, viewOf, install, uninstall, removeReplaced, refreshingApps, refresh],
   );
 }

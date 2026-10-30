@@ -389,7 +389,15 @@ export function App() {
         </span>
       </footer>
 
-      {detail && <AppDetail app={detail} view={viewOf(detail)} handlers={handlers} onClose={() => setDetail(null)} />}
+      {detail && (
+        <AppDetail
+          app={detail}
+          view={viewOf(detail)}
+          handlers={handlers}
+          onRemoveReplaced={(id) => void apps.removeReplaced(id).then((r) => report(r, 'Moved the old app to the Trash.'))}
+          onClose={() => setDetail(null)}
+        />
+      )}
 
       {confirmUninstall && (
         <div className="sheet-backdrop sheet-backdrop-center">

@@ -1,4 +1,4 @@
-import type { AppId } from './catalog';
+import type { AppId, BundleAppId } from './catalog';
 import type { LockstepReason } from './lockstep';
 
 /**
@@ -118,7 +118,7 @@ export type LauncherBridge = {
     /** Installs or updates one app's bundle and Dock stub. Never throws. */
     install(id: AppId): Promise<LauncherResult>;
     /** Removes exactly this app's bundle, stub and record (to the Trash). Never throws. */
-    uninstall(id: AppId): Promise<LauncherResult>;
+    uninstall(id: BundleAppId): Promise<LauncherResult>;
     onProgress(listener: (event: AppInstallProgress) => void): () => void;
     /** Fires when a `midnite://` link could not open the app and wants its detail sheet. */
     onShow(listener: (id: AppId) => void): () => void;

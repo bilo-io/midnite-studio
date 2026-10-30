@@ -14,6 +14,7 @@ import {
 import {
   createFileSink,
   guardAppWindow,
+  importRetiredAppData,
   installCrashLogging,
   type LogSink,
 } from '@midnite/studio-runtime';
@@ -49,6 +50,8 @@ app.setName(VANGUARD_NAME);
 // A smoke run is a proof, not a session: keep it out of the Dock and off the screen.
 if (smoke) app.dock?.hide();
 app.setPath('userData', vanguardUserData(app.getPath('appData'), process.env[USER_DATA_ENV]));
+// Phase 124 Theme G.4: take over what the apps merged into this one left behind, once (never in a throwaway run).
+if (process.env[USER_DATA_ENV] === undefined || process.env[USER_DATA_ENV] === '') importRetiredAppData({ appData: app.getPath('appData'), host: 'vanguard' });
 
 // A smoke run is one-shot and must not collide with a real Vanguard's lock.
 if (!smoke && !app.requestSingleInstanceLock()) {
