@@ -4,13 +4,11 @@ import { createContext, useContext, type ReactNode } from 'react';
  * What the title bar's right cluster reads from the app (Phase 123 Theme J.4).
  *
  * Studio keeps both in its own `ui-store`, which the frame may not import, so they arrive here. The
- * defaults are what an app that does not fill the host gets: a metrics poll at the idle cadence and no
+ * defaults are what an app that does not fill the host gets: no
  * automatic network call at all (the privacy master switch reads "off"), so an app that has not wired the
  * user's privacy settings never fetches weather behind them.
  */
 export type TitleBarHost = {
-  /** Cadence of the battery's metrics poll while its popover is closed. */
-  metricsIdleIntervalMs: number;
   /** The privacy master switch and per-feature egress switches the weather fetch honours. */
   egress: { allAutomaticOff: boolean; switches: Record<string, boolean> };
   /** The stored "locate by IP" flag, before the master switch is applied. */
@@ -18,7 +16,6 @@ export type TitleBarHost = {
 };
 
 export const DEFAULT_TITLE_BAR_HOST: TitleBarHost = {
-  metricsIdleIntervalMs: 5000,
   egress: { allAutomaticOff: true, switches: {} },
   locateByIpEnabled: false,
 };

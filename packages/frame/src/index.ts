@@ -190,6 +190,8 @@ export {
 export { METRIC_ICONS } from './metrics/metric-icons';
 export { ChartLegend, MetricChart, type ChartSeries } from './metrics/metric-chart';
 export { useMetricsStream } from './metrics/use-metrics-stream';
+export { Sparkline } from './metrics/sparkline';
+export { MetricDonut } from './metrics/metric-donut';
 
 // Panels — the navigation stack a pane steps through, and its header.
 export { PanelStack } from './panel-stack/panel-stack';
@@ -480,6 +482,11 @@ export {
   type StatusBarPopoverProps,
   type StatusBarTooltipProps,
 } from './shell/status-bar/status-bar-chrome';
+export {
+  createMonitorSegment,
+  type MonitorFlyoutProps,
+  type MonitorSegmentOptions,
+} from './shell/status-bar/monitor/monitor-cluster';
 export { SUITE_SEGMENT_META, suiteSegments, type AppPanels, type SuitePanel } from './shell/status-bar/suite-segments';
 
 // The title bar's right cluster (Phase 123 Theme J.4).
@@ -530,6 +537,7 @@ export {
   type StatusPillItem,
   type TitlebarStatusState,
 } from './prefs/titlebar-status-store';
+export { useMonitorPrefsStore, type MonitorPrefsState } from './prefs/monitor-prefs-store';
 export { sharedSettingsStorage } from './prefs/shared-settings-storage';
 export {
   registerSuitePrefsStore,

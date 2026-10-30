@@ -15,6 +15,10 @@ follows suite-prefs (`companion.enabled`, `voices`, `sttEngine`, `sttProvider`).
 
 Retired app ids resolve to host + module in `midnite://` links (`legacyApp` rides along), `FEATURE_HOSTS` places features on host apps, `forge.*` tools belong to Agents (a lone Coder bundle still serves them), the launcher router falls back to a still-installed old bundle and the host tile offers the swap ("Replaces Coder", then "Move to Trash"), and Agents, Vanguard and Mind import a retired app's app-local data once behind a marker. G.5 (final per-app releases) is open.
 
+## 2026-10-29 — Phase 123 Theme K — The system monitor core
+
+PR pending. `bindMetricsToWindow` in the runtime (one pause/resume/stop rule for Studio's main and `apps/monitor`); the status bar's monitor cluster moved into the frame as `createMonitorSegment({ Flyout, openMonitor })` with the flyout and hand-off injected; `Sparkline`/`MetricDonut` moved to `frame/src/metrics/`; `hiddenMetrics` and `metricsIdleIntervalMs` moved from `ui-store` to the suite-prefs `monitor` group with a one-time migration. The other apps' own `monitorMain.register` calls land with Theme H's roll-out.
+
 ## 2026-10-29 — Phase 123 Themes E and J (partial) — the terminal panel as a feature, the status bar in the frame
 
 [#1068](https://github.com/bilo-io/midnite-studio/pull/1068). `packages/features/terminal/renderer` (panel, session list, xterm, store, unload policy, replay gate) behind a `TerminalHost` port with Studio's adapter in `compose/terminal-host.tsx` and a default host for every other app; sessions carry an optional `appId` with a suite-prefs "Show all apps" toggle; a broker that never attached says so in the panel. The status bar's segment host, density and overflow moved to `packages/frame/src/shell/status-bar/` with `suiteSegments(panels)` for every app. Open: E.3 (main half) and J.4 (title-bar cluster, waits on L.2).
@@ -15489,6 +15493,10 @@ E.1 finished: `packages/modules/{agents,gamer,mind,browser}` (renderer + bridge/
 ### Phase 123 J.4 and E.3 (slice) — the title bar's right cluster; the terminal's session list on the feature (2026-10-29)
 
 J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `packages/frame/src/shell/titlebar/`, and `AppShell` renders them after `titleBarEnd`; Studio fills a `TitleBarHost` (metrics idle cadence, privacy switches) and its own popover through `compose/titlebar-host.tsx`. E.3 (slice): `terminal-service`, the three stores and `pty-env` moved to `packages/features/terminal/main` (built like `feature-monitor`), `terminalMain` registers the list, roster and save/forget/reorder channels, and desktop binds the pty, locator and logger ports. Still open: `pty-service`, `inproc-pty`, `pty-handlers`.
+
+### Phase 123 E.3 (rest) — the pty service and handlers on the terminal feature (2026-10-30)
+
+`pty-service` moved to `packages/features/terminal/main` behind `PtyPorts` (windows, confinement, secrets, broker, in-process pty), bound by desktop's `pty-service.ts` shim. `pty-handlers` moved into `terminalMain.register`; `RuntimeIpc` gained an optional `sendFromSender` so subscribe/unsubscribe keep their sending window. `pty-subscribers.test.ts` moved with it and runs without `electron`. Theme E is complete.
 
 ### Phase 124 Theme E.3 (slice) — Vanguard mounts Vault, Cleaner and Monitor (2026-10-30)
 

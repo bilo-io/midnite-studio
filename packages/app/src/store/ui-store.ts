@@ -9,7 +9,6 @@ import {
   DEFAULT_CHAT_WIDTH_MODE,
   DEFAULT_COMPANION_VOLUME,
   DEFAULT_SKILL_EXECUTION_MODE,
-  METRICS_IDLE_INTERVAL_MS,
   VIEW_IDS,
   type AgentCommandId,
   type AgentMode,
@@ -36,7 +35,6 @@ import {
   restartCustomLoop,
   type MediaTab,
   MEDIA_TABS,
-  type MetricId,
   type PageWindowRole,
   type PanelWindowRole,
   type SettingsPageId,
@@ -1439,17 +1437,6 @@ export type UiState = {
   setCommitFileView: (view: CommitFileView) => void;
   toggleCommitMeta: () => void;
   setChangesFileView: (view: CommitFileView) => void;
-  /**
-   * Metrics the user has turned OFF in the footer (Phase 18 F).
-   *
-   * Stored as the hidden set rather than the shown one so a metric added in a
-   * later release appears by default — an allowlist persisted before it
-   * existed would silently hide it for every existing user, which is the
-   * failure mode nobody notices because nothing is broken, only absent.
-   */
-  hiddenMetrics: MetricId[];
-  toggleMetric: (id: MetricId) => void;
-
   autoFetchIntervalMs: number | null;
   setAutoFetchIntervalMs: (ms: number | null) => void;
   /**
@@ -1462,9 +1449,6 @@ export type UiState = {
    */
   autoFetchEnabled: boolean;
   setAutoFetchEnabled: (enabled: boolean) => void;
-  /** Sampling cadence with the flyout closed. Opening it always escalates. */
-  metricsIdleIntervalMs: number;
-  setMetricsIdleInterval: (ms: number) => void;
   /**
    * Whether the Reviews view may act on a pull request (Phase 20 Themes F/G).
    *
@@ -2348,10 +2332,8 @@ export type PersistedUi = Pick<
   | 'loopModifierSkills'
   | 'loopRunOptions'
   | 'customLoops'
-  | 'hiddenMetrics'
   | 'autoFetchIntervalMs'
   | 'autoFetchEnabled'
-  | 'metricsIdleIntervalMs'
   | 'forgeWritesEnabled'
   | 'forgeAccounts'
   | 'forgeActiveAccountId'
@@ -2556,10 +2538,8 @@ export const useUiStore = create<UiState>()(
       viewHistory: [INITIAL_ACTIVE_VIEW],
       viewHistoryIndex: 0,
       settingsPage: 'appearance',
-      hiddenMetrics: [],
       autoFetchIntervalMs: 60000,
       autoFetchEnabled: true,
-      metricsIdleIntervalMs: METRICS_IDLE_INTERVAL_MS,
       // Default off. A fresh install cannot change anything on GitHub.
       forgeWritesEnabled: false,
       activeEnvironmentByRepo: {},
@@ -3397,12 +3377,6 @@ export const useUiStore = create<UiState>()(
       setCommitFileView: (commitFileView) => set({ commitFileView }),
       toggleCommitMeta: () => set((state) => ({ commitMetaOpen: !state.commitMetaOpen })),
       setChangesFileView: (changesFileView) => set({ changesFileView }),
-      toggleMetric: (id) =>
-        set((state) => ({
-          hiddenMetrics: state.hiddenMetrics.includes(id)
-            ? state.hiddenMetrics.filter((entry) => entry !== id)
-            : [...state.hiddenMetrics, id],
-        })),
       toggleEcosystem: (id) =>
         set((state) => ({
           disabledEcosystems: state.disabledEcosystems.includes(id)
@@ -3443,7 +3417,6 @@ export const useUiStore = create<UiState>()(
       closeWebAppsFlyout: () => set({ webAppsFlyoutAppId: null }),
       setAutoFetchIntervalMs: (autoFetchIntervalMs) => set({ autoFetchIntervalMs }),
       setAutoFetchEnabled: (autoFetchEnabled) => set({ autoFetchEnabled }),
-      setMetricsIdleInterval: (metricsIdleIntervalMs) => set({ metricsIdleIntervalMs }),
       setForgeWritesEnabled: (forgeWritesEnabled) => set({ forgeWritesEnabled }),
       setActiveEnvironment: (repoId, environmentId) =>
         set((state) => ({
@@ -3602,10 +3575,8 @@ export const useUiStore = create<UiState>()(
         loopModifierSkills: state.loopModifierSkills,
         loopRunOptions: state.loopRunOptions,
         customLoops: state.customLoops,
-        hiddenMetrics: state.hiddenMetrics,
         autoFetchIntervalMs: state.autoFetchIntervalMs,
         autoFetchEnabled: state.autoFetchEnabled,
-        metricsIdleIntervalMs: state.metricsIdleIntervalMs,
         forgeWritesEnabled: state.forgeWritesEnabled,
         activeEnvironmentByRepo: state.activeEnvironmentByRepo,
         projectBoardByRepo: state.projectBoardByRepo,

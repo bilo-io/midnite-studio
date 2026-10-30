@@ -1,124 +1,13 @@
-import { METRIC_IDS, type MetricId } from '@midnite/studio-shared';
-import { useState } from 'react';
+import { createMonitorSegment } from '@midnite/studio-frame';
+import { MonitorFlyout } from '@midnite/studio-feature-monitor/renderer';
 
-import { Popover } from '../../components/popover';
-import { Tooltip } from '../../components/tooltip';
 import { requestHandoff } from '../../services/handoff';
-import { useMetricsStore, type MetricPoint } from '../../store/metrics-store';
-import { useUiStore } from '../../store/ui-store';
-import { MetricDonut, MonitorFlyout, Sparkline } from '@midnite/studio-feature-monitor/renderer';
-import { METRIC_ICONS } from './metric-icons';
-import { isLevelMetric } from './metric-geometry';
-import { METRIC_LABELS, metricColor } from './metric-palette';
-import { useMetricsStream } from './use-metrics-stream';
 
 /**
- * Dot, percentage and sparkline per metric, opening into the timeline flyout.
- *
- * **A metric that is `null` renders no readout at all** — no dot, no dash, no
- * zero. A machine that cannot read its GPU shows three readouts, and that is
- * the honest picture; a greyed-out "GPU —" would be a control implying
- * something is temporarily wrong, and a "GPU 0%" would be a plain lie.
+ * Studio's monitor segment (Phase 123 Theme K). The cluster itself is the frame's, shared by every
+ * suite app; Studio supplies the monitor feature's flyout and its in-process hand-off.
  */
-export function MonitorCluster() {
-  const [open, setOpen] = useState(false);
-  const latest = useMetricsStore((state) => state.latest);
-  const series = useMetricsStore((state) => state.series);
-  const hidden = useUiStore((state) => state.hiddenMetrics);
-  const idleIntervalMs = useUiStore((state) => state.metricsIdleIntervalMs);
-
-  // Cadence is a consequence of what is on screen — the flyout escalates to 2s
-  // — with the closed-flyout figure taken from settings.
-  useMetricsStream({ detailed: open, idleIntervalMs });
-
-  /*
-    Two independent reasons a readout is absent, and they compose in one
-    direction only: the machine cannot report it, or the user turned it off.
-    Sampling is NOT narrowed to the visible set — the flyout still charts a
-    metric you have hidden from the strip, and un-hiding one should show
-    history rather than start from nothing.
-  */
-  const present = METRIC_IDS.filter(
-    (id) => typeof latest?.[id] === 'number' && !hidden.includes(id),
-  );
-  // Before the first sample there is nothing truthful to draw. An empty
-  // cluster for a second or two beats four zeroes that then jump.
-  if (present.length === 0) return null;
-
-  return (
-    <Popover
-      open={open}
-      onOpenChange={setOpen}
-      side="top"
-      align="end"
-      label="System monitor"
-      testId="monitor-cluster"
-      panelClassName="max-w-[calc(100vw-1rem)]"
-      triggerClassName="status-graphs-on-hover flex items-center gap-3 rounded px-1 transition-colors hover:bg-accent hover:text-foreground data-[open=true]:bg-accent"
-      trigger={present.map((id) => (
-        <MetricReadout key={id} id={id} value={latest![id]!} points={series[id]} />
-      ))}
-    >
-      <MonitorFlyout
-        onOpenMonitor={() => {
-          setOpen(false);
-          void requestHandoff({ app: 'monitor', view: 'monitor' });
-        }}
-      />
-    </Popover>
-  );
-}
-
-/**
- * One metric's readout, in whichever of the two forms it earns.
- *
- * A **rate** — CPU, RAM, GPU — is an icon, a dot, a percentage and a sparkline:
- * the icon identifies the metric, the dot is its color glow, the number is now,
- * and the line is the last few minutes.
- *
- * A **level** — disk capacity — is an icon, a ring and a percentage, and no dot.
- */
-function MetricReadout({
-  id,
-  value,
-  points,
-}: {
-  id: MetricId;
-  value: number;
-  points: readonly MetricPoint[];
-}) {
-  const rounded = Math.round(value);
-  const level = isLevelMetric(id);
-  const Icon = METRIC_ICONS[id];
-  const label = METRIC_LABELS[id];
-
-  return (
-    <Tooltip label={label} side="top">
-      <span
-        className="flex items-center gap-1"
-        data-testid={`metric-${id}`}
-        // The readout as a whole is one fact; without this a screen reader
-        // announces the label, the number and the unit as three fragments with
-        // an unlabelled graphic between them.
-        aria-label={`${label} ${rounded} percent`}
-      >
-        <Icon
-          aria-hidden
-          data-testid={`metric-icon-${id}`}
-          className="h-3 w-3 shrink-0"
-          style={{ color: metricColor(id, value) }}
-        />
-        <span
-          aria-hidden
-          className="w-8 text-right tabular-nums"
-          style={{ color: metricColor(id, value) }}
-        >
-          {rounded}%
-        </span>
-        <span className="status-bar-graph" data-status-bar-graph>
-          {level ? <MetricDonut id={id} percent={value} /> : <Sparkline id={id} points={points} />}
-        </span>
-      </span>
-    </Tooltip>
-  );
-}
+export const MonitorCluster = createMonitorSegment({
+  Flyout: MonitorFlyout,
+  openMonitor: () => void requestHandoff({ app: 'monitor', view: 'monitor' }),
+});

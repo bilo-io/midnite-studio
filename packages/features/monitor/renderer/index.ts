@@ -12,9 +12,9 @@ import type { MonitorManifest } from '../manifest';
  * pulling the status-bar parts into its entry chunk.
  */
 export { monitorManifest, type MonitorManifest } from '../manifest';
-export { MetricDonut } from './metric-donut';
+// Moved to the frame (Phase 123 Theme K) — the status bar's monitor segment draws them.
+export { MetricDonut, Sparkline } from '@midnite/studio-frame';
 export { MonitorFlyout } from './monitor-flyout';
-export { Sparkline } from './sparkline';
 
 type ViewIds = MonitorManifest['views'][number]['id'];
 

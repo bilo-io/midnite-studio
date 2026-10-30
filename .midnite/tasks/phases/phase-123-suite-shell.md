@@ -107,7 +107,7 @@ its dismissal stack. Surprise: the "Mod+t does not escape `.xterm`" check in the
 `terminal.new` is not a yield command there, so the frame test proves the yield with `fab.toggle` (`Ctrl+L` off
 macOS) instead of changing Studio.
 
-**Theme E — The terminal panel as a feature.** ◐ 5/6 ([#1068](https://github.com/bilo-io/midnite-studio/pull/1068)).
+**Theme E — The terminal panel as a feature.** ✅ 6/6 ([#1068](https://github.com/bilo-io/midnite-studio/pull/1068)).
 `packages/features/terminal/renderer` now holds the panel, the session list, every xterm, the store, the unload
 policy and the replay gate (27 test files moved with it), behind a `TerminalHost` port: panel layout and prefs,
 font, repos, palette, link routing, a tooltip, popover and avatar slot, and three optional actions (configure an
@@ -120,10 +120,12 @@ FAB and primary agent. Sessions carry an optional `appId` (absent = studio); onl
 so Studio's records are unchanged on disk. The list filters to its own app with a "Show all apps" toggle on
 suite-prefs `terminal.showAllApps`, shown only once another app's session is present; until someone toggles it,
 each app takes its host's default (Studio: all). A broker that never attached now says so in the empty panel.
-E.3, the main half, is partly in: the session list's stores, `terminal-service` and `pty-env` moved to
-`packages/features/terminal/main` behind a `TerminalPorts` object, and `terminalMain` registers the list, roster
-and save/forget/reorder channels. Open: `pty-service`, `inproc-pty` and `pty-handlers`, which reach `electron`, the
-window manager, confinement and sender-aware IPC that need injecting first.
+E.3, the main half, is in: the session list's stores, `terminal-service`, `pty-env` and now `pty-service` live in
+`packages/features/terminal/main`. The pty service reaches the main window, confinement, the secrets vault, the
+broker client and the in-process pty through a `PtyPorts` object that desktop's `pty-service.ts` shim binds once
+(`inproc-pty` and `node-pty` stay in desktop and arrive as `ports.inproc`). The pty IPC handlers moved into
+`terminalMain.register`; `RuntimeIpc` gained an optional `sendFromSender` (the handler receives a structural
+`RuntimeWindow`), which desktop binds to `handleSendFromSender` and the recording test context fakes.
 
 **Theme F — The companion panel as a feature.** ✅ `packages/features/companion`: the renderer (orb, panel, thread,
 voice, zen stage, the reveal engine; ~50 files and the store) and the main half (`desktop/src/main/companion`,
@@ -166,9 +168,19 @@ bar's right cluster (`TitleBarStatus`, `TitleBarBattery`, a frame `ThemeToggle`)
 and `AppShell` renders it after `titleBarEnd`. Studio fills a `TitleBarHost` (metrics cadence, privacy switches) and
 its portalled popover through `compose/titlebar-host.tsx`; the two bridge tests stayed in the app.
 
-**Theme K — The system monitor core.** ◻ Every app registers the monitor feature's `monitorMain` and pauses
+**Theme K — The system monitor core.** ✅ ([PR pending]) Every app registers the monitor feature's `monitorMain` and pauses
 sampling on blur, hide and minimise exactly as `apps/monitor` does; the status bar's monitor segment opens
-the metrics-only `MonitorFlyout`, whose "Open Monitor" hands off to the Monitor app.
+the metrics-only `MonitorFlyout`, whose "Open Monitor" hands off to the Monitor app. What landed: `bindMetricsToWindow(win, service)` in
+`runtime/src/app-main/bind-metrics.ts` is the one pause/resume/stop rule, used by Studio's main
+(replacing its local copy) and `apps/monitor`. The cluster is now `createMonitorSegment({ Flyout, openMonitor })`
+in `frame/src/shell/status-bar/monitor/`, drawn through the status-bar chrome port; the flyout and the
+hand-off are injected because the frame never imports a feature (Studio's wrapper is the unchanged
+`features/monitor/monitor-cluster.tsx` export). `Sparkline` and `MetricDonut` moved to `frame/src/metrics/`
+(the feature re-exports them). `hiddenMetrics` and `metricsIdleIntervalMs` left `ui-store` for the
+`monitor` suite-prefs group (`useMonitorPrefsStore`), migrated once from the old `midnite-studio.ui` blob;
+the settings page, battery segment and optimizer host read them from there. **Open for Theme H:** each
+standalone app's own `monitorMain.register` and `bindMetricsToWindow` call lands with its roll-out — K ships
+the helper, the segment and the prefs, not thirteen mains. No visual change, so no screenshots.
 
 **Theme L — Settings at the foot of the nav.** ✅ A runtime `suite-prefs` file shared by every app holds
 appearance, palette, motion, title-bar status and companion voice settings; the settings view lives in the
@@ -385,7 +397,7 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
     suite-prefs).
   - *Done when* `grep -r "packages/app\|\.\./\.\./store" packages/features/terminal` is empty and a test
     renders `TerminalPanel` under the default host with a mock bridge.
-- [ ] **Extract the main half.** `terminal-service.ts`, `pty-service.ts`, `pty-env.ts` from
+- [x] **Extract the main half.** `terminal-service.ts`, `pty-service.ts`, `pty-env.ts` from
   `packages/desktop/src/main/` → `packages/features/terminal/main/`, exposed as
   `terminalMain = defineFeatureMain<TerminalMainServices>(...)` over the runtime broker client
   (`openBrokerClient`). Studio's desktop registers it; its existing imports re-export from the feature.
@@ -398,10 +410,7 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
     agent-conversation locator and the logger through a `TerminalPorts` object that desktop's shim binds once.
     `terminalMain` registers `terminalList`, `agentList`, `agentRecheck` and the save/forget/reorder sends; Studio's
     `terminal-handlers.ts` is now its composition.
-  - ⏳ Still open: `pty-service.ts` (820 lines of module state over `electron`, the window manager, confinement and
-    the secrets handlers), `inproc-pty.ts` and `pty-handlers.ts` (sender-aware sends, which `RuntimeIpc` does not
-    offer yet). Those need `RuntimeIpc` to grow a sender-aware send and the pty service to take its window,
-    confinement and secrets as injected services.
+  - ✅ Landed (2026-10-30): `pty-service` and the pty handlers moved too, behind `PtyPorts` and `RuntimeIpc.sendFromSender`.
 - [x] **Sessions carry the app.** `TerminalSessionSchema`
   ([`shared/src/terminal.ts:624`](../../../packages/shared/src/terminal.ts)) gains `appId: SuiteAppIdSchema.optional()`;
   absent means `'studio'` (every existing record). `ptyCreate`'s payload carries it; each app's main stamps
@@ -545,9 +554,9 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
     status bar's chrome context. The frame's `ThemeToggle` is its own copy, dismissing on Escape, outside press,
     resize and blur; Studio keeps its layered one (its `use-dismiss` stack reads `ui-store`).
 
-### K — The system monitor core [M · ~1d]
+### K — The system monitor core [M · ~1d] — ✅ DONE (2026-10-29)
 
-- [ ] **Sampling in every app.** Each app's main calls `monitorMain.register(ctx, { onMetricsService })` and
+- [x] **Sampling in every app.** (helper + Studio + Monitor; the other apps' mains register it in H) Each app's main calls `monitorMain.register(ctx, { onMetricsService })` and
   binds `service.pause()` on `blur`, `hide`, `minimize` and `resume()` on `focus`, `show`, `restore`, and
   `stop()` on `closed` — the pattern in [`apps/monitor/main/index.ts`](../../../apps/monitor/main/index.ts)
   (lines 109–114) and `desktop/src/main/ipc/metrics-handlers.ts`, extracted once as net-new
@@ -555,9 +564,9 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
   `export function bindMetricsToWindow(win: PausableWindow, service: { pause(): void; resume(): void; stop(): void }): void`.
   No `agentSessions` service is passed outside Studio, so `monitorAgentUsage` answers empty.
   - *Done when* `bind-metrics.test.ts` drives a fake window through each event and asserts the calls.
-- [ ] **One channel set.** `metricsStart`, `metricsStop`, `metricsSample` and `systemHealth` are served by each
+- [x] **One channel set.** `metricsStart`, `metricsStop`, `metricsSample` and `systemHealth` are served by each
   app's main from that registration; nothing new in `channels.ts`.
-- [ ] **The segment and flyout.** `MonitorCluster` (`packages/app/src/features/monitor/monitor-cluster.tsx`)
+- [x] **The segment and flyout.** `MonitorCluster` (`packages/app/src/features/monitor/monitor-cluster.tsx`)
   and its helpers (`metric-chart`, `metric-icons`, `metric-geometry`, `metric-palette`, `metric-path`,
   `format-bytes`) move to `packages/frame/src/shell/status-bar/monitor/`, reading `hiddenMetrics` and
   `metricsIdleIntervalMs` from suite-prefs. It opens `MonitorFlyout` (metrics only: CPU/RAM/GPU timelines and
