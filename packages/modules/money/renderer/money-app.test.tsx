@@ -1,7 +1,8 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { seedMonitorSample, suiteShellTestBridge } from '@midnite/studio-frame';
 import { financeManifest, useFinanceStore } from '@midnite/studio-feature-finance/renderer';
 import { FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
 
@@ -14,7 +15,7 @@ const ok = <T,>(value: T) => async () => ({ ok: true as const, value });
 function stubBridge(hasKey: boolean) {
   const has = vi.fn(async () => ({ hasKey }));
   const get = vi.fn();
-  window.midniteStudio = {
+  window.midniteStudio = suiteShellTestBridge({
     secrets: { has, get },
     report,
     finance: { search: ok([]), quote: ok({ price: 1, currency: 'USD' }), history: ok([]) },
@@ -27,7 +28,7 @@ function stubBridge(hasKey: boolean) {
       apply: ok({}),
       news: ok({ items: [], stale: false, failed: [] }),
     },
-  } as unknown as typeof window.midniteStudio;
+  }) as unknown as typeof window.midniteStudio;
   return { has, get };
 }
 
@@ -70,6 +71,20 @@ describe('Money home', () => {
     for (const label of ['Chart', 'Cards', 'Watchlist', 'Markets', 'Allocation', 'News', 'Transactions']) {
       expect(screen.getByRole('region', { name: label })).toBeDefined();
     }
+  });
+
+  it('wears the suite shell: logo, Settings with the Monitor page, and the status bar with the monitor segment', async () => {
+    render(<MoneyApp />);
+    expect(screen.getByAltText('Midnite Money')).toBeDefined();
+    expect(screen.getByTestId('status-bar')).toBeDefined();
+    expect(screen.queryByTestId('monitor-cluster')).toBeNull();
+    act(() => seedMonitorSample());
+    expect(await screen.findByTestId('monitor-cluster')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const settings = screen.getByTestId('suite-settings');
+    expect(within(settings).getAllByText('Monitor').length).toBeGreaterThan(0);
+    // The terminal, companion and FAB are gated off until a suite app has a pty host.
+    expect(document.querySelector('[data-shell-panel]')).toBeNull();
   });
 
   it('tells the user to grant Money the market-data key when main reports none, without reading one', async () => {
