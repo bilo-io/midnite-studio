@@ -1,5 +1,5 @@
 import { vanguardManifest } from '@midnite/studio-feature-vanguard/renderer';
-import { navFromModules, type NavConfig } from '@midnite/studio-frame';
+import { navFromModules, type NavConfig, type NavGroup } from '@midnite/studio-frame';
 import { LuNetwork, LuRadar, LuShieldAlert } from 'react-icons/lu';
 import { APP_MODULES } from '@midnite/studio-shared';
 import { PiShieldCheckFill } from 'react-icons/pi';
@@ -23,9 +23,16 @@ const VANGUARD_NAV: NavConfig = {
  * this module's views beneath. Modules the host does not mount yet have no entry, so wiring one in (E.3) adds
  * its group here and nothing else.
  */
-const VANGUARD_HOST_NAV: NavConfig = navFromModules(APP_MODULES.vanguard, {
-  vanguard: { id: 'vanguard', label: vanguardModuleManifest.label, icon: PiShieldCheckFill, accent: vanguardModuleManifest.accent, views: VANGUARD_NAV.views },
-});
+/** This module's nav group (Phase 124 Theme E.3): a host composes it beside the groups of the modules it mounts. */
+export const VANGUARD_NAV_GROUP: NavGroup = {
+  id: 'vanguard',
+  label: vanguardModuleManifest.label,
+  icon: PiShieldCheckFill,
+  accent: vanguardModuleManifest.accent,
+  views: VANGUARD_NAV.views,
+};
+
+const VANGUARD_HOST_NAV: NavConfig = navFromModules(APP_MODULES.vanguard, { vanguard: VANGUARD_NAV_GROUP });
 
 /**
  * Vanguard's app manifest — pure data (Phase 120 Theme B).

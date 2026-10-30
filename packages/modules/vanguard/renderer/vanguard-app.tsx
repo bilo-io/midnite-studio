@@ -1,16 +1,11 @@
-import { useVanguardUi, VanguardSettingsPage } from '@midnite/studio-feature-vanguard/renderer';
+import { useVanguardUi } from '@midnite/studio-feature-vanguard/renderer';
 import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
-import { FrameChromeProvider, SuiteAppShell, type SettingsPageDef } from '@midnite/studio-frame';
-import { LuShield } from 'react-icons/lu';
+import { FrameChromeProvider, SuiteAppShell } from '@midnite/studio-frame';
 
 import { VANGUARD_CHROME, VanguardDialogHost } from './compose/vanguard-chrome';
 import { VANGUARD_APP } from './vanguard-manifest';
+import { VANGUARD_SETTINGS } from './vanguard-pane';
 import { VanguardHome } from './views/vanguard-home';
-
-/** Vanguard's own Settings page (the feature's `settingsPages`), after the suite's. */
-const VANGUARD_SETTINGS: readonly SettingsPageDef[] = [
-  { id: 'vanguard', label: 'Vanguard', group: 'system', scope: 'app', icon: LuShield, Page: VanguardSettingsPage },
-];
 
 /**
  * The shell's rail rows are the page's tabs (findings, sensors, network): the selected tab lives in the

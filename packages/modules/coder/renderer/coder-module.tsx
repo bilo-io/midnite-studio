@@ -20,6 +20,7 @@ import {
 } from './compose/coder-hosts';
 import { CODER_GIT_HOST } from './compose/git-host';
 import { CODER_TASKS_HOST } from './compose/tasks-host';
+import type { CoderViewId } from '../manifest';
 import { CoderHome } from './views/coder-home';
 
 /** A run's output and result arrive whether or not the Tests view is mounted — Studio's root does the same. */
@@ -34,9 +35,11 @@ function TestsStream() {
  * Graph tab) and the query client their hooks read through. The host providers nest rather than sit side by
  * side — siblings would each render `{children}`, mounting the module twice.
  *
- * Nothing here assumes a particular host: the app (or, from Theme E, a host's nav group) mounts it.
+ * Nothing here assumes a particular host: the app (or, from Theme E, a host's nav group) mounts it. With
+ * `embeddedView` it is a pane in a host's shell (Phase 124 Theme E.3): the view is the host rail's, and the
+ * host owns the one Report an Issue entry.
  */
-export function CoderModule() {
+export function CoderModule({ embeddedView }: { embeddedView?: CoderViewId } = {}) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }));
   return (
     <QueryClientProvider client={client}>
@@ -49,8 +52,8 @@ export function CoderModule() {
                   <SessionsHostProvider host={CODER_SESSIONS_HOST}>
                     <TasksHostProvider host={CODER_TASKS_HOST}>
                       <TestsStream />
-                      <CoderHome />
-                      <ReportIssueHost app="midnite-coder" />
+                      <CoderHome {...(embeddedView !== undefined ? { embeddedView } : {})} />
+                      {embeddedView === undefined ? <ReportIssueHost app="midnite-coder" /> : null}
                       <CoderDialogHost />
                     </TasksHostProvider>
                   </SessionsHostProvider>

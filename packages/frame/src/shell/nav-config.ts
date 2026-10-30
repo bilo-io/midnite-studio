@@ -62,6 +62,16 @@ export function navFromModules(modules: readonly string[], groups: Readonly<Reco
   return navFromGroups(modules.flatMap((id) => (groups[id] === undefined ? [] : [groups[id]])));
 }
 
+/** The module (nav group id) a view belongs to, or `undefined` for an ungrouped nav or an unknown view. */
+export function moduleOfView(nav: NavConfig, view: string): string | undefined {
+  return nav.groups?.find((g) => g.views.some((v) => v.id === view))?.id;
+}
+
+/** The first view of a module's nav group — where a `midnite://open?...&module=<id>` link lands. */
+export function firstViewOfModule(nav: NavConfig, module: string): string | undefined {
+  return nav.groups?.find((g) => g.id === module)?.views[0]?.id;
+}
+
 /** Which panels an app carries. Absent, or a key left out, means on (decision 12). */
 export type ShellPanels = {
   terminal?: boolean;

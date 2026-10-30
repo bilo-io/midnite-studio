@@ -49,3 +49,28 @@ export function AgentsApp() {
     </QueryClientProvider>
   );
 }
+
+/**
+ * Agents as a pane inside a host's shell (Phase 124 Theme E.3): the same host ports as `AgentsApp`, the active
+ * rail view in place of its own shell, and no `ReportIssueHost` — the host owns the one menu entry.
+ */
+export function AgentsPane({ view }: { view: string; onView?: (view: string) => void }) {
+  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }));
+  return (
+    <QueryClientProvider client={client}>
+      <FrameChromeProvider chrome={AGENTS_CHROME}>
+        <ModelsHostProvider host={AGENTS_MODELS_HOST}>
+          <CouncilsHostProvider host={AGENTS_COUNCILS_HOST}>
+            <ChatsHostProvider host={AGENTS_CHATS_HOST}>
+              <WorkflowsHostProvider host={AGENTS_WORKFLOWS_HOST}>
+                <ModelsRefetch />
+                <AgentsHome view={(AGENTS_APP.views as readonly string[]).includes(view) ? (view as ViewId) : 'chats'} />
+                <AgentsDialogHost />
+              </WorkflowsHostProvider>
+            </ChatsHostProvider>
+          </CouncilsHostProvider>
+        </ModelsHostProvider>
+      </FrameChromeProvider>
+    </QueryClientProvider>
+  );
+}

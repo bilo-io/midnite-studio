@@ -9,6 +9,12 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', '@tanstack/react-query'],
     alias: {
+      '@midnite/studio-feature-media-docs/renderer': at('../../packages/features/media-docs/renderer/index.ts'),
+      '@midnite/studio-feature-media-images/renderer': at('../../packages/features/media-images/renderer/index.ts'),
+      '@midnite/studio-feature-slides/renderer/modal': at('../../packages/features/slides/renderer/modal.ts'),
+      '@midnite/studio-feature-slides/renderer': at('../../packages/features/slides/renderer/index.ts'),
+      '@midnite/studio-feature-media-video/renderer': at('../../packages/features/media-video/renderer/index.ts'),
+      '@midnite/studio-feature-media-audio/renderer': at('../../packages/features/media-audio/renderer/index.ts'),
       '@midnite/studio-module-creator/main': at('../../packages/modules/creator/main/index.ts'),
       '@midnite/studio-module-creator/bridge': at('../../packages/modules/creator/main/bridge.ts'),
       '@midnite/studio-feature-report/bridge': at('../../packages/features/report/bridge.ts'),
@@ -19,6 +25,7 @@ export default defineConfig({
       '@midnite/studio-feature-media-audio/main': at('../../packages/features/media-audio/main/index.ts'),
       '@midnite/studio-module-media/bridge': at('../../packages/modules/media/main/bridge.ts'),
       '@midnite/studio-module-media/main': at('../../packages/modules/media/main/index.ts'),
+      '@midnite/studio-module-creator/renderer': at('../../packages/modules/creator/renderer/index.ts'),
       '@midnite/studio-module-media/renderer': at('../../packages/modules/media/renderer/index.ts'),
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
@@ -35,5 +42,6 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.{ts,tsx}', 'main/**/*.test.ts'],
     environment: 'jsdom',
+    setupFiles: [at('../../packages/frame/src/vitest-setup.ts')],
   },
 });

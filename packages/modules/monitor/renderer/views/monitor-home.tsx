@@ -13,7 +13,7 @@ const MonitorPage = lazy(() => monitorViews.monitor().then((component) => ({ def
 const HOSTED = new Set(['monitor'] as const);
 
 /** What Monitor shows on open: the accent mark and name on top, the feature's view below. */
-export function MonitorHome() {
+export function MonitorHome({ embedded = false }: { embedded?: boolean } = {}) {
   const [notice, setNotice] = useState<string | null>(null);
   const openSession = useCallback((id: string) => {
     void handOff({ app: 'studio', ref: { kind: 'session', id } }, { hosted: HOSTED }).then((outcome) =>
@@ -22,6 +22,13 @@ export function MonitorHome() {
   }, []);
   return (
     <div className="flex h-full flex-col">
+      {embedded ? (
+        notice ? (
+          <p role="status" className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+            {notice}
+          </p>
+        ) : null
+      ) : (
       <header className="flex items-center gap-3 border-b border-border px-4 py-3">
         <span
           aria-hidden
@@ -37,6 +44,7 @@ export function MonitorHome() {
           </p>
         ) : null}
       </header>
+      )}
       <main className="min-h-0 flex-1 overflow-auto" aria-label="Monitor">
         <Suspense fallback={<p className="p-4 text-xs text-muted-foreground">Loading the monitor…</p>}>
           <MonitorPage onOpenSession={openSession} />

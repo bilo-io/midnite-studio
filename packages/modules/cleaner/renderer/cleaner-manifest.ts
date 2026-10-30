@@ -1,5 +1,7 @@
 import { optimizerManifest } from '@midnite/studio-feature-optimizer/renderer';
-import type { NavConfig } from '@midnite/studio-frame';
+import type { NavConfig, NavGroup } from '@midnite/studio-frame';
+import { PiSparkleFill } from 'react-icons/pi';
+import { cleanerManifest as cleanerModuleManifest } from '../manifest';
 import { LuActivity, LuCpu, LuHardDrive, LuMemoryStick } from 'react-icons/lu';
 
 /**
@@ -35,3 +37,15 @@ export const CLEANER_APP = {
 } as const;
 
 export type CleanerApp = typeof CLEANER_APP;
+
+/**
+ * This module's nav group in a host's rail (Phase 124 Theme E.3): one row, since the page keeps its own tabs.
+ * A host composes it with `navFromModules`; the module's accent shows on the group label only.
+ */
+export const CLEANER_NAV_GROUP: NavGroup = {
+  id: 'cleaner',
+  label: cleanerModuleManifest.label,
+  icon: PiSparkleFill,
+  accent: cleanerModuleManifest.accent,
+  views: [{ id: 'cleaner', label: 'Cleaner', icon: PiSparkleFill }],
+};
