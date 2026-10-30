@@ -1,15 +1,15 @@
 // vitest/jsdom: the host's rail and view router over a mock bridge — nothing here needs a real browser.
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { firstViewOfModule, moduleOfView, navConfigProblems } from '@midnite/studio-frame';
+import { firstViewOfModule, moduleOfView, navConfigProblems, seedMonitorSample, suiteShellTestBridge } from '@midnite/studio-frame';
 import { APP_MODULES } from '@midnite/studio-shared';
 
 import { MindHostApp, MIND_PANES } from './host-app';
 import { MIND_HOST_NAV } from './host-nav';
 
 beforeEach(() => {
-  window.midniteStudio = {
+  window.midniteStudio = suiteShellTestBridge({
     notes: { list: vi.fn().mockResolvedValue({ notes: [] }), save: vi.fn(), delete: vi.fn(), reorder: vi.fn() },
     capture: {
       status: vi.fn().mockResolvedValue({
@@ -37,7 +37,7 @@ beforeEach(() => {
       ghStatus: vi.fn().mockResolvedValue({ reason: 'ready', binPath: '/usr/bin/gh', hint: '' }),
       onOpen: () => () => undefined,
     },
-  } as unknown as typeof window.midniteStudio;
+  }) as unknown as typeof window.midniteStudio;
 });
 
 afterEach(() => {
@@ -80,5 +80,23 @@ describe('Mind host', () => {
     const settings = await screen.findByTestId('suite-settings');
     fireEvent.click(within(settings).getAllByText('Knowledge graph')[0]!);
     expect(await screen.findByTestId('knowledge-style-picker')).toBeDefined();
+  });
+});
+
+describe('Midnite Mind shell', () => {
+  it('wears the suite shell: name, logo, Settings with the Monitor page, and the status bar with the monitor segment', async () => {
+    render(<MindHostApp />);
+    expect(screen.getAllByText('Midnite Mind').length).toBeGreaterThan(0);
+    expect(screen.getByAltText('Midnite Mind')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
+    expect(screen.getByTestId('status-bar')).toBeDefined();
+    act(() => seedMonitorSample());
+    expect(await screen.findByTestId('monitor-cluster')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const settings = screen.getByTestId('suite-settings');
+    expect(within(settings).getAllByText('Appearance').length).toBeGreaterThan(0);
+    expect(within(settings).getAllByText('Monitor').length).toBeGreaterThan(0);
+    // The terminal, companion and FAB are gated off until a suite app has a pty host.
+    expect(document.querySelector('[data-shell-panel]')).toBeNull();
   });
 });

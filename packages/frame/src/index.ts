@@ -484,6 +484,7 @@ export {
   type StatusBarPopoverProps,
   type StatusBarTooltipProps,
 } from './shell/status-bar/status-bar-chrome';
+export { seedMonitorSample, suiteShellTestBridge } from './shell/suite-shell-test-bridge';
 export {
   createMonitorSegment,
   type MonitorFlyoutProps,

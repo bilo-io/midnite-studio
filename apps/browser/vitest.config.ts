@@ -12,6 +12,9 @@ export default defineConfig({
       '@midnite/studio-module-browser/main': at('../../packages/modules/browser/main/index.ts'),
       '@midnite/studio-module-browser/renderer': at('../../packages/modules/browser/renderer/index.ts'),
       // Subpaths before their barrels, or the barrel's alias would swallow them.
+      '@midnite/studio-feature-monitor/renderer': at('../../packages/features/monitor/renderer/index.ts'),
+      '@midnite/studio-feature-monitor/main': at('../../packages/features/monitor/main/index.ts'),
+      '@midnite/studio-feature-monitor/bridge': at('../../packages/features/monitor/bridge.ts'),
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
       '@midnite/studio-runtime/app-main/suite-preload': at('../../packages/runtime/src/app-main/suite-preload.ts'),

@@ -2,7 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 import { createCaptureBridge } from '@midnite/studio-module-capture/bridge';
 import { createMindBridge } from '@midnite/studio-module-mind/bridge';
-import { unionBridgeSlices } from '@midnite/studio-runtime/app-main/bridge-slice';
+import { createMonitorFeatureBridge } from '@midnite/studio-feature-monitor/bridge';
+import { createBridgeSlice, unionBridgeSlices } from '@midnite/studio-runtime/app-main/bridge-slice';
 import { createSuiteBridge } from '@midnite/studio-runtime/app-main/suite-preload';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Mind exposes the union of the slices of the
@@ -13,6 +14,7 @@ try {
     unionBridgeSlices(
       createMindBridge(ipcRenderer),
       createCaptureBridge(ipcRenderer),
+      createMonitorFeatureBridge(createBridgeSlice(ipcRenderer)),
       createSuiteBridge(ipcRenderer, process.argv, process.platform),
     ),
   );

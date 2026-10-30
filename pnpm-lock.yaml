@@ -111,6 +111,9 @@ importers:
       '@midnite/studio-feature-models':
         specifier: workspace:*
         version: link:../../packages/features/models
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../packages/features/monitor
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
@@ -223,6 +226,9 @@ importers:
       '@midnite/studio-feature-browser':
         specifier: workspace:*
         version: link:../../packages/features/browser
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../packages/features/monitor
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
@@ -341,6 +347,9 @@ importers:
       '@midnite/studio-feature-models':
         specifier: workspace:*
         version: link:../../packages/features/models
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../packages/features/monitor
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
@@ -520,6 +529,9 @@ importers:
       '@midnite/studio-feature-media-video':
         specifier: workspace:*
         version: link:../../packages/features/media-video
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../packages/features/monitor
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
@@ -611,6 +623,9 @@ importers:
       '@midnite/studio-feature-capture':
         specifier: workspace:*
         version: link:../../packages/features/capture
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../packages/features/monitor
       '@midnite/studio-feature-notes':
         specifier: workspace:*
         version: link:../../packages/features/notes
@@ -708,6 +723,9 @@ importers:
       '@midnite/studio-feature-finance':
         specifier: workspace:*
         version: link:../../packages/features/finance
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../packages/features/monitor
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
@@ -3967,6 +3985,9 @@ importers:
       '@midnite/studio-feature-browser':
         specifier: workspace:*
         version: link:../../features/browser
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../features/monitor
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../features/report
@@ -4548,6 +4569,9 @@ importers:
       '@midnite/studio-feature-finance':
         specifier: workspace:*
         version: link:../../features/finance
+      '@midnite/studio-feature-monitor':
+        specifier: workspace:*
+        version: link:../../features/monitor
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../features/report

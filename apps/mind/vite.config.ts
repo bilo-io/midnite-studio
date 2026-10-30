@@ -16,6 +16,7 @@ export default defineConfig({
       '@midnite/studio-module-capture/renderer': at('../../packages/modules/capture/renderer/index.ts'),
       '@midnite/studio-feature-capture/renderer': at('../../packages/features/capture/renderer/index.ts'),
       '@midnite/studio-module-mind/renderer': at('../../packages/modules/mind/renderer/index.ts'),
+      '@midnite/studio-feature-monitor/renderer': at('../../packages/features/monitor/renderer/index.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
       '@midnite/studio-frame/knowledge': at('../../packages/frame/src/knowledge/index.ts'),
       '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),

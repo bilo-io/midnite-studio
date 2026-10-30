@@ -66,7 +66,21 @@ export type SuiteAppShellProps = {
   panels?: AppShellPanels;
   /** Told whenever Settings opens or closes — an app with native views over the DOM hides them while it is open. */
   onSettingsOpenChange?: (open: boolean) => void;
-  /** Renders the active view; Settings is the shell's own. */
+  /**
+   * Keep the active view mounted, hidden, while Settings is open, instead of unmounting it. For a view that holds
+   * state or native surfaces a remount would lose — Browser's tabs and its agent-session event stream. The
+   * hidden view keeps its layout box (`visibility`, never `display: none`), so anything measuring it sees no resize.
+   */
+  keepViewMounted?: boolean;
+  /**
+   * Renders the active view; Settings is the shell's own.
+   *
+   * No `panels` and no terminal, companion or FAB segment are offered here yet (Phase 123 Theme H): a suite app
+   * has no pty host (the broker script, `node-pty`, confinement and the agent probe live in `packages/desktop`;
+   * an app can only attach to Studio's broker as a guest, which cannot create a session), the companion needs
+   * Studio's dispatch, agents and utility fork, and the FAB starts a loop in the terminal. Each joins with the
+   * host it needs, never as a button that does nothing.
+   */
   children: (view: string) => ReactNode;
 };
 
@@ -87,6 +101,7 @@ export function SuiteAppShell({
   statusPanels = {},
   panels,
   onSettingsOpenChange,
+  keepViewMounted = false,
   children,
 }: SuiteAppShellProps) {
   useAppearanceSync();
@@ -130,13 +145,23 @@ export function SuiteAppShell({
       {...(panels ? { panels } : {})}
       footer={all.length > 0 ? <StatusBar segments={all} /> : null}
     >
-      {settingsOpen ? (
-        <div className="h-full overflow-hidden" data-testid="suite-settings">
-          <SettingsView pages={[...suiteAppSettingsPages(statusPanels), ...settingsPages]} />
+      {keepViewMounted ? (
+        <div
+          className={settingsOpen ? 'invisible h-full' : 'h-full'}
+          aria-hidden={settingsOpen || undefined}
+          inert={settingsOpen || undefined}
+          data-testid="suite-view"
+        >
+          {children(current)}
         </div>
-      ) : (
+      ) : settingsOpen ? null : (
         children(current)
       )}
+      {settingsOpen ? (
+        <div className={keepViewMounted ? 'absolute inset-0 overflow-hidden bg-background' : 'h-full overflow-hidden'} data-testid="suite-settings">
+          <SettingsView pages={[...suiteAppSettingsPages(statusPanels), ...settingsPages]} />
+        </div>
+      ) : null}
     </AppShell>
   );
 }

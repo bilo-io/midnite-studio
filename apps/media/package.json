@@ -20,6 +20,7 @@
     "@midnite/studio-feature-media-library": "workspace:*",
     "@midnite/studio-feature-media-video": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
+    "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-module-creator": "workspace:*",
     "@midnite/studio-module-media": "workspace:*",
