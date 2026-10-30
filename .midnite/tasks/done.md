@@ -15513,3 +15513,7 @@ J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `pac
 ### Phase 123 Theme H (1/3) — Vanguard, Agents, Media and Gamer on the shell (2026-10-30)
 
 `SuiteAppShell` and `SuiteAppearancePage` in the frame; the four host apps render `AppShell` with their manifest nav and a Settings view (Appearance, Keyboard shortcuts, plus Vanguard's own page). Panels, mains and the status bar are still to do, so no checklist item is ticked; see the Headlines H paragraph.
+
+### Phase 124 Theme E.3 (renderer slice) — host nav groups and view routers (2026-10-30)
+
+Vanguard, Agents, Media and Gamer render a nav group per mounted module (Vanguard ← Vault, Cleaner, Monitor; Agents ← Coder, Creator; Media ← Creator; Gamer ← Creator) through a frame `ModuleViewRouter` and per-module panes; `useSyncedView` keeps a module's own tab and the rail in step, and the shell's group headings now render and collapse. Mind ← Capture is still open, so E.3 is not ticked and the index row is unchanged.

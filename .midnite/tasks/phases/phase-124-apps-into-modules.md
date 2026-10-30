@@ -116,11 +116,18 @@ broker identity from the host (`appId`, so one pairing key and one set of grants
 ids over one `<userData>/media` and Creator builds on Gamer's media service (`media`), so there is one store and one
 watcher; Electron allows one handler per scheme, so each host composes the modules' `mstudio-file://` resolvers
 (library, then Creator's; Gamer's, then Creator's); Agents takes Coder's system-git shim in place of the dugite stub
-(the Coder module only reads) and bundles the script-runner worker. Open: Mind ← capture (needs the capture service,
-display-media gate, file protocol and overlay window composed in Mind's main), and the renderer half for every host: no
-host renders `AppShell` yet (Phase 123 Theme H), so the per-host view router over several modules' compose trees and host
-ports is still to build, and E.2's extra groups appear only once a module's views are routable (a module with no group
-is skipped). E.3 stays unticked until Mind and the renderer half land. Surprises: the module's `main/` may not import `electron`, so Gamer's `game-electron.ts` stayed in the host;
+(the Coder module only reads) and bundles the script-runner worker. Renderer half landed for Vanguard, Agents, Media and Gamer: each host's `apps/<host>/src/host-app.tsx` renders the
+suite shell over `navFromModules` groups (`host-nav.ts`) and a frame `ModuleViewRouter` hands the active view to its
+module's pane (`<Module>Pane`, with its own chrome, host ports and query client, no own app header and no
+`ReportIssueHost`, since the host owns the one entry). Vanguard ← Vault, Cleaner, Monitor; Agents ← Coder, Creator;
+Media ← Creator; Gamer ← Creator. Modules export a `<MODULE>_NAV_GROUP` and the host composes them, because a module
+never imports another. Decisions: a rail row that is a module's own tab (Vanguard, Creator, Media, Gamer) is kept in
+step with that module's store by `useSyncedView` (the rail wins on arrival, the module's own tab strip reports up);
+Coder takes its view from the rail (`embeddedView`) and keeps only its Review-actions switch in the header; Vault, Cleaner
+and Monitor are one row each, since their pages keep their own tabs; a host opens on its first view, not the last-used
+tab. The shell's section headings never rendered (`collapsible: false` makes `@bilo-io/shell` draw no heading), so
+`AppShell` now leaves them collapsible and holds the collapsed set. Open: Mind ← capture (123 H 2/3 puts Mind on the
+shell, #1080 has its main half), so E.3 stays unticked. Surprises: the module's `main/` may not import `electron`, so Gamer's `game-electron.ts` stayed in the host;
 a renderer test may not import its own `main/`, so `GAMER_REPO_ID` moved to the module manifest; `app-vault-grants`
 scanned `apps/agents/*` only and now scans the module too.
 
