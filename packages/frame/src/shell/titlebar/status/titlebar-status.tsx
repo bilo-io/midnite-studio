@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { LuCalendar, LuClock, LuCloudSun } from 'react-icons/lu';
 
-import { useNow } from '../../lib/use-now';
-import { Popover } from '../../components/popover';
+import { useNow } from '../../../lib/use-now';
+import { useStatusBarChrome } from '../../status-bar/status-bar-chrome';
 import { TitlebarStatusPanel } from './components/titlebar-status-panel';
-import { useTitlebarStatusStore } from './titlebar-status-store';
+import { useTitlebarStatusStore } from '../../../prefs/titlebar-status-store';
 import { useWeather } from './use-weather';
 import { describeWeatherCode, temp } from './weather-format';
 
 export function TitleBarStatus() {
   const [open, setOpen] = useState(false);
   const now = useNow();
+  const { Popover } = useStatusBarChrome();
 
   const showDate = useTitlebarStatusStore((s) => s.showDate);
   const showTime = useTitlebarStatusStore((s) => s.showTime);

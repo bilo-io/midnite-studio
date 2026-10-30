@@ -7,8 +7,8 @@ import {
   LuSearch,
 } from 'react-icons/lu';
 
-import { Spinner } from '../../../components/skeleton';
-import { useTitlebarStatusStore } from '../titlebar-status-store';
+import { Spinner } from '../../../../layout/skeleton';
+import { useTitlebarStatusStore } from '../../../../prefs/titlebar-status-store';
 import type {
   WeatherGeocodeResult,
   WeatherUnits,

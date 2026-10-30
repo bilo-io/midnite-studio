@@ -35,7 +35,7 @@ import {
 } from '@midnite/studio-feature-browser/renderer';
 // The frame (Phase 113 Theme C): the chrome every app wears. The layout
 // pieces below are the first to leave this file for it.
-import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, ToolApprovalHost, useKnowledgeGraphExists } from '@midnite/studio-frame';
+import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, TitleBarBattery, TitleBarStatus, ToolApprovalHost, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
 import { STUDIO_FORGE_HOST } from './compose/forge-host';
 import { STUDIO_CHROME } from './compose/studio-chrome';
@@ -84,8 +84,7 @@ import { TitleBarAgents } from './components/title-bar-agents';
 import { TitleBarNav } from './components/title-bar-nav';
 import { TitleBarOllama } from './components/title-bar-ollama';
 import { TitleBarPrimaryAgent } from './components/title-bar-primary-agent';
-import { TitleBarBattery } from './features/battery/battery-titlebar';
-import { TitleBarStatus } from './features/titlebar-status/titlebar-status';
+import { StudioTitleBarHost } from './compose/titlebar-host';
 import { KillSwitchModal } from './features/automate/kill-switch-modal';
 import { ScreensaverHost } from './features/screensaver/screensaver-host';
 import { CommitActivityPanel } from './features/activity/commit-activity-panel';
@@ -1386,8 +1385,10 @@ function Shell() {
       <TitleBarPrimaryAgent />
       <TitleBarAgents />
       <TitleBarOllama />
-      <TitleBarStatus />
-      <TitleBarBattery />
+      <StudioTitleBarHost>
+        <TitleBarStatus />
+        <TitleBarBattery />
+      </StudioTitleBarHost>
       {/*
         The account switcher's default slot (Phase 90 Theme L;
         `'titlebar-right'`), where Theme B's avatar sat — the title bar's first
