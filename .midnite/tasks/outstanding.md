@@ -2,6 +2,15 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **A pty host for suite apps (Phase 123 Theme H).** Suite apps (Vanguard, Agents, Media, Gamer, Money, Mind, Browser)
+  have no pty host: the broker script, `node-pty`, confinement and the agent probe live in `packages/desktop`, and an
+  app can only attach to Studio's broker as a guest, which cannot create a session. So their terminal, companion and
+  FAB/Loops panels are off (#1087), and Theme H's roll-out batches were ticked without them. In order: (1) a pty host a
+  suite app's main can register (terminal first); (2) FAB/Loops plus the loop-runs service (start, stop, exit-finalise,
+  now in desktop); (3) the companion, which needs Studio's dispatch, agents and utility fork; (4) the Privacy, Terminal
+  and Companion settings pages for suite apps, each with a suite-prefs group and a migration, joining with the thing it
+  governs. Also open from Studio's move: the rail and the panel hosts are still Studio's own, not the shell's.
+
 - **The first mic press on a fresh install times out behind the model download.** Found in the
   2026-10-10 ad hoc mic-permission fix. `whisper-local`'s `transcribe` awaits `ensureModel` (the
   one-time ~100 MB download) inside `transcribeUtterance`'s 15 s deadline. `raceAbort` only wraps
@@ -830,3 +839,9 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 - **Chat model pins are Claude-only**, because `loopModelArgs` only knows `--model` for `claude`; Codex and Agy turns have nothing to mismatch against.
 - **Ollama library search is not behind a switch yet**: Phase 115 Theme A is not on `main`. Digest checks make no network call, so nothing was added.
 - **Digest pins are not cleaned** when a model is deleted, and the Agents app does not configure the digest ledger.
+
+- **Phase 124 G.5 — a final release for each retired app.** Deferred on purpose when Theme H deleted
+  `apps/{coder,creator,cleaner,vault,monitor,capture}`: an existing install of one gets no notice that its app
+  moved into Agents, Vanguard or Mind, and its feed stays frozen at its last version. A final release whose notes
+  point to the host can still be cut later from `e64bcf62f13deee8d5918e79412e20d4d5ba7c5e` (origin/main at the time Theme H branched), the last commit
+  that still has the six apps. Cut it from that commit, never from a newer one.

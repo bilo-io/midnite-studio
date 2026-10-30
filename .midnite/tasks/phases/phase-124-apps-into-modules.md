@@ -146,26 +146,37 @@ the retired ids are mirrored locally (`LEGACY_APP_HOSTS`, `LEGACY_BUNDLE_APP_IDS
 `shared/src/modules.ts`; bundle install/uninstall stays keyed on `BUNDLE_APP_IDS` so the six still-built apps
 keep working until Theme H, and old `coder`/`vault`/... links resolve to the host's module.
 
-**Theme G — Migration.** 🔄 G.1–G.4 landed (PR pending); G.5 open. A `midnite://open?app=coder` link (any retired
+**Theme G — Migration.** ✅ G.1–G.4 landed; G.5 deferred (no final releases, see Decisions). A `midnite://open?app=coder` link (any retired
 id) now parses to `app: agents, module: coder` with `legacyApp: coder` kept on the target, `MIDNITE_APP_IDS` is the
 eight hosts bar Science, and hand-offs may still *name* a retired id (`HandoffAppId`; Studio's hosted set lists
 them) so no caller changed. `placement.ts` gains `FEATURE_HOSTS` / `placementHosts` (`forge → agents`,
 `media → agents, media, gamer`) derived from `APP_MODULES`; the placement table itself is untouched because ~30
 manifests and their tests still name the module-level owner. `forge.*` tools are owned by `agents`, and a lone
-Coder bundle keeps listing them (`legacyToolOwner`) until H. The launcher router opens the host's bundle, falls
+Coder bundle kept listing them (`legacyToolOwner`) until H removed it. The launcher router opens the host's bundle, falls
 back to the old bundle while the host is missing, and forwards to Studio on the module; a host tile whose retired
 app is installed says "Replaces Coder", the sheet offers the host, and once it is installed offers to move the
 old bundle to the Trash (`common/migration.ts`). `importRetiredAppData` (`runtime/src/migrate/`) copies each
 retired app's app-local files into its host's directory once, never overwrites, leaves the source, writes a
 `.migrated/<id>.json` marker, and is called from Agents, Vanguard and Mind's main. Vault secrets are not in the
-plan: they already live in the shared runtime vault. Open: G.5 (a final release per retired app is an
-irreversible release action, so it is left to a human run); opening a host *bundle* from a link does not land on
+plan: they already live in the shared runtime vault. Deferred: G.5 (a final release per retired app is an
+irreversible release action; agreed to skip it for now, see Decisions). Open: opening a host *bundle* from a link does not land on
 the module (a bundle is opened, not handed the link) and the hosts do not mount the other modules' main halves or
 MCP tools until E.3 (`music_*` stay with a Creator bundle or Studio until then); Creator's data imports into
 Agents only (its alias host), not Media or Gamer.
 
-**Theme H — Retire the six apps.** ◻ `apps/{coder,creator,cleaner,vault,monitor,capture}` and their pack,
-release, icon and test legs are deleted.
+**Theme H — Retire the six apps.** ✅ `apps/{coder,creator,cleaner,vault,monitor,capture}` are deleted (114
+files), with their pack, release, icon and test legs. `release-bundles.test.mjs` swaps the six per-app blocks for one
+that asserts none of them has a directory, a bundle or a matrix entry; `app-window-guard` now holds Capture's overlay
+window in `apps/mind`; `app-vault-grants` drops Creator (the hosts that mount it hold the connection). The six
+logos go from the launcher masters, its tile assets and the frame's copy. `vanguard-install.proof.test.ts` replaces the
+Cleaner proof with the same build, pack, install, stub, headless-run and uninstall run against Vanguard. `SUITE_APP_IDS`
+drops the six, and `SuiteAppIdSchema` resolves a persisted retired id (a terminal session's `appId`) to its host
+instead of rejecting the record (`RETIRED_SUITE_APP_HOSTS`). `legacyToolOwner` is gone, so a leftover Coder bundle no
+longer lists the forge tools. Kept on purpose: the module-level placement ids (`coder`, `creator`, ... as feature
+owners and `app-<id>` moon tags, which the affected-apps pin and ~30 manifests name) and the launcher's
+`LEGACY_BUNDLE_APP_IDS`, so an already-installed old bundle is still listed, offered the host and removable. The
+lockfile and moon graph carry no `@midnite/app-{coder,...}` project, and `release-bundles.mjs` only builds an app with
+a `moon.yml`, so the matrix cannot name them.
 
 **Theme I — Docs.** ✅ `docs/APPS.md` gains a "Modules and hosts" section (what a module is, the layer as eslint enforces it, the host to modules map, how a host mounts modules through `mountModuleMains`, `unionBridgeSlices`, nav groups and `ModuleViewRouter`, and how to add a module), and its vocabulary and app list now name the eight hosts and the six retired apps. `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` carry the same module bullet beside the app and feature bullets (a module imports features, the frame and `shared`, never an app or another module; its main half takes no `electron`; nothing below an app imports one) and an updated `apps/` list. `docs/VAULT_SECURITY.md` names Vanguard as Vault's home. No other doc listed a retired app as live; `packages/website` is untouched.
 
@@ -275,27 +286,28 @@ release, icon and test legs are deleted.
   clipboard history and recordings index, Vault's per-app state) from that app's `userData`, once, with a
   marker so it never re-runs; the source is left in place. Vault secrets keep going through the runtime
   vault service, never copied as files. `[M]`
-- [ ] **G.5** Each retired app gets one final release on its updater feed whose notes point to its host,
-  so an existing install learns where it went. `[S]`
+- [ ] **G.5** One final release per retired app, pointing to its host `[S]` (⏳ deferred)
+  Each retired app gets one final release on its updater feed whose notes point to its host, so an existing
+  install learns where it went. Skipped for now; see *Retired update feeds* in Decisions.
 
 ## Theme H — Retire the six apps `[M]`
 
-- [ ] **H.1** Delete `apps/coder`, `apps/creator`, `apps/cleaner`, `apps/vault`, `apps/monitor`,
+- [x] **H.1** Delete `apps/coder`, `apps/creator`, `apps/cleaner`, `apps/vault`, `apps/monitor`,
   `apps/capture` once G has shipped. `[S]`
-- [ ] **H.2** Remove their legs from [`pack-bundle.mjs`](../../../scripts/pack-bundle.mjs),
+- [x] **H.2** Remove their legs from [`pack-bundle.mjs`](../../../scripts/pack-bundle.mjs),
   [`release-bundles.test.mjs`](../../../scripts/release-bundles.test.mjs),
   [`affected-apps.test.mjs`](../../../scripts/affected-apps.test.mjs),
   [`version-check.test.mjs`](../../../scripts/version-check.test.mjs) and
   [`app-window-guard.test.mjs`](../../../scripts/app-window-guard.test.mjs). `[M]`
-- [ ] **H.3** Remove their logos from
+- [x] **H.3** Remove their logos from
   [`app-logos/`](../../../apps/launcher/src/renderer/assets/app-logos/) and
   [`generate-app-logos.cjs`](../../../apps/launcher/scripts/generate-app-logos.cjs) /
   [`app-icons.cjs`](../../../apps/launcher/scripts/app-icons.cjs); module glyphs are `react-icons`, not
   generated PNGs. `[S]`
-- [ ] **H.4** Replace
+- [x] **H.4** Replace
   [`cleaner-install.proof.test.ts`](../../../apps/launcher/src/main/bundles/cleaner-install.proof.test.ts)
   with the same proof against Vanguard. `[S]`
-- [ ] **H.5** `pnpm-lock.yaml` and the moon project graph carry no retired package; CI's
+- [x] **H.5** `pnpm-lock.yaml` and the moon project graph carry no retired package; CI's
   affected-apps matrix no longer lists them. `[S]`
 
 ## Theme I — Docs `[S]`
@@ -349,7 +361,8 @@ release, icon and test legs are deleted.
   editors on one file; last write wins, as it does today with Studio beside Creator.
 - **Accent** *(open — recommend)*: the window wears the host's accent; a module's accent appears only on
   its nav group label.
-- **Retired update feeds** *(open — recommend)*: one final release per retired app that points to its
-  host (G.5), then the feed is frozen rather than deleted.
+- **Retired update feeds** *(deferred)*: G.5 is skipped for now, so no final release points an existing install
+  at its host and the feeds are simply frozen. A final release per retired app can still be cut later from the last
+  commit that has the apps, `e64bcf62f13deee8d5918e79412e20d4d5ba7c5e` (origin/main when Theme H branched).
 - **Studio's own nav** *(open)*: whether Studio also groups its nav by module, or keeps its flat rail —
   recommend flat for now, since "no behaviour change" is a guardrail.

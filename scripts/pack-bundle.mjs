@@ -4,7 +4,7 @@
 // `main` is set only when the build wrote `dist/main.cjs` (an app with an Electron side) — that file is
 // what the launcher's stub runs as `Resources/app`'s main. Used by release.yml's `bundles` job and by
 // apps/launcher's install proof, so the zip a test installs is the zip a release ships.
-// Usage: node scripts/pack-bundle.mjs --app cleaner --dir apps/cleaner --version 0.4.0 --out <dir> [--stage <dir>]
+// Usage: node scripts/pack-bundle.mjs --app vanguard --dir apps/vanguard --version 0.4.0 --out <dir> [--stage <dir>]
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

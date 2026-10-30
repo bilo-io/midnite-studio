@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 
-import { AppFrame, ShellProviders, TitleBar, type NavConfig as ShellNavConfig } from '@bilo-io/shell';
+import { AppFrame, ShellProviders, TitleBar, type AppFrameProps, type NavConfig as ShellNavConfig, type NavLinkComponent } from '@bilo-io/shell';
 import type { SuiteAppId } from '@midnite/studio-shared';
 import { QueryClient } from '@tanstack/react-query';
 import { LuSettings } from 'react-icons/lu';
@@ -19,14 +19,39 @@ export type AppShellPanels = {
   fab?: ComponentType;
 };
 
+/**
+ * A rail the app composes itself (Studio's: grouped sections, a repo filter, the lock toggle, the account
+ * switcher). Given, it replaces the manifest-derived rail and its link component wholesale; `AppShell`
+ * still owns the frame, the title bar, the content box and the footer around it.
+ */
+export type AppShellRail = {
+  nav: ShellNavConfig;
+  activePath: string;
+  linkComponent: NavLinkComponent;
+  navMode?: AppFrameProps['navMode'];
+  collapsedSections?: string[];
+  onToggleSection?(key: string): void;
+};
+
 export type AppShellProps = {
   app: SuiteAppId;
   name: string;
-  /** The app's brand colour — the logo tile and the active nav row only (decision 11). */
-  accent: string;
-  nav: NavConfig;
-  activeView: string;
-  onNavigate(view: string): void;
+  /** The app's brand colour — the logo tile and the active nav row only (decision 11). Absent, no `--app-accent` is set. */
+  accent?: string;
+  /** The manifest's views. Omit when `rail` is given. */
+  nav?: NavConfig;
+  activeView?: string;
+  onNavigate?(view: string): void;
+  /** The app's own rail (see `AppShellRail`). */
+  rail?: AppShellRail;
+  /** Replaces the app-name label at the title bar's left, and in the framed strip. */
+  titleBarStart?: ReactNode;
+  /** `false` leaves out the suite right cluster (status pill, battery, theme toggle) — the app renders its own in `titleBarEnd`. */
+  suiteCluster?: boolean;
+  /** `true` when an ancestor already mounts `ShellProviders` (Studio's root does). */
+  providersMounted?: boolean;
+  /** `true` hands the content box to `children` whole: no view slot, no panel slots. The app lays out its own row. */
+  bare?: boolean;
   /** Each panel's component, from the app's composer. The frame imports no feature, so it mounts only these. */
   panels?: AppShellPanels;
   /** The status bar (Theme J). */
@@ -52,8 +77,12 @@ export type AppShellProps = {
  * nothing, so the shell draws the same slim strip Studio's `framed` branch does, inside the content box
  * so the document never grows taller than the viewport.
  */
-export function AppShell({ queryClient, ...props }: AppShellProps) {
+const EMPTY_NAV: NavConfig = { views: [] };
+const noop = (): void => undefined;
+
+export function AppShell({ queryClient, providersMounted, ...props }: AppShellProps) {
   const [ownClient] = useState(() => queryClient ?? new QueryClient());
+  if (providersMounted) return <AppShellFrame {...props} />;
   return (
     <ShellProviders queryClient={queryClient ?? ownClient}>
       <AppShellFrame {...props} />
@@ -65,16 +94,20 @@ function AppShellFrame({
   app,
   name,
   accent,
-  nav,
-  activeView,
-  onNavigate,
+  nav = EMPTY_NAV,
+  activeView = '',
+  onNavigate = noop,
+  rail,
+  titleBarStart,
+  suiteCluster = true,
+  bare = false,
   panels,
   footer,
   titleBarEnd,
   chordFor,
   tooltip,
   children,
-}: Omit<AppShellProps, 'queryClient'>) {
+}: Omit<AppShellProps, 'queryClient' | 'providersMounted'>) {
   const windowChrome = bridge()?.windowChrome ?? null;
   const framed = !windowChrome?.frameless;
   const logo = appLogoUrl(app);
@@ -169,16 +202,18 @@ function AppShellFrame({
   const rightCluster = (
     <div className="flex items-center gap-2" data-testid="app-shell-titlebar-end">
       {titleBarEnd}
-      <TitleBarCluster />
+      {suiteCluster ? <TitleBarCluster /> : null}
     </div>
   );
+
+  const startNode = titleBarStart ?? <span className="truncate text-xs font-medium text-muted-foreground">{name}</span>;
 
   const titleBar = (
     <TitleBarDoubleClick windowChrome={windowChrome}>
       <TitleBar
         className="titlebar-root"
         windowChrome={windowChrome}
-        left={<span className="truncate text-xs font-medium text-muted-foreground">{name}</span>}
+        left={startNode}
         right={rightCluster}
       />
     </TitleBarDoubleClick>
@@ -189,18 +224,28 @@ function AppShellFrame({
   const Fab = panels?.fab;
 
   return (
-    <div className="app-shell" data-app={app} style={{ '--app-accent': accent } as CSSProperties}>
-      <AppFrame nav={shellNav} activePath={pathForNavView(activeView)} linkComponent={ViewLink} navLabel="Views" titleBar={titleBar} collapsedSections={collapsedGroups} onToggleSection={toggleGroup}>
+    <div className="app-shell" data-app={app} style={accent === undefined ? undefined : ({ '--app-accent': accent } as CSSProperties)}>
+      <AppFrame
+        nav={rail?.nav ?? shellNav}
+        activePath={rail?.activePath ?? pathForNavView(activeView)}
+        linkComponent={rail?.linkComponent ?? ViewLink}
+        {...(rail?.navMode === undefined ? {} : { navMode: rail.navMode })}
+        navLabel="Views"
+        titleBar={titleBar}
+        collapsedSections={rail?.collapsedSections ?? collapsedGroups}
+        onToggleSection={rail?.onToggleSection ?? toggleGroup}
+      >
         <div className="flex flex-col" style={CONTENT_BOX}>
           {framed ? (
             <div
               data-testid="app-shell-framed-strip"
               className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border px-3"
             >
-              <span className="truncate text-xs font-medium text-muted-foreground">{name}</span>
+              {titleBarStart ?? <span className="truncate text-xs font-medium text-muted-foreground">{name}</span>}
               {rightCluster}
             </div>
           ) : null}
+          {bare ? children : (
           <div className="relative flex min-h-0 flex-1">
             <div className="flex min-w-0 flex-1 flex-col">
               <div data-testid="app-shell-view" className="relative min-h-0 flex-1 overflow-hidden">
@@ -218,6 +263,7 @@ function AppShellFrame({
               </div>
             ) : null}
           </div>
+          )}
           {footer}
         </div>
         {Fab ? (

@@ -3,7 +3,7 @@ import { defineModuleManifest } from '@midnite/studio-shared';
 /**
  * The Vault module (Phase 124 Theme D). Pure data both halves read: it imports
  * `@midnite/studio-shared` and nothing else. Vanguard mounts it as one nav group
- * (glyph + label, its view beneath); `apps/vault` still composes it on its own until Theme H.
+ * (glyph + label, its view beneath); its standalone app was deleted in Theme H, so a host mounts it.
  */
 export const vaultManifest = defineModuleManifest({
   module: 'vault',

@@ -14,7 +14,7 @@ import { runtimeFromExecPath } from './stub';
 export function identityForApp(id: string): StubIdentity | null {
   if (id === 'studio') return null;
   if ((APP_IDS as readonly string[]).includes(id)) return stubIdentity(id, appById(id as AppId).name);
-  // Retired by Phase 124 but still built until Theme H: an installed Midnite Cleaner keeps its identity.
+  // Retired and deleted by Phase 124: an already-installed Midnite Cleaner keeps its identity, so it can be removed.
   if (Object.hasOwn(LEGACY_BUNDLE_NAMES, id)) return stubIdentity(id, LEGACY_BUNDLE_NAMES[id as LegacyBundleAppId]);
   return null;
 }

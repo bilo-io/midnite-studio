@@ -42,40 +42,16 @@ describe('bundleMatrix', () => {
   });
 });
 
-describe('the real apps/ tree (Theme H1)', () => {
+describe('retired apps (Phase 124 Theme H)', () => {
   const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
   const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
-  it('puts cleaner in the --all matrix, as app-cleaner', () => {
-    expect(apps).toContain('cleaner');
-    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'cleaner', project: 'app-cleaner', dir: 'apps/cleaner' });
+  it.each(['coder', 'creator', 'cleaner', 'vault', 'monitor', 'capture'])('%s has no bundle and no apps/ directory', (id) => {
+    expect(existsSync(path.join(repoRoot, 'apps', id))).toBe(false);
+    expect(apps).not.toContain(id);
+    expect(bundleMatrix(apps, has).include.map((e) => e.app)).not.toContain(id);
   });
-  it('gives cleaner the icon a release needs to pack it (an app without one is skipped)', () => {
-    const icns = readFileSync(path.join(repoRoot, 'apps/cleaner/resources/icon.icns'));
-    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
-  });
-  it('stamps cleaner at the lockstep version', () => {
-    const version = (f) => JSON.parse(read(f)).version;
-    expect(version('apps/cleaner/package.json').split('.').slice(0, 2)).toEqual(version('package.json').split('.').slice(0, 2));
-  });
-});
-
-describe('apps/monitor (Theme I)', () => {
-  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
-  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
-  it('is in the --all matrix, as app-monitor, with the icon a release needs to pack it', () => {
-    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'monitor', project: 'app-monitor', dir: 'apps/monitor' });
-    const icns = readFileSync(path.join(repoRoot, 'apps/monitor/resources/icon.icns'));
-    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
-  });
-});
-
-describe('apps/vault (Theme J)', () => {
-  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
-  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
-  it('is in the --all matrix, as app-vault, with the icon a release needs to pack it', () => {
-    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'vault', project: 'app-vault', dir: 'apps/vault' });
-    const icns = readFileSync(path.join(repoRoot, 'apps/vault/resources/icon.icns'));
-    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
+  it('the hosts that absorbed them still ship', () => {
+    for (const host of ['agents', 'media', 'gamer', 'vanguard', 'mind']) expect(apps).toContain(host);
   });
 });
 
@@ -95,16 +71,6 @@ describe('apps/money (Theme P)', () => {
   it('is in the --all matrix, as app-money, with the icon a release needs to pack it', () => {
     expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'money', project: 'app-money', dir: 'apps/money' });
     const icns = readFileSync(path.join(repoRoot, 'apps/money/resources/icon.icns'));
-    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
-  });
-});
-
-describe('apps/creator (Theme Q)', () => {
-  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
-  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
-  it('is in the --all matrix, as app-creator, with the icon a release needs to pack it', () => {
-    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'creator', project: 'app-creator', dir: 'apps/creator' });
-    const icns = readFileSync(path.join(repoRoot, 'apps/creator/resources/icon.icns'));
     expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
   });
 });
@@ -129,16 +95,6 @@ describe('apps/media (Theme R)', () => {
   });
 });
 
-describe('apps/capture (Theme K)', () => {
-  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
-  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
-  it('is in the --all matrix, as app-capture, with the icon a release needs to pack it', () => {
-    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'capture', project: 'app-capture', dir: 'apps/capture' });
-    const icns = readFileSync(path.join(repoRoot, 'apps/capture/resources/icon.icns'));
-    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
-  });
-});
-
 describe('apps/vanguard (Phase 120 Theme B)', () => {
   const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
   const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
@@ -155,16 +111,6 @@ describe('apps/agents (Theme N)', () => {
   it('is in the --all matrix, as app-agents, with the icon a release needs to pack it', () => {
     expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'agents', project: 'app-agents', dir: 'apps/agents' });
     const icns = readFileSync(path.join(repoRoot, 'apps/agents/resources/icon.icns'));
-    expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
-  });
-});
-
-describe('apps/coder (Theme O)', () => {
-  const has = (dir) => existsSync(path.join(repoRoot, dir, 'moon.yml'));
-  const apps = allApps(readdirSync(path.join(repoRoot, 'apps')), has);
-  it('is in the --all matrix, as app-coder, with the icon a release needs to pack it', () => {
-    expect(bundleMatrix(apps, has).include).toContainEqual({ app: 'coder', project: 'app-coder', dir: 'apps/coder' });
-    const icns = readFileSync(path.join(repoRoot, 'apps/coder/resources/icon.icns'));
     expect(icns.subarray(0, 4).toString('ascii')).toBe('icns');
   });
 });

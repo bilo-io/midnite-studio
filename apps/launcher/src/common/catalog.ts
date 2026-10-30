@@ -111,8 +111,9 @@ export const APP_IDS = [
 export type AppId = (typeof APP_IDS)[number];
 
 /**
- * Apps Phase 124 merged into a host but whose bundles are still built and installable until
- * Theme H deletes them. Only the bundle code (`main/bundles/`) keys on these — no tile, link or
+ * Apps Phase 124 merged into a host and Theme H deleted. No release builds them any more, but a Mac
+ * can still have one installed, so the launcher keeps listing it (to offer the host and the removal)
+ * and keeps its stub identity. Only the bundle code (`main/bundles/`) keys on these — no tile, link or
  * IPC id does. A test holds this list to `RETIRED_APP_IDS` in shared (minus the two that never
  * shipped a bundle: Accountant and Simulator).
  */
