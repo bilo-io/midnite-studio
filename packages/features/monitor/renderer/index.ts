@@ -22,3 +22,4 @@ type ViewIds = MonitorManifest['views'][number]['id'];
 export const monitorViews = {
   monitor: () => import('./monitor-page').then((m) => m.MonitorPage),
 } satisfies Record<ViewIds, () => Promise<ComponentType>>;
+export { createSuiteMonitorSegment, type SuiteMonitorSegmentOptions } from './suite-monitor-segment';

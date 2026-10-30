@@ -16,12 +16,14 @@
     "paths": {
       // Source, not dist — the resolution the composing app uses.
       "@midnite/studio-shared": ["../../shared/src/index.ts"],
+      // `bridge.ts` takes the channel names alone, by source path, as a preload does.
+      "@midnite/studio-shared/ipc/channels": ["../../shared/src/ipc/channels.ts"],
       // The main half's import, for any tool that reads this (nearest)
       // tsconfig's paths — esbuild does, when desktop's bundle inlines
       // main/index.ts — so it, too, resolves the runtime from source.
       "@midnite/studio-runtime": ["../../runtime/src/index.ts"]
     }
   },
-  "include": ["renderer/**/*", "manifest.ts", "manifest.test.ts", "vitest.config.ts"],
+  "include": ["renderer/**/*", "bridge.ts", "bridge.test.ts", "manifest.ts", "manifest.test.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

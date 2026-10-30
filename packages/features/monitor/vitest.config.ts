@@ -9,12 +9,13 @@ export default defineConfig({
     alias: {
       // Both halves resolve the contract and the runtime from source, so the
       // suite needs no build ahead of it (the runtime alias mirrors shared's).
+      '@midnite/studio-shared/ipc/channels': fileURLToPath(new URL('../../shared/src/ipc/channels.ts', import.meta.url)),
       '@midnite/studio-shared': fileURLToPath(new URL('../../shared/src/index.ts', import.meta.url)),
       '@midnite/studio-runtime': fileURLToPath(new URL('../../runtime/src/index.ts', import.meta.url)),
     },
   },
   test: {
-    include: ['renderer/**/*.test.{ts,tsx}', 'main/**/*.test.ts', 'manifest.test.ts'],
+    include: ['renderer/**/*.test.{ts,tsx}', 'main/**/*.test.ts', 'bridge.test.ts', 'manifest.test.ts'],
     environment: 'jsdom',
   },
 });

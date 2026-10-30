@@ -1,4 +1,9 @@
-import { defineFeatureMain } from '@midnite/studio-runtime';
+import {
+  createIpcContext,
+  defineFeatureMain,
+  registerHandoffOpener,
+  type IpcContextElectron,
+} from '@midnite/studio-runtime';
 import { CHANNELS, EVENT_CHANNELS, schemas, type SystemHealth } from '@midnite/studio-shared';
 
 import { monitorManifest } from '../manifest';
@@ -82,3 +87,34 @@ export const monitorMain = defineFeatureMain<MonitorMainServices>({
     services.onMetricsService?.(service);
   },
 });
+
+export type SuiteMonitorOptions = IpcContextElectron & {
+  /** The home directory agent transcripts are read under; absent, token spend is an honest empty list. */
+  homeDir?: string;
+  /** Where a malformed one-way payload is reported. */
+  warn: (issue: string) => void;
+  /** `shell.openExternal`, for a `midnite://open` hand-off only (`registerHandoffOpener` checks). */
+  openExternal: (url: string) => Promise<void>;
+  /** Handed the sampler so the app's window can pause it (`bindMetricsToWindow`). */
+  onMetricsService: (service: MetricsService) => void;
+} & Pick<MonitorMainServices, 'agentSessions' | 'readAgentHistory'>;
+
+/**
+ * What every suite app's main registers for the status bar's monitor segment (Phase 123 Theme H): the
+ * monitor feature's channels (the sampler, system health, token spend) and the `midnite://open` hand-off
+ * the flyout's "Open Monitor" leaves through. The standalone app has no terminal sessions of its own,
+ * so token spend answers empty unless the app passes `agentSessions`.
+ *
+ * The matching preload half is `createMonitorFeatureBridge` (`../bridge`).
+ */
+export function registerSuiteMonitor(options: SuiteMonitorOptions): void {
+  const ctx = createIpcContext(options);
+  registerHandoffOpener(ctx.ipc, { openExternal: options.openExternal });
+  monitorMain.register(ctx, {
+    onMetricsService: options.onMetricsService,
+    warn: options.warn,
+    ...(options.homeDir === undefined ? {} : { homeDir: options.homeDir }),
+    ...(options.agentSessions === undefined ? {} : { agentSessions: options.agentSessions }),
+    ...(options.readAgentHistory === undefined ? {} : { readAgentHistory: options.readAgentHistory }),
+  });
+}
