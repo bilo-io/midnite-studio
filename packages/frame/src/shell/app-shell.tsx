@@ -1,7 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react';
 
 import { AppFrame, ShellProviders, TitleBar, type NavConfig as ShellNavConfig } from '@bilo-io/shell';
-import { ThemeToggle } from '@bilo-io/ui';
 import type { SuiteAppId } from '@midnite/studio-shared';
 import { QueryClient } from '@tanstack/react-query';
 import { LuSettings } from 'react-icons/lu';
@@ -9,6 +8,7 @@ import { LuSettings } from 'react-icons/lu';
 import { bridge } from '../bridge';
 import { CONTENT_BOX } from '../layout/content-box';
 import { appLogoUrl } from './app-logo';
+import { TitleBarCluster } from './titlebar/titlebar-cluster';
 import { SETTINGS_VIEW, navChordFor, pathForNavView, type NavConfig } from './nav-config';
 import { APP_ACCENT_ACTIVE_CLASS, createViewLink, type ViewLinkOptions, type ViewLinkTooltip } from './view-link';
 
@@ -157,15 +157,12 @@ function AppShellFrame({
     [nav, logo, name, navigate, settingsActive],
   );
 
-  // The suite-wide right cluster. Theme J moves TitleBarStatus / TitleBarBattery / Studio's ThemeToggle
-  // into the frame; until then the cluster is `@bilo-io/ui`'s ThemeToggle, always after `titleBarEnd`.
+  // The suite-wide right cluster (Theme J.4): the status pill, the battery and the theme toggle, always
+  // after `titleBarEnd`.
   const rightCluster = (
     <div className="flex items-center gap-2" data-testid="app-shell-titlebar-end">
       {titleBarEnd}
-      <span aria-hidden className="h-4 w-px shrink-0 bg-border" />
-      <span data-testid="app-shell-theme-toggle" className="flex">
-        <ThemeToggle />
-      </span>
+      <TitleBarCluster />
     </div>
   );
 

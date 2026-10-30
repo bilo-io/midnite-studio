@@ -93,16 +93,22 @@ error (fixed on #1060) blocked every project that builds the runtime.
 
 **Theme E — Hosts are built from modules.** 🔄 Every suite app (its own features included, e.g. a `gamer`
 module) is a list of modules rendered as nav groups in Phase 123's `AppShell`; Studio composes all of them.
-Landed: E.4 (`midnite://open` takes `&module=<ModuleId>`, kept only when `APP_MODULES` says the app hosts it; the
-launcher router does not act on it yet), E.5 (`STUDIO_MODULES` plus an "every module is listed" test; the bare
-`STUDIO_FEATURES` list stays complete because `packages/app` still composes features directly), and the mechanism
-half of E.2 (`NavConfig.groups`, `navFromGroups`, `AppShell` renders one titled section per group). E.1 landed for
-Vanguard, Money and Media only (`packages/modules/{vanguard,money,media}`: renderer + bridge/context main halves
-moved out of the hosts, no `module.ts` yet). Open: E.1 for Agents, Gamer, Mind and Browser (Mind's main needs the
-`knowledge` engine, which a module may not import; Gamer and Agents carry workers, a dugite stub and the agent
-host; Browser's `layer-boundaries` fixture points at its `src/browser-app.tsx`), E.2 per-host `groups`, and E.3
-(mounting other modules in a host, `mountModuleMains`, preload bridge unions). Surprise: the four app manifest
-tests Theme D left behind imported a moved file and were failing on main; they now live in the modules.
+Landed: E.1 (all seven hosts' own features are modules: `packages/modules/{agents,gamer,mind,browser}` joined
+Vanguard, Money and Media, each with renderer, bridge/context main half, manifest, vitest/tsconfig/moon project;
+the hosts keep identity, pairing, report menu, preload and the bundle script, plus Gamer's `game-electron.ts`
+because it imports `electron`), E.2 (`navFromModules(APP_MODULES.<host>, groups)` in the frame; each host
+manifest derives `nav` from its `APP_MODULES` row, so it is one titled group per mounted module, the module's
+glyph, label and accent on the group, the window keeping the host accent), E.4 (`midnite://open` takes
+`&module=<ModuleId>`) and E.5 (`STUDIO_MODULES` plus an "every module is listed" test). Mind's main imports
+`@midnite/studio-knowledge` directly: eslint's module-main rules do not ban it (knowledge is a plain Node package
+below the layers, like git-engine, which Gamer's module also uses), so no exception was needed. Open: E.3 (mounting
+other modules in a host: the Agents ← coder, creator, Media/Gamer ← creator, Vanguard ← vault, cleaner, monitor and
+Mind ← capture wiring, `mountModuleMains`, preload bridge unions, and the `module.ts` main halves) stays unticked: it
+needs a per-host view router over several modules' compose trees and host ports, and one IPC registration path per
+module, which is its own PR; E.2's groups pick the extra modules up as each is wired (a module with no group is
+skipped). Surprises: the module's `main/` may not import `electron`, so Gamer's `game-electron.ts` stayed in the host;
+a renderer test may not import its own `main/`, so `GAMER_REPO_ID` moved to the module manifest; `app-vault-grants`
+scanned `apps/agents/*` only and now scans the module too.
 
 **Theme F — Launcher and catalog.** ✅ Eleven tiles, each with `modules` (the host's own first, absorbed apps
 folded in with their old tagline and vision); module chips on multi-module tiles, the detail sheet grouped by
@@ -192,9 +198,9 @@ release, icon and test legs are deleted.
 
 ## Theme E — Hosts are built from modules `[L]`
 
-- [ ] **E.1** Each host app's own features become its own module (`agents`, `media`, `gamer`, `vanguard`,
+- [x] **E.1** Each host app's own features become its own module (`agents`, `media`, `gamer`, `vanguard`,
   `mind`, `money`, `browser`), so every app is uniformly a list of modules. `[M]`
-- [ ] **E.2** Each host's manifest derives its Phase 123 `nav` from `APP_MODULES`: one nav group per
+- [x] **E.2** Each host's manifest derives its Phase 123 `nav` from `APP_MODULES`: one nav group per
   module (glyph + label), its views beneath. The window keeps the host's accent; a module's accent shows
   only on its group label. **Needs Phase 123 Theme B.** `[M]`
 - [ ] **E.3** Wire the hosts: Agents ← coder, creator · Media ← creator · Gamer ← creator · Vanguard ←

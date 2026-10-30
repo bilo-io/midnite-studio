@@ -2,6 +2,15 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 123 Theme F — The companion panel as a feature
+
+`packages/features/companion` takes the whole companion: the renderer (`renderer/`, behind the `CompanionHost` port
+in `host.tsx`) and the main half (`main/`, behind `CompanionMainServices`, registered as `companionMain`). Studio's
+adapter is `packages/app/src/compose/companion-host.tsx`; its revealers, sources and live follow-up reads live in
+`packages/app/src/compose/companion/`. The default host sits in the package (the frame may not import a feature) and
+follows suite-prefs (`companion.enabled`, `voices`, `sttEngine`, `sttProvider`). Importing the barrel reads no host
+(`import-without-host.test.ts`). Package suite: 1,045 tests under two vitest projects (renderer on jsdom, main on node).
+
 ## 2026-10-30 — Phase 124 Theme G (G.1–G.4) — Migration
 
 Retired app ids resolve to host + module in `midnite://` links (`legacyApp` rides along), `FEATURE_HOSTS` places features on host apps, `forge.*` tools belong to Agents (a lone Coder bundle still serves them), the launcher router falls back to a still-installed old bundle and the host tile offers the swap ("Replaces Coder", then "Move to Trash"), and Agents, Vanguard and Mind import a retired app's app-local data once behind a marker. G.5 (final per-app releases) is open.
@@ -15472,3 +15481,11 @@ An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` un
 ### Phase 124 Theme E (partial) — Hosts are built from modules (2026-10-29)
 
 E.4 `&module=` on `midnite://open`; E.5 `STUDIO_MODULES` and the every-module-is-listed test; E.2 mechanism (`NavConfig.groups`, `navFromGroups`, grouped `AppShell` sections); E.1 for Vanguard, Money and Media (`packages/modules/{vanguard,money,media}`). Also moved the four stale app manifest tests into their modules. E.1 (Agents, Gamer, Mind, Browser), E.2's per-host groups and E.3 stay open; see the phase doc's Headlines.
+
+### Phase 124 Theme E (rest) — Agents, Gamer, Mind and Browser modules; nav from modules (2026-10-30)
+
+E.1 finished: `packages/modules/{agents,gamer,mind,browser}` (renderer + bridge/context main halves, manifests, own vitest/tsconfig/moon projects; Gamer's workers and fixtures moved with it, its Electron glue stayed in the host; Mind's knowledge engine import is allowed by the module boundary rules). E.2: `navFromModules` in the frame, and each host's manifest derives its nav group from `APP_MODULES`. E.3 (wiring other modules into hosts) stays open; see the phase doc's Headlines.
+
+### Phase 123 J.4 and E.3 (slice) — the title bar's right cluster; the terminal's session list on the feature (2026-10-29)
+
+J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `packages/frame/src/shell/titlebar/`, and `AppShell` renders them after `titleBarEnd`; Studio fills a `TitleBarHost` (metrics idle cadence, privacy switches) and its own popover through `compose/titlebar-host.tsx`. E.3 (slice): `terminal-service`, the three stores and `pty-env` moved to `packages/features/terminal/main` (built like `feature-monitor`), `terminalMain` registers the list, roster and save/forget/reorder channels, and desktop binds the pty, locator and logger ports. Still open: `pty-service`, `inproc-pty`, `pty-handlers`.

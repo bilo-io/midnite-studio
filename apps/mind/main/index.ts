@@ -6,7 +6,7 @@ import { guardAppWindow, createFileSink, importRetiredAppData, installCrashLoggi
 
 import type { NotesStore } from '@midnite/studio-feature-notes/main';
 
-import { registerMindHandlers } from './context';
+import { registerMindHandlers } from '@midnite/studio-module-mind/main';
 import { MIND_NAME, SMOKE_READY_LINE, USER_DATA_ENV, mindUserData, isSmoke } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
 

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { fixtures } from '../../../test-support/fixtures';
 import { renderView } from '../../../test-support/render';
-import { TitleBarStatus } from './titlebar-status';
+import { TitleBarStatus } from '@midnite/studio-frame';
 
 /**
  * Migrated from `e2e/titlebar-status-panel.spec.ts` (Phase 82 Theme C, wave

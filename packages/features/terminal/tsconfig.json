@@ -1,7 +1,7 @@
 {
   // The renderer half and the manifest — compiled from source by the app that
-  // composes them (Vite), so this config only typechecks. The terminal's main
-  // half still lives in packages/desktop (see the phase doc, Theme E).
+  // composes them (Vite), so this config only typechecks. The main half has its own config
+  // (tsconfig.main.json): it is CommonJS for Electron main. The pty service stays in packages/desktop.
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -14,7 +14,10 @@
     "declarationMap": false,
     "types": ["vite/client"],
     "paths": {
-      "@midnite/studio-shared": ["../../shared/src/index.ts"]
+      "@midnite/studio-shared": ["../../shared/src/index.ts"],
+      // The main half's import, for any tool that reads this (nearest) tsconfig's paths — esbuild does,
+      // when desktop's bundle inlines main/index.ts.
+      "@midnite/studio-runtime": ["../../runtime/src/index.ts"]
     }
   },
   "include": ["renderer/**/*", "manifest.ts", "manifest.test.ts", "vitest.config.ts", "vitest-setup.ts"],

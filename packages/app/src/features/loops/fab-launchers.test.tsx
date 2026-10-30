@@ -6,6 +6,7 @@ import { useUiStore } from '../../store/ui-store';
 import type { LoopStatus } from './loop-status';
 
 import { FabLaunchers } from './fab-launchers';
+import '../../../test-support/install-companion-host';
 
 const IDLE: LoopStatus = {
   sessionId: undefined,

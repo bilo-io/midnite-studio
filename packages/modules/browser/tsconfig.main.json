@@ -1,0 +1,17 @@
+{
+  // The main half (plus the manifest it reads), built to dist/ as CommonJS:
+  // desktop's tsc reaches it through a project reference and its esbuild
+  // bundle inlines it, exactly like knowledge or git-engine.
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "types": ["node"]
+  },
+  "include": ["main/**/*", "manifest.ts"],
+  "exclude": ["dist", "node_modules"],
+  "references": [{ "path": "../../shared" }, { "path": "../../runtime" }, { "path": "../../features/browser/tsconfig.main.json" }, { "path": "../../features/report/tsconfig.main.json" }]
+}

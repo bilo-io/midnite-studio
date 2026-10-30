@@ -1,0 +1,98 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+
+# Browser module package (Phase 124 Theme E): the browser host's compose code, views and main bridge, moved out
+# of apps/browser. Same task shape as a feature package.
+id: 'module-browser'
+language: 'typescript'
+layer: 'library'
+
+# `app-<id>` names the apps that mount this module: its host and Studio. `scripts/affected-apps.mjs` reads them.
+tags:
+  - 'layer-module'
+  - 'app-browser'
+  - 'app-studio'
+
+dependsOn:
+  - 'shared'
+  - 'frame'
+  - 'runtime'
+  - 'feature-browser'
+  - 'feature-report'
+
+tasks:
+  # Only the main half emits; the renderer half is compiled by the app.
+  build:
+    command: 'pnpm exec tsc -b tsconfig.main.json'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+      - 'feature-browser:build'
+      - 'feature-report:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/features/browser/manifest.ts'
+      - '/packages/features/browser/main/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+    outputs:
+      - 'dist'
+
+  typecheck:
+    command: 'pnpm run typecheck'
+    options:
+      mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
+      - 'feature-browser:build'
+      - 'feature-report:build'
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'tsconfig.json'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/browser/renderer/**/*'
+      - '/packages/features/browser/manifest.ts'
+      - '/packages/features/browser/main/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+
+  test:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'manifest.test.ts'
+      - 'vitest.config.ts'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+      - '/packages/frame/src/**/*'
+      - '/packages/features/browser/renderer/**/*'
+      - '/packages/features/browser/manifest.ts'
+      - '/packages/features/browser/main/**/*'
+      - '/packages/features/report/renderer/**/*'
+      - '/packages/features/report/manifest.ts'
+      - '/packages/features/report/main/**/*'
+
+  lint:
+    inputs:
+      - 'renderer/**/*'
+      - 'main/**/*'
+      - '*.ts'
+      - '/eslint.config.mjs'

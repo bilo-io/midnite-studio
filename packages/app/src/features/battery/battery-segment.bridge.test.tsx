@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { MetricSample } from '@midnite/studio-shared';
 
-import { useMetricsStore } from '../../store/metrics-store';
-import { BatterySegment } from './battery-segment';
+import { BatterySegment, useMetricsStore } from '@midnite/studio-frame';
 
 /**
  * Migrated from `e2e/battery-widget.spec.ts` (Phase 82 Theme C, wave 5) — the

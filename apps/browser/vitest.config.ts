@@ -8,6 +8,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@midnite/studio-module-browser/bridge': at('../../packages/modules/browser/main/bridge.ts'),
+      '@midnite/studio-module-browser/main': at('../../packages/modules/browser/main/index.ts'),
+      '@midnite/studio-module-browser/renderer': at('../../packages/modules/browser/renderer/index.ts'),
       // Subpaths before their barrels, or the barrel's alias would swallow them.
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),

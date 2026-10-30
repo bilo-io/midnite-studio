@@ -7,7 +7,7 @@ import {
   type ResourceRef,
 } from '@midnite/studio-shared';
 
-import type { RevealOutcome } from '../features/companion/reveal/types';
+import { type RevealOutcome } from '@midnite/studio-feature-companion/renderer';
 import { useUiStore } from '../store/ui-store';
 
 /**
@@ -74,7 +74,7 @@ export function liveHandoffDeps(): HandoffDeps {
     navigate: navigateLocally,
     // Loaded on demand: the reveal engine reaches most of the app, and a view-only hand-off
     // (the common one) should not drag it into the calling surface's module graph.
-    reveal: async (ref) => (await import('../features/companion/reveal/reveal')).revealResource(ref, { caller: 'link' }),
+    reveal: async (ref) => (await import('@midnite/studio-feature-companion/renderer')).revealResource(ref, { caller: 'link' }),
     external: externalTransport,
   };
 }

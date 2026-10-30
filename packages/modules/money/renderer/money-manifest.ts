@@ -1,6 +1,9 @@
 import { financeManifest } from '@midnite/studio-feature-finance/renderer';
-import type { NavConfig } from '@midnite/studio-frame';
+import { navFromModules, type NavConfig } from '@midnite/studio-frame';
 import { LuChartCandlestick } from 'react-icons/lu';
+import { APP_MODULES } from '@midnite/studio-shared';
+import { PiCoinsFill } from 'react-icons/pi';
+import { moneyManifest } from '../manifest';
 
 /**
  * The shell's rail (Phase 123 Theme B): its one view (Settings sits below it, so the rail is never one
@@ -12,6 +15,15 @@ const MONEY_NAV: NavConfig = {
     { id: 'markets', label: 'Markets', icon: LuChartCandlestick },
   ],
 };
+
+/**
+ * The rail, derived from `APP_MODULES.money` (Phase 124 Theme E.2): one titled group per module the host mounts,
+ * this module's views beneath. Modules the host does not mount yet have no entry, so wiring one in (E.3) adds
+ * its group here and nothing else.
+ */
+const MONEY_HOST_NAV: NavConfig = navFromModules(APP_MODULES.money, {
+  money: { id: 'money', label: moneyManifest.label, icon: PiCoinsFill, accent: moneyManifest.accent, views: MONEY_NAV.views },
+});
 
 /**
  * Money's app manifest — pure data (Phase 113 Theme P).
@@ -28,7 +40,7 @@ export const MONEY_APP = {
   accent: '#84cc16',
   home: 'markets',
   features: [financeManifest.feature],
-  nav: MONEY_NAV,
+  nav: MONEY_HOST_NAV,
 } as const;
 
 export type MoneyApp = typeof MONEY_APP;

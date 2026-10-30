@@ -17,6 +17,7 @@ dependsOn:
   - 'feature-report'
   - 'feature-notes'
   - 'knowledge'
+  - 'module-mind'
 
 tasks:
   build:
@@ -44,6 +45,9 @@ tasks:
       - '/packages/features/notes/manifest.ts'
       - '/packages/features/notes/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/mind/main/**/*'
+      - '/packages/modules/mind/renderer/**/*'
+      - '/packages/modules/mind/manifest.ts'
       - '/packages/knowledge/src/**/*'
     outputs:
       - 'dist'
@@ -66,6 +70,9 @@ tasks:
       - 'main/**/*'
       - '/packages/features/notes/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/mind/main/**/*'
+      - '/packages/modules/mind/renderer/**/*'
+      - '/packages/modules/mind/manifest.ts'
       - '/packages/knowledge/src/**/*'
 
   test:
@@ -84,4 +91,7 @@ tasks:
       - 'main/**/*'
       - '/packages/features/notes/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/mind/main/**/*'
+      - '/packages/modules/mind/renderer/**/*'
+      - '/packages/modules/mind/manifest.ts'
       - '/packages/knowledge/src/**/*'

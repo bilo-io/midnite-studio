@@ -53,6 +53,15 @@ export function navFromGroups(groups: readonly NavGroup[]): NavConfig {
   return { views: groups.flatMap((g) => g.views), groups };
 }
 
+/**
+ * A host's nav from its modules (Phase 124 Theme E.2): `modules` is the host's `APP_MODULES` row, in rail
+ * order, and `groups` the nav group each module contributes. A module with no group (one the host does not
+ * mount yet) is skipped, so wiring a module into a host (E.3) only adds an entry to `groups`.
+ */
+export function navFromModules(modules: readonly string[], groups: Readonly<Record<string, NavGroup | undefined>>): NavConfig {
+  return navFromGroups(modules.flatMap((id) => (groups[id] === undefined ? [] : [groups[id]])));
+}
+
 /** Which panels an app carries. Absent, or a key left out, means on (decision 12). */
 export type ShellPanels = {
   terminal?: boolean;
