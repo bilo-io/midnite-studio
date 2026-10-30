@@ -34,6 +34,12 @@ describe('registerSuiteMonitor', () => {
     );
   });
 
+  it('leaves the hand-off channel alone when the app has no opener to give', () => {
+    const ipc = fakeIpc();
+    registerSuiteMonitor({ ipcMain: ipc.ipcMain, trashItem: async () => {}, send: () => {}, warn: () => {}, onMetricsService: () => {} });
+    expect(ipc.handled.has(CHANNELS.handoffOpen)).toBe(false);
+  });
+
   it('hands the app the sampler so its window can pause it', () => {
     const onMetricsService = vi.fn();
     registerSuiteMonitor({

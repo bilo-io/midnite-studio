@@ -24,6 +24,7 @@ export default defineConfig({
       '@midnite/studio-feature-media-audio/renderer': at('../../packages/features/media-audio/renderer/index.ts'),
       '@midnite/studio-module-creator/renderer': at('../../packages/modules/creator/renderer/index.ts'),
       '@midnite/studio-module-gamer/renderer': at('../../packages/modules/gamer/renderer/index.ts'),
+      '@midnite/studio-feature-monitor/renderer': at('../../packages/features/monitor/renderer/index.ts'),
       '@midnite/studio-shared': at('../../packages/shared/src/index.ts'),
       '@midnite/studio-feature-report/renderer': at('../../packages/features/report/renderer/index.ts'),
       '@midnite/studio-frame': at('../../packages/frame/src/index.ts'),

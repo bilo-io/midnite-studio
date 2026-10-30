@@ -35,6 +35,7 @@
     "@midnite/studio-feature-sessions": "workspace:*",
     "@midnite/studio-feature-tests": "workspace:*",
     "@midnite/studio-feature-workflows": "workspace:*",
+    "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-module-agents": "workspace:*",

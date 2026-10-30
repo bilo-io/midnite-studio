@@ -1,11 +1,15 @@
 import { useState } from 'react';
 
+import { createSuiteMonitorSegment } from '@midnite/studio-feature-monitor/renderer';
 import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, ModuleViewRouter, SuiteAppShell, type ModulePane } from '@midnite/studio-frame';
 import { CapturePane } from '@midnite/studio-module-capture/renderer';
 import { MIND_APP, MIND_CHROME, MIND_SETTINGS, MindPane } from '@midnite/studio-module-mind/renderer';
 
 import { MIND_HOST_NAV } from './host-nav';
+
+/** The status bar's monitor segment: "Open Monitor" leaves for the launcher, which routes it to the host that carries Monitor. */
+const MONITOR_SEGMENT = createSuiteMonitorSegment({ hosted: new Set(['mind']) });
 
 /** Each mounted module's pane, by module id — the view router's table. */
 export const MIND_PANES: Readonly<Record<string, ModulePane>> = {
@@ -30,6 +34,7 @@ export function MindHostApp() {
         home={MIND_APP.home}
         view={view}
         onViewChange={setView}
+        statusPanels={{ monitor: MONITOR_SEGMENT }}
         settingsPages={MIND_SETTINGS}
       >
         {(active) => <ModuleViewRouter nav={MIND_HOST_NAV} view={active} onView={setView} panes={MIND_PANES} />}

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { BrowserHostProvider } from '@midnite/studio-feature-browser/renderer';
+import { createSuiteMonitorSegment } from '@midnite/studio-feature-monitor/renderer';
 import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, SuiteAppShell } from '@midnite/studio-frame';
 
@@ -9,6 +10,9 @@ import { BrowserShell } from './components/browser-shell';
 import { BROWSER_CHROME, BrowserDialogHost } from './compose/browser-chrome';
 import { BROWSER_APP_HOST, useBrowserOccluder } from './compose/browser-host';
 import { BROWSER_APP } from './browser-manifest';
+
+/** The status bar's monitor segment: "Open Monitor" leaves for the launcher, which routes it to the host that carries Monitor. */
+const MONITOR_SEGMENT = createSuiteMonitorSegment({ hosted: new Set(['browser']) });
 
 /** The shell around the page; Settings is DOM, so while it is open it occludes the native views. */
 function BrowserWindow() {
@@ -21,6 +25,9 @@ function BrowserWindow() {
       accent={BROWSER_APP.accent}
       nav={BROWSER_APP.nav}
       home={BROWSER_APP.home}
+      statusPanels={{ monitor: MONITOR_SEGMENT }}
+      // Settings must not unmount the page: it holds the tabs and the agent-session event stream.
+      keepViewMounted
       onSettingsOpenChange={setSettingsOpen}
     >
       {() => <BrowserShell />}

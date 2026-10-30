@@ -93,8 +93,12 @@ export type SuiteMonitorOptions = IpcContextElectron & {
   homeDir?: string;
   /** Where a malformed one-way payload is reported. */
   warn: (issue: string) => void;
-  /** `shell.openExternal`, for a `midnite://open` hand-off only (`registerHandoffOpener` checks). */
-  openExternal: (url: string) => Promise<void>;
+  /**
+   * `shell.openExternal`, for a `midnite://open` hand-off only (`registerHandoffOpener` checks). Absent, the
+   * hand-off channel is left to a module that already registers it (Coder does, in Agents) — registering
+   * the same invoke channel twice throws.
+   */
+  openExternal?: (url: string) => Promise<void>;
   /** Handed the sampler so the app's window can pause it (`bindMetricsToWindow`). */
   onMetricsService: (service: MetricsService) => void;
 } & Pick<MonitorMainServices, 'agentSessions' | 'readAgentHistory'>;
@@ -109,7 +113,7 @@ export type SuiteMonitorOptions = IpcContextElectron & {
  */
 export function registerSuiteMonitor(options: SuiteMonitorOptions): void {
   const ctx = createIpcContext(options);
-  registerHandoffOpener(ctx.ipc, { openExternal: options.openExternal });
+  if (options.openExternal) registerHandoffOpener(ctx.ipc, { openExternal: options.openExternal });
   monitorMain.register(ctx, {
     onMetricsService: options.onMetricsService,
     warn: options.warn,

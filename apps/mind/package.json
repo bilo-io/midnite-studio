@@ -16,6 +16,7 @@
     "@midnite/studio-feature-capture": "workspace:*",
     "@midnite/studio-feature-notes": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
+    "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-knowledge": "workspace:*",
     "@midnite/studio-module-capture": "workspace:*",
