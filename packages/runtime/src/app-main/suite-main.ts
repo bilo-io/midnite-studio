@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+
 import {
   CHANNELS,
   EVENT_CHANNELS,
@@ -7,6 +9,7 @@ import {
   type SuitePrefsSnapshot,
 } from '@midnite/studio-shared';
 
+import { runtimeDataDirectory } from '../data-directory';
 import { createSuitePrefsService, type SuitePrefsService } from '../suite-prefs';
 import { attachWindowChrome, toggleMaximize, type ChromeableWindow } from './suite-window';
 
@@ -82,4 +85,13 @@ export function registerSuiteMain(options: SuiteMainOptions): SuiteMain {
     attachWindow: (win) => attachWindowChrome(win),
     close: () => service.close(),
   };
+}
+
+/**
+ * Where an app finds the shared suite-prefs file: the runtime's data directory, or `<override>/runtime`
+ * for a throwaway run (the app's `MIDNITE_<APP>_USER_DATA`), so a proof never touches a real profile.
+ */
+export function suiteRuntimeDirectory(appData: string, userDataOverride?: string): string {
+  if (userDataOverride !== undefined && userDataOverride !== '') return join(userDataOverride, 'runtime');
+  return runtimeDataDirectory(appData);
 }

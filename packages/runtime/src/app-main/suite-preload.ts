@@ -1,4 +1,5 @@
-import { CHANNELS, EVENT_CHANNELS, type DesktopPlatform, type MidniteStudioBridge } from '@midnite/studio-shared';
+import type { DesktopPlatform, MidniteStudioBridge } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
 
 import { createBridgeSlice, type RendererIpc } from './bridge-slice';
 import { createWindowChromeBridge } from './window-chrome-preload';
@@ -11,11 +12,12 @@ import { createWindowChromeBridge } from './window-chrome-preload';
 export function createSuiteBridge(
   ipc: RendererIpc,
   argv: readonly string[],
-  platform: DesktopPlatform,
+  /** `process.platform`. */
+  platform: string,
 ): Pick<MidniteStudioBridge, 'windowChrome' | 'suitePrefs'> {
   const { call, subscribe } = createBridgeSlice(ipc);
   return {
-    windowChrome: createWindowChromeBridge(ipc, argv, platform),
+    windowChrome: createWindowChromeBridge(ipc, argv, platform as DesktopPlatform),
     suitePrefs: {
       get: () => call(CHANNELS.suitePrefsGet),
       set: (req) => call(CHANNELS.suitePrefsSet, req),

@@ -21,6 +21,7 @@ import {
 import { installMediaHostFileProtocol, registerMediaHost } from './host';
 import { reportMenuTemplate } from './report';
 import { mediaPairing } from './pairing';
+import { registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
 
 /**
  * Midnite Media's main process — the entry the bundle's `package.json` names (`main.cjs`), run by the
@@ -34,6 +35,8 @@ import { mediaPairing } from './pairing';
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
+/** The shell's two bridge halves (suite prefs, window chrome), registered once the app is ready. */
+let suite: SuiteMain | null = null;
 let crashLog: LogSink | null = null;
 
 app.setName(MEDIA_NAME);
@@ -103,6 +106,12 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    suite = registerSuiteMain({
+      ipcMain,
+      runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
+      getWindow: () => win,
+      warn: (message) => console.warn(message),
+    });
     // The runtime's crash-log sink (NDJSON, rotated, redacted) — what Report an Issue reads.
     crashLog = createFileSink({ dir: app.getPath('userData'), name: 'media.log', homeDir: app.getPath('home') });
     installCrashLogging((level, message) => crashLog?.write(level, message));
@@ -211,6 +220,7 @@ function openWindow(): void {
       sandbox: true,
     },
   });
+  suite?.attachWindow(win);
   // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   win.on('closed', () => {

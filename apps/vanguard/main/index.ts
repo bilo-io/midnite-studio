@@ -32,6 +32,7 @@ import {
   isSmoke,
 } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
+import { registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
 
 /**
  * Midnite Vanguard's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
@@ -40,6 +41,8 @@ import { registerReport, reportMenuTemplate } from './report';
  */
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
+/** The shell's two bridge halves (suite prefs, window chrome), registered once the app is ready. */
+let suite: SuiteMain | null = null;
 let crashLog: LogSink | null = null;
 /** Quit hook from the handlers: stop the sensors and detach from the host's broker. */
 let shutdownHandlers: (() => Promise<void>) | null = null;
@@ -64,6 +67,12 @@ if (!smoke && !app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    suite = registerSuiteMain({
+      ipcMain,
+      runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
+      getWindow: () => win,
+      warn: (message) => console.warn(message),
+    });
     // The runtime's crash-log sink (NDJSON, rotated, redacted), the one Studio's main writes through too.
     const log = createFileSink({
       dir: app.getPath('userData'),
@@ -162,6 +171,7 @@ function openWindow(): void {
       sandbox: true,
     },
   });
+  suite?.attachWindow(win);
   // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   win.on('blur', () => metrics?.pause());

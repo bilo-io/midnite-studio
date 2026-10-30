@@ -9,6 +9,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@midnite/studio-shared/ipc/channels': fileURLToPath(new URL('../shared/src/ipc/channels.ts', import.meta.url)),
       '@midnite/studio-shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),
     },
   },

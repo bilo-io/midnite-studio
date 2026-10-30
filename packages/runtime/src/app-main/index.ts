@@ -24,6 +24,7 @@ export { createWindowChromeBridge } from './window-chrome-preload';
 export { bindMetricsToWindow, type PausableSampler, type PausableWindow } from './bind-metrics';
 export {
   registerSuiteMain,
+  suiteRuntimeDirectory,
   type SuiteMain,
   type SuiteMainElectron,
   type SuiteMainOptions,
