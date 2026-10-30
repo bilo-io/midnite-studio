@@ -1,5 +1,5 @@
 import type { DesktopPlatform, MidniteStudioBridge } from '@midnite/studio-shared';
-import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared/ipc/channels';
+import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared';
 
 import { createBridgeSlice, type RendererIpc } from './bridge-slice';
 import { createWindowChromeBridge } from './window-chrome-preload';
