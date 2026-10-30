@@ -15509,3 +15509,7 @@ J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `pac
 ### Phase 124 Theme E.3 (slice) — Vanguard mounts Vault, Cleaner and Monitor (2026-10-30)
 
 `mountModuleMains` gained a per-mount `shared` channel list (registered once by the earlier mount, validated up front), `unionBridgeSlices` (runtime, preload-safe) merges module bridge slices, and the Vanguard module's main became `vanguardModuleMain` over `prepareVanguard`. `prepareVault` does the same for Vault. `apps/vanguard/main/host.ts` mounts the four modules in one `registerVanguardHost`, the preload exposes the union of their bridges, and the app gained its own vault pairing (`pairing.ts`), deps, bundle and vitest aliases. Open: the other four hosts and every host's renderer router; E.3 not ticked.
+
+### Phase 123 Theme H (1/3) — Vanguard, Agents, Media and Gamer on the shell (2026-10-30)
+
+`SuiteAppShell` and `SuiteAppearancePage` in the frame; the four host apps render `AppShell` with their manifest nav and a Settings view (Appearance, Keyboard shortcuts, plus Vanguard's own page). Panels, mains and the status bar are still to do, so no checklist item is ticked; see the Headlines H paragraph.
