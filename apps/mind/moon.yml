@@ -18,6 +18,8 @@ dependsOn:
   - 'feature-notes'
   - 'knowledge'
   - 'module-mind'
+  - 'feature-capture'
+  - 'module-capture'
 
 tasks:
   build:
@@ -49,6 +51,11 @@ tasks:
       - '/packages/modules/mind/renderer/**/*'
       - '/packages/modules/mind/manifest.ts'
       - '/packages/knowledge/src/**/*'
+      - '/packages/features/capture/main/**/*'
+      - '/packages/features/capture/manifest.ts'
+      - '/packages/features/capture/renderer/overlay/**/*'
+      - '/packages/modules/capture/main/**/*'
+      - '/packages/modules/capture/manifest.ts'
     outputs:
       - 'dist'
 
@@ -74,6 +81,11 @@ tasks:
       - '/packages/modules/mind/renderer/**/*'
       - '/packages/modules/mind/manifest.ts'
       - '/packages/knowledge/src/**/*'
+      - '/packages/features/capture/main/**/*'
+      - '/packages/features/capture/manifest.ts'
+      - '/packages/features/capture/renderer/overlay/**/*'
+      - '/packages/modules/capture/main/**/*'
+      - '/packages/modules/capture/manifest.ts'
 
   test:
     inputs:
@@ -95,3 +107,8 @@ tasks:
       - '/packages/modules/mind/renderer/**/*'
       - '/packages/modules/mind/manifest.ts'
       - '/packages/knowledge/src/**/*'
+      - '/packages/features/capture/main/**/*'
+      - '/packages/features/capture/manifest.ts'
+      - '/packages/features/capture/renderer/overlay/**/*'
+      - '/packages/modules/capture/main/**/*'
+      - '/packages/modules/capture/manifest.ts'

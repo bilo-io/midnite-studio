@@ -981,6 +981,9 @@ importers:
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-feature-capture':
+        specifier: workspace:*
+        version: link:../../packages/features/capture
       '@midnite/studio-feature-notes':
         specifier: workspace:*
         version: link:../../packages/features/notes
@@ -993,6 +996,9 @@ importers:
       '@midnite/studio-knowledge':
         specifier: workspace:*
         version: link:../../packages/knowledge
+      '@midnite/studio-module-capture':
+        specifier: workspace:*
+        version: link:../../packages/modules/capture
       '@midnite/studio-module-mind':
         specifier: workspace:*
         version: link:../../packages/modules/mind

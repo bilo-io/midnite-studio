@@ -8,6 +8,11 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@midnite/studio-module-capture/overlay-bridge': at('../../packages/modules/capture/main/overlay-bridge.ts'),
+      '@midnite/studio-module-capture/bridge': at('../../packages/modules/capture/main/bridge.ts'),
+      '@midnite/studio-module-capture/main': at('../../packages/modules/capture/main/index.ts'),
+      '@midnite/studio-feature-capture/main': at('../../packages/features/capture/main/index.ts'),
+      '@midnite/studio-feature-report/bridge': at('../../packages/features/report/bridge.ts'),
       '@midnite/studio-module-mind/bridge': at('../../packages/modules/mind/main/bridge.ts'),
       '@midnite/studio-module-mind/main': at('../../packages/modules/mind/main/index.ts'),
       '@midnite/studio-module-mind/renderer': at('../../packages/modules/mind/renderer/index.ts'),

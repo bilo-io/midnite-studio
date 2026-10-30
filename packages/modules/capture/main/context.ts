@@ -17,9 +17,7 @@ import { CAPTURE_DEFAULT_SETTINGS } from '@midnite/studio-shared';
 import { CAPTURE_APP_SHORTCUT, captureModuleMain } from './module';
 
 /** The electron pieces Capture's main needs, injected so registration is testable under bare vitest. */
-export type CaptureAppElectron = IpcContextElectron & {
-  /** Report an Issue's services — the crash log sink, home dir, and the three OS calls the dialog needs. */
-  report: ReportMainServices;
+export type CaptureServiceElectron = Pick<IpcContextElectron, 'trashItem' | 'send'> & {
   /** `<userData>/capture` — a temp dir under test. */
   dataDir: string;
   /** The real Electron port in the app (`electronCapturePort`), fakes under test. */
@@ -38,9 +36,17 @@ export type CaptureAppElectron = IpcContextElectron & {
    * from a stored capture's id; the renderer never hands it a URL.
    */
   openStudioLink?: (url: string) => Promise<void>;
+  /** The chord the app ships with; absent, none (a host that mounts Capture beside other modules takes none). */
+  shortcut?: string;
   now?: () => number;
   timers?: Timers;
 };
+
+export type CaptureAppElectron = IpcContextElectron &
+  Omit<CaptureServiceElectron, 'shortcut'> & {
+    /** Report an Issue's services — the crash log sink, home dir, and the three OS calls the dialog needs. */
+    report: ReportMainServices;
+  };
 
 /**
  * Registers every channel Capture's renderer can call and returns the service, which the
@@ -54,10 +60,21 @@ export type CaptureAppElectron = IpcContextElectron & {
 export function registerCaptureAppHandlers(el: CaptureAppElectron): CaptureService {
   const ctx = createIpcContext(el);
   reportMain.register(ctx, el.report);
-  const capture = createCaptureService({
+  const capture = createCaptureAppService({ ...el, shortcut: CAPTURE_APP_SHORTCUT });
+  captureModuleMain.register(ctx, { capture });
+  return capture;
+}
+
+/**
+ * Builds Capture's service: clipboard and Finder destinations only, and the chord in
+ * {@link CaptureServiceElectron.shortcut} (none by default). The host registers the channels —
+ * `captureModuleMain` on its own context, or `registerCaptureAppHandlers` for the standalone app.
+ */
+export function createCaptureAppService(el: CaptureServiceElectron): CaptureService {
+  return createCaptureService({
     dataDir: el.dataDir,
     electron: el.electron,
-    defaults: { ...CAPTURE_DEFAULT_SETTINGS, shortcut: CAPTURE_APP_SHORTCUT },
+    defaults: { ...CAPTURE_DEFAULT_SETTINGS, ...(el.shortcut ? { shortcut: el.shortcut } : {}) },
     emit: captureEmitter(el.send),
     trashItem: el.trashItem,
     gate: el.gate,
@@ -68,8 +85,6 @@ export function registerCaptureAppHandlers(el: CaptureAppElectron): CaptureServi
     ...(el.now ? { now: el.now } : {}),
     ...(el.timers ? { timers: el.timers } : {}),
   });
-  captureModuleMain.register(ctx, { capture });
-  return capture;
 }
 
 /** `<userData>/capture` — Capture's own data directory. */
