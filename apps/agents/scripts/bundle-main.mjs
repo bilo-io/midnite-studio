@@ -20,6 +20,8 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-module-agents/bridge': at('../../../packages/modules/agents/main/bridge.ts'),
+    '@midnite/studio-module-agents/main': at('../../../packages/modules/agents/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
     '@midnite/studio-feature-report/bridge': at('../../../packages/features/report/bridge.ts'),
     '@midnite/studio-feature-chats/main': at('../../../packages/features/chats/main/index.ts'),
@@ -28,9 +30,9 @@ const common = {
     '@midnite/studio-feature-workflows/main': at('../../../packages/features/workflows/main/index.ts'),
     '@midnite/studio-feature-mcp-tools/main': at('../../../packages/features/mcp-tools/main/index.ts'),
     // git-engine from source, with `dugite` (a native git) stubbed: Agents has no repository registry, so
-    // chats run in scratch directories and nothing here ever reaches git. See main/dugite-stub.ts.
+    // chats run in scratch directories and nothing here ever reaches git. See packages/modules/agents/main/dugite-stub.ts.
     '@midnite/studio-git-engine': at('../../../packages/git-engine/src/index.ts'),
-    dugite: at('../main/dugite-stub.ts'),
+    dugite: at('../../../packages/modules/agents/main/dugite-stub.ts'),
     // The channel names alone, by source path: the shared barrel drags every zod schema (~400 KB) into the preload.
     '@midnite/studio-shared/ipc/channels': at('../../../packages/shared/src/ipc/channels.ts'),
     // Likewise the bridge helper alone: the runtime barrel imports shared, which would pull the barrel back in.

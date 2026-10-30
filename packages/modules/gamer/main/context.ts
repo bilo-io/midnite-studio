@@ -57,12 +57,9 @@ import { EVENT_CHANNELS, failure, MediaTabSchema, ok, type FfmpegStatus, type Gi
 
 import { createGamerKeyReader } from './keys';
 
-/**
- * The one "repository" Gamer's media is scoped to. The renderer's media store addresses everything by
- * `repoId`; Gamer has no repository list, so it has one id that main resolves to its own media root
- * (`<userData>/media`, holding `.midnite/media/<tab>/`).
- */
-export const GAMER_REPO_ID = 'gamer';
+import { GAMER_REPO_ID } from '../manifest';
+
+export { GAMER_REPO_ID } from '../manifest';
 
 /** The electron pieces Gamer's main needs, injected so registration is testable under bare vitest. */
 export type GamerElectron = IpcContextElectron & {

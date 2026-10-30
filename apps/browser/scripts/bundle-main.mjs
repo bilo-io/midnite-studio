@@ -19,6 +19,8 @@ const common = {
   logLevel: 'warning',
   minify: process.env.NODE_ENV === 'production',
   alias: {
+    '@midnite/studio-module-browser/bridge': at('../../../packages/modules/browser/main/bridge.ts'),
+    '@midnite/studio-module-browser/main': at('../../../packages/modules/browser/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
     '@midnite/studio-feature-report/bridge': at('../../../packages/features/report/bridge.ts'),
     // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.

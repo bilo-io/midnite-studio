@@ -22,6 +22,8 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-module-gamer/bridge': at('../../../packages/modules/gamer/main/bridge.ts'),
+    '@midnite/studio-module-gamer/main': at('../../../packages/modules/gamer/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
     '@midnite/studio-feature-media-core/main': feature('media-core', 'main/index.ts'),
     '@midnite/studio-feature-media-map/main': feature('media-map', 'main/index.ts'),
@@ -48,11 +50,11 @@ await Promise.all([
   build({ ...common, entryPoints: [at('../main/index.ts')], outfile: at('../dist/main.cjs') }),
   build({ ...common, entryPoints: [at('../main/preload.ts')], outfile: at('../dist/preload.cjs') }),
   // The two `utilityProcess` entries the Maps and Terrain brokers fork, by the names their script-path helpers give.
-  build({ ...common, entryPoints: [at('../main/workers/map-capture-worker.ts')], outfile: at('../dist/map-capture-worker.js') }),
-  build({ ...common, entryPoints: [at('../main/workers/terrain-worker.ts')], outfile: at('../dist/terrain-worker.js') }),
+  build({ ...common, entryPoints: [at('../../../packages/modules/gamer/main/workers/map-capture-worker.ts')], outfile: at('../dist/map-capture-worker.js') }),
+  build({ ...common, entryPoints: [at('../../../packages/modules/gamer/main/workers/terrain-worker.ts')], outfile: at('../dist/terrain-worker.js') }),
   // A game agent run's stdio MCP shim, spawned by the agent CLI and run by Gamer's binary as plain node.
   // `.cjs`, not `.js`: this package is `"type": "module"`, and node reads a `.js` beside it as ESM.
-  build({ ...common, entryPoints: [at('../main/workers/game-mcp-shim.ts')], outfile: at('../dist/game-mcp-shim.cjs') }),
+  build({ ...common, entryPoints: [at('../../../packages/modules/gamer/main/workers/game-mcp-shim.ts')], outfile: at('../dist/game-mcp-shim.cjs') }),
 ]);
 
 // New games start from `templates/media-game`; the vendored engines are copied into each game repo. Both ship

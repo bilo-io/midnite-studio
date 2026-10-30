@@ -37,7 +37,7 @@ export const NODE_SESSION_ROWS = 30;
 type Owned = {
   agentId: string;
   /** Per session: a multi-byte character split across two chunks must not leak into another pty's text. */
-  activity: { decoder: TextDecoder; state: ActivityState; clock: ReturnType<typeof createActivityClock> };
+  activity: { decoder: InstanceType<typeof TextDecoder>; state: ActivityState; clock: ReturnType<typeof createActivityClock> };
   onData: ((bytes: Uint8Array) => void) | null;
   onExit: ((exitCode: number) => void) | null;
   pending: Uint8Array[];

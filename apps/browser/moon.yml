@@ -17,6 +17,7 @@ dependsOn:
   - 'runtime'
   - 'feature-browser'
   - 'feature-report'
+  - 'module-browser'
 
 tasks:
   build:
@@ -40,6 +41,9 @@ tasks:
       - '/packages/features/browser/manifest.ts'
       - '/packages/features/browser/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/browser/main/**/*'
+      - '/packages/modules/browser/renderer/**/*'
+      - '/packages/modules/browser/manifest.ts'
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/report/main/**/*'
@@ -75,6 +79,9 @@ tasks:
       - 'main/**/*'
       - '/packages/features/browser/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/browser/main/**/*'
+      - '/packages/modules/browser/renderer/**/*'
+      - '/packages/modules/browser/manifest.ts'
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/report/main/**/*'
@@ -92,6 +99,9 @@ tasks:
       - 'main/**/*'
       - '/packages/features/browser/main/**/*'
       - '/packages/runtime/src/**/*'
+      - '/packages/modules/browser/main/**/*'
+      - '/packages/modules/browser/renderer/**/*'
+      - '/packages/modules/browser/manifest.ts'
       - '/packages/features/report/renderer/**/*'
       - '/packages/features/report/manifest.ts'
       - '/packages/features/report/main/**/*'
