@@ -10,9 +10,7 @@ import {
 } from 'react';
 
 import {
-  AppFrame,
   ShellProviders,
-  TitleBar,
   applyMotion,
   type NavConfig,
   type NavLinkComponent,
@@ -35,7 +33,7 @@ import {
 } from '@midnite/studio-feature-browser/renderer';
 // The frame (Phase 113 Theme C): the chrome every app wears. The layout
 // pieces below are the first to leave this file for it.
-import { CONTENT_BOX, DelayedFallback, FrameChromeProvider, NavLockToggle, TitleBarBattery, TitleBarStatus, ToolApprovalHost, useKnowledgeGraphExists } from '@midnite/studio-frame';
+import { AppShell, DelayedFallback, FrameChromeProvider, NavLockToggle, TitleBarBattery, TitleBarStatus, ToolApprovalHost, useKnowledgeGraphExists } from '@midnite/studio-frame';
 import { DialogHost } from './components/dialog-host';
 import { STUDIO_FORGE_HOST } from './compose/forge-host';
 import { STUDIO_CHROME } from './compose/studio-chrome';
@@ -1347,11 +1345,6 @@ function Shell() {
     ],
   );
 
-  // <TitleBar> renders nothing unless the bridge reports a frameless window, so
-  // this is safe in a browser/jsdom context and on platforms that keep their
-  // native frame.
-  const windowChrome = bridge()?.windowChrome ?? null;
-
   const chrome = (
     <>
       {/*
@@ -1418,35 +1411,21 @@ function Shell() {
     </>
   ) : null;
 
-  const titleBar = (
-    <TitleBar
-      className="titlebar-root"
-      windowChrome={windowChrome}
-      left={
-        <div className="flex min-w-0 items-center">
-          {/*
-            No brand here. It named an app you have already launched, in the
-            space the breadcrumbs need — and the rail's own mark is on screen
-            at every width, so the way home is not lost with it.
-          */}
-          <TitleBarNav afterControls={<AccountSwitcherSlot slot="titlebar-left" />} />
-          <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
-          <SyncActions />
-          {midniteMenu}
-        </div>
-      }
-      center={undefined}
-      right={chrome}
-    />
+  // The shell draws the title bar and, under a framed window, the strip that stands in for it; the
+  // left cluster below is Studio's, passed through `titleBarStart` for both.
+  const titleBarStart = (
+    <div className="flex min-w-0 items-center">
+      {/*
+        No brand here. It named an app you have already launched, in the
+        space the breadcrumbs need — and the rail's own mark is on screen
+        at every width, so the way home is not lost with it.
+      */}
+      <TitleBarNav afterControls={<AccountSwitcherSlot slot="titlebar-left" />} />
+      <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
+      <SyncActions />
+      {midniteMenu}
+    </div>
   );
-
-  /**
-   * <TitleBar> renders nothing unless the window is frameless — true on macOS,
-   * false on every other platform and under jsdom. The sync cluster and the
-   * theme toggle are app-level controls, not macOS decoration, so a framed
-   * window gets its own slim strip rather than losing them entirely.
-   */
-  const framed = !windowChrome?.frameless;
 
   const fabPlacement = fabPlacementFor({ view: activeView, terminalOpen: terminalDocked });
   const fabInStatusBar = fabPlacement === 'statusbar';
@@ -1502,49 +1481,63 @@ function Shell() {
   );
   const fabHidden = fabPanelDocked || companionDocked;
 
-  return (
-    <AppFrame
-      nav={nav}
-      activePath={pathForView(activeView)}
-      linkComponent={ViewLink}
-      navMode={navMode}
-      collapsedSections={collapsedNavSections}
-      onToggleSection={toggleNavSection}
-      navLabel="Views"
-      titleBar={titleBar}
-    >
-      {/*
-        The repositories panel is a fixed-width column beside the content, not
-        part of AppFrame's rail: the rail is view navigation (which is global),
-        while this is the app's primary object list and has to stay visible
-        whichever view is active — the same split VS Code makes.
-
-        The offset is the host's job. AppFrame pads `<main>` on the left for the
-        fixed rail but NOT on the top for the title bar — the bar publishes its
-        height as `--titlebar-h` on :root precisely so the in-flow app column can
-        offset itself. Without this the first rows of the panel render behind the
-        bar, which looks like a missing header rather than a layout bug.
-      */}
-      {/*
-        One box for everything, sized to the viewport exactly (see CONTENT_BOX).
-        The framed window's own chrome strip lives INSIDE it rather than above
-        it: as a sibling it added its 40px to a box already claiming the whole
-        window, which is the same 'document taller than the viewport' the
-        padding fixed for the title bar — just on the platforms macOS is not.
-      */}
-      <div className="flex flex-col" style={CONTENT_BOX}>
-        {framed ? (
-          <div className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
-            <div className="flex min-w-0 items-center">
-              <TitleBarNav afterControls={<AccountSwitcherSlot slot="titlebar-left" />} />
-              <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />
-              <SyncActions />
-              {midniteMenu}
-            </div>
-            <div className="flex items-center gap-2">{chrome}</div>
-          </div>
+  const footer = (
+    <>
+        {/*
+          The horizontal timeline sits between the content row and the status
+          bar — a sibling of both, `shrink-0` with a fixed height, which is what
+          keeps the stackHeight reasoning above intact.
+        */}
+        <CommitActivityPanel slot="bottom" />
+        <StatusBar fab={fabInStatusBar && !fabHidden ? fabNode : null} />
+        {/*
+          Eager, not lazy, and for the same reason `BrowserPane` is: this is
+          what `Mod+B` puts on screen, and a modal that arrives a chunk-fetch
+          after the keystroke would swallow the `Enter` that follows it.
+        */}
+        <BrowserLauncher />
+        <BrowserSwitcherOverlay />
+        {/* Mod+T's own HUD (`TerminalSwitcherOverlay`) — same "eager, always
+            mounted" reasoning as `BrowserSwitcherOverlay` just above. */}
+        <TerminalSwitcherOverlay />
+        <NotesModal />
+        {/*
+          The FAB's own entry point (Theme E) — self-contained, so it only
+          needs mounting here. The statusbar's `assistant-menu.tsx` used to
+          carry a second trigger for this same flag; that trigger was a
+          redundant control (see its own doc comment) and was removed, so the
+          FAB button above and the `Mod+l` chord are now the only ways to
+          flip `quickAccessOpen`.
+        */}
+        {quickAccessOpen ? (
+          <QuickAccessMenu
+            trigger={fabButtonRef}
+            anchor={fabInStatusBar ? fabButtonRef : undefined}
+            onClose={() => useUiStore.getState().setQuickAccessOpen(false)}
+          />
         ) : null}
+    </>
+  );
 
+  return (
+    <AppShell
+      app="studio"
+      name="Midnite Studio"
+      providersMounted
+      bare
+      rail={{
+        nav,
+        activePath: pathForView(activeView),
+        linkComponent: ViewLink,
+        navMode,
+        collapsedSections: collapsedNavSections,
+        onToggleSection: toggleNavSection,
+      }}
+      titleBarStart={titleBarStart}
+      titleBarEnd={chrome}
+      suiteCluster={false}
+      footer={footer}
+    >
         <div className="relative flex min-h-0 flex-1">
           {/*
             Named, because it is not the only complementary landmark on the page —
@@ -1937,42 +1930,7 @@ function Shell() {
             </div>
           ) : null}
         </div>
-
-        {/*
-          The horizontal timeline sits between the content row and the status
-          bar — a sibling of both, `shrink-0` with a fixed height, which is what
-          keeps the stackHeight reasoning above intact.
-        */}
-        <CommitActivityPanel slot="bottom" />
-        <StatusBar fab={fabInStatusBar && !fabHidden ? fabNode : null} />
-        {/*
-          Eager, not lazy, and for the same reason `BrowserPane` is: this is
-          what `Mod+B` puts on screen, and a modal that arrives a chunk-fetch
-          after the keystroke would swallow the `Enter` that follows it.
-        */}
-        <BrowserLauncher />
-        <BrowserSwitcherOverlay />
-        {/* Mod+T's own HUD (`TerminalSwitcherOverlay`) — same "eager, always
-            mounted" reasoning as `BrowserSwitcherOverlay` just above. */}
-        <TerminalSwitcherOverlay />
-        <NotesModal />
-        {/*
-          The FAB's own entry point (Theme E) — self-contained, so it only
-          needs mounting here. The statusbar's `assistant-menu.tsx` used to
-          carry a second trigger for this same flag; that trigger was a
-          redundant control (see its own doc comment) and was removed, so the
-          FAB button above and the `Mod+l` chord are now the only ways to
-          flip `quickAccessOpen`.
-        */}
-        {quickAccessOpen ? (
-          <QuickAccessMenu
-            trigger={fabButtonRef}
-            anchor={fabInStatusBar ? fabButtonRef : undefined}
-            onClose={() => useUiStore.getState().setQuickAccessOpen(false)}
-          />
-        ) : null}
-      </div>
-    </AppFrame>
+    </AppShell>
   );
 }
 
