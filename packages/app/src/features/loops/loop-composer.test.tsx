@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LoopComposer } from './loop-composer';
 import { contributorOptions, matchSkills } from './loop-option-row';
+import '../../../test-support/install-companion-host';
 
 afterEach(cleanup);
 

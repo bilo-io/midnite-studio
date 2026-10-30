@@ -11,7 +11,7 @@ import { createMcpToolListing, installedAppsFromIds } from '@midnite/studio-runt
 
 import { createFrameDecoder, encodeJsonFrame } from '../../broker/protocol';
 import { resetRegistry } from '../repo-registry';
-import { configureUiBridge, resetUiBridgeForTests, resolveUiReply } from '../companion/ui-bridge';
+import { configureUiBridge, resetUiBridgeForTests, resolveUiReply } from '@midnite/studio-feature-companion/main/ui-bridge';
 import { getMcpCallLog, resetMcpCallLog } from './audit';
 import { MCP_MAX_CONNECTIONS, startMcpServer, type McpServerHandle } from './server';
 import { MCP_TOOL_MANIFESTS } from './tool-manifests';

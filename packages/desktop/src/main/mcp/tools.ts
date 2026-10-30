@@ -29,7 +29,7 @@ import {
   type RepoDescriptor,
 } from '@midnite/studio-shared';
 
-import { requestUiAction } from '../companion/ui-bridge';
+import { requestUiAction } from '@midnite/studio-feature-companion/main/ui-bridge';
 import { listPulls, listRuns } from '@midnite/studio-feature-forge/main';
 import { listRepos } from '../repo-registry';
 import { decideGate, listWaitingGates } from '@midnite/studio-feature-workflows/main';

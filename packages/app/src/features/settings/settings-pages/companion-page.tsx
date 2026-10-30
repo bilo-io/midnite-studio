@@ -33,10 +33,7 @@ import {
   LuX,
 } from 'react-icons/lu';
 
-import { setCompanionVolume as applyCompanionVolume } from '../../companion/audio/context';
-import { applyCompanionSetting, applyCompanionSettings } from '../../companion/settings-apply';
-import { companionTtsSpeaker } from '../../companion/speaker';
-import { refreshMicAvailability } from '../../companion/voice-ports';
+import { applyCompanionSetting, applyCompanionSettings, companionTtsSpeaker, refreshMicAvailability, setCompanionVolume as applyCompanionVolume } from '@midnite/studio-feature-companion/renderer';
 import { IconButton } from '../../../components/icon-button';
 import { SettingsSwitchRow } from '../../../components/form/settings-switch-row';
 import { bridge } from '../../../services/bridge';

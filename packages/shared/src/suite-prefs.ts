@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { CompanionSttEngineSchema, CompanionVoiceSelectionSchema, SttProviderIdSchema } from './companion';
 import { ActivityStatusSchema, ActivityStatusStyleSchema, DEFAULT_ACTIVITY_PALETTE_ID } from './activity-palette';
 
 /**
@@ -146,6 +147,10 @@ export type TitlebarStatusPrefs = z.infer<typeof TitlebarStatusPrefsSchema>;
 
 export const CompanionPrefsSchema = z.object({
   enabled: z.boolean().default(false),
+  /** Theme F: the voice per engine and the speech-to-text provider — set once, heard in every app. */
+  voices: CompanionVoiceSelectionSchema.default({ system: null, local: null }),
+  sttEngine: CompanionSttEngineSchema.default('server'),
+  sttProvider: SttProviderIdSchema.nullable().default(null),
 });
 export type CompanionPrefs = z.infer<typeof CompanionPrefsSchema>;
 

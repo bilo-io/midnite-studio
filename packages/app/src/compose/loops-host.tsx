@@ -9,14 +9,19 @@ import {
   type LoopsTerminalProps,
 } from '@midnite/studio-feature-loops/renderer';
 
+import {
+  COMPANION_LOOK,
+  CompanionGlyph,
+  CompanionLauncher,
+  companionPorts,
+  useCompanionStore,
+} from '@midnite/studio-feature-companion/renderer';
+
 import { AiComposer, useComposerMic } from '../components/ai-thread';
 import { resolveAgentIcon } from '../components/icons';
 import { IconSelect, MultiIconSelect } from '../components/select/icon-select';
 import { Tooltip } from '../components/tooltip';
 import { useDismissable } from '../components/use-dismissable';
-import { CompanionLauncher } from '../features/companion/companion-launcher';
-import { COMPANION_LOOK, CompanionGlyph } from '../features/companion/companion-look';
-import { companionPorts } from '../features/companion/companion-ports';
 import { openNotes } from '../features/notes/notes-window';
 import { useSetupStore } from '../features/setup/setup-store';
 import { LazyTerminalView } from '../features/terminal/lazy-terminal-view';
@@ -27,7 +32,6 @@ import { useAgents } from '../features/terminal/use-agents';
 import { YieldedToSessionsPage } from '../features/terminal/yielded-to-sessions-page';
 import { appendDictation } from '../features/media/voice/use-voice-thread';
 import { useKnownSkills, useRepoStats, useRepos } from '../services/queries';
-import { useCompanionStore } from '../store/companion-store';
 import { useUiStore } from '../store/ui-store';
 import { STUDIO_CHROME } from './studio-chrome';
 

@@ -10,7 +10,7 @@ import {
 } from '@midnite/studio-shared';
 
 import { bridge } from './bridge';
-import { handleCompanionRelayAction } from '../features/companion/navigate';
+import { handleCompanionRelayAction } from '@midnite/studio-feature-companion/renderer';
 import { useBrowserStore } from '@midnite/studio-feature-browser/renderer/store';
 import { useUiStore } from '../store/ui-store';
 

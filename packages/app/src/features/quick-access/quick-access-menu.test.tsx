@@ -1,11 +1,10 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useCompanionStore } from '../../store/companion-store';
+import { resetCompanionPorts, setCompanionPorts, useCompanionStore } from '@midnite/studio-feature-companion/renderer';
 import { INITIAL_SETUP_STATE } from '../../store/setup-state';
 import { useUiStore } from '../../store/ui-store';
 import { useSetupStore } from '../setup/setup-store';
-import { resetCompanionPorts, setCompanionPorts } from '../companion/companion-ports';
 import { anchoredMenuPosition, QuickAccessMenu } from './quick-access-menu';
 
 beforeEach(() => {

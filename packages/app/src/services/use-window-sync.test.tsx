@@ -5,6 +5,7 @@ import type { CompanionIntent } from '@midnite/studio-shared';
 
 import { useWindowSync } from './use-window-sync';
 import { useUiStore } from '../store/ui-store';
+import '../../test-support/install-companion-host';
 
 type Descriptor = { id: number; role: string; repoId: string | null };
 type RelayMessage = { kind: string; payload: Record<string, unknown> };
@@ -18,29 +19,34 @@ const mocks = vi.hoisted(() => ({
   focusRole: vi.fn(),
 }));
 
-vi.mock('./bridge', () => ({
-  bridge: () => ({
-    windowRole: mocks.windowRole,
-    window: {
-      list: () => Promise.resolve(mocks.windows),
-      onWindowsChanged: (handler: (e: { windows: Descriptor[] }) => void) => {
-        mocks.handler = handler;
-        return () => {
-          mocks.handler = null;
-        };
-      },
-      onRelayed: (handler: (message: RelayMessage) => void) => {
-        mocks.relayHandler = handler;
-        return () => {
-          mocks.relayHandler = null;
-        };
-      },
-      relay: (message: RelayMessage) => {
-        mocks.relayed.push(message);
-      },
-      focusRole: mocks.focusRole,
+const fakeBridge = vi.hoisted(() => () => ({
+  windowRole: mocks.windowRole,
+  window: {
+    list: () => Promise.resolve(mocks.windows),
+    onWindowsChanged: (handler: (e: { windows: Descriptor[] }) => void) => {
+      mocks.handler = handler;
+      return () => {
+        mocks.handler = null;
+      };
     },
-  }),
+    onRelayed: (handler: (message: RelayMessage) => void) => {
+      mocks.relayHandler = handler;
+      return () => {
+        mocks.relayHandler = null;
+      };
+    },
+    relay: (message: RelayMessage) => {
+      mocks.relayed.push(message);
+    },
+    focusRole: mocks.focusRole,
+  },
+}));
+
+vi.mock('./bridge', () => ({ bridge: fakeBridge }));
+// The companion's navigation engine reads the bridge through the frame, not through the app's re-export.
+vi.mock('@midnite/studio-frame', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-frame')>()),
+  bridge: fakeBridge,
 }));
 
 const descriptor = (role: string, id: number): Descriptor => ({ id, role, repoId: null });

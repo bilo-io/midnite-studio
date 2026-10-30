@@ -5,6 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSlidesStore } from '@midnite/studio-feature-slides/renderer';
 import { FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
 
+// Mounting the Audio Editor tab starts a dynamic import of the Tone.js engine (use-music-engine); a test that
+// ends while it is still resolving trips vitest's EnvironmentTeardownError. The engine has its own tests, and
+// the empty-state assertion below needs none of it, so stub the hook rather than leave an import in flight.
+vi.mock('../../../features/media-audio/renderer/music-editor/engine/use-music-engine', () => ({
+  useMusicEngine: () => ({ engine: null, state: 'stopped' }),
+}));
+
 import { creatorManifest } from '../manifest';
 import { CREATOR_REPO_ID } from './compose/creator-host';
 import { CreatorModule as CreatorApp } from './creator-module';

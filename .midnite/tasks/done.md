@@ -6,6 +6,15 @@
 
 `packages/features/loops/renderer` (FAB launchers, quick-access menu, Loops panel and composer) behind a `LoopsHost` port, Studio's adapter in `compose/loops-host.tsx`, a default host for every other app; menu leaves hidden when the app lacks the feature. The run ledger moved to `packages/runtime/src/loop-runs/`: one file per app, merged on read, `appId`-tagged, Studio's old file copied once.
 
+## 2026-10-29 — Phase 123 Theme F — The companion panel as a feature
+
+`packages/features/companion` takes the whole companion: the renderer (`renderer/`, behind the `CompanionHost` port
+in `host.tsx`) and the main half (`main/`, behind `CompanionMainServices`, registered as `companionMain`). Studio's
+adapter is `packages/app/src/compose/companion-host.tsx`; its revealers, sources and live follow-up reads live in
+`packages/app/src/compose/companion/`. The default host sits in the package (the frame may not import a feature) and
+follows suite-prefs (`companion.enabled`, `voices`, `sttEngine`, `sttProvider`). Importing the barrel reads no host
+(`import-without-host.test.ts`). Package suite: 1,045 tests under two vitest projects (renderer on jsdom, main on node).
+
 ## 2026-10-29 — Phase 123 Themes E and J (partial) — the terminal panel as a feature, the status bar in the frame
 
 [#1068](https://github.com/bilo-io/midnite-studio/pull/1068). `packages/features/terminal/renderer` (panel, session list, xterm, store, unload policy, replay gate) behind a `TerminalHost` port with Studio's adapter in `compose/terminal-host.tsx` and a default host for every other app; sessions carry an optional `appId` with a suite-prefs "Show all apps" toggle; a broker that never attached says so in the panel. The status bar's segment host, density and overflow moved to `packages/frame/src/shell/status-bar/` with `suiteSegments(panels)` for every app. Open: E.3 (main half) and J.4 (title-bar cluster, waits on L.2).
@@ -15472,3 +15481,6 @@ An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` un
 ### Phase 124 Theme E (partial) — Hosts are built from modules (2026-10-29)
 
 E.4 `&module=` on `midnite://open`; E.5 `STUDIO_MODULES` and the every-module-is-listed test; E.2 mechanism (`NavConfig.groups`, `navFromGroups`, grouped `AppShell` sections); E.1 for Vanguard, Money and Media (`packages/modules/{vanguard,money,media}`). Also moved the four stale app manifest tests into their modules. E.1 (Agents, Gamer, Mind, Browser), E.2's per-host groups and E.3 stay open; see the phase doc's Headlines.
+### Phase 123 J.4 and E.3 (slice) — the title bar's right cluster; the terminal's session list on the feature (2026-10-29)
+
+J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `packages/frame/src/shell/titlebar/`, and `AppShell` renders them after `titleBarEnd`; Studio fills a `TitleBarHost` (metrics idle cadence, privacy switches) and its own popover through `compose/titlebar-host.tsx`. E.3 (slice): `terminal-service`, the three stores and `pty-env` moved to `packages/features/terminal/main` (built like `feature-monitor`), `terminalMain` registers the list, roster and save/forget/reorder channels, and desktop binds the pty, locator and logger ports. Still open: `pty-service`, `inproc-pty`, `pty-handlers`.

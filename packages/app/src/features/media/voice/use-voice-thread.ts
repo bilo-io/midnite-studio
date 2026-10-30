@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { useUiStore } from '../../../store/ui-store';
-import { companionTtsSpeaker, type CompanionSpeaker } from '../../companion/speaker';
+import { type CompanionSpeaker, companionTtsSpeaker } from '@midnite/studio-feature-companion/renderer';
 import { simplifyForSpeech } from './simplify-for-speech';
 
 export type VoiceThread = {
