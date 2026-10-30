@@ -5,3 +5,5 @@ export { CAPTURE_APP, type CaptureApp as CaptureAppManifest } from './capture-ma
 export { CaptureHome } from './views/capture-home';
 export { CAPTURE_CHROME } from './compose/capture-chrome';
 export { captureManifest } from '../manifest';
+export { CapturePane } from './capture-pane';
+export { CAPTURE_NAV_GROUP } from './capture-nav';
