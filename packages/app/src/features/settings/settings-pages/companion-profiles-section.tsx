@@ -12,14 +12,7 @@ import { LuCheck, LuPencil, LuRotateCcw, LuSave, LuTrash2 } from 'react-icons/lu
 import { useOptionalDialogs } from '../../../components/dialog-host';
 import { IconButton } from '../../../components/icon-button';
 import { useUiStore } from '../../../store/ui-store';
-import {
-  deleteCompanionProfile,
-  previewSaveCompanionProfile,
-  renameCompanionProfile,
-  saveCompanionProfile,
-  switchCompanionProfile,
-  type CompanionProfileResult,
-} from '../../companion/profiles';
+import { type CompanionProfileResult, deleteCompanionProfile, previewSaveCompanionProfile, renameCompanionProfile, saveCompanionProfile, switchCompanionProfile } from '@midnite/studio-feature-companion/renderer';
 
 /**
  * Settings ▸ Companion ▸ Profiles (Phase 109 Theme G) — the page's half of

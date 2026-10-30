@@ -64,6 +64,8 @@
       "@midnite/studio-feature-media-images/main": ["./packages/features/media-images/main/index.ts"],
       "@midnite/studio-feature-media-library/main": ["./packages/features/media-library/main/index.ts"],
       "@midnite/studio-feature-capture/main": ["./packages/features/capture/main/index.ts"],
+      "@midnite/studio-feature-companion/main": ["./packages/features/companion/main/index.ts"],
+      "@midnite/studio-feature-companion/main/*": ["./packages/features/companion/main/*.ts"],
       "@midnite/studio-feature-report/main": ["./packages/features/report/main/index.ts"],
       "@midnite/studio-feature-report/bridge": ["./packages/features/report/bridge.ts"],
       "@midnite/studio-feature-vanguard/main": ["./packages/features/vanguard/main/index.ts"],

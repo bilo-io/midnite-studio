@@ -1,4 +1,4 @@
-import { getCompanionTtsStatus, configureCompanionTts, synthesizeSpeech } from '../main/companion/tts';
+import { getCompanionTtsStatus, configureCompanionTts, synthesizeSpeech } from '@midnite/studio-feature-companion/main/tts';
 
 /**
  * Ad Hoc "TTS synthesis blocks the UI" — the `utilityProcess` entry point

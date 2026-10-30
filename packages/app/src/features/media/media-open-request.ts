@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { bridge } from '../../services/bridge';
 import { useUiStore } from '../../store/ui-store';
-import { revealResource } from '../companion/reveal/reveal';
+import { revealResource } from '@midnite/studio-feature-companion/renderer';
 
 // The request store moved to media-core (Phase 113 Theme Q); the listeners below stay Studio's.
 export {

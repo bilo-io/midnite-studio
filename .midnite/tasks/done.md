@@ -2,6 +2,15 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 123 Theme F — The companion panel as a feature
+
+`packages/features/companion` takes the whole companion: the renderer (`renderer/`, behind the `CompanionHost` port
+in `host.tsx`) and the main half (`main/`, behind `CompanionMainServices`, registered as `companionMain`). Studio's
+adapter is `packages/app/src/compose/companion-host.tsx`; its revealers, sources and live follow-up reads live in
+`packages/app/src/compose/companion/`. The default host sits in the package (the frame may not import a feature) and
+follows suite-prefs (`companion.enabled`, `voices`, `sttEngine`, `sttProvider`). Importing the barrel reads no host
+(`import-without-host.test.ts`). Package suite: 1,045 tests under two vitest projects (renderer on jsdom, main on node).
+
 ## 2026-10-29 — Phase 123 Theme K — The system monitor core
 
 PR pending. `bindMetricsToWindow` in the runtime (one pause/resume/stop rule for Studio's main and `apps/monitor`); the status bar's monitor cluster moved into the frame as `createMonitorSegment({ Flyout, openMonitor })` with the flyout and hand-off injected; `Sparkline`/`MetricDonut` moved to `frame/src/metrics/`; `hiddenMetrics` and `metricsIdleIntervalMs` moved from `ui-store` to the suite-prefs `monitor` group with a one-time migration. The other apps' own `monitorMain.register` calls land with Theme H's roll-out.

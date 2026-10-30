@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUiStore } from '../../../store/ui-store';
 import { CompanionPage } from './companion-page';
+import '../../../../test-support/install-companion-host';
 
 /**
  * Phase 79 Themes F and G — the halves of Settings ▸ Companion that Theme H
@@ -22,8 +23,7 @@ const retryLocalVoice = vi.fn();
 const reloadLocalVoice = vi.fn();
 /** Mutable so a test can start the renderer already fallen back to `'system'`. */
 let mockActiveEngine: 'local' | 'system' = 'local';
-vi.mock('../../companion/speaker', () => ({
-  companionTtsSpeaker: {
+const mockSpeaker = {
     speak: (...args: unknown[]) => {
       speak(...args);
       return Promise.resolve();
@@ -50,16 +50,17 @@ vi.mock('../../companion/speaker', () => ({
       reloadLocalVoice();
       mockActiveEngine = 'local';
     },
-  },
-}));
+};
 
 const applyVolume = vi.fn();
-vi.mock('../../companion/audio/context', () => ({
-  setCompanionVolume: (value: number) => applyVolume(value),
-}));
-
 const refreshMicAvailability = vi.fn().mockResolvedValue(true);
-vi.mock('../../companion/voice-ports', () => ({
+// The speaker, the volume setter and the mic probe all arrive through the package barrel now.
+vi.mock('@midnite/studio-feature-companion/renderer', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@midnite/studio-feature-companion/renderer')>()),
+  get companionTtsSpeaker() {
+    return mockSpeaker;
+  },
+  setCompanionVolume: (value: number) => applyVolume(value),
   refreshMicAvailability: () => refreshMicAvailability(),
 }));
 

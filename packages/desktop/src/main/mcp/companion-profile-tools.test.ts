@@ -1,7 +1,7 @@
 import { COMPANION_SETTINGS_OFF_MESSAGE, type CompanionProfileSummary } from '@midnite/studio-shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import * as uiBridge from '../companion/ui-bridge';
+import * as uiBridge from '@midnite/studio-feature-companion/main/ui-bridge';
 import {
   companionProfileDelete,
   companionProfileList,
@@ -20,11 +20,11 @@ import { resetMcpAllowUiStateForTests, setMcpAllowCompanionSettingsState, setMcp
  * `app/features/companion/ui-requests-profiles.test.ts`'s.
  */
 
-vi.mock('../companion/ui-bridge', () => ({
+vi.mock('@midnite/studio-feature-companion/main/ui-bridge', () => ({
   requestUiAction: vi.fn(),
   UI_BRIDGE_TIMEOUT_MESSAGE: 'the window did not answer',
 }));
-vi.mock('../companion/tts-broker', () => ({ companionTtsModelOnDisk: vi.fn(() => true) }));
+vi.mock('@midnite/studio-feature-companion/main/tts-broker', () => ({ companionTtsModelOnDisk: vi.fn(() => true) }));
 
 const requestUiAction = vi.mocked(uiBridge.requestUiAction);
 
