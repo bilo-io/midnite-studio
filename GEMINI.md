@@ -104,9 +104,14 @@ shared ◀ frame ◀ feature/renderer ◀ app          shared ◀ runtime ◀ fe
 **The layer rule (Phase 113)** — the suite is built in layers, and eslint holds each to it
 (`eslint.config.mjs`, proven case by case in
 [`scripts/layer-boundaries.test.mjs`](scripts/layer-boundaries.test.mjs); the layers, the placement
-map and a guide to extracting the next feature are in [`docs/APPS.md`](docs/APPS.md)):
+map, the module layer and a guide to extracting the next feature are in [`docs/APPS.md`](docs/APPS.md)):
 
-- **An app** (`apps/<id>`) composes features + the frame + `shared`. It never imports another app.
+- **An app** (`apps/<id>`) composes modules + features + the frame + `shared`. It never imports another app.
+- **A module** (`packages/modules/<id>`) composes features + the frame + `shared`, never an app and never
+  another module (renderer and main halves alike; the main half also takes no `electron`, and neither
+  half imports the other). Nothing below an app — a feature, the frame, the runtime — imports a module.
+  A host mounts modules side by side; what one module needs from another it takes through a host port.
+  A module's `manifest.ts` imports `shared` and nothing else.
 - **A feature** (`packages/features/<name>`) imports the frame + `shared`, never an app and never
   another feature — features reach each other through the link router and `shared` ids.
 - **The frame** (`packages/frame`) never imports a feature.
@@ -135,7 +140,7 @@ map and a guide to extracting the next feature are in [`docs/APPS.md`](docs/APPS
   app, and an import across that line is what would make it impossible to move out of this repo
   later. See [`docs/WEBSITE.md`](docs/WEBSITE.md); it is served from the *public*
   `bilo-io/midnite-apps` repo's `gh-pages` branch, so **nothing on it may link to this one**.
-- **`apps/studio`** — Studio's composition (above); `apps/browser` is the first extracted suite app.
+- **`apps/studio`** — Studio's composition (above); the suite apps are Agents, Media, Gamer, Vanguard, Mind, Money, Browser and the launcher (Science is catalog-only so far). Coder, Creator, Cleaner, Vault, Monitor and Capture are no longer apps: they are modules (`packages/modules/*`) that Agents, Media, Gamer, Vanguard and Mind mount.
 - **`apps/launcher`** — Midnite Apps, the launcher that lists, installs and opens every midnite
   app. **`apps/` holds installable products; `packages/` holds what they are built from.** It is
   its own Electron app (main + preload bundled by esbuild, a Vite + React renderer) and, like the

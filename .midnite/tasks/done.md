@@ -15578,6 +15578,10 @@ Money, Mind and Browser render `SuiteAppShell` with their manifest nav and Setti
 
 Seven apps on the shell now register the monitor main and preload slice and show the status bar's monitor segment with the Monitor settings page; Browser's page stays mounted under Settings. Terminal, companion, FAB/Loops and loop-runs are gated off (no pty host in a suite app), retired apps untouched; H batches 1-3 and Screenshots ticked, Studio last open. See the Headlines H paragraph.
 
+### Phase 124 Theme I — Docs: modules and hosts (2026-10-30)
+
+`docs/APPS.md` documents the module layer, the host to modules map, how a host mounts modules and how to add one; the layer rule in `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` gains the module bullet and the retired-app list; `docs/VAULT_SECURITY.md` names Vanguard as Vault's home.
+
 ### Phase 123 Theme I — Proof (2026-10-30)
 
 Six Playwright flows in Vanguard and Agents (shell, rail, Settings via rail and `Mod+,`, title-bar double-click) on each app's own Vite server through a deep-proxy mock bridge; three Linux visual baselines (framed, frameless, nav collapsed); Vanguard idle CPU blurred 0.38 % before the phase and 0.88 % after; `docs/APPS.md` "The shell". Panel chords are uncovered until a suite app has a pty host (`outstanding.md`). Phase 123 is done.
