@@ -4,3 +4,4 @@ export * from './context';
 export * from './file-protocol';
 export * from './keys';
 export { mediaManifest } from '../manifest';
+export * from './module';

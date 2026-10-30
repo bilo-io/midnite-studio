@@ -49,6 +49,7 @@ import {
   connectRuntimeVault,
   createIpcContext,
   vaultHostSocketPath,
+  type FeatureMainContext,
   type IpcContextElectron,
   type IterativeHost,
   type PairingIdentity,
@@ -110,6 +111,13 @@ export type GamerElectron = IpcContextElectron & {
     enginesDir: string;
   };
   log: (line: string) => void;
+  /**
+   * Further repo ids media-core resolves to this same media root: Creator's, when a host mounts both modules
+   * over one `<userData>/media` and the Creator module's media-core channels are `shared` (Phase 124 Theme E.3).
+   */
+  extraRepoIds?: readonly string[];
+  /** Resolves a Video project's output to a file for media-core's export; absent, none resolves (Gamer has no Video tab). */
+  resolveVideoExportInput?: (projectId: string, name: string) => Promise<string | null>;
 };
 
 export type GamerServices = {
@@ -152,7 +160,14 @@ const sf3dUnavailable = async (req: Sf3dRequest): Promise<GitOpResult<unknown>> 
  * the confinement `runGameAgent` builds). Returns the services so the caller can dispose them on quit.
  */
 export function registerGamerHandlers(el: GamerElectron): GamerServices {
-  const ctx = createIpcContext(el);
+  return registerGamerOn(createIpcContext(el), el);
+}
+
+/**
+ * {@link registerGamerHandlers} over a context the caller built — what the module's main half
+ * (`gamerModuleMain`) registers through, so a host can mount it beside other modules.
+ */
+export function registerGamerOn(ctx: FeatureMainContext, el: GamerElectron): GamerServices {
   const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.vaultDirectory), appId: 'gamer', identity: el.pairing });
   const readKey = createGamerKeyReader(vault);
   const logger: Logger = Object.assign((message: string) => el.log(message), {
@@ -162,7 +177,7 @@ export function registerGamerHandlers(el: GamerElectron): GamerServices {
   });
   const media = createMediaService({
     resolveRepo: async (repoId) => {
-      if (repoId !== GAMER_REPO_ID) return null;
+      if (repoId !== GAMER_REPO_ID && !el.extraRepoIds?.includes(repoId)) return null;
       await mkdir(el.mediaRoot, { recursive: true });
       return el.mediaRoot;
     },
@@ -174,7 +189,7 @@ export function registerGamerHandlers(el: GamerElectron): GamerServices {
     revealPath: el.revealPath,
     ffmpegStatus: el.ffmpegStatus,
     pickSavePath: el.pickSavePath,
-    resolveVideoExportInput: async () => null,
+    resolveVideoExportInput: el.resolveVideoExportInput ?? (async () => null),
   });
   const tabRoot = (tab: 'map' | 'terrain' | 'sprite' | 'model') => (repoId: string) => media.store.rootFor({ repoId, tab });
 

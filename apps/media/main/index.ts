@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { access } from 'node:fs/promises';
 import { homedir, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,14 +7,9 @@ import { app, BrowserWindow, dialog, ipcMain, net, protocol, shell, clipboard, M
 
 import { libraryFileResolver } from '@midnite/studio-feature-media-library/main';
 import { connectRuntimeVault, guardAppWindow, vaultHostSocketPath, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
-import { MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared';
+import { MSTUDIO_FILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
-import {
-  createMediaKeyReader,
-  installMediaFileProtocol,
-  mediaLibraryDataDir,
-  registerMediaHandlers,
-} from '@midnite/studio-module-media/main';
+import { createMediaKeyReader, mediaLibraryDataDir } from '@midnite/studio-module-media/main';
 import {
   MEDIA_NAME,
   SMOKE_READY_LINE,
@@ -22,7 +18,8 @@ import {
   mediaUserData,
   mediaVaultDirectory,
 } from './identity';
-import { registerReport, reportMenuTemplate } from './report';
+import { installMediaHostFileProtocol, registerMediaHost } from './host';
+import { reportMenuTemplate } from './report';
 import { mediaPairing } from './pairing';
 
 /**
@@ -58,6 +55,34 @@ async function pickDirectory(): Promise<string | null> {
   return picked.canceled ? null : (picked.filePaths[0] ?? null);
 }
 
+const FFMPEG_CANDIDATES = ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'];
+/** Creator's export tools look for ffmpeg here (the Library's own chooser is separate). */
+async function ffmpegStatus(): Promise<FfmpegStatus> {
+  for (const path of FFMPEG_CANDIDATES) {
+    try {
+      await access(path);
+      return { found: true, path, version: null };
+    } catch {
+      // try the next
+    }
+  }
+  return { found: false, reason: 'ffmpeg was not found. Install it with Homebrew to enable exports.' };
+}
+
+/** A hidden, script-less window prints a doc's standalone HTML (Creator's Docs export). */
+async function printToPdf(htmlFile: string): Promise<Buffer> {
+  const printer = new BrowserWindow({
+    show: false,
+    webPreferences: { sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false },
+  });
+  try {
+    await printer.loadFile(htmlFile);
+    return await printer.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
+  } finally {
+    printer.destroy();
+  }
+}
+
 async function chooseFfmpeg(): Promise<string | null> {
   const options = {
     title: 'Choose ffmpeg',
@@ -82,20 +107,6 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     crashLog = createFileSink({ dir: app.getPath('userData'), name: 'media.log', homeDir: app.getPath('home') });
     installCrashLogging((level, message) => crashLog?.write(level, message));
     crashLog.write('info', `${MEDIA_NAME} ${app.getVersion()} started`);
-    const sendToWindow = (channel: string, payload: unknown): void => {
-      if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
-    };
-    registerReport(
-      { ipcMain, trashItem: (path) => shell.trashItem(path), send: sendToWindow },
-      {
-        sink: () => crashLog,
-        homeDir: () => app.getPath('home'),
-        bootLine: () => `${MEDIA_NAME} ${app.getVersion()}`,
-        openExternal: (url) => shell.openExternal(url),
-        writeClipboard: (text) => clipboard.writeText(text),
-        revealPath: (path) => shell.showItemInFolder(path),
-      },
-    );
     Menu.setApplicationMenu(
       Menu.buildFromTemplate(
         reportMenuTemplate((channel, payload) => {
@@ -115,7 +126,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
           identity: mediaPairing(userData, smoke),
         });
     const readKey = vault ? createMediaKeyReader(vault) : async () => null;
-    const { library, lan } = registerMediaHandlers({
+    const registered = registerMediaHost({
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
       send: (channel, payload) => {
@@ -131,17 +142,50 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       interfaces: networkInterfaces,
       pathEnv: process.env.PATH ?? '',
       chooseFfmpeg,
+      // The Creator module (Phase 124 Theme E.3): Report an Issue's services, the media dialogs, printing and ffmpeg.
+      creator: {
+        report: {
+          sink: () => crashLog,
+          homeDir: () => app.getPath('home'),
+          bootLine: () => `${MEDIA_NAME} ${app.getVersion()}`,
+          openExternal: (url) => shell.openExternal(url),
+          writeClipboard: (text) => clipboard.writeText(text),
+          revealPath: (path) => shell.showItemInFolder(path),
+        },
+        userData,
+        videoTemplateRoot: join(__dirname, 'templates', 'media-video'),
+        openPath: (target) => shell.openPath(target),
+        revealPath: (target) => shell.showItemInFolder(target),
+        pickSavePath: async (options) => {
+          const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+          return picked.canceled || !picked.filePath ? null : picked.filePath;
+        },
+        pickImportFiles: async (options) => {
+          const dialogOptions = { ...options, properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'> };
+          const picked = win ? await dialog.showOpenDialog(win, dialogOptions) : await dialog.showOpenDialog(dialogOptions);
+          return picked.canceled ? null : picked.filePaths;
+        },
+        printToPdf,
+        ffmpegStatus,
+        // Image-provider keys, read here from the runtime vault as `media` — never sent to the renderer.
+        readKey: async (key) => (vault ? vault.get('secrets', key) : null),
+      },
     });
+    const { library, lan } = registered;
     // Stopped with the app (remembering it was on); started at launch only when the user left it on and
     // chose "start with the app" — and never in a smoke run.
-    app.on('will-quit', () => void lan.dispose());
+    app.on('will-quit', () => {
+      void lan.dispose();
+      registered.shutdown();
+    });
     if (!smoke) void lan.startAtLaunch();
-    installMediaFileProtocol(
+    installMediaHostFileProtocol(
       {
         handle: (scheme, handler) => protocol.handle(scheme, handler),
         fetchFile: (fileUrl, headers) => net.fetch(fileUrl, { headers, bypassCustomProtocolHandlers: true }),
       },
       libraryFileResolver(library),
+      userData,
     );
     openWindow();
   });

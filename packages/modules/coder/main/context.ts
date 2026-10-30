@@ -28,8 +28,10 @@ import {
   registerHandoffOpener,
   registerRunReceiver,
   vaultHostSocketPath,
+  type FeatureMainContext,
   type IpcContextElectron,
   type PairingIdentity,
+  type RuntimeAppId,
 } from '@midnite/studio-runtime';
 import { CHANNELS, schemas } from '@midnite/studio-shared';
 
@@ -75,6 +77,12 @@ export type CoderElectron = IpcContextElectron & {
    */
   openExternal?: (url: string) => Promise<void>;
   warn?: (message: string) => void;
+  /**
+   * The app id the vault and the shared broker know this connection by: `coder` in Coder's own app, the host's
+   * own id (`agents`) when a host mounts the module (Phase 124 Theme E.3) — the pairing key and the grants are
+   * the host's, so the host is what the vault must recognise.
+   */
+  appId?: RuntimeAppId;
 };
 
 /**
@@ -93,8 +101,16 @@ export type CoderElectron = IpcContextElectron & {
  * Coder's own list holds; its script worker is a separate process, killed on quit (`shutdown`).
  */
 export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos; shutdown: () => Promise<void> } {
-  const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.vaultDirectory), appId: 'coder', identity: el.pairing });
-  const ctx = createIpcContext(el);
+  return registerCoderOn(createIpcContext(el), el);
+}
+
+/**
+ * {@link registerCoderHandlers} over a context the caller built — what the module's main half
+ * (`coderModuleMain`) registers through, so a host can mount it beside other modules.
+ */
+export function registerCoderOn(ctx: FeatureMainContext, el: CoderElectron): { repos: CoderRepos; shutdown: () => Promise<void> } {
+  const appId = el.appId ?? 'coder';
+  const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.vaultDirectory), appId, identity: el.pairing });
   reportMain.register(ctx, el.report);
   const warn = el.warn ?? (() => undefined);
   const repos = createCoderRepos({ userData: el.userData });
@@ -163,7 +179,7 @@ export function registerCoderHandlers(el: CoderElectron): { repos: CoderRepos; s
   // session and kills none; the broker would refuse a guest's kill of one it did not create anyway.
   // Titles come from the host's own terminal records; a broker session's environment never reaches here.
   sessionsGuestMain.register(ctx, {
-    broker: createSharedBroker({ runtimeDirectory: el.vaultDirectory, appId: 'coder' }),
+    broker: createSharedBroker({ runtimeDirectory: el.vaultDirectory, appId }),
     hostSessions: () => readHostSessions(readRuntimeHostRecord(el.vaultDirectory)?.sessionsFile),
   });
 

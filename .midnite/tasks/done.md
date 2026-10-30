@@ -11,6 +11,10 @@ adapter is `packages/app/src/compose/companion-host.tsx`; its revealers, sources
 follows suite-prefs (`companion.enabled`, `voices`, `sttEngine`, `sttProvider`). Importing the barrel reads no host
 (`import-without-host.test.ts`). Package suite: 1,045 tests under two vitest projects (renderer on jsdom, main on node).
 
+## 2026-10-30 — Phase 124 Theme E.3 (Agents, Media, Gamer hosts) — main-side wiring
+
+PR pending. Agents mounts Agents, Coder and Creator; Media mounts Media and Creator; Gamer mounts Gamer and Creator, each through `mountModuleMains` in `apps/<host>/main/host.ts` with a preload that unions the modules' bridge slices. Coder, Creator, Agents, Gamer and Media gained `defineFeatureMain` halves over `register<Id>On(ctx, el)`; the old `register<Id>Handlers` wrap them. Shared channels (Report an Issue, Gamer's media-core) are registered once by the first mount, and each host composes one `mstudio-file://` handler from the modules' resolvers. E.3 stays open: Mind ← capture and the renderer half (Phase 123 Theme H).
+
 ## 2026-10-30 — Phase 124 Theme G (G.1–G.4) — Migration
 
 Retired app ids resolve to host + module in `midnite://` links (`legacyApp` rides along), `FEATURE_HOSTS` places features on host apps, `forge.*` tools belong to Agents (a lone Coder bundle still serves them), the launcher router falls back to a still-installed old bundle and the host tile offers the swap ("Replaces Coder", then "Move to Trash"), and Agents, Vanguard and Mind import a retired app's app-local data once behind a marker. G.5 (final per-app releases) is open.

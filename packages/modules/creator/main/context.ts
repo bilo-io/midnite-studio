@@ -28,7 +28,7 @@ import {
   openaiImageProvider,
   type ImageProvider,
 } from '@midnite/studio-feature-media-images/main';
-import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
+import { createIpcContext, type FeatureMainContext, type IpcContextElectron } from '@midnite/studio-runtime';
 import { EVENT_CHANNELS, MUSIC_MIDI_FILE_EXTENSIONS, failure, ok, type FfmpegStatus, type SecretKey } from '@midnite/studio-shared';
 
 import { CREATOR_REPO_ID } from '../manifest';
@@ -60,6 +60,11 @@ export type CreatorElectron = IpcContextElectron & {
   fetch?: typeof fetch;
   /** Ollama has no local client in Creator yet; tests and the app both leave it out. */
   ollama?: ImageProvider;
+  /**
+   * The media service another module of the host already built over the same root (Gamer's, in Gamer's host —
+   * Phase 124 Theme E.3), so the two share one store and one watcher. Absent, Creator builds its own.
+   */
+  media?: () => MediaService;
 };
 
 const noOllama: ImageProvider = {
@@ -75,17 +80,26 @@ const noOllama: ImageProvider = {
  * service so the caller can stop its watchers on quit.
  */
 export function registerCreatorHandlers(el: CreatorElectron): MediaService {
-  const ctx = createIpcContext(el);
+  return registerCreatorOn(createIpcContext(el), el);
+}
+
+/**
+ * {@link registerCreatorHandlers} over a context the caller built — what the module's main half
+ * (`creatorModuleMain`) registers through, so a host can mount it beside other modules.
+ */
+export function registerCreatorOn(ctx: FeatureMainContext, el: CreatorElectron): MediaService {
   reportMain.register(ctx, el.report);
-  const media = createMediaService({
-    resolveRepo: async (repoId) => {
-      if (repoId !== CREATOR_REPO_ID) return null;
-      await mkdir(el.mediaRoot, { recursive: true });
-      return el.mediaRoot;
-    },
-    trash: el.trashItem,
-    emit: el.send,
-  });
+  const media =
+    el.media?.() ??
+    createMediaService({
+      resolveRepo: async (repoId) => {
+        if (repoId !== CREATOR_REPO_ID) return null;
+        await mkdir(el.mediaRoot, { recursive: true });
+        return el.mediaRoot;
+      },
+      trash: el.trashItem,
+      emit: el.send,
+    });
   mediaCoreMain.register(ctx, {
     media,
     revealPath: el.revealPath,

@@ -10,6 +10,12 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', '@tanstack/react-query'],
     alias: {
+      '@midnite/studio-module-creator/main': at('../../packages/modules/creator/main/index.ts'),
+      '@midnite/studio-module-creator/bridge': at('../../packages/modules/creator/main/bridge.ts'),
+      '@midnite/studio-feature-report/bridge': at('../../packages/features/report/bridge.ts'),
+      '@midnite/studio-feature-media-docs/main': at('../../packages/features/media-docs/main/index.ts'),
+      '@midnite/studio-feature-media-video/main': at('../../packages/features/media-video/main/index.ts'),
+      '@midnite/studio-feature-media-audio/main': at('../../packages/features/media-audio/main/index.ts'),
       '@midnite/studio-module-gamer/bridge': at('../../packages/modules/gamer/main/bridge.ts'),
       '@midnite/studio-module-gamer/main': at('../../packages/modules/gamer/main/index.ts'),
       '@midnite/studio-module-gamer/renderer': at('../../packages/modules/gamer/renderer/index.ts'),

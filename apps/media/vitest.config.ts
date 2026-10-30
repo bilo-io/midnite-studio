@@ -9,6 +9,14 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', '@tanstack/react-query'],
     alias: {
+      '@midnite/studio-module-creator/main': at('../../packages/modules/creator/main/index.ts'),
+      '@midnite/studio-module-creator/bridge': at('../../packages/modules/creator/main/bridge.ts'),
+      '@midnite/studio-feature-report/bridge': at('../../packages/features/report/bridge.ts'),
+      '@midnite/studio-feature-media-core/main': at('../../packages/features/media-core/main/index.ts'),
+      '@midnite/studio-feature-media-docs/main': at('../../packages/features/media-docs/main/index.ts'),
+      '@midnite/studio-feature-media-images/main': at('../../packages/features/media-images/main/index.ts'),
+      '@midnite/studio-feature-media-video/main': at('../../packages/features/media-video/main/index.ts'),
+      '@midnite/studio-feature-media-audio/main': at('../../packages/features/media-audio/main/index.ts'),
       '@midnite/studio-module-media/bridge': at('../../packages/modules/media/main/bridge.ts'),
       '@midnite/studio-module-media/main': at('../../packages/modules/media/main/index.ts'),
       '@midnite/studio-module-media/renderer': at('../../packages/modules/media/renderer/index.ts'),

@@ -27,6 +27,10 @@ dependsOn:
   - 'feature-media-images'
   - 'feature-models'
   - 'module-gamer'
+  - 'module-creator'
+  - 'feature-media-docs'
+  - 'feature-media-video'
+  - 'feature-media-audio'
 
 tasks:
   build:
@@ -78,6 +82,11 @@ tasks:
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-game/main/**/*'
       - '/templates/media-game/**/*'
+      - '/packages/modules/creator/main/**/*'
+      - '/packages/modules/creator/manifest.ts'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-video/main/**/*'
+      - '/packages/features/media-audio/main/**/*'
     outputs:
       - 'dist'
 
@@ -122,6 +131,11 @@ tasks:
       - '/packages/features/media-game/renderer/**/*'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-game/main/**/*'
+      - '/packages/modules/creator/main/**/*'
+      - '/packages/modules/creator/manifest.ts'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-video/main/**/*'
+      - '/packages/features/media-audio/main/**/*'
 
   test:
     inputs:
@@ -162,3 +176,8 @@ tasks:
       - '/packages/features/media-game/renderer/**/*'
       - '/packages/features/media-game/manifest.ts'
       - '/packages/features/media-game/main/**/*'
+      - '/packages/modules/creator/main/**/*'
+      - '/packages/modules/creator/manifest.ts'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-video/main/**/*'
+      - '/packages/features/media-audio/main/**/*'

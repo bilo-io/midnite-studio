@@ -105,12 +105,22 @@ below the layers, like git-engine, which Gamer's module also uses), so no except
 modules declare is registered once, by the earlier mount), `unionBridgeSlices` merges the modules' preload slices,
 and Vanguard's host now mounts Vanguard, Vault, Cleaner and Monitor through one `registerVanguardHost`
 (`apps/vanguard/main/host.ts`; Monitor's `terminal.list` is Vanguard's sessions guest, so it is `shared`).
-Open: Mind ← capture (needs the capture service, display-media gate, file protocol and overlay window composed in
-Mind's main), Agents ← coder, creator (both still register through `registerCoderHandlers` /
-`registerCreatorHandlers`, not `defineFeatureMain`), Media and Gamer ← creator, and the renderer half for every
-host: no host renders `AppShell` yet, so the per-host view router over several modules' compose trees and host
-ports is still to build, and E.2's extra groups appear only once a module's views are routable (a module with no
-group is skipped). E.3 stays unticked. Surprises: the module's `main/` may not import `electron`, so Gamer's `game-electron.ts` stayed in the host;
+Also landed: Agents mounts Agents, Coder and Creator, Media mounts Media and Creator, and Gamer mounts Gamer and
+Creator, each through one `register<Host>Host` in `apps/<host>/main/host.ts`, with each preload exposing the union of
+the slices. To be mountable, Coder, Creator, Agents, Gamer and Media each gained a `defineFeatureMain` half
+(`<id>ModuleMain`, services `{ electron, onRegistered }`) over a `register<Id>On(ctx, el)` that the old
+`register<Id>Handlers` now wraps (the standalone Coder and Creator apps still use it). Decisions: the first mount owns
+a channel two modules declare (Report an Issue is the Agents / Creator mount's, `shared` on the rest), and `report.error`
+is declared by name because a feature's `channels` list only its invoke channels; a mounted Coder takes its vault and
+broker identity from the host (`appId`, so one pairing key and one set of grants); Gamer's media-core serves both repo
+ids over one `<userData>/media` and Creator builds on Gamer's media service (`media`), so there is one store and one
+watcher; Electron allows one handler per scheme, so each host composes the modules' `mstudio-file://` resolvers
+(library, then Creator's; Gamer's, then Creator's); Agents takes Coder's system-git shim in place of the dugite stub
+(the Coder module only reads) and bundles the script-runner worker. Open: Mind ← capture (needs the capture service,
+display-media gate, file protocol and overlay window composed in Mind's main), and the renderer half for every host: no
+host renders `AppShell` yet (Phase 123 Theme H), so the per-host view router over several modules' compose trees and host
+ports is still to build, and E.2's extra groups appear only once a module's views are routable (a module with no group
+is skipped). E.3 stays unticked until Mind and the renderer half land. Surprises: the module's `main/` may not import `electron`, so Gamer's `game-electron.ts` stayed in the host;
 a renderer test may not import its own `main/`, so `GAMER_REPO_ID` moved to the module manifest; `app-vault-grants`
 scanned `apps/agents/*` only and now scans the module too.
 

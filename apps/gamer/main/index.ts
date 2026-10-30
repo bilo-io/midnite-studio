@@ -21,17 +21,11 @@ import type { TerrainWorkerHandle } from '@midnite/studio-feature-media-terrain/
 import { guardAppWindow, createFileSink, installCrashLogging, type LogSink } from '@midnite/studio-runtime';
 import { MSTUDIO_FILE_SCHEME, MSTUDIO_GAME_SCHEME, MSTUDIO_TILE_SCHEME, type FfmpegStatus } from '@midnite/studio-shared';
 
-import {
-  createGamerAgentHost,
-  type GamerAgentHost,
-  gamerMediaRoot,
-  type GamerServices,
-  installGamerFileProtocol,
-  registerGamerHandlers,
-} from '@midnite/studio-module-gamer/main';
+import { createGamerAgentHost, type GamerAgentHost, gamerMediaRoot, type GamerServices } from '@midnite/studio-module-gamer/main';
 import { asGameWindow, createGamerGameElectron, gamePageContents } from './game-electron';
 import { GAMER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, gamerUserData, gamerVaultDirectory, isSmoke } from './identity';
-import { registerReport, reportMenuTemplate } from './report';
+import { installGamerHostFileProtocol, registerGamerHost } from './host';
+import { reportMenuTemplate } from './report';
 import { gamerPairing } from './pairing';
 
 /**
@@ -45,7 +39,7 @@ import { gamerPairing } from './pairing';
 const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
 let crashLog: LogSink | null = null;
-let services: GamerServices | null = null;
+let services: (GamerServices & { shutdown: () => void }) | null = null;
 let agentHost: GamerAgentHost | null = null;
 
 app.setName(GAMER_NAME);
@@ -77,6 +71,26 @@ async function pickSavePath(options: { defaultPath: string; filters: { name: str
   return picked.canceled || !picked.filePath ? null : picked.filePath;
 }
 
+async function pickImportFiles(options: { title: string; filters: { name: string; extensions: string[] }[] }) {
+  const dialogOptions = { ...options, properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'> };
+  const picked = win ? await dialog.showOpenDialog(win, dialogOptions) : await dialog.showOpenDialog(dialogOptions);
+  return picked.canceled ? null : picked.filePaths;
+}
+
+/** A hidden, script-less window prints a doc's standalone HTML (Creator's Docs export). */
+async function printToPdf(htmlFile: string): Promise<Buffer> {
+  const printer = new BrowserWindow({
+    show: false,
+    webPreferences: { sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false },
+  });
+  try {
+    await printer.loadFile(htmlFile);
+    return await printer.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
+  } finally {
+    printer.destroy();
+  }
+}
+
 async function pickTiledMap(): Promise<string | null> {
   const options = { title: 'Import a Tiled map', properties: ['openFile' as const], filters: [{ name: 'Tiled map', extensions: ['tmj', 'json'] }] };
   const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
@@ -103,20 +117,6 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     crashLog = createFileSink({ dir: app.getPath('userData'), name: 'gamer.log', homeDir: app.getPath('home') });
     installCrashLogging((level, message) => crashLog?.write(level, message));
     crashLog.write('info', `${GAMER_NAME} ${app.getVersion()} started`);
-    const sendToWindow = (channel: string, payload: unknown): void => {
-      if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
-    };
-    registerReport(
-      { ipcMain, trashItem: (path) => shell.trashItem(path), send: sendToWindow },
-      {
-        sink: () => crashLog,
-        homeDir: () => app.getPath('home'),
-        bootLine: () => `${GAMER_NAME} ${app.getVersion()}`,
-        openExternal: (url) => shell.openExternal(url),
-        writeClipboard: (text) => clipboard.writeText(text),
-        revealPath: (path) => shell.showItemInFolder(path),
-      },
-    );
     Menu.setApplicationMenu(
       Menu.buildFromTemplate(
         reportMenuTemplate((channel, payload) => {
@@ -129,13 +129,13 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     const mediaRoot = gamerMediaRoot(userData);
     // Terrain's PBR tiles ship beside the bundle; the feature finds them through this override.
     process.env['MSTUDIO_TERRAIN_MATERIALS_DIR'] ??= join(__dirname, 'terrain-materials');
-    installGamerFileProtocol({ handle: (scheme, handler) => protocol.handle(scheme, handler), fetchFile: (u) => net.fetch(u) }, mediaRoot);
+    installGamerHostFileProtocol({ handle: (scheme, handler) => protocol.handle(scheme, handler), fetchFile: (u) => net.fetch(u) }, mediaRoot);
     // Nothing starts here: a run creates its own server under mcp-runs/ and the shim beside main.cjs runs
     // under this binary as plain node. A smoke run composes none, so it starts no server and no agent.
     agentHost = smoke
       ? null
       : createGamerAgentHost({ runsDir: join(userData, 'mcp-runs'), shimScript: join(__dirname, 'game-mcp-shim.cjs'), execPath: process.execPath });
-    services = registerGamerHandlers({
+    services = registerGamerHost({
       ...(agentHost ? { gameAgentHost: agentHost } : {}),
       ipcMain,
       trashItem: (path) => shell.trashItem(path),
@@ -198,6 +198,21 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         // eslint-disable-next-line no-console
         if (!smoke) console.log(line);
       },
+      // The Creator module (Phase 124 Theme E.3): Report an Issue's services, printing and Audio's import.
+      creator: {
+        report: {
+          sink: () => crashLog,
+          homeDir: () => app.getPath('home'),
+          bootLine: () => `${GAMER_NAME} ${app.getVersion()}`,
+          openExternal: (url) => shell.openExternal(url),
+          writeClipboard: (text) => clipboard.writeText(text),
+          revealPath: (path) => shell.showItemInFolder(path),
+        },
+        videoTemplateRoot: join(__dirname, 'templates', 'media-video'),
+        openPath: (target) => shell.openPath(target),
+        pickImportFiles,
+        printToPdf,
+      },
     });
     // `mstudio-tile:` answers on the default session through the one tile fetcher.
     services.map.installProtocol((scheme, handler) => protocol.handle(scheme, (request) => handler(request)));
@@ -209,6 +224,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     services?.gameAgents?.cancelAll();
     agentHost?.dispose();
     services?.media.stopWatchers();
+    // Creator's video renders (Phase 124 Theme E.3).
+    services?.shutdown();
     // Every running game's view and process, the capture worker and the terrain build worker.
     services?.games.stopAll();
     services?.map.dispose();
