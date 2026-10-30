@@ -150,4 +150,38 @@ describe('AppShell', () => {
     expect(active.className).toContain('app-accent-active');
     expect(inactive.className).not.toContain('app-accent-active');
   });
+
+  describe('an app that composes its own rail, title bar and content row (Studio)', () => {
+    const own = (extra: Partial<AppShellProps> = {}) =>
+      render(
+        <AppShell
+          app="studio"
+          name="Midnite Studio"
+          bare
+          rail={{ nav: { pinned: [], sections: [] }, activePath: '/', linkComponent: ({ children }) => <>{children}</> }}
+          titleBarStart={<span>own left</span>}
+          titleBarEnd={<span>own right</span>}
+          suiteCluster={false}
+          footer={<p>own footer</p>}
+          {...extra}
+        >
+          <p>own row</p>
+        </AppShell>,
+      );
+
+    it('hands the content box to its children whole, with its own start, end and footer', () => {
+      own();
+      expect(screen.getByText('own row')).toBeTruthy();
+      expect(screen.getByText('own footer')).toBeTruthy();
+      expect(screen.getByText('own right')).toBeTruthy();
+      expect(screen.getAllByText('own left').length).toBeGreaterThan(0);
+      expect(screen.queryByTestId('app-shell-view')).toBeNull();
+    });
+
+    it('leaves out the suite cluster and sets no accent when none is given', () => {
+      const { container } = own();
+      expect(screen.queryByTestId('app-shell-theme-toggle')).toBeNull();
+      expect(container.querySelector('.app-shell')?.getAttribute('style')).toBeNull();
+    });
+  });
 });

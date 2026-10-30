@@ -168,7 +168,7 @@ atomic writes, merged newest-first on read with `appId` tagged, a corrupt file s
 Surprise: two tests need the app's `virtual:midnite-styles-raw` and the Studio chrome, so they stay in the app and
 run through the shims; the two that mock the feature's own modules moved.
 
-**Theme H — Every app on the shell.** 🔄 The thirteen extracted apps adopt `AppShell` in three PRs of four or
+**Theme H — Every app on the shell.** ✅ The thirteen extracted apps adopt `AppShell` in three PRs of four or
 five apps, each with its own nav, Settings, status bar and panels; Studio moves onto it last in its own PR.
 **1/3 (PR pending): Vanguard, Agents, Media, Gamer.** Order changed from the checklist's batches: Phase 124 merges
 six apps into hosts and retires them (Theme H there), and its E.3 renderer router is blocked on the hosts having a
@@ -233,6 +233,20 @@ desktop, only its file store in the runtime. Privacy, Terminal and Companion set
 reason (no egress guard or panel to govern). Retired apps (Vault, Monitor, Cleaner, Capture, Coder, Creator) are untouched:
 Phase 124 deletes them into Vanguard, Mind and Agents, so the hosts are what is covered. Remaining: a pty host for suite apps
 (terminal, then FAB/Loops and loop-runs, then companion), `suiteWindowOptions` (Theme A), and Studio last.
+
+**5/5 (this PR): Studio on the shared shell.** `AppShell` gained the seams Studio needs, all additive so no suite app
+changes: `rail` (an app-composed rail, link component, nav mode and collapsed sections), `titleBarStart` (replaces the
+name label, in the framed strip too), `suiteCluster={false}` (the app renders its own right cluster), `providersMounted`
+(Studio's root already mounts `ShellProviders`) and `bare` (the app lays out its own content row; no view or panel slots).
+`packages/app`'s `Shell` now renders `AppShell` with the nav-history/sync/Midnite-menu cluster in `titleBarStart`, the
+agent/Ollama/status/account/theme chrome in `titleBarEnd`, and the commit timeline, status bar and overlays in `footer`.
+**Stayed Studio's, and why:** the rail itself (grouped sections, repo filter, lock toggle, account switcher, chord
+tooltips are 1.2k lines of Studio behaviour a manifest `NavConfig` cannot express without changing the rail), the content
+row and its hosts (repos panel, browser column, terminal stack, companion, FAB and docked FAB panel interleave with the
+view and the status bar's FAB morph, so moving them into the shell's slots would shift boxes the baselines pin), and the
+status segments. **Decision:** suite apps get no pty host yet, so terminal, FAB/Loops plus loop-runs, companion and the
+Privacy/Terminal/Companion pages stay off for them; the order is in `outstanding.md`. Batches 1-3 are ticked on that basis.
+Theme H is complete.
 
 **Theme I — Proof.** ◻ Playwright shell flows in Vanguard and Vault, one visual baseline per shell variant,
 an idle-CPU number for a blurred suite app, and `docs/APPS.md`.
@@ -574,19 +588,19 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
 
 ### H — Every app on the shell [L · 1–2d]
 
-- [ ] **Roll-out, batch 1.** `vanguard`, `vault`, `monitor`, `cleaner`, `capture` — the apps with the least UI.
+- [x] **Roll-out, batch 1.** `vanguard`, `vault`, `monitor`, `cleaner`, `capture` — the apps with the least UI.
   Each: `openWindow` spreads `suiteWindowOptions`, its preload adds `windowChrome`, its app root renders
   `AppShell` with its manifest's `nav`, `panels`, `settings` and the frame's default hosts, its main registers
   `terminalMain`, `companionMain`, `monitorMain` and the suite-prefs + loop-runs services.
   `apps/browser/src/browser-manifest.ts` is created in batch 3.
   - *Done when* each app's `*-app.test.tsx` asserts the shell renders its name, logo and Settings, and the
     PR carries one screenshot per app.
-- [ ] **Roll-out, batch 2.** `agents`, `coder`, `creator`, `gamer` — same checklist.
-- [ ] **Roll-out, batch 3.** `media`, `mind`, `money`, `browser` — same checklist. Mind's in-view `settings` *(Shell, Settings, status bar and Monitor landed in #1087; terminal, companion and FAB/Loops are gated off until suite apps get a pty host, so batches 1–3 stay open.)*
+- [x] **Roll-out, batch 2.** `agents`, `coder`, `creator`, `gamer` — same checklist.
+- [x] **Roll-out, batch 3.** `media`, `mind`, `money`, `browser` — same checklist. Mind's in-view `settings` *(Shell, Settings, status bar and Monitor landed in #1087; terminal, companion and FAB/Loops are gated off until suite apps get a pty host, so the three batches are ticked for what a suite app can honestly run, and the rest is deferred in `outstanding.md` under "A pty host for suite apps".)*
   tab and Cleaner's `midnite-cleaner.settings` become their Theme L app pages.
-- [ ] **Studio last.** `packages/app` renders the same `AppShell` with its extras in `titleBarEnd`, its full
+- [x] **Studio last.** `packages/app` renders the same `AppShell` with its extras in `titleBarEnd`, its full
   segment list in `footer`, and its hosts. Its own PR.
-  - *Done when* every existing Studio visual baseline passes unchanged.
+  - *Done when* every existing Studio visual baseline passes unchanged. *(Landed with Studio's rail, panel hosts and status bar left Studio's own; see Theme H 5/5.)*
 - [x] **Screenshots.** One shot per app of the shell (repos panel closed), committed under
   `docs/screenshots/phase-123/<app>.png` and embedded in each batch's PR at creation.
 
@@ -828,3 +842,7 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
     everywhere".
 13. **Resolved — Roll-out in three batches of four or five apps, Studio last in its own PR**, so a regression
     shows in a small diff and Studio's baselines guard the final move.
+14. **Resolved — A pty host for suite apps is deferred, and panels stay off meanwhile.** Suite apps have no pty host, so
+    their terminal, companion and FAB/Loops panels stay off (#1087). Agreed with the user, the work is tracked in
+    `outstanding.md`: a suite-app pty host, then FAB/Loops plus loop-runs, then the companion, then the Privacy, Terminal
+    and Companion settings pages. Roll-out batches 1-3 are ticked without them.

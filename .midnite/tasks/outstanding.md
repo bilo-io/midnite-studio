@@ -2,6 +2,15 @@
 
 Recorded here when a phase punts on something; pick these up post-MVP.
 
+- **A pty host for suite apps (Phase 123 Theme H).** Suite apps (Vanguard, Agents, Media, Gamer, Money, Mind, Browser)
+  have no pty host: the broker script, `node-pty`, confinement and the agent probe live in `packages/desktop`, and an
+  app can only attach to Studio's broker as a guest, which cannot create a session. So their terminal, companion and
+  FAB/Loops panels are off (#1087), and Theme H's roll-out batches were ticked without them. In order: (1) a pty host a
+  suite app's main can register (terminal first); (2) FAB/Loops plus the loop-runs service (start, stop, exit-finalise,
+  now in desktop); (3) the companion, which needs Studio's dispatch, agents and utility fork; (4) the Privacy, Terminal
+  and Companion settings pages for suite apps, each with a suite-prefs group and a migration, joining with the thing it
+  governs. Also open from Studio's move: the rail and the panel hosts are still Studio's own, not the shell's.
+
 - **The first mic press on a fresh install times out behind the model download.** Found in the
   2026-10-10 ad hoc mic-permission fix. `whisper-local`'s `transcribe` awaits `ensureModel` (the
   one-time ~100 MB download) inside `transcribeUtterance`'s 15 s deadline. `raceAbort` only wraps
