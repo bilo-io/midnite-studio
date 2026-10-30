@@ -23,6 +23,13 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const PORT = Number(process.env.MSTUDIO_E2E_PORT ?? 5273);
 
+/**
+ * The suite apps' own Vite servers (Phase 123 Theme I): `e2e/suite-shell/` drives the shell Vanguard and
+ * Agents render, which Studio's server does not serve. Overridable for the same reason `PORT` is.
+ */
+const VANGUARD_PORT = Number(process.env.MSTUDIO_E2E_VANGUARD_PORT ?? 5292);
+const AGENTS_PORT = Number(process.env.MSTUDIO_E2E_AGENTS_PORT ?? 5290);
+
 export default defineConfig({
   testDir: './e2e',
   /*
@@ -134,20 +141,36 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    command: `pnpm exec vite --port ${PORT} --strictPort`,
-    url: `http://localhost:${PORT}`,
-    /**
-     * Never reuse a server this config did not start.
-     *
-     * The dev port (5173) is contended: `moon run app:dev` from the primary
-     * checkout and from any `.worktrees/*` copy all want it, and Playwright
-     * happily reuses whichever got there first. The suite then passes or fails
-     * against a DIFFERENT checkout's source — silently, since the app looks
-     * entirely normal. A dedicated port plus `strictPort` turns that collision
-     * into a startup error instead of a wrong answer.
-     */
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: `pnpm exec vite --port ${PORT} --strictPort`,
+      url: `http://localhost:${PORT}`,
+      /**
+       * Never reuse a server this config did not start.
+       *
+       * The dev port (5173) is contended: `moon run app:dev` from the primary
+       * checkout and from any `.worktrees/*` copy all want it, and Playwright
+       * happily reuses whichever got there first. The suite then passes or fails
+       * against a DIFFERENT checkout's source — silently, since the app looks
+       * entirely normal. A dedicated port plus `strictPort` turns that collision
+       * into a startup error instead of a wrong answer.
+       */
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      command: `pnpm exec vite --port ${VANGUARD_PORT} --strictPort`,
+      cwd: '../../apps/vanguard',
+      url: `http://localhost:${VANGUARD_PORT}`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      command: `pnpm exec vite --port ${AGENTS_PORT} --strictPort`,
+      cwd: '../../apps/agents',
+      url: `http://localhost:${AGENTS_PORT}`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  ],
 });
