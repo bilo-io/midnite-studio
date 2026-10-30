@@ -13,7 +13,7 @@ import {
   type LibraryService,
   type NetworkInterfaces,
 } from '@midnite/studio-feature-media-library/main';
-import { createIpcContext, type IpcContextElectron } from '@midnite/studio-runtime';
+import { createIpcContext, type FeatureMainContext, type IpcContextElectron } from '@midnite/studio-runtime';
 
 /** The electron pieces Media's main needs, injected so registration is testable under bare vitest. */
 export type MediaElectron = IpcContextElectron & {
@@ -52,7 +52,14 @@ export type MediaServices = { library: LibraryService; lan: LibraryLanController
  * a granted key reads back; until then the library makes no network call at all.
  */
 export function registerMediaHandlers(el: MediaElectron): MediaServices {
-  const ctx = createIpcContext(el);
+  return registerMediaOn(createIpcContext(el), el);
+}
+
+/**
+ * {@link registerMediaHandlers} over a context the caller built — what the module's main half
+ * (`mediaModuleMain`) registers through, so a host can mount it beside other modules.
+ */
+export function registerMediaOn(ctx: FeatureMainContext, el: MediaElectron): MediaServices {
   const fetchFn = el.fetch;
   const library = createLibraryService({
     dataDir: el.dataDir,

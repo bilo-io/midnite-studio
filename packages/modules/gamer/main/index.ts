@@ -5,3 +5,4 @@ export * from './context';
 export * from './file-protocol';
 export * from './keys';
 export { gamerManifest } from '../manifest';
+export * from './module';

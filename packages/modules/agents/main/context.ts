@@ -32,6 +32,7 @@ import {
   createSharedBroker,
   ensureLoginShellPathAsync,
   vaultHostSocketPath,
+  type FeatureMainContext,
   type IpcContextElectron,
   type PairingIdentity,
 } from '@midnite/studio-runtime';
@@ -80,11 +81,18 @@ export type AgentsElectron = IpcContextElectron & {
  * renderer's `has` answers false. No chat engine reads a key: each agent CLI brings its own login.
  */
 export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise<void> } {
+  return registerAgentsOn(createIpcContext(el), el);
+}
+
+/**
+ * {@link registerAgentsHandlers} over a context the caller built — what the module's main half
+ * (`agentsModuleMain`) registers through, so a host can mount it beside other modules.
+ */
+export function registerAgentsOn(ctx: FeatureMainContext, el: AgentsElectron): { dispose(): Promise<void> } {
   const vault = connectRuntimeVault({ socketPath: vaultHostSocketPath(el.vaultDirectory), appId: 'agents', identity: el.pairing });
   const ollamaKey = (): Promise<string | null> => vault.get('secrets', OLLAMA_KEY);
   // The stores write straight into `userData` and treat a missing directory as read-only; Electron creates it lazily.
   mkdirSync(el.userData, { recursive: true });
-  const ctx = createIpcContext(el);
   // The audit trail (Phase 121 Theme G) under Agents' own userData: its chat turns and council runs. Studio's
   // trail holds the terminal commands and MCP calls — Agents has no pty server and runs no MCP server.
   const trail = createAgentAudit({
@@ -172,14 +180,15 @@ export function registerAgentsHandlers(el: AgentsElectron): { dispose(): Promise
 
   // The roster, as the renderer's `useAgents` asks for it. Install status is unknown here (no probe),
   // which the renderer reads as "assume it works" — a missing CLI surfaces as the turn's own error.
-  el.ipcMain.handle(CHANNELS.agentList, () => ({ agents: [...BUILTIN_AGENTS], status: [], probe: 'unknown' as const }));
+  ctx.ipc.handleBare(CHANNELS.agentList, () => ({ agents: [...BUILTIN_AGENTS], status: [], probe: 'unknown' as const }));
 
-  el.ipcMain.handle(CHANNELS.secretsHas, async (_event, raw: unknown) => {
-    const parsed = schemas.SecretsHasRequest.safeParse(raw);
+  ctx.ipc.handle(
+    CHANNELS.secretsHas,
+    schemas.SecretsHasRequest,
     // Only the Ollama key is Agents' to ask about; any other answers "not set".
-    if (!parsed.success || parsed.data.key !== OLLAMA_KEY) return { hasKey: false };
-    return { hasKey: await vault.has('secrets', OLLAMA_KEY) };
-  });
+    async ({ key }) => (key !== OLLAMA_KEY ? { hasKey: false } : { hasKey: await vault.has('secrets', OLLAMA_KEY) }),
+    () => ({ hasKey: false }),
+  );
 
   return {
     // A council member's or script node's shell is its own process group and would outlive Agents; an

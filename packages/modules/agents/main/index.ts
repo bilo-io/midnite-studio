@@ -5,3 +5,4 @@ export * from './context';
 export * from './node-session';
 export * from './shell-runner';
 export { agentsManifest } from '../manifest';
+export * from './module';
