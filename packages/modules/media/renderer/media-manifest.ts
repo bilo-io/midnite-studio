@@ -1,6 +1,6 @@
 import { mediaCoreManifest } from '@midnite/studio-feature-media-core/renderer';
 import { mediaLibraryManifest, mediaLibraryTab } from '@midnite/studio-feature-media-library/renderer';
-import { navFromModules, type MediaTabDescriptor, type NavConfig } from '@midnite/studio-frame';
+import { navFromModules, type MediaTabDescriptor, type NavConfig, type NavGroup } from '@midnite/studio-frame';
 import { APP_MODULES } from '@midnite/studio-shared';
 import { PiMonitorPlayFill } from 'react-icons/pi';
 import { mediaManifest } from '../manifest';
@@ -20,9 +20,16 @@ const MEDIA_NAV: NavConfig = { views: MEDIA_TABS.map(({ id, label, icon }) => ({
  * this module's views beneath. Modules the host does not mount yet have no entry, so wiring one in (E.3) adds
  * its group here and nothing else.
  */
-const MEDIA_HOST_NAV: NavConfig = navFromModules(APP_MODULES.media, {
-  media: { id: 'media', label: mediaManifest.label, icon: PiMonitorPlayFill, accent: mediaManifest.accent, views: MEDIA_NAV.views },
-});
+/** This module's nav group (Phase 124 Theme E.3): a host composes it beside the groups of the modules it mounts. */
+export const MEDIA_NAV_GROUP: NavGroup = {
+  id: 'media',
+  label: mediaManifest.label,
+  icon: PiMonitorPlayFill,
+  accent: mediaManifest.accent,
+  views: MEDIA_NAV.views,
+};
+
+const MEDIA_HOST_NAV: NavConfig = navFromModules(APP_MODULES.media, { media: MEDIA_NAV_GROUP });
 
 /**
  * Midnite Media's app manifest — pure data (Phase 113 Theme R).

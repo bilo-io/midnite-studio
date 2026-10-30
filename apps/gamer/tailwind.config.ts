@@ -8,7 +8,11 @@ import type { Config } from 'tailwindcss';
  */
 const config: Config = {
   presets: [frameTailwindPreset],
-  content: frameContent(__dirname, ['media-core', 'media-map', 'media-terrain', 'media-sprite', 'media-model', 'media-game'], ['gamer']),
+  content: frameContent(
+    __dirname,
+    ['media-core', 'media-map', 'media-terrain', 'media-sprite', 'media-model', 'media-game', 'media-docs', 'media-images', 'media-video', 'media-audio', 'slides'],
+    ['gamer', 'creator'],
+  ),
 };
 
 export default config;
