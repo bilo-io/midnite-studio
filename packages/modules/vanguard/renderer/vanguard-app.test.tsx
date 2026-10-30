@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { vanguardManifest } from '@midnite/studio-feature-vanguard/renderer';
@@ -53,9 +53,24 @@ describe('Vanguard composition', () => {
 describe('Vanguard home view', () => {
   it('renders the vanguard view framed as Vanguard, and tells main the view was opened', async () => {
     render(<VanguardApp />);
-    expect(screen.getByText('Midnite Vanguard')).toBeDefined();
+    expect(screen.getAllByText('Midnite Vanguard').length).toBeGreaterThan(0);
+    expect(screen.getByRole('img', { name: 'Midnite Vanguard' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Vanguard' })).toBeDefined());
     expect(window.midniteStudio!.vanguard.viewOpened).toHaveBeenCalled();
+  });
+});
+
+describe('Vanguard shell', () => {
+  it('lists its views in the rail and opens Settings with the suite and Vanguard pages', async () => {
+    render(<VanguardApp />);
+    const rail = screen.getByRole('navigation', { name: 'Views' });
+    expect(within(rail).getByRole('link', { name: 'Sensors' })).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const settings = await screen.findByTestId('suite-settings');
+    for (const label of ['Appearance', 'Keyboard shortcuts', 'Vanguard']) {
+      expect(within(settings).getAllByText(label).length).toBeGreaterThan(0);
+    }
   });
 });
 

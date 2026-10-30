@@ -159,8 +159,22 @@ atomic writes, merged newest-first on read with `appId` tagged, a corrupt file s
 Surprise: two tests need the app's `virtual:midnite-styles-raw` and the Studio chrome, so they stay in the app and
 run through the shims; the two that mock the feature's own modules moved.
 
-**Theme H — Every app on the shell.** ◻ The thirteen extracted apps adopt `AppShell` in three PRs of four or
+**Theme H — Every app on the shell.** 🔄 The thirteen extracted apps adopt `AppShell` in three PRs of four or
 five apps, each with its own nav, Settings, status bar and panels; Studio moves onto it last in its own PR.
+**1/3 (PR pending): Vanguard, Agents, Media, Gamer.** Order changed from the checklist's batches: Phase 124 merges
+six apps into hosts and retires them (Theme H there), and its E.3 renderer router is blocked on the hosts having a
+shell, so the host apps go first and Vault, Monitor, Cleaner, Capture, Coder and Creator are skipped. New in the frame:
+`SuiteAppShell` (`AppShell` + a Settings view behind the rail's Settings row + `useAppearanceSync` + the status bar
+when an app offers a segment) and a frame-owned `SuiteAppearancePage` (theme, accent, motion, density, all in
+suite-prefs); the suite settings list is Appearance and Keyboard shortcuts. Each app's rail is its manifest `nav`:
+Vanguard's rows drive the feature's tab store and it adds its own Vanguard settings page; Media and Gamer drive the
+host's `useActiveTab` through `useActiveMediaTab`, and `MediaShell` gained `bare` to drop its own tab strip. The four
+apps import `@bilo-io/shell/appearance.css`; module vitest configs load the frame's jsdom setup. Decisions: no grouped
+nav here (Phase 124's E.3 router adds it; each host shows its own views); the old in-view header and Agents' tab strip
+are gone. **Open, so no checklist item is ticked:** `panels` (terminal, companion, FAB) and each main's
+`terminalMain`/`companionMain`/`monitorMain` + suite-prefs and loop-runs registration, so no status segment is offered
+and the bar does not mount; the Privacy, Terminal, Companion and Monitor settings pages (still on Studio's `ui-store`
+in `packages/app`); `Mod+,`. Next: Money, Science, Mind, Browser, then Studio.
 
 **Theme I — Proof.** ◻ Playwright shell flows in Vanguard and Vault, one visual baseline per shell variant,
 an idle-CPU number for a blurred suite app, and `docs/APPS.md`.

@@ -6,11 +6,12 @@ import { CouncilsHostProvider } from '@midnite/studio-feature-councils/renderer'
 import { WorkflowsHostProvider } from '@midnite/studio-feature-workflows/renderer';
 import { ModelsHostProvider, useRefetchModelsOnFocus, useRefetchModelsOnPullDone } from '@midnite/studio-feature-models/renderer';
 import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
-import { FrameChromeProvider } from '@midnite/studio-frame';
+import { FrameChromeProvider, SuiteAppShell } from '@midnite/studio-frame';
 
 import { AGENTS_CHROME, AgentsDialogHost } from './compose/agents-chrome';
 import { AGENTS_CHATS_HOST, AGENTS_COUNCILS_HOST, AGENTS_MODELS_HOST, AGENTS_WORKFLOWS_HOST } from './compose/agents-hosts';
-import { AgentsHome } from './views/agents-home';
+import { AGENTS_APP } from './agents-manifest';
+import { AgentsHome, type ViewId } from './views/agents-home';
 
 /** The model list refetches when a pull finishes and when the window regains focus — Studio's root does the same. */
 function ModelsRefetch() {
@@ -20,7 +21,7 @@ function ModelsRefetch() {
 }
 
 /**
- * Midnite Agents — the chats, councils, workflows and models features (and the MCP Tools view) composed over the frame as their own app:
+ * Midnite Agents (on the suite shell, Phase 123 Theme H) — the chats, councils, workflows and models features (and the MCP Tools view) composed over the frame as their own app:
  * the frame chrome, each feature's host port (plain chrome, no app state) and the query client their
  * hooks read through. The four host providers nest rather than sit side by side — siblings would each
  * render `{children}`, mounting the app twice.
@@ -35,7 +36,9 @@ export function AgentsApp() {
             <ChatsHostProvider host={AGENTS_CHATS_HOST}>
               <WorkflowsHostProvider host={AGENTS_WORKFLOWS_HOST}>
                 <ModelsRefetch />
-                <AgentsHome />
+                <SuiteAppShell app="agents" name={AGENTS_APP.name} accent={AGENTS_APP.accent} nav={AGENTS_APP.nav} home={AGENTS_APP.home}>
+                  {(view) => <AgentsHome view={view as ViewId} />}
+                </SuiteAppShell>
                 <ReportIssueHost app="midnite-agents" />
                 <AgentsDialogHost />
               </WorkflowsHostProvider>

@@ -89,20 +89,38 @@ describe('Agents composition', () => {
   });
 });
 
+/** Click a row in the shell's rail. */
+function goTo(label: string) {
+  fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('link', { name: label }));
+}
+
+describe('Agents shell', () => {
+  it('opens Settings with the suite pages', async () => {
+    render(<AgentsApp />);
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const settings = await screen.findByTestId('suite-settings');
+    expect(within(settings).getAllByText('Appearance').length).toBeGreaterThan(0);
+    expect(within(settings).getAllByText('Keyboard shortcuts').length).toBeGreaterThan(0);
+  });
+});
+
 describe('Agents home', () => {
   it('opens on Chats with Councils, Graphs, Models, Tools and Audit beside it', async () => {
     render(<AgentsApp />);
-    expect(screen.getByText('Midnite Agents')).toBeDefined();
-    expect(screen.getByRole('navigation', { name: 'Agents views' }).textContent).toBe('ChatsCouncilsGraphsModelsToolsAudit');
-    expect(screen.getByTestId('agents-tab-chats').getAttribute('aria-current')).toBe('page');
+    expect(screen.getAllByText('Midnite Agents').length).toBeGreaterThan(0);
+    expect(screen.getByRole('img', { name: 'Midnite Agents' })).toBeDefined();
+    const rail = within(screen.getByRole('navigation', { name: 'Views' }));
+    for (const label of ['Chats', 'Councils', 'Graphs', 'Models', 'Tools', 'Audit']) expect(rail.getByRole('link', { name: label })).toBeDefined();
+    expect(rail.getByRole('link', { name: 'Chats' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
     await waitFor(() => expect(screen.getByRole('main', { name: 'Chats' })).toBeDefined());
   });
 
   it('switches to Councils and to Models, and offers no terminal action on a stopped daemon', async () => {
     render(<AgentsApp />);
-    fireEvent.click(screen.getByTestId('agents-tab-councils'));
+    goTo('Councils');
     await waitFor(() => expect(screen.getByText('Select a council')).toBeDefined());
-    fireEvent.click(screen.getByTestId('agents-tab-models'));
+    goTo('Models');
     await waitFor(() => expect(screen.getByText("Ollama isn't running")).toBeDefined());
     // Agents has no terminal, so the daemon-down state offers a re-check, never "Start Ollama".
     expect(screen.queryByText('Start Ollama')).toBeNull();
@@ -111,14 +129,14 @@ describe('Agents home', () => {
 
   it('switches to Graphs and lists the graphs main returns, with the demo API pill and no terminal', async () => {
     render(<AgentsApp />);
-    fireEvent.click(screen.getByTestId('agents-tab-workflows'));
+    goTo('Graphs');
     // The Graphs chunk pulls the whole canvas: give a loaded machine more than the 1s default to import it.
     await waitFor(() => expect(screen.getByText('No graphs yet')).toBeDefined(), { timeout: 10_000 });
   });
 
   it('switches to Tools and lists only the frame and Agents tools, with no server switch', async () => {
     render(<AgentsApp />);
-    fireEvent.click(screen.getByTestId('agents-tab-tools'));
+    goTo('Tools');
     await waitFor(() => expect(screen.getByTestId('mcp-no-server')).toBeDefined(), { timeout: 10_000 });
     expect(screen.queryByLabelText('Enable MCP server')).toBeNull();
     // The Tools accordion is closed until opened; its title is there, and so is the app's own gate tool once open.
@@ -134,14 +152,14 @@ describe('Agents home', () => {
     });
     stubBridge({ agentAudit: { list, export: vi.fn() } });
     render(<AgentsApp />);
-    fireEvent.click(screen.getByTestId('agents-tab-audit'));
+    goTo('Audit');
     await waitFor(() => expect(screen.getByText(/2\/2 members/)).toBeDefined(), { timeout: 10_000 });
   });
 
   it('never asks for a secret value: only `has` is on the bridge it was given', async () => {
     const { get } = stubBridge();
     render(<AgentsApp />);
-    fireEvent.click(screen.getByTestId('agents-tab-models'));
+    goTo('Models');
     await waitFor(() => expect(screen.getByText("Ollama isn't running")).toBeDefined());
     expect(get).not.toHaveBeenCalled();
   });
