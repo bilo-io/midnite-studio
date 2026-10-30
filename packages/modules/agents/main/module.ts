@@ -36,6 +36,7 @@ export const agentsModuleMain = defineFeatureMain<AgentsModuleServices>({
     CHANNELS.secretsHas,
   ],
   register(ctx, { electron, onRegistered }) {
-    onRegistered?.(registerAgentsOn(ctx, electron));
+    const registered = registerAgentsOn(ctx, electron);
+    onRegistered?.(registered);
   },
 });

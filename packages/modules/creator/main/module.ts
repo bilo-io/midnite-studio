@@ -35,6 +35,7 @@ export const creatorModuleMain = defineFeatureMain<CreatorModuleServices>({
     ...mediaVideoMain.channels,
   ],
   register(ctx, { electron, onRegistered }) {
-    onRegistered?.(registerCreatorOn(ctx, electron));
+    const media = registerCreatorOn(ctx, electron);
+    onRegistered?.(media);
   },
 });

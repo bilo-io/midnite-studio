@@ -15,6 +15,7 @@ export const mediaModuleMain = defineFeatureMain<MediaModuleServices>({
   feature: 'media',
   channels: [...mediaLibraryMain.channels],
   register(ctx, { electron, onRegistered }) {
-    onRegistered?.(registerMediaOn(ctx, electron));
+    const services = registerMediaOn(ctx, electron);
+    onRegistered?.(services);
   },
 });

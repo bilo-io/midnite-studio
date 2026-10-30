@@ -22,6 +22,12 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-module-creator/main': at('../../../packages/modules/creator/main/index.ts'),
+    '@midnite/studio-module-creator/bridge': at('../../../packages/modules/creator/main/bridge.ts'),
+    '@midnite/studio-feature-report/bridge': at('../../../packages/features/report/bridge.ts'),
+    '@midnite/studio-feature-media-docs/main': at('../../../packages/features/media-docs/main/index.ts'),
+    '@midnite/studio-feature-media-video/main': at('../../../packages/features/media-video/main/index.ts'),
+    '@midnite/studio-feature-media-audio/main': at('../../../packages/features/media-audio/main/index.ts'),
     '@midnite/studio-module-gamer/bridge': at('../../../packages/modules/gamer/main/bridge.ts'),
     '@midnite/studio-module-gamer/main': at('../../../packages/modules/gamer/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
@@ -65,3 +71,7 @@ const engines = at('../../../packages/desktop/resources/game-engines');
 if (existsSync(engines)) cpSync(engines, at('../dist/game-engines'), { recursive: true });
 const materials = at('../../../packages/desktop/resources/terrain-materials');
 if (existsSync(materials)) cpSync(materials, at('../dist/terrain-materials'), { recursive: true });
+
+// The Creator module's Setup Video copies the engine workspace from `templates/media-video`; it ships beside the
+// bundle, where `main/index.ts` looks for it.
+cpSync(at('../../../templates/media-video'), at('../dist/templates/media-video'), { recursive: true });

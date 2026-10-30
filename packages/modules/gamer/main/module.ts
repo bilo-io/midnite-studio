@@ -31,6 +31,7 @@ export const gamerModuleMain = defineFeatureMain<GamerModuleServices>({
     ...mediaGameMain.channels,
   ],
   register(ctx, { electron, onRegistered }) {
-    onRegistered?.(registerGamerOn(ctx, electron));
+    const services = registerGamerOn(ctx, electron);
+    onRegistered?.(services);
   },
 });
