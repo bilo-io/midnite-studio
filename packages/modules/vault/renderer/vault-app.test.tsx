@@ -73,3 +73,17 @@ describe('Vault home view', () => {
     expect(await screen.findByText('Report an issue')).toBeDefined();
   });
 });
+
+describe('Vault as a host pane (Phase 124 E.3)', () => {
+  it('renders embedded without an update loop', async () => {
+    const { VaultPane } = await import('./vault-pane');
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    render(<VaultPane />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    const loop = errors.mock.calls.some((c) => String(c[0]).includes('Maximum update depth'));
+    errors.mockRestore();
+    expect(loop).toBe(false);
+  });
+});

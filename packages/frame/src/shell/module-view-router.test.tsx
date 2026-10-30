@@ -62,3 +62,35 @@ describe('useSyncedView', () => {
     expect(onView).toHaveBeenCalledWith('b');
   });
 });
+
+describe('useSyncedView closed loop (host state + module state, both wired)', () => {
+  it('settles without an update loop, from the rail and from the module', async () => {
+    const { useState } = await import('react');
+    const { act } = await import('@testing-library/react');
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let setRail: (v: string) => void = () => {};
+    let setMod: (v: string) => void = () => {};
+    const Pane = ({ view, onView }: { view: string; onView: (v: string) => void }) => {
+      const [own, setOwn] = useState('stale');
+      setMod = setOwn;
+      useSyncedView(view, onView, own, setOwn);
+      return <p>own:{own}</p>;
+    };
+    const Host = () => {
+      const [view, setView] = useState('a1');
+      setRail = setView;
+      return <Pane view={view} onView={setView} />;
+    };
+    render(<Host />);
+    expect(screen.getByText('own:a1')).toBeTruthy();
+    act(() => setRail('a2'));
+    expect(screen.getByText('own:a2')).toBeTruthy();
+    act(() => setMod('a1'));
+    expect(screen.getByText('own:a1')).toBeTruthy();
+    act(() => setRail('a2'));
+    expect(screen.getByText('own:a2')).toBeTruthy();
+    const loop = errors.mock.calls.some((c) => String(c[0]).includes('Maximum update depth'));
+    errors.mockRestore();
+    expect(loop).toBe(false);
+  });
+});

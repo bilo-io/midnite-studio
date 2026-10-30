@@ -19,6 +19,8 @@ import {
 
 import { CODER_HOME, coderManifest } from '../manifest';
 import { CoderModule as CoderApp } from './coder-module';
+import { CoderPane } from './coder-pane';
+import { CODER_VIEWS } from '../manifest';
 import { coderStore } from './coder-store';
 import { dialogStore } from './compose/coder-chrome';
 import { coderTasksStore } from './compose/tasks-store';
@@ -381,5 +383,24 @@ describe('Report an Issue', () => {
     await waitFor(() => expect(openReport).not.toBeNull());
     act(() => openReport?.());
     expect(await screen.findByTestId('report-issue-dialog')).toBeDefined();
+  });
+});
+
+describe('Coder as a host pane (Phase 124 E.3)', () => {
+  it('renders every rail view, switching between them, without an update loop', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { rerender } = render(<CoderPane view="reviews" />);
+    await screen.findByText('widgets');
+    for (const view of CODER_VIEWS) {
+      rerender(<CoderPane view={view} />);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 20));
+      });
+    }
+    const loop = errors.mock.calls.some((c) => String(c[0]).includes('Maximum update depth'));
+    errors.mockRestore();
+    expect(loop).toBe(false);
+    // The rail owns the view: the module's own store was never written.
+    expect(coderStore.getState().view).toBe('reviews');
   });
 });
