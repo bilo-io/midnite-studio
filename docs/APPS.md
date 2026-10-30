@@ -372,8 +372,8 @@ An app composes it; it does not copy it. The shell itself is not optional.
   `suite-prefs` file under `<appData>/Midnite Runtime/`, so one change reaches every app. They never go in
   `localStorage`, which is per-app.
 - **The status bar and the monitor core.** `suiteSegments(panels)` gives the five suite segments, dropping any
-  whose panel the app lacks; the monitor segment opens the metrics-only flyout, and each main's
-  `bindMetricsToWindow` pauses sampling on blur, hide and minimise.
+  whose panel the app lacks; the monitor segment opens the metrics-only flyout, and the runtime's
+  `bindMetricsToWindow` is the one rule that pauses sampling on blur, hide and minimise.
 
 ### The manifest fields
 
@@ -391,7 +391,7 @@ An app's `src/<id>-manifest.ts` carries `ShellManifestFields` beside its id, nam
 The frame imports no feature, so everything a panel needs from outside it arrives through a host port the
 composer fills (the `notes/renderer/host.tsx` pattern), never an eslint exception:
 
-- `FrameChromeProvider`: the app's chrome (name, settings, report entry).
+- `FrameChromeProvider`: the chrome the app's modules and features draw with.
 - `TerminalHost`, `CompanionHost`, `LoopsHost`: the panels' ports, in `packages/features/<name>/renderer`. Each
   feature ships a default host in its own package, since the frame cannot name the port's type. Studio fills
   them in `packages/app/src/compose/`.
