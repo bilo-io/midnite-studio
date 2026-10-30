@@ -23,6 +23,17 @@ import type { z } from 'zod';
  * promise every composer has to keep.
  */
 
+/**
+ * The slice of a window a sender-aware handler may use — structurally what Electron's `BrowserWindow`
+ * offers, so the composer passes its real window and the runtime still imports no `electron`.
+ */
+export interface RuntimeWindow {
+  readonly id: number;
+  isDestroyed(): boolean;
+  once(event: 'closed', listener: () => void): unknown;
+  readonly webContents: { send(channel: string, payload: unknown): void };
+}
+
 /** IPC registration, mirroring desktop's `ipc/handle.ts` `handle`/`handleBare`. */
 export interface RuntimeIpc {
   /** An `invoke` handler whose payload is parsed by `schema` first; `onInvalid` answers a bad one. */
@@ -42,6 +53,17 @@ export interface RuntimeIpc {
     channel: string,
     schema: S,
     handler: (payload: z.output<S>) => void,
+    onInvalid: (issue: string) => void,
+  ): void;
+  /**
+   * {@link send} that also hands the handler the window that sent it (`null` when Electron cannot map the
+   * sender back to one — a window torn down mid-call). Optional: only composers that bind sender-aware
+   * channels (the terminal's subscribe/unsubscribe) provide it, so no other composer has to.
+   */
+  sendFromSender?<S extends z.ZodTypeAny>(
+    channel: string,
+    schema: S,
+    handler: (payload: z.output<S>, window: RuntimeWindow | null) => void,
     onInvalid: (issue: string) => void,
   ): void;
 }
