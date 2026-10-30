@@ -54,21 +54,42 @@ importers:
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-db-engine':
+        specifier: workspace:*
+        version: link:../../packages/db-engine
+      '@midnite/studio-feature-api-client':
+        specifier: workspace:*
+        version: link:../../packages/features/api-client
       '@midnite/studio-feature-chats':
         specifier: workspace:*
         version: link:../../packages/features/chats
       '@midnite/studio-feature-councils':
         specifier: workspace:*
         version: link:../../packages/features/councils
+      '@midnite/studio-feature-database':
+        specifier: workspace:*
+        version: link:../../packages/features/database
+      '@midnite/studio-feature-forge':
+        specifier: workspace:*
+        version: link:../../packages/features/forge
       '@midnite/studio-feature-mcp-tools':
         specifier: workspace:*
         version: link:../../packages/features/mcp-tools
       '@midnite/studio-feature-media-audio':
         specifier: workspace:*
         version: link:../../packages/features/media-audio
+      '@midnite/studio-feature-media-core':
+        specifier: workspace:*
+        version: link:../../packages/features/media-core
+      '@midnite/studio-feature-media-docs':
+        specifier: workspace:*
+        version: link:../../packages/features/media-docs
       '@midnite/studio-feature-media-game':
         specifier: workspace:*
         version: link:../../packages/features/media-game
+      '@midnite/studio-feature-media-images':
+        specifier: workspace:*
+        version: link:../../packages/features/media-images
       '@midnite/studio-feature-media-map':
         specifier: workspace:*
         version: link:../../packages/features/media-map
@@ -81,21 +102,39 @@ importers:
       '@midnite/studio-feature-media-terrain':
         specifier: workspace:*
         version: link:../../packages/features/media-terrain
+      '@midnite/studio-feature-media-video':
+        specifier: workspace:*
+        version: link:../../packages/features/media-video
       '@midnite/studio-feature-models':
         specifier: workspace:*
         version: link:../../packages/features/models
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
+      '@midnite/studio-feature-sessions':
+        specifier: workspace:*
+        version: link:../../packages/features/sessions
+      '@midnite/studio-feature-tests':
+        specifier: workspace:*
+        version: link:../../packages/features/tests
       '@midnite/studio-feature-workflows':
         specifier: workspace:*
         version: link:../../packages/features/workflows
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-git-engine':
+        specifier: workspace:*
+        version: link:../../packages/git-engine
       '@midnite/studio-module-agents':
         specifier: workspace:*
         version: link:../../packages/modules/agents
+      '@midnite/studio-module-coder':
+        specifier: workspace:*
+        version: link:../../packages/modules/coder
+      '@midnite/studio-module-creator':
+        specifier: workspace:*
+        version: link:../../packages/modules/creator
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -639,9 +678,15 @@ importers:
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-feature-media-audio':
+        specifier: workspace:*
+        version: link:../../packages/features/media-audio
       '@midnite/studio-feature-media-core':
         specifier: workspace:*
         version: link:../../packages/features/media-core
+      '@midnite/studio-feature-media-docs':
+        specifier: workspace:*
+        version: link:../../packages/features/media-docs
       '@midnite/studio-feature-media-game':
         specifier: workspace:*
         version: link:../../packages/features/media-game
@@ -660,6 +705,9 @@ importers:
       '@midnite/studio-feature-media-terrain':
         specifier: workspace:*
         version: link:../../packages/features/media-terrain
+      '@midnite/studio-feature-media-video':
+        specifier: workspace:*
+        version: link:../../packages/features/media-video
       '@midnite/studio-feature-models':
         specifier: workspace:*
         version: link:../../packages/features/models
@@ -672,6 +720,9 @@ importers:
       '@midnite/studio-git-engine':
         specifier: workspace:*
         version: link:../../packages/git-engine
+      '@midnite/studio-module-creator':
+        specifier: workspace:*
+        version: link:../../packages/modules/creator
       '@midnite/studio-module-gamer':
         specifier: workspace:*
         version: link:../../packages/modules/gamer
@@ -818,18 +869,33 @@ importers:
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@midnite/studio-feature-media-audio':
+        specifier: workspace:*
+        version: link:../../packages/features/media-audio
       '@midnite/studio-feature-media-core':
         specifier: workspace:*
         version: link:../../packages/features/media-core
+      '@midnite/studio-feature-media-docs':
+        specifier: workspace:*
+        version: link:../../packages/features/media-docs
+      '@midnite/studio-feature-media-images':
+        specifier: workspace:*
+        version: link:../../packages/features/media-images
       '@midnite/studio-feature-media-library':
         specifier: workspace:*
         version: link:../../packages/features/media-library
+      '@midnite/studio-feature-media-video':
+        specifier: workspace:*
+        version: link:../../packages/features/media-video
       '@midnite/studio-feature-report':
         specifier: workspace:*
         version: link:../../packages/features/report
       '@midnite/studio-frame':
         specifier: workspace:*
         version: link:../../packages/frame
+      '@midnite/studio-module-creator':
+        specifier: workspace:*
+        version: link:../../packages/modules/creator
       '@midnite/studio-module-media':
         specifier: workspace:*
         version: link:../../packages/modules/media
