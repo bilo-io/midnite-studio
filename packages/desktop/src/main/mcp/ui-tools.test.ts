@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import * as uiBridge from '../companion/ui-bridge';
+import * as uiBridge from '@midnite/studio-feature-companion/main/ui-bridge';
 import { McpToolError } from './errors';
 import { uiCommand, uiFind, uiNavigate, uiReveal, uiState } from './tools';
 import { resetMcpAllowUiStateForTests, setMcpAllowUiState } from './ui-gate';
@@ -13,7 +13,7 @@ import { resetMcpAllowUiStateForTests, setMcpAllowUiState } from './ui-gate';
  * mapping a renderer reply's `did` shape onto its own output) is what is
  * under test, not the transport underneath it.
  */
-vi.mock('../companion/ui-bridge', () => ({ requestUiAction: vi.fn() }));
+vi.mock('@midnite/studio-feature-companion/main/ui-bridge', () => ({ requestUiAction: vi.fn() }));
 
 const requestUiAction = vi.mocked(uiBridge.requestUiAction);
 

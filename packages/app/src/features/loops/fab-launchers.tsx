@@ -5,7 +5,7 @@ import { GiHiveMind } from 'react-icons/gi';
 import { Tooltip } from '../../components/tooltip';
 import { useWindowFocused } from '../../lib/use-window-focus';
 import { useUiStore, type FabTab } from '../../store/ui-store';
-import { CompanionLauncher } from '../companion/companion-launcher';
+import { CompanionLauncher } from '@midnite/studio-feature-companion/renderer';
 import { loopGlowColor, LOOP_WAITING_COLOR } from './loop-glow';
 import { loopIcon } from './loop-icons';
 import { useAllLoopStatuses, type LoopStatus } from './loop-status';

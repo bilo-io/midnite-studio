@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { LuMic, LuMicOff, LuSendHorizontal, LuSpeech, LuSquare } from 'react-icons/lu';
 
-import { useMicLevelBars, type LevelBars } from '../../features/companion/audio/waveform';
+import { type LevelBars, useMicLevelBars } from '@midnite/studio-feature-companion/renderer';
 import { useUiStore } from '../../store/ui-store';
 import { GRADIENT_FIELD_CLASSES } from '../gradient-field';
 import { Tooltip } from '../tooltip';

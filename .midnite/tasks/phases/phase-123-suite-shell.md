@@ -123,10 +123,21 @@ each app takes its host's default (Studio: all). A broker that never attached no
 Open: E.3, the main half — `pty-service` reaches `electron`, the window manager and confinement, which need
 injecting first.
 
-**Theme F — The companion panel as a feature.** ◻ `packages/features/companion`: the whole companion
-(renderer and `desktop/src/main/companion`) behind a fat `CompanionHost` port — one method per cross-feature
-reach — that Studio fills fully and other apps fill with stubs. One thread per app; settings and voice shared
-through suite-prefs.
+**Theme F — The companion panel as a feature.** ✅ `packages/features/companion`: the renderer (orb, panel, thread,
+voice, zen stage, the reveal engine; ~50 files and the store) and the main half (`desktop/src/main/companion`,
+28 files) moved whole. Everything the companion reached into the app for is one typed member of
+`CompanionHost` (`renderer/host.tsx`): the UI store handle, a revealer table and source list, the live
+follow-up reads, the view/settings/command vocabulary, the terminal, the lock-screen kit and the chrome.
+Studio fills it in `packages/app/src/compose/companion-host.tsx`, with the revealers, sources and live
+follow-up reads (which read Studio's stores) in `compose/companion/`. Main takes `CompanionMainServices`
+(dispatch, session counts, agents, safeStorage, utility fork, microphone access) and `companionMain =
+defineFeatureMain` registers its 11 invoke and 2 send channels; process-runner and `confineToRoot` come from the
+runtime. Deviations from the plan: the default host lives in the package (`renderer/default-host.tsx`), not the
+frame, because the frame may not import a feature; revealers are a table keyed by resource kind (a kind the host
+lacks answers "unavailable"), not a list. Module-level wiring (`conversation.ts`, `voice-ports.ts`) follows the
+host through `onCompanionHostInstalled`, so importing the barrel reads no host (asserted by
+`import-without-host.test.ts`). Settings and voice follow suite-prefs: `CompanionPrefsSchema` gained `voices`,
+`sttEngine` and `sttProvider`. The store-vs-schema assertion moved to the Studio adapter.
 
 **Theme G — The FAB and Loops as a feature.** ◻ `packages/features/loops`: the FAB, quick-access menu, Loops
 panel and composer, reaching the terminal and companion only through `LoopsHost` slots. The run ledger moves
@@ -400,12 +411,12 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
 
 ### F — The companion panel as a feature [L ×2 · 3–4d]
 
-- [ ] **Extract the renderer, whole.** `packages/app/src/features/companion` (~50 source files incl. `reveal/`,
+- [x] **Extract the renderer, whole.** `packages/app/src/features/companion` (~50 source files incl. `reveal/`,
   `audio/`) and `packages/app/src/store/companion-store.ts` → net-new
   `packages/features/companion/renderer`. Listed in `STUDIO_FEATURES`. Chosen over a slim core: other apps
   get the full companion (voice, digest, ask, zen stage) with only the Studio-bound reveals stubbed.
   - *Done when* the moved companion tests pass and the layer-boundaries test stays green.
-- [ ] **`CompanionHost` — one method per cross-feature reach.** Net-new
+- [x] **`CompanionHost` — one method per cross-feature reach.** Net-new
   `packages/features/companion/renderer/host.tsx`. Each import the audit found becomes a typed method,
   grouped:
   - Terminal: `startAgent`, `revealSession`, `terminalSessions()` (from `../terminal/*`).
@@ -419,16 +430,16 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
     revealer list is empty.
   - *Done when* `grep -r "@midnite/studio-feature-" packages/features/companion` is empty and a test renders
     the orb under the default host.
-- [ ] **Extract the main half.** `packages/desktop/src/main/companion` (27 files, ~7k lines) →
+- [x] **Extract the main half.** `packages/desktop/src/main/companion` (27 files, ~7k lines) →
   `packages/features/companion/main` as `companionMain = defineFeatureMain<CompanionMainServices>(...)`. Its
   reaches (`../mcp/dispatch`, `../terminal-service`, `../pty-service`, `../process-runner`, `../fs-scope`)
   become `CompanionMainServices` fields Studio injects; other apps inject `livePtyActivityCounts` from the
   terminal feature and no MCP dispatch (ask answers without tools).
   - *Done when* the moved main tests pass and Studio registers it.
-- [ ] **Per-app thread, shared voice.** The conversation store is per app (its own origin); the companion's
+- [x] **Per-app thread, shared voice.** The conversation store is per app (its own origin); the companion's
   settings (enabled, voice, STT provider) move to suite-prefs (L.1) so they are set once. (Open decision 2.)
   - *Done when* a test asserts two default-host renders read `companion.enabled` from the suite-prefs mock.
-- [ ] **Disabled is explicit.** With `companion.enabled === false`, the panel renders the existing "Enable in
+- [x] **Disabled is explicit.** With `companion.enabled === false`, the panel renders the existing "Enable in
   Settings ▸ Companion" state and the quick-access C leaf stays disabled with that hint.
   - *Done when* asserted in `companion-launcher.test.tsx`.
 

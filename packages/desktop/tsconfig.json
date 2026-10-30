@@ -36,6 +36,7 @@
     { "path": "../features/capture/tsconfig.main.json" },
     { "path": "../features/vanguard/tsconfig.main.json" },
     { "path": "../features/report/tsconfig.main.json" },
+    { "path": "../features/companion/tsconfig.main.json" },
     { "path": "../features/models/tsconfig.main.json" },
     { "path": "../features/chats/tsconfig.main.json" },
     { "path": "../features/councils/tsconfig.main.json" },
