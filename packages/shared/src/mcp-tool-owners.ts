@@ -17,7 +17,8 @@ import { PLACEMENT_APP_IDS, type PlacementAppId, type PlacementLayer } from './d
  * 1. A feature manifest's `mcpTools` (`FeatureManifest`, e.g. the optimizer
  *    template in `packages/features/optimizer`) — the owner is the manifest's
  *    `owner`. This is where a tool lives once its feature is extracted.
- * 2. {@link defaultMcpToolOwner}, for every tool whose feature has not
+ * 2. {@link defaultMcpToolOwner} (the forge tools are Agents' since Phase 124 Theme G — Coder is a module of
+ *    it), for every tool whose feature has not
  *    been extracted into a package yet — now only the forge and workflow-gate tools. The `music_*`
  *    tools left this table for Media ▸ Audio's manifest (Phase 113 Theme Q), owner `creator`, and
  *    Gamer's media tools for the Model, Sprite, Terrain, Map and Game manifests (Theme S).
@@ -54,10 +55,18 @@ export function installedSet(apps: Iterable<PlacementAppId>): IsAppInstalled {
  * is why every consumer passes them (`desktop/src/main/mcp/tool-manifests.ts`).
  */
 export function defaultMcpToolOwner(id: McpToolId): PlacementLayer {
-  if (id.startsWith('forge.')) return 'coder';
+  if (id.startsWith('forge.')) return 'agents';
   if (id.startsWith('workflow_')) return 'agents';
   // repo.*, status.*, graph.*, diff.*, branch.*, ui.*, companion_*
   return 'frame';
+}
+
+/**
+ * The retired app that still serves a tool until its bundle is deleted (Phase 124 Theme H): the forge
+ * tools are Agents' now, but a Coder bundle installed on its own keeps listing them.
+ */
+function legacyToolOwner(id: McpToolId): PlacementAppId | undefined {
+  return id.startsWith('forge.') ? 'coder' : undefined;
 }
 
 /** Tool id → owner, with manifest contributions taking precedence over the default table. */
@@ -79,7 +88,9 @@ export function listMcpToolIds(
 ): McpToolId[] {
   return MCP_TOOL_IDS.filter((id) => {
     const owner = mcpToolOwner(id, manifests);
-    return owner === 'frame' || isInstalled(owner);
+    if (owner === 'frame' || isInstalled(owner)) return true;
+    const legacy = legacyToolOwner(id);
+    return legacy !== undefined && isInstalled(legacy);
   });
 }
 

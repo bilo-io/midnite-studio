@@ -4,7 +4,7 @@ import { decodeResourceRefParam, resourceRefLink, type ResourceRef } from './dom
 import { SETTINGS_PAGE_IDS, VIEW_IDS } from './domain/view';
 import { handoffLink, planHandoff } from './handoff';
 import { MEDIA_TABS } from './media';
-import { MIDNITE_APP_IDS, parseMidniteLink, type MidniteAppId } from './midnite-link';
+import { MIDNITE_APP_IDS, parseMidniteLink, type HandoffAppId } from './midnite-link';
 import { RESOURCE_LINK_PREFIX } from './domain/resource-ref';
 import { studioRevealLinkFromParam } from './studio-link';
 
@@ -21,7 +21,7 @@ describe('handoff builder', () => {
     for (const ref of REFS) {
       const link = handoffLink({ app: 'coder', view: 'sessions', ref });
       const parsed = parseMidniteLink(link, vocab);
-      expect(parsed).toMatchObject({ app: 'coder', view: 'sessions' });
+      expect(parsed).toMatchObject({ app: 'agents', module: 'coder', view: 'sessions' });
       expect(decodeResourceRefParam(parsed!.ref!)).toEqual(ref);
       // and the reveal link the router forwards to is the one Studio already understands
       expect(studioRevealLinkFromParam(parsed!.ref!)).toBe(resourceRefLink(ref));
@@ -37,16 +37,16 @@ describe('handoff builder', () => {
   });
 
   it('stays backwards compatible: a link without ref parses as before, a hostile ref is dropped', () => {
-    expect(parseMidniteLink('midnite://open?app=coder&view=sessions', vocab)).toEqual({ app: 'coder', view: 'sessions' });
-    expect(parseMidniteLink('midnite://open?app=coder&ref=%3Cscript%3E', vocab)).toEqual({ app: 'coder' });
-    expect(parseMidniteLink(`midnite://open?app=coder&ref=${'a'.repeat(5000)}`, vocab)).toEqual({ app: 'coder' });
+    expect(parseMidniteLink('midnite://open?app=coder&view=sessions', vocab)).toEqual({ app: 'agents', module: 'coder', legacyApp: 'coder', view: 'sessions' });
+    expect(parseMidniteLink('midnite://open?app=coder&ref=%3Cscript%3E', vocab)).toEqual({ app: 'agents', module: 'coder', legacyApp: 'coder' });
+    expect(parseMidniteLink(`midnite://open?app=coder&ref=${'a'.repeat(5000)}`, vocab)).toEqual({ app: 'agents', module: 'coder', legacyApp: 'coder' });
   });
 
   it('plans local for a hosted app and external (with the link) otherwise', () => {
     const request = { app: 'agents', view: 'workflows', ref: REFS[1]! } as const;
-    const all = new Set<MidniteAppId>(MIDNITE_APP_IDS);
+    const all = new Set<HandoffAppId>(MIDNITE_APP_IDS);
     expect(planHandoff(request, all)).toEqual({ kind: 'local', request });
-    const onlyCoder = new Set<MidniteAppId>(['coder']);
+    const onlyCoder = new Set<HandoffAppId>(['coder']);
     expect(planHandoff(request, onlyCoder)).toEqual({ kind: 'external', link: handoffLink(request) });
   });
 });

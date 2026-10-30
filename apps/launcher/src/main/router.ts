@@ -1,10 +1,12 @@
 import { SETTINGS_PAGE_IDS, VIEW_IDS } from '@midnite/studio-shared/domain/view';
 import { MEDIA_TABS } from '@midnite/studio-shared/media';
 import { parseMidniteLink, type MidniteAppId, type MidniteLinkTarget } from '@midnite/studio-shared/midnite-link';
+import type { RetiredAppId } from '@midnite/studio-shared/modules';
 import type { LinkRateLimiter } from '@midnite/studio-shared/page-deep-link';
 import { studioRevealLinkFromParam, studioRunLinkFromParam, studioSettingsLink, studioViewLink } from '@midnite/studio-shared/studio-link';
 
 import { findInstalled } from './bundles/state';
+import { MODULE_FEATURE_PREFIX } from '../common/catalog';
 import { appLink } from './links';
 
 /**
@@ -22,6 +24,12 @@ import { appLink } from './links';
  * today — which validates it, resolves the repository among the ones already open and asks before
  * anything runs. When Agents can receive a run itself, it joins step 1 for run links.
  *
+ * A retired id (`app=coder`, Phase 124 Theme G) is already rewritten to its host + module by the parser.
+ * Step 1 then looks for the **host's** bundle first; only when the host is not installed does it fall
+ * back to the old app's own bundle (`legacyApp`, still installed until the launcher offers to remove
+ * it), so a bookmark keeps working through the swap. A bundle is opened, not handed the link, so the
+ * module itself is landed on only through Studio today (step 2).
+ *
  * Pure decision plus one executor, so each branch is a unit test with fake deps.
  */
 
@@ -34,7 +42,7 @@ export type RouteDecision =
 
 export type RouterDeps = {
   /** Path of the installed per-app bundle's Dock stub, or `null`. */
-  findAppBundle(app: MidniteAppId): Promise<string | null>;
+  findAppBundle(app: MidniteAppId | RetiredAppId): Promise<string | null>;
   isStudioInstalled(): Promise<boolean>;
   /**
    * Phase 117 Theme G: the page deep-link rule for `run=` links. The OS does not say which page sent
@@ -56,11 +64,18 @@ export function studioUrlFor(target: MidniteLinkTarget): string {
   if (target.ref !== undefined) return studioRevealLinkFromParam(target.ref);
   if (target.page !== undefined) return studioSettingsLink(target.page);
   if (target.view !== undefined) return studioViewLink(target.view, target.tab);
-  return appLink(target.app);
+  // A module link lands on that module's own front door, a bare app link on the app's.
+  return appLink(target.app, target.module === undefined ? undefined : `${MODULE_FEATURE_PREFIX}${target.module}`);
 }
 
 export async function routeTarget(target: MidniteLinkTarget, deps: RouterDeps): Promise<RouteDecision> {
-  const bundle = target.run === undefined ? await deps.findAppBundle(target.app) : null;
+  let bundle = target.run === undefined ? await deps.findAppBundle(target.app) : null;
+  // The host is not installed but the app it replaced still is: keep the old link working.
+  // A link that carries a view, page or resource goes to Studio instead: an old bundle would drop it.
+  const carriesTarget = target.view !== undefined || target.page !== undefined || target.ref !== undefined;
+  if (bundle === null && target.run === undefined && !carriesTarget && target.legacyApp !== undefined) {
+    bundle = await deps.findAppBundle(target.legacyApp);
+  }
   if (bundle !== null) return { kind: 'bundle', path: bundle };
   if (await deps.isStudioInstalled()) return { kind: 'studio', url: studioUrlFor(target) };
   return { kind: 'detail', app: target.app };
