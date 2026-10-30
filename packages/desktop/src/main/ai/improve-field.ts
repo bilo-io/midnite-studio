@@ -12,7 +12,7 @@ import {
 
 import { OUTPUT_TAIL_CAP, runProcess, type ProcessSink, type SpawnFn } from '../process-runner';
 import { listAgents } from '../terminal-service';
-import { resolveHeadlessAgent } from '../companion/ask';
+import { resolveHeadlessAgent } from '@midnite/studio-feature-companion/main/ask';
 import { runOllamaPrompt, type OllamaHeadlessDeps } from './ollama-headless';
 
 /**

@@ -15,8 +15,7 @@ import { PaletteHost } from './components/palette-host';
 import { ToastHost } from './components/toast-host';
 import { BrowserPane, WebAppPane } from '@midnite/studio-feature-browser/renderer';
 import { FabPanel } from './components/fab-panel';
-import { CompanionPanel } from './features/companion/companion-panel';
-import { useCompanionEnabledSync } from './features/companion/use-companion-enabled';
+import { CompanionPanel, useCompanionEnabledSync } from '@midnite/studio-feature-companion/renderer';
 import { ReposPanel } from './features/repos/repos-panel';
 import { TerminalPanel } from './features/terminal/terminal-panel';
 import { useBroadcastSync } from './services/broadcast-sync';
@@ -33,7 +32,7 @@ import { useUiStore } from './store/ui-store';
 // Its own chunk (Phase 84 Theme H): the companion's voice/audio bootstrap
 // (real recorder/WAV-encoding machinery) is only relevant to the ONE popout
 // role that can ever show a mic button — see the component's own doc.
-const loadCompanionBootstrap = () => import('./features/companion/companion-bootstrap');
+const loadCompanionBootstrap = () => import('@midnite/studio-feature-companion/renderer');
 const CompanionBootstrap = lazy(() =>
   loadCompanionBootstrap().then((m) => ({ default: m.CompanionBootstrap })),
 );

@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
-import { companionPorts } from '../../features/companion/companion-ports';
-import {
-  conversationArmed,
-  conversationOwner,
-  startConversation,
-  stopConversation,
-  subscribeConversation,
-  type ConversationOwner,
-} from '../../features/companion/conversation';
-import { setNextTranscriptSink } from '../../features/companion/voice-ports';
+import { companionPorts, conversationArmed, conversationOwner, type ConversationOwner, setNextTranscriptSink, startConversation, stopConversation, subscribeConversation } from '@midnite/studio-feature-companion/renderer';
 import { useUiStore } from '../../store/ui-store';
 
 export type ComposerMic = {
