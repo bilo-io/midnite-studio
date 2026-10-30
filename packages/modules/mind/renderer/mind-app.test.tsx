@@ -1,5 +1,5 @@
 // vitest/jsdom: composition and the home view over a mock bridge — none of it needs a real browser.
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { notesManifest, useNotesStore } from '@midnite/studio-feature-notes/renderer';
@@ -54,11 +54,13 @@ describe('Mind composition', () => {
 describe('Mind home view', () => {
   it('opens the notes view framed as Mind, with an honest empty notebook and a Knowledge tab', async () => {
     render(<MindApp />);
-    expect(screen.getByText('Midnite Mind')).toBeDefined();
+    expect(screen.getAllByText('Midnite Mind').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
     await waitFor(() => expect(screen.getByText(/your notebook is empty/i)).toBeDefined());
     expect(notes.list).toHaveBeenCalled();
-    expect(screen.getByTestId('mind-tab-notes').getAttribute('aria-selected')).toBe('true');
-    expect(screen.getByTestId('mind-tab-knowledge').getAttribute('aria-selected')).toBe('false');
+    const rail = screen.getByRole('navigation', { name: 'Views' });
+    expect(within(rail).getByRole('link', { name: 'Notes' })).toBeDefined();
+    expect(within(rail).getByRole('link', { name: 'Knowledge' })).toBeDefined();
   });
 
   it('the Knowledge tab graphs the notebook through the frame view, and says so when there is nothing to graph', async () => {
@@ -70,7 +72,7 @@ describe('Mind home view', () => {
     };
     window.midniteStudio = { notes, knowledge, report } as unknown as typeof window.midniteStudio;
     render(<MindApp />);
-    fireEvent.click(screen.getByTestId('mind-tab-knowledge'));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('link', { name: 'Knowledge' }));
     expect(await screen.findByText(/nothing to graph yet/i)).toBeDefined();
     expect(knowledge.getGraph).toHaveBeenCalledWith(expect.objectContaining({ repoId: 'mind' }));
     // The frame's graphify instructions are for a repository; a notebook never shows them.
@@ -89,7 +91,10 @@ describe('Mind home view', () => {
 
   it('switches to Settings and lets the user choose a 3D knowledge graph presentation style', async () => {
     render(<MindApp />);
-    fireEvent.click(screen.getByTestId('mind-tab-settings'));
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const settings = await screen.findByTestId('suite-settings');
+    for (const label of ['Appearance', 'Keyboard shortcuts']) expect(within(settings).getAllByText(label).length).toBeGreaterThan(0);
+    fireEvent.click(within(settings).getAllByText('Knowledge graph')[0]!);
     expect(await screen.findByTestId('knowledge-style-picker')).toBeDefined();
     const synapseCard = screen.getByTestId('knowledge-style-card-synapse-3d');
     fireEvent.click(synapseCard);
