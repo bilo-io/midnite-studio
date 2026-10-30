@@ -123,8 +123,8 @@ describe('what the Browser renderer reaches while an agent drives', () => {
     fireEvent.click(within(strip).getByRole('button', { name: 'Take Over' }));
 
     const reached = [...touched].filter((k) => typeof k === 'string' && !k.startsWith('__') && k !== 'then');
-    // `windowRole` is a plain string the frame reads to tell a pop-out from the main window, not a namespace.
-    expect(reached.filter((k) => !['browser', 'webApps', 'clipboard', 'menu', 'report', 'windowRole'].includes(k))).toEqual([]);
+    // `windowRole` is a plain string the frame reads to tell a pop-out from the main window, not a namespace; `windowChrome` and `suitePrefs` are the suite shell's own (title bar, shared appearance).
+    expect(reached.filter((k) => !['browser', 'webApps', 'clipboard', 'menu', 'report', 'windowRole', 'windowChrome', 'suitePrefs'].includes(k))).toEqual([]);
     for (const forbidden of ['secrets', 'vault', 'terminal', 'pty', 'fs', 'ops', 'repo', 'git', 'agents']) expect(touched.has(forbidden)).toBe(false);
   });
 });

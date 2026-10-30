@@ -30,7 +30,10 @@ export const SETTINGS_GROUPS: { id: SettingsGroupId; label: string }[] = [
  */
 export const CHORDS_PAGE_ID = 'chords';
 
-export type SettingsPageKey = SettingsPageId | typeof CHORDS_PAGE_ID;
+/** An app-owned page outside Studio's registry: `app:<name>`. */
+export type AppSettingsPageId = `app:${string}`;
+
+export type SettingsPageKey = SettingsPageId | typeof CHORDS_PAGE_ID | AppSettingsPageId;
 
 export type SettingsPageDef = {
   id: SettingsPageKey;

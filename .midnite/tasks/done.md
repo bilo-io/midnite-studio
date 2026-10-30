@@ -15523,6 +15523,12 @@ J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `pac
 
 `SuiteAppShell` and `SuiteAppearancePage` in the frame; the four host apps render `AppShell` with their manifest nav and a Settings view (Appearance, Keyboard shortcuts, plus Vanguard's own page). Panels, mains and the status bar are still to do, so no checklist item is ticked; see the Headlines H paragraph.
 
+<<<<<<< HEAD
 ### Phase 124 Theme E.3b (renderer slice) — host nav groups and view routers (2026-10-30)
 
 Vanguard, Agents, Media and Gamer render a nav group per mounted module (Vanguard ← Vault, Cleaner, Monitor; Agents ← Coder, Creator; Media ← Creator; Gamer ← Creator) through a frame `ModuleViewRouter` and per-module panes; `useSyncedView` keeps a module's own tab and the rail in step, and the shell's group headings now render and collapse. Mind has no group yet (it is not on the shell), so E.3b is not ticked and the index row is unchanged.
+=======
+### Phase 123 Theme H (2/3) — Money, Mind and Browser on the shell (2026-10-30)
+
+Money, Mind and Browser render `SuiteAppShell` with their manifest nav and Settings; Mind's settings tab became an app page and Browser got a manifest and tools strip. `Mod+,` opens Settings in every suite app. Science has no app. The four settings-page extractions, panels and main registration are open, so no checklist item is ticked; see the Headlines H paragraph.
+>>>>>>> origin/main
