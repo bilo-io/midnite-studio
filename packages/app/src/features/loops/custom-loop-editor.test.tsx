@@ -12,6 +12,7 @@ import { useUiStore } from '../../store/ui-store';
 import { LoopComposer } from './loop-composer';
 import { loopsPanelElement } from './loops-panel-element';
 import { loopSpectrumProps, spectrumStops } from './loop-spectrum';
+import '../../../test-support/install-companion-host';
 
 afterEach(cleanup);
 

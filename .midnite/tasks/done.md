@@ -2,6 +2,14 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-29 — Phase 123 Theme F — The companion panel as a feature
+
+`packages/features/companion` takes the whole companion: the renderer (`renderer/`, behind the `CompanionHost` port
+in `host.tsx`) and the main half (`main/`, behind `CompanionMainServices`, registered as `companionMain`). Studio's
+adapter is `packages/app/src/compose/companion-host.tsx`; its revealers, sources and live follow-up reads live in
+`packages/app/src/compose/companion/`. The default host sits in the package (the frame may not import a feature) and
+follows suite-prefs (`companion.enabled`, `voices`, `sttEngine`, `sttProvider`). Importing the barrel reads no host
+(`import-without-host.test.ts`). Package suite: 1,045 tests under two vitest projects (renderer on jsdom, main on node).
 ## 2026-10-29 — Phase 123 Themes E and J (partial) — the terminal panel as a feature, the status bar in the frame
 
 [#1068](https://github.com/bilo-io/midnite-studio/pull/1068). `packages/features/terminal/renderer` (panel, session list, xterm, store, unload policy, replay gate) behind a `TerminalHost` port with Studio's adapter in `compose/terminal-host.tsx` and a default host for every other app; sessions carry an optional `appId` with a suite-prefs "Show all apps" toggle; a broker that never attached says so in the panel. The status bar's segment host, density and overflow moved to `packages/frame/src/shell/status-bar/` with `suiteSegments(panels)` for every app. Open: E.3 (main half) and J.4 (title-bar cluster, waits on L.2).

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { ApiClientHostProvider } from '@midnite/studio-feature-api-client/renderer';
 import { BrowserHostProvider } from '@midnite/studio-feature-browser/renderer';
+import { CompanionHostProvider } from '@midnite/studio-feature-companion/renderer';
 import { CaptureHostProvider } from '@midnite/studio-feature-capture/renderer';
 import { ChatsHostProvider } from '@midnite/studio-feature-chats/renderer';
 import { DatabaseHostProvider } from '@midnite/studio-feature-database/renderer';
@@ -24,6 +25,7 @@ import { STUDIO_API_CLIENT_HOST } from './api-client-host';
 import { STUDIO_BROWSER_HOST } from './browser-host';
 import { STUDIO_CAPTURE_HOST } from './capture-host';
 import { STUDIO_CHATS_HOST } from './chats-host';
+import { STUDIO_COMPANION_HOST } from './companion-host';
 import { STUDIO_COUNCILS_HOST } from './councils-host';
 import { STUDIO_DATABASE_HOST } from './database-host';
 import { STUDIO_FINANCE_HOST } from './finance-host';
@@ -77,7 +79,9 @@ export function StudioProviders({ children }: { children: ReactNode }) {
                                       <TasksHostProvider host={STUDIO_TASKS_HOST}>
                                         <BrowserHostProvider host={STUDIO_BROWSER_HOST}>
                                           <VaultHostProvider host={STUDIO_VAULT_HOST}>
-                                            <CaptureHostProvider host={STUDIO_CAPTURE_HOST}>{children}</CaptureHostProvider>
+                                            <CaptureHostProvider host={STUDIO_CAPTURE_HOST}>
+                                              <CompanionHostProvider host={STUDIO_COMPANION_HOST}>{children}</CompanionHostProvider>
+                                            </CaptureHostProvider>
                                           </VaultHostProvider>
                                         </BrowserHostProvider>
                                       </TasksHostProvider>

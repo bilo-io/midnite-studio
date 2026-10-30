@@ -9,8 +9,7 @@ import { useUiStore } from '../store/ui-store';
 import { useToastStore } from '../store/toast-store';
 import { bridge } from './bridge';
 import { useOpenRepo } from './queries';
-import { revealResource } from '../features/companion/reveal/reveal';
-import { liveNavigationState, resolveNavigation } from '../features/companion/navigate';
+import { liveNavigationState, resolveNavigation, revealResource } from '@midnite/studio-feature-companion/renderer';
 import { liveAgentRunDeps, receiveAgentRun } from './agent-run-receiver';
 
 /**

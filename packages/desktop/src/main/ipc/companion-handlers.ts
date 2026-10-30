@@ -1,213 +1,36 @@
-import { CHANNELS, emptyCompanionSnapshot, failure, ok, schemas } from '@midnite/studio-shared';
-import type {
-  CompanionAskReply,
-  CompanionDigest,
-  CompanionSnapshot,
-  GitOpResult,
-  MicrophoneAccess,
-  SttProviderId,
-} from '@midnite/studio-shared';
-import { systemPreferences } from 'electron';
-import type { z } from 'zod';
+import { systemPreferences, safeStorage, utilityProcess } from 'electron';
 
-import { askCompanion } from '../companion/ask';
-import { buildCompanionDigest } from '../companion/digest';
-import { buildCompanionSnapshot } from '../companion/snapshot';
-import { resolveUiReply } from '../companion/ui-bridge';
-import {
-  STT_PROVIDER_FACTORIES,
-  getLocalWhisperStatus,
-  sttDeps,
-  testSttCredential,
-  transcribeUtterance,
-} from '../companion/stt';
-import {
-  cancelQueuedSynthesis,
-  companionTtsModelOnDisk,
-  getCompanionTtsStatusAsync,
-  reloadCompanionTtsBroker,
-  synthesizeSpeechAsync,
-} from '../companion/tts-broker';
-import { handle, handleOp, handleSend } from './handle';
+import { companionMain } from '@midnite/studio-feature-companion/main';
+import type { FeatureMainContext } from '@midnite/studio-runtime';
+import type { MicrophoneAccess } from '@midnite/studio-shared';
+
+import { dispatchMcpCall } from '../mcp/dispatch';
+import { livePtyActivityCounts } from '../pty-service';
+import { listAgents } from '../terminal-service';
+import { handle, handleBare, handleSend } from './handle';
 
 /**
- * The companion's grounding channels (Phase 79 Theme B) and its one headless
- * question (Theme E).
- *
- * Both are read-only, both compose the Phase 57 MCP tools in-process, and
- * both **always resolve** — `handle` answers a validation failure with a value
- * rather than a rejection (`handle.ts`), and the fallback for each is the
- * "nothing to say" shape rather than an error the renderer has to branch on.
- * An empty snapshot is a state the script already handles (no repo open); a
- * companion that threw would be a greeting that never arrives.
- *
- * `companionAsk` is the odd one out and answers a `GitOpResult` envelope
- * rather than a fallback value, because its failures are things the companion
- * *says* — "nothing is installed", "that took too long" — rather than states
- * it renders. `handleOp` is not used for it only because the payload's invalid
- * arm wants the same envelope with a channel-specific message.
- *
- * `mcp-handlers.ts` is the crib for the file's shape — forward to the module
- * that does the work, register nothing else here.
+ * The companion's channels (Phase 79/80/81, extracted in Phase 123 Theme F) — the handlers live in
+ * `@midnite/studio-feature-companion/main`; this file is Studio's binding: it hands over the reaches
+ * only Studio's main owns (the MCP dispatcher, the pty counts, the agent roster, `safeStorage`,
+ * `utilityProcess.fork` and macOS's microphone verdict) and registers the feature through
+ * desktop's `ipcMain` helpers.
  */
 export function registerCompanionHandlers(): void {
-  handle<typeof schemas.CompanionSnapshotRequest, CompanionSnapshot>(
-    CHANNELS.companionSnapshot,
-    schemas.CompanionSnapshotRequest,
-    (req) => buildCompanionSnapshot(req),
-    () => emptyCompanionSnapshot(),
-  );
-
-  handle<typeof schemas.CompanionDigestRequest, CompanionDigest>(
-    CHANNELS.companionDigest,
-    schemas.CompanionDigestRequest,
-    (req) => buildCompanionDigest(req),
-    // A window with nothing in it, dated now: `summariseDigest` turns that
-    // into "nothing has landed", which is the truthful answer to a request
-    // this process could not read.
-    () => ({ landed: [], inProgress: [], since: Date.now() }),
-  );
-
-  handle<typeof schemas.CompanionAskRequest, GitOpResult<CompanionAskReply>>(
-    CHANNELS.companionAsk,
-    schemas.CompanionAskRequest,
-    (req) =>
-      askCompanion({
-        kind: req.kind,
-        text: req.text,
-        repoPath: req.repoPath,
-        agentId: req.agentId,
-        snapshot: req.snapshot,
-        personality: req.personality,
-        aboutUser: req.aboutUser,
-        vocabulary: req.vocabulary,
-        persona: req.persona,
-      }),
-    (issue) => failure(issue),
-  );
-
-  /*
-    Phase 81 Theme F's one new pair — the renderer's one-way reply to
-    `EVENT_CHANNELS.companionUiRequest`. `handleSend`, not `handle`: there is
-    nothing to answer back over IPC — `resolveUiReply` settles the promise
-    `ui-bridge.ts` is already holding for this `id`, and a reply for an id
-    nobody is waiting on (already timed out, or a stray message) is silently
-    dropped rather than logged as a bug — a race between a 5s timeout and a
-    slow renderer is an ordinary outcome, not one.
-  */
-  handleSend(
-    CHANNELS.companionUiReply,
-    schemas.CompanionUiReplySchema,
-    (req) => resolveUiReply(req.id, req.result),
-    () => {},
-  );
-
-  /*
-    Theme F's three (Phase 79). `handleOp` for the two that can fail in ways a user acts
-    on — `transcribeUtterance` and `testSttCredential` never throw, so an
-    invalid payload arriving as `failure(...)` is the same shape as a 401 and
-    the input bar has one branch, not two.
-  */
-  handleOp(CHANNELS.companionTranscribe, schemas.CompanionTranscribeRequest, (req) =>
-    transcribeUtterance(req),
-  );
-
-  handleOp(CHANNELS.companionSttTest, schemas.CompanionSttTestRequest, (req) =>
-    testSttCredential(req.providerId),
-  );
-
-  /*
-    The key crosses the boundary here and only here, in this direction. There
-    is no channel that reads one back: `companionSttStatus` answers with a
-    boolean per provider, which is the only thing any UI needs to know.
-  */
-  handleOp(CHANNELS.companionSttSet, schemas.CompanionSttSetRequest, async (req) => {
-    await sttDeps().credentials.set(req.providerId, req.key);
-    return ok();
+  const ctx: FeatureMainContext = {
+    ipc: { handle, handleBare, send: handleSend },
+    // The companion pushes through the UI bridge's own window getter (`configureUiBridge`), not `emit`.
+    emit: () => {},
+    trashItem: async () => {},
+  };
+  companionMain.register(ctx, {
+    dispatch: dispatchMcpCall,
+    sessionCounts: livePtyActivityCounts,
+    agents: listAgents,
+    safeStorage,
+    forkUtility: (modulePath, args, options) => utilityProcess.fork(modulePath, args, options),
+    microphoneAccess: readMicrophoneAccess,
   });
-
-  handle<typeof schemas.CompanionSttStatusRequest, z.infer<typeof schemas.CompanionSttStatusResponse>>(
-    CHANNELS.companionSttStatus,
-    schemas.CompanionSttStatusRequest,
-    async (req) => {
-      const { credentials } = sttDeps();
-      return {
-        configured: await credentials.configured(),
-        encryptionAvailable: credentials.isAvailable(),
-        // `STT_PROVIDER_FACTORIES` is the one place "actually implemented"
-        // is decided — reported here so the renderer's mic button can tell
-        // "no key" apart from "a key for a provider that doesn't exist yet".
-        implemented: Object.keys(STT_PROVIDER_FACTORIES) as SttProviderId[],
-        localModel: await getLocalWhisperStatus(req.retry ?? false),
-        microphoneAccess: readMicrophoneAccess(),
-      };
-    },
-    // Never actually invalid — every caller sends at least `{}` — but `handle` needs an arm.
-    () => ({
-      configured: [],
-      encryptionAvailable: false,
-      implemented: [],
-      localModel: { state: 'idle', reason: null, message: null },
-    }),
-  );
-
-  /*
-    The local voice engine (Phase 80 Theme C; moved off the main thread onto
-    its own `utilityProcess` — Ad Hoc "TTS synthesis blocks the UI"). `handleOp`
-    fits exactly: `synthesizeSpeechAsync` (`tts-broker.ts`) already answers
-    `GitOpResult` and never throws, so an invalid payload arriving as
-    `failure(...)` is the same shape the renderer already branches on for
-    every other failure mode (missing native module, unprovisioned model, a
-    bad synthesis, or now a crashed/cancelled worker request) — `speaker.ts`
-    falls back to `speechSynthesis` for all of them alike.
-  */
-  handleOp(CHANNELS.companionTtsSynthesize, schemas.CompanionTtsSynthesizeRequest, (req) =>
-    synthesizeSpeechAsync(req.text, req.voice),
-  );
-
-  /*
-    The status sibling (Phase 80 Theme C follow-up): `handleOp` fits here too
-    even though `getCompanionTtsStatusAsync` cannot itself fail — it is
-    always `ok(...)`, with the state living in the value per the schema's own
-    doc — because it keeps this channel's answer shaped exactly like every
-    other one here, so the renderer has one envelope to unwrap, not two.
-  */
-  handleOp(CHANNELS.companionTtsStatus, schemas.CompanionTtsStatusRequest, async (req) =>
-    ok(await getCompanionTtsStatusAsync(req.retry ?? false)),
-  );
-
-  /*
-    Ad Hoc: an interrupt (Escape, a click, a new utterance) has something
-    worth cancelling in main now that synthesis runs in its own process —
-    `cancelQueuedSynthesis` drops whatever `tts-broker.ts` has queued but not
-    yet dispatched to the worker. One-way (`handleSend`, not `handleOp`):
-    there is nothing to answer, and a malformed payload on a bare-signal
-    channel is not evidence of anything worth logging the way
-    `report-handlers.ts`'s own `handleSend` use is — `onInvalid` is a no-op.
-  */
-  handleSend(
-    CHANNELS.companionTtsCancel,
-    schemas.CompanionTtsCancelRequest,
-    () => cancelQueuedSynthesis(),
-    () => {},
-  );
-
-  /*
-    Settings' "Reload local engine" control (Ad Hoc: recover from a crashed
-    worker without restarting the app). `handleOp` fits the same way
-    `companionTtsStatus` does — `reloadCompanionTtsBroker` cannot itself
-    fail; the state a reload landed in lives in the value it resolves with
-    (the identical `CompanionTtsStatusResponse` shape), not in `ok`.
-  */
-  handleOp(CHANNELS.companionTtsReload, schemas.CompanionTtsReloadRequest, async () =>
-    ok(await reloadCompanionTtsBroker()),
-  );
-
-  // Phase 109 Theme F: the audition's "is the local voice downloaded?" — from
-  // disk, so asking never spawns the worker or starts the download.
-  handleOp(CHANNELS.companionTtsModelOnDisk, schemas.CompanionTtsModelOnDiskRequest, async () =>
-    ok({ onDisk: companionTtsModelOnDisk() }),
-  );
 }
 
 /**

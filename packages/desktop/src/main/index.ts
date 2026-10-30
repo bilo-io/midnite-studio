@@ -72,12 +72,12 @@ import {
 import { registerDatabaseFeatureHandlers, shutdownDatabaseFeature } from './ipc/database-feature-handlers';
 import { configureKnowledge, registerKnowledgeHandlers } from './ipc/knowledge-handlers';
 import { configureDiagnostics, registerDiagHandlers } from './ipc/diag-handlers';
-import { createCompanionStore } from './companion/companion-store';
-import { configureCompanion } from './companion/digest';
-import { configureLocalStt, configureStt } from './companion/stt';
-import { configureCompanionTtsBroker, disposeCompanionTtsBroker } from './companion/tts-broker';
-import { createSttCredentials } from './companion/stt/credentials';
-import { configureUiBridge } from './companion/ui-bridge';
+import { createCompanionStore } from '@midnite/studio-feature-companion/main/companion-store';
+import { configureCompanion } from '@midnite/studio-feature-companion/main/digest';
+import { configureLocalStt, configureStt } from '@midnite/studio-feature-companion/main/stt/index';
+import { configureCompanionTtsBroker, disposeCompanionTtsBroker } from '@midnite/studio-feature-companion/main/tts-broker';
+import { createSttCredentials } from '@midnite/studio-feature-companion/main/stt/credentials';
+import { configureUiBridge } from '@midnite/studio-feature-companion/main/ui-bridge';
 import { registerCompanionHandlers } from './ipc/companion-handlers';
 import { configurePrivacy, registerPrivacyHandlers } from './ipc/privacy-handlers';
 import { configureSessions, registerSessionsHandlers } from './ipc/sessions-handlers';

@@ -61,10 +61,7 @@ import { useNavCategoryIconVars } from './components/use-nav-category-icon-vars'
 import { Tooltip } from './components/tooltip';
 import { commandChord } from './features/status-bar/chord-hint';
 import { FabPanel } from './components/fab-panel';
-import { CompanionPanelSlot } from './features/companion/companion-panel';
-import { setCommandRuntime } from './features/companion/command-runtime';
-import { McpSettingConfirmHost } from './features/companion/mcp-setting-confirm';
-import { useCompanionUiRequests } from './features/companion/ui-requests';
+import { CompanionPanelSlot, fabCompanionState, McpSettingConfirmHost, setCommandRuntime, useCompanionEnabledSync, useCompanionHandoffWatch, useCompanionSpeakerWiring, useCompanionStore, useCompanionUiRequests } from '@midnite/studio-feature-companion/renderer';
 import { useFollowPrimaryAgent } from './features/agent/follow-primary-agent';
 import { useModelOpenListener } from './compose/media-model/use-model-open-listener';
 import { useSpriteRenderHost } from '@midnite/studio-feature-media-sprite/events';
@@ -72,20 +69,6 @@ import { useStudioTerrainOpenListener } from './compose/media-terrain/use-terrai
 import { useMediaOpenListeners } from './features/media/media-open-request';
 import { useSpriteOpenListener } from './compose/media-sprite/use-sprite-open-listener';
 import { loadSpriteRenderJob } from './compose/media-sprite/load-render-job';
-/*
-  Side-effect import: Phase 79 Themes F and G register their four members of
-  `companion-ports` (interrupt, the two mic gestures, mic availability) at
-  module scope, and apply the persisted companion volume. Imported here because
-  this is the only module guaranteed to run before the panel first renders —
-  there is nothing to call.
-*/
-import './features/companion/voice-ports';
-import {
-  useCompanionHandoffWatch,
-  useCompanionSpeakerWiring,
-} from './features/companion/register-flow-ports';
-import { useCompanionEnabledSync } from './features/companion/use-companion-enabled';
-import { fabCompanionState } from './features/companion/companion-look';
 import { FabLoopHalo, fabGlowClass, useAnyLoopRunning } from './features/loops/fab-loop-halo';
 import { captureFabMorphOrigin, useFabMorphRef } from './features/loops/fab-morph';
 import { useLoopAttention } from './features/loops/use-loop-attention';
@@ -149,7 +132,6 @@ import { useTestsStream } from '@midnite/studio-feature-tests/renderer';
 import { usePaletteSync } from './features/themes/use-palette-sync';
 import { useActivityPaletteSync } from './features/activity/use-activity-palette-sync';
 import { useAppearanceStore, useAppearanceSync } from './store/appearance-store';
-import { useCompanionStore } from './store/companion-store';
 import { useFileEditorStore } from './store/file-editor-store';
 import { useIssueModalStore } from './store/issue-modal-store';
 import {

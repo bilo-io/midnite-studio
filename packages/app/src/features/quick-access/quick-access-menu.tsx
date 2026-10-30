@@ -17,10 +17,8 @@ import { MdOutlineEditNote } from 'react-icons/md';
 import type { MenuEntry } from '../../components/context-menu';
 import { useDismissable, type TriggerSource } from '../../components/use-dismissable';
 import { useFocusTrap } from '../../components/use-focus-trap';
-import { COMPANION_LOOK, CompanionGlyph } from '../companion/companion-look';
-import { companionPorts } from '../companion/companion-ports';
+import { COMPANION_LOOK, CompanionGlyph, companionPorts, useCompanionStore } from '@midnite/studio-feature-companion/renderer';
 import { useSetupStore } from '../setup/setup-store';
-import { useCompanionStore } from '../../store/companion-store';
 import { useUiStore } from '../../store/ui-store';
 
 /**

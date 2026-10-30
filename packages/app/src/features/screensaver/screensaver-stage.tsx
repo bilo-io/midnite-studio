@@ -5,8 +5,7 @@ import { useForgePulls, useRepos } from '../../services/queries';
 import { useUiStore } from '../../store/ui-store';
 import { agentCount } from '../agent/agent-count';
 import { useTerminalStore } from '../terminal/terminal-store';
-import { CompanionOrb } from '../companion/companion-orb';
-import { useCompanionStore } from '../../store/companion-store';
+import { CompanionOrb, useCompanionStore } from '@midnite/studio-feature-companion/renderer';
 import { MODE_TINT, nextRandomIndex, WORD_SETS, type Mode } from './screensaver-words';
 
 /**
