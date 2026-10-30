@@ -97,6 +97,9 @@ const PORT = Number(process.env.MSTUDIO_VISUAL_PORT ?? 5276);
  * the `visual` CI job already know to look, rather than a second, uncounted
  * screenshots directory under `packages/website`.
  */
+/** Vanguard's own Vite server, for `e2e/visual/suite-shell.spec.ts` (Phase 123 Theme I). */
+const VANGUARD_PORT = Number(process.env.MSTUDIO_VISUAL_VANGUARD_PORT ?? 5294);
+
 const WEBSITE_PORT = Number(process.env.MSTUDIO_VISUAL_WEBSITE_PORT ?? 5174);
 
 export default defineConfig({
