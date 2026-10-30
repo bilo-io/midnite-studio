@@ -9,7 +9,7 @@ import { TimeSection } from './components/time-section';
 import { WeatherSection } from './components/weather-section';
 import { WorldClocksSection } from './components/world-clocks-section';
 import { describeWeatherCode, deg, temp } from './weather-format';
-import { useTitlebarStatusStore } from './titlebar-status-store';
+import { useTitlebarStatusStore } from '../../../prefs/titlebar-status-store';
 
 function withQuery(ui: React.ReactElement) {
   const queryClient = new QueryClient({

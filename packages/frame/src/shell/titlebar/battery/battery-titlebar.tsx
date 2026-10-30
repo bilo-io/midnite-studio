@@ -1,4 +1,4 @@
-import { useMetricsStore } from '../../store/metrics-store';
+import { useMetricsStore } from '../../../metrics/metrics-store';
 import { BatterySegment } from './battery-segment';
 
 /**

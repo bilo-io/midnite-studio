@@ -17,7 +17,7 @@ import {
   type UiFont,
   type VisualEffects,
 } from '../../../store/appearance-store';
-import { useTitlebarStatusStore } from '../../titlebar-status/titlebar-status-store';
+import { useTitlebarStatusStore } from '@midnite/studio-frame';
 import { importVsCodeTheme } from '../../themes/importers/vscode-theme-importer';
 import { usePaletteStore } from '../../themes/palette-store';
 import { BUILTIN_PALETTES } from '../../themes/presets';

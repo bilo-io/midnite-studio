@@ -2,8 +2,9 @@ $schema: 'https://moonrepo.dev/schemas/project.json'
 
 # The terminal feature package (Phase 123 Theme E) — the terminal panel: the
 # session list, every session's xterm, the panel store and its unload policy,
-# behind a TerminalHost port. Renderer-only for now: the main half
-# (terminal-service, pty-service) still lives in packages/desktop.
+# behind a TerminalHost port; and the main half of the session list (stores,
+# service and their IPC handlers, Theme E.3). The pty service itself still
+# lives in packages/desktop while it reaches electron.
 id: 'feature-terminal'
 language: 'typescript'
 layer: 'library'
@@ -17,35 +18,54 @@ tags:
 dependsOn:
   - 'shared'
   - 'frame'
+  - 'runtime'
 
 tasks:
-  # No main half, so nothing emits. The inherited `build` (`tsc -b`, `outputs: dist`) can never produce
-  # its output, and `app:build` → `desktop:dist` depends on it — so it is a no-op here, with no outputs.
+  # Only the main half emits; the renderer half is compiled by the app.
   build:
-    command: 'noop'
+    command: 'pnpm exec tsc -b tsconfig.main.json'
     options:
       mergeArgs: 'replace'
-      mergeDeps: 'replace'
-      mergeOutputs: 'replace'
-    deps: []
-    outputs: []
+    deps:
+      - 'root:install'
+      - 'shared:build'
+      - 'runtime:build'
+    inputs:
+      - 'main/**/*'
+      - 'manifest.ts'
+      - 'tsconfig.main.json'
+      - 'package.json'
+      - '/packages/shared/src/**/*'
+      - '/packages/runtime/src/**/*'
+    outputs:
+      - 'dist'
 
+  # Both configs: the renderer half against source, the main half against
+  # shared/runtime's built declarations (project references), hence the builds.
   typecheck:
+    # package.json's `typecheck` runs `tsc --noEmit` over both configs.
     command: 'pnpm run typecheck'
     options:
       mergeArgs: 'replace'
+    deps:
+      - 'shared:build'
+      - 'runtime:build'
     inputs:
       - 'renderer/**/*'
+      - 'main/**/*'
       - 'manifest.ts'
       - 'manifest.test.ts'
       - 'tsconfig.json'
+      - 'tsconfig.main.json'
       - 'package.json'
       - '/packages/shared/src/**/*'
       - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
 
   test:
     inputs:
       - 'renderer/**/*'
+      - 'main/**/*'
       - 'manifest.ts'
       - 'manifest.test.ts'
       - 'vitest.config.ts'
@@ -53,9 +73,11 @@ tasks:
       - 'package.json'
       - '/packages/shared/src/**/*'
       - '/packages/frame/src/**/*'
+      - '/packages/runtime/src/**/*'
 
   lint:
     inputs:
       - 'renderer/**/*'
+      - 'main/**/*'
       - '*.ts'
       - '/eslint.config.mjs'

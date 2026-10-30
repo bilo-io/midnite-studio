@@ -1,9 +1,9 @@
-import { useMonitorPrefsStore } from '@midnite/studio-frame';
 import { useState } from 'react';
 import { LuZap } from 'react-icons/lu';
-import { Popover } from '../../components/popover';
-import { useMetricsStore } from '../../store/metrics-store';
-import { useMetricsStream } from '../monitor/use-metrics-stream';
+import { useStatusBarChrome } from '../../status-bar/status-bar-chrome';
+import { useMetricsStore } from '../../../metrics/metrics-store';
+import { useMetricsStream } from '../../../metrics/use-metrics-stream';
+import { useMonitorPrefsStore } from '../../../prefs/monitor-prefs-store';
 import { BatteryIcon } from './battery-icon';
 import { BatteryPanel } from './battery-panel';
 import {
@@ -25,6 +25,7 @@ export function BatterySegment({ side = 'bottom' }: { side?: 'top' | 'bottom' } 
   const [open, setOpen] = useState(false);
   const latest = useMetricsStore((state) => state.latest);
   const idleIntervalMs = useMonitorPrefsStore((state) => state.metricsIdleIntervalMs);
+  const { Popover } = useStatusBarChrome();
 
   useMetricsStream({ detailed: open, idleIntervalMs });
 

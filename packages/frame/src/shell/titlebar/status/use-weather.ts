@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { privacySwitchOn } from '@midnite/studio-shared';
 
-import { useUiStore } from '../../store/ui-store';
+import { useTitleBarHost } from '../titlebar-host';
 import type { WeatherLocation, WeatherResponse } from './titlebar-status-types';
 import { getWeather, locateByIp } from './weather-api';
 
@@ -49,9 +49,8 @@ function askBrowser(): Promise<{ coords: WeatherLocation | null; denied: boolean
 
 export function useWeather(locationOverride: WeatherLocation | null) {
   // Phase 115 Theme A: the stored flag, then the master switch over it — same rule `guardedFetch` applies in main.
-  const locateByIpStored = useUiStore((s) => s.locateByIpEnabled);
-  const allAutomaticOff = useUiStore((s) => s.egressAllAutomaticOff);
-  const egressSwitches = useUiStore((s) => s.egressSwitches);
+  const { locateByIpEnabled: locateByIpStored, egress } = useTitleBarHost();
+  const { allAutomaticOff, switches: egressSwitches } = egress;
   const weatherOn = privacySwitchOn({ allAutomaticOff, switches: egressSwitches }, 'weather');
   const locateByIpEnabled = weatherOn && privacySwitchOn({ allAutomaticOff, switches: { ...egressSwitches, 'locate-by-ip': locateByIpStored } }, 'locate-by-ip');
   const [resolvedCoords, setResolvedCoords] = useState<WeatherLocation | null>(() => {

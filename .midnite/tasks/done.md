@@ -15481,3 +15481,6 @@ An HMAC-SHA256 integrity manager over all vault files (`vault-integrity.json` un
 ### Phase 124 Theme E (partial) — Hosts are built from modules (2026-10-29)
 
 E.4 `&module=` on `midnite://open`; E.5 `STUDIO_MODULES` and the every-module-is-listed test; E.2 mechanism (`NavConfig.groups`, `navFromGroups`, grouped `AppShell` sections); E.1 for Vanguard, Money and Media (`packages/modules/{vanguard,money,media}`). Also moved the four stale app manifest tests into their modules. E.1 (Agents, Gamer, Mind, Browser), E.2's per-host groups and E.3 stay open; see the phase doc's Headlines.
+### Phase 123 J.4 and E.3 (slice) — the title bar's right cluster; the terminal's session list on the feature (2026-10-29)
+
+J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `packages/frame/src/shell/titlebar/`, and `AppShell` renders them after `titleBarEnd`; Studio fills a `TitleBarHost` (metrics idle cadence, privacy switches) and its own popover through `compose/titlebar-host.tsx`. E.3 (slice): `terminal-service`, the three stores and `pty-env` moved to `packages/features/terminal/main` (built like `feature-monitor`), `terminalMain` registers the list, roster and save/forget/reorder channels, and desktop binds the pty, locator and logger ports. Still open: `pty-service`, `inproc-pty`, `pty-handlers`.

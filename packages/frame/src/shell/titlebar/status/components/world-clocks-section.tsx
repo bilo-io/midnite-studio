@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { LuGlobe, LuPlus, LuTrash2 } from 'react-icons/lu';
 
-import { useNow } from '../../../lib/use-now';
-import { useTitlebarStatusStore } from '../titlebar-status-store';
+import { useNow } from '../../../../lib/use-now';
+import { useTitlebarStatusStore } from '../../../../prefs/titlebar-status-store';
 import type { ClockMode, WorldClockZone } from '../titlebar-status-types';
 import { AnalogClockFace } from './analog-clock-face';
 
