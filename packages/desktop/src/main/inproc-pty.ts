@@ -6,6 +6,7 @@ import { SCROLLBACK_BYTES } from '@midnite/studio-shared';
 
 import type { AgentWatcher } from './agent-watcher';
 import { agentFingerprintEnv } from './pty-env';
+import { createInputGate, type InputGate } from '../broker/input-gate';
 
 type NodePtyModule = typeof import('node-pty');
 type IPty = import('node-pty').IPty;
@@ -39,7 +40,7 @@ type Session = {
   id: string;
   sessionId: string;
   pty: IPty;
-  pendingInput: string | null;
+  inputGate: InputGate | null;
   cols: number;
   rows: number;
 };
@@ -146,21 +147,14 @@ export function inprocCreatePty(
       appendScrollback(options.sessionId, bytes);
       agentWatcher?.noteOutput(id);
 
-      const session = sessions.get(id);
-      if (session?.pendingInput) {
-        const input = session.pendingInput;
-        session.pendingInput = null;
-        try {
-          child.write(input);
-        } catch {
-          // Ignore
-        }
-      }
+      // Gated, not first-byte: see `input-gate.ts` for the lost-first-character race.
+      sessions.get(id)?.inputGate?.onData(data);
 
       onData(id, bytes);
     });
 
     child.onExit(({ exitCode, signal }) => {
+      sessions.get(id)?.inputGate?.dispose();
       sessions.delete(id);
       agentWatcher?.untrack(id);
       onExit(id, exitCode, signal);
@@ -170,7 +164,18 @@ export function inprocCreatePty(
       id,
       sessionId: options.sessionId,
       pty: child,
-      pendingInput: options.initialInput ?? null,
+      inputGate: options.initialInput
+        ? createInputGate({
+            input: options.initialInput,
+            write: (input) => {
+              try {
+                child.write(input);
+              } catch {
+                // Ignore
+              }
+            },
+          })
+        : null,
       cols: options.cols,
       rows: options.rows,
     });

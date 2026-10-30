@@ -18,6 +18,7 @@ import {
   type BrokerRole,
   type ControlMessage,
 } from './protocol';
+import { createInputGate, type InputGate } from './input-gate';
 import { createQueuedSocketWriter, type QueuedSocketWriter } from './socket-write-queue';
 import { staleBrokerMessage } from './staleness';
 
@@ -75,7 +76,7 @@ type Session = {
   id: string;
   sessionId: string;
   pty: IPtyLike;
-  pendingInput: string | null;
+  inputGate: InputGate | null;
   cols: number;
   rows: number;
   cwd: string;
@@ -664,7 +665,7 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             id,
             sessionId,
             pty,
-            pendingInput: initialInput ?? null,
+            inputGate: null,
             cols,
             rows,
             cwd,
@@ -672,6 +673,20 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             ...(confine ? { confineProfile: confine.profile } : {}),
           };
           sessions.set(id, session);
+          if (initialInput) {
+            session.inputGate = createInputGate({
+              input: initialInput,
+              write: (input) => {
+                try {
+                  pty.write(input);
+                } catch (err) {
+                  log(
+                    `[broker] pending-input pty.write failed for ${id}: ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                }
+              },
+            });
+          }
 
           let hasSentExit = false;
 
@@ -679,29 +694,15 @@ export function createBrokerServer(options: BrokerServerOptions): BrokerServer {
             if (hasSentExit) return;
             const bytes = new TextEncoder().encode(data);
 
-            /*
-              Still per chunk, and it has to be: this types the agent's command in
-              as soon as the shell says something, and waiting out a 16ms window
-              first would be a visible stutter on the one keystroke-shaped thing
-              the broker does. It fires once and clears itself.
-            */
-            if (session.pendingInput) {
-              const input = session.pendingInput;
-              session.pendingInput = null;
-              try {
-                pty.write(input);
-              } catch (err) {
-                log(
-                  `[broker] pending-input pty.write failed for ${id}: ${err instanceof Error ? err.message : String(err)}`,
-                );
-              }
-            }
+            // Gated, not first-byte: see `input-gate.ts` for the lost-first-character race.
+            session.inputGate?.onData(data);
 
             // Scrollback append and broadcast both happen on the flush, not here.
             queuePtyOutput(id, sessionId, bytes);
           });
 
           pty.onExit(({ exitCode, signal }) => {
+            session.inputGate?.dispose();
             if (hasSentExit) return;
             hasSentExit = true;
             if (session.confineProfile) removeProfileFile(session.confineProfile);
