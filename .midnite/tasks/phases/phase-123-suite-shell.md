@@ -175,6 +175,19 @@ are gone. **Open, so no checklist item is ticked:** `panels` (terminal, companio
 `terminalMain`/`companionMain`/`monitorMain` + suite-prefs and loop-runs registration, so no status segment is offered
 and the bar does not mount; the Privacy, Terminal, Companion and Monitor settings pages (still on Studio's `ui-store`
 in `packages/app`); `Mod+,`. Next: Money, Science, Mind, Browser, then Studio.
+**2/3 (PR pending): Money, Mind, Browser.** The three apps render `SuiteAppShell`. Money's header controls moved into a
+strip above its board; Mind's in-view tab strip is gone (Notes and Knowledge are rail rows) and its old Settings tab is
+the app page "Knowledge graph" (id `app:mind-knowledge`, `SettingsPageKey` now accepts `app:${string}`); Browser gained
+`browser-manifest.ts` (one `Browse` row) and its agent/web-apps buttons moved from its own rail into a tools strip, with
+`onSettingsOpenChange` on `SuiteAppShell` so the DOM Settings view counts as an occluder over the native views.
+`SuiteAppShell` now binds `Mod+,` (`view.settings`) through the frame's `useKeybindings`, so it works in every suite
+app. **Science has no app** (it is a module host with no feature, absent from `SUITE_APP_IDS`), so there is nothing to
+move. **Still open, so nothing ticked:** the Privacy, Terminal, Companion and Monitor pages, deferred rather than
+extracted: their state lives in Studio's `ui-store` (egress switches, history retention, terminal-store, 1.4k-line
+companion page) and needs suite-prefs groups and a migration each, a PR of its own; panels and each main's
+`terminalMain`/`companionMain`/`monitorMain` + suite-prefs and loop-runs registration; preloads exposing
+`windowChrome`/`suitePrefs`; Browser's page unmounts while Settings is open (agent-session events are missed meanwhile).
+Next (3/3): those, then Studio.
 
 **Theme I — Proof.** ◻ Playwright shell flows in Vanguard and Vault, one visual baseline per shell variant,
 an idle-CPU number for a blurred suite app, and `docs/APPS.md`.
