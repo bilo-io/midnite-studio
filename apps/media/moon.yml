@@ -17,6 +17,11 @@ dependsOn:
   - 'feature-media-core'
   - 'feature-media-library'
   - 'module-media'
+  - 'module-creator'
+  - 'feature-media-docs'
+  - 'feature-media-images'
+  - 'feature-media-video'
+  - 'feature-media-audio'
 
 tasks:
   build:
@@ -49,6 +54,13 @@ tasks:
       - '/packages/modules/media/main/**/*'
       - '/packages/modules/media/renderer/**/*'
       - '/packages/modules/media/manifest.ts'
+      - '/packages/modules/creator/main/**/*'
+      - '/packages/modules/creator/manifest.ts'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-video/main/**/*'
+      - '/packages/features/media-audio/main/**/*'
     outputs:
       - 'dist'
 
@@ -75,6 +87,13 @@ tasks:
       - '/packages/modules/media/main/**/*'
       - '/packages/modules/media/renderer/**/*'
       - '/packages/modules/media/manifest.ts'
+      - '/packages/modules/creator/main/**/*'
+      - '/packages/modules/creator/manifest.ts'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-video/main/**/*'
+      - '/packages/features/media-audio/main/**/*'
 
   test:
     inputs:
@@ -97,3 +116,10 @@ tasks:
       - '/packages/modules/media/main/**/*'
       - '/packages/modules/media/renderer/**/*'
       - '/packages/modules/media/manifest.ts'
+      - '/packages/modules/creator/main/**/*'
+      - '/packages/modules/creator/manifest.ts'
+      - '/packages/features/media-core/main/**/*'
+      - '/packages/features/media-docs/main/**/*'
+      - '/packages/features/media-images/main/**/*'
+      - '/packages/features/media-video/main/**/*'
+      - '/packages/features/media-audio/main/**/*'

@@ -2,9 +2,10 @@
 /**
  * Bundle Media's main + preload into `dist/main.cjs` and `dist/preload.cjs`, beside the renderer
  * `vite build` wrote there — the bundle zip is `dist/` plus an icon and a package.json naming
- * `main.cjs`. Everything but `electron` is inlined (the runtime, the Library's main half, zod), so the
+ * `main.cjs`. Everything but `electron` is inlined (the runtime, the main halves of the Library and Creator modules and their features, zod), so the
  * installed bundle carries no workspace symlinks. Run after `vite build`: that empties `dist/`.
  */
+import { cpSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { build } from 'esbuild';
@@ -20,6 +21,14 @@ const common = {
   minify: process.env.NODE_ENV === 'production',
   // The feature's `./main` export points at tsc output; bundle its source so no prior tsc build is needed.
   alias: {
+    '@midnite/studio-module-creator/main': at('../../../packages/modules/creator/main/index.ts'),
+    '@midnite/studio-module-creator/bridge': at('../../../packages/modules/creator/main/bridge.ts'),
+    '@midnite/studio-feature-report/bridge': at('../../../packages/features/report/bridge.ts'),
+    '@midnite/studio-feature-media-core/main': at('../../../packages/features/media-core/main/index.ts'),
+    '@midnite/studio-feature-media-docs/main': at('../../../packages/features/media-docs/main/index.ts'),
+    '@midnite/studio-feature-media-images/main': at('../../../packages/features/media-images/main/index.ts'),
+    '@midnite/studio-feature-media-video/main': at('../../../packages/features/media-video/main/index.ts'),
+    '@midnite/studio-feature-media-audio/main': at('../../../packages/features/media-audio/main/index.ts'),
     '@midnite/studio-module-media/bridge': at('../../../packages/modules/media/main/bridge.ts'),
     '@midnite/studio-module-media/main': at('../../../packages/modules/media/main/index.ts'),
     '@midnite/studio-feature-report/main': at('../../../packages/features/report/main/index.ts'),
@@ -35,3 +44,7 @@ await Promise.all([
   build({ ...common, entryPoints: [at('../main/index.ts')], outfile: at('../dist/main.cjs') }),
   build({ ...common, entryPoints: [at('../main/preload.ts')], outfile: at('../dist/preload.cjs') }),
 ]);
+
+// The Creator module's Setup Video copies the engine workspace from `templates/media-video`; it ships beside the
+// bundle, where `main/index.ts` looks for it.
+cpSync(at('../../../templates/media-video'), at('../dist/templates/media-video'), { recursive: true });
