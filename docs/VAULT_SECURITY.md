@@ -2,7 +2,7 @@
 
 *Midnite Studio's architecture, threat model, key handling, and security positions for credentials and secrets.*
 
-This document details the security posture of the suite's shared Vault service, implemented by `@midnite/studio-runtime` and consumed by Midnite Studio, the standalone Vault app (`apps/vault`), and paired suite applications.
+This document details the security posture of the suite's shared Vault service, implemented by `@midnite/studio-runtime` and consumed by Midnite Studio, Vanguard (the home of the Vault module, `packages/modules/vault`), and paired suite applications.
 
 ---
 
@@ -19,7 +19,7 @@ The Vault relies on OS-backed hardware-bound encryption via Electron's `safeStor
 ## 2. Who Holds Decrypt Capability
 
 - **The Runtime Process:** Only the runtime host process (which executes Electron main and has access to `safeStorage`) holds the decrypt capability.
-- **Paired Applications:** Secondary apps (`apps/vault`, `apps/browser`, etc.) run in separate processes and communicate with the runtime vault daemon via a local Unix socket (`vault.sock`).
+- **Paired Applications:** Secondary apps (`apps/vanguard`, `apps/browser`, etc.) run in separate processes and communicate with the runtime vault daemon via a local Unix socket (`vault.sock`).
 - **Cryptographic Pairing:** Socket connections must complete an Ed25519 handshake against a dynamic nonce issued by the host. The guest signs the nonce using the private key generated during pairing (`pairing-store.ts`).
 - **Grants:** A paired app is bounded strictly by its granted namespaces and key scopes (`vault-grants.json`). Even with a valid socket connection, an app can only read credentials explicitly granted to its `appId`.
 

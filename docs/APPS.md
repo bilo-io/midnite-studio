@@ -14,10 +14,11 @@ a folder that is gone, or when a row below disagrees with the const.
 |---|---|
 | **runtime** | The headless main-process services no window owns: the vault (all credentials), the pty broker, the `midnite` CLI and MCP server, the link router, the updater, the app registry, window and Dock identity, and the `version`. |
 | **frame** | The renderer chrome every app wears: layout, title bar and status bar, terminal, companion, loops, quick access, palette, the browser panel, files, search, themes, setup, settings, the git graph and its write ops, the knowledge graph, each app's landing, and the dashboard grid. |
-| **app** | One installable product that owns one area of work: Cleaner, Monitor, Vault, Capture, Browser, Mind, Agents, Coder, Money, Creator, Media, Gamer. Studio is every app composed, the internal superset and dev harness. |
+| **app** | One installable product that owns one area of work, a *host* of modules: Agents, Media, Gamer, Vanguard, Mind, Money, Browser (and Science, so far catalog-only). Studio is every module composed, the internal superset and dev harness. Coder, Creator, Cleaner, Vault, Monitor and Capture were apps until Phase 124 and are modules now ([Modules and hosts](#modules-and-hosts)). |
+| **module** | One composable slice a host mounts: `packages/modules/<id>`, with a renderer half, a main half and a `manifest.ts`. It composes features and the frame; an app composes modules. |
 | **feature** | One folder of `packages/app/src/features/`: a view or panel plus its stores and tests. Each feature is placed in the frame or in exactly one owning app. Once a feature is extracted, it becomes its own package, `packages/features/<name>/` ([Packages](#packages)). |
 
-**The layer rule:** the frame holds tools every app wants; an app owns one area of work. The runtime holds
+**The layer rule:** the frame holds tools every app wants; an app owns one area of work and is built from modules. The runtime holds
 services no window owns.
 
 **Say "frame", never "shell".** `@bilo-io/shell` is the shell package this repo consumes, and a second
@@ -149,7 +150,7 @@ shared ◀ frame ◀ feature/renderer ◀ app          shared ◀ runtime ◀ fe
 | `@midnite/studio-frame` | `packages/frame` | The renderer pieces every app wears. Today that is the bridge, the toast store, `DelayedFallback`/`Spinner`/`CONTENT_BOX`/`NavLockToggle` (taken out of `app.tsx`), the metrics primitives behind the status-bar monitor segment, the settings-section and switch-row primitives, `FilterInput` and `useWindowFocusGate`. It also defines the **chrome port**, described below. | `shared`, `react`, `@bilo-io/*`, `react-icons` |
 | `@midnite/studio-feature-<name>` | `packages/features/<name>` | A single feature, as the three parts described under "The feature template". | the frame (renderer half), the runtime (main half), `shared` |
 
-The rule from [Vocabulary](#vocabulary), as code: **an app may import features and the frame. A feature
+The rule from [Vocabulary](#vocabulary), as code (modules, the layer between features and apps, are in [Modules and hosts](#modules-and-hosts)): **an app may import modules, features and the frame. A feature
 may import the frame and `shared`, but never an app and never another feature. The frame never imports a
 feature.** Features talk to each other through the link router and through `shared` ids.
 
@@ -343,9 +344,101 @@ A new suite app (`apps/<id>`) writes its composition, not its chrome:
   path (alias both in `bundle-main.mjs`), never the barrels: that took Cleaner's preload from
   426 KB to 24 KB.
 
+## Modules and hosts
+
+[Phase 124](../.midnite/tasks/phases/phase-124-apps-into-modules.md) merged the apps that overlapped a
+sibling into that sibling. The suite went from 19 catalog entries to 11 apps, and **every app is now a list
+of modules**.
+
+### What a module is
+
+A module is one composable slice of an app: `packages/modules/<id>/` (`@midnite/studio-module-<id>`), with
+a `renderer/` half (consumed as source, like a feature's), a `main/` half (built to CommonJS, like a
+feature's) and a `manifest.ts` (pure data, `shared` only; `defineModuleManifest` in `shared`). The
+unfilled skeleton is `packages/modules/_template/` (`.tmpl` files, so pnpm and moon ignore it until
+copied). Ids are `MODULE_IDS` in [`packages/shared/src/modules.ts`](../packages/shared/src/modules.ts).
+
+Where a feature is one capability, a module is a place in an app: it owns views, the chrome around them,
+its host ports and a nav group. Creator is one module mounted in three hosts.
+
+The layer, as eslint enforces it (`LAYER_MODULE`, `LAYER_OTHER_MODULE` and the `packages/modules/*` blocks
+in `eslint.config.mjs`, each edge proven in `scripts/layer-boundaries.test.mjs`):
+
+```
+shared ◀ frame ◀ feature/renderer ◀ module/renderer ◀ app
+shared ◀ runtime ◀ feature/main ◀ module/main ◀ app (main)
+```
+
+- A module imports features, the frame (renderer half) or the runtime (main half), and `shared`.
+- A module never imports an app or another module, by package name or by relative path. What another
+  module owns arrives through a host port (the pattern of `notes/renderer/host.tsx`), never an exception.
+- A module's main half imports no `electron`, no frame or React, and nothing from `desktop`. It reaches
+  Electron only through the `FeatureMainContext` its host hands it.
+- The renderer half never imports its own main half, and the main half never imports its renderer.
+- `manifest.ts` imports `@midnite/studio-shared` and nothing else.
+- Nothing below an app (a feature, the frame, the runtime) imports a module.
+
+### The host to modules map
+
+`APP_MODULES` in `shared/src/modules.ts` is the single source; the launcher catalog, links, placement and
+MCP tool owners are derived from it. The host's own module comes first.
+
+| Host app | Modules |
+|---|---|
+| Agents | Agents, Coder, Creator |
+| Media | Media, Creator |
+| Gamer | Gamer, Creator |
+| Vanguard | Vanguard, Vault, Cleaner, Monitor |
+| Mind | Mind, Capture |
+| Money | Money, Accountant (coming soon) |
+| Science | Science, Simulator (both coming soon) |
+| Browser | Browser |
+| Studio | every module |
+
+Startup and Health carry no modules. **The six standalone apps are retired**: Coder, Creator, Cleaner,
+Vault, Monitor and Capture no longer have an `apps/<id>` (Accountant and Simulator were catalog entries
+only). `RETIRED_APP_ALIASES` maps each old id to its host and module, so an old `midnite://open?app=coder`
+link opens Agents on the Coder module, and `importRetiredAppData` copies a retired app's per-app files into
+its host once. The placement map above still names the module-level owner (`cleaner`, `capture`, ...);
+`placementHosts` derives which host mounts it.
+
+### How a host mounts its modules
+
+- **Main:** a host's `apps/<host>/main/host.ts` registers its modules through the runtime's
+  `mountModuleMains`, each module being a `defineFeatureMain` half (`<id>ModuleMain`). A channel two
+  modules declare is registered once, by the first mount; the later mount lists it as `shared`.
+  `mountModuleMains` rejects two modules in one host declaring the same IPC channel otherwise.
+- **Preload:** the host exposes `unionBridgeSlices(...)` over each module's `./bridge` subpath, so the
+  renderer sees one `window.midniteStudio` holding every mounted module's slice. Import the subpath, never
+  a runtime barrel, to keep a sandboxed preload small.
+- **Renderer:** the host's manifest derives its side nav from `navFromModules(APP_MODULES.<host>, groups)`,
+  one titled group per module. Each module exports a `<MODULE>_NAV_GROUP` (a module never imports another,
+  so the host composes them), and the frame's `ModuleViewRouter` hands the active rail row to that module's
+  pane (`<Module>Pane`, which carries its own host ports, providers and query client).
+- **Links:** `midnite://open` takes an optional `&module=<ModuleId>`; `firstViewOfModule` resolves its
+  landing row.
+- **Studio** lists every module in `apps/studio/src/composition.ts` (`STUDIO_MODULES`), and a test fails
+  when a module is missing from it.
+
+### Adding a module to a host
+
+1. **New module:** copy `packages/modules/_template/` to `packages/modules/<id>/`, drop the `.tmpl`
+   suffixes, add the id to `MODULE_IDS` and its row to `APP_MODULES`, and fill the manifest. Move the
+   views, host ports and main half in from the feature or app they come from. `gate-projects-check` maps
+   `packages/modules/*` to `module-<name>`.
+2. **Mount it:** add the module to the host's `main/host.ts` mount list (and to `unionBridgeSlices` in the
+   preload), export its `<MODULE>_NAV_GROUP` and pane, and add the group and a `ModuleViewRouter` entry in
+   the host's renderer. List the module in `frameContent(...)` so Tailwind scans its renderer.
+3. **Studio and catalog:** Studio's `composition.ts` lists it, and the launcher catalog shows it as a chip on
+   the host's tile; both are derived from `APP_MODULES`.
+4. **Overlap:** if two hosts mount the same module, declare each shared channel and file-protocol resolver
+   once per mount, as Creator does.
+5. **Check the edges:** `moon run :lint` (the layer rule) and `layer-boundaries.test.mjs`; a rule that
+   fires means a host port or an IPC channel is missing, not that the rule needs an exception.
+
 ## App compositions
 
-Each app in `apps/` composes the frame, its assigned features, and its host ports into an installable desktop product.
+Each app in `apps/` composes the frame, its modules, its assigned features, and its host ports into an installable desktop product. The compositions below were written when Cleaner, Capture, Creator and Coder were apps of their own; their code now lives in `packages/modules/<id>`, and the notes still describe how it is composed.
 
 ### App 5: Browser (`apps/browser`) — Phase 113 Theme L
 
