@@ -7,7 +7,7 @@ id: 'module-coder'
 language: 'typescript'
 layer: 'library'
 
-# `app-<id>` names the apps that mount this module (`APP_MODULES`; `app-coder` until Theme H retires it).
+# `app-<id>` names the apps that mount this module (`APP_MODULES`; the standalone `app-coder` is gone since Theme H).
 # `scripts/affected-apps.mjs` turns an affected project's tags into app ids.
 tags:
   - 'layer-module'

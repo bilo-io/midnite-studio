@@ -841,3 +841,9 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 - **Digest pins are not cleaned** when a model is deleted, and the Agents app does not configure the digest ledger.
 
 - **A pty host for the suite apps (Phase 123 H/I).** Terminal, companion and FAB/Loops exist as features but no suite app mounts them: the broker script, `node-pty`, confinement and the agent probe live in `packages/desktop`, and an app can only attach to Studio's broker as a guest, which cannot create a session. `panels` is declared in each manifest and not rendered, and `Ctrl+``, `Mod+l` and `Mod+l` then `L` have no Playwright coverage outside Studio. See `docs/APPS.md` "The shell".
+
+- **Phase 124 G.5 — a final release for each retired app.** Deferred on purpose when Theme H deleted
+  `apps/{coder,creator,cleaner,vault,monitor,capture}`: an existing install of one gets no notice that its app
+  moved into Agents, Vanguard or Mind, and its feed stays frozen at its last version. A final release whose notes
+  point to the host can still be cut later from `e64bcf62f13deee8d5918e79412e20d4d5ba7c5e` (origin/main at the time Theme H branched), the last commit
+  that still has the six apps. Cut it from that commit, never from a newer one.
