@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 
-import { LuKeyboard, LuPalette } from 'react-icons/lu';
+import { LuActivity, LuKeyboard, LuPalette } from 'react-icons/lu';
 import type { SuiteAppId } from '@midnite/studio-shared';
 
 import type { CommandRuntime } from '../commands/command-runtime';
@@ -10,6 +10,7 @@ import { ChordsPage } from '../settings/chords-page';
 import { CHORDS_PAGE_ID, type SettingsPageDef } from '../settings/settings-pages';
 import { SettingsView } from '../settings/settings-view';
 import { SuiteAppearancePage } from '../settings/suite-appearance-page';
+import { SuiteMonitorPage } from '../settings/suite-monitor-page';
 import { AppShell, type AppShellPanels } from './app-shell';
 import { SETTINGS_VIEW, type NavConfig } from './nav-config';
 import { StatusBar } from './status-bar/status-bar';
@@ -18,13 +19,33 @@ import { suiteSegments, type AppPanels } from './status-bar/suite-segments';
 
 /**
  * The suite pages a non-Studio app can show today (Phase 123 Theme H): Appearance and the read-only chord
- * table. Privacy, Terminal, Companion and Monitor pages still live in `packages/app` on Studio's `ui-store`
- * and join once they are extracted.
+ * table, plus Monitor when the app's status bar has a monitor segment ({@link suiteAppSettingsPages}).
+ * Privacy, Terminal and Companion are still Studio's (`packages/app`, on its `ui-store`): each one
+ * configures something an app's main enforces or a panel an app has, so it joins with that.
  */
 export const SUITE_APP_SETTINGS_PAGES: readonly SettingsPageDef[] = [
   { id: 'appearance', label: 'Appearance', group: 'general', scope: 'suite', icon: LuPalette, Page: SuiteAppearancePage },
   { id: CHORDS_PAGE_ID, label: 'Keyboard shortcuts', group: 'general', scope: 'suite', icon: LuKeyboard, Page: ChordsPage },
 ];
+
+const MONITOR_PAGE: SettingsPageDef = {
+  id: 'monitor',
+  label: 'Monitor',
+  group: 'system',
+  scope: 'suite',
+  icon: LuActivity,
+  Page: SuiteMonitorPage,
+};
+
+/**
+ * The suite pages for an app that offers `statusPanels`. A page that configures a status segment is
+ * left out when the app's bar does not have that segment, so Settings never lists a switch with nothing
+ * to switch. Order follows `SUITE_SETTINGS_PAGES`: Appearance, Monitor, then the chord table.
+ */
+export function suiteAppSettingsPages(statusPanels: AppPanels = {}): SettingsPageDef[] {
+  const [appearance, chords] = SUITE_APP_SETTINGS_PAGES as [SettingsPageDef, SettingsPageDef];
+  return [appearance, ...(statusPanels.monitor ? [MONITOR_PAGE] : []), chords];
+}
 
 export type SuiteAppShellProps = {
   app: SuiteAppId;
@@ -111,7 +132,7 @@ export function SuiteAppShell({
     >
       {settingsOpen ? (
         <div className="h-full overflow-hidden" data-testid="suite-settings">
-          <SettingsView pages={[...SUITE_APP_SETTINGS_PAGES, ...settingsPages]} />
+          <SettingsView pages={[...suiteAppSettingsPages(statusPanels), ...settingsPages]} />
         </div>
       ) : (
         children(current)

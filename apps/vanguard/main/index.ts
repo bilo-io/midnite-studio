@@ -71,7 +71,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       ipcMain,
       runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
       getWindow: () => win,
-      warn: (message) => console.warn(message),
+      warn: (message) => process.stderr.write(`${message}\n`),
     });
     // The runtime's crash-log sink (NDJSON, rotated, redacted), the one Studio's main writes through too.
     const log = createFileSink({

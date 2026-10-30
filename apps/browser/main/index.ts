@@ -92,7 +92,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       ipcMain,
       runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
       getWindow: () => win,
-      warn: (message) => console.warn(message),
+      warn: (message) => process.stderr.write(`${message}\n`),
     });
     // Crash log + Report an Issue: the runtime's file sink, the app's own Help menu item, and the report feature's services.
     const crashLog = createFileSink({ dir: app.getPath('userData'), name: 'browser.log', homeDir: app.getPath('home') });

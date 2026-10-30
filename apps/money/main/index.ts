@@ -43,7 +43,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       ipcMain,
       runtimeDirectory: suiteRuntimeDirectory(app.getPath('appData'), process.env[USER_DATA_ENV]),
       getWindow: () => win,
-      warn: (message) => console.warn(message),
+      warn: (message) => process.stderr.write(`${message}\n`),
     });
     // The runtime's crash-log sink (NDJSON, rotated, redacted) — what Report an Issue reads.
     crashLog = createFileSink({ dir: app.getPath('userData'), name: 'money.log', homeDir: app.getPath('home') });
@@ -84,7 +84,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       vaultDirectory,
       pairing: moneyPairing(app.getPath('userData'), smoke),
       // eslint-disable-next-line no-console
-      warn: (message) => console.warn(message),
+      warn: (message) => process.stderr.write(`${message}\n`),
     });
     openWindow();
   });
