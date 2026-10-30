@@ -10,7 +10,7 @@ import { prepareForVisualCapture } from '../shots-helper';
  *
  * Browser capability: appearance. Fixed-position chrome, the rail's width and the title bar's inset are
  * real CSS the jsdom suites cannot see; `suite-app-shell.test.tsx` already proves the DOM structure.
- * The clock is frozen so the title bar's date/time pill is reproducible.
+ * The title bar's date/time pill follows the real clock, so it is masked.
  */
 /** `playwright.visual.config.ts` serves Vanguard on its own port, apart from the functional config's. */
 const VANGUARD_URL = `http://localhost:${process.env.MSTUDIO_VISUAL_VANGUARD_PORT ?? 5294}/`;
@@ -23,21 +23,27 @@ async function openShell(page: Page, frameless: boolean): Promise<void> {
   await prepareForVisualCapture(page);
 }
 
+/** The pointer off the rail (its hover expands it) and the date/time pill masked (it follows the real clock). */
+async function capture(page: Page, name: string): Promise<void> {
+  await page.mouse.move(600, 300);
+  await expect(page.getByRole('complementary', { name: 'Views' })).toHaveCSS('width', '56px');
+  await expect(page.locator('#root')).toHaveScreenshot(name, { mask: [page.getByTestId('titlebar-status-pill')] });
+}
+
 test('framed: the title bar sits in normal flow under the native frame', async ({ page }) => {
   await openShell(page, false);
-  await expect(page.locator('#root')).toHaveScreenshot('shell-framed.png');
+  await capture(page, 'shell-framed.png');
 });
 
 test('frameless: the shell draws its own title bar and rail', async ({ page }) => {
   await openShell(page, true);
-  await expect(page.locator('#root')).toHaveScreenshot('shell-frameless.png');
+  await capture(page, 'shell-frameless.png');
 });
 
 test('nav collapsed: a module section folded to its chevron', async ({ page }) => {
   await openShell(page, true);
-  await page.getByRole('button', { name: 'Vanguard section' }).click();
-  await expect(page.getByRole('button', { name: 'Vanguard section' })).toHaveAttribute('aria-expanded', 'false');
-  // Move the pointer off the rail so its hover-expansion does not decide the crop.
-  await page.mouse.move(600, 300);
-  await expect(page.locator('#root')).toHaveScreenshot('shell-nav-collapsed.png');
+  const section = page.locator('button[aria-controls="nav-section-vanguard"]');
+  await section.click();
+  await expect(section).toHaveAttribute('aria-expanded', 'false');
+  await capture(page, 'shell-nav-collapsed.png');
 });
