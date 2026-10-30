@@ -21,3 +21,4 @@ export {
   type WindowState,
 } from './suite-window';
 export { createWindowChromeBridge } from './window-chrome-preload';
+export { bindMetricsToWindow, type PausableSampler, type PausableWindow } from './bind-metrics';

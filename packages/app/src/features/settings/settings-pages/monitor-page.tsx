@@ -21,7 +21,7 @@ import { SettingsSwitchRow } from '../../../components/form/settings-switch-row'
 import { bridge } from '../../../services/bridge';
 import { ReportIssueDialog } from '@midnite/studio-feature-report/renderer';
 import { useActiveWorktree } from '../../../services/use-status';
-import { useUiStore } from '../../../store/ui-store';
+import { useMonitorPrefsStore } from '@midnite/studio-frame';
 import { METRIC_LABELS, metricColor } from '../../monitor/metric-palette';
 import { Choice, Field } from './controls';
 
@@ -37,10 +37,10 @@ import { Choice, Field } from './controls';
  * checkbox somewhere. Split into two accordions for the same reason.
  */
 export function MonitorPage() {
-  const hidden = useUiStore((s) => s.hiddenMetrics);
-  const toggleMetric = useUiStore((s) => s.toggleMetric);
-  const idleMs = useUiStore((s) => s.metricsIdleIntervalMs);
-  const setIdleMs = useUiStore((s) => s.setMetricsIdleInterval);
+  const hidden = useMonitorPrefsStore((s) => s.hiddenMetrics);
+  const toggleMetric = useMonitorPrefsStore((s) => s.toggleMetric);
+  const idleMs = useMonitorPrefsStore((s) => s.metricsIdleIntervalMs);
+  const setIdleMs = useMonitorPrefsStore((s) => s.setMetricsIdleInterval);
 
   const { repoId } = useActiveWorktree();
   const trust = useDiagTrust(repoId);

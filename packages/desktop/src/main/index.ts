@@ -11,6 +11,7 @@ import {
   createPairingStore,
   createVaultGrants,
   createVaultIntegrity,
+  bindMetricsToWindow,
   confinementAvailability,
   configureGuardedFetch,
   createVaultService,
@@ -94,7 +95,7 @@ import { registerAiHandlers } from './ipc/ai-handlers';
 import { registerFsHandlers } from './ipc/fs-handlers';
 import { registerFsSearchHandlers } from './ipc/fs-search-handlers';
 import { registerFsWriteHandlers } from './ipc/fs-write-handlers';
-import { bindMetricsToWindow, registerMetricsHandlers } from './ipc/metrics-handlers';
+import { registerMetricsHandlers } from './ipc/metrics-handlers';
 import { registerOptimizerHandlers } from './ipc/optimizer-handlers';
 import { bindAgentProbeToWindow, startAgentProbeAtBoot } from './agent-probe-runtime';
 import { registerTerminalHandlers } from './ipc/terminal-handlers';
@@ -1187,7 +1188,7 @@ export const startStudioMain: StartStudioMain = () => {
       // Sampling follows visibility: blurred, hidden or minimized stops it
       // outright rather than spending an `ioreg` spawn every few seconds on a
       // footer nobody can see.
-      bindMetricsToWindow(metrics, mainWindow);
+      bindMetricsToWindow(mainWindow, metrics);
       bindRenderProcessGone(mainWindow, defaultLogger);
       bindAgentProbeToWindow(mainWindow);
 
@@ -1218,7 +1219,7 @@ export const startStudioMain: StartStudioMain = () => {
           // The reopened window is a new BrowserWindow, so it carries none of
           // the visibility listeners the first one was given. Without this the
           // sampler never pauses again for the rest of the session.
-          bindMetricsToWindow(metrics, mainWindow);
+          bindMetricsToWindow(mainWindow, metrics);
           bindRenderProcessGone(mainWindow, defaultLogger);
           bindAgentProbeToWindow(mainWindow);
         }
