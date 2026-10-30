@@ -388,6 +388,8 @@ describe('Report an Issue', () => {
 
 describe('Coder as a host pane (Phase 124 E.3)', () => {
   it('renders every rail view, switching between them, without an update loop', async () => {
+    // The suite stub's `capabilities` is `{}` (no `ops`), which the Tasks view reads once it resolves; give it the real shape.
+    (window.midniteStudio as unknown as Record<string, unknown>)['forgeAccounts'] = { capabilities: async () => capabilitiesFor('github') };
     const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const { rerender } = render(<CoderPane view="reviews" />);
     await screen.findByText('widgets');
