@@ -11,6 +11,10 @@ display-media gate, overlay window and file protocol; its bundle builds the over
 default chord in Mind. This finishes the main-side half of E.3 for all five hosts; E.3b (renderer half) waits on
 Phase 123 Theme H.
 
+## 2026-10-29 — Phase 123 Theme G — the FAB and Loops as a feature
+
+`packages/features/loops/renderer` (FAB launchers, quick-access menu, Loops panel and composer) behind a `LoopsHost` port, Studio's adapter in `compose/loops-host.tsx`, a default host for every other app; menu leaves hidden when the app lacks the feature. The run ledger moved to `packages/runtime/src/loop-runs/`: one file per app, merged on read, `appId`-tagged, Studio's old file copied once.
+
 ## 2026-10-29 — Phase 123 Theme F — The companion panel as a feature
 
 `packages/features/companion` takes the whole companion: the renderer (`renderer/`, behind the `CompanionHost` port

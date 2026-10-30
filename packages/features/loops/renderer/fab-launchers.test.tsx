@@ -1,12 +1,12 @@
 import { DEFAULT_LOOPS } from '@midnite/studio-shared';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useUiStore } from '../../store/ui-store';
-import type { LoopStatus } from './loop-status';
-
+import { createDefaultLoopsHost, createDefaultLoopsState } from './default-host';
 import { FabLaunchers } from './fab-launchers';
-import '../../../test-support/install-companion-host';
+import { LoopsHostProvider } from './host';
+import type { LoopStatus } from './loop-status';
 
 const IDLE: LoopStatus = {
   sessionId: undefined,
@@ -23,12 +23,19 @@ vi.mock('./loop-status', () => ({
   useAllLoopStatuses: () => statuses,
 }));
 
+const useUiStore = createDefaultLoopsState();
+const host = createDefaultLoopsHost('vanguard', {
+  state: useUiStore,
+  renderCompanionLauncher: () => <button type="button" data-testid="companion-launcher" />,
+});
+const wrap = (ui: ReactElement) => <LoopsHostProvider host={host}>{ui}</LoopsHostProvider>;
+
 const strip = () => screen.getByTestId('fab-launchers');
 const launcher = (id: string) => screen.getByTestId(`loop-launcher-${id}`);
 
 /** Force the four-launcher form without depending on a live loop. */
 function renderExpanded() {
-  render(<FabLaunchers />);
+  render(wrap(<FabLaunchers />));
   fireEvent.pointerEnter(strip());
 }
 
@@ -51,7 +58,7 @@ describe('FabLaunchers', () => {
    * affordance.
    */
   it('collapses to a single glyph at rest', () => {
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     expect(strip().dataset.expanded).toBe('false');
     expect(screen.getByTestId('fab-launchers-collapsed')).toBeDefined();
     expect(screen.queryByTestId('loop-launcher-innovate')).toBeNull();
@@ -65,7 +72,7 @@ describe('FabLaunchers', () => {
    * un-press with the FAB already open on `activeFabTab`.
    */
   it('expands, and only expands, when the collapsed glyph is activated', () => {
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     const collapsed = screen.getByTestId('fab-launchers-collapsed');
     expect(collapsed.getAttribute('aria-expanded')).toBe('false');
     expect(collapsed.getAttribute('aria-controls')).toBe('fab-launcher-strip');
@@ -77,7 +84,7 @@ describe('FabLaunchers', () => {
 
   /** A keyboard arrival must not be dropped when the button it landed on unmounts. */
   it('hands focus to the first launcher when it expands from the keyboard', () => {
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     fireEvent.click(screen.getByTestId('fab-launchers-collapsed'));
     expect(document.activeElement).toBe(launcher('guard'));
   });
@@ -90,7 +97,7 @@ describe('FabLaunchers', () => {
    */
   it('expands while the FAB panel is open, even with nothing running', () => {
     useUiStore.setState({ fabPanelOpen: true, activeFabTab: 'medic' });
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     expect(strip().dataset.expanded).toBe('true');
     expect(launcher('medic').className).toContain('is-open');
     expect(launcher('medic').dataset.loopState).toBe('idle');
@@ -106,7 +113,7 @@ describe('FabLaunchers', () => {
     statuses = DEFAULT_LOOPS.map((loop) =>
       loop.id === 'watchdog' ? { ...IDLE, running: true } : IDLE,
     );
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     expect(strip().dataset.expanded).toBe('true');
   });
 
@@ -136,7 +143,7 @@ describe('FabLaunchers', () => {
     statuses = DEFAULT_LOOPS.map((loop) =>
       loop.id === 'automate' ? { ...IDLE, running: true } : IDLE,
     );
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     expect(launcher('automate').dataset.loopState).toBe('running');
     expect(launcher('innovate').dataset.loopState).toBe('idle');
   });
@@ -150,7 +157,7 @@ describe('FabLaunchers', () => {
     statuses = DEFAULT_LOOPS.map((loop) =>
       loop.id === 'innovate' ? { ...IDLE, running: true, waiting: true } : IDLE,
     );
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     const el = launcher('innovate');
     expect(el.dataset.loopState).toBe('waiting');
     expect(el.className).toContain('is-waiting');
@@ -164,7 +171,7 @@ describe('FabLaunchers', () => {
       loop.id === 'watchdog' ? { ...IDLE, running: true } : IDLE,
     );
     useUiStore.setState({ fabPanelOpen: true, activeFabTab: 'watchdog' });
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     const el = launcher('watchdog');
     expect(el.className).toContain('is-running');
     expect(el.className).toContain('is-open');
@@ -182,7 +189,7 @@ describe('FabLaunchers', () => {
       loop.id === 'automate' ? { ...IDLE, running: true } : IDLE,
     );
     expect(document.hasFocus()).toBe(false);
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     const el = launcher('automate');
     expect(el.className).toContain('is-running');
     expect(el.className).not.toContain('is-pulsing');
@@ -193,7 +200,7 @@ describe('FabLaunchers', () => {
     statuses = DEFAULT_LOOPS.map((loop) =>
       loop.id === 'automate' ? { ...IDLE, running: true } : IDLE,
     );
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     expect(launcher('automate').className).toContain('is-pulsing');
     spy.mockRestore();
   });
@@ -204,7 +211,7 @@ describe('FabLaunchers', () => {
     statuses = DEFAULT_LOOPS.map((loop) =>
       loop.id === 'medic' ? { ...IDLE, running: true, waiting: true } : IDLE,
     );
-    render(<FabLaunchers />);
+    render(wrap(<FabLaunchers />));
     expect(launcher('medic').className).not.toContain('is-pulsing');
     spy.mockRestore();
   });
@@ -231,7 +238,7 @@ describe('FabLaunchers', () => {
     }
   });
 
-  it('renders CompanionLauncher to the right of the loop launchers when expanded', () => {
+  it('renders the companion launcher the host provides to the right of the loop launchers when expanded', () => {
     renderExpanded();
     expect(screen.getByTestId('companion-launcher')).toBeDefined();
   });

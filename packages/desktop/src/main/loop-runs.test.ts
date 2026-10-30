@@ -10,7 +10,7 @@ import {
   startLoopRun,
   stopLoopRun,
 } from './loop-runs';
-import { MAX_STORED_LOOP_RUNS, type LoopRunsStore } from './loop-runs-store';
+import { MAX_STORED_LOOP_RUNS, type LoopRunsStore } from '@midnite/studio-runtime';
 
 /** A store over an array, so a test can seed what "the last launch left". */
 function fakeStore(seed: LoopRunRecord[] = []): LoopRunsStore & { saved: LoopRunRecord[][] } {

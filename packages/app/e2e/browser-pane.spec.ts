@@ -219,6 +219,27 @@ test('closing the pane restores clicks to the content beneath it immediately, no
   await expect(filter).toHaveValue('nothing-matches');
 });
 
+/**
+ * Presses Escape until the pane is gone. How many presses that takes depends on
+ * whether the address field had taken focus yet (its own handler eats one), and
+ * that is a race on a loaded runner: a fixed pair either closes the pane early
+ * and clicks the toggle while it animates out, or leaves it open so the toggle
+ * click closes it instead of raising the launcher.
+ */
+async function closeWithEscape(page: Page): Promise<void> {
+  const address = page.getByRole('textbox', { name: 'Address' });
+  await expect
+    .poll(
+      async () => {
+        if ((await address.count()) === 0) return 0;
+        await page.keyboard.press('Escape');
+        return address.count();
+      },
+      { intervals: [100, 250, 500] },
+    )
+    .toBe(0);
+}
+
 test('Escape closes the pane, and it reopens with the same tabs on reload', async ({ page }) => {
   await installMockBridge(page, { ...fixtures });
   await page.goto('/');
@@ -233,9 +254,7 @@ test('Escape closes the pane, and it reopens with the same tabs on reload', asyn
   // handler (Theme G) restores/blurs on the first press without closing the
   // pane, exactly so an aborted edit does not also lose the tab; the SECOND
   // press is what the shared dismissal stack sees and acts on.
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
-  await expect(address).toHaveCount(0);
+  await closeWithEscape(page);
 
   await openBrowser(page);
   await expect(address).toHaveValue('example.com');
@@ -264,9 +283,7 @@ test('the pane traps Tab, and Escape restores focus to the toggle', async ({ pag
   // A blank tab autofocuses the address bar (Theme C), so the first Escape
   // is the address field's own handler (Theme G) restoring/blurring rather
   // than the pane's — the second is what actually closes it.
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
-  await expect(address).toHaveCount(0);
+  await closeWithEscape(page);
   await expect(toggle).toBeFocused();
 });
 
@@ -410,8 +427,7 @@ test('the toggle raises the launcher rather than the pane, and remembers the ans
   // Mod+B then Enter. Two Escapes, not one: the newly-opened tab's address
   // bar has focus (Theme C), and its own Escape handler (Theme G) eats the
   // first press restoring/blurring rather than closing the pane.
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
+  await closeWithEscape(page);
   await page.locator('[data-testid="browser-toggle"]').click();
   await expect(page.getByTestId('browser-layout-left')).toHaveAttribute('aria-checked', 'true');
 });
