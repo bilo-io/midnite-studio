@@ -21,7 +21,7 @@ import {
 import { installMediaHostFileProtocol, registerMediaHost } from './host';
 import { reportMenuTemplate } from './report';
 import { mediaPairing } from './pairing';
-import { registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
+import { registerSuiteMain, suiteRuntimeDirectory, suiteWindowOptions, type SuiteMain } from '@midnite/studio-runtime';
 
 /**
  * Midnite Media's main process — the entry the bundle's `package.json` names (`main.cjs`), run by the
@@ -208,6 +208,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 }
 
 function openWindow(): void {
+  // Frameless where the platform allows (Phase 123 Theme A): the shell's title bar is the drag region.
+  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform);
   win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -215,7 +217,9 @@ function openWindow(): void {
     minHeight: 560,
     title: MEDIA_NAME,
     show: false,
+    ...frame,
     webPreferences: {
+      additionalArguments,
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,

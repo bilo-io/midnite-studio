@@ -31,7 +31,7 @@ import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
 import { registerBrowserAppHandlers } from '@midnite/studio-module-browser/main';
 import { BROWSER_NAME, browserUserData, isSmoke, SMOKE_READY_LINE, USER_DATA_ENV } from './identity';
-import { registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
+import { registerSuiteMain, suiteRuntimeDirectory, suiteWindowOptions, type SuiteMain } from '@midnite/studio-runtime';
 
 /**
  * Midnite Browser's main process — the entry the bundle's `package.json` names (`main.cjs`), run by the
@@ -190,6 +190,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 }
 
 function openWindow(): void {
+  // Frameless where the platform allows (Phase 123 Theme A): the shell's title bar is the drag region.
+  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform);
   win = new BrowserWindow({
     width: 1360,
     height: 900,
@@ -197,7 +199,9 @@ function openWindow(): void {
     minHeight: 480,
     title: BROWSER_NAME,
     show: false,
+    ...frame,
     webPreferences: {
+      additionalArguments,
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,

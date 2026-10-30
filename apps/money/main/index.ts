@@ -9,7 +9,7 @@ import { registerMoneyHandlers } from '@midnite/studio-module-money/main';
 import { MONEY_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, moneyUserData, moneyVaultDirectory } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
 import { moneyPairing } from './pairing';
-import { registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
+import { registerSuiteMain, suiteRuntimeDirectory, suiteWindowOptions, type SuiteMain } from '@midnite/studio-runtime';
 
 /**
  * Midnite Money's main process — the entry the bundle's `package.json` names (`main.cjs`), run by
@@ -98,6 +98,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 }
 
 function openWindow(): void {
+  // Frameless where the platform allows (Phase 123 Theme A): the shell's title bar is the drag region.
+  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform);
   win = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -105,7 +107,9 @@ function openWindow(): void {
     minHeight: 560,
     title: MONEY_NAME,
     show: false,
+    ...frame,
     webPreferences: {
+      additionalArguments,
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
