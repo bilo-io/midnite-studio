@@ -12,8 +12,24 @@ beforeEach(() => {
   window.midniteStudio = {
     notes: { list: vi.fn().mockResolvedValue({ notes: [] }), save: vi.fn(), delete: vi.fn(), reorder: vi.fn() },
     capture: {
-      list: vi.fn().mockResolvedValue({ items: [] }),
+      status: vi.fn().mockResolvedValue({
+        permission: 'granted',
+        settings: { shortcut: null, clipboardHistory: false, hideWindows: true },
+        shortcut: { accelerator: null, state: 'off' },
+        canRecord: true,
+        destinations: ['clipboard', 'finder'],
+      }),
+      list: vi.fn().mockResolvedValue({ captures: [] }),
+      clipboard: { list: vi.fn().mockResolvedValue({ enabled: false, entries: [] }) },
+      regionPending: vi.fn().mockResolvedValue({ frame: null }),
+      sources: vi.fn().mockResolvedValue({ ok: true, value: { sources: [] } }),
       onChanged: () => () => undefined,
+    },
+    knowledge: {
+      getGraph: vi.fn().mockResolvedValue({ ok: false, kind: 'absent' }),
+      getNodeDetail: vi.fn(),
+      checkGraph: vi.fn().mockResolvedValue({ exists: false }),
+      onLayoutProgress: () => () => undefined,
     },
     report: {
       logPath: vi.fn().mockResolvedValue({ path: '/tmp/mind.log' }),
