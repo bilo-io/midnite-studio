@@ -188,6 +188,26 @@ companion page) and needs suite-prefs groups and a migration each, a PR of its o
 `terminalMain`/`companionMain`/`monitorMain` + suite-prefs and loop-runs registration; preloads exposing
 `windowChrome`/`suitePrefs`; Browser's page unmounts while Settings is open (agent-session events are missed meanwhile).
 Next (3/3): those, then Studio.
+**3/4 (PR pending): the preload and main slices, and the Monitor page.** Theme H is now four PRs, not three: this one
+is the plumbing the others stand on, Studio is the last. Runtime gains `registerSuiteMain` (the `suitePrefs`
+get/set/changed channels over the shared file, watched, plus the window's maximise-toggle and backing-colour retint
+and `attachWindow` for the fullscreen/focus events) and `createSuiteBridge` (the `windowChrome` and `suitePrefs`
+preload slices), with `suiteRuntimeDirectory` for the throwaway-profile path. All seven apps that render
+`SuiteAppShell` (Vanguard, Agents, Media, Gamer, Money, Mind, Browser) now register the first in their main and
+spread the second into their `unionBridgeSlices` preload, so a theme change in one reaches the rest and the title
+bar sees fullscreen and focus. Their windows stay framed: `suiteWindowOptions` is Theme A's open item, and the shell
+already draws a native-frame title bar when `frameless` is false. `@midnite/studio-shared` exports `./ipc/channels`
+so the preload slices stay off the zod barrel. The frame gets `SuiteMonitorPage` (readouts shown and refresh
+interval, on the `monitor` group), which Studio's Monitor & Diagnostics page now reuses for its first half, and
+`suiteAppSettingsPages(statusPanels)` lists it only for an app whose bar has a monitor segment. **Decision:**
+Privacy, Terminal and Companion are not offered to suite apps yet. Privacy's switches are enforced by Studio's
+main from a renderer-pushed mirror (`settings-mirror.ts`, `guardedFetch`), which no suite app's main has, so a page
+there would be a switch that does nothing; Terminal and Companion configure panels no suite app has. Each joins with
+the thing it governs. **Still open, so nothing ticked:** the panels and each main's
+`terminalMain`/`companionMain`/`monitorMain` + loop-runs registration (so no status segment is offered and no bar
+mounts), the Privacy/Terminal/Companion pages with a suite-prefs group and migration each, `suiteWindowOptions` in
+the seven mains, Browser's page unmounting while Settings is open, the four hosts' own wiring of the new pages once
+#1083 merges, and Studio. No visual change, so no screenshots.
 
 **Theme I — Proof.** ◻ Playwright shell flows in Vanguard and Vault, one visual baseline per shell variant,
 an idle-CPU number for a blurred suite app, and `docs/APPS.md`.
