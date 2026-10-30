@@ -11,6 +11,14 @@ logos from the launcher and the frame; `SUITE_APP_IDS` drops them while `SuiteAp
 its host; `legacyToolOwner` is removed; `vanguard-install.proof.test.ts` replaces the Cleaner proof. The lockfile no
 longer carries the six `@midnite/app-*` projects. G.5 (a final release per retired app) is deferred and recorded in
 `outstanding.md` against `e64bcf62f13deee8d5918e79412e20d4d5ba7c5e`, the last commit that has the apps.
+## 2026-10-30 — Phase 123 Theme H 5/5 — Studio on the shared shell
+
+Studio's `Shell` renders the frame's `AppShell`: its left cluster in `titleBarStart`, its right chrome in `titleBarEnd`
+(`suiteCluster={false}`), the commit timeline, status bar and overlays in `footer`, and its own content row as `bare`
+children. `AppShell` gained `rail`, `titleBarStart`, `suiteCluster`, `providersMounted` and `bare`, additively. The rail
+and the panel hosts stay Studio's. The suite-app pty host (terminal, then FAB/Loops, then companion, then the settings
+pages) is deferred in `outstanding.md`, and batches 1-3 are ticked on that basis. Theme H complete; screenshots under
+`docs/screenshots/phase-123-studio/`.
 
 ## 2026-10-30 — Phase 123 Theme A — a frameless window for every app
 
