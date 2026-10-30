@@ -120,8 +120,10 @@ FAB and primary agent. Sessions carry an optional `appId` (absent = studio); onl
 so Studio's records are unchanged on disk. The list filters to its own app with a "Show all apps" toggle on
 suite-prefs `terminal.showAllApps`, shown only once another app's session is present; until someone toggles it,
 each app takes its host's default (Studio: all). A broker that never attached now says so in the empty panel.
-Open: E.3, the main half — `pty-service` reaches `electron`, the window manager and confinement, which need
-injecting first.
+E.3, the main half, is partly in: the session list's stores, `terminal-service` and `pty-env` moved to
+`packages/features/terminal/main` behind a `TerminalPorts` object, and `terminalMain` registers the list, roster
+and save/forget/reorder channels. Open: `pty-service`, `inproc-pty` and `pty-handlers`, which reach `electron`, the
+window manager, confinement and sender-aware IPC that need injecting first.
 
 **Theme F — The companion panel as a feature.** ✅ `packages/features/companion`: the renderer (orb, panel, thread,
 voice, zen stage, the reveal engine; ~50 files and the store) and the main half (`desktop/src/main/companion`,
@@ -149,7 +151,7 @@ five apps, each with its own nav, Settings, status bar and panels; Studio moves 
 **Theme I — Proof.** ◻ Playwright shell flows in Vanguard and Vault, one visual baseline per shell variant,
 an idle-CPU number for a blurred suite app, and `docs/APPS.md`.
 
-**Theme J — The status bar.** ◐ 3/4 ([#1068](https://github.com/bilo-io/midnite-studio/pull/1068)).
+**Theme J — The status bar.** ✅ 4/4 ([#1068](https://github.com/bilo-io/midnite-studio/pull/1068), J.4 in this phase's follow-up).
 `packages/frame/src/shell/status-bar/` is the segment host: `StatusBar({ segments, fab, liveRegions })`, the
 separator grouping, per-zone density (`lib/density.ts` moved with it) and the overflow popover. Its tooltip and
 popover come through an optional `StatusBarChromeProvider` — the default is a `title` and the frame's
@@ -159,8 +161,10 @@ priorities, dropping any whose panel is absent. The frame owns where each segmen
 component, because each one belongs to a feature (terminal, companion, monitor) the frame may not import; a
 Studio test holds Studio's five entries to the same metadata. Studio's bar is a wrapper over the frame's, with
 `STATUS_SEGMENTS` and its two live regions passed in, so it looks the same. The `.status-label` density CSS
-still lives in Studio's `styles.css` — whichever app mounts the bar first in Theme H brings it along. Open: J.4,
-the title bar's right cluster, waits on L.2 moving `titlebar-status-store` to the frame.
+still lives in Studio's `styles.css` — whichever app mounts the bar first in Theme H brings it along. J.4: the title
+bar's right cluster (`TitleBarStatus`, `TitleBarBattery`, a frame `ThemeToggle`) is in `packages/frame/src/shell/titlebar/`
+and `AppShell` renders it after `titleBarEnd`. Studio fills a `TitleBarHost` (metrics cadence, privacy switches) and
+its portalled popover through `compose/titlebar-host.tsx`; the two bridge tests stayed in the app.
 
 **Theme K — The system monitor core.** ◻ Every app registers the monitor feature's `monitorMain` and pauses
 sampling on blur, hide and minimise exactly as `apps/monitor` does; the status bar's monitor segment opens
@@ -388,10 +392,16 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
   `inproc-pty.ts` and `node-pty` stay in `packages/desktop` and arrive as an injected service (the feature
   may not import `node-pty`).
   - *Done when* the moved main tests pass and Studio's `main/index.ts` boots with `terminalMain.register`.
-  - ⏳ Open after PR #1068: `pty-service.ts` reaches `electron`, the window manager, confinement and the
-    secrets handlers, and `terminal-service.ts` the agents and session-history stores — moving them needs those
-    behind injected services first, a theme's worth of its own. The renderer half landed without it; the
-    main half still lives in `packages/desktop`.
+  - ◐ Slice landed (2026-10-29): `terminal-service`, `terminal-store`, `agents-store`, `session-history-store` and
+    `pty-env` (with their tests) live in `packages/features/terminal/main/`, built like `feature-monitor`
+    (`tsconfig.main.json`, `./main` export, desktop references). `terminal-service` reaches the pty service, the
+    agent-conversation locator and the logger through a `TerminalPorts` object that desktop's shim binds once.
+    `terminalMain` registers `terminalList`, `agentList`, `agentRecheck` and the save/forget/reorder sends; Studio's
+    `terminal-handlers.ts` is now its composition.
+  - ⏳ Still open: `pty-service.ts` (820 lines of module state over `electron`, the window manager, confinement and
+    the secrets handlers), `inproc-pty.ts` and `pty-handlers.ts` (sender-aware sends, which `RuntimeIpc` does not
+    offer yet). Those need `RuntimeIpc` to grow a sender-aware send and the pty service to take its window,
+    confinement and secrets as injected services.
 - [x] **Sessions carry the app.** `TerminalSessionSchema`
   ([`shared/src/terminal.ts:624`](../../../packages/shared/src/terminal.ts)) gains `appId: SuiteAppIdSchema.optional()`;
   absent means `'studio'` (every existing record). `ptyCreate`'s payload carries it; each app's main stamps
@@ -524,13 +534,16 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
   Studio-only because the launcher alone updates suite apps (CLAUDE.md).
   - *Done when* `status-bar.test.tsx` asserts a non-Studio render with `suiteSegments(all)` has exactly five
     segments.
-- [ ] **The title bar's right cluster.** `TitleBarStatus` (with `titlebar-status-store.ts`, now backed by
+- [x] **The title bar's right cluster.** ✅ DONE (2026-10-29) `TitleBarStatus` (with `titlebar-status-store.ts`, now backed by
   suite-prefs key `titlebarStatus`), `TitleBarBattery` and `ThemeToggle` move to
   `packages/frame/src/shell/titlebar/` and render in every app after `titleBarEnd`. Weather keeps its existing
   network fetch and its existing error state.
   - *Done when* `app-shell.test.tsx` asserts all three render in a non-Studio shell.
-  - ⏳ Open after PR #1068: waits on Theme L.2, which moves `titlebar-status-store.ts` to
-    `packages/frame/src/prefs/` onto suite-prefs. Moving the cluster first would mean moving that store twice.
+  - Landed after L.2 (PR #1067): the store was already in `packages/frame/src/prefs/`, so the cluster moved once.
+    Its two reaches into Studio's `ui-store` (metrics idle cadence; the privacy switches the weather fetch honours)
+    come through a `TitleBarHost` context with defaults, and the pill and battery draw their popover through the
+    status bar's chrome context. The frame's `ThemeToggle` is its own copy, dismissing on Escape, outside press,
+    resize and blur; Studio keeps its layered one (its `use-dismiss` stack reads `ui-store`).
 
 ### K — The system monitor core [M · ~1d]
 

@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { useMetricsStore } from '../../store/metrics-store';
+import { useMetricsStore } from '../../../metrics/metrics-store';
 import { TitleBarBattery } from './battery-titlebar';
 
 describe('TitleBarBattery', () => {

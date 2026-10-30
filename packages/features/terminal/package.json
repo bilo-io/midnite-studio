@@ -2,17 +2,23 @@
   "name": "@midnite/studio-feature-terminal",
   "version": "0.0.5",
   "private": true,
-  "description": "The terminal panel as a feature (Phase 123 Theme E): the session list, every session's xterm, the panel store and its unload policy, behind a TerminalHost port. Placed in the frame: every midnite app composes it.",
+  "description": "The terminal panel as a feature (Phase 123 Theme E): the session list, every session's xterm, the panel store and its unload policy, behind a TerminalHost port, and the session list's main half (stores, service and its IPC handlers). Placed in the frame: every midnite app composes it.",
   "sideEffects": false,
   "exports": {
-    "./renderer": "./renderer/index.ts"
+    "./renderer": "./renderer/index.ts",
+    "./main": {
+      "types": "./dist/main/index.d.ts",
+      "default": "./dist/main/index.js"
+    }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -b tsconfig.main.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.main.json",
     "test": "vitest run"
   },
   "dependencies": {
     "@midnite/studio-frame": "workspace:*",
+    "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "@xterm/addon-fit": "^0.11.0",

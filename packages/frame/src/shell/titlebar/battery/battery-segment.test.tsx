@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { useMetricsStore } from '../../store/metrics-store';
+import { useMetricsStore } from '../../../metrics/metrics-store';
 import { BatterySegment } from './battery-segment';
 
 describe('BatterySegment', () => {
