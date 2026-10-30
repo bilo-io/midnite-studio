@@ -1,8 +1,10 @@
-import { useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 
 import { LuKeyboard, LuPalette } from 'react-icons/lu';
 import type { SuiteAppId } from '@midnite/studio-shared';
 
+import type { CommandRuntime } from '../commands/command-runtime';
+import { useKeybindings } from '../commands/use-keybindings';
 import { useAppearanceSync } from '../prefs/appearance-store';
 import { ChordsPage } from '../settings/chords-page';
 import { CHORDS_PAGE_ID, type SettingsPageDef } from '../settings/settings-pages';
@@ -41,6 +43,8 @@ export type SuiteAppShellProps = {
   /** The suite segments the app can honestly serve (a panel it lacks is absent, never a dead button). */
   statusPanels?: AppPanels;
   panels?: AppShellPanels;
+  /** Told whenever Settings opens or closes — an app with native views over the DOM hides them while it is open. */
+  onSettingsOpenChange?: (open: boolean) => void;
   /** Renders the active view; Settings is the shell's own. */
   children: (view: string) => ReactNode;
 };
@@ -61,11 +65,19 @@ export function SuiteAppShell({
   segments = [],
   statusPanels = {},
   panels,
+  onSettingsOpenChange,
   children,
 }: SuiteAppShellProps) {
   useAppearanceSync();
   const [ownView, setOwnView] = useState(home);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpenState] = useState(false);
+  const setSettingsOpen = useCallback(
+    (open: boolean) => {
+      setSettingsOpenState(open);
+      onSettingsOpenChange?.(open);
+    },
+    [onSettingsOpenChange],
+  );
   const current = view ?? ownView;
 
   const navigate = (next: string) => {
@@ -77,6 +89,13 @@ export function SuiteAppShell({
     if (onViewChange) onViewChange(next);
     else setOwnView(next);
   };
+
+  // `Mod+,` opens Settings (`view.settings`) in every suite app; only that command is this runtime's.
+  const runtime = useMemo<CommandRuntime>(
+    () => ({ 'view.settings': { enabled: true, run: () => setSettingsOpen(true) } }),
+    [setSettingsOpen],
+  );
+  useKeybindings(runtime);
 
   const all = [...suiteSegments(statusPanels), ...segments];
   return (

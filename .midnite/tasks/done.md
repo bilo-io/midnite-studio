@@ -15522,3 +15522,7 @@ J.4: `TitleBarStatus`, `TitleBarBattery` and a frame `ThemeToggle` moved to `pac
 ### Phase 123 Theme H (1/3) — Vanguard, Agents, Media and Gamer on the shell (2026-10-30)
 
 `SuiteAppShell` and `SuiteAppearancePage` in the frame; the four host apps render `AppShell` with their manifest nav and a Settings view (Appearance, Keyboard shortcuts, plus Vanguard's own page). Panels, mains and the status bar are still to do, so no checklist item is ticked; see the Headlines H paragraph.
+
+### Phase 123 Theme H (2/3) — Money, Mind and Browser on the shell (2026-10-30)
+
+Money, Mind and Browser render `SuiteAppShell` with their manifest nav and Settings; Mind's settings tab became an app page and Browser got a manifest and tools strip. `Mod+,` opens Settings in every suite app. Science has no app. The four settings-page extractions, panels and main registration are open, so no checklist item is ticked; see the Headlines H paragraph.

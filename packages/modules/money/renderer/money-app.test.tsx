@@ -65,7 +65,8 @@ describe('Money composition', () => {
 describe('Money home', () => {
   it('shows its own board — chart, watchlist, markets, allocation, news — framed as Money', async () => {
     render(<MoneyApp />);
-    expect(screen.getByText('Midnite Money')).toBeDefined();
+    expect(screen.getAllByText('Midnite Money').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
     for (const label of ['Chart', 'Cards', 'Watchlist', 'Markets', 'Allocation', 'News', 'Transactions']) {
       expect(screen.getByRole('region', { name: label })).toBeDefined();
     }

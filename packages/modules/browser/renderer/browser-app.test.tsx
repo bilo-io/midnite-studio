@@ -69,6 +69,18 @@ describe('BrowserApp', () => {
     await waitFor(() => expect(useBrowserStore.getState().tabs).toHaveLength(1));
   });
 
+  it('is framed as Midnite Browser by the suite shell: name, a Browse rail row, Settings with the suite pages', async () => {
+    render(<BrowserApp />);
+
+    expect(screen.getAllByText('Midnite Browser').length).toBeGreaterThan(0);
+    expect(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('link', { name: 'Browse' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    const settings = await screen.findByTestId('suite-settings');
+    expect(within(settings).getAllByText('Appearance').length).toBeGreaterThan(0);
+    // The DOM Settings view sits over the native views, so it counts as an occluder while open.
+    expect(browserUiStore.getState().occluders).toBeGreaterThan(0);
+  });
+
   it('offers nothing that only makes sense inside Studio: no layout picker, no close, no detach', () => {
     render(<BrowserApp />);
 

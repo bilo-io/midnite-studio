@@ -1,5 +1,4 @@
 import { useEffect, type ReactNode } from 'react';
-import { PiChartLineUpFill } from 'react-icons/pi';
 
 import {
   AccountsWidget,
@@ -12,8 +11,6 @@ import {
   TransactionsWidget,
   useFinanceStore,
 } from '@midnite/studio-feature-finance/renderer';
-
-import { MONEY_APP } from '../money-manifest';
 
 /** What the empty state says when the vault refuses Money the market-data key (or holds none). */
 export const GRANT_HINT =
@@ -28,8 +25,8 @@ function Card({ label, className = '', children }: { label: string; className?: 
 }
 
 /**
- * What Money shows on open — its own portfolio and markets board, not Studio's dashboard: the
- * accent mark and name, the timescale and currency controls, then the finance feature's cards.
+ * What Money shows in the shell — its own portfolio and markets board, not Studio's dashboard: the
+ * timescale and currency controls, then the finance feature's cards (the name and mark are the shell's).
  * Whether the market-data key is readable is asked of main (`secrets.has`, a boolean); the key
  * itself never reaches this window.
  */
@@ -43,19 +40,9 @@ export function MoneyHome() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <span
-          aria-hidden
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
-          style={{ backgroundColor: MONEY_APP.accent }}
-        >
-          <PiChartLineUpFill className="h-4 w-4" />
-        </span>
-        <p className="text-sm font-semibold leading-tight">{MONEY_APP.name}</p>
-        <div className="ml-auto">
-          <FinanceHeaderControls />
-        </div>
-      </header>
+      <div className="flex items-center justify-end border-b border-border px-4 py-2">
+        <FinanceHeaderControls />
+      </div>
       <main className="min-h-0 flex-1 overflow-auto p-4" aria-label="Money">
         {hydrated && !keyConfigured ? (
           <p role="status" className="mb-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">

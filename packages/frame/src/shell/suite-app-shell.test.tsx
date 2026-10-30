@@ -55,4 +55,14 @@ describe('SuiteAppShell', () => {
     expect(screen.queryByRole('contentinfo')).toBeNull();
     expect(screen.queryByTestId('status-bar')).toBeNull();
   });
+
+  it('opens Settings on Mod+, and says so through onSettingsOpenChange', () => {
+    const seen: boolean[] = [];
+    renderShell({ onSettingsOpenChange: (open) => seen.push(open) });
+    fireEvent.keyDown(window, { key: ',', code: 'Comma', ctrlKey: true });
+    expect(screen.getByTestId('suite-settings')).toBeTruthy();
+    expect(seen).toEqual([true]);
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('link', { name: 'One' }));
+    expect(seen).toEqual([true, false]);
+  });
 });

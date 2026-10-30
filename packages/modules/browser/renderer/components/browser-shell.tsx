@@ -21,8 +21,8 @@ function KitSurfacesOcclude() {
 }
 
 /**
- * Midnite Browser's window: the browser feature's pane, full-window, with the web apps on a rail beside
- * it and the agent-session strip above it (#853's three settled pieces).
+ * Midnite Browser's page inside the suite shell (Phase 123 Theme H): the browser feature's pane, with a tools
+ * strip (agent session, web apps) and the agent-session strip above it (#853's three settled pieces).
  *
  * - **The pane** is Studio's `BrowserPane` — the same tab strip, toolbar, new-tab page, find bar and
  *   native views — told by the host that it is the whole window (`standalone`), so it offers no layout
@@ -95,9 +95,9 @@ export function BrowserShell() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+    <div className="flex h-full min-w-0 flex-col overflow-hidden bg-background text-foreground">
       <KitSurfacesOcclude />
-      <nav aria-label="Browser rail" className="flex w-11 shrink-0 flex-col items-center gap-2 border-r border-border bg-card/40 py-2">
+      <div role="toolbar" aria-label="Browser tools" className="flex shrink-0 items-center gap-2 border-b border-border bg-card/40 px-2 py-1">
         <IconButton
           icon={LuBot}
           label={agentActive ? 'Stop Agent Session' : 'Start Agent Session'}
@@ -105,18 +105,16 @@ export function BrowserShell() {
           aria-pressed={agentActive}
           onClick={toggleAgent}
         />
-        <div className="mt-auto flex flex-col items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <WebAppsRailRow />
           <IconButton icon={LuLayoutGrid} label="Web apps" size="sm" onClick={webAppsMenu} />
         </div>
-      </nav>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <AgentSessionBar />
-        <main className="relative min-h-0 flex-1">
-          <BrowserPane shown={webAppId === null} />
-          {webAppId !== null ? <WebAppView appId={webAppId} /> : null}
-        </main>
       </div>
+      <AgentSessionBar />
+      <main className="relative min-h-0 flex-1">
+        <BrowserPane shown={webAppId === null} />
+        {webAppId !== null ? <WebAppView appId={webAppId} /> : null}
+      </main>
     </div>
   );
 }
