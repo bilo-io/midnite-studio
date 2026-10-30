@@ -830,3 +830,9 @@ The detector's discount for code spans and quotation marks is bypassable by wrap
 - **Chat model pins are Claude-only**, because `loopModelArgs` only knows `--model` for `claude`; Codex and Agy turns have nothing to mismatch against.
 - **Ollama library search is not behind a switch yet**: Phase 115 Theme A is not on `main`. Digest checks make no network call, so nothing was added.
 - **Digest pins are not cleaned** when a model is deleted, and the Agents app does not configure the digest ledger.
+
+- **Phase 124 G.5 — a final release for each retired app.** Deferred on purpose when Theme H deleted
+  `apps/{coder,creator,cleaner,vault,monitor,capture}`: an existing install of one gets no notice that its app
+  moved into Agents, Vanguard or Mind, and its feed stays frozen at its last version. A final release whose notes
+  point to the host can still be cut later from `e64bcf62f13deee8d5918e79412e20d4d5ba7c5e` (origin/main at the time Theme H branched), the last commit
+  that still has the six apps. Cut it from that commit, never from a newer one.
