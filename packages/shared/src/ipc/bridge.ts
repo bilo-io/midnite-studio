@@ -108,6 +108,12 @@ export type WindowChromeBridge = {
   onFullscreenChange: (handler: (fullscreen: boolean) => void) => Unsubscribe;
   onFocusChange: (handler: (focused: boolean) => void) => Unsubscribe;
   setBackgroundColor: (color: string) => void;
+  /**
+   * Double-click on the title bar's drag region (a frameless window has no native bar for macOS to zoom
+   * from). Main maximises or restores, and ignores it in full screen. Optional: Studio's own preload and
+   * a browser host may omit it.
+   */
+  toggleMaximize?: () => void;
 };
 
 /**

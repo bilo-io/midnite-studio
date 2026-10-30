@@ -24,5 +24,6 @@ export function createWindowChromeBridge(
     onFocusChange: (handler) =>
       subscribe<{ focused: boolean }>(EVENT_CHANNELS.windowStateChanged, (s) => handler(s.focused)),
     setBackgroundColor: (color) => send(CHANNELS.windowSetBackground, color),
+    toggleMaximize: () => send(CHANNELS.windowMaximizeToggle),
   };
 }

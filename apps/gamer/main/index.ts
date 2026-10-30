@@ -27,7 +27,7 @@ import { GAMER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, gamerUserData, gamerVaultD
 import { installGamerHostFileProtocol, registerGamerHost } from './host';
 import { reportMenuTemplate } from './report';
 import { gamerPairing } from './pairing';
-import { bindMetricsToWindow, registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
+import { bindMetricsToWindow, registerSuiteMain, suiteRuntimeDirectory, suiteWindowOptions, type SuiteMain } from '@midnite/studio-runtime';
 import { registerSuiteMonitor, type MetricsService } from '@midnite/studio-feature-monitor/main';
 
 /**
@@ -267,6 +267,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 }
 
 function openWindow(): void {
+  // Frameless where the platform allows (Phase 123 Theme A): the shell's title bar is the drag region.
+  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform);
   win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -274,7 +276,9 @@ function openWindow(): void {
     minHeight: 560,
     title: GAMER_NAME,
     show: false,
+    ...frame,
     webPreferences: {
+      additionalArguments,
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,

@@ -40,7 +40,7 @@ import { CAPTURE_OVERLAY_ARG, MSTUDIO_FILE_SCHEME } from '@midnite/studio-shared
 import { registerMindHost } from './host';
 import { MIND_NAME, SMOKE_READY_LINE, USER_DATA_ENV, mindUserData, isSmoke } from './identity';
 import { registerReport, reportMenuTemplate } from './report';
-import { bindMetricsToWindow, registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
+import { bindMetricsToWindow, registerSuiteMain, suiteRuntimeDirectory, suiteWindowOptions, type SuiteMain } from '@midnite/studio-runtime';
 import { registerSuiteMonitor, type MetricsService } from '@midnite/studio-feature-monitor/main';
 
 /**
@@ -228,6 +228,8 @@ function openOverlayWindow(options: Record<string, unknown>): CaptureOverlayBrow
 }
 
 function openWindow(): void {
+  // Frameless where the platform allows (Phase 123 Theme A): the shell's title bar is the drag region.
+  const { additionalArguments, ...frame } = suiteWindowOptions(process.platform);
   win = new BrowserWindow({
     width: 1100,
     height: 760,
@@ -235,7 +237,9 @@ function openWindow(): void {
     minHeight: 480,
     title: MIND_NAME,
     show: false,
+    ...frame,
     webPreferences: {
+      additionalArguments,
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,

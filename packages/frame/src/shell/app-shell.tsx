@@ -8,6 +8,7 @@ import { LuSettings } from 'react-icons/lu';
 import { bridge } from '../bridge';
 import { CONTENT_BOX } from '../layout/content-box';
 import { appLogoUrl } from './app-logo';
+import { TitleBarDoubleClick } from './title-bar-double-click';
 import { TitleBarCluster } from './titlebar/titlebar-cluster';
 import { SETTINGS_VIEW, navChordFor, pathForNavView, type NavConfig } from './nav-config';
 import { APP_ACCENT_ACTIVE_CLASS, createViewLink, type ViewLinkOptions, type ViewLinkTooltip } from './view-link';
@@ -173,12 +174,14 @@ function AppShellFrame({
   );
 
   const titleBar = (
-    <TitleBar
-      className="titlebar-root"
-      windowChrome={windowChrome}
-      left={<span className="truncate text-xs font-medium text-muted-foreground">{name}</span>}
-      right={rightCluster}
-    />
+    <TitleBarDoubleClick windowChrome={windowChrome}>
+      <TitleBar
+        className="titlebar-root"
+        windowChrome={windowChrome}
+        left={<span className="truncate text-xs font-medium text-muted-foreground">{name}</span>}
+        right={rightCluster}
+      />
+    </TitleBarDoubleClick>
   );
 
   const Terminal = panels?.terminal;

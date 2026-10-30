@@ -70,10 +70,19 @@ Scope guardrails:
 
 ## Headlines
 
-**Theme A — A frameless window for every app.** ◐ PARTIAL (helpers landed, PR pending) `packages/runtime/src/app-main/suite-window.ts` exports
-`suiteWindowOptions(platform)` and `attachWindowChrome(win, send)` over a structural window type (the runtime
-never imports `electron`); each app spreads the options into its own `new BrowserWindow` and its preload
-exposes the same `windowChrome` slice Studio's does. Landed: `suite-window.ts` (`suiteWindowOptions`, `windowFrameless`, `attachWindowChrome`, `toggleMaximize`, `TRAFFIC_LIGHT_POSITION`) and `window-chrome-preload.ts` (`createWindowChromeBridge`) in the runtime, with Studio's desktop `window-chrome.ts` and preload now thin callers of them (behaviour unchanged). `ChromeableWindow` also carries `isFocused`/`isDestroyed`, which the state push needs. **Left open:** no app's own `BrowserWindow` or preload adopts the options yet — a frameless window with no renderer-drawn title bar has no drag region, so wiring each app waits for Theme B/H (as does the double-click e2e and the per-app security assertion).
+**Theme A — A frameless window for every app.** ✅ Every app that renders `SuiteAppShell` (Vanguard, Agents, Media,
+Gamer, Money, Mind, Browser) now opens frameless on macOS: its `openWindow` spreads `suiteWindowOptions(process.platform)`
+(`titleBarStyle: 'hidden'`, the traffic-light inset) and merges its `--mstudio-frameless` argument into
+`webPreferences.additionalArguments`, so the preload's `windowChrome.frameless` is true and the shell's `TitleBar` is the
+drag region. The helpers (`suite-window.ts`, `window-chrome-preload.ts`) landed earlier; this PR adopts them. Landed:
+the six `apps/<id>/main/index.ts` edits; Vanguard's options extracted into `apps/vanguard/main/window-options.ts` (no
+`electron` import) so a test asserts the `suiteWindowOptions` keys alongside `sandbox: true`, `contextIsolation: true`,
+`nodeIntegration: false`; and the double-click. **Surprise:** `@bilo-io/shell`'s `TitleBar` already drops the inset in full
+screen (via `onFullscreenChange`) but has no double-click, and Studio had none either, so `TitleBarDoubleClick` in the frame
+wraps the bar (`display: contents`), ignores clicks on a control and, in full screen, does nothing; it calls the new optional
+`WindowChromeBridge.toggleMaximize`, which `createWindowChromeBridge` sends as `windowMaximizeToggle` (main's
+`toggleMaximize` already no-ops in full screen). **Decision:** the retired apps (vault, monitor, cleaner, capture, coder,
+creator) are untouched, since Phase 124 deletes them. Unit-tested in vitest; the Playwright double-click e2e is Theme I.1's.
 
 **Theme B — The shared shell.** ✅ `AppShell` in `packages/frame/src/shell/`: `ShellProviders` + `TitleBar` +
 `AppFrame` from `@bilo-io/shell`, the app's logo and name, a nav built from the manifest's new `nav` field with
@@ -195,8 +204,8 @@ and `attachWindow` for the fullscreen/focus events) and `createSuiteBridge` (the
 preload slices), with `suiteRuntimeDirectory` for the throwaway-profile path. All seven apps that render
 `SuiteAppShell` (Vanguard, Agents, Media, Gamer, Money, Mind, Browser) now register the first in their main and
 spread the second into their `unionBridgeSlices` preload, so a theme change in one reaches the rest and the title
-bar sees fullscreen and focus. Their windows stay framed: `suiteWindowOptions` is Theme A's open item, and the shell
-already draws a native-frame title bar when `frameless` is false. Each app's preload build aliases the shared barrel to
+bar sees fullscreen and focus. Their windows opened framed until Theme A adopted `suiteWindowOptions`; the shell
+still draws a native-frame title bar when `frameless` is false. Each app's preload build aliases the shared barrel to
 `channels.ts` (the slices read channel names only), so the zod schemas stay out of the preload. The frame gets `SuiteMonitorPage` (readouts shown and refresh
 interval, on the `monitor` group), which Studio's Monitor & Diagnostics page now reuses for its first half, and
 `suiteAppSettingsPages(statusPanels)` lists it only for an app whose bar has a monitor segment. **Decision:**
@@ -319,12 +328,12 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
   adds `windowChrome: createWindowChromeBridge(...)` to its bridge.
   - *Done when* a test asserts `frameless` is `true` for `--mstudio-frameless=1`, `false` for `=0` **and for a
     missing argument** (a framed window must never lose its native title bar to a missing flag).
-- [ ] **Full-screen and double-click.** Entering full screen drops the traffic-light inset (the `TitleBar`
+- [x] **Full-screen and double-click.** Entering full screen drops the traffic-light inset (the `TitleBar`
   reads `onFullscreenChange`); double-clicking the drag region calls `windowMaximizeToggle`, a no-op in full
   screen. No `systemPreferences` / `AppleActionOnDoubleClick` read — Studio doesn't today, and matching it is
   the goal.
   - *Done when* the e2e in I.1 double-clicks Vanguard's title bar and asserts the window's maximised state flips.
-- [ ] **Security stays per app.** Each app keeps `sandbox: true`, `contextIsolation: true`,
+- [x] **Security stays per app.** Each app keeps `sandbox: true`, `contextIsolation: true`,
   `nodeIntegration: false`, `devTools: devToolsAllowed(app.isPackaged)` and its existing `guardAppWindow`
   call. The options helper sets none of them, so it cannot weaken them.
   - *Done when* one app's main test (Vanguard) asserts its `BrowserWindow` options contain both the
