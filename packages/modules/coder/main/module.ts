@@ -38,6 +38,8 @@ export const coderModuleMain = defineFeatureMain<CoderModuleServices>({
   feature: 'coder',
   channels: [
     ...reportMain.channels,
+    // `report.error` is a one-way channel: the feature's `channels` list only the invoke ones.
+    CHANNELS.reportError,
     ...forgeMain.channels,
     ...testsMain.channels,
     ...apiClientMain.channels,

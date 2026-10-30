@@ -25,6 +25,8 @@ export const agentsModuleMain = defineFeatureMain<AgentsModuleServices>({
   feature: 'agents',
   channels: [
     ...reportMain.channels,
+    // `report.error` is a one-way channel: the feature's `channels` list only the invoke ones.
+    CHANNELS.reportError,
     ...modelsMain.channels,
     ...chatsMain.channels,
     ...councilsMain.channels,

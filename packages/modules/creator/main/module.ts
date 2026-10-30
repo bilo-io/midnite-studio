@@ -5,6 +5,7 @@ import { mediaImagesMain } from '@midnite/studio-feature-media-images/main';
 import { mediaVideoMain } from '@midnite/studio-feature-media-video/main';
 import { reportMain } from '@midnite/studio-feature-report/main';
 import { defineFeatureMain } from '@midnite/studio-runtime';
+import { CHANNELS } from '@midnite/studio-shared';
 
 import { registerCreatorOn, type CreatorElectron } from './context';
 
@@ -25,6 +26,8 @@ export const creatorModuleMain = defineFeatureMain<CreatorModuleServices>({
   feature: 'creator',
   channels: [
     ...reportMain.channels,
+    // `report.error` is a one-way channel: the feature's `channels` list only the invoke ones.
+    CHANNELS.reportError,
     ...mediaCoreMain.channels,
     ...mediaDocsMain.channels,
     ...mediaImagesMain.channels,

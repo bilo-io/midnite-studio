@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs';
+import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -8,10 +9,13 @@ import {
   dialog,
   ipcMain,
   Menu,
+  powerMonitor,
   shell,
+  utilityProcess,
   type MenuItemConstructorOptions,
 } from 'electron';
 
+import type { ScriptWorkerHandle } from '@midnite/studio-feature-api-client/main';
 import {
   buildSuiteMenuTemplate,
   createFileSink,
@@ -21,7 +25,9 @@ import {
 } from '@midnite/studio-runtime';
 import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
-import { registerAgentsHandlers } from '@midnite/studio-module-agents/main';
+import type { FfmpegStatus } from '@midnite/studio-shared';
+
+import { registerAgentsHost } from './host';
 import { AGENTS_NAME, SMOKE_READY_LINE, USER_DATA_ENV, isSmoke, agentsUserData, agentsVaultDirectory } from './identity';
 import { agentsPairing } from './pairing';
 
@@ -32,6 +38,34 @@ import { agentsPairing } from './pairing';
  * cloud key is read here from the runtime vault, as `agents`, and never leaves this process.
  */
 const smoke = isSmoke(process.env);
+
+const FFMPEG_CANDIDATES = ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'];
+async function ffmpegStatus(): Promise<FfmpegStatus> {
+  for (const path of FFMPEG_CANDIDATES) {
+    try {
+      await access(path);
+      return { found: true, path, version: null };
+    } catch {
+      // try the next
+    }
+  }
+  return { found: false, reason: 'ffmpeg was not found. Install it with Homebrew to enable exports.' };
+}
+
+/** A hidden, script-less window prints a doc's standalone HTML (Creator's Docs export). */
+async function printToPdf(htmlFile: string): Promise<Buffer> {
+  const printer = new BrowserWindow({
+    show: false,
+    webPreferences: { sandbox: true, javascript: false, contextIsolation: true, nodeIntegration: false },
+  });
+  try {
+    await printer.loadFile(htmlFile);
+    return await printer.webContents.printToPDF({ printBackground: true, pageSize: 'A4' });
+  } finally {
+    printer.destroy();
+  }
+}
+
 const override = process.env[USER_DATA_ENV];
 let win: BrowserWindow | null = null;
 
@@ -77,7 +111,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     );
     const vaultDirectory = agentsVaultDirectory(app.getPath('appData'), override);
     mkdirSync(vaultDirectory, { recursive: true });
-    const handlers = registerAgentsHandlers({
+    const handlers = registerAgentsHost({
       ipcMain,
       report: reportServices,
       trashItem: (path) => shell.trashItem(path),
@@ -93,9 +127,67 @@ if (!smoke && !app.requestSingleInstanceLock()) {
         const picked = win !== null && !win.isDestroyed() ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
         return picked.canceled || !picked.filePath ? null : picked.filePath;
       },
+      // The Coder module (Phase 124 Theme E.3): its repository picker, windows, native dialogs and script worker.
+      coder: {
+        // The agent-run hand-off's link: main's opener only ever passes a re-parsed `midnite://open` here.
+        openExternal: (url) => shell.openExternal(url),
+        pickDirectory: async () => {
+          const options = { title: 'Add a repository', properties: ['openDirectory' as const] };
+          const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+          return result.canceled ? null : (result.filePaths[0] ?? null);
+        },
+        senderWindowId: (event) => {
+          const sender = (event as { sender?: Electron.WebContents }).sender;
+          return sender ? (BrowserWindow.fromWebContents(sender)?.id ?? null) : null;
+        },
+        onWindowClosed: (windowId, fn) => BrowserWindow.fromId(windowId)?.once('closed', fn),
+        windows: {
+          anyWindowVisible: () => BrowserWindow.getAllWindows().some((w) => w.isVisible() && !w.isMinimized()),
+          idleState: () => powerMonitor.getSystemIdleState(60),
+        },
+        dialogs: {
+          // The native pickers; the renderer never names a path, only an outcome comes back.
+          pickFile: async ({ title, filters }) => {
+            const options = { title, properties: ['openFile' as const], ...(filters ? { filters } : {}) };
+            const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+            return picked.canceled ? null : (picked.filePaths[0] ?? null);
+          },
+          pickSavePath: async ({ title, defaultPath }) => {
+            const options = { title, ...(defaultPath ? { defaultPath } : {}) };
+            const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+            return picked.canceled || !picked.filePath ? null : picked.filePath;
+          },
+        },
+        // The sandboxed `pm.*` script runner is its own OS process, built beside this bundle and killed on quit.
+        scriptWorker: () =>
+          utilityProcess.fork(join(__dirname, 'script-runner-worker.cjs'), [], {
+            serviceName: 'midnite-agents-script-runner',
+            stdio: 'ignore',
+          }) as unknown as ScriptWorkerHandle,
+        // eslint-disable-next-line no-console
+        warn: (message) => console.warn(`[agents] ${message}`),
+      },
+      // The Creator module: media under `<userData>/media`, its dialogs, printing and ffmpeg.
+      creator: {
+        videoTemplateRoot: join(__dirname, 'templates', 'media-video'),
+        openPath: (target) => shell.openPath(target),
+        revealPath: (target) => shell.showItemInFolder(target),
+        pickSavePath: async (options) => {
+          const picked = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options);
+          return picked.canceled || !picked.filePath ? null : picked.filePath;
+        },
+        pickImportFiles: async (options) => {
+          const dialogOptions = { ...options, properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'> };
+          const picked = win ? await dialog.showOpenDialog(win, dialogOptions) : await dialog.showOpenDialog(dialogOptions);
+          return picked.canceled ? null : picked.filePaths;
+        },
+        printToPdf,
+        ffmpegStatus,
+      },
     });
     // A council member's or script node's shell is its own process group, so it would outlive Agents unless
-    // killed here, and an in-flight workflow run must be cancelled so its node's process group dies with it.
+    // killed here, and an in-flight workflow run must be cancelled so its node's process group dies with it
+    // (as are Coder's collection runs and script worker and Creator's video renders, mounted in the same host).
     // Quit is held once while that finishes (a few ms; the run's own cancel poll is bounded), then finished
     // with `app.exit` — a second `app.quit()` after a prevented `will-quit` is ignored by Electron.
     let disposed = false;
@@ -103,7 +195,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       if (disposed) return;
       event.preventDefault();
       disposed = true;
-      void handlers.dispose().finally(() => app.exit(0));
+      void handlers.shutdown().finally(() => app.exit(0));
     });
     openWindow();
   });
