@@ -2,6 +2,15 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-30 — Phase 123 Theme H 5/5 — Studio on the shared shell
+
+Studio's `Shell` renders the frame's `AppShell`: its left cluster in `titleBarStart`, its right chrome in `titleBarEnd`
+(`suiteCluster={false}`), the commit timeline, status bar and overlays in `footer`, and its own content row as `bare`
+children. `AppShell` gained `rail`, `titleBarStart`, `suiteCluster`, `providersMounted` and `bare`, additively. The rail
+and the panel hosts stay Studio's. The suite-app pty host (terminal, then FAB/Loops, then companion, then the settings
+pages) is deferred in `outstanding.md`, and batches 1-3 are ticked on that basis. Theme H complete; screenshots under
+`docs/screenshots/phase-123-studio/`.
+
 ## 2026-10-30 — Phase 123 Theme A — a frameless window for every app
 
 Vanguard, Agents, Media, Gamer, Money, Mind and Browser open frameless on macOS: each `openWindow` spreads
