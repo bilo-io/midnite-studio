@@ -2,7 +2,7 @@
 import { LuShield } from 'react-icons/lu';
 import { describe, expect, it } from 'vitest';
 
-import { displayChord, navChordFor, navConfigProblems, navFromGroups, navViewForPath, pathForNavView } from './nav-config';
+import { displayChord, navChordFor, navConfigProblems, navFromGroups, navFromModules, navViewForPath, pathForNavView } from './nav-config';
 
 describe('nav config', () => {
   it('accepts a sound nav', () => {
@@ -57,6 +57,14 @@ describe('nav groups (Phase 124 Theme E)', () => {
       { id: 'coder', label: 'Coder', icon: (() => null) as never, views: [view('reviews'), view('tests')] },
     ]);
     expect(nav.views.map((v) => v.id)).toEqual(['chats', 'reviews', 'tests']);
+    expect(navConfigProblems(nav)).toEqual([]);
+  });
+
+  it('navFromModules keeps the host row order and skips modules with no group yet', () => {
+    const g = (id: string) => ({ id, label: id, icon: (() => null) as never, views: [view(id + '-home')] });
+    const nav = navFromModules(['agents', 'coder', 'creator'], { creator: g('creator'), agents: g('agents') });
+    expect(nav.groups?.map((x) => x.id)).toEqual(['agents', 'creator']);
+    expect(nav.views.map((v) => v.id)).toEqual(['agents-home', 'creator-home']);
     expect(navConfigProblems(nav)).toEqual([]);
   });
 

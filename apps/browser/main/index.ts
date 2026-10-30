@@ -29,7 +29,7 @@ import {
 } from '@midnite/studio-runtime';
 import { reportIssueMenuItem } from '@midnite/studio-feature-report/main';
 
-import { registerBrowserAppHandlers } from './context';
+import { registerBrowserAppHandlers } from '@midnite/studio-module-browser/main';
 import { BROWSER_NAME, browserUserData, isSmoke, SMOKE_READY_LINE, USER_DATA_ENV } from './identity';
 
 /**

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { createGamerBridge } from './bridge';
+import { createGamerBridge } from '@midnite/studio-module-gamer/bridge';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Gamer exposes the slice it needs.
 try {

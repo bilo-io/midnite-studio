@@ -23,6 +23,7 @@
     "@midnite/studio-feature-report": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
+    "@midnite/studio-module-gamer": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",
     "@midnite/studio-shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.30.0",

@@ -10,6 +10,9 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', '@tanstack/react-query'],
     alias: {
+      '@midnite/studio-module-gamer/bridge': at('../../packages/modules/gamer/main/bridge.ts'),
+      '@midnite/studio-module-gamer/main': at('../../packages/modules/gamer/main/index.ts'),
+      '@midnite/studio-module-gamer/renderer': at('../../packages/modules/gamer/renderer/index.ts'),
       '@midnite/studio-shared/ipc/channels': at('../../packages/shared/src/ipc/channels.ts'),
       '@midnite/studio-runtime/app-main/bridge-slice': at('../../packages/runtime/src/app-main/bridge-slice.ts'),
       '@midnite/studio-runtime/agent-run/run-shim': at('../../packages/runtime/src/agent-run/run-shim.ts'),

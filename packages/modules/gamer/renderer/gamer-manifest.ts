@@ -4,7 +4,10 @@ import { mediaMapManifest, mediaMapTab } from '@midnite/studio-feature-media-map
 import { mediaModelManifest, mediaModelTab } from '@midnite/studio-feature-media-model/renderer';
 import { mediaSpriteManifest, mediaSpriteTab } from '@midnite/studio-feature-media-sprite/renderer';
 import { mediaTerrainManifest, mediaTerrainTab } from '@midnite/studio-feature-media-terrain/renderer';
-import type { MediaTabDescriptor, NavConfig } from '@midnite/studio-frame';
+import { navFromModules, type MediaTabDescriptor, type NavConfig } from '@midnite/studio-frame';
+import { APP_MODULES } from '@midnite/studio-shared';
+import { PiGameControllerFill } from 'react-icons/pi';
+import { gamerManifest } from '../manifest';
 
 /** The tabs Gamer registers with its `MediaShell`, in strip order (`MEDIA_TABS`'s: the Models tab sits before Sprites). */
 export const GAMER_TABS: readonly MediaTabDescriptor[] = [mediaGameTab, mediaMapTab, mediaTerrainTab, mediaModelTab, mediaSpriteTab];
@@ -15,6 +18,15 @@ export const GAMER_TABS: readonly MediaTabDescriptor[] = [mediaGameTab, mediaMap
  * the rail's foot. `panels` is absent, so the app carries every panel (decision 12).
  */
 const GAMER_NAV: NavConfig = { views: GAMER_TABS.map(({ id, label, icon }) => ({ id, label, icon })) };
+
+/**
+ * The rail, derived from `APP_MODULES.gamer` (Phase 124 Theme E.2): one titled group per module the host mounts,
+ * this module's views beneath. Modules the host does not mount yet have no entry, so wiring one in (E.3) adds
+ * its group here and nothing else.
+ */
+const GAMER_HOST_NAV: NavConfig = navFromModules(APP_MODULES.gamer, {
+  gamer: { id: 'gamer', label: gamerManifest.label, icon: PiGameControllerFill, accent: gamerManifest.accent, views: GAMER_NAV.views },
+});
 
 /**
  * Gamer's app manifest — pure data (Phase 113 Theme S).
@@ -38,7 +50,7 @@ export const GAMER_APP = {
     mediaModelManifest.feature,
     mediaSpriteManifest.feature,
   ],
-  nav: GAMER_NAV,
+  nav: GAMER_HOST_NAV,
 } as const;
 
 export type GamerApp = typeof GAMER_APP;
