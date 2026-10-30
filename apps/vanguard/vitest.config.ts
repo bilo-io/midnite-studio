@@ -11,6 +11,12 @@ export default defineConfig({
       '@midnite/studio-module-vanguard/bridge': at('../../packages/modules/vanguard/main/bridge.ts'),
       '@midnite/studio-module-vanguard/main': at('../../packages/modules/vanguard/main/index.ts'),
       '@midnite/studio-module-vanguard/renderer': at('../../packages/modules/vanguard/renderer/index.ts'),
+      '@midnite/studio-module-vault/renderer': at('../../packages/modules/vault/renderer/index.ts'),
+      '@midnite/studio-module-cleaner/renderer': at('../../packages/modules/cleaner/renderer/index.ts'),
+      '@midnite/studio-module-monitor/renderer': at('../../packages/modules/monitor/renderer/index.ts'),
+      '@midnite/studio-feature-vault/renderer': at('../../packages/features/vault/renderer/index.ts'),
+      '@midnite/studio-feature-optimizer/renderer': at('../../packages/features/optimizer/renderer/index.ts'),
+      '@midnite/studio-feature-monitor/renderer': at('../../packages/features/monitor/renderer/index.ts'),
       '@midnite/studio-module-vault/bridge': at('../../packages/modules/vault/main/bridge.ts'),
       '@midnite/studio-module-vault/main': at('../../packages/modules/vault/main/index.ts'),
       '@midnite/studio-module-cleaner/bridge': at('../../packages/modules/cleaner/main/bridge.ts'),
@@ -38,5 +44,6 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.{ts,tsx}', 'main/**/*.test.ts'],
     environment: 'jsdom',
+    setupFiles: [at('../../packages/frame/src/vitest-setup.ts')],
   },
 });

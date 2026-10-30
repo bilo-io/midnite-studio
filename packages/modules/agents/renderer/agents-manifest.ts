@@ -2,7 +2,7 @@ import { chatsManifest } from '@midnite/studio-feature-chats/renderer';
 import { councilsManifest } from '@midnite/studio-feature-councils/renderer';
 import { modelsManifest } from '@midnite/studio-feature-models/renderer';
 import { workflowsManifest } from '@midnite/studio-feature-workflows/renderer';
-import { navFromModules, type NavConfig } from '@midnite/studio-frame';
+import { navFromModules, type NavConfig, type NavGroup } from '@midnite/studio-frame';
 import { LuBox, LuMessagesSquare, LuScrollText, LuUsers, LuWorkflow, LuWrench } from 'react-icons/lu';
 import { APP_MODULES } from '@midnite/studio-shared';
 import { PiRobotFill } from 'react-icons/pi';
@@ -29,9 +29,16 @@ const AGENTS_NAV: NavConfig = {
  * this module's views beneath. Modules the host does not mount yet have no entry, so wiring one in (E.3) adds
  * its group here and nothing else.
  */
-const AGENTS_HOST_NAV: NavConfig = navFromModules(APP_MODULES.agents, {
-  agents: { id: 'agents', label: agentsManifest.label, icon: PiRobotFill, accent: agentsManifest.accent, views: AGENTS_NAV.views },
-});
+/** This module's nav group (Phase 124 Theme E.3): a host composes it beside the groups of the modules it mounts. */
+export const AGENTS_NAV_GROUP: NavGroup = {
+  id: 'agents',
+  label: agentsManifest.label,
+  icon: PiRobotFill,
+  accent: agentsManifest.accent,
+  views: AGENTS_NAV.views,
+};
+
+const AGENTS_HOST_NAV: NavConfig = navFromModules(APP_MODULES.agents, { agents: AGENTS_NAV_GROUP });
 
 /**
  * Agents' app manifest — pure data (Phase 113 Theme N).

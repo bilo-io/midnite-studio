@@ -1,5 +1,7 @@
 import { vaultManifest } from '@midnite/studio-feature-vault/renderer';
-import type { NavConfig } from '@midnite/studio-frame';
+import type { NavConfig, NavGroup } from '@midnite/studio-frame';
+import { PiVaultFill } from 'react-icons/pi';
+import { vaultManifest as vaultModuleManifest } from '../manifest';
 import { LuKeyRound } from 'react-icons/lu';
 
 /**
@@ -32,3 +34,15 @@ export const VAULT_APP = {
 } as const;
 
 export type VaultApp = typeof VAULT_APP;
+
+/**
+ * This module's nav group in a host's rail (Phase 124 Theme E.3): one row, since the page keeps its own tabs.
+ * A host composes it with `navFromModules`; the module's accent shows on the group label only.
+ */
+export const VAULT_NAV_GROUP: NavGroup = {
+  id: 'vault',
+  label: vaultModuleManifest.label,
+  icon: PiVaultFill,
+  accent: vaultModuleManifest.accent,
+  views: [{ id: 'vault', label: 'Vault', icon: PiVaultFill }],
+};

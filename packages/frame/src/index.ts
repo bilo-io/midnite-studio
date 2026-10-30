@@ -21,6 +21,8 @@ export { AppShell, type AppShellPanels, type AppShellProps } from './shell/app-s
 export {
   SETTINGS_VIEW,
   displayChord,
+  firstViewOfModule,
+  moduleOfView,
   navChordFor,
   navConfigProblems,
   navFromGroups,
@@ -562,4 +564,6 @@ export {
 export { SettingsView, type SettingsViewProps } from './settings/settings-view';
 export { SuiteAppearancePage } from './settings/suite-appearance-page';
 export { MonitorMetricsSection, SuiteMonitorPage } from './settings/suite-monitor-page';
+export { useSyncedView } from './shell/use-synced-view';
+export { ModuleViewRouter, type ModulePane } from './shell/module-view-router';
 export { SuiteAppShell, SUITE_APP_SETTINGS_PAGES, suiteAppSettingsPages, type SuiteAppShellProps } from './shell/suite-app-shell';

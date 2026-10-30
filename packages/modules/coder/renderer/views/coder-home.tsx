@@ -130,9 +130,12 @@ function RepoList() {
 /**
  * What Coder shows on open — Reviews, with Actions and Tests beside it as tabs: the accent mark and
  * name, the view tabs and the review-actions switch, the repository list, then the active view.
+ * With `embeddedView` (a host's rail row, Phase 124 Theme E.3) the view is the rail's, so the header keeps
+ * only the review-actions switch.
  */
-export function CoderHome() {
-  const view = useCoderStore((s) => s.view);
+export function CoderHome({ embeddedView }: { embeddedView?: CoderViewId } = {}) {
+  const storedView = useCoderStore((s) => s.view);
+  const view = embeddedView ?? storedView;
   const setView = useCoderStore((s) => s.setView);
   const writesEnabled = useCoderStore((s) => s.writesEnabled);
   const setWritesEnabled = useCoderStore((s) => s.setWritesEnabled);
@@ -140,6 +143,14 @@ export function CoderHome() {
   const Active = useMemo(() => VIEWS[view], [view]);
   return (
     <div className="flex h-full flex-col">
+      {embeddedView !== undefined ? (
+        <header className="flex items-center justify-end border-b border-border px-4 py-1.5">
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <input type="checkbox" checked={writesEnabled} onChange={(e) => setWritesEnabled(e.target.checked)} />
+            Review actions
+          </label>
+        </header>
+      ) : (
       <header className="flex items-center gap-3 border-b border-border px-4 py-2.5">
         <span aria-hidden className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ backgroundColor: coderManifest.accent }}>
           <LuCode className="h-4 w-4" />
@@ -164,6 +175,7 @@ export function CoderHome() {
           Review actions
         </label>
       </header>
+      )}
       <div className="flex min-h-0 flex-1">
         <RepoList />
         <main className="min-w-0 flex-1" aria-label={LABEL[view]}>

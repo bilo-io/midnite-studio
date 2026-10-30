@@ -83,3 +83,20 @@ describe('Vanguard Report an Issue', () => {
     expect(await screen.findByText('Report an issue')).toBeDefined();
   });
 });
+
+describe('Vanguard as a host pane (Phase 124 E.3)', () => {
+  it('follows the rail across tabs without an update loop', async () => {
+    const { VanguardPane } = await import('./vanguard-pane');
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { rerender } = render(<VanguardPane view="findings" onView={() => undefined} />);
+    for (const view of ['sensors', 'findings']) {
+      rerender(<VanguardPane view={view} onView={() => undefined} />);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 20));
+      });
+    }
+    const loop = errors.mock.calls.some((c) => String(c[0]).includes('Maximum update depth'));
+    errors.mockRestore();
+    expect(loop).toBe(false);
+  });
+});

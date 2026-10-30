@@ -9,10 +9,10 @@ import { VAULT_APP } from '../vault-manifest';
 const VaultPage = lazy(() => vaultViews.vault().then((component) => ({ default: component })));
 
 /** What Vault shows on open: the accent mark and name on top, the feature's view below. */
-export function VaultHome() {
+export function VaultHome({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+      {embedded ? null : <header className="flex items-center gap-3 border-b border-border px-4 py-3">
         <span
           aria-hidden
           className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
@@ -21,7 +21,7 @@ export function VaultHome() {
           <PiVaultFill className="h-4 w-4" />
         </span>
         <p className="text-sm font-semibold leading-tight">{VAULT_APP.name}</p>
-      </header>
+      </header>}
       <main className="min-h-0 flex-1 overflow-auto" aria-label="Vault">
         <Suspense fallback={<p className="p-4 text-xs text-muted-foreground">Loading the vault…</p>}>
           <VaultPage />
