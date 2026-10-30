@@ -2,6 +2,14 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
+## 2026-10-30 — Phase 124 Theme E.3b — Mind host: Mind and Capture groups
+
+`apps/mind/src/host-app.tsx` renders the suite shell over a Mind group (Notes, Knowledge) and a Capture group, with
+a frame `ModuleViewRouter` handing each view to `MindPane` or `CapturePane` (new, with `MIND_NAV_GROUP` and
+`CAPTURE_NAV_GROUP`); the knowledge-graph settings page is kept. E.3b is now landed for all five hosts. `&module=`
+landing (E.4 follow-through) is scoped out: no link ever reaches a host renderer today (the launcher only opens the
+bundle), so there is no event to wire; `firstViewOfModule` is ready for it.
+
 ## 2026-10-30 — Phase 124 Theme E.3a — Mind mounts Capture
 
 `apps/mind/main/host.ts` mounts the Mind and Capture modules through `mountModuleMains`; the preload exposes

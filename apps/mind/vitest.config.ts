@@ -13,6 +13,8 @@ export default defineConfig({
       '@midnite/studio-module-capture/main': at('../../packages/modules/capture/main/index.ts'),
       '@midnite/studio-feature-capture/main': at('../../packages/features/capture/main/index.ts'),
       '@midnite/studio-feature-report/bridge': at('../../packages/features/report/bridge.ts'),
+      '@midnite/studio-module-capture/renderer': at('../../packages/modules/capture/renderer/index.ts'),
+      '@midnite/studio-feature-capture/renderer': at('../../packages/features/capture/renderer/index.ts'),
       '@midnite/studio-module-mind/bridge': at('../../packages/modules/mind/main/bridge.ts'),
       '@midnite/studio-module-mind/main': at('../../packages/modules/mind/main/index.ts'),
       '@midnite/studio-module-mind/renderer': at('../../packages/modules/mind/renderer/index.ts'),
@@ -32,5 +34,6 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.{ts,tsx}', 'main/**/*.test.ts'],
     environment: 'jsdom',
+    setupFiles: [at('../../packages/frame/src/vitest-setup.ts')],
   },
 });
