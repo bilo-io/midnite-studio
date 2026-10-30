@@ -31,6 +31,7 @@ import {
   vanguardUserData,
   isSmoke,
 } from './identity';
+import { vanguardWindowOptions } from './window-options';
 import { registerReport, reportMenuTemplate } from './report';
 import { registerSuiteMain, suiteRuntimeDirectory, type SuiteMain } from '@midnite/studio-runtime';
 
@@ -159,20 +160,7 @@ if (!smoke && !app.requestSingleInstanceLock()) {
 }
 
 function openWindow(): void {
-  win = new BrowserWindow({
-    width: 1100,
-    height: 760,
-    minWidth: 720,
-    minHeight: 480,
-    title: VANGUARD_NAME,
-    show: false,
-    webPreferences: {
-      preload: join(__dirname, 'preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
+  win = new BrowserWindow(vanguardWindowOptions(join(__dirname, 'preload.cjs'), process.platform));
   suite?.attachWindow(win);
   // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });

@@ -1,4 +1,4 @@
-import { EVENT_CHANNELS } from '@midnite/studio-shared';
+import { CHANNELS, EVENT_CHANNELS } from '@midnite/studio-shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { RendererIpc } from './bridge-slice';
@@ -27,5 +27,11 @@ describe('createWindowChromeBridge', () => {
     expect(onFull).toHaveBeenCalledWith(true);
     off();
     expect(i.removeListener).toHaveBeenCalledWith(EVENT_CHANNELS.windowStateChanged, listener);
+  });
+
+  it('sends the maximise toggle for a double-click on the drag region', () => {
+    const i = ipc();
+    createWindowChromeBridge(i, [], 'darwin').toggleMaximize?.();
+    expect(i.send).toHaveBeenCalledWith(CHANNELS.windowMaximizeToggle, undefined);
   });
 });
