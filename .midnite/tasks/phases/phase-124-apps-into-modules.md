@@ -101,12 +101,16 @@ manifest derives `nav` from its `APP_MODULES` row, so it is one titled group per
 glyph, label and accent on the group, the window keeping the host accent), E.4 (`midnite://open` takes
 `&module=<ModuleId>`) and E.5 (`STUDIO_MODULES` plus an "every module is listed" test). Mind's main imports
 `@midnite/studio-knowledge` directly: eslint's module-main rules do not ban it (knowledge is a plain Node package
-below the layers, like git-engine, which Gamer's module also uses), so no exception was needed. Open: E.3 (mounting
-other modules in a host: the Agents ← coder, creator, Media/Gamer ← creator, Vanguard ← vault, cleaner, monitor and
-Mind ← capture wiring, `mountModuleMains`, preload bridge unions, and the `module.ts` main halves) stays unticked: it
-needs a per-host view router over several modules' compose trees and host ports, and one IPC registration path per
-module, which is its own PR; E.2's groups pick the extra modules up as each is wired (a module with no group is
-skipped). Surprises: the module's `main/` may not import `electron`, so Gamer's `game-electron.ts` stayed in the host;
+below the layers, like git-engine, which Gamer's module also uses), so no exception was needed. E.3 is partly landed (main and preload only): `mountModuleMains` takes a per-mount `shared` list (a channel two
+modules declare is registered once, by the earlier mount), `unionBridgeSlices` merges the modules' preload slices,
+and Vanguard's host now mounts Vanguard, Vault, Cleaner and Monitor through one `registerVanguardHost`
+(`apps/vanguard/main/host.ts`; Monitor's `terminal.list` is Vanguard's sessions guest, so it is `shared`).
+Open: Mind ← capture (needs the capture service, display-media gate, file protocol and overlay window composed in
+Mind's main), Agents ← coder, creator (both still register through `registerCoderHandlers` /
+`registerCreatorHandlers`, not `defineFeatureMain`), Media and Gamer ← creator, and the renderer half for every
+host: no host renders `AppShell` yet, so the per-host view router over several modules' compose trees and host
+ports is still to build, and E.2's extra groups appear only once a module's views are routable (a module with no
+group is skipped). E.3 stays unticked. Surprises: the module's `main/` may not import `electron`, so Gamer's `game-electron.ts` stayed in the host;
 a renderer test may not import its own `main/`, so `GAMER_REPO_ID` moved to the module manifest; `app-vault-grants`
 scanned `apps/agents/*` only and now scans the module too.
 
