@@ -81,10 +81,10 @@ describe('tool listing per installed set', () => {
     expect(listed.some((id) => /^(model|game|terrain|sprite|music)_/.test(id))).toBe(false);
   });
 
-  it('forge tools belong to Agents; a retired Coder bundle or the host serves them (Phase 124 Theme G)', () => {
+  it('forge tools belong to Agents; a leftover Coder bundle no longer serves them (Phase 124 Theme H)', () => {
     expect(defaultMcpToolOwner('forge.pulls')).toBe('agents');
     expect(listMcpToolIds(installedSet(['agents']), MANIFESTS)).toContain('forge.pulls');
-    expect(listMcpToolIds(installedSet(['coder']), MANIFESTS)).toContain('forge.pulls');
+    expect(listMcpToolIds(installedSet(['coder']), MANIFESTS)).not.toContain('forge.pulls');
     expect(listMcpToolIds(installedSet(['gamer']), MANIFESTS)).not.toContain('forge.pulls');
     expect(listMcpToolIds(installedSet(['coder']), MANIFESTS)).not.toContain(MUSIC_TOOLS[0]!);
   });
@@ -97,7 +97,7 @@ describe('tool listing per installed set', () => {
   });
 
   it('two different installed sets give two different lists', () => {
-    expect(listMcpToolIds(installedSet(['gamer']))).not.toEqual(listMcpToolIds(installedSet(['coder'])));
+    expect(listMcpToolIds(installedSet(['gamer']))).not.toEqual(listMcpToolIds(installedSet(['agents'])));
   });
 
   it('every tool resolves to the frame or a real app', () => {

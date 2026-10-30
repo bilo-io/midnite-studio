@@ -216,7 +216,7 @@ importers:
     dependencies:
       '@bilo-io/shell':
         specifier: 0.2.0
-        version: 0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@babel/core@7.29.7)(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@bilo-io/ui':
         specifier: 0.2.0
         version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -232,385 +232,6 @@ importers:
       '@midnite/studio-module-browser':
         specifier: workspace:*
         version: link:../../packages/modules/browser
-      '@midnite/studio-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@midnite/studio-shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      '@tanstack/react-query':
-        specifier: ^5.62.0
-        version: 5.102.3(react@19.2.8)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.8(react@19.2.8)
-      react-icons:
-        specifier: ^5.7.0
-        version: 5.7.0(react@19.2.8)
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-      zustand:
-        specifier: ^5.0.3
-        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
-    devDependencies:
-      '@testing-library/react':
-        specifier: ^16.1.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.5(@types/react@19.2.18)
-      '@vitejs/plugin-react':
-        specifier: ^4.3.4
-        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-      autoprefixer:
-        specifier: ^10.4.20
-        version: 10.5.4(postcss@8.5.26)
-      electron:
-        specifier: ^42.11.5
-        version: 42.11.18
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.2
-      jsdom:
-        specifier: ^25.0.1
-        version: 25.0.1
-      postcss:
-        specifier: ^8.4.49
-        version: 8.5.26
-      tailwindcss:
-        specifier: ^3.4.17
-        version: 3.4.19(tsx@4.23.12)
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.5
-        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
-      vitest:
-        specifier: ^4.0.0
-        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-
-  apps/capture:
-    dependencies:
-      '@bilo-io/ui':
-        specifier: 0.2.0
-        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@midnite/studio-feature-capture':
-        specifier: workspace:*
-        version: link:../../packages/features/capture
-      '@midnite/studio-feature-report':
-        specifier: workspace:*
-        version: link:../../packages/features/report
-      '@midnite/studio-frame':
-        specifier: workspace:*
-        version: link:../../packages/frame
-      '@midnite/studio-module-capture':
-        specifier: workspace:*
-        version: link:../../packages/modules/capture
-      '@midnite/studio-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@midnite/studio-shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      '@tanstack/react-query':
-        specifier: ^5.62.0
-        version: 5.102.3(react@19.2.8)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.8(react@19.2.8)
-      react-icons:
-        specifier: ^5.7.0
-        version: 5.7.0(react@19.2.8)
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-    devDependencies:
-      '@testing-library/react':
-        specifier: ^16.1.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.5(@types/react@19.2.18)
-      '@vitejs/plugin-react':
-        specifier: ^4.3.4
-        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-      autoprefixer:
-        specifier: ^10.4.20
-        version: 10.5.4(postcss@8.5.26)
-      electron:
-        specifier: ^42.11.5
-        version: 42.11.18
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.2
-      jsdom:
-        specifier: ^25.0.1
-        version: 25.0.1
-      postcss:
-        specifier: ^8.4.49
-        version: 8.5.26
-      tailwindcss:
-        specifier: ^3.4.17
-        version: 3.4.19(tsx@4.23.12)
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.5
-        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
-      vitest:
-        specifier: ^4.0.0
-        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-
-  apps/cleaner:
-    dependencies:
-      '@bilo-io/ui':
-        specifier: 0.2.0
-        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@midnite/studio-feature-optimizer':
-        specifier: workspace:*
-        version: link:../../packages/features/optimizer
-      '@midnite/studio-feature-report':
-        specifier: workspace:*
-        version: link:../../packages/features/report
-      '@midnite/studio-frame':
-        specifier: workspace:*
-        version: link:../../packages/frame
-      '@midnite/studio-module-cleaner':
-        specifier: workspace:*
-        version: link:../../packages/modules/cleaner
-      '@midnite/studio-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@midnite/studio-shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.8(react@19.2.8)
-      react-icons:
-        specifier: ^5.7.0
-        version: 5.7.0(react@19.2.8)
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-      zustand:
-        specifier: ^5.0.3
-        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
-    devDependencies:
-      '@testing-library/react':
-        specifier: ^16.1.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.5(@types/react@19.2.18)
-      '@vitejs/plugin-react':
-        specifier: ^4.3.4
-        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-      autoprefixer:
-        specifier: ^10.4.20
-        version: 10.5.4(postcss@8.5.26)
-      electron:
-        specifier: ^42.11.5
-        version: 42.11.18
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.2
-      jsdom:
-        specifier: ^25.0.1
-        version: 25.0.1
-      postcss:
-        specifier: ^8.4.49
-        version: 8.5.26
-      tailwindcss:
-        specifier: ^3.4.17
-        version: 3.4.19(tsx@4.23.12)
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.5
-        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
-      vitest:
-        specifier: ^4.0.0
-        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-
-  apps/coder:
-    dependencies:
-      '@bilo-io/ui':
-        specifier: 0.2.0
-        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@midnite/studio-db-engine':
-        specifier: workspace:*
-        version: link:../../packages/db-engine
-      '@midnite/studio-feature-api-client':
-        specifier: workspace:*
-        version: link:../../packages/features/api-client
-      '@midnite/studio-feature-database':
-        specifier: workspace:*
-        version: link:../../packages/features/database
-      '@midnite/studio-feature-forge':
-        specifier: workspace:*
-        version: link:../../packages/features/forge
-      '@midnite/studio-feature-report':
-        specifier: workspace:*
-        version: link:../../packages/features/report
-      '@midnite/studio-feature-sessions':
-        specifier: workspace:*
-        version: link:../../packages/features/sessions
-      '@midnite/studio-feature-tasks':
-        specifier: workspace:*
-        version: link:../../packages/features/tasks
-      '@midnite/studio-feature-tests':
-        specifier: workspace:*
-        version: link:../../packages/features/tests
-      '@midnite/studio-frame':
-        specifier: workspace:*
-        version: link:../../packages/frame
-      '@midnite/studio-git-engine':
-        specifier: workspace:*
-        version: link:../../packages/git-engine
-      '@midnite/studio-module-coder':
-        specifier: workspace:*
-        version: link:../../packages/modules/coder
-      '@midnite/studio-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@midnite/studio-shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      '@tanstack/react-query':
-        specifier: ^5.62.0
-        version: 5.102.3(react@19.2.8)
-      '@tanstack/react-virtual':
-        specifier: ^3.11.2
-        version: 3.14.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.8(react@19.2.8)
-      react-icons:
-        specifier: ^5.7.0
-        version: 5.7.0(react@19.2.8)
-      react-markdown:
-        specifier: ^10.1.0
-        version: 10.1.0(@types/react@19.2.18)(react@19.2.8)
-      remark-gfm:
-        specifier: ^4.0.1
-        version: 4.0.1
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-      zustand:
-        specifier: ^5.0.3
-        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
-    devDependencies:
-      '@testing-library/react':
-        specifier: ^16.1.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.5(@types/react@19.2.18)
-      '@vitejs/plugin-react':
-        specifier: ^4.3.4
-        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-      autoprefixer:
-        specifier: ^10.4.20
-        version: 10.5.4(postcss@8.5.26)
-      electron:
-        specifier: ^42.11.5
-        version: 42.11.18
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.2
-      jsdom:
-        specifier: ^25.0.1
-        version: 25.0.1
-      postcss:
-        specifier: ^8.4.49
-        version: 8.5.26
-      tailwindcss:
-        specifier: ^3.4.17
-        version: 3.4.19(tsx@4.23.12)
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.5
-        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
-      vitest:
-        specifier: ^4.0.0
-        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-
-  apps/creator:
-    dependencies:
-      '@bilo-io/ui':
-        specifier: 0.2.0
-        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@midnite/studio-feature-media-audio':
-        specifier: workspace:*
-        version: link:../../packages/features/media-audio
-      '@midnite/studio-feature-media-core':
-        specifier: workspace:*
-        version: link:../../packages/features/media-core
-      '@midnite/studio-feature-media-docs':
-        specifier: workspace:*
-        version: link:../../packages/features/media-docs
-      '@midnite/studio-feature-media-images':
-        specifier: workspace:*
-        version: link:../../packages/features/media-images
-      '@midnite/studio-feature-media-video':
-        specifier: workspace:*
-        version: link:../../packages/features/media-video
-      '@midnite/studio-feature-report':
-        specifier: workspace:*
-        version: link:../../packages/features/report
-      '@midnite/studio-feature-slides':
-        specifier: workspace:*
-        version: link:../../packages/features/slides
-      '@midnite/studio-frame':
-        specifier: workspace:*
-        version: link:../../packages/frame
-      '@midnite/studio-module-creator':
-        specifier: workspace:*
-        version: link:../../packages/modules/creator
       '@midnite/studio-runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -1164,88 +785,6 @@ importers:
         specifier: ^4.0.0
         version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
 
-  apps/monitor:
-    dependencies:
-      '@bilo-io/ui':
-        specifier: 0.2.0
-        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@midnite/studio-feature-monitor':
-        specifier: workspace:*
-        version: link:../../packages/features/monitor
-      '@midnite/studio-feature-report':
-        specifier: workspace:*
-        version: link:../../packages/features/report
-      '@midnite/studio-frame':
-        specifier: workspace:*
-        version: link:../../packages/frame
-      '@midnite/studio-module-monitor':
-        specifier: workspace:*
-        version: link:../../packages/modules/monitor
-      '@midnite/studio-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@midnite/studio-shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.8(react@19.2.8)
-      react-icons:
-        specifier: ^5.7.0
-        version: 5.7.0(react@19.2.8)
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-      zustand:
-        specifier: ^5.0.3
-        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
-    devDependencies:
-      '@testing-library/react':
-        specifier: ^16.1.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.5(@types/react@19.2.18)
-      '@vitejs/plugin-react':
-        specifier: ^4.3.4
-        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-      autoprefixer:
-        specifier: ^10.4.20
-        version: 10.5.4(postcss@8.5.26)
-      electron:
-        specifier: ^42.11.5
-        version: 42.11.18
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.2
-      jsdom:
-        specifier: ^25.0.1
-        version: 25.0.1
-      postcss:
-        specifier: ^8.4.49
-        version: 8.5.26
-      tailwindcss:
-        specifier: ^3.4.17
-        version: 3.4.19(tsx@4.23.12)
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.5
-        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
-      vitest:
-        specifier: ^4.0.0
-        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-
   apps/studio:
     dependencies:
       '@midnite/studio-app':
@@ -1309,88 +848,6 @@ importers:
       '@midnite/studio-module-vanguard':
         specifier: workspace:*
         version: link:../../packages/modules/vanguard
-      '@midnite/studio-module-vault':
-        specifier: workspace:*
-        version: link:../../packages/modules/vault
-      '@midnite/studio-runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@midnite/studio-shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.8(react@19.2.8)
-      react-icons:
-        specifier: ^5.7.0
-        version: 5.7.0(react@19.2.8)
-      zod:
-        specifier: ^3.23.8
-        version: 3.25.76
-      zustand:
-        specifier: ^5.0.3
-        version: 5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.7.0(react@19.2.8))
-    devDependencies:
-      '@testing-library/react':
-        specifier: ^16.1.0
-        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.0.0
-        version: 19.2.5(@types/react@19.2.18)
-      '@vitejs/plugin-react':
-        specifier: ^4.3.4
-        version: 4.7.0(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-      autoprefixer:
-        specifier: ^10.4.20
-        version: 10.5.4(postcss@8.5.26)
-      electron:
-        specifier: ^42.11.5
-        version: 42.11.18
-      esbuild:
-        specifier: ^0.28.0
-        version: 0.28.2
-      jsdom:
-        specifier: ^25.0.1
-        version: 25.0.1
-      postcss:
-        specifier: ^8.4.49
-        version: 8.5.26
-      tailwindcss:
-        specifier: ^3.4.17
-        version: 3.4.19(tsx@4.23.12)
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.5
-        version: 6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
-      vitest:
-        specifier: ^4.0.0
-        version: 4.1.12(@types/node@22.20.1)(jsdom@25.0.1)(vite@6.4.4(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12))
-
-  apps/vault:
-    dependencies:
-      '@bilo-io/ui':
-        specifier: 0.2.0
-        version: 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@midnite/studio-feature-report':
-        specifier: workspace:*
-        version: link:../../packages/features/report
-      '@midnite/studio-feature-vault':
-        specifier: workspace:*
-        version: link:../../packages/features/vault
-      '@midnite/studio-frame':
-        specifier: workspace:*
-        version: link:../../packages/frame
       '@midnite/studio-module-vault':
         specifier: workspace:*
         version: link:../../packages/modules/vault
@@ -11688,6 +11145,20 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
+  '@bilo-io/shell@0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@babel/core@7.29.7)(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+    dependencies:
+      '@bilo-io/ui': 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@tanstack/react-query': 5.102.3(react@19.2.8)
+      clsx: 2.1.1
+      lucide-react: 1.34.0(react@19.2.8)
+      next-intl: 4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@babel/core@7.29.7)(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      tailwind-merge: 3.6.0
+    transitivePeerDependencies:
+      - '@types/react'
+      - supports-color
+
   '@bilo-io/shell@0.2.0(@tanstack/react-query@5.102.3(react@19.2.8))(@types/react@19.2.18)(next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@bilo-io/ui': 0.2.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -16127,6 +15598,23 @@ snapshots:
 
   next-intl-swc-plugin-extractor@4.13.7: {}
 
+  next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@babel/core@7.29.7)(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3):
+    dependencies:
+      '@formatjs/intl-localematcher': 0.8.13
+      '@parcel/watcher': 2.6.0
+      '@swc/core': 1.15.47(@swc/helpers@0.5.23)
+      icu-minify: 4.13.7
+      negotiator: 1.1.0
+      next: 16.3.2(@babel/core@7.29.7)(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next-intl-swc-plugin-extractor: 4.13.7
+      po-parser: 2.2.0
+      react: 19.2.8
+      use-intl: 4.13.7(react@19.2.8)
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - '@swc/helpers'
+
   next-intl@4.13.7(@swc/helpers@0.5.23)(next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(typescript@5.9.3):
     dependencies:
       '@formatjs/intl-localematcher': 0.8.13
@@ -16161,6 +15649,32 @@ snapshots:
     transitivePeerDependencies:
       - '@swc/helpers'
 
+  next@16.3.2(@babel/core@7.29.7)(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+    dependencies:
+      '@next/env': 16.3.2
+      '@swc/helpers': 0.5.23
+      baseline-browser-mapping: 2.11.19
+      caniuse-lite: 1.0.30001810
+      postcss: 8.5.23
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.8)
+    optionalDependencies:
+      '@next/swc-darwin-arm64': 16.3.2
+      '@next/swc-darwin-x64': 16.3.2
+      '@next/swc-linux-arm64-gnu': 16.3.2
+      '@next/swc-linux-arm64-musl': 16.3.2
+      '@next/swc-linux-x64-gnu': 16.3.2
+      '@next/swc-linux-x64-musl': 16.3.2
+      '@next/swc-win32-arm64-msvc': 16.3.2
+      '@next/swc-win32-x64-msvc': 16.3.2
+      '@playwright/test': 1.64.0
+      sharp: 0.35.3(@types/node@22.20.1)
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@types/node'
+      - babel-plugin-macros
+
   next@16.3.2(@playwright/test@1.64.0)(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@next/env': 16.3.2
@@ -16170,7 +15684,7 @@ snapshots:
       postcss: 8.5.23
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
-      styled-jsx: 5.1.6(react@19.2.8)
+      styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.8)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.3.2
       '@next/swc-darwin-x64': 16.3.2
@@ -16196,7 +15710,7 @@ snapshots:
       postcss: 8.5.23
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
-      styled-jsx: 5.1.6(react@19.2.8)
+      styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.8)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.3.2
       '@next/swc-darwin-x64': 16.3.2
@@ -17428,10 +16942,12 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.7
 
-  styled-jsx@5.1.6(react@19.2.8):
+  styled-jsx@5.1.6(@babel/core@7.29.7)(react@19.2.8):
     dependencies:
       client-only: 0.0.1
       react: 19.2.8
+    optionalDependencies:
+      '@babel/core': 7.29.7
 
   stylis@4.2.0: {}
 

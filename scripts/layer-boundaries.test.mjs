@@ -147,7 +147,7 @@ const REJECTED = [
   ["Studio's main entry reaches past the main seam", STUDIO_MAIN_ENTRY, '@midnite/studio-desktop/ipc/handle', 'nothing deeper'],
   ["Studio's main entry reaches past the main seam (relative path)", STUDIO_MAIN_ENTRY, '../../../packages/desktop/src/main/window', 'nothing deeper'],
   ["Studio's main entry imports the renderer seam", STUDIO_MAIN_ENTRY, '@midnite/studio-app/boot', 'nothing deeper'],
-  ["Studio's main entry imports another app", STUDIO_MAIN_ENTRY, '@midnite/app-coder', 'never imports another app'],
+  ["Studio's main entry imports another app", STUDIO_MAIN_ENTRY, '@midnite/app-agents', 'never imports another app'],
   ["Studio's main entry imports the frame", STUDIO_MAIN_ENTRY, '@midnite/studio-frame', 'A main-process module has no renderer'],
   ["Studio's main entry imports electron-updater", STUDIO_MAIN_ENTRY, 'electron-updater', 'No app runs its own updater'],
 

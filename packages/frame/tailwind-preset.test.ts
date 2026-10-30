@@ -6,14 +6,14 @@ import { describe, expect, it } from 'vitest';
 
 import { frameContent, frameTailwindPreset } from './tailwind-preset';
 
-const cleanerDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../apps/cleaner');
+const vanguardDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../apps/vanguard');
 const globDir = (g: string) => g.slice(0, g.indexOf('/**'));
 
 describe('frameContent', () => {
-  const globs = frameContent(cleanerDir, ['optimizer']);
+  const globs = frameContent(vanguardDir, ['optimizer']);
 
   it('scans the app, the frame and the optimizer renderer', () => {
-    expect(globs.some((g) => g.includes('/apps/cleaner/src/'))).toBe(true);
+    expect(globs.some((g) => g.includes('/apps/vanguard/src/'))).toBe(true);
     expect(globs.some((g) => g.includes('/packages/frame/src/'))).toBe(true);
     expect(globs.some((g) => g.includes('/packages/features/optimizer/renderer/'))).toBe(true);
   });
