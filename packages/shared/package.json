@@ -9,10 +9,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./ipc/channels": {
-      "types": "./dist/ipc/channels.d.ts",
-      "default": "./dist/ipc/channels.js"
     }
   },
   "files": [

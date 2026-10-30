@@ -34,5 +34,11 @@ const common = {
 
 await Promise.all([
   build({ ...common, entryPoints: [at('../main/index.ts')], outfile: at('../dist/main.cjs') }),
-  build({ ...common, entryPoints: [at('../main/preload.ts')], outfile: at('../dist/preload.cjs') }),
+  build({
+    ...common,
+    // The preload reads channel names only; the barrel would add every zod schema (the runtime's preload slices import it).
+    alias: { ...common.alias, '@midnite/studio-shared': at('../../../packages/shared/src/ipc/channels.ts') },
+    entryPoints: [at('../main/preload.ts')],
+    outfile: at('../dist/preload.cjs'),
+  }),
 ]);

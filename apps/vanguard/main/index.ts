@@ -73,6 +73,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       getWindow: () => win,
       warn: (message) => process.stderr.write(`${message}\n`),
     });
+    // The prefs file watcher is a live handle: let go of it with the app.
+    app.on('will-quit', () => suite?.close());
     // The runtime's crash-log sink (NDJSON, rotated, redacted), the one Studio's main writes through too.
     const log = createFileSink({
       dir: app.getPath('userData'),

@@ -94,6 +94,8 @@ if (!smoke && !app.requestSingleInstanceLock()) {
       getWindow: () => win,
       warn: (message) => process.stderr.write(`${message}\n`),
     });
+    // The prefs file watcher is a live handle: let go of it with the app.
+    app.on('will-quit', () => suite?.close());
     // Crash log + Report an Issue: the runtime's file sink, the app's own Help menu item, and the report feature's services.
     const crashLog = createFileSink({ dir: app.getPath('userData'), name: 'browser.log', homeDir: app.getPath('home') });
     installCrashLogging((level, message) => crashLog.write(level, message));

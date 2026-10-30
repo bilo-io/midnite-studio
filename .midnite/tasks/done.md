@@ -2,7 +2,7 @@
 
 <!-- Append one entry per landed phase/PR: date, phase, PR link, one-line summary. -->
 
-## 2026-10-30 — Phase 123 Theme H 3/4 — suite preload and main slices, Monitor page
+## 2026-10-30 — Phase 123 Theme H 3/4 — suite preload and main slices, Monitor page (#1084)
 
 `registerSuiteMain` and `createSuiteBridge` in `packages/runtime/src/app-main/`: every app that renders `SuiteAppShell`
 now serves the suite-prefs file and the window-chrome channels from its main and exposes `windowChrome` and
