@@ -16,6 +16,7 @@
     "@bilo-io/ui": "0.2.0",
     "@midnite/studio-feature-browser": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
+    "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-module-browser": "workspace:*",
     "@midnite/studio-runtime": "workspace:*",

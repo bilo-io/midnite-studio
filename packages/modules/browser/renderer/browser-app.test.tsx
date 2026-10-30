@@ -3,6 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { seedMonitorSample, suiteShellTestBridge } from '@midnite/studio-frame';
 import { useBrowserStore } from '@midnite/studio-feature-browser/renderer';
 
 import { agentSessionStore } from './agent-session-store';
@@ -41,12 +42,13 @@ let calls: string[] = [];
 
 beforeEach(() => {
   calls = [];
-  window.midniteStudio = { report: REPORT_BRIDGE,
+  window.midniteStudio = suiteShellTestBridge({
+    report: REPORT_BRIDGE,
     browser: namespace(calls, 'browser'),
     webApps: namespace(calls, 'webApps'),
     clipboard: namespace(calls, 'clipboard'),
     menu: namespace(calls, 'menu'),
-  } as unknown as typeof window.midniteStudio;
+  }) as unknown as typeof window.midniteStudio;
   useBrowserStore.setState({ tabs: [], activeTabId: null } as never);
   browserUiStore.setState({ enabledWebApps: [], webAppsFlyoutAppId: null, lastOpenedWebAppId: null, occluders: 0 });
   agentSessionStore.setState({ session: null, notice: null });
@@ -79,6 +81,32 @@ describe('BrowserApp', () => {
     expect(within(settings).getAllByText('Appearance').length).toBeGreaterThan(0);
     // The DOM Settings view sits over the native views, so it counts as an occluder while open.
     expect(browserUiStore.getState().occluders).toBeGreaterThan(0);
+  });
+
+  it('keeps the page mounted while Settings is open, so its tabs and agent-session events survive', async () => {
+    render(<BrowserApp />);
+    await waitFor(() => expect(useBrowserStore.getState().tabs).toHaveLength(1));
+    const address = screen.getByRole('textbox', { name: 'Address' });
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    await screen.findByTestId('suite-settings');
+    // Hidden and inert, not gone: the same node is still in the document.
+    expect(address.isConnected).toBe(true);
+    expect(screen.getByTestId('suite-view').className).toContain('invisible');
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('link', { name: 'Browse' }));
+    expect(screen.getByRole('textbox', { name: 'Address' })).toBe(address);
+    expect(useBrowserStore.getState().tabs).toHaveLength(1);
+  });
+
+  it('wears the suite status bar with the monitor segment and offers the Monitor settings page', async () => {
+    render(<BrowserApp />);
+    expect(screen.getByAltText('Midnite Browser')).toBeTruthy();
+    expect(screen.getByTestId('status-bar')).toBeTruthy();
+    act(() => seedMonitorSample());
+    expect(await screen.findByTestId('monitor-cluster')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(within(await screen.findByTestId('suite-settings')).getAllByText('Monitor').length).toBeGreaterThan(0);
+    // The terminal, companion and FAB are gated off until a suite app has a pty host.
+    expect(document.querySelector('[data-shell-panel]')).toBeNull();
   });
 
   it('offers nothing that only makes sense inside Studio: no layout picker, no close, no detach', () => {

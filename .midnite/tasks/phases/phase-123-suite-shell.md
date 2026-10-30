@@ -216,6 +216,23 @@ the thing it governs. **Still open, so nothing ticked:** the panels and each mai
 `terminalMain`/`companionMain`/`monitorMain` + loop-runs registration (so no status segment is offered and no bar
 mounts), the Privacy/Terminal/Companion pages with a suite-prefs group and migration each, `suiteWindowOptions` in
 the seven mains, Browser's page unmounting while Settings is open, and Studio. No visual change, so no screenshots.
+**4/5 (this PR): the monitor in every app, Settings keeps Browser mounted.** What can honestly run in a suite app now
+does: the monitor feature gained `registerSuiteMonitor` (main: sampler, system health, token spend, and the
+`midnite://open` hand-off unless a module already registers it, as Coder does in Agents), `createMonitorFeatureBridge`
+(preload slice, `./bridge`) and `createSuiteMonitorSegment` (the frame's cluster over the feature's flyout). Agents, Media,
+Gamer, Money, Mind and Browser register it and bind the sampler to their window (`bindMetricsToWindow`); Vanguard already
+mounted Monitor as a module, so its "Open Monitor" switches view in place. Each shell offers `statusPanels.monitor`, so the
+status bar mounts and Settings lists the Monitor page. `SuiteAppShell` gained `keepViewMounted` (the view stays, hidden and
+inert, under Settings) and Browser uses it, so Settings no longer drops its tabs or agent-session events. Tests share
+`suiteShellTestBridge` / `seedMonitorSample` from the frame (a thin stub crashed the monitor segment). **Decisions, gated
+off rather than faked:** terminal, companion, FAB/Loops and the loop-runs service are not in suite apps, because a suite app
+has no pty host (broker script, `node-pty`, confinement and the agent probe are in `packages/desktop`; an app can only
+attach to Studio's broker as a guest, which cannot create a session), the companion needs Studio's dispatch, agents and
+utility fork, the FAB starts loops in the terminal, and the loop-runs ledger (start, stop, exit-finalise) lives in
+desktop, only its file store in the runtime. Privacy, Terminal and Companion settings pages stay Studio's for the same
+reason (no egress guard or panel to govern). Retired apps (Vault, Monitor, Cleaner, Capture, Coder, Creator) are untouched:
+Phase 124 deletes them into Vanguard, Mind and Agents, so the hosts are what is covered. Remaining: a pty host for suite apps
+(terminal, then FAB/Loops and loop-runs, then companion), `suiteWindowOptions` (Theme A), and Studio last.
 
 **Theme I — Proof.** ◻ Playwright shell flows in Vanguard and Vault, one visual baseline per shell variant,
 an idle-CPU number for a blurred suite app, and `docs/APPS.md`.
@@ -565,12 +582,12 @@ the frame cannot supply them — H hands them to `suiteSettingsPages()` per app 
   - *Done when* each app's `*-app.test.tsx` asserts the shell renders its name, logo and Settings, and the
     PR carries one screenshot per app.
 - [ ] **Roll-out, batch 2.** `agents`, `coder`, `creator`, `gamer` — same checklist.
-- [ ] **Roll-out, batch 3.** `media`, `mind`, `money`, `browser` — same checklist. Mind's in-view `settings`
+- [ ] **Roll-out, batch 3.** `media`, `mind`, `money`, `browser` — same checklist. Mind's in-view `settings` *(Shell, Settings, status bar and Monitor landed in #1087; terminal, companion and FAB/Loops are gated off until suite apps get a pty host, so batches 1–3 stay open.)*
   tab and Cleaner's `midnite-cleaner.settings` become their Theme L app pages.
 - [ ] **Studio last.** `packages/app` renders the same `AppShell` with its extras in `titleBarEnd`, its full
   segment list in `footer`, and its hosts. Its own PR.
   - *Done when* every existing Studio visual baseline passes unchanged.
-- [ ] **Screenshots.** One shot per app of the shell (repos panel closed), committed under
+- [x] **Screenshots.** One shot per app of the shell (repos panel closed), committed under
   `docs/screenshots/phase-123/<app>.png` and embedded in each batch's PR at creation.
 
 ### I — Proof [M · ~1d]

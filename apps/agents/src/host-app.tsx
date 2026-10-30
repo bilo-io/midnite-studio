@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { createSuiteMonitorSegment } from '@midnite/studio-feature-monitor/renderer';
 import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, ModuleViewRouter, SuiteAppShell, type ModulePane } from '@midnite/studio-frame';
 import { AGENTS_APP, AGENTS_CHROME, AgentsPane } from '@midnite/studio-module-agents/renderer';
@@ -7,6 +8,9 @@ import { CoderPane } from '@midnite/studio-module-coder/renderer';
 import { CreatorPane } from '@midnite/studio-module-creator/renderer';
 
 import { AGENTS_HOST_NAV } from './host-nav';
+
+/** The status bar's monitor segment: "Open Monitor" leaves for the launcher, which routes it to the host that carries Monitor. */
+const MONITOR_SEGMENT = createSuiteMonitorSegment({ hosted: new Set(['agents']) });
 
 /** Each mounted module's pane, by module id — the view router's table. */
 export const AGENTS_PANES: Readonly<Record<string, ModulePane>> = {
@@ -32,6 +36,7 @@ export function AgentsHostApp() {
         home={AGENTS_APP.home}
         view={view}
         onViewChange={setView}
+        statusPanels={{ monitor: MONITOR_SEGMENT }}
       >
         {(active) => <ModuleViewRouter nav={AGENTS_HOST_NAV} view={active} onView={setView} panes={AGENTS_PANES} />}
       </SuiteAppShell>

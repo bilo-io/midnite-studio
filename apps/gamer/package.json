@@ -25,6 +25,7 @@
     "@midnite/studio-feature-media-video": "workspace:*",
     "@midnite/studio-feature-models": "workspace:*",
     "@midnite/studio-feature-report": "workspace:*",
+    "@midnite/studio-feature-monitor": "workspace:*",
     "@midnite/studio-frame": "workspace:*",
     "@midnite/studio-git-engine": "workspace:*",
     "@midnite/studio-module-creator": "workspace:*",

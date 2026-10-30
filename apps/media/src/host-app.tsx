@@ -1,11 +1,15 @@
 import { useState } from 'react';
 
+import { createSuiteMonitorSegment } from '@midnite/studio-feature-monitor/renderer';
 import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, ModuleViewRouter, SuiteAppShell, type ModulePane } from '@midnite/studio-frame';
 import { CreatorPane } from '@midnite/studio-module-creator/renderer';
 import { MEDIA_APP, MEDIA_CHROME, MediaPane } from '@midnite/studio-module-media/renderer';
 
 import { MEDIA_HOST_NAV } from './host-nav';
+
+/** The status bar's monitor segment: "Open Monitor" leaves for the launcher, which routes it to the host that carries Monitor. */
+const MONITOR_SEGMENT = createSuiteMonitorSegment({ hosted: new Set(['media']) });
 
 /** Each mounted module's pane, by module id — the view router's table. */
 export const MEDIA_PANES: Readonly<Record<string, ModulePane>> = {
@@ -30,6 +34,7 @@ export function MediaHostApp() {
         home={view}
         view={view}
         onViewChange={setView}
+        statusPanels={{ monitor: MONITOR_SEGMENT }}
       >
         {(active) => <ModuleViewRouter nav={MEDIA_HOST_NAV} view={active} onView={setView} panes={MEDIA_PANES} />}
       </SuiteAppShell>

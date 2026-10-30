@@ -1,11 +1,15 @@
 import { useState } from 'react';
 
+import { createSuiteMonitorSegment } from '@midnite/studio-feature-monitor/renderer';
 import { ReportIssueHost } from '@midnite/studio-feature-report/renderer';
 import { FrameChromeProvider, ModuleViewRouter, SuiteAppShell, type ModulePane } from '@midnite/studio-frame';
 import { CreatorPane } from '@midnite/studio-module-creator/renderer';
 import { GAMER_APP, GAMER_CHROME, GamerPane } from '@midnite/studio-module-gamer/renderer';
 
 import { GAMER_HOST_NAV } from './host-nav';
+
+/** The status bar's monitor segment: "Open Monitor" leaves for the launcher, which routes it to the host that carries Monitor. */
+const MONITOR_SEGMENT = createSuiteMonitorSegment({ hosted: new Set(['gamer']) });
 
 /** Each mounted module's pane, by module id — the view router's table. */
 export const GAMER_PANES: Readonly<Record<string, ModulePane>> = {
@@ -30,6 +34,7 @@ export function GamerHostApp() {
         home={view}
         view={view}
         onViewChange={setView}
+        statusPanels={{ monitor: MONITOR_SEGMENT }}
       >
         {(active) => <ModuleViewRouter nav={GAMER_HOST_NAV} view={active} onView={setView} panes={GAMER_PANES} />}
       </SuiteAppShell>

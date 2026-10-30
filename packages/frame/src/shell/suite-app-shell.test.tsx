@@ -1,5 +1,6 @@
 // vitest/jsdom: composition of the shell, Settings and the status bar over no bridge — no real browser needed.
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { useEffect } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { LuShieldAlert, LuRadar } from 'react-icons/lu';
 
@@ -40,6 +41,55 @@ describe('SuiteAppShell', () => {
     expect(screen.queryByText('view:one')).toBeNull();
     fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('link', { name: 'One' }));
     expect(screen.getByText('view:one')).toBeTruthy();
+  });
+
+  it('keeps the view mounted, hidden and inert, while Settings is open when asked to', () => {
+    let mounts = 0;
+    function Probe() {
+      useEffect(() => {
+        mounts += 1;
+      }, []);
+      return <p>probe</p>;
+    }
+    render(
+      <SuiteAppShell app="browser" name="Midnite Browser" accent="#0ea5e9" nav={NAV} home="one" keepViewMounted>
+        {() => <Probe />}
+      </SuiteAppShell>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.getByTestId('suite-settings')).toBeTruthy();
+    const view = screen.getByTestId('suite-view');
+    expect(view.className).toContain('invisible');
+    expect(view.getAttribute('aria-hidden')).toBe('true');
+    expect(view.hasAttribute('inert')).toBe(true);
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('link', { name: 'One' }));
+    expect(screen.queryByTestId('suite-settings')).toBeNull();
+    expect(screen.getByTestId('suite-view').className).not.toContain('invisible');
+    expect(mounts).toBe(1);
+  });
+
+  it('unmounts the view while Settings is open by default', () => {
+    let mounts = 0;
+    function Probe() {
+      useEffect(() => {
+        mounts += 1;
+      }, []);
+      return <p>probe</p>;
+    }
+    render(
+      <SuiteAppShell app="vanguard" name="Midnite Vanguard" accent="#e11d48" nav={NAV} home="one">
+        {() => <Probe />}
+      </SuiteAppShell>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.queryByText('probe')).toBeNull();
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Views' })).getByRole('link', { name: 'One' }));
+    expect(mounts).toBe(2);
+  });
+
+  it('offers no terminal, companion or FAB host without `panels` (gated off until a suite app has a pty host)', () => {
+    const { container } = renderShell();
+    expect(container.querySelector('[data-shell-panel]')).toBeNull();
   });
 
   it('is controlled when the app passes view and onViewChange', () => {

@@ -27,7 +27,8 @@ import { GAMER_NAME, SMOKE_READY_LINE, USER_DATA_ENV, gamerUserData, gamerVaultD
 import { installGamerHostFileProtocol, registerGamerHost } from './host';
 import { reportMenuTemplate } from './report';
 import { gamerPairing } from './pairing';
-import { registerSuiteMain, suiteRuntimeDirectory, suiteWindowOptions, type SuiteMain } from '@midnite/studio-runtime';
+import { bindMetricsToWindow, registerSuiteMain, suiteRuntimeDirectory, suiteWindowOptions, type SuiteMain } from '@midnite/studio-runtime';
+import { registerSuiteMonitor, type MetricsService } from '@midnite/studio-feature-monitor/main';
 
 /**
  * Midnite Gamer's main process — the entry the bundle's `package.json` names (`main.cjs`), run by the
@@ -41,6 +42,8 @@ const smoke = isSmoke(process.env);
 let win: BrowserWindow | null = null;
 /** The shell's two bridge halves (suite prefs, window chrome), registered once the app is ready. */
 let suite: SuiteMain | null = null;
+/** Monitor's sampler (the status bar's segment), paused while the window is not in view. */
+let metrics: MetricsService | null = null;
 let crashLog: LogSink | null = null;
 let services: (GamerServices & { shutdown: () => void }) | null = null;
 let agentHost: GamerAgentHost | null = null;
@@ -124,6 +127,20 @@ if (!smoke && !app.requestSingleInstanceLock()) {
     });
     // The prefs file watcher is a live handle: let go of it with the app.
     app.on('will-quit', () => suite?.close());
+    // The status bar's monitor segment (Phase 123 Theme H): the sampler, system health and token spend.
+    registerSuiteMonitor({
+      ipcMain,
+      trashItem: (path) => shell.trashItem(path),
+      send: (channel, payload) => {
+        if (win !== null && !win.isDestroyed()) win.webContents.send(channel, payload);
+      },
+      homeDir: app.getPath('home'),
+      warn: (message) => process.stderr.write(`${message}\n`),
+      openExternal: (url) => shell.openExternal(url),
+      onMetricsService: (service) => {
+        metrics = service;
+      },
+    });
     // The runtime's crash-log sink (NDJSON, rotated, redacted) — what Report an Issue reads.
     crashLog = createFileSink({ dir: app.getPath('userData'), name: 'gamer.log', homeDir: app.getPath('home') });
     installCrashLogging((level, message) => crashLog?.write(level, message));
@@ -269,6 +286,7 @@ function openWindow(): void {
     },
   });
   suite?.attachWindow(win);
+  if (metrics !== null) bindMetricsToWindow(win, metrics);
   // A link never loads into this window (it carries the bridge): http(s) goes to the system browser.
   guardAppWindow(win.webContents, { openExternal: (url) => shell.openExternal(url) });
   win.on('closed', () => {
