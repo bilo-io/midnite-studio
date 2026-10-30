@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 
 import { FEATURE_PACKAGE_SPLITS, FEATURE_PLACEMENT, placementOwners } from '@midnite/studio-shared';
 
-import { GAMER_REPO_ID as MAIN_REPO_ID } from '../main/context';
+import { GAMER_REPO_ID as MAIN_REPO_ID } from '../manifest';
 import { GAMER_REPO_ID } from './compose/gamer-host';
 import { GamerApp } from './gamer-app';
 import { GAMER_APP, GAMER_TABS } from './gamer-manifest';

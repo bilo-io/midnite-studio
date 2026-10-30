@@ -2,8 +2,11 @@ import { chatsManifest } from '@midnite/studio-feature-chats/renderer';
 import { councilsManifest } from '@midnite/studio-feature-councils/renderer';
 import { modelsManifest } from '@midnite/studio-feature-models/renderer';
 import { workflowsManifest } from '@midnite/studio-feature-workflows/renderer';
-import type { NavConfig } from '@midnite/studio-frame';
+import { navFromModules, type NavConfig } from '@midnite/studio-frame';
 import { LuBox, LuMessagesSquare, LuScrollText, LuUsers, LuWorkflow, LuWrench } from 'react-icons/lu';
+import { APP_MODULES } from '@midnite/studio-shared';
+import { PiRobotFill } from 'react-icons/pi';
+import { agentsManifest } from '../manifest';
 
 /**
  * The shell's rail (Phase 123 Theme B): the app's views, in its existing tab order. Settings is never
@@ -20,6 +23,15 @@ const AGENTS_NAV: NavConfig = {
     { id: 'audit', label: 'Audit', icon: LuScrollText },
   ],
 };
+
+/**
+ * The rail, derived from `APP_MODULES.agents` (Phase 124 Theme E.2): one titled group per module the host mounts,
+ * this module's views beneath. Modules the host does not mount yet have no entry, so wiring one in (E.3) adds
+ * its group here and nothing else.
+ */
+const AGENTS_HOST_NAV: NavConfig = navFromModules(APP_MODULES.agents, {
+  agents: { id: 'agents', label: agentsManifest.label, icon: PiRobotFill, accent: agentsManifest.accent, views: AGENTS_NAV.views },
+});
 
 /**
  * Agents' app manifest — pure data (Phase 113 Theme N).
@@ -39,7 +51,7 @@ export const AGENTS_APP = {
   home: 'chats',
   features: [chatsManifest.feature, councilsManifest.feature, workflowsManifest.feature, modelsManifest.feature, 'mcp-tools'],
   views: ['chats', 'councils', 'workflows', 'models', 'tools', 'audit'],
-  nav: AGENTS_NAV,
+  nav: AGENTS_HOST_NAV,
 } as const;
 
 export type AgentsApp = typeof AGENTS_APP;

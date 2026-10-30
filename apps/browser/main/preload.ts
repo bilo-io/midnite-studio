@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import { createBrowserBridge } from './bridge';
+import { createBrowserBridge } from '@midnite/studio-module-browser/bridge';
 
 // The renderer reads `window.midniteStudio` (the frame's `bridge()`); Browser exposes the slice it needs.
 // This preload is the app window's alone — a browser tab's `WebContentsView` gets no preload at all

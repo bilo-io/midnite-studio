@@ -141,7 +141,7 @@ describe("Agents' pairing identity (Phase 121 Theme I)", () => {
   });
 
   it('composes no vault: no service, no store, and the one secret it asks the host for is the Ollama key', async () => {
-    const files = execFileSync('git', ['ls-files', 'apps/agents/main', 'apps/agents/src'], { cwd: repoRoot, encoding: 'utf8' })
+    const files = execFileSync('git', ['ls-files', 'apps/agents/main', 'apps/agents/src', 'packages/modules/agents'], { cwd: repoRoot, encoding: 'utf8' })
       .trim()
       .split('\n')
       .filter((f) => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx?$/.test(f));
